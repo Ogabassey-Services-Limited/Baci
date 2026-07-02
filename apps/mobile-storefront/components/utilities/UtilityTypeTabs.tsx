@@ -31,19 +31,19 @@ const UTILITY_TYPES = [
   { type: 'gaming', label: 'Gaming', icon: 'game-controller-outline' },
 ] as const satisfies readonly UtilityTypeDefinition[];
 
-const TAB_MIN_HEIGHT = 40;
-const TAB_HORIZONTAL_PADDING = 20;
-const TAB_ICON_MARGIN_END = 8;
-const TAB_ICON_SIZE = 20;
-const LABEL_FONT_SIZE = 15;
+const TAB_MIN_HEIGHT = 36;
+const TAB_HORIZONTAL_PADDING = 16;
+const TAB_ICON_MARGIN_END = 6;
+const TAB_ICON_SIZE = 17;
+const LABEL_FONT_SIZE = 14;
 const TAB_SIDE_INSET = SPACING.md;
-const TAB_ITEM_GAP = SPACING.sm;
-const TAB_MIN_WIDTHS: Record<string, number> = {
-  airtime: 104,
-  data: 88,
-  tv: 88,
-  power: 100,
-  gaming: 116,
+const TAB_ITEM_GAP = SPACING.xs;
+const TAB_MIN_WIDTHS: Record<UtilityType, number> = {
+  airtime: 92,
+  data: 78,
+  tv: 74,
+  power: 88,
+  gaming: 102,
 };
 
 interface UtilityTypeTabsProps {
@@ -215,11 +215,13 @@ function TabItem({
   );
 }
 
-const TAB_BAR_HEIGHT = 56;
+const TAB_BAR_VERTICAL_PADDING = 12;
 
 const styles = StyleSheet.create({
   container: {
-    height: TAB_BAR_HEIGHT,
+    // Size to the pills + symmetric vertical padding so they sit centered
+    // between the header and the divider, rather than hugging the top.
+    paddingVertical: TAB_BAR_VERTICAL_PADDING,
     borderBottomWidth: StyleSheet.hairlineWidth,
     justifyContent: 'center',
     backgroundColor: 'transparent',
@@ -256,7 +258,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: LABEL_FONT_SIZE,
     fontWeight: '600', // Clean premium typography weight
-    lineHeight: 18, // Explicit line height guarantees vertical centering and prevents text overlap
+    lineHeight: 16, // Explicit line height guarantees vertical centering and prevents text overlap
     includeFontPadding: false, // Prevents default android system font padding drifts
   },
 });

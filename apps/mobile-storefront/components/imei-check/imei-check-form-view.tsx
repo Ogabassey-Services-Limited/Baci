@@ -1,10 +1,12 @@
 import type {
   ImeiBrandFilter,
+  ImeiDeviceCategory,
+  ImeiIdentifierType,
   ImeiServiceTierDefinition,
   ImeiServiceTierKey,
 } from '@baci/shared/imei';
+import { isValidDeviceIdentifier } from '@baci/shared/imei';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { router, Stack } from 'expo-router';
 import {
   ActivityIndicator,
   Pressable,
@@ -12,27 +14,27 @@ import {
   Text,
   View,
 } from 'react-native';
-import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
-import { BRAND } from '@/constants/Colors';
-import { isValidIMEI } from '@/lib/validation/commerce-schemas';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BRAND, SPACING } from '@/constants/Colors';
 import { formatServicePrice } from './format-service-price';
+import { ImeiBrandChips } from './ImeiBrandChips';
 import { styles } from './imei-check.styles';
 import type { ImeiCheckerColors } from './imei-check.types';
-import HeroCard from './imei-check-hero-card';
 import { ImeiCheckInputSection } from './imei-check-input-section';
 import { ImeiCheckServiceSelector } from './imei-check-service-selector';
-import { ImeiInsufficientBalanceCta } from './imei-insufficient-balance-cta';
 
 interface ImeiCheckFormViewProps {
   colors: ImeiCheckerColors;
   currentTier: ImeiServiceTierDefinition;
   displayedTierKeys: readonly ImeiServiceTierKey[];
   error: string | null;
+  identifier: ImeiIdentifierType;
   imei: string;
   isLoading: boolean;
   isWalletError: boolean;
   isWalletLoading: boolean;
   selectedBrand: ImeiBrandFilter;
+  selectedDevice: ImeiDeviceCategory;
   selectedTier: ImeiServiceTierKey;
   canToggleServices: boolean;
   showAllServices: boolean;
@@ -51,11 +53,13 @@ export function ImeiCheckFormView({
   currentTier,
   displayedTierKeys,
   error,
+  identifier,
   imei,
   isLoading,
   isWalletError,
   isWalletLoading,
   selectedBrand,
+  selectedDevice,
   selectedTier,
   canToggleServices,
   showAllServices,
@@ -68,9 +72,19 @@ export function ImeiCheckFormView({
   onTopUpWallet,
   onToggleServices,
 }: ImeiCheckFormViewProps) {
+  const insets = useSafeAreaInsets();
   const isWalletReady = !(isWalletLoading || isWalletError);
   const hasEnoughBalance = isWalletReady && walletBalance >= currentTier.price;
-  const canVerify = isValidIMEI(imei) && hasEnoughBalance;
+  const needsTopUp = isWalletReady && !hasEnoughBalance;
+  const shortfall = Math.max(0, currentTier.price - walletBalance);
+  const findHint =
+    identifier === 'serial'
+      ? 'Find it in Settings › General › About'
+      : identifier === 'both'
+        ? 'Dial *#06# or Settings › General › About'
+        : 'Dial *#06# to find your IMEI';
+  const canVerify =
+    isValidDeviceIdentifier(imei, identifier) && hasEnoughBalance;
   const walletStatusText = isWalletLoading
     ? 'Loading wallet balance...'
     : isWalletError
@@ -79,23 +93,14 @@ export function ImeiCheckFormView({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack.Screen
-        options={{
-          title: 'IMEI Checker',
-          headerLeft: () => (
-            <Pressable
-              accessibilityHint="Returns to the previous screen"
-              accessibilityLabel="Back"
-              accessibilityRole="button"
-              onPress={() => router.back()}
-            >
-              <Ionicons name="arrow-back" size={24} color={colors.text} />
-            </Pressable>
-          ),
-        }}
-      />
-
-      <AppKeyboardContainer style={styles.keyboardView}>
+      <View style={styles.keyboardView}>
+        {selectedDevice === 'smartphone' ? (
+          <ImeiBrandChips
+            colors={colors}
+            selectedBrand={selectedBrand}
+            onBrandSelect={onBrandSelect}
+          />
+        ) : null}
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -103,26 +108,14 @@ export function ImeiCheckFormView({
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
         >
-          <HeroCard colors={colors} />
           <ImeiCheckServiceSelector
             colors={colors}
-            currentTier={currentTier}
             displayedTierKeys={displayedTierKeys}
-            selectedBrand={selectedBrand}
             selectedTier={selectedTier}
             canToggleServices={canToggleServices}
             showAllServices={showAllServices}
-            onBrandSelect={onBrandSelect}
             onTierSelect={onTierSelect}
             onToggleServices={onToggleServices}
-          />
-          <ImeiCheckInputSection
-            colors={colors}
-            error={error}
-            imei={imei}
-            onChangeImei={onChangeImei}
-            onCheck={onCheck}
-            onClearImei={onClearImei}
           />
           {walletStatusText ? (
             <View
@@ -143,59 +136,88 @@ export function ImeiCheckFormView({
                 {walletStatusText}
               </Text>
             </View>
-          ) : !hasEnoughBalance ? (
-            <ImeiInsufficientBalanceCta
-              balance={walletBalance}
-              colors={colors}
-              requiredAmount={currentTier.price}
-              onTopUp={onTopUpWallet}
-            />
           ) : null}
         </ScrollView>
 
         <View
           style={[
             styles.bottomAction,
-            { backgroundColor: colors.card, borderTopColor: colors.border },
+            {
+              backgroundColor: colors.card,
+              borderTopColor: colors.border,
+              paddingBottom: Math.max(insets.bottom, SPACING.sm),
+            },
           ]}
         >
-          <Pressable
-            style={[
-              styles.verifyButton,
-              { backgroundColor: BRAND.primary },
-              (isLoading || !canVerify) && styles.verifyButtonDisabled,
-            ]}
-            onPress={onCheck}
-            disabled={isLoading || !canVerify}
-          >
+          <ImeiCheckInputSection
+            colors={colors}
+            error={error}
+            identifier={identifier}
+            imei={imei}
+            onChangeImei={onChangeImei}
+            onCheck={onCheck}
+            onClearImei={onClearImei}
+          />
+          {needsTopUp ? null : (
+            <Text style={[styles.footerHint, { color: colors.textSecondary }]}>
+              {findHint}
+            </Text>
+          )}
+          <View style={styles.footerRow}>
             <View
-              style={[styles.walletBalancePill, { borderColor: colors.border }]}
+              accessibilityLabel={`Wallet balance ${formatServicePrice(walletBalance)}`}
+              style={styles.walletBadge}
             >
+              <Ionicons
+                name="wallet-outline"
+                size={20}
+                color={needsTopUp ? colors.error : colors.textSecondary}
+              />
               <Text
-                style={[styles.walletBalanceText, { color: BRAND.onPrimary }]}
+                style={[
+                  styles.walletBadgeAmount,
+                  { color: needsTopUp ? colors.error : colors.text },
+                ]}
               >
-                Balance {formatServicePrice(walletBalance)}
+                {formatServicePrice(walletBalance)}
               </Text>
             </View>
-            {isLoading ? (
-              <ActivityIndicator color={BRAND.onPrimary} />
-            ) : (
-              <>
-                <Text style={styles.verifyButtonText}>
-                  {isWalletLoading
-                    ? 'Loading wallet...'
-                    : isWalletError
-                      ? 'Wallet unavailable'
-                      : hasEnoughBalance
-                        ? `Verify Now - ${formatServicePrice(currentTier.price)}`
-                        : 'Top up to unlock'}
-                </Text>
-                <Ionicons name="sparkles" size={18} color={BRAND.onPrimary} />
-              </>
-            )}
-          </Pressable>
+            <Pressable
+              style={[
+                styles.verifyButton,
+                { backgroundColor: BRAND.primary },
+                (isLoading || (!needsTopUp && !canVerify)) &&
+                  styles.verifyButtonDisabled,
+              ]}
+              onPress={needsTopUp ? () => onTopUpWallet(shortfall) : onCheck}
+              disabled={isLoading || (!needsTopUp && !canVerify)}
+            >
+              {isLoading ? (
+                <ActivityIndicator color={BRAND.onPrimary} />
+              ) : (
+                <>
+                  <Text style={styles.verifyButtonText}>
+                    {isWalletLoading
+                      ? 'Loading wallet...'
+                      : isWalletError
+                        ? 'Wallet unavailable'
+                        : needsTopUp
+                          ? 'Top up to unlock'
+                          : `Verify Now - ${formatServicePrice(currentTier.price)}`}
+                  </Text>
+                  <Ionicons name="sparkles" size={18} color={BRAND.onPrimary} />
+                </>
+              )}
+            </Pressable>
+          </View>
+          {needsTopUp ? (
+            <Text style={[styles.footerHint, { color: colors.error }]}>
+              Balance low — top up {formatServicePrice(shortfall)} to run this
+              check
+            </Text>
+          ) : null}
         </View>
-      </AppKeyboardContainer>
+      </View>
     </View>
   );
 }

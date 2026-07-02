@@ -28,15 +28,16 @@ describe('imeiCheckSchema', () => {
     }
   });
 
-  it('rejects malformed IMEI values', () => {
+  it('accepts an Apple serial (8–14 alphanumeric) as the identifier', () => {
+    // The schema now shape-checks IMEI-or-serial; the route enforces the exact
+    // rule for the selected tier's identifier type.
     expect(
-      imeiCheckSchema.safeParse({ imei: '35444206795745', tier: 'full' })
-        .success
-    ).toBe(false);
-    expect(
-      imeiCheckSchema.safeParse({ imei: '35444206795745x', tier: 'full' })
-        .success
-    ).toBe(false);
+      imeiCheckSchema.safeParse({ imei: 'C02XL0ABJGH5', tier: 'full' }).success
+    ).toBe(true);
+  });
+
+  it('rejects identifiers outside the 8–15 alphanumeric shape', () => {
+    // 16+ digits, empty, spaces, and symbols are always malformed.
     expect(
       imeiCheckSchema.safeParse({ imei: '3544420679574520', tier: 'full' })
         .success
@@ -44,6 +45,9 @@ describe('imeiCheckSchema', () => {
     expect(imeiCheckSchema.safeParse({ imei: '', tier: 'full' }).success).toBe(
       false
     );
+    expect(
+      imeiCheckSchema.safeParse({ imei: 'ABC12', tier: 'full' }).success
+    ).toBe(false);
     expect(
       imeiCheckSchema.safeParse({ imei: '35 444 206 795 745', tier: 'full' })
         .success

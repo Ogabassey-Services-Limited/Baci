@@ -23,6 +23,7 @@ export const HIDDEN_ROUTES = [
   '/auth/login',
   '/cart',
   '/utilities',
+  '/imei-check',
   '/modal',
   '/orders',
   '/search',

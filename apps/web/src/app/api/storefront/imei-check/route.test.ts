@@ -397,18 +397,38 @@ describe('POST /api/storefront/imei-check', () => {
     expect(mocks.mockResolveImeiCustomer).not.toHaveBeenCalled();
   });
 
-  it('rejects hidden service tiers before customer resolution or persistence', async () => {
+  it('rejects unknown service tiers before customer resolution or persistence', async () => {
+    // The full catalog is now public (device-category expansion), so the tier
+    // gate only rejects keys that are not real service tiers at all.
     const { POST } = await importRoute();
 
     const response = await POST(
-      createRequest({ imei: VALID_IMEI, tier: 'blacklistPro' })
+      createRequest({ imei: VALID_IMEI, tier: 'not-a-real-tier' })
     );
     const body = (await response.json()) as { code: string };
 
     expect(response.status).toBe(400);
-    expect(body.code).toBe('IMEI_TIER_NOT_AVAILABLE');
+    expect(body.code).toBe('INVALID_REQUEST_BODY');
     expect(mocks.mockResolveImeiCustomer).not.toHaveBeenCalled();
     expect(mocks.mockCreateAdminClient).not.toHaveBeenCalled();
+    expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
+  });
+
+  it('rejects an over-length serial before any wallet debit or provider call', async () => {
+    // Regression: a 15-char alphanumeric passes the Zod schema, but a serial
+    // tier only accepts 8-14 chars. Validation must reject the RAW value —
+    // normalizing first would truncate it to 14 and bill a paid lookup.
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest({ imei: 'ABCDEFGH12345XY', tier: 'serialInfo' })
+    );
+    const body = (await response.json()) as { code: string };
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe('INVALID_IMEI');
+    expect(mocks.mockResolveImeiCustomer).not.toHaveBeenCalled();
+    expect(mocks.mockRedeemImeiWalletPayment).not.toHaveBeenCalled();
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
   });
 

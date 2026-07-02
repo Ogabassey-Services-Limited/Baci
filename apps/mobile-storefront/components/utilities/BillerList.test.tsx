@@ -112,12 +112,11 @@ describe('BillerList', () => {
       />
     );
 
-    expect(screen.getByText('Provider')).toBeOnTheScreen();
-    expect(screen.getByText('Select provider')).toBeOnTheScreen();
+    expect(screen.getByText('Other providers')).toBeOnTheScreen();
     expect(screen.queryByText('EKEDC NG')).toBeNull();
     expect(screen.queryByText('IKEDC NG')).toBeNull();
 
-    fireEvent.press(screen.getByLabelText('Select provider'));
+    fireEvent.press(screen.getByLabelText('Show other providers'));
 
     expect(onChangeSelection).toHaveBeenCalledTimes(1);
   });

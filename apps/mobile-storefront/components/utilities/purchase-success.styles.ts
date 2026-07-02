@@ -73,11 +73,13 @@ export const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.xs,
     fontWeight: TYPOGRAPHY.weight.semibold,
     marginBottom: PURCHASE_SUCCESS_TOKENS.compactGap,
+    textAlign: 'center',
     textTransform: 'uppercase',
   },
   voucherCode: {
     fontSize: TYPOGRAPHY.size.lg,
     fontWeight: TYPOGRAPHY.weight.black,
+    textAlign: 'center',
   },
   cashbackCard: {
     width: '100%',
@@ -157,7 +159,7 @@ export const styles = StyleSheet.create({
   },
   tokenButton: {
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     borderRadius: RADIUS.full,
     borderWidth: 1,
     flexDirection: 'row',

@@ -1,5 +1,5 @@
-import { describe, expect, it } from '@jest/globals';
 import type { ImeiBrandFilter, ImeiServiceTierKey } from '@baci/shared/imei';
+import { describe, expect, it } from '@jest/globals';
 import {
   DEFAULT_IMEI_CHECK_ERROR_MESSAGE,
   getPublicVisibleImeiServiceTierKeys,
@@ -127,7 +127,7 @@ describe('resolveImeiCheckFailure', () => {
 });
 
 describe('tier visibility helpers', () => {
-  it('filters visible tiers down to the public service subset', () => {
+  it('passes through public tiers (full catalog is now live)', () => {
     const getVisibleTiers = (): ImeiServiceTierKey[] => [
       'simLock',
       'full',
@@ -135,15 +135,12 @@ describe('tier visibility helpers', () => {
     ];
 
     expect(
-      getPublicVisibleImeiServiceTierKeys(getVisibleTiers, 'all', true)
-    ).toEqual(['full', 'carrier']);
+      getPublicVisibleImeiServiceTierKeys(getVisibleTiers, 'apple', true)
+    ).toEqual(['simLock', 'full', 'carrier']);
   });
 
-  it('returns an empty list when no visible public tiers are present', () => {
-    const getVisibleTiers = (): ImeiServiceTierKey[] => [
-      'simLock',
-      'icloudPro',
-    ];
+  it('returns an empty list when no tiers are visible', () => {
+    const getVisibleTiers = (): ImeiServiceTierKey[] => [];
 
     expect(
       getPublicVisibleImeiServiceTierKeys(getVisibleTiers, 'apple', true)
@@ -156,16 +153,16 @@ describe('tier visibility helpers', () => {
       expanded: boolean
     ): ImeiServiceTierKey[] => (expanded ? ['full', 'activation'] : ['full']);
 
-    expect(hasAdditionalPublicImeiServiceTierKeys(getVisibleTiers, 'all')).toBe(
-      true
-    );
+    expect(
+      hasAdditionalPublicImeiServiceTierKeys(getVisibleTiers, 'apple')
+    ).toBe(true);
   });
 
   it('returns false when collapsed and expanded public tiers are identical', () => {
     const getVisibleTiers = (): ImeiServiceTierKey[] => ['full', 'carrier'];
 
-    expect(hasAdditionalPublicImeiServiceTierKeys(getVisibleTiers, 'all')).toBe(
-      false
-    );
+    expect(
+      hasAdditionalPublicImeiServiceTierKeys(getVisibleTiers, 'apple')
+    ).toBe(false);
   });
 });

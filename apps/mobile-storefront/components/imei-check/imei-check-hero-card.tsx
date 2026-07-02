@@ -28,20 +28,11 @@ export default function HeroCard({ colors }: { colors: ImeiCheckerColors }) {
           <Ionicons name="barcode-outline" size={24} color={BRAND.primary} />
         </View>
         <View style={styles.heroCopy}>
-          <Text
-            style={[styles.heroEyebrow, { color: BRAND.primary }]}
-            numberOfLines={1}
-          >
-            Device verification
-          </Text>
           <Text style={[styles.heroTitle, { color: colors.text }]}>
-            IMEI Checker
+            Device verification
           </Text>
         </View>
       </View>
-      <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
-        Check blacklist, iCloud and SIM lock status before you pay.
-      </Text>
       <View style={styles.trustIndicators}>
         {IMEI_TRUST_INDICATORS.map((item) => (
           <View

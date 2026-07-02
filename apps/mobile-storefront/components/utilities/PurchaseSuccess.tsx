@@ -203,11 +203,18 @@ export function PurchaseSuccess({
         {messageText}
       </Text>
 
-      {txReference && (
+      {status === 'successful' ? (
+        <Text style={[styles.referenceText, { color: colors.textSecondary }]}>
+          Ogabassey Never Disappoints!
+        </Text>
+      ) : txReference ? (
+        // Any non-success state (processing/failed/error/cancelled): show the
+        // transaction reference so the buyer can quote it while it settles or to
+        // support — the celebratory slogan would be premature or wrong here.
         <Text style={[styles.referenceText, { color: colors.textSecondary }]}>
           Ref: {txReference}
         </Text>
-      )}
+      ) : null}
 
       {presentation.isProcessing ? (
         <View

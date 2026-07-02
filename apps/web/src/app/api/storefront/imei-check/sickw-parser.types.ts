@@ -18,8 +18,14 @@ export interface ImeiCheckResult {
   refurbished?: string;
   demoUnit?: string;
   mdmStatus?: string;
+  knoxGuardStatus?: string;
   miLockStatus?: string;
   miLostStatus?: string;
+  partNumber?: string;
+  repairEligibility?: string;
+  gsxCoverage?: string;
+  repairHistory?: string;
+  replacementHistory?: string;
   deviceType: 'apple' | 'android' | 'other';
   verdict: string;
   verdictType: 'safe' | 'caution' | 'danger';

@@ -43,7 +43,9 @@ export const CORE_IMEI_SERVICE_TIERS = {
     ],
     icon: 'checkmark-circle-outline',
     recommended: true,
-    brandScopes: ['all'],
+    brandScopes: ['apple'],
+    deviceCategories: ['smartphone'],
+    identifier: 'imei',
   },
   blacklist: {
     providerServiceId: '54',
@@ -57,6 +59,8 @@ export const CORE_IMEI_SERVICE_TIERS = {
     checksIncluded: ['device', 'modelNumber', 'blacklistStatus'],
     icon: 'shield-outline',
     brandScopes: ['all'],
+    deviceCategories: ['smartphone'],
+    identifier: 'imei',
   },
   blacklistPro: {
     providerServiceId: '6',
@@ -71,6 +75,8 @@ export const CORE_IMEI_SERVICE_TIERS = {
     checksIncluded: ['device', 'modelNumber', 'blacklistStatus'],
     icon: 'shield-checkmark-outline',
     brandScopes: ['all'],
+    deviceCategories: ['smartphone'],
+    identifier: 'imei',
   },
   carrier: {
     providerServiceId: '103',
@@ -85,6 +91,8 @@ export const CORE_IMEI_SERVICE_TIERS = {
     checksIncluded: ['device', 'modelNumber', 'carrier'],
     icon: 'globe-outline',
     brandScopes: ['apple'],
+    deviceCategories: ['smartphone'],
+    identifier: 'imei',
   },
   simLock: {
     providerServiceId: '8',
@@ -99,6 +107,8 @@ export const CORE_IMEI_SERVICE_TIERS = {
     checksIncluded: ['device', 'modelNumber', 'simLock'],
     icon: 'phone-portrait-outline',
     brandScopes: ['apple'],
+    deviceCategories: ['smartphone'],
+    identifier: 'imei',
   },
   icloud: {
     providerServiceId: '3',
@@ -113,6 +123,8 @@ export const CORE_IMEI_SERVICE_TIERS = {
     checksIncluded: ['device', 'modelNumber', 'icloud'],
     icon: 'lock-closed-outline',
     brandScopes: ['apple'],
+    deviceCategories: ['smartphone', 'tablet', 'laptop'],
+    identifier: 'both',
   },
   carrierFmi: {
     providerServiceId: '78',
@@ -127,6 +139,8 @@ export const CORE_IMEI_SERVICE_TIERS = {
     checksIncluded: ['device', 'modelNumber', 'carrier', 'icloud'],
     icon: 'globe-outline',
     brandScopes: ['apple'],
+    deviceCategories: ['smartphone'],
+    identifier: 'imei',
   },
   basic: {
     providerServiceId: '203',
@@ -140,5 +154,7 @@ export const CORE_IMEI_SERVICE_TIERS = {
     checksIncluded: ['device', 'modelNumber'],
     icon: 'phone-portrait-outline',
     brandScopes: ['all'],
+    deviceCategories: ['smartphone'],
+    identifier: 'both',
   },
 } as const satisfies Record<string, ImeiServiceTierDefinition>;

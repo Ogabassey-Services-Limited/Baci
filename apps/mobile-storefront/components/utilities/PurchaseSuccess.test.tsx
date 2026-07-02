@@ -269,6 +269,61 @@ describe('PurchaseSuccess', () => {
     expect(screen.getByText('Wallet balance: ₦1,200.00')).toBeOnTheScreen();
   });
 
+  it('shows the celebratory slogan on a successful purchase, not the reference', () => {
+    render(
+      <PurchaseSuccess
+        type="power"
+        customerIdentifier="43901766923"
+        txReference="ref-123"
+        cashback={null}
+        isAuthenticated={true}
+        onCreateAccount={jest.fn()}
+        status="successful"
+      />
+    );
+
+    expect(screen.getByText('Ogabassey Never Disappoints!')).toBeOnTheScreen();
+    expect(screen.queryByText('Ref: ref-123')).not.toBeOnTheScreen();
+  });
+
+  it('shows the transaction reference (not the slogan) when a purchase fails', () => {
+    render(
+      <PurchaseSuccess
+        type="power"
+        customerIdentifier="43901766923"
+        txReference="ref-123"
+        cashback={null}
+        isAuthenticated={true}
+        onCreateAccount={jest.fn()}
+        status="failed"
+      />
+    );
+
+    expect(screen.getByText('Ref: ref-123')).toBeOnTheScreen();
+    expect(
+      screen.queryByText('Ogabassey Never Disappoints!')
+    ).not.toBeOnTheScreen();
+  });
+
+  it('shows the reference (not the slogan) while a purchase is still processing', () => {
+    render(
+      <PurchaseSuccess
+        type="power"
+        customerIdentifier="43901766923"
+        txReference="ref-123"
+        cashback={null}
+        isAuthenticated={true}
+        onCreateAccount={jest.fn()}
+        status="processing"
+      />
+    );
+
+    expect(screen.getByText('Ref: ref-123')).toBeOnTheScreen();
+    expect(
+      screen.queryByText('Ogabassey Never Disappoints!')
+    ).not.toBeOnTheScreen();
+  });
+
   it('uses the provided utility type when no label mapping exists', () => {
     render(
       <PurchaseSuccess

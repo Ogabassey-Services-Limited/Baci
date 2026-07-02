@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { resolveInputIdentifier } from './identifier';
 import {
   ALL_IMEI_SERVICE_TIERS,
   getVisibleImeiServiceTierKeys,
+  getVisibleImeiServiceTierKeysForDevice,
+  hasAdditionalImeiServiceTierKeysForDevice,
+  IMEI_DEVICE_CATEGORIES,
+  IMEI_IDENTIFIER_BY_DEVICE,
   IMEI_SERVICE_TIERS,
   imeiTierMatchesBrand,
+  imeiTierMatchesDevice,
   isImeiServiceTierKey,
-  PRIMARY_IMEI_SERVICE_TIERS,
+  RECOMMENDED_TIER_BY_DEVICE,
 } from './service-tiers';
 
 describe('IMEI service tiers', () => {
@@ -19,7 +25,7 @@ describe('IMEI service tiers', () => {
   });
 
   it('exposes only primary service cards before expansion', () => {
-    expect(getVisibleImeiServiceTierKeys('all', false)).toEqual([
+    expect(getVisibleImeiServiceTierKeys('apple', false)).toEqual([
       'full',
       'activation',
       'blacklist',
@@ -47,6 +53,41 @@ describe('IMEI service tiers', () => {
     }
   });
 
+  it('declares a device category and identifier for every tier', () => {
+    for (const tierKey of ALL_IMEI_SERVICE_TIERS) {
+      const tier = IMEI_SERVICE_TIERS[tierKey];
+      expect(tier.deviceCategories.length).toBeGreaterThan(0);
+      expect(['imei', 'serial', 'both']).toContain(tier.identifier);
+    }
+  });
+
+  it('pins every Android tier to IMEI-only input (Sickw rejects serials)', () => {
+    const androidTiers = [
+      'samsung',
+      'samsungPro',
+      'knoxGuard',
+      'miLock',
+      'miLostPro',
+      'pixel',
+      'oppoRealme',
+      'transsion',
+    ] as const;
+
+    for (const tierKey of androidTiers) {
+      expect(IMEI_SERVICE_TIERS[tierKey].identifier).toBe('imei');
+    }
+  });
+
+  it('prices new services on the shared ~₦16,350/$ markup curve', () => {
+    // Spot-check a few new tiers stay within the existing markup band.
+    for (const key of ['macIcloud', 'gsxPremium', 'knoxGuard'] as const) {
+      const tier = IMEI_SERVICE_TIERS[key];
+      const ratio = tier.price / tier.costUsd;
+      expect(ratio).toBeGreaterThan(14_000);
+      expect(ratio).toBeLessThan(20_000);
+    }
+  });
+
   it('recognizes every real tier key and rejects invalid values', () => {
     for (const tierKey of ALL_IMEI_SERVICE_TIERS) {
       expect(isImeiServiceTierKey(tierKey)).toBe(true);
@@ -59,8 +100,11 @@ describe('IMEI service tiers', () => {
     expect(isImeiServiceTierKey(null)).toBe(false);
   });
 
-  it('matches brand filters against all, shared, and scoped tiers', () => {
-    expect(imeiTierMatchesBrand('full', 'all')).toBe(true);
+  it('matches brand filters against universal and scoped tiers', () => {
+    // Universal ('all' scope) tiers match every brand chip.
+    expect(imeiTierMatchesBrand('blacklist', 'apple')).toBe(true);
+    expect(imeiTierMatchesBrand('blacklist', 'samsung')).toBe(true);
+    // Scoped tiers only match their own brand.
     expect(imeiTierMatchesBrand('full', 'apple')).toBe(true);
     expect(imeiTierMatchesBrand('samsung', 'samsung')).toBe(true);
     expect(imeiTierMatchesBrand('samsung', 'apple')).toBe(false);
@@ -77,31 +121,101 @@ describe('IMEI service tiers', () => {
     expect(IMEI_SERVICE_TIERS.mdm.checksIncluded).toContain('mdmStatus');
   });
 
-  it('omits the Apple Serial Info tier until serial-input UX exists', () => {
-    // The storefront input only accepts 15-digit IMEI (`parseImei`), so a Serial
-    // Info tier (Apple serial lookup) would always fail validation. Re-add once
-    // a serial-input mode ships. See PR #1557 (codex P2 review).
-    expect(ALL_IMEI_SERVICE_TIERS).not.toContain(
-      'serialInfo' as unknown as (typeof ALL_IMEI_SERVICE_TIERS)[number]
-    );
-    expect(isImeiServiceTierKey('serialInfo')).toBe(false);
-    expect(IMEI_SERVICE_TIERS).not.toHaveProperty('serialInfo');
+  it('ships serial-only Apple services now that serial-input mode exists', () => {
+    for (const key of ['serialInfo', 'replacementHistory'] as const) {
+      expect(isImeiServiceTierKey(key)).toBe(true);
+      expect(IMEI_SERVICE_TIERS[key].identifier).toBe('serial');
+    }
   });
 
-  it('omits the Apple Replacement History tier until output parsing exists', () => {
-    expect(ALL_IMEI_SERVICE_TIERS).not.toContain(
-      'replacementHistory' as unknown as (typeof ALL_IMEI_SERVICE_TIERS)[number]
-    );
-    expect(isImeiServiceTierKey('replacementHistory')).toBe(false);
-    expect(IMEI_SERVICE_TIERS).not.toHaveProperty('replacementHistory');
+  it('maps each device category to an input identifier', () => {
+    for (const { id } of IMEI_DEVICE_CATEGORIES) {
+      expect(IMEI_IDENTIFIER_BY_DEVICE[id]).toBeDefined();
+    }
+    // Phones must stay 'both' (not 'imei') so a shared 'both' Apple tier keeps
+    // accepting an iPhone serial on the phone tab; a revert to 'imei' would
+    // block serial input for activation/mdm/demoUnit.
+    expect(IMEI_IDENTIFIER_BY_DEVICE.smartphone).toBe('both');
+    expect(IMEI_IDENTIFIER_BY_DEVICE.laptop).toBe('serial');
+    expect(IMEI_IDENTIFIER_BY_DEVICE.watch).toBe('serial');
+    expect(IMEI_IDENTIFIER_BY_DEVICE.tablet).toBe('both');
   });
 
-  it('switches between primary and expanded tier lists', () => {
-    expect(getVisibleImeiServiceTierKeys('all', false)).toEqual([
-      ...PRIMARY_IMEI_SERVICE_TIERS,
-    ]);
-    expect(getVisibleImeiServiceTierKeys('all', true)).toEqual([
-      ...ALL_IMEI_SERVICE_TIERS,
-    ]);
+  it('keeps a both-tier flexible on the phone tab but serial-only on laptop/watch', () => {
+    // Regression: a 'both' Apple tier (e.g. activation) must still accept a
+    // serial on the phone tab, while laptop/watch narrow it to serial-only.
+    expect(
+      resolveInputIdentifier('both', IMEI_IDENTIFIER_BY_DEVICE.smartphone)
+    ).toBe('both');
+    expect(
+      resolveInputIdentifier('both', IMEI_IDENTIFIER_BY_DEVICE.laptop)
+    ).toBe('serial');
+    expect(
+      resolveInputIdentifier('both', IMEI_IDENTIFIER_BY_DEVICE.watch)
+    ).toBe('serial');
+  });
+
+  it('scopes device-aware tiers to the requested hardware family', () => {
+    const laptopTiers = getVisibleImeiServiceTierKeysForDevice(
+      'laptop',
+      'apple',
+      true
+    );
+    expect(laptopTiers).toContain('macIcloud');
+    expect(laptopTiers).not.toContain('carrier'); // iPhone-only
+    expect(laptopTiers).not.toContain('samsung');
+    for (const key of laptopTiers) {
+      expect(imeiTierMatchesDevice(key, 'laptop')).toBe(true);
+    }
+  });
+
+  it('recommends a valid, device-matching flagship per category', () => {
+    for (const { id } of IMEI_DEVICE_CATEGORIES) {
+      const recommended = RECOMMENDED_TIER_BY_DEVICE[id];
+      expect(isImeiServiceTierKey(recommended)).toBe(true);
+      expect(imeiTierMatchesDevice(recommended, id)).toBe(true);
+    }
+  });
+
+  it('reports when a device+brand has extra services behind the toggle', () => {
+    expect(
+      hasAdditionalImeiServiceTierKeysForDevice('smartphone', 'apple')
+    ).toBe(true);
+  });
+
+  it('shows a non-Apple brand its own checks without needing "show all"', () => {
+    const samsungCollapsed = getVisibleImeiServiceTierKeysForDevice(
+      'smartphone',
+      'samsung',
+      false
+    );
+    expect(samsungCollapsed).toEqual(
+      expect.arrayContaining(['samsung', 'samsungPro', 'knoxGuard'])
+    );
+    expect(samsungCollapsed).not.toContain('full'); // iPhone-only
+
+    // Each Android sub-brand is its own chip now (Samsung is Android too).
+    expect(
+      getVisibleImeiServiceTierKeysForDevice('smartphone', 'google', false)
+    ).toContain('pixel');
+    expect(
+      getVisibleImeiServiceTierKeysForDevice('smartphone', 'xiaomi', false)
+    ).toEqual(expect.arrayContaining(['miLock', 'miLostPro']));
+    expect(
+      getVisibleImeiServiceTierKeysForDevice('smartphone', 'oppo', false)
+    ).toContain('oppoRealme');
+    expect(
+      getVisibleImeiServiceTierKeysForDevice('smartphone', 'tecno', false)
+    ).toContain('transsion');
+  });
+
+  it('reveals more services when expanded', () => {
+    const collapsed = getVisibleImeiServiceTierKeys('apple', false);
+    const expanded = getVisibleImeiServiceTierKeys('apple', true);
+
+    expect(expanded.length).toBeGreaterThan(collapsed.length);
+    for (const key of collapsed) {
+      expect(expanded).toContain(key);
+    }
   });
 });

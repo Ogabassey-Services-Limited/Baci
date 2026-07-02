@@ -5,7 +5,8 @@ import Ionicons, {
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { BRAND, withAlpha } from '@/constants/Colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BRAND, SPACING, withAlpha } from '@/constants/Colors';
 import type { ImeiResult } from '@/lib/validation';
 import { getVerdictColors } from './get-verdict-colors';
 import { styles } from './imei-check.styles';
@@ -26,6 +27,7 @@ export function ImeiCheckResultView({
   result,
   onReset,
 }: ImeiCheckResultViewProps) {
+  const insets = useSafeAreaInsets();
   const verdictColors = getVerdictColors(result.verdictType, colors);
   const statusCards = getImeiResultStatusCards(result, colors);
 
@@ -49,7 +51,10 @@ export function ImeiCheckResultView({
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + SPACING.lg },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <View

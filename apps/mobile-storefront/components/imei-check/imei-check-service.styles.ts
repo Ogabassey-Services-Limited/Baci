@@ -16,11 +16,15 @@ export const serviceStyles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Inter_600SemiBold',
   },
+  brandFilterScroll: {
+    flexGrow: 0,
+    marginBottom: SPACING.sm,
+  },
   brandFilterRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: SPACING.xs,
-    marginBottom: SPACING.md,
+    paddingHorizontal: SPACING.md,
   },
   brandFilterChip: {
     borderWidth: 1,
@@ -33,18 +37,29 @@ export const serviceStyles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
   },
   tierGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: SPACING.sm,
     marginBottom: SPACING.sm,
   },
   tierCard: {
-    width: '48.8%',
-    minHeight: 122,
-    padding: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: SPACING.md,
     borderRadius: RADIUS.lg,
     borderWidth: 1.5,
-    justifyContent: 'space-between',
+  },
+  tierIcon: {
+    width: 26,
+    textAlign: 'center',
+  },
+  tierBody: {
+    flex: 1,
+    gap: 2,
+  },
+  tierNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
   },
   expandServicesButton: {
     flexDirection: 'row',
@@ -62,16 +77,13 @@ export const serviceStyles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
   },
   recommendedBadge: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
     backgroundColor: BRAND.primary,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: 8,
   },
   recommendedText: {
     color: BRAND.onPrimary,
@@ -79,18 +91,19 @@ export const serviceStyles = StyleSheet.create({
     fontWeight: '700',
   },
   tierName: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Inter_700Bold',
-    marginTop: SPACING.xs,
+    flexShrink: 1,
   },
   tierTagline: {
-    fontSize: 10,
-    marginTop: 2,
+    fontSize: 11,
   },
   tierPrice: {
     fontSize: 14,
     fontFamily: 'Inter_700Bold',
-    marginTop: SPACING.xs,
+  },
+  tierInfoButton: {
+    padding: 2,
   },
   featuresContainer: {
     borderWidth: 1,

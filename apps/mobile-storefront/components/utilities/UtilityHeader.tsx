@@ -19,6 +19,8 @@ interface UtilityHeaderProps {
   dividerColor: string;
   iconBackgroundColor: string;
   iconColor: string;
+  /** Color for the history (receipt) icon; defaults to iconColor. */
+  historyIconColor?: string;
   topInset: number;
   surfaceColor: string;
 }
@@ -31,6 +33,7 @@ export function UtilityHeader({
   dividerColor,
   iconBackgroundColor,
   iconColor,
+  historyIconColor,
   topInset,
   surfaceColor,
 }: UtilityHeaderProps): React.ReactElement {
@@ -117,7 +120,7 @@ export function UtilityHeader({
               <Ionicons
                 name={HISTORY_ICON_NAME}
                 size={HISTORY_ICON_SIZE}
-                color={iconColor}
+                color={historyIconColor ?? iconColor}
               />
             </View>
           </Pressable>

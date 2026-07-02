@@ -1,6 +1,9 @@
 import {
   IMEI_SERVICE_TIERS,
-  PRIMARY_IMEI_SERVICE_TIERS,
+  type ImeiIdentifierType,
+  isValidDeviceIdentifier,
+  normalizeDeviceIdentifier,
+  PUBLIC_IMEI_SERVICE_TIERS,
 } from '@baci/shared/imei';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
@@ -29,7 +32,6 @@ import {
   findLookupByIdempotencyKey,
   hashImei,
   isUniqueViolation,
-  isValidImeiChecksum,
   json,
   mapExistingLookup,
   mapExistingTerminalLookupWithoutImeiHash,
@@ -37,8 +39,14 @@ import {
 } from './route-helpers';
 
 const PUBLIC_IMEI_SERVICE_TIER_KEYS = new Set<string>(
-  PRIMARY_IMEI_SERVICE_TIERS
+  PUBLIC_IMEI_SERVICE_TIERS
 );
+
+const INVALID_IDENTIFIER_MESSAGE: Record<ImeiIdentifierType, string> = {
+  imei: 'Invalid IMEI number',
+  serial: 'Invalid serial number',
+  both: 'Invalid IMEI or serial number',
+};
 
 export async function POST(request: NextRequest) {
   let activeLookup: {
@@ -142,12 +150,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!isValidImeiChecksum(bodyParse.data.imei)) {
+    const requestedIdentifier = IMEI_SERVICE_TIERS[requestedTier].identifier;
+    // Validate the RAW submitted value first. Normalizing before validating
+    // would silently truncate an over-length input (e.g. a 15-char serial
+    // sliced to 14) into a spurious "valid" value that then bills a wallet
+    // debit + paid provider call. Reject first, THEN normalize.
+    if (!isValidDeviceIdentifier(bodyParse.data.imei, requestedIdentifier)) {
       return json(
-        errorBody({ code: 'INVALID_IMEI', error: 'Invalid IMEI checksum' }),
+        errorBody({
+          code: 'INVALID_IMEI',
+          error: INVALID_IDENTIFIER_MESSAGE[requestedIdentifier],
+        }),
         400
       );
     }
+    // Canonicalize (uppercase serials, strip separators) so replay hashing and
+    // the provider call key off the same value — a mixed-case serial otherwise
+    // hashes differently on replay. A raw-valid identifier has no separators
+    // and is already within length, so this only case-folds it.
+    const normalizedImei = normalizeDeviceIdentifier(
+      bodyParse.data.imei,
+      requestedIdentifier
+    );
 
     const customer = await resolveImeiCustomer({
       merchantId,
@@ -187,7 +211,7 @@ export async function POST(request: NextRequest) {
         503
       );
     }
-    const imeiHash = hashImei(bodyParse.data.imei, hashSalt);
+    const imeiHash = hashImei(normalizedImei, hashSalt);
 
     const replayContext = {
       customerId: customer.id,
@@ -313,7 +337,7 @@ export async function POST(request: NextRequest) {
     const providerResult = await requestSickwCheck({
       apiKey: sickwApiKey,
       checksIncluded: serviceTier.checksIncluded,
-      imei: bodyParse.data.imei,
+      imei: normalizedImei,
       serviceId: serviceTier.providerServiceId,
       tierName: serviceTier.name,
     });

@@ -165,7 +165,7 @@ describe('UtilityTypeTabs', () => {
     //   sideInset (SPACING.md) + airtime + gap + data + gap + tv + gap = preceding offset
     //   selectedCenter = precedingOffset + power/2 - viewport/2
     const sideInset = SPACING.md;
-    const gap = SPACING.sm;
+    const gap = SPACING.xs;
     const precedingOffset =
       sideInset +
       MEASURED_TAB_WIDTHS.airtime +

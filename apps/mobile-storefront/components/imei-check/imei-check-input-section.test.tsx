@@ -13,6 +13,7 @@ jest.mock('@react-native-vector-icons/ionicons', () => ({
 const baseProps = {
   colors: Colors.light,
   error: null as string | null,
+  identifier: 'imei' as const,
   imei: '',
   onChangeImei: jest.fn(),
   onCheck: jest.fn(),
@@ -20,18 +21,18 @@ const baseProps = {
 };
 
 describe('ImeiCheckInputSection', () => {
-  it('renders the labeled input and digit counter at zero by default', () => {
+  it('renders the placeholder input and digit counter at zero by default', () => {
     render(<ImeiCheckInputSection {...baseProps} />);
 
-    expect(screen.getByText('Enter 15-digit IMEI')).toBeTruthy();
-    expect(screen.getByText('0/15 digits')).toBeTruthy();
+    // The label is intentionally omitted — the placeholder is the only prompt.
+    expect(screen.getByText('0/15')).toBeTruthy();
     expect(screen.getByPlaceholderText('Enter 15-digit IMEI')).toBeTruthy();
   });
 
   it('updates the digit counter to reflect the current IMEI length', () => {
     render(<ImeiCheckInputSection {...baseProps} imei="123456789012345" />);
 
-    expect(screen.getByText('15/15 digits')).toBeTruthy();
+    expect(screen.getByText('15/15')).toBeTruthy();
   });
 
   it('forwards keystrokes to onChangeImei', () => {
@@ -56,15 +57,6 @@ describe('ImeiCheckInputSection', () => {
     expect(screen.getByText('That IMEI looks invalid.')).toBeTruthy();
   });
 
-  it('shows the help steps for finding the IMEI', () => {
-    render(<ImeiCheckInputSection {...baseProps} />);
-
-    expect(screen.getByText('How to find your IMEI')).toBeTruthy();
-    expect(screen.getByText('*#06#')).toBeTruthy();
-    expect(screen.getByText('Copy 15 digits')).toBeTruthy();
-    expect(screen.getByText('Paste above')).toBeTruthy();
-  });
-
   it('exposes an accessible clear action when an IMEI is present', () => {
     const onClearImei = jest.fn();
     render(
@@ -75,8 +67,34 @@ describe('ImeiCheckInputSection', () => {
       />
     );
 
-    fireEvent.press(screen.getByLabelText('Clear IMEI'));
+    fireEvent.press(screen.getByLabelText('Clear input'));
 
     expect(onClearImei).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows serial-mode placeholder, plain counter, and durable label', () => {
+    render(
+      <ImeiCheckInputSection
+        {...baseProps}
+        identifier="serial"
+        imei="C02XL0ABJGH5"
+      />
+    );
+
+    expect(screen.getByPlaceholderText('Enter serial number')).toBeTruthy();
+    // Serial mode has no 15-digit ceiling, so the counter is a plain length.
+    expect(screen.getByText('12')).toBeTruthy();
+    // The accessible name persists even after the placeholder is replaced.
+    expect(screen.getByLabelText('Serial number')).toBeTruthy();
+  });
+
+  it('shows both-mode placeholder, plain counter, and durable label', () => {
+    render(
+      <ImeiCheckInputSection {...baseProps} identifier="both" imei="ABC12345" />
+    );
+
+    expect(screen.getByPlaceholderText('Enter IMEI or serial')).toBeTruthy();
+    expect(screen.getByText('8')).toBeTruthy();
+    expect(screen.getByLabelText('IMEI or serial number')).toBeTruthy();
   });
 });
