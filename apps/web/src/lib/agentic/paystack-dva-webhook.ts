@@ -13,7 +13,6 @@ type AgenticDvaPaymentResult =
   | { body: Record<string, unknown>; handled: true; status: number };
 
 const PAYSTACK_ACCOUNT_PATTERN = /^\d{6,20}$/;
-const POSTGRES_UNIQUE_VIOLATION = '23505';
 const DEFAULT_CURRENCY = 'NGN';
 
 export function getPaystackDvaReceiverAccountNumber(
@@ -178,55 +177,87 @@ export async function confirmAgenticPaystackDvaPayment({
       status: 409,
     };
   }
-  const { data: insertedTransaction, error: transactionError } = await supabase
-    .from('transactions')
-    .insert({
-      amount: expectedAmount.toString(),
-      currency: checkoutSession.currency ?? DEFAULT_CURRENCY,
-      description: `Agentic checkout payment for session ${checkoutSession.session_id}`,
-      gateway: 'paystack',
-      gateway_reference: gatewayReference,
-      merchant_id: checkoutSession.merchant_id,
-      metadata: {
+
+  const { data: orderRow, error: orderLookupError } = await supabase
+    .from('orders')
+    .select('customer_email, customer_name')
+    .eq('id', checkoutSession.order_id)
+    .eq('merchant_id', checkoutSession.merchant_id)
+    .maybeSingle();
+
+  if (orderLookupError) {
+    return {
+      body: { error: 'Agentic checkout order lookup failed' },
+      handled: true,
+      status: 500,
+    };
+  }
+
+  if (!orderRow) {
+    return {
+      body: { error: 'Agentic checkout order not found' },
+      handled: true,
+      status: 409,
+    };
+  }
+
+  const orderRecord =
+    orderRow && typeof orderRow === 'object'
+      ? (orderRow as Record<string, unknown>)
+      : {};
+
+  const { data: transactionId, error: transactionError } = await supabase.rpc(
+    'create_payment_transaction',
+    {
+      p_amount: expectedAmount,
+      p_currency: checkoutSession.currency ?? DEFAULT_CURRENCY,
+      p_customer_email:
+        typeof orderRecord.customer_email === 'string'
+          ? orderRecord.customer_email
+          : '',
+      p_customer_name:
+        typeof orderRecord.customer_name === 'string'
+          ? orderRecord.customer_name
+          : '',
+      p_gateway: 'paystack',
+      p_merchant_amount: expectedAmount,
+      p_merchant_id: checkoutSession.merchant_id,
+      p_metadata: {
         agentic_checkout_session_id: checkoutSession.session_id,
         agentic_virtual_account_number: accountNumber,
         transaction_type: 'agentic_checkout_payment',
       },
-      order_id: checkoutSession.order_id,
-      status: 'pending',
-      transaction_type: 'payment',
-    })
-    .select(AGENTIC_PAYSTACK_DVA_TRANSACTION_SELECT)
-    .single();
-
-  if (transactionError?.code === POSTGRES_UNIQUE_VIOLATION) {
-    const { data: reservedTransaction, error: reservedTransactionError } =
-      await supabase
-        .from('transactions')
-        .select(AGENTIC_PAYSTACK_DVA_TRANSACTION_SELECT)
-        .eq('gateway_reference', gatewayReference)
-        .maybeSingle();
-
-    if (reservedTransactionError || !reservedTransaction) {
-      return {
-        body: { error: 'Agentic payment transaction lookup failed' },
-        handled: true,
-        status: 500,
-      };
+      p_order_id: checkoutSession.order_id,
+      p_platform_fee: 0,
+      p_reference: gatewayReference,
+      p_session_id: checkoutSession.session_id,
     }
-    return {
-      handled: false,
-      transaction: normalizeAgenticPaystackDvaTransaction(reservedTransaction),
-    };
-  }
+  );
 
-  if (transactionError || !insertedTransaction) {
+  if (transactionError || !transactionId) {
     return {
       body: { error: 'Agentic payment transaction creation failed' },
       handled: true,
       status: 500,
     };
   }
+
+  const { data: insertedTransaction, error: transactionLookupError } =
+    await supabase
+      .from('transactions')
+      .select(AGENTIC_PAYSTACK_DVA_TRANSACTION_SELECT)
+      .eq('id', transactionId)
+      .eq('merchant_id', checkoutSession.merchant_id)
+      .maybeSingle();
+
+  if (transactionLookupError || !insertedTransaction) {
+    return {
+      body: { error: 'Agentic payment transaction lookup failed' },
+      handled: true,
+      status: 500,
+    };
+  }
+
   return {
     handled: false,
     transaction: normalizeAgenticPaystackDvaTransaction(insertedTransaction),

@@ -346,7 +346,13 @@ describe('POST /api/orders/[id]/record-payment', () => {
             current_paid: completedAmount,
             error_code: fixture.recordManualPaymentErrorCode ?? null,
             new_paid: computedNewPaid,
+            order_total: orderTotal,
             payment_status: computedPaymentStatus,
+            previous_payment_status:
+              typeof orderRecord.payment_status === 'string'
+                ? orderRecord.payment_status
+                : 'pending',
+            previous_shipping_status: originalShippingStatus,
             remaining_balance: computedRemainingBalance,
             shipping_status:
               hasExplicitUpdateOrder &&
@@ -926,6 +932,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       order: mockOrder,
       recordManualPayment: {
         new_paid: 10000,
+        order_total: 15000,
         payment_status: 'partially_paid',
         remaining_balance: 5000,
         shipping_status: 'processing',
@@ -954,6 +961,16 @@ describe('POST /api/orders/[id]/record-payment', () => {
       },
     });
     expect(ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
+    const { generatePaymentReceiptEmail } = await import(
+      '@/lib/email-templates'
+    );
+    expect(generatePaymentReceiptEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        balanceDue: 5000,
+        totalAmount: 15000,
+        totalPaidSoFar: 10000,
+      })
+    );
     expect(mockSendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         subject: expect.stringContaining('Payment Receipt'),
@@ -998,6 +1015,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const { transactionQuery } = setupRecordPaymentSupabase({
       merchant: mockMerchant,
       order: mockOrder,
+      recordManualPayment: {
+        previous_payment_status: 'partially_paid',
+        previous_shipping_status: 'processing',
+      },
     });
 
     const request = createRequest({
@@ -1021,8 +1042,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(
       rollbackOrderStatusAfterInventoryConfirmationFailure
     ).toHaveBeenCalledWith(mockSupabaseClient, mockMerchantId, mockOrderId, {
-      payment_status: 'pending',
-      shipping_status: 'pending',
+      payment_status: 'partially_paid',
+      shipping_status: 'processing',
     });
     expect(transactionQuery.delete).toHaveBeenCalledOnce();
     expect(transactionQuery.eq).toHaveBeenCalledWith('id', 'txn-123');

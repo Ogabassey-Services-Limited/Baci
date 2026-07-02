@@ -248,6 +248,13 @@ describe('record_manual_order_payment migration contract', () => {
     );
     expect(sql).toMatch(/t\.gateway_reference\s*=\s*v_gateway_reference/i);
     expect(sql).toMatch(/'manual',[\s\S]*v_gateway_reference/i);
+    expect(sql).toMatch(/'order_total',\s*v_order_total/i);
+    expect(sql).toMatch(
+      /'previous_payment_status',\s*v_order\.payment_status/i
+    );
+    expect(sql).toMatch(
+      /'previous_shipping_status',\s*v_order\.shipping_status/i
+    );
     expect(sql).toMatch(/'credit_direct'/i);
     expect(sql).toMatch(/'klump'/i);
     expect(sql).toMatch(/'juicyway'/i);

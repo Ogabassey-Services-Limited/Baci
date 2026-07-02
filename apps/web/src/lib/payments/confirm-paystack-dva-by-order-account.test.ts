@@ -14,7 +14,7 @@ import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystac
 // Helper test: looks up `order_payment_accounts` by `(provider='paystack',
 // account_number)`, joins to `orders`, applies the B0 multi-key matcher,
 // and either:
-//   - inserts a pending `transactions` row + returns the txn for the
+//   - reserves a pending `transactions` row through the locked RPC + returns the txn for the
 //     webhook to flip (single match)
 //   - files a `reconciliation_review` row + returns `{handled:true, 409}`
 //     (ambiguous)
@@ -79,35 +79,28 @@ function createSupabaseMock(opts: {
       }
       if (table === 'transactions') {
         return {
-          insert: vi.fn((row: Record<string, unknown>) => {
-            state.insertCalls.push(row);
-            return {
-              select: vi.fn().mockReturnThis(),
-              single: vi.fn().mockResolvedValue(
-                opts.insertResult ?? {
-                  data: {
-                    id: 'txn-new',
-                    amount: row.amount,
-                    currency: row.currency,
-                    merchant_id: row.merchant_id,
-                    metadata: row.metadata ?? null,
-                    order_id: row.order_id,
-                    platform_fee: 0,
-                    gateway_reference: row.gateway_reference,
-                  },
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn(() => {
+              state.reuseLookups++;
+              const row = state.insertCalls.at(-1);
+              return Promise.resolve(
+                opts.reuseLookupResult ?? {
+                  data: row
+                    ? {
+                        id: 'txn-new',
+                        amount: row.amount,
+                        currency: row.currency,
+                        merchant_id: row.merchant_id,
+                        metadata: row.metadata ?? null,
+                        order_id: row.order_id,
+                        platform_fee: 0,
+                        gateway_reference: row.gateway_reference,
+                      }
+                    : null,
                   error: null,
                 }
-              ),
-            };
-          }),
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn(() => {
-                state.reuseLookups++;
-                return Promise.resolve(
-                  opts.reuseLookupResult ?? { data: null, error: null }
-                );
-              }),
+              );
             }),
           }),
         };
@@ -128,7 +121,34 @@ function createSupabaseMock(opts: {
     },
   };
 
-  return { supabase, state };
+  const rpc = vi.fn((name: string, params: Record<string, unknown>) => {
+    if (name !== 'create_payment_transaction') {
+      return Promise.resolve({ data: null, error: null });
+    }
+    const reserveRow = {
+      amount: String(params.p_amount),
+      currency: params.p_currency,
+      gateway: params.p_gateway,
+      gateway_reference: params.p_reference,
+      merchant_id: params.p_merchant_id,
+      metadata: params.p_metadata,
+      order_id: params.p_order_id,
+      status: 'pending',
+      transaction_type: 'payment',
+    };
+    state.insertCalls.push(reserveRow);
+    const result = opts.insertResult;
+    if (result?.error) {
+      return Promise.resolve({ data: null, error: result.error });
+    }
+    const resultData = result?.data as { id?: unknown } | null | undefined;
+    return Promise.resolve({
+      data: typeof resultData?.id === 'string' ? resultData.id : 'txn-new',
+      error: null,
+    });
+  });
+
+  return { supabase: { ...supabase, rpc }, state };
 }
 
 beforeEach(() => {
@@ -210,7 +230,7 @@ describe('confirmPaystackDvaByOrderAccount — single match', () => {
     expect(state.insertCalls).toHaveLength(1);
   });
 
-  it('reuses the existing transaction on unique-violation retries (concurrent webhooks)', async () => {
+  it('reuses the existing transaction when the locked RPC returns its id', async () => {
     const existing = {
       id: 'txn-existing',
       amount: 835_000,
@@ -222,7 +242,7 @@ describe('confirmPaystackDvaByOrderAccount — single match', () => {
       gateway_reference: '100026260509110323000058369193',
     };
     const { supabase, state } = createSupabaseMock({
-      insertResult: { data: null, error: { code: '23505' } },
+      insertResult: { data: existing, error: null },
       reuseLookupResult: { data: existing, error: null },
     });
 
@@ -451,11 +471,11 @@ describe('confirmPaystackDvaByOrderAccount — DB failure paths', () => {
     );
   });
 
-  it('returns a 500 error when a non-23505 transaction insert error occurs', async () => {
-    // Single match → helper tries to insert the pending transaction.
+  it('returns a 500 error when a transaction reservation error occurs', async () => {
+    // Single match → helper tries to reserve the pending transaction.
     // The DB rejects with a non-conflict error code (e.g., 23502
     // not-null violation). The helper must NOT treat this like a
-    // benign unique violation and must NOT consult the reuse-lookup;
+    // benign idempotent reservation and must NOT consult the lookup;
     // it fails closed so the webhook can return a retryable 5xx.
     const { supabase, state } = createSupabaseMock({
       insertResult: {
@@ -475,16 +495,15 @@ describe('confirmPaystackDvaByOrderAccount — DB failure paths', () => {
       status: 500,
     });
     expect(state.insertCalls).toHaveLength(1);
-    // Critical: the reuse-lookup path (used for 23505 retries) must
-    // NOT fire for a non-conflict error.
+    // Critical: no transaction lookup should happen when the reservation fails.
     expect(state.reuseLookups).toBe(0);
   });
 
-  it('returns a 500 error when a unique-violation retry cannot re-read the transaction', async () => {
+  it('returns a 500 error when a locked reservation cannot re-read the transaction', async () => {
     const { supabase, state } = createSupabaseMock({
       insertResult: {
-        data: null,
-        error: { code: '23505', message: 'duplicate gateway reference' },
+        data: { id: 'txn-existing' },
+        error: null,
       },
       reuseLookupResult: {
         data: null,
@@ -506,7 +525,7 @@ describe('confirmPaystackDvaByOrderAccount — DB failure paths', () => {
     expect(state.reuseLookups).toBe(1);
     expect(loggerMock.error).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: 'B1 single-match insert collided but re-read failed',
+        message: 'B1 single-match transaction reservation lookup failed',
       })
     );
   });

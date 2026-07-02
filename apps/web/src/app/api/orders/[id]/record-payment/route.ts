@@ -51,7 +51,10 @@ interface RecordManualPaymentResult {
   current_paid?: number | string | null;
   error_code?: string | null;
   new_paid?: number | string | null;
+  order_total?: number | string | null;
   payment_status?: PaymentStatus | null;
+  previous_payment_status?: PaymentStatus | null;
+  previous_shipping_status?: ShippingStatus | null;
   remaining_balance?: number | string | null;
   shipping_status?: ShippingStatus | null;
   total_paid_before?: number | string | null;
@@ -562,6 +565,12 @@ export async function POST(
     const remainingBalance = Number(
       manualPaymentResult.remaining_balance ?? estimatedRemainingBalance
     );
+    const lockedOrderTotal = Number(
+      manualPaymentResult.order_total ?? newPaid + remainingBalance
+    );
+    const authoritativeOrderTotal = Number.isFinite(lockedOrderTotal)
+      ? lockedOrderTotal
+      : Number(orderTotal);
 
     // 5. Consume the authoritative order status written by the RPC.
     // Keeping status mutation inside the same DB transaction as the manual
@@ -660,8 +669,14 @@ export async function POST(
             merchantId,
             orderId,
             {
-              payment_status: order.payment_status ?? null,
-              shipping_status: order.shipping_status ?? null,
+              payment_status:
+                manualPaymentResult.previous_payment_status ??
+                order.payment_status ??
+                null,
+              shipping_status:
+                manualPaymentResult.previous_shipping_status ??
+                order.shipping_status ??
+                null,
             }
           );
         } catch (rollbackError) {
@@ -775,7 +790,7 @@ export async function POST(
           items: emailItems,
           subtotal: Number(order.subtotal),
           shippingFee: Number(order.shipping_fee),
-          total: Number(orderTotal),
+          total: Number(authoritativeOrderTotal),
           shippingAddress: {
             address: order.shipping_address?.address || '',
             city: order.shipping_address?.city || '',
@@ -876,7 +891,7 @@ export async function POST(
           orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
           customerName: order.customer_name,
           items: emailItems,
-          totalAmount: Number(orderTotal),
+          totalAmount: Number(authoritativeOrderTotal),
           amountPaidNow: parsedAmount,
           totalPaidSoFar: Number(newPaid),
           balanceDue: Number(remainingBalance),
