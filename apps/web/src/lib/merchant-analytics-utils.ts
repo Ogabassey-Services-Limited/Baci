@@ -21,7 +21,7 @@ export interface AnalyticsOrderRow {
 }
 
 export interface AnalyticsOrderItemUnitCostRow {
-  cost_price: number | null;
+  cost_price: number | string | null;
   unit_index: number | null;
 }
 
@@ -70,8 +70,17 @@ export interface BlogPostRow {
   view_count: number | null;
 }
 
-export function asNumber(value: number | null | undefined) {
-  return Number(value ?? 0);
+export function asNumber(value: number | string | null | undefined) {
+  if (value == null) {
+    return 0;
+  }
+
+  if (typeof value === 'string' && value.trim() === '') {
+    return 0;
+  }
+
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : 0;
 }
 
 function getJoinedAnalyticsRecord<T>(value: T | T[] | null | undefined) {
@@ -108,6 +117,8 @@ export function resolveOrderItemAnalyticsLineCost(
   const countedIndexes = new Set<number>();
   for (const unit of unitCosts) {
     const index = unit.unit_index;
+    const unitCostPrice =
+      unit.cost_price == null ? null : Number(unit.cost_price);
     // Only count in-range, unique unit rows so stale/out-of-range data can't
     // over- or double-count the line cost.
     if (
@@ -115,13 +126,13 @@ export function resolveOrderItemAnalyticsLineCost(
       index < 0 ||
       index >= quantity ||
       countedIndexes.has(index) ||
-      unit.cost_price == null ||
-      !Number.isFinite(unit.cost_price)
+      unitCostPrice == null ||
+      !Number.isFinite(unitCostPrice)
     ) {
       continue;
     }
     countedIndexes.add(index);
-    recordedTotal += unit.cost_price;
+    recordedTotal += unitCostPrice;
   }
 
   const remainingUnits = quantity - countedIndexes.size;

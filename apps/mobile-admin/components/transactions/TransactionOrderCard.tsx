@@ -28,7 +28,8 @@ export function TransactionOrderCard({
 }: TransactionOrderCardProps) {
   const [expanded, setExpanded] = useState(false);
   const firstItem = order.items[0];
-  const customerName = formatTransactionDisplayText(order.customerName);
+  const customerName =
+    formatTransactionDisplayText(order.customerName) || 'Customer';
   const firstItemName = formatTransactionDisplayText(firstItem?.name);
   const paymentMethodLabel = formatTransactionDisplayText(order.paymentMethod, {
     paymentMethod: true,

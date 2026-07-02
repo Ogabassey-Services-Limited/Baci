@@ -7,19 +7,9 @@ import { TransactionOrderCard } from './TransactionOrderCard';
 
 vi.mock('react-native', async () => {
   const React = await import('react');
-  const getDomStyle = (style: unknown) => {
-    if (Array.isArray(style)) {
-      return Object.assign(
-        {},
-        ...style.filter(
-          (entry): entry is Record<string, string | number> =>
-            Boolean(entry) && typeof entry === 'object'
-        )
-      );
-    }
-
-    return style && typeof style === 'object' ? style : undefined;
-  };
+  const { getReactNativeDomStyle } = await import(
+    '@/test/mocks/react-native-dom-style'
+  );
 
   return {
     Pressable: ({
@@ -54,14 +44,24 @@ vi.mock('react-native', async () => {
     }: {
       children?: React.ReactNode;
       style?: unknown;
-    }) => React.createElement('span', { style: getDomStyle(style) }, children),
+    }) =>
+      React.createElement(
+        'span',
+        { style: getReactNativeDomStyle(style) },
+        children
+      ),
     View: ({
       children,
       style,
     }: {
       children?: React.ReactNode;
       style?: unknown;
-    }) => React.createElement('div', { style: getDomStyle(style) }, children),
+    }) =>
+      React.createElement(
+        'div',
+        { style: getReactNativeDomStyle(style) },
+        children
+      ),
   };
 });
 

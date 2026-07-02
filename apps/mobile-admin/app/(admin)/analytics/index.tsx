@@ -658,7 +658,9 @@ export default function AnalyticsScreen() {
                 <TopItemRow
                   label="Top Supplier"
                   name={analytics.topSupplier.supplierName}
-                  subtitle={`${analytics.topSupplier.unitCount} units sourced - ${formatCompact(analytics.topSupplier.totalCost)} cost`}
+                  subtitle={`#1 in Units sourced: ${analytics.topSupplier.unitCount} ${
+                    analytics.topSupplier.unitCount === 1 ? 'unit' : 'units'
+                  } (${formatCompact(analytics.topSupplier.totalCost)} cost)`}
                   onPress={() => pushInsightDetail('suppliers')}
                   colors={colors}
                   accentColor={ACCENT_COLOR}

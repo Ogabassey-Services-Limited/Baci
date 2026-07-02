@@ -82,6 +82,21 @@ describe('merchant analytics utils', () => {
     expect(result.totalProfit).toBe(45);
   });
 
+  it('counts Supabase numeric string per-unit costs as recorded costs', () => {
+    const result = buildTopEntities([
+      item({
+        costPrice: null,
+        price: 50,
+        productCostPrice: 30,
+        quantity: 2,
+        unitCosts: [{ cost_price: '25', unit_index: 0 }],
+        variantCostPrice: null,
+      }),
+    ]);
+
+    expect(result.totalProfit).toBe(45);
+  });
+
   it('falls back when a per-unit cost row has a null cost price', () => {
     // qty 2, product fallback cost 30. A unit row with null cost is not a
     // recorded cost, so both units fall back to 30 → cost 60, profit 40.

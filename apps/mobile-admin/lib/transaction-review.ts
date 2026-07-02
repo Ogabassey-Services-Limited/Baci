@@ -10,6 +10,7 @@ import {
   getTrimmedString,
   getUnitCostByIndex,
   IMEI_KEYS,
+  resolveTransactionReviewUnitRow,
   SERIAL_KEYS,
   toFiniteNumberOrNull,
 } from './transaction-review-row-helpers';
@@ -164,85 +165,42 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
           unitIndex == null ? undefined : fulfillmentByIndex.get(unitIndex);
         const unitCost =
           unitIndex == null ? undefined : unitCostByIndex.get(unitIndex);
-        const unitCostPrice = toFiniteNumberOrNull(unitCost?.cost_price);
-        const unitSupplierName = getTrimmedString(unitCost?.supplier_name);
-        const unitIdentifierType = getTrimmedString(unitCost?.identifier_type);
-        const unitIdentifierValue = getTrimmedString(
-          unitCost?.identifier_value
-        );
-        const unitCostImeiValues =
-          unitIdentifierType === 'imei' && unitIdentifierValue
-            ? [unitIdentifierValue]
-            : [];
-        const unitCostSerialValues =
-          unitIdentifierType === 'serial' && unitIdentifierValue
-            ? [unitIdentifierValue]
-            : [];
-        const rowCostPrice = unitCostPrice ?? costPrice;
-        const rowCostSource =
-          unitCostPrice != null ? ('unit' as const) : costSource;
-        const rowQuantity = unitIndex == null ? quantity : 1;
-        const revenue = unitPrice * rowQuantity;
-        const fulfillmentImeiValues = unit?.imeiValues ?? [];
-        const fulfillmentSerialValues = unit?.serialValues ?? [];
-        const rowImeiValues =
-          fulfillmentImeiValues.length > 0
-            ? fulfillmentImeiValues
-            : unitCostImeiValues.length > 0
-              ? unitCostImeiValues
-              : unitIndex == null
-                ? imeiValues
-                : [];
-        const rowSerialValues =
-          fulfillmentSerialValues.length > 0
-            ? fulfillmentSerialValues
-            : unitCostSerialValues.length > 0
-              ? unitCostSerialValues
-              : unitIndex == null
-                ? serialValues
-                : [];
-        const identifierType =
-          rowImeiValues[0] != null
-            ? 'imei'
-            : rowSerialValues[0] != null
-              ? 'serial'
-              : null;
-        const identifierValue =
-          identifierType === 'imei'
-            ? (rowImeiValues[0] ?? null)
-            : identifierType === 'serial'
-              ? (rowSerialValues[0] ?? null)
-              : null;
-        const rowSupplierName = unitSupplierName || supplierName;
+        const resolvedUnit = resolveTransactionReviewUnitRow({
+          baseCostPrice: costPrice,
+          baseCostSource: costSource,
+          baseImeiValues: imeiValues,
+          baseSerialValues: serialValues,
+          baseSupplierName: supplierName,
+          fulfillmentUnit: unit,
+          quantity,
+          unitCost,
+          unitIndex,
+          unitPrice,
+        });
 
         return {
-          costPrice: rowCostPrice,
-          costSource: rowCostSource,
+          costPrice: resolvedUnit.costPrice,
+          costSource: resolvedUnit.costSource,
           id:
             unit?.id ??
             (unitIndex == null ? item.id : `${item.id}:${unitIndex + 1}`),
-          identifierType,
-          identifierValue,
-          imeiValues: rowImeiValues,
+          identifierType: resolvedUnit.identifierType,
+          identifierValue: resolvedUnit.identifierValue,
+          imeiValues: resolvedUnit.imeiValues,
           name: item.name ?? 'Product',
           orderItemId: item.id,
           productId: item.product_id,
           productMatchStatus: item.product_match_status ?? null,
-          profit:
-            rowCostPrice == null ? null : revenue - rowCostPrice * rowQuantity,
-          quantity: rowQuantity,
-          revenue,
+          profit: resolvedUnit.profit,
+          quantity: resolvedUnit.quantity,
+          revenue: resolvedUnit.revenue,
           searchText: buildSearchText([
             ...baseSearchTokens,
-            rowSupplierName,
-            rowImeiValues,
-            rowSerialValues,
-            unit?.searchTokens,
-            unitIdentifierValue,
+            resolvedUnit.searchTokens,
           ]),
-          serialValues: rowSerialValues,
+          serialValues: resolvedUnit.serialValues,
           sku: variant?.sku ?? product?.sku ?? null,
-          supplierName: rowSupplierName,
+          supplierName: resolvedUnit.supplierName,
           unitIndex,
           variantId: item.variant_id ?? null,
         };

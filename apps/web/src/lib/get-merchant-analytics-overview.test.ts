@@ -133,16 +133,6 @@ describe('getMerchantAnalyticsOverview', () => {
         count: null,
         data: [
           {
-            gross_profit: '120000',
-            loss_unit_count: 0,
-            missing_cost_unit_count: 1,
-            order_count: 2,
-            supplier_name: 'Ugosam',
-            total_cost: '900000',
-            total_revenue: 1_020_000,
-            unit_count: 3,
-          },
-          {
             gross_profit: 40_000,
             loss_unit_count: 1,
             missing_cost_unit_count: 0,
@@ -151,6 +141,16 @@ describe('getMerchantAnalyticsOverview', () => {
             total_cost: 200_000,
             total_revenue: 240_000,
             unit_count: 1,
+          },
+          {
+            gross_profit: '120000',
+            loss_unit_count: 0,
+            missing_cost_unit_count: 1,
+            order_count: 2,
+            supplier_name: 'Ugosam',
+            total_cost: '900000',
+            total_revenue: 1_020_000,
+            unit_count: 3,
           },
         ],
         error: null,

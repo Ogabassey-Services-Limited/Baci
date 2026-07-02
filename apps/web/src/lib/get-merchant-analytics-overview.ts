@@ -25,6 +25,20 @@ type RecentOrderRow = Pick<
   'created_at' | 'customer_email' | 'customer_name' | 'id' | 'total'
 >;
 
+type SupplierAnalyticsRow =
+  MerchantAnalyticsResponse['supplierAnalytics'][number];
+
+function compareSupplierAnalyticsRows(
+  left: SupplierAnalyticsRow,
+  right: SupplierAnalyticsRow
+) {
+  return (
+    right.unitCount - left.unitCount ||
+    right.totalCost - left.totalCost ||
+    left.supplierName.localeCompare(right.supplierName)
+  );
+}
+
 export async function getMerchantAnalyticsOverview(
   supabase: SupabaseClient,
   merchantId: string,
@@ -138,7 +152,7 @@ export async function getMerchantAnalyticsOverview(
   const recentOrders = (recentOrdersResult.data ?? []) as RecentOrderRow[];
   const supplierAnalytics = normalizeSupplierAnalyticsRows(
     (supplierAnalyticsResult.data ?? []) as SupplierAnalyticsRpcRow[]
-  );
+  ).sort(compareSupplierAnalyticsRows);
   const customerBreakdown = buildCustomerBreakdown(currentPaidOrders);
   const topPost =
     [...blogPosts].sort(

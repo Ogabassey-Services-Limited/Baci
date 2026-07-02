@@ -71,6 +71,10 @@ export function useUpdateTransactionCostPrice() {
       if (!orderId.trim() || !orderItemId.trim()) {
         throw new Error('Transaction and line item are required');
       }
+      const trimmedSupplierName = supplierName.trim();
+      if (!trimmedSupplierName) {
+        throw new Error('Supplier name is required');
+      }
       if (updateProductDefault && !productId?.trim()) {
         throw new Error('Product is required to update the catalog default');
       }
@@ -112,7 +116,7 @@ export function useUpdateTransactionCostPrice() {
           p_order_id: orderId.trim(),
           p_order_item_id: orderItemId.trim(),
           p_product_id: productId?.trim() || null,
-          p_supplier_name: supplierName,
+          p_supplier_name: trimmedSupplierName,
           p_transaction_date: parsedTransactionDate.toISOString(),
           p_unit_index: unitIndex ?? null,
           p_update_product_default: updateProductDefault,

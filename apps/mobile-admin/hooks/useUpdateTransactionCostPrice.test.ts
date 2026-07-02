@@ -211,6 +211,29 @@ describe('useUpdateTransactionCostPrice', () => {
     expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });
 
+  it('rejects missing supplier names before saving', async () => {
+    const mutation = getMutation();
+
+    await expect(
+      mutation.mutationFn(makeInput({ supplierName: '   ' }))
+    ).rejects.toThrow('Supplier name is required');
+
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
+  });
+
+  it('trims supplier names before saving', async () => {
+    const mutation = getMutation();
+
+    await mutation.mutationFn(makeInput({ supplierName: '  Main Supplier  ' }));
+
+    expect(supabaseMock.rpc).toHaveBeenCalledWith(
+      'update_transaction_review_details',
+      expect.objectContaining({
+        p_supplier_name: 'Main Supplier',
+      })
+    );
+  });
+
   it('saves an unlinked custom order item without a product id', async () => {
     const mutation = getMutation();
 

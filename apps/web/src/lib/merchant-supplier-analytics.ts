@@ -1,4 +1,5 @@
 import type { MerchantSupplierAnalyticsRow } from '@baci/shared';
+import { asNumber } from '@/lib/merchant-analytics-utils';
 import { sanitizeText } from '@/lib/sanitize-core';
 
 export interface SupplierAnalyticsRpcRow {
@@ -12,27 +13,17 @@ export interface SupplierAnalyticsRpcRow {
   unit_count: number | string | null;
 }
 
-function asSupplierAnalyticsNumber(value: number | string | null | undefined) {
-  if (typeof value === 'string') {
-    return Number(value) || 0;
-  }
-
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
-}
-
 export function normalizeSupplierAnalyticsRows(
   rows: SupplierAnalyticsRpcRow[] | null | undefined
 ): MerchantSupplierAnalyticsRow[] {
   return (rows ?? []).map((row) => ({
-    grossProfit: asSupplierAnalyticsNumber(row.gross_profit),
-    lossUnitCount: asSupplierAnalyticsNumber(row.loss_unit_count),
-    missingCostUnitCount: asSupplierAnalyticsNumber(
-      row.missing_cost_unit_count
-    ),
-    orderCount: asSupplierAnalyticsNumber(row.order_count),
+    grossProfit: asNumber(row.gross_profit),
+    lossUnitCount: asNumber(row.loss_unit_count),
+    missingCostUnitCount: asNumber(row.missing_cost_unit_count),
+    orderCount: asNumber(row.order_count),
     supplierName: sanitizeText(row.supplier_name ?? 'Unknown supplier'),
-    totalCost: asSupplierAnalyticsNumber(row.total_cost),
-    totalRevenue: asSupplierAnalyticsNumber(row.total_revenue),
-    unitCount: asSupplierAnalyticsNumber(row.unit_count),
+    totalCost: asNumber(row.total_cost),
+    totalRevenue: asNumber(row.total_revenue),
+    unitCount: asNumber(row.unit_count),
   }));
 }

@@ -315,6 +315,78 @@ describe('transaction review helpers', () => {
     expect(order.estimatedProfit).toBe(150_000);
   });
 
+  it('keeps stale out-of-range unit costs visible without counting them in totals', () => {
+    const [order] = mapTransactionOrderRows([
+      {
+        created_at: '2026-07-01T12:30:00.000Z',
+        transaction_date: null,
+        customer_email: null,
+        customer_name: 'Stale Unit Customer',
+        customer_phone: null,
+        fulfillment_details: null,
+        id: 'order-1',
+        order_items: [
+          {
+            cost_price: 850_000,
+            fulfillment_data: null,
+            id: 'item-laptop',
+            name: 'HP EliteBook',
+            order_item_unit_costs: [
+              {
+                cost_price: 800_000,
+                identifier_type: 'serial',
+                identifier_value: 'STALE-SN-5',
+                supplier_name: 'Stale Supplier',
+                unit_index: 5,
+              },
+            ],
+            price: 900_000,
+            product_id: 'product-laptop',
+            product_variants: null,
+            products: null,
+            quantity: 2,
+            supplier_name: 'Fallback Supplier',
+            variant_id: null,
+          },
+        ],
+        order_number: 'ORD-010726-STALE',
+        payment_method: 'transfer',
+        total: 1_800_000,
+      },
+    ]);
+
+    expect(order.items).toMatchObject([
+      {
+        costPrice: 850_000,
+        costSource: 'order_item',
+        profit: 50_000,
+        quantity: 1,
+        revenue: 900_000,
+        unitIndex: 0,
+      },
+      {
+        costPrice: 850_000,
+        costSource: 'order_item',
+        profit: 50_000,
+        quantity: 1,
+        revenue: 900_000,
+        unitIndex: 1,
+      },
+      {
+        costPrice: 800_000,
+        costSource: 'unit',
+        identifierValue: 'STALE-SN-5',
+        profit: 0,
+        quantity: 0,
+        revenue: 0,
+        supplierName: 'Stale Supplier',
+        unitIndex: 5,
+      },
+    ]);
+    expect(order.estimatedProfit).toBe(100_000);
+    expect(order.searchText).toContain('stale-sn-5');
+  });
+
   it('does not copy item-level identifiers into synthesized unit rows', () => {
     const [order] = mapTransactionOrderRows([
       {

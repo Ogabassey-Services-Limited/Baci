@@ -521,6 +521,7 @@ DECLARE
   v_owner_supplier_b_units bigint;
   v_branch_supplier_a_units bigint;
   v_other_branch_error text;
+  v_staff_analytics_error text;
 BEGIN
   SELECT unit_count, total_cost
   INTO v_owner_supplier_a_units, v_owner_supplier_a_cost
@@ -563,11 +564,29 @@ BEGIN
       v_other_branch_error := SQLERRM;
   END;
 
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-00000000f102', true);
+
+  BEGIN
+    PERFORM 1
+    FROM public.get_supplier_purchase_analytics(
+      '00000000-0000-4000-8000-00000000f101'::uuid,
+      NULL,
+      NULL,
+      NULL
+    );
+  EXCEPTION
+    WHEN SQLSTATE '42501' THEN
+      v_staff_analytics_error := SQLERRM;
+  END;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-00000000f100', true);
+
   IF v_owner_supplier_a_units <> 1
      OR v_owner_supplier_a_cost <> 805000
      OR v_owner_supplier_b_units <> 1
      OR v_branch_supplier_a_units <> 1
-     OR v_other_branch_error <> 'branch_not_found' THEN
+     OR v_other_branch_error <> 'branch_not_found'
+     OR v_staff_analytics_error <> 'insufficient_privilege' THEN
     RAISE EXCEPTION 'supplier analytics did not count unit-level supplier volume';
   END IF;
 END $$;
