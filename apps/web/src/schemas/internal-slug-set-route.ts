@@ -23,3 +23,38 @@ export const internalProductCanonicalRedirectQuerySchema = z.object({
   category: z.string().trim().min(1).max(255),
   slug: z.string().trim().min(1).max(255),
 });
+
+const listingStatusText = z.string().trim().min(1).max(255);
+// Mirror the route's parseBlogListingPage cap (MAX_BLOG_LISTING_PAGE = 10_000)
+// so the preflight can never request a larger Supabase offset than the route.
+const listingStatusPage = z.coerce.number().int().min(1).max(10_000);
+
+/**
+ * Query params for blog **listing** hard-status resolution — a discriminated
+ * union over `kind` that mirrors `BlogListingStatusIntent`. `page` arrives as a
+ * string from the URL, so it is coerced.
+ */
+export const internalBlogListingStatusQuerySchema = z.discriminatedUnion(
+  'kind',
+  [
+    z.object({
+      kind: z.literal('category-query'),
+      category: listingStatusText,
+    }),
+    z.object({
+      kind: z.literal('listing-page'),
+      page: listingStatusPage,
+      category: listingStatusText.optional(),
+    }),
+    z.object({
+      kind: z.literal('category-page'),
+      categorySlug: listingStatusText,
+      page: listingStatusPage,
+    }),
+    z.object({
+      kind: z.literal('author'),
+      authorSlug: listingStatusText,
+      page: listingStatusPage.default(1),
+    }),
+  ]
+);
