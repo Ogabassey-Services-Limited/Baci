@@ -4,11 +4,14 @@ import { supabase } from '@/lib/supabase';
 
 interface UpdateTransactionReviewDetailsInput {
   costPrice: number;
+  identifierType?: string | null;
+  identifierValue?: string | null;
   orderId: string;
   orderItemId: string;
   productId: string | null;
   supplierName: string;
   transactionDateIso: string;
+  unitIndex?: number | null;
   updateProductDefault: boolean;
   variantId: string | null;
 }
@@ -42,11 +45,14 @@ export function useUpdateTransactionCostPrice() {
   return useMutation({
     mutationFn: async ({
       costPrice,
+      identifierType,
+      identifierValue,
       orderId,
       orderItemId,
       productId,
       supplierName,
       transactionDateIso,
+      unitIndex,
       updateProductDefault,
       variantId,
     }: UpdateTransactionReviewDetailsInput) => {
@@ -85,12 +91,15 @@ export function useUpdateTransactionCostPrice() {
         {
           p_cost_price: costPrice,
           p_client_timezone: clientTimeZone,
+          p_identifier_type: identifierType ?? null,
+          p_identifier_value: identifierValue ?? null,
           p_merchant_id: merchant.id,
           p_order_id: orderId.trim(),
           p_order_item_id: orderItemId.trim(),
           p_product_id: productId?.trim() || null,
           p_supplier_name: supplierName,
           p_transaction_date: parsedTransactionDate.toISOString(),
+          p_unit_index: unitIndex ?? null,
           p_update_product_default: updateProductDefault,
           p_variant_id: variantId?.trim() || null,
         }

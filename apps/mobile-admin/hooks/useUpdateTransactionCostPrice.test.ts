@@ -102,12 +102,15 @@ describe('useUpdateTransactionCostPrice', () => {
       {
         p_client_timezone: expect.any(String),
         p_cost_price: 125_000,
+        p_identifier_type: null,
+        p_identifier_value: null,
         p_merchant_id: 'merchant-1',
         p_order_id: 'order-1',
         p_order_item_id: 'item-1',
         p_product_id: 'product-1',
         p_supplier_name: 'Main Supplier',
         p_transaction_date: '2026-05-12T12:30:15.250Z',
+        p_unit_index: null,
         p_update_product_default: false,
         p_variant_id: null,
       }
@@ -247,6 +250,42 @@ describe('useUpdateTransactionCostPrice', () => {
         p_product_id: 'product-1',
         p_update_product_default: true,
         p_variant_id: 'variant-1',
+      })
+    );
+  });
+
+  it('forwards unit-level identifier fields to the RPC for per-unit cost edits', async () => {
+    const mutation = getMutation();
+
+    await mutation.mutationFn(
+      makeInput({
+        identifierType: 'imei',
+        identifierValue: '356938035643809',
+        unitIndex: 0,
+      })
+    );
+
+    expect(supabaseMock.rpc).toHaveBeenCalledWith(
+      'update_transaction_review_details',
+      expect.objectContaining({
+        p_identifier_type: 'imei',
+        p_identifier_value: '356938035643809',
+        p_unit_index: 0,
+      })
+    );
+  });
+
+  it('defaults unit-level fields to null for order-item-level cost edits', async () => {
+    const mutation = getMutation();
+
+    await mutation.mutationFn(makeInput());
+
+    expect(supabaseMock.rpc).toHaveBeenCalledWith(
+      'update_transaction_review_details',
+      expect.objectContaining({
+        p_identifier_type: null,
+        p_identifier_value: null,
+        p_unit_index: null,
       })
     );
   });

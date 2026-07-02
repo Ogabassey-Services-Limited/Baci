@@ -4,6 +4,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   RefreshControl,
@@ -25,12 +26,14 @@ import {
 import { useAnalyticsOverview } from '@/hooks/useAnalyticsOverview';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
 import {
   type AnalyticsDateFilter,
   getAnalyticsFilterLabel,
   resolveAnalyticsDateRange,
 } from '@/lib/analytics-period';
+import { baciFeatureGates } from '@/lib/feature-gates';
 
 const DATE_FILTERS: { value: AnalyticsDateFilter; label: string }[] = [
   { value: 'today', label: 'Today' },
@@ -197,6 +200,7 @@ function formatDate(date: Date): string {
 export default function AnalyticsScreen() {
   const { colors, isDark } = useTheme();
   const { merchant } = useMerchant();
+  const { isPro } = useRevenueCat();
   const { formatCompact } = useCurrency();
   const router = useRouter();
   const [showDateFilter, setShowDateFilter] = useState(false);
@@ -269,7 +273,29 @@ export default function AnalyticsScreen() {
     startDate: range.startDate.toISOString(),
   });
 
+  const hasAdvancedAnalytics =
+    isPro || baciFeatureGates.hasFeature(merchant, 'advanced_analytics');
+
+  const showAdvancedAnalyticsUpgrade = () => {
+    Alert.alert(
+      'Baci Pro',
+      'Advanced analytics reports, custom ranges, and drilldowns are available on Baci Pro.',
+      [
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: 'Upgrade',
+          onPress: () => router.push('/(admin)/subscribe'),
+        },
+      ]
+    );
+  };
+
   const pushMetricDetail = (metric: string) => {
+    if (!hasAdvancedAnalytics) {
+      showAdvancedAnalyticsUpgrade();
+      return;
+    }
+
     router.push({
       pathname: '/analytics/[metric]',
       params: { metric, ...buildAnalyticsParams() },
@@ -277,6 +303,11 @@ export default function AnalyticsScreen() {
   };
 
   const pushInsightDetail = (kind: string) => {
+    if (!hasAdvancedAnalytics) {
+      showAdvancedAnalyticsUpgrade();
+      return;
+    }
+
     router.push({
       pathname: '/analytics/insights',
       params: { kind, ...buildAnalyticsParams() },
@@ -284,6 +315,11 @@ export default function AnalyticsScreen() {
   };
 
   const pushProducts = () => {
+    if (!hasAdvancedAnalytics) {
+      showAdvancedAnalyticsUpgrade();
+      return;
+    }
+
     router.push({
       pathname: '/analytics/products',
       params: buildAnalyticsParams(),
@@ -319,7 +355,14 @@ export default function AnalyticsScreen() {
           {/* Reports Button - Right side */}
           <Pressable
             style={[styles.reportButton]}
-            onPress={() => setReportModalVisible(true)}
+            onPress={() => {
+              if (hasAdvancedAnalytics) {
+                setReportModalVisible(true);
+                return;
+              }
+
+              showAdvancedAnalyticsUpgrade();
+            }}
           >
             <Ionicons
               name="document-text-outline"
@@ -578,20 +621,9 @@ export default function AnalyticsScreen() {
               />
 
               {/* Top Items */}
-              {analytics.topSupplier && (
-                <TopItemRow
-                  label="Top Supplier"
-                  name={analytics.topSupplier.supplierName}
-                  subtitle={`${analytics.topSupplier.unitCount} units sourced - ${formatCompact(analytics.topSupplier.totalCost)} cost`}
-                  onPress={() => pushInsightDetail('suppliers')}
-                  colors={colors}
-                  accentColor={ACCENT_COLOR}
-                />
-              )}
-
               {analytics.topBrand && (
                 <TopItemRow
-                  label="Top Brand"
+                  label="Top Vendor"
                   name={analytics.topBrand.name}
                   subtitle={`#1 in Sales: ${formatCompact(analytics.topBrand.revenue ?? 0)}`}
                   onPress={() => pushInsightDetail('brands')}
@@ -617,6 +649,17 @@ export default function AnalyticsScreen() {
                   name={analytics.topCustomer.name}
                   subtitle={`#1 in Purchases: ${analytics.topCustomer.value} orders`}
                   onPress={() => pushInsightDetail('customers')}
+                  colors={colors}
+                  accentColor={ACCENT_COLOR}
+                />
+              )}
+
+              {analytics.topSupplier && (
+                <TopItemRow
+                  label="Top Supplier"
+                  name={analytics.topSupplier.supplierName}
+                  subtitle={`${analytics.topSupplier.unitCount} units sourced - ${formatCompact(analytics.topSupplier.totalCost)} cost`}
+                  onPress={() => pushInsightDetail('suppliers')}
                   colors={colors}
                   accentColor={ACCENT_COLOR}
                 />
@@ -695,9 +738,11 @@ export default function AnalyticsScreen() {
                     },
                   ]}
                   onPress={() =>
-                    setShowDatePicker(
-                      showDatePicker === 'start' ? null : 'start'
-                    )
+                    hasAdvancedAnalytics
+                      ? setShowDatePicker(
+                          showDatePicker === 'start' ? null : 'start'
+                        )
+                      : showAdvancedAnalyticsUpgrade()
                   }
                 >
                   <Text
@@ -725,7 +770,11 @@ export default function AnalyticsScreen() {
                     },
                   ]}
                   onPress={() =>
-                    setShowDatePicker(showDatePicker === 'end' ? null : 'end')
+                    hasAdvancedAnalytics
+                      ? setShowDatePicker(
+                          showDatePicker === 'end' ? null : 'end'
+                        )
+                      : showAdvancedAnalyticsUpgrade()
                   }
                 >
                   <Text
