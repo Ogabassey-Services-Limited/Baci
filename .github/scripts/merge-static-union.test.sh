@@ -83,14 +83,22 @@ test4_out="$TMPDIR/t4/out/_next/static/chunks"
 mkdir -p "$test4_out" "$test4_union/files/chunks"
 now=$(date +%s)
 for i in 1 2 3; do
-  head -c 1000000 /dev/zero > "$test4_union/files/chunks/f${i}-old.js"
+  head -c 4000000 /dev/zero > "$test4_union/files/chunks/f${i}-old.js"
   ts=$(( now - (4 - i) * 100 )) # f1 is oldest, f3 is newest
   printf 'chunks/f%s-old.js\t%s\n' "$i" "$ts" >> "$test4_union/manifest.tsv"
 done
 printf 'content-a\n' > "$test4_out/a-111.js"
 
-# 3 x ~1MB files exceed a 2MB cap; the oldest (f1) must go first.
-output=$(run_merge "$TMPDIR/t4/union" "$TMPDIR/t4/out/_next/static" 172800 2 2>&1)
+# The script sizes files with exact byte counts (find -printf '%s' / stat -c
+# %s) and computes the cap as MAX_UNION_MEGABYTES * 1024 * 1024 (binary MiB).
+# 3 x 4,000,000-byte files = 12,000,000 bytes against a 10MB cap
+# (10,485,760 bytes) clears the "must prune" threshold with ~14% headroom
+# even under the more permissive binary reading; removing just the oldest
+# leaves 8,000,000 bytes against the same cap with ~24% headroom under the
+# stricter decimal reading (10,000,000 bytes). Both margins comfortably
+# exceed the ~4.86% gap between decimal (10^6) and binary (2^20) "MB", so
+# "exactly the oldest is pruned" is deterministic under either arithmetic.
+output=$(run_merge "$TMPDIR/t4/union" "$TMPDIR/t4/out/_next/static" 172800 10 2>&1)
 printf '%s' "$output" | grep -q 'pruned=1' || fail "size-cap prune should remove exactly one file: $output"
 [ ! -f "$test4_union/files/chunks/f1-old.js" ] || fail "oldest file f1 should be pruned first under the size cap"
 [ -f "$test4_union/files/chunks/f2-old.js" ] || fail "newer file f2 should survive size-cap pruning"

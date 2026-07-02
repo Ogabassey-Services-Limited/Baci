@@ -1,4 +1,5 @@
 import { renderHook } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChunkLoadRecoveryBoundary } from './use-chunk-load-recovery-boundary';
 
@@ -37,6 +38,25 @@ describe('useChunkLoadRecoveryBoundary', () => {
 
     expect(result.current).toBe(true);
     expect(mockAttemptChunkLoadRecoveryFromBoundary).toHaveBeenCalledTimes(1);
+  });
+
+  it('attempts recovery exactly once for the same error instance even when StrictMode double-invokes the effect', () => {
+    mockIsChunkLoadRecoveryPending.mockReturnValue(true);
+    const error = new Error('Loading chunk 3 failed');
+
+    const { result } = renderHook(
+      ({ currentError }) => useChunkLoadRecoveryBoundary(currentError),
+      {
+        initialProps: { currentError: error },
+        wrapper: ({ children }) => <StrictMode>{children}</StrictMode>,
+      }
+    );
+
+    expect(result.current).toBe(true);
+    expect(mockAttemptChunkLoadRecoveryFromBoundary).toHaveBeenCalledTimes(1);
+    expect(mockAttemptChunkLoadRecoveryFromBoundary).toHaveBeenCalledWith(
+      error
+    );
   });
 
   it('returns false and never attempts recovery when the error is not a pending chunk failure', () => {

@@ -98,6 +98,16 @@ describe('detectChunkFailureFromValue', () => {
 
     expect(detectChunkFailureFromValue(error)).toBeNull();
   });
+
+  it('does not treat chunk urls in a plain object stack as chunk failures', () => {
+    const details = detectChunkFailureFromValue({
+      name: 'CustomError',
+      message: 'unrelated failure',
+      stack: 'at https://x/_next/static/chunks/app.js:1:1',
+    });
+
+    expect(details).toBeNull();
+  });
 });
 
 describe('detectChunkFailureFromResourceTarget', () => {

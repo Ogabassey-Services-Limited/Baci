@@ -83,6 +83,10 @@ function getLoadedNextAssetFingerprint(): string | undefined {
  * then a fingerprint of the loaded `_next` asset URLs (which carry `?dpl=`).
  */
 export function getPageDeploymentId(): string {
+  if (typeof document === 'undefined') {
+    return 'unknown-deployment';
+  }
+
   return (
     getNextDeploymentIdGlobal() ||
     document.documentElement.dataset.dplId ||

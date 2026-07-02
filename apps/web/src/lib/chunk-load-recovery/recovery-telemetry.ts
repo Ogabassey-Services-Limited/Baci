@@ -119,11 +119,13 @@ export function sendChunkRecoveryTelemetry(
       return;
     }
 
-    void fetch(endpoint, {
+    fetch(endpoint, {
       body: payload,
       headers: { 'Content-Type': 'application/json' },
       keepalive: true,
       method: 'POST',
+    }).catch(() => {
+      // A rejected transport must not surface as an unhandled rejection.
     });
   } catch {
     // Telemetry must never interfere with the recovery reload itself.

@@ -134,4 +134,25 @@ describe('sendChunkRecoveryTelemetry', () => {
 
     expect(() => sendChunkRecoveryTelemetry(baseTelemetry)).not.toThrow();
   });
+
+  it('does not throw or leave an unhandled rejection when the fetch fallback rejects', async () => {
+    Object.defineProperty(window.navigator, 'sendBeacon', {
+      configurable: true,
+      value: undefined,
+    });
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new Error('network down'));
+
+    expect(() => sendChunkRecoveryTelemetry(baseTelemetry)).not.toThrow();
+
+    await vi.waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalled();
+    });
+
+    // Flush the microtask queue so the rejected fetch promise's .catch()
+    // handler (attached synchronously in the source) has a chance to run;
+    // an unhandled rejection here would fail the test process.
+    await Promise.resolve();
+  });
 });

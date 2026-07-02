@@ -39,6 +39,14 @@ OUTPUT_STATIC_DIR="${OUTPUT_STATIC_DIR:?OUTPUT_STATIC_DIR env var is required}"
 RETENTION_SECONDS="${RETENTION_SECONDS:-172800}"
 MAX_UNION_MEGABYTES="${MAX_UNION_MEGABYTES:-512}"
 
+# Strip any trailing slash now that both dirs are validated as present. The
+# "${file#"$DIR"/}" prefix-stripping below assumes a single-slash boundary
+# (find always emits single-slash paths); a caller-supplied trailing slash
+# would otherwise make the prefix stripping a no-op and leave relpath equal
+# to the full absolute path.
+UNION_DIR="${UNION_DIR%/}"
+OUTPUT_STATIC_DIR="${OUTPUT_STATIC_DIR%/}"
+
 # --- Step 1: validate the freshly built static output exists and is non-empty.
 # A missing/empty build output means this run has nothing safe to protect;
 # fail loudly here. The caller (deploy workflow) is expected to wrap this

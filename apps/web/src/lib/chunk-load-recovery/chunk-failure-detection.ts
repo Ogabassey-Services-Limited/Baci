@@ -29,10 +29,12 @@ function getErrorMessage(value: unknown): string {
   }
 
   if (typeof value === 'object' && value !== null) {
+    // Own name/message only — stacks mention chunk urls for ANY error thrown
+    // from bundled code, so including them would misclassify unrelated
+    // failures as chunk-load failures.
     return [
       getOwnStringProperty(value, 'name'),
       getOwnStringProperty(value, 'message'),
-      getOwnStringProperty(value, 'stack'),
     ]
       .filter((entry): entry is string => typeof entry === 'string')
       .join(' ');

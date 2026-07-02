@@ -53,14 +53,18 @@ function runRecovery(
 ): boolean {
   const decision = resolveGuardDecision(runtime, true);
 
-  runtime.sendTelemetry?.({
-    action: decision === 'reload' ? 'reload' : decision,
-    failedAssetDeploymentId: details.failedAssetDeploymentId,
-    failedAssetUrl: details.failedAssetUrl,
-    pageDeploymentId: runtime.getDeploymentId(),
-    pathname: runtime.getPathname(),
-    triggerSource,
-  });
+  try {
+    runtime.sendTelemetry?.({
+      action: decision === 'reload' ? 'reload' : decision,
+      failedAssetDeploymentId: details.failedAssetDeploymentId,
+      failedAssetUrl: details.failedAssetUrl,
+      pageDeploymentId: runtime.getDeploymentId(),
+      pathname: runtime.getPathname(),
+      triggerSource,
+    });
+  } catch {
+    // Telemetry is best-effort; it must never block the recovery reload.
+  }
 
   if (decision !== 'reload') {
     return false;

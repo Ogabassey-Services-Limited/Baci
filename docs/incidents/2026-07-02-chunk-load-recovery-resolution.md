@@ -16,17 +16,31 @@ permanent fix changes.
   12-hour Vercel Skew Protection window** (most 1–6h after their build).
   Skew protection (enabled, `skewProtectionMaxAge=43200`) rescued none of
   them.
-- **Pinning is inert for the custom deployment id**: requests against
-  production with `?dpl=`, `x-deployment-id`, and `__vdpl` for a verified
-  previous in-window deployment id all returned the *current* deployment's
-  HTML. This matches the open upstream bug class around prebuilt deploys with
-  custom deployment ids (vercel/next.js#94734; Vercel support confirmed the
-  edge "did not end up pinning the request" for that reporter). Requests for
-  chunk filenames absent from the current deployment return 404 regardless of
-  dpl.
-- **~46% of failing chunk filenames are genuinely superseded** (404 today =
-  hard deploy skew); ~54% are hash-stable across builds and still 200 —
-  those failures were transient network errors (83.7% of events are mobile).
+- **Pinning behavior is split by surface.** Document requests are never
+  pinned: `?dpl=`, `x-deployment-id`, and `__vdpl` for a verified previous
+  in-window deployment id all return the *current* deployment's HTML.
+  **Asset pinning by the custom id, however, was observed working**: right
+  after a deploy, superseded chunk filenames requested with their own
+  matching old dpl returned 200, while the same paths with the new dpl or no
+  dpl returned 404 (the 200s carried `x-vercel-cache: HIT` with pre-deploy
+  `age`, so origin-level routing vs edge-cache serving could not be fully
+  separated). Note the adjacent open upstream bug class for prebuilt custom
+  ids (vercel/next.js#94734) — pinning here is fragile, version-dependent,
+  and unobservable when it fails.
+- **404s under `/_next/static` are edge-cached with
+  `cache-control: public, max-age=31536000, must-revalidate`** (verified
+  twice, `x-vercel-cache: HIT` on the 404 itself). One mid-deploy race or
+  propagation gap poisons that (path, dpl) for a whole PoP essentially
+  permanently. This best explains the largest failure cohort: hash-stable
+  chunk filenames (still 200 today from other vantage points) failing
+  repeatedly for different sessions on working networks, all in-window with
+  matching dpls.
+- **~46% of failing chunk filenames are superseded and 404 today** (probed
+  days later — consistent with expired retention and with era transitions in
+  the dpl scheme: no-dpl → git-SHA → run-id formats all appear in-window);
+  ~54% are hash-stable across builds and still 200 — transient mobile
+  network failures plus the cached-404 mechanism above (83.7% of events are
+  mobile).
 - **31.5% of events were `mechanism.handled=true`** — caught by route
   `error.tsx` boundaries. In production, React 19 / Next 16 `onCaughtError`
   only calls `console.error`: no `window` error event, no unhandled
@@ -50,11 +64,14 @@ permanent fix changes.
 
 High deploy cadence (~10 production deploys/day) × stale HTML held by
 long-lived mobile tabs (and, for up to `s-maxage=300` +
-`stale-while-revalidate=3600`, by the edge HTML cache) × **Vercel skew
-protection not pinning by the custom prebuilt deployment id** ⇒ stale
-clients 404 on superseded chunk hashes. The client recovery mitigation then
-missed the boundary-caught third of failures, missed resource-load failures,
-failed closed without sessionStorage, and could not prove it ever ran.
+`stale-while-revalidate=3600`, by the edge HTML cache) × a fragile chunk
+availability chain: skew-protection pinning that is unobservable when it
+fails and capped at 12h, year-cacheable edge 404s that turn one deploy-race
+miss into persistent per-PoP breakage, dpl-scheme transitions, and flaky
+mobile networks ⇒ stale (and sometimes current) clients 404 on chunk
+fetches. The client recovery mitigation then missed the boundary-caught
+third of failures, missed resource-load failures, failed closed without
+sessionStorage, and could not prove it ever ran.
 
 ## Permanent fix (this change)
 
@@ -133,9 +150,15 @@ seconds) or the event says why not.
 
 ## Follow-ups (not in this change)
 
-- Watch vercel/next.js#94734; if Vercel fixes custom-id pinning for prebuilt
-  deploys, the union becomes belt-and-braces rather than load-bearing.
-  Consider raising `skewProtectionMaxAge` (now allowed up to deployment
-  retention) once pinning demonstrably works.
+- **Raise the year-cacheable `/_next/static` 404s with Vercel support.**
+  A 404 for a chunk cached with `max-age=31536000` at the edge converts one
+  deploy-window race into persistent per-PoP breakage; the union removes the
+  skew-driven cause but cannot purge an already-poisoned edge entry. The new
+  `chunk_load_recovery` telemetry (`deployment_id_match: true` + repeat
+  errors on the same asset after reload) will quantify how often this
+  happens.
+- Watch vercel/next.js#94734 and Vercel's prebuilt custom-id pinning;
+  consider raising `skewProtectionMaxAge` (now allowed up to deployment
+  retention) once pinning is demonstrably reliable end-to-end.
 - The union cache seed starts empty; full protection begins after ~48h of
   deploys have accumulated.

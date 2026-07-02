@@ -34,10 +34,11 @@ export function useBoundaryErrorReport(
     reportedErrorRef.current = error;
 
     captureClientException(error, {
+      ...options.properties,
+      // Reserved reporting fields always win over caller-supplied properties.
       digest: error.digest,
       recovery_action: recovering ? 'reload-scheduled' : 'none',
       route_surface: options.routeSurface,
-      ...options.properties,
     });
     console.error(`${options.logLabel}:`, error);
   }, [error, recovering, options]);
