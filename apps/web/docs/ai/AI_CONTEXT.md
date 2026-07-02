@@ -9,9 +9,9 @@
 ## Quick Reference
 
 ### Tech Stack
-- **Framework:** Next.js 16.0.0 (App Router)
-- **Language:** TypeScript 5.5.4 (strict mode)
-- **Styling:** Tailwind CSS 3.4.7 + shadcn/ui
+- **Framework:** Next.js 16.2.9 (App Router)
+- **Language:** TypeScript 5.9.3 (strict mode)
+- **Styling:** Tailwind CSS 4.3.0 + shadcn/ui
 - **AI Engine:** Google Genkit 1.20.0 with Gemini 2.5 Flash models
 - **Forms:** React Hook Form 7.54.2 + Zod 3.24.2 validation
 - **Database:** Supabase (PostgreSQL)
