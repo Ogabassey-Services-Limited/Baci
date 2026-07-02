@@ -161,10 +161,6 @@ vi.mock('@/lib/expo-push', () => ({
   notifyPaymentReceived: mockNotifyPaymentReceived,
 }));
 
-vi.mock('@/lib/gigl', () => ({
-  createGiglShipment: mockCreateGiglShipment,
-}));
-
 vi.mock('@/lib/zeptomail', () => ({
   sendEmail: mockSendEmail,
 }));
@@ -178,7 +174,6 @@ vi.mock('@/lib/geo-privacy', () => ({
 }));
 
 vi.mock('@/lib/shipping/providers/gigl', () => ({
-  createGiglShipment: vi.fn(),
   giglProvider: {
     getLocations: vi.fn().mockResolvedValue([]),
   },

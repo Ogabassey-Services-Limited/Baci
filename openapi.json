@@ -231,16 +231,6 @@
           }
         }
       }
-    },
-    "/api/shipping/quote": {
-      "post": {
-        "summary": "Get shipping quote",
-        "responses": {
-          "200": {
-            "description": "Shipping quotes"
-          }
-        }
-      }
     }
   }
 }
