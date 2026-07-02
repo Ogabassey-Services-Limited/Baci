@@ -1,7 +1,7 @@
 import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
 import type { Data } from '@puckeditor/core';
 import { renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCopilotBuilderActions } from './use-copilot-builder-actions';
 
 vi.mock('@copilotkit/react-core', () => ({
@@ -44,6 +44,10 @@ describe('useCopilotBuilderActions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(Date, 'now').mockReturnValue(1234);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('registers readable builder state for the assistant', () => {

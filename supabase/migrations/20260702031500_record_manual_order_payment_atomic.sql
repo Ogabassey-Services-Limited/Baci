@@ -31,6 +31,7 @@ declare
   v_payment_status text;
   v_shipping_status text;
   v_cancelled_at timestamptz;
+  v_gateway_reference text := nullif(trim(p_gateway_reference), '');
 begin
   if p_amount is null or p_amount <= 0 or p_amount = 'NaN'::numeric then
     return jsonb_build_object('error_code', 'INVALID_AMOUNT');
@@ -90,6 +91,7 @@ begin
         'korapay',
         'kuda',
         'credit_direct',
+        'klump',
         'juicyway'
       )
   ) then
@@ -126,12 +128,12 @@ begin
     );
   end if;
 
-  if p_gateway_reference is not null and exists (
+  if v_gateway_reference is not null and exists (
     select 1
     from public.transactions as t
     where t.order_id = p_order_id
       and t.merchant_id = p_merchant_id
-      and t.gateway_reference = p_gateway_reference
+      and t.gateway_reference = v_gateway_reference
       and t.status = 'completed'
   ) then
     return jsonb_build_object('error_code', 'DUPLICATE_REFERENCE');
@@ -159,7 +161,7 @@ begin
     coalesce(nullif(trim(v_order.currency), ''), 'NGN'),
     'completed',
     'manual',
-    p_gateway_reference,
+    v_gateway_reference,
     p_description,
     coalesce(p_metadata, '{}'::jsonb)
   )

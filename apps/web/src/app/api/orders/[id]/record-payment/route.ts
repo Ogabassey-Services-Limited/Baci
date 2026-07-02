@@ -297,6 +297,7 @@ export async function POST(
       'korapay',
       'kuda',
       'credit_direct',
+      'klump',
       'juicyway',
     ]);
     const pendingProcessorTxn = relevantTxns?.find(

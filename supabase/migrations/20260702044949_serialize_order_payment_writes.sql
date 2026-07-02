@@ -113,7 +113,8 @@ BEGIN
     END IF;
   END IF;
 
-  IF lower(trim(v_order_email)) <> lower(trim(p_customer_email)) THEN
+  IF lower(trim(COALESCE(v_order_email, ''))) IS DISTINCT FROM
+    lower(trim(COALESCE(p_customer_email, ''))) THEN
     RAISE EXCEPTION 'email_mismatch';
   END IF;
 

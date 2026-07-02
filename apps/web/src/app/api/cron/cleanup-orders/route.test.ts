@@ -36,6 +36,8 @@ const markAbandonedOrdersDefinitionPattern =
   /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+(?:(?:"public"|public)\s*\.\s*)?(?:"mark_abandoned_orders"|mark_abandoned_orders)\s*\(/i;
 const createPaymentTransactionDefinitionPattern =
   /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+(?:(?:"public"|public)\s*\.\s*)?(?:"create_payment_transaction"|create_payment_transaction)\s*\(/i;
+const recordManualOrderPaymentDefinitionPattern =
+  /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+(?:(?:"public"|public)\s*\.\s*)?(?:"record_manual_order_payment"|record_manual_order_payment)\s*\(/i;
 
 function createCronRequest(auth = 'Bearer cron-secret') {
   return new NextRequest('http://localhost:3000/api/cron/cleanup-orders', {
@@ -72,6 +74,16 @@ function readLatestCreatePaymentTransactionMigrationSql() {
   }
 
   throw new Error('No create_payment_transaction migration found');
+}
+
+function readLatestRecordManualOrderPaymentMigrationSql() {
+  for (const { sql } of readMigrationSqlFiles().toReversed()) {
+    if (recordManualOrderPaymentDefinitionPattern.test(sql)) {
+      return sql;
+    }
+  }
+
+  throw new Error('No record_manual_order_payment migration found');
 }
 
 function readAppliedMarkAbandonedOrdersSql() {
@@ -199,6 +211,9 @@ describe('create_payment_transaction migration contract', () => {
     expect(sql).toMatch(/public\.merchants\b/i);
     expect(sql).toMatch(/public\.staff_members\b/i);
     expect(sql).toMatch(/RAISE\s+EXCEPTION\s+'reference_in_use'/i);
+    expect(sql).toMatch(/IS\s+DISTINCT\s+FROM/i);
+    expect(sql).toMatch(/COALESCE\(v_order_email,\s*''\)/i);
+    expect(sql).toMatch(/COALESCE\(p_customer_email,\s*''\)/i);
     expect(sql).toMatch(/pg_advisory_xact_lock/i);
     expect(sql).toMatch(/baci_order_payment:/i);
     expect(sql).toMatch(/hashtextextended\(v_reference,\s*0\)/i);
@@ -220,5 +235,21 @@ describe('create_payment_transaction migration contract', () => {
     expect(sql).toMatch(
       /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.create_payment_transaction[\s\S]*jsonb[\s\S]*TO[\s\S]*\bservice_role\b/i
     );
+  });
+});
+
+describe('record_manual_order_payment migration contract', () => {
+  it('normalizes manual references and blocks every pending processor gateway', () => {
+    const sql = readLatestRecordManualOrderPaymentMigrationSql();
+
+    expect(sql).toMatch(recordManualOrderPaymentDefinitionPattern);
+    expect(sql).toMatch(
+      /v_gateway_reference\s+text\s*:=\s*nullif\(trim\(p_gateway_reference\),\s*''\)/i
+    );
+    expect(sql).toMatch(/t\.gateway_reference\s*=\s*v_gateway_reference/i);
+    expect(sql).toMatch(/'manual',[\s\S]*v_gateway_reference/i);
+    expect(sql).toMatch(/'credit_direct'/i);
+    expect(sql).toMatch(/'klump'/i);
+    expect(sql).toMatch(/'juicyway'/i);
   });
 });
