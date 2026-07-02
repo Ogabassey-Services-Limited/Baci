@@ -40,13 +40,21 @@ function isLoopbackOrigin(origin: string): boolean {
   }
 }
 
+function isLoopbackHost(value: string): boolean {
+  try {
+    return isLoopbackOrigin(new URL(`http://${value}`).origin);
+  } catch {
+    return false;
+  }
+}
+
 function normalizeTrustedInternalBaseUrl(value: string | undefined) {
   const trimmed = value?.trim();
   if (!trimmed) return null;
 
   const candidate = /^https?:\/\//i.test(trimmed)
     ? trimmed
-    : `https://${trimmed}`;
+    : `${isLoopbackHost(trimmed) ? 'http' : 'https'}://${trimmed}`;
 
   try {
     const url = new URL(candidate);
@@ -69,6 +77,11 @@ function isProductionDeploymentEnvironment() {
 }
 
 function resolveBaseUrl(origin: string): string | null {
+  if (isLoopbackOrigin(origin)) return origin;
+
+  const vercelEnv = process.env.VERCEL_ENV?.trim();
+  if (vercelEnv && vercelEnv !== 'production') return null;
+
   const configuredRootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim();
   const rootDomain =
     configuredRootDomain ||
@@ -77,7 +90,7 @@ function resolveBaseUrl(origin: string): string | null {
 
   if (configuredBaseUrl) return configuredBaseUrl;
 
-  return isLoopbackOrigin(origin) ? origin : null;
+  return null;
 }
 
 function warnFailOpen(context: StorefrontInternalPreflightContext) {

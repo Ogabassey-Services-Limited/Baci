@@ -56,6 +56,34 @@ describe('storefrontInternalPreflight', () => {
     ).toBe('https://usebaci.com');
   });
 
+  it('prefers the loopback request origin over the configured public root', () => {
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+
+    expect(
+      storefrontInternalPreflight.resolveBaseUrl('http://localhost:3000')
+    ).toBe('http://localhost:3000');
+  });
+
+  it('normalizes bare loopback root domains to http', () => {
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'localhost:3000';
+
+    expect(
+      storefrontInternalPreflight.resolveBaseUrl('https://ogabassey.com')
+    ).toBe('http://localhost:3000');
+  });
+
+  it('does not route preview deployment preflights through the production root', () => {
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL_ENV', 'preview');
+
+    expect(
+      storefrontInternalPreflight.resolveBaseUrl(
+        'https://baci-feature.vercel.app'
+      )
+    ).toBeNull();
+  });
+
   it('uses the hardcoded public root fallback only for production deployments', () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('VERCEL_ENV', 'production');
