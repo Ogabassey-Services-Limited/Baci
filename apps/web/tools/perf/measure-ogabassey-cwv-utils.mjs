@@ -221,7 +221,6 @@ function buildOgaBasseyCwvConfigurationFailures({
   hasDiscoverableDebugBearProject,
   isDebugBearDisabled = false,
   isDebugBearExplicitlyEnabled,
-  shouldAttemptDebugBear = false,
   shouldRunDebugBear,
   shouldRunPsi,
   targetResolutionFailures = [],
@@ -249,7 +248,7 @@ function buildOgaBasseyCwvConfigurationFailures({
 
   if (
     !isDebugBearDisabled &&
-    shouldAttemptDebugBear &&
+    isDebugBearExplicitlyEnabled &&
     debugBearRequiresConfiguredDeviceUserAgent &&
     !hasConfiguredDebugBearDeviceUserAgent
   ) {

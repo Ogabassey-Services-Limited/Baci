@@ -57,7 +57,7 @@ describe('measure-ogabassey-cwv CLI', () => {
     ]);
   });
 
-  it('does not fail PSI-disabled offline runs for an unused ambient DebugBear key', async () => {
+  it('does not fail PSI-disabled offline runs for unused ambient DebugBear config', async () => {
     const outputDir = await mkdtemp(join(tmpdir(), 'ogabassey-cwv-test-'));
     const scriptPath = join(
       process.cwd(),
@@ -69,6 +69,7 @@ describe('measure-ogabassey-cwv CLI', () => {
       env: {
         ...scriptEnv(outputDir),
         DEBUGBEAR_API_KEY: 'ambient-project-key-without-project-id',
+        DEBUGBEAR_PROJECT_ID: 'ambient-project-id',
         OGABASSEY_CWV_DEBUGBEAR: '',
         OGABASSEY_CWV_PSI: 'false',
       },
@@ -81,6 +82,7 @@ describe('measure-ogabassey-cwv CLI', () => {
     expect(summary.failures).toEqual(
       expect.not.arrayContaining([
         expect.objectContaining({ label: 'debugbear-projects' }),
+        expect.objectContaining({ label: 'debugbear-device-user-agent' }),
       ])
     );
     expect(summary.failures).toEqual(
