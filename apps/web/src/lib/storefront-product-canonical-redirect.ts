@@ -1,5 +1,8 @@
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
+import { fetchInternalStatusJson } from './internal-status-preflight';
 import { resolveInternalBaseUrl } from './storefront-product-slug-membership';
+
+const PREFLIGHT_CHECK = 'pdp-canonical';
 
 interface ProductCanonicalRedirectOptions {
   /** Public request origin, used only as a trusted-base fallback in local dev. */
@@ -25,52 +28,67 @@ export async function getStorefrontProductCanonicalRedirectResult(
   opts: ProductCanonicalRedirectOptions
 ): Promise<StorefrontProductCanonicalRedirectResult> {
   if (!opts.secret) {
+    console.warn('[internal-status-preflight] fail-open', {
+      check: PREFLIGHT_CHECK,
+      identifier: opts.identifier,
+      slug: opts.productSlug,
+      reason: 'no-secret',
+    });
     return { kind: 'unknown' };
   }
 
   const baseUrl = resolveInternalBaseUrl(opts.origin);
   if (!baseUrl) {
-    return { kind: 'unknown' };
-  }
-
-  try {
-    const url = new URL(
-      `/api/internal/product-canonical/${encodeURIComponent(opts.identifier)}`,
-      baseUrl
-    );
-    url.searchParams.set('category', opts.category);
-    url.searchParams.set('slug', opts.productSlug);
-
-    const response = await (opts.fetchImpl ?? fetch)(url, {
-      headers: { Authorization: `Bearer ${opts.secret}` },
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 800),
+    console.warn('[internal-status-preflight] fail-open', {
+      check: PREFLIGHT_CHECK,
+      identifier: opts.identifier,
+      slug: opts.productSlug,
+      reason: 'no-base-url',
     });
-
-    if (!response.ok) {
-      return { kind: 'unknown' };
-    }
-
-    const body = (await response.json()) as {
-      hasError?: boolean;
-      matchedProduct?: boolean;
-      redirectPath?: unknown;
-    };
-
-    if (body?.hasError !== false) {
-      return { kind: 'unknown' };
-    }
-
-    const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
-    if (redirectPath) {
-      return { kind: 'redirect', redirectPath };
-    }
-
-    return body.matchedProduct === true
-      ? { kind: 'checked-no-redirect' }
-      : { kind: 'unknown' };
-  } catch {
     return { kind: 'unknown' };
   }
+
+  const url = new URL(
+    `/api/internal/product-canonical/${encodeURIComponent(opts.identifier)}`,
+    baseUrl
+  );
+  url.searchParams.set('category', opts.category);
+  url.searchParams.set('slug', opts.productSlug);
+
+  const result = await fetchInternalStatusJson({
+    url,
+    secret: opts.secret,
+    timeoutMs: opts.timeoutMs ?? 800,
+    fetchImpl: opts.fetchImpl,
+    context: {
+      check: PREFLIGHT_CHECK,
+      identifier: opts.identifier,
+      slug: opts.productSlug,
+    },
+  });
+
+  if (result.kind === 'fail-open') {
+    return { kind: 'unknown' };
+  }
+
+  const body = result.body as {
+    hasError?: boolean;
+    matchedProduct?: boolean;
+    redirectPath?: unknown;
+  };
+
+  if (body?.hasError !== false) {
+    return { kind: 'unknown' };
+  }
+
+  const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
+  if (redirectPath) {
+    return { kind: 'redirect', redirectPath };
+  }
+
+  return body.matchedProduct === true
+    ? { kind: 'checked-no-redirect' }
+    : { kind: 'unknown' };
 }
 
 export async function getStorefrontProductCanonicalRedirectPath(

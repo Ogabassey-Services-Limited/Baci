@@ -3,7 +3,7 @@ import { resolveStorefrontBlogListingStatus } from './storefront-blog-listing-st
 
 const ORIGINAL_INTERNAL_BASE_ENV = {
   NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
-  NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+  VERCEL_ENV: process.env.VERCEL_ENV,
   VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
   VERCEL_URL: process.env.VERCEL_URL,
 };
@@ -20,7 +20,33 @@ function restoreInternalBaseEnv() {
 }
 
 function jsonResponse(body: unknown, ok = true): Response {
-  return { ok, json: () => Promise.resolve(body) } as unknown as Response;
+  return {
+    ok,
+    status: ok ? 200 : 500,
+    type: 'default',
+    headers: new Headers({ 'content-type': 'application/json' }),
+    json: () => Promise.resolve(body),
+  } as unknown as Response;
+}
+
+function htmlResponse(): Response {
+  return {
+    ok: true,
+    status: 200,
+    type: 'default',
+    headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+    json: () => Promise.reject(new Error('should not parse html as json')),
+  } as unknown as Response;
+}
+
+function _htmlResponse(): Response {
+  return {
+    ok: true,
+    status: 200,
+    type: 'default',
+    headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+    json: () => Promise.reject(new Error('should not parse html as json')),
+  } as unknown as Response;
 }
 
 const BASE_OPTS = {
@@ -32,7 +58,7 @@ const BASE_OPTS = {
 describe('resolveStorefrontBlogListingStatus', () => {
   beforeEach(() => {
     delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
-    delete process.env.NEXT_PUBLIC_SITE_URL;
+    delete process.env.VERCEL_ENV;
     delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
     vi.stubEnv('NODE_ENV', 'test');
     process.env.VERCEL_URL = 'baci-test.vercel.app';
@@ -69,6 +95,41 @@ describe('resolveStorefrontBlogListingStatus', () => {
     );
     expect(url.searchParams.get('kind')).toBe('category-query');
     expect(url.searchParams.get('category')).toBe('Smartphones');
+    expect((fetchImpl.mock.calls[0][1] as RequestInit).redirect).toBe('manual');
+  });
+
+  it('pins the internal hop to the platform origin in production and ignores VERCEL_URL', async () => {
+    delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
+    delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+    vi.stubEnv('VERCEL_ENV', 'production');
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    process.env.VERCEL_URL = 'baci-abc123.vercel.app';
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ hasError: false, redirectPath: null, notFound: false })
+      );
+
+    await resolveStorefrontBlogListingStatus({
+      ...BASE_OPTS,
+      intent: { kind: 'listing-page', page: 1 },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const url = new URL(String(fetchImpl.mock.calls[0][0]));
+    expect(url.origin).toBe('https://usebaci.com');
+  });
+
+  it('fails open to noop on a 200 text/html login page', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(htmlResponse());
+
+    const result = await resolveStorefrontBlogListingStatus({
+      ...BASE_OPTS,
+      intent: { kind: 'listing-page', page: 99 },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'noop' });
   });
 
   it('maps a page-clamp redirect to a 307', async () => {

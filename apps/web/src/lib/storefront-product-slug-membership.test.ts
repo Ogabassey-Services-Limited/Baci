@@ -16,8 +16,8 @@ const BASE = {
 
 const ORIGINAL_INTERNAL_BASE_ENV = {
   NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
-  NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   NODE_ENV: process.env.NODE_ENV,
+  VERCEL_ENV: process.env.VERCEL_ENV,
   VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
   VERCEL_URL: process.env.VERCEL_URL,
 };
@@ -36,7 +36,7 @@ function restoreInternalBaseEnv() {
 
 function clearConfiguredInternalBaseEnv() {
   delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
-  delete process.env.NEXT_PUBLIC_SITE_URL;
+  delete process.env.VERCEL_ENV;
   delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
   delete process.env.VERCEL_URL;
   vi.stubEnv('NODE_ENV', 'test');
@@ -45,7 +45,30 @@ function clearConfiguredInternalBaseEnv() {
 function jsonResponse(body: unknown, ok = true): Response {
   return {
     ok,
+    status: ok ? 200 : 500,
+    type: 'default',
+    headers: new Headers({ 'content-type': 'application/json' }),
     json: () => Promise.resolve(body),
+  } as unknown as Response;
+}
+
+function htmlResponse(): Response {
+  return {
+    ok: true,
+    status: 200,
+    type: 'default',
+    headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+    json: () => Promise.reject(new Error('should not parse html as json')),
+  } as unknown as Response;
+}
+
+function _htmlResponse(): Response {
+  return {
+    ok: true,
+    status: 200,
+    type: 'default',
+    headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+    json: () => Promise.reject(new Error('should not parse html as json')),
   } as unknown as Response;
 }
 
@@ -83,6 +106,21 @@ describe('isStorefrontProductSlugMissing', () => {
     expect((init as RequestInit).headers).toMatchObject({
       Authorization: 'Bearer internal-secret',
     });
+    // redirect:'manual' so a Deployment-Protection SSO 302 is surfaced as a
+    // fail-open instead of being followed to the HTML login page.
+    expect((init as RequestInit).redirect).toBe('manual');
+  });
+
+  it('fails open (present) when the internal endpoint returns a 200 text/html login page', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(htmlResponse());
+
+    const result = await isStorefrontProductSlugMissing({
+      ...BASE,
+      productSlug: 'totally-made-up',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toBe(false);
   });
 
   it('returns false (present) when the route reports the slug present', async () => {
@@ -132,9 +170,13 @@ describe('isStorefrontProductSlugMissing', () => {
     expect(url.origin).toBe('https://usebaci.com');
   });
 
-  it('uses NEXT_PUBLIC_SITE_URL as a configured platform origin', async () => {
-    delete process.env.VERCEL_URL;
-    process.env.NEXT_PUBLIC_SITE_URL = 'https://usebaci.com';
+  it('pins the internal hop to NEXT_PUBLIC_ROOT_DOMAIN in production and IGNORES VERCEL_URL', async () => {
+    // In Vercel production VERCEL_URL is SSO-walled, so it must never be used —
+    // even when set. The internal hop routes through the public platform origin.
+    clearConfiguredInternalBaseEnv();
+    vi.stubEnv('VERCEL_ENV', 'production');
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    process.env.VERCEL_URL = 'baci-abc123.vercel.app';
     const fetchImpl = vi
       .fn()
       .mockResolvedValue(jsonResponse({ hasError: false, present: false }));
@@ -149,10 +191,9 @@ describe('isStorefrontProductSlugMissing', () => {
     expect(url.origin).toBe('https://usebaci.com');
   });
 
-  it('uses the configured root domain fallback only in production', async () => {
+  it('defaults the production internal hop to usebaci.com when NEXT_PUBLIC_ROOT_DOMAIN is unset', async () => {
     clearConfiguredInternalBaseEnv();
-    vi.stubEnv('NODE_ENV', 'production');
-    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    vi.stubEnv('VERCEL_ENV', 'production');
     const fetchImpl = vi
       .fn()
       .mockResolvedValue(jsonResponse({ hasError: false, present: false }));

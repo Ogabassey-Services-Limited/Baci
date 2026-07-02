@@ -6,8 +6,8 @@ import {
 
 const ORIGINAL_INTERNAL_BASE_ENV = {
   NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
-  NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   NODE_ENV: process.env.NODE_ENV,
+  VERCEL_ENV: process.env.VERCEL_ENV,
   VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
   VERCEL_URL: process.env.VERCEL_URL,
 };
@@ -27,7 +27,7 @@ function restoreInternalBaseEnv() {
 
 function clearConfiguredInternalBaseEnv() {
   delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
-  delete process.env.NEXT_PUBLIC_SITE_URL;
+  delete process.env.VERCEL_ENV;
   delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
   delete process.env.VERCEL_URL;
   vi.stubEnv('NODE_ENV', 'test');
@@ -37,6 +37,20 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     headers: { 'Content-Type': 'application/json' },
     status,
+  });
+}
+
+function htmlResponse() {
+  return new Response('<!doctype html><title>Login</title>', {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    status: 200,
+  });
+}
+
+function _htmlResponse() {
+  return new Response('<!doctype html><title>Login</title>', {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    status: 200,
   });
 }
 
@@ -73,6 +87,22 @@ describe('getStorefrontProductCanonicalRedirectPath', () => {
     expect((init as RequestInit).headers).toEqual({
       Authorization: `Bearer ${SECRET}`,
     });
+    expect((init as RequestInit).redirect).toBe('manual');
+  });
+
+  it('fails open (unknown) on a 200 text/html login page', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => htmlResponse());
+
+    await expect(
+      getStorefrontProductCanonicalRedirectResult({
+        origin: 'https://ogabassey.com',
+        identifier: 'ogabassey.com',
+        category: 'apple',
+        productSlug: 'iphone-15-128gb',
+        secret: SECRET,
+        fetchImpl,
+      })
+    ).resolves.toEqual({ kind: 'unknown' });
   });
 
   it('returns checked-no-redirect when the internal endpoint matched a canonical product', async () => {
@@ -171,10 +201,11 @@ describe('getStorefrontProductCanonicalRedirectPath', () => {
     ).resolves.toBeNull();
   });
 
-  it('uses the production root domain fallback for canonical preflight redirects', async () => {
+  it('pins canonical preflight redirects to the platform origin in production and ignores VERCEL_URL', async () => {
     clearConfiguredInternalBaseEnv();
-    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL_ENV', 'production');
     process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    process.env.VERCEL_URL = 'baci-abc123.vercel.app';
     const fetchImpl = vi.fn<typeof fetch>(async () =>
       jsonResponse({ hasError: false, redirectPath: '/earbuds/airpods-pro' })
     );

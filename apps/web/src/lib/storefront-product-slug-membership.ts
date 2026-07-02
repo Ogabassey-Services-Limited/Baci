@@ -1,6 +1,8 @@
 import z from 'zod';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
-import { createAbortSignalTimeout } from './abort-signal-timeout';
+import { fetchInternalStatusJson } from './internal-status-preflight';
+
+const PREFLIGHT_CHECK = 'pdp-slug-membership';
 
 const slugSetResponseSchema = z.object({
   hasError: z.boolean(),
@@ -10,10 +12,10 @@ const slugSetResponseSchema = z.object({
 
 interface SlugMissingOptions {
   /**
-   * Public request origin, e.g. `https://ogabassey.com` — used as the fallback
-   * fetch base only. When the platform host (`VERCEL_URL`) is available the
-   * internal call routes through it instead, so a custom domain does not pay an
-   * extra DNS/TLS handshake on every PDP navigation.
+   * Public request origin, e.g. `https://ogabassey.com` — used only as a
+   * loopback fallback base in local dev. In production the internal call routes
+   * through the public platform origin (see `getConfiguredTrustedInternalBaseUrl`),
+   * never a request-derived custom domain.
    */
   origin: string;
   /** Storefront slug or custom domain the proxy has (resolved by the route). */
@@ -69,19 +71,26 @@ function normalizeTrustedInternalBaseUrl(value: string | undefined) {
 }
 
 function getConfiguredTrustedInternalBaseUrl() {
+  // In Vercel PRODUCTION the auto-generated `VERCEL_URL` deployment host sits
+  // behind Deployment Protection (SSO): an internal fetch there 302s to
+  // `vercel.com/sso-api` and lands on `vercel.com/login` (HTTP 200 text/html),
+  // so `response.json()` throws and the preflight fails open 100% of the time
+  // (verified live 2026-07-01). We therefore NEVER use `VERCEL_URL` in
+  // production — the internal hop is pinned to the public platform origin
+  // (`NEXT_PUBLIC_ROOT_DOMAIN`, default `usebaci.com`), which is not SSO-walled.
+  if (process.env.VERCEL_ENV === 'production') {
+    return normalizeTrustedInternalBaseUrl(
+      process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
+    );
+  }
+
+  // Preview/local: the deployment URL is directly reachable, so prefer it, then
+  // the project production URL. (The former `NEXT_PUBLIC_SITE_URL` tier was
+  // removed — it is not in turbo.json's build env allowlist, so Next inlines it
+  // as `undefined` at build time, making it a dead, misleading fallback.)
   return (
     normalizeTrustedInternalBaseUrl(process.env.VERCEL_URL) ||
-    normalizeTrustedInternalBaseUrl(
-      process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ) ||
-    normalizeTrustedInternalBaseUrl(process.env.NEXT_PUBLIC_SITE_URL) ||
-    // Last-resort production fallback: keep preflight calls on the platform
-    // root when Vercel's deployment URL envs are unavailable.
-    (process.env.NODE_ENV === 'production'
-      ? normalizeTrustedInternalBaseUrl(
-          process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
-        )
-      : null)
+    normalizeTrustedInternalBaseUrl(process.env.VERCEL_PROJECT_PRODUCTION_URL)
   );
 }
 
@@ -89,13 +98,13 @@ function getConfiguredTrustedInternalBaseUrl() {
  * Resolve the trusted base URL for the internal membership hop, or `null` when
  * there is no trusted target. The route resolves the merchant from the
  * `identifier` PATH param (not the Host header), so the call is host-agnostic —
- * we prefer the platform deployment host (`VERCEL_URL`) or a configured platform
- * origin. Request-derived custom domains are never trusted for bearer-token
- * internal calls.
+ * we prefer the public platform origin in production and the reachable platform
+ * deployment host in preview/local. Request-derived custom domains are never
+ * trusted for bearer-token internal calls.
  *
  * SECURITY: the caller sends `Authorization: Bearer ${INTERNAL_API_SECRET}`, and
  * `origin` is derived from the (spoofable) request Host. We therefore send the
- * secret ONLY to configured platform hosts, or to a loopback origin in local
+ * secret ONLY to platform-configured origins, or to a loopback origin in local
  * dev — never to a request-derived custom domain. Any other origin returns
  * `null`, so the caller fails open without leaking the secret off-platform.
  */
@@ -125,61 +134,77 @@ export async function resolveStorefrontProductSlugResolution(
   opts: SlugMissingOptions
 ): Promise<StorefrontProductSlugResolution> {
   if (!opts.secret) {
+    console.warn('[internal-status-preflight] fail-open', {
+      check: PREFLIGHT_CHECK,
+      identifier: opts.identifier,
+      slug: opts.productSlug,
+      reason: 'no-secret',
+    });
     return { kind: 'present-or-unknown' };
   }
 
   // No trusted base → fail open WITHOUT sending the secret to an untrusted host.
   const baseUrl = resolveInternalBaseUrl(opts.origin);
   if (!baseUrl) {
+    console.warn('[internal-status-preflight] fail-open', {
+      check: PREFLIGHT_CHECK,
+      identifier: opts.identifier,
+      slug: opts.productSlug,
+      reason: 'no-base-url',
+    });
     return { kind: 'present-or-unknown' };
   }
 
-  try {
-    const url = new URL(
-      `/api/internal/slug-set/${encodeURIComponent(opts.identifier)}`,
-      baseUrl
-    );
-    url.searchParams.set('slug', opts.productSlug);
+  const url = new URL(
+    `/api/internal/slug-set/${encodeURIComponent(opts.identifier)}`,
+    baseUrl
+  );
+  url.searchParams.set('slug', opts.productSlug);
 
-    const timeout = createAbortSignalTimeout(opts.timeoutMs ?? 800);
-    try {
-      const response = await (opts.fetchImpl ?? fetch)(url, {
-        headers: { Authorization: `Bearer ${opts.secret}` },
-        signal: timeout.signal,
-      });
+  const result = await fetchInternalStatusJson({
+    url,
+    secret: opts.secret,
+    timeoutMs: opts.timeoutMs ?? 800,
+    fetchImpl: opts.fetchImpl,
+    context: {
+      check: PREFLIGHT_CHECK,
+      identifier: opts.identifier,
+      slug: opts.productSlug,
+    },
+  });
 
-      if (!response.ok) {
-        return { kind: 'present-or-unknown' };
-      }
-
-      const bodyResult = slugSetResponseSchema.safeParse(await response.json());
-      if (!bodyResult.success) {
-        return { kind: 'present-or-unknown' };
-      }
-      const body = bodyResult.data;
-
-      if (body.hasError !== false) {
-        return { kind: 'present-or-unknown' };
-      }
-
-      const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
-      if (body.present === true && redirectPath) {
-        return { kind: 'redirect', redirectPath };
-      }
-
-      // Hard-404 ONLY on an explicit, error-free "absent" verdict. Any other
-      // shape (present true/undefined, malformed) falls through.
-      if (body.present === false) {
-        return { kind: 'missing' };
-      }
-
-      return { kind: 'present-or-unknown' };
-    } finally {
-      timeout.clear();
-    }
-  } catch {
+  if (result.kind === 'fail-open') {
     return { kind: 'present-or-unknown' };
   }
+
+  const bodyResult = slugSetResponseSchema.safeParse(result.body);
+  if (!bodyResult.success) {
+    console.warn('[internal-status-preflight] fail-open', {
+      check: PREFLIGHT_CHECK,
+      identifier: opts.identifier,
+      slug: opts.productSlug,
+      reason: 'schema',
+    });
+    return { kind: 'present-or-unknown' };
+  }
+  const body = bodyResult.data;
+
+  if (body.hasError !== false) {
+    return { kind: 'present-or-unknown' };
+  }
+
+  const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
+  if (body.present === true && redirectPath) {
+    return { kind: 'redirect', redirectPath };
+  }
+
+  // Hard-404 ONLY on an explicit, error-free "absent" verdict. Any other
+  // shape (present true/undefined, malformed) falls through.
+  if (body.present === false) {
+    return { kind: 'missing' };
+  }
+
+  return { kind: 'present-or-unknown' };
 }
 
 /**

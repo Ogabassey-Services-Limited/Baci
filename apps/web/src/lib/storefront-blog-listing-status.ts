@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
 import type { BlogListingStatusIntent } from './cached-storefront-blog-listing-status';
+import { fetchInternalStatusJson } from './internal-status-preflight';
 import { resolveInternalBaseUrl } from './storefront-product-slug-membership';
+
+const PREFLIGHT_CHECK = 'blog-listing-status';
 
 const blogListingStatusResponseSchema = z.object({
   hasError: z.boolean(),
@@ -58,55 +61,78 @@ export async function resolveStorefrontBlogListingStatus(
   opts: BlogListingStatusOptions
 ): Promise<StorefrontBlogListingStatusResolution> {
   if (!opts.secret) {
+    console.warn('[internal-status-preflight] fail-open', {
+      check: PREFLIGHT_CHECK,
+      identifier: opts.identifier,
+      slug: opts.intent.kind,
+      reason: 'no-secret',
+    });
     return { kind: 'noop' };
   }
 
   const baseUrl = resolveInternalBaseUrl(opts.origin);
   if (!baseUrl) {
-    return { kind: 'noop' };
-  }
-
-  try {
-    const url = new URL(
-      `/api/internal/blog-listing-status/${encodeURIComponent(opts.identifier)}`,
-      baseUrl
-    );
-    for (const [key, value] of buildIntentQuery(opts.intent)) {
-      url.searchParams.set(key, value);
-    }
-
-    const response = await (opts.fetchImpl ?? fetch)(url, {
-      headers: { Authorization: `Bearer ${opts.secret}` },
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 800),
+    console.warn('[internal-status-preflight] fail-open', {
+      check: PREFLIGHT_CHECK,
+      identifier: opts.identifier,
+      slug: opts.intent.kind,
+      reason: 'no-base-url',
     });
-
-    if (!response.ok) {
-      return { kind: 'noop' };
-    }
-
-    const bodyResult = blogListingStatusResponseSchema.safeParse(
-      await response.json()
-    );
-    if (!bodyResult.success || bodyResult.data.hasError !== false) {
-      return { kind: 'noop' };
-    }
-    const body = bodyResult.data;
-
-    const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
-    if (redirectPath) {
-      return {
-        kind: 'redirect',
-        redirectPath,
-        status: body.permanent === true ? 308 : 307,
-      };
-    }
-
-    if (body.notFound === true) {
-      return { kind: 'notFound' };
-    }
-
-    return { kind: 'noop' };
-  } catch {
     return { kind: 'noop' };
   }
+
+  const url = new URL(
+    `/api/internal/blog-listing-status/${encodeURIComponent(opts.identifier)}`,
+    baseUrl
+  );
+  for (const [key, value] of buildIntentQuery(opts.intent)) {
+    url.searchParams.set(key, value);
+  }
+
+  const result = await fetchInternalStatusJson({
+    url,
+    secret: opts.secret,
+    timeoutMs: opts.timeoutMs ?? 800,
+    fetchImpl: opts.fetchImpl,
+    context: {
+      check: PREFLIGHT_CHECK,
+      identifier: opts.identifier,
+      slug: opts.intent.kind,
+    },
+  });
+
+  if (result.kind === 'fail-open') {
+    return { kind: 'noop' };
+  }
+
+  const bodyResult = blogListingStatusResponseSchema.safeParse(result.body);
+  if (!bodyResult.success) {
+    console.warn('[internal-status-preflight] fail-open', {
+      check: PREFLIGHT_CHECK,
+      identifier: opts.identifier,
+      slug: opts.intent.kind,
+      reason: 'schema',
+    });
+    return { kind: 'noop' };
+  }
+  const body = bodyResult.data;
+
+  if (body.hasError !== false) {
+    return { kind: 'noop' };
+  }
+
+  const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
+  if (redirectPath) {
+    return {
+      kind: 'redirect',
+      redirectPath,
+      status: body.permanent === true ? 308 : 307,
+    };
+  }
+
+  if (body.notFound === true) {
+    return { kind: 'notFound' };
+  }
+
+  return { kind: 'noop' };
 }
