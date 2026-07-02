@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+async function importShippingService() {
+  vi.resetModules();
+  return await import('./index');
+}
+
 describe('shippingService', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -12,7 +17,7 @@ describe('shippingService', () => {
     vi.stubEnv('GIGL_EMAIL', 'shipper@example.com');
     vi.stubEnv('GIGL_PASSWORD', 'secret');
 
-    const { shippingService } = await import('./index');
+    const { shippingService } = await importShippingService();
 
     expect(shippingService.getEnabledProviders()).not.toContain('GIGL');
     expect(shippingService.getEnabledProviders()).toContain('TOPSHIP');
@@ -24,7 +29,7 @@ describe('shippingService', () => {
     vi.stubEnv('GIGL_EMAIL', 'shipper@example.com');
     vi.stubEnv('GIGL_PASSWORD', 'secret');
 
-    const { shippingService } = await import('./index');
+    const { shippingService } = await importShippingService();
 
     expect(shippingService.getEnabledProviders()).toEqual(
       expect.arrayContaining(['GIGL', 'TOPSHIP'])
@@ -36,7 +41,7 @@ describe('shippingService', () => {
     vi.stubEnv('GIGL_EMAIL', 'shipper@example.com');
     vi.stubEnv('GIGL_PASSWORD', 'secret');
 
-    const { shippingService } = await import('./index');
+    const { shippingService } = await importShippingService();
 
     expect(shippingService.getEnabledProviders()).toEqual(
       expect.arrayContaining(['GIGL', 'TOPSHIP'])
@@ -50,14 +55,14 @@ describe('shippingService', () => {
     vi.stubEnv('GIGL_EMAIL', 'shipper@example.com');
     vi.stubEnv('GIGL_PASSWORD', 'secret');
 
-    const { shippingService } = await import('./index');
+    const { shippingService } = await importShippingService();
 
     expect(shippingService.getEnabledProviders()).not.toContain('GIGL');
     expect(shippingService.getEnabledProviders()).toContain('TOPSHIP');
   });
 
   it('throws when booking against an unavailable provider code', async () => {
-    const { shippingService } = await import('./index');
+    const { shippingService } = await importShippingService();
 
     await expect(
       shippingService.bookShipment('MISSING' as never, {
