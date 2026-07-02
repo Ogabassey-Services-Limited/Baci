@@ -155,4 +155,57 @@ describe('resolveStorefrontProductSlugResolution', () => {
       AbortSignal
     );
   });
+
+  it('fails open without fetching when the internal API secret is missing', async () => {
+    const fetchImpl = vi.fn();
+
+    const result = await resolveStorefrontProductSlugResolution({
+      ...BASE,
+      secret: undefined,
+      productSlug: 'iphone-15',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'present-or-unknown' });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'no-secret' })
+    );
+  });
+
+  it('fails open without fetching when no trusted internal base URL exists', async () => {
+    clearConfiguredInternalBaseEnv();
+    const fetchImpl = vi.fn();
+
+    const result = await resolveStorefrontProductSlugResolution({
+      ...BASE,
+      productSlug: 'iphone-15',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'present-or-unknown' });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'no-base-url' })
+    );
+  });
+
+  it('fails open when the internal slug-set fetch throws', async () => {
+    const fetchImpl = vi.fn().mockRejectedValue(new Error('network down'));
+
+    const result = await resolveStorefrontProductSlugResolution({
+      ...BASE,
+      productSlug: 'iphone-15',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'present-or-unknown' });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'fetch-error' })
+    );
+  });
 });

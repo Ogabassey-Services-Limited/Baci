@@ -139,7 +139,7 @@ export async function resolveStorefrontBlogListingStatus(
         };
       }
 
-      if (body.redirectPath != null && !redirectPath) {
+      if (body.redirectPath != null) {
         storefrontInternalPreflight.warnFailOpen({
           ...failOpenContext,
           reason: 'unsafe-redirect',

@@ -153,4 +153,49 @@ describe('storefrontInternalPreflight', () => {
       )
     ).resolves.toEqual({ hasError: false });
   });
+
+  it('fails closed for non-ok, non-redirect responses', async () => {
+    const result = await storefrontInternalPreflight.readJsonResponse(
+      new Response('Internal Server Error', { status: 500 }),
+      CONTEXT
+    );
+
+    expect(result).toBeNull();
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'http-500', status: 500 })
+    );
+  });
+
+  it('fails closed when the JSON body cannot be parsed', async () => {
+    const result = await storefrontInternalPreflight.readJsonResponse(
+      new Response('{not valid json', {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200,
+      }),
+      CONTEXT
+    );
+
+    expect(result).toBeNull();
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'parse', status: 200 })
+    );
+  });
+
+  it('maps fetch exceptions to timeout or fetch-error reasons', () => {
+    expect(
+      storefrontInternalPreflight.getFetchErrorReason(
+        new DOMException('aborted', 'AbortError')
+      )
+    ).toBe('timeout');
+    expect(
+      storefrontInternalPreflight.getFetchErrorReason(
+        new DOMException('timed out', 'TimeoutError')
+      )
+    ).toBe('timeout');
+    expect(
+      storefrontInternalPreflight.getFetchErrorReason(new Error('boom'))
+    ).toBe('fetch-error');
+  });
 });
