@@ -131,9 +131,9 @@ vi.mock('@/lib/trigger-purchase-conversion', () => ({
 // completed semantics carry an explicit `status: 'completed'` field so the
 // TS-side filter keeps them.
 describe('POST /api/orders/[id]/record-payment', () => {
-  const mockOrderId = 'order-123';
-  const mockMerchantId = 'merchant-456';
-  const mockUserId = 'user-789';
+  const mockOrderId = '11111111-1111-4111-8111-111111111111';
+  const mockMerchantId = '22222222-2222-4222-8222-222222222222';
+  const mockUserId = '33333333-3333-4333-8333-333333333333';
 
   // Preload the route's email/payment dependency graph once so the first
   // validation case measures handler behavior instead of module startup.
@@ -650,6 +650,24 @@ describe('POST /api/orders/[id]/record-payment', () => {
     // Assert
     expect(response.status).toBe(500);
     expect(data).toEqual({ error: 'Failed to record payment' });
+  });
+
+  it('returns 400 for a malformed order id before database lookup', async () => {
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: 'not-a-uuid' }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({ error: 'Invalid order id' });
+    expect(mockGetMerchantIdForApiUser).not.toHaveBeenCalled();
+    expect(mockSupabaseClient.from).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the request body cannot be parsed', async () => {

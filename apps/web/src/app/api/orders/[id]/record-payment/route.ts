@@ -26,7 +26,10 @@ import {
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
-import { recordPaymentBodySchema } from '@/schemas/record-payment';
+import {
+  recordPaymentBodySchema,
+  recordPaymentOrderIdSchema,
+} from '@/schemas/record-payment';
 
 /** Order item interface for email templates (2026 best practice) */
 interface EmailOrderItem {
@@ -70,6 +73,17 @@ export async function POST(
     const user = auth.user;
     const supabase = auth.supabase;
 
+    const parsedOrderId = recordPaymentOrderIdSchema.safeParse(id);
+    if (!parsedOrderId.success) {
+      logger.warn({
+        message: 'RecordPayment invalid order id',
+        orderId: id,
+      });
+      return NextResponse.json({ error: 'Invalid order id' }, { status: 400 });
+    }
+
+    const orderId = parsedOrderId.data;
+
     // 2. Parse and validate request body (before any DB calls)
     let body: unknown;
 
@@ -79,7 +93,7 @@ export async function POST(
       logger.warn({
         message: 'RecordPayment invalid JSON body',
         error,
-        orderId: id,
+        orderId,
       });
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
@@ -88,7 +102,7 @@ export async function POST(
     if (!parsedBody.success) {
       logger.warn({
         message: 'RecordPayment invalid request body',
-        orderId: id,
+        orderId,
         details: parsedBody.error.flatten(),
       });
       return NextResponse.json(
@@ -103,7 +117,7 @@ export async function POST(
       message: 'RecordPayment body parsed',
       amount: parsedAmount,
       payment_method,
-      orderId: id,
+      orderId,
     });
 
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
@@ -116,7 +130,7 @@ export async function POST(
       logger.error({
         message: 'RecordPayment merchant not found',
         userId: user.id,
-        orderId: id,
+        orderId,
       });
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -138,7 +152,7 @@ export async function POST(
       supabase
         .from('orders')
         .select(ORDER_WITH_ITEMS_QUERY)
-        .eq('id', id)
+        .eq('id', orderId)
         .eq('merchant_id', merchantId)
         .single(),
     ]);
@@ -151,7 +165,7 @@ export async function POST(
         message: 'RecordPayment merchant details error',
         error: merchantError,
         merchantId,
-        orderId: id,
+        orderId,
       });
       return NextResponse.json(
         { error: 'Merchant details not found' },
@@ -163,7 +177,7 @@ export async function POST(
       logger.error({
         message: 'RecordPayment order lookup error',
         error: orderError,
-        orderId: id,
+        orderId,
         merchantId,
       });
       return NextResponse.json(
@@ -176,7 +190,7 @@ export async function POST(
       logger.error({
         message: 'RecordPayment order not found',
         error: orderError,
-        orderId: id,
+        orderId,
         merchantId,
       });
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
@@ -193,7 +207,7 @@ export async function POST(
       'get_record_payment_order_transactions',
       {
         p_merchant_id: merchantId,
-        p_order_id: id,
+        p_order_id: orderId,
       }
     )) as {
       data: RecordPaymentTransactionRow[] | null;
@@ -204,7 +218,7 @@ export async function POST(
       logger.error({
         message: 'RecordPayment transactions fetch error',
         error: txError,
-        orderId: id,
+        orderId,
       });
       return NextResponse.json(
         { error: 'Failed to fetch transactions' },
@@ -237,7 +251,7 @@ export async function POST(
       // (no extra processor data leakage per the plan).
       logger.warn({
         message: 'RecordPayment rejected: pending processor transaction',
-        orderId: id,
+        orderId,
         merchantId: merchant.id,
         pendingGateway: pendingProcessorTxn.gateway,
         pendingStatus: pendingProcessorTxn.status,
@@ -268,7 +282,7 @@ export async function POST(
       if (existingTransaction) {
         logger.warn({
           message: 'RecordPayment duplicate reference rejected',
-          orderId: id,
+          orderId,
           merchantId: merchant.id,
           reference,
         });
@@ -291,7 +305,7 @@ export async function POST(
     if (remainingBeforePayment <= 0) {
       logger.warn({
         message: 'RecordPayment rejected: order already fully paid',
-        orderId: id,
+        orderId,
         merchantId: merchant.id,
         orderTotal,
         totalPaidBefore,
@@ -306,7 +320,7 @@ export async function POST(
     if (parsedAmount > remainingBeforePayment) {
       logger.warn({
         message: 'RecordPayment rejected: amount exceeds remaining balance',
-        orderId: id,
+        orderId,
         amount: parsedAmount,
         remainingBeforePayment,
       });
@@ -321,7 +335,7 @@ export async function POST(
 
     logger.info({
       message: 'RecordPayment totals calculated',
-      orderId: id,
+      orderId,
       currentPaid,
       newPaid,
       orderTotal,
@@ -336,7 +350,7 @@ export async function POST(
       .from('transactions')
       .insert({
         merchant_id: merchant.id,
-        order_id: id,
+        order_id: orderId,
         transaction_type: 'payment',
         amount: parsedAmount,
         currency: order.currency || 'NGN',
@@ -366,7 +380,7 @@ export async function POST(
       if (isDuplicate) {
         logger.warn({
           message: 'RecordPayment duplicate reference rejected at DB level',
-          orderId: id,
+          orderId,
           merchantId: merchant.id,
           reference,
         });
@@ -379,7 +393,7 @@ export async function POST(
       logger.error({
         message: 'RecordPayment transaction insert error',
         error: transactionError,
-        orderId: id,
+        orderId,
       });
       return NextResponse.json(
         { error: 'Failed to record payment' },
@@ -416,12 +430,12 @@ export async function POST(
       logger.info({
         message: 'RecordPayment applying status updates',
         updates,
-        orderId: id,
+        orderId,
       });
       const { data: updatedOrder, error: updateError } = await supabase
         .from('orders')
         .update(updates)
-        .eq('id', id)
+        .eq('id', orderId)
         .eq('merchant_id', merchantId)
         .select('id, shipping_status, cancelled_at')
         .maybeSingle();
@@ -431,7 +445,7 @@ export async function POST(
           message:
             'CRITICAL: RecordPayment failed to update order status after transaction created',
           error: updateError ?? 'updated_order_missing',
-          orderId: id,
+          orderId,
           inconsistentState: true,
         });
         return NextResponse.json({
@@ -454,14 +468,14 @@ export async function POST(
           const { data: recordedTransaction } = await supabase
             .from('transactions')
             .select('id')
-            .eq('order_id', id)
+            .eq('order_id', orderId)
             .eq('gateway_reference', reference)
             .maybeSingle();
           recordedTransactionId = recordedTransaction?.id ?? null;
         }
         await handlePaymentForCancelledOrder({
           gatewayReference: reference ?? null,
-          order: updatedOrder ?? { id },
+          order: updatedOrder ?? { id: orderId },
           reason:
             'Manual payment recorded for an order cancelled by the customer before finalization',
           transactionId: recordedTransactionId,
@@ -475,7 +489,7 @@ export async function POST(
       logger.warn({
         message:
           'RecordPayment: order was cancelled; suppressing emails and conversions',
-        orderId: id,
+        orderId,
       });
       return NextResponse.json({
         success: true,
@@ -489,7 +503,7 @@ export async function POST(
     // Paid-order side effects (only when NOT cancelled).
     if (isFullyPaid) {
       try {
-        await ensurePaidOrderInventoryConfirmed(supabase, merchantId, id);
+        await ensurePaidOrderInventoryConfirmed(supabase, merchantId, orderId);
       } catch (inventoryError) {
         let cleanupFailed = false;
         let rollbackFailed = false;
@@ -498,7 +512,7 @@ export async function POST(
           await rollbackOrderStatusAfterInventoryConfirmationFailure(
             supabase,
             merchantId,
-            id,
+            orderId,
             {
               payment_status: order.payment_status ?? null,
               shipping_status: order.shipping_status ?? null,
@@ -510,7 +524,7 @@ export async function POST(
           logger.error({
             message:
               'RecordPayment failed to rollback order status after inventory confirmation failure',
-            orderId: id,
+            orderId,
             error: rollbackError,
           });
           await fileInventoryConfirmationFailureReview({
@@ -527,7 +541,7 @@ export async function POST(
                   : rollbackError,
               source: 'record_payment_inventory_confirmation_rollback',
             },
-            orderId: id,
+            orderId,
             reason:
               'Manual payment reached paid state, but serialized inventory confirmation and status rollback both failed.',
             transactionId: createdTransaction?.id ?? null,
@@ -546,7 +560,7 @@ export async function POST(
             logger.error({
               message:
                 'RecordPayment failed to delete manual transaction after inventory confirmation failure',
-              orderId: id,
+              orderId,
               transactionId: createdTransaction.id,
               error: deleteTransactionError,
             });
@@ -562,7 +576,7 @@ export async function POST(
                 source:
                   'record_payment_inventory_confirmation_transaction_delete',
               },
-              orderId: id,
+              orderId,
               reason:
                 'Manual payment inventory confirmation failed, but deleting the completed manual transaction also failed.',
               transactionId: createdTransaction.id,
@@ -572,7 +586,7 @@ export async function POST(
 
         logger.error({
           message: 'RecordPayment failed to confirm inventory',
-          orderId: id,
+          orderId,
           cleanupFailed,
           error: inventoryError,
         });
@@ -595,7 +609,7 @@ export async function POST(
         });
       }
 
-      logger.info({ message: 'RecordPayment order fully paid', orderId: id });
+      logger.info({ message: 'RecordPayment order fully paid', orderId });
 
       // SEND CONFIRMATION EMAIL (If fully paid)
       try {
@@ -642,7 +656,7 @@ export async function POST(
         // Fire and forget
         logger.info({
           message: 'RecordPayment sending confirmation email',
-          orderId: id,
+          orderId,
         });
         sendEmail({
           to: order.customer_email,
@@ -690,7 +704,7 @@ export async function POST(
     } else {
       logger.info({
         message: 'RecordPayment order partially paid',
-        orderId: id,
+        orderId,
       });
 
       // SEND PAYMENT RECEIPT EMAIL (Partial Payment)
@@ -730,7 +744,7 @@ export async function POST(
 
         logger.info({
           message: 'RecordPayment sending receipt email',
-          orderId: id,
+          orderId,
         });
         sendEmail({
           to: order.customer_email,
@@ -760,7 +774,7 @@ export async function POST(
       }
     }
 
-    logger.info({ message: 'RecordPayment success', orderId: id });
+    logger.info({ message: 'RecordPayment success', orderId });
     return NextResponse.json({
       success: true,
       amount_paid: parsedAmount,

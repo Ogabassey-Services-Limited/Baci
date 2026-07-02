@@ -37,3 +37,5 @@ export const recordPaymentBodySchema = z.object({
 });
 
 export type RecordPaymentBodyInput = z.infer<typeof recordPaymentBodySchema>;
+
+export const recordPaymentOrderIdSchema = z.uuid('Invalid order id');
