@@ -256,6 +256,7 @@ describe('record_manual_order_payment migration contract', () => {
       /'previous_shipping_status',\s*v_order\.shipping_status/i
     );
     expect(sql).toMatch(/'credit_direct'/i);
+    expect(sql).toMatch(/'credpal'/i);
     expect(sql).toMatch(/'klump'/i);
     expect(sql).toMatch(/'juicyway'/i);
   });

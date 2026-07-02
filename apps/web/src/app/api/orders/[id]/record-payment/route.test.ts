@@ -1997,6 +1997,39 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
   });
 
+  it('returns 409 PENDING_GATEWAY_PAYMENT when a CredPal BNPL transaction is pending', async () => {
+    setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      transactions: [
+        {
+          amount: 0,
+          gateway: 'credpal',
+          gateway_reference: 'credpal-pending-ref',
+          status: 'processing',
+        },
+      ],
+    });
+
+    const request = createRequest({
+      amount: 10000,
+      payment_method: 'cash',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data).toEqual({
+      error:
+        'This order has a pending processor payment. Use payment reconciliation instead.',
+      code: 'PENDING_GATEWAY_PAYMENT',
+    });
+  });
+
   it('accepts manual payments when the only existing gateway transactions are failed/cancelled', async () => {
     // Negative case: failed processor attempt should NOT block a manual
     // payment. The guard only triggers on pending|processing rows.

@@ -290,7 +290,7 @@ export async function POST(
 
     // Δ-36 (A3): pending-gateway guard. Block manual record-payment
     // while a non-manual processor transaction (Paystack DVA, Korapay,
-    // Kuda, Credit Direct, Juicyway) is still pending or processing —
+    // Kuda, Credit Direct, CredPal, Juicyway) is still pending or processing —
     // recording a parallel manual transaction would shadow the real
     // gateway payment (the failure mode that nearly bit us with Efosa).
     // Failed / cancelled gateway attempts do NOT block (they're not in
@@ -300,13 +300,14 @@ export async function POST(
       'korapay',
       'kuda',
       'credit_direct',
+      'credpal',
       'klump',
       'juicyway',
     ]);
     const pendingProcessorTxn = relevantTxns?.find(
       (t) =>
         t.gateway !== null &&
-        PENDING_PROCESSOR_GATEWAYS.has(t.gateway) &&
+        PENDING_PROCESSOR_GATEWAYS.has(t.gateway.toLowerCase()) &&
         (t.status === 'pending' || t.status === 'processing')
     );
     if (pendingProcessorTxn) {

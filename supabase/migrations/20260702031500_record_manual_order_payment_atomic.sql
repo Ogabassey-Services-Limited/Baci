@@ -91,6 +91,7 @@ begin
         'korapay',
         'kuda',
         'credit_direct',
+        'credpal',
         'klump',
         'juicyway'
       )
