@@ -43,6 +43,19 @@ describe('shippingService', () => {
     );
   });
 
+  it('does not register GIGL when the provider kill switch is disabled', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('GIGL_ENABLED', 'false');
+    vi.stubEnv('GIGL_BASE_URL', 'https://thirdpartynode.theagilitysystems.com');
+    vi.stubEnv('GIGL_EMAIL', 'shipper@example.com');
+    vi.stubEnv('GIGL_PASSWORD', 'secret');
+
+    const { shippingService } = await import('./index');
+
+    expect(shippingService.getEnabledProviders()).not.toContain('GIGL');
+    expect(shippingService.getEnabledProviders()).toContain('TOPSHIP');
+  });
+
   it('throws when booking against an unavailable provider code', async () => {
     const { shippingService } = await import('./index');
 

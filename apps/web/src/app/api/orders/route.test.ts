@@ -122,7 +122,6 @@ vi.mock('@/lib/quiz-compliance-gate', () => ({
 }));
 
 vi.mock('@/lib/shipping/providers/gigl', () => ({
-  createGiglShipment: vi.fn(),
   giglProvider: { getLocations: vi.fn().mockResolvedValue([]) },
 }));
 

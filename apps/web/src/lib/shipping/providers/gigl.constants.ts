@@ -8,6 +8,11 @@ function positiveIntegerEnv(value: string | undefined): number | undefined {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
+function isExplicitlyDisabledEnv(value: string | undefined): boolean {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === 'false' || normalized === '0' || normalized === 'off';
+}
+
 const GIGL_DEV_BASE_URL = 'https://dev-thirdpartynode.theagilitysystems.com';
 
 export const GIGL_BASE_URL =
@@ -15,6 +20,7 @@ export const GIGL_BASE_URL =
   (process.env.NODE_ENV === 'production' ? undefined : GIGL_DEV_BASE_URL);
 export const GIGL_EMAIL = trimmedEnv(process.env.GIGL_EMAIL);
 export const GIGL_PASSWORD = trimmedEnv(process.env.GIGL_PASSWORD);
+export const GIGL_ENABLED = !isExplicitlyDisabledEnv(process.env.GIGL_ENABLED);
 export const GIGL_TOKEN_EXPIRY_MS = 20 * 24 * 60 * 60 * 1000;
 export const GIGL_QUOTE_TIMEOUT_MS =
   positiveIntegerEnv(process.env.GIGL_QUOTE_TIMEOUT_MS) || 5000;
@@ -27,7 +33,7 @@ export const GIGL_STATIONS_TIMEOUT_MS =
 export const GIGL_STATIONS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export function isGiglRuntimeConfigured(): boolean {
-  return Boolean(GIGL_BASE_URL && GIGL_EMAIL && GIGL_PASSWORD);
+  return Boolean(GIGL_ENABLED && GIGL_BASE_URL && GIGL_EMAIL && GIGL_PASSWORD);
 }
 
 export interface GiglToken {

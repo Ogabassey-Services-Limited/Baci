@@ -1,6 +1,5 @@
 /**
  * GIGL Shipping Provider
- * Refactored from /src/lib/gigl.ts to implement ShippingProvider interface.
  */
 
 import type {

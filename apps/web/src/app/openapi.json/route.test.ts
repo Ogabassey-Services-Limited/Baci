@@ -26,6 +26,8 @@ describe('GET /openapi.json', () => {
       '/api/agentic/checkout-sessions/{id}/complete': expect.any(Object),
       '/api/agentic/orders/{id}': expect.any(Object),
     });
+    expect(body.paths).not.toHaveProperty('/api/shipping/quote');
+    expect(body.paths).not.toHaveProperty('/api/shipping/quotes');
     expect(
       body.paths['/api/agentic/checkout-sessions/{id}/complete'].post
     ).toMatchObject({

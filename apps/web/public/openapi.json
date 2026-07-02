@@ -45,7 +45,12 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": ["active", "draft", "archived", "All"]
+              "enum": [
+                "active",
+                "draft",
+                "archived",
+                "All"
+              ]
             }
           },
           {
@@ -53,7 +58,11 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": ["in_stock", "out_of_stock", "All"]
+              "enum": [
+                "in_stock",
+                "out_of_stock",
+                "All"
+              ]
             }
           }
         ],
@@ -74,7 +83,10 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["name", "price"],
+                "required": [
+                  "name",
+                  "price"
+                ],
                 "properties": {
                   "name": {
                     "type": "string"
@@ -90,7 +102,10 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["active", "draft"]
+                    "enum": [
+                      "active",
+                      "draft"
+                    ]
                   },
                   "category": {
                     "type": "string"
@@ -228,16 +243,6 @@
         "responses": {
           "200": {
             "description": "Webhook received"
-          }
-        }
-      }
-    },
-    "/api/shipping/quote": {
-      "post": {
-        "summary": "Get shipping quote",
-        "responses": {
-          "200": {
-            "description": "Shipping quotes"
           }
         }
       }

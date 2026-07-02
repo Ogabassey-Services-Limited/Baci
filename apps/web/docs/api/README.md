@@ -186,7 +186,6 @@
 - [lib/facebook-capi-client](lib/facebook-capi-client/README.md)
 - [lib/fonts](lib/fonts/README.md)
 - [lib/ga4-measurement-protocol](lib/ga4-measurement-protocol/README.md)
-- [lib/gigl](lib/gigl/README.md)
 - [lib/go54](lib/go54/README.md)
 - [lib/image-utils](lib/image-utils/README.md)
 - [lib/initial-template-generator](lib/initial-template-generator/README.md)
