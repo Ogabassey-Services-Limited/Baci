@@ -46,6 +46,12 @@ CREATE INDEX IF NOT EXISTS idx_order_item_unit_costs_merchant_order
 CREATE INDEX IF NOT EXISTS idx_order_item_unit_costs_order_item
   ON public.order_item_unit_costs (order_item_id);
 
+-- Leading order_id index so the ON DELETE CASCADE from orders (and order-scoped
+-- lookups) don't scan; the composite (merchant_id, order_id) can't serve an
+-- order_id-only predicate.
+CREATE INDEX IF NOT EXISTS idx_order_item_unit_costs_order
+  ON public.order_item_unit_costs (order_id);
+
 DROP TRIGGER IF EXISTS update_order_item_unit_costs_updated_at
   ON public.order_item_unit_costs;
 CREATE TRIGGER update_order_item_unit_costs_updated_at
