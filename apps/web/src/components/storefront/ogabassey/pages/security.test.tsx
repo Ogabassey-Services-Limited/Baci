@@ -27,6 +27,15 @@ describe('OgabasseyV2Security', () => {
     expect(currentToggle).toHaveAttribute('aria-pressed', 'false');
     expect(newToggle).toHaveAttribute('aria-pressed', 'false');
     expect(confirmToggle).toHaveAttribute('aria-pressed', 'false');
+    expect(currentToggle.querySelector('svg')).toHaveAttribute(
+      'aria-hidden',
+      'true'
+    );
+    expect(newToggle.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(confirmToggle.querySelector('svg')).toHaveAttribute(
+      'aria-hidden',
+      'true'
+    );
 
     fireEvent.click(currentToggle);
 

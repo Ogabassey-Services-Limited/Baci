@@ -9,6 +9,7 @@
 ## Quick Reference
 
 ### Tech Stack
+
 - **Framework:** Next.js 16.2.9 (App Router)
 - **Language:** TypeScript 5.9.3+ (strict mode)
 - **Styling:** Tailwind CSS 4.3.1+ + shadcn/ui
@@ -335,6 +336,7 @@ const form = useForm<FormValues>({
 
 ### AI Flow Pattern
 All AI actions follow this pattern using Vercel AI SDK 6 structured output:
+
 ```typescript
 import { google } from '@ai-sdk/google';
 import { generateText, Output } from 'ai';
@@ -421,6 +423,7 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 - **Zod:** https://zod.dev/
 
 ### Commands
+
 ```bash
 pnpm turbo dev           # Start Next.js dev server
 pnpm turbo build         # Production build

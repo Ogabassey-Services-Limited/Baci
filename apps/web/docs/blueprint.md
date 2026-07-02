@@ -360,8 +360,7 @@ pnpm turbo typecheck
 # Dev server
 pnpm turbo dev  # http://localhost:9002
 
-# Test AI flows
-
+# Test AI flows (see /src/ai/flows/_AI_README.md for scripts/API routes)
 ```
 
 #### What to Test

@@ -370,9 +370,9 @@ export const OgabasseyV2Security: React.FC = () => {
                       aria-pressed={showPassword.current}
                     >
                       {showPassword.current ? (
-                        <EyeOff size={18} />
+                        <EyeOff aria-hidden="true" size={18} />
                       ) : (
-                        <Eye size={18} />
+                        <Eye aria-hidden="true" size={18} />
                       )}
                     </button>
                   </div>
@@ -404,9 +404,9 @@ export const OgabasseyV2Security: React.FC = () => {
                       aria-pressed={showPassword.new}
                     >
                       {showPassword.new ? (
-                        <EyeOff size={18} />
+                        <EyeOff aria-hidden="true" size={18} />
                       ) : (
-                        <Eye size={18} />
+                        <Eye aria-hidden="true" size={18} />
                       )}
                     </button>
                   </div>
@@ -438,9 +438,9 @@ export const OgabasseyV2Security: React.FC = () => {
                       aria-pressed={showPassword.confirm}
                     >
                       {showPassword.confirm ? (
-                        <EyeOff size={18} />
+                        <EyeOff aria-hidden="true" size={18} />
                       ) : (
-                        <Eye size={18} />
+                        <Eye aria-hidden="true" size={18} />
                       )}
                     </button>
                   </div>
