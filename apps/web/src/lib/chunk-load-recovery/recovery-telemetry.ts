@@ -1,5 +1,6 @@
 import type { RecoveryGuardDecision } from '@/lib/chunk-load-recovery/recovery-guard';
 import { normalizePostHogProxyPath } from '@/lib/posthog/config';
+import { readPostHogPersistedIdentity } from '@/lib/posthog/persisted-identity';
 
 export type ChunkRecoveryAction = RecoveryGuardDecision | 'skipped-offline';
 
@@ -16,43 +17,6 @@ export interface ChunkRecoveryTelemetry {
   pageDeploymentId: string;
   failedAssetUrl: string | null;
   failedAssetDeploymentId: string | null;
-}
-
-interface PostHogPersistedIdentity {
-  distinctId?: string;
-  sessionId?: string;
-}
-
-function readPersistedPostHogIdentity(
-  projectToken: string
-): PostHogPersistedIdentity {
-  try {
-    const raw = window.localStorage.getItem(`ph_${projectToken}_posthog`);
-    if (!raw) {
-      return {};
-    }
-
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== 'object' || parsed === null) {
-      return {};
-    }
-
-    const record = parsed as {
-      distinct_id?: unknown;
-      $sesid?: unknown;
-    };
-    const sessionEntry = Array.isArray(record.$sesid)
-      ? record.$sesid[1]
-      : undefined;
-
-    return {
-      distinctId:
-        typeof record.distinct_id === 'string' ? record.distinct_id : undefined,
-      sessionId: typeof sessionEntry === 'string' ? sessionEntry : undefined,
-    };
-  } catch {
-    return {};
-  }
 }
 
 function generateAnonymousDistinctId(): string {
@@ -78,7 +42,7 @@ export function sendChunkRecoveryTelemetry(
       return;
     }
 
-    const identity = readPersistedPostHogIdentity(projectToken);
+    const identity = readPostHogPersistedIdentity(projectToken);
     // The asset-fingerprint tier of getPageDeploymentId prefixes with 'dpl:'
     // while failed-asset ids come from the raw ?dpl= query — strip the prefix
     // so same-deployment failures compare as a match.

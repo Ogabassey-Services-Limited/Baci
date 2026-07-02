@@ -1,15 +1,8 @@
 import type { CSSProperties } from 'react';
-
-const containerStyle: CSSProperties = {
-  alignItems: 'center',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '12px',
-  justifyContent: 'center',
-  minHeight: '60vh',
-  padding: '24px',
-  textAlign: 'center',
-};
+import {
+  systemErrorClassNames,
+  systemErrorStyleSheet,
+} from '@/app/system-error-styles';
 
 const spinnerStyle: CSSProperties = {
   animation: 'baci-chunk-recovery-spin 0.8s linear infinite',
@@ -17,26 +10,18 @@ const spinnerStyle: CSSProperties = {
   borderRadius: '50%',
   borderTopColor: 'rgba(31, 41, 55, 0.75)',
   height: '28px',
+  margin: '0 auto 1.25rem',
   width: '28px',
-};
-
-const titleStyle: CSSProperties = {
-  color: '#1f2937',
-  fontSize: '16px',
-  fontWeight: 600,
-  margin: 0,
-};
-
-const copyStyle: CSSProperties = {
-  color: '#6b7280',
-  fontSize: '14px',
-  margin: 0,
 };
 
 /**
  * Shown by error boundaries while a chunk-load recovery reload is pending.
- * Styled inline on purpose: during a chunk outage the app's CSS chunks may be
- * part of what failed to load, so this component must not depend on them.
+ * Reuses the self-contained system-error stylesheet (the same one
+ * app/error.tsx and app/global-error.tsx render) for page/card/typography
+ * styling: during a chunk outage the app's CSS chunks may be part of what
+ * failed to load, so this notice must not depend on them either. Only the
+ * spinner — not part of the shared sheet — stays as component-local inline
+ * CSS.
  */
 export function ChunkRecoveryNotice({
   wrapInDocument = false,
@@ -44,16 +29,29 @@ export function ChunkRecoveryNotice({
   wrapInDocument?: boolean;
 }) {
   const notice = (
-    <div aria-live="polite" role="status" style={containerStyle}>
+    <>
+      <style>{systemErrorStyleSheet}</style>
       <style>
         {
           '@keyframes baci-chunk-recovery-spin { to { transform: rotate(360deg); } }'
         }
       </style>
-      <div aria-hidden="true" style={spinnerStyle} />
-      <p style={titleStyle}>Updating to the latest version…</p>
-      <p style={copyStyle}>This page is refreshing automatically.</p>
-    </div>
+      <main
+        aria-live="polite"
+        className={systemErrorClassNames.page}
+        role="status"
+      >
+        <section className={systemErrorClassNames.card}>
+          <div aria-hidden="true" style={spinnerStyle} />
+          <p className={systemErrorClassNames.cardTitle}>
+            Updating to the latest version…
+          </p>
+          <p className={systemErrorClassNames.copy}>
+            This page is refreshing automatically.
+          </p>
+        </section>
+      </main>
+    </>
   );
 
   if (!wrapInDocument) {
