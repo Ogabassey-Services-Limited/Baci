@@ -10,7 +10,6 @@ import {
   getTrimmedString,
   getUnitCostByIndex,
   IMEI_KEYS,
-  resolveTransactionReviewUnitRow,
   SERIAL_KEYS,
   toFiniteNumberOrNull,
 } from './transaction-review-row-helpers';
@@ -19,6 +18,7 @@ import type {
   TransactionReviewOrder,
   TransactionReviewOrderRow,
 } from './transaction-review-types';
+import { resolveTransactionReviewUnitRow } from './transaction-review-unit-row';
 import { resolveSplitUnitIndexes } from './transaction-review-units';
 
 const TRANSACTION_REVIEW_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
