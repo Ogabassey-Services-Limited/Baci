@@ -57,24 +57,38 @@ export default function CustomerEditScreen() {
   }
 
   const handleSave = async () => {
+    if (!customer) {
+      Alert.alert(
+        'Customer unavailable',
+        'Customer details are still loading. Please try again.'
+      );
+      return;
+    }
+
     if (!isValidEmail(email.trim())) {
       Alert.alert('Invalid Email', 'Please enter a valid email address');
+      return;
+    }
+
+    const customerType =
+      customer.customer_type === 'company' ? 'company' : 'individual';
+    const sanitizedCompanyName = sanitizeCustomerName(companyName.trim());
+    if (customerType === 'company' && !sanitizedCompanyName) {
+      Alert.alert('Company Name Required', 'Please enter a company name');
       return;
     }
 
     try {
       await updateCustomer.mutateAsync({
         id: id || '',
-        // Pass the stored customer_type so a company isn't flipped to individual;
-        // company_name is company-aware in useUpdateCustomer.
-        customer_type: customer?.customer_type,
-        company_name: sanitizeCustomerName(companyName.trim()) || null,
+        customer_type: customerType,
+        company_name: sanitizedCompanyName || null,
         first_name: sanitizeCustomerName(firstName.trim()) || null,
         last_name: sanitizeCustomerName(lastName.trim()) || null,
         email: sanitizeEmail(email.trim()),
         phone: phoneModified
           ? sanitizePhone(phone.trim()) || null
-          : customer?.phone || null,
+          : customer.phone || null,
         address: sanitizeAddress(address.trim()) || null,
       });
       Alert.alert('Success', 'Customer updated successfully', [
@@ -117,7 +131,7 @@ export default function CustomerEditScreen() {
           headerRight: () => (
             <Pressable
               onPress={handleSave}
-              disabled={updateCustomer.isPending}
+              disabled={updateCustomer.isPending || !customer}
               style={{ padding: SPACING.sm }}
             >
               {updateCustomer.isPending ? (

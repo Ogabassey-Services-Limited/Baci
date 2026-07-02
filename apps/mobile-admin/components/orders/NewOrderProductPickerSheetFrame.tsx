@@ -5,7 +5,13 @@ import BottomSheet, {
   type BottomSheetFooterProps,
 } from '@gorhom/bottom-sheet';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { createContext, type ReactNode, useContext } from 'react';
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useRef,
+} from 'react';
 import {
   Modal,
   Pressable,
@@ -105,6 +111,12 @@ export function NewOrderProductPickerSheetFrame({
   visible,
 }: NewOrderProductPickerSheetFrameProps) {
   const insets = useSafeAreaInsets();
+  const sheetRef = useRef<BottomSheet>(null);
+  const footerInset = footerBottomInset + insets.bottom;
+
+  useEffect(() => {
+    sheetRef.current?.snapToIndex(activeIndex);
+  }, [activeIndex]);
 
   if (!visible) {
     return null;
@@ -122,7 +134,7 @@ export function NewOrderProductPickerSheetFrame({
         testID="product-picker-sheet-root"
       >
         <ProductPickerSheetFooterContext.Provider
-          value={{ bottomInset: footerBottomInset, footer, onClose }}
+          value={{ bottomInset: footerInset, footer, onClose }}
         >
           <BottomSheet
             android_keyboardInputMode="adjustResize"
@@ -146,6 +158,7 @@ export function NewOrderProductPickerSheetFrame({
             keyboardBehavior="interactive"
             keyboardBlurBehavior="restore"
             onClose={onClose}
+            ref={sheetRef}
             snapPoints={snapPoints}
             // Reserve the safe-area top so the sheet (and the keyboard-driven
             // interactive lift) can never rise behind the notch. Snap-point

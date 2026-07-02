@@ -218,6 +218,39 @@ describe('createNewOrderCustomerActions.handleCreateCustomer', () => {
     });
   });
 
+  it('escapes email wildcard characters before duplicate lookup', async () => {
+    const createCustomer = vi.fn().mockResolvedValue({
+      address: '',
+      email: 'john_doe%promo@example.com',
+      first_name: 'John',
+      id: 'customer-99',
+      last_name: '',
+      phone: '08012345678',
+    });
+
+    mocks.queueResponse({ data: [], error: null });
+    mocks.queueResponse({ data: [], error: null });
+
+    await makeActions({
+      createCustomer,
+      newCustomer: {
+        ...baseNewCustomer,
+        email: 'john_doe%promo@example.com',
+        firstName: 'John',
+        phone: '08012345678',
+      },
+    }).handleCreateCustomer();
+
+    expect(mocks.ilikeCalls).toEqual([
+      ['email', 'john\\_doe\\%promo@example.com'],
+    ]);
+    expect(createCustomer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'john_doe%promo@example.com',
+      })
+    );
+  });
+
   it('creates and selects a customer with normalized contact fields when duplicate checks pass', async () => {
     const createCustomer = vi.fn().mockResolvedValue({
       address: '12 Allen Avenue',

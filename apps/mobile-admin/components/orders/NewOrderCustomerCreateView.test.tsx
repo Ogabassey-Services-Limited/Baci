@@ -19,6 +19,26 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
+vi.mock('@gorhom/bottom-sheet', async () => {
+  const React = await import('react');
+
+  return {
+    BottomSheetScrollView: React.forwardRef(
+      (
+        {
+          children,
+        }: {
+          children?: React.ReactNode;
+        },
+        ref: React.Ref<{ scrollToEnd: () => void }>
+      ) => {
+        React.useImperativeHandle(ref, () => ({ scrollToEnd: vi.fn() }));
+        return React.createElement('div', null, children);
+      }
+    ),
+  };
+});
+
 vi.mock('react-native', async () => {
   const React = await import('react');
 

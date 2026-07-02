@@ -45,7 +45,7 @@ function shouldSortByCapacity(key: string): boolean {
 }
 
 function parseCapacityValue(value: string): number | null {
-  const match = /^\s*(\d+(?:\.\d+)?)\s*([kmgt]b)\s*$/i.exec(value);
+  const match = /^\s*(\d+(?:\.\d+)?)\s*([kmgt]b)\b/i.exec(value);
   if (!match) {
     return null;
   }

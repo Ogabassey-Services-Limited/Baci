@@ -138,7 +138,7 @@ export function useCreateCustomer() {
 
       const nameFields = buildCustomerRecordNameFields({
         company_name: newCustomer.company_name,
-        customer_type: newCustomer.customer_type,
+        customer_type: newCustomer.customer_type ?? 'individual',
         first_name: newCustomer.first_name,
         last_name: newCustomer.last_name,
         email: newCustomer.email,
@@ -184,7 +184,7 @@ export function useUpdateCustomer() {
     mutationKey: ['updateCustomer'],
     mutationFn: async (updates: {
       id: string;
-      customer_type?: 'individual' | 'company' | null;
+      customer_type: 'individual' | 'company' | null;
       company_name?: string | null;
       first_name?: string | null;
       last_name?: string | null;

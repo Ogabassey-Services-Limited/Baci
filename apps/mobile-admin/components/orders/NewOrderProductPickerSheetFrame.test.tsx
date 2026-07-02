@@ -7,6 +7,7 @@ import { NewOrderProductPickerSheetFrame } from './NewOrderProductPickerSheetFra
 const bottomSheetState = vi.hoisted(() => ({
   backdropComponents: [] as unknown[],
   footerComponents: [] as unknown[],
+  snapToIndex: vi.fn(),
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
@@ -29,84 +30,100 @@ vi.mock('react-native-gesture-handler', () => ({
   }) => <div data-testid={testID}>{children}</div>,
 }));
 
-vi.mock('@gorhom/bottom-sheet', () => ({
-  __esModule: true,
-  default: ({
-    index,
-    backdropComponent: BackdropComponent,
-    children,
-    enableContentPanningGesture,
-    enablePanDownToClose,
-    footerComponent: FooterComponent,
-    keyboardBehavior,
-    keyboardBlurBehavior,
-    onClose,
-    snapPoints,
-  }: {
-    index?: number;
-    backdropComponent?: (props: Record<string, unknown>) => ReactNode;
-    children?: ReactNode;
-    enableContentPanningGesture?: boolean;
-    enablePanDownToClose?: boolean;
-    footerComponent?: (props: Record<string, unknown>) => ReactNode;
-    keyboardBehavior?: string;
-    keyboardBlurBehavior?: string;
-    onClose?: () => void;
-    snapPoints?: string[];
-  }) => {
-    bottomSheetState.backdropComponents.push(BackdropComponent);
-    bottomSheetState.footerComponents.push(FooterComponent);
+vi.mock('@gorhom/bottom-sheet', async () => {
+  const React = await import('react');
 
-    return (
-      <section
-        aria-label="gorhom-bottom-sheet"
-        data-keyboard-behavior={keyboardBehavior}
-        data-keyboard-blur-behavior={keyboardBlurBehavior}
-        data-content-panning={String(enableContentPanningGesture)}
-        data-index={index}
-        data-pan-down-close={String(Boolean(enablePanDownToClose))}
-        data-snap-points={snapPoints?.join(',')}
-      >
-        {BackdropComponent?.({})}
+  return {
+    __esModule: true,
+    default: React.forwardRef(
+      (
+        {
+          index,
+          backdropComponent: BackdropComponent,
+          children,
+          enableContentPanningGesture,
+          enablePanDownToClose,
+          footerComponent: FooterComponent,
+          keyboardBehavior,
+          keyboardBlurBehavior,
+          onClose,
+          snapPoints,
+        }: {
+          index?: number;
+          backdropComponent?: (props: Record<string, unknown>) => ReactNode;
+          children?: ReactNode;
+          enableContentPanningGesture?: boolean;
+          enablePanDownToClose?: boolean;
+          footerComponent?: (props: Record<string, unknown>) => ReactNode;
+          keyboardBehavior?: string;
+          keyboardBlurBehavior?: string;
+          onClose?: () => void;
+          snapPoints?: string[];
+        },
+        ref: React.Ref<{ snapToIndex: (index: number) => void }>
+      ) => {
+        React.useImperativeHandle(ref, () => ({
+          snapToIndex: bottomSheetState.snapToIndex,
+        }));
+        bottomSheetState.backdropComponents.push(BackdropComponent);
+        bottomSheetState.footerComponents.push(FooterComponent);
+
+        return (
+          <section
+            aria-label="gorhom-bottom-sheet"
+            data-keyboard-behavior={keyboardBehavior}
+            data-keyboard-blur-behavior={keyboardBlurBehavior}
+            data-content-panning={String(enableContentPanningGesture)}
+            data-index={index}
+            data-pan-down-close={String(Boolean(enablePanDownToClose))}
+            data-snap-points={snapPoints?.join(',')}
+          >
+            {BackdropComponent?.({})}
+            {children}
+            {FooterComponent?.({})}
+            <button
+              aria-label="Pan sheet down"
+              onClick={onClose}
+              type="button"
+            />
+          </section>
+        );
+      }
+    ),
+    BottomSheetBackdrop: ({
+      onPress,
+      pressBehavior,
+    }: {
+      onPress?: () => void;
+      pressBehavior?: string;
+    }) => (
+      <button
+        aria-label="Close product sheet backdrop"
+        data-press-behavior={pressBehavior}
+        onClick={onPress}
+        type="button"
+      />
+    ),
+    BottomSheetFooter: ({
+      bottomInset,
+      children,
+    }: {
+      bottomInset?: number;
+      children?: ReactNode;
+    }) => (
+      <footer data-bottom-inset={bottomInset} data-testid="gorhom-sheet-footer">
         {children}
-        {FooterComponent?.({})}
-        <button aria-label="Pan sheet down" onClick={onClose} type="button" />
-      </section>
-    );
-  },
-  BottomSheetBackdrop: ({
-    onPress,
-    pressBehavior,
-  }: {
-    onPress?: () => void;
-    pressBehavior?: string;
-  }) => (
-    <button
-      aria-label="Close product sheet backdrop"
-      data-press-behavior={pressBehavior}
-      onClick={onPress}
-      type="button"
-    />
-  ),
-  BottomSheetFooter: ({
-    bottomInset,
-    children,
-  }: {
-    bottomInset?: number;
-    children?: ReactNode;
-  }) => (
-    <footer data-bottom-inset={bottomInset} data-testid="gorhom-sheet-footer">
-      {children}
-    </footer>
-  ),
-  BottomSheetView: ({
-    children,
-    testID,
-  }: {
-    children?: ReactNode;
-    testID?: string;
-  }) => <div data-testid={testID}>{children}</div>,
-}));
+      </footer>
+    ),
+    BottomSheetView: ({
+      children,
+      testID,
+    }: {
+      children?: ReactNode;
+      testID?: string;
+    }) => <div data-testid={testID}>{children}</div>,
+  };
+});
 
 vi.mock('react-native', () => ({
   Modal: ({
@@ -155,6 +172,7 @@ describe('NewOrderProductPickerSheetFrame', () => {
   beforeEach(() => {
     bottomSheetState.backdropComponents = [];
     bottomSheetState.footerComponents = [];
+    bottomSheetState.snapToIndex.mockClear();
   });
 
   it('renders product picker content in a Gorhom sheet with keyboard-aware footer', () => {
@@ -196,7 +214,7 @@ describe('NewOrderProductPickerSheetFrame', () => {
     );
     expect(screen.getByTestId('gorhom-sheet-footer')).toHaveAttribute(
       'data-bottom-inset',
-      '2'
+      '14'
     );
     expect(screen.getByText('Product rows')).toBeInTheDocument();
   });
@@ -218,12 +236,27 @@ describe('NewOrderProductPickerSheetFrame', () => {
 
     expect(screen.getByTestId('gorhom-sheet-footer')).toHaveAttribute(
       'data-bottom-inset',
-      '18'
+      '30'
     );
   });
 
-  it('allows callers to move the sheet to a higher snap point', () => {
-    render(
+  it('snaps the mounted sheet when callers move to a higher snap point', () => {
+    const view = render(
+      <NewOrderProductPickerSheetFrame
+        activeIndex={0}
+        closeLabel="Close customer sheet"
+        colors={colors}
+        footer={<span>Search customers</span>}
+        onClose={vi.fn()}
+        snapPoints={['40%', '74%']}
+        title="New Customer"
+        visible={true}
+      >
+        <span>Customer form</span>
+      </NewOrderProductPickerSheetFrame>
+    );
+
+    view.rerender(
       <NewOrderProductPickerSheetFrame
         activeIndex={1}
         closeLabel="Close customer sheet"
@@ -242,6 +275,7 @@ describe('NewOrderProductPickerSheetFrame', () => {
       'data-index',
       '1'
     );
+    expect(bottomSheetState.snapToIndex).toHaveBeenCalledWith(1);
   });
 
   it('closes from the backdrop and pan-down callback', () => {

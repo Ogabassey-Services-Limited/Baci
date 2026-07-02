@@ -1,6 +1,8 @@
 import { StyleSheet } from 'react-native';
 import { RADIUS, SPACING } from '@/constants/theme';
 
+export const NEW_ORDER_FOOTER_BASE_PADDING_BOTTOM = 20;
+
 export const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { gap: SPACING.md, padding: SPACING.md },
@@ -136,7 +138,7 @@ export const styles = StyleSheet.create({
     elevation: 10,
     gap: 16,
     padding: 16,
-    paddingBottom: 20,
+    paddingBottom: NEW_ORDER_FOOTER_BASE_PADDING_BOTTOM,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,

@@ -99,6 +99,7 @@ function makeController(
       text: '#0f172a',
       textMuted: '#94a3b8',
       textSecondary: '#64748b',
+      warning: '#f59e0b',
       ...overrides.colors,
     },
     formatPrice: vi.fn((value: number) => `₦${value.toFixed(2)}`),
@@ -126,7 +127,7 @@ describe('NewOrderItemsSection', () => {
     expect(screen.getByText('No items added yet')).toBeInTheDocument();
     expect(screen.getByText('flash-outline')).toHaveAttribute(
       'data-color',
-      '#F4B400'
+      '#f59e0b'
     );
     expect(screen.getByText('search')).toHaveAttribute('data-color', '#2563eb');
 

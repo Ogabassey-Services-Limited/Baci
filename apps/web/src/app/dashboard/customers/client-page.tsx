@@ -290,7 +290,7 @@ export default function CustomersClientPage({
                       <Label htmlFor="first_name">First Name</Label>
                       <Input
                         id="first_name"
-                        value={newCustomer.first_name}
+                        value={newCustomer.first_name ?? ''}
                         onChange={(e) =>
                           setNewCustomer({
                             ...newCustomer,
@@ -303,7 +303,7 @@ export default function CustomersClientPage({
                       <Label htmlFor="last_name">Last Name</Label>
                       <Input
                         id="last_name"
-                        value={newCustomer.last_name}
+                        value={newCustomer.last_name ?? ''}
                         onChange={(e) =>
                           setNewCustomer({
                             ...newCustomer,
@@ -319,7 +319,7 @@ export default function CustomersClientPage({
                   <Input
                     id="email"
                     type="email"
-                    value={newCustomer.email}
+                    value={newCustomer.email ?? ''}
                     onChange={(e) =>
                       setNewCustomer({ ...newCustomer, email: e.target.value })
                     }
@@ -329,7 +329,7 @@ export default function CustomersClientPage({
                   <Label htmlFor="phone">Phone</Label>
                   <PhoneInput
                     id="phone"
-                    value={newCustomer.phone}
+                    value={newCustomer.phone ?? ''}
                     onChange={(value) =>
                       setNewCustomer({ ...newCustomer, phone: value })
                     }
@@ -339,7 +339,7 @@ export default function CustomersClientPage({
                 <div className="grid gap-2">
                   <Label htmlFor="address">Address</Label>
                   <AddressAutocomplete
-                    value={newCustomer.address}
+                    value={newCustomer.address ?? ''}
                     onChange={(val) => {
                       const value =
                         typeof val === 'string' ? val : val.target.value;

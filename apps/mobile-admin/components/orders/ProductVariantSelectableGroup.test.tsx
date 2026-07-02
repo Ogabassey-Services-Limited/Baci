@@ -18,19 +18,27 @@ vi.mock('react-native', async () => {
       accessibilityLabel,
       accessibilityState,
       children,
+      disabled,
       onPress,
     }: {
       accessibilityLabel?: string;
-      accessibilityState?: { selected?: boolean };
+      accessibilityState?: { disabled?: boolean; selected?: boolean };
       children?: ReactNode;
+      disabled?: boolean;
       onPress?: () => void;
     }) =>
       React.createElement(
         'button',
         {
+          'aria-disabled': disabled || accessibilityState?.disabled,
           'aria-label': accessibilityLabel,
           'aria-pressed': accessibilityState?.selected,
-          onClick: () => onPress?.(),
+          disabled,
+          onClick: () => {
+            if (!(disabled || accessibilityState?.disabled)) {
+              onPress?.();
+            }
+          },
           type: 'button',
         },
         children
@@ -65,6 +73,7 @@ const colors = {
   card: '#171829',
   primary: '#4f9be8',
   text: '#ffffff',
+  textMuted: '#94a3b8',
   textOnPrimary: '#ffffff',
   textSecondary: '#a6adbb',
 };
@@ -111,5 +120,40 @@ describe('ProductVariantSelectableGroup', () => {
       'data-flex-wrap',
       'wrap'
     );
+  });
+
+  it('marks unavailable option values disabled and ignores their taps', () => {
+    const onSelect = vi.fn();
+
+    render(
+      <ProductVariantSelectableGroup
+        colors={colors}
+        group={{
+          key: 'storage',
+          label: 'Storage',
+          values: [],
+        }}
+        onSelect={onSelect}
+        visibleValues={[
+          {
+            available: false,
+            label: '128GB SSD',
+            selected: false,
+            value: '128GB SSD',
+          },
+        ]}
+      />
+    );
+
+    const unavailableOption = screen.getByRole('button', {
+      name: 'Select Storage 128GB SSD',
+    });
+
+    expect(unavailableOption).toBeDisabled();
+    expect(unavailableOption).toHaveAttribute('aria-disabled', 'true');
+
+    fireEvent.click(unavailableOption);
+
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });

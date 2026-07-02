@@ -13,9 +13,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TYPOGRAPHY } from '@/constants/theme';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { PAYMENT_METHODS } from './new-order.shared';
-import { styles } from './new-order.styles';
-
-const NEW_ORDER_FOOTER_BOTTOM_PADDING = 20;
+import {
+  NEW_ORDER_FOOTER_BASE_PADDING_BOTTOM,
+  styles,
+} from './new-order.styles';
 
 interface NewOrderFooterBarProps {
   controller: ReturnType<typeof useNewOrderController>;
@@ -56,7 +57,7 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
         {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
-          paddingBottom: NEW_ORDER_FOOTER_BOTTOM_PADDING + insets.bottom,
+          paddingBottom: NEW_ORDER_FOOTER_BASE_PADDING_BOTTOM + insets.bottom,
         },
       ]}
       testID="new-order-footer-bar"
@@ -68,6 +69,7 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
           Payment Status
         </Text>
         <View
+          accessibilityRole="radiogroup"
           style={[styles.paymentToggle, { backgroundColor: colors.inputBg }]}
         >
           {PAYMENT_STATUS_OPTIONS.map(({ icon, label, value }) => {

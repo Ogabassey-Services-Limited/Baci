@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OrderItem } from '@/components/orders/new-order.types';
 
 const mocks = vi.hoisted(() => ({
@@ -105,6 +105,8 @@ describe('submitNewOrder', () => {
   let branchQuery: ReturnType<typeof createBranchQuery>;
 
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-02T12:00:00.000Z'));
     vi.clearAllMocks();
     mocks.createManualOrderWithItems.mockResolvedValue({ id: 'order-1' });
     branchQuery = createBranchQuery({
@@ -112,6 +114,10 @@ describe('submitNewOrder', () => {
       error: null,
     });
     mocks.supabaseFrom.mockReturnValue(branchQuery);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('blocks submission when the customer is missing', async () => {
@@ -166,7 +172,7 @@ describe('submitNewOrder', () => {
           discount_amount: 0,
           merchant_id: 'merchant-1',
           notes: 'Handle with care',
-          created_at: '2024-02-03T10:30:00.000Z',
+          created_at: '2026-07-02T12:00:00.000Z',
           order_number: 'ORD-030224-UUID12',
           payment_method: 'cash',
           payment_status: 'paid',
@@ -250,6 +256,20 @@ describe('submitNewOrder', () => {
           currency: 'EGP',
         }),
       })
+    );
+  });
+
+  it('rejects future order dates before creating an order', async () => {
+    await submitNewOrder(
+      createSubmitParams({
+        orderDate: new Date('2026-07-02T12:02:00.000Z'),
+      })
+    );
+
+    expect(mocks.createManualOrderWithItems).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Error',
+      'Order date cannot be in the future'
     );
   });
 

@@ -136,7 +136,10 @@ export async function POST(request: NextRequest) {
 
     const body = parseResult.data;
 
-    const nameFields = buildCustomerRecordNameFields(body);
+    const nameFields = buildCustomerRecordNameFields({
+      ...body,
+      customer_type: body.customer_type ?? 'individual',
+    });
     const address = buildCustomerAddressLine(
       body.address,
       body.city,

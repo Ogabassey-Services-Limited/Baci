@@ -1,5 +1,6 @@
 import {
   BRAND_COLORS,
+  type CustomerType,
   ORDER_SOURCE_CONFIG,
   type OrderSource,
 } from '@baci/shared';
@@ -17,7 +18,7 @@ export const DEFAULT_COUNTRY_CODE: CountryCode = 'NG';
 
 interface CustomerDisplayFields {
   company_name?: string | null;
-  customer_type?: string | null;
+  customer_type?: CustomerType | null;
   email?: string | null;
   first_name?: string | null;
   full_name?: string | null;

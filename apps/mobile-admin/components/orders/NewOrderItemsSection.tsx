@@ -10,8 +10,6 @@ interface NewOrderItemsSectionProps {
   controller: ReturnType<typeof useNewOrderController>;
 }
 
-const QUICK_ADD_LIGHTNING_COLOR = '#F4B400';
-
 export function NewOrderItemsSection({
   controller,
 }: NewOrderItemsSectionProps) {
@@ -30,6 +28,7 @@ export function NewOrderItemsSection({
     setShowEditItemModal,
     setShowProductModal,
   } = controller;
+  const quickAddAccentColor = colors.warning;
 
   return (
     <View style={styles.section}>
@@ -49,12 +48,12 @@ export function NewOrderItemsSection({
             styles.actionBtn,
             {
               backgroundColor: getTranslucentColor(
-                QUICK_ADD_LIGHTNING_COLOR,
+                quickAddAccentColor,
                 colors.backgroundLight,
                 0.06
               ),
               borderColor: getTranslucentColor(
-                QUICK_ADD_LIGHTNING_COLOR,
+                quickAddAccentColor,
                 colors.border,
                 0.14
               ),
@@ -62,7 +61,7 @@ export function NewOrderItemsSection({
           ]}
         >
           <Ionicons
-            color={QUICK_ADD_LIGHTNING_COLOR}
+            color={quickAddAccentColor}
             name="flash-outline"
             size={18}
           />

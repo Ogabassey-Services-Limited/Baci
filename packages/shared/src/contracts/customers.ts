@@ -12,6 +12,13 @@ export type CustomerNameFields = {
   last_name?: string | null;
 };
 
+export type CustomerRecordNameFields = Omit<
+  CustomerNameFields,
+  'customer_type'
+> & {
+  customer_type: CustomerType | null;
+};
+
 export function normalizeCustomerType(value?: string | null): CustomerType {
   return value === 'company' ? 'company' : 'individual';
 }
@@ -55,7 +62,9 @@ export function buildCustomerNameFields(input: CustomerNameFields) {
  * in company_name and is mirrored into full_name so existing full_name-based
  * display and search paths keep working without per-call-site branching.
  */
-export function buildCustomerRecordNameFields(input: CustomerNameFields): {
+export function buildCustomerRecordNameFields(
+  input: CustomerRecordNameFields
+): {
   company_name: string | null;
   customer_type: CustomerType;
   first_name: string | null;
@@ -65,11 +74,7 @@ export function buildCustomerRecordNameFields(input: CustomerNameFields): {
   const customerType = normalizeCustomerType(input.customer_type);
 
   if (customerType === 'company') {
-    const companyName =
-      input.company_name?.trim() ||
-      input.full_name?.trim() ||
-      input.email?.split('@')[0]?.trim() ||
-      null;
+    const companyName = input.company_name?.trim() || null;
 
     return {
       company_name: companyName,

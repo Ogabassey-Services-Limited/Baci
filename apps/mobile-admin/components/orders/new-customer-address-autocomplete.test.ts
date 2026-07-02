@@ -17,6 +17,17 @@ describe('new customer address autocomplete helpers', () => {
     );
   });
 
+  it('omits country scoping when no country code is selected', () => {
+    expect(
+      buildGoogleAutocompleteUrl({
+        googleMapsApiKey: 'maps-key',
+        input: '12 Allen Avenue',
+      })
+    ).toBe(
+      'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=12+Allen+Avenue&key=maps-key&language=en'
+    );
+  });
+
   it('trims predictions and falls back to a stable generated place id', () => {
     expect(
       toAddressSuggestions({

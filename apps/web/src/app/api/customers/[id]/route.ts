@@ -1,6 +1,7 @@
 import {
   buildCustomerRecordNameFields,
   CUSTOMER_ADMIN_COLUMNS,
+  normalizeCustomerType,
 } from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
@@ -165,7 +166,9 @@ export async function PATCH(
       Object.assign(
         updates,
         buildCustomerRecordNameFields({
-          customer_type: body.customer_type ?? existingCustomer.customer_type,
+          customer_type: normalizeCustomerType(
+            body.customer_type ?? existingCustomer.customer_type
+          ),
           company_name: body.company_name ?? existingCustomer.company_name,
           first_name: body.first_name ?? existingCustomer.first_name,
           last_name: body.last_name ?? existingCustomer.last_name,

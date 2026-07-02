@@ -56,6 +56,7 @@ let customer: unknown = null;
 let customerError: unknown = null;
 let updateResult: unknown = null;
 let updateError: unknown = null;
+let updatePayload: Record<string, unknown> | null = null;
 let deleteResult: unknown[] | null = null;
 let deleteError: unknown = null;
 let csrfResult: { valid: boolean; response: Response | null } = {
@@ -91,21 +92,24 @@ const createMockSupabase = () => ({
             error: customerError,
           });
         }),
-        update: vi.fn(() => ({
-          eq: vi.fn(() => ({
+        update: vi.fn((payload: Record<string, unknown>) => {
+          updatePayload = payload;
+          return {
             eq: vi.fn(() => ({
-              select: vi.fn(() => ({
-                single: vi.fn(() => {
-                  const hasError = updateError != null;
-                  return Promise.resolve({
-                    data: hasError ? null : updateResult,
-                    error: updateError,
-                  });
-                }),
+              eq: vi.fn(() => ({
+                select: vi.fn(() => ({
+                  single: vi.fn(() => {
+                    const hasError = updateError != null;
+                    return Promise.resolve({
+                      data: hasError ? null : updateResult,
+                      error: updateError,
+                    });
+                  }),
+                })),
               })),
             })),
-          })),
-        })),
+          };
+        }),
         delete: vi.fn(() => ({
           eq: vi.fn(() => ({
             eq: vi.fn(() => ({
@@ -167,6 +171,7 @@ function resetMocks() {
   customerError = null;
   updateResult = null;
   updateError = null;
+  updatePayload = null;
   deleteResult = [{ id: CUSTOMER_ID }];
   deleteError = null;
   csrfResult = { valid: true, response: null };
@@ -236,6 +241,43 @@ describe('PATCH /api/customers/[id]', () => {
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.customer.full_name).toBe('Updated Name');
+  });
+
+  it('updates company customer name fields together', async () => {
+    customer = {
+      id: CUSTOMER_ID,
+      customer_type: 'company',
+      company_name: 'Old Co',
+      first_name: null,
+      full_name: 'Old Co',
+      last_name: null,
+      email: 'ops@old.example',
+    };
+    updateResult = {
+      id: CUSTOMER_ID,
+      customer_type: 'company',
+      company_name: 'New Co',
+      full_name: 'New Co',
+    };
+
+    const res = await PATCH(
+      makePatchRequest(CUSTOMER_ID, {
+        company_name: 'New Co',
+        customer_type: 'company',
+      }),
+      {
+        params: Promise.resolve({ id: CUSTOMER_ID }),
+      }
+    );
+
+    expect(res.status).toBe(200);
+    expect(updatePayload).toMatchObject({
+      company_name: 'New Co',
+      customer_type: 'company',
+      first_name: null,
+      full_name: 'New Co',
+      last_name: null,
+    });
   });
 
   it('returns 400 on validation failure', async () => {

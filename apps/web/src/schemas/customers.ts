@@ -12,6 +12,22 @@ const customerStoreCreditSchema = z.preprocess(
   z.coerce.number().min(0).max(1_000_000_000).optional()
 );
 
+function requireCompanyNameWhenCompany(
+  data: {
+    company_name?: string | null;
+    customer_type?: 'individual' | 'company' | null;
+  },
+  ctx: z.RefinementCtx
+) {
+  if (data.customer_type === 'company' && !data.company_name?.trim()) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Company name is required',
+      path: ['company_name'],
+    });
+  }
+}
+
 export const createCustomerSchema = z
   .object({
     customer_type: z.enum(['individual', 'company']).optional().nullable(),
@@ -63,15 +79,7 @@ export const createCustomerSchema = z
       .optional()
       .nullable(),
   })
-  .superRefine((data, ctx) => {
-    if (data.customer_type === 'company' && !data.company_name?.trim()) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Company name is required',
-        path: ['company_name'],
-      });
-    }
-  });
+  .superRefine(requireCompanyNameWhenCompany);
 
 export const updateCustomerSchema = z
   .object({
@@ -114,17 +122,7 @@ export const updateCustomerSchema = z
       .nullable(),
     store_credit: customerStoreCreditSchema.optional().nullable(),
   })
-  .superRefine((data, ctx) => {
-    // Only enforced when the update explicitly switches the record to a company
-    // (partial edits that don't touch customer_type keep the stored value).
-    if (data.customer_type === 'company' && !data.company_name?.trim()) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Company name is required',
-        path: ['company_name'],
-      });
-    }
-  });
+  .superRefine(requireCompanyNameWhenCompany);
 
 /**
  * Helper to format Zod errors for API responses

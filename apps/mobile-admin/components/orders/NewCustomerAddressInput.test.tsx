@@ -1,5 +1,11 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS } from '@/constants/theme';
@@ -162,5 +168,119 @@ describe('NewCustomerAddressInput', () => {
 
     expect(screen.queryByLabelText('Search Address')).not.toBeInTheDocument();
     expect(setNewCustomer).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps suggestions hidden when a pending lookup resolves after blur', async () => {
+    vi.useFakeTimers();
+    const setNewCustomer = vi.fn();
+    let resolveFetch!: (response: {
+      json: () => Promise<unknown>;
+      ok: boolean;
+      status: number;
+    }) => void;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = resolve;
+        })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      const view = render(
+        <NewCustomerAddressInput
+          address=""
+          colors={LIGHT_COLORS}
+          googleMapsApiKey="maps-test-key"
+          selectedCountryCode="NG"
+          setNewCustomer={setNewCustomer}
+        />
+      );
+      const input = screen.getByPlaceholderText('Search Address');
+
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: '12 Allen' } });
+      view.rerender(
+        <NewCustomerAddressInput
+          address="12 Allen"
+          colors={LIGHT_COLORS}
+          googleMapsApiKey="maps-test-key"
+          selectedCountryCode="NG"
+          setNewCustomer={setNewCustomer}
+        />
+      );
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(300);
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      fireEvent.blur(input);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(150);
+      });
+
+      await act(async () => {
+        resolveFetch({
+          ok: true,
+          json: vi.fn().mockResolvedValue({
+            predictions: [
+              {
+                description: '12 Allen Avenue, Ikeja, Lagos',
+                place_id: 'place-1',
+                structured_formatting: {
+                  main_text: '12 Allen Avenue',
+                  secondary_text: 'Ikeja, Lagos',
+                },
+              },
+            ],
+          }),
+          status: 200,
+        });
+        await Promise.resolve();
+      });
+
+      expect(screen.queryByText('12 Allen Avenue')).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('clears suggestions when the autocomplete request fails', async () => {
+    const setNewCustomer = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      json: vi.fn(),
+      status: 500,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const view = render(
+      <NewCustomerAddressInput
+        address=""
+        colors={LIGHT_COLORS}
+        googleMapsApiKey="maps-test-key"
+        selectedCountryCode="NG"
+        setNewCustomer={setNewCustomer}
+      />
+    );
+
+    fireEvent.focus(screen.getByPlaceholderText('Search Address'));
+    fireEvent.change(screen.getByPlaceholderText('Search Address'), {
+      target: { value: '12 Allen' },
+    });
+    view.rerender(
+      <NewCustomerAddressInput
+        address="12 Allen"
+        colors={LIGHT_COLORS}
+        googleMapsApiKey="maps-test-key"
+        selectedCountryCode="NG"
+        setNewCustomer={setNewCustomer}
+      />
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    expect(screen.queryByLabelText('Address suggestions')).toBeNull();
   });
 });

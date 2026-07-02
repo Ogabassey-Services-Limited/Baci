@@ -105,10 +105,12 @@ vi.mock('react-native', async () => {
         value: value ?? '',
       }),
     View: ({
+      accessibilityRole,
       children,
       style,
       testID,
     }: {
+      accessibilityRole?: string;
       children?: React.ReactNode;
       style?: Record<string, unknown> | Record<string, unknown>[];
       testID?: string;
@@ -120,6 +122,7 @@ vi.mock('react-native', async () => {
         {
           'data-padding-bottom': String(flattenedStyle.paddingBottom ?? ''),
           'data-testid': testID,
+          role: accessibilityRole,
         },
         children
       );
@@ -127,7 +130,10 @@ vi.mock('react-native', async () => {
   };
 });
 
-vi.mock('./new-order.styles', () => ({ styles: {} }));
+vi.mock('./new-order.styles', () => ({
+  NEW_ORDER_FOOTER_BASE_PADDING_BOTTOM: 20,
+  styles: {},
+}));
 
 type FooterController = Pick<
   ReturnType<typeof useNewOrderController>,
@@ -214,6 +220,7 @@ describe('NewOrderFooterBar', () => {
     expect(screen.getByText('Payment Status')).toBeInTheDocument();
 
     const statusOptions = screen.getAllByRole('radio');
+    expect(screen.getByRole('radiogroup')).toBeInTheDocument();
     expect(statusOptions).toHaveLength(3);
     expect(statusOptions.map((option) => option.textContent)).toEqual([
       'UNPAID',

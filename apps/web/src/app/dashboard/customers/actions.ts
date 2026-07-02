@@ -10,6 +10,7 @@ import {
 } from '@baci/shared';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+import type { z } from 'zod';
 import { ensurePermission } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
 import { createCustomerSchema, formatZodErrors } from '@/schemas/customers';
@@ -35,16 +36,7 @@ export interface Customer {
   deleted_at: string | null;
 }
 
-export interface CreateCustomerData {
-  customer_type?: 'individual' | 'company';
-  company_name?: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  address: string;
-  store_credit?: number;
-}
+export type CreateCustomerData = z.input<typeof createCustomerSchema>;
 
 async function resolveCustomerMerchantId(
   action: 'view' | 'create'
@@ -127,7 +119,10 @@ export async function createCustomer(formData: CreateCustomerData) {
   }
   const body = parseResult.data;
 
-  const nameFields = buildCustomerRecordNameFields(body);
+  const nameFields = buildCustomerRecordNameFields({
+    ...body,
+    customer_type: body.customer_type ?? 'individual',
+  });
   const address = buildCustomerAddressLine(body.address, body.city, body.state);
 
   const { data: customer, error } = await supabase

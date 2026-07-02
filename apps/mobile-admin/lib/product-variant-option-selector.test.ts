@@ -148,6 +148,33 @@ describe('buildVariantOptionGroups', () => {
     ]);
   });
 
+  it('sorts capacity values before trailing storage descriptors', () => {
+    const groups = buildVariantOptionGroups(
+      [
+        variant('variant-1', { storage: '1TB SSD' }),
+        variant('variant-2', { storage: '512GB SSD' }),
+        variant('variant-3', { storage: '256GB SSD' }),
+      ],
+      {}
+    );
+
+    expect(groups.find((group) => group.key === 'storage')?.values).toEqual([
+      {
+        available: true,
+        label: '256GB SSD',
+        selected: false,
+        value: '256GB SSD',
+      },
+      {
+        available: true,
+        label: '512GB SSD',
+        selected: false,
+        value: '512GB SSD',
+      },
+      { available: true, label: '1TB SSD', selected: false, value: '1TB SSD' },
+    ]);
+  });
+
   it('sorts camelCase capacity keys by capacity', () => {
     const groups = buildVariantOptionGroups(
       [

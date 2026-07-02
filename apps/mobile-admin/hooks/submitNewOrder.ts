@@ -48,6 +48,8 @@ interface SubmitNewOrderParams {
   submittingRef: MutableRefObject<boolean>;
 }
 
+const ORDER_DATE_FUTURE_TOLERANCE_MS = 60_000;
+
 export async function submitNewOrder({
   customer,
   deliveryInfo,
@@ -97,6 +99,9 @@ export async function submitNewOrder({
   setIsSubmitting(true);
 
   try {
+    const now = new Date();
+    validateOrderDate(orderDate, now);
+    const createdAtIso = now.toISOString();
     const orderDateIso = orderDate.toISOString();
     const orderNumber = generateOrderNumber(orderDate);
     const sanitizedCustomerName =
@@ -198,7 +203,7 @@ export async function submitNewOrder({
           discount_amount: discount,
           merchant_id: merchantId,
           notes: sanitizedNotes,
-          created_at: orderDateIso,
+          created_at: createdAtIso,
           order_number: orderNumber,
           payment_method:
             paymentStatus === 'paid' || paymentStatus === 'partially_paid'
@@ -264,9 +269,19 @@ async function validateSelectedBranch(
   return data.id;
 }
 
+function validateOrderDate(orderDate: Date, now: Date) {
+  if (Number.isNaN(orderDate.getTime())) {
+    throw new Error('Invalid order date');
+  }
+
+  if (orderDate.getTime() > now.getTime() + ORDER_DATE_FUTURE_TOLERANCE_MS) {
+    throw new Error('Order date cannot be in the future');
+  }
+}
+
 function generateOrderNumber(date: Date) {
   const prefix = 'ORD';
-  const datePart = `${String(date.getDate()).padStart(2, '0')}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getFullYear()).slice(-2)}`;
+  const datePart = `${String(date.getUTCDate()).padStart(2, '0')}${String(date.getUTCMonth() + 1).padStart(2, '0')}${String(date.getUTCFullYear()).slice(-2)}`;
   const randomPart = Crypto.randomUUID()
     .replace(/-/g, '')
     .substring(0, 6)

@@ -262,7 +262,7 @@ describe('NewOrderDetailsSection', () => {
       screen.queryByRole('button', { name: 'Pick order date' })
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /Customer/i })
+      screen.getByRole('button', { name: /Customer.*Select/ })
     ).toBeInTheDocument();
   });
 

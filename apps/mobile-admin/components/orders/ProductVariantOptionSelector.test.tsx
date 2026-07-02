@@ -219,8 +219,12 @@ describe('ProductVariantOptionSelector', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Add selected variant' })
-    ).toBeDisabled();
+    ).not.toBeDisabled();
+    expect(onAddProduct).not.toHaveBeenCalled();
 
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add selected variant' })
+    );
     expect(onAddProduct).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'variant-2',
@@ -257,7 +261,7 @@ describe('ProductVariantOptionSelector', () => {
     expect(addButton).toBeDisabled();
   });
 
-  it('adds the variant immediately when the final selectable option is chosen', () => {
+  it('waits for explicit confirmation after the final selectable option is chosen', () => {
     const onAddProduct = vi.fn();
 
     renderSelector({
@@ -294,6 +298,12 @@ describe('ProductVariantOptionSelector', () => {
       screen.getByRole('button', {
         name: 'Select Processor Intel Core i7-1365U',
       })
+    );
+
+    expect(onAddProduct).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add selected variant' })
     );
 
     expect(onAddProduct).toHaveBeenCalledWith(

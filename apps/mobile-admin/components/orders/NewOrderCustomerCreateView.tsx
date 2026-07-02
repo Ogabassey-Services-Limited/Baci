@@ -1,9 +1,12 @@
-import Ionicons from '@react-native-vector-icons/ionicons';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import Ionicons, {
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons';
 import { type RefObject, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
+  type ScrollView,
   Text,
   TextInput,
   useWindowDimensions,
@@ -23,6 +26,7 @@ interface NewOrderCustomerCreateViewProps {
 
 interface CustomerInfoFieldProps {
   colors: ReturnType<typeof useNewOrderController>['colors'];
+  icon: IoniconsIconName;
   inputRef?: RefObject<TextInput | null>;
   onChangeText: (text: string) => void;
   onSubmitEditing?: () => void;
@@ -32,6 +36,7 @@ interface CustomerInfoFieldProps {
 
 function CustomerInfoField({
   colors,
+  icon,
   inputRef,
   onChangeText,
   onSubmitEditing,
@@ -45,11 +50,7 @@ function CustomerInfoField({
         { backgroundColor: colors.inputBg, borderColor: colors.border },
       ]}
     >
-      <Ionicons
-        color={colors.textMuted}
-        name={placeholder === 'Company Name' ? 'business' : 'person'}
-        size={17}
-      />
+      <Ionicons color={colors.textMuted} name={icon} size={17} />
       <TextInput
         accessibilityLabel={placeholder}
         ref={inputRef}
@@ -97,7 +98,7 @@ export function NewOrderCustomerCreateView({
   const isCompany = newCustomer.customerType === 'company';
 
   return (
-    <ScrollView
+    <BottomSheetScrollView
       ref={scrollRef}
       contentContainerStyle={customerStyles.content}
       keyboardShouldPersistTaps="handled"
@@ -149,6 +150,7 @@ export function NewOrderCustomerCreateView({
         {isCompany ? (
           <CustomerInfoField
             colors={colors}
+            icon="business"
             onChangeText={(text) =>
               setNewCustomer((previous) => ({
                 ...previous,
@@ -163,6 +165,7 @@ export function NewOrderCustomerCreateView({
           <View style={customerStyles.nameRow}>
             <CustomerInfoField
               colors={colors}
+              icon="person"
               onChangeText={(text) =>
                 setNewCustomer((previous) => ({
                   ...previous,
@@ -175,6 +178,7 @@ export function NewOrderCustomerCreateView({
             />
             <CustomerInfoField
               colors={colors}
+              icon="person"
               inputRef={lastNameInputRef}
               onChangeText={(text) =>
                 setNewCustomer((previous) => ({
@@ -247,6 +251,6 @@ export function NewOrderCustomerCreateView({
       {isAddressFocused ? (
         <View style={{ height: addressDropdownReserve }} />
       ) : null}
-    </ScrollView>
+    </BottomSheetScrollView>
   );
 }

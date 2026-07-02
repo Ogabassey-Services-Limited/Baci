@@ -225,6 +225,43 @@ export default function CustomerDetailClientPage({
                 <DialogTitle>Edit Profile</DialogTitle>
               </DialogHeader>
               <div className="flex flex-col gap-4 py-4">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={
+                      editData.customer_type === 'company'
+                        ? 'outline'
+                        : 'default'
+                    }
+                    aria-pressed={editData.customer_type !== 'company'}
+                    onClick={() =>
+                      setEditData({
+                        ...editData,
+                        customer_type: 'individual',
+                        company_name: null,
+                      })
+                    }
+                  >
+                    Person
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={
+                      editData.customer_type === 'company'
+                        ? 'default'
+                        : 'outline'
+                    }
+                    aria-pressed={editData.customer_type === 'company'}
+                    onClick={() =>
+                      setEditData({
+                        ...editData,
+                        customer_type: 'company',
+                      })
+                    }
+                  >
+                    Company
+                  </Button>
+                </div>
                 {editData.customer_type === 'company' ? (
                   <div className="grid gap-2">
                     <Label htmlFor="company_name">Company Name</Label>

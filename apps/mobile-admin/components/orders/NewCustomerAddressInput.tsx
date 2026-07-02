@@ -40,12 +40,14 @@ export function NewCustomerAddressInput({
 
   useEffect(() => {
     if (!(hasGoogleMapsApiKey && googleMapsApiKey) || !isFocused) {
+      requestSequenceRef.current += 1;
       setSuggestions([]);
       return;
     }
 
     const trimmedAddress = address.trim();
     if (trimmedAddress.length < 2) {
+      requestSequenceRef.current += 1;
       setSuggestions([]);
       return;
     }
@@ -84,6 +86,7 @@ export function NewCustomerAddressInput({
 
     return () => {
       clearTimeout(timeout);
+      requestSequenceRef.current += 1;
     };
   }, [
     address,
@@ -116,6 +119,7 @@ export function NewCustomerAddressInput({
 
   const handleAddressBlur = () => {
     blurTimerRef.current = setTimeout(() => {
+      requestSequenceRef.current += 1;
       setIsFocused(false);
       setSuggestions([]);
       onAddressBlur?.();
@@ -127,6 +131,7 @@ export function NewCustomerAddressInput({
       clearTimeout(blurTimerRef.current);
       blurTimerRef.current = null;
     }
+    requestSequenceRef.current += 1;
     setSuggestions([]);
     setIsFocused(false);
     Keyboard.dismiss();

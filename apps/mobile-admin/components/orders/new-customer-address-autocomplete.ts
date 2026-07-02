@@ -27,7 +27,7 @@ export function buildGoogleAutocompleteUrl({
 }: {
   googleMapsApiKey: string;
   input: string;
-  selectedCountryCode: CountryCode;
+  selectedCountryCode?: CountryCode;
 }) {
   const params = new URLSearchParams({
     input,

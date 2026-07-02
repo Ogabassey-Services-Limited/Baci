@@ -130,24 +130,11 @@ export function ProductVariantOptionSelector({
       ...selection,
       [key]: value,
     };
-    const nextCompletedSelection = completeSingleValueSelection(
-      variants,
-      nextSelection
-    );
-    const nextSelectedVariant = resolveSelectedVariant(
-      variants,
-      nextCompletedSelection
-    );
 
     setSelection(nextSelection);
-
-    if (nextSelectedVariant && nextSelectedVariant.id !== addedVariantId) {
-      setAddedVariantId(nextSelectedVariant.id);
-      onAddProduct(withFallbackImages(nextSelectedVariant, parentProduct));
-      return;
+    if (addedVariantId) {
+      setAddedVariantId(null);
     }
-
-    setAddedVariantId(null);
   };
 
   return (

@@ -8,7 +8,13 @@ import type {
 interface ProductVariantSelectableGroupProps {
   colors: Pick<
     ThemeColors,
-    'border' | 'card' | 'primary' | 'text' | 'textOnPrimary' | 'textSecondary'
+    | 'border'
+    | 'card'
+    | 'primary'
+    | 'text'
+    | 'textMuted'
+    | 'textOnPrimary'
+    | 'textSecondary'
   >;
   group: VariantOptionGroup;
   onSelect: (key: string, value: string, available: boolean) => void;
@@ -27,39 +33,54 @@ export function ProductVariantSelectableGroup({
         {group.label}
       </Text>
       <View style={styles.options} testID={`variant-options-${group.key}`}>
-        {visibleValues.map((option) => (
-          <View
-            key={`${group.key}:${option.value}`}
-            style={[
-              styles.option,
-              {
-                backgroundColor: option.selected ? colors.primary : colors.card,
-                borderColor: option.selected ? colors.primary : colors.border,
-              },
-            ]}
-          >
-            <Pressable
-              accessibilityLabel={`Select ${group.label} ${option.label}`}
-              accessibilityRole="button"
-              accessibilityState={{ selected: option.selected }}
-              onPress={() =>
-                onSelect(group.key, option.value, option.available)
-              }
-              style={styles.optionPressable}
+        {visibleValues.map((option) => {
+          const isUnavailable = !(option.available || option.selected);
+
+          return (
+            <View
+              key={`${group.key}:${option.value}`}
+              style={[
+                styles.option,
+                {
+                  backgroundColor: option.selected
+                    ? colors.primary
+                    : colors.card,
+                  borderColor: option.selected ? colors.primary : colors.border,
+                  opacity: isUnavailable ? 0.48 : 1,
+                },
+              ]}
             >
-              <Text
-                style={[
-                  styles.optionText,
-                  {
-                    color: option.selected ? colors.textOnPrimary : colors.text,
-                  },
-                ]}
+              <Pressable
+                accessibilityLabel={`Select ${group.label} ${option.label}`}
+                accessibilityRole="button"
+                accessibilityState={{
+                  disabled: isUnavailable,
+                  selected: option.selected,
+                }}
+                disabled={isUnavailable}
+                onPress={() =>
+                  onSelect(group.key, option.value, option.available)
+                }
+                style={styles.optionPressable}
               >
-                {option.label}
-              </Text>
-            </Pressable>
-          </View>
-        ))}
+                <Text
+                  style={[
+                    styles.optionText,
+                    {
+                      color: option.selected
+                        ? colors.textOnPrimary
+                        : isUnavailable
+                          ? colors.textMuted
+                          : colors.text,
+                    },
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            </View>
+          );
+        })}
       </View>
     </View>
   );

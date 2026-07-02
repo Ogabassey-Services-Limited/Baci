@@ -140,6 +140,23 @@ describe('customer contracts', () => {
     });
   });
 
+  it('does not synthesize a missing company name from email or full name', () => {
+    expect(
+      buildCustomerRecordNameFields({
+        company_name: '   ',
+        customer_type: 'company',
+        email: 'ops@acme.com',
+        full_name: 'Acme fallback',
+      })
+    ).toEqual({
+      company_name: null,
+      customer_type: 'company',
+      first_name: null,
+      full_name: null,
+      last_name: null,
+    });
+  });
+
   it('builds individual record fields with no company name', () => {
     expect(
       buildCustomerRecordNameFields({
