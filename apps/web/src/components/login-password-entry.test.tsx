@@ -34,12 +34,44 @@ describe('LoginPasswordEntry', () => {
       'redirectTo'
     );
 
+    const toggleButton = screen.getByRole('button', { name: 'Show password' });
+    expect(toggleButton).toHaveAttribute('aria-pressed', 'false');
+
     fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }));
     fireEvent.click(screen.getByRole('button', { name: /email me a code/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+    fireEvent.click(toggleButton);
 
     expect(onForgotPassword).toHaveBeenCalledTimes(1);
     expect(onPasswordlessRequest).toHaveBeenCalledTimes(1);
     expect(onTogglePassword).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the password toggle name stable while exposing pressed state', () => {
+    const onTogglePassword = vi.fn();
+    const props = {
+      action: formAction,
+      defaultEmail: 'admin@example.com',
+      disabled: false,
+      onForgotPassword: vi.fn(),
+      onPasswordlessRequest: vi.fn(),
+      onTogglePassword,
+      redirectTo: '/dashboard/orders',
+    };
+
+    const { rerender } = render(
+      <LoginPasswordEntry {...props} showPassword={false} />
+    );
+
+    const collapsedToggle = screen.getByRole('button', {
+      name: 'Show password',
+    });
+    expect(collapsedToggle).toHaveAttribute('aria-pressed', 'false');
+
+    rerender(<LoginPasswordEntry {...props} showPassword />);
+
+    const expandedToggle = screen.getByRole('button', {
+      name: 'Show password',
+    });
+    expect(expandedToggle).toHaveAttribute('aria-pressed', 'true');
   });
 });

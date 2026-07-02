@@ -91,6 +91,7 @@ const mockSupabaseClient = {
     getUser: vi.fn(),
   },
   from: vi.fn(),
+  rpc: vi.fn(),
 };
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -125,15 +126,14 @@ vi.mock('@/lib/trigger-purchase-conversion', () => ({
   triggerPurchaseConversion: vi.fn(),
 }));
 
-// Δ-36 (A3): the route now does a SINGLE `transactions` SELECT covering
-// completed + pending + processing rows, then filters in TS. The chain
-// shape is `.eq().in()` (was `.eq().eq()` pre-A3). Existing mocks were
-// updated to match; rows with completed semantics carry an explicit
-// `status: 'completed'` field so the TS-side filter keeps them.
+// Δ-36 (A3): the route now reads completed + pending + processing rows through
+// an order-scoped RPC after the tenant-scoped order read succeeds; rows with
+// completed semantics carry an explicit `status: 'completed'` field so the
+// TS-side filter keeps them.
 describe('POST /api/orders/[id]/record-payment', () => {
-  const mockOrderId = 'order-123';
-  const mockMerchantId = 'merchant-456';
-  const mockUserId = 'user-789';
+  const mockOrderId = '11111111-1111-4111-8111-111111111111';
+  const mockMerchantId = '22222222-2222-4222-8222-222222222222';
+  const mockUserId = '33333333-3333-4333-8333-333333333333';
 
   // Preload the route's email/payment dependency graph once so the first
   // validation case measures handler behavior instead of module startup.
@@ -160,6 +160,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       update: vi.fn().mockReturnThis(),
       insert: vi.fn().mockReturnThis(),
     });
+    mockSupabaseClient.rpc.mockResolvedValue({ data: [], error: null });
 
     // Default: authenticated merchant (auth runs before body parsing)
     mockAuthenticateApiRequest.mockResolvedValue({
@@ -186,6 +187,225 @@ describe('POST /api/orders/[id]/record-payment', () => {
         body: JSON.stringify(normalizedBody),
       }
     );
+  };
+
+  const createRecordPaymentMerchant = () => ({
+    id: mockMerchantId,
+    business_name: 'Test Store',
+    slug: 'test-store',
+    support_email: 'support@test.com',
+    email_sender_name: 'Test',
+    email: 'merchant@test.com',
+  });
+
+  const createRecordPaymentOrder = () => ({
+    id: mockOrderId,
+    merchant_id: mockMerchantId,
+    order_number: 'ORD-001',
+    customer_name: 'John Doe',
+    customer_email: 'john@example.com',
+    customer_phone: '+1234567890',
+    total: 10000,
+    subtotal: 9000,
+    shipping_fee: 1000,
+    currency: 'NGN',
+    payment_status: 'pending',
+    shipping_status: 'pending',
+    wallet_amount_used: 0,
+    order_items: [{ name: 'Product 1', quantity: 2, price: 4500 }],
+    shipping_address: {
+      address: '123 Main St',
+      city: 'Lagos',
+      state: 'Lagos',
+    },
+  });
+
+  type RecordPaymentSupabaseFixture = {
+    deleteError?: unknown;
+    insertError?: unknown;
+    insertTransaction?: unknown;
+    recordManualPayment?: unknown;
+    recordManualPaymentErrorCode?: string | null;
+    merchant?: unknown;
+    merchantError?: unknown;
+    order?: unknown;
+    orderError?: unknown;
+    recordedTransaction?: unknown;
+    recordedTransactionError?: unknown;
+    transactions?: unknown[];
+    transactionsError?: unknown;
+    updateError?: unknown;
+    updateOrder?: unknown;
+  };
+
+  const setupRecordPaymentSupabase = (
+    fixture: RecordPaymentSupabaseFixture
+  ) => {
+    const insertTransaction =
+      'insertTransaction' in fixture
+        ? fixture.insertTransaction
+        : { id: 'txn-123' };
+    const hasExplicitUpdateOrder = 'updateOrder' in fixture;
+    const updateOrder = hasExplicitUpdateOrder
+      ? fixture.updateOrder
+      : (fixture.order ?? null);
+
+    const merchantQuery = {
+      eq: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: fixture.merchant ?? null,
+        error: fixture.merchantError ?? null,
+      }),
+    };
+    const orderQuery = {
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: updateOrder,
+        error: fixture.updateError ?? null,
+      }),
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: fixture.order ?? null,
+        error: fixture.orderError ?? null,
+      }),
+      update: vi.fn().mockReturnThis(),
+    };
+    const transactionQuery = {
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      error: fixture.deleteError ?? null,
+      in: vi.fn().mockResolvedValue({
+        data: fixture.transactions ?? [],
+        error: fixture.transactionsError ?? null,
+      }),
+      insert: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: fixture.recordedTransaction ?? null,
+        error: fixture.recordedTransactionError ?? null,
+      }),
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: insertTransaction,
+        error: fixture.insertError ?? null,
+      }),
+    };
+
+    const from = vi.fn((table: string) => {
+      if (table === 'merchants') return merchantQuery;
+      if (table === 'orders') return orderQuery;
+      if (table === 'transactions') return transactionQuery;
+      throw new Error(`Unexpected table ${table}`);
+    });
+    const isRecord = (value: unknown): value is Record<string, unknown> =>
+      Boolean(value && typeof value === 'object' && !Array.isArray(value));
+    const orderRecord = isRecord(fixture.order) ? fixture.order : {};
+    const updateOrderRecord = isRecord(updateOrder) ? updateOrder : {};
+    const completedTransactions = (fixture.transactions ?? []).filter(
+      (txn): txn is Record<string, unknown> =>
+        isRecord(txn) && txn.status === 'completed'
+    );
+    const completedAmount = completedTransactions.reduce(
+      (sum, txn) => sum + (Number(txn.amount) || 0),
+      0
+    );
+    const walletAmount = Number(orderRecord.wallet_amount_used) || 0;
+    const orderTotal = Number(orderRecord.total) || 0;
+    const defaultTransactionId =
+      isRecord(insertTransaction) && typeof insertTransaction.id === 'string'
+        ? insertTransaction.id
+        : null;
+    const manualPaymentOverride = isRecord(fixture.recordManualPayment)
+      ? fixture.recordManualPayment
+      : {};
+    const rpc = vi.fn((name: string, params?: Record<string, unknown>) => {
+      if (name === 'get_record_payment_order_transactions') {
+        return Promise.resolve({
+          data: fixture.transactions ?? [],
+          error: fixture.transactionsError ?? null,
+        });
+      }
+      if (name === 'record_manual_order_payment') {
+        const amount = Number(params?.p_amount) || 0;
+        const computedNewPaid = completedAmount + walletAmount + amount;
+        const computedRemainingBalance = Math.max(
+          0,
+          orderTotal - computedNewPaid
+        );
+        const computedPaymentStatus =
+          computedNewPaid >= orderTotal ? 'paid' : 'partially_paid';
+        const originalShippingStatus =
+          typeof orderRecord.shipping_status === 'string'
+            ? orderRecord.shipping_status
+            : 'pending';
+        const computedShippingStatus =
+          originalShippingStatus === 'pending'
+            ? 'processing'
+            : originalShippingStatus;
+        return Promise.resolve({
+          data: {
+            current_paid: completedAmount,
+            error_code: fixture.recordManualPaymentErrorCode ?? null,
+            new_paid: computedNewPaid,
+            order_total: orderTotal,
+            payment_status: computedPaymentStatus,
+            previous_payment_status:
+              typeof orderRecord.payment_status === 'string'
+                ? orderRecord.payment_status
+                : 'pending',
+            previous_shipping_status: originalShippingStatus,
+            remaining_balance: computedRemainingBalance,
+            shipping_status:
+              hasExplicitUpdateOrder &&
+              typeof updateOrderRecord.shipping_status === 'string'
+                ? updateOrderRecord.shipping_status
+                : computedShippingStatus,
+            cancelled_at:
+              hasExplicitUpdateOrder &&
+              typeof updateOrderRecord.cancelled_at === 'string'
+                ? updateOrderRecord.cancelled_at
+                : null,
+            total_paid_before: completedAmount + walletAmount,
+            transaction_id: defaultTransactionId,
+            ...manualPaymentOverride,
+          },
+          error: fixture.insertError ?? null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    mockSupabaseClient.from = from;
+    mockSupabaseClient.rpc = rpc;
+
+    return { from, merchantQuery, orderQuery, rpc, transactionQuery };
+  };
+
+  const setupRecordPaymentTransactionRpc = (
+    transactions: unknown[],
+    error: unknown = null
+  ) => {
+    const rpc = vi.fn((name: string, params?: Record<string, unknown>) => {
+      if (name === 'get_record_payment_order_transactions') {
+        return Promise.resolve({ data: transactions, error });
+      }
+      if (name === 'record_manual_order_payment') {
+        return Promise.resolve({
+          data: {
+            error_code: null,
+            new_paid: Number(params?.p_amount) || null,
+            payment_status: 'paid',
+            remaining_balance: 0,
+            shipping_status: 'processing',
+            transaction_id: 'txn-123',
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+    mockSupabaseClient.rpc = rpc;
+    return rpc;
   };
 
   it('returns 400 when amount is missing', async () => {
@@ -383,6 +603,37 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(data).toEqual({ error: 'Merchant not found' });
   });
 
+  it('returns 500 when merchant details lookup fails', async () => {
+    const mockMerchantError = { code: '57014', message: 'statement timeout' };
+
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: mockUserId, email: 'test@example.com' },
+      supabase: mockSupabaseClient,
+    });
+    mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
+
+    setupRecordPaymentSupabase({
+      merchant: null,
+      merchantError: mockMerchantError,
+      order: {},
+    });
+
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data).toEqual({ error: 'Failed to fetch merchant details' });
+  });
+
   it('returns 404 when merchant details not found', async () => {
     // Arrange
     mockAuthenticateApiRequest.mockResolvedValue({
@@ -392,18 +643,11 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    const mockFrom = vi.fn(() => {
-      const chain = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'Merchant not found' },
-        }),
-      };
-      return chain;
+    setupRecordPaymentSupabase({
+      merchant: null,
+      merchantError: { code: 'PGRST116', message: 'Merchant not found' },
+      order: {},
     });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 5000,
@@ -439,33 +683,11 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    let callCount = 0;
-    const mockFrom = vi.fn(() => {
-      callCount++;
-      if (callCount === 1) {
-        // First call: merchant details
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-        return chain;
-      }
-      // Second call: order
-      const chain = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'Order not found' },
-        }),
-      };
-      return chain;
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: null,
+      orderError: { code: 'PGRST116', message: 'Order not found' },
     });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 5000,
@@ -481,6 +703,46 @@ describe('POST /api/orders/[id]/record-payment', () => {
     // Assert
     expect(response.status).toBe(404);
     expect(data).toEqual({ error: 'Order not found' });
+  });
+
+  it('returns 500 when order lookup fails', async () => {
+    // Arrange
+    const mockMerchant = {
+      id: mockMerchantId,
+      business_name: 'Test Store',
+      slug: 'test-store',
+      support_email: 'support@test.com',
+      email_sender_name: 'Test',
+      email: 'merchant@test.com',
+    };
+
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: mockUserId, email: 'test@example.com' },
+      supabase: mockSupabaseClient,
+    });
+    mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
+
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: null,
+      orderError: { code: '57014', message: 'statement timeout' },
+    });
+
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+
+    // Act
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const data = await response.json();
+
+    // Assert
+    expect(response.status).toBe(500);
+    expect(data).toEqual({ error: 'Failed to fetch order' });
   });
 
   it('returns 500 when transaction insert fails', async () => {
@@ -523,53 +785,12 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    let callCount = 0;
-    const mockFrom = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        // First call: merchant details
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-        return chain;
-      }
-      if (callCount === 2) {
-        // Second call: order
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockOrder,
-            error: null,
-          }),
-        };
-        return chain;
-      }
-      if (callCount === 3) {
-        // Third call: transactions query (has TWO .eq() calls)
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({ data: [], error: null }),
-          }),
-        };
-      }
-      // Fourth call: transaction insert
-      return {
-        insert: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'Database error' },
-        }),
-      };
+    setupRecordPaymentSupabase({
+      insertError: { message: 'Database error' },
+      insertTransaction: null,
+      merchant: mockMerchant,
+      order: mockOrder,
     });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 5000,
@@ -587,6 +808,24 @@ describe('POST /api/orders/[id]/record-payment', () => {
     // Assert
     expect(response.status).toBe(500);
     expect(data).toEqual({ error: 'Failed to record payment' });
+  });
+
+  it('returns 400 for a malformed order id before database lookup', async () => {
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: 'not-a-uuid' }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({ error: 'Invalid order id' });
+    expect(mockGetMerchantIdForApiUser).not.toHaveBeenCalled();
+    expect(mockSupabaseClient.from).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the request body cannot be parsed', async () => {
@@ -653,71 +892,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    let callCount = 0;
-    const mockFrom = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        // First call: merchant details
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-        return chain;
-      }
-      if (callCount === 2) {
-        // Second call: order
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockOrder,
-            error: null,
-          }),
-        };
-        return chain;
-      }
-      if (callCount === 3) {
-        // Third call: transactions query (no .single())
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
-        };
-        Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return chain;
-      }
-      if (callCount === 4) {
-        // Fourth call: transaction insert
-        const chain = {
-          insert: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        };
-        Object.assign(
-          chain,
-          Promise.resolve({ data: { id: 'txn-123' }, error: null })
-        );
-        return chain;
-      }
-      // Fifth call: order update (returns the row read back via maybeSingle)
-      const chain = {
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        maybeSingle: vi
-          .fn()
-          .mockResolvedValue({ data: mockOrder, error: null }),
-      };
-      Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
-      return chain;
+    const { orderQuery } = setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
     });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 10000,
@@ -743,6 +921,62 @@ describe('POST /api/orders/[id]/record-payment', () => {
         shipping_status: 'processing',
       },
     });
+    expect(orderQuery.update).not.toHaveBeenCalled();
+  });
+
+  it('uses the RPC payment status instead of stale pre-lock totals for paid side effects', async () => {
+    const mockMerchant = createRecordPaymentMerchant();
+    const mockOrder = createRecordPaymentOrder();
+
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
+      recordManualPayment: {
+        new_paid: 10000,
+        order_total: 15000,
+        payment_status: 'partially_paid',
+        remaining_balance: 5000,
+        shipping_status: 'processing',
+      },
+    });
+
+    const request = createRequest({
+      amount: 10000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-STALE-TOTAL',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({
+      amount_paid: 10000,
+      new_balance: 5000,
+      updated_status: {
+        payment_status: 'partially_paid',
+        shipping_status: 'processing',
+      },
+    });
+    expect(ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
+    const { generatePaymentReceiptEmail } = await import(
+      '@/lib/email-templates'
+    );
+    expect(generatePaymentReceiptEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        balanceDue: 5000,
+        totalAmount: 15000,
+        totalPaidSoFar: 10000,
+      })
+    );
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.stringContaining('Payment Receipt'),
+      })
+    );
   });
 
   it('rolls back status, deletes the manual transaction, and returns 409 when paid-order inventory confirmation fails', async () => {
@@ -775,73 +1009,17 @@ describe('POST /api/orders/[id]/record-payment', () => {
         state: 'Lagos',
       },
     };
-    const deleteMock = vi.fn().mockReturnThis();
-    const deleteEqMock = vi
-      .fn()
-      .mockReturnValueOnce({ eq: vi.fn().mockResolvedValue({ error: null }) });
-
     vi.mocked(ensurePaidOrderInventoryConfirmed).mockRejectedValueOnce(
       new SerializedInventoryUnavailableError()
     );
 
-    let callCount = 0;
-    mockSupabaseClient.from = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-      }
-      if (callCount === 2) {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
-        };
-      }
-      if (callCount === 3) {
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
-        };
-        Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return chain;
-      }
-      if (callCount === 4) {
-        return {
-          insert: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        };
-      }
-      if (callCount === 5) {
-        return {
-          update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                select: vi.fn().mockReturnValue({
-                  maybeSingle: vi
-                    .fn()
-                    .mockResolvedValue({ data: mockOrder, error: null }),
-                }),
-              }),
-            }),
-          }),
-        };
-      }
-      return {
-        delete: deleteMock.mockReturnValue({
-          eq: deleteEqMock,
-        }),
-      };
+    const { transactionQuery } = setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
+      recordManualPayment: {
+        previous_payment_status: 'partially_paid',
+        previous_shipping_status: 'processing',
+      },
     });
 
     const request = createRequest({
@@ -865,11 +1043,11 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(
       rollbackOrderStatusAfterInventoryConfirmationFailure
     ).toHaveBeenCalledWith(mockSupabaseClient, mockMerchantId, mockOrderId, {
-      payment_status: 'pending',
-      shipping_status: 'pending',
+      payment_status: 'partially_paid',
+      shipping_status: 'processing',
     });
-    expect(deleteMock).toHaveBeenCalledOnce();
-    expect(deleteEqMock).toHaveBeenCalledWith('id', 'txn-123');
+    expect(transactionQuery.delete).toHaveBeenCalledOnce();
+    expect(transactionQuery.eq).toHaveBeenCalledWith('id', 'txn-123');
   });
 
   it('returns cleanup failure when inventory failure rollback cannot restore state', async () => {
@@ -910,66 +1088,9 @@ describe('POST /api/orders/[id]/record-payment', () => {
       rollbackOrderStatusAfterInventoryConfirmationFailure
     ).mockRejectedValueOnce(new Error('rollback failed'));
 
-    let callCount = 0;
-    mockSupabaseClient.from = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-      }
-      if (callCount === 2) {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
-        };
-      }
-      if (callCount === 3) {
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
-        };
-        Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return chain;
-      }
-      if (callCount === 4) {
-        return {
-          insert: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        };
-      }
-      if (callCount === 5) {
-        return {
-          update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                select: vi.fn().mockReturnValue({
-                  maybeSingle: vi
-                    .fn()
-                    .mockResolvedValue({ data: mockOrder, error: null }),
-                }),
-              }),
-            }),
-          }),
-        };
-      }
-      return {
-        delete: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ error: null }),
-          }),
-        }),
-      };
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
     });
 
     const request = createRequest({
@@ -1032,71 +1153,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    let callCount = 0;
-    const mockFrom = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        // First call: merchant details
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-        return chain;
-      }
-      if (callCount === 2) {
-        // Second call: order
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockOrder,
-            error: null,
-          }),
-        };
-        return chain;
-      }
-      if (callCount === 3) {
-        // Third call: transactions query (no .single())
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
-        };
-        Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return chain;
-      }
-      if (callCount === 4) {
-        // Fourth call: transaction insert
-        const chain = {
-          insert: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        };
-        Object.assign(
-          chain,
-          Promise.resolve({ data: { id: 'txn-123' }, error: null })
-        );
-        return chain;
-      }
-      // Fifth call: order update (returns the row read back via maybeSingle)
-      const chain = {
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        maybeSingle: vi
-          .fn()
-          .mockResolvedValue({ data: mockOrder, error: null }),
-      };
-      Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
-      return chain;
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
     });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 5000,
@@ -1164,77 +1224,18 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    const mockOrderUpdateMerchantEq = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        maybeSingle: vi
-          .fn()
-          .mockResolvedValue({ data: mockOrder, error: null }),
-      }),
+    const { orderQuery, rpc } = setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
+      transactions: [
+        {
+          amount: 4000,
+          gateway: 'manual',
+          merchant_id: 'stale-denormalized-merchant',
+          status: 'completed',
+        },
+      ],
     });
-    const mockOrderUpdateIdEq = vi.fn().mockReturnValue({
-      eq: mockOrderUpdateMerchantEq,
-    });
-    const mockOrderUpdate = vi.fn().mockReturnValue({
-      eq: mockOrderUpdateIdEq,
-    });
-
-    let callCount = 0;
-    const mockFrom = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        // First call: merchant details
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-        return chain;
-      }
-      if (callCount === 2) {
-        // Second call: order
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockOrder,
-            error: null,
-          }),
-        };
-        return chain;
-      }
-      if (callCount === 3) {
-        // Third call: transactions query (existing payment of 4000)
-        // Route does: .select('amount').eq('order_id', id).eq('status', 'completed')
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({
-              data: [{ amount: 4000, gateway: 'manual', status: 'completed' }],
-              error: null,
-            }),
-          }),
-        };
-      }
-      if (callCount === 4) {
-        // Fourth call: transaction insert (new payment of 5000)
-        return {
-          insert: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: { id: 'txn-123' },
-            error: null,
-          }),
-        };
-      }
-      // Fifth call: order update
-      return {
-        update: mockOrderUpdate,
-      };
-    });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 5000,
@@ -1260,11 +1261,12 @@ describe('POST /api/orders/[id]/record-payment', () => {
         shipping_status: 'processing',
       },
     });
-    expect(mockOrderUpdateIdEq).toHaveBeenCalledWith('id', mockOrderId);
-    expect(mockOrderUpdateMerchantEq).toHaveBeenCalledWith(
-      'merchant_id',
-      mockMerchantId
-    );
+    expect(orderQuery.eq).toHaveBeenCalledWith('id', mockOrderId);
+    expect(orderQuery.eq).toHaveBeenCalledWith('merchant_id', mockMerchantId);
+    expect(rpc).toHaveBeenCalledWith('get_record_payment_order_transactions', {
+      p_merchant_id: mockMerchantId,
+      p_order_id: mockOrderId,
+    });
   });
 
   it('does not update shipping_status if already shipped', async () => {
@@ -1307,71 +1309,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    let callCount = 0;
-    const mockFrom = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        // First call: merchant details
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-        return chain;
-      }
-      if (callCount === 2) {
-        // Second call: order
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockOrder,
-            error: null,
-          }),
-        };
-        return chain;
-      }
-      if (callCount === 3) {
-        // Third call: transactions query (no .single())
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
-        };
-        Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return chain;
-      }
-      if (callCount === 4) {
-        // Fourth call: transaction insert
-        const chain = {
-          insert: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        };
-        Object.assign(
-          chain,
-          Promise.resolve({ data: { id: 'txn-123' }, error: null })
-        );
-        return chain;
-      }
-      // Fifth call: order update (returns the row read back via maybeSingle)
-      const chain = {
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        maybeSingle: vi
-          .fn()
-          .mockResolvedValue({ data: mockOrder, error: null }),
-      };
-      Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
-      return chain;
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
     });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 10000,
@@ -1438,71 +1379,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    let callCount = 0;
-    const mockFrom = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        // First call: merchant details
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-        return chain;
-      }
-      if (callCount === 2) {
-        // Second call: order
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockOrder,
-            error: null,
-          }),
-        };
-        return chain;
-      }
-      if (callCount === 3) {
-        // Third call: transactions query (no .single())
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
-        };
-        Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return chain;
-      }
-      if (callCount === 4) {
-        // Fourth call: transaction insert
-        const chain = {
-          insert: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        };
-        Object.assign(
-          chain,
-          Promise.resolve({ data: { id: 'txn-123' }, error: null })
-        );
-        return chain;
-      }
-      // Fifth call: order update (returns the row read back via maybeSingle)
-      const chain = {
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        maybeSingle: vi
-          .fn()
-          .mockResolvedValue({ data: mockOrder, error: null }),
-      };
-      Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
-      return chain;
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
     });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 5000,
@@ -1560,48 +1440,9 @@ describe('POST /api/orders/[id]/record-payment', () => {
       order_items: [],
       shipping_address: {},
     };
-    let callCount = 0;
-    mockSupabaseClient.from = vi.fn(() => {
-      callCount++;
-      if (callCount === 1) {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: mockMerchant, error: null }),
-        };
-      }
-      if (callCount === 2) {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
-        };
-      }
-      if (callCount === 3) {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({ data: [], error: null }),
-          }),
-        };
-      }
-      // Insert + update
-      const chain = {
-        insert: vi.fn().mockReturnThis(),
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        single: vi
-          .fn()
-          .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        maybeSingle: vi
-          .fn()
-          .mockResolvedValue({ data: mockOrder, error: null }),
-      };
-      Object.assign(chain, Promise.resolve({ data: null, error: null }));
-      return chain;
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
     });
 
     const request = createRequest({
@@ -1674,24 +1515,31 @@ describe('POST /api/orders/[id]/record-payment', () => {
         // Return existing transaction with the same reference
         return {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({
-              data: [
-                {
-                  amount: 5000,
-                  gateway_reference: 'REF-DUPE-409',
-                  gateway: 'manual',
-                  status: 'completed',
-                },
-              ],
-              error: null,
-            }),
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({
+            data: [
+              {
+                amount: 5000,
+                gateway_reference: 'REF-DUPE-409',
+                gateway: 'manual',
+                status: 'completed',
+              },
+            ],
+            error: null,
           }),
         };
       }
 
       throw new Error(`Unexpected table ${table}`);
     });
+    setupRecordPaymentTransactionRpc([
+      {
+        amount: 5000,
+        gateway_reference: 'REF-DUPE-409',
+        gateway: 'manual',
+        status: 'completed',
+      },
+    ]);
 
     const request = createRequest({
       amount: 5000,
@@ -1711,6 +1559,220 @@ describe('POST /api/orders/[id]/record-payment', () => {
       error: 'Duplicate payment reference',
       code: 'DUPLICATE_REFERENCE',
     });
+  });
+
+  it('returns 409 when the atomic insert detects a stale overpayment', async () => {
+    const mockMerchant = {
+      id: mockMerchantId,
+      business_name: 'Test Store',
+      slug: 'test-store',
+      support_email: 'support@test.com',
+      email_sender_name: 'Test',
+      email: 'merchant@test.com',
+    };
+    const mockOrder = {
+      id: mockOrderId,
+      merchant_id: mockMerchantId,
+      order_number: 'ORD-001',
+      customer_name: 'John Doe',
+      customer_email: 'john@example.com',
+      customer_phone: '+1234567890',
+      total: 10000,
+      subtotal: 9000,
+      shipping_fee: 1000,
+      currency: 'NGN',
+      payment_status: 'pending',
+      shipping_status: 'pending',
+      wallet_amount_used: 0,
+      order_items: [{ name: 'Product 1', quantity: 2, price: 4500 }],
+      shipping_address: {
+        address: '123 Main St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    };
+
+    const { orderQuery, rpc } = setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
+      recordManualPaymentErrorCode: 'AMOUNT_EXCEEDS_REMAINING_BALANCE',
+      transactions: [],
+    });
+
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-STALE-BALANCE',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data).toEqual({ error: 'Amount exceeds remaining balance' });
+    expect(rpc).toHaveBeenCalledWith(
+      'record_manual_order_payment',
+      expect.objectContaining({
+        p_amount: 5000,
+        p_gateway_reference: 'REF-STALE-BALANCE',
+        p_merchant_id: mockMerchantId,
+        p_order_id: mockOrderId,
+      })
+    );
+    expect(orderQuery.update).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when the atomic insert rejects an invalid direct-call amount', async () => {
+    const { orderQuery, rpc } = setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPaymentErrorCode: 'INVALID_AMOUNT',
+      transactions: [],
+    });
+
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-INVALID-RPC-AMOUNT',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({ error: 'Invalid amount' });
+    expect(rpc).toHaveBeenCalledWith(
+      'record_manual_order_payment',
+      expect.objectContaining({
+        p_amount: 5000,
+        p_gateway_reference: 'REF-INVALID-RPC-AMOUNT',
+        p_merchant_id: mockMerchantId,
+        p_order_id: mockOrderId,
+      })
+    );
+    expect(orderQuery.update).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when the transaction read RPC detects merchant drift', async () => {
+    const { orderQuery, rpc } = setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      transactions: [
+        {
+          amount: null,
+          error_code: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
+          gateway: null,
+          gateway_reference: null,
+          status: null,
+        },
+      ],
+    });
+
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-DRIFTED-TXN',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data).toEqual({
+      error:
+        'This order has payments that require reconciliation before recording a manual payment.',
+      code: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
+    });
+    expect(rpc).toHaveBeenCalledWith('get_record_payment_order_transactions', {
+      p_merchant_id: mockMerchantId,
+      p_order_id: mockOrderId,
+    });
+    expect(orderQuery.update).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when the atomic insert detects a pending processor transaction', async () => {
+    const { orderQuery, rpc } = setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPaymentErrorCode: 'PENDING_GATEWAY_PAYMENT',
+      transactions: [],
+    });
+
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-PENDING-RPC',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data).toEqual({
+      error:
+        'This order has a pending processor payment. Use payment reconciliation instead.',
+      code: 'PENDING_GATEWAY_PAYMENT',
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'record_manual_order_payment',
+      expect.objectContaining({
+        p_amount: 5000,
+        p_gateway_reference: 'REF-PENDING-RPC',
+        p_merchant_id: mockMerchantId,
+        p_order_id: mockOrderId,
+      })
+    );
+    expect(orderQuery.update).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when the atomic insert detects merchant drift', async () => {
+    const { orderQuery, rpc } = setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPaymentErrorCode: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
+      transactions: [],
+    });
+
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-DRIFTED-RPC',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data).toEqual({
+      error:
+        'This order has payments that require reconciliation before recording a manual payment.',
+      code: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'record_manual_order_payment',
+      expect.objectContaining({
+        p_amount: 5000,
+        p_gateway_reference: 'REF-DRIFTED-RPC',
+        p_merchant_id: mockMerchantId,
+        p_order_id: mockOrderId,
+      })
+    );
+    expect(orderQuery.update).not.toHaveBeenCalled();
   });
 
   it('returns 409 when payment amount exceeds remaining balance', async () => {
@@ -1770,24 +1832,31 @@ describe('POST /api/orders/[id]/record-payment', () => {
         // Already paid 8000 out of 10000
         return {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({
-              data: [
-                {
-                  amount: 8000,
-                  gateway_reference: 'REF-PREV',
-                  gateway: 'manual',
-                  status: 'completed',
-                },
-              ],
-              error: null,
-            }),
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({
+            data: [
+              {
+                amount: 8000,
+                gateway_reference: 'REF-PREV',
+                gateway: 'manual',
+                status: 'completed',
+              },
+            ],
+            error: null,
           }),
         };
       }
 
       throw new Error(`Unexpected table ${table}`);
     });
+    setupRecordPaymentTransactionRpc([
+      {
+        amount: 8000,
+        gateway_reference: 'REF-PREV',
+        gateway: 'manual',
+        status: 'completed',
+      },
+    ]);
 
     const request = createRequest({
       amount: 5000, // Trying to pay 5000 when only 2000 remains
@@ -1854,23 +1923,30 @@ describe('POST /api/orders/[id]/record-payment', () => {
         // returns a pending Paystack row → guard fires.
         return {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({
-              data: [
-                {
-                  amount: 0,
-                  gateway: 'paystack',
-                  gateway_reference: 'paystack-pending-ref',
-                  status: 'pending',
-                },
-              ],
-              error: null,
-            }),
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({
+            data: [
+              {
+                amount: 0,
+                gateway: 'paystack',
+                gateway_reference: 'paystack-pending-ref',
+                status: 'pending',
+              },
+            ],
+            error: null,
           }),
         };
       }
       throw new Error(`Unexpected table ${table}`);
     });
+    setupRecordPaymentTransactionRpc([
+      {
+        amount: 0,
+        gateway: 'paystack',
+        gateway_reference: 'paystack-pending-ref',
+        status: 'pending',
+      },
+    ]);
 
     const request = createRequest({
       amount: 10000,
@@ -1879,6 +1955,72 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const params = { params: Promise.resolve({ id: mockOrderId }) };
     const { POST } = await import('./route');
     const response = await POST(request, params);
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data).toEqual({
+      error:
+        'This order has a pending processor payment. Use payment reconciliation instead.',
+      code: 'PENDING_GATEWAY_PAYMENT',
+    });
+  });
+
+  it('returns 409 PENDING_GATEWAY_PAYMENT when a Klump BNPL transaction is pending', async () => {
+    setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      transactions: [
+        {
+          amount: 0,
+          gateway: 'klump',
+          gateway_reference: 'klump-pending-ref',
+          status: 'pending',
+        },
+      ],
+    });
+
+    const request = createRequest({
+      amount: 10000,
+      payment_method: 'cash',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data).toEqual({
+      error:
+        'This order has a pending processor payment. Use payment reconciliation instead.',
+      code: 'PENDING_GATEWAY_PAYMENT',
+    });
+  });
+
+  it('returns 409 PENDING_GATEWAY_PAYMENT when a CredPal BNPL transaction is pending', async () => {
+    setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      transactions: [
+        {
+          amount: 0,
+          gateway: 'credpal',
+          gateway_reference: 'credpal-pending-ref',
+          status: 'processing',
+        },
+      ],
+    });
+
+    const request = createRequest({
+      amount: 10000,
+      payment_method: 'cash',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
     const data = await response.json();
 
     expect(response.status).toBe(409);
@@ -1918,55 +2060,9 @@ describe('POST /api/orders/[id]/record-payment', () => {
       shipping_address: {},
     };
 
-    let txnQueryCount = 0;
-    mockSupabaseClient.from = vi.fn((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: mockMerchant, error: null }),
-        };
-      }
-      if (table === 'orders') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
-          update: vi.fn().mockReturnThis(),
-          maybeSingle: vi
-            .fn()
-            .mockResolvedValue({ data: mockOrder, error: null }),
-        };
-      }
-      if (table === 'transactions') {
-        txnQueryCount++;
-        // 1st: pending-gateway-guard → no rows (only failed attempts exist
-        // but they're not pending/processing, so the guard filter returns
-        // empty). 2nd: completed-only paid-amount calc → no rows.
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
-          limit: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        };
-        if (txnQueryCount === 1 || txnQueryCount === 2) {
-          Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        } else {
-          // 3rd call = insert
-          Object.assign(
-            chain,
-            Promise.resolve({ data: { id: 'txn-new' }, error: null })
-          );
-        }
-        return chain;
-      }
-      throw new Error(`Unexpected table ${table}`);
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
     });
 
     const request = createRequest({
@@ -1982,7 +2078,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(response.status).toBe(200);
   });
 
-  it('suppresses paid side effects when the order status update fails after transaction insert', async () => {
+  it('suppresses paid side effects when the manual-payment RPC omits updated order status', async () => {
     const mockMerchant = {
       id: mockMerchantId,
       business_name: 'Test Store',
@@ -2009,51 +2105,14 @@ describe('POST /api/orders/[id]/record-payment', () => {
       shipping_address: {},
     };
 
-    let txnQueryCount = 0;
-    mockSupabaseClient.from = vi.fn((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: mockMerchant, error: null }),
-        };
-      }
-      if (table === 'orders') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
-          update: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'update failed' },
-          }),
-        };
-      }
-      if (table === 'transactions') {
-        txnQueryCount++;
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-new' }, error: null }),
-        };
-        Object.assign(
-          chain,
-          Promise.resolve(
-            txnQueryCount === 1
-              ? { data: [], error: null }
-              : { data: { id: 'txn-new' }, error: null }
-          )
-        );
-        return chain;
-      }
-      throw new Error(`Unexpected table ${table}`);
+    setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-new' },
+      merchant: mockMerchant,
+      order: mockOrder,
+      recordManualPayment: {
+        payment_status: null,
+        shipping_status: null,
+      },
     });
 
     const request = createRequest({
@@ -2101,60 +2160,16 @@ describe('POST /api/orders/[id]/record-payment', () => {
       shipping_address: {},
     };
 
-    let txnQueryCount = 0;
-    mockSupabaseClient.from = vi.fn((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: mockMerchant, error: null }),
-        };
-      }
-      if (table === 'orders') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
-          update: vi.fn().mockReturnThis(),
-          // The update is CLAMPED back to cancelled by the DB trigger.
-          maybeSingle: vi.fn().mockResolvedValue({
-            data: {
-              id: mockOrderId,
-              shipping_status: 'cancelled',
-              cancelled_at: '2026-06-15T00:00:00Z',
-            },
-            error: null,
-          }),
-        };
-      }
-      if (table === 'transactions') {
-        txnQueryCount++;
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-new' }, error: null }),
-          // The clamp path looks up the recorded transaction id by reference.
-          maybeSingle: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-new' }, error: null }),
-        };
-        if (txnQueryCount === 1) {
-          Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        } else {
-          Object.assign(
-            chain,
-            Promise.resolve({ data: { id: 'txn-new' }, error: null })
-          );
-        }
-        return chain;
-      }
-      throw new Error(`Unexpected table ${table}`);
+    setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-new' },
+      merchant: mockMerchant,
+      order: mockOrder,
+      recordedTransaction: { id: 'txn-new' },
+      updateOrder: {
+        id: mockOrderId,
+        shipping_status: 'cancelled',
+        cancelled_at: '2026-06-15T00:00:00Z',
+      },
     });
 
     const request = createRequest({
@@ -2178,6 +2193,59 @@ describe('POST /api/orders/[id]/record-payment', () => {
         order_id: mockOrderId,
         // N5: the reconciliation row is linked to the recorded transaction.
         txn_id: 'txn-new',
+      })
+    );
+  });
+
+  it('logs cancelled-order transaction lookup failures before filing reconciliation without a transaction link', async () => {
+    const recordedTransactionError = {
+      code: 'PGRST500',
+      message: 'transaction lookup failed',
+    };
+
+    setupRecordPaymentSupabase({
+      insertTransaction: null,
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordedTransactionError,
+      updateOrder: {
+        id: mockOrderId,
+        shipping_status: 'cancelled',
+        cancelled_at: '2026-06-15T00:00:00Z',
+      },
+    });
+
+    const request = createRequest({
+      amount: 10000,
+      payment_method: 'cash',
+      reference: 'manual-ref-lookup-failed',
+    });
+
+    const { logger } = await import('@/lib/logger');
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({ order_cancelled: true, updated_status: {} });
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          'RecordPayment failed to fetch recorded transaction for cancelled-order reconciliation',
+        error: recordedTransactionError,
+        orderId: mockOrderId,
+        merchantId: mockMerchantId,
+        gatewayReference: 'manual-ref-lookup-failed',
+      })
+    );
+    expect(mockReconciliationInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'payment_received_after_cancellation',
+        order_id: mockOrderId,
+        paystack_ref: 'manual-ref-lookup-failed',
+        txn_id: null,
       })
     );
   });
@@ -2239,24 +2307,31 @@ describe('POST /api/orders/[id]/record-payment', () => {
         // Already fully paid
         return {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({
-              data: [
-                {
-                  amount: 10000,
-                  gateway_reference: 'REF-FULL',
-                  gateway: 'manual',
-                  status: 'completed',
-                },
-              ],
-              error: null,
-            }),
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({
+            data: [
+              {
+                amount: 10000,
+                gateway_reference: 'REF-FULL',
+                gateway: 'manual',
+                status: 'completed',
+              },
+            ],
+            error: null,
           }),
         };
       }
 
       throw new Error(`Unexpected table ${table}`);
     });
+    setupRecordPaymentTransactionRpc([
+      {
+        amount: 10000,
+        gateway_reference: 'REF-FULL',
+        gateway: 'manual',
+        status: 'completed',
+      },
+    ]);
 
     const request = createRequest({
       amount: 1000,
@@ -2337,28 +2412,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       throw new Error(`Unexpected table ${table}`);
     });
 
-    const transactionsQuery = {
-      in: vi.fn().mockResolvedValue({
-        data: [
-          {
-            amount: 5000,
-            gateway_reference: 'REF-DUPE-1',
-            gateway: 'manual',
-            status: 'completed',
-          },
-        ],
-        error: null,
-      }),
-    };
-
     mockFrom.mockImplementation((table: string) => {
-      if (table === 'transactions') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue(transactionsQuery),
-        };
-      }
-
       if (table === 'merchants') {
         return {
           select: vi.fn().mockReturnThis(),
@@ -2385,6 +2439,14 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
 
     mockSupabaseClient.from = mockFrom;
+    setupRecordPaymentTransactionRpc([
+      {
+        amount: 5000,
+        gateway_reference: 'REF-DUPE-1',
+        gateway: 'manual',
+        status: 'completed',
+      },
+    ]);
 
     const request = createRequest({
       amount: 5000,
@@ -2402,6 +2464,13 @@ describe('POST /api/orders/[id]/record-payment', () => {
       error: 'Duplicate payment reference',
       code: 'DUPLICATE_REFERENCE',
     });
-    expect(mockFrom).toHaveBeenCalledTimes(3);
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+      'get_record_payment_order_transactions',
+      {
+        p_merchant_id: mockMerchantId,
+        p_order_id: mockOrderId,
+      }
+    );
+    expect(mockFrom).toHaveBeenCalledTimes(2);
   });
 });

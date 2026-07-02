@@ -1,18 +1,27 @@
 import type { OrderItem } from '@/components/orders/new-order.types';
+import {
+  formatCurrency,
+  getCurrencySymbol,
+  normalizeMerchantCurrency,
+} from './utils';
 
-const priceFormatterCache = new Map<string, Intl.NumberFormat>();
+const DEFAULT_ORDER_TOTAL_LOCALE = 'en-US';
 
-function getPriceFormatter(currency: string): Intl.NumberFormat {
-  let formatter = priceFormatterCache.get(currency);
-  if (!formatter) {
-    formatter = new Intl.NumberFormat('en-NG', {
-      currency,
-      minimumFractionDigits: 2,
-      style: 'currency',
-    });
-    priceFormatterCache.set(currency, formatter);
-  }
-  return formatter;
+const ORDER_TOTAL_LOCALE_BY_CURRENCY: Record<string, string> = {
+  CAD: 'en-CA',
+  EUR: 'de-DE',
+  GBP: 'en-GB',
+  GHS: 'en-GH',
+  KES: 'en-KE',
+  NGN: 'en-NG',
+  USD: 'en-US',
+  XAF: 'fr-CM',
+  XOF: 'fr-SN',
+  ZAR: 'en-ZA',
+};
+
+function getOrderTotalLocale(currency: string): string {
+  return ORDER_TOTAL_LOCALE_BY_CURRENCY[currency] ?? DEFAULT_ORDER_TOTAL_LOCALE;
 }
 
 export interface NewOrderTotalsParams {
@@ -34,11 +43,22 @@ export function createNewOrderTotals({
   shippingFee,
   taxes,
 }: NewOrderTotalsParams) {
+  const normalizedCurrency = normalizeMerchantCurrency(merchantCurrency) || 'NGN';
+  const orderTotalLocale = getOrderTotalLocale(normalizedCurrency);
+
   const formatPrice = (amount: number) => {
     try {
-      return getPriceFormatter(merchantCurrency || 'NGN').format(amount);
+      return formatCurrency(
+        amount,
+        undefined,
+        normalizedCurrency,
+        orderTotalLocale
+      );
     } catch {
-      return `₦${amount.toFixed(2)}`;
+      return `${getCurrencySymbol(
+        normalizedCurrency,
+        orderTotalLocale
+      )}${amount.toFixed(2)}`;
     }
   };
 

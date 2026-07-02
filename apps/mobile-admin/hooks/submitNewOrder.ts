@@ -10,6 +10,7 @@ import type {
   ShippingAddress,
 } from '@/components/orders/new-order.types';
 import { createManualOrderWithItems } from '@/lib/manual-order-persistence';
+import { normalizeMerchantCurrency } from '@/lib/merchant-currency';
 import {
   sanitizeAddress,
   sanitizeCustomerName,
@@ -107,6 +108,15 @@ export async function submitNewOrder({
       ? sanitizeAddress(customer.address)
       : '';
     const sanitizedNotes = notes.trim() ? sanitizeNotes(notes) : null;
+    const normalizedMerchantCurrency =
+      normalizeMerchantCurrency(merchantCurrency);
+    if (merchantCurrency?.trim() && !normalizedMerchantCurrency) {
+      console.warn('[submitNewOrder] Unsupported merchant currency fallback', {
+        merchantCurrency,
+        fallbackCurrency: 'NGN',
+      });
+    }
+    const orderCurrency = normalizedMerchantCurrency ?? 'NGN';
     const parsedPartialAmount = Number.parseFloat(partialAmount);
     if (
       paymentStatus === 'partially_paid' &&
@@ -177,7 +187,7 @@ export async function submitNewOrder({
                 ? total
                 : 0,
           branch_id: validatedBranchId,
-          currency: merchantCurrency || 'NGN',
+          currency: orderCurrency,
           customer_email: sanitizedCustomerEmail,
           customer_id: customer.id,
           customer_name: sanitizedCustomerName,

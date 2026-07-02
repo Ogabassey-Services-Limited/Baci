@@ -24,6 +24,7 @@ interface Order {
   id: string;
   order_number: string;
   created_at: string;
+  currency?: string | null;
   total: number;
   payment_status: 'unpaid' | 'paid' | 'refunded';
   shipping_status:

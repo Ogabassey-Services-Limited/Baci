@@ -1,4 +1,5 @@
 import type { PaymentStatus, ShippingStatus } from '@baci/shared';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
@@ -25,13 +26,39 @@ import {
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
-import { recordPaymentBodySchema } from '@/schemas/record-payment';
+import {
+  recordPaymentBodySchema,
+  recordPaymentOrderIdSchema,
+} from '@/schemas/record-payment';
 
 /** Order item interface for email templates (2026 best practice) */
 interface EmailOrderItem {
   name: string;
   quantity: number;
   price: number;
+}
+
+interface RecordPaymentTransactionRow {
+  amount: number | string | null;
+  error_code?: string | null;
+  gateway: string | null;
+  gateway_reference: string | null;
+  status: string | null;
+}
+
+interface RecordManualPaymentResult {
+  cancelled_at?: string | null;
+  current_paid?: number | string | null;
+  error_code?: string | null;
+  new_paid?: number | string | null;
+  order_total?: number | string | null;
+  payment_status?: PaymentStatus | null;
+  previous_payment_status?: PaymentStatus | null;
+  previous_shipping_status?: ShippingStatus | null;
+  remaining_balance?: number | string | null;
+  shipping_status?: ShippingStatus | null;
+  total_paid_before?: number | string | null;
+  transaction_id?: string | null;
 }
 
 export async function POST(
@@ -62,6 +89,17 @@ export async function POST(
     const user = auth.user;
     const supabase = auth.supabase;
 
+    const parsedOrderId = recordPaymentOrderIdSchema.safeParse(id);
+    if (!parsedOrderId.success) {
+      logger.warn({
+        message: 'RecordPayment invalid order id',
+        orderId: id,
+      });
+      return NextResponse.json({ error: 'Invalid order id' }, { status: 400 });
+    }
+
+    const orderId = parsedOrderId.data;
+
     // 2. Parse and validate request body (before any DB calls)
     let body: unknown;
 
@@ -71,7 +109,7 @@ export async function POST(
       logger.warn({
         message: 'RecordPayment invalid JSON body',
         error,
-        orderId: id,
+        orderId,
       });
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
@@ -80,7 +118,7 @@ export async function POST(
     if (!parsedBody.success) {
       logger.warn({
         message: 'RecordPayment invalid request body',
-        orderId: id,
+        orderId,
         details: parsedBody.error.flatten(),
       });
       return NextResponse.json(
@@ -95,7 +133,7 @@ export async function POST(
       message: 'RecordPayment body parsed',
       amount: parsedAmount,
       payment_method,
-      orderId: id,
+      orderId,
     });
 
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
@@ -108,7 +146,7 @@ export async function POST(
       logger.error({
         message: 'RecordPayment merchant not found',
         userId: user.id,
-        orderId: id,
+        orderId,
       });
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -116,21 +154,46 @@ export async function POST(
       );
     }
 
-    // Fetch full Merchant details for email
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select(
-        'id, business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
-      )
-      .eq('id', merchantId)
-      .single();
+    // Fetch independent tenant-scoped records concurrently. Transactions are
+    // read only after the order itself is verified below because
+    // transactions.merchant_id is denormalized and can drift from orders.
+    const [merchantResult, orderResult] = await Promise.all([
+      supabase
+        .from('merchants')
+        .select(
+          'id, business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
+        )
+        .eq('id', merchantId)
+        .single(),
+      supabase
+        .from('orders')
+        .select(ORDER_WITH_ITEMS_QUERY)
+        .eq('id', orderId)
+        .eq('merchant_id', merchantId)
+        .single(),
+    ]);
 
-    if (merchantError || !merchant) {
+    const { data: merchant, error: merchantError } = merchantResult;
+    const { data: order, error: orderError } = orderResult;
+
+    if (merchantError && merchantError.code !== 'PGRST116') {
       logger.error({
         message: 'RecordPayment merchant details error',
         error: merchantError,
         merchantId,
-        orderId: id,
+        orderId,
+      });
+      return NextResponse.json(
+        { error: 'Failed to fetch merchant details' },
+        { status: 500 }
+      );
+    }
+
+    if (!merchant) {
+      logger.error({
+        message: 'RecordPayment merchant not found',
+        merchantId,
+        orderId,
       });
       return NextResponse.json(
         { error: 'Merchant details not found' },
@@ -138,20 +201,25 @@ export async function POST(
       );
     }
 
-    // 2. Fetch Order & Items & Existing Transactions
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .select(ORDER_WITH_ITEMS_QUERY)
-      .eq('id', id)
-      .eq('merchant_id', merchant.id)
-      .single();
+    if (orderError && orderError.code !== 'PGRST116') {
+      logger.error({
+        message: 'RecordPayment order lookup error',
+        error: orderError,
+        orderId,
+        merchantId,
+      });
+      return NextResponse.json(
+        { error: 'Failed to fetch order' },
+        { status: 500 }
+      );
+    }
 
-    if (orderError || !order) {
+    if (!order) {
       logger.error({
         message: 'RecordPayment order not found',
         error: orderError,
-        orderId: id,
-        merchantId: merchant.id,
+        orderId,
+        merchantId,
       });
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
@@ -159,19 +227,26 @@ export async function POST(
     // Δ-36 (A3): widen the existing completed-only fetch to also cover
     // pending/processing rows so we can guard against shadowing a real
     // non-manual gateway payment (Paystack DVA, Korapay, Kuda, Credit
-    // Direct, Juicyway) with a parallel manual transaction. One DB
-    // round-trip serves both purposes — filter in TS below.
-    const { data: relevantTxns, error: txError } = await supabase
-      .from('transactions')
-      .select('amount, gateway, gateway_reference, status')
-      .eq('order_id', id)
-      .in('status', ['completed', 'pending', 'processing']);
+    // Direct, Juicyway) with a parallel manual transaction. The order was
+    // tenant-scoped above, so read through an order-scoped RPC instead of
+    // the denormalized transactions.merchant_id RLS predicate, which can
+    // drift independently of the verified order row.
+    const { data: relevantTxns, error: txError } = (await supabase.rpc(
+      'get_record_payment_order_transactions',
+      {
+        p_merchant_id: merchantId,
+        p_order_id: orderId,
+      }
+    )) as {
+      data: RecordPaymentTransactionRow[] | null;
+      error: PostgrestError | null;
+    };
 
     if (txError) {
       logger.error({
         message: 'RecordPayment transactions fetch error',
         error: txError,
-        orderId: id,
+        orderId,
       });
       return NextResponse.json(
         { error: 'Failed to fetch transactions' },
@@ -179,9 +254,43 @@ export async function POST(
       );
     }
 
+    const transactionReadError = relevantTxns?.find((t) => t.error_code);
+    if (
+      transactionReadError?.error_code ===
+      'ORDER_PAYMENT_RECONCILIATION_REQUIRED'
+    ) {
+      logger.warn({
+        message:
+          'RecordPayment rejected: order transaction merchant drift requires reconciliation',
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        {
+          error:
+            'This order has payments that require reconciliation before recording a manual payment.',
+          code: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
+        },
+        { status: 409 }
+      );
+    }
+
+    if (transactionReadError?.error_code) {
+      logger.error({
+        message: 'RecordPayment transaction RPC returned unknown error code',
+        errorCode: transactionReadError.error_code,
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        { error: 'Failed to fetch order transactions' },
+        { status: 500 }
+      );
+    }
+
     // Δ-36 (A3): pending-gateway guard. Block manual record-payment
     // while a non-manual processor transaction (Paystack DVA, Korapay,
-    // Kuda, Credit Direct, Juicyway) is still pending or processing —
+    // Kuda, Credit Direct, CredPal, Juicyway) is still pending or processing —
     // recording a parallel manual transaction would shadow the real
     // gateway payment (the failure mode that nearly bit us with Efosa).
     // Failed / cancelled gateway attempts do NOT block (they're not in
@@ -191,11 +300,14 @@ export async function POST(
       'korapay',
       'kuda',
       'credit_direct',
+      'credpal',
+      'klump',
       'juicyway',
     ]);
     const pendingProcessorTxn = relevantTxns?.find(
       (t) =>
-        PENDING_PROCESSOR_GATEWAYS.has(t.gateway) &&
+        t.gateway !== null &&
+        PENDING_PROCESSOR_GATEWAYS.has(t.gateway.toLowerCase()) &&
         (t.status === 'pending' || t.status === 'processing')
     );
     if (pendingProcessorTxn) {
@@ -203,7 +315,7 @@ export async function POST(
       // (no extra processor data leakage per the plan).
       logger.warn({
         message: 'RecordPayment rejected: pending processor transaction',
-        orderId: id,
+        orderId,
         merchantId: merchant.id,
         pendingGateway: pendingProcessorTxn.gateway,
         pendingStatus: pendingProcessorTxn.status,
@@ -234,7 +346,7 @@ export async function POST(
       if (existingTransaction) {
         logger.warn({
           message: 'RecordPayment duplicate reference rejected',
-          orderId: id,
+          orderId,
           merchantId: merchant.id,
           reference,
         });
@@ -257,7 +369,7 @@ export async function POST(
     if (remainingBeforePayment <= 0) {
       logger.warn({
         message: 'RecordPayment rejected: order already fully paid',
-        orderId: id,
+        orderId,
         merchantId: merchant.id,
         orderTotal,
         totalPaidBefore,
@@ -272,7 +384,7 @@ export async function POST(
     if (parsedAmount > remainingBeforePayment) {
       logger.warn({
         message: 'RecordPayment rejected: amount exceeds remaining balance',
-        orderId: id,
+        orderId,
         amount: parsedAmount,
         remainingBeforePayment,
       });
@@ -282,70 +394,53 @@ export async function POST(
       );
     }
 
-    const newPaid = totalPaidBefore + parsedAmount;
-    const remainingBalance = Math.max(0, orderTotal - newPaid);
+    const estimatedNewPaid = totalPaidBefore + parsedAmount;
+    const estimatedRemainingBalance = Math.max(
+      0,
+      orderTotal - estimatedNewPaid
+    );
 
     logger.info({
       message: 'RecordPayment totals calculated',
-      orderId: id,
+      orderId,
       currentPaid,
-      newPaid,
+      newPaid: estimatedNewPaid,
       orderTotal,
-      remainingBalance,
+      remainingBalance: estimatedRemainingBalance,
     });
 
     // 4. Create Transaction
-    // The pre-insert duplicate guard above catches known duplicates.
-    // The partial unique index (migration 20260504120000) enforces uniqueness
-    // at the DB level for concurrent inserts with the same reference.
-    const { data: createdTransaction, error: transactionError } = await supabase
-      .from('transactions')
-      .insert({
-        merchant_id: merchant.id,
-        order_id: id,
-        transaction_type: 'payment',
-        amount: parsedAmount,
-        currency: order.currency || 'NGN',
-        status: 'completed', // Valid values: pending, processing, completed, failed, cancelled
-        gateway: 'manual',
-        gateway_reference: reference,
-        description:
-          notes ||
-          (payment_method
-            ? `Manual payment (${payment_method})`
-            : 'Manual payment'),
-        metadata: {
+    // The pre-insert checks above provide fast feedback, but concurrent manual
+    // requests can still read the same balance. The RPC is authoritative: it
+    // locks the verified order row, recomputes completed payments, rejects stale
+    // overpayments/duplicates, and inserts the manual transaction atomically.
+    const paymentDescription =
+      notes ||
+      (payment_method
+        ? `Manual payment (${payment_method})`
+        : 'Manual payment');
+    const { data: manualPaymentResult, error: transactionError } =
+      (await supabase.rpc('record_manual_order_payment', {
+        p_amount: parsedAmount,
+        p_currency: order.currency || 'NGN',
+        p_description: paymentDescription,
+        p_gateway_reference: reference ?? null,
+        p_merchant_id: merchant.id,
+        p_metadata: {
           payment_method: payment_method || 'manual',
           recorded_by: user.email,
         },
-      })
-      .select('id')
-      .single();
+        p_order_id: orderId,
+      })) as {
+        data: RecordManualPaymentResult | null;
+        error: PostgrestError | null;
+      };
 
     if (transactionError) {
-      // Detect duplicate reference conflict (unique constraint violation = code 23505)
-      const isDuplicate =
-        transactionError.code === '23505' ||
-        transactionError.message?.toLowerCase().includes('duplicate') ||
-        transactionError.message?.toLowerCase().includes('unique');
-
-      if (isDuplicate) {
-        logger.warn({
-          message: 'RecordPayment duplicate reference rejected at DB level',
-          orderId: id,
-          merchantId: merchant.id,
-          reference,
-        });
-        return NextResponse.json(
-          { error: 'Duplicate payment reference', code: 'DUPLICATE_REFERENCE' },
-          { status: 409 }
-        );
-      }
-
       logger.error({
         message: 'RecordPayment transaction insert error',
         error: transactionError,
-        orderId: id,
+        orderId,
       });
       return NextResponse.json(
         { error: 'Failed to record payment' },
@@ -353,86 +448,219 @@ export async function POST(
       );
     }
 
-    // 5. Update Order Status
+    if (manualPaymentResult?.error_code === 'DUPLICATE_REFERENCE') {
+      logger.warn({
+        message: 'RecordPayment duplicate reference rejected at DB level',
+        orderId,
+        merchantId: merchant.id,
+        reference,
+      });
+      return NextResponse.json(
+        { error: 'Duplicate payment reference', code: 'DUPLICATE_REFERENCE' },
+        { status: 409 }
+      );
+    }
+
+    if (manualPaymentResult?.error_code === 'INVALID_AMOUNT') {
+      logger.warn({
+        message: 'RecordPayment rejected by atomic insert: invalid amount',
+        amount: parsedAmount,
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
+    }
+
+    if (manualPaymentResult?.error_code === 'PENDING_GATEWAY_PAYMENT') {
+      logger.warn({
+        message:
+          'RecordPayment rejected by atomic insert: pending processor transaction',
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        {
+          error:
+            'This order has a pending processor payment. Use payment reconciliation instead.',
+          code: 'PENDING_GATEWAY_PAYMENT',
+        },
+        { status: 409 }
+      );
+    }
+
+    if (
+      manualPaymentResult?.error_code ===
+      'ORDER_PAYMENT_RECONCILIATION_REQUIRED'
+    ) {
+      logger.warn({
+        message:
+          'RecordPayment rejected by atomic insert: order transaction merchant drift requires reconciliation',
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        {
+          error:
+            'This order has payments that require reconciliation before recording a manual payment.',
+          code: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
+        },
+        { status: 409 }
+      );
+    }
+
+    if (manualPaymentResult?.error_code === 'ORDER_ALREADY_PAID') {
+      logger.warn({
+        message:
+          'RecordPayment rejected by atomic insert: order already fully paid',
+        orderId,
+        merchantId: merchant.id,
+      });
+      return NextResponse.json(
+        { error: 'Order is already fully paid' },
+        { status: 409 }
+      );
+    }
+
+    if (
+      manualPaymentResult?.error_code === 'AMOUNT_EXCEEDS_REMAINING_BALANCE'
+    ) {
+      logger.warn({
+        message:
+          'RecordPayment rejected by atomic insert: amount exceeds remaining balance',
+        orderId,
+        amount: parsedAmount,
+        merchantId: merchant.id,
+      });
+      return NextResponse.json(
+        { error: 'Amount exceeds remaining balance' },
+        { status: 409 }
+      );
+    }
+
+    if (manualPaymentResult?.error_code === 'ORDER_NOT_FOUND') {
+      logger.warn({
+        message: 'RecordPayment atomic insert lost order ownership check',
+        orderId,
+        merchantId: merchant.id,
+      });
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    if (manualPaymentResult?.error_code || !manualPaymentResult) {
+      logger.error({
+        message: 'RecordPayment atomic insert returned an unexpected result',
+        manualPaymentResult,
+        orderId,
+      });
+      return NextResponse.json(
+        { error: 'Failed to record payment' },
+        { status: 500 }
+      );
+    }
+
+    const createdTransaction = manualPaymentResult.transaction_id
+      ? { id: manualPaymentResult.transaction_id }
+      : null;
+    const newPaid = Number(manualPaymentResult.new_paid ?? estimatedNewPaid);
+    const remainingBalance = Number(
+      manualPaymentResult.remaining_balance ?? estimatedRemainingBalance
+    );
+    const lockedOrderTotal = Number(
+      manualPaymentResult.order_total ?? newPaid + remainingBalance
+    );
+    const authoritativeOrderTotal = Number.isFinite(lockedOrderTotal)
+      ? lockedOrderTotal
+      : Number(orderTotal);
+
+    // 5. Consume the authoritative order status written by the RPC.
+    // Keeping status mutation inside the same DB transaction as the manual
+    // payment insert prevents a slower partial-payment request from overwriting
+    // a faster concurrent full-payment request after both RPCs return.
+    const rpcPaymentStatus = manualPaymentResult.payment_status ?? null;
+    const rpcShippingStatus = manualPaymentResult.shipping_status ?? null;
+
+    if (!rpcPaymentStatus || !rpcShippingStatus) {
+      logger.error({
+        message:
+          'CRITICAL: RecordPayment RPC inserted a transaction without returning updated order status',
+        manualPaymentResult,
+        orderId,
+        inconsistentState: true,
+      });
+      return NextResponse.json({
+        success: true,
+        amount_paid: parsedAmount,
+        new_balance: remainingBalance,
+        updated_status: {},
+        status_update_failed: true,
+      });
+    }
+
+    const isFullyPaid = rpcPaymentStatus === 'paid';
     const updates: {
       payment_status?: PaymentStatus;
       shipping_status?: ShippingStatus;
-    } = {};
+    } = { payment_status: rpcPaymentStatus };
 
-    const isFullyPaid = newPaid >= orderTotal;
-
-    // Payment Status Logic — compute the intended status update first so we can
-    // apply it (and detect a prevent_cancelled_order_reopen clamp) BEFORE firing
-    // any paid-order side effects.
-    if (isFullyPaid) {
-      updates.payment_status = 'paid';
-    } else {
-      updates.payment_status = 'partially_paid';
-    }
-    // Auto-advance shipping status if pending (indicates activity).
-    if (order.shipping_status === 'pending') {
-      updates.shipping_status = 'processing';
+    if (rpcShippingStatus !== order.shipping_status) {
+      updates.shipping_status = rpcShippingStatus;
     }
 
-    // Apply updates and read back the row so we can detect whether the
-    // prevent_cancelled_order_reopen trigger clamped this payment (order was
-    // cancelled by the customer before the merchant recorded the payment).
+    const updatedOrder = {
+      cancelled_at: manualPaymentResult.cancelled_at ?? null,
+      id: orderId,
+      shipping_status: rpcShippingStatus,
+    };
+
     let orderCancelledByClamp = false;
-    if (Object.keys(updates).length > 0) {
-      logger.info({
-        message: 'RecordPayment applying status updates',
-        updates,
-        orderId: id,
+    if (!createdTransaction?.id && !isOrderClampedAsCancelled(updatedOrder)) {
+      logger.error({
+        message: 'RecordPayment atomic insert omitted transaction id',
+        manualPaymentResult,
+        orderId,
       });
-      const { data: updatedOrder, error: updateError } = await supabase
-        .from('orders')
-        .update(updates)
-        .eq('id', id)
-        .eq('merchant_id', merchantId)
-        .select('id, shipping_status, cancelled_at')
-        .maybeSingle();
+      return NextResponse.json(
+        { error: 'Failed to record payment' },
+        { status: 500 }
+      );
+    }
 
-      if (updateError || !updatedOrder) {
-        logger.error({
-          message:
-            'CRITICAL: RecordPayment failed to update order status after transaction created',
-          error: updateError ?? 'updated_order_missing',
-          orderId: id,
-          inconsistentState: true,
-        });
-        return NextResponse.json({
-          success: true,
-          amount_paid: parsedAmount,
-          new_balance: remainingBalance,
-          updated_status: {},
-          status_update_failed: true,
-        });
-      }
-
-      if (isOrderClampedAsCancelled(updatedOrder)) {
-        orderCancelledByClamp = true;
-        // Link the reconciliation row to the transaction just recorded (matched
-        // by reference) so ops can trace the captured money. Falls back to null
-        // for a referenceless manual/cash payment.
-        let recordedTransactionId: string | null =
-          createdTransaction?.id ?? null;
-        if (!recordedTransactionId && reference) {
-          const { data: recordedTransaction } = await supabase
+    if (isOrderClampedAsCancelled(updatedOrder)) {
+      orderCancelledByClamp = true;
+      // Link the reconciliation row to the transaction just recorded (matched
+      // by reference) so ops can trace the captured money. Falls back to null
+      // for a referenceless manual/cash payment.
+      let recordedTransactionId: string | null = createdTransaction?.id ?? null;
+      if (!recordedTransactionId && reference) {
+        const { data: recordedTransaction, error: recordedTransactionError } =
+          await supabase
             .from('transactions')
             .select('id')
-            .eq('order_id', id)
+            .eq('order_id', orderId)
+            .eq('merchant_id', merchantId)
             .eq('gateway_reference', reference)
             .maybeSingle();
+
+        if (recordedTransactionError) {
+          logger.error({
+            message:
+              'RecordPayment failed to fetch recorded transaction for cancelled-order reconciliation',
+            error: recordedTransactionError,
+            orderId,
+            merchantId,
+            gatewayReference: reference,
+          });
+        } else {
           recordedTransactionId = recordedTransaction?.id ?? null;
         }
-        await handlePaymentForCancelledOrder({
-          gatewayReference: reference ?? null,
-          order: updatedOrder ?? { id },
-          reason:
-            'Manual payment recorded for an order cancelled by the customer before finalization',
-          transactionId: recordedTransactionId,
-        });
       }
+      await handlePaymentForCancelledOrder({
+        gatewayReference: reference ?? null,
+        order: updatedOrder,
+        reason:
+          'Manual payment recorded for an order cancelled by the customer before finalization',
+        transactionId: recordedTransactionId,
+      });
     }
 
     // Suppress all paid-order side effects (confirmation / receipt emails,
@@ -441,7 +669,7 @@ export async function POST(
       logger.warn({
         message:
           'RecordPayment: order was cancelled; suppressing emails and conversions',
-        orderId: id,
+        orderId,
       });
       return NextResponse.json({
         success: true,
@@ -455,7 +683,7 @@ export async function POST(
     // Paid-order side effects (only when NOT cancelled).
     if (isFullyPaid) {
       try {
-        await ensurePaidOrderInventoryConfirmed(supabase, merchantId, id);
+        await ensurePaidOrderInventoryConfirmed(supabase, merchantId, orderId);
       } catch (inventoryError) {
         let cleanupFailed = false;
         let rollbackFailed = false;
@@ -464,10 +692,16 @@ export async function POST(
           await rollbackOrderStatusAfterInventoryConfirmationFailure(
             supabase,
             merchantId,
-            id,
+            orderId,
             {
-              payment_status: order.payment_status ?? null,
-              shipping_status: order.shipping_status ?? null,
+              payment_status:
+                manualPaymentResult.previous_payment_status ??
+                order.payment_status ??
+                null,
+              shipping_status:
+                manualPaymentResult.previous_shipping_status ??
+                order.shipping_status ??
+                null,
             }
           );
         } catch (rollbackError) {
@@ -476,7 +710,7 @@ export async function POST(
           logger.error({
             message:
               'RecordPayment failed to rollback order status after inventory confirmation failure',
-            orderId: id,
+            orderId,
             error: rollbackError,
           });
           await fileInventoryConfirmationFailureReview({
@@ -493,7 +727,7 @@ export async function POST(
                   : rollbackError,
               source: 'record_payment_inventory_confirmation_rollback',
             },
-            orderId: id,
+            orderId,
             reason:
               'Manual payment reached paid state, but serialized inventory confirmation and status rollback both failed.',
             transactionId: createdTransaction?.id ?? null,
@@ -512,7 +746,7 @@ export async function POST(
             logger.error({
               message:
                 'RecordPayment failed to delete manual transaction after inventory confirmation failure',
-              orderId: id,
+              orderId,
               transactionId: createdTransaction.id,
               error: deleteTransactionError,
             });
@@ -528,7 +762,7 @@ export async function POST(
                 source:
                   'record_payment_inventory_confirmation_transaction_delete',
               },
-              orderId: id,
+              orderId,
               reason:
                 'Manual payment inventory confirmation failed, but deleting the completed manual transaction also failed.',
               transactionId: createdTransaction.id,
@@ -538,7 +772,7 @@ export async function POST(
 
         logger.error({
           message: 'RecordPayment failed to confirm inventory',
-          orderId: id,
+          orderId,
           cleanupFailed,
           error: inventoryError,
         });
@@ -561,7 +795,7 @@ export async function POST(
         });
       }
 
-      logger.info({ message: 'RecordPayment order fully paid', orderId: id });
+      logger.info({ message: 'RecordPayment order fully paid', orderId });
 
       // SEND CONFIRMATION EMAIL (If fully paid)
       try {
@@ -581,7 +815,7 @@ export async function POST(
           items: emailItems,
           subtotal: Number(order.subtotal),
           shippingFee: Number(order.shipping_fee),
-          total: Number(orderTotal),
+          total: Number(authoritativeOrderTotal),
           shippingAddress: {
             address: order.shipping_address?.address || '',
             city: order.shipping_address?.city || '',
@@ -608,7 +842,7 @@ export async function POST(
         // Fire and forget
         logger.info({
           message: 'RecordPayment sending confirmation email',
-          orderId: id,
+          orderId,
         });
         sendEmail({
           to: order.customer_email,
@@ -656,7 +890,7 @@ export async function POST(
     } else {
       logger.info({
         message: 'RecordPayment order partially paid',
-        orderId: id,
+        orderId,
       });
 
       // SEND PAYMENT RECEIPT EMAIL (Partial Payment)
@@ -682,7 +916,7 @@ export async function POST(
           orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
           customerName: order.customer_name,
           items: emailItems,
-          totalAmount: Number(orderTotal),
+          totalAmount: Number(authoritativeOrderTotal),
           amountPaidNow: parsedAmount,
           totalPaidSoFar: Number(newPaid),
           balanceDue: Number(remainingBalance),
@@ -696,7 +930,7 @@ export async function POST(
 
         logger.info({
           message: 'RecordPayment sending receipt email',
-          orderId: id,
+          orderId,
         });
         sendEmail({
           to: order.customer_email,
@@ -726,7 +960,7 @@ export async function POST(
       }
     }
 
-    logger.info({ message: 'RecordPayment success', orderId: id });
+    logger.info({ message: 'RecordPayment success', orderId });
     return NextResponse.json({
       success: true,
       amount_paid: parsedAmount,

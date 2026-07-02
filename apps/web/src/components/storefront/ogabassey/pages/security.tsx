@@ -366,12 +366,13 @@ export const OgabasseyV2Security: React.FC = () => {
                       type="button"
                       onClick={() => toggleShow('current')}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      aria-label={showPassword.current ? "Hide password" : "Show password"}
+                      aria-label="Show current password"
+                      aria-pressed={showPassword.current}
                     >
                       {showPassword.current ? (
-                        <EyeOff size={18} />
+                        <EyeOff aria-hidden="true" size={18} />
                       ) : (
-                        <Eye size={18} />
+                        <Eye aria-hidden="true" size={18} />
                       )}
                     </button>
                   </div>
@@ -399,12 +400,13 @@ export const OgabasseyV2Security: React.FC = () => {
                       type="button"
                       onClick={() => toggleShow('new')}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      aria-label={showPassword.new ? "Hide password" : "Show password"}
+                      aria-label="Show new password"
+                      aria-pressed={showPassword.new}
                     >
                       {showPassword.new ? (
-                        <EyeOff size={18} />
+                        <EyeOff aria-hidden="true" size={18} />
                       ) : (
-                        <Eye size={18} />
+                        <Eye aria-hidden="true" size={18} />
                       )}
                     </button>
                   </div>
@@ -432,12 +434,13 @@ export const OgabasseyV2Security: React.FC = () => {
                       type="button"
                       onClick={() => toggleShow('confirm')}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      aria-label={showPassword.confirm ? "Hide password" : "Show password"}
+                      aria-label="Show confirm password"
+                      aria-pressed={showPassword.confirm}
                     >
                       {showPassword.confirm ? (
-                        <EyeOff size={18} />
+                        <EyeOff aria-hidden="true" size={18} />
                       ) : (
-                        <Eye size={18} />
+                        <Eye aria-hidden="true" size={18} />
                       )}
                     </button>
                   </div>

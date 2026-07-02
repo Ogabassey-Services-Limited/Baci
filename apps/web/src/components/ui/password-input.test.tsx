@@ -14,14 +14,18 @@ describe('PasswordInput', () => {
     const input = screen.getByPlaceholderText('Enter password');
     const toggleButton = screen.getByLabelText('Show password');
 
+    expect(toggleButton).toHaveAttribute('aria-pressed', 'false');
+
     // Click to show password
     fireEvent.click(toggleButton);
     expect(input).toHaveAttribute('type', 'text');
-    expect(toggleButton).toHaveAttribute('aria-label', 'Hide password');
+    expect(toggleButton).toHaveAttribute('aria-pressed', 'true');
+    expect(toggleButton).toHaveAttribute('aria-label', 'Show password');
 
     // Click to hide password
     fireEvent.click(toggleButton);
     expect(input).toHaveAttribute('type', 'password');
+    expect(toggleButton).toHaveAttribute('aria-pressed', 'false');
     expect(toggleButton).toHaveAttribute('aria-label', 'Show password');
   });
 

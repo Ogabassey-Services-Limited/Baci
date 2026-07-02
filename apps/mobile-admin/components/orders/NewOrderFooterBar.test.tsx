@@ -16,41 +16,77 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    ActivityIndicator: () =>
+      React.createElement(
+        'span',
+        { 'aria-hidden': 'true', className: 'activity-indicator' },
+        'Loading...'
+      ),
     StatusBar: () => null,
     Pressable: ({
       accessibilityLabel,
+      accessibilityState,
       children,
       disabled,
       onPress,
+      style,
     }: {
       accessibilityLabel?: string;
+      accessibilityState?: {
+        busy?: boolean;
+        checked?: boolean;
+        disabled?: boolean;
+      };
       children?: React.ReactNode;
       disabled?: boolean;
       onPress?: () => void;
-    }) =>
-      React.createElement(
+      style?: ((state: { pressed: boolean }) => unknown) | unknown;
+    }) => {
+      const flattenStyle = (value: unknown): Record<string, unknown> => {
+        if (Array.isArray(value)) {
+          return Object.assign({}, ...value.filter(Boolean).map(flattenStyle));
+        }
+        if (value && typeof value === 'object') {
+          return value as Record<string, unknown>;
+        }
+        return {};
+      };
+      const resolvedStyle = flattenStyle(
+        typeof style === 'function' ? style({ pressed: false }) : style
+      );
+
+      return React.createElement(
         'button',
         {
+          'aria-busy': accessibilityState?.busy ? 'true' : undefined,
+          'aria-checked': accessibilityState?.checked ? 'true' : undefined,
           'aria-label': accessibilityLabel,
-          disabled,
+          'data-shadow-color': resolvedStyle.shadowColor,
+          disabled: disabled || accessibilityState?.disabled,
           onClick: () => onPress?.(),
           type: 'button',
         },
         children
-      ),
+      );
+    },
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
     TextInput: ({
+      accessibilityState,
+      editable,
       onChangeText,
       placeholder,
       value,
     }: {
+      accessibilityState?: { disabled?: boolean };
+      editable?: boolean;
       onChangeText?: (value: string) => void;
       placeholder?: string;
       value?: string;
     }) =>
       React.createElement('input', {
         'aria-label': placeholder,
+        disabled: editable === false || accessibilityState?.disabled,
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
           onChangeText?.(event.target.value),
         value: value ?? '',
@@ -65,6 +101,7 @@ vi.mock('./new-order.styles', () => ({ styles: {} }));
 type FooterController = Pick<
   ReturnType<typeof useNewOrderController>,
   | 'colors'
+  | 'shadows'
   | 'formatPrice'
   | 'handleSubmit'
   | 'isSubmitting'
@@ -95,6 +132,11 @@ function makeController(
       textOnPrimary: '#ffffff',
       textSecondary: '#64748b',
       warning: '#d97706',
+    },
+    shadows: {
+      lg: { shadowColor: '#334155' },
+      md: { shadowColor: '#64748b' },
+      sm: { shadowColor: '#94a3b8' },
     },
     formatPrice: (amount: number) => `₦${amount.toFixed(2)}`,
     handleSubmit: vi.fn(),
@@ -129,7 +171,23 @@ describe('NewOrderFooterBar', () => {
 
     expect(screen.getByText('Total Amount')).toBeInTheDocument();
     expect(screen.getByText('₦5000.00')).toBeInTheDocument();
-    expect(screen.getByText('Save Order').closest('button')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save Order' })).toBeDisabled();
+  });
+
+  it('uses the themed shadow token for the selected payment status', () => {
+    const controller = makeController({
+      paymentStatus: 'paid',
+      shadows: {
+        ...makeController().shadows,
+        sm: { ...makeController().shadows.sm, shadowColor: '#123456' },
+      },
+    });
+
+    render(<NewOrderFooterBar controller={controller} />);
+
+    expect(
+      screen.getByRole('button', { name: 'Payment status: paid' })
+    ).toHaveAttribute('data-shadow-color', '#123456');
   });
 
   it('shows partial-payment controls and forwards payment method and amount changes', () => {
@@ -140,7 +198,9 @@ describe('NewOrderFooterBar', () => {
 
     render(<NewOrderFooterBar controller={controller} />);
 
-    fireEvent.click(screen.getByText('Cash').closest('button')!);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Payment method: Cash' })
+    );
     fireEvent.change(screen.getByRole('textbox', { name: 'Enter amount...' }), {
       target: { value: '4250' },
     });
@@ -157,11 +217,37 @@ describe('NewOrderFooterBar', () => {
 
     render(<NewOrderFooterBar controller={controller} />);
 
-    fireEvent.click(screen.getByText('UNPAID').closest('button')!);
-    fireEvent.click(screen.getByText('Save Order').closest('button')!);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Payment status: unpaid' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save Order' }));
 
     expect(controller.setPaymentStatus).toHaveBeenCalledWith('unpaid');
     expect(controller.setPartialAmount).toHaveBeenCalledWith('');
     expect(controller.handleSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows saving state and disables interactions when isSubmitting is true', () => {
+    const controller = makeController({
+      isSubmitting: true,
+      partialAmount: '4000',
+      paymentStatus: 'partially_paid',
+    });
+    render(<NewOrderFooterBar controller={controller} />);
+
+    const saveButton = screen.getByRole('button', { name: 'Saving order' });
+    expect(saveButton).toBeDisabled();
+    expect(saveButton).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByText('Saving...')).toBeInTheDocument();
+    expect(screen.getByText('Loading...')).toBeInTheDocument(); // matches ActivityIndicator mock
+    expect(
+      screen.getByRole('button', { name: 'Payment status: paid' })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Payment method: Cash' })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('textbox', { name: 'Enter amount...' })
+    ).toBeDisabled();
   });
 });

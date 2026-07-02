@@ -110,6 +110,8 @@ export function stripHtmlTags(text: string | null | undefined): string {
   return result.trim();
 }
 
+export { normalizeMerchantCurrency } from './merchant-currency';
+
 const currencySymbolCache = new Map<string, string>();
 const currencyFallbackCache = new Map<string, string>();
 

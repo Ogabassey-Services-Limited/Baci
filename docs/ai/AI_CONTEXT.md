@@ -1,7 +1,7 @@
 # Baci AI E-commerce Builder - AI Context
 
-**Last Updated:** 2025-10-31
-**Project Type:** Next.js 15 Web Application
+**Last Updated:** 2026-06-29
+**Project Type:** Next.js 16 Web Application
 **Primary Purpose:** Merchant dashboard for AI-powered e-commerce store builder
 
 ---
@@ -9,11 +9,12 @@
 ## Quick Reference
 
 ### Tech Stack
-- **Framework:** Next.js 15.0.0 (App Router)
-- **Language:** TypeScript 5.5.4 (strict mode)
-- **Styling:** Tailwind CSS 3.4.7 + shadcn/ui
-- **AI Engine:** Google Genkit 1.20.0 with Gemini 2.5 Flash models
-- **Forms:** React Hook Form 7.54.2 + Zod 3.24.2 validation
+
+- **Framework:** Next.js 16.2.9 (App Router)
+- **Language:** TypeScript 5.9.3+ (strict mode)
+- **Styling:** Tailwind CSS 4.3.1+ + shadcn/ui
+- **AI Engine:** Vercel AI SDK 6 with `activeTextModel` (`gemini-2.0-flash`) and Gemini 2.5 Flash Image for multimodal/image generation
+- **Forms:** React Hook Form 7.79.0+ + Zod 4.4.3+ validation
 - **Database:** Supabase (PostgreSQL)
 - **Authentication:** Supabase Auth
 - **Payment Processing:** Paystack (planned, not yet implemented)
@@ -135,7 +136,7 @@ See `/docs/adr/001-business-type-journey-architecture.md` for the planned archit
 | `/src/app/dashboard/layout.tsx` | Dashboard layout with sidebar | - | Sidebar component |
 | `/src/app/page.tsx` | Landing page | - | UI components |
 
-### AI Flows (Genkit)
+### AI Flows (Vercel AI SDK)
 
 | File | Purpose | Input | Output |
 |------|---------|-------|--------|
@@ -149,7 +150,7 @@ See `/docs/adr/001-business-type-journey-architecture.md` for the planned archit
 |------|---------|
 | `/tailwind.config.ts` | Tailwind CSS configuration (colors, fonts, plugins) |
 | `/src/app/globals.css` | CSS variables for theming (lines 6-70) |
-| `/src/ai/genkit.ts` | Genkit initialization and model configuration |
+| `/src/ai/provider.ts` | AI provider configuration and model exports |
 | `/docs/blueprint.md` | 2100+ line comprehensive architecture documentation |
 | `/docs/adr/001-business-type-journey-architecture.md` | Architecture decision record for business type system |
 
@@ -303,11 +304,10 @@ Step 3: Account Creation
 5. Test with very long product names (edge case)
 
 ### Testing AI Flows
-Use Genkit Dev UI: `npm run genkit:dev`
-1. Navigate to http://localhost:4000
-2. Test each flow individually with sample inputs
-3. Verify output schemas match TypeScript types
-4. Test error handling with invalid inputs
+Use Vercel AI SDK patterns and check API routes directly.
+1. Create a test script or use unit tests for AI functions
+2. Verify output schemas match TypeScript types
+3. Test error handling with invalid inputs
 
 ---
 
@@ -335,26 +335,38 @@ const form = useForm<FormValues>({
 ```
 
 ### AI Flow Pattern
-All Genkit flows follow this pattern:
+
+All AI actions follow this pattern using Vercel AI SDK 6 structured output:
+
+Official AI SDK 6 references for this pattern:
+
+- `generateText` structured outputs: https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data
+- `Output.object()` reference: https://ai-sdk.dev/docs/reference/ai-sdk-core/output
+
 ```typescript
+import { generateText, Output } from 'ai';
+import { z } from 'zod';
+import { activeTextModel } from '@/ai/provider';
+
 // 1. Define input/output schemas
 const InputSchema = z.object({ /* input fields */ });
 const OutputSchema = z.object({ /* output fields */ });
+type FlowInput = z.infer<typeof InputSchema>;
+type FlowOutput = z.infer<typeof OutputSchema>;
 
-// 2. Create flow function
-export async function flowName(input: Input): Promise<Output> {
-  return flow(input);
-}
+// 2. Create AI function
+export async function generateContent(input: FlowInput): Promise<FlowOutput> {
+  const validatedInput = InputSchema.parse(input);
 
-// 3. Define Genkit flow
-const flow = ai.defineFlow({
-  name: 'flowName',
-  inputSchema: InputSchema,
-  outputSchema: OutputSchema
-}, async (input) => {
-  // AI logic here
+  // 3. Call Vercel AI SDK 6 structured output
+  const { output } = await generateText({
+    model: activeTextModel,
+    output: Output.object({ schema: OutputSchema }),
+    prompt: `Generated prompt based on ${JSON.stringify(validatedInput)}`,
+  });
+
   return output;
-});
+}
 ```
 
 ### Component Pattern
@@ -409,8 +421,8 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 - **Schema Docs:** `/src/schemas/README.md`
 
 ### External Docs
-- **Next.js 15:** https://nextjs.org/docs
-- **Genkit:** https://firebase.google.com/docs/genkit
+- **Next.js 16:** https://nextjs.org/docs
+- **Vercel AI SDK:** https://ai-sdk.dev/docs
 - **Tailwind CSS:** https://tailwindcss.com/docs
 - **Radix UI:** https://www.radix-ui.com/primitives/docs/overview/introduction
 - **React Hook Form:** https://react-hook-form.com/get-started
@@ -418,12 +430,11 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 
 ### Commands
 ```bash
-npm run dev              # Start Next.js dev server on port 9002
-npm run genkit:dev       # Start Genkit Dev UI on port 4000
-npm run genkit:watch     # Genkit with hot reload
-npm run build            # Production build
-npm run typecheck        # TypeScript type checking
-npm run lint             # ESLint
+pnpm turbo dev           # Start Next.js dev server
+pnpm turbo build         # Production build
+pnpm turbo typecheck     # TypeScript type checking
+pnpm turbo lint          # Biome linting
+pnpm turbo test          # Run tests
 ```
 
 ---

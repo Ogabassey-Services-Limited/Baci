@@ -5,6 +5,19 @@ import DomainsDashboard from './index';
 
 const mocks = vi.hoisted(() => ({
   handleOptionAction: vi.fn(),
+  themeColors: {
+    background: '#ffffff',
+    border: '#e2e8f0',
+    card: '#f8fafc',
+    error: '#dc2626',
+    errorLight: '#fee2e2',
+    gold: '#b45309',
+    goldLight: '#fef3c7',
+    primary: '#2563eb',
+    text: '#0f172a',
+    textOnPrimary: '#123456',
+    textSecondary: '#475569',
+  },
   queryState: {
     data: [
       {
@@ -42,8 +55,8 @@ vi.mock('expo-router', async () => {
 });
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  default: ({ name }: { name?: string }) => (
-    <span aria-hidden="true" data-icon={name} />
+  default: ({ color, name }: { color?: string; name?: string }) => (
+    <span aria-hidden="true" data-color={color} data-icon={name} />
   ),
   __esModule: true,
 }));
@@ -153,19 +166,7 @@ vi.mock('@/hooks/useRevenueCat', () => ({
 
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
-    colors: {
-      background: '#ffffff',
-      border: '#e2e8f0',
-      card: '#f8fafc',
-      error: '#dc2626',
-      errorLight: '#fee2e2',
-      gold: '#b45309',
-      goldLight: '#fef3c7',
-      primary: '#2563eb',
-      text: '#0f172a',
-      textOnPrimary: '#ffffff',
-      textSecondary: '#475569',
-    },
+    colors: mocks.themeColors,
     isDark: false,
     shadows: { lg: {} },
   }),
@@ -219,6 +220,16 @@ describe('DomainsDashboard', () => {
     expect(screen.getByText('CUSTOM DOMAINS')).toBeTruthy();
     expect(screen.getByText('shop.example.com')).toBeTruthy();
     expect(screen.getByText(/Store link store\.baci\.test/i)).toBeTruthy();
+  });
+
+  it('uses the semantic text-on-primary token for the add-domain FAB icon', () => {
+    render(<DomainsDashboard />);
+
+    const addIcon = document.querySelector('[data-icon="add"]');
+
+    expect(addIcon?.getAttribute('data-color')).toBe(
+      mocks.themeColors.textOnPrimary
+    );
   });
 
   it('routes empty-state actions to domain setup flows', () => {

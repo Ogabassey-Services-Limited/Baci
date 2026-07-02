@@ -78,7 +78,10 @@ export default function DateRangePicker({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
+      <Pressable
+        style={[styles.overlay, { backgroundColor: colors.backdrop }]}
+        onPress={onClose}
+      >
         <Pressable
           style={[
             styles.container,
@@ -115,10 +118,7 @@ export default function DateRangePicker({
                 styles.modeButton,
                 mode === 'presets' && {
                   backgroundColor: colors.card,
-                  shadowColor: '#000',
-                  shadowOpacity: 0.1,
-                  shadowRadius: 2,
-                  elevation: 1,
+                  ...shadows.sm,
                 },
               ]}
               onPress={() => setMode('presets')}
@@ -141,10 +141,7 @@ export default function DateRangePicker({
                 styles.modeButton,
                 mode === 'calendar' && {
                   backgroundColor: colors.card,
-                  shadowColor: '#000',
-                  shadowOpacity: 0.1,
-                  shadowRadius: 2,
-                  elevation: 1,
+                  ...shadows.sm,
                 },
               ]}
               onPress={() => setMode('calendar')}

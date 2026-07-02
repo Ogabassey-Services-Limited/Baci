@@ -2,8 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { confirmAgenticPaystackDvaPayment } from '@/lib/agentic/paystack-dva-webhook';
 
-const POSTGRES_UNIQUE_VIOLATION = '23505';
-
 const pendingAgenticMetadata = {
   agentic: {
     dva_account: { account_number: '9930000902' },
@@ -53,80 +51,29 @@ function createProcessingSession() {
   };
 }
 
+function createTransactionLookup(data: unknown) {
+  const chain = {
+    eq: vi.fn(),
+    maybeSingle: vi.fn().mockResolvedValue({ data, error: null }),
+  };
+  chain.eq.mockReturnValue(chain);
+  return chain;
+}
+
 describe('agentic Paystack DVA transaction reservation', () => {
   it('returns the created pending transaction for standard webhook processing', async () => {
-    const existingTransactionChain = {
-      eq: vi.fn(),
-      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-    };
-    existingTransactionChain.eq.mockReturnValue(existingTransactionChain);
-    const insertSingle = vi.fn().mockResolvedValue({
-      data: pendingTransaction,
+    const existingTransactionChain = createTransactionLookup(null);
+    const reservedTransactionChain =
+      createTransactionLookup(pendingTransaction);
+    const orderLookupChain = createTransactionLookup({
+      customer_email: 'buyer@example.com',
+      customer_name: 'Buyer Example',
+    });
+    const readChain = createSessionLookup([createProcessingSession()]);
+    const reserveTransaction = vi.fn().mockResolvedValue({
+      data: 'txn-1',
       error: null,
     });
-    const insertSelect = vi.fn(() => ({ single: insertSingle }));
-    const insertTransaction = vi.fn(() => ({ select: insertSelect }));
-    const readChain = createSessionLookup([createProcessingSession()]);
-    const from = vi.fn((table: string) => {
-      if (table === 'checkout_sessions')
-        return { select: vi.fn(() => readChain) };
-      if (table === 'transactions') {
-        return {
-          insert: insertTransaction,
-          select: vi.fn(() => existingTransactionChain),
-        };
-      }
-      throw new Error(`Unexpected table ${table}`);
-    });
-
-    const result = await confirmAgenticPaystackDvaPayment({
-      accountNumber: '9930000902',
-      gatewayReference: 'paystack-ref-1',
-      supabase: { from } as unknown as SupabaseClient,
-      verifiedAmount: { amount: 500000, currency: 'NGN' },
-    });
-
-    expect(result).toEqual({
-      handled: false,
-      transaction: normalizedPendingTransaction,
-    });
-    expect(insertTransaction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        gateway: 'paystack',
-        gateway_reference: 'paystack-ref-1',
-        merchant_id: 'merchant-1',
-        order_id: 'order-1',
-        status: 'pending',
-        transaction_type: 'payment',
-      })
-    );
-  });
-
-  it('returns the reserved transaction when the database unique guard wins', async () => {
-    const existingTransactionChain = {
-      eq: vi.fn(),
-      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-    };
-    existingTransactionChain.eq.mockReturnValue(existingTransactionChain);
-    const reservedTransactionChain = {
-      eq: vi.fn(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: pendingTransaction,
-        error: null,
-      }),
-    };
-    reservedTransactionChain.eq.mockReturnValue(reservedTransactionChain);
-    const insertSingle = vi.fn().mockResolvedValue({
-      data: null,
-      error: {
-        code: POSTGRES_UNIQUE_VIOLATION,
-        message: 'duplicate key value',
-      },
-    });
-    const insertTransaction = vi.fn(() => ({
-      select: vi.fn(() => ({ single: insertSingle })),
-    }));
-    const readChain = createSessionLookup([createProcessingSession()]);
     const transactionSelect = vi
       .fn()
       .mockReturnValueOnce(existingTransactionChain)
@@ -134,9 +81,9 @@ describe('agentic Paystack DVA transaction reservation', () => {
     const from = vi.fn((table: string) => {
       if (table === 'checkout_sessions')
         return { select: vi.fn(() => readChain) };
+      if (table === 'orders') return { select: vi.fn(() => orderLookupChain) };
       if (table === 'transactions') {
         return {
-          insert: insertTransaction,
           select: transactionSelect,
         };
       }
@@ -146,7 +93,7 @@ describe('agentic Paystack DVA transaction reservation', () => {
     const result = await confirmAgenticPaystackDvaPayment({
       accountNumber: '9930000902',
       gatewayReference: 'paystack-ref-1',
-      supabase: { from } as unknown as SupabaseClient,
+      supabase: { from, rpc: reserveTransaction } as unknown as SupabaseClient,
       verifiedAmount: { amount: 500000, currency: 'NGN' },
     });
 
@@ -154,14 +101,65 @@ describe('agentic Paystack DVA transaction reservation', () => {
       handled: false,
       transaction: normalizedPendingTransaction,
     });
-    expect(insertTransaction).toHaveBeenCalledWith(
+    expect(reserveTransaction).toHaveBeenCalledWith(
+      'create_payment_transaction',
       expect.objectContaining({
-        gateway: 'paystack',
-        gateway_reference: 'paystack-ref-1',
-        merchant_id: 'merchant-1',
-        order_id: 'order-1',
-        status: 'pending',
-        transaction_type: 'payment',
+        p_customer_email: 'buyer@example.com',
+        p_gateway: 'paystack',
+        p_merchant_id: 'merchant-1',
+        p_order_id: 'order-1',
+        p_reference: 'paystack-ref-1',
+      })
+    );
+  });
+
+  it('returns the reserved transaction when the locked RPC returns an existing id', async () => {
+    const existingTransactionChain = createTransactionLookup(null);
+    const reservedTransactionChain =
+      createTransactionLookup(pendingTransaction);
+    const orderLookupChain = createTransactionLookup({
+      customer_email: 'buyer@example.com',
+      customer_name: 'Buyer Example',
+    });
+    const readChain = createSessionLookup([createProcessingSession()]);
+    const reserveTransaction = vi.fn().mockResolvedValue({
+      data: 'txn-1',
+      error: null,
+    });
+    const transactionSelect = vi
+      .fn()
+      .mockReturnValueOnce(existingTransactionChain)
+      .mockReturnValueOnce(reservedTransactionChain);
+    const from = vi.fn((table: string) => {
+      if (table === 'checkout_sessions')
+        return { select: vi.fn(() => readChain) };
+      if (table === 'orders') return { select: vi.fn(() => orderLookupChain) };
+      if (table === 'transactions') {
+        return {
+          select: transactionSelect,
+        };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const result = await confirmAgenticPaystackDvaPayment({
+      accountNumber: '9930000902',
+      gatewayReference: 'paystack-ref-1',
+      supabase: { from, rpc: reserveTransaction } as unknown as SupabaseClient,
+      verifiedAmount: { amount: 500000, currency: 'NGN' },
+    });
+
+    expect(result).toEqual({
+      handled: false,
+      transaction: normalizedPendingTransaction,
+    });
+    expect(reserveTransaction).toHaveBeenCalledWith(
+      'create_payment_transaction',
+      expect.objectContaining({
+        p_gateway: 'paystack',
+        p_merchant_id: 'merchant-1',
+        p_order_id: 'order-1',
+        p_reference: 'paystack-ref-1',
       })
     );
   });

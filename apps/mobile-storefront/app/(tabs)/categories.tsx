@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import categoryPlaceholderImage from '@/assets/images/icon.png';
 import { OfflineEmptyState, OfflineNotice } from '@/components/OfflineNotice';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -85,10 +86,14 @@ export default function CategoriesScreen() {
               accessibilityLabel="Try again"
             >
               {isRefetching ? (
-                <ActivityIndicator size="small" color="#FFF" />
+                <ActivityIndicator size="small" color={BRAND.onPrimary} />
               ) : (
                 <>
-                  <Ionicons name="refresh-outline" size={18} color="#FFF" />
+                  <Ionicons
+                    name="refresh-outline"
+                    size={18}
+                    color={BRAND.onPrimary}
+                  />
                   <Text style={styles.retryButtonText}>Try Again</Text>
                 </>
               )}
@@ -137,12 +142,10 @@ export default function CategoriesScreen() {
       accessibilityRole="button"
     >
       <Image
-        source={{
-          uri:
-            item.image_url ||
-            'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image',
-        }}
-        style={styles.categoryImage}
+        source={
+          item.image_url ? { uri: item.image_url } : categoryPlaceholderImage
+        }
+        style={[styles.categoryImage, { backgroundColor: colors.muted }]}
         contentFit="cover"
         transition={300}
       />
@@ -227,7 +230,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
   },
   retryButtonText: {
-    color: '#FFF',
+    color: BRAND.onPrimary,
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
   },
@@ -249,7 +252,6 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: RADIUS.lg,
-    backgroundColor: '#F3F4F6',
   },
   categoryInfo: {
     flex: 1,

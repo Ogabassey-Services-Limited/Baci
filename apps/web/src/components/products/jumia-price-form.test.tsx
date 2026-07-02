@@ -73,7 +73,7 @@ function createOverrides(
 }
 
 describe('JumiaPriceForm', () => {
-  it('renders price inputs with Naira symbol', () => {
+  it('renders price inputs with currency symbol', () => {
     render(
       <JumiaPriceForm
         overrides={createOverrides()}
@@ -90,6 +90,27 @@ describe('JumiaPriceForm', () => {
     expect(screen.getAllByText('\u20A6').length).toBeGreaterThanOrEqual(1);
   });
 
+  it('keeps Jumia override inputs in NGN because Jumia feeds are Nigeria-pilot only', () => {
+    render(
+      <JumiaPriceForm
+        overrides={createOverrides()}
+        setOverrides={vi.fn()}
+        basePrice={5000}
+      />
+    );
+
+    expect(screen.getByLabelText('Jumia Base Price')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('Jumia Sale Price (Optional)')
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('₦').length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getByText(
+        'Leave empty to follow Baci base price. Jumia overrides are submitted in NGN.'
+      )
+    ).toBeInTheDocument();
+  });
+
   it('renders sale date inputs', () => {
     render(
       <JumiaPriceForm
@@ -103,7 +124,7 @@ describe('JumiaPriceForm', () => {
     expect(screen.getByLabelText('Sale End')).toBeInTheDocument();
   });
 
-  it('shows low price warning when jumia price is 80% below base', async () => {
+  it('shows low price warning with merchant currency formatting', async () => {
     const setOverrides = vi.fn();
     render(
       <JumiaPriceForm
@@ -116,6 +137,9 @@ describe('JumiaPriceForm', () => {
     await waitFor(() => {
       expect(screen.getByText('Low Price Warning')).toBeInTheDocument();
     });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('₦3,000.00');
+    expect(screen.getByRole('alert')).toHaveTextContent('₦5,000.00');
   });
 
   it('does not show low price warning when price is within range', () => {
@@ -183,7 +207,9 @@ describe('JumiaPriceForm', () => {
     );
 
     expect(
-      screen.getByText('Leave empty to follow Baci base price')
+      screen.getByText(
+        'Leave empty to follow Baci base price. Jumia overrides are submitted in NGN.'
+      )
     ).toBeInTheDocument();
   });
 });

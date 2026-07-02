@@ -1,7 +1,7 @@
 // Phase B — B1 (Δ-3, Δ-6, Δ-10, Δ-12, Δ-55, Δ-57). Looks up a paid
 // Paystack DVA against persisted `order_payment_accounts` rows, applies
 // the B0 6-key tightening matcher, and either:
-//   - inserts a pending `transactions` row + returns it for the
+//   - reserves a pending `transactions` row via the locked payment RPC + returns it for the
 //     webhook to flip via its existing UPDATE path (single match)
 //   - upserts a `payment_match_ambiguous` `reconciliation_review` row
 //     and returns 409 (multi-candidate; manual review needed)
@@ -9,7 +9,7 @@
 //     `transactions.gateway_reference` lookup (no match)
 //
 // The helper does NOT call `claim_paystack_paid_atomic` directly — by
-// returning a freshly-inserted pending transaction, the webhook's
+// returning a freshly-reserved pending transaction, the webhook's
 // existing path (UPDATE transactions, UPDATE orders,
 // applyPaidOrderSideEffects via the A1 outbox) takes over. The atomic
 // RPC is reserved for the manual reconcile script (PR3) where
@@ -25,6 +25,8 @@ import {
 
 const PAYSTACK_ACCOUNT_PATTERN = /^\d{6,20}$/;
 const POSTGRES_UNIQUE_VIOLATION = '23505';
+const TRANSACTION_SELECT =
+  'id, amount, currency, merchant_id, metadata, order_id, platform_fee, gateway_reference';
 
 type VerifiedAmount = { amount: number; currency?: string };
 
@@ -194,70 +196,60 @@ export async function confirmPaystackDvaByOrderAccount({
     };
   }
 
-  // Single match → insert pending transaction.
+  // Single match → reserve a pending transaction inside the locked RPC.
   const winner = match.candidate;
   const candidateRow = candidates.find((c) => c.order_id === winner.order_id);
   const currency = getCurrency(rows, winner.order_id) ?? 'NGN';
-  const insertRow = {
-    merchant_id: winner.merchant_id,
-    order_id: winner.order_id,
-    amount: verifiedAmount.amount.toString(),
-    currency,
-    description: `Paystack DVA payment matched via order_payment_accounts (account ${accountNumber})`,
-    gateway: 'paystack',
-    gateway_reference: gatewayReference,
-    metadata: {
-      dva_lookup_path: 'order_payment_accounts',
-      dva_account_number: accountNumber,
-    },
-    status: 'pending' as const,
-    transaction_type: 'payment',
-  };
 
-  const { data: inserted, error: insertError } = await supabase
-    .from('transactions')
-    .insert(insertRow)
-    .select(
-      'id, amount, currency, merchant_id, metadata, order_id, platform_fee, gateway_reference'
-    )
-    .single();
-
-  if (
-    insertError &&
-    (insertError as { code?: string }).code === POSTGRES_UNIQUE_VIOLATION
-  ) {
-    // Concurrent webhook beat us. Re-read.
-    const { data: reused, error: reusedErr } = await supabase
-      .from('transactions')
-      .select(
-        'id, amount, currency, merchant_id, metadata, order_id, platform_fee, gateway_reference'
-      )
-      .eq('gateway_reference', gatewayReference)
-      .maybeSingle();
-    if (reusedErr || !reused) {
-      logger.error({
-        message: 'B1 single-match insert collided but re-read failed',
-        accountNumber,
-        paystackReference: gatewayReference,
-        error: reusedErr,
-      });
-      return {
-        body: { error: 'Paystack DVA matching temporarily unavailable' },
-        kind: 'error',
-        status: 500,
-      };
+  const { data: transactionId, error: reserveError } = await supabase.rpc(
+    'create_payment_transaction',
+    {
+      p_amount: verifiedAmount.amount,
+      p_currency: currency,
+      p_customer_email: customerEmail,
+      p_customer_name: getPaystackCustomerName(customer) ?? customerEmail,
+      p_gateway: 'paystack',
+      p_merchant_amount: verifiedAmount.amount,
+      p_merchant_id: winner.merchant_id,
+      p_metadata: {
+        dva_account_number: accountNumber,
+        dva_lookup_path: 'order_payment_accounts',
+      },
+      p_order_id: winner.order_id,
+      p_platform_fee: 0,
+      p_reference: gatewayReference,
+      p_session_id: null,
     }
-    return {
-      kind: 'match',
-      transaction: reused as ConfirmPaystackDvaByOrderAccountTransaction,
-    };
-  }
-  if (insertError || !inserted) {
+  );
+
+  if (reserveError || !transactionId) {
     logger.error({
-      message: 'B1 single-match transaction insert failed',
+      message: 'B1 single-match transaction reservation failed',
       accountNumber,
       paystackReference: gatewayReference,
-      error: insertError,
+      error: reserveError,
+    });
+    return {
+      body: { error: 'Paystack DVA matching temporarily unavailable' },
+      kind: 'error',
+      status: 500,
+    };
+  }
+
+  const { data: inserted, error: transactionLookupError } = await supabase
+    .from('transactions')
+    .select(TRANSACTION_SELECT)
+    .eq('id', transactionId)
+    .eq('merchant_id', winner.merchant_id)
+    .maybeSingle();
+
+  if (transactionLookupError || !inserted) {
+    logger.error({
+      message: 'B1 single-match transaction reservation lookup failed',
+      accountNumber,
+      paystackReference: gatewayReference,
+      transactionId,
+      error: transactionLookupError,
     });
     return {
       body: { error: 'Paystack DVA matching temporarily unavailable' },
@@ -273,6 +265,15 @@ export async function confirmPaystackDvaByOrderAccount({
     kind: 'match',
     transaction: inserted as ConfirmPaystackDvaByOrderAccountTransaction,
   };
+}
+
+function getPaystackCustomerName(customer: Record<string, unknown> | null) {
+  const firstName =
+    typeof customer?.first_name === 'string' ? customer.first_name.trim() : '';
+  const lastName =
+    typeof customer?.last_name === 'string' ? customer.last_name.trim() : '';
+  const fullName = `${firstName} ${lastName}`.trim();
+  return fullName || null;
 }
 
 function normalizeCandidate(

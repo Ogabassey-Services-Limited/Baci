@@ -2,7 +2,13 @@ import type { PaymentStatus } from '@baci/shared';
 import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { TYPOGRAPHY } from '@/constants/theme';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { PAYMENT_METHODS } from './new-order.shared';
@@ -15,6 +21,7 @@ interface NewOrderFooterBarProps {
 export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
   const {
     colors,
+    shadows,
     formatPrice,
     handleSubmit,
     isSubmitting,
@@ -43,7 +50,11 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
               <Pressable
                 accessibilityLabel={`Payment status: ${status === 'partially_paid' ? 'Partial' : status}`}
                 accessibilityRole="radio"
-                accessibilityState={{ checked: isSelected }}
+                accessibilityState={{
+                  checked: isSelected,
+                  disabled: isSubmitting,
+                }}
+                disabled={isSubmitting}
                 key={status}
                 onPress={() => {
                   setPaymentStatus(status);
@@ -52,15 +63,11 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
                   }
                 }}
                 style={({ pressed }) => [
-                  pressed && { opacity: 0.7 },
+                  !isSubmitting && pressed && { opacity: 0.7 },
                   styles.toggleOption,
                   isSelected && {
                     backgroundColor: colors.background,
-                    elevation: 2,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 1,
+                    ...shadows.sm,
                   },
                 ]}
               >
@@ -106,12 +113,16 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
               <Pressable
                 accessibilityLabel={`Payment method: ${method.label}`}
                 accessibilityRole="radio"
-                accessibilityState={{ checked: paymentMethod === method.id }}
+                accessibilityState={{
+                  checked: paymentMethod === method.id,
+                  disabled: isSubmitting,
+                }}
+                disabled={isSubmitting}
                 key={method.id}
                 onPress={() => setPaymentMethod(method.id)}
                 style={({ pressed }) => [
                   {
-                    opacity: pressed ? 0.7 : 1,
+                    opacity: !isSubmitting && pressed ? 0.7 : 1,
                     alignItems: 'center',
                     backgroundColor:
                       paymentMethod === method.id
@@ -173,6 +184,8 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
             Amount Paid
           </Text>
           <TextInput
+            accessibilityState={{ disabled: isSubmitting }}
+            editable={!isSubmitting}
             keyboardType="numeric"
             onChangeText={setPartialAmount}
             placeholder="Enter amount..."
@@ -207,30 +220,39 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
           </Text>
         </View>
         <Pressable
-          accessibilityLabel="Save Order"
+          accessibilityLabel={isSubmitting ? 'Saving order' : 'Save Order'}
           accessibilityRole="button"
           accessibilityState={{
             disabled: isSubmitting || orderItems.length === 0,
+            busy: isSubmitting,
           }}
           disabled={isSubmitting || orderItems.length === 0}
           onPress={handleSubmit}
           style={({ pressed }) => [
-            pressed && { opacity: 0.7 },
             styles.payBtn,
             {
               backgroundColor: colors.primary,
-              opacity: orderItems.length === 0 ? 0.6 : 1,
+              opacity: isSubmitting || orderItems.length === 0 ? 0.6 : 1,
             },
+            pressed && { opacity: 0.7 },
           ]}
         >
+          {isSubmitting ? (
+            <ActivityIndicator
+              color={colors.textOnPrimary}
+              style={{ marginRight: 8 }}
+            />
+          ) : null}
           <Text style={[styles.payBtnText, { color: colors.textOnPrimary }]}>
-            Save Order
+            {isSubmitting ? 'Saving...' : 'Save Order'}
           </Text>
-          <Ionicons
-            color={colors.textOnPrimary}
-            name="arrow-forward"
-            size={20}
-          />
+          {!isSubmitting && (
+            <Ionicons
+              color={colors.textOnPrimary}
+              name="arrow-forward"
+              size={20}
+            />
+          )}
         </Pressable>
       </View>
     </View>

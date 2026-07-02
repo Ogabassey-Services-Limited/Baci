@@ -32,7 +32,7 @@ Understanding schemas is critical for:
 | `refinedFormSchema` | `/src/app/onboarding/onboarding-form.tsx:103` | Adds conditional "other" validation | Extends baseFormSchema |
 | `addProductSchema` | `/src/app/dashboard/products/add/add-product-form.tsx:42` | Product creation validation | name, description, price, stock, status, image |
 
-### AI Flow Schemas (Genkit)
+### AI Flow Schemas (Vercel AI SDK)
 
 | Schema | Location | Purpose | Fields |
 |--------|----------|---------|--------|
@@ -308,9 +308,13 @@ const form = useForm<MyFormValues>({
 />
 ```
 
-### AI Flow Schemas (Genkit)
+### AI Flow Schemas (Vercel AI SDK)
 
 ```typescript
+import { generateText, Output } from 'ai';
+import { z } from 'zod';
+import { activeTextModel } from '@/ai/provider';
+
 // 1. Define input/output schemas
 const InputSchema = z.object({
   field1: z.string().describe('Description for AI'),
@@ -323,19 +327,16 @@ const OutputSchema = z.object({
 export type FlowInput = z.infer<typeof InputSchema>;
 export type FlowOutput = z.infer<typeof OutputSchema>;
 
-// 3. Define flow with schemas
-const flow = ai.defineFlow({
-  name: 'myFlow',
-  inputSchema: InputSchema,
-  outputSchema: OutputSchema,
-}, async (input) => {
-  // AI logic
-  return output;
-});
-
-// 4. Export flow function
+// 3. Export a plain async function that validates input and uses AI SDK 6
 export async function myFlow(input: FlowInput): Promise<FlowOutput> {
-  return flow(input);
+  const validatedInput = InputSchema.parse(input);
+  const { output } = await generateText({
+    model: activeTextModel,
+    output: Output.object({ schema: OutputSchema }),
+    prompt: `Generate output for ${JSON.stringify(validatedInput)}`,
+  });
+
+  return output;
 }
 ```
 
@@ -499,12 +500,7 @@ describe('baseFormSchema', () => {
 
 ### Manual Testing
 
-Use Genkit Dev UI for AI flow schemas:
-```bash
-npm run genkit:dev
-# Visit: http://localhost:4000
-# Test flows with sample data
-```
+Test API routes directly for AI flow schemas.
 
 ---
 
@@ -574,4 +570,3 @@ const schema = z.string({
 
 - **Zod Documentation:** https://zod.dev/
 - **React Hook Form:** https://react-hook-form.com/get-started
-- **Genkit Schemas:** https://firebase.google.com/docs/genkit/zod

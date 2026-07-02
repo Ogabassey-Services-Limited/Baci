@@ -76,7 +76,7 @@ describe('CheckoutIdentityModal', () => {
   it('switches to sign-in tab and shows login form', () => {
     render(<CheckoutIdentityModal {...defaultProps} />);
 
-    fireEvent.click(screen.getByText('Sign In'));
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
 
     expect(
       screen.getByPlaceholderText('name@example.com')
@@ -84,6 +84,35 @@ describe('CheckoutIdentityModal', () => {
     expect(
       screen.getByRole('button', { name: /sign in & checkout/i })
     ).toBeInTheDocument();
+  });
+
+  it('keeps the password visibility toggle name stable while pressed', () => {
+    render(<CheckoutIdentityModal {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+
+    const passwordInput = screen.getByLabelText('Password');
+    const toggleButton = screen.getByRole('button', {
+      name: 'Show password',
+    });
+
+    expect(passwordInput).toHaveAttribute('type', 'password');
+    expect(toggleButton).toHaveAttribute('aria-pressed', 'false');
+    expect(toggleButton).not.toHaveTextContent('Show');
+
+    fireEvent.click(toggleButton);
+
+    expect(passwordInput).toHaveAttribute('type', 'text');
+    expect(
+      screen.getByRole('button', { name: 'Show password' })
+    ).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+
+    expect(passwordInput).toHaveAttribute('type', 'password');
+    expect(
+      screen.getByRole('button', { name: 'Show password' })
+    ).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('shows error message when sign-in fails', async () => {
@@ -98,7 +127,7 @@ describe('CheckoutIdentityModal', () => {
     render(<CheckoutIdentityModal {...defaultProps} />);
 
     // Switch to sign-in tab
-    fireEvent.click(screen.getByText('Sign In'));
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
 
     // Fill in credentials
     fireEvent.change(screen.getByPlaceholderText('name@example.com'), {
@@ -128,7 +157,7 @@ describe('CheckoutIdentityModal', () => {
     render(<CheckoutIdentityModal {...defaultProps} />);
 
     // Switch to sign-in tab
-    fireEvent.click(screen.getByText('Sign In'));
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
 
     // Fill in credentials
     fireEvent.change(screen.getByPlaceholderText('name@example.com'), {

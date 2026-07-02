@@ -1,13 +1,16 @@
 'use client';
 
-import { Calendar, ExternalLink, History, ShoppingCart, ShieldCheck } from 'lucide-react';
+import {
+  Calendar,
+  ExternalLink,
+  History,
+  ShieldCheck,
+  ShoppingCart,
+} from 'lucide-react';
 import type React from 'react';
+import { useCurrency } from '@/hooks/use-currency';
+import { formatCurrencyWithConfig, getCurrencyConfig } from '@/lib/currency';
 import { EmptyState } from '../components/empty-state';
-
-const NGN_CURRENCY: Intl.NumberFormat = new Intl.NumberFormat('en-NG', {
-  style: 'currency',
-  currency: 'NGN',
-});
 
 // Interface matching the real order structure from the API
 export interface OrderItem {
@@ -23,6 +26,7 @@ export interface Order {
   id: string;
   order_number: string;
   created_at: string;
+  currency?: string | null;
   total: number;
   items: OrderItem[];
 }
@@ -38,9 +42,23 @@ export const OgabasseyV2PurchaseHistory: React.FC<PurchaseHistoryProps> = ({
   onBuyAgain,
   onViewDetails,
 }) => {
-  // Helper to format currency
-  const formatCurrency = (amount: number) => {
-    return NGN_CURRENCY.format(amount);
+  const { formatCurrency } = useCurrency();
+  const formatOrderCurrency = (
+    amount: number,
+    orderCurrency?: string | null
+  ) => {
+    const normalizedOrderCurrency = orderCurrency?.trim().toUpperCase();
+    if (normalizedOrderCurrency) {
+      const orderCurrencyConfig = getCurrencyConfig(
+        null,
+        normalizedOrderCurrency
+      );
+      if (orderCurrencyConfig.code === normalizedOrderCurrency) {
+        return formatCurrencyWithConfig(amount, orderCurrencyConfig);
+      }
+    }
+
+    return formatCurrency(amount);
   };
 
   // Helper to format date
@@ -98,9 +116,14 @@ export const OgabasseyV2PurchaseHistory: React.FC<PurchaseHistoryProps> = ({
                         {item.name}
                       </h3>
                       <p className="text-sm font-bold text-red-600">
-                        {formatCurrency(item.price)} <span className="text-gray-400 font-normal">x {item.quantity}</span>
+                        {formatOrderCurrency(item.price, order.currency)}{' '}
+                        <span className="text-gray-400 font-normal">
+                          x {item.quantity}
+                        </span>
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">Order #{order.order_number}</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Order #{order.order_number}
+                      </p>
                     </div>
 
                     {/* Actions */}
@@ -140,6 +163,6 @@ export const OgabasseyV2PurchaseHistory: React.FC<PurchaseHistoryProps> = ({
           </div>
         )}
       </div>
-    </div >
+    </div>
   );
 };

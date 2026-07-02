@@ -428,14 +428,10 @@ When modifying this component, test:
 
 ```bash
 # Run dev server
-npm run dev
-
-# Test Genkit AI flows in UI
-npm run genkit:dev
-# Visit: http://localhost:4000
+pnpm turbo dev
 
 # Type check
-npm run typecheck
+pnpm turbo typecheck
 ```
 
 ---

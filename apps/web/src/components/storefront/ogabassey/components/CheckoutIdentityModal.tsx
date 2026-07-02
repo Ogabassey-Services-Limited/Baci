@@ -1,6 +1,15 @@
 'use client';
 
-import { AlertCircle, Loader2, User, UserPlus, X, Zap } from 'lucide-react';
+import {
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Loader2,
+  User,
+  UserPlus,
+  X,
+  Zap,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { buildCheckoutIdentityRoutes } from '@/components/storefront/checkout-route';
@@ -260,10 +269,15 @@ export function CheckoutIdentityModal({
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-medium"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    aria-label="Show password"
+                    aria-pressed={showPassword}
                   >
-                    {showPassword ? 'Hide' : 'Show'}
+                    {showPassword ? (
+                      <EyeOff aria-hidden="true" className="size-4" />
+                    ) : (
+                      <Eye aria-hidden="true" className="size-4" />
+                    )}
                   </button>
                 </div>
               </div>

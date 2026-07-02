@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { recordPaymentBodySchema } from './record-payment';
+import {
+  recordPaymentBodySchema,
+  recordPaymentOrderIdSchema,
+} from './record-payment';
 
 describe('recordPaymentBodySchema', () => {
   it('accepts a valid record-payment payload', () => {
@@ -155,5 +158,21 @@ describe('recordPaymentBodySchema', () => {
     });
 
     expect(result.success).toBe(true);
+  });
+});
+
+describe('recordPaymentOrderIdSchema', () => {
+  it('accepts valid UUID order ids', () => {
+    const result = recordPaymentOrderIdSchema.safeParse(
+      '11111111-1111-4111-8111-111111111111'
+    );
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects malformed order ids before database lookup', () => {
+    const result = recordPaymentOrderIdSchema.safeParse('not-a-uuid');
+
+    expect(result.success).toBe(false);
   });
 });
