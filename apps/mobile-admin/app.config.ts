@@ -95,6 +95,9 @@ const tiktokBusinessPlugin: TikTokBusinessPlugin | null =
         },
       ]
     : null;
+const posthogApiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY?.trim();
+const posthogHost =
+  process.env.EXPO_PUBLIC_POSTHOG_HOST?.trim() || 'https://eu.i.posthog.com';
 
 /**
  * Expo App Configuration
@@ -213,6 +216,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     [
+      'posthog-react-native/expo',
+      {
+        skipOnConflict: true,
+        uploadNativeSymbols: true,
+      },
+    ],
+    [
       'expo-build-properties',
       {
         android: {
@@ -268,6 +278,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    posthogApiKey,
+    posthogHost,
     tiktokBusiness: {
       iosAppStoreId: tiktokIosAppStoreId,
       iosTikTokAppId: tiktokIosAppId ?? '',

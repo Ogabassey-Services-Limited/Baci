@@ -6,6 +6,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useTheme } from '@/hooks/useTheme';
+import {
+  identifyAdminUser,
+  resetAdminAnalytics,
+} from '@/services/analytics-core';
 
 export default function AdminLayout() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -22,6 +26,19 @@ export default function AdminLayout() {
 
   // Auto-register for push notifications when authenticated and merchant is loaded.
   // isPushLoading guards concurrent calls; attemptedMerchantIdRef prevents retries on failure.
+  useEffect(() => {
+    if (!user?.id) {
+      resetAdminAnalytics();
+      return;
+    }
+
+    identifyAdminUser(user.id, {
+      isPublished: merchant?.is_published ?? null,
+      merchantId: merchant?.id ?? null,
+      planTier: merchant?.plan_tier ?? null,
+    });
+  }, [user?.id, merchant?.id, merchant?.is_published, merchant?.plan_tier]);
+
   useEffect(() => {
     if (
       isAuthenticated &&

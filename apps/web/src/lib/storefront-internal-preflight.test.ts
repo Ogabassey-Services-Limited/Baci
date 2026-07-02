@@ -1,8 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  captureServerException: vi.fn().mockResolvedValue(true),
+}));
+
+vi.mock('@/lib/posthog/server', () => ({
+  captureServerException: mocks.captureServerException,
+}));
+
 import { storefrontInternalPreflight } from './storefront-internal-preflight';
 
 const ORIGINAL_ENV = {
   NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
+  NEXT_RUNTIME: process.env.NEXT_RUNTIME,
   NODE_ENV: process.env.NODE_ENV,
   VERCEL_ENV: process.env.VERCEL_ENV,
   VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
@@ -23,6 +33,7 @@ function restoreEnv() {
 
 function clearEnv() {
   delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+  delete process.env.NEXT_RUNTIME;
   delete process.env.VERCEL_ENV;
   delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
   delete process.env.VERCEL_URL;
@@ -38,6 +49,7 @@ const CONTEXT = {
 describe('storefrontInternalPreflight', () => {
   beforeEach(() => {
     clearEnv();
+    mocks.captureServerException.mockClear();
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
@@ -197,5 +209,42 @@ describe('storefrontInternalPreflight', () => {
     expect(
       storefrontInternalPreflight.getFetchErrorReason(new Error('boom'))
     ).toBe('fetch-error');
+  });
+
+  it('captures fail-open diagnostics in the Node.js runtime', async () => {
+    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+
+    await expect(
+      storefrontInternalPreflight.captureFailOpen({
+        ...CONTEXT,
+        reason: 'fetch-error',
+        status: 500,
+      })
+    ).resolves.toBe(true);
+
+    expect(mocks.captureServerException).toHaveBeenCalledWith(
+      expect.any(Error),
+      {
+        event_source: 'storefront-internal-preflight',
+        identifier: 'ogabassey.com',
+        reason: 'fetch-error',
+        slug: 'missing-product',
+        status: 500,
+        surface: 'product-slug',
+      }
+    );
+  });
+
+  it('does not import server PostHog from non-Node runtimes', async () => {
+    vi.stubEnv('NEXT_RUNTIME', 'edge');
+
+    await expect(
+      storefrontInternalPreflight.captureFailOpen({
+        ...CONTEXT,
+        reason: 'fetch-error',
+      })
+    ).resolves.toBe(false);
+
+    expect(mocks.captureServerException).not.toHaveBeenCalled();
   });
 });

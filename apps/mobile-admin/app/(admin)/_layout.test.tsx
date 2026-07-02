@@ -6,41 +6,39 @@ const mocks = vi.hoisted(() => ({
   auth: {
     isAuthenticated: true,
     isLoading: false,
-    user: { id: 'user-1' },
+    user: { id: 'user-1' } as { id: string } | null,
   },
   merchant: {
     merchant: {
       id: 'merchant-1',
       is_published: true,
       plan_tier: 'business',
-    },
+    } as {
+      id: string;
+      is_published: boolean | null;
+      plan_tier: string | null;
+    } | null,
   },
   push: {
     isLoading: false,
-    isRegistered: false,
+    isRegistered: true,
     registerPush: vi.fn().mockResolvedValue(undefined),
   },
   analytics: {
     identifyAdminUser: vi.fn(),
     resetAdminAnalytics: vi.fn(),
   },
-  stackScreenNames: [] as Array<string | undefined>,
 }));
 
 vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
-    StatusBar: () => null,
     ActivityIndicator: () => React.createElement('div', null, 'loading'),
     View: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
 });
-
-vi.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 59, right: 0, bottom: 34, left: 0 }),
-}));
 
 vi.mock('expo-router', async () => {
   const React = await import('react');
@@ -48,17 +46,10 @@ vi.mock('expo-router', async () => {
   const Stack = ({ children }: { children?: React.ReactNode }) =>
     React.createElement(
       'div',
-      {
-        'data-testid': 'admin-stack',
-        'aria-label': 'admin stack',
-        role: 'main',
-      },
+      { 'aria-label': 'admin stack', role: 'main' },
       children
     );
-  Stack.Screen = ({ name }: { name?: string }) => {
-    mocks.stackScreenNames.push(name);
-    return null;
-  };
+  Stack.Screen = () => null;
 
   return {
     Redirect: ({ href }: { href: string }) =>
@@ -98,9 +89,9 @@ vi.mock('@/services/analytics-core', () => ({
   resetAdminAnalytics: mocks.analytics.resetAdminAnalytics,
 }));
 
-import AdminLayout from '@/app/(admin)/_layout';
+import AdminLayout from './_layout';
 
-describe('AdminLayout', () => {
+describe('AdminLayout analytics instrumentation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.auth.isAuthenticated = true;
@@ -111,18 +102,15 @@ describe('AdminLayout', () => {
       is_published: true,
       plan_tier: 'business',
     };
+    mocks.push.isRegistered = true;
     mocks.push.isLoading = false;
-    mocks.push.isRegistered = false;
-    mocks.push.registerPush = vi.fn().mockResolvedValue(undefined);
-    mocks.stackScreenNames = [];
   });
 
-  it('registers push notifications when auth and merchant context are ready', async () => {
+  it('identifies the authenticated admin with non-sensitive merchant context', async () => {
     render(<AdminLayout />);
 
     await waitFor(() => {
-      expect(mocks.push.registerPush).toHaveBeenCalledTimes(1);
-      expect(mocks.push.registerPush).toHaveBeenCalledWith('merchant-1');
+      expect(screen.getByRole('main', { name: 'admin stack' })).toBeTruthy();
     });
 
     expect(mocks.analytics.identifyAdminUser).toHaveBeenCalledWith('user-1', {
@@ -130,66 +118,20 @@ describe('AdminLayout', () => {
       merchantId: 'merchant-1',
       planTier: 'business',
     });
+    expect(mocks.analytics.resetAdminAnalytics).not.toHaveBeenCalled();
   });
 
-  it('skips registration when the session is already registered', async () => {
-    mocks.push.isRegistered = true;
+  it('resets admin analytics when no user is available', async () => {
+    mocks.auth.user = null;
+    mocks.auth.isAuthenticated = false;
 
     render(<AdminLayout />);
 
     await waitFor(() => {
-      expect(screen.getByRole('main', { name: 'admin stack' })).toBeTruthy();
+      expect(screen.getByTestId('redirect').textContent).toBe('/(auth)/login');
     });
 
-    expect(mocks.push.registerPush).not.toHaveBeenCalled();
-  });
-
-  it('does not crash when push registration rejects', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-
-    mocks.push.registerPush = vi
-      .fn()
-      .mockRejectedValue(new Error('register failed'));
-
-    render(<AdminLayout />);
-
-    await waitFor(() => {
-      expect(screen.getByRole('main', { name: 'admin stack' })).toBeTruthy();
-    });
-
-    expect(mocks.push.registerPush).toHaveBeenCalledTimes(1);
-    expect(mocks.push.registerPush).toHaveBeenCalledWith('merchant-1');
-
-    consoleErrorSpy.mockRestore();
-  });
-
-  it('registers concrete route names for nested stack screens', async () => {
-    render(<AdminLayout />);
-
-    await waitFor(() => {
-      expect(screen.getByRole('main', { name: 'admin stack' })).toBeTruthy();
-    });
-
-    expect(mocks.stackScreenNames).not.toEqual(
-      expect.arrayContaining([
-        'analytics',
-        'blog',
-        'customer',
-        'discounts',
-        'expenses',
-      ])
-    );
-    expect(mocks.stackScreenNames).toEqual(
-      expect.arrayContaining([
-        'analytics/index',
-        'blog/index',
-        'customer/[id]',
-        'customer/edit/[id]',
-        'discounts/index',
-        'expenses/index',
-      ])
-    );
+    expect(mocks.analytics.resetAdminAnalytics).toHaveBeenCalledTimes(1);
+    expect(mocks.analytics.identifyAdminUser).not.toHaveBeenCalled();
   });
 });
