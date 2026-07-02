@@ -6,7 +6,6 @@ const {
   anchorPointerClearIndex,
   anchorTargetPreparationIndex,
   anchorTransferIndex,
-  compatibilityUpdateSql,
   createVariantIdStripIndex,
   createVariantModelEndIndex,
   createVariantModelIndex,
@@ -19,8 +18,10 @@ const {
   productPersistUpdateIndex,
   productPersistUpdateSql,
   productPersistenceSql,
+  postSerializedStockSyncSql,
   publicRpcDefinitionPattern,
   rpcMigrationEntries,
+  serializedStockSyncIndex,
   updateVariantModelEndIndex,
   updateVariantModelIndex,
   updateVariantModelSql,
@@ -45,11 +46,11 @@ describe('mobile admin product RPC migration contract', () => {
     expect(migrationSql).not.toMatch(/p_actor_role/i);
   });
 
-  it('removes legacy overloads before recreating the canonical RPC', () => {
-    expect(migrationSql).toMatch(
+  it('replaces only the canonical RPC signature used in migration history', () => {
+    expect(migrationSql).not.toMatch(
       /DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.save_mobile_admin_product_with_variants\(\s*uuid,\s*uuid,\s*jsonb\s*\)/i
     );
-    expect(migrationSql).toMatch(
+    expect(migrationSql).not.toMatch(
       /DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.save_mobile_admin_product_with_variants\(\s*uuid,\s*uuid,\s*jsonb,\s*jsonb\s*\)/i
     );
     expect(migrationSql).toMatch(
@@ -155,8 +156,9 @@ describe('mobile admin product RPC migration contract', () => {
     expect(productPersistUpdateSql).toMatch(
       /stock\s*=\s*CASE[\s\S]*WHEN\s+v_has_variants\s+IS\s+TRUE\s+THEN\s+products\.stock[\s\S]*WHEN\s+v_product_payload\s+\?\s+'stock'\s+THEN\s+NULLIF\(v_product_payload->>'stock',\s*''\)::integer/i
     );
-    expect(compatibilityUpdateSql).not.toMatch(/\bstock_quantity\s*=/i);
-    expect(compatibilityUpdateSql).not.toMatch(/\bstock\s*=/i);
+    expect(postSerializedStockSyncSql).not.toMatch(
+      /UPDATE\s+public\.products[\s\S]*\bstock(?:_quantity)?\s*=/i
+    );
     expect(migrationSql).toMatch(
       /PERFORM\s+private\.sync_serialized_stock\(\s*p_merchant_id,\s*v_product_id\s*\)/i
     );
@@ -183,23 +185,22 @@ describe('mobile admin product RPC migration contract', () => {
   });
 
   it('keeps migration status aligned with the stored variant model', () => {
-    for (const productUpdateSql of [
-      productPersistUpdateSql,
-      compatibilityUpdateSql,
-    ]) {
-      expect(productUpdateSql).toMatch(/migration_status\s*=\s*CASE/i);
-      expect(productUpdateSql).toMatch(
-        /WHEN\s+v_variant_model\s*=\s*'sku_matrix'\s+THEN\s+'migrated'/i
-      );
-      expect(productUpdateSql).toMatch(
-        /WHEN\s+v_variant_model\s*=\s*'legacy'\s+AND\s+products\.migration_status\s*=\s*'migrated'\s+THEN\s+'pending'/i
-      );
-    }
+    expect(productPersistUpdateSql).toMatch(/migration_status\s*=\s*CASE/i);
+    expect(productPersistUpdateSql).toMatch(
+      /WHEN\s+v_variant_model\s*=\s*'sku_matrix'\s+THEN\s+'migrated'/i
+    );
+    expect(productPersistUpdateSql).toMatch(
+      /WHEN\s+v_variant_model\s*=\s*'legacy'\s+AND\s+products\.migration_status\s*=\s*'migrated'\s+THEN\s+'pending'/i
+    );
   });
 
   it('does not overwrite SKU condition after projection sync', () => {
-    expect(compatibilityUpdateSql).toMatch(
-      /condition\s*=\s*CASE[\s\S]*WHEN\s+v_variant_model\s*=\s*'sku_matrix'\s+THEN\s+products\.condition[\s\S]*WHEN\s+v_product_payload\s+\?\s+'condition'\s+THEN\s+v_product_payload->>'condition'/i
+    expect(serializedStockSyncIndex).toBeGreaterThan(productPersistUpdateIndex);
+    expect(postSerializedStockSyncSql).not.toMatch(
+      /UPDATE\s+public\.products[\s\S]*\bcondition\s*=/i
+    );
+    expect(postSerializedStockSyncSql).toMatch(
+      /SELECT\s+p\.id\s+INTO\s+v_updated_product_id[\s\S]*FROM\s+public\.products\s+AS\s+p/i
     );
   });
 
@@ -225,8 +226,8 @@ describe('mobile admin product RPC migration contract', () => {
     expect(anchorConversionSql).toContain('public.condition_rank(');
     expect(anchorConversionSql).toContain('v_reassign_anchor_variant_ordinal');
     expect(anchorConversionSql).toContain('gen_random_uuid()');
-    expect(anchorConversionSql).toContain(
-      'jsonb_set(\n                  element.raw'
+    expect(anchorConversionSql).toMatch(
+      /jsonb_set\(\s*element\.raw\s*,\s*'\{id\}'\s*,\s*to_jsonb\(v_reassign_anchor_to_variant_id::text\)\s*,\s*true\s*\)/i
     );
     expect(anchorConversionSql).toContain(
       "WHERE NULLIF(element.raw->>'id', '') = v_reassign_anchor_to_variant_id::text"

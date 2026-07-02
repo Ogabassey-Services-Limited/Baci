@@ -50,20 +50,6 @@ const productPersistUpdateSql =
         productPersistUpdateIndex,
         productPersistUpdateEndIndex + returningUpdatedProductId.length
       );
-const compatibilityUpdateIndex = migrationSql.indexOf(
-  'UPDATE public.products\n  SET\n    fulfillment_details = CASE'
-);
-const compatibilityUpdateEndIndex =
-  compatibilityUpdateIndex === -1
-    ? -1
-    : migrationSql.indexOf(returningUpdatedProductId, compatibilityUpdateIndex);
-const compatibilityUpdateSql =
-  compatibilityUpdateIndex === -1 || compatibilityUpdateEndIndex === -1
-    ? ''
-    : migrationSql.slice(
-        compatibilityUpdateIndex,
-        compatibilityUpdateEndIndex + returningUpdatedProductId.length
-      );
 const productPersistenceSql = `${productInsertSql}\n${productPersistUpdateSql}`;
 
 const createVariantModelIndex = migrationSql.indexOf(
@@ -108,6 +94,13 @@ const variantSyncSql =
         variantSyncStartIndex,
         variantSyncEndIndex + 'END IF;'.length
       );
+const serializedStockSyncIndex = migrationSql.indexOf(
+  'PERFORM private.sync_serialized_stock'
+);
+const postSerializedStockSyncSql =
+  serializedStockSyncIndex === -1
+    ? ''
+    : migrationSql.slice(serializedStockSyncIndex);
 const createVariantIdStripIndex = migrationSql.indexOf(
   "jsonb_agg(element.raw - 'id' ORDER BY element.ordinal)"
 );
@@ -128,7 +121,6 @@ export const mobileAdminProductRpcContract = {
   anchorPointerClearIndex,
   anchorTargetPreparationIndex,
   anchorTransferIndex,
-  compatibilityUpdateSql,
   createVariantIdStripIndex,
   createVariantModelEndIndex,
   createVariantModelIndex,
@@ -141,8 +133,10 @@ export const mobileAdminProductRpcContract = {
   productPersistUpdateIndex,
   productPersistUpdateSql,
   productPersistenceSql,
+  postSerializedStockSyncSql,
   publicRpcDefinitionPattern,
   rpcMigrationEntries,
+  serializedStockSyncIndex,
   updateVariantModelEndIndex,
   updateVariantModelIndex,
   updateVariantModelSql,

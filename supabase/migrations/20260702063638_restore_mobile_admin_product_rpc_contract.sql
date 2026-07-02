@@ -1,19 +1,6 @@
 DROP FUNCTION IF EXISTS public.save_mobile_admin_product_with_variants(
   uuid,
   uuid,
-  jsonb
-);
-
-DROP FUNCTION IF EXISTS public.save_mobile_admin_product_with_variants(
-  uuid,
-  uuid,
-  jsonb,
-  jsonb
-);
-
-DROP FUNCTION IF EXISTS public.save_mobile_admin_product_with_variants(
-  uuid,
-  uuid,
   jsonb,
   jsonb,
   text
@@ -574,38 +561,11 @@ BEGIN
 
   PERFORM private.sync_serialized_stock(p_merchant_id, v_product_id);
 
-  UPDATE public.products
-  SET
-    fulfillment_details = CASE
-      WHEN v_product_payload ? 'fulfillment_details' THEN COALESCE(v_product_payload->'fulfillment_details', '[]'::jsonb)
-      ELSE products.fulfillment_details
-    END,
-    color = CASE
-      WHEN v_product_payload ? 'color' THEN v_product_payload->>'color'
-      ELSE products.color
-    END,
-    condition = CASE
-      WHEN v_variant_model = 'sku_matrix' THEN products.condition
-      WHEN v_product_payload ? 'condition' THEN v_product_payload->>'condition'
-      ELSE products.condition
-    END,
-    variant_attributes = CASE
-      WHEN v_product_payload ? 'variant_attributes' THEN COALESCE(v_product_payload->'variant_attributes', '{}'::jsonb)
-      ELSE products.variant_attributes
-    END,
-    low_stock_threshold = CASE
-      WHEN v_product_payload ? 'low_stock_threshold' THEN NULLIF(v_product_payload->>'low_stock_threshold', '')::integer
-      ELSE products.low_stock_threshold
-    END,
-    migration_status = CASE
-      WHEN v_variant_model = 'sku_matrix' THEN 'migrated'
-      WHEN v_variant_model = 'legacy' AND products.migration_status = 'migrated' THEN 'pending'
-      ELSE products.migration_status
-    END,
-    updated_at = now()
-  WHERE products.id = v_product_id
-    AND products.merchant_id = p_merchant_id
-  RETURNING products.id INTO v_updated_product_id;
+  SELECT p.id
+  INTO v_updated_product_id
+  FROM public.products AS p
+  WHERE p.id = v_product_id
+    AND p.merchant_id = p_merchant_id;
 
   IF v_updated_product_id IS NULL THEN
     RAISE EXCEPTION 'product_not_found' USING ERRCODE = 'P0002';
