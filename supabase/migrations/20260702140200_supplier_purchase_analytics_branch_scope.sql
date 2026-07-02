@@ -5,11 +5,22 @@ DROP FUNCTION IF EXISTS public.get_supplier_purchase_analytics(
   uuid
 );
 
+-- Drop the legacy 3-argument overload created by the preceding migration so only
+-- this branch-scoped, analytics-permission-gated version remains. Leaving both
+-- would let callers reach the un-scoped 3-arg variant (weaker permission check,
+-- no branch filter) and can make PostgREST resolution ambiguous. The app always
+-- calls with p_branch_id (merchant-analytics-queries.ts), so this is safe.
+DROP FUNCTION IF EXISTS public.get_supplier_purchase_analytics(
+  uuid,
+  timestamptz,
+  timestamptz
+);
+
 CREATE OR REPLACE FUNCTION public.get_supplier_purchase_analytics(
   p_merchant_id uuid,
-  p_start_date timestamptz,
-  p_end_date timestamptz,
-  p_branch_id uuid
+  p_start_date timestamptz DEFAULT NULL,
+  p_end_date timestamptz DEFAULT NULL,
+  p_branch_id uuid DEFAULT NULL
 ) RETURNS TABLE (
   supplier_name text,
   unit_count bigint,

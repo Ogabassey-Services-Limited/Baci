@@ -62,7 +62,26 @@ CREATE POLICY "owners_and_order_staff_read_unit_costs"
   FOR SELECT
   TO authenticated
   USING (
-    public.has_merchant_access(merchant_id)
+    -- Unit costs expose supplier + cost data, so restrict reads to the owner and
+    -- staff who can act on orders or view analytics — not every active staff
+    -- member (has_merchant_access), matching the INSERT policy's scope.
+    merchant_id IN (
+      SELECT m.id
+      FROM public.merchants AS m
+      WHERE m.user_id = (SELECT auth.uid())
+    )
+    OR public.check_staff_permission(
+      (SELECT auth.uid()),
+      merchant_id,
+      'orders',
+      'edit'
+    )
+    OR public.check_staff_permission(
+      (SELECT auth.uid()),
+      merchant_id,
+      'analytics',
+      'view'
+    )
   );
 
 DROP POLICY IF EXISTS "owners_and_order_staff_insert_unit_costs"
