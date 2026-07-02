@@ -1,190 +1,169 @@
-const CHUNK_LOAD_ERROR_PATTERN =
-  /(?:ChunkLoadError|Loading chunk \S+ failed|Failed to load chunk|\/_next\/static\/chunks\/)/i;
-const NEXT_ASSET_ELEMENT_SELECTOR =
-  'script[src*="_next/"],link[href*="_next/"]';
-const RELOAD_STORAGE_KEY_PREFIX = 'baci:chunk-load-recovery';
+import {
+  type ChunkFailureDetails,
+  detectChunkFailureFromResourceTarget,
+  detectChunkFailureFromValue,
+} from '@/lib/chunk-load-recovery/chunk-failure-detection';
+import { getPageDeploymentId } from '@/lib/chunk-load-recovery/page-deployment-id';
+import {
+  evaluateRecoveryGuard,
+  type RecoveryGuardDecision,
+  type RecoveryGuardStorage,
+} from '@/lib/chunk-load-recovery/recovery-guard';
+import {
+  type ChunkRecoveryTriggerSource,
+  sendChunkRecoveryTelemetry,
+} from '@/lib/chunk-load-recovery/recovery-telemetry';
 
 let chunkLoadRecoveryInitialized = false;
+let browserRuntime: ChunkLoadRecoveryRuntime | undefined;
 
-interface ChunkLoadRecoveryStorage {
-  getItem: (key: string) => string | null;
-  setItem: (key: string, value: string) => void;
-}
-
-interface ChunkLoadRecoveryRuntime {
+export interface ChunkLoadRecoveryRuntime {
   getDeploymentId: () => string;
   getPathname: () => string;
-  getSessionStorage: () => ChunkLoadRecoveryStorage | undefined;
+  getSessionStorage: () => RecoveryGuardStorage | undefined;
   reload: () => void;
+  getWindowName?: () => string;
+  setWindowName?: (value: string) => void;
+  isOffline?: () => boolean;
+  sendTelemetry?: typeof sendChunkRecoveryTelemetry;
 }
 
-function getOwnStringProperty(
-  value: object,
-  key: 'message' | 'name' | 'stack'
-): string | undefined {
-  const descriptor = Object.getOwnPropertyDescriptor(value, key);
-  return typeof descriptor?.value === 'string' ? descriptor.value : undefined;
-}
-
-function getErrorMessage(value: unknown): string {
-  if (value instanceof Error) {
-    return `${value.name} ${value.message}`;
+function resolveGuardDecision(
+  runtime: ChunkLoadRecoveryRuntime,
+  commit: boolean
+): RecoveryGuardDecision | 'skipped-offline' {
+  if (runtime.isOffline?.()) {
+    // Reloading a fully offline tab replaces the app with the browser's
+    // network-error page; the error boundary UI is strictly better.
+    return 'skipped-offline';
   }
 
-  if (typeof value === 'string') {
-    return value;
-  }
-
-  if (typeof value === 'object' && value !== null) {
-    return [
-      getOwnStringProperty(value, 'name'),
-      getOwnStringProperty(value, 'message'),
-      getOwnStringProperty(value, 'stack'),
-    ]
-      .filter((entry): entry is string => typeof entry === 'string')
-      .join(' ');
-  }
-
-  return '';
-}
-
-function isChunkLoadError(value: unknown): boolean {
-  return CHUNK_LOAD_ERROR_PATTERN.test(getErrorMessage(value));
-}
-
-function getNextDeploymentIdGlobal(): string | undefined {
-  const deploymentId = (globalThis as { NEXT_DEPLOYMENT_ID?: unknown })
-    .NEXT_DEPLOYMENT_ID;
-
-  return typeof deploymentId === 'string' && deploymentId.trim()
-    ? deploymentId.trim()
-    : undefined;
-}
-
-function hashDeploymentFingerprint(value: string): string {
-  let hash = 0x811c9dc5;
-
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-
-  return (hash >>> 0).toString(36);
-}
-
-function getNormalizedNextAssetReference(
-  value: string | null
-): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  try {
-    const assetUrl = new URL(value, document.baseURI);
-
-    if (!assetUrl.pathname.includes('/_next/')) {
-      return undefined;
-    }
-
-    const deploymentQueryValue = assetUrl.searchParams.get('dpl')?.trim();
-    if (deploymentQueryValue) {
-      return `dpl:${deploymentQueryValue}`;
-    }
-
-    return `${assetUrl.pathname}${assetUrl.search}`;
-  } catch {
-    return undefined;
-  }
-}
-
-function getLoadedNextAssetFingerprint(): string | undefined {
-  const assetReferences = new Set<string>();
-
-  for (const element of document.querySelectorAll(
-    NEXT_ASSET_ELEMENT_SELECTOR
-  )) {
-    const assetReference = getNormalizedNextAssetReference(
-      element.getAttribute('src') || element.getAttribute('href')
-    );
-
-    if (!assetReference) {
-      continue;
-    }
-
-    if (assetReference.startsWith('dpl:')) {
-      return assetReference;
-    }
-
-    assetReferences.add(assetReference);
-  }
-
-  if (assetReferences.size === 0) {
-    return undefined;
-  }
-
-  return `assets-${hashDeploymentFingerprint(
-    Array.from(assetReferences).sort().join('|')
-  )}`;
-}
-
-function getCurrentDeploymentId(): string {
-  return (
-    getNextDeploymentIdGlobal() ||
-    document.documentElement.dataset.dplId ||
-    getLoadedNextAssetFingerprint() ||
-    'unknown-deployment'
+  return evaluateRecoveryGuard(
+    runtime,
+    runtime.getDeploymentId(),
+    runtime.getPathname(),
+    commit
   );
 }
 
-function getRecoveryStorageKey(runtime: ChunkLoadRecoveryRuntime): string {
-  return [
-    RELOAD_STORAGE_KEY_PREFIX,
-    runtime.getDeploymentId(),
-    runtime.getPathname(),
-  ].join(':');
-}
+function runRecovery(
+  runtime: ChunkLoadRecoveryRuntime,
+  details: ChunkFailureDetails,
+  triggerSource: ChunkRecoveryTriggerSource
+): boolean {
+  const decision = resolveGuardDecision(runtime, true);
 
-function shouldReloadForChunkError(runtime: ChunkLoadRecoveryRuntime): boolean {
-  try {
-    const storageKey = getRecoveryStorageKey(runtime);
-    const storage = runtime.getSessionStorage();
-    if (!storage || storage.getItem(storageKey) === '1') {
-      return false;
-    }
+  runtime.sendTelemetry?.({
+    action: decision === 'reload' ? 'reload' : decision,
+    failedAssetDeploymentId: details.failedAssetDeploymentId,
+    failedAssetUrl: details.failedAssetUrl,
+    pageDeploymentId: runtime.getDeploymentId(),
+    pathname: runtime.getPathname(),
+    triggerSource,
+  });
 
-    storage.setItem(storageKey, '1');
-    return true;
-  } catch {
+  if (decision !== 'reload') {
     return false;
-  }
-}
-
-function reloadForChunkError(runtime: ChunkLoadRecoveryRuntime): void {
-  if (!shouldReloadForChunkError(runtime)) {
-    return;
   }
 
   runtime.reload();
+  return true;
 }
 
 export function createChunkLoadRecoveryHandlers(
   runtime: ChunkLoadRecoveryRuntime
 ) {
   return {
-    handleWindowError(event: Pick<ErrorEvent, 'error' | 'message'>): void {
-      if (isChunkLoadError(event.error) || isChunkLoadError(event.message)) {
-        reloadForChunkError(runtime);
+    handleWindowError(
+      event: Pick<ErrorEvent, 'error' | 'message'> & { target?: unknown }
+    ): void {
+      const details =
+        detectChunkFailureFromValue(event.error) ??
+        detectChunkFailureFromValue(event.message);
+
+      if (details) {
+        runRecovery(runtime, details, 'window-error');
+        return;
+      }
+
+      // Resource load failures dispatch plain events with no error/message;
+      // the failing <script>/<link> element is the only available signal.
+      const resourceDetails = detectChunkFailureFromResourceTarget(
+        event.target
+      );
+      if (resourceDetails) {
+        runRecovery(runtime, resourceDetails, 'resource-error');
       }
     },
 
     handleUnhandledRejection(
       event: Pick<PromiseRejectionEvent, 'reason'>
     ): void {
-      if (isChunkLoadError(event.reason)) {
-        reloadForChunkError(runtime);
+      const details = detectChunkFailureFromValue(event.reason);
+      if (details) {
+        runRecovery(runtime, details, 'unhandled-rejection');
       }
     },
   };
+}
+
+function getBrowserRuntime(): ChunkLoadRecoveryRuntime | undefined {
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+
+  if (!browserRuntime) {
+    const initialDeploymentId = getPageDeploymentId();
+    browserRuntime = {
+      getDeploymentId: () => initialDeploymentId,
+      getPathname: () => window.location.pathname,
+      getSessionStorage: () => window.sessionStorage,
+      getWindowName: () => window.name,
+      isOffline: () => window.navigator.onLine === false,
+      reload: () => window.location.reload(),
+      sendTelemetry: sendChunkRecoveryTelemetry,
+      setWindowName: (value) => {
+        window.name = value;
+      },
+    };
+  }
+
+  return browserRuntime;
+}
+
+/**
+ * Entry point for React error boundaries. In production, render errors caught
+ * by route `error.tsx` boundaries never dispatch `window` error events, so
+ * chunk failures during client navigation are invisible to the listeners
+ * below — boundaries must hand the caught error to recovery themselves.
+ * Returns true when a recovery reload has been scheduled.
+ */
+export function attemptChunkLoadRecoveryFromBoundary(error: unknown): boolean {
+  const runtime = getBrowserRuntime();
+  if (!runtime) {
+    return false;
+  }
+
+  const details = detectChunkFailureFromValue(error);
+  if (!details) {
+    return false;
+  }
+
+  return runRecovery(runtime, details, 'error-boundary');
+}
+
+/**
+ * Pure check for render time: would recovery reload for this error right now?
+ * Does not consume the once-per-deployment/path guard, so boundaries can pick
+ * their UI before committing the reload in an effect.
+ */
+export function isChunkLoadRecoveryPending(error: unknown): boolean {
+  const runtime = getBrowserRuntime();
+  if (!runtime || !detectChunkFailureFromValue(error)) {
+    return false;
+  }
+
+  return resolveGuardDecision(runtime, false) === 'reload';
 }
 
 export function initializeChunkLoadRecovery(): void {
@@ -193,13 +172,12 @@ export function initializeChunkLoadRecovery(): void {
   }
 
   chunkLoadRecoveryInitialized = true;
-  const initialDeploymentId = getCurrentDeploymentId();
-  const handlers = createChunkLoadRecoveryHandlers({
-    getDeploymentId: () => initialDeploymentId,
-    getPathname: () => window.location.pathname,
-    getSessionStorage: () => window.sessionStorage,
-    reload: () => window.location.reload(),
-  });
+  const runtime = getBrowserRuntime();
+  if (!runtime) {
+    return;
+  }
+
+  const handlers = createChunkLoadRecoveryHandlers(runtime);
 
   window.addEventListener('error', handlers.handleWindowError, {
     capture: true,

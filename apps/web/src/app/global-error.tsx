@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { captureClientException } from '@/lib/posthog/client-exceptions';
+import { ChunkRecoveryNotice } from '@/components/system/chunk-recovery-notice';
+import { useBoundaryErrorReport } from '@/hooks/use-boundary-error-report';
 import {
   systemErrorClassNames,
   systemErrorStyleSheet,
@@ -13,13 +13,14 @@ export default function GlobalError({
 }: {
   error: Error & { digest?: string };
 }) {
-  useEffect(() => {
-    captureClientException(error, {
-      route_surface: 'global',
-      digest: error.digest,
-    });
-    console.error('Global application error:', error);
-  }, [error]);
+  const recovering = useBoundaryErrorReport(error, {
+    routeSurface: 'global',
+    logLabel: 'Global application error',
+  });
+
+  if (recovering) {
+    return <ChunkRecoveryNotice wrapInDocument />;
+  }
 
   return (
     <html lang="en">

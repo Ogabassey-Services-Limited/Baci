@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { captureClientException } from '@/lib/posthog/client-exceptions';
+import { ChunkRecoveryNotice } from '@/components/system/chunk-recovery-notice';
+import { useBoundaryErrorReport } from '@/hooks/use-boundary-error-report';
 import {
   systemErrorClassNames,
   systemErrorStyleSheet,
@@ -14,13 +14,14 @@ export default function AppError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    captureClientException(error, {
-      route_surface: 'app',
-      digest: error.digest,
-    });
-    console.error('Client-side application error:', error);
-  }, [error]);
+  const recovering = useBoundaryErrorReport(error, {
+    routeSurface: 'app',
+    logLabel: 'Client-side application error',
+  });
+
+  if (recovering) {
+    return <ChunkRecoveryNotice />;
+  }
 
   return (
     <>
