@@ -30,6 +30,7 @@ import { submitNewOrder } from './submitNewOrder';
 import type { UseNewOrderControllerOptions } from './useNewOrderControllerOptions';
 import { useNewOrderLookupData } from './useNewOrderLookupData';
 import { useNewOrderUiState } from './useNewOrderUiState';
+import { useNewOrderVatState } from './useNewOrderVatState';
 import { useOrderBranchSelection } from './useOrderBranchSelection';
 import { useQuickAddProductMatches } from './useQuickAddProductMatches';
 
@@ -68,16 +69,8 @@ export function useNewOrderController({
   const [shippingFee, setShippingFee] = useState(0);
   const [taxes, setTaxes] = useState(0);
 
-  const isVatRegistered = merchant?.vat_registration_status === 'registered';
-  const [isVatApplied, setIsVatApplied] = useState(isVatRegistered);
-  const [prevIsVatRegistered, setPrevIsVatRegistered] =
-    useState(isVatRegistered);
-  if (isVatRegistered !== prevIsVatRegistered) {
-    setPrevIsVatRegistered(isVatRegistered);
-    if (autoApplyVat && isVatRegistered) {
-      setIsVatApplied(true);
-    }
-  }
+  const { isVatApplied, isVatRegistered, setIsVatApplied } =
+    useNewOrderVatState(autoApplyVat, merchant?.vat_registration_status);
 
   const [productSearch, setProductSearch] = useState('');
   const [selectedParentProduct, setSelectedParentProduct] =
