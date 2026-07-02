@@ -315,17 +315,16 @@ describe('NewOrderCustomerSearchView', () => {
     );
   });
 
-  it('renders loaded customer rows alphabetically by visible name', () => {
+  it('preserves the server-provided (alpha-sorted) customer order across pages', () => {
+    // The query requests `sortBy: 'alpha'`, so pages already arrive globally
+    // ordered by name. The view must render them in that order without a
+    // client-side re-sort, which would only reshuffle the loaded subset.
     const controller = makeController({
       customersData: {
-        pageParams: [0],
+        pageParams: [0, 1],
         pages: [
           {
             customers: [
-              makeCustomer({
-                email: 'victoralaka9@gmail.com',
-                id: 'customer-victor',
-              }),
               makeCustomer({
                 email: 'adeyemih31@gmail.com',
                 id: 'customer-adeyemi',
@@ -333,6 +332,16 @@ describe('NewOrderCustomerSearchView', () => {
               makeCustomer({
                 email: 'gbodiakinshola27@gmail.com',
                 id: 'customer-gbodia',
+              }),
+            ],
+            nextCursor: 1,
+            totalCount: 3,
+          },
+          {
+            customers: [
+              makeCustomer({
+                email: 'victoralaka9@gmail.com',
+                id: 'customer-victor',
               }),
             ],
             nextCursor: null,

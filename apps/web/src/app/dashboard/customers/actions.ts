@@ -1,6 +1,7 @@
 'use server';
 
 import {
+  buildCustomerAddressLine,
   buildCustomerRecordNameFields,
   buildCustomerSearchFilter,
   CUSTOMER_ADMIN_COLUMNS,
@@ -10,12 +11,8 @@ import {
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { ensurePermission } from '@/lib/merchant-server';
-import {
-  sanitizeEmail,
-  sanitizePhone,
-  sanitizeText,
-} from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
+import { createCustomerSchema, formatZodErrors } from '@/schemas/customers';
 
 export interface Customer {
   id: string;
@@ -118,41 +115,30 @@ export async function createCustomer(formData: CreateCustomerData) {
     throw new Error('Unauthorized');
   }
 
-  const isCompany = formData.customer_type === 'company';
-  const firstName = formData.first_name
-    ? sanitizeText(formData.first_name, 100)
-    : null;
-  const lastName = formData.last_name
-    ? sanitizeText(formData.last_name, 100)
-    : null;
-  const companyName = formData.company_name
-    ? sanitizeText(formData.company_name, 200)
-    : null;
-  const email = formData.email ? sanitizeEmail(formData.email) : null;
-  const phone = formData.phone ? sanitizePhone(formData.phone) : null;
-  const address = formData.address ? sanitizeText(formData.address, 500) : null;
-
-  if (isCompany && !companyName) {
-    throw new Error('Company name is required');
+  // Reuse the same Zod schema as the /api/customers route so both entry points
+  // enforce identical rules (sanitization, email format, and the company-name
+  // superRefine) instead of drifting apart with a hand-rolled check.
+  const parseResult = createCustomerSchema.safeParse(formData);
+  if (!parseResult.success) {
+    const details = formatZodErrors(parseResult.error);
+    const firstError =
+      Object.values(details)[0]?.[0] ?? 'Invalid customer details';
+    throw new Error(firstError);
   }
+  const body = parseResult.data;
 
-  const nameFields = buildCustomerRecordNameFields({
-    company_name: companyName,
-    customer_type: formData.customer_type,
-    first_name: firstName,
-    last_name: lastName,
-    email,
-  });
+  const nameFields = buildCustomerRecordNameFields(body);
+  const address = buildCustomerAddressLine(body.address, body.city, body.state);
 
   const { data: customer, error } = await supabase
     .from('customers')
     .insert({
       merchant_id: authorizedMerchantId,
       ...nameFields,
-      email,
-      phone,
+      email: body.email || null,
+      phone: body.phone || null,
       address,
-      store_credit: formData.store_credit ?? 0,
+      store_credit: body.store_credit ?? 0,
     })
     .select(CUSTOMER_ADMIN_COLUMNS)
     .single();

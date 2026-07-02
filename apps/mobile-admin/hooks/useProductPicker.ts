@@ -27,13 +27,20 @@ function sortProductsByName<T extends { name?: string | null }>(
 
 export function useProductPicker(searchQuery: string) {
   const debouncedSearchQuery = useDebounce(searchQuery, 150);
+  const trimmedSearchQuery = debouncedSearchQuery.trim();
   const query = useProducts({
-    search: debouncedSearchQuery.trim() || undefined,
+    search: trimmedSearchQuery || undefined,
   });
   const products = query.data?.pages.flatMap((page) => page.products) ?? [];
+  const dedupedProducts = dedupeProductsById(products);
 
   return {
     ...query,
-    products: sortProductsByName(dedupeProductsById(products)),
+    // While searching, `search_products_v2` already returns rows ranked by
+    // relevance — preserve that order so the best match stays on top. Only fall
+    // back to an alphabetical sort when browsing the unfiltered catalog.
+    products: trimmedSearchQuery
+      ? dedupedProducts
+      : sortProductsByName(dedupedProducts),
   };
 }

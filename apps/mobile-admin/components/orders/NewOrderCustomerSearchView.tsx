@@ -17,25 +17,8 @@ interface NewOrderCustomerSearchViewProps {
   showInlineSearch?: boolean;
 }
 
-type CustomerSearchRow = NonNullable<
-  ReturnType<typeof useNewOrderController>['customersData']
->['pages'][number]['customers'][number];
-
 const CUSTOMER_LIST_MIN_VIEWPORT_HEIGHT = 260;
 const CUSTOMER_LIST_CHROME_OFFSET = 84;
-
-function compareCustomerRowsByName(
-  firstCustomer: CustomerSearchRow,
-  secondCustomer: CustomerSearchRow
-) {
-  const nameComparison = getCustomerDisplayName(firstCustomer).localeCompare(
-    getCustomerDisplayName(secondCustomer),
-    undefined,
-    { numeric: true, sensitivity: 'base' }
-  );
-
-  return nameComparison || firstCustomer.id.localeCompare(secondCustomer.id);
-}
 
 export function NewOrderCustomerSearchView({
   controller,
@@ -52,10 +35,12 @@ export function NewOrderCustomerSearchView({
     setCustomerSearch,
     setIsCreatingCustomer,
   } = controller;
+  // The customers query requests server-side `sortBy: 'alpha'`, so pages already
+  // arrive globally ordered by name. A client-side re-sort would only reorder the
+  // currently-loaded subset (reshuffling as more pages load), so preserve the
+  // server order and just flatten the pages.
   const customerRows =
-    customersData?.pages
-      .flatMap((page) => page.customers)
-      .sort(compareCustomerRowsByName) || [];
+    customersData?.pages.flatMap((page) => page.customers) ?? [];
   const listViewportHeight = Math.max(
     CUSTOMER_LIST_MIN_VIEWPORT_HEIGHT,
     Math.round(bodyHeight) - CUSTOMER_LIST_CHROME_OFFSET

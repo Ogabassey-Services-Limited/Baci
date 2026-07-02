@@ -75,4 +75,22 @@ describe('useProductPicker', () => {
 
     expect(result.current.products).toEqual([alpha, beta, zed]);
   });
+
+  it('preserves relevance order (no alpha sort) while a search query is active', () => {
+    // search_products_v2 returns the strongest match first; the picker must keep
+    // that ranking rather than re-sorting the drawer alphabetically.
+    const zed = { id: 'zed-phone', name: 'Zed Phone' };
+    const alpha = { id: 'alpha-phone', name: 'Alpha Phone' };
+    mocks.useDebounce.mockReturnValue('phone');
+
+    mocks.useProducts.mockReturnValue({
+      data: {
+        pages: [{ products: [zed, alpha] }],
+      },
+    });
+
+    const { result } = renderHook(() => useProductPicker('phone'));
+
+    expect(result.current.products).toEqual([zed, alpha]);
+  });
 });
