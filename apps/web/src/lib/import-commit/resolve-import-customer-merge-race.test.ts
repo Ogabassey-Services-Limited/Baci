@@ -66,6 +66,30 @@ function createUpdateConflictQuery() {
   return query;
 }
 
+function createUpdateSuccessQuery(email: string) {
+  const query = {
+    update: vi.fn(),
+    eq: vi.fn(),
+    is: vi.fn(),
+    select: vi.fn(),
+    maybeSingle: vi.fn(),
+  };
+  query.update.mockReturnValue(query);
+  query.eq.mockReturnValue(query);
+  query.is.mockReturnValue(query);
+  query.select.mockReturnValue(query);
+  query.maybeSingle.mockResolvedValue({
+    data: {
+      id: 'customer-phone-only',
+      email,
+      phone: '+2347000000000',
+      user_id: null,
+    },
+    error: null,
+  });
+  return query;
+}
+
 function createEmailLookupQuery() {
   const query = {
     select: vi.fn(),
@@ -94,13 +118,14 @@ function createEmailLookupQuery() {
 }
 
 describe('createImportCustomerResolver phone enrichment races', () => {
-  it('reuses the merged customer for later same-phone rows', async () => {
+  it('does not reuse the email-conflict customer for later different-email rows', async () => {
     const supabase = {
       from: vi
         .fn()
         .mockReturnValueOnce(createLoadQuery())
         .mockReturnValueOnce(createUpdateConflictQuery())
-        .mockReturnValueOnce(createEmailLookupQuery()),
+        .mockReturnValueOnce(createEmailLookupQuery())
+        .mockReturnValueOnce(createUpdateSuccessQuery('bob@example.com')),
     } as unknown as SupabaseClient;
 
     const resolver = await createImportCustomerResolver(supabase, 'merchant-1');
@@ -118,9 +143,9 @@ describe('createImportCustomerResolver phone enrichment races', () => {
       createdCustomer: false,
     });
     expect(secondResult).toEqual({
-      customerId: 'customer-email',
+      customerId: 'customer-phone-only',
       createdCustomer: false,
     });
-    expect(supabase.from).toHaveBeenCalledTimes(3);
+    expect(supabase.from).toHaveBeenCalledTimes(4);
   });
 });

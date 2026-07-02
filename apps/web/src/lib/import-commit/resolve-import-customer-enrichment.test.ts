@@ -104,7 +104,52 @@ describe('enrichPhoneCustomerEmail', () => {
     ).resolves.toEqual(expect.objectContaining({ id: 'customer-email' }));
   });
 
-  it('reloads the phone customer when a concurrent claim fills email first', async () => {
+  it('returns the phone customer when a concurrent update filled the same email', async () => {
+    const updateQuery = createEnrichmentUpdateQuery({
+      data: null,
+      error: null,
+    });
+    const reloadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      is: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    reloadQuery.select.mockReturnValue(reloadQuery);
+    reloadQuery.eq.mockReturnValue(reloadQuery);
+    reloadQuery.is.mockReturnValue(reloadQuery);
+    reloadQuery.maybeSingle.mockResolvedValue({
+      data: {
+        id: 'customer-phone',
+        email: 'ada@example.com',
+        phone: '+2347000000000',
+        user_id: null,
+      },
+      error: null,
+    });
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(updateQuery)
+        .mockReturnValueOnce(reloadQuery),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      enrichPhoneCustomerEmail(
+        supabase,
+        'merchant-1',
+        {
+          id: 'customer-phone',
+          email: null,
+          phone: '+2347000000000',
+          user_id: null,
+        },
+        createOrder()
+      )
+    ).resolves.toEqual(expect.objectContaining({ email: 'ada@example.com' }));
+  });
+
+  it('does not reuse the phone customer when a concurrent update filled a different email', async () => {
     const updateQuery = createEnrichmentUpdateQuery({
       data: null,
       error: null,
@@ -146,8 +191,51 @@ describe('enrichPhoneCustomerEmail', () => {
         },
         createOrder()
       )
-    ).resolves.toEqual(
-      expect.objectContaining({ email: 'claimed@example.com' })
-    );
+    ).resolves.toBeNull();
+  });
+
+  it('does not reuse the phone customer when it became linked to a user', async () => {
+    const updateQuery = createEnrichmentUpdateQuery({
+      data: null,
+      error: null,
+    });
+    const reloadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      is: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    reloadQuery.select.mockReturnValue(reloadQuery);
+    reloadQuery.eq.mockReturnValue(reloadQuery);
+    reloadQuery.is.mockReturnValue(reloadQuery);
+    reloadQuery.maybeSingle.mockResolvedValue({
+      data: {
+        id: 'customer-phone',
+        email: 'ada@example.com',
+        phone: '+2347000000000',
+        user_id: 'user-1',
+      },
+      error: null,
+    });
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(updateQuery)
+        .mockReturnValueOnce(reloadQuery),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      enrichPhoneCustomerEmail(
+        supabase,
+        'merchant-1',
+        {
+          id: 'customer-phone',
+          email: null,
+          phone: '+2347000000000',
+          user_id: null,
+        },
+        createOrder()
+      )
+    ).resolves.toBeNull();
   });
 });

@@ -37,7 +37,6 @@ export async function createImportCustomerResolver(
   const customerMaps = buildCustomerMaps(
     (data || []) as ExistingCustomerRecord[]
   );
-  const enrichedCustomerIdByPhoneKey = new Map<string, string>();
 
   return {
     async resolveCustomerId(
@@ -53,13 +52,6 @@ export async function createImportCustomerResolver(
       }
 
       const phoneKey = toPhoneKey(order.customer.phone);
-      const enrichedCustomerId = phoneKey
-        ? enrichedCustomerIdByPhoneKey.get(phoneKey)
-        : null;
-      if (emailKey && enrichedCustomerId) {
-        return { customerId: enrichedCustomerId, createdCustomer: false };
-      }
-
       const phoneCustomers = phoneKey
         ? customerMaps.customersByPhone.get(phoneKey) || []
         : [];
@@ -75,11 +67,13 @@ export async function createImportCustomerResolver(
               phoneCustomer,
               order
             );
-            rememberCustomer(customerMaps, enrichedCustomer);
-            if (phoneKey) {
-              enrichedCustomerIdByPhoneKey.set(phoneKey, enrichedCustomer.id);
+            if (enrichedCustomer) {
+              rememberCustomer(customerMaps, enrichedCustomer);
+              return {
+                customerId: enrichedCustomer.id,
+                createdCustomer: false,
+              };
             }
-            return { customerId: enrichedCustomer.id, createdCustomer: false };
           }
         }
       }

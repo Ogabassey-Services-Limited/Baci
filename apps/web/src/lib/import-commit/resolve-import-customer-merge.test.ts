@@ -97,7 +97,7 @@ describe('createImportCustomerResolver merge behavior', () => {
     expect(updateQuery.is).toHaveBeenCalledWith('email', null);
   });
 
-  it('reuses a customer enriched earlier in the same import without another update', async () => {
+  it('keeps a different email separate after same-batch phone enrichment', async () => {
     const loadQuery = createLoadQuery([
       {
         id: 'customer-phone-only',
@@ -112,12 +112,23 @@ describe('createImportCustomerResolver merge behavior', () => {
       phone: '+2347000000000',
       user_id: null,
     });
+    const insertQuery = createInsertQuery();
+    insertQuery.single.mockResolvedValue({
+      data: {
+        id: 'customer-bob',
+        email: 'bob@example.com',
+        phone: null,
+        user_id: null,
+      },
+      error: null,
+    });
 
     const supabase = {
       from: vi
         .fn()
         .mockReturnValueOnce(loadQuery)
-        .mockReturnValueOnce(updateQuery),
+        .mockReturnValueOnce(updateQuery)
+        .mockReturnValueOnce(insertQuery),
     } as unknown as SupabaseClient;
 
     const resolver = await createImportCustomerResolver(supabase, 'merchant-1');
@@ -142,10 +153,13 @@ describe('createImportCustomerResolver merge behavior', () => {
       createdCustomer: false,
     });
     expect(secondResult).toEqual({
-      customerId: 'customer-phone-only',
-      createdCustomer: false,
+      customerId: 'customer-bob',
+      createdCustomer: true,
     });
     expect(updateQuery.update).toHaveBeenCalledTimes(1);
+    expect(insertQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'bob@example.com', phone: null })
+    );
   });
 
   it('does not reuse a pre-existing phone customer with a different email', async () => {

@@ -187,6 +187,7 @@ export async function enrichPhoneCustomerEmail(
     .eq('merchant_id', merchantId)
     .eq('id', customer.id)
     .is('email', null)
+    .is('user_id', null)
     .select('id, email, phone, user_id')
     .maybeSingle();
 
@@ -200,9 +201,21 @@ export async function enrichPhoneCustomerEmail(
     );
   }
 
-  return data
-    ? (data as ExistingCustomerRecord)
-    : findCustomerById(supabase, merchantId, customer.id);
+  if (data) return data as ExistingCustomerRecord;
+
+  const currentCustomer = await findCustomerById(
+    supabase,
+    merchantId,
+    customer.id
+  );
+  if (
+    !currentCustomer.user_id &&
+    toEmailKey(currentCustomer.email) === emailKey
+  ) {
+    return currentCustomer;
+  }
+
+  return null;
 }
 
 export async function reusePhoneCustomer(
