@@ -49,11 +49,14 @@ import { useUpdateTransactionCostPrice } from './useUpdateTransactionCostPrice';
 
 type UpdateTransactionReviewDetailsInput = {
   costPrice: number;
+  identifierType?: string | null;
+  identifierValue?: string | null;
   orderId: string;
   orderItemId: string;
   productId: string | null;
   supplierName: string;
   transactionDateIso: string;
+  unitIndex?: number | null;
   updateProductDefault: boolean;
   variantId: string | null;
 };

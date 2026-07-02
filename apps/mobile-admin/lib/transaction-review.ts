@@ -18,6 +18,7 @@ import type {
   TransactionReviewOrder,
   TransactionReviewOrderRow,
 } from './transaction-review-types';
+import { resolveSplitUnitIndexes } from './transaction-review-units';
 
 const TRANSACTION_REVIEW_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -124,9 +125,10 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
         itemFulfillmentUnits.map((unit) => [unit.unitIndex, unit])
       );
       const unitCostByIndex = getUnitCostByIndex(item.order_item_unit_costs);
-      const unitIndexes = Array.from(
-        new Set([...fulfillmentByIndex.keys(), ...unitCostByIndex.keys()])
-      ).sort((left, right) => left - right);
+      const unitIndexes = resolveSplitUnitIndexes(
+        [...fulfillmentByIndex.keys(), ...unitCostByIndex.keys()],
+        quantity
+      );
       const safeLegacyOrderDetails = getSafeLegacyOrderDetails(
         order.fulfillment_details,
         orderItems.length,

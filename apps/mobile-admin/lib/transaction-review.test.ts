@@ -260,6 +260,61 @@ describe('transaction review helpers', () => {
     ]);
   });
 
+  it('keeps unrecorded units of a multi-unit line when only one has a cost', () => {
+    // Only unit 0 has a per-unit cost; unit 1 must still appear (falling back to
+    // the order-item cost) so profit/missing-cost totals count both units.
+    const [order] = mapTransactionOrderRows([
+      {
+        created_at: '2026-07-01T12:30:00.000Z',
+        transaction_date: null,
+        customer_email: null,
+        customer_name: 'Partial Units',
+        customer_phone: null,
+        fulfillment_details: null,
+        id: 'order-1',
+        order_items: [
+          {
+            cost_price: 850_000,
+            fulfillment_data: null,
+            id: 'item-laptop',
+            name: 'HP EliteBook',
+            order_item_unit_costs: [
+              {
+                cost_price: 800_000,
+                identifier_type: 'serial',
+                identifier_value: 'LAPTOP-SN-1',
+                supplier_name: 'Supplier A',
+                unit_index: 0,
+              },
+            ],
+            price: 900_000,
+            product_id: 'product-laptop',
+            product_variants: null,
+            products: null,
+            quantity: 2,
+            supplier_name: 'Fallback Supplier',
+            variant_id: null,
+          },
+        ],
+        order_number: 'ORD-010726-PARTIAL',
+        payment_method: 'transfer',
+        total: 1_800_000,
+      },
+    ]);
+
+    expect(order.items).toMatchObject([
+      { costPrice: 800_000, costSource: 'unit', profit: 100_000, unitIndex: 0 },
+      {
+        costPrice: 850_000,
+        costSource: 'order_item',
+        profit: 50_000,
+        unitIndex: 1,
+      },
+    ]);
+    expect(order.missingCostCount).toBe(0);
+    expect(order.estimatedProfit).toBe(150_000);
+  });
+
   it('uses order item cost and supplier before product defaults', () => {
     // Arrange
     const rows = [

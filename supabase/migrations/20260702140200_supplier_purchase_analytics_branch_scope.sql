@@ -72,14 +72,13 @@ BEGIN
     WHERE o.merchant_id = p_merchant_id
       AND o.payment_status = 'paid'
       AND (p_branch_id IS NULL OR o.branch_id = p_branch_id)
-      AND (
-        p_start_date IS NULL
-        OR COALESCE(o.transaction_date, o.created_at) >= p_start_date
-      )
-      AND (
-        p_end_date IS NULL
-        OR COALESCE(o.transaction_date, o.created_at) <= p_end_date
-      )
+      -- Filter on created_at to match the overview datasets in
+      -- apps/web/src/lib/merchant-analytics-queries.ts. Using
+      -- COALESCE(transaction_date, created_at) here would let an edited
+      -- transaction date pull orders into/out of the Top Supplier insight that
+      -- the Revenue/Profit cards (created_at-based) exclude for the same range.
+      AND (p_start_date IS NULL OR o.created_at >= p_start_date)
+      AND (p_end_date IS NULL OR o.created_at <= p_end_date)
   ),
   all_units AS (
     SELECT
