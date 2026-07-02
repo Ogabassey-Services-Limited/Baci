@@ -28,6 +28,7 @@ interface SubmitNewOrderParams {
   merchantId?: string;
   merchantCurrency?: string | null;
   notes: string;
+  orderDate: Date;
   orderItems: OrderItem[];
   partialAmount: string;
   paymentMethod: string;
@@ -54,6 +55,7 @@ export async function submitNewOrder({
   merchantId,
   merchantCurrency,
   notes,
+  orderDate,
   orderItems,
   partialAmount,
   paymentMethod,
@@ -95,7 +97,8 @@ export async function submitNewOrder({
   setIsSubmitting(true);
 
   try {
-    const orderNumber = generateOrderNumber();
+    const orderDateIso = orderDate.toISOString();
+    const orderNumber = generateOrderNumber(orderDate);
     const sanitizedCustomerName =
       sanitizeCustomerName(customer.name) || 'Walk-in Customer';
     const sanitizedCustomerEmail = customer.email
@@ -195,6 +198,7 @@ export async function submitNewOrder({
           discount_amount: discount,
           merchant_id: merchantId,
           notes: sanitizedNotes,
+          created_at: orderDateIso,
           order_number: orderNumber,
           payment_method:
             paymentStatus === 'paid' || paymentStatus === 'partially_paid'
@@ -209,6 +213,7 @@ export async function submitNewOrder({
           subtotal,
           tax_amount: taxesToUse,
           total,
+          transaction_date: orderDateIso,
         },
       }
     );
@@ -259,8 +264,7 @@ async function validateSelectedBranch(
   return data.id;
 }
 
-function generateOrderNumber() {
-  const date = new Date();
+function generateOrderNumber(date: Date) {
   const prefix = 'ORD';
   const datePart = `${String(date.getDate()).padStart(2, '0')}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getFullYear()).slice(-2)}`;
   const randomPart = Crypto.randomUUID()

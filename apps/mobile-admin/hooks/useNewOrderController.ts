@@ -175,6 +175,7 @@ export function useNewOrderController({
       merchantCurrency: merchant?.payout_currency,
       merchantId: merchant?.id,
       notes,
+      orderDate: date,
       orderItems,
       partialAmount,
       paymentMethod,

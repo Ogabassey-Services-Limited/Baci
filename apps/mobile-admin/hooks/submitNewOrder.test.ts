@@ -77,6 +77,7 @@ function createSubmitParams(
     merchantCurrency: 'NGN',
     merchantId: 'merchant-1',
     notes: 'Handle with care',
+    orderDate: new Date('2024-02-03T10:30:00.000Z'),
     orderItems: [createOrderItem({ price: 12000, variant_name: 'Blue' })],
     partialAmount: '',
     paymentMethod: 'cash',
@@ -165,7 +166,8 @@ describe('submitNewOrder', () => {
           discount_amount: 0,
           merchant_id: 'merchant-1',
           notes: 'Handle with care',
-          order_number: expect.stringMatching(/^ORD-/),
+          created_at: '2024-02-03T10:30:00.000Z',
+          order_number: 'ORD-030224-UUID12',
           payment_method: 'cash',
           payment_status: 'paid',
           recorded_by_user_id: 'user-1',
@@ -180,6 +182,7 @@ describe('submitNewOrder', () => {
           subtotal: 12000,
           tax_amount: 0,
           total: 12000,
+          transaction_date: '2024-02-03T10:30:00.000Z',
         }),
       })
     );
