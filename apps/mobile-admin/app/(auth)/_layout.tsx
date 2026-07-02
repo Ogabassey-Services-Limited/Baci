@@ -50,7 +50,10 @@ export default function AuthLayout() {
     );
   }
 
-  if (isAuthenticated) {
+  // Resume a pending invite, but not while the user is mid-verification or
+  // completing their profile — those flows must finish first (mirrors the
+  // exclusions in shouldResolveMerchantRedirect).
+  if (isAuthenticated && !isVerifyScreen && !isCompleteProfileScreen) {
     const pendingStaffInviteToken = getPendingStaffInviteToken();
     if (pendingStaffInviteToken) {
       return <Redirect href={buildStaffInviteRoute(pendingStaffInviteToken)} />;

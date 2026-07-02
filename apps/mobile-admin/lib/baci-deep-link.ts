@@ -46,7 +46,14 @@ function getInviteRoutePath(url: URL): string | null {
     .map((segment) => segment.trim())
     .filter(Boolean);
 
-  if (routeSegments[0]?.toLowerCase() !== 'invite' || !routeSegments[1]) {
+  // Require exactly `invite/<token>` — extra trailing segments would produce
+  // a path like /invite/token/extra that doesn't match the /invite/[token]
+  // single-dynamic-segment route.
+  if (
+    routeSegments.length !== 2 ||
+    routeSegments[0]?.toLowerCase() !== 'invite' ||
+    !routeSegments[1]
+  ) {
     return null;
   }
 

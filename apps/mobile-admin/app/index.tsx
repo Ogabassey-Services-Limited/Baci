@@ -1,5 +1,5 @@
 import { Redirect } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { DARK_COLORS } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,7 +13,11 @@ export default function Index() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { hasSeenOnboarding, isLoading: onboardingLoading } = useOnboarding();
   // Only try to fetch merchant if we are authenticated
-  const { merchant, isLoading: merchantLoading } = useMerchant();
+  const {
+    merchant,
+    isLoading: merchantLoading,
+    error: merchantError,
+  } = useMerchant();
 
   // Only auth + onboarding gate the initial branch. The merchant fetch is
   // awaited later so a pending staff invite can be resumed before any
@@ -72,7 +76,27 @@ export default function Index() {
     );
   }
 
-  // 5. Authenticated but No Merchant -> Complete Profile
+  // 5. Merchant fetch failed -> show an error instead of misrouting an existing
+  // owner into onboarding (which risks a duplicate merchant). Mirrors AuthLayout.
+  if (merchantError) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: DARK_COLORS.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingHorizontal: 24,
+        }}
+      >
+        <Text style={{ color: '#DC2626', textAlign: 'center' }}>
+          Unable to load your merchant profile right now.
+        </Text>
+      </View>
+    );
+  }
+
+  // 6. Authenticated but No Merchant -> Complete Profile
   if (!merchant) {
     if (__DEV__) {
       console.log(
@@ -82,6 +106,6 @@ export default function Index() {
     return <Redirect href="/(auth)/complete-profile" />;
   }
 
-  // 4. Authenticated & Merchant -> Dashboard
+  // 7. Authenticated & Merchant -> Dashboard
   return <Redirect href="/(admin)/(tabs)" />;
 }

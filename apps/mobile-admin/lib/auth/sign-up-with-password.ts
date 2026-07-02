@@ -14,7 +14,11 @@
  * flow silently regresses. See sign-up-with-password.test.ts.
  */
 
-import type { Session, User } from '@supabase/supabase-js';
+import {
+  isAuthApiError,
+  type Session,
+  type User,
+} from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { trackAuthTelemetry } from '@/services/auth-telemetry';
 
@@ -78,7 +82,7 @@ export async function runPasswordSignUp({
     });
 
     if (error) {
-      const status = (error as { status?: number }).status;
+      const status = isAuthApiError(error) ? error.status : undefined;
       if (isRateLimited(error.message, status)) {
         trackAuthTelemetry({
           code: 'password_signup_rate_limited',

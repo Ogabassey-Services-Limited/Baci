@@ -50,6 +50,26 @@ describe('runPasswordSignUp', () => {
     expect(opts.onResetUserStores).toHaveBeenCalledTimes(1);
   });
 
+  it('does not reset stores when the signed-up user is already the current user', async () => {
+    const session = { access_token: 't' };
+    const user = { id: 'user-1', identities: [{ id: 'i' }] };
+    mocks.signUp.mockResolvedValue({ data: { session, user }, error: null });
+    const opts = makeOptions({ getCurrentUserId: vi.fn(() => 'user-1') });
+
+    const result = await runPasswordSignUp(opts);
+
+    expect(result).toEqual({ error: null });
+    expect(opts.onResetUserStores).not.toHaveBeenCalled();
+  });
+
+  it('returns the error message when signUp throws', async () => {
+    mocks.signUp.mockRejectedValue(new Error('network exploded'));
+
+    const result = await runPasswordSignUp(makeOptions());
+
+    expect(result).toEqual({ error: 'network exploded' });
+  });
+
   it('passes the full name as user metadata when provided', async () => {
     mocks.signUp.mockResolvedValue({
       data: { session: { access_token: 't' }, user: { id: 'u', identities: [{}] } },

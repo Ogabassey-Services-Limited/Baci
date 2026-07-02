@@ -31,6 +31,14 @@ describe('rewriteBaciDeepLinkPath', () => {
     );
   });
 
+  it('does not rewrite invite links with extra path segments', () => {
+    // Only `invite/<token>` matches the /invite/[token] route; trailing
+    // segments must be left untouched rather than producing /invite/token/extra.
+    expect(
+      rewriteBaciDeepLinkPath('https://usebaci.com/invite/token-123/extra')
+    ).toBe('https://usebaci.com/invite/token-123/extra');
+  });
+
   it('leaves unrelated app routes unchanged', () => {
     expect(rewriteBaciDeepLinkPath('baciadmin://orders?tab=pending')).toBe(
       'baciadmin://orders?tab=pending'
