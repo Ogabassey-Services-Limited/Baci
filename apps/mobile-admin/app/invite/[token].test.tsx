@@ -269,6 +269,26 @@ describe('StaffInviteScreen', () => {
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
   });
 
+  it('offers a Cancel escape hatch on a transient failure that clears the token', async () => {
+    mocks.auth.isAuthenticated = true;
+    mocks.auth.user = { email: 'staff@example.com', id: 'user-1' };
+    mocks.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Network request failed' },
+    });
+
+    const { findByRole } = render(<StaffInviteScreen />);
+
+    const cancelButton = await findByRole('button', { name: 'Cancel' });
+    cancelButton.click();
+
+    // Cancel clears the pending token so the root guard can't loop back here.
+    await waitFor(() => {
+      expect(mocks.clearPendingStaffInviteToken).toHaveBeenCalled();
+    });
+    expect(mocks.replace).toHaveBeenCalledWith('/');
+  });
+
   it('keeps the token and does not accept when the invite is for another email', async () => {
     mocks.auth.isAuthenticated = true;
     mocks.auth.user = { email: 'someone-else@example.com', id: 'user-1' };

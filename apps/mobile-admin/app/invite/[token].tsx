@@ -244,21 +244,12 @@ export default function StaffInviteScreen() {
 
   const errorAction = isError ? inviteState.action : null;
   const dismissLabel = isAuthenticated ? 'Go to Dashboard' : 'Sign In';
-  const dismissAccessibilityLabel = isAuthenticated
-    ? 'Go to dashboard'
-    : 'Go to sign in';
   const errorButtonLabel =
     errorAction === 'retry'
       ? 'Try Again'
       : errorAction === 'switch_account'
         ? 'Sign in with a different account'
         : dismissLabel;
-  const errorButtonAccessibilityLabel =
-    errorAction === 'retry'
-      ? 'Try again'
-      : errorAction === 'switch_account'
-        ? 'Sign out and sign in with a different account'
-        : dismissAccessibilityLabel;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -278,7 +269,7 @@ export default function StaffInviteScreen() {
         {isError && errorAction ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={errorButtonAccessibilityLabel}
+            accessibilityLabel={errorButtonLabel}
             onPress={() => {
               void handleErrorAction(errorAction);
             }}
@@ -286,6 +277,19 @@ export default function StaffInviteScreen() {
           >
             <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>
               {errorButtonLabel}
+            </Text>
+          </Pressable>
+        ) : null}
+        {isError && errorAction === 'retry' ? (
+          // Escape hatch: 'dismiss' clears the token and leaves, so the root
+          // guard can't bounce back into a retry loop.
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Cancel"
+            onPress={() => void handleErrorAction('dismiss')}
+          >
+            <Text style={[styles.buttonText, { color: colors.textSecondary }]}>
+              Cancel
             </Text>
           </Pressable>
         ) : null}

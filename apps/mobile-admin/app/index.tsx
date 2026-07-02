@@ -38,19 +38,22 @@ export default function Index() {
     return <Redirect href="/(auth)/onboarding" />;
   }
 
-  // 2. Not Authenticated -> Login
-  if (!isAuthenticated) {
-    return <Redirect href="/(auth)/login" />;
-  }
-
-  // 3. Resume a pending staff invite BEFORE any merchant-based routing. If the
-  // app was killed after staff signup/sign-in but before /invite/{token} ran,
-  // an authenticated invitee has no merchant yet and would otherwise be pushed
-  // into merchant onboarding (complete-profile) — which creates the owner store
-  // that pins them away from the invited store.
+  // 2. Resume a pending staff invite BEFORE the auth/merchant branches. The
+  // invite screen itself decides what to do (unauthenticated -> account-only
+  // staff signup; authenticated -> accept), so this must run for signed-out
+  // invitees too. Otherwise a cold start after /invite saved a token would drop
+  // an unauthenticated invitee on the generic login/register screens, from
+  // which merchant registration would create the owner store that pins them.
+  // The retry error's "Cancel" action clears the token, so this can't trap a
+  // user in a redirect loop.
   const pendingInviteToken = getPendingStaffInviteToken();
   if (pendingInviteToken) {
     return <Redirect href={buildStaffInviteRoute(pendingInviteToken)} />;
+  }
+
+  // 3. Not Authenticated -> Login
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
   }
 
   // 4. Wait for the merchant context before deciding owner vs no-merchant.
