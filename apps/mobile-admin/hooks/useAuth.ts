@@ -8,6 +8,7 @@
 
 import type { Session, User } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
+import type { PasswordSignUpResult } from '@/lib/auth/sign-up-with-password';
 import { useAuthStore } from '@/stores/auth-store';
 
 export interface UseAuthReturn {
@@ -21,6 +22,11 @@ export interface UseAuthReturn {
     email: string,
     password: string
   ) => Promise<{ cancelled?: boolean; error: string | null }>;
+  signUp: (params: {
+    email: string;
+    password: string;
+    fullName?: string;
+  }) => Promise<PasswordSignUpResult>;
   signInWithApple: () => Promise<{ cancelled?: boolean; error: string | null }>;
   signInWithGoogle: () => Promise<{
     cancelled?: boolean;
@@ -39,6 +45,7 @@ export function useAuth(): UseAuthReturn {
       isLoading: state.isLoading,
       isAuthenticated: state.isAuthenticated,
       signIn: state.signIn,
+      signUp: state.signUp,
       signInWithApple: state.signInWithApple,
       signInWithGoogle: state.signInWithGoogle,
       signOut: state.signOut,

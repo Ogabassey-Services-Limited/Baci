@@ -134,7 +134,7 @@ export async function inviteStaffMember(rawData: InviteStaffData) {
         throw new Error('Failed to reactivate staff member');
       }
 
-      await sendInviteEmail(
+      const reinvite = await sendInviteEmail(
         email,
         name || '',
         role,
@@ -143,7 +143,14 @@ export async function inviteStaffMember(rawData: InviteStaffData) {
       );
 
       revalidatePath('/dashboard/staff');
-      return { success: true, message: 'Staff member re-invited successfully' };
+      return {
+        success: true,
+        emailSent: reinvite.sent,
+        inviteUrl: reinvite.inviteUrl,
+        message: reinvite.sent
+          ? 'Staff member re-invited successfully'
+          : `Staff member re-invited, but the invitation email could not be sent. Share this link manually: ${reinvite.inviteUrl}`,
+      };
     }
 
     throw new Error(
@@ -170,7 +177,7 @@ export async function inviteStaffMember(rawData: InviteStaffData) {
     throw new Error('Failed to invite staff member');
   }
 
-  await sendInviteEmail(
+  const invite = await sendInviteEmail(
     email,
     name || '',
     role,
@@ -231,7 +238,14 @@ export async function inviteStaffMember(rawData: InviteStaffData) {
     }
   }
 
-  return { success: true, message: 'Staff member invited successfully' };
+  return {
+    success: true,
+    emailSent: invite.sent,
+    inviteUrl: invite.inviteUrl,
+    message: invite.sent
+      ? 'Staff member invited successfully'
+      : `Staff member added, but the invitation email could not be sent. Share this link manually: ${invite.inviteUrl}`,
+  };
 }
 
 export async function resendInvitation(id: string) {
@@ -276,7 +290,7 @@ export async function resendInvitation(id: string) {
     throw new Error('Failed to resend invitation');
   }
 
-  await sendInviteEmail(
+  const resend = await sendInviteEmail(
     staff.email,
     staff.name || '',
     staff.role,
@@ -285,7 +299,14 @@ export async function resendInvitation(id: string) {
   );
 
   revalidatePath('/dashboard/staff');
-  return { success: true };
+  return {
+    success: true,
+    emailSent: resend.sent,
+    inviteUrl: resend.inviteUrl,
+    message: resend.sent
+      ? 'The invitation has been resent.'
+      : `The invitation was updated, but the email could not be sent. Share this link manually: ${resend.inviteUrl}`,
+  };
 }
 
 export async function updateStaffMember(
@@ -378,8 +399,8 @@ async function sendInviteEmail(
   role: string,
   businessName: string,
   token: string
-) {
-  const { email: inviteEmail } = buildStaffInviteEmail({
+): Promise<{ sent: boolean; inviteUrl: string }> {
+  const { email: inviteEmail, inviteUrl } = buildStaffInviteEmail({
     businessName,
     role,
     to: email,
@@ -387,12 +408,25 @@ async function sendInviteEmail(
     token,
   });
 
+  // The staff row is already persisted, so a failed email must not throw and
+  // roll back the invite — but it must be surfaced to the caller. The legacy
+  // DB trigger that re-sent this mail was removed (it caused duplicate
+  // messages), so this is now the only delivery path: report failures (and
+  // return the invite URL) so the owner can share the link manually instead of
+  // silently believing the invite was delivered.
   try {
-    await sendEmail(inviteEmail);
-  } catch {
-    console.error('Failed to send invite email');
-    // Silent fail on email shouldn't break the action
-    // The action caller handles "success" so we probably shouldn't throw here if the DB part worked.
+    const result = await sendEmail(inviteEmail);
+    if (!result.success) {
+      console.error('Staff invite email was not accepted for delivery', {
+        email,
+        error: result.error,
+      });
+      return { sent: false, inviteUrl };
+    }
+    return { sent: true, inviteUrl };
+  } catch (err) {
+    console.error('Failed to send staff invite email', err);
+    return { sent: false, inviteUrl };
   }
 }
 

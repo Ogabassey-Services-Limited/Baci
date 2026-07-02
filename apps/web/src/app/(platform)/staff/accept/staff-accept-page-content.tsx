@@ -131,6 +131,33 @@ export async function StaffAcceptPageContent({
         />
       );
     }
+    if (message === 'email_mismatch') {
+      return (
+        <ErrorPage
+          title="Wrong Account"
+          message="This invitation was sent to a different email address. Sign in with the invited email to accept it."
+          showLoginLink
+        />
+      );
+    }
+    if (message === 'already_owner' || message === 'already_staff') {
+      return (
+        <ErrorPage
+          title="Already a Member"
+          message="You are already part of this store."
+          showLoginLink
+        />
+      );
+    }
+    if (message === 'owner_cannot_join_as_staff') {
+      return (
+        <ErrorPage
+          title="Store Owner"
+          message="You already own a store, so you cannot join another as staff yet."
+          showLoginLink
+        />
+      );
+    }
     return (
       <ErrorPage
         title="Error"

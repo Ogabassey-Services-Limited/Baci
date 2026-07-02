@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   signInWithGoogleNative: vi.fn(),
   signInWithPassword: vi.fn(),
   signOut: vi.fn(),
+  signUp: vi.fn(),
   trackAuthTelemetry: vi.fn(),
 }));
 
@@ -30,6 +31,7 @@ vi.mock('@/lib/supabase', () => ({
       onAuthStateChange: mocks.onAuthStateChange,
       signInWithPassword: mocks.signInWithPassword,
       signOut: mocks.signOut,
+      signUp: mocks.signUp,
     },
   },
 }));
@@ -219,5 +221,53 @@ describe('useAuthStore signIn', () => {
         stage: 'cancel',
       })
     );
+  });
+});
+
+describe('useAuthStore signUp', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAuthStore.setState({
+      activeAuthProvider: null,
+      isAuthenticating: false,
+      isAuthenticated: false,
+      isInitialized: true,
+      isLoading: false,
+      session: null,
+      user: null,
+    });
+  });
+
+  it('commits the session for a brand-new account (no merchant created)', async () => {
+    const session = createSession();
+    mocks.signUp.mockResolvedValue({
+      data: { session, user: session.user },
+      error: null,
+    });
+
+    const result = await useAuthStore
+      .getState()
+      .signUp({ email: 'new@example.test', password: 'sup3r-secret-pw' });
+
+    expect(result).toEqual({ error: null });
+    expect(useAuthStore.getState()).toMatchObject({
+      isAuthenticated: true,
+      session,
+      user: session.user,
+    });
+  });
+
+  it('reports an existing account without authenticating', async () => {
+    mocks.signUp.mockResolvedValue({
+      data: { user: { identities: [] }, session: null },
+      error: null,
+    });
+
+    const result = await useAuthStore
+      .getState()
+      .signUp({ email: 'existing@example.test', password: 'sup3r-secret-pw' });
+
+    expect(result).toEqual({ error: null, accountExists: true });
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
   });
 });

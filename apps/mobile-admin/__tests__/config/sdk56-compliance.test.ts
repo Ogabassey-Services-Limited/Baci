@@ -24,6 +24,20 @@ describe('SDK 56 compliance', () => {
     expect(configSource).not.toContain("minimumOSVersion: '15.1'");
   });
 
+  it('declares Android app links for staff invite URLs', () => {
+    const configSource = readFileSync(
+      path.join(ROOT, 'app.config.ts'),
+      'utf-8'
+    );
+    const androidManifestSource = readFileSync(
+      path.join(ROOT, 'android/app/src/main/AndroidManifest.xml'),
+      'utf-8'
+    );
+
+    expect(configSource).toContain("pathPrefix: '/invite'");
+    expect(androidManifestSource).toContain('android:pathPrefix="/invite"');
+  });
+
   it('defaults the admin iOS hardening plugin to the SDK 56 iOS floor', () => {
     const pluginSource = readFileSync(
       path.join(ROOT, 'plugins/with-ios-release-hardening.ts'),

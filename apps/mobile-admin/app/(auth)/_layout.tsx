@@ -4,6 +4,10 @@ import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
+import {
+  buildStaffInviteRoute,
+  getPendingStaffInviteToken,
+} from '@/lib/staff-invite-pending';
 
 export default function AuthLayout() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -46,6 +50,16 @@ export default function AuthLayout() {
     );
   }
 
+  // Resume a pending invite, but not while the user is mid-verification or
+  // completing their profile — those flows must finish first (mirrors the
+  // exclusions in shouldResolveMerchantRedirect).
+  if (isAuthenticated && !isVerifyScreen && !isCompleteProfileScreen) {
+    const pendingStaffInviteToken = getPendingStaffInviteToken();
+    if (pendingStaffInviteToken) {
+      return <Redirect href={buildStaffInviteRoute(pendingStaffInviteToken)} />;
+    }
+  }
+
   if (shouldResolveMerchantRedirect && merchantError) {
     return (
       <View
@@ -82,6 +96,7 @@ export default function AuthLayout() {
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
+      <Stack.Screen name="staff-signup" />
       <Stack.Screen name="verify" options={{ presentation: 'modal' }} />
       <Stack.Screen
         name="forgot-password"

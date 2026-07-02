@@ -196,6 +196,10 @@ export default function RegisterScreen() {
         onSuccess: () => {
           // Navigate directly to dashboard — email confirmation is disabled,
           // so signup returns a session immediately and the merchant is ready.
+          // Staff invitees do NOT come through here: merchant registration
+          // creates an owner store and the merchant-context RPC prefers owner
+          // over staff, which would pin the invitee to their own empty store.
+          // Invitees use the account-only /(auth)/staff-signup flow instead.
           router.replace('/(admin)/(tabs)');
         },
         onError: (error: Error) => {
