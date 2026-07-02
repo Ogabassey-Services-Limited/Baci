@@ -42,6 +42,7 @@ DECLARE
   v_inventory_tracking_policy text;
   v_reassign_anchor_to_variant_id uuid;
   v_reassign_anchor_variant jsonb;
+  v_reassign_anchor_variant_ordinal bigint;
   v_variants_for_sync jsonb := '[]'::jsonb;
   v_moved_inventory_unit_id uuid;
   v_updated_product_id uuid;
@@ -172,6 +173,57 @@ BEGIN
         ''
       )::uuid;
 
+      IF v_reassign_anchor_to_variant_id IS NULL THEN
+        SELECT element.raw, element.ordinal
+        INTO v_reassign_anchor_variant, v_reassign_anchor_variant_ordinal
+        FROM jsonb_array_elements(v_variants_for_sync) WITH ORDINALITY AS element(raw, ordinal)
+        WHERE jsonb_typeof(element.raw) = 'object'
+        ORDER BY
+          CASE
+            WHEN COALESCE(NULLIF(element.raw->>'stock_quantity', '')::integer, 0) > 0 THEN 0
+            ELSE 1
+          END,
+          public.condition_rank(
+            COALESCE(
+              NULLIF(element.raw->>'condition', ''),
+              NULLIF(v_product_payload->>'condition', ''),
+              'new'
+            )
+          ),
+          COALESCE(
+            NULLIF(element.raw->>'price_override', '')::numeric,
+            NULLIF(v_product_payload->>'price', '')::numeric,
+            0
+          ),
+          element.ordinal
+        LIMIT 1;
+
+        IF v_reassign_anchor_variant IS NOT NULL THEN
+          v_reassign_anchor_to_variant_id := COALESCE(
+            NULLIF(v_reassign_anchor_variant->>'id', '')::uuid,
+            gen_random_uuid()
+          );
+
+          SELECT COALESCE(
+            jsonb_agg(
+              CASE
+                WHEN element.ordinal = v_reassign_anchor_variant_ordinal THEN jsonb_set(
+                  element.raw,
+                  '{id}',
+                  to_jsonb(v_reassign_anchor_to_variant_id::text),
+                  true
+                )
+                ELSE element.raw
+              END
+              ORDER BY element.ordinal
+            ),
+            '[]'::jsonb
+          )
+          INTO v_variants_for_sync
+          FROM jsonb_array_elements(v_variants_for_sync) WITH ORDINALITY AS element(raw, ordinal);
+        END IF;
+      END IF;
+
       IF v_reassign_anchor_to_variant_id IS NOT NULL THEN
         IF EXISTS (
           SELECT 1
@@ -196,7 +248,7 @@ BEGIN
         ) THEN
           SELECT element.raw
           INTO v_reassign_anchor_variant
-          FROM jsonb_array_elements(p_variants) AS element(raw)
+          FROM jsonb_array_elements(v_variants_for_sync) AS element(raw)
           WHERE NULLIF(element.raw->>'id', '') = v_reassign_anchor_to_variant_id::text
           LIMIT 1;
 
@@ -442,6 +494,19 @@ BEGIN
           v_product_payload->>'reassign_anchor_to_variant_id',
           ''
         )::uuid;
+      END IF;
+
+      IF v_reassign_anchor_to_variant_id IS NULL THEN
+        SELECT p.default_variant_id
+        INTO v_reassign_anchor_to_variant_id
+        FROM public.products AS p
+        JOIN public.product_variants AS pv
+          ON pv.id = p.default_variant_id
+         AND pv.product_id = p.id
+         AND pv.merchant_id = p.merchant_id
+         AND pv.is_inventory_anchor = false
+        WHERE p.id = v_product_id
+          AND p.merchant_id = p_merchant_id;
       END IF;
 
       IF v_reassign_anchor_to_variant_id IS NULL THEN

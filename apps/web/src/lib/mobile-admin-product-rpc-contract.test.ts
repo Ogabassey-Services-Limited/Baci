@@ -284,7 +284,13 @@ describe('mobile admin product RPC migration contract', () => {
       variantSyncIndex
     );
     expect(anchorPreparationSql).toContain(
-      'FROM jsonb_array_elements(p_variants) AS element(raw)'
+      'FROM jsonb_array_elements(v_variants_for_sync) WITH ORDINALITY AS element(raw, ordinal)'
+    );
+    expect(anchorPreparationSql).toContain('public.condition_rank(');
+    expect(anchorPreparationSql).toContain('v_reassign_anchor_variant_ordinal');
+    expect(anchorPreparationSql).toContain('gen_random_uuid()');
+    expect(anchorPreparationSql).toContain(
+      'jsonb_set(\n                  element.raw'
     );
     expect(anchorPreparationSql).toContain(
       "WHERE NULLIF(element.raw->>'id', '') = v_reassign_anchor_to_variant_id::text"
@@ -299,6 +305,9 @@ describe('mobile admin product RPC migration contract', () => {
       variantSyncIndex,
       hiddenAnchorDeleteIndex
     );
+    expect(anchorTransferSql).toContain('SELECT p.default_variant_id');
+    expect(anchorTransferSql).toContain('pv.id = p.default_variant_id');
+    expect(anchorTransferSql).toContain('pv.is_inventory_anchor = false');
     expect(anchorTransferSql).toContain('count(*) OVER () AS candidate_count');
     expect(anchorTransferSql).toContain('WHERE candidate.candidate_count = 1');
     expect(anchorTransferSql).toContain('SELECT candidate.id');
