@@ -109,6 +109,11 @@ export async function POST(request: NextRequest) {
           status: 400,
           error: 'You are already the owner of this store',
         },
+        owner_cannot_join_as_staff: {
+          status: 400,
+          error:
+            'You already own a store, so you cannot join another as staff yet',
+        },
         already_staff: {
           status: 400,
           error: 'You are already a staff member of this store',

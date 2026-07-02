@@ -288,7 +288,7 @@ export async function resendInvitation(id: string) {
     throw new Error('Failed to resend invitation');
   }
 
-  await sendInviteEmail(
+  const resendEmailSent = await sendInviteEmail(
     staff.email,
     staff.name || '',
     staff.role,
@@ -297,7 +297,13 @@ export async function resendInvitation(id: string) {
   );
 
   revalidatePath('/dashboard/staff');
-  return { success: true };
+  return {
+    success: true,
+    emailSent: resendEmailSent,
+    message: resendEmailSent
+      ? 'The invitation has been resent.'
+      : 'The invitation was updated, but the email could not be sent. Share the invite link manually or try again.',
+  };
 }
 
 export async function updateStaffMember(

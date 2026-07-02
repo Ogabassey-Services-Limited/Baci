@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useTheme } from '@/hooks/useTheme';
 import {
   getAcceptErrorMessage,
@@ -25,6 +26,7 @@ export default function StaffInviteScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { isAuthenticated, isLoading, signOut, user } = useAuth();
+  const { unregisterPush } = usePushNotifications();
   const queryClient = useQueryClient();
   const token = normalizeStaffInviteToken(tokenParam);
   const userId = user?.id;
@@ -210,16 +212,21 @@ export default function StaffInviteScreen() {
       if (token) {
         savePendingStaffInviteToken(token);
       }
-      await signOut();
+      // Unregister the device's push token before signing out (same cleanup the
+      // normal logout flows run), otherwise the device stays registered to the
+      // previous user/merchant after the invitee signs in.
+      await signOut(unregisterPush);
       router.replace('/(auth)/login');
       return;
     }
 
-    // Terminal dismiss: the token is already cleared. Send an already
-    // signed-in user back to the dashboard (the auth layout would otherwise
-    // just bounce them there from /login); send a signed-out user to login.
+    // Terminal dismiss: the token is already cleared. Route an authenticated
+    // user through the root guard (which handles no-merchant -> complete-profile
+    // vs merchant -> tabs) rather than straight to the admin tabs, since an
+    // account-only invitee whose invite went terminal has no merchant yet.
+    // A signed-out user goes to login.
     clearPendingStaffInviteToken();
-    router.replace(isAuthenticated ? '/(admin)/(tabs)' : '/(auth)/login');
+    router.replace(isAuthenticated ? '/' : '/(auth)/login');
   }
 
   const isError = inviteState.status === 'error';

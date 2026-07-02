@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
   savePendingStaffInviteToken: vi.fn(),
   token: 'token-123' as string | undefined,
+  unregisterPush: vi.fn(),
 }));
 
 vi.mock('@tanstack/react-query', () => ({
@@ -69,6 +70,10 @@ vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => mocks.auth,
 }));
 
+vi.mock('@/hooks/usePushNotifications', () => ({
+  usePushNotifications: () => ({ unregisterPush: mocks.unregisterPush }),
+}));
+
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
@@ -117,6 +122,7 @@ describe('StaffInviteScreen', () => {
     mocks.rpc.mockReset();
     mocks.savePendingStaffInviteToken.mockReset();
     mocks.token = 'token-123';
+    mocks.unregisterPush.mockReset();
   });
 
   it('stores the invite token and sends unauthenticated users to staff signup', async () => {
@@ -215,7 +221,7 @@ describe('StaffInviteScreen', () => {
     expect(mocks.replace).not.toHaveBeenCalledWith('/(admin)/(tabs)');
   });
 
-  it('sends an already-authenticated user to the dashboard after a terminal error', async () => {
+  it('routes an already-authenticated user through the root guard after a terminal error', async () => {
     mocks.auth.isAuthenticated = true;
     mocks.auth.user = { email: 'staff@example.com', id: 'user-1' };
     mocks.rpc
@@ -239,9 +245,12 @@ describe('StaffInviteScreen', () => {
     });
     dashboardButton.click();
 
+    // Route through the root guard so a no-merchant account-only invitee isn't
+    // dropped into an empty admin tab.
     await waitFor(() => {
-      expect(mocks.replace).toHaveBeenCalledWith('/(admin)/(tabs)');
+      expect(mocks.replace).toHaveBeenCalledWith('/');
     });
+    expect(mocks.replace).not.toHaveBeenCalledWith('/(admin)/(tabs)');
   });
 
   it('preserves the pending invite token when the preview RPC fails transiently', async () => {
@@ -290,6 +299,9 @@ describe('StaffInviteScreen', () => {
     await waitFor(() => {
       expect(mocks.auth.signOut).toHaveBeenCalled();
     });
+    // Push token must be unregistered on sign-out (same cleanup as normal logout)
+    // so the device isn't left registered to the wrong account.
+    expect(mocks.auth.signOut).toHaveBeenCalledWith(mocks.unregisterPush);
     expect(mocks.replace).toHaveBeenCalledWith('/(auth)/login');
   });
 });

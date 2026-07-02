@@ -86,6 +86,20 @@ BEGIN
     RAISE EXCEPTION 'already_owner';
   END IF;
 
+  -- Reject a caller who already owns a *different* store. The app resolves an
+  -- owned merchant before staff memberships and has no cross-merchant switcher,
+  -- so accepting would consume the invite yet leave the user pinned to their
+  -- own store, unable to reach the store they were invited to. Fail without
+  -- consuming the invite so the token stays valid and the message is clear.
+  IF EXISTS (
+    SELECT 1
+      FROM public.merchants AS owned
+     WHERE owned.user_id = v_user_id
+       AND (owned.business_name IS NOT NULL OR owned.slug IS NOT NULL)
+  ) THEN
+    RAISE EXCEPTION 'owner_cannot_join_as_staff';
+  END IF;
+
   IF EXISTS (
     SELECT 1
       FROM public.staff_members AS existing_sm

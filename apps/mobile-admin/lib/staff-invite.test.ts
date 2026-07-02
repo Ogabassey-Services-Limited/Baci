@@ -53,6 +53,9 @@ describe('getAcceptErrorMessage', () => {
       /different email/i
     );
     expect(getAcceptErrorMessage('already_owner')).toMatch(/already own/i);
+    expect(getAcceptErrorMessage('owner_cannot_join_as_staff')).toMatch(
+      /already own a store/i
+    );
     expect(getAcceptErrorMessage('already_staff')).toMatch(
       /already a staff member/i
     );
@@ -83,6 +86,7 @@ describe('TERMINAL_ACCEPT_ERRORS', () => {
         'invalid_invite',
         'invite_expired',
         'invite_used',
+        'owner_cannot_join_as_staff',
       ].sort()
     );
   });

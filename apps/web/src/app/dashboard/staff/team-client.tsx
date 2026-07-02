@@ -211,7 +211,12 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
 
       try {
         const result = await inviteStaffMember(data as InviteStaffData);
-        toast({ title: 'Invitation Sent', description: result.message });
+        toast({
+          title:
+            result.emailSent === false ? 'Email Not Sent' : 'Invitation Sent',
+          description: result.message,
+          variant: result.emailSent === false ? 'destructive' : undefined,
+        });
         form.reset();
         setInviteDialogOpen(false);
         router.refresh();
@@ -236,11 +241,13 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
   const handleResendInvite = async (staffId: string) => {
     startTransition(async () => {
       try {
-        await resendInvitation(staffId);
+        const result = await resendInvitation(staffId);
 
         toast({
-          title: 'Invitation Resent',
-          description: 'The invitation has been resent.',
+          title:
+            result.emailSent === false ? 'Email Not Sent' : 'Invitation Resent',
+          description: result.message,
+          variant: result.emailSent === false ? 'destructive' : undefined,
         });
 
         router.refresh();

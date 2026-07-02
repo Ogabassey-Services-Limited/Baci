@@ -43,6 +43,7 @@ export const TERMINAL_ACCEPT_ERRORS = new Set([
   'email_mismatch',
   'email_required',
   'already_owner',
+  'owner_cannot_join_as_staff',
   'already_staff',
 ]);
 
@@ -92,6 +93,10 @@ export function getAcceptErrorMessage(message: string): string {
 
   if (message === 'already_owner') {
     return 'You already own this store.';
+  }
+
+  if (message === 'owner_cannot_join_as_staff') {
+    return 'You already own a store, so you cannot join another as staff yet.';
   }
 
   if (message === 'already_staff') {
