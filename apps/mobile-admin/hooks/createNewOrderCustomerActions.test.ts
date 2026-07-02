@@ -39,7 +39,7 @@ describe('createNewOrderCustomerActions', () => {
     vi.clearAllMocks();
   });
 
-  it('resets the customer modal state on close', () => {
+  it('keeps the new-customer draft on close (autosave) and clears transient state', () => {
     const setShowCustomerModal = vi.fn();
     const setIsCreatingCustomer = vi.fn();
     const setNewCustomer = vi.fn();
@@ -59,9 +59,11 @@ describe('createNewOrderCustomerActions', () => {
 
     expect(setShowCustomerModal).toHaveBeenCalledWith(false);
     expect(setIsCreatingCustomer).toHaveBeenCalledWith(false);
-    expect(setSelectedCountryCode).toHaveBeenCalledWith('NG');
     expect(setDuplicateCustomer).toHaveBeenCalledWith(null);
     expect(setCustomerSearch).toHaveBeenCalledWith('');
+    // Draft is preserved: the form/country are NOT reset on dismiss.
+    expect(setNewCustomer).not.toHaveBeenCalled();
+    expect(setSelectedCountryCode).not.toHaveBeenCalled();
   });
 
   it('requires first name and phone before creating a customer', async () => {

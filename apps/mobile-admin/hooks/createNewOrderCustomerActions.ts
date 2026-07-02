@@ -77,8 +77,10 @@ export function createNewOrderCustomerActions({
   const handleCloseCustomerModal = () => {
     setShowCustomerModal(false);
     setIsCreatingCustomer(false);
-    resetNewCustomerForm();
-    setSelectedCountryCode(DEFAULT_COUNTRY_CODE);
+    // Keep the in-progress new-customer draft (name/phone/email/address +
+    // country) so dismissing the sheet doesn't discard typed input — it's reset
+    // only after a successful create. Clear just the transient duplicate/search
+    // state that shouldn't survive a reopen.
     setDuplicateCustomer(null);
     setCustomerSearch('');
   };
@@ -183,6 +185,7 @@ export function createNewOrderCustomerActions({
       handleSelectCustomer(customer);
       setIsCreatingCustomer(false);
       resetNewCustomerForm();
+      setSelectedCountryCode(DEFAULT_COUNTRY_CODE);
     } catch (error: unknown) {
       const message =
         error instanceof Error
