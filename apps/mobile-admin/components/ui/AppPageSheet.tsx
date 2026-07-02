@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   type StyleProp,
@@ -13,6 +12,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -84,7 +84,7 @@ export function AppPageSheet({
       visible={visible}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={isRuntimePlatform('ios') ? 'padding' : 'height'}
         style={styles.overlay}
       >
         {/* Backdrop (Tapping here closes the sheet) */}
