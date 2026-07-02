@@ -147,6 +147,19 @@ describe('StaffSignupScreen', () => {
     expect(emailInput).toHaveAttribute('readonly');
   });
 
+  it('blocks account creation when the invite preview is invalid', async () => {
+    mocks.rpc.mockResolvedValue({ data: [], error: null });
+    render(<StaffSignupScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/invalid or has expired/i)).toBeInTheDocument();
+    });
+    expect(submitButton()).toBeDisabled();
+    fillValidCredentials();
+    submitButton().click();
+    expect(mocks.signUp).not.toHaveBeenCalled();
+  });
+
   it('creates an account-only signup and routes to accept the invite on success', async () => {
     mocks.signUp.mockResolvedValue({ error: null });
     render(<StaffSignupScreen />);

@@ -58,6 +58,13 @@ describe('getAcceptErrorMessage', () => {
     );
   });
 
+  it('maps invalid_invite and email_required to friendly messages', () => {
+    expect(getAcceptErrorMessage('invalid_invite')).toMatch(
+      /no longer valid/i
+    );
+    expect(getAcceptErrorMessage('email_required')).toMatch(/email address/i);
+  });
+
   it('falls back to a generic message for unknown codes', () => {
     expect(getAcceptErrorMessage('network error')).toMatch(
       /could not accept this invitation/i
@@ -72,9 +79,15 @@ describe('TERMINAL_ACCEPT_ERRORS', () => {
         'already_owner',
         'already_staff',
         'email_mismatch',
+        'email_required',
+        'invalid_invite',
         'invite_expired',
         'invite_used',
       ].sort()
     );
+  });
+
+  it('treats invalid_invite as terminal so acceptance does not retry forever', () => {
+    expect(TERMINAL_ACCEPT_ERRORS.has('invalid_invite')).toBe(true);
   });
 });

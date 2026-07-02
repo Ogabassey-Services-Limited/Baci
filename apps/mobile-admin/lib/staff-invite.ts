@@ -29,13 +29,19 @@ export type InviteState =
     }
   | { status: 'success'; message: string; title: string };
 
-// Terminal acceptance errors raised by accept_staff_invite. Anything else
-// (network blips, unexpected server errors) is treated as retryable so a valid
-// invite is never discarded on a transient failure.
+// Terminal acceptance errors raised by accept_staff_invite: definitive
+// server verdicts where retrying with the same token cannot succeed, so the
+// pending token should be cleared. Anything else (network blips, unexpected
+// server errors) is treated as retryable so a valid invite is never discarded
+// on a transient failure. `invalid_invite` is terminal: it means the token no
+// longer resolves (e.g. accepted/removed by another session), so retrying
+// would loop forever.
 export const TERMINAL_ACCEPT_ERRORS = new Set([
+  'invalid_invite',
   'invite_expired',
   'invite_used',
   'email_mismatch',
+  'email_required',
   'already_owner',
   'already_staff',
 ]);
@@ -64,6 +70,14 @@ export function getFirstPreviewRow(rows: unknown): InvitePreview | null {
 }
 
 export function getAcceptErrorMessage(message: string): string {
+  if (message === 'invalid_invite') {
+    return 'This invitation is no longer valid. Ask the store owner to send a new one.';
+  }
+
+  if (message === 'email_required') {
+    return 'Your account needs an email address to accept this invite.';
+  }
+
   if (message === 'invite_expired') {
     return 'This invitation has expired. Ask the store owner to send a new one.';
   }

@@ -25,11 +25,15 @@ import {
 } from '@/lib/staff-invite-pending';
 import { supabase } from '@/lib/supabase';
 
+type InviteStatus = 'loading' | 'valid' | 'invalid';
+
 /**
  * Account-only signup for staff invitees. Creates just an auth user (no
  * merchant) so get_user_merchant_context's staff fallback resolves the invited
  * store instead of pinning the user to a store of their own. Reached from the
- * invite screen when the visitor is not signed in.
+ * invite screen when the visitor is not signed in. Signup is gated on a
+ * verified invite preview so a bogus/expired token can't create orphan
+ * accounts, and the email is locked to the invited address.
  */
 export default function StaffSignupScreen() {
   const router = useRouter();
@@ -37,36 +41,39 @@ export default function StaffSignupScreen() {
   const { signUp, isAuthenticating } = useAuth();
   const token = getPendingStaffInviteToken();
 
-  const [fullName, setFullName] = useState('');
+  const [inviteStatus, setInviteStatus] = useState<InviteStatus>(
+    token ? 'loading' : 'invalid'
+  );
   const [email, setEmail] = useState('');
-  const [emailLocked, setEmailLocked] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
   const confirmRef = useRef<TextInput>(null);
 
-  // Pre-fill and lock the email to the invited address so acceptance cannot
-  // fail with email_mismatch. get_staff_invite_preview is anon-callable.
+  // Verify the invite and lock the email to the invited address. Only a
+  // confirmed, still-valid invitation enables account creation.
   useEffect(() => {
     let cancelled = false;
     if (!token) {
+      setInviteStatus('invalid');
       return;
     }
     supabase
       .rpc('get_staff_invite_preview', { p_token: token })
-      .then(({ data }) => {
+      .then(({ data, error: previewError }) => {
         if (cancelled) {
           return;
         }
         const invitation = getFirstPreviewRow(data);
-        if (invitation?.email) {
-          setEmail(invitation.email);
-          setEmailLocked(true);
+        if (previewError || !invitation?.email) {
+          setInviteStatus('invalid');
+          return;
         }
+        setEmail(invitation.email);
+        setInviteStatus('valid');
       });
     return () => {
       cancelled = true;
@@ -74,12 +81,18 @@ export default function StaffSignupScreen() {
   }, [token]);
 
   const isLoading = isAuthenticating;
+  const canSubmit = inviteStatus === 'valid' && !isLoading;
+  const bannerError =
+    error ??
+    (inviteStatus === 'invalid'
+      ? 'This invitation is invalid or has expired. Ask the store owner to send a new one.'
+      : null);
 
   const handleSubmit = async () => {
     setError(null);
 
-    if (!token) {
-      setError('This invitation link is invalid or has expired.');
+    if (!token || inviteStatus !== 'valid') {
+      setError('This invitation is invalid or has expired.');
       return;
     }
 
@@ -95,11 +108,7 @@ export default function StaffSignupScreen() {
       return;
     }
 
-    const result = await signUp({
-      email: email.trim(),
-      password,
-      fullName: fullName.trim() || undefined,
-    });
+    const result = await signUp({ email: email.trim(), password });
 
     if (result.accountExists) {
       Alert.alert(
@@ -148,54 +157,32 @@ export default function StaffSignupScreen() {
         </View>
 
         <View style={styles.form}>
-          {error ? (
+          {bannerError ? (
             <View
               style={[styles.errorCard, { backgroundColor: colors.errorLight }]}
             >
               <Text style={[styles.errorText, { color: colors.error }]}>
-                {error}
+                {bannerError}
               </Text>
             </View>
           ) : null}
-
-          <AuthInput
-            autoCapitalize="words"
-            autoComplete="name"
-            blurOnSubmit={false}
-            borderColor={colors.border}
-            editable={!isLoading}
-            iconColor={colors.textMuted}
-            iconName="person-outline"
-            label="Full name"
-            labelColor={colors.textSecondary}
-            onChangeText={setFullName}
-            onSubmitEditing={() => emailRef.current?.focus()}
-            placeholder="Your name"
-            placeholderTextColor={colors.textMuted}
-            returnKeyType="next"
-            textColor={colors.text}
-            textContentType="name"
-            value={fullName}
-            wrapperColor={colors.card}
-          />
 
           <AuthInput
             autoCapitalize="none"
             autoComplete="email"
             blurOnSubmit={false}
             borderColor={colors.border}
-            editable={!isLoading && !emailLocked}
+            editable={false}
             iconColor={colors.textMuted}
             iconName="mail-outline"
-            inputRef={emailRef}
             keyboardType="email-address"
             label="Email"
             labelColor={colors.textSecondary}
             onChangeText={setEmail}
-            onSubmitEditing={() => passwordRef.current?.focus()}
-            placeholder="you@example.com"
+            placeholder={
+              inviteStatus === 'loading' ? 'Checking invitation…' : ''
+            }
             placeholderTextColor={colors.textMuted}
-            returnKeyType="next"
             textColor={colors.text}
             textContentType="emailAddress"
             value={email}
@@ -205,7 +192,7 @@ export default function StaffSignupScreen() {
           <AuthInput
             autoComplete="password-new"
             borderColor={colors.border}
-            editable={!isLoading}
+            editable={canSubmit}
             iconColor={colors.textMuted}
             iconName="lock-closed-outline"
             inputRef={passwordRef}
@@ -236,7 +223,7 @@ export default function StaffSignupScreen() {
           <AuthInput
             autoComplete="password-new"
             borderColor={colors.border}
-            editable={!isLoading}
+            editable={canSubmit}
             iconColor={colors.textMuted}
             iconName="lock-closed-outline"
             inputRef={confirmRef}
@@ -257,12 +244,12 @@ export default function StaffSignupScreen() {
           <Pressable
             accessibilityLabel="Create account and accept invitation"
             accessibilityRole="button"
-            disabled={isLoading}
+            disabled={!canSubmit}
             onPress={handleSubmit}
             style={[
               styles.loginButton,
               { backgroundColor: colors.primary },
-              isLoading && styles.loginButtonDisabled,
+              !canSubmit && styles.loginButtonDisabled,
             ]}
           >
             {isLoading ? (
