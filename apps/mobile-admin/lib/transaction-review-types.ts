@@ -12,6 +12,14 @@ export interface TransactionReviewVariantRow {
   sku: string | null;
 }
 
+export interface TransactionReviewUnitCostRow {
+  cost_price: number | null;
+  identifier_type?: 'imei' | 'serial' | string | null;
+  identifier_value?: string | null;
+  supplier_name: string | null;
+  unit_index: number | null;
+}
+
 export interface TransactionReviewOrderRow {
   created_at: string;
   transaction_date?: string | null;
@@ -25,6 +33,7 @@ export interface TransactionReviewOrderRow {
     fulfillment_data: unknown;
     id: string;
     name: string | null;
+    order_item_unit_costs?: TransactionReviewUnitCostRow[] | null;
     price: number | null;
     product_id: string | null;
     product_match_status?: 'custom' | 'linked' | 'unreviewed' | null;
@@ -47,10 +56,13 @@ export interface TransactionReviewOrderRow {
 
 export interface TransactionReviewItem {
   costPrice: number | null;
-  costSource: 'order_item' | 'variant' | 'product' | null;
+  costSource: 'unit' | 'order_item' | 'variant' | 'product' | null;
   id: string;
+  identifierType?: 'imei' | 'serial' | null;
+  identifierValue?: string | null;
   imeiValues: string[];
   name: string;
+  orderItemId?: string;
   productId: string | null;
   productMatchStatus?: 'custom' | 'linked' | 'unreviewed' | null;
   profit: number | null;
@@ -60,6 +72,7 @@ export interface TransactionReviewItem {
   serialValues: string[];
   sku: string | null;
   supplierName: string;
+  unitIndex?: number;
   variantId: string | null;
 }
 

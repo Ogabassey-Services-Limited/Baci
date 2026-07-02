@@ -14,6 +14,7 @@ export interface MerchantAnalyticsQueryResults {
   previousOrderItemsResult: QueryResultLike;
   previousOrdersResult: QueryResultLike;
   recentOrdersResult: QueryResultLike;
+  supplierAnalyticsResult: QueryResultLike;
 }
 
 function applyOrderBranchFilter<Query>(
@@ -51,6 +52,7 @@ export async function fetchMerchantAnalyticsData(
     recentOrdersResult,
     blogPostsResult,
     activeOrdersResult,
+    supplierAnalyticsResult,
   ] = await Promise.all([
     // These two queries intentionally include refunded orders so the overview
     // layer can compute refund-rate deltas from the same dataset.
@@ -131,6 +133,12 @@ export async function fetchMerchantAnalyticsData(
         .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString()),
       branchId
     ),
+    supabase.rpc('get_supplier_purchase_analytics', {
+      p_branch_id: branchId ?? null,
+      p_end_date: endDate.toISOString(),
+      p_merchant_id: merchantId,
+      p_start_date: startDate.toISOString(),
+    }),
   ]);
 
   return {
@@ -141,5 +149,6 @@ export async function fetchMerchantAnalyticsData(
     previousOrderItemsResult,
     previousOrdersResult,
     recentOrdersResult,
+    supplierAnalyticsResult,
   };
 }

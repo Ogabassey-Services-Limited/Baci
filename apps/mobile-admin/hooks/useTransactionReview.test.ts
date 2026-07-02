@@ -50,6 +50,20 @@ describe('isTransactionReviewSchemaCacheError', () => {
     ).toBe(true);
   });
 
+  it('returns true when the unit-cost relation is missing from the schema cache', async () => {
+    const { isTransactionReviewSchemaCacheError } = await import(
+      './useTransactionReview'
+    );
+
+    expect(
+      isTransactionReviewSchemaCacheError({
+        code: 'PGRST200',
+        message:
+          "Could not find a relationship between 'order_items' and 'order_item_unit_costs' in the schema cache",
+      })
+    ).toBe(true);
+  });
+
   it('returns false for non-schema errors', async () => {
     const { isTransactionReviewSchemaCacheError } = await import(
       './useTransactionReview'

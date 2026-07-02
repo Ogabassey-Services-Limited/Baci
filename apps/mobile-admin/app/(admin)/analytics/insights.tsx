@@ -11,18 +11,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from '@/components/analytics/analytics-insights.styles';
-import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { useAnalyticsOverview } from '@/hooks/useAnalyticsOverview';
 import { useCurrency } from '@/hooks/useCurrency';
-import { useMerchant } from '@/hooks/useMerchant';
-import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
-import {
-  type AnalyticsDateRange,
-  createDefaultAnalyticsDateRange,
-  resolveAnalyticsDateRangeParams,
-} from '@/lib/analytics-period';
-import { baciFeatureGates } from '@/lib/feature-gates';
 
 interface InsightRow {
   id: string;
@@ -30,87 +21,58 @@ interface InsightRow {
   value: string;
 }
 
-const INSIGHT_TITLES: Record<string, string> = {
-  blog: 'Blog Analytics',
-  brands: 'Top Vendors',
-  customers: 'Top Customers',
-  'payment-methods': 'Payment Methods',
-};
+function parseDateParam(value: string | undefined, fallback: Date): Date {
+  if (!value || value.trim() === '') {
+    return fallback;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+}
 
 function getSingleParam(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
 export default function AnalyticsInsightsScreen() {
-  const { colors } = useTheme();
-  const { merchant } = useMerchant();
-  const { isPro } = useRevenueCat();
+  const { colors, isDark } = useTheme();
+  const { format: formatCurrency } = useCurrency();
   const params = useLocalSearchParams<{
     endDate?: string | string[];
     filterLabel?: string | string[];
     kind?: string | string[];
     startDate?: string | string[];
   }>();
-  const [fallbackRange] = useState(createDefaultAnalyticsDateRange);
+  // Match the API's default analytics window when params are absent so we
+  // never collapse into a zero-width "now to now" request.
+  const [fallbackRange] = useState(() => {
+    const end = new Date();
+    const start = new Date(end.getTime() - 6 * 24 * 60 * 60 * 1000);
+    return { end, start };
+  });
   const startDateParam = getSingleParam(params.startDate);
   const endDateParam = getSingleParam(params.endDate);
   const filterLabelParam = getSingleParam(params.filterLabel);
   const kind = getSingleParam(params.kind) ?? 'blog';
-  const range = resolveAnalyticsDateRangeParams({
-    endDateParam,
-    fallbackRange,
-    startDateParam,
-  });
-  const hasAdvancedAnalytics =
-    isPro || baciFeatureGates.hasFeature(merchant, 'advanced_analytics');
-
-  return (
-    <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: INSIGHT_TITLES[kind] || 'Analytics',
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
-          headerShadowVisible: false,
-        }}
-      />
-      {hasAdvancedAnalytics ? (
-        <AnalyticsInsightsContent
-          filterLabel={filterLabelParam}
-          kind={kind}
-          range={range}
-        />
-      ) : (
-        <FeatureGateScreen
-          description="Segmented breakdowns and deeper insights are available when Baci Pro is active."
-          feature="advanced_analytics"
-          title="Advanced analytics are a Baci Pro feature"
-        >
-          {null}
-        </FeatureGateScreen>
-      )}
-    </>
-  );
-}
-
-function AnalyticsInsightsContent({
-  filterLabel,
-  kind,
-  range,
-}: {
-  filterLabel?: string;
-  kind: string;
-  range: AnalyticsDateRange;
-}) {
-  const { colors, isDark } = useTheme();
-  const { format: formatCurrency } = useCurrency();
+  const parsedStart = parseDateParam(startDateParam, fallbackRange.start);
+  const parsedEnd = parseDateParam(endDateParam, fallbackRange.end);
+  const range =
+    parsedStart.getTime() <= parsedEnd.getTime()
+      ? { endDate: parsedEnd, startDate: parsedStart }
+      : { endDate: parsedStart, startDate: parsedEnd };
   const {
     data: analytics,
     isLoading,
     error,
     refetch,
   } = useAnalyticsOverview(range);
+
+  const titles: Record<string, string> = {
+    blog: 'Blog Analytics',
+    brands: 'Top Brands',
+    customers: 'Top Customers',
+    'payment-methods': 'Payment Methods',
+    suppliers: 'Supplier Analytics',
+  };
 
   const formatCurrencyNoDecimals = (amount: number) =>
     formatCurrency(amount, {
@@ -137,6 +99,12 @@ function AnalyticsInsightsContent({
           id: `payment-${index}`,
           label: item.name,
           value: formatCurrencyNoDecimals(item.value ?? 0),
+        }));
+      case 'suppliers':
+        return (analytics?.supplierAnalytics ?? []).map((item, index) => ({
+          id: `supplier-${index}`,
+          label: item.supplierName,
+          value: `${item.unitCount.toLocaleString()} units - ${formatCurrencyNoDecimals(item.totalCost)} cost`,
         }));
       default:
         return [];
@@ -189,7 +157,7 @@ function AnalyticsInsightsContent({
           ]}
         >
           <Text style={[styles.heroEyebrow, { color: colors.textSecondary }]}>
-            {filterLabel || 'Selected period'}
+            {filterLabelParam || 'Selected period'}
           </Text>
           {kind === 'blog' ? (
             <>
@@ -221,7 +189,7 @@ function AnalyticsInsightsContent({
                 {rows.length.toLocaleString()}
               </Text>
               <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
-                Ranked breakdown for {filterLabel || 'the selected period'}
+                Ranked breakdown for {filterLabelParam || 'the selected period'}
               </Text>
             </>
           )}
@@ -248,16 +216,27 @@ function AnalyticsInsightsContent({
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['bottom']}
-    >
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: titles[kind] || 'Analytics',
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.text,
+          headerShadowVisible: false,
+        }}
+      />
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['bottom']}
+      >
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {renderBody()}
-        <View style={styles.footerSpace} />
-      </ScrollView>
-    </SafeAreaView>
+        <ScrollView contentContainerStyle={styles.content}>
+          {renderBody()}
+          <View style={styles.footerSpace} />
+        </ScrollView>
+      </SafeAreaView>
+    </>
   );
 }

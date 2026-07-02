@@ -14,6 +14,10 @@ import {
   getPercentChange,
   groupBreakdown,
 } from '@/lib/merchant-analytics-utils';
+import {
+  normalizeSupplierAnalyticsRows,
+  type SupplierAnalyticsRpcRow,
+} from '@/lib/merchant-supplier-analytics';
 import { sanitizeText } from '@/lib/sanitize-core';
 
 type RecentOrderRow = Pick<
@@ -41,6 +45,7 @@ export async function getMerchantAnalyticsOverview(
     previousOrderItemsResult,
     previousOrdersResult,
     recentOrdersResult,
+    supplierAnalyticsResult,
   } = await fetchMerchantAnalyticsData(
     supabase,
     merchantId,
@@ -58,7 +63,8 @@ export async function getMerchantAnalyticsOverview(
     previousOrderItemsResult.error ||
     recentOrdersResult.error ||
     blogPostsResult.error ||
-    activeOrdersResult.error;
+    activeOrdersResult.error ||
+    supplierAnalyticsResult.error;
 
   if (firstError) {
     throw new Error(firstError.message);
@@ -130,6 +136,9 @@ export async function getMerchantAnalyticsOverview(
   );
   const blogPosts = (blogPostsResult.data ?? []) as BlogPostRow[];
   const recentOrders = (recentOrdersResult.data ?? []) as RecentOrderRow[];
+  const supplierAnalytics = normalizeSupplierAnalyticsRows(
+    (supplierAnalyticsResult.data ?? []) as SupplierAnalyticsRpcRow[]
+  );
   const customerBreakdown = buildCustomerBreakdown(currentPaidOrders);
   const topPost =
     [...blogPosts].sort(
@@ -189,6 +198,7 @@ export async function getMerchantAnalyticsOverview(
     })),
     salesByChannel: groupBreakdown(currentPaidOrders, 'source'),
     salesByPaymentMethod,
+    supplierAnalytics,
     summary: {
       activeNow: { change: 0, value: activeOrdersResult.count ?? 0 },
       aov: {
@@ -263,5 +273,6 @@ export async function getMerchantAnalyticsOverview(
         }
       : null,
     topProducts: currentEntities.topProducts.slice(0, 10),
+    topSupplier: supplierAnalytics[0] ?? null,
   };
 }

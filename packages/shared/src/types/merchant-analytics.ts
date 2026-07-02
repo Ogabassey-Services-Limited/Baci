@@ -45,6 +45,17 @@ export interface MerchantAnalyticsTopProduct {
   units: number;
 }
 
+export interface MerchantSupplierAnalyticsRow {
+  grossProfit: number;
+  lossUnitCount: number;
+  missingCostUnitCount: number;
+  orderCount: number;
+  supplierName: string;
+  totalCost: number;
+  totalRevenue: number;
+  unitCount: number;
+}
+
 export interface MerchantAnalyticsBreakdownItem {
   name: string;
   value: number;
@@ -137,11 +148,13 @@ export interface MerchantAnalyticsResponse {
   recentSales: MerchantAnalyticsRecentSale[];
   salesByChannel: MerchantAnalyticsBreakdownItem[];
   salesByPaymentMethod: MerchantAnalyticsBreakdownItem[];
+  supplierAnalytics: MerchantSupplierAnalyticsRow[];
   summary: MerchantAnalyticsSummary;
   topBrand: MerchantAnalyticsNamedValue | null;
   topCustomer: MerchantAnalyticsNamedValue | null;
   topPaymentMethod: MerchantAnalyticsNamedValue | null;
   topProducts: MerchantAnalyticsTopProduct[];
+  topSupplier: MerchantSupplierAnalyticsRow | null;
 }
 
 export interface WebsiteAnalyticsSummary {
