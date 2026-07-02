@@ -1,17 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import { Suspense } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  mockBlogPostExistenceMaybeSingle,
   mockBlogPostPageContent,
-  mockCacheLife,
-  mockCacheTag,
   mockConnection,
   mockDraftMode,
   mockGetBlogPostRedirect,
   mockGetCachedBlogPost,
-  mockGetLiveBlogPost,
-  mockGetMerchantStrict,
   mockNotFound,
   mockPermanentRedirect,
   resetBlogPostPageMocks,
@@ -60,227 +55,44 @@ describe('storefront blog post page', () => {
     expect(
       screen.queryByText('Blog post page content')
     ).not.toBeInTheDocument();
-    expect(mockConnection).toHaveBeenCalledOnce();
-    expect(mockConnection.mock.invocationCallOrder[0]).toBeLessThan(
-      mockGetBlogPostRedirect.mock.invocationCallOrder[0]
-    );
   });
 
-  it('renders streamed blog post content without a page-level metadata marker', async () => {
+  it('renders streamed blog post content from the request-time subtree', async () => {
     render(await loadBlogPostPage('apple-studio-display-review'));
 
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
-    expect(mockConnection).toHaveBeenCalledOnce();
-    expect(mockConnection.mock.invocationCallOrder[0]).toBeLessThan(
-      mockGetBlogPostRedirect.mock.invocationCallOrder[0]
-    );
-    expect(mockConnection.mock.invocationCallOrder[0]).toBeLessThan(
-      mockBlogPostExistenceMaybeSingle.mock.invocationCallOrder[0]
-    );
   });
 
-  it('returns notFound for missing public blog post slugs outside draft mode', async () => {
-    mockBlogPostExistenceMaybeSingle.mockResolvedValueOnce({
-      data: null,
-      error: null,
+  it('passes the route params promise through to the content subtree untouched', async () => {
+    const params = Promise.resolve({
+      slug: 'ogabassey.com',
+      postSlug: 'apple-studio-display-review',
     });
+    const { default: BlogPostPage } = await import('./page');
 
-    await expect(loadBlogPostPage('smartphones')).rejects.toThrow(
-      'NEXT_NOT_FOUND'
-    );
+    render(BlogPostPage({ params }));
 
-    expect(mockConnection).toHaveBeenCalledOnce();
-    expect(mockDraftMode).toHaveBeenCalledOnce();
-    expect(mockBlogPostExistenceMaybeSingle).toHaveBeenCalledOnce();
-    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
-    expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
-    expect(mockBlogPostPageContent).not.toHaveBeenCalled();
+    expect(mockBlogPostPageContent).toHaveBeenCalledOnce();
+    const receivedProps = mockBlogPostPageContent.mock.calls[0][0] as {
+      params: unknown;
+    };
+    expect(receivedProps.params).toBe(params);
   });
 
-  it('returns notFound when the blog merchant is genuinely missing', async () => {
-    mockGetMerchantStrict.mockResolvedValueOnce(null);
+  it('keeps the page root free of request APIs and status lookups', async () => {
+    // Static-shell contract: hard 404/308 belongs to the proxy blog-post
+    // preflight and draft/not-found/redirect handling to the streamed
+    // subtree. Any request API or lookup re-added at the page root forces
+    // the route dynamic and reintroduces the per-request
+    // NEXT_STATIC_GEN_BAILOUT this fix removed (PR #2882 regression).
+    render(await loadBlogPostPage('any-slug-even-a-missing-one'));
 
-    await expect(loadBlogPostPage('smartphones')).rejects.toThrow(
-      'NEXT_NOT_FOUND'
-    );
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-    expect(mockBlogPostExistenceMaybeSingle).not.toHaveBeenCalled();
-    expect(mockNotFound).toHaveBeenCalledOnce();
+    expect(screen.getByText('Blog post page content')).toBeInTheDocument();
+    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockDraftMode).not.toHaveBeenCalled();
+    expect(mockGetBlogPostRedirect).not.toHaveBeenCalled();
     expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
-    expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
-    expect(mockBlogPostPageContent).not.toHaveBeenCalled();
-  });
-
-  it('propagates merchant lookup errors before caching a missing public post', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-    const lookupError = new Error('merchant lookup timeout');
-    mockGetMerchantStrict.mockRejectedValueOnce(lookupError);
-
-    await expect(
-      loadBlogPostPage('apple-studio-display-review')
-    ).rejects.toThrow(lookupError);
-
-    expect(mockBlogPostExistenceMaybeSingle).not.toHaveBeenCalled();
     expect(mockNotFound).not.toHaveBeenCalled();
-    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
-    expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
-    expect(mockBlogPostPageContent).not.toHaveBeenCalled();
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Error checking public blog post at page boundary',
-      expect.objectContaining({
-        slug: 'ogabassey.com',
-        postSlug: 'apple-studio-display-review',
-        error: lookupError,
-      })
-    );
-
-    consoleErrorSpy.mockRestore();
-  });
-
-  it('streams public posts without resolving full post data at the page boundary', async () => {
-    render(await loadBlogPostPage('apple-studio-display-review'));
-
-    expect(mockBlogPostExistenceMaybeSingle).toHaveBeenCalledOnce();
-    expect(mockCacheLife).toHaveBeenCalledWith('blog');
-    expect(mockCacheTag).toHaveBeenCalledWith(
-      'blog-posts',
-      expect.stringContaining('blog-ogabassey.com-apple-studio-display-review')
-    );
-    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
-    expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
-    expect(screen.getByText('Blog post page content')).toBeInTheDocument();
-  });
-
-  it('keeps streaming content when the lightweight existence check errors', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-    const lookupError = new Error('public post existence unavailable');
-    mockBlogPostExistenceMaybeSingle.mockResolvedValueOnce({
-      data: null,
-      error: lookupError,
-    });
-
-    render(await loadBlogPostPage('apple-studio-display-review'));
-
-    expect(screen.getByText('Blog post page content')).toBeInTheDocument();
-    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
-    expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Error checking public blog post at page boundary',
-      expect.objectContaining({
-        slug: 'ogabassey.com',
-        postSlug: 'apple-studio-display-review',
-        error: lookupError,
-      })
-    );
-
-    consoleErrorSpy.mockRestore();
-  });
-
-  it('retries redirect lookup before notFound when public post is missing', async () => {
-    const redirectLookupError = new Error('redirect store unavailable');
-    mockGetBlogPostRedirect
-      .mockRejectedValueOnce(redirectLookupError)
-      .mockResolvedValueOnce({
-        merchant: {
-          id: 'merchant-1',
-          business_name: 'Ogabassey',
-          slug: 'ogabassey',
-          custom_domain: 'ogabassey.com',
-        },
-        targetSlug: 'canonical-post',
-      });
-    mockBlogPostExistenceMaybeSingle.mockResolvedValueOnce({
-      data: null,
-      error: null,
-    });
-
-    await expect(loadBlogPostPage('retired-post')).rejects.toThrow(
-      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
-    );
-
-    expect(mockGetBlogPostRedirect).toHaveBeenCalledTimes(2);
-    expect(mockNotFound).not.toHaveBeenCalled();
-    expect(mockBlogPostPageContent).not.toHaveBeenCalled();
-  });
-
-  it('propagates redirect retry errors before notFound when public post is missing', async () => {
-    const firstError = new Error('redirect store unavailable');
-    const retryError = new Error('redirect store still unavailable');
-    mockGetBlogPostRedirect
-      .mockRejectedValueOnce(firstError)
-      .mockRejectedValueOnce(retryError);
-    mockBlogPostExistenceMaybeSingle.mockResolvedValueOnce({
-      data: null,
-      error: null,
-    });
-
-    await expect(loadBlogPostPage('retired-post')).rejects.toThrow(retryError);
-
-    expect(mockGetBlogPostRedirect).toHaveBeenCalledTimes(2);
-    expect(mockNotFound).not.toHaveBeenCalled();
-    expect(mockBlogPostPageContent).not.toHaveBeenCalled();
-  });
-
-  it('allows draft-mode blog slugs to render without a public post', async () => {
-    mockDraftMode.mockResolvedValueOnce({ isEnabled: true });
-    mockGetCachedBlogPost.mockResolvedValueOnce(null);
-
-    render(await loadBlogPostPage('draft-only-post'));
-
-    expect(screen.getByText('Blog post page content')).toBeInTheDocument();
-    expect(mockBlogPostExistenceMaybeSingle).not.toHaveBeenCalled();
-    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
-    expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
-  });
-
-  it('permanently redirects retired blog slugs before rendering the streamed shell', async () => {
-    mockGetBlogPostRedirect.mockResolvedValueOnce({
-      merchant: {
-        id: 'merchant-1',
-        business_name: 'Ogabassey',
-        slug: 'ogabassey',
-        custom_domain: 'ogabassey.com',
-      },
-      targetSlug: 'canonical-post',
-    });
-
-    await expect(loadBlogPostPage('retired-post')).rejects.toThrow(
-      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
-    );
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-    expect(mockGetBlogPostRedirect).toHaveBeenCalledWith(
-      'ogabassey.com',
-      'retired-post'
-    );
-    expect(mockBlogPostPageContent).not.toHaveBeenCalled();
-  });
-
-  it('keeps rendering canonical posts when redirect lookup fails', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-    const redirectLookupError = new Error('redirect store unavailable');
-    mockGetBlogPostRedirect.mockRejectedValueOnce(redirectLookupError);
-
-    render(await loadBlogPostPage('apple-studio-display-review'));
-
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
-    expect(screen.getByText('Blog post page content')).toBeInTheDocument();
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Blog redirect lookup failed at page boundary',
-      expect.objectContaining({
-        slug: 'ogabassey.com',
-        postSlug: 'apple-studio-display-review',
-        error: redirectLookupError,
-      })
-    );
-
-    consoleErrorSpy.mockRestore();
   });
 });
