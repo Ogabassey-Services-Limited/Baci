@@ -109,7 +109,14 @@ export async function submitNewOrder({
       : '';
     const sanitizedNotes = notes.trim() ? sanitizeNotes(notes) : null;
     const normalizedMerchantCurrency =
-      normalizeMerchantCurrency(merchantCurrency) || 'NGN';
+      normalizeMerchantCurrency(merchantCurrency);
+    if (merchantCurrency?.trim() && !normalizedMerchantCurrency) {
+      console.warn('[submitNewOrder] Unsupported merchant currency fallback', {
+        merchantCurrency,
+        fallbackCurrency: 'NGN',
+      });
+    }
+    const orderCurrency = normalizedMerchantCurrency ?? 'NGN';
     const parsedPartialAmount = Number.parseFloat(partialAmount);
     if (
       paymentStatus === 'partially_paid' &&
@@ -180,7 +187,7 @@ export async function submitNewOrder({
                 ? total
                 : 0,
           branch_id: validatedBranchId,
-          currency: normalizedMerchantCurrency,
+          currency: orderCurrency,
           customer_email: sanitizedCustomerEmail,
           customer_id: customer.id,
           customer_name: sanitizedCustomerName,

@@ -311,6 +311,10 @@ const form = useForm<MyFormValues>({
 ### AI Flow Schemas (Vercel AI SDK)
 
 ```typescript
+import { generateText, Output } from 'ai';
+import { z } from 'zod';
+import { activeTextModel } from '@/ai/provider';
+
 // 1. Define input/output schemas
 const InputSchema = z.object({
   field1: z.string().describe('Description for AI'),
@@ -323,19 +327,16 @@ const OutputSchema = z.object({
 export type FlowInput = z.infer<typeof InputSchema>;
 export type FlowOutput = z.infer<typeof OutputSchema>;
 
-// 3. Define flow with schemas
-const flow = ai.defineFlow({
-  name: 'myFlow',
-  inputSchema: InputSchema,
-  outputSchema: OutputSchema,
-}, async (input) => {
-  // AI logic
-  return output;
-});
-
-// 4. Export flow function
+// 3. Export a plain async function that validates input and uses AI SDK 6
 export async function myFlow(input: FlowInput): Promise<FlowOutput> {
-  return flow(input);
+  const validatedInput = InputSchema.parse(input);
+  const { output } = await generateText({
+    model: activeTextModel,
+    output: Output.object({ schema: OutputSchema }),
+    prompt: `Generate output for ${JSON.stringify(validatedInput)}`,
+  });
+
+  return output;
 }
 ```
 

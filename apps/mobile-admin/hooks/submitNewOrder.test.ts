@@ -207,6 +207,8 @@ describe('submitNewOrder', () => {
   });
 
   it('normalizes unsupported merchant currencies before saving orders', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
     await submitNewOrder(
       createSubmitParams({
         merchantCurrency: 'ABC',
@@ -221,6 +223,14 @@ describe('submitNewOrder', () => {
         }),
       })
     );
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[submitNewOrder] Unsupported merchant currency fallback',
+      {
+        fallbackCurrency: 'NGN',
+        merchantCurrency: 'ABC',
+      }
+    );
+    warnSpy.mockRestore();
   });
 
   it('normalizes lowercase merchant currencies before saving orders', async () => {

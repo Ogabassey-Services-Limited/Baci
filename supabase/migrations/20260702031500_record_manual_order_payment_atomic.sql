@@ -33,6 +33,10 @@ begin
     return jsonb_build_object('error_code', 'INVALID_AMOUNT');
   end if;
 
+  if p_amount <> round(p_amount, 2) then
+    return jsonb_build_object('error_code', 'INVALID_AMOUNT');
+  end if;
+
   select
     o.id,
     o.merchant_id,
@@ -47,6 +51,35 @@ begin
 
   if not found then
     return jsonb_build_object('error_code', 'ORDER_NOT_FOUND');
+  end if;
+
+  if exists (
+    select 1
+    from public.transactions as t
+    where t.order_id = p_order_id
+      and t.merchant_id is distinct from p_merchant_id
+      and t.status in ('completed', 'pending', 'processing')
+  ) then
+    return jsonb_build_object(
+      'error_code', 'ORDER_PAYMENT_RECONCILIATION_REQUIRED'
+    );
+  end if;
+
+  if exists (
+    select 1
+    from public.transactions as t
+    where t.order_id = p_order_id
+      and t.merchant_id = p_merchant_id
+      and t.status in ('pending', 'processing')
+      and lower(coalesce(t.gateway, '')) in (
+        'paystack',
+        'korapay',
+        'kuda',
+        'credit_direct',
+        'juicyway'
+      )
+  ) then
+    return jsonb_build_object('error_code', 'PENDING_GATEWAY_PAYMENT');
   end if;
 
   select coalesce(sum(coalesce(t.amount, 0)), 0)::numeric
@@ -137,4 +170,4 @@ revoke all on function public.record_manual_order_payment(uuid, uuid, numeric, t
 grant execute on function public.record_manual_order_payment(uuid, uuid, numeric, text, text, text, jsonb) to authenticated;
 
 comment on function public.record_manual_order_payment(uuid, uuid, numeric, text, text, text, jsonb) is
-  'Atomically records a manual order payment by locking the merchant-owned order row, recomputing paid totals, rejecting stale overpayments or duplicate references, and inserting the transaction in one database transaction.';
+  'Atomically records a manual order payment by locking the merchant-owned order row, rejecting invalid amounts, pending processor payments, drifted order transactions, stale overpayments, and duplicate references before inserting the transaction in one database transaction.';

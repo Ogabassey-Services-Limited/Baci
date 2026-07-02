@@ -189,6 +189,37 @@ describe('POST /api/orders/[id]/record-payment', () => {
     );
   };
 
+  const createRecordPaymentMerchant = () => ({
+    id: mockMerchantId,
+    business_name: 'Test Store',
+    slug: 'test-store',
+    support_email: 'support@test.com',
+    email_sender_name: 'Test',
+    email: 'merchant@test.com',
+  });
+
+  const createRecordPaymentOrder = () => ({
+    id: mockOrderId,
+    merchant_id: mockMerchantId,
+    order_number: 'ORD-001',
+    customer_name: 'John Doe',
+    customer_email: 'john@example.com',
+    customer_phone: '+1234567890',
+    total: 10000,
+    subtotal: 9000,
+    shipping_fee: 1000,
+    currency: 'NGN',
+    payment_status: 'pending',
+    shipping_status: 'pending',
+    wallet_amount_used: 0,
+    order_items: [{ name: 'Product 1', quantity: 2, price: 4500 }],
+    shipping_address: {
+      address: '123 Main St',
+      city: 'Lagos',
+      state: 'Lagos',
+    },
+  });
+
   type RecordPaymentSupabaseFixture = {
     deleteError?: unknown;
     insertError?: unknown;
@@ -1485,39 +1516,9 @@ describe('POST /api/orders/[id]/record-payment', () => {
   });
 
   it('returns 400 when the atomic insert rejects an invalid direct-call amount', async () => {
-    const mockMerchant = {
-      id: mockMerchantId,
-      business_name: 'Test Store',
-      slug: 'test-store',
-      support_email: 'support@test.com',
-      email_sender_name: 'Test',
-      email: 'merchant@test.com',
-    };
-    const mockOrder = {
-      id: mockOrderId,
-      merchant_id: mockMerchantId,
-      order_number: 'ORD-001',
-      customer_name: 'John Doe',
-      customer_email: 'john@example.com',
-      customer_phone: '+1234567890',
-      total: 10000,
-      subtotal: 9000,
-      shipping_fee: 1000,
-      currency: 'NGN',
-      payment_status: 'pending',
-      shipping_status: 'pending',
-      wallet_amount_used: 0,
-      order_items: [{ name: 'Product 1', quantity: 2, price: 4500 }],
-      shipping_address: {
-        address: '123 Main St',
-        city: 'Lagos',
-        state: 'Lagos',
-      },
-    };
-
     const { orderQuery, rpc } = setupRecordPaymentSupabase({
-      merchant: mockMerchant,
-      order: mockOrder,
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
       recordManualPaymentErrorCode: 'INVALID_AMOUNT',
       transactions: [],
     });
@@ -1541,6 +1542,122 @@ describe('POST /api/orders/[id]/record-payment', () => {
       expect.objectContaining({
         p_amount: 5000,
         p_gateway_reference: 'REF-INVALID-RPC-AMOUNT',
+        p_merchant_id: mockMerchantId,
+        p_order_id: mockOrderId,
+      })
+    );
+    expect(orderQuery.update).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when the transaction read RPC detects merchant drift', async () => {
+    const { orderQuery, rpc } = setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      transactions: [
+        {
+          amount: null,
+          error_code: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
+          gateway: null,
+          gateway_reference: null,
+          status: null,
+        },
+      ],
+    });
+
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-DRIFTED-TXN',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data).toEqual({
+      error:
+        'This order has payments that require reconciliation before recording a manual payment.',
+      code: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
+    });
+    expect(rpc).toHaveBeenCalledWith('get_record_payment_order_transactions', {
+      p_merchant_id: mockMerchantId,
+      p_order_id: mockOrderId,
+    });
+    expect(orderQuery.update).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when the atomic insert detects a pending processor transaction', async () => {
+    const { orderQuery, rpc } = setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPaymentErrorCode: 'PENDING_GATEWAY_PAYMENT',
+      transactions: [],
+    });
+
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-PENDING-RPC',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data).toEqual({
+      error:
+        'This order has a pending processor payment. Use payment reconciliation instead.',
+      code: 'PENDING_GATEWAY_PAYMENT',
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'record_manual_order_payment',
+      expect.objectContaining({
+        p_amount: 5000,
+        p_gateway_reference: 'REF-PENDING-RPC',
+        p_merchant_id: mockMerchantId,
+        p_order_id: mockOrderId,
+      })
+    );
+    expect(orderQuery.update).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when the atomic insert detects merchant drift', async () => {
+    const { orderQuery, rpc } = setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPaymentErrorCode: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
+      transactions: [],
+    });
+
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-DRIFTED-RPC',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data).toEqual({
+      error:
+        'This order has payments that require reconciliation before recording a manual payment.',
+      code: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'record_manual_order_payment',
+      expect.objectContaining({
+        p_amount: 5000,
+        p_gateway_reference: 'REF-DRIFTED-RPC',
         p_merchant_id: mockMerchantId,
         p_order_id: mockOrderId,
       })

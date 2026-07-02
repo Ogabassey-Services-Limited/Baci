@@ -40,6 +40,7 @@ interface EmailOrderItem {
 
 interface RecordPaymentTransactionRow {
   amount: number | string | null;
+  error_code?: string | null;
   gateway: string | null;
   gateway_reference: string | null;
   status: string | null;
@@ -247,6 +248,40 @@ export async function POST(
       );
     }
 
+    const transactionReadError = relevantTxns?.find((t) => t.error_code);
+    if (
+      transactionReadError?.error_code ===
+      'ORDER_PAYMENT_RECONCILIATION_REQUIRED'
+    ) {
+      logger.warn({
+        message:
+          'RecordPayment rejected: order transaction merchant drift requires reconciliation',
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        {
+          error:
+            'This order has payments that require reconciliation before recording a manual payment.',
+          code: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
+        },
+        { status: 409 }
+      );
+    }
+
+    if (transactionReadError?.error_code) {
+      logger.error({
+        message: 'RecordPayment transaction RPC returned unknown error code',
+        errorCode: transactionReadError.error_code,
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        { error: 'Failed to fetch order transactions' },
+        { status: 500 }
+      );
+    }
+
     // Δ-36 (A3): pending-gateway guard. Block manual record-payment
     // while a non-manual processor transaction (Paystack DVA, Korapay,
     // Kuda, Credit Direct, Juicyway) is still pending or processing —
@@ -426,6 +461,43 @@ export async function POST(
         orderId,
       });
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
+    }
+
+    if (manualPaymentResult?.error_code === 'PENDING_GATEWAY_PAYMENT') {
+      logger.warn({
+        message:
+          'RecordPayment rejected by atomic insert: pending processor transaction',
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        {
+          error:
+            'This order has a pending processor payment. Use payment reconciliation instead.',
+          code: 'PENDING_GATEWAY_PAYMENT',
+        },
+        { status: 409 }
+      );
+    }
+
+    if (
+      manualPaymentResult?.error_code ===
+      'ORDER_PAYMENT_RECONCILIATION_REQUIRED'
+    ) {
+      logger.warn({
+        message:
+          'RecordPayment rejected by atomic insert: order transaction merchant drift requires reconciliation',
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        {
+          error:
+            'This order has payments that require reconciliation before recording a manual payment.',
+          code: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
+        },
+        { status: 409 }
+      );
     }
 
     if (manualPaymentResult?.error_code === 'ORDER_ALREADY_PAID') {

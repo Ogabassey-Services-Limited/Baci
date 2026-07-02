@@ -13,7 +13,7 @@
 - **Framework:** Next.js 16.2.9 (App Router)
 - **Language:** TypeScript 5.9.3+ (strict mode)
 - **Styling:** Tailwind CSS 4.3.1+ + shadcn/ui
-- **AI Engine:** Vercel AI SDK 6 with Gemini 2.5 Flash models
+- **AI Engine:** Vercel AI SDK 6 with `activeTextModel` (`gemini-2.0-flash`) and Gemini 2.5 Flash Image for multimodal/image generation
 - **Forms:** React Hook Form 7.79.0+ + Zod 4.4.3+ validation
 - **Database:** Supabase (PostgreSQL)
 - **Authentication:** Supabase Auth
@@ -335,12 +335,18 @@ const form = useForm<FormValues>({
 ```
 
 ### AI Flow Pattern
+
 All AI actions follow this pattern using Vercel AI SDK 6 structured output:
 
+Official AI SDK 6 references for this pattern:
+
+- `generateText` structured outputs: https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data
+- `Output.object()` reference: https://ai-sdk.dev/docs/reference/ai-sdk-core/output
+
 ```typescript
-import { google } from '@ai-sdk/google';
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
+import { activeTextModel } from '@/ai/provider';
 
 // 1. Define input/output schemas
 const InputSchema = z.object({ /* input fields */ });
@@ -354,7 +360,7 @@ export async function generateContent(input: FlowInput): Promise<FlowOutput> {
 
   // 3. Call Vercel AI SDK 6 structured output
   const { output } = await generateText({
-    model: google('gemini-2.5-flash'),
+    model: activeTextModel,
     output: Output.object({ schema: OutputSchema }),
     prompt: `Generated prompt based on ${JSON.stringify(validatedInput)}`,
   });
