@@ -4,6 +4,7 @@ import {
   isValidDeviceIdentifier,
   isValidImeiChecksum,
   normalizeDeviceIdentifier,
+  resolveInputIdentifier,
 } from './identifier';
 
 describe('isValidImeiChecksum', () => {
@@ -57,10 +58,18 @@ describe('normalizeDeviceIdentifier', () => {
     ).toHaveLength(15);
   });
 
-  it('uppercases alphanumerics (max 14) for serial mode', () => {
+  it('uppercases and strips separators for serial mode', () => {
     expect(normalizeDeviceIdentifier('c02xl0-abjgh5', 'serial')).toBe(
       'C02XL0ABJGH5'
     );
+  });
+
+  it('does not shorten an over-length serial into a valid 14-char value', () => {
+    // A pasted 15-digit IMEI on a serial tier must stay 15 chars (invalid),
+    // not be sliced to a spurious 14-char "valid" serial that bills a lookup.
+    const normalized = normalizeDeviceIdentifier('354442067957452', 'serial');
+    expect(normalized).toBe('354442067957452');
+    expect(isValidDeviceIdentifier(normalized, 'serial')).toBe(false);
   });
 
   it('keeps uppercased alphanumerics (max 15) for both mode', () => {
@@ -68,5 +77,20 @@ describe('normalizeDeviceIdentifier', () => {
     expect(
       normalizeDeviceIdentifier('1234567890123456789', 'both')
     ).toHaveLength(15);
+  });
+});
+
+describe('resolveInputIdentifier', () => {
+  it('narrows a both-tier to the device identifier on serial-only tabs', () => {
+    // A "both" tier on a laptop/watch tab must reject a phone IMEI.
+    expect(resolveInputIdentifier('both', 'serial')).toBe('serial');
+    expect(resolveInputIdentifier('both', 'imei')).toBe('imei');
+    expect(resolveInputIdentifier('both', 'both')).toBe('both');
+  });
+
+  it('keeps a specific tier identifier regardless of the device', () => {
+    // A serial-only GSX tier stays serial even on the phone (imei) tab.
+    expect(resolveInputIdentifier('serial', 'imei')).toBe('serial');
+    expect(resolveInputIdentifier('imei', 'serial')).toBe('imei');
   });
 });

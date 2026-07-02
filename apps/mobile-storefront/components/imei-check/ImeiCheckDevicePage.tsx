@@ -1,11 +1,13 @@
 import {
   getVisibleImeiServiceTierKeysForDevice,
+  IMEI_IDENTIFIER_BY_DEVICE,
   IMEI_SERVICE_TIERS,
   type ImeiBrandFilter,
   type ImeiDeviceCategory,
   type ImeiServiceTierKey,
   normalizeDeviceIdentifier,
   RECOMMENDED_TIER_BY_DEVICE,
+  resolveInputIdentifier,
 } from '@baci/shared/imei';
 import { useState } from 'react';
 import type { ImeiCheckerColors } from './imei-check.types';
@@ -58,7 +60,12 @@ export function ImeiCheckDevicePage({
   );
   const expandedViewEnabled = canToggleServices && showAllServices;
   const currentTier = IMEI_SERVICE_TIERS[selectedTier];
-  const identifier = currentTier.identifier;
+  // A "both" tier defers to the device's physical identifier, so a laptop/watch
+  // tab never accepts a phone IMEI even when the underlying tier allows either.
+  const identifier = resolveInputIdentifier(
+    currentTier.identifier,
+    IMEI_IDENTIFIER_BY_DEVICE[device]
+  );
   const visibleTierKeys = getPublicVisibleImeiServiceTierKeys(
     deviceTierGetter,
     selectedBrand,
@@ -69,8 +76,13 @@ export function ImeiCheckDevicePage({
 
   // Switch tiers; if the new tier expects a different identifier (IMEI vs
   // serial) clear the input so stale, wrong-format text never reaches verify.
+  // Compare the device-resolved identifiers, not the raw tier ones.
   const applyTier = (nextTier: ImeiServiceTierKey) => {
-    if (IMEI_SERVICE_TIERS[nextTier].identifier !== identifier) {
+    const nextIdentifier = resolveInputIdentifier(
+      IMEI_SERVICE_TIERS[nextTier].identifier,
+      IMEI_IDENTIFIER_BY_DEVICE[device]
+    );
+    if (nextIdentifier !== identifier) {
       setImei('');
     }
     setSelectedTier(nextTier);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { resolveInputIdentifier } from './identifier';
 import {
   ALL_IMEI_SERVICE_TIERS,
   getVisibleImeiServiceTierKeys,
@@ -131,9 +132,27 @@ describe('IMEI service tiers', () => {
     for (const { id } of IMEI_DEVICE_CATEGORIES) {
       expect(IMEI_IDENTIFIER_BY_DEVICE[id]).toBeDefined();
     }
-    expect(IMEI_IDENTIFIER_BY_DEVICE.smartphone).toBe('imei');
+    // Phones must stay 'both' (not 'imei') so a shared 'both' Apple tier keeps
+    // accepting an iPhone serial on the phone tab; a revert to 'imei' would
+    // block serial input for activation/mdm/demoUnit.
+    expect(IMEI_IDENTIFIER_BY_DEVICE.smartphone).toBe('both');
     expect(IMEI_IDENTIFIER_BY_DEVICE.laptop).toBe('serial');
+    expect(IMEI_IDENTIFIER_BY_DEVICE.watch).toBe('serial');
     expect(IMEI_IDENTIFIER_BY_DEVICE.tablet).toBe('both');
+  });
+
+  it('keeps a both-tier flexible on the phone tab but serial-only on laptop/watch', () => {
+    // Regression: a 'both' Apple tier (e.g. activation) must still accept a
+    // serial on the phone tab, while laptop/watch narrow it to serial-only.
+    expect(
+      resolveInputIdentifier('both', IMEI_IDENTIFIER_BY_DEVICE.smartphone)
+    ).toBe('both');
+    expect(
+      resolveInputIdentifier('both', IMEI_IDENTIFIER_BY_DEVICE.laptop)
+    ).toBe('serial');
+    expect(
+      resolveInputIdentifier('both', IMEI_IDENTIFIER_BY_DEVICE.watch)
+    ).toBe('serial');
   });
 
   it('scopes device-aware tiers to the requested hardware family', () => {

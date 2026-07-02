@@ -39,6 +39,7 @@ export function useBillFormController({
   initialCustomerName,
   initialCustomerAddress,
   isRepeatPaymentReady = false,
+  recentRecipients,
   type,
   onSuccess,
 }: BillFormProps): BillFormController {
@@ -104,6 +105,9 @@ export function useBillFormController({
     setProviderPickerExpanded,
   } = useBillFormSelection({
     billers: billersQuery.data,
+    // Returning users repeat more than they add: when beneficiaries exist the
+    // provider grid starts collapsed behind "Other providers" (see BillForm).
+    hasBeneficiaries: (recentRecipients?.length ?? 0) > 0,
     initialAmount,
     initialBillerName,
     initialBillItemIdentifier,

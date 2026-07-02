@@ -59,6 +59,7 @@ function renderSelection(overrides: Partial<UseSelectionInput> = {}) {
   const result = renderHook(() =>
     useBillFormSelection({
       billers: [BILLER],
+      hasBeneficiaries: false,
       isRepeatPaymentReady: false,
       onInitialRepeatPaymentReady,
       onSelectionChanged,
@@ -76,6 +77,41 @@ function renderSelection(overrides: Partial<UseSelectionInput> = {}) {
 }
 
 describe('useBillFormSelection', () => {
+  it('starts the provider picker collapsed for returning users with beneficiaries', () => {
+    const { result } = renderSelection({ hasBeneficiaries: true });
+
+    expect(result.current.isProviderPickerExpanded).toBe(false);
+  });
+
+  it('starts the provider picker expanded for first-timers without beneficiaries', () => {
+    const { result } = renderSelection({ hasBeneficiaries: false });
+
+    expect(result.current.isProviderPickerExpanded).toBe(true);
+  });
+
+  it('collapses the picker when beneficiaries load asynchronously after mount', () => {
+    // recentRecipients arrives from a query, so hasBeneficiaries flips
+    // false→true after the first render — the picker must still collapse.
+    const { result, rerender } = renderHook(
+      ({ hasBeneficiaries }: { hasBeneficiaries: boolean }) =>
+        useBillFormSelection({
+          billers: [BILLER],
+          hasBeneficiaries,
+          isRepeatPaymentReady: false,
+          onInitialRepeatPaymentReady: jest.fn(),
+          onSelectionChanged: jest.fn(),
+          setAmount: jest.fn(),
+        }),
+      { initialProps: { hasBeneficiaries: false } }
+    );
+
+    expect(result.current.isProviderPickerExpanded).toBe(true);
+
+    rerender({ hasBeneficiaries: true });
+
+    expect(result.current.isProviderPickerExpanded).toBe(false);
+  });
+
   it('initializes a repeat payment when the initial bill item resolves to a leaf', async () => {
     const { onInitialRepeatPaymentReady, result, setAmount } = renderSelection({
       initialBillerName: 'EKEDC NG Prepaid Meter',

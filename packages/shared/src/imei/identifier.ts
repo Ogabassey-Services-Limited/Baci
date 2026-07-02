@@ -45,6 +45,22 @@ export function isValidDeviceIdentifier(
 }
 
 /**
+ * Resolve the identifier the input should actually use, given the tier's
+ * accepted identifier and the selected device's physical identifier.
+ *
+ * A tier that accepts either (`both`) defers to what the device physically has
+ * — so a `both` tier shown on a laptop/watch tab becomes serial-only and won't
+ * accept a phone IMEI. A tier that requires a specific identifier keeps its own
+ * requirement (e.g. a `serial` GSX tier stays serial even on the phone tab).
+ */
+export function resolveInputIdentifier(
+  tierIdentifier: ImeiIdentifierType,
+  deviceIdentifier: ImeiIdentifierType
+): ImeiIdentifierType {
+  return tierIdentifier === 'both' ? deviceIdentifier : tierIdentifier;
+}
+
+/**
  * Normalize raw input for a given identifier type as the user types:
  * IMEI → digits only (max 15); serial → uppercase alphanumeric (max 14).
  */
@@ -55,11 +71,15 @@ export function normalizeDeviceIdentifier(
   if (identifier === 'imei') {
     return raw.replace(/\D/g, '').slice(0, 15);
   }
+  // Serial cap is 15 (one past the 14-char max) NOT 14: capping at 14 would
+  // silently shorten a pasted 15-digit IMEI into a 14-char string that passes
+  // the 8–14 serial check, letting a wrong-identifier lookup be billed. Keeping
+  // the extra char leaves an over-length serial invalid so it's rejected.
   if (identifier === 'serial') {
     return raw
       .replace(/[^A-Za-z0-9]/g, '')
       .toUpperCase()
-      .slice(0, 14);
+      .slice(0, 15);
   }
   // both: keep alphanumeric, uppercased; allow up to 15 (IMEI length).
   return raw

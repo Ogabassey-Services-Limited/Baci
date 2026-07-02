@@ -16,6 +16,7 @@ import {
 
 interface UseBillFormSelectionInput {
   billers: Biller[] | undefined;
+  hasBeneficiaries: boolean;
   initialAmount?: string;
   initialBillerName?: string;
   initialBillItemIdentifier?: string;
@@ -28,6 +29,7 @@ interface UseBillFormSelectionInput {
 
 export function useBillFormSelection({
   billers,
+  hasBeneficiaries,
   initialAmount,
   initialBillerName,
   initialBillItemIdentifier,
@@ -43,12 +45,30 @@ export function useBillFormSelection({
   const [selectedBillItemCodes, setSelectedBillItemCodes] = useState<string[]>(
     []
   );
-  const [isProviderPickerExpanded, setIsProviderPickerExpanded] =
-    useState(true);
+  // Start collapsed for returning users (beneficiaries present) so the grid
+  // hides behind "Other providers"; first-timers get it expanded. A specific
+  // initial biller match below also collapses it.
+  const [isProviderPickerExpanded, setIsProviderPickerExpanded] = useState(
+    !hasBeneficiaries
+  );
+  const [prevHasBeneficiaries, setPrevHasBeneficiaries] =
+    useState(hasBeneficiaries);
   const [initialMatch, setInitialMatch] = useState<InitialBillerMatch | null>(
     null
   );
   const hasAppliedInitialMatchRef = useRef(false);
+
+  // recentRecipients loads asynchronously, so hasBeneficiaries usually flips
+  // false→true after mount — later than the useState initializer above runs.
+  // When it flips true and nothing is selected yet, collapse the grid so
+  // returning users land on the "Other providers" entry state (adjusting state
+  // during render, per the React docs linked below).
+  if (hasBeneficiaries !== prevHasBeneficiaries) {
+    setPrevHasBeneficiaries(hasBeneficiaries);
+    if (hasBeneficiaries && !selectedBiller) {
+      setIsProviderPickerExpanded(false);
+    }
+  }
 
   // Initialize the selection inline during render once billers arrive so the
   // first committed frame already shows the matched biller

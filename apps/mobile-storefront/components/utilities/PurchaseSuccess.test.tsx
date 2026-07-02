@@ -305,6 +305,25 @@ describe('PurchaseSuccess', () => {
     ).not.toBeOnTheScreen();
   });
 
+  it('shows the reference (not the slogan) while a purchase is still processing', () => {
+    render(
+      <PurchaseSuccess
+        type="power"
+        customerIdentifier="43901766923"
+        txReference="ref-123"
+        cashback={null}
+        isAuthenticated={true}
+        onCreateAccount={jest.fn()}
+        status="processing"
+      />
+    );
+
+    expect(screen.getByText('Ref: ref-123')).toBeOnTheScreen();
+    expect(
+      screen.queryByText('Ogabassey Never Disappoints!')
+    ).not.toBeOnTheScreen();
+  });
+
   it('uses the provided utility type when no label mapping exists', () => {
     render(
       <PurchaseSuccess

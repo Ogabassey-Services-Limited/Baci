@@ -77,7 +77,11 @@ export const IMEI_IDENTIFIER_BY_DEVICE: Record<
   ImeiDeviceCategory,
   ImeiIdentifierType
 > = {
-  smartphone: 'imei',
+  // Phones are IMEI-first but iPhones also have a serial, so 'both' keeps the
+  // shared Apple 'both' tiers (activation/mdm/demoUnit) accepting a serial on
+  // the phone tab. IMEI-only tiers (e.g. Android) keep 'imei' via their own
+  // tier identifier, which resolveInputIdentifier never widens.
+  smartphone: 'both',
   tablet: 'both',
   laptop: 'serial',
   watch: 'serial',

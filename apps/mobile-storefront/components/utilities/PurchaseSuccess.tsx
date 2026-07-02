@@ -203,13 +203,14 @@ export function PurchaseSuccess({
         {messageText}
       </Text>
 
-      {presentation.canShareReceipt ? (
+      {status === 'successful' ? (
         <Text style={[styles.referenceText, { color: colors.textSecondary }]}>
           Ogabassey Never Disappoints!
         </Text>
       ) : txReference ? (
-        // Failed/error/cancelled: keep the transaction reference visible so the
-        // buyer can quote it to support (the cheerful slogan would be wrong here).
+        // Any non-success state (processing/failed/error/cancelled): show the
+        // transaction reference so the buyer can quote it while it settles or to
+        // support — the celebratory slogan would be premature or wrong here.
         <Text style={[styles.referenceText, { color: colors.textSecondary }]}>
           Ref: {txReference}
         </Text>
