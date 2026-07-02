@@ -17,16 +17,12 @@ vi.mock('@/env', () => ({
 
 const mockInsert = vi.fn().mockResolvedValue({ error: null });
 const mockGetUser = vi.fn();
-const mockStorageUpload = vi
-  .fn()
-  .mockResolvedValue({ data: { path: 'stored' }, error: null });
-const mockStorageFrom = vi.fn(() => ({ upload: mockStorageUpload }));
+const mockEvidenceFetch = vi.fn();
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     from: () => ({ insert: mockInsert }),
     auth: { getUser: mockGetUser },
-    storage: { from: mockStorageFrom },
   }),
 }));
 
@@ -74,15 +70,17 @@ describe('NegotiationModal', () => {
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'user-abc' } },
     });
-    mockStorageUpload.mockResolvedValue({
-      data: { path: 'stored' },
-      error: null,
+    mockEvidenceFetch.mockResolvedValue({
+      json: async () => ({ evidencePath: 'merchant-test-id/evidence.png' }),
+      ok: true,
     });
+    vi.stubGlobal('fetch', mockEvidenceFetch);
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('returns null when not open', () => {
@@ -501,7 +499,7 @@ describe('NegotiationModal', () => {
     expect(mockInsert.mock.calls[0][0].customer_phone).toBe('2348031234567');
   });
 
-  it('uploads selected proof image and stores the private evidence path', async () => {
+  it('uploads selected proof image through the evidence API and stores the private evidence path', async () => {
     render(<NegotiationModal {...defaultProps} />);
 
     reachUploadForm();
@@ -517,18 +515,14 @@ describe('NegotiationModal', () => {
       fireEvent.submit(form);
     });
 
-    expect(mockStorageFrom).toHaveBeenCalledWith('negotiation-evidence');
-    expect(mockStorageUpload).toHaveBeenCalledTimes(1);
-    const uploadedPath = mockStorageUpload.mock.calls[0][0];
-    expect(uploadedPath).toMatch(
-      /^merchant-test-id\/\d+-[a-z0-9]+-screenshot\.png$/
+    expect(mockEvidenceFetch).toHaveBeenCalledWith(
+      '/api/storefront/negotiation-evidence',
+      expect.objectContaining({ method: 'POST' })
     );
-    expect(mockStorageUpload.mock.calls[0][2]).toMatchObject({
-      contentType: 'image/png',
-      upsert: false,
-    });
     expect(mockInsert).toHaveBeenCalledTimes(1);
-    expect(mockInsert.mock.calls[0][0].evidence_url).toBe(uploadedPath);
+    expect(mockInsert.mock.calls[0][0].evidence_url).toBe(
+      'merchant-test-id/evidence.png'
+    );
   });
 
   it('submits a link-only evidence request without uploading a file', async () => {
@@ -549,7 +543,7 @@ describe('NegotiationModal', () => {
       fireEvent.submit(form);
     });
 
-    expect(mockStorageUpload).not.toHaveBeenCalled();
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
     expect(mockInsert).toHaveBeenCalledTimes(1);
     expect(mockInsert.mock.calls[0][0].evidence_url).toBe(
       'https://competitor.example/product'
@@ -576,7 +570,7 @@ describe('NegotiationModal', () => {
       fireEvent.submit(form);
     });
 
-    expect(mockStorageUpload).not.toHaveBeenCalled();
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
     expect(mockInsert).not.toHaveBeenCalled();
     expect(alertSpy).toHaveBeenCalledWith(
       'Use either a proof upload or a link, not both.'
@@ -629,7 +623,7 @@ describe('NegotiationModal', () => {
       fireEvent.submit(form);
     });
 
-    expect(mockStorageUpload).not.toHaveBeenCalled();
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
     expect(mockInsert).not.toHaveBeenCalled();
     expect(alertSpy).toHaveBeenCalledWith('Enter a valid email address.');
     expect(
@@ -658,17 +652,43 @@ describe('NegotiationModal', () => {
       fireEvent.submit(form);
     });
 
-    expect(mockStorageUpload).not.toHaveBeenCalled();
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
     expect(mockInsert).not.toHaveBeenCalled();
     expect(alertSpy).toHaveBeenCalledWith('Enter a valid email address.');
     alertSpy.mockRestore();
   });
 
-  it('returns to the upload form when evidence storage upload fails', async () => {
+  it('rejects an overlong customer_email before uploading evidence', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
-    mockStorageUpload.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'RLS denied upload' },
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('Email Address (Optional)'), {
+      target: { value: `${'a'.repeat(250)}@x.com` },
+    });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith('Enter a valid email address.');
+    alertSpy.mockRestore();
+  });
+
+  it('returns to the upload form when evidence API upload fails', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    mockEvidenceFetch.mockResolvedValueOnce({
+      json: async () => ({ error: 'Evidence upload denied' }),
+      ok: false,
     });
     render(<NegotiationModal {...defaultProps} />);
 
@@ -685,9 +705,12 @@ describe('NegotiationModal', () => {
       fireEvent.submit(form);
     });
 
-    expect(mockStorageUpload).toHaveBeenCalledTimes(1);
+    expect(mockEvidenceFetch).toHaveBeenCalledWith(
+      '/api/storefront/negotiation-evidence',
+      expect.objectContaining({ method: 'POST' })
+    );
     expect(mockInsert).not.toHaveBeenCalled();
-    expect(alertSpy).toHaveBeenCalledWith('RLS denied upload');
+    expect(alertSpy).toHaveBeenCalledWith('Evidence upload denied');
     expect(
       screen.getByRole('button', { name: /send for review/i })
     ).toBeInTheDocument();
@@ -717,7 +740,7 @@ describe('NegotiationModal', () => {
     });
 
     expect(mockInsert).not.toHaveBeenCalled();
-    expect(mockStorageUpload).not.toHaveBeenCalled();
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
     expect(alertSpy).toHaveBeenCalledWith(
       'Enter a valid Phone / WhatsApp number.'
     );

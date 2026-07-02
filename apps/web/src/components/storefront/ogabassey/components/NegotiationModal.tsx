@@ -143,6 +143,7 @@ const AI_REVIEW_MESSAGE =
   'Your offer was accepted by our AI and is subject to human review.';
 const FINAL_PRICE_MESSAGE =
   "That's the final price for this product. We can't discount it further.";
+const MAX_CUSTOMER_EMAIL_LENGTH = 254;
 const MIN_SUBTOTAL_FOR_ROUNDED_COUNTER = 1000;
 
 function getOrCreateSessionId(): string {
@@ -264,7 +265,8 @@ function normalizeOptionalEmail(email?: string | null): string | null {
     return null;
   }
 
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)
+  return trimmedEmail.length <= MAX_CUSTOMER_EMAIL_LENGTH &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)
     ? trimmedEmail
     : null;
 }
@@ -669,7 +671,6 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       const evidencePath = await uploadNegotiationEvidenceFile({
         file: uploadFile,
         merchantId,
-        supabase,
       });
       await submitMerchantRequest(evidencePath);
     } catch (error) {

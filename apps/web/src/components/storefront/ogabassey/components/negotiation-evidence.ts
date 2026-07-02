@@ -10,27 +10,9 @@ const ALLOWED_NEGOTIATION_EVIDENCE_TYPES = new Map([
   ['image/heif', 'heif'],
 ]);
 
-interface StorageUploadResult {
-  data: { path?: string | null } | null;
-  error: { message?: string } | null;
-}
-
-interface NegotiationEvidenceStorageClient {
-  storage: {
-    from: (bucket: string) => {
-      upload: (
-        path: string,
-        body: ArrayBuffer,
-        options: { contentType: string; upsert: false }
-      ) => Promise<StorageUploadResult>;
-    };
-  };
-}
-
 interface UploadNegotiationEvidenceFileParams {
   file: File;
   merchantId: string;
-  supabase: NegotiationEvidenceStorageClient;
 }
 
 function getEvidenceFileExtension(file: File): string | null {
@@ -53,21 +35,26 @@ function getEvidenceFileExtension(file: File): string | null {
     : null;
 }
 
-function getEvidenceFileSlug(fileName: string): string {
-  const nameWithoutExtension = fileName.replace(/\.[^.]+$/, '');
-  return (
-    nameWithoutExtension
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 64) || 'evidence'
-  );
+async function readEvidenceUploadResponse(response: Response) {
+  const body = (await response.json().catch(() => null)) as {
+    error?: string;
+    evidencePath?: string;
+  } | null;
+
+  if (!response.ok) {
+    throw new Error(body?.error || 'Failed to upload evidence image.');
+  }
+
+  if (!body?.evidencePath) {
+    throw new Error('Failed to upload evidence image.');
+  }
+
+  return body.evidencePath;
 }
 
 export async function uploadNegotiationEvidenceFile({
   file,
   merchantId,
-  supabase,
 }: UploadNegotiationEvidenceFileParams): Promise<string> {
   const extension = getEvidenceFileExtension(file);
   if (!extension) {
@@ -78,20 +65,14 @@ export async function uploadNegotiationEvidenceFile({
     throw new Error('Upload a proof image under 10 MB.');
   }
 
-  const slug = getEvidenceFileSlug(file.name);
-  const nonce = Math.random().toString(36).slice(2, 8);
-  const evidencePath = `${merchantId}/${Date.now()}-${nonce}-${slug}.${extension}`;
+  const formData = new FormData();
+  formData.set('merchantId', merchantId);
+  formData.set('file', file);
 
-  const { error } = await supabase.storage
-    .from(NEGOTIATION_EVIDENCE_BUCKET)
-    .upload(evidencePath, await file.arrayBuffer(), {
-      contentType: file.type || `image/${extension}`,
-      upsert: false,
-    });
+  const response = await fetch('/api/storefront/negotiation-evidence', {
+    body: formData,
+    method: 'POST',
+  });
 
-  if (error) {
-    throw new Error(error.message || 'Failed to upload evidence image.');
-  }
-
-  return evidencePath;
+  return readEvidenceUploadResponse(response);
 }

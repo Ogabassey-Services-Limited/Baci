@@ -1,19 +1,13 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { supabase } from '@/lib/supabase';
 import {
   extractNegotiationFileExtension,
   isRemoteEvidenceUrl,
   MAX_NEGOTIATION_EVIDENCE_BYTES,
-  NEGOTIATION_EVIDENCE_BUCKET,
   uploadNegotiationEvidence,
 } from './negotiation-evidence';
 
-jest.mock('@/lib/supabase', () => ({
-  supabase: {
-    storage: {
-      from: jest.fn(),
-    },
-  },
+jest.mock('@/env', () => ({
+  EXPO_PUBLIC_API_URL: 'https://usebaci.com',
 }));
 
 const createBlobLike = ({
@@ -57,19 +51,21 @@ describe('negotiation evidence helpers', () => {
 });
 
 describe('uploadNegotiationEvidence', () => {
-  const upload = jest.fn<() => Promise<{ error: Error | null }>>();
-  const from = supabase.storage.from as jest.MockedFunction<
-    typeof supabase.storage.from
-  >;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    upload.mockResolvedValue({ error: null });
-    from.mockReturnValue({ upload } as never);
-    globalThis.fetch = jest.fn(async () => ({
-      ok: true,
-      blob: async () => createBlobLike(),
-    })) as unknown as typeof fetch;
+    globalThis.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      if (String(input).startsWith('file://')) {
+        return {
+          ok: true,
+          blob: async () => createBlobLike(),
+        };
+      }
+
+      return {
+        json: async () => ({ evidencePath: 'merchant-1/server-proof.png' }),
+        ok: true,
+      };
+    }) as unknown as typeof fetch;
   });
 
   it('returns remote URLs unchanged without uploading', async () => {
@@ -78,7 +74,6 @@ describe('uploadNegotiationEvidence', () => {
     ).resolves.toBe('https://example.com/proof.png');
 
     expect(fetch).not.toHaveBeenCalled();
-    expect(from).not.toHaveBeenCalled();
   });
 
   it('throws when a local file is provided without a merchant id', async () => {
@@ -87,35 +82,42 @@ describe('uploadNegotiationEvidence', () => {
     ).rejects.toThrow('Missing merchant id');
 
     expect(fetch).not.toHaveBeenCalled();
-    expect(from).not.toHaveBeenCalled();
   });
 
-  it('uploads local image evidence and returns the durable storage path', async () => {
+  it('uploads local image evidence through the evidence API and returns the durable storage path', async () => {
     await expect(
       uploadNegotiationEvidence('file:///tmp/proof.png', 'merchant-1')
-    ).resolves.toMatch(/^merchant-1\/\d+-[a-z0-9]+\.png$/);
+    ).resolves.toBe('merchant-1/server-proof.png');
 
-    expect(fetch).toHaveBeenCalledWith('file:///tmp/proof.png');
-    expect(from).toHaveBeenCalledWith(NEGOTIATION_EVIDENCE_BUCKET);
-    expect(upload).toHaveBeenCalledWith(
-      expect.stringMatching(/^merchant-1\/\d+-[a-z0-9]+\.png$/),
-      expect.any(ArrayBuffer),
-      { contentType: 'image/png', upsert: false }
+    expect(fetch).toHaveBeenNthCalledWith(1, 'file:///tmp/proof.png');
+    expect(fetch).toHaveBeenNthCalledWith(
+      2,
+      'https://usebaci.com/api/storefront/negotiation-evidence',
+      expect.objectContaining({ method: 'POST' })
     );
   });
 
   it('infers image content type from the local file extension when blob type is empty', async () => {
-    globalThis.fetch = jest.fn(async () => ({
-      ok: true,
-      blob: async () => createBlobLike({ type: '' }),
-    })) as unknown as typeof fetch;
+    globalThis.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      if (String(input).startsWith('file://')) {
+        return {
+          ok: true,
+          blob: async () => createBlobLike({ type: '' }),
+        };
+      }
+
+      return {
+        json: async () => ({ evidencePath: 'merchant-1/server-proof.webp' }),
+        ok: true,
+      };
+    }) as unknown as typeof fetch;
 
     await uploadNegotiationEvidence('file:///tmp/proof.webp', 'merchant-1');
 
-    expect(upload).toHaveBeenCalledWith(
-      expect.stringMatching(/\.webp$/),
-      expect.any(ArrayBuffer),
-      { contentType: 'image/webp', upsert: false }
+    expect(fetch).toHaveBeenNthCalledWith(
+      2,
+      'https://usebaci.com/api/storefront/negotiation-evidence',
+      expect.objectContaining({ method: 'POST' })
     );
   });
 
@@ -130,7 +132,7 @@ describe('uploadNegotiationEvidence', () => {
       uploadNegotiationEvidence('file:///tmp/missing.png', 'merchant-1')
     ).rejects.toThrow('Failed to read evidence file: 404');
 
-    expect(upload).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('rejects non-image evidence before reading bytes', async () => {
@@ -145,7 +147,7 @@ describe('uploadNegotiationEvidence', () => {
     ).rejects.toThrow('Only image evidence is supported');
 
     expect(blob.arrayBuffer).not.toHaveBeenCalled();
-    expect(upload).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('rejects oversized evidence before reading bytes', async () => {
@@ -160,16 +162,25 @@ describe('uploadNegotiationEvidence', () => {
     ).rejects.toThrow('Evidence image is too large');
 
     expect(blob.arrayBuffer).not.toHaveBeenCalled();
-    expect(upload).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
-  it('throws when storage upload fails', async () => {
-    upload.mockResolvedValue({ error: new Error('upload failed') });
+  it('throws when evidence API upload fails', async () => {
+    globalThis.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      if (String(input).startsWith('file://')) {
+        return {
+          ok: true,
+          blob: async () => createBlobLike(),
+        };
+      }
 
+      return {
+        json: async () => ({ error: 'upload failed' }),
+        ok: false,
+      };
+    }) as unknown as typeof fetch;
     await expect(
       uploadNegotiationEvidence('file:///tmp/proof.png', 'merchant-1')
     ).rejects.toThrow('upload failed');
-
   });
-
 });

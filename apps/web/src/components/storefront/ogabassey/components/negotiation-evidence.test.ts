@@ -1,31 +1,30 @@
 // @vitest-environment node
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  NEGOTIATION_EVIDENCE_BUCKET,
   uploadNegotiationEvidenceFile,
 } from './negotiation-evidence';
 
-const mockUpload = vi.fn();
-const mockFrom = vi.fn(() => ({ upload: mockUpload }));
-
-const storageClient = {
-  storage: {
-    from: mockFrom,
-  },
-};
+const mockFetch = vi.fn();
 
 describe('uploadNegotiationEvidenceFile', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
-    vi.spyOn(Math, 'random').mockReturnValue(0.123456);
-    mockFrom.mockClear();
-    mockUpload.mockReset();
-    mockUpload.mockResolvedValue({ data: { path: 'stored' }, error: null });
+    vi.stubGlobal('fetch', mockFetch);
+    mockFetch.mockReset();
+    mockFetch.mockResolvedValue({
+      json: async () => ({
+        evidencePath: 'merchant-123/server-uploaded-proof.png',
+      }),
+      ok: true,
+    });
   });
 
-  it('uploads an accepted proof image to the private negotiation evidence bucket', async () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('posts an accepted proof image to the evidence upload API', async () => {
     const file = new File(['proof'], 'Promo Screenshot.PNG', {
       type: 'image/png',
     });
@@ -33,21 +32,16 @@ describe('uploadNegotiationEvidenceFile', () => {
     const evidencePath = await uploadNegotiationEvidenceFile({
       file,
       merchantId: 'merchant-123',
-      supabase: storageClient,
     });
 
-    expect(mockFrom).toHaveBeenCalledWith(NEGOTIATION_EVIDENCE_BUCKET);
-    expect(mockUpload).toHaveBeenCalledTimes(1);
-    expect(mockUpload.mock.calls[0][0]).toBe(
-      'merchant-123/1700000000000-4fzyo8-promo-screenshot.png'
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/storefront/negotiation-evidence',
+      expect.objectContaining({ method: 'POST' })
     );
-    expect(mockUpload.mock.calls[0][2]).toMatchObject({
-      contentType: 'image/png',
-      upsert: false,
-    });
-    expect(evidencePath).toBe(
-      'merchant-123/1700000000000-4fzyo8-promo-screenshot.png'
-    );
+    const body = mockFetch.mock.calls[0][1]?.body as FormData;
+    expect(body.get('merchantId')).toBe('merchant-123');
+    expect(body.get('file')).toBe(file);
+    expect(evidencePath).toBe('merchant-123/server-uploaded-proof.png');
   });
 
   it('rejects unsupported files before uploading', async () => {
@@ -59,11 +53,10 @@ describe('uploadNegotiationEvidenceFile', () => {
       uploadNegotiationEvidenceFile({
         file,
         merchantId: 'merchant-123',
-        supabase: storageClient,
       })
     ).rejects.toThrow('Upload a screenshot or photo.');
 
-    expect(mockUpload).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('rejects a disallowed MIME type even when the filename extension is allowed', async () => {
@@ -75,11 +68,10 @@ describe('uploadNegotiationEvidenceFile', () => {
       uploadNegotiationEvidenceFile({
         file,
         merchantId: 'merchant-123',
-        supabase: storageClient,
       })
     ).rejects.toThrow('Upload a screenshot or photo.');
 
-    expect(mockUpload).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('rejects proof images over 10 MB before uploading', async () => {
@@ -93,11 +85,10 @@ describe('uploadNegotiationEvidenceFile', () => {
       uploadNegotiationEvidenceFile({
         file: oversizedFile,
         merchantId: 'merchant-123',
-        supabase: storageClient,
       })
     ).rejects.toThrow('Upload a proof image under 10 MB.');
 
-    expect(mockUpload).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('uses filename extension fallback only when the browser omits the MIME type', async () => {
@@ -108,44 +99,50 @@ describe('uploadNegotiationEvidenceFile', () => {
     const evidencePath = await uploadNegotiationEvidenceFile({
       file,
       merchantId: 'merchant-123',
-      supabase: storageClient,
     });
 
-    expect(evidencePath).toBe(
-      'merchant-123/1700000000000-4fzyo8-iphone-proof.heic'
-    );
-    expect(mockUpload.mock.calls[0][2]).toMatchObject({
-      contentType: 'image/heic',
-      upsert: false,
-    });
+    expect(evidencePath).toBe('merchant-123/server-uploaded-proof.png');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
-  it('surfaces storage upload failures', async () => {
-    mockUpload.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'RLS denied upload' },
+  it('surfaces API upload failures', async () => {
+    mockFetch.mockResolvedValueOnce({
+      json: async () => ({ error: 'Upload denied' }),
+      ok: false,
     });
 
     await expect(
       uploadNegotiationEvidenceFile({
         file: new File(['proof'], 'screenshot.jpg', { type: 'image/jpeg' }),
         merchantId: 'merchant-123',
-        supabase: storageClient,
       })
-    ).rejects.toThrow('RLS denied upload');
+    ).rejects.toThrow('Upload denied');
   });
 
-  it('uses the default storage failure message when Supabase returns no message', async () => {
-    mockUpload.mockResolvedValueOnce({
-      data: null,
-      error: {},
+  it('uses the default failure message when the API returns no message', async () => {
+    mockFetch.mockResolvedValueOnce({
+      json: async () => ({}),
+      ok: false,
     });
 
     await expect(
       uploadNegotiationEvidenceFile({
         file: new File(['proof'], 'screenshot.jpg', { type: 'image/jpeg' }),
         merchantId: 'merchant-123',
-        supabase: storageClient,
+      })
+    ).rejects.toThrow('Failed to upload evidence image.');
+  });
+
+  it('uses the default failure message when the API response omits the path', async () => {
+    mockFetch.mockResolvedValueOnce({
+      json: async () => ({}),
+      ok: true,
+    });
+
+    await expect(
+      uploadNegotiationEvidenceFile({
+        file: new File(['proof'], 'screenshot.jpg', { type: 'image/jpeg' }),
+        merchantId: 'merchant-123',
       })
     ).rejects.toThrow('Failed to upload evidence image.');
   });

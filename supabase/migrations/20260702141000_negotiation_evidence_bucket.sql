@@ -1,19 +1,14 @@
 -- Provision the private negotiation-evidence storage bucket + merchant-scoped RLS.
 --
--- Storefront customers upload proof-of-lower-price evidence into a
--- "<merchant_id>/..." path (see uploadNegotiationEvidence). The owning merchant
--- (or its staff) later mints a signed URL to review it (see
--- negotiation-evidence-actions.ts). Without RLS scoping, a merchant session could
--- sign a URL for ANY object path (a customer could point evidence_url at another
--- merchant's folder), leaking unrelated evidence cross-tenant. These policies
--- scope reads to the caller's own merchant folder(s) and restrict uploads to real
--- merchant folders.
---
--- Negotiations are guest-friendly: `negotiation_requests` INSERT allows
--- session-based (unauthenticated) shoppers, and uploadNegotiationEvidence uploads
--- the image *before* the row is inserted, so the upload policy must also admit
--- anon. The bucket caps size + mime types so an anon writer can only add small
--- images, not arbitrary/large payloads.
+-- Storefront customers upload proof-of-lower-price evidence through the
+-- server-mediated /api/storefront/negotiation-evidence route into a
+-- "<merchant_id>/..." path. The owning merchant (or its staff) later mints a
+-- signed URL to review it (see negotiation-evidence-actions.ts). Without RLS
+-- scoping, a merchant session could sign a URL for ANY object path (a customer
+-- could point evidence_url at another merchant's folder), leaking unrelated
+-- evidence cross-tenant. These policies scope reads to the caller's own
+-- merchant folder(s), while uploads stay behind the server route's validation
+-- and rate limits instead of exposing direct anonymous Storage writes.
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
@@ -59,16 +54,6 @@ create policy "negotiation_evidence_owner_read"
     )
   );
 
--- Shoppers (guest session or authenticated) upload evidence into a real
--- merchant's folder only. Size/mime are constrained by the bucket config above.
+-- Shoppers must not write directly to Storage. The storefront upload API uses a
+-- trusted server client after validating the merchant folder and file metadata.
 drop policy if exists "negotiation_evidence_customer_upload" on storage.objects;
-create policy "negotiation_evidence_customer_upload"
-  on storage.objects for insert
-  to anon, authenticated
-  with check (
-    bucket_id = 'negotiation-evidence'
-    and (storage.foldername(name))[1] in (
-      select (m.id)::text
-      from public.merchants m
-    )
-  );

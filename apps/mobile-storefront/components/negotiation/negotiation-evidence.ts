@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { EXPO_PUBLIC_API_URL } from '@/env';
 
 export const NEGOTIATION_EVIDENCE_BUCKET = 'negotiation-evidence';
 export const MAX_NEGOTIATION_EVIDENCE_BYTES = 10 * 1024 * 1024;
@@ -50,6 +50,26 @@ const resolveEvidenceContentType = (uri: string, blobType: string) => {
   return EXTENSION_TO_CONTENT_TYPE[extension] ?? '';
 };
 
+const resolveEvidenceUploadUrl = () =>
+  `${EXPO_PUBLIC_API_URL.replace(/\/+$/, '')}/api/storefront/negotiation-evidence`;
+
+async function readEvidenceUploadResponse(response: Response) {
+  const body = (await response.json().catch(() => null)) as {
+    error?: string;
+    evidencePath?: string;
+  } | null;
+
+  if (!response.ok) {
+    throw new Error(body?.error || 'Failed to upload evidence image');
+  }
+
+  if (!body?.evidencePath) {
+    throw new Error('Failed to upload evidence image');
+  }
+
+  return body.evidencePath;
+}
+
 export async function uploadNegotiationEvidence(
   fileUri: string,
   merchantId: string | null
@@ -78,22 +98,18 @@ export async function uploadNegotiationEvidence(
   }
 
   const extension = extractNegotiationFileExtension(fileUri, contentType);
-  const filePath = `${merchantId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
-  const body = await blob.arrayBuffer();
+  const formData = new FormData();
+  formData.append('merchantId', merchantId);
+  formData.append('file', {
+    name: `negotiation-evidence.${extension}`,
+    type: contentType,
+    uri: fileUri,
+  } as unknown as Blob);
 
-  const { error: uploadError } = await supabase.storage
-    .from(NEGOTIATION_EVIDENCE_BUCKET)
-    .upload(filePath, body, {
-      contentType,
-      upsert: false,
-    });
+  const uploadResponse = await fetch(resolveEvidenceUploadUrl(), {
+    body: formData,
+    method: 'POST',
+  });
 
-  if (uploadError) {
-    throw uploadError;
-  }
-
-  // Persist the durable Storage object path, not a Supabase signed URL.
-  // Signed URLs expire by design; merchant review screens should mint a fresh
-  // URL from this path when evidence viewing is implemented.
-  return filePath;
+  return readEvidenceUploadResponse(uploadResponse);
 }
