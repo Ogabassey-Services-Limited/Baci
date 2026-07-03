@@ -62,15 +62,44 @@ export async function zeptoMailRequest(
   }
 
   if (!response.ok) {
-    throw (
-      body ?? new Error(`ZeptoMail request failed with HTTP ${response.status}`)
+    // Only ZeptoMail's documented error shape passes through as-is (callers
+    // read error.code for retry decisions). Anything else becomes a
+    // descriptive Error so the audit trail never records "[object Object]".
+    if (isZeptoMailErrorBody(body)) {
+      throw body;
+    }
+    const bodySnippet =
+      body === null ? '' : `: ${JSON.stringify(body).slice(0, 200)}`;
+    throw new Error(
+      `ZeptoMail request failed with HTTP ${response.status}${bodySnippet}`
     );
   }
 
   return (body ?? {}) as ZeptoMailApiResponse;
 }
 
+function isZeptoMailErrorBody(body: unknown): boolean {
+  return (
+    body !== null &&
+    typeof body === 'object' &&
+    !Array.isArray(body) &&
+    'error' in body
+  );
+}
+
 function describeTransportFailure(error: unknown): Error {
+  // AbortSignal.timeout() rejects with a DOMException named TimeoutError
+  // whose generic message would hide what actually happened.
+  if (
+    error !== null &&
+    typeof error === 'object' &&
+    'name' in error &&
+    (error as { name?: unknown }).name === 'TimeoutError'
+  ) {
+    return new Error(
+      `ZeptoMail request timed out after ${ZEPTOMAIL_REQUEST_TIMEOUT_MS}ms`
+    );
+  }
   if (error instanceof Error) {
     // undici wraps the underlying socket/DNS failure in `cause`; merge it so
     // audit rows record more than a bare "fetch failed".

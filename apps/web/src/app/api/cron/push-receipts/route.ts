@@ -1,9 +1,13 @@
 import { Expo } from 'expo-server-sdk';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret, getExpoAccessToken } from '@/env';
+import { chunkArray, SUPABASE_IN_FILTER_CHUNK_SIZE } from '@/lib/chunk-array';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
-import { getPushTokenDeactivationReason } from '@/lib/push-token-errors';
+import {
+  getPushTokenDeactivationReason,
+  shouldDeactivateForInvalidCredentials,
+} from '@/lib/push-token-errors';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // Manual fallback only - DO NOT re-enable Vercel Cron for this route.
@@ -144,22 +148,49 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Deactivate undeliverable tokens, recording why for auditability
+  // Widespread InvalidCredentials means broken project credentials, not dead
+  // tokens — leave those active (report-only) so pushes resume the moment
+  // credentials are fixed.
+  const invalidCredentialsTokens = tokensToDeactivate.get('InvalidCredentials');
+  if (
+    invalidCredentialsTokens &&
+    !shouldDeactivateForInvalidCredentials(
+      invalidCredentialsTokens.length,
+      pendingTickets.length
+    )
+  ) {
+    tokensToDeactivate.delete('InvalidCredentials');
+    logger.warn({
+      message:
+        'InvalidCredentials receipts look project-wide; tokens left active',
+      failedTokens: invalidCredentialsTokens.length,
+      batchSize: pendingTickets.length,
+    });
+  }
+
+  // Deactivate undeliverable tokens, recording why for auditability.
+  // Chunked: .in() values ride in the request URL, and a single run can
+  // surface up to 1000 dead tokens — an unchunked list would 414.
   for (const [reason, tokenList] of tokensToDeactivate) {
-    const { error: deactivateError } = await supabase
-      .from('push_tokens')
-      .update({
-        is_active: false,
-        deactivation_reason: reason,
-        deactivated_at: new Date().toISOString(),
-      })
-      .in('token', tokenList);
-    if (deactivateError) {
-      logger.error({
-        message: 'Failed to deactivate tokens',
-        reason,
-        error: deactivateError,
-      });
+    for (const tokenChunk of chunkArray(
+      tokenList,
+      SUPABASE_IN_FILTER_CHUNK_SIZE
+    )) {
+      const { error: deactivateError } = await supabase
+        .from('push_tokens')
+        .update({
+          is_active: false,
+          deactivation_reason: reason,
+          deactivated_at: new Date().toISOString(),
+        })
+        .in('token', tokenChunk);
+      if (deactivateError) {
+        logger.error({
+          message: 'Failed to deactivate tokens',
+          reason,
+          error: deactivateError,
+        });
+      }
     }
   }
 

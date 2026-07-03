@@ -380,12 +380,15 @@ describe('notifyMerchant', () => {
     ]);
   });
 
-  it('deactivates InvalidCredentials tokens and aggregates the error by code', async () => {
+  it('deactivates an isolated InvalidCredentials token and aggregates the error by code', async () => {
     const updateChain = createChainableMock();
     const ticketInsertChain = createChainableMock();
     const attemptInsertChain = createChainableMock();
+    // Batch must be >= 10 with <= 10% failures for the isolated-failure guard
     const selectChain = createChainableMock([
-      { token: 'ExponentPushToken[good]' },
+      ...Array.from({ length: 9 }, (_, i) => ({
+        token: `ExponentPushToken[good-${i}]`,
+      })),
       { token: 'ExponentPushToken[wrong-project]' },
     ]);
 
@@ -401,7 +404,10 @@ describe('notifyMerchant', () => {
     } as never);
 
     mockSendPushNotificationsAsync.mockResolvedValueOnce([
-      { status: 'ok', id: 'ticket-1' },
+      ...Array.from({ length: 9 }, (_, i) => ({
+        status: 'ok' as const,
+        id: `ticket-${i}`,
+      })),
       {
         status: 'error',
         message:
@@ -412,7 +418,7 @@ describe('notifyMerchant', () => {
 
     const result = await notifyMerchant('merchant-123', 'Test', 'Body');
 
-    expect(result.sent).toBe(1);
+    expect(result.sent).toBe(9);
     expect(result.failed).toBe(1);
     expect(result.errors).toEqual([
       expect.stringContaining(
@@ -428,6 +434,88 @@ describe('notifyMerchant', () => {
     expect(updateChain.in).toHaveBeenCalledWith('token', [
       'ExponentPushToken[wrong-project]',
     ]);
+  });
+
+  it('omits the deactivation note when the deactivation update fails', async () => {
+    const updateChain = createChainableMock(null, {
+      message: 'update failed',
+    });
+    const attemptInsertChain = createChainableMock();
+    const selectChain = createChainableMock([
+      { token: 'ExponentPushToken[stale]' },
+    ]);
+
+    const mockFromFn = vi
+      .fn()
+      .mockReturnValueOnce(selectChain) // first call: select tokens
+      .mockReturnValueOnce(updateChain) // second call: deactivation update (fails)
+      .mockReturnValueOnce(attemptInsertChain); // third call: store attempt
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: mockFromFn,
+    } as never);
+
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      {
+        status: 'error',
+        message: 'Device not registered',
+        details: { error: 'DeviceNotRegistered' },
+      },
+    ]);
+
+    const result = await notifyMerchant('merchant-123', 'Test', 'Body');
+
+    expect(result.failed).toBe(1);
+    // The summary must not claim a deactivation that did not happen
+    expect(result.errors).toEqual([
+      'DeviceNotRegistered (1 failed): Device not registered',
+    ]);
+  });
+
+  it('leaves tokens active when InvalidCredentials failures are widespread', async () => {
+    const ticketInsertChain = createChainableMock();
+    const attemptInsertChain = createChainableMock();
+    const selectChain = createChainableMock(
+      Array.from({ length: 10 }, (_, i) => ({
+        token: `ExponentPushToken[ios-${i}]`,
+      }))
+    );
+
+    const mockFromFn = vi
+      .fn()
+      .mockReturnValueOnce(selectChain) // first call: select tokens
+      .mockReturnValueOnce(ticketInsertChain) // second call: store ok tickets (no deactivation update)
+      .mockReturnValueOnce(attemptInsertChain); // third call: store attempt
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: mockFromFn,
+    } as never);
+
+    // Half the batch failing = project-wide credential breakage, not dead tokens
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      ...Array.from({ length: 5 }, (_, i) => ({
+        status: 'ok' as const,
+        id: `ticket-${i}`,
+      })),
+      ...Array.from({ length: 5 }, () => ({
+        status: 'error' as const,
+        message: 'Could not find APNs credentials for com.example.app.',
+        details: { error: 'InvalidCredentials' },
+      })),
+    ]);
+
+    const result = await notifyMerchant('merchant-123', 'Test', 'Body');
+
+    expect(result.sent).toBe(5);
+    expect(result.failed).toBe(5);
+    expect(result.errors).toEqual([
+      'InvalidCredentials (5 failed): Could not find APNs credentials for com.example.app.',
+    ]);
+    // No push_tokens deactivation update — only the initial token select
+    const pushTokenCalls = mockFromFn.mock.calls.filter(
+      ([table]) => table === 'push_tokens'
+    );
+    expect(pushTokenCalls).toHaveLength(1);
   });
 
   it('does not deactivate tokens for transient MessageRateExceeded errors', async () => {

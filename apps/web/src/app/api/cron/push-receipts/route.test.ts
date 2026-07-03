@@ -241,9 +241,15 @@ describe('GET /api/cron/push-receipts', () => {
     ]);
   });
 
-  it('deactivates tokens for InvalidCredentials receipts with an audited reason', async () => {
+  it('deactivates an isolated InvalidCredentials receipt with an audited reason', async () => {
+    // Batch must be >= 10 with <= 10% failures for the isolated-failure guard
     mockSelectResult = {
       data: [
+        ...Array.from({ length: 9 }, (_, i) => ({
+          id: `row-ok-${i}`,
+          ticket_id: `ticket-ok-${i}`,
+          push_token: `ExponentPushToken[good-${i}]`,
+        })),
         {
           id: 'row-3',
           ticket_id: 'ticket-3',
@@ -254,6 +260,12 @@ describe('GET /api/cron/push-receipts', () => {
     };
 
     mockGetReceipts.mockResolvedValue({
+      ...Object.fromEntries(
+        Array.from({ length: 9 }, (_, i) => [
+          `ticket-ok-${i}`,
+          { status: 'ok' },
+        ])
+      ),
       'ticket-3': {
         status: 'error',
         message:
@@ -274,6 +286,37 @@ describe('GET /api/cron/push-receipts', () => {
     expect(mockTokenIn).toHaveBeenCalledWith('token', [
       'ExponentPushToken[wrong-project]',
     ]);
+  });
+
+  it('leaves tokens active when InvalidCredentials receipts are widespread', async () => {
+    mockSelectResult = {
+      data: Array.from({ length: 10 }, (_, i) => ({
+        id: `row-${i}`,
+        ticket_id: `ticket-${i}`,
+        push_token: `ExponentPushToken[ios-${i}]`,
+      })),
+      error: null,
+    };
+
+    mockGetReceipts.mockResolvedValue(
+      Object.fromEntries(
+        Array.from({ length: 10 }, (_, i) => [
+          `ticket-${i}`,
+          {
+            status: 'error',
+            message: 'Could not find APNs credentials for com.example.app.',
+            details: { error: 'InvalidCredentials' },
+          },
+        ])
+      )
+    );
+
+    const response = await GET(createCronRequest());
+    const data = await response.json();
+
+    expect(data.failed).toBe(10);
+    expect(mockTokenUpdate).not.toHaveBeenCalled();
+    expect(mockTokenIn).not.toHaveBeenCalled();
   });
 
   it('does not deactivate tokens for transient receipt errors', async () => {

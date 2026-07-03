@@ -86,6 +86,27 @@ describe('zeptoMailRequest', () => {
     await expect(zeptoMailRequest('email', {}, 'token')).resolves.toEqual({});
   });
 
+  it('rejects with a descriptive Error when a non-2xx JSON body has no ZeptoMail error shape', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ unexpected: 'shape' }, 400));
+
+    await expect(zeptoMailRequest('email', {}, 'token')).rejects.toThrow(
+      'ZeptoMail request failed with HTTP 400: {"unexpected":"shape"}'
+    );
+  });
+
+  it('surfaces AbortSignal timeouts as a descriptive timeout Error', async () => {
+    fetchMock.mockRejectedValueOnce(
+      new DOMException(
+        'The operation was aborted due to timeout',
+        'TimeoutError'
+      )
+    );
+
+    await expect(zeptoMailRequest('email', {}, 'token')).rejects.toThrow(
+      'ZeptoMail request timed out after 30000ms'
+    );
+  });
+
   it('merges the undici cause into network failure messages', async () => {
     const failure = new TypeError('fetch failed');
     (failure as TypeError & { cause?: Error }).cause = new Error(

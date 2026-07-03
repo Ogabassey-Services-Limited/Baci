@@ -10,23 +10,12 @@ import Expo, {
   type ExpoPushTicket,
 } from 'expo-server-sdk';
 import { getExpoAccessToken } from '@/env';
-import { getPushTokenDeactivationReason } from '@/lib/push-token-errors';
+import { chunkArray, SUPABASE_IN_FILTER_CHUNK_SIZE } from '@/lib/chunk-array';
+import {
+  getPushTokenDeactivationReason,
+  shouldDeactivateForInvalidCredentials,
+} from '@/lib/push-token-errors';
 import { createAdminClient } from '@/lib/supabase/admin';
-
-/**
- * Max ids per Supabase `.in()` filter. Those values are encoded in the request
- * URL, so a large list (the update-nudge can match thousands of tokens) would
- * blow past gateway URL-length limits (~8KB) and 414. Chunk to stay well under.
- */
-const SUPABASE_IN_FILTER_CHUNK_SIZE = 100;
-
-function chunkArray<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-  return chunks;
-}
 
 // Module-scope cache: locale + minimumFractionDigits are static; currency varies.
 const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
@@ -595,8 +584,26 @@ export async function processTickets(
     }
   }
 
+  // Widespread InvalidCredentials means broken project credentials, not dead
+  // tokens — leave those active (report-only) so pushes resume the moment
+  // credentials are fixed.
+  const invalidCredentialsTokens = tokensToDeactivate.get('InvalidCredentials');
+  if (
+    invalidCredentialsTokens &&
+    !shouldDeactivateForInvalidCredentials(
+      invalidCredentialsTokens.length,
+      tickets.length
+    )
+  ) {
+    tokensToDeactivate.delete('InvalidCredentials');
+    console.warn(
+      `[expo-push] InvalidCredentials on ${invalidCredentialsTokens.length}/${tickets.length} tickets looks like project-wide credential breakage — tokens left active`
+    );
+  }
+
   // Chunk the id list: .in() values ride in the request URL, so a large batch
   // (the update-nudge can surface thousands of dead tokens) would 414.
+  const deactivatedCounts = new Map<string, number>();
   for (const [reason, tokenList] of tokensToDeactivate) {
     for (const tokenChunk of chunkArray(
       tokenList,
@@ -615,13 +622,18 @@ export async function processTickets(
           'Failed to deactivate undeliverable push tokens:',
           deactivateError
         );
+      } else {
+        deactivatedCounts.set(
+          reason,
+          (deactivatedCounts.get(reason) ?? 0) + tokenChunk.length
+        );
       }
     }
   }
 
   const errors: string[] = [];
   for (const [code, aggregate] of errorAggregates) {
-    const deactivatedCount = tokensToDeactivate.get(code)?.length ?? 0;
+    const deactivatedCount = deactivatedCounts.get(code) ?? 0;
     const deactivationNote =
       deactivatedCount > 0 ? `, ${deactivatedCount} token(s) deactivated` : '';
     errors.push(
