@@ -2,6 +2,7 @@ import { Redirect, Stack } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { useAdminAnalyticsSync } from '@/hooks/useAdminAnalyticsSync';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -16,6 +17,7 @@ export default function AdminLayout() {
   } = usePushNotifications();
   const { colors } = useTheme();
   const { merchant } = useMerchant();
+  useAdminAnalyticsSync(user, merchant);
   // Track which merchantId we've attempted registration for to prevent retry
   // loops when registration fails — only attempt once per merchant session.
   const attemptedMerchantIdRef = useRef<string | null>(null);

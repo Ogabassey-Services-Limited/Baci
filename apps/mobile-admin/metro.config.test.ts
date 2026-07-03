@@ -6,6 +6,9 @@ type MetroConfig = {
   resolver: {
     blockList?: RegExp[];
   };
+  serializer?: {
+    customSerializer?: unknown;
+  };
   watchFolders?: string[];
 };
 
@@ -31,6 +34,12 @@ describe('Metro configuration', () => {
         path.resolve(workspaceRoot, 'packages/shared'),
         path.resolve(workspaceRoot, 'packages/tiktok-business'),
       ])
+    );
+  });
+
+  it('keeps the PostHog Metro serializer enabled for source-map debug ids', () => {
+    expect(metroConfig.serializer?.customSerializer).toEqual(
+      expect.any(Function)
     );
   });
 

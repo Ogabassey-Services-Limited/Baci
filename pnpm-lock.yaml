@@ -238,6 +238,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^5.4.0
         version: 5.4.0(react-hook-form@7.79.0(react@19.2.3))
+      '@posthog/react-native-plugin':
+        specifier: ^2.1.1
+        version: 2.1.1(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
       '@react-native-async-storage/async-storage':
         specifier: ^3.1.1
         version: 3.1.1(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
@@ -331,6 +334,9 @@ importers:
       expo-linking:
         specifier: ~56.0.14
         version: 56.0.14(expo@56.0.12)(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
+      expo-localization:
+        specifier: ~56.0.6
+        version: 56.0.6(expo@56.0.12)(react@19.2.3)
       expo-navigation-bar:
         specifier: ~56.0.3
         version: 56.0.3(expo@56.0.12)(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
@@ -361,6 +367,9 @@ importers:
       expo-web-browser:
         specifier: ~56.0.5
         version: 56.0.5(expo@56.0.12)(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))
+      posthog-react-native:
+        specifier: ^4.52.0
+        version: 4.52.0(c175cb971e68b43efb0f7a29a6773123)
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -434,6 +443,9 @@ importers:
       '@babel/plugin-transform-template-literals':
         specifier: ^7.29.7
         version: 7.29.7(@babel/core@7.29.6)
+      '@posthog/cli':
+        specifier: ^0.7.33
+        version: 0.7.33
       '@react-native/metro-config':
         specifier: 0.85.3
         version: 0.85.3(@babel/core@7.29.6)
@@ -3732,11 +3744,6 @@ packages:
   '@popperjs/core@2.11.8':
     resolution: {integrity: sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==}
 
-  '@posthog/cli@0.7.24':
-    resolution: {integrity: sha512-Jho5QDPYv21gDd8O1JDewPmA8ZEO2VbikszYTtD0rCem6nsDN528tpZnNUPGPYyeuAQHTQasoo7/g3IJVCBmDg==}
-    engines: {node: '>=14.14', npm: '>=6'}
-    hasBin: true
-
   '@posthog/cli@0.7.33':
     resolution: {integrity: sha512-shiGauwcH64wBVD08rXcAaLyOdCbstjlwdDQ6jgWX39cZZnf8EpPqwywJz9me83EFIij2Ky4j7IxDutyADiOgQ==}
     engines: {node: '>=14.14', npm: '>=6'}
@@ -3762,9 +3769,6 @@ packages:
     peerDependencies:
       react: '*'
       react-native: '*'
-
-  '@posthog/types@1.387.0':
-    resolution: {integrity: sha512-XR0B1geABbnUlSNv4RuFWvk19D870B668C/XzcKDctAZ+xCH5gmGM0oltGbA9yj+2ia9Y65nOrDYKN6Whu1oBw==}
 
   '@posthog/types@1.391.1':
     resolution: {integrity: sha512-ASwd7Nf4pViqdYRYaNRyPYRVKWa1CcHUAUWR0XeQJLGdNnsWACBwe0sSieb/cHnKsRXjRwO/23KIY83lm/Ccpw==}
@@ -16183,17 +16187,13 @@ snapshots:
 
   '@popperjs/core@2.11.8': {}
 
-  '@posthog/cli@0.7.24':
-    dependencies:
-      detect-libc: 2.1.2
-
   '@posthog/cli@0.7.33':
     dependencies:
       detect-libc: 2.1.2
 
   '@posthog/core@1.33.0':
     dependencies:
-      '@posthog/types': 1.387.0
+      '@posthog/types': 1.391.1
 
   '@posthog/core@1.37.3':
     dependencies:
@@ -16201,7 +16201,7 @@ snapshots:
 
   '@posthog/nextjs-config@1.9.68(next@16.2.9(patch_hash=b91d80ec3567d3ae82504009dc0c68b106309f82b5bcf45ee9f1599ae275b515)(@babel/core@7.29.6)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.15))':
     dependencies:
-      '@posthog/cli': 0.7.24
+      '@posthog/cli': 0.7.33
       '@posthog/plugin-utils': 1.1.2
       '@posthog/webpack-plugin': 1.5.24(webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.15))
       next: 16.2.9(patch_hash=b91d80ec3567d3ae82504009dc0c68b106309f82b5bcf45ee9f1599ae275b515)(@babel/core@7.29.6)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -16218,13 +16218,11 @@ snapshots:
       react: 19.2.3
       react-native: 0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3)
 
-  '@posthog/types@1.387.0': {}
-
   '@posthog/types@1.391.1': {}
 
   '@posthog/webpack-plugin@1.5.24(webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.15))':
     dependencies:
-      '@posthog/cli': 0.7.24
+      '@posthog/cli': 0.7.33
       '@posthog/core': 1.33.0
       '@posthog/plugin-utils': 1.1.2
       webpack: 5.107.2(esbuild@0.28.1)(postcss@8.5.15)

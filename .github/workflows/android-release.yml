@@ -110,6 +110,21 @@ jobs:
           store-dir: ${{ env.PNPM_STORE_DIR }}
           install-command: .github/scripts/pnpm-install-with-retry.sh --frozen-lockfile
 
+      - name: Normalize PostHog CLI executable bit
+        run: |
+          POSTHOG_CLI_JS="$(node --print "require.resolve('@posthog/cli/run-posthog-cli.js')")"
+          if [ ! -f "$POSTHOG_CLI_JS" ]; then
+            echo "::error::@posthog/cli run-posthog-cli.js is not available after pnpm install"
+            exit 1
+          fi
+
+          # The PostHog Android Gradle helper executes run-posthog-cli.js
+          # directly on Unix. Make the target executable so release uploads do
+          # not depend on the package manager's bin-shim permissions.
+          chmod +x "$POSTHOG_CLI_JS"
+          chmod +x "$GITHUB_WORKSPACE/node_modules/.bin/posthog-cli" 2>/dev/null || true
+          node "$POSTHOG_CLI_JS" --version
+
       - name: Fix Hermes compiler path
         # RN 0.83+ ships hermesc in the hermes-compiler package, but
         # Gradle still resolves it via react-native/sdks/hermesc/.
@@ -185,6 +200,8 @@ jobs:
           EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
           EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          EXPO_PUBLIC_POSTHOG_API_KEY: ${{ secrets.EXPO_PUBLIC_POSTHOG_API_KEY }}
+          EXPO_PUBLIC_POSTHOG_HOST: ${{ secrets.EXPO_PUBLIC_POSTHOG_HOST }}
           EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID: ${{ secrets.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID }}
         run: pnpm exec expo prebuild --platform android --clean
 
@@ -218,7 +235,12 @@ jobs:
           EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
           EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          EXPO_PUBLIC_POSTHOG_API_KEY: ${{ secrets.EXPO_PUBLIC_POSTHOG_API_KEY }}
+          EXPO_PUBLIC_POSTHOG_HOST: ${{ secrets.EXPO_PUBLIC_POSTHOG_HOST }}
           EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID: ${{ secrets.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID }}
+          POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+          POSTHOG_CLI_PROJECT_ID: ${{ secrets.POSTHOG_CLI_PROJECT_ID }}
+          POSTHOG_CLI_HOST: ${{ secrets.POSTHOG_CLI_HOST || 'https://eu.posthog.com' }}
           VERSION_CODE: ${{ env.VERSION_CODE }}
         run: ./gradlew app:bundleRelease -x lint -x test --configure-on-demand --build-cache --max-workers=2 --no-daemon --stacktrace
 

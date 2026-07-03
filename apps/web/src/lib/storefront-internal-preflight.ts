@@ -94,6 +94,32 @@ function resolveBaseUrl(origin: string): string | null {
 
 function warnFailOpen(context: StorefrontInternalPreflightContext) {
   console.warn('[storefront-internal-preflight] fail-open', context);
+  void captureFailOpen(context);
+}
+
+async function captureFailOpen(context: StorefrontInternalPreflightContext) {
+  if (process.env.NEXT_RUNTIME !== 'nodejs') {
+    return false;
+  }
+
+  try {
+    const { captureServerException } = await import('@/lib/posthog/server');
+    return await captureServerException(
+      new Error(
+        `Storefront internal preflight fail-open: ${context.surface} ${context.reason}`
+      ),
+      {
+        event_source: 'storefront-internal-preflight',
+        identifier: context.identifier,
+        reason: context.reason,
+        slug: context.slug,
+        status: context.status,
+        surface: context.surface,
+      }
+    );
+  } catch {
+    return false;
+  }
 }
 
 function isJsonResponse(response: Response) {
@@ -158,6 +184,7 @@ function getFetchErrorReason(
 
 export const storefrontInternalPreflight = {
   getFetchErrorReason,
+  captureFailOpen,
   readJsonResponse,
   resolveBaseUrl,
   warnFailOpen,

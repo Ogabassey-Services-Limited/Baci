@@ -26,6 +26,7 @@ import { NetworkProvider } from '@/context/NetworkContext';
 import { OnboardingProvider } from '@/context/OnboardingContext';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { QueryProvider } from '@/lib/QueryProvider';
+import { initAdminAnalytics } from '@/services/analytics-core';
 import { useAuthStore } from '@/stores/auth-store';
 
 SplashScreen.preventAutoHideAsync();
@@ -68,6 +69,10 @@ export default function RootLayout() {
   const isDark = colorScheme === 'dark';
   // Initialize RevenueCat (IAP)
   useRevenueCat();
+
+  useEffect(() => {
+    initAdminAnalytics();
+  }, []);
 
   // Initialize auth store ONCE — sets up a single onAuthStateChange listener
   // instead of 21+ independent listeners from each useAuth() call site

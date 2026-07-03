@@ -3,6 +3,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { captureAdminException } from '@/services/analytics-core';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -27,6 +28,10 @@ export class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    captureAdminException(error, {
+      component_stack: errorInfo.componentStack ?? undefined,
+      route_surface: 'mobile-admin',
+    });
     console.error('[ErrorBoundary] Caught error:', error, errorInfo);
   }
 
