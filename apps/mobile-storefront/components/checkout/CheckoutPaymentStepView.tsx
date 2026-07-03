@@ -74,6 +74,15 @@ export function CheckoutPaymentStepView({
     scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
   };
 
+  // Open the (default) Pay in Full card on entry when the shopper actually has
+  // store credit to apply, so the wallet/savings rows — rendered inside the
+  // selected card — aren't hidden behind a collapsed card and silently skipped.
+  const hasStoreCredit =
+    walletBalance > 0 ||
+    (Boolean(checkoutSavingsGoal?.id) &&
+      !isLoadingCheckoutSavings &&
+      checkoutSavingsBalance > 0);
+
   return (
     <ScrollView
       ref={scrollRef}
@@ -114,7 +123,7 @@ export function CheckoutPaymentStepView({
         orderTotal={total}
         enabledMethods={availablePaymentMethods}
         hiddenMethods={hiddenPaymentMethods}
-        initiallyCollapsed
+        initiallyCollapsed={!hasStoreCredit}
         walletMode="orders"
         walletBalance={walletBalance}
         walletOrderTotal={total}
