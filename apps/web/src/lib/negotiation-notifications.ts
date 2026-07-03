@@ -6,9 +6,25 @@
 
 import {
   formatCurrency,
+  type NotificationSendResult,
   notifyCustomer,
   notifyMerchant,
 } from '@/lib/expo-push';
+import { sendEmail } from '@/lib/zeptomail';
+
+const HTML_TEXT_ESCAPE_REGEX = /[&<>]/g;
+const HTML_TEXT_ESCAPE_MAP: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+};
+
+function escapeHtmlText(value: string): string {
+  return value.replace(
+    HTML_TEXT_ESCAPE_REGEX,
+    (match) => HTML_TEXT_ESCAPE_MAP[match]
+  );
+}
 
 /**
  * Notify merchant of a new price negotiation request.
@@ -54,7 +70,7 @@ export async function notifyNegotiationRequest(
  *
  * Handles both single-item and cart-level negotiations.
  */
-export async function notifyNegotiationResponse(
+export function notifyNegotiationResponse(
   userId: string,
   negotiationType: 'single' | 'total',
   status: 'accepted' | 'rejected',
@@ -62,7 +78,7 @@ export async function notifyNegotiationResponse(
   itemName?: string | null,
   offeredPrice?: number | null,
   productSlug?: string | null
-): Promise<void> {
+): Promise<NotificationSendResult> {
   const isAccepted = status === 'accepted';
   const title = isAccepted ? '✅ Offer Accepted!' : '❌ Offer Declined';
 
@@ -80,7 +96,7 @@ export async function notifyNegotiationResponse(
       : `Your offer for ${itemName} was declined. Try a new offer or buy at the listed price.`;
   }
 
-  await notifyCustomer(
+  return notifyCustomer(
     userId,
     title,
     body,
@@ -92,4 +108,69 @@ export async function notifyNegotiationResponse(
     },
     'orders'
   );
+}
+
+interface NotifyGuestNegotiationResponseEmailParams {
+  acceptedPrice?: number | null;
+  email: string;
+  itemName?: string | null;
+  merchantId: string;
+  negotiationId: string;
+  negotiationType: 'single' | 'total';
+  productSlug?: string | null;
+  status: 'accepted' | 'rejected';
+}
+
+export async function notifyGuestNegotiationResponseByEmail({
+  acceptedPrice,
+  email,
+  itemName,
+  merchantId,
+  negotiationId,
+  negotiationType,
+  productSlug,
+  status,
+}: NotifyGuestNegotiationResponseEmailParams): Promise<void> {
+  const isAccepted = status === 'accepted';
+  const formattedPrice =
+    acceptedPrice != null ? formatCurrency(acceptedPrice) : null;
+  const subject = isAccepted
+    ? 'Your offer has been accepted'
+    : 'Your offer was declined';
+  const itemLabel =
+    negotiationType === 'total' || !itemName ? 'your cart offer' : itemName;
+  const decisionText = isAccepted
+    ? `Your offer${formattedPrice ? ` of ${formattedPrice}` : ''} for ${itemLabel} has been accepted.`
+    : `Your offer for ${itemLabel} was declined. You can return to the store to make another offer or buy at the listed price.`;
+  const actionText = isAccepted
+    ? 'Return to the store to complete your purchase.'
+    : 'Return to the store to continue shopping.';
+  const escapedDecisionText = escapeHtmlText(decisionText);
+  const escapedActionText = escapeHtmlText(actionText);
+
+  const result = await sendEmail({
+    auditContext: {
+      merchantId,
+      metadata: {
+        negotiationId,
+        productSlug: productSlug ?? null,
+        status,
+      },
+    },
+    emailType: 'orders',
+    htmlContent: `
+      <p>${escapedDecisionText}</p>
+      <p>${escapedActionText}</p>
+    `,
+    merchantId,
+    subject,
+    textContent: `${decisionText}\n\n${actionText}`,
+    to: email,
+  });
+
+  if (!result.success) {
+    throw new Error(
+      result.error || 'Failed to send negotiation response email'
+    );
+  }
 }

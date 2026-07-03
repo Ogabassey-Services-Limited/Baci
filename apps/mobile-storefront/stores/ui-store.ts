@@ -1,5 +1,19 @@
 import { create } from 'zustand';
 
+export type NegotiationContext = {
+  type: 'single' | 'total';
+  itemId?: string;
+  productName: string;
+  currentPrice: number;
+  brand?: string;
+  isNegotiable?: boolean;
+  productSlug?: string;
+  variantId?: string;
+  variantName?: string;
+  variantAttributes?: Record<string, string>;
+  condition?: string;
+};
+
 /**
  * UI Store - Manages global UI states like modals, chat visibility,
  * and ephemeral UI contexts.
@@ -17,22 +31,8 @@ interface UIState {
 
   // Negotiation Modal State
   isNegotiationModalOpen: boolean;
-  negotiationContext: {
-    type: 'single' | 'total';
-    itemId?: string;
-    productName: string;
-    currentPrice: number;
-    brand?: string;
-    isNegotiable?: boolean;
-  } | null;
-  openNegotiation: (context: {
-    type: 'single' | 'total';
-    itemId?: string;
-    productName: string;
-    currentPrice: number;
-    brand?: string;
-    isNegotiable?: boolean;
-  }) => void;
+  negotiationContext: NegotiationContext | null;
+  openNegotiation: (context: NegotiationContext) => void;
   closeNegotiation: () => void;
 }
 

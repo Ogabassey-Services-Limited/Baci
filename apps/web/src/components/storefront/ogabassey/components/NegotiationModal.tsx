@@ -2,23 +2,24 @@
 
 // Migrated from temp-source/components/NegotiationModal.tsx
 import {
-  buildCartSnapshot,
   COUNTER_NEGOTIATION_DISCOUNT_STEPS,
   isProductNegotiable,
   MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
-  type NegotiationCartLine,
-  normalizePhoneToE164,
-  summarizeCartForItemInfo,
 } from '@baci/shared/lib';
 import { CheckCircle2, HandCoins, Loader2, Upload, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { CartItem } from '@/hooks/cart';
-import {
-  getCartItemCheckoutUnitPrice,
-  isQuizVoucherCartItem,
-} from '@/lib/checkout/cart-entitlement-sanitizer';
 import { createClient } from '@/lib/supabase/client';
+import { uploadNegotiationEvidenceFile } from './negotiation-evidence';
+import { computeCounterOffer } from './negotiation-modal-pricing';
+import { insertNegotiationRequest } from './negotiation-modal-request';
+import {
+  NegotiationValidationError,
+  getContactValidationError,
+} from './negotiation-modal-validation';
+
+export { deriveCartLineNegotiationProps } from './negotiation-modal-cart';
 
 interface NegotiationModalProps {
   isOpen: boolean;
@@ -31,45 +32,13 @@ interface NegotiationModalProps {
   type: 'single' | 'total';
   itemId?: string;
   merchantId: string;
+  productSlug?: string;
+  variantId?: string;
+  variantName?: string;
+  variantAttributes?: Record<string, string>;
+  condition?: string;
   /** Cart lines to snapshot for whole-cart ("total") offers. */
   cart?: CartItem[];
-}
-
-/** Map a web cart line into the platform-neutral negotiation snapshot shape. */
-function toNegotiationCartLine(item: CartItem): Partial<NegotiationCartLine> {
-  const variantParts =
-    item.variantAttributes
-      ? Object.entries(item.variantAttributes).map(
-          ([key, value]) => `${key}: ${value}`
-        )
-      : [];
-  const variantValues = new Set(
-    Object.values(item.variantAttributes ?? {}).map((value) =>
-      value.trim().toLowerCase()
-    )
-  );
-  for (const [label, value] of [
-    ['Color', item.selectedColor],
-    ['Secondary color', item.secondaryColor],
-    ['Storage', item.selectedStorage],
-  ] as const) {
-    const normalizedValue = value?.trim().toLowerCase();
-    if (value && normalizedValue && !variantValues.has(normalizedValue)) {
-      variantParts.push(`${label}: ${value}`);
-    }
-  }
-
-  return {
-    product_id: item.id,
-    name: item.name,
-    price: isQuizVoucherCartItem(item) ? 0 : getCartItemCheckoutUnitPrice(item),
-    quantity: item.quantity,
-    image: item.image,
-    variant_id: item.variantId,
-    variant_name: [...new Set(variantParts)].join(' · ') || undefined,
-    brand: item.brand,
-    condition: item.condition,
-  };
 }
 
 type NegotiationStatus =
@@ -81,117 +50,10 @@ type NegotiationStatus =
   | 'upload'
   | 'submitted';
 
-const SESSION_KEY = 'ogabassey_guest_session';
 const AI_REVIEW_MESSAGE =
   'Your offer was accepted by our AI and is subject to human review.';
 const FINAL_PRICE_MESSAGE =
   "That's the final price for this product. We can't discount it further.";
-const MIN_SUBTOTAL_FOR_ROUNDED_COUNTER = 1000;
-
-function getOrCreateSessionId(): string {
-  if (typeof window === 'undefined') return `web-${Date.now()}`;
-  const existing = window.sessionStorage.getItem(SESSION_KEY);
-  if (existing) return existing;
-  const id = `web-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`}`;
-  window.sessionStorage.setItem(SESSION_KEY, id);
-  return id;
-}
-
-function computeCounterOffer(
-  currentPrice: number,
-  counterDiscount: number,
-  vatRate = 0
-): number {
-  const rawCounterOffer = Math.floor(currentPrice * (1 - counterDiscount));
-
-  // Keep the final (max-rate) counter-offer within the API's allowed cap.
-  if (counterDiscount < MAX_AUTO_NEGOTIATION_DISCOUNT_RATE) {
-    return rawCounterOffer;
-  }
-
-  const rawDiscountAmount = currentPrice - rawCounterOffer;
-  const vatAwareCart = vatRate > 0;
-  const hasFractionalPrice = !Number.isInteger(currentPrice);
-  const maxServerAcceptedDiscountAmount =
-    vatAwareCart
-      ? Math.floor(currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE)
-      : hasFractionalPrice
-      ? Math.floor(currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE)
-      : currentPrice >= MIN_SUBTOTAL_FOR_ROUNDED_COUNTER
-      ? Math.ceil(currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE)
-      : Math.floor(currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE);
-
-  return currentPrice - Math.min(rawDiscountAmount, maxServerAcceptedDiscountAmount);
-}
-
-interface NegotiationRequestInput {
-  merchantId: string;
-  type: 'single' | 'total';
-  itemId?: string;
-  productName: string;
-  currentPrice: number;
-  offeredPrice: number;
-  evidenceUrl?: string;
-  customerPhone?: string | null;
-  cart?: CartItem[];
-}
-
-async function insertNegotiationRequest(
-  supabase: ReturnType<typeof createClient>,
-  request: NegotiationRequestInput
-): Promise<void> {
-  // Get authenticated user if available (null for guests)
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError) {
-    console.warn('Auth check failed, continuing as guest:', authError.message);
-  }
-
-  const normalizedPhone = normalizePhoneToE164(request.customerPhone);
-  if ((request.customerPhone ?? '').trim() && !normalizedPhone) {
-    throw new Error('Enter a valid Phone / WhatsApp number.');
-  }
-
-  // Whole-cart offers snapshot the cart so the merchant can see what's being
-  // negotiated; single offers keep their existing per-product item_info.
-  const cartSnapshot =
-    request.type === 'total'
-      ? buildCartSnapshot((request.cart ?? []).map(toNegotiationCartLine))
-      : [];
-  if (request.type === 'total' && cartSnapshot.length === 0) {
-    throw new Error('Whole-cart negotiations require at least one cart item.');
-  }
-  const totalItemInfo =
-    request.type === 'total'
-      ? summarizeCartForItemInfo(cartSnapshot, request.currentPrice)
-      : null;
-
-  const { error } = await supabase.from('negotiation_requests').insert({
-    merchant_id: request.merchantId,
-    session_id: getOrCreateSessionId(),
-    customer_id: user?.id ?? null,
-    type: request.type,
-    item_info:
-      request.type === 'single'
-        ? {
-            id: request.itemId,
-            name: request.productName,
-            current_price: request.currentPrice,
-          }
-        : totalItemInfo,
-    cart_snapshot: cartSnapshot.length > 0 ? cartSnapshot : null,
-    offered_price: request.offeredPrice,
-    evidence_url: request.evidenceUrl || null,
-    // Optional follow-up number (null when blank/invalid) so the merchant can
-    // reach guests who'd otherwise get no decision notification.
-    customer_phone: normalizedPhone,
-    status: 'pending',
-  });
-
-  if (error) throw error;
-}
 
 export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   isOpen,
@@ -204,11 +66,17 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   type,
   itemId,
   merchantId,
+  productSlug,
+  variantId,
+  variantName,
+  variantAttributes,
+  condition,
   cart,
 }) => {
   const offerInputId = useId();
   const uploadFileInputId = useId();
   const uploadLinkInputId = useId();
+  const emailInputId = useId();
   const phoneInputId = useId();
   const isNegotiableProduct = isProductNegotiable({
     brand: productBrand,
@@ -225,11 +93,18 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   // Upload Evidence State
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadLink, setUploadLink] = useState('');
+  const [email, setEmail] = useState('');
   // Optional follow-up contact captured alongside the merchant-approval evidence.
   const [phone, setPhone] = useState('');
   const submitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(false);
   const isOpenRef = useRef(isOpen);
+  const selectedVariantDetails = [
+    variantName?.trim(),
+    condition?.trim()
+      ? `Condition: ${condition.trim().replace(/_/g, ' ')}`
+      : null,
+  ].filter(Boolean);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const offerInputRef = useRef<HTMLInputElement | null>(null);
   const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
@@ -270,6 +145,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       setCounterOffer(null);
       setUploadFile(null);
       setUploadLink('');
+      setEmail('');
       setPhone('');
     }
   }
@@ -485,11 +361,18 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
         merchantId,
         type,
         itemId,
+        productSlug,
         productName,
+        productBrand,
         currentPrice,
         offeredPrice: offerAmount,
         evidenceUrl,
+        customerEmail: email,
         customerPhone: phone,
+        variantId,
+        variantName,
+        variantAttributes,
+        condition,
         cart,
       });
 
@@ -506,9 +389,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       }
 
       alert(
-        error instanceof Error &&
-          (error.message.includes('Phone / WhatsApp') ||
-            error.message.includes('Whole-cart'))
+        error instanceof NegotiationValidationError
           ? error.message
           : 'Failed to submit request. Please try again.'
       );
@@ -526,7 +407,53 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    submitMerchantRequest(uploadLink || 'uploaded_evidence_placeholder');
+    const contactValidationError = getContactValidationError({ email, phone });
+    if (contactValidationError) {
+      alert(contactValidationError);
+      return;
+    }
+
+    const trimmedLink = uploadLink.trim();
+    if (trimmedLink && uploadFile) {
+      alert('Use either a proof upload or a link, not both.');
+      return;
+    }
+
+    if (trimmedLink) {
+      await submitMerchantRequest(trimmedLink);
+      return;
+    }
+
+    if (!uploadFile) {
+      alert('Upload proof or paste a link before sending your request.');
+      return;
+    }
+
+    if (!merchantId) {
+      alert('Unable to submit request — merchant context unavailable.');
+      return;
+    }
+
+    setStatus('processing');
+    try {
+      const evidencePath = await uploadNegotiationEvidenceFile({
+        file: uploadFile,
+        merchantId,
+      });
+      await submitMerchantRequest(evidencePath);
+    } catch (error) {
+      console.error('Failed to upload evidence:', error);
+      if (!canApplyAsyncResult()) {
+        return;
+      }
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Unable to upload evidence image. Please try again.'
+      );
+      setStatus('upload');
+    }
   };
 
   return (
@@ -576,6 +503,11 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
             <p className="font-bold text-[hsl(var(--card-foreground))] line-clamp-1">
               {productName}
             </p>
+            {selectedVariantDetails.length > 0 ? (
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                {selectedVariantDetails.join(' · ')}
+              </p>
+            ) : null}
             <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
               Current Price:{' '}
               <span className="text-[hsl(var(--card-foreground))] font-semibold">
@@ -722,7 +654,11 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {/* Upload Evidence Form */}
           {status === 'upload' && (
-            <form onSubmit={handleUploadSubmit} className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+            <form
+              noValidate
+              onSubmit={handleUploadSubmit}
+              className="space-y-4 animate-in fade-in slide-in-from-bottom-2"
+            >
               <div className="bg-[var(--store-primary)]/5 border border-[var(--store-primary)]/20 rounded-xl p-4">
                 <p className="text-sm text-[hsl(var(--card-foreground))] font-medium mb-2">
                   📸 Saw it cheaper elsewhere?
@@ -738,7 +674,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   htmlFor={uploadFileInputId}
                   className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2"
                 >
-                  Upload Proof (Required)
+                  Upload Proof
                 </label>
                 <div className="relative">
                   <input
@@ -748,7 +684,6 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                     aria-label="Upload proof"
                     onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
                     className="w-full px-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-sm text-[hsl(var(--card-foreground))] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[hsl(var(--muted))] file:text-[hsl(var(--card-foreground))] hover:file:bg-[var(--store-primary)]/10"
-                    required
                   />
                 </div>
                 {uploadFile && (
@@ -775,6 +710,28 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   placeholder="https://example.com/product"
                   className="w-full bg-[hsl(var(--card))] px-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-sm text-[hsl(var(--card-foreground))]"
                 />
+              </div>
+
+              {/* Email (Optional) */}
+              <div>
+                <label
+                  htmlFor={emailInputId}
+                  className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2"
+                >
+                  Email Address (Optional)
+                </label>
+                <input
+                  id={emailInputId}
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full bg-[hsl(var(--card))] px-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-sm text-[hsl(var(--card-foreground))]"
+                />
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                  We can email you when the merchant accepts or rejects the offer.
+                </p>
               </div>
 
               {/* Phone / WhatsApp (Optional) */}

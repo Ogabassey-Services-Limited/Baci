@@ -26,7 +26,10 @@ import { AdUnit } from './AdUnit';
 // import { ActionTooltip } from './Tooltip';
 import { EmptyState } from './empty-state';
 import Image from 'next/image';
-import { NegotiationModal } from './NegotiationModal';
+import {
+  deriveCartLineNegotiationProps,
+  NegotiationModal,
+} from './NegotiationModal';
 import { runCartTotalNegotiation } from '../lib/cart-total-negotiation';
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
 import { isProductNegotiable } from '@baci/shared/lib';
@@ -562,6 +565,9 @@ export const CartSidebar: React.FC = () => {
           type={negotiationState.type}
           merchantId={merchant.id}
           cart={cart}
+          {...(negotiationState.type === 'single' && negotiationState.item
+            ? deriveCartLineNegotiationProps(negotiationState.item)
+            : {})}
         />
       )}
     </>

@@ -66,6 +66,12 @@ export const NegotiationModal: React.FC = () => {
             currentPrice,
             id: itemId ?? undefined,
             name: productName,
+            productSlug: negotiationContext.productSlug,
+            brand: productBrand,
+            variantId: negotiationContext.variantId,
+            variantName: negotiationContext.variantName,
+            variantAttributes: negotiationContext.variantAttributes,
+            condition: negotiationContext.condition,
           }
         : null,
     merchantId,

@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from './route';
@@ -6,9 +8,16 @@ import { POST } from './route';
 // Mocks
 // =============================================================================
 
-const mockNotifyNegotiationResponse = vi.fn().mockResolvedValue(undefined);
+const mockNotifyNegotiationResponse = vi
+  .fn()
+  .mockResolvedValue({ sent: 1, failed: 0, errors: [] });
+const mockNotifyGuestNegotiationResponseByEmail = vi
+  .fn()
+  .mockResolvedValue(undefined);
 
 vi.mock('@/lib/negotiation-notifications', () => ({
+  notifyGuestNegotiationResponseByEmail: (...args: unknown[]) =>
+    mockNotifyGuestNegotiationResponseByEmail(...args),
   notifyNegotiationResponse: (...args: unknown[]) =>
     mockNotifyNegotiationResponse(...args),
 }));
@@ -39,6 +48,16 @@ function createRequest(body: Record<string, unknown>): NextRequest {
     headers: {
       'Content-Type': 'application/json',
       Authorization: 'Bearer valid-token',
+    },
+  });
+}
+
+function createCookieRequest(body: Record<string, unknown>): NextRequest {
+  return new NextRequest('http://localhost:3000/api/negotiations/notify', {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: {
+      'Content-Type': 'application/json',
     },
   });
 }
@@ -105,6 +124,12 @@ async function setupAuth(options: {
 describe('POST /api/negotiations/notify', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockNotifyNegotiationResponse.mockResolvedValue({
+      sent: 1,
+      failed: 0,
+      errors: [],
+    });
+    mockNotifyGuestNegotiationResponseByEmail.mockResolvedValue(undefined);
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -132,6 +157,19 @@ describe('POST /api/negotiations/notify', () => {
     const response = await POST(request);
 
     expect(response.status).toBe(400);
+  });
+
+  it('returns 403 when browser-authenticated requests fail CSRF validation', async () => {
+    await setupAuth({ authenticated: true, hasAccess: true });
+
+    const request = createCookieRequest(validBody);
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(data.error).toBe('Invalid CSRF token');
+    expect(mockSupabase.from).not.toHaveBeenCalled();
+    expect(mockNotifyNegotiationResponse).not.toHaveBeenCalled();
   });
 
   it('returns 404 when negotiation not found', async () => {
@@ -185,7 +223,7 @@ describe('POST /api/negotiations/notify', () => {
     expect(data.error).toBe('Negotiation has not been resolved yet');
   });
 
-  it('returns notified: false for guest negotiations (no customer_id)', async () => {
+  it('sends email for guest negotiations when customer_email is present', async () => {
     await setupAuth({
       authenticated: true,
       hasAccess: true,
@@ -196,6 +234,7 @@ describe('POST /api/negotiations/notify', () => {
       id: validBody.negotiationId,
       merchant_id: 'merchant-123',
       customer_id: null,
+      customer_email: 'guest@example.com',
       type: 'single',
       item_info: { name: 'Product' },
       offered_price: 5000,
@@ -207,8 +246,79 @@ describe('POST /api/negotiations/notify', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toEqual({ notified: false, reason: 'no_customer_id' });
+    expect(data).toEqual({ notified: true, channel: 'email' });
     expect(mockNotifyNegotiationResponse).not.toHaveBeenCalled();
+    expect(mockNotifyGuestNegotiationResponseByEmail).toHaveBeenCalledWith({
+      acceptedPrice: 5000,
+      email: 'guest@example.com',
+      itemName: 'Product',
+      merchantId: 'merchant-123',
+      negotiationId: validBody.negotiationId,
+      negotiationType: 'single',
+      productSlug: null,
+      status: 'accepted',
+    });
+  });
+
+  it('returns 500 when guest email notification fails', async () => {
+    await setupAuth({
+      authenticated: true,
+      hasAccess: true,
+      merchantId: 'merchant-123',
+    });
+    mockNotifyGuestNegotiationResponseByEmail.mockRejectedValueOnce(
+      new Error('provider unavailable')
+    );
+
+    mockSupabaseQuery({
+      id: validBody.negotiationId,
+      merchant_id: 'merchant-123',
+      customer_id: null,
+      customer_email: 'guest@example.com',
+      type: 'single',
+      item_info: { name: 'Product' },
+      offered_price: 5000,
+      status: 'accepted',
+    });
+
+    const request = createRequest(validBody);
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data).toEqual({
+      notified: false,
+      reason: 'notification_failed',
+    });
+    expect(mockNotifyNegotiationResponse).not.toHaveBeenCalled();
+  });
+
+  it('returns notified false for guest negotiations without customer_email', async () => {
+    await setupAuth({
+      authenticated: true,
+      hasAccess: true,
+      merchantId: 'merchant-123',
+    });
+
+    mockSupabaseQuery({
+      id: validBody.negotiationId,
+      merchant_id: 'merchant-123',
+      customer_id: null,
+      customer_email: null,
+      type: 'single',
+      item_info: { name: 'Product' },
+      offered_price: 5000,
+      status: 'accepted',
+    });
+
+    const request = createRequest(validBody);
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual({ notified: false, reason: 'no_customer_email' });
+    expect(mockNotifyNegotiationResponse).not.toHaveBeenCalled();
+    expect(mockNotifyGuestNegotiationResponseByEmail).not.toHaveBeenCalled();
   });
 
   it('sends push notification for authenticated customer negotiation', async () => {
@@ -245,6 +355,82 @@ describe('POST /api/negotiations/notify', () => {
     );
   });
 
+  it('falls back to captured email when authenticated customer push reaches no devices', async () => {
+    await setupAuth({
+      authenticated: true,
+      hasAccess: true,
+      merchantId: 'merchant-123',
+    });
+    mockNotifyNegotiationResponse.mockResolvedValueOnce({
+      sent: 0,
+      failed: 0,
+      errors: [],
+    });
+
+    mockSupabaseQuery({
+      id: validBody.negotiationId,
+      merchant_id: 'merchant-123',
+      customer_id: 'customer-456',
+      customer_email: 'customer@example.com',
+      type: 'single',
+      item_info: { name: 'Cool Sneakers', product_slug: 'cool-sneakers' },
+      offered_price: 5000,
+      status: 'accepted',
+    });
+
+    const request = createRequest(validBody);
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual({ notified: true, channel: 'email' });
+    expect(mockNotifyGuestNegotiationResponseByEmail).toHaveBeenCalledWith({
+      acceptedPrice: 5000,
+      email: 'customer@example.com',
+      itemName: 'Cool Sneakers',
+      merchantId: 'merchant-123',
+      negotiationId: validBody.negotiationId,
+      negotiationType: 'single',
+      productSlug: 'cool-sneakers',
+      status: 'accepted',
+    });
+  });
+
+  it('reports no delivery channel when push reaches no devices and no email exists', async () => {
+    await setupAuth({
+      authenticated: true,
+      hasAccess: true,
+      merchantId: 'merchant-123',
+    });
+    mockNotifyNegotiationResponse.mockResolvedValueOnce({
+      sent: 0,
+      failed: 0,
+      errors: [],
+    });
+
+    mockSupabaseQuery({
+      id: validBody.negotiationId,
+      merchant_id: 'merchant-123',
+      customer_id: 'customer-456',
+      customer_email: null,
+      type: 'single',
+      item_info: { name: 'Cool Sneakers' },
+      offered_price: 5000,
+      status: 'accepted',
+    });
+
+    const request = createRequest(validBody);
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      notified: false,
+      reason: 'no_delivery_channel',
+    });
+    expect(mockNotifyGuestNegotiationResponseByEmail).not.toHaveBeenCalled();
+  });
+
   it('returns 400 for invalid negotiation type', async () => {
     await setupAuth({
       authenticated: true,
@@ -270,7 +456,7 @@ describe('POST /api/negotiations/notify', () => {
     expect(data.error).toBe('Invalid negotiation type');
   });
 
-  it('returns 500 when notification delivery fails', async () => {
+  it('returns no delivery channel when push delivery fails without fallback email', async () => {
     await setupAuth({
       authenticated: true,
       hasAccess: true,
@@ -295,8 +481,11 @@ describe('POST /api/negotiations/notify', () => {
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(500);
-    expect(data).toEqual({ notified: false, reason: 'notification_failed' });
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      notified: false,
+      reason: 'no_delivery_channel',
+    });
   });
 
   it('passes null acceptedPrice for rejected negotiations', async () => {

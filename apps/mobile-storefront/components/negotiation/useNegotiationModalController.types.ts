@@ -1,15 +1,21 @@
 import type { CartItem } from '@/stores/cart-store';
 
-export interface NegotiationItemInfo {
+export interface NegotiationItemInfoViewModel {
+  brand?: string;
+  condition?: string;
   currentPrice: number;
   id?: string;
   name: string;
+  productSlug?: string;
+  variantAttributes?: Record<string, string>;
+  variantId?: string;
+  variantName?: string;
 }
 
 export interface UseNegotiationModalControllerParams {
   currentPrice: number;
   isNegotiable?: boolean;
-  itemInfo: NegotiationItemInfo | null;
+  itemInfo: NegotiationItemInfoViewModel | null;
   merchantId: string | null;
   onAcceptedPrice?: (price: number) => void;
   successMessageFormatter: (price: number) => string;

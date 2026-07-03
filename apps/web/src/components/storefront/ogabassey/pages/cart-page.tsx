@@ -17,7 +17,10 @@ import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { isProductNegotiable } from '@baci/shared/lib';
 import { AdUnit } from '../components/AdUnit';
 import { CheckoutIdentityModal } from '../components/CheckoutIdentityModal';
-import { NegotiationModal } from '../components/NegotiationModal';
+import {
+  deriveCartLineNegotiationProps,
+  NegotiationModal,
+} from '../components/NegotiationModal';
 import { runCartTotalNegotiation } from '../lib/cart-total-negotiation';
 import { CartPageEmptySection } from './cart-page-empty-section';
 import { CartPageHeader } from './cart-page-header';
@@ -248,6 +251,9 @@ export const CartPage: React.FC<CartPageProps> = ({
           type={negotiationState.type}
           merchantId={merchant.id}
           cart={cart}
+          {...(negotiationState.type === 'single' && negotiationState.item
+            ? deriveCartLineNegotiationProps(negotiationState.item)
+            : {})}
         />
       )}
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   COUNTER_NEGOTIATION_DISCOUNT_STEPS,
+  computeNegotiationCounterOffer,
   isProductNegotiable,
   MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
 } from './negotiation-policy';
@@ -9,6 +10,14 @@ describe('negotiation policy', () => {
   it('uses a 2% automatic negotiation cap', () => {
     expect(MAX_AUTO_NEGOTIATION_DISCOUNT_RATE).toBe(0.02);
     expect(COUNTER_NEGOTIATION_DISCOUNT_STEPS).toEqual([0.01, 0.015, 0.02]);
+  });
+
+  it('computes capped counter offers with backend rounding rules', () => {
+    expect(computeNegotiationCounterOffer(10_000, 0.01)).toBe(9900);
+    expect(computeNegotiationCounterOffer(999, 0.02)).toBe(980);
+    expect(computeNegotiationCounterOffer(1001, 0.02)).toBe(980);
+    expect(computeNegotiationCounterOffer(1048.95, 0.02)).toBe(1028.95);
+    expect(computeNegotiationCounterOffer(1001, 0.02, 0.075)).toBe(981);
   });
 
   it.each([

@@ -5,11 +5,23 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
-import { notifyNegotiationResponse } from '@/lib/negotiation-notifications';
+import { checkCsrfProtection } from '@/lib/csrf';
+import { notifyNegotiationResponseWithFallback } from '@/lib/negotiation-response-notifier';
 
 const bodySchema = z.object({
   negotiationId: z.uuid(),
 });
+
+type NegotiationNotificationRow = {
+  customer_email: string | null;
+  customer_id: string | null;
+  id: string;
+  item_info: { name?: string | null; product_slug?: string | null } | null;
+  merchant_id: string;
+  offered_price: number | null;
+  status: string;
+  type: string;
+};
 
 export async function POST(request: NextRequest) {
   // Auth: supports both Bearer token (mobile) and cookie-based (web)
@@ -27,6 +39,14 @@ export async function POST(request: NextRequest) {
   const access = await getUserAccess(supabase);
   if (!access || !hasPermission(access, 'orders', 'edit')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const csrf = await checkCsrfProtection(request);
+  if (!csrf.valid) {
+    return (
+      csrf.response ??
+      NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+    );
   }
 
   let body: unknown;
@@ -54,11 +74,11 @@ export async function POST(request: NextRequest) {
   const { data: negotiation, error: fetchError } = await supabase
     .from('negotiation_requests')
     .select(
-      'id, merchant_id, customer_id, type, item_info, offered_price, status'
+      'id, merchant_id, customer_id, customer_email, type, item_info, offered_price, status'
     )
     .eq('id', negotiationId)
     .eq('merchant_id', access.merchantId)
-    .single();
+    .single<NegotiationNotificationRow>();
 
   if (fetchError || !negotiation) {
     return NextResponse.json(
@@ -74,11 +94,6 @@ export async function POST(request: NextRequest) {
       { error: 'Negotiation has not been resolved yet' },
       { status: 400 }
     );
-  }
-
-  // Guest negotiations can't receive push (no customer_id)
-  if (!negotiation.customer_id) {
-    return NextResponse.json({ notified: false, reason: 'no_customer_id' });
   }
 
   const negotiationType = negotiation.type;
@@ -97,16 +112,18 @@ export async function POST(request: NextRequest) {
   const productSlug = negotiation.item_info?.product_slug ?? null;
 
   try {
-    await notifyNegotiationResponse(
-      negotiation.customer_id,
-      negotiationType,
-      negotiationStatus,
-      negotiationId,
-      itemName,
+    const result = await notifyNegotiationResponseWithFallback({
       acceptedPrice,
-      productSlug
-    );
-    return NextResponse.json({ notified: true });
+      customerEmail: negotiation.customer_email,
+      customerId: negotiation.customer_id,
+      itemName,
+      merchantId: access.merchantId,
+      negotiationId,
+      negotiationType,
+      productSlug,
+      status: negotiationStatus,
+    });
+    return NextResponse.json(result);
   } catch (error) {
     // Use structured logging for production observability
     const { logger } = await import('@/lib/logger');

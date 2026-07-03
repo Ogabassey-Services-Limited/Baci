@@ -294,5 +294,6 @@ export function useProductDetailsState(serverProduct: Product) {
     setSelectedImage,
     showColorToast: false,
     validateAndAddToCart,
+    variantSelectionAttributes,
   };
 }
