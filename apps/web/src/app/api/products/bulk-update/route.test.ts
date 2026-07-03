@@ -104,8 +104,8 @@ let merchant: {
 let merchantError: unknown = null;
 let updateError: unknown = null;
 let insertError: unknown = null;
-let productInserts: unknown[] = [];
-let productUpdates: unknown[] = [];
+let productInserts: Record<string, unknown>[] = [];
+let productUpdates: Record<string, unknown>[] = [];
 
 // Creates a query builder that supports chaining .eq() and resolves with { error }
 function createQueryBuilder(getError: () => unknown) {
@@ -159,11 +159,11 @@ vi.mock('@/lib/supabase/server', () => ({
       if (table === 'products') {
         return {
           update: vi.fn((payload: unknown) => {
-            productUpdates.push(payload);
+            productUpdates.push(payload as Record<string, unknown>);
             return createQueryBuilder(() => updateError);
           }),
           insert: vi.fn((payload: unknown) => {
-            productInserts.push(payload);
+            productInserts.push(payload as Record<string, unknown>);
             return Promise.resolve({ error: insertError });
           }),
         };
@@ -304,6 +304,61 @@ describe('POST /api/products/bulk-update', () => {
         formErrors: [expect.stringContaining('expected object')],
       },
     });
+  });
+
+  it('processes overlapping product changes without dropping operations', async () => {
+    const { POST } = await import('./route');
+
+    const changes = [
+      {
+        type: 'update',
+        productId: 'product-1',
+        newPrice: 100,
+        details: { name: 'Product A', price: 100 },
+      },
+      {
+        type: 'update',
+        details: { sku: 'SKU-1', name: 'Product B', price: 200 },
+        newPrice: 200,
+      },
+      {
+        type: 'update',
+        productId: 'product-1',
+        newPrice: 150,
+        details: { name: 'Product A', price: 150 },
+      },
+      {
+        type: 'remove',
+        productId: 'product-2',
+        details: { name: 'Product 2', price: 0 },
+      },
+      {
+        type: 'remove',
+        productId: 'product-2',
+        details: { name: 'Product 2', price: 0 },
+      },
+      {
+        type: 'update',
+        details: { sku: 'SKU-1', name: 'Product B', price: 250 },
+        newPrice: 250,
+      },
+    ];
+
+    const res = await POST(makeRequest({ changes }));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.results.updated).toBe(4);
+    expect(json.results.removed).toBe(2);
+    expect(json.results.errors).toHaveLength(0);
+    expect(productUpdates).toHaveLength(6);
+    expect(
+      productUpdates.map((update) => update.price).filter(Boolean)
+    ).toEqual(expect.arrayContaining([100, 150, 200, 250]));
+    expect(
+      productUpdates.filter((update) => update.status === 'archived')
+    ).toHaveLength(2);
   });
 
   it('processes update changes and calls revalidateProducts', async () => {
