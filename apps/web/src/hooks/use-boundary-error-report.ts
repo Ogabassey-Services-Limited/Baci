@@ -16,12 +16,13 @@ interface BoundaryErrorReportOptions {
 /**
  * Shared error-boundary pipeline: hands the caught error to chunk-load
  * recovery, then reports it to PostHog exactly once per error instance with
- * the recovery outcome attached. Errors are never suppressed — a recovered
- * chunk failure still produces a captured exception, tagged
- * `recovery_action: 'reload-scheduled'` so residual events in PostHog are
- * distinguishable from recovery misses. Returns true while a recovery reload
- * is pending so the boundary can render a refresh notice instead of the
- * failure card.
+ * the recovery outcome attached. This hook always reports; the PostHog
+ * `before_send` chain (dropRecoveredChunkExceptionCapture) is the single
+ * place that drops chunk-failure captures while a recovery reload is
+ * actually navigating — those reloads stay observable via the
+ * `chunk_load_recovery` telemetry event. Returns true while a recovery
+ * reload is pending so the boundary can render a refresh notice instead of
+ * the failure card.
  */
 export function useBoundaryErrorReport(
   error: Error & { digest?: string },

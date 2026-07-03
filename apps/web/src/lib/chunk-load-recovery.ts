@@ -14,8 +14,15 @@ import {
   sendChunkRecoveryTelemetry,
 } from '@/lib/chunk-load-recovery/recovery-telemetry';
 
+// A scheduled reload navigates within moments; if the page is somehow still
+// alive after this window, chunk errors become visible again so a reload
+// that never lands can never silently swallow failures (the reason the
+// original unconditional suppression was removed in PR #2857).
+const RELOAD_SUPPRESSION_WINDOW_MS = 10_000;
+
 let chunkLoadRecoveryInitialized = false;
 let browserRuntime: ChunkLoadRecoveryRuntime | undefined;
+let reloadScheduledAtMs: number | null = null;
 
 export interface ChunkLoadRecoveryRuntime {
   getDeploymentId: () => string;
@@ -23,10 +30,34 @@ export interface ChunkLoadRecoveryRuntime {
   getSessionStorage: () => RecoveryGuardStorage | undefined;
   reload: () => void;
   getHost?: () => string;
+  getNow?: () => number;
   getWindowName?: () => string;
   setWindowName?: (value: string) => void;
   isOffline?: () => boolean;
   sendTelemetry?: typeof sendChunkRecoveryTelemetry;
+}
+
+function getRuntimeNow(runtime?: ChunkLoadRecoveryRuntime): number {
+  return runtime?.getNow?.() ?? Date.now();
+}
+
+/**
+ * True while a recovery reload scheduled on this page load should still be
+ * navigating. Chunk errors observed in this window are noise from a page
+ * that is already on its way out; errors after the window (or when no reload
+ * was scheduled) stay fully visible.
+ */
+export function isChunkRecoveryReloadPending(nowMs = Date.now()): boolean {
+  return (
+    reloadScheduledAtMs !== null &&
+    nowMs - reloadScheduledAtMs < RELOAD_SUPPRESSION_WINDOW_MS
+  );
+}
+
+export function resetChunkLoadRecoveryStateForTests(): void {
+  reloadScheduledAtMs = null;
+  browserRuntime = undefined;
+  chunkLoadRecoveryInitialized = false;
 }
 
 function resolveGuardDecision(
@@ -71,6 +102,7 @@ function runRecovery(
     return false;
   }
 
+  reloadScheduledAtMs = getRuntimeNow(runtime);
   runtime.reload();
   return true;
 }

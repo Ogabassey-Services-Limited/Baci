@@ -148,6 +148,35 @@ to transient-network residue; every remaining event pairs with a
 `chunk_load_recovery` event; sessions recover (same-path `$pageview` within
 seconds) or the event says why not.
 
+## Addendum 2026-07-03: conditional suppression
+
+24h of production telemetry after the fix deployed confirmed the design
+works (every ChunkLoadError group paired with recovery telemetry; reloads
+fired via the previously-blind resource-error path; failing chunks all
+probed 200 — transient client-side fetch failures, not missing assets).
+The remaining problem was noise: each successful recovery still emitted
+1–2 `$exception` events, keeping ChunkLoadError issue groups "active" in
+PostHog.
+
+This addendum makes suppression conditional and narrow — the safe variant
+of what PR 2857 removed in its unconditional form:
+
+- Window handlers call `stopImmediatePropagation()`/`preventDefault()`
+  (blocking PostHog's later-registered `onerror`/`onunhandledrejection`
+  wraps) **only while a recovery reload is scheduled and still within a
+  10-second navigation window**. If the reload never navigates, the window
+  expires and errors become visible again — no silent unrecoverable state.
+- Error boundaries skip `captureClientException` under the same condition;
+  `console.error` always fires.
+- Every declined recovery (`skipped-*`) and every error outside the reload
+  window is captured exactly as before. The reload itself remains
+  observable via the `chunk_load_recovery` telemetry event.
+
+Expected steady state: ChunkLoadError `$exception` events appear ONLY for
+genuinely non-recovering failures (guard consumed and still failing after
+reload, offline, storage-unavailable) — each one actionable, none of them
+recovery residue.
+
 ## Follow-ups (not in this change)
 
 - **Raise the year-cacheable `/_next/static` 404s with Vercel support.**

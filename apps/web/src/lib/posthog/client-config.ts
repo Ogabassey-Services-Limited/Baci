@@ -1,4 +1,5 @@
 import type { CaptureResult, PostHogConfig, Properties } from 'posthog-js';
+import { dropRecoveredChunkExceptionCapture } from '@/lib/posthog/chunk-recovery-exception-filter';
 import {
   getPostHogProxyPath,
   getPostHogReleaseContext,
@@ -578,7 +579,11 @@ export function buildPostHogClientConfig(
       'phone',
       'address',
     ],
-    before_send: (capture) => sanitizePostHogCapture(capture, projectToken),
+    before_send: (capture) =>
+      sanitizePostHogCapture(
+        dropRecoveredChunkExceptionCapture(capture),
+        projectToken
+      ),
     loaded(posthog) {
       posthog.register({
         app_surface: 'web',
