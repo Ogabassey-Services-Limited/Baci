@@ -13,6 +13,7 @@ const POSTHOG_API_KEY =
 const POSTHOG_HOST =
   Constants.expoConfig?.extra?.posthogHost?.trim?.() || DEFAULT_POSTHOG_HOST;
 const APP_VERSION = Constants.expoConfig?.version;
+const SANITIZED_CIRCULAR_REFERENCE = '[Circular]';
 
 type AdminUserProperties = {
   merchantId?: string | null;
@@ -28,9 +29,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function sanitizeExceptionCause(cause: unknown): unknown {
+function sanitizeExceptionCause(
+  cause: unknown,
+  seen: WeakSet<object>
+): unknown {
   if (cause instanceof Error) {
-    return sanitizeExceptionForCapture(cause);
+    return seen.has(cause)
+      ? SANITIZED_CIRCULAR_REFERENCE
+      : sanitizeErrorForCause(cause, seen);
   }
 
   if (typeof cause === 'string') {
@@ -38,23 +44,73 @@ function sanitizeExceptionCause(cause: unknown): unknown {
   }
 
   if (Array.isArray(cause)) {
-    return cause.map((item) => sanitizeExceptionCause(item));
+    if (seen.has(cause)) {
+      return SANITIZED_CIRCULAR_REFERENCE;
+    }
+
+    seen.add(cause);
+    const sanitizedArray = cause.map((item) =>
+      sanitizeExceptionCause(item, seen)
+    );
+    seen.delete(cause);
+    return sanitizedArray;
   }
 
   if (isRecord(cause)) {
-    return sanitizeAdminAnalyticsProperties(cause);
+    if (seen.has(cause)) {
+      return SANITIZED_CIRCULAR_REFERENCE;
+    }
+
+    seen.add(cause);
+    const sanitizedRecord: Record<string, unknown> =
+      sanitizeAdminAnalyticsProperties(cause) ?? {};
+
+    for (const [key, value] of Object.entries(cause)) {
+      if (value instanceof Error || Array.isArray(value) || isRecord(value)) {
+        const sanitizedValue = sanitizeExceptionCause(value, seen);
+        if (sanitizedValue !== undefined) {
+          const sanitizedProperty = sanitizeAdminAnalyticsProperties({
+            [key]: sanitizedValue,
+          });
+          if (sanitizedProperty && key in sanitizedProperty) {
+            sanitizedRecord[key] = sanitizedProperty[key];
+          }
+        }
+      }
+    }
+
+    seen.delete(cause);
+    return sanitizedRecord;
   }
 
   return cause;
 }
 
-function sanitizeExceptionForCapture(error: unknown): unknown {
-  if (!(error instanceof Error)) {
-    return typeof error === 'string'
-      ? sanitizeAdminAnalyticsText(error)
-      : error;
+function sanitizeErrorForCause(
+  error: Error,
+  seen: WeakSet<object>
+): Record<string, unknown> {
+  seen.add(error);
+  const sanitizedError: Record<string, unknown> = {
+    message: sanitizeAdminAnalyticsText(error.message),
+    name: sanitizeAdminAnalyticsText(error.name || 'Error'),
+  };
+
+  if (typeof error.stack === 'string') {
+    sanitizedError.stack = sanitizeAdminAnalyticsText(error.stack);
   }
 
+  const cause = (error as ErrorWithOptionalCause).cause;
+  if (cause !== undefined) {
+    sanitizedError.cause = sanitizeExceptionCause(cause, seen);
+  }
+
+  seen.delete(error);
+  return sanitizedError;
+}
+
+function sanitizeErrorForCapture(error: Error, seen: WeakSet<object>): Error {
+  seen.add(error);
   const sanitizedError = new Error(sanitizeAdminAnalyticsText(error.message));
   sanitizedError.name = sanitizeAdminAnalyticsText(error.name || 'Error');
 
@@ -67,12 +123,23 @@ function sanitizeExceptionForCapture(error: unknown): unknown {
     Object.defineProperty(sanitizedError, 'cause', {
       configurable: true,
       enumerable: false,
-      value: sanitizeExceptionCause(cause),
+      value: sanitizeExceptionCause(cause, seen),
       writable: true,
     });
   }
 
+  seen.delete(error);
   return sanitizedError;
+}
+
+function sanitizeExceptionForCapture(error: unknown): unknown {
+  const seen = new WeakSet<object>();
+
+  if (error instanceof Error) {
+    return sanitizeErrorForCapture(error, seen);
+  }
+
+  return sanitizeExceptionCause(error, seen);
 }
 
 function getAdminAnalyticsSuperProperties(): AdminAnalyticsProperties {
@@ -188,14 +255,24 @@ export function captureAdminException(
     return false;
   }
 
-  posthogClient.captureException(
-    sanitizeExceptionForCapture(error),
-    sanitizeAdminAnalyticsProperties({
-      ...properties,
-      app_surface: 'mobile-admin',
-    })
-  );
-  return true;
+  try {
+    posthogClient.captureException(
+      sanitizeExceptionForCapture(error),
+      sanitizeAdminAnalyticsProperties({
+        ...properties,
+        app_surface: 'mobile-admin',
+      })
+    );
+    return true;
+  } catch (captureError) {
+    if (__DEV__) {
+      console.warn(
+        '[PostHog] Failed to capture mobile-admin exception:',
+        captureError
+      );
+    }
+    return false;
+  }
 }
 
 export async function shutdownAdminAnalytics(): Promise<void> {

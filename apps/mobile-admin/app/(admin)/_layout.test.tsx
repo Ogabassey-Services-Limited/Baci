@@ -24,9 +24,8 @@ const mocks = vi.hoisted(() => ({
     isRegistered: true,
     registerPush: vi.fn().mockResolvedValue(undefined),
   },
-  analytics: {
-    identifyAdminUser: vi.fn(),
-    resetAdminAnalytics: vi.fn(),
+  analyticsSync: {
+    useAdminAnalyticsSync: vi.fn(),
   },
 }));
 
@@ -84,9 +83,8 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-vi.mock('@/services/analytics-core', () => ({
-  identifyAdminUser: mocks.analytics.identifyAdminUser,
-  resetAdminAnalytics: mocks.analytics.resetAdminAnalytics,
+vi.mock('@/hooks/useAdminAnalyticsSync', () => ({
+  useAdminAnalyticsSync: mocks.analyticsSync.useAdminAnalyticsSync,
 }));
 
 import AdminLayout from './_layout';
@@ -106,22 +104,20 @@ describe('AdminLayout analytics instrumentation', () => {
     mocks.push.isLoading = false;
   });
 
-  it('identifies the authenticated admin with non-sensitive merchant context', async () => {
+  it('delegates admin analytics identity sync to the analytics hook', async () => {
     render(<AdminLayout />);
 
     await waitFor(() => {
       expect(screen.getByRole('main', { name: 'admin stack' })).toBeTruthy();
     });
 
-    expect(mocks.analytics.identifyAdminUser).toHaveBeenCalledWith('user-1', {
-      isPublished: true,
-      merchantId: 'merchant-1',
-      planTier: 'business',
-    });
-    expect(mocks.analytics.resetAdminAnalytics).not.toHaveBeenCalled();
+    expect(mocks.analyticsSync.useAdminAnalyticsSync).toHaveBeenCalledWith(
+      mocks.auth.user,
+      mocks.merchant.merchant
+    );
   });
 
-  it('resets admin analytics when no user is available', async () => {
+  it('passes missing user state to the analytics sync hook', async () => {
     mocks.auth.user = null;
     mocks.auth.isAuthenticated = false;
 
@@ -131,7 +127,9 @@ describe('AdminLayout analytics instrumentation', () => {
       expect(screen.getByTestId('redirect').textContent).toBe('/(auth)/login');
     });
 
-    expect(mocks.analytics.resetAdminAnalytics).toHaveBeenCalledTimes(1);
-    expect(mocks.analytics.identifyAdminUser).not.toHaveBeenCalled();
+    expect(mocks.analyticsSync.useAdminAnalyticsSync).toHaveBeenCalledWith(
+      null,
+      mocks.merchant.merchant
+    );
   });
 });

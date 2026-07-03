@@ -33,7 +33,8 @@ const SENSITIVE_PROPERTY_TOKENS = new Set([
 ]);
 const URL_PROPERTY_PATTERN = /(?:url|href|referrer|request_path|pathname)/i;
 const QUERY_OR_HASH_PATTERN = /[?#]/;
-const URL_VALUE_PATTERN = /\bhttps?:\/\/[^\s"'<>()[\]{}]+/gi;
+const URL_VALUE_PATTERN =
+  /\bhttps?:\/\/[^\s"'<>()[\]{}]+|(^|[\s"'(])\/\/[^\s"'<>()[\]{}]+/gi;
 const EMAIL_VALUE_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const SENSITIVE_VALUE_PATTERNS = [
   /(?:\+\d[\d\s().-]{7,}\d|\b\d[\d\s().-]{7,}\d\b)/g,
@@ -80,6 +81,7 @@ function removeUrlCredentials(value: string): string {
 
   return value
     .replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/?#@]+@/i, '$1')
+    .replace(/^(\/\/)[^/?#@]+@/, '$1')
     .replace(/^[^/?#@]+:[^/?#@]+@/, '');
 }
 
@@ -127,7 +129,13 @@ function redactSensitiveStringValues(key: string, value: string): string {
 }
 
 function stripSensitiveUrlParts(value: string): string {
-  return value.replace(URL_VALUE_PATTERN, (url) => redactUrlQuery(url));
+  return value.replace(URL_VALUE_PATTERN, (match, prefix?: string) => {
+    if (prefix === undefined) {
+      return redactUrlQuery(match);
+    }
+
+    return `${prefix}${redactUrlQuery(match.slice(prefix.length))}`;
+  });
 }
 
 export function sanitizeAdminAnalyticsText(value: string): string {

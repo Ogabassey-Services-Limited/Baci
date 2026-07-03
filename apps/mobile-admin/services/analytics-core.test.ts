@@ -42,6 +42,12 @@ function importAnalyticsCore() {
   return import('./analytics-core');
 }
 
+async function importInitializedAnalyticsCore() {
+  const core = await importAnalyticsCore();
+  core.initAdminAnalytics();
+  return core;
+}
+
 describe('admin analytics core', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -152,15 +158,12 @@ describe('admin analytics core', () => {
   });
 
   it('captures handled exceptions after sanitizing context', async () => {
-    const { captureAdminException, initAdminAnalytics } =
-      await importAnalyticsCore();
+    const { captureAdminException } = await importInitializedAnalyticsCore();
     const error = new Error('render failed');
-
-    initAdminAnalytics();
 
     expect(
       captureAdminException(error, {
-        componentStack: 'OwnerEmail(owner@example.com)',
+        component_stack: 'OwnerEmail(owner@example.com)',
         requestUrl: 'https://usebaci.com/dashboard?token=secret',
         merchant_id: 'merchant-1',
       })
@@ -171,15 +174,14 @@ describe('admin analytics core', () => {
     expect(capturedError.message).toBe('render failed');
     expect(capturedProperties).toEqual({
       app_surface: 'mobile-admin',
-      componentStack: 'OwnerEmail([Filtered])',
+      component_stack: 'OwnerEmail([Filtered])',
       merchant_id: 'merchant-1',
       requestUrl: 'https://usebaci.com/dashboard',
     });
   });
 
   it('sanitizes exception message, stack, and cause before capture', async () => {
-    const { captureAdminException, initAdminAnalytics } =
-      await importAnalyticsCore();
+    const { captureAdminException } = await importInitializedAnalyticsCore();
     const error = new Error(
       'Failed https://api.usebaci.com/orders?token=secret for owner@example.com'
     ) as Error & { cause?: unknown };
@@ -187,8 +189,6 @@ describe('admin analytics core', () => {
     error.stack =
       'OwnerEmail owner@example.com\n    at https://api.usebaci.com/orders?token=secret#x';
     error.cause = new Error('Receiver phone +234 800 000 0000');
-
-    initAdminAnalytics();
 
     expect(captureAdminException(error)).toBe(true);
 

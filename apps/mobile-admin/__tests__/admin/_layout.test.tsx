@@ -20,9 +20,8 @@ const mocks = vi.hoisted(() => ({
     isRegistered: false,
     registerPush: vi.fn().mockResolvedValue(undefined),
   },
-  analytics: {
-    identifyAdminUser: vi.fn(),
-    resetAdminAnalytics: vi.fn(),
+  analyticsSync: {
+    useAdminAnalyticsSync: vi.fn(),
   },
   stackScreenNames: [] as Array<string | undefined>,
 }));
@@ -93,9 +92,8 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-vi.mock('@/services/analytics-core', () => ({
-  identifyAdminUser: mocks.analytics.identifyAdminUser,
-  resetAdminAnalytics: mocks.analytics.resetAdminAnalytics,
+vi.mock('@/hooks/useAdminAnalyticsSync', () => ({
+  useAdminAnalyticsSync: mocks.analyticsSync.useAdminAnalyticsSync,
 }));
 
 import AdminLayout from '@/app/(admin)/_layout';
@@ -125,11 +123,10 @@ describe('AdminLayout', () => {
       expect(mocks.push.registerPush).toHaveBeenCalledWith('merchant-1');
     });
 
-    expect(mocks.analytics.identifyAdminUser).toHaveBeenCalledWith('user-1', {
-      isPublished: true,
-      merchantId: 'merchant-1',
-      planTier: 'business',
-    });
+    expect(mocks.analyticsSync.useAdminAnalyticsSync).toHaveBeenCalledWith(
+      mocks.auth.user,
+      mocks.merchant.merchant
+    );
   });
 
   it('skips registration when the session is already registered', async () => {

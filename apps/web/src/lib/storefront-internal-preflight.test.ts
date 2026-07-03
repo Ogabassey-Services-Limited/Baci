@@ -235,6 +235,21 @@ describe('storefrontInternalPreflight', () => {
     );
   });
 
+  it('fails closed when fail-open diagnostic capture rejects', async () => {
+    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+    mocks.captureServerException.mockRejectedValueOnce(
+      new Error('posthog unavailable')
+    );
+
+    await expect(
+      storefrontInternalPreflight.captureFailOpen({
+        ...CONTEXT,
+        reason: 'fetch-error',
+        status: 500,
+      })
+    ).resolves.toBe(false);
+  });
+
   it('does not import server PostHog from non-Node runtimes', async () => {
     vi.stubEnv('NEXT_RUNTIME', 'edge');
 

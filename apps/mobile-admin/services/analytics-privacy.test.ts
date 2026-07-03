@@ -29,11 +29,13 @@ describe('admin analytics privacy', () => {
   it('strips URL queries and credentials before capture', () => {
     expect(
       sanitizeAdminAnalyticsProperties({
+        protocolRelativeUrl: '//user:pass@usebaci.com/admin?token=secret#x',
         requestUrl: 'https://user:pass@usebaci.com/dashboard?token=secret#x',
         referrer:
           'https://owner@example.com@usebaci.com/path?phone=12345678901',
       })
     ).toEqual({
+      protocolRelativeUrl: '//usebaci.com/admin',
       requestUrl: 'https://usebaci.com/dashboard',
       referrer: 'https://usebaci.com/path',
     });
@@ -58,9 +60,11 @@ describe('admin analytics privacy', () => {
   it('sanitizes freeform exception text before capture', () => {
     expect(
       sanitizeAdminAnalyticsText(
-        'Failed https://api.usebaci.com/path?token=secret#debug for owner@example.com on +234 800 000 0000'
+        'Keep a//b but failed //user:pass@api.usebaci.com/path?token=secret#debug for owner@example.com on +234 800 000 0000'
       )
-    ).toBe('Failed https://api.usebaci.com/path for [Filtered] on [Filtered]');
+    ).toBe(
+      'Keep a//b but failed //api.usebaci.com/path for [Filtered] on [Filtered]'
+    );
   });
 
   it('sanitizes capture event property bags consistently', () => {

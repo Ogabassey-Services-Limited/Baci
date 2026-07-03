@@ -29,7 +29,7 @@ export class ErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     captureAdminException(error, {
-      componentStack: errorInfo.componentStack ?? undefined,
+      component_stack: errorInfo.componentStack ?? undefined,
       route_surface: 'mobile-admin',
     });
     console.error('[ErrorBoundary] Caught error:', error, errorInfo);

@@ -52,7 +52,7 @@ describe('ErrorBoundary', () => {
     expect(mocks.captureAdminException).toHaveBeenCalledWith(
       expect.any(Error),
       expect.objectContaining({
-        componentStack: expect.any(String),
+        component_stack: expect.any(String),
         route_surface: 'mobile-admin',
       })
     );
