@@ -45,7 +45,7 @@ const PRIORITY_LABELS = {
 };
 
 export default function SetupChecklistScreen() {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const router = useRouter();
   const { readiness, isLoading, refetch } = useStoreReadiness();
   const { merchant } = useMerchant();
@@ -112,9 +112,7 @@ export default function SetupChecklistScreen() {
           {
             backgroundColor: colors.card,
             borderColor: item.completed
-              ? isDark
-                ? '#065F46'
-                : '#DCFCE7' // Green tint
+              ? colors.successLight
               : isNext
                 ? colors.primary
                 : colors.border,
@@ -129,7 +127,7 @@ export default function SetupChecklistScreen() {
             styles.statusIcon,
             {
               backgroundColor: item.completed
-                ? colors.success
+                ? colors.successLight
                 : isNext
                   ? colors.primaryLight
                   : colors.cardHover,
@@ -147,10 +145,10 @@ export default function SetupChecklistScreen() {
             size={18}
             color={
               item.completed
-                ? '#fff'
+                ? colors.success
                 : isNext
                   ? colors.primary
-                  : colors.textMuted
+                  : colors.textSecondary
             }
           />
         </View>
@@ -210,7 +208,7 @@ export default function SetupChecklistScreen() {
           </Text>
         </View>
 
-        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
       </Pressable>
     );
   };
