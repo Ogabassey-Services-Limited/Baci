@@ -551,16 +551,24 @@ const nextConfig: NextConfig = {
         permanent: true,
         has: [{ type: 'host' as const, value: OGABASSEY_DOMAIN }],
       })),
+      // Host-scoped to ogabassey.com like the category rules above: these are
+      // Ogabassey WordPress-migration paths, and `/products` (no slug) only
+      // resolves on ogabassey.com. On a slug-prefixed platform/preview host,
+      // `products` is a PLATFORM_ROOT_ROUTE_SEGMENT with no top-level route, so
+      // an unscoped redirect here would 404 instead of falling through to that
+      // host's normal handling.
       {
         source: '/product-category/:path*',
         destination: '/products',
         permanent: true,
+        has: [{ type: 'host', value: OGABASSEY_DOMAIN }],
       },
       // /category/product/:id - legacy product URLs
       {
         source: '/category/product/:id',
         destination: '/products',
         permanent: true,
+        has: [{ type: 'host', value: OGABASSEY_DOMAIN }],
       },
     ]);
   },
