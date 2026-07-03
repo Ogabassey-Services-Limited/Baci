@@ -1,5 +1,11 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { type ReactNode, type RefObject, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Pressable, type ScrollView, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
@@ -80,6 +86,15 @@ export function PaymentIntentAccordion({
   // are visible at a glance; tapping a card opens it. Selecting a *different*
   // intent opens it (see onPress); tapping the open one toggles it shut.
   const [collapsedSelected, setCollapsedSelected] = useState(initiallyCollapsed);
+
+  // `initiallyCollapsed` can flip true → false when wallet/savings credit loads
+  // after mount; reopen the selected card so those rows become visible. Runs
+  // only when the prop changes, so manual collapses are still respected.
+  useEffect(() => {
+    if (!initiallyCollapsed) {
+      setCollapsedSelected(false);
+    }
+  }, [initiallyCollapsed]);
 
   // Ref follows whichever intent is currently selected; the hook scrolls it back
   // into view after a selection collapses a taller sibling above it.

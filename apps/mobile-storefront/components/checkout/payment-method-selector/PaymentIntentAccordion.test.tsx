@@ -194,4 +194,29 @@ describe('PaymentIntentAccordion', () => {
 
     expect(screen.queryByText('NESTED_INSTRUMENT')).toBeNull();
   });
+
+  it('reopens the selected card when store credit loads after mount', () => {
+    // initiallyCollapsed flips true -> false when wallet/savings credit arrives
+    // asynchronously; the selected card must reopen so those rows become visible.
+    const props = {
+      colors,
+      selectedTab: 'full' as const,
+      selectedMethod: 'paystack' as const,
+      hasBNPLMethods: true,
+      hasPayLaterMethods: true,
+      isBNPLEligible: true,
+      orderTotal: 120000,
+      onSelectIntent: jest.fn(),
+      nestedRows: <Text>NESTED_INSTRUMENT</Text>,
+      selectedInfo: null,
+    };
+
+    const { rerender } = render(
+      <PaymentIntentAccordion {...props} initiallyCollapsed />
+    );
+    expect(screen.queryByText('NESTED_INSTRUMENT')).toBeNull();
+
+    rerender(<PaymentIntentAccordion {...props} initiallyCollapsed={false} />);
+    expect(screen.getByText('NESTED_INSTRUMENT')).toBeTruthy();
+  });
 });
