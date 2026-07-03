@@ -217,7 +217,9 @@ describe('NewOrderFooterBar', () => {
     expect(screen.getByText('Payment Status')).toBeInTheDocument();
 
     const statusOptions = screen.getAllByRole('radio');
-    expect(screen.getByRole('radiogroup')).toBeInTheDocument();
+    expect(
+      screen.getByRole('radiogroup', { name: 'Payment status' })
+    ).toBeInTheDocument();
     expect(statusOptions).toHaveLength(3);
     expect(statusOptions.map((option) => option.textContent)).toEqual([
       'UNPAID',

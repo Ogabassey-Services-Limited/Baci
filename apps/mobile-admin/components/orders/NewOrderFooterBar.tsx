@@ -69,6 +69,7 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
           Payment Status
         </Text>
         <View
+          accessibilityLabel="Payment status"
           accessibilityRole="radiogroup"
           style={[styles.paymentToggle, { backgroundColor: colors.inputBg }]}
         >
