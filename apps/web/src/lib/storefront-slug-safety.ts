@@ -105,17 +105,24 @@ export function evaluateStorefrontSlugSafety(
 }
 
 /**
- * True when a blog listing's category or search filter is unsafe to forward to
- * the cached listing lookup. Empty/undefined filters are safe (page-only
- * listings). Shared by the listing render and metadata paths so both gate the
- * same way before `getCachedBlogListing`.
+ * Max blog search-query length forwarded to the cached listing lookup. Mirrors
+ * the `searchQuery.trim().slice(0, 100)` inside `getCachedBlogListing`, so
+ * clamping here bounds the `'use cache'` key WITHOUT changing results — the
+ * downstream would ignore anything past this length anyway. Search text is
+ * free-form (not a slug), so it is clamped rather than 404'd.
  */
-export function isUnsafeBlogListingFilter(
-  category: string | null | undefined,
+export const MAX_BLOG_SEARCH_QUERY_LENGTH = 100;
+
+/**
+ * Bounds a blog `?search=` value before it becomes part of the cached listing
+ * lookup's key. Returns undefined for empty/whitespace input.
+ */
+export function clampBlogSearchQuery(
   search: string | null | undefined
-): boolean {
-  return (
-    (!!category && !evaluateStorefrontSlugSafety(category).safe) ||
-    (!!search && !evaluateStorefrontSlugSafety(search).safe)
-  );
+): string | undefined {
+  const trimmed = search?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  return trimmed.slice(0, MAX_BLOG_SEARCH_QUERY_LENGTH);
 }

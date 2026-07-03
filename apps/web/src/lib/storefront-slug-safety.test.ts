@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  clampBlogSearchQuery,
   evaluateStorefrontSlugSafety,
-  isUnsafeBlogListingFilter,
+  MAX_BLOG_SEARCH_QUERY_LENGTH,
   MAX_SAFE_STOREFRONT_SLUG_DECODED_LENGTH,
   MAX_SAFE_STOREFRONT_SLUG_ENCODED_LENGTH,
 } from '@/lib/storefront-slug-safety';
@@ -129,32 +130,22 @@ describe('evaluateStorefrontSlugSafety', () => {
   });
 });
 
-describe('isUnsafeBlogListingFilter', () => {
-  const overEncoded = (() => {
-    let s = 'some phrase';
-    for (let i = 0; i < 10; i++) {
-      s = encodeURIComponent(s);
-    }
-    return s;
-  })();
-
-  it('treats empty/undefined filters (page-only listings) as safe', () => {
-    expect(isUnsafeBlogListingFilter(undefined, undefined)).toBe(false);
-    expect(isUnsafeBlogListingFilter('', '')).toBe(false);
-    expect(isUnsafeBlogListingFilter(null, null)).toBe(false);
+describe('clampBlogSearchQuery', () => {
+  it('returns undefined for empty/undefined/whitespace input', () => {
+    expect(clampBlogSearchQuery(undefined)).toBeUndefined();
+    expect(clampBlogSearchQuery(null)).toBeUndefined();
+    expect(clampBlogSearchQuery('')).toBeUndefined();
+    expect(clampBlogSearchQuery('   ')).toBeUndefined();
   });
 
-  it('treats normal category and search filters as safe', () => {
-    expect(isUnsafeBlogListingFilter('smartphones', 'iphone 15')).toBe(false);
+  it('trims and preserves a normal search query unchanged', () => {
+    expect(clampBlogSearchQuery('  iphone 15 pro  ')).toBe('iphone 15 pro');
   });
 
-  it('flags an over-encoded category filter', () => {
-    expect(isUnsafeBlogListingFilter(overEncoded, undefined)).toBe(true);
-  });
+  it('clamps an over-long search query to the max length (never 404s)', () => {
+    const clamped = clampBlogSearchQuery('a'.repeat(4000));
 
-  it('flags an over-long search filter', () => {
-    expect(isUnsafeBlogListingFilter('smartphones', 'a'.repeat(4000))).toBe(
-      true
-    );
+    expect(clamped).toBe('a'.repeat(MAX_BLOG_SEARCH_QUERY_LENGTH));
+    expect(clamped?.length).toBe(MAX_BLOG_SEARCH_QUERY_LENGTH);
   });
 });

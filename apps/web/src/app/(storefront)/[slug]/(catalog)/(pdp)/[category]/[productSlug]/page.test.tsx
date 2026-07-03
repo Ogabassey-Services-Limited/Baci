@@ -1063,6 +1063,25 @@ describe('[category]/[productSlug] page metadata', () => {
     }
   });
 
+  it('returns noindex soft-404 metadata for an over-long category with a valid product slug', async () => {
+    // The category segment is also a getProductRouteControl arg (React cache()
+    // key), so an unbounded category must be gated even with a valid product.
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'a'.repeat(4000),
+        productSlug: 'samsung-s10-8gb-128gb',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe('Product not found');
+    expect(metadata.robots).toEqual({ index: false, follow: true });
+    expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+    expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
+  });
+
   it('returns noindex soft-404 metadata for extremely long slugs without product lookups', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({
