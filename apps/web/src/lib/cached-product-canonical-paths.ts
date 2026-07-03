@@ -16,6 +16,14 @@ interface CanonicalPathProductRow {
  * at the URL the PDP would canonicalize to instead of going through a 308.
  * Slugs that no longer resolve to an active product are omitted, letting
  * callers drop dead links instead of emitting 404s.
+ *
+ * `canonical_url` is intentionally NOT selected, so `getProductUrl()` always
+ * derives the path from the live slug + category join. The PDP's declared
+ * canonical uses `getValidatedProductUrl()`, which discards any stored
+ * `canonical_url` whose path diverges from the derived path — so the derived
+ * path IS the declared canonical. Honoring a divergent `canonical_url` here
+ * would instead link to a slug the PDP lookup can't resolve (404) or to a
+ * category-mismatched path that 308s back to itself (redirect loop).
  */
 export async function getCachedProductCanonicalPaths(
   merchantId: string,
