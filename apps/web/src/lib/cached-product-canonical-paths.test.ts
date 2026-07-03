@@ -1,16 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockCreatePublicClient } = vi.hoisted(() => ({
+const { mockCacheTag, mockCreatePublicClient } = vi.hoisted(() => ({
+  mockCacheTag: vi.fn(),
   mockCreatePublicClient: vi.fn(),
 }));
 
-vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
+vi.mock('next/cache', () => ({
+  cacheLife: vi.fn(),
+  cacheTag: (...args: unknown[]) => mockCacheTag(...args),
+}));
 vi.mock('@/lib/supabase/public', () => ({
   createPublicClient: (...args: unknown[]) => mockCreatePublicClient(...args),
 }));
 vi.mock('@/lib/seo-utils', () => ({
-  getProductUrl: (product: { slug?: string; categories?: { slug?: string } }) =>
-    `/${product.categories?.slug ?? 'products'}/${product.slug}`,
+  // Mirrors the real fallback chain: joined category slug, then slugified
+  // legacy category text, then the uncategorized /products prefix.
+  getProductUrl: (product: {
+    slug?: string;
+    category?: string | null;
+    categories?: { slug?: string } | null;
+  }) =>
+    `/${
+      product.categories?.slug ?? product.category?.toLowerCase() ?? 'products'
+    }/${product.slug}`,
 }));
 
 import { getCachedProductCanonicalPaths } from './cached-product-canonical-paths';
@@ -76,6 +88,50 @@ describe('getCachedProductCanonicalPaths', () => {
       'apple-airpods-2',
       'archived-slug',
     ]);
+  });
+
+  it('registers product and category revalidation tags for the merchant', async () => {
+    const builder = createQueryBuilder({ data: [] });
+    mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
+
+    await getCachedProductCanonicalPaths('merchant-1', ['iphone-xr']);
+
+    expect(mockCacheTag).toHaveBeenCalledWith(
+      'products',
+      'product-index-merchant-1',
+      'categories-merchant-1'
+    );
+  });
+
+  it('normalizes array-shaped category joins and skips blank slugs', async () => {
+    const builder = createQueryBuilder({
+      data: [
+        {
+          id: 'p1',
+          name: 'iPhone XR',
+          slug: 'iphone-xr',
+          category: 'Smartphones',
+          categories: [{ name: 'Smartphones', slug: 'smartphones' }],
+        },
+        {
+          id: 'p2',
+          name: 'AirPods 2',
+          slug: 'apple-airpods-2',
+          category: 'Earbuds',
+          categories: { name: 'Earbuds', slug: '   ' },
+        },
+      ],
+    });
+    mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
+
+    const paths = await getCachedProductCanonicalPaths('merchant-1', [
+      'iphone-xr',
+      'apple-airpods-2',
+    ]);
+
+    expect(paths['iphone-xr']).toBe('/smartphones/iphone-xr');
+    // blank joined slug falls back to the legacy category text derivation
+    expect(paths['apple-airpods-2']).toBe('/earbuds/apple-airpods-2');
   });
 
   it('returns an empty map without querying when no slugs are requested', async () => {

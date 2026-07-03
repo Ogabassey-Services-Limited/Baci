@@ -2,12 +2,31 @@ import { cacheLife, cacheTag } from 'next/cache';
 import { getProductUrl } from '@/lib/seo-utils';
 import { createPublicClient } from '@/lib/supabase/public';
 
+interface CanonicalPathJoinedCategory {
+  name?: string;
+  slug?: string;
+}
+
 interface CanonicalPathProductRow {
   id: string;
   name: string;
   slug: string | null;
   category: string | null;
-  categories: { name?: string; slug?: string } | null;
+  categories:
+    | CanonicalPathJoinedCategory
+    | CanonicalPathJoinedCategory[]
+    | null;
+}
+
+// PostgREST returns the to-one `categories:category_id` join as an object,
+// but normalize-product treats array shapes as reachable for this field, so
+// guard both and drop blank slugs the same way sitemap-data does.
+function normalizeJoinedCategory(
+  categories: CanonicalPathProductRow['categories']
+): CanonicalPathJoinedCategory | null {
+  const joined = Array.isArray(categories) ? categories[0] : categories;
+  const slug = joined?.slug?.trim();
+  return slug ? { name: joined?.name, slug } : null;
 }
 
 /**
@@ -31,7 +50,14 @@ export async function getCachedProductCanonicalPaths(
 ): Promise<Record<string, string>> {
   'use cache';
   cacheLife('products');
-  cacheTag('products', `product-index-${merchantId}`);
+  // product-index-<id> busts on product mutations (revalidateProducts);
+  // categories-<id> busts on category renames (revalidateCategories), which
+  // change the resolved paths without touching any product row.
+  cacheTag(
+    'products',
+    `product-index-${merchantId}`,
+    `categories-${merchantId}`
+  );
 
   if (productSlugs.length === 0) {
     return {};
@@ -63,7 +89,7 @@ export async function getCachedProductCanonicalPaths(
       name: row.name,
       slug: row.slug,
       category: row.category,
-      categories: row.categories,
+      categories: normalizeJoinedCategory(row.categories),
     });
   }
 
