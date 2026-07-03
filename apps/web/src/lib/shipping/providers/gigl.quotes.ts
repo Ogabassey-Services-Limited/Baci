@@ -1,6 +1,7 @@
 import type { QuoteRequest, ShippingQuote } from '../types';
 import type { GiglApiClient } from './gigl.auth';
 import {
+  GIGL_DEFAULT_SPECIAL_PACKAGE_ID,
   GIGL_QUOTE_TIMEOUT_MS,
   type GiglQuoteIo,
   type GiglToken,
@@ -184,6 +185,7 @@ async function fetchGiglQuote(
               Value: item.value,
               IsVolumetric: false,
               ShipmentType: ShipmentType.Regular,
+              SpecialPackageId: GIGL_DEFAULT_SPECIAL_PACKAGE_ID,
             })),
           }),
           timeout: GIGL_QUOTE_TIMEOUT_MS,

@@ -125,6 +125,9 @@ describe('GiglProvider quote requests', () => {
       PickUpOptions: 0,
       VehicleType: 1,
     });
+    expect(pricePayload.ShipmentItems[0]).toMatchObject({
+      SpecialPackageId: 1,
+    });
     expect(pricePayload.ShipmentItems[0]).not.toHaveProperty('ItemType');
     expect(pricePayload).not.toHaveProperty('ShipmentType');
     const stationPickupPayload = JSON.parse(

@@ -83,6 +83,9 @@ describe('GiglProvider booking requests', () => {
         CustomerType: 2,
       },
     });
+    expect(bookingPayload.ShipmentItems[0]).toMatchObject({
+      SpecialPackageId: 1,
+    });
     const bookingOptions = fetchMock.mock.calls[2]?.[1] as
       | (RequestInit & { timeout?: number })
       | undefined;
