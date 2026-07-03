@@ -284,6 +284,37 @@ describe('useCheckoutSavings', () => {
     }
   });
 
+  it('auto-retries a transport cancellation that the hook did not request', async () => {
+    jest.useFakeTimers();
+    try {
+      mockListSavingsGoals
+        .mockRejectedValueOnce(
+          new Error('fetch failed: Fetch request has been canceled')
+        )
+        .mockResolvedValueOnce({ goals: [createGoal()] });
+      const { result } = renderHook(() =>
+        useCheckoutSavings({
+          customerId: 'customer-1',
+          isAuthenticated: true,
+          items: [{ product_id: 'product-1', variant_id: null }],
+          merchantId: 'merchant-1',
+          merchantSlug: 'ogabassey',
+        })
+      );
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(1_500);
+      });
+
+      await waitFor(() => expect(result.current.savingsGoals).toHaveLength(1));
+      expect(mockListSavingsGoals).toHaveBeenCalledTimes(2);
+      expect(result.current.checkoutSavingsError).toBeNull();
+      expect(mockTrackError).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('reports one classified error after transient retries are exhausted', async () => {
     jest.useFakeTimers();
     try {

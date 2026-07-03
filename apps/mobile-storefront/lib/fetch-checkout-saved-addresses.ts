@@ -52,9 +52,18 @@ export async function fetchCheckoutSavedAddresses({
     );
     return addresses;
   } catch (error) {
-    trackFetchFailure('checkout_saved_addresses_fetch', error, {
-      request_surface: 'checkout',
-    });
+    // Checkout unmounted mid-retry: withSupabaseRetry can surface an earlier
+    // retryable result after aborted attempts — that is lifecycle noise, not
+    // a production failure.
+    if (signal?.aborted) {
+      return [];
+    }
+    trackFetchFailure(
+      'checkout_saved_addresses_fetch',
+      error,
+      { request_surface: 'checkout' },
+      { callerAborted: false }
+    );
     return [];
   }
 }

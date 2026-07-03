@@ -118,7 +118,26 @@ describe('fetchCheckoutSavedAddresses', () => {
     );
   });
 
-  it('fails open without reporting when the request was aborted', async () => {
+  it('fails open without reporting when the caller aborted the request', async () => {
+    const controller = new AbortController();
+    mockWithSupabaseRetry.mockImplementation(() => {
+      // Unmount happened mid-retry: the signal fired, then the helper
+      // surfaced an earlier retryable result / threw.
+      controller.abort();
+      throw new Error('TypeError: Network request failed');
+    });
+
+    const addresses = await fetchCheckoutSavedAddresses({
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+      signal: controller.signal,
+    });
+
+    expect(addresses).toEqual([]);
+    expect(mockTrackError).not.toHaveBeenCalled();
+  });
+
+  it('reports an unrequested abort as a retryable network failure', async () => {
     mockMaybeSingle.mockResolvedValue({
       data: null,
       error: { message: 'AbortError: Aborted', code: '' },
@@ -130,7 +149,11 @@ describe('fetchCheckoutSavedAddresses', () => {
     });
 
     expect(addresses).toEqual([]);
-    expect(mockTrackError).not.toHaveBeenCalled();
+    expect(mockTrackError).toHaveBeenCalledWith(
+      'checkout_saved_addresses_fetch',
+      'AbortError: Aborted',
+      expect.objectContaining({ error_category: 'network' })
+    );
   });
 
   it('fails open and classifies network failures thrown by the retry helper', async () => {

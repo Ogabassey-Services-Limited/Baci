@@ -231,7 +231,7 @@ export async function notifyMerchant(
 
   const { data: tokens, error } = await supabase
     .from('push_tokens')
-    .select('token')
+    .select('token, platform')
     .eq('merchant_id', merchantId)
     .eq('is_active', true)
     .eq('app_type', 'admin');
@@ -329,7 +329,7 @@ export async function notifyCustomer(
 
   const { data: tokens, error } = await supabase
     .from('push_tokens')
-    .select('token')
+    .select('token, platform')
     .eq('user_id', userId)
     .eq('is_active', true)
     .eq('app_type', 'storefront');
@@ -428,7 +428,7 @@ export async function notifyAdminUserDevices(
 
   const { data: tokens, error } = await supabase
     .from('push_tokens')
-    .select('token')
+    .select('token, platform')
     .eq('user_id', userId)
     .eq('is_active', true)
     .eq('app_type', 'admin');
@@ -519,9 +519,54 @@ export interface TicketContext {
   notificationType?: string;
 }
 
+/**
+ * Platform-scoped isolation check for InvalidCredentials pruning. Returns
+ * only the failing tokens whose platform group passes
+ * `shouldDeactivateForInvalidCredentials` — a failure that spans (or
+ * dominates) its platform's tokens indicates broken credentials for that
+ * platform, not dead tokens.
+ */
+function selectPrunableInvalidCredentialsTokens(
+  failingTokens: string[],
+  batchTokens: { token: string; platform?: string | null }[]
+): string[] {
+  const platformByToken = new Map(
+    batchTokens.map((entry) => [entry.token, entry.platform ?? 'unknown'])
+  );
+  const batchCountByPlatform = new Map<string, number>();
+  for (const entry of batchTokens) {
+    const platform = entry.platform ?? 'unknown';
+    batchCountByPlatform.set(
+      platform,
+      (batchCountByPlatform.get(platform) ?? 0) + 1
+    );
+  }
+
+  const failuresByPlatform = new Map<string, string[]>();
+  for (const token of failingTokens) {
+    const platform = platformByToken.get(token) ?? 'unknown';
+    const failures = failuresByPlatform.get(platform) ?? [];
+    failures.push(token);
+    failuresByPlatform.set(platform, failures);
+  }
+
+  const prunable: string[] = [];
+  for (const [platform, failures] of failuresByPlatform) {
+    if (
+      shouldDeactivateForInvalidCredentials(
+        failures.length,
+        batchCountByPlatform.get(platform) ?? 0
+      )
+    ) {
+      prunable.push(...failures);
+    }
+  }
+  return prunable;
+}
+
 export async function processTickets(
   tickets: ExpoPushTicket[],
-  tokens: { token: string }[],
+  tokens: { token: string; platform?: string | null }[],
   supabase: ReturnType<typeof createAdminClient>,
   context?: TicketContext
 ): Promise<NotificationSendResult> {
@@ -586,19 +631,27 @@ export async function processTickets(
 
   // Widespread InvalidCredentials means broken project credentials, not dead
   // tokens — leave those active (report-only) so pushes resume the moment
-  // credentials are fixed.
+  // credentials are fixed. Credentials are scoped per platform (APNs vs FCM)
+  // within a batch (each send targets a single app), so isolation is judged
+  // against tokens of the SAME platform only: 5 failing iOS tokens in a
+  // 100-token mostly-Android batch is still 100% of the iOS credential scope.
   const invalidCredentialsTokens = tokensToDeactivate.get('InvalidCredentials');
-  if (
-    invalidCredentialsTokens &&
-    !shouldDeactivateForInvalidCredentials(
-      invalidCredentialsTokens.length,
-      tickets.length
-    )
-  ) {
-    tokensToDeactivate.delete('InvalidCredentials');
-    console.warn(
-      `[expo-push] InvalidCredentials on ${invalidCredentialsTokens.length}/${tickets.length} tickets looks like project-wide credential breakage — tokens left active`
+  if (invalidCredentialsTokens) {
+    const prunable = selectPrunableInvalidCredentialsTokens(
+      invalidCredentialsTokens,
+      tokens
     );
+    if (prunable.length > 0) {
+      tokensToDeactivate.set('InvalidCredentials', prunable);
+    } else {
+      tokensToDeactivate.delete('InvalidCredentials');
+    }
+    const skipped = invalidCredentialsTokens.length - prunable.length;
+    if (skipped > 0) {
+      console.warn(
+        `[expo-push] InvalidCredentials on ${skipped} token(s) looks like platform-wide credential breakage — tokens left active`
+      );
+    }
   }
 
   // Chunk the id list: .in() values ride in the request URL, so a large batch

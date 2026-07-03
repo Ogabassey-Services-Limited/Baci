@@ -35,6 +35,25 @@ describe('trackFetchFailure', () => {
     );
   });
 
+  it('reports unrequested aborts as retryable network failures when callerAborted is false', () => {
+    const classified = trackFetchFailure(
+      'checkout_savings_goals_fetch',
+      new Error('Fetch request has been canceled'),
+      undefined,
+      { callerAborted: false }
+    );
+
+    expect(classified.category).toBe('network');
+    expect(mockTrackError).toHaveBeenCalledWith(
+      'checkout_savings_goals_fetch',
+      'Fetch request has been canceled',
+      expect.objectContaining({
+        error_category: 'network',
+        error_retryable: true,
+      })
+    );
+  });
+
   it('does not report intentional cancellations', () => {
     const classified = trackFetchFailure(
       'checkout_savings_goals_fetch',

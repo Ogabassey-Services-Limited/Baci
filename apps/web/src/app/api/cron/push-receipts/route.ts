@@ -4,10 +4,6 @@ import { getCronSecret, getExpoAccessToken } from '@/env';
 import { chunkArray, SUPABASE_IN_FILTER_CHUNK_SIZE } from '@/lib/chunk-array';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
-import {
-  getPushTokenDeactivationReason,
-  shouldDeactivateForInvalidCredentials,
-} from '@/lib/push-token-errors';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // Manual fallback only - DO NOT re-enable Vercel Cron for this route.
@@ -91,13 +87,19 @@ export async function GET(request: NextRequest) {
             error_message: receipt.message ?? null,
           });
 
-          const deactivationReason = getPushTokenDeactivationReason(
-            receipt.details?.error
-          );
-          if (deactivationReason && ticket.push_token) {
-            const tokenList = tokensToDeactivate.get(deactivationReason) ?? [];
+          // Receipt-time pruning is limited to DeviceNotRegistered (Expo's
+          // token-specific stop-sending signal). InvalidCredentials stays
+          // report-only here: receipts carry no platform metadata, so the
+          // isolated-vs-credential-outage distinction the send path makes
+          // (see push-token-errors.ts) is impossible in this cron.
+          if (
+            receipt.details?.error === 'DeviceNotRegistered' &&
+            ticket.push_token
+          ) {
+            const tokenList =
+              tokensToDeactivate.get('DeviceNotRegistered') ?? [];
             tokenList.push(ticket.push_token);
-            tokensToDeactivate.set(deactivationReason, tokenList);
+            tokensToDeactivate.set('DeviceNotRegistered', tokenList);
           }
         }
       }
@@ -146,26 +148,6 @@ export async function GET(request: NextRequest) {
         error: failedError,
       });
     }
-  }
-
-  // Widespread InvalidCredentials means broken project credentials, not dead
-  // tokens — leave those active (report-only) so pushes resume the moment
-  // credentials are fixed.
-  const invalidCredentialsTokens = tokensToDeactivate.get('InvalidCredentials');
-  if (
-    invalidCredentialsTokens &&
-    !shouldDeactivateForInvalidCredentials(
-      invalidCredentialsTokens.length,
-      pendingTickets.length
-    )
-  ) {
-    tokensToDeactivate.delete('InvalidCredentials');
-    logger.warn({
-      message:
-        'InvalidCredentials receipts look project-wide; tokens left active',
-      failedTokens: invalidCredentialsTokens.length,
-      batchSize: pendingTickets.length,
-    });
   }
 
   // Deactivate undeliverable tokens, recording why for auditability.

@@ -113,7 +113,12 @@ export function useCheckoutSavings({
           if (isCancelled || abortController.signal.aborted) {
             return;
           }
-          const classified = classifyFetchFailure(error);
+          // callerAborted: false — the guard above returned for our own
+          // aborts, so an abort-like failure here is a transport
+          // interruption on a live screen and should retry, not vanish.
+          const classified = classifyFetchFailure(error, {
+            callerAborted: false,
+          });
           if (classified.isRetryable && attempt < SAVINGS_FETCH_MAX_RETRIES) {
             await abortableDelay(
               SAVINGS_FETCH_RETRY_BASE_DELAY_MS * 2 ** attempt,
@@ -124,15 +129,16 @@ export function useCheckoutSavings({
             }
             continue;
           }
-          trackFetchFailure('checkout_savings_goals_fetch', error, {
-            merchant_slug: merchantSlug,
-            reload_attempt: checkoutSavingsReloadKey,
-            retry_count: attempt,
-          });
-          if (classified.category === 'cancelled') {
-            // Superseded/OS-cancelled request: not a failure, leave state alone.
-            return;
-          }
+          trackFetchFailure(
+            'checkout_savings_goals_fetch',
+            error,
+            {
+              merchant_slug: merchantSlug,
+              reload_attempt: checkoutSavingsReloadKey,
+              retry_count: attempt,
+            },
+            { callerAborted: false }
+          );
           setSavingsGoals([]);
           setSavingsSelection(undefined);
           setCheckoutSavingsError(classified.message);

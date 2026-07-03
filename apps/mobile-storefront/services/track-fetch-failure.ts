@@ -1,6 +1,7 @@
 import type { AnalyticsProperties } from '@baci/shared/contracts';
 import {
   type ClassifiedFetchFailure,
+  type ClassifyFetchFailureOptions,
   classifyFetchFailure,
 } from '@/lib/fetch-failure-classification';
 import { trackError } from '@/services/analytics';
@@ -15,9 +16,10 @@ import { trackError } from '@/services/analytics';
 export function trackFetchFailure(
   surface: string,
   error: unknown,
-  context?: AnalyticsProperties
+  context?: AnalyticsProperties,
+  classifyOptions?: ClassifyFetchFailureOptions
 ): ClassifiedFetchFailure {
-  const classified = classifyFetchFailure(error);
+  const classified = classifyFetchFailure(error, classifyOptions);
 
   if (classified.isReportable) {
     trackError(surface, classified.message, {

@@ -31,6 +31,27 @@ describe('classifyFetchFailure', () => {
       expect(result.category).toBe('cancelled');
       expect(result.isReportable).toBe(false);
     });
+ 
+    it('reclassifies an abort the caller did not request as retryable network', () => {
+      const result = classifyFetchFailure(
+        new Error('Fetch request has been canceled'),
+        { callerAborted: false }
+      );
+
+      expect(result.category).toBe('network');
+      expect(result.isRetryable).toBe(true);
+      expect(result.isReportable).toBe(true);
+    });
+
+    it('keeps caller-requested aborts as cancelled when callerAborted is true', () => {
+      const result = classifyFetchFailure(
+        new Error('Fetch request has been canceled'),
+        { callerAborted: true }
+      );
+
+      expect(result.category).toBe('cancelled');
+      expect(result.isReportable).toBe(false);
+    });
   });
 
   describe('timeouts', () => {

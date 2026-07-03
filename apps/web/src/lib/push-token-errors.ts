@@ -54,6 +54,11 @@ const INVALID_CREDENTIALS_MAX_FAILURE_RATIO = 0.1;
  *
  * An isolated failure inside a healthy batch matches the first case;
  * project-wide breakage skips pruning and stays report-only.
+ *
+ * Callers must pass counts scoped to a single credential class: the send
+ * path groups by token platform (APNs vs FCM) before applying this check,
+ * and the receipts cron — which has no platform metadata — never prunes on
+ * InvalidCredentials at all.
  */
 export function shouldDeactivateForInvalidCredentials(
   failureCount: number,

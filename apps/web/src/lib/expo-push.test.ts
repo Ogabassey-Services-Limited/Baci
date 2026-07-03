@@ -316,7 +316,7 @@ describe('notifyMerchant', () => {
     const result = await notifyMerchant('merchant-123', 'Test', 'Body');
 
     // Verify the query chain
-    expect(mockChain.select).toHaveBeenCalledWith('token');
+    expect(mockChain.select).toHaveBeenCalledWith('token, platform');
     expect(mockChain.eq).toHaveBeenCalledWith('merchant_id', 'merchant-123');
     expect(mockChain.eq).toHaveBeenCalledWith('is_active', true);
     expect(mockChain.eq).toHaveBeenCalledWith('app_type', 'admin');
@@ -384,12 +384,13 @@ describe('notifyMerchant', () => {
     const updateChain = createChainableMock();
     const ticketInsertChain = createChainableMock();
     const attemptInsertChain = createChainableMock();
-    // Batch must be >= 10 with <= 10% failures for the isolated-failure guard
+    // The failing token's platform group must be >= 10 with <= 10% failures
     const selectChain = createChainableMock([
       ...Array.from({ length: 9 }, (_, i) => ({
         token: `ExponentPushToken[good-${i}]`,
+        platform: 'ios',
       })),
-      { token: 'ExponentPushToken[wrong-project]' },
+      { token: 'ExponentPushToken[wrong-project]', platform: 'ios' },
     ]);
 
     const mockFromFn = vi
@@ -478,6 +479,7 @@ describe('notifyMerchant', () => {
     const selectChain = createChainableMock(
       Array.from({ length: 10 }, (_, i) => ({
         token: `ExponentPushToken[ios-${i}]`,
+        platform: 'ios',
       }))
     );
 
@@ -516,6 +518,58 @@ describe('notifyMerchant', () => {
       ([table]) => table === 'push_tokens'
     );
     expect(pushTokenCalls).toHaveLength(1);
+  });
+
+  it('scopes the InvalidCredentials ratio to the failing platform, not the whole batch', async () => {
+    const ticketInsertChain = createChainableMock();
+    const attemptInsertChain = createChainableMock();
+    // 90 healthy Android tokens + 10 iOS tokens whose credentials broke:
+    // 10% of the whole batch, but 100% of the iOS credential scope.
+    const selectChain = createChainableMock([
+      ...Array.from({ length: 90 }, (_, i) => ({
+        token: `ExponentPushToken[android-${i}]`,
+        platform: 'android',
+      })),
+      ...Array.from({ length: 10 }, (_, i) => ({
+        token: `ExponentPushToken[ios-${i}]`,
+        platform: 'ios',
+      })),
+    ]);
+
+    const mockFromFn = vi
+      .fn()
+      .mockReturnValueOnce(selectChain) // first call: select tokens
+      .mockReturnValueOnce(ticketInsertChain) // second call: store ok tickets (no deactivation update)
+      .mockReturnValueOnce(attemptInsertChain); // third call: store attempt
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: mockFromFn,
+    } as never);
+
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      ...Array.from({ length: 90 }, (_, i) => ({
+        status: 'ok' as const,
+        id: `ticket-${i}`,
+      })),
+      ...Array.from({ length: 10 }, () => ({
+        status: 'error' as const,
+        message: 'Could not find APNs credentials for com.example.app.',
+        details: { error: 'InvalidCredentials' },
+      })),
+    ]);
+
+    const result = await notifyMerchant('merchant-123', 'Test', 'Body');
+
+    expect(result.sent).toBe(90);
+    expect(result.failed).toBe(10);
+    // The iOS scope failed entirely — credentials issue, tokens stay active
+    const pushTokenCalls = mockFromFn.mock.calls.filter(
+      ([table]) => table === 'push_tokens'
+    );
+    expect(pushTokenCalls).toHaveLength(1);
+    expect(result.errors).toEqual([
+      'InvalidCredentials (10 failed): Could not find APNs credentials for com.example.app.',
+    ]);
   });
 
   it('does not deactivate tokens for transient MessageRateExceeded errors', async () => {

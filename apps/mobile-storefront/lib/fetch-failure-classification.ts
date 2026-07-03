@@ -35,6 +35,17 @@ export interface ClassifiedFetchFailure {
   message: string;
 }
 
+export interface ClassifyFetchFailureOptions {
+  /**
+   * Whether the caller's own AbortSignal had fired when the failure was
+   * observed. Pass `false` to reclassify abort-like errors the caller did
+   * NOT request (a transport-level interruption on a still-mounted screen)
+   * as retryable `network` failures instead of silent lifecycle noise.
+   * Omit when the caller cannot tell.
+   */
+  callerAborted?: boolean;
+}
+
 const MAX_MESSAGE_LENGTH = 300;
 
 const DNS_PATTERN =
@@ -104,7 +115,10 @@ function classifyHttpStatus(
   return 'http_client';
 }
 
-export function classifyFetchFailure(error: unknown): ClassifiedFetchFailure {
+export function classifyFetchFailure(
+  error: unknown,
+  options?: ClassifyFetchFailureOptions
+): ClassifiedFetchFailure {
   const { name, message, code } = extract(error);
   const status = extract(error).status ?? extractStatusFromMessage(message);
   const text = `${name} ${message}`;
@@ -136,6 +150,11 @@ export function classifyFetchFailure(error: unknown): ClassifiedFetchFailure {
   // iOS RN: "Fetch request has been canceled"; okhttp: "Canceled";
   // undici/DOM: AbortError "The operation was aborted".
   if (name === 'AbortError' || CANCEL_PATTERN.test(text)) {
+    // An abort the caller did not request is a transport interruption on a
+    // live screen — retryable and reportable, not lifecycle noise.
+    if (options?.callerAborted === false) {
+      return result('network', true);
+    }
     return result('cancelled', false, false);
   }
 
