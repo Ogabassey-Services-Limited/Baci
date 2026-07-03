@@ -166,12 +166,44 @@ describe('admin analytics core', () => {
       })
     ).toBe(true);
 
-    expect(mocks.captureException).toHaveBeenCalledWith(error, {
+    const [capturedError, capturedProperties] = mocks.captureException.mock
+      .calls[0] as [Error, Record<string, unknown>];
+    expect(capturedError.message).toBe('render failed');
+    expect(capturedProperties).toEqual({
       app_surface: 'mobile-admin',
       componentStack: 'OwnerEmail([Filtered])',
       merchant_id: 'merchant-1',
       requestUrl: 'https://usebaci.com/dashboard',
     });
+  });
+
+  it('sanitizes exception message, stack, and cause before capture', async () => {
+    const { captureAdminException, initAdminAnalytics } =
+      await importAnalyticsCore();
+    const error = new Error(
+      'Failed https://api.usebaci.com/orders?token=secret for owner@example.com'
+    ) as Error & { cause?: unknown };
+    error.name = 'OwnerEmail owner@example.com';
+    error.stack =
+      'OwnerEmail owner@example.com\n    at https://api.usebaci.com/orders?token=secret#x';
+    error.cause = new Error('Receiver phone +234 800 000 0000');
+
+    initAdminAnalytics();
+
+    expect(captureAdminException(error)).toBe(true);
+
+    const [capturedError] = mocks.captureException.mock.calls[0] as [
+      Error & { cause?: Error },
+      Record<string, unknown>,
+    ];
+    expect(capturedError.message).toBe(
+      'Failed https://api.usebaci.com/orders for [Filtered]'
+    );
+    expect(capturedError.name).toBe('OwnerEmail [Filtered]');
+    expect(capturedError.stack).toBe(
+      'OwnerEmail [Filtered]\n    at https://api.usebaci.com/orders'
+    );
+    expect(capturedError.cause?.message).toBe('Receiver phone [Filtered]');
   });
 
   it('lazily initializes before capturing the first boundary exception', async () => {
@@ -184,7 +216,10 @@ describe('admin analytics core', () => {
     ).toBe(true);
 
     expect(PostHog).toHaveBeenCalledTimes(1);
-    expect(mocks.captureException).toHaveBeenCalledWith(error, {
+    const [capturedError, capturedProperties] = mocks.captureException.mock
+      .calls[0] as [Error, Record<string, unknown>];
+    expect(capturedError.message).toBe('first render failure');
+    expect(capturedProperties).toEqual({
       app_surface: 'mobile-admin',
       route_surface: 'mobile-admin',
     });

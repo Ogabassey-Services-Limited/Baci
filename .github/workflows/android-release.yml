@@ -110,6 +110,21 @@ jobs:
           store-dir: ${{ env.PNPM_STORE_DIR }}
           install-command: .github/scripts/pnpm-install-with-retry.sh --frozen-lockfile
 
+      - name: Normalize PostHog CLI executable bit
+        run: |
+          POSTHOG_CLI_JS="$(node --print "require.resolve('@posthog/cli/run-posthog-cli.js')")"
+          if [ ! -f "$POSTHOG_CLI_JS" ]; then
+            echo "::error::@posthog/cli run-posthog-cli.js is not available after pnpm install"
+            exit 1
+          fi
+
+          # The PostHog Android Gradle helper executes run-posthog-cli.js
+          # directly on Unix. Make the target executable so release uploads do
+          # not depend on the package manager's bin-shim permissions.
+          chmod +x "$POSTHOG_CLI_JS"
+          chmod +x "$GITHUB_WORKSPACE/node_modules/.bin/posthog-cli" 2>/dev/null || true
+          node "$POSTHOG_CLI_JS" --version
+
       - name: Fix Hermes compiler path
         # RN 0.83+ ships hermesc in the hermes-compiler package, but
         # Gradle still resolves it via react-native/sdks/hermesc/.

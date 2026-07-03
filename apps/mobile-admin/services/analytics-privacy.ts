@@ -33,6 +33,7 @@ const SENSITIVE_PROPERTY_TOKENS = new Set([
 ]);
 const URL_PROPERTY_PATTERN = /(?:url|href|referrer|request_path|pathname)/i;
 const QUERY_OR_HASH_PATTERN = /[?#]/;
+const URL_VALUE_PATTERN = /\bhttps?:\/\/[^\s"'<>()[\]{}]+/gi;
 const EMAIL_VALUE_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const SENSITIVE_VALUE_PATTERNS = [
   /(?:\+\d[\d\s().-]{7,}\d|\b\d[\d\s().-]{7,}\d\b)/g,
@@ -114,10 +115,7 @@ function isBusinessIdentifierPropertyKey(key: string): boolean {
   );
 }
 
-function redactSensitiveStringValues(
-  key: string,
-  value: string
-): AdminAnalyticsJson {
+function redactSensitiveStringValues(key: string, value: string): string {
   const preservesIdentifier = isBusinessIdentifierPropertyKey(key);
   const patterns = preservesIdentifier ? [] : SENSITIVE_VALUE_PATTERNS;
 
@@ -126,6 +124,14 @@ function redactSensitiveStringValues(
       sanitizedValue.replace(pattern, REDACTED_VALUE),
     value.replace(EMAIL_VALUE_PATTERN, REDACTED_VALUE)
   );
+}
+
+function stripSensitiveUrlParts(value: string): string {
+  return value.replace(URL_VALUE_PATTERN, (url) => redactUrlQuery(url));
+}
+
+export function sanitizeAdminAnalyticsText(value: string): string {
+  return redactSensitiveStringValues('', stripSensitiveUrlParts(value));
 }
 
 function sanitizeAdminAnalyticsPropertyValue(
@@ -144,7 +150,7 @@ function sanitizeAdminAnalyticsPropertyValue(
   if (typeof value === 'string') {
     const sanitizedString = URL_PROPERTY_PATTERN.test(key)
       ? redactUrlQuery(value)
-      : value;
+      : stripSensitiveUrlParts(value);
     return redactSensitiveStringValues(key, sanitizedString);
   }
 

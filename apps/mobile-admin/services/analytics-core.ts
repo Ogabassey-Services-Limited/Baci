@@ -4,6 +4,7 @@ import {
   type AdminAnalyticsProperties,
   sanitizeAdminAnalyticsCaptureEvent,
   sanitizeAdminAnalyticsProperties,
+  sanitizeAdminAnalyticsText,
 } from './analytics-privacy';
 
 const DEFAULT_POSTHOG_HOST = 'https://eu.i.posthog.com';
@@ -20,6 +21,59 @@ type AdminUserProperties = {
 };
 
 let posthogClient: PostHog | null = null;
+
+type ErrorWithOptionalCause = Error & { cause?: unknown };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function sanitizeExceptionCause(cause: unknown): unknown {
+  if (cause instanceof Error) {
+    return sanitizeExceptionForCapture(cause);
+  }
+
+  if (typeof cause === 'string') {
+    return sanitizeAdminAnalyticsText(cause);
+  }
+
+  if (Array.isArray(cause)) {
+    return cause.map((item) => sanitizeExceptionCause(item));
+  }
+
+  if (isRecord(cause)) {
+    return sanitizeAdminAnalyticsProperties(cause);
+  }
+
+  return cause;
+}
+
+function sanitizeExceptionForCapture(error: unknown): unknown {
+  if (!(error instanceof Error)) {
+    return typeof error === 'string'
+      ? sanitizeAdminAnalyticsText(error)
+      : error;
+  }
+
+  const sanitizedError = new Error(sanitizeAdminAnalyticsText(error.message));
+  sanitizedError.name = sanitizeAdminAnalyticsText(error.name || 'Error');
+
+  if (typeof error.stack === 'string') {
+    sanitizedError.stack = sanitizeAdminAnalyticsText(error.stack);
+  }
+
+  const cause = (error as ErrorWithOptionalCause).cause;
+  if (cause !== undefined) {
+    Object.defineProperty(sanitizedError, 'cause', {
+      configurable: true,
+      enumerable: false,
+      value: sanitizeExceptionCause(cause),
+      writable: true,
+    });
+  }
+
+  return sanitizedError;
+}
 
 function getAdminAnalyticsSuperProperties(): AdminAnalyticsProperties {
   return (
@@ -135,7 +189,7 @@ export function captureAdminException(
   }
 
   posthogClient.captureException(
-    error,
+    sanitizeExceptionForCapture(error),
     sanitizeAdminAnalyticsProperties({
       ...properties,
       app_surface: 'mobile-admin',

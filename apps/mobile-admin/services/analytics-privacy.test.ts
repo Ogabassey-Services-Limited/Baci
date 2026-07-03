@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   sanitizeAdminAnalyticsCaptureEvent,
   sanitizeAdminAnalyticsProperties,
+  sanitizeAdminAnalyticsText,
 } from './analytics-privacy';
 
 describe('admin analytics privacy', () => {
@@ -52,6 +53,14 @@ describe('admin analytics privacy', () => {
       order_reference: 'ORD-260702-1-9',
       freeform: 'ORD-[Filtered]',
     });
+  });
+
+  it('sanitizes freeform exception text before capture', () => {
+    expect(
+      sanitizeAdminAnalyticsText(
+        'Failed https://api.usebaci.com/path?token=secret#debug for owner@example.com on +234 800 000 0000'
+      )
+    ).toBe('Failed https://api.usebaci.com/path for [Filtered] on [Filtered]');
   });
 
   it('sanitizes capture event property bags consistently', () => {
