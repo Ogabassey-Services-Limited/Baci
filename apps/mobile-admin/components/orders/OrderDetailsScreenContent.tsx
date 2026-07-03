@@ -69,6 +69,7 @@ export function OrderDetailsScreenContent({
           onSendRiderToCustomer={controller.handleSendRiderToCustomer}
           onWhatsApp={controller.handleWhatsApp}
           recordedByName={order.recorded_by_name}
+          riderPhone={controller.riderPhone}
           shippingColor={controller.shippingColor}
           shippingConfig={{
             icon: controller.shippingConfig.icon,
@@ -78,6 +79,7 @@ export function OrderDetailsScreenContent({
           showPostShipmentActions={controller.showPostShipmentActions}
           source={order.source}
           sourceInfo={controller.sourceInfo}
+          onRiderPhoneChange={controller.setRiderPhone}
           updatedAtLabel={controller.formatDate(order.updated_at)}
         />
 

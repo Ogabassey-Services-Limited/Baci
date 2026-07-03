@@ -44,7 +44,7 @@ function getStatusDrawerSnapPoints(
   contentRowCount: number
 ) {
   const maxHeight = Math.max(
-    STATUS_DRAWER_HEIGHT,
+    0,
     windowHeight - topInset - STATUS_DRAWER_TOP_MARGIN
   );
   const contentHeight =
@@ -53,7 +53,7 @@ function getStatusDrawerSnapPoints(
     Math.max(contentRowCount, 0) * STATUS_DRAWER_ROW_HEIGHT +
     Math.max(contentRowCount - 1, 0) * SPACING.sm;
   const initialHeight = Math.min(
-    Math.max(STATUS_DRAWER_HEIGHT, contentHeight),
+    Math.max(Math.min(STATUS_DRAWER_HEIGHT, maxHeight), contentHeight),
     maxHeight
   );
 

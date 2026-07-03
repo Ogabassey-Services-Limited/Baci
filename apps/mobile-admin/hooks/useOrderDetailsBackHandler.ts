@@ -4,8 +4,10 @@ import { isRuntimePlatform } from '@/config/runtime-platform';
 import type { ShipmentFlowStep } from '@/lib/order-shipment';
 
 export function useOrderDetailsBackHandler({
+  fulfillmentItemIndex,
   requiresShipmentDetails,
   selectedOrderItemOpen,
+  setFulfillmentItemIndex,
   setIsShipmentSubmitting,
   setSelectedOrderItemOpen,
   setShowCreditModal,
@@ -21,8 +23,10 @@ export function useOrderDetailsBackHandler({
   showStatusModal,
   shipmentFlowStep,
 }: {
+  fulfillmentItemIndex: number;
   requiresShipmentDetails: boolean;
   selectedOrderItemOpen: boolean;
+  setFulfillmentItemIndex: (value: number) => void;
   setIsShipmentSubmitting: (value: boolean) => void;
   setSelectedOrderItemOpen: (value: boolean) => void;
   setShowCreditModal: (value: boolean) => void;
@@ -74,8 +78,13 @@ export function useOrderDetailsBackHandler({
             setShipmentFlowStep('details');
             return true;
           }
+          if (shipmentFlowStep === 'details' && fulfillmentItemIndex > 0) {
+            setFulfillmentItemIndex(fulfillmentItemIndex - 1);
+            return true;
+          }
           setShowShipmentFlow(false);
           setShipmentFlowStep('details');
+          setFulfillmentItemIndex(0);
           setIsShipmentSubmitting(false);
           return true;
         }
@@ -93,8 +102,10 @@ export function useOrderDetailsBackHandler({
 
     return () => backHandler.remove();
   }, [
+    fulfillmentItemIndex,
     requiresShipmentDetails,
     selectedOrderItemOpen,
+    setFulfillmentItemIndex,
     setIsShipmentSubmitting,
     setSelectedOrderItemOpen,
     setShowCreditModal,

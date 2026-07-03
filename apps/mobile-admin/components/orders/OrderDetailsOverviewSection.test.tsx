@@ -19,13 +19,26 @@ vi.mock('react-native', async () => {
 
 vi.mock('./OrderDetailsStatusCard', () => ({
   OrderDetailsStatusCard: ({ shippingStatus }: { shippingStatus: string }) => (
-    <div aria-label="status-card" data-shipping-status={shippingStatus} />
+    <section aria-label="status-card" data-shipping-status={shippingStatus} />
   ),
 }));
 
 vi.mock('./OrderDetailsCustomerCard', () => ({
-  OrderDetailsCustomerCard: ({ customerName }: { customerName: string }) => (
-    <div aria-label="customer-card" data-customer-name={customerName} />
+  OrderDetailsCustomerCard: ({
+    customerName,
+    onRiderPhoneChange,
+    riderPhone,
+  }: {
+    customerName: string;
+    onRiderPhoneChange?: (value: string) => void;
+    riderPhone?: string;
+  }) => (
+    <section
+      aria-label="customer-card"
+      data-customer-name={customerName}
+      data-has-rider-change={String(typeof onRiderPhoneChange === 'function')}
+      data-rider-phone={riderPhone ?? ''}
+    />
   ),
 }));
 
@@ -50,11 +63,13 @@ describe('OrderDetailsOverviewSection', () => {
     isGeneratingReceipt: false,
     onCall: vi.fn(),
     onEmail: vi.fn(),
+    onRiderPhoneChange: vi.fn(),
     onSendOrderDetailsToRider: vi.fn(),
     onSendReceipt: vi.fn(),
     onSendRiderToCustomer: vi.fn(),
     onWhatsApp: vi.fn(),
     recordedByName: null,
+    riderPhone: '',
     shippingColor: '#ca8a04',
     shippingConfig: { icon: 'time', label: 'Pending' },
     shippingStatus: 'pending',
@@ -76,11 +91,21 @@ describe('OrderDetailsOverviewSection', () => {
   });
 
   it('passes the customer name through to the customer card', () => {
-    render(<OrderDetailsOverviewSection {...baseProps} />);
+    render(
+      <OrderDetailsOverviewSection {...baseProps} riderPhone="+2348034444444" />
+    );
 
     expect(screen.getByLabelText('customer-card')).toHaveAttribute(
       'data-customer-name',
       'Jane Doe'
+    );
+    expect(screen.getByLabelText('customer-card')).toHaveAttribute(
+      'data-rider-phone',
+      '+2348034444444'
+    );
+    expect(screen.getByLabelText('customer-card')).toHaveAttribute(
+      'data-has-rider-change',
+      'true'
     );
   });
 

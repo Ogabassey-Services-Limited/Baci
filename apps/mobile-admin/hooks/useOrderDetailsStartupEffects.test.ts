@@ -27,6 +27,7 @@ function buildParams(overrides: Partial<HookParams> = {}): HookParams {
     actionParam: undefined,
     order: null,
     setPaymentAmount: vi.fn(),
+    setRiderPhone: vi.fn(),
     setSavedRiders: vi.fn(),
     setShowCreditModal: vi.fn(),
     setShowRecordPaymentModal: vi.fn(),
@@ -115,6 +116,76 @@ describe('useOrderDetailsStartupEffects', () => {
     });
 
     expect(asyncStorageMock.getItem).toHaveBeenCalledWith('saved_riders');
+  });
+
+  it('loads the saved dispatch phone into rider state when the order is loaded', () => {
+    const setRiderPhone = vi.fn();
+
+    renderHook(() =>
+      useOrderDetailsStartupEffects(
+        buildParams({
+          order: buildOrder({
+            self_fulfillment_data: {
+              carrierName: 'Dispatch Rider',
+              dispatchPhone: ' +2348034444444 ',
+            },
+          }),
+          setRiderPhone,
+        })
+      )
+    );
+
+    expect(setRiderPhone).toHaveBeenCalledWith('+2348034444444');
+  });
+
+  it('resets rider phone when the order has no dispatch phone', () => {
+    const setRiderPhone = vi.fn();
+
+    renderHook(() =>
+      useOrderDetailsStartupEffects(
+        buildParams({
+          order: buildOrder({ self_fulfillment_data: undefined }),
+          setRiderPhone,
+        })
+      )
+    );
+
+    expect(setRiderPhone).toHaveBeenCalledWith('');
+  });
+
+  it('does not overwrite rider phone edits when the same order refetches', () => {
+    const setRiderPhone = vi.fn();
+    const order = buildOrder({
+      self_fulfillment_data: {
+        carrierName: 'Dispatch Rider',
+        dispatchPhone: ' +2348034444444 ',
+      },
+    });
+
+    const { rerender } = renderHook(
+      ({ nextOrder }: { nextOrder: OrderDetailsRecord }) =>
+        useOrderDetailsStartupEffects(
+          buildParams({
+            order: nextOrder,
+            setRiderPhone,
+          })
+        ),
+      { initialProps: { nextOrder: order } }
+    );
+
+    expect(setRiderPhone).toHaveBeenCalledWith('+2348034444444');
+
+    rerender({
+      nextOrder: {
+        ...order,
+        self_fulfillment_data: {
+          carrierName: 'Dispatch Rider',
+          dispatchPhone: ' +2348055555555 ',
+        },
+      },
+    });
+
+    expect(setRiderPhone).toHaveBeenCalledTimes(1);
   });
 
   it('does not reopen the record payment modal when the same order refetches as a new object', async () => {

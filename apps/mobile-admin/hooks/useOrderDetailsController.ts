@@ -85,8 +85,10 @@ export function useOrderDetailsController() {
     : false;
 
   useOrderDetailsBackHandler({
+    fulfillmentItemIndex: uiState.fulfillmentItemIndex,
     requiresShipmentDetails,
     selectedOrderItemOpen: uiState.selectedOrderItem !== null,
+    setFulfillmentItemIndex: uiState.setFulfillmentItemIndex,
     setIsShipmentSubmitting: uiState.setIsShipmentSubmitting,
     setSelectedOrderItemOpen: (value) =>
       uiState.setSelectedOrderItem(value ? uiState.selectedOrderItem : null),
@@ -108,6 +110,7 @@ export function useOrderDetailsController() {
     actionParam,
     order: order ?? null,
     setPaymentAmount: uiState.setPaymentAmount,
+    setRiderPhone: uiState.setRiderPhone,
     setSavedRiders: uiState.setSavedRiders,
     setShowCreditModal: uiState.setShowCreditModal,
     setShowRecordPaymentModal: uiState.setShowRecordPaymentModal,
@@ -203,9 +206,9 @@ export function useOrderDetailsController() {
   const shippingColor = getOrderStatusColor(colors, shippingConfig.colorKey);
   const paymentColor = getOrderStatusColor(colors, paymentConfig.colorKey);
   const sourceInfo = getOrderSourceInfo(colors, order?.source);
+  // The rider phone can be added after self-fulfillment; action handlers validate it before opening WhatsApp.
   const showPostShipmentActions = Boolean(
-    order?.shipping_status === 'shipped' &&
-      order.self_fulfillment_data?.dispatchPhone?.trim()
+    order?.shipping_status === 'shipped' && order?.self_fulfillment_data
   );
   const isInvalidRoute = !validatedParams;
   const updateFulfillmentDetails = (

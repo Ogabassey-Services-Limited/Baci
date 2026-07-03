@@ -41,6 +41,24 @@ vi.mock('react-native', async () => {
       ),
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
+    TextInput: ({
+      accessibilityLabel,
+      onChangeText,
+      placeholder,
+      value,
+    }: {
+      accessibilityLabel?: string;
+      onChangeText?: (value: string) => void;
+      placeholder?: string;
+      value?: string;
+    }) =>
+      React.createElement('input', {
+        'aria-label': accessibilityLabel,
+        onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+          onChangeText?.(event.currentTarget.value),
+        placeholder,
+        value,
+      }),
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },
@@ -75,10 +93,12 @@ describe('OrderDetailsCustomerCard', () => {
       isGeneratingReceipt: false,
       onCall: vi.fn(),
       onEmail: vi.fn(),
+      onRiderPhoneChange: vi.fn(),
       onSendOrderDetailsToRider: vi.fn(),
       onSendReceipt: vi.fn(),
       onSendRiderToCustomer: vi.fn(),
       onWhatsApp: vi.fn(),
+      riderPhone: '',
       showPostShipmentActions: true,
       ...overrides,
     };
@@ -100,6 +120,23 @@ describe('OrderDetailsCustomerCard', () => {
         name: /share rider details with customer/i,
       })
     ).not.toBeInTheDocument();
+  });
+
+  it('lets merchants enter a rider number before sending details', () => {
+    const { props } = renderCard({ riderPhone: '+2348000000000' });
+
+    const input = screen.getByLabelText('Dispatch rider WhatsApp number');
+    expect(input).toHaveValue('+2348000000000');
+
+    fireEvent.change(input, { target: { value: '+2348111111111' } });
+
+    expect(props.onRiderPhoneChange).toHaveBeenCalledWith('+2348111111111');
+  });
+
+  it('shows the rider number placeholder when no rider is saved yet', () => {
+    renderCard({ riderPhone: '' });
+
+    expect(screen.getByPlaceholderText('Enter rider number')).toHaveValue('');
   });
 
   it('shows the share-rider action when the customer phone exists', () => {

@@ -1,5 +1,6 @@
 import { Alert, Linking, Share } from 'react-native';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
+import { apiClient } from '@/lib/api-client';
 import { extractOrderDeliveryAddress } from '@/lib/orders';
 import { asyncStorage as AsyncStorage } from '@/lib/storage';
 
@@ -55,6 +56,30 @@ export function createOrderDetailsContactActions({
     await AsyncStorage.setItem('saved_riders', JSON.stringify(nextRiders));
   };
 
+  const saveDispatchPhoneToOrder = async (dispatchPhone: string) => {
+    if (!(order?.id && order.self_fulfillment_data)) {
+      throw new Error('Order is missing self-fulfillment data');
+    }
+
+    await apiClient('/api/shipping/self-fulfill', {
+      body: JSON.stringify({
+        carrierName:
+          order.self_fulfillment_data.carrierName?.trim() || 'Dispatch Rider',
+        dispatchPhone,
+        orderId: order.id,
+      }),
+      method: 'PATCH',
+    });
+  };
+
+  const maybeSaveDispatchPhoneToOrder = async (dispatchPhone: string) => {
+    if (!order?.self_fulfillment_data) {
+      return;
+    }
+
+    await saveDispatchPhoneToOrder(dispatchPhone);
+  };
+
   const handleSendOrderDetailsToRider = async () => {
     if (!order) {
       return;
@@ -74,6 +99,12 @@ export function createOrderDetailsContactActions({
     }
 
     await handleSaveRider(dispatchPhone);
+    try {
+      await maybeSaveDispatchPhoneToOrder(dispatchPhone);
+    } catch {
+      Alert.alert('Error', 'Could not save the rider phone number.');
+      return;
+    }
 
     const shippingAddress =
       order.shipping_address && typeof order.shipping_address === 'object'
@@ -111,15 +142,17 @@ ${amountToCollect}
     });
   };
 
-  const handleSendRiderToCustomer = () => {
+  const handleSendRiderToCustomer = async () => {
     if (!order) {
       return;
     }
 
     const customerPhone = normalizeWhatsAppPhone(order.customer_phone);
-    const dispatchPhone = normalizeWhatsAppPhone(
+    const savedDispatchPhone = normalizeWhatsAppPhone(
       order.self_fulfillment_data?.dispatchPhone
     );
+    const typedDispatchPhone = normalizeWhatsAppPhone(riderPhone);
+    const dispatchPhone = savedDispatchPhone || typedDispatchPhone;
     const carrierName =
       order.self_fulfillment_data?.carrierName?.trim() || 'Dispatch Rider';
 
@@ -146,6 +179,18 @@ ${amountToCollect}
         'Rider phone number is not valid for WhatsApp.'
       );
       return;
+    }
+    if (
+      !savedDispatchPhone &&
+      typedDispatchPhone &&
+      order.self_fulfillment_data
+    ) {
+      try {
+        await saveDispatchPhoneToOrder(typedDispatchPhone);
+      } catch {
+        Alert.alert('Error', 'Could not save the rider phone number.');
+        return;
+      }
     }
 
     const message = `

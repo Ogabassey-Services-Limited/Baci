@@ -1,8 +1,13 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrderStatusDrawerFrame } from './OrderStatusDrawerFrame';
+
+const windowDimensionsMock = vi.hoisted(() => ({
+  height: 844,
+  width: 390,
+}));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
@@ -93,7 +98,7 @@ vi.mock('@gorhom/bottom-sheet', () => ({
 }));
 
 vi.mock('react-native', () => ({
-  useWindowDimensions: () => ({ height: 844, width: 390 }),
+  useWindowDimensions: () => windowDimensionsMock,
   Modal: ({
     children,
     visible,
@@ -169,6 +174,11 @@ const colors = {
 };
 
 describe('OrderStatusDrawerFrame', () => {
+  beforeEach(() => {
+    windowDimensionsMock.height = 844;
+    windowDimensionsMock.width = 390;
+  });
+
   it('renders no overlay while hidden so the order screen remains touchable', () => {
     render(
       <OrderStatusDrawerFrame
@@ -245,6 +255,32 @@ describe('OrderStatusDrawerFrame', () => {
     expect(screen.queryByLabelText('status-modal')).not.toBeInTheDocument();
     expect(screen.getByText('Update Order Status')).toBeInTheDocument();
     expect(screen.getByText('Status rows')).toBeInTheDocument();
+  });
+
+  it('clamps the drawer snap height to the available viewport', () => {
+    windowDimensionsMock.height = 360;
+
+    render(
+      <OrderStatusDrawerFrame
+        closeLabel="Close status sheet"
+        contentRowCount={6}
+        colors={colors}
+        onClose={vi.fn()}
+        title="Update Order Status"
+        visible={true}
+      >
+        <span>Status rows</span>
+      </OrderStatusDrawerFrame>
+    );
+
+    expect(screen.getByLabelText('gorhom-status-drawer')).toHaveAttribute(
+      'data-snap-points',
+      '328'
+    );
+    expect(screen.getByTestId('order-status-drawer-host')).toHaveAttribute(
+      'data-style-height',
+      '360'
+    );
   });
 
   it('closes from the header button, backdrop, and pan-down callback', () => {
