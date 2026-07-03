@@ -42,6 +42,14 @@ vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: vi.fn(),
 }));
 
+const mockPrewarmOgabasseyImageTransforms = vi
+  .fn()
+  .mockResolvedValue(undefined);
+vi.mock('@/lib/ogabassey-image-prewarm', () => ({
+  prewarmOgabasseyImageTransforms: (...args: unknown[]) =>
+    mockPrewarmOgabasseyImageTransforms(...args),
+}));
+
 let csrfValid = true;
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(() =>
@@ -1372,6 +1380,58 @@ describe('PUT /api/products/[id]', () => {
     });
   });
 
+  describe('CDN image-transform prewarm', () => {
+    it('pre-warms the updated product images after a successful update', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Old Name',
+        condition: 'new',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        price: '6000',
+        slug: 'updated-product',
+        images: [
+          { url: 'https://cdn.ogabassey.com/core-assets/products/phone.avif' },
+          'https://cdn.ogabassey.com/core-assets/products/phone-back.avif',
+        ],
+      };
+
+      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockPrewarmOgabasseyImageTransforms).toHaveBeenCalledWith([
+        'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+        'https://cdn.ogabassey.com/core-assets/products/phone-back.avif',
+      ]);
+    });
+
+    it('does not call the prewarm when the updated product has no images', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Old Name',
+        condition: 'new',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        price: '6000',
+        slug: 'updated-product',
+        images: [],
+      };
+
+      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockPrewarmOgabasseyImageTransforms).not.toHaveBeenCalled();
+    });
+  });
+
   describe('error handling', () => {
     it('returns 500 when update fails', async () => {
       product = {
@@ -1450,6 +1510,16 @@ describe('DELETE /api/products/[id]', () => {
 
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
+    });
+
+    it('does not pre-warm image transforms on delete (nothing left to serve)', async () => {
+      deleteError = null;
+
+      await DELETE(makeDeleteRequest(PRODUCT_ID), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(mockPrewarmOgabasseyImageTransforms).not.toHaveBeenCalled();
     });
   });
 

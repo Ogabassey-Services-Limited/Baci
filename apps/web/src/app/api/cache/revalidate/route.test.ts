@@ -56,6 +56,13 @@ vi.mock('next/cache', () => ({
   revalidateTag: (...args: unknown[]) => mockRevalidateTag(...args),
 }));
 
+// Mock Cloudflare edge purge (fire-and-forget dependency of revalidateBlogPosts)
+const mockPurgeCloudflareUrls = vi.fn();
+
+vi.mock('@/lib/cloudflare-purge', () => ({
+  purgeCloudflareUrls: (...args: unknown[]) => mockPurgeCloudflareUrls(...args),
+}));
+
 // ---- Import handler AFTER mocks ----
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { POST } from './route';

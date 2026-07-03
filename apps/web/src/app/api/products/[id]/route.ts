@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRoleKey } from '@/env';
 import { hasPermission } from '@/lib/api-auth';
 import { revalidateProducts } from '@/lib/cache-revalidation';
@@ -11,6 +11,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { prewarmOgabasseyImageTransforms } from '@/lib/ogabassey-image-prewarm';
 import {
   getPrimaryProductImage,
   PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
@@ -38,6 +39,53 @@ import {
 } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 import { formatZodErrors, updateProductSchema } from '@/schemas/products';
+
+/**
+ * Extract the raw image URLs from a product's `images` column so they can be
+ * handed to the CDN transform prewarm. Mirrors the string/object shapes
+ * `getPrimaryProductImage` already normalizes (`lib/product-image.ts`), but
+ * returns every image instead of just the primary one. Takes `unknown`
+ * because the row shape returned by the Supabase select-string types in this
+ * file varies by branch (not every intermediate `updatedProduct` assignment
+ * is typed with an `images` field even though it is always present at
+ * runtime by the time this is called).
+ */
+function extractProductImageUrls(images: unknown): string[] {
+  if (!Array.isArray(images)) {
+    return [];
+  }
+
+  return images
+    .map((image: unknown) =>
+      typeof image === 'string'
+        ? image
+        : image && typeof image === 'object' && 'url' in image
+          ? (image as { url?: unknown }).url
+          : undefined
+    )
+    .filter((url): url is string => typeof url === 'string' && url.length > 0);
+}
+
+/**
+ * Pre-warm Cloudflare's image-transform cache for a product's images after a
+ * write. Fire-and-forget: mirrors `schedulePurgeCloudflareUrls` in
+ * `lib/cache-revalidation.ts` — uses `after()` when a request context exists
+ * so the prewarm keeps running past the response flush, and falls back to a
+ * detached promise otherwise (tests / non-request contexts).
+ * `prewarmOgabasseyImageTransforms` never throws, so this never affects the
+ * caller.
+ */
+function schedulePrewarmProductImageTransforms(imagePaths: string[]): void {
+  if (imagePaths.length === 0) {
+    return;
+  }
+
+  try {
+    after(() => prewarmOgabasseyImageTransforms(imagePaths));
+  } catch {
+    void prewarmOgabasseyImageTransforms(imagePaths);
+  }
+}
 
 export async function GET(
   _request: NextRequest,
@@ -866,6 +914,12 @@ export async function PUT(
 
     // Invalidate product caches so storefront reflects changes immediately
     revalidateProducts(merchantId, updatedProduct.slug);
+
+    // Pre-warm the CDN image-transform cache for the product's images so the
+    // first real storefront visitor never pays the cold-transform cost.
+    schedulePrewarmProductImageTransforms(
+      extractProductImageUrls((updatedProduct as { images?: unknown }).images)
+    );
 
     return NextResponse.json({ product: updatedProduct });
   } catch (error) {

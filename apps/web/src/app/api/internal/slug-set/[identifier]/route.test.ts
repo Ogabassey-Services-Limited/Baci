@@ -74,7 +74,9 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     const res = await GET(request('iphone-15', `Bearer ${SECRET}`), context());
 
     expect(res.status).toBe(200);
-    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('Cache-Control')).toBe(
+      's-maxage=300, stale-while-revalidate=3600'
+    );
     expect(await res.json()).toEqual({ hasError: false, present: true });
     expect(mockGetMerchantSafe).toHaveBeenCalledWith(IDENTIFIER);
     expect(mockGetCachedStorefrontProductSlugSet).toHaveBeenCalledWith(
@@ -114,6 +116,9 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     );
 
     expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe(
+      's-maxage=300, stale-while-revalidate=3600'
+    );
     expect(await res.json()).toEqual({
       hasError: false,
       present: true,
@@ -225,13 +230,18 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     expect(await res.json()).toEqual({ hasError: false, present: true });
   });
 
-  it('returns present:false when the slug is absent from the merchant set', async () => {
+  it('returns present:false with no-store so a later-published slug is never sticky-404ed', async () => {
     const res = await GET(
       request('nonexistent-product', `Bearer ${SECRET}`),
       context()
     );
 
     expect(res.status).toBe(200);
+    // A definitively-absent verdict drives the proxy's hard-404. It MUST stay
+    // no-store: if the merchant publishes this slug, revalidateTag cannot purge
+    // an edge-cached miss, so a cached present:false would hard-404 the now-live
+    // product for the whole TTL window.
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(await res.json()).toEqual({ hasError: false, present: false });
     expect(mockGetCachedStorefrontProductSlugResolution).not.toHaveBeenCalled();
   });
@@ -322,6 +332,7 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     const res = await GET(request('iphone-15', `Bearer ${SECRET}`), context());
 
     expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(await res.json()).toEqual(FAIL_OPEN);
   });
 

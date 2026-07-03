@@ -2505,7 +2505,7 @@ describe('Middleware Proxy', () => {
     // fixed via patches/next@16.2.9.patch (PR #2436), so the prerendered PDP
     // shell is safe to cache/replay at the edge for the LCP win.
     expect(res.headers.get('Cache-Control')).toBe(
-      's-maxage=300, stale-while-revalidate=3600'
+      's-maxage=300, stale-while-revalidate=86400'
     );
     expect(res.headers.get('Vary') ?? '').not.toContain('Cookie');
   });
@@ -2532,7 +2532,7 @@ describe('Middleware Proxy', () => {
     const res = await proxy(req);
 
     expect(res.headers.get('Cache-Control')).toBe(
-      's-maxage=300, stale-while-revalidate=3600'
+      's-maxage=300, stale-while-revalidate=86400'
     );
   });
 
@@ -2587,7 +2587,7 @@ describe('Middleware Proxy', () => {
     const res = await proxy(req);
 
     expect(res.headers.get('Cache-Control')).toBe(
-      's-maxage=300, stale-while-revalidate=3600'
+      's-maxage=300, stale-while-revalidate=86400'
     );
   });
 
@@ -2647,7 +2647,7 @@ describe('Middleware Proxy', () => {
     const res = await proxy(req);
 
     expect(res.headers.get('Cache-Control')).toBe(
-      's-maxage=300, stale-while-revalidate=3600'
+      's-maxage=300, stale-while-revalidate=86400'
     );
   });
 

@@ -314,8 +314,18 @@ function isAuthenticatedInternalRequest(request: NextRequest): boolean {
 }
 // PDP documents are now safe to CDN-cache (see PR #2436 Next resume patch), so
 // the prerendered PPR shell can be served from the edge for the LCP win.
+// Freshness stays SHORT (5m) but stale-while-revalidate is extended to 24h: the
+// long SWR window keeps the edge MISS rate and user-facing TTFB low (the edge
+// keeps serving a cached copy while it revalidates in the background), while the
+// short s-maxage bounds how long a mutated/removed PDP can be served before the
+// edge revalidates. Only blog URLs are ACTIVELY purged from Cloudflare
+// (lib/storefront-purge-urls.ts via revalidateBlogPosts); product/category/home
+// mutations have NO active purge path (revalidateProducts only does Next
+// revalidateTag, which does not evict Cloudflare/edge document caches), so the
+// fresh window MUST stay short until a product purge is wired — otherwise a
+// deleted/unpublished product would be served as a live 200 for the whole window.
 const STOREFRONT_DOCUMENT_CACHE_CONTROL =
-  's-maxage=300, stale-while-revalidate=3600';
+  's-maxage=300, stale-while-revalidate=86400';
 const STOREFRONT_METADATA_CACHE_NON_HTML_EXTENSIONS_REGEX =
   /\.(?:json|jsonl|md|txt|webmanifest|xml)$/i;
 const STOREFRONT_METADATA_CACHE_NON_HTML_SEGMENTS = new Set(['_next', 'api']);
@@ -3703,7 +3713,7 @@ function applySecurityHeaders(
       'Cache-Control',
       isBot
         ? 's-maxage=1800, stale-while-revalidate=7200'
-        : 's-maxage=300, stale-while-revalidate=3600'
+        : 's-maxage=300, stale-while-revalidate=86400'
     );
     return response;
   }

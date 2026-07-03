@@ -8,6 +8,18 @@ import {
 } from '@/schemas/internal-slug-set-route';
 
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
+// The proxy self-fetches this internal preflight on every storefront blog-post
+// navigation. The underlying data is already memoized (cacheLife('blog')), so a
+// short edge TTL lets Vercel's CDN absorb repeat preflights instead of hitting
+// the origin each time. Only a PRESENT verdict (found post, or a retired->redirect)
+// is cached — it is self-healing because the page still renders and 404s a
+// since-removed post. A definitive-absent verdict makes the proxy hard-404 the
+// post, and a fail-open/error is a transient miss; neither may be sticky
+// (revalidateTag cannot purge this header-based edge entry), so both stay
+// no-store.
+const PREFLIGHT_CACHE = {
+  'Cache-Control': 's-maxage=300, stale-while-revalidate=3600',
+} as const;
 const FAIL_OPEN = { hasError: true, present: false, redirectPath: null };
 const INVALID_REQUEST = { error: 'Invalid input', code: 'invalid_input' };
 
@@ -50,7 +62,16 @@ export async function GET(
       params.data.identifier,
       query.data.slug
     );
-    return NextResponse.json(result, { status: 200, headers: NO_STORE });
+    // Cache ONLY a definitive PRESENT verdict. A definitive-absent (present:false
+    // -> proxy hard-404) or a fail-open (hasError:true) answer must never be
+    // sticky — the resolver can return hasError:true WITHOUT throwing (e.g. a
+    // transient merchant-lookup failure, or an unpublished store) — so those stay
+    // no-store (mirrors the slug-set route).
+    const cacheable = result.hasError === false && result.present === true;
+    return NextResponse.json(result, {
+      status: 200,
+      headers: cacheable ? PREFLIGHT_CACHE : NO_STORE,
+    });
   } catch (error) {
     console.error('Internal blog post status resolution failed', { error });
     return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });

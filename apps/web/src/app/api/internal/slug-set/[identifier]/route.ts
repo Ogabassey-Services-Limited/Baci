@@ -13,6 +13,17 @@ import {
 } from '@/schemas/internal-slug-set-route';
 
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
+// The proxy self-fetches this membership preflight on every PDP navigation. The
+// underlying slug set is already memoized (`use cache`), so a short edge TTL lets
+// Vercel's CDN absorb repeat preflights instead of hitting the origin each time.
+// Only a PRESENT verdict (present:true) is cached — it is self-healing because the
+// page still renders and 404s a since-removed product. A definitively-absent
+// verdict (which the proxy turns into a hard-404) and every fail-open branch stay
+// no-store, so a slug that becomes live after a cached miss is never sticky-404ed
+// (revalidateTag cannot purge this header-based edge entry).
+const PREFLIGHT_CACHE = {
+  'Cache-Control': 's-maxage=300, stale-while-revalidate=3600',
+} as const;
 // Fail-open membership: the proxy hard-404s ONLY when `present` is false AND
 // `hasError` is false, so any uncertainty returns hasError:true.
 const FAIL_OPEN = { hasError: true, present: false };
@@ -84,6 +95,10 @@ export async function GET(
   const target = query.data.slug.toLowerCase();
   const present = set.slugs.some((slug) => slug.toLowerCase() === target);
   if (!present) {
+    // Definitively absent -> the proxy hard-404s this URL. Never cache it: a
+    // product PUBLISHED after a cached miss would be hard-404ed for the whole TTL
+    // window and revalidateTag cannot purge this edge entry. (A stale present:true
+    // below is safe — the page still renders and 404s a since-removed product.)
     return NextResponse.json(
       { hasError: false, present: false },
       { status: 200, headers: NO_STORE }
@@ -102,7 +117,7 @@ export async function GET(
       if (redirectPath) {
         return NextResponse.json(
           { hasError: false, present: true, redirectPath },
-          { status: 200, headers: NO_STORE }
+          { status: 200, headers: PREFLIGHT_CACHE }
         );
       }
     }
@@ -117,6 +132,6 @@ export async function GET(
 
   return NextResponse.json(
     { hasError: false, present: true },
-    { status: 200, headers: NO_STORE }
+    { status: 200, headers: PREFLIGHT_CACHE }
   );
 }

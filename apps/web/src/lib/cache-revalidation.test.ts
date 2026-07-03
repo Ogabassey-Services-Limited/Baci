@@ -4,10 +4,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockRevalidatePath = vi.fn();
 const mockRevalidateTag = vi.fn();
+const mockPurgeCloudflareUrls = vi.fn();
+const mockAfter = vi.fn((callback: () => unknown) => {
+  callback();
+});
 
 vi.mock('next/cache', () => ({
   revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
   revalidateTag: (...args: unknown[]) => mockRevalidateTag(...args),
+}));
+vi.mock('next/server', () => ({
+  after: (callback: () => unknown) => mockAfter(callback),
+}));
+vi.mock('@/lib/cloudflare-purge', () => ({
+  purgeCloudflareUrls: (...args: unknown[]) => mockPurgeCloudflareUrls(...args),
 }));
 
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
@@ -371,6 +381,30 @@ describe('cache-revalidation utilities', () => {
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
+    });
+
+    it('purges the Cloudflare-fronted blog URLs for a matched custom domain', () => {
+      revalidateBlogPosts({
+        identifiers: ['ogabassey'],
+        postSlugs: ['test-post', 'Test-Post'],
+      });
+
+      expect(mockAfter).toHaveBeenCalledTimes(1);
+      expect(mockPurgeCloudflareUrls).toHaveBeenCalledWith([
+        'https://ogabassey.com/blog',
+        'https://ogabassey.com/blog/test-post',
+        'https://www.ogabassey.com/blog',
+        'https://www.ogabassey.com/blog/test-post',
+      ]);
+    });
+
+    it('does not purge Cloudflare for storefronts without a public cache policy', () => {
+      revalidateBlogPosts({
+        identifiers: ['some-other-store'],
+        postSlugs: ['test-post'],
+      });
+
+      expect(mockPurgeCloudflareUrls).not.toHaveBeenCalled();
     });
 
     it('supports the legacy identifier + slug signature', () => {

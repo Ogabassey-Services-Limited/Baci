@@ -261,6 +261,11 @@ const serverSchema = z
     MYCOVER_WEBHOOK_SECRET: z.string().optional(),
     CRON_SECRET: z.string().optional(),
     INTERNAL_API_SECRET: z.string().optional(),
+    // Cloudflare cache purge (edge in front of the storefront custom domains).
+    // Both must be set for active purge; when either is absent the purge helper
+    // fails open (logs once) and caches self-heal on their TTL.
+    CLOUDFLARE_API_TOKEN: optionalTrimmedStringSchema,
+    CLOUDFLARE_ZONE_ID: optionalTrimmedStringSchema,
     // App Store Connect API (read-only) — used by the ios-live-build-sync cron
     // to learn which build is actually live on the App Store.
     ASC_API_KEY_ID: z.string().optional(),
@@ -662,6 +667,8 @@ const getEnv = () => {
         JUMIA_CLIENT_ID: process.env.JUMIA_CLIENT_ID,
         JUMIA_CLIENT_SECRET: process.env.JUMIA_CLIENT_SECRET,
         INTERNAL_API_SECRET: process.env.INTERNAL_API_SECRET,
+        CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN,
+        CLOUDFLARE_ZONE_ID: process.env.CLOUDFLARE_ZONE_ID,
         IMPORT_JOB_DIRECT_UPLOAD_ENABLED:
           process.env.IMPORT_JOB_DIRECT_UPLOAD_ENABLED,
         QUIZ_PHASE: process.env.QUIZ_PHASE,
@@ -1326,6 +1333,24 @@ export const getInternalApiSecret = () => {
   return getRuntimeEnvValue(
     process.env.INTERNAL_API_SECRET,
     env?.INTERNAL_API_SECRET
+  );
+};
+
+export const getCloudflareApiToken = () => {
+  if (isBrowserRuntime())
+    throw new Error('CLOUDFLARE_API_TOKEN cannot be accessed on the client');
+  return getRuntimeEnvValue(
+    process.env.CLOUDFLARE_API_TOKEN,
+    env?.CLOUDFLARE_API_TOKEN
+  );
+};
+
+export const getCloudflareZoneId = () => {
+  if (isBrowserRuntime())
+    throw new Error('CLOUDFLARE_ZONE_ID cannot be accessed on the client');
+  return getRuntimeEnvValue(
+    process.env.CLOUDFLARE_ZONE_ID,
+    env?.CLOUDFLARE_ZONE_ID
   );
 };
 

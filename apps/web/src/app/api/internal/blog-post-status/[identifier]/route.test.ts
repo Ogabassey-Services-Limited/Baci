@@ -63,7 +63,7 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
     expect(getCachedStorefrontBlogPostStatus).not.toHaveBeenCalled();
   });
 
-  it('returns the cached status response with no-store headers', async () => {
+  it('returns the cached status response with a short edge-cache TTL', async () => {
     vi.mocked(getCachedStorefrontBlogPostStatus).mockResolvedValueOnce({
       hasError: false,
       present: true,
@@ -73,7 +73,9 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
     const response = await GET(buildRequest('Retired-Post'), context());
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Cache-Control')).toBe(
+      's-maxage=300, stale-while-revalidate=3600'
+    );
     await expect(response.json()).resolves.toEqual({
       hasError: false,
       present: true,
@@ -85,7 +87,47 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
     );
   });
 
-  it('fails open when cached status resolution throws', async () => {
+  it('caches a definitive-absent (missing) verdict with no-store so a later-published post is never sticky-404ed', async () => {
+    vi.mocked(getCachedStorefrontBlogPostStatus).mockResolvedValueOnce({
+      hasError: false,
+      present: false,
+      redirectPath: null,
+    });
+
+    const response = await GET(buildRequest('unpublished-post'), context());
+
+    expect(response.status).toBe(200);
+    // A definitively-absent verdict drives the proxy's hard-404; caching it would
+    // hard-404 the post for the TTL window if it is published later.
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    await expect(response.json()).resolves.toEqual({
+      hasError: false,
+      present: false,
+      redirectPath: null,
+    });
+  });
+
+  it('does not edge-cache a fail-open verdict returned without throwing', async () => {
+    // The resolver returns hasError:true WITHOUT throwing on a transient
+    // merchant-lookup failure or an unpublished store. This must never be sticky.
+    vi.mocked(getCachedStorefrontBlogPostStatus).mockResolvedValueOnce({
+      hasError: true,
+      present: false,
+      redirectPath: null,
+    });
+
+    const response = await GET(buildRequest('post'), context());
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    await expect(response.json()).resolves.toEqual({
+      hasError: true,
+      present: false,
+      redirectPath: null,
+    });
+  });
+
+  it('fails open with no-store when cached status resolution throws', async () => {
     vi.mocked(getCachedStorefrontBlogPostStatus).mockRejectedValueOnce(
       new Error('cache unavailable')
     );
@@ -93,6 +135,7 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
     const response = await GET(buildRequest('post'), context());
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     await expect(response.json()).resolves.toEqual({
       hasError: true,
       present: false,

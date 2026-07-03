@@ -11,7 +11,9 @@
  * Usage: Call the appropriate function after a successful DB mutation in API routes.
  */
 import { revalidatePath, revalidateTag } from 'next/cache';
+import { after } from 'next/server';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
+import { purgeCloudflareUrls } from '@/lib/cloudflare-purge';
 import {
   getPlatformBlogPostCacheTag,
   PLATFORM_BLOG_CACHE_TAG,
@@ -21,6 +23,7 @@ import {
 } from '@/lib/platform-blog';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { buildStorefrontProductsCacheTags } from '@/lib/storefront-products-cache-key';
+import { buildStorefrontBlogPurgeUrls } from '@/lib/storefront-purge-urls';
 
 interface BlogRevalidationOptions {
   identifiers?: Array<string | null | undefined>;
@@ -43,6 +46,25 @@ function normalizeMerchantIdForRevalidation(merchantId: string) {
 
   const normalizedMerchantId = merchantId.trim();
   return normalizedMerchantId || null;
+}
+
+/**
+ * Evict the given canonical URLs from Cloudflare's edge cache. Fire-and-forget:
+ * uses `after()` when a request context exists (so the purge runs even after the
+ * response is flushed) and falls back to a detached promise in cron/worker
+ * contexts. `purgeCloudflareUrls` never throws, so this never affects the caller.
+ */
+function schedulePurgeCloudflareUrls(urls: string[]): void {
+  if (urls.length === 0) {
+    return;
+  }
+
+  try {
+    after(() => purgeCloudflareUrls(urls));
+  } catch {
+    // Not inside a request scope (standalone worker / test) — detach instead.
+    void purgeCloudflareUrls(urls);
+  }
 }
 
 /**
@@ -239,6 +261,19 @@ export function revalidateBlogPosts(
       revalidatePath(`/${identifier}/blog/${slug}/opengraph-image`);
     }
   }
+
+  // Evict the Cloudflare-fronted public blog URLs so the raised edge TTL never
+  // serves a stale post/listing. No-op for storefronts without a cache policy.
+  const purgeIdentifiers = Array.from(
+    new Set(
+      [...normalizedIdentifiers, normalizedCanonicalMerchantSlug].filter(
+        (identifier): identifier is string => identifier.length > 0
+      )
+    )
+  );
+  schedulePurgeCloudflareUrls(
+    buildStorefrontBlogPurgeUrls(purgeIdentifiers, normalizedPostSlugs)
+  );
 }
 
 export function revalidatePlatformBlog(slug?: string) {
