@@ -23,6 +23,26 @@ vi.mock('@gorhom/bottom-sheet', async () => {
   const React = await import('react');
 
   return {
+    BottomSheetFlatList: ({
+      data,
+      keyExtractor,
+      renderItem,
+    }: {
+      data?: unknown[];
+      keyExtractor?: (item: unknown, index: number) => string;
+      renderItem?: (info: { item: unknown; index: number }) => React.ReactNode;
+    }) =>
+      React.createElement(
+        'div',
+        null,
+        data?.map((item, index) =>
+          React.createElement(
+            React.Fragment,
+            { key: keyExtractor?.(item, index) ?? index },
+            renderItem?.({ item, index })
+          )
+        )
+      ),
     BottomSheetTextInput: React.forwardRef(
       (
         {
