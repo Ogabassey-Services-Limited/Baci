@@ -3654,3 +3654,62 @@ describe('Middleware Proxy', () => {
     });
   });
 });
+
+describe('blog subdomain migration redirects', () => {
+  beforeEach(() => {
+    // blog.ogabassey.com is not a merchant custom domain — without this the
+    // suite-wide default mock resolves every hostname to 'ogabassey' and the
+    // request never reaches the blog migration branch.
+    vi.mocked(getSlugForCustomDomain).mockResolvedValue(null);
+  });
+
+  it('301s dated WordPress permalinks straight to the canonical post URL', async () => {
+    const req = new NextRequest(
+      'https://blog.ogabassey.com/2025/04/14/5-things-you-didnt-know-your-ipad-can-do'
+    );
+    req.headers.set('host', 'blog.ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/blog/5-things-you-didnt-know-your-ipad-can-do'
+    );
+  });
+
+  it('301s non-dated legacy blog paths with their path preserved', async () => {
+    const req = new NextRequest(
+      'https://blog.ogabassey.com/chip-unlocked-what-they-wont-tell-you'
+    );
+    req.headers.set('host', 'blog.ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/blog/chip-unlocked-what-they-wont-tell-you'
+    );
+  });
+
+  it('301s the blog subdomain root to the blog index', async () => {
+    const req = new NextRequest('https://blog.ogabassey.com/');
+    req.headers.set('host', 'blog.ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe('https://ogabassey.com/blog');
+  });
+
+  it('does not collapse paths that only resemble partial date permalinks', async () => {
+    const req = new NextRequest('https://blog.ogabassey.com/2024/03');
+    req.headers.set('host', 'blog.ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/blog/2024/03'
+    );
+  });
+});

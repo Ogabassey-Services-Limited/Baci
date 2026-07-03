@@ -2304,6 +2304,16 @@ export async function proxy(request: NextRequest) {
     if (cleanPath.startsWith('/blog/') || cleanPath === '/blog') {
       cleanPath = cleanPath.slice('/blog'.length) || '/';
     }
+    // Collapse dated WordPress permalinks (/YYYY/MM/DD/slug) here so the host
+    // swap lands on the canonical post URL in one hop instead of chaining
+    // through the /blog/[...catchAll] date-strip 308. Unknown slugs 404 at
+    // the post route — the same terminal state the chained lookup produced.
+    const datedPermalinkMatch = cleanPath.match(
+      /^\/\d{4}\/\d{2}\/\d{2}\/([^/]+?)\/?$/
+    );
+    if (datedPermalinkMatch) {
+      cleanPath = `/${datedPermalinkMatch[1]}`;
+    }
     const newPath = cleanPath === '/' ? '' : cleanPath;
     const newUrl = `https://ogabassey.com/blog${newPath}`;
     return NextResponse.redirect(newUrl, { status: 301 });

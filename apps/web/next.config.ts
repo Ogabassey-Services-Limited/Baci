@@ -532,16 +532,28 @@ const nextConfig: NextConfig = {
         destination: '/',
         permanent: true,
       },
-      // /product-category/* - redirect to products
+      // /product-category/* — WordPress-era category URLs. Known WP categories
+      // map to their live category pages (scoped to ogabassey.com, matching
+      // the category redirects above); anything else falls through to the
+      // product index. Destinations must be public single-hop paths — the
+      // previous '/ogabassey/products' target leaked the internal
+      // slug-prefixed path and chained through the merchant-prefix collapse
+      // redirect in proxy.ts.
+      ...['accessories', 'headphones', 'smartwatches'].map((categorySlug) => ({
+        source: `/product-category/${categorySlug}`,
+        destination: `/${categorySlug}`,
+        permanent: true,
+        has: [{ type: 'host' as const, value: OGABASSEY_DOMAIN }],
+      })),
       {
         source: '/product-category/:path*',
-        destination: '/ogabassey/products',
+        destination: '/products',
         permanent: true,
       },
       // /category/product/:id - legacy product URLs
       {
         source: '/category/product/:id',
-        destination: '/ogabassey/products',
+        destination: '/products',
         permanent: true,
       },
     ]);
