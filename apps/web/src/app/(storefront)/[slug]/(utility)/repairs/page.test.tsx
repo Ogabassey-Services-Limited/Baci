@@ -95,7 +95,7 @@ describe('RepairsPage', () => {
   });
 
   it('keeps path-based routes under the merchant slug without trusted proxy headers', async () => {
-    render(
+    const { container } = render(
       await RepairsPage({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
@@ -107,6 +107,17 @@ describe('RepairsPage', () => {
     expect(mockOgabasseyV2Repairs).toHaveBeenCalledWith({
       basePath: '/ogabassey',
     });
+
+    const jsonLd = JSON.parse(
+      container.querySelector('script[type="application/ld+json"]')
+        ?.textContent ?? '{}'
+    ) as { '@type': string; itemListElement: Array<{ name: string }> };
+
+    expect(jsonLd['@type']).toBe('BreadcrumbList');
+    expect(jsonLd.itemListElement.map((item) => item.name)).toEqual([
+      'Ogabassey',
+      'Repairs',
+    ]);
   });
 
   it('throws notFound when the merchant is missing', async () => {
