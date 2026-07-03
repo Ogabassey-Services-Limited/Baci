@@ -15,6 +15,11 @@ interface MockNegotiationContext {
   currentPrice: number;
   brand?: string;
   isNegotiable?: boolean;
+  productSlug?: string;
+  variantId?: string;
+  variantName?: string;
+  variantAttributes?: Record<string, string>;
+  condition?: string;
 }
 
 const negotiableContext: MockNegotiationContext = {
@@ -155,6 +160,44 @@ describe('Cart NegotiationModal wrapper', () => {
     expect(mockCloseNegotiation).not.toHaveBeenCalled();
     expect(renderedProps.successActionLabel).toBe('Apply to Cart');
     expect(renderedProps.successActionStyle).toBe('primary');
+  });
+
+  it('forwards selected item variant details to the controller', () => {
+    mockNegotiationContext = {
+      type: 'single',
+      itemId: 'cart-variant-1',
+      productName: 'iPhone 14 Pro Max',
+      currentPrice: 875000,
+      brand: 'Apple',
+      productSlug: 'iphone-14-pro-max',
+      variantId: 'variant-purple-256',
+      variantName: 'Deep Purple / 256GB',
+      variantAttributes: {
+        color: 'Deep Purple',
+        storage: '256GB',
+      },
+      condition: 'used',
+    };
+
+    render(<NegotiationModal />);
+
+    expect(mockUseNegotiationModalController).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemInfo: expect.objectContaining({
+          brand: 'Apple',
+          condition: 'used',
+          id: 'cart-variant-1',
+          name: 'iPhone 14 Pro Max',
+          productSlug: 'iphone-14-pro-max',
+          variantAttributes: {
+            color: 'Deep Purple',
+            storage: '256GB',
+          },
+          variantId: 'variant-purple-256',
+          variantName: 'Deep Purple / 256GB',
+        }),
+      })
+    );
   });
 
   it('forwards isNegotiable from a non-negotiable cart negotiation context', () => {

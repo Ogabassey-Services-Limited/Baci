@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -70,8 +70,96 @@ function makeQueryChain() {
 }
 
 vi.mock('@/hooks/useMerchant', () => ({
-  useMerchant: () => ({ merchant: mocks.merchant }),
+  useMerchant: () => ({ merchant: mocks.merchant, isLoading: false }),
 }));
+
+vi.mock('@tanstack/react-query', () => {
+  return {
+    useQueryClient: () => ({
+      invalidateQueries: () => {
+        mocks.queryCalls.push({
+          method: 'select',
+          args: [
+            'id, customer_id, type, status, offered_price, item_info, cart_snapshot, customer_phone, created_at, evidence_url',
+          ],
+        });
+        mocks.queryCalls.push({
+          method: 'eq',
+          args: ['merchant_id', mocks.merchant?.id],
+        });
+      },
+    }),
+    useQuery: (options: { queryKey: unknown[]; enabled?: boolean }) => {
+      const enabled = options.enabled ?? true;
+      if (options.queryKey[0] === 'negotiation_requests') {
+        const selectResult = mocks.selectResult ?? {
+          data: negotiationRows,
+          error: null,
+        };
+        const dataRows = (selectResult.data ?? []) as Array<{
+          cart_snapshot?: unknown;
+          item_info?: { current_price?: number };
+        }>;
+        const formattedData = dataRows.map((row) => ({
+          ...row,
+          cart_snapshot: Array.isArray(row.cart_snapshot)
+            ? row.cart_snapshot
+            : null,
+          current_price: row.item_info?.current_price ?? null,
+        }));
+        return {
+          data: enabled ? formattedData : [],
+          isLoading: false,
+          error: selectResult.error,
+          refetch: vi.fn().mockImplementation(() => {
+            mocks.queryCalls.push({
+              method: 'select',
+              args: [
+                'id, customer_id, type, status, offered_price, item_info, cart_snapshot, customer_phone, created_at, evidence_url',
+              ],
+            });
+            mocks.queryCalls.push({
+              method: 'eq',
+              args: ['merchant_id', mocks.merchant?.id],
+            });
+            return selectResult;
+          }),
+        };
+      }
+      return { data: null, isLoading: false, error: null, refetch: vi.fn() };
+    },
+    useMutation: <TVariables = unknown, TData = unknown>({
+      mutationFn,
+      onSuccess,
+      onError,
+    }: {
+      mutationFn: (variables: TVariables) => Promise<TData>;
+      onSuccess?: (data: TData, variables: TVariables) => void;
+      onError?: (error: unknown, variables: TVariables) => void;
+    }) => {
+      const [isPending, setIsPending] = useState(false);
+      const [variables, setVariables] = useState<TVariables | null>(null);
+      return {
+        isPending,
+        variables,
+        mutate: async (vars: TVariables) => {
+          setIsPending(true);
+          setVariables(vars);
+          try {
+            const res = await mutationFn(vars);
+            onSuccess?.(res, vars);
+            return res;
+          } catch (err) {
+            onError?.(err, vars);
+          } finally {
+            setIsPending(false);
+            setVariables(null);
+          }
+        },
+      };
+    },
+  };
+});
 
 vi.mock('@/lib/api-client', () => ({
   apiClient: vi.fn().mockResolvedValue({ ok: true }),
@@ -159,10 +247,12 @@ vi.mock('react-native', () => {
     StyleSheet: { create: <T,>(styles: T) => styles },
     Text: MockText,
     View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+    useColorScheme: () => 'light',
   };
 });
 
 import { Alert } from 'react-native';
+import { apiClient } from '@/lib/api-client';
 import NegotiationsScreen from './negotiations';
 
 describe('NegotiationsScreen', () => {
@@ -180,25 +270,58 @@ describe('NegotiationsScreen', () => {
     mocks.updateResult = { data: [{ id: 'negotiation-1' }], error: null };
   });
 
-  it('scopes negotiation status updates to the active merchant', async () => {
+  it('resolves negotiation status through the server endpoint', async () => {
     render(<NegotiationsScreen />);
 
     fireEvent.click(await screen.findByText('Accept Offer'));
 
     await waitFor(() => {
-      expect(mocks.queryCalls).toContainEqual({
-        method: 'update',
-        args: [{ status: 'accepted' }],
+      expect(apiClient).toHaveBeenCalledWith('/api/negotiations/resolve', {
+        method: 'POST',
+        body: JSON.stringify({
+          negotiationId: 'negotiation-1',
+          status: 'accepted',
+        }),
       });
     });
-    expect(mocks.queryCalls).toContainEqual({
-      method: 'eq',
-      args: ['id', 'negotiation-1'],
+    expect(mocks.queryCalls.some(({ method }) => method === 'update')).toBe(
+      false
+    );
+  });
+
+  it('sends rejected decisions to the same server endpoint', async () => {
+    render(<NegotiationsScreen />);
+
+    fireEvent.click(await screen.findByText('Reject'));
+
+    await waitFor(() => {
+      expect(apiClient).toHaveBeenCalledWith('/api/negotiations/resolve', {
+        method: 'POST',
+        body: JSON.stringify({
+          negotiationId: 'negotiation-1',
+          status: 'rejected',
+        }),
+      });
     });
-    expect(mocks.queryCalls).toContainEqual({
-      method: 'eq',
-      args: ['merchant_id', 'merchant-1'],
+  });
+
+  it('surfaces resolve failures instead of treating notification failure as success', async () => {
+    vi.mocked(apiClient).mockRejectedValueOnce(
+      new Error('Failed to notify the customer. Please try again.')
+    );
+
+    render(<NegotiationsScreen />);
+
+    fireEvent.click(await screen.findByText('Accept Offer'));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Error',
+        'Failed to notify the customer. Please try again.'
+      );
     });
+    expect(mocks.notificationAsync).toHaveBeenCalledWith('error');
+    expect(mocks.notificationAsync).not.toHaveBeenCalledWith('success');
   });
 
   it('subscribes to all merchant negotiation row changes', async () => {
@@ -279,6 +402,39 @@ describe('NegotiationsScreen', () => {
     // Quantity-aware line total: 900,000 × 2 (currency symbol varies by ICU).
     expect(screen.getByText(/1,800,000/)).toBeInTheDocument();
     expect(screen.getByText('Hide items')).toBeInTheDocument();
+  });
+
+  it('shows selected variant details for a single-item offer', async () => {
+    mocks.selectResult = {
+      data: [
+        {
+          created_at: '2026-07-01T00:25:00.000Z',
+          customer_id: null,
+          evidence_url: null,
+          id: 'negotiation-variant-1',
+          item_info: {
+            name: 'iPhone 14 Pro Max',
+            current_price: 875_000,
+            variant_attributes: {
+              storage: '256GB',
+              color: 'Deep Purple',
+            },
+            condition: 'used',
+          },
+          offered_price: 820_000,
+          status: 'pending',
+          type: 'single',
+        },
+      ],
+      error: null,
+    };
+
+    render(<NegotiationsScreen />);
+
+    expect(await screen.findByText('iPhone 14 Pro Max')).toBeInTheDocument();
+    expect(
+      screen.getByText('Storage: 256GB · Color: Deep Purple · Condition: used')
+    ).toBeInTheDocument();
   });
 
   it('opens WhatsApp and a dialer for a customer with a phone number', async () => {
@@ -462,8 +618,8 @@ describe('NegotiationsScreen', () => {
     expect(mocks.openURL).not.toHaveBeenCalled();
   });
 
-  it('shows an error when the scoped Supabase update fails', async () => {
-    mocks.updateResult = { data: null, error: new Error('permission denied') };
+  it('shows an error when the resolve API fails', async () => {
+    vi.mocked(apiClient).mockRejectedValueOnce(new Error('permission denied'));
 
     render(<NegotiationsScreen />);
 
@@ -476,12 +632,18 @@ describe('NegotiationsScreen', () => {
   });
 
   it('shows a stale-state error and refreshes when the request was already handled', async () => {
-    // The status='pending' filter matched zero rows (another admin acted first).
-    mocks.updateResult = { data: [], error: null };
+    vi.mocked(apiClient).mockRejectedValueOnce(
+      new Error('This request was already handled. Pull to refresh.')
+    );
 
     render(<NegotiationsScreen />);
 
-    fireEvent.click(await screen.findByText('Accept Offer'));
+    const acceptButton = await screen.findByText('Accept Offer');
+    const selectCountBeforeAction = mocks.queryCalls.filter(
+      ({ method }) => method === 'select'
+    ).length;
+
+    fireEvent.click(acceptButton);
 
     await waitFor(() => {
       expect(Alert.alert).toHaveBeenCalledWith(
@@ -495,7 +657,7 @@ describe('NegotiationsScreen', () => {
     await waitFor(() => {
       expect(
         mocks.queryCalls.filter(({ method }) => method === 'select').length
-      ).toBeGreaterThanOrEqual(2);
+      ).toBeGreaterThan(selectCountBeforeAction);
     });
   });
 

@@ -175,6 +175,99 @@ describe('useNegotiationModalController', () => {
     expect(result.current.status).toBe('upload');
   });
 
+  it('submits single-item review requests with selected variant details', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'customer-1' } } });
+    const { result } = renderController({
+      itemInfo: {
+        brand: 'Apple',
+        condition: 'used',
+        currentPrice: 875000,
+        id: 'cart-line-1',
+        name: 'iPhone 14 Pro Max',
+        productSlug: 'iphone-14-pro-max',
+        variantAttributes: {
+          color: 'Deep Purple',
+          storage: '256GB',
+        },
+        variantId: 'variant-purple-256',
+        variantName: 'Deep Purple / 256GB',
+      },
+    });
+
+    act(() => {
+      result.current.setOffer('₦820,000');
+      result.current.setUploadLink('https://proof.example/offer');
+    });
+    await act(async () => {
+      await result.current.handleUploadSubmit();
+    });
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        item_info: {
+          brand: 'Apple',
+          condition: 'used',
+          current_price: 875000,
+          id: 'cart-line-1',
+          name: 'iPhone 14 Pro Max',
+          product_slug: 'iphone-14-pro-max',
+          variant_attributes: {
+            color: 'Deep Purple',
+            storage: '256GB',
+          },
+          variant_id: 'variant-purple-256',
+          variant_name: 'Deep Purple / 256GB',
+        },
+        offered_price: 820000,
+        type: 'single',
+      })
+    );
+  });
+
+  it('drops blank single-item metadata before submitting merchant review requests', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'customer-1' } } });
+    const { result } = renderController({
+      itemInfo: {
+        brand: ' ',
+        condition: '',
+        currentPrice: 950000,
+        id: 'cart-line-1',
+        name: 'Samsung Galaxy S26',
+        productSlug: ' ',
+        variantAttributes: {
+          color: ' Silver ',
+          empty: ' ',
+          ' ': 'ignored',
+        },
+        variantId: ' variant-silver ',
+        variantName: ' Silver ',
+      },
+    });
+
+    act(() => {
+      result.current.setOffer('₦900,000');
+      result.current.setUploadLink('https://proof.example/offer');
+    });
+    await act(async () => {
+      await result.current.handleUploadSubmit();
+    });
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        item_info: {
+          current_price: 950000,
+          id: 'cart-line-1',
+          name: 'Samsung Galaxy S26',
+          variant_attributes: {
+            color: 'Silver',
+          },
+          variant_id: 'variant-silver',
+          variant_name: 'Silver',
+        },
+      })
+    );
+  });
+
   it('submits whole-cart review requests with a cart snapshot and summary', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'customer-1' } } });
     const cartItems: CartItem[] = [

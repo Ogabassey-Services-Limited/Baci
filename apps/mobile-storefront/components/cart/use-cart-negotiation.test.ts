@@ -158,7 +158,13 @@ describe('useCartNegotiation', () => {
 
   it('routes a negotiable item to openNegotiation via the warning confirmation', () => {
     // Arrange
-    const negotiable = createItem();
+    const negotiable = createItem({
+      condition: 'used',
+      slug: 'iphone-13-pro',
+      variant_attributes: { color: 'Graphite', storage: '256GB' },
+      variant_id: 'variant-graphite-256',
+      variant_name: 'Graphite / 256GB',
+    });
     const { result } = renderHook(() =>
       useCartNegotiation({ items: [negotiable], grandTotal: 500000 })
     );
@@ -186,6 +192,11 @@ describe('useCartNegotiation', () => {
       currentPrice: negotiable.price * negotiable.quantity,
       brand: negotiable.brand,
       isNegotiable: true,
+      productSlug: 'iphone-13-pro',
+      variantId: 'variant-graphite-256',
+      variantName: 'Graphite / 256GB',
+      variantAttributes: { color: 'Graphite', storage: '256GB' },
+      condition: 'used',
     });
     expect(result.current.showNegotiateWarning).toBe(false);
     expect(result.current.pendingNegotiateItem).toBeNull();

@@ -21,6 +21,7 @@ import {
   getNegotiationImagePickerModule,
 } from './negotiation-native-modules';
 import {
+  buildNegotiationRequestItemInfo,
   computeCounterOffer,
   toNegotiationCartLine,
 } from './negotiation-offer-helpers';
@@ -195,14 +196,11 @@ export function useNegotiationModalController({
         session_id: createNegotiationSessionId(),
         customer_id: user?.id ?? null,
         type,
-        item_info:
-          type === 'single' && itemInfo
-            ? {
-                id: itemInfo.id,
-                name: itemInfo.name,
-                current_price: itemInfo.currentPrice,
-              }
-            : totalItemInfo,
+        item_info: buildNegotiationRequestItemInfo({
+          itemInfo,
+          totalItemInfo,
+          type,
+        }),
         cart_snapshot: cartSnapshot.length > 0 ? cartSnapshot : null,
         offered_price: offerAmount,
         evidence_url: evidenceUrl || null,

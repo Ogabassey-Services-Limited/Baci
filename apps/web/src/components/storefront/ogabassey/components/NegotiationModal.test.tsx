@@ -1,7 +1,10 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CartItem } from '@/hooks/cart';
-import { NegotiationModal } from './NegotiationModal';
+import {
+  deriveCartLineNegotiationProps,
+  NegotiationModal,
+} from './NegotiationModal';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -14,11 +17,18 @@ vi.mock('@/env', () => ({
 
 const mockInsert = vi.fn().mockResolvedValue({ error: null });
 const mockGetUser = vi.fn();
+const mockEvidenceFetch = vi.fn();
+const mockUploadToSignedUrl = vi.fn();
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     from: () => ({ insert: mockInsert }),
     auth: { getUser: mockGetUser },
+    storage: {
+      from: () => ({
+        uploadToSignedUrl: mockUploadToSignedUrl,
+      }),
+    },
   }),
 }));
 
@@ -61,13 +71,29 @@ describe('NegotiationModal', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.clearAllMocks();
+    vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+    vi.spyOn(Math, 'random').mockReturnValue(0.123456);
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'user-abc' } },
     });
+    mockEvidenceFetch.mockResolvedValue({
+      json: async () => ({
+        evidencePath: 'merchant-test-id/evidence.png',
+        uploadToken: 'upload-token',
+      }),
+      ok: true,
+    });
+    mockUploadToSignedUrl.mockResolvedValue({
+      data: { path: 'merchant-test-id/evidence.png' },
+      error: null,
+    });
+    vi.stubGlobal('fetch', mockEvidenceFetch);
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('returns null when not open', () => {
@@ -367,6 +393,7 @@ describe('NegotiationModal', () => {
     vi.useRealTimers();
 
     const form = fileInput.closest('form') as HTMLFormElement;
+    expect(form.noValidate).toBe(true);
     await act(async () => {
       fireEvent.submit(form);
     });
@@ -383,6 +410,83 @@ describe('NegotiationModal', () => {
     // session_id should be a unique web-prefixed string, not the old hardcoded 'web-session'
     expect(insertPayload.session_id).toMatch(/^web-/);
     expect(insertPayload.session_id).not.toBe('web-session');
+  });
+
+  it('persists selected variant details for single-product merchant review', async () => {
+    render(
+      <NegotiationModal
+        {...defaultProps}
+        productBrand=" Apple "
+        productSlug=" iphone-14-pro-max "
+        variantId=" variant-256-purple "
+        variantName=" iPhone 14 Pro Max 256GB Deep Purple "
+        variantAttributes={{
+          ' color ': ' Deep Purple ',
+          storage: ' 256GB ',
+          empty: ' ',
+          ' ': 'ignored',
+        }}
+        condition=" used "
+      />
+    );
+
+    expect(
+      screen.getByText('iPhone 14 Pro Max 256GB Deep Purple · Condition: used')
+    ).toBeInTheDocument();
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    expect(form.noValidate).toBe(true);
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsert.mock.calls[0][0].item_info).toMatchObject({
+      id: 'item-123',
+      name: 'Test Product',
+      current_price: 10_000,
+      product_slug: 'iphone-14-pro-max',
+      brand: 'Apple',
+      variant_id: 'variant-256-purple',
+      variant_name: 'iPhone 14 Pro Max 256GB Deep Purple',
+      condition: 'used',
+    });
+    expect(mockInsert.mock.calls[0][0].item_info.variant_attributes).toEqual({
+      color: 'Deep Purple',
+      storage: '256GB',
+    });
+  });
+
+  it('omits optional variant metadata when no selection details are provided', async () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsert.mock.calls[0][0].item_info).toEqual({
+      id: 'item-123',
+      name: 'Test Product',
+      current_price: 10_000,
+    });
   });
 
   it('persists a normalized customer_phone when one is entered', async () => {
@@ -410,6 +514,268 @@ describe('NegotiationModal', () => {
     expect(mockInsert.mock.calls[0][0].customer_phone).toBe('2348031234567');
   });
 
+  it('uploads selected proof image through the evidence API and stores the private evidence path', async () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockEvidenceFetch).toHaveBeenCalledWith(
+      '/api/storefront/negotiation-evidence',
+      expect.objectContaining({
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      })
+    );
+    const [, requestInit] = mockEvidenceFetch.mock.calls[0];
+    expect(JSON.parse(requestInit?.body as string)).toEqual({
+      contentType: 'image/png',
+      fileName: 'screenshot.png',
+      fileSize: file.size,
+      merchantId: 'merchant-test-id',
+    });
+    expect(mockUploadToSignedUrl).toHaveBeenCalledWith(
+      'merchant-test-id/evidence.png',
+      'upload-token',
+      file,
+      { contentType: 'image/png', upsert: false }
+    );
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsert.mock.calls[0][0].evidence_url).toBe(
+      'merchant-test-id/evidence.png'
+    );
+  });
+
+  it('submits a link-only evidence request without uploading a file', async () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    expect(fileInput).not.toBeRequired();
+    fireEvent.change(screen.getByLabelText('Link (Optional)'), {
+      target: { value: ' https://competitor.example/product ' },
+    });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsert.mock.calls[0][0].evidence_url).toBe(
+      'https://competitor.example/product'
+    );
+  });
+
+  it('requires either a proof upload or a link when both are provided', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('Link (Optional)'), {
+      target: { value: 'https://competitor.example/product' },
+    });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Use either a proof upload or a link, not both.'
+    );
+    alertSpy.mockRestore();
+  });
+
+  it('rejects proof upload before network work when merchant context is missing', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    render(<NegotiationModal {...defaultProps} merchantId="" />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
+    expect(mockUploadToSignedUrl).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Unable to submit request — merchant context unavailable.'
+    );
+    alertSpy.mockRestore();
+  });
+
+  it('persists a normalized customer_email when one is entered', async () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('Email Address (Optional)'), {
+      target: { value: '  Buyer@Example.COM  ' },
+    });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsert.mock.calls[0][0].customer_email).toBe(
+      'buyer@example.com'
+    );
+  });
+
+  it('rejects an invalid customer_email before uploading evidence', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('Email Address (Optional)'), {
+      target: { value: 'not an email' },
+    });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    expect(form.noValidate).toBe(true);
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith('Enter a valid email address.');
+    expect(
+      screen.getByRole('button', { name: /send for review/i })
+    ).toBeInTheDocument();
+    alertSpy.mockRestore();
+  });
+
+  it('rejects a customer_email with multiple at signs before uploading evidence', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('Email Address (Optional)'), {
+      target: { value: 'a@b@c.com' },
+    });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith('Enter a valid email address.');
+    alertSpy.mockRestore();
+  });
+
+  it('rejects an overlong customer_email before uploading evidence', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('Email Address (Optional)'), {
+      target: { value: `${'a'.repeat(250)}@x.com` },
+    });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith('Enter a valid email address.');
+    alertSpy.mockRestore();
+  });
+
+  it('returns to the upload form when evidence API upload fails', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    mockEvidenceFetch.mockResolvedValueOnce({
+      json: async () => ({ error: 'Evidence upload denied' }),
+      ok: false,
+    });
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockEvidenceFetch).toHaveBeenCalledWith(
+      '/api/storefront/negotiation-evidence',
+      expect.objectContaining({ method: 'POST' })
+    );
+    expect(mockUploadToSignedUrl).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith('Evidence upload denied');
+    expect(
+      screen.getByRole('button', { name: /send for review/i })
+    ).toBeInTheDocument();
+    alertSpy.mockRestore();
+  });
+
   it('rejects an invalid customer_phone instead of silently storing null', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
     render(<NegotiationModal {...defaultProps} />);
@@ -433,6 +799,7 @@ describe('NegotiationModal', () => {
     });
 
     expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
     expect(alertSpy).toHaveBeenCalledWith(
       'Enter a valid Phone / WhatsApp number.'
     );
@@ -688,5 +1055,76 @@ describe('NegotiationModal', () => {
     render(<NegotiationModal {...defaultProps} />);
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(defaultProps.onClose).toHaveBeenCalled();
+  });
+});
+
+describe('deriveCartLineNegotiationProps', () => {
+  const baseItem = {
+    id: 'prod-1',
+    cartItemId: 'cart-line-1',
+    name: 'iPhone 15 Pro',
+    slug: 'iphone-15-pro',
+    brand: 'Apple',
+    quantity: 1,
+    price: 900_000,
+    variantId: 'variant-1',
+    variantAttributes: { RAM: '8GB' },
+    selectedColor: 'Silver',
+    selectedStorage: '256GB',
+    condition: 'used',
+  } as unknown as CartItem;
+
+  it('carries the cart line SKU details (folding color/storage into attributes)', () => {
+    const props = deriveCartLineNegotiationProps(baseItem);
+
+    expect(props).toMatchObject({
+      itemId: 'cart-line-1',
+      variantId: 'variant-1',
+      condition: 'used',
+      productSlug: 'iphone-15-pro',
+      productBrand: 'Apple',
+    });
+    expect(props.variantAttributes).toEqual({
+      RAM: '8GB',
+      Color: 'Silver',
+      Storage: '256GB',
+    });
+  });
+
+  it('does not duplicate a color already present in variant attributes', () => {
+    const props = deriveCartLineNegotiationProps({
+      ...baseItem,
+      variantAttributes: { Color: 'Silver' },
+      selectedColor: 'silver',
+      selectedStorage: undefined,
+    } as unknown as CartItem);
+
+    expect(props.variantAttributes).toEqual({ Color: 'Silver' });
+  });
+
+  it('keeps selected attributes when another label uses the same value', () => {
+    const props = deriveCartLineNegotiationProps({
+      ...baseItem,
+      variantAttributes: { RAM: '8GB' },
+      selectedStorage: '8GB',
+      selectedColor: undefined,
+    } as unknown as CartItem);
+
+    expect(props.variantAttributes).toEqual({
+      RAM: '8GB',
+      Storage: '8GB',
+    });
+  });
+
+  it('omits variantAttributes when the line has no variant data', () => {
+    const props = deriveCartLineNegotiationProps({
+      ...baseItem,
+      variantAttributes: undefined,
+      selectedColor: undefined,
+      selectedStorage: undefined,
+      secondaryColor: undefined,
+    } as unknown as CartItem);
+
+    expect(props.variantAttributes).toBeUndefined();
   });
 });

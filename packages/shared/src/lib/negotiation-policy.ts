@@ -2,6 +2,43 @@ export const MAX_AUTO_NEGOTIATION_DISCOUNT_RATE = 0.02;
 
 export const COUNTER_NEGOTIATION_DISCOUNT_STEPS = [0.01, 0.015, 0.02] as const;
 
+const MIN_SUBTOTAL_FOR_ROUNDED_COUNTER = 1000;
+
+export function computeNegotiationCounterOffer(
+  currentPrice: number,
+  counterDiscount: number,
+  vatRate = 0
+): number {
+  const rawCounterOffer = Math.floor(currentPrice * (1 - counterDiscount));
+
+  if (counterDiscount < MAX_AUTO_NEGOTIATION_DISCOUNT_RATE) {
+    return rawCounterOffer;
+  }
+
+  const rawDiscountAmount = currentPrice - rawCounterOffer;
+  const vatAwareCart = vatRate > 0;
+  const hasFractionalPrice = !Number.isInteger(currentPrice);
+  let maxServerAcceptedDiscountAmount: number;
+
+  if (vatAwareCart || hasFractionalPrice) {
+    maxServerAcceptedDiscountAmount = Math.floor(
+      currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE
+    );
+  } else if (currentPrice >= MIN_SUBTOTAL_FOR_ROUNDED_COUNTER) {
+    maxServerAcceptedDiscountAmount = Math.ceil(
+      currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE
+    );
+  } else {
+    maxServerAcceptedDiscountAmount = Math.floor(
+      currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE
+    );
+  }
+
+  return (
+    currentPrice - Math.min(rawDiscountAmount, maxServerAcceptedDiscountAmount)
+  );
+}
+
 const NON_NEGOTIABLE_BRAND_KEYWORDS = [
   'infinix',
   'tecno',

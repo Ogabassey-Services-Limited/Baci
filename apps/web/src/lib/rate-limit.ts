@@ -35,6 +35,10 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   '/api/orders': { maxRequests: 10, windowMs: 60_000 },
   '/api/products': { maxRequests: 30, windowMs: 60_000 },
   '/api/storefront': { maxRequests: 100, windowMs: 60_000 },
+  '/api/storefront/negotiation-evidence': {
+    maxRequests: 10,
+    windowMs: 60_000,
+  },
   '/api/storefront/imei-check': { maxRequests: 10, windowMs: 60_000 },
   '/api/storefront/auth/send-code': { maxRequests: 3, windowMs: 60_000 },
   '/api/storefront/auth/verify-code': { maxRequests: 5, windowMs: 60_000 },
