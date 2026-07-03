@@ -230,9 +230,10 @@ export function CheckoutAddressStepView({
         pickupStationQuote={stationPickupQuote}
       />
 
-      {deliveryMethod === 'pickup_station' && (
-        <PickupStationCard colors={colors} isDark={isDark} />
-      )}
+      {deliveryMethod === 'pickup_station' &&
+        !isProviderStationPickupQuote(selectedQuote) && (
+          <PickupStationCard colors={colors} isDark={isDark} />
+        )}
 
       {deliveryMethod === 'door' && Boolean(watchedState && watchedCity) && (
         <ShippingQuotesCard

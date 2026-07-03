@@ -120,6 +120,60 @@ describe('useCheckoutShipping provider pickup stations', () => {
     expect(result.current.shippingQuotes).toHaveLength(2);
   });
 
+  it('never selects the paid provider station quote for free Lagos pickup', async () => {
+    // Lagos shows FREE merchant pickup; even when the quotes response includes a
+    // provider station quote, tapping pickup must not silently switch to the
+    // paid provider fee/fulfillment the card never offered.
+    mockFetchStates.mockResolvedValue(['Lagos']);
+    mockFetchCities.mockResolvedValue(['Ikeja']);
+    mockFetchShippingQuotes.mockImplementation((args) => {
+      args.setShippingQuotes([
+        {
+          displayName: 'Topship Door Delivery',
+          id: 'door-quote',
+          price: 10_000,
+          provider: 'Topship',
+        },
+        {
+          displayName: 'GIG Logistics - Pickup at IKEJA',
+          id: 'station-quote',
+          isStationPickup: true,
+          price: 9493,
+          provider: 'GIGL',
+          stationAddress: 'GIGL Allen Avenue, Ikeja',
+          stationName: 'IKEJA',
+        },
+      ]);
+      args.setSelectedQuoteId('door-quote');
+      args.setResolvedShippingQuoteContextKey(args.quoteContextKey);
+      args.setIsLoadingQuotes(false);
+      return Promise.resolve();
+    });
+
+    const { result } = renderHook(
+      (props: ShippingParams) => useCheckoutShipping(props),
+      {
+        initialProps: createParams({
+          watchedState: 'Lagos',
+          watchedCity: 'Ikeja',
+        }),
+      }
+    );
+
+    await waitFor(() =>
+      expect(result.current.selectedQuoteId).toBe('door-quote')
+    );
+
+    act(() => {
+      result.current.handleSelectDeliveryMethod('pickup_station');
+    });
+
+    expect(result.current.deliveryMethod).toBe('pickup_station');
+    expect(result.current.selectedQuoteId).toBe('');
+    expect(result.current.selectedQuote).toBeUndefined();
+    expect(result.current.deliveryFee).toBe(0);
+  });
+
   it('returns to the door quote when switching back to door delivery', async () => {
     const { result } = renderHook(
       (props: ShippingParams) => useCheckoutShipping(props),
