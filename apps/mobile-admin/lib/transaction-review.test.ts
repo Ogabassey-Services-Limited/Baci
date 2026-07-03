@@ -68,6 +68,386 @@ describe('transaction review helpers', () => {
     expect(order.searchText).toContain('slot wholesale');
   });
 
+  it('uses item-level fulfillment identifiers without repeating unrelated order serials', () => {
+    const [order] = mapTransactionOrderRows([
+      {
+        created_at: '2026-07-01T12:30:00.000Z',
+        transaction_date: null,
+        customer_email: null,
+        customer_name: 'Kayode Omelehinwa',
+        customer_phone: null,
+        fulfillment_details: {
+          serialNumber: 'LEGACY-ORDER-SN',
+          items: [
+            {
+              id: 'item-laptop:1',
+              orderItemId: 'item-laptop',
+              serialNumber: 'LAPTOP-SN-1',
+              unitIndex: 0,
+            },
+            {
+              id: 'item-laptop:2',
+              orderItemId: 'item-laptop',
+              serialNumber: 'LAPTOP-SN-2',
+              unitIndex: 1,
+            },
+            {
+              id: 'item-buds:1',
+              imei: '353456789012345',
+              orderItemId: 'item-buds',
+              unitIndex: 0,
+            },
+          ],
+        },
+        id: 'order-1',
+        order_items: [
+          {
+            cost_price: 850_000,
+            fulfillment_data: null,
+            id: 'item-laptop',
+            name: 'HP EliteBook x360 1040 G10',
+            price: 900_000,
+            product_id: 'product-laptop',
+            product_variants: null,
+            products: null,
+            quantity: 2,
+            supplier_name: 'Supplier A',
+            variant_id: null,
+          },
+          {
+            cost_price: 180_000,
+            fulfillment_data: null,
+            id: 'item-buds',
+            name: 'Samsung Galaxy Buds4 Pro',
+            price: 280_000,
+            product_id: 'product-buds',
+            product_variants: null,
+            products: null,
+            quantity: 1,
+            supplier_name: 'Supplier B',
+            variant_id: null,
+          },
+        ],
+        order_number: 'ORD-010726-600DDC',
+        payment_method: 'transfer',
+        total: 2_080_000,
+      },
+    ]);
+
+    expect(order.items).toMatchObject([
+      {
+        id: 'item-laptop:1',
+        orderItemId: 'item-laptop',
+        profit: 50_000,
+        quantity: 1,
+        revenue: 900_000,
+        serialValues: ['LAPTOP-SN-1'],
+      },
+      {
+        id: 'item-laptop:2',
+        orderItemId: 'item-laptop',
+        profit: 50_000,
+        quantity: 1,
+        revenue: 900_000,
+        serialValues: ['LAPTOP-SN-2'],
+      },
+      {
+        id: 'item-buds:1',
+        imeiValues: ['353456789012345'],
+        orderItemId: 'item-buds',
+        profit: 100_000,
+        quantity: 1,
+        revenue: 280_000,
+        serialValues: [],
+      },
+    ]);
+    expect(order.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ serialValues: ['LEGACY-ORDER-SN'] }),
+      ])
+    );
+    expect(order.estimatedProfit).toBe(200_000);
+    expect(order.searchText).toContain('laptop-sn-2');
+    expect(order.searchText).toContain('353456789012345');
+  });
+
+  it('uses per-unit transaction costs and suppliers when they exist', () => {
+    const [order] = mapTransactionOrderRows([
+      {
+        created_at: '2026-07-01T12:30:00.000Z',
+        transaction_date: null,
+        customer_email: null,
+        customer_name: 'Kayode Omelehinwa',
+        customer_phone: null,
+        fulfillment_details: {
+          items: [
+            {
+              id: 'item-laptop:1',
+              orderItemId: 'item-laptop',
+              serialNumber: 'LAPTOP-SN-1',
+              unitIndex: 0,
+            },
+            {
+              id: 'item-laptop:2',
+              orderItemId: 'item-laptop',
+              serialNumber: 'LAPTOP-SN-2',
+              unitIndex: 1,
+            },
+          ],
+        },
+        id: 'order-1',
+        order_items: [
+          {
+            cost_price: 850_000,
+            fulfillment_data: null,
+            id: 'item-laptop',
+            name: 'HP EliteBook x360 1040 G10',
+            order_item_unit_costs: [
+              {
+                cost_price: 800_000,
+                identifier_type: 'serial',
+                identifier_value: 'LAPTOP-SN-1',
+                supplier_name: 'Supplier A',
+                unit_index: 0,
+              },
+              {
+                cost_price: 870_000,
+                identifier_type: 'serial',
+                identifier_value: 'LAPTOP-SN-2',
+                supplier_name: 'Supplier B',
+                unit_index: 1,
+              },
+            ],
+            price: 900_000,
+            product_id: 'product-laptop',
+            product_variants: null,
+            products: null,
+            quantity: 2,
+            supplier_name: 'Fallback Supplier',
+            variant_id: null,
+          },
+        ],
+        order_number: 'ORD-010726-600DDC',
+        payment_method: 'transfer',
+        total: 1_800_000,
+      },
+    ]);
+
+    expect(order.items).toMatchObject([
+      {
+        costPrice: 800_000,
+        costSource: 'unit',
+        orderItemId: 'item-laptop',
+        profit: 100_000,
+        serialValues: ['LAPTOP-SN-1'],
+        supplierName: 'Supplier A',
+        unitIndex: 0,
+      },
+      {
+        costPrice: 870_000,
+        costSource: 'unit',
+        orderItemId: 'item-laptop',
+        profit: 30_000,
+        serialValues: ['LAPTOP-SN-2'],
+        supplierName: 'Supplier B',
+        unitIndex: 1,
+      },
+    ]);
+    expect(order.estimatedProfit).toBe(130_000);
+    expect(getSupplierOptionsFromOrders([order])).toEqual([
+      'Supplier a',
+      'Supplier b',
+    ]);
+  });
+
+  it('keeps unrecorded units of a multi-unit line when only one has a cost', () => {
+    // Only unit 0 has a per-unit cost; unit 1 must still appear (falling back to
+    // the order-item cost) so profit/missing-cost totals count both units.
+    const [order] = mapTransactionOrderRows([
+      {
+        created_at: '2026-07-01T12:30:00.000Z',
+        transaction_date: null,
+        customer_email: null,
+        customer_name: 'Partial Units',
+        customer_phone: null,
+        fulfillment_details: null,
+        id: 'order-1',
+        order_items: [
+          {
+            cost_price: 850_000,
+            fulfillment_data: null,
+            id: 'item-laptop',
+            name: 'HP EliteBook',
+            order_item_unit_costs: [
+              {
+                cost_price: 800_000,
+                identifier_type: 'serial',
+                identifier_value: 'LAPTOP-SN-1',
+                supplier_name: 'Supplier A',
+                unit_index: 0,
+              },
+            ],
+            price: 900_000,
+            product_id: 'product-laptop',
+            product_variants: null,
+            products: null,
+            quantity: 2,
+            supplier_name: 'Fallback Supplier',
+            variant_id: null,
+          },
+        ],
+        order_number: 'ORD-010726-PARTIAL',
+        payment_method: 'transfer',
+        total: 1_800_000,
+      },
+    ]);
+
+    expect(order.items).toMatchObject([
+      { costPrice: 800_000, costSource: 'unit', profit: 100_000, unitIndex: 0 },
+      {
+        costPrice: 850_000,
+        costSource: 'order_item',
+        profit: 50_000,
+        unitIndex: 1,
+      },
+    ]);
+    expect(order.missingCostCount).toBe(0);
+    expect(order.estimatedProfit).toBe(150_000);
+  });
+
+  it('keeps stale out-of-range unit costs visible without counting them in totals', () => {
+    const [order] = mapTransactionOrderRows([
+      {
+        created_at: '2026-07-01T12:30:00.000Z',
+        transaction_date: null,
+        customer_email: null,
+        customer_name: 'Stale Unit Customer',
+        customer_phone: null,
+        fulfillment_details: null,
+        id: 'order-1',
+        order_items: [
+          {
+            cost_price: 850_000,
+            fulfillment_data: null,
+            id: 'item-laptop',
+            name: 'HP EliteBook',
+            order_item_unit_costs: [
+              {
+                cost_price: 800_000,
+                identifier_type: 'serial',
+                identifier_value: 'STALE-SN-5',
+                supplier_name: 'Stale Supplier',
+                unit_index: 5,
+              },
+            ],
+            price: 900_000,
+            product_id: 'product-laptop',
+            product_variants: null,
+            products: null,
+            quantity: 2,
+            supplier_name: 'Fallback Supplier',
+            variant_id: null,
+          },
+        ],
+        order_number: 'ORD-010726-STALE',
+        payment_method: 'transfer',
+        total: 1_800_000,
+      },
+    ]);
+
+    expect(order.items).toMatchObject([
+      {
+        costPrice: 850_000,
+        costSource: 'order_item',
+        profit: 50_000,
+        quantity: 1,
+        revenue: 900_000,
+        unitIndex: 0,
+      },
+      {
+        costPrice: 850_000,
+        costSource: 'order_item',
+        profit: 50_000,
+        quantity: 1,
+        revenue: 900_000,
+        unitIndex: 1,
+      },
+      {
+        costPrice: 800_000,
+        costSource: 'unit',
+        identifierValue: 'STALE-SN-5',
+        profit: 0,
+        quantity: 0,
+        revenue: 0,
+        supplierName: 'Stale Supplier',
+        unitIndex: 5,
+      },
+    ]);
+    expect(order.estimatedProfit).toBe(100_000);
+    expect(order.searchText).toContain('stale-sn-5');
+  });
+
+  it('does not copy item-level identifiers into synthesized unit rows', () => {
+    const [order] = mapTransactionOrderRows([
+      {
+        created_at: '2026-07-01T12:30:00.000Z',
+        transaction_date: null,
+        customer_email: null,
+        customer_name: 'Split Units',
+        customer_phone: null,
+        fulfillment_details: null,
+        id: 'order-1',
+        order_items: [
+          {
+            cost_price: 850_000,
+            fulfillment_data: {
+              imei: 'ITEM-LEVEL-IMEI',
+              serialNumber: 'ITEM-LEVEL-SERIAL',
+            },
+            id: 'item-laptop',
+            name: 'HP EliteBook',
+            order_item_unit_costs: [
+              {
+                cost_price: 800_000,
+                identifier_type: 'serial',
+                identifier_value: 'LAPTOP-SN-1',
+                supplier_name: 'Supplier A',
+                unit_index: 0,
+              },
+            ],
+            price: 900_000,
+            product_id: 'product-laptop',
+            product_variants: null,
+            products: null,
+            quantity: 2,
+            supplier_name: 'Fallback Supplier',
+            variant_id: null,
+          },
+        ],
+        order_number: 'ORD-010726-SPLIT',
+        payment_method: 'transfer',
+        total: 1_800_000,
+      },
+    ]);
+
+    expect(order.items).toMatchObject([
+      {
+        identifierType: 'serial',
+        identifierValue: 'LAPTOP-SN-1',
+        imeiValues: [],
+        serialValues: ['LAPTOP-SN-1'],
+        unitIndex: 0,
+      },
+      {
+        identifierType: null,
+        identifierValue: null,
+        imeiValues: [],
+        serialValues: [],
+        unitIndex: 1,
+      },
+    ]);
+  });
+
   it('uses order item cost and supplier before product defaults', () => {
     // Arrange
     const rows = [

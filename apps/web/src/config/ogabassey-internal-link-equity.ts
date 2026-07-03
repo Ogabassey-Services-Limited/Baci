@@ -1,12 +1,18 @@
-interface InternalLinkEquityLink {
+export interface InternalLinkEquityLink {
   href: string;
   label: string;
 }
 
-interface InternalLinkEquityGroup {
+export interface InternalLinkEquityProductLink {
+  productSlug: string;
+  label: string;
+}
+
+export interface InternalLinkEquityGroupConfig {
   title: string;
   description: string;
   links: InternalLinkEquityLink[];
+  productLinks: InternalLinkEquityProductLink[];
 }
 
 function linkPairs(items: string[]): InternalLinkEquityLink[] {
@@ -17,7 +23,19 @@ function linkPairs(items: string[]): InternalLinkEquityLink[] {
   });
 }
 
-export const OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS: InternalLinkEquityGroup[] =
+function productLinkPairs(items: string[]): InternalLinkEquityProductLink[] {
+  return items.map((item) => {
+    const [productSlug = '', label = ''] = item.split('|');
+
+    return { productSlug, label };
+  });
+}
+
+// Product entries are referenced by slug and resolved to their canonical
+// category path at render time, so catalog recategorizations and variant
+// consolidations never leave this section linking through 308 redirects.
+// Only category, comparison, and editorial paths may be hardcoded as hrefs.
+export const OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS: InternalLinkEquityGroupConfig[] =
   [
     {
       title: 'Core shopping paths',
@@ -29,8 +47,8 @@ export const OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS: InternalLinkEquityGroup[] =
         '/audio|Audio',
         '/compare|Compare products',
         '/earbuds|Earbuds',
+        '/gaming-accessories|Gaming accessories',
         '/gaming-laptops|Gaming laptops',
-        '/gaming/control|Gaming controls',
         '/gift-cards|Gift cards',
         '/laptops|Laptops',
         '/lg-tvs|LG TVs',
@@ -45,93 +63,85 @@ export const OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS: InternalLinkEquityGroup[] =
         '/tvs|TVs',
         '/wearables|Wearables',
       ]),
+      productLinks: [],
     },
     {
       title: 'Apple and audio shortcuts',
       description:
         'Quick links for Apple phones, AirPods, earbuds, speakers, and audio accessories.',
-      links: linkPairs([
-        '/apple/iphone-16-pro-8gb-512gb-physical-esim-new|iPhone 16 Pro 512GB physical eSIM',
-        '/apple/iphone-16-pro-max-8gb-512gb-physical-esim-new|iPhone 16 Pro Max 512GB physical eSIM',
-        '/apple/iphone-17-pro-8gb-1tb-physical-esim-new|iPhone 17 Pro 1TB physical eSIM',
-        '/apple/iphone-17-pro-8gb-256gb-physical-esim-new|iPhone 17 Pro 256GB physical eSIM',
-        '/apple/iphone-17-pro-8gb-512gb-physical-esim-new|iPhone 17 Pro 512GB physical eSIM',
-        '/audio/apple-airpods-2|Apple AirPods 2',
-        '/audio/apple-airpods-3|Apple AirPods 3',
-        '/audio/apple-airpods-4-anc|Apple AirPods 4 ANC',
-        '/audio/apple-airpods-pro|Apple AirPods Pro',
-        '/audio/apple-airpods-pro-2nd-gen-type-c|AirPods Pro 2 USB-C',
-        '/audio/apple-airpods-pro-3rd-gen|AirPods Pro 3rd Gen',
-        '/audio/jbl-clip-4|JBL Clip 4',
-        '/audio/samsung-galaxy-buds4-pro|Samsung Galaxy Buds4 Pro',
+      links: [],
+      productLinks: productLinkPairs([
+        'iphone-16-pro|iPhone 16 Pro',
+        'iphone-16-pro-max|iPhone 16 Pro Max',
+        'iphone-17-pro|iPhone 17 Pro',
+        'apple-airpods-2|Apple AirPods 2',
+        'apple-airpods-3|Apple AirPods 3',
+        'airpods-4|Apple AirPods 4',
+        'apple-airpods-4-anc|Apple AirPods 4 ANC',
+        'apple-airpods-pro|Apple AirPods Pro',
+        'apple-airpods-pro-2nd-gen-type-c|AirPods Pro 2 USB-C',
+        'apple-airpods-pro-3rd-gen|AirPods Pro 3rd Gen',
+        'jbl-clip-4|JBL Clip 4',
+        'samsung-galaxy-buds4-pro|Samsung Galaxy Buds4 Pro',
       ]),
     },
     {
       title: 'Smartphone price and product paths',
       description:
         'Direct product paths for iPhone, Pixel, Redmi, Samsung, Tecno, and other smartphone shoppers.',
-      links: linkPairs([
-        '/redmi/redmi-a3-pro|Redmi A3 Pro',
-        '/smartphones/apple-airpods-4|Apple AirPods 4 smartphone category',
-        '/smartphones/apple-airpods-pro|Apple AirPods Pro smartphone category',
-        '/smartphones/google-pixel-6-8gb-256gb|Google Pixel 6 256GB',
-        '/smartphones/google-pixel-9-pro-16gb-1tb|Google Pixel 9 Pro 1TB',
-        '/smartphones/google-pixel-9-pro-16gb-512gb|Google Pixel 9 Pro 512GB',
-        '/smartphones/google-pixel-9-pro-fold-12gb-256gb|Google Pixel 9 Pro Fold 256GB',
-        '/smartphones/google-pixel-9-pro-fold-12gb-512gb|Google Pixel 9 Pro Fold 512GB',
-        '/smartphones/google-pixel-9-pro-xl-16gb-1tb|Google Pixel 9 Pro XL 1TB',
-        '/smartphones/google-pixel-9-pro-xl-16gb-512gb|Google Pixel 9 Pro XL 512GB',
-        '/smartphones/iphone-12-pro-6gb-128gb|iPhone 12 Pro 128GB',
-        '/smartphones/iphone-12-pro-max-6gb-256gb|iPhone 12 Pro Max 256GB',
-        '/smartphones/iphone-13-4gb-256gb|iPhone 13 256GB',
-        '/smartphones/iphone-13-pro-max-6gb-128gb|iPhone 13 Pro Max 128GB',
-        '/smartphones/iphone-13-pro-max-6gb-256gb|iPhone 13 Pro Max 256GB',
-        '/smartphones/iphone-13-pro-max-6gb-512gb|iPhone 13 Pro Max 512GB',
-        '/smartphones/iphone-14-plus-6gb-128gb-physical-esim|iPhone 14 Plus physical eSIM',
-        '/smartphones/iphone-15-pro-max-8gb-1tb-physical-esim|iPhone 15 Pro Max 1TB physical eSIM',
-        '/smartphones/iphone-15-pro-max-8gb-256gb|iPhone 15 Pro Max 256GB',
-        '/smartphones/iphone-17-air-8gb-1tb|iPhone 17 Air 1TB',
-        '/smartphones/iphone-7-plus-3gb-128gb|iPhone 7 Plus 128GB',
-        '/smartphones/iphone-8-plus-3gb-64gb|iPhone 8 Plus 64GB',
-        '/smartphones/iphone-se-2nd-gen-3gb-128gb|iPhone SE 2nd Gen 128GB',
-        '/smartphones/iphone-x-3gb-256gb|iPhone X 256GB',
-        '/smartphones/iphone-x-3gb-64gb|iPhone X 64GB',
-        '/smartphones/iphone-xr-3gb-128gb|iPhone XR 128GB',
-        '/smartphones/redmi-a3x-4gb-128gb|Redmi A3x 128GB',
-        '/smartphones/redmi-note14-8gb-256gb|Redmi Note 14 256GB',
-        '/smartphones/samsung-galaxy-a06-lte-4gb-64gb|Samsung Galaxy A06 LTE 64GB',
-        '/smartphones/samsung-galaxy-s25-ultra-12gb-1tb|Samsung Galaxy S25 Ultra 1TB',
-        '/smartphones/samsung-galaxy-s25-ultra-12gb-512gb|Samsung Galaxy S25 Ultra 512GB',
-        '/smartphones/samsung-galaxy-z-flip-7-12gb-256gb|Samsung Galaxy Z Flip 7 256GB',
-        '/smartphones/samsung-galaxy-z-fold-6-12gb-256gb|Samsung Galaxy Z Fold 6 256GB',
-        '/tecno/tecno-pop-10-pro-4gb-128gb|Tecno Pop 10 Pro 128GB',
-        '/tecno/tecno-spark-40|Tecno Spark 40',
+      links: [],
+      productLinks: productLinkPairs([
+        'google-pixel-6|Google Pixel 6',
+        'google-pixel-9-pro|Google Pixel 9 Pro',
+        'google-pixel-9-pro-fold|Google Pixel 9 Pro Fold',
+        'google-pixel-9-pro-xl|Google Pixel 9 Pro XL',
+        'iphone-7-plus|iPhone 7 Plus',
+        'iphone-8-plus|iPhone 8 Plus',
+        'iphone-x|iPhone X',
+        'iphone-xr|iPhone XR',
+        'iphone-se-2nd-gen|iPhone SE 2nd Gen',
+        'iphone-12-pro|iPhone 12 Pro',
+        'iphone-12-pro-max|iPhone 12 Pro Max',
+        'iphone-13|iPhone 13',
+        'iphone-13-pro-max|iPhone 13 Pro Max',
+        'iphone-14-plus|iPhone 14 Plus',
+        'iphone-15-pro-max|iPhone 15 Pro Max',
+        'iphone-air|iPhone Air',
+        'redmi-a3-pro|Redmi A3 Pro',
+        'redmi-a3x|Redmi A3x',
+        'redmi-note-14|Redmi Note 14',
+        'samsung-galaxy-a06-lte|Samsung Galaxy A06 LTE',
+        'samsung-galaxy-s25-ultra|Samsung Galaxy S25 Ultra',
+        'samsung-galaxy-z-flip-7|Samsung Galaxy Z Flip 7',
+        'samsung-galaxy-z-fold-6|Samsung Galaxy Z Fold 6',
+        'tecno-pop-10-pro-4gb-128gb|Tecno Pop 10 Pro',
+        'tecno-spark-40|Tecno Spark 40',
       ]),
     },
     {
       title: 'Laptop, MacBook, monitor, and tablet paths',
       description:
         'Direct paths for laptop and monitor shoppers comparing productivity, gaming, and creator devices.',
-      links: linkPairs([
-        '/accessories/targus-17-inch-groove-backpack|Targus 17-inch Groove backpack',
-        '/laptops/dell-alienware-18-area-51|Dell Alienware 18 Area-51',
-        '/laptops/dell-latitude-5300-2-in-1-i5|Dell Latitude 5300 2-in-1 i5',
-        '/laptops/dell-latitude-5300-2-in-1-i7-8665u-256|Dell Latitude 5300 2-in-1 i7',
-        '/laptops/dell-xps-13-9365-i5|Dell XPS 13 9365 i5',
-        '/laptops/hp-elitebook-1030-g3-x360-i5|HP EliteBook 1030 G3 x360 i5',
-        '/laptops/hp-elitebook-840-g11-ultra-7-32gb|HP EliteBook 840 G11 Ultra 7',
-        '/laptops/hp-omnibook-ultra-flip-14-fh0018nia|HP OmniBook Ultra Flip 14',
-        '/laptops/hp-victus-15-fa0033|HP Victus 15 FA0033',
-        '/laptops/hp-zbook-firefly-g11-ultra-7-165h|HP ZBook Firefly G11 Ultra 7',
-        '/laptops/lenovo-legion-5-15iah7h-rtx-3070|Lenovo Legion 5 RTX 3070',
-        '/laptops/macbook-air-13-inch-2020-i3-8gb-128gb|MacBook Air 13-inch 2020 i3',
-        '/laptops/macbook-pro-13-inch-2017-i7-16gb-1tb-touchbar|MacBook Pro 13-inch 2017 Touch Bar',
-        '/laptops/msi-katana-gf66-gaming|MSI Katana GF66 Gaming',
-        '/laptops/msi-thin-gf63-12ucx-898-gaming|MSI Thin GF63 12UCX Gaming',
-        '/macbooks/macbook-pro-13-inch-2020-m1-8gb-256gb|MacBook Pro 13-inch M1 2020',
-        '/monitors/hisense-34g6k-pro-curved-gaming-monitor|Hisense 34G6K Pro curved gaming monitor',
-        '/monitors/samsung-c34g55t-curved-gaming-monitor|Samsung C34G55T curved gaming monitor',
-        '/tablets/ipad-pro-11-inch-2018|iPad Pro 11-inch 2018',
+      links: [],
+      productLinks: productLinkPairs([
+        'targus-17-inch-groove-backpack|Targus 17-inch Groove backpack',
+        'dell-alienware-18-area-51|Dell Alienware 18 Area-51',
+        'dell-latitude-5300-2-in-1|Dell Latitude 5300 2-in-1',
+        'dell-xps-13-9365|Dell XPS 13 9365',
+        'hp-elitebook-1030-g3-x360|HP EliteBook 1030 G3 x360',
+        'hp-elitebook-840-g11|HP EliteBook 840 G11',
+        'hp-omnibook-ultra-flip-14-fh0018nia|HP OmniBook Ultra Flip 14',
+        'hp-victus-15-fa0033|HP Victus 15',
+        'hp-zbook-firefly-g11-ultra-7-165h|HP ZBook Firefly G11',
+        'lenovo-legion-5-15iah7h-rtx-3070|Lenovo Legion 5 RTX 3070',
+        'macbook-air-13-inch-2020-intel|MacBook Air 13-inch 2020',
+        'macbook-pro-13-inch-2017|MacBook Pro 13-inch 2017',
+        'macbook-pro-13-inch-2020-m1-8gb-256gb|MacBook Pro 13-inch M1 2020',
+        'msi-katana-gf66-gaming|MSI Katana GF66 Gaming',
+        'msi-thin-gf63-12ucx-898-gaming|MSI Thin GF63 Gaming',
+        'hisense-34g6k-pro-curved-gaming-monitor|Hisense 34G6K Pro curved gaming monitor',
+        'samsung-c34g55t-curved-gaming-monitor|Samsung C34G55T curved gaming monitor',
+        'ipad-pro-11-inch-2018|iPad Pro 11-inch 2018',
       ]),
     },
     {
@@ -149,6 +159,7 @@ export const OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS: InternalLinkEquityGroup[] =
         '/tvs/compare/lg-vs-samsung|LG vs Samsung TVs',
         '/vr-headsets/compare/playstation-vr-2-sense-charger-vs-playstation-vr-2-vr|PlayStation VR2 Sense Charger vs PlayStation VR2',
       ]),
+      productLinks: [],
     },
     {
       title: 'Buying advice authors and games',
@@ -157,7 +168,10 @@ export const OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS: InternalLinkEquityGroup[] =
       links: linkPairs([
         '/blog/author/bassey-john|Bassey John author page',
         '/blog/author/bolakale|Bolakale author page',
-        '/gaming/cyberpunk-2077|Cyberpunk 2077',
+      ]),
+      productLinks: productLinkPairs([
+        'control|Control (PlayStation 4)',
+        'cyberpunk-2077|Cyberpunk 2077',
       ]),
     },
   ];

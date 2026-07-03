@@ -7,9 +7,11 @@ import { TransactionOrderCard } from './TransactionOrderCard';
 
 vi.mock('react-native', async () => {
   const React = await import('react');
+  const { getReactNativeDomStyle } = await import(
+    '@/test/mocks/react-native-dom-style'
+  );
 
   return {
-    StatusBar: () => null,
     Pressable: ({
       accessibilityLabel,
       accessibilityRole,
@@ -36,10 +38,30 @@ vi.mock('react-native', async () => {
         },
         children
       ),
-    Text: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('span', null, children),
-    View: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
+    Text: ({
+      children,
+      style,
+    }: {
+      children?: React.ReactNode;
+      style?: unknown;
+    }) =>
+      React.createElement(
+        'span',
+        { style: getReactNativeDomStyle(style) },
+        children
+      ),
+    View: ({
+      children,
+      style,
+    }: {
+      children?: React.ReactNode;
+      style?: unknown;
+    }) =>
+      React.createElement(
+        'div',
+        { style: getReactNativeDomStyle(style) },
+        children
+      ),
   };
 });
 
@@ -49,7 +71,6 @@ vi.mock('@react-native-vector-icons/ionicons', async () => {
   return {
     Ionicons: ({ name }: { name: string }) =>
       React.createElement('span', null, name),
-
     default: ({ name }: { name: string }) =>
       React.createElement('span', null, name),
     __esModule: true,
@@ -57,12 +78,7 @@ vi.mock('@react-native-vector-icons/ionicons', async () => {
 });
 
 vi.mock('@/components/transactions/transactions.styles', () => ({
-  styles: new Proxy(
-    {},
-    {
-      get: (_target, property) => property,
-    }
-  ),
+  styles: {},
 }));
 
 const editableItem = {
@@ -113,7 +129,7 @@ describe('TransactionOrderCard', () => {
           customerPhone: '08030000000',
           estimatedProfit: 3400,
           id: 'order-1',
-          items: [editableItem],
+          items: [editableItem, customItem],
           missingCostCount: 0,
           orderNumber: 'ORD-1',
           paymentMethod: 'card',
@@ -126,7 +142,7 @@ describe('TransactionOrderCard', () => {
     expect(screen.getByText('Bassey')).toBeInTheDocument();
     expect(screen.getByText('ORD-1')).toBeInTheDocument();
     expect(
-      screen.queryByText('Supplier Slot Wholesale')
+      screen.queryByText('Supplier Slot wholesale')
     ).not.toBeInTheDocument();
     expect(screen.getByText('chevron-down')).toBeInTheDocument();
 
@@ -136,7 +152,11 @@ describe('TransactionOrderCard', () => {
     expect(viewDetailsButton).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(viewDetailsButton);
 
-    expect(screen.getByText('Supplier Slot Wholesale')).toBeInTheDocument();
+    expect(screen.getByText('Supplier Slot wholesale')).toBeInTheDocument();
+    expect(screen.getByText('Total profit')).toBeInTheDocument();
+    expect(screen.getByText('NGN 3400')).toHaveStyle({
+      color: LIGHT_COLORS.success,
+    });
     expect(screen.getByText('08030000000')).toBeInTheDocument();
     expect(screen.getByText('bassey@example.com')).toBeInTheDocument();
     expect(screen.getByText('close')).toBeInTheDocument();
@@ -148,7 +168,7 @@ describe('TransactionOrderCard', () => {
     fireEvent.click(closeDetailsButton);
 
     expect(
-      screen.queryByText('Supplier Slot Wholesale')
+      screen.queryByText('Supplier Slot wholesale')
     ).not.toBeInTheDocument();
     expect(screen.getByText('chevron-down')).toBeInTheDocument();
   });
@@ -188,7 +208,7 @@ describe('TransactionOrderCard', () => {
     });
 
     expect(screen.getByText('create-outline')).toBeInTheDocument();
-    expect(screen.getByText('Supplier Slot Wholesale')).toBeInTheDocument();
+    expect(screen.getByText('Supplier Slot wholesale')).toBeInTheDocument();
     expect(screen.getByText('IMEI 353232106161443')).toBeInTheDocument();
     expect(screen.getByText('S/N SN-ABC-1')).toBeInTheDocument();
 
@@ -233,5 +253,45 @@ describe('TransactionOrderCard', () => {
     expect(row).not.toBeDisabled();
     fireEvent.click(row);
     expect(onOpenEditor).toHaveBeenCalledWith(order, customItem);
+  });
+
+  it('labels recorded losses in red instead of showing negative profit', () => {
+    render(
+      <TransactionOrderCard
+        colors={LIGHT_COLORS}
+        formatCurrency={(amount) => `NGN ${amount}`}
+        onOpenEditor={vi.fn()}
+        order={{
+          createdAt: '2026-04-11T09:00:00.000Z',
+          customerEmail: null,
+          customerName: 'Bassey',
+          customerPhone: null,
+          estimatedProfit: -500,
+          id: 'order-1',
+          items: [
+            {
+              ...editableItem,
+              costPrice: 2000,
+              profit: -500,
+              revenue: 1500,
+            },
+          ],
+          missingCostCount: 0,
+          orderNumber: 'ORD-1',
+          paymentMethod: 'card',
+          searchText: 'ord-1 bassey samsung galaxy s26',
+          total: 1500,
+        }}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /view order details for bassey/i })
+    );
+
+    expect(screen.getByText('Loss NGN 500')).toHaveStyle({
+      color: LIGHT_COLORS.error,
+    });
+    expect(screen.queryByText('Profit NGN -500')).not.toBeInTheDocument();
   });
 });

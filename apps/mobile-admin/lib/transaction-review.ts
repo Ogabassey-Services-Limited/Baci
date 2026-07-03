@@ -1,11 +1,14 @@
 import {
+  buildFulfillmentUnitIndex,
   buildSearchText,
   collectDetailValues,
   collectStrings,
   getJoinedProduct,
   getJoinedVariant,
+  getSafeLegacyOrderDetails,
   getSupplierNameFromMetadata,
   getTrimmedString,
+  getUnitCostByIndex,
   IMEI_KEYS,
   SERIAL_KEYS,
   toFiniteNumberOrNull,
@@ -15,6 +18,8 @@ import type {
   TransactionReviewOrder,
   TransactionReviewOrderRow,
 } from './transaction-review-types';
+import { resolveTransactionReviewUnitRow } from './transaction-review-unit-row';
+import { resolveSplitUnitIndexes } from './transaction-review-units';
 
 const TRANSACTION_REVIEW_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -91,79 +96,120 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
   return rows.map<TransactionReviewOrder>((order) => {
     const transactionDate = order.transaction_date ?? order.created_at;
     const orderDetailTokens = collectStrings(order.fulfillment_details);
-    const items = (order.order_items ?? []).map<TransactionReviewItem>(
-      (item) => {
-        const product = getJoinedProduct(item.products);
-        const variant = getJoinedVariant(item.product_variants);
-        const quantity = toFiniteNumberOrNull(item.quantity) ?? 1;
-        const unitPrice = toFiniteNumberOrNull(item.price) ?? 0;
-        const revenue = unitPrice * quantity;
-        const orderItemCostPrice = toFiniteNumberOrNull(item.cost_price);
-        const variantCostPrice = toFiniteNumberOrNull(variant?.cost_price);
-        const productCostPrice = toFiniteNumberOrNull(product?.cost_price);
-        const costPrice =
-          orderItemCostPrice ?? variantCostPrice ?? productCostPrice;
-        const costSource =
-          orderItemCostPrice != null
-            ? 'order_item'
-            : variantCostPrice != null
-              ? 'variant'
-              : productCostPrice != null
-                ? 'product'
-                : null;
-        const itemSupplierName = getTrimmedString(item.supplier_name);
-        const supplierName =
-          itemSupplierName || getSupplierNameFromMetadata(product?.metadata);
-        const searchableDetailValues = [
-          item.fulfillment_data,
-          order.fulfillment_details,
-          variant?.attributes,
-          product?.fulfillment_details,
-          product?.metadata,
-        ];
-        const imeiValues = collectDetailValues(
-          searchableDetailValues,
-          IMEI_KEYS
-        );
-        const serialValues = collectDetailValues(
-          searchableDetailValues,
-          SERIAL_KEYS
-        );
+    const orderItems = order.order_items ?? [];
+    const items = orderItems.flatMap<TransactionReviewItem>((item) => {
+      const product = getJoinedProduct(item.products);
+      const variant = getJoinedVariant(item.product_variants);
+      const quantity = toFiniteNumberOrNull(item.quantity) ?? 1;
+      const unitPrice = toFiniteNumberOrNull(item.price) ?? 0;
+      const orderItemCostPrice = toFiniteNumberOrNull(item.cost_price);
+      const variantCostPrice = toFiniteNumberOrNull(variant?.cost_price);
+      const productCostPrice = toFiniteNumberOrNull(product?.cost_price);
+      const costPrice =
+        orderItemCostPrice ?? variantCostPrice ?? productCostPrice;
+      const costSource: TransactionReviewItem['costSource'] =
+        orderItemCostPrice != null
+          ? 'order_item'
+          : variantCostPrice != null
+            ? 'variant'
+            : productCostPrice != null
+              ? 'product'
+              : null;
+      const itemSupplierName = getTrimmedString(item.supplier_name);
+      const supplierName =
+        itemSupplierName || getSupplierNameFromMetadata(product?.metadata);
+      const fulfillmentByIndex = buildFulfillmentUnitIndex(
+        order.fulfillment_details,
+        item.fulfillment_data,
+        item.id
+      );
+      const unitCostByIndex = getUnitCostByIndex(item.order_item_unit_costs);
+      const unitIndexes = resolveSplitUnitIndexes(
+        [...fulfillmentByIndex.keys(), ...unitCostByIndex.keys()],
+        quantity
+      );
+      const safeLegacyOrderDetails = getSafeLegacyOrderDetails(
+        order.fulfillment_details,
+        orderItems.length,
+        quantity
+      );
+      const searchableDetailValues = [
+        item.fulfillment_data,
+        safeLegacyOrderDetails,
+        variant?.attributes,
+        product?.metadata,
+      ];
+      const imeiValues = collectDetailValues(searchableDetailValues, IMEI_KEYS);
+      const serialValues = collectDetailValues(
+        searchableDetailValues,
+        SERIAL_KEYS
+      );
+      const baseSearchTokens = [
+        item.id,
+        item.name,
+        item.price,
+        item.quantity,
+        item.product_id,
+        item.variant_id,
+        variant?.sku,
+        variant?.condition,
+        collectStrings(variant?.attributes),
+        product?.sku,
+        supplierName,
+        collectStrings(item.fulfillment_data),
+        collectStrings(product?.metadata),
+      ];
+
+      function buildItem(unitIndex?: number): TransactionReviewItem {
+        const unit =
+          unitIndex == null ? undefined : fulfillmentByIndex.get(unitIndex);
+        const unitCost =
+          unitIndex == null ? undefined : unitCostByIndex.get(unitIndex);
+        const resolvedUnit = resolveTransactionReviewUnitRow({
+          baseCostPrice: costPrice,
+          baseCostSource: costSource,
+          baseImeiValues: imeiValues,
+          baseSerialValues: serialValues,
+          baseSupplierName: supplierName,
+          fulfillmentUnit: unit,
+          quantity,
+          unitCost,
+          unitIndex,
+          unitPrice,
+        });
 
         return {
-          costPrice,
-          costSource,
-          id: item.id,
-          imeiValues,
+          costPrice: resolvedUnit.costPrice,
+          costSource: resolvedUnit.costSource,
+          id:
+            unit?.id ??
+            (unitIndex == null ? item.id : `${item.id}:${unitIndex + 1}`),
+          identifierType: resolvedUnit.identifierType,
+          identifierValue: resolvedUnit.identifierValue,
+          imeiValues: resolvedUnit.imeiValues,
           name: item.name ?? 'Product',
+          orderItemId: item.id,
           productId: item.product_id,
           productMatchStatus: item.product_match_status ?? null,
-          profit: costPrice == null ? null : revenue - costPrice * quantity,
-          quantity,
-          revenue,
+          profit: resolvedUnit.profit,
+          quantity: resolvedUnit.quantity,
+          revenue: resolvedUnit.revenue,
           searchText: buildSearchText([
-            item.id,
-            item.name,
-            item.price,
-            item.quantity,
-            item.product_id,
-            item.variant_id,
-            variant?.sku,
-            variant?.condition,
-            collectStrings(variant?.attributes),
-            product?.sku,
-            supplierName,
-            collectStrings(item.fulfillment_data),
-            collectStrings(product?.fulfillment_details),
-            collectStrings(product?.metadata),
+            ...baseSearchTokens,
+            resolvedUnit.searchTokens,
           ]),
-          serialValues,
+          serialValues: resolvedUnit.serialValues,
           sku: variant?.sku ?? product?.sku ?? null,
-          supplierName,
+          supplierName: resolvedUnit.supplierName,
+          unitIndex,
           variantId: item.variant_id ?? null,
         };
       }
-    );
+
+      return unitIndexes.length > 0
+        ? unitIndexes.map((unitIndex) => buildItem(unitIndex))
+        : [buildItem()];
+    });
 
     const orderSearchText = buildSearchText([
       order.id,

@@ -1,5 +1,6 @@
 import type {
   TransactionReviewProductRow,
+  TransactionReviewUnitCostRow,
   TransactionReviewVariantRow,
 } from './transaction-review-types';
 
@@ -17,6 +18,14 @@ export const SERIAL_KEYS = new Set([
   'serialNumber',
   's/n',
 ]);
+
+export interface FulfillmentUnitDetails {
+  id: string;
+  imeiValues: string[];
+  searchTokens: string[];
+  serialValues: string[];
+  unitIndex: number;
+}
 
 export function getJoinedProduct(
   value: TransactionReviewProductRow | TransactionReviewProductRow[] | null
@@ -129,4 +138,158 @@ export function getSupplierNameFromMetadata(
   }
 
   return '';
+}
+
+function getObjectRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getNonNegativeInteger(value: unknown) {
+  const numericValue = toFiniteNumberOrNull(value);
+  if (
+    numericValue == null ||
+    !Number.isInteger(numericValue) ||
+    numericValue < 0
+  ) {
+    return null;
+  }
+
+  return numericValue;
+}
+
+function getOrderFulfillmentItems(value: unknown): Record<string, unknown>[] {
+  const details = getObjectRecord(value);
+  const items = details?.items;
+
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items
+    .map((item) => getObjectRecord(item))
+    .filter((item): item is Record<string, unknown> => item != null);
+}
+
+function getFulfillmentOrderItemId(item: Record<string, unknown>) {
+  return (
+    getTrimmedString(item.orderItemId) || getTrimmedString(item.order_item_id)
+  );
+}
+
+function getItemFulfillmentUnits(
+  fulfillmentDetails: unknown,
+  orderItemId: string
+): FulfillmentUnitDetails[] {
+  return getOrderFulfillmentItems(fulfillmentDetails)
+    .filter((item) => getFulfillmentOrderItemId(item) === orderItemId)
+    .map((item, index) => {
+      const unitIndex =
+        getNonNegativeInteger(item.unitIndex) ??
+        getNonNegativeInteger(item.unit_index) ??
+        index;
+      const id = getTrimmedString(item.id) || `${orderItemId}:${unitIndex + 1}`;
+
+      return {
+        id,
+        imeiValues: collectDetailValues([item], IMEI_KEYS),
+        searchTokens: collectStrings(item),
+        serialValues: collectDetailValues([item], SERIAL_KEYS),
+        unitIndex,
+      };
+    });
+}
+
+function getInventoryUnitsArray(
+  fulfillmentData: unknown
+): Record<string, unknown>[] {
+  const data = getObjectRecord(fulfillmentData);
+  const units = data?.inventoryUnits;
+  if (!Array.isArray(units)) {
+    return [];
+  }
+  return units
+    .map((unit) => getObjectRecord(unit))
+    .filter((unit): unit is Record<string, unknown> => unit != null);
+}
+
+/**
+ * Per-unit rows for serialized/claimed inventory, stored on
+ * order_items.fulfillment_data.inventoryUnits. These have no explicit index —
+ * position is the unit index. The reservation flow only mirrors single-unit
+ * orders to orders.fulfillment_details, so multi-unit serialized lines are only
+ * represented here.
+ */
+function getItemInventoryUnits(
+  fulfillmentData: unknown,
+  orderItemId: string
+): FulfillmentUnitDetails[] {
+  return getInventoryUnitsArray(fulfillmentData).map((unit, index) => {
+    const identifierType = getTrimmedString(unit.identifierType).toLowerCase();
+    const identifierValue = getTrimmedString(unit.identifierValue);
+    const id =
+      getTrimmedString(unit.inventoryUnitId) || `${orderItemId}:${index + 1}`;
+
+    return {
+      id,
+      imeiValues:
+        identifierType === 'imei' && identifierValue ? [identifierValue] : [],
+      searchTokens: collectStrings(unit),
+      serialValues:
+        identifierType === 'serial' && identifierValue ? [identifierValue] : [],
+      unitIndex: index,
+    };
+  });
+}
+
+/**
+ * Merge the order-level fulfillment units with the item-level serialized
+ * inventory units into a unitIndex→details map. Order-level records win when
+ * both are present so single-unit mirrors keep precedence, while multi-unit
+ * serialized lines (item-level only) still surface every unit.
+ */
+export function buildFulfillmentUnitIndex(
+  orderFulfillmentDetails: unknown,
+  itemFulfillmentData: unknown,
+  orderItemId: string
+): Map<number, FulfillmentUnitDetails> {
+  const byIndex = new Map<number, FulfillmentUnitDetails>();
+  for (const unit of getItemInventoryUnits(itemFulfillmentData, orderItemId)) {
+    byIndex.set(unit.unitIndex, unit);
+  }
+  for (const unit of getItemFulfillmentUnits(
+    orderFulfillmentDetails,
+    orderItemId
+  )) {
+    byIndex.set(unit.unitIndex, unit);
+  }
+  return byIndex;
+}
+
+export function getSafeLegacyOrderDetails(
+  fulfillmentDetails: unknown,
+  orderItemCount: number,
+  quantity: number
+) {
+  if (orderItemCount === 1 && quantity === 1) {
+    return fulfillmentDetails;
+  }
+
+  return null;
+}
+
+export function getUnitCostByIndex(
+  unitCosts: TransactionReviewUnitCostRow[] | null | undefined
+) {
+  const unitCostByIndex = new Map<number, TransactionReviewUnitCostRow>();
+
+  for (const unitCost of unitCosts ?? []) {
+    const unitIndex = getNonNegativeInteger(unitCost.unit_index);
+    if (unitIndex != null && !unitCostByIndex.has(unitIndex)) {
+      unitCostByIndex.set(unitIndex, unitCost);
+    }
+  }
+
+  return unitCostByIndex;
 }

@@ -20,9 +20,15 @@ export interface AnalyticsOrderRow {
   total: number | null;
 }
 
+export interface AnalyticsOrderItemUnitCostRow {
+  cost_price: number | string | null;
+  unit_index: number | null;
+}
+
 export interface AnalyticsOrderItemRow {
   cost_price?: number | null;
   name: string | null;
+  order_item_unit_costs?: AnalyticsOrderItemUnitCostRow[] | null;
   orders:
     | {
         created_at: string;
@@ -64,8 +70,17 @@ export interface BlogPostRow {
   view_count: number | null;
 }
 
-export function asNumber(value: number | null | undefined) {
-  return Number(value ?? 0);
+export function asNumber(value: number | string | null | undefined) {
+  if (value == null) {
+    return 0;
+  }
+
+  if (typeof value === 'string' && value.trim() === '') {
+    return 0;
+  }
+
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : 0;
 }
 
 function getJoinedAnalyticsRecord<T>(value: T | T[] | null | undefined) {
@@ -79,6 +94,49 @@ export function resolveOrderItemAnalyticsCost(item: AnalyticsOrderItemRow) {
   return asNumber(
     item.cost_price ?? variant?.cost_price ?? product?.cost_price
   );
+}
+
+/**
+ * Total cost for an order line, honoring per-unit costs recorded in
+ * order_item_unit_costs (supplier/IMEI cost overrides). Units with a recorded
+ * per-unit cost use it; the rest fall back to the line/variant/product cost —
+ * so the overview Profit/Margin cards stay consistent with the same unit costs
+ * the transaction-review and supplier-analytics surfaces show.
+ */
+export function resolveOrderItemAnalyticsLineCost(
+  item: AnalyticsOrderItemRow,
+  quantity: number
+) {
+  const fallbackUnitCost = resolveOrderItemAnalyticsCost(item);
+  const unitCosts = item.order_item_unit_costs ?? [];
+  if (unitCosts.length === 0 || quantity <= 0) {
+    return fallbackUnitCost * Math.max(quantity, 0);
+  }
+
+  let recordedTotal = 0;
+  const countedIndexes = new Set<number>();
+  for (const unit of unitCosts) {
+    const index = unit.unit_index;
+    const unitCostPrice =
+      unit.cost_price == null ? null : Number(unit.cost_price);
+    // Only count in-range, unique unit rows so stale/out-of-range data can't
+    // over- or double-count the line cost.
+    if (
+      index == null ||
+      index < 0 ||
+      index >= quantity ||
+      countedIndexes.has(index) ||
+      unitCostPrice == null ||
+      !Number.isFinite(unitCostPrice)
+    ) {
+      continue;
+    }
+    countedIndexes.add(index);
+    recordedTotal += unitCostPrice;
+  }
+
+  const remainingUnits = quantity - countedIndexes.size;
+  return recordedTotal + remainingUnits * fallbackUnitCost;
 }
 
 export function getPercentChange(current: number, previous: number) {
@@ -159,9 +217,9 @@ export function buildTopEntities(orderItems: AnalyticsOrderItemRow[]) {
     const revenue = quantity * price;
     const joinedProduct = getJoinedAnalyticsRecord(item.products);
     const brand = joinedProduct?.brand?.trim() || 'Unknown';
-    const cost = resolveOrderItemAnalyticsCost(item);
+    const lineCost = resolveOrderItemAnalyticsLineCost(item, quantity);
 
-    totalProfit += (price - cost) * quantity;
+    totalProfit += revenue - lineCost;
     totalUnitsSold += quantity;
 
     if (item.product_id) {

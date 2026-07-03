@@ -653,6 +653,19 @@ export default function AnalyticsScreen() {
                   accentColor={ACCENT_COLOR}
                 />
               )}
+
+              {analytics.topSupplier && (
+                <TopItemRow
+                  label="Top Supplier"
+                  name={analytics.topSupplier.supplierName}
+                  subtitle={`#1 in Units sourced: ${analytics.topSupplier.unitCount} ${
+                    analytics.topSupplier.unitCount === 1 ? 'unit' : 'units'
+                  } (${formatCompact(analytics.topSupplier.totalCost)} cost)`}
+                  onPress={() => pushInsightDetail('suppliers')}
+                  colors={colors}
+                  accentColor={ACCENT_COLOR}
+                />
+              )}
             </>
           )}
 

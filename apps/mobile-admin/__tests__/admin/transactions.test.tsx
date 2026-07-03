@@ -4,6 +4,7 @@ import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  alert: vi.fn(),
   mutateAsync: vi.fn(),
   routerPush: vi.fn(),
   useAnalyticsOverview: vi.fn(),
@@ -18,6 +19,9 @@ vi.mock('react-native', async () => {
     StatusBar: () => null,
     ActivityIndicator: () =>
       React.createElement('div', { role: 'progressbar' }),
+    Alert: {
+      alert: mocks.alert,
+    },
     Pressable: ({
       accessibilityLabel,
       children,
@@ -521,6 +525,111 @@ describe('TransactionsScreen', () => {
         orderItemId: 'item-1',
         productId: 'product-1',
         supplierName: 'New supplier',
+        transactionDateIso: expectedTransactionDateIso,
+        updateProductDefault: false,
+        variantId: null,
+      })
+    );
+  });
+
+  it('saves unit-level transaction cost metadata when editing a fulfilled unit row', async () => {
+    const expectedTransactionDateIso = buildTransactionDateIso('2026-04-10');
+    mocks.useTransactionReview.mockReturnValue({
+      data: [
+        {
+          createdAt: '2026-04-10T10:00:00.000Z',
+          customerEmail: null,
+          customerName: 'Kayode',
+          customerPhone: null,
+          estimatedProfit: 0,
+          id: 'order-unit',
+          items: [
+            {
+              costPrice: 850000,
+              costSource: 'unit',
+              imeiValues: [],
+              id: 'item-laptop:2',
+              name: 'HP EliteBook x360 1040 G10',
+              orderItemId: 'item-laptop',
+              productId: 'product-laptop',
+              profit: 50000,
+              quantity: 1,
+              revenue: 900000,
+              searchText: 'hp elitebook laptop-sn-2',
+              serialValues: ['LAPTOP-SN-2'],
+              sku: 'ELITEBOOK',
+              supplierName: 'Supplier B',
+              unitIndex: 1,
+              variantId: null,
+            },
+          ],
+          missingCostCount: 0,
+          orderNumber: 'ORD-UNIT',
+          paymentMethod: 'transfer',
+          searchText: 'ord-unit hp elitebook laptop-sn-2',
+          total: 900000,
+        },
+      ],
+      error: null,
+      isLoading: false,
+      isRefetching: false,
+      refetch: vi.fn(),
+    });
+
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Edit ORD-UNIT'));
+    fireEvent.change(screen.getByLabelText('Cost price input'), {
+      target: { value: '₦870,000' },
+    });
+    fireEvent.click(screen.getByText('Save cost price'));
+
+    await waitFor(() =>
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        costPrice: 870000,
+        identifierType: 'serial',
+        identifierValue: 'LAPTOP-SN-2',
+        orderId: 'order-unit',
+        orderItemId: 'item-laptop',
+        productId: 'product-laptop',
+        supplierName: 'Supplier b',
+        transactionDateIso: expectedTransactionDateIso,
+        unitIndex: 1,
+        updateProductDefault: false,
+        variantId: null,
+      })
+    );
+  });
+
+  it('asks for confirmation before saving a loss-making cost price', async () => {
+    const expectedTransactionDateIso = buildTransactionDateIso('2026-04-10');
+
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Edit ORD-1'));
+    fireEvent.change(screen.getByLabelText('Cost price input'), {
+      target: { value: '₦6,000' },
+    });
+    fireEvent.click(screen.getByText('Save cost price'));
+
+    expect(mocks.mutateAsync).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledTimes(1);
+    const [, message, buttons] = mocks.alert.mock.calls[0];
+    expect(message).toContain('loss of ₦1,000');
+    expect(buttons?.map((button: { text?: string }) => button.text)).toEqual([
+      'Cancel',
+      'Record loss',
+    ]);
+
+    buttons?.[1]?.onPress?.();
+
+    await waitFor(() =>
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        costPrice: 6000,
+        orderId: 'order-1',
+        orderItemId: 'item-1',
+        productId: 'product-1',
+        supplierName: 'Old supplier',
         transactionDateIso: expectedTransactionDateIso,
         updateProductDefault: false,
         variantId: null,

@@ -7,6 +7,8 @@ import type {
   TransactionReviewItem,
   TransactionReviewOrder,
 } from '@/hooks/useTransactionReview';
+import { TransactionOrderProfitSummary } from './TransactionOrderProfitSummary';
+import { formatTransactionDisplayText } from './transaction-display-format';
 
 interface TransactionOrderCardProps {
   colors: ThemeColors;
@@ -26,6 +28,12 @@ export function TransactionOrderCard({
 }: TransactionOrderCardProps) {
   const [expanded, setExpanded] = useState(false);
   const firstItem = order.items[0];
+  const customerName =
+    formatTransactionDisplayText(order.customerName) || 'Customer';
+  const firstItemName = formatTransactionDisplayText(firstItem?.name);
+  const paymentMethodLabel = formatTransactionDisplayText(order.paymentMethod, {
+    paymentMethod: true,
+  });
   const itemCount = order.items.length;
   const dateLabel = new Date(order.createdAt).toLocaleDateString(undefined, {
     day: 'numeric',
@@ -38,8 +46,8 @@ export function TransactionOrderCard({
         }`
       : 'Costs complete';
   const detailsActionLabel = expanded
-    ? `Close order details for ${order.customerName}`
-    : `View order details for ${order.customerName}`;
+    ? `Close order details for ${customerName}`
+    : `View order details for ${customerName}`;
 
   return (
     <View
@@ -61,7 +69,7 @@ export function TransactionOrderCard({
         <View style={styles.orderHeaderButton}>
           <View style={styles.flexOne}>
             <Text style={[styles.orderCustomerName, { color: colors.text }]}>
-              {order.customerName}
+              {customerName}
             </Text>
             <Text style={[styles.orderNumberText, { color: colors.textMuted }]}>
               {order.orderNumber}
@@ -96,7 +104,7 @@ export function TransactionOrderCard({
             numberOfLines={1}
             style={[styles.orderPreviewTitle, { color: colors.textSecondary }]}
           >
-            {firstItem?.name ?? 'No line items recorded'}
+            {firstItemName || 'No line items recorded'}
           </Text>
           <View style={styles.orderBadgeRow}>
             <Text
@@ -134,7 +142,7 @@ export function TransactionOrderCard({
                 },
               ]}
             >
-              {order.paymentMethod}
+              {paymentMethodLabel}
             </Text>
           </View>
         </View>
@@ -171,87 +179,119 @@ export function TransactionOrderCard({
             ) : null}
           </View>
 
-          {order.items.map((item) => (
-            <Pressable
-              key={item.id}
-              style={[styles.itemRow, { borderTopColor: colors.border }]}
-              onPress={() => onOpenEditor(order, item)}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.name}, ${item.quantity} units, revenue ${formatCurrency(item.revenue)}${
-                item.supplierName ? `, supplier ${item.supplierName}` : ''
-              }`}
-              accessibilityHint="Opens the transaction editor for this item"
-            >
-              <View style={styles.flexOne}>
-                <Text style={[styles.itemName, { color: colors.text }]}>
-                  {item.name}
-                </Text>
-                <Text
-                  style={[
-                    styles.orderSubtitle,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {item.quantity} units · Revenue {formatCurrency(item.revenue)}
-                </Text>
-                {item.supplierName ? (
-                  <Text
-                    style={[styles.itemDetailText, { color: colors.textMuted }]}
-                  >
-                    Supplier {item.supplierName}
+          {order.items.map((item) => {
+            const isLoss = item.profit != null && item.profit < 0;
+            const itemName = formatTransactionDisplayText(item.name);
+            const supplierName = formatTransactionDisplayText(
+              item.supplierName
+            );
+            const profitLabel =
+              item.profit == null
+                ? 'Profit unavailable'
+                : isLoss
+                  ? `Loss ${formatCurrency(Math.abs(item.profit))}`
+                  : `Profit ${formatCurrency(item.profit)}`;
+
+            return (
+              <Pressable
+                key={item.id}
+                style={[styles.itemRow, { borderTopColor: colors.border }]}
+                onPress={() => onOpenEditor(order, item)}
+                accessibilityRole="button"
+                accessibilityLabel={`${itemName}, ${item.quantity} units, revenue ${formatCurrency(item.revenue)}${
+                  supplierName ? `, supplier ${supplierName}` : ''
+                }`}
+                accessibilityHint="Opens the transaction editor for this item"
+              >
+                <View style={styles.flexOne}>
+                  <Text style={[styles.itemName, { color: colors.text }]}>
+                    {itemName}
                   </Text>
-                ) : null}
-                {!item.productId ? (
                   <Text
-                    style={[styles.itemDetailText, { color: colors.textMuted }]}
+                    style={[
+                      styles.orderSubtitle,
+                      { color: colors.textSecondary },
+                    ]}
                   >
-                    Custom item
+                    {item.quantity} units · Revenue{' '}
+                    {formatCurrency(item.revenue)}
                   </Text>
-                ) : null}
-                {item.imeiValues[0] ? (
+                  {supplierName ? (
+                    <Text
+                      style={[
+                        styles.itemDetailText,
+                        { color: colors.textMuted },
+                      ]}
+                    >
+                      Supplier {supplierName}
+                    </Text>
+                  ) : null}
+                  {!item.productId ? (
+                    <Text
+                      style={[
+                        styles.itemDetailText,
+                        { color: colors.textMuted },
+                      ]}
+                    >
+                      Custom item
+                    </Text>
+                  ) : null}
+                  {item.imeiValues[0] ? (
+                    <Text
+                      style={[
+                        styles.itemDetailText,
+                        { color: colors.textMuted },
+                      ]}
+                    >
+                      IMEI {item.imeiValues[0]}
+                    </Text>
+                  ) : null}
+                  {item.serialValues[0] ? (
+                    <Text
+                      style={[
+                        styles.itemDetailText,
+                        { color: colors.textMuted },
+                      ]}
+                    >
+                      S/N {item.serialValues[0]}
+                    </Text>
+                  ) : null}
+                </View>
+                <View style={styles.itemMeta}>
+                  <Text style={[styles.itemMetaValue, { color: colors.text }]}>
+                    {item.costPrice == null
+                      ? 'Cost missing'
+                      : `Cost ${formatCurrency(item.costPrice)}`}
+                  </Text>
                   <Text
-                    style={[styles.itemDetailText, { color: colors.textMuted }]}
+                    style={[
+                      styles.orderSubtitle,
+                      {
+                        color:
+                          item.costPrice == null || isLoss
+                            ? colors.error
+                            : colors.textMuted,
+                      },
+                    ]}
                   >
-                    IMEI {item.imeiValues[0]}
+                    {profitLabel}
                   </Text>
-                ) : null}
-                {item.serialValues[0] ? (
-                  <Text
-                    style={[styles.itemDetailText, { color: colors.textMuted }]}
-                  >
-                    S/N {item.serialValues[0]}
-                  </Text>
-                ) : null}
-              </View>
-              <View style={styles.itemMeta}>
-                <Text style={[styles.itemMetaValue, { color: colors.text }]}>
-                  {item.costPrice == null
-                    ? 'Cost missing'
-                    : `Cost ${formatCurrency(item.costPrice)}`}
-                </Text>
-                <Text
-                  style={[
-                    styles.orderSubtitle,
-                    {
-                      color:
-                        item.costPrice == null
-                          ? colors.error
-                          : colors.textMuted,
-                    },
-                  ]}
-                >
-                  {item.profit == null
-                    ? 'Profit unavailable'
-                    : `Profit ${formatCurrency(item.profit)}`}
-                </Text>
-              </View>
-              <Ionicons
-                name="create-outline"
-                size={18}
-                color={colors.textMuted}
-              />
-            </Pressable>
-          ))}
+                </View>
+                <Ionicons
+                  name="create-outline"
+                  size={18}
+                  color={colors.textMuted}
+                />
+              </Pressable>
+            );
+          })}
+          <TransactionOrderProfitSummary
+            colors={colors}
+            estimatedProfit={order.estimatedProfit}
+            formatCurrency={formatCurrency}
+            itemCount={itemCount}
+            missingCostCount={order.missingCostCount}
+          />
         </View>
       ) : null}
     </View>
