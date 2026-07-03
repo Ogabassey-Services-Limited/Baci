@@ -3681,6 +3681,36 @@ describe('blog subdomain migration redirects', () => {
     );
   });
 
+  it('301s trailing-slash dated permalinks to the canonical post URL in one hop', async () => {
+    const req = new NextRequest(
+      'https://blog.ogabassey.com/2025/04/14/5-things-you-didnt-know-your-ipad-can-do/'
+    );
+    req.headers.set('host', 'blog.ogabassey.com');
+
+    const res = await proxy(req);
+
+    // Single 301 (not a 308 trailing-slash strip first): the blog host is
+    // exempted from the generic trailing-slash redirect.
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/blog/5-things-you-didnt-know-your-ipad-can-do'
+    );
+  });
+
+  it('301s trailing-slash non-dated blog paths to a slashless target in one hop', async () => {
+    const req = new NextRequest(
+      'https://blog.ogabassey.com/chip-unlocked-what-they-wont-tell-you/'
+    );
+    req.headers.set('host', 'blog.ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/blog/chip-unlocked-what-they-wont-tell-you'
+    );
+  });
+
   it('301s non-dated legacy blog paths with their path preserved', async () => {
     const req = new NextRequest(
       'https://blog.ogabassey.com/chip-unlocked-what-they-wont-tell-you'
