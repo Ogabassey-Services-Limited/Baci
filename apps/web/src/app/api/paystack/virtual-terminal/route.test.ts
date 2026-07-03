@@ -50,6 +50,13 @@ vi.mock('@/lib/paystack', () => ({
   createVirtualTerminal: vi.fn(),
 }));
 
+const mockLoggerError = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: mockLoggerError,
+  },
+}));
+
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(() =>
     Promise.resolve({ valid: true, response: null })

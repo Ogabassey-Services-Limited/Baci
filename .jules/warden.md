@@ -36,3 +36,7 @@ Source: Zod 4 documentation, Warden persona rules
 Learning: Unscoped Supabase `.update()` calls can allow cross-tenant data leaks if not explicitly constrained with `.eq('merchant_id', merchantId)`.
 Action: Always append `.eq('merchant_id', merchantId)` to all Supabase `.update()` or `.delete()` mutations for defense-in-depth, even when the row is queried by a unique ID.
 Source: Baci Monorepo Context Guidelines
+2026-06-29 — Missing Error Checks on Supabase Updates
+Learning: Calling `supabase.from(...).update(...)` without capturing and checking the returned `error` object results in silent failures. If the database update fails (e.g. constraints), the route might proceed as if it succeeded.
+Action: Always destructure and check `const { error } = await supabase.from(...).update(...)`, throwing or handling it appropriately to prevent inconsistent states.
+Source: Supabase v2 Javascript Client Docs

@@ -88,6 +88,26 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
 
+    // Sync the updated name to the local virtual_terminals table
+    const { error: syncError } = await supabase
+      .from('virtual_terminals')
+      .update({ name: result.data.name })
+      .eq('code', code)
+      .eq('merchant_id', merchantId);
+
+    if (syncError) {
+      logger.error({
+        message: 'Failed to sync virtual terminal name locally',
+        error: syncError,
+        merchantId,
+        code,
+      });
+      return NextResponse.json(
+        { error: 'Terminal updated in Paystack but local sync failed' },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       terminal: result.data,
@@ -272,11 +292,41 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
 
-    // Clear terminal code from merchant record
-    await supabase
+    // Also mark the virtual terminal record as inactive
+    const { error: deactivateError } = await supabase
+      .from('virtual_terminals')
+      .update({ active: false })
+      .eq('code', code)
+      .eq('merchant_id', merchantId);
+
+    if (deactivateError) {
+      logger.error({
+        message: 'Failed to mark virtual terminal inactive locally',
+        error: deactivateError,
+        merchantId,
+        code,
+      });
+      return NextResponse.json(
+        {
+          error:
+            'Terminal deactivated in Paystack but local status update failed',
+        },
+        { status: 500 }
+      );
+    }
+
+    // Clear terminal code from merchant record (legacy)
+    const { error: clearTerminalError } = await supabase
       .from('merchants')
       .update({ virtual_terminal_code: null })
       .eq('id', merchantId);
+
+    if (clearTerminalError) {
+      return NextResponse.json(
+        { error: 'Failed to clear virtual terminal code' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

@@ -14,6 +14,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { logger } from '@/lib/logger';
 import { createVirtualTerminal } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
 
@@ -135,7 +136,12 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertError) {
-      console.error('Failed to save terminal to DB:', insertError);
+      logger.error({
+        message: 'Failed to save terminal to DB',
+        error: insertError,
+        merchantId,
+        paystackCode: result.data.code,
+      });
       // Terminal was created in Paystack but not saved locally - this is critical
       return NextResponse.json(
         {
@@ -156,10 +162,17 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!existingLegacy?.virtual_terminal_code) {
-      await supabase
+      const { error: updateLegacyError } = await supabase
         .from('merchants')
         .update({ virtual_terminal_code: result.data.code })
         .eq('id', merchantId);
+
+      if (updateLegacyError) {
+        return NextResponse.json(
+          { error: 'Failed to update merchant legacy virtual terminal code' },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({
@@ -177,7 +190,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Virtual Terminal creation error:', error);
+    logger.error({ message: 'Virtual Terminal creation error', error });
     return NextResponse.json(
       { error: 'Failed to create Virtual Terminal' },
       { status: 500 }
@@ -218,7 +231,7 @@ export async function GET(request: NextRequest) {
     const merchantId = merchantContext.merchantId;
 
     // Get all terminals for this merchant
-    const { data: terminals } = await supabase
+    const { data: terminals, error: listError } = await supabase
       .from('virtual_terminals')
       .select(`
         id,
@@ -239,12 +252,24 @@ export async function GET(request: NextRequest) {
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 
+    if (listError) {
+      logger.error({
+        message: 'Database error fetching virtual terminals',
+        error: listError,
+        merchantId,
+      });
+      return NextResponse.json(
+        { error: 'Failed to fetch Virtual Terminals from database' },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       terminals: terminals || [],
     });
   } catch (error) {
-    console.error('Virtual Terminal list error:', error);
+    logger.error({ message: 'Virtual Terminal list error', error });
     return NextResponse.json(
       { error: 'Failed to list Virtual Terminals' },
       { status: 500 }
