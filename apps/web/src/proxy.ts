@@ -2249,13 +2249,11 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isLegacyKlumpWebhook) {
-    const webhookUrl = new URL(
-      KLUMP_WEBHOOK_API_PATH + request.nextUrl.search,
-      request.url
+    const response = NextResponse.json(
+      { error: 'Legacy Klump WooCommerce webhook endpoint retired' },
+      { status: 410 }
     );
-
-    const response = NextResponse.rewrite(webhookUrl);
-    return applySecurityHeaders(
+    const securedResponse = applySecurityHeaders(
       response,
       KLUMP_WEBHOOK_API_PATH,
       userAgent,
@@ -2265,6 +2263,8 @@ export async function proxy(request: NextRequest) {
       request,
       hostname
     );
+    securedResponse.headers.set('Cache-Control', 'no-store');
+    return securedResponse;
   }
 
   if (isLegacyAnalyticsConversionPost) {
