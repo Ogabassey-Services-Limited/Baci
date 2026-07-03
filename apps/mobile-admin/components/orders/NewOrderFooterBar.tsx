@@ -106,9 +106,7 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
                     borderColor: isSelected ? statusColor : colors.border,
                     borderWidth: 1,
                   },
-                  isSelected && {
-                    ...shadows.sm,
-                  },
+                  isSelected && shadows.sm,
                 ]}
               >
                 <Ionicons
