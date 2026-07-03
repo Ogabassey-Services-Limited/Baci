@@ -18,23 +18,13 @@ import { styles } from '@/components/transactions/transactions.styles';
 import { useAnalyticsOverview } from '@/hooks/useAnalyticsOverview';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
-import {
-  type TransactionReviewItem,
-  type TransactionReviewOrder,
-  useTransactionReview,
-} from '@/hooks/useTransactionReview';
-import { useUpdateTransactionCostPrice } from '@/hooks/useUpdateTransactionCostPrice';
+import { useTransactionCostPriceEditor } from '@/hooks/useTransactionCostPriceEditor';
+import { useTransactionReview } from '@/hooks/useTransactionReview';
 import { resolveAnalyticsDateRange } from '@/lib/analytics-period';
 import {
-  buildTransactionDateIso,
   filterOrdersForTransactionTab,
   filterTransactionOrders,
-  formatCostPriceInput,
-  formatCostPriceInputText,
-  formatTransactionDateInput,
   getSupplierOptionsFromOrders,
-  parseCostPriceInput,
-  toSentenceCaseSupplierName,
 } from '@/lib/transaction-review';
 
 type TransactionReviewTab = 'missing-costs' | 'paid';
@@ -84,18 +74,12 @@ export default function TransactionsScreen() {
     refetch,
   } = useTransactionReview(range);
   const isRetrying = isLoading || isRefetching;
-  const updateCostPrice = useUpdateTransactionCostPrice();
-  const [selectedItem, setSelectedItem] =
-    useState<TransactionReviewItem | null>(null);
-  const [selectedOrder, setSelectedOrder] =
-    useState<TransactionReviewOrder | null>(null);
   const [activeTab, setActiveTab] = useState<TransactionReviewTab>('paid');
-  const [costPriceInput, setCostPriceInput] = useState('');
-  const [dateInput, setDateInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [supplierInput, setSupplierInput] = useState('');
-  const [updateProductDefault, setUpdateProductDefault] = useState(false);
+  const editor = useTransactionCostPriceEditor({
+    currencySymbol,
+    formatCurrency,
+  });
 
   const summary = orders.reduce(
     (acc, order) => ({
@@ -125,76 +109,6 @@ export default function TransactionsScreen() {
       ? 'Review 1 unmatched transaction item'
       : `Review ${unmatchedItemCount} unmatched transaction items`;
   const supplierOptions = getSupplierOptionsFromOrders(orders);
-
-  const handleOpenEditor = (
-    order: TransactionReviewOrder,
-    item: TransactionReviewItem
-  ) => {
-    setSelectedOrder(order);
-    setSelectedItem(item);
-    setCostPriceInput(formatCostPriceInput(item.costPrice, currencySymbol));
-    setDateInput(formatTransactionDateInput(order.createdAt));
-    setSupplierInput(toSentenceCaseSupplierName(item.supplierName ?? ''));
-    setUpdateProductDefault(false);
-    setSaveError(null);
-  };
-
-  const handleCloseEditor = () => {
-    setSelectedOrder(null);
-    setSelectedItem(null);
-    setCostPriceInput('');
-    setDateInput('');
-    setSaveError(null);
-    setSupplierInput('');
-    setUpdateProductDefault(false);
-  };
-
-  const handleChangeCostPrice = (value: string) => {
-    setCostPriceInput(formatCostPriceInputText(value, currencySymbol));
-  };
-
-  const handleChangeSupplier = (value: string) => {
-    setSupplierInput(value);
-  };
-
-  const handleSave = async () => {
-    if (!selectedOrder || !selectedItem) {
-      return;
-    }
-
-    const nextCostPrice = parseCostPriceInput(costPriceInput);
-    if (Number.isNaN(nextCostPrice) || nextCostPrice < 0) {
-      setSaveError('Enter a valid cost price (0 or greater).');
-      return;
-    }
-
-    const nextTransactionDateIso = buildTransactionDateIso(dateInput);
-    if (!nextTransactionDateIso) {
-      setSaveError('Enter a valid transaction date in YYYY-MM-DD format.');
-      return;
-    }
-
-    try {
-      setSaveError(null);
-      await updateCostPrice.mutateAsync({
-        costPrice: nextCostPrice,
-        orderId: selectedOrder.id,
-        orderItemId: selectedItem.id,
-        productId: selectedItem.productId,
-        supplierName: toSentenceCaseSupplierName(supplierInput),
-        transactionDateIso: nextTransactionDateIso,
-        updateProductDefault,
-        variantId: selectedItem.variantId,
-      });
-      handleCloseEditor();
-    } catch (err) {
-      setSaveError(
-        err instanceof Error
-          ? err.message
-          : 'Could not update cost price. Please try again.'
-      );
-    }
-  };
 
   return (
     <>
@@ -342,7 +256,7 @@ export default function TransactionsScreen() {
               key={order.id}
               colors={colors}
               formatCurrency={formatCurrency}
-              onOpenEditor={handleOpenEditor}
+              onOpenEditor={editor.handleOpenEditor}
               order={order}
             />
           ))}
@@ -350,22 +264,22 @@ export default function TransactionsScreen() {
 
         <CostPriceEditorModal
           colors={colors}
-          costPriceInput={costPriceInput}
+          costPriceInput={editor.costPriceInput}
           currencySymbol={currencySymbol}
-          dateInput={dateInput}
-          onChangeCostPrice={handleChangeCostPrice}
-          onChangeDate={setDateInput}
-          onChangeSupplier={handleChangeSupplier}
-          onChangeUpdateProductDefault={setUpdateProductDefault}
-          onClose={handleCloseEditor}
-          onSave={handleSave}
-          pending={updateCostPrice.isPending}
-          saveError={saveError}
-          selectedItem={selectedItem}
+          dateInput={editor.dateInput}
+          onChangeCostPrice={editor.handleChangeCostPrice}
+          onChangeDate={editor.setDateInput}
+          onChangeSupplier={editor.handleChangeSupplier}
+          onChangeUpdateProductDefault={editor.setUpdateProductDefault}
+          onClose={editor.handleCloseEditor}
+          onSave={editor.handleSave}
+          pending={editor.pending}
+          saveError={editor.saveError}
+          selectedItem={editor.selectedItem}
           supplierOptions={supplierOptions}
-          supplierInput={supplierInput}
-          updateProductDefault={updateProductDefault}
-          visible={Boolean(selectedItem)}
+          supplierInput={editor.supplierInput}
+          updateProductDefault={editor.updateProductDefault}
+          visible={Boolean(editor.selectedItem)}
         />
       </SafeAreaView>
     </>

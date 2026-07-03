@@ -49,11 +49,14 @@ import { useUpdateTransactionCostPrice } from './useUpdateTransactionCostPrice';
 
 type UpdateTransactionReviewDetailsInput = {
   costPrice: number;
+  identifierType?: 'imei' | 'serial' | null;
+  identifierValue?: string | null;
   orderId: string;
   orderItemId: string;
   productId: string | null;
   supplierName: string;
   transactionDateIso: string;
+  unitIndex?: number | null;
   updateProductDefault: boolean;
   variantId: string | null;
 };
@@ -102,12 +105,15 @@ describe('useUpdateTransactionCostPrice', () => {
       {
         p_client_timezone: expect.any(String),
         p_cost_price: 125_000,
+        p_identifier_type: null,
+        p_identifier_value: null,
         p_merchant_id: 'merchant-1',
         p_order_id: 'order-1',
         p_order_item_id: 'item-1',
         p_product_id: 'product-1',
         p_supplier_name: 'Main Supplier',
         p_transaction_date: '2026-05-12T12:30:15.250Z',
+        p_unit_index: null,
         p_update_product_default: false,
         p_variant_id: null,
       }
@@ -205,6 +211,29 @@ describe('useUpdateTransactionCostPrice', () => {
     expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });
 
+  it('rejects missing supplier names before saving', async () => {
+    const mutation = getMutation();
+
+    await expect(
+      mutation.mutationFn(makeInput({ supplierName: '   ' }))
+    ).rejects.toThrow('Supplier name is required');
+
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
+  });
+
+  it('trims supplier names before saving', async () => {
+    const mutation = getMutation();
+
+    await mutation.mutationFn(makeInput({ supplierName: '  Main Supplier  ' }));
+
+    expect(supabaseMock.rpc).toHaveBeenCalledWith(
+      'update_transaction_review_details',
+      expect.objectContaining({
+        p_supplier_name: 'Main Supplier',
+      })
+    );
+  });
+
   it('saves an unlinked custom order item without a product id', async () => {
     const mutation = getMutation();
 
@@ -247,6 +276,72 @@ describe('useUpdateTransactionCostPrice', () => {
         p_product_id: 'product-1',
         p_update_product_default: true,
         p_variant_id: 'variant-1',
+      })
+    );
+  });
+
+  it('forwards unit-level identifier fields to the RPC for per-unit cost edits', async () => {
+    const mutation = getMutation();
+
+    await mutation.mutationFn(
+      makeInput({
+        identifierType: 'imei',
+        identifierValue: '356938035643809',
+        unitIndex: 0,
+      })
+    );
+
+    expect(supabaseMock.rpc).toHaveBeenCalledWith(
+      'update_transaction_review_details',
+      expect.objectContaining({
+        p_identifier_type: 'imei',
+        p_identifier_value: '356938035643809',
+        p_unit_index: 0,
+      })
+    );
+  });
+
+  it('rejects unsupported identifier types before saving', async () => {
+    const mutation = getMutation();
+
+    await expect(
+      mutation.mutationFn(
+        makeInput({
+          identifierType: 'barcode' as unknown as 'imei',
+          identifierValue: 'ABC123',
+          unitIndex: 0,
+        })
+      )
+    ).rejects.toThrow('Identifier type must be imei or serial.');
+
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid unit indexes before saving', async () => {
+    const mutation = getMutation();
+
+    await expect(
+      mutation.mutationFn(makeInput({ unitIndex: -1 }))
+    ).rejects.toThrow('Unit index must be a non-negative integer.');
+
+    await expect(
+      mutation.mutationFn(makeInput({ unitIndex: 1.5 }))
+    ).rejects.toThrow('Unit index must be a non-negative integer.');
+
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
+  });
+
+  it('defaults unit-level fields to null for order-item-level cost edits', async () => {
+    const mutation = getMutation();
+
+    await mutation.mutationFn(makeInput());
+
+    expect(supabaseMock.rpc).toHaveBeenCalledWith(
+      'update_transaction_review_details',
+      expect.objectContaining({
+        p_identifier_type: null,
+        p_identifier_value: null,
+        p_unit_index: null,
       })
     );
   });

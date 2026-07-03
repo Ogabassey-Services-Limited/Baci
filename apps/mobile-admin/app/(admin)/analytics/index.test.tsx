@@ -168,6 +168,16 @@ function makeAnalyticsOverview() {
     topCustomer: { name: 'Ada', value: 2 },
     topPaymentMethod: { name: 'card', value: 80 },
     topProducts: [{ id: 'p1', name: 'Galaxy S26', revenue: 120_000 }],
+    topSupplier: {
+      grossProfit: 30_000,
+      lossUnitCount: 0,
+      missingCostUnitCount: 0,
+      orderCount: 2,
+      supplierName: 'Ugosam',
+      totalCost: 90_000,
+      totalRevenue: 120_000,
+      unitCount: 3,
+    },
   };
 }
 
@@ -191,6 +201,7 @@ describe('AnalyticsScreen', () => {
     expect(screen.getByText('Average Order Value')).toBeTruthy();
     expect(screen.getByText('Samsung')).toBeTruthy();
     expect(screen.getByText('Galaxy S26')).toBeTruthy();
+    expect(screen.getByText('Ugosam')).toBeTruthy();
   });
 
   it('routes metric rows to the advanced detail screen', () => {
@@ -202,6 +213,19 @@ describe('AnalyticsScreen', () => {
       expect.objectContaining({
         params: expect.objectContaining({ metric: 'revenue' }),
         pathname: '/analytics/[metric]',
+      })
+    );
+  });
+
+  it('routes the top supplier row to supplier insights', () => {
+    render(<AnalyticsScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Top Supplier/i }));
+
+    expect(mocks.router.push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: expect.objectContaining({ kind: 'suppliers' }),
+        pathname: '/analytics/insights',
       })
     );
   });

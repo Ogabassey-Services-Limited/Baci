@@ -32,6 +32,18 @@ describe('merchant analytics types', () => {
       ],
       salesByChannel: [{ name: 'online_store', value: 1200 }],
       salesByPaymentMethod: [{ name: 'card', value: 1200 }],
+      supplierAnalytics: [
+        {
+          grossProfit: 600,
+          lossUnitCount: 0,
+          missingCostUnitCount: 0,
+          orderCount: 1,
+          supplierName: 'Supplier A',
+          totalCost: 600,
+          totalRevenue: 1200,
+          unitCount: 1,
+        },
+      ],
       summary: {
         activeNow: { change: 0, value: 1 },
         aov: { change: 0, value: 1200 },
@@ -55,10 +67,21 @@ describe('merchant analytics types', () => {
       topProducts: [
         { id: 'product-1', name: 'iPhone', revenue: 1200, units: 1 },
       ],
+      topSupplier: {
+        grossProfit: 600,
+        lossUnitCount: 0,
+        missingCostUnitCount: 0,
+        orderCount: 1,
+        supplierName: 'Supplier A',
+        totalCost: 600,
+        totalRevenue: 1200,
+        unitCount: 1,
+      },
     };
 
     expect(value.summary.revenue.value).toBe(1200);
     expect(value.blog.topPost?.slug).toBe('hello-world');
+    expect(value.topSupplier?.supplierName).toBe('Supplier A');
   });
 
   it('accepts nullable analytics branches in the shared contract', () => {
@@ -76,6 +99,7 @@ describe('merchant analytics types', () => {
       recentSales: [],
       salesByChannel: [],
       salesByPaymentMethod: [],
+      supplierAnalytics: [],
       summary: {
         activeNow: { change: 0, value: 0 },
         aov: { change: 0, value: 0 },
@@ -97,9 +121,11 @@ describe('merchant analytics types', () => {
       topCustomer: null,
       topPaymentMethod: null,
       topProducts: [],
+      topSupplier: null,
     };
 
     expect(value.blog.topPost).toBeNull();
     expect(value.topBrand).toBeNull();
+    expect(value.topSupplier).toBeNull();
   });
 });

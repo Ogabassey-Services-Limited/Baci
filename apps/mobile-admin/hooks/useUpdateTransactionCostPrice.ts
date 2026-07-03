@@ -2,13 +2,18 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMerchant } from '@/hooks/useMerchant';
 import { supabase } from '@/lib/supabase';
 
+type TransactionIdentifierType = 'imei' | 'serial';
+
 interface UpdateTransactionReviewDetailsInput {
   costPrice: number;
+  identifierType?: TransactionIdentifierType | null;
+  identifierValue?: string | null;
   orderId: string;
   orderItemId: string;
   productId: string | null;
   supplierName: string;
   transactionDateIso: string;
+  unitIndex?: number | null;
   updateProductDefault: boolean;
   variantId: string | null;
 }
@@ -42,11 +47,14 @@ export function useUpdateTransactionCostPrice() {
   return useMutation({
     mutationFn: async ({
       costPrice,
+      identifierType,
+      identifierValue,
       orderId,
       orderItemId,
       productId,
       supplierName,
       transactionDateIso,
+      unitIndex,
       updateProductDefault,
       variantId,
     }: UpdateTransactionReviewDetailsInput) => {
@@ -63,11 +71,28 @@ export function useUpdateTransactionCostPrice() {
       if (!orderId.trim() || !orderItemId.trim()) {
         throw new Error('Transaction and line item are required');
       }
+      const trimmedSupplierName = supplierName.trim();
+      if (!trimmedSupplierName) {
+        throw new Error('Supplier name is required');
+      }
       if (updateProductDefault && !productId?.trim()) {
         throw new Error('Product is required to update the catalog default');
       }
       if (!transactionDateIso.trim()) {
         throw new Error('Enter a valid transaction date.');
+      }
+      if (
+        identifierType != null &&
+        identifierType !== 'imei' &&
+        identifierType !== 'serial'
+      ) {
+        throw new Error('Identifier type must be imei or serial.');
+      }
+      if (
+        unitIndex != null &&
+        (!Number.isInteger(unitIndex) || unitIndex < 0)
+      ) {
+        throw new Error('Unit index must be a non-negative integer.');
       }
 
       const parsedTransactionDate = new Date(transactionDateIso);
@@ -85,12 +110,15 @@ export function useUpdateTransactionCostPrice() {
         {
           p_cost_price: costPrice,
           p_client_timezone: clientTimeZone,
+          p_identifier_type: identifierType ?? null,
+          p_identifier_value: identifierValue ?? null,
           p_merchant_id: merchant.id,
           p_order_id: orderId.trim(),
           p_order_item_id: orderItemId.trim(),
           p_product_id: productId?.trim() || null,
-          p_supplier_name: supplierName,
+          p_supplier_name: trimmedSupplierName,
           p_transaction_date: parsedTransactionDate.toISOString(),
+          p_unit_index: unitIndex ?? null,
           p_update_product_default: updateProductDefault,
           p_variant_id: variantId?.trim() || null,
         }

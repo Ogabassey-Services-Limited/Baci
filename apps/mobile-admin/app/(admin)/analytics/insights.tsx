@@ -35,6 +35,7 @@ const INSIGHT_TITLES: Record<string, string> = {
   brands: 'Top Vendors',
   customers: 'Top Customers',
   'payment-methods': 'Payment Methods',
+  suppliers: 'Supplier Analytics',
 };
 
 function getSingleParam(value?: string | string[]) {
@@ -137,6 +138,12 @@ function AnalyticsInsightsContent({
           id: `payment-${index}`,
           label: item.name,
           value: formatCurrencyNoDecimals(item.value ?? 0),
+        }));
+      case 'suppliers':
+        return (analytics?.supplierAnalytics ?? []).map((item, index) => ({
+          id: `supplier-${index}`,
+          label: item.supplierName,
+          value: `${item.unitCount.toLocaleString()} units - ${formatCurrencyNoDecimals(item.totalCost)} cost`,
         }));
       default:
         return [];

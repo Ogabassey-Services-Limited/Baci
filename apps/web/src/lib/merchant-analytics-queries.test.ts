@@ -6,6 +6,10 @@ function createSupabaseMock() {
     table: string;
     calls: Array<{ method: string; args: unknown[] }>;
   }> = [];
+  const rpcCalls: Array<{
+    functionName: string;
+    args: Record<string, unknown>;
+  }> = [];
   const chainErrors: Partial<Record<string, Error>> = {};
 
   function makeChain(table: string) {
@@ -40,10 +44,15 @@ function createSupabaseMock() {
 
   return {
     chains,
+    rpcCalls,
     setChainError: (table: string, error: Error) => {
       chainErrors[table] = error;
     },
     from: (table: string) => makeChain(table),
+    rpc: (functionName: string, args: Record<string, unknown>) => {
+      rpcCalls.push({ functionName, args });
+      return Promise.resolve({ data: [], error: null });
+    },
   };
 }
 
@@ -145,5 +154,33 @@ describe('fetchMerchantAnalyticsData', () => {
         expect.stringContaining('products(brand, cost_price)')
       );
     }
+  });
+
+  it('loads supplier purchase analytics with the same date and branch scope', async () => {
+    const supabase = createSupabaseMock();
+    const startDate = new Date('2026-05-01T00:00:00.000Z');
+    const endDate = new Date('2026-05-05T00:00:00.000Z');
+
+    await fetchMerchantAnalyticsData(
+      supabase as never,
+      'merchant-1',
+      startDate,
+      endDate,
+      new Date('2026-04-26T00:00:00.000Z'),
+      new Date('2026-04-30T00:00:00.000Z'),
+      'branch-1'
+    );
+
+    expect(supabase.rpcCalls).toEqual([
+      {
+        functionName: 'get_supplier_purchase_analytics',
+        args: {
+          p_branch_id: 'branch-1',
+          p_end_date: endDate.toISOString(),
+          p_merchant_id: 'merchant-1',
+          p_start_date: startDate.toISOString(),
+        },
+      },
+    ]);
   });
 });
