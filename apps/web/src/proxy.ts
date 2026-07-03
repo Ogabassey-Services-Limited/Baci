@@ -2103,8 +2103,15 @@ export async function proxy(request: NextRequest) {
       ? ANALYTICS_CONVERSION_API_PATH
       : pathname;
 
+  // The blog.ogabassey.com migration branch below owns every request to that
+  // host and does its own trailing-slash normalization, so exempt it here.
+  // Otherwise a trailing-slash WordPress permalink (the common form, e.g.
+  // /2025/04/14/slug/) would take this 308 first and only reach the dated
+  // collapse on a second hop.
   const noTrailingSlashPathname =
-    isLegacyKlumpWebhook || isLegacyAnalyticsConversionPost
+    isLegacyKlumpWebhook ||
+    isLegacyAnalyticsConversionPost ||
+    normalizeHostname(hostname) === 'blog.ogabassey.com'
       ? null
       : getNoTrailingSlashRedirectPath(pathname);
   if (noTrailingSlashPathname) {
@@ -2303,6 +2310,22 @@ export async function proxy(request: NextRequest) {
     // Avoid double /blog/ when the malformed path already includes it
     if (cleanPath.startsWith('/blog/') || cleanPath === '/blog') {
       cleanPath = cleanPath.slice('/blog'.length) || '/';
+    }
+    // Drop a trailing slash so every blog-subdomain redirect lands on its
+    // canonical target in one hop. This host is exempted from the generic
+    // trailing-slash 308 above, so the normalization has to happen here.
+    if (cleanPath.length > 1 && cleanPath.endsWith('/')) {
+      cleanPath = cleanPath.replace(/\/+$/, '') || '/';
+    }
+    // Collapse dated WordPress permalinks (/YYYY/MM/DD/slug) here so the host
+    // swap lands on the canonical post URL in one hop instead of chaining
+    // through the /blog/[...catchAll] date-strip 308. Unknown slugs 404 at
+    // the post route — the same terminal state the chained lookup produced.
+    const datedPermalinkMatch = cleanPath.match(
+      /^\/\d{4}\/\d{2}\/\d{2}\/([^/]+?)\/?$/
+    );
+    if (datedPermalinkMatch) {
+      cleanPath = `/${datedPermalinkMatch[1]}`;
     }
     const newPath = cleanPath === '/' ? '' : cleanPath;
     const newUrl = `https://ogabassey.com/blog${newPath}`;

@@ -532,18 +532,49 @@ const nextConfig: NextConfig = {
         destination: '/',
         permanent: true,
       },
-      // /product-category/* - redirect to products
-      {
-        source: '/product-category/:path*',
-        destination: '/ogabassey/products',
-        permanent: true,
-      },
-      // /category/product/:id - legacy product URLs
-      {
-        source: '/category/product/:id',
-        destination: '/ogabassey/products',
-        permanent: true,
-      },
+      // /product-category/* — WordPress-era category URLs. Known WP categories
+      // map to their live category pages; anything else falls through to the
+      // product index. Destinations must be public single-hop paths — the
+      // previous '/ogabassey/products' target leaked the internal
+      // slug-prefixed path and chained through the merchant-prefix collapse
+      // redirect in proxy.ts.
+      //
+      // Host-scoped to both apex and www via OGABASSEY_REDIRECT_HOST_MATCHERS
+      // (same pattern as the off-topic blog redirects above) so www legacy
+      // links resolve in one hop rather than depending on an upstream www→apex
+      // redirect. Scoping matters for the /products fallbacks specifically:
+      // `products` is a PLATFORM_ROOT_ROUTE_SEGMENT with no top-level route, so
+      // an unscoped redirect would 404 on a slug-prefixed platform/preview host
+      // instead of falling through to that host's normal handling.
+      //
+      // The `:path*` suffix (zero-or-more segments) folds WP pagination and
+      // nested variants — e.g. /product-category/smartwatches/page/2 — onto the
+      // category root in a single hop instead of dropping them to the generic
+      // /products fallback, mirroring the exact+wildcard pairing the sibling
+      // /macbook, /samsung, /phones rules use above.
+      ...OGABASSEY_REDIRECT_HOST_MATCHERS.flatMap((hostMatcher) => [
+        ...['accessories', 'headphones', 'smartwatches'].map(
+          (categorySlug) => ({
+            source: `/product-category/${categorySlug}/:path*`,
+            destination: `/${categorySlug}`,
+            permanent: true,
+            has: [{ type: 'host' as const, value: hostMatcher }],
+          })
+        ),
+        {
+          source: '/product-category/:path*',
+          destination: '/products',
+          permanent: true,
+          has: [{ type: 'host' as const, value: hostMatcher }],
+        },
+        // /category/product/:id - legacy product URLs
+        {
+          source: '/category/product/:id',
+          destination: '/products',
+          permanent: true,
+          has: [{ type: 'host' as const, value: hostMatcher }],
+        },
+      ]),
     ]);
   },
 
