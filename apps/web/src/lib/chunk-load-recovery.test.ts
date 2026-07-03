@@ -1,7 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   type ChunkLoadRecoveryRuntime,
   createChunkLoadRecoveryHandlers,
+  isChunkRecoveryReloadPending,
+  resetChunkLoadRecoveryStateForTests,
 } from './chunk-load-recovery';
 
 const NEXT_DEPLOYMENT_ID_GLOBAL = 'NEXT_DEPLOYMENT_ID';
@@ -33,6 +35,10 @@ function stubWindowLocation() {
   } as unknown as Location);
   return reload;
 }
+
+beforeEach(() => {
+  resetChunkLoadRecoveryStateForTests();
+});
 
 afterEach(() => {
   Reflect.deleteProperty(globalThis, NEXT_DEPLOYMENT_ID_GLOBAL);
@@ -229,6 +235,126 @@ describe('chunk-load recovery', () => {
     expect(reload).not.toHaveBeenCalled();
   });
 
+  it('reloads once for a stale chunk from a previous deployment id', () => {
+    const { runtime } = createRuntime();
+    const handlers = createChunkLoadRecoveryHandlers(runtime);
+
+    handlers.handleUnhandledRejection({
+      reason: new Error(
+        'ChunkLoadError: Failed to load chunk /_next/static/chunks/old-page.js?dpl=deploy-previous from module 7'
+      ),
+    });
+
+    expect(runtime.reload).toHaveBeenCalledTimes(1);
+    expect(runtime.sendTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'reload',
+        failedAssetDeploymentId: 'deploy-previous',
+        pageDeploymentId: 'deploy-1',
+      })
+    );
+  });
+});
+
+describe('reload-pending state', () => {
+  it('reports a pending reload only after recovery actually schedules one', () => {
+    const { runtime } = createRuntime();
+    const handlers = createChunkLoadRecoveryHandlers(runtime);
+
+    expect(isChunkRecoveryReloadPending()).toBe(false);
+
+    handlers.handleUnhandledRejection({
+      reason: new Error(
+        'ChunkLoadError: Failed to load chunk /_next/static/chunks/app.js'
+      ),
+    });
+
+    expect(runtime.reload).toHaveBeenCalledTimes(1);
+    expect(isChunkRecoveryReloadPending()).toBe(true);
+  });
+
+  it('stays pending across a burst of declined follow-up failures', () => {
+    const { runtime } = createRuntime();
+    const handlers = createChunkLoadRecoveryHandlers(runtime);
+    const rejection = {
+      reason: new Error(
+        'ChunkLoadError: Failed to load chunk /_next/static/chunks/app.js'
+      ),
+    };
+
+    handlers.handleUnhandledRejection(rejection);
+    handlers.handleUnhandledRejection(rejection);
+
+    expect(runtime.reload).toHaveBeenCalledTimes(1);
+    expect(isChunkRecoveryReloadPending()).toBe(true);
+  });
+
+  it('is not pending on a fresh page load when the guard already declined the reload', () => {
+    // Simulates the post-reload page: recovery module state is fresh but the
+    // sessionStorage guard was consumed by the previous page's reload, so the
+    // repeat failure must stay fully visible to error tracking.
+    const { runtime, storage } = createRuntime();
+    storage.set('baci:chunk-load-recovery:deploy-1::/checkout', '1');
+    const handlers = createChunkLoadRecoveryHandlers(runtime);
+
+    handlers.handleUnhandledRejection({
+      reason: new Error(
+        'ChunkLoadError: Failed to load chunk /_next/static/chunks/app.js'
+      ),
+    });
+
+    expect(runtime.reload).not.toHaveBeenCalled();
+    expect(runtime.sendTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'skipped-already-attempted' })
+    );
+    expect(isChunkRecoveryReloadPending()).toBe(false);
+  });
+
+  it('expires when the scheduled reload never navigates', () => {
+    let nowMs = 1_000_000;
+    const { runtime } = createRuntime({ getNow: () => nowMs });
+    const handlers = createChunkLoadRecoveryHandlers(runtime);
+
+    handlers.handleUnhandledRejection({
+      reason: new Error(
+        'ChunkLoadError: Failed to load chunk /_next/static/chunks/app.js'
+      ),
+    });
+    expect(isChunkRecoveryReloadPending(nowMs)).toBe(true);
+
+    nowMs += 11_000;
+
+    expect(isChunkRecoveryReloadPending(nowMs)).toBe(false);
+  });
+
+  it('is not pending when recovery declines for offline clients', () => {
+    const { runtime } = createRuntime({ isOffline: () => true });
+    const handlers = createChunkLoadRecoveryHandlers(runtime);
+
+    handlers.handleUnhandledRejection({
+      reason: new Error(
+        'ChunkLoadError: Failed to load chunk /_next/static/chunks/app.js'
+      ),
+    });
+
+    expect(runtime.reload).not.toHaveBeenCalled();
+    expect(isChunkRecoveryReloadPending()).toBe(false);
+  });
+
+  it('is not set by unrelated runtime errors', () => {
+    const { runtime } = createRuntime();
+    const handlers = createChunkLoadRecoveryHandlers(runtime);
+
+    handlers.handleWindowError({
+      error: new Error('maximumFractionDigits value is out of range'),
+      message: 'maximumFractionDigits value is out of range',
+    });
+
+    expect(isChunkRecoveryReloadPending()).toBe(false);
+  });
+});
+
+describe('browser initialization', () => {
   it('initializes browser chunk recovery listeners once', async () => {
     vi.resetModules();
     const addEventListenerSpy = vi
