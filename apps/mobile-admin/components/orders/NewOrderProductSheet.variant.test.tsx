@@ -1,9 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import type { ChangeEvent, ComponentProps, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { LIGHT_COLORS } from '@/constants/theme';
-import { NewOrderProductSheet } from './NewOrderProductSheet';
+import {
+  NewOrderProductSheet,
+  type NewOrderProductSheetController,
+} from './NewOrderProductSheet';
+import type { SelectableOrderProduct } from './new-order.types';
 
 vi.mock('expo-router', () => ({
   router: { push: vi.fn() },
@@ -14,14 +17,12 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
-vi.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 8, right: 0, bottom: 12, left: 0 }),
-}));
-
-vi.mock('@/components/ui/AppPageSheet', () => ({
-  AppPageSheet: ({
+vi.mock('@/components/orders/NewOrderProductPickerSheetFrame', () => ({
+  NewOrderProductPickerSheetFrame: ({
     children,
     closeLabel,
+    footer,
+    leadingAccessory,
     onClose,
     title,
     trailingAccessory,
@@ -29,34 +30,39 @@ vi.mock('@/components/ui/AppPageSheet', () => ({
   }: {
     children?: ReactNode;
     closeLabel: string;
+    footer?: ReactNode;
+    leadingAccessory?: ReactNode;
     onClose: () => void;
     title: string;
     trailingAccessory?: ReactNode;
     visible: boolean;
   }) =>
     visible ? (
-      <section aria-label="product-sheet">
-        <button aria-label={closeLabel} onClick={onClose} type="button" />
+      <section aria-label="product-page-sheet">
+        <div data-testid="product-sheet-leading-accessory">
+          {leadingAccessory ?? (
+            <button aria-label={closeLabel} onClick={onClose} type="button" />
+          )}
+        </div>
         <h1>{title}</h1>
-        {trailingAccessory}
+        <div data-testid="product-sheet-trailing-accessory">
+          {trailingAccessory}
+        </div>
         {children}
+        {footer}
       </section>
     ) : null,
 }));
 
 vi.mock('./NewOrderProductSheetEmptyState', () => ({
-  NewOrderProductSheetEmptyState: () => <div role="status" />,
+  NewOrderProductSheetEmptyState: () => <div role="status">empty</div>,
 }));
 
-vi.mock('react-native', async () => {
+vi.mock('@gorhom/bottom-sheet', async () => {
   const React = await import('react');
 
   return {
-    useColorScheme: () => 'light',
-    StatusBar: () => null,
-    ActivityIndicator: () =>
-      React.createElement('div', { role: 'progressbar' }, 'loading'),
-    FlatList: ({
+    BottomSheetFlatList: ({
       ListEmptyComponent,
       ListFooterComponent,
       data,
@@ -92,6 +98,35 @@ vi.mock('react-native', async () => {
           'Reach list end'
         )
       ),
+    BottomSheetScrollView: ({
+      children,
+      testID,
+    }: {
+      children?: ReactNode;
+      testID?: string;
+    }) => React.createElement('div', { 'data-testid': testID }, children),
+    BottomSheetTextInput: () => null,
+  };
+});
+
+vi.mock('react-native', async () => {
+  const React = await import('react');
+
+  return {
+    useColorScheme: () => 'light',
+    StatusBar: () => null,
+    ActivityIndicator: () =>
+      React.createElement('div', { role: 'progressbar' }, 'loading'),
+    Platform: {
+      OS: 'ios',
+      select: (objs: Record<string, unknown>) => objs.ios || objs.default,
+    },
+    InteractionManager: {
+      runAfterInteractions: (callback: () => void) => {
+        callback();
+        return { cancel: vi.fn() };
+      },
+    },
     Pressable: ({
       accessibilityLabel,
       accessibilityState,
@@ -128,39 +163,28 @@ vi.mock('react-native', async () => {
     },
     Text: ({ children }: { children?: ReactNode }) =>
       React.createElement('span', null, children),
-    TextInput: ({
-      accessibilityLabel,
-      onChangeText,
-      placeholder,
-      value,
-    }: {
-      accessibilityLabel?: string;
-      onChangeText?: (value: string) => void;
-      placeholder?: string;
-      value?: string;
-    }) =>
-      React.createElement('input', {
-        'aria-label': accessibilityLabel ?? placeholder,
-        onChange: (event: ChangeEvent<HTMLInputElement>) =>
-          onChangeText?.(event.target.value),
-        value: value ?? '',
-      }),
     View: ({ children }: { children?: ReactNode }) =>
       React.createElement('div', null, children),
   };
 });
 
-type ProductSheetController = ComponentProps<
-  typeof NewOrderProductSheet
->['controller'];
-type ProductSheetRow = ProductSheetController['selectableProductRows'][number];
-
 function makeController(
-  overrides: Partial<ProductSheetController> = {}
-): ProductSheetController {
-  const controller: ProductSheetController = {
+  overrides: Partial<NewOrderProductSheetController> = {}
+): NewOrderProductSheetController {
+  return {
     closeProductModal: vi.fn(),
-    colors: LIGHT_COLORS,
+    colors: {
+      background: '#ffffff',
+      backgroundLight: '#f8fafc',
+      border: '#e2e8f0',
+      card: '#ffffff',
+      cardHover: '#f1f5f9',
+      primary: '#2563eb',
+      text: '#0f172a',
+      textMuted: '#94a3b8',
+      textOnPrimary: '#ffffff',
+      textSecondary: '#64748b',
+    } as NewOrderProductSheetController['colors'],
     fetchMoreProducts: vi.fn(),
     formatPrice: (amount: number) => `₦${amount}`,
     handleAddProduct: vi.fn(),
@@ -169,7 +193,6 @@ function makeController(
     isFetchingMoreProducts: false,
     isLoadingSelectedParentProduct: false,
     isPickingVariant: true,
-    isProductsLoading: false,
     productSearch: '',
     productsError: null,
     refetchProducts: vi.fn(),
@@ -181,9 +204,7 @@ function makeController(
     setProductSearch: vi.fn(),
     showProductModal: true,
     ...overrides,
-  };
-
-  return controller;
+  } as NewOrderProductSheetController;
 }
 
 const selectedParentProduct = {
@@ -196,7 +217,10 @@ const selectedParentProduct = {
   price: 3000,
   sku: 'SKU-PARENT',
   variant_attributes: [],
-} satisfies NonNullable<ProductSheetController['selectedParentProduct']>;
+} satisfies SelectableOrderProduct;
+
+type ProductSheetRow =
+  NewOrderProductSheetController['selectableProductRows'][number];
 
 function makeVariantRow(
   id: string,
@@ -219,27 +243,26 @@ function makeVariantRow(
 }
 
 describe('NewOrderProductSheet variant mode', () => {
-  it('adds a structured variant after the user taps option chips', () => {
+  it('uses the grouped option selector to add a selected variant with fallback parent images', () => {
     const controller = makeController({
       selectableProductRows: [
-        makeVariantRow('variant-1', 'Baci Phone Blue', {
-          color: 'Blue',
-          storage: '512GB',
-        }),
-        makeVariantRow('variant-2', 'Baci Phone Black', {
-          color: 'Black',
-          storage: '512GB',
-        }),
+        makeVariantRow('variant-1', 'Baci Phone Blue 512GB', [
+          { name: 'Color', value: 'Blue' },
+          { name: 'Storage', value: '512GB' },
+        ]),
+        makeVariantRow('variant-2', 'Baci Phone Black 256GB', [
+          { name: 'Color', value: 'Black' },
+          { name: 'Storage', value: '256GB' },
+        ]),
       ],
       selectedParentProduct,
     });
 
     render(<NewOrderProductSheet controller={controller} />);
 
+    expect(screen.getByText('Choose all options')).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('button', { name: 'Select Color Blue' }));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Select Storage 512GB' })
-    );
     fireEvent.click(
       screen.getByRole('button', { name: 'Add selected variant' })
     );
@@ -250,12 +273,38 @@ describe('NewOrderProductSheet variant mode', () => {
         images: ['https://example.com/parent.png'],
       })
     );
+    expect(controller.fetchMoreProducts).not.toHaveBeenCalled();
   });
 
-  it('falls back to the flat variant list when rows have no selectable attributes', () => {
+  it('does not duplicate the parent product title above the grouped variant selector', () => {
     const controller = makeController({
       selectableProductRows: [
-        makeVariantRow('variant-1', 'Baci Phone Blue', null),
+        makeVariantRow('variant-1', 'Dell Latitude 7420 256GB', [
+          { name: 'Ram', value: '16GB' },
+          { name: 'Storage', value: '256GB SSD' },
+        ]),
+        makeVariantRow('variant-2', 'Dell Latitude 7420 512GB', [
+          { name: 'Ram', value: '16GB' },
+          { name: 'Storage', value: '512GB SSD' },
+        ]),
+      ],
+      selectedParentProduct: {
+        ...selectedParentProduct,
+        name: 'Dell Latitude 7420',
+      },
+    });
+
+    render(<NewOrderProductSheet controller={controller} />);
+
+    expect(screen.getAllByText('Dell Latitude 7420')).toHaveLength(1);
+  });
+
+  it('adds missing parent ids when no selectable variant options exist', () => {
+    const controller = makeController({
+      selectableProductRows: [
+        makeVariantRow('variant-1', 'Baci Phone Blue', null, {
+          parent_product_id: null,
+        }),
       ],
       selectedParentProduct,
     });
@@ -268,29 +317,8 @@ describe('NewOrderProductSheet variant mode', () => {
       expect.objectContaining({
         id: 'variant-1',
         images: ['https://example.com/parent.png'],
+        parent_product_id: 'product-parent',
       })
-    );
-  });
-
-  it('falls back when variant groups do not distinguish rows', () => {
-    const controller = makeController({
-      selectableProductRows: [
-        makeVariantRow('variant-1', 'Baci Phone A', null, {
-          condition: 'open_box',
-        }),
-        makeVariantRow('variant-2', 'Baci Phone B', null, {
-          condition: 'open_box',
-        }),
-      ],
-      selectedParentProduct,
-    });
-
-    render(<NewOrderProductSheet controller={controller} />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Add A' }));
-
-    expect(controller.handleAddProduct).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'variant-1' })
     );
   });
 
@@ -304,5 +332,28 @@ describe('NewOrderProductSheet variant mode', () => {
     );
 
     expect(controller.resetProductPickerState).toHaveBeenCalledTimes(1);
+  });
+
+  it('places the variant back control on the left and close control on the right', () => {
+    const controller = makeController();
+
+    render(<NewOrderProductSheet controller={controller} />);
+
+    expect(
+      screen.getByTestId('product-sheet-leading-accessory')
+    ).toContainElement(
+      screen.getByRole('button', { name: 'Back to product list' })
+    );
+    expect(
+      screen.getByTestId('product-sheet-trailing-accessory')
+    ).toContainElement(
+      screen.getByRole('button', { name: 'Close product sheet' })
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close product sheet' })
+    );
+
+    expect(controller.closeProductModal).toHaveBeenCalledTimes(1);
   });
 });

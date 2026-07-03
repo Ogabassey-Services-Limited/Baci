@@ -12,85 +12,113 @@ const customerStoreCreditSchema = z.preprocess(
   z.coerce.number().min(0).max(1_000_000_000).optional()
 );
 
-export const createCustomerSchema = z.object({
-  first_name: z
-    .string()
-    .transform((val) => formatPersonName(sanitizeText(val, 100)))
-    .optional()
-    .nullable(),
-  last_name: z
-    .string()
-    .transform((val) => formatPersonName(sanitizeText(val, 100)))
-    .optional()
-    .nullable(),
-  email: z
-    .string()
-    .transform((val) => sanitizeEmail(val))
-    .pipe(z.union([z.literal(''), z.email()]))
-    .optional()
-    .nullable(),
-  phone: z
-    .string()
-    .transform((val) => sanitizePhone(val))
-    .optional()
-    .nullable(),
-  address: z
-    .string()
-    .transform((val) => sanitizeText(val, 500))
-    .optional()
-    .nullable(),
-  city: z
-    .string()
-    .transform((val) => sanitizeText(val, 100))
-    .optional()
-    .nullable(),
-  state: z
-    .string()
-    .transform((val) => sanitizeText(val, 100))
-    .optional()
-    .nullable(),
-  store_credit: customerStoreCreditSchema.optional().nullable(),
-  notes: z
-    .string()
-    .transform((val) => sanitizeText(val, 1000))
-    .optional()
-    .nullable(),
-});
+function requireCompanyNameWhenCompany(
+  data: {
+    company_name?: string | null;
+    customer_type?: 'individual' | 'company' | null;
+  },
+  ctx: z.RefinementCtx
+) {
+  if (data.customer_type === 'company' && !data.company_name?.trim()) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Company name is required',
+      path: ['company_name'],
+    });
+  }
+}
 
-export const updateCustomerSchema = z.object({
-  first_name: z
-    .string()
-    .transform((val) => formatPersonName(sanitizeText(val, 100)))
-    .optional()
-    .nullable(),
-  last_name: z
-    .string()
-    .transform((val) => formatPersonName(sanitizeText(val, 100)))
-    .optional()
-    .nullable(),
-  full_name: z
-    .string()
-    .transform((val) => formatPersonName(sanitizeText(val, 100)))
-    .optional()
-    .nullable(),
-  email: z
-    .string()
-    .transform((val) => sanitizeEmail(val))
-    .pipe(z.union([z.literal(''), z.email()]))
-    .optional()
-    .nullable(),
-  phone: z
-    .string()
-    .transform((val) => sanitizePhone(val))
-    .optional()
-    .nullable(),
-  address: z
-    .string()
-    .transform((val) => sanitizeText(val, 500))
-    .optional()
-    .nullable(),
-  store_credit: customerStoreCreditSchema.optional().nullable(),
-});
+export const createCustomerSchema = z
+  .object({
+    customer_type: z.enum(['individual', 'company']).optional().nullable(),
+    company_name: z
+      .string()
+      .transform((val) => sanitizeText(val, 200))
+      .optional()
+      .nullable(),
+    first_name: z
+      .string()
+      .transform((val) => formatPersonName(sanitizeText(val, 100)))
+      .optional()
+      .nullable(),
+    last_name: z
+      .string()
+      .transform((val) => formatPersonName(sanitizeText(val, 100)))
+      .optional()
+      .nullable(),
+    email: z
+      .string()
+      .transform((val) => sanitizeEmail(val))
+      .pipe(z.union([z.literal(''), z.email()]))
+      .optional()
+      .nullable(),
+    phone: z
+      .string()
+      .transform((val) => sanitizePhone(val))
+      .optional()
+      .nullable(),
+    address: z
+      .string()
+      .transform((val) => sanitizeText(val, 500))
+      .optional()
+      .nullable(),
+    city: z
+      .string()
+      .transform((val) => sanitizeText(val, 100))
+      .optional()
+      .nullable(),
+    state: z
+      .string()
+      .transform((val) => sanitizeText(val, 100))
+      .optional()
+      .nullable(),
+    store_credit: customerStoreCreditSchema.optional().nullable(),
+  })
+  .strict()
+  .superRefine(requireCompanyNameWhenCompany);
+
+export const updateCustomerSchema = z
+  .object({
+    customer_type: z.enum(['individual', 'company']).optional().nullable(),
+    company_name: z
+      .string()
+      .transform((val) => sanitizeText(val, 200))
+      .optional()
+      .nullable(),
+    first_name: z
+      .string()
+      .transform((val) => formatPersonName(sanitizeText(val, 100)))
+      .optional()
+      .nullable(),
+    last_name: z
+      .string()
+      .transform((val) => formatPersonName(sanitizeText(val, 100)))
+      .optional()
+      .nullable(),
+    full_name: z
+      .string()
+      .transform((val) => formatPersonName(sanitizeText(val, 100)))
+      .optional()
+      .nullable(),
+    email: z
+      .string()
+      .transform((val) => sanitizeEmail(val))
+      .pipe(z.union([z.literal(''), z.email()]))
+      .optional()
+      .nullable(),
+    phone: z
+      .string()
+      .transform((val) => sanitizePhone(val))
+      .optional()
+      .nullable(),
+    address: z
+      .string()
+      .transform((val) => sanitizeText(val, 500))
+      .optional()
+      .nullable(),
+    store_credit: customerStoreCreditSchema.optional().nullable(),
+  })
+  .superRefine(requireCompanyNameWhenCompany);
 
 /**
  * Helper to format Zod errors for API responses

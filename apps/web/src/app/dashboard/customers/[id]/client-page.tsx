@@ -61,6 +61,8 @@ interface CustomerDetailClientPageProps {
 type EditableCustomerData = Pick<
   Customer,
   | 'address'
+  | 'company_name'
+  | 'customer_type'
   | 'email'
   | 'first_name'
   | 'full_name'
@@ -73,6 +75,8 @@ function toEditableCustomerData(customer: Customer): EditableCustomerData {
   const initialNameFields = splitCustomerFullName(customer.full_name);
 
   return {
+    customer_type: customer.customer_type,
+    company_name: customer.company_name,
     first_name: customer.first_name ?? initialNameFields.first_name,
     last_name: customer.last_name ?? initialNameFields.last_name,
     full_name: customer.full_name,
@@ -132,6 +136,18 @@ export default function CustomerDetailClientPage({
 
   const handleSaveChanges = async () => {
     if (!customer) return;
+    if (
+      editData.customer_type === 'company' &&
+      !editData.company_name?.trim()
+    ) {
+      toast({
+        title: 'Error',
+        description: 'Company name is required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       const data = await apiPatch<{ customer: Customer }>(
         `/api/customers/${customer.id}`,
@@ -191,6 +207,8 @@ export default function CustomerDetailClientPage({
   }
 
   const displayName = getCustomerDisplayName(customer);
+  const isCompanyNameMissing =
+    editData.customer_type === 'company' && !editData.company_name?.trim();
   const initials =
     displayName
       .split(' ')
@@ -221,26 +239,93 @@ export default function CustomerDetailClientPage({
                 <DialogTitle>Edit Profile</DialogTitle>
               </DialogHeader>
               <div className="flex flex-col gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="first_name">First Name</Label>
-                  <Input
-                    id="first_name"
-                    value={editData.first_name || ''}
-                    onChange={(e) =>
-                      setEditData({ ...editData, first_name: e.target.value })
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={
+                      editData.customer_type === 'company'
+                        ? 'outline'
+                        : 'default'
                     }
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="last_name">Last Name</Label>
-                  <Input
-                    id="last_name"
-                    value={editData.last_name || ''}
-                    onChange={(e) =>
-                      setEditData({ ...editData, last_name: e.target.value })
+                    aria-pressed={editData.customer_type !== 'company'}
+                    onClick={() =>
+                      setEditData({
+                        ...editData,
+                        customer_type: 'individual',
+                        company_name: null,
+                      })
                     }
-                  />
+                  >
+                    Person
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={
+                      editData.customer_type === 'company'
+                        ? 'default'
+                        : 'outline'
+                    }
+                    aria-pressed={editData.customer_type === 'company'}
+                    onClick={() =>
+                      setEditData({
+                        ...editData,
+                        customer_type: 'company',
+                      })
+                    }
+                  >
+                    Company
+                  </Button>
                 </div>
+                {editData.customer_type === 'company' ? (
+                  <div className="grid gap-2">
+                    <Label htmlFor="company_name">Company Name</Label>
+                    <Input
+                      id="company_name"
+                      aria-invalid={isCompanyNameMissing}
+                      value={editData.company_name || ''}
+                      onChange={(e) =>
+                        setEditData({
+                          ...editData,
+                          company_name: e.target.value,
+                        })
+                      }
+                    />
+                    {isCompanyNameMissing ? (
+                      <p className="text-sm text-destructive" role="alert">
+                        Company name is required
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid gap-2">
+                      <Label htmlFor="first_name">First Name</Label>
+                      <Input
+                        id="first_name"
+                        value={editData.first_name || ''}
+                        onChange={(e) =>
+                          setEditData({
+                            ...editData,
+                            first_name: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="last_name">Last Name</Label>
+                      <Input
+                        id="last_name"
+                        value={editData.last_name || ''}
+                        onChange={(e) =>
+                          setEditData({
+                            ...editData,
+                            last_name: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </>
+                )}
                 <div className="grid gap-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -287,7 +372,12 @@ export default function CustomerDetailClientPage({
                 <Button variant="outline" onClick={() => setEditOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSaveChanges}>Save Changes</Button>
+                <Button
+                  disabled={isCompanyNameMissing}
+                  onClick={handleSaveChanges}
+                >
+                  Save Changes
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

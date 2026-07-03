@@ -3,12 +3,19 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 
-vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => null,
+vi.mock('@react-native-vector-icons/ionicons', () => {
+  const MockIonicons = ({ color, name }: { color?: string; name?: string }) => (
+    <span data-color={color} data-icon={name}>
+      {name}
+    </span>
+  );
 
-  default: () => null,
-  __esModule: true,
-}));
+  return {
+    Ionicons: MockIonicons,
+    default: MockIonicons,
+    __esModule: true,
+  };
+});
 
 vi.mock('@/components/ui/SafeImage', async () => {
   const { Text } = await import('react-native');
@@ -92,6 +99,7 @@ function makeController(
       text: '#0f172a',
       textMuted: '#94a3b8',
       textSecondary: '#64748b',
+      warning: '#f59e0b',
       ...overrides.colors,
     },
     formatPrice: vi.fn((value: number) => `₦${value.toFixed(2)}`),
@@ -117,6 +125,11 @@ describe('NewOrderItemsSection', () => {
     render(<NewOrderItemsSection controller={controller} />);
 
     expect(screen.getByText('No items added yet')).toBeInTheDocument();
+    expect(screen.getByText('flash-outline')).toHaveAttribute(
+      'data-color',
+      '#f59e0b'
+    );
+    expect(screen.getByText('search')).toHaveAttribute('data-color', '#2563eb');
 
     fireEvent.click(screen.getByRole('button', { name: 'Quick add item' }));
     fireEvent.click(screen.getByRole('button', { name: 'Search catalog' }));

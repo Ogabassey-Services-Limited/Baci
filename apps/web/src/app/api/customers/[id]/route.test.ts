@@ -56,6 +56,8 @@ let customer: unknown = null;
 let customerError: unknown = null;
 let updateResult: unknown = null;
 let updateError: unknown = null;
+let updateFilters: [string, unknown][] = [];
+let updatePayload: Record<string, unknown> | null = null;
 let deleteResult: unknown[] | null = null;
 let deleteError: unknown = null;
 let csrfResult: { valid: boolean; response: Response | null } = {
@@ -91,21 +93,25 @@ const createMockSupabase = () => ({
             error: customerError,
           });
         }),
-        update: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              select: vi.fn(() => ({
-                single: vi.fn(() => {
-                  const hasError = updateError != null;
-                  return Promise.resolve({
-                    data: hasError ? null : updateResult,
-                    error: updateError,
-                  });
-                }),
-              })),
-            })),
-          })),
-        })),
+        update: vi.fn((payload: Record<string, unknown>) => {
+          updatePayload = payload;
+          updateFilters = [];
+          const updateQuery = {
+            eq: vi.fn((column: string, value: unknown) => {
+              updateFilters.push([column, value]);
+              return updateQuery;
+            }),
+            maybeSingle: vi.fn(() => {
+              const hasError = updateError != null;
+              return Promise.resolve({
+                data: hasError ? null : updateResult,
+                error: updateError,
+              });
+            }),
+            select: vi.fn(() => updateQuery),
+          };
+          return updateQuery;
+        }),
         delete: vi.fn(() => ({
           eq: vi.fn(() => ({
             eq: vi.fn(() => ({
@@ -163,10 +169,13 @@ function resetMocks() {
     id: CUSTOMER_ID,
     full_name: 'Test Customer',
     email: 'test@example.com',
+    updated_at: '2026-07-03T10:00:00.000Z',
   };
   customerError = null;
   updateResult = null;
   updateError = null;
+  updateFilters = [];
+  updatePayload = null;
   deleteResult = [{ id: CUSTOMER_ID }];
   deleteError = null;
   csrfResult = { valid: true, response: null };
@@ -236,6 +245,195 @@ describe('PATCH /api/customers/[id]', () => {
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.customer.full_name).toBe('Updated Name');
+    expect(updateFilters).toContainEqual([
+      'updated_at',
+      '2026-07-03T10:00:00.000Z',
+    ]);
+  });
+
+  it('returns 409 when the customer changed after the update snapshot was read', async () => {
+    updateResult = null;
+
+    const res = await PATCH(
+      makePatchRequest(CUSTOMER_ID, { full_name: 'Updated Name' }),
+      {
+        params: Promise.resolve({ id: CUSTOMER_ID }),
+      }
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json.error).toBe(
+      'Customer was updated by another request. Refresh and try again.'
+    );
+  });
+
+  it('updates company customer name fields together', async () => {
+    customer = {
+      id: CUSTOMER_ID,
+      customer_type: 'company',
+      company_name: 'Old Co',
+      first_name: null,
+      full_name: 'Old Co',
+      last_name: null,
+      email: 'ops@old.example',
+    };
+    updateResult = {
+      id: CUSTOMER_ID,
+      customer_type: 'company',
+      company_name: 'New Co',
+      full_name: 'New Co',
+    };
+
+    const res = await PATCH(
+      makePatchRequest(CUSTOMER_ID, {
+        company_name: 'New Co',
+        customer_type: 'company',
+      }),
+      {
+        params: Promise.resolve({ id: CUSTOMER_ID }),
+      }
+    );
+
+    expect(res.status).toBe(200);
+    expect(updatePayload).toMatchObject({
+      company_name: 'New Co',
+      customer_type: 'company',
+      first_name: null,
+      full_name: 'New Co',
+      last_name: null,
+    });
+  });
+
+  it('rejects blank company names for existing company customers', async () => {
+    customer = {
+      id: CUSTOMER_ID,
+      customer_type: 'company',
+      company_name: 'Old Co',
+      first_name: null,
+      full_name: 'Old Co',
+      last_name: null,
+      email: 'ops@old.example',
+    };
+
+    const res = await PATCH(
+      makePatchRequest(CUSTOMER_ID, { company_name: '' }),
+      {
+        params: Promise.resolve({ id: CUSTOMER_ID }),
+      }
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json).toEqual({
+      error: 'Validation failed',
+      details: { company_name: ['Company name is required'] },
+    });
+    expect(updatePayload).toBeNull();
+  });
+
+  it('rejects changing an existing individual customer to company without a company name', async () => {
+    customer = {
+      id: CUSTOMER_ID,
+      customer_type: 'individual',
+      company_name: null,
+      first_name: 'Ada',
+      full_name: 'Ada Lovelace',
+      last_name: 'Lovelace',
+      email: 'ada@example.com',
+    };
+
+    const res = await PATCH(
+      makePatchRequest(CUSTOMER_ID, { customer_type: 'company' }),
+      {
+        params: Promise.resolve({ id: CUSTOMER_ID }),
+      }
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json).toEqual({
+      error: 'Validation failed',
+      details: { company_name: ['Company name is required'] },
+    });
+    expect(updatePayload).toBeNull();
+  });
+
+  it('clears stale company name when changing a company customer to individual', async () => {
+    customer = {
+      id: CUSTOMER_ID,
+      customer_type: 'company',
+      company_name: 'Old Co',
+      first_name: null,
+      full_name: 'Old Co',
+      last_name: null,
+      email: 'ops@old.example',
+    };
+    updateResult = {
+      id: CUSTOMER_ID,
+      customer_type: 'individual',
+      company_name: null,
+      full_name: 'Old Co',
+    };
+
+    const res = await PATCH(
+      makePatchRequest(CUSTOMER_ID, { customer_type: 'individual' }),
+      {
+        params: Promise.resolve({ id: CUSTOMER_ID }),
+      }
+    );
+
+    expect(res.status).toBe(200);
+    expect(updatePayload).toMatchObject({
+      company_name: null,
+      customer_type: 'individual',
+      first_name: null,
+      full_name: 'Old Co',
+      last_name: null,
+    });
+  });
+
+  it('preserves explicit null clears instead of falling back to existing customer fields', async () => {
+    customer = {
+      id: CUSTOMER_ID,
+      customer_type: 'individual',
+      company_name: null,
+      first_name: 'Ada',
+      full_name: 'Ada Lovelace',
+      last_name: 'Lovelace',
+      email: 'ada@example.com',
+    };
+    updateResult = {
+      id: CUSTOMER_ID,
+      customer_type: 'individual',
+      company_name: null,
+      first_name: null,
+      full_name: null,
+      last_name: null,
+      email: null,
+    };
+
+    const res = await PATCH(
+      makePatchRequest(CUSTOMER_ID, {
+        email: null,
+        first_name: null,
+        full_name: null,
+        last_name: null,
+      }),
+      {
+        params: Promise.resolve({ id: CUSTOMER_ID }),
+      }
+    );
+
+    expect(res.status).toBe(200);
+    expect(updatePayload).toMatchObject({
+      company_name: null,
+      customer_type: 'individual',
+      email: null,
+      first_name: null,
+      full_name: null,
+      last_name: null,
+    });
   });
 
   it('returns 400 on validation failure', async () => {

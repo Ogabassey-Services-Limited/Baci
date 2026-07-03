@@ -8,17 +8,6 @@ import { LIGHT_COLORS } from '@/constants/theme';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { DEFAULT_COUNTRY_CODE } from './new-order.shared';
 
-type GooglePlacesProps = {
-  onPress?: (data: { description: string }) => void;
-  placeholder?: string;
-  query?: { components?: string; key?: string; language?: string };
-  textInputProps?: { onChangeText?: (text: string) => void; value?: string };
-};
-
-const googlePlacesState = vi.hoisted(() => ({
-  lastProps: null as GooglePlacesProps | null,
-}));
-
 const keyboardState = vi.hoisted(() => ({
   dismiss: vi.fn(),
 }));
@@ -30,69 +19,83 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
-vi.mock('react-native-google-places-autocomplete', () => ({
-  GooglePlacesAutocomplete: (props: GooglePlacesProps) => {
-    googlePlacesState.lastProps = props;
-    return (
-      <div>
-        <input
-          aria-label={props.placeholder ?? 'Search Address'}
-          onChange={(event) =>
-            props.textInputProps?.onChangeText?.(event.target.value)
-          }
-          value={props.textInputProps?.value ?? ''}
-        />
-        <button
-          aria-label="Choose suggested address"
-          onClick={() =>
-            props.onPress?.({ description: '12 Allen Avenue, Ikeja, Lagos' })
-          }
-          type="button"
-        />
-      </div>
-    );
-  },
-}));
+vi.mock('@gorhom/bottom-sheet', async () => {
+  const React = await import('react');
 
-vi.mock('react-native-phone-number-input', () => ({
-  default: ({
-    defaultValue,
-    onChangeCountry,
-    onChangeFormattedText,
-    textInputProps,
-  }: {
-    defaultValue?: string;
-    onChangeCountry?: (country: { cca2: CountryCode }) => void;
-    onChangeFormattedText?: (value: string) => void;
-    textInputProps?: {
-      onSubmitEditing?: () => void;
-      ref?: React.Ref<HTMLInputElement>;
-      returnKeyType?: string;
-      submitBehavior?: string;
-    };
-  }) => (
-    <div>
-      <input
-        aria-label="Phone Number"
-        defaultValue={defaultValue ?? ''}
-        data-return-key-type={textInputProps?.returnKeyType}
-        data-submit-behavior={textInputProps?.submitBehavior}
-        onChange={(event) => onChangeFormattedText?.(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            textInputProps?.onSubmitEditing?.();
-          }
-        }}
-        ref={textInputProps?.ref}
-      />
-      <button
-        aria-label="Switch phone country"
-        onClick={() => onChangeCountry?.({ cca2: 'GH' })}
-        type="button"
-      />
-    </div>
-  ),
-}));
+  return {
+    BottomSheetFlatList: ({
+      data,
+      keyExtractor,
+      renderItem,
+    }: {
+      data?: unknown[];
+      keyExtractor?: (item: unknown, index: number) => string;
+      renderItem?: (info: { item: unknown; index: number }) => React.ReactNode;
+    }) =>
+      React.createElement(
+        'div',
+        null,
+        data?.map((item, index) =>
+          React.createElement(
+            React.Fragment,
+            { key: keyExtractor?.(item, index) ?? index },
+            renderItem?.({ item, index })
+          )
+        )
+      ),
+    BottomSheetTextInput: React.forwardRef(
+      (
+        {
+          accessibilityLabel,
+          onChangeText,
+          onSubmitEditing,
+          placeholder,
+          returnKeyType,
+          submitBehavior,
+          value,
+        }: {
+          accessibilityLabel?: string;
+          onChangeText?: (value: string) => void;
+          onSubmitEditing?: () => void;
+          placeholder?: string;
+          returnKeyType?: string;
+          submitBehavior?: string;
+          value?: string;
+        },
+        ref: React.Ref<HTMLInputElement>
+      ) =>
+        React.createElement('input', {
+          'aria-label': accessibilityLabel,
+          'data-gorhom-input': 'true',
+          'data-return-key-type': returnKeyType,
+          'data-submit-behavior': submitBehavior,
+          onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+            onChangeText?.(event.target.value),
+          onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+            if (event.key === 'Enter') {
+              onSubmitEditing?.();
+            }
+          },
+          placeholder,
+          ref,
+          value: value ?? '',
+        })
+    ),
+    BottomSheetScrollView: React.forwardRef(
+      (
+        {
+          children,
+        }: {
+          children?: React.ReactNode;
+        },
+        ref: React.Ref<{ scrollToEnd: () => void }>
+      ) => {
+        React.useImperativeHandle(ref, () => ({ scrollToEnd: vi.fn() }));
+        return React.createElement('div', null, children);
+      }
+    ),
+  };
+});
 
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -104,20 +107,30 @@ vi.mock('react-native', async () => {
     Alert: { alert: vi.fn() },
     Keyboard: { dismiss: keyboardState.dismiss },
     Pressable: ({
+      accessibilityLabel,
       children,
       disabled,
       accessibilityState,
       onPress,
     }: {
+      accessibilityLabel?: string;
       children?: React.ReactNode;
       disabled?: boolean;
-      accessibilityState?: { busy?: boolean; disabled?: boolean };
+      accessibilityState?: {
+        busy?: boolean;
+        disabled?: boolean;
+        expanded?: boolean;
+        selected?: boolean;
+      };
       onPress?: () => void;
     }) =>
       React.createElement(
         'button',
         {
           'aria-busy': accessibilityState?.busy,
+          'aria-expanded': accessibilityState?.expanded,
+          'aria-label': accessibilityLabel,
+          'aria-selected': accessibilityState?.selected,
           disabled,
           onClick: () => onPress?.(),
           type: 'button',
@@ -134,14 +147,20 @@ vi.mock('react-native', async () => {
     TextInput: React.forwardRef(
       (
         {
+          accessibilityLabel,
+          onBlur,
           onChangeText,
+          onFocus,
           onSubmitEditing,
           placeholder,
           returnKeyType,
           submitBehavior,
           value,
         }: {
+          accessibilityLabel?: string;
+          onBlur?: () => void;
           onChangeText?: (value: string) => void;
+          onFocus?: () => void;
           onSubmitEditing?: () => void;
           placeholder?: string;
           returnKeyType?: string;
@@ -151,10 +170,13 @@ vi.mock('react-native', async () => {
         ref: React.Ref<HTMLInputElement>
       ) =>
         React.createElement('input', {
+          'aria-label': accessibilityLabel,
           'data-return-key-type': returnKeyType,
           'data-submit-behavior': submitBehavior,
+          onBlur,
           onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
             onChangeText?.(event.target.value),
+          onFocus,
           onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
             if (event.key === 'Enter') {
               onSubmitEditing?.();
@@ -167,6 +189,7 @@ vi.mock('react-native', async () => {
     ),
     View: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
+    useWindowDimensions: () => ({ height: 900, width: 440 }),
   };
 });
 
@@ -254,11 +277,19 @@ describe('NewOrderCustomerCreateView', () => {
   const originalGoogleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
   beforeEach(() => {
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY = 'maps-test-key';
-    googlePlacesState.lastProps = null;
     keyboardState.dismiss.mockReset();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ predictions: [] }),
+        status: 200,
+      })
+    );
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     if (originalGoogleMapsApiKey === undefined) {
       delete process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
     } else {
@@ -291,34 +322,70 @@ describe('NewOrderCustomerCreateView', () => {
     });
     rerender();
     fireEvent.click(
-      screen.getByRole('button', { name: 'Switch phone country' })
+      screen.getByLabelText('Select phone country, currently Nigeria')
     );
+    fireEvent.change(screen.getByLabelText('Search phone countries'), {
+      target: { value: 'gha' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Use Ghana +233' }));
     rerender();
-    fireEvent.change(screen.getByLabelText('Search Address'), {
+    fireEvent.change(screen.getByPlaceholderText('Search Address'), {
       target: { value: '12 Allen' },
     });
     rerender();
     expect(screen.getByPlaceholderText('First Name')).toHaveValue('Ada');
     expect(screen.getByPlaceholderText('Last Name')).toHaveValue('Lovelace');
-    expect(screen.getByLabelText('Search Address')).toHaveValue('12 Allen');
+    expect(screen.getByPlaceholderText('Search Address')).toHaveValue(
+      '12 Allen'
+    );
     expect(harness.controller.setSelectedCountryCode).toHaveBeenCalledWith(
       'GH'
     );
-    expect(googlePlacesState.lastProps?.query).toMatchObject({
-      components: 'country:gh',
-      key: 'maps-test-key',
-      language: 'en',
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save customer' }));
+    expect(harness.controller.handleCreateCustomer).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears stale fields when switching customer type', () => {
+    const harness = makeController({
+      newCustomer: {
+        ...createEmptyNewCustomerDraft(),
+        companyName: 'Old Company',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+      },
     });
+    const view = render(
+      <NewOrderCustomerCreateView controller={harness.snapshot()} />
+    );
+    const rerender = () =>
+      view.rerender(
+        <NewOrderCustomerCreateView controller={harness.snapshot()} />
+      );
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Choose suggested address' })
+      screen.getByRole('button', { name: 'Set customer type to Company' })
     );
     rerender();
-    expect(screen.getByLabelText('Search Address')).toHaveValue(
-      '12 Allen Avenue, Ikeja, Lagos'
+
+    expect(harness.snapshot().newCustomer.firstName).toBe('');
+    expect(harness.snapshot().newCustomer.lastName).toBe('');
+    expect(harness.snapshot().newCustomer.companyName).toBe('Old Company');
+    expect(screen.getByLabelText('Company Name')).toBeInTheDocument();
+    expect(screen.queryByLabelText('First Name')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Company Name'), {
+      target: { value: 'Acme Ltd' },
+    });
+    rerender();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Set customer type to Person' })
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Save Customer' }));
-    expect(harness.controller.handleCreateCustomer).toHaveBeenCalledTimes(1);
+    rerender();
+
+    expect(harness.snapshot().newCustomer.companyName).toBe('');
+    expect(screen.getByLabelText('First Name')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Company Name')).not.toBeInTheDocument();
   });
 
   it('moves focus through customer fields from the keyboard return key', () => {
@@ -367,8 +434,11 @@ describe('NewOrderCustomerCreateView', () => {
   it('surfaces an existing duplicate customer and reuses it from the banner', () => {
     const duplicateCustomer: SelectableCustomer = {
       address: '12 Allen Avenue',
+      company_name: null,
+      customer_type: 'individual',
       email: 'ada@example.com',
       first_name: 'Ada',
+      full_name: 'Ada Lovelace',
       id: 'customer-1',
       last_name: 'Lovelace',
       phone: '08012345678',
@@ -382,7 +452,10 @@ describe('NewOrderCustomerCreateView', () => {
       .getByText('Use This')
       .closest('button');
     expect(useExistingCustomerButton).not.toBeNull();
-    fireEvent.click(useExistingCustomerButton!);
+    if (!useExistingCustomerButton) {
+      throw new Error('Expected duplicate customer action to render.');
+    }
+    fireEvent.click(useExistingCustomerButton);
     expect(harness.controller.handleSelectCustomer).toHaveBeenCalledWith(
       duplicateCustomer
     );

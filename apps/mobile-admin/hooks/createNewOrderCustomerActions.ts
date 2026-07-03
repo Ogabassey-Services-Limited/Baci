@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import type { CountryCode } from 'react-native-country-picker-modal';
 import { createEmptyNewCustomerDraft } from '@/components/orders/new-order.defaults';
 import {
+  type CustomerType,
   DEFAULT_COUNTRY_CODE,
   getCustomerDisplayName,
 } from '@/components/orders/new-order.shared';
@@ -11,11 +12,19 @@ import type {
   NewCustomerDraft,
   SelectableCustomer,
 } from '@/components/orders/new-order.types';
+import {
+  sanitizeAddress,
+  sanitizeCustomerName,
+  sanitizeEmail,
+  sanitizePhone,
+} from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 
 interface CreateNewOrderCustomerActionsParams {
   createCustomer: (input: {
     address?: string;
+    company_name?: string;
+    customer_type: CustomerType;
     email?: string;
     first_name: string;
     last_name: string;
@@ -30,6 +39,24 @@ interface CreateNewOrderCustomerActionsParams {
   setNewCustomer: Dispatch<SetStateAction<NewCustomerDraft>>;
   setSelectedCountryCode: Dispatch<SetStateAction<CountryCode>>;
   setShowCustomerModal: Dispatch<SetStateAction<boolean>>;
+}
+
+// Escape LIKE/ILIKE wildcards so an email/value with `_` or `%` (both valid in
+// email local parts) is matched literally instead of as a pattern.
+function escapeIlikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
+}
+
+function normalizeNewCustomerDraft(newCustomer: NewCustomerDraft) {
+  return {
+    address: newCustomer.address ? sanitizeAddress(newCustomer.address) : '',
+    companyName: sanitizeCustomerName(newCustomer.companyName),
+    customerType: newCustomer.customerType,
+    email: newCustomer.email ? sanitizeEmail(newCustomer.email) : '',
+    firstName: sanitizeCustomerName(newCustomer.firstName),
+    lastName: sanitizeCustomerName(newCustomer.lastName),
+    phone: newCustomer.phone ? sanitizePhone(newCustomer.phone) : '',
+  };
 }
 
 export function createNewOrderCustomerActions({
@@ -51,8 +78,10 @@ export function createNewOrderCustomerActions({
   const handleCloseCustomerModal = () => {
     setShowCustomerModal(false);
     setIsCreatingCustomer(false);
-    resetNewCustomerForm();
-    setSelectedCountryCode(DEFAULT_COUNTRY_CODE);
+    // Keep the in-progress new-customer draft (name/phone/email/address +
+    // country) so dismissing the sheet doesn't discard typed input — it's reset
+    // only after a successful create. Clear just the transient duplicate/search
+    // state that shouldn't survive a reopen.
     setDuplicateCustomer(null);
     setCustomerSearch('');
   };
@@ -70,7 +99,15 @@ export function createNewOrderCustomerActions({
   };
 
   const handleCreateCustomer = async () => {
-    if (!newCustomer.firstName || !newCustomer.phone) {
+    const normalizedCustomer = normalizeNewCustomerDraft(newCustomer);
+    const isCompany = normalizedCustomer.customerType === 'company';
+
+    if (isCompany) {
+      if (!normalizedCustomer.companyName || !normalizedCustomer.phone) {
+        Alert.alert('Required', 'Company Name and Phone are required');
+        return;
+      }
+    } else if (!normalizedCustomer.firstName || !normalizedCustomer.phone) {
       Alert.alert('Required', 'First Name and Phone are required');
       return;
     }
@@ -85,22 +122,38 @@ export function createNewOrderCustomerActions({
 
     try {
       const duplicateChecks = [
-        { column: 'phone' as const, value: newCustomer.phone.trim() },
-        { column: 'email' as const, value: newCustomer.email.trim() },
+        {
+          column: 'phone' as const,
+          match: 'eq' as const,
+          value: normalizedCustomer.phone,
+        },
+        {
+          column: 'email' as const,
+          match: 'ilike' as const,
+          value: normalizedCustomer.email,
+        },
       ];
 
-      for (const { column, value } of duplicateChecks) {
+      for (const { column, match, value } of duplicateChecks) {
         if (!value) {
           continue;
         }
 
-        const { data: existingCustomer, error: searchError } = await supabase
+        let query = supabase
           .from('customers')
-          .select('id, first_name, last_name, email, phone, address')
+          .select(
+            'id, customer_type, company_name, full_name, first_name, last_name, email, phone, address'
+          )
           .eq('merchant_id', merchantId)
-          .is('deleted_at', null)
-          .eq(column, value)
-          .limit(1);
+          .is('deleted_at', null);
+
+        query =
+          match === 'ilike'
+            ? query.ilike(column, escapeIlikePattern(value))
+            : query.eq(column, value);
+
+        const { data: existingCustomer, error: searchError } =
+          await query.limit(1);
 
         if (searchError) {
           Alert.alert(
@@ -119,16 +172,21 @@ export function createNewOrderCustomerActions({
       }
 
       const customer = await createCustomer({
-        address: newCustomer.address || undefined,
-        email: newCustomer.email || undefined,
-        first_name: newCustomer.firstName,
-        last_name: newCustomer.lastName,
-        phone: newCustomer.phone,
+        address: normalizedCustomer.address || undefined,
+        company_name: isCompany
+          ? normalizedCustomer.companyName || undefined
+          : undefined,
+        customer_type: normalizedCustomer.customerType,
+        email: normalizedCustomer.email || undefined,
+        first_name: isCompany ? '' : normalizedCustomer.firstName,
+        last_name: isCompany ? '' : normalizedCustomer.lastName,
+        phone: normalizedCustomer.phone,
       });
 
       handleSelectCustomer(customer);
       setIsCreatingCustomer(false);
       resetNewCustomerForm();
+      setSelectedCountryCode(DEFAULT_COUNTRY_CODE);
     } catch (error: unknown) {
       const message =
         error instanceof Error

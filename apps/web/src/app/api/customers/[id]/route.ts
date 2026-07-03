@@ -1,4 +1,8 @@
-import { buildCustomerNameFields, CUSTOMER_ADMIN_COLUMNS } from '@baci/shared';
+import {
+  buildCustomerRecordNameFields,
+  CUSTOMER_ADMIN_COLUMNS,
+  normalizeCustomerType,
+} from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
@@ -152,15 +156,53 @@ export async function PATCH(
       body.first_name !== undefined ||
       body.last_name !== undefined ||
       body.full_name !== undefined ||
-      body.email !== undefined
+      body.email !== undefined ||
+      body.company_name !== undefined ||
+      body.customer_type !== undefined
     ) {
+      // Company-aware: recompute company_name/customer_type/full_name together so
+      // editing a company customer updates its name (and the record stays a
+      // company unless the update explicitly changes customer_type).
+      const nextCustomerType = normalizeCustomerType(
+        body.customer_type !== undefined
+          ? body.customer_type
+          : existingCustomer.customer_type
+      );
+      const nextCompanyName =
+        body.company_name !== undefined
+          ? body.company_name
+          : nextCustomerType === 'company'
+            ? existingCustomer.company_name
+            : null;
+
+      if (nextCustomerType === 'company' && !nextCompanyName?.trim()) {
+        return NextResponse.json(
+          {
+            error: 'Validation failed',
+            details: { company_name: ['Company name is required'] },
+          },
+          { status: 400 }
+        );
+      }
+
       Object.assign(
         updates,
-        buildCustomerNameFields({
-          first_name: body.first_name ?? existingCustomer.first_name,
-          last_name: body.last_name ?? existingCustomer.last_name,
-          full_name: body.full_name ?? existingCustomer.full_name,
-          email: body.email ?? existingCustomer.email,
+        buildCustomerRecordNameFields({
+          customer_type: nextCustomerType,
+          company_name: nextCompanyName,
+          first_name:
+            body.first_name !== undefined
+              ? body.first_name
+              : existingCustomer.first_name,
+          last_name:
+            body.last_name !== undefined
+              ? body.last_name
+              : existingCustomer.last_name,
+          full_name:
+            body.full_name !== undefined
+              ? body.full_name
+              : existingCustomer.full_name,
+          email: body.email !== undefined ? body.email : existingCustomer.email,
         })
       );
     }
@@ -176,13 +218,24 @@ export async function PATCH(
       .update(updates)
       .eq('id', id)
       .eq('merchant_id', merchantId)
+      .eq('updated_at', existingCustomer.updated_at)
       .select(CUSTOMER_ADMIN_COLUMNS)
-      .single();
+      .maybeSingle();
 
     if (error) {
       return NextResponse.json(
         { error: 'Internal server error' },
         { status: 500 }
+      );
+    }
+
+    if (!customer) {
+      return NextResponse.json(
+        {
+          error:
+            'Customer was updated by another request. Refresh and try again.',
+        },
+        { status: 409 }
       );
     }
 

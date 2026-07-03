@@ -12,8 +12,21 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
+vi.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 12, left: 0 }),
+}));
+
 vi.mock('react-native', async () => {
   const React = await import('react');
+  const flattenStyle = (value: unknown): Record<string, unknown> => {
+    if (Array.isArray(value)) {
+      return Object.assign({}, ...value.filter(Boolean).map(flattenStyle));
+    }
+    if (value && typeof value === 'object') {
+      return value as Record<string, unknown>;
+    }
+    return {};
+  };
 
   return {
     ActivityIndicator: () =>
@@ -25,6 +38,7 @@ vi.mock('react-native', async () => {
     StatusBar: () => null,
     Pressable: ({
       accessibilityLabel,
+      accessibilityRole,
       accessibilityState,
       children,
       disabled,
@@ -37,20 +51,12 @@ vi.mock('react-native', async () => {
         checked?: boolean;
         disabled?: boolean;
       };
+      accessibilityRole?: string;
       children?: React.ReactNode;
       disabled?: boolean;
       onPress?: () => void;
       style?: ((state: { pressed: boolean }) => unknown) | unknown;
     }) => {
-      const flattenStyle = (value: unknown): Record<string, unknown> => {
-        if (Array.isArray(value)) {
-          return Object.assign({}, ...value.filter(Boolean).map(flattenStyle));
-        }
-        if (value && typeof value === 'object') {
-          return value as Record<string, unknown>;
-        }
-        return {};
-      };
       const resolvedStyle = flattenStyle(
         typeof style === 'function' ? style({ pressed: false }) : style
       );
@@ -64,6 +70,7 @@ vi.mock('react-native', async () => {
           'data-shadow-color': resolvedStyle.shadowColor,
           disabled: disabled || accessibilityState?.disabled,
           onClick: () => onPress?.(),
+          role: accessibilityRole,
           type: 'button',
         },
         children
@@ -91,12 +98,39 @@ vi.mock('react-native', async () => {
           onChangeText?.(event.target.value),
         value: value ?? '',
       }),
-    View: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
+    View: ({
+      accessibilityLabel,
+      accessibilityRole,
+      children,
+      style,
+      testID,
+    }: {
+      accessibilityLabel?: string;
+      accessibilityRole?: string;
+      children?: React.ReactNode;
+      style?: Record<string, unknown> | Record<string, unknown>[];
+      testID?: string;
+    }) => {
+      const flattenedStyle = flattenStyle(style);
+
+      return React.createElement(
+        'div',
+        {
+          'aria-label': accessibilityLabel,
+          'data-padding-bottom': String(flattenedStyle.paddingBottom ?? ''),
+          'data-testid': testID,
+          role: accessibilityRole,
+        },
+        children
+      );
+    },
   };
 });
 
-vi.mock('./new-order.styles', () => ({ styles: {} }));
+vi.mock('./new-order.styles', () => ({
+  NEW_ORDER_FOOTER_BASE_PADDING_BOTTOM: 20,
+  styles: {},
+}));
 
 type FooterController = Pick<
   ReturnType<typeof useNewOrderController>,
@@ -164,6 +198,37 @@ function makeController(
 }
 
 describe('NewOrderFooterBar', () => {
+  it('extends the card background through the bottom safe area', () => {
+    const controller = makeController();
+
+    render(<NewOrderFooterBar controller={controller} />);
+
+    expect(screen.getByTestId('new-order-footer-bar')).toHaveAttribute(
+      'data-padding-bottom',
+      '32'
+    );
+  });
+
+  it('shows payment status choices with unpaid first and clear radio affordance', () => {
+    const controller = makeController();
+
+    render(<NewOrderFooterBar controller={controller} />);
+
+    expect(screen.getByText('Payment Status')).toBeInTheDocument();
+
+    const statusOptions = screen.getAllByRole('radio');
+    expect(
+      screen.getByRole('radiogroup', { name: 'Payment status' })
+    ).toBeInTheDocument();
+    expect(statusOptions).toHaveLength(3);
+    expect(statusOptions.map((option) => option.textContent)).toEqual([
+      'UNPAID',
+      'PAID',
+      'Partial',
+    ]);
+    expect(statusOptions[0]).toHaveAttribute('aria-checked', 'true');
+  });
+
   it('disables save when there are no order items and shows the formatted total', () => {
     const controller = makeController({ orderItems: [] });
 
@@ -186,7 +251,7 @@ describe('NewOrderFooterBar', () => {
     render(<NewOrderFooterBar controller={controller} />);
 
     expect(
-      screen.getByRole('button', { name: 'Payment status: paid' })
+      screen.getByRole('radio', { name: 'Payment status: PAID' })
     ).toHaveAttribute('data-shadow-color', '#123456');
   });
 
@@ -198,8 +263,11 @@ describe('NewOrderFooterBar', () => {
 
     render(<NewOrderFooterBar controller={controller} />);
 
+    expect(
+      screen.getByRole('radiogroup', { name: 'Payment method' })
+    ).toBeInTheDocument();
     fireEvent.click(
-      screen.getByRole('button', { name: 'Payment method: Cash' })
+      screen.getByRole('radio', { name: 'Payment method: Cash' })
     );
     fireEvent.change(screen.getByRole('textbox', { name: 'Enter amount...' }), {
       target: { value: '4250' },
@@ -218,7 +286,7 @@ describe('NewOrderFooterBar', () => {
     render(<NewOrderFooterBar controller={controller} />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Payment status: unpaid' })
+      screen.getByRole('radio', { name: 'Payment status: UNPAID' })
     );
     fireEvent.click(screen.getByRole('button', { name: 'Save Order' }));
 
@@ -241,10 +309,10 @@ describe('NewOrderFooterBar', () => {
     expect(screen.getByText('Saving...')).toBeInTheDocument();
     expect(screen.getByText('Loading...')).toBeInTheDocument(); // matches ActivityIndicator mock
     expect(
-      screen.getByRole('button', { name: 'Payment status: paid' })
+      screen.getByRole('radio', { name: 'Payment status: PAID' })
     ).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: 'Payment method: Cash' })
+      screen.getByRole('radio', { name: 'Payment method: Cash' })
     ).toBeDisabled();
     expect(
       screen.getByRole('textbox', { name: 'Enter amount...' })

@@ -1,22 +1,73 @@
-import { useRef } from 'react';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import Ionicons, {
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons';
+import { type RefObject, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Keyboard,
   Pressable,
-  ScrollView,
+  type ScrollView,
   Text,
-  TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import PhoneInput from 'react-native-phone-number-input';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import {
+  SheetTextInput,
+  type SheetTextInputRef,
+} from '@/components/ui/SheetTextInput';
+import type { NewOrderController } from '@/hooks/useNewOrderController';
 import { DuplicateCustomerBanner } from './DuplicateCustomerBanner';
 import { NewCustomerAddressInput } from './NewCustomerAddressInput';
-import { DEFAULT_COUNTRY_CODE } from './new-order.shared';
+import { NewCustomerTypeToggle } from './NewCustomerTypeToggle';
+import { NewOrderCustomerContactSection } from './NewOrderCustomerContactSection';
+import { customerCreateStyles as customerStyles } from './NewOrderCustomerCreateView.styles';
 import { styles } from './new-order.styles';
 
 interface NewOrderCustomerCreateViewProps {
-  controller: ReturnType<typeof useNewOrderController>;
+  controller: NewOrderController;
+}
+
+interface CustomerInfoFieldProps {
+  colors: NewOrderController['colors'];
+  icon: IoniconsIconName;
+  inputRef?: RefObject<SheetTextInputRef | null>;
+  onChangeText: (text: string) => void;
+  onSubmitEditing?: () => void;
+  placeholder: string;
+  value: string;
+}
+
+function CustomerInfoField({
+  colors,
+  icon,
+  inputRef,
+  onChangeText,
+  onSubmitEditing,
+  placeholder,
+  value,
+}: CustomerInfoFieldProps) {
+  return (
+    <View
+      style={[
+        customerStyles.field,
+        { backgroundColor: colors.inputBg, borderColor: colors.border },
+      ]}
+    >
+      <Ionicons color={colors.textMuted} name={icon} size={17} />
+      <SheetTextInput
+        accessibilityLabel={placeholder}
+        ref={inputRef}
+        onChangeText={onChangeText}
+        onSubmitEditing={onSubmitEditing}
+        placeholder={placeholder}
+        placeholderTextColor={colors.textMuted}
+        returnKeyType="next"
+        submitBehavior="submit"
+        style={[customerStyles.fieldInput, { color: colors.text }]}
+        value={value}
+      />
+    </View>
+  );
 }
 
 export function NewOrderCustomerCreateView({
@@ -38,19 +89,21 @@ export function NewOrderCustomerCreateView({
   } = controller;
 
   const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const lastNameInputRef = useRef<TextInput>(null);
-  const phoneInputRef = useRef<TextInput>(null);
-  const emailInputRef = useRef<TextInput>(null);
-  const phoneTextInputProps = {
-    ref: phoneInputRef,
-    onSubmitEditing: () => emailInputRef.current?.focus(),
-    returnKeyType: 'next' as const,
-    submitBehavior: 'submit' as const,
-  };
+  const lastNameInputRef = useRef<SheetTextInputRef>(null);
+  const phoneInputRef = useRef<SheetTextInputRef>(null);
+  const emailInputRef = useRef<SheetTextInputRef>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const { height: windowHeight } = useWindowDimensions();
+  // Reserve room below the last field so the focused address input can scroll
+  // up and its (position:absolute) predictions dropdown clears the keyboard.
+  const addressDropdownReserve = Math.max(220, Math.round(windowHeight * 0.35));
+  const [isAddressFocused, setIsAddressFocused] = useState(false);
+  const isCompany = newCustomer.customerType === 'company';
 
   return (
-    <ScrollView
-      contentContainerStyle={{ gap: 16, padding: 16 }}
+    <BottomSheetScrollView
+      ref={scrollRef}
+      contentContainerStyle={customerStyles.content}
       keyboardShouldPersistTaps="handled"
     >
       {duplicateCustomer ? (
@@ -64,98 +117,109 @@ export function NewOrderCustomerCreateView({
         />
       ) : null}
 
-      <View style={{ gap: 8 }}>
-        <Text style={{ color: colors.textSecondary }}>Personal Info</Text>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <TextInput
-            onChangeText={(text) =>
-              setNewCustomer((previous) => ({ ...previous, firstName: text }))
-            }
-            onSubmitEditing={() => lastNameInputRef.current?.focus()}
-            placeholder="First Name"
-            placeholderTextColor={colors.textMuted}
-            returnKeyType="next"
-            submitBehavior="submit"
+      <View style={customerStyles.section}>
+        <View style={customerStyles.sectionHeader}>
+          <View
             style={[
-              styles.sheetInput,
-              { backgroundColor: colors.inputBg, color: colors.text, flex: 1 },
+              customerStyles.sectionIcon,
+              { backgroundColor: colors.primaryLight },
             ]}
-            value={newCustomer.firstName}
-          />
-          <TextInput
-            ref={lastNameInputRef}
+          >
+            <Ionicons
+              color={colors.primary}
+              name={isCompany ? 'business-outline' : 'person-outline'}
+              size={17}
+            />
+          </View>
+          <Text style={[customerStyles.sectionTitle, { color: colors.text }]}>
+            {isCompany ? 'Company Info' : 'Personal Info'}
+          </Text>
+        </View>
+
+        <NewCustomerTypeToggle
+          colors={colors}
+          onChange={(customerType) => {
+            setNewCustomer((previous) => ({
+              ...previous,
+              customerType,
+              ...(customerType === 'company'
+                ? { firstName: '', lastName: '' }
+                : { companyName: '' }),
+            }));
+          }}
+          value={newCustomer.customerType}
+        />
+
+        {isCompany ? (
+          <CustomerInfoField
+            colors={colors}
+            icon="business"
             onChangeText={(text) =>
-              setNewCustomer((previous) => ({ ...previous, lastName: text }))
+              setNewCustomer((previous) => ({
+                ...previous,
+                companyName: text,
+              }))
             }
             onSubmitEditing={() => phoneInputRef.current?.focus()}
-            placeholder="Last Name"
-            placeholderTextColor={colors.textMuted}
-            returnKeyType="next"
-            submitBehavior="submit"
-            style={[
-              styles.sheetInput,
-              { backgroundColor: colors.inputBg, color: colors.text, flex: 1 },
-            ]}
-            value={newCustomer.lastName}
+            placeholder="Company Name"
+            value={newCustomer.companyName}
           />
-        </View>
+        ) : (
+          <View style={customerStyles.nameRow}>
+            <CustomerInfoField
+              colors={colors}
+              icon="person"
+              onChangeText={(text) =>
+                setNewCustomer((previous) => ({
+                  ...previous,
+                  firstName: text,
+                }))
+              }
+              onSubmitEditing={() => lastNameInputRef.current?.focus()}
+              placeholder="First Name"
+              value={newCustomer.firstName}
+            />
+            <CustomerInfoField
+              colors={colors}
+              icon="person"
+              inputRef={lastNameInputRef}
+              onChangeText={(text) =>
+                setNewCustomer((previous) => ({
+                  ...previous,
+                  lastName: text,
+                }))
+              }
+              onSubmitEditing={() => phoneInputRef.current?.focus()}
+              placeholder="Last Name"
+              value={newCustomer.lastName}
+            />
+          </View>
+        )}
       </View>
 
-      <View style={{ gap: 8, zIndex: 5 }}>
-        <Text style={{ color: colors.textSecondary }}>Contact Info</Text>
-        <PhoneInput
-          containerStyle={{
-            backgroundColor: colors.inputBg,
-            borderRadius: 12,
-            height: 54,
-            width: '100%',
-          }}
-          defaultCode={selectedCountryCode || DEFAULT_COUNTRY_CODE}
-          defaultValue={newCustomer.phone}
-          layout="first"
-          onChangeCountry={(country) => {
-            setSelectedCountryCode(country.cca2);
-          }}
-          onChangeFormattedText={(text) => {
-            setNewCustomer((previous) => ({ ...previous, phone: text }));
-          }}
-          placeholder="Mobile Phone"
-          textContainerStyle={{
-            backgroundColor: 'transparent',
-            borderRadius: 12,
-          }}
-          textInputStyle={{
-            color: colors.text,
-            height: 50,
-          }}
-          textInputProps={phoneTextInputProps}
-          withDarkTheme
-          withShadow={false}
-        />
-        <TextInput
-          ref={emailInputRef}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          onChangeText={(text) =>
-            setNewCustomer((previous) => ({ ...previous, email: text }))
-          }
-          onSubmitEditing={() => Keyboard.dismiss()}
-          placeholder="Email Address (Optional)"
-          placeholderTextColor={colors.textMuted}
-          returnKeyType="done"
-          submitBehavior="blurAndSubmit"
-          style={[
-            styles.sheetInput,
-            { backgroundColor: colors.inputBg, color: colors.text },
-          ]}
-          value={newCustomer.email}
-        />
-      </View>
+      <NewOrderCustomerContactSection
+        colors={colors}
+        emailInputRef={emailInputRef}
+        newCustomer={newCustomer}
+        phoneInputRef={phoneInputRef}
+        selectedCountryCode={selectedCountryCode}
+        setNewCustomer={setNewCustomer}
+        setSelectedCountryCode={setSelectedCountryCode}
+      />
 
       <NewCustomerAddressInput
         address={newCustomer.address}
         colors={colors}
         googleMapsApiKey={googleMapsApiKey}
+        onAddressBlur={() => setIsAddressFocused(false)}
+        onAddressFocus={() => {
+          setIsAddressFocused(true);
+          // Wait for the keyboard to settle, then bring the field + reserved
+          // space into view above it.
+          setTimeout(() => {
+            scrollRef.current?.scrollToEnd({ animated: true });
+          }, 150);
+        }}
         selectedCountryCode={selectedCountryCode}
         setNewCustomer={setNewCustomer}
       />
@@ -186,6 +250,10 @@ export function NewOrderCustomerCreateView({
           </Text>
         )}
       </Pressable>
-    </ScrollView>
+
+      {isAddressFocused ? (
+        <View style={{ height: addressDropdownReserve }} />
+      ) : null}
+    </BottomSheetScrollView>
   );
 }

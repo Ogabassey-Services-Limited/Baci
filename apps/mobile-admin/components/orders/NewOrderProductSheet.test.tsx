@@ -1,13 +1,20 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import type { ChangeEvent, ReactNode } from 'react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import type { ChangeEvent, ComponentProps, ReactNode } from 'react';
 import { Text } from 'react-native';
 import { describe, expect, it, vi } from 'vitest';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
-import { NewOrderProductSheet } from './NewOrderProductSheet';
+import {
+  NewOrderProductSheet,
+  PRODUCT_SEARCH_FOCUS_DELAY_MS,
+} from './NewOrderProductSheet';
+import type { SelectableOrderProduct } from './new-order.types';
 
 const routerState = vi.hoisted(() => ({
   push: vi.fn(),
+}));
+
+const bottomSheetInputState = vi.hoisted(() => ({
+  focus: vi.fn(),
 }));
 
 vi.mock('expo-router', () => ({
@@ -23,10 +30,17 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
-vi.mock('@/components/ui/AppPageSheet', () => ({
-  AppPageSheet: ({
+vi.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 8, right: 0, bottom: 12, left: 0 }),
+}));
+
+vi.mock('@/components/orders/NewOrderProductPickerSheetFrame', () => ({
+  NewOrderProductPickerSheetFrame: ({
     children,
     closeLabel,
+    footer,
+    footerBottomInset,
+    colors,
     onClose,
     title,
     trailingAccessory,
@@ -34,20 +48,103 @@ vi.mock('@/components/ui/AppPageSheet', () => ({
   }: {
     children?: ReactNode;
     closeLabel: string;
+    colors: { background: string };
+    footer?: ReactNode;
+    footerBottomInset?: number;
     onClose: () => void;
     title: string;
     trailingAccessory?: ReactNode;
     visible: boolean;
   }) =>
     visible ? (
-      <section aria-label="product-sheet">
+      <section
+        aria-label="product-picker-gorhom-frame"
+        data-background={colors.background}
+        data-footer-bottom-inset={footerBottomInset}
+      >
         <button aria-label={closeLabel} onClick={onClose} type="button" />
         <h1>{title}</h1>
         {trailingAccessory}
-        {children}
+        <div data-testid="product-sheet-body">{children}</div>
+        {footer ? <div data-testid="product-sheet-footer">{footer}</div> : null}
       </section>
     ) : null,
 }));
+
+vi.mock('@gorhom/bottom-sheet', async () => {
+  const React = await import('react');
+
+  return {
+    BottomSheetFlatList: ({
+      contentContainerStyle,
+      ListEmptyComponent,
+      ListFooterComponent,
+      data,
+      onEndReached,
+      renderItem,
+    }: {
+      contentContainerStyle?: { paddingBottom?: number };
+      ListEmptyComponent?: ReactNode;
+      ListFooterComponent?: ReactNode;
+      data: unknown[];
+      onEndReached?: () => void;
+      renderItem: (item: { item: unknown }) => ReactNode;
+    }) => (
+      <div
+        data-padding-bottom={contentContainerStyle?.paddingBottom}
+        data-testid="product-picker-bottom-sheet-list"
+      >
+        {data.length === 0
+          ? ListEmptyComponent
+          : data.map((item, index) => (
+              <div key={String(index)}>{renderItem({ item })}</div>
+            ))}
+        {ListFooterComponent}
+        <button
+          aria-label="Reach list end"
+          onClick={() => onEndReached?.()}
+          type="button"
+        >
+          Reach list end
+        </button>
+      </div>
+    ),
+    BottomSheetScrollView: ({
+      children,
+      testID,
+    }: {
+      children?: ReactNode;
+      testID?: string;
+    }) => <div data-testid={testID}>{children}</div>,
+    BottomSheetTextInput: React.forwardRef<
+      HTMLInputElement,
+      {
+        accessibilityLabel?: string;
+        onChangeText?: (value: string) => void;
+        placeholder?: string;
+        value?: string;
+      }
+    >(({ accessibilityLabel, onChangeText, placeholder, value }, ref) => {
+      React.useImperativeHandle(
+        ref,
+        () =>
+          ({
+            focus: bottomSheetInputState.focus,
+          }) as unknown as HTMLInputElement
+      );
+      return (
+        <input
+          aria-label={accessibilityLabel ?? placeholder}
+          data-gorhom-input="true"
+          onChange={(event: ChangeEvent<HTMLInputElement>) =>
+            onChangeText?.(event.target.value)
+          }
+          value={value ?? ''}
+        />
+      );
+    }),
+  };
+});
 
 vi.mock('./NewOrderProductSheetEmptyState', () => ({
   NewOrderProductSheetEmptyState: () => (
@@ -57,49 +154,58 @@ vi.mock('./NewOrderProductSheetEmptyState', () => ({
   ),
 }));
 
-vi.mock('react-native', async () => {
-  const React = await import('react');
-
+vi.mock('react-native', () => {
   return {
+    useColorScheme: () => 'light',
     StatusBar: () => null,
-    ActivityIndicator: () =>
-      React.createElement('div', { role: 'progressbar' }, 'loading'),
+    Platform: {
+      OS: 'ios',
+      select: (objs: Record<string, unknown>) => objs.ios || objs.default,
+    },
+    InteractionManager: {
+      runAfterInteractions: (callback: () => void) => {
+        callback();
+        return { cancel: vi.fn() };
+      },
+    },
+    KeyboardAvoidingView: ({ children }: { children?: ReactNode }) => (
+      <div>{children}</div>
+    ),
+    ActivityIndicator: () => <div role="progressbar">loading</div>,
     FlatList: ({
+      contentContainerStyle,
       ListEmptyComponent,
       ListFooterComponent,
       data,
       onEndReached,
       renderItem,
     }: {
+      contentContainerStyle?: { paddingBottom?: number };
       ListEmptyComponent?: ReactNode;
       ListFooterComponent?: ReactNode;
       data: unknown[];
       onEndReached?: () => void;
       renderItem: (item: { item: unknown }) => ReactNode;
-    }) =>
-      React.createElement(
-        'div',
-        null,
-        data.length === 0
+    }) => (
+      <div
+        data-padding-bottom={contentContainerStyle?.paddingBottom}
+        data-testid="product-picker-list"
+      >
+        {data.length === 0
           ? ListEmptyComponent
-          : data.map((item, index) =>
-              React.createElement(
-                'div',
-                { key: String(index) },
-                renderItem({ item })
-              )
-            ),
-        ListFooterComponent,
-        React.createElement(
-          'button',
-          {
-            'aria-label': 'Reach list end',
-            onClick: () => onEndReached?.(),
-            type: 'button',
-          },
-          'Reach list end'
-        )
-      ),
+          : data.map((item, index) => (
+              <div key={String(index)}>{renderItem({ item })}</div>
+            ))}
+        {ListFooterComponent}
+        <button
+          aria-label="Reach list end"
+          onClick={() => onEndReached?.()}
+          type="button"
+        >
+          Reach list end
+        </button>
+      </div>
+    ),
     Pressable: ({
       accessibilityLabel,
       children,
@@ -108,21 +214,19 @@ vi.mock('react-native', async () => {
       accessibilityLabel?: string;
       children?: ReactNode;
       onPress?: () => void;
-    }) =>
-      React.createElement(
-        'button',
-        {
-          'aria-label': accessibilityLabel,
-          onClick: () => onPress?.(),
-          type: 'button',
-        },
-        children
-      ),
+    }) => (
+      <button
+        aria-label={accessibilityLabel}
+        onClick={() => onPress?.()}
+        type="button"
+      >
+        {children}
+      </button>
+    ),
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },
-    Text: ({ children }: { children?: ReactNode }) =>
-      React.createElement('span', null, children),
+    Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
     TextInput: ({
       accessibilityLabel,
       onChangeText,
@@ -133,43 +237,60 @@ vi.mock('react-native', async () => {
       onChangeText?: (value: string) => void;
       placeholder?: string;
       value?: string;
-    }) =>
-      React.createElement('input', {
-        'aria-label': accessibilityLabel ?? placeholder,
-        onChange: (event: ChangeEvent<HTMLInputElement>) =>
-          onChangeText?.(event.target.value),
-        value: value ?? '',
-      }),
-    View: ({ children }: { children?: ReactNode }) =>
-      React.createElement('div', null, children),
+    }) => (
+      <input
+        aria-label={accessibilityLabel ?? placeholder}
+        onChange={(event: ChangeEvent<HTMLInputElement>) =>
+          onChangeText?.(event.target.value)
+        }
+        value={value ?? ''}
+      />
+    ),
+    View: ({
+      children,
+      style,
+      testID,
+    }: {
+      children?: ReactNode;
+      style?: Record<string, unknown>;
+      testID?: string;
+    }) => (
+      <div
+        data-padding-bottom={String(style?.paddingBottom ?? '')}
+        data-padding-horizontal={String(style?.paddingHorizontal ?? '')}
+        data-padding-top={String(style?.paddingTop ?? '')}
+        data-testid={testID}
+      >
+        {children}
+      </div>
+    ),
   };
 });
 
-type ProductSheetController = Pick<
-  ReturnType<typeof useNewOrderController>,
-  | 'closeProductModal'
-  | 'colors'
-  | 'fetchMoreProducts'
-  | 'formatPrice'
-  | 'handleAddProduct'
-  | 'handleSelectProduct'
-  | 'hasMoreProducts'
-  | 'isFetchingMoreProducts'
-  | 'isPickingVariant'
-  | 'productSearch'
-  | 'resetProductPickerState'
-  | 'selectableProductRows'
-  | 'selectedParentProduct'
-  | 'setProductSearch'
-  | 'showProductModal'
->;
+type ProductSheetController = ComponentProps<
+  typeof NewOrderProductSheet
+>['controller'];
+
+const productRow: SelectableOrderProduct = {
+  condition: 'brand_new',
+  has_variants: false,
+  id: 'product-1',
+  images: ['https://example.com/phone.png'],
+  name: 'Baci Phone',
+  parent_product_id: null,
+  price: 2500,
+  sku: 'SKU-1',
+  variant_attributes: [],
+};
 
 function makeController(
   overrides: Partial<ProductSheetController> = {}
-): ReturnType<typeof useNewOrderController> {
+): ProductSheetController {
   return {
     closeProductModal: vi.fn(),
     colors: {
+      background: '#ffffff',
+      backgroundLight: '#f8fafc',
       border: '#e2e8f0',
       card: '#ffffff',
       cardHover: '#f1f5f9',
@@ -184,25 +305,21 @@ function makeController(
     handleSelectProduct: vi.fn(),
     hasMoreProducts: true,
     isFetchingMoreProducts: false,
+    isLoadingSelectedParentProduct: false,
     isPickingVariant: false,
+    isProductsLoading: false,
     productSearch: '',
+    productsError: null,
+    refetchProducts: vi.fn(async () => undefined),
+    refetchSelectedParentProduct: vi.fn(async () => undefined),
     resetProductPickerState: vi.fn(),
-    selectableProductRows: [
-      {
-        condition: 'brand_new',
-        id: 'product-1',
-        images: ['https://example.com/phone.png'],
-        name: 'Baci Phone',
-        price: 2500,
-        sku: 'SKU-1',
-        variant_attributes: [],
-      },
-    ],
+    selectableProductRows: [productRow],
     selectedParentProduct: null,
+    selectedParentProductError: null,
     setProductSearch: vi.fn(),
     showProductModal: true,
     ...overrides,
-  } as ReturnType<typeof useNewOrderController>;
+  } as unknown as ProductSheetController;
 }
 
 describe('NewOrderProductSheet', () => {
@@ -222,6 +339,50 @@ describe('NewOrderProductSheet', () => {
       controller.selectableProductRows[0]
     );
     expect(controller.fetchMoreProducts).toHaveBeenCalledTimes(1);
+  });
+
+  it('anchors product search in the Gorhom sheet footer so keyboard avoidance can move it', () => {
+    const controller = makeController();
+
+    render(<NewOrderProductSheet controller={controller} />);
+
+    const searchInput = screen.getByRole('textbox', {
+      name: 'Search products',
+    });
+
+    expect(
+      screen.getByLabelText('product-picker-gorhom-frame')
+    ).toHaveAttribute('data-background', controller.colors.background);
+    expect(
+      screen.getByLabelText('product-picker-gorhom-frame')
+    ).toHaveAttribute('data-footer-bottom-inset', '18');
+    expect(screen.getByTestId('product-sheet-footer')).toContainElement(
+      searchInput
+    );
+    expect(searchInput).toHaveAttribute('data-gorhom-input', 'true');
+    expect(
+      screen.getByTestId('product-picker-bottom-sheet-list')
+    ).toHaveAttribute('data-padding-bottom', '128');
+  });
+
+  it('focuses product search after the sheet opens', () => {
+    vi.useFakeTimers();
+    bottomSheetInputState.focus.mockClear();
+    const controller = makeController();
+
+    try {
+      render(<NewOrderProductSheet controller={controller} />);
+
+      expect(bottomSheetInputState.focus).not.toHaveBeenCalled();
+
+      act(() => {
+        vi.advanceTimersByTime(PRODUCT_SEARCH_FOCUS_DELAY_MS);
+      });
+
+      expect(bottomSheetInputState.focus).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('closes the sheet and navigates to the product creation screen', () => {

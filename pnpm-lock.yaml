@@ -235,6 +235,9 @@ importers:
       '@expo/metro-runtime':
         specifier: ~56.0.15
         version: 56.0.15(@expo/log-box@56.0.13)(expo@56.0.12)(react-dom@19.2.3(react@19.2.3))(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
+      '@gorhom/bottom-sheet':
+        specifier: ^5.2.14
+        version: 5.2.14(b739f71a2a87065676377c468b57ca82)
       '@hookform/resolvers':
         specifier: ^5.4.0
         version: 5.4.0(react-hook-form@7.79.0(react@19.2.3))
@@ -2863,6 +2866,27 @@ packages:
   '@google/generative-ai@0.24.1':
     resolution: {integrity: sha512-MqO+MLfM6kjxcKoy0p1wRzG3b4ZZXtPI+z2IE26UogS2Cm/XHO+7gGRBh6gcJsOiIVoH93UwKvW4HdgiOZCy9Q==}
     engines: {node: '>=18.0.0'}
+
+  '@gorhom/bottom-sheet@5.2.14':
+    resolution: {integrity: sha512-uLQFlDjp9z+jrOFcMSEldPqL5JdaXL3vXOh+juhwoNvXgTsEorJLjHTugXu+YccAG/0KJnShzKCrb71MHBsvJg==}
+    peerDependencies:
+      '@types/react': 19.2.17
+      '@types/react-native': '*'
+      react: '*'
+      react-native: '*'
+      react-native-gesture-handler: '>=2.16.1'
+      react-native-reanimated: 4.4.1
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-native':
+        optional: true
+
+  '@gorhom/portal@1.0.14':
+    resolution: {integrity: sha512-MXyL4xvCjmgaORr/rtryDNFy3kU4qUbKlwtQqqsygd0xX3mhKjOLn6mQK8wfu0RkoE0pBE0nAasRoHua+/QZ7A==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
 
   '@graphql-tools/executor@1.5.3':
     resolution: {integrity: sha512-mgBFC0bsrZPZLu9EnydpMnAuQ8Iiq0CEbUcsmvXsm2/iYektGHDN/+bmb7hicA6dWZtdPfklYJmr21WD0GnOfA==}
@@ -15318,6 +15342,24 @@ snapshots:
     optional: true
 
   '@google/generative-ai@0.24.1': {}
+
+  '@gorhom/bottom-sheet@5.2.14(b739f71a2a87065676377c468b57ca82)':
+    dependencies:
+      '@gorhom/portal': 1.0.14(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
+      invariant: 2.2.4
+      react: 19.2.3
+      react-native: 0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3)
+      react-native-gesture-handler: 3.0.1(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
+      react-native-reanimated: 4.4.1(react-native-worklets@0.9.2(@babel/core@7.29.6)(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3))(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
+    optionalDependencies:
+      '@types/react': 19.2.17
+      '@types/react-native': 0.73.0(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3)
+
+  '@gorhom/portal@1.0.14(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)':
+    dependencies:
+      nanoid: 3.3.12
+      react: 19.2.3
+      react-native: 0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3)
 
   '@graphql-tools/executor@1.5.3(graphql@16.14.2)':
     dependencies:

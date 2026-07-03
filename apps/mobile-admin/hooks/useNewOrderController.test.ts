@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const merchantState = vi.hoisted(() => ({
@@ -178,6 +178,21 @@ describe('useNewOrderController', () => {
 
     expect(submitNewOrder).toHaveBeenCalledWith(
       expect.objectContaining({ selectedBranchId: 'branch-2' })
+    );
+  });
+
+  it('passes the selected order date into manual order submission', async () => {
+    merchantState.current = { id: 'merchant-1', payout_currency: 'NGN' };
+    const selectedDate = new Date('2024-02-03T10:30:00.000Z');
+    const { result } = renderHook(() => useNewOrderController());
+
+    await act(async () => {
+      result.current.setDate(selectedDate);
+    });
+    await result.current.handleSubmit();
+
+    expect(submitNewOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ orderDate: selectedDate })
     );
   });
 

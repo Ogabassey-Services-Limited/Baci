@@ -28,6 +28,7 @@ export function NewOrderItemsSection({
     setShowEditItemModal,
     setShowProductModal,
   } = controller;
+  const quickAddAccentColor = colors.warning;
 
   return (
     <View style={styles.section}>
@@ -47,20 +48,24 @@ export function NewOrderItemsSection({
             styles.actionBtn,
             {
               backgroundColor: getTranslucentColor(
-                colors.primary,
+                quickAddAccentColor,
                 colors.backgroundLight,
                 0.06
               ),
               borderColor: getTranslucentColor(
-                colors.primary,
+                quickAddAccentColor,
                 colors.border,
                 0.14
               ),
             },
           ]}
         >
-          <Ionicons color={colors.primary} name="flash-outline" size={18} />
-          <Text style={[styles.actionBtnText, { color: colors.primary }]}>
+          <Ionicons
+            color={quickAddAccentColor}
+            name="flash-outline"
+            size={18}
+          />
+          <Text style={[styles.actionBtnText, { color: quickAddAccentColor }]}>
             Quick Add
           </Text>
         </Pressable>
@@ -82,8 +87,8 @@ export function NewOrderItemsSection({
             },
           ]}
         >
-          <Ionicons color={colors.textSecondary} name="search" size={16} />
-          <Text style={[styles.actionBtnText, { color: colors.textSecondary }]}>
+          <Ionicons color={colors.primary} name="search" size={16} />
+          <Text style={[styles.actionBtnText, { color: colors.primary }]}>
             Search Catalog
           </Text>
         </Pressable>

@@ -27,9 +27,10 @@ import { normalizeVariantAttributes } from '@/lib/product-picker-variant-rows';
 import { createNewOrderCustomerActions } from './createNewOrderCustomerActions';
 import { createNewOrderProductActions } from './createNewOrderProductActions';
 import { submitNewOrder } from './submitNewOrder';
+import type { UseNewOrderControllerOptions } from './useNewOrderControllerOptions';
 import { useNewOrderLookupData } from './useNewOrderLookupData';
 import { useNewOrderUiState } from './useNewOrderUiState';
-import type { UseNewOrderControllerOptions } from './useNewOrderControllerOptions';
+import { useNewOrderVatState } from './useNewOrderVatState';
 import { useOrderBranchSelection } from './useOrderBranchSelection';
 import { useQuickAddProductMatches } from './useQuickAddProductMatches';
 
@@ -47,11 +48,14 @@ export function useNewOrderController({
   const createCustomerMutation = useCreateCustomer();
 
   const [date, setDate] = useState(new Date());
-  const [selectedChannel, setSelectedChannel] =
-    useState<OrderSource | null>(initialSelectedChannel);
+  const [selectedChannel, setSelectedChannel] = useState<OrderSource | null>(
+    initialSelectedChannel
+  );
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('unpaid');
-  const [customer, setCustomer] = useState<CustomerInfo>(createEmptyCustomerInfo);
+  const [customer, setCustomer] = useState<CustomerInfo>(
+    createEmptyCustomerInfo
+  );
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,16 +69,8 @@ export function useNewOrderController({
   const [shippingFee, setShippingFee] = useState(0);
   const [taxes, setTaxes] = useState(0);
 
-  const isVatRegistered = merchant?.vat_registration_status === 'registered';
-  const [isVatApplied, setIsVatApplied] = useState(isVatRegistered);
-  const [prevIsVatRegistered, setPrevIsVatRegistered] =
-    useState(isVatRegistered);
-  if (isVatRegistered !== prevIsVatRegistered) {
-    setPrevIsVatRegistered(isVatRegistered);
-    if (autoApplyVat && isVatRegistered) {
-      setIsVatApplied(true);
-    }
-  }
+  const { isVatApplied, isVatRegistered, setIsVatApplied } =
+    useNewOrderVatState(autoApplyVat, merchant?.vat_registration_status);
 
   const [productSearch, setProductSearch] = useState('');
   const [selectedParentProduct, setSelectedParentProduct] =
@@ -141,7 +137,9 @@ export function useNewOrderController({
     ? (selectedParentProductVariantsData ?? [])
     : filteredProducts.map((product) => ({
         ...product,
-        variant_attributes: normalizeVariantAttributes(product.variant_attributes),
+        variant_attributes: normalizeVariantAttributes(
+          product.variant_attributes
+        ),
       }));
 
   const productActions = createNewOrderProductActions({
@@ -169,14 +167,15 @@ export function useNewOrderController({
     setShowCustomerModal: uiState.setShowCustomerModal,
   });
 
-  const handleSubmit = async () => {
-    await submitNewOrder({
+  const handleSubmit = () =>
+    submitNewOrder({
       customer,
       deliveryInfo,
       discount,
       merchantCurrency: merchant?.payout_currency,
       merchantId: merchant?.id,
       notes,
+      orderDate: date,
       orderItems,
       partialAmount,
       paymentMethod,
@@ -195,7 +194,6 @@ export function useNewOrderController({
       total,
       userId: user?.id,
     });
-  };
 
   const resetOrderDraft = () => {
     setDate(new Date());
@@ -298,3 +296,5 @@ export function useNewOrderController({
     ...productActions,
   };
 }
+
+export type NewOrderController = ReturnType<typeof useNewOrderController>;

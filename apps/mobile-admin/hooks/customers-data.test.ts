@@ -51,6 +51,7 @@ vi.mock('@/lib/supabase', () => ({
           mocks.calls.push({ args, method: `${table}.select` });
           return query;
         },
+        // biome-ignore lint/suspicious/noThenProperty: Supabase query builders are awaitable, so this mock must be thenable too.
         then: (resolve: (value: unknown) => void) => {
           resolve({
             count: mocks.nextCount,
@@ -86,6 +87,63 @@ describe('customers-data', () => {
     expect(mocks.calls).toContainEqual({
       args: ['search.Ada'],
       method: 'customers.or',
+    });
+  });
+
+  it('filters by customer type when a type segment is active', async () => {
+    await fetchCustomers('merchant-1', 0, { customerType: 'company' });
+
+    expect(mocks.calls).toContainEqual({
+      args: ['customer_type', 'company'],
+      method: 'customers.eq',
+    });
+  });
+
+  it('does not filter by customer type when no type is provided', async () => {
+    await fetchCustomers('merchant-1', 0, {});
+
+    expect(mocks.calls).not.toContainEqual({
+      args: ['customer_type', 'company'],
+      method: 'customers.eq',
+    });
+    expect(mocks.calls).not.toContainEqual({
+      args: ['customer_type', 'individual'],
+      method: 'customers.eq',
+    });
+  });
+
+  it('orders alphabetic customer pages by display fields before paging', async () => {
+    await fetchCustomers('merchant-1', 20, { sortBy: 'alpha' });
+
+    const orderCalls = mocks.calls.filter(
+      (call) => call.method === 'customers.order'
+    );
+    expect(orderCalls).toEqual([
+      {
+        args: ['full_name', { ascending: true, nullsFirst: false }],
+        method: 'customers.order',
+      },
+      {
+        args: ['first_name', { ascending: true, nullsFirst: false }],
+        method: 'customers.order',
+      },
+      {
+        args: ['email', { ascending: true, nullsFirst: false }],
+        method: 'customers.order',
+      },
+      {
+        args: ['phone', { ascending: true, nullsFirst: false }],
+        method: 'customers.order',
+      },
+    ]);
+    expect(
+      mocks.calls.findIndex((call) => call.method === 'customers.order')
+    ).toBeLessThan(
+      mocks.calls.findIndex((call) => call.method === 'customers.range')
+    );
+    expect(mocks.calls).toContainEqual({
+      args: [20, 39],
+      method: 'customers.range',
     });
   });
 

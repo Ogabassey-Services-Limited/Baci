@@ -9,16 +9,31 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TYPOGRAPHY } from '@/constants/theme';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { PAYMENT_METHODS } from './new-order.shared';
-import { styles } from './new-order.styles';
+import {
+  NEW_ORDER_FOOTER_BASE_PADDING_BOTTOM,
+  styles,
+} from './new-order.styles';
 
 interface NewOrderFooterBarProps {
   controller: ReturnType<typeof useNewOrderController>;
 }
 
+const PAYMENT_STATUS_OPTIONS: {
+  icon: IoniconsIconName;
+  label: string;
+  value: PaymentStatus;
+}[] = [
+  { icon: 'alert-circle', label: 'UNPAID', value: 'unpaid' },
+  { icon: 'checkmark-circle', label: 'PAID', value: 'paid' },
+  { icon: 'remove-circle', label: 'Partial', value: 'partially_paid' },
+];
+
 export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
+  const insets = useSafeAreaInsets();
   const {
     colors,
     shadows,
@@ -39,60 +54,81 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
     <View
       style={[
         styles.footer,
-        { backgroundColor: colors.card, borderTopColor: colors.border },
+        {
+          backgroundColor: colors.card,
+          borderTopColor: colors.border,
+          paddingBottom: NEW_ORDER_FOOTER_BASE_PADDING_BOTTOM + insets.bottom,
+        },
       ]}
+      testID="new-order-footer-bar"
     >
-      <View style={[styles.paymentToggle, { backgroundColor: colors.inputBg }]}>
-        {(['unpaid', 'paid', 'partially_paid'] as PaymentStatus[]).map(
-          (status) => {
-            const isSelected = paymentStatus === status;
+      <View style={styles.paymentStatusField}>
+        <Text
+          style={[styles.footerFieldLabel, { color: colors.textSecondary }]}
+        >
+          Payment Status
+        </Text>
+        <View
+          accessibilityLabel="Payment status"
+          accessibilityRole="radiogroup"
+          style={[styles.paymentToggle, { backgroundColor: colors.inputBg }]}
+        >
+          {PAYMENT_STATUS_OPTIONS.map(({ icon, label, value }) => {
+            const statusColor =
+              value === 'paid'
+                ? colors.success
+                : value === 'unpaid'
+                  ? colors.error
+                  : colors.warning;
+            const isSelected = paymentStatus === value;
             return (
               <Pressable
-                accessibilityLabel={`Payment status: ${status === 'partially_paid' ? 'Partial' : status}`}
+                accessibilityLabel={`Payment status: ${label}`}
                 accessibilityRole="radio"
                 accessibilityState={{
                   checked: isSelected,
                   disabled: isSubmitting,
                 }}
                 disabled={isSubmitting}
-                key={status}
+                key={value}
                 onPress={() => {
-                  setPaymentStatus(status);
-                  if (status !== 'partially_paid') {
+                  setPaymentStatus(value);
+                  if (value !== 'partially_paid') {
                     setPartialAmount('');
                   }
                 }}
                 style={({ pressed }) => [
                   !isSubmitting && pressed && { opacity: 0.7 },
                   styles.toggleOption,
-                  isSelected && {
-                    backgroundColor: colors.background,
-                    ...shadows.sm,
+                  {
+                    backgroundColor: isSelected
+                      ? colors.background
+                      : colors.card,
+                    borderColor: isSelected ? statusColor : colors.border,
+                    borderWidth: 1,
                   },
+                  isSelected && shadows.sm,
                 ]}
               >
+                <Ionicons
+                  color={isSelected ? statusColor : colors.textSecondary}
+                  name={icon}
+                  size={14}
+                />
                 <Text
                   style={[
                     styles.toggleText,
                     {
-                      color: isSelected
-                        ? status === 'paid'
-                          ? colors.success
-                          : status === 'unpaid'
-                            ? colors.error
-                            : colors.warning
-                        : colors.textSecondary,
+                      color: isSelected ? statusColor : colors.textSecondary,
                     },
                   ]}
                 >
-                  {status === 'partially_paid'
-                    ? 'Partial'
-                    : status.toUpperCase()}
+                  {label}
                 </Text>
               </Pressable>
             );
-          }
-        )}
+          })}
+        </View>
       </View>
 
       {['paid', 'partially_paid'].includes(paymentStatus) && (
@@ -108,7 +144,11 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
           >
             Payment Method
           </Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View
+            accessibilityLabel="Payment method"
+            accessibilityRole="radiogroup"
+            style={{ flexDirection: 'row', gap: 8 }}
+          >
             {PAYMENT_METHODS.map((method) => (
               <Pressable
                 accessibilityLabel={`Payment method: ${method.label}`}

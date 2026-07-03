@@ -1,6 +1,7 @@
 import type { VariantAttributes } from '@baci/shared';
 import type { Customer } from '@/hooks/useCustomers';
 import type { SelectableManualOrderProduct } from '@/lib/manual-order-line-item';
+import type { CustomerType } from './new-order.shared';
 
 export interface ShippingAddress {
   name: string;
@@ -45,6 +46,8 @@ export interface DeliveryInfo {
 }
 
 export interface NewCustomerDraft {
+  customerType: CustomerType;
+  companyName: string;
   firstName: string;
   lastName: string;
   phone: string;
@@ -64,7 +67,15 @@ export interface FinancialModalState {
 
 export type SelectableCustomer = Pick<
   Customer,
-  'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'address'
+  | 'id'
+  | 'customer_type'
+  | 'company_name'
+  | 'full_name'
+  | 'first_name'
+  | 'last_name'
+  | 'email'
+  | 'phone'
+  | 'address'
 >;
 
 export type SelectableOrderProduct = SelectableManualOrderProduct;

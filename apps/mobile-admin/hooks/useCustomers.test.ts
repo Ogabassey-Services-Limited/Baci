@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@baci/shared', () => ({
   buildCustomerAddressLine: vi.fn(() => null),
   buildCustomerNameFields: vi.fn(() => ({})),
+  buildCustomerRecordNameFields: vi.fn(() => ({})),
   buildCustomerSearchFilter: vi.fn(() => ''),
   CUSTOMER_ADMIN_COLUMNS: 'id, merchant_id, full_name',
 }));

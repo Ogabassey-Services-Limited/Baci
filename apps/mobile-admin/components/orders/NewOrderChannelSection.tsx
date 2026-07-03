@@ -47,7 +47,7 @@ export function NewOrderChannelSection({
               ]}
             >
               <Ionicons
-                color={isSelected ? colors.textOnPrimary : colors.textSecondary}
+                color={isSelected ? colors.textOnPrimary : activeColor}
                 name={channel.icon}
                 size={18}
               />

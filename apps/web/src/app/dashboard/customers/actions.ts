@@ -1,25 +1,26 @@
 'use server';
 
 import {
-  buildCustomerNameFields,
+  buildCustomerAddressLine,
+  buildCustomerRecordNameFields,
   buildCustomerSearchFilter,
   CUSTOMER_ADMIN_COLUMNS,
+  type CustomerType,
   extractOrderDeliveryAddress,
   WEB_ORDER_WITH_ITEMS_QUERY,
 } from '@baci/shared';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+import type { z } from 'zod';
 import { ensurePermission } from '@/lib/merchant-server';
-import {
-  sanitizeEmail,
-  sanitizePhone,
-  sanitizeText,
-} from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
+import { createCustomerSchema, formatZodErrors } from '@/schemas/customers';
 
 export interface Customer {
   id: string;
   merchant_id: string;
+  customer_type: CustomerType;
+  company_name: string | null;
   full_name: string | null;
   first_name: string | null;
   last_name: string | null;
@@ -36,14 +37,7 @@ export interface Customer {
   deleted_at: string | null;
 }
 
-export interface CreateCustomerData {
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  address: string;
-  store_credit?: number;
-}
+export type CreateCustomerData = z.input<typeof createCustomerSchema>;
 
 async function resolveCustomerMerchantId(
   action: 'view' | 'create'
@@ -114,30 +108,33 @@ export async function createCustomer(formData: CreateCustomerData) {
     throw new Error('Unauthorized');
   }
 
-  const firstName = formData.first_name
-    ? sanitizeText(formData.first_name, 100)
-    : null;
-  const lastName = formData.last_name
-    ? sanitizeText(formData.last_name, 100)
-    : null;
-  const email = formData.email ? sanitizeEmail(formData.email) : null;
-  const phone = formData.phone ? sanitizePhone(formData.phone) : null;
-  const address = formData.address ? sanitizeText(formData.address, 500) : null;
-  const nameFields = buildCustomerNameFields({
-    first_name: firstName,
-    last_name: lastName,
-    email,
+  // Reuse the same Zod schema as the /api/customers route so both entry points
+  // enforce identical rules (sanitization, email format, and the company-name
+  // superRefine) instead of drifting apart with a hand-rolled check.
+  const parseResult = createCustomerSchema.safeParse(formData);
+  if (!parseResult.success) {
+    const details = formatZodErrors(parseResult.error);
+    const firstError =
+      Object.values(details)[0]?.[0] ?? 'Invalid customer details';
+    throw new Error(firstError);
+  }
+  const body = parseResult.data;
+
+  const nameFields = buildCustomerRecordNameFields({
+    ...body,
+    customer_type: body.customer_type ?? 'individual',
   });
+  const address = buildCustomerAddressLine(body.address, body.city, body.state);
 
   const { data: customer, error } = await supabase
     .from('customers')
     .insert({
       merchant_id: authorizedMerchantId,
       ...nameFields,
-      email,
-      phone,
+      email: body.email || null,
+      phone: body.phone || null,
       address,
-      store_credit: formData.store_credit ?? 0,
+      store_credit: body.store_credit ?? 0,
     })
     .select(CUSTOMER_ADMIN_COLUMNS)
     .single();

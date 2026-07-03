@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { ContactInfoForm } from '@/components/customer-edit/ContactInfoForm';
 import { customerEditStyles as styles } from '@/components/customer-edit/customer-edit.styles';
 import type { InputStyleOptions } from '@/components/customer-edit/customer-edit.types';
+import { getCustomerEditHeader } from '@/components/customer-edit/customer-edit-header';
 import { LocationForm } from '@/components/customer-edit/LocationForm';
 import { PersonalDetailsForm } from '@/components/customer-edit/PersonalDetailsForm';
 import { ProfileHeader } from '@/components/customer-edit/ProfileHeader';
@@ -30,6 +31,7 @@ export default function CustomerEditScreen() {
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [phoneModified, setPhoneModified] = useState(false);
@@ -48,6 +50,7 @@ export default function CustomerEditScreen() {
 
     setFirstName(fName ?? '');
     setLastName(lName ?? '');
+    setCompanyName(customer.company_name ?? '');
     setEmail(customer.email ?? '');
     setPhone(formatPhoneForInput(customer.phone ?? ''));
     setAddress(customer.address ?? '');
@@ -55,20 +58,38 @@ export default function CustomerEditScreen() {
   }
 
   const handleSave = async () => {
+    if (!customer) {
+      Alert.alert(
+        'Customer unavailable',
+        'Customer details are still loading. Please try again.'
+      );
+      return;
+    }
+
     if (!isValidEmail(email.trim())) {
       Alert.alert('Invalid Email', 'Please enter a valid email address');
+      return;
+    }
+
+    const customerType =
+      customer.customer_type === 'company' ? 'company' : 'individual';
+    const sanitizedCompanyName = sanitizeCustomerName(companyName.trim());
+    if (customerType === 'company' && !sanitizedCompanyName) {
+      Alert.alert('Company Name Required', 'Please enter a company name');
       return;
     }
 
     try {
       await updateCustomer.mutateAsync({
         id: id || '',
+        customer_type: customerType,
+        company_name: sanitizedCompanyName || null,
         first_name: sanitizeCustomerName(firstName.trim()) || null,
         last_name: sanitizeCustomerName(lastName.trim()) || null,
         email: sanitizeEmail(email.trim()),
         phone: phoneModified
           ? sanitizePhone(phone.trim()) || null
-          : customer?.phone || null,
+          : customer.phone || null,
         address: sanitizeAddress(address.trim()) || null,
       });
       Alert.alert('Success', 'Customer updated successfully', [
@@ -95,6 +116,13 @@ export default function CustomerEditScreen() {
     );
   }
 
+  const header = getCustomerEditHeader({
+    companyName,
+    customerType: customer?.customer_type,
+    firstName,
+    lastName,
+  });
+
   return (
     <AppFormScreen
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -111,7 +139,7 @@ export default function CustomerEditScreen() {
           headerRight: () => (
             <Pressable
               onPress={handleSave}
-              disabled={updateCustomer.isPending}
+              disabled={updateCustomer.isPending || !customer}
               style={{ padding: SPACING.sm }}
             >
               {updateCustomer.isPending ? (
@@ -134,16 +162,19 @@ export default function CustomerEditScreen() {
       <ProfileHeader
         colors={colors}
         email={email}
-        initials={getInitials(firstName, lastName)}
-        name={`${firstName} ${lastName}`.trim()}
+        initials={header.initials}
+        name={header.name}
       />
       <PersonalDetailsForm
         colors={colors}
+        companyName={companyName}
+        customerType={customer?.customer_type}
         firstName={firstName}
         inputStyle={(fieldName) =>
           createInputStyle(fieldName, focusedField, colors)
         }
         lastName={lastName}
+        onCompanyNameChange={setCompanyName}
         onFirstNameChange={setFirstName}
         onFocusField={setFocusedField}
         onLastNameChange={setLastName}
@@ -218,10 +249,4 @@ function formatPhoneForInput(phoneNumber: string) {
     phone = phone.slice(1);
   }
   return phone;
-}
-
-function getInitials(firstName: string, lastName: string) {
-  const first = firstName[0] || '';
-  const last = lastName[0] || '';
-  return (first + last).toUpperCase() || '?';
 }

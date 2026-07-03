@@ -28,6 +28,7 @@ interface SubmitNewOrderParams {
   merchantId?: string;
   merchantCurrency?: string | null;
   notes: string;
+  orderDate: Date;
   orderItems: OrderItem[];
   partialAmount: string;
   paymentMethod: string;
@@ -47,6 +48,8 @@ interface SubmitNewOrderParams {
   submittingRef: MutableRefObject<boolean>;
 }
 
+const ORDER_DATE_FUTURE_TOLERANCE_MS = 60_000;
+
 export async function submitNewOrder({
   customer,
   deliveryInfo,
@@ -54,6 +57,7 @@ export async function submitNewOrder({
   merchantId,
   merchantCurrency,
   notes,
+  orderDate,
   orderItems,
   partialAmount,
   paymentMethod,
@@ -95,7 +99,10 @@ export async function submitNewOrder({
   setIsSubmitting(true);
 
   try {
-    const orderNumber = generateOrderNumber();
+    const now = new Date();
+    validateOrderDate(orderDate, now);
+    const orderDateIso = orderDate.toISOString();
+    const orderNumber = generateOrderNumber(orderDate);
     const sanitizedCustomerName =
       sanitizeCustomerName(customer.name) || 'Walk-in Customer';
     const sanitizedCustomerEmail = customer.email
@@ -172,8 +179,8 @@ export async function submitNewOrder({
             variant_id: item.is_custom ? null : (item.variant_id ?? null),
             variant_attributes:
               item.is_custom || !item.variant_id
-                ? null
-                : (item.variant_attributes ?? null),
+                ? {}
+                : (item.variant_attributes ?? {}),
             variant_name:
               item.is_custom || !item.variant_id
                 ? null
@@ -209,6 +216,7 @@ export async function submitNewOrder({
           subtotal,
           tax_amount: taxesToUse,
           total,
+          transaction_date: orderDateIso,
         },
       }
     );
@@ -259,8 +267,17 @@ async function validateSelectedBranch(
   return data.id;
 }
 
-function generateOrderNumber() {
-  const date = new Date();
+function validateOrderDate(orderDate: Date, now: Date) {
+  if (Number.isNaN(orderDate.getTime())) {
+    throw new Error('Invalid order date');
+  }
+
+  if (orderDate.getTime() > now.getTime() + ORDER_DATE_FUTURE_TOLERANCE_MS) {
+    throw new Error('Order date cannot be in the future');
+  }
+}
+
+function generateOrderNumber(date: Date) {
   const prefix = 'ORD';
   const datePart = `${String(date.getDate()).padStart(2, '0')}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getFullYear()).slice(-2)}`;
   const randomPart = Crypto.randomUUID()

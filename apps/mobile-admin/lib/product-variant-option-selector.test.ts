@@ -107,6 +107,93 @@ describe('buildVariantOptionGroups', () => {
     ]);
   });
 
+  it('does not expose color hex metadata as a selectable option group', () => {
+    const groups = buildVariantOptionGroups(
+      [
+        variant('variant-1', {
+          color: 'Black',
+          color_hex: '#000000',
+          storage: '256GB',
+        }),
+        variant('variant-2', {
+          colour: 'Silver',
+          colour_hex: '#c0c0c0',
+          storage: '512GB',
+        }),
+      ],
+      {}
+    );
+
+    expect(groups.map((group) => group.key)).toEqual([
+      'condition',
+      'color',
+      'storage',
+    ]);
+  });
+
+  it('sorts storage-style values by capacity instead of insertion order', () => {
+    const groups = buildVariantOptionGroups(
+      [
+        variant('variant-1', { storage: '512GB' }),
+        variant('variant-2', { storage: '128GB' }),
+        variant('variant-3', { storage: '256GB' }),
+      ],
+      {}
+    );
+
+    expect(groups.find((group) => group.key === 'storage')?.values).toEqual([
+      { available: true, label: '128GB', selected: false, value: '128GB' },
+      { available: true, label: '256GB', selected: false, value: '256GB' },
+      { available: true, label: '512GB', selected: false, value: '512GB' },
+    ]);
+  });
+
+  it('sorts capacity values before trailing storage descriptors', () => {
+    const groups = buildVariantOptionGroups(
+      [
+        variant('variant-1', { storage: '1TB SSD' }),
+        variant('variant-2', { storage: '512GB SSD' }),
+        variant('variant-3', { storage: '256GB SSD' }),
+      ],
+      {}
+    );
+
+    expect(groups.find((group) => group.key === 'storage')?.values).toEqual([
+      {
+        available: true,
+        label: '256GB SSD',
+        selected: false,
+        value: '256GB SSD',
+      },
+      {
+        available: true,
+        label: '512GB SSD',
+        selected: false,
+        value: '512GB SSD',
+      },
+      { available: true, label: '1TB SSD', selected: false, value: '1TB SSD' },
+    ]);
+  });
+
+  it('sorts camelCase capacity keys by capacity', () => {
+    const groups = buildVariantOptionGroups(
+      [
+        variant('variant-1', { storageCapacity: '512GB' }),
+        variant('variant-2', { storageCapacity: '128GB' }),
+        variant('variant-3', { storageCapacity: '1TB' }),
+      ],
+      {}
+    );
+
+    expect(
+      groups.find((group) => group.key === 'storage_capacity')?.values
+    ).toEqual([
+      { available: true, label: '128GB', selected: false, value: '128GB' },
+      { available: true, label: '512GB', selected: false, value: '512GB' },
+      { available: true, label: '1TB', selected: false, value: '1TB' },
+    ]);
+  });
+
   it('builds groups from nested objects and boolean attribute values', () => {
     const groups = buildVariantOptionGroups(
       [
@@ -120,12 +207,10 @@ describe('buildVariantOptionGroups', () => {
       {}
     );
 
-    expect(groups.find((group) => group.key === 'specs.esim')?.values).toEqual(
-      [
-        { available: true, label: 'true', selected: false, value: 'true' },
-        { available: true, label: 'false', selected: false, value: 'false' },
-      ]
-    );
+    expect(groups.find((group) => group.key === 'specs.esim')?.values).toEqual([
+      { available: true, label: 'true', selected: false, value: 'true' },
+      { available: true, label: 'false', selected: false, value: 'false' },
+    ]);
     expect(
       groups.find((group) => group.key === 'specs.storage')?.values
     ).toEqual([

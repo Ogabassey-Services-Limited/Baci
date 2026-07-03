@@ -20,13 +20,29 @@ const ATTRIBUTE_KEY_ALIASES: Record<string, string> = {
 };
 
 const ATTRIBUTE_VALUE_KEYS = ['value', 'label', 'name', 'options'] as const;
+const NON_SELECTABLE_ATTRIBUTE_KEYS = new Set([
+  'color_hex',
+  'colorhex',
+  'colour_hex',
+  'colourhex',
+]);
 
 function normalizeAttributeKey(key: string): string {
-  const normalized = key.trim().toLowerCase().replace(/\s+/g, '_');
+  const normalized = key
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
   return normalized
     .split('.')
     .map((part) => ATTRIBUTE_KEY_ALIASES[part] ?? part)
     .join('.');
+}
+
+function isSelectableAttributeKey(key: string): boolean {
+  return key
+    .split('.')
+    .every((part) => !NON_SELECTABLE_ATTRIBUTE_KEYS.has(part));
 }
 
 export function formatAttributeLabel(key: string): string {
@@ -122,6 +138,10 @@ function extractArrayAttributeEntries(
     }
 
     const key = normalizeAttributeKey(rawKey);
+    if (!isSelectableAttributeKey(key)) {
+      return [];
+    }
+
     return [
       {
         key,
@@ -146,6 +166,10 @@ function extractRecordAttributeEntries(
       }
 
       const key = normalizeAttributeKey(keyPath);
+      if (!isSelectableAttributeKey(key)) {
+        return [];
+      }
+
       return [
         {
           key,
@@ -161,6 +185,10 @@ function extractRecordAttributeEntries(
     }
 
     const key = normalizeAttributeKey(keyPath);
+    if (!isSelectableAttributeKey(key)) {
+      return [];
+    }
+
     return [
       {
         key,

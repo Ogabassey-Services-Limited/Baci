@@ -5,6 +5,11 @@ import { Text } from 'react-native';
 import { describe, expect, it, vi } from 'vitest';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 
+const appFormScreenProps = vi.hoisted(() => ({
+  edges: undefined as unknown,
+  footerStyle: undefined as unknown,
+}));
+
 vi.mock('expo-router', () => ({
   Stack: {
     Screen: () => null,
@@ -48,16 +53,26 @@ vi.mock('react-native', async () => {
 vi.mock('@/components/ui/AppFormScreen', () => ({
   AppFormScreen: ({
     children,
+    edges,
     footer,
+    footerStyle,
   }: {
     children?: React.ReactNode;
+    edges?: unknown;
     footer?: React.ReactNode;
-  }) => (
-    <div>
-      {children}
-      {footer}
-    </div>
-  ),
+    footerStyle?: unknown;
+  }) =>
+    (() => {
+      appFormScreenProps.edges = edges;
+      appFormScreenProps.footerStyle = footerStyle;
+
+      return (
+        <div>
+          {children}
+          {footer}
+        </div>
+      );
+    })(),
 }));
 
 vi.mock('@/components/ui/SuccessModal', () => ({
@@ -124,6 +139,29 @@ vi.mock('./NewOrderQuickAddDialog', () => ({
 import { NewOrderScreenContent } from './NewOrderScreenContent';
 
 describe('NewOrderScreenContent', () => {
+  it('lets the payment footer own the bottom safe-area background', () => {
+    const controller = {
+      colors: {
+        background: '#0f172a',
+        card: '#111827',
+        primary: '#2563eb',
+        text: '#ffffff',
+      },
+      isSubmitting: false,
+      lastOrderId: null,
+      resetOrderDraft: vi.fn(),
+      setShowSuccessModal: vi.fn(),
+      showSuccessModal: false,
+    } as unknown as ReturnType<typeof useNewOrderController>;
+
+    render(<NewOrderScreenContent controller={controller} />);
+
+    expect(appFormScreenProps.edges).toEqual([]);
+    expect(appFormScreenProps.footerStyle).toEqual({
+      backgroundColor: '#111827',
+    });
+  });
+
   it('restores VAT for registered merchants when resetting after a successful sale', () => {
     const resetOrderDraft = vi.fn();
     const setShowSuccessModal = vi.fn();
@@ -152,7 +190,7 @@ describe('NewOrderScreenContent', () => {
   it('falls back to resetting the draft when a successful save has no lastOrderId', () => {
     const resetOrderDraft = vi.fn();
     const setShowSuccessModal = vi.fn();
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     const controller = {
       colors: {

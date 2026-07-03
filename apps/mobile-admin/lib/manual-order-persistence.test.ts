@@ -83,6 +83,41 @@ describe('createManualOrderWithItems', () => {
     expect(dependencies.deleteOrder).not.toHaveBeenCalled();
   });
 
+  it('normalizes missing variant attributes before inserting items', async () => {
+    const dependencies = createDependencies();
+
+    await createManualOrderWithItems(dependencies, {
+      order: orderPayload,
+      buildItems: (orderId) => [
+        {
+          order_id: orderId,
+          product_id: null,
+          variant_id: null,
+          variant_name: null,
+          name: 'Custom phone case',
+          quantity: 1,
+          price: 5000,
+          product_match_status: 'custom' as const,
+          variant_attributes: null,
+        },
+      ],
+    });
+
+    expect(dependencies.insertOrderItems).toHaveBeenCalledWith([
+      {
+        order_id: 'order_1',
+        product_id: null,
+        variant_id: null,
+        variant_name: null,
+        name: 'Custom phone case',
+        quantity: 1,
+        price: 5000,
+        product_match_status: 'custom',
+        variant_attributes: {},
+      },
+    ]);
+  });
+
   it('retries item insert without condition when the schema cache is behind', async () => {
     const warnSpy = vi
       .spyOn(console, 'warn')

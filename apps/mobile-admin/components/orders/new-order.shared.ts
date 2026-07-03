@@ -1,10 +1,13 @@
 import {
   BRAND_COLORS,
+  type CustomerType,
   ORDER_SOURCE_CONFIG,
   type OrderSource,
 } from '@baci/shared';
 import type { IoniconsIconName } from '@react-native-vector-icons/ionicons';
 import type { CountryCode } from 'react-native-country-picker-modal';
+
+export type { CustomerType } from '@baci/shared';
 
 export const MODAL_FLATLIST_PROPS = {
   initialNumToRender: 20,
@@ -16,8 +19,11 @@ export const MODAL_FLATLIST_PROPS = {
 export const DEFAULT_COUNTRY_CODE: CountryCode = 'NG';
 
 interface CustomerDisplayFields {
+  company_name?: string | null;
+  customer_type?: CustomerType | null;
   email?: string | null;
   first_name?: string | null;
+  full_name?: string | null;
   last_name?: string | null;
   phone?: string | null;
 }
@@ -30,6 +36,13 @@ function getTrimmedValue(value?: string | null) {
 export function getCustomerDisplayName(
   customer: CustomerDisplayFields
 ): string {
+  if (customer.customer_type === 'company') {
+    const companyName = getTrimmedValue(customer.company_name);
+    if (companyName) {
+      return companyName;
+    }
+  }
+
   const fullName = [customer.first_name, customer.last_name]
     .map((value) => getTrimmedValue(value))
     .filter((value): value is string => Boolean(value))
@@ -37,6 +50,11 @@ export function getCustomerDisplayName(
 
   if (fullName) {
     return fullName;
+  }
+
+  const storedFullName = getTrimmedValue(customer.full_name);
+  if (storedFullName) {
+    return storedFullName;
   }
 
   const email = getTrimmedValue(customer.email);
@@ -60,8 +78,14 @@ export function getCustomerDisplayContact(
 export function getCustomerDisplayInitial(
   customer: CustomerDisplayFields
 ): string {
+  const companyInitial =
+    customer.customer_type === 'company'
+      ? getTrimmedValue(customer.company_name)?.[0]
+      : undefined;
   return (
+    companyInitial ||
     getTrimmedValue(customer.first_name)?.[0] ||
+    getTrimmedValue(customer.full_name)?.[0] ||
     getTrimmedValue(customer.email)?.[0] ||
     getTrimmedValue(customer.phone)?.[0] ||
     '?'

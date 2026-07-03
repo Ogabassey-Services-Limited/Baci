@@ -4,9 +4,12 @@ import { useEffect } from 'react';
 import { Pressable, Switch, Text, TextInput, View } from 'react-native';
 import { AppDatePickerField } from '@/components/ui/AppDatePickerField';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import { getTranslucentColor } from '@/lib/colors/sanitize-css-color';
 import { NewOrderAddressInput } from './NewOrderAddressInput';
 import { NewOrderBranchSelector } from './NewOrderBranchSelector';
 import { styles } from './new-order.styles';
+
+const GOOGLE_MAPS_PIN_COLOR = '#EA4335';
 
 interface NewOrderDetailsSectionProps {
   controller: ReturnType<typeof useNewOrderController>;
@@ -195,11 +198,17 @@ export function NewOrderDetailsSection({
           <View
             style={[
               styles.iconBox,
-              { backgroundColor: colors.backgroundLight },
+              {
+                backgroundColor: getTranslucentColor(
+                  GOOGLE_MAPS_PIN_COLOR,
+                  colors.backgroundLight,
+                  0.09
+                ),
+              },
             ]}
           >
             <Ionicons
-              color={colors.primary}
+              color={GOOGLE_MAPS_PIN_COLOR}
               name="location-outline"
               size={20}
             />

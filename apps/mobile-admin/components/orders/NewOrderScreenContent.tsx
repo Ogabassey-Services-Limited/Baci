@@ -51,7 +51,12 @@ export function NewOrderScreenContent({
               hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
               onPress={() => router.back()}
               style={({ pressed }) => [
-                { paddingRight: 16 },
+                {
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                },
                 pressed && { opacity: 0.7 },
               ]}
             >
@@ -67,8 +72,9 @@ export function NewOrderScreenContent({
       />
 
       <AppFormScreen
-        edges={['bottom']}
+        edges={[]}
         footer={<NewOrderFooterBar controller={controller} />}
+        footerStyle={{ backgroundColor: colors.card }}
         scrollEnabled={false}
         style={[styles.container, { backgroundColor: colors.background }]}
       >

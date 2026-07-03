@@ -1,5 +1,6 @@
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { SelectedParentProduct } from '@/components/orders/new-order.types';
 import type { ThemeColors } from '@/constants/theme';
 import type { AdminProductVariant } from '@/lib/product-picker-variant-rows';
@@ -9,7 +10,13 @@ import {
   resolveSelectedVariant,
   type VariantOptionGroup,
   type VariantOptionSelection,
+  type VariantOptionValue,
 } from '@/lib/product-variant-option-selector';
+import {
+  type ProductVariantFixedOption,
+  ProductVariantFixedOptions,
+} from './ProductVariantFixedOptions';
+import { ProductVariantSelectableGroup } from './ProductVariantSelectableGroup';
 
 interface ProductVariantOptionSelectorProps {
   colors: Pick<
@@ -31,6 +38,34 @@ interface ProductVariantOptionSelectorProps {
   variants: AdminProductVariant[];
 }
 
+function getVisibleVariantOptions(group: VariantOptionGroup) {
+  return group.values.filter((option) => option.available || option.selected);
+}
+
+function isFixedVariantGroup(
+  group: VariantOptionGroup,
+  visibleValues: VariantOptionValue[]
+) {
+  return (
+    group.values.length === 1 &&
+    visibleValues.length === 1 &&
+    Boolean(visibleValues[0]?.selected)
+  );
+}
+
+function withFallbackImages(
+  selectedVariant: AdminProductVariant,
+  parentProduct: NonNullable<SelectedParentProduct>
+): AdminProductVariant {
+  return {
+    ...selectedVariant,
+    images:
+      selectedVariant.images.length > 0
+        ? selectedVariant.images
+        : (parentProduct.images ?? []),
+  };
+}
+
 export function ProductVariantOptionSelector({
   colors,
   formatPrice,
@@ -40,6 +75,7 @@ export function ProductVariantOptionSelector({
   variants,
 }: ProductVariantOptionSelectorProps) {
   const [selection, setSelection] = useState<VariantOptionSelection>({});
+  const [addedVariantId, setAddedVariantId] = useState<string | null>(null);
   const initialGroups =
     Object.keys(selection).length === 0 ? variantOptionGroups : undefined;
   const completedSelection = completeSingleValueSelection(
@@ -53,20 +89,52 @@ export function ProductVariantOptionSelector({
       : buildVariantOptionGroups(variants, completedSelection);
   const selectedVariant = resolveSelectedVariant(variants, completedSelection);
   const displayPrice = selectedVariant?.price ?? parentProduct.price;
+  const visibleGroups = groups
+    .map((group) => ({
+      group,
+      visibleValues: getVisibleVariantOptions(group),
+    }))
+    .filter(({ visibleValues }) => visibleValues.length > 0);
+  const fixedOptions: ProductVariantFixedOption[] = visibleGroups
+    .filter(({ group, visibleValues }) =>
+      isFixedVariantGroup(group, visibleValues)
+    )
+    .map(({ group, visibleValues }) => ({
+      key: group.key,
+      label: group.label,
+      value: visibleValues[0]?.label ?? '',
+    }));
+  const selectableGroups = visibleGroups.filter(
+    ({ group, visibleValues }) => !isFixedVariantGroup(group, visibleValues)
+  );
+  const addButtonDisabled =
+    !selectedVariant || selectedVariant.id === addedVariantId;
 
   const updateSelection = (key: string, value: string, available: boolean) => {
-    setSelection((previous) => {
-      const isSelected = previous[key] === value;
+    const isSelected = completedSelection[key] === value;
 
-      if (!(available || isSelected)) {
-        return previous;
-      }
+    if (!(available || isSelected)) {
+      return;
+    }
 
-      return {
-        ...previous,
-        [key]: isSelected ? '' : value,
-      };
-    });
+    if (isSelected) {
+      setSelection({
+        ...selection,
+        [key]: '',
+      });
+      setAddedVariantId(null);
+      return;
+    }
+
+    const nextSelection = {
+      ...selection,
+      [key]: value,
+    };
+
+    setSelection(nextSelection);
+    if (addedVariantId) {
+      setAddedVariantId(null);
+    }
   };
 
   return (
@@ -85,66 +153,25 @@ export function ProductVariantOptionSelector({
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.groups}>
-        {groups.map((group) => (
-          <View key={group.key} style={styles.group}>
-            <Text style={[styles.groupLabel, { color: colors.textSecondary }]}>
-              {group.label}
-            </Text>
-            <View style={styles.options}>
-              {group.values.map((option) => {
-                const disabled = !(option.available || option.selected);
+      <ProductVariantFixedOptions colors={colors} options={fixedOptions} />
 
-                return (
-                  <Pressable
-                    accessibilityLabel={`Select ${group.label} ${option.label}`}
-                    accessibilityRole="button"
-                    accessibilityState={{
-                      disabled,
-                      selected: option.selected,
-                    }}
-                    disabled={disabled}
-                    key={`${group.key}:${option.value}`}
-                    onPress={() =>
-                      updateSelection(group.key, option.value, option.available)
-                    }
-                    style={({ pressed }) => [
-                      styles.option,
-                      {
-                        backgroundColor: option.selected
-                          ? colors.primary
-                          : colors.card,
-                        borderColor: option.selected
-                          ? colors.primary
-                          : colors.border,
-                        opacity:
-                          option.available || option.selected
-                            ? pressed
-                              ? 0.72
-                              : 1
-                            : 0.42,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.optionText,
-                        {
-                          color: option.selected
-                            ? colors.textOnPrimary
-                            : colors.text,
-                        },
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        ))}
-      </ScrollView>
+      <BottomSheetScrollView
+        contentContainerStyle={styles.groups}
+        style={styles.optionsScroll}
+        testID="variant-option-scroll-view"
+      >
+        {selectableGroups.map(({ group, visibleValues }) => {
+          return (
+            <ProductVariantSelectableGroup
+              colors={colors}
+              group={group}
+              key={group.key}
+              onSelect={updateSelection}
+              visibleValues={visibleValues}
+            />
+          );
+        })}
+      </BottomSheetScrollView>
 
       <View style={[styles.footer, { borderTopColor: colors.border }]}>
         <View style={styles.selectionSummary}>
@@ -158,36 +185,39 @@ export function ProductVariantOptionSelector({
             {selectedVariant?.name ?? 'Choose all options'}
           </Text>
         </View>
-        <Pressable
-          accessibilityLabel="Add selected variant"
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !selectedVariant }}
-          disabled={!selectedVariant}
-          onPress={() => {
-            if (!selectedVariant) {
-              return;
-            }
-
-            onAddProduct({
-              ...selectedVariant,
-              images:
-                selectedVariant.images.length > 0
-                  ? selectedVariant.images
-                  : (parentProduct.images ?? []),
-            });
-          }}
-          style={({ pressed }) => [
+        <View
+          style={[
             styles.addButton,
             {
               backgroundColor: colors.primary,
-              opacity: selectedVariant ? (pressed ? 0.72 : 1) : 0.5,
+              opacity: addButtonDisabled ? 0.5 : 1,
             },
           ]}
         >
-          <Text style={[styles.addButtonText, { color: colors.textOnPrimary }]}>
-            Add
-          </Text>
-        </Pressable>
+          <Pressable
+            accessibilityLabel="Add selected variant"
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: addButtonDisabled,
+            }}
+            disabled={addButtonDisabled}
+            onPress={() => {
+              if (!selectedVariant) {
+                return;
+              }
+
+              setAddedVariantId(selectedVariant.id);
+              onAddProduct(withFallbackImages(selectedVariant, parentProduct));
+            }}
+            style={styles.addButtonPressable}
+          >
+            <Text
+              style={[styles.addButtonText, { color: colors.textOnPrimary }]}
+            >
+              Add
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -195,8 +225,11 @@ export function ProductVariantOptionSelector({
 
 const styles = StyleSheet.create({
   addButton: {
-    alignItems: 'center',
     borderRadius: 8,
+    overflow: 'hidden',
+  },
+  addButtonPressable: {
+    alignItems: 'center',
     justifyContent: 'center',
     minHeight: 44,
     paddingHorizontal: 24,
@@ -216,34 +249,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  group: {
-    gap: 10,
-  },
-  groupLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
   groups: {
     gap: 20,
     padding: 16,
     paddingBottom: 24,
   },
-  option: {
-    borderRadius: 8,
-    borderWidth: 1,
-    minHeight: 40,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  optionText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  options: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+  optionsScroll: {
+    flex: 1,
   },
   productHeader: {
     borderBottomWidth: 1,

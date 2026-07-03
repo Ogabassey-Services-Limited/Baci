@@ -39,7 +39,7 @@ describe('createNewOrderCustomerActions', () => {
     vi.clearAllMocks();
   });
 
-  it('resets the customer modal state on close', () => {
+  it('keeps the new-customer draft on close (autosave) and clears transient state', () => {
     const setShowCustomerModal = vi.fn();
     const setIsCreatingCustomer = vi.fn();
     const setNewCustomer = vi.fn();
@@ -59,9 +59,11 @@ describe('createNewOrderCustomerActions', () => {
 
     expect(setShowCustomerModal).toHaveBeenCalledWith(false);
     expect(setIsCreatingCustomer).toHaveBeenCalledWith(false);
-    expect(setSelectedCountryCode).toHaveBeenCalledWith('NG');
     expect(setDuplicateCustomer).toHaveBeenCalledWith(null);
     expect(setCustomerSearch).toHaveBeenCalledWith('');
+    // Draft is preserved: the form/country are NOT reset on dismiss.
+    expect(setNewCustomer).not.toHaveBeenCalled();
+    expect(setSelectedCountryCode).not.toHaveBeenCalled();
   });
 
   it('requires first name and phone before creating a customer', async () => {
@@ -88,8 +90,11 @@ describe('createNewOrderCustomerActions', () => {
         },
         input: {
           address: '12 Allen Avenue',
+          company_name: null,
+          customer_type: 'individual' as const,
           email: 'ada@example.com',
           first_name: 'Ada',
+          full_name: 'Ada Lovelace',
           id: 'customer-1',
           last_name: 'Lovelace',
           phone: '08012345678',
@@ -105,8 +110,11 @@ describe('createNewOrderCustomerActions', () => {
         },
         input: {
           address: null,
+          company_name: null,
+          customer_type: 'individual' as const,
           email: 'merchant-owner@example.com',
           first_name: null,
+          full_name: null,
           id: 'customer-2',
           last_name: null,
           phone: null,
@@ -122,8 +130,11 @@ describe('createNewOrderCustomerActions', () => {
         },
         input: {
           address: null,
+          company_name: null,
+          customer_type: 'individual' as const,
           email: null,
           first_name: null,
+          full_name: null,
           id: 'customer-3',
           last_name: null,
           phone: '08099999999',
@@ -139,8 +150,11 @@ describe('createNewOrderCustomerActions', () => {
         },
         input: {
           address: null,
+          company_name: null,
+          customer_type: 'individual' as const,
           email: null,
           first_name: null,
+          full_name: null,
           id: 'customer-4',
           last_name: null,
           phone: null,

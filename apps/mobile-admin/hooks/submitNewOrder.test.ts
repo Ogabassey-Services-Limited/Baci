@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OrderItem } from '@/components/orders/new-order.types';
 
 const mocks = vi.hoisted(() => ({
@@ -77,6 +77,7 @@ function createSubmitParams(
     merchantCurrency: 'NGN',
     merchantId: 'merchant-1',
     notes: 'Handle with care',
+    orderDate: new Date(2024, 1, 3, 10, 30),
     orderItems: [createOrderItem({ price: 12000, variant_name: 'Blue' })],
     partialAmount: '',
     paymentMethod: 'cash',
@@ -104,6 +105,8 @@ describe('submitNewOrder', () => {
   let branchQuery: ReturnType<typeof createBranchQuery>;
 
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-02T12:00:00.000Z'));
     vi.clearAllMocks();
     mocks.createManualOrderWithItems.mockResolvedValue({ id: 'order-1' });
     branchQuery = createBranchQuery({
@@ -111,6 +114,10 @@ describe('submitNewOrder', () => {
       error: null,
     });
     mocks.supabaseFrom.mockReturnValue(branchQuery);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('blocks submission when the customer is missing', async () => {
@@ -132,14 +139,13 @@ describe('submitNewOrder', () => {
     const setIsSubmitting = vi.fn();
     const setLastOrderId = vi.fn();
     const setShowSuccessModal = vi.fn();
+    const params = createSubmitParams({
+      setIsSubmitting,
+      setLastOrderId,
+      setShowSuccessModal,
+    });
 
-    await submitNewOrder(
-      createSubmitParams({
-        setIsSubmitting,
-        setLastOrderId,
-        setShowSuccessModal,
-      })
-    );
+    await submitNewOrder(params);
 
     expect(mocks.supabaseFrom).toHaveBeenCalledWith('branches');
     expect(branchQuery.select).toHaveBeenCalledWith('id');
@@ -165,7 +171,7 @@ describe('submitNewOrder', () => {
           discount_amount: 0,
           merchant_id: 'merchant-1',
           notes: 'Handle with care',
-          order_number: expect.stringMatching(/^ORD-/),
+          order_number: 'ORD-030224-UUID12',
           payment_method: 'cash',
           payment_status: 'paid',
           recorded_by_user_id: 'user-1',
@@ -180,9 +186,15 @@ describe('submitNewOrder', () => {
           subtotal: 12000,
           tax_amount: 0,
           total: 12000,
+          transaction_date: params.orderDate.toISOString(),
         }),
       })
     );
+
+    const orderPayload = mocks.createManualOrderWithItems.mock.calls[0][1] as {
+      order: Record<string, unknown>;
+    };
+    expect(orderPayload.order).not.toHaveProperty('created_at');
 
     const payload = mocks.createManualOrderWithItems.mock.calls[0][1] as {
       buildItems: (orderId: string) => unknown[];
@@ -195,7 +207,7 @@ describe('submitNewOrder', () => {
       product_match_status: 'linked',
       quantity: 1,
       order_id: 'order-1',
-      variant_attributes: null,
+      variant_attributes: {},
       variant_name: null,
     });
 
@@ -207,7 +219,9 @@ describe('submitNewOrder', () => {
   });
 
   it('normalizes unsupported merchant currencies before saving orders', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
 
     await submitNewOrder(
       createSubmitParams({
@@ -250,6 +264,40 @@ describe('submitNewOrder', () => {
     );
   });
 
+  it('rejects future order dates before creating an order', async () => {
+    await submitNewOrder(
+      createSubmitParams({
+        orderDate: new Date('2026-07-02T12:02:00.000Z'),
+      })
+    );
+
+    expect(mocks.createManualOrderWithItems).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Error',
+      'Order date cannot be in the future'
+    );
+  });
+
+  it('uses the selected local order date for the order number date segment', async () => {
+    const selectedOrderDate = new Date(2024, 1, 3, 0, 30);
+
+    await submitNewOrder(
+      createSubmitParams({
+        orderDate: selectedOrderDate,
+      })
+    );
+
+    expect(mocks.createManualOrderWithItems).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        order: expect.objectContaining({
+          order_number: 'ORD-030224-UUID12',
+          transaction_date: selectedOrderDate.toISOString(),
+        }),
+      })
+    );
+  });
+
   it('preserves custom match status and selected variant attributes', async () => {
     await submitNewOrder(
       createSubmitParams({
@@ -281,7 +329,10 @@ describe('submitNewOrder', () => {
     };
     const [customItem, variantItem] = payload.buildItems('order-1');
 
-    expect(customItem).toMatchObject({ product_match_status: 'unreviewed' });
+    expect(customItem).toMatchObject({
+      product_match_status: 'unreviewed',
+      variant_attributes: {},
+    });
     expect(variantItem?.variant_attributes).toEqual({
       color: 'Blue',
       storage: '512GB',

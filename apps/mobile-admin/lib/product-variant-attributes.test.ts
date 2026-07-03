@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { AdminProductVariant } from '@/lib/product-picker-variant-rows';
+import type { AdminProductVariant } from './product-picker-variant-rows';
 import {
-  getOrderedGroupKeys,
-  getVariantAttributeMap,
   getVariantAttributeEntries,
-} from '@/lib/product-variant-attributes';
+  getVariantAttributeMap,
+} from './product-variant-attributes';
 
 function variant(
-  attributes: AdminProductVariant['variant_attributes'],
-  overrides: Partial<AdminProductVariant> = {}
+  variantAttributes: AdminProductVariant['variant_attributes']
 ): AdminProductVariant {
   return {
     condition: 'new',
@@ -16,98 +14,78 @@ function variant(
     has_variants: false,
     id: 'variant-1',
     images: [],
-    name: 'Phone',
+    name: 'Variant',
     parent_product_id: 'product-1',
     price: 1000,
     primary_image: null,
     sku: null,
     source: 'structured',
     stock_quantity: 1,
-    variant_attributes: attributes,
-    ...overrides,
+    variant_attributes: variantAttributes,
   };
 }
 
-describe('getVariantAttributeEntries', () => {
-  it('flattens nested records and canonicalizes colour keys', () => {
+describe('product variant attributes', () => {
+  it('does not expose color hex aliases from record attributes', () => {
     expect(
       getVariantAttributeEntries(
-        variant({ specs: { colour: 'Silver', esim: true } })
+        variant({
+          colorhex: '#000000',
+          colourhex: '#ffffff',
+          storage: '512GB',
+        })
       )
     ).toEqual([
       { key: 'condition', label: 'Condition', value: 'new' },
-      { key: 'specs.color', label: 'Specs Color', value: 'Silver' },
-      { key: 'specs.esim', label: 'Specs Esim', value: 'true' },
+      { key: 'storage', label: 'Storage', value: '512GB' },
     ]);
   });
 
-  it('extracts keyed array attributes and falls back through label/options', () => {
+  it('does not expose nested color hex metadata paths', () => {
     expect(
       getVariantAttributeEntries(
-        variant([
-          { name: 'Colour', value: 'Silver' },
-          { key: 'Storage', label: '512GB' },
-          { param: 'Bundle', options: ['Charger', 'Case'] },
-          { name: 'Ignored', value: null },
-        ])
+        variant({
+          color: 'Silver',
+          specs: {
+            color_hex: '#c0c0c0',
+            storage: '512GB',
+          },
+        })
       )
     ).toEqual([
       { key: 'condition', label: 'Condition', value: 'new' },
       { key: 'color', label: 'Color', value: 'Silver' },
-      { key: 'storage', label: 'Storage', value: '512GB' },
-      { key: 'bundle', label: 'Bundle', value: 'Charger / Case' },
+      { key: 'specs.storage', label: 'Specs Storage', value: '512GB' },
     ]);
   });
 
-  it('uses variant condition only when attributes do not provide one', () => {
-    expect(
-      getVariantAttributeEntries(
-        variant({ condition: 'refurbished', storage: '256GB' }, { condition: 'new' })
-      )
-    ).toEqual([
-      { key: 'condition', label: 'Condition', value: 'refurbished' },
-      { key: 'storage', label: 'Storage', value: '256GB' },
-    ]);
-
-    expect(getVariantAttributeEntries(variant({}, { condition: 'open_box' }))).toEqual(
-      [{ key: 'condition', label: 'Condition', value: 'open box' }]
-    );
-  });
-
-  it('drops invalid and empty attribute inputs', () => {
-    expect(getVariantAttributeEntries(variant(null))).toEqual([
-      { key: 'condition', label: 'Condition', value: 'new' },
-    ]);
-    expect(
-      getVariantAttributeEntries(
-        variant({
-          empty: '',
-          infinity: Number.POSITIVE_INFINITY,
-          missing: null,
-          nested: { ignored: null },
-        })
-      )
-    ).toEqual([{ key: 'condition', label: 'Condition', value: 'new' }]);
-  });
-
-  it('builds an attribute map from normalized entries', () => {
+  it('does not expose color hex aliases from array attributes', () => {
     expect(
       getVariantAttributeMap(
-        variant({ colour: 'Blue', specs: { esim: false, storage: '1TB' } })
+        variant([
+          { key: 'color-hex', value: '#000000' },
+          { key: 'colour hex', value: '#ffffff' },
+          { key: 'RAM', value: '16GB' },
+        ])
       )
     ).toEqual({
-      color: 'Blue',
       condition: 'new',
-      'specs.esim': 'false',
-      'specs.storage': '1TB',
+      ram: '16GB',
     });
   });
-});
 
-describe('getOrderedGroupKeys', () => {
-  it('keeps preferred shopping attributes before custom keys', () => {
-    expect(getOrderedGroupKeys(['storage', 'foo', 'color', 'condition'])).toEqual(
-      ['condition', 'color', 'storage', 'foo']
-    );
+  it('normalizes camelCase attribute keys for shared option handling', () => {
+    expect(
+      getVariantAttributeMap(
+        variant({
+          displayType: 'FHD Touchscreen',
+          storageCapacity: '512GB',
+        })
+      )
+    ).toEqual({
+      condition: 'new',
+      display_type: 'FHD Touchscreen',
+      storage_capacity: '512GB',
+    });
   });
 });

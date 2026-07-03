@@ -81,6 +81,51 @@ describe('customer schemas', () => {
         }).success
       ).toBe(false);
     });
+
+    it('accepts a company customer with a company name', () => {
+      const result = createCustomerSchema.safeParse({
+        customer_type: 'company',
+        company_name: '  Acme Ltd  ',
+        phone: '+2348012345678',
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.customer_type).toBe('company');
+        expect(result.data.company_name).toBe('Acme Ltd');
+      }
+    });
+
+    it('rejects a company customer without a company name', () => {
+      const result = createCustomerSchema.safeParse({
+        customer_type: 'company',
+        company_name: '   ',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(
+          result.error.issues.some((issue) =>
+            issue.path.includes('company_name')
+          )
+        ).toBe(true);
+      }
+    });
+
+    it('rejects an unknown customer type', () => {
+      expect(
+        createCustomerSchema.safeParse({ customer_type: 'vendor' }).success
+      ).toBe(false);
+    });
+
+    it('rejects unsupported notes instead of accepting an unsaved field', () => {
+      expect(
+        createCustomerSchema.safeParse({
+          first_name: 'Ada',
+          notes: 'Call before delivery',
+        }).success
+      ).toBe(false);
+    });
   });
 
   describe('updateCustomerSchema', () => {
@@ -165,6 +210,29 @@ describe('customer schemas', () => {
           store_credit: -1,
         }).success
       ).toBe(false);
+    });
+
+    it('accepts company_name/customer_type so company edits persist', () => {
+      const result = updateCustomerSchema.safeParse({
+        customer_type: 'company',
+        company_name: '  Acme Ltd  ',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data?.company_name).toBe('Acme Ltd');
+      expect(result.data?.customer_type).toBe('company');
+    });
+
+    it('requires company_name when switching a customer to company', () => {
+      expect(
+        updateCustomerSchema.safeParse({ customer_type: 'company' }).success
+      ).toBe(false);
+    });
+
+    it('does not require company_name for individual edits', () => {
+      expect(
+        updateCustomerSchema.safeParse({ first_name: 'Ada' }).success
+      ).toBe(true);
     });
   });
 

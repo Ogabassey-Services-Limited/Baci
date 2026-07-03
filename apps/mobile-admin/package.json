@@ -31,6 +31,7 @@
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo/dom-webview": "^56.0.5",
     "@expo/metro-runtime": "~56.0.15",
+    "@gorhom/bottom-sheet": "^5.2.14",
     "@hookform/resolvers": "^5.4.0",
     "@posthog/react-native-plugin": "^2.1.1",
     "@react-native-async-storage/async-storage": "^3.1.1",

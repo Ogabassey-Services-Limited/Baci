@@ -8,6 +8,8 @@ import { supabase } from '@/lib/supabase';
 export interface Customer {
   id: string;
   merchant_id: string;
+  customer_type: 'individual' | 'company';
+  company_name: string | null;
   full_name: string | null;
   email: string | null;
   first_name: string | null;
@@ -36,6 +38,7 @@ export async function fetchCustomers(
   merchantId: string,
   cursor: number = 0,
   filters?: {
+    customerType?: 'individual' | 'company';
     search?: string;
     sortBy?: 'recent' | 'orders' | 'spent' | 'alpha';
   }
@@ -44,8 +47,18 @@ export async function fetchCustomers(
     .from('customers')
     .select(CUSTOMER_ADMIN_COLUMNS, { count: 'exact' })
     .eq('merchant_id', merchantId)
-    .is('deleted_at', null)
-    .range(cursor, cursor + PAGE_SIZE - 1);
+    .is('deleted_at', null);
+
+  if (filters?.customerType) {
+    query = query.eq('customer_type', filters.customerType);
+  }
+
+  if (filters?.search) {
+    const term = sanitizeSearchQuery(filters.search);
+    if (term) {
+      query = query.or(buildCustomerSearchFilter(term));
+    }
+  }
 
   switch (filters?.sortBy) {
     case 'orders':
@@ -55,18 +68,17 @@ export async function fetchCustomers(
       query = query.order('total_spent', { ascending: false });
       break;
     case 'alpha':
-      query = query.order('full_name', { ascending: true });
+      query = query
+        .order('full_name', { ascending: true, nullsFirst: false })
+        .order('first_name', { ascending: true, nullsFirst: false })
+        .order('email', { ascending: true, nullsFirst: false })
+        .order('phone', { ascending: true, nullsFirst: false });
       break;
     default:
       query = query.order('created_at', { ascending: false });
   }
 
-  if (filters?.search) {
-    const term = sanitizeSearchQuery(filters.search);
-    if (term) {
-      query = query.or(buildCustomerSearchFilter(term));
-    }
-  }
+  query = query.range(cursor, cursor + PAGE_SIZE - 1);
 
   const { data, error, count } = await query;
 

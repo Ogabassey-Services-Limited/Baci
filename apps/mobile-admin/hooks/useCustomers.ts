@@ -5,7 +5,7 @@
 
 import {
   buildCustomerAddressLine,
-  buildCustomerNameFields,
+  buildCustomerRecordNameFields,
   CUSTOMER_ADMIN_COLUMNS,
 } from '@baci/shared';
 import {
@@ -21,6 +21,7 @@ import { useMerchant } from './useMerchant';
 export type { Customer } from './customers-data';
 
 export function useCustomers(filters?: {
+  customerType?: 'individual' | 'company';
   search?: string;
   sortBy?: 'recent' | 'orders' | 'spent' | 'alpha';
 }) {
@@ -86,7 +87,7 @@ export function useCustomerStats() {
 
   return useQuery({
     queryKey: ['customer-stats', merchant?.id],
-    queryFn: async () => {
+    queryFn: () => {
       if (!merchant?.id) throw new Error('No merchant selected');
       return fetchCustomerStats(merchant.id);
     },
@@ -102,6 +103,8 @@ export function useCreateCustomer() {
   return useMutation({
     mutationKey: ['createCustomer'],
     mutationFn: async (newCustomer: {
+      company_name?: string;
+      customer_type?: 'individual' | 'company';
       first_name: string;
       last_name: string;
       email?: string;
@@ -133,7 +136,9 @@ export function useCreateCustomer() {
         }
       }
 
-      const nameFields = buildCustomerNameFields({
+      const nameFields = buildCustomerRecordNameFields({
+        company_name: newCustomer.company_name,
+        customer_type: newCustomer.customer_type ?? 'individual',
         first_name: newCustomer.first_name,
         last_name: newCustomer.last_name,
         email: newCustomer.email,
@@ -179,6 +184,8 @@ export function useUpdateCustomer() {
     mutationKey: ['updateCustomer'],
     mutationFn: async (updates: {
       id: string;
+      customer_type: 'individual' | 'company' | null;
+      company_name?: string | null;
       first_name?: string | null;
       last_name?: string | null;
       email: string;
@@ -188,7 +195,11 @@ export function useUpdateCustomer() {
       if (!merchant?.id) throw new Error('No merchant selected');
 
       const { id, ...customerData } = updates;
-      const nameFields = buildCustomerNameFields(customerData);
+      // Company-aware: recompute company_name/customer_type/full_name together so
+      // a company customer's name can be edited on mobile too (mirrors the web
+      // PATCH route). Callers must pass the stored customer_type so an untouched
+      // company isn't flipped to individual.
+      const nameFields = buildCustomerRecordNameFields(customerData);
 
       const { data, error } = await supabase
         .from('customers')
