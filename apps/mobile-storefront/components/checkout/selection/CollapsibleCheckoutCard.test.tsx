@@ -74,4 +74,13 @@ describe('CollapsibleCheckoutCard', () => {
     renderCard({ canCollapse: false });
     expect(screen.queryByRole('button', { name: /Contact/ })).toBeNull();
   });
+
+  it('falls back to the form (never a dead-end summary) when collapsed=true but canCollapse=false', () => {
+    // A caller can pass collapsed=true while the section is not collapsible
+    // (e.g. Delivery forced collapsed with no saved address/summary). The card
+    // must show the form, not strand the user on a summary with no reopen.
+    renderCard({ collapsed: true, canCollapse: false });
+    expect(screen.getByText('FORM_BODY')).toBeTruthy();
+    expect(screen.queryByText('SUMMARY')).toBeNull();
+  });
 });

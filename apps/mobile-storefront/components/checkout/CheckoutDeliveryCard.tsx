@@ -49,7 +49,7 @@ export function CheckoutDeliveryCard({
       title="Delivery"
       colors={colors}
       isDark={isDark}
-      collapsed={isCollapsed}
+      collapsed={showCollapseAction && isCollapsed}
       canCollapse={showCollapseAction}
       onToggle={onToggleCollapsed}
       overflowVisible

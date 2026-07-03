@@ -96,7 +96,6 @@ export function PaymentIntentAccordion({
       style={styles.intentGroup}
       accessibilityRole="radiogroup"
       accessibilityLabel="How would you like to pay?"
-      accessibilityLiveRegion="polite"
     >
       {intents.map((intent) => {
         const instrumentBearing = intent.method === undefined;

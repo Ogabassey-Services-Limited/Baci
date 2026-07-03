@@ -45,8 +45,12 @@ export function CollapsibleCheckoutCard({
   // Collapsed → a small "Edit" in the header to re-open. Expanded → the primary
   // "Done" moves to the bottom-right of the form (where the thumb ends up after
   // filling), so there is exactly one completion affordance, never two.
-  const editAction =
-    canCollapse && collapsed ? (
+  // `canCollapse` false means this section must always stay open. Deriving the
+  // effective collapsed state guards against a caller collapsing it into a
+  // dead-end summary with no Edit/Done/tap affordance to reopen.
+  const isCollapsed = collapsed && canCollapse;
+
+  const editAction = isCollapsed ? (
       <Pressable
         onPress={onToggle}
         accessibilityRole="button"
@@ -70,16 +74,21 @@ export function CollapsibleCheckoutCard({
     >
       <Animated.View layout={LinearTransition.duration(200)}>
         <Animated.View
-          key={collapsed ? 'summary' : 'body'}
+          key={isCollapsed ? 'summary' : 'body'}
           entering={FadeIn.duration(180)}
         >
-          {collapsed ? (
-            canCollapse ? (
-              // Tapping anywhere on the collapsed card re-opens it.
-              <Pressable onPress={onToggle}>{summary}</Pressable>
-            ) : (
-              summary
-            )
+          {isCollapsed ? (
+            // Tapping anywhere on the collapsed card re-opens it. No explicit
+            // label — the summary content becomes the accessible name, so a
+            // screen reader announces the entered values plus "button" + hint
+            // (and it stays distinct from the header's "Edit {title}" button).
+            <Pressable
+              onPress={onToggle}
+              accessibilityRole="button"
+              accessibilityHint={`Reopens the ${title} form to edit it`}
+            >
+              {summary}
+            </Pressable>
           ) : (
             <>
               {children}

@@ -166,4 +166,9 @@ describe('dedupeSavedAddressesById', () => {
   it('returns an empty array unchanged', () => {
     expect(dedupeSavedAddressesById([])).toEqual([]);
   });
+
+  it('drops entries with a falsy/empty id', () => {
+    const result = dedupeSavedAddressesById([addr(''), addr('77c')]);
+    expect(result.map((item) => item.id)).toEqual(['77c']);
+  });
 });
