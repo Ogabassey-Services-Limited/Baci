@@ -138,7 +138,6 @@ export const styles = StyleSheet.create({
     elevation: 10,
     gap: 16,
     padding: 16,
-    paddingBottom: NEW_ORDER_FOOTER_BASE_PADDING_BOTTOM,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,

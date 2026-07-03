@@ -43,7 +43,6 @@ describe('new-order styles', () => {
     expect(styles.footer).toMatchObject({
       gap: 16,
       padding: 16,
-      paddingBottom: 20,
     });
     expect(styles.footer).not.toHaveProperty('position');
     expect(styles.paymentToggle).toMatchObject({
