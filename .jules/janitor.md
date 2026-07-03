@@ -8,3 +8,8 @@
 ## 2026-06-12 - Removed redundant eslint-disable comment in mobile-admin negotiations
 **Learning:** Biome is the exclusive linter in the Baci monorepo. The `// eslint-disable` comments are dead code/deprecated anti-patterns that add noise and have no effect. In `negotiations.tsx`, the exhaustive-deps rule was already properly disabled using the correct `// biome-ignore` syntax, making the legacy eslint-disable comment completely redundant and confusing.
 **Action:** Removed useless `// eslint-disable-next-line react-hooks/exhaustive-deps` comment in `@baci/mobile-admin`'s `negotiations.tsx`. When migrating to Biome, always ensure legacy eslint directives are completely stripped, especially when their equivalent Biome suppressions have already been added.
+
+## 2026-06-30 — Remove unused generate-all-product-faqs script
+**Learning:** Found an unused script `generate-all-product-faqs.ts` and its dependencies (`generate-product-faq.ts`, `database.types.ts`) that were flagged by knip.
+**Action:** Removed the files.
+**Source:** knip output
