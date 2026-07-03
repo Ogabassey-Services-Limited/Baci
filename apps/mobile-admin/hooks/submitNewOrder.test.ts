@@ -77,7 +77,7 @@ function createSubmitParams(
     merchantCurrency: 'NGN',
     merchantId: 'merchant-1',
     notes: 'Handle with care',
-    orderDate: new Date('2024-02-03T10:30:00.000Z'),
+    orderDate: new Date(2024, 1, 3, 10, 30),
     orderItems: [createOrderItem({ price: 12000, variant_name: 'Blue' })],
     partialAmount: '',
     paymentMethod: 'cash',
@@ -278,10 +278,12 @@ describe('submitNewOrder', () => {
     );
   });
 
-  it('uses the UTC order date for the order number date segment', async () => {
+  it('uses the selected local order date for the order number date segment', async () => {
+    const selectedOrderDate = new Date(2024, 1, 3, 0, 30);
+
     await submitNewOrder(
       createSubmitParams({
-        orderDate: new Date('2024-02-02T23:30:00.000Z'),
+        orderDate: selectedOrderDate,
       })
     );
 
@@ -289,8 +291,8 @@ describe('submitNewOrder', () => {
       expect.any(Object),
       expect.objectContaining({
         order: expect.objectContaining({
-          order_number: 'ORD-020224-UUID12',
-          transaction_date: '2024-02-02T23:30:00.000Z',
+          order_number: 'ORD-030224-UUID12',
+          transaction_date: selectedOrderDate.toISOString(),
         }),
       })
     );
