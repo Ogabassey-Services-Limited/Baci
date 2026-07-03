@@ -160,9 +160,15 @@ describe('POST /api/paystack/virtual-terminal', () => {
         }),
       }),
     });
-    const updateMock = vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    });
+    const legacyUpdateChain = {
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { id: 'm-1' },
+        error: null,
+      }),
+      select: vi.fn().mockReturnThis(),
+    };
+    const updateMock = vi.fn().mockReturnValue(legacyUpdateChain);
 
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
