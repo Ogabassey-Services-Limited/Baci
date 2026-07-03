@@ -587,7 +587,7 @@ describe('BlogPostPageContent', () => {
     );
   });
 
-  it('preloads the featured article image without deprecated priority', async () => {
+  it('renders the featured article hero as a preload-only LCP image at the shared low quality', async () => {
     mockGetCachedBlogPost.mockResolvedValue({
       ...smartphoneGuideBlogPost,
       post: {
@@ -614,12 +614,15 @@ describe('BlogPostPageContent', () => {
     expect(imageProps).toEqual(
       expect.objectContaining({
         src: 'https://cdn.ogabassey.com/media/blog/best-phones-cover.webp',
-        fetchPriority: 'high',
-        loading: 'eager',
         preload: true,
+        quality: 50,
       })
     );
+    // Repo LCP convention: preload XOR the loading/fetchPriority pair — never
+    // the redundant trio the hero shipped with before.
     expect(imageProps).not.toHaveProperty('priority');
+    expect(imageProps).not.toHaveProperty('fetchPriority');
+    expect(imageProps).not.toHaveProperty('loading');
   });
 
   it('permanently redirects retired direct blog slugs before rendering notFound', async () => {

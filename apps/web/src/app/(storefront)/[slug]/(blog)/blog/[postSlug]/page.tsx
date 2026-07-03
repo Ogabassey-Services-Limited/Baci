@@ -6,12 +6,17 @@ import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
+import { BlogPostBodyFallback } from './BlogPostBodyFallback';
 import { BlogPostPageFallback } from './BlogPostPageFallback';
 import {
   buildCanonicalBlogPostUrl,
   getBlogPostTextPreview,
 } from './blog-post-content';
+import { preloadOgabasseyBlogPostHeroResources } from './blog-post-hero-resource-hints';
+import { resolveBlogPostHeroShell } from './blog-post-hero-shell-data';
 import BlogPostPageContent from './blog-post-page-content';
+import { BlogPostShell } from './blog-post-shell';
+import { resolveBlogPostStaticParams } from './blog-post-static-params';
 
 interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
@@ -136,16 +141,49 @@ export async function generateMetadata({
   };
 }
 
-export default function BlogPostPage({ params }: PageProps) {
-  // The page root must stay free of request APIs and lookups so this Suspense
-  // fallback prerenders as the route's static shell. Status/draft/redirect
-  // behavior lives elsewhere by design:
-  // - hard 404/308 for missing/retired slugs → proxy blog-post preflight,
-  //   which sets the status before the App Router streams;
-  // - draft previews, the soft not-found body, and the client-side canonical
-  //   redirect fallback → BlogPostPageContent, inside the boundary below.
-  // Re-adding connection()/draftMode()/lookups here reverts the route to a
-  // per-request NEXT_STATIC_GEN_BAILOUT (see PR #2882).
+// Prerender OgaBassey's newest published posts per static blog tenant so the
+// above-fold hero ships inside the PPR shell (LCP). Non-listed posts keep
+// rendering on demand (`dynamicParams` cannot be set with cacheComponents).
+export function generateStaticParams(): Promise<
+  Array<{ slug: string; postSlug: string }>
+> {
+  return resolveBlogPostStaticParams();
+}
+
+export default async function BlogPostPage({ params }: PageProps) {
+  const { slug, postSlug } = await params;
+
+  // Cached-only hero lookup — the same getCachedBlogPost() generateMetadata
+  // awaits, and static-shell-safe for exactly that reason: it has no request
+  // APIs. Hoisting the hero + header into the static shell here (outside the
+  // data Suspense) puts the LCP image in the prerendered shell.
+  //
+  // The forbidden regression is a *request* API at this root (connection(),
+  // draftMode(), cookies(), headers(), searchParams) — that forces the route
+  // dynamic and reintroduces the per-request NEXT_STATIC_GEN_BAILOUT (PR #2882).
+  // Hard 404/308 stays in the proxy blog-post preflight; draft/not-found/
+  // redirect handling stays in the streamed BlogPostPageContent subtree.
+  const heroShell = await resolveBlogPostHeroShell(slug, postSlug);
+
+  if (heroShell) {
+    preloadOgabasseyBlogPostHeroResources(heroShell.hero.src);
+
+    return (
+      <BlogPostShell
+        blogHref={heroShell.blogHref}
+        header={heroShell.header}
+        hero={heroShell.hero}
+      >
+        <Suspense fallback={<BlogPostBodyFallback />}>
+          <BlogPostPageContent params={params} heroHoisted />
+        </Suspense>
+      </BlogPostShell>
+    );
+  }
+
+  // Missing / draft-only / retired / imageless posts keep the exact prior
+  // full-Suspense behavior so draft preview and the proxy-404 contract are
+  // unchanged.
   return (
     <Suspense fallback={<BlogPostPageFallback />}>
       <BlogPostPageContent params={params} />

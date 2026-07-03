@@ -1,11 +1,16 @@
 import 'server-only';
 import { getImageProps } from 'next/image';
 import { preload } from 'react-dom';
+import {
+  BLOG_HERO_IMAGE_QUALITY,
+  BLOG_LISTING_FEATURED_IMAGE_PRELOAD_WIDTH,
+  BLOG_LISTING_FEATURED_IMAGE_SIZES,
+} from '@/components/storefront/ogabassey/config/blog-media';
 import imageLoader from '@/lib/image-loader';
 
-const BLOG_LISTING_FEATURED_IMAGE_SIZES = '100vw';
-const BLOG_LISTING_FEATURED_IMAGE_QUALITY = 75;
-const BLOG_LISTING_FEATURED_IMAGE_PRELOAD_WIDTH = 750;
+// Must stay in lockstep with the featured-story <Image> quality so the preload
+// URL and the rendered image resolve to the same CDN transform (one fetch).
+const BLOG_LISTING_FEATURED_IMAGE_QUALITY = BLOG_HERO_IMAGE_QUALITY;
 
 function resolvePreloadableBlogImage(src: string | null | undefined) {
   const candidate = src?.trim();

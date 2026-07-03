@@ -1,6 +1,5 @@
-import { AlertTriangle, ArrowLeft } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { draftMode, headers } from 'next/headers';
-import Image from 'next/image';
 import Link from 'next/link';
 import { permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
@@ -20,14 +19,21 @@ import { StorefrontRouteNotFoundContent } from '../../../storefront-route-not-fo
 import { getBlogStorefrontPathPrefix } from '../blog-storefront-path-prefix';
 import { BlogPostBody } from './BlogPostBody';
 import { BlogPostBodyFallback } from './BlogPostBodyFallback';
-import { BlogPostHeader } from './BlogPostHeader';
 import { buildCanonicalBlogPostUrl } from './blog-post-content';
+import { BlogPostShell } from './blog-post-shell';
 import { buildBlogPostStructuredData } from './blog-post-structured-data';
 import { getResolvedBlogPost } from './get-resolved-blog-post';
 import { ViewCounter } from './view-counter';
 
 interface BlogPostPageContentProps {
   params: Promise<{ slug: string; postSlug: string }>;
+  /**
+   * When true, the page root already rendered the hero + header + page chrome
+   * from the cached post in the static shell (`BlogPostShell`), so this subtree
+   * streams only the article body region. When false (default), this component
+   * owns the full `BlogPostShell` render.
+   */
+  heroHoisted?: boolean;
 }
 
 // Blog metadata keeps missing posts noindex; this stable body covers both the
@@ -48,10 +54,12 @@ async function renderBlogPostContent({
   slug,
   postSlug,
   locale,
+  heroHoisted,
 }: {
   slug: string;
   postSlug: string;
   locale?: string;
+  heroHoisted?: boolean;
 }) {
   const blogHref = isDomainIdentifier(slug) ? '/blog' : `/${slug}/blog`;
 
@@ -139,7 +147,7 @@ async function renderBlogPostContent({
     },
   });
 
-  return (
+  const beforeChrome = (
     <>
       {isDraftMode && (
         <div className="bg-amber-600 text-white py-2 px-4 flex items-center justify-center gap-2 sticky top-0 z-50 shadow-md">
@@ -164,97 +172,81 @@ async function renderBlogPostContent({
       {structuredData.videoMetadata?.schema && (
         <JsonLd data={structuredData.videoMetadata.schema} />
       )}
-
       <ViewCounter postId={post.id} />
-
-      <div className="min-h-screen bg-background">
-        <div className="border-b bg-white">
-          <div className="container mx-auto px-4 py-4">
-            <Link
-              href={asRoute(`${basePath}/blog`)}
-              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="size-4" />
-              Back to Blog
-            </Link>
-          </div>
-        </div>
-
-        <main className="container mx-auto px-4 py-8">
-          <article className="max-w-6xl mx-auto bg-white rounded-3xl p-6 md:p-10 md:px-12 shadow-sm border border-gray-100 overflow-hidden">
-            <div className="aspect-video rounded-2xl overflow-hidden mb-8 relative bg-gray-100">
-              <Image
-                src={post.featured_image_url || '/placeholder.png'}
-                alt={post.featured_image_alt || post.title}
-                fill
-                className="object-cover"
-                loading="eager"
-                fetchPriority="high"
-                preload
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1200px"
-                quality={75}
-              />
-            </div>
-
-            <BlogPostHeader
-              author_bio={post.author_bio}
-              author_name={post.author_name}
-              author_title={post.author_title}
-              authorHref={authorHref}
-              category={post.category}
-              locale={locale}
-              published_at={post.published_at}
-              reading_time_minutes={post.reading_time_minutes}
-              title={post.title}
-            />
-
-            <Suspense fallback={<BlogPostBodyFallback />}>
-              <BlogPostBody
-                basePath={basePath}
-                baseUrl={baseUrl}
-                content={content}
-                locale={locale}
-                merchantSlug={merchant.slug}
-                postUrl={postUrl}
-                post={{
-                  author_bio: post.author_bio,
-                  id: post.id,
-                  slug: post.slug,
-                  tags: post.tags,
-                  title: post.title,
-                  featured_image_url: post.featured_image_url,
-                }}
-                video={structuredData.videoMetadata?.video ?? null}
-                relatedProducts={relatedProducts}
-                relatedPosts={relatedPosts}
-              />
-            </Suspense>
-
-            <InformationalClusterPanel model={clusterModel} />
-          </article>
-        </main>
-
-        <footer className="border-t py-8">
-          <div className="container mx-auto px-4 text-center">
-            <Link href={asRoute(`${basePath}/blog`)}>
-              <Button variant="outline">
-                <ArrowLeft className="size-4 mr-2" />
-                Back to all articles
-              </Button>
-            </Link>
-          </div>
-        </footer>
-      </div>
     </>
+  );
+
+  const body = (
+    <>
+      <Suspense fallback={<BlogPostBodyFallback />}>
+        <BlogPostBody
+          basePath={basePath}
+          baseUrl={baseUrl}
+          content={content}
+          locale={locale}
+          merchantSlug={merchant.slug}
+          postUrl={postUrl}
+          post={{
+            author_bio: post.author_bio,
+            id: post.id,
+            slug: post.slug,
+            tags: post.tags,
+            title: post.title,
+            featured_image_url: post.featured_image_url,
+          }}
+          video={structuredData.videoMetadata?.video ?? null}
+          relatedProducts={relatedProducts}
+          relatedPosts={relatedPosts}
+        />
+      </Suspense>
+
+      <InformationalClusterPanel model={clusterModel} />
+    </>
+  );
+
+  if (heroHoisted) {
+    // The page-root static shell already rendered the hero + header + chrome
+    // from the cached post; stream only the body region into that shell.
+    return (
+      <>
+        {beforeChrome}
+        {body}
+      </>
+    );
+  }
+
+  return (
+    <BlogPostShell
+      beforeChrome={beforeChrome}
+      blogHref={`${basePath}/blog`}
+      header={{
+        author_bio: post.author_bio,
+        author_name: post.author_name,
+        author_title: post.author_title,
+        authorHref,
+        category: post.category,
+        locale,
+        published_at: post.published_at,
+        reading_time_minutes: post.reading_time_minutes,
+        title: post.title,
+      }}
+      hero={{
+        alt: post.featured_image_alt || post.title,
+        src: post.featured_image_url || '/placeholder.png',
+      }}
+    >
+      {body}
+    </BlogPostShell>
   );
 }
 
 export default async function BlogPostPageContent({
   params,
+  heroHoisted,
 }: BlogPostPageContentProps) {
   const { slug, postSlug } = await params;
   const headersList = await headers();
   const locale = getRequestLocale(headersList);
 
-  return renderBlogPostContent({ slug, postSlug, locale });
+  return renderBlogPostContent({ slug, postSlug, locale, heroHoisted });
 }

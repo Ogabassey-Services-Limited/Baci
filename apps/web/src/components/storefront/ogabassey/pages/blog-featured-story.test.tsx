@@ -11,6 +11,7 @@ interface MockNextImageProps {
   loading?: 'eager' | 'lazy';
   preload?: boolean;
   priority?: boolean;
+  quality?: number;
   sizes?: string;
   src: string;
 }
@@ -23,6 +24,7 @@ vi.mock('next/image', () => ({
     loading,
     preload,
     priority,
+    quality,
     sizes,
     src,
   }: MockNextImageProps) => (
@@ -33,6 +35,7 @@ vi.mock('next/image', () => ({
       data-loading={loading}
       data-preload={preload ? 'true' : 'false'}
       data-priority={priority ? 'true' : 'false'}
+      data-quality={quality === undefined ? '' : String(quality)}
       data-sizes={sizes}
       src={src}
     />
@@ -80,6 +83,8 @@ describe('BlogFeaturedStory', () => {
     expect(image).toHaveAttribute('data-priority', 'false');
     expect(image).toHaveAttribute('data-fill', 'true');
     expect(image).toHaveAttribute('data-sizes', '100vw');
+    // Shared lighter blog hero quality to cut the measured Slow-4G LCP bytes.
+    expect(image).toHaveAttribute('data-quality', '50');
     expect(screen.getByText('24 Jun 2026')).toBeInTheDocument();
   });
 

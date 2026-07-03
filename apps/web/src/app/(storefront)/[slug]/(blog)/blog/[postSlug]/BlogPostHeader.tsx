@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { asRoute } from '@/lib/routes';
 
-interface BlogPostHeaderProps {
+export interface BlogPostHeaderProps {
   author_bio?: string | null;
   author_name?: string | null;
   author_title?: string | null;

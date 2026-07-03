@@ -27,6 +27,24 @@ const pageMockState = vi.hoisted(() => ({
   // connection() again — that is exactly what forced the route dynamic and
   // logged NEXT_STATIC_GEN_BAILOUT on every production request (PR #2882).
   mockConnection: vi.fn(),
+  mockResolveBlogPostHeroShell: vi.fn(),
+  mockPreloadBlogPostHero: vi.fn(),
+  mockResolveBlogPostStaticParams: vi.fn(),
+  mockBlogPostShell: vi.fn((props: unknown) => {
+    const { hero, header, children } = props as {
+      hero?: { src?: string } | null;
+      header?: { title?: string };
+      children?: unknown;
+    };
+    return (
+      <div>
+        <span>Blog post shell</span>
+        <span data-testid="shell-hero">{hero?.src}</span>
+        <span data-testid="shell-title">{header?.title}</span>
+        {children as never}
+      </div>
+    );
+  }),
 }));
 
 export const mockBlogPostPageContent = pageMockState.mockBlogPostPageContent;
@@ -40,6 +58,12 @@ export const mockHeaders = pageMockState.mockHeaders;
 export const mockNotFound = pageMockState.mockNotFound;
 export const mockGetCachedBlogPost = pageMockState.mockGetCachedBlogPost;
 export const mockConnection = pageMockState.mockConnection;
+export const mockResolveBlogPostHeroShell =
+  pageMockState.mockResolveBlogPostHeroShell;
+export const mockPreloadBlogPostHero = pageMockState.mockPreloadBlogPostHero;
+export const mockResolveBlogPostStaticParams =
+  pageMockState.mockResolveBlogPostStaticParams;
+export const mockBlogPostShell = pageMockState.mockBlogPostShell;
 
 vi.mock('next/headers', () => ({
   draftMode: () => pageMockState.mockDraftMode(),
@@ -104,6 +128,29 @@ vi.mock('./BlogPostPageFallback', () => ({
   BlogPostPageFallback: () => <div>Blog post page fallback</div>,
 }));
 
+vi.mock('./BlogPostBodyFallback', () => ({
+  BlogPostBodyFallback: () => <div>Blog post body fallback</div>,
+}));
+
+vi.mock('./blog-post-hero-shell-data', () => ({
+  resolveBlogPostHeroShell: (...args: unknown[]) =>
+    pageMockState.mockResolveBlogPostHeroShell(...args),
+}));
+
+vi.mock('./blog-post-hero-resource-hints', () => ({
+  preloadOgabasseyBlogPostHeroResources: (...args: unknown[]) =>
+    pageMockState.mockPreloadBlogPostHero(...args),
+}));
+
+vi.mock('./blog-post-static-params', () => ({
+  resolveBlogPostStaticParams: (...args: unknown[]) =>
+    pageMockState.mockResolveBlogPostStaticParams(...args),
+}));
+
+vi.mock('./blog-post-shell', () => ({
+  BlogPostShell: (props: unknown) => pageMockState.mockBlogPostShell(props),
+}));
+
 export const liveBlogPost = {
   merchant: {
     id: 'merchant-1',
@@ -158,4 +205,12 @@ export function resetBlogPostPageMocks() {
   mockGetBlogPostTextPreview.mockReset();
   mockGetBlogPostTextPreview.mockReturnValue('Preview text');
   mockConnection.mockReset();
+  // Default: no cached hero → the page root takes the full-Suspense fallback
+  // path (the pre-hoist behavior the bulk of these tests assert).
+  mockResolveBlogPostHeroShell.mockReset();
+  mockResolveBlogPostHeroShell.mockResolvedValue(null);
+  mockPreloadBlogPostHero.mockReset();
+  mockResolveBlogPostStaticParams.mockReset();
+  mockResolveBlogPostStaticParams.mockResolvedValue([]);
+  mockBlogPostShell.mockClear();
 }
