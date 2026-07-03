@@ -32,6 +32,7 @@ export default function Paywall({ onClose }: PaywallProps) {
   const {
     currentOffering,
     purchasePackage,
+    reload,
     restorePurchases,
     isPro,
     isLoading,
@@ -178,6 +179,7 @@ export default function Paywall({ onClose }: PaywallProps) {
         isSubscriptionStatusLoading={isMerchantEntitlementLoading}
         onManageSubscription={onManageSubscription}
         onPurchase={onPurchase}
+        onReload={reload}
         onRestore={onRestore}
         selectedPackage={selectedPackage}
         stickyFooterPaddingBottom={stickyFooterPaddingBottom}

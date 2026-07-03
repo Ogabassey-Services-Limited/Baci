@@ -17,6 +17,7 @@ interface PaywallFooterProps {
   isSubscriptionStatusLoading: boolean;
   onManageSubscription: () => void;
   onPurchase: () => void;
+  onReload: () => void;
   onRestore: () => void;
   selectedPackage: PurchasesPackage | null;
   stickyFooterPaddingBottom: number;
@@ -29,11 +30,18 @@ export default function PaywallFooter({
   isSubscriptionStatusLoading,
   onManageSubscription,
   onPurchase,
+  onReload,
   onRestore,
   selectedPackage,
   stickyFooterPaddingBottom,
 }: PaywallFooterProps) {
   const isButtonLoading = isLoading || isSubscriptionStatusLoading;
+  // No purchasable package and the user isn't entitled — the offering came back
+  // empty (Play products still propagating, offline, misconfigured RevenueCat
+  // offering, etc.). Never render a dead, disabled "Continue with Pro" button
+  // here: Google Play rejects paywalls whose primary button does nothing
+  // ("Broken Functionality"). Present a working "Try again" instead.
+  const packagesUnavailable = !isPro && !selectedPackage;
   const subscriptionSettingsLabel = isRuntimePlatform('ios')
     ? 'Apple ID settings'
     : isRuntimePlatform('android')
@@ -52,16 +60,19 @@ export default function PaywallFooter({
       ]}
     >
       <Pressable
-        onPress={isPro ? onManageSubscription : onPurchase}
-        disabled={isButtonLoading || (!isPro && !selectedPackage)}
+        onPress={
+          isPro
+            ? onManageSubscription
+            : packagesUnavailable
+              ? onReload
+              : onPurchase
+        }
+        disabled={isButtonLoading}
         style={({ pressed }) => [
           paywallStyles.mainButton,
           {
             backgroundColor: colors.primary,
-            opacity:
-              pressed || isButtonLoading || (!isPro && !selectedPackage)
-                ? 0.8
-                : 1,
+            opacity: pressed || isButtonLoading ? 0.8 : 1,
           },
         ]}
         accessibilityRole="button"
@@ -72,11 +83,11 @@ export default function PaywallFooter({
               ? 'Processing purchase'
               : isPro
                 ? 'Manage your subscription'
-                : `Subscribe to ${selectedPackage?.product.title || 'Baci Pro'} for ${selectedPackage?.product.priceString || ''}`
+                : packagesUnavailable
+                  ? 'Reload subscription options'
+                  : `Subscribe to ${selectedPackage?.product.title || 'Baci Pro'} for ${selectedPackage?.product.priceString || ''}`
         }
-        accessibilityState={{
-          disabled: isButtonLoading || (!isPro && !selectedPackage),
-        }}
+        accessibilityState={{ disabled: isButtonLoading }}
       >
         {isButtonLoading ? (
           <ActivityIndicator color="#FFF" />
@@ -84,7 +95,9 @@ export default function PaywallFooter({
           <Text style={paywallStyles.mainButtonText}>
             {isPro
               ? 'Manage subscription'
-              : `Continue with ${selectedPackage?.product.title || 'Pro'}`}
+              : packagesUnavailable
+                ? 'Try again'
+                : `Continue with ${selectedPackage?.product.title || 'Pro'}`}
           </Text>
         )}
       </Pressable>
@@ -95,15 +108,19 @@ export default function PaywallFooter({
           { color: colors.textMuted },
         ]}
       >
-        {selectedPackage && !isPro && (
-          <>
-            Subscription auto-renews{' '}
-            {selectedPackage.packageType === 'ANNUAL' ? 'yearly' : 'monthly'} at{' '}
-            {selectedPackage.product.priceString} unless cancelled at least 24
-            hours before the end of the current period. Manage or cancel anytime
-            in your {subscriptionSettingsLabel}.
-          </>
-        )}
+        {packagesUnavailable
+          ? "Subscription options couldn't load right now. Check your connection and tap Try again."
+          : selectedPackage && !isPro && (
+              <>
+                Subscription auto-renews{' '}
+                {selectedPackage.packageType === 'ANNUAL'
+                  ? 'yearly'
+                  : 'monthly'}{' '}
+                at {selectedPackage.product.priceString} unless cancelled at
+                least 24 hours before the end of the current period. Manage or
+                cancel anytime in your {subscriptionSettingsLabel}.
+              </>
+            )}
       </Text>
 
       <View style={paywallStyles.footerLinks}>

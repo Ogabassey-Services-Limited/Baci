@@ -67,6 +67,7 @@ interface RevenueCatState {
     | { error: string; status: 'error' }
   >;
   restorePurchases: () => Promise<boolean>;
+  reload: () => Promise<void>;
   cleanup: () => void;
 }
 
@@ -258,6 +259,15 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
       });
       return false;
     }
+  },
+
+  reload: async () => {
+    // Re-attempt configuration + offering fetch after an empty/errored first
+    // load (e.g. Play products still propagating, transient network failure).
+    // Powers the paywall "Try again" action so the primary CTA is never a
+    // dead, unresponsive button when the offering comes back empty.
+    set({ isInitialized: false, isInitializing: false });
+    await get().initialize();
   },
 
   cleanup: () => {
