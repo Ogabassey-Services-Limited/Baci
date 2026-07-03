@@ -58,6 +58,7 @@ describe('useCheckoutSavings', () => {
     expect(mockListSavingsGoals).toHaveBeenCalledWith({
       merchantId: 'merchant-1',
       merchantSlug: 'ogabassey',
+      signal: expect.any(AbortSignal),
     });
     expect(result.current.checkoutSavingsGoal?.id).toBe('goal-1');
     expect(result.current.checkoutSavingsBalance).toBe(150_000);
@@ -209,9 +210,9 @@ describe('useCheckoutSavings', () => {
     ).toBeUndefined();
   });
 
-  it('surfaces load failures and retries on demand', async () => {
+  it('surfaces non-retryable load failures with a category and retries on demand', async () => {
     mockListSavingsGoals
-      .mockRejectedValueOnce(new Error('Savings offline'))
+      .mockRejectedValueOnce(new Error('HTTP 422: Savings unavailable'))
       .mockResolvedValueOnce({ goals: [createGoal()] });
     const { result } = renderHook(() =>
       useCheckoutSavings({
@@ -224,12 +225,21 @@ describe('useCheckoutSavings', () => {
     );
 
     await waitFor(() =>
-      expect(result.current.checkoutSavingsError).toBe('Savings offline')
+      expect(result.current.checkoutSavingsError).toBe(
+        'HTTP 422: Savings unavailable'
+      )
     );
+    expect(mockListSavingsGoals).toHaveBeenCalledTimes(1);
     expect(mockTrackError).toHaveBeenCalledWith(
       'checkout_savings_goals_fetch',
-      'Savings offline',
-      { retry_attempt: 0 }
+      'HTTP 422: Savings unavailable',
+      expect.objectContaining({
+        error_category: 'http_client',
+        error_retryable: false,
+        merchant_slug: 'ogabassey',
+        reload_attempt: 0,
+        retry_count: 0,
+      })
     );
 
     act(() => {
@@ -238,6 +248,85 @@ describe('useCheckoutSavings', () => {
 
     await waitFor(() => expect(result.current.savingsGoals).toHaveLength(1));
     expect(result.current.checkoutSavingsError).toBeNull();
+  });
+
+  it('auto-retries transient DNS failures without reporting an error', async () => {
+    jest.useFakeTimers();
+    try {
+      mockListSavingsGoals
+        .mockRejectedValueOnce(
+          new Error(
+            'fetch failed: java.net.UnknownHostException: Unable to resolve host "usebaci.com": No address associated with hostname'
+          )
+        )
+        .mockResolvedValueOnce({ goals: [createGoal()] });
+      const { result } = renderHook(() =>
+        useCheckoutSavings({
+          customerId: 'customer-1',
+          isAuthenticated: true,
+          items: [{ product_id: 'product-1', variant_id: null }],
+          merchantId: 'merchant-1',
+          merchantSlug: 'ogabassey',
+        })
+      );
+
+      // Let the first attempt fail and the backoff delay elapse
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(1_500);
+      });
+
+      await waitFor(() => expect(result.current.savingsGoals).toHaveLength(1));
+      expect(mockListSavingsGoals).toHaveBeenCalledTimes(2);
+      expect(result.current.checkoutSavingsError).toBeNull();
+      expect(mockTrackError).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('reports one classified error after transient retries are exhausted', async () => {
+    jest.useFakeTimers();
+    try {
+      mockListSavingsGoals.mockRejectedValue(
+        new Error(
+          'fetch failed: java.net.UnknownHostException: Unable to resolve host "usebaci.com": No address associated with hostname'
+        )
+      );
+      const { result } = renderHook(() =>
+        useCheckoutSavings({
+          customerId: 'customer-1',
+          isAuthenticated: true,
+          items: [{ product_id: 'product-1', variant_id: null }],
+          merchantId: 'merchant-1',
+          merchantSlug: 'ogabassey',
+        })
+      );
+
+      // Exhaust both backoff delays (1.5s, then 3s)
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(1_500);
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(3_000);
+      });
+
+      await waitFor(() =>
+        expect(result.current.checkoutSavingsError).not.toBeNull()
+      );
+      expect(mockListSavingsGoals).toHaveBeenCalledTimes(3);
+      expect(mockTrackError).toHaveBeenCalledTimes(1);
+      expect(mockTrackError).toHaveBeenCalledWith(
+        'checkout_savings_goals_fetch',
+        expect.stringContaining('UnknownHostException'),
+        expect.objectContaining({
+          error_category: 'dns',
+          error_retryable: true,
+          retry_count: 2,
+        })
+      );
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('does not track fetch errors after unmount cancellation', async () => {

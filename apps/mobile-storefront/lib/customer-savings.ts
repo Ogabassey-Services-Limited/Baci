@@ -61,14 +61,17 @@ function waitForAuthorizationPollDelay(signal?: AbortSignal) {
 export async function listSavingsGoals({
   merchantId,
   merchantSlug,
+  signal,
 }: {
   merchantId?: string | null;
   merchantSlug?: string | null;
+  signal?: AbortSignal;
 }) {
   const customerSavingsApiClient = getCustomerSavingsApiClient();
   const data = await customerSavingsApiClient.fetchJson({
     path: '/api/storefront/customer/savings/goals',
     query: { merchantId, merchantSlug },
+    signal,
   });
   return ListSavingsGoalsResponseSchema.parse(data);
 }

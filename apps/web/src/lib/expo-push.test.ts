@@ -369,11 +369,103 @@ describe('notifyMerchant', () => {
     expect(result.sent).toBe(1);
     expect(result.failed).toBe(1);
 
-    // Should deactivate the stale token
-    expect(updateChain.update).toHaveBeenCalledWith({ is_active: false });
+    // Should deactivate the stale token with an audited reason
+    expect(updateChain.update).toHaveBeenCalledWith({
+      is_active: false,
+      deactivation_reason: 'DeviceNotRegistered',
+      deactivated_at: expect.any(String),
+    });
     expect(updateChain.in).toHaveBeenCalledWith('token', [
       'ExponentPushToken[stale]',
     ]);
+  });
+
+  it('deactivates InvalidCredentials tokens and aggregates the error by code', async () => {
+    const updateChain = createChainableMock();
+    const ticketInsertChain = createChainableMock();
+    const attemptInsertChain = createChainableMock();
+    const selectChain = createChainableMock([
+      { token: 'ExponentPushToken[good]' },
+      { token: 'ExponentPushToken[wrong-project]' },
+    ]);
+
+    const mockFromFn = vi
+      .fn()
+      .mockReturnValueOnce(selectChain) // first call: select tokens
+      .mockReturnValueOnce(updateChain) // second call: update to deactivate
+      .mockReturnValueOnce(ticketInsertChain) // third call: store tickets
+      .mockReturnValueOnce(attemptInsertChain); // fourth call: store attempt
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: mockFromFn,
+    } as never);
+
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      { status: 'ok', id: 'ticket-1' },
+      {
+        status: 'error',
+        message:
+          'Could not find APNs credentials for com.example.app (@owner/project). You may need to generate or upload new push credentials.',
+        details: { error: 'InvalidCredentials' },
+      },
+    ]);
+
+    const result = await notifyMerchant('merchant-123', 'Test', 'Body');
+
+    expect(result.sent).toBe(1);
+    expect(result.failed).toBe(1);
+    expect(result.errors).toEqual([
+      expect.stringContaining(
+        'InvalidCredentials (1 failed, 1 token(s) deactivated)'
+      ),
+    ]);
+
+    expect(updateChain.update).toHaveBeenCalledWith({
+      is_active: false,
+      deactivation_reason: 'InvalidCredentials',
+      deactivated_at: expect.any(String),
+    });
+    expect(updateChain.in).toHaveBeenCalledWith('token', [
+      'ExponentPushToken[wrong-project]',
+    ]);
+  });
+
+  it('does not deactivate tokens for transient MessageRateExceeded errors', async () => {
+    const ticketInsertChain = createChainableMock();
+    const attemptInsertChain = createChainableMock();
+    const selectChain = createChainableMock([
+      { token: 'ExponentPushToken[busy]' },
+    ]);
+
+    const mockFromFn = vi
+      .fn()
+      .mockReturnValueOnce(selectChain) // first call: select tokens
+      .mockReturnValueOnce(ticketInsertChain) // second call: store tickets (no deactivation update)
+      .mockReturnValueOnce(attemptInsertChain); // third call: store attempt
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: mockFromFn,
+    } as never);
+
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      {
+        status: 'error',
+        message: 'Rate limit exceeded',
+        details: { error: 'MessageRateExceeded' },
+      },
+    ]);
+
+    const result = await notifyMerchant('merchant-123', 'Test', 'Body');
+
+    expect(result.failed).toBe(1);
+    expect(result.errors).toEqual([
+      'MessageRateExceeded (1 failed): Rate limit exceeded',
+    ]);
+    // No push_tokens update should happen — only ticket + attempt inserts
+    const updateCalls = mockFromFn.mock.calls.filter(
+      ([table]) => table === 'push_tokens'
+    );
+    expect(updateCalls).toHaveLength(1); // the initial token select only
   });
 
   it('handles DB error when fetching tokens', async () => {

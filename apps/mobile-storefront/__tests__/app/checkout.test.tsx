@@ -616,7 +616,12 @@ describe('CheckoutScreen', () => {
     expect(mockTrackError).toHaveBeenCalledWith(
       'checkout_savings_goals_fetch',
       'Savings service unavailable',
-      { retry_attempt: 0 }
+      expect.objectContaining({
+        error_category: 'unknown',
+        error_retryable: false,
+        reload_attempt: 0,
+        retry_count: 0,
+      })
     );
 
     fireEvent.press(

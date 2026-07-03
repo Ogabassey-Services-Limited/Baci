@@ -329,6 +329,12 @@ jest.mock('@/lib/customer-savings', () => ({
   listSavingsGoals: (...args: unknown[]) => mockListSavingsGoals(...args),
 }));
 
+// Screen tests exercise manual address entry; saved-address loading is
+// covered by fetch-checkout-saved-addresses.test.ts.
+jest.mock('@/lib/fetch-checkout-saved-addresses', () => ({
+  fetchCheckoutSavedAddresses: jest.fn(async () => []),
+}));
+
 jest.mock('@/lib/order-wallet-funding-intent', () => ({
   createOrderWalletFundingIntent: (...args: unknown[]) =>
     mockCreateOrderWalletFundingIntent(...args),

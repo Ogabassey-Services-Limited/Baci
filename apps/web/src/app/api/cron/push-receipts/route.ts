@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret, getExpoAccessToken } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
+import { getPushTokenDeactivationReason } from '@/lib/push-token-errors';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // Manual fallback only - DO NOT re-enable Vercel Cron for this route.
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
     error_type: string | null;
     error_message: string | null;
   }> = [];
-  const tokensToDeactivate: string[] = [];
+  const tokensToDeactivate = new Map<string, string[]>();
   let chunkFailures = 0;
 
   for (const chunk of chunks) {
@@ -86,11 +87,13 @@ export async function GET(request: NextRequest) {
             error_message: receipt.message ?? null,
           });
 
-          if (
-            receipt.details?.error === 'DeviceNotRegistered' &&
-            ticket.push_token
-          ) {
-            tokensToDeactivate.push(ticket.push_token);
+          const deactivationReason = getPushTokenDeactivationReason(
+            receipt.details?.error
+          );
+          if (deactivationReason && ticket.push_token) {
+            const tokenList = tokensToDeactivate.get(deactivationReason) ?? [];
+            tokenList.push(ticket.push_token);
+            tokensToDeactivate.set(deactivationReason, tokenList);
           }
         }
       }
@@ -141,15 +144,20 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Deactivate invalid tokens
-  if (tokensToDeactivate.length > 0) {
+  // Deactivate undeliverable tokens, recording why for auditability
+  for (const [reason, tokenList] of tokensToDeactivate) {
     const { error: deactivateError } = await supabase
       .from('push_tokens')
-      .update({ is_active: false })
-      .in('token', tokensToDeactivate);
+      .update({
+        is_active: false,
+        deactivation_reason: reason,
+        deactivated_at: new Date().toISOString(),
+      })
+      .in('token', tokenList);
     if (deactivateError) {
       logger.error({
         message: 'Failed to deactivate tokens',
+        reason,
         error: deactivateError,
       });
     }

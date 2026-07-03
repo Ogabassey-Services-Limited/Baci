@@ -25,6 +25,7 @@ const mockUpdate = vi.fn().mockReturnThis();
 const mockEq = vi.fn().mockResolvedValue({ error: null });
 const mockTicketIn = vi.fn().mockResolvedValue({ error: null });
 const mockTokenIn = vi.fn().mockResolvedValue({ error: null });
+const mockTokenUpdate = vi.fn();
 const mockRpc = vi.fn().mockResolvedValue({ error: null });
 let mockSelectResult: { data: unknown; error: unknown } = {
   data: [],
@@ -63,7 +64,10 @@ vi.mock('@/lib/supabase/admin', () => ({
       }
       if (table === 'push_tokens') {
         return {
-          update: vi.fn().mockReturnValue({ in: mockTokenIn }),
+          update: vi.fn((data: unknown) => {
+            mockTokenUpdate(data);
+            return { in: mockTokenIn };
+          }),
         };
       }
       return {};
@@ -227,9 +231,77 @@ describe('GET /api/cron/push-receipts', () => {
     const data = await response.json();
 
     expect(data.failed).toBe(1);
+    expect(mockTokenUpdate).toHaveBeenCalledWith({
+      is_active: false,
+      deactivation_reason: 'DeviceNotRegistered',
+      deactivated_at: expect.any(String),
+    });
     expect(mockTokenIn).toHaveBeenCalledWith('token', [
       'ExponentPushToken[expired]',
     ]);
+  });
+
+  it('deactivates tokens for InvalidCredentials receipts with an audited reason', async () => {
+    mockSelectResult = {
+      data: [
+        {
+          id: 'row-3',
+          ticket_id: 'ticket-3',
+          push_token: 'ExponentPushToken[wrong-project]',
+        },
+      ],
+      error: null,
+    };
+
+    mockGetReceipts.mockResolvedValue({
+      'ticket-3': {
+        status: 'error',
+        message:
+          'Could not find APNs credentials for com.example.app (@owner/project).',
+        details: { error: 'InvalidCredentials' },
+      },
+    });
+
+    const response = await GET(createCronRequest());
+    const data = await response.json();
+
+    expect(data.failed).toBe(1);
+    expect(mockTokenUpdate).toHaveBeenCalledWith({
+      is_active: false,
+      deactivation_reason: 'InvalidCredentials',
+      deactivated_at: expect.any(String),
+    });
+    expect(mockTokenIn).toHaveBeenCalledWith('token', [
+      'ExponentPushToken[wrong-project]',
+    ]);
+  });
+
+  it('does not deactivate tokens for transient receipt errors', async () => {
+    mockSelectResult = {
+      data: [
+        {
+          id: 'row-4',
+          ticket_id: 'ticket-4',
+          push_token: 'ExponentPushToken[busy]',
+        },
+      ],
+      error: null,
+    };
+
+    mockGetReceipts.mockResolvedValue({
+      'ticket-4': {
+        status: 'error',
+        message: 'Rate limit exceeded',
+        details: { error: 'MessageRateExceeded' },
+      },
+    });
+
+    const response = await GET(createCronRequest());
+    const data = await response.json();
+
+    expect(data.failed).toBe(1);
+    expect(mockTokenUpdate).not.toHaveBeenCalled();
+    expect(mockTokenIn).not.toHaveBeenCalled();
   });
 
   it('reports cleaned: false when cleanup RPC fails on empty results', async () => {

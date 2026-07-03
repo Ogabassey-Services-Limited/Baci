@@ -10,6 +10,7 @@ import Expo, {
   type ExpoPushTicket,
 } from 'expo-server-sdk';
 import { getExpoAccessToken } from '@/env';
+import { getPushTokenDeactivationReason } from '@/lib/push-token-errors';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
@@ -537,8 +538,13 @@ export async function processTickets(
 ): Promise<NotificationSendResult> {
   let sent = 0;
   let failed = 0;
-  const errors: string[] = [];
-  const tokensToDeactivate: string[] = [];
+  // Aggregate failures by error code so a 200-token send with one broken
+  // token logs one actionable line instead of raw per-ticket noise.
+  const errorAggregates = new Map<
+    string,
+    { count: number; sampleMessage: string }
+  >();
+  const tokensToDeactivate = new Map<string, string[]>();
   const ticketsToStore: Array<{
     ticket_id: string;
     push_token: string;
@@ -567,31 +573,60 @@ export async function processTickets(
       });
     } else {
       failed++;
-      if (ticket.message) {
-        errors.push(ticket.message);
+      const errorCode =
+        typeof ticket.details?.error === 'string'
+          ? ticket.details.error
+          : 'UnknownError';
+      const aggregate = errorAggregates.get(errorCode);
+      if (aggregate) {
+        aggregate.count++;
+      } else {
+        errorAggregates.set(errorCode, {
+          count: 1,
+          sampleMessage: ticket.message ?? 'No error message provided',
+        });
       }
-      if (ticket.details?.error === 'DeviceNotRegistered') {
-        tokensToDeactivate.push(tokens[i].token);
+      const deactivationReason = getPushTokenDeactivationReason(errorCode);
+      if (deactivationReason) {
+        const tokenList = tokensToDeactivate.get(deactivationReason) ?? [];
+        tokenList.push(tokens[i].token);
+        tokensToDeactivate.set(deactivationReason, tokenList);
       }
     }
   }
 
   // Chunk the id list: .in() values ride in the request URL, so a large batch
   // (the update-nudge can surface thousands of dead tokens) would 414.
-  for (const tokenChunk of chunkArray(
-    tokensToDeactivate,
-    SUPABASE_IN_FILTER_CHUNK_SIZE
-  )) {
-    const { error: deactivateError } = await supabase
-      .from('push_tokens')
-      .update({ is_active: false })
-      .in('token', tokenChunk);
-    if (deactivateError) {
-      console.error(
-        'Failed to deactivate invalid push tokens:',
-        deactivateError
-      );
+  for (const [reason, tokenList] of tokensToDeactivate) {
+    for (const tokenChunk of chunkArray(
+      tokenList,
+      SUPABASE_IN_FILTER_CHUNK_SIZE
+    )) {
+      const { error: deactivateError } = await supabase
+        .from('push_tokens')
+        .update({
+          is_active: false,
+          deactivation_reason: reason,
+          deactivated_at: new Date().toISOString(),
+        })
+        .in('token', tokenChunk);
+      if (deactivateError) {
+        console.error(
+          'Failed to deactivate undeliverable push tokens:',
+          deactivateError
+        );
+      }
     }
+  }
+
+  const errors: string[] = [];
+  for (const [code, aggregate] of errorAggregates) {
+    const deactivatedCount = tokensToDeactivate.get(code)?.length ?? 0;
+    const deactivationNote =
+      deactivatedCount > 0 ? `, ${deactivatedCount} token(s) deactivated` : '';
+    errors.push(
+      `${code} (${aggregate.count} failed${deactivationNote}): ${aggregate.sampleMessage}`
+    );
   }
 
   // Store successful tickets for receipt polling
