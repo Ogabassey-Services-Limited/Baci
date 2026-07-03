@@ -159,15 +159,22 @@ The remaining problem was noise: each successful recovery still emitted
 PostHog.
 
 This addendum makes suppression conditional and narrow — the safe variant
-of what PR 2857 removed in its unconditional form:
+of what PR 2857 removed in its unconditional form. The mechanism is a
+PostHog `before_send` filter, NOT DOM-level event suppression:
 
-- Window handlers call `stopImmediatePropagation()`/`preventDefault()`
-  (blocking PostHog's later-registered `onerror`/`onunhandledrejection`
-  wraps) **only while a recovery reload is scheduled and still within a
-  10-second navigation window**. If the reload never navigates, the window
-  expires and errors become visible again — no silent unrecoverable state.
-- Error boundaries skip `captureClientException` under the same condition;
-  `console.error` always fires.
+- `chunk-load-recovery.ts` records when a recovery reload is scheduled and
+  exposes `isChunkRecoveryReloadPending()`, bounded to a **10-second
+  navigation window**. If the reload never navigates, the window expires
+  and errors become visible again — no silent unrecoverable state.
+- `lib/posthog/chunk-recovery-exception-filter.ts`
+  (`dropRecoveredChunkExceptionCapture`, composed into the `before_send`
+  chain in `client-config.ts`) drops a capture only when it is an
+  `$exception` whose exception list matches a chunk-load failure AND a
+  reload is pending. This single chokepoint covers both exception
+  autocapture and boundary `captureException` — window handlers do NOT
+  call `stopImmediatePropagation()`/`preventDefault()`, and
+  `useBoundaryErrorReport` still always calls `captureClientException`
+  (the filter decides); `console.error` always fires.
 - Every declined recovery (`skipped-*`) and every error outside the reload
   window is captured exactly as before. The reload itself remains
   observable via the `chunk_load_recovery` telemetry event.
