@@ -98,6 +98,15 @@ vi.mock('./product-index-card', () => ({
 
 const { ProductsPageContent } = await import('./products-page-content');
 
+const OGABASSEY_TEST_MERCHANT = {
+  id: OGABASSEY_MERCHANT_ID,
+  business_name: 'Ogabassey',
+  slug: 'ogabassey',
+  country: 'NG',
+  payout_currency: 'NGN',
+  site_description: 'Browse products',
+};
+
 const ALL_PRODUCT_LINKS = OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS.flatMap(
   (group) => group.productLinks
 );
@@ -125,14 +134,7 @@ describe('ProductsPageContent internal link equity', () => {
 
   it('renders Ogabassey-only shortcuts on custom-domain product pages', async () => {
     mockHeaders.mockResolvedValue(new Headers([['x-custom-domain', '1']]));
-    mockGetRequestScopedMerchant.mockResolvedValue({
-      id: OGABASSEY_MERCHANT_ID,
-      business_name: 'Ogabassey',
-      slug: 'ogabassey',
-      country: 'NG',
-      payout_currency: 'NGN',
-      site_description: 'Browse products',
-    });
+    mockGetRequestScopedMerchant.mockResolvedValue(OGABASSEY_TEST_MERCHANT);
 
     const result = await ProductsPageContent({
       params: Promise.resolve({ slug: 'ogabassey' }),
@@ -197,14 +199,7 @@ describe('ProductsPageContent internal link equity', () => {
 
   it('omits product shortcuts whose slug no longer resolves', async () => {
     mockHeaders.mockResolvedValue(new Headers([['x-custom-domain', '1']]));
-    mockGetRequestScopedMerchant.mockResolvedValue({
-      id: OGABASSEY_MERCHANT_ID,
-      business_name: 'Ogabassey',
-      slug: 'ogabassey',
-      country: 'NG',
-      payout_currency: 'NGN',
-      site_description: 'Browse products',
-    });
+    mockGetRequestScopedMerchant.mockResolvedValue(OGABASSEY_TEST_MERCHANT);
 
     const result = await ProductsPageContent({
       params: Promise.resolve({ slug: 'ogabassey' }),

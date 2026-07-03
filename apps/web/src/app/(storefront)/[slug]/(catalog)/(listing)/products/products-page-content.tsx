@@ -6,15 +6,13 @@ import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { StorefrontPagination } from '@/components/storefront/ogabassey/components/StorefrontPagination';
 import { InternalLinkEquitySection } from '@/components/storefront/ogabassey/seo/internal-link-equity-section';
 import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
-import { OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS } from '@/config/ogabassey-internal-link-equity';
 import {
   getCachedCategories,
   getRequestScopedMerchant,
 } from '@/lib/cached-data';
-import { getCachedProductCanonicalPaths } from '@/lib/cached-product-canonical-paths';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
-import { resolveInternalLinkEquityGroups } from '@/lib/resolve-internal-link-equity-groups';
+import { getOgabasseyInternalLinkEquityGroups } from '@/lib/ogabassey-internal-link-equity-groups';
 import { asRoute } from '@/lib/routes';
 import {
   generateBreadcrumbSchema,
@@ -29,11 +27,6 @@ import {
 } from '@/lib/storefront-pagination';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { ProductIndexCard } from './product-index-card';
-
-const INTERNAL_LINK_EQUITY_PRODUCT_SLUGS =
-  OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS.flatMap((group) =>
-    group.productLinks.map((productLink) => productLink.productSlug)
-  );
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -77,7 +70,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
     categories,
     currentProductIndex,
     firstPageProductIndex,
-    internalLinkProductPaths,
+    internalLinkEquityGroups,
   ] = await Promise.all([
     getCachedCategories(merchant.id),
     getCachedStorefrontProductIndex(merchant.id, {
@@ -89,11 +82,8 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
       limit: STOREFRONT_PRODUCTS_PER_PAGE,
     }),
     showInternalLinkEquitySection
-      ? getCachedProductCanonicalPaths(
-          merchant.id,
-          INTERNAL_LINK_EQUITY_PRODUCT_SLUGS
-        )
-      : Promise.resolve({}),
+      ? getOgabasseyInternalLinkEquityGroups(merchant.id)
+      : Promise.resolve([]),
   ]);
   const totalPages = Math.max(1, currentProductIndex.totalPages || 1);
 
@@ -134,26 +124,21 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
         .map((category) => [category.canonicalSlug, category])
     ).values()
   );
+  const productsPageUrl =
+    currentPage > 1
+      ? `${baseUrl}/products?page=${currentPage}`
+      : `${baseUrl}/products`;
   const breadcrumbSchema: JsonLdData<BreadcrumbList> = generateBreadcrumbSchema(
     [
       { name: merchant.business_name, url: baseUrl },
-      {
-        name: 'Products',
-        url:
-          currentPage > 1
-            ? `${baseUrl}/products?page=${currentPage}`
-            : `${baseUrl}/products`,
-      },
+      { name: 'Products', url: productsPageUrl },
     ]
   );
   const collectionSchema: JsonLdData<CollectionPage> =
     generateCollectionPageSchema({
       name: 'Products',
       description,
-      url:
-        currentPage > 1
-          ? `${baseUrl}/products?page=${currentPage}`
-          : `${baseUrl}/products`,
+      url: productsPageUrl,
       products: currentProductIndex.products,
       merchantName: merchant.business_name,
       currency: merchant.payout_currency || 'NGN',
@@ -175,12 +160,6 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
   const deepLinkProducts = firstPageProductIndex.products
     .filter((product) => product.slug)
     .slice(0, 18);
-  const internalLinkEquityGroups = showInternalLinkEquitySection
-    ? resolveInternalLinkEquityGroups(
-        OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS,
-        internalLinkProductPaths
-      )
-    : [];
 
   return (
     <>
