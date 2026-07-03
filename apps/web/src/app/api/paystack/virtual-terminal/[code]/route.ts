@@ -20,16 +20,15 @@ import {
   updateVirtualTerminal,
 } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
-
-interface RouteParams {
-  params: Promise<{ code: string }>;
-}
-
 import {
   clearLegacyTerminalCode,
   syncTerminalRecord,
   verifyTerminalOwnership,
 } from './virtual-terminal-local-sync';
+
+interface RouteParams {
+  params: Promise<{ code: string }>;
+}
 
 /**
  * GET /api/paystack/virtual-terminal/[code]

@@ -164,7 +164,10 @@ export async function POST(request: NextRequest) {
         paystackCode: result.data.code,
       });
       return NextResponse.json(
-        { error: 'Terminal created but failed to verify local sync state' },
+        {
+          error: 'Terminal created but failed to verify local sync state',
+          paystackCode: result.data.code,
+        },
         { status: 500 }
       );
     }

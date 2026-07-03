@@ -156,6 +156,61 @@ describe('virtual terminal local sync helpers', () => {
     expect(supabase.from).toHaveBeenCalledWith('virtual_terminals');
   });
 
+  it('returns a 500 response when updating the local terminal row fails', async () => {
+    const updateChain = createChain({
+      data: null,
+      error: { message: 'update failed' },
+    });
+    const update = vi.fn(() => updateChain);
+    const supabase = {
+      from: vi.fn(() => ({ update })),
+    };
+
+    const response = await syncTerminalRecord(
+      supabase as never,
+      'merchant-1',
+      'VT_123',
+      { name: 'Sales Terminal' }
+    );
+
+    expect(response?.status).toBe(500);
+    await expect(response?.json()).resolves.toEqual({
+      error: 'Failed to sync Virtual Terminal locally',
+    });
+  });
+
+  it('returns a 500 response when backfilling a missing terminal row fails', async () => {
+    const updateChain = createChain({ data: null, error: null });
+    const insertChain = createChain({
+      data: null,
+      error: { message: 'insert failed' },
+    });
+    const update = vi.fn(() => updateChain);
+    const insert = vi.fn(() => insertChain);
+    const supabase = {
+      from: vi.fn(() => ({ insert, update })),
+    };
+
+    const response = await syncTerminalRecord(
+      supabase as never,
+      'merchant-1',
+      'VT_123',
+      { active: false }
+    );
+
+    expect(response?.status).toBe(500);
+    await expect(response?.json()).resolves.toEqual({
+      error: 'Failed to sync Virtual Terminal locally',
+    });
+    expect(insert).toHaveBeenCalledWith({
+      active: false,
+      code: 'VT_123',
+      merchant_id: 'merchant-1',
+      name: 'Legacy Virtual Terminal',
+      payment_link: 'https://paystack.com/vt/VT_123',
+    });
+  });
+
   it('does not warn when a legacy clear matches no merchant row', async () => {
     const supabase = {
       from: vi.fn(() => createChain({ data: null, error: null })),
