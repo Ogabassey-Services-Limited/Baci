@@ -128,4 +128,69 @@ describe('notifyNegotiationResponseWithFallback', () => {
 
     expect(mockNotifyGuestNegotiationResponseByEmail).not.toHaveBeenCalled();
   });
+
+  it('falls back to email when push notification throws', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockNotifyNegotiationResponse.mockRejectedValueOnce(
+      new Error('push provider unavailable')
+    );
+
+    await expect(
+      notifyNegotiationResponseWithFallback({
+        ...baseParams,
+        customerEmail: 'customer@example.com',
+        customerId: 'customer-1',
+      })
+    ).resolves.toEqual({ notified: true, channel: 'email' });
+
+    expect(mockNotifyGuestNegotiationResponseByEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'customer@example.com',
+        negotiationId: 'negotiation-1',
+      })
+    );
+    expect(consoleError).toHaveBeenCalledWith(
+      'Push negotiation notification failed; falling back to email',
+      expect.objectContaining({
+        customerId: 'customer-1',
+        merchantId: 'merchant-1',
+        negotiationId: 'negotiation-1',
+        negotiationType: 'single',
+        status: 'accepted',
+      })
+    );
+    consoleError.mockRestore();
+  });
+
+  it('reports no delivery channel when push throws and no email exists', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockNotifyNegotiationResponse.mockRejectedValueOnce(
+      new Error('push provider unavailable')
+    );
+
+    await expect(
+      notifyNegotiationResponseWithFallback({
+        ...baseParams,
+        customerEmail: null,
+        customerId: 'customer-1',
+      })
+    ).resolves.toEqual({ notified: false, reason: 'no_delivery_channel' });
+
+    expect(mockNotifyGuestNegotiationResponseByEmail).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith(
+      'Push negotiation notification failed; falling back to email',
+      expect.objectContaining({
+        customerId: 'customer-1',
+        merchantId: 'merchant-1',
+        negotiationId: 'negotiation-1',
+        negotiationType: 'single',
+        status: 'accepted',
+      })
+    );
+    consoleError.mockRestore();
+  });
 });

@@ -678,6 +678,11 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       return;
     }
 
+    if (!merchantId) {
+      alert('Unable to submit request — merchant context unavailable.');
+      return;
+    }
+
     setStatus('processing');
     try {
       const evidencePath = await uploadNegotiationEvidenceFile({

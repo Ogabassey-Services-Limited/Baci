@@ -65,6 +65,18 @@ describe('formatNegotiationItemMeta', () => {
     ).toBeNull();
   });
 
+  it('ignores values that become empty after condition normalization', () => {
+    expect(
+      formatNegotiationItemMeta({
+        name: 'Widget',
+        variant_name: 'Condition:',
+        variant_attributes: {
+          storage: 'Condition:',
+        },
+      })
+    ).toBeNull();
+  });
+
   it('does not repeat a condition that is already present in variant text', () => {
     expect(
       formatNegotiationItemMeta({

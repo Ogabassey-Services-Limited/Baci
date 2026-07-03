@@ -36,6 +36,25 @@ function jsonError(error: string, status: number) {
   return NextResponse.json({ error }, { status });
 }
 
+function getEvidenceRequestValidationMessage(
+  error: z.ZodError<z.infer<typeof evidenceRequestSchema>>
+) {
+  const field = error.issues[0]?.path[0];
+  if (field === 'merchantId') {
+    return 'Storefront merchant id is invalid.';
+  }
+  if (field === 'fileName') {
+    return 'Use a shorter evidence file name.';
+  }
+  if (field === 'contentType') {
+    return 'Use a valid evidence content type.';
+  }
+  if (field === 'fileSize') {
+    return 'Upload a proof image under 10 MB.';
+  }
+  return 'Invalid evidence upload request.';
+}
+
 function getEvidenceFileExtension({
   contentType,
   fileName,
@@ -119,7 +138,7 @@ export async function POST(request: NextRequest) {
   const parsed = evidenceRequestSchema.safeParse(body);
 
   if (!parsed.success) {
-    return jsonError('Upload a proof image under 10 MB.', 400);
+    return jsonError(getEvidenceRequestValidationMessage(parsed.error), 400);
   }
 
   const extension = getEvidenceFileExtension({

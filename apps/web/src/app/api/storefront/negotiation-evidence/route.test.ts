@@ -158,7 +158,45 @@ describe('POST /api/storefront/negotiation-evidence', () => {
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(400);
-    expect(body.error).toBe('Upload a proof image under 10 MB.');
+    expect(body.error).toBe('Storefront merchant id is invalid.');
+    expect(mocks.createClient).not.toHaveBeenCalled();
+    expect(mocks.createSignedUploadUrl).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized file names with a field-specific message', async () => {
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      createRequest({
+        contentType: 'image/png',
+        fileName: `${'proof'.repeat(70)}.png`,
+        fileSize: 5,
+        merchantId: 'merchant-1',
+      })
+    );
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Use a shorter evidence file name.');
+    expect(mocks.createClient).not.toHaveBeenCalled();
+    expect(mocks.createSignedUploadUrl).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized content types with a field-specific message', async () => {
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      createRequest({
+        contentType: `image/${'png'.repeat(50)}`,
+        fileName: 'proof.png',
+        fileSize: 5,
+        merchantId: 'merchant-1',
+      })
+    );
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Use a valid evidence content type.');
     expect(mocks.createClient).not.toHaveBeenCalled();
     expect(mocks.createSignedUploadUrl).not.toHaveBeenCalled();
   });

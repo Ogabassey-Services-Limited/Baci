@@ -120,6 +120,7 @@ function appendUniquePart({
   if (!comparable) return;
   const normalizedValue = normalizeComparableText(comparable);
   const normalizedBareValue = normalizeConditionValue(normalizedValue);
+  if (!normalizedValue || !normalizedBareValue) return;
   if (
     parts.some((part) => {
       const normalizedPart = normalizeComparableText(part);

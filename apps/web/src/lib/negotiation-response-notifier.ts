@@ -52,18 +52,32 @@ export async function notifyNegotiationResponseWithFallback({
     return notifyByEmail(customerEmail);
   }
 
-  const pushResult = await notifyNegotiationResponse(
-    customerId,
-    negotiationType,
-    status,
-    negotiationId,
-    itemName,
-    acceptedPrice,
-    productSlug
-  );
+  try {
+    const pushResult = await notifyNegotiationResponse(
+      customerId,
+      negotiationType,
+      status,
+      negotiationId,
+      itemName,
+      acceptedPrice,
+      productSlug
+    );
 
-  if (pushResult.sent > 0) {
-    return { notified: true };
+    if (pushResult.sent > 0) {
+      return { notified: true };
+    }
+  } catch (error) {
+    console.error(
+      'Push negotiation notification failed; falling back to email',
+      {
+        customerId,
+        error,
+        merchantId,
+        negotiationId,
+        negotiationType,
+        status,
+      }
+    );
   }
 
   if (customerEmail) {

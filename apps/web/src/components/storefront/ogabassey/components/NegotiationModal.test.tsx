@@ -607,6 +607,32 @@ describe('NegotiationModal', () => {
     alertSpy.mockRestore();
   });
 
+  it('rejects proof upload before network work when merchant context is missing', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    render(<NegotiationModal {...defaultProps} merchantId="" />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
+    expect(mockUploadToSignedUrl).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Unable to submit request — merchant context unavailable.'
+    );
+    alertSpy.mockRestore();
+  });
+
   it('persists a normalized customer_email when one is entered', async () => {
     render(<NegotiationModal {...defaultProps} />);
 
