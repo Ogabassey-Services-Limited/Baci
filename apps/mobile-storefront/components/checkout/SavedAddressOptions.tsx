@@ -14,7 +14,6 @@ type CheckoutColors = Record<
   'background' | 'border' | 'text' | 'textSecondary',
   string
 >;
-
 interface SavedAddressOptionsProps {
   colors: CheckoutColors;
   defaultSavedAddress: SavedAddress | null;
@@ -30,7 +29,6 @@ interface SavedAddressOptionsProps {
   selectedSavedAddress: SavedAddress | null;
   selectedSavedAddressId: string | null;
 }
-
 export function SavedAddressOptions({
   colors,
   defaultSavedAddress,
@@ -48,9 +46,7 @@ export function SavedAddressOptions({
   return (
     <View style={styles.savedAddressSection}>
       <View style={styles.savedAddressHeader}>
-        <Text style={[styles.savedAddressSectionTitle, { color: colors.text }]}>
-          Delivery options
-        </Text>
+        <Text style={[styles.savedAddressSectionTitle, { color: colors.text }]}>Delivery options</Text>
         {isLoadingSavedAddresses && (
           <ActivityIndicator
             accessibilityLabel="Loading saved addresses"
@@ -228,7 +224,6 @@ export function SavedAddressOptions({
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   savedAddressSection: {
     marginBottom: SPACING.sm,

@@ -23,6 +23,7 @@ interface UsePaymentMethodAvailabilityInput {
 }
 
 interface UsePaymentMethodAvailabilityResult {
+  availableMethodIds: PaymentMethodType[];
   filteredMethods: PaymentMethod[];
   hasBNPLMethods: boolean;
   hasPayLaterMethods: boolean;
@@ -129,6 +130,7 @@ export function usePaymentMethodAvailability(
   });
 
   return {
+    availableMethodIds: candidateMethods.map((method) => method.id),
     filteredMethods,
     hasBNPLMethods,
     hasPayLaterMethods,

@@ -70,7 +70,7 @@ export function CheckoutContactCard({
       title="Contact"
       colors={colors}
       isDark={isDark}
-      collapsed={isCollapsed}
+      collapsed={showCollapseAction && isCollapsed}
       canCollapse={showCollapseAction}
       onToggle={onToggleCollapsed}
       overflowVisible

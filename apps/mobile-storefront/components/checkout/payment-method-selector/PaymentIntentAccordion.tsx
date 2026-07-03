@@ -21,6 +21,7 @@ interface PaymentIntentAccordionProps {
   selectedMethod: PaymentMethodType;
   hasBNPLMethods: boolean;
   hasPayLaterMethods: boolean;
+  availableMethodIds?: readonly PaymentMethodType[];
   isBNPLEligible: boolean;
   orderTotal: number;
   onSelectIntent: (intent: PaymentIntent) => void;
@@ -39,11 +40,15 @@ interface PaymentIntentAccordionProps {
 /** Which intents to surface, given the merchant's enabled methods. */
 function visibleIntents(
   hasBNPLMethods: boolean,
-  hasPayLaterMethods: boolean
+  hasPayLaterMethods: boolean,
+  availableMethodIds?: readonly PaymentMethodType[]
 ): PaymentIntent[] {
   return PAYMENT_INTENTS.filter((intent) => {
     if (intent.tab === 'installments') return hasBNPLMethods;
-    if (intent.tab === 'pay_later') return hasPayLaterMethods;
+    if (intent.method) {
+      const methodEnabled = availableMethodIds?.includes(intent.method) ?? true;
+      return hasPayLaterMethods && methodEnabled;
+    }
     return true; // `full` is always available
   });
 }
@@ -54,6 +59,7 @@ export function PaymentIntentAccordion({
   selectedMethod,
   hasBNPLMethods,
   hasPayLaterMethods,
+  availableMethodIds,
   isBNPLEligible,
   orderTotal,
   onSelectIntent,
@@ -63,7 +69,11 @@ export function PaymentIntentAccordion({
   scrollOffsetRef,
   initiallyCollapsed = false,
 }: PaymentIntentAccordionProps) {
-  const intents = visibleIntents(hasBNPLMethods, hasPayLaterMethods);
+  const intents = visibleIntents(
+    hasBNPLMethods,
+    hasPayLaterMethods,
+    availableMethodIds
+  );
 
   // Whether the selected instrument-bearing card is collapsed (options hidden).
   // With `initiallyCollapsed` the accordion opens fully closed so all options

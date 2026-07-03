@@ -146,6 +146,18 @@ describe('CheckoutContactCard', () => {
     expect(onChangeAccountPassword).toHaveBeenCalledWith('long-enough');
   });
 
+
+
+  it('keeps guest contact fields expanded even if parent state is collapsed', () => {
+    render(<CheckoutContactCardHarness isCollapsed />);
+
+    expect(screen.getByPlaceholderText('E.g. John')).toBeTruthy();
+    expect(screen.queryByText('Signed in')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /edit contact/i })
+    ).toBeNull();
+  });
+
   it('renders the collapsed signed-in summary and edit action', () => {
     const onToggleCollapsed = jest.fn();
 

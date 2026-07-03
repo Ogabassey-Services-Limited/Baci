@@ -69,6 +69,7 @@ export function PaymentMethodSelector({
     : palette.amber[800];
 
   const {
+    availableMethodIds,
     filteredMethods,
     hasBNPLMethods,
     hasPayLaterMethods,
@@ -87,14 +88,23 @@ export function PaymentMethodSelector({
   });
 
   useEffect(() => {
-    if (selectedTab === 'installments' && !hasBNPLMethods) {
+    if (
+      selectedTab === 'installments' &&
+      (!hasBNPLMethods || !isBNPLEligible)
+    ) {
       onSelectTab('full');
       return;
     }
     if (selectedTab === 'pay_later' && !hasPayLaterMethods) {
       onSelectTab('full');
     }
-  }, [selectedTab, hasBNPLMethods, hasPayLaterMethods, onSelectTab]);
+  }, [
+    selectedTab,
+    hasBNPLMethods,
+    hasPayLaterMethods,
+    isBNPLEligible,
+    onSelectTab,
+  ]);
 
   const savingsShouldRender =
     Boolean(savingsGoalId) &&
@@ -199,6 +209,7 @@ export function PaymentMethodSelector({
   return (
     <View style={styles.container}>
       <PaymentIntentAccordion
+        availableMethodIds={availableMethodIds}
         colors={colors}
         hasBNPLMethods={hasBNPLMethods}
         hasPayLaterMethods={hasPayLaterMethods}

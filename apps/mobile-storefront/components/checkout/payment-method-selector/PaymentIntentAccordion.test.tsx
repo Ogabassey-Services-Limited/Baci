@@ -16,6 +16,7 @@ interface Overrides {
   selectedMethod?: PaymentMethodType;
   hasBNPLMethods?: boolean;
   hasPayLaterMethods?: boolean;
+  availableMethodIds?: PaymentMethodType[];
   isBNPLEligible?: boolean;
   orderTotal?: number;
   onSelectIntent?: (...args: unknown[]) => void;
@@ -33,6 +34,7 @@ function renderAccordion(overrides: Overrides = {}) {
       selectedMethod={overrides.selectedMethod ?? 'paystack'}
       hasBNPLMethods={overrides.hasBNPLMethods ?? true}
       hasPayLaterMethods={overrides.hasPayLaterMethods ?? true}
+      availableMethodIds={overrides.availableMethodIds}
       isBNPLEligible={overrides.isBNPLEligible ?? true}
       orderTotal={overrides.orderTotal ?? 120000}
       onSelectIntent={onSelectIntent}
@@ -61,6 +63,19 @@ describe('PaymentIntentAccordion', () => {
     expect(screen.queryByText('Pay Small Small')).toBeNull();
     expect(screen.queryByText('Pay for Me')).toBeNull();
     expect(screen.queryByText('Generate Invoice')).toBeNull();
+  });
+
+
+
+  it('filters terminal pay-later intents by the enabled method ids', () => {
+    renderAccordion({
+      selectedTab: 'pay_later',
+      selectedMethod: 'invoice',
+      availableMethodIds: ['invoice'],
+    });
+
+    expect(screen.getByText('Generate Invoice')).toBeTruthy();
+    expect(screen.queryByText('Pay for Me')).toBeNull();
   });
 
   it('emits the full intent (tab + pinned method) when an unselected intent is pressed', () => {

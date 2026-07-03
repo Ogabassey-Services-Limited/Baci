@@ -79,6 +79,22 @@ describe('PaymentMethodSelector', () => {
     expect(onSelectMethod).toHaveBeenCalledWith('payforme');
   });
 
+  it('filters terminal pay-later intents by the enabled methods', () => {
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'invoice' as PaymentMethodType}
+        onSelectMethod={() => {}}
+        selectedTab="pay_later"
+        onSelectTab={() => {}}
+        orderTotal={120000}
+        enabledMethods={['invoice']}
+      />
+    );
+
+    expect(screen.getByText('Generate Invoice')).toBeTruthy();
+    expect(screen.queryByText('Pay for Me')).toBeNull();
+  });
+
   it('hides the Pay Small Small intent when no BNPL methods are enabled', () => {
     render(
       <PaymentMethodSelector
@@ -174,7 +190,7 @@ describe('PaymentMethodSelector', () => {
 
     fireEvent.press(intentCard);
 
-    expect(onSelectTab).not.toHaveBeenCalled();
+    expect(onSelectTab).toHaveBeenCalledWith('full');
     expect(onSelectMethod).not.toHaveBeenCalled();
   });
 
