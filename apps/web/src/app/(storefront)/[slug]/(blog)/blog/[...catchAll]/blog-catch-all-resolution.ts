@@ -34,20 +34,13 @@ export async function resolveBlogCatchAllOutcome({
   // before any `'use cache'` (getCachedBlogPost), `'use cache: remote'`
   // (getBlogPostRedirect) or Supabase lookup runs with an unbounded key. This
   // is the single choke point for the blog catch-all route and the author
-  // route's unknown-author fallback (both route through here). The last
-  // segment is checked on its pre-`?` slug portion to mirror the downstream
-  // `cleanPostSlug = postSlug.split('?')[0]`, so a valid slug with a tracking
-  // tail is not falsely rejected while an over-long slug still is.
-  if (
-    catchAll.some(
-      (segment, index) =>
-        !evaluateStorefrontSlugSafety(
-          index === catchAll.length - 1
-            ? (segment.split('?')[0] ?? '')
-            : segment
-        ).safe
-    )
-  ) {
+  // route's unknown-author fallback (both route through here). Every segment
+  // is checked in FULL: the dated-permalink branch passes the unstripped last
+  // segment straight to getCachedBlogPost, so a `split('?')` carve-out here
+  // would let `/blog/2024/01/01/slug%3F<huge tail>` bypass the guard. Real
+  // slugs never contain `?`, and short tracking tails stay under the encoded
+  // bound, so no legitimate request is affected.
+  if (catchAll.some((segment) => !evaluateStorefrontSlugSafety(segment).safe)) {
     return { type: 'notFound' };
   }
 

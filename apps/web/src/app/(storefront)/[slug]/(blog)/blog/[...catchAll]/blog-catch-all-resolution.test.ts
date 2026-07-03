@@ -119,10 +119,9 @@ describe('resolveBlogCatchAllOutcome slug safety gate', () => {
     expect(mockCreateClient).not.toHaveBeenCalled();
   });
 
-  it('does not reject a safe final slug carrying a long tracking query tail', async () => {
-    // The guard checks the pre-`?` portion of the last segment to mirror the
-    // downstream `cleanPostSlug = postSlug.split('?')[0]`, so a valid slug with
-    // a long `?utm=…` tail must still reach the lookups (not be 404'd).
+  it('does not reject a safe final slug carrying a short tracking query tail', async () => {
+    // Real slugs never contain `?`; a short `?utm=…` tail stays under the
+    // encoded bound, so the segment passes the gate and the lookups run.
     mockGetCachedMerchantByDomain.mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
@@ -132,12 +131,12 @@ describe('resolveBlogCatchAllOutcome slug safety gate', () => {
       resolveBlogCatchAllOutcome({
         params: Promise.resolve({
           slug: 'ogabassey.com',
-          catchAll: [`the-iphone-15-what-we-know?${'utm=x&'.repeat(500)}`],
+          catchAll: ['the-iphone-15-what-we-know?utm_source=news&utm_id=abc'],
         }),
       })
     ).resolves.toEqual({ type: 'notFound' });
 
-    // Gate passed → the lookups ran on the stripped slug.
+    // Gate passed → the lookups ran (downstream strips the tail to cleanPostSlug).
     expect(mockCreateClient).toHaveBeenCalled();
     expect(mockGetBlogPostRedirect).toHaveBeenCalledWith(
       'ogabassey.com',
@@ -145,7 +144,24 @@ describe('resolveBlogCatchAllOutcome slug safety gate', () => {
     );
   });
 
-  it('rejects a final segment whose pre-? slug portion is over-long', async () => {
+  it('rejects a dated permalink whose unstripped last segment carries a huge encoded-? tail', async () => {
+    // The dated branch passes catchAll[3] UNSTRIPPED to getCachedBlogPost, so
+    // the full segment (not just its pre-`?` portion) must be gated.
+    await expect(
+      resolveBlogCatchAllOutcome({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          catchAll: ['2024', '01', '01', `valid-slug?${'a'.repeat(4000)}`],
+        }),
+      })
+    ).resolves.toEqual({ type: 'notFound' });
+
+    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+    expect(mockGetBlogPostRedirect).not.toHaveBeenCalled();
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
+  it('rejects a final segment whose full length is over-long', async () => {
     await expect(
       resolveBlogCatchAllOutcome({
         params: Promise.resolve({
