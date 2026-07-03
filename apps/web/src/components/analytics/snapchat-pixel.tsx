@@ -51,7 +51,7 @@ export function SnapchatPixel({ pixelId }: SnapchatPixelProps) {
   }
 
   return (
-    <Script id="snapchat-pixel" strategy="afterInteractive">
+    <Script id="snapchat-pixel" strategy="lazyOnload">
       {`
         (function(e,t,n){if(e.snaptr)return;var a=e.snaptr=function()
         {a.handleRequest?a.handleRequest.apply(a,arguments):a.queue.push(arguments)};

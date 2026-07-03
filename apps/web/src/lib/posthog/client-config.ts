@@ -10,6 +10,14 @@ import { sanitizePostHogExceptionText } from '@/lib/posthog/exception-text';
 import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 import { getPostHogTracingHeaderHostnames } from '@/lib/posthog/tracing-hostnames';
 
+// Record replay for ~20% of eligible sessions to cut PostHog's session-recording
+// boot + upload cost on the storefront critical path while retaining enough
+// coverage for UX debugging. posthog-js's `session_recording.sampleRate`
+// (0..1) takes precedence over the project's remote sampling config — verified
+// against @posthog/types `SessionRecordingOptions.sampleRate` in
+// posthog-js@1.393.5.
+const SESSION_RECORDING_SAMPLE_RATE = 0.2;
+
 const SENSITIVE_PROPERTY_TOKENS = new Set([
   'password',
   'passcode',
@@ -555,6 +563,7 @@ export function buildPostHogClientConfig(
       maskTextFn: () => REDACTED_VALUE,
       maskTextSelector: 'body',
       blockSelector: '[data-ph-block], [data-session-replay-block]',
+      sampleRate: SESSION_RECORDING_SAMPLE_RATE,
     },
     // Project credential keys are intentionally absent here:
     // restorePostHogProjectCredentialProperties rewrites token/api_key after

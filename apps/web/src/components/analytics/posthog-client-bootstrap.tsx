@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { hasPostHogBrowserInitialized } from '@/lib/posthog/browser-state';
 import { getPostHogBrowserEnv } from '@/lib/posthog/config';
 import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
+import { scheduleIdleBoot } from '@/lib/posthog/schedule-idle-boot';
 
 const postHogBrowserEnv = getPostHogBrowserEnv();
 
@@ -66,10 +67,18 @@ export function PostHogClientBootstrap() {
       }
     }
 
-    void initialize();
+    // Defer the browser PostHog boot off the initial critical path. The idle
+    // gate boots on the first idle period, window load, first interaction, or a
+    // hard timeout, so instrumentation never blocks first paint.
+    const cancelIdleBoot = scheduleIdleBoot(() => {
+      if (!cancelled) {
+        void initialize();
+      }
+    });
 
     return () => {
       cancelled = true;
+      cancelIdleBoot();
     };
   }, [pathname]);
 

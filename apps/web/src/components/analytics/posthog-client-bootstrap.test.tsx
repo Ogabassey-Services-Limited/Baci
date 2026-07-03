@@ -45,6 +45,11 @@ describe('PostHogClientBootstrap', () => {
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
     render(<PostHogClientBootstrap />);
+
+    // The boot is deferred off the render/critical path, so it is not called
+    // synchronously during mount.
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+
     await vi.waitFor(() => {
       expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
     });

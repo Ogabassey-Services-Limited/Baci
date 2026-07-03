@@ -584,3 +584,45 @@ describe('initializePostHogBrowser', () => {
     expect(warn).not.toHaveBeenCalled();
   });
 });
+
+describe('capturePostHogWebVitals', () => {
+  const payload = {
+    metric: 'LCP',
+    value: 2400,
+    rating: 'good',
+    navigationType: 'navigate',
+    pathname: '/ogabassey/products/macbook',
+    debugTarget: 'main > img',
+  };
+
+  it('does not capture when the PostHog browser client has not been initialized', async () => {
+    const { capturePostHogWebVitals } = await importBrowserInitializer();
+
+    capturePostHogWebVitals(payload);
+
+    expect(mocks.posthogCapture).not.toHaveBeenCalled();
+  });
+
+  it('does not capture when PostHog is disabled by a missing project token', async () => {
+    const { capturePostHogWebVitals, initializePostHogBrowser } =
+      await importBrowserInitializer();
+
+    initializePostHogBrowser({ NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: '' });
+    capturePostHogWebVitals(payload);
+
+    expect(mocks.posthogInit).not.toHaveBeenCalled();
+    expect(mocks.posthogCapture).not.toHaveBeenCalled();
+  });
+
+  it('captures a flat web_vitals event once the browser client is initialized', async () => {
+    const { capturePostHogWebVitals, initializePostHogBrowser } =
+      await importBrowserInitializer();
+
+    initializePostHogBrowser({
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
+    });
+    capturePostHogWebVitals(payload);
+
+    expect(mocks.posthogCapture).toHaveBeenCalledWith('web_vitals', payload);
+  });
+});

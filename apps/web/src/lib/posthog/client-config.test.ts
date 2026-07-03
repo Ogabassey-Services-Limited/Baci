@@ -41,12 +41,20 @@ describe('PostHog client config', () => {
         maskAllInputs: true,
         maskTextFn: expect.any(Function),
         maskTextSelector: 'body',
+        sampleRate: 0.2,
       }),
     });
     expect(config.property_blacklist).not.toContain('token');
     expect(config.session_recording?.maskTextFn?.('private note')).toBe(
       '[Filtered]'
     );
+  });
+
+  it('samples session recording at the configured rate on full surfaces', () => {
+    const config = buildPostHogClientConfig({ NODE_ENV: 'production' });
+
+    expect(config.disable_session_recording).toBe(false);
+    expect(config.session_recording?.sampleRate).toBe(0.2);
   });
 
   it('keeps the full instrumentation config by default', () => {
