@@ -539,8 +539,14 @@ const nextConfig: NextConfig = {
       // previous '/ogabassey/products' target leaked the internal
       // slug-prefixed path and chained through the merchant-prefix collapse
       // redirect in proxy.ts.
+      //
+      // The `:path*` suffix (zero-or-more segments) folds WP pagination and
+      // nested variants — e.g. /product-category/smartwatches/page/2 — onto the
+      // category root in a single hop instead of dropping them to the generic
+      // /products fallback, mirroring the exact+wildcard pairing the sibling
+      // /macbook, /samsung, /phones rules use above.
       ...['accessories', 'headphones', 'smartwatches'].map((categorySlug) => ({
-        source: `/product-category/${categorySlug}`,
+        source: `/product-category/${categorySlug}/:path*`,
         destination: `/${categorySlug}`,
         permanent: true,
         has: [{ type: 'host' as const, value: OGABASSEY_DOMAIN }],

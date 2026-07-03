@@ -3657,6 +3657,10 @@ describe('Middleware Proxy', () => {
 
 describe('blog subdomain migration redirects', () => {
   beforeEach(() => {
+    // This is a top-level describe, so it does not inherit the outer suite's
+    // clearAllMocks — reset call history here to stay isolated if this file's
+    // tests are ever reordered or run in parallel.
+    vi.clearAllMocks();
     // blog.ogabassey.com is not a merchant custom domain — without this the
     // suite-wide default mock resolves every hostname to 'ogabassey' and the
     // request never reaches the blog migration branch.
