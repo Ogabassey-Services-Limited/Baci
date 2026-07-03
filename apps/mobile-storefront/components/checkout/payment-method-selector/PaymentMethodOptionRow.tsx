@@ -38,6 +38,10 @@ export function PaymentMethodOptionRow({
   const methodBadge = overrideBadge;
   const methodDescription = overrideDescription ?? method.description;
   const methodLabel = overrideLabel ?? method.label;
+  // A row can be disabled without a reason (e.g. wallet/savings suppresses a
+  // gateway); never render/announce a literal "undefined" — fall back to the
+  // normal description.
+  const disabledDescription = method.disabledReason ?? methodDescription;
 
   return (
     <Pressable
@@ -58,7 +62,7 @@ export function PaymentMethodOptionRow({
         checked: isSelected,
         disabled: isDisabled,
       }}
-      accessibilityLabel={`${methodLabel}. ${isDisabled ? method.disabledReason : methodDescription}`}
+      accessibilityLabel={`${methodLabel}. ${isDisabled ? disabledDescription : methodDescription}`}
     >
       <View
         style={[
@@ -93,7 +97,7 @@ export function PaymentMethodOptionRow({
           ) : null}
         </View>
         <Text style={[styles.methodDesc, { color: colors.textSecondary }]}>
-          {isDisabled ? method.disabledReason : methodDescription}
+          {isDisabled ? disabledDescription : methodDescription}
         </Text>
       </View>
 

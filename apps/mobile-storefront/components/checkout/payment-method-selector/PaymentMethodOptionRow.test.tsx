@@ -70,4 +70,23 @@ describe('PaymentMethodOptionRow', () => {
     );
     expect(onPress).not.toHaveBeenCalled();
   });
+
+  it('falls back to the description when disabled without a reason', () => {
+    // Wallet/savings suppression disables a gateway row without setting a
+    // disabledReason — the row must not show/announce the literal "undefined".
+    render(
+      <PaymentMethodOptionRow
+        colors={Colors.light}
+        isDisabled
+        isSelected={false}
+        method={method}
+        onPress={() => {}}
+      />
+    );
+
+    expect(
+      screen.getByLabelText('Pay with Card. Visa, Mastercard, Verve')
+    ).toBeTruthy();
+    expect(screen.queryByText('undefined')).toBeNull();
+  });
 });

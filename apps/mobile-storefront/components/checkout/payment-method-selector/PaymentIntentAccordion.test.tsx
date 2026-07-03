@@ -142,6 +142,27 @@ describe('PaymentIntentAccordion', () => {
     expect(onSelectIntent).not.toHaveBeenCalled();
   });
 
+  it('keeps an already-selected Pay Small Small checked but collapsed when it becomes ineligible', () => {
+    // If the total drifts out of the BNPL band while installments is the active
+    // tab, the card must not flash to "nothing selected": it stays checked +
+    // disabled with its nested rows collapsed and the eligibility hint shown.
+    renderAccordion({
+      selectedTab: 'installments',
+      isBNPLEligible: false,
+      orderTotal: 5000,
+      nestedRows: <Text>NESTED_INSTRUMENT</Text>,
+    });
+
+    const card = screen.getByRole('radio', { name: /Pay Small Small/ });
+    expect(card.props.accessibilityState).toMatchObject({
+      checked: true,
+      disabled: true,
+      expanded: false,
+    });
+    expect(screen.queryByText('NESTED_INSTRUMENT')).toBeNull();
+    expect(screen.getByText('Available for orders from ₦10,000')).toBeTruthy();
+  });
+
   it('renders nested instrument rows inside the expanded instrument-bearing intent', () => {
     renderAccordion({
       selectedTab: 'full',

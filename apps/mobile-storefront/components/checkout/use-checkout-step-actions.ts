@@ -7,6 +7,7 @@ import type {
 import { Alert, Keyboard } from 'react-native';
 import type { CheckoutStep } from '@/components/checkout/CheckoutStepper';
 import { humanizeCheckoutFieldName } from '@/components/checkout/checkout-form-field.helpers';
+import { isProviderStationPickupQuote } from '@/components/checkout/checkout-station-pickup';
 import {
   PICKUP_STATION_ADDRESS_LINES,
   PICKUP_STATION_CITY,
@@ -83,7 +84,14 @@ export function useCheckoutStepActions({
     Keyboard.dismiss();
 
     if (step === 'address') {
-      if (submitParams.deliveryMethod === 'pickup_station') {
+      // Rewrite the address to the merchant's Lagos pickup counter only for the
+      // merchant's own free pickup — NOT for a paid provider (GIGL) station
+      // pickup, whose quote context depends on the customer's real city/state.
+      // Overwriting those would clear the provider quote when moving to payment.
+      if (
+        submitParams.deliveryMethod === 'pickup_station' &&
+        !isProviderStationPickupQuote(submitParams.selectedQuote)
+      ) {
         setValue('address', PICKUP_STATION_ADDRESS_LINES.join(', '), {
           shouldValidate: true,
         });

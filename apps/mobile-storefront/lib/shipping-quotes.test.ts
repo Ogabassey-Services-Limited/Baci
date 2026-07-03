@@ -124,6 +124,23 @@ describe('shipping quote helpers', () => {
     ).toBe('door');
   });
 
+  it('returns no selection when only station-pickup quotes are available', () => {
+    // A door order must never auto-select a station quote — the fee/order
+    // builders zero it out, which would ship for free. Force the customer to
+    // pick a station instead of silently selecting one for door delivery.
+    expect(
+      getPreferredShippingQuoteId([
+        { id: 'station', price: 1500, isStationPickup: true },
+      ])
+    ).toBe('');
+    expect(
+      getPreferredShippingQuoteId(
+        [{ id: 'station', price: 1500, isStationPickup: true }],
+        'station'
+      )
+    ).toBe('');
+  });
+
   it('normalizes string quote prices before selection and totals use them', () => {
     const quotes = normalizeShippingQuotes([
       { id: 'a', price: '₦6,500' },

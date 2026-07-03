@@ -100,11 +100,17 @@ export function PaymentIntentAccordion({
       {intents.map((intent) => {
         const instrumentBearing = intent.method === undefined;
         const disabled = intent.id === 'installments' && !isBNPLEligible;
-        const selected =
-          !disabled && isIntentSelected(intent, selectedTab, selectedMethod);
-        // The card's body (options + info) shows when it is selected — and, for
-        // the collapsible instrument-bearing cards, not manually collapsed.
-        const open = selected && (!instrumentBearing || !collapsedSelected);
+        // `selected` reflects the actual (tab, method) selection independent of
+        // eligibility, so a card the user already picked keeps its checked state
+        // if the total briefly drifts out of the BNPL band, instead of flashing
+        // to "nothing selected". `disabled` still blocks the press handler
+        // (line below) and keeps the body collapsed.
+        const selected = isIntentSelected(intent, selectedTab, selectedMethod);
+        // The card's body (options + info) shows when it is selected and still
+        // eligible — and, for collapsible instrument-bearing cards, not
+        // manually collapsed.
+        const open =
+          selected && !disabled && (!instrumentBearing || !collapsedSelected);
         const subtitle = disabled
           ? bnplEligibilityHint(orderTotal)
           : intent.subtitle;

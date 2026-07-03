@@ -70,11 +70,18 @@ export function getPreferredShippingQuoteId(
   }
 
   const doorQuotes = quotes.filter((quote) => quote.isStationPickup !== true);
-  const selectableQuotes = doorQuotes.length > 0 ? doorQuotes : quotes;
+
+  // Never auto-select a station-pickup quote for door delivery. The fee/order
+  // builders ignore station quotes for door, so auto-selecting one would let a
+  // customer place a door order with no real door quote and a zero shipping fee.
+  // With no door quote, return '' so the customer is forced to pick a station.
+  if (doorQuotes.length === 0) {
+    return '';
+  }
 
   if (
     previousSelectedQuoteId &&
-    selectableQuotes.some(
+    doorQuotes.some(
       (quote) => String(quote.id) === String(previousSelectedQuoteId)
     )
   ) {
@@ -82,7 +89,7 @@ export function getPreferredShippingQuoteId(
   }
 
   return String(
-    selectableQuotes.reduce((prev, current) =>
+    doorQuotes.reduce((prev, current) =>
       normalizeShippingQuotePrice(prev.price) <=
       normalizeShippingQuotePrice(current.price)
         ? prev

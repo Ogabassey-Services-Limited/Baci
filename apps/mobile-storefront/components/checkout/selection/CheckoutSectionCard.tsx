@@ -21,8 +21,10 @@ interface CheckoutSectionCardProps {
 
 /**
  * The single source of truth for a checkout section's card chrome + header.
- * Borderless/shadow-only in light mode, hairline in dark. Header icon is neutral
- * (`colors.textSecondary`) — red is reserved for selection, never chrome.
+ * Borderless/shadow-only in light mode, hairline in dark. The header icon uses
+ * the calm red accent (`BRAND.primary`) on a neutral chip, matching the
+ * section/summary/row icons across the redesign; borders and radios remain the
+ * primary selection accent.
  */
 export function CheckoutSectionCard({
   icon,
