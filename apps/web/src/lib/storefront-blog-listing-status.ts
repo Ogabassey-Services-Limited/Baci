@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { createAbortSignalTimeout } from './abort-signal-timeout';
 import type { BlogListingStatusIntent } from './cached-storefront-blog-listing-status';
 import { storefrontInternalPreflight } from './storefront-internal-preflight';
@@ -70,6 +71,24 @@ function getIntentLogSlug(intent: BlogListingStatusIntent): string {
   }
 }
 
+/**
+ * The free-text, user-controlled segment of an intent — the value that carries
+ * bot-supplied percent-encoding. `page` is a bounded integer, so page-only
+ * listing intents have no unsafe segment (returns null → always safe).
+ */
+function getIntentUserSlug(intent: BlogListingStatusIntent): string | null {
+  switch (intent.kind) {
+    case 'category-query':
+      return intent.category;
+    case 'listing-page':
+      return intent.category ?? null;
+    case 'category-page':
+      return intent.categorySlug;
+    case 'author':
+      return intent.authorSlug;
+  }
+}
+
 export async function resolveStorefrontBlogListingStatus(
   opts: BlogListingStatusOptions
 ): Promise<StorefrontBlogListingStatusResolution> {
@@ -78,6 +97,20 @@ export async function resolveStorefrontBlogListingStatus(
     identifier: opts.identifier,
     slug: getIntentLogSlug(opts.intent),
   };
+
+  // Unsafe (over-long / repeatedly-encoded) category/author segments can never
+  // match a listing; skip the internal hop and let the App Router resolve it.
+  const userSlug = getIntentUserSlug(opts.intent);
+  if (userSlug !== null) {
+    const slugSafety = evaluateStorefrontSlugSafety(userSlug);
+    if (!slugSafety.safe) {
+      storefrontInternalPreflight.warnSkip({
+        ...failOpenContext,
+        reason: slugSafety.reason,
+      });
+      return { kind: 'noop' };
+    }
+  }
 
   if (!opts.secret) {
     storefrontInternalPreflight.warnFailOpen({

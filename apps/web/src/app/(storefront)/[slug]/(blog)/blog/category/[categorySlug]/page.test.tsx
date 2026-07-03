@@ -239,6 +239,61 @@ describe('blog category page', () => {
     expect(mockBlogPageContent).not.toHaveBeenCalled();
   });
 
+  it('calls notFound without resolving the hub for over-encoded bot category slugs', async () => {
+    let overEncodedSlug = 'smartphones and tablets';
+    for (let i = 0; i < 10; i++) {
+      overEncodedSlug = encodeURIComponent(overEncodedSlug);
+    }
+
+    await expect(
+      BlogCategoryPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          categorySlug: overEncodedSlug,
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockNotFound).toHaveBeenCalledTimes(1);
+    expect(mockResolveBlogCategoryHub).not.toHaveBeenCalled();
+    expect(mockBlogPageContent).not.toHaveBeenCalled();
+  });
+
+  it('calls notFound without resolving the hub for extremely long category slugs', async () => {
+    await expect(
+      BlogCategoryPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          categorySlug: 'a'.repeat(4000),
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockNotFound).toHaveBeenCalledTimes(1);
+    expect(mockResolveBlogCategoryHub).not.toHaveBeenCalled();
+  });
+
+  it('returns not-found metadata without resolving the hub for over-encoded category slugs', async () => {
+    let overEncodedSlug = 'smartphones and tablets';
+    for (let i = 0; i < 10; i++) {
+      overEncodedSlug = encodeURIComponent(overEncodedSlug);
+    }
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        categorySlug: overEncodedSlug,
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe('Blog Category Not Found');
+    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(mockResolveBlogCategoryHub).not.toHaveBeenCalled();
+  });
+
   it('uses indexable metadata with the clean category canonical', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({

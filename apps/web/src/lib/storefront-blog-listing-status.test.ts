@@ -91,6 +91,98 @@ describe('resolveStorefrontBlogListingStatus', () => {
     });
   });
 
+  it('skips the internal fetch for over-encoded bot category-query slugs', async () => {
+    const fetchImpl = vi.fn();
+    let overEncodedSlug = 'smartphones and tablets';
+    for (let i = 0; i < 10; i++) {
+      overEncodedSlug = encodeURIComponent(overEncodedSlug);
+    }
+
+    const result = await resolveStorefrontBlogListingStatus({
+      ...BASE_OPTS,
+      intent: { kind: 'category-query', category: overEncodedSlug },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'noop' });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] skip',
+      expect.objectContaining({
+        surface: 'blog-listing-status',
+        reason: 'over-encoded',
+      })
+    );
+  });
+
+  it('skips the internal fetch for extremely long category-page slugs', async () => {
+    const fetchImpl = vi.fn();
+
+    const result = await resolveStorefrontBlogListingStatus({
+      ...BASE_OPTS,
+      intent: {
+        kind: 'category-page',
+        categorySlug: 'a'.repeat(4000),
+        page: 2,
+      },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'noop' });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('skips the internal fetch for over-encoded author slugs', async () => {
+    const fetchImpl = vi.fn();
+    let overEncodedSlug = 'jane doe writer';
+    for (let i = 0; i < 10; i++) {
+      overEncodedSlug = encodeURIComponent(overEncodedSlug);
+    }
+
+    const result = await resolveStorefrontBlogListingStatus({
+      ...BASE_OPTS,
+      intent: { kind: 'author', authorSlug: overEncodedSlug, page: 1 },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'noop' });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('skips the internal fetch for unsafe listing-page category segments', async () => {
+    const fetchImpl = vi.fn();
+    let overEncodedSlug = 'smartphones and tablets';
+    for (let i = 0; i < 10; i++) {
+      overEncodedSlug = encodeURIComponent(overEncodedSlug);
+    }
+
+    const result = await resolveStorefrontBlogListingStatus({
+      ...BASE_OPTS,
+      intent: { kind: 'listing-page', category: overEncodedSlug, page: 2 },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'noop' });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('still fetches for page-only listing intents (no unsafe user segment)', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ hasError: false, redirectPath: null, notFound: false })
+      );
+
+    const result = await resolveStorefrontBlogListingStatus({
+      ...BASE_OPTS,
+      intent: { kind: 'listing-page', page: 5 },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'noop' });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   it('maps a page-clamp redirect to a 307', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       jsonResponse({
