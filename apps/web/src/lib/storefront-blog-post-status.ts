@@ -37,15 +37,17 @@ export async function resolveStorefrontBlogPostStatus(
     slug: opts.postSlug,
   };
 
-  // Unsafe (over-long / repeatedly-encoded) slugs can never be live posts;
-  // skip the internal hop entirely and let the App Router resolve the request.
+  // Unsafe (over-long / repeatedly-encoded) slugs can never be live posts, so
+  // report them as definitively missing — the proxy then emits a real hard 404
+  // (preserving crawl budget) instead of falling through to a soft noindex
+  // render. Skips the internal hop entirely.
   const slugSafety = evaluateStorefrontSlugSafety(opts.postSlug);
   if (!slugSafety.safe) {
     storefrontInternalPreflight.warnSkip({
       ...failOpenContext,
       reason: slugSafety.reason,
     });
-    return { kind: 'present-or-unknown' };
+    return { kind: 'missing' };
   }
 
   if (!opts.secret) {

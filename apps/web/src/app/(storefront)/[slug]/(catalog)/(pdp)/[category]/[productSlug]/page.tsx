@@ -1196,22 +1196,17 @@ export async function generateMetadata({
     return PRODUCT_NOT_FOUND_METADATA;
   }
 
-  // Keep unsafe (over-long / repeatedly-encoded) segments out of the React
-  // cache() memo key too — getProductRouteControl already guards internally,
-  // but gating both args at the call site avoids memoizing on an unbounded
-  // argument (getProductRouteControl(slug, category, productSlug)).
-  if (
+  // Skip getProductRouteControl for unsafe (over-long / repeatedly-encoded)
+  // segments so the raw value never enters its React cache() memo key
+  // (category is also an arg), then fall through to the shared missing-route
+  // handling below — which still runs the bounded merchant existence check, so
+  // a nonexistent tenant hard-404s rather than rendering a soft not-found.
+  const hasUnsafeSegment =
     !evaluateStorefrontSlugSafety(productSlug).safe ||
-    !evaluateStorefrontSlugSafety(category).safe
-  ) {
-    return PRODUCT_NOT_FOUND_METADATA;
-  }
-
-  const routeControl = await getProductRouteControl(
-    slug,
-    category,
-    productSlug
-  );
+    !evaluateStorefrontSlugSafety(category).safe;
+  const routeControl = hasUnsafeSegment
+    ? null
+    : await getProductRouteControl(slug, category, productSlug);
 
   if (!routeControl) {
     const merchant = await getRequestScopedMerchant(slug);
@@ -1473,14 +1468,21 @@ export default async function CategoryProductPage({
     return renderCategoryProductNotFoundContent(slug);
   }
 
-  // Keep unsafe (over-long / repeatedly-encoded) segments out of the React
-  // cache() memo key and the LCP prewarm too — the downstream lookups already
-  // guard internally, but gating both args here avoids memoizing on an
-  // unbounded argument (getProductRouteControl(slug, category, productSlug)).
+  // Skip the LCP prewarm and getProductRouteControl for unsafe (over-long /
+  // repeatedly-encoded) segments so the raw value never enters their React
+  // cache() memo keys (category is also an arg), but keep the bounded merchant
+  // existence check so a nonexistent tenant hard-404s rather than rendering a
+  // soft not-found (mirrors the missing-route handling below).
   if (
     !evaluateStorefrontSlugSafety(productSlug).safe ||
     !evaluateStorefrontSlugSafety(category).safe
   ) {
+    const merchant = await getRequestScopedMerchant(slug);
+
+    if (!merchant) {
+      notFound();
+    }
+
     return renderCategoryProductNotFoundContent(slug);
   }
 

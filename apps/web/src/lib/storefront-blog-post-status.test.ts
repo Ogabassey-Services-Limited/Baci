@@ -87,7 +87,7 @@ describe('resolveStorefrontBlogPostStatus', () => {
     });
   });
 
-  it('skips the internal fetch for over-encoded bot post slugs and falls through', async () => {
+  it('reports over-encoded bot post slugs as missing (hard 404) without fetching', async () => {
     const fetchImpl = vi.fn();
     let overEncodedSlug = 'my blog post';
     for (let i = 0; i < 10; i++) {
@@ -102,7 +102,8 @@ describe('resolveStorefrontBlogPostStatus', () => {
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });
 
-    expect(result).toEqual({ kind: 'present-or-unknown' });
+    // Unsafe slug is definitively absent → missing (proxy emits a real 404).
+    expect(result).toEqual({ kind: 'missing' });
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(console.warn).toHaveBeenCalledWith(
       '[storefront-internal-preflight] skip',

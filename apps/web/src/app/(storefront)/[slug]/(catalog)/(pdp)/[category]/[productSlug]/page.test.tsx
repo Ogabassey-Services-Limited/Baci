@@ -1082,6 +1082,28 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
   });
 
+  it('hard-404s an unsafe segment when the merchant does not exist', async () => {
+    // Unsafe segments skip getProductRouteControl but still run the bounded
+    // merchant check, so a nonexistent tenant gets a real notFound(), not a
+    // soft product-not-found shell.
+    mockGetRequestScopedMerchant.mockResolvedValueOnce(null);
+
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: 'no-such-store',
+          category: 'smartphones',
+          productSlug: 'a'.repeat(4000),
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockNotFound).toHaveBeenCalledOnce();
+    expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+  });
+
   it('returns noindex soft-404 metadata for extremely long slugs without product lookups', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({
