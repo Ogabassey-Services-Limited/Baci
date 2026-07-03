@@ -12,7 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import type { NewOrderController } from '@/hooks/useNewOrderController';
 import { DuplicateCustomerBanner } from './DuplicateCustomerBanner';
 import { NewCustomerAddressInput } from './NewCustomerAddressInput';
 import { NewCustomerTypeToggle } from './NewCustomerTypeToggle';
@@ -21,11 +21,11 @@ import { customerCreateStyles as customerStyles } from './NewOrderCustomerCreate
 import { styles } from './new-order.styles';
 
 interface NewOrderCustomerCreateViewProps {
-  controller: ReturnType<typeof useNewOrderController>;
+  controller: NewOrderController;
 }
 
 interface CustomerInfoFieldProps {
-  colors: ReturnType<typeof useNewOrderController>['colors'];
+  colors: NewOrderController['colors'];
   icon: IoniconsIconName;
   inputRef?: RefObject<TextInput | null>;
   onChangeText: (text: string) => void;

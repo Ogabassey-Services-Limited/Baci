@@ -2,7 +2,7 @@ import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import type { NewOrderController } from '@/hooks/useNewOrderController';
 import {
   getCustomerDisplayContact,
   getCustomerDisplayInitial,
@@ -12,7 +12,7 @@ import {
 import { styles } from './new-order.styles';
 
 interface NewOrderCustomerSearchViewProps {
-  controller: ReturnType<typeof useNewOrderController>;
+  controller: NewOrderController;
   listBottomPadding?: number;
   showInlineSearch?: boolean;
 }

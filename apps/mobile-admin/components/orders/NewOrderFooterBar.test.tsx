@@ -212,7 +212,7 @@ describe('NewOrderFooterBar', () => {
     );
   });
 
-  it('shows payment status choices with paid first and clear radio affordance', () => {
+  it('shows payment status choices with unpaid first and clear radio affordance', () => {
     const controller = makeController();
 
     render(<NewOrderFooterBar controller={controller} />);

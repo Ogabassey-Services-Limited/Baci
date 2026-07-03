@@ -54,6 +54,7 @@ export function NewCustomerAddressInput({
 
     const requestSequence = requestSequenceRef.current + 1;
     requestSequenceRef.current = requestSequence;
+    const abortController = new AbortController();
 
     const timeout = setTimeout(() => {
       const autocompleteUrl = buildGoogleAutocompleteUrl({
@@ -62,7 +63,7 @@ export function NewCustomerAddressInput({
         selectedCountryCode,
       });
 
-      fetch(autocompleteUrl)
+      fetch(autocompleteUrl, { signal: abortController.signal })
         .then(async (response) => {
           if (!response.ok) {
             throw new Error(`Google Places returned ${response.status}`);
@@ -86,6 +87,7 @@ export function NewCustomerAddressInput({
 
     return () => {
       clearTimeout(timeout);
+      abortController.abort();
       requestSequenceRef.current += 1;
     };
   }, [

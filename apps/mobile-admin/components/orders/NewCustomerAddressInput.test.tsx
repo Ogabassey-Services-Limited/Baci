@@ -135,7 +135,8 @@ describe('NewCustomerAddressInput', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=12+Allen+Avenue&key=maps-test-key&language=en&components=country%3Agh'
+        'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=12+Allen+Avenue&key=maps-test-key&language=en&components=country%3Agh',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
 
@@ -241,6 +242,65 @@ describe('NewCustomerAddressInput', () => {
       });
 
       expect(screen.queryByText('12 Allen Avenue')).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('aborts the pending autocomplete request when the address changes again', async () => {
+    vi.useFakeTimers();
+    const setNewCustomer = vi.fn();
+    const fetchMock = vi.fn(
+      (_input: string, _init?: RequestInit) => new Promise(() => undefined)
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      const view = render(
+        <NewCustomerAddressInput
+          address=""
+          colors={LIGHT_COLORS}
+          googleMapsApiKey="maps-test-key"
+          selectedCountryCode="NG"
+          setNewCustomer={setNewCustomer}
+        />
+      );
+      const input = screen.getByPlaceholderText('Search Address');
+
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: '12 Allen' } });
+      view.rerender(
+        <NewCustomerAddressInput
+          address="12 Allen"
+          colors={LIGHT_COLORS}
+          googleMapsApiKey="maps-test-key"
+          selectedCountryCode="NG"
+          setNewCustomer={setNewCustomer}
+        />
+      );
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(300);
+      });
+
+      const firstSignal = fetchMock.mock.calls[0]?.[1]?.signal as AbortSignal;
+      expect(firstSignal).toBeInstanceOf(AbortSignal);
+      expect(firstSignal.aborted).toBe(false);
+
+      await act(async () => {
+        view.rerender(
+          <NewCustomerAddressInput
+            address="12 Allen Avenue"
+            colors={LIGHT_COLORS}
+            googleMapsApiKey="maps-test-key"
+            selectedCountryCode="NG"
+            setNewCustomer={setNewCustomer}
+          />
+        );
+        await Promise.resolve();
+      });
+
+      expect(firstSignal.aborted).toBe(true);
     } finally {
       vi.useRealTimers();
     }

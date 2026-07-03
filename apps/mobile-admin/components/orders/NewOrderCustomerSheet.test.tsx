@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import type { NewOrderController } from '@/hooks/useNewOrderController';
 
 const mocks = vi.hoisted(() => ({
   searchViewProps: [] as Array<{
@@ -142,7 +142,7 @@ vi.mock('./NewOrderCustomerSearchView', () => ({
 import { NewOrderCustomerSheet } from './NewOrderCustomerSheet';
 
 type CustomerSheetController = Pick<
-  ReturnType<typeof useNewOrderController>,
+  NewOrderController,
   | 'colors'
   | 'customerSearch'
   | 'handleCloseCustomerModal'
@@ -156,7 +156,7 @@ type CustomerSheetController = Pick<
 
 function makeController(
   overrides: Partial<CustomerSheetController> = {}
-): ReturnType<typeof useNewOrderController> {
+): NewOrderController {
   return {
     colors: {
       background: '#050713',
@@ -176,7 +176,7 @@ function makeController(
     setCustomerSearch: vi.fn(),
     showCustomerModal: true,
     ...overrides,
-  } as ReturnType<typeof useNewOrderController>;
+  } as NewOrderController;
 }
 
 describe('NewOrderCustomerSheet', () => {

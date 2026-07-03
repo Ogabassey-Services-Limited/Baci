@@ -216,7 +216,9 @@ describe('submitNewOrder', () => {
   });
 
   it('normalizes unsupported merchant currencies before saving orders', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
 
     await submitNewOrder(
       createSubmitParams({

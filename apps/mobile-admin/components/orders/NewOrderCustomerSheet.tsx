@@ -2,7 +2,7 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { useEffect, useRef } from 'react';
 import { Pressable } from 'react-native';
 import type { TextInput as BottomSheetTextInputRef } from 'react-native-gesture-handler';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import type { NewOrderController } from '@/hooks/useNewOrderController';
 import { NewOrderCustomerCreateView } from './NewOrderCustomerCreateView';
 import { NewOrderCustomerSearchFooter } from './NewOrderCustomerSearchFooter';
 import { NewOrderCustomerSearchView } from './NewOrderCustomerSearchView';
@@ -13,7 +13,7 @@ const CUSTOMER_PICKER_LIST_BOTTOM_PADDING = 128;
 const CUSTOMER_PICKER_SELECTION_SNAP_POINTS = ['40%', '74%'];
 
 interface NewOrderCustomerSheetProps {
-  controller: ReturnType<typeof useNewOrderController>;
+  controller: NewOrderController;
 }
 
 export function NewOrderCustomerSheet({

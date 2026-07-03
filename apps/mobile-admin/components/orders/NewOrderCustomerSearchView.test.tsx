@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import type { NewOrderController } from '@/hooks/useNewOrderController';
 import { NewOrderCustomerSearchView } from './NewOrderCustomerSearchView';
 
 const styleHelpers = vi.hoisted(() => ({
@@ -147,7 +147,7 @@ vi.mock('react-native', async () => {
 });
 
 type CustomerSearchController = Pick<
-  ReturnType<typeof useNewOrderController>,
+  NewOrderController,
   | 'colors'
   | 'customerSearch'
   | 'customersData'
@@ -176,7 +176,7 @@ function makeCustomersQuery(
 
 function makeController(
   overrides: Partial<CustomerSearchController> = {}
-): ReturnType<typeof useNewOrderController> {
+): NewOrderController {
   const customersQuery = makeCustomersQuery(overrides.customersQuery);
 
   return {
@@ -197,7 +197,7 @@ function makeController(
     setIsCreatingCustomer: vi.fn(),
     ...overrides,
     customersQuery,
-  } as ReturnType<typeof useNewOrderController>;
+  } as NewOrderController;
 }
 
 function makeCustomer(
