@@ -1891,11 +1891,32 @@ describe('Middleware Proxy', () => {
     expect(res.status).toBe(410);
     expect(checkRateLimit).toHaveBeenCalledTimes(1);
     expect(getSlugForCustomDomain).not.toHaveBeenCalled();
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(res.headers.get('x-middleware-rewrite')).toBeNull();
     expect(res.headers.get('x-pathname')).toBe('/api/payments/klump/webhook');
     await expect(res.json()).resolves.toEqual({
       error: 'Legacy Klump WooCommerce webhook endpoint retired',
     });
+  });
+
+  it.each([
+    'GET',
+    'HEAD',
+  ])('returns 410 for %s requests to the retired legacy Klump WooCommerce webhook path', async (method) => {
+    const req = new NextRequest(
+      'https://ogabassey.com/wc-api/klp_wc_payment_webhook/',
+      { method }
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(410);
+    expect(checkRateLimit).toHaveBeenCalledTimes(1);
+    expect(getSlugForCustomDomain).not.toHaveBeenCalled();
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(res.headers.get('x-pathname')).toBe('/api/payments/klump/webhook');
   });
 
   it('retires legacy Klump payment webhooks before Origin checks block external providers', async () => {
