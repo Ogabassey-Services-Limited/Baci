@@ -6,13 +6,13 @@ import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { StorefrontPagination } from '@/components/storefront/ogabassey/components/StorefrontPagination';
 import { InternalLinkEquitySection } from '@/components/storefront/ogabassey/seo/internal-link-equity-section';
 import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
-import { OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS } from '@/config/ogabassey-internal-link-equity';
 import {
   getCachedCategories,
   getRequestScopedMerchant,
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
+import { getOgabasseyInternalLinkEquityGroups } from '@/lib/ogabassey-internal-link-equity-groups';
 import { asRoute } from '@/lib/routes';
 import {
   generateBreadcrumbSchema,
@@ -64,18 +64,27 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
 
   const headersList = await headers();
 
-  const [categories, currentProductIndex, firstPageProductIndex] =
-    await Promise.all([
-      getCachedCategories(merchant.id),
-      getCachedStorefrontProductIndex(merchant.id, {
-        page: currentPage,
-        limit: STOREFRONT_PRODUCTS_PER_PAGE,
-      }),
-      getCachedStorefrontProductIndex(merchant.id, {
-        page: 1,
-        limit: STOREFRONT_PRODUCTS_PER_PAGE,
-      }),
-    ]);
+  const showInternalLinkEquitySection = merchant.id === OGABASSEY_MERCHANT_ID;
+
+  const [
+    categories,
+    currentProductIndex,
+    firstPageProductIndex,
+    internalLinkEquityGroups,
+  ] = await Promise.all([
+    getCachedCategories(merchant.id),
+    getCachedStorefrontProductIndex(merchant.id, {
+      page: currentPage,
+      limit: STOREFRONT_PRODUCTS_PER_PAGE,
+    }),
+    getCachedStorefrontProductIndex(merchant.id, {
+      page: 1,
+      limit: STOREFRONT_PRODUCTS_PER_PAGE,
+    }),
+    showInternalLinkEquitySection
+      ? getOgabasseyInternalLinkEquityGroups(merchant.id)
+      : Promise.resolve([]),
+  ]);
   const totalPages = Math.max(1, currentProductIndex.totalPages || 1);
 
   if (!currentProductIndex.hasError && currentPage > totalPages) {
@@ -115,26 +124,21 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
         .map((category) => [category.canonicalSlug, category])
     ).values()
   );
+  const productsPageUrl =
+    currentPage > 1
+      ? `${baseUrl}/products?page=${currentPage}`
+      : `${baseUrl}/products`;
   const breadcrumbSchema: JsonLdData<BreadcrumbList> = generateBreadcrumbSchema(
     [
       { name: merchant.business_name, url: baseUrl },
-      {
-        name: 'Products',
-        url:
-          currentPage > 1
-            ? `${baseUrl}/products?page=${currentPage}`
-            : `${baseUrl}/products`,
-      },
+      { name: 'Products', url: productsPageUrl },
     ]
   );
   const collectionSchema: JsonLdData<CollectionPage> =
     generateCollectionPageSchema({
       name: 'Products',
       description,
-      url:
-        currentPage > 1
-          ? `${baseUrl}/products?page=${currentPage}`
-          : `${baseUrl}/products`,
+      url: productsPageUrl,
       products: currentProductIndex.products,
       merchantName: merchant.business_name,
       currency: merchant.payout_currency || 'NGN',
@@ -156,7 +160,6 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
   const deepLinkProducts = firstPageProductIndex.products
     .filter((product) => product.slug)
     .slice(0, 18);
-  const showInternalLinkEquitySection = merchant.id === OGABASSEY_MERCHANT_ID;
 
   return (
     <>
@@ -217,7 +220,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
 
           {showInternalLinkEquitySection && (
             <InternalLinkEquitySection
-              groups={OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS}
+              groups={internalLinkEquityGroups}
               pathPrefix={pathPrefix}
             />
           )}
