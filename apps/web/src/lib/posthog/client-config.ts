@@ -43,6 +43,11 @@ const EMAIL_VALUE_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const REDACTED_VALUE = '[Filtered]';
 const QUERY_OR_HASH_PATTERN = /[?#]/;
 const EXCEPTION_LIST_PROPERTY_KEY = '$exception_list';
+// Both PostHog's autocapture `$web_vitals` event and our own flat `web_vitals`
+// event (see capturePostHogWebVitals in lib/posthog/browser.ts) must be dropped
+// on public blog/SEO surfaces. Matching only `$web_vitals` here would let the
+// custom event through — keep this set as the single source of truth.
+const WEB_VITALS_EVENT_NAMES = new Set(['$web_vitals', 'web_vitals']);
 const RESERVED_WEB_TENANT_SUBDOMAINS = new Set([
   'www',
   'app',
@@ -487,7 +492,7 @@ export function sanitizePostHogCapture(
   }
 
   if (
-    capture.event === '$web_vitals' &&
+    WEB_VITALS_EVENT_NAMES.has(capture.event) &&
     isPublicBlogWebVitalsEvent(properties)
   ) {
     return null;

@@ -8,7 +8,9 @@ import {
   BLOG_POST_HERO_IMAGE_SIZES,
 } from './blog-media';
 
-// The `qualities` allowlist next/image validates against at build time.
+// The `qualities` allowlist next/image validates against at build time. Source of
+// truth: `images.qualities` in apps/web/next.config.ts — keep this array in sync
+// with it (importing next.config.ts into Vitest is fragile, so it is mirrored).
 const NEXT_IMAGE_QUALITIES = [35, 50, 60, 70, 75, 80, 85, 90, 100];
 
 describe('blog media config', () => {

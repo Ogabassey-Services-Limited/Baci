@@ -399,6 +399,59 @@ describe('PostHog client config', () => {
     vi.unstubAllGlobals();
   });
 
+  it('drops the custom flat web_vitals event on a public blog route (not just $web_vitals)', () => {
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/blog/best-phones',
+      origin: 'https://usebaci.com',
+    });
+
+    // capturePostHogWebVitals emits event: 'web_vitals' (no leading $). It must be
+    // dropped on blog surfaces exactly like PostHog's autocapture '$web_vitals'.
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: 'web_vitals',
+        properties: {
+          metric: 'LCP',
+          value: 1200,
+          rating: 'good',
+          navigationType: 'navigate',
+          pathname: '/ogabassey/blog/best-phones',
+        },
+      })
+    ).toBeNull();
+
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps the custom flat web_vitals event on a non-blog route', () => {
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/products/iphone',
+      origin: 'https://usebaci.com',
+    });
+
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: 'web_vitals',
+        properties: {
+          metric: 'LCP',
+          value: 1200,
+          rating: 'good',
+          navigationType: 'navigate',
+          pathname: '/ogabassey/products/iphone',
+        },
+      })
+    ).toMatchObject({
+      event: 'web_vitals',
+      properties: { metric: 'LCP' },
+    });
+
+    vi.unstubAllGlobals();
+  });
+
   it('removes stale tenant context from capture payloads on platform routes', () => {
     vi.stubGlobal('location', {
       hostname: 'usebaci.com',

@@ -324,6 +324,11 @@ function isAuthenticatedInternalRequest(request: NextRequest): boolean {
 // revalidateTag, which does not evict Cloudflare/edge document caches), so the
 // fresh window MUST stay short until a product purge is wired — otherwise a
 // deleted/unpublished product would be served as a live 200 for the whole window.
+// NOTE ON LAYERING: Cloudflare (the outer edge on custom domains) does NOT honor
+// `stale-while-revalidate`, and its edge TTL is governed by the zone's cache rule
+// (override_origin, 300s), NOT by this header. The `s-maxage`+SWR combo here
+// targets VERCEL's CDN layer, which DOES honor both — so the 24h SWR is not dead
+// config; it drives Vercel's edge, while Cloudflare freshness is the zone rule.
 const STOREFRONT_DOCUMENT_CACHE_CONTROL =
   's-maxage=300, stale-while-revalidate=86400';
 const STOREFRONT_METADATA_CACHE_NON_HTML_EXTENSIONS_REGEX =

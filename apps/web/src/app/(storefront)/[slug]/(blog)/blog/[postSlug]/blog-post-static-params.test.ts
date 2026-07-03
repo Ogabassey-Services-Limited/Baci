@@ -78,6 +78,27 @@ describe('resolveBlogPostStaticParams', () => {
     expect(Math.max(...requestedPages)).toBe(4);
   });
 
+  it('excludes posts whose slug is empty or whitespace-only', async () => {
+    mockGetCachedBlogListing.mockResolvedValue({
+      merchant: { id: 'm1' },
+      posts: [
+        { slug: '   ' },
+        { slug: '' },
+        { slug: 'real-post' },
+        { slug: undefined },
+      ],
+    });
+
+    const params = await resolveBlogPostStaticParams();
+
+    // Blank / whitespace-only / missing slugs are dropped; only the real slug
+    // is prerendered for each static tenant.
+    expect(params).toEqual([
+      { slug: 'ogabassey.com', postSlug: 'real-post' },
+      { slug: 'ogabassey', postSlug: 'real-post' },
+    ]);
+  });
+
   it('falls back to a single placeholder param when no posts exist', async () => {
     mockGetCachedBlogListing.mockResolvedValue(null);
 

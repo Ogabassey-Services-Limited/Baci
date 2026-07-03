@@ -30,6 +30,22 @@ describe('buildStorefrontBlogPurgeUrls', () => {
     expect(buildStorefrontBlogPurgeUrls([], ['post-a'])).toEqual([]);
   });
 
+  it('preserves the original slug casing in the purge URL (CDN paths are case-sensitive)', () => {
+    const urls = buildStorefrontBlogPurgeUrls(
+      ['ogabassey'],
+      ['Best-Phones-2026']
+    );
+
+    // The slug must NOT be lowercased — purging /blog/best-phones-2026 would miss
+    // the actually-cached mixed-case /blog/Best-Phones-2026 entry.
+    expect(urls).toEqual([
+      'https://ogabassey.com/blog',
+      'https://ogabassey.com/blog/Best-Phones-2026',
+      'https://www.ogabassey.com/blog',
+      'https://www.ogabassey.com/blog/Best-Phones-2026',
+    ]);
+  });
+
   it('deduplicates URLs and skips blank slugs', () => {
     const urls = buildStorefrontBlogPurgeUrls(
       ['ogabassey', 'ogabassey.com'],

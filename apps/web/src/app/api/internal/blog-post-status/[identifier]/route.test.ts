@@ -76,6 +76,9 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
     expect(response.headers.get('Cache-Control')).toBe(
       's-maxage=300, stale-while-revalidate=3600'
     );
+    // Vary: Authorization keeps a shared cache from replaying this bearer-gated
+    // 200 to an unauthenticated caller (RFC 9111 §3.5).
+    expect(response.headers.get('Vary')).toBe('Authorization');
     await expect(response.json()).resolves.toEqual({
       hasError: false,
       present: true,

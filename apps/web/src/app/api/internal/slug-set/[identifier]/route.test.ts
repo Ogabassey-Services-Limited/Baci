@@ -77,6 +77,9 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     expect(res.headers.get('Cache-Control')).toBe(
       's-maxage=300, stale-while-revalidate=3600'
     );
+    // Vary: Authorization keeps a shared cache from replaying this bearer-gated
+    // 200 to an unauthenticated caller (RFC 9111 §3.5).
+    expect(res.headers.get('Vary')).toBe('Authorization');
     expect(await res.json()).toEqual({ hasError: false, present: true });
     expect(mockGetMerchantSafe).toHaveBeenCalledWith(IDENTIFIER);
     expect(mockGetCachedStorefrontProductSlugSet).toHaveBeenCalledWith(

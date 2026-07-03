@@ -21,8 +21,14 @@ const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 // verdict (which the proxy turns into a hard-404) and every fail-open branch stay
 // no-store, so a slug that becomes live after a cached miss is never sticky-404ed
 // (revalidateTag cannot purge this header-based edge entry).
+// `Vary: Authorization` is REQUIRED: RFC 9111 §3.5 lets a shared cache store and
+// replay an `s-maxage` response to requests that carried an `Authorization`
+// header, so without this a cached 200 could be served to a caller WITHOUT
+// re-running the bearer-token check. Varying on Authorization keys the edge
+// entry to the (single) internal secret and blocks unauthenticated cache hits.
 const PREFLIGHT_CACHE = {
   'Cache-Control': 's-maxage=300, stale-while-revalidate=3600',
+  Vary: 'Authorization',
 } as const;
 // Fail-open membership: the proxy hard-404s ONLY when `present` is false AND
 // `hasError` is false, so any uncertainty returns hasError:true.

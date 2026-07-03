@@ -246,10 +246,10 @@ describe('prewarmOgabasseyImageTransforms', () => {
   });
 
   it('behaves identically regardless of environment configuration', async () => {
-    const originalToken = process.env.CLOUDFLARE_API_TOKEN;
-    const originalZone = process.env.CLOUDFLARE_ZONE_ID;
-    process.env.CLOUDFLARE_API_TOKEN = undefined;
-    process.env.CLOUDFLARE_ZONE_ID = undefined;
+    // Assigning `undefined` directly to process.env coerces to the string
+    // "undefined"; vi.stubEnv unsets the key and vi.unstubAllEnvs restores it.
+    vi.stubEnv('CLOUDFLARE_API_TOKEN', undefined);
+    vi.stubEnv('CLOUDFLARE_ZONE_ID', undefined);
 
     const fetchImpl = vi.fn().mockResolvedValue(okResponse());
     await prewarmOgabasseyImageTransforms([CDN_PRODUCT_IMAGE], {
@@ -257,8 +257,8 @@ describe('prewarmOgabasseyImageTransforms', () => {
     });
     const callCountWithoutConfig = fetchImpl.mock.calls.length;
 
-    process.env.CLOUDFLARE_API_TOKEN = 'some-token';
-    process.env.CLOUDFLARE_ZONE_ID = 'some-zone';
+    vi.stubEnv('CLOUDFLARE_API_TOKEN', 'some-token');
+    vi.stubEnv('CLOUDFLARE_ZONE_ID', 'some-zone');
     fetchImpl.mockClear();
     await prewarmOgabasseyImageTransforms([CDN_PRODUCT_IMAGE], {
       fetchImpl: fetchImpl as unknown as typeof fetch,
@@ -268,7 +268,6 @@ describe('prewarmOgabasseyImageTransforms', () => {
     expect(callCountWithoutConfig).toBeGreaterThan(0);
     expect(callCountWithoutConfig).toBe(callCountWithConfig);
 
-    process.env.CLOUDFLARE_API_TOKEN = originalToken;
-    process.env.CLOUDFLARE_ZONE_ID = originalZone;
+    vi.unstubAllEnvs();
   });
 });

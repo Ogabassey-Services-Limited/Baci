@@ -77,6 +77,60 @@ describe('purgeCloudflareUrls', () => {
     expect(batchSizes).toEqual([30, 30, 5]);
   });
 
+  it('sends exactly 30 URLs as a single batch (batch boundary)', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(okResponse());
+    const purgeCloudflareUrls = await loadPurge();
+    const urls = Array.from(
+      { length: 30 },
+      (_, index) => `https://ogabassey.com/p/${index}`
+    );
+
+    await purgeCloudflareUrls(urls, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const files = JSON.parse(
+      String((fetchImpl.mock.calls[0][1] as RequestInit).body)
+    ).files;
+    expect(files).toHaveLength(30);
+  });
+
+  it('aborts a hung request via the AbortSignal timeout and still resolves', async () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    // Never resolves on its own — only rejects when the request signal aborts,
+    // proving purgeCloudflareUrls attaches an AbortSignal.timeout to the fetch.
+    const fetchImpl = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal;
+          if (signal?.aborted) {
+            reject(new DOMException('Aborted', 'AbortError'));
+            return;
+          }
+          signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        })
+    );
+    const purgeCloudflareUrls = await loadPurge();
+
+    await expect(
+      purgeCloudflareUrls(['https://ogabassey.com/a'], {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        timeoutMs: 10,
+      })
+    ).resolves.toBeUndefined();
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const [, init] = fetchImpl.mock.calls[0];
+    expect((init as RequestInit).signal).toBeInstanceOf(AbortSignal);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    warnSpy.mockRestore();
+  });
+
   it('deduplicates URLs before purging', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(okResponse());
     const purgeCloudflareUrls = await loadPurge();

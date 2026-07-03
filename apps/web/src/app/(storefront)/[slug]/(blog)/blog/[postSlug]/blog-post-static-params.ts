@@ -73,12 +73,23 @@ export async function resolveBlogPostStaticParams(): Promise<
   const params: Array<{ slug: string; postSlug: string }> = [];
   const seen = new Set<string>();
 
-  for (const tenant of OGABASSEY_BLOG_STATIC_TENANTS) {
-    const postSlugs = await collectNewestPublishedPostSlugs(
-      tenant,
-      BLOG_POST_PRERENDER_LIMIT
-    );
+  // Fetch every tenant's newest-post slugs concurrently — the per-tenant lookups
+  // are independent, so paging them serially only adds build latency. Ordering
+  // and dedup are preserved by walking the resolved tuples in tenant order.
+  const tenantPostSlugs = await Promise.all(
+    OGABASSEY_BLOG_STATIC_TENANTS.map(
+      async (tenant) =>
+        [
+          tenant,
+          await collectNewestPublishedPostSlugs(
+            tenant,
+            BLOG_POST_PRERENDER_LIMIT
+          ),
+        ] as const
+    )
+  );
 
+  for (const [tenant, postSlugs] of tenantPostSlugs) {
     for (const postSlug of postSlugs) {
       const key = `${tenant}::${postSlug}`;
       if (seen.has(key)) {

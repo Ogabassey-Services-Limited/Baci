@@ -19,9 +19,20 @@ vi.mock('next/server', () => ({
 vi.mock('@/lib/cloudflare-purge', () => ({
   purgeCloudflareUrls: (...args: unknown[]) => mockPurgeCloudflareUrls(...args),
 }));
+// Keep the real URL builder by default (so the purge-URL assertions below run
+// against real output) but make it spy-able so one test can force it to throw.
+vi.mock('@/lib/storefront-purge-urls', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/lib/storefront-purge-urls')>();
+  return {
+    ...actual,
+    buildStorefrontBlogPurgeUrls: vi.fn(actual.buildStorefrontBlogPurgeUrls),
+  };
+});
 
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
+import { buildStorefrontBlogPurgeUrls } from '@/lib/storefront-purge-urls';
 // ---- Import functions AFTER mocks ----
 import {
   revalidateBlogPosts,
@@ -405,6 +416,33 @@ describe('cache-revalidation utilities', () => {
       });
 
       expect(mockPurgeCloudflareUrls).not.toHaveBeenCalled();
+    });
+
+    it('still completes Next revalidation when the Cloudflare purge URL build throws', () => {
+      const warnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      vi.mocked(buildStorefrontBlogPurgeUrls).mockImplementationOnce(() => {
+        throw new Error('purge URL build failed');
+      });
+
+      expect(() =>
+        revalidateBlogPosts({
+          identifiers: ['ogabassey'],
+          postSlugs: ['test-post'],
+        })
+      ).not.toThrow();
+
+      // The tag/path revalidation above still ran despite the purge build throwing.
+      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/ogabassey/blog');
+      expect(mockPurgeCloudflareUrls).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Skipped Cloudflare blog purge scheduling',
+        { error: expect.any(Error) }
+      );
+
+      warnSpy.mockRestore();
     });
 
     it('supports the legacy identifier + slug signature', () => {

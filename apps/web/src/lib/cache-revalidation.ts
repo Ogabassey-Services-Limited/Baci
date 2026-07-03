@@ -271,9 +271,17 @@ export function revalidateBlogPosts(
       )
     )
   );
-  schedulePurgeCloudflareUrls(
-    buildStorefrontBlogPurgeUrls(purgeIdentifiers, normalizedPostSlugs)
-  );
+  // `buildStorefrontBlogPurgeUrls` runs OUTSIDE the never-throw purge helper, so
+  // guard the build + schedule sequence: a Cloudflare purge is always survivable
+  // (caches self-heal on their TTL), and it must never break the Next-tag/path
+  // revalidation that already ran above.
+  try {
+    schedulePurgeCloudflareUrls(
+      buildStorefrontBlogPurgeUrls(purgeIdentifiers, normalizedPostSlugs)
+    );
+  } catch (error) {
+    console.warn('Skipped Cloudflare blog purge scheduling', { error });
+  }
 }
 
 export function revalidatePlatformBlog(slug?: string) {

@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   hasPostHogBrowserInitialized: vi.fn(() => false),
   initializePostHogBrowser: vi.fn(),
   initializePostHogInstrumentationIfAllowed: vi.fn(),
+  scheduleIdleBoot: vi.fn((_callback: () => void) => () => undefined),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -26,8 +27,23 @@ vi.mock('@/lib/posthog/browser', () => ({
   initializePostHogBrowser: mocks.initializePostHogBrowser,
 }));
 
+// The idle-boot mechanics (requestIdleCallback / load / first interaction /
+// timeout) are covered in schedule-idle-boot.test.ts. Here the helper is mocked
+// so the deferred boot only fires when the test explicitly triggers it, making
+// boot timing deterministic instead of racing the real idle scheduler.
+vi.mock('@/lib/posthog/schedule-idle-boot', () => ({
+  scheduleIdleBoot: mocks.scheduleIdleBoot,
+}));
+
 function importPostHogClientBootstrap() {
   return import('./posthog-client-bootstrap');
+}
+
+/** Runs the callback the component handed to the (mocked) idle-boot scheduler. */
+function fireDeferredBoot() {
+  const calls = mocks.scheduleIdleBoot.mock.calls;
+  const scheduledBoot = calls[calls.length - 1]?.[0];
+  scheduledBoot?.();
 }
 
 afterEach(() => {
@@ -35,6 +51,7 @@ afterEach(() => {
   vi.clearAllMocks();
   mocks.hasPostHogBrowserInitialized.mockReset();
   mocks.hasPostHogBrowserInitialized.mockReturnValue(false);
+  mocks.scheduleIdleBoot.mockImplementation(() => () => undefined);
   vi.resetModules();
   vi.unstubAllGlobals();
 });
@@ -46,9 +63,12 @@ describe('PostHogClientBootstrap', () => {
 
     render(<PostHogClientBootstrap />);
 
-    // The boot is deferred off the render/critical path, so it is not called
-    // synchronously during mount.
+    // The boot is deferred behind the idle scheduler, so it is not called during
+    // mount — it fires only once the scheduled callback is triggered.
+    expect(mocks.scheduleIdleBoot).toHaveBeenCalledOnce();
     expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+
+    fireDeferredBoot();
 
     await vi.waitFor(() => {
       expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
@@ -81,6 +101,8 @@ describe('PostHogClientBootstrap', () => {
 
     render(<PostHogClientBootstrap />);
 
+    // The effect bails out before even scheduling the deferred boot.
+    expect(mocks.scheduleIdleBoot).not.toHaveBeenCalled();
     expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
     expect(
       mocks.initializePostHogInstrumentationIfAllowed
@@ -98,6 +120,11 @@ describe('PostHogClientBootstrap', () => {
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
     render(<PostHogClientBootstrap />);
+
+    expect(mocks.scheduleIdleBoot).toHaveBeenCalledOnce();
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+
+    fireDeferredBoot();
 
     await vi.waitFor(() => {
       expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
@@ -129,6 +156,8 @@ describe('PostHogClientBootstrap', () => {
 
     const { rerender } = render(<PostHogClientBootstrap />);
 
+    // On the initial blog page the effect bails out before scheduling a boot.
+    expect(mocks.scheduleIdleBoot).not.toHaveBeenCalled();
     expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
     expect(
       mocks.initializePostHogInstrumentationIfAllowed
@@ -141,6 +170,11 @@ describe('PostHogClientBootstrap', () => {
       hostname: 'usebaci.com',
     });
     rerender(<PostHogClientBootstrap />);
+
+    expect(mocks.scheduleIdleBoot).toHaveBeenCalledOnce();
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+
+    fireDeferredBoot();
 
     await vi.waitFor(() => {
       expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
