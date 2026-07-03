@@ -172,7 +172,6 @@ describe('submitNewOrder', () => {
           discount_amount: 0,
           merchant_id: 'merchant-1',
           notes: 'Handle with care',
-          created_at: '2026-07-02T12:00:00.000Z',
           order_number: 'ORD-030224-UUID12',
           payment_method: 'cash',
           payment_status: 'paid',
@@ -192,6 +191,11 @@ describe('submitNewOrder', () => {
         }),
       })
     );
+
+    const orderPayload = mocks.createManualOrderWithItems.mock.calls[0][1] as {
+      order: Record<string, unknown>;
+    };
+    expect(orderPayload.order).not.toHaveProperty('created_at');
 
     const payload = mocks.createManualOrderWithItems.mock.calls[0][1] as {
       buildItems: (orderId: string) => unknown[];

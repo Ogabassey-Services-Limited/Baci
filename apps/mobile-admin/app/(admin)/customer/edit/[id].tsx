@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { ContactInfoForm } from '@/components/customer-edit/ContactInfoForm';
 import { customerEditStyles as styles } from '@/components/customer-edit/customer-edit.styles';
 import type { InputStyleOptions } from '@/components/customer-edit/customer-edit.types';
+import { getCustomerEditHeader } from '@/components/customer-edit/customer-edit-header';
 import { LocationForm } from '@/components/customer-edit/LocationForm';
 import { PersonalDetailsForm } from '@/components/customer-edit/PersonalDetailsForm';
 import { ProfileHeader } from '@/components/customer-edit/ProfileHeader';
@@ -115,6 +116,13 @@ export default function CustomerEditScreen() {
     );
   }
 
+  const header = getCustomerEditHeader({
+    companyName,
+    customerType: customer?.customer_type,
+    firstName,
+    lastName,
+  });
+
   return (
     <AppFormScreen
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -154,8 +162,8 @@ export default function CustomerEditScreen() {
       <ProfileHeader
         colors={colors}
         email={email}
-        initials={getInitials(firstName, lastName)}
-        name={`${firstName} ${lastName}`.trim()}
+        initials={header.initials}
+        name={header.name}
       />
       <PersonalDetailsForm
         colors={colors}
@@ -241,10 +249,4 @@ function formatPhoneForInput(phoneNumber: string) {
     phone = phone.slice(1);
   }
   return phone;
-}
-
-function getInitials(firstName: string, lastName: string) {
-  const first = firstName[0] || '';
-  const last = lastName[0] || '';
-  return (first + last).toUpperCase() || '?';
 }
