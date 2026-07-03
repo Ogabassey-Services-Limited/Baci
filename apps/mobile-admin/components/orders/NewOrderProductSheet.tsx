@@ -3,7 +3,7 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import type { TextInput as BottomSheetTextInputRef } from 'react-native-gesture-handler';
+import type { SheetTextInputRef } from '@/components/ui/SheetTextInput';
 import type { NewOrderController } from '@/hooks/useNewOrderController';
 import {
   getProductPickerRowSubtitle,
@@ -21,6 +21,7 @@ import { ProductVariantOptionSelector } from './ProductVariantOptionSelector';
 
 const PRODUCT_PICKER_FOOTER_BOTTOM_INSET = 18;
 const PRODUCT_PICKER_LIST_BOTTOM_PADDING = 128;
+export const PRODUCT_SEARCH_FOCUS_DELAY_MS = 250;
 
 export type NewOrderProductSheetController = Pick<
   NewOrderController,
@@ -52,7 +53,7 @@ export function NewOrderProductSheet({
 }: {
   controller: NewOrderProductSheetController;
 }) {
-  const inputRef = useRef<BottomSheetTextInputRef | null | undefined>(null);
+  const inputRef = useRef<SheetTextInputRef | null | undefined>(null);
 
   const {
     closeProductModal,
@@ -75,7 +76,6 @@ export function NewOrderProductSheet({
     <NewOrderProductSearchFooter
       colors={colors}
       inputRef={inputRef}
-      autoFocus={showProductModal && !isPickingVariant}
       productSearch={productSearch}
       setProductSearch={setProductSearch}
     />
@@ -109,7 +109,7 @@ export function NewOrderProductSheet({
     if (showProductModal && !isPickingVariant) {
       const timer = setTimeout(() => {
         inputRef.current?.focus();
-      }, 250);
+      }, PRODUCT_SEARCH_FOCUS_DELAY_MS);
 
       return () => {
         clearTimeout(timer);

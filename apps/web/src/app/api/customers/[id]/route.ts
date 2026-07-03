@@ -163,13 +163,27 @@ export async function PATCH(
       // Company-aware: recompute company_name/customer_type/full_name together so
       // editing a company customer updates its name (and the record stays a
       // company unless the update explicitly changes customer_type).
+      const nextCustomerType = normalizeCustomerType(
+        body.customer_type ?? existingCustomer.customer_type
+      );
+      const nextCompanyName =
+        body.company_name ?? existingCustomer.company_name;
+
+      if (nextCustomerType === 'company' && !nextCompanyName?.trim()) {
+        return NextResponse.json(
+          {
+            error: 'Validation failed',
+            details: { company_name: ['Company name is required'] },
+          },
+          { status: 400 }
+        );
+      }
+
       Object.assign(
         updates,
         buildCustomerRecordNameFields({
-          customer_type: normalizeCustomerType(
-            body.customer_type ?? existingCustomer.customer_type
-          ),
-          company_name: body.company_name ?? existingCustomer.company_name,
+          customer_type: nextCustomerType,
+          company_name: nextCompanyName,
           first_name: body.first_name ?? existingCustomer.first_name,
           last_name: body.last_name ?? existingCustomer.last_name,
           full_name: body.full_name ?? existingCustomer.full_name,

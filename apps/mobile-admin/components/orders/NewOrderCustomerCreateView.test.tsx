@@ -23,6 +23,44 @@ vi.mock('@gorhom/bottom-sheet', async () => {
   const React = await import('react');
 
   return {
+    BottomSheetTextInput: React.forwardRef(
+      (
+        {
+          accessibilityLabel,
+          onChangeText,
+          onSubmitEditing,
+          placeholder,
+          returnKeyType,
+          submitBehavior,
+          value,
+        }: {
+          accessibilityLabel?: string;
+          onChangeText?: (value: string) => void;
+          onSubmitEditing?: () => void;
+          placeholder?: string;
+          returnKeyType?: string;
+          submitBehavior?: string;
+          value?: string;
+        },
+        ref: React.Ref<HTMLInputElement>
+      ) =>
+        React.createElement('input', {
+          'aria-label': accessibilityLabel,
+          'data-gorhom-input': 'true',
+          'data-return-key-type': returnKeyType,
+          'data-submit-behavior': submitBehavior,
+          onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+            onChangeText?.(event.target.value),
+          onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+            if (event.key === 'Enter') {
+              onSubmitEditing?.();
+            }
+          },
+          placeholder,
+          ref,
+          value: value ?? '',
+        })
+    ),
     BottomSheetScrollView: React.forwardRef(
       (
         {

@@ -1,6 +1,6 @@
 import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import type { NewOrderController } from '@/hooks/useNewOrderController';
 import {
@@ -36,11 +36,19 @@ export function NewOrderCustomerSearchView({
     setIsCreatingCustomer,
   } = controller;
   // The customers query requests server-side `sortBy: 'alpha'`, so pages already
-  // arrive globally ordered by name. A client-side re-sort would only reorder the
-  // currently-loaded subset (reshuffling as more pages load), so preserve the
-  // server order and just flatten the pages.
+  // arrive globally ordered by name. Preserve that order, but remove duplicate
+  // ids if offset pagination shifts between page loads.
+  const seenCustomerIds = new Set<string>();
   const customerRows =
-    customersData?.pages.flatMap((page) => page.customers) ?? [];
+    customersData?.pages
+      .flatMap((page) => page.customers)
+      .filter((customer) => {
+        if (seenCustomerIds.has(customer.id)) {
+          return false;
+        }
+        seenCustomerIds.add(customer.id);
+        return true;
+      }) ?? [];
   const listViewportHeight = Math.max(
     CUSTOMER_LIST_MIN_VIEWPORT_HEIGHT,
     Math.round(bodyHeight) - CUSTOMER_LIST_CHROME_OFFSET
@@ -48,10 +56,14 @@ export function NewOrderCustomerSearchView({
   const emptyMessage = customersQuery.isLoading
     ? 'Loading customers...'
     : customersQuery.isError
-      ? customersQuery.error instanceof Error
-        ? customersQuery.error.message
-        : 'Failed to load customers'
+      ? 'Failed to load customers'
       : 'No customers found';
+
+  useEffect(() => {
+    if (customersQuery.isError) {
+      console.error('Customer search failed:', customersQuery.error);
+    }
+  }, [customersQuery.isError, customersQuery.error]);
   const canFetchMoreCustomers =
     customersQuery.hasNextPage &&
     !customersQuery.isFetchingNextPage &&

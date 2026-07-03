@@ -17,7 +17,9 @@ export function useNewOrderVatState(
 
   if (isVatRegistered !== prevIsVatRegistered) {
     setPrevIsVatRegistered(isVatRegistered);
-    if (autoApplyVat && isVatRegistered) {
+    if (!isVatRegistered) {
+      setIsVatApplied(false);
+    } else if (autoApplyVat) {
       setIsVatApplied(true);
     }
   }

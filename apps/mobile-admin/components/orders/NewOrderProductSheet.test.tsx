@@ -1,13 +1,20 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { ChangeEvent, ComponentProps, ReactNode } from 'react';
 import { Text } from 'react-native';
 import { describe, expect, it, vi } from 'vitest';
-import { NewOrderProductSheet } from './NewOrderProductSheet';
+import {
+  NewOrderProductSheet,
+  PRODUCT_SEARCH_FOCUS_DELAY_MS,
+} from './NewOrderProductSheet';
 import type { SelectableOrderProduct } from './new-order.types';
 
 const routerState = vi.hoisted(() => ({
   push: vi.fn(),
+}));
+
+const bottomSheetInputState = vi.hoisted(() => ({
+  focus: vi.fn(),
 }));
 
 vi.mock('expo-router', () => ({
@@ -113,28 +120,29 @@ vi.mock('@gorhom/bottom-sheet', async () => {
       HTMLInputElement,
       {
         accessibilityLabel?: string;
-        autoFocus?: boolean;
         onChangeText?: (value: string) => void;
         placeholder?: string;
         value?: string;
       }
-    >(
-      (
-        { accessibilityLabel, autoFocus, onChangeText, placeholder, value },
-        ref
-      ) => (
+    >(({ accessibilityLabel, onChangeText, placeholder, value }, ref) => {
+      React.useImperativeHandle(
+        ref,
+        () =>
+          ({
+            focus: bottomSheetInputState.focus,
+          }) as unknown as HTMLInputElement
+      );
+      return (
         <input
           aria-label={accessibilityLabel ?? placeholder}
-          data-autofocus={String(Boolean(autoFocus))}
           data-gorhom-input="true"
           onChange={(event: ChangeEvent<HTMLInputElement>) =>
             onChangeText?.(event.target.value)
           }
-          ref={ref}
           value={value ?? ''}
         />
-      )
-    ),
+      );
+    }),
   };
 });
 
@@ -221,20 +229,17 @@ vi.mock('react-native', () => {
     Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
     TextInput: ({
       accessibilityLabel,
-      autoFocus,
       onChangeText,
       placeholder,
       value,
     }: {
       accessibilityLabel?: string;
-      autoFocus?: boolean;
       onChangeText?: (value: string) => void;
       placeholder?: string;
       value?: string;
     }) => (
       <input
         aria-label={accessibilityLabel ?? placeholder}
-        data-autofocus={String(Boolean(autoFocus))}
         onChange={(event: ChangeEvent<HTMLInputElement>) =>
           onChangeText?.(event.target.value)
         }
@@ -354,11 +359,30 @@ describe('NewOrderProductSheet', () => {
     expect(screen.getByTestId('product-sheet-footer')).toContainElement(
       searchInput
     );
-    expect(searchInput).toHaveAttribute('data-autofocus', 'true');
     expect(searchInput).toHaveAttribute('data-gorhom-input', 'true');
     expect(
       screen.getByTestId('product-picker-bottom-sheet-list')
     ).toHaveAttribute('data-padding-bottom', '128');
+  });
+
+  it('focuses product search after the sheet opens', () => {
+    vi.useFakeTimers();
+    bottomSheetInputState.focus.mockClear();
+    const controller = makeController();
+
+    try {
+      render(<NewOrderProductSheet controller={controller} />);
+
+      expect(bottomSheetInputState.focus).not.toHaveBeenCalled();
+
+      act(() => {
+        vi.advanceTimersByTime(PRODUCT_SEARCH_FOCUS_DELAY_MS);
+      });
+
+      expect(bottomSheetInputState.focus).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('closes the sheet and navigates to the product creation screen', () => {

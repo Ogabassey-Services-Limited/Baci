@@ -1,15 +1,12 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { useState } from 'react';
-import {
-  Keyboard,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Keyboard, Pressable, ScrollView, Text, View } from 'react-native';
 import type { CountryCode } from 'react-native-country-picker-modal';
+import {
+  SheetTextInput,
+  type SheetTextInputRef,
+} from '@/components/ui/SheetTextInput';
 import type { ThemeColors } from '@/constants/theme';
 import {
   formatPhoneNumberForCountry,
@@ -23,9 +20,9 @@ import type { NewCustomerDraft } from './new-order.types';
 
 interface NewOrderCustomerContactSectionProps {
   colors: ThemeColors;
-  emailInputRef: RefObject<TextInput | null>;
+  emailInputRef: RefObject<SheetTextInputRef | null>;
   newCustomer: NewCustomerDraft;
-  phoneInputRef: RefObject<TextInput | null>;
+  phoneInputRef: RefObject<SheetTextInputRef | null>;
   selectedCountryCode: CountryCode;
   setNewCustomer: Dispatch<SetStateAction<NewCustomerDraft>>;
   setSelectedCountryCode: Dispatch<SetStateAction<CountryCode>>;
@@ -108,7 +105,7 @@ export function NewOrderCustomerContactSection({
           ]}
         />
         <Ionicons color={colors.textMuted} name="call-outline" size={18} />
-        <TextInput
+        <SheetTextInput
           ref={phoneInputRef}
           accessibilityLabel="Phone Number"
           keyboardType="phone-pad"
@@ -142,7 +139,7 @@ export function NewOrderCustomerContactSection({
             ]}
           >
             <Ionicons color={colors.textMuted} name="search" size={17} />
-            <TextInput
+            <SheetTextInput
               accessibilityLabel="Search phone countries"
               autoCapitalize="none"
               autoCorrect={false}
@@ -240,7 +237,7 @@ export function NewOrderCustomerContactSection({
         ]}
       >
         <Ionicons color={colors.primary} name="mail-outline" size={18} />
-        <TextInput
+        <SheetTextInput
           ref={emailInputRef}
           autoCapitalize="none"
           keyboardType="email-address"

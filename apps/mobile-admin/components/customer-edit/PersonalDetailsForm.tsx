@@ -1,3 +1,4 @@
+import type { CustomerType } from '@baci/shared';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Text, TextInput, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -11,7 +12,7 @@ import type {
 interface PersonalDetailsFormProps {
   colors: CustomerEditThemeColors;
   companyName: string;
-  customerType?: string | null;
+  customerType?: CustomerType | null;
   firstName: string;
   inputStyle: (fieldName: string) => InputStyleOptions;
   lastName: string;

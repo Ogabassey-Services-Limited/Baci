@@ -46,6 +46,21 @@ describe('useNewOrderVatState', () => {
     expect(result.current.isVatApplied).toBe(false);
   });
 
+  it('clears VAT when merchant registration turns off mid-draft', () => {
+    const { result, rerender } = renderHook(
+      ({ status }: { status: string | null | undefined }) =>
+        useNewOrderVatState(true, status),
+      { initialProps: { status: 'registered' as string | null | undefined } }
+    );
+
+    expect(result.current.isVatApplied).toBe(true);
+
+    rerender({ status: 'pending' });
+
+    expect(result.current.isVatRegistered).toBe(false);
+    expect(result.current.isVatApplied).toBe(false);
+  });
+
   it('keeps a manual VAT toggle until registration changes', () => {
     const { result } = renderHook(() =>
       useNewOrderVatState(true, 'registered')

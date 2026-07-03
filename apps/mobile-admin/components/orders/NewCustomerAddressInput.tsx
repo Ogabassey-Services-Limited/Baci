@@ -1,12 +1,14 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, Pressable, Text, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, Text, View } from 'react-native';
 import type { CountryCode } from 'react-native-country-picker-modal';
+import { SheetTextInput } from '@/components/ui/SheetTextInput';
 import type { ThemeColors } from '@/constants/theme';
 import { customerCreateStyles as customerStyles } from './NewOrderCustomerCreateView.styles';
 import {
   type AddressSuggestion,
+  assertGoogleAutocompleteResponse,
   buildGoogleAutocompleteUrl,
   type GoogleAutocompleteResponse,
   toAddressSuggestions,
@@ -68,7 +70,9 @@ export function NewCustomerAddressInput({
           if (!response.ok) {
             throw new Error(`Google Places returned ${response.status}`);
           }
-          return (await response.json()) as GoogleAutocompleteResponse;
+          const data = (await response.json()) as GoogleAutocompleteResponse;
+          assertGoogleAutocompleteResponse(data);
+          return data;
         })
         .then((data) => {
           if (requestSequenceRef.current !== requestSequence) {
@@ -167,7 +171,7 @@ export function NewCustomerAddressInput({
             size={18}
             style={customerStyles.addressIcon}
           />
-          <TextInput
+          <SheetTextInput
             accessibilityLabel="Customer address"
             onBlur={handleAddressBlur}
             onChangeText={handleAddressChange}
@@ -258,7 +262,7 @@ export function NewCustomerAddressInput({
           ]}
         >
           <Ionicons color={colors.error} name="map-outline" size={18} />
-          <TextInput
+          <SheetTextInput
             accessibilityLabel="Customer address"
             onChangeText={handleAddressChange}
             placeholder="Enter address"

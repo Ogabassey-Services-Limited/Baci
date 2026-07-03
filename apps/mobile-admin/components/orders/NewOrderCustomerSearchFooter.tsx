@@ -1,25 +1,25 @@
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type { RefObject } from 'react';
 import { StyleSheet, View } from 'react-native';
-import type { TextInput as BottomSheetTextInputRef } from 'react-native-gesture-handler';
+import {
+  SheetTextInput,
+  type SheetTextInputRef,
+} from '@/components/ui/SheetTextInput';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
 interface NewOrderCustomerSearchFooterProps {
-  autoFocus?: boolean;
   colors: {
     primary: string;
     text: string;
     textMuted: string;
   };
   customerSearch: string;
-  inputRef: RefObject<BottomSheetTextInputRef | null | undefined>;
+  inputRef: RefObject<SheetTextInputRef | null | undefined>;
   setCustomerSearch: (search: string) => void;
 }
 
 export function NewOrderCustomerSearchFooter({
-  autoFocus = false,
   colors,
   customerSearch,
   inputRef,
@@ -44,13 +44,12 @@ export function NewOrderCustomerSearchFooter({
         ]}
       >
         <Ionicons color={colors.textMuted} name="search" size={20} />
-        <BottomSheetTextInput
+        <SheetTextInput
           ref={inputRef}
           accessibilityHint="Type to filter the customer list"
           accessibilityLabel="Search customers"
           autoCapitalize="none"
           autoCorrect={false}
-          autoFocus={autoFocus}
           onChangeText={setCustomerSearch}
           placeholder="Search name, email, or phone..."
           placeholderTextColor={colors.textMuted}

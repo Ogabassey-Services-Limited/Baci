@@ -369,6 +369,61 @@ describe('NewOrderCustomerSearchView', () => {
     ]);
   });
 
+  it('deduplicates customer rows across shifted pages without re-sorting them', () => {
+    const controller = makeController({
+      customersData: {
+        pageParams: [0, 1],
+        pages: [
+          {
+            customers: [
+              makeCustomer({
+                email: 'ada@example.com',
+                id: 'customer-ada',
+              }),
+              makeCustomer({
+                email: 'bassey@example.com',
+                id: 'customer-bassey',
+              }),
+            ],
+            nextCursor: 1,
+            totalCount: 3,
+          },
+          {
+            customers: [
+              makeCustomer({
+                email: 'bassey@example.com',
+                id: 'customer-bassey',
+              }),
+              makeCustomer({
+                email: 'chika@example.com',
+                id: 'customer-chika',
+              }),
+            ],
+            nextCursor: null,
+            totalCount: 3,
+          },
+        ],
+      },
+    });
+
+    render(
+      <NewOrderCustomerSearchView
+        controller={controller}
+        showInlineSearch={false}
+      />
+    );
+
+    expect(
+      screen
+        .getAllByRole('button', { name: /^Select customer / })
+        .map((button) => button.getAttribute('aria-label'))
+    ).toEqual([
+      'Select customer ada',
+      'Select customer bassey',
+      'Select customer chika',
+    ]);
+  });
+
   it('renders customer rows with shared fallback display helpers', () => {
     const customerWithPhoneOnly = makeCustomer({
       id: 'customer-1',
@@ -464,6 +519,9 @@ describe('NewOrderCustomerSearchView', () => {
   });
 
   it('shows an error empty state when the customer query fails', () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     const controller = makeController({
       customersQuery: makeCustomersQuery({
         error: new Error('Customer fetch failed'),
@@ -471,8 +529,19 @@ describe('NewOrderCustomerSearchView', () => {
       }),
     });
 
-    render(<NewOrderCustomerSearchView controller={controller} />);
+    try {
+      render(<NewOrderCustomerSearchView controller={controller} />);
 
-    expect(screen.getByText('Customer fetch failed')).toBeInTheDocument();
+      expect(screen.getByText('Failed to load customers')).toBeInTheDocument();
+      expect(
+        screen.queryByText('Customer fetch failed')
+      ).not.toBeInTheDocument();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Customer search failed:',
+        controller.customersQuery.error
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 });

@@ -23,28 +23,21 @@ vi.mock('@gorhom/bottom-sheet', async () => {
       HTMLInputElement,
       {
         accessibilityLabel?: string;
-        autoFocus?: boolean;
         onChangeText?: (value: string) => void;
         placeholder?: string;
         value?: string;
       }
-    >(
-      (
-        { accessibilityLabel, autoFocus, onChangeText, placeholder, value },
-        ref
-      ) => (
-        <input
-          aria-label={accessibilityLabel ?? placeholder}
-          data-autofocus={String(Boolean(autoFocus))}
-          data-gorhom-input="true"
-          onChange={(event: ChangeEvent<HTMLInputElement>) =>
-            onChangeText?.(event.target.value)
-          }
-          ref={ref}
-          value={value ?? ''}
-        />
-      )
-    ),
+    >(({ accessibilityLabel, onChangeText, placeholder, value }, ref) => (
+      <input
+        aria-label={accessibilityLabel ?? placeholder}
+        data-gorhom-input="true"
+        onChange={(event: ChangeEvent<HTMLInputElement>) =>
+          onChangeText?.(event.target.value)
+        }
+        ref={ref}
+        value={value ?? ''}
+      />
+    )),
   };
 });
 
@@ -71,16 +64,12 @@ describe('NewOrderProductSearchFooter', () => {
           textMuted: '#94a3b8',
         }}
         inputRef={createRef()}
-        autoFocus={true}
         productSearch="phone"
         setProductSearch={setProductSearch}
       />
     );
 
     expect(screen.getByTestId('product-search-footer')).toBeInTheDocument();
-    expect(
-      screen.getByRole('textbox', { name: 'Search products' })
-    ).toHaveAttribute('data-autofocus', 'true');
     expect(
       screen.getByRole('textbox', { name: 'Search products' })
     ).toHaveAttribute('data-gorhom-input', 'true');

@@ -10,7 +10,9 @@ interface GoogleAutocompletePrediction {
 }
 
 export interface GoogleAutocompleteResponse {
+  error_message?: string;
   predictions?: GoogleAutocompletePrediction[];
+  status?: string;
 }
 
 export interface AddressSuggestion {
@@ -65,4 +67,17 @@ export function toAddressSuggestions(
       Boolean(suggestion)
     )
     .slice(0, 5);
+}
+
+export function assertGoogleAutocompleteResponse(
+  response: GoogleAutocompleteResponse
+) {
+  const status = response.status?.trim();
+  if (!status || status === 'OK' || status === 'ZERO_RESULTS') {
+    return;
+  }
+
+  throw new Error(
+    response.error_message?.trim() || `Google Places returned ${status}`
+  );
 }

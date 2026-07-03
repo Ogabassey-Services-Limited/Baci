@@ -2,10 +2,10 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { RefObject } from 'react';
 import { createRef } from 'react';
-import type { TextInput } from 'react-native';
 import type { CountryCode } from 'react-native-country-picker-modal';
 import { describe, expect, it, vi } from 'vitest';
 import { createEmptyNewCustomerDraft } from '@/components/orders/new-order.defaults';
+import type { SheetTextInputRef } from '@/components/ui/SheetTextInput';
 import { LIGHT_COLORS } from '@/constants/theme';
 import { NewOrderCustomerContactSection } from './NewOrderCustomerContactSection';
 import { DEFAULT_COUNTRY_CODE } from './new-order.shared';
@@ -20,6 +20,51 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   default: () => null,
   __esModule: true,
 }));
+
+vi.mock('@gorhom/bottom-sheet', async () => {
+  const React = await import('react');
+
+  return {
+    BottomSheetTextInput: React.forwardRef(
+      (
+        {
+          accessibilityLabel,
+          onChangeText,
+          onSubmitEditing,
+          placeholder,
+          returnKeyType,
+          submitBehavior,
+          value,
+        }: {
+          accessibilityLabel?: string;
+          onChangeText?: (value: string) => void;
+          onSubmitEditing?: () => void;
+          placeholder?: string;
+          returnKeyType?: string;
+          submitBehavior?: string;
+          value?: string;
+        },
+        ref: React.Ref<HTMLInputElement>
+      ) =>
+        React.createElement('input', {
+          'aria-label': accessibilityLabel,
+          'data-gorhom-input': 'true',
+          'data-return-key-type': returnKeyType,
+          'data-submit-behavior': submitBehavior,
+          onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+            onChangeText?.(event.target.value),
+          onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+            if (event.key === 'Enter') {
+              onSubmitEditing?.();
+            }
+          },
+          placeholder,
+          ref,
+          value: value ?? '',
+        })
+    ),
+  };
+});
 
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -109,8 +154,8 @@ function renderContactSection() {
     newCustomer: createEmptyNewCustomerDraft(),
     selectedCountryCode: DEFAULT_COUNTRY_CODE,
   };
-  const phoneInputRef = createRef<TextInput>();
-  const emailInputRef = createRef<TextInput>();
+  const phoneInputRef = createRef<SheetTextInputRef>();
+  const emailInputRef = createRef<SheetTextInputRef>();
   const setNewCustomer = vi.fn(
     (value: React.SetStateAction<NewCustomerDraft>) => {
       state.newCustomer = applyStateUpdate(value, state.newCustomer);
@@ -128,9 +173,9 @@ function renderContactSection() {
   const makeElement = () => (
     <NewOrderCustomerContactSection
       colors={LIGHT_COLORS}
-      emailInputRef={emailInputRef as RefObject<TextInput | null>}
+      emailInputRef={emailInputRef as RefObject<SheetTextInputRef | null>}
       newCustomer={state.newCustomer}
-      phoneInputRef={phoneInputRef as RefObject<TextInput | null>}
+      phoneInputRef={phoneInputRef as RefObject<SheetTextInputRef | null>}
       selectedCountryCode={state.selectedCountryCode}
       setNewCustomer={setNewCustomer}
       setSelectedCountryCode={setSelectedCountryCode}
@@ -153,6 +198,7 @@ describe('NewOrderCustomerContactSection', () => {
     const emailInput = screen.getByPlaceholderText('Email Address (Optional)');
 
     expect(phoneInput).toHaveAttribute('data-return-key-type', 'next');
+    expect(phoneInput).toHaveAttribute('data-gorhom-input', 'true');
     fireEvent.change(phoneInput, { target: { value: '08012345678' } });
     expect(harness.state.newCustomer.phone).toBe('+2348012345678');
 

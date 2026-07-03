@@ -8,10 +8,13 @@ import {
   Pressable,
   type ScrollView,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
+import {
+  SheetTextInput,
+  type SheetTextInputRef,
+} from '@/components/ui/SheetTextInput';
 import type { NewOrderController } from '@/hooks/useNewOrderController';
 import { DuplicateCustomerBanner } from './DuplicateCustomerBanner';
 import { NewCustomerAddressInput } from './NewCustomerAddressInput';
@@ -27,7 +30,7 @@ interface NewOrderCustomerCreateViewProps {
 interface CustomerInfoFieldProps {
   colors: NewOrderController['colors'];
   icon: IoniconsIconName;
-  inputRef?: RefObject<TextInput | null>;
+  inputRef?: RefObject<SheetTextInputRef | null>;
   onChangeText: (text: string) => void;
   onSubmitEditing?: () => void;
   placeholder: string;
@@ -51,7 +54,7 @@ function CustomerInfoField({
       ]}
     >
       <Ionicons color={colors.textMuted} name={icon} size={17} />
-      <TextInput
+      <SheetTextInput
         accessibilityLabel={placeholder}
         ref={inputRef}
         onChangeText={onChangeText}
@@ -86,9 +89,9 @@ export function NewOrderCustomerCreateView({
   } = controller;
 
   const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const lastNameInputRef = useRef<TextInput>(null);
-  const phoneInputRef = useRef<TextInput>(null);
-  const emailInputRef = useRef<TextInput>(null);
+  const lastNameInputRef = useRef<SheetTextInputRef>(null);
+  const phoneInputRef = useRef<SheetTextInputRef>(null);
+  const emailInputRef = useRef<SheetTextInputRef>(null);
   const scrollRef = useRef<ScrollView>(null);
   const { height: windowHeight } = useWindowDimensions();
   // Reserve room below the last field so the focused address input can scroll

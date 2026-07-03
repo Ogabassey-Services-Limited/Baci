@@ -21,6 +21,38 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
+vi.mock('@gorhom/bottom-sheet', async () => {
+  const React = await import('react');
+
+  return {
+    BottomSheetTextInput: ({
+      accessibilityLabel,
+      onBlur,
+      onChangeText,
+      onFocus,
+      placeholder,
+      value,
+    }: {
+      accessibilityLabel?: string;
+      onBlur?: () => void;
+      onChangeText?: (value: string) => void;
+      onFocus?: () => void;
+      placeholder?: string;
+      value?: string;
+    }) =>
+      React.createElement('input', {
+        'aria-label': accessibilityLabel,
+        'data-gorhom-input': 'true',
+        onBlur,
+        onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+          onChangeText?.(event.target.value),
+        onFocus,
+        placeholder,
+        value: value ?? '',
+      }),
+  };
+});
+
 vi.mock('react-native', async () => {
   const React = await import('react');
 

@@ -280,6 +280,94 @@ describe('PATCH /api/customers/[id]', () => {
     });
   });
 
+  it('rejects blank company names for existing company customers', async () => {
+    customer = {
+      id: CUSTOMER_ID,
+      customer_type: 'company',
+      company_name: 'Old Co',
+      first_name: null,
+      full_name: 'Old Co',
+      last_name: null,
+      email: 'ops@old.example',
+    };
+
+    const res = await PATCH(
+      makePatchRequest(CUSTOMER_ID, { company_name: '' }),
+      {
+        params: Promise.resolve({ id: CUSTOMER_ID }),
+      }
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json).toEqual({
+      error: 'Validation failed',
+      details: { company_name: ['Company name is required'] },
+    });
+    expect(updatePayload).toBeNull();
+  });
+
+  it('rejects changing an existing individual customer to company without a company name', async () => {
+    customer = {
+      id: CUSTOMER_ID,
+      customer_type: 'individual',
+      company_name: null,
+      first_name: 'Ada',
+      full_name: 'Ada Lovelace',
+      last_name: 'Lovelace',
+      email: 'ada@example.com',
+    };
+
+    const res = await PATCH(
+      makePatchRequest(CUSTOMER_ID, { customer_type: 'company' }),
+      {
+        params: Promise.resolve({ id: CUSTOMER_ID }),
+      }
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json).toEqual({
+      error: 'Validation failed',
+      details: { company_name: ['Company name is required'] },
+    });
+    expect(updatePayload).toBeNull();
+  });
+
+  it('clears stale company name when changing a company customer to individual', async () => {
+    customer = {
+      id: CUSTOMER_ID,
+      customer_type: 'company',
+      company_name: 'Old Co',
+      first_name: null,
+      full_name: 'Old Co',
+      last_name: null,
+      email: 'ops@old.example',
+    };
+    updateResult = {
+      id: CUSTOMER_ID,
+      customer_type: 'individual',
+      company_name: null,
+      full_name: 'Old Co',
+    };
+
+    const res = await PATCH(
+      makePatchRequest(CUSTOMER_ID, { customer_type: 'individual' }),
+      {
+        params: Promise.resolve({ id: CUSTOMER_ID }),
+      }
+    );
+
+    expect(res.status).toBe(200);
+    expect(updatePayload).toMatchObject({
+      company_name: null,
+      customer_type: 'individual',
+      first_name: null,
+      full_name: 'Old Co',
+      last_name: null,
+    });
+  });
+
   it('returns 400 on validation failure', async () => {
     const res = await PATCH(
       makePatchRequest(CUSTOMER_ID, { full_name: 'Invalid Name' }),

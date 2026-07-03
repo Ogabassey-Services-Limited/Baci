@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useEffect, useRef } from 'react';
 import { Pressable } from 'react-native';
-import type { TextInput as BottomSheetTextInputRef } from 'react-native-gesture-handler';
+import type { SheetTextInputRef } from '@/components/ui/SheetTextInput';
 import type { NewOrderController } from '@/hooks/useNewOrderController';
 import { NewOrderCustomerCreateView } from './NewOrderCustomerCreateView';
 import { NewOrderCustomerSearchFooter } from './NewOrderCustomerSearchFooter';
@@ -19,7 +19,7 @@ interface NewOrderCustomerSheetProps {
 export function NewOrderCustomerSheet({
   controller,
 }: NewOrderCustomerSheetProps) {
-  const inputRef = useRef<BottomSheetTextInputRef | null | undefined>(null);
+  const inputRef = useRef<SheetTextInputRef | null | undefined>(null);
   const {
     colors,
     customerSearch,
@@ -33,7 +33,6 @@ export function NewOrderCustomerSheet({
   } = controller;
   const customerSearchFooter = !isCreatingCustomer ? (
     <NewOrderCustomerSearchFooter
-      autoFocus={showCustomerModal && !isCreatingCustomer}
       colors={colors}
       customerSearch={customerSearch}
       inputRef={inputRef}

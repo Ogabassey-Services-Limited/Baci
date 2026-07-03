@@ -1,25 +1,25 @@
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type { RefObject } from 'react';
 import { StyleSheet, View } from 'react-native';
-import type { TextInput as BottomSheetTextInputRef } from 'react-native-gesture-handler';
+import {
+  SheetTextInput,
+  type SheetTextInputRef,
+} from '@/components/ui/SheetTextInput';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
 interface NewOrderProductSearchFooterProps {
-  autoFocus?: boolean;
   colors: {
     primary: string;
     text: string;
     textMuted: string;
   };
-  inputRef: RefObject<BottomSheetTextInputRef | null | undefined>;
+  inputRef: RefObject<SheetTextInputRef | null | undefined>;
   productSearch: string;
   setProductSearch: (search: string) => void;
 }
 
 export function NewOrderProductSearchFooter({
-  autoFocus = false,
   colors,
   inputRef,
   productSearch,
@@ -44,13 +44,12 @@ export function NewOrderProductSearchFooter({
         ]}
       >
         <Ionicons color={colors.textMuted} name="search" size={20} />
-        <BottomSheetTextInput
+        <SheetTextInput
           ref={inputRef}
           accessibilityHint="Type to filter the product list"
           accessibilityLabel="Search products"
           autoCapitalize="none"
           autoCorrect={false}
-          autoFocus={autoFocus}
           onChangeText={setProductSearch}
           placeholder="Search products..."
           placeholderTextColor={colors.textMuted}

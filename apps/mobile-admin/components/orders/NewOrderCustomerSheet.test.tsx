@@ -103,19 +103,10 @@ vi.mock('./NewOrderProductPickerSheetFrame', () => ({
 
 vi.mock('./NewOrderCustomerSearchFooter', () => ({
   NewOrderCustomerSearchFooter: ({
-    autoFocus,
     customerSearch,
   }: {
-    autoFocus?: boolean;
     customerSearch: string;
-  }) => (
-    <input
-      aria-label="Search customers"
-      data-autofocus={String(Boolean(autoFocus))}
-      readOnly
-      value={customerSearch}
-    />
-  ),
+  }) => <input aria-label="Search customers" readOnly value={customerSearch} />,
 }));
 
 vi.mock('./NewOrderCustomerCreateView', async () => {
@@ -194,7 +185,7 @@ describe('NewOrderCustomerSheet', () => {
     expect(screen.getByText('search-view')).toBeInTheDocument();
     expect(
       screen.getByRole('textbox', { name: 'Search customers' })
-    ).toHaveAttribute('data-autofocus', 'true');
+    ).toHaveValue('');
     expect(mocks.searchViewProps.at(-1)).toMatchObject({
       listBottomPadding: 128,
       showInlineSearch: false,

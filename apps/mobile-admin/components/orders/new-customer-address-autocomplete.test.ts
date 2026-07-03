@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assertGoogleAutocompleteResponse,
   buildGoogleAutocompleteUrl,
   toAddressSuggestions,
 } from './new-customer-address-autocomplete';
@@ -61,5 +62,29 @@ describe('new customer address autocomplete helpers', () => {
         })),
       })
     ).toHaveLength(5);
+  });
+
+  it('allows successful and empty Google Places statuses', () => {
+    expect(() =>
+      assertGoogleAutocompleteResponse({ status: 'OK' })
+    ).not.toThrow();
+    expect(() =>
+      assertGoogleAutocompleteResponse({ status: 'ZERO_RESULTS' })
+    ).not.toThrow();
+  });
+
+  it('rejects Google Places API-level errors from successful HTTP responses', () => {
+    expect(() =>
+      assertGoogleAutocompleteResponse({
+        error_message: 'The provided API key is invalid.',
+        status: 'REQUEST_DENIED',
+      })
+    ).toThrow('The provided API key is invalid.');
+  });
+
+  it('falls back to a generic message when a Places error has no details', () => {
+    expect(() =>
+      assertGoogleAutocompleteResponse({ status: 'INVALID_REQUEST' })
+    ).toThrow('Google Places returned INVALID_REQUEST');
   });
 });
