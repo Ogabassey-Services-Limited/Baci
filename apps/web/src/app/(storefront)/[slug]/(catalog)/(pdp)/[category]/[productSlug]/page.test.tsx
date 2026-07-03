@@ -2724,6 +2724,34 @@ describe('[category]/[productSlug] page render', () => {
     }
   });
 
+  it('hard-404s an unsafe segment on the render path when the merchant does not exist', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    // Unsafe segments skip getProductRouteControl/prewarm but still run the
+    // bounded merchant check, so a nonexistent tenant hard-404s here too.
+    mockGetRequestScopedMerchant.mockResolvedValueOnce(null);
+
+    try {
+      await expect(
+        CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'no-such-store',
+            category: 'smartphones',
+            productSlug: 'a'.repeat(4000),
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      ).rejects.toThrow('NEXT_NOT_FOUND');
+
+      expect(mockNotFound).toHaveBeenCalledOnce();
+      expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
+      expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
+  });
+
   it('returns notFound for the invalid-store prerender placeholder without merchant or product lookups', async () => {
     await expect(
       CategoryProductPage({
