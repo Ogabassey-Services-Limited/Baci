@@ -99,6 +99,7 @@ describe('PaywallFooter', () => {
         isSubscriptionStatusLoading={false}
         onManageSubscription={onManageSubscription}
         onPurchase={onPurchase}
+        onReload={() => undefined}
         onRestore={onRestore}
         selectedPackage={selectedPackage}
         stickyFooterPaddingBottom={24}
@@ -146,6 +147,7 @@ describe('PaywallFooter', () => {
         isSubscriptionStatusLoading={false}
         onManageSubscription={onManageSubscription}
         onPurchase={onPurchase}
+        onReload={() => undefined}
         onRestore={() => undefined}
         selectedPackage={selectedPackage}
         stickyFooterPaddingBottom={24}
@@ -173,6 +175,7 @@ describe('PaywallFooter', () => {
         isSubscriptionStatusLoading={false}
         onManageSubscription={() => undefined}
         onPurchase={() => undefined}
+        onReload={() => undefined}
         onRestore={() => undefined}
         selectedPackage={selectedPackage}
         stickyFooterPaddingBottom={24}
@@ -193,6 +196,7 @@ describe('PaywallFooter', () => {
         isSubscriptionStatusLoading={true}
         onManageSubscription={() => undefined}
         onPurchase={onPurchase}
+        onReload={() => undefined}
         onRestore={() => undefined}
         selectedPackage={selectedPackage}
         stickyFooterPaddingBottom={24}
@@ -210,5 +214,43 @@ describe('PaywallFooter', () => {
 
     fireEvent.click(loadingButton);
     expect(onPurchase).not.toHaveBeenCalled();
+  });
+
+  it('offers a working Try again action when no package is available', () => {
+    const onPurchase = vi.fn();
+    const onReload = vi.fn();
+    const onManageSubscription = vi.fn();
+
+    render(
+      <PaywallFooter
+        colors={colors}
+        isLoading={false}
+        isPro={false}
+        isSubscriptionStatusLoading={false}
+        onManageSubscription={onManageSubscription}
+        onPurchase={onPurchase}
+        onReload={onReload}
+        onRestore={() => undefined}
+        selectedPackage={null}
+        stickyFooterPaddingBottom={24}
+      />
+    );
+
+    // The primary CTA must never be a dead, disabled "Continue with Pro" when
+    // the offering is empty — that is exactly the Play "Broken Functionality"
+    // violation. It becomes an enabled "Try again" that reloads the offering.
+    const retryButton = screen.getByRole('button', {
+      name: /reload subscription options/i,
+    });
+
+    expect(retryButton).not.toBeDisabled();
+    expect(screen.getByText('Try again')).toBeInTheDocument();
+    expect(screen.queryByText(/Continue with/i)).toBeNull();
+    expect(screen.getByText(/couldn't load/i)).toBeInTheDocument();
+
+    fireEvent.click(retryButton);
+    expect(onReload).toHaveBeenCalledTimes(1);
+    expect(onPurchase).not.toHaveBeenCalled();
+    expect(onManageSubscription).not.toHaveBeenCalled();
   });
 });

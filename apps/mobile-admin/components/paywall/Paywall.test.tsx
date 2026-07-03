@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => ({
   } | null,
   openNativeManagement: vi.fn(),
   purchasePackage: vi.fn(),
+  reload: vi.fn(),
   restorePurchases: vi.fn(),
   hasFullProAccess: vi.fn(),
   offering: {
@@ -65,6 +66,7 @@ vi.mock('@/hooks/useRevenueCat', () => ({
     isLoading: false,
     isPro: mocks.isPro,
     purchasePackage: mocks.purchasePackage,
+    reload: mocks.reload,
     restorePurchases: mocks.restorePurchases,
   }),
 }));
@@ -217,7 +219,20 @@ describe('Paywall', () => {
     };
     mocks.openNativeManagement.mockReset();
     mocks.purchasePackage.mockReset();
+    mocks.reload.mockReset();
     mocks.restorePurchases.mockReset();
+    mocks.offering = {
+      availablePackages: [
+        {
+          identifier: 'monthly',
+          packageType: 'MONTHLY',
+          product: {
+            priceString: '$9.99',
+            title: 'Monthly',
+          },
+        },
+      ],
+    };
   });
 
   it('uses inset-driven top and footer spacing when safe-area insets are present', () => {
@@ -457,5 +472,27 @@ describe('Paywall', () => {
     expect(
       screen.queryByRole('button', { name: /manage your subscription/i })
     ).not.toBeInTheDocument();
+  });
+
+  it('shows a working Try again CTA instead of a dead button when the offering has no packages', () => {
+    mocks.hasFullProAccess.mockReturnValue(false);
+    mocks.isPro = false;
+    mocks.offering = { availablePackages: [] };
+
+    render(<Paywall />);
+
+    const retryButton = screen.getByRole('button', {
+      name: /reload subscription options/i,
+    });
+
+    expect(retryButton).not.toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: /subscribe to monthly/i })
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(retryButton);
+
+    expect(mocks.reload).toHaveBeenCalledTimes(1);
+    expect(mocks.purchasePackage).not.toHaveBeenCalled();
   });
 });

@@ -130,4 +130,36 @@ describe('useRevenueCatStore', () => {
     expect(useRevenueCatStore.getState().error).toBe('Purchase failed');
     expect(useRevenueCatStore.getState().isLoading).toBe(false);
   });
+
+  it('reload re-fetches offerings after an initially empty offering', async () => {
+    const offeringWithPackages = {
+      availablePackages: [{ identifier: 'monthly' }],
+      identifier: 'default',
+    };
+    mockPurchases.getCustomerInfo.mockResolvedValue({
+      entitlements: { active: {} },
+    });
+    // First load returns an empty offering (Play products still propagating);
+    // the reload re-queries and now sees the configured packages.
+    mockPurchases.getOfferings
+      .mockResolvedValueOnce({ current: null })
+      .mockResolvedValueOnce({ current: offeringWithPackages });
+    mockPurchases.addCustomerInfoUpdateListener.mockReturnValue(vi.fn());
+    mockNativeRuntime({ isDevice: true });
+
+    const { useRevenueCatStore } = await import('@/stores/revenueCatStore');
+
+    await useRevenueCatStore.getState().initialize();
+    expect(useRevenueCatStore.getState().currentOffering).toBeNull();
+
+    await useRevenueCatStore.getState().reload();
+
+    expect(mockPurchases.getOfferings).toHaveBeenCalledTimes(2);
+    expect(useRevenueCatStore.getState().currentOffering).toEqual(
+      offeringWithPackages
+    );
+    expect(useRevenueCatStore.getState().isInitialized).toBe(true);
+    expect(useRevenueCatStore.getState().isLoading).toBe(false);
+    expect(useRevenueCatStore.getState().error).toBeNull();
+  });
 });
