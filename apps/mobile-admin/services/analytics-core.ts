@@ -109,7 +109,7 @@ export function identifyAdminUser(
   if (!posthogClient) return;
 
   posthogClient.identify(userId, {
-    ...getSafeUserProperties(properties),
+    $set: getSafeUserProperties(properties),
     $set_once: {
       first_seen: new Date().toISOString(),
     },

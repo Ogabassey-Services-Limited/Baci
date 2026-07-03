@@ -140,9 +140,11 @@ describe('admin analytics core', () => {
     });
 
     expect(mocks.identify).toHaveBeenCalledWith('user-1', {
-      merchant_id: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
-      merchant_is_published: true,
-      plan_tier: 'business',
+      $set: {
+        merchant_id: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
+        merchant_is_published: true,
+        plan_tier: 'business',
+      },
       $set_once: {
         first_seen: '2026-07-02T12:00:00.000Z',
       },
