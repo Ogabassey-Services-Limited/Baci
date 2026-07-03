@@ -2,11 +2,11 @@ import {
   buildNegotiationSingleItemInfo,
   COUNTER_NEGOTIATION_DISCOUNT_STEPS,
   type NegotiationCartLine,
-  summarizeCartForItemInfo,
+  type summarizeCartForItemInfo,
 } from '@baci/shared/lib';
 import type { CartItem } from '@/stores/cart-store';
 import { negotiationModalViewStyles as styles } from './NegotiationModalView.styles';
-import type { NegotiationItemInfo } from './useNegotiationModalController.types';
+import type { NegotiationItemInfoViewModel } from './useNegotiationModalController.types';
 
 type NegotiationRequestItemInfo =
   | ReturnType<typeof buildNegotiationSingleItemInfo>
@@ -21,7 +21,7 @@ export function buildNegotiationRequestItemInfo({
   totalItemInfo,
   type,
 }: {
-  itemInfo: NegotiationItemInfo | null;
+  itemInfo: NegotiationItemInfoViewModel | null;
   totalItemInfo: ReturnType<typeof summarizeCartForItemInfo> | null;
   type: 'single' | 'total';
 }): NegotiationRequestItemInfo | null {

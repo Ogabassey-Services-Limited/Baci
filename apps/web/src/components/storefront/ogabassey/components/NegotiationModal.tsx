@@ -42,29 +42,55 @@ interface NegotiationModalProps {
   cart?: CartItem[];
 }
 
-/** Map a web cart line into the platform-neutral negotiation snapshot shape. */
-function toNegotiationCartLine(item: CartItem): Partial<NegotiationCartLine> {
-  const variantParts =
-    item.variantAttributes
-      ? Object.entries(item.variantAttributes).map(
-          ([key, value]) => `${key}: ${value}`
-        )
-      : [];
-  const variantValues = new Set(
-    Object.values(item.variantAttributes ?? {}).map((value) =>
-      value.trim().toLowerCase()
+function foldCartLineVariantSelection(item: CartItem) {
+  const variantAttributes: Record<string, string> = {
+    ...(item.variantAttributes ?? {}),
+  };
+  const variantParts = Object.entries(variantAttributes).map(
+    ([key, value]) => `${key}: ${value}`
+  );
+  const seenLabels = new Set(
+    Object.keys(variantAttributes).map((key) => key.trim().toLowerCase())
+  );
+  const seenPairs = new Set(
+    Object.entries(variantAttributes).map(
+      ([key, value]) => `${key.trim().toLowerCase()}::${value.trim().toLowerCase()}`
     )
   );
+
   for (const [label, value] of [
     ['Color', item.selectedColor],
     ['Secondary color', item.secondaryColor],
     ['Storage', item.selectedStorage],
   ] as const) {
-    const normalizedValue = value?.trim().toLowerCase();
-    if (value && normalizedValue && !variantValues.has(normalizedValue)) {
-      variantParts.push(`${label}: ${value}`);
+    const normalized = value?.trim().toLowerCase();
+    const normalizedLabel = label.toLowerCase();
+    const pairKey = `${normalizedLabel}::${normalized}`;
+    if (
+      !value ||
+      !normalized ||
+      seenLabels.has(normalizedLabel) ||
+      seenPairs.has(pairKey)
+    ) {
+      continue;
     }
+
+    variantAttributes[label] = value;
+    variantParts.push(`${label}: ${value}`);
+    seenLabels.add(normalizedLabel);
+    seenPairs.add(pairKey);
   }
+
+  return {
+    variantAttributes:
+      Object.keys(variantAttributes).length > 0 ? variantAttributes : undefined,
+    variantName: [...new Set(variantParts)].join(' · ') || undefined,
+  };
+}
+
+/** Map a web cart line into the platform-neutral negotiation snapshot shape. */
+function toNegotiationCartLine(item: CartItem): Partial<NegotiationCartLine> {
+  const { variantName } = foldCartLineVariantSelection(item);
 
   return {
     product_id: item.id,
@@ -73,7 +99,7 @@ function toNegotiationCartLine(item: CartItem): Partial<NegotiationCartLine> {
     quantity: item.quantity,
     image: item.image,
     variant_id: item.variantId,
-    variant_name: [...new Set(variantParts)].join(' · ') || undefined,
+    variant_name: variantName,
     brand: item.brand,
     condition: item.condition,
   };
@@ -95,34 +121,12 @@ export function deriveCartLineNegotiationProps(item: CartItem): {
   productSlug?: string;
   productBrand?: string;
 } {
-  const variantAttributes: Record<string, string> = {
-    ...(item.variantAttributes ?? {}),
-  };
-  const seenValues = new Set(
-    Object.values(variantAttributes).map((value) => value.trim().toLowerCase())
-  );
-  for (const [label, value] of [
-    ['Color', item.selectedColor],
-    ['Secondary color', item.secondaryColor],
-    ['Storage', item.selectedStorage],
-  ] as const) {
-    const normalized = value?.trim().toLowerCase();
-    if (
-      value &&
-      normalized &&
-      !(label in variantAttributes) &&
-      !seenValues.has(normalized)
-    ) {
-      variantAttributes[label] = value;
-      seenValues.add(normalized);
-    }
-  }
+  const { variantAttributes } = foldCartLineVariantSelection(item);
 
   return {
     itemId: item.cartItemId,
     variantId: item.variantId,
-    variantAttributes:
-      Object.keys(variantAttributes).length > 0 ? variantAttributes : undefined,
+    variantAttributes,
     condition: item.condition,
     productSlug: item.slug,
     productBrand: item.brand,
@@ -145,6 +149,13 @@ const FINAL_PRICE_MESSAGE =
   "That's the final price for this product. We can't discount it further.";
 const MAX_CUSTOMER_EMAIL_LENGTH = 254;
 const MIN_SUBTOTAL_FOR_ROUNDED_COUNTER = 1000;
+
+class NegotiationValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NegotiationValidationError';
+  }
+}
 
 function getOrCreateSessionId(): string {
   if (typeof window === 'undefined') return `web-${Date.now()}`;
@@ -216,11 +227,13 @@ async function insertNegotiationRequest(
 
   const normalizedPhone = normalizePhoneToE164(request.customerPhone);
   if ((request.customerPhone ?? '').trim() && !normalizedPhone) {
-    throw new Error('Enter a valid Phone / WhatsApp number.');
+    throw new NegotiationValidationError(
+      'Enter a valid Phone / WhatsApp number.'
+    );
   }
   const normalizedEmail = normalizeOptionalEmail(request.customerEmail);
   if ((request.customerEmail ?? '').trim() && !normalizedEmail) {
-    throw new Error('Enter a valid email address.');
+    throw new NegotiationValidationError('Enter a valid email address.');
   }
 
   // Whole-cart offers snapshot the cart so the merchant can see what's being
@@ -230,7 +243,9 @@ async function insertNegotiationRequest(
       ? buildCartSnapshot((request.cart ?? []).map(toNegotiationCartLine))
       : [];
   if (request.type === 'total' && cartSnapshot.length === 0) {
-    throw new Error('Whole-cart negotiations require at least one cart item.');
+    throw new NegotiationValidationError(
+      'Whole-cart negotiations require at least one cart item.'
+    );
   }
   const totalItemInfo =
     request.type === 'total'
@@ -623,10 +638,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       }
 
       alert(
-        error instanceof Error &&
-          (error.message.includes('Phone / WhatsApp') ||
-            error.message.includes('email address') ||
-            error.message.includes('Whole-cart'))
+        error instanceof NegotiationValidationError
           ? error.message
           : 'Failed to submit request. Please try again.'
       );

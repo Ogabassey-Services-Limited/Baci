@@ -29,7 +29,7 @@ export interface NegotiationCartLine {
 /** Shape the admin app reads to label a negotiation. */
 export interface NegotiationItemInfo {
   id?: string;
-  name: string;
+  name?: string;
   image?: string;
   current_price?: number;
   product_slug?: string;

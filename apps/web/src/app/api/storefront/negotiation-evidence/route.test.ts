@@ -13,6 +13,11 @@ vi.mock('@/env', () => ({
   getSupabaseJwtSecret: () => 'test-supabase-jwt-secret',
 }));
 
+vi.mock('node:crypto', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:crypto')>()),
+  randomUUID: () => 'evidence-uuid',
+}));
+
 vi.mock('@/lib/supabase/server', () => ({
   createClient: mocks.createClient,
 }));
@@ -80,10 +85,9 @@ describe('POST /api/storefront/negotiation-evidence', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
-    vi.spyOn(Math, 'random').mockReturnValue(0.123456);
     mocks.createSignedUploadUrl.mockResolvedValue({
       data: {
-        path: 'merchant-1/1700000000000-4fzyo8-promo-screenshot.png',
+        path: 'merchant-1/1700000000000-evidence-uuid-promo-screenshot.png',
         signedUrl: 'https://signed.example/upload',
         token: 'upload-token',
       },
@@ -113,7 +117,8 @@ describe('POST /api/storefront/negotiation-evidence', () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({
       contentType: 'image/png',
-      evidencePath: 'merchant-1/1700000000000-4fzyo8-promo-screenshot.png',
+      evidencePath:
+        'merchant-1/1700000000000-evidence-uuid-promo-screenshot.png',
       uploadToken: 'upload-token',
     });
     const scoped = mocks.createScopedClient.mock.results[0].value;
@@ -121,7 +126,7 @@ describe('POST /api/storefront/negotiation-evidence', () => {
       NEGOTIATION_EVIDENCE_BUCKET
     );
     expect(mocks.createSignedUploadUrl).toHaveBeenCalledWith(
-      'merchant-1/1700000000000-4fzyo8-promo-screenshot.png',
+      'merchant-1/1700000000000-evidence-uuid-promo-screenshot.png',
       { upsert: false }
     );
   });

@@ -177,7 +177,7 @@ describe('NegotiationCard', () => {
       ...baseItem,
       item_info: { name: 'Wireless Headphones' },
       customer_phone: null,
-      evidence_url: undefined,
+      evidence_url: null,
     });
 
     expect(screen.getByText('Wireless Headphones')).toBeInTheDocument();

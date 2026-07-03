@@ -1,0 +1,74 @@
+import {
+  notifyGuestNegotiationResponseByEmail,
+  notifyNegotiationResponse,
+} from '@/lib/negotiation-notifications';
+
+interface NotifyNegotiationResponseWithFallbackParams {
+  acceptedPrice?: number | null;
+  customerEmail?: string | null;
+  customerId?: string | null;
+  itemName?: string | null;
+  merchantId: string;
+  negotiationId: string;
+  negotiationType: 'single' | 'total';
+  productSlug?: string | null;
+  status: 'accepted' | 'rejected';
+}
+
+export type NegotiationResponseNotificationResult =
+  | { notified: true; channel?: 'email' }
+  | { notified: false; reason: 'no_customer_email' | 'no_delivery_channel' };
+
+export async function notifyNegotiationResponseWithFallback({
+  acceptedPrice,
+  customerEmail,
+  customerId,
+  itemName,
+  merchantId,
+  negotiationId,
+  negotiationType,
+  productSlug,
+  status,
+}: NotifyNegotiationResponseWithFallbackParams): Promise<NegotiationResponseNotificationResult> {
+  async function notifyByEmail(email: string) {
+    await notifyGuestNegotiationResponseByEmail({
+      acceptedPrice,
+      email,
+      itemName,
+      merchantId,
+      negotiationId,
+      negotiationType,
+      productSlug,
+      status,
+    });
+    return { notified: true, channel: 'email' } as const;
+  }
+
+  if (!customerId) {
+    if (!customerEmail) {
+      return { notified: false, reason: 'no_customer_email' };
+    }
+
+    return notifyByEmail(customerEmail);
+  }
+
+  const pushResult = await notifyNegotiationResponse(
+    customerId,
+    negotiationType,
+    status,
+    negotiationId,
+    itemName,
+    acceptedPrice,
+    productSlug
+  );
+
+  if (pushResult.sent > 0) {
+    return { notified: true };
+  }
+
+  if (customerEmail) {
+    return notifyByEmail(customerEmail);
+  }
+
+  return { notified: false, reason: 'no_delivery_channel' };
+}

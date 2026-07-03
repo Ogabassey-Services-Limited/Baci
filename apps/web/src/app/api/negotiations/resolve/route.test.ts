@@ -509,4 +509,41 @@ describe('POST /api/negotiations/resolve', () => {
       status: 'accepted',
     });
   });
+
+  it('reports no delivery channel when customer push reaches no devices and no email exists', async () => {
+    await setupAuth({
+      authenticated: true,
+      hasAccess: true,
+      merchantId: 'merchant-123',
+    });
+    mockNotifyNegotiationResponse.mockResolvedValueOnce({
+      sent: 0,
+      failed: 0,
+      errors: [],
+    });
+    mockSupabaseUpdates({
+      data: {
+        id: validBody.negotiationId,
+        merchant_id: 'merchant-123',
+        customer_id: 'customer-456',
+        customer_email: null,
+        type: 'single',
+        item_info: { name: 'Product' },
+        offered_price: 5000,
+        status: 'accepted',
+      },
+      error: null,
+    });
+
+    const response = await POST(createRequest(validBody));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      status: 'accepted',
+      notified: false,
+      reason: 'no_delivery_channel',
+    });
+    expect(mockNotifyGuestNegotiationResponseByEmail).not.toHaveBeenCalled();
+  });
 });

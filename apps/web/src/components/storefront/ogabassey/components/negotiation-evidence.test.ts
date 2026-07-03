@@ -211,6 +211,36 @@ describe('uploadNegotiationEvidenceFile', () => {
     expect(mockUploadToSignedUrl).not.toHaveBeenCalled();
   });
 
+  it('times out stalled API upload initialization requests', async () => {
+    vi.useFakeTimers();
+    mockFetch.mockImplementationOnce((_url, init) => {
+      const signal = (init as RequestInit).signal as AbortSignal;
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => {
+          const error = new Error('aborted');
+          error.name = 'AbortError';
+          reject(error);
+        });
+      });
+    });
+
+    const uploadPromise = uploadNegotiationEvidenceFile({
+      file: new File(['proof'], 'screenshot.jpg', { type: 'image/jpeg' }),
+      merchantId: 'merchant-123',
+    });
+    const expectation = expect(uploadPromise).rejects.toThrow(
+      'Evidence upload took too long. Please try again.'
+    );
+
+    try {
+      await vi.advanceTimersByTimeAsync(30_000);
+      await expectation;
+      expect(mockUploadToSignedUrl).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('uses the default failure message when the API returns no message', async () => {
     mockFetch.mockResolvedValueOnce({
       json: async () => ({}),

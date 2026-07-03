@@ -112,7 +112,7 @@ describe('uploadNegotiationEvidence', () => {
       data: { path: 'merchant-1/server-proof.png' },
       error: null,
     });
-    globalThis.fetch = jest.fn(async (input: RequestInfo | URL) => {
+    globalThis.fetch = jest.fn((input: RequestInfo | URL) => {
       if (String(input).startsWith('file://')) {
         return createFileResponse();
       }
@@ -142,7 +142,11 @@ describe('uploadNegotiationEvidence', () => {
       uploadNegotiationEvidence('file:///tmp/proof.png', 'merchant-1')
     ).resolves.toBe('merchant-1/server-proof.png');
 
-    expect(fetch).toHaveBeenNthCalledWith(1, 'file:///tmp/proof.png');
+    expect(fetch).toHaveBeenNthCalledWith(
+      1,
+      'file:///tmp/proof.png',
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
     expect(fetch).toHaveBeenNthCalledWith(
       2,
       'https://usebaci.com/api/storefront/negotiation-evidence',
@@ -166,7 +170,7 @@ describe('uploadNegotiationEvidence', () => {
   });
 
   it('infers image content type from the local file extension when blob type is empty', async () => {
-    globalThis.fetch = jest.fn(async (input: RequestInfo | URL) => {
+    globalThis.fetch = jest.fn((input: RequestInfo | URL) => {
       if (String(input).startsWith('file://')) {
         return createFileResponse({ contentType: '' });
       }
@@ -197,7 +201,7 @@ describe('uploadNegotiationEvidence', () => {
   });
 
   it('infers image content type from the local file extension when the response is octet-stream', async () => {
-    globalThis.fetch = jest.fn(async (input: RequestInfo | URL) => {
+    globalThis.fetch = jest.fn((input: RequestInfo | URL) => {
       if (String(input).startsWith('file://')) {
         return createFileResponse({ contentType: 'application/octet-stream' });
       }
@@ -223,7 +227,7 @@ describe('uploadNegotiationEvidence', () => {
   });
 
   it('throws when the local file cannot be read', async () => {
-    globalThis.fetch = jest.fn(async () =>
+    globalThis.fetch = jest.fn(() =>
       createFileResponse({ ok: false, status: 404 })
     ) as unknown as typeof fetch;
 
@@ -236,7 +240,7 @@ describe('uploadNegotiationEvidence', () => {
 
   it('rejects non-image evidence before reading bytes', async () => {
     const fileResponse = createFileResponse({ contentType: 'application/pdf' });
-    globalThis.fetch = jest.fn(async () => ({
+    globalThis.fetch = jest.fn(() => ({
       ...fileResponse,
     })) as unknown as typeof fetch;
 
@@ -252,7 +256,7 @@ describe('uploadNegotiationEvidence', () => {
     const fileResponse = createFileResponse({
       contentLength: MAX_NEGOTIATION_EVIDENCE_BYTES + 1,
     });
-    globalThis.fetch = jest.fn(async () => ({
+    globalThis.fetch = jest.fn(() => ({
       ...fileResponse,
     })) as unknown as typeof fetch;
 
@@ -264,8 +268,57 @@ describe('uploadNegotiationEvidence', () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects oversized evidence after reading bytes when content-length is missing', async () => {
+    const fileResponse = createFileResponse({
+      bytes: new Uint8Array(MAX_NEGOTIATION_EVIDENCE_BYTES + 1),
+      contentLength: null,
+    });
+    globalThis.fetch = jest.fn(() => ({
+      ...fileResponse,
+    })) as unknown as typeof fetch;
+
+    await expect(
+      uploadNegotiationEvidence('file:///tmp/huge.png', 'merchant-1')
+    ).rejects.toThrow('Evidence image is too large');
+
+    expect(fileResponse.arrayBuffer).toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('times out stalled evidence fetches', async () => {
+    jest.useFakeTimers();
+    globalThis.fetch = jest.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) => {
+        const signal = init?.signal as AbortSignal;
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => {
+            const error = new Error('aborted');
+            error.name = 'AbortError';
+            reject(error);
+          });
+        });
+      }
+    ) as unknown as typeof fetch;
+
+    const uploadPromise = uploadNegotiationEvidence(
+      'file:///tmp/proof.png',
+      'merchant-1'
+    );
+    const expectation = expect(uploadPromise).rejects.toThrow(
+      'Evidence upload took too long. Please try again.'
+    );
+
+    try {
+      jest.advanceTimersByTime(30_000);
+      await expectation;
+      expect(mockUploadToSignedUrl).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('throws when evidence API upload fails', async () => {
-    globalThis.fetch = jest.fn(async (input: RequestInfo | URL) => {
+    globalThis.fetch = jest.fn((input: RequestInfo | URL) => {
       if (String(input).startsWith('file://')) {
         return createFileResponse();
       }

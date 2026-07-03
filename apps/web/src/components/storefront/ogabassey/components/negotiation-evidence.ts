@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/client';
 export const NEGOTIATION_EVIDENCE_BUCKET = 'negotiation-evidence';
 
 const MAX_NEGOTIATION_EVIDENCE_BYTES = 10 * 1024 * 1024;
+const NEGOTIATION_EVIDENCE_UPLOAD_TIMEOUT_MS = 30_000;
 const ALLOWED_NEGOTIATION_EVIDENCE_TYPES = new Map([
   ['image/png', 'png'],
   ['image/jpeg', 'jpg'],
@@ -86,6 +87,33 @@ function createSignedUploadFile(file: File, contentType: string): File {
   });
 }
 
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+async function fetchEvidenceUploadIntent(init: RequestInit) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, NEGOTIATION_EVIDENCE_UPLOAD_TIMEOUT_MS);
+
+  try {
+    return await fetch('/api/storefront/negotiation-evidence', {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new Error('Evidence upload took too long. Please try again.', {
+        cause: error,
+      });
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function uploadNegotiationEvidenceFile({
   file,
   merchantId,
@@ -100,7 +128,7 @@ export async function uploadNegotiationEvidenceFile({
   }
 
   const contentType = getEvidenceContentType({ extension, file });
-  const response = await fetch('/api/storefront/negotiation-evidence', {
+  const response = await fetchEvidenceUploadIntent({
     body: JSON.stringify({
       contentType,
       fileName: file.name,

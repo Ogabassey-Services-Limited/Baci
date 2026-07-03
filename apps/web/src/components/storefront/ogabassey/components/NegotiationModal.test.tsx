@@ -1073,6 +1073,20 @@ describe('deriveCartLineNegotiationProps', () => {
     expect(props.variantAttributes).toEqual({ Color: 'Silver' });
   });
 
+  it('keeps selected attributes when another label uses the same value', () => {
+    const props = deriveCartLineNegotiationProps({
+      ...baseItem,
+      variantAttributes: { RAM: '8GB' },
+      selectedStorage: '8GB',
+      selectedColor: undefined,
+    } as unknown as CartItem);
+
+    expect(props.variantAttributes).toEqual({
+      RAM: '8GB',
+      Storage: '8GB',
+    });
+  });
+
   it('omits variantAttributes when the line has no variant data', () => {
     const props = deriveCartLineNegotiationProps({
       ...baseItem,

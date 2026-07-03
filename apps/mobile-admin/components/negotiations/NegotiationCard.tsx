@@ -30,7 +30,7 @@ export interface NegotiationCardRequest {
   cart_snapshot: NegotiationCartLine[] | null;
   customer_phone: string | null;
   created_at: string;
-  evidence_url?: string;
+  evidence_url: string | null;
 }
 
 export interface NegotiationCardColors {
@@ -84,6 +84,7 @@ export function NegotiationCard({
   const whatsAppLink = item.customer_phone
     ? buildWhatsAppLink(item.customer_phone, buildFollowUpMessage(item))
     : null;
+  const evidenceUrl = item.evidence_url;
 
   return (
     <View
@@ -188,10 +189,10 @@ export function NegotiationCard({
         />
       ) : null}
 
-      {item.evidence_url ? (
+      {evidenceUrl ? (
         <Pressable
           style={styles.evidenceButton}
-          onPress={() => void onOpenEvidence(item.evidence_url as string)}
+          onPress={() => void onOpenEvidence(evidenceUrl)}
           accessibilityRole="button"
           accessibilityLabel="View customer evidence"
         >

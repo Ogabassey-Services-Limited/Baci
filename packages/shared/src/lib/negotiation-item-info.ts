@@ -32,9 +32,10 @@ function cleanVariantAttributes(
 export function buildNegotiationSingleItemInfo(
   input: NegotiationSingleItemInfoInput
 ): NegotiationItemInfo {
-  const itemInfo: NegotiationItemInfo = {
-    name: input.productName.trim(),
-  };
+  const itemInfo: NegotiationItemInfo = {};
+
+  const name = cleanOptionalString(input.productName);
+  if (name) itemInfo.name = name;
 
   if (isFiniteNumber(input.currentPrice) && input.currentPrice >= 0) {
     itemInfo.current_price = input.currentPrice;

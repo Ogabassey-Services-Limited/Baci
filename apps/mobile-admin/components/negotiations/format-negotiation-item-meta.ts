@@ -101,13 +101,24 @@ function variantAttributeEntries(attributes: unknown): VariantAttributeEntry[] {
     .map(([key, value]) => {
       // shouldShowAttribute already guarantees a non-empty string value.
       const cleaned = cleanString(value) as string;
-      return { display: `${formatAttributeLabel(key)}: ${cleaned}`, value: cleaned };
+      return {
+        display: `${formatAttributeLabel(key)}: ${cleaned}`,
+        value: cleaned,
+      };
     });
 }
 
-function appendUnique(parts: string[], value: string | null): void {
-  if (!value) return;
-  const normalizedValue = normalizeComparableText(value);
+function appendUniquePart({
+  comparable,
+  display,
+  parts,
+}: {
+  comparable: string | null;
+  display: string;
+  parts: string[];
+}): void {
+  if (!comparable) return;
+  const normalizedValue = normalizeComparableText(comparable);
   const normalizedBareValue = normalizeConditionValue(normalizedValue);
   if (
     parts.some((part) => {
@@ -125,7 +136,12 @@ function appendUnique(parts: string[], value: string | null): void {
   ) {
     return;
   }
-  parts.push(value);
+  parts.push(display);
+}
+
+function appendUnique(parts: string[], value: string | null): void {
+  if (!value) return;
+  appendUniquePart({ comparable: value, display: value, parts });
 }
 
 // Append a "Label: Value" attribute unless its bare value is already conveyed by
@@ -138,17 +154,7 @@ function appendUniqueAttribute(
   display: string,
   comparableValue: string
 ): void {
-  const normalizedValue = normalizeComparableText(comparableValue);
-  if (!normalizedValue) return;
-  const isDuplicate = parts.some((part) => {
-    const normalizedPart = normalizeComparableText(part);
-    if (normalizedPart === normalizedValue) return true;
-    return tokenizeComparableText(normalizedPart).some(
-      (token) => normalizeConditionValue(token) === normalizedValue
-    );
-  });
-  if (isDuplicate) return;
-  parts.push(display);
+  appendUniquePart({ comparable: comparableValue, display, parts });
 }
 
 function normalizeComparableText(value: string): string {

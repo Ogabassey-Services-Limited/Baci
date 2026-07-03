@@ -6,10 +6,7 @@ import {
   hasPermission,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import {
-  notifyGuestNegotiationResponseByEmail,
-  notifyNegotiationResponse,
-} from '@/lib/negotiation-notifications';
+import { notifyNegotiationResponseWithFallback } from '@/lib/negotiation-response-notifier';
 
 const bodySchema = z.object({
   negotiationId: z.uuid(),
@@ -34,7 +31,7 @@ function jsonError(error: string, status: number, code?: string) {
   return NextResponse.json({ error, ...(code ? { code } : {}) }, { status });
 }
 
-async function notifyResolvedNegotiation({
+function notifyResolvedNegotiation({
   accessMerchantId,
   negotiation,
 }: {
@@ -60,42 +57,17 @@ async function notifyResolvedNegotiation({
       : null;
   const productSlug = negotiation.item_info?.product_slug ?? null;
 
-  async function notifyByEmail(email: string) {
-    await notifyGuestNegotiationResponseByEmail({
-      acceptedPrice,
-      email,
-      itemName,
-      merchantId: accessMerchantId,
-      negotiationId: negotiation.id,
-      negotiationType: resolvedType,
-      productSlug,
-      status: resolvedStatus,
-    });
-    return { notified: true, channel: 'email' };
-  }
-
-  if (!negotiation.customer_id) {
-    if (!negotiation.customer_email) {
-      return { notified: false, reason: 'no_customer_email' };
-    }
-
-    return notifyByEmail(negotiation.customer_email);
-  }
-
-  const pushResult = await notifyNegotiationResponse(
-    negotiation.customer_id,
-    resolvedType,
-    resolvedStatus,
-    negotiation.id,
-    itemName,
+  return notifyNegotiationResponseWithFallback({
     acceptedPrice,
-    productSlug
-  );
-  if (pushResult.sent === 0 && negotiation.customer_email) {
-    return notifyByEmail(negotiation.customer_email);
-  }
-
-  return { notified: true };
+    customerEmail: negotiation.customer_email,
+    customerId: negotiation.customer_id,
+    itemName,
+    merchantId: accessMerchantId,
+    negotiationId: negotiation.id,
+    negotiationType: resolvedType,
+    productSlug,
+    status: resolvedStatus,
+  });
 }
 
 export async function POST(request: NextRequest) {

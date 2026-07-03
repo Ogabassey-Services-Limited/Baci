@@ -73,4 +73,13 @@ describe('buildNegotiationSingleItemInfo', () => {
       })
     ).toEqual({ name: 'Samsung Galaxy S26' });
   });
+
+  it('omits a blank product name instead of persisting an empty string', () => {
+    expect(
+      buildNegotiationSingleItemInfo({
+        productName: '   ',
+        currentPrice: 875_000,
+      })
+    ).toEqual({ current_price: 875_000 });
+  });
 });

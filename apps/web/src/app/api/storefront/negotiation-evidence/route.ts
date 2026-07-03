@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { SignJWT } from 'jose';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -79,7 +80,7 @@ function buildEvidencePath({
   merchantId: string;
 }) {
   const slug = getEvidenceFileSlug(fileName);
-  const nonce = Math.random().toString(36).slice(2, 8);
+  const nonce = randomUUID();
   return `${merchantId}/${Date.now()}-${nonce}-${slug}.${extension}`;
 }
 

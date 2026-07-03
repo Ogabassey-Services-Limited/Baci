@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 
 export const NEGOTIATION_EVIDENCE_BUCKET = 'negotiation-evidence';
 export const MAX_NEGOTIATION_EVIDENCE_BYTES = 10 * 1024 * 1024;
+const NEGOTIATION_EVIDENCE_FETCH_TIMEOUT_MS = 30_000;
 
 const ALLOWED_NEGOTIATION_EVIDENCE_TYPES = new Set([
   'image/heic',
@@ -54,6 +55,36 @@ const resolveEvidenceContentType = (uri: string, blobType: string) => {
 const resolveEvidenceUploadUrl = () =>
   `${EXPO_PUBLIC_API_URL.replace(/\/+$/, '')}/api/storefront/negotiation-evidence`;
 
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+async function fetchEvidenceWithTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, NEGOTIATION_EVIDENCE_FETCH_TIMEOUT_MS);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new Error('Evidence upload took too long. Please try again.', {
+        cause: error,
+      });
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function getResponseContentLength(response: Response) {
   const rawContentLength = response.headers?.get('content-length');
   if (!rawContentLength) {
@@ -99,7 +130,7 @@ export async function uploadNegotiationEvidence(
     throw new Error('Missing merchant id');
   }
 
-  const response = await fetch(fileUri);
+  const response = await fetchEvidenceWithTimeout(fileUri);
   if (!response.ok) {
     throw new Error(`Failed to read evidence file: ${response.status}`);
   }
@@ -125,16 +156,19 @@ export async function uploadNegotiationEvidence(
   }
 
   const extension = extractNegotiationFileExtension(fileUri, contentType);
-  const uploadResponse = await fetch(resolveEvidenceUploadUrl(), {
-    body: JSON.stringify({
-      contentType,
-      fileName: `negotiation-evidence.${extension}`,
-      fileSize: evidenceSize,
-      merchantId,
-    }),
-    headers: { 'Content-Type': 'application/json' },
-    method: 'POST',
-  });
+  const uploadResponse = await fetchEvidenceWithTimeout(
+    resolveEvidenceUploadUrl(),
+    {
+      body: JSON.stringify({
+        contentType,
+        fileName: `negotiation-evidence.${extension}`,
+        fileSize: evidenceSize,
+        merchantId,
+      }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    }
+  );
 
   const upload = await readEvidenceUploadResponse(uploadResponse);
   const { error } = await supabase.storage

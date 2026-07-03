@@ -5,14 +5,23 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
-import {
-  notifyGuestNegotiationResponseByEmail,
-  notifyNegotiationResponse,
-} from '@/lib/negotiation-notifications';
+import { checkCsrfProtection } from '@/lib/csrf';
+import { notifyNegotiationResponseWithFallback } from '@/lib/negotiation-response-notifier';
 
 const bodySchema = z.object({
   negotiationId: z.uuid(),
 });
+
+type NegotiationNotificationRow = {
+  customer_email: string | null;
+  customer_id: string | null;
+  id: string;
+  item_info: { name?: string | null; product_slug?: string | null } | null;
+  merchant_id: string;
+  offered_price: number | null;
+  status: string;
+  type: string;
+};
 
 export async function POST(request: NextRequest) {
   // Auth: supports both Bearer token (mobile) and cookie-based (web)
@@ -30,6 +39,14 @@ export async function POST(request: NextRequest) {
   const access = await getUserAccess(supabase);
   if (!access || !hasPermission(access, 'orders', 'edit')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const csrf = await checkCsrfProtection(request);
+  if (!csrf.valid) {
+    return (
+      csrf.response ??
+      NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+    );
   }
 
   let body: unknown;
@@ -61,7 +78,7 @@ export async function POST(request: NextRequest) {
     )
     .eq('id', negotiationId)
     .eq('merchant_id', access.merchantId)
-    .single();
+    .single<NegotiationNotificationRow>();
 
   if (fetchError || !negotiation) {
     return NextResponse.json(
@@ -95,37 +112,18 @@ export async function POST(request: NextRequest) {
   const productSlug = negotiation.item_info?.product_slug ?? null;
 
   try {
-    if (!negotiation.customer_id) {
-      if (!negotiation.customer_email) {
-        return NextResponse.json({
-          notified: false,
-          reason: 'no_customer_email',
-        });
-      }
-
-      await notifyGuestNegotiationResponseByEmail({
-        acceptedPrice,
-        email: negotiation.customer_email,
-        itemName,
-        merchantId: access.merchantId,
-        negotiationId,
-        negotiationType,
-        productSlug,
-        status: negotiationStatus,
-      });
-      return NextResponse.json({ notified: true, channel: 'email' });
-    }
-
-    await notifyNegotiationResponse(
-      negotiation.customer_id,
-      negotiationType,
-      negotiationStatus,
-      negotiationId,
-      itemName,
+    const result = await notifyNegotiationResponseWithFallback({
       acceptedPrice,
-      productSlug
-    );
-    return NextResponse.json({ notified: true });
+      customerEmail: negotiation.customer_email,
+      customerId: negotiation.customer_id,
+      itemName,
+      merchantId: access.merchantId,
+      negotiationId,
+      negotiationType,
+      productSlug,
+      status: negotiationStatus,
+    });
+    return NextResponse.json(result);
   } catch (error) {
     // Use structured logging for production observability
     const { logger } = await import('@/lib/logger');
