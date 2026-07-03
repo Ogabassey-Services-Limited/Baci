@@ -41,6 +41,24 @@ describe('product variant attributes', () => {
     ]);
   });
 
+  it('does not expose nested color hex metadata paths', () => {
+    expect(
+      getVariantAttributeEntries(
+        variant({
+          color: 'Silver',
+          specs: {
+            color_hex: '#c0c0c0',
+            storage: '512GB',
+          },
+        })
+      )
+    ).toEqual([
+      { key: 'condition', label: 'Condition', value: 'new' },
+      { key: 'color', label: 'Color', value: 'Silver' },
+      { key: 'specs.storage', label: 'Specs Storage', value: '512GB' },
+    ]);
+  });
+
   it('does not expose color hex aliases from array attributes', () => {
     expect(
       getVariantAttributeMap(

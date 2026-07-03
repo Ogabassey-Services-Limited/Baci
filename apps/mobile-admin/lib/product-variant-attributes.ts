@@ -40,7 +40,9 @@ function normalizeAttributeKey(key: string): string {
 }
 
 function isSelectableAttributeKey(key: string): boolean {
-  return !NON_SELECTABLE_ATTRIBUTE_KEYS.has(key);
+  return key
+    .split('.')
+    .every((part) => !NON_SELECTABLE_ATTRIBUTE_KEYS.has(part));
 }
 
 export function formatAttributeLabel(key: string): string {

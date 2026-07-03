@@ -136,6 +136,18 @@ export default function CustomerDetailClientPage({
 
   const handleSaveChanges = async () => {
     if (!customer) return;
+    if (
+      editData.customer_type === 'company' &&
+      !editData.company_name?.trim()
+    ) {
+      toast({
+        title: 'Error',
+        description: 'Company name is required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       const data = await apiPatch<{ customer: Customer }>(
         `/api/customers/${customer.id}`,
@@ -195,6 +207,8 @@ export default function CustomerDetailClientPage({
   }
 
   const displayName = getCustomerDisplayName(customer);
+  const isCompanyNameMissing =
+    editData.customer_type === 'company' && !editData.company_name?.trim();
   const initials =
     displayName
       .split(' ')
@@ -267,6 +281,7 @@ export default function CustomerDetailClientPage({
                     <Label htmlFor="company_name">Company Name</Label>
                     <Input
                       id="company_name"
+                      aria-invalid={isCompanyNameMissing}
                       value={editData.company_name || ''}
                       onChange={(e) =>
                         setEditData({
@@ -275,6 +290,11 @@ export default function CustomerDetailClientPage({
                         })
                       }
                     />
+                    {isCompanyNameMissing ? (
+                      <p className="text-sm text-destructive" role="alert">
+                        Company name is required
+                      </p>
+                    ) : null}
                   </div>
                 ) : (
                   <>
@@ -352,7 +372,12 @@ export default function CustomerDetailClientPage({
                 <Button variant="outline" onClick={() => setEditOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSaveChanges}>Save Changes</Button>
+                <Button
+                  disabled={isCompanyNameMissing}
+                  onClick={handleSaveChanges}
+                >
+                  Save Changes
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

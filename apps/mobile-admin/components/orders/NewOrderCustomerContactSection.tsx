@@ -1,7 +1,8 @@
+import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { useState } from 'react';
-import { Keyboard, Pressable, ScrollView, Text, View } from 'react-native';
+import { Keyboard, Pressable, Text, View } from 'react-native';
 import type { CountryCode } from 'react-native-country-picker-modal';
 import {
   SheetTextInput,
@@ -165,19 +166,18 @@ export function NewOrderCustomerContactSection({
               />
             </Pressable>
           </View>
-          <ScrollView
+          <BottomSheetFlatList
+            data={filteredPhoneCountries}
+            keyExtractor={(country) => country.code}
             keyboardShouldPersistTaps="handled"
             nestedScrollEnabled
-            style={customerStyles.countryList}
-          >
-            {filteredPhoneCountries.map((country) => {
+            renderItem={({ item: country }) => {
               const isSelected = country.code === selectedPhoneCountry.code;
               return (
                 <Pressable
                   accessibilityLabel={`Use ${country.name} +${country.callingCode}`}
                   accessibilityRole="button"
                   accessibilityState={{ selected: isSelected }}
-                  key={country.code}
                   onPress={() => {
                     setSelectedCountryCode(country.code as CountryCode);
                     setNewCustomer((previous) => ({
@@ -225,8 +225,9 @@ export function NewOrderCustomerContactSection({
                   ) : null}
                 </Pressable>
               );
-            })}
-          </ScrollView>
+            }}
+            style={customerStyles.countryList}
+          />
         </View>
       ) : null}
 

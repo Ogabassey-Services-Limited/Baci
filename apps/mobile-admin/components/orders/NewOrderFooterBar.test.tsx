@@ -105,11 +105,13 @@ vi.mock('react-native', async () => {
         value: value ?? '',
       }),
     View: ({
+      accessibilityLabel,
       accessibilityRole,
       children,
       style,
       testID,
     }: {
+      accessibilityLabel?: string;
       accessibilityRole?: string;
       children?: React.ReactNode;
       style?: Record<string, unknown> | Record<string, unknown>[];
@@ -120,6 +122,7 @@ vi.mock('react-native', async () => {
       return React.createElement(
         'div',
         {
+          'aria-label': accessibilityLabel,
           'data-padding-bottom': String(flattenedStyle.paddingBottom ?? ''),
           'data-testid': testID,
           role: accessibilityRole,
@@ -264,6 +267,9 @@ describe('NewOrderFooterBar', () => {
 
     render(<NewOrderFooterBar controller={controller} />);
 
+    expect(
+      screen.getByRole('radiogroup', { name: 'Payment method' })
+    ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole('radio', { name: 'Payment method: Cash' })
     );

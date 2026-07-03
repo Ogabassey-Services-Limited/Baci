@@ -7,6 +7,8 @@ import {
 import type { IoniconsIconName } from '@react-native-vector-icons/ionicons';
 import type { CountryCode } from 'react-native-country-picker-modal';
 
+export type { CustomerType } from '@baci/shared';
+
 export const MODAL_FLATLIST_PROPS = {
   initialNumToRender: 20,
   maxToRenderPerBatch: 20,

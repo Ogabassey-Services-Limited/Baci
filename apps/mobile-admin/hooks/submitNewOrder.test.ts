@@ -278,6 +278,24 @@ describe('submitNewOrder', () => {
     );
   });
 
+  it('uses the UTC order date for the order number date segment', async () => {
+    await submitNewOrder(
+      createSubmitParams({
+        orderDate: new Date('2024-02-02T23:30:00.000Z'),
+      })
+    );
+
+    expect(mocks.createManualOrderWithItems).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        order: expect.objectContaining({
+          order_number: 'ORD-020224-UUID12',
+          transaction_date: '2024-02-02T23:30:00.000Z',
+        }),
+      })
+    );
+  });
+
   it('preserves custom match status and selected variant attributes', async () => {
     await submitNewOrder(
       createSubmitParams({

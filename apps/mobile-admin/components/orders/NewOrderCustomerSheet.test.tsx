@@ -213,7 +213,9 @@ describe('NewOrderCustomerSheet', () => {
 
     expect(screen.getByText('New Customer')).toBeInTheDocument();
     expect(screen.getByText('create-view')).toBeInTheDocument();
-    expect(screen.queryByText('Back to search')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Back to customer search' })
+    ).toBeInTheDocument();
     // Snap points stay static across modes (no runtime mutation).
     expect(mocks.sheetFrameProps.at(-1)).toMatchObject({
       activeIndex: 1,

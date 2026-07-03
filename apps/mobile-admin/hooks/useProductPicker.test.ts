@@ -60,6 +60,14 @@ describe('useProductPicker', () => {
     expect(result.current.products).toEqual([firstPhone, laptop, tablet]);
   });
 
+  it('returns an empty product list when product pages have not loaded', () => {
+    mocks.useProducts.mockReturnValue({ data: undefined });
+
+    const { result } = renderHook(() => useProductPicker(''));
+
+    expect(result.current.products).toEqual([]);
+  });
+
   it('preserves the server page order while browsing (no client re-sort)', () => {
     // fetchProducts pages by created_at desc before .range(...), so a client-side
     // sort would only reorder loaded pages and shuffle as more pages arrive.

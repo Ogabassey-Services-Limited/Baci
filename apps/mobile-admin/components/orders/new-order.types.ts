@@ -1,6 +1,7 @@
 import type { VariantAttributes } from '@baci/shared';
 import type { Customer } from '@/hooks/useCustomers';
 import type { SelectableManualOrderProduct } from '@/lib/manual-order-line-item';
+import type { CustomerType } from './new-order.shared';
 
 export interface ShippingAddress {
   name: string;
@@ -45,7 +46,7 @@ export interface DeliveryInfo {
 }
 
 export interface NewCustomerDraft {
-  customerType: 'individual' | 'company';
+  customerType: CustomerType;
   companyName: string;
   firstName: string;
   lastName: string;

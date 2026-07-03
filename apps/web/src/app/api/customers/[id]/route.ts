@@ -164,10 +164,16 @@ export async function PATCH(
       // editing a company customer updates its name (and the record stays a
       // company unless the update explicitly changes customer_type).
       const nextCustomerType = normalizeCustomerType(
-        body.customer_type ?? existingCustomer.customer_type
+        body.customer_type !== undefined
+          ? body.customer_type
+          : existingCustomer.customer_type
       );
       const nextCompanyName =
-        body.company_name ?? existingCustomer.company_name;
+        body.company_name !== undefined
+          ? body.company_name
+          : nextCustomerType === 'company'
+            ? existingCustomer.company_name
+            : null;
 
       if (nextCustomerType === 'company' && !nextCompanyName?.trim()) {
         return NextResponse.json(
@@ -184,10 +190,19 @@ export async function PATCH(
         buildCustomerRecordNameFields({
           customer_type: nextCustomerType,
           company_name: nextCompanyName,
-          first_name: body.first_name ?? existingCustomer.first_name,
-          last_name: body.last_name ?? existingCustomer.last_name,
-          full_name: body.full_name ?? existingCustomer.full_name,
-          email: body.email ?? existingCustomer.email,
+          first_name:
+            body.first_name !== undefined
+              ? body.first_name
+              : existingCustomer.first_name,
+          last_name:
+            body.last_name !== undefined
+              ? body.last_name
+              : existingCustomer.last_name,
+          full_name:
+            body.full_name !== undefined
+              ? body.full_name
+              : existingCustomer.full_name,
+          email: body.email !== undefined ? body.email : existingCustomer.email,
         })
       );
     }

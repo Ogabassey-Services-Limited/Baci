@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import type { CountryCode } from 'react-native-country-picker-modal';
 import { createEmptyNewCustomerDraft } from '@/components/orders/new-order.defaults';
 import {
+  type CustomerType,
   DEFAULT_COUNTRY_CODE,
   getCustomerDisplayName,
 } from '@/components/orders/new-order.shared';
@@ -23,7 +24,7 @@ interface CreateNewOrderCustomerActionsParams {
   createCustomer: (input: {
     address?: string;
     company_name?: string;
-    customer_type: 'individual' | 'company';
+    customer_type: CustomerType;
     email?: string;
     first_name: string;
     last_name: string;

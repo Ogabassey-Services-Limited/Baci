@@ -25,6 +25,26 @@ vi.mock('@gorhom/bottom-sheet', async () => {
   const React = await import('react');
 
   return {
+    BottomSheetFlatList: ({
+      data,
+      keyExtractor,
+      renderItem,
+    }: {
+      data: unknown[];
+      keyExtractor: (item: unknown) => string;
+      renderItem: (info: { item: unknown }) => React.ReactNode;
+    }) =>
+      React.createElement(
+        'div',
+        { 'data-gorhom-list': 'true' },
+        data.map((item) =>
+          React.createElement(
+            'div',
+            { key: keyExtractor(item) },
+            renderItem({ item })
+          )
+        )
+      ),
     BottomSheetTextInput: React.forwardRef(
       (
         {
@@ -94,8 +114,6 @@ vi.mock('react-native', async () => {
         },
         children
       ),
-    ScrollView: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },
@@ -217,6 +235,10 @@ describe('NewOrderCustomerContactSection', () => {
       screen.getByLabelText('Select phone country, currently Nigeria')
     );
     expect(screen.getByLabelText('Search phone countries')).toBeInTheDocument();
+    expect(screen.getByLabelText('Search phone countries')).toHaveAttribute(
+      'data-gorhom-input',
+      'true'
+    );
     expect(
       screen.getByRole('button', { name: 'Use Ghana +233' })
     ).toBeVisible();

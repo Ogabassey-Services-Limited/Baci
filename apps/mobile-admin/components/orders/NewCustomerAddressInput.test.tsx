@@ -340,11 +340,29 @@ describe('NewCustomerAddressInput', () => {
 
   it('clears suggestions when the autocomplete request fails', async () => {
     const setNewCustomer = vi.fn();
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      json: vi.fn(),
-      status: 500,
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          predictions: [
+            {
+              description: '12 Allen Avenue, Ikeja, Lagos',
+              place_id: 'place-1',
+              structured_formatting: {
+                main_text: '12 Allen Avenue',
+                secondary_text: 'Ikeja, Lagos',
+              },
+            },
+          ],
+        }),
+        status: 200,
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: vi.fn(),
+        status: 500,
+      });
     vi.stubGlobal('fetch', fetchMock);
 
     const view = render(
@@ -371,8 +389,26 @@ describe('NewCustomerAddressInput', () => {
       />
     );
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByText('12 Allen Avenue')).toBeInTheDocument()
+    );
 
-    expect(screen.queryByLabelText('Address suggestions')).toBeNull();
+    fireEvent.change(screen.getByPlaceholderText('Search Address'), {
+      target: { value: 'Bad address' },
+    });
+    view.rerender(
+      <NewCustomerAddressInput
+        address="Bad address"
+        colors={LIGHT_COLORS}
+        googleMapsApiKey="maps-test-key"
+        selectedCountryCode="NG"
+        setNewCustomer={setNewCustomer}
+      />
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.queryByText('12 Allen Avenue')).not.toBeInTheDocument()
+    );
   });
 });

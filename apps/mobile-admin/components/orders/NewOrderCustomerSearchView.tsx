@@ -1,3 +1,4 @@
+import { dedupeById } from '@baci/shared';
 import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useEffect, useState } from 'react';
@@ -38,17 +39,9 @@ export function NewOrderCustomerSearchView({
   // The customers query requests server-side `sortBy: 'alpha'`, so pages already
   // arrive globally ordered by name. Preserve that order, but remove duplicate
   // ids if offset pagination shifts between page loads.
-  const seenCustomerIds = new Set<string>();
-  const customerRows =
-    customersData?.pages
-      .flatMap((page) => page.customers)
-      .filter((customer) => {
-        if (seenCustomerIds.has(customer.id)) {
-          return false;
-        }
-        seenCustomerIds.add(customer.id);
-        return true;
-      }) ?? [];
+  const customerRows = dedupeById(
+    customersData?.pages.flatMap((page) => page.customers) ?? []
+  );
   const listViewportHeight = Math.max(
     CUSTOMER_LIST_MIN_VIEWPORT_HEIGHT,
     Math.round(bodyHeight) - CUSTOMER_LIST_CHROME_OFFSET

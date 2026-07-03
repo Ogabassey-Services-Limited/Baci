@@ -56,12 +56,14 @@ vi.mock('@/components/ui/button', () => ({
   Button: ({
     'aria-pressed': ariaPressed,
     children,
+    disabled,
     onClick,
     type = 'button',
     variant,
   }: {
     'aria-pressed'?: boolean;
     children?: ReactNode;
+    disabled?: boolean;
     onClick?: () => void;
     type?: 'button' | 'submit' | 'reset';
     variant?: string;
@@ -69,6 +71,7 @@ vi.mock('@/components/ui/button', () => ({
     <button
       aria-pressed={ariaPressed}
       data-variant={variant}
+      disabled={disabled}
       onClick={onClick}
       type={type}
     >
@@ -105,15 +108,18 @@ vi.mock('@/components/ui/dialog', () => ({
 
 vi.mock('@/components/ui/input', () => ({
   Input: ({
+    'aria-invalid': ariaInvalid,
     id,
     onChange,
     value,
   }: {
+    'aria-invalid'?: boolean;
     id?: string;
     onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
     value?: string | number | null;
   }) => (
     <input
+      aria-invalid={ariaInvalid}
       id={id}
       onChange={(event) => onChange?.(event)}
       value={value ?? ''}
@@ -201,5 +207,25 @@ describe('CustomerDetailClientPage', () => {
       'aria-pressed',
       'true'
     );
+  });
+
+  it('blocks saving a company customer until a company name is provided', () => {
+    render(
+      <CustomerDetailClientPage
+        initialCustomer={makeCustomer()}
+        initialOrders={[] as CustomerOrder[]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Company' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Company name is required'
+    );
+    expect(screen.getByLabelText('Company Name')).toHaveAttribute(
+      'aria-invalid',
+      'true'
+    );
+    expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();
   });
 });

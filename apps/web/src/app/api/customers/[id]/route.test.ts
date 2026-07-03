@@ -368,6 +368,49 @@ describe('PATCH /api/customers/[id]', () => {
     });
   });
 
+  it('preserves explicit null clears instead of falling back to existing customer fields', async () => {
+    customer = {
+      id: CUSTOMER_ID,
+      customer_type: 'individual',
+      company_name: null,
+      first_name: 'Ada',
+      full_name: 'Ada Lovelace',
+      last_name: 'Lovelace',
+      email: 'ada@example.com',
+    };
+    updateResult = {
+      id: CUSTOMER_ID,
+      customer_type: 'individual',
+      company_name: null,
+      first_name: null,
+      full_name: null,
+      last_name: null,
+      email: null,
+    };
+
+    const res = await PATCH(
+      makePatchRequest(CUSTOMER_ID, {
+        email: null,
+        first_name: null,
+        full_name: null,
+        last_name: null,
+      }),
+      {
+        params: Promise.resolve({ id: CUSTOMER_ID }),
+      }
+    );
+
+    expect(res.status).toBe(200);
+    expect(updatePayload).toMatchObject({
+      company_name: null,
+      customer_type: 'individual',
+      email: null,
+      first_name: null,
+      full_name: null,
+      last_name: null,
+    });
+  });
+
   it('returns 400 on validation failure', async () => {
     const res = await PATCH(
       makePatchRequest(CUSTOMER_ID, { full_name: 'Invalid Name' }),

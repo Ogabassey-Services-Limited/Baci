@@ -145,7 +145,11 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
           >
             Payment Method
           </Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View
+            accessibilityLabel="Payment method"
+            accessibilityRole="radiogroup"
+            style={{ flexDirection: 'row', gap: 8 }}
+          >
             {PAYMENT_METHODS.map((method) => (
               <Pressable
                 accessibilityLabel={`Payment method: ${method.label}`}

@@ -1,18 +1,6 @@
+import { dedupeById } from '@baci/shared';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useProducts } from '@/hooks/useProducts';
-
-function dedupeProductsById<T extends { id: string }>(products: T[]): T[] {
-  const seenProductIds = new Set<string>();
-
-  return products.filter((product) => {
-    if (seenProductIds.has(product.id)) {
-      return false;
-    }
-
-    seenProductIds.add(product.id);
-    return true;
-  });
-}
 
 export function useProductPicker(searchQuery: string) {
   const debouncedSearchQuery = useDebounce(searchQuery, 150);
@@ -28,6 +16,6 @@ export function useProductPicker(searchQuery: string) {
     // searching, and `created_at` desc while browsing. A client-side sort here
     // would only reorder the already-loaded pages, so the ranking would shuffle
     // as more pages load (`fetchProducts` pages before `.range(...)`).
-    products: dedupeProductsById(products),
+    products: dedupeById(products),
   };
 }

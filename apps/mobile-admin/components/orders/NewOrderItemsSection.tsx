@@ -65,7 +65,7 @@ export function NewOrderItemsSection({
             name="flash-outline"
             size={18}
           />
-          <Text style={[styles.actionBtnText, { color: colors.primary }]}>
+          <Text style={[styles.actionBtnText, { color: quickAddAccentColor }]}>
             Quick Add
           </Text>
         </Pressable>
