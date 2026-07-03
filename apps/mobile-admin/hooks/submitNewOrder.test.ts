@@ -77,7 +77,7 @@ function createSubmitParams(
     merchantCurrency: 'NGN',
     merchantId: 'merchant-1',
     notes: 'Handle with care',
-    orderDate: new Date('2024-02-03T10:30:00.000Z'),
+    orderDate: new Date(2024, 1, 3, 10, 30),
     orderItems: [createOrderItem({ price: 12000, variant_name: 'Blue' })],
     partialAmount: '',
     paymentMethod: 'cash',
@@ -139,14 +139,13 @@ describe('submitNewOrder', () => {
     const setIsSubmitting = vi.fn();
     const setLastOrderId = vi.fn();
     const setShowSuccessModal = vi.fn();
+    const params = createSubmitParams({
+      setIsSubmitting,
+      setLastOrderId,
+      setShowSuccessModal,
+    });
 
-    await submitNewOrder(
-      createSubmitParams({
-        setIsSubmitting,
-        setLastOrderId,
-        setShowSuccessModal,
-      })
-    );
+    await submitNewOrder(params);
 
     expect(mocks.supabaseFrom).toHaveBeenCalledWith('branches');
     expect(branchQuery.select).toHaveBeenCalledWith('id');
@@ -187,7 +186,7 @@ describe('submitNewOrder', () => {
           subtotal: 12000,
           tax_amount: 0,
           total: 12000,
-          transaction_date: '2024-02-03T10:30:00.000Z',
+          transaction_date: params.orderDate.toISOString(),
         }),
       })
     );
