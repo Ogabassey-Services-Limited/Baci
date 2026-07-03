@@ -5,6 +5,7 @@ import {
   buildCustomerRecordNameFields,
   buildCustomerSearchFilter,
   CUSTOMER_ADMIN_COLUMNS,
+  type CustomerType,
   extractOrderDeliveryAddress,
   WEB_ORDER_WITH_ITEMS_QUERY,
 } from '@baci/shared';
@@ -18,7 +19,7 @@ import { createCustomerSchema, formatZodErrors } from '@/schemas/customers';
 export interface Customer {
   id: string;
   merchant_id: string;
-  customer_type: 'individual' | 'company';
+  customer_type: CustomerType;
   company_name: string | null;
   full_name: string | null;
   first_name: string | null;

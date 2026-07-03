@@ -18,12 +18,15 @@ vi.mock('react-native-safe-area-context', () => ({
 
 vi.mock('react-native', async () => {
   const React = await import('react');
-  const flattenStyle = (
-    style: Record<string, unknown> | Record<string, unknown>[] | undefined
-  ) =>
-    Array.isArray(style)
-      ? Object.assign({}, ...style.filter(Boolean))
-      : (style ?? {});
+  const flattenStyle = (value: unknown): Record<string, unknown> => {
+    if (Array.isArray(value)) {
+      return Object.assign({}, ...value.filter(Boolean).map(flattenStyle));
+    }
+    if (value && typeof value === 'object') {
+      return value as Record<string, unknown>;
+    }
+    return {};
+  };
 
   return {
     ActivityIndicator: () =>
@@ -54,15 +57,6 @@ vi.mock('react-native', async () => {
       onPress?: () => void;
       style?: ((state: { pressed: boolean }) => unknown) | unknown;
     }) => {
-      const flattenStyle = (value: unknown): Record<string, unknown> => {
-        if (Array.isArray(value)) {
-          return Object.assign({}, ...value.filter(Boolean).map(flattenStyle));
-        }
-        if (value && typeof value === 'object') {
-          return value as Record<string, unknown>;
-        }
-        return {};
-      };
       const resolvedStyle = flattenStyle(
         typeof style === 'function' ? style({ pressed: false }) : style
       );

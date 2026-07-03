@@ -1,3 +1,5 @@
+import type { CustomerType } from '@baci/shared';
+
 export function getCustomerEditHeader({
   companyName,
   customerType,
@@ -5,7 +7,7 @@ export function getCustomerEditHeader({
   lastName,
 }: {
   companyName: string;
-  customerType?: string | null;
+  customerType?: CustomerType | null;
   firstName: string;
   lastName: string;
 }) {

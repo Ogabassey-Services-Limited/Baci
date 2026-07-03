@@ -218,13 +218,24 @@ export async function PATCH(
       .update(updates)
       .eq('id', id)
       .eq('merchant_id', merchantId)
+      .eq('updated_at', existingCustomer.updated_at)
       .select(CUSTOMER_ADMIN_COLUMNS)
-      .single();
+      .maybeSingle();
 
     if (error) {
       return NextResponse.json(
         { error: 'Internal server error' },
         { status: 500 }
+      );
+    }
+
+    if (!customer) {
+      return NextResponse.json(
+        {
+          error:
+            'Customer was updated by another request. Refresh and try again.',
+        },
+        { status: 409 }
       );
     }
 

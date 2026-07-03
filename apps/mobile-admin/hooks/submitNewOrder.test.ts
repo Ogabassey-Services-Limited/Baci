@@ -77,7 +77,7 @@ function createSubmitParams(
     merchantCurrency: 'NGN',
     merchantId: 'merchant-1',
     notes: 'Handle with care',
-    orderDate: new Date(2024, 1, 3, 10, 30),
+    orderDate: new Date('2024-02-03T10:30:00.000Z'),
     orderItems: [createOrderItem({ price: 12000, variant_name: 'Blue' })],
     partialAmount: '',
     paymentMethod: 'cash',

@@ -73,12 +73,8 @@ export const createCustomerSchema = z
       .optional()
       .nullable(),
     store_credit: customerStoreCreditSchema.optional().nullable(),
-    notes: z
-      .string()
-      .transform((val) => sanitizeText(val, 1000))
-      .optional()
-      .nullable(),
   })
+  .strict()
   .superRefine(requireCompanyNameWhenCompany);
 
 export const updateCustomerSchema = z

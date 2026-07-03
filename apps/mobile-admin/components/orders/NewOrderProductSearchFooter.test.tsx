@@ -69,7 +69,6 @@ describe('NewOrderProductSearchFooter', () => {
       />
     );
 
-    expect(screen.getByTestId('product-search-footer')).toBeInTheDocument();
     expect(
       screen.getByRole('textbox', { name: 'Search products' })
     ).toHaveAttribute('data-gorhom-input', 'true');

@@ -117,6 +117,15 @@ describe('customer schemas', () => {
         createCustomerSchema.safeParse({ customer_type: 'vendor' }).success
       ).toBe(false);
     });
+
+    it('rejects unsupported notes instead of accepting an unsaved field', () => {
+      expect(
+        createCustomerSchema.safeParse({
+          first_name: 'Ada',
+          notes: 'Call before delivery',
+        }).success
+      ).toBe(false);
+    });
   });
 
   describe('updateCustomerSchema', () => {

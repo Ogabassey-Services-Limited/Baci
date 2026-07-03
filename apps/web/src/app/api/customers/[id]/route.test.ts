@@ -56,6 +56,7 @@ let customer: unknown = null;
 let customerError: unknown = null;
 let updateResult: unknown = null;
 let updateError: unknown = null;
+let updateFilters: [string, unknown][] = [];
 let updatePayload: Record<string, unknown> | null = null;
 let deleteResult: unknown[] | null = null;
 let deleteError: unknown = null;
@@ -94,21 +95,22 @@ const createMockSupabase = () => ({
         }),
         update: vi.fn((payload: Record<string, unknown>) => {
           updatePayload = payload;
-          return {
-            eq: vi.fn(() => ({
-              eq: vi.fn(() => ({
-                select: vi.fn(() => ({
-                  single: vi.fn(() => {
-                    const hasError = updateError != null;
-                    return Promise.resolve({
-                      data: hasError ? null : updateResult,
-                      error: updateError,
-                    });
-                  }),
-                })),
-              })),
-            })),
+          updateFilters = [];
+          const updateQuery = {
+            eq: vi.fn((column: string, value: unknown) => {
+              updateFilters.push([column, value]);
+              return updateQuery;
+            }),
+            maybeSingle: vi.fn(() => {
+              const hasError = updateError != null;
+              return Promise.resolve({
+                data: hasError ? null : updateResult,
+                error: updateError,
+              });
+            }),
+            select: vi.fn(() => updateQuery),
           };
+          return updateQuery;
         }),
         delete: vi.fn(() => ({
           eq: vi.fn(() => ({
@@ -167,10 +169,12 @@ function resetMocks() {
     id: CUSTOMER_ID,
     full_name: 'Test Customer',
     email: 'test@example.com',
+    updated_at: '2026-07-03T10:00:00.000Z',
   };
   customerError = null;
   updateResult = null;
   updateError = null;
+  updateFilters = [];
   updatePayload = null;
   deleteResult = [{ id: CUSTOMER_ID }];
   deleteError = null;
@@ -241,6 +245,27 @@ describe('PATCH /api/customers/[id]', () => {
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.customer.full_name).toBe('Updated Name');
+    expect(updateFilters).toContainEqual([
+      'updated_at',
+      '2026-07-03T10:00:00.000Z',
+    ]);
+  });
+
+  it('returns 409 when the customer changed after the update snapshot was read', async () => {
+    updateResult = null;
+
+    const res = await PATCH(
+      makePatchRequest(CUSTOMER_ID, { full_name: 'Updated Name' }),
+      {
+        params: Promise.resolve({ id: CUSTOMER_ID }),
+      }
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json.error).toBe(
+      'Customer was updated by another request. Refresh and try again.'
+    );
   });
 
   it('updates company customer name fields together', async () => {

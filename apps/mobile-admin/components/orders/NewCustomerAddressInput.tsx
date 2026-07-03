@@ -82,8 +82,20 @@ export function NewCustomerAddressInput({
           const nextSuggestions = toAddressSuggestions(data);
           setSuggestions(nextSuggestions);
         })
-        .catch(() => {
+        .catch((error: unknown) => {
           if (requestSequenceRef.current === requestSequence) {
+            if (
+              typeof __DEV__ !== 'undefined' &&
+              __DEV__ &&
+              !(
+                error instanceof Error &&
+                error.name.toLowerCase() === 'aborterror'
+              )
+            ) {
+              console.warn('[NewCustomerAddressInput] Places lookup failed', {
+                error,
+              });
+            }
             setSuggestions([]);
           }
         });

@@ -340,6 +340,10 @@ describe('NewCustomerAddressInput', () => {
 
   it('clears suggestions when the autocomplete request fails', async () => {
     const setNewCustomer = vi.fn();
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    vi.stubGlobal('__DEV__', true);
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -408,7 +412,14 @@ describe('NewCustomerAddressInput', () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     await waitFor(() =>
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[NewCustomerAddressInput] Places lookup failed',
+        expect.objectContaining({ error: expect.any(Error) })
+      )
+    );
+    await waitFor(() =>
       expect(screen.queryByText('12 Allen Avenue')).not.toBeInTheDocument()
     );
+    warnSpy.mockRestore();
   });
 });
