@@ -54,11 +54,40 @@ describe('notifyNegotiationResponseWithFallback', () => {
     });
   });
 
+  it('normalizes captured guest email before sending fallback email', async () => {
+    await expect(
+      notifyNegotiationResponseWithFallback({
+        ...baseParams,
+        customerEmail: '  Guest@Example.COM  ',
+        customerId: null,
+      })
+    ).resolves.toEqual({ notified: true, channel: 'email' });
+
+    expect(mockNotifyGuestNegotiationResponseByEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'guest@example.com',
+      })
+    );
+  });
+
   it('returns no_customer_email for guest negotiations without email', async () => {
     await expect(
       notifyNegotiationResponseWithFallback({
         ...baseParams,
         customerEmail: null,
+        customerId: null,
+      })
+    ).resolves.toEqual({ notified: false, reason: 'no_customer_email' });
+
+    expect(mockNotifyNegotiationResponse).not.toHaveBeenCalled();
+    expect(mockNotifyGuestNegotiationResponseByEmail).not.toHaveBeenCalled();
+  });
+
+  it('returns no_customer_email for guest negotiations with invalid persisted email', async () => {
+    await expect(
+      notifyNegotiationResponseWithFallback({
+        ...baseParams,
+        customerEmail: 'not-an-email',
         customerId: null,
       })
     ).resolves.toEqual({ notified: false, reason: 'no_customer_email' });
@@ -122,6 +151,24 @@ describe('notifyNegotiationResponseWithFallback', () => {
       notifyNegotiationResponseWithFallback({
         ...baseParams,
         customerEmail: null,
+        customerId: 'customer-1',
+      })
+    ).resolves.toEqual({ notified: false, reason: 'no_delivery_channel' });
+
+    expect(mockNotifyGuestNegotiationResponseByEmail).not.toHaveBeenCalled();
+  });
+
+  it('reports no delivery channel when push reaches no devices and persisted email is invalid', async () => {
+    mockNotifyNegotiationResponse.mockResolvedValueOnce({
+      sent: 0,
+      failed: 0,
+      errors: [],
+    });
+
+    await expect(
+      notifyNegotiationResponseWithFallback({
+        ...baseParams,
+        customerEmail: 'bad-email',
         customerId: 'customer-1',
       })
     ).resolves.toEqual({ notified: false, reason: 'no_delivery_channel' });

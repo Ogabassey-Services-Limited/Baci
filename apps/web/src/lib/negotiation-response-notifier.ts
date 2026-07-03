@@ -1,3 +1,4 @@
+import { normalizeNegotiationCustomerEmail } from '@baci/shared/lib';
 import {
   notifyGuestNegotiationResponseByEmail,
   notifyNegotiationResponse,
@@ -30,6 +31,9 @@ export async function notifyNegotiationResponseWithFallback({
   productSlug,
   status,
 }: NotifyNegotiationResponseWithFallbackParams): Promise<NegotiationResponseNotificationResult> {
+  const normalizedCustomerEmail =
+    normalizeNegotiationCustomerEmail(customerEmail);
+
   async function notifyByEmail(email: string) {
     await notifyGuestNegotiationResponseByEmail({
       acceptedPrice,
@@ -45,11 +49,11 @@ export async function notifyNegotiationResponseWithFallback({
   }
 
   if (!customerId) {
-    if (!customerEmail) {
+    if (!normalizedCustomerEmail) {
       return { notified: false, reason: 'no_customer_email' };
     }
 
-    return notifyByEmail(customerEmail);
+    return notifyByEmail(normalizedCustomerEmail);
   }
 
   try {
@@ -80,8 +84,8 @@ export async function notifyNegotiationResponseWithFallback({
     );
   }
 
-  if (customerEmail) {
-    return notifyByEmail(customerEmail);
+  if (normalizedCustomerEmail) {
+    return notifyByEmail(normalizedCustomerEmail);
   }
 
   return { notified: false, reason: 'no_delivery_channel' };

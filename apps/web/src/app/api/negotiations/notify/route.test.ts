@@ -456,7 +456,7 @@ describe('POST /api/negotiations/notify', () => {
     expect(data.error).toBe('Invalid negotiation type');
   });
 
-  it('returns 500 when notification delivery fails', async () => {
+  it('returns no delivery channel when push delivery fails without fallback email', async () => {
     await setupAuth({
       authenticated: true,
       hasAccess: true,
@@ -481,8 +481,11 @@ describe('POST /api/negotiations/notify', () => {
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(500);
-    expect(data).toEqual({ notified: false, reason: 'notification_failed' });
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      notified: false,
+      reason: 'no_delivery_channel',
+    });
   });
 
   it('passes null acceptedPrice for rejected negotiations', async () => {

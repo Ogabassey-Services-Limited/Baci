@@ -7,6 +7,7 @@ export * from './kuda-electricity-bill-items';
 export * from './location-state-aliases';
 export * from './negotiation-cart-snapshot';
 export * from './negotiation-contact';
+export * from './negotiation-email';
 export * from './negotiation-item-info';
 export * from './negotiation-policy';
 export * from './parse-santa-action';

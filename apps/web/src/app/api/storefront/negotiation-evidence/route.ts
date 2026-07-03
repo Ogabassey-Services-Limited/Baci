@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { SignJWT } from 'jose';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getSupabaseJwtSecret } from '@/env';
 import { createScopedClient } from '@/lib/supabase/scoped';
+import { signScopedSupabaseJwt } from '@/lib/supabase/scoped-jwt';
 import { createClient } from '@/lib/supabase/server';
 
 export const NEGOTIATION_EVIDENCE_BUCKET = 'negotiation-evidence';
 
 const MAX_NEGOTIATION_EVIDENCE_BYTES = 10 * 1024 * 1024;
+const NEGOTIATION_EVIDENCE_UPLOAD_TTL_SECONDS = 5 * 60;
 const ALLOWED_NEGOTIATION_EVIDENCE_TYPES = new Map([
   ['image/png', 'png'],
   ['image/jpeg', 'jpg'],
@@ -19,12 +19,7 @@ const ALLOWED_NEGOTIATION_EVIDENCE_TYPES = new Map([
 ]);
 
 const evidenceRequestSchema = z.object({
-  merchantId: z
-    .string()
-    .trim()
-    .min(1)
-    .max(80)
-    .regex(/^[A-Za-z0-9_-]+$/),
+  merchantId: z.string().trim().pipe(z.uuid()),
   fileName: z.string().trim().min(1).max(255),
   fileSize: z.number().int().positive().max(MAX_NEGOTIATION_EVIDENCE_BYTES),
   contentType: z.string().trim().toLowerCase().max(120),
@@ -111,18 +106,16 @@ function getStorageContentType(contentType: string, extension: string) {
   return extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
 }
 
-async function createNegotiationEvidenceUploadToken(merchantId: string) {
-  const secret = new TextEncoder().encode(getSupabaseJwtSecret());
+function createNegotiationEvidenceUploadToken(merchantId: string) {
+  const issuedAt = Math.floor(Date.now() / 1000);
 
-  return await new SignJWT({
+  return signScopedSupabaseJwt({
     [NEGOTIATION_EVIDENCE_UPLOAD_CLAIM]: true,
+    exp: issuedAt + NEGOTIATION_EVIDENCE_UPLOAD_TTL_SECONDS,
+    iat: issuedAt,
     merchant_id: merchantId,
     role: 'anon',
-  })
-    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
-    .setIssuedAt()
-    .setExpirationTime('5m')
-    .sign(secret);
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -170,7 +163,7 @@ export async function POST(request: NextRequest) {
     merchantId: parsed.data.merchantId,
   });
 
-  const scopedJwt = await createNegotiationEvidenceUploadToken(
+  const scopedJwt = createNegotiationEvidenceUploadToken(
     parsed.data.merchantId
   );
   const uploadClient = createScopedClient(scopedJwt);

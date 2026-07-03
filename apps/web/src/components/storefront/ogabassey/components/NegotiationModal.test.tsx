@@ -393,6 +393,7 @@ describe('NegotiationModal', () => {
     vi.useRealTimers();
 
     const form = fileInput.closest('form') as HTMLFormElement;
+    expect(form.noValidate).toBe(true);
     await act(async () => {
       fireEvent.submit(form);
     });
@@ -442,6 +443,7 @@ describe('NegotiationModal', () => {
     vi.useRealTimers();
 
     const form = fileInput.closest('form') as HTMLFormElement;
+    expect(form.noValidate).toBe(true);
     await act(async () => {
       fireEvent.submit(form);
     });
@@ -674,6 +676,7 @@ describe('NegotiationModal', () => {
     vi.useRealTimers();
 
     const form = fileInput.closest('form') as HTMLFormElement;
+    expect(form.noValidate).toBe(true);
     await act(async () => {
       fireEvent.submit(form);
     });

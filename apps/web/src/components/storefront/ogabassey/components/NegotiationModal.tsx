@@ -2,25 +2,24 @@
 
 // Migrated from temp-source/components/NegotiationModal.tsx
 import {
-  buildNegotiationSingleItemInfo,
-  buildCartSnapshot,
   COUNTER_NEGOTIATION_DISCOUNT_STEPS,
   isProductNegotiable,
   MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
-  type NegotiationCartLine,
-  normalizePhoneToE164,
-  summarizeCartForItemInfo,
 } from '@baci/shared/lib';
 import { CheckCircle2, HandCoins, Loader2, Upload, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { CartItem } from '@/hooks/cart';
-import {
-  getCartItemCheckoutUnitPrice,
-  isQuizVoucherCartItem,
-} from '@/lib/checkout/cart-entitlement-sanitizer';
 import { createClient } from '@/lib/supabase/client';
 import { uploadNegotiationEvidenceFile } from './negotiation-evidence';
+import { computeCounterOffer } from './negotiation-modal-pricing';
+import { insertNegotiationRequest } from './negotiation-modal-request';
+import {
+  NegotiationValidationError,
+  getContactValidationError,
+} from './negotiation-modal-validation';
+
+export { deriveCartLineNegotiationProps } from './negotiation-modal-cart';
 
 interface NegotiationModalProps {
   isOpen: boolean;
@@ -42,97 +41,6 @@ interface NegotiationModalProps {
   cart?: CartItem[];
 }
 
-function foldCartLineVariantSelection(item: CartItem) {
-  const variantAttributes: Record<string, string> = {
-    ...(item.variantAttributes ?? {}),
-  };
-  const variantParts = Object.entries(variantAttributes).map(
-    ([key, value]) => `${key}: ${value}`
-  );
-  const seenLabels = new Set(
-    Object.keys(variantAttributes).map((key) => key.trim().toLowerCase())
-  );
-  const seenPairs = new Set(
-    Object.entries(variantAttributes).map(
-      ([key, value]) => `${key.trim().toLowerCase()}::${value.trim().toLowerCase()}`
-    )
-  );
-
-  for (const [label, value] of [
-    ['Color', item.selectedColor],
-    ['Secondary color', item.secondaryColor],
-    ['Storage', item.selectedStorage],
-  ] as const) {
-    const normalized = value?.trim().toLowerCase();
-    const normalizedLabel = label.toLowerCase();
-    const pairKey = `${normalizedLabel}::${normalized}`;
-    if (
-      !value ||
-      !normalized ||
-      seenLabels.has(normalizedLabel) ||
-      seenPairs.has(pairKey)
-    ) {
-      continue;
-    }
-
-    variantAttributes[label] = value;
-    variantParts.push(`${label}: ${value}`);
-    seenLabels.add(normalizedLabel);
-    seenPairs.add(pairKey);
-  }
-
-  return {
-    variantAttributes:
-      Object.keys(variantAttributes).length > 0 ? variantAttributes : undefined,
-    variantName: [...new Set(variantParts)].join(' · ') || undefined,
-  };
-}
-
-/** Map a web cart line into the platform-neutral negotiation snapshot shape. */
-function toNegotiationCartLine(item: CartItem): Partial<NegotiationCartLine> {
-  const { variantName } = foldCartLineVariantSelection(item);
-
-  return {
-    product_id: item.id,
-    name: item.name,
-    price: isQuizVoucherCartItem(item) ? 0 : getCartItemCheckoutUnitPrice(item),
-    quantity: item.quantity,
-    image: item.image,
-    variant_id: item.variantId,
-    variant_name: variantName,
-    brand: item.brand,
-    condition: item.condition,
-  };
-}
-
-/**
- * Derive the single-item negotiation props for a cart line so cart-origin
- * single offers carry the same SKU details (variant id/attributes, condition,
- * slug, brand) as PDP-origin offers — otherwise the admin card can't tell which
- * variant was negotiated. Color/storage live in dedicated cart fields, so fold
- * them into the attributes map (variant_name is intentionally omitted to avoid
- * duplicating attributes in the merchant-facing label).
- */
-export function deriveCartLineNegotiationProps(item: CartItem): {
-  itemId: string;
-  variantId?: string;
-  variantAttributes?: Record<string, string>;
-  condition?: string;
-  productSlug?: string;
-  productBrand?: string;
-} {
-  const { variantAttributes } = foldCartLineVariantSelection(item);
-
-  return {
-    itemId: item.cartItemId,
-    variantId: item.variantId,
-    variantAttributes,
-    condition: item.condition,
-    productSlug: item.slug,
-    productBrand: item.brand,
-  };
-}
-
 type NegotiationStatus =
   | 'input'
   | 'processing'
@@ -142,167 +50,10 @@ type NegotiationStatus =
   | 'upload'
   | 'submitted';
 
-const SESSION_KEY = 'ogabassey_guest_session';
 const AI_REVIEW_MESSAGE =
   'Your offer was accepted by our AI and is subject to human review.';
 const FINAL_PRICE_MESSAGE =
   "That's the final price for this product. We can't discount it further.";
-const MAX_CUSTOMER_EMAIL_LENGTH = 254;
-const MIN_SUBTOTAL_FOR_ROUNDED_COUNTER = 1000;
-
-class NegotiationValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'NegotiationValidationError';
-  }
-}
-
-function getOrCreateSessionId(): string {
-  if (typeof window === 'undefined') return `web-${Date.now()}`;
-  const existing = window.sessionStorage.getItem(SESSION_KEY);
-  if (existing) return existing;
-  const id = `web-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`}`;
-  window.sessionStorage.setItem(SESSION_KEY, id);
-  return id;
-}
-
-function computeCounterOffer(
-  currentPrice: number,
-  counterDiscount: number,
-  vatRate = 0
-): number {
-  const rawCounterOffer = Math.floor(currentPrice * (1 - counterDiscount));
-
-  // Keep the final (max-rate) counter-offer within the API's allowed cap.
-  if (counterDiscount < MAX_AUTO_NEGOTIATION_DISCOUNT_RATE) {
-    return rawCounterOffer;
-  }
-
-  const rawDiscountAmount = currentPrice - rawCounterOffer;
-  const vatAwareCart = vatRate > 0;
-  const hasFractionalPrice = !Number.isInteger(currentPrice);
-  const maxServerAcceptedDiscountAmount =
-    vatAwareCart
-      ? Math.floor(currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE)
-      : hasFractionalPrice
-      ? Math.floor(currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE)
-      : currentPrice >= MIN_SUBTOTAL_FOR_ROUNDED_COUNTER
-      ? Math.ceil(currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE)
-      : Math.floor(currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE);
-
-  return currentPrice - Math.min(rawDiscountAmount, maxServerAcceptedDiscountAmount);
-}
-
-interface NegotiationRequestInput {
-  merchantId: string;
-  type: 'single' | 'total';
-  itemId?: string;
-  productSlug?: string;
-  productName: string;
-  productBrand?: string;
-  currentPrice: number;
-  offeredPrice: number;
-  evidenceUrl?: string;
-  customerEmail?: string | null;
-  customerPhone?: string | null;
-  variantId?: string;
-  variantName?: string;
-  variantAttributes?: Record<string, string>;
-  condition?: string;
-  cart?: CartItem[];
-}
-
-async function insertNegotiationRequest(
-  supabase: ReturnType<typeof createClient>,
-  request: NegotiationRequestInput
-): Promise<void> {
-  // Get authenticated user if available (null for guests)
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError) {
-    console.warn('Auth check failed, continuing as guest:', authError.message);
-  }
-
-  const normalizedPhone = normalizePhoneToE164(request.customerPhone);
-  if ((request.customerPhone ?? '').trim() && !normalizedPhone) {
-    throw new NegotiationValidationError(
-      'Enter a valid Phone / WhatsApp number.'
-    );
-  }
-  const normalizedEmail = normalizeOptionalEmail(request.customerEmail);
-  if ((request.customerEmail ?? '').trim() && !normalizedEmail) {
-    throw new NegotiationValidationError('Enter a valid email address.');
-  }
-
-  // Whole-cart offers snapshot the cart so the merchant can see what's being
-  // negotiated; single offers keep their existing per-product item_info.
-  const cartSnapshot =
-    request.type === 'total'
-      ? buildCartSnapshot((request.cart ?? []).map(toNegotiationCartLine))
-      : [];
-  if (request.type === 'total' && cartSnapshot.length === 0) {
-    throw new NegotiationValidationError(
-      'Whole-cart negotiations require at least one cart item.'
-    );
-  }
-  const totalItemInfo =
-    request.type === 'total'
-      ? summarizeCartForItemInfo(cartSnapshot, request.currentPrice)
-      : null;
-
-  const { error } = await supabase.from('negotiation_requests').insert({
-    merchant_id: request.merchantId,
-    session_id: getOrCreateSessionId(),
-    customer_id: user?.id ?? null,
-    type: request.type,
-    item_info:
-      request.type === 'single'
-        ? buildNegotiationSingleItemInfo(request)
-        : totalItemInfo,
-    cart_snapshot: cartSnapshot.length > 0 ? cartSnapshot : null,
-    offered_price: request.offeredPrice,
-    evidence_url: request.evidenceUrl || null,
-    customer_email: normalizedEmail,
-    // Optional follow-up number (null when blank/invalid) so the merchant can
-    // reach guests who'd otherwise get no decision notification.
-    customer_phone: normalizedPhone,
-    status: 'pending',
-  });
-
-  if (error) throw error;
-}
-
-function normalizeOptionalEmail(email?: string | null): string | null {
-  const trimmedEmail = email?.trim().toLowerCase();
-  if (!trimmedEmail) {
-    return null;
-  }
-
-  return trimmedEmail.length <= MAX_CUSTOMER_EMAIL_LENGTH &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)
-    ? trimmedEmail
-    : null;
-}
-
-function getContactValidationError({
-  email,
-  phone,
-}: {
-  email: string;
-  phone: string;
-}): string | null {
-  if (email.trim() && !normalizeOptionalEmail(email)) {
-    return 'Enter a valid email address.';
-  }
-
-  if (phone.trim() && !normalizePhoneToE164(phone)) {
-    return 'Enter a valid Phone / WhatsApp number.';
-  }
-
-  return null;
-}
 
 export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   isOpen,
@@ -903,7 +654,11 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {/* Upload Evidence Form */}
           {status === 'upload' && (
-            <form onSubmit={handleUploadSubmit} className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+            <form
+              noValidate
+              onSubmit={handleUploadSubmit}
+              className="space-y-4 animate-in fade-in slide-in-from-bottom-2"
+            >
               <div className="bg-[var(--store-primary)]/5 border border-[var(--store-primary)]/20 rounded-xl p-4">
                 <p className="text-sm text-[hsl(var(--card-foreground))] font-medium mb-2">
                   📸 Saw it cheaper elsewhere?
