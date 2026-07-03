@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { JsonLd } from '@/components/seo/json-ld';
 import { OgabasseyV2Repairs } from '@/components/storefront/ogabassey/pages/repairs';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
+import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import {
   isDomainIdentifier,
@@ -80,9 +82,19 @@ export default async function RepairsPage({ params }: RepairsPageProps) {
     notFound();
   }
 
+  const baseUrl = buildStoreUrl(merchant);
+  const canonicalUrl = `${baseUrl}/repairs`;
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: merchant.business_name || 'Home', url: baseUrl },
+    { name: 'Repairs', url: canonicalUrl },
+  ]);
+
   return (
-    <OgabasseyV2Repairs
-      basePath={getRepairsBasePath(await headers(), merchant)}
-    />
+    <>
+      <JsonLd data={breadcrumbSchema} />
+      <OgabasseyV2Repairs
+        basePath={getRepairsBasePath(await headers(), merchant)}
+      />
+    </>
   );
 }

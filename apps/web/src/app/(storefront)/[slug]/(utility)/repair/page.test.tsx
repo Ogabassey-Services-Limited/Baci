@@ -47,7 +47,7 @@ describe('RepairPage', () => {
       business_name: 'Ogabassey',
     } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
 
-    render(
+    const { container } = render(
       await RepairPage({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
@@ -63,6 +63,17 @@ describe('RepairPage', () => {
       'data-merchant-id',
       'merchant-1'
     );
+
+    const jsonLd = JSON.parse(
+      container.querySelector('script[type="application/ld+json"]')
+        ?.textContent ?? '{}'
+    ) as { '@type': string; itemListElement: Array<{ name: string }> };
+
+    expect(jsonLd['@type']).toBe('BreadcrumbList');
+    expect(jsonLd.itemListElement.map((item) => item.name)).toEqual([
+      'Ogabassey',
+      'Book a Repair',
+    ]);
   });
 
   it('returns repair metadata with a useful service description', async () => {

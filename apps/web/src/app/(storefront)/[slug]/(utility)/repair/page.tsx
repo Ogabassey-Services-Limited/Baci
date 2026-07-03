@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { JsonLd } from '@/components/seo/json-ld';
 import { RepairBookingWizard } from '@/components/storefront/RepairBookingWizard';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
+import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { isDomainIdentifier } from '@/lib/validation';
 
@@ -51,8 +53,16 @@ export default async function RepairPage({ params }: RepairPageProps) {
     notFound();
   }
 
+  const baseUrl = buildStoreUrl(merchant);
+  const canonicalUrl = `${baseUrl}/repair`;
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: merchant.business_name || 'Home', url: baseUrl },
+    { name: 'Book a Repair', url: canonicalUrl },
+  ]);
+
   return (
     <div className="container mx-auto py-12 px-4">
+      <JsonLd data={breadcrumbSchema} />
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold mb-4">Book a Repair Service</h1>
