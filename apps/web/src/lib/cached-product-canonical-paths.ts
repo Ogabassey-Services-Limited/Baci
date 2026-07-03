@@ -37,15 +37,22 @@ function firstJoinedCategory(
   return slug ? { name: joined?.name, slug } : null;
 }
 
-// Direct category_id join first, then the product_categories junction —
-// the same precedence the PDP mappers use to derive the canonical category,
-// so junction-only products resolve to the categorized path here too.
+// Mirrors the category route's canonical decision, which is the arbiter for
+// categorized URLs: direct category_id join first, then the legacy category
+// text (getProductUrl derives it when no joined category is passed), and the
+// product_categories junction only when both are absent. Putting the junction
+// ahead of the text would emit links the category route's mismatch check
+// (direct join || slugified text) immediately 308s away from.
 function normalizeJoinedCategory(
   row: CanonicalPathProductRow
 ): CanonicalPathJoinedCategory | null {
   const direct = firstJoinedCategory(row.categories);
   if (direct) {
     return direct;
+  }
+
+  if (row.category?.trim()) {
+    return null;
   }
 
   for (const entry of row.product_categories ?? []) {
