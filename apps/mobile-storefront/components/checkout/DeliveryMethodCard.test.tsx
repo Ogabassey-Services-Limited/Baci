@@ -40,6 +40,52 @@ describe('DeliveryMethodCard', () => {
     expect(screen.queryByText('Pick Up Station')).toBeNull();
   });
 
+  it('offers paid GIGL pickup stations for non-Lagos addresses with station quotes', () => {
+    render(
+      <DeliveryMethodCard
+        {...baseProps}
+        deliveryState="Rivers"
+        pickupStationQuote={{
+          displayName: 'GIG Logistics - Pickup at PORT HARCOURT',
+          id: 'station-quote',
+          isStationPickup: true,
+          price: 9493,
+          provider: 'GIGL',
+          stationAddress: 'GIGL Aba Road, Port Harcourt',
+          stationName: 'PORT HARCOURT',
+        }}
+      />
+    );
+
+    expect(screen.getByText('Pickup Stations (GIGL)')).toBeTruthy();
+    expect(
+      screen.getByText('PORT HARCOURT, GIGL Aba Road, Port Harcourt')
+    ).toBeTruthy();
+    expect(screen.getByText('₦9,493')).toBeTruthy();
+    expect(screen.queryByText('Free')).toBeNull();
+  });
+
+  it('keeps Lagos pickup as free merchant pickup even when a GIGL station quote exists', () => {
+    render(
+      <DeliveryMethodCard
+        {...baseProps}
+        deliveryState="Lagos"
+        pickupStationQuote={{
+          displayName: 'GIG Logistics - Pickup at Ikeja',
+          id: 'station-quote',
+          isStationPickup: true,
+          price: 5000,
+          provider: 'GIGL',
+          stationName: 'Ikeja',
+        }}
+      />
+    );
+
+    expect(screen.getByText('Pick Up Station')).toBeTruthy();
+    expect(screen.queryByText('Pickup Stations (GIGL)')).toBeNull();
+    expect(screen.getByText('Free')).toBeTruthy();
+  });
+
   it('offers only door for a non-Lagos state with no airport', () => {
     render(<DeliveryMethodCard {...baseProps} deliveryState="Ekiti" />);
     expect(screen.getByText('Door delivery')).toBeTruthy();
@@ -101,6 +147,29 @@ describe('DeliveryMethodCard', () => {
       />
     );
     expect(screen.getByText('Taiyelolu Towers')).toBeTruthy();
+  });
+
+  it('shows selected GIGL pickup station details for non-Lagos pickup', () => {
+    render(
+      <DeliveryMethodCard
+        {...baseProps}
+        selectedMethod="pickup_station"
+        deliveryState="Rivers"
+        pickupStationQuote={{
+          displayName: 'GIG Logistics - Pickup at PORT HARCOURT',
+          id: 'station-quote',
+          isStationPickup: true,
+          price: 9493,
+          provider: 'GIGL',
+          stationAddress: 'GIGL Aba Road, Port Harcourt',
+          stationName: 'PORT HARCOURT',
+        }}
+      />
+    );
+
+    expect(screen.getByText('PORT HARCOURT')).toBeTruthy();
+    expect(screen.getByText('GIGL Aba Road, Port Harcourt')).toBeTruthy();
+    expect(screen.queryByText('Taiyelolu Towers')).toBeNull();
   });
 
   it('shows Free price for pickup station', () => {

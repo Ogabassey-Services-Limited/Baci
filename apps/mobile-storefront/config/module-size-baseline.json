@@ -11,10 +11,6 @@
       "lineCount": 307
     },
     {
-      "path": "components/checkout/SavedAddressOptions.tsx",
-      "lineCount": 305
-    },
-    {
       "path": "components/track-order/TrackOrderDetailsContent.tsx",
       "lineCount": 345
     },

@@ -4,6 +4,7 @@ import type { CartItem } from '@/stores/cart-store';
 export interface ShippingQuoteLike {
   id: string | number;
   price: number | string;
+  isStationPickup?: boolean;
 }
 
 function normalizeShippingQuotePrice(value: number | string): number {
@@ -68,15 +69,20 @@ export function getPreferredShippingQuoteId(
     return '';
   }
 
+  const doorQuotes = quotes.filter((quote) => quote.isStationPickup !== true);
+  const selectableQuotes = doorQuotes.length > 0 ? doorQuotes : quotes;
+
   if (
     previousSelectedQuoteId &&
-    quotes.some((quote) => String(quote.id) === String(previousSelectedQuoteId))
+    selectableQuotes.some(
+      (quote) => String(quote.id) === String(previousSelectedQuoteId)
+    )
   ) {
     return String(previousSelectedQuoteId);
   }
 
   return String(
-    quotes.reduce((prev, current) =>
+    selectableQuotes.reduce((prev, current) =>
       normalizeShippingQuotePrice(prev.price) <=
       normalizeShippingQuotePrice(current.price)
         ? prev

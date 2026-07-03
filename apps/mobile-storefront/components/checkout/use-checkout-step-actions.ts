@@ -1,20 +1,20 @@
-import { Alert, Keyboard } from 'react-native';
 import type { Dispatch, SetStateAction } from 'react';
 import type {
   FieldErrors,
   UseFormHandleSubmit,
   UseFormSetValue,
 } from 'react-hook-form';
+import { Alert, Keyboard } from 'react-native';
+import type { CheckoutStep } from '@/components/checkout/CheckoutStepper';
+import { humanizeCheckoutFieldName } from '@/components/checkout/checkout-form-field.helpers';
 import {
   PICKUP_STATION_ADDRESS_LINES,
   PICKUP_STATION_CITY,
   PICKUP_STATION_STATE,
-} from '@/components/checkout/PickupStationCard';
-import type { CheckoutStep } from '@/components/checkout/CheckoutStepper';
-import { humanizeCheckoutFieldName } from '@/components/checkout/checkout-form-field.helpers';
+} from '@/components/checkout/pickup-station.constants';
+import type { ShippingAddressInput } from '@/lib/validation';
 import { trackCheckoutStep } from '@/services/analytics';
 import { trackCheckoutRoutePaymentInfo } from '@/services/tiktok-checkout-route-tracking';
-import type { ShippingAddressInput } from '@/lib/validation';
 import {
   type UseCheckoutSubmitParams,
   useCheckoutSubmit,

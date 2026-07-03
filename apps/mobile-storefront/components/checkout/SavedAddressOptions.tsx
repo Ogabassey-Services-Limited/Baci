@@ -46,7 +46,9 @@ export function SavedAddressOptions({
   return (
     <View style={styles.savedAddressSection}>
       <View style={styles.savedAddressHeader}>
-        <Text style={[styles.savedAddressSectionTitle, { color: colors.text }]}>Delivery options</Text>
+        <Text style={[styles.savedAddressSectionTitle, { color: colors.text }]}>
+          Delivery options
+        </Text>
         {isLoadingSavedAddresses && (
           <ActivityIndicator
             accessibilityLabel="Loading saved addresses"
@@ -225,19 +227,13 @@ export function SavedAddressOptions({
   );
 }
 const styles = StyleSheet.create({
-  savedAddressSection: {
-    marginBottom: SPACING.sm,
-    gap: 10,
-  },
+  savedAddressSection: { marginBottom: SPACING.sm, gap: 10 },
   savedAddressHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  savedAddressSectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
+  savedAddressSectionTitle: { fontSize: 14, fontWeight: '700' },
   addressModeSwitch: {
     borderWidth: 1,
     borderRadius: 18,
@@ -255,10 +251,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
   },
-  addressModeChipText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
+  addressModeChipText: { fontSize: 13, fontWeight: '700' },
   savedAddressOption: {
     borderWidth: 1,
     borderRadius: 14,
@@ -275,31 +268,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
-  savedAddressOptionBody: {
-    flex: 1,
-    gap: 4,
-  },
+  savedAddressOptionBody: { flex: 1, gap: 4 },
   savedAddressOptionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     flexWrap: 'wrap',
   },
-  savedAddressOptionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  savedAddressMeta: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
+  savedAddressOptionTitle: { fontSize: 14, fontWeight: '700' },
+  savedAddressMeta: { fontSize: 13, lineHeight: 18 },
   savedAddressDefaultBadge: {
     borderRadius: RADIUS.full,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  savedAddressDefaultBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
+  savedAddressDefaultBadgeText: { fontSize: 11, fontWeight: '700' },
 });

@@ -103,6 +103,27 @@ describe('shipping quote helpers', () => {
     ).toBe('b');
   });
 
+  it('prefers door-delivery quotes over cheaper station-pickup quotes', () => {
+    expect(
+      getPreferredShippingQuoteId([
+        { id: 'door', price: 5000 },
+        { id: 'station', price: 3500, isStationPickup: true },
+      ])
+    ).toBe('door');
+  });
+
+  it('ignores a previous station-pickup selection when door quotes exist', () => {
+    expect(
+      getPreferredShippingQuoteId(
+        [
+          { id: 'door', price: 5000 },
+          { id: 'station', price: 3500, isStationPickup: true },
+        ],
+        'station'
+      )
+    ).toBe('door');
+  });
+
   it('normalizes string quote prices before selection and totals use them', () => {
     const quotes = normalizeShippingQuotes([
       { id: 'a', price: '₦6,500' },

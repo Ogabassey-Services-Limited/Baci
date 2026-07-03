@@ -2,14 +2,7 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { StyleSheet, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
-
-export const PICKUP_STATION_ADDRESS_LINES = [
-  'Taiyelolu Towers',
-  'First Floor',
-  '2 Olaide Tomori Street Ikeja Lagos',
-] as const;
-export const PICKUP_STATION_CITY = 'Ikeja';
-export const PICKUP_STATION_STATE = 'Lagos';
+import { PICKUP_STATION_ADDRESS_LINES } from './pickup-station.constants';
 
 type ColorsScheme = (typeof Colors)['light'];
 

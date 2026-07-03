@@ -1,8 +1,11 @@
 import type { RefObject } from 'react';
 import type { UseFormSetValue } from 'react-hook-form';
-import type { PlaceDetails } from '@/components/ui/AddressAutocomplete';
 import { normalizeStateName } from '@/components/checkout/checkout-shipping.helpers';
-import type { DeliveryMethod } from '@/components/checkout/types';
+import type {
+  DeliveryMethod,
+  ShippingQuote,
+} from '@/components/checkout/types';
+import type { PlaceDetails } from '@/components/ui/AddressAutocomplete';
 import type { ShippingAddressInput } from '@/lib/validation';
 
 interface CreateCheckoutShippingHandlersParams {
@@ -20,6 +23,7 @@ interface CreateCheckoutShippingHandlersParams {
   setCommittedAddress: (value: string) => void;
   setDeliveryMethod: (value: DeliveryMethod) => void;
   setResolvedShippingQuoteContextKey: (value: string) => void;
+  setSelectedQuoteId: (value: string) => void;
   setShowCityPicker: (value: boolean) => void;
   setShowStatePicker: (value: boolean) => void;
   setValue: UseFormSetValue<ShippingAddressInput>;
@@ -29,6 +33,7 @@ interface CreateCheckoutShippingHandlersParams {
   watchedCity: string;
   watchedState: string;
   googleSuggestedCityRef: RefObject<string | null>;
+  stationPickupQuote?: ShippingQuote;
 }
 
 export function createCheckoutShippingHandlers({
@@ -43,6 +48,7 @@ export function createCheckoutShippingHandlers({
   setCommittedAddress,
   setDeliveryMethod,
   setResolvedShippingQuoteContextKey,
+  setSelectedQuoteId,
   setShowCityPicker,
   setShowStatePicker,
   setValue,
@@ -51,6 +57,7 @@ export function createCheckoutShippingHandlers({
   watchedAddress,
   watchedCity,
   watchedState,
+  stationPickupQuote,
 }: CreateCheckoutShippingHandlersParams) {
   return {
     handleDeliveryAddressSelect: (
@@ -116,6 +123,12 @@ export function createCheckoutShippingHandlers({
           setCommittedAddress(saved.address);
           savedDoorAddressRef.current = null;
         }
+        setSelectedQuoteId('');
+      }
+      if (method === 'pickup_station') {
+        setSelectedQuoteId(
+          stationPickupQuote ? String(stationPickupQuote.id) : ''
+        );
       }
       setDeliveryMethod(method);
     },

@@ -1,8 +1,14 @@
 import { isAirportDeliveryEligible, isPickupEligible } from '@baci/shared';
 import type { IoniconsIconName } from '@react-native-vector-icons/ionicons';
 import { StyleSheet, Text, View } from 'react-native';
-import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/PickupStationCard';
-import type { DeliveryMethod } from '@/components/checkout/types';
+import {
+  getPickupStationAddressLines,
+  getPickupStationLabel,
+} from '@/components/checkout/checkout-station-pickup';
+import type {
+  DeliveryMethod,
+  ShippingQuote,
+} from '@/components/checkout/types';
 import type Colors from '@/constants/Colors';
 import { SPACING } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
@@ -24,6 +30,7 @@ interface DeliveryMethodCardProps {
   doorPrice: string;
   airportFee: number;
   deliveryState?: string | null;
+  pickupStationQuote?: ShippingQuote;
 }
 
 interface MethodOption {
@@ -32,6 +39,7 @@ interface MethodOption {
   subtitle: string;
   price: string;
   icon: IoniconsIconName;
+  pickupStationQuote?: ShippingQuote;
 }
 
 export function DeliveryMethodCard({
@@ -43,6 +51,7 @@ export function DeliveryMethodCard({
   doorPrice,
   airportFee,
   deliveryState,
+  pickupStationQuote,
 }: DeliveryMethodCardProps) {
   // Door is always available. The store ships from Lagos, so pickup is offered
   // only for Lagos, and airport (air-cargo) delivery only for non-Lagos states
@@ -66,13 +75,20 @@ export function DeliveryMethodCard({
       icon: 'airplane-outline',
     });
   }
-  if (isPickupEligible(deliveryState)) {
+  const usesMerchantPickup = isPickupEligible(deliveryState);
+  const providerPickupQuote = usesMerchantPickup
+    ? undefined
+    : pickupStationQuote;
+  if (usesMerchantPickup || providerPickupQuote) {
     options.push({
       id: 'pickup_station',
-      title: 'Pick Up Station',
-      subtitle: PICKUP_STATION_ADDRESS_LINES.join(', '),
-      price: 'Free',
+      title: getPickupStationLabel(providerPickupQuote),
+      subtitle: getPickupStationAddressLines(providerPickupQuote).join(', '),
+      price: providerPickupQuote
+        ? formatPrice(providerPickupQuote.price)
+        : 'Free',
       icon: 'storefront-outline',
+      pickupStationQuote: providerPickupQuote,
     });
   }
 
@@ -87,6 +103,12 @@ export function DeliveryMethodCard({
         {options.map((option) => {
           const isSelected = selectedMethod === option.id;
           const isFree = option.price === 'Free';
+          const pickupAddressLines =
+            option.id === 'pickup_station'
+              ? getPickupStationAddressLines(option.pickupStationQuote)
+              : [];
+          const [primaryPickupLine, ...secondaryPickupLines] =
+            pickupAddressLines;
 
           return (
             <SelectableOptionRow
@@ -113,27 +135,34 @@ export function DeliveryMethodCard({
                   <Text style={[styles.infoTitle, { color: colors.text }]}>
                     Airport Delivery
                   </Text>
-                  <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                  <Text
+                    style={[styles.infoText, { color: colors.textSecondary }]}
+                  >
                     {AIRPORT_DOORSTEP_NOTE}. {DELIVERY_ESTIMATE}
                   </Text>
                 </>
               ) : null}
-              {option.id === 'pickup_station'
-                ? PICKUP_STATION_ADDRESS_LINES.map((line, index) => (
-                    <Text
-                      key={line}
-                      style={[
-                        styles.infoText,
-                        {
-                          color: colors.text,
-                          fontWeight: index === 0 ? '700' : '500',
-                        },
-                      ]}
-                    >
-                      {line}
-                    </Text>
-                  ))
-                : null}
+              {primaryPickupLine ? (
+                <Text
+                  style={[
+                    styles.infoText,
+                    { color: colors.text, fontWeight: '700' },
+                  ]}
+                >
+                  {primaryPickupLine}
+                </Text>
+              ) : null}
+              {secondaryPickupLines.map((line) => (
+                <Text
+                  key={line}
+                  style={[
+                    styles.infoText,
+                    { color: colors.text, fontWeight: '500' },
+                  ]}
+                >
+                  {line}
+                </Text>
+              ))}
             </SelectableOptionRow>
           );
         })}
