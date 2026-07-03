@@ -119,4 +119,18 @@ describe('TransactionOrderProfitSummary', () => {
     expect(screen.getByText('Estimated profit')).toBeInTheDocument();
     expect(screen.queryByText('Total profit')).not.toBeInTheDocument();
   });
+
+  it('does not render when every item is missing a cost', () => {
+    const { container } = render(
+      <TransactionOrderProfitSummary
+        colors={LIGHT_COLORS}
+        estimatedProfit={0}
+        formatCurrency={(amount) => `NGN ${amount}`}
+        itemCount={3}
+        missingCostCount={3}
+      />
+    );
+
+    expect(container).toBeEmptyDOMElement();
+  });
 });

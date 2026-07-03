@@ -21,7 +21,7 @@ export function TransactionOrderProfitSummary({
   itemCount,
   missingCostCount,
 }: TransactionOrderProfitSummaryProps) {
-  if (itemCount <= 1) {
+  if (itemCount <= 1 || missingCostCount >= itemCount) {
     return null;
   }
 
