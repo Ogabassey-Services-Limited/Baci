@@ -11,8 +11,10 @@ import {
   getCachedCategories,
   getRequestScopedMerchant,
 } from '@/lib/cached-data';
+import { getCachedProductCanonicalPaths } from '@/lib/cached-product-canonical-paths';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
+import { resolveInternalLinkEquityGroups } from '@/lib/resolve-internal-link-equity-groups';
 import { asRoute } from '@/lib/routes';
 import {
   generateBreadcrumbSchema,
@@ -27,6 +29,11 @@ import {
 } from '@/lib/storefront-pagination';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { ProductIndexCard } from './product-index-card';
+
+const INTERNAL_LINK_EQUITY_PRODUCT_SLUGS =
+  OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS.flatMap((group) =>
+    group.productLinks.map((productLink) => productLink.productSlug)
+  );
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -64,18 +71,30 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
 
   const headersList = await headers();
 
-  const [categories, currentProductIndex, firstPageProductIndex] =
-    await Promise.all([
-      getCachedCategories(merchant.id),
-      getCachedStorefrontProductIndex(merchant.id, {
-        page: currentPage,
-        limit: STOREFRONT_PRODUCTS_PER_PAGE,
-      }),
-      getCachedStorefrontProductIndex(merchant.id, {
-        page: 1,
-        limit: STOREFRONT_PRODUCTS_PER_PAGE,
-      }),
-    ]);
+  const showInternalLinkEquitySection = merchant.id === OGABASSEY_MERCHANT_ID;
+
+  const [
+    categories,
+    currentProductIndex,
+    firstPageProductIndex,
+    internalLinkProductPaths,
+  ] = await Promise.all([
+    getCachedCategories(merchant.id),
+    getCachedStorefrontProductIndex(merchant.id, {
+      page: currentPage,
+      limit: STOREFRONT_PRODUCTS_PER_PAGE,
+    }),
+    getCachedStorefrontProductIndex(merchant.id, {
+      page: 1,
+      limit: STOREFRONT_PRODUCTS_PER_PAGE,
+    }),
+    showInternalLinkEquitySection
+      ? getCachedProductCanonicalPaths(
+          merchant.id,
+          INTERNAL_LINK_EQUITY_PRODUCT_SLUGS
+        )
+      : Promise.resolve({}),
+  ]);
   const totalPages = Math.max(1, currentProductIndex.totalPages || 1);
 
   if (!currentProductIndex.hasError && currentPage > totalPages) {
@@ -156,7 +175,12 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
   const deepLinkProducts = firstPageProductIndex.products
     .filter((product) => product.slug)
     .slice(0, 18);
-  const showInternalLinkEquitySection = merchant.id === OGABASSEY_MERCHANT_ID;
+  const internalLinkEquityGroups = showInternalLinkEquitySection
+    ? resolveInternalLinkEquityGroups(
+        OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS,
+        internalLinkProductPaths
+      )
+    : [];
 
   return (
     <>
@@ -217,7 +241,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
 
           {showInternalLinkEquitySection && (
             <InternalLinkEquitySection
-              groups={OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS}
+              groups={internalLinkEquityGroups}
               pathPrefix={pathPrefix}
             />
           )}
