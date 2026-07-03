@@ -2,6 +2,7 @@ import type { BookingRequest, ShipmentBookingResult } from '../types';
 import type { GiglApiClient } from './gigl.auth';
 import {
   GIGL_BOOKING_TIMEOUT_MS,
+  GIGL_DEFAULT_SPECIAL_PACKAGE_ID,
   type GiglProviderIo,
   getVehicleTypeForWeight,
   isGiglAbortError,
@@ -137,6 +138,7 @@ export async function bookGiglShipment(
               ShipmentType: ShipmentType.Regular,
               Weight: item.weight,
               IsVolumetric: false,
+              SpecialPackageId: GIGL_DEFAULT_SPECIAL_PACKAGE_ID,
             })),
           }),
           timeout: GIGL_BOOKING_TIMEOUT_MS,

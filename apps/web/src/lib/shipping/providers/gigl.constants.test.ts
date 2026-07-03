@@ -45,6 +45,15 @@ describe('GIGL provider constants', () => {
     expect(isExplicitlyDisabledEnv(value)).toBe(false);
   });
 
+  it('uses the GIGL standard package id for shipment items', async () => {
+    vi.resetModules();
+    const { GIGL_DEFAULT_SPECIAL_PACKAGE_ID } = await import(
+      './gigl.constants'
+    );
+
+    expect(GIGL_DEFAULT_SPECIAL_PACKAGE_ID).toBe(1);
+  });
+
   it('requires an explicit base URL in production', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('GIGL_BASE_URL', '   ');

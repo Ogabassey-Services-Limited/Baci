@@ -62,6 +62,8 @@ export enum ShipmentType {
   Ecommerce = 2,
 }
 
+export const GIGL_DEFAULT_SPECIAL_PACKAGE_ID = 1;
+
 export enum PickupOptions {
   HomeDelivery = 0,
   ServiceCentre = 1,
