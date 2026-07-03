@@ -4872,7 +4872,7 @@ describe('[category]/[productSlug] generateStaticParams', () => {
 
     expect(mockGetCachedStorefrontProductIndex).toHaveBeenCalledWith(
       OGABASSEY_MERCHANT_ID,
-      { page: 1, limit: 50 }
+      { page: 1, limit: 200 }
     );
     expect(params).toEqual([
       {

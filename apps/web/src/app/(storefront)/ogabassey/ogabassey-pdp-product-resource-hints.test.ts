@@ -2,6 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OGABASSEY_PDP_PRIMARY_IMAGE_SIZES } from '@/components/storefront/ogabassey/config/product-media';
+import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 
 vi.mock('server-only', () => ({}));
 
@@ -42,8 +43,12 @@ vi.mock('next/image', () => ({
 }));
 
 const mockPreload = vi.hoisted(() => vi.fn());
+const mockPreconnect = vi.hoisted(() => vi.fn());
+const mockPrefetchDNS = vi.hoisted(() => vi.fn());
 
 vi.mock('react-dom', () => ({
+  preconnect: mockPreconnect,
+  prefetchDNS: mockPrefetchDNS,
   preload: mockPreload,
 }));
 
@@ -69,6 +74,8 @@ describe('OgabasseyPdpProductResourceHints', () => {
   beforeEach(() => {
     mockGetImageProps.mockClear();
     mockPreload.mockClear();
+    mockPreconnect.mockClear();
+    mockPrefetchDNS.mockClear();
   });
 
   it('emits a unified head-only React preload hint for the primary product image', () => {
@@ -193,5 +200,42 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(html).toBe('');
     expect(mockGetImageProps).not.toHaveBeenCalled();
     expect(mockPreload).not.toHaveBeenCalled();
+  });
+
+  it('preconnects and prefetches DNS for the CDN origin alongside the hero preload for a CDN-hosted image', () => {
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif';
+
+    renderToStaticMarkup(
+      createElement(OgabasseyPdpProductResourceHints, { src: productImage })
+    );
+
+    expect(mockPrefetchDNS).toHaveBeenCalledTimes(1);
+    expect(mockPrefetchDNS).toHaveBeenCalledWith(OGABASSEY_CDN_ORIGIN);
+    expect(mockPreconnect).toHaveBeenCalledTimes(1);
+    expect(mockPreconnect).toHaveBeenCalledWith(OGABASSEY_CDN_ORIGIN);
+    expect(mockPreload).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not preconnect to the CDN origin for a non-CDN product image', () => {
+    const productImage =
+      'https://assets.example.com/products/lenovo-legion.png';
+
+    renderToStaticMarkup(
+      createElement(OgabasseyPdpProductResourceHints, { src: productImage })
+    );
+
+    expect(mockPrefetchDNS).not.toHaveBeenCalled();
+    expect(mockPreconnect).not.toHaveBeenCalled();
+    expect(mockPreload).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not preconnect to the CDN origin when there is no product image', () => {
+    renderToStaticMarkup(
+      createElement(OgabasseyPdpProductResourceHints, { src: null })
+    );
+
+    expect(mockPrefetchDNS).not.toHaveBeenCalled();
+    expect(mockPreconnect).not.toHaveBeenCalled();
   });
 });

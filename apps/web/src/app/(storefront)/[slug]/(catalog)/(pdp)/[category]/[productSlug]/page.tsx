@@ -1109,7 +1109,7 @@ function buildCategoryProductMetadata({
 // product slug is request-time, which keeps the hero in the dynamic resume.
 // Params not listed here keep rendering on demand (the default PPR behavior
 // under cacheComponents — `dynamicParams` cannot be set with cacheComponents).
-const OGABASSEY_PRERENDER_LIMIT = 50;
+const OGABASSEY_PRERENDER_LIMIT = 200;
 const PRERENDER_PLACEHOLDER_STORE_SLUG = '__prerender_placeholder_store__';
 const PRERENDER_PLACEHOLDER_PRODUCT_SLUG = '__prerender_placeholder__';
 // Keep the actively monitored, revenue-critical PDP in the prerender set even
