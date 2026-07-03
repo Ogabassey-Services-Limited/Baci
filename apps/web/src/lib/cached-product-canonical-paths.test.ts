@@ -134,6 +134,31 @@ describe('getCachedProductCanonicalPaths', () => {
     expect(paths['apple-airpods-2']).toBe('/earbuds/apple-airpods-2');
   });
 
+  it('falls back to the product_categories junction when the direct join is absent', async () => {
+    const builder = createQueryBuilder({
+      data: [
+        {
+          id: 'p1',
+          name: 'JBL Clip 4',
+          slug: 'jbl-clip-4',
+          category: 'Old Audio',
+          categories: null,
+          product_categories: [
+            { categories: { name: 'Speakers', slug: 'speakers' } },
+          ],
+        },
+      ],
+    });
+    mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
+
+    const paths = await getCachedProductCanonicalPaths('merchant-1', [
+      'jbl-clip-4',
+    ]);
+
+    // junction category wins over the stale legacy category text
+    expect(paths['jbl-clip-4']).toBe('/speakers/jbl-clip-4');
+  });
+
   it('returns an empty map without querying when no slugs are requested', async () => {
     const paths = await getCachedProductCanonicalPaths('merchant-1', []);
 

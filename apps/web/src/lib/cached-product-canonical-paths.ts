@@ -16,17 +16,46 @@ interface CanonicalPathProductRow {
     | CanonicalPathJoinedCategory
     | CanonicalPathJoinedCategory[]
     | null;
+  product_categories:
+    | {
+        categories:
+          | CanonicalPathJoinedCategory
+          | CanonicalPathJoinedCategory[]
+          | null;
+      }[]
+    | null;
 }
 
 // PostgREST returns the to-one `categories:category_id` join as an object,
 // but normalize-product treats array shapes as reachable for this field, so
 // guard both and drop blank slugs the same way sitemap-data does.
-function normalizeJoinedCategory(
+function firstJoinedCategory(
   categories: CanonicalPathProductRow['categories']
 ): CanonicalPathJoinedCategory | null {
   const joined = Array.isArray(categories) ? categories[0] : categories;
   const slug = joined?.slug?.trim();
   return slug ? { name: joined?.name, slug } : null;
+}
+
+// Direct category_id join first, then the product_categories junction —
+// the same precedence the PDP mappers use to derive the canonical category,
+// so junction-only products resolve to the categorized path here too.
+function normalizeJoinedCategory(
+  row: CanonicalPathProductRow
+): CanonicalPathJoinedCategory | null {
+  const direct = firstJoinedCategory(row.categories);
+  if (direct) {
+    return direct;
+  }
+
+  for (const entry of row.product_categories ?? []) {
+    const junction = firstJoinedCategory(entry?.categories);
+    if (junction) {
+      return junction;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -69,7 +98,9 @@ export async function getCachedProductCanonicalPaths(
 
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, slug, category, categories:category_id(name, slug)')
+    .select(
+      'id, name, slug, category, categories:category_id(name, slug), product_categories(categories(name, slug))'
+    )
     .eq('merchant_id', merchantId)
     .eq('status', 'active')
     .in('slug', productSlugs);
@@ -89,7 +120,7 @@ export async function getCachedProductCanonicalPaths(
       name: row.name,
       slug: row.slug,
       category: row.category,
-      categories: normalizeJoinedCategory(row.categories),
+      categories: normalizeJoinedCategory(row),
     });
   }
 
