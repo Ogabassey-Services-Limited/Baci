@@ -1,8 +1,33 @@
 import { useEffect, useState } from 'react';
 import { getEligibleCheckoutSavingsGoal } from '@/lib/checkout-savings';
 import { listSavingsGoals, type SavingsGoal } from '@/lib/customer-savings';
+import { classifyFetchFailure } from '@/lib/fetch-failure-classification';
 import type { SavingsSelection } from '@/lib/wallet-payment-helpers';
-import { trackError } from '@/services/analytics';
+import { trackFetchFailure } from '@/services/track-fetch-failure';
+
+// Bounded automatic retry for transient failures (DNS blips, dropped
+// connections) so a momentary network hiccup at checkout never surfaces as
+// an error. Non-transient failures fail immediately to the manual retry UI.
+const SAVINGS_FETCH_MAX_RETRIES = 2;
+const SAVINGS_FETCH_RETRY_BASE_DELAY_MS = 1_500;
+
+function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+    const timeout = setTimeout(() => {
+      signal.removeEventListener('abort', handleAbort);
+      resolve();
+    }, ms);
+    const handleAbort = () => {
+      clearTimeout(timeout);
+      resolve();
+    };
+    signal.addEventListener('abort', handleAbort, { once: true });
+  });
+}
 
 type CheckoutSavingsCartItem = {
   product_id?: string | null;
@@ -68,41 +93,69 @@ export function useCheckoutSavings({
     }
 
     let isCancelled = false;
+    const abortController = new AbortController();
 
-    listSavingsGoals({
-      merchantId,
-      merchantSlug,
-    })
-      .then((result) => {
-        if (isCancelled) {
+    const load = async () => {
+      for (let attempt = 0; attempt <= SAVINGS_FETCH_MAX_RETRIES; attempt++) {
+        try {
+          const result = await listSavingsGoals({
+            merchantId,
+            merchantSlug,
+            signal: abortController.signal,
+          });
+          if (isCancelled) {
+            return;
+          }
+          setSavingsGoals(result.goals);
+          setCheckoutSavingsError(null);
+          return;
+        } catch (error: unknown) {
+          if (isCancelled || abortController.signal.aborted) {
+            return;
+          }
+          // callerAborted: false — the guard above returned for our own
+          // aborts, so an abort-like failure here is a transport
+          // interruption on a live screen and should retry, not vanish.
+          const classified = classifyFetchFailure(error, {
+            callerAborted: false,
+          });
+          if (classified.isRetryable && attempt < SAVINGS_FETCH_MAX_RETRIES) {
+            await abortableDelay(
+              SAVINGS_FETCH_RETRY_BASE_DELAY_MS * 2 ** attempt,
+              abortController.signal
+            );
+            if (isCancelled || abortController.signal.aborted) {
+              return;
+            }
+            continue;
+          }
+          trackFetchFailure(
+            'checkout_savings_goals_fetch',
+            error,
+            {
+              merchant_slug: merchantSlug,
+              reload_attempt: checkoutSavingsReloadKey,
+              retry_count: attempt,
+            },
+            { callerAborted: false }
+          );
+          setSavingsGoals([]);
+          setSavingsSelection(undefined);
+          setCheckoutSavingsError(classified.message);
           return;
         }
-        setSavingsGoals(result.goals);
-        setCheckoutSavingsError(null);
-      })
-      .catch((error: unknown) => {
-        if (isCancelled) {
-          return;
-        }
-        const message =
-          error instanceof Error
-            ? error.message
-            : 'Failed to load checkout savings goals';
-        setSavingsGoals([]);
-        setSavingsSelection(undefined);
-        setCheckoutSavingsError(message);
-        trackError('checkout_savings_goals_fetch', message, {
-          retry_attempt: checkoutSavingsReloadKey,
-        });
-      })
-      .finally(() => {
-        if (!isCancelled) {
-          setIsLoadingCheckoutSavings(false);
-        }
-      });
+      }
+    };
+
+    load().finally(() => {
+      if (!isCancelled) {
+        setIsLoadingCheckoutSavings(false);
+      }
+    });
 
     return () => {
       isCancelled = true;
+      abortController.abort();
     };
   }, [
     checkoutSavingsReloadKey,

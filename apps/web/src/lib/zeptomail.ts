@@ -1,28 +1,19 @@
-import { SendMailClient } from 'zeptomail';
 import { getZeptoMailFromDomain, getZeptoMailToken } from '@/env';
 import { getActiveMerchantSendingDomain } from '@/lib/merchant-sending-domain';
 import { createAdminClient } from '@/lib/supabase/admin';
-
-// Lazy-initialized client
-let client: SendMailClient | null = null;
+import { zeptoMailRequest } from '@/lib/zeptomail-transport';
 
 /**
- * Get or create the ZeptoMail client with validation
+ * Resolve the ZeptoMail API token. Called inside each send attempt's
+ * try block so a missing token records a failed audit attempt (matching
+ * the legacy SDK client's behavior) instead of throwing at the caller.
  */
-function getClient(): SendMailClient {
-  if (client) return client;
-
+function getRequiredToken(): string {
   const token = getZeptoMailToken();
   if (!token) {
     throw new Error('ZEPTOMAIL_TOKEN environment variable is not configured');
   }
-
-  client = new SendMailClient({
-    url: 'api.zeptomail.com/',
-    token,
-  });
-
-  return client;
+  return token;
 }
 
 const DEFAULT_FROM_DOMAIN = getZeptoMailFromDomain();
@@ -465,35 +456,37 @@ export async function sendEmail({
     for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
       attemptsMade = attempt + 1;
       try {
-        const zeptoClient = getClient();
-
-        const response = await zeptoClient.sendMail({
-          from: { address: activeSender.address, name: activeSender.name },
-          to: [
-            {
-              email_address: {
-                address: to,
-                name: toName || to,
-              },
-            },
-          ],
-          subject,
-          htmlbody: htmlContent,
-          ...(textContent && { textbody: textContent }),
-          ...(attachments?.length ? { attachments } : {}),
-          // Δ-64: forward to ZeptoMail's documented `client_reference` only
-          // when supplied; absent otherwise so unrelated calls don't have
-          // to set it. The omission test asserts this.
-          ...(clientReference && { client_reference: clientReference }),
-          ...(replyTo && {
-            reply_to: [
+        const response = await zeptoMailRequest(
+          'email',
+          {
+            from: { address: activeSender.address, name: activeSender.name },
+            to: [
               {
-                address: replyTo,
-                name: replyTo,
+                email_address: {
+                  address: to,
+                  name: toName || to,
+                },
               },
             ],
-          }),
-        });
+            subject,
+            htmlbody: htmlContent,
+            ...(textContent && { textbody: textContent }),
+            ...(attachments?.length ? { attachments } : {}),
+            // Δ-64: forward to ZeptoMail's documented `client_reference` only
+            // when supplied; absent otherwise so unrelated calls don't have
+            // to set it. The omission test asserts this.
+            ...(clientReference && { client_reference: clientReference }),
+            ...(replyTo && {
+              reply_to: [
+                {
+                  address: replyTo,
+                  name: replyTo,
+                },
+              ],
+            }),
+          },
+          getRequiredToken()
+        );
 
         await updateEmailAttempts(auditIds, {
           status: 'accepted',
@@ -679,29 +672,31 @@ export async function sendEmailWithTemplate({
     for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
       attemptsMade = attempt + 1;
       try {
-        const zeptoClient = getClient();
-
-        const response = await zeptoClient.sendMailWithTemplate({
-          template_key: templateKey,
-          from: { address: activeSender.address, name: activeSender.name },
-          to: [
-            {
-              email_address: {
-                address: to,
-                name: toName || to,
-              },
-            },
-          ],
-          merge_info: mergeInfo,
-          ...(replyTo && {
-            reply_to: [
+        const response = await zeptoMailRequest(
+          'email/template',
+          {
+            template_key: templateKey,
+            from: { address: activeSender.address, name: activeSender.name },
+            to: [
               {
-                address: replyTo,
-                name: replyTo,
+                email_address: {
+                  address: to,
+                  name: toName || to,
+                },
               },
             ],
-          }),
-        });
+            merge_info: mergeInfo,
+            ...(replyTo && {
+              reply_to: [
+                {
+                  address: replyTo,
+                  name: replyTo,
+                },
+              ],
+            }),
+          },
+          getRequiredToken()
+        );
 
         await updateEmailAttempts(auditIds, {
           status: 'accepted',
@@ -845,19 +840,21 @@ export async function sendBatchEmailWithTemplate({
 
   for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
     try {
-      const zeptoClient = getClient();
-
-      const response = await zeptoClient.mailBatchWithTemplate({
-        template_key: templateKey,
-        from: sender,
-        to: recipients.map((r) => ({
-          email_address: {
-            address: r.to,
-            name: r.toName || r.to,
-          },
-          merge_info: r.mergeInfo,
-        })),
-      });
+      const response = await zeptoMailRequest(
+        'email/template/batch',
+        {
+          template_key: templateKey,
+          from: sender,
+          to: recipients.map((r) => ({
+            email_address: {
+              address: r.to,
+              name: r.toName || r.to,
+            },
+            merge_info: r.mergeInfo,
+          })),
+        },
+        getRequiredToken()
+      );
 
       await updateEmailAttempts(auditIds, {
         status: 'accepted',

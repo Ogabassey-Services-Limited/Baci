@@ -111,13 +111,22 @@ export async function fetchWithTimeout(
 
     return response;
   } catch (error) {
-    // Check if it was an abort (timeout)
-    if (error instanceof Error && error.name === 'AbortError') {
-      if (callerSignal?.aborted) {
-        throw error;
+    // Abort detection cannot rely on the AbortError name alone: React
+    // Native's iOS networking reports an aborted request as a plain Error
+    // with "Fetch request has been canceled". Attribute abort-like errors
+    // by which controller actually fired.
+    const isAbortLike =
+      error instanceof Error &&
+      (error.name === 'AbortError' ||
+        /\baborted\b|\bcancell?ed\b/i.test(error.message));
+    if (isAbortLike) {
+      if (controller.signal.aborted && !callerSignal?.aborted) {
+        // Our timeout controller fired — surface it as the timeout it is.
+        throw new TimeoutError(timeout);
       }
-      // TODO: Implement retry UI at component level
-      throw new TimeoutError(timeout);
+      // Caller-initiated (unmount/navigation) or OS-level cancellation:
+      // rethrow so classifiers can treat it as an intentional cancel.
+      throw error;
     }
 
     // Check for network errors

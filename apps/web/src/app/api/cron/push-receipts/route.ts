@@ -1,6 +1,7 @@
 import { Expo } from 'expo-server-sdk';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret, getExpoAccessToken } from '@/env';
+import { chunkArray, SUPABASE_IN_FILTER_CHUNK_SIZE } from '@/lib/chunk-array';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
     error_type: string | null;
     error_message: string | null;
   }> = [];
-  const tokensToDeactivate: string[] = [];
+  const tokensToDeactivate = new Map<string, string[]>();
   let chunkFailures = 0;
 
   for (const chunk of chunks) {
@@ -86,11 +87,19 @@ export async function GET(request: NextRequest) {
             error_message: receipt.message ?? null,
           });
 
+          // Receipt-time pruning is limited to DeviceNotRegistered (Expo's
+          // token-specific stop-sending signal). InvalidCredentials stays
+          // report-only here: receipts carry no platform metadata, so the
+          // isolated-vs-credential-outage distinction the send path makes
+          // (see push-token-errors.ts) is impossible in this cron.
           if (
             receipt.details?.error === 'DeviceNotRegistered' &&
             ticket.push_token
           ) {
-            tokensToDeactivate.push(ticket.push_token);
+            const tokenList =
+              tokensToDeactivate.get('DeviceNotRegistered') ?? [];
+            tokenList.push(ticket.push_token);
+            tokensToDeactivate.set('DeviceNotRegistered', tokenList);
           }
         }
       }
@@ -141,17 +150,29 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Deactivate invalid tokens
-  if (tokensToDeactivate.length > 0) {
-    const { error: deactivateError } = await supabase
-      .from('push_tokens')
-      .update({ is_active: false })
-      .in('token', tokensToDeactivate);
-    if (deactivateError) {
-      logger.error({
-        message: 'Failed to deactivate tokens',
-        error: deactivateError,
-      });
+  // Deactivate undeliverable tokens, recording why for auditability.
+  // Chunked: .in() values ride in the request URL, and a single run can
+  // surface up to 1000 dead tokens — an unchunked list would 414.
+  for (const [reason, tokenList] of tokensToDeactivate) {
+    for (const tokenChunk of chunkArray(
+      tokenList,
+      SUPABASE_IN_FILTER_CHUNK_SIZE
+    )) {
+      const { error: deactivateError } = await supabase
+        .from('push_tokens')
+        .update({
+          is_active: false,
+          deactivation_reason: reason,
+          deactivated_at: new Date().toISOString(),
+        })
+        .in('token', tokenChunk);
+      if (deactivateError) {
+        logger.error({
+          message: 'Failed to deactivate tokens',
+          reason,
+          error: deactivateError,
+        });
+      }
     }
   }
 

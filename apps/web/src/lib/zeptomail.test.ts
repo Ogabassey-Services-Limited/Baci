@@ -15,11 +15,21 @@ const auditState = {
   nextId: 1,
 };
 
-vi.mock('zeptomail', () => ({
-  SendMailClient: class MockSendMailClient {
-    sendMail = sendMailMock;
-    sendMailWithTemplate = sendMailWithTemplateMock;
-    mailBatchWithTemplate = mailBatchWithTemplateMock;
+// The fetch-based transport replaced the zeptomail SDK; dispatch by endpoint
+// so the per-method assertions below keep receiving the payload as-is.
+vi.mock('@/lib/zeptomail-transport', () => ({
+  zeptoMailRequest: (
+    endpoint: string,
+    payload: Record<string, unknown>,
+    _token: string
+  ) => {
+    if (endpoint === 'email/template/batch') {
+      return mailBatchWithTemplateMock(payload);
+    }
+    if (endpoint === 'email/template') {
+      return sendMailWithTemplateMock(payload);
+    }
+    return sendMailMock(payload);
   },
 }));
 

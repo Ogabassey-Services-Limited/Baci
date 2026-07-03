@@ -5,9 +5,8 @@ import {
   type SavedAddress,
   toCheckoutAddressValues,
 } from '@/lib/checkout-saved-address';
-import { supabase } from '@/lib/supabase';
+import { fetchCheckoutSavedAddresses } from '@/lib/fetch-checkout-saved-addresses';
 import type { ShippingAddressInput } from '@/lib/validation';
-import { trackError } from '@/services/analytics';
 
 interface UseCheckoutSavedAddressesParams {
   customerId?: string;
@@ -88,6 +87,8 @@ export function useCheckoutSavedAddresses({
   });
 
   useEffect(() => {
+    const abortController = new AbortController();
+
     const fetchAndHydrate = async () => {
       if (!isAuthenticated || !customerId) {
         setSavedAddresses([]);
@@ -102,7 +103,15 @@ export function useCheckoutSavedAddresses({
       }
 
       setIsLoadingSavedAddresses(true);
-      const nextAddresses = await fetchSavedAddresses(customerId, merchantId);
+      const nextAddresses = await fetchCheckoutSavedAddresses({
+        customerId,
+        merchantId,
+        signal: abortController.signal,
+      });
+      // Unmounted or superseded by a newer fetch — drop this result.
+      if (abortController.signal.aborted) {
+        return;
+      }
       setSavedAddresses(nextAddresses);
       setIsLoadingSavedAddresses(false);
 
@@ -122,7 +131,11 @@ export function useCheckoutSavedAddresses({
     };
 
     fetchAndHydrate();
-  }, [customerId, isAuthenticated, merchantId, setValue]);
+
+    return () => {
+      abortController.abort();
+    };
+  }, [customerId, isAuthenticated, merchantId]);
 
   return {
     applySavedAddressToForm,
@@ -145,35 +158,4 @@ export function useCheckoutSavedAddresses({
     setIsDeliveryCollapsed,
     setSaveAsDefaultAddress,
   };
-}
-
-async function fetchSavedAddresses(
-  customerId: string,
-  merchantId: string
-): Promise<SavedAddress[]> {
-  try {
-    const { data, error } = await supabase
-      .from('customers')
-      .select('saved_addresses')
-      .eq('id', customerId)
-      .eq('merchant_id', merchantId)
-      .single();
-
-    if (error) throw error;
-    const addresses = Array.isArray(data?.saved_addresses)
-      ? ([...data.saved_addresses] as SavedAddress[])
-      : [];
-
-    addresses.sort(
-      (left, right) =>
-        Number(Boolean(right.is_default)) - Number(Boolean(left.is_default))
-    );
-    return addresses;
-  } catch (error) {
-    trackError(
-      'checkout_saved_addresses_fetch',
-      error instanceof Error ? error.message : 'Failed to load saved addresses'
-    );
-    return [];
-  }
 }

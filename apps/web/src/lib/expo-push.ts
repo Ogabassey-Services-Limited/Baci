@@ -10,22 +10,12 @@ import Expo, {
   type ExpoPushTicket,
 } from 'expo-server-sdk';
 import { getExpoAccessToken } from '@/env';
+import { chunkArray, SUPABASE_IN_FILTER_CHUNK_SIZE } from '@/lib/chunk-array';
+import {
+  getPushTokenDeactivationReason,
+  shouldDeactivateForInvalidCredentials,
+} from '@/lib/push-token-errors';
 import { createAdminClient } from '@/lib/supabase/admin';
-
-/**
- * Max ids per Supabase `.in()` filter. Those values are encoded in the request
- * URL, so a large list (the update-nudge can match thousands of tokens) would
- * blow past gateway URL-length limits (~8KB) and 414. Chunk to stay well under.
- */
-const SUPABASE_IN_FILTER_CHUNK_SIZE = 100;
-
-function chunkArray<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-  return chunks;
-}
 
 // Module-scope cache: locale + minimumFractionDigits are static; currency varies.
 const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
@@ -241,7 +231,7 @@ export async function notifyMerchant(
 
   const { data: tokens, error } = await supabase
     .from('push_tokens')
-    .select('token')
+    .select('token, platform')
     .eq('merchant_id', merchantId)
     .eq('is_active', true)
     .eq('app_type', 'admin');
@@ -339,7 +329,7 @@ export async function notifyCustomer(
 
   const { data: tokens, error } = await supabase
     .from('push_tokens')
-    .select('token')
+    .select('token, platform')
     .eq('user_id', userId)
     .eq('is_active', true)
     .eq('app_type', 'storefront');
@@ -438,7 +428,7 @@ export async function notifyAdminUserDevices(
 
   const { data: tokens, error } = await supabase
     .from('push_tokens')
-    .select('token')
+    .select('token, platform')
     .eq('user_id', userId)
     .eq('is_active', true)
     .eq('app_type', 'admin');
@@ -529,16 +519,66 @@ export interface TicketContext {
   notificationType?: string;
 }
 
+/**
+ * Platform-scoped isolation check for InvalidCredentials pruning. Returns
+ * only the failing tokens whose platform group passes
+ * `shouldDeactivateForInvalidCredentials` — a failure that spans (or
+ * dominates) its platform's tokens indicates broken credentials for that
+ * platform, not dead tokens.
+ */
+function selectPrunableInvalidCredentialsTokens(
+  failingTokens: string[],
+  batchTokens: { token: string; platform?: string | null }[]
+): string[] {
+  const platformByToken = new Map(
+    batchTokens.map((entry) => [entry.token, entry.platform ?? 'unknown'])
+  );
+  const batchCountByPlatform = new Map<string, number>();
+  for (const entry of batchTokens) {
+    const platform = entry.platform ?? 'unknown';
+    batchCountByPlatform.set(
+      platform,
+      (batchCountByPlatform.get(platform) ?? 0) + 1
+    );
+  }
+
+  const failuresByPlatform = new Map<string, string[]>();
+  for (const token of failingTokens) {
+    const platform = platformByToken.get(token) ?? 'unknown';
+    const failures = failuresByPlatform.get(platform) ?? [];
+    failures.push(token);
+    failuresByPlatform.set(platform, failures);
+  }
+
+  const prunable: string[] = [];
+  for (const [platform, failures] of failuresByPlatform) {
+    if (
+      shouldDeactivateForInvalidCredentials(
+        failures.length,
+        batchCountByPlatform.get(platform) ?? 0
+      )
+    ) {
+      prunable.push(...failures);
+    }
+  }
+  return prunable;
+}
+
 export async function processTickets(
   tickets: ExpoPushTicket[],
-  tokens: { token: string }[],
+  tokens: { token: string; platform?: string | null }[],
   supabase: ReturnType<typeof createAdminClient>,
   context?: TicketContext
 ): Promise<NotificationSendResult> {
   let sent = 0;
   let failed = 0;
-  const errors: string[] = [];
-  const tokensToDeactivate: string[] = [];
+  // Aggregate failures by error code so a 200-token send with one broken
+  // token logs one actionable line instead of raw per-ticket noise.
+  const errorAggregates = new Map<
+    string,
+    { count: number; sampleMessage: string }
+  >();
+  const tokensToDeactivate = new Map<string, string[]>();
   const ticketsToStore: Array<{
     ticket_id: string;
     push_token: string;
@@ -567,31 +607,91 @@ export async function processTickets(
       });
     } else {
       failed++;
-      if (ticket.message) {
-        errors.push(ticket.message);
+      const errorCode =
+        typeof ticket.details?.error === 'string'
+          ? ticket.details.error
+          : 'UnknownError';
+      const aggregate = errorAggregates.get(errorCode);
+      if (aggregate) {
+        aggregate.count++;
+      } else {
+        errorAggregates.set(errorCode, {
+          count: 1,
+          sampleMessage: ticket.message ?? 'No error message provided',
+        });
       }
-      if (ticket.details?.error === 'DeviceNotRegistered') {
-        tokensToDeactivate.push(tokens[i].token);
+      const deactivationReason = getPushTokenDeactivationReason(errorCode);
+      if (deactivationReason) {
+        const tokenList = tokensToDeactivate.get(deactivationReason) ?? [];
+        tokenList.push(tokens[i].token);
+        tokensToDeactivate.set(deactivationReason, tokenList);
       }
+    }
+  }
+
+  // Widespread InvalidCredentials means broken project credentials, not dead
+  // tokens — leave those active (report-only) so pushes resume the moment
+  // credentials are fixed. Credentials are scoped per platform (APNs vs FCM)
+  // within a batch (each send targets a single app), so isolation is judged
+  // against tokens of the SAME platform only: 5 failing iOS tokens in a
+  // 100-token mostly-Android batch is still 100% of the iOS credential scope.
+  const invalidCredentialsTokens = tokensToDeactivate.get('InvalidCredentials');
+  if (invalidCredentialsTokens) {
+    const prunable = selectPrunableInvalidCredentialsTokens(
+      invalidCredentialsTokens,
+      tokens
+    );
+    if (prunable.length > 0) {
+      tokensToDeactivate.set('InvalidCredentials', prunable);
+    } else {
+      tokensToDeactivate.delete('InvalidCredentials');
+    }
+    const skipped = invalidCredentialsTokens.length - prunable.length;
+    if (skipped > 0) {
+      console.warn(
+        `[expo-push] InvalidCredentials on ${skipped} token(s) looks like platform-wide credential breakage — tokens left active`
+      );
     }
   }
 
   // Chunk the id list: .in() values ride in the request URL, so a large batch
   // (the update-nudge can surface thousands of dead tokens) would 414.
-  for (const tokenChunk of chunkArray(
-    tokensToDeactivate,
-    SUPABASE_IN_FILTER_CHUNK_SIZE
-  )) {
-    const { error: deactivateError } = await supabase
-      .from('push_tokens')
-      .update({ is_active: false })
-      .in('token', tokenChunk);
-    if (deactivateError) {
-      console.error(
-        'Failed to deactivate invalid push tokens:',
-        deactivateError
-      );
+  const deactivatedCounts = new Map<string, number>();
+  for (const [reason, tokenList] of tokensToDeactivate) {
+    for (const tokenChunk of chunkArray(
+      tokenList,
+      SUPABASE_IN_FILTER_CHUNK_SIZE
+    )) {
+      const { error: deactivateError } = await supabase
+        .from('push_tokens')
+        .update({
+          is_active: false,
+          deactivation_reason: reason,
+          deactivated_at: new Date().toISOString(),
+        })
+        .in('token', tokenChunk);
+      if (deactivateError) {
+        console.error(
+          'Failed to deactivate undeliverable push tokens:',
+          deactivateError
+        );
+      } else {
+        deactivatedCounts.set(
+          reason,
+          (deactivatedCounts.get(reason) ?? 0) + tokenChunk.length
+        );
+      }
     }
+  }
+
+  const errors: string[] = [];
+  for (const [code, aggregate] of errorAggregates) {
+    const deactivatedCount = deactivatedCounts.get(code) ?? 0;
+    const deactivationNote =
+      deactivatedCount > 0 ? `, ${deactivatedCount} token(s) deactivated` : '';
+    errors.push(
+      `${code} (${aggregate.count} failed${deactivationNote}): ${aggregate.sampleMessage}`
+    );
   }
 
   // Store successful tickets for receipt polling
