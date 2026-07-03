@@ -15,6 +15,28 @@ export async function verifyTerminalOwnership(
   merchantId: string,
   code: string
 ): Promise<NextResponse | null> {
+  const { data: terminalRecord, error: terminalError } = await supabase
+    .from('virtual_terminals')
+    .select('id')
+    .eq('merchant_id', merchantId)
+    .eq('code', code)
+    .maybeSingle();
+
+  if (terminalError) {
+    logger.error({
+      message: 'Database error fetching virtual terminal record',
+      error: terminalError,
+      merchantId,
+      code,
+    });
+    return NextResponse.json(
+      { error: 'Database error verifying terminal ownership' },
+      { status: 500 }
+    );
+  }
+
+  if (terminalRecord?.id) return null;
+
   const { data: merchantRecord, error: merchantError } = await supabase
     .from('merchants')
     .select('virtual_terminal_code')
@@ -105,14 +127,12 @@ export async function clearLegacyTerminalCode(
   supabase: VirtualTerminalSupabaseClient,
   merchantId: string,
   code: string
-): Promise<'legacy_clear_failed' | 'legacy_code_not_cleared' | null> {
-  const { data: clearedMerchant, error } = await supabase
+): Promise<'legacy_clear_failed' | null> {
+  const { error } = await supabase
     .from('merchants')
     .update({ virtual_terminal_code: null })
     .eq('id', merchantId)
-    .eq('virtual_terminal_code', code)
-    .select('id')
-    .maybeSingle();
+    .eq('virtual_terminal_code', code);
 
   if (error) {
     logger.error({
@@ -122,16 +142,6 @@ export async function clearLegacyTerminalCode(
       code,
     });
     return 'legacy_clear_failed';
-  }
-
-  if (!clearedMerchant?.id) {
-    logger.error({
-      message: 'Legacy virtual terminal code was not cleared',
-      error: 'merchant_code_not_updated',
-      merchantId,
-      code,
-    });
-    return 'legacy_code_not_cleared';
   }
 
   return null;

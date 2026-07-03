@@ -20,6 +20,7 @@ import {
   unassignVirtualTerminalDestinations,
 } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
+import { verifyTerminalOwnership } from '../virtual-terminal-local-sync';
 
 interface RouteParams {
   params: Promise<{ code: string }>;
@@ -87,30 +88,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const merchantId = merchantContext.merchantId;
 
-    // Verify merchant owns this terminal by checking virtual_terminal_code
-    const { data: merchantRecord, error: merchantError } = await supabase
-      .from('merchants')
-      .select('virtual_terminal_code')
-      .eq('id', merchantId)
-      .maybeSingle();
-
-    if (merchantError) {
-      logger.error({
-        message: 'Database error fetching merchant record',
-        error: merchantError,
-      });
-      return NextResponse.json(
-        { error: 'Database error verifying terminal ownership' },
-        { status: 500 }
-      );
-    }
-
-    if (!merchantRecord || merchantRecord.virtual_terminal_code !== code) {
-      return NextResponse.json(
-        { error: 'Terminal not found or not authorized' },
-        { status: 404 }
-      );
-    }
+    const ownershipError = await verifyTerminalOwnership(
+      supabase,
+      merchantId,
+      code
+    );
+    if (ownershipError) return ownershipError;
 
     const body = await request.json();
     const parseResult = DestinationSchema.safeParse(body);
@@ -185,30 +168,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     const merchantId = merchantContext.merchantId;
 
-    // Verify merchant owns this terminal by checking virtual_terminal_code
-    const { data: merchantRecord, error: merchantError } = await supabase
-      .from('merchants')
-      .select('virtual_terminal_code')
-      .eq('id', merchantId)
-      .maybeSingle();
-
-    if (merchantError) {
-      logger.error({
-        message: 'Database error fetching merchant record',
-        error: merchantError,
-      });
-      return NextResponse.json(
-        { error: 'Database error verifying terminal ownership' },
-        { status: 500 }
-      );
-    }
-
-    if (!merchantRecord || merchantRecord.virtual_terminal_code !== code) {
-      return NextResponse.json(
-        { error: 'Terminal not found or not authorized' },
-        { status: 404 }
-      );
-    }
+    const ownershipError = await verifyTerminalOwnership(
+      supabase,
+      merchantId,
+      code
+    );
+    if (ownershipError) return ownershipError;
 
     const body = await request.json();
     const parseResult = UnassignSchema.safeParse(body);
