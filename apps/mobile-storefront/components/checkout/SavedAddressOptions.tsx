@@ -55,7 +55,7 @@ export function SavedAddressOptions({
           <ActivityIndicator
             accessibilityLabel="Loading saved addresses"
             size="small"
-            color={BRAND.primary}
+            color={colors.textSecondary}
           />
         )}
       </View>
@@ -73,11 +73,13 @@ export function SavedAddressOptions({
         <Pressable
           style={[
             styles.addressModeChip,
-            {
-              backgroundColor: !isAddingNewAddress
-                ? BRAND.primary
-                : 'transparent',
-            },
+            !isAddingNewAddress
+              ? {
+                  backgroundColor: isDark
+                    ? 'rgba(255, 255, 255, 0.10)'
+                    : '#FFFFFF',
+                }
+              : null,
           ]}
           onPress={() => {
             const fallbackSavedAddress =
@@ -93,12 +95,14 @@ export function SavedAddressOptions({
           <Ionicons
             name="bookmark-outline"
             size={15}
-            color={!isAddingNewAddress ? '#FFFFFF' : BRAND.primary}
+            color={!isAddingNewAddress ? colors.text : colors.textSecondary}
           />
           <Text
             style={[
               styles.addressModeChipText,
-              { color: !isAddingNewAddress ? '#FFFFFF' : colors.text },
+              {
+                color: !isAddingNewAddress ? colors.text : colors.textSecondary,
+              },
             ]}
           >
             Saved
@@ -107,11 +111,13 @@ export function SavedAddressOptions({
         <Pressable
           style={[
             styles.addressModeChip,
-            {
-              backgroundColor: isAddingNewAddress
-                ? BRAND.primary
-                : 'transparent',
-            },
+            isAddingNewAddress
+              ? {
+                  backgroundColor: isDark
+                    ? 'rgba(255, 255, 255, 0.10)'
+                    : '#FFFFFF',
+                }
+              : null,
           ]}
           onPress={onOpenNewAddressEditor}
           accessibilityRole="button"
@@ -121,12 +127,14 @@ export function SavedAddressOptions({
           <Ionicons
             name="add-outline"
             size={16}
-            color={isAddingNewAddress ? '#FFFFFF' : BRAND.primary}
+            color={isAddingNewAddress ? colors.text : colors.textSecondary}
           />
           <Text
             style={[
               styles.addressModeChipText,
-              { color: isAddingNewAddress ? '#FFFFFF' : colors.text },
+              {
+                color: isAddingNewAddress ? colors.text : colors.textSecondary,
+              },
             ]}
           >
             New address
@@ -147,9 +155,7 @@ export function SavedAddressOptions({
                 styles.savedAddressOption,
                 {
                   backgroundColor: isSelected
-                    ? isDark
-                      ? 'rgba(217, 59, 48, 0.12)'
-                      : palette.red[50]
+                    ? BRAND.primaryAlpha06
                     : colors.background,
                   borderColor: isSelected ? BRAND.primary : colors.border,
                 },
@@ -162,18 +168,16 @@ export function SavedAddressOptions({
                 style={[
                   styles.savedAddressIconWrap,
                   {
-                    backgroundColor: isSelected
-                      ? `${BRAND.primary}18`
-                      : isDark
-                        ? 'rgba(255,255,255,0.07)'
-                        : palette.gray[100],
+                    backgroundColor: isDark
+                      ? 'rgba(255,255,255,0.07)'
+                      : palette.gray[100],
                   },
                 ]}
               >
                 <Ionicons
                   name={getAddressLabelIcon(savedAddress.label)}
                   size={18}
-                  color={isSelected ? BRAND.primary : colors.textSecondary}
+                  color={isSelected ? colors.text : colors.textSecondary}
                 />
               </View>
               <View style={styles.savedAddressOptionBody}>
@@ -190,7 +194,7 @@ export function SavedAddressOptions({
                     <View
                       style={[
                         styles.savedAddressDefaultBadge,
-                        { backgroundColor: `${BRAND.primary}14` },
+                        { backgroundColor: BRAND.primaryAlpha12 },
                       ]}
                     >
                       <Text

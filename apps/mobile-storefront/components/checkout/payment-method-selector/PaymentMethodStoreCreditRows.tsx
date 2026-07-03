@@ -1,8 +1,8 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
+import { WalletStatusRow } from '@/components/checkout/WalletStatusRow';
 import Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
-import { WalletStatusRow } from '@/components/checkout/WalletStatusRow';
 import { formatPrice } from '@/stores/cart-store';
 import { paymentMethodSelectorStyles as styles } from './styles';
 
@@ -61,9 +61,11 @@ export function PaymentMethodStoreCreditRows({
         <Pressable
           onPress={onSavingsToggle}
           style={[
-            styles.methodCard,
+            styles.creditRow,
             {
-              backgroundColor: colors.card,
+              backgroundColor: savingsIsActive
+                ? BRAND.primaryAlpha06
+                : colors.card,
               borderColor: savingsIsActive ? BRAND.primary : colors.border,
             },
           ]}
@@ -73,33 +75,24 @@ export function PaymentMethodStoreCreditRows({
         >
           <View
             style={[
-              styles.methodIconContainer,
-              {
-                backgroundColor: savingsIsActive
-                  ? `${BRAND.primary}20`
-                  : `${colors.textSecondary}10`,
-              },
+              styles.creditIcon,
+              { backgroundColor: `${colors.textSecondary}10` },
             ]}
           >
             <Ionicons
               name="shield-checkmark-outline"
-              size={24}
-              color={savingsIsActive ? BRAND.primary : colors.textSecondary}
+              size={18}
+              color={savingsIsActive ? colors.text : colors.textSecondary}
             />
           </View>
 
-          <View style={styles.methodInfo}>
-            <Text
-              style={[
-                styles.methodLabel,
-                { color: savingsIsActive ? BRAND.primary : colors.text },
-              ]}
-            >
+          <View style={styles.creditInfo}>
+            <Text style={[styles.creditLabel, { color: colors.text }]}>
               {savingsCoversFully
                 ? 'Pay with device savings'
                 : 'Use device savings'}
             </Text>
-            <Text style={[styles.methodDesc, { color: colors.textSecondary }]}>
+            <Text style={[styles.creditDesc, { color: colors.textSecondary }]}>
               {savingsCoversFully
                 ? `${formatPrice(savingsTotalBalance)} saved · covers full order`
                 : `${formatPrice(savingsPortion)} from ${savingsGoalDisplayName} · ${formatPrice(savingsResidualToGateway)} remaining`}
@@ -108,15 +101,17 @@ export function PaymentMethodStoreCreditRows({
 
           <View
             style={[
-              styles.radioOuter,
+              styles.creditIndicator,
               {
-                borderColor: savingsIsActive ? BRAND.primary : colors.border,
-                borderRadius: savingsCoversFully ? 11 : 4,
+                // Always red so the unused credit calls attention.
+                borderColor: BRAND.primary,
+                backgroundColor: savingsIsActive ? BRAND.primary : 'transparent',
+                borderRadius: savingsCoversFully ? 10 : 4,
               },
             ]}
           >
             {savingsIsActive ? (
-              <Ionicons name="checkmark" size={14} color={BRAND.primary} />
+              <Ionicons name="checkmark" size={12} color="#FFFFFF" />
             ) : null}
           </View>
         </Pressable>
@@ -129,29 +124,30 @@ export function PaymentMethodStoreCreditRows({
       {walletInfoShouldRender ? (
         <View
           style={[
-            styles.methodCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-            },
+            styles.creditRow,
+            { backgroundColor: colors.card, borderColor: colors.border },
           ]}
           accessibilityRole="text"
           accessibilityLabel={`Wallet balance applies automatically. ${formatPrice(walletPortion)} available now`}
         >
           <View
             style={[
-              styles.methodIconContainer,
-              { backgroundColor: `${BRAND.primary}20` },
+              styles.creditIcon,
+              { backgroundColor: `${colors.textSecondary}10` },
             ]}
           >
-            <Ionicons name="wallet-outline" size={24} color={BRAND.primary} />
+            <Ionicons
+              name="wallet-outline"
+              size={18}
+              color={colors.textSecondary}
+            />
           </View>
 
-          <View style={styles.methodInfo}>
-            <Text style={[styles.methodLabel, { color: colors.text }]}>
+          <View style={styles.creditInfo}>
+            <Text style={[styles.creditLabel, { color: colors.text }]}>
               Wallet balance applies automatically
             </Text>
-            <Text style={[styles.methodDesc, { color: colors.textSecondary }]}>
+            <Text style={[styles.creditDesc, { color: colors.textSecondary }]}>
               {`${formatPrice(walletPortion)} available now · transfer shortfall only`}
             </Text>
           </View>
@@ -162,9 +158,11 @@ export function PaymentMethodStoreCreditRows({
         <Pressable
           onPress={onWalletToggle}
           style={[
-            styles.methodCard,
+            styles.creditRow,
             {
-              backgroundColor: colors.card,
+              backgroundColor: walletIsActive
+                ? BRAND.primaryAlpha06
+                : colors.card,
               borderColor: walletIsActive ? BRAND.primary : colors.border,
             },
           ]}
@@ -174,31 +172,22 @@ export function PaymentMethodStoreCreditRows({
         >
           <View
             style={[
-              styles.methodIconContainer,
-              {
-                backgroundColor: walletIsActive
-                  ? `${BRAND.primary}20`
-                  : `${colors.textSecondary}10`,
-              },
+              styles.creditIcon,
+              { backgroundColor: `${colors.textSecondary}10` },
             ]}
           >
             <Ionicons
               name="wallet-outline"
-              size={24}
-              color={walletIsActive ? BRAND.primary : colors.textSecondary}
+              size={18}
+              color={walletIsActive ? colors.text : colors.textSecondary}
             />
           </View>
 
-          <View style={styles.methodInfo}>
-            <Text
-              style={[
-                styles.methodLabel,
-                { color: walletIsActive ? BRAND.primary : colors.text },
-              ]}
-            >
+          <View style={styles.creditInfo}>
+            <Text style={[styles.creditLabel, { color: colors.text }]}>
               {walletCoversFully ? 'Pay with wallet' : 'Use wallet credit'}
             </Text>
-            <Text style={[styles.methodDesc, { color: colors.textSecondary }]}>
+            <Text style={[styles.creditDesc, { color: colors.textSecondary }]}>
               {walletCoversFully
                 ? `${formatPrice(walletTotalBalance)} available · covers full order`
                 : `${formatPrice(walletPortion)} from wallet · ${formatPrice(walletResidualToCard)} from card`}
@@ -207,15 +196,17 @@ export function PaymentMethodStoreCreditRows({
 
           <View
             style={[
-              styles.radioOuter,
+              styles.creditIndicator,
               {
-                borderColor: walletIsActive ? BRAND.primary : colors.border,
-                borderRadius: walletCoversFully ? 11 : 4,
+                // Always red so the unused credit calls attention.
+                borderColor: BRAND.primary,
+                backgroundColor: walletIsActive ? BRAND.primary : 'transparent',
+                borderRadius: walletCoversFully ? 10 : 4,
               },
             ]}
           >
             {walletIsActive ? (
-              <Ionicons name="checkmark" size={14} color={BRAND.primary} />
+              <Ionicons name="checkmark" size={12} color="#FFFFFF" />
             ) : null}
           </View>
         </Pressable>

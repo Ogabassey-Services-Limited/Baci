@@ -1,13 +1,14 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type { Control, FieldErrors } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { BRAND } from '@/constants/Colors';
 import type { ShippingAddressInput } from '@/lib/validation';
 import { CheckoutFormField } from './CheckoutFormField';
 import { checkoutContactCardStyles as styles } from './CheckoutContactCard.styles';
 import { CheckoutGuestSaveDetails } from './CheckoutGuestSaveDetails';
+import { CollapsibleCheckoutCard } from './selection/CollapsibleCheckoutCard';
 
 type CheckoutContactCardColors = {
   background: string;
@@ -64,58 +65,26 @@ export function CheckoutContactCard({
     isAuthenticated && (isCollapsed || hasContactIdentity);
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-          overflow: 'visible',
-          position: 'relative',
-          zIndex: 20,
-        },
-      ]}
-    >
-      <View style={styles.cardHeaderActionRow}>
-        <View style={[styles.cardHeader, styles.cardHeaderInline]}>
-          <Ionicons name="person-outline" size={16} color={BRAND.primary} />
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Contact
-          </Text>
-        </View>
-        {showCollapseAction ? (
-          <Pressable
-            accessibilityLabel={
-              isCollapsed ? 'Edit contact details' : 'Collapse contact details'
-            }
-            accessibilityRole="button"
-            hitSlop={10}
-            onPress={onToggleCollapsed}
-            style={styles.inlineEditButton}
-          >
-            <View style={styles.inlineActionContent}>
-              <Ionicons
-                name={isCollapsed ? 'create-outline' : 'checkmark-outline'}
-                size={16}
-                color={BRAND.primary}
-              />
-              <Text style={styles.inlineActionText}>
-                {isCollapsed ? 'Edit' : 'Done'}
-              </Text>
-            </View>
-          </Pressable>
-        ) : null}
-      </View>
-
-      {isCollapsed ? (
+    <CollapsibleCheckoutCard
+      icon="person-outline"
+      title="Contact"
+      colors={colors}
+      isDark={isDark}
+      collapsed={isCollapsed}
+      canCollapse={showCollapseAction}
+      onToggle={onToggleCollapsed}
+      overflowVisible
+      zIndex={20}
+      summary={
         <ContactSummary
           colors={colors}
           contactSummary={contactSummary}
           email={email}
           phone={phone}
         />
-      ) : (
-        <View style={[styles.cardBody, styles.contactCardBody]}>
+      }
+    >
+      <View style={[styles.cardBody, styles.contactCardBody]}>
           <View style={styles.row}>
             {CONTACT_NAME_FIELDS.map((field) => (
               <View key={field.name} style={styles.halfInput}>
@@ -184,8 +153,7 @@ export function CheckoutContactCard({
             />
           ) : null}
         </View>
-      )}
-    </View>
+    </CollapsibleCheckoutCard>
   );
 }
 
@@ -203,36 +171,47 @@ function ContactSummary({
       style={[
         styles.summaryPanel,
         {
-          backgroundColor: colors.muted,
+          // Recessed dark fill — the same "premium dark" as the delivery-method
+          // rows — so a completed section reads as settled, not washed grey.
+          backgroundColor: colors.background,
           borderColor: colors.border,
         },
       ]}
     >
-      <View style={styles.summaryMetaRow}>
-        <Ionicons
-          name="person-circle-outline"
-          size={16}
-          color={BRAND.primary}
-        />
-        <Text
-          style={[styles.summaryMetaLabel, { color: colors.textSecondary }]}
+      <View style={styles.summaryRow}>
+        <View
+          style={[
+            styles.summaryChip,
+            { backgroundColor: `${colors.textSecondary}10` },
+          ]}
         >
-          Signed in
-        </Text>
+          <Ionicons
+            name="person-circle-outline"
+            size={22}
+            color={BRAND.primary}
+          />
+        </View>
+        <View style={styles.summaryBody}>
+          <Text
+            style={[styles.summaryMetaLabel, { color: colors.textSecondary }]}
+          >
+            Signed in
+          </Text>
+          <Text style={[styles.summaryTitle, { color: colors.text }]}>
+            {contactSummary || 'Contact details'}
+          </Text>
+          {email ? (
+            <Text style={[styles.summaryLine, { color: colors.textSecondary }]}>
+              {email}
+            </Text>
+          ) : null}
+          {phone ? (
+            <Text style={[styles.summaryLine, { color: colors.textSecondary }]}>
+              {phone}
+            </Text>
+          ) : null}
+        </View>
       </View>
-      <Text style={[styles.summaryTitle, { color: colors.text }]}>
-        {contactSummary || 'Contact details'}
-      </Text>
-      {email ? (
-        <Text style={[styles.summaryLine, { color: colors.textSecondary }]}>
-          {email}
-        </Text>
-      ) : null}
-      {phone ? (
-        <Text style={[styles.summaryLine, { color: colors.textSecondary }]}>
-          {phone}
-        </Text>
-      ) : null}
     </View>
   );
 }

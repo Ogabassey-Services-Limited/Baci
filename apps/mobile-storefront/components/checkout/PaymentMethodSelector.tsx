@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
-import { useWindowDimensions, View } from 'react-native';
+import { View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { palette } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
-import { PaymentMethodOptionRow } from './payment-method-selector/PaymentMethodOptionRow';
+import { InstrumentRows } from './payment-method-selector/InstrumentRows';
+import { PaymentIntentAccordion } from './payment-method-selector/PaymentIntentAccordion';
+import type { PaymentIntent } from './payment-method-selector/payment-intents';
 import { PaymentMethodStatusPanels } from './payment-method-selector/PaymentMethodStatusPanels';
 import { PaymentMethodStoreCreditRows } from './payment-method-selector/PaymentMethodStoreCreditRows';
-import { PaymentMethodTabSelector } from './payment-method-selector/PaymentMethodTabSelector';
 import { paymentMethodSelectorStyles as styles } from './payment-method-selector/styles';
 import {
   DEFAULT_SAVINGS_FALLBACK_TITLE,
@@ -52,14 +53,13 @@ export function PaymentMethodSelector({
   methodDisabledReasons = {},
   methodLabelOverrides = {},
   walletFundedBankTransferMode = false,
+  paymentScrollRef,
+  paymentScrollOffsetRef,
+  initiallyCollapsed = false,
 }: PaymentMethodSelectorProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const isDark = (colorScheme ?? 'light') === 'dark';
-  const { height, width } = useWindowDimensions();
-  const hasMeasuredWindow = width > 0 && height > 0;
-  const isCompactPaymentLayout =
-    hasMeasuredWindow && (width < 390 || (width > height && height < 520));
   const warningBackground = isDark
     ? 'rgba(245, 158, 11, 0.12)'
     : palette.amber[100];
@@ -163,114 +163,118 @@ export function PaymentMethodSelector({
     ? `Pay with wallet, ${formatPrice(walletBalance)} available`
     : `Use wallet credit, ${formatPrice(walletPortion)} of ${formatPrice(walletEffectiveTotal)}`;
 
+  // Selecting an intent projects onto the existing (tab, method) state. For the
+  // two terminal `pay_later` intents we also pin the specific method, because
+  // onSelectTab auto-selects the first method of the tab (invoice).
+  const handleSelectIntent = (intent: PaymentIntent) => {
+    onSelectTab(intent.tab);
+    if (intent.method) onSelectMethod(intent.method);
+  };
+
+  const savingsSuppressesGateway = savingsCoversFully && savingsIsActive;
+  const walletSuppressesGateway = walletCoversFully && walletIsActive;
+  const showInstruments =
+    selectedTab === 'full' || selectedTab === 'installments';
+  const instrumentRows = showInstruments ? (
+    <InstrumentRows
+      colors={colors}
+      methodBadgeOverrides={methodBadgeOverrides}
+      methodDescriptionOverrides={methodDescriptionOverrides}
+      methodLabelOverrides={methodLabelOverrides}
+      methods={filteredMethods}
+      onSelectMethod={onSelectMethod}
+      savingsSuppressesGateway={savingsSuppressesGateway}
+      selectedMethod={selectedMethod}
+      suppressedSelectedMethods={suppressedSelectedMethods}
+      walletSuppressesGateway={walletSuppressesGateway}
+    />
+  ) : null;
+
+  const showCreditSection =
+    walletShouldRender ||
+    walletInfoShouldRender ||
+    walletStatusShouldRender ||
+    savingsShouldRender;
+
   return (
     <View style={styles.container}>
-      <PaymentMethodStoreCreditRows
+      <PaymentIntentAccordion
         colors={colors}
-        onSavingsToggle={
-          onSavingsToggle
-            ? () =>
-                onSavingsToggle(
-                  savingsIsActive
-                    ? { use: false, goalId: null, amount: 0 }
-                    : {
-                        use: true,
-                        goalId: savingsGoalId ?? null,
-                        amount: savingsPortion,
-                      }
-                )
-            : undefined
-        }
-        onWalletToggle={
-          onWalletToggle
-            ? () =>
-                onWalletToggle(
-                  walletIsActive
-                    ? { use: false, amount: 0 }
-                    : { use: true, amount: walletPortion }
-                )
-            : undefined
-        }
-        savingsAccessibilityLabel={savingsAccessibilityLabel}
-        savingsCoversFully={savingsCoversFully}
-        savingsGoalDisplayName={savingsGoalDisplayName}
-        savingsIsActive={savingsIsActive}
-        savingsPortion={savingsPortion}
-        savingsResidualToGateway={savingsResidualToGateway}
-        savingsShouldRender={savingsShouldRender}
-        savingsTotalBalance={savingsBalance}
-        walletAccessibilityLabel={walletAccessibilityLabel}
-        walletCoversFully={walletCoversFully}
-        walletInfoShouldRender={walletInfoShouldRender}
-        walletIsActive={walletIsActive}
-        walletIsLoading={walletIsLoading}
-        walletPortion={walletPortion}
-        walletResidualToCard={walletResidualToCard}
-        walletShouldRender={walletShouldRender}
-        walletStatusShouldRender={walletStatusShouldRender}
-        walletTotalBalance={walletBalance}
-      />
-
-      <PaymentMethodTabSelector
-        colors={colors}
-        compact={isCompactPaymentLayout}
         hasBNPLMethods={hasBNPLMethods}
         hasPayLaterMethods={hasPayLaterMethods}
-        onSelectTab={onSelectTab}
-        selectedTab={selectedTab}
-      />
-
-      <View
-        style={styles.methodsContainer}
-        accessibilityRole="radiogroup"
-        accessibilityLabel="Payment methods"
-        accessibilityLiveRegion="polite"
-      >
-        {filteredMethods.map((method) => {
-          const savingsSuppressesGateway =
-            savingsCoversFully && savingsIsActive;
-          const walletSuppressesGateway = walletCoversFully && walletIsActive;
-          const selectionSuppressed = suppressedSelectedMethods.includes(
-            method.id
-          );
-          const isSelected =
-            selectedMethod === method.id &&
-            !walletSuppressesGateway &&
-            !savingsSuppressesGateway &&
-            !selectionSuppressed;
-          const isDisabled = Boolean(
-            method.disabled ||
-              walletSuppressesGateway ||
-              savingsSuppressesGateway
-          );
-          return (
-            <PaymentMethodOptionRow
-              key={method.id}
-              colors={colors}
-              isDisabled={isDisabled}
-              isSelected={isSelected}
-              method={method}
-              onPress={onSelectMethod}
-              overrideBadge={methodBadgeOverrides[method.id]}
-              overrideDescription={methodDescriptionOverrides[method.id]}
-              overrideLabel={methodLabelOverrides[method.id]}
-            />
-          );
-        })}
-      </View>
-
-      <PaymentMethodStatusPanels
-        colors={colors}
-        hasValidTotal={hasValidTotal}
+        initiallyCollapsed={initiallyCollapsed}
         isBNPLEligible={isBNPLEligible}
+        nestedRows={instrumentRows}
+        onSelectIntent={handleSelectIntent}
         orderTotal={orderTotal}
+        scrollOffsetRef={paymentScrollOffsetRef}
+        scrollRef={paymentScrollRef}
+        selectedInfo={
+          <>
+            <PaymentMethodStatusPanels
+              colors={colors}
+              hasValidTotal={hasValidTotal}
+              isBNPLEligible={isBNPLEligible}
+              orderTotal={orderTotal}
+              selectedMethod={selectedMethod}
+              selectedTab={selectedTab}
+              showInstallmentCalculator={showInstallmentCalculator}
+              warningBackground={warningBackground}
+              warningSubtleTextColor={warningSubtleTextColor}
+              warningTextColor={warningTextColor}
+              walletFundedBankTransferMode={walletFundedBankTransferMode}
+            />
+            {showCreditSection ? (
+              <PaymentMethodStoreCreditRows
+                colors={colors}
+                onSavingsToggle={
+                  onSavingsToggle
+                    ? () =>
+                        onSavingsToggle(
+                          savingsIsActive
+                            ? { use: false, goalId: null, amount: 0 }
+                            : {
+                                use: true,
+                                goalId: savingsGoalId ?? null,
+                                amount: savingsPortion,
+                              }
+                        )
+                    : undefined
+                }
+                onWalletToggle={
+                  onWalletToggle
+                    ? () =>
+                        onWalletToggle(
+                          walletIsActive
+                            ? { use: false, amount: 0 }
+                            : { use: true, amount: walletPortion }
+                        )
+                    : undefined
+                }
+                savingsAccessibilityLabel={savingsAccessibilityLabel}
+                savingsCoversFully={savingsCoversFully}
+                savingsGoalDisplayName={savingsGoalDisplayName}
+                savingsIsActive={savingsIsActive}
+                savingsPortion={savingsPortion}
+                savingsResidualToGateway={savingsResidualToGateway}
+                savingsShouldRender={savingsShouldRender}
+                savingsTotalBalance={savingsBalance}
+                walletAccessibilityLabel={walletAccessibilityLabel}
+                walletCoversFully={walletCoversFully}
+                walletInfoShouldRender={walletInfoShouldRender}
+                walletIsActive={walletIsActive}
+                walletIsLoading={walletIsLoading}
+                walletPortion={walletPortion}
+                walletResidualToCard={walletResidualToCard}
+                walletShouldRender={walletShouldRender}
+                walletStatusShouldRender={walletStatusShouldRender}
+                walletTotalBalance={walletBalance}
+              />
+            ) : null}
+          </>
+        }
         selectedMethod={selectedMethod}
         selectedTab={selectedTab}
-        showInstallmentCalculator={showInstallmentCalculator}
-        warningBackground={warningBackground}
-        warningSubtleTextColor={warningSubtleTextColor}
-        warningTextColor={warningTextColor}
-        walletFundedBankTransferMode={walletFundedBankTransferMode}
       />
     </View>
   );

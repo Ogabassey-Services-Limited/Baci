@@ -56,7 +56,7 @@ describe('DeliveryMethodCard', () => {
       />
     );
     fireEvent.press(
-      screen.getByRole('button', { name: /select door delivery/i })
+      screen.getByRole('radio', { name: /select door delivery/i })
     );
     expect(baseProps.onSelectMethod).toHaveBeenCalledWith('door');
   });
@@ -64,7 +64,7 @@ describe('DeliveryMethodCard', () => {
   it('calls onSelectMethod with "airport" when airport option is pressed', () => {
     render(<DeliveryMethodCard {...baseProps} deliveryState="Rivers" />);
     fireEvent.press(
-      screen.getByRole('button', { name: /select airport delivery/i })
+      screen.getByRole('radio', { name: /select airport delivery/i })
     );
     expect(baseProps.onSelectMethod).toHaveBeenCalledWith('airport');
   });
@@ -72,7 +72,7 @@ describe('DeliveryMethodCard', () => {
   it('calls onSelectMethod with "pickup_station" when pickup option is pressed', () => {
     render(<DeliveryMethodCard {...baseProps} deliveryState="Lagos" />);
     fireEvent.press(
-      screen.getByRole('button', { name: /select pick up station/i })
+      screen.getByRole('radio', { name: /select pick up station/i })
     );
     expect(baseProps.onSelectMethod).toHaveBeenCalledWith('pickup_station');
   });

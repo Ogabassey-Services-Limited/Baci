@@ -29,6 +29,25 @@ function normalizeText(value: string | undefined): string {
   return (value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
+/**
+ * Drop entries that repeat an already-seen id, keeping the first. The stored
+ * `saved_addresses` JSON can contain the same address twice; rendered as-is the
+ * duplicates collide on their React key (`key={address.id}`) and show a
+ * duplicated row. De-duping at the data boundary keeps the UI resilient.
+ */
+export function dedupeSavedAddressesById(
+  addresses: SavedAddress[]
+): SavedAddress[] {
+  const seenIds = new Set<string>();
+  return addresses.filter((address) => {
+    if (!address.id || seenIds.has(address.id)) {
+      return false;
+    }
+    seenIds.add(address.id);
+    return true;
+  });
+}
+
 export function getDefaultSavedAddress(
   addresses: SavedAddress[]
 ): SavedAddress | null {

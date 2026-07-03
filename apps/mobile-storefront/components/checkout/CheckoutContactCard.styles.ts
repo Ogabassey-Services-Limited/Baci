@@ -123,6 +123,19 @@ export const checkoutContactCardStyles = StyleSheet.create({
   saveDetailsSection: {
     gap: SPACING.sm,
   },
+  summaryBody: {
+    flex: 1,
+    gap: 4,
+    minWidth: 0,
+  },
+  summaryChip: {
+    alignItems: 'center',
+    borderRadius: 10,
+    flexShrink: 0,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
   summaryLine: {
     fontSize: 14,
     lineHeight: 20,
@@ -142,6 +155,11 @@ export const checkoutContactCardStyles = StyleSheet.create({
     borderWidth: 1,
     gap: 8,
     padding: 14,
+  },
+  summaryRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 12,
   },
   summaryTitle: {
     fontSize: 16,

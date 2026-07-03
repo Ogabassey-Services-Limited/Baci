@@ -1,11 +1,14 @@
 import { isAirportDeliveryEligible, isPickupEligible } from '@baci/shared';
-import Ionicons from '@react-native-vector-icons/ionicons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { IoniconsIconName } from '@react-native-vector-icons/ionicons';
+import { StyleSheet, Text, View } from 'react-native';
 import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/PickupStationCard';
 import type { DeliveryMethod } from '@/components/checkout/types';
 import type Colors from '@/constants/Colors';
-import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
+import { SPACING } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
+import { CheckoutSectionCard } from './selection/CheckoutSectionCard';
+import { DefaultBadge } from './selection/DefaultBadge';
+import { SelectableOptionRow } from './selection/SelectableOptionRow';
 
 const AIRPORT_DOORSTEP_NOTE = 'Delivery to your doorstep';
 const DELIVERY_ESTIMATE = 'Est Delivery within 24-48 working hours';
@@ -23,6 +26,14 @@ interface DeliveryMethodCardProps {
   deliveryState?: string | null;
 }
 
+interface MethodOption {
+  id: DeliveryMethod;
+  title: string;
+  subtitle: string;
+  price: string;
+  icon: IoniconsIconName;
+}
+
 export function DeliveryMethodCard({
   colors,
   isDark,
@@ -37,17 +48,13 @@ export function DeliveryMethodCard({
   // only for Lagos, and airport (air-cargo) delivery only for non-Lagos states
   // that have an airport. The delivery address (state) is captured before this
   // card, so the options reflect the selected state.
-  const options: {
-    id: DeliveryMethod;
-    title: string;
-    subtitle: string;
-    price: string;
-  }[] = [
+  const options: MethodOption[] = [
     {
       id: 'door',
       title: 'Door delivery',
       subtitle: doorSubtitle,
       price: doorPrice,
+      icon: 'home-outline',
     },
   ];
   if (isAirportDeliveryEligible(deliveryState)) {
@@ -56,6 +63,7 @@ export function DeliveryMethodCard({
       title: 'Airport Delivery (Outside Lagos)',
       subtitle: AIRPORT_DOORSTEP_NOTE,
       price: formatPrice(airportFee),
+      icon: 'airplane-outline',
     });
   }
   if (isPickupEligible(deliveryState)) {
@@ -64,232 +72,79 @@ export function DeliveryMethodCard({
       title: 'Pick Up Station',
       subtitle: PICKUP_STATION_ADDRESS_LINES.join(', '),
       price: 'Free',
+      icon: 'storefront-outline',
     });
   }
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: colors.card,
-          borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-        },
-      ]}
+    <CheckoutSectionCard
+      icon="cube-outline"
+      title="Delivery Methods"
+      colors={colors}
+      isDark={isDark}
     >
-      <View style={styles.cardHeader}>
-        <Ionicons name="cube-outline" size={16} color={BRAND.primary} />
-        <Text style={[styles.cardTitle, { color: colors.text }]}>
-          Delivery Methods
-        </Text>
+      <View style={styles.list}>
+        {options.map((option) => {
+          const isSelected = selectedMethod === option.id;
+          const isFree = option.price === 'Free';
+
+          return (
+            <SelectableOptionRow
+              key={option.id}
+              selected={isSelected}
+              onPress={() => onSelectMethod(option.id)}
+              colors={colors}
+              icon={option.icon}
+              title={option.title}
+              subtitle={option.subtitle}
+              accessibilityLabel={`Select ${option.title}`}
+              trailing={
+                isFree ? (
+                  <DefaultBadge label="Free" />
+                ) : (
+                  <Text style={[styles.price, { color: colors.text }]}>
+                    {option.price}
+                  </Text>
+                )
+              }
+            >
+              {option.id === 'airport' ? (
+                <>
+                  <Text style={[styles.infoTitle, { color: colors.text }]}>
+                    Airport Delivery
+                  </Text>
+                  <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                    {AIRPORT_DOORSTEP_NOTE}. {DELIVERY_ESTIMATE}
+                  </Text>
+                </>
+              ) : null}
+              {option.id === 'pickup_station'
+                ? PICKUP_STATION_ADDRESS_LINES.map((line, index) => (
+                    <Text
+                      key={line}
+                      style={[
+                        styles.infoText,
+                        {
+                          color: colors.text,
+                          fontWeight: index === 0 ? '700' : '500',
+                        },
+                      ]}
+                    >
+                      {line}
+                    </Text>
+                  ))
+                : null}
+            </SelectableOptionRow>
+          );
+        })}
       </View>
-      <View style={styles.cardBody}>
-        <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-          Choose how you want to receive this order.
-        </Text>
-
-        <View style={styles.deliveryMethodList}>
-          {options.map((option) => {
-            const isSelected = selectedMethod === option.id;
-
-            return (
-              <Pressable
-                key={option.id}
-                onPress={() => onSelectMethod(option.id)}
-                style={[
-                  styles.deliveryMethodCard,
-                  {
-                    borderColor: isSelected ? BRAND.primary : colors.border,
-                    backgroundColor: isSelected
-                      ? isDark
-                        ? 'rgba(217, 59, 48, 0.14)'
-                        : palette.red[50]
-                      : colors.background,
-                  },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={`Select ${option.title}`}
-                accessibilityState={{ selected: isSelected }}
-              >
-                <View style={styles.deliveryMethodTopRow}>
-                  <View style={styles.deliveryMethodLabelWrap}>
-                    <Text
-                      style={[
-                        styles.deliveryMethodTitle,
-                        { color: isSelected ? BRAND.primary : colors.text },
-                      ]}
-                    >
-                      {option.title}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.deliveryMethodSubtitle,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {option.subtitle}
-                    </Text>
-                  </View>
-                  <View style={styles.deliveryMethodMeta}>
-                    <Text
-                      style={[
-                        styles.deliveryMethodPrice,
-                        { color: isSelected ? BRAND.primary : colors.text },
-                      ]}
-                    >
-                      {option.price}
-                    </Text>
-                    <Ionicons
-                      name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={20}
-                      color={isSelected ? BRAND.primary : colors.textSecondary}
-                    />
-                  </View>
-                </View>
-
-                {isSelected && option.id === 'airport' ? (
-                  <View
-                    style={[
-                      styles.expandedInfo,
-                      {
-                        backgroundColor: isDark
-                          ? 'rgba(255, 255, 255, 0.04)'
-                          : palette.gray[50],
-                        borderColor: colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.expandedTitle, { color: colors.text }]}
-                    >
-                      Airport Delivery
-                    </Text>
-                    <Text
-                      style={[
-                        styles.expandedText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {AIRPORT_DOORSTEP_NOTE}. {DELIVERY_ESTIMATE}
-                    </Text>
-                  </View>
-                ) : null}
-
-                {isSelected && option.id === 'pickup_station' ? (
-                  <View
-                    style={[
-                      styles.expandedInfo,
-                      {
-                        backgroundColor: isDark
-                          ? 'rgba(255, 255, 255, 0.04)'
-                          : palette.gray[50],
-                        borderColor: colors.border,
-                      },
-                    ]}
-                  >
-                    {PICKUP_STATION_ADDRESS_LINES.map((line) => (
-                      <Text
-                        key={line}
-                        style={[
-                          styles.expandedText,
-                          {
-                            color: colors.text,
-                            fontWeight:
-                              line === PICKUP_STATION_ADDRESS_LINES[0]
-                                ? '700'
-                                : '500',
-                          },
-                        ]}
-                      >
-                        {line}
-                      </Text>
-                    ))}
-                  </View>
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-    </View>
+    </CheckoutSectionCard>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: RADIUS.xl,
-    paddingHorizontal: SPACING.md,
-    paddingTop: 14,
-    paddingBottom: SPACING.md,
-    marginBottom: SPACING.sm,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    ...SHADOWS.sm,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: SPACING.md,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-  },
-  cardBody: {
-    gap: SPACING.sm,
-  },
-  helperText: {
-    fontSize: 12,
-  },
-  deliveryMethodList: {
-    gap: 10,
-  },
-  deliveryMethodCard: {
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 14,
-    gap: 12,
-  },
-  deliveryMethodTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  deliveryMethodLabelWrap: {
-    flex: 1,
-    gap: 4,
-  },
-  deliveryMethodTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  deliveryMethodSubtitle: {
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  deliveryMethodMeta: {
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  deliveryMethodPrice: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  expandedInfo: {
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 12,
-    gap: 4,
-  },
-  expandedTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  expandedText: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
+  list: { gap: SPACING.sm },
+  price: { fontSize: 13, fontWeight: '700' },
+  infoTitle: { fontSize: 14, fontWeight: '700' },
+  infoText: { fontSize: 13, lineHeight: 20 },
 });

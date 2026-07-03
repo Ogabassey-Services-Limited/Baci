@@ -193,7 +193,7 @@ describe('CheckoutDeliveryCard', () => {
     expect(screen.getByText('12 Marina Road, Lagos, Lagos')).toBeTruthy();
 
     fireEvent.press(
-      screen.getByRole('button', { name: 'Edit delivery address' })
+      screen.getByRole('button', { name: 'Edit Delivery' })
     );
 
     expect(onToggleCollapsed).toHaveBeenCalledTimes(1);

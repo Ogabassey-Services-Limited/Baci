@@ -17,6 +17,11 @@ interface PaymentMethodOptionRowProps {
   overrideBadge?: string;
   overrideDescription?: string;
   overrideLabel?: string;
+  /**
+   * Rendered inside an already-framed intent card (the accordion). Drops the red
+   * selected border for a subtle tint so we don't nest a red box in a red box.
+   */
+  nested?: boolean;
 }
 
 export function PaymentMethodOptionRow({
@@ -28,6 +33,7 @@ export function PaymentMethodOptionRow({
   overrideBadge,
   overrideDescription,
   overrideLabel,
+  nested = false,
 }: PaymentMethodOptionRowProps) {
   const methodBadge = overrideBadge;
   const methodDescription = overrideDescription ?? method.description;
@@ -38,8 +44,10 @@ export function PaymentMethodOptionRow({
       style={[
         styles.methodCard,
         {
-          backgroundColor: colors.card,
-          borderColor: isSelected ? BRAND.primary : colors.border,
+          backgroundColor:
+            isSelected && nested ? BRAND.primaryAlpha06 : colors.card,
+          borderColor:
+            isSelected && !nested ? BRAND.primary : colors.border,
           opacity: isDisabled ? 0.5 : 1,
         },
       ]}
@@ -55,11 +63,7 @@ export function PaymentMethodOptionRow({
       <View
         style={[
           styles.methodIconContainer,
-          {
-            backgroundColor: isSelected
-              ? `${BRAND.primary}20`
-              : `${colors.textSecondary}10`,
-          },
+          { backgroundColor: `${colors.textSecondary}10` },
         ]}
       >
         {method.logoUrl ? (
@@ -72,19 +76,14 @@ export function PaymentMethodOptionRow({
           <Ionicons
             name={method.icon}
             size={24}
-            color={isSelected ? BRAND.primary : colors.textSecondary}
+            color={isSelected ? colors.text : colors.textSecondary}
           />
         )}
       </View>
 
       <View style={styles.methodInfo}>
         <View style={styles.methodTitleRow}>
-          <Text
-            style={[
-              styles.methodLabel,
-              { color: isSelected ? BRAND.primary : colors.text },
-            ]}
-          >
+          <Text style={[styles.methodLabel, { color: colors.text }]}>
             {methodLabel}
           </Text>
           {methodBadge ? (

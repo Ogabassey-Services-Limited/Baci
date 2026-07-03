@@ -156,6 +156,17 @@ jest.mock('react-native-reanimated', () => {
     };
   };
 
+  // Chainable no-op builder for entering/exiting/layout animations
+  // (FadeIn.duration(180), ZoomIn.springify().damping(14), etc.).
+  const makeAnimationBuilder = () => {
+    const builder: Record<string, () => unknown> = {};
+    const chain = () => builder;
+    for (const key of ['duration', 'delay', 'springify', 'damping', 'easing']) {
+      builder[key] = chain;
+    }
+    return builder;
+  };
+
   return {
     __esModule: true,
     default: { View },
@@ -166,6 +177,12 @@ jest.mock('react-native-reanimated', () => {
     withRepeat: (value: number) => value,
     withSequence: (...values: number[]) => values.at(-1) ?? 0,
     withTiming: (value: number) => value,
+    FadeIn: makeAnimationBuilder(),
+    FadeOut: makeAnimationBuilder(),
+    ZoomIn: makeAnimationBuilder(),
+    ZoomOut: makeAnimationBuilder(),
+    Layout: makeAnimationBuilder(),
+    LinearTransition: makeAnimationBuilder(),
   };
 });
 

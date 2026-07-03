@@ -164,7 +164,7 @@ describe('CheckoutContactCard', () => {
     expect(screen.getByText('+2348012345678')).toBeTruthy();
 
     fireEvent.press(
-      screen.getByRole('button', { name: 'Edit contact details' })
+      screen.getByRole('button', { name: 'Edit Contact' })
     );
 
     expect(onToggleCollapsed).toHaveBeenCalledTimes(1);
@@ -174,7 +174,7 @@ describe('CheckoutContactCard', () => {
     render(<CheckoutContactCardHarness hasContactIdentity isAuthenticated />);
 
     expect(
-      screen.getByRole('button', { name: 'Collapse contact details' })
+      screen.getByRole('button', { name: 'Done editing Contact' })
     ).toBeTruthy();
     expect(
       screen.queryByRole('checkbox', {
@@ -193,10 +193,10 @@ describe('CheckoutContactCard', () => {
     );
 
     expect(
-      screen.queryByRole('button', { name: /collapse contact details/i })
+      screen.queryByRole('button', { name: /done editing contact/i })
     ).toBeNull();
     expect(
-      screen.queryByRole('button', { name: /edit contact details/i })
+      screen.queryByRole('button', { name: /edit contact/i })
     ).toBeNull();
   });
 

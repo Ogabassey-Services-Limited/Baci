@@ -77,12 +77,22 @@ export function CheckoutStepContent({
           addressState.shipping.handleSelectDeliveryMethod
         }
         onSelectQuote={addressState.shipping.setSelectedQuoteId}
-        onToggleContactCollapsed={() =>
-          addressState.savedAddresses.setIsContactCollapsed((value) => !value)
-        }
-        onToggleDeliveryCollapsed={() =>
-          addressState.savedAddresses.setIsDeliveryCollapsed((value) => !value)
-        }
+        onToggleContactCollapsed={() => {
+          // Single-open accordion: expanding Contact folds Delivery to its
+          // (dark) summary, so only the section you're working on is open.
+          const expanding = addressState.savedAddresses.isContactCollapsed;
+          addressState.savedAddresses.setIsContactCollapsed(!expanding);
+          if (expanding) {
+            addressState.savedAddresses.setIsDeliveryCollapsed(true);
+          }
+        }}
+        onToggleDeliveryCollapsed={() => {
+          const expanding = addressState.savedAddresses.isDeliveryCollapsed;
+          addressState.savedAddresses.setIsDeliveryCollapsed(!expanding);
+          if (expanding) {
+            addressState.savedAddresses.setIsContactCollapsed(true);
+          }
+        }}
         onToggleSaveAsDefaultAddress={() =>
           addressState.savedAddresses.setSaveAsDefaultAddress((value) => !value)
         }

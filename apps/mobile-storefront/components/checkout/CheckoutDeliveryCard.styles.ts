@@ -162,6 +162,24 @@ export const checkoutDeliveryCardStyles = StyleSheet.create({
     gap: 8,
     padding: 14,
   },
+  summaryBody: {
+    flex: 1,
+    gap: 4,
+    minWidth: 0,
+  },
+  summaryChip: {
+    alignItems: 'center',
+    borderRadius: 10,
+    flexShrink: 0,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  summaryRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 12,
+  },
   summaryTitle: {
     fontSize: 16,
     fontWeight: '700',

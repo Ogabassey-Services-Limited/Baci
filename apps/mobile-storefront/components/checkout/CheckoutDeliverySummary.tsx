@@ -1,5 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Text, View } from 'react-native';
+import { getAddressLabelIcon } from '@/components/addresses/get-address-label-icon';
 import { BRAND, palette } from '@/constants/Colors';
 import type { SavedAddress } from '@/lib/checkout-saved-address';
 import { checkoutDeliveryCardStyles as styles } from './CheckoutDeliveryCard.styles';
@@ -23,52 +24,59 @@ export function CheckoutDeliverySummary({
       style={[
         styles.summaryPanel,
         {
-          backgroundColor: isDark
-            ? 'rgba(255, 255, 255, 0.04)'
-            : palette.gray[50],
+          backgroundColor: isDark ? colors.background : palette.gray[50],
           borderColor: colors.border,
         },
       ]}
     >
-      <View style={styles.summaryMetaRow}>
-        <Ionicons
-          name="navigate-circle-outline"
-          size={16}
-          color={BRAND.primary}
-        />
-        <Text
-          style={[styles.summaryMetaLabel, { color: colors.textSecondary }]}
+      <View style={styles.summaryRow}>
+        <View
+          style={[
+            styles.summaryChip,
+            { backgroundColor: `${colors.textSecondary}10` },
+          ]}
         >
-          {selectedSavedAddress?.is_default
-            ? 'Default address'
-            : 'Delivery destination'}
-        </Text>
-      </View>
-      <View style={styles.summaryTitleRow}>
-        <Text style={[styles.summaryTitle, { color: colors.text }]}>
-          {selectedSavedAddress?.label || 'Delivery address'}
-        </Text>
-        {selectedSavedAddress?.is_default ? (
-          <View
-            style={[
-              styles.savedAddressDefaultBadge,
-              { backgroundColor: `${BRAND.primary}14` },
-            ]}
+          <Ionicons
+            name={getAddressLabelIcon(selectedSavedAddress?.label)}
+            size={22}
+            color={BRAND.primary}
+          />
+        </View>
+        <View style={styles.summaryBody}>
+          <Text
+            style={[styles.summaryMetaLabel, { color: colors.textSecondary }]}
           >
-            <Text
-              style={[
-                styles.savedAddressDefaultBadgeText,
-                { color: BRAND.primary },
-              ]}
-            >
-              Default
+            {selectedSavedAddress?.is_default
+              ? 'Default address'
+              : 'Delivery destination'}
+          </Text>
+          <View style={styles.summaryTitleRow}>
+            <Text style={[styles.summaryTitle, { color: colors.text }]}>
+              {selectedSavedAddress?.label || 'Delivery address'}
             </Text>
+            {selectedSavedAddress?.is_default ? (
+              <View
+                style={[
+                  styles.savedAddressDefaultBadge,
+                  { backgroundColor: BRAND.primaryAlpha12 },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.savedAddressDefaultBadgeText,
+                    { color: BRAND.primary },
+                  ]}
+                >
+                  Default
+                </Text>
+              </View>
+            ) : null}
           </View>
-        ) : null}
+          <Text style={[styles.summaryLine, { color: colors.textSecondary }]}>
+            {currentDeliverySummary || 'No delivery address selected yet'}
+          </Text>
+        </View>
       </View>
-      <Text style={[styles.summaryLine, { color: colors.textSecondary }]}>
-        {currentDeliverySummary || 'No delivery address selected yet'}
-      </Text>
     </View>
   );
 }

@@ -135,6 +135,8 @@ export const BRAND = {
   primaryDark: palette.red[700],
   // 6% alpha tint of primary — safe on any background (light & dark mode)
   primaryAlpha06: withAlpha(palette.red[600], 0.06),
+  // 12% alpha tint of primary — for status badges / soft chips (e.g. "Free", "Default")
+  primaryAlpha12: withAlpha(palette.red[600], 0.12),
   secondary: palette.amber[500],
   tagline: 'Shop Phones & Tech',
 };

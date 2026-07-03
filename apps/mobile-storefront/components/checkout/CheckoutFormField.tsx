@@ -75,6 +75,11 @@ export function CheckoutFormField({
         name={name}
         render={({ field: { onChange, onBlur, value } }) => {
           const stringValue = typeof value === 'string' ? value : '';
+          const hasError = Boolean(errors[name]);
+          // "Complete" = filled, valid, and no longer being edited → settle to a
+          // defined dark fill. While focused it wears the red selection accent.
+          const isComplete =
+            stringValue.trim().length > 0 && !hasError && !isFocused;
 
           return (
             <TextInput
@@ -106,10 +111,17 @@ export function CheckoutFormField({
                 styles.input,
                 multiline && styles.multilineInput,
                 {
-                  backgroundColor: isDark
-                    ? 'rgba(255, 255, 255, 0.05)'
-                    : colors.muted,
-                  borderColor: errors[name]
+                  // Focused → red "selected" accent (like the chosen payment
+                  // method). Complete → a settled, defined dark fill. Otherwise
+                  // a quiet resting fill.
+                  backgroundColor: isFocused
+                    ? BRAND.primaryAlpha06
+                    : isDark
+                      ? isComplete
+                        ? 'rgba(255, 255, 255, 0.08)'
+                        : 'rgba(255, 255, 255, 0.04)'
+                      : colors.muted,
+                  borderColor: hasError
                     ? colors.error
                     : isFocused
                       ? BRAND.primary
