@@ -1034,6 +1034,35 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
   });
 
+  it('returns noindex soft-404 metadata for over-encoded bot slugs without product lookups', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    let overEncodedSlug = 'samsung-s10 8gb-128gb';
+    for (let i = 0; i < 10; i++) {
+      overEncodedSlug = encodeURIComponent(overEncodedSlug);
+    }
+
+    try {
+      const metadata = await generateMetadata({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'smartphones',
+          productSlug: overEncodedSlug,
+        }),
+        searchParams: Promise.resolve({}),
+      });
+
+      expect(metadata.title).toBe('Product not found');
+      expect(metadata.robots).toEqual({ index: false, follow: true });
+      expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
+      expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+      expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
+  });
+
   it('builds metadata from the LCP hint without hydrating full product details', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'prod-1',
@@ -2574,6 +2603,67 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockGetRequestScopedMerchant).not.toHaveBeenCalled();
     expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
     expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+  });
+
+  it('renders soft-not-found for over-encoded bot slugs without any product lookups', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    let overEncodedSlug = 'samsung-s10 8gb-128gb';
+    for (let i = 0; i < 10; i++) {
+      overEncodedSlug = encodeURIComponent(overEncodedSlug);
+    }
+
+    try {
+      render(
+        (await CategoryProductPage({
+          params: Promise.resolve({
+            // OgaBassey domain also exercises the LCP-hint prewarm gate.
+            slug: OGABASSEY_DOMAIN,
+            category: 'smartphones',
+            productSlug: overEncodedSlug,
+          }),
+          searchParams: Promise.resolve({}),
+        })) as ReactElement
+      );
+
+      expect(
+        screen.getByRole('heading', { name: 'Product not found' })
+      ).toBeInTheDocument();
+      expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
+      expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+      expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
+  });
+
+  it('renders soft-not-found for extremely long slugs without any product lookups', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    try {
+      render(
+        (await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'smartphones',
+            productSlug: 'a'.repeat(4000),
+          }),
+          searchParams: Promise.resolve({}),
+        })) as ReactElement
+      );
+
+      expect(
+        screen.getByRole('heading', { name: 'Product not found' })
+      ).toBeInTheDocument();
+      expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
+      expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+      expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
   });
 
   it('returns notFound for the invalid-store prerender placeholder without merchant or product lookups', async () => {

@@ -854,6 +854,62 @@ describe('products/[productSlug] page', () => {
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
+  it('throws notFound for over-encoded bot slugs without any product lookups', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    mockHeaders.mockReturnValue(makeHeaders({}));
+    let overEncodedSlug = 'samsung-s10 8gb-128gb';
+    for (let i = 0; i < 10; i++) {
+      overEncodedSlug = encodeURIComponent(overEncodedSlug);
+    }
+
+    try {
+      await expect(
+        resolveProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: overEncodedSlug,
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      ).rejects.toThrow('NEXT_NOT_FOUND');
+
+      expect(mockNotFound).toHaveBeenCalledTimes(1);
+      expect(mockGetCachedProduct).not.toHaveBeenCalled();
+      expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+      expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
+  });
+
+  it('throws notFound for extremely long slugs without any product lookups', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    mockHeaders.mockReturnValue(makeHeaders({}));
+
+    try {
+      await expect(
+        resolveProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'a'.repeat(4000),
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      ).rejects.toThrow('NEXT_NOT_FOUND');
+
+      expect(mockNotFound).toHaveBeenCalledTimes(1);
+      expect(mockGetCachedProduct).not.toHaveBeenCalled();
+      expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+      expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
+  });
+
   it('falls back to detailed product lookup and returns noindex metadata when category mismatch is detected', async () => {
     mockGetCachedProduct.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(

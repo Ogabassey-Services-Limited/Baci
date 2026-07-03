@@ -1,5 +1,6 @@
 import z from 'zod';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { createAbortSignalTimeout } from './abort-signal-timeout';
 import { storefrontInternalPreflight } from './storefront-internal-preflight';
 
@@ -57,6 +58,17 @@ export async function resolveStorefrontProductSlugResolution(
     identifier: opts.identifier,
     slug: opts.productSlug,
   };
+
+  // Unsafe (over-long / repeatedly-encoded) slugs can never be live products;
+  // skip the internal hop entirely and let the App Router resolve the request.
+  const slugSafety = evaluateStorefrontSlugSafety(opts.productSlug);
+  if (!slugSafety.safe) {
+    storefrontInternalPreflight.warnSkip({
+      ...failOpenContext,
+      reason: slugSafety.reason,
+    });
+    return { kind: 'present-or-unknown' };
+  }
 
   if (!opts.secret) {
     storefrontInternalPreflight.warnFailOpen({

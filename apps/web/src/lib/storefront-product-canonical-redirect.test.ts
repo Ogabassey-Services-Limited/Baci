@@ -101,6 +101,58 @@ describe('getStorefrontProductCanonicalRedirectPath', () => {
     ).resolves.toEqual({ kind: 'checked-no-redirect' });
   });
 
+  it('skips the internal fetch for over-encoded bot product slugs', async () => {
+    const fetchImpl = vi.fn<typeof fetch>();
+    let overEncodedSlug = 'samsung-s10 8gb-128gb';
+    for (let i = 0; i < 10; i++) {
+      overEncodedSlug = encodeURIComponent(overEncodedSlug);
+    }
+
+    await expect(
+      getStorefrontProductCanonicalRedirectResult({
+        origin: 'https://ogabassey.com',
+        identifier: 'ogabassey.com',
+        category: 'smartphones',
+        productSlug: overEncodedSlug,
+        secret: SECRET,
+        fetchImpl,
+      })
+    ).resolves.toEqual({ kind: 'unknown' });
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] skip',
+      expect.objectContaining({
+        surface: 'product-canonical',
+        reason: 'over-encoded',
+      })
+    );
+  });
+
+  it('skips the internal fetch for over-long category segments', async () => {
+    const fetchImpl = vi.fn<typeof fetch>();
+
+    await expect(
+      getStorefrontProductCanonicalRedirectResult({
+        origin: 'https://ogabassey.com',
+        identifier: 'ogabassey.com',
+        category: 'c'.repeat(600),
+        productSlug: 'iphone-15',
+        secret: SECRET,
+        fetchImpl,
+      })
+    ).resolves.toEqual({ kind: 'unknown' });
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] skip',
+      expect.objectContaining({
+        surface: 'product-canonical',
+        reason: 'too-long',
+      })
+    );
+  });
+
   it('returns unknown when the internal endpoint found no active or legacy product', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () =>
       jsonResponse({

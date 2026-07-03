@@ -1,5 +1,6 @@
 import z from 'zod';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { createAbortSignalTimeout } from './abort-signal-timeout';
 import { storefrontInternalPreflight } from './storefront-internal-preflight';
 
@@ -37,6 +38,25 @@ export async function getStorefrontProductCanonicalRedirectResult(
     identifier: opts.identifier,
     slug: opts.productSlug,
   };
+
+  // Unsafe (over-long / repeatedly-encoded) path segments can never resolve to
+  // a canonical product URL; skip the internal hop and fall through to the
+  // App Router. Both segments travel in the internal query string, so both
+  // must pass the gate.
+  const slugSafety = evaluateStorefrontSlugSafety(opts.productSlug);
+  const categorySafety = evaluateStorefrontSlugSafety(opts.category);
+  const unsafeReason = !slugSafety.safe
+    ? slugSafety.reason
+    : !categorySafety.safe
+      ? categorySafety.reason
+      : null;
+  if (unsafeReason) {
+    storefrontInternalPreflight.warnSkip({
+      ...failOpenContext,
+      reason: unsafeReason,
+    });
+    return { kind: 'unknown' };
+  }
 
   if (!opts.secret) {
     storefrontInternalPreflight.warnFailOpen({

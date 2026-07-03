@@ -87,6 +87,32 @@ describe('resolveStorefrontBlogPostStatus', () => {
     });
   });
 
+  it('skips the internal fetch for over-encoded bot post slugs and falls through', async () => {
+    const fetchImpl = vi.fn();
+    let overEncodedSlug = 'my blog post';
+    for (let i = 0; i < 10; i++) {
+      overEncodedSlug = encodeURIComponent(overEncodedSlug);
+    }
+
+    const result = await resolveStorefrontBlogPostStatus({
+      origin: 'https://ogabassey.com',
+      identifier: 'ogabassey.com',
+      postSlug: overEncodedSlug,
+      secret: 'internal-secret',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'present-or-unknown' });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] skip',
+      expect.objectContaining({
+        surface: 'blog-post-status',
+        reason: 'over-encoded',
+      })
+    );
+  });
+
   it('keeps fetching when native AbortSignal.timeout is unavailable', async () => {
     removeNativeAbortSignalTimeout();
     const fetchImpl = vi

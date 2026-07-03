@@ -1,4 +1,5 @@
 import { DEFAULT_ROOT_DOMAIN } from '@/lib/default-root-domain';
+import type { StorefrontSlugSafetyReason } from '@/lib/storefront-slug-safety';
 
 export type StorefrontInternalPreflightFailOpenReason =
   | 'no-secret'
@@ -24,6 +25,27 @@ interface StorefrontInternalPreflightContext {
   slug: string;
   reason: StorefrontInternalPreflightFailOpenReason;
   status?: number;
+}
+
+interface StorefrontInternalPreflightSkipContext {
+  surface: StorefrontInternalPreflightSurface;
+  identifier: string;
+  slug: string;
+  reason: StorefrontSlugSafetyReason;
+}
+
+// Bot slugs reach kilobytes; bound every diagnostic copy so log lines and
+// telemetry payloads stay small no matter what the request path carried.
+const MAX_DIAGNOSTIC_SLUG_LENGTH = 120;
+
+function truncateSlugForDiagnostics(value: string): string {
+  const normalized = String(value ?? '').replace(/[\r\n\t]/g, '');
+  if (normalized.length <= MAX_DIAGNOSTIC_SLUG_LENGTH) {
+    return normalized;
+  }
+  return `${normalized.slice(0, MAX_DIAGNOSTIC_SLUG_LENGTH)}…(+${
+    normalized.length - MAX_DIAGNOSTIC_SLUG_LENGTH
+  })`;
 }
 
 function isLoopbackOrigin(origin: string): boolean {
@@ -93,8 +115,27 @@ function resolveBaseUrl(origin: string): string | null {
 }
 
 function warnFailOpen(context: StorefrontInternalPreflightContext) {
-  console.warn('[storefront-internal-preflight] fail-open', context);
-  void captureFailOpen(context);
+  console.warn('[storefront-internal-preflight] fail-open', {
+    ...context,
+    slug: truncateSlugForDiagnostics(context.slug),
+  });
+  // Pass the original context through — captureFailOpen truncates the slug
+  // itself, and truncating twice would mangle the `…(+N)` marker.
+  // Best-effort telemetry: captureFailOpen already swallows its own errors,
+  // and this trailing catch guarantees the fire-and-forget promise can never
+  // reject into the request lifecycle.
+  void captureFailOpen(context).catch(() => false);
+}
+
+/**
+ * A deliberately skipped preflight (unsafe/malformed slug) is expected bot
+ * garbage, not an incident: log it bounded, never capture an exception.
+ */
+function warnSkip(context: StorefrontInternalPreflightSkipContext) {
+  console.warn('[storefront-internal-preflight] skip', {
+    ...context,
+    slug: truncateSlugForDiagnostics(context.slug),
+  });
 }
 
 async function captureFailOpen(context: StorefrontInternalPreflightContext) {
@@ -112,7 +153,7 @@ async function captureFailOpen(context: StorefrontInternalPreflightContext) {
         event_source: 'storefront-internal-preflight',
         identifier: context.identifier,
         reason: context.reason,
-        slug: context.slug,
+        slug: truncateSlugForDiagnostics(context.slug),
         status: context.status,
         surface: context.surface,
       }
@@ -188,4 +229,5 @@ export const storefrontInternalPreflight = {
   readJsonResponse,
   resolveBaseUrl,
   warnFailOpen,
+  warnSkip,
 };

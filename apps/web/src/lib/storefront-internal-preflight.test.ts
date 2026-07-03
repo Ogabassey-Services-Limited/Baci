@@ -262,4 +262,96 @@ describe('storefrontInternalPreflight', () => {
 
     expect(mocks.captureServerException).not.toHaveBeenCalled();
   });
+
+  it('truncates multi-kilobyte slugs in fail-open logs and telemetry', async () => {
+    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const hugeSlug = 'a'.repeat(4000);
+
+    try {
+      storefrontInternalPreflight.warnFailOpen({
+        ...CONTEXT,
+        slug: hugeSlug,
+        reason: 'has-error',
+      });
+      // Let the fire-and-forget capture settle before asserting on it.
+      await vi.waitFor(() =>
+        expect(mocks.captureServerException).toHaveBeenCalled()
+      );
+
+      const [, warnContext] = consoleWarnSpy.mock.calls.find(
+        ([message]) => message === '[storefront-internal-preflight] fail-open'
+      ) as [string, { slug: string }];
+      expect(warnContext.slug.length).toBeLessThan(200);
+      const [, captureContext] = mocks.captureServerException.mock.calls[0] as [
+        Error,
+        { slug: string },
+      ];
+      expect(captureContext.slug.length).toBeLessThan(200);
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
+  });
+
+  it('does not reject into the request when telemetry capture rejects inside warnFailOpen', async () => {
+    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    mocks.captureServerException.mockRejectedValueOnce(
+      new Error('posthog unavailable')
+    );
+    const unhandledRejections: unknown[] = [];
+    const onUnhandled = (reason: unknown) => {
+      unhandledRejections.push(reason);
+    };
+    process.on('unhandledRejection', onUnhandled);
+
+    try {
+      expect(() =>
+        storefrontInternalPreflight.warnFailOpen({
+          ...CONTEXT,
+          reason: 'has-error',
+        })
+      ).not.toThrow();
+      await vi.waitFor(() =>
+        expect(mocks.captureServerException).toHaveBeenCalled()
+      );
+      // Give any stray rejection a macrotask to surface before asserting.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(unhandledRejections).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+      consoleWarnSpy.mockRestore();
+    }
+  });
+
+  it('logs skipped preflights with a bounded slug and never captures exceptions', () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    try {
+      storefrontInternalPreflight.warnSkip({
+        surface: 'product-slug',
+        identifier: 'ogabassey.com',
+        slug: `%25${'a'.repeat(3000)}`,
+        reason: 'too-long',
+      });
+
+      const [message, context] = consoleWarnSpy.mock.calls[0] as [
+        string,
+        { reason: string; slug: string },
+      ];
+      expect(message).toBe('[storefront-internal-preflight] skip');
+      expect(context.reason).toBe('too-long');
+      expect(context.slug.length).toBeLessThan(200);
+      expect(mocks.captureServerException).not.toHaveBeenCalled();
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
+  });
 });

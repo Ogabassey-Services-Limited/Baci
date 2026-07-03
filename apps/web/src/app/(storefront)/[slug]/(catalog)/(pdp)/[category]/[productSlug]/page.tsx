@@ -76,6 +76,7 @@ import {
   DEFAULT_STORE_NAME,
   DEFAULT_STOREFRONT_SEO_CATEGORY,
 } from '@/lib/storefront-seo-defaults';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { mergeStorefrontSmartAppBannerOther } from '@/lib/storefront-smart-app-banner-metadata';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import {
@@ -835,8 +836,12 @@ function startKnownOgaBasseyPdpProductPreload(
   const knownOgaBasseyMerchantId = getKnownOgaBasseyMerchantId(storeSlug);
   const isKnownOgaBasseyCustomDomain =
     storeSlug.trim().toLowerCase() === OGABASSEY_DOMAIN.toLowerCase();
+  // The prewarm runs before route control, so it needs its own unsafe-slug
+  // gate to keep unbounded bot keys out of the `'use cache'` pipeline.
   const knownOgaBasseyImageLcpHintPromise =
-    knownOgaBasseyMerchantId && isKnownOgaBasseyCustomDomain
+    knownOgaBasseyMerchantId &&
+    isKnownOgaBasseyCustomDomain &&
+    evaluateStorefrontSlugSafety(productSlug).safe
       ? getCachedProductLcpHint(knownOgaBasseyMerchantId, productSlug, {
           includeVariants: isKnownOgaBasseyCustomDomain,
         })
@@ -916,6 +921,16 @@ const getProductRouteControl = cache(
     categorySlug: string,
     productSlug: string
   ): Promise<CategoryProductRouteControl | null> => {
+    // Over-long / repeatedly-encoded bot slugs can never match a product; bail
+    // before any `'use cache'`/Supabase lookup runs with an unbounded key.
+    if (!evaluateStorefrontSlugSafety(productSlug).safe) {
+      console.warn(
+        'Skipped product route lookups for unsafe product slug:',
+        sanitizeLookupLogValue(productSlug)
+      );
+      return null;
+    }
+
     const merchant = await getRequestScopedMerchant(storeSlug);
 
     if (!merchant) {
