@@ -5,6 +5,7 @@ import { getCachedBlogPost } from '@/lib/cached-data';
 import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { BlogPostPageFallback } from './BlogPostPageFallback';
 import {
   buildCanonicalBlogPostUrl,
@@ -36,6 +37,13 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug, postSlug } = await params;
+
+  // Over-long / repeatedly-encoded bot slugs can never match a post; bail
+  // before the `'use cache'` getCachedBlogPost lookup runs with an unbounded
+  // key (its cache key + tag both include the raw postSlug).
+  if (!evaluateStorefrontSlugSafety(postSlug).safe) {
+    return BLOG_POST_NOINDEX_METADATA;
+  }
 
   // Cached-only lookup keeps generateMetadata prerenderable. Metadata resolves
   // outside every Suspense boundary, and with htmlLimitedBots configured a

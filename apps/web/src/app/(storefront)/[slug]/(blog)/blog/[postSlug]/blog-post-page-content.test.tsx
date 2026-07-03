@@ -681,6 +681,47 @@ describe('BlogPostPageContent', () => {
     expect(mockNotFound).not.toHaveBeenCalled();
   });
 
+  it('renders soft-not-found for over-encoded bot post slugs without any blog lookups', async () => {
+    let overEncodedPostSlug = 'best phones in nigeria';
+    for (let i = 0; i < 10; i++) {
+      overEncodedPostSlug = encodeURIComponent(overEncodedPostSlug);
+    }
+
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          postSlug: overEncodedPostSlug,
+        }),
+      })
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Blog post not found' })
+    ).toBeInTheDocument();
+    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+    expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
+    expect(mockGetBlogPostRedirect).not.toHaveBeenCalled();
+  });
+
+  it('renders soft-not-found for extremely long post slugs without any blog lookups', async () => {
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          postSlug: 'a'.repeat(4000),
+        }),
+      })
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Blog post not found' })
+    ).toBeInTheDocument();
+    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+    expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
+    expect(mockGetBlogPostRedirect).not.toHaveBeenCalled();
+  });
+
   it('links missing merchant-slug blog posts back to the slug-scoped blog index', async () => {
     mockGetCachedBlogPost.mockResolvedValue(null);
     mockGetLiveBlogPost.mockResolvedValue(null);

@@ -220,6 +220,27 @@ describe('storefront blog post metadata', () => {
     expect(mockConnection).not.toHaveBeenCalled();
   });
 
+  it('returns cacheable noindex metadata for over-encoded bot post slugs without the cached lookup', async () => {
+    let overEncodedPostSlug = 'best phones in nigeria';
+    for (let i = 0; i < 10; i++) {
+      overEncodedPostSlug = encodeURIComponent(overEncodedPostSlug);
+    }
+
+    const metadata = await generateBlogPostMetadata(overEncodedPostSlug);
+
+    expect(metadata.title).toBe('Blog Post');
+    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+  });
+
+  it('returns cacheable noindex metadata for extremely long post slugs without the cached lookup', async () => {
+    const metadata = await generateBlogPostMetadata('a'.repeat(4000));
+
+    expect(metadata.title).toBe('Blog Post');
+    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+  });
+
   it('uses canonical URL from buildCanonicalBlogPostUrl for custom domains', async () => {
     mockGetCachedBlogPost.mockResolvedValue({
       ...liveBlogPost,

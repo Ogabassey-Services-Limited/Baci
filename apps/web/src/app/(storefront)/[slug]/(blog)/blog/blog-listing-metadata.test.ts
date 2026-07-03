@@ -124,6 +124,37 @@ describe('blog listing metadata builder', () => {
     );
   });
 
+  it('returns noindex not-found metadata for over-encoded bot category filters without the listing lookup', async () => {
+    let overEncodedCategory = 'some phrase';
+    for (let i = 0; i < 10; i++) {
+      overEncodedCategory = encodeURIComponent(overEncodedCategory);
+    }
+
+    const metadata = await buildBlogListingMetadata({
+      slug: 'ogabassey.com',
+      searchParams: { category: overEncodedCategory },
+    });
+
+    expect(metadata).toEqual({
+      title: 'Blog Not Found',
+      robots: { index: false, follow: false },
+    });
+    expect(mockGetCachedBlogListing).not.toHaveBeenCalled();
+  });
+
+  it('returns noindex not-found metadata for extremely long search filters without the listing lookup', async () => {
+    const metadata = await buildBlogListingMetadata({
+      slug: 'ogabassey.com',
+      searchParams: { search: 'a'.repeat(4000) },
+    });
+
+    expect(metadata).toEqual({
+      title: 'Blog Not Found',
+      robots: { index: false, follow: false },
+    });
+    expect(mockGetCachedBlogListing).not.toHaveBeenCalled();
+  });
+
   it('returns noindex fallback metadata when listing data is missing', async () => {
     mockGetCachedBlogListing.mockResolvedValueOnce(null);
 

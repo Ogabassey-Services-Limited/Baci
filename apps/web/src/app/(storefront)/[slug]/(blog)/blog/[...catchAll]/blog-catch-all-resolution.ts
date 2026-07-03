@@ -7,6 +7,7 @@ import {
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { createClient } from '@/lib/supabase/server';
 import { isDomainIdentifier } from '@/lib/validation';
 
@@ -28,6 +29,27 @@ export async function resolveBlogCatchAllOutcome({
   params: Promise<{ slug: string; catchAll: string[] }>;
 }): Promise<BlogCatchAllResolution> {
   const { slug, catchAll } = await params;
+
+  // Over-long / repeatedly-encoded bot segments can never match a post; bail
+  // before any `'use cache'` (getCachedBlogPost), `'use cache: remote'`
+  // (getBlogPostRedirect) or Supabase lookup runs with an unbounded key. This
+  // is the single choke point for the blog catch-all route and the author
+  // route's unknown-author fallback (both route through here). The last
+  // segment is checked on its pre-`?` slug portion to mirror the downstream
+  // `cleanPostSlug = postSlug.split('?')[0]`, so a valid slug with a tracking
+  // tail is not falsely rejected while an over-long slug still is.
+  if (
+    catchAll.some(
+      (segment, index) =>
+        !evaluateStorefrontSlugSafety(
+          index === catchAll.length - 1
+            ? (segment.split('?')[0] ?? '')
+            : segment
+        ).safe
+    )
+  ) {
+    return { type: 'notFound' };
+  }
 
   const isDatedBlogPermalink =
     catchAll.length === 4 &&

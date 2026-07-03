@@ -103,6 +103,35 @@ describe('BlogPageContent', () => {
     expect(mockNotFound).toHaveBeenCalledOnce();
   });
 
+  it('throws not found for over-encoded bot category filters before the listing lookup', async () => {
+    let overEncodedCategory = 'some phrase';
+    for (let i = 0; i < 10; i++) {
+      overEncodedCategory = encodeURIComponent(overEncodedCategory);
+    }
+
+    await expect(
+      BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({ category: overEncodedCategory }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockNotFound).toHaveBeenCalledOnce();
+    expect(mockGetCachedBlogListing).not.toHaveBeenCalled();
+  });
+
+  it('throws not found for extremely long search filters before the listing lookup', async () => {
+    await expect(
+      BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({ search: 'a'.repeat(4000) }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockNotFound).toHaveBeenCalledOnce();
+    expect(mockGetCachedBlogListing).not.toHaveBeenCalled();
+  });
+
   it('renders crawlable blog links in the route HTML instead of a Suspense shell', async () => {
     mockDefaultBlogUi.mockImplementation((props: MockDefaultBlogUiProps) => (
       <section>

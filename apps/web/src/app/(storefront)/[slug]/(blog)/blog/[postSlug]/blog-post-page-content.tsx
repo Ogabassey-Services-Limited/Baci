@@ -14,6 +14,7 @@ import { asRoute } from '@/lib/routes';
 import { generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildInformationalClusterModel } from '@/lib/storefront-content/build-informational-cluster-model';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { isDomainIdentifier } from '@/lib/validation';
 import { StorefrontRouteNotFoundContent } from '../../../storefront-route-not-found-content';
 import { getBlogStorefrontPathPrefix } from '../blog-storefront-path-prefix';
@@ -29,6 +30,20 @@ interface BlogPostPageContentProps {
   params: Promise<{ slug: string; postSlug: string }>;
 }
 
+// Blog metadata keeps missing posts noindex; this stable body covers both the
+// unsafe-slug gate and render-time misses without throwing inside an
+// already-streaming route.
+function renderBlogPostNotFound(blogHref: string) {
+  return (
+    <StorefrontRouteNotFoundContent
+      backHref={asRoute(blogHref)}
+      backLabel="Back to blog"
+      message="This article is unavailable or has moved."
+      title="Blog post not found"
+    />
+  );
+}
+
 async function renderBlogPostContent({
   slug,
   postSlug,
@@ -38,6 +53,15 @@ async function renderBlogPostContent({
   postSlug: string;
   locale?: string;
 }) {
+  const blogHref = isDomainIdentifier(slug) ? '/blog' : `/${slug}/blog`;
+
+  // Over-long / repeatedly-encoded bot slugs can never match a post; bail
+  // before getResolvedBlogPost (`'use cache'`) or getBlogPostRedirect
+  // (`'use cache: remote'`) runs with an unbounded key.
+  if (!evaluateStorefrontSlugSafety(postSlug).safe) {
+    return renderBlogPostNotFound(blogHref);
+  }
+
   const isDraftMode = (await draftMode()).isEnabled;
   const data = await getResolvedBlogPost(slug, postSlug, isDraftMode);
 
@@ -54,18 +78,7 @@ async function renderBlogPostContent({
       );
     }
 
-    const blogHref = isDomainIdentifier(slug) ? '/blog' : `/${slug}/blog`;
-
-    // Blog metadata keeps missing posts noindex; this stable body covers
-    // render-time races without throwing inside an already-streaming route.
-    return (
-      <StorefrontRouteNotFoundContent
-        backHref={asRoute(blogHref)}
-        backLabel="Back to blog"
-        message="This article is unavailable or has moved."
-        title="Blog post not found"
-      />
-    );
+    return renderBlogPostNotFound(blogHref);
   }
 
   const { merchant, post, relatedPosts, relatedProducts } = data;

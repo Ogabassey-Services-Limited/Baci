@@ -1063,6 +1063,23 @@ describe('[category]/[productSlug] page metadata', () => {
     }
   });
 
+  it('returns noindex soft-404 metadata for extremely long slugs without product lookups', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'smartphones',
+        productSlug: 'a'.repeat(4000),
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe('Product not found');
+    expect(metadata.robots).toEqual({ index: false, follow: true });
+    expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+    expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
+  });
+
   it('builds metadata from the LCP hint without hydrating full product details', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'prod-1',

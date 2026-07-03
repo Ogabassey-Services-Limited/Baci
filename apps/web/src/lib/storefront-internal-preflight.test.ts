@@ -319,8 +319,13 @@ describe('storefrontInternalPreflight', () => {
       await vi.waitFor(() =>
         expect(mocks.captureServerException).toHaveBeenCalled()
       );
-      // Give any stray rejection a macrotask to surface before asserting.
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      // Deterministically drain the microtask queue (no timer): the rejected
+      // capture promise settles and warnFailOpen's synchronous `.catch`
+      // handler runs within these microtask ticks. Node reports an unhandled
+      // rejection on the same microtask checkpoint, so if warnFailOpen had NOT
+      // attached a handler it would already be in `unhandledRejections` here.
+      await Promise.resolve();
+      await Promise.resolve();
 
       expect(unhandledRejections).toEqual([]);
     } finally {

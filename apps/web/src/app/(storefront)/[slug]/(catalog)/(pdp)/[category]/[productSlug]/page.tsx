@@ -1196,6 +1196,13 @@ export async function generateMetadata({
     return PRODUCT_NOT_FOUND_METADATA;
   }
 
+  // Keep unsafe (over-long / repeatedly-encoded) slugs out of the React
+  // cache() memo key too — getProductRouteControl already guards internally,
+  // but gating at the call site avoids memoizing on an unbounded argument.
+  if (!evaluateStorefrontSlugSafety(productSlug).safe) {
+    return PRODUCT_NOT_FOUND_METADATA;
+  }
+
   const routeControl = await getProductRouteControl(
     slug,
     category,
@@ -1459,6 +1466,13 @@ export default async function CategoryProductPage({
   }
 
   if (productSlug === PRERENDER_PLACEHOLDER_PRODUCT_SLUG) {
+    return renderCategoryProductNotFoundContent(slug);
+  }
+
+  // Keep unsafe (over-long / repeatedly-encoded) slugs out of the React
+  // cache() memo key and the LCP prewarm too — the downstream lookups already
+  // guard internally, but gating here avoids memoizing on an unbounded arg.
+  if (!evaluateStorefrontSlugSafety(productSlug).safe) {
     return renderCategoryProductNotFoundContent(slug);
   }
 

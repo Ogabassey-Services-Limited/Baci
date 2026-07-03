@@ -12,6 +12,7 @@ import { asRoute } from '@/lib/routes';
 import { generateBreadcrumbSchema, generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildBlogClusterCollections } from '@/lib/storefront-content/build-blog-cluster-collections';
+import { isUnsafeBlogListingFilter } from '@/lib/storefront-slug-safety';
 import type { BlogPostData, TemplateBlogPageProps } from '@/templates/registry';
 import { getTemplate } from '@/templates/registry';
 import { BlogCategoryGuide } from './blog-category-guide';
@@ -114,6 +115,12 @@ export async function BlogPageContent({
   const page = toSingleBlogSearchParam(searchParamValues.page);
   const search = toSingleBlogSearchParam(searchParamValues.search);
   const currentPage = parseBlogListingPage(page);
+  // Over-long / repeatedly-encoded bot category/search values can never match
+  // a listing; bail before getCachedBlogListing (`'use cache'`) runs with an
+  // unbounded key (its cache key + tag both include the raw category).
+  if (isUnsafeBlogListingFilter(category, search)) {
+    notFound();
+  }
   const data = await getCachedBlogListing(slug, {
     category,
     page: currentPage,

@@ -103,3 +103,19 @@ export function evaluateStorefrontSlugSafety(
 
   return { safe: true };
 }
+
+/**
+ * True when a blog listing's category or search filter is unsafe to forward to
+ * the cached listing lookup. Empty/undefined filters are safe (page-only
+ * listings). Shared by the listing render and metadata paths so both gate the
+ * same way before `getCachedBlogListing`.
+ */
+export function isUnsafeBlogListingFilter(
+  category: string | null | undefined,
+  search: string | null | undefined
+): boolean {
+  return (
+    (!!category && !evaluateStorefrontSlugSafety(category).safe) ||
+    (!!search && !evaluateStorefrontSlugSafety(search).safe)
+  );
+}

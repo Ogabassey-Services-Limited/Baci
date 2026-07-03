@@ -4,6 +4,7 @@ import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
 import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
+import { isUnsafeBlogListingFilter } from '@/lib/storefront-slug-safety';
 import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
@@ -57,6 +58,15 @@ export async function buildBlogListingMetadata({
 }: BlogListingMetadataInput): Promise<Metadata> {
   const filterCategory = toSingleBlogSearchParam(searchParams.category)?.trim();
   const filterSearch = toSingleBlogSearchParam(searchParams.search)?.trim();
+  // Over-long / repeatedly-encoded bot category/search values can never match
+  // a listing; return the not-found metadata before getCachedBlogListing
+  // (`'use cache'`) runs with an unbounded key.
+  if (isUnsafeBlogListingFilter(filterCategory, filterSearch)) {
+    return {
+      title: 'Blog Not Found',
+      robots: { index: false, follow: false },
+    };
+  }
   const currentPage = parseBlogListingPage(
     toSingleBlogSearchParam(searchParams.page)
   );

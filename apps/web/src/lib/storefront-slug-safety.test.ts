@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   evaluateStorefrontSlugSafety,
+  isUnsafeBlogListingFilter,
   MAX_SAFE_STOREFRONT_SLUG_DECODED_LENGTH,
   MAX_SAFE_STOREFRONT_SLUG_ENCODED_LENGTH,
 } from '@/lib/storefront-slug-safety';
@@ -125,5 +126,35 @@ describe('evaluateStorefrontSlugSafety', () => {
     const second = evaluateStorefrontSlugSafety(slug);
 
     expect(second).toEqual(first);
+  });
+});
+
+describe('isUnsafeBlogListingFilter', () => {
+  const overEncoded = (() => {
+    let s = 'some phrase';
+    for (let i = 0; i < 10; i++) {
+      s = encodeURIComponent(s);
+    }
+    return s;
+  })();
+
+  it('treats empty/undefined filters (page-only listings) as safe', () => {
+    expect(isUnsafeBlogListingFilter(undefined, undefined)).toBe(false);
+    expect(isUnsafeBlogListingFilter('', '')).toBe(false);
+    expect(isUnsafeBlogListingFilter(null, null)).toBe(false);
+  });
+
+  it('treats normal category and search filters as safe', () => {
+    expect(isUnsafeBlogListingFilter('smartphones', 'iphone 15')).toBe(false);
+  });
+
+  it('flags an over-encoded category filter', () => {
+    expect(isUnsafeBlogListingFilter(overEncoded, undefined)).toBe(true);
+  });
+
+  it('flags an over-long search filter', () => {
+    expect(isUnsafeBlogListingFilter('smartphones', 'a'.repeat(4000))).toBe(
+      true
+    );
   });
 });
