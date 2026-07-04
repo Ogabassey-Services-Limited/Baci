@@ -9,6 +9,7 @@ import {
 } from '@/lib/cached-data';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
@@ -44,8 +45,15 @@ export async function generateMetadata({
   const baseUrl = buildStoreUrl(merchant);
 
   return {
-    title: `Book a Repair - ${merchant.business_name}`,
-    description: `Schedule a device repair with ${merchant.business_name}`,
+    // Must stay distinct from /repair (the booking wizard): identical titles
+    // across the two routes get flagged as duplicates by search engines and
+    // audit tools. Absolute so the platform `%s | Baci` template never leaks
+    // onto merchant storefronts.
+    title: buildStorefrontMetadataTitle({
+      title: `Device Repairs - ${merchant.business_name}`,
+      fallback: 'Device Repairs',
+    }).metadataTitle,
+    description: `Explore phone, laptop, and gadget repair services from ${merchant.business_name} with expert technicians and genuine parts.`,
     alternates: {
       canonical: `${baseUrl}/repairs`,
     },

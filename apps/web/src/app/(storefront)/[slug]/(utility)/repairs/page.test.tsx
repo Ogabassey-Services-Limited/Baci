@@ -168,14 +168,17 @@ describe('RepairsPage', () => {
     ).resolves.toEqual({ title: 'Repair Service Not Found' });
   });
 
-  it('generates merchant-branded metadata', async () => {
+  it('generates merchant-branded metadata distinct from the /repair booking page', async () => {
     await expect(
       generateMetadata({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
     ).resolves.toEqual({
-      title: 'Book a Repair - Ogabassey',
-      description: 'Schedule a device repair with Ogabassey',
+      // Absolute so the platform `%s | Baci` template never applies, and
+      // distinct from the /repair booking-wizard title.
+      title: { absolute: 'Device Repairs - Ogabassey' },
+      description:
+        'Explore phone, laptop, and gadget repair services from Ogabassey with expert technicians and genuine parts.',
       alternates: {
         canonical: 'https://ogabassey.com/repairs',
       },

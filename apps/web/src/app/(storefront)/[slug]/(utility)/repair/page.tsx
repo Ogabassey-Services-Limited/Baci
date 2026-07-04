@@ -8,6 +8,7 @@ import {
 } from '@/lib/cached-data';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import { isDomainIdentifier } from '@/lib/validation';
 
 interface RepairPageProps {
@@ -25,7 +26,9 @@ export async function generateMetadata({
     ? await getCachedMerchantByDomain(slug.toLowerCase())
     : await getCachedMerchant(slug.toLowerCase());
 
-  if (!merchant) {
+  // Repair booking is an Ogabassey-template merchant feature, mirroring the
+  // /repairs landing page gate.
+  if (merchant?.template_id !== 'ogabassey') {
     return {
       title: 'Store Not Found',
     };
@@ -34,7 +37,12 @@ export async function generateMetadata({
   const baseUrl = buildStoreUrl(merchant);
 
   return {
-    title: `Book a Repair - ${merchant.business_name}`,
+    // Absolute so the platform `%s | Baci` template never leaks onto
+    // merchant storefronts.
+    title: buildStorefrontMetadataTitle({
+      title: `Book a Repair - ${merchant.business_name}`,
+      fallback: 'Book a Repair',
+    }).metadataTitle,
     description: `Book phone, laptop, console and gadget repairs with ${merchant.business_name}. Check diagnosis, fault details, service expectations and support before submitting a repair request.`,
     alternates: {
       canonical: `${baseUrl}/repair`,
@@ -49,7 +57,8 @@ export default async function RepairPage({ params }: RepairPageProps) {
     ? await getCachedMerchantByDomain(slug.toLowerCase())
     : await getCachedMerchant(slug.toLowerCase());
 
-  if (!merchant) {
+  // Only show for Ogabassey template (merchant-specific feature)
+  if (merchant?.template_id !== 'ogabassey') {
     notFound();
   }
 

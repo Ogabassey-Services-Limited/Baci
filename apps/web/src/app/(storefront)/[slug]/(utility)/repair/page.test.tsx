@@ -45,6 +45,7 @@ describe('RepairPage', () => {
     vi.mocked(getCachedMerchant).mockResolvedValue({
       id: 'merchant-1',
       business_name: 'Ogabassey',
+      template_id: 'ogabassey',
     } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
 
     const { container } = render(
@@ -76,16 +77,20 @@ describe('RepairPage', () => {
     ]);
   });
 
-  it('returns repair metadata with a useful service description', async () => {
+  it('returns repair metadata with an absolute title and a useful service description', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValue({
       business_name: 'Ogabassey',
       slug: 'ogabassey',
+      template_id: 'ogabassey',
     } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
 
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'ogabassey' }),
     });
 
+    // Absolute so the platform `%s | Baci` template never applies, and
+    // distinct from the /repairs landing-page title.
+    expect(metadata.title).toEqual({ absolute: 'Book a Repair - Ogabassey' });
     expect(metadata.description).toContain('phone, laptop, console');
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.usebaci.com/repair'
@@ -98,5 +103,31 @@ describe('RepairPage', () => {
     await expect(
       RepairPage({ params: Promise.resolve({ slug: 'missing' }) })
     ).rejects.toThrow('NEXT_NOT_FOUND');
+  });
+
+  it('throws notFound for merchants that are not on the Ogabassey template', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue({
+      id: 'merchant-2',
+      business_name: 'Other Store',
+      template_id: 'default',
+    } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
+
+    await expect(
+      RepairPage({ params: Promise.resolve({ slug: 'other-store' }) })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+  });
+
+  it('returns not-found metadata for merchants that are not on the Ogabassey template', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue({
+      business_name: 'Other Store',
+      slug: 'other-store',
+      template_id: 'default',
+    } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'other-store' }),
+    });
+
+    expect(metadata.title).toBe('Store Not Found');
   });
 });

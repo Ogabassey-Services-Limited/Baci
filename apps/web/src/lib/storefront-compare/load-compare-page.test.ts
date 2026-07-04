@@ -174,7 +174,7 @@ describe('loadComparePage', () => {
       'http://localhost:3000/ogabassey/smartphones/compare/iphone-17-pro-max-vs-samsung-galaxy-z-trifold'
     );
     expect(result?.metaTitle).toBe(
-      'iPhone 17 Pro Max vs Samsung Galaxy Z TriFold... | Ogabassey'
+      'iPhone 17 Pro Max vs Samsung Galaxy Z TriFold in Nigeria | Ogabassey'
     );
     expect(result?.metaDescription).toContain(
       'Compare iPhone 17 Pro Max vs Samsung Galaxy Z TriFold in Nigeria by price, specs'
@@ -188,6 +188,37 @@ describe('loadComparePage', () => {
       rightValue: expect.any(String),
     });
     expect(result?.breadcrumbItems.at(-1)?.url).toBe(result?.canonicalUrl);
+  });
+
+  it('keeps full product names in metaTitle when the pair exceeds the SERP display cap', async () => {
+    const longLeft = {
+      ...categoryPageData.products[0],
+      name: 'Samsung Galaxy S26 Ultra 5G Titanium Black 12GB RAM 512GB',
+    };
+    const longRight = {
+      ...categoryPageData.products[1],
+      name: 'Samsung Galaxy S26 Ultra 5G Titanium Gray 16GB RAM 1TB Dual SIM',
+    };
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      ...categoryPageData,
+      products: [longLeft, longRight, ...categoryPageData.products.slice(2)],
+    });
+    mockGetCachedProductWithDetails.mockResolvedValueOnce(longLeft);
+    mockGetCachedProductWithDetails.mockResolvedValueOnce(longRight);
+
+    const result = await loadComparePage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+    });
+
+    expect(result?.kind).toBe('product');
+    // Distinguishing tail tokens must survive: truncating them collapses
+    // distinct comparisons into byte-identical duplicate titles.
+    expect(result?.metaTitle).toBe(
+      `${longLeft.name} vs ${longRight.name} in Nigeria | Ogabassey`
+    );
+    expect(result?.metaTitle).not.toContain('...');
   });
 
   it('returns a canonical brand-vs-brand page model when both brands pass thresholds', async () => {

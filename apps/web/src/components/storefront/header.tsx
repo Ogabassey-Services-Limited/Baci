@@ -9,6 +9,7 @@ import { ThemedButton } from '@/components/themed';
 import { CartIcon } from '@/components/ui/animated-icons';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
+import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { useStorefront } from '@/contexts/storefront-context';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchant } from '@/hooks/use-merchant-client';
@@ -107,8 +108,8 @@ export function StorefrontHeader() {
           <Link href={routes.dashboardOrders}>
             <ThemedButton colorRole="primary">My Dashboard</ThemedButton>
           </Link>
-          {/* Repair Booking Link - Visible on relevant stores */}
-          {merchant.slug && (
+          {/* Repair booking is an Ogabassey-template feature; /repair 404s on other stores */}
+          {merchant.slug && merchant.template_id === OGABASSEY_TEMPLATE_ID && (
             <Link href={routes.storefrontRepair(merchant.slug)}>
               <Button variant="ghost">Book Repair</Button>
             </Link>

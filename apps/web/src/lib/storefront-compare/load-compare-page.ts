@@ -106,6 +106,13 @@ interface BrandComparePageModel {
 const CURATED_COMPARE_POLICY_DOC =
   'docs/superpowers/plans/2026-06-07-ogabassey-shared-comparison-spec-matrix.md';
 
+// Title uniqueness outranks SERP display length: Google reads the full
+// <title> (SERP truncation is pixel-based display-only), while the default
+// 60-char cap slices away the right-hand product's distinguishing model
+// tokens and makes dozens of "X vs Y" pages share byte-identical titles.
+// Cap only pathological product-name pairs.
+const COMPARE_META_TITLE_MAX_LENGTH = 150;
+
 const _comparePriceFormatterCache = new Map<string, Intl.NumberFormat>();
 
 function getComparePriceFormatter(
@@ -504,6 +511,7 @@ async function loadComparePageUncached(args: {
         title: compareLabel,
         suffix: merchant.business_name,
         fallback: categoryName,
+        maxLength: COMPARE_META_TITLE_MAX_LENGTH,
       }).title,
       metaDescription: `Compare ${leftDetails.name} vs ${rightDetails.name}${countrySuffix} by price, specs, condition, warranty, delivery, and buying priorities on ${merchant.business_name}.`,
       heading: compareLabel,
