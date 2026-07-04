@@ -920,6 +920,61 @@ describe('category page route', () => {
     ]);
   });
 
+  it('returns category not-found metadata for a repeatedly percent-encoded slug before any cached lookup runs', async () => {
+    let overEncodedSlug = 'x y';
+    for (let index = 0; index < 10; index += 1) {
+      overEncodedSlug = encodeURIComponent(overEncodedSlug);
+    }
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: overEncodedSlug,
+        category: 'smartphones',
+      }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    expect(metadata.title).toBe('Category not found');
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
+    expect(getCachedMerchant).not.toHaveBeenCalled();
+    expect(getCachedMerchantByDomain).not.toHaveBeenCalled();
+    expect(getCachedCategoryPageData).not.toHaveBeenCalled();
+  });
+
+  it('returns category not-found metadata for an over-long category slug before any cached lookup runs', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'test-store',
+        category: 'a'.repeat(4000),
+      }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    expect(metadata.title).toBe('Category not found');
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
+    expect(getCachedMerchant).not.toHaveBeenCalled();
+    expect(getCachedCategoryPageData).not.toHaveBeenCalled();
+  });
+
+  it('still resolves metadata for a valid short slug through the cached lookups', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    expect(metadata.title).not.toBe('Category not found');
+    expect(getCachedMerchant).toHaveBeenCalledWith('test-store');
+    expect(getCachedCategoryPageData).toHaveBeenCalledWith(
+      'merchant-1',
+      'smartphones',
+      'test-store',
+      0,
+      20
+    );
+  });
+
   it('returns noindex soft-404 metadata for inactive category slugs', async () => {
     vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
       isCollection: false,

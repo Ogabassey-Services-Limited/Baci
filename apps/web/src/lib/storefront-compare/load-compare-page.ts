@@ -21,6 +21,7 @@ import {
   getStorefrontLocale,
 } from '@/lib/storefront-localization';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import {
   buildProductComparisonMatrix,
   type ProductComparisonMatrix,
@@ -303,12 +304,48 @@ async function loadComparePageUncached(args: {
     return null;
   }
 
+  // Over-long / repeatedly-encoded bot categories can never match; bail before
+  // getCachedCategoryPageData -> getCachedCategoryPageShellData
+  // (`'use cache: remote'`, keyed on categorySlug) runs with an unbounded key.
+  // comparisonSlug is NOT gated here: it's a composite `${left}-vs-${right}` of
+  // two product slugs (each up to 200 chars), so the single-slug bound would
+  // wrongly 404 legitimate long compare URLs. The parsed halves are gated after
+  // parsing instead. (merchantSlug is already bounded by getMerchantByIdentifier.)
+  if (!evaluateStorefrontSlugSafety(args.categorySlug).safe) {
+    // Bound the logged slugs — an unsafe segment can be multi-KB and must not
+    // bloat the log line (the other misses log post-gate, already-bounded slugs).
+    logCompareRouteMiss({
+      merchantSlug: args.merchantSlug,
+      categorySlug: args.categorySlug.slice(0, 120),
+      comparisonSlug: args.comparisonSlug.slice(0, 120),
+      reason: 'unsafe_slug',
+    });
+    return null;
+  }
+
   const parsed = parseCompareSlug(args.comparisonSlug);
 
   if (!parsed) {
     logCompareRouteMiss({
       ...args,
       reason: 'invalid_compare_slug',
+    });
+    return null;
+  }
+
+  // Gate the parsed halves (each a single product slug) before either reaches
+  // getCachedProductWithDetails (`'use cache'`). A valid product slug (<=200)
+  // passes; an over-long / repeatedly-encoded half from a bot `-vs-` blob does
+  // not, so the unbounded value never enters the cache key.
+  if (
+    !evaluateStorefrontSlugSafety(parsed.leftKey).safe ||
+    !evaluateStorefrontSlugSafety(parsed.rightKey).safe
+  ) {
+    logCompareRouteMiss({
+      merchantSlug: args.merchantSlug,
+      categorySlug: args.categorySlug.slice(0, 120),
+      comparisonSlug: args.comparisonSlug.slice(0, 120),
+      reason: 'unsafe_compare_key',
     });
     return null;
   }

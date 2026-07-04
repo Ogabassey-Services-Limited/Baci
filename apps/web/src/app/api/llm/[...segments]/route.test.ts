@@ -571,6 +571,95 @@ describe('GET /api/llm/[...segments]', () => {
     });
   });
 
+  /* ------ Slug safety gate ------ */
+  describe('slug safety gate', () => {
+    const overEncodedSegment = (() => {
+      let value = 'x y';
+      for (let index = 0; index < 10; index += 1) {
+        value = encodeURIComponent(value);
+      }
+      return value;
+    })();
+    const overLongSegment = 'a'.repeat(4000);
+
+    it('returns 404 for a repeatedly percent-encoded category segment without hitting the cached category lookup', async () => {
+      getMerchantByIdentifier.mockResolvedValue({ ...baseMerchant });
+
+      const { GET } = await import('./route');
+      const response = await GET(
+        makeRequest(`/api/llm/ogabassey/${overEncodedSegment}`),
+        makeParams(['ogabassey', overEncodedSegment])
+      );
+
+      expect(response.status).toBe(404);
+      expect(getCachedCategoryPageData).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 for an over-long category segment without hitting the cached category lookup', async () => {
+      getMerchantByIdentifier.mockResolvedValue({ ...baseMerchant });
+
+      const { GET } = await import('./route');
+      const response = await GET(
+        makeRequest(`/api/llm/ogabassey/${overLongSegment}`),
+        makeParams(['ogabassey', overLongSegment])
+      );
+
+      expect(response.status).toBe(404);
+      expect(getCachedCategoryPageData).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 for an over-long blog post segment without hitting the cached blog post lookup', async () => {
+      getMerchantByIdentifier.mockResolvedValue({ ...baseMerchant });
+
+      const { GET } = await import('./route');
+      const response = await GET(
+        makeRequest(`/api/llm/ogabassey/blog/${overLongSegment}`),
+        makeParams(['ogabassey', 'blog', overLongSegment])
+      );
+
+      expect(response.status).toBe(404);
+      expect(getCachedBlogPost).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 for a repeatedly percent-encoded product segment without hitting the cached product lookup', async () => {
+      getMerchantByIdentifier.mockResolvedValue({ ...baseMerchant });
+
+      const { GET } = await import('./route');
+      const response = await GET(
+        makeRequest(`/api/llm/ogabassey/phones/${overEncodedSegment}`),
+        makeParams(['ogabassey', 'phones', overEncodedSegment])
+      );
+
+      expect(response.status).toBe(404);
+      expect(getCachedProductWithDetails).not.toHaveBeenCalled();
+    });
+
+    it('still serves a valid short category segment through the cached category lookup', async () => {
+      getMerchantByIdentifier.mockResolvedValue({ ...baseMerchant });
+      getCachedCategoryPageData.mockResolvedValue({
+        isCollection: false,
+        fallbackName: 'Phones',
+        products: [
+          { id: 'p1', name: 'iPhone 15', slug: 'iphone-15', price: 1000 },
+        ],
+      });
+      buildCategoryMarkdown.mockReturnValue('# Phones\n');
+
+      const { GET } = await import('./route');
+      const response = await GET(
+        makeRequest('/api/llm/ogabassey/phones'),
+        makeParams(['ogabassey', 'phones'])
+      );
+
+      expect(response.status).toBe(200);
+      expect(getCachedCategoryPageData).toHaveBeenCalledWith(
+        'm1',
+        'phones',
+        'ogabassey'
+      );
+    });
+  });
+
   /* ------ 4+ segments: too many ------ */
   describe('too many segments', () => {
     it('returns 404 for 4 or more segments', async () => {

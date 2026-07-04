@@ -21,6 +21,7 @@ import {
   filterPublicBlogCategories,
   filterPublicBlogPosts,
 } from '@/lib/public-blog-content-quality';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 
 function notFound() {
   return notFoundMarkdownResponse('# Not Found\n');
@@ -112,7 +113,14 @@ async function handleLlmRequest(
       }
 
       default:
-        // Treat as category
+        // Treat as category. Over-long / repeatedly-encoded bot segments can
+        // never match; bail before getCachedCategoryPageData ->
+        // getCachedCategoryPageShellData (`'use cache: remote'`, keyed on the
+        // category segment) runs with an unbounded key. (slug is already
+        // bounded by the getMerchantByIdentifier check above.)
+        if (!evaluateStorefrontSlugSafety(page).safe) {
+          return notFound();
+        }
         return serveCategoryMarkdown(merchant, slug, origin, page);
     }
   }
@@ -121,6 +129,14 @@ async function handleLlmRequest(
   if (segments.length === 3) {
     const section = segments[1];
     const item = segments[2];
+
+    // Over-long / repeatedly-encoded bot segments can never match; bail before
+    // the item keys getCachedBlogPost / getCachedProductWithDetails (both
+    // `'use cache'`) with an unbounded value. The section segment only feeds
+    // the in-memory 'blog' comparison below, so it needs no gate.
+    if (!evaluateStorefrontSlugSafety(item).safe) {
+      return notFound();
+    }
 
     if (section === 'blog') {
       const data = await getCachedBlogPost(slug, item);

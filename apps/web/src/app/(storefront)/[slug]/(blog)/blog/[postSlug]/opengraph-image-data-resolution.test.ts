@@ -151,6 +151,54 @@ describe('merchant blog OG image data resolution', () => {
     consoleErrorSpy.mockRestore();
   });
 
+  it('judges unsafe merchant slugs before any merchant or post lookup runs', async () => {
+    let overEncodedSlug = 'x y';
+    for (let index = 0; index < 10; index += 1) {
+      overEncodedSlug = encodeURIComponent(overEncodedSlug);
+    }
+
+    await expect(
+      getMerchantBlogOgImageData(overEncodedSlug, 'post-a')
+    ).resolves.toBeNull();
+    await expect(
+      getMerchantBlogOgMetadataData('a'.repeat(4000), 'post-b')
+    ).resolves.toBeNull();
+
+    expect(mockGetCachedMerchant).not.toHaveBeenCalled();
+    expect(mockGetCachedMerchantByDomain).not.toHaveBeenCalled();
+    expect(mockCreatePublicClient).not.toHaveBeenCalled();
+  });
+
+  it('judges unsafe post slugs before any merchant or post lookup runs', async () => {
+    let overEncodedPostSlug = 'x y';
+    for (let index = 0; index < 10; index += 1) {
+      overEncodedPostSlug = encodeURIComponent(overEncodedPostSlug);
+    }
+
+    await expect(
+      getMerchantBlogOgImageData('safe-shop', overEncodedPostSlug)
+    ).resolves.toBeNull();
+    await expect(
+      getMerchantBlogOgMetadataData('safe-shop-meta', 'a'.repeat(4000))
+    ).resolves.toBeNull();
+
+    expect(mockGetCachedMerchant).not.toHaveBeenCalled();
+    expect(mockGetCachedMerchantByDomain).not.toHaveBeenCalled();
+    expect(mockCreatePublicClient).not.toHaveBeenCalled();
+  });
+
+  it('still resolves a valid short slug through the merchant and post lookups', async () => {
+    await expect(
+      getMerchantBlogOgMetadataData('safe-valid-shop', 'best-deals-valid')
+    ).resolves.toEqual({
+      merchantBusinessName: 'Ogabassey',
+      post: { title: 'Best iPhone Deals' },
+    });
+
+    expect(mockGetCachedMerchant).toHaveBeenCalledWith('safe-valid-shop');
+    expect(mockCreatePublicClient).toHaveBeenCalled();
+  });
+
   it('routes slug identifiers and domain identifiers through the correct merchant lookup', async () => {
     await getMerchantBlogOgMetadataData('shop-slug-route', 'post-slug-route');
     await getMerchantBlogOgMetadataData(

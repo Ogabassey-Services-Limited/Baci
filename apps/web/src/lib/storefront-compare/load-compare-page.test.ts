@@ -344,6 +344,88 @@ describe('loadComparePage', () => {
     warnSpy.mockRestore();
   });
 
+  describe('slug safety gate', () => {
+    const overEncodedSlug = (() => {
+      let value = 'x y';
+      for (let index = 0; index < 10; index += 1) {
+        value = encodeURIComponent(value);
+      }
+      return value;
+    })();
+    const overLongSlug = 'a'.repeat(4000);
+
+    it('returns null for a repeatedly percent-encoded category slug without hitting the cached category lookup', async () => {
+      const result = await loadComparePage({
+        merchantSlug: 'ogabassey',
+        categorySlug: overEncodedSlug,
+        comparisonSlug: 'apple-vs-samsung',
+      });
+
+      expect(result).toBeNull();
+      expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
+      expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+    });
+
+    it('returns null for an over-long category slug without hitting the cached category lookup', async () => {
+      const result = await loadComparePage({
+        merchantSlug: 'ogabassey',
+        categorySlug: overLongSlug,
+        comparisonSlug: 'apple-vs-samsung',
+      });
+
+      expect(result).toBeNull();
+      expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
+    });
+
+    it('returns null when a parsed compare half is over-long, before the cached lookups', async () => {
+      const result = await loadComparePage({
+        merchantSlug: 'ogabassey',
+        categorySlug: 'smartphones',
+        comparisonSlug: `${overLongSlug}-vs-${overLongSlug}`,
+      });
+
+      expect(result).toBeNull();
+      expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
+      expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+    });
+
+    it('does NOT 404 a legitimate long composite compare slug (two <=200-char product slugs)', async () => {
+      // Each half is a valid single product slug (~131 chars, <=200); the
+      // composite (~266 chars) exceeds the single-slug 255 cap but must NOT be
+      // gated — the parsed halves are each within bound, so the category lookup
+      // still runs. Regression test for the composite-length false positive.
+      const longLeft = `aa${'-bb'.repeat(43)}`;
+      const longRight = `cc${'-dd'.repeat(43)}`;
+
+      await loadComparePage({
+        merchantSlug: 'ogabassey',
+        categorySlug: 'smartphones',
+        comparisonSlug: `${longLeft}-vs-${longRight}`,
+      });
+
+      expect(mockGetCachedCategoryPageData).toHaveBeenCalledWith(
+        'merchant-1',
+        'smartphones',
+        'ogabassey'
+      );
+    });
+
+    it('still resolves a valid short slug through the cached category lookup', async () => {
+      const result = await loadComparePage({
+        merchantSlug: 'ogabassey',
+        categorySlug: 'smartphones',
+        comparisonSlug: 'apple-vs-samsung',
+      });
+
+      expect(mockGetCachedCategoryPageData).toHaveBeenCalledWith(
+        'merchant-1',
+        'smartphones',
+        'ogabassey'
+      );
+      expect(result?.kind).toBe('brand');
+    });
+  });
+
   it('resolves compare pages from custom-domain storefront identifiers', async () => {
     mockGetMerchantByIdentifier.mockResolvedValueOnce({
       ...merchant,
