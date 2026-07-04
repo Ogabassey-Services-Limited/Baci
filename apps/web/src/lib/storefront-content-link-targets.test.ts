@@ -190,6 +190,7 @@ describe('collectStorefrontContentLinkTargets', () => {
     const html =
       '<a href="/checkout/success">Done</a>' +
       '<a href="/account/orders">Orders</a>' +
+      '<a href="/my-account/orders">Legacy account</a>' +
       '<a href="/pages/about">About</a>';
 
     expect(collectStorefrontContentLinkTargets(html)).toEqual({

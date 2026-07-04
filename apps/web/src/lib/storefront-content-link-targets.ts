@@ -36,6 +36,8 @@ const NON_PRODUCT_FIRST_SEGMENTS = new Set([
   'api',
   'blog',
   'checkout',
+  // /my-account/[...path] is a live catch-all (legacy account redirects).
+  'my-account',
   'pages',
   'sitemap',
 ]);
