@@ -1,3 +1,4 @@
+import { collectHrefCandidates } from '@/lib/storefront-content-href-candidates';
 import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
 
 /**
@@ -8,23 +9,6 @@ import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalizat
  * `collectStorefrontContentLinkTargets`, resolves which ones are live, and
  * unwraps dead anchors via `isDeadStorefrontContentHref`.
  */
-
-// Matches href values in raw HTML (`href="..."`), TipTap JSON (`"href":"..."`)
-// and markdown (`](...)`) without needing to know the content format upfront.
-const HREF_ATTRIBUTE_REGEX = /\bhref\\?["']?\s*[:=]\s*\\?["']([^"'\\<>\s]+)/gi;
-// Legacy/imported HTML can carry valid unquoted hrefs (<a href=/blog/x>).
-const UNQUOTED_HREF_ATTRIBUTE_REGEX = /\bhref\s*=\s*([^"'\s<>=][^\s<>]*)/gi;
-// Reference-style Markdown definitions ([label]: /blog/x or <...>), which
-// `marked` renders as anchors just like inline links.
-// Markdown autolinks (<https://ogabassey.com/blog/x>) render as anchors too.
-const MARKDOWN_AUTOLINK_REGEX = /<(https?:\/\/[^<>\s]+)>/gi;
-// Bare URLs in Markdown prose also render as anchors (GFM autolinking);
-// trailing sentence punctuation is trimmed at collection time.
-const MARKDOWN_BARE_URL_REGEX = /\b(https?:\/\/[^\s<>()"']+)/gi;
-const MARKDOWN_REFERENCE_DEFINITION_REGEX =
-  /^[ \t]*\[[^\]\n]+\]:[ \t]*(<[^<>\s]+>|\S+)/gm;
-const MARKDOWN_LINK_REGEX =
-  /\]\(\s*(<[^<>\s]+>|[^()\s]+)(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)/g;
 
 // First segments that own real multi-segment static routes in the
 // storefront app (e.g. /checkout/success, /pages/about, /account/orders,
@@ -163,34 +147,6 @@ function classifySegments(
   }
 
   return null;
-}
-
-function collectHrefCandidates(contentStr: string): string[] {
-  const candidates: string[] = [];
-
-  for (const regex of [
-    HREF_ATTRIBUTE_REGEX,
-    UNQUOTED_HREF_ATTRIBUTE_REGEX,
-    MARKDOWN_LINK_REGEX,
-    MARKDOWN_REFERENCE_DEFINITION_REGEX,
-    MARKDOWN_AUTOLINK_REGEX,
-    MARKDOWN_BARE_URL_REGEX,
-  ]) {
-    regex.lastIndex = 0;
-    let match = regex.exec(contentStr);
-    while (match !== null) {
-      const captured = match[1];
-      const unwrapped =
-        captured.startsWith('<') && captured.endsWith('>')
-          ? captured.slice(1, -1)
-          : captured;
-      // Bare URLs in prose often end at sentence punctuation.
-      candidates.push(unwrapped.replace(/[.,;:!?]+$/, ''));
-      match = regex.exec(contentStr);
-    }
-  }
-
-  return candidates;
 }
 
 export function collectStorefrontContentLinkTargets(
