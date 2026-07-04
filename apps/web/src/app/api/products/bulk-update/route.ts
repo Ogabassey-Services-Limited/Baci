@@ -11,6 +11,7 @@ import {
 import { generateProductSlug, generateSlug } from '@/lib/seo-utils';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
+  countDistinctProductPurgeEntries,
   resolveProductPurgeCategorySegment,
   resolveProductPurgeCategorySegmentForRow,
   type StorefrontProductPurgeEntry,
@@ -299,12 +300,15 @@ export async function POST(request: NextRequest) {
     // the bulk update. Past the threshold, purge only the shared listing
     // surfaces to bound the outbound fan-out (see the threshold's docs).
     try {
+      // Base the fan-out threshold on the DISTINCT (slug, segment) count so a
+      // sheet with repeated rows for one product does not inflate the count and
+      // wrongly suppress its per-PDP purge.
+      const distinctPurgeCount = countDistinctProductPurgeEntries(purgeEntries);
       scheduleStorefrontProductPurge(
         merchantContext.merchantSlug,
         purgeEntries,
         {
-          listingsOnly:
-            purgeEntries.length > BULK_PURGE_LISTINGS_ONLY_THRESHOLD,
+          listingsOnly: distinctPurgeCount > BULK_PURGE_LISTINGS_ONLY_THRESHOLD,
         }
       );
     } catch (purgeError) {

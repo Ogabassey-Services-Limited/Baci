@@ -3,6 +3,7 @@ import { getBlogAuthorSlugs } from './blog-authors';
 import {
   buildStorefrontBlogPurgeUrls,
   buildStorefrontProductPurgeUrls,
+  countDistinctProductPurgeEntries,
   resolveProductPurgeCategorySegment,
   resolveProductPurgeCategorySegmentForRow,
 } from './storefront-purge-urls';
@@ -279,6 +280,66 @@ describe('resolveProductPurgeCategorySegmentForRow', () => {
         product_categories: [],
       })
     ).toBeNull();
+  });
+
+  it('resolves the join segment for a legacy null-slug row via the id fallback', () => {
+    // A null-slug row stays addressable at `/products/<id>` and `/<category>/<id>`.
+    // Without the id fallback the null slug short-circuits to null and the
+    // categorized PDP + category listing are dropped from the purge.
+    expect(
+      resolveProductPurgeCategorySegmentForRow({
+        id: 'prod-legacy-1',
+        slug: null,
+        categories: { slug: 'accessories' },
+      })
+    ).toBe('accessories');
+  });
+
+  it('resolves the junction segment for a null-slug row with no direct join', () => {
+    expect(
+      resolveProductPurgeCategorySegmentForRow({
+        id: 'prod-legacy-2',
+        slug: '  ',
+        category: null,
+        categories: null,
+        product_categories: [{ categories: { slug: 'audio' } }],
+      })
+    ).toBe('audio');
+  });
+});
+
+describe('countDistinctProductPurgeEntries', () => {
+  it('counts repeated rows for one product as a single distinct target', () => {
+    // 60 duplicate rows of ONE product must not trip a distinct-count threshold
+    // of 50: they collapse to a single (slug, segment) purge target.
+    const entries = Array.from({ length: 60 }, () => ({
+      slug: 'iphone-15',
+      categorySegment: 'smartphones',
+    }));
+
+    expect(countDistinctProductPurgeEntries(entries)).toBe(1);
+    expect(countDistinctProductPurgeEntries(entries) > 50).toBe(false);
+  });
+
+  it('counts each distinct (slug, segment) pair', () => {
+    const entries = Array.from({ length: 60 }, (_, index) => ({
+      slug: `product-${index}`,
+      categorySegment: 'smartphones',
+    }));
+
+    expect(countDistinctProductPurgeEntries(entries)).toBe(60);
+    expect(countDistinctProductPurgeEntries(entries) > 50).toBe(true);
+  });
+
+  it('ignores blank slugs and dedupes by the exact case-sensitive pair', () => {
+    expect(
+      countDistinctProductPurgeEntries([
+        { slug: '  ' },
+        { slug: 'iphone-15', categorySegment: 'smartphones' },
+        { slug: 'iphone-15', categorySegment: 'smartphones' },
+        { slug: 'iphone-15', categorySegment: 'Smartphones' },
+      ])
+    ).toBe(2);
   });
 });
 

@@ -71,17 +71,32 @@ export function useUpdateProduct() {
   return useMutation<
     Product,
     Error,
-    { id: string; updates: ProductFormValues }
+    {
+      id: string;
+      updates: ProductFormValues;
+      previousCategory?: string | null;
+      previousCategoryId?: string | null;
+    }
   >({
     mutationFn: ({
       id,
       updates,
+      previousCategory,
+      previousCategoryId,
     }: {
       id: string;
       updates: ProductFormValues;
+      previousCategory?: string | null;
+      previousCategoryId?: string | null;
     }) => {
       if (!merchant?.id) throw new Error('No merchant');
-      return updateProductRecord({ id, merchantId: merchant.id, updates });
+      return updateProductRecord({
+        id,
+        merchantId: merchant.id,
+        updates,
+        previousCategory,
+        previousCategoryId,
+      });
     },
     mutationKey: ['updateProduct'],
     onSuccess: (data) => {

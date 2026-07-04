@@ -216,6 +216,12 @@ function extractJunctionCategorySlug(
  */
 export interface ProductPurgeCategoryRow {
   slug?: string | null;
+  /**
+   * Product id — the URL path segment (`/products/<id>`, `/<category>/<id>`) for
+   * legacy rows whose slug is null/blank, so it is the EFFECTIVE slug fallback
+   * when resolving the category segment below.
+   */
+  id?: string | null;
   name?: string | null;
   category?: string | null;
   /** `categories:category_id(slug)` embed (object | array | null). */
@@ -246,8 +252,16 @@ export function resolveProductPurgeCategorySegmentForRow(
     const junctionSlug = extractJunctionCategorySlug(row.product_categories);
     joinedCategory = junctionSlug ? { slug: junctionSlug } : null;
   }
+  // Legacy rows can carry a null/blank slug but stay addressable by id
+  // (`/products/<id>`, `/<category>/<id>`), so resolve the segment against the
+  // EFFECTIVE slug (id fallback). Without it, a null slug short-circuits
+  // `resolveProductPurgeCategorySegment` to null BEFORE the join is considered,
+  // dropping the categorized PDP + category listing from the purge. Passing the
+  // id is safe: `getProductUrl` only uses the slug as the URL path segment,
+  // which IS the id for these rows.
+  const effectiveSlug = row.slug?.trim() || row.id;
   return resolveProductPurgeCategorySegment({
-    slug: row.slug,
+    slug: effectiveSlug,
     name: row.name,
     category: row.category,
     categories: joinedCategory,
@@ -276,6 +290,21 @@ function dedupeProductPurgeEntries(
     deduped.push({ slug, categorySegment: rawSegment || null });
   }
   return deduped;
+}
+
+/**
+ * Count the DISTINCT purge targets in `entries`, deduped by the exact
+ * `${slug}|${segment}` pair — the SAME key `dedupeProductPurgeEntries` (and thus
+ * `buildStorefrontProductPurgeUrls`) collapses on. Threshold decisions
+ * (`listingsOnly`) MUST use this, never `entries.length`: an import sheet with
+ * repeated rows for one product (or callers that fan a product into several
+ * entries) would otherwise inflate the raw length and wrongly suppress the
+ * per-PDP purges for a small, well-under-budget change.
+ */
+export function countDistinctProductPurgeEntries(
+  entries: readonly StorefrontProductPurgeEntry[]
+): number {
+  return dedupeProductPurgeEntries(entries).length;
 }
 
 export interface BuildStorefrontProductPurgeUrlsOptions {

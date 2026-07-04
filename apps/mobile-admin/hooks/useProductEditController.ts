@@ -217,7 +217,14 @@ export function useProductEditController() {
       saveInFlightRef: saveInFlightLock,
       selectCreatedCategory: (categoryId, categoryName) =>
         updateCategory({ id: categoryId, name: categoryName }),
-      updateProduct: updateProductMutation.mutateAsync,
+      // Capture the loaded product's PRE-SAVE category so a category MOVE also
+      // purges the OLD category's cached storefront URLs (see product-save).
+      updateProduct: (input) =>
+        updateProductMutation.mutateAsync({
+          ...input,
+          previousCategory: product?.category ?? null,
+          previousCategoryId: product?.category_id ?? null,
+        }),
       updateStatus: (input, callbacks) =>
         updateStatusMutation.mutate(input, callbacks),
     });

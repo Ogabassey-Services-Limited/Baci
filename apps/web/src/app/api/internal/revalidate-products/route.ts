@@ -5,6 +5,7 @@ import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { buildInternalProductPurgeEntries } from '@/lib/internal-product-purge-entries';
 import { logger } from '@/lib/logger';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
+import { countDistinctProductPurgeEntries } from '@/lib/storefront-purge-urls';
 import { internalRevalidateProductsBodySchema } from '@/schemas/internal-revalidate-products-route';
 
 // Past this many products in one request, purge only the shared listing
@@ -72,8 +73,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (merchantSlug && products && products.length > 0) {
     try {
       const purgeEntries = buildInternalProductPurgeEntries(products);
+      // Base the fan-out threshold on the DISTINCT (slug, segment) count so
+      // duplicate entries for one product do not inflate the count and wrongly
+      // suppress its per-PDP purge.
+      const distinctPurgeCount = countDistinctProductPurgeEntries(purgeEntries);
       scheduleStorefrontProductPurge(merchantSlug, purgeEntries, {
-        listingsOnly: purgeEntries.length > PURGE_LISTINGS_ONLY_THRESHOLD,
+        listingsOnly: distinctPurgeCount > PURGE_LISTINGS_ONLY_THRESHOLD,
       });
     } catch (purgeError) {
       logger.error({

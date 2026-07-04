@@ -22,6 +22,7 @@ import { getMerchantBlogPostSlugs } from '@/lib/get-merchant-blog-post-slugs';
 import { buildInternalProductPurgeEntries } from '@/lib/internal-product-purge-entries';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
+  countDistinctProductPurgeEntries,
   type ProductPurgeCategoryRow,
   resolveProductPurgeCategorySegmentForRow,
 } from '@/lib/storefront-purge-urls';
@@ -174,8 +175,13 @@ export async function POST(request: NextRequest) {
             products,
             authoritativeSegmentsById
           );
+          // Base the fan-out threshold on the DISTINCT (slug, segment) count so
+          // duplicate entries for one product do not inflate the count and
+          // wrongly suppress its per-PDP purge.
+          const distinctPurgeCount =
+            countDistinctProductPurgeEntries(purgeEntries);
           scheduleStorefrontProductPurge(merchantSlug, purgeEntries, {
-            listingsOnly: purgeEntries.length > PURGE_LISTINGS_ONLY_THRESHOLD,
+            listingsOnly: distinctPurgeCount > PURGE_LISTINGS_ONLY_THRESHOLD,
           });
         }
       } catch (purgeError) {
