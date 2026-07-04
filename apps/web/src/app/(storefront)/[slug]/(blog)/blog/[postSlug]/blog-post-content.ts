@@ -12,6 +12,7 @@ import { buildStoreUrl } from '@/lib/store-url';
 import { unwrapDeadHtmlAnchors } from '@/lib/storefront-html-anchor-unwrapping';
 import { rewriteHtmlStorefrontHrefs } from '@/lib/storefront-html-link-rewriting';
 import type { NormalizeStorefrontContentHrefOptions } from '@/lib/storefront-link-normalization';
+import { stringifyBlogContent } from '@/lib/stringify-blog-content';
 import { normalizeBlogContentLinks } from './blog-content-link-mark-normalization';
 import {
   ensureBlogImageAltText,
@@ -142,12 +143,7 @@ export async function resolveBlogPostContent(
   content: unknown,
   options: ResolveBlogPostContentOptions = {}
 ) {
-  const contentStr =
-    typeof content === 'string'
-      ? content
-      : content && typeof content === 'object'
-        ? JSON.stringify(content)
-        : '';
+  const contentStr = stringifyBlogContent(content);
   const trimmedContent = contentStr.trim();
   const parsedJson = tryParseJson(content);
   const rawRenderedContent =

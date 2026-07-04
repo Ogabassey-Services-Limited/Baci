@@ -5,6 +5,7 @@ import {
   collectStorefrontContentLinkTargets,
   type DeadStorefrontContentLinkSlugs,
 } from '@/lib/storefront-content-link-targets';
+import { stringifyBlogContent } from '@/lib/stringify-blog-content';
 
 const NO_DEAD_CONTENT_LINKS: DeadStorefrontContentLinkSlugs = {
   blog: [],
@@ -44,12 +45,7 @@ export async function resolveContentLinks(
     return NO_CONTENT_LINK_RESOLUTION;
   }
 
-  const contentStr =
-    typeof content === 'string'
-      ? content
-      : content && typeof content === 'object'
-        ? JSON.stringify(content)
-        : '';
+  const contentStr = stringifyBlogContent(content);
   // baseUrl lets collection recognize absolute same-site URLs on custom
   // domains whose hostname does not contain the merchant slug.
   const { blogSlugs, productSlugs } = collectStorefrontContentLinkTargets(

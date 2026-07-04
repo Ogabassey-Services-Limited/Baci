@@ -82,7 +82,13 @@ function normalizeJoinedCategory(
  */
 export async function getCachedProductCanonicalPaths(
   merchantId: string,
-  productSlugs: string[]
+  productSlugs: string[],
+  // Callers whose fail-open behavior depends on DISTINGUISHING "no rewrite
+  // exists" from "the lookup failed" (content link canonicalization) must opt
+  // into throwing; default callers (the /products link hub) prefer an empty
+  // map so a transient error drops links for one render instead of erroring
+  // the page.
+  options: { throwOnQueryError?: boolean } = {}
 ): Promise<Record<string, string>> {
   'use cache';
   cacheLife('products');
@@ -113,6 +119,9 @@ export async function getCachedProductCanonicalPaths(
     .in('slug', productSlugs);
 
   if (error) {
+    if (options.throwOnQueryError) {
+      throw error;
+    }
     console.error('Error fetching product canonical paths:', error);
     return {};
   }

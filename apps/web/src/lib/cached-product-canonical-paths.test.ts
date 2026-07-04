@@ -206,4 +206,15 @@ describe('getCachedProductCanonicalPaths', () => {
     expect(consoleError).toHaveBeenCalled();
     consoleError.mockRestore();
   });
+
+  it('throws on query failure when throwOnQueryError is set', async () => {
+    const builder = createQueryBuilder({ error: { message: 'boom' } });
+    mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
+
+    await expect(
+      getCachedProductCanonicalPaths('merchant-1', ['iphone-xr'], {
+        throwOnQueryError: true,
+      })
+    ).rejects.toEqual({ message: 'boom' });
+  });
 });

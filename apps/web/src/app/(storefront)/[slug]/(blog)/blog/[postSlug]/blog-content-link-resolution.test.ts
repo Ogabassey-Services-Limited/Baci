@@ -133,3 +133,29 @@ describe('resolveContentLinks', () => {
     });
   });
 });
+
+describe('resolveContentLinks prototype-key safety', () => {
+  it('does not treat Object.prototype member names as having rewrites', async () => {
+    mockGetCachedDeadContentLinkSlugs.mockResolvedValue({
+      blog: ['constructor'],
+      products: ['toString'],
+    });
+    mockGetCachedContentLinkRewrites.mockResolvedValue({
+      blogSlugs: {},
+      productPaths: {},
+    });
+
+    const result = await resolveContentLinks(
+      '<a href="/blog/constructor">A</a><a href="/smartphones/toString">B</a>',
+      'merchant-1',
+      'store'
+    );
+
+    // bare bracket access would resolve inherited prototype members as
+    // truthy "rewrites" and wrongly shield these dead slugs from unwrapping
+    expect(result.deadContentLinks).toEqual({
+      blog: ['constructor'],
+      products: ['toString'],
+    });
+  });
+});

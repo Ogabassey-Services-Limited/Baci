@@ -1,32 +1,42 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  mockCreateAdminClient,
+  mockGetCachedLegacyProductRedirectTarget,
   mockGetCachedProductCanonicalPaths,
+  mockGetCachedStorefrontProductSlugResolution,
   mockGetPublicSupabaseClient,
 } = vi.hoisted(() => ({
-  mockCreateAdminClient: vi.fn(),
+  mockGetCachedLegacyProductRedirectTarget: vi.fn(),
   mockGetCachedProductCanonicalPaths: vi.fn(),
+  mockGetCachedStorefrontProductSlugResolution: vi.fn(),
   mockGetPublicSupabaseClient: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
-vi.mock('@/env', () => ({
-  getSupabaseUrl: () => 'https://example.supabase.co',
-  getSupabaseServiceRoleKey: () => 'service-role-key',
-}));
 vi.mock('@/lib/cached-data', () => ({
+  getCachedLegacyProductRedirectTarget: (...args: unknown[]) =>
+    mockGetCachedLegacyProductRedirectTarget(...args),
   getPublicSupabaseClient: mockGetPublicSupabaseClient,
 }));
 vi.mock('@/lib/cached-product-canonical-paths', () => ({
   getCachedProductCanonicalPaths: (...args: unknown[]) =>
     mockGetCachedProductCanonicalPaths(...args),
 }));
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
+vi.mock('@/lib/cached-storefront-product-slug-resolution', () => ({
+  getCachedStorefrontProductSlugResolution: (...args: unknown[]) =>
+    mockGetCachedStorefrontProductSlugResolution(...args),
+}));
+vi.mock('@/lib/seo-utils', () => ({
+  getProductUrl: (product: {
+    slug?: string;
+    categories?: { slug?: string } | null;
+  }) => `/${product.categories?.slug ?? 'products'}/${product.slug}`,
 }));
 
 import { getCachedContentLinkRewrites } from '@/lib/cached-content-link-rewrites';
+
+const ARCHIVED_UUID = '11111111-2222-4333-8444-555555555555';
+const ACTIVE_UUID = '99999999-8888-4777-8666-555555555555';
 
 interface QueryResult {
   data: unknown;
@@ -34,112 +44,70 @@ interface QueryResult {
 }
 
 function createQueryBuilder(result: QueryResult) {
-  const builder: Record<string, ReturnType<typeof vi.fn>> = {};
-  for (const method of ['eq', 'in', 'not']) {
-    builder[method] = vi.fn(() => builder);
-  }
-  Object.defineProperty(builder, 'then', {
-    value: (
-      resolve: (value: QueryResult) => void,
-      reject?: (reason: unknown) => void
-    ) => Promise.resolve(result).then(resolve, reject),
+  // Proxy: any chained filter method (eq/in/not/ilike/or/…) returns the
+  // builder, so real helpers like applyPublicBlogSqlFilters can chain freely.
+  const builder: Record<string | symbol, unknown> = {};
+  const proxy: unknown = new Proxy(builder, {
+    get(_target, prop) {
+      if (prop === 'then') {
+        return (
+          resolve: (value: QueryResult) => void,
+          reject?: (reason: unknown) => void
+        ) => Promise.resolve(result).then(resolve, reject);
+      }
+      return () => proxy;
+    },
   });
-  return builder;
+  return proxy;
 }
 
-function setupClients({
-  redirectRows = [],
-  targetRows = [],
-  archivedRows = [],
-  archivedRowsById = [],
-  activeUuidRows = [],
+function setupPublicClient({
+  redirectResult = { data: [], error: null },
+  targetResult = { data: [], error: null },
+  productResult = { data: [], error: null },
 }: {
-  redirectRows?: unknown[];
-  targetRows?: unknown[];
-  archivedRows?: unknown[];
-  archivedRowsById?: unknown[];
-  activeUuidRows?: unknown[];
+  redirectResult?: QueryResult;
+  targetResult?: QueryResult;
+  productResult?: QueryResult;
 } = {}) {
-  let blogQueryCount = 0;
   mockGetPublicSupabaseClient.mockReturnValue({
     from: vi.fn((table: string) => {
       if (table === 'blog_post_redirects') {
-        return {
-          select: vi.fn(() =>
-            createQueryBuilder({ data: redirectRows, error: null })
-          ),
-        };
+        return { select: vi.fn(() => createQueryBuilder(redirectResult)) };
       }
       if (table === 'blog_posts') {
-        blogQueryCount += 1;
-        return {
-          select: vi.fn(() =>
-            createQueryBuilder({ data: targetRows, error: null })
-          ),
-        };
+        return { select: vi.fn(() => createQueryBuilder(targetResult)) };
       }
       if (table === 'products') {
         // Active-by-id lookup for UUID-shaped candidates (anon-visible rows).
-        return {
-          select: vi.fn(() =>
-            createQueryBuilder({ data: activeUuidRows, error: null })
-          ),
-        };
+        return { select: vi.fn(() => createQueryBuilder(productResult)) };
       }
       throw new Error(`Unexpected public table: ${table}`);
     }),
   });
-  // The archived-parent resolver issues up to two products queries per call
-  // (by slug and/or by id for UUID candidates); resolve rows lazily based on
-  // which column the query filtered with so skipped queries don't shift data.
-  mockCreateAdminClient.mockReturnValue({
-    from: vi.fn((table: string) => {
-      if (table !== 'products') {
-        throw new Error(`Unexpected service table: ${table}`);
-      }
-      let inColumn = '';
-      const builder: Record<string, ReturnType<typeof vi.fn>> = {};
-      for (const method of ['eq', 'not']) {
-        builder[method] = vi.fn(() => builder);
-      }
-      builder.in = vi.fn((column: string) => {
-        inColumn = column;
-        return builder;
-      });
-      Object.defineProperty(builder, 'then', {
-        value: (
-          resolve: (value: QueryResult) => void,
-          reject?: (reason: unknown) => void
-        ) =>
-          Promise.resolve({
-            data: inColumn === 'id' ? archivedRowsById : archivedRows,
-            error: null,
-          }).then(resolve, reject),
-      });
-      return { select: vi.fn(() => builder) };
-    }),
-  });
-  return { getBlogQueryCount: () => blogQueryCount };
 }
 
 describe('getCachedContentLinkRewrites', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setupPublicClient();
     mockGetCachedProductCanonicalPaths.mockResolvedValue({});
+    mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
+      hasError: false,
+      present: false,
+    });
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
   });
 
   it('returns empty rewrites without querying when no slugs are collected', async () => {
-    setupClients();
-
     const rewrites = await getCachedContentLinkRewrites('merchant-1', [], []);
 
     expect(rewrites).toEqual({ blogSlugs: {}, productPaths: {} });
     expect(mockGetPublicSupabaseClient).not.toHaveBeenCalled();
-    expect(mockCreateAdminClient).not.toHaveBeenCalled();
+    expect(mockGetCachedStorefrontProductSlugResolution).not.toHaveBeenCalled();
   });
 
-  it('returns canonical paths for live products', async () => {
-    setupClients();
+  it('returns canonical paths for live products and opts into throwing lookups', async () => {
     mockGetCachedProductCanonicalPaths.mockResolvedValueOnce({
       'apple-airpods-2': '/earbuds/apple-airpods-2',
     });
@@ -153,23 +121,26 @@ describe('getCachedContentLinkRewrites', () => {
     expect(rewrites.productPaths['apple-airpods-2']).toBe(
       '/earbuds/apple-airpods-2'
     );
+    expect(mockGetCachedProductCanonicalPaths).toHaveBeenCalledWith(
+      'merchant-1',
+      ['apple-airpods-2'],
+      { throwOnQueryError: true }
+    );
+    // live slugs never reach the archived-alias RPC
+    expect(mockGetCachedStorefrontProductSlugResolution).not.toHaveBeenCalled();
   });
 
-  it('maps archived variant slugs to their active parent canonical path', async () => {
-    setupClients({
-      archivedRows: [
-        {
-          slug: 'iphone-13-pro-6gb-256gb',
-          parent: { slug: 'iphone-13-pro', status: 'active' },
-        },
-      ],
+  it('maps archived variant slugs to the parent path via the anon RPC resolution', async () => {
+    mockGetCachedStorefrontProductSlugResolution.mockResolvedValueOnce({
+      hasError: false,
+      present: true,
+      redirectTarget: {
+        id: 'p1',
+        name: 'iPhone 13 Pro',
+        slug: 'iphone-13-pro',
+        categories: { id: 'c1', name: 'Smartphones', slug: 'smartphones' },
+      },
     });
-    // First call: collected slugs (no live rows). Second call: parent slugs.
-    mockGetCachedProductCanonicalPaths
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({
-        'iphone-13-pro': '/smartphones/iphone-13-pro',
-      });
 
     const rewrites = await getCachedContentLinkRewrites(
       'merchant-1',
@@ -180,39 +151,82 @@ describe('getCachedContentLinkRewrites', () => {
     expect(rewrites.productPaths['iphone-13-pro-6gb-256gb']).toBe(
       '/smartphones/iphone-13-pro'
     );
+    expect(mockGetCachedStorefrontProductSlugResolution).toHaveBeenCalledWith(
+      'merchant-1',
+      'iphone-13-pro-6gb-256gb'
+    );
   });
 
-  it('ignores archived slugs whose parent is not active', async () => {
-    setupClients({
-      archivedRows: [
-        {
-          slug: 'old-variant',
-          parent: { slug: 'also-archived', status: 'archived' },
-        },
-      ],
+  it('propagates a slug-resolution failure instead of treating it as no-rewrite', async () => {
+    mockGetCachedStorefrontProductSlugResolution.mockResolvedValueOnce({
+      hasError: true,
+      present: false,
+    });
+
+    await expect(
+      getCachedContentLinkRewrites('merchant-1', [], ['some-archived-slug'])
+    ).rejects.toThrow('Product slug resolution failed');
+  });
+
+  it('rewrites archived UUID links through the legacy redirect resolver', async () => {
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValueOnce({
+      id: 'p2',
+      name: 'iPhone X',
+      slug: 'iphone-x',
+      categories: { id: 'c1', name: 'Smartphones', slug: 'smartphones' },
     });
 
     const rewrites = await getCachedContentLinkRewrites(
       'merchant-1',
       [],
-      ['old-variant']
+      [ARCHIVED_UUID]
     );
 
-    expect(rewrites.productPaths).toEqual({});
+    expect(rewrites.productPaths[ARCHIVED_UUID]).toBe('/smartphones/iphone-x');
+  });
+
+  it('rewrites active UUID links to the canonical path of their slug', async () => {
+    setupPublicClient({
+      productResult: {
+        data: [{ id: ACTIVE_UUID, slug: 'google-pixel-9-pro' }],
+        error: null,
+      },
+    });
+    mockGetCachedProductCanonicalPaths.mockResolvedValue({
+      'google-pixel-9-pro': '/smartphones/google-pixel-9-pro',
+    });
+
+    const rewrites = await getCachedContentLinkRewrites(
+      'merchant-1',
+      [],
+      [ACTIVE_UUID]
+    );
+
+    expect(rewrites.productPaths[ACTIVE_UUID]).toBe(
+      '/smartphones/google-pixel-9-pro'
+    );
+    // an active UUID must not also hit the archived legacy resolver
+    expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
   });
 
   it('maps renamed blog slugs to their published target slug', async () => {
-    setupClients({
-      redirectRows: [
-        { source_slug: 'buying-a-used-iphone-in-2025', target_post_id: 'p1' },
-      ],
-      targetRows: [
-        {
-          id: 'p1',
-          slug: 'the-ultimate-checklist-for-buying-a-used-iphone',
-          title: 'The ultimate checklist for buying a used iPhone',
-        },
-      ],
+    setupPublicClient({
+      redirectResult: {
+        data: [
+          { source_slug: 'buying-a-used-iphone-in-2025', target_post_id: 'p1' },
+        ],
+        error: null,
+      },
+      targetResult: {
+        data: [
+          {
+            id: 'p1',
+            slug: 'the-ultimate-checklist',
+            title: 'The Ultimate Checklist',
+          },
+        ],
+        error: null,
+      },
     });
 
     const rewrites = await getCachedContentLinkRewrites(
@@ -222,14 +236,20 @@ describe('getCachedContentLinkRewrites', () => {
     );
 
     expect(rewrites.blogSlugs['buying-a-used-iphone-in-2025']).toBe(
-      'the-ultimate-checklist-for-buying-a-used-iphone'
+      'the-ultimate-checklist'
     );
   });
 
-  it('omits blog rewrites whose redirect target is not published', async () => {
-    setupClients({
-      redirectRows: [{ source_slug: 'renamed-post', target_post_id: 'p2' }],
-      targetRows: [],
+  it('omits blog rewrites whose redirect target is suppressed by public filters', async () => {
+    setupPublicClient({
+      redirectResult: {
+        data: [{ source_slug: 'renamed-post', target_post_id: 'p2' }],
+        error: null,
+      },
+      targetResult: {
+        data: [{ id: 'p2', slug: 'test-artifact', title: 'test post draft' }],
+        error: null,
+      },
     });
 
     const rewrites = await getCachedContentLinkRewrites(
@@ -241,70 +261,23 @@ describe('getCachedContentLinkRewrites', () => {
     expect(rewrites.blogSlugs).toEqual({});
   });
 
-  it('omits blog rewrites whose redirect target is suppressed by the public blog filters', async () => {
-    setupClients({
-      redirectRows: [{ source_slug: 'renamed-post', target_post_id: 'p3' }],
-      // Published, but the title-prefix suppression means the public blog
-      // route will never serve it — so it must not count as a rewrite.
-      targetRows: [
-        { id: 'p3', slug: 'test-post-target', title: 'Test post target' },
-      ],
+  it('throws when the blog redirects query returns an error', async () => {
+    setupPublicClient({
+      redirectResult: { data: null, error: new Error('redirects query down') },
     });
 
-    const rewrites = await getCachedContentLinkRewrites(
-      'merchant-1',
-      ['renamed-post'],
-      []
-    );
-
-    expect(rewrites.blogSlugs).toEqual({});
+    await expect(
+      getCachedContentLinkRewrites('merchant-1', ['renamed-post'], [])
+    ).rejects.toThrow('redirects query down');
   });
 
-  it('rewrites active UUID product links to the canonical slug path', async () => {
-    const uuid = '123e4567-e89b-12d3-a456-426614174000';
-    setupClients({
-      activeUuidRows: [{ id: uuid.toUpperCase(), slug: 'iphone-15' }],
+  it('throws when the active-UUID products query returns an error', async () => {
+    setupPublicClient({
+      productResult: { data: null, error: new Error('products query down') },
     });
-    mockGetCachedProductCanonicalPaths.mockImplementation(
-      async (_merchantId: unknown, slugs: unknown) =>
-        Array.isArray(slugs) && slugs.includes('iphone-15')
-          ? { 'iphone-15': '/smartphones/iphone-15' }
-          : {}
-    );
 
-    const rewrites = await getCachedContentLinkRewrites(
-      'merchant-1',
-      [],
-      [uuid]
-    );
-
-    expect(rewrites.productPaths[uuid]).toBe('/smartphones/iphone-15');
-  });
-
-  it('maps archived UUID product links to the active parent canonical path', async () => {
-    const uuid = '223e4567-e89b-12d3-a456-426614174000';
-    setupClients({
-      archivedRowsById: [
-        {
-          id: uuid,
-          slug: 'old-variant-slug',
-          parent: { slug: 'parent-product', status: 'active' },
-        },
-      ],
-    });
-    mockGetCachedProductCanonicalPaths.mockImplementation(
-      async (_merchantId: unknown, slugs: unknown) =>
-        Array.isArray(slugs) && slugs.includes('parent-product')
-          ? { 'parent-product': '/smartphones/parent-product' }
-          : {}
-    );
-
-    const rewrites = await getCachedContentLinkRewrites(
-      'merchant-1',
-      [],
-      [uuid]
-    );
-
-    expect(rewrites.productPaths[uuid]).toBe('/smartphones/parent-product');
+    await expect(
+      getCachedContentLinkRewrites('merchant-1', [], [ACTIVE_UUID])
+    ).rejects.toThrow('products query down');
   });
 });

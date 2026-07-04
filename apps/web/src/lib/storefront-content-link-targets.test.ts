@@ -323,3 +323,15 @@ describe('collectStorefrontContentLinkTargets broad-mode fallback', () => {
     expect(targets.blogSlugs).toEqual([]);
   });
 });
+
+describe('collectStorefrontContentLinkTargets markdown titles', () => {
+  it('collects destinations from markdown links with quoted titles', () => {
+    const targets = collectStorefrontContentLinkTargets(
+      '[Guide](/blog/draft-post "read more") and ' +
+        "[Buy](/smartphones/iphone-x 'shop now')"
+    );
+
+    expect(targets.blogSlugs).toEqual(['draft-post']);
+    expect(targets.productSlugs).toEqual(['iphone-x']);
+  });
+});

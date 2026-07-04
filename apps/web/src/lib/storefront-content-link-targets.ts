@@ -12,7 +12,8 @@ import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalizat
 // Matches href values in raw HTML (`href="..."`), TipTap JSON (`"href":"..."`)
 // and markdown (`](...)`) without needing to know the content format upfront.
 const HREF_ATTRIBUTE_REGEX = /\bhref\\?["']?\s*[:=]\s*\\?["']([^"'\\<>\s]+)/gi;
-const MARKDOWN_LINK_REGEX = /\]\(\s*([^()\s]+)(?:\s+"[^"]*")?\s*\)/g;
+const MARKDOWN_LINK_REGEX =
+  /\]\(\s*([^()\s]+)(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)/g;
 
 // First segments that are never merchant category pages. Any other
 // two-segment path is treated as a product-link candidate so links under

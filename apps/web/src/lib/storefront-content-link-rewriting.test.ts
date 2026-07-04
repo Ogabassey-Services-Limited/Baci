@@ -82,3 +82,18 @@ describe('rewriteStorefrontContentHref', () => {
     ).toBe(null);
   });
 });
+
+describe('rewriteStorefrontContentHref prototype-key safety', () => {
+  it('never resolves inherited Object.prototype members into hrefs', () => {
+    expect(
+      rewriteStorefrontContentHref('/blog/constructor', {
+        rewrites: { blogSlugs: {}, productPaths: {} },
+      })
+    ).toBeNull();
+    expect(
+      rewriteStorefrontContentHref('/smartphones/toString', {
+        rewrites: { blogSlugs: {}, productPaths: {} },
+      })
+    ).toBeNull();
+  });
+});

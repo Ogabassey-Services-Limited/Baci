@@ -1,10 +1,14 @@
 import { cacheLife, cacheTag } from 'next/cache';
-import { getPublicSupabaseClient } from '@/lib/cached-data';
+import {
+  getCachedLegacyProductRedirectTarget,
+  getPublicSupabaseClient,
+} from '@/lib/cached-data';
 import { getCachedProductCanonicalPaths } from '@/lib/cached-product-canonical-paths';
+import { getCachedStorefrontProductSlugResolution } from '@/lib/cached-storefront-product-slug-resolution';
 import { isPublicBlogPost } from '@/lib/public-blog-content-quality';
 import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
+import { getProductUrl } from '@/lib/seo-utils';
 import type { StorefrontContentLinkRewrites } from '@/lib/storefront-content-link-rewriting';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 const EMPTY_REWRITES: StorefrontContentLinkRewrites = {
   blogSlugs: {},
@@ -15,12 +19,6 @@ const EMPTY_REWRITES: StorefrontContentLinkRewrites = {
 // links like /products/<uuid> participate in rewriting the same way.
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-interface ArchivedProductParentRow {
-  id: string;
-  slug: string | null;
-  parent: { slug: string | null; status: string | null } | null;
-}
 
 async function resolveBlogSlugRewrites(
   merchantId: string,
@@ -85,75 +83,48 @@ async function resolveBlogSlugRewrites(
   return rewrites;
 }
 
-function collectArchivedParents(
-  rows: ArchivedProductParentRow[],
-  keyOf: (row: ArchivedProductParentRow) => string | null,
-  into: Map<string, string>
-): void {
-  for (const row of rows) {
-    const parent = Array.isArray(row.parent) ? row.parent[0] : row.parent;
-    const key = keyOf(row);
-    if (key && parent?.slug && parent.status === 'active') {
-      into.set(key, parent.slug);
-    }
-  }
-}
-
-// Archived rows are invisible to the anon role (products_select_policy only
-// exposes status='active'), so the consolidated-variant parent lookup uses the
-// service role — the same read-only pattern as getCachedLegacyProductRedirectTarget,
-// which powers the PDP's public 308 for these exact slugs/ids.
-async function resolveArchivedParentSlugs(
+// Least-privilege archived-alias resolution — no service-role client in this
+// public render path. Slug candidates resolve through the anon-callable
+// SECURITY DEFINER RPC the proxy already uses for its 308 decisions
+// (get_merchant_product_slug_resolution); UUID candidates go through the
+// existing cached legacy-redirect resolver, since the RPC matches by slug
+// only. Both return the parent's category join, so the canonical path is the
+// exact target the PDP itself would 308 to.
+async function resolveArchivedRedirectPaths(
   merchantId: string,
   slugCandidates: string[],
   uuidCandidates: string[]
 ): Promise<Map<string, string>> {
-  const parentSlugByCandidate = new Map<string, string>();
-  if (slugCandidates.length === 0 && uuidCandidates.length === 0) {
-    return parentSlugByCandidate;
-  }
+  const pathByCandidate = new Map<string, string>();
 
-  const supabase = createAdminClient();
-  const select = 'id, slug, parent:parent_product_id(slug, status)';
-
-  const [bySlug, byId] = await Promise.all([
-    slugCandidates.length
-      ? supabase
-          .from('products')
-          .select(select)
-          .eq('merchant_id', merchantId)
-          .eq('status', 'archived')
-          .in('slug', slugCandidates)
-      : Promise.resolve({ data: [], error: null }),
-    uuidCandidates.length
-      ? supabase
-          .from('products')
-          .select(select)
-          .eq('merchant_id', merchantId)
-          .eq('status', 'archived')
-          .in('id', uuidCandidates)
-      : Promise.resolve({ data: [], error: null }),
+  await Promise.all([
+    ...slugCandidates.map(async (slug) => {
+      const resolution = await getCachedStorefrontProductSlugResolution(
+        merchantId,
+        slug
+      );
+      if (resolution.hasError) {
+        // Propagate so getCachedContentLinkRewrites rejects and the caller's
+        // fail-open guard suppresses unwrapping instead of misreading the
+        // failure as "no rewrite exists".
+        throw new Error(`Product slug resolution failed for "${slug}"`);
+      }
+      if (resolution.redirectTarget) {
+        pathByCandidate.set(slug, getProductUrl(resolution.redirectTarget));
+      }
+    }),
+    ...uuidCandidates.map(async (uuid) => {
+      const target = await getCachedLegacyProductRedirectTarget(
+        merchantId,
+        uuid
+      );
+      if (target) {
+        pathByCandidate.set(uuid.toLowerCase(), getProductUrl(target));
+      }
+    }),
   ]);
 
-  if (bySlug.error) {
-    throw bySlug.error;
-  }
-  if (byId.error) {
-    throw byId.error;
-  }
-
-  collectArchivedParents(
-    (bySlug.data ?? []) as unknown as ArchivedProductParentRow[],
-    (row) => row.slug,
-    parentSlugByCandidate
-  );
-  collectArchivedParents(
-    (byId.data ?? []) as unknown as ArchivedProductParentRow[],
-    (row) => row.id?.toLowerCase() ?? null,
-    parentSlugByCandidate
-  );
-
-  return parentSlugByCandidate;
+  return pathByCandidate;
 }
 
 // Active products linked by UUID rewrite to their canonical slug path, the
@@ -197,11 +168,10 @@ async function resolveActiveUuidSlugs(
  * NOT be treated as dead, or working links would be unwrapped instead of
  * fixed.
  *
- * The blog-redirect and product lookups throw on query errors so Cache
- * Components skips caching the failure — callers fail open (leave hrefs
- * untouched). Note getCachedProductCanonicalPaths swallows its own errors and
- * returns {} instead, so a transient failure there yields a cached
- * missing-rewrite for its lifetime rather than a thrown error.
+ * Every lookup in this flow throws on query errors (including
+ * getCachedProductCanonicalPaths via throwOnQueryError) so Cache Components
+ * skips caching the failure and callers fail open — a transient error can
+ * never be misread as "no rewrite exists" and unwrap a redirectable link.
  */
 export async function getCachedContentLinkRewrites(
   merchantId: string,
@@ -224,37 +194,41 @@ export async function getCachedContentLinkRewrites(
   const slugCandidates = productSlugs.filter((slug) => !UUID_REGEX.test(slug));
   const uuidCandidates = productSlugs.filter((slug) => UUID_REGEX.test(slug));
 
-  const [blogRewrites, livePaths, parentSlugByCandidate, activeSlugByUuid] =
-    await Promise.all([
-      resolveBlogSlugRewrites(merchantId, blogSlugs),
-      slugCandidates.length
-        ? getCachedProductCanonicalPaths(merchantId, slugCandidates)
-        : Promise.resolve({}),
-      resolveArchivedParentSlugs(merchantId, slugCandidates, uuidCandidates),
-      resolveActiveUuidSlugs(merchantId, uuidCandidates),
-    ]);
+  const [blogRewrites, livePaths, activeSlugByUuid] = await Promise.all([
+    resolveBlogSlugRewrites(merchantId, blogSlugs),
+    slugCandidates.length
+      ? getCachedProductCanonicalPaths(merchantId, slugCandidates, {
+          throwOnQueryError: true,
+        })
+      : Promise.resolve({}),
+    resolveActiveUuidSlugs(merchantId, uuidCandidates),
+  ]);
 
   const productPaths: Record<string, string> = { ...livePaths };
 
-  // Canonical paths for slugs only reachable through a parent/uuid hop.
-  const indirectSlugs = Array.from(
-    new Set([...parentSlugByCandidate.values(), ...activeSlugByUuid.values()])
-  ).filter((slug) => !productPaths[slug]);
-  const indirectPaths = indirectSlugs.length
-    ? await getCachedProductCanonicalPaths(merchantId, indirectSlugs)
-    : {};
-
-  const resolvePath = (slug: string): string | undefined =>
-    productPaths[slug] ?? indirectPaths[slug];
-
-  for (const [candidate, parentSlug] of parentSlugByCandidate) {
-    const parentPath = resolvePath(parentSlug);
-    if (parentPath) {
-      productPaths[candidate] = parentPath;
-    }
+  // Archived aliases: only candidates that did not resolve to a live product.
+  const archivedPaths = await resolveArchivedRedirectPaths(
+    merchantId,
+    slugCandidates.filter((slug) => !Object.hasOwn(productPaths, slug)),
+    uuidCandidates.filter((uuid) => !activeSlugByUuid.has(uuid.toLowerCase()))
+  );
+  for (const [candidate, path] of archivedPaths) {
+    productPaths[candidate] = path;
   }
+
+  // Active products linked by UUID: canonical path of their real slug.
+  const activeUuidSlugs = Array.from(new Set(activeSlugByUuid.values())).filter(
+    (slug) => !Object.hasOwn(productPaths, slug)
+  );
+  const activeUuidPaths = activeUuidSlugs.length
+    ? await getCachedProductCanonicalPaths(merchantId, activeUuidSlugs, {
+        throwOnQueryError: true,
+      })
+    : {};
   for (const [uuid, slug] of activeSlugByUuid) {
-    const slugPath = resolvePath(slug);
+    const slugPath = Object.hasOwn(productPaths, slug)
+      ? productPaths[slug]
+      : activeUuidPaths[slug];
     if (slugPath) {
       productPaths[uuid] = slugPath;
     }
