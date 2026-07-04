@@ -100,8 +100,16 @@ jobs:
           # job does not depend on pnpm preserving executable bits on JS shims.
           chmod +x "$POSTHOG_CLI_JS"
           mkdir -p "$HOME/.posthog"
+          # Inject --skip-on-conflict for dSYM uploads. Admin and storefront share a
+          # PostHog project, so their shared framework dSYMs (ExpoModulesJSI, etc.)
+          # collide; posthog-cli treats the conflict as fatal and aborts the archive.
+          # upload-symbols.sh (posthog-ios pod) runs "posthog-cli dsym upload ..."
+          # with no conflict flag and no env hook, so add it here (CLI >= 0.7.12
+          # supports it): existing symbol sets are kept and this app's own dSYM
+          # still uploads so its native crashes symbolicate.
           {
             echo '#!/usr/bin/env sh'
+            printf 'if [ "$1" = "dsym" ] && [ "$2" = "upload" ]; then exec node "%s" "$@" --skip-on-conflict; fi\n' "$POSTHOG_CLI_JS"
             printf 'exec node "%s" "$@"\n' "$POSTHOG_CLI_JS"
           } > "$HOME/.posthog/posthog-cli"
           chmod +x "$HOME/.posthog/posthog-cli"
