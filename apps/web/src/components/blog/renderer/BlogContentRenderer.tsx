@@ -11,16 +11,11 @@ import {
 import { generateHeadingId } from '@/lib/blog-utils';
 import { logger } from '@/lib/logger';
 import { sanitizeUrl } from '@/lib/sanitize-core';
-import {
-  rewriteStorefrontContentHref,
-  type StorefrontContentLinkRewrites,
-} from '@/lib/storefront-content-link-rewriting';
-import {
-  type DeadStorefrontContentLinkSlugs,
-  isDeadStorefrontContentHref,
-} from '@/lib/storefront-content-link-targets';
+import type { StorefrontContentLinkRewrites } from '@/lib/storefront-content-link-rewriting';
+import type { DeadStorefrontContentLinkSlugs } from '@/lib/storefront-content-link-targets';
 import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
 import { cn } from '@/lib/utils';
+import { resolveRenderedInternalLink } from './resolve-rendered-internal-link';
 
 const lowlight = createLowlight(common);
 
@@ -179,33 +174,19 @@ const TextRenderer = ({
             normalizedHref.startsWith('/') && !normalizedHref.startsWith('//');
           const isAnchor = normalizedHref.startsWith('#');
 
-          // Canonicalize links whose target resolves via a permanent redirect
-          // (renamed post, consolidated/re-categorized product) before the
-          // dead-link check — a rewritten link is live by construction.
-          const rewrittenInternalHref =
-            isRelative && contentLinkRewrites
-              ? rewriteStorefrontContentHref(normalizedHref, {
-                  basePath,
-                  rewrites: contentLinkRewrites,
-                })
-              : null;
-          const resolvedHref = rewrittenInternalHref ?? normalizedHref;
+          const { href: resolvedHref, isDead: isDeadInternal } =
+            resolveRenderedInternalLink(normalizedHref, {
+              basePath,
+              contentLinkRewrites,
+              deadBlogSlugs: deadContentLinkSets?.blog,
+              deadProductSlugs: deadContentLinkSets?.products,
+            });
 
           const safeHref =
             isRelative || isAnchor ? resolvedHref : sanitizeUrl(resolvedHref);
 
           const isExternal =
             !!safeHref && !isRelative && !isAnchor && !safeHref.startsWith('/');
-
-          const isDeadInternal =
-            !rewrittenInternalHref &&
-            isRelative &&
-            !!deadContentLinkSets &&
-            isDeadStorefrontContentHref(normalizedHref, {
-              basePath,
-              deadBlogSlugs: deadContentLinkSets.blog,
-              deadProductSlugs: deadContentLinkSets.products,
-            });
 
           content =
             safeHref && !isDeadInternal ? (

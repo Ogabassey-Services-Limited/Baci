@@ -6,16 +6,12 @@ import { isPublicBlogPost } from '@/lib/public-blog-content-quality';
 import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
 import { getProductUrl } from '@/lib/seo-utils';
 import type { StorefrontContentLinkRewrites } from '@/lib/storefront-content-link-rewriting';
+import { UUID_SHAPED_PRODUCT_IDENTIFIER_REGEX } from '@/lib/storefront-content-link-targets';
 
 const EMPTY_REWRITES: StorefrontContentLinkRewrites = {
   blogSlugs: {},
   productPaths: {},
 };
-
-// The PDP resolves UUID-shaped identifiers against product ids, so content
-// links like /products/<uuid> participate in rewriting the same way.
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function resolveBlogSlugRewrites(
   merchantId: string,
@@ -203,8 +199,12 @@ export async function getCachedContentLinkRewrites(
     return EMPTY_REWRITES;
   }
 
-  const slugCandidates = productSlugs.filter((slug) => !UUID_REGEX.test(slug));
-  const uuidCandidates = productSlugs.filter((slug) => UUID_REGEX.test(slug));
+  const slugCandidates = productSlugs.filter(
+    (slug) => !UUID_SHAPED_PRODUCT_IDENTIFIER_REGEX.test(slug)
+  );
+  const uuidCandidates = productSlugs.filter((slug) =>
+    UUID_SHAPED_PRODUCT_IDENTIFIER_REGEX.test(slug)
+  );
 
   const [blogRewrites, livePaths, activeSlugByUuid] = await Promise.all([
     resolveBlogSlugRewrites(merchantId, blogSlugs),

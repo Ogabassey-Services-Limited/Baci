@@ -68,6 +68,12 @@ const NON_PRODUCT_FIRST_SEGMENTS = new Set([
 
 // Bounds the `IN (...)` lookup queries; posts realistically contain far fewer
 // internal links than this.
+// UUID-shaped product identifiers (the PDP and the slug-resolution RPC both
+// accept ids). Shared by dead-link classification and rewrite resolution so
+// the two can never disagree on what counts as UUID-shaped.
+export const UUID_SHAPED_PRODUCT_IDENTIFIER_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const MAX_COLLECTED_SLUGS_PER_KIND = 50;
 
 const SLUG_REGEX = /^[a-z0-9][a-z0-9._~-]*$/;

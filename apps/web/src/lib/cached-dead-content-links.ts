@@ -3,7 +3,10 @@ import { getPublicSupabaseClient } from '@/lib/cached-data';
 import { getCachedStorefrontProductSlugResolution } from '@/lib/cached-storefront-product-slug-resolution';
 import { isPublicBlogPost } from '@/lib/public-blog-content-quality';
 import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
-import type { DeadStorefrontContentLinkSlugs } from '@/lib/storefront-content-link-targets';
+import {
+  type DeadStorefrontContentLinkSlugs,
+  UUID_SHAPED_PRODUCT_IDENTIFIER_REGEX,
+} from '@/lib/storefront-content-link-targets';
 
 const EMPTY_BLOG_RESULT: {
   data: Array<{ slug: string; title: string | null }>;
@@ -17,9 +20,6 @@ const EMPTY_PRODUCT_RESULT: { data: Array<{ slug: string }>; error: null } = {
   data: [],
   error: null,
 };
-
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Resolves which of the internal link targets collected from blog content are
@@ -50,7 +50,7 @@ export async function getCachedDeadContentLinkSlugs(
   const supabase = getPublicSupabaseClient();
 
   const productIdCandidates = productSlugs.filter((slug) =>
-    UUID_REGEX.test(slug)
+    UUID_SHAPED_PRODUCT_IDENTIFIER_REGEX.test(slug)
   );
 
   const [blogResult, productResult, productIdResult] = await Promise.all([
@@ -129,7 +129,7 @@ export async function getCachedDeadContentLinkSlugs(
   return {
     blog: blogSlugs.filter((slug) => !liveBlogSlugs.has(slug)),
     products: productSlugs.filter((slug) =>
-      UUID_REGEX.test(slug)
+      UUID_SHAPED_PRODUCT_IDENTIFIER_REGEX.test(slug)
         ? deadUuids.has(slug)
         : !liveProductSlugs.has(slug.toLowerCase())
     ),

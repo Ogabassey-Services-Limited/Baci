@@ -663,6 +663,21 @@ describe('resolveBlogPostContent', () => {
     expect(nullResult.legacyHtml).toBe('');
   });
 
+  it('normalizes unquoted same-site absolute hrefs before the dead check', async () => {
+    const content =
+      '<p>Old link: <a href=https://ogabassey.com/blog/draft-post>Draft</a></p>';
+
+    const result = await resolveBlogPostContent(content, {
+      baseUrl: 'https://ogabassey.com',
+      isDeadHref: (href) => href === '/blog/draft-post',
+    });
+
+    expect(result.isJson).toBe(false);
+    // the dead unquoted absolute link is unwrapped, not left clickable
+    expect(result.legacyHtml).not.toContain('<a');
+    expect(result.legacyHtml).toContain('Draft');
+  });
+
   it('rewrites legacy HTML anchors when only rewriteHref is provided', async () => {
     const content =
       '<p>Get the <a href="/audio/apple-airpods-2">AirPods 2</a> today.</p>';

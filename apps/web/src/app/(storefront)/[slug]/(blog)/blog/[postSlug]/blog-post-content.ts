@@ -11,7 +11,10 @@ import { sanitizeHtml } from '@/lib/sanitize';
 import { buildStoreUrl } from '@/lib/store-url';
 import { unwrapDeadHtmlAnchors } from '@/lib/storefront-html-anchor-unwrapping';
 import { rewriteHtmlStorefrontHrefs } from '@/lib/storefront-html-link-rewriting';
-import type { NormalizeStorefrontContentHrefOptions } from '@/lib/storefront-link-normalization';
+import {
+  type NormalizeStorefrontContentHrefOptions,
+  normalizeStorefrontContentHref,
+} from '@/lib/storefront-link-normalization';
 import { stringifyBlogContent } from '@/lib/stringify-blog-content';
 import { normalizeBlogContentLinks } from './blog-content-link-mark-normalization';
 import {
@@ -163,12 +166,24 @@ export async function resolveBlogPostContent(
   if (!isJson) {
     const rawHtml = isHtml ? contentStr : await marked(contentStr || '');
     const rewrittenHtml = rewriteHtmlStorefrontHrefs(rawHtml, options);
+    // Normalize each anchor's href before the callbacks: the checks match
+    // root-relative paths, but unquoted same-site absolute URLs survive
+    // rewriteHtmlStorefrontHrefs (which only rewrites quoted attributes), so
+    // without this a collected-and-dead absolute link would stay clickable.
+    const normalizeCallbackHref = (href: string) =>
+      normalizeStorefrontContentHref(href, options);
     const liveLinkHtml =
       options.isDeadHref || options.rewriteHref
         ? unwrapDeadHtmlAnchors(
             rewrittenHtml,
-            options.isDeadHref ?? (() => false),
+            options.isDeadHref
+              ? (href) =>
+                  options.isDeadHref?.(normalizeCallbackHref(href)) ?? false
+              : () => false,
             options.rewriteHref
+              ? (href) =>
+                  options.rewriteHref?.(normalizeCallbackHref(href)) ?? null
+              : undefined
           )
         : rewrittenHtml;
     const sanitizedHtml = sanitizeHtml(liveLinkHtml, {
