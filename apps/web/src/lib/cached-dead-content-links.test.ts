@@ -286,11 +286,15 @@ describe('getCachedDeadContentLinkSlugs', () => {
 });
 
 describe('getCachedDeadContentLinkSlugs UUID fail-open', () => {
-  it('never marks unresolved UUID-shaped product identifiers as dead', async () => {
+  it('keeps archived UUID identifiers live when the RPC resolves them present', async () => {
     const archivedUuid = '11111111-2222-4333-8444-555555555555';
     setupSupabaseMock({
       productResults: [{ data: [], error: null }],
     });
+    // Explicit arrange — this block must not depend on sibling-describe mock
+    // state. An archived id resolves as present (it 308s to its parent), so
+    // only the provably dead slug is reported.
+    mockGetSlugResolution.mockResolvedValue({ hasError: false, present: true });
 
     const dead = await getCachedDeadContentLinkSlugs(
       'merchant-1',
@@ -298,10 +302,11 @@ describe('getCachedDeadContentLinkSlugs UUID fail-open', () => {
       ['gone-forever', archivedUuid]
     );
 
-    // the slug is provably dead via the anon view; the UUID is not — an
-    // archived id 308s to its parent and distinguishing that from a missing
-    // id would need a privileged read, so it fails open
     expect(dead.products).toEqual(['gone-forever']);
+    expect(mockGetSlugResolution).toHaveBeenCalledWith(
+      'merchant-1',
+      archivedUuid
+    );
   });
 
   it('reports genuinely nonexistent UUID product links as dead via the RPC', async () => {
