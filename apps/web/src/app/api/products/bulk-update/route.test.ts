@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---- Mocks ----
 
+const mockGenerateProductSlug = vi.hoisted(() =>
+  vi.fn((name: string) => name.toLowerCase().replace(/\s+/g, '-'))
+);
+
 vi.mock('@/env', () => ({
   getSupabaseUrl: () => 'https://test.supabase.co',
   getSupabaseAnonKey: () => 'test-anon-key',
@@ -37,7 +41,7 @@ vi.mock('@/lib/csrf', () => ({
 
 vi.mock('@/lib/seo-utils', () => ({
   generateProductSlug: (name: string) =>
-    name.toLowerCase().replace(/\s+/g, '-'),
+    mockGenerateProductSlug(name) as string,
   generateSlug: (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
   // Minimal stand-in used by resolveProductPurgeCategorySegment: build a
   // categorized PDP path from the resolved category (join slug/name/text) or
@@ -207,7 +211,18 @@ vi.mock('@/lib/supabase/server', () => ({
           }),
           insert: vi.fn((payload: unknown) => {
             productInserts.push(payload);
-            return Promise.resolve({ error: insertError });
+            // Route chains .select('id').maybeSingle() to read the created id
+            // (used for the blank-slug purge fallback).
+            return {
+              select: vi.fn(() => ({
+                maybeSingle: vi.fn(() =>
+                  Promise.resolve({
+                    data: insertError ? null : { id: 'created-id-1' },
+                    error: insertError,
+                  })
+                ),
+              })),
+            };
           }),
         };
       }
@@ -445,6 +460,28 @@ describe('POST /api/products/bulk-update', () => {
       [{ slug: 'legacy-id', categorySegment: null }],
       { listingsOnly: false }
     );
+  });
+
+  it('falls back to the created id when a bulk-created slug is blank', async () => {
+    mockGenerateProductSlug.mockReturnValueOnce('');
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'new',
+            details: { name: 'X', price: 100, category: 'Gadgets' },
+          },
+        ],
+      })
+    );
+
+    expect(res.status).toBe(200);
+    const entries = mockScheduleStorefrontProductPurge.mock.calls[0]?.[1];
+    expect(entries).toEqual([
+      expect.objectContaining({ slug: 'created-id-1' }),
+    ]);
   });
 
   it('schedules a Cloudflare purge for newly created products', async () => {

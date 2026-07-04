@@ -209,56 +209,66 @@ export async function POST(request: NextRequest) {
             change.details.sku ||
             generateSlug(change.details.name).toUpperCase().substring(0, 20);
 
-          // Basic product insert
-          const { error } = await supabase.from('products').insert({
-            merchant_id: merchantId,
-            name: change.details.name,
-            description: change.details.description || '',
-            price: change.details.price,
-            cost_price: change.details.cost_price,
-            stock_quantity: change.details.stock || 0,
-            sku: sku,
-            slug: slug,
-            status: 'draft', // Always draft for new imports
-            condition: 'new',
-            manage_stock: true,
-            brand: change.details.brand || merchantBusinessName,
-
-            category: change.details.category || 'General',
-            taxable: true,
-            // Minimal defaults
-            schema_markup: {
-              '@context': 'https://schema.org/',
-              '@type': 'Product',
+          // Basic product insert (returning `id` in the same round trip so a
+          // blank generated slug can still purge via the id fallback below)
+          const { data: insertedRow, error } = await supabase
+            .from('products')
+            .insert({
+              merchant_id: merchantId,
               name: change.details.name,
+              description: change.details.description || '',
+              price: change.details.price,
+              cost_price: change.details.cost_price,
+              stock_quantity: change.details.stock || 0,
               sku: sku,
-              brand: {
-                '@type': 'Brand',
-                name: change.details.brand || merchantBusinessName,
+              slug: slug,
+              status: 'draft', // Always draft for new imports
+              condition: 'new',
+              manage_stock: true,
+              brand: change.details.brand || merchantBusinessName,
+
+              category: change.details.category || 'General',
+              taxable: true,
+              // Minimal defaults
+              schema_markup: {
+                '@context': 'https://schema.org/',
+                '@type': 'Product',
+                name: change.details.name,
+                sku: sku,
+                brand: {
+                  '@type': 'Brand',
+                  name: change.details.brand || merchantBusinessName,
+                },
+                offers: {
+                  '@type': 'Offer',
+                  priceCurrency: currency,
+                  price: change.details.price,
+                  availability: 'https://schema.org/InStock',
+                },
               },
-              offers: {
-                '@type': 'Offer',
-                priceCurrency: currency,
-                price: change.details.price,
-                availability: 'https://schema.org/InStock',
-              },
-            },
-          });
+            })
+            .select('id')
+            .maybeSingle();
 
           if (error) throw error;
           // A freshly inserted product has no `category_id`/junction yet, so its
           // canonical segment derives from the legacy text (or the /products
-          // fallback). The generated slug is always present here.
-          purgeEntries.push({
-            slug,
-            categorySegment: resolveProductPurgeCategorySegment({
-              slug,
-              name: change.details.name,
-              // Mirror the inserted `category` (defaults to 'General') so the
-              // purge targets the same listing the new product is filed under.
-              category: change.details.category || 'General',
-            }),
-          });
+          // fallback). Fall back to the inserted row's id when the generated
+          // slug is blank (fully-stripped names) — an empty entry would be
+          // dropped and even the listing purges skipped.
+          const createdPurgeSlug = slug?.trim() || insertedRow?.id;
+          if (createdPurgeSlug) {
+            purgeEntries.push({
+              slug: createdPurgeSlug,
+              categorySegment: resolveProductPurgeCategorySegment({
+                slug: createdPurgeSlug,
+                name: change.details.name,
+                // Mirror the inserted `category` (defaults to 'General') so the
+                // purge targets the same listing the new product is filed under.
+                category: change.details.category || 'General',
+              }),
+            });
+          }
           results.created++;
         } else if (change.type === 'remove') {
           // Remove Logic (Archive)
