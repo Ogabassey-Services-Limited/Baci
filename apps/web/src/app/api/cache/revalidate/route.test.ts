@@ -89,14 +89,22 @@ function makeRequest(body: Record<string, unknown>) {
 
 // Merchant row returned by the slug lookup the product-purge path performs.
 let merchantSlugRow: { slug: string | null } | null = { slug: 'ogabassey' };
+// Product rows returned by the authoritative category lookup (id → row).
+let productCategoryRows: Record<string, unknown>[] = [];
 
 function makeSupabaseMock() {
   return {
-    from: vi.fn(() => ({
+    from: vi.fn((table: string) => ({
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
           maybeSingle: vi.fn(() =>
             Promise.resolve({ data: merchantSlugRow, error: null })
+          ),
+          in: vi.fn(() =>
+            Promise.resolve({
+              data: table === 'products' ? productCategoryRows : [],
+              error: null,
+            })
           ),
         })),
       })),
@@ -136,6 +144,7 @@ describe('POST /api/cache/revalidate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     merchantSlugRow = { slug: 'ogabassey' };
+    productCategoryRows = [];
     setupCsrf(true);
     mockGetMerchantBlogCacheIdentifiers.mockResolvedValue({
       identifiers: ['test-store', 'ogabassey.com'],
@@ -234,6 +243,60 @@ describe('POST /api/cache/revalidate', () => {
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'ogabassey',
         [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+        { listingsOnly: false }
+      );
+    });
+
+    it('allows a products-only purge for staff with products:create only (mobile create flow)', async () => {
+      setupAuth(true, true);
+      mockHasPermission.mockImplementation(
+        (_access: unknown, resource: string, action: string) =>
+          resource === 'products' && action === 'create'
+      );
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [{ slug: 'new-gadget', id: 'prod-9' }],
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.revalidated).toContain('products');
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalled();
+    });
+
+    it('prefers the authoritative row category (join) over the caller text hint', async () => {
+      setupAuth(true, true);
+      mockHasPermission.mockImplementation(
+        (_access: unknown, resource: string, action: string) =>
+          resource === 'products' && action === 'edit'
+      );
+      // The caller (mobile) only knows the legacy text "Audio", but the row's
+      // direct category_id join says the canonical lives under "earbuds".
+      productCategoryRows = [
+        {
+          id: 'prod-1',
+          slug: 'buds-pro',
+          name: 'Buds Pro',
+          category: 'Audio',
+          categories: { slug: 'earbuds' },
+          product_categories: [],
+        },
+      ];
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [{ slug: 'buds-pro', id: 'prod-1', category: 'Audio' }],
+        })
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'ogabassey',
+        [{ slug: 'buds-pro', categorySegment: 'earbuds' }],
         { listingsOnly: false }
       );
     });

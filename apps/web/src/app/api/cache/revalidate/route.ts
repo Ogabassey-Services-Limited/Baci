@@ -21,6 +21,10 @@ import { getMerchantBlogPostCategories } from '@/lib/get-merchant-blog-post-cate
 import { getMerchantBlogPostSlugs } from '@/lib/get-merchant-blog-post-slugs';
 import { buildInternalProductPurgeEntries } from '@/lib/internal-product-purge-entries';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
+import {
+  type ProductPurgeCategoryRow,
+  resolveProductPurgeCategorySegmentForRow,
+} from '@/lib/storefront-purge-urls';
 import { internalRevalidateProductEntrySchema } from '@/schemas/internal-revalidate-products-route';
 
 // Past this many products, purge only the shared listing surfaces (home,
@@ -104,8 +108,12 @@ export async function POST(request: NextRequest) {
   const isProductsOnlyRequest = targets.every(
     (target) => target === 'products'
   );
+  // `products:create`-only staff (mobile create flow) must also be able to
+  // evict the storefront edge cache for the product they just created.
   const isAuthorized = isProductsOnlyRequest
-    ? canManageSettings || hasPermission(access, 'products', 'edit')
+    ? canManageSettings ||
+      hasPermission(access, 'products', 'edit') ||
+      hasPermission(access, 'products', 'create')
     : canManageSettings;
   if (!isAuthorized) {
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
@@ -136,7 +144,36 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
         const merchantSlug = merchantRow?.slug ?? null;
         if (merchantSlug) {
-          const purgeEntries = buildInternalProductPurgeEntries(products);
+          // Resolve authoritative category segments from the product ROWS so a
+          // join-categorized product purges its real canonical path even when
+          // the caller (mobile) only knows the legacy text hint. Fail-open: on
+          // any lookup problem the flat hints below still apply.
+          const idsToResolve = products
+            .map((product) => product.id?.trim())
+            .filter((id): id is string => Boolean(id));
+          const authoritativeSegmentsById = new Map<string, string | null>();
+          if (idsToResolve.length > 0) {
+            const { data: productRows } = await auth.supabase
+              .from('products')
+              .select(
+                'id, slug, name, category, categories:category_id(slug), product_categories(categories(slug))'
+              )
+              .eq('merchant_id', merchantId)
+              .in('id', idsToResolve);
+            for (const row of productRows ?? []) {
+              const typedRow = row as unknown as ProductPurgeCategoryRow & {
+                id: string;
+              };
+              authoritativeSegmentsById.set(
+                typedRow.id,
+                resolveProductPurgeCategorySegmentForRow(typedRow)
+              );
+            }
+          }
+          const purgeEntries = buildInternalProductPurgeEntries(
+            products,
+            authoritativeSegmentsById
+          );
           scheduleStorefrontProductPurge(merchantSlug, purgeEntries, {
             listingsOnly: purgeEntries.length > PURGE_LISTINGS_ONLY_THRESHOLD,
           });

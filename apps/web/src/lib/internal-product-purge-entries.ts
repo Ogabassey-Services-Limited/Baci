@@ -17,7 +17,14 @@ import type { InternalRevalidateProductEntry } from '@/schemas/internal-revalida
  *   here — a caller that knows the joined category passes its `categorySlug`.
  */
 export function buildInternalProductPurgeEntries(
-  products: readonly InternalRevalidateProductEntry[]
+  products: readonly InternalRevalidateProductEntry[],
+  /**
+   * Authoritative category segments keyed by product id, resolved server-side
+   * from the product ROW (direct join → text → junction). When present for a
+   * product, it overrides the caller's flat hints — a mobile caller only knows
+   * the legacy text, which the canonical join may supersede.
+   */
+  authoritativeSegmentsById?: ReadonlyMap<string, string | null>
 ): StorefrontProductPurgeEntry[] {
   const entries: StorefrontProductPurgeEntry[] = [];
   for (const product of products) {
@@ -25,13 +32,19 @@ export function buildInternalProductPurgeEntries(
     if (!slug) {
       continue;
     }
+    const authoritative = product.id?.trim()
+      ? authoritativeSegmentsById?.get(product.id.trim())
+      : undefined;
     entries.push({
       slug,
-      categorySegment: resolveProductPurgeCategorySegment({
-        slug,
-        category: product.category ?? null,
-        category_slug: product.categorySlug ?? null,
-      }),
+      categorySegment:
+        authoritative !== undefined
+          ? authoritative
+          : resolveProductPurgeCategorySegment({
+              slug,
+              category: product.category ?? null,
+              category_slug: product.categorySlug ?? null,
+            }),
     });
   }
   return entries;
