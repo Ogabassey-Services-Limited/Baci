@@ -394,13 +394,35 @@ describe('cache-revalidation utilities', () => {
       expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
     });
 
-    it('purges the Cloudflare-fronted blog URLs for a matched custom domain', () => {
+    it('purges the Cloudflare-fronted blog + category listing URLs for a matched custom domain', () => {
       revalidateBlogPosts({
         identifiers: ['ogabassey'],
+        listingCategories: ['Buying Guides', 'Reviews', 'Buying Guides'],
         postSlugs: ['test-post', 'Test-Post'],
       });
 
       expect(mockAfter).toHaveBeenCalledTimes(1);
+      // Category labels are slugified to their /blog/category/<slug> path (the
+      // 'all' sentinel is excluded — its listing is /blog). Duplicate labels
+      // collapse to one URL per hostname.
+      expect(mockPurgeCloudflareUrls).toHaveBeenCalledWith([
+        'https://ogabassey.com/blog',
+        'https://ogabassey.com/blog/test-post',
+        'https://ogabassey.com/blog/category/buying-guides',
+        'https://ogabassey.com/blog/category/reviews',
+        'https://www.ogabassey.com/blog',
+        'https://www.ogabassey.com/blog/test-post',
+        'https://www.ogabassey.com/blog/category/buying-guides',
+        'https://www.ogabassey.com/blog/category/reviews',
+      ]);
+    });
+
+    it('purges only the /blog listing when a matched domain has no affected categories', () => {
+      revalidateBlogPosts({
+        identifiers: ['ogabassey'],
+        postSlugs: ['test-post'],
+      });
+
       expect(mockPurgeCloudflareUrls).toHaveBeenCalledWith([
         'https://ogabassey.com/blog',
         'https://ogabassey.com/blog/test-post',

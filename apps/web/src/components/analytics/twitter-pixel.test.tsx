@@ -35,11 +35,15 @@ afterEach(() => {
 });
 
 describe('TwitterPixel', () => {
-  it('loads the pixel with the lazyOnload strategy when marketing consent is granted', () => {
+  it('loads the pixel with the afterInteractive strategy when marketing consent is granted', () => {
     render(<TwitterPixel pixelId="tw-123" />);
 
+    // afterInteractive (not lazyOnload): the inline bootstrap defines the
+    // window.twq event-queue stub, so it must run right after hydration —
+    // lazyOnload defers queue creation to window load and drops early
+    // conversion events fired before then.
     const script = screen.getByTestId('twitter-pixel');
-    expect(script).toHaveAttribute('data-strategy', 'lazyOnload');
+    expect(script).toHaveAttribute('data-strategy', 'afterInteractive');
     expect(script.textContent).toContain("twq('config','tw-123')");
   });
 

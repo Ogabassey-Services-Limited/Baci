@@ -16,11 +16,13 @@ const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 // The proxy self-fetches this membership preflight on every PDP navigation. The
 // underlying slug set is already memoized (`use cache`), so a short edge TTL lets
 // Vercel's CDN absorb repeat preflights instead of hitting the origin each time.
-// Only a PRESENT verdict (present:true) is cached — it is self-healing because the
-// page still renders and 404s a since-removed product. A definitively-absent
-// verdict (which the proxy turns into a hard-404) and every fail-open branch stay
-// no-store, so a slug that becomes live after a cached miss is never sticky-404ed
-// (revalidateTag cannot purge this header-based edge entry).
+// Only a LIVE-product verdict (present:true with NO redirect) is cached — it is
+// self-healing because the page still renders and 404s a since-removed product. A
+// definitively-absent verdict (which the proxy turns into a hard-404), a
+// legacy-alias redirect verdict (target/slug can change), and every fail-open
+// branch stay no-store, so a slug that becomes live after a cached miss is never
+// sticky-404ed and a stale redirect never sticks (revalidateTag cannot purge this
+// header-based edge entry).
 // `Vary: Authorization` is REQUIRED: RFC 9111 §3.5 lets a shared cache store and
 // replay an `s-maxage` response to requests that carried an `Authorization`
 // header, so without this a cached 200 could be served to a caller WITHOUT
@@ -121,9 +123,14 @@ export async function GET(
         getProductUrl(resolution.redirectTarget)
       );
       if (redirectPath) {
+        // A legacy-alias REDIRECT verdict is kept no-store: the canonical target
+        // can change or the alias slug be reused, and revalidateTag cannot purge
+        // this header-based edge entry, so a cached redirect would 308 to the
+        // wrong product for the whole TTL window. Only the plain live-product
+        // verdict below (present:true, no redirect) is edge-cached.
         return NextResponse.json(
           { hasError: false, present: true, redirectPath },
-          { status: 200, headers: PREFLIGHT_CACHE }
+          { status: 200, headers: NO_STORE }
         );
       }
     }

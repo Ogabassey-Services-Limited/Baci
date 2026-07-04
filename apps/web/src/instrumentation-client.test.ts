@@ -72,6 +72,23 @@ describe('instrumentation-client', () => {
     expect(mocks.capturePostHogPageview).toHaveBeenCalledOnce();
   });
 
+  it('owns the landing pageview: captures it exactly once, after the boot', async () => {
+    vi.stubGlobal('location', { pathname: '/', href: 'https://usebaci.com/' });
+
+    await importInstrumentationClient();
+    fireDeferredBoot();
+
+    await vi.waitFor(() => {
+      expect(mocks.capturePostHogPageview).toHaveBeenCalledOnce();
+    });
+    // The tracker no longer captures the landing view before boot, so this is
+    // the sole capture — and it must run after init so posthog-js can buffer it.
+    const [initOrder] = mocks.initializePostHogBrowser.mock.invocationCallOrder;
+    const [captureOrder] =
+      mocks.capturePostHogPageview.mock.invocationCallOrder;
+    expect(initOrder).toBeLessThan(captureOrder);
+  });
+
   it('does not initialize if imported without a browser window', async () => {
     vi.stubGlobal('window', undefined);
 

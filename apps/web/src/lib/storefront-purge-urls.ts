@@ -33,31 +33,52 @@ function resolvePurgeHostnames(identifier: string): readonly string[] {
   return [];
 }
 
+/**
+ * Dedup path segments by their normalized (trim + lowercase) form and drop
+ * blanks, but KEEP the original casing for the emitted URL: the CDN path is
+ * case-sensitive, so lowercasing here would purge the wrong URL for a
+ * mixed-case segment.
+ */
+function dedupePathSegmentsPreservingCasing(
+  segments: readonly string[]
+): string[] {
+  const seen = new Set<string>();
+  const deduped: string[] = [];
+  for (const segment of segments) {
+    const normalized = normalize(segment);
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    deduped.push(segment.trim());
+  }
+  return deduped;
+}
+
 export function buildStorefrontBlogPurgeUrls(
   identifiers: readonly string[],
-  postSlugs: readonly string[]
+  postSlugs: readonly string[],
+  categorySlugs: readonly string[] = []
 ): string[] {
   const urls = new Set<string>();
 
-  // Dedup slugs by their normalized (trim + lowercase) form and drop blanks, but
-  // KEEP the original casing for the emitted URL: the CDN path is case-sensitive,
-  // so lowercasing here would purge the wrong URL for a mixed-case slug.
-  const seenNormalizedSlugs = new Set<string>();
-  const dedupedSlugs: string[] = [];
-  for (const slug of postSlugs) {
-    const normalizedSlug = normalize(slug);
-    if (!normalizedSlug || seenNormalizedSlugs.has(normalizedSlug)) {
-      continue;
-    }
-    seenNormalizedSlugs.add(normalizedSlug);
-    dedupedSlugs.push(slug.trim());
-  }
+  const dedupedSlugs = dedupePathSegmentsPreservingCasing(postSlugs);
+  const dedupedCategorySlugs =
+    dedupePathSegmentsPreservingCasing(categorySlugs);
 
   for (const identifier of identifiers) {
     for (const hostname of resolvePurgeHostnames(identifier)) {
       urls.add(`https://${hostname}/blog`);
       for (const slug of dedupedSlugs) {
         urls.add(`https://${hostname}/blog/${encodeURIComponent(slug)}`);
+      }
+      // A post moving into or out of a category changes that category's
+      // listing page (/blog/category/<slug>), which shares the same raised
+      // edge TTL as /blog and the per-post URLs, so it must be evicted too.
+      for (const categorySlug of dedupedCategorySlugs) {
+        urls.add(
+          `https://${hostname}/blog/category/${encodeURIComponent(categorySlug)}`
+        );
       }
     }
   }

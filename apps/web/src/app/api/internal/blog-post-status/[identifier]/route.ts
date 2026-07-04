@@ -11,11 +11,12 @@ const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 // The proxy self-fetches this internal preflight on every storefront blog-post
 // navigation. The underlying data is already memoized (cacheLife('blog')), so a
 // short edge TTL lets Vercel's CDN absorb repeat preflights instead of hitting
-// the origin each time. Only a PRESENT verdict (found post, or a retired->redirect)
+// the origin each time. Only a LIVE-post verdict (present:true with NO redirect)
 // is cached — it is self-healing because the page still renders and 404s a
 // since-removed post. A definitive-absent verdict makes the proxy hard-404 the
-// post, and a fail-open/error is a transient miss; neither may be sticky
-// (revalidateTag cannot purge this header-based edge entry), so both stay
+// post, a fail-open/error is a transient miss, and a retired-slug redirect
+// verdict can go stale (target changed / slug reused); none may be sticky
+// (revalidateTag cannot purge this header-based edge entry), so all stay
 // no-store.
 // `Vary: Authorization` is REQUIRED: RFC 9111 §3.5 lets a shared cache store and
 // replay an `s-maxage` response to requests that carried an `Authorization`
@@ -68,12 +69,19 @@ export async function GET(
       params.data.identifier,
       query.data.slug
     );
-    // Cache ONLY a definitive PRESENT verdict. A definitive-absent (present:false
-    // -> proxy hard-404) or a fail-open (hasError:true) answer must never be
-    // sticky — the resolver can return hasError:true WITHOUT throwing (e.g. a
-    // transient merchant-lookup failure, or an unpublished store) — so those stay
-    // no-store (mirrors the slug-set route).
-    const cacheable = result.hasError === false && result.present === true;
+    // Cache ONLY a definitive, LIVE-post verdict (present:true with no
+    // redirect). A definitive-absent (present:false -> proxy hard-404) or a
+    // fail-open (hasError:true) answer must never be sticky — the resolver can
+    // return hasError:true WITHOUT throwing (e.g. a transient merchant-lookup
+    // failure, or an unpublished store). A retired-slug REDIRECT verdict
+    // (present:true + redirectPath) is also kept no-store: the redirect target
+    // can change or the slug be reused, and revalidateTag cannot purge this
+    // header-based edge entry, so a cached redirect would go stale for the whole
+    // TTL window (mirrors the slug-set route).
+    const cacheable =
+      result.hasError === false &&
+      result.present === true &&
+      result.redirectPath == null;
     return NextResponse.json(result, {
       status: 200,
       headers: cacheable ? PREFLIGHT_CACHE : NO_STORE,

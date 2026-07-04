@@ -91,7 +91,7 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     );
   });
 
-  it('returns redirectPath when a present slug is an archived alias for a canonical product', async () => {
+  it('returns redirectPath with no-store when a present slug is an archived alias for a canonical product', async () => {
     mockGetCachedStorefrontProductSlugSet.mockResolvedValue({
       hasError: false,
       slugs: ['iphone-15-pro-max-8gb-256gb'],
@@ -119,9 +119,11 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(res.headers.get('Cache-Control')).toBe(
-      's-maxage=300, stale-while-revalidate=3600'
-    );
+    // A legacy-alias redirect verdict must NOT be edge-cached: the canonical
+    // target can change or the alias slug be reused, and revalidateTag can't
+    // purge this header-based edge entry, so a cached redirect would 308 to the
+    // wrong product for the whole TTL window.
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(await res.json()).toEqual({
       hasError: false,
       present: true,

@@ -84,7 +84,7 @@ describe('resolveBlogPostHeroShell', () => {
     });
   });
 
-  it('prefixes the blog + author hrefs with the slug for non-domain tenants', async () => {
+  it('returns null for non-domain tenants without fetching (subdomain vs path mode is header-ambiguous in the static shell)', async () => {
     mockGetCachedBlogPost.mockResolvedValue(publishedPost);
 
     const shell = await resolveBlogPostHeroShell(
@@ -92,10 +92,11 @@ describe('resolveBlogPostHeroShell', () => {
       'the-great-5k-stall'
     );
 
-    expect(shell?.blogHref).toBe('/my-store/blog');
-    expect(shell?.header.authorHref).toBe(
-      '/my-store/blog/author/bolakale-john'
-    );
+    // A '/my-store'-prefixed link is wrong for a subdomain-mode tenant, and the
+    // static shell can't read headers to tell the modes apart, so the hero-hoist
+    // fast path is skipped entirely (page falls back to the full-Suspense path).
+    expect(shell).toBeNull();
+    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
   });
 
   it('omits the author href when the author has no hub page', async () => {

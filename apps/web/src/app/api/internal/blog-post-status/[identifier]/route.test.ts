@@ -63,7 +63,34 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
     expect(getCachedStorefrontBlogPostStatus).not.toHaveBeenCalled();
   });
 
-  it('returns the cached status response with a short edge-cache TTL', async () => {
+  it('edge-caches a definitive live-post verdict (present, no redirect)', async () => {
+    vi.mocked(getCachedStorefrontBlogPostStatus).mockResolvedValueOnce({
+      hasError: false,
+      present: true,
+      redirectPath: null,
+    });
+
+    const response = await GET(buildRequest('live-post'), context());
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe(
+      's-maxage=300, stale-while-revalidate=3600'
+    );
+    // Vary: Authorization keeps a shared cache from replaying this bearer-gated
+    // 200 to an unauthenticated caller (RFC 9111 §3.5).
+    expect(response.headers.get('Vary')).toBe('Authorization');
+    await expect(response.json()).resolves.toEqual({
+      hasError: false,
+      present: true,
+      redirectPath: null,
+    });
+    expect(getCachedStorefrontBlogPostStatus).toHaveBeenCalledWith(
+      'ogabassey',
+      'live-post'
+    );
+  });
+
+  it('does not edge-cache a retired-slug redirect verdict (target/slug can change with no purge path)', async () => {
     vi.mocked(getCachedStorefrontBlogPostStatus).mockResolvedValueOnce({
       hasError: false,
       present: true,
@@ -73,12 +100,11 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
     const response = await GET(buildRequest('Retired-Post'), context());
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('Cache-Control')).toBe(
-      's-maxage=300, stale-while-revalidate=3600'
-    );
-    // Vary: Authorization keeps a shared cache from replaying this bearer-gated
-    // 200 to an unauthenticated caller (RFC 9111 §3.5).
-    expect(response.headers.get('Vary')).toBe('Authorization');
+    // A cached redirect could go stale for the whole TTL window if the target
+    // changes or the retired slug is reused; revalidateTag can't purge this
+    // header-based edge entry, so redirect verdicts stay no-store.
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Vary')).toBeNull();
     await expect(response.json()).resolves.toEqual({
       hasError: false,
       present: true,

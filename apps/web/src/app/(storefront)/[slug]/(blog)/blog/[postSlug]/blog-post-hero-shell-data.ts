@@ -22,7 +22,16 @@ export interface BlogPostHeroShell {
  * published posts without a featured image, so the caller falls back to the
  * full-Suspense render (unchanged proxy-404 and draft-preview contracts).
  *
- * `authorHref` uses a request-header-free base path (derived from `slug`) and
+ * The fast path is restricted to CUSTOM-DOMAIN tenants (`isDomainIdentifier`).
+ * The static shell cannot read request headers, so it cannot distinguish a
+ * subdomain-mode tenant (`shop.usebaci.com`, which the proxy rewrites to
+ * `/shop/blog/...`) from a path-mode one: a `/${slug}`-prefixed link would be
+ * wrong on the public subdomain URL. A custom-domain tenant's link base is
+ * unambiguously `''` on its own public URL, so those links are always correct —
+ * and this still covers the perf target, `ogabassey.com`. Non-domain slugs
+ * return `null` up front and fall back to the full-Suspense path, which
+ * computes header-accurate links.
+ *
  * `locale` is intentionally omitted — the page root cannot read `headers()`
  * without breaking the static shell. The streamed body still resolves the
  * header-accurate byline prefix and locale for its own structured data.
@@ -31,6 +40,10 @@ export async function resolveBlogPostHeroShell(
   slug: string,
   postSlug: string
 ): Promise<BlogPostHeroShell | null> {
+  if (!isDomainIdentifier(slug)) {
+    return null;
+  }
+
   // Over-long / repeatedly-encoded bot slugs can never match a post; bail
   // before the `'use cache'` getCachedBlogPost lookup runs with an unbounded
   // key (its cache key + tag both include the raw postSlug) — see #2923.
@@ -61,7 +74,8 @@ export async function resolveBlogPostHeroShell(
     return null;
   }
 
-  const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
+  // Custom-domain tenant: the public URL is rooted at the domain, so the link
+  // base is always '' (guaranteed by the isDomainIdentifier gate above).
   const hasAuthorHub = Boolean(
     post.author_name && hasBlogAuthorPage(post.author_name, merchant.slug)
   );
@@ -69,7 +83,7 @@ export async function resolveBlogPostHeroShell(
     hasAuthorHub && post.author_name ? generateSlug(post.author_name) : null;
 
   return {
-    blogHref: `${basePath}/blog`,
+    blogHref: '/blog',
     hero: {
       alt: post.featured_image_alt || post.title,
       src: heroSrc,
@@ -78,9 +92,7 @@ export async function resolveBlogPostHeroShell(
       author_bio: post.author_bio,
       author_name: post.author_name,
       author_title: post.author_title,
-      authorHref: authorSlug
-        ? `${basePath}/blog/author/${authorSlug}`
-        : undefined,
+      authorHref: authorSlug ? `/blog/author/${authorSlug}` : undefined,
       category: post.category,
       published_at: post.published_at,
       reading_time_minutes: post.reading_time_minutes,

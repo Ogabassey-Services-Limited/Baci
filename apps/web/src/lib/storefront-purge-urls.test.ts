@@ -61,4 +61,51 @@ describe('buildStorefrontBlogPurgeUrls', () => {
       'https://www.ogabassey.com/blog/post-a',
     ]);
   });
+
+  it('emits /blog/category/<slug> for each affected category on every hostname', () => {
+    const urls = buildStorefrontBlogPurgeUrls(
+      ['ogabassey'],
+      ['post-a'],
+      ['buying-guides', 'reviews']
+    );
+
+    expect(urls).toEqual([
+      'https://ogabassey.com/blog',
+      'https://ogabassey.com/blog/post-a',
+      'https://ogabassey.com/blog/category/buying-guides',
+      'https://ogabassey.com/blog/category/reviews',
+      'https://www.ogabassey.com/blog',
+      'https://www.ogabassey.com/blog/post-a',
+      'https://www.ogabassey.com/blog/category/buying-guides',
+      'https://www.ogabassey.com/blog/category/reviews',
+    ]);
+  });
+
+  it('emits category listing URLs even when there are no post slugs', () => {
+    const urls = buildStorefrontBlogPurgeUrls(['ogabassey'], [], ['reviews']);
+
+    expect(urls).toEqual([
+      'https://ogabassey.com/blog',
+      'https://ogabassey.com/blog/category/reviews',
+      'https://www.ogabassey.com/blog',
+      'https://www.ogabassey.com/blog/category/reviews',
+    ]);
+  });
+
+  it('dedupes category slugs and preserves the original path casing', () => {
+    const urls = buildStorefrontBlogPurgeUrls(
+      ['ogabassey'],
+      [],
+      ['Reviews', '  ', 'Reviews']
+    );
+
+    // The CDN path is case-sensitive, so the slug casing is preserved and only
+    // normalized duplicates / blanks are dropped.
+    expect(urls).toEqual([
+      'https://ogabassey.com/blog',
+      'https://ogabassey.com/blog/category/Reviews',
+      'https://www.ogabassey.com/blog',
+      'https://www.ogabassey.com/blog/category/Reviews',
+    ]);
+  });
 });

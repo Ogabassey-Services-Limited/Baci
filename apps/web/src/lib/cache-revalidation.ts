@@ -22,6 +22,7 @@ import {
   PLATFORM_BLOG_SITEMAP_CACHE_TAG,
 } from '@/lib/platform-blog';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
+import { generateSlug } from '@/lib/seo-utils';
 import { buildStorefrontProductsCacheTags } from '@/lib/storefront-products-cache-key';
 import { buildStorefrontBlogPurgeUrls } from '@/lib/storefront-purge-urls';
 
@@ -271,13 +272,29 @@ export function revalidateBlogPosts(
       )
     )
   );
+  // Derive the category listing slugs to evict from the affected category
+  // labels. The public category route is /blog/category/<slug> where the slug
+  // is generateSlug(label) (getBlogCategorySlug), so slugify here to match the
+  // actually-cached URL. The 'all' sentinel used for the blog-list cache tags
+  // is intentionally excluded: its listing is /blog, already purged above.
+  const purgeCategorySlugs = Array.from(
+    new Set(
+      listingCategories
+        .map((category) => (category ? generateSlug(category) : ''))
+        .filter((categorySlug): categorySlug is string => Boolean(categorySlug))
+    )
+  );
   // `buildStorefrontBlogPurgeUrls` runs OUTSIDE the never-throw purge helper, so
   // guard the build + schedule sequence: a Cloudflare purge is always survivable
   // (caches self-heal on their TTL), and it must never break the Next-tag/path
   // revalidation that already ran above.
   try {
     schedulePurgeCloudflareUrls(
-      buildStorefrontBlogPurgeUrls(purgeIdentifiers, normalizedPostSlugs)
+      buildStorefrontBlogPurgeUrls(
+        purgeIdentifiers,
+        normalizedPostSlugs,
+        purgeCategorySlugs
+      )
     );
   } catch (error) {
     console.warn('Skipped Cloudflare blog purge scheduling', { error });

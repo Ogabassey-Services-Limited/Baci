@@ -45,10 +45,15 @@ export function initializePostHogInstrumentationIfAllowed(
 }
 
 // Defer the eager PostHog boot (session recording, heatmaps, autocapture,
-// dead-click capture) off the initial critical path. `capturePostHogPageview`
-// buffers pageviews before init, and PostHogPageviewTracker separately captures
-// the first pageview, so no events are lost while this is idle-gated. A first
-// interaction (pointerdown/keydown) boots it promptly.
+// dead-click capture) AND the posthog-js chunk download off the initial
+// critical path. This idle boot OWNS the landing pageview: after init it calls
+// `capturePostHogPageview()`, whose URL posthog-js buffers via its own request
+// queue until the client finishes loading. PostHogPageviewTracker never boots
+// the client and captures nothing on non-blog routes before this fires (it only
+// emits post-boot route-change pageviews and the lightweight public-blog
+// beacon), so the landing view is captured exactly once — `capture_pageview` is
+// false, so posthog-js adds no duplicate. A first interaction (pointerdown/
+// keydown) boots it promptly.
 scheduleIdleBoot(() => {
   initializePostHogInstrumentationIfAllowed();
 });
