@@ -106,8 +106,14 @@ export async function getCachedDeadContentLinkSlugs(
 
   return {
     blog: blogSlugs.filter((slug) => !liveBlogSlugs.has(slug)),
+    // UUID-shaped identifiers that did not resolve as active are NEVER dead:
+    // an archived id 308s to its active parent on the PDP, and telling that
+    // apart from a nonexistent id would require a privileged read this anon
+    // path must not perform. Fail open — the link stays clickable and the
+    // PDP adjudicates it at request time.
     products: productSlugs.filter(
-      (slug) => !liveProductSlugs.has(slug.toLowerCase())
+      (slug) =>
+        !liveProductSlugs.has(slug.toLowerCase()) && !UUID_REGEX.test(slug)
     ),
   };
 }

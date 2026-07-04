@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  mockGetCachedLegacyProductRedirectTarget,
   mockGetCachedProductCanonicalPaths,
   mockGetCachedStorefrontProductSlugResolution,
   mockGetPublicSupabaseClient,
 } = vi.hoisted(() => ({
-  mockGetCachedLegacyProductRedirectTarget: vi.fn(),
   mockGetCachedProductCanonicalPaths: vi.fn(),
   mockGetCachedStorefrontProductSlugResolution: vi.fn(),
   mockGetPublicSupabaseClient: vi.fn(),
@@ -14,8 +12,6 @@ const {
 
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
 vi.mock('@/lib/cached-data', () => ({
-  getCachedLegacyProductRedirectTarget: (...args: unknown[]) =>
-    mockGetCachedLegacyProductRedirectTarget(...args),
   getPublicSupabaseClient: mockGetPublicSupabaseClient,
 }));
 vi.mock('@/lib/cached-product-canonical-paths', () => ({
@@ -96,7 +92,6 @@ describe('getCachedContentLinkRewrites', () => {
       hasError: false,
       present: false,
     });
-    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
   });
 
   it('returns empty rewrites without querying when no slugs are collected', async () => {
@@ -168,21 +163,18 @@ describe('getCachedContentLinkRewrites', () => {
     ).rejects.toThrow('Product slug resolution failed');
   });
 
-  it('rewrites archived UUID links through the legacy redirect resolver', async () => {
-    mockGetCachedLegacyProductRedirectTarget.mockResolvedValueOnce({
-      id: 'p2',
-      name: 'iPhone X',
-      slug: 'iphone-x',
-      categories: { id: 'c1', name: 'Smartphones', slug: 'smartphones' },
-    });
-
+  it('fails open for archived UUID links instead of using privileged reads', async () => {
     const rewrites = await getCachedContentLinkRewrites(
       'merchant-1',
       [],
       [ARCHIVED_UUID]
     );
 
-    expect(rewrites.productPaths[ARCHIVED_UUID]).toBe('/smartphones/iphone-x');
+    // no rewrite entry and no RPC/service-role fallback: the PDP adjudicates
+    // the id at request time, and the dead-link resolver never marks
+    // unresolved UUIDs dead, so the link survives untouched
+    expect(rewrites.productPaths).toEqual({});
+    expect(mockGetCachedStorefrontProductSlugResolution).not.toHaveBeenCalled();
   });
 
   it('rewrites active UUID links to the canonical path of their slug', async () => {
@@ -205,8 +197,6 @@ describe('getCachedContentLinkRewrites', () => {
     expect(rewrites.productPaths[ACTIVE_UUID]).toBe(
       '/smartphones/google-pixel-9-pro'
     );
-    // an active UUID must not also hit the archived legacy resolver
-    expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
   });
 
   it('maps renamed blog slugs to their published target slug', async () => {
@@ -255,6 +245,32 @@ describe('getCachedContentLinkRewrites', () => {
     const rewrites = await getCachedContentLinkRewrites(
       'merchant-1',
       ['renamed-post'],
+      []
+    );
+
+    expect(rewrites.blogSlugs).toEqual({});
+  });
+
+  it('ignores redirect rows whose source slug is a live public post again', async () => {
+    setupPublicClient({
+      redirectResult: {
+        data: [{ source_slug: 'republished-post', target_post_id: 'p3' }],
+        error: null,
+      },
+      // the same builder serves both target and live-source lookups; a live
+      // public post exists at the SOURCE slug, so the redirect must not apply
+      targetResult: {
+        data: [
+          { id: 'p3', slug: 'new-home', title: 'New Home' },
+          { slug: 'republished-post', title: 'Republished Post' },
+        ],
+        error: null,
+      },
+    });
+
+    const rewrites = await getCachedContentLinkRewrites(
+      'merchant-1',
+      ['republished-post'],
       []
     );
 

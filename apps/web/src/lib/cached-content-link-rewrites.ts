@@ -1,8 +1,5 @@
 import { cacheLife, cacheTag } from 'next/cache';
-import {
-  getCachedLegacyProductRedirectTarget,
-  getPublicSupabaseClient,
-} from '@/lib/cached-data';
+import { getPublicSupabaseClient } from '@/lib/cached-data';
 import { getCachedProductCanonicalPaths } from '@/lib/cached-product-canonical-paths';
 import { getCachedStorefrontProductSlugResolution } from '@/lib/cached-storefront-product-slug-resolution';
 import { isPublicBlogPost } from '@/lib/public-blog-content-quality';
@@ -51,9 +48,15 @@ async function resolveBlogSlugRewrites(
 
   // Mirror the public blog route's suppression filters: a redirect pointing
   // at a published-but-suppressed post must not count as a rewrite, or the
-  // source link would be "fixed" onto a target the route 404s.
-  const { data: targets, error: targetsError } =
-    await applyPublicBlogSqlFilters(
+  // source link would be "fixed" onto a target the route 404s. Also check the
+  // SOURCE slugs: the route consults blog_post_redirects only after the post
+  // lookup misses, so a stale redirect row for a slug that is live again must
+  // not rewrite links away from the post the route actually serves.
+  const [
+    { data: targets, error: targetsError },
+    { data: liveSources, error: liveSourcesError },
+  ] = await Promise.all([
+    applyPublicBlogSqlFilters(
       supabase
         .from('blog_posts')
         .select('id, slug, title')
@@ -61,10 +64,29 @@ async function resolveBlogSlugRewrites(
         .eq('status', 'published')
         .not('published_at', 'is', null)
         .in('id', Array.from(new Set(targetIdBySource.values())))
-    );
+    ),
+    applyPublicBlogSqlFilters(
+      supabase
+        .from('blog_posts')
+        .select('slug, title')
+        .eq('merchant_id', merchantId)
+        .eq('status', 'published')
+        .not('published_at', 'is', null)
+        .in('slug', Array.from(targetIdBySource.keys()))
+    ),
+  ]);
 
   if (targetsError) {
     throw targetsError;
+  }
+  if (liveSourcesError) {
+    throw liveSourcesError;
+  }
+
+  for (const row of liveSources ?? []) {
+    if (row.slug && isPublicBlogPost(row)) {
+      targetIdBySource.delete(row.slug);
+    }
   }
 
   const slugById = new Map(
@@ -83,22 +105,24 @@ async function resolveBlogSlugRewrites(
   return rewrites;
 }
 
-// Least-privilege archived-alias resolution — no service-role client in this
-// public render path. Slug candidates resolve through the anon-callable
-// SECURITY DEFINER RPC the proxy already uses for its 308 decisions
-// (get_merchant_product_slug_resolution); UUID candidates go through the
-// existing cached legacy-redirect resolver, since the RPC matches by slug
-// only. Both return the parent's category join, so the canonical path is the
-// exact target the PDP itself would 308 to.
+// Least-privilege archived-alias resolution — no service-role access anywhere
+// in this public render path. Slug candidates resolve through the
+// anon-callable SECURITY DEFINER RPC the proxy already uses for its 308
+// decisions (get_merchant_product_slug_resolution); the redirect target
+// carries its own category join, so the canonical path is the exact URL the
+// PDP itself would 308 to. Archived products linked by raw UUID are NOT
+// resolved: the RPC matches by slug only and the alternative is a
+// service-role read, so those links fail open (the dead-link resolver also
+// never marks unresolved UUIDs dead — the PDP adjudicates them at request
+// time).
 async function resolveArchivedRedirectPaths(
   merchantId: string,
-  slugCandidates: string[],
-  uuidCandidates: string[]
+  slugCandidates: string[]
 ): Promise<Map<string, string>> {
   const pathByCandidate = new Map<string, string>();
 
-  await Promise.all([
-    ...slugCandidates.map(async (slug) => {
+  await Promise.all(
+    slugCandidates.map(async (slug) => {
       const resolution = await getCachedStorefrontProductSlugResolution(
         merchantId,
         slug
@@ -112,17 +136,8 @@ async function resolveArchivedRedirectPaths(
       if (resolution.redirectTarget) {
         pathByCandidate.set(slug, getProductUrl(resolution.redirectTarget));
       }
-    }),
-    ...uuidCandidates.map(async (uuid) => {
-      const target = await getCachedLegacyProductRedirectTarget(
-        merchantId,
-        uuid
-      );
-      if (target) {
-        pathByCandidate.set(uuid.toLowerCase(), getProductUrl(target));
-      }
-    }),
-  ]);
+    })
+  );
 
   return pathByCandidate;
 }
@@ -209,8 +224,7 @@ export async function getCachedContentLinkRewrites(
   // Archived aliases: only candidates that did not resolve to a live product.
   const archivedPaths = await resolveArchivedRedirectPaths(
     merchantId,
-    slugCandidates.filter((slug) => !Object.hasOwn(productPaths, slug)),
-    uuidCandidates.filter((uuid) => !activeSlugByUuid.has(uuid.toLowerCase()))
+    slugCandidates.filter((slug) => !Object.hasOwn(productPaths, slug))
   );
   for (const [candidate, path] of archivedPaths) {
     productPaths[candidate] = path;

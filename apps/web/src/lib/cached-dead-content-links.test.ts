@@ -276,3 +276,23 @@ describe('getCachedDeadContentLinkSlugs', () => {
     ).rejects.toThrow('product query failed');
   });
 });
+
+describe('getCachedDeadContentLinkSlugs UUID fail-open', () => {
+  it('never marks unresolved UUID-shaped product identifiers as dead', async () => {
+    const archivedUuid = '11111111-2222-4333-8444-555555555555';
+    setupSupabaseMock({
+      productResults: [{ data: [], error: null }],
+    });
+
+    const dead = await getCachedDeadContentLinkSlugs(
+      'merchant-1',
+      [],
+      ['gone-forever', archivedUuid]
+    );
+
+    // the slug is provably dead via the anon view; the UUID is not — an
+    // archived id 308s to its parent and distinguishing that from a missing
+    // id would need a privileged read, so it fails open
+    expect(dead.products).toEqual(['gone-forever']);
+  });
+});
