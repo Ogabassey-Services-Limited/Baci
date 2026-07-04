@@ -119,7 +119,7 @@ export function PaymentStep({
         type="button"
         onClick={() => completedSteps.delivery && setCurrentStep('payment')}
         disabled={!completedSteps.delivery}
-        className="w-full px-6 py-4 flex items-center justify-between gap-3 text-left disabled:opacity-50 disabled:cursor-not-allowed hidden-disabled"
+        className="w-full px-6 py-4 flex items-center justify-between gap-3 text-left disabled:opacity-50 disabled:cursor-not-allowed hidden-disabled focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-store-primary focus-visible:ring-inset"
       >
         <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
           <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${hasAvailableSelectedPaymentMethod ? 'bg-green-100 text-green-600' : currentStep === 'payment' ? 'bg-store-primary/10 text-store-primary' : 'bg-gray-100 text-gray-500'

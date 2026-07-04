@@ -2947,7 +2947,7 @@ export const CheckoutPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setCurrentStep('contact')}
-                className="w-full px-6 py-4 flex items-center justify-between gap-3 text-left"
+                className="w-full px-6 py-4 flex items-center justify-between gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-store-primary focus-visible:ring-inset"
               >
                 <div className="min-w-0">
                   <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -3152,7 +3152,7 @@ export const CheckoutPage: React.FC = () => {
                 type="button"
                 onClick={() => completedSteps.contact && setCurrentStep('delivery')}
                 disabled={!completedSteps.contact}
-                className="w-full px-6 py-4 flex items-center justify-between gap-3 text-left disabled:opacity-50 disabled:cursor-not-allowed hidden-disabled"
+                className="w-full px-6 py-4 flex items-center justify-between gap-3 text-left disabled:opacity-50 disabled:cursor-not-allowed hidden-disabled focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-store-primary focus-visible:ring-inset"
               >
                 <div className="min-w-0">
                   <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -3444,7 +3444,7 @@ export const CheckoutPage: React.FC = () => {
                                 {shippingQuotes.map((quote) => (
                                   <label
                                     key={quote.id}
-                                    className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer hover:border-store-primary/60 transition-all ${selectedQuoteId === quote.id
+                                    className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer hover:border-store-primary/60 transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${selectedQuoteId === quote.id
                                       ? 'border-store-primary bg-store-primary/5 ring-1 ring-store-primary'
                                       : 'border-gray-100 bg-white'
                                       }`}
