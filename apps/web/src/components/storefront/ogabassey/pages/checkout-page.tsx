@@ -13,6 +13,7 @@ import {
   Loader2,
   Plane,
   ShieldCheck,
+  ShoppingBag,
   Truck,
   Check,
   Copy,
@@ -2471,8 +2472,8 @@ export const CheckoutPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleCryptoCurrencyChange('USDT')}
-                    className={`p-4 rounded-xl border-2 transition-all ${selectedCryptoCurrency === 'USDT'
-                      ? 'border-red-500 bg-store-primary/5'
+                    className={`p-4 rounded-xl border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-store-primary focus-visible:ring-offset-2 ${selectedCryptoCurrency === 'USDT'
+                      ? 'border-store-primary bg-store-primary/5'
                       : 'border-gray-200 hover:border-gray-300'
                       }`}
                   >
@@ -2484,8 +2485,8 @@ export const CheckoutPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleCryptoCurrencyChange('USDC')}
-                    className={`p-4 rounded-xl border-2 transition-all ${selectedCryptoCurrency === 'USDC'
-                      ? 'border-red-500 bg-store-primary/5'
+                    className={`p-4 rounded-xl border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-store-primary focus-visible:ring-offset-2 ${selectedCryptoCurrency === 'USDC'
+                      ? 'border-store-primary bg-store-primary/5'
                       : 'border-gray-200 hover:border-gray-300'
                       }`}
                   >
@@ -2506,8 +2507,8 @@ export const CheckoutPage: React.FC = () => {
                       key={chain}
                       type="button"
                       onClick={() => setSelectedCryptoChain(chain)}
-                      className={`p-4 rounded-xl border-2 transition-all ${selectedCryptoChain === chain
-                        ? 'border-red-500 bg-store-primary/5'
+                      className={`p-4 rounded-xl border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-store-primary focus-visible:ring-offset-2 ${selectedCryptoChain === chain
+                        ? 'border-store-primary bg-store-primary/5'
                         : 'border-gray-200 hover:border-gray-300'
                         }`}
                     >
@@ -2946,17 +2947,25 @@ export const CheckoutPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setCurrentStep('contact')}
-                className="w-full px-6 py-4 flex items-center justify-between text-left"
+                className="w-full px-6 py-4 flex items-center justify-between gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-store-primary focus-visible:ring-inset"
               >
-                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <div className={`size-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.contact ? 'bg-green-100 text-green-600' : currentStep === 'contact' ? 'bg-store-primary/10 text-store-primary' : 'bg-gray-100 text-gray-500'
-                    }`}>
-                    {completedSteps.contact ? <Check size={14} /> : '1'}
-                  </div>
-                  Contact Information
-                </h2>
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <div className={`size-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.contact ? 'bg-green-100 text-green-600' : currentStep === 'contact' ? 'bg-store-primary/10 text-store-primary' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                      {completedSteps.contact ? <Check size={14} /> : '1'}
+                    </div>
+                    Contact Information
+                  </h2>
+                  {completedSteps.contact && currentStep !== 'contact' && (firstName || customerPhone) && (
+                    <p className="mt-1 pl-8 text-xs font-normal text-gray-500 truncate">
+                      {[firstName, lastName].filter(Boolean).join(' ')}
+                      {customerPhone ? ` · ${customerPhone}` : ''}
+                    </p>
+                  )}
+                </div>
                 {completedSteps.contact && currentStep !== 'contact' && (
-                  <span className="text-sm font-medium text-store-primary hover:text-store-primary">Edit</span>
+                  <span className="text-sm font-semibold text-store-primary underline-offset-4 hover:underline shrink-0">Edit</span>
                 )}
               </button>
 
@@ -2976,7 +2985,9 @@ export const CheckoutPage: React.FC = () => {
                           placeholder="John"
                           className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-hidden text-sm text-gray-900 placeholder:text-gray-400 ${contactValidationAttempted && !firstName.trim()
                             ? 'border-red-500 focus:border-red-500 bg-store-primary/5'
-                            : 'border-gray-200 focus:border-red-500'
+                            : firstName.trim()
+                              ? 'border-store-primary/40 focus:border-store-primary focus:ring-1 focus:ring-store-primary/20'
+                              : 'border-gray-200 focus:border-store-primary focus:ring-1 focus:ring-store-primary/20'
                             }`}
                           required
                         />
@@ -2995,7 +3006,9 @@ export const CheckoutPage: React.FC = () => {
                           placeholder="Doe"
                           className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-hidden text-sm text-gray-900 placeholder:text-gray-400 ${contactValidationAttempted && !lastName.trim()
                             ? 'border-red-500 focus:border-red-500 bg-store-primary/5'
-                            : 'border-gray-200 focus:border-red-500'
+                            : lastName.trim()
+                              ? 'border-store-primary/40 focus:border-store-primary focus:ring-1 focus:ring-store-primary/20'
+                              : 'border-gray-200 focus:border-store-primary focus:ring-1 focus:ring-store-primary/20'
                             }`}
                           required
                         />
@@ -3014,7 +3027,9 @@ export const CheckoutPage: React.FC = () => {
                           placeholder="john@example.com"
                           className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-hidden text-sm text-gray-900 placeholder:text-gray-400 ${contactValidationAttempted && (!customerEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim()))
                             ? 'border-red-500 focus:border-red-500 bg-store-primary/5'
-                            : 'border-gray-200 focus:border-red-500'
+                            : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())
+                              ? 'border-store-primary/40 focus:border-store-primary focus:ring-1 focus:ring-store-primary/20'
+                              : 'border-gray-200 focus:border-store-primary focus:ring-1 focus:ring-store-primary/20'
                             }`}
                           required
                         />
@@ -3137,17 +3152,25 @@ export const CheckoutPage: React.FC = () => {
                 type="button"
                 onClick={() => completedSteps.contact && setCurrentStep('delivery')}
                 disabled={!completedSteps.contact}
-                className="w-full px-6 py-4 flex items-center justify-between text-left disabled:opacity-50 disabled:cursor-not-allowed hidden-disabled"
+                className="w-full px-6 py-4 flex items-center justify-between gap-3 text-left disabled:opacity-50 disabled:cursor-not-allowed hidden-disabled focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-store-primary focus-visible:ring-inset"
               >
-                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <div className={`size-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.delivery ? 'bg-green-100 text-green-600' : currentStep === 'delivery' ? 'bg-store-primary/10 text-store-primary' : 'bg-gray-100 text-gray-500'
-                    }`}>
-                    {completedSteps.delivery ? <Check size={14} /> : '2'}
-                  </div>
-                  Delivery Method
-                </h2>
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <div className={`size-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.delivery ? 'bg-green-100 text-green-600' : currentStep === 'delivery' ? 'bg-store-primary/10 text-store-primary' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                      {completedSteps.delivery ? <Check size={14} /> : '2'}
+                    </div>
+                    Delivery Method
+                  </h2>
+                  {completedSteps.delivery && currentStep !== 'delivery' && (
+                    <p className="mt-1 pl-8 text-xs font-normal text-gray-500 truncate">
+                      {deliveryMethod === 'door' ? 'Door delivery' : deliveryMethod === 'pickup' ? 'Store pickup' : 'Airport'}
+                      {deliveryMethod === 'door' && newAddressCity ? ` · ${newAddressCity}` : ''}
+                    </p>
+                  )}
+                </div>
                 {completedSteps.delivery && currentStep !== 'delivery' && (
-                  <span className="text-sm font-medium text-store-primary hover:text-store-primary">Edit</span>
+                  <span className="text-sm font-semibold text-store-primary underline-offset-4 hover:underline shrink-0">Edit</span>
                 )}
               </button>
 
@@ -3174,7 +3197,7 @@ export const CheckoutPage: React.FC = () => {
                           {!isNewAddressMode && addresses.map((addr) => (
                             <label
                               key={addr.id}
-                              className={`flex items-start p-4 rounded-xl border cursor-pointer transition-all ${selectedAddressId === addr.id
+                              className={`flex items-start p-4 rounded-xl border cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${selectedAddressId === addr.id
                                 ? 'border-store-primary bg-store-primary/5'
                                 : 'border-gray-200 hover:border-gray-300'
                                 }`}
@@ -3267,7 +3290,7 @@ export const CheckoutPage: React.FC = () => {
                             }}
                             placeholder="Start typing your address..."
                             country="NG"
-                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-hidden focus-visible:ring-0 focus:border-red-500 text-sm text-gray-900 placeholder:text-gray-400"
+                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-hidden focus-visible:ring-0 focus:border-store-primary text-sm text-gray-900 placeholder:text-gray-400"
                           />
                           {isHydrated && newAddressState && newAddressCity && (
                             <p className="text-xs text-green-600 flex items-center gap-1">
@@ -3308,7 +3331,7 @@ export const CheckoutPage: React.FC = () => {
                                 <button type="button"
                                   key={method}
                                   onClick={() => setDeliveryMethod(method)}
-                                  className={`flex-1 flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all gap-1 min-w-[100px] ${deliveryMethod === method
+                                  className={`flex-1 flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all gap-1 min-w-[100px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-store-primary focus-visible:ring-offset-2 ${deliveryMethod === method
                                     ? 'border-store-primary bg-store-primary/5 text-store-primary'
                                     : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200 hover:bg-gray-50'
                                     }`}
@@ -3352,7 +3375,7 @@ export const CheckoutPage: React.FC = () => {
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <label
-                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'delivery'
+                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'delivery'
                                   ? 'border-store-primary bg-store-primary/5'
                                   : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                                   }`}
@@ -3378,7 +3401,7 @@ export const CheckoutPage: React.FC = () => {
                                 <span className="font-bold text-store-background-text">₦25,000</span>
                               </label>
                               <label
-                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'pickup'
+                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'pickup'
                                   ? 'border-store-primary bg-store-primary/5'
                                   : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                                   }`}
@@ -3421,8 +3444,8 @@ export const CheckoutPage: React.FC = () => {
                                 {shippingQuotes.map((quote) => (
                                   <label
                                     key={quote.id}
-                                    className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer hover:border-store-primary/60 transition-all ${selectedQuoteId === quote.id
-                                      ? 'border-red-500 bg-store-primary/5 ring-1 ring-store-primary'
+                                    className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer hover:border-store-primary/60 transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${selectedQuoteId === quote.id
+                                      ? 'border-store-primary bg-store-primary/5 ring-1 ring-store-primary'
                                       : 'border-gray-100 bg-white'
                                       }`}
                                   >
@@ -3537,7 +3560,10 @@ export const CheckoutPage: React.FC = () => {
           {/* RIGHT COLUMN: Order Summary */}
           <div className="hidden lg:block lg:col-span-4 lg:sticky lg:top-24 space-y-6">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">
+              <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span aria-hidden="true" className="flex size-6 items-center justify-center rounded-full bg-store-primary/10 text-store-primary">
+                  <ShoppingBag size={13} />
+                </span>
                 Order Summary
               </h2>
 
