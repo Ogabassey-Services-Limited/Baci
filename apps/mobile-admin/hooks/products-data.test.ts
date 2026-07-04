@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   normalizeProductInventory: vi.fn((product: unknown) => product),
+  revalidateStorefrontProducts: vi.fn(),
 }));
 
 type ProductsQueryResult = {
@@ -10,6 +11,29 @@ type ProductsQueryResult = {
   data: Record<string, unknown>[] | null;
   error: { message: string } | null;
 };
+
+type SingleRowResult = {
+  data: Record<string, unknown> | null;
+  error: { message: string } | null;
+};
+
+type UpdateQuery = {
+  update: (payload: Record<string, unknown>) => UpdateQuery;
+  eq: (column: string, value: unknown) => UpdateQuery;
+  select: (columns: string) => UpdateQuery;
+  single: () => Promise<SingleRowResult>;
+};
+
+// Mock for the `update().eq().eq().select().single()` chain used by the
+// stock/status quick-action writers.
+function createUpdateQuery(result: SingleRowResult): UpdateQuery {
+  const query = {} as UpdateQuery;
+  query.update = vi.fn(() => query) as UpdateQuery['update'];
+  query.eq = vi.fn(() => query) as UpdateQuery['eq'];
+  query.select = vi.fn(() => query) as UpdateQuery['select'];
+  query.single = vi.fn(() => Promise.resolve(result)) as UpdateQuery['single'];
+  return query;
+}
 
 type ProductsQuery = Promise<ProductsQueryResult> & {
   eq: (column: string, value: unknown) => ProductsQuery;
@@ -50,7 +74,16 @@ vi.mock('@/lib/product-search', async () => ({
   fetchAdminProductSearchRows: vi.fn(),
 }));
 
-import { fetchProducts } from './products-data';
+vi.mock('@/lib/revalidate-storefront-products', () => ({
+  revalidateStorefrontProducts: (...args: unknown[]) =>
+    mocks.revalidateStorefrontProducts(...args),
+}));
+
+import {
+  fetchProducts,
+  updateProductStatus,
+  updateProductStock,
+} from './products-data';
 
 describe('fetchProducts stock filters', () => {
   beforeEach(() => {
@@ -148,5 +181,80 @@ describe('fetchProducts stock filters', () => {
     await expect(
       fetchProducts('merchant-1', 0, { stockFilter })
     ).rejects.toThrow('products failed');
+  });
+});
+
+describe('quick-action storefront purge', () => {
+  beforeEach(() => {
+    mocks.from.mockReset();
+    mocks.normalizeProductInventory.mockReset();
+    mocks.normalizeProductInventory.mockImplementation(
+      (product: unknown) => product
+    );
+    mocks.revalidateStorefrontProducts.mockReset();
+  });
+
+  it('schedules a storefront purge with slug/id/category after a stock update', async () => {
+    const row = {
+      id: 'prod-1',
+      slug: 'iphone-15',
+      category: 'Smartphones',
+      stock: 7,
+    };
+    mocks.from.mockReturnValueOnce(
+      createUpdateQuery({ data: row, error: null })
+    );
+
+    await updateProductStock('prod-1', 7, 'merchant-1');
+
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith([
+      { slug: 'iphone-15', id: 'prod-1', category: 'Smartphones' },
+    ]);
+  });
+
+  it('does not schedule a purge when the stock update fails', async () => {
+    mocks.from.mockReturnValueOnce(
+      createUpdateQuery({
+        data: null,
+        error: { message: 'stock update failed' },
+      })
+    );
+
+    await expect(updateProductStock('prod-1', 7, 'merchant-1')).rejects.toThrow(
+      'stock update failed'
+    );
+    expect(mocks.revalidateStorefrontProducts).not.toHaveBeenCalled();
+  });
+
+  it('schedules a storefront purge with slug/id/category after a status update', async () => {
+    const row = {
+      id: 'prod-2',
+      slug: 'ankara-bag',
+      category: 'Bags',
+      status: 'archived',
+    };
+    mocks.from.mockReturnValueOnce(
+      createUpdateQuery({ data: row, error: null })
+    );
+
+    await updateProductStatus('prod-2', 'archived', 'merchant-1');
+
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith([
+      { slug: 'ankara-bag', id: 'prod-2', category: 'Bags' },
+    ]);
+  });
+
+  it('does not schedule a purge when the status update fails', async () => {
+    mocks.from.mockReturnValueOnce(
+      createUpdateQuery({
+        data: null,
+        error: { message: 'status update failed' },
+      })
+    );
+
+    await expect(
+      updateProductStatus('prod-2', 'archived', 'merchant-1')
+    ).rejects.toThrow('status update failed');
+    expect(mocks.revalidateStorefrontProducts).not.toHaveBeenCalled();
   });
 });

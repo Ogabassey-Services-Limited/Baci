@@ -78,11 +78,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   }
 
-  // Only merchant owners/admins can purge cache
-  if (!hasPermission(access, 'settings', 'edit')) {
-    return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-  }
-
   const body = await request.json();
   const result = revalidateSchema.safeParse(body);
   if (!result.success) {
@@ -97,6 +92,25 @@ export async function POST(request: NextRequest) {
   }
 
   const { targets, products } = result.data;
+
+  // Permission gate. Purging shared caches is normally a `settings:edit`
+  // (owner/admin) action, but the mobile-admin save/quick-action paths run as
+  // staff who may only hold `products:edit` — and after a product write they
+  // post a PRODUCTS-ONLY revalidate here to evict the storefront edge cache.
+  // Allow `products:edit` (or `settings:edit`) for a products-only request, but
+  // keep every other leg (categories/merchant/blog/reviews/features/pages, and
+  // the catch-all `all`) locked to `settings:edit` so nothing else is loosened.
+  const canManageSettings = hasPermission(access, 'settings', 'edit');
+  const isProductsOnlyRequest = targets.every(
+    (target) => target === 'products'
+  );
+  const isAuthorized = isProductsOnlyRequest
+    ? canManageSettings || hasPermission(access, 'products', 'edit')
+    : canManageSettings;
+  if (!isAuthorized) {
+    return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  }
+
   const merchantId = access.merchantId;
   const failedTargets: string[] = [];
   const revalidated: string[] = [];

@@ -194,7 +194,7 @@ describe('POST /api/cache/revalidate', () => {
   });
 
   describe('permissions', () => {
-    it('returns 403 when user lacks settings edit permission', async () => {
+    it('returns 403 when a products-only request has neither settings:edit nor products:edit', async () => {
       setupAuth(true, false);
 
       const res = await POST(makeRequest({ targets: ['products'] }));
@@ -207,6 +207,63 @@ describe('POST /api/cache/revalidate', () => {
         'settings',
         'edit'
       );
+    });
+
+    it('allows a products-only purge for staff with products:edit but not settings:edit', async () => {
+      setupAuth(true, true);
+      // Staff who can edit products but not settings — the mobile-admin save
+      // and quick-action paths run as this kind of user.
+      mockHasPermission.mockImplementation(
+        (_access: unknown, resource: string, action: string) =>
+          resource === 'products' && action === 'edit'
+      );
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [
+            { slug: 'iphone-15', id: 'prod-1', category: 'Smartphones' },
+          ],
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.revalidated).toContain('products');
+      // The staff-scoped product purge still fires for the server-resolved slug.
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'ogabassey',
+        [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+        { listingsOnly: false }
+      );
+    });
+
+    it('requires settings:edit for non-product legs even when the caller has products:edit', async () => {
+      setupAuth(true, true);
+      mockHasPermission.mockImplementation(
+        (_access: unknown, resource: string, action: string) =>
+          resource === 'products' && action === 'edit'
+      );
+
+      const res = await POST(
+        makeRequest({ targets: ['products', 'merchant'] })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(403);
+      expect(json.error).toBe('Permission denied');
+    });
+
+    it('requires settings:edit for the catch-all `all` target', async () => {
+      setupAuth(true, true);
+      mockHasPermission.mockImplementation(
+        (_access: unknown, resource: string, action: string) =>
+          resource === 'products' && action === 'edit'
+      );
+
+      const res = await POST(makeRequest({ targets: ['all'] }));
+
+      expect(res.status).toBe(403);
     });
   });
 

@@ -155,7 +155,10 @@ let anchorVariants: unknown[] = [];
 let updateResult: unknown = null;
 let updateError: unknown = null;
 let deleteError: unknown = null;
-let deletedProducts: unknown[] = [];
+// The single product row the DELETE handler pre-reads (before the lean delete)
+// to derive its Cloudflare purge inputs, or null when the product no longer
+// exists. Returned by `.from('products').select(...).maybeSingle()`.
+let productToDelete: unknown = null;
 let variantInsertError: unknown = null;
 let variantUpsertError: unknown = null;
 let variantSyncError: { code?: string; message?: string } | null = null;
@@ -167,11 +170,14 @@ let lastProductUpdatePayload: unknown = null;
 const productUpdatePayloads: unknown[] = [];
 const lastVariantDeleteFilters: [string, unknown][] = [];
 // Captures every `.from('products').select(...)` argument (e.g. the pre-update
-// existingProduct fetch) so tests can assert the Cloudflare purge reads the
-// `categories:category_id(slug)` join.
+// existingProduct fetch and the pre-delete purge-input fetch) so tests can
+// assert the Cloudflare purge reads the `categories:category_id(slug)` join and
+// the `product_categories(categories(slug))` junction.
 const productSelectArgs: string[] = [];
-// Captures the delete-returning `.select(...)` argument for the same reason.
-let lastDeleteSelectArg: string | null = null;
+// Ordered log of `products` table operations ('select' / 'delete') so tests can
+// assert the DELETE handler pre-reads the row BEFORE deleting it (the junction
+// rows cascade away with the delete, so reading after would come back empty).
+const productOps: string[] = [];
 
 const createMockSupabase = () => ({
   rpc: vi.fn((functionName: string, args: Record<string, unknown>) => {
@@ -216,20 +222,11 @@ const createMockSupabase = () => ({
       const deleteChain: { eq: ReturnType<typeof vi.fn> } = {
         eq: vi.fn((): unknown => {
           eqCallCount++;
+          // The route now runs a LEAN delete (`delete().eq('id').eq('merchant')`)
+          // with no trailing select — the purge inputs are pre-read separately
+          // via `select(...).maybeSingle()` before the delete.
           if (eqCallCount >= 2) {
-            // The route deletes with a trailing `.select(...)` to read the
-            // removed row's slug/category for the Cloudflare purge.
-            return {
-              select: vi.fn((arg?: string) => {
-                if (typeof arg === 'string') {
-                  lastDeleteSelectArg = arg;
-                }
-                return Promise.resolve({
-                  data: deleteError ? null : deletedProducts,
-                  error: deleteError,
-                });
-              }),
-            };
+            return Promise.resolve({ error: deleteError });
           }
           return deleteChain;
         }),
@@ -239,6 +236,7 @@ const createMockSupabase = () => ({
         select: ReturnType<typeof vi.fn>;
         eq: ReturnType<typeof vi.fn>;
         single: ReturnType<typeof vi.fn>;
+        maybeSingle: ReturnType<typeof vi.fn>;
         update: ReturnType<typeof vi.fn>;
         delete: ReturnType<typeof vi.fn>;
       } = {
@@ -246,6 +244,7 @@ const createMockSupabase = () => ({
           if (typeof arg === 'string') {
             productSelectArgs.push(arg);
           }
+          productOps.push('select');
           return productsApi;
         }),
         eq: vi.fn(() => productsApi),
@@ -253,6 +252,13 @@ const createMockSupabase = () => ({
           Promise.resolve({
             data: productError ? null : product,
             error: productError,
+          })
+        ),
+        maybeSingle: vi.fn(() =>
+          // The DELETE handler pre-reads the row's purge inputs here.
+          Promise.resolve({
+            data: productToDelete,
+            error: null,
           })
         ),
         update: vi.fn((payload: unknown) => {
@@ -275,6 +281,7 @@ const createMockSupabase = () => ({
         }),
         delete: vi.fn(() => {
           eqCallCount = 0; // Reset counter
+          productOps.push('delete');
           return deleteChain;
         }),
       };
@@ -424,7 +431,7 @@ function resetMocks() {
   updateResult = null;
   updateError = null;
   deleteError = null;
-  deletedProducts = [];
+  productToDelete = null;
   variantInsertError = null;
   variantUpsertError = null;
   variantSyncError = null;
@@ -433,7 +440,7 @@ function resetMocks() {
   productUpdatePayloads.length = 0;
   lastVariantDeleteFilters.length = 0;
   productSelectArgs.length = 0;
-  lastDeleteSelectArg = null;
+  productOps.length = 0;
   csrfValid = true;
 }
 
@@ -1842,9 +1849,11 @@ describe('DELETE /api/products/[id]', () => {
 
     it('schedules a Cloudflare purge for the deleted product', async () => {
       deleteError = null;
-      deletedProducts = [
-        { slug: 'iphone-15', name: 'iPhone 15', category: 'Smartphones' },
-      ];
+      productToDelete = {
+        slug: 'iphone-15',
+        name: 'iPhone 15',
+        category: 'Smartphones',
+      };
 
       const res = await DELETE(makeDeleteRequest(PRODUCT_ID), {
         params: Promise.resolve({ id: PRODUCT_ID }),
@@ -1857,30 +1866,35 @@ describe('DELETE /api/products/[id]', () => {
       );
     });
 
-    it('reads the category_id join on the delete-returning select', async () => {
+    it('pre-reads the row (select before delete) and reads the category_id join', async () => {
       deleteError = null;
-      deletedProducts = [
-        {
-          slug: 'iphone-15',
-          name: 'iPhone 15',
-          category: 'Smartphones',
-          categories: { slug: 'smartphones' },
-        },
-      ];
+      productToDelete = {
+        slug: 'iphone-15',
+        name: 'iPhone 15',
+        category: 'Smartphones',
+        categories: { slug: 'smartphones' },
+      };
 
       const res = await DELETE(makeDeleteRequest(PRODUCT_ID), {
         params: Promise.resolve({ id: PRODUCT_ID }),
       });
 
       expect(res.status).toBe(200);
-      // The delete-returning select must fetch the join so the purge resolves
-      // the same join-driven canonical the storefront served (PR #2914).
-      expect(lastDeleteSelectArg).toContain('categories:category_id(slug)');
+      // The purge inputs must be read BEFORE the delete — the junction rows
+      // cascade away with the delete, so a post-delete read would be empty.
+      expect(productOps).toEqual(['select', 'delete']);
+      // The pre-delete select must fetch the join so the purge resolves the same
+      // join-driven canonical the storefront served (PR #2914).
+      expect(
+        productSelectArgs.some((arg) =>
+          arg.includes('categories:category_id(slug)')
+        )
+      ).toBe(true);
     });
 
-    it('does not schedule a purge when the delete returns no row', async () => {
+    it('does not schedule a purge when the product no longer exists', async () => {
       deleteError = null;
-      deletedProducts = [];
+      productToDelete = null;
 
       await DELETE(makeDeleteRequest(PRODUCT_ID), {
         params: Promise.resolve({ id: PRODUCT_ID }),
@@ -1889,17 +1903,17 @@ describe('DELETE /api/products/[id]', () => {
       expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
     });
 
-    it('purges the junction category and reads the junction embed on delete', async () => {
+    it('purges the junction category and reads the junction embed on the pre-delete select', async () => {
       deleteError = null;
-      deletedProducts = [
-        {
-          slug: 'usb-c-cable',
-          name: 'Cable',
-          category: null,
-          categories: null,
-          product_categories: [{ categories: { slug: 'accessories' } }],
-        },
-      ];
+      // Assigned ONLY via the product_categories junction (no category_id, no
+      // legacy text) — the junction rows only exist BEFORE the cascading delete.
+      productToDelete = {
+        slug: 'usb-c-cable',
+        name: 'Cable',
+        category: null,
+        categories: null,
+        product_categories: [{ categories: { slug: 'accessories' } }],
+      };
 
       const res = await DELETE(makeDeleteRequest(PRODUCT_ID), {
         params: Promise.resolve({ id: PRODUCT_ID }),
@@ -1910,14 +1924,16 @@ describe('DELETE /api/products/[id]', () => {
         'test-store',
         [{ slug: 'usb-c-cable', categorySegment: 'accessories' }]
       );
-      expect(lastDeleteSelectArg).toContain(
-        'product_categories(categories(slug))'
-      );
+      expect(
+        productSelectArgs.some((arg) =>
+          arg.includes('product_categories(categories(slug))')
+        )
+      ).toBe(true);
     });
 
     it('falls back to the product id for the purge when the deleted slug is null', async () => {
       deleteError = null;
-      deletedProducts = [{ slug: null, name: 'Legacy', category: null }];
+      productToDelete = { slug: null, name: 'Legacy', category: null };
 
       await DELETE(makeDeleteRequest(PRODUCT_ID), {
         params: Promise.resolve({ id: PRODUCT_ID }),
@@ -1931,9 +1947,11 @@ describe('DELETE /api/products/[id]', () => {
 
     it('completes the delete even when scheduling the purge throws', async () => {
       deleteError = null;
-      deletedProducts = [
-        { slug: 'iphone-15', name: 'iPhone 15', category: 'Smartphones' },
-      ];
+      productToDelete = {
+        slug: 'iphone-15',
+        name: 'iPhone 15',
+        category: 'Smartphones',
+      };
       mockScheduleStorefrontProductPurge.mockImplementationOnce(() => {
         throw new Error('purge scheduling failed');
       });

@@ -6,11 +6,17 @@ import z from 'zod';
  * null slug stay addressable by id via `/products/<id>`); `category` (legacy
  * text) and `categorySlug` (the resolved category-join slug) are optional hints
  * used to derive the canonical PDP category segment.
+ *
+ * `slug` and `id` are BOTH `.nullable().optional()` to match the mobile helper's
+ * `StorefrontProductRevalidateEntry` contract (`slug?: string | null`, `id?:
+ * string | null`): a saved row can carry a null slug (legacy) or a null id, and
+ * the caller relies on the slug-or-id fallback. The refinement still rejects an
+ * entry with neither, so a null slug requires a present id (and vice versa).
  */
 export const internalRevalidateProductEntrySchema = z
   .object({
-    slug: z.string().trim().min(1).max(300).optional(),
-    id: z.string().trim().min(1).max(255).optional(),
+    slug: z.string().trim().min(1).max(300).nullable().optional(),
+    id: z.string().trim().min(1).max(255).nullable().optional(),
     category: z.string().trim().max(300).nullish(),
     categorySlug: z.string().trim().max(300).nullish(),
   })

@@ -1053,20 +1053,30 @@ export async function DELETE(
     }
     const merchantId = merchantContext.merchantId;
 
-    // Return the deleted row's slug/category (legacy text + `category_id` join +
-    // `product_categories` junction) so we can evict its public URLs from
-    // Cloudflare without a second lookup (delete is a rare admin action). The
-    // direct join AND the junction are included so the purge resolves the same
-    // join-driven canonical the storefront served with the full PR #2914
+    // Read the row's purge inputs (slug/name + legacy text `category` + the
+    // `category_id` direct join + the `product_categories` junction) BEFORE the
+    // delete: the junction rows are removed by ON DELETE CASCADE in the same
+    // statement, so a `delete().select(...)` embed of `product_categories`
+    // always comes back empty and the junction-derived canonical segment would
+    // be lost. Delete is a rare admin action, so the extra read round-trip is
+    // acceptable. All three category sources are read so the purge resolves the
+    // same join-driven canonical the storefront served with the full PR #2914
     // precedence (direct join → legacy text → junction).
-    const { data: deletedProducts, error: deleteError } = await supabase
+    const { data: productToDelete } = await supabase
+      .from('products')
+      .select(
+        'slug, name, category, categories:category_id(slug), product_categories(categories(slug))'
+      )
+      .eq('id', id)
+      .eq('merchant_id', merchantId)
+      .maybeSingle();
+
+    // Keep the delete itself lean — the purge inputs were pre-read above.
+    const { error: deleteError } = await supabase
       .from('products')
       .delete()
       .eq('id', id)
-      .eq('merchant_id', merchantId)
-      .select(
-        'slug, name, category, categories:category_id(slug), product_categories(categories(slug))'
-      );
+      .eq('merchant_id', merchantId);
 
     if (deleteError) {
       console.error('Error deleting product:', deleteError);
@@ -1085,15 +1095,13 @@ export async function DELETE(
     // on their TTL), so it must never break the delete — guard the derive +
     // schedule the same way revalidateBlogPosts does.
     try {
-      const deletedProduct = deletedProducts?.[0] as
-        | {
-            slug?: string | null;
-            name?: string | null;
-            category?: string | null;
-            categories?: unknown;
-            product_categories?: unknown;
-          }
-        | undefined;
+      const deletedProduct = productToDelete as {
+        slug?: string | null;
+        name?: string | null;
+        category?: string | null;
+        categories?: unknown;
+        product_categories?: unknown;
+      } | null;
       if (deletedProduct) {
         // Legacy rows can have a null/blank slug but are still publicly
         // addressable by id, so fall back to the deleted row's id

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { internalRevalidateProductsBodySchema } from '@/schemas/internal-revalidate-products-route';
+import {
+  internalRevalidateProductEntrySchema,
+  internalRevalidateProductsBodySchema,
+} from '@/schemas/internal-revalidate-products-route';
 
 describe('internalRevalidateProductsBodySchema', () => {
   it('accepts a non-empty merchantId and trims it', () => {
@@ -57,6 +60,46 @@ describe('internalRevalidateProductsBodySchema', () => {
       merchantId: 'merchant-1',
       merchantSlug: 'ogabassey',
       products: [{ category: 'Smartphones' }],
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('internalRevalidateProductEntrySchema', () => {
+  it('accepts a null slug when an id is present (legacy null-slug rows)', () => {
+    const result = internalRevalidateProductEntrySchema.safeParse({
+      slug: null,
+      id: 'prod-1',
+      category: 'Smartphones',
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.slug).toBeNull();
+    expect(result.data?.id).toBe('prod-1');
+  });
+
+  it('accepts a null id when a slug is present', () => {
+    const result = internalRevalidateProductEntrySchema.safeParse({
+      slug: 'iphone-15',
+      id: null,
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.id).toBeNull();
+    expect(result.data?.slug).toBe('iphone-15');
+  });
+
+  it('accepts null category and categorySlug hints', () => {
+    const result = internalRevalidateProductEntrySchema.safeParse({
+      slug: 'iphone-15',
+      category: null,
+      categorySlug: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an entry with both a null slug and a null id', () => {
+    const result = internalRevalidateProductEntrySchema.safeParse({
+      slug: null,
+      id: null,
     });
     expect(result.success).toBe(false);
   });
