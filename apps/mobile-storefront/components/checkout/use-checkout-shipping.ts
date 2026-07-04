@@ -2,6 +2,7 @@ import { isAirportDeliveryEligible, isPickupEligible } from '@baci/shared';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import type { UseFormSetValue } from 'react-hook-form';
 import { fetchShippingQuotes } from '@/components/checkout/checkout-shipping.helpers';
+import { getStationPickupQuote } from '@/components/checkout/checkout-station-pickup';
 import {
   getDeliveryMethodFee,
   getShippingProviderForMethod,
@@ -36,8 +37,6 @@ interface UseCheckoutShippingParams {
   watchedState: string;
 }
 
-// Hook wrapper so the stable ref containers can flow into the handler factory
-// without React Compiler treating the render-time call as a ref read.
 function useCheckoutShippingHandlers(
   params: Parameters<typeof createCheckoutShippingHandlers>[0]
 ) {
@@ -58,17 +57,6 @@ export function useCheckoutShipping({
   watchedState,
 }: UseCheckoutShippingParams) {
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('door');
-  // Keep the selected method valid for the chosen address: if the state no
-  // longer supports the picked method (e.g. an airport selection for a Lagos or
-  // non-airport state), fall back to door. Adjusted during render (not in an
-  // effect) per React's guidance; 'door' is always eligible, so this can't loop.
-  if (
-    (deliveryMethod === 'airport' &&
-      !isAirportDeliveryEligible(watchedState)) ||
-    (deliveryMethod === 'pickup_station' && !isPickupEligible(watchedState))
-  ) {
-    setDeliveryMethod('door');
-  }
   const [shippingStates, setShippingStates] = useState<string[]>([]);
   const [shippingCities, setShippingCities] = useState<string[]>([]);
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuote[]>([]);
@@ -98,6 +86,22 @@ export function useCheckoutShipping({
     items,
     committedAddress
   );
+  const isCurrentQuoteContext =
+    currentShippingQuoteContextKey !== '' &&
+    resolvedShippingQuoteContextKey === currentShippingQuoteContextKey;
+  const stationPickupQuote = isCurrentQuoteContext
+    ? getStationPickupQuote(shippingQuotes)
+    : undefined;
+  const canUsePickupStation =
+    isPickupEligible(watchedState) || stationPickupQuote !== undefined;
+
+  if (
+    (deliveryMethod === 'airport' &&
+      !isAirportDeliveryEligible(watchedState)) ||
+    (deliveryMethod === 'pickup_station' && !canUsePickupStation)
+  ) {
+    setDeliveryMethod('door');
+  }
 
   const resetQuotes = () => {
     setShippingQuotes([]);
@@ -108,7 +112,7 @@ export function useCheckoutShipping({
   const requestShippingQuotes = (shouldResetSelection: boolean) => {
     const controller = new AbortController();
     shippingQuoteAbortRef.current = controller;
-    fetchShippingQuotes({
+    void fetchShippingQuotes({
       apiUrl: apiBaseUrl,
       state: watchedState,
       city: watchedCity,
@@ -127,7 +131,7 @@ export function useCheckoutShipping({
       quoteContextKey: currentShippingQuoteContextKey,
       shouldResetSelection,
       signal: controller.signal,
-    });
+    }).catch(() => setIsLoadingQuotes(false));
   };
 
   const requestShippingQuotesFromEffect = useEffectEvent(
@@ -136,9 +140,6 @@ export function useCheckoutShipping({
     }
   );
 
-  // Consumes the pending Google Places city suggestion once cities for the
-  // selected state finish loading (runs from the fetch completion, with the
-  // freshly loaded list, instead of an effect that mirrored it from state).
   const applyGoogleSuggestedCity = useEffectEvent((cities: string[]) => {
     if (cities.length === 0) return;
     const suggestedCity = googleSuggestedCityRef.current;
@@ -178,7 +179,8 @@ export function useCheckoutShipping({
   }
 
   const quotesSuspendReason =
-    deliveryMethod !== 'door'
+    deliveryMethod === 'airport' ||
+    (deliveryMethod === 'pickup_station' && stationPickupQuote === undefined)
       ? 'method'
       : watchedState && watchedCity
         ? null
@@ -254,11 +256,13 @@ export function useCheckoutShipping({
     setCommittedAddress,
     setDeliveryMethod,
     setResolvedShippingQuoteContextKey,
+    setSelectedQuoteId,
     setShowCityPicker,
     setShowStatePicker,
     setValue,
     shippingQuoteAbortRef,
     shippingStates,
+    stationPickupQuote,
     watchedAddress,
     watchedCity,
     watchedState,

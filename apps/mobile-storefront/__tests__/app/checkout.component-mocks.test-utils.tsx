@@ -70,14 +70,17 @@ jest.mock('@/components/checkout/DeliveryMethodCard', () => ({
 
 jest.mock('@/components/checkout/PickupStationCard', () => ({
   AIRPORT_DELIVERY_FEE: 0,
-  PICKUP_STATION_ADDRESS_LINES: ['No. 5 Example Plaza'],
-  PICKUP_STATION_CITY: 'Lagos',
-  PICKUP_STATION_STATE: 'Lagos',
   PickupStationCard: () => {
     const { Text } =
       jest.requireActual<typeof import('react-native')>('react-native');
     return <Text>Pickup station card</Text>;
   },
+}));
+
+jest.mock('@/components/checkout/pickup-station.constants', () => ({
+  PICKUP_STATION_ADDRESS_LINES: ['No. 5 Example Plaza'],
+  PICKUP_STATION_CITY: 'Lagos',
+  PICKUP_STATION_STATE: 'Lagos',
 }));
 
 jest.mock('@/components/checkout/ShippingQuotesCard', () => ({

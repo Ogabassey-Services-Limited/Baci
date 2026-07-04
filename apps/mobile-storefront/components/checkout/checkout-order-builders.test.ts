@@ -5,6 +5,11 @@ import {
   buildCheckoutOrderRequest,
   createCheckoutSnapshot,
 } from './checkout-order-builders';
+import {
+  PICKUP_STATION_ADDRESS_LINES,
+  PICKUP_STATION_CITY,
+  PICKUP_STATION_STATE,
+} from './pickup-station.constants';
 
 const address = {
   email: 'ada@example.com',
@@ -115,5 +120,152 @@ describe('checkout order builders', () => {
 
     expect(payload.expected_total).toBe(726915);
     expect(payload.client_total).toBe(726915);
+  });
+
+  it('keeps a selected GIGL station-pickup quote on pickup station orders', () => {
+    const request = buildCheckoutOrderRequest({
+      address: { ...address, city: 'Port Harcourt', state: 'Rivers' },
+      customerEmail: 'ada@example.com',
+      customerName: 'Ada Lovelace',
+      customerPhone: '08012345678',
+      deliveryMethod: 'pickup_station',
+      itemsSnapshot: [
+        {
+          id: 'line-1',
+          product_id: 'product-1',
+          slug: 'iphone-13',
+          name: 'iPhone 13',
+          price: 500000,
+          quantity: 1,
+        },
+      ],
+      paymentMethodForOrder: 'paystack',
+      selectedQuote: {
+        id: '5ec1bd0e-7838-4379-a9e6-d47167f1d0c9',
+        displayName: 'GIG Logistics - Pickup at PORT HARCOURT',
+        isStationPickup: true,
+        price: 9493,
+        provider: 'GIGL',
+        stationAddress: 'GIGL Aba Road, Port Harcourt',
+        stationName: 'PORT HARCOURT',
+      },
+      shippingProvider: 'GIGL',
+      snapshot: createCheckoutSnapshot(
+        [
+          {
+            id: 'line-1',
+            product_id: 'product-1',
+            slug: 'iphone-13',
+            name: 'iPhone 13',
+            price: 500000,
+            quantity: 1,
+          },
+        ],
+        9493,
+        0
+      ),
+    });
+
+    expect(request.selected_quote_id).toBe(
+      '5ec1bd0e-7838-4379-a9e6-d47167f1d0c9'
+    );
+    expect(request.shipping_provider).toBe('GIGL');
+    expect(request.shipping_fee).toBe(9493);
+    expect(request.shipping_address.address).toBe(
+      'PORT HARCOURT, GIGL Aba Road, Port Harcourt'
+    );
+    expect(request.shipping_address.city).toBe('Port Harcourt');
+    expect(request.shipping_address.state).toBe('Rivers');
+  });
+
+  it('does not serialize a stale station-pickup quote on door orders', () => {
+    const request = buildCheckoutOrderRequest({
+      address,
+      customerEmail: 'ada@example.com',
+      customerName: 'Ada Lovelace',
+      customerPhone: '08012345678',
+      deliveryMethod: 'door',
+      itemsSnapshot: [
+        {
+          id: 'line-1',
+          product_id: 'product-1',
+          slug: 'iphone-13',
+          name: 'iPhone 13',
+          price: 500000,
+          quantity: 1,
+        },
+      ],
+      paymentMethodForOrder: 'paystack',
+      selectedQuote: {
+        id: 'station-quote',
+        displayName: 'GIG Logistics - Pickup at PORT HARCOURT',
+        isStationPickup: true,
+        price: 9493,
+        provider: 'GIGL',
+      },
+      shippingProvider: undefined,
+      snapshot: createCheckoutSnapshot(
+        [
+          {
+            id: 'line-1',
+            product_id: 'product-1',
+            slug: 'iphone-13',
+            name: 'iPhone 13',
+            price: 500000,
+            quantity: 1,
+          },
+        ],
+        0,
+        0
+      ),
+    });
+
+    expect(request.selected_quote_id).toBeUndefined();
+    expect(request.shipping_address.address).toBe(address.address);
+  });
+
+  it('uses the merchant pickup address when no provider station quote is selected', () => {
+    const request = buildCheckoutOrderRequest({
+      address,
+      customerEmail: 'ada@example.com',
+      customerName: 'Ada Lovelace',
+      customerPhone: '08012345678',
+      deliveryMethod: 'pickup_station',
+      itemsSnapshot: [
+        {
+          id: 'line-1',
+          product_id: 'product-1',
+          slug: 'iphone-13',
+          name: 'iPhone 13',
+          price: 500000,
+          quantity: 1,
+        },
+      ],
+      paymentMethodForOrder: 'paystack',
+      selectedQuote: undefined,
+      shippingProvider: undefined,
+      snapshot: createCheckoutSnapshot(
+        [
+          {
+            id: 'line-1',
+            product_id: 'product-1',
+            slug: 'iphone-13',
+            name: 'iPhone 13',
+            price: 500000,
+            quantity: 1,
+          },
+        ],
+        0,
+        0
+      ),
+    });
+
+    expect(request.selected_quote_id).toBeUndefined();
+    expect(request.shipping_provider).toBeUndefined();
+    expect(request.shipping_address.address).toBe(
+      PICKUP_STATION_ADDRESS_LINES.join(', ')
+    );
+    expect(request.shipping_address.city).toBe(PICKUP_STATION_CITY);
+    expect(request.shipping_address.state).toBe(PICKUP_STATION_STATE);
   });
 });

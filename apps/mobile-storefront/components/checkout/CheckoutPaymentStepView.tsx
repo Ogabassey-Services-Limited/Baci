@@ -1,4 +1,11 @@
-import { ScrollView, Text, View } from 'react-native';
+import { useRef } from 'react';
+import {
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { CheckoutSavingsRetryCard } from '@/components/checkout/CheckoutSavingsRetryCard';
 import {
   PaymentMethodSelector,
@@ -58,8 +65,29 @@ export function CheckoutPaymentStepView({
   walletFundedBankTransferOptionEnabled,
   walletSelection,
 }: CheckoutPaymentStepViewProps) {
+  // Owns the payment-step ScrollView + a live scroll offset so the intent
+  // accordion can scroll the just-selected card back into view when a sibling
+  // card collapses. Kept in a ref (not state) to avoid re-renders on scroll.
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollOffsetRef = useRef(0);
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+  };
+
+  // Open the (default) Pay in Full card on entry when the shopper actually has
+  // store credit to apply, so the wallet/savings rows — rendered inside the
+  // selected card — aren't hidden behind a collapsed card and silently skipped.
+  const hasStoreCredit =
+    walletBalance > 0 ||
+    (Boolean(checkoutSavingsGoal?.id) &&
+      !isLoadingCheckoutSavings &&
+      checkoutSavingsBalance > 0);
+
   return (
     <ScrollView
+      ref={scrollRef}
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
       style={styles.formContainer}
       contentContainerStyle={[
         styles.formContent,
@@ -95,6 +123,7 @@ export function CheckoutPaymentStepView({
         orderTotal={total}
         enabledMethods={availablePaymentMethods}
         hiddenMethods={hiddenPaymentMethods}
+        initiallyCollapsed={!hasStoreCredit}
         walletMode="orders"
         walletBalance={walletBalance}
         walletOrderTotal={total}
@@ -125,6 +154,8 @@ export function CheckoutPaymentStepView({
               }
             : undefined
         }
+        paymentScrollRef={scrollRef}
+        paymentScrollOffsetRef={scrollOffsetRef}
       />
     </ScrollView>
   );

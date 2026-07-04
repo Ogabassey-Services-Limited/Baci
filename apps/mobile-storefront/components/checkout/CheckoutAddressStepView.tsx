@@ -5,6 +5,10 @@ import { CheckoutDeliveryCard } from '@/components/checkout/CheckoutDeliveryCard
 import type { CheckoutDeliveryCardProps } from '@/components/checkout/CheckoutDeliveryCard.types';
 import { CheckoutFormField } from '@/components/checkout/CheckoutFormField';
 import {
+  getStationPickupQuote,
+  isProviderStationPickupQuote,
+} from '@/components/checkout/checkout-station-pickup';
+import {
   AIRPORT_DELIVERY_FEE,
   getDeliveryMethodSummary,
 } from '@/components/checkout/checkout-step-helpers';
@@ -122,6 +126,15 @@ export function CheckoutAddressStepView({
   watchedEmail,
   watchedState,
 }: CheckoutAddressStepViewProps) {
+  const stationPickupQuote = getStationPickupQuote(shippingQuotes);
+  const doorSelectedQuote =
+    selectedQuote != null && !isProviderStationPickupQuote(selectedQuote)
+      ? selectedQuote
+      : undefined;
+  const doorShippingQuotes = shippingQuotes.filter(
+    (quote) => !isProviderStationPickupQuote(quote)
+  );
+
   return (
     <ScrollView
       ref={addressScrollRef}
@@ -206,26 +219,28 @@ export function CheckoutAddressStepView({
         onSelectMethod={onSelectDeliveryMethod}
         deliveryState={watchedState}
         doorSubtitle={
-          selectedQuote != null
-            ? getDeliveryMethodSummary('door', selectedQuote)
+          doorSelectedQuote != null
+            ? getDeliveryMethodSummary('door', doorSelectedQuote)
             : 'Rates loaded after you enter your address'
         }
         doorPrice={
-          selectedQuote != null ? formatPrice(selectedQuote.price) : '—'
+          doorSelectedQuote != null ? formatPrice(doorSelectedQuote.price) : '—'
         }
         airportFee={AIRPORT_DELIVERY_FEE}
+        pickupStationQuote={stationPickupQuote}
       />
 
-      {deliveryMethod === 'pickup_station' && (
-        <PickupStationCard colors={colors} isDark={isDark} />
-      )}
+      {deliveryMethod === 'pickup_station' &&
+        !isProviderStationPickupQuote(selectedQuote) && (
+          <PickupStationCard colors={colors} isDark={isDark} />
+        )}
 
       {deliveryMethod === 'door' && Boolean(watchedState && watchedCity) && (
         <ShippingQuotesCard
           colors={colors}
           isDark={isDark}
           isLoadingQuotes={isLoadingQuotes}
-          shippingQuotes={shippingQuotes}
+          shippingQuotes={doorShippingQuotes}
           selectedQuoteId={selectedQuoteId}
           onSelectQuote={onSelectQuote}
           onRetryQuotes={onRetryQuotes}

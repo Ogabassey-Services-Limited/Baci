@@ -1,20 +1,24 @@
-import { Alert, Keyboard } from 'react-native';
 import type { Dispatch, SetStateAction } from 'react';
 import type {
   FieldErrors,
   UseFormHandleSubmit,
   UseFormSetValue,
 } from 'react-hook-form';
+import { Alert, Keyboard } from 'react-native';
+import type { CheckoutStep } from '@/components/checkout/CheckoutStepper';
+import { humanizeCheckoutFieldName } from '@/components/checkout/checkout-form-field.helpers';
+import {
+  getPickupStationAddressLines,
+  isProviderStationPickupQuote,
+} from '@/components/checkout/checkout-station-pickup';
 import {
   PICKUP_STATION_ADDRESS_LINES,
   PICKUP_STATION_CITY,
   PICKUP_STATION_STATE,
-} from '@/components/checkout/PickupStationCard';
-import type { CheckoutStep } from '@/components/checkout/CheckoutStepper';
-import { humanizeCheckoutFieldName } from '@/components/checkout/checkout-form-field.helpers';
+} from '@/components/checkout/pickup-station.constants';
+import type { ShippingAddressInput } from '@/lib/validation';
 import { trackCheckoutStep } from '@/services/analytics';
 import { trackCheckoutRoutePaymentInfo } from '@/services/tiktok-checkout-route-tracking';
-import type { ShippingAddressInput } from '@/lib/validation';
 import {
   type UseCheckoutSubmitParams,
   useCheckoutSubmit,
@@ -84,11 +88,26 @@ export function useCheckoutStepActions({
 
     if (step === 'address') {
       if (submitParams.deliveryMethod === 'pickup_station') {
-        setValue('address', PICKUP_STATION_ADDRESS_LINES.join(', '), {
-          shouldValidate: true,
-        });
-        setValue('city', PICKUP_STATION_CITY, { shouldValidate: true });
-        setValue('state', PICKUP_STATION_STATE, { shouldValidate: true });
+        if (isProviderStationPickupQuote(submitParams.selectedQuote)) {
+          // Paid provider (GIGL) station pickup: the order is collected at the
+          // provider station, so satisfy the required address with the station's
+          // own address. Leave city/state as the customer's — the quote context
+          // depends on them, and the delivery-address card is hidden for pickup,
+          // so this is the only place the required address gets populated.
+          const stationAddress = getPickupStationAddressLines(
+            submitParams.selectedQuote
+          ).join(', ');
+          if (stationAddress) {
+            setValue('address', stationAddress, { shouldValidate: true });
+          }
+        } else {
+          // Merchant's own free Lagos pickup counter.
+          setValue('address', PICKUP_STATION_ADDRESS_LINES.join(', '), {
+            shouldValidate: true,
+          });
+          setValue('city', PICKUP_STATION_CITY, { shouldValidate: true });
+          setValue('state', PICKUP_STATION_STATE, { shouldValidate: true });
+        }
       }
       handleSubmit(onAddressSubmit, handleAddressValidationError)();
       return;

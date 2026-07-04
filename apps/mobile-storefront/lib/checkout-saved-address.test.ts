@@ -1,5 +1,6 @@
 import {
   buildSavedAddressFromCheckout,
+  dedupeSavedAddressesById,
   findMatchingSavedAddress,
   getDefaultSavedAddress,
   toCheckoutAddressValues,
@@ -133,5 +134,41 @@ describe('checkout-saved-address', () => {
     );
 
     expect(saved.phone).toBe('+2348030000000');
+  });
+});
+
+describe('dedupeSavedAddressesById', () => {
+  const addr = (id: string): SavedAddress => ({
+    id,
+    label: 'Home',
+    full_name: 'Bassey John',
+    phone: '+2348030000000',
+    address: 'Taiyelolu Towers',
+    city: 'Ikeja',
+    state: 'Lagos',
+    country: 'Nigeria',
+  });
+
+  it('drops a repeated id, keeping the first occurrence', () => {
+    const result = dedupeSavedAddressesById([
+      addr('34a'),
+      addr('34a'),
+      addr('99b'),
+    ]);
+    expect(result.map((item) => item.id)).toEqual(['34a', '99b']);
+  });
+
+  it('leaves a list of distinct ids unchanged', () => {
+    const input = [addr('one'), addr('two'), addr('three')];
+    expect(dedupeSavedAddressesById(input)).toHaveLength(3);
+  });
+
+  it('returns an empty array unchanged', () => {
+    expect(dedupeSavedAddressesById([])).toEqual([]);
+  });
+
+  it('drops entries with a falsy/empty id', () => {
+    const result = dedupeSavedAddressesById([addr(''), addr('77c')]);
+    expect(result.map((item) => item.id)).toEqual(['77c']);
   });
 });

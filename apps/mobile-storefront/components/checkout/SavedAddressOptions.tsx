@@ -14,7 +14,6 @@ type CheckoutColors = Record<
   'background' | 'border' | 'text' | 'textSecondary',
   string
 >;
-
 interface SavedAddressOptionsProps {
   colors: CheckoutColors;
   defaultSavedAddress: SavedAddress | null;
@@ -30,7 +29,6 @@ interface SavedAddressOptionsProps {
   selectedSavedAddress: SavedAddress | null;
   selectedSavedAddressId: string | null;
 }
-
 export function SavedAddressOptions({
   colors,
   defaultSavedAddress,
@@ -55,7 +53,7 @@ export function SavedAddressOptions({
           <ActivityIndicator
             accessibilityLabel="Loading saved addresses"
             size="small"
-            color={BRAND.primary}
+            color={colors.textSecondary}
           />
         )}
       </View>
@@ -73,11 +71,13 @@ export function SavedAddressOptions({
         <Pressable
           style={[
             styles.addressModeChip,
-            {
-              backgroundColor: !isAddingNewAddress
-                ? BRAND.primary
-                : 'transparent',
-            },
+            !isAddingNewAddress
+              ? {
+                  backgroundColor: isDark
+                    ? 'rgba(255, 255, 255, 0.10)'
+                    : '#FFFFFF',
+                }
+              : null,
           ]}
           onPress={() => {
             const fallbackSavedAddress =
@@ -93,12 +93,14 @@ export function SavedAddressOptions({
           <Ionicons
             name="bookmark-outline"
             size={15}
-            color={!isAddingNewAddress ? '#FFFFFF' : BRAND.primary}
+            color={!isAddingNewAddress ? colors.text : colors.textSecondary}
           />
           <Text
             style={[
               styles.addressModeChipText,
-              { color: !isAddingNewAddress ? '#FFFFFF' : colors.text },
+              {
+                color: !isAddingNewAddress ? colors.text : colors.textSecondary,
+              },
             ]}
           >
             Saved
@@ -107,11 +109,13 @@ export function SavedAddressOptions({
         <Pressable
           style={[
             styles.addressModeChip,
-            {
-              backgroundColor: isAddingNewAddress
-                ? BRAND.primary
-                : 'transparent',
-            },
+            isAddingNewAddress
+              ? {
+                  backgroundColor: isDark
+                    ? 'rgba(255, 255, 255, 0.10)'
+                    : '#FFFFFF',
+                }
+              : null,
           ]}
           onPress={onOpenNewAddressEditor}
           accessibilityRole="button"
@@ -121,12 +125,14 @@ export function SavedAddressOptions({
           <Ionicons
             name="add-outline"
             size={16}
-            color={isAddingNewAddress ? '#FFFFFF' : BRAND.primary}
+            color={isAddingNewAddress ? colors.text : colors.textSecondary}
           />
           <Text
             style={[
               styles.addressModeChipText,
-              { color: isAddingNewAddress ? '#FFFFFF' : colors.text },
+              {
+                color: isAddingNewAddress ? colors.text : colors.textSecondary,
+              },
             ]}
           >
             New address
@@ -147,9 +153,7 @@ export function SavedAddressOptions({
                 styles.savedAddressOption,
                 {
                   backgroundColor: isSelected
-                    ? isDark
-                      ? 'rgba(217, 59, 48, 0.12)'
-                      : palette.red[50]
+                    ? BRAND.primaryAlpha06
                     : colors.background,
                   borderColor: isSelected ? BRAND.primary : colors.border,
                 },
@@ -162,18 +166,16 @@ export function SavedAddressOptions({
                 style={[
                   styles.savedAddressIconWrap,
                   {
-                    backgroundColor: isSelected
-                      ? `${BRAND.primary}18`
-                      : isDark
-                        ? 'rgba(255,255,255,0.07)'
-                        : palette.gray[100],
+                    backgroundColor: isDark
+                      ? 'rgba(255,255,255,0.07)'
+                      : palette.gray[100],
                   },
                 ]}
               >
                 <Ionicons
                   name={getAddressLabelIcon(savedAddress.label)}
                   size={18}
-                  color={isSelected ? BRAND.primary : colors.textSecondary}
+                  color={isSelected ? colors.text : colors.textSecondary}
                 />
               </View>
               <View style={styles.savedAddressOptionBody}>
@@ -190,7 +192,7 @@ export function SavedAddressOptions({
                     <View
                       style={[
                         styles.savedAddressDefaultBadge,
-                        { backgroundColor: `${BRAND.primary}14` },
+                        { backgroundColor: BRAND.primaryAlpha12 },
                       ]}
                     >
                       <Text
@@ -224,21 +226,14 @@ export function SavedAddressOptions({
     </View>
   );
 }
-
 const styles = StyleSheet.create({
-  savedAddressSection: {
-    marginBottom: SPACING.sm,
-    gap: 10,
-  },
+  savedAddressSection: { marginBottom: SPACING.sm, gap: 10 },
   savedAddressHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  savedAddressSectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
+  savedAddressSectionTitle: { fontSize: 14, fontWeight: '700' },
   addressModeSwitch: {
     borderWidth: 1,
     borderRadius: 18,
@@ -256,10 +251,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
   },
-  addressModeChipText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
+  addressModeChipText: { fontSize: 13, fontWeight: '700' },
   savedAddressOption: {
     borderWidth: 1,
     borderRadius: 14,
@@ -276,31 +268,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
-  savedAddressOptionBody: {
-    flex: 1,
-    gap: 4,
-  },
+  savedAddressOptionBody: { flex: 1, gap: 4 },
   savedAddressOptionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     flexWrap: 'wrap',
   },
-  savedAddressOptionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  savedAddressMeta: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
+  savedAddressOptionTitle: { fontSize: 14, fontWeight: '700' },
+  savedAddressMeta: { fontSize: 13, lineHeight: 18 },
   savedAddressDefaultBadge: {
     borderRadius: RADIUS.full,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  savedAddressDefaultBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
+  savedAddressDefaultBadgeText: { fontSize: 11, fontWeight: '700' },
 });

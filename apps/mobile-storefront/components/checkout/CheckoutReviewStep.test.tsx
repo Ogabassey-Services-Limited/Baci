@@ -86,6 +86,40 @@ describe('CheckoutReviewStep', () => {
     expect(screen.queryByText(/VAT/)).toBeNull();
   });
 
+  it('renders GIGL pickup station quote and station address on review', () => {
+    render(
+      <CheckoutReviewStep
+        {...baseProps}
+        address={{
+          ...baseProps.address,
+          address: '5 Customer Street',
+          city: 'Port Harcourt',
+          state: 'Rivers',
+        }}
+        deliveryMethod="pickup_station"
+        deliveryFee={9493}
+        selectedQuote={{
+          deliveryRange: '1-2 days',
+          displayName: 'GIG Logistics - Pickup at PORT HARCOURT',
+          id: 'station-quote',
+          isStationPickup: true,
+          price: 9493,
+          provider: 'GIGL',
+          stationAddress: 'GIGL Aba Road, Port Harcourt',
+          stationName: 'PORT HARCOURT',
+        }}
+      />
+    );
+
+    expect(screen.getByText('Pickup Stations (GIGL)')).toBeOnTheScreen();
+    expect(
+      screen.getByText('GIG Logistics - Pickup at PORT HARCOURT • 1-2 days')
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText('PORT HARCOURT\nGIGL Aba Road, Port Harcourt')
+    ).toBeOnTheScreen();
+  });
+
   it('clarifies airport delivery goes to the doorstep on review', () => {
     render(
       <CheckoutReviewStep

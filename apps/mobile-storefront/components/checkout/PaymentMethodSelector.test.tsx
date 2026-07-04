@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
 import {
   PaymentMethodSelector,
   type PaymentMethodType,
@@ -11,6 +10,10 @@ jest.mock('expo-image', () => ({
 
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => 'dark',
+}));
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 describe('PaymentMethodSelector', () => {
@@ -40,10 +43,9 @@ describe('PaymentMethodSelector', () => {
       />
     );
 
-    expect(screen.getByText('Buy Now Pay Later')).toBeTruthy();
-    expect(
-      screen.getByText('Split your order into 3-6 installments')
-    ).toBeTruthy();
+    // The redundant "Buy Now Pay Later / Split your order..." lines were
+    // removed (they duplicated the "Pay Small Small" card subtitle). Only the
+    // additive note + the per-provider downpayment info remain.
     expect(
       screen.getByText('Interest rates vary. Breakdown shown during Checkout')
     ).toBeTruthy();
@@ -53,13 +55,14 @@ describe('PaymentMethodSelector', () => {
     expect(screen.getByText('Salary Earners Only')).toBeTruthy();
   });
 
-  it('exposes the pay later tab with invoice and pay for me options', () => {
+  it('surfaces the invoice and pay-for-me intents and pins their method on select', () => {
     const onSelectTab = jest.fn();
+    const onSelectMethod = jest.fn();
 
     render(
       <PaymentMethodSelector
         selectedMethod={'invoice' as PaymentMethodType}
-        onSelectMethod={() => {}}
+        onSelectMethod={onSelectMethod}
         selectedTab="pay_later"
         onSelectTab={onSelectTab}
         orderTotal={120000}
@@ -69,11 +72,30 @@ describe('PaymentMethodSelector', () => {
     expect(screen.getByText('Generate Invoice')).toBeTruthy();
     expect(screen.getByText('Pay for Me')).toBeTruthy();
 
-    fireEvent.press(screen.getByLabelText('Pay Later'));
+    // Selecting a terminal pay_later intent projects onto BOTH the tab and its
+    // pinned method (onSelectTab alone would auto-pick invoice, not payforme).
+    fireEvent.press(screen.getByRole('radio', { name: /Pay for Me/ }));
     expect(onSelectTab).toHaveBeenCalledWith('pay_later');
+    expect(onSelectMethod).toHaveBeenCalledWith('payforme');
   });
 
-  it('hides the installments tab when no BNPL methods are enabled', () => {
+  it('filters terminal pay-later intents by the enabled methods', () => {
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'invoice' as PaymentMethodType}
+        onSelectMethod={() => {}}
+        selectedTab="pay_later"
+        onSelectTab={() => {}}
+        orderTotal={120000}
+        enabledMethods={['invoice']}
+      />
+    );
+
+    expect(screen.getByText('Generate Invoice')).toBeTruthy();
+    expect(screen.queryByText('Pay for Me')).toBeNull();
+  });
+
+  it('hides the Pay Small Small intent when no BNPL methods are enabled', () => {
     render(
       <PaymentMethodSelector
         selectedMethod={'invoice' as PaymentMethodType}
@@ -85,11 +107,12 @@ describe('PaymentMethodSelector', () => {
       />
     );
 
-    expect(screen.queryByLabelText('Pay in Installments')).toBeNull();
-    expect(screen.getByLabelText('Pay Later')).toBeTruthy();
+    expect(screen.queryByText('Pay Small Small')).toBeNull();
+    expect(screen.getByText('Generate Invoice')).toBeTruthy();
+    expect(screen.getByText('Pay for Me')).toBeTruthy();
   });
 
-  it('keeps the installments tab visible when Klump is the only enabled BNPL provider', () => {
+  it('keeps the Pay Small Small intent visible when Klump is the only enabled BNPL provider', () => {
     render(
       <PaymentMethodSelector
         selectedMethod={'klump' as PaymentMethodType}
@@ -101,7 +124,7 @@ describe('PaymentMethodSelector', () => {
       />
     );
 
-    expect(screen.getByLabelText('Pay in Installments')).toBeTruthy();
+    expect(screen.getByText('Pay Small Small')).toBeTruthy();
     expect(screen.getByText('Klump')).toBeTruthy();
   });
 
@@ -117,7 +140,7 @@ describe('PaymentMethodSelector', () => {
       />
     );
 
-    expect(screen.getByLabelText('Pay in Installments')).toBeTruthy();
+    expect(screen.getByText('Pay Small Small')).toBeTruthy();
     expect(screen.getByText('Klump')).toBeTruthy();
   });
 
@@ -136,35 +159,38 @@ describe('PaymentMethodSelector', () => {
     );
 
     expect(screen.queryByText('Klump')).toBeNull();
-    expect(screen.queryByLabelText('Pay in Installments')).toBeNull();
+    expect(screen.queryByText('Pay Small Small')).toBeNull();
   });
 
-  it('uses caller-supplied Klump disabled reasons for wallet and merchant range boundaries', () => {
+  it('disables the Pay Small Small intent below the BNPL minimum and shows the eligibility hint', () => {
+    const onSelectTab = jest.fn();
     const onSelectMethod = jest.fn();
-    const klumpDisabledProps = {
-      methodDisabledReasons: {
-        klump: 'Minimum order: ₦7,500',
-      },
-    } as Record<string, unknown>;
 
     render(
       <PaymentMethodSelector
         selectedMethod={'klump' as PaymentMethodType}
         onSelectMethod={onSelectMethod}
         selectedTab="installments"
-        onSelectTab={() => {}}
+        onSelectTab={onSelectTab}
         orderTotal={5000}
         enabledMethods={['klump' as PaymentMethodType]}
-        {...klumpDisabledProps}
       />
     );
 
-    const klumpRow = screen.getByLabelText('Klump. Minimum order: ₦7,500');
+    const intentCard = screen.getByRole('radio', { name: /Pay Small Small/ });
 
-    expect(screen.getByText('Minimum order: ₦7,500')).toBeTruthy();
+    expect(intentCard.props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+    // Below the BNPL floor the whole intent is unavailable; a plain-language
+    // hint replaces the marketing subtitle instead of expanding disabled rows.
+    expect(
+      screen.getByText('Available for orders from ₦10,000')
+    ).toBeTruthy();
 
-    fireEvent.press(klumpRow);
+    fireEvent.press(intentCard);
 
+    expect(onSelectTab).toHaveBeenCalledWith('full');
     expect(onSelectMethod).not.toHaveBeenCalled();
   });
 
@@ -644,8 +670,8 @@ describe('PaymentMethodSelector', () => {
     });
   });
 
-  describe('Tab Selector layout alignment', () => {
-    it('enforces centered text alignment and horizontal padding on tab components to prevent layout overlap', () => {
+  describe('payment intent accordion', () => {
+    it('renders the four intent-first options as a radiogroup', () => {
       render(
         <PaymentMethodSelector
           selectedMethod={'paystack' as PaymentMethodType}
@@ -656,15 +682,29 @@ describe('PaymentMethodSelector', () => {
         />
       );
 
-      const tabTextElement = screen.getByText(/Pay\s+in full/);
-      const textStyles = StyleSheet.flatten(tabTextElement.props.style);
+      expect(screen.getByText('Pay in Full')).toBeTruthy();
+      expect(screen.getByText('Pay Small Small')).toBeTruthy();
+      expect(screen.getByText('Pay for Me')).toBeTruthy();
+      expect(screen.getByText('Generate Invoice')).toBeTruthy();
+      expect(screen.getAllByRole('radio').length).toBeGreaterThanOrEqual(4);
+    });
 
-      expect(textStyles.textAlign).toBe('center');
+    it('expands only the selected instrument-bearing intent (single-open)', () => {
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'paystack' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={120000}
+          enabledMethods={['paystack', 'credit_direct']}
+        />
+      );
 
-      const tabElement = screen.getByRole('tab', { name: 'Pay in full' });
-      const tabStyles = StyleSheet.flatten(tabElement.props.style);
-
-      expect(tabStyles.paddingHorizontal).toBeGreaterThanOrEqual(4);
+      // `full` is selected → its card instruments are visible...
+      expect(screen.getByText('Pay with Card')).toBeTruthy();
+      // ...while the collapsed `installments` card keeps its BNPL rows hidden.
+      expect(screen.queryByText('Credit Direct')).toBeNull();
     });
   });
 });

@@ -1,8 +1,6 @@
-import Ionicons from '@react-native-vector-icons/ionicons';
 import { Controller } from 'react-hook-form';
-import { Pressable, Text, View } from 'react-native';
+import { View } from 'react-native';
 import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete';
-import { BRAND } from '@/constants/Colors';
 import { CHECKOUT_DELIVERY_Z_INDEX } from './CheckoutDeliveryCard.constants';
 import { checkoutDeliveryCardStyles as styles } from './CheckoutDeliveryCard.styles';
 import type { CheckoutDeliveryCardProps } from './CheckoutDeliveryCard.types';
@@ -10,6 +8,7 @@ import { CheckoutDeliveryDefaultCheckbox } from './CheckoutDeliveryDefaultCheckb
 import { CheckoutDeliveryLocationPicker } from './CheckoutDeliveryLocationPicker';
 import { CheckoutDeliveryNewAddressIntro } from './CheckoutDeliveryNewAddressIntro';
 import { CheckoutDeliverySummary } from './CheckoutDeliverySummary';
+import { CollapsibleCheckoutCard } from './selection/CollapsibleCheckoutCard';
 import { SavedAddressOptions } from './SavedAddressOptions';
 
 export function CheckoutDeliveryCard({
@@ -45,67 +44,34 @@ export function CheckoutDeliveryCard({
     hasSavedAddresses || Boolean(currentDeliverySummary);
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: colors.card,
-          borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-          position: 'relative',
-          zIndex: CHECKOUT_DELIVERY_Z_INDEX.card,
-        },
-      ]}
-    >
-      <View style={styles.cardHeaderActionRow}>
-        <View style={[styles.cardHeader, styles.cardHeaderInline]}>
-          <Ionicons name="location-outline" size={16} color={BRAND.primary} />
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Delivery
-          </Text>
-        </View>
-        {showCollapseAction ? (
-          <Pressable
-            accessibilityLabel={
-              isCollapsed
-                ? 'Edit delivery address'
-                : 'Collapse delivery address'
-            }
-            accessibilityRole="button"
-            hitSlop={10}
-            onPress={onToggleCollapsed}
-            style={styles.inlineEditButton}
-          >
-            <View style={styles.inlineActionContent}>
-              <Ionicons
-                name={isCollapsed ? 'create-outline' : 'checkmark-outline'}
-                size={16}
-                color={BRAND.primary}
-              />
-              <Text style={styles.inlineActionText}>
-                {isCollapsed ? 'Edit' : 'Done'}
-              </Text>
-            </View>
-          </Pressable>
-        ) : null}
-      </View>
-
-      {isCollapsed ? (
+    <CollapsibleCheckoutCard
+      icon="location-outline"
+      title="Delivery"
+      colors={colors}
+      isDark={isDark}
+      collapsed={showCollapseAction && isCollapsed}
+      canCollapse={showCollapseAction}
+      onToggle={onToggleCollapsed}
+      overflowVisible
+      zIndex={CHECKOUT_DELIVERY_Z_INDEX.card}
+      summary={
         <CheckoutDeliverySummary
           colors={colors}
           currentDeliverySummary={currentDeliverySummary}
           isDark={isDark}
           selectedSavedAddress={selectedSavedAddress}
         />
-      ) : (
-        <View
-          style={[
-            styles.cardBody,
-            {
-              overflow: 'visible',
-              zIndex: CHECKOUT_DELIVERY_Z_INDEX.body,
-            },
-          ]}
-        >
+      }
+    >
+      <View
+        style={[
+          styles.cardBody,
+          {
+            overflow: 'visible',
+            zIndex: CHECKOUT_DELIVERY_Z_INDEX.body,
+          },
+        ]}
+      >
           <SavedAddressOptions
             colors={colors}
             defaultSavedAddress={defaultSavedAddress}
@@ -191,7 +157,6 @@ export function CheckoutDeliveryCard({
             </>
           )}
         </View>
-      )}
-    </View>
+    </CollapsibleCheckoutCard>
   );
 }

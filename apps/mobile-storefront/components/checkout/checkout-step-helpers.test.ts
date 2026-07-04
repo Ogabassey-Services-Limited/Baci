@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/PickupStationCard';
+import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/pickup-station.constants';
 import type { ShippingQuote } from '@/components/checkout/types';
 import {
   AIRPORT_DELIVERY_FEE,
@@ -18,6 +18,17 @@ const baseQuote: ShippingQuote = {
   carrierName: 'Topship Express',
   estimatedDays: 3,
 };
+const stationPickupQuote: ShippingQuote = {
+  id: 'station-quote',
+  displayName: 'GIG Logistics - Pickup at PORT HARCOURT',
+  price: 9493,
+  provider: 'GIGL',
+  carrierName: 'GIG Logistics',
+  estimatedDays: 3,
+  isStationPickup: true,
+  stationAddress: 'GIGL Aba Road, Port Harcourt',
+  stationName: 'PORT HARCOURT',
+};
 
 describe('checkout-step-helpers', () => {
   it('maps payment methods to the right tabs', () => {
@@ -34,13 +45,20 @@ describe('checkout-step-helpers', () => {
       AIRPORT_DELIVERY_FEE
     );
     expect(getDeliveryMethodFee('pickup_station', baseQuote)).toBe(0);
+    expect(getDeliveryMethodFee('pickup_station', stationPickupQuote)).toBe(
+      9493
+    );
     expect(getDeliveryMethodFee('door', baseQuote)).toBe(12500);
+    expect(getDeliveryMethodFee('door', stationPickupQuote)).toBe(0);
     expect(getDeliveryMethodFee('door', undefined)).toBe(0);
   });
 
   it('returns expected delivery labels', () => {
     expect(getDeliveryMethodLabel('airport')).toBe('Airport Delivery');
     expect(getDeliveryMethodLabel('pickup_station')).toBe('Pick Up Station');
+    expect(getDeliveryMethodLabel('pickup_station', stationPickupQuote)).toBe(
+      'Pickup Stations (GIGL)'
+    );
     expect(getDeliveryMethodLabel('door')).toBe('Door Delivery');
   });
 
@@ -50,6 +68,9 @@ describe('checkout-step-helpers', () => {
     );
     expect(getDeliveryMethodSummary('pickup_station', baseQuote)).toBe(
       PICKUP_STATION_ADDRESS_LINES.join(', ')
+    );
+    expect(getDeliveryMethodSummary('pickup_station', stationPickupQuote)).toBe(
+      'PORT HARCOURT, GIGL Aba Road, Port Harcourt'
     );
     expect(getDeliveryMethodSummary('door', baseQuote)).toBe(
       'Topship Express • 3 days'
@@ -74,6 +95,9 @@ describe('checkout-step-helpers', () => {
         deliveryRange: undefined,
       })
     ).toBe('Topship Express • Delivery estimate shown after selection');
+    expect(getDeliveryMethodSummary('door', stationPickupQuote)).toBe(
+      'Topship • Delivery estimate shown after selection'
+    );
     expect(getDeliveryMethodSummary('door', undefined)).toBe(
       'Topship • Delivery estimate shown after selection'
     );
@@ -84,7 +108,13 @@ describe('checkout-step-helpers', () => {
     expect(
       getShippingProviderForMethod('pickup_station', baseQuote)
     ).toBeUndefined();
+    expect(
+      getShippingProviderForMethod('pickup_station', stationPickupQuote)
+    ).toBe('GIGL');
     expect(getShippingProviderForMethod('door', baseQuote)).toBe('Topship');
+    expect(
+      getShippingProviderForMethod('door', stationPickupQuote)
+    ).toBeUndefined();
     expect(
       getShippingProviderForMethod('door', {
         ...baseQuote,

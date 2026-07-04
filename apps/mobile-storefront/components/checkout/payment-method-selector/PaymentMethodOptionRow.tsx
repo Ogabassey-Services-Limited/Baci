@@ -17,6 +17,11 @@ interface PaymentMethodOptionRowProps {
   overrideBadge?: string;
   overrideDescription?: string;
   overrideLabel?: string;
+  /**
+   * Rendered inside an already-framed intent card (the accordion). Drops the red
+   * selected border for a subtle tint so we don't nest a red box in a red box.
+   */
+  nested?: boolean;
 }
 
 export function PaymentMethodOptionRow({
@@ -28,18 +33,25 @@ export function PaymentMethodOptionRow({
   overrideBadge,
   overrideDescription,
   overrideLabel,
+  nested = false,
 }: PaymentMethodOptionRowProps) {
   const methodBadge = overrideBadge;
   const methodDescription = overrideDescription ?? method.description;
   const methodLabel = overrideLabel ?? method.label;
+  // A row can be disabled without a reason (e.g. wallet/savings suppresses a
+  // gateway); never render/announce a literal "undefined" — fall back to the
+  // normal description.
+  const disabledDescription = method.disabledReason ?? methodDescription;
 
   return (
     <Pressable
       style={[
         styles.methodCard,
         {
-          backgroundColor: colors.card,
-          borderColor: isSelected ? BRAND.primary : colors.border,
+          backgroundColor:
+            isSelected && nested ? BRAND.primaryAlpha06 : colors.card,
+          borderColor:
+            isSelected && !nested ? BRAND.primary : colors.border,
           opacity: isDisabled ? 0.5 : 1,
         },
       ]}
@@ -50,16 +62,12 @@ export function PaymentMethodOptionRow({
         checked: isSelected,
         disabled: isDisabled,
       }}
-      accessibilityLabel={`${methodLabel}. ${isDisabled ? method.disabledReason : methodDescription}`}
+      accessibilityLabel={`${methodLabel}. ${isDisabled ? disabledDescription : methodDescription}`}
     >
       <View
         style={[
           styles.methodIconContainer,
-          {
-            backgroundColor: isSelected
-              ? `${BRAND.primary}20`
-              : `${colors.textSecondary}10`,
-          },
+          { backgroundColor: `${colors.textSecondary}10` },
         ]}
       >
         {method.logoUrl ? (
@@ -72,19 +80,14 @@ export function PaymentMethodOptionRow({
           <Ionicons
             name={method.icon}
             size={24}
-            color={isSelected ? BRAND.primary : colors.textSecondary}
+            color={isSelected ? colors.text : colors.textSecondary}
           />
         )}
       </View>
 
       <View style={styles.methodInfo}>
         <View style={styles.methodTitleRow}>
-          <Text
-            style={[
-              styles.methodLabel,
-              { color: isSelected ? BRAND.primary : colors.text },
-            ]}
-          >
+          <Text style={[styles.methodLabel, { color: colors.text }]}>
             {methodLabel}
           </Text>
           {methodBadge ? (
@@ -94,7 +97,7 @@ export function PaymentMethodOptionRow({
           ) : null}
         </View>
         <Text style={[styles.methodDesc, { color: colors.textSecondary }]}>
-          {isDisabled ? method.disabledReason : methodDescription}
+          {isDisabled ? disabledDescription : methodDescription}
         </Text>
       </View>
 

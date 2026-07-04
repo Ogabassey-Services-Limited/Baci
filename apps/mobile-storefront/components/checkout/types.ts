@@ -10,4 +10,8 @@ export interface ShippingQuote {
   deliveryRange?: string;
   serviceTier?: string;
   isStationPickup?: boolean;
+  stationName?: string;
+  stationAddress?: string;
+  pickupStationName?: string;
+  pickupStationAddress?: string;
 }

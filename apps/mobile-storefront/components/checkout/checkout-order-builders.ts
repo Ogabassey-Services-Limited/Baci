@@ -1,8 +1,12 @@
 import {
+  getPickupStationAddressText,
+  isProviderStationPickupQuote,
+} from '@/components/checkout/checkout-station-pickup';
+import {
   PICKUP_STATION_ADDRESS_LINES,
   PICKUP_STATION_CITY,
   PICKUP_STATION_STATE,
-} from '@/components/checkout/PickupStationCard';
+} from '@/components/checkout/pickup-station.constants';
 import type {
   DeliveryMethod,
   ShippingQuote,
@@ -71,9 +75,17 @@ export function calculateCheckoutAssuranceFee(itemsSnapshot: CartItem[]) {
 
 export function buildOrderShippingAddress(
   address: ShippingAddressInput,
-  deliveryMethod: DeliveryMethod
+  deliveryMethod: DeliveryMethod,
+  selectedQuote?: ShippingQuote
 ): ShippingAddressInput {
   if (deliveryMethod === 'pickup_station') {
+    if (isProviderStationPickupQuote(selectedQuote)) {
+      return {
+        ...address,
+        address: getPickupStationAddressText(selectedQuote),
+      };
+    }
+
     return {
       ...address,
       address: PICKUP_STATION_ADDRESS_LINES.join(', '),
@@ -138,12 +150,20 @@ export function buildCheckoutOrderRequest({
     shipping_fee: snapshot.deliveryFee,
     tax_amount: snapshot.taxAmount,
     selected_quote_id:
-      deliveryMethod === 'door' && selectedQuote?.id != null
+      selectedQuote?.id != null &&
+      ((deliveryMethod === 'door' &&
+        !isProviderStationPickupQuote(selectedQuote)) ||
+        (deliveryMethod === 'pickup_station' &&
+          isProviderStationPickupQuote(selectedQuote)))
         ? String(selectedQuote.id)
         : undefined,
     shipping_provider: shippingProvider,
     payment_method: paymentMethodForOrder,
-    shipping_address: buildOrderShippingAddress(address, deliveryMethod),
+    shipping_address: buildOrderShippingAddress(
+      address,
+      deliveryMethod,
+      selectedQuote
+    ),
     // Intentionally omit expected_total/client_total here: the web order API
     // derives and validates the final payable total at the tax boundary.
     source: 'mobile_app',

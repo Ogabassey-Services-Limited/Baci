@@ -1,8 +1,13 @@
+import {
+  getPickupStationAddressText,
+  getPickupStationLabel,
+  isProviderStationPickupQuote,
+} from '@/components/checkout/checkout-station-pickup';
 import type {
   PaymentMethodType,
   PaymentTab,
 } from '@/components/checkout/PaymentMethodSelector';
-import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/PickupStationCard';
+import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/pickup-station.constants';
 import type {
   DeliveryMethod,
   ShippingQuote,
@@ -34,16 +39,25 @@ export function getDeliveryMethodFee(
   selectedQuote: ShippingQuote | undefined
 ): number {
   if (deliveryMethod === 'airport') return AIRPORT_DELIVERY_FEE;
-  if (deliveryMethod === 'pickup_station') return 0;
-  return selectedQuote?.price ?? 0;
+  if (deliveryMethod === 'pickup_station') {
+    return isProviderStationPickupQuote(selectedQuote)
+      ? selectedQuote.price
+      : 0;
+  }
+  return selectedQuote != null && !isProviderStationPickupQuote(selectedQuote)
+    ? selectedQuote.price
+    : 0;
 }
 
-export function getDeliveryMethodLabel(deliveryMethod: DeliveryMethod): string {
+export function getDeliveryMethodLabel(
+  deliveryMethod: DeliveryMethod,
+  selectedQuote?: ShippingQuote
+): string {
   switch (deliveryMethod) {
     case 'airport':
       return 'Airport Delivery';
     case 'pickup_station':
-      return 'Pick Up Station';
+      return getPickupStationLabel(selectedQuote);
     default:
       return 'Door Delivery';
   }
@@ -58,15 +72,21 @@ export function getDeliveryMethodSummary(
   }
 
   if (deliveryMethod === 'pickup_station') {
-    return PICKUP_STATION_ADDRESS_LINES.join(', ');
+    return isProviderStationPickupQuote(selectedQuote)
+      ? getPickupStationAddressText(selectedQuote)
+      : PICKUP_STATION_ADDRESS_LINES.join(', ');
   }
 
+  const doorQuote =
+    selectedQuote != null && !isProviderStationPickupQuote(selectedQuote)
+      ? selectedQuote
+      : undefined;
   const carrier =
-    selectedQuote?.carrierName || selectedQuote?.provider || DEFAULT_CARRIER;
+    doorQuote?.carrierName || doorQuote?.provider || DEFAULT_CARRIER;
   const eta =
-    selectedQuote?.deliveryRange ||
-    (selectedQuote?.estimatedDays
-      ? `${selectedQuote.estimatedDays} days`
+    doorQuote?.deliveryRange ||
+    (doorQuote?.estimatedDays
+      ? `${doorQuote.estimatedDays} days`
       : 'Delivery estimate shown after selection');
 
   return `${carrier} • ${eta}`;
@@ -76,6 +96,13 @@ export function getShippingProviderForMethod(
   deliveryMethod: DeliveryMethod,
   selectedQuote: ShippingQuote | undefined
 ): string | undefined {
+  if (deliveryMethod === 'pickup_station') {
+    return isProviderStationPickupQuote(selectedQuote)
+      ? selectedQuote.provider || selectedQuote.carrierName
+      : undefined;
+  }
   if (deliveryMethod !== 'door') return undefined;
-  return selectedQuote?.provider || selectedQuote?.carrierName;
+  return selectedQuote != null && !isProviderStationPickupQuote(selectedQuote)
+    ? selectedQuote.provider || selectedQuote.carrierName
+    : undefined;
 }

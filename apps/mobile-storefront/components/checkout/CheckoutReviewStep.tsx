@@ -4,9 +4,13 @@ import { SHADOWS } from '@/constants/Colors';
 import type { ShippingAddressInput } from '@/lib/validation';
 import { type CartItem, formatPrice } from '@/stores/cart-store';
 import { checkoutReviewStyles as styles } from './CheckoutReviewStep.styles';
+import {
+  getPickupStationAddressText,
+  isProviderStationPickupQuote,
+} from './checkout-station-pickup';
 import { getDeliveryMethodLabel } from './checkout-step-helpers';
 import type { PaymentMethodType } from './PaymentMethodSelector';
-import { PICKUP_STATION_ADDRESS_LINES } from './PickupStationCard';
+import { PICKUP_STATION_ADDRESS_LINES } from './pickup-station.constants';
 import type { DeliveryMethod, ShippingQuote } from './types';
 
 const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
@@ -24,10 +28,13 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
 
 function getReviewAddressText(
   address: ShippingAddressInput,
-  deliveryMethod: DeliveryMethod
+  deliveryMethod: DeliveryMethod,
+  selectedQuote?: ShippingQuote
 ) {
   if (deliveryMethod === 'pickup_station') {
-    return PICKUP_STATION_ADDRESS_LINES.join('\n');
+    return isProviderStationPickupQuote(selectedQuote)
+      ? getPickupStationAddressText(selectedQuote, '\n')
+      : PICKUP_STATION_ADDRESS_LINES.join('\n');
   }
 
   if (deliveryMethod === 'airport') {
@@ -115,9 +122,11 @@ export function CheckoutReviewStep({
           </Pressable>
         </View>
         <Text style={[styles.reviewTextStrong, { color: colors.text }]}>
-          {getDeliveryMethodLabel(deliveryMethod)}
+          {getDeliveryMethodLabel(deliveryMethod, selectedQuote)}
         </Text>
-        {selectedQuote && deliveryMethod === 'door' ? (
+        {selectedQuote &&
+        (deliveryMethod === 'door' ||
+          isProviderStationPickupQuote(selectedQuote)) ? (
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
             {selectedQuote.displayName}
             {selectedQuote.deliveryRange || selectedQuote.estimatedDays
@@ -145,7 +154,7 @@ export function CheckoutReviewStep({
           {address.phone}
         </Text>
         <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-          {getReviewAddressText(address, deliveryMethod)}
+          {getReviewAddressText(address, deliveryMethod, selectedQuote)}
         </Text>
       </View>
 

@@ -60,6 +60,21 @@ describe('usePaymentMethodAvailability', () => {
     );
   });
 
+
+
+  it('returns the available method ids across tabs after enabled and hidden filters', () => {
+    const result = usePaymentMethodAvailability({
+      enabledMethods: ['invoice', 'payforme', 'klump'],
+      hiddenMethods: ['payforme'],
+      methodDisabledReasons: {},
+      orderTotal: 100000,
+      selectedMethod: 'invoice',
+      selectedTab: 'pay_later',
+    });
+
+    expect(result.availableMethodIds).toEqual(['klump', 'invoice']);
+  });
+
   it('respects explicit methodDisabledReasons overrides', () => {
     const result = usePaymentMethodAvailability({
       enabledMethods: ['paystack'],

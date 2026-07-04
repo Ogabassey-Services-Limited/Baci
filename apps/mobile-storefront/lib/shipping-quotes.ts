@@ -4,6 +4,7 @@ import type { CartItem } from '@/stores/cart-store';
 export interface ShippingQuoteLike {
   id: string | number;
   price: number | string;
+  isStationPickup?: boolean;
 }
 
 function normalizeShippingQuotePrice(value: number | string): number {
@@ -68,15 +69,27 @@ export function getPreferredShippingQuoteId(
     return '';
   }
 
+  const doorQuotes = quotes.filter((quote) => quote.isStationPickup !== true);
+
+  // Never auto-select a station-pickup quote for door delivery. The fee/order
+  // builders ignore station quotes for door, so auto-selecting one would let a
+  // customer place a door order with no real door quote and a zero shipping fee.
+  // With no door quote, return '' so the customer is forced to pick a station.
+  if (doorQuotes.length === 0) {
+    return '';
+  }
+
   if (
     previousSelectedQuoteId &&
-    quotes.some((quote) => String(quote.id) === String(previousSelectedQuoteId))
+    doorQuotes.some(
+      (quote) => String(quote.id) === String(previousSelectedQuoteId)
+    )
   ) {
     return String(previousSelectedQuoteId);
   }
 
   return String(
-    quotes.reduce((prev, current) =>
+    doorQuotes.reduce((prev, current) =>
       normalizeShippingQuotePrice(prev.price) <=
       normalizeShippingQuotePrice(current.price)
         ? prev
