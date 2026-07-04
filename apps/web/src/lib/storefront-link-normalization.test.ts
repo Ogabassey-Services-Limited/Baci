@@ -73,6 +73,77 @@ describe('normalizeStorefrontContentHref', () => {
     ).toBe('/accessories');
   });
 
+  it('collapses the /categories/<slug> alias to a category page', () => {
+    expect(
+      normalizeStorefrontContentHref('/categories/smartphones', {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('/smartphones');
+  });
+
+  it('collapses bare /categories and /categories/ links to the products index', () => {
+    expect(
+      normalizeStorefrontContentHref('/categories', {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('/products');
+
+    expect(
+      normalizeStorefrontContentHref('/categories/', {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('/products');
+  });
+
+  it('collapses WordPress-era /categories/product/ links to the products index like /category/', () => {
+    expect(
+      normalizeStorefrontContentHref('/categories/product/iphone-15', {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('/products');
+  });
+
+  it('normalizes legacy category aliases under the /categories/ alias path', () => {
+    expect(
+      normalizeStorefrontContentHref('/categories/phones', {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('/smartphones');
+  });
+
+  it('normalizes /categories/<slug>/<product-slug> links on absolute custom-domain urls', () => {
+    expect(
+      normalizeStorefrontContentHref(
+        'https://www.ogabassey.com/categories/phones/iphone-15',
+        {
+          basePath: '',
+          baseUrl: 'https://ogabassey.com',
+          merchantSlug: 'ogabassey',
+        }
+      )
+    ).toBe('/smartphones/iphone-15');
+  });
+
+  it('collapses legacy merchant-prefixed /categories/ links in path-mode storefronts', () => {
+    expect(
+      normalizeStorefrontContentHref('/ogabassey/categories/phones/iphone-15', {
+        basePath: '/ogabassey',
+        baseUrl: 'https://usebaci.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('/ogabassey/smartphones/iphone-15');
+  });
+
   it('normalizes legacy /phone links to smartphones and preserves non-tracking params', () => {
     expect(
       normalizeStorefrontContentHref('/phone/iphone-15?ref=home#details', {

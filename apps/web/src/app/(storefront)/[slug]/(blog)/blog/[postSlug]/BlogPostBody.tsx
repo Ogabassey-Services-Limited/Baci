@@ -9,8 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { removeDuplicateLegacyFeaturedImage } from '@/lib/blog-legacy-featured-image-dedupe';
+import { rewriteStorefrontContentHref } from '@/lib/storefront-content-link-rewriting';
+import { isDeadStorefrontContentHref } from '@/lib/storefront-content-link-targets';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { BlogVideoPanel } from './BlogVideoPanel';
+import { resolveContentLinks } from './blog-content-link-resolution';
 import { buildBlogUrl, resolveBlogPostContent } from './blog-post-content';
 
 export interface BlogPostBodyProps {
@@ -18,6 +21,7 @@ export interface BlogPostBodyProps {
   baseUrl: string;
   content: unknown;
   locale?: string;
+  merchantId?: string;
   merchantSlug: string;
   postUrl?: string;
   post: {
@@ -60,6 +64,7 @@ export async function BlogPostBody({
   baseUrl,
   content,
   locale,
+  merchantId,
   merchantSlug,
   post,
   postUrl,
@@ -72,13 +77,39 @@ export async function BlogPostBody({
   // image. Keep body images lazy so the page never emits two high-priority image
   // candidates for the same viewport.
   const hasPreloadedHeroImage = true;
+  const { deadContentLinks, rewrites } = await resolveContentLinks(
+    content,
+    merchantId,
+    merchantSlug,
+    baseUrl
+  );
+  const deadBlogSlugs = new Set(deadContentLinks.blog);
+  const deadProductSlugs = new Set(deadContentLinks.products);
+  const hasDeadContentLinks =
+    deadBlogSlugs.size > 0 || deadProductSlugs.size > 0;
+  const hasContentLinkRewrites =
+    Object.keys(rewrites.blogSlugs).length > 0 ||
+    Object.keys(rewrites.productPaths).length > 0;
+
   const { isJson, legacyHtml, legacyPriorityImageSources, renderedContent } =
     await resolveBlogPostContent(content, {
       basePath,
       baseUrl,
       fallbackImageAlt: post.title,
       hasPreloadedHeroImage,
+      isDeadHref:
+        hasDeadContentLinks || hasContentLinkRewrites
+          ? (href) =>
+              isDeadStorefrontContentHref(href, {
+                basePath,
+                deadBlogSlugs,
+                deadProductSlugs,
+              })
+          : undefined,
       merchantSlug,
+      rewriteHref: hasContentLinkRewrites
+        ? (href) => rewriteStorefrontContentHref(href, { basePath, rewrites })
+        : undefined,
     });
   const shareUrl = postUrl || buildBlogUrl(baseUrl, basePath, post.slug);
   const safeRelatedProducts = relatedProducts.flatMap((product) => {
@@ -113,6 +144,10 @@ export async function BlogPostBody({
             json={renderedContent}
             basePath={basePath}
             baseUrl={baseUrl}
+            contentLinkRewrites={hasContentLinkRewrites ? rewrites : undefined}
+            deadContentLinks={
+              hasDeadContentLinks ? deadContentLinks : undefined
+            }
             merchantSlug={merchantSlug}
             priorityInlineImageSrc={hasPreloadedHeroImage ? null : undefined}
           />

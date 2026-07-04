@@ -155,4 +155,53 @@ describe('rewriteHtmlStorefrontHrefs', () => {
       '<p><a href="/store/smartphones/iphone-13-pro-6gb-256gb">iPhone</a></p>'
     );
   });
+
+  it('normalizes unquoted absolute same-site hrefs and re-emits them quoted', () => {
+    const html =
+      '<p><a href=https://ogabassey.com/blog/draft-post>Post</a> and <a href=/phones/iphone-15>Phone</a></p>';
+
+    const result = rewriteHtmlStorefrontHrefs(html, {
+      baseUrl: 'https://ogabassey.com',
+      merchantSlug: 'ogabassey',
+    });
+
+    expect(result).toContain('href="/blog/draft-post"');
+    expect(result).toContain('href="/smartphones/iphone-15"');
+    expect(result).not.toContain('href=https://');
+  });
+
+  it('leaves quoted hrefs untouched by the unquoted pass', () => {
+    const html = '<a href="/blog/kept-post">Kept</a>';
+
+    const result = rewriteHtmlStorefrontHrefs(html, {
+      baseUrl: 'https://ogabassey.com',
+      merchantSlug: 'ogabassey',
+    });
+
+    expect(result).toBe('<a href="/blog/kept-post">Kept</a>');
+  });
+
+  it('does not rewrite href-shaped text inside other attribute values or text content', () => {
+    const html =
+      '<a title="see href=/phones/x" href=/blog/dead-draft>Post</a>' +
+      '<code>href=/phones/inline-example</code>';
+
+    const result = rewriteHtmlStorefrontHrefs(html, {
+      baseUrl: 'https://ogabassey.com',
+      merchantSlug: 'ogabassey',
+    });
+
+    expect(result).toContain('title="see href=/phones/x"');
+    expect(result).toContain('href="/blog/dead-draft"');
+    expect(result).toContain('<code>href=/phones/inline-example</code>');
+  });
+
+  it('preserves single-quote style when rewriting quoted hrefs', () => {
+    const result = rewriteHtmlStorefrontHrefs(
+      "<a href='/phones/iphone-15'>Phone</a>",
+      { baseUrl: 'https://ogabassey.com', merchantSlug: 'ogabassey' }
+    );
+
+    expect(result).toBe("<a href='/smartphones/iphone-15'>Phone</a>");
+  });
 });

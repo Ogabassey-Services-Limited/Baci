@@ -11,8 +11,11 @@ import {
 import { generateHeadingId } from '@/lib/blog-utils';
 import { logger } from '@/lib/logger';
 import { sanitizeUrl } from '@/lib/sanitize-core';
+import type { StorefrontContentLinkRewrites } from '@/lib/storefront-content-link-rewriting';
+import type { DeadStorefrontContentLinkSlugs } from '@/lib/storefront-content-link-targets';
 import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
 import { cn } from '@/lib/utils';
+import { resolveRenderedInternalLink } from './resolve-rendered-internal-link';
 
 const lowlight = createLowlight(common);
 
@@ -63,9 +66,16 @@ interface TipTapNode {
   text?: string;
 }
 
+interface DeadContentLinkSets {
+  blog: ReadonlySet<string>;
+  products: ReadonlySet<string>;
+}
+
 interface NodeRendererProps {
   basePath?: string;
   baseUrl?: string;
+  contentLinkRewrites?: StorefrontContentLinkRewrites;
+  deadContentLinkSets?: DeadContentLinkSets;
   merchantSlug?: string;
   node: TipTapNode;
   nodePath: string;
@@ -76,6 +86,17 @@ interface NodeRendererProps {
 interface BlogContentRendererProps {
   basePath?: string;
   baseUrl?: string;
+  /**
+   * Canonical replacements for internal links that resolve through permanent
+   * redirects (renamed posts, consolidated/re-categorized products). Matching
+   * hrefs are rewritten in place. Applied before the dead-link check.
+   */
+  contentLinkRewrites?: StorefrontContentLinkRewrites;
+  /**
+   * Internal blog/product slugs known to be dead (unpublished posts, missing
+   * products). Links resolving to them render as plain text instead of 404s.
+   */
+  deadContentLinks?: DeadStorefrontContentLinkSlugs;
   // biome-ignore lint/suspicious/noExplicitAny: TipTap library returns any type
   json: any;
   merchantSlug?: string;
@@ -91,11 +112,15 @@ const TextRenderer = ({
   node,
   basePath,
   baseUrl,
+  contentLinkRewrites,
+  deadContentLinkSets,
   merchantSlug,
 }: {
   node: TipTapNode;
   basePath?: string;
   baseUrl?: string;
+  contentLinkRewrites?: StorefrontContentLinkRewrites;
+  deadContentLinkSets?: DeadContentLinkSets;
   merchantSlug?: string;
 }) => {
   if (!node.text) return null;
@@ -149,29 +174,36 @@ const TextRenderer = ({
             normalizedHref.startsWith('/') && !normalizedHref.startsWith('//');
           const isAnchor = normalizedHref.startsWith('#');
 
+          const { href: resolvedHref, isDead: isDeadInternal } =
+            resolveRenderedInternalLink(normalizedHref, {
+              basePath,
+              contentLinkRewrites,
+              deadBlogSlugs: deadContentLinkSets?.blog,
+              deadProductSlugs: deadContentLinkSets?.products,
+            });
+
           const safeHref =
-            isRelative || isAnchor
-              ? normalizedHref
-              : sanitizeUrl(normalizedHref);
+            isRelative || isAnchor ? resolvedHref : sanitizeUrl(resolvedHref);
 
           const isExternal =
             !!safeHref && !isRelative && !isAnchor && !safeHref.startsWith('/');
 
-          content = safeHref ? (
-            // Use anchor tag for user-generated URLs
-            <a
-              key={mark.type}
-              href={safeHref}
-              target={isExternal ? mark.attrs?.target || '_blank' : undefined}
-              rel={isExternal ? 'noopener noreferrer' : undefined}
-              className="text-primary underline underline-offset-4 decoration-primary/30 hover:text-primary/80"
-            >
-              {content}
-            </a>
-          ) : (
-            // Render as plain text if URL is invalid/malicious (e.g. "javascript:")
-            <span key={mark.type}>{content}</span>
-          );
+          content =
+            safeHref && !isDeadInternal ? (
+              // Use anchor tag for user-generated URLs
+              <a
+                key={mark.type}
+                href={safeHref}
+                target={isExternal ? mark.attrs?.target || '_blank' : undefined}
+                rel={isExternal ? 'noopener noreferrer' : undefined}
+                className="text-primary underline underline-offset-4 decoration-primary/30 hover:text-primary/80"
+              >
+                {content}
+              </a>
+            ) : (
+              // Render as plain text if URL is invalid/malicious (e.g. "javascript:")
+              <span key={mark.type}>{content}</span>
+            );
           break;
         }
         case 'textStyle':
@@ -211,6 +243,8 @@ function getBlogBodyHeadingLevel(sourceLevel: number): 2 | 3 | 4 | 5 | 6 {
 const NodeRenderer = ({
   basePath,
   baseUrl,
+  contentLinkRewrites,
+  deadContentLinkSets,
   merchantSlug,
   node,
   nodePath,
@@ -223,6 +257,8 @@ const NodeRenderer = ({
       key={`${child.type}-${i}`}
       basePath={basePath}
       baseUrl={baseUrl}
+      contentLinkRewrites={contentLinkRewrites}
+      deadContentLinkSets={deadContentLinkSets}
       merchantSlug={merchantSlug}
       node={child}
       nodePath={`${nodePath}.${i}`}
@@ -454,6 +490,8 @@ const NodeRenderer = ({
           node={node}
           basePath={basePath}
           baseUrl={baseUrl}
+          contentLinkRewrites={contentLinkRewrites}
+          deadContentLinkSets={deadContentLinkSets}
           merchantSlug={merchantSlug}
         />
       );
@@ -542,6 +580,8 @@ export const BlogContentRenderer = ({
   json,
   basePath,
   baseUrl,
+  contentLinkRewrites,
+  deadContentLinks,
   merchantSlug,
   priorityInlineImageSrc,
 }: BlogContentRendererProps) => {
@@ -558,11 +598,29 @@ export const BlogContentRenderer = ({
       ? null
       : findFirstTrustedInlineImage(parsed.doc, '0', priorityInlineImageSrc);
 
+  const hasDeadContentLinks =
+    !!deadContentLinks &&
+    (deadContentLinks.blog.length > 0 || deadContentLinks.products.length > 0);
+  const deadContentLinkSets = hasDeadContentLinks
+    ? {
+        blog: new Set(deadContentLinks.blog),
+        products: new Set(deadContentLinks.products),
+      }
+    : undefined;
+  const hasContentLinkRewrites =
+    !!contentLinkRewrites &&
+    (Object.keys(contentLinkRewrites.blogSlugs).length > 0 ||
+      Object.keys(contentLinkRewrites.productPaths).length > 0);
+
   return (
     <div className="blog-content-renderer prose dark:prose-invert prose-baci max-w-none text-foreground">
       <NodeRenderer
         basePath={basePath}
         baseUrl={baseUrl}
+        contentLinkRewrites={
+          hasContentLinkRewrites ? contentLinkRewrites : undefined
+        }
+        deadContentLinkSets={deadContentLinkSets}
         merchantSlug={merchantSlug}
         node={parsed.doc}
         nodePath="0"

@@ -9,11 +9,14 @@ export { wrapTrustedCdnInlineImagesInPicture } from './blog-trusted-cdn-inline-i
 
 import { sanitizeHtml } from '@/lib/sanitize';
 import { buildStoreUrl } from '@/lib/store-url';
+import { unwrapDeadHtmlAnchors } from '@/lib/storefront-html-anchor-unwrapping';
 import { rewriteHtmlStorefrontHrefs } from '@/lib/storefront-html-link-rewriting';
 import {
   type NormalizeStorefrontContentHrefOptions,
   normalizeStorefrontContentHref,
 } from '@/lib/storefront-link-normalization';
+import { stringifyBlogContent } from '@/lib/stringify-blog-content';
+import { normalizeBlogContentLinks } from './blog-content-link-mark-normalization';
 import {
   ensureBlogImageAltText,
   transformImageTitlesToFigureCaptions,
@@ -116,95 +119,6 @@ function tryParseJson(content: unknown): unknown | null {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function stripNofollowToken(rel: string): string {
-  return rel
-    .split(/\s+/)
-    .filter((token) => token && token.toLowerCase() !== 'nofollow')
-    .join(' ');
-}
-
-function normalizeBlogContentLinkMark(
-  mark: unknown,
-  options: NormalizeStorefrontContentHrefOptions
-): unknown {
-  if (!isRecord(mark) || mark.type !== 'link' || !isRecord(mark.attrs)) {
-    return mark;
-  }
-
-  const rawHref = mark.attrs.href;
-  if (typeof rawHref !== 'string') {
-    return mark;
-  }
-
-  const normalizedHref = normalizeStorefrontContentHref(rawHref, options);
-  const nextAttrs: Record<string, unknown> = { ...mark.attrs };
-  let changed = false;
-
-  if (normalizedHref !== rawHref) {
-    nextAttrs.href = normalizedHref;
-    changed = true;
-  }
-
-  if (typeof nextAttrs.rel === 'string') {
-    const normalizedRel = stripNofollowToken(nextAttrs.rel);
-    if (normalizedRel) {
-      if (normalizedRel !== nextAttrs.rel) {
-        nextAttrs.rel = normalizedRel;
-        changed = true;
-      }
-    } else {
-      delete nextAttrs.rel;
-      changed = true;
-    }
-  }
-
-  return changed ? { ...mark, attrs: nextAttrs } : mark;
-}
-
-function normalizeBlogContentLinks(
-  content: unknown,
-  options: NormalizeStorefrontContentHrefOptions
-): unknown {
-  if (!isRecord(content)) {
-    return content;
-  }
-
-  const nextContent: Record<string, unknown> = { ...content };
-  let changed = false;
-
-  if (Array.isArray(content.content)) {
-    const normalizedChildren = content.content.map((child) => {
-      const normalizedChild = normalizeBlogContentLinks(child, options);
-      changed ||= normalizedChild !== child;
-      return normalizedChild;
-    });
-
-    if (changed) {
-      nextContent.content = normalizedChildren;
-    }
-  }
-
-  if (Array.isArray(content.marks)) {
-    let marksChanged = false;
-    const normalizedMarks = content.marks.map((mark) => {
-      const normalizedMark = normalizeBlogContentLinkMark(mark, options);
-      marksChanged ||= normalizedMark !== mark;
-      return normalizedMark;
-    });
-
-    if (marksChanged) {
-      nextContent.marks = normalizedMarks;
-      changed = true;
-    }
-  }
-
-  return changed ? nextContent : content;
-}
-
 type ResolveBlogPostContentOptions = NormalizeStorefrontContentHrefOptions & {
   fallbackImageAlt?: string | null;
   /**
@@ -213,18 +127,26 @@ type ResolveBlogPostContentOptions = NormalizeStorefrontContentHrefOptions & {
    * lazy so browsers receive a single high-priority image candidate per page.
    */
   hasPreloadedHeroImage?: boolean;
+  /**
+   * When provided, anchors whose normalized href is reported dead (e.g. blog
+   * posts still in draft, products that don't exist) are unwrapped to plain
+   * text instead of rendering a 404 link.
+   */
+  isDeadHref?: (href: string) => boolean;
+  /**
+   * When provided, anchors whose href resolves through a permanent redirect
+   * (renamed posts, consolidated/re-categorized products) are rewritten to the
+   * canonical target instead of emitting a redirecting link. Runs before
+   * isDeadHref.
+   */
+  rewriteHref?: (href: string) => string | null;
 };
 
 export async function resolveBlogPostContent(
   content: unknown,
   options: ResolveBlogPostContentOptions = {}
 ) {
-  const contentStr =
-    typeof content === 'string'
-      ? content
-      : content && typeof content === 'object'
-        ? JSON.stringify(content)
-        : '';
+  const contentStr = stringifyBlogContent(content);
   const trimmedContent = contentStr.trim();
   const parsedJson = tryParseJson(content);
   const rawRenderedContent =
@@ -244,7 +166,27 @@ export async function resolveBlogPostContent(
   if (!isJson) {
     const rawHtml = isHtml ? contentStr : await marked(contentStr || '');
     const rewrittenHtml = rewriteHtmlStorefrontHrefs(rawHtml, options);
-    const sanitizedHtml = sanitizeHtml(rewrittenHtml, {
+    // Normalize each anchor's href before the callbacks: the checks match
+    // root-relative paths. rewriteHtmlStorefrontHrefs already normalizes
+    // quoted AND unquoted hrefs tag-by-tag, so this is defense-in-depth for
+    // any anchor shape that pass misses — normalization is idempotent.
+    const normalizeCallbackHref = (href: string) =>
+      normalizeStorefrontContentHref(href, options);
+    const liveLinkHtml =
+      options.isDeadHref || options.rewriteHref
+        ? unwrapDeadHtmlAnchors(
+            rewrittenHtml,
+            options.isDeadHref
+              ? (href) =>
+                  options.isDeadHref?.(normalizeCallbackHref(href)) ?? false
+              : () => false,
+            options.rewriteHref
+              ? (href) =>
+                  options.rewriteHref?.(normalizeCallbackHref(href)) ?? null
+              : undefined
+          )
+        : rewrittenHtml;
+    const sanitizedHtml = sanitizeHtml(liveLinkHtml, {
       stripNofollowFromLinks: true,
     });
     const legacyImageSafeHtml =

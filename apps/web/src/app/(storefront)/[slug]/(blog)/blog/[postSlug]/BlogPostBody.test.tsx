@@ -3,9 +3,11 @@ import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BlogPostBody } from './BlogPostBody';
 
-const { mockResolveBlogPostContent } = vi.hoisted(() => ({
-  mockResolveBlogPostContent: vi.fn(),
-}));
+const { mockGetCachedDeadContentLinkSlugs, mockResolveBlogPostContent } =
+  vi.hoisted(() => ({
+    mockGetCachedDeadContentLinkSlugs: vi.fn(),
+    mockResolveBlogPostContent: vi.fn(),
+  }));
 
 vi.mock('next/link', () => ({
   default: ({ children, ...props }: { children: ReactNode; href: string }) => (
@@ -45,8 +47,18 @@ vi.mock('./blog-post-content', async () => {
   };
 });
 
+vi.mock('@/lib/cached-dead-content-links', () => ({
+  getCachedDeadContentLinkSlugs: mockGetCachedDeadContentLinkSlugs,
+}));
+vi.mock('@/lib/cached-content-link-rewrites', () => ({
+  getCachedContentLinkRewrites: vi
+    .fn()
+    .mockResolvedValue({ blogSlugs: {}, productPaths: {} }),
+}));
+
 describe('BlogPostBody', () => {
   afterEach(() => {
+    mockGetCachedDeadContentLinkSlugs.mockReset();
     mockResolveBlogPostContent.mockReset();
   });
 
@@ -484,5 +496,122 @@ describe('BlogPostBody', () => {
     expect(
       screen.queryByRole('heading', { name: /popular products mentioned/i })
     ).not.toBeInTheDocument();
+  });
+
+  describe('dead content link unwrapping', () => {
+    it('does not attempt dead-link resolution when merchantId is not provided', async () => {
+      mockResolveBlogPostContent.mockResolvedValue({
+        isJson: false,
+        legacyHtml: '<p><a href="/blog/draft-post">Draft Post</a></p>',
+        renderedContent: null,
+      });
+
+      render(
+        await BlogPostBody({
+          basePath: '/ogabassey',
+          baseUrl: 'https://usebaci.com',
+          content: '<p><a href="/blog/draft-post">Draft Post</a></p>',
+          merchantSlug: 'ogabassey',
+          post: {
+            id: 'post-1',
+            slug: 'my-post',
+            tags: null,
+            title: 'My Post',
+          },
+          relatedProducts: [],
+          relatedPosts: [],
+        })
+      );
+
+      expect(mockGetCachedDeadContentLinkSlugs).not.toHaveBeenCalled();
+      expect(
+        screen.getByRole('link', { name: 'Draft Post' })
+      ).toBeInTheDocument();
+    });
+
+    it('unwraps a dead /blog/x link in legacy HTML content while keeping live links', async () => {
+      const actual = await vi.importActual<
+        typeof import('./blog-post-content')
+      >('./blog-post-content');
+      mockResolveBlogPostContent.mockImplementation(
+        actual.resolveBlogPostContent
+      );
+      mockGetCachedDeadContentLinkSlugs.mockResolvedValue({
+        blog: ['draft-post'],
+        products: [],
+      });
+
+      render(
+        await BlogPostBody({
+          basePath: '/ogabassey',
+          baseUrl: 'https://usebaci.com',
+          content:
+            '<p><a href="/blog/draft-post">Draft Post</a> <a href="/blog/live-post">Live Post</a></p>',
+          merchantId: 'merchant-1',
+          merchantSlug: 'ogabassey',
+          post: {
+            id: 'post-1',
+            slug: 'my-post',
+            tags: null,
+            title: 'My Post',
+          },
+          relatedProducts: [],
+          relatedPosts: [],
+        })
+      );
+
+      expect(mockGetCachedDeadContentLinkSlugs).toHaveBeenCalledWith(
+        'merchant-1',
+        ['draft-post', 'live-post'],
+        []
+      );
+      expect(
+        screen.queryByRole('link', { name: 'Draft Post' })
+      ).not.toBeInTheDocument();
+      expect(screen.getByText('Draft Post')).toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: 'Live Post' })
+      ).toBeInTheDocument();
+    });
+
+    it('fails open (keeps all links) when the dead-content-link loader rejects', async () => {
+      const actual = await vi.importActual<
+        typeof import('./blog-post-content')
+      >('./blog-post-content');
+      mockResolveBlogPostContent.mockImplementation(
+        actual.resolveBlogPostContent
+      );
+      mockGetCachedDeadContentLinkSlugs.mockRejectedValue(
+        new Error('cache backend down')
+      );
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected error log noise
+        .mockImplementation(() => {});
+
+      render(
+        await BlogPostBody({
+          basePath: '/ogabassey',
+          baseUrl: 'https://usebaci.com',
+          content: '<p><a href="/blog/draft-post">Draft Post</a></p>',
+          merchantId: 'merchant-1',
+          merchantSlug: 'ogabassey',
+          post: {
+            id: 'post-1',
+            slug: 'my-post',
+            tags: null,
+            title: 'My Post',
+          },
+          relatedProducts: [],
+          relatedPosts: [],
+        })
+      );
+
+      expect(
+        screen.getByRole('link', { name: 'Draft Post' })
+      ).toBeInTheDocument();
+
+      consoleErrorSpy.mockRestore();
+    });
   });
 });

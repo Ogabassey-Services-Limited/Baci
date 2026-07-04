@@ -22,6 +22,7 @@ const INTERNAL_STOREFRONT_SEGMENTS = new Set<string>([
   'products',
   'blog',
   'category',
+  'categories',
   'product-category',
   // Canonical values
   ...Object.values(STOREFRONT_CATEGORY_ALIASES),
@@ -143,6 +144,33 @@ function collapseLegacyMerchantPrefix(
   return INTERNAL_STOREFRONT_PREFIX.test(remainder) ? remainder : pathname;
 }
 
+// Shared rewrite for the legacy `/category/...` and `/categories/...` listing
+// shapes: both collapse to the canonical `/<category>` path (or `/products`
+// when no category remains or a WordPress-era `product/` segment follows).
+function rewriteLegacyCategoryListingPath(
+  normalizedPath: string,
+  prefix: '/category' | '/categories'
+): string | null {
+  if (normalizedPath !== prefix && !normalizedPath.startsWith(`${prefix}/`)) {
+    return null;
+  }
+
+  const remainder = normalizedPath
+    .slice(`${prefix}/`.length)
+    .replace(/^\/+|\/+$/g, '');
+
+  if (!remainder || remainder.startsWith('product/')) {
+    return '/products';
+  }
+
+  const [categorySlug, ...rest] = remainder.split('/');
+  const normalizedCategorySlug =
+    normalizeStorefrontCategorySlug(categorySlug) || categorySlug;
+  return rest.length
+    ? `/${normalizedCategorySlug}/${rest.join('/')}`
+    : `/${normalizedCategorySlug}`;
+}
+
 function normalizeInternalStorefrontPath(
   pathname: string,
   merchantIdentifier: string | null
@@ -196,24 +224,14 @@ function normalizeInternalStorefrontPath(
     return rest.length ? `${categoryPath}/${rest.join('/')}` : categoryPath;
   }
 
-  if (
-    normalizedPath === '/category' ||
-    normalizedPath.startsWith('/category/')
-  ) {
-    const remainder = normalizedPath
-      .slice('/category/'.length)
-      .replace(/^\/+|\/+$/g, '');
-
-    if (!remainder || remainder.startsWith('product/')) {
-      return '/products';
+  for (const legacyCategoryPrefix of ['/category', '/categories'] as const) {
+    const rewrittenCategoryPath = rewriteLegacyCategoryListingPath(
+      normalizedPath,
+      legacyCategoryPrefix
+    );
+    if (rewrittenCategoryPath !== null) {
+      return rewrittenCategoryPath;
     }
-
-    const [categorySlug, ...rest] = remainder.split('/');
-    const normalizedCategorySlug =
-      normalizeStorefrontCategorySlug(categorySlug) || categorySlug;
-    return rest.length
-      ? `/${normalizedCategorySlug}/${rest.join('/')}`
-      : `/${normalizedCategorySlug}`;
   }
 
   if (
