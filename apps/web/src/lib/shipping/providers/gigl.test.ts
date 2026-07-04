@@ -8,7 +8,7 @@ describe('GiglProvider orchestrator', () => {
       code: 'GIGL',
       displayName: 'GIG Logistics',
       supportsDomestic: true,
-      supportsInternational: false,
+      supportsInternational: true,
     });
   });
 

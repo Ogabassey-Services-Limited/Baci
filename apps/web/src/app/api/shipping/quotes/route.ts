@@ -12,7 +12,6 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
 import { hasPermission } from '@/lib/api-auth';
 import {
   getMerchantForApiRequest,
@@ -22,57 +21,7 @@ import { shippingService } from '@/lib/shipping';
 import { deriveMerchantLocation } from '@/lib/shipping/order-shipment-booking-utils';
 import type { QuoteRequest } from '@/lib/shipping/types';
 import { createAdminClient } from '@/lib/supabase/admin';
-
-// =============================================================================
-// REQUEST VALIDATION
-// =============================================================================
-
-const QuoteRequestSchema = z.object({
-  // Receiver info (required)
-  receiver: z.object({
-    name: z.string().min(1),
-    email: z.email().optional(),
-    phone: z.string().optional(), // Optional for quote calculation, required for actual booking
-    address: z.string().min(1),
-    city: z.string().min(1),
-    state: z.string().min(1),
-    country: z.string().default('Nigeria'),
-    countryCode: z.string().default('NG'),
-    postalCode: z.string().optional(),
-    stationId: z.number().optional(),
-  }),
-  // Sender info (optional - uses merchant address)
-  sender: z
-    .object({
-      name: z.string().min(1),
-      email: z.email().optional(),
-      phone: z.string().min(1),
-      address: z.string().min(1),
-      city: z.string().min(1),
-      state: z.string().min(1),
-      country: z.string().default('Nigeria'),
-      countryCode: z.string().default('NG'),
-      postalCode: z.string().optional(),
-      stationId: z.number().optional(),
-    })
-    .optional(),
-  // Items (required)
-  items: z
-    .array(
-      z.object({
-        name: z.string().min(1),
-        quantity: z.number().int().positive(),
-        weight: z.number().positive(),
-        value: z.number().nonnegative(),
-        category: z.string().optional(),
-      })
-    )
-    .min(1),
-  // Session ID for quote caching
-  sessionId: z.string().optional(),
-  // Shipment type
-  shipmentType: z.enum(['domestic', 'international']).default('domestic'),
-});
+import { QuoteRequestSchema } from '@/schemas/shipping';
 
 // =============================================================================
 // POST /api/shipping/quotes - Get shipping quotes

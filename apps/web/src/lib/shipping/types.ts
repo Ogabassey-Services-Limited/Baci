@@ -43,6 +43,9 @@ export interface ShipmentItem {
   value: number; // Naira
   category?: string; // For Topship categories
   hsCode?: string; // For international shipments
+  length?: number; // cm, for international volumetric pricing
+  width?: number; // cm, for international volumetric pricing
+  height?: number; // cm, for international volumetric pricing
   description?: string;
 }
 

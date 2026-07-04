@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { SelfFulfillmentSchema, SelfFulfillmentUpdateSchema } from './shipping';
+import {
+  BookingRequestSchema,
+  QuoteRequestSchema,
+  SelfFulfillmentSchema,
+  SelfFulfillmentUpdateSchema,
+} from './shipping';
 
 const ORDER_ID = '123e4567-e89b-12d3-a456-426614174000';
 
@@ -49,5 +54,151 @@ describe('SelfFulfillmentUpdateSchema dispatchPhone (optional rider number)', ()
       dispatchPhone: '0803',
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('BookingRequestSchema international item metadata', () => {
+  it('preserves customs and package dimensions for provider payloads', () => {
+    const result = BookingRequestSchema.safeParse({
+      orderId: ORDER_ID,
+      carrierId: 'GIGL',
+      quoteId: ORDER_ID,
+      receiver: {
+        name: 'Jane Receiver',
+        phone: '+14165550123',
+        address: '123 Queen Street West',
+        city: 'Toronto',
+        state: 'Ontario',
+        country: 'Canada',
+        countryCode: 'CA',
+        postalCode: 'M5V 3L9',
+      },
+      items: [
+        {
+          name: 'Phone',
+          quantity: 1,
+          weight: 1,
+          value: 100_000,
+          hsCode: '851712',
+          length: 10,
+          width: 8,
+          height: 6,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.items[0]).toMatchObject({
+      hsCode: '851712',
+      length: 10,
+      width: 8,
+      height: 6,
+    });
+  });
+
+  it('rejects invalid package dimensions before provider booking', () => {
+    const result = BookingRequestSchema.safeParse({
+      orderId: ORDER_ID,
+      carrierId: 'GIGL',
+      quoteId: ORDER_ID,
+      receiver: {
+        name: 'Jane Receiver',
+        phone: '+14165550123',
+        address: '123 Queen Street West',
+        city: 'Toronto',
+        state: 'Ontario',
+        country: 'Canada',
+        countryCode: 'CA',
+      },
+      items: [
+        {
+          name: 'Phone',
+          quantity: 1,
+          weight: 1,
+          value: 100_000,
+          length: -10,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('QuoteRequestSchema international item metadata', () => {
+  it('preserves customs and package dimensions for provider quote payloads', () => {
+    const result = QuoteRequestSchema.safeParse({
+      shipmentType: 'international',
+      receiver: {
+        name: 'Jane Receiver',
+        address: '123 Queen Street West',
+        city: 'Toronto',
+        state: 'Ontario',
+        country: 'Canada',
+        countryCode: 'CA',
+        postalCode: 'M5V 3L9',
+      },
+      sender: {
+        name: 'Ogabassey',
+        phone: '08034444444',
+        address: 'Lagos',
+        city: 'Lagos',
+        state: 'Lagos',
+        country: 'Nigeria',
+        countryCode: 'NG',
+      },
+      items: [
+        {
+          name: 'Phone',
+          quantity: 1,
+          weight: 1,
+          value: 100_000,
+          hsCode: '851712',
+          length: 10,
+          width: 8,
+          height: 6,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.items[0]).toMatchObject({
+      hsCode: '851712',
+      length: 10,
+      width: 8,
+      height: 6,
+    });
+  });
+
+  it('requires sender and explicit destination country for international quotes', () => {
+    const result = QuoteRequestSchema.safeParse({
+      shipmentType: 'international',
+      receiver: {
+        name: 'Jane Receiver',
+        address: '123 Queen Street West',
+        city: 'Toronto',
+        state: 'Ontario',
+      },
+      items: [
+        {
+          name: 'Phone',
+          quantity: 1,
+          weight: 1,
+          value: 100_000,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues.map((issue) => issue.path.join('.'))).toEqual(
+      expect.arrayContaining([
+        'sender',
+        'receiver.country',
+        'receiver.countryCode',
+      ])
+    );
   });
 });

@@ -49,6 +49,16 @@ const station = z
   })
   .loose();
 
+const country = z
+  .object({
+    CountryId: z.number(),
+    CountryName: optionalStringSchema,
+    CountryCode: optionalStringSchema,
+    CountryShortCode: optionalStringSchema,
+    IsInternationalShippingCountry: z.boolean().optional(),
+  })
+  .loose();
+
 const priceData = z
   .object({
     GrandTotal: z.number().positive(),
@@ -62,9 +72,49 @@ const priceData = z
   })
   .loose();
 
+const internationalPriceRate = z
+  .object({
+    GrandTotal: z.number().positive(),
+    Amount: optionalNumberSchema,
+    Currency: optionalStringSchema,
+    LogisticCompany: optionalNumberSchema,
+    ShipmentMethod: optionalNumberSchema,
+    DeliveryType: optionalNumberSchema,
+    EstimatedDeliveryDateAndTime: optionalStringSchema,
+    DeclaredValue: optionalNumberSchema,
+  })
+  .loose();
+
 const bookingData = z
   .object({
     Waybill: z.string().min(1),
+  })
+  .loose();
+
+const internationalBookingData = z
+  .object({
+    Waybill: optionalStringSchema,
+    WaybillNumber: optionalStringSchema,
+    waybill: optionalStringSchema,
+    RequestNumber: optionalStringSchema,
+    requestNumber: optionalStringSchema,
+  })
+  .loose()
+  .refine(
+    (data) =>
+      [
+        data.Waybill,
+        data.WaybillNumber,
+        data.waybill,
+        data.RequestNumber,
+        data.requestNumber,
+      ].some((value) => value?.trim()),
+    { message: 'Booking response is missing a waybill or request number' }
+  );
+
+const invoiceData = z
+  .object({
+    WaybillLabel: z.string().min(1),
   })
   .loose();
 
@@ -102,8 +152,12 @@ export const giglSchemas = {
   loginData,
   station,
   stationsData: z.array(station),
+  countryData: z.array(country),
   priceData,
+  internationalPriceData: z.array(internationalPriceRate),
   bookingData,
+  internationalBookingData,
+  invoiceData,
   trackingEvent,
   trackingShipment,
   trackingData: z.array(trackingShipment),
