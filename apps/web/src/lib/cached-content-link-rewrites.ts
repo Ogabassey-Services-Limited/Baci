@@ -106,15 +106,12 @@ async function resolveBlogSlugRewrites(
 }
 
 // Least-privilege archived-alias resolution — no service-role access anywhere
-// in this public render path. Slug candidates resolve through the
-// anon-callable SECURITY DEFINER RPC the proxy already uses for its 308
-// decisions (get_merchant_product_slug_resolution); the redirect target
-// carries its own category join, so the canonical path is the exact URL the
-// PDP itself would 308 to. Archived products linked by raw UUID are NOT
-// resolved: the RPC matches by slug only and the alternative is a
-// service-role read, so those links fail open (the dead-link resolver also
-// never marks unresolved UUIDs dead — the PDP adjudicates them at request
-// time).
+// in this public render path. Candidates resolve through the anon-callable
+// SECURITY DEFINER RPC the proxy already uses for its 308 decisions
+// (get_merchant_product_slug_resolution, which matches UUID-shaped input
+// against product ids since 20260625053000); the redirect target carries its
+// own category join, so the canonical path is the exact URL the PDP itself
+// would 308 to.
 async function resolveArchivedRedirectPaths(
   merchantId: string,
   slugCandidates: string[]
@@ -222,10 +219,12 @@ export async function getCachedContentLinkRewrites(
   const productPaths: Record<string, string> = { ...livePaths };
 
   // Archived aliases: only candidates that did not resolve to a live product.
-  const archivedPaths = await resolveArchivedRedirectPaths(
-    merchantId,
-    slugCandidates.filter((slug) => !Object.hasOwn(productPaths, slug))
-  );
+  const archivedPaths = await resolveArchivedRedirectPaths(merchantId, [
+    ...slugCandidates.filter((slug) => !Object.hasOwn(productPaths, slug)),
+    ...uuidCandidates.filter(
+      (uuid) => !activeSlugByUuid.has(uuid.toLowerCase())
+    ),
+  ]);
   for (const [candidate, path] of archivedPaths) {
     productPaths[candidate] = path;
   }

@@ -163,18 +163,31 @@ describe('getCachedContentLinkRewrites', () => {
     ).rejects.toThrow('Product slug resolution failed');
   });
 
-  it('fails open for archived UUID links instead of using privileged reads', async () => {
+  it('rewrites archived UUID links via the anon slug-resolution RPC', async () => {
+    mockGetCachedStorefrontProductSlugResolution.mockResolvedValueOnce({
+      hasError: false,
+      present: true,
+      redirectTarget: {
+        id: 'p2',
+        name: 'iPhone X',
+        slug: 'iphone-x',
+        categories: { id: 'c1', name: 'Smartphones', slug: 'smartphones' },
+      },
+    });
+
     const rewrites = await getCachedContentLinkRewrites(
       'merchant-1',
       [],
       [ARCHIVED_UUID]
     );
 
-    // no rewrite entry and no RPC/service-role fallback: the PDP adjudicates
-    // the id at request time, and the dead-link resolver never marks
-    // unresolved UUIDs dead, so the link survives untouched
-    expect(rewrites.productPaths).toEqual({});
-    expect(mockGetCachedStorefrontProductSlugResolution).not.toHaveBeenCalled();
+    // the RPC matches UUID-shaped input against product ids (anon,
+    // SECURITY DEFINER) — no service-role access anywhere in this flow
+    expect(rewrites.productPaths[ARCHIVED_UUID]).toBe('/smartphones/iphone-x');
+    expect(mockGetCachedStorefrontProductSlugResolution).toHaveBeenCalledWith(
+      'merchant-1',
+      ARCHIVED_UUID
+    );
   });
 
   it('rewrites active UUID links to the canonical path of their slug', async () => {
