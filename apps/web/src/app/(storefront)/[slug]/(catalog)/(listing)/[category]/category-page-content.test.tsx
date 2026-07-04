@@ -343,6 +343,80 @@ describe('CategoryPageContent', () => {
     expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
   });
 
+  it('renders category not-found content for a repeatedly percent-encoded category slug without hitting the cached category lookup', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Demo Store',
+      slug: 'demo-store',
+      country: 'NG',
+      payout_currency: 'NGN',
+    });
+    let overEncodedCategory = 'x y';
+    for (let index = 0; index < 10; index += 1) {
+      overEncodedCategory = encodeURIComponent(overEncodedCategory);
+    }
+
+    render(
+      await CategoryPageContent({
+        params: Promise.resolve({
+          slug: 'demo-store',
+          category: overEncodedCategory,
+        }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Category not found' })
+    ).toBeInTheDocument();
+    // The merchant-existence hard-404 still runs first; only the cached
+    // category lookup must be skipped.
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('demo-store');
+    expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
+    expect(mockGenerateCollectionPageSchema).not.toHaveBeenCalled();
+  });
+
+  it('renders category not-found content for an over-long category slug without hitting the cached category lookup', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Demo Store',
+      slug: 'demo-store',
+      country: 'NG',
+      payout_currency: 'NGN',
+    });
+
+    render(
+      await CategoryPageContent({
+        params: Promise.resolve({
+          slug: 'demo-store',
+          category: 'a'.repeat(4000),
+        }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Category not found' })
+    ).toBeInTheDocument();
+    expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
+  });
+
+  it('keeps missing merchants hard-404 even when the category slug is unsafe', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue(null);
+
+    await expect(
+      CategoryPageContent({
+        params: Promise.resolve({
+          slug: 'unknown-merchant',
+          category: 'a'.repeat(4000),
+        }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
+  });
+
   it('renders stable noindex soft-not-found content for an unknown category slug with no products', async () => {
     // Unknown/typo slug: merchant resolves, but the category data has no
     // collection, no category row, and no fuzzy-matched products. Metadata stays

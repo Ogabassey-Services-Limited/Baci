@@ -21,6 +21,7 @@ import {
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
 } from '@/lib/storefront-pagination';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { isDomainIdentifier } from '@/lib/validation';
 import { StorefrontRouteNotFoundContent } from '../../../storefront-route-not-found-content';
 import {
@@ -104,6 +105,15 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
 
   if (!merchant) {
     notFound();
+  }
+
+  // An over-long / repeatedly-encoded category can never match; bail before
+  // getCachedCategoryPageData -> getCachedCategoryPageShellData
+  // (`'use cache: remote'`, keys on category + queries eq('slug', category))
+  // runs with an unbounded key. (slug is already bounded by
+  // getMerchantByIdentifier above.)
+  if (!evaluateStorefrontSlugSafety(category).safe) {
+    return renderCategoryNotFoundContent({ slug });
   }
 
   const currentPage = parseStorefrontPageParam(page);

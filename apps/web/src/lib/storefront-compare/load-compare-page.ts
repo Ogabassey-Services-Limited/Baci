@@ -21,6 +21,7 @@ import {
   getStorefrontLocale,
 } from '@/lib/storefront-localization';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import {
   buildProductComparisonMatrix,
   type ProductComparisonMatrix,
@@ -300,6 +301,28 @@ async function loadComparePageUncached(args: {
   const merchant = await getMerchantByIdentifier(args.merchantSlug);
 
   if (!merchant) {
+    return null;
+  }
+
+  // Over-long / repeatedly-encoded bot segments can never match a category or
+  // comparison; bail before getCachedCategoryPageData ->
+  // getCachedCategoryPageShellData (`'use cache: remote'`, keyed on
+  // categorySlug) runs with an unbounded key. comparisonSlug is gated for
+  // length too so bot URLs never trigger the cached category fetch at all.
+  // (merchantSlug is already bounded by getMerchantByIdentifier above.)
+  if (
+    !evaluateStorefrontSlugSafety(args.categorySlug).safe ||
+    !evaluateStorefrontSlugSafety(args.comparisonSlug).safe
+  ) {
+    // Bound the logged slugs — an unsafe segment can be multi-KB and must not
+    // bloat the log line (the other misses log post-gate, already-bounded
+    // slugs).
+    logCompareRouteMiss({
+      merchantSlug: args.merchantSlug,
+      categorySlug: args.categorySlug.slice(0, 120),
+      comparisonSlug: args.comparisonSlug.slice(0, 120),
+      reason: 'unsafe_slug',
+    });
     return null;
   }
 

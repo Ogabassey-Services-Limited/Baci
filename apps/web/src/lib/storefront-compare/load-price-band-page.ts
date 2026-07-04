@@ -18,6 +18,7 @@ import {
   getStorefrontLocale,
 } from '@/lib/storefront-localization';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { isDomainIdentifier } from '@/lib/validation';
 import { buildPriceBandCandidate } from './compare-eligibility';
 import { getCuratedPriceBands } from './price-band-taxonomy';
@@ -110,6 +111,20 @@ export async function loadPriceBandPage(
   const merchant = await getMerchantByIdentifier(args.merchantSlug);
 
   if (!merchant) {
+    return null;
+  }
+
+  // Over-long / repeatedly-encoded bot segments can never match a category or
+  // curated band; bail before getCachedCategoryPageData ->
+  // getCachedCategoryPageShellData (`'use cache: remote'`, keyed on
+  // categorySlug) runs with an unbounded key — the cached category fetch runs
+  // BEFORE the curated-band check, so an unsafe priceBandSlug would otherwise
+  // still trigger it. (merchantSlug is already bounded by
+  // getMerchantByIdentifier above.)
+  if (
+    !evaluateStorefrontSlugSafety(args.categorySlug).safe ||
+    !evaluateStorefrontSlugSafety(args.priceBandSlug).safe
+  ) {
     return null;
   }
 

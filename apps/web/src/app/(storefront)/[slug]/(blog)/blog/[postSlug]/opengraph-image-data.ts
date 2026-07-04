@@ -10,6 +10,7 @@ import {
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { createPublicClient } from '@/lib/supabase/public';
 import { isDomainIdentifier } from '@/lib/validation';
 
@@ -85,6 +86,18 @@ async function resolveMerchantForBlogOg(
   merchantBusinessName: string;
   merchantBrandColors: MerchantBrandColors;
 } | null> {
+  // Over-long / repeatedly-encoded bot segments can never resolve; bail before
+  // getCachedMerchant / getCachedMerchantByDomain (`'use cache'`, keyed on the
+  // raw slug) or the Supabase eq('slug', postSlug) post lookups run with an
+  // unbounded key. Both OG entry points funnel through this resolver, so a
+  // null here yields the route's existing fallback-image behavior.
+  if (
+    !evaluateStorefrontSlugSafety(slug).safe ||
+    !evaluateStorefrontSlugSafety(postSlug).safe
+  ) {
+    return null;
+  }
+
   let merchant: ResolvedMerchant;
 
   try {

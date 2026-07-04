@@ -20,6 +20,7 @@ import {
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
 } from '@/lib/storefront-pagination';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
@@ -69,6 +70,16 @@ export async function generateMetadata({
   searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug, category } = await params;
+  // Over-long / repeatedly-encoded bot segments can never match; bail before
+  // getCachedMerchant (keys on slug) or getCachedCategoryPageData ->
+  // getCachedCategoryPageShellData (`'use cache: remote'`, keys on category and
+  // queries eq('slug', category)) runs with an unbounded key.
+  if (
+    !evaluateStorefrontSlugSafety(slug).safe ||
+    !evaluateStorefrontSlugSafety(category).safe
+  ) {
+    return buildCategoryNotFoundMetadata();
+  }
   const resolvedSearchParams = await searchParams;
   const currentPage = parseStorefrontPageParam(resolvedSearchParams.page);
 
