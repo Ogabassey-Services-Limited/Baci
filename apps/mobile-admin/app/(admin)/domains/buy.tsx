@@ -1,5 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList } from '@shopify/flash-list';
+import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useRef, useState } from 'react';
 import {
@@ -15,7 +16,10 @@ import { styles } from '@/components/domains/buy-domain.styles';
 import { DomainSearchResultCard } from '@/components/domains/DomainSearchResultCard';
 import {
   API_URL,
+  DomainUpgradeRequiredError,
+  extractErrorCode,
   getPaymentInitializationErrorMessage,
+  isUpgradeRequiredResponse,
 } from '@/components/domains/domain-api-helpers';
 import type { DomainSearchResult } from '@/components/domains/domain-search-result';
 import { performDomainSearch } from '@/components/domains/perform-domain-search';
@@ -49,9 +53,18 @@ async function openDomainPurchase(
 
   if (!response.ok) {
     const rawErrorBody = await response.text().catch(() => '');
-    throw new Error(
-      getPaymentInitializationErrorMessage(response, rawErrorBody)
+    const message = getPaymentInitializationErrorMessage(
+      response,
+      rawErrorBody
     );
+    // A plan gate (402 / requires_upgrade) is not a payment failure — surface
+    // it as an upgrade path instead of a dead "Purchase Failed" dialog.
+    if (
+      isUpgradeRequiredResponse(response.status, extractErrorCode(rawErrorBody))
+    ) {
+      throw new DomainUpgradeRequiredError(message);
+    }
+    throw new Error(message);
   }
 
   const data = (await response.json()) as {
@@ -70,6 +83,7 @@ async function openDomainPurchase(
 
 export default function BuyDomainScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [lastLookupSucceeded, setLastLookupSucceeded] = useState<
@@ -140,10 +154,22 @@ export default function BuyDomainScreen() {
         toolbarColor: colors.card,
       });
     } catch (error: unknown) {
-      Alert.alert(
-        'Purchase Failed',
-        error instanceof Error ? error.message : 'An unexpected error occurred'
-      );
+      if (error instanceof DomainUpgradeRequiredError) {
+        Alert.alert('Upgrade required', error.message, [
+          { text: 'Not now', style: 'cancel' },
+          {
+            text: 'Upgrade',
+            onPress: () => router.push('/(admin)/subscribe'),
+          },
+        ]);
+      } else {
+        Alert.alert(
+          'Purchase Failed',
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred'
+        );
+      }
     }
     setPurchasing(null);
   };

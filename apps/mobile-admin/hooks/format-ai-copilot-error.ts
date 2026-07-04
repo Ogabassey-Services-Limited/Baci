@@ -49,6 +49,18 @@ export function formatAiCopilotError(error: unknown): FormattedAiCopilotError {
     };
   }
 
+  // Provider-side quota exhaustion (Gemini). Not a plan gate — a transient,
+  // shared limit — so guide the user to retry later instead of leaking the raw
+  // "AI editor quota is temporarily exhausted" server string to the chat.
+  if (code === 'ai_provider_rate_limited') {
+    return {
+      code,
+      requestId,
+      message:
+        'The AI editor is busy right now. Please try again in a few minutes.',
+    };
+  }
+
   if (code === 'ai_builder_invalid_output') {
     return {
       code,
