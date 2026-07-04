@@ -241,6 +241,27 @@ describe('env validation', () => {
     expect(getInternalApiSecret()).toBe('parsed-internal-secret');
   });
 
+  it('reads Cloudflare purge credentials from runtime process env', async () => {
+    const { getCloudflareApiToken, getCloudflareZoneId } =
+      await loadEnvModule();
+
+    vi.stubEnv('CLOUDFLARE_API_TOKEN', 'runtime-cf-token');
+    vi.stubEnv('CLOUDFLARE_ZONE_ID', 'runtime-cf-zone');
+
+    expect(getCloudflareApiToken()).toBe('runtime-cf-token');
+    expect(getCloudflareZoneId()).toBe('runtime-cf-zone');
+  });
+
+  it('returns undefined when Cloudflare purge credentials are unset', async () => {
+    vi.stubEnv('CLOUDFLARE_API_TOKEN', undefined);
+    vi.stubEnv('CLOUDFLARE_ZONE_ID', undefined);
+    const { getCloudflareApiToken, getCloudflareZoneId } =
+      await loadEnvModule();
+
+    expect(getCloudflareApiToken()).toBeUndefined();
+    expect(getCloudflareZoneId()).toBeUndefined();
+  });
+
   it('normalizes blank mobile release env values instead of exposing them', async () => {
     vi.stubEnv('APP_STORE_CONNECT_BUNDLE_ID', '   ');
     vi.stubEnv('APP_STORE_CONNECT_ADMIN_BUNDLE_ID', '   ');

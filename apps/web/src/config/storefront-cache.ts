@@ -8,21 +8,54 @@ export const STOREFRONT_PUBLIC_CACHE_POLICIES = [
   {
     slug: 'ogabassey',
     customHostnames: ['ogabassey.com', 'www.ogabassey.com'],
+    // These MUST mirror the live category path segments (the first URL segment
+    // of every canonical PDP/listing, e.g. `/smartphones/<slug>`) AND the
+    // Cloudflare dashboard cache rule that edge-caches `ogabassey.com/*`. A
+    // segment missing here is served no-store by the proxy, so its PDPs never
+    // reach the CDN (LCP regression); an extra segment risks caching a
+    // non-category route. Regenerate after catalog changes by taking the unique
+    // first path segments of every URL in
+    // https://ogabassey.com/sitemap/products.xml, then sort alphabetically.
+    // Verified against the live products sitemap on 2026-07-03.
     cacheableCategorySegments: [
       'accessories',
+      'audio',
+      'childrens-tablets',
+      'desktops',
+      'earbuds',
       'gaming',
+      'gaming-accessories',
       'gaming-consoles',
+      'gaming-laptops',
       'gift-cards',
       'laptops',
+      'lg-tvs',
+      'monitors',
       'nintendo-switch',
+      'nintendo-switch-2',
+      'playstation-4',
+      'playstation-5',
+      'portable-gaming',
+      'printers',
+      'samsung-tvs',
       'smartphones',
       'smartwatches',
+      'soundbars',
       'tablets',
+      'vr-headsets',
+      'wearables',
+      'xbox',
     ],
   },
 ] as const satisfies readonly StorefrontPublicCachePolicy[];
 
+// Freshness stays SHORT (5m) with a LONG stale-while-revalidate window,
+// mirroring the proxy's STOREFRONT_DOCUMENT_CACHE_CONTROL rationale: the long
+// SWR keeps edge MISS rates (and user-facing TTFB) low, while the short
+// s-maxage bounds how long a mutated/removed product can be served before a
+// background revalidation — products have NO active Cloudflare purge path yet,
+// so do not raise s-maxage until one is wired (see lib/cloudflare-purge.ts).
 export const STOREFRONT_CACHE = {
   productsSMaxAge: 300,
-  productsStaleWhileRevalidate: 3600,
+  productsStaleWhileRevalidate: 86400,
 } as const;

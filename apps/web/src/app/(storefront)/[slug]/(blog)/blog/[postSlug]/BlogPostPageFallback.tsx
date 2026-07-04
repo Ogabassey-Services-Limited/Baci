@@ -12,8 +12,11 @@ export function BlogPostPageFallback() {
 
       <main className="container mx-auto px-4 py-8">
         <article className="max-w-6xl mx-auto bg-white rounded-3xl p-6 md:p-10 md:px-12 shadow-sm border border-gray-100 overflow-hidden">
-          {/* Featured image skeleton */}
-          <div className="aspect-video rounded-2xl mb-8 bg-muted/30 animate-pulse" />
+          {/* Featured image skeleton — layout-identical to the real hero
+              container so replacing it causes no CLS. */}
+          <div className="aspect-video rounded-2xl overflow-hidden mb-8 relative bg-gray-100">
+            <div className="absolute inset-0 animate-pulse bg-muted/30" />
+          </div>
 
           {/* Header skeleton: category + title + author row */}
           <div className="space-y-4 mb-8">

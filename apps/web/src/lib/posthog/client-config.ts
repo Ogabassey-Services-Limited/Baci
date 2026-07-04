@@ -10,6 +10,14 @@ import { sanitizePostHogExceptionText } from '@/lib/posthog/exception-text';
 import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 import { getPostHogTracingHeaderHostnames } from '@/lib/posthog/tracing-hostnames';
 
+// Record replay for ~20% of eligible sessions to cut PostHog's session-recording
+// boot + upload cost on the storefront critical path while retaining enough
+// coverage for UX debugging. posthog-js's `session_recording.sampleRate`
+// (0..1) takes precedence over the project's remote sampling config — verified
+// against @posthog/types `SessionRecordingOptions.sampleRate` in
+// posthog-js@1.393.5.
+const SESSION_RECORDING_SAMPLE_RATE = 0.2;
+
 const SENSITIVE_PROPERTY_TOKENS = new Set([
   'password',
   'passcode',
@@ -35,6 +43,11 @@ const EMAIL_VALUE_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const REDACTED_VALUE = '[Filtered]';
 const QUERY_OR_HASH_PATTERN = /[?#]/;
 const EXCEPTION_LIST_PROPERTY_KEY = '$exception_list';
+// Both PostHog's autocapture `$web_vitals` event and our own flat `web_vitals`
+// event (see capturePostHogWebVitals in lib/posthog/browser.ts) must be dropped
+// on public blog/SEO surfaces. Matching only `$web_vitals` here would let the
+// custom event through — keep this set as the single source of truth.
+const WEB_VITALS_EVENT_NAMES = new Set(['$web_vitals', 'web_vitals']);
 const RESERVED_WEB_TENANT_SUBDOMAINS = new Set([
   'www',
   'app',
@@ -479,7 +492,7 @@ export function sanitizePostHogCapture(
   }
 
   if (
-    capture.event === '$web_vitals' &&
+    WEB_VITALS_EVENT_NAMES.has(capture.event) &&
     isPublicBlogWebVitalsEvent(properties)
   ) {
     return null;
@@ -555,6 +568,7 @@ export function buildPostHogClientConfig(
       maskTextFn: () => REDACTED_VALUE,
       maskTextSelector: 'body',
       blockSelector: '[data-ph-block], [data-session-replay-block]',
+      sampleRate: SESSION_RECORDING_SAMPLE_RATE,
     },
     // Project credential keys are intentionally absent here:
     // restorePostHogProjectCredentialProperties rewrites token/api_key after

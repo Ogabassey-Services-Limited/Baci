@@ -3,8 +3,9 @@ import { getInternalApiSecret } from '@/env';
 import { getMerchantSafe } from '@/lib/cached-data';
 import { getCachedStorefrontProductSlugResolution } from '@/lib/cached-storefront-product-slug-resolution';
 import { getCachedStorefrontProductSlugSet } from '@/lib/cached-storefront-product-slug-set';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
+import { hasValidInternalAuth } from '@/lib/internal-auth-header';
 import { logger } from '@/lib/logger';
+import { getProductSlugSetCacheTag } from '@/lib/product-cache-tags';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
 import { getProductUrl } from '@/lib/seo-utils';
 import {
@@ -13,6 +14,32 @@ import {
 } from '@/schemas/internal-slug-set-route';
 
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
+// The proxy self-fetches this membership preflight on every PDP navigation, and
+// middleware runs BEFORE Vercel's CDN, so it fires on every document request that
+// reaches Vercel — this cache is what keeps field TTFB low. Three mechanics make
+// a cached LIVE-product verdict both cacheable AND always-fresh:
+//   (a) Vercel's CDN never caches a response to a request carrying an
+//       `Authorization` header (documented cacheable-response criteria), so the
+//       proxy authenticates via the custom `x-baci-internal-auth` header and the
+//       CDN is free to store the 200.
+//   (b) `Vary: x-baci-internal-auth` keys the edge entry to the (single) internal
+//       secret value, so an unauthenticated request never hits a cached 200 — it
+//       misses and re-runs the timing-safe auth check.
+//   (c) The `Vercel-Cache-Tag` is `product-slug-set-${merchantId}` — the SAME tag
+//       the underlying `'use cache'` slug set carries and that `revalidateProducts`
+//       invalidates on every product mutation — so `revalidateTag` purges this CDN
+//       entry instantly. A cached present:true can never serve a stale answer
+//       beyond one in-flight request.
+// Only a definitive LIVE-product verdict (present:true, no redirect) is cached —
+// it is self-healing (the page still renders and 404s a since-removed product). A
+// definitively-absent verdict (proxy hard-404), a legacy-alias redirect verdict
+// (target/slug can change), and every fail-open branch stay no-store, so a slug
+// that becomes live after a cached miss is never sticky-404ed and a stale redirect
+// never sticks.
+const PREFLIGHT_CACHE = {
+  'Cache-Control': 's-maxage=300, stale-while-revalidate=3600',
+  Vary: 'x-baci-internal-auth',
+} as const;
 // Fail-open membership: the proxy hard-404s ONLY when `present` is false AND
 // `hasError` is false, so any uncertainty returns hasError:true.
 const FAIL_OPEN = { hasError: true, present: false };
@@ -25,13 +52,16 @@ const FAIL_OPEN = { hasError: true, present: false };
  * doesn't add slug-list transfer/parse to every PDP navigation.
  *
  * `identifier` is the storefront slug or custom domain the proxy has; `?slug=`
- * is the product slug to test. Always 200 (no-store). Fails open
+ * is the product slug to test. Fails open
  * (`{ hasError: true, present: false }`) on an unconfigured secret, invalid
- * input, an unresolved or UNPUBLISHED merchant, or a slug-set error — so the
- * proxy never hard-404s a live product (and never pre-empts the coming-soon
- * layout for an unpublished store).
+ * input, an unresolved or UNPUBLISHED merchant, a slug-set error, or a
+ * legacy-redirect resolution error — so the proxy never hard-404s a live
+ * product, never pre-empts the coming-soon layout for an unpublished store, and
+ * never caches a non-redirect verdict for a slug that should 308.
  *
- * Auth: `Authorization: Bearer ${INTERNAL_API_SECRET}` (timing-safe).
+ * Auth: `x-baci-internal-auth: ${INTERNAL_API_SECRET}` (preferred — keeps the
+ * verdict CDN-cacheable) or the legacy `Authorization: Bearer ${...}` (both
+ * timing-safe).
  */
 export async function GET(
   request: NextRequest,
@@ -42,16 +72,15 @@ export async function GET(
     logger.error({ message: 'INTERNAL_API_SECRET not configured' });
     return NextResponse.json(
       { error: 'Internal Server Error' },
-      { status: 500 }
+      { status: 500, headers: NO_STORE }
     );
   }
 
-  const authHeader = request.headers.get('Authorization');
-  if (
-    !authHeader ||
-    !constantTimeEqual(authHeader, `Bearer ${expectedSecret}`)
-  ) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!hasValidInternalAuth(request, expectedSecret)) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401, headers: NO_STORE }
+    );
   }
 
   const params = internalSlugSetParamsSchema.safeParse(await context.params);
@@ -84,6 +113,10 @@ export async function GET(
   const target = query.data.slug.toLowerCase();
   const present = set.slugs.some((slug) => slug.toLowerCase() === target);
   if (!present) {
+    // Definitively absent -> the proxy hard-404s this URL. Never cache it: a
+    // product PUBLISHED after a cached miss would be hard-404ed for the whole TTL
+    // window and revalidateTag cannot purge this edge entry. (A stale present:true
+    // below is safe — the page still renders and 404s a since-removed product.)
     return NextResponse.json(
       { hasError: false, present: false },
       { status: 200, headers: NO_STORE }
@@ -95,11 +128,24 @@ export async function GET(
       merchant.id,
       query.data.slug
     );
-    if (!resolution.hasError && resolution.redirectTarget) {
+    if (resolution.hasError) {
+      // Resolution failed: we cannot PROVE this present slug is a plain live
+      // product rather than an archived alias that must 308. Caching the
+      // {present:true} verdict below would suppress the canonical redirect for
+      // the whole TTL window (revalidateTag cannot purge this header-based edge
+      // entry). Fail open no-store so the next request re-resolves.
+      return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
+    }
+    if (resolution.redirectTarget) {
       const redirectPath = toSafeInternalRedirectPath(
         getProductUrl(resolution.redirectTarget)
       );
       if (redirectPath) {
+        // A legacy-alias REDIRECT verdict is kept no-store: the canonical target
+        // can change or the alias slug be reused, and revalidateTag cannot purge
+        // this header-based edge entry, so a cached redirect would 308 to the
+        // wrong product for the whole TTL window. Only the plain live-product
+        // verdict below (present:true, no redirect) is edge-cached.
         return NextResponse.json(
           { hasError: false, present: true, redirectPath },
           { status: 200, headers: NO_STORE }
@@ -113,10 +159,22 @@ export async function GET(
       merchantId: merchant.id,
       slug: query.data.slug,
     });
+    // A thrown resolution carries the same uncertainty as hasError above:
+    // never cache {present:true}, which could suppress an alias 308. Fail open.
+    return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
   }
 
   return NextResponse.json(
     { hasError: false, present: true },
-    { status: 200, headers: NO_STORE }
+    {
+      status: 200,
+      headers: {
+        ...PREFLIGHT_CACHE,
+        // Same tag the underlying 'use cache' slug set carries and that
+        // revalidateProducts invalidates for this merchant — so any product
+        // mutation purges this CDN entry immediately.
+        'Vercel-Cache-Tag': getProductSlugSetCacheTag(merchant.id),
+      },
+    }
   );
 }

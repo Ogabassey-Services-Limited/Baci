@@ -96,6 +96,7 @@ describe('OgabasseyV2Blog', () => {
     expect(featuredImage).toHaveAttribute('data-priority', 'false');
     expect(featuredImage).toHaveAttribute('data-fill', 'true');
     expect(featuredImage).toHaveAttribute('data-sizes', '100vw');
+    expect(featuredImage).toHaveAttribute('quality', '50');
   });
 
   it('renders grid posts with lazy low-priority images', () => {
@@ -113,6 +114,7 @@ describe('OgabasseyV2Blog', () => {
       'data-sizes',
       '(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw'
     );
+    expect(gridImage).toHaveAttribute('quality', '50');
   });
 
   it('falls back before rendering Next Image when blog image URLs are malformed', () => {

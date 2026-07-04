@@ -33,11 +33,11 @@ import {
   generateClickIdCookies,
 } from '@/lib/ad-tracking-cookies';
 import type { BlogListingStatusIntent } from '@/lib/cached-storefront-blog-listing-status';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
 import {
   getCustomDomainForSlug,
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
+import { hasValidInternalAuth } from '@/lib/internal-auth-header';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { resolveStorefrontBlogListingStatus } from '@/lib/storefront-blog-listing-status';
 import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
@@ -298,24 +298,37 @@ function safeDecodeSegment(segment: string | undefined): string {
 }
 
 // True only for an internal request bearing the correct `INTERNAL_API_SECRET`
-// (timing-safe). Used to scope the rate-limit exemption to AUTHENTICATED
-// self-calls — an unauthenticated/forged request to `/api/internal/*` stays
-// rate-limited, so the secret cannot be flooded/guessed without a 429.
+// (timing-safe), via EITHER the custom `x-baci-internal-auth` header (used by
+// the cache-eligible preflight self-fetches) or the legacy `Authorization`
+// bearer. Used to scope the rate-limit exemption to AUTHENTICATED self-calls —
+// an unauthenticated/forged request to `/api/internal/*` stays rate-limited, so
+// the secret cannot be flooded/guessed without a 429.
 function isAuthenticatedInternalRequest(request: NextRequest): boolean {
   const secret = getInternalApiSecret();
   if (!secret) {
     return false;
   }
-  const authHeader = request.headers.get('Authorization');
-  return (
-    Boolean(authHeader) &&
-    constantTimeEqual(authHeader ?? '', `Bearer ${secret}`)
-  );
+  return hasValidInternalAuth(request, secret);
 }
 // PDP documents are now safe to CDN-cache (see PR #2436 Next resume patch), so
 // the prerendered PPR shell can be served from the edge for the LCP win.
+// Freshness stays SHORT (5m) but stale-while-revalidate is extended to 24h: the
+// long SWR window keeps the edge MISS rate and user-facing TTFB low (the edge
+// keeps serving a cached copy while it revalidates in the background), while the
+// short s-maxage bounds how long a mutated/removed PDP can be served before the
+// edge revalidates. Only blog URLs are ACTIVELY purged from Cloudflare
+// (lib/storefront-purge-urls.ts via revalidateBlogPosts); product/category/home
+// mutations have NO active purge path (revalidateProducts only does Next
+// revalidateTag, which does not evict Cloudflare/edge document caches), so the
+// fresh window MUST stay short until a product purge is wired — otherwise a
+// deleted/unpublished product would be served as a live 200 for the whole window.
+// NOTE ON LAYERING: Cloudflare (the outer edge on custom domains) does NOT honor
+// `stale-while-revalidate`, and its edge TTL is governed by the zone's cache rule
+// (override_origin, 300s), NOT by this header. The `s-maxage`+SWR combo here
+// targets VERCEL's CDN layer, which DOES honor both — so the 24h SWR is not dead
+// config; it drives Vercel's edge, while Cloudflare freshness is the zone rule.
 const STOREFRONT_DOCUMENT_CACHE_CONTROL =
-  's-maxage=300, stale-while-revalidate=3600';
+  's-maxage=300, stale-while-revalidate=86400';
 const STOREFRONT_METADATA_CACHE_NON_HTML_EXTENSIONS_REGEX =
   /\.(?:json|jsonl|md|txt|webmanifest|xml)$/i;
 const STOREFRONT_METADATA_CACHE_NON_HTML_SEGMENTS = new Set(['_next', 'api']);
@@ -3703,7 +3716,7 @@ function applySecurityHeaders(
       'Cache-Control',
       isBot
         ? 's-maxage=1800, stale-while-revalidate=7200'
-        : 's-maxage=300, stale-while-revalidate=3600'
+        : 's-maxage=300, stale-while-revalidate=86400'
     );
     return response;
   }

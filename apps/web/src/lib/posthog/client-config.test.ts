@@ -41,12 +41,20 @@ describe('PostHog client config', () => {
         maskAllInputs: true,
         maskTextFn: expect.any(Function),
         maskTextSelector: 'body',
+        sampleRate: 0.2,
       }),
     });
     expect(config.property_blacklist).not.toContain('token');
     expect(config.session_recording?.maskTextFn?.('private note')).toBe(
       '[Filtered]'
     );
+  });
+
+  it('samples session recording at the configured rate on full surfaces', () => {
+    const config = buildPostHogClientConfig({ NODE_ENV: 'production' });
+
+    expect(config.disable_session_recording).toBe(false);
+    expect(config.session_recording?.sampleRate).toBe(0.2);
   });
 
   it('keeps the full instrumentation config by default', () => {
@@ -386,6 +394,59 @@ describe('PostHog client config', () => {
           $current_url: 'https://usebaci.com/ogabassey/products/iphone',
         },
       },
+    });
+
+    vi.unstubAllGlobals();
+  });
+
+  it('drops the custom flat web_vitals event on a public blog route (not just $web_vitals)', () => {
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/blog/best-phones',
+      origin: 'https://usebaci.com',
+    });
+
+    // capturePostHogWebVitals emits event: 'web_vitals' (no leading $). It must be
+    // dropped on blog surfaces exactly like PostHog's autocapture '$web_vitals'.
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: 'web_vitals',
+        properties: {
+          metric: 'LCP',
+          value: 1200,
+          rating: 'good',
+          navigationType: 'navigate',
+          pathname: '/ogabassey/blog/best-phones',
+        },
+      })
+    ).toBeNull();
+
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps the custom flat web_vitals event on a non-blog route', () => {
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/products/iphone',
+      origin: 'https://usebaci.com',
+    });
+
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: 'web_vitals',
+        properties: {
+          metric: 'LCP',
+          value: 1200,
+          rating: 'good',
+          navigationType: 'navigate',
+          pathname: '/ogabassey/products/iphone',
+        },
+      })
+    ).toMatchObject({
+      event: 'web_vitals',
+      properties: { metric: 'LCP' },
     });
 
     vi.unstubAllGlobals();

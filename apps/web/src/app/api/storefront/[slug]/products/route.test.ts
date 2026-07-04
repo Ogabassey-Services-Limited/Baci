@@ -160,7 +160,7 @@ describe('GET /api/storefront/[slug]/products', () => {
       }),
     ]);
     expect(response.headers.get('Cache-Control')).toBe(
-      'public, s-maxage=300, stale-while-revalidate=3600'
+      'public, s-maxage=300, stale-while-revalidate=86400'
     );
   });
 

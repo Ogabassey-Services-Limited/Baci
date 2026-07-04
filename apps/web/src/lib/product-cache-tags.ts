@@ -45,3 +45,18 @@ export function getProductScopedCacheTag(
     merchantId
   )}-${toReadableCacheTagPart(productSlug)}-${digest}`;
 }
+
+/**
+ * Dedicated cache tag for a merchant's proxy crawl-budget product slug set.
+ *
+ * SINGLE SOURCE OF TRUTH shared by the `'use cache'` builder
+ * (`getCachedStorefrontProductSlugSet`), the on-mutation invalidation
+ * (`revalidateProducts` -> `revalidateTag`), and the internal slug-set route's
+ * `Vercel-Cache-Tag` CDN tag — so the edge entry is purged under EXACTLY the
+ * mutations that bust the underlying data cache. Contains no comma (Vercel
+ * reserves `,` as the `Vercel-Cache-Tag` delimiter) and stays well under the
+ * 256-char per-tag limit.
+ */
+export function getProductSlugSetCacheTag(merchantId: string): string {
+  return `product-slug-set-${merchantId}`;
+}

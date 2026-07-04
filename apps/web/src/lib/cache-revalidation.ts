@@ -11,7 +11,9 @@
  * Usage: Call the appropriate function after a successful DB mutation in API routes.
  */
 import { revalidatePath, revalidateTag } from 'next/cache';
+import { after } from 'next/server';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
+import { purgeCloudflareUrls } from '@/lib/cloudflare-purge';
 import {
   getPlatformBlogPostCacheTag,
   PLATFORM_BLOG_CACHE_TAG,
@@ -19,8 +21,13 @@ import {
   PLATFORM_BLOG_LIST_CACHE_TAG,
   PLATFORM_BLOG_SITEMAP_CACHE_TAG,
 } from '@/lib/platform-blog';
-import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
+import {
+  getProductScopedCacheTag,
+  getProductSlugSetCacheTag,
+} from '@/lib/product-cache-tags';
+import { generateSlug } from '@/lib/seo-utils';
 import { buildStorefrontProductsCacheTags } from '@/lib/storefront-products-cache-key';
+import { buildStorefrontBlogPurgeUrls } from '@/lib/storefront-purge-urls';
 
 interface BlogRevalidationOptions {
   identifiers?: Array<string | null | undefined>;
@@ -43,6 +50,25 @@ function normalizeMerchantIdForRevalidation(merchantId: string) {
 
   const normalizedMerchantId = merchantId.trim();
   return normalizedMerchantId || null;
+}
+
+/**
+ * Evict the given canonical URLs from Cloudflare's edge cache. Fire-and-forget:
+ * uses `after()` when a request context exists (so the purge runs even after the
+ * response is flushed) and falls back to a detached promise in cron/worker
+ * contexts. `purgeCloudflareUrls` never throws, so this never affects the caller.
+ */
+function schedulePurgeCloudflareUrls(urls: string[]): void {
+  if (urls.length === 0) {
+    return;
+  }
+
+  try {
+    after(() => purgeCloudflareUrls(urls));
+  } catch {
+    // Not inside a request scope (standalone worker / test) — detach instead.
+    void purgeCloudflareUrls(urls);
+  }
 }
 
 /**
@@ -84,7 +110,7 @@ export function revalidateProducts(merchantId: string, productSlug?: string) {
   // a published/unpublished/archived/deleted/slug-changed product must enter or
   // leave the set so the proxy never hard-404s a live product or serves a stale
   // 200 for a removed one. Every product mutation path funnels through here.
-  revalidateTag(`product-slug-set-${normalizedMerchantId}`, 'products');
+  revalidateTag(getProductSlugSetCacheTag(normalizedMerchantId), 'products');
 
   // Invalidate product redirect caches
   revalidateTag('product-canonical-redirect', 'products');
@@ -238,6 +264,43 @@ export function revalidateBlogPosts(
       revalidatePath(`/${identifier}/blog/${slug}`);
       revalidatePath(`/${identifier}/blog/${slug}/opengraph-image`);
     }
+  }
+
+  // Evict the Cloudflare-fronted public blog URLs so the raised edge TTL never
+  // serves a stale post/listing. No-op for storefronts without a cache policy.
+  const purgeIdentifiers = Array.from(
+    new Set(
+      [...normalizedIdentifiers, normalizedCanonicalMerchantSlug].filter(
+        (identifier): identifier is string => identifier.length > 0
+      )
+    )
+  );
+  // Derive the category listing slugs to evict from the affected category
+  // labels. The public category route is /blog/category/<slug> where the slug
+  // is generateSlug(label) (getBlogCategorySlug), so slugify here to match the
+  // actually-cached URL. The 'all' sentinel used for the blog-list cache tags
+  // is intentionally excluded: its listing is /blog, already purged above.
+  const purgeCategorySlugs = Array.from(
+    new Set(
+      listingCategories
+        .map((category) => (category ? generateSlug(category) : ''))
+        .filter((categorySlug): categorySlug is string => Boolean(categorySlug))
+    )
+  );
+  // `buildStorefrontBlogPurgeUrls` runs OUTSIDE the never-throw purge helper, so
+  // guard the build + schedule sequence: a Cloudflare purge is always survivable
+  // (caches self-heal on their TTL), and it must never break the Next-tag/path
+  // revalidation that already ran above.
+  try {
+    schedulePurgeCloudflareUrls(
+      buildStorefrontBlogPurgeUrls(
+        purgeIdentifiers,
+        normalizedPostSlugs,
+        purgeCategorySlugs
+      )
+    );
+  } catch (error) {
+    console.warn('Skipped Cloudflare blog purge scheduling', { error });
   }
 }
 

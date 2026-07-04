@@ -1,12 +1,13 @@
 import 'server-only';
 import { getImageProps } from 'next/image';
 import type { ComponentProps } from 'react';
-import { preload } from 'react-dom';
+import { preconnect, prefetchDNS, preload } from 'react-dom';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH,
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
 } from '@/components/storefront/ogabassey/config/product-media';
+import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 import imageLoader from '@/lib/image-loader';
 import {
   buildOgabasseyCdnImageLoaderUrl,
@@ -88,6 +89,18 @@ function buildProductImagePreloadProps({
 export function preloadOgabasseyPdpProductResources({
   src,
 }: ProductResourceHintInput): void {
+  // The hero product image itself owns its own preload below, but the
+  // connection to the CDN origin should open as early as possible in the
+  // static shell (not gated behind connection()-dynamic layout code) so the
+  // TCP/TLS handshake is already warm by the time gallery/thumbnail images
+  // request it. Only fire this when the resolved image actually lives on
+  // the CDN so cold loads for non-CDN merchants don't open an unused
+  // connection.
+  if (src && isOgabasseyCdnImageUrl(src)) {
+    prefetchDNS(OGABASSEY_CDN_ORIGIN);
+    preconnect(OGABASSEY_CDN_ORIGIN);
+  }
+
   const props = buildProductImagePreloadProps({
     src,
   });

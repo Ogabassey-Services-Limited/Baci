@@ -1,6 +1,10 @@
 import { ArrowRight, Battery, Calendar, Search, User } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import {
+  BLOG_HERO_IMAGE_QUALITY,
+  BLOG_LISTING_CARD_IMAGE_SIZES,
+} from '@/components/storefront/ogabassey/config/blog-media';
 import { asRoute, joinRouteBasePath } from '@/lib/routes';
 import type { BlogPostData, TemplateBlogPageProps } from '@/templates/registry';
 import { AdUnit } from './ad-unit';
@@ -185,9 +189,10 @@ export function OgabasseyV2Blog({
                       alt={post.title}
                       className="object-cover transition-transform duration-700 group-hover:scale-110"
                       fill
-                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      sizes={BLOG_LISTING_CARD_IMAGE_SIZES}
                       loading="lazy"
                       fetchPriority="low"
+                      quality={BLOG_HERO_IMAGE_QUALITY}
                     />
                     {post.category && (
                       <div className="absolute top-4 left-4 rounded border border-gray-100 bg-white/95 px-3 py-1 font-black text-gray-900 text-xs uppercase tracking-wider shadow-sm backdrop-blur-md">

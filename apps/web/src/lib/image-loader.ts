@@ -1,3 +1,4 @@
+import { DEFAULT_IMAGE_QUALITY } from '@/config/cdn';
 import {
   isExternalPlaceholderImageUrl,
   PLACEHOLDER_IMAGE,
@@ -13,7 +14,6 @@ interface ImageLoaderParams {
   quality?: number;
 }
 
-const DEFAULT_IMAGE_QUALITY = 75;
 const MIN_TRANSFORM_WIDTH = 16;
 const MAX_TRANSFORM_WIDTH = 3840;
 

@@ -45,7 +45,25 @@ describe('PostHogPageviewTracker', () => {
     window.history.replaceState(null, '', '/');
   });
 
-  it('captures a pageview after mount', async () => {
+  it('never boots PostHog or captures on a non-blog route before the client is initialized', async () => {
+    render(<PostHogPageviewTracker />);
+
+    // Give the effect's async body a chance to run so a regression that boots
+    // pre-init would be caught.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // The idle-gated instrumentation-client owns the boot + landing pageview, so
+    // the tracker must not initialize the client or capture before it fires.
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
+    expect(mocks.capturePublicBlogPageview).not.toHaveBeenCalled();
+    expect(mocks.resetPublicBlogPageviewDedupe).not.toHaveBeenCalled();
+  });
+
+  it('captures a pageview after mount once the client is initialized', async () => {
+    mocks.hasPostHogBrowserInitialized.mockReturnValue(true);
+
     render(<PostHogPageviewTracker />);
 
     await waitFor(() => {
@@ -54,6 +72,8 @@ describe('PostHogPageviewTracker', () => {
       );
     });
     expect(mocks.resetPublicBlogPageviewDedupe).toHaveBeenCalledOnce();
+    // Reconfigures the already-booted client for the (non-lightweight) surface;
+    // it never re-runs posthog.init().
     expect(mocks.initializePostHogBrowser).toHaveBeenCalledWith(
       expect.objectContaining({
         NODE_ENV: expect.any(String),
@@ -67,7 +87,8 @@ describe('PostHogPageviewTracker', () => {
     );
   });
 
-  it('captures a pageview when the pathname changes', async () => {
+  it('captures a pageview when the pathname changes on an initialized client', async () => {
+    mocks.hasPostHogBrowserInitialized.mockReturnValue(true);
     const { rerender } = render(<PostHogPageviewTracker />);
 
     await waitFor(() => {
@@ -129,7 +150,8 @@ describe('PostHogPageviewTracker', () => {
     expect(mocks.capturePublicBlogPageview).not.toHaveBeenCalled();
   });
 
-  it('clears public blog dedupe before importing the full browser client on non-blog pages', async () => {
+  it('clears public blog dedupe before reconfiguring the initialized client on non-blog pages', async () => {
+    mocks.hasPostHogBrowserInitialized.mockReturnValue(true);
     render(<PostHogPageviewTracker />);
 
     await waitFor(() => {
@@ -149,7 +171,7 @@ describe('PostHogPageviewTracker', () => {
     expect(resetOrder).toBeLessThan(captureOrder);
   });
 
-  it('captures after a client navigation from blog to a non-blog page and clears lightweight dedupe', async () => {
+  it('captures after a client navigation from a blog page to a non-blog page once the client has booted', async () => {
     pathname = '/ogabassey/blog/phone-guide';
     window.history.replaceState(null, '', pathname);
     const { rerender } = render(<PostHogPageviewTracker />);
@@ -164,6 +186,9 @@ describe('PostHogPageviewTracker', () => {
     });
     expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
 
+    // Simulate the idle boot firing between navigations so the full client is
+    // now live.
+    mocks.hasPostHogBrowserInitialized.mockReturnValue(true);
     pathname = '/ogabassey/laptops/macbook-pro';
     window.history.pushState(null, '', pathname);
     rerender(<PostHogPageviewTracker />);

@@ -44,6 +44,18 @@ export function PostHogPageviewTracker() {
           return;
         }
 
+        // The tracker must NEVER boot PostHog: the idle-gated
+        // instrumentation-client owns the posthog-js chunk download AND the
+        // full-client boot (session recording, autocapture, heatmaps) so they
+        // stay off the initial critical path. Before that boot fires this
+        // tracker is a no-op for non-blog routes — it does not import the
+        // posthog-js chunk and does not capture. The landing pageview is
+        // covered exactly-once by the idle boot's own capturePostHogPageview()
+        // (capture_pageview is false, so posthog-js adds no duplicate view).
+        if (!hasPostHogBrowserInitialized()) {
+          return;
+        }
+
         if (!isPublicBlog) {
           resetPublicBlogPageviewDedupe();
         }
@@ -55,6 +67,9 @@ export function PostHogPageviewTracker() {
           return;
         }
 
+        // PostHog is already initialized here, so this only reconfigures the
+        // live client for the current surface's lightweight mode (a no-op
+        // re-init that calls set_config); it never calls posthog.init().
         initializePostHogBrowser(postHogBrowserEnv, console, {
           lightweight: isPublicBlog,
           pathname: currentPathname,

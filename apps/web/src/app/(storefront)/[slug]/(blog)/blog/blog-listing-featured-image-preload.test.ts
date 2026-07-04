@@ -10,7 +10,7 @@ vi.mock('next/image', () => ({
   getImageProps: vi.fn(({ sizes, src }) => ({
     props: {
       sizes,
-      srcSet: `${src}?w=640&q=75 640w, ${src}?w=750&q=75 750w`,
+      srcSet: `${src}?w=640&q=50 640w, ${src}?w=750&q=50 750w`,
     },
   })),
 }));
@@ -26,7 +26,7 @@ describe('preloadBlogListingFeaturedImage', () => {
     );
 
     expect(preload).toHaveBeenCalledWith(
-      'https://cdn.ogabassey.com/image/width=750,quality=75,format=auto/core-assets/blog/post/hero.jpg',
+      'https://cdn.ogabassey.com/image/width=750,quality=50,format=auto/core-assets/blog/post/hero.jpg',
       expect.objectContaining({
         as: 'image',
         fetchPriority: 'high',
@@ -43,7 +43,7 @@ describe('preloadBlogListingFeaturedImage', () => {
     preloadBlogListingFeaturedImage('/uploads/blog/hero.jpg');
 
     expect(preload).toHaveBeenCalledWith(
-      '/uploads/blog/hero.jpg?w=750&q=75',
+      '/uploads/blog/hero.jpg?w=750&q=50',
       expect.objectContaining({
         as: 'image',
         fetchPriority: 'high',

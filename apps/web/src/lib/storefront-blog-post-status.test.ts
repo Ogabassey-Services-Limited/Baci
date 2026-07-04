@@ -82,8 +82,11 @@ describe('resolveStorefrontBlogPostStatus', () => {
     expect(url.origin).toBe('https://usebaci.com');
     expect(url.pathname).toBe('/api/internal/blog-post-status/ogabassey.com');
     expect(url.searchParams.get('slug')).toBe('missing-post');
+    // Authenticate via the custom header ONLY (never Authorization) so Vercel's
+    // CDN can cache the internal verdict — the exact-match assertion proves no
+    // Authorization header is sent.
     expect((init as RequestInit).headers).toEqual({
-      Authorization: 'Bearer internal-secret',
+      'x-baci-internal-auth': 'internal-secret',
     });
   });
 

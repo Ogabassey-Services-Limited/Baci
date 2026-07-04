@@ -44,6 +44,16 @@ function request(slug: string | null, authHeader?: string): NextRequest {
   );
 }
 
+function customHeaderRequest(slug: string, secret: string): NextRequest {
+  const url = new URL(
+    `https://ogabassey.com/api/internal/slug-set/${IDENTIFIER}`
+  );
+  url.searchParams.set('slug', slug);
+  return new NextRequest(url, {
+    headers: { 'x-baci-internal-auth': secret },
+  });
+}
+
 function context(identifier = IDENTIFIER) {
   return { params: Promise.resolve({ identifier }) };
 }
@@ -74,7 +84,18 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     const res = await GET(request('iphone-15', `Bearer ${SECRET}`), context());
 
     expect(res.status).toBe(200);
-    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('Cache-Control')).toBe(
+      's-maxage=300, stale-while-revalidate=3600'
+    );
+    // Vary keys the edge entry to the (single) internal secret value, so an
+    // unauthenticated request never hits a cached 200. It varies on the custom
+    // header (NOT Authorization — that would make the response uncacheable).
+    expect(res.headers.get('Vary')).toBe('x-baci-internal-auth');
+    // The cache tag is the SAME tag revalidateProducts invalidates for this
+    // merchant, so any product mutation purges this CDN entry via revalidateTag.
+    expect(res.headers.get('Vercel-Cache-Tag')).toBe(
+      `product-slug-set-${MERCHANT_ID}`
+    );
     expect(await res.json()).toEqual({ hasError: false, present: true });
     expect(mockGetMerchantSafe).toHaveBeenCalledWith(IDENTIFIER);
     expect(mockGetCachedStorefrontProductSlugSet).toHaveBeenCalledWith(
@@ -86,7 +107,21 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     );
   });
 
-  it('returns redirectPath when a present slug is an archived alias for a canonical product', async () => {
+  it('accepts the custom x-baci-internal-auth header and caches the verdict', async () => {
+    const res = await GET(customHeaderRequest('iphone-15', SECRET), context());
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe(
+      's-maxage=300, stale-while-revalidate=3600'
+    );
+    expect(res.headers.get('Vary')).toBe('x-baci-internal-auth');
+    expect(res.headers.get('Vercel-Cache-Tag')).toBe(
+      `product-slug-set-${MERCHANT_ID}`
+    );
+    expect(await res.json()).toEqual({ hasError: false, present: true });
+  });
+
+  it('returns redirectPath with no-store when a present slug is an archived alias for a canonical product', async () => {
     mockGetCachedStorefrontProductSlugSet.mockResolvedValue({
       hasError: false,
       slugs: ['iphone-15-pro-max-8gb-256gb'],
@@ -114,6 +149,11 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     );
 
     expect(res.status).toBe(200);
+    // A legacy-alias redirect verdict must NOT be edge-cached: the canonical
+    // target can change or the alias slug be reused, so a cached redirect would
+    // 308 to the wrong product for the whole TTL window.
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
     expect(await res.json()).toEqual({
       hasError: false,
       present: true,
@@ -121,19 +161,32 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     });
   });
 
-  it('keeps present:true without redirectPath when legacy resolution is uncertain', async () => {
+  it('fails open with no-store when legacy resolution errors for a present alias slug', async () => {
+    // An archived alias is still a member of the slug set, so this reaches the
+    // redirect-resolution step. If resolution errors we cannot prove the slug is
+    // a plain live product rather than an alias that must 308 — caching the
+    // {present:true} verdict would suppress the canonical redirect for the TTL.
+    mockGetCachedStorefrontProductSlugSet.mockResolvedValue({
+      hasError: false,
+      slugs: ['iphone-15-pro-max-8gb-256gb'],
+    });
     mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
       hasError: true,
       present: false,
     });
 
-    const res = await GET(request('iphone-15', `Bearer ${SECRET}`), context());
+    const res = await GET(
+      request('iphone-15-pro-max-8gb-256gb', `Bearer ${SECRET}`),
+      context()
+    );
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ hasError: false, present: true });
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
+    expect(await res.json()).toEqual(FAIL_OPEN);
   });
 
-  it('keeps present:true and logs when legacy resolution throws', async () => {
+  it('fails open with no-store and logs when legacy resolution throws', async () => {
     const warnSpy = vi
       .spyOn(logger, 'warn')
       .mockImplementation(() => undefined);
@@ -148,7 +201,11 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
       );
 
       expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ hasError: false, present: true });
+      // A thrown resolution is the same uncertainty as hasError: never cache a
+      // verdict that could suppress an alias 308.
+      expect(res.headers.get('Cache-Control')).toBe('no-store');
+      expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
+      expect(await res.json()).toEqual(FAIL_OPEN);
       expect(warnSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           message: 'Failed to resolve legacy product redirect target',
@@ -225,13 +282,18 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     expect(await res.json()).toEqual({ hasError: false, present: true });
   });
 
-  it('returns present:false when the slug is absent from the merchant set', async () => {
+  it('returns present:false with no-store so a later-published slug is never sticky-404ed', async () => {
     const res = await GET(
       request('nonexistent-product', `Bearer ${SECRET}`),
       context()
     );
 
     expect(res.status).toBe(200);
+    // A definitively-absent verdict drives the proxy's hard-404. It MUST stay
+    // no-store: if the merchant publishes this slug, revalidateTag cannot purge
+    // an edge-cached miss, so a cached present:false would hard-404 the now-live
+    // product for the whole TTL window.
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(await res.json()).toEqual({ hasError: false, present: false });
     expect(mockGetCachedStorefrontProductSlugResolution).not.toHaveBeenCalled();
   });
@@ -242,29 +304,40 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     expect(await res.json()).toEqual({ hasError: false, present: true });
   });
 
-  it('returns 401 when the Authorization header is missing', async () => {
+  it('returns 401 no-store when the auth header is missing', async () => {
     const res = await GET(request('iphone-15'), context());
 
     expect(res.status).toBe(401);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(mockGetMerchantSafe).not.toHaveBeenCalled();
   });
 
-  it('returns 401 when the bearer token does not match', async () => {
+  it('returns 401 no-store when the bearer token does not match', async () => {
     const res = await GET(
       request('iphone-15', 'Bearer wrong-secret'),
       context()
     );
 
     expect(res.status).toBe(401);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(mockGetMerchantSafe).not.toHaveBeenCalled();
   });
 
-  it('returns 500 when the internal secret is not configured', async () => {
+  it('returns 401 no-store when the custom-header secret does not match', async () => {
+    const res = await GET(customHeaderRequest('iphone-15', 'wrong'), context());
+
+    expect(res.status).toBe(401);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(mockGetMerchantSafe).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 no-store when the internal secret is not configured', async () => {
     mockGetInternalApiSecret.mockReturnValue(undefined);
 
     const res = await GET(request('iphone-15', `Bearer ${SECRET}`), context());
 
     expect(res.status).toBe(500);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(mockGetMerchantSafe).not.toHaveBeenCalled();
   });
 
@@ -322,6 +395,7 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     const res = await GET(request('iphone-15', `Bearer ${SECRET}`), context());
 
     expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(await res.json()).toEqual(FAIL_OPEN);
   });
 
