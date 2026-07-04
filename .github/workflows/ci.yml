@@ -18,9 +18,12 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# TURBO_TOKEN/TURBO_TEAM are Vercel Remote Cache secrets. They are scoped to the
+# individual turbo steps that need them (lint/typecheck/test) rather than the
+# workflow-level env, so they are not exposed to unrelated jobs/steps or the
+# third-party actions they run. TURBO_SCM_BASE is not a secret and stays global
+# so `turbo --affected` can resolve its base ref everywhere.
 env:
-  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
   TURBO_SCM_BASE: origin/main
 
 jobs:
@@ -151,6 +154,9 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/pnpm-install-cached
       - name: Run Lint
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             pnpm turbo lint --affected
@@ -172,6 +178,9 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/pnpm-install-cached
       - name: Run Typecheck
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             pnpm turbo typecheck --affected
@@ -197,6 +206,9 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/pnpm-install-cached
       - name: Run Tests
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
         run: |
           turbo_cache_args=("--cache=local:rw,remote:r")
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -356,6 +368,8 @@ jobs:
       - if: needs.changes.outputs.web == 'true'
         run: pnpm turbo build --filter=@baci/web
         env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
           NODE_OPTIONS: "--max_old_space_size=8192"
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}

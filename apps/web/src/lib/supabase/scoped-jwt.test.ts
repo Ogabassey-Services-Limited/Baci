@@ -48,6 +48,10 @@ describe('signScopedSupabaseJwt', () => {
       role: 'anon',
     });
     expect(mocks.getSupabaseJwtSecret).toHaveBeenCalledTimes(1);
+    // The signing secret is a deterministic test fixture (matches the mocked
+    // getSupabaseJwtSecret return value) used to recompute the expected HMAC —
+    // it is not a real credential.
+    // nosemgrep: javascript.lang.security.audit.hardcoded-hmac-key.hardcoded-hmac-key
     const expectedSignature = createHmac('sha256', 'default-secret')
       .update(`${encodedHeader}.${encodedBody}`)
       .digest('base64url');
@@ -75,6 +79,10 @@ describe('signScopedSupabaseJwt', () => {
       merchant_id: '11111111-1111-4111-8111-111111111111',
       role: 'anon',
     });
+    // Deterministic test fixture secret (matches the `legacy-secret` passed to
+    // signScopedSupabaseJwt above) used to recompute the expected HMAC — not a
+    // real credential.
+    // nosemgrep: javascript.lang.security.audit.hardcoded-hmac-key.hardcoded-hmac-key
     const expectedSignature = createHmac('sha256', 'legacy-secret')
       .update(`${encodedHeader}.${encodedBody}`)
       .digest('base64url');
