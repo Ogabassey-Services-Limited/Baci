@@ -16,6 +16,8 @@ const HREF_ATTRIBUTE_REGEX = /\bhref\\?["']?\s*[:=]\s*\\?["']([^"'\\<>\s]+)/gi;
 const UNQUOTED_HREF_ATTRIBUTE_REGEX = /\bhref\s*=\s*([^"'\s<>=][^\s<>]*)/gi;
 // Reference-style Markdown definitions ([label]: /blog/x or <...>), which
 // `marked` renders as anchors just like inline links.
+// Markdown autolinks (<https://ogabassey.com/blog/x>) render as anchors too.
+const MARKDOWN_AUTOLINK_REGEX = /<(https?:\/\/[^<>\s]+)>/gi;
 const MARKDOWN_REFERENCE_DEFINITION_REGEX =
   /^[ \t]*\[[^\]\n]+\]:[ \t]*(<[^<>\s]+>|\S+)/gm;
 const MARKDOWN_LINK_REGEX =
@@ -78,20 +80,35 @@ function extractPathname(href: string): string | null {
   }
 }
 
-function getPathSegments(pathname: string, merchantSlug?: string): string[] {
-  const segments = pathname
+function getPathSegments(pathname: string): string[] {
+  return pathname
     .toLowerCase()
     .split('/')
     .filter(Boolean)
     .map((segment) => segment.trim());
+}
 
-  // Collapse a legacy `/<merchantSlug>/...` prefix so path-based storefront
-  // links are classified the same way as root-relative ones.
-  if (merchantSlug && segments[0] === merchantSlug.toLowerCase()) {
-    return segments.slice(1);
+// Classify a path, retrying with a legacy `/<merchantSlug>/` prefix stripped
+// ONLY when the unstripped form does not classify. The fallback order matters:
+// a merchant whose slug doubles as a real category (e.g. a store slugged
+// `smartphones` linking /smartphones/<product>) must classify unstripped,
+// while path-mode links like /ogabassey/audio/<product> only classify after
+// the prefix is removed.
+function classifyPathSegments(
+  pathname: string,
+  merchantSlug?: string
+): { kind: 'blog' | 'product'; slug: string } | null {
+  const segments = getPathSegments(pathname);
+  const direct = classifySegments(segments);
+  if (direct) {
+    return direct;
   }
 
-  return segments;
+  if (merchantSlug && segments[0] === merchantSlug.toLowerCase()) {
+    return classifySegments(segments.slice(1));
+  }
+
+  return null;
 }
 
 function classifySegments(
@@ -135,6 +152,7 @@ function collectHrefCandidates(contentStr: string): string[] {
     UNQUOTED_HREF_ATTRIBUTE_REGEX,
     MARKDOWN_LINK_REGEX,
     MARKDOWN_REFERENCE_DEFINITION_REGEX,
+    MARKDOWN_AUTOLINK_REGEX,
   ]) {
     regex.lastIndex = 0;
     let match = regex.exec(contentStr);
@@ -181,9 +199,7 @@ export function collectStorefrontContentLinkTargets(
       const pathname = extractPathname(normalizedHref);
       if (!pathname) continue;
 
-      const classified = classifySegments(
-        getPathSegments(pathname, merchantSlug)
-      );
+      const classified = classifyPathSegments(pathname, merchantSlug);
       if (!classified) continue;
 
       if (classified.kind === 'blog') {
@@ -213,7 +229,7 @@ export function classifyStorefrontContentPath(
   pathname: string,
   merchantSlug?: string
 ): { kind: 'blog' | 'product'; slug: string } | null {
-  return classifySegments(getPathSegments(pathname, merchantSlug));
+  return classifyPathSegments(pathname, merchantSlug);
 }
 
 export interface IsDeadStorefrontContentHrefOptions {
@@ -253,7 +269,7 @@ export function isDeadStorefrontContentHref(
     pathname = pathname.slice(basePath.length);
   }
 
-  const classified = classifySegments(getPathSegments(pathname));
+  const classified = classifyPathSegments(pathname);
   if (!classified) {
     return false;
   }

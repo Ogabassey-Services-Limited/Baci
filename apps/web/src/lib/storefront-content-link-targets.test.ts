@@ -212,6 +212,26 @@ describe('collectStorefrontContentLinkTargets', () => {
     });
   });
 
+  it('keeps two-segment links classifiable when the merchant slug matches a category', () => {
+    // A store slugged `smartphones` linking /smartphones/<product> must not
+    // have its category segment stripped away.
+    const html = '<a href="/smartphones/iphone-15">Phone</a>';
+
+    expect(collectStorefrontContentLinkTargets(html, 'smartphones')).toEqual({
+      blogSlugs: [],
+      productSlugs: ['iphone-15'],
+    });
+  });
+
+  it('collects markdown autolink destinations', () => {
+    const markdown = 'Read <https://ogabassey.com/blog/autolinked-draft> now.';
+
+    expect(collectStorefrontContentLinkTargets(markdown, 'ogabassey')).toEqual({
+      blogSlugs: ['autolinked-draft'],
+      productSlugs: [],
+    });
+  });
+
   it('strips a leading merchant-slug path prefix before classifying', () => {
     const html = '<a href="/ogabassey/blog/merchant-prefixed-draft">Post</a>';
 
