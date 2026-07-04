@@ -4,10 +4,36 @@
 // sufficient.
 const ANCHOR_TAG_REGEX =
   /<a\b((?:[^>"']|"[^"]*"|'[^']*')*)>([\s\S]*?)<\/a\s*>/gi;
-// The lookbehind rejects hyphen/word prefixes so `data-href`, `xlink:href`
-// variants written as `something-href`, etc. are never mistaken for the real
-// link target (`\b` alone matches at the `-`/`h` boundary inside data-href).
-const HREF_ATTRIBUTE_REGEX = /(?<![\w-])href\s*=\s*(["'])(.*?)\1/i;
+// Sequential attribute tokenizer: consuming `name="value"` / `name='value'`
+// pairs left to right means href-shaped text INSIDE another attribute's value
+// (e.g. title='see href="/x"') is swallowed by that attribute's token and can
+// never be mistaken for the real href. Also rejects `data-href` and other
+// suffixed names, since the token name must equal `href` exactly.
+const ATTRIBUTE_TOKEN_REGEX = /([^\s=]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+
+interface HrefAttributeToken {
+  index: number;
+  raw: string;
+  quote: '"' | "'";
+  value: string;
+}
+
+function findHrefAttribute(attributes: string): HrefAttributeToken | null {
+  ATTRIBUTE_TOKEN_REGEX.lastIndex = 0;
+  let match = ATTRIBUTE_TOKEN_REGEX.exec(attributes);
+  while (match !== null) {
+    if (match[1].toLowerCase() === 'href') {
+      return {
+        index: match.index,
+        raw: match[0],
+        quote: match[2] !== undefined ? '"' : "'",
+        value: match[2] ?? match[3] ?? '',
+      };
+    }
+    match = ATTRIBUTE_TOKEN_REGEX.exec(attributes);
+  }
+  return null;
+}
 
 const HTML_ATTRIBUTE_ENTITY_REGEX =
   /&(?:(amp|lt|gt|quot)|#(\d+)|#x([0-9a-f]+));/gi;
@@ -70,23 +96,23 @@ export function unwrapDeadHtmlAnchors(
   return html.replace(
     ANCHOR_TAG_REGEX,
     (anchor, attributes: string, innerContent: string) => {
-      const hrefMatch = attributes.match(HREF_ATTRIBUTE_REGEX);
-      if (!hrefMatch) {
+      const hrefToken = findHrefAttribute(attributes);
+      if (!hrefToken) {
         return anchor;
       }
 
-      const href = unescapeHtmlAttribute(hrefMatch[2]);
+      const href = unescapeHtmlAttribute(hrefToken.value);
 
       const rewrittenHref = rewriteHref?.(href);
       if (rewrittenHref && rewrittenHref !== href) {
-        const quote = hrefMatch[1];
-        // The attribute substring appears in the opening tag, before any
-        // identical text in the inner content, so first-occurrence replace
-        // targets the real href.
-        return anchor.replace(
-          hrefMatch[0],
-          `href=${quote}${escapeHtmlAttribute(rewrittenHref)}${quote}`
-        );
+        // Splice at the token's exact index so the replacement can only ever
+        // touch the real href token, never identical text elsewhere.
+        const replacement = `href=${hrefToken.quote}${escapeHtmlAttribute(rewrittenHref)}${hrefToken.quote}`;
+        const newAttributes =
+          attributes.slice(0, hrefToken.index) +
+          replacement +
+          attributes.slice(hrefToken.index + hrefToken.raw.length);
+        return `<a${newAttributes}>${innerContent}</a>`;
       }
 
       return isDeadHref(href) ? innerContent : anchor;

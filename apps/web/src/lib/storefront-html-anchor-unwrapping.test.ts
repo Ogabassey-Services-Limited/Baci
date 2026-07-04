@@ -189,3 +189,34 @@ describe('unwrapDeadHtmlAnchors href attribute matching', () => {
     expect(result).toBe('Dead');
   });
 });
+
+describe('unwrapDeadHtmlAnchors attribute tokenization', () => {
+  it('reads the real href even when an earlier attribute contains href-shaped text', () => {
+    const html =
+      '<a title=\'see href="/blog/draft-post"\' href="/blog/live-post">Live</a>';
+
+    const result = unwrapDeadHtmlAnchors(
+      html,
+      (href) => href === '/blog/draft-post'
+    );
+
+    // the live anchor must survive — its REAL href is not dead
+    expect(result).toBe(html);
+  });
+
+  it('rewrites the real href token, not identical text inside another attribute', () => {
+    const html =
+      '<a title=\'href="/audio/apple-airpods-2"\' href="/audio/apple-airpods-2">AirPods</a>';
+
+    const result = unwrapDeadHtmlAnchors(
+      html,
+      () => false,
+      (href) =>
+        href === '/audio/apple-airpods-2' ? '/earbuds/apple-airpods-2' : null
+    );
+
+    expect(result).toBe(
+      '<a title=\'href="/audio/apple-airpods-2"\' href="/earbuds/apple-airpods-2">AirPods</a>'
+    );
+  });
+});
