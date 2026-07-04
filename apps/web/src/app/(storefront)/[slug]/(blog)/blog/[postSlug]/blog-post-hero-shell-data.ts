@@ -2,6 +2,7 @@ import { unstable_rethrow } from 'next/navigation';
 import { hasBlogAuthorPage } from '@/lib/blog-authors';
 import { getCachedBlogPost } from '@/lib/cached-data';
 import { generateSlug } from '@/lib/seo-utils';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { isDomainIdentifier } from '@/lib/validation';
 import type { BlogPostHeaderProps } from './BlogPostHeader';
 

@@ -99,6 +99,18 @@ describe('resolveBlogPostHeroShell', () => {
     expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
   });
 
+  it('returns null for unsafe bot slugs without fetching (unbounded cache key, #2923)', async () => {
+    mockGetCachedBlogPost.mockResolvedValue(publishedPost);
+
+    const shell = await resolveBlogPostHeroShell(
+      'ogabassey.com',
+      `%2525${'a'.repeat(4000)}`
+    );
+
+    expect(shell).toBeNull();
+    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+  });
+
   it('omits the author href when the author has no hub page', async () => {
     mockGetCachedBlogPost.mockResolvedValue(publishedPost);
     mockHasBlogAuthorPage.mockReturnValue(false);
