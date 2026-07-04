@@ -7,6 +7,7 @@ import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
 import { getProductUrl } from '@/lib/seo-utils';
 import type { StorefrontContentLinkRewrites } from '@/lib/storefront-content-link-rewriting';
 import { UUID_SHAPED_PRODUCT_IDENTIFIER_REGEX } from '@/lib/storefront-content-link-targets';
+import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
 
 const EMPTY_REWRITES: StorefrontContentLinkRewrites = {
   blogSlugs: {},
@@ -249,5 +250,15 @@ export async function getCachedContentLinkRewrites(
     }
   }
 
-  return { blogSlugs: blogRewrites, productPaths };
+  // Stored category slugs can be legacy aliases (phones, laptop, ...) that
+  // the content normalizer has already rewritten out of authored links.
+  // Normalize every rewrite path the same way so a rewrite can never flip a
+  // canonicalized link back to an alias path (the rewriter also self-skips
+  // when the normalized path equals the existing href).
+  const normalizedProductPaths: Record<string, string> = {};
+  for (const [slug, path] of Object.entries(productPaths)) {
+    normalizedProductPaths[slug] = normalizeStorefrontContentHref(path, {});
+  }
+
+  return { blogSlugs: blogRewrites, productPaths: normalizedProductPaths };
 }

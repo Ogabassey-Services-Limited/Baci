@@ -81,6 +81,15 @@ describe('rewriteStorefrontContentHref', () => {
       rewriteStorefrontContentHref('/products/constructor', { rewrites })
     ).toBe(null);
   });
+
+  it('canonicalizes renamed legacy multi-segment blog links to /blog/<target>', () => {
+    expect(
+      rewriteStorefrontContentHref(
+        '/blog/iphone/buying-a-used-iphone-in-2025',
+        { rewrites }
+      )
+    ).toBe('/blog/the-ultimate-checklist-for-buying-a-used-iphone-in-2025');
+  });
 });
 
 describe('rewriteStorefrontContentHref prototype-key safety', () => {
