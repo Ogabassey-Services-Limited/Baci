@@ -64,6 +64,10 @@ interface OrderItemRow {
   variant_name: string | null;
 }
 
+function getFirstDisplayNamePart(value: string | null | undefined) {
+  return value?.trim().split(/\s+/)[0] || null;
+}
+
 export async function fetchOrderById(
   orderId: string,
   merchantId: string,
@@ -144,10 +148,7 @@ export async function fetchOrderById(
     }
 
     if (staffMember) {
-      const fullName = staffMember.name;
-      if (fullName) {
-        recordedByName = fullName.split(' ')[0];
-      }
+      recordedByName = getFirstDisplayNamePart(staffMember.name);
 
       const { data: terminal, error: terminalError } = await supabase
         .from('virtual_terminals')
@@ -170,6 +171,46 @@ export async function fetchOrderById(
           bank_name: terminal.bank,
         };
       }
+    } else if (!staffMemberError) {
+      const { data: fallbackStaffMember, error: fallbackStaffMemberError } =
+        await supabase
+          .from('staff_members')
+          .select('name')
+          .eq('user_id', order.recorded_by_user_id)
+          .eq('merchant_id', merchantId)
+          .neq('status', 'active')
+          .limit(1)
+          .maybeSingle();
+
+      if (fallbackStaffMemberError) {
+        console.warn(
+          'useOrderDetails inactive staff_members lookup error:',
+          fallbackStaffMemberError
+        );
+      }
+
+      recordedByName = getFirstDisplayNamePart(fallbackStaffMember?.name);
+    }
+
+    if (!recordedByName) {
+      const { data: merchantRecorder, error: merchantRecorderError } =
+        await supabase
+          .from('merchants')
+          .select('business_name, email, user_id')
+          .eq('id', merchantId)
+          .eq('user_id', order.recorded_by_user_id)
+          .maybeSingle();
+
+      if (merchantRecorderError) {
+        console.warn(
+          'useOrderDetails merchant recorder lookup error:',
+          merchantRecorderError
+        );
+      }
+
+      recordedByName =
+        getFirstDisplayNamePart(merchantRecorder?.business_name) ||
+        getFirstDisplayNamePart(merchantRecorder?.email?.split('@')[0]);
     }
   }
 

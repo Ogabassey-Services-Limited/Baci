@@ -11,11 +11,63 @@ interface ShipmentFlowProgressProps {
   }>;
 }
 
+const COMPACT_PROGRESS_STEP_LIMIT = 4;
+
 export function ShipmentFlowProgress({
   colors,
   currentStepIndex,
   steps,
 }: ShipmentFlowProgressProps) {
+  if (steps.length > COMPACT_PROGRESS_STEP_LIMIT) {
+    const currentStep = steps[currentStepIndex] ?? steps[0];
+
+    return (
+      <View
+        accessible
+        accessibilityRole="text"
+        accessibilityLabel={`Step ${currentStepIndex + 1} of ${steps.length}: ${currentStep?.label ?? 'Step'}. Current step.`}
+        style={[
+          styles.stepCounter,
+          {
+            backgroundColor: colors.backgroundLight,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.stepDot,
+            {
+              backgroundColor: colors.primary,
+              borderColor: colors.primary,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.stepDotText,
+              {
+                color: colors.textOnPrimary,
+              },
+            ]}
+          >
+            {currentStepIndex + 1}
+          </Text>
+        </View>
+        <View style={styles.stepCounterCopy}>
+          <Text style={[styles.stepCounterLabel, { color: colors.text }]}>
+            {currentStep?.label ?? 'Step'}
+          </Text>
+          <Text
+            style={[styles.stepCounterMeta, { color: colors.textSecondary }]}
+          >
+            Step {currentStepIndex + 1} of {steps.length}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.stepRow}>
       {steps.map((item, index) => {

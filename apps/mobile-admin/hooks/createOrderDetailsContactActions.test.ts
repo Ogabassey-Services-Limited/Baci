@@ -2,6 +2,7 @@ import { Alert, Linking } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import { apiClient } from '@/lib/api-client';
+import * as phoneCountry from '@/lib/phone-country';
 import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import { createOrderDetailsContactActions } from './createOrderDetailsContactActions';
 
@@ -149,7 +150,100 @@ describe('createOrderDetailsContactActions', () => {
       method: 'PATCH',
     });
     expect(Linking.openURL).toHaveBeenCalledWith(
-      expect.stringContaining('https://wa.me/08030000000?text=')
+      expect.stringContaining('https://wa.me/2348030000000?text=')
+    );
+  });
+
+  it('formats local Nigerian rider numbers internationally before sending', async () => {
+    const setSavedRiders = vi.fn();
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: {
+        business_address: '21 Broad Street',
+        business_name: 'Baci Store',
+      },
+      order: buildOrder(),
+      riderPhone: '08034444444',
+      savedRiders: [],
+      setSavedRiders,
+    });
+
+    await actions.handleSendOrderDetailsToRider();
+
+    expect(setSavedRiders).toHaveBeenCalledWith(['2348034444444']);
+    expect(Linking.openURL).toHaveBeenCalledWith(
+      expect.stringContaining('https://wa.me/2348034444444?text=')
+    );
+  });
+
+  it('falls back to digit stripping when phone country formatting fails', async () => {
+    const formatterSpy = vi
+      .spyOn(phoneCountry, 'formatPhoneNumberForCountry')
+      .mockImplementation((phoneNumber, country) => {
+        if (phoneNumber === ' +234 803 444 4444 ') {
+          throw new Error('format failed');
+        }
+        const digits = phoneNumber.replace(/\D/g, '');
+        if (digits.startsWith(country.callingCode)) {
+          return `+${digits}`;
+        }
+        if (digits.startsWith('0')) {
+          return `+${country.callingCode}${digits.slice(1)}`;
+        }
+        return `+${country.callingCode}${digits}`;
+      });
+    const setSavedRiders = vi.fn();
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: {
+        business_address: '21 Broad Street',
+        business_name: 'Baci Store',
+      },
+      order: buildOrder(),
+      riderPhone: ' +234 803 444 4444 ',
+      savedRiders: [],
+      setSavedRiders,
+    });
+
+    try {
+      await actions.handleSendOrderDetailsToRider();
+
+      expect(setSavedRiders).toHaveBeenCalledWith(['2348034444444']);
+      expect(Linking.openURL).toHaveBeenCalledWith(
+        expect.stringContaining('https://wa.me/2348034444444?text=')
+      );
+    } finally {
+      formatterSpy.mockRestore();
+    }
+  });
+
+  it('persists a typed rider number before sending order details to the rider', async () => {
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: { business_address: '21 Broad Street', business_name: 'Baci' },
+      order: buildOrder({
+        self_fulfillment_data: {
+          carrierName: 'Express Rider',
+          dispatchPhone: '',
+        },
+      }),
+      riderPhone: '08034444444',
+      savedRiders: [],
+      setSavedRiders: vi.fn(),
+    });
+
+    await actions.handleSendOrderDetailsToRider();
+
+    expect(apiClient).toHaveBeenCalledWith('/api/shipping/self-fulfill', {
+      body: JSON.stringify({
+        carrierName: 'Express Rider',
+        dispatchPhone: '2348034444444',
+        orderId: 'order-1',
+      }),
+      method: 'PATCH',
+    });
+    expect(Linking.openURL).toHaveBeenCalledWith(
+      expect.stringContaining('https://wa.me/2348034444444?text=')
     );
   });
 

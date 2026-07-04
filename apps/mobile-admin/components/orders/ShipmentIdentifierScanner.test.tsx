@@ -128,11 +128,13 @@ describe('ShipmentIdentifierScanner', () => {
     });
 
     fireEvent.click(screen.getByLabelText('Mock camera scanner'));
+    fireEvent.click(screen.getByLabelText('Mock camera scanner'));
 
     expect(Alert.alert).toHaveBeenCalledWith(
       'Scan Failed',
       'No valid identifier was found in this code.'
     );
+    expect(Alert.alert).toHaveBeenCalledTimes(1);
     expect(onScanned).not.toHaveBeenCalled();
   });
 

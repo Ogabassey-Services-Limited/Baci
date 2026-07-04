@@ -40,7 +40,7 @@ describe('order fulfillment details', () => {
     ]);
   });
 
-  it('hydrates saved item identifiers and falls back legacy order-level fields onto the first item', () => {
+  it('falls back legacy order-level fields onto the first item when no item identifiers exist', () => {
     const requiredItems = getOrderFulfillmentIdentifierItems([
       createItem({ id: 'item-1', name: 'iPhone 15' }),
       createItem({ id: 'item-2', name: 'Samsung Galaxy' }),
@@ -49,7 +49,32 @@ describe('order fulfillment details', () => {
     const details = getInitialFulfillmentDetails(
       {
         imei: ' 353456789012345 ',
+        serialNumber: ' SN-IPHONEX ',
+      },
+      requiredItems
+    );
+
+    expect(details.items).toMatchObject([
+      { id: 'item-1:1', imei: '353456789012345', serialNumber: 'SN-IPHONEX' },
+      { id: 'item-2:1', imei: '', serialNumber: '' },
+    ]);
+  });
+
+  it('does not copy item-level fallback identifiers onto earlier items', () => {
+    const requiredItems = getOrderFulfillmentIdentifierItems([
+      createItem({ id: 'item-1', name: 'iPhone 15' }),
+      createItem({ id: 'item-2', name: 'Samsung Galaxy' }),
+    ]);
+
+    const details = getInitialFulfillmentDetails(
+      {
+        imei: ' 353456789012345 ',
+        serialNumber: ' SN-GALAXY-1 ',
         items: [
+          {
+            id: 'item-1:1',
+            imei: '353456789012345',
+          },
           {
             id: 'item-2:1',
             serialNumber: ' SN-GALAXY-1 ',

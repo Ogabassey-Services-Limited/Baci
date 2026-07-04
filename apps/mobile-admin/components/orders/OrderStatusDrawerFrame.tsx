@@ -1,6 +1,7 @@
 import BottomSheet, {
   BottomSheetBackdrop,
   type BottomSheetBackdropProps,
+  BottomSheetScrollView,
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
 import Ionicons from '@react-native-vector-icons/ionicons';
@@ -222,7 +223,12 @@ export function OrderStatusDrawerFrame({
             </Text>
             <View style={styles.headerSide} />
           </View>
-          {children}
+          <BottomSheetScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {children}
+          </BottomSheetScrollView>
         </BottomSheetView>
       </BottomSheet>
     </View>
@@ -249,6 +255,9 @@ const styles = StyleSheet.create({
   },
   sheetContent: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   header: {
     alignItems: 'center',

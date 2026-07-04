@@ -219,6 +219,18 @@ function getGeneratedInvoiceItems() {
   return invoiceData.items;
 }
 
+function getGeneratedReceiptItems() {
+  const receiptOrder = vi.mocked(generateReceiptBlob).mock.calls[0]?.[0] as {
+    items: Array<{
+      id?: string | null;
+      line_id?: number;
+      product_id?: string | null;
+    }>;
+  };
+
+  return receiptOrder.items;
+}
+
 describe('GET /api/orders/[id]/invoice', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -328,6 +340,10 @@ describe('GET /api/orders/[id]/invoice', () => {
     expect(invoiceItems[0]?.description).not.toContain('IPHONE-SERIAL-2');
     expect(invoiceItems[1]?.description).toContain('S/N: IPHONE-SERIAL-2');
     expect(invoiceItems[1]?.description).not.toContain('111111111111111');
+    expect(getGeneratedReceiptItems()).toMatchObject([
+      { id: 'item-1', line_id: 1, product_id: 'product-case' },
+      { id: 'item-2', line_id: 2, product_id: 'product-phone' },
+    ]);
   });
 
   it('includes the assurance premium in BT-109/BT-112 when stored tax totals are product-only', async () => {

@@ -95,6 +95,20 @@ vi.mock('@gorhom/bottom-sheet', () => ({
     children?: ReactNode;
     testID?: string;
   }) => <div data-testid={testID}>{children}</div>,
+  BottomSheetScrollView: ({
+    children,
+    contentContainerStyle,
+  }: {
+    children?: ReactNode;
+    contentContainerStyle?: unknown;
+  }) => (
+    <section
+      aria-label="scrollable status drawer content"
+      data-has-content-container-style={String(Boolean(contentContainerStyle))}
+    >
+      {children}
+    </section>
+  ),
 }));
 
 vi.mock('react-native', () => ({
@@ -271,6 +285,9 @@ describe('OrderStatusDrawerFrame', () => {
     expect(screen.queryByLabelText('status-modal')).not.toBeInTheDocument();
     expect(screen.getByText('Update Order Status')).toBeInTheDocument();
     expect(screen.getByText('Status rows')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('scrollable status drawer content')
+    ).toHaveAttribute('data-has-content-container-style', 'true');
   });
 
   it('clamps the drawer snap height to the available viewport', () => {

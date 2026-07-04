@@ -71,6 +71,27 @@ export const styles = StyleSheet.create({
     flex: 1,
     gap: COMPACT_GAP,
   },
+  stepCounter: {
+    alignItems: 'center',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  stepCounterCopy: {
+    flex: 1,
+    gap: CONTENT_GAP,
+  },
+  stepCounterLabel: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: '700',
+  },
+  stepCounterMeta: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontWeight: '600',
+  },
   stepDot: {
     alignItems: 'center',
     borderRadius: RADIUS.full,

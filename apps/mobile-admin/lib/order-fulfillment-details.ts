@@ -202,18 +202,21 @@ export function getInitialFulfillmentDetails(
     details?.serialNumber,
     details?.serial_number
   );
+  const hasPersistedItems =
+    Array.isArray(details?.items) && details.items.length > 0;
 
   const items = requiredItems.map((item, index) => {
     const existingItem = findExistingFulfillmentItem(details, item);
+    const shouldUseOrderLevelFallback = !hasPersistedItems && index === 0;
 
     return {
       ...item,
       imei:
         getExistingItemValue(existingItem, 'imei') ||
-        (index === 0 ? orderLevelImei : ''),
+        (shouldUseOrderLevelFallback ? orderLevelImei : ''),
       serialNumber:
         getExistingItemValue(existingItem, 'serialNumber') ||
-        (index === 0 ? orderLevelSerialNumber : ''),
+        (shouldUseOrderLevelFallback ? orderLevelSerialNumber : ''),
     };
   });
 

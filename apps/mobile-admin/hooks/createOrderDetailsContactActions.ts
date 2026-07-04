@@ -2,6 +2,10 @@ import { Alert, Linking, Share } from 'react-native';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import { apiClient } from '@/lib/api-client';
 import { extractOrderDeliveryAddress } from '@/lib/orders';
+import {
+  formatPhoneNumberForCountry,
+  getPhoneCountryFromValue,
+} from '@/lib/phone-country';
 import { asyncStorage as AsyncStorage } from '@/lib/storage';
 
 interface CreateOrderDetailsContactActionsParams {
@@ -20,7 +24,15 @@ interface CreateOrderDetailsContactActionsParams {
 }
 
 function normalizeWhatsAppPhone(phone: string | null | undefined) {
-  return phone?.replace(/\D/g, '') ?? '';
+  try {
+    const formattedPhone = formatPhoneNumberForCountry(
+      phone ?? '',
+      getPhoneCountryFromValue(phone ?? '')
+    );
+    return formattedPhone.replace(/\D/g, '');
+  } catch {
+    return (phone ?? '').replace(/\D/g, '');
+  }
 }
 
 function isValidWhatsAppPhone(phone: string) {

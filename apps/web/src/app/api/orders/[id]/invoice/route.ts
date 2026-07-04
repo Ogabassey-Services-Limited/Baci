@@ -328,6 +328,7 @@ export async function GET(
 
     // Build invoice line items
     const items: InvoiceLineItem[] = typedOrderItems.map((item, index) => {
+      const invoiceLineId = item.line_id || index + 1;
       const fulfillmentAttachment = resolveReceiptItemFulfillmentAttachment({
         hasDeviceItem,
         index,
@@ -380,7 +381,7 @@ export async function GET(
       }
 
       return {
-        line_id: item.line_id || index + 1,
+        line_id: invoiceLineId,
         product_id: item.product_id || undefined,
         name: item.name || '',
         description: desc,
@@ -658,18 +659,28 @@ export async function GET(
           }
         : null,
       fulfillment_details: orderFulfillment,
-      items: items.map((item) => ({
-        product_name: item.name || 'Item',
-        description: item.description,
-        line_extension_amount: item.line_extension_amount,
-        quantity: item.quantity,
-        price: Number(item.price),
-        sellers_item_id: item.sellers_item_id,
-        unit_code: item.unit_code,
-        vat_amount: item.vat_amount,
-        vat_category_code: item.vat_category_code,
-        vat_rate: item.vat_rate,
-      })),
+      // `items` is built one-for-one from `typedOrderItems` above. Receipt
+      // metadata must use that same positional relationship so generated
+      // invoice line ids cannot collide with nullable source line ids.
+      items: items.map((item, index) => {
+        const sourceItem = typedOrderItems[index];
+
+        return {
+          id: sourceItem?.id,
+          line_id: sourceItem?.line_id ?? item.line_id ?? undefined,
+          product_id: sourceItem?.product_id ?? undefined,
+          product_name: item.name || 'Item',
+          description: item.description,
+          line_extension_amount: item.line_extension_amount,
+          quantity: item.quantity,
+          price: Number(item.price),
+          sellers_item_id: item.sellers_item_id,
+          unit_code: item.unit_code,
+          vat_amount: item.vat_amount,
+          vat_category_code: item.vat_category_code,
+          vat_rate: item.vat_rate,
+        };
+      }),
       transactions: [],
     };
     const receiptMerchant: ReceiptMerchant = {

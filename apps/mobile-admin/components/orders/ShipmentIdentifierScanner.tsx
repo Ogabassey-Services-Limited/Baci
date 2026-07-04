@@ -60,6 +60,7 @@ export function ShipmentIdentifierScanner({
 
     const normalizedValue = normalizeFulfillmentIdentifier(field, data);
     if (!normalizedValue) {
+      setScanned(true);
       Alert.alert('Scan Failed', 'No valid identifier was found in this code.');
       return;
     }

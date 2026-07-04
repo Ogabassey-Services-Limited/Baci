@@ -8,4 +8,14 @@ describe('ShipmentFlowSheet styles', () => {
       width: '100%',
     });
   });
+
+  it('defines compact progress counter styles for long fulfillment flows', () => {
+    expect(styles.stepCounter).toMatchObject({
+      alignItems: 'center',
+      flexDirection: 'row',
+    });
+    expect(styles.stepCounterCopy).toMatchObject({
+      flex: 1,
+    });
+  });
 });
