@@ -87,7 +87,7 @@ describe('resolveStorefrontBlogPostStatus', () => {
     });
   });
 
-  it('reports over-encoded bot post slugs as missing (hard 404) without fetching', async () => {
+  it('fails open (not missing) for over-encoded bot post slugs without fetching', async () => {
     const fetchImpl = vi.fn();
     let overEncodedSlug = 'my blog post';
     for (let i = 0; i < 10; i++) {
@@ -102,8 +102,9 @@ describe('resolveStorefrontBlogPostStatus', () => {
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });
 
-    // Unsafe slug is definitively absent → missing (proxy emits a real 404).
-    expect(result).toEqual({ kind: 'missing' });
+    // Fail open, not hard 404: the endpoint fails open for unpublished stores,
+    // so the render layer (not the proxy) decides published vs coming-soon.
+    expect(result).toEqual({ kind: 'present-or-unknown' });
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(console.warn).toHaveBeenCalledWith(
       '[storefront-internal-preflight] skip',

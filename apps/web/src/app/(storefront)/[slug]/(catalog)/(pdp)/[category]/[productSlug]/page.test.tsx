@@ -1063,23 +1063,29 @@ describe('[category]/[productSlug] page metadata', () => {
     }
   });
 
-  it('returns noindex soft-404 metadata for an over-long category with a valid product slug', async () => {
-    // The category segment is also a getProductRouteControl arg (React cache()
-    // key), so an unbounded category must be gated even with a valid product.
+  it('does not gate an over-long category with a valid product (flows to the canonical redirect)', async () => {
+    // Category feeds only hasCategoryMismatch (in-memory string compare), never
+    // a cache/DB key, so an over-long category with a valid product must reach
+    // getProductRouteControl and emit the canonical-category redirect metadata
+    // (real 308 at render) — NOT be gated to a soft not-found.
+    mockGetCachedProductWithDetails.mockResolvedValue(
+      categorizedDetailedProduct
+    );
+
     const metadata = await generateMetadata({
       params: Promise.resolve({
         slug: 'teststore',
         category: 'a'.repeat(4000),
-        productSlug: 'samsung-s10-8gb-128gb',
+        productSlug: 'hp-laptop-14-ep0063nia',
       }),
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.title).toBe('Product not found');
-    expect(metadata.robots).toEqual({ index: false, follow: true });
-    expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
-    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
-    expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
+    // The product lookup ran — the over-long category did not short-circuit it.
+    expect(mockGetCachedProductWithDetails).toHaveBeenCalled();
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
   it('hard-404s an unsafe segment when the merchant does not exist', async () => {

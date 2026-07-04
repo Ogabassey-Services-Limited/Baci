@@ -1196,17 +1196,17 @@ export async function generateMetadata({
     return PRODUCT_NOT_FOUND_METADATA;
   }
 
-  // Skip getProductRouteControl for unsafe (over-long / repeatedly-encoded)
-  // segments so the raw value never enters its React cache() memo key
-  // (category is also an arg), then fall through to the shared missing-route
-  // handling below — which still runs the bounded merchant existence check, so
-  // a nonexistent tenant hard-404s rather than rendering a soft not-found.
-  const hasUnsafeSegment =
-    !evaluateStorefrontSlugSafety(productSlug).safe ||
-    !evaluateStorefrontSlugSafety(category).safe;
-  const routeControl = hasUnsafeSegment
-    ? null
-    : await getProductRouteControl(slug, category, productSlug);
+  // Gate only productSlug (the crash vector — it reaches `'use cache'`/Supabase
+  // lookups): skip getProductRouteControl for an unsafe product slug, then fall
+  // through to the shared missing-route handling below (which still runs the
+  // bounded merchant existence check, so a nonexistent tenant hard-404s). The
+  // category segment is NOT gated: it only feeds an in-memory string comparison
+  // (hasCategoryMismatch), never a cache/DB key, so a valid product under an
+  // over-long category must still reach getProductRouteControl to emit the
+  // canonical-category 308 redirect instead of a soft not-found.
+  const routeControl = evaluateStorefrontSlugSafety(productSlug).safe
+    ? await getProductRouteControl(slug, category, productSlug)
+    : null;
 
   if (!routeControl) {
     const merchant = await getRequestScopedMerchant(slug);
@@ -1468,15 +1468,14 @@ export default async function CategoryProductPage({
     return renderCategoryProductNotFoundContent(slug);
   }
 
-  // Skip the LCP prewarm and getProductRouteControl for unsafe (over-long /
-  // repeatedly-encoded) segments so the raw value never enters their React
-  // cache() memo keys (category is also an arg), but keep the bounded merchant
-  // existence check so a nonexistent tenant hard-404s rather than rendering a
-  // soft not-found (mirrors the missing-route handling below).
-  if (
-    !evaluateStorefrontSlugSafety(productSlug).safe ||
-    !evaluateStorefrontSlugSafety(category).safe
-  ) {
+  // Gate only productSlug (the crash vector — it reaches `'use cache'`/Supabase
+  // lookups): skip the LCP prewarm and getProductRouteControl for an unsafe
+  // product slug, keeping the bounded merchant existence check so a nonexistent
+  // tenant hard-404s. The category segment is NOT gated: it only feeds an
+  // in-memory string comparison (hasCategoryMismatch), never a cache/DB key, so
+  // a valid product under an over-long category must still reach
+  // getProductRouteControl to emit the canonical-category 308 redirect.
+  if (!evaluateStorefrontSlugSafety(productSlug).safe) {
     const merchant = await getRequestScopedMerchant(slug);
 
     if (!merchant) {

@@ -60,16 +60,18 @@ export async function resolveStorefrontProductSlugResolution(
   };
 
   // Unsafe (over-long / repeatedly-encoded) slugs can never be live products,
-  // so report them as definitively missing — the proxy then emits a real hard
-  // 404 (preserving crawl budget) instead of falling through to a soft noindex
-  // render. Skips the internal hop entirely.
+  // but do NOT hard-404 here: the internal slug-set endpoint deliberately
+  // fails open for unpublished/unknown storefronts (so they still render the
+  // coming-soon shell instead of a proxy 404). Skip the doomed internal hop and
+  // fail open too, letting the App Router decide — a published store renders
+  // the render-route not-found gate, an unpublished store its coming-soon shell.
   const slugSafety = evaluateStorefrontSlugSafety(opts.productSlug);
   if (!slugSafety.safe) {
     storefrontInternalPreflight.warnSkip({
       ...failOpenContext,
       reason: slugSafety.reason,
     });
-    return { kind: 'missing' };
+    return { kind: 'present-or-unknown' };
   }
 
   if (!opts.secret) {
