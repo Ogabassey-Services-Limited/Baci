@@ -1,5 +1,8 @@
 import { getAppUrl, getInternalApiSecret } from '@/env';
 import { revalidateProducts } from '@/lib/cache-revalidation';
+import { buildInternalProductPurgeEntries } from '@/lib/internal-product-purge-entries';
+import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
+import type { InternalRevalidateProductEntry } from '@/schemas/internal-revalidate-products-route';
 
 interface RevalidateProductsReliableOptions {
   /** Injectable for tests. */
@@ -10,6 +13,15 @@ interface RevalidateProductsReliableOptions {
   secret?: string;
   /** HTTP fallback timeout. */
   timeoutMs?: number;
+  /**
+   * Merchant slug (or a custom hostname) identifying the storefront cache
+   * policy. Required — together with `products` — to additionally purge the
+   * affected products' public URLs from Cloudflare. Omit to only revalidate the
+   * Next caches (the pre-existing behavior).
+   */
+  merchantSlug?: string;
+  /** Products whose public URLs should also be evicted from Cloudflare. */
+  products?: readonly InternalRevalidateProductEntry[];
 }
 
 /**
@@ -32,11 +44,24 @@ export async function revalidateProductsReliable(
   merchantId: string,
   options: RevalidateProductsReliableOptions = {}
 ): Promise<void> {
+  const { merchantSlug, products } = options;
+  const shouldPurge = Boolean(merchantSlug && products && products.length > 0);
+
   try {
     revalidateProducts(merchantId);
-    return; // In-process revalidation succeeded (we had a Next store context).
+    // In-process revalidation succeeded (we had a Next store context), so the
+    // Cloudflare purge can be scheduled in-process too (scheduleStorefrontProductPurge
+    // is guarded and never throws). Return before the HTTP fallback.
+    if (shouldPurge && merchantSlug && products) {
+      scheduleStorefrontProductPurge(
+        merchantSlug,
+        buildInternalProductPurgeEntries(products)
+      );
+    }
+    return;
   } catch {
-    // No store context (standalone worker) — fall back to the HTTP endpoint.
+    // No store context (standalone worker) — fall back to the HTTP endpoint,
+    // which forwards the purge inputs so the route schedules the purge instead.
   }
 
   const secret = options.secret ?? getInternalApiSecret();
@@ -64,7 +89,9 @@ export async function revalidateProductsReliable(
           Authorization: `Bearer ${secret}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ merchantId }),
+        body: JSON.stringify(
+          shouldPurge ? { merchantId, merchantSlug, products } : { merchantId }
+        ),
         signal: AbortSignal.timeout(options.timeoutMs ?? 5000),
       }
     );

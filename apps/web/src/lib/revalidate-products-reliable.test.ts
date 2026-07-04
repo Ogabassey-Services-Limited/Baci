@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockRevalidateProducts = vi.fn();
+const mockScheduleStorefrontProductPurge = vi.fn();
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
+}));
+vi.mock('@/lib/storefront-product-purge', () => ({
+  scheduleStorefrontProductPurge: (...args: unknown[]) =>
+    mockScheduleStorefrontProductPurge(...args),
 }));
 vi.mock('@/env', () => ({
   getAppUrl: () => 'https://app.usebaci.com',
@@ -111,6 +116,49 @@ describe('revalidateProductsReliable', () => {
         fetchImpl: fetchImpl as unknown as typeof fetch,
       })
     ).resolves.toBeUndefined();
+  });
+
+  it('schedules an in-process Cloudflare purge when merchantSlug + products are supplied', async () => {
+    mockRevalidateProducts.mockReturnValue(undefined);
+    const fetchImpl = vi.fn();
+
+    await revalidateProductsReliable('merchant-1', {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      merchantSlug: 'ogabassey',
+      products: [{ slug: 'iphone-15', category: 'Smartphones' }],
+    });
+
+    // In-process path: no HTTP call, purge scheduled directly.
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'ogabassey',
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+    );
+  });
+
+  it('forwards merchantSlug + products in the HTTP fallback body', async () => {
+    mockRevalidateProducts.mockImplementation(() => {
+      throw new Error('no store');
+    });
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true } as Response);
+    const products = [{ slug: 'iphone-15', category: 'Smartphones' }];
+
+    await revalidateProductsReliable('merchant-1', {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      merchantSlug: 'ogabassey',
+      products,
+    });
+
+    const [, init] = fetchImpl.mock.calls[0];
+    expect((init as RequestInit).body).toBe(
+      JSON.stringify({
+        merchantId: 'merchant-1',
+        merchantSlug: 'ogabassey',
+        products,
+      })
+    );
+    // The HTTP route schedules the purge, not the in-process helper.
+    expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
   });
 
   it('does not fetch (no secret leak) when the revalidation target is unavailable', async () => {

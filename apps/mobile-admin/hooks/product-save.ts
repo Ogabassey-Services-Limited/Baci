@@ -3,6 +3,7 @@ import {
   normalizeProductVariantModel,
 } from '@baci/shared';
 import { normalizeProductInventory } from '@/lib/product-inventory';
+import { revalidateStorefrontProducts } from '@/lib/revalidate-storefront-products';
 import { supabase } from '@/lib/supabase';
 import {
   ProductDbSchema,
@@ -109,5 +110,14 @@ async function saveProductWithVariants(args: {
     throw new Error(error.message);
   }
 
-  return normalizeProductInventory(data as Product);
+  const product = normalizeProductInventory(data as Product);
+
+  // The RPC mutated the product without any web route running, so nothing has
+  // evicted the storefront's raised-TTL edge cache. Fire-and-forget a purge of
+  // the saved product's public URLs (never awaited, never throws).
+  void revalidateStorefrontProducts([
+    { slug: product.slug, id: product.id, category: product.category },
+  ]);
+
+  return product;
 }

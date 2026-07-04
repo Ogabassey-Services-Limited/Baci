@@ -3,12 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetInternalApiSecret = vi.fn();
 const mockRevalidateProducts = vi.fn();
+const mockScheduleStorefrontProductPurge = vi.fn();
 
 vi.mock('@/env', () => ({
   getInternalApiSecret: () => mockGetInternalApiSecret(),
 }));
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
+}));
+vi.mock('@/lib/storefront-product-purge', () => ({
+  scheduleStorefrontProductPurge: (...args: unknown[]) =>
+    mockScheduleStorefrontProductPurge(...args),
 }));
 
 import { POST } from './route';
@@ -44,6 +49,33 @@ describe('POST /api/internal/revalidate-products', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
     expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+  });
+
+  it('does NOT schedule a purge for a merchantId-only body', async () => {
+    await POST(request({ merchantId: MERCHANT_ID }, `Bearer ${SECRET}`));
+
+    expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+  });
+
+  it('schedules a purge when merchantSlug and products are present', async () => {
+    const res = await POST(
+      request(
+        {
+          merchantId: MERCHANT_ID,
+          merchantSlug: 'ogabassey',
+          products: [{ slug: 'iphone-15', category: 'Smartphones' }],
+        },
+        `Bearer ${SECRET}`
+      )
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'ogabassey',
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+      { listingsOnly: false }
+    );
   });
 
   it('returns 500 when the internal secret is not configured', async () => {

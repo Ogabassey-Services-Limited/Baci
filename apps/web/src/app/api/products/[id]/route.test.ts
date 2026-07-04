@@ -89,11 +89,24 @@ vi.mock('@/lib/seo-utils', () => ({
   generateProductSlug: (name: string) => name.toLowerCase().replace(/\s/g, '-'),
   generateSlug: (name: string) => name.toLowerCase().replace(/\s/g, '-'),
   // Minimal canonical-path builder so resolveProductPurgeCategorySegment (the
-  // real helper) resolves a category segment from the mocked product data.
-  getProductUrl: (product: { slug?: string; category?: string | null }) =>
-    product.category
-      ? `/${product.category.toLowerCase().replace(/\s+/g, '-')}/${product.slug}`
-      : `/products/${product.slug}`,
+  // real helper) resolves a category segment from the mocked product data,
+  // honoring the join slug (from the direct or junction category) over the
+  // legacy text — mirroring the real getProductUrl precedence.
+  getProductUrl: (product: {
+    slug?: string;
+    category?: string | null;
+    categories?: { slug?: string; name?: string } | null;
+    category_slug?: string | null;
+  }) => {
+    const segment =
+      product.categories?.slug ||
+      product.category_slug ||
+      product.categories?.name ||
+      product.category;
+    return segment
+      ? `/${String(segment).toLowerCase().replace(/\s+/g, '-')}/${product.slug}`
+      : `/products/${product.slug}`;
+  },
 }));
 
 vi.mock('@/lib/countries', () => ({
@@ -855,6 +868,70 @@ describe('PUT /api/products/[id]', () => {
           { slug: 'gadget', categorySegment: 'smartphones' },
           { slug: 'gadget', categorySegment: 'audio' },
         ]
+      );
+    });
+
+    it('purges the junction category when there is no direct join and no legacy text', async () => {
+      // The product is assigned ONLY via the product_categories junction (no
+      // category_id, no legacy text), so its canonical PDP still lives under the
+      // junction category and must be purged there — not at /products/<slug>.
+      product = {
+        id: PRODUCT_ID,
+        name: 'Cable',
+        description: 'Old description',
+        condition: 'new',
+        slug: 'usb-c-cable',
+        category: null,
+        categories: null,
+        product_categories: [{ categories: { slug: 'accessories' } }],
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Cable',
+        slug: 'usb-c-cable',
+        category: null,
+      };
+
+      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [{ slug: 'usb-c-cable', categorySegment: 'accessories' }]
+      );
+      // The pre-update fetch must read the junction embed too.
+      expect(productSelectArgs[0]).toContain(
+        'product_categories(categories(slug))'
+      );
+    });
+
+    it('falls back to the product id for the purge target when the slug is null', async () => {
+      // Legacy rows can have a null slug but stay addressable at /products/<id>.
+      product = {
+        id: PRODUCT_ID,
+        name: 'Legacy',
+        description: 'Old description',
+        condition: 'new',
+        slug: null,
+        category: null,
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Legacy',
+        slug: null,
+        category: null,
+      };
+
+      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [{ slug: PRODUCT_ID, categorySegment: null }]
       );
     });
 
@@ -1810,6 +1887,46 @@ describe('DELETE /api/products/[id]', () => {
       });
 
       expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+    });
+
+    it('purges the junction category and reads the junction embed on delete', async () => {
+      deleteError = null;
+      deletedProducts = [
+        {
+          slug: 'usb-c-cable',
+          name: 'Cable',
+          category: null,
+          categories: null,
+          product_categories: [{ categories: { slug: 'accessories' } }],
+        },
+      ];
+
+      const res = await DELETE(makeDeleteRequest(PRODUCT_ID), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [{ slug: 'usb-c-cable', categorySegment: 'accessories' }]
+      );
+      expect(lastDeleteSelectArg).toContain(
+        'product_categories(categories(slug))'
+      );
+    });
+
+    it('falls back to the product id for the purge when the deleted slug is null', async () => {
+      deleteError = null;
+      deletedProducts = [{ slug: null, name: 'Legacy', category: null }];
+
+      await DELETE(makeDeleteRequest(PRODUCT_ID), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [{ slug: PRODUCT_ID, categorySegment: null }]
+      );
     });
 
     it('completes the delete even when scheduling the purge throws', async () => {

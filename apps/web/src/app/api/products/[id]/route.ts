@@ -39,7 +39,7 @@ import {
 } from '@/lib/seo-utils';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
-  resolveProductPurgeCategorySegment,
+  resolveProductPurgeCategorySegmentForRow,
   type StorefrontProductPurgeEntry,
 } from '@/lib/storefront-purge-urls';
 import { createClient } from '@/lib/supabase/server';
@@ -90,25 +90,6 @@ function schedulePrewarmProductImageTransforms(imagePaths: string[]): void {
   } catch {
     void prewarmOgabasseyImageTransforms(imagePaths);
   }
-}
-
-/**
- * Normalize a PostgREST `categories:category_id(slug)` embed — which comes back
- * as an object, an array, or null depending on the inferred relationship shape
- * — down to the single joined category slug (or null). Mirrors the
- * object-or-array guard in `cached-product-canonical-paths.ts` so the purge's
- * category resolution matches the storefront canonical (join-driven when a
- * `category_id` is set, PR #2914).
- */
-function extractJoinedCategorySlug(categories: unknown): string | null {
-  const record = Array.isArray(categories) ? categories[0] : categories;
-  if (record && typeof record === 'object' && 'slug' in record) {
-    const slug = (record as { slug?: unknown }).slug;
-    if (typeof slug === 'string' && slug.trim()) {
-      return slug.trim();
-    }
-  }
-  return null;
 }
 
 export async function GET(
@@ -333,11 +314,13 @@ export async function PUT(
     const { data: existingProduct, error: fetchError } = await supabase
       .from('products')
       .select(
-        // `category` (legacy text) + `categories:category_id(slug)` (the join)
-        // are read here so the Cloudflare purge derives the OLD row's canonical
-        // segment from the OLD data. The join is not writable in this handler,
-        // so this value is also the product's current joined category.
-        'id, name, description, brand, color, slug, category, condition, condition_detail, has_variants, variant_model, categories:category_id(slug)'
+        // `category` (legacy text) + `categories:category_id(slug)` (the direct
+        // join) + `product_categories(categories(slug))` (the junction) are read
+        // here so the Cloudflare purge derives the OLD row's canonical segment
+        // from the OLD data with the full PR #2914 precedence (direct join →
+        // legacy text → junction). None of these are writable in this handler,
+        // so they are also the product's current joined/junction categories.
+        'id, name, description, brand, color, slug, category, condition, condition_detail, has_variants, variant_model, categories:category_id(slug), product_categories(categories(slug))'
       )
       .eq('id', id)
       .eq('merchant_id', merchantId)
@@ -794,11 +777,14 @@ export async function PUT(
     }
 
     // `updatedProduct` is re-read via PRODUCT_COLUMNS, which does NOT embed the
-    // category join, so type it without `categories`. The join is only read
-    // from `existingProduct` for the purge and is immutable across this update
-    // (`category_id` is not writable here).
-    let updatedProduct: Omit<typeof existingProduct, 'categories'> =
-      existingProduct;
+    // category join or junction, so type it without `categories` /
+    // `product_categories`. Those are only read from `existingProduct` for the
+    // purge and are immutable across this update (neither `category_id` nor the
+    // junction is writable here).
+    let updatedProduct: Omit<
+      typeof existingProduct,
+      'categories' | 'product_categories'
+    > = existingProduct;
     let hasFreshProductRow = false;
     if (Object.keys(updates).length > 1) {
       const { data: persistedProduct, error: updateError } = await supabase
@@ -955,34 +941,39 @@ export async function PUT(
     // update — guard the derive + schedule the same way revalidateBlogPosts
     // does.
     try {
-      const previousSlug = existingProduct.slug;
-      const nextSlug = updatedProduct.slug;
-      // The joined category (`category_id`) is not writable in this handler, so
-      // it is immutable across the update: read it once from the existing row
-      // and reuse it for both entries. Only the legacy TEXT category can change,
-      // so the NEW entry uses the fresh row's text and the OLD entry uses the
-      // OLD row's text — the joined slug still wins in
-      // resolveProductPurgeCategorySegment (PR #2914) whenever it is present.
-      const joinedCategorySlug = extractJoinedCategorySlug(
-        (existingProduct as { categories?: unknown }).categories
-      );
-      const joinedCategory = joinedCategorySlug
-        ? { slug: joinedCategorySlug }
-        : null;
-      const nextCategorySegment = resolveProductPurgeCategorySegment({
+      // Legacy rows can have a null/blank slug but are still publicly
+      // addressable by id (`/products/<id>`; the PDP lookup accepts UUIDs and
+      // normalizeProduct falls back to `slug || id`), so fall back to the id
+      // for the purge target when the slug is missing.
+      const nextSlug = updatedProduct.slug?.trim() || id;
+      const previousSlug = existingProduct.slug?.trim() || id;
+      // The direct join (`category_id`) and the `product_categories` junction
+      // are not writable in this handler, so they are immutable across the
+      // update: read them once from the OLD row and reuse for both entries. Only
+      // the legacy TEXT category can change, so the NEW entry uses the fresh
+      // row's text and the OLD entry uses the OLD row's text — the direct join
+      // still wins, and the junction only applies when no direct join AND no
+      // text are present (resolveProductPurgeCategorySegmentForRow, PR #2914).
+      const immutableJoins = {
+        categories: (existingProduct as { categories?: unknown }).categories,
+        product_categories: (
+          existingProduct as { product_categories?: unknown }
+        ).product_categories,
+      };
+      const nextCategorySegment = resolveProductPurgeCategorySegmentForRow({
         slug: nextSlug,
         name: updatedProduct.name,
         category: (updatedProduct as { category?: string | null }).category,
-        categories: joinedCategory,
+        ...immutableJoins,
       });
       const productPurgeEntries: StorefrontProductPurgeEntry[] = [
         { slug: nextSlug, categorySegment: nextCategorySegment },
       ];
-      const previousCategorySegment = resolveProductPurgeCategorySegment({
-        slug: previousSlug ?? nextSlug,
+      const previousCategorySegment = resolveProductPurgeCategorySegmentForRow({
+        slug: previousSlug,
         name: existingProduct.name,
         category: (existingProduct as { category?: string | null }).category,
-        categories: joinedCategory,
+        ...immutableJoins,
       });
       // A rename (slug change) OR a category move (segment change) leaves the
       // OLD canonical PDP `/<old-category>/<old-slug>` AND the OLD category
@@ -990,9 +981,8 @@ export async function PUT(
       // both get evicted (the builder emits a listing per distinct segment, so
       // pushing the old entry also purges `/<old-category>` when it differs).
       if (
-        previousSlug &&
-        (previousSlug !== nextSlug ||
-          (previousCategorySegment ?? '') !== (nextCategorySegment ?? ''))
+        previousSlug !== nextSlug ||
+        (previousCategorySegment ?? '') !== (nextCategorySegment ?? '')
       ) {
         productPurgeEntries.push({
           slug: previousSlug,
@@ -1063,16 +1053,20 @@ export async function DELETE(
     }
     const merchantId = merchantContext.merchantId;
 
-    // Return the deleted row's slug/category (legacy text + `category_id` join)
-    // so we can evict its public URLs from Cloudflare without a second lookup
-    // (delete is a rare admin action). The join is included so the purge
-    // resolves the same join-driven canonical the storefront served (PR #2914).
+    // Return the deleted row's slug/category (legacy text + `category_id` join +
+    // `product_categories` junction) so we can evict its public URLs from
+    // Cloudflare without a second lookup (delete is a rare admin action). The
+    // direct join AND the junction are included so the purge resolves the same
+    // join-driven canonical the storefront served with the full PR #2914
+    // precedence (direct join → legacy text → junction).
     const { data: deletedProducts, error: deleteError } = await supabase
       .from('products')
       .delete()
       .eq('id', id)
       .eq('merchant_id', merchantId)
-      .select('slug, name, category, categories:category_id(slug)');
+      .select(
+        'slug, name, category, categories:category_id(slug), product_categories(categories(slug))'
+      );
 
     if (deleteError) {
       console.error('Error deleting product:', deleteError);
@@ -1097,22 +1091,23 @@ export async function DELETE(
             name?: string | null;
             category?: string | null;
             categories?: unknown;
+            product_categories?: unknown;
           }
         | undefined;
-      if (deletedProduct?.slug) {
-        const joinedCategorySlug = extractJoinedCategorySlug(
-          deletedProduct.categories
-        );
+      if (deletedProduct) {
+        // Legacy rows can have a null/blank slug but are still publicly
+        // addressable by id, so fall back to the deleted row's id
+        // (`/products/<id>`) when the slug is missing.
+        const purgeSlug = deletedProduct.slug?.trim() || id;
         scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
           {
-            slug: deletedProduct.slug,
-            categorySegment: resolveProductPurgeCategorySegment({
-              slug: deletedProduct.slug,
+            slug: purgeSlug,
+            categorySegment: resolveProductPurgeCategorySegmentForRow({
+              slug: purgeSlug,
               name: deletedProduct.name,
               category: deletedProduct.category,
-              categories: joinedCategorySlug
-                ? { slug: joinedCategorySlug }
-                : null,
+              categories: deletedProduct.categories,
+              product_categories: deletedProduct.product_categories,
             }),
           },
         ]);

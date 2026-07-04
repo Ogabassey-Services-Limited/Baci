@@ -2,8 +2,16 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getInternalApiSecret } from '@/env';
 import { revalidateProducts } from '@/lib/cache-revalidation';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
+import { buildInternalProductPurgeEntries } from '@/lib/internal-product-purge-entries';
 import { logger } from '@/lib/logger';
+import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import { internalRevalidateProductsBodySchema } from '@/schemas/internal-revalidate-products-route';
+
+// Past this many products in one request, purge only the shared listing
+// surfaces (home, /products, distinct /<category>) to bound the outbound
+// fan-out against Cloudflare's per-request URL budget; the short-TTL PDPs
+// self-heal. Mirrors the bulk-update route threshold.
+const PURGE_LISTINGS_ONLY_THRESHOLD = 50;
 
 /**
  * Internal product-cache revalidation endpoint.
@@ -54,6 +62,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // Runs in a route context, so revalidateTag works here (unlike the CLI worker).
   revalidateProducts(parsed.data.merchantId);
+
+  // When the caller supplies the merchant slug AND product entries, also evict
+  // the affected products' public URLs from Cloudflare (the standalone import
+  // worker and the mobile-admin save path have no Next store context, so this
+  // Bearer-authed route is where the purge reliably runs). Fire-and-forget: a
+  // purge is always survivable, so it must never fail the revalidation.
+  const { merchantSlug, products } = parsed.data;
+  if (merchantSlug && products && products.length > 0) {
+    try {
+      const purgeEntries = buildInternalProductPurgeEntries(products);
+      scheduleStorefrontProductPurge(merchantSlug, purgeEntries, {
+        listingsOnly: purgeEntries.length > PURGE_LISTINGS_ONLY_THRESHOLD,
+      });
+    } catch (purgeError) {
+      logger.error({
+        message: 'Skipped Cloudflare product purge in revalidate-products',
+        error: purgeError,
+      });
+    }
+  }
 
   return NextResponse.json({ ok: true }, { status: 200 });
 }

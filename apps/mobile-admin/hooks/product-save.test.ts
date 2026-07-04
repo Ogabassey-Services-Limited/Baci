@@ -9,6 +9,7 @@ type RpcResponse = {
 
 const mocks = vi.hoisted(() => ({
   assertNoDuplicateProduct: vi.fn(),
+  revalidateStorefrontProducts: vi.fn(),
   calls: [] as RpcCall[],
   response: {
     data: null,
@@ -26,6 +27,11 @@ vi.mock('@/lib/product-inventory', () => ({
     ...product,
     normalized: true,
   }),
+}));
+
+vi.mock('@/lib/revalidate-storefront-products', () => ({
+  revalidateStorefrontProducts: (...args: unknown[]) =>
+    mocks.revalidateStorefrontProducts(...args),
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -87,11 +93,14 @@ const productForm = {
 describe('product save helpers', () => {
   beforeEach(() => {
     mocks.assertNoDuplicateProduct.mockReset();
+    mocks.revalidateStorefrontProducts.mockReset();
     mocks.calls = [];
     mocks.response = {
       data: {
         id: 'product-1',
         name: 'Ankara Bag',
+        slug: 'ankara-bag',
+        category: 'Bags',
         variant_model: 'sku_matrix',
       },
       error: null,
@@ -151,6 +160,33 @@ describe('product save helpers', () => {
       }),
       name: 'save_mobile_admin_product_with_variants',
     });
+  });
+
+  it('schedules a storefront purge with the saved product after a successful save', async () => {
+    await createProductRecord({
+      merchantId: 'merchant-1',
+      newProduct: productForm,
+    });
+
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith([
+      { slug: 'ankara-bag', id: 'product-1', category: 'Bags' },
+    ]);
+  });
+
+  it('does not schedule a storefront purge when the save RPC fails', async () => {
+    mocks.response = {
+      data: null,
+      error: { code: '23505', message: 'duplicate key value violates unique' },
+    };
+
+    await expect(
+      createProductRecord({
+        merchantId: 'merchant-1',
+        newProduct: productForm,
+      })
+    ).rejects.toThrow();
+
+    expect(mocks.revalidateStorefrontProducts).not.toHaveBeenCalled();
   });
 
   it('maps duplicate RPC errors to the product duplicate message', async () => {

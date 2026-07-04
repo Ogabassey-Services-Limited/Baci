@@ -164,6 +164,92 @@ export function resolveProductPurgeCategorySegment(
   }
 }
 
+/**
+ * Normalize a PostgREST to-one category embed (`categories:category_id(slug)`),
+ * which comes back as an object, an array, or null, to its single non-blank
+ * slug (or null). Mirrors `firstJoinedCategory` in
+ * `cached-product-canonical-paths.ts`.
+ */
+function extractDirectJoinCategorySlug(categories: unknown): string | null {
+  const record = Array.isArray(categories) ? categories[0] : categories;
+  if (record && typeof record === 'object' && 'slug' in record) {
+    const slug = (record as { slug?: unknown }).slug;
+    if (typeof slug === 'string' && slug.trim()) {
+      return slug.trim();
+    }
+  }
+  return null;
+}
+
+/**
+ * Normalize a PostgREST junction embed (`product_categories(categories(slug))`)
+ * to the first non-blank joined category slug (or null). Mirrors the loop in
+ * `normalizeJoinedCategory` (`cached-product-canonical-paths.ts`).
+ */
+function extractJunctionCategorySlug(
+  productCategories: unknown
+): string | null {
+  if (!Array.isArray(productCategories)) {
+    return null;
+  }
+  for (const entry of productCategories) {
+    const categories =
+      entry && typeof entry === 'object'
+        ? (entry as { categories?: unknown }).categories
+        : null;
+    const slug = extractDirectJoinCategorySlug(categories);
+    if (slug) {
+      return slug;
+    }
+  }
+  return null;
+}
+
+/**
+ * The raw PostgREST product row shape a purge caller reads to resolve a PDP's
+ * canonical category segment: the legacy text column plus the direct
+ * `category_id` join and the `product_categories` junction embeds.
+ */
+export interface ProductPurgeCategoryRow {
+  slug?: string | null;
+  name?: string | null;
+  category?: string | null;
+  /** `categories:category_id(slug)` embed (object | array | null). */
+  categories?: unknown;
+  /** `product_categories(categories(slug))` junction embed. */
+  product_categories?: unknown;
+}
+
+/**
+ * Resolve a product's canonical PDP category segment from a raw product row,
+ * applying the SAME precedence the storefront canonical uses
+ * (`normalizeJoinedCategory`, PR #2914): the direct `category_id` join wins,
+ * then the legacy text column (which suppresses the junction so `getProductUrl`
+ * derives the slug from the text), and the `product_categories` junction only
+ * when both are absent. Without this, a product assigned ONLY via the junction
+ * (no `category_id`, no legacy text) would resolve to the `/products/<slug>`
+ * fallback here while the storefront serves it under `/<junction-category>/…`,
+ * leaving the categorized PDP and category listing un-purged. Never throws.
+ */
+export function resolveProductPurgeCategorySegmentForRow(
+  row: ProductPurgeCategoryRow
+): string | null {
+  const directSlug = extractDirectJoinCategorySlug(row.categories);
+  let joinedCategory: { slug: string } | null = null;
+  if (directSlug) {
+    joinedCategory = { slug: directSlug };
+  } else if (!row.category?.trim()) {
+    const junctionSlug = extractJunctionCategorySlug(row.product_categories);
+    joinedCategory = junctionSlug ? { slug: junctionSlug } : null;
+  }
+  return resolveProductPurgeCategorySegment({
+    slug: row.slug,
+    name: row.name,
+    category: row.category,
+    categories: joinedCategory,
+  });
+}
+
 function dedupeProductPurgeEntries(
   entries: readonly StorefrontProductPurgeEntry[]
 ): Array<{ slug: string; categorySegment: string | null }> {
@@ -187,6 +273,19 @@ function dedupeProductPurgeEntries(
   return deduped;
 }
 
+export interface BuildStorefrontProductPurgeUrlsOptions {
+  /**
+   * Emit ONLY the listing surfaces (home `/`, the all-products listing
+   * `/products`, and each distinct category listing `/<category>`) and skip the
+   * per-product PDP URLs. Used by high-cardinality bulk operations so a single
+   * op does not fan out one purge per product past Cloudflare's per-request URL
+   * budget — the short-TTL PDPs self-heal, and the listings (which every
+   * affected product shares) are still evicted. The entries' category segments
+   * still drive which listings are emitted.
+   */
+  listingsOnly?: boolean;
+}
+
 /**
  * Build the canonical public URLs to evict from Cloudflare when a storefront's
  * products change. For every resolved hostname of a matched storefront this
@@ -196,10 +295,14 @@ function dedupeProductPurgeEntries(
  * all-products listing `/products`, and the home page `/` (all list products).
  * Storefronts without a public cache policy resolve to no hostnames and return
  * an empty list (purge is a no-op).
+ *
+ * With `listingsOnly`, the per-product PDP URLs are skipped and only the shared
+ * listing surfaces are emitted (see the option's docs).
  */
 export function buildStorefrontProductPurgeUrls(
   identifiers: readonly string[],
-  entries: readonly StorefrontProductPurgeEntry[]
+  entries: readonly StorefrontProductPurgeEntry[],
+  options: BuildStorefrontProductPurgeUrlsOptions = {}
 ): string[] {
   const dedupedEntries = dedupeProductPurgeEntries(entries);
   if (dedupedEntries.length === 0) {
@@ -223,22 +326,24 @@ export function buildStorefrontProductPurgeUrls(
       // can leave it stale — evict it once per hostname too.
       urls.add(`https://${hostname}/products`);
 
-      for (const entry of dedupedEntries) {
-        // The canonical categorized PDP is the URL the storefront serves 200
-        // for (mismatched paths 308 away), so evict it when the category is
-        // known.
-        if (entry.categorySegment) {
+      if (!options.listingsOnly) {
+        for (const entry of dedupedEntries) {
+          // The canonical categorized PDP is the URL the storefront serves 200
+          // for (mismatched paths 308 away), so evict it when the category is
+          // known.
+          if (entry.categorySegment) {
+            urls.add(
+              `https://${hostname}/${encodeURIComponent(
+                entry.categorySegment
+              )}/${encodeURIComponent(entry.slug)}`
+            );
+          }
+          // The `/products/<slug>` fallback PDP path resolves for every product
+          // regardless of category, so always evict it.
           urls.add(
-            `https://${hostname}/${encodeURIComponent(
-              entry.categorySegment
-            )}/${encodeURIComponent(entry.slug)}`
+            `https://${hostname}/products/${encodeURIComponent(entry.slug)}`
           );
         }
-        // The `/products/<slug>` fallback PDP path resolves for every product
-        // regardless of category, so always evict it.
-        urls.add(
-          `https://${hostname}/products/${encodeURIComponent(entry.slug)}`
-        );
       }
 
       // Category listing pages list their products, so a product entering,

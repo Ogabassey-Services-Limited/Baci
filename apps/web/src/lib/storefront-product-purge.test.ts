@@ -57,6 +57,28 @@ describe('scheduleStorefrontProductPurge', () => {
     ]);
   });
 
+  it('forwards listingsOnly so only the shared listing surfaces are purged', () => {
+    scheduleStorefrontProductPurge(
+      'ogabassey',
+      [
+        { slug: 'iphone-15', categorySegment: 'smartphones' },
+        { slug: 'ipad-air', categorySegment: 'tablets' },
+      ],
+      { listingsOnly: true }
+    );
+
+    expect(mockPurgeCloudflareUrls).toHaveBeenCalledWith([
+      'https://ogabassey.com/',
+      'https://ogabassey.com/products',
+      'https://ogabassey.com/smartphones',
+      'https://ogabassey.com/tablets',
+      'https://www.ogabassey.com/',
+      'https://www.ogabassey.com/products',
+      'https://www.ogabassey.com/smartphones',
+      'https://www.ogabassey.com/tablets',
+    ]);
+  });
+
   it('does not schedule a purge for a missing identifier', () => {
     scheduleStorefrontProductPurge(undefined, [{ slug: 'iphone-15' }]);
     scheduleStorefrontProductPurge('   ', [{ slug: 'iphone-15' }]);

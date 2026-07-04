@@ -19,6 +19,14 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
 import { getMerchantBlogPostCategories } from '@/lib/get-merchant-blog-post-categories';
 import { getMerchantBlogPostSlugs } from '@/lib/get-merchant-blog-post-slugs';
+import { buildInternalProductPurgeEntries } from '@/lib/internal-product-purge-entries';
+import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
+import { internalRevalidateProductEntrySchema } from '@/schemas/internal-revalidate-products-route';
+
+// Past this many products, purge only the shared listing surfaces (home,
+// /products, distinct /<category>) to bound the outbound fan-out against
+// Cloudflare's per-request URL budget; the short-TTL PDPs self-heal.
+const PURGE_LISTINGS_ONLY_THRESHOLD = 50;
 
 /**
  * Cache Revalidation API
@@ -44,6 +52,13 @@ const revalidateSchema = z.object({
       ])
     )
     .min(1, 'At least one target is required'),
+  // Optional: specific products whose public storefront URLs should also be
+  // evicted from Cloudflare (in addition to the Next tag revalidation). Used by
+  // the mobile-admin save path, which mutates products via the Supabase RPC
+  // (no web route runs, so no purge fires) — after a save it posts the saved
+  // product's slug/category here. Only honored when the `products` target (or
+  // `all`) is requested.
+  products: z.array(internalRevalidateProductEntrySchema).max(1000).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -81,7 +96,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { targets } = result.data;
+  const { targets, products } = result.data;
   const merchantId = access.merchantId;
   const failedTargets: string[] = [];
   const revalidated: string[] = [];
@@ -92,6 +107,33 @@ export async function POST(request: NextRequest) {
   if (shouldRevalidate('products')) {
     revalidateProducts(merchantId);
     revalidated.push('products');
+
+    // Also evict the affected products' public URLs from Cloudflare when the
+    // caller supplies them. The merchant slug is resolved server-side from the
+    // authenticated merchant (never trusted from the client), so a caller can
+    // only purge its own storefront. Fire-and-forget: a purge is always
+    // survivable, so it never fails the revalidation.
+    if (products && products.length > 0) {
+      try {
+        const { data: merchantRow } = await auth.supabase
+          .from('merchants')
+          .select('slug')
+          .eq('id', merchantId)
+          .maybeSingle();
+        const merchantSlug = merchantRow?.slug ?? null;
+        if (merchantSlug) {
+          const purgeEntries = buildInternalProductPurgeEntries(products);
+          scheduleStorefrontProductPurge(merchantSlug, purgeEntries, {
+            listingsOnly: purgeEntries.length > PURGE_LISTINGS_ONLY_THRESHOLD,
+          });
+        }
+      } catch (purgeError) {
+        console.error('Skipped Cloudflare product purge in cache/revalidate:', {
+          merchantId,
+          purgeError,
+        });
+      }
+    }
   }
 
   if (shouldRevalidate('categories')) {

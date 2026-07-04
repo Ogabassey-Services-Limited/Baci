@@ -63,6 +63,14 @@ vi.mock('@/lib/cloudflare-purge', () => ({
   purgeCloudflareUrls: (...args: unknown[]) => mockPurgeCloudflareUrls(...args),
 }));
 
+// Mock the product Cloudflare purge scheduler so the mobile-admin-driven
+// product purge can be asserted directly.
+const mockScheduleStorefrontProductPurge = vi.fn();
+vi.mock('@/lib/storefront-product-purge', () => ({
+  scheduleStorefrontProductPurge: (...args: unknown[]) =>
+    mockScheduleStorefrontProductPurge(...args),
+}));
+
 // ---- Import handler AFTER mocks ----
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { POST } from './route';
@@ -79,10 +87,27 @@ function makeRequest(body: Record<string, unknown>) {
   });
 }
 
+// Merchant row returned by the slug lookup the product-purge path performs.
+let merchantSlugRow: { slug: string | null } | null = { slug: 'ogabassey' };
+
+function makeSupabaseMock() {
+  return {
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn(() =>
+            Promise.resolve({ data: merchantSlugRow, error: null })
+          ),
+        })),
+      })),
+    })),
+  };
+}
+
 function setupAuth(hasAccess = true, hasPermissionValue = true) {
   mockAuthenticateApiRequest.mockResolvedValue({
     user: hasAccess ? { id: 'user-123' } : null,
-    supabase: hasAccess ? {} : null,
+    supabase: hasAccess ? makeSupabaseMock() : null,
     error: hasAccess ? null : 'Unauthorized',
   });
 
@@ -110,6 +135,7 @@ function setupCsrf(valid = true) {
 describe('POST /api/cache/revalidate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    merchantSlugRow = { slug: 'ogabassey' };
     setupCsrf(true);
     mockGetMerchantBlogCacheIdentifiers.mockResolvedValue({
       identifiers: ['test-store', 'ogabassey.com'],
@@ -278,6 +304,49 @@ describe('POST /api/cache/revalidate', () => {
       );
     });
 
+    it('does NOT schedule a product purge when no products are supplied', async () => {
+      setupAuth(true, true);
+
+      await POST(makeRequest({ targets: ['products'] }));
+
+      expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+    });
+
+    it('schedules a Cloudflare product purge for supplied products (mobile-admin save path)', async () => {
+      setupAuth(true, true);
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [
+            { slug: 'iphone-15', id: 'prod-1', category: 'Smartphones' },
+          ],
+        })
+      );
+
+      expect(res.status).toBe(200);
+      // The merchant slug is resolved server-side (never trusted from the client).
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'ogabassey',
+        [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+        { listingsOnly: false }
+      );
+    });
+
+    it('does not purge when the merchant has no resolvable slug', async () => {
+      setupAuth(true, true);
+      merchantSlugRow = { slug: null };
+
+      await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [{ slug: 'iphone-15', category: 'Smartphones' }],
+        })
+      );
+
+      expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+    });
+
     it('revalidates categories cache when categories target specified', async () => {
       setupAuth(true, true);
 
@@ -327,15 +396,15 @@ describe('POST /api/cache/revalidate', () => {
       expect(json.revalidated).toContain('blog');
 
       expect(mockGetMerchantBlogCacheIdentifiers).toHaveBeenCalledWith(
-        {},
+        expect.anything(),
         MERCHANT_ID
       );
       expect(mockGetMerchantBlogPostSlugs).toHaveBeenCalledWith(
-        {},
+        expect.anything(),
         MERCHANT_ID
       );
       expect(mockGetMerchantBlogPostCategories).toHaveBeenCalledWith(
-        {},
+        expect.anything(),
         MERCHANT_ID
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(

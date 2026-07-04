@@ -4,6 +4,7 @@ import {
   buildStorefrontBlogPurgeUrls,
   buildStorefrontProductPurgeUrls,
   resolveProductPurgeCategorySegment,
+  resolveProductPurgeCategorySegmentForRow,
 } from './storefront-purge-urls';
 
 // Author hub pages are emitted for every registered author slug on every
@@ -213,6 +214,74 @@ describe('resolveProductPurgeCategorySegment', () => {
   });
 });
 
+describe('resolveProductPurgeCategorySegmentForRow', () => {
+  it('prefers the direct category_id join (object embed)', () => {
+    expect(
+      resolveProductPurgeCategorySegmentForRow({
+        slug: 'rog-ally',
+        category: 'Legacy Text',
+        categories: { slug: 'gaming-laptops' },
+        product_categories: [{ categories: { slug: 'junction-cat' } }],
+      })
+    ).toBe('gaming-laptops');
+  });
+
+  it('normalizes an array-shaped direct join embed', () => {
+    expect(
+      resolveProductPurgeCategorySegmentForRow({
+        slug: 'rog-ally',
+        categories: [{ slug: 'gaming-laptops' }],
+      })
+    ).toBe('gaming-laptops');
+  });
+
+  it('uses the legacy text over the junction when there is no direct join', () => {
+    // Precedence: direct join → legacy text → junction. Text present suppresses
+    // the junction so the purge matches the storefront canonical.
+    expect(
+      resolveProductPurgeCategorySegmentForRow({
+        slug: 'ipad-air',
+        category: 'Tablets',
+        categories: null,
+        product_categories: [{ categories: { slug: 'junction-cat' } }],
+      })
+    ).toBe('tablets');
+  });
+
+  it('falls back to the junction when there is NO direct join and NO legacy text', () => {
+    // This is the F1 gap: a product assigned only via the junction still
+    // canonicalizes under the junction category, so its segment must resolve.
+    expect(
+      resolveProductPurgeCategorySegmentForRow({
+        slug: 'usb-c-cable',
+        category: null,
+        categories: null,
+        product_categories: [{ categories: { slug: 'accessories' } }],
+      })
+    ).toBe('accessories');
+  });
+
+  it('normalizes an array-shaped junction category embed', () => {
+    expect(
+      resolveProductPurgeCategorySegmentForRow({
+        slug: 'usb-c-cable',
+        product_categories: [{ categories: [{ slug: 'accessories' }] }],
+      })
+    ).toBe('accessories');
+  });
+
+  it('returns null (the /products fallback) when nothing resolves a category', () => {
+    expect(
+      resolveProductPurgeCategorySegmentForRow({
+        slug: 'mystery-box',
+        category: null,
+        categories: null,
+        product_categories: [],
+      })
+    ).toBeNull();
+  });
+});
+
 describe('buildStorefrontProductPurgeUrls', () => {
   it('emits canonical PDP, fallback PDP, category listing, and home per hostname', () => {
     const urls = buildStorefrontProductPurgeUrls(
@@ -368,5 +437,32 @@ describe('buildStorefrontProductPurgeUrls', () => {
     expect(
       buildStorefrontProductPurgeUrls(['ogabassey'], [{ slug: '  ' }])
     ).toEqual([]);
+  });
+
+  it('emits only listing surfaces (no per-PDP URLs) when listingsOnly is set', () => {
+    const urls = buildStorefrontProductPurgeUrls(
+      ['ogabassey'],
+      [
+        { slug: 'iphone-15', categorySegment: 'smartphones' },
+        { slug: 'galaxy-s24', categorySegment: 'smartphones' },
+        { slug: 'ipad-air', categorySegment: 'tablets' },
+      ],
+      { listingsOnly: true }
+    );
+
+    // Home + /products + each distinct category listing per hostname; NO
+    // per-product PDP (`/<cat>/<slug>` or `/products/<slug>`) URLs.
+    expect(urls).toEqual([
+      'https://ogabassey.com/',
+      'https://ogabassey.com/products',
+      'https://ogabassey.com/smartphones',
+      'https://ogabassey.com/tablets',
+      'https://www.ogabassey.com/',
+      'https://www.ogabassey.com/products',
+      'https://www.ogabassey.com/smartphones',
+      'https://www.ogabassey.com/tablets',
+    ]);
+    expect(urls).not.toContain('https://ogabassey.com/smartphones/iphone-15');
+    expect(urls).not.toContain('https://ogabassey.com/products/iphone-15');
   });
 });

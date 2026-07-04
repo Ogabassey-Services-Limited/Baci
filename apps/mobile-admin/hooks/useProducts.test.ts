@@ -103,6 +103,10 @@ vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => mocks.queryClient,
 }));
 
+vi.mock('@/lib/revalidate-storefront-products', () => ({
+  revalidateStorefrontProducts: vi.fn(),
+}));
+
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({ merchant: { id: 'merchant-1' } }),
 }));
