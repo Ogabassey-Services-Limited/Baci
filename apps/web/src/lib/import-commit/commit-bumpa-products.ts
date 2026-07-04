@@ -44,6 +44,10 @@ interface CommitBumpaProductsInput {
   merchantId: string;
   importJobId: string;
   products: NormalizedImportedProduct[];
+  onProgress?: (progress: {
+    processedRecords: number;
+    totalRecords: number;
+  }) => void | Promise<void>;
 }
 
 interface ExistingProductRecord {
@@ -91,6 +95,7 @@ export async function commitBumpaProducts({
   merchantId,
   importJobId,
   products,
+  onProgress,
 }: CommitBumpaProductsInput): Promise<CommitBumpaProductsResult> {
   const existingProducts: ExistingProductRecord[] = [];
   const pageSize = 1000;
@@ -138,6 +143,8 @@ export async function commitBumpaProducts({
   const changedProducts: InternalRevalidateProductEntry[] = [];
 
   try {
+    let processedRecords = 0;
+
     for (const product of products) {
       const existingProduct = productsByExternalId.get(
         product.externalSourceId
@@ -197,6 +204,11 @@ export async function commitBumpaProducts({
           id: existingProduct.id,
           category: product.category,
         });
+        processedRecords += 1;
+        await onProgress?.({
+          processedRecords,
+          totalRecords: products.length,
+        });
         continue;
       }
 
@@ -211,6 +223,11 @@ export async function commitBumpaProducts({
 
       createdProducts += 1;
       changedProducts.push({ slug, category: product.category });
+      processedRecords += 1;
+      await onProgress?.({
+        processedRecords,
+        totalRecords: products.length,
+      });
     }
   } finally {
     // Invalidate product caches so imported products are immediately reflected —

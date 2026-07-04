@@ -99,7 +99,7 @@ describe('sendImportNotificationCampaign failure handling', () => {
       },
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       sentCount: 0,
       skippedCount: 0,
       failedCount: 1,
@@ -223,7 +223,7 @@ describe('sendImportNotificationCampaign failure handling', () => {
       customSettings: null,
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       sentCount: 0,
       skippedCount: 0,
       failedCount: 0,

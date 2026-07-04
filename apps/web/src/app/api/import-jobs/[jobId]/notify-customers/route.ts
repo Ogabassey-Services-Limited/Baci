@@ -77,10 +77,20 @@ export async function POST(
       );
     }
 
+    const summary = {
+      ...(job.summary || {}),
+      notificationFailedCount: 0,
+      notificationProcessedRecipients: 0,
+      notificationSentCount: 0,
+      notificationSkippedCount: 0,
+      notificationTotalRecipients: 0,
+    };
+
     const { data, error } = await authResult.context.supabase
       .from('import_jobs')
       .update({
         status: 'notify_queued',
+        summary,
         error: null,
         error_details: null,
       })

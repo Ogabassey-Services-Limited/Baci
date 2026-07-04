@@ -236,7 +236,7 @@ describe('sendImportNotificationCampaign claim modes', () => {
       },
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       failedCount: 0,
       sentCount: 0,
       skippedCount: 1,
@@ -326,7 +326,7 @@ describe('sendImportNotificationCampaign claim modes', () => {
       },
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       failedCount: 0,
       sentCount: 1,
       skippedCount: 0,

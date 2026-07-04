@@ -307,4 +307,46 @@ describe('MigrationJobSummary', () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/claim rate 0%/i)).toBeInTheDocument();
   });
+
+  it('shows an import-complete prompt to notify customers', () => {
+    render(
+      <MigrationJobSummary
+        activeFilter="all"
+        acting={false}
+        error={null}
+        loading={false}
+        onFilterChange={vi.fn()}
+        onCommit={vi.fn().mockResolvedValue(undefined)}
+        onNotify={vi.fn().mockResolvedValue(undefined)}
+        onRefresh={vi.fn().mockResolvedValue(undefined)}
+        selectedJob={{
+          id: 'job-committed',
+          entity_type: 'orders',
+          source_platform: 'bumpa',
+          status: 'committed',
+          original_filename: 'orders.csv',
+          processed_rows: 50,
+          total_rows: 50,
+          summary: {
+            receiptReadyOrders: 50,
+            validRows: 50,
+          },
+          error: null,
+          created_at: '2026-03-22T10:00:00.000Z',
+          committed_at: '2026-03-22T10:05:00.000Z',
+          notified_at: null,
+          canCommit: false,
+          canNotify: true,
+        }}
+      />
+    );
+
+    expect(screen.getByText('Import complete')).toBeInTheDocument();
+    expect(screen.getByText(/orders are now in baci/i)).toHaveTextContent(
+      /notify customers/i
+    );
+    expect(
+      screen.getByRole('button', { name: /notify customers/i })
+    ).toBeEnabled();
+  });
 });

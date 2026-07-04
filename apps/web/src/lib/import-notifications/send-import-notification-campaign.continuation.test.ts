@@ -86,7 +86,7 @@ describe('sendImportNotificationCampaign recipient continuation', () => {
       },
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       failedCount: 1,
       sentCount: 1,
       skippedCount: 0,
@@ -184,7 +184,7 @@ describe('sendImportNotificationCampaign recipient continuation', () => {
       },
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       failedCount: 1,
       sentCount: 1,
       skippedCount: 0,

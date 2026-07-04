@@ -65,11 +65,24 @@ describe('runClaimedImportJob notification and failure flows', () => {
   });
 
   it('sends merchant notifications and completes notifying jobs', async () => {
-    sendImportNotificationCampaignMock.mockResolvedValue({
-      sentCount: 3,
-      skippedCount: 1,
-      failedCount: 0,
-    });
+    sendImportNotificationCampaignMock.mockImplementation(
+      async ({ onProgress }) => {
+        await onProgress?.({
+          failedCount: 0,
+          processedRecipients: 4,
+          sentCount: 3,
+          skippedCount: 1,
+          totalRecipients: 4,
+        });
+        return {
+          sentCount: 3,
+          skippedCount: 1,
+          failedCount: 0,
+          notificationProcessedRecipients: 4,
+          notificationTotalRecipients: 4,
+        };
+      }
+    );
 
     const merchantQuery = {
       select: vi.fn(),
@@ -119,12 +132,19 @@ describe('runClaimedImportJob notification and failure flows', () => {
       error: null,
     });
 
-    const updateQuery = {
+    const progressUpdateQuery = {
       update: vi.fn(),
       eq: vi.fn(),
     };
-    updateQuery.update.mockReturnValue(updateQuery);
-    updateQuery.eq.mockResolvedValue({ error: null });
+    progressUpdateQuery.update.mockReturnValue(progressUpdateQuery);
+    progressUpdateQuery.eq.mockResolvedValue({ error: null });
+
+    const finalUpdateQuery = {
+      update: vi.fn(),
+      eq: vi.fn(),
+    };
+    finalUpdateQuery.update.mockReturnValue(finalUpdateQuery);
+    finalUpdateQuery.eq.mockResolvedValue({ error: null });
 
     const supabase = {
       from: vi
@@ -132,7 +152,8 @@ describe('runClaimedImportJob notification and failure flows', () => {
         .mockReturnValueOnce(merchantQuery)
         .mockReturnValueOnce(domainQuery)
         .mockReturnValueOnce(featureQuery)
-        .mockReturnValueOnce(updateQuery),
+        .mockReturnValueOnce(progressUpdateQuery)
+        .mockReturnValueOnce(finalUpdateQuery),
     } as unknown as SupabaseClient;
 
     const result = await runClaimedImportJob(supabase, createJob('notifying'));
@@ -152,6 +173,26 @@ describe('runClaimedImportJob notification and failure flows', () => {
     );
     expect(merchantQuery.select).toHaveBeenCalledWith(
       'id, slug, business_name, support_email, email_sender_name, email, brand_colors, logo_url, email_logo_url'
+    );
+    expect(progressUpdateQuery.update).toHaveBeenCalledWith({
+      summary: {
+        notificationFailedCount: 0,
+        notificationProcessedRecipients: 4,
+        notificationSentCount: 3,
+        notificationSkippedCount: 1,
+        notificationTotalRecipients: 4,
+        validRows: 1,
+      },
+    });
+    expect(finalUpdateQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'completed',
+        summary: expect.objectContaining({
+          notificationProcessedRecipients: 4,
+          notificationTotalRecipients: 4,
+          sentCount: 3,
+        }),
+      })
     );
   });
 

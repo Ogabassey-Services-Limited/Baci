@@ -243,8 +243,13 @@ describe('POST /api/import-jobs/[jobId]/notify-customers', () => {
   });
 
   it('returns 202 even when post-response kickoff rejects', async () => {
+    const context = createRouteContext();
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({ context });
     vi.mocked(getImportJobForMerchant).mockResolvedValue(createMockImportJob());
     vi.mocked(startImportJob).mockRejectedValue(new Error('boom'));
+    const query = context.supabase.from('import_jobs') as unknown as {
+      update: ReturnType<typeof vi.fn>;
+    };
 
     const response = await POST(
       new NextRequest(
@@ -263,6 +268,19 @@ describe('POST /api/import-jobs/[jobId]/notify-customers', () => {
     });
     await flushAfterCallbacks();
     expect(startImportJob).toHaveBeenCalledWith(jobId, 'http://localhost');
+    expect(query.update).toHaveBeenNthCalledWith(1, {
+      status: 'notify_queued',
+      summary: {
+        notificationFailedCount: 0,
+        notificationProcessedRecipients: 0,
+        notificationSentCount: 0,
+        notificationSkippedCount: 0,
+        notificationTotalRecipients: 0,
+        validRows: 10,
+      },
+      error: null,
+      error_details: null,
+    });
   });
 
   it('returns 409 when the committed transition no longer matches a row', async () => {

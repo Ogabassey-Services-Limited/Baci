@@ -16,6 +16,28 @@ const ACTIVE_MIGRATION_STATUSES = new Set<ImportJobStatus>([
 ]);
 const MIGRATION_ROWS_CACHE_KEY_DELIMITER = ':';
 
+function summaryNumber(
+  summary: Record<string, unknown> | null | undefined,
+  key: string
+) {
+  const value = summary?.[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function getClampedPercent(processed: number, total: number) {
+  if (total <= 0) {
+    return null;
+  }
+
+  return Math.min(
+    99,
+    Math.max(
+      processed > 0 ? 1 : 0,
+      Math.round((Math.max(0, processed) / total) * 100)
+    )
+  );
+}
+
 function encodeMigrationRowsCacheKeyPart(value: string) {
   return encodeURIComponent(value);
 }
@@ -43,31 +65,32 @@ export function isMigrationStatusActive(status: ImportJobStatus) {
 export function getMigrationProgressValue(
   status: ImportJobStatus,
   processedRows = 0,
-  totalRows = 0
+  totalRows = 0,
+  summary?: Record<string, unknown> | null
 ): number | null {
   switch (status) {
     case 'uploaded':
       return 18;
     case 'validating':
-      if (totalRows <= 0) {
-        return null;
-      }
-
-      return Math.min(
-        99,
-        Math.max(
-          processedRows > 0 ? 1 : 0,
-          Math.round((processedRows / totalRows) * 100)
-        )
-      );
+      return getClampedPercent(processedRows, totalRows);
     case 'commit_queued':
       return 68;
     case 'committing':
-      return 84;
+      return (
+        getClampedPercent(
+          summaryNumber(summary, 'commitProcessedRecords'),
+          summaryNumber(summary, 'commitTotalRecords')
+        ) ?? 84
+      );
     case 'notify_queued':
       return 92;
     case 'notifying':
-      return 97;
+      return (
+        getClampedPercent(
+          summaryNumber(summary, 'notificationProcessedRecipients'),
+          summaryNumber(summary, 'notificationTotalRecipients')
+        ) ?? 97
+      );
     case 'failed':
       return 0;
     case 'preview_ready':
@@ -82,18 +105,48 @@ export function getMigrationProgressValue(
 export function getMigrationProgressDetail(
   status: ImportJobStatus,
   processedRows = 0,
-  totalRows = 0
+  totalRows = 0,
+  summary?: Record<string, unknown> | null
 ) {
-  if (status !== 'validating') {
-    return null;
+  if (status === 'validating') {
+    if (totalRows <= 0) {
+      return 'Loading and parsing file...';
+    }
+
+    const safeProcessedRows = Math.max(0, Math.min(processedRows, totalRows));
+    return `${safeProcessedRows.toLocaleString()} of ${totalRows.toLocaleString()} rows processed`;
   }
 
-  if (totalRows <= 0) {
-    return 'Loading and parsing file...';
+  if (status === 'committing') {
+    const totalRecords = summaryNumber(summary, 'commitTotalRecords');
+    if (totalRecords <= 0) {
+      return 'Preparing records for import...';
+    }
+
+    const processedRecords = Math.min(
+      summaryNumber(summary, 'commitProcessedRecords'),
+      totalRecords
+    );
+    return `${processedRecords.toLocaleString()} of ${totalRecords.toLocaleString()} records imported`;
   }
 
-  const safeProcessedRows = Math.max(0, Math.min(processedRows, totalRows));
-  return `${safeProcessedRows.toLocaleString()} of ${totalRows.toLocaleString()} rows processed`;
+  if (status === 'notifying') {
+    const totalRecipients = summaryNumber(
+      summary,
+      'notificationTotalRecipients'
+    );
+    if (totalRecipients <= 0) {
+      return 'Preparing customer email recipients...';
+    }
+
+    const processedRecipients = Math.min(
+      summaryNumber(summary, 'notificationProcessedRecipients'),
+      totalRecipients
+    );
+    return `${processedRecipients.toLocaleString()} of ${totalRecipients.toLocaleString()} customer emails processed`;
+  }
+
+  return null;
 }
 
 export function getMigrationProgressLabel(status: ImportJobStatus) {

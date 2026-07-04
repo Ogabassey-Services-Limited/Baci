@@ -68,6 +68,30 @@ describe('migration progress utils', () => {
       '0 of 10 rows processed'
     );
   });
+
+  it('uses summary counters for commit progress', () => {
+    const summary = {
+      commitProcessedRecords: 40,
+      commitTotalRecords: 200,
+    };
+
+    expect(getMigrationProgressValue('committing', 200, 200, summary)).toBe(20);
+    expect(getMigrationProgressDetail('committing', 200, 200, summary)).toBe(
+      '40 of 200 records imported'
+    );
+  });
+
+  it('uses grouped recipient counters for notification progress', () => {
+    const summary = {
+      notificationProcessedRecipients: 125,
+      notificationTotalRecipients: 500,
+    };
+
+    expect(getMigrationProgressValue('notifying', 800, 800, summary)).toBe(25);
+    expect(getMigrationProgressDetail('notifying', 800, 800, summary)).toBe(
+      '125 of 500 customer emails processed'
+    );
+  });
 });
 
 describe('decorateImportJob', () => {

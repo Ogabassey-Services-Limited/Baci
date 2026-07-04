@@ -43,11 +43,20 @@ interface SendImportNotificationCampaignInput {
   importJobId: string;
   merchant: MerchantNotificationContext;
   customSettings: Record<string, unknown> | null;
+  onProgress?: (progress: {
+    failedCount: number;
+    processedRecipients: number;
+    sentCount: number;
+    skippedCount: number;
+    totalRecipients: number;
+  }) => void | Promise<void>;
 }
 interface SendImportNotificationCampaignResult {
   sentCount: number;
   skippedCount: number;
   failedCount: number;
+  notificationProcessedRecipients: number;
+  notificationTotalRecipients: number;
 }
 interface CreatedReceiptClaimLink {
   claimId: string;
@@ -164,6 +173,7 @@ export async function sendImportNotificationCampaign({
   importJobId,
   merchant,
   customSettings,
+  onProgress,
 }: SendImportNotificationCampaignInput): Promise<SendImportNotificationCampaignResult> {
   const { data, error } = await supabase
     .from('orders')
@@ -188,6 +198,20 @@ export async function sendImportNotificationCampaign({
   let sentCount = 0;
   let skippedCount = 0;
   let failedCount = 0;
+  let processedRecipients = 0;
+  const totalRecipients = recipientsByEmail.size;
+
+  const reportProgress = async () => {
+    await onProgress?.({
+      failedCount,
+      processedRecipients,
+      sentCount,
+      skippedCount,
+      totalRecipients,
+    });
+  };
+
+  await reportProgress();
 
   for (const recipient of recipientsByEmail.values()) {
     let createdClaim: CreatedReceiptClaimLink | null = null;
@@ -203,12 +227,16 @@ export async function sendImportNotificationCampaign({
 
       if (!createdClaim) {
         skippedCount += 1;
+        processedRecipients += 1;
+        await reportProgress();
         continue;
       }
 
       receiptUrl = createdClaim.claimUrl;
     } else if (!recipient.customerId) {
       skippedCount += 1;
+      processedRecipients += 1;
+      await reportProgress();
       continue;
     }
 
@@ -237,6 +265,8 @@ export async function sendImportNotificationCampaign({
     } catch {
       await cleanUpUnsentClaim({ claim: createdClaim, supabase });
       failedCount += 1;
+      processedRecipients += 1;
+      await reportProgress();
       continue;
     }
 
@@ -254,22 +284,30 @@ export async function sendImportNotificationCampaign({
             importJobId,
           });
           failedCount += 1;
+          processedRecipients += 1;
+          await reportProgress();
           continue;
         }
       }
 
       sentCount += 1;
+      processedRecipients += 1;
+      await reportProgress();
       continue;
     }
 
     await cleanUpUnsentClaim({ claim: createdClaim, supabase });
 
     failedCount += 1;
+    processedRecipients += 1;
+    await reportProgress();
   }
 
   return {
     sentCount,
     skippedCount,
     failedCount,
+    notificationProcessedRecipients: processedRecipients,
+    notificationTotalRecipients: totalRecipients,
   };
 }

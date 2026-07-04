@@ -15,6 +15,10 @@ interface CommitBumpaOrdersInput {
   merchantId: string;
   importJobId: string;
   orders: NormalizedImportedOrder[];
+  onProgress?: (progress: {
+    processedRecords: number;
+    totalRecords: number;
+  }) => void | Promise<void>;
 }
 interface CommitBumpaOrdersResult {
   createdOrders: number;
@@ -165,6 +169,7 @@ export async function commitBumpaOrders({
   merchantId,
   importJobId,
   orders,
+  onProgress,
 }: CommitBumpaOrdersInput): Promise<CommitBumpaOrdersResult> {
   const [customerResolver, existingOrders] = await Promise.all([
     createImportCustomerResolver(supabase, merchantId),
@@ -181,6 +186,8 @@ export async function commitBumpaOrders({
   let createdOrders = 0;
   let updatedOrders = 0;
   let createdCustomers = 0;
+
+  let processedRecords = 0;
 
   for (const order of orders) {
     const { customerId, createdCustomer } =
@@ -286,6 +293,12 @@ export async function commitBumpaOrders({
         throw error;
       }
     }
+
+    processedRecords += 1;
+    await onProgress?.({
+      processedRecords,
+      totalRecords: orders.length,
+    });
   }
 
   return {

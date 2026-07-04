@@ -2,23 +2,20 @@
 
 import { Loader2, Mail, RefreshCw } from 'lucide-react';
 import { getMigrationSuggestedAction } from '@/app/dashboard/migrations/migration-filter-helpers';
+import MigrationJobNextStepMessage from '@/app/dashboard/migrations/migration-job-next-step-message';
+import MigrationJobProgressCard from '@/app/dashboard/migrations/migration-job-progress-card';
 import type {
   ImportJobDetail,
   MigrationPreviewFilter,
 } from '@/app/dashboard/migrations/migration-types';
 import {
   decorateImportJob,
-  getMigrationProgressDetail,
-  getMigrationProgressLabel,
-  getMigrationProgressValue,
-  isMigrationStatusActive,
   statusBadgeClass,
 } from '@/app/dashboard/migrations/migration-utils';
 import ReceiptCampaignSummary from '@/app/dashboard/migrations/receipt-campaign-summary';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
 interface MigrationJobSummaryProps {
@@ -51,23 +48,6 @@ export default function MigrationJobSummary({
   const receiptReadyOrders = Number(summary.receiptReadyOrders || 0);
   const receiptCampaign = decoratedJob?.receiptCampaign ?? null;
   const sentCountFallback = Number(summary.sentCount || 0);
-  const progressLabel = selectedJob
-    ? getMigrationProgressLabel(selectedJob.status)
-    : null;
-  const progressDetail = selectedJob
-    ? getMigrationProgressDetail(
-        selectedJob.status,
-        selectedJob.processed_rows,
-        selectedJob.total_rows
-      )
-    : null;
-  const progressValue = selectedJob
-    ? getMigrationProgressValue(
-        selectedJob.status,
-        selectedJob.processed_rows,
-        selectedJob.total_rows
-      )
-    : 0;
   const suggestedAction = getMigrationSuggestedAction({
     activeFilter,
     invalidRows,
@@ -234,28 +214,15 @@ export default function MigrationJobSummary({
               </div>
             </div>
 
-            {selectedJob &&
-            isMigrationStatusActive(selectedJob.status) &&
-            progressLabel ? (
-              <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium">{progressLabel}</p>
-                  {progressValue != null ? (
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {progressValue}%
-                    </span>
-                  ) : null}
-                </div>
-                <Progress
-                  aria-label="Migration progress"
-                  className="h-2"
-                  value={progressValue}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {progressDetail ||
-                    'Job status updates automatically while this stage is running.'}
-                </p>
-              </div>
+            <MigrationJobProgressCard
+              processedRows={selectedJob.processed_rows}
+              status={selectedJob.status}
+              summary={summary}
+              totalRows={selectedJob.total_rows}
+            />
+
+            {decoratedJob ? (
+              <MigrationJobNextStepMessage job={decoratedJob} />
             ) : null}
 
             {receiptCampaign ? (
