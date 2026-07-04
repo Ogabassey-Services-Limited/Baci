@@ -241,7 +241,9 @@ export async function getCachedContentLinkRewrites(
   for (const [uuid, slug] of activeSlugByUuid) {
     const slugPath = Object.hasOwn(productPaths, slug)
       ? productPaths[slug]
-      : activeUuidPaths[slug];
+      : Object.hasOwn(activeUuidPaths, slug)
+        ? activeUuidPaths[slug]
+        : undefined;
     if (slugPath) {
       productPaths[uuid] = slugPath;
     }

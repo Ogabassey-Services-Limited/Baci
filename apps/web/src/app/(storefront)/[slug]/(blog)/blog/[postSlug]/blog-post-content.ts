@@ -167,9 +167,9 @@ export async function resolveBlogPostContent(
     const rawHtml = isHtml ? contentStr : await marked(contentStr || '');
     const rewrittenHtml = rewriteHtmlStorefrontHrefs(rawHtml, options);
     // Normalize each anchor's href before the callbacks: the checks match
-    // root-relative paths, but unquoted same-site absolute URLs survive
-    // rewriteHtmlStorefrontHrefs (which only rewrites quoted attributes), so
-    // without this a collected-and-dead absolute link would stay clickable.
+    // root-relative paths. rewriteHtmlStorefrontHrefs already normalizes
+    // quoted AND unquoted hrefs tag-by-tag, so this is defense-in-depth for
+    // any anchor shape that pass misses — normalization is idempotent.
     const normalizeCallbackHref = (href: string) =>
       normalizeStorefrontContentHref(href, options);
     const liveLinkHtml =

@@ -1,3 +1,5 @@
+import { escapeHtmlAttribute } from '@/lib/sanitize';
+
 // Quote-aware opening tag: attribute values may contain a literal `>` without
 // truncating the match. Group 1 = opening-tag attributes, group 2 = inner
 // content. Anchors cannot nest in valid HTML, so non-greedy inner matching is
@@ -62,15 +64,6 @@ function unescapeHtmlAttribute(value: string): string {
         : match;
     }
   );
-}
-
-function escapeHtmlAttribute(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
 }
 
 /**
