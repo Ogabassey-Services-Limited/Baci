@@ -144,7 +144,7 @@ describe('OgabasseyV2Blog', () => {
     );
   });
 
-  it('uses crawlable category links instead of client-only filter state', () => {
+  it('uses crawlable canonical category paths instead of redirecting query links', () => {
     render(<OgabasseyV2Blog posts={mockPosts} storeSlug="/test-store" />);
 
     expect(screen.getByRole('link', { name: 'All' })).toHaveAttribute(
@@ -153,7 +153,16 @@ describe('OgabasseyV2Blog', () => {
     );
     expect(screen.getByRole('link', { name: 'Tech News' })).toHaveAttribute(
       'href',
-      '/test-store/blog?category=Tech%20News'
+      '/test-store/blog/category/tech-news'
+    );
+  });
+
+  it('normalizes a bare merchant-slug basePath into a rooted category path', () => {
+    render(<OgabasseyV2Blog posts={mockPosts} storeSlug="test-store" />);
+
+    expect(screen.getByRole('link', { name: 'Tech News' })).toHaveAttribute(
+      'href',
+      '/test-store/blog/category/tech-news'
     );
   });
 
@@ -199,7 +208,7 @@ describe('OgabasseyV2Blog', () => {
 
     expect(screen.getByRole('link', { name: 'View Green Tips' })).toHaveAttribute(
       'href',
-      '/test-store/blog?category=Tips%20and%20Tricks'
+      '/test-store/blog/category/tips-and-tricks'
     );
   });
 
