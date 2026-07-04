@@ -438,6 +438,141 @@ describe('BlogContentRenderer', () => {
       );
     });
 
+    it('renders a plain <span> for a link resolving to a dead blog slug', () => {
+      const json = doc(
+        paragraph(
+          textNode('Read More', [
+            { type: 'link', attrs: { href: '/blog/draft-post' } },
+          ])
+        )
+      );
+
+      render(
+        <BlogContentRenderer
+          json={json}
+          deadContentLinks={{ blog: ['draft-post'], products: [] }}
+        />
+      );
+
+      expect(
+        screen.queryByRole('link', { name: 'Read More' })
+      ).not.toBeInTheDocument();
+      expect(screen.getByText('Read More').tagName).toBe('SPAN');
+    });
+
+    it('renders a plain <span> for a link resolving to a dead product slug', () => {
+      const json = doc(
+        paragraph(
+          textNode('Shop Now', [
+            { type: 'link', attrs: { href: '/products/missing-item' } },
+          ])
+        )
+      );
+
+      render(
+        <BlogContentRenderer
+          json={json}
+          deadContentLinks={{ blog: [], products: ['missing-item'] }}
+        />
+      );
+
+      expect(
+        screen.queryByRole('link', { name: 'Shop Now' })
+      ).not.toBeInTheDocument();
+      expect(screen.getByText('Shop Now').tagName).toBe('SPAN');
+    });
+
+    it('keeps a link that is not present in the dead content link sets', () => {
+      const json = doc(
+        paragraph(
+          textNode('Live Post', [
+            { type: 'link', attrs: { href: '/blog/live-post' } },
+          ])
+        )
+      );
+
+      render(
+        <BlogContentRenderer
+          json={json}
+          deadContentLinks={{ blog: ['draft-post'], products: [] }}
+        />
+      );
+
+      expect(screen.getByRole('link', { name: 'Live Post' })).toHaveAttribute(
+        'href',
+        '/blog/live-post'
+      );
+    });
+
+    it('treats empty dead content link arrays the same as no dead links', () => {
+      const json = doc(
+        paragraph(
+          textNode('Read More', [
+            { type: 'link', attrs: { href: '/blog/draft-post' } },
+          ])
+        )
+      );
+
+      render(
+        <BlogContentRenderer
+          json={json}
+          deadContentLinks={{ blog: [], products: [] }}
+        />
+      );
+
+      expect(
+        screen.getByRole('link', { name: 'Read More' })
+      ).toBeInTheDocument();
+    });
+
+    it('does not unwrap external links even when the path segment matches a dead slug', () => {
+      const json = doc(
+        paragraph(
+          textNode('External', [
+            {
+              type: 'link',
+              attrs: { href: 'https://example.com/blog/draft-post' },
+            },
+          ])
+        )
+      );
+
+      render(
+        <BlogContentRenderer
+          json={json}
+          deadContentLinks={{ blog: ['draft-post'], products: [] }}
+        />
+      );
+
+      expect(
+        screen.getByRole('link', { name: 'External' })
+      ).toBeInTheDocument();
+    });
+
+    it('unwraps dead links normalized under a path-mode basePath', () => {
+      const json = doc(
+        paragraph(
+          textNode('Draft', [
+            { type: 'link', attrs: { href: '/blog/draft-post' } },
+          ])
+        )
+      );
+
+      render(
+        <BlogContentRenderer
+          json={json}
+          basePath="/ogabassey"
+          merchantSlug="ogabassey"
+          deadContentLinks={{ blog: ['draft-post'], products: [] }}
+        />
+      );
+
+      expect(
+        screen.queryByRole('link', { name: 'Draft' })
+      ).not.toBeInTheDocument();
+      expect(screen.getByText('Draft').tagName).toBe('SPAN');
+    });
+
     it('applies a color style from the textStyle mark', () => {
       const json = doc(
         paragraph(

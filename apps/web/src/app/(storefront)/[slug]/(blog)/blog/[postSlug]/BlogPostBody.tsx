@@ -9,15 +9,67 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { removeDuplicateLegacyFeaturedImage } from '@/lib/blog-legacy-featured-image-dedupe';
+import { getCachedDeadContentLinkSlugs } from '@/lib/cached-dead-content-links';
+import {
+  collectStorefrontContentLinkTargets,
+  type DeadStorefrontContentLinkSlugs,
+  isDeadStorefrontContentHref,
+} from '@/lib/storefront-content-link-targets';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { BlogVideoPanel } from './BlogVideoPanel';
 import { buildBlogUrl, resolveBlogPostContent } from './blog-post-content';
+
+const NO_DEAD_CONTENT_LINKS: DeadStorefrontContentLinkSlugs = {
+  blog: [],
+  products: [],
+};
+
+async function resolveDeadContentLinks(
+  content: unknown,
+  merchantId: string | undefined,
+  merchantSlug: string
+): Promise<DeadStorefrontContentLinkSlugs> {
+  if (!merchantId) {
+    return NO_DEAD_CONTENT_LINKS;
+  }
+
+  const contentStr =
+    typeof content === 'string'
+      ? content
+      : content && typeof content === 'object'
+        ? JSON.stringify(content)
+        : '';
+  const { blogSlugs, productSlugs } = collectStorefrontContentLinkTargets(
+    contentStr,
+    merchantSlug
+  );
+
+  if (blogSlugs.length === 0 && productSlugs.length === 0) {
+    return NO_DEAD_CONTENT_LINKS;
+  }
+
+  try {
+    return await getCachedDeadContentLinkSlugs(
+      merchantId,
+      blogSlugs,
+      productSlugs
+    );
+  } catch (error) {
+    // Fail open: keep all links rather than unwrapping on a transient error.
+    console.error('Error resolving dead content links', {
+      error,
+      merchantId,
+    });
+    return NO_DEAD_CONTENT_LINKS;
+  }
+}
 
 export interface BlogPostBodyProps {
   basePath: string;
   baseUrl: string;
   content: unknown;
   locale?: string;
+  merchantId?: string;
   merchantSlug: string;
   postUrl?: string;
   post: {
@@ -60,6 +112,7 @@ export async function BlogPostBody({
   baseUrl,
   content,
   locale,
+  merchantId,
   merchantSlug,
   post,
   postUrl,
@@ -72,12 +125,30 @@ export async function BlogPostBody({
   // image. Keep body images lazy so the page never emits two high-priority image
   // candidates for the same viewport.
   const hasPreloadedHeroImage = true;
+  const deadContentLinks = await resolveDeadContentLinks(
+    content,
+    merchantId,
+    merchantSlug
+  );
+  const deadBlogSlugs = new Set(deadContentLinks.blog);
+  const deadProductSlugs = new Set(deadContentLinks.products);
+  const hasDeadContentLinks =
+    deadBlogSlugs.size > 0 || deadProductSlugs.size > 0;
+
   const { isJson, legacyHtml, legacyPriorityImageSources, renderedContent } =
     await resolveBlogPostContent(content, {
       basePath,
       baseUrl,
       fallbackImageAlt: post.title,
       hasPreloadedHeroImage,
+      isDeadHref: hasDeadContentLinks
+        ? (href) =>
+            isDeadStorefrontContentHref(href, {
+              basePath,
+              deadBlogSlugs,
+              deadProductSlugs,
+            })
+        : undefined,
       merchantSlug,
     });
   const shareUrl = postUrl || buildBlogUrl(baseUrl, basePath, post.slug);
@@ -113,6 +184,9 @@ export async function BlogPostBody({
             json={renderedContent}
             basePath={basePath}
             baseUrl={baseUrl}
+            deadContentLinks={
+              hasDeadContentLinks ? deadContentLinks : undefined
+            }
             merchantSlug={merchantSlug}
             priorityInlineImageSrc={hasPreloadedHeroImage ? null : undefined}
           />

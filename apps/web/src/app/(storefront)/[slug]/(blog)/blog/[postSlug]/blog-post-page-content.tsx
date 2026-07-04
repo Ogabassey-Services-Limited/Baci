@@ -184,6 +184,7 @@ async function renderBlogPostContent({
           baseUrl={baseUrl}
           content={content}
           locale={locale}
+          merchantId={merchant.id}
           merchantSlug={merchant.slug}
           postUrl={postUrl}
           post={{

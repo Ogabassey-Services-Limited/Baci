@@ -9,6 +9,7 @@ export { wrapTrustedCdnInlineImagesInPicture } from './blog-trusted-cdn-inline-i
 
 import { sanitizeHtml } from '@/lib/sanitize';
 import { buildStoreUrl } from '@/lib/store-url';
+import { unwrapDeadHtmlAnchors } from '@/lib/storefront-html-anchor-unwrapping';
 import { rewriteHtmlStorefrontHrefs } from '@/lib/storefront-html-link-rewriting';
 import {
   type NormalizeStorefrontContentHrefOptions,
@@ -213,6 +214,12 @@ type ResolveBlogPostContentOptions = NormalizeStorefrontContentHrefOptions & {
    * lazy so browsers receive a single high-priority image candidate per page.
    */
   hasPreloadedHeroImage?: boolean;
+  /**
+   * When provided, anchors whose normalized href is reported dead (e.g. blog
+   * posts still in draft, products that don't exist) are unwrapped to plain
+   * text instead of rendering a 404 link.
+   */
+  isDeadHref?: (href: string) => boolean;
 };
 
 export async function resolveBlogPostContent(
@@ -244,7 +251,10 @@ export async function resolveBlogPostContent(
   if (!isJson) {
     const rawHtml = isHtml ? contentStr : await marked(contentStr || '');
     const rewrittenHtml = rewriteHtmlStorefrontHrefs(rawHtml, options);
-    const sanitizedHtml = sanitizeHtml(rewrittenHtml, {
+    const liveLinkHtml = options.isDeadHref
+      ? unwrapDeadHtmlAnchors(rewrittenHtml, options.isDeadHref)
+      : rewrittenHtml;
+    const sanitizedHtml = sanitizeHtml(liveLinkHtml, {
       stripNofollowFromLinks: true,
     });
     const legacyImageSafeHtml =

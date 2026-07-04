@@ -571,6 +571,88 @@ describe('resolveBlogPostContent', () => {
     expect(result.legacyHtml).not.toContain('\\u0026');
   });
 
+  it('unwraps dead-link anchors to plain text using isDeadHref before sanitizing', async () => {
+    const result = await resolveBlogPostContent(
+      '<p><a href="/blog/draft-post">Draft Post</a> and <a href="/blog/live-post">Live Post</a></p>',
+      {
+        isDeadHref: (href) => href === '/blog/draft-post',
+      }
+    );
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).not.toContain('<a href="/blog/draft-post"');
+    expect(result.legacyHtml).toContain('Draft Post');
+    expect(result.legacyHtml).toContain('<a href="/blog/live-post"');
+  });
+
+  it('applies isDeadHref against the normalized href after legacy link rewriting', async () => {
+    const result = await resolveBlogPostContent(
+      '<p><a href="https://www.ogabassey.com/phones/iphone-13">iPhone 13</a></p>',
+      {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+        isDeadHref: (href) => href === '/smartphones/iphone-13',
+      }
+    );
+
+    expect(result.legacyHtml).toContain('iPhone 13');
+    expect(result.legacyHtml).not.toContain('<a ');
+  });
+
+  it('unwraps dead-link anchors rendered from markdown link syntax', async () => {
+    const result = await resolveBlogPostContent(
+      '[Draft Post](/blog/draft-post)',
+      { isDeadHref: (href) => href === '/blog/draft-post' }
+    );
+
+    expect(result.legacyHtml).toContain('Draft Post');
+    expect(result.legacyHtml).not.toContain('<a ');
+  });
+
+  it('keeps anchors when isDeadHref reports no dead links', async () => {
+    const result = await resolveBlogPostContent(
+      '<p><a href="/blog/live-post">Live Post</a></p>',
+      { isDeadHref: () => false }
+    );
+
+    expect(result.legacyHtml).toContain('<a href="/blog/live-post"');
+  });
+
+  it('does not unwrap anchors when isDeadHref is not provided', async () => {
+    const result = await resolveBlogPostContent(
+      '<p><a href="/blog/draft-post">Draft Post</a></p>'
+    );
+
+    expect(result.legacyHtml).toContain('<a href="/blog/draft-post"');
+  });
+
+  it('ignores isDeadHref for structured TipTap JSON content', async () => {
+    const content = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Read more',
+              marks: [{ type: 'link', attrs: { href: '/blog/draft-post' } }],
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = await resolveBlogPostContent(content, {
+      isDeadHref: () => true,
+    });
+
+    expect(result.isJson).toBe(true);
+    expect(result.legacyHtml).toBe('');
+    expect(result.renderedContent).toEqual(content);
+  });
+
   it('handles empty and null content safely', async () => {
     const emptyResult = await resolveBlogPostContent('');
     const nullResult = await resolveBlogPostContent(null);

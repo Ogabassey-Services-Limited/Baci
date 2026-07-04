@@ -22,6 +22,7 @@ const INTERNAL_STOREFRONT_SEGMENTS = new Set<string>([
   'products',
   'blog',
   'category',
+  'categories',
   'product-category',
   // Canonical values
   ...Object.values(STOREFRONT_CATEGORY_ALIASES),
@@ -205,6 +206,26 @@ function normalizeInternalStorefrontPath(
       .replace(/^\/+|\/+$/g, '');
 
     if (!remainder || remainder.startsWith('product/')) {
+      return '/products';
+    }
+
+    const [categorySlug, ...rest] = remainder.split('/');
+    const normalizedCategorySlug =
+      normalizeStorefrontCategorySlug(categorySlug) || categorySlug;
+    return rest.length
+      ? `/${normalizedCategorySlug}/${rest.join('/')}`
+      : `/${normalizedCategorySlug}`;
+  }
+
+  if (
+    normalizedPath === '/categories' ||
+    normalizedPath.startsWith('/categories/')
+  ) {
+    const remainder = normalizedPath
+      .slice('/categories/'.length)
+      .replace(/^\/+|\/+$/g, '');
+
+    if (!remainder) {
       return '/products';
     }
 
