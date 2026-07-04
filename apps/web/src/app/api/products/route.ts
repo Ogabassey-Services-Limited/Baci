@@ -31,6 +31,8 @@ import {
   generateProductSlug,
   generateSlug,
 } from '@/lib/seo-utils';
+import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
+import { resolveProductPurgeCategorySegment } from '@/lib/storefront-purge-urls';
 import { createClient } from '@/lib/supabase/server';
 import { productListQuerySchema } from '@/schemas/product-list-query';
 import { createProductSchema, formatZodErrors } from '@/schemas/products';
@@ -696,6 +698,30 @@ export async function POST(request: NextRequest) {
 
     // Invalidate product caches so storefront shows the new product immediately
     revalidateProducts(merchantId, slug);
+
+    // Evict the Cloudflare-fronted public URLs the new product now appears on
+    // (home + its category listing + its PDP paths) so the raised edge TTL
+    // never hides it. Fire-and-forget: a purge is always survivable (caches
+    // self-heal on their TTL), so it must never break product creation — guard
+    // the derive + schedule the same way revalidateBlogPosts does. Only
+    // `body.category` (legacy text) is in hand here, so the category segment is
+    // derived from it.
+    try {
+      scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
+        {
+          slug,
+          categorySegment: resolveProductPurgeCategorySegment({
+            slug,
+            name: body.name,
+            category: body.category,
+          }),
+        },
+      ]);
+    } catch (purgeError) {
+      console.warn('Skipped Cloudflare product purge after create', {
+        purgeError,
+      });
+    }
 
     return NextResponse.json({ product }, { status: 201 });
   } catch (error) {

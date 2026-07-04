@@ -42,6 +42,12 @@ vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: vi.fn(),
 }));
 
+const mockScheduleStorefrontProductPurge = vi.fn();
+vi.mock('@/lib/storefront-product-purge', () => ({
+  scheduleStorefrontProductPurge: (...args: unknown[]) =>
+    mockScheduleStorefrontProductPurge(...args),
+}));
+
 const mockPrewarmOgabasseyImageTransforms = vi
   .fn()
   .mockResolvedValue(undefined);
@@ -82,6 +88,12 @@ vi.mock('@/lib/seo-utils', () => ({
   generateProductSchema: () => ({ '@type': 'Product' }),
   generateProductSlug: (name: string) => name.toLowerCase().replace(/\s/g, '-'),
   generateSlug: (name: string) => name.toLowerCase().replace(/\s/g, '-'),
+  // Minimal canonical-path builder so resolveProductPurgeCategorySegment (the
+  // real helper) resolves a category segment from the mocked product data.
+  getProductUrl: (product: { slug?: string; category?: string | null }) =>
+    product.category
+      ? `/${product.category.toLowerCase().replace(/\s+/g, '-')}/${product.slug}`
+      : `/products/${product.slug}`,
 }));
 
 vi.mock('@/lib/countries', () => ({
@@ -130,6 +142,7 @@ let anchorVariants: unknown[] = [];
 let updateResult: unknown = null;
 let updateError: unknown = null;
 let deleteError: unknown = null;
+let deletedProducts: unknown[] = [];
 let variantInsertError: unknown = null;
 let variantUpsertError: unknown = null;
 let variantSyncError: { code?: string; message?: string } | null = null;
@@ -185,7 +198,16 @@ const createMockSupabase = () => ({
         eq: vi.fn((): unknown => {
           eqCallCount++;
           if (eqCallCount >= 2) {
-            return Promise.resolve({ error: deleteError });
+            // The route deletes with a trailing `.select(...)` to read the
+            // removed row's slug/category for the Cloudflare purge.
+            return {
+              select: vi.fn(() =>
+                Promise.resolve({
+                  data: deleteError ? null : deletedProducts,
+                  error: deleteError,
+                })
+              ),
+            };
           }
           return deleteChain;
         }),
@@ -368,6 +390,7 @@ function resetMocks() {
   updateResult = null;
   updateError = null;
   deleteError = null;
+  deletedProducts = [];
   variantInsertError = null;
   variantUpsertError = null;
   variantSyncError = null;
@@ -680,6 +703,87 @@ describe('PUT /api/products/[id]', () => {
       expect(res.status).toBe(200);
       expect(json.product).toBeDefined();
       expect(json.product.name).toBe('Updated Product');
+    });
+
+    it('schedules a Cloudflare purge for the updated product', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Old Name',
+        description: 'Old description',
+        condition: 'new',
+        slug: 'updated-product',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        slug: 'updated-product',
+        category: 'Smartphones',
+      };
+
+      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [{ slug: 'updated-product', categorySegment: 'smartphones' }]
+      );
+    });
+
+    it('purges both the old and new slug when a rename changes the slug', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Old Name',
+        description: 'Old description',
+        condition: 'new',
+        slug: 'old-name',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        slug: 'updated-product',
+        category: 'Smartphones',
+      };
+
+      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [
+          { slug: 'updated-product', categorySegment: 'smartphones' },
+          { slug: 'old-name', categorySegment: 'smartphones' },
+        ]
+      );
+    });
+
+    it('completes the update even when scheduling the purge throws', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Old Name',
+        description: 'Old description',
+        condition: 'new',
+        slug: 'updated-product',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        slug: 'updated-product',
+        category: 'Smartphones',
+      };
+      mockScheduleStorefrontProductPurge.mockImplementationOnce(() => {
+        throw new Error('purge scheduling failed');
+      });
+
+      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      // The purge is best-effort; a scheduling failure must not fail the update.
+      expect(res.status).toBe(200);
     });
 
     it('preserves explicit images when single-image fields are also provided', async () => {
@@ -1559,6 +1663,51 @@ describe('DELETE /api/products/[id]', () => {
       });
 
       expect(mockPrewarmOgabasseyImageTransforms).not.toHaveBeenCalled();
+    });
+
+    it('schedules a Cloudflare purge for the deleted product', async () => {
+      deleteError = null;
+      deletedProducts = [
+        { slug: 'iphone-15', name: 'iPhone 15', category: 'Smartphones' },
+      ];
+
+      const res = await DELETE(makeDeleteRequest(PRODUCT_ID), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+      );
+    });
+
+    it('does not schedule a purge when the delete returns no row', async () => {
+      deleteError = null;
+      deletedProducts = [];
+
+      await DELETE(makeDeleteRequest(PRODUCT_ID), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+    });
+
+    it('completes the delete even when scheduling the purge throws', async () => {
+      deleteError = null;
+      deletedProducts = [
+        { slug: 'iphone-15', name: 'iPhone 15', category: 'Smartphones' },
+      ];
+      mockScheduleStorefrontProductPurge.mockImplementationOnce(() => {
+        throw new Error('purge scheduling failed');
+      });
+
+      const res = await DELETE(makeDeleteRequest(PRODUCT_ID), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      // The purge is best-effort; a scheduling failure must not fail the delete.
+      expect(res.status).toBe(200);
     });
   });
 

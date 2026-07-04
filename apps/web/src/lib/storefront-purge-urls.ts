@@ -1,5 +1,6 @@
 import { STOREFRONT_PUBLIC_CACHE_POLICIES } from '@/config/storefront-cache';
 import { getBlogAuthorSlugs } from '@/lib/blog-authors';
+import { getProductUrl } from '@/lib/seo-utils';
 
 /**
  * Build the canonical public URLs to evict from Cloudflare when a storefront's
@@ -92,6 +93,153 @@ export function buildStorefrontBlogPurgeUrls(
         urls.add(
           `https://${hostname}/blog/author/${encodeURIComponent(authorSlug)}`
         );
+      }
+    }
+  }
+
+  return Array.from(urls);
+}
+
+/**
+ * One product's purge target: its slug plus the canonical category segment of
+ * its PDP (e.g. `smartphones`), or null when the product resolves to the
+ * `/products/<slug>` fallback path (no category). Derive `categorySegment`
+ * with `resolveProductPurgeCategorySegment` so it matches the URL the
+ * storefront actually serves.
+ */
+export interface StorefrontProductPurgeEntry {
+  /** Product slug — original casing preserved (the CDN path is case-sensitive). */
+  slug: string;
+  categorySegment?: string | null;
+}
+
+interface ProductPurgeCategoryInput {
+  slug?: string | null;
+  name?: string | null;
+  category?: string | null;
+  categories?: { name?: string; slug?: string } | null;
+  category_slug?: string | null;
+}
+
+/**
+ * Derive the canonical category segment for a product's PDP purge URL by
+ * reusing the SAME resolution `getProductUrl` performs for the storefront
+ * canonical (PR #2914 precedence: direct category join → legacy text →
+ * junction), then reading the leading path segment of the resolved path.
+ *
+ * Returns null when the product resolves to the `/products/<slug>` fallback
+ * (no category) so callers only emit the fallback PDP URL. NEVER throws: any
+ * failure resolving the URL yields null, so building a purge target can never
+ * break the mutation path that schedules it.
+ */
+export function resolveProductPurgeCategorySegment(
+  product: ProductPurgeCategoryInput
+): string | null {
+  try {
+    const slug = product.slug?.trim();
+    if (!slug) {
+      return null;
+    }
+
+    const path = getProductUrl({
+      id: '',
+      name: product.name ?? '',
+      slug,
+      category: product.category ?? null,
+      categories: product.categories ?? null,
+      category_slug: product.category_slug ?? null,
+      // Ignore any stored canonical_url: the derived slug/category path is the
+      // URL the PDP canonicalizes to and edge-caches (getValidatedProductUrl
+      // discards a divergent canonical_url), so it is the correct purge target.
+      canonical_url: null,
+    });
+
+    const [firstSegment] = path.split('/').filter(Boolean);
+    if (!firstSegment || firstSegment.toLowerCase() === 'products') {
+      return null;
+    }
+    return firstSegment;
+  } catch {
+    return null;
+  }
+}
+
+function dedupeProductPurgeEntries(
+  entries: readonly StorefrontProductPurgeEntry[]
+): Array<{ slug: string; categorySegment: string | null }> {
+  const seen = new Set<string>();
+  const deduped: Array<{ slug: string; categorySegment: string | null }> = [];
+  for (const entry of entries) {
+    const slug = entry.slug?.trim();
+    if (!slug) {
+      continue;
+    }
+    const rawSegment = entry.categorySegment?.trim() ?? '';
+    // Dedupe by the (slug, segment) pair case-insensitively but KEEP original
+    // casing for the emitted URL — the CDN path is case-sensitive.
+    const key = `${slug.toLowerCase()}|${rawSegment.toLowerCase()}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduped.push({ slug, categorySegment: rawSegment || null });
+  }
+  return deduped;
+}
+
+/**
+ * Build the canonical public URLs to evict from Cloudflare when a storefront's
+ * products change. For every resolved hostname of a matched storefront this
+ * emits, per affected product: the canonical PDP `/<category>/<slug>` (when the
+ * category is known) and the always-valid fallback `/products/<slug>`; plus,
+ * once per hostname, each affected category listing `/<category>` and the home
+ * page `/` (both list products). Storefronts without a public cache policy
+ * resolve to no hostnames and return an empty list (purge is a no-op).
+ */
+export function buildStorefrontProductPurgeUrls(
+  identifiers: readonly string[],
+  entries: readonly StorefrontProductPurgeEntry[]
+): string[] {
+  const dedupedEntries = dedupeProductPurgeEntries(entries);
+  if (dedupedEntries.length === 0) {
+    return [];
+  }
+
+  const categorySegments = dedupePathSegmentsPreservingCasing(
+    dedupedEntries
+      .map((entry) => entry.categorySegment ?? '')
+      .filter((segment): segment is string => segment.length > 0)
+  );
+
+  const urls = new Set<string>();
+  for (const identifier of identifiers) {
+    for (const hostname of resolvePurgeHostnames(identifier)) {
+      // The storefront home lists products, so any product mutation can change
+      // it — evict it once per hostname.
+      urls.add(`https://${hostname}/`);
+
+      for (const entry of dedupedEntries) {
+        // The canonical categorized PDP is the URL the storefront serves 200
+        // for (mismatched paths 308 away), so evict it when the category is
+        // known.
+        if (entry.categorySegment) {
+          urls.add(
+            `https://${hostname}/${encodeURIComponent(
+              entry.categorySegment
+            )}/${encodeURIComponent(entry.slug)}`
+          );
+        }
+        // The `/products/<slug>` fallback PDP path resolves for every product
+        // regardless of category, so always evict it.
+        urls.add(
+          `https://${hostname}/products/${encodeURIComponent(entry.slug)}`
+        );
+      }
+
+      // Category listing pages list their products, so a product entering,
+      // leaving, or changing within a category must evict them.
+      for (const segment of categorySegments) {
+        urls.add(`https://${hostname}/${encodeURIComponent(segment)}`);
       }
     }
   }

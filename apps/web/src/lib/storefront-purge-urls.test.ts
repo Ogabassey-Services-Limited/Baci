@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { getBlogAuthorSlugs } from './blog-authors';
-import { buildStorefrontBlogPurgeUrls } from './storefront-purge-urls';
+import {
+  buildStorefrontBlogPurgeUrls,
+  buildStorefrontProductPurgeUrls,
+  resolveProductPurgeCategorySegment,
+} from './storefront-purge-urls';
 
 // Author hub pages are emitted for every registered author slug on every
 // resolved hostname (see buildStorefrontBlogPurgeUrls). These are the two
@@ -142,5 +146,188 @@ describe('buildStorefrontBlogPurgeUrls', () => {
       'https://www.ogabassey.com/blog/category/Reviews',
       ...authorUrls('www.ogabassey.com'),
     ]);
+  });
+});
+
+describe('resolveProductPurgeCategorySegment', () => {
+  it('derives the category segment from a legacy text category', () => {
+    expect(
+      resolveProductPurgeCategorySegment({
+        slug: 'iphone-15',
+        name: 'iPhone 15',
+        category: 'Smartphones',
+      })
+    ).toBe('smartphones');
+  });
+
+  it('prefers the joined category slug (direct category resolution)', () => {
+    expect(
+      resolveProductPurgeCategorySegment({
+        slug: 'rog-ally',
+        name: 'ROG Ally',
+        category: 'Ignored Legacy Text',
+        categories: { name: 'Gaming', slug: 'Gaming-Laptops' },
+      })
+    ).toBe('gaming-laptops');
+  });
+
+  it('uses category_slug when no joined category is present', () => {
+    expect(
+      resolveProductPurgeCategorySegment({
+        slug: 'ipad-air',
+        name: 'iPad Air',
+        category_slug: 'Tablets',
+      })
+    ).toBe('tablets');
+  });
+
+  it('returns null when the product resolves to the /products/<slug> fallback', () => {
+    expect(
+      resolveProductPurgeCategorySegment({
+        slug: 'mystery-box',
+        name: 'Mystery Box',
+        category: null,
+      })
+    ).toBeNull();
+  });
+
+  it('returns null for a missing/blank slug', () => {
+    expect(
+      resolveProductPurgeCategorySegment({ slug: '   ', category: 'Audio' })
+    ).toBeNull();
+  });
+});
+
+describe('buildStorefrontProductPurgeUrls', () => {
+  it('emits canonical PDP, fallback PDP, category listing, and home per hostname', () => {
+    const urls = buildStorefrontProductPurgeUrls(
+      ['ogabassey'],
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+    );
+
+    expect(urls).toEqual([
+      'https://ogabassey.com/',
+      'https://ogabassey.com/smartphones/iphone-15',
+      'https://ogabassey.com/products/iphone-15',
+      'https://ogabassey.com/smartphones',
+      'https://www.ogabassey.com/',
+      'https://www.ogabassey.com/smartphones/iphone-15',
+      'https://www.ogabassey.com/products/iphone-15',
+      'https://www.ogabassey.com/smartphones',
+    ]);
+  });
+
+  it('emits only the fallback PDP and home when the category is unknown', () => {
+    const urls = buildStorefrontProductPurgeUrls(
+      ['ogabassey'],
+      [{ slug: 'mystery-box', categorySegment: null }]
+    );
+
+    expect(urls).toEqual([
+      'https://ogabassey.com/',
+      'https://ogabassey.com/products/mystery-box',
+      'https://www.ogabassey.com/',
+      'https://www.ogabassey.com/products/mystery-box',
+    ]);
+  });
+
+  it('emits one listing per distinct category across multiple products', () => {
+    const urls = buildStorefrontProductPurgeUrls(
+      ['ogabassey.com'],
+      [
+        { slug: 'iphone-15', categorySegment: 'smartphones' },
+        { slug: 'galaxy-s24', categorySegment: 'smartphones' },
+        { slug: 'ipad-air', categorySegment: 'tablets' },
+      ]
+    );
+
+    // The two smartphones collapse to a single /smartphones listing; each PDP
+    // (canonical + fallback) is still emitted.
+    expect(urls).toEqual([
+      'https://ogabassey.com/',
+      'https://ogabassey.com/smartphones/iphone-15',
+      'https://ogabassey.com/products/iphone-15',
+      'https://ogabassey.com/smartphones/galaxy-s24',
+      'https://ogabassey.com/products/galaxy-s24',
+      'https://ogabassey.com/tablets/ipad-air',
+      'https://ogabassey.com/products/ipad-air',
+      'https://ogabassey.com/smartphones',
+      'https://ogabassey.com/tablets',
+      'https://www.ogabassey.com/',
+      'https://www.ogabassey.com/smartphones/iphone-15',
+      'https://www.ogabassey.com/products/iphone-15',
+      'https://www.ogabassey.com/smartphones/galaxy-s24',
+      'https://www.ogabassey.com/products/galaxy-s24',
+      'https://www.ogabassey.com/tablets/ipad-air',
+      'https://www.ogabassey.com/products/ipad-air',
+      'https://www.ogabassey.com/smartphones',
+      'https://www.ogabassey.com/tablets',
+    ]);
+  });
+
+  it('preserves original slug and category casing (CDN paths are case-sensitive)', () => {
+    const urls = buildStorefrontProductPurgeUrls(
+      ['ogabassey'],
+      [{ slug: 'IPhone-15', categorySegment: 'Smartphones' }]
+    );
+
+    expect(urls).toEqual([
+      'https://ogabassey.com/',
+      'https://ogabassey.com/Smartphones/IPhone-15',
+      'https://ogabassey.com/products/IPhone-15',
+      'https://ogabassey.com/Smartphones',
+      'https://www.ogabassey.com/',
+      'https://www.ogabassey.com/Smartphones/IPhone-15',
+      'https://www.ogabassey.com/products/IPhone-15',
+      'https://www.ogabassey.com/Smartphones',
+    ]);
+  });
+
+  it('dedupes entries case-insensitively and drops blank slugs', () => {
+    const urls = buildStorefrontProductPurgeUrls(
+      ['ogabassey', 'ogabassey.com'],
+      [
+        { slug: 'iphone-15', categorySegment: 'smartphones' },
+        { slug: 'IPHONE-15', categorySegment: 'SMARTPHONES' },
+        { slug: '   ', categorySegment: 'smartphones' },
+      ]
+    );
+
+    // 'ogabassey' and 'ogabassey.com' resolve to the same policy (hostname set
+    // emitted once); the case-duplicate entry and the blank slug are dropped.
+    expect(urls).toEqual([
+      'https://ogabassey.com/',
+      'https://ogabassey.com/smartphones/iphone-15',
+      'https://ogabassey.com/products/iphone-15',
+      'https://ogabassey.com/smartphones',
+      'https://www.ogabassey.com/',
+      'https://www.ogabassey.com/smartphones/iphone-15',
+      'https://www.ogabassey.com/products/iphone-15',
+      'https://www.ogabassey.com/smartphones',
+    ]);
+  });
+
+  it('returns an empty list for storefronts without a public cache policy', () => {
+    expect(
+      buildStorefrontProductPurgeUrls('unknown-store'.split(','), [
+        { slug: 'iphone-15', categorySegment: 'smartphones' },
+      ])
+    ).toEqual([]);
+  });
+
+  it('returns an empty list when there are no identifiers', () => {
+    expect(
+      buildStorefrontProductPurgeUrls([], [{ slug: 'iphone-15' }])
+    ).toEqual([]);
+  });
+
+  it('returns an empty list when there are no entries', () => {
+    expect(buildStorefrontProductPurgeUrls(['ogabassey'], [])).toEqual([]);
+  });
+
+  it('returns an empty list when every entry has a blank slug', () => {
+    expect(
+      buildStorefrontProductPurgeUrls(['ogabassey'], [{ slug: '  ' }])
+    ).toEqual([]);
   });
 });

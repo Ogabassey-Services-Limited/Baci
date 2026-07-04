@@ -37,6 +37,11 @@ import {
   generateProductSlug,
   generateSlug,
 } from '@/lib/seo-utils';
+import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
+import {
+  resolveProductPurgeCategorySegment,
+  type StorefrontProductPurgeEntry,
+} from '@/lib/storefront-purge-urls';
 import { createClient } from '@/lib/supabase/server';
 import { formatZodErrors, updateProductSchema } from '@/schemas/products';
 
@@ -915,6 +920,43 @@ export async function PUT(
     // Invalidate product caches so storefront reflects changes immediately
     revalidateProducts(merchantId, updatedProduct.slug);
 
+    // Evict the Cloudflare-fronted public URLs the edit can change (home, the
+    // product's category listing, and its PDP paths) so the raised edge TTL
+    // never serves the stale page. Fire-and-forget: a purge is always
+    // survivable (caches self-heal on their TTL), so it must never break the
+    // update — guard the derive + schedule the same way revalidateBlogPosts
+    // does.
+    try {
+      const previousSlug = existingProduct.slug;
+      const nextSlug = updatedProduct.slug;
+      const productPurgeCategorySegment = resolveProductPurgeCategorySegment({
+        slug: nextSlug,
+        name: updatedProduct.name,
+        category: (updatedProduct as { category?: string | null }).category,
+      });
+      const productPurgeEntries: StorefrontProductPurgeEntry[] = [
+        { slug: nextSlug, categorySegment: productPurgeCategorySegment },
+      ];
+      if (previousSlug && previousSlug !== nextSlug) {
+        // A slug change (e.g. rename) leaves the OLD PDP URLs cached, so evict
+        // them too. The category is assumed unchanged (the common rename case);
+        // the always-emitted /products/<old-slug> fallback still covers a
+        // simultaneous category change.
+        productPurgeEntries.push({
+          slug: previousSlug,
+          categorySegment: productPurgeCategorySegment,
+        });
+      }
+      scheduleStorefrontProductPurge(
+        merchantContext.merchantSlug,
+        productPurgeEntries
+      );
+    } catch (purgeError) {
+      console.warn('Skipped Cloudflare product purge after update', {
+        purgeError,
+      });
+    }
+
     // Pre-warm the CDN image-transform cache for the product's images so the
     // first real storefront visitor never pays the cold-transform cost. Only
     // when this update actually wrote the images column — a name/price/stock-only
@@ -969,11 +1011,14 @@ export async function DELETE(
     }
     const merchantId = merchantContext.merchantId;
 
-    const { error: deleteError } = await supabase
+    // Return the deleted row's slug/category so we can evict its public URLs
+    // from Cloudflare without a second lookup (delete is a rare admin action).
+    const { data: deletedProducts, error: deleteError } = await supabase
       .from('products')
       .delete()
       .eq('id', id)
-      .eq('merchant_id', merchantId);
+      .eq('merchant_id', merchantId)
+      .select('slug, name, category');
 
     if (deleteError) {
       console.error('Error deleting product:', deleteError);
@@ -985,6 +1030,37 @@ export async function DELETE(
 
     // Invalidate product caches after deletion
     revalidateProducts(merchantId);
+
+    // Evict the removed product's public URLs (home, its category listing, and
+    // its PDP paths) so the raised edge TTL never serves a 200 for a deleted
+    // product. Fire-and-forget: a purge is always survivable (caches self-heal
+    // on their TTL), so it must never break the delete — guard the derive +
+    // schedule the same way revalidateBlogPosts does.
+    try {
+      const deletedProduct = deletedProducts?.[0] as
+        | {
+            slug?: string | null;
+            name?: string | null;
+            category?: string | null;
+          }
+        | undefined;
+      if (deletedProduct?.slug) {
+        scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
+          {
+            slug: deletedProduct.slug,
+            categorySegment: resolveProductPurgeCategorySegment({
+              slug: deletedProduct.slug,
+              name: deletedProduct.name,
+              category: deletedProduct.category,
+            }),
+          },
+        ]);
+      }
+    } catch (purgeError) {
+      console.warn('Skipped Cloudflare product purge after delete', {
+        purgeError,
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
