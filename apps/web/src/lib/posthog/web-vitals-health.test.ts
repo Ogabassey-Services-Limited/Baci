@@ -260,6 +260,23 @@ describe('WEB_VITALS_HEALTH_QUERY', () => {
     expect(executableSql).toMatch(/greatest\(/);
   });
 
+  it('restricts the denominator to initial document pageviews so SPA navigations do not inflate it', () => {
+    // Core Web Vitals fire once per hard document load; posthog-js also captures
+    // a fresh $pageview on every SPA route change. posthog-js stamps
+    // $prev_pageview_pathname on every pageview EXCEPT the first since the
+    // document loaded, so a client-side (SPA) pageview — which carries that
+    // property — is excluded from the denominator, while the initial load —
+    // which lacks it — is counted. Assert against the executable SQL so an
+    // explanatory comment mentioning the property can never satisfy the check.
+    const executableSql = WEB_VITALS_HEALTH_QUERY.split('\n')
+      .filter((line) => !line.trimStart().startsWith('--'))
+      .join('\n');
+
+    expect(executableSql).toContain(
+      "event = '$pageview'\n    AND properties.$prev_pageview_pathname IS NULL"
+    );
+  });
+
   it('matches blog surfaces by path segment, not a naive substring', () => {
     // The old `%/blog%` substring predicate over-excluded any path merely
     // containing "blog" and must be gone.

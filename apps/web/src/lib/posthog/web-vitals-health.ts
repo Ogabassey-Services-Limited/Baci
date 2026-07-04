@@ -59,7 +59,23 @@ const RESERVED_FIRST_SEGMENT_PATTERN =
 
 // HogQL boolean matching a `$pageview` whose pathname is NOT a public blog
 // surface, i.e. a pageview that is eligible to report web vitals.
+//
+// INITIAL-DOCUMENT-LOAD parity: Core Web Vitals fire once per HARD document load
+// (the web-vitals library never re-emits on SPA route changes), but posthog-js
+// captures a fresh `$pageview` on every client-side navigation too. Counting
+// those SPA pageviews would inflate the denominator and understate the capture
+// ratio (a false `low_capture_ratio`). posthog-js's PageViewManager keeps the
+// previous pageview only IN MEMORY and stamps `$prev_pageview_pathname` on every
+// pageview EXCEPT the first since the document loaded (verified in
+// posthog-js@1.393.5 `src/page-view.ts`: `_previousPageViewProperties` returns no
+// `$prev_pageview_*` while `_currentPageview` is unset, and that field is
+// memory-only so it resets on each hard load; our manual
+// `posthog.capture('$pageview')` in browser.ts still routes through `doPageView`
+// via `calculateEventProperties(..., readOnly=false)`). Restricting to rows that
+// LACK `$prev_pageview_pathname` therefore keeps exactly the initial document
+// loads that could have carried a web-vitals report, matching the numerator.
 const NON_BLOG_PAGEVIEW_PREDICATE = `event = '$pageview'
+    AND properties.$prev_pageview_pathname IS NULL
     AND NOT (
       match(lower(coalesce(properties.$pathname, '')), '${BLOG_FIRST_SEGMENT_PATTERN}')
       OR (
