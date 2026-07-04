@@ -40,8 +40,13 @@ function formatPaymentMethodLabel(paymentMethod: string | null | undefined) {
     return 'POS';
   }
 
-  const label = normalized.replace(/[_-]+/g, ' ').toLowerCase();
-  return label.charAt(0).toUpperCase() + label.slice(1);
+  return normalized
+    .replace(/[_-]+/g, ' ')
+    .toLowerCase()
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 export function OrderDetailsPaymentCard({

@@ -275,26 +275,3 @@ export function updateShipmentFulfillmentDetails(
     serialNumber: firstFilledItem?.serialNumber ?? '',
   };
 }
-
-export function buildOrderFulfillmentDetailsForPersistence(
-  details: ShipmentFulfillmentDetails
-): OrderFulfillmentDetails {
-  const items = details.items.map((item) => ({
-    id: item.id,
-    imei: item.imei.trim() || null,
-    orderItemId: item.orderItemId,
-    productName: item.productName,
-    serialNumber: item.serialNumber.trim() || null,
-    unitCount: item.unitCount,
-    unitIndex: item.unitIndex,
-    variantName: item.variantName ?? null,
-  }));
-  const firstFilledItem = items.find((item) => item.imei || item.serialNumber);
-
-  return {
-    imei: (firstFilledItem?.imei ?? details.imei.trim()) || null,
-    items: items.length > 0 ? items : undefined,
-    serialNumber:
-      (firstFilledItem?.serialNumber ?? details.serialNumber.trim()) || null,
-  };
-}

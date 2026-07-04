@@ -8,6 +8,7 @@ export {
   getReceiptFulfillmentSummary,
   isDeviceReceiptItemName,
   normalizeReceiptFulfillmentDetails,
+  resolveReceiptItemFulfillmentAttachment,
   resolveReceiptItemFulfillmentDetails,
   shouldAttachFulfillmentToItem,
 } from './receipt-fulfillment';

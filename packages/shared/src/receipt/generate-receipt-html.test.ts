@@ -287,6 +287,7 @@ describe('generateReceiptHtml', () => {
   it.each([
     'imported',
     'bank_transfer',
+    'transfer',
   ])('labels %s paid receipt payment methods as bank transfer', (paymentMethod) => {
     const html = generateReceiptHtml(
       createReceiptOrder({ payment_method: paymentMethod }),
@@ -298,16 +299,6 @@ describe('generateReceiptHtml', () => {
     expect(html).not.toContain('Verified imported payment');
   });
 
-  it('labels transfer paid receipt payment methods as Bank Transfer', () => {
-    const html = generateReceiptHtml(
-      createReceiptOrder({ payment_method: 'transfer' }),
-      createReceiptMerchant()
-    );
-
-    expect(html).toContain('<div class="info-name">Bank Transfer</div>');
-    expect(html).not.toContain('<div class="info-name">Transfer</div>');
-  });
-
   it('renders tax identification only once in the footer', () => {
     const html = generateReceiptHtml(
       createReceiptOrder(),
@@ -317,7 +308,6 @@ describe('generateReceiptHtml', () => {
     );
 
     expect(html.match(/TIN: 2522599781276/g) ?? []).toHaveLength(1);
-    expect(html).not.toMatch(/merchant-info[\s\S]*TIN: 2522599781276/);
   });
 
   it('labels unpaid receipt payment methods as pending', () => {

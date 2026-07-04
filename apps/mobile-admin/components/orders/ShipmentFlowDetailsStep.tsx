@@ -1,16 +1,13 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
+import { normalizeFulfillmentIdentifier } from '@/lib/order-fulfillment-identifiers';
 import type { ShipmentFulfillmentDetails } from '@/lib/order-shipment';
 import { withTwentyPercentAlpha } from '@/utils/colors/withTwentyPercentAlpha';
 import { ShipmentField } from './ShipmentField';
 import { identifierStyles } from './ShipmentFlowIdentifier.styles';
 import { styles } from './ShipmentFlowSheet.styles';
 import { ShipmentInfoCard } from './ShipmentInfoCard';
-
-function normalizeSerialNumber(value: string) {
-  return value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
-}
 
 interface ShipmentFlowDetailsStepProps {
   fulfillmentDetails: ShipmentFulfillmentDetails;
@@ -99,7 +96,7 @@ export function ShipmentFlowDetailsStep({
             onChangeText={(value) =>
               onFulfillmentDetailsChange(
                 'imei',
-                value.replace(/\D/g, '').slice(0, 15)
+                normalizeFulfillmentIdentifier('imei', value)
               )
             }
             placeholder="e.g. 353456789012345"
@@ -146,7 +143,7 @@ export function ShipmentFlowDetailsStep({
             onChangeText={(value) =>
               onFulfillmentDetailsChange(
                 'serialNumber',
-                normalizeSerialNumber(value)
+                normalizeFulfillmentIdentifier('serialNumber', value)
               )
             }
             placeholder="e.g. C02ZK0ABC123"

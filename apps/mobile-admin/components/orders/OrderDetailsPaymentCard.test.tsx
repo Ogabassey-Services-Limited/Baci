@@ -178,4 +178,31 @@ describe('OrderDetailsPaymentCard', () => {
     expect(screen.getByText('N/A')).toBeInTheDocument();
     expect(screen.queryByText('Balance Due')).not.toBeInTheDocument();
   });
+
+  it.each([
+    ['bank_transfer', 'Bank Transfer'],
+    ['bank-transfer', 'Bank Transfer'],
+    ['mobile_money', 'Mobile Money'],
+  ])('formats %s payment methods as %s', (paymentMethod, expectedLabel) => {
+    render(
+      <OrderDetailsPaymentCard
+        amountPaid={10000}
+        balance={0}
+        colors={colors}
+        discountAmount={0}
+        formatPrice={(amount) => `₦${amount}`}
+        onRecordPayment={vi.fn()}
+        onRequestPayment={vi.fn()}
+        paymentColor="#16a34a"
+        paymentLabel="Paid"
+        paymentMethod={paymentMethod}
+        paymentStatus="paid"
+        shippingFee={0}
+        subtotal={10000}
+        total={10000}
+      />
+    );
+
+    expect(screen.getByText(expectedLabel)).toBeInTheDocument();
+  });
 });

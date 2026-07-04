@@ -9,6 +9,9 @@ interface CreateOrderFabProps {
   onPress: () => void;
 }
 
+export const CREATE_ORDER_FAB_BOTTOM_OFFSET = 125;
+export const CREATE_ORDER_FAB_Z_INDEX = 300;
+
 export function CreateOrderFab({
   colors,
   shadows,
@@ -21,8 +24,8 @@ export function CreateOrderFab({
         {
           backgroundColor: colors.gold,
           position: 'absolute',
-          bottom: 125,
-          zIndex: 300,
+          bottom: CREATE_ORDER_FAB_BOTTOM_OFFSET,
+          zIndex: CREATE_ORDER_FAB_Z_INDEX,
         },
         shadows.lg,
         pressed && { opacity: 0.9, transform: [{ scale: 0.95 }] },

@@ -1,7 +1,11 @@
 import './orders-screen-test-utils';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { CreateOrderFab } from './CreateOrderFab';
+import {
+  CREATE_ORDER_FAB_BOTTOM_OFFSET,
+  CREATE_ORDER_FAB_Z_INDEX,
+  CreateOrderFab,
+} from './CreateOrderFab';
 import { mockColors, mockShadows } from './orders-screen-test-utils';
 
 describe('CreateOrderFab', () => {
@@ -34,7 +38,7 @@ describe('CreateOrderFab', () => {
 
     const fabElement = screen.getByRole('button', { name: 'Create new order' });
     expect(fabElement.style.position).toBe('absolute');
-    expect(fabElement.style.bottom).toBe('125px');
-    expect(fabElement.style.zIndex).toBe('300');
+    expect(fabElement.style.bottom).toBe(`${CREATE_ORDER_FAB_BOTTOM_OFFSET}px`);
+    expect(fabElement.style.zIndex).toBe(String(CREATE_ORDER_FAB_Z_INDEX));
   });
 });

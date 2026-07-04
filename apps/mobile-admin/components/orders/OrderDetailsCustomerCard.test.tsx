@@ -133,6 +133,16 @@ describe('OrderDetailsCustomerCard', () => {
     expect(props.onRiderPhoneChange).toHaveBeenCalledWith('+2348111111111');
   });
 
+  it('sanitizes pasted rider numbers before saving them', () => {
+    const { props } = renderCard();
+
+    fireEvent.change(screen.getByLabelText('Dispatch rider WhatsApp number'), {
+      target: { value: '+234 (811) rider+111-1111 ext 99' },
+    });
+
+    expect(props.onRiderPhoneChange).toHaveBeenCalledWith('+234811111111199');
+  });
+
   it('shows the rider number placeholder when no rider is saved yet', () => {
     renderCard({ riderPhone: '' });
 

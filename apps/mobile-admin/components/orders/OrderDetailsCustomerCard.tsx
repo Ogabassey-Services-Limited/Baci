@@ -172,7 +172,15 @@ export function OrderDetailsCustomerCard({
           <TextInput
             accessibilityLabel="Dispatch rider WhatsApp number"
             keyboardType="phone-pad"
-            onChangeText={onRiderPhoneChange}
+            maxLength={20}
+            onChangeText={(value) =>
+              onRiderPhoneChange(
+                value
+                  .replace(/[^\d+]/g, '')
+                  .replace(/(?!^)\+/g, '')
+                  .slice(0, 20)
+              )
+            }
             placeholder="Enter rider number"
             placeholderTextColor={colors.textSecondary}
             style={[

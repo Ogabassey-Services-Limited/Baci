@@ -196,6 +196,34 @@ export function resolveReceiptItemFulfillmentDetails(
   };
 }
 
+export function resolveReceiptItemFulfillmentAttachment({
+  hasDeviceItem,
+  index,
+  item,
+  itemFulfillment,
+  orderFulfillment,
+}: {
+  hasDeviceItem: boolean;
+  index: number;
+  item: ReceiptFulfillmentMatchItem;
+  itemFulfillment?: ReceiptFulfillmentDetails | null;
+  orderFulfillment: ReceiptFulfillmentDetails | null | undefined;
+}): {
+  fulfillment: ReceiptFulfillmentDetails | null;
+  hasDeviceItem: boolean;
+  index: number;
+} {
+  const matchedFulfillment =
+    itemFulfillment ||
+    resolveReceiptItemFulfillmentDetails(orderFulfillment, item);
+
+  return {
+    fulfillment: matchedFulfillment || orderFulfillment || null,
+    hasDeviceItem: matchedFulfillment ? false : hasDeviceItem,
+    index: matchedFulfillment ? 0 : index,
+  };
+}
+
 export function getReceiptFulfillmentSummary(
   details: ReceiptFulfillmentDetails | null | undefined
 ): string | null {

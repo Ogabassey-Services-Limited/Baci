@@ -4,7 +4,7 @@ import {
   normalizeReceiptFulfillmentDetails,
   type ReceiptMerchant,
   type ReceiptOrder,
-  resolveReceiptItemFulfillmentDetails,
+  resolveReceiptItemFulfillmentAttachment,
 } from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
@@ -328,21 +328,22 @@ export async function GET(
 
     // Build invoice line items
     const items: InvoiceLineItem[] = typedOrderItems.map((item, index) => {
-      const matchedFulfillment = resolveReceiptItemFulfillmentDetails(
-        orderFulfillment,
-        {
+      const fulfillmentAttachment = resolveReceiptItemFulfillmentAttachment({
+        hasDeviceItem,
+        index,
+        item: {
           id: item.id,
           line_id: item.line_id,
           name: item.name,
           product_name: item.name,
-        }
-      );
-      const itemFulfillment = matchedFulfillment || orderFulfillment;
+        },
+        orderFulfillment,
+      });
       const desc = appendReceiptFulfillmentDescription({
         description: item.item_description || undefined,
-        fulfillment: itemFulfillment,
-        hasDeviceItem: matchedFulfillment ? false : hasDeviceItem,
-        index: matchedFulfillment ? 0 : index,
+        fulfillment: fulfillmentAttachment.fulfillment,
+        hasDeviceItem: fulfillmentAttachment.hasDeviceItem,
+        index: fulfillmentAttachment.index,
         itemName: item.name || '',
       });
       const { vatCategoryCode, vatRate } = lineVatMetadata[index] ?? {};

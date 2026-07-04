@@ -2,7 +2,6 @@ import type { OrderItem } from '@baci/shared';
 import { describe, expect, it } from 'vitest';
 import {
   areFulfillmentDetailsComplete,
-  buildOrderFulfillmentDetailsForPersistence,
   getInitialFulfillmentDetails,
   getOrderFulfillmentIdentifierItems,
   updateShipmentFulfillmentDetails,
@@ -90,37 +89,5 @@ describe('order fulfillment details', () => {
     expect(areFulfillmentDetailsComplete(secondUpdated)).toBe(true);
     expect(secondUpdated.items[0].imei).toBe('353456789012345');
     expect(secondUpdated.items[1].serialNumber).toBe('SN-GALAXY-1');
-  });
-
-  it('persists item-level identifiers with a legacy top-level fallback', () => {
-    const details = buildOrderFulfillmentDetailsForPersistence({
-      imei: '',
-      items: [
-        {
-          id: 'item-1:1',
-          imei: '353456789012345',
-          orderItemId: 'item-1',
-          productName: 'iPhone 15',
-          serialNumber: '',
-          unitCount: 1,
-          unitIndex: 0,
-        },
-      ],
-      serialNumber: '',
-    });
-
-    expect(details).toMatchObject({
-      imei: '353456789012345',
-      items: [
-        {
-          id: 'item-1:1',
-          imei: '353456789012345',
-          orderItemId: 'item-1',
-          productName: 'iPhone 15',
-          serialNumber: null,
-        },
-      ],
-      serialNumber: null,
-    });
   });
 });

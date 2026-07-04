@@ -3,7 +3,6 @@ import { getOrderFulfillmentIdentifierItems } from './order-fulfillment-details'
 
 export {
   areFulfillmentDetailsComplete,
-  buildOrderFulfillmentDetailsForPersistence,
   getFirstIncompleteFulfillmentItemIndex,
   getInitialFulfillmentDetails,
   getOrderFulfillmentIdentifierItems,
@@ -12,6 +11,7 @@ export {
   shouldPersistFulfillmentDetails,
   updateShipmentFulfillmentDetails,
 } from './order-fulfillment-details';
+export { buildOrderFulfillmentDetailsForPersistence } from './order-fulfillment-identifiers';
 
 export type ShipmentCompletionMode = 'provider' | 'self_fulfillment';
 export type ShipmentFlowStep = 'details' | 'method' | 'rider';

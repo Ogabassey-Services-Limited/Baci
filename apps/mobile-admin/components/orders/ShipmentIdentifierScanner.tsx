@@ -3,18 +3,8 @@ import { Camera, CameraView } from 'expo-camera';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
+import { normalizeFulfillmentIdentifier } from '@/lib/order-fulfillment-identifiers';
 import { identifierStyles } from './ShipmentFlowIdentifier.styles';
-
-function normalizeScannedIdentifier(
-  field: 'imei' | 'serialNumber',
-  value: string
-): string {
-  if (field === 'imei') {
-    return value.replace(/\D/g, '').slice(0, 15);
-  }
-
-  return value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
-}
 
 interface ShipmentIdentifierScannerProps {
   colors: ThemeColors;
@@ -40,9 +30,23 @@ export function ShipmentIdentifierScanner({
       return;
     }
 
-    Camera.requestCameraPermissionsAsync().then(({ status }) => {
-      setHasPermission(status === 'granted');
-    });
+    let isCurrent = true;
+    setHasPermission(null);
+    Camera.requestCameraPermissionsAsync()
+      .then(({ status }) => {
+        if (isCurrent) {
+          setHasPermission(status === 'granted');
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setHasPermission(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [visible]);
 
   if (!visible) {
@@ -54,7 +58,7 @@ export function ShipmentIdentifierScanner({
       return;
     }
 
-    const normalizedValue = normalizeScannedIdentifier(field, data);
+    const normalizedValue = normalizeFulfillmentIdentifier(field, data);
     if (!normalizedValue) {
       Alert.alert('Scan Failed', 'No valid identifier was found in this code.');
       return;
