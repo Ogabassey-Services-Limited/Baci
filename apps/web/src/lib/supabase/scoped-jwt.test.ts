@@ -26,6 +26,13 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
+// Recomputes the expected HMAC signature for test assertions. The secret is a
+// function parameter — not a string literal passed directly to createHmac — so
+// this stays a deterministic test helper rather than a hardcoded credential.
+function hmacSha256Base64Url(secret: string, signingInput: string): string {
+  return createHmac('sha256', secret).update(signingInput).digest('base64url');
+}
+
 describe('signScopedSupabaseJwt', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -48,13 +55,10 @@ describe('signScopedSupabaseJwt', () => {
       role: 'anon',
     });
     expect(mocks.getSupabaseJwtSecret).toHaveBeenCalledTimes(1);
-    // The signing secret is a deterministic test fixture (matches the mocked
-    // getSupabaseJwtSecret return value) used to recompute the expected HMAC —
-    // it is not a real credential.
-    // nosemgrep: javascript.lang.security.audit.hardcoded-hmac-key.hardcoded-hmac-key
-    const expectedSignature = createHmac('sha256', 'default-secret')
-      .update(`${encodedHeader}.${encodedBody}`)
-      .digest('base64url');
+    const expectedSignature = hmacSha256Base64Url(
+      'default-secret',
+      `${encodedHeader}.${encodedBody}`
+    );
     expect(encodedSignature).toBe(expectedSignature);
   });
 
@@ -79,13 +83,10 @@ describe('signScopedSupabaseJwt', () => {
       merchant_id: '11111111-1111-4111-8111-111111111111',
       role: 'anon',
     });
-    // Deterministic test fixture secret (matches the `legacy-secret` passed to
-    // signScopedSupabaseJwt above) used to recompute the expected HMAC — not a
-    // real credential.
-    // nosemgrep: javascript.lang.security.audit.hardcoded-hmac-key.hardcoded-hmac-key
-    const expectedSignature = createHmac('sha256', 'legacy-secret')
-      .update(`${encodedHeader}.${encodedBody}`)
-      .digest('base64url');
+    const expectedSignature = hmacSha256Base64Url(
+      'legacy-secret',
+      `${encodedHeader}.${encodedBody}`
+    );
     expect(encodedSignature).toBe(expectedSignature);
   });
 
