@@ -627,6 +627,8 @@ describe('capturePostHogWebVitals', () => {
   });
 
   it('buffers metrics reported before init and flushes them once the client initializes', async () => {
+    const originHref = 'https://usebaci.com/ogabassey/products/macbook';
+    vi.stubGlobal('location', { href: originHref });
     const { capturePostHogWebVitals, initializePostHogBrowser } =
       await importBrowserInitializer();
 
@@ -638,7 +640,13 @@ describe('capturePostHogWebVitals', () => {
       NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
     });
 
-    expect(mocks.posthogCapture).toHaveBeenCalledWith('web_vitals', payload);
+    // The flushed event carries the origin URL pinned at enqueue time, so a
+    // post-boot navigation cannot re-attribute it to a later page.
+    expect(mocks.posthogCapture).toHaveBeenCalledWith('web_vitals', {
+      ...payload,
+      $current_url: originHref,
+      $pathname: payload.pathname,
+    });
   });
 
   it('drops buffered metrics when the project token is missing so they never send', async () => {

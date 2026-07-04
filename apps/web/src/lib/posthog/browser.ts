@@ -339,6 +339,9 @@ export function capturePostHogWebVitals(payload: PostHogWebVitalsPayload) {
     return;
   }
 
+  // Buffered payloads carry the origin `$current_url`/`$pathname` stamped at
+  // enqueue time (see `withOriginUrl` in web-vitals-queue.ts); passing them here
+  // overrides the LATER page posthog-js would otherwise attribute post-flush.
   posthog.capture('web_vitals', payload);
 }
 

@@ -29,6 +29,34 @@ const MAX_PENDING_WEB_VITALS = 10;
 const pendingPostHogWebVitals: PostHogWebVitalsPayload[] = [];
 
 /**
+ * Pin the origin URL onto a buffered payload so it survives a later flush.
+ *
+ * Buffered metrics flush AFTER the idle PostHog boot — frequently after a client
+ * navigation — but posthog-js computes `$current_url`/`$pathname` from
+ * `location` at CAPTURE time, i.e. the LATER page. So without pinning here, a
+ * TTFB measured on page A would be attributed to page B once it flushes. We stamp
+ * the origin `$current_url` (from `location.href`) and `$pathname` (already
+ * captured at report time in `payload.pathname`); posthog-js honors explicitly
+ * passed `$current_url`/`$pathname` over its own computed values, so the flushed
+ * event keeps page A's identity. Idempotent so a re-enqueue never overwrites the
+ * origin with a later location.
+ */
+function withOriginUrl(
+  payload: PostHogWebVitalsPayload
+): PostHogWebVitalsPayload {
+  if (typeof payload.$current_url === 'string') {
+    return payload;
+  }
+
+  const href = globalThis.location?.href;
+  if (!href) {
+    return payload;
+  }
+
+  return { ...payload, $current_url: href, $pathname: payload.pathname };
+}
+
+/**
  * Buffer a metric payload, dropping the oldest entry when the cap is reached so
  * the queue stays bounded on pages that never boot PostHog.
  */
@@ -37,7 +65,7 @@ export function enqueuePostHogWebVital(payload: PostHogWebVitalsPayload): void {
     pendingPostHogWebVitals.shift();
   }
 
-  pendingPostHogWebVitals.push(payload);
+  pendingPostHogWebVitals.push(withOriginUrl(payload));
 }
 
 /**

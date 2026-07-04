@@ -29,6 +29,45 @@ const COLUMN_INDEX = {
   nonBlogPageviews: 7,
 } as const;
 
+// --- Blog-surface parity (MUST mirror `isPublicBlogPathname` in
+// `@/lib/posthog/public-blog-path`) -----------------------------------------
+// The client (`report-web-vital.ts` → `isPublicBlogPathname`) DROPS Core Web
+// Vitals on public blog/SEO surfaces before they are ever buffered, so those
+// pageviews never carry a report. The capture-ratio denominator must therefore
+// exclude EXACTLY the surfaces the client suppresses — no more, no less. A blunt
+// `$pathname LIKE '%/blog%'` over-excludes real pages (`/dashboard/blog-settings`,
+// `/products/blogger-bag`), which shrinks the denominator and masks a genuinely
+// low capture ratio.
+//
+// Mirrored client semantics (see public-blog-path.ts):
+//   • first path segment === 'blog'              → `/blog`, `/blog/…`
+//   • OR second segment === 'blog' AND the first  → `/<slug>/blog`, `/<slug>/blog/…`
+//     segment is NOT a platform-reserved word
+// Matching runs on a lower-cased pathname to mirror the client's per-segment
+// `.toLowerCase()`. RESERVED_FIRST_SEGMENT_PATTERN MUST stay in sync with
+// PLATFORM_RESERVED_FIRST_SEGMENTS in public-blog-path.ts.
+//
+// One deliberate divergence: the client also gates the tenant-prefixed
+// `/<slug>/blog` shape on platform-path-mode hosts. HogQL aggregates across every
+// host and cannot resolve the per-event host cheaply, so this predicate treats
+// the tenant shape as blog on any host. The only affected input is a
+// custom-domain `/<slug>/blog`, which effectively never occurs.
+const BLOG_FIRST_SEGMENT_PATTERN = '^/blog(/|$)';
+const BLOG_TENANT_SEGMENT_PATTERN = '^/[^/]+/blog(/|$)';
+const RESERVED_FIRST_SEGMENT_PATTERN =
+  '^/(_next|admin|api|auth|builder|checkout|dashboard|feeds|login|logout|track)(/|$)';
+
+// HogQL boolean matching a `$pageview` whose pathname is NOT a public blog
+// surface, i.e. a pageview that is eligible to report web vitals.
+const NON_BLOG_PAGEVIEW_PREDICATE = `event = '$pageview'
+    AND NOT (
+      match(lower(coalesce(properties.$pathname, '')), '${BLOG_FIRST_SEGMENT_PATTERN}')
+      OR (
+        match(lower(coalesce(properties.$pathname, '')), '${BLOG_TENANT_SEGMENT_PATTERN}')
+        AND NOT match(lower(coalesce(properties.$pathname, '')), '${RESERVED_FIRST_SEGMENT_PATTERN}')
+      )
+    )`;
+
 const WEB_VITALS_HEALTH_QUERY = `
 SELECT
   countIf(event = 'web_vitals') AS web_vitals_total,
@@ -52,7 +91,7 @@ SELECT
     countIf(event = 'web_vitals' AND properties.metric = 'CLS'),
     countIf(event = 'web_vitals' AND properties.metric = 'INP')
   ) AS vitals_pageviews,
-  countIf(event = '$pageview' AND coalesce(properties.$pathname, '') NOT LIKE '%/blog%') AS non_blog_pageviews
+  countIf(${NON_BLOG_PAGEVIEW_PREDICATE}) AS non_blog_pageviews
 FROM events
 WHERE timestamp >= now() - INTERVAL 24 HOUR
   AND event IN ('web_vitals', '$pageview')
@@ -241,4 +280,11 @@ export async function runWebVitalsHealthCheck(
   return evaluateResponse(parsed.data);
 }
 
-export { INVERSION_METRIC_FLOOR, MIN_CAPTURE_RATIO, WEB_VITALS_HEALTH_QUERY };
+export {
+  BLOG_FIRST_SEGMENT_PATTERN,
+  BLOG_TENANT_SEGMENT_PATTERN,
+  INVERSION_METRIC_FLOOR,
+  MIN_CAPTURE_RATIO,
+  RESERVED_FIRST_SEGMENT_PATTERN,
+  WEB_VITALS_HEALTH_QUERY,
+};

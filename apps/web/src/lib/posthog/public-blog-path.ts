@@ -1,3 +1,8 @@
+// PARITY: the server-side web-vitals health denominator mirrors this matcher in
+// HogQL (see NON_BLOG_PAGEVIEW_PREDICATE + RESERVED_FIRST_SEGMENT_PATTERN in
+// `@/lib/posthog/web-vitals-health`). Any change to this reserved set or the blog
+// path shapes below MUST be reflected there, or the capture-ratio denominator
+// drifts out of sync with what the client actually drops.
 const PLATFORM_RESERVED_FIRST_SEGMENTS = new Set([
   '_next',
   'admin',

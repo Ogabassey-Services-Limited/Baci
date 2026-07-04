@@ -1,8 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { isPublicBlogPathname } from './public-blog-path';
 import {
+  BLOG_FIRST_SEGMENT_PATTERN,
+  BLOG_TENANT_SEGMENT_PATTERN,
+  RESERVED_FIRST_SEGMENT_PATTERN,
   runWebVitalsHealthCheck,
   WEB_VITALS_HEALTH_QUERY,
 } from './web-vitals-health';
+
+/**
+ * Applies the EXACT regex patterns embedded in the HogQL `non_blog_pageviews`
+ * predicate (no second logic copy) so these tests validate the same
+ * classification the query executes server-side.
+ */
+function hogqlClassifiesPathnameAsBlog(pathname: string): boolean {
+  const normalized = pathname.toLowerCase();
+  return (
+    new RegExp(BLOG_FIRST_SEGMENT_PATTERN).test(normalized) ||
+    (new RegExp(BLOG_TENANT_SEGMENT_PATTERN).test(normalized) &&
+      !new RegExp(RESERVED_FIRST_SEGMENT_PATTERN).test(normalized))
+  );
+}
 
 const CONFIGURED_ENV = {
   POSTHOG_API_KEY: 'phx_api_key',
@@ -240,5 +258,77 @@ describe('WEB_VITALS_HEALTH_QUERY', () => {
     expect(executableSql.includes('$pageview_id')).toBe(false);
     expect(executableSql).toContain('AS vitals_pageviews');
     expect(executableSql).toMatch(/greatest\(/);
+  });
+
+  it('matches blog surfaces by path segment, not a naive substring', () => {
+    // The old `%/blog%` substring predicate over-excluded any path merely
+    // containing "blog" and must be gone.
+    expect(WEB_VITALS_HEALTH_QUERY).not.toContain("LIKE '%/blog%'");
+    // Segment-anchored regex mirrors the client matcher instead.
+    expect(WEB_VITALS_HEALTH_QUERY).toContain(BLOG_FIRST_SEGMENT_PATTERN);
+    expect(WEB_VITALS_HEALTH_QUERY).toContain(BLOG_TENANT_SEGMENT_PATTERN);
+    expect(WEB_VITALS_HEALTH_QUERY).toContain(RESERVED_FIRST_SEGMENT_PATTERN);
+  });
+});
+
+describe('non_blog_pageviews blog-surface parity', () => {
+  it('excludes real blog surfaces from the denominator', () => {
+    // Arrange
+    const blogSurfaces = ['/blog', '/blog/', '/blog/some-post'];
+
+    // Act / Assert: dropped by the client → excluded from the denominator.
+    for (const pathname of blogSurfaces) {
+      expect(hogqlClassifiesPathnameAsBlog(pathname)).toBe(true);
+    }
+  });
+
+  it('counts blog-ish non-blog paths that the client never drops', () => {
+    // Arrange: the exact counter-examples the old substring filter mis-excluded.
+    const eligiblePaths = [
+      '/',
+      '/dashboard/blog-settings',
+      '/products/blogger-bag',
+      '/dashboard/blog',
+      '/admin/blog',
+      '/ogabassey/products',
+    ];
+
+    // Act / Assert: still eligible → still in the denominator.
+    for (const pathname of eligiblePaths) {
+      expect(hogqlClassifiesPathnameAsBlog(pathname)).toBe(false);
+    }
+  });
+
+  it('agrees with the client matcher on platform-host inputs', () => {
+    // Arrange: on a platform-path-mode host the HogQL predicate and the client
+    // matcher must classify identically so the denominator tracks real drops.
+    const cases: Array<{ pathname: string; blog: boolean }> = [
+      { pathname: '/blog/some-post', blog: true },
+      { pathname: '/ogabassey/blog', blog: true },
+      { pathname: '/ogabassey/blog/post-1', blog: true },
+      { pathname: '/dashboard/blog-settings', blog: false },
+      { pathname: '/products/blogger-bag', blog: false },
+      { pathname: '/dashboard/blog', blog: false },
+      { pathname: '/ogabassey/products', blog: false },
+    ];
+
+    // Act / Assert
+    for (const { pathname, blog } of cases) {
+      expect(hogqlClassifiesPathnameAsBlog(pathname)).toBe(blog);
+      expect(isPublicBlogPathname(pathname, { hostname: 'usebaci.com' })).toBe(
+        blog
+      );
+    }
+  });
+
+  it('documents the intentional host-gating approximation', () => {
+    // The client gates the tenant `/<slug>/blog` shape on platform hosts, so on
+    // a custom domain it is NOT a blog surface. HogQL cannot resolve host per
+    // event and treats it as blog regardless — a divergence that only affects a
+    // custom-domain `/<slug>/blog`, which effectively never occurs.
+    expect(hogqlClassifiesPathnameAsBlog('/ogabassey/blog')).toBe(true);
+    expect(
+      isPublicBlogPathname('/ogabassey/blog', { hostname: 'ogabassey.com' })
+    ).toBe(false);
   });
 });

@@ -116,7 +116,7 @@ describe('GET /api/cron/web-vitals-health', () => {
     );
   });
 
-  it('returns 200 fail-open when the health check reports a PostHog error', async () => {
+  it('returns 200 fail-open but logs the unavailable tag on a PostHog error', async () => {
     mocks.runWebVitalsHealthCheck.mockResolvedValue({
       status: 'error',
       reason: 'posthog_http_403',
@@ -127,9 +127,53 @@ describe('GET /api/cron/web-vitals-health', () => {
     const response = await GET(cronRequest(`Bearer ${SECRET}`));
     const body = await response.json();
 
+    // Fail-open contract unchanged...
     expect(response.status).toBe(200);
     expect(body.status).toBe('error');
     expect(body.reason).toBe('posthog_http_403');
+    // ...but the cron no longer rots silently.
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'web_vitals_health_unavailable',
+        reason: 'posthog_http_403',
+      })
+    );
+  });
+
+  it('logs the unavailable tag when skipped despite PostHog being configured', async () => {
+    vi.stubEnv('POSTHOG_API_KEY', 'phx_api_key');
+    vi.stubEnv('POSTHOG_PROJECT_ID', '202711');
+    mocks.runWebVitalsHealthCheck.mockResolvedValue({
+      status: 'skipped',
+      reason: 'posthog_not_configured',
+      captureRatio: null,
+      warnings: [],
+    } satisfies WebVitalsHealthResult);
+
+    const response = await GET(cronRequest(`Bearer ${SECRET}`));
+
+    expect(response.status).toBe(200);
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'web_vitals_health_unavailable' })
+    );
+  });
+
+  it('stays quiet at info level when skipped because PostHog is unconfigured', async () => {
+    vi.stubEnv('POSTHOG_API_KEY', '');
+    vi.stubEnv('POSTHOG_PROJECT_ID', '');
+    mocks.runWebVitalsHealthCheck.mockResolvedValue({
+      status: 'skipped',
+      reason: 'posthog_not_configured',
+      captureRatio: null,
+      warnings: [],
+    } satisfies WebVitalsHealthResult);
+
+    const response = await GET(cronRequest(`Bearer ${SECRET}`));
+
+    expect(response.status).toBe(200);
     expect(mocks.loggerError).not.toHaveBeenCalled();
+    expect(mocks.loggerInfo).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'skipped' })
+    );
   });
 });
