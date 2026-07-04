@@ -4,7 +4,10 @@
 // sufficient.
 const ANCHOR_TAG_REGEX =
   /<a\b((?:[^>"']|"[^"]*"|'[^']*')*)>([\s\S]*?)<\/a\s*>/gi;
-const HREF_ATTRIBUTE_REGEX = /\bhref\s*=\s*(["'])(.*?)\1/i;
+// The lookbehind rejects hyphen/word prefixes so `data-href`, `xlink:href`
+// variants written as `something-href`, etc. are never mistaken for the real
+// link target (`\b` alone matches at the `-`/`h` boundary inside data-href).
+const HREF_ATTRIBUTE_REGEX = /(?<![\w-])href\s*=\s*(["'])(.*?)\1/i;
 
 const HTML_ATTRIBUTE_ENTITY_REGEX =
   /&(?:(amp|lt|gt|quot)|#(\d+)|#x([0-9a-f]+));/gi;

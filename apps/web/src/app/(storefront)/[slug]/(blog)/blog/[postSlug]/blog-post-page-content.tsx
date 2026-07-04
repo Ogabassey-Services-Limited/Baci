@@ -184,7 +184,11 @@ async function renderBlogPostContent({
           baseUrl={baseUrl}
           content={content}
           locale={locale}
-          merchantId={merchant.id}
+          // Draft preview must keep draft-to-draft links intact: the dead-link
+          // resolver only treats published posts as live, so it would unwrap
+          // links an editor needs to validate. resolveContentLinks
+          // short-circuits when merchantId is undefined.
+          merchantId={isDraftMode ? undefined : merchant.id}
           merchantSlug={merchant.slug}
           postUrl={postUrl}
           post={{

@@ -167,3 +167,25 @@ describe('unwrapDeadHtmlAnchors parsing hardening', () => {
     expect(result).toBe('Dead');
   });
 });
+
+describe('unwrapDeadHtmlAnchors href attribute matching', () => {
+  it('ignores data-href when the anchor has no real href', () => {
+    const html = '<a data-href="/blog/draft-post" class="x">Kept</a>';
+
+    const result = unwrapDeadHtmlAnchors(html, () => true);
+
+    expect(result).toBe(html);
+  });
+
+  it('uses the real href when data-href is also present', () => {
+    const html =
+      '<a data-href="/blog/live-post" href="/blog/draft-post">Dead</a>';
+
+    const result = unwrapDeadHtmlAnchors(
+      html,
+      (href) => href === '/blog/draft-post'
+    );
+
+    expect(result).toBe('Dead');
+  });
+});

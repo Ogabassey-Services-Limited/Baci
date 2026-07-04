@@ -357,6 +357,41 @@ describe('BlogPostPageContent', () => {
     );
   });
 
+  it('resolves content links against the live catalog outside draft mode', async () => {
+    mockGetCachedBlogPost.mockResolvedValue(smartphoneGuideBlogPost);
+
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(mockBlogPostBody).toHaveBeenCalledWith(
+      expect.objectContaining({ merchantId: expect.any(String) })
+    );
+  });
+
+  it('skips dead-link resolution in draft preview so draft-to-draft links survive', async () => {
+    mockDraftMode.mockResolvedValue({ isEnabled: true });
+    mockGetCachedBlogPost.mockResolvedValue(smartphoneGuideBlogPost);
+
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(mockBlogPostBody).toHaveBeenCalledWith(
+      expect.objectContaining({ merchantId: undefined })
+    );
+  });
+
   it('keeps the article chrome visible while the blog body fallback streams', async () => {
     mockBlogPostBody.mockImplementation(() => {
       throw new Promise(() => {
