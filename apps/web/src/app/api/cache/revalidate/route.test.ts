@@ -22,6 +22,16 @@ vi.mock('@/lib/api-auth', () => ({
   hasPermission: (...args: unknown[]) => mockHasPermission(...args),
 }));
 
+// Mock the merchant re-resolution used to VERIFY a client-supplied merchantId.
+const mockGetMerchantForApiRequest = vi.fn();
+const mockToUserAccess = vi.fn();
+
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: (...args: unknown[]) =>
+    mockGetMerchantForApiRequest(...args),
+  toUserAccess: (...args: unknown[]) => mockToUserAccess(...args),
+}));
+
 // Mock CSRF
 const mockCheckCsrfProtection = vi.fn();
 const mockGetMerchantBlogCacheIdentifiers = vi.fn();
@@ -78,6 +88,8 @@ import { POST } from './route';
 // ---- Helpers ----
 
 const MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
+// A DIFFERENT merchant the caller also belongs to (multi-merchant staff/owner).
+const OTHER_MERCHANT_ID = 'b0f4a2c1-1111-4c2b-9aaa-222233334444';
 
 function makeRequest(body: Record<string, unknown>) {
   return new NextRequest('http://localhost:3000/api/cache/revalidate', {
@@ -327,6 +339,114 @@ describe('POST /api/cache/revalidate', () => {
       const res = await POST(makeRequest({ targets: ['all'] }));
 
       expect(res.status).toBe(403);
+    });
+  });
+
+  describe('multi-merchant merchantId verification', () => {
+    it('does not re-verify when no merchantId is supplied (default single-merchant path)', async () => {
+      setupAuth(true, true);
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [{ slug: 'iphone-15', id: 'prod-1' }],
+        })
+      );
+
+      expect(res.status).toBe(200);
+      // No client merchantId → the default get_user_access merchant is used and
+      // the scoped re-resolution never runs.
+      expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'ogabassey',
+        [{ slug: 'iphone-15', categorySegment: null }],
+        { listingsOnly: false }
+      );
+    });
+
+    it('does not re-verify when the supplied merchantId equals the default access merchant', async () => {
+      setupAuth(true, true);
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          merchantId: MERCHANT_ID,
+          products: [{ slug: 'iphone-15', id: 'prod-1' }],
+        })
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+    });
+
+    it('verifies access and purges the named merchant when the caller belongs to it', async () => {
+      setupAuth(true, true);
+      // The active merchant differs from the caller's default access merchant.
+      mockGetMerchantForApiRequest.mockResolvedValue({
+        merchantId: OTHER_MERCHANT_ID,
+        merchantSlug: 'other-merchant',
+        staffAccess: {
+          isStaff: true,
+          isOwner: false,
+          role: 'manager',
+          permissions: { products: { edit: true } },
+        },
+      });
+      mockToUserAccess.mockReturnValue({
+        merchantId: OTHER_MERCHANT_ID,
+        role: 'manager',
+        isOwner: false,
+        isStaff: true,
+        permissions: { products: { edit: true } },
+      });
+      mockHasPermission.mockImplementation(
+        (_access: unknown, resource: string, action: string) =>
+          resource === 'products' && action === 'edit'
+      );
+      // The server-resolved slug for the VERIFIED merchant.
+      merchantSlugRow = { slug: 'other-merchant' };
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          merchantId: OTHER_MERCHANT_ID,
+          products: [{ slug: 'buds-pro', id: 'prod-1' }],
+        })
+      );
+
+      expect(res.status).toBe(200);
+      // Verification ran against the CLIENT-supplied merchant id + the auth user.
+      expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+        expect.anything(),
+        'user-123',
+        { requestedMerchantId: OTHER_MERCHANT_ID }
+      );
+      // The purge targets the VERIFIED merchant's server-resolved slug.
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'other-merchant',
+        [{ slug: 'buds-pro', categorySegment: null }],
+        { listingsOnly: false }
+      );
+    });
+
+    it('returns 403 and does not purge when the caller has no access to the named merchant', async () => {
+      setupAuth(true, true);
+      // Caller does NOT own / staff the requested merchant → no membership.
+      mockGetMerchantForApiRequest.mockResolvedValue(null);
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          merchantId: OTHER_MERCHANT_ID,
+          products: [{ slug: 'buds-pro', id: 'prod-1' }],
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(403);
+      expect(json.error).toBe('Permission denied');
+      // Hard 403 — never a silent fall-back to the default merchant.
+      expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
     });
   });
 

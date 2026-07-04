@@ -185,7 +185,7 @@ async function saveProductWithVariants(args: {
     });
   }
 
-  void revalidateStorefrontProducts(purgeEntries);
+  void revalidateStorefrontProducts(purgeEntries, args.merchantId);
 
   return product;
 }

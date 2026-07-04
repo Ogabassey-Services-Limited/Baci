@@ -159,6 +159,10 @@ let deleteError: unknown = null;
 // to derive its Cloudflare purge inputs, or null when the product no longer
 // exists. Returned by `.from('products').select(...).maybeSingle()`.
 let productToDelete: unknown = null;
+// Error returned by the DELETE handler's pre-read of the product's purge inputs
+// (before the lean delete). When set with a null `productToDelete` and a
+// successful delete, the handler schedules the id-based fallback purge.
+let preReadError: unknown = null;
 let variantInsertError: unknown = null;
 let variantUpsertError: unknown = null;
 let variantSyncError: { code?: string; message?: string } | null = null;
@@ -258,7 +262,7 @@ const createMockSupabase = () => ({
           // The DELETE handler pre-reads the row's purge inputs here.
           Promise.resolve({
             data: productToDelete,
-            error: null,
+            error: preReadError,
           })
         ),
         update: vi.fn((payload: unknown) => {
@@ -432,6 +436,7 @@ function resetMocks() {
   updateError = null;
   deleteError = null;
   productToDelete = null;
+  preReadError = null;
   variantInsertError = null;
   variantUpsertError = null;
   variantSyncError = null;
@@ -1892,15 +1897,57 @@ describe('DELETE /api/products/[id]', () => {
       ).toBe(true);
     });
 
-    it('does not schedule a purge when the product no longer exists', async () => {
-      deleteError = null;
-      productToDelete = null;
+    it('schedules an id-based fallback purge when the pre-read is null but the delete succeeded', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      try {
+        deleteError = null;
+        // Pre-read returned no row, yet the delete succeeded — the deleted
+        // product's cached 200 must still be evicted via the id fallback.
+        productToDelete = null;
 
-      await DELETE(makeDeleteRequest(PRODUCT_ID), {
-        params: Promise.resolve({ id: PRODUCT_ID }),
-      });
+        const res = await DELETE(makeDeleteRequest(PRODUCT_ID), {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        });
 
-      expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+        expect(res.status).toBe(200);
+        expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+          'test-store',
+          [{ slug: PRODUCT_ID, categorySegment: null }]
+        );
+      } finally {
+        consoleWarnSpy.mockRestore();
+      }
+    });
+
+    it('schedules an id-based fallback purge when the pre-read errored but the delete succeeded', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      try {
+        deleteError = null;
+        productToDelete = null;
+        preReadError = { message: 'read failed' };
+
+        const res = await DELETE(makeDeleteRequest(PRODUCT_ID), {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        });
+
+        expect(res.status).toBe(200);
+        // Falls back to the route's product id so `/`, `/products`, and
+        // `/products/<id>` are evicted even though the row is unknown.
+        expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+          'test-store',
+          [{ slug: PRODUCT_ID, categorySegment: null }]
+        );
+        expect(consoleWarnSpy).toHaveBeenCalledWith(
+          'Product purge pre-read missing after delete; scheduling id-based fallback purge',
+          expect.objectContaining({ id: PRODUCT_ID })
+        );
+      } finally {
+        consoleWarnSpy.mockRestore();
+      }
     });
 
     it('purges the junction category and reads the junction embed on the pre-delete select', async () => {

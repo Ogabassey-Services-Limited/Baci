@@ -4,6 +4,7 @@ import {
   authenticateApiRequest,
   getUserAccess,
   hasPermission,
+  type UserAccess,
 } from '@/lib/api-auth';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import {
@@ -19,6 +20,10 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
 import { getMerchantBlogPostCategories } from '@/lib/get-merchant-blog-post-categories';
 import { getMerchantBlogPostSlugs } from '@/lib/get-merchant-blog-post-slugs';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { buildInternalProductPurgeEntries } from '@/lib/internal-product-purge-entries';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
@@ -64,6 +69,15 @@ const revalidateSchema = z.object({
   // product's slug/category here. Only honored when the `products` target (or
   // `all`) is requested.
   products: z.array(internalRevalidateProductEntrySchema).max(1000).optional(),
+  // Optional: the ACTIVE merchant whose product was just mutated. Mobile-admin
+  // sends this so a staff user belonging to MULTIPLE merchants purges the RIGHT
+  // storefront: without it the route falls back to the caller's DEFAULT access
+  // (`get_user_access`), which may resolve a different merchant than the one
+  // that owns the saved product. When present and different from the default
+  // merchant, the route VERIFIES the caller actually has access to it (owner or
+  // active staff) before using it — an unverified id is a hard 403, never a
+  // silent fall-back.
+  merchantId: z.string().trim().min(1).max(255).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -96,7 +110,29 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { targets, products } = result.data;
+  const { targets, products, merchantId: requestedMerchantId } = result.data;
+
+  // Resolve the merchant this request acts on. `get_user_access` returns the
+  // caller's DEFAULT merchant — for a user who owns/staffs MULTIPLE merchants
+  // that may NOT be the merchant whose product the mobile app just saved. When
+  // the client names a specific merchant, re-resolve access SCOPED to that
+  // merchant (owner or active-staff membership, with that merchant's own
+  // permissions) so BOTH the permission gate below and the server-side slug
+  // lookup run against the RIGHT merchant. NEVER trust the client id without
+  // this verification: a foreign/unknown id resolves to no membership and is a
+  // hard 403 — we do not silently fall back to the default merchant.
+  let effectiveAccess: UserAccess = access;
+  if (requestedMerchantId && requestedMerchantId !== access.merchantId) {
+    const scopedContext = await getMerchantForApiRequest(
+      auth.supabase,
+      auth.user.id,
+      { requestedMerchantId }
+    );
+    if (!scopedContext) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+    effectiveAccess = toUserAccess(scopedContext);
+  }
 
   // Permission gate. Purging shared caches is normally a `settings:edit`
   // (owner/admin) action, but the mobile-admin save/quick-action paths run as
@@ -105,7 +141,7 @@ export async function POST(request: NextRequest) {
   // Allow `products:edit` (or `settings:edit`) for a products-only request, but
   // keep every other leg (categories/merchant/blog/reviews/features/pages, and
   // the catch-all `all`) locked to `settings:edit` so nothing else is loosened.
-  const canManageSettings = hasPermission(access, 'settings', 'edit');
+  const canManageSettings = hasPermission(effectiveAccess, 'settings', 'edit');
   const isProductsOnlyRequest = targets.every(
     (target) => target === 'products'
   );
@@ -113,14 +149,14 @@ export async function POST(request: NextRequest) {
   // evict the storefront edge cache for the product they just created.
   const isAuthorized = isProductsOnlyRequest
     ? canManageSettings ||
-      hasPermission(access, 'products', 'edit') ||
-      hasPermission(access, 'products', 'create')
+      hasPermission(effectiveAccess, 'products', 'edit') ||
+      hasPermission(effectiveAccess, 'products', 'create')
     : canManageSettings;
   if (!isAuthorized) {
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   }
 
-  const merchantId = access.merchantId;
+  const merchantId = effectiveAccess.merchantId;
   const failedTargets: string[] = [];
   const revalidated: string[] = [];
 

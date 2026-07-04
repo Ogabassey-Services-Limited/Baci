@@ -168,9 +168,10 @@ describe('product save helpers', () => {
       newProduct: productForm,
     });
 
-    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith([
-      { slug: 'ankara-bag', id: 'product-1', category: 'Bags' },
-    ]);
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith(
+      [{ slug: 'ankara-bag', id: 'product-1', category: 'Bags' }],
+      'merchant-1'
+    );
   });
 
   it('adds a hint-only old-category entry when an edit moves the product to a new category', async () => {
@@ -196,10 +197,13 @@ describe('product save helpers', () => {
 
     // Primary entry (id-carrying, NEW category) plus a hint-only entry (NO id,
     // OLD category text) so the web purges both the new and old category URLs.
-    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith([
-      { slug: 'ankara-bag', id: 'product-1', category: 'Handbags' },
-      { slug: 'ankara-bag', category: 'Bags' },
-    ]);
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith(
+      [
+        { slug: 'ankara-bag', id: 'product-1', category: 'Handbags' },
+        { slug: 'ankara-bag', category: 'Bags' },
+      ],
+      'merchant-1'
+    );
   });
 
   it('schedules a single entry when an edit does not change the category', async () => {
@@ -223,9 +227,10 @@ describe('product save helpers', () => {
       previousCategoryId: 'cat-old',
     });
 
-    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith([
-      { slug: 'ankara-bag', id: 'product-1', category: 'Bags' },
-    ]);
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith(
+      [{ slug: 'ankara-bag', id: 'product-1', category: 'Bags' }],
+      'merchant-1'
+    );
   });
 
   it('schedules a single entry for a create (no previous category to purge)', async () => {
@@ -234,9 +239,10 @@ describe('product save helpers', () => {
       newProduct: productForm,
     });
 
-    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith([
-      { slug: 'ankara-bag', id: 'product-1', category: 'Bags' },
-    ]);
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith(
+      [{ slug: 'ankara-bag', id: 'product-1', category: 'Bags' }],
+      'merchant-1'
+    );
     expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledTimes(1);
   });
 

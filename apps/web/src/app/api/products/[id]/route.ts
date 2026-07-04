@@ -1062,7 +1062,7 @@ export async function DELETE(
     // acceptable. All three category sources are read so the purge resolves the
     // same join-driven canonical the storefront served with the full PR #2914
     // precedence (direct join → legacy text → junction).
-    const { data: productToDelete } = await supabase
+    const { data: productToDelete, error: preReadError } = await supabase
       .from('products')
       .select(
         'slug, name, category, categories:category_id(slug), product_categories(categories(slug))'
@@ -1118,6 +1118,21 @@ export async function DELETE(
               product_categories: deletedProduct.product_categories,
             }),
           },
+        ]);
+      } else {
+        // The pre-read errored or came back null, yet the delete above
+        // succeeded — the storefront still has the deleted product's page cached
+        // and would keep serving a 200 for it until the raised edge TTL expires.
+        // We no longer know its slug or category, so schedule a MINIMAL id-based
+        // fallback purge (`/`, `/products`, `/products/<id>`): the id path always
+        // resolves the PDP fallback, and over-purging a possibly-nonexistent id
+        // is harmless (caches self-heal) versus leaving a deleted 200 live.
+        console.warn(
+          'Product purge pre-read missing after delete; scheduling id-based fallback purge',
+          { id, preReadError }
+        );
+        scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
+          { slug: id, categorySegment: null },
         ]);
       }
     } catch (purgeError) {

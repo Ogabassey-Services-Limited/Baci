@@ -207,9 +207,10 @@ describe('quick-action storefront purge', () => {
 
     await updateProductStock('prod-1', 7, 'merchant-1');
 
-    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith([
-      { slug: 'iphone-15', id: 'prod-1', category: 'Smartphones' },
-    ]);
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith(
+      [{ slug: 'iphone-15', id: 'prod-1', category: 'Smartphones' }],
+      'merchant-1'
+    );
   });
 
   it('does not schedule a purge when the stock update fails', async () => {
@@ -239,9 +240,10 @@ describe('quick-action storefront purge', () => {
 
     await updateProductStatus('prod-2', 'archived', 'merchant-1');
 
-    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith([
-      { slug: 'ankara-bag', id: 'prod-2', category: 'Bags' },
-    ]);
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith(
+      [{ slug: 'ankara-bag', id: 'prod-2', category: 'Bags' }],
+      'merchant-1'
+    );
   });
 
   it('does not schedule a purge when the status update fails', async () => {

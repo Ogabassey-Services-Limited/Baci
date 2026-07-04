@@ -85,9 +85,10 @@ export async function updateProductStock(
   // route ran), so nothing evicted the storefront's raised-TTL edge cache.
   // Fire-and-forget the SAME purge the save path uses (never awaited, never
   // throws) so the storefront reflects the new stock/availability immediately.
-  void revalidateStorefrontProducts([
-    { slug: product.slug, id: product.id, category: product.category },
-  ]);
+  void revalidateStorefrontProducts(
+    [{ slug: product.slug, id: product.id, category: product.category }],
+    merchantId
+  );
 
   return product;
 }
@@ -112,9 +113,10 @@ export async function updateProductStatus(
   // serves, but was written straight to Supabase with no web route to evict the
   // raised-TTL edge cache. Fire-and-forget the same storefront purge the save
   // path uses (never awaited, never throws).
-  void revalidateStorefrontProducts([
-    { slug: product.slug, id: product.id, category: product.category },
-  ]);
+  void revalidateStorefrontProducts(
+    [{ slug: product.slug, id: product.id, category: product.category }],
+    merchantId
+  );
 
   return product;
 }
