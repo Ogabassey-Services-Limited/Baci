@@ -1,5 +1,19 @@
 const DEFAULT_IDLE_BOOT_TIMEOUT_MS = 4000;
 const FIRST_INTERACTION_EVENTS = ['pointerdown', 'keydown'] as const;
+const PRERENDERING_CHANGE_EVENT = 'prerenderingchange';
+
+/**
+ * Reads `document.prerendering` (Speculation Rules / Cloudflare Speed Brain
+ * prerender flag) safely. The property is not in the standard DOM lib types and
+ * is absent in SSR and older browsers — a missing property is treated as "not
+ * prerendering" so the normal gate arms immediately.
+ */
+function isDocumentPrerendering(): boolean {
+  return (
+    typeof document !== 'undefined' &&
+    (document as Document & { prerendering?: boolean }).prerendering === true
+  );
+}
 
 export interface ScheduleIdleBootOptions {
   /**
@@ -23,6 +37,13 @@ export interface ScheduleIdleBootOptions {
  * (PostHog init: session recording, heatmaps, autocapture, dead-click capture)
  * boots after first paint without missing an early interaction.
  *
+ * While the document is being speculatively prerendered
+ * (`document.prerendering === true`, e.g. Cloudflare Speed Brain), the gate is
+ * NOT armed: booting there would inflate pageviews/recordings for prerenders the
+ * user may never activate. The gate arms on the `prerenderingchange` activation
+ * event instead. A prerender that is discarded never fires the event, so the
+ * callback never runs (and any web-vitals it buffered never flush).
+ *
  * SSR-safe: when there is no `window`, it returns a no-op canceller and never
  * invokes `callback`. Returns a canceller that stops any pending boot and
  * detaches all listeners; calling it after the callback already ran is a no-op.
@@ -38,10 +59,16 @@ export function scheduleIdleBoot(
   }
 
   let settled = false;
+  let armed = false;
   let timeoutId: number | undefined;
   let idleCallbackId: number | undefined;
 
   function teardown(): void {
+    document.removeEventListener(
+      PRERENDERING_CHANGE_EVENT,
+      handlePrerenderingChange
+    );
+
     if (timeoutId !== undefined) {
       window.clearTimeout(timeoutId);
       timeoutId = undefined;
@@ -101,18 +128,44 @@ export function scheduleIdleBoot(
     scheduleIdle();
   }
 
-  if (timeoutMs > 0) {
-    timeoutId = window.setTimeout(run, timeoutMs);
+  function armIdleGate(): void {
+    if (settled || armed) {
+      return;
+    }
+
+    armed = true;
+
+    if (timeoutMs > 0) {
+      timeoutId = window.setTimeout(run, timeoutMs);
+    }
+
+    for (const eventName of FIRST_INTERACTION_EVENTS) {
+      window.addEventListener(eventName, run, { once: true, passive: true });
+    }
+
+    if (document.readyState === 'complete') {
+      scheduleIdle();
+    } else {
+      window.addEventListener('load', handleWindowLoad, { once: true });
+    }
   }
 
-  for (const eventName of FIRST_INTERACTION_EVENTS) {
-    window.addEventListener(eventName, run, { once: true, passive: true });
+  function handlePrerenderingChange(): void {
+    if (settled || isDocumentPrerendering()) {
+      return;
+    }
+
+    armIdleGate();
   }
 
-  if (document.readyState === 'complete') {
-    scheduleIdle();
+  if (isDocumentPrerendering()) {
+    document.addEventListener(
+      PRERENDERING_CHANGE_EVENT,
+      handlePrerenderingChange,
+      { once: true }
+    );
   } else {
-    window.addEventListener('load', handleWindowLoad, { once: true });
+    armIdleGate();
   }
 
   return cancel;

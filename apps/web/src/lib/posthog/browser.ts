@@ -3,6 +3,12 @@ import { markPostHogBrowserInitialized } from '@/lib/posthog/browser-state';
 import { buildPostHogClientConfig } from '@/lib/posthog/client-config';
 import type { PostHogEnv } from '@/lib/posthog/config';
 import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
+import {
+  clearPendingPostHogWebVitals,
+  drainPendingPostHogWebVitals,
+  enqueuePostHogWebVital,
+  type PostHogWebVitalsPayload,
+} from '@/lib/posthog/web-vitals-queue';
 
 const MISSING_TOKEN_WARNING =
   '[PostHog] NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is missing; web analytics and error capture are disabled.';
@@ -120,6 +126,7 @@ export function initializePostHogBrowser(
     isPostHogBrowserDisabled = true;
     clearPostHogLoadedStateCheck();
     pendingPostHogPageviewUrls.length = 0;
+    clearPendingPostHogWebVitals();
 
     if (isPostHogDevelopmentMode(env)) {
       logger.warn(MISSING_TOKEN_WARNING);
@@ -179,6 +186,7 @@ export function initializePostHogBrowser(
     markPostHogBrowserInitialized();
     postHogLoadedStateCheckAttempts = 0;
     flushPendingPostHogPageviewsIfClientLoaded();
+    flushPendingPostHogWebVitals();
     schedulePostHogLoadedStateCheck();
   } catch (error) {
     isPostHogReadyForCapture = false;
@@ -310,26 +318,32 @@ export function capturePostHogPageview(currentUrl?: string) {
   sendPostHogPageview(resolvedUrl);
 }
 
-export interface PostHogWebVitalsPayload {
-  metric: string;
-  value: number;
-  rating: string;
-  navigationType: string;
-  pathname: string;
-  [key: string]: string | number;
-}
+export type { PostHogWebVitalsPayload };
 
 /**
- * Emits a single flat `web_vitals` event for a Core Web Vitals report. This is
- * a no-op unless the PostHog browser client has already been initialized, so it
- * never boots PostHog on its own (metrics that fire before boot are dropped by
- * design). Once init has been called, posthog-js buffers the capture via its
- * own request queue even before the `loaded` callback fires.
+ * Emits a single flat `web_vitals` event for a Core Web Vitals report. When the
+ * browser client has not been initialized yet the payload is buffered (rather
+ * than dropped) so early metrics — TTFB/FCP fire before the idle boot — flush
+ * once init runs; it never boots PostHog on its own. Once init has been called,
+ * posthog-js buffers the capture via its own request queue even before the
+ * `loaded` callback fires. The `before_send` sanitizer still runs at capture
+ * time on every flushed event, so blog/SEO drop rules keep applying.
  */
 export function capturePostHogWebVitals(payload: PostHogWebVitalsPayload) {
-  if (isPostHogBrowserDisabled || !hasInitializedPostHogBrowser) {
+  if (isPostHogBrowserDisabled) {
+    return;
+  }
+
+  if (!hasInitializedPostHogBrowser) {
+    enqueuePostHogWebVital(payload);
     return;
   }
 
   posthog.capture('web_vitals', payload);
+}
+
+function flushPendingPostHogWebVitals() {
+  for (const payload of drainPendingPostHogWebVitals()) {
+    capturePostHogWebVitals(payload);
+  }
 }

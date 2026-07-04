@@ -625,4 +625,34 @@ describe('capturePostHogWebVitals', () => {
 
     expect(mocks.posthogCapture).toHaveBeenCalledWith('web_vitals', payload);
   });
+
+  it('buffers metrics reported before init and flushes them once the client initializes', async () => {
+    const { capturePostHogWebVitals, initializePostHogBrowser } =
+      await importBrowserInitializer();
+
+    // Fires before the idle boot — previously dropped, now buffered.
+    capturePostHogWebVitals(payload);
+    expect(mocks.posthogCapture).not.toHaveBeenCalled();
+
+    initializePostHogBrowser({
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
+    });
+
+    expect(mocks.posthogCapture).toHaveBeenCalledWith('web_vitals', payload);
+  });
+
+  it('drops buffered metrics when the project token is missing so they never send', async () => {
+    const { capturePostHogWebVitals, initializePostHogBrowser } =
+      await importBrowserInitializer();
+
+    capturePostHogWebVitals(payload);
+    // Missing token disables PostHog and clears the buffer.
+    initializePostHogBrowser({ NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: '' });
+    // A later successful init has nothing left to flush.
+    initializePostHogBrowser({
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
+    });
+
+    expect(mocks.posthogCapture).not.toHaveBeenCalled();
+  });
 });

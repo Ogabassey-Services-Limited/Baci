@@ -7,10 +7,12 @@ import {
   getPostHogAssetsHost,
   getPostHogBrowserEnv,
   getPostHogIngestHost,
+  getPostHogProjectId,
   getPostHogProxyPath,
   getPostHogPublicBuildEnv,
   getPostHogReleaseContext,
   getPostHogReleaseVersion,
+  getPostHogServerApiKey,
   getPostHogUiHost,
   isPostHogSourceMapUploadEnabled,
   normalizePostHogHost,
@@ -141,6 +143,22 @@ describe('PostHog config helpers', () => {
         POSTHOG_PROJECT_ID: '202711',
       })
     ).toBe(true);
+  });
+
+  it('reads and trims the server api key, returning undefined when blank', () => {
+    expect(getPostHogServerApiKey({ POSTHOG_API_KEY: ' phx_secret ' })).toBe(
+      'phx_secret'
+    );
+    expect(getPostHogServerApiKey({ POSTHOG_API_KEY: '  ' })).toBeUndefined();
+    expect(getPostHogServerApiKey({})).toBeUndefined();
+  });
+
+  it('reads and trims the project id, returning undefined when blank', () => {
+    expect(getPostHogProjectId({ POSTHOG_PROJECT_ID: ' 202711 ' })).toBe(
+      '202711'
+    );
+    expect(getPostHogProjectId({ POSTHOG_PROJECT_ID: '' })).toBeUndefined();
+    expect(getPostHogProjectId({})).toBeUndefined();
   });
 
   it('uses the most specific release version available', () => {
