@@ -389,29 +389,37 @@ describe('buildStorefrontProductPurgeUrls', () => {
     ]);
   });
 
-  it('dedupes entries case-insensitively and drops blank slugs', () => {
+  it('keeps case-only-distinct entries (distinct CDN cache keys) and drops blanks and exact duplicates', () => {
     const urls = buildStorefrontProductPurgeUrls(
       ['ogabassey', 'ogabassey.com'],
       [
         { slug: 'iphone-15', categorySegment: 'smartphones' },
         { slug: 'IPHONE-15', categorySegment: 'SMARTPHONES' },
+        { slug: 'iphone-15', categorySegment: 'smartphones' },
         { slug: '   ', categorySegment: 'smartphones' },
       ]
     );
 
-    // 'ogabassey' and 'ogabassey.com' resolve to the same policy (hostname set
-    // emitted once); the case-duplicate entry and the blank slug are dropped.
+    // CDN paths are case-sensitive: a case-only rename means the old and new
+    // URLs are two distinct cached entries, so BOTH must be purged. Exact
+    // duplicates and blank slugs are dropped.
     expect(urls).toEqual([
       'https://ogabassey.com/',
       'https://ogabassey.com/products',
       'https://ogabassey.com/smartphones/iphone-15',
       'https://ogabassey.com/products/iphone-15',
+      'https://ogabassey.com/SMARTPHONES/IPHONE-15',
+      'https://ogabassey.com/products/IPHONE-15',
       'https://ogabassey.com/smartphones',
+      'https://ogabassey.com/SMARTPHONES',
       'https://www.ogabassey.com/',
       'https://www.ogabassey.com/products',
       'https://www.ogabassey.com/smartphones/iphone-15',
       'https://www.ogabassey.com/products/iphone-15',
+      'https://www.ogabassey.com/SMARTPHONES/IPHONE-15',
+      'https://www.ogabassey.com/products/IPHONE-15',
       'https://www.ogabassey.com/smartphones',
+      'https://www.ogabassey.com/SMARTPHONES',
     ]);
   });
 

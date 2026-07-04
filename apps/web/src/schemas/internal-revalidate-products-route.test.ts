@@ -66,6 +66,26 @@ describe('internalRevalidateProductsBodySchema', () => {
 });
 
 describe('internalRevalidateProductEntrySchema', () => {
+  it('treats a blank slug as absent and falls back to the id', () => {
+    const result = internalRevalidateProductEntrySchema.safeParse({
+      slug: '   ',
+      id: 'prod-123',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.slug).toBeNull();
+      expect(result.data.id).toBe('prod-123');
+    }
+  });
+
+  it('rejects a blank slug with a blank id', () => {
+    const result = internalRevalidateProductEntrySchema.safeParse({
+      slug: '',
+      id: '  ',
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('accepts a null slug when an id is present (legacy null-slug rows)', () => {
     const result = internalRevalidateProductEntrySchema.safeParse({
       slug: null,

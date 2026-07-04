@@ -41,18 +41,22 @@ function resolvePurgeHostnames(identifier: string): readonly string[] {
  * case-sensitive, so lowercasing here would purge the wrong URL for a
  * mixed-case segment.
  */
+// Dedupe is CASE-SENSITIVE on the trimmed value: CDN cache keys are
+// case-sensitive URLs, so two segments differing only by casing are two
+// distinct cached entries and BOTH must be purged (e.g. a case-only rename
+// queues the old and new slug). Blank segments are dropped.
 function dedupePathSegmentsPreservingCasing(
   segments: readonly string[]
 ): string[] {
   const seen = new Set<string>();
   const deduped: string[] = [];
   for (const segment of segments) {
-    const normalized = normalize(segment);
-    if (!normalized || seen.has(normalized)) {
+    const trimmed = segment.trim();
+    if (!trimmed || seen.has(trimmed)) {
       continue;
     }
-    seen.add(normalized);
-    deduped.push(segment.trim());
+    seen.add(trimmed);
+    deduped.push(trimmed);
   }
   return deduped;
 }
@@ -261,9 +265,10 @@ function dedupeProductPurgeEntries(
       continue;
     }
     const rawSegment = entry.categorySegment?.trim() ?? '';
-    // Dedupe by the (slug, segment) pair case-insensitively but KEEP original
-    // casing for the emitted URL — the CDN path is case-sensitive.
-    const key = `${slug.toLowerCase()}|${rawSegment.toLowerCase()}`;
+    // Dedupe by the EXACT (slug, segment) pair: CDN paths are case-sensitive,
+    // so case-only-distinct entries are distinct cached URLs (e.g. a case-only
+    // rename queues old + new) and BOTH must survive to be purged.
+    const key = `${slug}|${rawSegment}`;
     if (seen.has(key)) {
       continue;
     }

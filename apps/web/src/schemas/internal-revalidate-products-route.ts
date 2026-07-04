@@ -13,10 +13,22 @@ import z from 'zod';
  * the caller relies on the slug-or-id fallback. The refinement still rejects an
  * entry with neither, so a null slug requires a present id (and vice versa).
  */
+// A blank ('' / whitespace) slug or id is treated as ABSENT rather than a
+// validation failure so a caller sending `{ slug: '', id }` (legacy rows)
+// falls back to the id instead of having the whole request rejected.
+const blankAsNull = (value: unknown) =>
+  typeof value === 'string' && value.trim() === '' ? null : value;
+
 export const internalRevalidateProductEntrySchema = z
   .object({
-    slug: z.string().trim().min(1).max(300).nullable().optional(),
-    id: z.string().trim().min(1).max(255).nullable().optional(),
+    slug: z.preprocess(
+      blankAsNull,
+      z.string().trim().min(1).max(300).nullable().optional()
+    ),
+    id: z.preprocess(
+      blankAsNull,
+      z.string().trim().min(1).max(255).nullable().optional()
+    ),
     category: z.string().trim().max(300).nullish(),
     categorySlug: z.string().trim().max(300).nullish(),
   })
