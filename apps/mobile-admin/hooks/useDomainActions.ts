@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Alert, Linking } from 'react-native';
+// Shared helper guarantees the base URL ends in /api. A local
+// `EXPO_PUBLIC_API_URL` fallback resolves to the bare origin (usebaci.com),
+// so DELETE/POST would hit page routes and 405 (see domains connect fix).
+import { API_URL } from '@/components/domains/domain-api-helpers';
 import type { Domain, DomainAction } from '@/components/domains/domain-types';
 import { useMerchant } from '@/hooks/useMerchant';
 import { supabase } from '@/lib/supabase';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://baci.app/api';
 
 interface UseDomainActionsParams {
   onRefresh: () => void;

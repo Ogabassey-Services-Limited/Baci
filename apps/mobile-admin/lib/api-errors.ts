@@ -22,6 +22,40 @@ export class NetworkError extends Error {
   }
 }
 
+const CONNECTIVITY_ERROR_PATTERN =
+  /network request failed|fetch failed|connectexception|failed to connect|unable to resolve host|connection (?:reset|refused|abort(?:ed)?)|software caused connection abort|network is unreachable|econnrefused|econnreset|enotfound|etimedout/i;
+
+/**
+ * React Native surfaces connection failures inconsistently across platforms:
+ * iOS typically throws `TypeError: Network request failed`, while Android can
+ * throw a bare Error whose message is a raw Java exception, e.g.
+ * "fetch failed: java.net.ConnectException: Failed to connect to host/ip:443".
+ * Detect both (including the nested `cause`) so callers surface a friendly
+ * offline message instead of leaking a raw exception string to the UI — which
+ * reads as "broken" to a Play reviewer.
+ */
+export function isConnectivityError(error: unknown): boolean {
+  if (error instanceof NetworkError) {
+    return false;
+  }
+  if (
+    error instanceof TypeError &&
+    error.message === 'Network request failed'
+  ) {
+    return true;
+  }
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const cause =
+    error.cause instanceof Error
+      ? error.cause.message
+      : typeof error.cause === 'string'
+        ? error.cause
+        : '';
+  return CONNECTIVITY_ERROR_PATTERN.test(`${error.message} ${cause}`);
+}
+
 export function getResponseErrorMessage(data: unknown, status: number): string {
   if (typeof data === 'string' && data) {
     return data;

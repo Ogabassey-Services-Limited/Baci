@@ -1,5 +1,9 @@
 import { BASE_URL, IS_DEV, resolveBaseUrl } from './api-base-url';
-import { getResponseErrorMessage, NetworkError } from './api-errors';
+import {
+  getResponseErrorMessage,
+  isConnectivityError,
+  NetworkError,
+} from './api-errors';
 import { supabase } from './supabase';
 
 export { BASE_URL, NetworkError, resolveBaseUrl };
@@ -114,11 +118,16 @@ export async function apiClient<T = unknown>(
       throw timeoutError;
     }
 
-    // Handle network errors (offline, DNS failure, etc.)
-    if (
-      error instanceof TypeError &&
-      error.message === 'Network request failed'
-    ) {
+    // Re-throw NetworkError (server errors carrying a status) as-is.
+    if (error instanceof NetworkError) {
+      // Use separate arguments to avoid format string injection
+      console.warn('[API Error]', String(url), String(error.message));
+      throw error;
+    }
+
+    // Handle connection failures (offline, DNS failure, Android ConnectException,
+    // connection reset/refused, etc.) — never leak the raw exception string.
+    if (isConnectivityError(error)) {
       const offlineError = new NetworkError(
         'Unable to connect. Please check your internet connection.',
         { isOffline: true }
@@ -126,13 +135,6 @@ export async function apiClient<T = unknown>(
       // Use separate arguments to avoid format string injection
       console.error('[API Offline]', String(url));
       throw offlineError;
-    }
-
-    // Re-throw NetworkError as-is
-    if (error instanceof NetworkError) {
-      // Use separate arguments to avoid format string injection
-      console.warn('[API Error]', String(url), String(error.message));
-      throw error;
     }
 
     // Handle other errors
@@ -227,18 +229,15 @@ export async function apiFormData<T = unknown>(
       );
     }
 
-    if (
-      error instanceof TypeError &&
-      error.message === 'Network request failed'
-    ) {
+    if (error instanceof NetworkError) throw error;
+
+    if (isConnectivityError(error)) {
       console.error('[API FormData Offline]', String(url));
       throw new NetworkError(
         'Unable to connect. Please check your internet connection.',
         { isOffline: true }
       );
     }
-
-    if (error instanceof NetworkError) throw error;
 
     const message = error instanceof Error ? error.message : String(error);
     console.error('[API FormData Error]', String(url), String(message));

@@ -11,14 +11,16 @@ import {
   View,
 } from 'react-native';
 import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
+import {
+  API_URL,
+  DomainUpgradeRequiredError,
+  isUpgradeRequiredResponse,
+} from '@/components/domains/domain-api-helpers';
 import { connectStyles as styles } from '@/components/domains/connect.styles';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { SPACING } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-
-// Use Environment Variable or Fallback
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://baci.app/api';
 
 // Basic Regex Validation
 const DOMAIN_REGEX =
@@ -119,9 +121,22 @@ async function requestDomainConnection(
   const result = await readResponseJson(response);
 
   if (!response.ok) {
-    throw new Error(
-      await readResponseError(response, 'Failed to add domain', result)
+    const code =
+      result &&
+      typeof result === 'object' &&
+      'code' in result &&
+      typeof (result as { code?: unknown }).code === 'string'
+        ? (result as { code: string }).code
+        : undefined;
+    const message = await readResponseError(
+      response,
+      'Failed to add domain',
+      result
     );
+    if (isUpgradeRequiredResponse(response.status, code)) {
+      throw new DomainUpgradeRequiredError(message);
+    }
+    throw new Error(message);
   }
 
   if (!isDomainConnectionResponse(result)) {
@@ -170,6 +185,16 @@ export default function ConnectDomainScreen() {
         setVerificationInfo(info);
       })
       .catch((error: unknown) => {
+        if (error instanceof DomainUpgradeRequiredError) {
+          Alert.alert('Upgrade required', error.message, [
+            { text: 'Not now', style: 'cancel' },
+            {
+              text: 'Upgrade',
+              onPress: () => router.push('/(admin)/subscribe'),
+            },
+          ]);
+          return;
+        }
         Alert.alert(
           'Error',
           error instanceof Error ? error.message : 'Failed to add domain'

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DomainSearchResult } from '@/components/domains/domain-search-result';
@@ -6,7 +6,13 @@ import BuyDomainScreen from './buy';
 
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
+  getSession: vi.fn(),
   performDomainSearch: vi.fn(),
+  push: vi.fn(),
+}));
+
+vi.mock('expo-router', () => ({
+  useRouter: () => ({ push: mocks.push }),
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
@@ -152,10 +158,41 @@ vi.mock('@/hooks/useTheme', () => ({
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
-      getSession: vi.fn(),
+      getSession: mocks.getSession,
     },
   },
 }));
+
+async function renderWithResult() {
+  mocks.performDomainSearch.mockImplementationOnce(
+    (
+      _query: string,
+      context: {
+        setLastLookupSucceeded: (value: boolean) => void;
+        setLoading: (value: boolean) => void;
+        setResults: (results: DomainSearchResult[]) => void;
+      }
+    ) => {
+      context.setResults([
+        {
+          available: true,
+          currency: 'NGN',
+          domain: 'baci.com',
+          popular: true,
+          price: 25000,
+        },
+      ]);
+      context.setLastLookupSucceeded(true);
+      context.setLoading(false);
+    }
+  );
+
+  render(<BuyDomainScreen />);
+  const input = screen.getByLabelText('Search domain');
+  fireEvent.change(input, { target: { value: 'baci.com' } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+  return await screen.findByRole('button', { name: 'Buy baci.com' });
+}
 
 describe('BuyDomainScreen', () => {
   beforeEach(() => {
@@ -283,5 +320,72 @@ describe('BuyDomainScreen', () => {
 
     expect(screen.queryByText('baci.com')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Buy baci.com' })).toBeNull();
+  });
+
+  it('routes to the subscribe screen when the purchase is plan-gated (402)', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'tok' } },
+    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 'requires_upgrade',
+          error: 'Custom domains require Baci Starter or higher',
+        }),
+        { status: 402, headers: { 'content-type': 'application/json' } }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      const buyButton = await renderWithResult();
+      fireEvent.click(buyButton);
+
+      await waitFor(() => {
+        expect(mocks.alert).toHaveBeenCalledWith(
+          'Upgrade required',
+          expect.stringContaining('Baci Starter'),
+          expect.any(Array)
+        );
+      });
+
+      // The alert's "Upgrade" action must lead to the paywall (payment path).
+      const alertButtons = mocks.alert.mock.calls.at(-1)?.[2] as Array<{
+        onPress?: () => void;
+        text: string;
+      }>;
+      alertButtons.find((button) => button.text === 'Upgrade')?.onPress?.();
+      expect(mocks.push).toHaveBeenCalledWith('/(admin)/subscribe');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('shows a Purchase Failed alert for genuine payment errors (500)', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'tok' } },
+    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ error: 'Failed to initialize payment gateway' }),
+        { status: 500, headers: { 'content-type': 'application/json' } }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      const buyButton = await renderWithResult();
+      fireEvent.click(buyButton);
+
+      await waitFor(() => {
+        expect(mocks.alert).toHaveBeenCalledWith(
+          'Purchase Failed',
+          expect.stringContaining('payment gateway')
+        );
+      });
+      expect(mocks.push).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

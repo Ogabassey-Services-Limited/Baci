@@ -61,6 +61,23 @@ describe('formatAiCopilotError', () => {
     });
   });
 
+  it('formats provider quota exhaustion as a friendly retry message', () => {
+    const error = new NetworkError('AI editor quota is temporarily exhausted', {
+      statusCode: 429,
+      data: {
+        code: 'ai_provider_rate_limited',
+        requestId: 'req-quota',
+      },
+    });
+
+    expect(formatAiCopilotError(error)).toEqual({
+      code: 'ai_provider_rate_limited',
+      requestId: 'req-quota',
+      message:
+        'The AI editor is busy right now. Please try again in a few minutes.',
+    });
+  });
+
   it('preserves unknown provider codes and request ids safely', () => {
     const error = new NetworkError('Unexpected AI response', {
       statusCode: 500,

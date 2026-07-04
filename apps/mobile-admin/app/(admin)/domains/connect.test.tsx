@@ -208,4 +208,64 @@ describe('ConnectDomainScreen', () => {
       expect(mocks.alert).toHaveBeenCalledWith('Error', 'Network unavailable');
     });
   });
+
+  it('posts to the /api/domains endpoint (not the bare page route that 405s)', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          domain: { domain: 'shop.example.com' },
+          verification: { value: 'txt-token' },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
+    );
+
+    render(<ConnectDomainScreen />);
+
+    fireEvent.change(screen.getByPlaceholderText('example.com'), {
+      target: { value: 'shop.example.com' },
+    });
+    fireEvent.click(screen.getByText('Connect Domain'));
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        'https://usebaci.com/api/domains',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+  });
+
+  it('routes to the subscribe screen when the server plan-gates the domain (402)', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          code: 'requires_upgrade',
+          error: 'Custom domains require Baci Starter or higher',
+        }),
+        { status: 402, headers: { 'content-type': 'application/json' } }
+      )
+    );
+
+    render(<ConnectDomainScreen />);
+
+    fireEvent.change(screen.getByPlaceholderText('example.com'), {
+      target: { value: 'shop.example.com' },
+    });
+    fireEvent.click(screen.getByText('Connect Domain'));
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Upgrade required',
+        expect.stringContaining('Baci Starter'),
+        expect.any(Array)
+      );
+    });
+
+    const alertButtons = mocks.alert.mock.calls.at(-1)?.[2] as Array<{
+      onPress?: () => void;
+      text: string;
+    }>;
+    alertButtons.find((button) => button.text === 'Upgrade')?.onPress?.();
+    expect(mocks.router.push).toHaveBeenCalledWith('/(admin)/subscribe');
+  });
 });
