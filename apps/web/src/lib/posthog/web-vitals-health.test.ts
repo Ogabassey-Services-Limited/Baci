@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isPublicBlogPathname } from './public-blog-path';
+import { runWebVitalsHealthCheck } from './web-vitals-health';
 import {
   BLOG_FIRST_SEGMENT_PATTERN,
   BLOG_TENANT_SEGMENT_PATTERN,
   RESERVED_FIRST_SEGMENT_PATTERN,
-  runWebVitalsHealthCheck,
   WEB_VITALS_HEALTH_QUERY,
-} from './web-vitals-health';
+} from './web-vitals-health-query';
 
 /**
  * Applies the EXACT regex patterns embedded in the HogQL `non_blog_pageviews`
