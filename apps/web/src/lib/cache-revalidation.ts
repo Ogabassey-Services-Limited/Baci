@@ -21,7 +21,10 @@ import {
   PLATFORM_BLOG_LIST_CACHE_TAG,
   PLATFORM_BLOG_SITEMAP_CACHE_TAG,
 } from '@/lib/platform-blog';
-import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
+import {
+  getProductScopedCacheTag,
+  getProductSlugSetCacheTag,
+} from '@/lib/product-cache-tags';
 import { generateSlug } from '@/lib/seo-utils';
 import { buildStorefrontProductsCacheTags } from '@/lib/storefront-products-cache-key';
 import { buildStorefrontBlogPurgeUrls } from '@/lib/storefront-purge-urls';
@@ -107,7 +110,7 @@ export function revalidateProducts(merchantId: string, productSlug?: string) {
   // a published/unpublished/archived/deleted/slug-changed product must enter or
   // leave the set so the proxy never hard-404s a live product or serves a stale
   // 200 for a removed one. Every product mutation path funnels through here.
-  revalidateTag(`product-slug-set-${normalizedMerchantId}`, 'products');
+  revalidateTag(getProductSlugSetCacheTag(normalizedMerchantId), 'products');
 
   // Invalidate product redirect caches
   revalidateTag('product-canonical-redirect', 'products');

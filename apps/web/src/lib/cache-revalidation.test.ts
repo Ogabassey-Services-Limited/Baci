@@ -410,10 +410,14 @@ describe('cache-revalidation utilities', () => {
         'https://ogabassey.com/blog/test-post',
         'https://ogabassey.com/blog/category/buying-guides',
         'https://ogabassey.com/blog/category/reviews',
+        'https://ogabassey.com/blog/author/bassey-john',
+        'https://ogabassey.com/blog/author/bolakale',
         'https://www.ogabassey.com/blog',
         'https://www.ogabassey.com/blog/test-post',
         'https://www.ogabassey.com/blog/category/buying-guides',
         'https://www.ogabassey.com/blog/category/reviews',
+        'https://www.ogabassey.com/blog/author/bassey-john',
+        'https://www.ogabassey.com/blog/author/bolakale',
       ]);
     });
 
@@ -426,8 +430,12 @@ describe('cache-revalidation utilities', () => {
       expect(mockPurgeCloudflareUrls).toHaveBeenCalledWith([
         'https://ogabassey.com/blog',
         'https://ogabassey.com/blog/test-post',
+        'https://ogabassey.com/blog/author/bassey-john',
+        'https://ogabassey.com/blog/author/bolakale',
         'https://www.ogabassey.com/blog',
         'https://www.ogabassey.com/blog/test-post',
+        'https://www.ogabassey.com/blog/author/bassey-john',
+        'https://www.ogabassey.com/blog/author/bolakale',
       ]);
     });
 

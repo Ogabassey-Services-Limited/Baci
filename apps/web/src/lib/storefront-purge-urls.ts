@@ -1,4 +1,5 @@
 import { STOREFRONT_PUBLIC_CACHE_POLICIES } from '@/config/storefront-cache';
+import { getBlogAuthorSlugs } from '@/lib/blog-authors';
 
 /**
  * Build the canonical public URLs to evict from Cloudflare when a storefront's
@@ -65,6 +66,13 @@ export function buildStorefrontBlogPurgeUrls(
   const dedupedSlugs = dedupePathSegmentsPreservingCasing(postSlugs);
   const dedupedCategorySlugs =
     dedupePathSegmentsPreservingCasing(categorySlugs);
+  // Author hub pages (/blog/author/<slug>) list a byline's posts, so any post
+  // create/update/delete/publish can change them. They exist only for the small
+  // static, ogabassey-gated author registry — and purge hostnames only resolve
+  // for ogabassey — so emitting every registered author slug on every resolved
+  // hostname is correct and requires no per-post author threading. The slugs are
+  // registry keys (already lowercase, comma-free).
+  const authorSlugs = getBlogAuthorSlugs();
 
   for (const identifier of identifiers) {
     for (const hostname of resolvePurgeHostnames(identifier)) {
@@ -78,6 +86,11 @@ export function buildStorefrontBlogPurgeUrls(
       for (const categorySlug of dedupedCategorySlugs) {
         urls.add(
           `https://${hostname}/blog/category/${encodeURIComponent(categorySlug)}`
+        );
+      }
+      for (const authorSlug of authorSlugs) {
+        urls.add(
+          `https://${hostname}/blog/author/${encodeURIComponent(authorSlug)}`
         );
       }
     }

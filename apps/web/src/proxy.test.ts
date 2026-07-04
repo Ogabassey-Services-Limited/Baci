@@ -1310,6 +1310,21 @@ describe('Middleware Proxy', () => {
       expect(checkRateLimit).not.toHaveBeenCalled();
     });
 
+    it('exempts an internal call authenticated via the custom x-baci-internal-auth header', async () => {
+      // The cache-eligible preflight self-fetches drop Authorization (which would
+      // make the response uncacheable) for this custom header, so the rate-limit
+      // exemption must recognize it too or the self-fetches would fail open.
+      const req = new NextRequest(
+        'https://ogabassey.com/api/internal/slug-set/ogabassey.com?slug=x'
+      );
+      req.headers.set('host', 'ogabassey.com');
+      req.headers.set('x-baci-internal-auth', 'test-internal-secret');
+
+      await proxy(req);
+
+      expect(checkRateLimit).not.toHaveBeenCalled();
+    });
+
     it('still rate-limits an UNAUTHENTICATED request to the internal route (anti-flood)', async () => {
       const req = new NextRequest(
         'https://ogabassey.com/api/internal/slug-set/ogabassey.com'

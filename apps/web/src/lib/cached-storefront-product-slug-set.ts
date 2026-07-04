@@ -1,4 +1,5 @@
 import { cacheLife, cacheTag } from 'next/cache';
+import { getProductSlugSetCacheTag } from '@/lib/product-cache-tags';
 import { createPublicClient } from '@/lib/supabase/public';
 
 export interface StorefrontProductSlugSetResult {
@@ -43,7 +44,7 @@ export async function getCachedStorefrontProductSlugSet(
 ): Promise<StorefrontProductSlugSetResult> {
   'use cache: remote';
   cacheLife('products');
-  cacheTag('products', `product-slug-set-${merchantId}`);
+  cacheTag('products', getProductSlugSetCacheTag(merchantId));
 
   const supabase = createPublicClient({
     clientInfo: 'storefront-product-slug-set',

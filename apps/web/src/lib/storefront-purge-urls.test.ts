@@ -1,15 +1,28 @@
 import { describe, expect, it } from 'vitest';
+import { getBlogAuthorSlugs } from './blog-authors';
 import { buildStorefrontBlogPurgeUrls } from './storefront-purge-urls';
 
+// Author hub pages are emitted for every registered author slug on every
+// resolved hostname (see buildStorefrontBlogPurgeUrls). These are the two
+// static, ogabassey-gated registry slugs, appended AFTER the /blog, per-post,
+// and per-category URLs for each hostname.
+const AUTHOR_SLUGS = getBlogAuthorSlugs();
+
+function authorUrls(hostname: string): string[] {
+  return AUTHOR_SLUGS.map((slug) => `https://${hostname}/blog/author/${slug}`);
+}
+
 describe('buildStorefrontBlogPurgeUrls', () => {
-  it('builds /blog and per-post URLs for every custom hostname of a matched slug', () => {
+  it('builds /blog, per-post, and author-hub URLs for every custom hostname of a matched slug', () => {
     const urls = buildStorefrontBlogPurgeUrls(['ogabassey'], ['post-a']);
 
     expect(urls).toEqual([
       'https://ogabassey.com/blog',
       'https://ogabassey.com/blog/post-a',
+      ...authorUrls('ogabassey.com'),
       'https://www.ogabassey.com/blog',
       'https://www.ogabassey.com/blog/post-a',
+      ...authorUrls('www.ogabassey.com'),
     ]);
   });
 
@@ -18,6 +31,18 @@ describe('buildStorefrontBlogPurgeUrls', () => {
 
     expect(urls).toContain('https://ogabassey.com/blog');
     expect(urls).toContain('https://www.ogabassey.com/blog');
+  });
+
+  it('emits an author-hub URL per registered author on every resolved hostname', () => {
+    const urls = buildStorefrontBlogPurgeUrls(['ogabassey'], []);
+
+    // Author hubs list a byline's posts, so any post mutation can change them —
+    // they are always evicted alongside /blog. Slugs come from the registry.
+    expect(AUTHOR_SLUGS.length).toBeGreaterThan(0);
+    for (const slug of AUTHOR_SLUGS) {
+      expect(urls).toContain(`https://ogabassey.com/blog/author/${slug}`);
+      expect(urls).toContain(`https://www.ogabassey.com/blog/author/${slug}`);
+    }
   });
 
   it('returns an empty list for storefronts without a public cache policy', () => {
@@ -41,8 +66,10 @@ describe('buildStorefrontBlogPurgeUrls', () => {
     expect(urls).toEqual([
       'https://ogabassey.com/blog',
       'https://ogabassey.com/blog/Best-Phones-2026',
+      ...authorUrls('ogabassey.com'),
       'https://www.ogabassey.com/blog',
       'https://www.ogabassey.com/blog/Best-Phones-2026',
+      ...authorUrls('www.ogabassey.com'),
     ]);
   });
 
@@ -57,8 +84,10 @@ describe('buildStorefrontBlogPurgeUrls', () => {
     expect(urls).toEqual([
       'https://ogabassey.com/blog',
       'https://ogabassey.com/blog/post-a',
+      ...authorUrls('ogabassey.com'),
       'https://www.ogabassey.com/blog',
       'https://www.ogabassey.com/blog/post-a',
+      ...authorUrls('www.ogabassey.com'),
     ]);
   });
 
@@ -74,10 +103,12 @@ describe('buildStorefrontBlogPurgeUrls', () => {
       'https://ogabassey.com/blog/post-a',
       'https://ogabassey.com/blog/category/buying-guides',
       'https://ogabassey.com/blog/category/reviews',
+      ...authorUrls('ogabassey.com'),
       'https://www.ogabassey.com/blog',
       'https://www.ogabassey.com/blog/post-a',
       'https://www.ogabassey.com/blog/category/buying-guides',
       'https://www.ogabassey.com/blog/category/reviews',
+      ...authorUrls('www.ogabassey.com'),
     ]);
   });
 
@@ -87,8 +118,10 @@ describe('buildStorefrontBlogPurgeUrls', () => {
     expect(urls).toEqual([
       'https://ogabassey.com/blog',
       'https://ogabassey.com/blog/category/reviews',
+      ...authorUrls('ogabassey.com'),
       'https://www.ogabassey.com/blog',
       'https://www.ogabassey.com/blog/category/reviews',
+      ...authorUrls('www.ogabassey.com'),
     ]);
   });
 
@@ -104,8 +137,10 @@ describe('buildStorefrontBlogPurgeUrls', () => {
     expect(urls).toEqual([
       'https://ogabassey.com/blog',
       'https://ogabassey.com/blog/category/Reviews',
+      ...authorUrls('ogabassey.com'),
       'https://www.ogabassey.com/blog',
       'https://www.ogabassey.com/blog/category/Reviews',
+      ...authorUrls('www.ogabassey.com'),
     ]);
   });
 });

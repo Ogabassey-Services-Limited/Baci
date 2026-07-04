@@ -33,11 +33,11 @@ import {
   generateClickIdCookies,
 } from '@/lib/ad-tracking-cookies';
 import type { BlogListingStatusIntent } from '@/lib/cached-storefront-blog-listing-status';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
 import {
   getCustomDomainForSlug,
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
+import { hasValidInternalAuth } from '@/lib/internal-auth-header';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { resolveStorefrontBlogListingStatus } from '@/lib/storefront-blog-listing-status';
 import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
@@ -298,19 +298,17 @@ function safeDecodeSegment(segment: string | undefined): string {
 }
 
 // True only for an internal request bearing the correct `INTERNAL_API_SECRET`
-// (timing-safe). Used to scope the rate-limit exemption to AUTHENTICATED
-// self-calls — an unauthenticated/forged request to `/api/internal/*` stays
-// rate-limited, so the secret cannot be flooded/guessed without a 429.
+// (timing-safe), via EITHER the custom `x-baci-internal-auth` header (used by
+// the cache-eligible preflight self-fetches) or the legacy `Authorization`
+// bearer. Used to scope the rate-limit exemption to AUTHENTICATED self-calls —
+// an unauthenticated/forged request to `/api/internal/*` stays rate-limited, so
+// the secret cannot be flooded/guessed without a 429.
 function isAuthenticatedInternalRequest(request: NextRequest): boolean {
   const secret = getInternalApiSecret();
   if (!secret) {
     return false;
   }
-  const authHeader = request.headers.get('Authorization');
-  return (
-    Boolean(authHeader) &&
-    constantTimeEqual(authHeader ?? '', `Bearer ${secret}`)
-  );
+  return hasValidInternalAuth(request, secret);
 }
 // PDP documents are now safe to CDN-cache (see PR #2436 Next resume patch), so
 // the prerendered PPR shell can be served from the edge for the LCP win.

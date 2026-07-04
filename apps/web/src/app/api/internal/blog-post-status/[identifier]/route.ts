@@ -1,31 +1,40 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getInternalApiSecret } from '@/env';
+import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { getCachedStorefrontBlogPostStatus } from '@/lib/cached-storefront-blog-post-status';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
+import { hasValidInternalAuth } from '@/lib/internal-auth-header';
 import {
   internalBlogPostStatusQuerySchema,
   internalSlugSetParamsSchema,
 } from '@/schemas/internal-slug-set-route';
 
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
-// The proxy self-fetches this internal preflight on every storefront blog-post
-// navigation. The underlying data is already memoized (cacheLife('blog')), so a
-// short edge TTL lets Vercel's CDN absorb repeat preflights instead of hitting
-// the origin each time. Only a LIVE-post verdict (present:true with NO redirect)
-// is cached — it is self-healing because the page still renders and 404s a
-// since-removed post. A definitive-absent verdict makes the proxy hard-404 the
-// post, a fail-open/error is a transient miss, and a retired-slug redirect
-// verdict can go stale (target changed / slug reused); none may be sticky
-// (revalidateTag cannot purge this header-based edge entry), so all stay
-// no-store.
-// `Vary: Authorization` is REQUIRED: RFC 9111 §3.5 lets a shared cache store and
-// replay an `s-maxage` response to requests that carried an `Authorization`
-// header, so without this a cached 200 could be served to a caller WITHOUT
-// re-running the bearer-token check. Varying on Authorization keys the edge
-// entry to the (single) internal secret and blocks unauthenticated cache hits.
+// The proxy self-fetches this preflight on every storefront blog-post
+// navigation, and middleware runs BEFORE Vercel's CDN, so it fires on every
+// document request that reaches Vercel — this cache is what keeps field TTFB
+// low. Three mechanics make a cached LIVE-post verdict both cacheable AND
+// always-fresh:
+//   (a) Vercel's CDN never caches a response to a request carrying an
+//       `Authorization` header (documented cacheable-response criteria), so the
+//       proxy authenticates via the custom `x-baci-internal-auth` header and the
+//       CDN is free to store the 200.
+//   (b) `Vary: x-baci-internal-auth` keys the edge entry to the (single) internal
+//       secret value, so an unauthenticated request never hits a cached 200 — it
+//       misses and re-runs the timing-safe auth check.
+//   (c) The `Vercel-Cache-Tag` is `getBlogCacheTag(identifier, slug)` — the SAME
+//       tag the underlying `'use cache'` fn carries and that `revalidateBlogPosts`
+//       invalidates on every post mutation — so `revalidateTag` purges this CDN
+//       entry instantly. A cached present:true can never serve a stale answer
+//       beyond one in-flight request.
+// Only a definitive LIVE-post verdict (present:true, no redirect) is cached — it
+// is self-healing (the page still renders and 404s a since-removed post). A
+// definitive-absent verdict (proxy hard-404), a fail-open/error, and a
+// retired-slug REDIRECT verdict all stay no-store: absent/redirect verdicts must
+// never be sticky (a since-published post or a changed/reused redirect target
+// would otherwise be wrong for the whole TTL window).
 const PREFLIGHT_CACHE = {
   'Cache-Control': 's-maxage=300, stale-while-revalidate=3600',
-  Vary: 'Authorization',
+  Vary: 'x-baci-internal-auth',
 } as const;
 const FAIL_OPEN = { hasError: true, present: false, redirectPath: null };
 const INVALID_REQUEST = { error: 'Invalid input', code: 'invalid_input' };
@@ -42,11 +51,7 @@ export async function GET(
     );
   }
 
-  const authHeader = request.headers.get('Authorization');
-  if (
-    !authHeader ||
-    !constantTimeEqual(authHeader, `Bearer ${expectedSecret}`)
-  ) {
+  if (!hasValidInternalAuth(request, expectedSecret)) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401, headers: NO_STORE }
@@ -84,7 +89,19 @@ export async function GET(
       result.redirectPath == null;
     return NextResponse.json(result, {
       status: 200,
-      headers: cacheable ? PREFLIGHT_CACHE : NO_STORE,
+      headers: cacheable
+        ? {
+            ...PREFLIGHT_CACHE,
+            // Same tag the underlying 'use cache' fn carries and that
+            // revalidateBlogPosts invalidates for this post — so any mutation
+            // purges this CDN entry immediately (never comma-bearing, always
+            // < 256 chars).
+            'Vercel-Cache-Tag': getBlogCacheTag(
+              params.data.identifier,
+              query.data.slug
+            ),
+          }
+        : NO_STORE,
     });
   } catch (error) {
     console.error('Internal blog post status resolution failed', { error });

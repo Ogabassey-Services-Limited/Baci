@@ -80,14 +80,17 @@ describe('isStorefrontProductSlugMissing', () => {
     });
 
     expect(result).toBe(true);
-    // The internal route is called with the bearer secret, the identifier, and
-    // the product slug as a query param (membership is decided server-side).
+    // The internal route is called with the custom-header secret, the
+    // identifier, and the product slug as a query param (membership is decided
+    // server-side). The secret goes via `x-baci-internal-auth`, NOT
+    // Authorization, so Vercel's CDN can cache the verdict — the exact-match
+    // assertion proves no Authorization header is sent.
     const [calledUrl, init] = fetchImpl.mock.calls[0];
     const url = new URL(String(calledUrl));
     expect(url.pathname).toBe('/api/internal/slug-set/ogabassey.com');
     expect(url.searchParams.get('slug')).toBe('totally-made-up');
-    expect((init as RequestInit).headers).toMatchObject({
-      Authorization: 'Bearer internal-secret',
+    expect((init as RequestInit).headers).toEqual({
+      'x-baci-internal-auth': 'internal-secret',
     });
   });
 

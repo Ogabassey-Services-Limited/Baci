@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { getCachedStorefrontBlogPostStatus } from '@/lib/cached-storefront-blog-post-status';
 import { GET } from './route';
 
@@ -11,11 +12,21 @@ vi.mock('@/lib/cached-storefront-blog-post-status', () => ({
   getCachedStorefrontBlogPostStatus: vi.fn(),
 }));
 
-function buildRequest(slug = 'requested-post', auth = 'test-internal-secret') {
+type AuthMode = 'authorization' | 'custom' | 'none';
+
+function buildRequest(
+  slug = 'requested-post',
+  auth = 'test-internal-secret',
+  authMode: AuthMode = 'authorization'
+) {
   const request = new NextRequest(
     `https://usebaci.com/api/internal/blog-post-status/ogabassey?slug=${slug}`
   );
-  request.headers.set('Authorization', `Bearer ${auth}`);
+  if (authMode === 'authorization') {
+    request.headers.set('Authorization', `Bearer ${auth}`);
+  } else if (authMode === 'custom') {
+    request.headers.set('x-baci-internal-auth', auth);
+  }
   return request;
 }
 
@@ -33,11 +44,31 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
     });
   });
 
-  it('rejects unauthenticated requests before resolving cached status', async () => {
+  it('rejects a wrong bearer secret with 401 no-store before resolving cached status', async () => {
     const response = await GET(buildRequest('post', 'wrong'), context());
 
     expect(response.status).toBe(401);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' });
+    expect(getCachedStorefrontBlogPostStatus).not.toHaveBeenCalled();
+  });
+
+  it('rejects a request with no auth header with 401 no-store', async () => {
+    const response = await GET(buildRequest('post', '', 'none'), context());
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(getCachedStorefrontBlogPostStatus).not.toHaveBeenCalled();
+  });
+
+  it('rejects a wrong custom-header secret with 401 no-store', async () => {
+    const response = await GET(
+      buildRequest('post', 'wrong', 'custom'),
+      context()
+    );
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect(getCachedStorefrontBlogPostStatus).not.toHaveBeenCalled();
   });
 
@@ -63,7 +94,7 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
     expect(getCachedStorefrontBlogPostStatus).not.toHaveBeenCalled();
   });
 
-  it('edge-caches a definitive live-post verdict (present, no redirect)', async () => {
+  it('edge-caches a definitive live-post verdict (present, no redirect) with the purgeable cache tag', async () => {
     vi.mocked(getCachedStorefrontBlogPostStatus).mockResolvedValueOnce({
       hasError: false,
       present: true,
@@ -76,9 +107,15 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
     expect(response.headers.get('Cache-Control')).toBe(
       's-maxage=300, stale-while-revalidate=3600'
     );
-    // Vary: Authorization keeps a shared cache from replaying this bearer-gated
-    // 200 to an unauthenticated caller (RFC 9111 §3.5).
-    expect(response.headers.get('Vary')).toBe('Authorization');
+    // Vary keys the edge entry to the (single) internal secret value, so an
+    // unauthenticated request never hits a cached 200. It varies on the custom
+    // header (NOT Authorization — that would make the response uncacheable).
+    expect(response.headers.get('Vary')).toBe('x-baci-internal-auth');
+    // The cache tag is the SAME tag revalidateBlogPosts invalidates for this
+    // post, so any mutation purges this CDN entry via revalidateTag.
+    expect(response.headers.get('Vercel-Cache-Tag')).toBe(
+      getBlogCacheTag('ogabassey', 'live-post')
+    );
     await expect(response.json()).resolves.toEqual({
       hasError: false,
       present: true,
@@ -87,6 +124,28 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
     expect(getCachedStorefrontBlogPostStatus).toHaveBeenCalledWith(
       'ogabassey',
       'live-post'
+    );
+  });
+
+  it('accepts the custom x-baci-internal-auth header and caches the verdict', async () => {
+    vi.mocked(getCachedStorefrontBlogPostStatus).mockResolvedValueOnce({
+      hasError: false,
+      present: true,
+      redirectPath: null,
+    });
+
+    const response = await GET(
+      buildRequest('live-post', 'test-internal-secret', 'custom'),
+      context()
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe(
+      's-maxage=300, stale-while-revalidate=3600'
+    );
+    expect(response.headers.get('Vary')).toBe('x-baci-internal-auth');
+    expect(response.headers.get('Vercel-Cache-Tag')).toBe(
+      getBlogCacheTag('ogabassey', 'live-post')
     );
   });
 
@@ -105,6 +164,7 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
     // header-based edge entry, so redirect verdicts stay no-store.
     expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect(response.headers.get('Vary')).toBeNull();
+    expect(response.headers.get('Vercel-Cache-Tag')).toBeNull();
     await expect(response.json()).resolves.toEqual({
       hasError: false,
       present: true,

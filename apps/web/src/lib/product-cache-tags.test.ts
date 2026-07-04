@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
+import {
+  getProductScopedCacheTag,
+  getProductSlugSetCacheTag,
+} from '@/lib/product-cache-tags';
 
 describe('getProductScopedCacheTag', () => {
   it('preserves existing ASCII cache tag format for safe product slugs', () => {
@@ -33,6 +36,23 @@ describe('getProductScopedCacheTag', () => {
     expect(tag).toMatch(
       /^product-legacy-redirect-merchant-123-x{48}-[a-f0-9]{32}$/
     );
+    expect(tag.length).toBeLessThanOrEqual(256);
+  });
+});
+
+describe('getProductSlugSetCacheTag', () => {
+  it('builds the dedicated per-merchant slug-set tag', () => {
+    expect(getProductSlugSetCacheTag('merchant-123')).toBe(
+      'product-slug-set-merchant-123'
+    );
+  });
+
+  it('contains no comma (Vercel-Cache-Tag delimiter) and stays under 256 chars', () => {
+    const tag = getProductSlugSetCacheTag(
+      '6b5cb8a4-5575-456c-b936-8cdfae30db74'
+    );
+
+    expect(tag).not.toContain(',');
     expect(tag.length).toBeLessThanOrEqual(256);
   });
 });

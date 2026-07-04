@@ -3,8 +3,9 @@ import { getInternalApiSecret } from '@/env';
 import { getMerchantSafe } from '@/lib/cached-data';
 import { getCachedStorefrontProductSlugResolution } from '@/lib/cached-storefront-product-slug-resolution';
 import { getCachedStorefrontProductSlugSet } from '@/lib/cached-storefront-product-slug-set';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
+import { hasValidInternalAuth } from '@/lib/internal-auth-header';
 import { logger } from '@/lib/logger';
+import { getProductSlugSetCacheTag } from '@/lib/product-cache-tags';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
 import { getProductUrl } from '@/lib/seo-utils';
 import {
@@ -13,24 +14,31 @@ import {
 } from '@/schemas/internal-slug-set-route';
 
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
-// The proxy self-fetches this membership preflight on every PDP navigation. The
-// underlying slug set is already memoized (`use cache`), so a short edge TTL lets
-// Vercel's CDN absorb repeat preflights instead of hitting the origin each time.
-// Only a LIVE-product verdict (present:true with NO redirect) is cached — it is
-// self-healing because the page still renders and 404s a since-removed product. A
-// definitively-absent verdict (which the proxy turns into a hard-404), a
-// legacy-alias redirect verdict (target/slug can change), and every fail-open
-// branch stay no-store, so a slug that becomes live after a cached miss is never
-// sticky-404ed and a stale redirect never sticks (revalidateTag cannot purge this
-// header-based edge entry).
-// `Vary: Authorization` is REQUIRED: RFC 9111 §3.5 lets a shared cache store and
-// replay an `s-maxage` response to requests that carried an `Authorization`
-// header, so without this a cached 200 could be served to a caller WITHOUT
-// re-running the bearer-token check. Varying on Authorization keys the edge
-// entry to the (single) internal secret and blocks unauthenticated cache hits.
+// The proxy self-fetches this membership preflight on every PDP navigation, and
+// middleware runs BEFORE Vercel's CDN, so it fires on every document request that
+// reaches Vercel — this cache is what keeps field TTFB low. Three mechanics make
+// a cached LIVE-product verdict both cacheable AND always-fresh:
+//   (a) Vercel's CDN never caches a response to a request carrying an
+//       `Authorization` header (documented cacheable-response criteria), so the
+//       proxy authenticates via the custom `x-baci-internal-auth` header and the
+//       CDN is free to store the 200.
+//   (b) `Vary: x-baci-internal-auth` keys the edge entry to the (single) internal
+//       secret value, so an unauthenticated request never hits a cached 200 — it
+//       misses and re-runs the timing-safe auth check.
+//   (c) The `Vercel-Cache-Tag` is `product-slug-set-${merchantId}` — the SAME tag
+//       the underlying `'use cache'` slug set carries and that `revalidateProducts`
+//       invalidates on every product mutation — so `revalidateTag` purges this CDN
+//       entry instantly. A cached present:true can never serve a stale answer
+//       beyond one in-flight request.
+// Only a definitive LIVE-product verdict (present:true, no redirect) is cached —
+// it is self-healing (the page still renders and 404s a since-removed product). A
+// definitively-absent verdict (proxy hard-404), a legacy-alias redirect verdict
+// (target/slug can change), and every fail-open branch stay no-store, so a slug
+// that becomes live after a cached miss is never sticky-404ed and a stale redirect
+// never sticks.
 const PREFLIGHT_CACHE = {
   'Cache-Control': 's-maxage=300, stale-while-revalidate=3600',
-  Vary: 'Authorization',
+  Vary: 'x-baci-internal-auth',
 } as const;
 // Fail-open membership: the proxy hard-404s ONLY when `present` is false AND
 // `hasError` is false, so any uncertainty returns hasError:true.
@@ -50,7 +58,9 @@ const FAIL_OPEN = { hasError: true, present: false };
  * proxy never hard-404s a live product (and never pre-empts the coming-soon
  * layout for an unpublished store).
  *
- * Auth: `Authorization: Bearer ${INTERNAL_API_SECRET}` (timing-safe).
+ * Auth: `x-baci-internal-auth: ${INTERNAL_API_SECRET}` (preferred — keeps the
+ * verdict CDN-cacheable) or the legacy `Authorization: Bearer ${...}` (both
+ * timing-safe).
  */
 export async function GET(
   request: NextRequest,
@@ -61,16 +71,15 @@ export async function GET(
     logger.error({ message: 'INTERNAL_API_SECRET not configured' });
     return NextResponse.json(
       { error: 'Internal Server Error' },
-      { status: 500 }
+      { status: 500, headers: NO_STORE }
     );
   }
 
-  const authHeader = request.headers.get('Authorization');
-  if (
-    !authHeader ||
-    !constantTimeEqual(authHeader, `Bearer ${expectedSecret}`)
-  ) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!hasValidInternalAuth(request, expectedSecret)) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401, headers: NO_STORE }
+    );
   }
 
   const params = internalSlugSetParamsSchema.safeParse(await context.params);
@@ -145,6 +154,15 @@ export async function GET(
 
   return NextResponse.json(
     { hasError: false, present: true },
-    { status: 200, headers: PREFLIGHT_CACHE }
+    {
+      status: 200,
+      headers: {
+        ...PREFLIGHT_CACHE,
+        // Same tag the underlying 'use cache' slug set carries and that
+        // revalidateProducts invalidates for this merchant — so any product
+        // mutation purges this CDN entry immediately.
+        'Vercel-Cache-Tag': getProductSlugSetCacheTag(merchant.id),
+      },
+    }
   );
 }
