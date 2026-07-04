@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { ProductAttributesCard } from '@/components/product/ProductAttributesCard';
 import { ProductBasicInformationCard } from '@/components/product/ProductBasicInformationCard';
 import { ProductCategorySheet } from '@/components/product/ProductCategorySheet';
-import { ProductDeleteCard } from '@/components/product/ProductDeleteCard';
+import { ProductDeleteSection } from '@/components/product/ProductDeleteSection';
 import { ProductFulfillmentSheet } from '@/components/product/ProductFulfillmentSheet';
 import { ProductHasVariantsToggleCard } from '@/components/product/ProductHasVariantsToggleCard';
 import { ProductImageCard } from '@/components/product/ProductImageCard';
@@ -230,16 +230,9 @@ export default function ProductEditScreen() {
         )}
 
         {editableProductId ? (
-          <ProductDeleteCard
+          <ProductDeleteSection
             colors={colors}
-            disabled={controller.updateStatusMutation.isPending}
-            onConfirmDelete={async () => {
-              await controller.updateStatusMutation.mutateAsync({
-                productId: editableProductId,
-                status: 'archived',
-              });
-              router.back();
-            }}
+            productId={editableProductId}
             productName={controller.formData.name}
           />
         ) : null}
