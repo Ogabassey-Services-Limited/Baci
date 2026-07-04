@@ -161,6 +161,18 @@ describe('ProductsPageContent internal link equity', () => {
       'href',
       '/laptops'
     );
+    expect(
+      screen.getByRole('link', { name: 'iPhone 12 vs Xiaomi 13T' })
+    ).toHaveAttribute('href', '/smartphones/compare/iphone-12-vs-xiaomi-13t');
+    expect(
+      screen.getByRole('link', { name: 'The iPhone 15 buying guide' })
+    ).toHaveAttribute('href', '/blog/iphone/the-iphone-15-what-we-know-so-far');
+    expect(
+      screen.getByRole('link', { name: 'iPhone 16 Pro 512GB open box' })
+    ).toHaveAttribute(
+      'href',
+      '/resolved/iphone-16-pro-8gb-512gb-physical-esim-new'
+    );
 
     const shortcutSection = screen.getByRole('region', {
       name: 'Explore more buying paths',

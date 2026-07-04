@@ -1,3 +1,5 @@
+import { OGABASSEY_CRAWL_DEPTH_LINK_EQUITY_GROUPS } from './ogabassey-crawl-depth-link-equity';
+
 export interface InternalLinkEquityLink {
   href: string;
   label: string;
@@ -174,4 +176,5 @@ export const OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS: InternalLinkEquityGroupConfi
         'cyberpunk-2077|Cyberpunk 2077',
       ]),
     },
+    ...OGABASSEY_CRAWL_DEPTH_LINK_EQUITY_GROUPS,
   ];
