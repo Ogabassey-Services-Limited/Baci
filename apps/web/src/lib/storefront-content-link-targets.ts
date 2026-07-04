@@ -18,6 +18,9 @@ const UNQUOTED_HREF_ATTRIBUTE_REGEX = /\bhref\s*=\s*([^"'\s<>=][^\s<>]*)/gi;
 // `marked` renders as anchors just like inline links.
 // Markdown autolinks (<https://ogabassey.com/blog/x>) render as anchors too.
 const MARKDOWN_AUTOLINK_REGEX = /<(https?:\/\/[^<>\s]+)>/gi;
+// Bare URLs in Markdown prose also render as anchors (GFM autolinking);
+// trailing sentence punctuation is trimmed at collection time.
+const MARKDOWN_BARE_URL_REGEX = /\b(https?:\/\/[^\s<>()"']+)/gi;
 const MARKDOWN_REFERENCE_DEFINITION_REGEX =
   /^[ \t]*\[[^\]\n]+\]:[ \t]*(<[^<>\s]+>|\S+)/gm;
 const MARKDOWN_LINK_REGEX =
@@ -120,23 +123,35 @@ function classifyPathSegments(
 function classifySegments(
   segments: string[]
 ): { kind: 'blog' | 'product'; slug: string } | null {
-  if (segments.length !== 2) {
+  if (segments.length < 2) {
     return null;
   }
 
   const [first, second] = segments;
-  if (!SLUG_REGEX.test(second)) {
-    return null;
-  }
 
   if (first === 'blog') {
+    // The blog [...catchAll] route resolves legacy permalinks
+    // (/blog/<category>/<slug>, dated paths, ...) by their LAST segment, so
+    // classification mirrors that. Utility subtrees (/blog/author/...,
+    // /blog/category/...) and extension-shaped segments are never posts.
+    const last = segments[segments.length - 1];
     if (
+      !SLUG_REGEX.test(last) ||
       BLOG_UTILITY_SEGMENTS.has(second) ||
-      FILE_EXTENSION_SEGMENT_REGEX.test(second)
+      BLOG_UTILITY_SEGMENTS.has(last) ||
+      FILE_EXTENSION_SEGMENT_REGEX.test(last)
     ) {
       return null;
     }
-    return { kind: 'blog', slug: second };
+    return { kind: 'blog', slug: last };
+  }
+
+  if (segments.length !== 2) {
+    return null;
+  }
+
+  if (!SLUG_REGEX.test(second)) {
+    return null;
   }
 
   if (first === 'products') {
@@ -159,16 +174,18 @@ function collectHrefCandidates(contentStr: string): string[] {
     MARKDOWN_LINK_REGEX,
     MARKDOWN_REFERENCE_DEFINITION_REGEX,
     MARKDOWN_AUTOLINK_REGEX,
+    MARKDOWN_BARE_URL_REGEX,
   ]) {
     regex.lastIndex = 0;
     let match = regex.exec(contentStr);
     while (match !== null) {
       const captured = match[1];
-      candidates.push(
+      const unwrapped =
         captured.startsWith('<') && captured.endsWith('>')
           ? captured.slice(1, -1)
-          : captured
-      );
+          : captured;
+      // Bare URLs in prose often end at sentence punctuation.
+      candidates.push(unwrapped.replace(/[.,;:!?]+$/, ''));
       match = regex.exec(contentStr);
     }
   }

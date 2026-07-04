@@ -1,23 +1,25 @@
-import { toHtml } from 'hast-util-to-html';
-import { common, createLowlight } from 'lowlight';
-import Image from 'next/image';
 import type React from 'react';
 import { SafeHtml } from '@/components/ui/safe-html';
-import {
-  buildInlineImageSiblings,
-  isLegacyOgabasseyCdnBlogImage,
-  isTrustedCdnInlineImage,
-} from '@/lib/blog-inline-image-optimization';
 import { generateHeadingId } from '@/lib/blog-utils';
 import { logger } from '@/lib/logger';
-import { sanitizeUrl } from '@/lib/sanitize-core';
 import type { StorefrontContentLinkRewrites } from '@/lib/storefront-content-link-rewriting';
 import type { DeadStorefrontContentLinkSlugs } from '@/lib/storefront-content-link-targets';
-import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
 import { cn } from '@/lib/utils';
-import { resolveRenderedInternalLink } from './resolve-rendered-internal-link';
-
-const lowlight = createLowlight(common);
+import { BlogCodeBlockRenderer } from './blog-code-block-renderer';
+import {
+  getBlogBodyHeadingLevel,
+  HEADING_SIZE_CLASSES,
+  normalizeSourceHeadingLevel,
+} from './blog-heading-levels';
+import { BlogImageNodeRenderer } from './blog-image-node-renderer';
+import { findFirstTrustedInlineImage } from './blog-priority-inline-image';
+import { BlogTextRenderer } from './blog-text-renderer';
+import {
+  type DeadContentLinkSets,
+  extractNodeText,
+  type PriorityInlineImage,
+  type TipTapNode,
+} from './blog-tiptap-node';
 
 // Explicit text alignment class mapping for Tailwind tree-shaking (2026 best practice)
 const TEXT_ALIGN_CLASSES: Record<string, string> = {
@@ -27,50 +29,8 @@ const TEXT_ALIGN_CLASSES: Record<string, string> = {
   justify: 'text-justify',
 };
 
-const HEADING_SIZE_CLASSES: Record<number, string> = {
-  1: 'text-4xl font-bold mt-12 mb-6',
-  2: 'text-3xl font-bold mt-10 mb-5',
-  3: 'text-2xl font-bold mt-8 mb-4',
-  4: 'text-xl font-bold mt-6 mb-3',
-};
-
-function isTechnicalResourceHref(href: string): boolean {
-  const normalizedHref = href.trim().toLowerCase();
-  if (!normalizedHref) {
-    return false;
-  }
-
-  try {
-    const { pathname } = new URL(normalizedHref, 'https://example.invalid');
-    if (pathname === '/_next/image') {
-      return true;
-    }
-    return /\.(?:js|json)(?:$|[?#])/i.test(pathname);
-  } catch {
-    return /\.(?:js|json)(?:$|[?#])/i.test(normalizedHref);
-  }
-}
-
-/**
- * Premium 2026 JSON-to-React Renderer for Baci
- * This component recursively renders TipTap JSON as native React components.
- */
-
-interface TipTapNode {
-  type: string;
-  // biome-ignore lint/suspicious/noExplicitAny: TipTap library
-  attrs?: Record<string, any>;
-  content?: TipTapNode[];
-  // biome-ignore lint/suspicious/noExplicitAny: TipTap library
-  marks?: Array<{ type: string; attrs?: Record<string, any> }>;
-  text?: string;
-}
-
-interface DeadContentLinkSets {
-  blog: ReadonlySet<string>;
-  products: ReadonlySet<string>;
-}
-
+// Premium 2026 JSON-to-React renderer: recursively renders TipTap JSON as
+// native React components.
 interface NodeRendererProps {
   basePath?: string;
   baseUrl?: string;
@@ -101,143 +61,6 @@ interface BlogContentRendererProps {
   json: any;
   merchantSlug?: string;
   priorityInlineImageSrc?: string | null;
-}
-
-interface PriorityInlineImage {
-  src: string;
-  nodePath: string;
-}
-
-const TextRenderer = ({
-  node,
-  basePath,
-  baseUrl,
-  contentLinkRewrites,
-  deadContentLinkSets,
-  merchantSlug,
-}: {
-  node: TipTapNode;
-  basePath?: string;
-  baseUrl?: string;
-  contentLinkRewrites?: StorefrontContentLinkRewrites;
-  deadContentLinkSets?: DeadContentLinkSets;
-  merchantSlug?: string;
-}) => {
-  if (!node.text) return null;
-
-  let content: React.ReactNode = node.text;
-
-  // Apply Marks (Bold, Italic, Link, etc.)
-  if (node.marks) {
-    for (const mark of node.marks) {
-      switch (mark.type) {
-        case 'bold':
-          content = <strong key={mark.type}>{content}</strong>;
-          break;
-        case 'italic':
-          content = <em key={mark.type}>{content}</em>;
-          break;
-        case 'underline':
-          content = <u key={mark.type}>{content}</u>;
-          break;
-        case 'strike':
-          content = <s key={mark.type}>{content}</s>;
-          break;
-        case 'code':
-          content = (
-            <code
-              key={mark.type}
-              className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono"
-            >
-              {content}
-            </code>
-          );
-          break;
-        case 'link': {
-          // 2026 Security Best Practice: Sanitize URLs but allow safe relative/anchor links
-          const rawHref =
-            typeof mark.attrs?.href === 'string' ? mark.attrs.href : '';
-          const normalizedHref = normalizeStorefrontContentHref(rawHref, {
-            basePath,
-            baseUrl,
-            merchantSlug,
-          });
-          if (
-            isTechnicalResourceHref(rawHref) ||
-            isTechnicalResourceHref(normalizedHref)
-          ) {
-            content = <span key={mark.type}>{content}</span>;
-            break;
-          }
-
-          const isRelative =
-            normalizedHref.startsWith('/') && !normalizedHref.startsWith('//');
-          const isAnchor = normalizedHref.startsWith('#');
-
-          const { href: resolvedHref, isDead: isDeadInternal } =
-            resolveRenderedInternalLink(normalizedHref, {
-              basePath,
-              contentLinkRewrites,
-              deadBlogSlugs: deadContentLinkSets?.blog,
-              deadProductSlugs: deadContentLinkSets?.products,
-            });
-
-          const safeHref =
-            isRelative || isAnchor ? resolvedHref : sanitizeUrl(resolvedHref);
-
-          const isExternal =
-            !!safeHref && !isRelative && !isAnchor && !safeHref.startsWith('/');
-
-          content =
-            safeHref && !isDeadInternal ? (
-              // Use anchor tag for user-generated URLs
-              <a
-                key={mark.type}
-                href={safeHref}
-                target={isExternal ? mark.attrs?.target || '_blank' : undefined}
-                rel={isExternal ? 'noopener noreferrer' : undefined}
-                className="text-primary underline underline-offset-4 decoration-primary/30 hover:text-primary/80"
-              >
-                {content}
-              </a>
-            ) : (
-              // Render as plain text if URL is invalid/malicious (e.g. "javascript:")
-              <span key={mark.type}>{content}</span>
-            );
-          break;
-        }
-        case 'textStyle':
-          if (mark.attrs?.color) {
-            content = (
-              <span key={mark.type} style={{ color: mark.attrs.color }}>
-                {content}
-              </span>
-            );
-          }
-          break;
-      }
-    }
-  }
-
-  return <>{content}</>;
-};
-
-/** Recursively extract plain text from a TipTap node tree. */
-function extractNodeText(node: TipTapNode): string {
-  if (node.text) return node.text;
-  return node.content?.map(extractNodeText).join('') || '';
-}
-
-function normalizeSourceHeadingLevel(level: unknown): number {
-  const parsedLevel = Number(level);
-  if (!Number.isFinite(parsedLevel)) {
-    return 1;
-  }
-  return Math.min(Math.max(Math.trunc(parsedLevel), 1), 6);
-}
-
-function getBlogBodyHeadingLevel(sourceLevel: number): 2 | 3 | 4 | 5 | 6 {
-  return Math.max(Math.min(sourceLevel + 1, 6), 2) as 2 | 3 | 4 | 5 | 6;
 }
 
 const NodeRenderer = ({
@@ -326,101 +149,14 @@ const NodeRenderer = ({
         </blockquote>
       );
 
-    case 'image': {
-      // Guard against missing src to prevent runtime errors
-      const rawSrc = node.attrs?.src;
-      const imageSrc = rawSrc ? sanitizeUrl(rawSrc) : '';
-      const imageCaption =
-        (typeof node.attrs?.title === 'string'
-          ? node.attrs.title
-          : ''
-        ).trim() ||
-        (typeof node.attrs?.caption === 'string'
-          ? node.attrs.caption.trim()
-          : '');
-
-      // Only allow http/https protocols for blog images in 2026 for security and CDN stability
-      if (!imageSrc?.startsWith('http')) {
-        logger.warn({
-          message: 'Blog image node missing or invalid src attribute',
-          src: rawSrc ?? null,
-        });
-        return null;
-      }
-
-      if (isLegacyOgabasseyCdnBlogImage(imageSrc)) {
-        return null;
-      }
-
-      const imageAlt = node.attrs?.alt || 'Blog image';
-      const inlineSiblings = isTrustedCdnInlineImage(imageSrc)
-        ? buildInlineImageSiblings(imageSrc)
-        : null;
-      const isPriorityInlineImage =
-        !!inlineSiblings &&
-        imageSrc === priorityInlineImage?.src &&
-        nodePath === priorityInlineImage.nodePath;
-      const imageContainer = (
-        <div
-          className={cn(
-            'relative aspect-video rounded-2xl overflow-hidden shadow-xl border border-border/50',
-            !imageCaption && 'my-10'
-          )}
-        >
-          {inlineSiblings ? (
-            // Trusted CDN inline image: serve the pre-optimized AVIF/WebP
-            // siblings via <picture>, with the original PNG/JPEG as the
-            // compatibility fallback. next/image would needlessly re-process an
-            // already-optimized CDN URL.
-            <picture>
-              <source
-                srcSet={inlineSiblings.avifSrcSet}
-                sizes={inlineSiblings.sizes}
-                type="image/avif"
-              />
-              <source
-                srcSet={inlineSiblings.webpSrcSet}
-                sizes={inlineSiblings.sizes}
-                type="image/webp"
-              />
-              <img
-                src={inlineSiblings.fallback}
-                srcSet={inlineSiblings.fallbackSrcSet}
-                sizes={inlineSiblings.sizes}
-                width={inlineSiblings.width}
-                height={inlineSiblings.height}
-                alt={imageAlt}
-                className="absolute inset-0 h-full w-full object-cover"
-                decoding="async"
-                fetchPriority={isPriorityInlineImage ? 'high' : undefined}
-                loading={isPriorityInlineImage ? 'eager' : 'lazy'}
-              />
-            </picture>
-          ) : (
-            <Image
-              src={imageSrc}
-              alt={imageAlt}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 800px"
-            />
-          )}
-        </div>
-      );
-
-      if (!imageCaption) {
-        return imageContainer;
-      }
-
+    case 'image':
       return (
-        <figure className="my-10">
-          {imageContainer}
-          <figcaption className="mt-3 text-center text-sm leading-relaxed text-muted-foreground">
-            {imageCaption}
-          </figcaption>
-        </figure>
+        <BlogImageNodeRenderer
+          node={node}
+          nodePath={nodePath}
+          priorityInlineImage={priorityInlineImage}
+        />
       );
-    }
 
     case 'table':
       return (
@@ -452,41 +188,17 @@ const NodeRenderer = ({
         </td>
       );
 
-    case 'codeBlock': {
-      const language = node.attrs?.language || '';
-      const codeText = extractNodeText(node);
-      let highlightedHtml = '';
-      try {
-        const tree =
-          language && lowlight.registered(language)
-            ? lowlight.highlight(language, codeText)
-            : lowlight.highlightAuto(codeText);
-        highlightedHtml = toHtml(tree);
-      } catch {
-        // Fallback to plain text if highlighting fails
-      }
-
-      return highlightedHtml ? (
-        <pre className="bg-slate-950 text-slate-50 p-6 rounded-xl font-mono text-sm overflow-x-auto my-8">
-          <SafeHtml
-            as="code"
-            className={language ? `language-${language}` : undefined}
-            html={highlightedHtml}
-          />
-        </pre>
-      ) : (
-        <pre className="bg-slate-950 text-slate-50 p-6 rounded-xl font-mono text-sm overflow-x-auto my-8">
-          <code>{children}</code>
-        </pre>
+    case 'codeBlock':
+      return (
+        <BlogCodeBlockRenderer node={node}>{children}</BlogCodeBlockRenderer>
       );
-    }
 
     case 'horizontalRule':
       return <hr className="my-12 border-t border-border" />;
 
     case 'text':
       return (
-        <TextRenderer
+        <BlogTextRenderer
           node={node}
           basePath={basePath}
           baseUrl={baseUrl}
@@ -530,50 +242,6 @@ function parseBlogDoc(json: unknown): ParsedBlogDoc {
     });
   }
   return { kind: 'fallback' };
-}
-
-function findFirstRenderableImageNode(
-  node: TipTapNode,
-  nodePath: string
-): { src: string; nodePath: string } | null {
-  if (node.type === 'image') {
-    const rawSrc = node.attrs?.src;
-    const src = typeof rawSrc === 'string' ? sanitizeUrl(rawSrc) : '';
-    return src?.startsWith('http') && !isLegacyOgabasseyCdnBlogImage(src)
-      ? { src, nodePath }
-      : null;
-  }
-
-  for (const [index, child] of (node.content ?? []).entries()) {
-    const found = findFirstRenderableImageNode(child, `${nodePath}.${index}`);
-    if (found) {
-      return found;
-    }
-  }
-
-  return null;
-}
-
-function findFirstTrustedInlineImage(
-  node: TipTapNode,
-  nodePath: string,
-  targetSrc?: string
-): PriorityInlineImage | null {
-  // The first rendered image is the only body LCP candidate, so stop at it and
-  // only prioritize when it is a trusted, optimized inline image. Never skip an
-  // earlier (untrusted) image to prioritize a later one — that would set
-  // fetchPriority="high" on an image that cannot be the LCP.
-  const first = findFirstRenderableImageNode(node, nodePath);
-  if (!first) {
-    return null;
-  }
-  if (targetSrc !== undefined && first.src !== targetSrc) {
-    return null;
-  }
-  if (first.src.startsWith('http') && isTrustedCdnInlineImage(first.src)) {
-    return { src: first.src, nodePath: first.nodePath };
-  }
-  return null;
 }
 
 export const BlogContentRenderer = ({

@@ -124,6 +124,38 @@ describe('collectStorefrontContentLinkTargets', () => {
     });
   });
 
+  it('classifies legacy multi-segment blog permalinks by their last segment', () => {
+    const html =
+      '<a href="/blog/iphone/the-iphone-15-what-we-know">Legacy</a>' +
+      '<a href="/blog/2022/05/dated-permalink-post">Dated</a>';
+
+    expect(collectStorefrontContentLinkTargets(html)).toEqual({
+      blogSlugs: ['dated-permalink-post', 'the-iphone-15-what-we-know'],
+      productSlugs: [],
+    });
+  });
+
+  it('never classifies blog author or category subtrees as post slugs', () => {
+    const html =
+      '<a href="/blog/author/jane-doe">Author</a>' +
+      '<a href="/blog/category/gadgets">Category</a>';
+
+    expect(collectStorefrontContentLinkTargets(html)).toEqual({
+      blogSlugs: [],
+      productSlugs: [],
+    });
+  });
+
+  it('collects bare markdown URLs and trims trailing punctuation', () => {
+    const markdown =
+      'Read https://ogabassey.com/blog/bare-url-draft. Then decide.';
+
+    expect(collectStorefrontContentLinkTargets(markdown, 'ogabassey')).toEqual({
+      blogSlugs: ['bare-url-draft'],
+      productSlugs: [],
+    });
+  });
+
   it('collects hrefs from markdown link syntax', () => {
     const markdown = 'See [this post](/blog/markdown-draft) for details.';
 
@@ -381,6 +413,22 @@ describe('isDeadStorefrontContentHref', () => {
         basePath: '/ogabassey',
         deadBlogSlugs: new Set(),
         deadProductSlugs: new Set(['checkout']),
+      })
+    ).toBe(false);
+  });
+
+  it('unwraps dead legacy multi-segment blog links by their resolved slug', () => {
+    expect(
+      isDeadStorefrontContentHref('/blog/iphone/gone-legacy-post', {
+        deadBlogSlugs: new Set(['gone-legacy-post']),
+        deadProductSlugs: new Set(),
+      })
+    ).toBe(true);
+
+    expect(
+      isDeadStorefrontContentHref('/blog/author/gone-legacy-post', {
+        deadBlogSlugs: new Set(['gone-legacy-post']),
+        deadProductSlugs: new Set(),
       })
     ).toBe(false);
   });

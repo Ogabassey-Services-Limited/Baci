@@ -309,4 +309,20 @@ describe('getCachedContentLinkRewrites', () => {
       getCachedContentLinkRewrites('merchant-1', [], [ACTIVE_UUID])
     ).rejects.toThrow('products query down');
   });
+
+  it('normalizes legacy alias category segments in rewrite paths', async () => {
+    mockGetCachedProductCanonicalPaths.mockResolvedValueOnce({
+      'iphone-13-pro': '/phones/iphone-13-pro',
+    });
+
+    const rewrites = await getCachedContentLinkRewrites(
+      'merchant-1',
+      [],
+      ['iphone-13-pro']
+    );
+
+    expect(rewrites.productPaths['iphone-13-pro']).toBe(
+      '/smartphones/iphone-13-pro'
+    );
+  });
 });
