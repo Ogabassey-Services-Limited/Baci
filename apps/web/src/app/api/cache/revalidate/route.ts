@@ -189,6 +189,7 @@ export async function POST(request: NextRequest) {
             .map((product) => product.id?.trim())
             .filter((id): id is string => Boolean(id));
           const authoritativeSegmentsById = new Map<string, string | null>();
+          const authoritativeSlugsById = new Map<string, string>();
           if (idsToResolve.length > 0) {
             const { data: productRows } = await auth.supabase
               .from('products')
@@ -205,11 +206,15 @@ export async function POST(request: NextRequest) {
                 typedRow.id,
                 resolveProductPurgeCategorySegmentForRow(typedRow)
               );
+              if (typedRow.slug?.trim()) {
+                authoritativeSlugsById.set(typedRow.id, typedRow.slug.trim());
+              }
             }
           }
           const purgeEntries = buildInternalProductPurgeEntries(
             products,
-            authoritativeSegmentsById
+            authoritativeSegmentsById,
+            authoritativeSlugsById
           );
           // Base the fan-out threshold on the DISTINCT (slug, segment) count so
           // duplicate entries for one product do not inflate the count and

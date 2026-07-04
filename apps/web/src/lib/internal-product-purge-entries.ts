@@ -24,17 +24,25 @@ export function buildInternalProductPurgeEntries(
    * product, it overrides the caller's flat hints — a mobile caller only knows
    * the legacy text, which the canonical join may supersede.
    */
-  authoritativeSegmentsById?: ReadonlyMap<string, string | null>
+  authoritativeSegmentsById?: ReadonlyMap<string, string | null>,
+  /**
+   * Authoritative slugs keyed by product id (from the same server-side row
+   * lookup): an {id}-only entry for a product that HAS a slug must purge the
+   * actually-cached /products/<slug> URL, not the rarely-cached UUID path.
+   */
+  authoritativeSlugsById?: ReadonlyMap<string, string>
 ): StorefrontProductPurgeEntry[] {
   const entries: StorefrontProductPurgeEntry[] = [];
   for (const product of products) {
-    const slug = product.slug?.trim() || product.id?.trim();
+    const id = product.id?.trim();
+    const slug =
+      product.slug?.trim() ||
+      (id ? authoritativeSlugsById?.get(id)?.trim() : undefined) ||
+      id;
     if (!slug) {
       continue;
     }
-    const authoritative = product.id?.trim()
-      ? authoritativeSegmentsById?.get(product.id.trim())
-      : undefined;
+    const authoritative = id ? authoritativeSegmentsById?.get(id) : undefined;
     entries.push({
       slug,
       categorySegment:

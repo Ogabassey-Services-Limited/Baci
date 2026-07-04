@@ -2,6 +2,26 @@ import { describe, expect, it } from 'vitest';
 import { buildInternalProductPurgeEntries } from './internal-product-purge-entries';
 
 describe('buildInternalProductPurgeEntries', () => {
+  it('substitutes the authoritative row slug for id-only entries', () => {
+    const entries = buildInternalProductPurgeEntries(
+      [{ id: 'prod-1' }],
+      new Map([['prod-1', 'smartphones']]),
+      new Map([['prod-1', 'iphone-15']])
+    );
+    expect(entries).toEqual([
+      { slug: 'iphone-15', categorySegment: 'smartphones' },
+    ]);
+  });
+
+  it('keeps the id as slug when the row has no slug', () => {
+    const entries = buildInternalProductPurgeEntries(
+      [{ id: 'prod-2' }],
+      new Map([['prod-2', null]]),
+      new Map()
+    );
+    expect(entries).toEqual([{ slug: 'prod-2', categorySegment: null }]);
+  });
+
   it('derives the category segment from the legacy text category', () => {
     expect(
       buildInternalProductPurgeEntries([

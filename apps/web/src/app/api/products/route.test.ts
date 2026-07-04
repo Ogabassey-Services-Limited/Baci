@@ -27,6 +27,10 @@ vi.mock('@/lib/cache-revalidation', () => ({
 }));
 
 const mockScheduleStorefrontProductPurge = vi.fn();
+const mockGenerateProductSlug = vi.hoisted(() =>
+  vi.fn((name: string) => name.toLowerCase().replace(/\s/g, '-'))
+);
+
 vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) =>
     mockScheduleStorefrontProductPurge(...args),
@@ -95,7 +99,8 @@ vi.mock('@/lib/sanitize-core', () => ({
 vi.mock('@/lib/seo-utils', () => ({
   generateMetaDescription: (str: string) => `${str.substring(0, 50)}...`,
   generateProductSchema: () => ({ '@type': 'Product' }),
-  generateProductSlug: (name: string) => name.toLowerCase().replace(/\s/g, '-'),
+  generateProductSlug: (name: string) =>
+    mockGenerateProductSlug(name) as string,
   generateSlug: (name: string) => name.toLowerCase().replace(/\s/g, '-'),
   // Minimal canonical-path builder so resolveProductPurgeCategorySegment (the
   // real helper) resolves a category segment from the mocked product data.
@@ -681,6 +686,21 @@ describe('POST /api/products', () => {
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'test-store',
         [{ slug: 'test-product', categorySegment: 'electronics' }]
+      );
+    });
+
+    it('falls back to the created id when the generated slug is blank', async () => {
+      insertResult = { id: PRODUCT_ID, slug: '' };
+
+      // A name of only stripped characters produces an empty slug; the purge
+      // must still fire using the created row's id so listings are evicted.
+      mockGenerateProductSlug.mockReturnValueOnce('');
+      const res = await POST(makePostRequest(validCreateBody));
+
+      expect(res.status).toBe(201);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [{ slug: PRODUCT_ID, categorySegment: expect.anything() }]
       );
     });
 

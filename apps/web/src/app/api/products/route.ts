@@ -707,11 +707,16 @@ export async function POST(request: NextRequest) {
     // `body.category` (legacy text) is in hand here, so the category segment is
     // derived from it.
     try {
+      // Fall back to the created row's id when the generated slug is blank
+      // (name made only of stripped characters) — the product is addressable
+      // at /products/<id>, and an empty entry list would skip the listing
+      // purges entirely (the URL builder early-returns on zero entries).
+      const purgeSlug = slug?.trim() || product.id;
       scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
         {
-          slug,
+          slug: purgeSlug,
           categorySegment: resolveProductPurgeCategorySegment({
-            slug,
+            slug: purgeSlug,
             name: body.name,
             category: body.category,
           }),
