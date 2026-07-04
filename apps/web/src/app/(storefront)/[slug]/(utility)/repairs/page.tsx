@@ -3,12 +3,14 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { JsonLd } from '@/components/seo/json-ld';
 import { OgabasseyV2Repairs } from '@/components/storefront/ogabassey/pages/repairs';
+import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
@@ -35,7 +37,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const merchant = await getRepairsMerchant(slug);
 
-  if (merchant?.template_id !== 'ogabassey') {
+  if (merchant?.template_id !== OGABASSEY_TEMPLATE_ID) {
     return {
       title: 'Repair Service Not Found',
     };
@@ -44,8 +46,15 @@ export async function generateMetadata({
   const baseUrl = buildStoreUrl(merchant);
 
   return {
-    title: `Book a Repair - ${merchant.business_name}`,
-    description: `Schedule a device repair with ${merchant.business_name}`,
+    // Must stay distinct from /repair (the booking wizard): identical titles
+    // across the two routes get flagged as duplicates by search engines and
+    // audit tools. Absolute so the platform `%s | Baci` template never leaks
+    // onto merchant storefronts.
+    title: buildStorefrontMetadataTitle({
+      title: `Device Repairs - ${merchant.business_name}`,
+      fallback: 'Device Repairs',
+    }).metadataTitle,
+    description: `Explore phone, laptop, and gadget repair services from ${merchant.business_name} with expert technicians and genuine parts.`,
     alternates: {
       canonical: `${baseUrl}/repairs`,
     },
@@ -78,7 +87,7 @@ export default async function RepairsPage({ params }: RepairsPageProps) {
   }
 
   // Only show for Ogabassey template (merchant-specific feature)
-  if (merchant.template_id !== 'ogabassey') {
+  if (merchant.template_id !== OGABASSEY_TEMPLATE_ID) {
     notFound();
   }
 

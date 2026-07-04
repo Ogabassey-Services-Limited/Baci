@@ -16,7 +16,7 @@ import { useStorefrontSafe } from '@/contexts/storefront-context';
 import { cn } from '@/lib/utils';
 import { asRoute } from '@/lib/routes';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
-import { Logo } from '@/components/logo';
+import { Logo } from './logo';
 import { MobileMenu } from './mobile-menu';
 import { SourceRequestModal } from './source-request-modal';
 
@@ -163,7 +163,7 @@ export const Navbar: React.FC = () => {
                 <Menu size={24} />
               </button>
               <Link href={asRoute(getHref('/'))} className="shrink-0">
-                <Logo variant="light" width={80} height={28} />
+                <Logo className="h-7 w-auto" />
               </Link>
             </div>
 

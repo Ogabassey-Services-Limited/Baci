@@ -39,6 +39,15 @@ describe('storefront metadata cache bot classifier', () => {
       'Mozilla/5.0 (compatible; SemrushBot/7~bl; +http://www.semrush.com/bot.html)',
     ],
     ['SiteAuditBot-Mobile'],
+    ['Mozilla/5.0 (compatible; AhrefsBot/7.0; +http://ahrefs.com/robot/)'],
+    [
+      'Mozilla/5.0 (compatible; AhrefsSiteAudit/6.1; +http://ahrefs.com/robot/site-audit)',
+    ],
+    ['Screaming Frog SEO Spider/21.4'],
+    ['rogerbot/1.2 (https://moz.com/help/moz-procedures/crawlers/rogerbot)'],
+    [
+      'Mozilla/5.0 (compatible; DotBot/1.2; +https://opensiteexplorer.org/dotbot)',
+    ],
   ])('uses the metadata-blocking bucket for %s', (userAgent) => {
     expect(
       STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX.test(userAgent)

@@ -106,6 +106,13 @@ interface BrandComparePageModel {
 const CURATED_COMPARE_POLICY_DOC =
   'docs/superpowers/plans/2026-06-07-ogabassey-shared-comparison-spec-matrix.md';
 
+// Title uniqueness outranks SERP display length: Google reads the full
+// <title> (SERP truncation is pixel-based display-only), while the default
+// 60-char cap slices away the right-hand product's distinguishing model
+// tokens and makes dozens of "X vs Y" pages share byte-identical titles.
+// Cap only pathological product-name pairs.
+const COMPARE_META_TITLE_MAX_LENGTH = 150;
+
 const _comparePriceFormatterCache = new Map<string, Intl.NumberFormat>();
 
 function getComparePriceFormatter(
@@ -504,6 +511,7 @@ async function loadComparePageUncached(args: {
         title: compareLabel,
         suffix: merchant.business_name,
         fallback: categoryName,
+        maxLength: COMPARE_META_TITLE_MAX_LENGTH,
       }).title,
       metaDescription: `Compare ${leftDetails.name} vs ${rightDetails.name}${countrySuffix} by price, specs, condition, warranty, delivery, and buying priorities on ${merchant.business_name}.`,
       heading: compareLabel,
@@ -629,10 +637,14 @@ async function loadComparePageUncached(args: {
     canonicalUrl,
     // The page model stores a plain string; the route wraps it as
     // Metadata.title.absolute when composing the final Next metadata object.
+    // Same higher cap as the product path: a short default cap can slice a
+    // long shared categoryName prefix and collapse distinct brand-vs-brand
+    // pages into duplicate titles.
     metaTitle: buildStorefrontMetadataTitle({
       title: heading,
       suffix: merchant.business_name,
       fallback: categoryName,
+      maxLength: COMPARE_META_TITLE_MAX_LENGTH,
     }).title,
     metaDescription: `Compare ${brandCandidate.leftBrand} and ${brandCandidate.rightBrand} ${categoryName.toLowerCase()}${countrySuffix} by live model count, price range, warranty, delivery, and buying fit on ${merchant.business_name}.`,
     heading,

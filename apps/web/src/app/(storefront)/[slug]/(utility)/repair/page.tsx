@@ -2,13 +2,18 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { JsonLd } from '@/components/seo/json-ld';
 import { RepairBookingWizard } from '@/components/storefront/RepairBookingWizard';
+import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
-import { isDomainIdentifier } from '@/lib/validation';
+import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
+import {
+  isDomainIdentifier,
+  isValidMerchantIdentifier,
+} from '@/lib/validation';
 
 interface RepairPageProps {
   params: Promise<{
@@ -16,16 +21,31 @@ interface RepairPageProps {
   }>;
 }
 
+// Validate the slug BEFORE it reaches the `'use cache'` merchant lookups:
+// generateMetadata runs as its own Next metadata pass, so the [slug] layout's
+// gate does not cover it. Mirrors /repairs' getRepairsMerchant and the
+// repo-wide slug-safety pattern (#2923, #2930) that keeps bot-supplied garbage
+// slugs out of unbounded cache keys.
+async function getRepairMerchant(slug: string) {
+  if (!isValidMerchantIdentifier(slug)) {
+    return null;
+  }
+
+  const lookupKey = slug.toLowerCase();
+  return isDomainIdentifier(slug)
+    ? await getCachedMerchantByDomain(lookupKey)
+    : await getCachedMerchant(lookupKey);
+}
+
 export async function generateMetadata({
   params,
 }: RepairPageProps): Promise<Metadata> {
   const { slug } = await params;
+  const merchant = await getRepairMerchant(slug);
 
-  const merchant = isDomainIdentifier(slug)
-    ? await getCachedMerchantByDomain(slug.toLowerCase())
-    : await getCachedMerchant(slug.toLowerCase());
-
-  if (!merchant) {
+  // Repair booking is an Ogabassey-template merchant feature, mirroring the
+  // /repairs landing page gate.
+  if (merchant?.template_id !== OGABASSEY_TEMPLATE_ID) {
     return {
       title: 'Store Not Found',
     };
@@ -34,7 +54,12 @@ export async function generateMetadata({
   const baseUrl = buildStoreUrl(merchant);
 
   return {
-    title: `Book a Repair - ${merchant.business_name}`,
+    // Absolute so the platform `%s | Baci` template never leaks onto
+    // merchant storefronts.
+    title: buildStorefrontMetadataTitle({
+      title: `Book a Repair - ${merchant.business_name}`,
+      fallback: 'Book a Repair',
+    }).metadataTitle,
     description: `Book phone, laptop, console and gadget repairs with ${merchant.business_name}. Check diagnosis, fault details, service expectations and support before submitting a repair request.`,
     alternates: {
       canonical: `${baseUrl}/repair`,
@@ -44,12 +69,10 @@ export async function generateMetadata({
 
 export default async function RepairPage({ params }: RepairPageProps) {
   const { slug } = await params;
+  const merchant = await getRepairMerchant(slug);
 
-  const merchant = isDomainIdentifier(slug)
-    ? await getCachedMerchantByDomain(slug.toLowerCase())
-    : await getCachedMerchant(slug.toLowerCase());
-
-  if (!merchant) {
+  // Only show for Ogabassey template (merchant-specific feature)
+  if (merchant?.template_id !== OGABASSEY_TEMPLATE_ID) {
     notFound();
   }
 

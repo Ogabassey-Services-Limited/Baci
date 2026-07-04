@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCachedMerchant } from '@/lib/cached-data';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
+import { isValidMerchantIdentifier } from '@/lib/validation';
 
 vi.mock('@/components/storefront/RepairBookingWizard', () => ({
   RepairBookingWizard: ({
@@ -23,6 +27,7 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('@/lib/validation', () => ({
   isDomainIdentifier: vi.fn(() => false),
+  isValidMerchantIdentifier: vi.fn(() => true),
 }));
 
 const notFound = vi.fn(() => {
@@ -45,6 +50,7 @@ describe('RepairPage', () => {
     vi.mocked(getCachedMerchant).mockResolvedValue({
       id: 'merchant-1',
       business_name: 'Ogabassey',
+      template_id: 'ogabassey',
     } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
 
     const { container } = render(
@@ -76,16 +82,20 @@ describe('RepairPage', () => {
     ]);
   });
 
-  it('returns repair metadata with a useful service description', async () => {
+  it('returns repair metadata with an absolute title and a useful service description', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValue({
       business_name: 'Ogabassey',
       slug: 'ogabassey',
+      template_id: 'ogabassey',
     } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
 
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'ogabassey' }),
     });
 
+    // Absolute so the platform `%s | Baci` template never applies, and
+    // distinct from the /repairs landing-page title.
+    expect(metadata.title).toEqual({ absolute: 'Book a Repair - Ogabassey' });
     expect(metadata.description).toContain('phone, laptop, console');
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.usebaci.com/repair'
@@ -98,5 +108,56 @@ describe('RepairPage', () => {
     await expect(
       RepairPage({ params: Promise.resolve({ slug: 'missing' }) })
     ).rejects.toThrow('NEXT_NOT_FOUND');
+  });
+
+  it('throws notFound for merchants that are not on the Ogabassey template', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue({
+      id: 'merchant-2',
+      business_name: 'Other Store',
+      template_id: 'default',
+    } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
+
+    await expect(
+      RepairPage({ params: Promise.resolve({ slug: 'other-store' }) })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+  });
+
+  it('returns not-found metadata for merchants that are not on the Ogabassey template', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue({
+      business_name: 'Other Store',
+      slug: 'other-store',
+      template_id: 'default',
+    } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'other-store' }),
+    });
+
+    expect(metadata.title).toBe('Store Not Found');
+  });
+
+  it('rejects invalid slugs before reaching the cached merchant lookups', async () => {
+    vi.mocked(isValidMerchantIdentifier).mockReturnValueOnce(false);
+
+    await expect(
+      RepairPage({
+        params: Promise.resolve({ slug: '%2525'.repeat(500) }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    // The unbounded `'use cache'` keys must never see a bot-supplied slug.
+    expect(getCachedMerchant).not.toHaveBeenCalled();
+    expect(getCachedMerchantByDomain).not.toHaveBeenCalled();
+  });
+
+  it('returns not-found metadata for invalid slugs without a cached lookup', async () => {
+    vi.mocked(isValidMerchantIdentifier).mockReturnValueOnce(false);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: '../../etc/passwd' }),
+    });
+
+    expect(metadata.title).toBe('Store Not Found');
+    expect(getCachedMerchant).not.toHaveBeenCalled();
   });
 });
