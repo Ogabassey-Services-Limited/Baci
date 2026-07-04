@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PURGE_LISTINGS_ONLY_THRESHOLD } from '@/lib/storefront-product-purge-urls';
 
 // ---- Mocks ----
 
@@ -507,14 +508,18 @@ describe('POST /api/products/bulk-update', () => {
 
   it('purges only listing surfaces past the per-op product threshold', async () => {
     const { POST } = await import('./route');
-    // One update matching 51 rows exceeds the listings-only threshold (50).
-    productUpdateSelectRows = Array.from({ length: 51 }, (_, index) => ({
-      id: `p-${index}`,
-      slug: `slug-${index}`,
-      category: 'Electronics',
-      categories: null,
-      product_categories: [],
-    }));
+    // One update matching more rows than the shared threshold triggers the
+    // listings-only fan-out guard.
+    productUpdateSelectRows = Array.from(
+      { length: PURGE_LISTINGS_ONLY_THRESHOLD + 1 },
+      (_, index) => ({
+        id: `p-${index}`,
+        slug: `slug-${index}`,
+        category: 'Electronics',
+        categories: null,
+        product_categories: [],
+      })
+    );
 
     await POST(
       makeRequest({

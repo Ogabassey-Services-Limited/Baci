@@ -56,7 +56,14 @@ export async function revalidateStorefrontProducts(
         ...(activeMerchantId ? { merchantId: activeMerchantId } : {}),
       }),
     });
-  } catch {
-    // Intentionally swallowed — see the fail-safe contract above.
+  } catch (error) {
+    // Fire-and-forget: a stale storefront cache self-heals on its TTL, so a
+    // failed purge must NEVER surface to the merchant (see the fail-safe
+    // contract above). Log for observability instead of swallowing silently.
+    console.warn('[Storefront Revalidate] purge request failed', {
+      error: error instanceof Error ? error.message : String(error),
+      productCount: entries.length,
+      merchantId: activeMerchantId,
+    });
   }
 }

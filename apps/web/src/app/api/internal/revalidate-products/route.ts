@@ -5,14 +5,11 @@ import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { buildInternalProductPurgeEntries } from '@/lib/internal-product-purge-entries';
 import { logger } from '@/lib/logger';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
-import { countDistinctProductPurgeEntries } from '@/lib/storefront-purge-urls';
+import {
+  countDistinctProductPurgeEntries,
+  PURGE_LISTINGS_ONLY_THRESHOLD,
+} from '@/lib/storefront-product-purge-urls';
 import { internalRevalidateProductsBodySchema } from '@/schemas/internal-revalidate-products-route';
-
-// Past this many products in one request, purge only the shared listing
-// surfaces (home, /products, distinct /<category>) to bound the outbound
-// fan-out against Cloudflare's per-request URL budget; the short-TTL PDPs
-// self-heal. Mirrors the bulk-update route threshold.
-const PURGE_LISTINGS_ONLY_THRESHOLD = 50;
 
 /**
  * Internal product-cache revalidation endpoint.

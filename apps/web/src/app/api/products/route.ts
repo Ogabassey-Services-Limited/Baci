@@ -32,7 +32,7 @@ import {
   generateSlug,
 } from '@/lib/seo-utils';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
-import { resolveProductPurgeCategorySegment } from '@/lib/storefront-purge-urls';
+import { resolveProductPurgeCategorySegment } from '@/lib/storefront-product-purge-urls';
 import { createClient } from '@/lib/supabase/server';
 import { productListQuerySchema } from '@/schemas/product-list-query';
 import { createProductSchema, formatZodErrors } from '@/schemas/products';

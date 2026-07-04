@@ -4,7 +4,7 @@ import {
   type BuildStorefrontProductPurgeUrlsOptions,
   buildStorefrontProductPurgeUrls,
   type StorefrontProductPurgeEntry,
-} from '@/lib/storefront-purge-urls';
+} from '@/lib/storefront-product-purge-urls';
 
 /**
  * Fire-and-forget Cloudflare eviction of a product's affected public URLs.

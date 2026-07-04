@@ -72,11 +72,27 @@ describe('revalidateStorefrontProducts', () => {
     expect(mocks.apiClient).not.toHaveBeenCalled();
   });
 
-  it('never throws when the request fails (fire-and-forget)', async () => {
+  it('never throws when the request fails (fire-and-forget) and logs a warning', async () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
     mocks.apiClient.mockRejectedValueOnce(new Error('network down'));
 
-    await expect(
-      revalidateStorefrontProducts([{ slug: 'iphone-15' }])
-    ).resolves.toBeUndefined();
+    try {
+      await expect(
+        revalidateStorefrontProducts([{ slug: 'iphone-15' }], 'merchant-7')
+      ).resolves.toBeUndefined();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[Storefront Revalidate] purge request failed',
+        expect.objectContaining({
+          error: 'network down',
+          productCount: 1,
+          merchantId: 'merchant-7',
+        })
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });

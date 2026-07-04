@@ -12,19 +12,13 @@ import { generateProductSlug, generateSlug } from '@/lib/seo-utils';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
   countDistinctProductPurgeEntries,
+  PURGE_LISTINGS_ONLY_THRESHOLD,
   resolveProductPurgeCategorySegment,
   resolveProductPurgeCategorySegmentForRow,
   type StorefrontProductPurgeEntry,
-} from '@/lib/storefront-purge-urls';
+} from '@/lib/storefront-product-purge-urls';
 import { createClient } from '@/lib/supabase/server';
 import { BulkUpdateChangesSchema } from '@/schemas/dashboard-product-import-actions';
-
-// Above this many affected products in a single bulk op, purge only the shared
-// listing surfaces (home, /products, and each distinct /<category>) and skip
-// the per-PDP URLs. This bounds the outbound fan-out against Cloudflare's
-// per-request URL budget (30 URLs/batch); the short-TTL PDPs self-heal, and the
-// listings every product shares are still evicted.
-const BULK_PURGE_LISTINGS_ONLY_THRESHOLD = 50;
 
 // The columns a bulk-affected product row must return so its canonical PDP
 // purge URL can be derived (id is the slug fallback for legacy null-slug rows;
@@ -318,7 +312,7 @@ export async function POST(request: NextRequest) {
         merchantContext.merchantSlug,
         purgeEntries,
         {
-          listingsOnly: distinctPurgeCount > BULK_PURGE_LISTINGS_ONLY_THRESHOLD,
+          listingsOnly: distinctPurgeCount > PURGE_LISTINGS_ONLY_THRESHOLD,
         }
       );
     } catch (purgeError) {

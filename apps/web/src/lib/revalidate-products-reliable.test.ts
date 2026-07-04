@@ -16,6 +16,7 @@ vi.mock('@/env', () => ({
 }));
 
 import { revalidateProductsReliable } from '@/lib/revalidate-products-reliable';
+import { PURGE_LISTINGS_ONLY_THRESHOLD } from '@/lib/storefront-product-purge-urls';
 
 describe('revalidateProductsReliable', () => {
   const originalBaseUrl = process.env.BACI_WEB_BASE_URL;
@@ -128,12 +129,36 @@ describe('revalidateProductsReliable', () => {
       products: [{ slug: 'iphone-15', category: 'Smartphones' }],
     });
 
-    // In-process path: no HTTP call, purge scheduled directly.
+    // In-process path: no HTTP call, purge scheduled directly. A single product
+    // is well under the fan-out threshold, so per-PDP purges are kept.
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
-      [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+      { listingsOnly: false }
     );
+  });
+
+  it('purges only listing surfaces in-process past the distinct-count threshold', async () => {
+    mockRevalidateProducts.mockReturnValue(undefined);
+    const fetchImpl = vi.fn();
+    // More DISTINCT products than the shared fan-out threshold mirrors the HTTP
+    // route's guard so a large mutation does not fan out one purge per PDP.
+    const products = Array.from(
+      { length: PURGE_LISTINGS_ONLY_THRESHOLD + 1 },
+      (_, index) => ({ slug: `product-${index}`, category: 'Smartphones' })
+    );
+
+    await revalidateProductsReliable('merchant-1', {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      merchantSlug: 'ogabassey',
+      products,
+    });
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    const call = mockScheduleStorefrontProductPurge.mock.calls[0];
+    expect(call?.[0]).toBe('ogabassey');
+    expect(call?.[2]).toEqual({ listingsOnly: true });
   });
 
   it('forwards merchantSlug + products in the HTTP fallback body', async () => {

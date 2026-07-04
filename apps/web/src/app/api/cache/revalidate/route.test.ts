@@ -101,8 +101,12 @@ function makeRequest(body: Record<string, unknown>) {
 
 // Merchant row returned by the slug lookup the product-purge path performs.
 let merchantSlugRow: { slug: string | null } | null = { slug: 'ogabassey' };
+// Optional error the merchant slug lookup surfaces (fail-open coverage).
+let merchantSlugError: { message: string } | null = null;
 // Product rows returned by the authoritative category lookup (id → row).
 let productCategoryRows: Record<string, unknown>[] = [];
+// Optional error the authoritative product-row lookup surfaces (fail-open).
+let productRowsError: { message: string } | null = null;
 
 function makeSupabaseMock() {
   return {
@@ -110,12 +114,19 @@ function makeSupabaseMock() {
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
           maybeSingle: vi.fn(() =>
-            Promise.resolve({ data: merchantSlugRow, error: null })
+            Promise.resolve({
+              data: merchantSlugError ? null : merchantSlugRow,
+              error: merchantSlugError,
+            })
           ),
           in: vi.fn(() =>
             Promise.resolve({
-              data: table === 'products' ? productCategoryRows : [],
-              error: null,
+              data: productRowsError
+                ? null
+                : table === 'products'
+                  ? productCategoryRows
+                  : [],
+              error: productRowsError,
             })
           ),
         })),
@@ -156,7 +167,9 @@ describe('POST /api/cache/revalidate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     merchantSlugRow = { slug: 'ogabassey' };
+    merchantSlugError = null;
     productCategoryRows = [];
+    productRowsError = null;
     setupCsrf(true);
     mockGetMerchantBlogCacheIdentifiers.mockResolvedValue({
       identifiers: ['test-store', 'ogabassey.com'],
@@ -585,6 +598,76 @@ describe('POST /api/cache/revalidate', () => {
       );
 
       expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+    });
+
+    it('logs and still purges from caller hints when the authoritative product-row lookup errors', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      try {
+        setupAuth(true, true);
+        // The authoritative row lookup fails, but the merchant slug still
+        // resolves — the purge must fail open onto the caller's flat text hint.
+        productRowsError = { message: 'db unavailable' };
+
+        const res = await POST(
+          makeRequest({
+            targets: ['products'],
+            products: [{ slug: 'buds-pro', id: 'prod-1', category: 'Audio' }],
+          })
+        );
+
+        expect(res.status).toBe(200);
+        // Fell back to the caller's "Audio" text hint (→ "audio") for the segment.
+        expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+          'ogabassey',
+          [{ slug: 'buds-pro', categorySegment: 'audio' }],
+          { listingsOnly: false }
+        );
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          expect.stringContaining(
+            'Failed to resolve authoritative product rows'
+          ),
+          expect.objectContaining({
+            merchantId: MERCHANT_ID,
+            error: { message: 'db unavailable' },
+          })
+        );
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
+    });
+
+    it('logs and skips the (survivable) purge when the merchant slug lookup errors', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      try {
+        setupAuth(true, true);
+        merchantSlugError = { message: 'db unavailable' };
+
+        const res = await POST(
+          makeRequest({
+            targets: ['products'],
+            products: [
+              { slug: 'iphone-15', id: 'prod-1', category: 'Smartphones' },
+            ],
+          })
+        );
+
+        // Revalidation still succeeds; only the fail-open purge is skipped.
+        expect(res.status).toBe(200);
+        expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Failed to resolve merchant slug'),
+          expect.objectContaining({
+            merchantId: MERCHANT_ID,
+            error: { message: 'db unavailable' },
+          })
+        );
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
     });
 
     it('revalidates categories cache when categories target specified', async () => {

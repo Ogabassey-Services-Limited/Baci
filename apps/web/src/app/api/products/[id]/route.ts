@@ -41,7 +41,7 @@ import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
   resolveProductPurgeCategorySegmentForRow,
   type StorefrontProductPurgeEntry,
-} from '@/lib/storefront-purge-urls';
+} from '@/lib/storefront-product-purge-urls';
 import { createClient } from '@/lib/supabase/server';
 import { formatZodErrors, updateProductSchema } from '@/schemas/products';
 

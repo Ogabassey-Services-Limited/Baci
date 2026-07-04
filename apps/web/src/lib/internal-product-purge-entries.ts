@@ -1,7 +1,7 @@
 import {
   resolveProductPurgeCategorySegment,
   type StorefrontProductPurgeEntry,
-} from '@/lib/storefront-purge-urls';
+} from '@/lib/storefront-product-purge-urls';
 import type { InternalRevalidateProductEntry } from '@/schemas/internal-revalidate-products-route';
 
 /**

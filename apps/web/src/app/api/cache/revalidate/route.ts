@@ -29,14 +29,10 @@ import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
   countDistinctProductPurgeEntries,
   type ProductPurgeCategoryRow,
+  PURGE_LISTINGS_ONLY_THRESHOLD,
   resolveProductPurgeCategorySegmentForRow,
-} from '@/lib/storefront-purge-urls';
+} from '@/lib/storefront-product-purge-urls';
 import { internalRevalidateProductEntrySchema } from '@/schemas/internal-revalidate-products-route';
-
-// Past this many products, purge only the shared listing surfaces (home,
-// /products, distinct /<category>) to bound the outbound fan-out against
-// Cloudflare's per-request URL budget; the short-TTL PDPs self-heal.
-const PURGE_LISTINGS_ONLY_THRESHOLD = 50;
 
 /**
  * Cache Revalidation API
@@ -174,11 +170,21 @@ export async function POST(request: NextRequest) {
     // survivable, so it never fails the revalidation.
     if (products && products.length > 0) {
       try {
-        const { data: merchantRow } = await auth.supabase
-          .from('merchants')
-          .select('slug')
-          .eq('id', merchantId)
-          .maybeSingle();
+        const { data: merchantRow, error: merchantLookupError } =
+          await auth.supabase
+            .from('merchants')
+            .select('slug')
+            .eq('id', merchantId)
+            .maybeSingle();
+        if (merchantLookupError) {
+          // Fail-open: log for observability but continue with whatever data
+          // came back — a stale storefront cache self-heals on its TTL, so a
+          // failed purge must never fail the revalidation.
+          console.error(
+            'Failed to resolve merchant slug for Cloudflare product purge (continuing with available data):',
+            { merchantId, error: merchantLookupError }
+          );
+        }
         const merchantSlug = merchantRow?.slug ?? null;
         if (merchantSlug) {
           // Resolve authoritative category segments from the product ROWS so a
@@ -191,13 +197,22 @@ export async function POST(request: NextRequest) {
           const authoritativeSegmentsById = new Map<string, string | null>();
           const authoritativeSlugsById = new Map<string, string>();
           if (idsToResolve.length > 0) {
-            const { data: productRows } = await auth.supabase
-              .from('products')
-              .select(
-                'id, slug, name, category, categories:category_id(slug), product_categories(categories(slug))'
-              )
-              .eq('merchant_id', merchantId)
-              .in('id', idsToResolve);
+            const { data: productRows, error: productRowsError } =
+              await auth.supabase
+                .from('products')
+                .select(
+                  'id, slug, name, category, categories:category_id(slug), product_categories(categories(slug))'
+                )
+                .eq('merchant_id', merchantId)
+                .in('id', idsToResolve);
+            if (productRowsError) {
+              // Fail-open: log and fall through — with no authoritative rows the
+              // purge still fires from the caller's flat category hints below.
+              console.error(
+                'Failed to resolve authoritative product rows for Cloudflare product purge (continuing with caller hints):',
+                { merchantId, error: productRowsError }
+              );
+            }
             for (const row of productRows ?? []) {
               const typedRow = row as unknown as ProductPurgeCategoryRow & {
                 id: string;

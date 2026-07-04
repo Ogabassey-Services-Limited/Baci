@@ -15,9 +15,11 @@ vi.mock('@/lib/cloudflare-purge', () => ({
 }));
 // Keep the real URL builder (so purge-URL assertions run against real output)
 // but make it spy-able so one test can force it to throw.
-vi.mock('@/lib/storefront-purge-urls', async (importOriginal) => {
+vi.mock('@/lib/storefront-product-purge-urls', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('@/lib/storefront-purge-urls')>();
+    await importOriginal<
+      typeof import('@/lib/storefront-product-purge-urls')
+    >();
   return {
     ...actual,
     buildStorefrontProductPurgeUrls: vi.fn(
@@ -26,7 +28,7 @@ vi.mock('@/lib/storefront-purge-urls', async (importOriginal) => {
   };
 });
 
-import { buildStorefrontProductPurgeUrls } from '@/lib/storefront-purge-urls';
+import { buildStorefrontProductPurgeUrls } from '@/lib/storefront-product-purge-urls';
 // ---- Import function AFTER mocks ----
 import { scheduleStorefrontProductPurge } from './storefront-product-purge';
 

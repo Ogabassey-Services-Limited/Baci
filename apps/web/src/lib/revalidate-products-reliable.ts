@@ -2,6 +2,10 @@ import { getAppUrl, getInternalApiSecret } from '@/env';
 import { revalidateProducts } from '@/lib/cache-revalidation';
 import { buildInternalProductPurgeEntries } from '@/lib/internal-product-purge-entries';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
+import {
+  countDistinctProductPurgeEntries,
+  PURGE_LISTINGS_ONLY_THRESHOLD,
+} from '@/lib/storefront-product-purge-urls';
 import type { InternalRevalidateProductEntry } from '@/schemas/internal-revalidate-products-route';
 
 interface RevalidateProductsReliableOptions {
@@ -53,10 +57,14 @@ export async function revalidateProductsReliable(
     // Cloudflare purge can be scheduled in-process too (scheduleStorefrontProductPurge
     // is guarded and never throws). Return before the HTTP fallback.
     if (shouldPurge && merchantSlug && products) {
-      scheduleStorefrontProductPurge(
-        merchantSlug,
-        buildInternalProductPurgeEntries(products)
-      );
+      // Mirror the HTTP route's fan-out guard: base the listings-only decision
+      // on the DISTINCT (slug, segment) count so duplicate entries for one
+      // product do not inflate the count and wrongly suppress its per-PDP purge.
+      const purgeEntries = buildInternalProductPurgeEntries(products);
+      const distinctPurgeCount = countDistinctProductPurgeEntries(purgeEntries);
+      scheduleStorefrontProductPurge(merchantSlug, purgeEntries, {
+        listingsOnly: distinctPurgeCount > PURGE_LISTINGS_ONLY_THRESHOLD,
+      });
     }
     return;
   } catch {
