@@ -15,6 +15,7 @@ import Link from 'next/link';
 import type React from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
+import { normalizeSocialUrl, type SocialPlatform } from '@/lib/social';
 import { Logo } from './logo';
 
 // Only routes that exist for every merchant storefront: this template is
@@ -34,14 +35,18 @@ const SERVICE_LINKS = [
   { label: 'Contact Support', path: '/contact' },
 ] as const;
 
-const SOCIAL_LINKS = [
+const SOCIAL_LINKS: {
+  key: SocialPlatform;
+  label: string;
+  Icon: React.ElementType;
+}[] = [
   { key: 'instagram', label: 'Instagram', Icon: Instagram },
   { key: 'facebook', label: 'Facebook', Icon: Facebook },
   { key: 'tiktok', label: 'TikTok', Icon: Music },
   { key: 'twitter', label: 'Twitter', Icon: Twitter },
   { key: 'youtube', label: 'YouTube', Icon: Youtube },
   { key: 'linkedin', label: 'LinkedIn', Icon: Linkedin },
-] as const;
+];
 
 export const Footer: React.FC = () => {
   const merchantContext = useMerchantSafe();
@@ -49,7 +54,17 @@ export const Footer: React.FC = () => {
   const basePath = merchantContext?.basePath || '';
   const getHref = (path: string) => asRoute(`${basePath}${path}`);
   const socialMedia = merchant?.social_media ?? {};
-  const socialLinks = SOCIAL_LINKS.filter(({ key }) => socialMedia[key]);
+  // Merchants may save bare handles (e.g. `@techhub`) or full URLs; normalize
+  // both into real profile URLs and drop anything that doesn't resolve, so we
+  // never emit a handle as a relative storefront href.
+  const socialLinks = SOCIAL_LINKS.map(({ key, label, Icon }) => ({
+    key,
+    label,
+    Icon,
+    url: normalizeSocialUrl(socialMedia[key], key),
+  })).filter((link): link is typeof link & { url: string } =>
+    Boolean(link.url)
+  );
   const legalName = merchant?.legal_entity_name || merchant?.business_name;
 
   return (
@@ -80,10 +95,10 @@ export const Footer: React.FC = () => {
             </Link>
             {socialLinks.length > 0 && (
               <div className="flex items-center gap-4 flex-wrap">
-                {socialLinks.map(({ key, label, Icon }) => (
+                {socialLinks.map(({ key, label, Icon, url }) => (
                   <a
                     key={key}
-                    href={socialMedia[key]}
+                    href={url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-gray-400 hover:text-white transition-colors"

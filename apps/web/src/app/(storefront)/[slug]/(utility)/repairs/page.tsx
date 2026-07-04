@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { JsonLd } from '@/components/seo/json-ld';
 import { OgabasseyV2Repairs } from '@/components/storefront/ogabassey/pages/repairs';
+import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
@@ -36,7 +37,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const merchant = await getRepairsMerchant(slug);
 
-  if (merchant?.template_id !== 'ogabassey') {
+  if (merchant?.template_id !== OGABASSEY_TEMPLATE_ID) {
     return {
       title: 'Repair Service Not Found',
     };
@@ -86,7 +87,7 @@ export default async function RepairsPage({ params }: RepairsPageProps) {
   }
 
   // Only show for Ogabassey template (merchant-specific feature)
-  if (merchant.template_id !== 'ogabassey') {
+  if (merchant.template_id !== OGABASSEY_TEMPLATE_ID) {
     notFound();
   }
 

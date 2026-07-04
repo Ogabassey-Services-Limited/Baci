@@ -637,10 +637,14 @@ async function loadComparePageUncached(args: {
     canonicalUrl,
     // The page model stores a plain string; the route wraps it as
     // Metadata.title.absolute when composing the final Next metadata object.
+    // Same higher cap as the product path: a short default cap can slice a
+    // long shared categoryName prefix and collapse distinct brand-vs-brand
+    // pages into duplicate titles.
     metaTitle: buildStorefrontMetadataTitle({
       title: heading,
       suffix: merchant.business_name,
       fallback: categoryName,
+      maxLength: COMPARE_META_TITLE_MAX_LENGTH,
     }).title,
     metaDescription: `Compare ${brandCandidate.leftBrand} and ${brandCandidate.rightBrand} ${categoryName.toLowerCase()}${countrySuffix} by live model count, price range, warranty, delivery, and buying fit on ${merchant.business_name}.`,
     heading,

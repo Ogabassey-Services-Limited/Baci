@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCachedMerchant } from '@/lib/cached-data';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
+import { isValidMerchantIdentifier } from '@/lib/validation';
 
 vi.mock('@/components/storefront/RepairBookingWizard', () => ({
   RepairBookingWizard: ({
@@ -23,6 +27,7 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('@/lib/validation', () => ({
   isDomainIdentifier: vi.fn(() => false),
+  isValidMerchantIdentifier: vi.fn(() => true),
 }));
 
 const notFound = vi.fn(() => {
@@ -129,5 +134,30 @@ describe('RepairPage', () => {
     });
 
     expect(metadata.title).toBe('Store Not Found');
+  });
+
+  it('rejects invalid slugs before reaching the cached merchant lookups', async () => {
+    vi.mocked(isValidMerchantIdentifier).mockReturnValueOnce(false);
+
+    await expect(
+      RepairPage({
+        params: Promise.resolve({ slug: '%2525'.repeat(500) }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    // The unbounded `'use cache'` keys must never see a bot-supplied slug.
+    expect(getCachedMerchant).not.toHaveBeenCalled();
+    expect(getCachedMerchantByDomain).not.toHaveBeenCalled();
+  });
+
+  it('returns not-found metadata for invalid slugs without a cached lookup', async () => {
+    vi.mocked(isValidMerchantIdentifier).mockReturnValueOnce(false);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: '../../etc/passwd' }),
+    });
+
+    expect(metadata.title).toBe('Store Not Found');
+    expect(getCachedMerchant).not.toHaveBeenCalled();
   });
 });

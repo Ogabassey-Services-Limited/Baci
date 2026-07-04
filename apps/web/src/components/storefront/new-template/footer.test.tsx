@@ -71,6 +71,28 @@ describe('gadgets-pro Footer', () => {
     expect(screen.queryByRole('link', { name: 'Twitter' })).toBeNull();
   });
 
+  it('normalizes bare social handles into absolute profile URLs', () => {
+    mockUseMerchantSafe.mockReturnValue({
+      merchant: {
+        ...merchant,
+        social_media: { instagram: '@techhub', facebook: 'techhubng' },
+      },
+      basePath: '/tech-hub',
+    });
+
+    render(<Footer />);
+
+    // A handle must never render as a relative storefront href.
+    expect(screen.getByRole('link', { name: 'Instagram' })).toHaveAttribute(
+      'href',
+      'https://instagram.com/techhub'
+    );
+    expect(screen.getByRole('link', { name: 'Facebook' })).toHaveAttribute(
+      'href',
+      'https://facebook.com/techhubng'
+    );
+  });
+
   it('shows the merchant contact details and legal-entity copyright', () => {
     render(<Footer />);
 
