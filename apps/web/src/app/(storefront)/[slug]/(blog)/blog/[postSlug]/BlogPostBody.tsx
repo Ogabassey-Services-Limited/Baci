@@ -9,10 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { removeDuplicateLegacyFeaturedImage } from '@/lib/blog-legacy-featured-image-dedupe';
-import {
-  isDeadStorefrontContentHref,
-  rewriteStorefrontContentHref,
-} from '@/lib/storefront-content-link-targets';
+import { rewriteStorefrontContentHref } from '@/lib/storefront-content-link-rewriting';
+import { isDeadStorefrontContentHref } from '@/lib/storefront-content-link-targets';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { BlogVideoPanel } from './BlogVideoPanel';
 import { resolveContentLinks } from './blog-content-link-resolution';
@@ -82,7 +80,8 @@ export async function BlogPostBody({
   const { deadContentLinks, rewrites } = await resolveContentLinks(
     content,
     merchantId,
-    merchantSlug
+    merchantSlug,
+    baseUrl
   );
   const deadBlogSlugs = new Set(deadContentLinks.blog);
   const deadProductSlugs = new Set(deadContentLinks.products);

@@ -12,10 +12,12 @@ import { generateHeadingId } from '@/lib/blog-utils';
 import { logger } from '@/lib/logger';
 import { sanitizeUrl } from '@/lib/sanitize-core';
 import {
-  type DeadStorefrontContentLinkSlugs,
-  isDeadStorefrontContentHref,
   rewriteStorefrontContentHref,
   type StorefrontContentLinkRewrites,
+} from '@/lib/storefront-content-link-rewriting';
+import {
+  type DeadStorefrontContentLinkSlugs,
+  isDeadStorefrontContentHref,
 } from '@/lib/storefront-content-link-targets';
 import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
 import { cn } from '@/lib/utils';

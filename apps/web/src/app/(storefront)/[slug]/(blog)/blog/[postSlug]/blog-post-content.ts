@@ -11,10 +11,8 @@ import { sanitizeHtml } from '@/lib/sanitize';
 import { buildStoreUrl } from '@/lib/store-url';
 import { unwrapDeadHtmlAnchors } from '@/lib/storefront-html-anchor-unwrapping';
 import { rewriteHtmlStorefrontHrefs } from '@/lib/storefront-html-link-rewriting';
-import {
-  type NormalizeStorefrontContentHrefOptions,
-  normalizeStorefrontContentHref,
-} from '@/lib/storefront-link-normalization';
+import type { NormalizeStorefrontContentHrefOptions } from '@/lib/storefront-link-normalization';
+import { normalizeBlogContentLinks } from './blog-content-link-mark-normalization';
 import {
   ensureBlogImageAltText,
   transformImageTitlesToFigureCaptions,
@@ -115,95 +113,6 @@ function tryParseJson(content: unknown): unknown | null {
       return null;
     }
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function stripNofollowToken(rel: string): string {
-  return rel
-    .split(/\s+/)
-    .filter((token) => token && token.toLowerCase() !== 'nofollow')
-    .join(' ');
-}
-
-function normalizeBlogContentLinkMark(
-  mark: unknown,
-  options: NormalizeStorefrontContentHrefOptions
-): unknown {
-  if (!isRecord(mark) || mark.type !== 'link' || !isRecord(mark.attrs)) {
-    return mark;
-  }
-
-  const rawHref = mark.attrs.href;
-  if (typeof rawHref !== 'string') {
-    return mark;
-  }
-
-  const normalizedHref = normalizeStorefrontContentHref(rawHref, options);
-  const nextAttrs: Record<string, unknown> = { ...mark.attrs };
-  let changed = false;
-
-  if (normalizedHref !== rawHref) {
-    nextAttrs.href = normalizedHref;
-    changed = true;
-  }
-
-  if (typeof nextAttrs.rel === 'string') {
-    const normalizedRel = stripNofollowToken(nextAttrs.rel);
-    if (normalizedRel) {
-      if (normalizedRel !== nextAttrs.rel) {
-        nextAttrs.rel = normalizedRel;
-        changed = true;
-      }
-    } else {
-      delete nextAttrs.rel;
-      changed = true;
-    }
-  }
-
-  return changed ? { ...mark, attrs: nextAttrs } : mark;
-}
-
-function normalizeBlogContentLinks(
-  content: unknown,
-  options: NormalizeStorefrontContentHrefOptions
-): unknown {
-  if (!isRecord(content)) {
-    return content;
-  }
-
-  const nextContent: Record<string, unknown> = { ...content };
-  let changed = false;
-
-  if (Array.isArray(content.content)) {
-    const normalizedChildren = content.content.map((child) => {
-      const normalizedChild = normalizeBlogContentLinks(child, options);
-      changed ||= normalizedChild !== child;
-      return normalizedChild;
-    });
-
-    if (changed) {
-      nextContent.content = normalizedChildren;
-    }
-  }
-
-  if (Array.isArray(content.marks)) {
-    let marksChanged = false;
-    const normalizedMarks = content.marks.map((mark) => {
-      const normalizedMark = normalizeBlogContentLinkMark(mark, options);
-      marksChanged ||= normalizedMark !== mark;
-      return normalizedMark;
-    });
-
-    if (marksChanged) {
-      nextContent.marks = normalizedMarks;
-      changed = true;
-    }
-  }
-
-  return changed ? nextContent : content;
 }
 
 type ResolveBlogPostContentOptions = NormalizeStorefrontContentHrefOptions & {

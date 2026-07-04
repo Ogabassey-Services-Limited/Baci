@@ -1,4 +1,3 @@
-import { STOREFRONT_CATEGORY_ALIASES } from '@/lib/normalize-storefront-category-slug';
 import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
 
 /**
@@ -15,21 +14,12 @@ import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalizat
 const HREF_ATTRIBUTE_REGEX = /\bhref\\?["']?\s*[:=]\s*\\?["']([^"'\\<>\s]+)/gi;
 const MARKDOWN_LINK_REGEX = /\]\(([^()\s]+)\)/g;
 
-// Category segments whose `/<category>/<slug>` links are validated as PDP
-// links. Restricted to the platform alias table so unknown merchant-specific
-// segments are never misclassified as product links.
-const PRODUCT_CATEGORY_SEGMENTS = new Set<string>([
-  ...Object.keys(STOREFRONT_CATEGORY_ALIASES),
-  ...Object.values(STOREFRONT_CATEGORY_ALIASES),
-]);
-
-// First segments that are never merchant category pages. The BROAD classifier
-// (collection + canonical rewriting) treats any other two-segment path as a
-// product-link candidate so links under merchant-specific categories
-// (/audio/x, /gaming/x, …) can be canonicalized. The strict classifier keeps
-// unwrapping conservative: destroying a link on a misclassified segment is
-// worse than leaving it, while rewriting only ever acts on slugs the resolver
-// matched to a real product.
+// First segments that are never merchant category pages. Any other
+// two-segment path is treated as a product-link candidate so links under
+// merchant-specific categories (/audio/x, /gaming/x, …) participate in
+// canonical rewriting and dead-link detection. Unwrapping stays safe despite
+// the broad classification because dead-set MEMBERSHIP decides: only slugs
+// that were collected, looked up, and confirmed dead can ever match.
 const NON_PRODUCT_FIRST_SEGMENTS = new Set([
   'about',
   'account',
@@ -110,8 +100,7 @@ function getPathSegments(pathname: string, merchantSlug?: string): string[] {
 }
 
 function classifySegments(
-  segments: string[],
-  mode: 'strict' | 'broad' = 'strict'
+  segments: string[]
 ): { kind: 'blog' | 'product'; slug: string } | null {
   if (segments.length !== 2) {
     return null;
@@ -126,15 +115,11 @@ function classifySegments(
     return { kind: 'blog', slug: second };
   }
 
-  if (first === 'products' || PRODUCT_CATEGORY_SEGMENTS.has(first)) {
+  if (first === 'products') {
     return { kind: 'product', slug: second };
   }
 
-  if (
-    mode === 'broad' &&
-    SLUG_REGEX.test(first) &&
-    !NON_PRODUCT_FIRST_SEGMENTS.has(first)
-  ) {
+  if (SLUG_REGEX.test(first) && !NON_PRODUCT_FIRST_SEGMENTS.has(first)) {
     return { kind: 'product', slug: second };
   }
 
@@ -158,7 +143,8 @@ function collectHrefCandidates(contentStr: string): string[] {
 
 export function collectStorefrontContentLinkTargets(
   contentStr: string,
-  merchantSlug?: string
+  merchantSlug?: string,
+  baseUrl?: string
 ): StorefrontContentLinkTargets {
   const blogSlugs = new Set<string>();
   const productSlugs = new Set<string>();
@@ -169,8 +155,11 @@ export function collectStorefrontContentLinkTargets(
       // emits: legacy alias segments (`/phones/x`), category-prefix shapes
       // (`/categories/<cat>/<slug>`, `/category/...`, `/product-category/...`)
       // and merchant-domain absolute URLs all collapse to `/<category>/<slug>`
-      // before classification.
+      // before classification. `baseUrl` matters on custom domains whose
+      // hostname does not contain the merchant slug — without it absolute
+      // same-site URLs would be skipped as external.
       const normalizedHref = normalizeStorefrontContentHref(href, {
+        baseUrl,
         merchantSlug,
       });
       // Hrefs that stay non-root-relative after normalization are external
@@ -182,8 +171,7 @@ export function collectStorefrontContentLinkTargets(
       if (!pathname) continue;
 
       const classified = classifySegments(
-        getPathSegments(pathname, merchantSlug),
-        'broad'
+        getPathSegments(pathname, merchantSlug)
       );
       if (!classified) continue;
 
@@ -205,70 +193,16 @@ export function collectStorefrontContentLinkTargets(
   };
 }
 
-export interface StorefrontContentLinkRewrites {
-  /** Renamed blog posts: source slug -> live target slug. */
-  blogSlugs: Record<string, string>;
-  /** Product slugs -> canonical `/<category>/<slug>` path. */
-  productPaths: Record<string, string>;
-}
-
-export interface RewriteStorefrontContentHrefOptions {
-  basePath?: string;
-  rewrites: StorefrontContentLinkRewrites;
-}
-
 /**
- * Returns the canonical replacement for an internal content href whose target
- * resolves through a permanent redirect (renamed blog post, consolidated or
- * re-categorized product), or null when the href is already canonical or not
- * an internal blog/product link. Query strings and hashes are preserved, as is
- * a leading basePath prefix.
+ * Classifies a normalized internal pathname as a blog-post or product link
+ * candidate. Shared with `storefront-content-link-rewriting.ts` so rewriting
+ * and dead-link matching classify identically.
  */
-export function rewriteStorefrontContentHref(
-  href: string,
-  options: RewriteStorefrontContentHrefOptions
-): string | null {
-  if (!href.startsWith('/') || href.startsWith('//')) {
-    return null;
-  }
-
-  const { blogSlugs, productPaths } = options.rewrites;
-  if (
-    Object.keys(blogSlugs).length === 0 &&
-    Object.keys(productPaths).length === 0
-  ) {
-    return null;
-  }
-
-  const suffixStart = href.search(/[?#]/);
-  const suffix = suffixStart === -1 ? '' : href.slice(suffixStart);
-  let pathname = suffixStart === -1 ? href : href.slice(0, suffixStart);
-
-  let prefix = '';
-  const basePath = options.basePath?.replace(/\/+$/, '');
-  if (basePath && basePath !== '/' && pathname.startsWith(`${basePath}/`)) {
-    prefix = basePath;
-    pathname = pathname.slice(basePath.length);
-  }
-
-  const classified = classifySegments(getPathSegments(pathname), 'broad');
-  if (!classified) {
-    return null;
-  }
-
-  const canonicalPath =
-    classified.kind === 'blog'
-      ? blogSlugs[classified.slug]
-        ? `/blog/${blogSlugs[classified.slug]}`
-        : null
-      : (productPaths[classified.slug] ?? null);
-
-  if (!canonicalPath) {
-    return null;
-  }
-
-  const rewritten = `${prefix}${canonicalPath}${suffix}`;
-  return rewritten === href ? null : rewritten;
+export function classifyStorefrontContentPath(
+  pathname: string,
+  merchantSlug?: string
+): { kind: 'blog' | 'product'; slug: string } | null {
+  return classifySegments(getPathSegments(pathname, merchantSlug));
 }
 
 export interface IsDeadStorefrontContentHrefOptions {
@@ -281,6 +215,13 @@ export interface IsDeadStorefrontContentHrefOptions {
  * Returns true when a normalized internal href points at a blog post or
  * product known to be dead (draft/archived/nonexistent). Only root-relative
  * hrefs are considered — external URLs always return false.
+ *
+ * Classification uses the same broad mode as collection so dead links under
+ * merchant-defined categories (`/audio/x`, `/macbook/x`, …) actually unwrap.
+ * That stays safe because membership decides: the dead sets only ever contain
+ * slugs that were collected, validated against the database, and confirmed
+ * dead — an href under a non-catalog segment can classify as a candidate but
+ * can never match a dead entry that wasn't collected the same way.
  */
 export function isDeadStorefrontContentHref(
   href: string,

@@ -1,9 +1,9 @@
 import { getCachedContentLinkRewrites } from '@/lib/cached-content-link-rewrites';
 import { getCachedDeadContentLinkSlugs } from '@/lib/cached-dead-content-links';
+import type { StorefrontContentLinkRewrites } from '@/lib/storefront-content-link-rewriting';
 import {
   collectStorefrontContentLinkTargets,
   type DeadStorefrontContentLinkSlugs,
-  type StorefrontContentLinkRewrites,
 } from '@/lib/storefront-content-link-targets';
 
 const NO_DEAD_CONTENT_LINKS: DeadStorefrontContentLinkSlugs = {
@@ -37,7 +37,8 @@ const NO_CONTENT_LINK_RESOLUTION: ContentLinkResolution = {
 export async function resolveContentLinks(
   content: unknown,
   merchantId: string | undefined,
-  merchantSlug: string
+  merchantSlug: string,
+  baseUrl?: string
 ): Promise<ContentLinkResolution> {
   if (!merchantId) {
     return NO_CONTENT_LINK_RESOLUTION;
@@ -49,9 +50,12 @@ export async function resolveContentLinks(
       : content && typeof content === 'object'
         ? JSON.stringify(content)
         : '';
+  // baseUrl lets collection recognize absolute same-site URLs on custom
+  // domains whose hostname does not contain the merchant slug.
   const { blogSlugs, productSlugs } = collectStorefrontContentLinkTargets(
     contentStr,
-    merchantSlug
+    merchantSlug,
+    baseUrl
   );
 
   if (blogSlugs.length === 0 && productSlugs.length === 0) {

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   collectStorefrontContentLinkTargets,
   isDeadStorefrontContentHref,
-  rewriteStorefrontContentHref,
 } from '@/lib/storefront-content-link-targets';
 
 describe('collectStorefrontContentLinkTargets', () => {
@@ -108,6 +107,24 @@ describe('collectStorefrontContentLinkTargets', () => {
     expect(collectStorefrontContentLinkTargets(html, 'ogabassey')).toEqual({
       blogSlugs: ['some-draft-post'],
       productSlugs: ['tecno-pop-10'],
+    });
+  });
+
+  it('collects targets from absolute URLs on custom domains unrelated to the merchant slug', () => {
+    // Without baseUrl these would be skipped as external — the hostname does
+    // not contain the merchant slug.
+    const html =
+      '<a href="https://gadgetstore.example/blog/draft-on-custom-domain">Post</a>';
+
+    expect(
+      collectStorefrontContentLinkTargets(
+        html,
+        'ogabassey',
+        'https://gadgetstore.example'
+      )
+    ).toEqual({
+      blogSlugs: ['draft-on-custom-domain'],
+      productSlugs: [],
     });
   });
 
@@ -230,6 +247,25 @@ describe('isDeadStorefrontContentHref', () => {
     ).toBe(false);
   });
 
+  it('unwraps dead products under merchant-defined category segments', () => {
+    // Broad classification at render must match broad collection: the dead
+    // set only ever contains DB-confirmed dead slugs, so membership decides.
+    expect(
+      isDeadStorefrontContentHref('/audio/missing-widget', {
+        deadBlogSlugs,
+        deadProductSlugs: new Set(['missing-widget']),
+      })
+    ).toBe(true);
+
+    // Known non-catalog segments never classify as product links.
+    expect(
+      isDeadStorefrontContentHref('/track/missing-widget', {
+        deadBlogSlugs,
+        deadProductSlugs: new Set(['missing-widget']),
+      })
+    ).toBe(false);
+  });
+
   it('strips a matching basePath prefix before classification', () => {
     expect(
       isDeadStorefrontContentHref('/ogabassey/blog/draft-post', {
@@ -256,79 +292,6 @@ describe('isDeadStorefrontContentHref', () => {
         deadProductSlugs,
       })
     ).toBe(false);
-  });
-});
-
-describe('rewriteStorefrontContentHref', () => {
-  const rewrites = {
-    blogSlugs: {
-      'buying-a-used-iphone-in-2025':
-        'the-ultimate-checklist-for-buying-a-used-iphone-in-2025',
-    },
-    productPaths: {
-      'apple-airpods-2': '/earbuds/apple-airpods-2',
-      'iphone-13-pro-6gb-256gb': '/smartphones/iphone-13-pro',
-    },
-  };
-
-  it('rewrites product links whose category segment is stale', () => {
-    expect(
-      rewriteStorefrontContentHref('/audio/apple-airpods-2', { rewrites })
-    ).toBe('/earbuds/apple-airpods-2');
-  });
-
-  it('rewrites consolidated variant links to the parent canonical path', () => {
-    expect(
-      rewriteStorefrontContentHref('/smartphones/iphone-13-pro-6gb-256gb', {
-        rewrites,
-      })
-    ).toBe('/smartphones/iphone-13-pro');
-  });
-
-  it('rewrites renamed blog post links to the live slug', () => {
-    expect(
-      rewriteStorefrontContentHref('/blog/buying-a-used-iphone-in-2025', {
-        rewrites,
-      })
-    ).toBe('/blog/the-ultimate-checklist-for-buying-a-used-iphone-in-2025');
-  });
-
-  it('preserves a basePath prefix and query/hash suffix', () => {
-    expect(
-      rewriteStorefrontContentHref(
-        '/my-store/audio/apple-airpods-2?utm_source=blog#specs',
-        { basePath: '/my-store', rewrites }
-      )
-    ).toBe('/my-store/earbuds/apple-airpods-2?utm_source=blog#specs');
-  });
-
-  it('returns null when the href is already canonical', () => {
-    expect(
-      rewriteStorefrontContentHref('/earbuds/apple-airpods-2', { rewrites })
-    ).toBeNull();
-  });
-
-  it('returns null for external and non-internal hrefs', () => {
-    expect(
-      rewriteStorefrontContentHref(
-        'https://example.com/audio/apple-airpods-2',
-        {
-          rewrites,
-        }
-      )
-    ).toBeNull();
-    expect(
-      rewriteStorefrontContentHref('//evil.example/x', { rewrites })
-    ).toBeNull();
-    expect(rewriteStorefrontContentHref('/checkout', { rewrites })).toBeNull();
-  });
-
-  it('returns null when no rewrites are known', () => {
-    expect(
-      rewriteStorefrontContentHref('/audio/apple-airpods-2', {
-        rewrites: { blogSlugs: {}, productPaths: {} },
-      })
-    ).toBeNull();
   });
 });
 
