@@ -25,10 +25,18 @@ function stubRequestIdleCallback(): IdleCallbackStub {
   };
 }
 
+function setDocumentPrerendering(value: boolean): void {
+  Object.defineProperty(document, 'prerendering', {
+    configurable: true,
+    value,
+  });
+}
+
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  Reflect.deleteProperty(document, 'prerendering');
 });
 
 describe('scheduleIdleBoot', () => {
@@ -158,5 +166,75 @@ describe('scheduleIdleBoot', () => {
     // Assert
     expect(callback).not.toHaveBeenCalled();
     expect(idle.cancel).toHaveBeenCalledOnce();
+  });
+
+  it('does not arm the boot gate while the document is prerendering', () => {
+    // Arrange
+    const idle = stubRequestIdleCallback();
+    setDocumentPrerendering(true);
+    const callback = vi.fn();
+
+    // Act
+    const cancel = scheduleIdleBoot(callback, { timeoutMs: 4000 });
+    window.dispatchEvent(new Event('pointerdown'));
+
+    // Assert
+    expect(idle.request).not.toHaveBeenCalled();
+    expect(callback).not.toHaveBeenCalled();
+
+    // Detach the pending prerendering listener so it cannot fire in later tests
+    // (jsdom's document persists across tests in this file).
+    cancel();
+  });
+
+  it('arms the gate and boots once the prerender activates', () => {
+    // Arrange
+    const idle = stubRequestIdleCallback();
+    setDocumentPrerendering(true);
+    const callback = vi.fn();
+
+    // Act
+    scheduleIdleBoot(callback, { timeoutMs: 4000 });
+    setDocumentPrerendering(false);
+    document.dispatchEvent(new Event('prerenderingchange'));
+    idle.run();
+
+    // Assert
+    expect(idle.request).toHaveBeenCalledOnce();
+    expect(callback).toHaveBeenCalledOnce();
+  });
+
+  it('never boots when a prerender is discarded without activating', () => {
+    // Arrange
+    const idle = stubRequestIdleCallback();
+    setDocumentPrerendering(true);
+    const callback = vi.fn();
+
+    // Act
+    const cancel = scheduleIdleBoot(callback, { timeoutMs: 4000 });
+    window.dispatchEvent(new Event('pointerdown'));
+    idle.run();
+
+    // Assert
+    expect(callback).not.toHaveBeenCalled();
+
+    // A discarded prerender never fires prerenderingchange; detach the pending
+    // listener so it cannot leak into a later test.
+    cancel();
+  });
+
+  it('detaches the prerendering listener when cancelled before activation', () => {
+    // Arrange
+    setDocumentPrerendering(true);
+    const callback = vi.fn();
+
+    // Act
+    const cancel = scheduleIdleBoot(callback, { timeoutMs: 4000 });
+    cancel();
+    setDocumentPrerendering(false);
+    document.dispatchEvent(new Event('prerenderingchange'));
+
+    // Assert
+    expect(callback).not.toHaveBeenCalled();
   });
 });

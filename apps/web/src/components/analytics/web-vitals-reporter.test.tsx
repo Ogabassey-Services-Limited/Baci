@@ -3,8 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WebVitalsReporter } from './web-vitals-reporter';
 
 const mocks = vi.hoisted(() => ({
-  hasPostHogBrowserInitialized: vi.fn(() => true),
-  capturePostHogWebVitals: vi.fn(),
+  reportPostHogWebVital: vi.fn(),
   lcpMetric: {
     name: 'LCP',
     value: 2400,
@@ -22,12 +21,8 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('@/lib/posthog/browser-state', () => ({
-  hasPostHogBrowserInitialized: mocks.hasPostHogBrowserInitialized,
-}));
-
-vi.mock('@/lib/posthog/browser', () => ({
-  capturePostHogWebVitals: mocks.capturePostHogWebVitals,
+vi.mock('@/lib/posthog/report-web-vital', () => ({
+  reportPostHogWebVital: mocks.reportPostHogWebVital,
 }));
 
 vi.mock('web-vitals/attribution', () => ({
@@ -40,18 +35,17 @@ vi.mock('web-vitals/attribution', () => ({
 
 afterEach(() => {
   vi.clearAllMocks();
-  mocks.hasPostHogBrowserInitialized.mockReturnValue(true);
   Reflect.deleteProperty(window as unknown as Record<string, unknown>, 'gtag');
 });
 
 describe('WebVitalsReporter', () => {
-  it('captures a flat web_vitals event with attribution when PostHog is initialized', async () => {
+  it('forwards a flat web_vitals payload with attribution to the queue-aware reporter', async () => {
     render(<WebVitalsReporter debug={false} />);
 
     await vi.waitFor(() => {
-      expect(mocks.capturePostHogWebVitals).toHaveBeenCalledOnce();
+      expect(mocks.reportPostHogWebVital).toHaveBeenCalledOnce();
     });
-    expect(mocks.capturePostHogWebVitals).toHaveBeenCalledWith(
+    expect(mocks.reportPostHogWebVital).toHaveBeenCalledWith(
       expect.objectContaining({
         metric: 'LCP',
         value: 2400,
@@ -64,17 +58,6 @@ describe('WebVitalsReporter', () => {
         renderDelay: 80,
       })
     );
-  });
-
-  it('does not capture to PostHog when the browser client has not booted', async () => {
-    mocks.hasPostHogBrowserInitialized.mockReturnValue(false);
-
-    render(<WebVitalsReporter debug={false} />);
-
-    await vi.waitFor(() => {
-      expect(mocks.hasPostHogBrowserInitialized).toHaveBeenCalled();
-    });
-    expect(mocks.capturePostHogWebVitals).not.toHaveBeenCalled();
   });
 
   it('still reports the metric to GA4 when gtag is present', async () => {
@@ -95,5 +78,7 @@ describe('WebVitalsReporter', () => {
         })
       );
     });
+    // GA4 delivery is independent of the PostHog leg but both fire per metric.
+    expect(mocks.reportPostHogWebVital).toHaveBeenCalledOnce();
   });
 });

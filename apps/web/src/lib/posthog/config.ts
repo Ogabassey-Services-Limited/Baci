@@ -94,6 +94,26 @@ export function isPostHogSourceMapUploadEnabled(
   return Boolean(env.POSTHOG_API_KEY?.trim() && env.POSTHOG_PROJECT_ID?.trim());
 }
 
+/**
+ * Server-only personal API key used to run HogQL queries against the PostHog
+ * project (e.g. the web-vitals health cron). Never expose this to the client.
+ */
+export function getPostHogServerApiKey(
+  env: PostHogEnv = process.env
+): string | undefined {
+  return env.POSTHOG_API_KEY?.trim() || undefined;
+}
+
+/**
+ * Numeric PostHog project id for the project-scoped query API
+ * (`/api/projects/{id}/query/`).
+ */
+export function getPostHogProjectId(
+  env: PostHogEnv = process.env
+): string | undefined {
+  return env.POSTHOG_PROJECT_ID?.trim() || undefined;
+}
+
 function firstNonEmptyEnvValue(
   ...values: Array<string | undefined>
 ): string | undefined {

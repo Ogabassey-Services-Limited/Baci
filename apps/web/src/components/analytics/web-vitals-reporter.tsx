@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { hasPostHogBrowserInitialized } from '@/lib/posthog/browser-state';
+import { reportPostHogWebVital } from '@/lib/posthog/report-web-vital';
 import { extractWebVitalAttribution } from './web-vital-attribution';
 import { buildWebVitalEndpointPayload } from './web-vital-endpoint-payload';
 
@@ -67,31 +67,24 @@ interface WebVitalMetric {
 }
 
 /**
- * Emits a single flat `web_vitals` event to PostHog for a metric report. Guards
- * on `hasPostHogBrowserInitialized()` first so it never triggers the posthog-js
- * chunk load — when PostHog has not booted yet the metric is dropped (acceptable;
- * WebVitalsReporter must not eagerly boot PostHog). When PostHog is initialized
- * its browser module is already loaded, so this dynamic import resolves from cache.
+ * Forwards a metric report to PostHog through the queue-aware reporter. This
+ * never boots PostHog or pulls the posthog-js chunk onto the critical path:
+ * before boot the payload is buffered (recovering early TTFB/FCP metrics that
+ * would otherwise be dropped) and flushed once the browser client initializes.
  */
 function reportWebVitalToPostHog(metric: WebVitalMetric): void {
-  if (typeof window === 'undefined' || !hasPostHogBrowserInitialized()) {
+  if (typeof window === 'undefined') {
     return;
   }
 
-  void import('@/lib/posthog/browser')
-    .then(({ capturePostHogWebVitals }) => {
-      capturePostHogWebVitals({
-        metric: metric.name,
-        value: metric.value,
-        rating: metric.rating,
-        navigationType: metric.navigationType,
-        pathname: globalThis.location?.pathname ?? '',
-        ...extractWebVitalAttribution(metric),
-      });
-    })
-    .catch(() => {
-      // PostHog capture is best-effort; ignore load/capture failures.
-    });
+  reportPostHogWebVital({
+    metric: metric.name,
+    value: metric.value,
+    rating: metric.rating,
+    navigationType: metric.navigationType,
+    pathname: globalThis.location?.pathname ?? '',
+    ...extractWebVitalAttribution(metric),
+  });
 }
 
 function handleWebVitalMetric(
@@ -138,7 +131,7 @@ function handleWebVitalMetric(
     });
   }
 
-  // Send to PostHog if the browser client has already booted (never boots it).
+  // Send to PostHog. Buffered before boot, flushed after; never boots it.
   reportWebVitalToPostHog(metric);
 
   // Send to custom endpoint if provided

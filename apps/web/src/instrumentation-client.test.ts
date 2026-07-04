@@ -16,21 +16,15 @@ vi.mock('@/lib/posthog/browser', () => ({
   initializePostHogBrowser: mocks.initializePostHogBrowser,
 }));
 
-// The idle-boot mechanics (requestIdleCallback / load / first interaction /
-// timeout) are covered in schedule-idle-boot.test.ts. Here the helper is mocked
-// so the deferred boot can be triggered deterministically.
+// scheduleIdleBoot is mocked so the test can assert this module NEVER arms a
+// module-scope idle boot: PostHogClientBootstrap is the single owner of the
+// deferred boot (verified in schedule-idle-boot.test.ts and the component test).
 vi.mock('@/lib/posthog/schedule-idle-boot', () => ({
   scheduleIdleBoot: mocks.scheduleIdleBoot,
 }));
 
 function importInstrumentationClient() {
   return import('./instrumentation-client');
-}
-
-/** Runs the callback the module handed to the (mocked) idle-boot scheduler. */
-function fireDeferredBoot() {
-  const scheduledBoot = mocks.scheduleIdleBoot.mock.calls[0]?.[0];
-  scheduledBoot?.();
 }
 
 async function flushPostHogMicrotasks() {
@@ -40,28 +34,30 @@ async function flushPostHogMicrotasks() {
 
 afterEach(() => {
   vi.clearAllMocks();
-  mocks.scheduleIdleBoot.mockImplementation(() => () => undefined);
   vi.resetModules();
   vi.unstubAllGlobals();
 });
 
 describe('instrumentation-client', () => {
-  it('initializes chunk-load recovery eagerly but defers the PostHog boot', async () => {
+  it('initializes chunk-load recovery eagerly without arming a module-scope boot', async () => {
     vi.stubGlobal('location', { pathname: '/', href: 'https://usebaci.com/' });
 
     await importInstrumentationClient();
 
     expect(mocks.initializeChunkLoadRecovery).toHaveBeenCalledOnce();
-    expect(mocks.scheduleIdleBoot).toHaveBeenCalledOnce();
+    // The double-boot is consolidated onto PostHogClientBootstrap; this module
+    // no longer schedules its own idle boot.
+    expect(mocks.scheduleIdleBoot).not.toHaveBeenCalled();
     expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
     expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
   });
 
-  it('initializes browser PostHog instrumentation once the deferred boot fires', async () => {
+  it('boots browser PostHog when the exported gate is invoked for an eligible path', async () => {
     vi.stubGlobal('location', { pathname: '/', href: 'https://usebaci.com/' });
 
-    await importInstrumentationClient();
-    fireDeferredBoot();
+    const { initializePostHogInstrumentationIfAllowed } =
+      await importInstrumentationClient();
+    initializePostHogInstrumentationIfAllowed('/products/macbook-pro');
 
     await vi.waitFor(() => {
       expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
@@ -72,49 +68,49 @@ describe('instrumentation-client', () => {
     expect(mocks.capturePostHogPageview).toHaveBeenCalledOnce();
   });
 
-  it('owns the landing pageview: captures it exactly once, after the boot', async () => {
+  it('captures the landing pageview after init so posthog-js can buffer it', async () => {
     vi.stubGlobal('location', { pathname: '/', href: 'https://usebaci.com/' });
 
-    await importInstrumentationClient();
-    fireDeferredBoot();
+    const { initializePostHogInstrumentationIfAllowed } =
+      await importInstrumentationClient();
+    initializePostHogInstrumentationIfAllowed('/products/macbook-pro');
 
     await vi.waitFor(() => {
       expect(mocks.capturePostHogPageview).toHaveBeenCalledOnce();
     });
-    // The tracker no longer captures the landing view before boot, so this is
-    // the sole capture — and it must run after init so posthog-js can buffer it.
     const [initOrder] = mocks.initializePostHogBrowser.mock.invocationCallOrder;
     const [captureOrder] =
       mocks.capturePostHogPageview.mock.invocationCallOrder;
     expect(initOrder).toBeLessThan(captureOrder);
   });
 
-  it('does not initialize if imported without a browser window', async () => {
+  it('is idempotent: a second gate invocation does not re-init', async () => {
+    vi.stubGlobal('location', { pathname: '/', href: 'https://usebaci.com/' });
+
+    const { initializePostHogInstrumentationIfAllowed } =
+      await importInstrumentationClient();
+    initializePostHogInstrumentationIfAllowed('/products/macbook-pro');
+    initializePostHogInstrumentationIfAllowed('/products/pixel');
+
+    await vi.waitFor(() => {
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+    });
+    expect(mocks.capturePostHogPageview).toHaveBeenCalledOnce();
+  });
+
+  it('does not initialize without a browser window', async () => {
     vi.stubGlobal('window', undefined);
 
-    await importInstrumentationClient();
-    fireDeferredBoot();
+    const { initializePostHogInstrumentationIfAllowed } =
+      await importInstrumentationClient();
+    initializePostHogInstrumentationIfAllowed('/products/macbook-pro');
     await flushPostHogMicrotasks();
 
     expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
     expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
   });
 
-  it('skips PostHog on public blog pages even after the deferred boot fires', async () => {
-    vi.stubGlobal('location', {
-      pathname: '/blog/phone-guide',
-      href: 'https://ogabassey.com/blog/phone-guide',
-    });
-
-    await importInstrumentationClient();
-    fireDeferredBoot();
-    await flushPostHogMicrotasks();
-
-    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
-    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
-  });
-
-  it('initializes after an explicit client transition away from a skipped blog page', async () => {
+  it('skips PostHog on public blog pages', async () => {
     vi.stubGlobal('location', {
       pathname: '/blog/phone-guide',
       href: 'https://ogabassey.com/blog/phone-guide',
@@ -122,15 +118,10 @@ describe('instrumentation-client', () => {
 
     const { initializePostHogInstrumentationIfAllowed } =
       await importInstrumentationClient();
-    fireDeferredBoot();
+    initializePostHogInstrumentationIfAllowed('/blog/phone-guide');
     await flushPostHogMicrotasks();
+
     expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
-
-    initializePostHogInstrumentationIfAllowed('/products/macbook-pro');
-
-    await vi.waitFor(() => {
-      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
-    });
-    expect(mocks.capturePostHogPageview).toHaveBeenCalledOnce();
+    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
   });
 });
