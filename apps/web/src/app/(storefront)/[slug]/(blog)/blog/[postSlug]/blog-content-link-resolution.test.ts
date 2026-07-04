@@ -108,4 +108,28 @@ describe('resolveContentLinks', () => {
     expect(result.deadContentLinks).toEqual({ blog: [], products: [] });
     expect(result.rewrites).toEqual({ blogSlugs: {}, productPaths: {} });
   });
+
+  it('keeps prototype-member-named dead slugs in the dead set', async () => {
+    // 'constructor' resolves truthy via Object.prototype on a plain rewrite
+    // map — the hasOwn guard must keep such slugs reported dead.
+    mockGetCachedDeadContentLinkSlugs.mockResolvedValue({
+      blog: ['constructor'],
+      products: ['constructor'],
+    });
+    mockGetCachedContentLinkRewrites.mockResolvedValue({
+      blogSlugs: {},
+      productPaths: {},
+    });
+
+    const result = await resolveContentLinks(
+      '<a href="/blog/constructor">C</a><a href="/audio/constructor">P</a>',
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(result.deadContentLinks).toEqual({
+      blog: ['constructor'],
+      products: ['constructor'],
+    });
+  });
 });

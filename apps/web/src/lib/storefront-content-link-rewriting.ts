@@ -51,12 +51,16 @@ export function rewriteStorefrontContentHref(
     return null;
   }
 
+  // Object.hasOwn: slugs shadowing Object.prototype members must not
+  // resolve inherited functions into hrefs.
   const canonicalPath =
     classified.kind === 'blog'
-      ? blogSlugs[classified.slug]
+      ? Object.hasOwn(blogSlugs, classified.slug)
         ? `/blog/${blogSlugs[classified.slug]}`
         : null
-      : (productPaths[classified.slug] ?? null);
+      : Object.hasOwn(productPaths, classified.slug)
+        ? productPaths[classified.slug]
+        : null;
 
   if (!canonicalPath) {
     return null;

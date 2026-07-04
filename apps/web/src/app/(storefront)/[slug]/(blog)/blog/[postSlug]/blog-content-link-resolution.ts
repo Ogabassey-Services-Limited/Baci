@@ -98,8 +98,14 @@ export async function resolveContentLinks(
   const { rewrites } = rewritesOutcome;
   return {
     deadContentLinks: {
-      blog: dead.blog.filter((slug) => !rewrites.blogSlugs[slug]),
-      products: dead.products.filter((slug) => !rewrites.productPaths[slug]),
+      // Object.hasOwn: a dead slug named like an Object.prototype member
+      // (constructor, toString, …) must not read as "has a rewrite".
+      blog: dead.blog.filter(
+        (slug) => !Object.hasOwn(rewrites.blogSlugs, slug)
+      ),
+      products: dead.products.filter(
+        (slug) => !Object.hasOwn(rewrites.productPaths, slug)
+      ),
     },
     rewrites,
   };

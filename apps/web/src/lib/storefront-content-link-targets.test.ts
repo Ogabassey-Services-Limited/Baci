@@ -66,6 +66,15 @@ describe('collectStorefrontContentLinkTargets', () => {
     });
   });
 
+  it('collects hrefs from markdown links that include a title', () => {
+    const markdown = 'See [this post](/blog/titled-draft "Read the guide").';
+
+    expect(collectStorefrontContentLinkTargets(markdown)).toEqual({
+      blogSlugs: ['titled-draft'],
+      productSlugs: [],
+    });
+  });
+
   it('collects hrefs from markdown link syntax', () => {
     const markdown = 'See [this post](/blog/markdown-draft) for details.';
 

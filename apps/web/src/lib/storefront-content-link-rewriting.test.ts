@@ -72,4 +72,13 @@ describe('rewriteStorefrontContentHref', () => {
       })
     ).toBeNull();
   });
+
+  it('ignores slugs that shadow Object.prototype members', () => {
+    expect(
+      rewriteStorefrontContentHref('/blog/constructor', { rewrites })
+    ).toBe(null);
+    expect(
+      rewriteStorefrontContentHref('/products/constructor', { rewrites })
+    ).toBe(null);
+  });
 });
