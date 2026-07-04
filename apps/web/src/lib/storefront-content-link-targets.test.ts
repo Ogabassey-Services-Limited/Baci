@@ -186,12 +186,28 @@ describe('collectStorefrontContentLinkTargets', () => {
     });
   });
 
-  it('ignores 2-segment paths whose first segment is not a recognized internal section', () => {
-    const html = '<a href="/about/team">About</a>';
+  it('ignores 2-segment paths under segments that own static multi-segment routes', () => {
+    const html =
+      '<a href="/checkout/success">Done</a>' +
+      '<a href="/account/orders">Orders</a>' +
+      '<a href="/pages/about">About</a>';
 
     expect(collectStorefrontContentLinkTargets(html)).toEqual({
       blogSlugs: [],
       productSlugs: [],
+    });
+  });
+
+  it('classifies merchant categories that shadow single-segment utility pages', () => {
+    // /repair and /returns have static single-segment pages, but a
+    // two-segment URL under them is served by the PDP catch-all.
+    const html =
+      '<a href="/repair/iphone-screen-fix">Repair product</a>' +
+      '<a href="/returns/returned-widget">Returns product</a>';
+
+    expect(collectStorefrontContentLinkTargets(html)).toEqual({
+      blogSlugs: [],
+      productSlugs: ['iphone-screen-fix', 'returned-widget'],
     });
   });
 
@@ -315,9 +331,10 @@ describe('isDeadStorefrontContentHref', () => {
       })
     ).toBe(true);
 
-    // Known non-catalog segments never classify as product links.
+    // Segments owning static multi-segment routes never classify as
+    // product links, so a coincidental dead slug cannot unwrap them.
     expect(
-      isDeadStorefrontContentHref('/track/missing-widget', {
+      isDeadStorefrontContentHref('/checkout/missing-widget', {
         deadBlogSlugs,
         deadProductSlugs: new Set(['missing-widget']),
       })
@@ -374,7 +391,7 @@ describe('collectStorefrontContentLinkTargets broad-mode fallback', () => {
 
   it('never classifies known non-product segments as products', () => {
     const targets = collectStorefrontContentLinkTargets(
-      '<a href="/account/orders">Orders</a><a href="/cart/items">Cart</a>'
+      '<a href="/account/orders">Orders</a><a href="/pages/rewards">Rewards</a>'
     );
 
     expect(targets.productSlugs).toEqual([]);

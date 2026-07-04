@@ -21,48 +21,23 @@ const MARKDOWN_REFERENCE_DEFINITION_REGEX =
 const MARKDOWN_LINK_REGEX =
   /\]\(\s*(<[^<>\s]+>|[^()\s]+)(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)/g;
 
-// First segments that are never merchant category pages. Any other
-// two-segment path is treated as a product-link candidate so links under
-// merchant-specific categories (/audio/x, /gaming/x, …) participate in
-// canonical rewriting and dead-link detection. Unwrapping stays safe despite
-// the broad classification because dead-set MEMBERSHIP decides: only slugs
-// that were collected, looked up, and confirmed dead can ever match.
+// First segments that own real multi-segment static routes in the
+// storefront app (e.g. /checkout/success, /pages/about, /account/orders,
+// /sitemap/<id>, /blog/*, /api/*). A two-segment URL under these is a live
+// app page, so it must never be classified as a product link — otherwise a
+// coincidental dead product slug could unwrap it. Every OTHER two-segment
+// path (including merchant categories that shadow single-segment utility
+// pages like /repair or /returns) falls through to the
+// [category]/[productSlug] PDP catch-all, so classifying it is safe:
+// dead-set MEMBERSHIP decides, and only slugs that were collected, looked
+// up, and confirmed dead can ever match.
 const NON_PRODUCT_FIRST_SEGMENTS = new Set([
-  'about',
   'account',
   'api',
   'blog',
-  'cart',
   'checkout',
-  'faq',
-  'favicon',
-  'icon',
-  'imei-check',
-  'manifest',
-  'my-account',
-  'opengraph-image',
-  'orders',
   'pages',
-  'privacy',
-  'privacy-policy',
-  'products',
-  'repair',
-  'repairs',
-  'returns',
-  'robots',
-  'rss',
-  'search',
-  'shipping',
   'sitemap',
-  'sitemaps',
-  'swap',
-  'terms',
-  'track',
-  'twitter-image',
-  'user',
-  'wallet',
-  'warranty',
-  'wishlist',
 ]);
 
 // Bounds the `IN (...)` lookup queries; posts realistically contain far fewer
