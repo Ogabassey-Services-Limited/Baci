@@ -26,9 +26,32 @@ export function rewriteHtmlStorefrontHrefs(
     return html;
   }
 
-  return html.replace(/\bhref\s*=\s*(["'])(.*?)\1/gi, (_match, quote, href) => {
-    const decodedHref = unescapeHtmlAttribute(href);
-    const normalizedHref = normalizeStorefrontContentHref(decodedHref, options);
-    return `href=${quote}${escapeHtmlAttribute(normalizedHref)}${quote}`;
-  });
+  const quotedRewritten = html.replace(
+    /\bhref\s*=\s*(["'])(.*?)\1/gi,
+    (_match, quote, href) => {
+      const decodedHref = unescapeHtmlAttribute(href);
+      const normalizedHref = normalizeStorefrontContentHref(
+        decodedHref,
+        options
+      );
+      return `href=${quote}${escapeHtmlAttribute(normalizedHref)}${quote}`;
+    }
+  );
+
+  // Legacy/imported HTML can carry valid unquoted hrefs
+  // (<a href=https://ogabassey.com/blog/x>). Normalize those too and re-emit
+  // them quoted, so downstream dead-link/rewrite matching always sees the
+  // canonical root-relative form. Quoted values were already handled above
+  // and are excluded by the first character class.
+  return quotedRewritten.replace(
+    /\bhref\s*=\s*([^\s"'<>][^\s<>]*)/gi,
+    (_match, href) => {
+      const decodedHref = unescapeHtmlAttribute(href);
+      const normalizedHref = normalizeStorefrontContentHref(
+        decodedHref,
+        options
+      );
+      return `href="${escapeHtmlAttribute(normalizedHref)}"`;
+    }
+  );
 }
