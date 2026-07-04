@@ -51,6 +51,8 @@ vi.mock('@/hooks/orders/useOrderAuditEvents', () => ({
 
 vi.mock('@/lib/order-shipment', () => ({
   orderRequiresFulfillment: vi.fn(() => false),
+  getOrderFulfillmentIdentifierItems: vi.fn(() => []),
+  updateShipmentFulfillmentDetails: vi.fn((previous) => previous),
   formatShippingProviderName: vi.fn(() => null),
   canUseSelectedShippingProvider: vi.fn(() => false),
 }));
@@ -111,7 +113,8 @@ vi.mock('@/hooks/useOrderDetailsBackHandler', () => ({
 vi.mock('@/hooks/useOrderDetailsUiState', () => ({
   useOrderDetailsUiState: () => ({
     creditNotes: '',
-    fulfillmentDetails: { imei: '', serialNumber: '' },
+    fulfillmentDetails: { imei: '', items: [], serialNumber: '' },
+    fulfillmentItemIndex: 0,
     isGeneratingReceipt: false,
     isShipmentSubmitting: false,
     paymentAmount: '',
@@ -124,6 +127,7 @@ vi.mock('@/hooks/useOrderDetailsUiState', () => ({
     selectedOrderItem: null,
     setCreditNotes: vi.fn(),
     setFulfillmentDetails: vi.fn(),
+    setFulfillmentItemIndex: vi.fn(),
     setIsGeneratingReceipt: vi.fn(),
     setIsShipmentSubmitting: vi.fn(),
     setPaymentAmount: vi.fn(),

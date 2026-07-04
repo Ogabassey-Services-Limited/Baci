@@ -64,6 +64,10 @@ interface OrderItemRow {
   variant_name: string | null;
 }
 
+function getFirstDisplayNamePart(value: string | null | undefined) {
+  return value?.trim().split(/\s+/)[0] || null;
+}
+
 export async function fetchOrderById(
   orderId: string,
   merchantId: string,
@@ -128,38 +132,24 @@ export async function fetchOrderById(
   } | null = null;
 
   if (order.recorded_by_user_id) {
-    const { data: recUser, error: recUserError } = await supabase
-      .from('profiles')
-      .select('display_name, full_name')
-      .eq('id', order.recorded_by_user_id)
-      .maybeSingle();
-
-    if (recUserError) {
-      // Auxiliary lookup; log and skip instead of failing the whole fetch.
-      console.error('useOrderDetails profiles lookup error:', recUserError);
-    }
-
-    const fullName = recUser?.display_name || recUser?.full_name;
-    if (fullName) {
-      recordedByName = fullName.split(' ')[0];
-    }
-
     const { data: staffMember, error: staffMemberError } = await supabase
       .from('staff_members')
-      .select('id')
+      .select('id, name')
       .eq('user_id', order.recorded_by_user_id)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .maybeSingle();
 
     if (staffMemberError) {
-      console.error(
+      console.warn(
         'useOrderDetails staff_members lookup error:',
         staffMemberError
       );
     }
 
     if (staffMember) {
+      recordedByName = getFirstDisplayNamePart(staffMember.name);
+
       const { data: terminal, error: terminalError } = await supabase
         .from('virtual_terminals')
         .select('account_number, account_name, bank')
@@ -168,7 +158,7 @@ export async function fetchOrderById(
         .maybeSingle();
 
       if (terminalError) {
-        console.error(
+        console.warn(
           'useOrderDetails virtual_terminals lookup error:',
           terminalError
         );
@@ -181,15 +171,64 @@ export async function fetchOrderById(
           bank_name: terminal.bank,
         };
       }
+    } else if (!staffMemberError) {
+      const { data: fallbackStaffMember, error: fallbackStaffMemberError } =
+        await supabase
+          .from('staff_members')
+          .select('name')
+          .eq('user_id', order.recorded_by_user_id)
+          .eq('merchant_id', merchantId)
+          .neq('status', 'active')
+          .limit(1)
+          .maybeSingle();
+
+      if (fallbackStaffMemberError) {
+        console.warn(
+          'useOrderDetails inactive staff_members lookup error:',
+          fallbackStaffMemberError
+        );
+      }
+
+      recordedByName = getFirstDisplayNamePart(fallbackStaffMember?.name);
+    }
+
+    if (!recordedByName) {
+      const { data: merchantRecorder, error: merchantRecorderError } =
+        await supabase
+          .from('merchants')
+          .select('business_name, email, user_id')
+          .eq('id', merchantId)
+          .eq('user_id', order.recorded_by_user_id)
+          .maybeSingle();
+
+      if (merchantRecorderError) {
+        console.warn(
+          'useOrderDetails merchant recorder lookup error:',
+          merchantRecorderError
+        );
+      }
+
+      recordedByName =
+        getFirstDisplayNamePart(merchantRecorder?.business_name) ||
+        getFirstDisplayNamePart(merchantRecorder?.email?.split('@')[0]);
     }
   }
 
+  const orderTotal = Number(order.total) || 0;
   const transactionTotal =
     transactions?.reduce((sum, transaction) => {
       return sum + (Number(transaction.amount) || 0);
     }, 0) || 0;
-  const amountPaid = transactionTotal + (Number(order.wallet_amount_used) || 0);
-  const balance = Math.max(0, (Number(order.total) || 0) - amountPaid);
+  const ledgerAmountPaid =
+    transactionTotal + (Number(order.wallet_amount_used) || 0);
+  const storedAmountPaid = Number(order.amount_paid) || 0;
+  const amountPaid = Math.max(
+    ledgerAmountPaid,
+    storedAmountPaid,
+    order.payment_status === 'paid' ? orderTotal : 0
+  );
+  const balance =
+    order.payment_status === 'paid' ? 0 : Math.max(0, orderTotal - amountPaid);
   const orderWithMeta = order as {
     fulfillment_details?: OrderFulfillmentDetails | null;
   };

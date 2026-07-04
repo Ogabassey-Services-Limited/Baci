@@ -4,6 +4,11 @@ import type { ComponentType, ReactNode } from 'react';
 import { vi } from 'vitest';
 import { getShadows, LIGHT_COLORS } from '@/constants/theme';
 import type { Order } from '@/hooks/useOrders';
+import {
+  type MockNativeStyle,
+  resolveStyle,
+  testIdProps,
+} from './orders-screen-style-test-utils';
 
 function renderReactNode(node: ReactNode | ComponentType | null | undefined) {
   if (!node) return null;
@@ -31,8 +36,20 @@ vi.mock('react-native-reanimated', async () => {
 
   return {
     default: {
-      View: ({ children }: { children?: React.ReactNode }) =>
-        React.createElement('div', null, children),
+      View: ({
+        children,
+        style,
+        testID,
+      }: {
+        children?: React.ReactNode;
+        style?: MockNativeStyle;
+        testID?: string;
+      }) =>
+        React.createElement(
+          'div',
+          { style: resolveStyle(style), ...testIdProps(testID) },
+          children
+        ),
       createAnimatedComponent: (Component: ComponentType) => Component,
     },
     interpolate: (value: number) => value,
@@ -64,29 +81,58 @@ vi.mock('@shopify/flash-list', async () => {
 
   return {
     FlashList: ({
+      contentContainerStyle,
       data = [],
+      ItemSeparatorComponent,
       keyExtractor,
       ListEmptyComponent,
       ListFooterComponent,
+      onScroll,
       renderItem,
     }: {
+      contentContainerStyle?: MockNativeStyle;
       data?: unknown[];
+      ItemSeparatorComponent?: React.ReactNode | React.ComponentType;
       keyExtractor?: (item: unknown, index: number) => string | number;
       ListEmptyComponent?: React.ReactNode | React.ComponentType;
       ListFooterComponent?: React.ReactNode | React.ComponentType;
+      onScroll?: (event: {
+        nativeEvent: { contentOffset: { y: number } };
+      }) => void;
       renderItem?: (info: { item: unknown; index: number }) => React.ReactNode;
     }) =>
       React.createElement(
         'div',
-        null,
+        {
+          'data-testid': 'orders-list-content',
+          onScroll: (event: React.UIEvent<HTMLDivElement>) => {
+            onScroll?.({
+              nativeEvent: {
+                contentOffset: {
+                  y: Number(event.currentTarget.scrollTop) || 0,
+                },
+              },
+            });
+          },
+          style: resolveStyle(contentContainerStyle),
+        },
         data.length > 0
-          ? data.map((item, index) =>
-              React.createElement(
+          ? data.flatMap((item, index) => {
+              const row = React.createElement(
                 'div',
-                { key: keyExtractor?.(item, index) ?? index },
+                { key: `row-${keyExtractor?.(item, index) ?? index}` },
                 renderItem?.({ item, index })
-              )
-            )
+              );
+              if (index === data.length - 1) return [row];
+              return [
+                row,
+                React.createElement(
+                  React.Fragment,
+                  { key: `separator-${index}` },
+                  renderReactNode(ItemSeparatorComponent)
+                ),
+              ];
+            })
           : renderReactNode(ListEmptyComponent),
         renderReactNode(ListFooterComponent)
       ),
@@ -117,6 +163,8 @@ vi.mock('react-native', async () => {
       children,
       disabled,
       onPress,
+      style,
+      testID,
     }: {
       accessibilityLabel?: string;
       accessibilityRole?: string;
@@ -132,6 +180,8 @@ vi.mock('react-native', async () => {
         stopPropagation: () => void;
         target: number;
       }) => void;
+      style?: MockNativeStyle;
+      testID?: string;
     }) =>
       React.createElement(
         'button',
@@ -148,35 +198,79 @@ vi.mock('react-native', async () => {
               target: 1,
             }),
           role: accessibilityRole,
+          style: resolveStyle(style),
+          ...testIdProps(testID),
           type: 'button',
         },
         children
       ),
     RefreshControl: () => null,
-    ScrollView: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
+    ScrollView: ({
+      children,
+      style,
+      testID,
+    }: {
+      children?: React.ReactNode;
+      style?: MockNativeStyle;
+      testID?: string;
+    }) =>
+      React.createElement(
+        'div',
+        { style: resolveStyle(style), ...testIdProps(testID) },
+        children
+      ),
     StyleSheet: {
       create: <T,>(styles: T) => styles,
     },
-    Text: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('span', null, children),
+    Text: ({
+      children,
+      style,
+      testID,
+    }: {
+      children?: React.ReactNode;
+      style?: MockNativeStyle;
+      testID?: string;
+    }) =>
+      React.createElement(
+        'span',
+        { style: resolveStyle(style), ...testIdProps(testID) },
+        children
+      ),
     TextInput: ({
       onChangeText,
       placeholder,
+      style,
+      testID,
       value,
     }: {
       onChangeText?: (value: string) => void;
       placeholder?: string;
+      style?: MockNativeStyle;
+      testID?: string;
       value?: string;
     }) =>
       React.createElement('input', {
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
           onChangeText?.(event.target.value),
         placeholder,
+        style: resolveStyle(style),
+        ...testIdProps(testID),
         value: value ?? '',
       }),
-    View: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
+    View: ({
+      children,
+      style,
+      testID,
+    }: {
+      children?: React.ReactNode;
+      style?: MockNativeStyle;
+      testID?: string;
+    }) =>
+      React.createElement(
+        'div',
+        { style: resolveStyle(style), ...testIdProps(testID) },
+        children
+      ),
   };
 });
 

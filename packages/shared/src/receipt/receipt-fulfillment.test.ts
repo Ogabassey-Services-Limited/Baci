@@ -5,6 +5,8 @@ import {
   getReceiptFulfillmentSummary,
   isDeviceReceiptItemName,
   normalizeReceiptFulfillmentDetails,
+  resolveReceiptItemFulfillmentAttachment,
+  resolveReceiptItemFulfillmentDetails,
 } from './receipt-fulfillment';
 import type { ReceiptOrder } from './types';
 
@@ -114,6 +116,166 @@ describe('normalizeReceiptFulfillmentDetails', () => {
     ).toEqual({
       imei: '353456789012345',
       serialNumber: 'SN-LEGACY',
+    });
+  });
+
+  it('preserves per-item fulfillment identifiers', () => {
+    expect(
+      normalizeReceiptFulfillmentDetails({
+        items: [
+          {
+            imei: ' 111111111111111 ',
+            orderItemId: 'item-1',
+            productName: 'iPhone 15 Pro',
+            serial_number: ' SN-ITEM-1 ',
+          },
+          {
+            imei: '',
+            orderItemId: 'item-2',
+            serialNumber: ' ',
+          },
+        ],
+      })
+    ).toEqual({
+      imei: null,
+      items: [
+        {
+          id: null,
+          imei: '111111111111111',
+          orderItemId: 'item-1',
+          productName: 'iPhone 15 Pro',
+          serialNumber: 'SN-ITEM-1',
+          variantName: null,
+        },
+      ],
+      serialNumber: null,
+    });
+  });
+});
+
+describe('resolveReceiptItemFulfillmentDetails', () => {
+  it('matches fulfillment identifiers by order item id', () => {
+    const details = normalizeReceiptFulfillmentDetails({
+      items: [
+        {
+          imei: '111111111111111',
+          orderItemId: 'item-1',
+        },
+        {
+          imei: '222222222222222',
+          orderItemId: 'item-2',
+          serialNumber: 'SN-2',
+        },
+      ],
+    });
+
+    expect(
+      resolveReceiptItemFulfillmentDetails(details, {
+        id: 'item-2',
+        name: 'iPhone 15 Pro',
+      })
+    ).toEqual({
+      imei: '222222222222222',
+      serialNumber: 'SN-2',
+    });
+  });
+
+  it('matches fulfillment identifiers by product and variant fallback', () => {
+    const details = normalizeReceiptFulfillmentDetails({
+      items: [
+        {
+          imei: '111111111111111',
+          productName: 'iPhone 15 Pro',
+          variantName: 'Black / 256GB',
+        },
+      ],
+    });
+
+    expect(
+      resolveReceiptItemFulfillmentDetails(details, {
+        name: 'iPhone 15 Pro',
+        variant_name: 'Black / 256GB',
+      })
+    ).toEqual({
+      imei: '111111111111111',
+      serialNumber: null,
+    });
+    expect(
+      resolveReceiptItemFulfillmentDetails(details, {
+        name: 'iPhone 15 Pro',
+      })
+    ).toBeNull();
+  });
+
+  it('deduplicates repeated identifiers for multi-quantity rows', () => {
+    const details = normalizeReceiptFulfillmentDetails({
+      items: [
+        {
+          imei: '111111111111111',
+          orderItemId: 'item-1',
+          serialNumber: 'SN-1',
+        },
+        {
+          imei: '111111111111111',
+          orderItemId: 'item-1',
+          serialNumber: 'SN-2',
+        },
+      ],
+    });
+
+    expect(
+      resolveReceiptItemFulfillmentDetails(details, {
+        id: 'item-1',
+      })
+    ).toEqual({
+      imei: '111111111111111',
+      serialNumber: 'SN-1, SN-2',
+    });
+  });
+});
+
+describe('resolveReceiptItemFulfillmentAttachment', () => {
+  it('uses matched item fulfillment without repeating order-level heuristics', () => {
+    const orderFulfillment = normalizeReceiptFulfillmentDetails({
+      imei: 'ORDER-IMEI',
+      items: [
+        {
+          imei: 'ITEM-IMEI',
+          orderItemId: 'item-1',
+        },
+      ],
+    });
+
+    expect(
+      resolveReceiptItemFulfillmentAttachment({
+        hasDeviceItem: true,
+        index: 2,
+        item: { id: 'item-1', name: 'iPhone 15' },
+        orderFulfillment,
+      })
+    ).toEqual({
+      fulfillment: { imei: 'ITEM-IMEI', serialNumber: null },
+      hasDeviceItem: false,
+      index: 0,
+    });
+  });
+
+  it('falls back to order-level fulfillment when an item has no match', () => {
+    const orderFulfillment = normalizeReceiptFulfillmentDetails({
+      imei: 'ORDER-IMEI',
+    });
+
+    expect(
+      resolveReceiptItemFulfillmentAttachment({
+        hasDeviceItem: true,
+        index: 1,
+        item: { id: 'item-2', name: 'Case' },
+        orderFulfillment,
+      })
+    ).toEqual({
+      fulfillment: orderFulfillment,
+      hasDeviceItem: true,
+      index: 1,
     });
   });
 });

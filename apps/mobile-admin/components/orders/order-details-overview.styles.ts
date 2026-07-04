@@ -116,6 +116,22 @@ export const orderDetailsOverviewStyles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  riderActionGroup: {
+    marginTop: 12,
+  },
+  riderFieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  riderPhoneInput: {
+    borderRadius: 14,
+    borderWidth: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    minHeight: 48,
+    paddingHorizontal: 14,
+  },
   secondaryAction: {
     alignItems: 'center',
     borderRadius: 14,

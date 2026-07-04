@@ -1,6 +1,8 @@
 import { Alert, Linking } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
+import { apiClient } from '@/lib/api-client';
+import * as phoneCountry from '@/lib/phone-country';
 import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import { createOrderDetailsContactActions } from './createOrderDetailsContactActions';
 
@@ -10,6 +12,10 @@ vi.mock('@/lib/storage', () => ({
     getItem: vi.fn(),
     removeItem: vi.fn(),
   },
+}));
+
+vi.mock('@/lib/api-client', () => ({
+  apiClient: vi.fn().mockResolvedValue({ success: true }),
 }));
 
 vi.mock('react-native', () => ({
@@ -49,6 +55,7 @@ function buildOrder(
 describe('createOrderDetailsContactActions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(apiClient).mockResolvedValue({ success: true });
   });
 
   it('normalizes the rider number before saving and opening WhatsApp', async () => {
@@ -75,6 +82,250 @@ describe('createOrderDetailsContactActions', () => {
     expect(Linking.openURL).toHaveBeenCalledWith(
       expect.stringContaining('https://wa.me/2348034444444?text=')
     );
+  });
+
+  it('includes the customer delivery address in the rider dispatch message', async () => {
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: { business_address: '21 Broad Street', business_name: 'Baci' },
+      order: buildOrder(),
+      riderPhone: '+2348034444444',
+      savedRiders: [],
+      setSavedRiders: vi.fn(),
+    });
+
+    await actions.handleSendOrderDetailsToRider();
+
+    const url = vi.mocked(Linking.openURL).mock.calls[0]?.[0] as string;
+    const message = decodeURIComponent(url.split('?text=')[1] ?? '');
+    expect(message).toContain('12 Allen Avenue');
+    expect(message).toContain('Ikeja Lagos');
+  });
+
+  it('prefixes the dispatch number with + in the customer message', async () => {
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: { business_address: '21 Broad Street', business_name: 'Baci' },
+      order: buildOrder({
+        self_fulfillment_data: {
+          carrierName: 'Dispatch Rider',
+          dispatchPhone: '+2348034444444',
+        },
+      }),
+      riderPhone: '',
+      savedRiders: [],
+      setSavedRiders: vi.fn(),
+    });
+
+    await actions.handleSendRiderToCustomer();
+
+    const url = vi.mocked(Linking.openURL).mock.calls[0]?.[0] as string;
+    const message = decodeURIComponent(url.split('?text=')[1] ?? '');
+    expect(message).toContain('Dispatch Rider: +2348034444444');
+  });
+
+  it('persists a typed rider number before sharing it with the customer', async () => {
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: { business_address: '21 Broad Street', business_name: 'Baci' },
+      order: buildOrder({
+        self_fulfillment_data: {
+          carrierName: 'Dispatch Rider',
+          dispatchPhone: '',
+        },
+      }),
+      riderPhone: '+2348034444444',
+      savedRiders: [],
+      setSavedRiders: vi.fn(),
+    });
+
+    await actions.handleSendRiderToCustomer();
+
+    expect(apiClient).toHaveBeenCalledWith('/api/shipping/self-fulfill', {
+      body: JSON.stringify({
+        carrierName: 'Dispatch Rider',
+        dispatchPhone: '2348034444444',
+        orderId: 'order-1',
+      }),
+      method: 'PATCH',
+    });
+    expect(Linking.openURL).toHaveBeenCalledWith(
+      expect.stringContaining('https://wa.me/2348030000000?text=')
+    );
+  });
+
+  it('formats local Nigerian rider numbers internationally before sending', async () => {
+    const setSavedRiders = vi.fn();
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: {
+        business_address: '21 Broad Street',
+        business_name: 'Baci Store',
+      },
+      order: buildOrder(),
+      riderPhone: '08034444444',
+      savedRiders: [],
+      setSavedRiders,
+    });
+
+    await actions.handleSendOrderDetailsToRider();
+
+    expect(setSavedRiders).toHaveBeenCalledWith(['2348034444444']);
+    expect(Linking.openURL).toHaveBeenCalledWith(
+      expect.stringContaining('https://wa.me/2348034444444?text=')
+    );
+  });
+
+  it('falls back to digit stripping when phone country formatting fails', async () => {
+    const formatterSpy = vi
+      .spyOn(phoneCountry, 'formatPhoneNumberForCountry')
+      .mockImplementation((phoneNumber, country) => {
+        if (phoneNumber === ' +234 803 444 4444 ') {
+          throw new Error('format failed');
+        }
+        const digits = phoneNumber.replace(/\D/g, '');
+        if (digits.startsWith(country.callingCode)) {
+          return `+${digits}`;
+        }
+        if (digits.startsWith('0')) {
+          return `+${country.callingCode}${digits.slice(1)}`;
+        }
+        return `+${country.callingCode}${digits}`;
+      });
+    const setSavedRiders = vi.fn();
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: {
+        business_address: '21 Broad Street',
+        business_name: 'Baci Store',
+      },
+      order: buildOrder(),
+      riderPhone: ' +234 803 444 4444 ',
+      savedRiders: [],
+      setSavedRiders,
+    });
+
+    try {
+      await actions.handleSendOrderDetailsToRider();
+
+      expect(setSavedRiders).toHaveBeenCalledWith(['2348034444444']);
+      expect(Linking.openURL).toHaveBeenCalledWith(
+        expect.stringContaining('https://wa.me/2348034444444?text=')
+      );
+    } finally {
+      formatterSpy.mockRestore();
+    }
+  });
+
+  it('persists a typed rider number before sending order details to the rider', async () => {
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: { business_address: '21 Broad Street', business_name: 'Baci' },
+      order: buildOrder({
+        self_fulfillment_data: {
+          carrierName: 'Express Rider',
+          dispatchPhone: '',
+        },
+      }),
+      riderPhone: '08034444444',
+      savedRiders: [],
+      setSavedRiders: vi.fn(),
+    });
+
+    await actions.handleSendOrderDetailsToRider();
+
+    expect(apiClient).toHaveBeenCalledWith('/api/shipping/self-fulfill', {
+      body: JSON.stringify({
+        carrierName: 'Express Rider',
+        dispatchPhone: '2348034444444',
+        orderId: 'order-1',
+      }),
+      method: 'PATCH',
+    });
+    expect(Linking.openURL).toHaveBeenCalledWith(
+      expect.stringContaining('https://wa.me/2348034444444?text=')
+    );
+  });
+
+  it('uses a newly typed rider number instead of an older saved dispatch phone', async () => {
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: { business_address: '21 Broad Street', business_name: 'Baci' },
+      order: buildOrder({
+        self_fulfillment_data: {
+          carrierName: 'Dispatch Rider',
+          dispatchPhone: '+2348031111111',
+        },
+      }),
+      riderPhone: '+2348034444444',
+      savedRiders: [],
+      setSavedRiders: vi.fn(),
+    });
+
+    await actions.handleSendRiderToCustomer();
+
+    expect(apiClient).toHaveBeenCalledWith('/api/shipping/self-fulfill', {
+      body: JSON.stringify({
+        carrierName: 'Dispatch Rider',
+        dispatchPhone: '2348034444444',
+        orderId: 'order-1',
+      }),
+      method: 'PATCH',
+    });
+    const url = vi.mocked(Linking.openURL).mock.calls[0]?.[0] as string;
+    const message = decodeURIComponent(url.split('?text=')[1] ?? '');
+    expect(message).toContain('Dispatch Rider: +2348034444444');
+    expect(message).not.toContain('2348031111111');
+  });
+
+  it('stops before WhatsApp when saving a typed rider number fails', async () => {
+    vi.mocked(apiClient).mockRejectedValueOnce(new Error('save failed'));
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: { business_address: '21 Broad Street', business_name: 'Baci' },
+      order: buildOrder({
+        self_fulfillment_data: {
+          carrierName: 'Dispatch Rider',
+          dispatchPhone: '',
+        },
+      }),
+      riderPhone: '+2348034444444',
+      savedRiders: [],
+      setSavedRiders: vi.fn(),
+    });
+
+    await actions.handleSendRiderToCustomer();
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Error',
+      'Could not save the rider phone number.'
+    );
+    expect(Linking.openURL).not.toHaveBeenCalled();
+  });
+
+  it('stops before rider WhatsApp when saving dispatch details fails', async () => {
+    vi.mocked(apiClient).mockRejectedValueOnce(new Error('save failed'));
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: { business_address: '21 Broad Street', business_name: 'Baci' },
+      order: buildOrder({
+        self_fulfillment_data: {
+          carrierName: 'Dispatch Rider',
+          dispatchPhone: '',
+        },
+      }),
+      riderPhone: '+2348034444444',
+      savedRiders: [],
+      setSavedRiders: vi.fn(),
+    });
+
+    await actions.handleSendOrderDetailsToRider();
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Error',
+      'Could not save the rider phone number.'
+    );
+    expect(Linking.openURL).not.toHaveBeenCalled();
   });
 
   it('alerts when the customer WhatsApp number is invalid', () => {

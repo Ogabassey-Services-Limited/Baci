@@ -34,7 +34,9 @@ import { useTheme } from '@/hooks/useTheme';
 import {
   canUseSelectedShippingProvider,
   formatShippingProviderName,
+  getOrderFulfillmentIdentifierItems,
   orderRequiresFulfillment,
+  updateShipmentFulfillmentDetails,
 } from '@/lib/order-shipment';
 import { orderDetailsRouteParamsSchema } from '@/schemas/order-details-route-params';
 
@@ -43,21 +45,20 @@ export function useOrderDetailsController() {
     action?: string;
     id: string;
   }>();
-  const { colors, shadows } = useTheme();
-  const normalizedParams = {
+  const { colors } = useTheme();
+  const routeResult = orderDetailsRouteParamsSchema.safeParse({
     action: Array.isArray(rawParams.action)
       ? rawParams.action[0]
       : rawParams.action,
     id: Array.isArray(rawParams.id) ? rawParams.id[0] : rawParams.id,
-  };
-  const routeResult = orderDetailsRouteParamsSchema.safeParse(normalizedParams);
+  });
   const validatedParams = routeResult.success ? routeResult.data : null;
   const orderId = validatedParams?.id;
   const actionParam = validatedParams?.action;
 
   const queryClient = useQueryClient();
   const { data: order, error, isLoading } = useOrder(orderId ?? '');
-  const { merchant } = useMerchant();
+  const { merchant, storeUrl } = useMerchant();
   const auditEventsQuery = useOrderAuditEvents({
     merchantId: order?.merchant_id ?? merchant?.id,
     orderId: order?.id ?? orderId,
@@ -74,14 +75,20 @@ export function useOrderDetailsController() {
     order?.items,
     merchant?.business_type
   );
+  const fulfillmentItems = getOrderFulfillmentIdentifierItems(
+    order?.items,
+    merchant?.business_type
+  );
   const providerLabel = formatShippingProviderName(order?.shipping_provider);
   const providerBookingAvailable = order
     ? canUseSelectedShippingProvider(order)
     : false;
 
   useOrderDetailsBackHandler({
+    fulfillmentItemIndex: uiState.fulfillmentItemIndex,
     requiresShipmentDetails,
     selectedOrderItemOpen: uiState.selectedOrderItem !== null,
+    setFulfillmentItemIndex: uiState.setFulfillmentItemIndex,
     setIsShipmentSubmitting: uiState.setIsShipmentSubmitting,
     setSelectedOrderItemOpen: (value) =>
       uiState.setSelectedOrderItem(value ? uiState.selectedOrderItem : null),
@@ -103,6 +110,7 @@ export function useOrderDetailsController() {
     actionParam,
     order: order ?? null,
     setPaymentAmount: uiState.setPaymentAmount,
+    setRiderPhone: uiState.setRiderPhone,
     setSavedRiders: uiState.setSavedRiders,
     setShowCreditModal: uiState.setShowCreditModal,
     setShowRecordPaymentModal: uiState.setShowRecordPaymentModal,
@@ -141,6 +149,8 @@ export function useOrderDetailsController() {
 
   const shipmentActions = createOrderDetailsShipmentActions({
     fulfillmentDetails: uiState.fulfillmentDetails,
+    fulfillmentItemIndex: uiState.fulfillmentItemIndex,
+    fulfillmentItems,
     handleSaveRider: contactActions.handleSaveRider,
     merchantId: merchant?.id,
     order,
@@ -151,6 +161,7 @@ export function useOrderDetailsController() {
     requiresShipmentDetails,
     riderPhone: uiState.riderPhone,
     setFulfillmentDetails: uiState.setFulfillmentDetails,
+    setFulfillmentItemIndex: uiState.setFulfillmentItemIndex,
     setIsShipmentSubmitting: uiState.setIsShipmentSubmitting,
     setPendingShipmentMode: uiState.setPendingShipmentMode,
     setRiderPhone: uiState.setRiderPhone,
@@ -181,6 +192,7 @@ export function useOrderDetailsController() {
     setIsGeneratingReceipt: uiState.setIsGeneratingReceipt,
     setReceiptHtml: uiState.setReceiptHtml,
     setShowReceiptPreview: uiState.setShowReceiptPreview,
+    storeUrl,
   });
 
   const normalizedShippingStatus = normalizeOrderDetailsShippingStatus(
@@ -194,25 +206,34 @@ export function useOrderDetailsController() {
   const shippingColor = getOrderStatusColor(colors, shippingConfig.colorKey);
   const paymentColor = getOrderStatusColor(colors, paymentConfig.colorKey);
   const sourceInfo = getOrderSourceInfo(colors, order?.source);
+  // The rider phone can be added after self-fulfillment; action handlers validate it before opening WhatsApp.
   const showPostShipmentActions = Boolean(
-    order?.shipping_status === 'shipped' &&
-      order.self_fulfillment_data?.dispatchPhone?.trim()
+    order?.shipping_status === 'shipped' && order?.self_fulfillment_data
   );
-  const hasCustomerPhone = Boolean(order?.customer_phone?.trim());
   const isInvalidRoute = !validatedParams;
+  const updateFulfillmentDetails = (
+    field: 'imei' | 'serialNumber',
+    value: string
+  ) =>
+    uiState.setFulfillmentDetails((previous) =>
+      updateShipmentFulfillmentDetails(
+        previous,
+        uiState.fulfillmentItemIndex,
+        field,
+        value
+      )
+    );
 
   return {
-    actionParam,
+    ...uiState,
     auditEvents: auditEventsQuery.data ?? [],
     closeShipmentFlow: shipmentActions.closeShipmentFlow,
     colors,
-    creditNotes: uiState.creditNotes,
     currencySymbol,
     error,
     formatAddress: formatOrderAddress,
     formatDate,
     formatPrice,
-    fulfillmentDetails: uiState.fulfillmentDetails,
     handleCall: contactActions.handleCall,
     handleEmail: contactActions.handleEmail,
     handlePaymentAmountChange: paymentActions.handlePaymentAmountChange,
@@ -228,66 +249,26 @@ export function useOrderDetailsController() {
     handleStatusUpdate: statusActions.handleStatusUpdate,
     handleSubmitSelfFulfillment: shipmentActions.handleSubmitSelfFulfillment,
     handleWhatsApp: contactActions.handleWhatsApp,
-    hasCustomerPhone,
-    isGeneratingReceipt: uiState.isGeneratingReceipt,
     isAuditEventsLoading: auditEventsQuery.isLoading,
     isAuditEventsError: auditEventsQuery.isError,
     isInvalidRoute,
     isLoading,
-    isShipmentSubmitting: uiState.isShipmentSubmitting,
-    merchant,
     order,
     orderId,
-    paymentAmount: uiState.paymentAmount,
     paymentColor,
     paymentConfig,
-    paymentMethod: uiState.paymentMethod,
-    paymentNotes: uiState.paymentNotes,
-    paymentStatusConfig: paymentConfig,
-    pendingShipmentMode: uiState.pendingShipmentMode,
     proceedFromFulfillmentDetails:
       shipmentActions.proceedFromFulfillmentDetails,
     proceedFromShipmentMethod: shipmentActions.proceedFromShipmentMethod,
     providerBookingAvailable,
     providerLabel,
-    queryClient,
-    receiptHtml: uiState.receiptHtml,
     recordPaymentMutation,
     requiresShipmentDetails,
-    riderPhone: uiState.riderPhone,
-    savedRiders: uiState.savedRiders,
-    selectedOrderItem: uiState.selectedOrderItem,
-    sendReminderMutation,
-    setCreditNotes: uiState.setCreditNotes,
-    setFulfillmentDetails: uiState.setFulfillmentDetails,
-    setPaymentAmount: uiState.setPaymentAmount,
-    setPaymentMethod: uiState.setPaymentMethod,
-    setPaymentNotes: uiState.setPaymentNotes,
-    setPendingShipmentMode: uiState.setPendingShipmentMode,
-    setRiderPhone: uiState.setRiderPhone,
-    setSelectedOrderItem: uiState.setSelectedOrderItem,
-    setShipmentFlowStep: uiState.setShipmentFlowStep,
-    setShowCreditModal: uiState.setShowCreditModal,
-    setShowPaymentOptionModal: uiState.setShowPaymentOptionModal,
-    setShowReceiptPreview: uiState.setShowReceiptPreview,
-    setShowRecordPaymentModal: uiState.setShowRecordPaymentModal,
-    setShowShipmentFlow: uiState.setShowShipmentFlow,
-    setShowStatusModal: uiState.setShowStatusModal,
-    setSuccessModal: uiState.setSuccessModal,
-    shadows,
     shipOnCreditMutation,
-    shipmentFlowStep: uiState.shipmentFlowStep,
     shippingColor,
     shippingConfig,
-    showCreditModal: uiState.showCreditModal,
-    showPaymentOptionModal: uiState.showPaymentOptionModal,
     showPostShipmentActions,
-    showReceiptPreview: uiState.showReceiptPreview,
-    showRecordPaymentModal: uiState.showRecordPaymentModal,
-    showShipmentFlow: uiState.showShipmentFlow,
-    showStatusModal: uiState.showStatusModal,
     sourceInfo,
-    successModal: uiState.successModal,
-    updateStatusMutation,
+    updateFulfillmentDetails,
   };
 }

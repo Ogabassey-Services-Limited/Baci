@@ -4,6 +4,8 @@ import type { ShippingStatus } from '@/hooks/useOrders';
 import { BASE_URL } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
 
+const IS_DEV_RUNTIME = typeof __DEV__ !== 'undefined' && __DEV__;
+
 interface CreateOrderDetailsStatusActionsParams {
   openShipmentFlow: () => void;
   order: OrderDetailsRecord | undefined;
@@ -160,6 +162,15 @@ export function createOrderDetailsStatusActions({
       }
 
       Alert.alert('Error', 'Failed to update status');
+      if (IS_DEV_RUNTIME) {
+        console.error('Order details status update failed', {
+          currentStatus: order.shipping_status,
+          errorMessage: nextError.message,
+          nextStatus: newStatus,
+          orderId: order.id,
+          paymentStatus: order.payment_status,
+        });
+      }
     }
   };
 

@@ -1,8 +1,11 @@
 import { escapeHtml, escapeJsString } from './escape-html';
 import {
-  getReceiptFulfillmentRows,
+  getReceiptFulfillmentRowsFromDetails,
   getReceiptFulfillmentSummary,
   isDeviceReceiptItemName,
+  normalizeReceiptFulfillmentDetails,
+  type ReceiptFulfillmentRow,
+  resolveReceiptItemFulfillmentDetails,
   shouldAttachFulfillmentToItem,
 } from './receipt-fulfillment';
 import {
@@ -11,6 +14,9 @@ import {
   type MoneyFormatter,
   shouldShowVatLine,
 } from './receipt-money';
+
+export { renderTermsHtml } from './receipt-terms';
+
 import { sanitizeSvg } from './sanitize-svg';
 import type { ReceiptMerchant, ReceiptOptions, ReceiptOrder } from './types';
 
@@ -40,7 +46,10 @@ export function renderItemRows(
   formatMoney: MoneyFormatter
 ): string {
   if (order.items.length === 0) {
-    return '<tr><td colspan="5" style="text-align:center;padding:16px;color:#9ca3af;">No items</td></tr>';
+    const fulfillmentHtml = renderFulfillmentRowsHtml(
+      getReceiptFulfillmentRowsFromDetails(order.fulfillment_details)
+    );
+    return `<tr><td colspan="5" style="text-align:center;padding:16px;color:#9ca3af;">No items${fulfillmentHtml}</td></tr>`;
   }
 
   const hasDeviceItem = order.items.some((item) =>
@@ -59,17 +68,30 @@ export function renderItemRows(
       let fulfillmentHtml = '';
       let fulfillmentSummary: string | null = null;
 
+      const itemFulfillmentDetails = normalizeReceiptFulfillmentDetails(
+        item.fulfillment_details
+      ) ||
+        resolveReceiptItemFulfillmentDetails(
+          order.fulfillment_details,
+          item
+        ) || {
+          imei: item.fulfillment_details?.imei || item.imei,
+          serialNumber:
+            item.fulfillment_details?.serialNumber || item.serialNumber,
+          serial_number:
+            item.fulfillment_details?.serial_number || item.serial_number,
+        };
       const itemSummary = getReceiptFulfillmentSummary({
-        imei: item.fulfillment_details?.imei || item.imei,
-        serialNumber:
-          item.fulfillment_details?.serialNumber || item.serialNumber,
-        serial_number:
-          item.fulfillment_details?.serial_number || item.serial_number,
+        imei: itemFulfillmentDetails.imei,
+        serialNumber: itemFulfillmentDetails.serialNumber,
+        serial_number: itemFulfillmentDetails.serial_number,
       });
 
       if (itemSummary) {
         fulfillmentSummary = itemSummary;
-        fulfillmentHtml = `<div style="font-size: 11px; color: #4b5563; margin-top: 3px; font-weight: 500;">${escapeHtml(itemSummary)}</div>`;
+        fulfillmentHtml = renderFulfillmentRowsHtml(
+          getReceiptFulfillmentRowsFromDetails(itemFulfillmentDetails)
+        );
       } else if (order.fulfillment_details) {
         const shouldUseOrderFallback = shouldAttachFulfillmentToItem({
           hasDeviceItem,
@@ -84,7 +106,9 @@ export function renderItemRows(
         // first item so single-line non-device invoices still show the data.
         if (orderSummary && shouldUseOrderFallback && !orderFallbackEmitted) {
           fulfillmentSummary = orderSummary;
-          fulfillmentHtml = `<div style="font-size: 11px; color: #4b5563; margin-top: 3px; font-weight: 500;">${escapeHtml(orderSummary)}</div>`;
+          fulfillmentHtml = renderFulfillmentRowsHtml(
+            getReceiptFulfillmentRowsFromDetails(order.fulfillment_details)
+          );
           orderFallbackEmitted = true;
         }
       }
@@ -111,6 +135,19 @@ export function renderItemRows(
       </tr>`;
     })
     .join('');
+}
+
+function renderFulfillmentRowsHtml(rows: ReceiptFulfillmentRow[]) {
+  if (rows.length === 0) {
+    return '';
+  }
+
+  return `<div class="cell-fulfillment-grid">${rows
+    .map((row) => {
+      const accessibleLabel = `${row.label}: ${row.value}`;
+      return `<span class="fulfillment-item" aria-label="${escapeHtml(accessibleLabel)}"><span class="fulfillment-key">${escapeHtml(row.label)}</span><span class="fulfillment-val">${escapeHtml(row.value)}</span></span>`;
+    })
+    .join('')}</div>`;
 }
 
 function normalizeDescriptionComparison(value: string) {
@@ -246,84 +283,4 @@ export function renderQrHtml(options: ReceiptOptions, isPaid: boolean): string {
   return options.qrCodeDataUri
     ? `<div class="qr-block"><img src="${escapeHtml(options.qrCodeDataUri)}" alt="QR Code" width="100" height="100"><div class="qr-caption">${isPaid ? 'Track your order' : 'Pay online'}</div></div>`
     : '';
-}
-
-export function renderFulfillmentDetailsHtml(order: ReceiptOrder): string {
-  const fulfillmentRows = getReceiptFulfillmentRows(order);
-  if (fulfillmentRows.length === 0) {
-    return '';
-  }
-
-  return `
-      <div class="section-block">
-        <div class="section-label">Fulfillment Details</div>
-        <div class="fulfillment-grid">
-          ${fulfillmentRows
-            .map(
-              (row) => `
-          <div class="fulfillment-item">
-            <span class="fulfillment-key">${escapeHtml(row.label)}</span>
-            <span class="fulfillment-val">${escapeHtml(row.value)}</span>
-          </div>`
-            )
-            .join('')}
-        </div>
-      </div>`;
-}
-
-function buildTermsUrl(rawStoreUrl: string | undefined): string | null {
-  const trimmed = rawStoreUrl?.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed) && !/^https?:\/\//i.test(trimmed)) {
-    return null;
-  }
-
-  try {
-    const parsed = new URL(
-      /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
-    );
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return null;
-    }
-    return `${parsed.origin}/terms`;
-  } catch {
-    return null;
-  }
-}
-
-export function renderTermsHtml(
-  merchant: ReceiptMerchant,
-  options: ReceiptOptions
-): string {
-  const rawTerms = merchant.pages?.terms;
-  const termsUrl = buildTermsUrl(options.storeUrl);
-  if (!rawTerms) {
-    return termsUrl
-      ? `<div class="terms"><a href="${escapeHtml(termsUrl)}">Terms &amp; Conditions</a></div>`
-      : '';
-  }
-
-  const plainTerms = rawTerms
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!plainTerms) {
-    return '';
-  }
-
-  const truncated =
-    plainTerms.length > 500 ? `${plainTerms.slice(0, 497)}...` : plainTerms;
-  const termsLink = termsUrl
-    ? ` <a href="${escapeHtml(termsUrl)}">Read full terms</a>`
-    : '';
-  return `<div class="terms-block"><div class="terms-label">Terms &amp; Conditions</div><div class="terms-text">${escapeHtml(truncated)}</div>${termsLink ? `<div class="terms-link">${termsLink}</div>` : ''}</div>`;
 }

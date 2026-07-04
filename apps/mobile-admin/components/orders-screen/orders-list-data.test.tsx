@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Order } from '@/hooks/useOrders';
 import { buildOrdersListData } from './build-orders-list-data';
 import { dedupeOrdersById } from './dedupe-orders-by-id';
-import { getStickyHeaderIndices } from './get-sticky-header-indices';
 
 vi.mock('@/utils/date-utils', () => ({
   groupOrdersByRelativeDate: (orders: Order[]) => [
@@ -13,7 +12,7 @@ vi.mock('@/utils/date-utils', () => ({
 const orders = [{ id: 'order-1' }, { id: 'order-2' }] as Order[];
 
 describe('orders-list-data', () => {
-  it('builds sticky section rows for grouped orders', () => {
+  it('builds section rows for grouped orders', () => {
     const rows = buildOrdersListData(orders);
 
     expect(rows).toEqual([
@@ -21,7 +20,6 @@ describe('orders-list-data', () => {
       { type: 'item', id: 'order-1', order: orders[0] },
       { type: 'item', id: 'order-2', order: orders[1] },
     ]);
-    expect(getStickyHeaderIndices(rows)).toEqual([0]);
   });
 
   it('deduplicates orders by id while keeping first occurrence', () => {

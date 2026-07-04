@@ -36,13 +36,13 @@ export function ShipmentFlowRiderStep({
       <ShipmentInfoCard
         colors={colors}
         icon="logo-whatsapp"
-        subtitle="Mark the order shipped first. After shipment succeeds, you'll get a WhatsApp button to send the order details to the rider."
-        title="Enter the rider's WhatsApp number."
+        subtitle="Adding a rider number is optional. You can mark the order shipped now and use the WhatsApp button afterwards to send the order details to a rider."
+        title="Add the rider's WhatsApp number (optional)."
       />
 
       <ShipmentField
         colors={colors}
-        label="Dispatch Rider Number"
+        label="Dispatch Rider Number (Optional)"
         value={riderPhone}
         withInnerPadding={false}
       >

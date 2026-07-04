@@ -31,8 +31,10 @@ type HookParams = Parameters<typeof useOrderDetailsBackHandler>[0];
 
 function buildParams(overrides: Partial<HookParams> = {}): HookParams {
   return {
+    fulfillmentItemIndex: 0,
     requiresShipmentDetails: false,
     selectedOrderItemOpen: false,
+    setFulfillmentItemIndex: vi.fn(),
     setIsShipmentSubmitting: vi.fn(),
     setSelectedOrderItemOpen: vi.fn(),
     setShowCreditModal: vi.fn(),
@@ -77,5 +79,51 @@ describe('useOrderDetailsBackHandler', () => {
 
     expect(backHandlerMock.addEventListener).not.toHaveBeenCalled();
     expect(backHandlerMock.state.listener).toBeNull();
+  });
+
+  it('moves to the previous fulfillment item before closing shipment flow', () => {
+    const setFulfillmentItemIndex = vi.fn();
+    const setShowShipmentFlow = vi.fn();
+
+    renderHook(() =>
+      useOrderDetailsBackHandler(
+        buildParams({
+          fulfillmentItemIndex: 2,
+          setFulfillmentItemIndex,
+          setShowShipmentFlow,
+          showShipmentFlow: true,
+          shipmentFlowStep: 'details',
+        })
+      )
+    );
+
+    const result = backHandlerMock.state.listener?.();
+
+    expect(result).toBe(true);
+    expect(setFulfillmentItemIndex).toHaveBeenCalledWith(1);
+    expect(setShowShipmentFlow).not.toHaveBeenCalled();
+  });
+
+  it('resets fulfillment item index when hardware back closes shipment flow', () => {
+    const setFulfillmentItemIndex = vi.fn();
+    const setShowShipmentFlow = vi.fn();
+
+    renderHook(() =>
+      useOrderDetailsBackHandler(
+        buildParams({
+          fulfillmentItemIndex: 0,
+          setFulfillmentItemIndex,
+          setShowShipmentFlow,
+          showShipmentFlow: true,
+          shipmentFlowStep: 'details',
+        })
+      )
+    );
+
+    const result = backHandlerMock.state.listener?.();
+
+    expect(result).toBe(true);
+    expect(setShowShipmentFlow).toHaveBeenCalledWith(false);
+    expect(setFulfillmentItemIndex).toHaveBeenCalledWith(0);
   });
 });

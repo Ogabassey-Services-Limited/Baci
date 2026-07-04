@@ -4,9 +4,12 @@ export { generateReceiptHtml } from './generate-receipt-html';
 export {
   appendReceiptFulfillmentDescription,
   getReceiptFulfillmentRows,
+  getReceiptFulfillmentRowsFromDetails,
   getReceiptFulfillmentSummary,
   isDeviceReceiptItemName,
   normalizeReceiptFulfillmentDetails,
+  resolveReceiptItemFulfillmentAttachment,
+  resolveReceiptItemFulfillmentDetails,
   shouldAttachFulfillmentToItem,
 } from './receipt-fulfillment';
 export { sanitizeSvg } from './sanitize-svg';

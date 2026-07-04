@@ -5,8 +5,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { ShipmentFlowDetailsStep } from './ShipmentFlowDetailsStep';
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => null,
-  default: () => null,
+  Ionicons: ({ name }: { name: string }) => (
+    <span aria-label={name} role="img" />
+  ),
+  default: ({ name }: { name: string }) => (
+    <span aria-label={name} role="img" />
+  ),
   __esModule: true,
 }));
 
@@ -17,6 +21,20 @@ vi.mock('react-native', async () => {
     StyleSheet: {
       create: (styles: unknown) => styles,
     },
+    Pressable: ({
+      accessibilityLabel,
+      children,
+      onPress,
+    }: {
+      accessibilityLabel?: string;
+      children?: React.ReactNode;
+      onPress?: () => void;
+    }) =>
+      React.createElement(
+        'button',
+        { 'aria-label': accessibilityLabel, onClick: onPress, type: 'button' },
+        children
+      ),
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
     TextInput: ({
@@ -58,9 +76,11 @@ describe('ShipmentFlowDetailsStep', () => {
   it('describes IMEI or serial number as the required shipment identifier', () => {
     render(
       <ShipmentFlowDetailsStep
-        fulfillmentDetails={{ imei: '', serialNumber: '' }}
+        fulfillmentDetails={{ imei: '', items: [], serialNumber: '' }}
+        fulfillmentItemIndex={0}
         hasExistingFulfillment={false}
         onFulfillmentDetailsChange={vi.fn()}
+        onScanIdentifier={vi.fn()}
       />
     );
 
@@ -89,16 +109,20 @@ describe('ShipmentFlowDetailsStep', () => {
       'data-return-key-type',
       'done'
     );
+    expect(screen.getAllByText('Scan')).toHaveLength(2);
+    expect(screen.getAllByLabelText('barcode-outline')).toHaveLength(3);
   });
 
-  it('normalizes IMEI digits and preserves serial number typing', () => {
+  it('normalizes IMEI digits and uppercases serial number typing', () => {
     const onFulfillmentDetailsChange = vi.fn();
 
     render(
       <ShipmentFlowDetailsStep
-        fulfillmentDetails={{ imei: '', serialNumber: '' }}
+        fulfillmentDetails={{ imei: '', items: [], serialNumber: '' }}
+        fulfillmentItemIndex={0}
         hasExistingFulfillment={false}
         onFulfillmentDetailsChange={onFulfillmentDetailsChange}
+        onScanIdentifier={vi.fn()}
       />
     );
 
@@ -106,7 +130,7 @@ describe('ShipmentFlowDetailsStep', () => {
       target: { value: 'abc353456789012345999' },
     });
     fireEvent.change(screen.getByPlaceholderText('e.g. C02ZK0ABC123'), {
-      target: { value: ' SN-123 ' },
+      target: { value: ' Bosnia sn-123/ab ' },
     });
 
     expect(onFulfillmentDetailsChange).toHaveBeenCalledWith(
@@ -115,7 +139,53 @@ describe('ShipmentFlowDetailsStep', () => {
     );
     expect(onFulfillmentDetailsChange).toHaveBeenCalledWith(
       'serialNumber',
-      ' SN-123 '
+      'BOSNIASN-123AB'
     );
+  });
+
+  it('shows active device context and opens the scanner action', () => {
+    const onScanIdentifier = vi.fn();
+
+    render(
+      <ShipmentFlowDetailsStep
+        fulfillmentDetails={{
+          imei: '',
+          items: [
+            {
+              id: 'item-1:1',
+              imei: '',
+              orderItemId: 'item-1',
+              productName: '13" iPad Air',
+              serialNumber: '',
+              unitCount: 1,
+              unitIndex: 0,
+            },
+            {
+              id: 'item-2:1',
+              imei: '',
+              orderItemId: 'item-2',
+              productName: 'Apple Pencil Pro',
+              serialNumber: '',
+              unitCount: 1,
+              unitIndex: 0,
+            },
+          ],
+          serialNumber: '',
+        }}
+        fulfillmentItemIndex={1}
+        hasExistingFulfillment={false}
+        onFulfillmentDetailsChange={vi.fn()}
+        onScanIdentifier={onScanIdentifier}
+      />
+    );
+
+    expect(screen.getByText('Apple Pencil Pro')).toBeInTheDocument();
+    expect(screen.getByText('Item 2 of 2')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Scan IMEI' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Scan serial number' }));
+
+    expect(onScanIdentifier).toHaveBeenCalledWith('imei');
+    expect(onScanIdentifier).toHaveBeenCalledWith('serialNumber');
   });
 });

@@ -6,7 +6,7 @@ import { LIGHT_COLORS, type ThemeColors } from '@/constants/theme';
 import { OrderDetailsFooterBar } from './OrderDetailsFooterBar';
 
 vi.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ bottom: 0 }),
+  useSafeAreaInsets: () => ({ bottom: 34 }),
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
@@ -74,8 +74,41 @@ vi.mock('react-native', async () => {
     },
     Text: ({ children }: { children?: ReactNode }) =>
       React.createElement('span', null, children),
-    View: ({ children }: { children?: ReactNode }) =>
-      React.createElement('div', null, children),
+    View: ({ children, style }: { children?: ReactNode; style?: unknown }) => {
+      const getPaddingBottom = (styleValue: unknown): string => {
+        if (Array.isArray(styleValue)) {
+          const paddingValues = styleValue
+            .map(getPaddingBottom)
+            .filter(Boolean);
+          return paddingValues.at(-1) ?? '';
+        }
+
+        if (
+          styleValue &&
+          typeof styleValue === 'object' &&
+          'paddingBottom' in styleValue
+        ) {
+          const paddingBottom = (styleValue as { paddingBottom?: unknown })
+            .paddingBottom;
+          return paddingBottom == null ? '' : String(paddingBottom);
+        }
+
+        return '';
+      };
+
+      const paddingBottom = getPaddingBottom(style);
+
+      return React.createElement(
+        'div',
+        {
+          'data-padding-bottom': paddingBottom,
+          'data-testid': paddingBottom
+            ? 'order-details-footer-host'
+            : undefined,
+        },
+        children
+      );
+    },
   };
 });
 
@@ -123,6 +156,22 @@ describe('OrderDetailsFooterBar', () => {
     expect(screen.getByTestId('chevron-up')).toHaveAttribute(
       'data-important',
       'no'
+    );
+  });
+
+  it('keeps only a small extra gap above the safe area', () => {
+    render(
+      <OrderDetailsFooterBar
+        colors={colors}
+        currentStatusLabel="Unfulfilled"
+        onPress={vi.fn()}
+        statusColor="#f59e0b"
+      />
+    );
+
+    expect(screen.getByTestId('order-details-footer-host')).toHaveAttribute(
+      'data-padding-bottom',
+      '42'
     );
   });
 });

@@ -244,6 +244,31 @@ describe('fetchOrderById', () => {
     );
   });
 
+  it('treats paid orders without ledger rows as fully paid', async () => {
+    supabaseMock.setOrderDetailResult({
+      data: {
+        amount_paid: 0,
+        id: 'order-1',
+        payment_status: 'paid',
+        recorded_by_user_id: null,
+        total: 406_000,
+        wallet_amount_used: 0,
+      },
+      error: null,
+    });
+    supabaseMock.setTableResult('transactions', {
+      data: [],
+      error: null,
+    });
+
+    await expect(fetchOrderById('order-1', 'merchant-1')).resolves.toEqual(
+      expect.objectContaining({
+        amount_paid: 406_000,
+        balance: 0,
+      })
+    );
+  });
+
   it('throws order query errors before running child queries', async () => {
     supabaseMock.setOrderDetailResult({
       data: null,

@@ -75,7 +75,7 @@ describe('OrderDetailsPaymentCard', () => {
         onRequestPayment={onRequestPayment}
         paymentColor="#ca8a04"
         paymentLabel="Awaiting Payment"
-        paymentMethod="bank_transfer"
+        paymentMethod="transfer"
         paymentStatus="pending"
         shippingFee={1000}
         subtotal={9000}
@@ -148,7 +148,7 @@ describe('OrderDetailsPaymentCard', () => {
     expect(screen.getByText('Free')).toBeInTheDocument();
     expect(screen.getByText('-₦500')).toBeInTheDocument();
     expect(screen.getAllByText('₦10000')).toHaveLength(2);
-    expect(screen.getByText('bank transfer')).toBeInTheDocument();
+    expect(screen.getByText('Bank Transfer')).toBeInTheDocument();
     expect(screen.getByText('₦3000')).toBeInTheDocument();
     expect(screen.getByText('₦7000')).toBeInTheDocument();
   });
@@ -177,5 +177,32 @@ describe('OrderDetailsPaymentCard', () => {
     expect(screen.getByText('₦1500')).toBeInTheDocument();
     expect(screen.getByText('N/A')).toBeInTheDocument();
     expect(screen.queryByText('Balance Due')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['bank_transfer', 'Bank Transfer'],
+    ['bank-transfer', 'Bank Transfer'],
+    ['mobile_money', 'Mobile Money'],
+  ])('formats %s payment methods as %s', (paymentMethod, expectedLabel) => {
+    render(
+      <OrderDetailsPaymentCard
+        amountPaid={10000}
+        balance={0}
+        colors={colors}
+        discountAmount={0}
+        formatPrice={(amount) => `₦${amount}`}
+        onRecordPayment={vi.fn()}
+        onRequestPayment={vi.fn()}
+        paymentColor="#16a34a"
+        paymentLabel="Paid"
+        paymentMethod={paymentMethod}
+        paymentStatus="paid"
+        shippingFee={0}
+        subtotal={10000}
+        total={10000}
+      />
+    );
+
+    expect(screen.getByText(expectedLabel)).toBeInTheDocument();
   });
 });

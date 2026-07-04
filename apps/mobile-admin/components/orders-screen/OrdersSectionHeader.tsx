@@ -25,8 +25,7 @@ export function OrdersSectionHeader({
 const styles = StyleSheet.create({
   sectionHeader: {
     paddingHorizontal: SPACING.lg,
-    paddingVertical: 2,
-    paddingTop: SPACING.xs,
+    paddingVertical: 0,
     zIndex: 10,
   },
   sectionHeaderText: {

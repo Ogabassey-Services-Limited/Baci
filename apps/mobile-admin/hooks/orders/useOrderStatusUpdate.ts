@@ -8,6 +8,7 @@ import type { OrdersPage } from './order-types';
 import { parseResponsePayload } from './response-utils';
 
 const ORDER_STATUS_UPDATE_TIMEOUT_MS = 15000;
+const IS_DEV_RUNTIME = typeof __DEV__ !== 'undefined' && __DEV__;
 
 interface OrderStatusContext {
   previousOrderQueries: [readonly unknown[], Order | undefined][];
@@ -24,20 +25,42 @@ async function updateOrderStatus(
   status: ShippingStatus,
   merchantId: string
 ): Promise<Order> {
-  const response = await createAuthenticatedFetch(
-    `${BASE_URL}/api/orders/${orderId}`,
-    {
-      body: JSON.stringify({
-        merchant_id: merchantId,
-        shipping_status: status,
-      }),
-      headers: {
-        'Content-Type': 'application/json',
+  const url = `${BASE_URL}/api/orders/${orderId}`;
+
+  if (IS_DEV_RUNTIME) {
+    console.log('[OrderStatus] PATCH start', { orderId, status, url });
+  }
+
+  let response: Response;
+  try {
+    response = await createAuthenticatedFetch(
+      url,
+      {
+        body: JSON.stringify({
+          merchant_id: merchantId,
+          shipping_status: status,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        method: 'PATCH',
       },
-      method: 'PATCH',
-    },
-    ORDER_STATUS_UPDATE_TIMEOUT_MS
-  );
+      ORDER_STATUS_UPDATE_TIMEOUT_MS
+    );
+  } catch (error: unknown) {
+    if (IS_DEV_RUNTIME) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[OrderStatus] PATCH request failed', {
+        message,
+        orderId,
+        status,
+        url,
+      });
+    }
+
+    throw error;
+  }
+
   const responseText = await response.text();
   const payload = parseResponsePayload(responseText);
 
@@ -49,6 +72,16 @@ async function updateOrderStatus(
         ? payload.error
         : responseText ||
           `Request failed: ${response.status} ${response.statusText}`;
+    if (IS_DEV_RUNTIME) {
+      console.warn('[OrderStatus] PATCH response failed', {
+        errorMessage,
+        orderId,
+        status,
+        statusCode: response.status,
+        url,
+      });
+    }
+
     throw new Error(errorMessage);
   }
 

@@ -1,32 +1,32 @@
-import type { ShippingStatus } from '@baci/shared';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import type { OrdersCountSnapshot, ThemeColors } from './types';
+import type {
+  OrdersCountSnapshot,
+  OrdersFilterKey,
+  ThemeColors,
+} from './types';
 
 interface FilterTabProps {
-  status: ShippingStatus | 'all';
+  countKey: keyof OrdersCountSnapshot;
+  filterKey: OrdersFilterKey;
   label: string;
-  statusFilter: ShippingStatus | undefined;
+  selectedFilter: OrdersFilterKey;
   counts: OrdersCountSnapshot | null | undefined;
   colors: ThemeColors;
-  onSelect: (status: ShippingStatus | undefined) => void;
+  onSelect: (filter: OrdersFilterKey) => void;
 }
 
 export function FilterTab({
-  status,
+  countKey,
+  filterKey,
   label,
-  statusFilter,
+  selectedFilter,
   counts,
   colors,
   onSelect,
 }: FilterTabProps) {
-  const isActive =
-    (status === 'all' && !statusFilter) || statusFilter === status;
-  const count = counts
-    ? status === 'all'
-      ? (counts.all ?? 0)
-      : (counts[status] ?? 0)
-    : 0;
+  const isActive = selectedFilter === filterKey;
+  const count = counts ? (counts[countKey] ?? 0) : 0;
 
   return (
     <Pressable
@@ -34,7 +34,7 @@ export function FilterTab({
         styles.filterTab,
         { backgroundColor: isActive ? colors.gold : colors.card },
       ]}
-      onPress={() => onSelect(status === 'all' ? undefined : status)}
+      onPress={() => onSelect(filterKey)}
       accessibilityLabel={`${label} orders: ${count}${isActive ? ', currently selected' : ''}`}
       accessibilityRole="tab"
       accessibilityState={{ selected: isActive }}

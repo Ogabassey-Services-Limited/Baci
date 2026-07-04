@@ -9,6 +9,9 @@ interface CreateOrderFabProps {
   onPress: () => void;
 }
 
+export const CREATE_ORDER_FAB_BOTTOM_OFFSET = 125;
+export const CREATE_ORDER_FAB_Z_INDEX = 300;
+
 export function CreateOrderFab({
   colors,
   shadows,
@@ -18,7 +21,12 @@ export function CreateOrderFab({
     <Pressable
       style={({ pressed }) => [
         styles.fab,
-        { backgroundColor: colors.gold },
+        {
+          backgroundColor: colors.gold,
+          position: 'absolute',
+          bottom: CREATE_ORDER_FAB_BOTTOM_OFFSET,
+          zIndex: CREATE_ORDER_FAB_Z_INDEX,
+        },
         shadows.lg,
         pressed && { opacity: 0.9, transform: [{ scale: 0.95 }] },
       ]}
@@ -34,8 +42,6 @@ export function CreateOrderFab({
 
 const styles = StyleSheet.create({
   fab: {
-    position: 'absolute',
-    bottom: SPACING.xl,
     right: SPACING.lg,
     width: 56,
     height: 56,

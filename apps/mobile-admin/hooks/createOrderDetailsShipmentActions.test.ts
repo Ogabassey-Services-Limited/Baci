@@ -8,7 +8,13 @@ vi.mock('react-native', () => ({
 
 vi.mock('@/lib/order-shipment', () => ({
   getDispatchPhoneFromOrder: vi.fn(() => null),
-  getInitialFulfillmentDetails: vi.fn(() => ({ imei: '', serialNumber: '' })),
+  getInitialFulfillmentDetails: vi.fn(() => ({
+    imei: '',
+    items: [],
+    serialNumber: '',
+  })),
+  areFulfillmentDetailsComplete: vi.fn(() => false),
+  getFirstIncompleteFulfillmentItemIndex: vi.fn(() => 0),
   shouldPersistFulfillmentDetails: vi.fn(() => false),
 }));
 
@@ -22,7 +28,9 @@ function makeActions(
   overrides?: Partial<Parameters<typeof createOrderDetailsShipmentActions>[0]>
 ) {
   return createOrderDetailsShipmentActions({
-    fulfillmentDetails: { imei: '', serialNumber: '' },
+    fulfillmentDetails: { imei: '', items: [], serialNumber: '' },
+    fulfillmentItemIndex: 0,
+    fulfillmentItems: [],
     handleSaveRider: vi.fn(),
     merchantId: undefined,
     order: undefined,
@@ -33,6 +41,7 @@ function makeActions(
     requiresShipmentDetails: false,
     riderPhone: '',
     setFulfillmentDetails: vi.fn(),
+    setFulfillmentItemIndex: vi.fn(),
     setIsShipmentSubmitting: vi.fn(),
     setPendingShipmentMode: vi.fn(),
     setRiderPhone: vi.fn(),
@@ -97,5 +106,45 @@ describe('createOrderDetailsShipmentActions', () => {
     actions.proceedFromFulfillmentDetails();
 
     expect(setShipmentFlowStep).toHaveBeenCalledWith('method');
+  });
+
+  it('advances through required fulfillment items before shipping', () => {
+    const setFulfillmentItemIndex = vi.fn();
+    const setShipmentFlowStep = vi.fn();
+    const actions = makeActions({
+      fulfillmentDetails: {
+        imei: '353456789012345',
+        items: [
+          {
+            id: 'item-1:1',
+            imei: '353456789012345',
+            orderItemId: 'item-1',
+            productName: '13" iPad Air',
+            serialNumber: '',
+            unitCount: 1,
+            unitIndex: 0,
+          },
+          {
+            id: 'item-2:1',
+            imei: '',
+            orderItemId: 'item-2',
+            productName: 'Apple Pencil Pro',
+            serialNumber: '',
+            unitCount: 1,
+            unitIndex: 0,
+          },
+        ],
+        serialNumber: '',
+      },
+      fulfillmentItemIndex: 0,
+      requiresShipmentDetails: true,
+      setFulfillmentItemIndex,
+      setShipmentFlowStep,
+    });
+
+    actions.proceedFromFulfillmentDetails();
+
+    expect(setFulfillmentItemIndex).toHaveBeenCalledWith(1);
+    expect(setShipmentFlowStep).not.toHaveBeenCalledWith('method');
   });
 });

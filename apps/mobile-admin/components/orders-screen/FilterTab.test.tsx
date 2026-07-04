@@ -12,15 +12,16 @@ describe('FilterTab', () => {
       <FilterTab
         colors={mockColors}
         counts={{ all: 3, pending: 2 }}
+        countKey="all"
+        filterKey="all"
         label="All"
         onSelect={onSelect}
-        status="all"
-        statusFilter="pending"
+        selectedFilter="pending"
       />
     );
 
     fireEvent.click(screen.getByRole('tab', { name: 'All orders: 3' }));
 
-    expect(onSelect).toHaveBeenCalledWith(undefined);
+    expect(onSelect).toHaveBeenCalledWith('all');
   });
 });

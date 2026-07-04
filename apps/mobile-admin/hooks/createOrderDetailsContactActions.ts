@@ -1,6 +1,11 @@
 import { Alert, Linking, Share } from 'react-native';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
+import { apiClient } from '@/lib/api-client';
 import { extractOrderDeliveryAddress } from '@/lib/orders';
+import {
+  formatPhoneNumberForCountry,
+  getPhoneCountryFromValue,
+} from '@/lib/phone-country';
 import { asyncStorage as AsyncStorage } from '@/lib/storage';
 
 interface CreateOrderDetailsContactActionsParams {
@@ -19,7 +24,15 @@ interface CreateOrderDetailsContactActionsParams {
 }
 
 function normalizeWhatsAppPhone(phone: string | null | undefined) {
-  return phone?.replace(/\D/g, '') ?? '';
+  try {
+    const formattedPhone = formatPhoneNumberForCountry(
+      phone ?? '',
+      getPhoneCountryFromValue(phone ?? '')
+    );
+    return formattedPhone.replace(/\D/g, '');
+  } catch {
+    return (phone ?? '').replace(/\D/g, '');
+  }
 }
 
 function isValidWhatsAppPhone(phone: string) {
@@ -55,6 +68,30 @@ export function createOrderDetailsContactActions({
     await AsyncStorage.setItem('saved_riders', JSON.stringify(nextRiders));
   };
 
+  const saveDispatchPhoneToOrder = async (dispatchPhone: string) => {
+    if (!(order?.id && order.self_fulfillment_data)) {
+      throw new Error('Order is missing self-fulfillment data');
+    }
+
+    await apiClient('/api/shipping/self-fulfill', {
+      body: JSON.stringify({
+        carrierName:
+          order.self_fulfillment_data.carrierName?.trim() || 'Dispatch Rider',
+        dispatchPhone,
+        orderId: order.id,
+      }),
+      method: 'PATCH',
+    });
+  };
+
+  const maybeSaveDispatchPhoneToOrder = async (dispatchPhone: string) => {
+    if (!order?.self_fulfillment_data) {
+      return;
+    }
+
+    await saveDispatchPhoneToOrder(dispatchPhone);
+  };
+
   const handleSendOrderDetailsToRider = async () => {
     if (!order) {
       return;
@@ -74,6 +111,12 @@ export function createOrderDetailsContactActions({
     }
 
     await handleSaveRider(dispatchPhone);
+    try {
+      await maybeSaveDispatchPhoneToOrder(dispatchPhone);
+    } catch {
+      Alert.alert('Error', 'Could not save the rider phone number.');
+      return;
+    }
 
     const shippingAddress =
       order.shipping_address && typeof order.shipping_address === 'object'
@@ -111,15 +154,17 @@ ${amountToCollect}
     });
   };
 
-  const handleSendRiderToCustomer = () => {
+  const handleSendRiderToCustomer = async () => {
     if (!order) {
       return;
     }
 
     const customerPhone = normalizeWhatsAppPhone(order.customer_phone);
-    const dispatchPhone = normalizeWhatsAppPhone(
+    const savedDispatchPhone = normalizeWhatsAppPhone(
       order.self_fulfillment_data?.dispatchPhone
     );
+    const typedDispatchPhone = normalizeWhatsAppPhone(riderPhone);
+    const dispatchPhone = typedDispatchPhone || savedDispatchPhone;
     const carrierName =
       order.self_fulfillment_data?.carrierName?.trim() || 'Dispatch Rider';
 
@@ -147,12 +192,24 @@ ${amountToCollect}
       );
       return;
     }
+    if (
+      typedDispatchPhone &&
+      typedDispatchPhone !== savedDispatchPhone &&
+      order.self_fulfillment_data
+    ) {
+      try {
+        await saveDispatchPhoneToOrder(typedDispatchPhone);
+      } catch {
+        Alert.alert('Error', 'Could not save the rider phone number.');
+        return;
+      }
+    }
 
     const message = `
 🚚 *Order Update*
 Your order #${order.order_number} is on the way!
 
-${carrierName}: ${dispatchPhone}
+${carrierName}: +${dispatchPhone}
 Please keep your phone available.
 
 Thank you for choosing ${merchant?.business_name || 'us'}!

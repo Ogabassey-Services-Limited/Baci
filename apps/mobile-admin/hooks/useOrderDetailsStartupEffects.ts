@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
+import { getDispatchPhoneFromOrder } from '@/lib/order-shipment';
 import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import { parseSavedRiders } from '@/lib/validators/storage';
 
@@ -7,6 +8,7 @@ export function useOrderDetailsStartupEffects({
   actionParam,
   order,
   setPaymentAmount,
+  setRiderPhone,
   setSavedRiders,
   setShowCreditModal,
   setShowRecordPaymentModal,
@@ -14,17 +16,25 @@ export function useOrderDetailsStartupEffects({
   actionParam?: 'record-payment' | 'ship-on-credit';
   order?: OrderDetailsRecord | null;
   setPaymentAmount: (value: string) => void;
+  setRiderPhone: (value: string) => void;
   setSavedRiders: (value: string[]) => void;
   setShowCreditModal: (value: boolean) => void;
   setShowRecordPaymentModal: (value: boolean) => void;
 }) {
+  const riderPhoneInitializedOrderIdRef = useRef<string | null>(null);
+  const orderAmountPaid = order?.amount_paid;
+  const orderBalance = order?.balance;
+  const orderDispatchPhone = order ? getDispatchPhoneFromOrder(order) : '';
+  const orderId = order?.id;
+  const orderTotal = order?.total;
+
   useEffect(() => {
-    if (!order || !actionParam) return;
+    if (!orderId || !actionParam) return;
 
     if (actionParam === 'record-payment') {
       setShowRecordPaymentModal(true);
       const balance =
-        order.balance ?? Number(order.total) - Number(order.amount_paid || 0);
+        orderBalance ?? Number(orderTotal) - Number(orderAmountPaid || 0);
       if (balance > 0) {
         setPaymentAmount(String(Math.round(balance)));
       }
@@ -33,14 +43,27 @@ export function useOrderDetailsStartupEffects({
     }
   }, [
     actionParam,
-    order?.amount_paid,
-    order?.balance,
-    order?.id,
-    order?.total,
+    orderAmountPaid,
+    orderBalance,
+    orderId,
+    orderTotal,
     setPaymentAmount,
     setShowCreditModal,
     setShowRecordPaymentModal,
   ]);
+
+  useEffect(() => {
+    if (!orderId) {
+      riderPhoneInitializedOrderIdRef.current = null;
+      return;
+    }
+    if (riderPhoneInitializedOrderIdRef.current === orderId) {
+      return;
+    }
+
+    riderPhoneInitializedOrderIdRef.current = orderId;
+    setRiderPhone(orderDispatchPhone);
+  }, [orderDispatchPhone, orderId, setRiderPhone]);
 
   useEffect(() => {
     async function loadSavedRiders() {

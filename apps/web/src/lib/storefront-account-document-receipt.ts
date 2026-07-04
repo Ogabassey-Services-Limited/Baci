@@ -93,6 +93,7 @@ export function buildReceiptOrder(input: BuildReceiptOrderInput): ReceiptOrder {
         ) as ReceiptOrder['fulfillment_details'])
       : null,
     items: input.orderItems.map((item, index) => ({
+      id: item.id,
       line_id: index + 1,
       product_id: item.product_id || null,
       product_name: item.product_name || item.name,

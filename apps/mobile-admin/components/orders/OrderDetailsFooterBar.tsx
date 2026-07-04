@@ -2,6 +2,9 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ThemeColors } from '@/constants/theme';
+import { logOrderStatusDebug } from './order-status-debug';
+
+const FOOTER_EXTRA_BOTTOM_PADDING = 8;
 
 interface OrderDetailsFooterBarProps {
   colors: ThemeColors;
@@ -17,6 +20,17 @@ export function OrderDetailsFooterBar({
   statusColor,
 }: OrderDetailsFooterBarProps) {
   const insets = useSafeAreaInsets();
+  const handleUpdateStatusPress = () => {
+    logOrderStatusDebug('footer-button-pressed', {
+      currentStatusLabel,
+    });
+
+    onPress();
+
+    logOrderStatusDebug('footer-button-onPress-returned', {
+      currentStatusLabel,
+    });
+  };
 
   return (
     <View
@@ -25,7 +39,7 @@ export function OrderDetailsFooterBar({
         {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
-          paddingBottom: 24 + insets.bottom,
+          paddingBottom: FOOTER_EXTRA_BOTTOM_PADDING + insets.bottom,
         },
       ]}
     >
@@ -42,7 +56,7 @@ export function OrderDetailsFooterBar({
           accessibilityLabel="Update order status"
           accessibilityRole="button"
           style={[styles.button, { backgroundColor: colors.primary }]}
-          onPress={onPress}
+          onPress={handleUpdateStatusPress}
         >
           <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>
             Update Status
@@ -82,7 +96,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     bottom: 0,
     left: 0,
-    paddingBottom: 24,
+    paddingBottom: FOOTER_EXTRA_BOTTOM_PADDING,
     paddingHorizontal: 16,
     paddingTop: 12,
     position: 'absolute',

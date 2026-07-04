@@ -4,6 +4,7 @@ import {
   normalizeReceiptFulfillmentDetails,
   type ReceiptMerchant,
   type ReceiptOrder,
+  resolveReceiptItemFulfillmentAttachment,
 } from '@baci/shared';
 import {
   buildAssuranceInvoiceLineItem,
@@ -227,9 +228,16 @@ export function buildStorefrontAccountDocumentBundle({
     const itemName = item.variant_name
       ? `${item.product_name || item.name} (${item.variant_name})`
       : item.product_name || item.name;
-    const fulfillment =
-      normalizeReceiptFulfillmentDetails(item.fulfillment_details) ||
-      orderFulfillment;
+    const itemFulfillment = normalizeReceiptFulfillmentDetails(
+      item.fulfillment_details
+    );
+    const fulfillmentAttachment = resolveReceiptItemFulfillmentAttachment({
+      hasDeviceItem,
+      index,
+      item,
+      itemFulfillment,
+      orderFulfillment,
+    });
 
     return {
       line_id: index + 1,
@@ -237,9 +245,9 @@ export function buildStorefrontAccountDocumentBundle({
       name: itemName,
       description: appendReceiptFulfillmentDescription({
         description: undefined,
-        fulfillment,
-        hasDeviceItem,
-        index,
+        fulfillment: fulfillmentAttachment.fulfillment,
+        hasDeviceItem: fulfillmentAttachment.hasDeviceItem,
+        index: fulfillmentAttachment.index,
         itemName,
       }),
       quantity: item.quantity,

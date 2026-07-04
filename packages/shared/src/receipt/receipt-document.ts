@@ -15,7 +15,6 @@ export interface ReceiptDocumentParams {
   contactPhone: string | null;
   dateStr: string;
   docTitle: string;
-  fulfillmentDetailsHtml: string;
   isPaid: boolean;
   itemRows: string;
   logoHtml: string;
@@ -41,7 +40,6 @@ export function renderReceiptDocument(params: ReceiptDocumentParams): string {
     contactPhone,
     dateStr,
     docTitle,
-    fulfillmentDetailsHtml,
     isPaid,
     itemRows,
     logoHtml,
@@ -82,12 +80,11 @@ export function renderReceiptDocument(params: ReceiptDocumentParams): string {
     <div class="header">
       <div>
         ${logoHtml}
-        <div class="merchant-info">
+        <div class="merchant-contact">
           ${merchant.business_address ? `<div>${escapeHtml(merchant.business_address)}</div>` : ''}
           ${contactPhone ? `<div>${escapeHtml(contactPhone)}</div>` : ''}
           ${contactEmail ? `<div>${escapeHtml(contactEmail)}</div>` : ''}
           ${merchant.cac_rc_number ? `<div><strong>RC: ${escapeHtml(merchant.cac_rc_number)}</strong></div>` : ''}
-          ${merchant.tax_identification_number ? `<div><strong>TIN: ${escapeHtml(merchant.tax_identification_number)}</strong></div>` : ''}
         </div>
       </div>
       <div class="doc-meta">
@@ -143,7 +140,6 @@ export function renderReceiptDocument(params: ReceiptDocumentParams): string {
       </div>
     </div>
 
-    ${fulfillmentDetailsHtml}
     ${paymentHistoryHtml}
     ${bankDetailsHtml}
     ${qrHtml}
@@ -173,10 +169,28 @@ function formatReceiptPaymentMethod(
   }
 
   if (normalizedMethod === 'imported' || normalizedMethod === 'bank_transfer') {
-    return 'Bank transfer';
+    return 'Bank Transfer';
   }
 
-  return paymentMethod?.trim() || 'Verified';
+  if (normalizedMethod === 'transfer' || normalizedMethod === 'bank-transfer') {
+    return 'Bank Transfer';
+  }
+
+  return formatSentenceCasePaymentMethod(paymentMethod) || 'Verified';
+}
+
+function formatSentenceCasePaymentMethod(paymentMethod: string | null) {
+  const normalized = paymentMethod?.trim().replace(/[_-]+/g, ' ');
+  if (!normalized) {
+    return '';
+  }
+
+  if (normalized.toLowerCase() === 'pos') {
+    return 'POS';
+  }
+
+  const lowerCaseLabel = normalized.toLowerCase();
+  return lowerCaseLabel.charAt(0).toUpperCase() + lowerCaseLabel.slice(1);
 }
 
 function renderFooterHtml({

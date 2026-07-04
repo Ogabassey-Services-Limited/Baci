@@ -4,6 +4,7 @@ import { Alert } from 'react-native';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import { supabase } from '@/lib/supabase';
 import { resolveOrderReceiptVirtualAccount } from './resolveOrderReceiptVirtualAccount';
+import { resolveReceiptItemFulfillmentDetails } from './resolveReceiptItemFulfillmentDetails';
 
 let PrintModule: typeof import('expo-print') | null = null;
 let SharingModule: typeof import('expo-sharing') | null = null;
@@ -55,6 +56,7 @@ interface CreateOrderDetailsReceiptActionsParams {
   setIsGeneratingReceipt: (value: boolean) => void;
   setReceiptHtml: (value: string) => void;
   setShowReceiptPreview: (value: boolean) => void;
+  storeUrl?: string;
 }
 
 function resolveMerchantPages(
@@ -80,6 +82,13 @@ function isSvgLogoUrl(logoUrl: string) {
   }
 }
 
+function getOrderReceiptDate(order: OrderDetailsRecord | undefined) {
+  const orderDate = order?.created_at ? new Date(order.created_at) : null;
+  return orderDate && Number.isFinite(orderDate.getTime())
+    ? orderDate
+    : new Date();
+}
+
 export function createOrderDetailsReceiptActions({
   isGeneratingReceipt,
   merchant,
@@ -88,6 +97,7 @@ export function createOrderDetailsReceiptActions({
   setIsGeneratingReceipt,
   setReceiptHtml,
   setShowReceiptPreview,
+  storeUrl,
 }: CreateOrderDetailsReceiptActionsParams) {
   const handleSendReceipt = async () => {
     if (!order || !merchant || isGeneratingReceipt) {
@@ -113,6 +123,11 @@ export function createOrderDetailsReceiptActions({
         fulfillment_details: order.fulfillment_details ?? null,
         is_credit_order: order.is_credit_order ?? false,
         items: (order.items ?? []).map((item) => ({
+          description: item.details ?? null,
+          fulfillment_details: resolveReceiptItemFulfillmentDetails(
+            order.fulfillment_details,
+            item
+          ),
           price: Number(item.price) || 0,
           product_name: item.product_name || item.name || 'Product',
           quantity: item.quantity,
@@ -201,7 +216,10 @@ export function createOrderDetailsReceiptActions({
       };
 
       setReceiptHtml(
-        generateReceiptHtml(receiptOrder, receiptMerchant, { svgXml })
+        generateReceiptHtml(receiptOrder, receiptMerchant, {
+          storeUrl,
+          svgXml,
+        })
       );
       setShowReceiptPreview(true);
     } catch {
@@ -237,7 +255,7 @@ export function createOrderDetailsReceiptActions({
         .replace(/[^a-zA-Z0-9 ]/g, '')
         .trim()
         .replace(/\s+/g, '-');
-      const dateString = new Date()
+      const dateString = getOrderReceiptDate(order)
         .toLocaleDateString('en-GB', {
           day: '2-digit',
           month: 'short',

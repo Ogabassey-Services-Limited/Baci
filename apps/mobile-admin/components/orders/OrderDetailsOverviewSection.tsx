@@ -13,11 +13,13 @@ interface OrderDetailsOverviewSectionProps {
   isGeneratingReceipt: boolean;
   onCall: () => void;
   onEmail: () => void;
+  onRiderPhoneChange: (value: string) => void;
   onSendOrderDetailsToRider: () => void;
   onSendReceipt: () => void;
   onSendRiderToCustomer: () => void;
   onWhatsApp: () => void;
   recordedByName?: string | null;
+  riderPhone: string;
   shippingColor: string;
   shippingConfig: { icon: string; label: string };
   shippingStatus: string;
@@ -36,11 +38,13 @@ export function OrderDetailsOverviewSection({
   isGeneratingReceipt,
   onCall,
   onEmail,
+  onRiderPhoneChange,
   onSendOrderDetailsToRider,
   onSendReceipt,
   onSendRiderToCustomer,
   onWhatsApp,
   recordedByName,
+  riderPhone,
   shippingColor,
   shippingConfig,
   shippingStatus,
@@ -70,10 +74,12 @@ export function OrderDetailsOverviewSection({
         isGeneratingReceipt={isGeneratingReceipt}
         onCall={onCall}
         onEmail={onEmail}
+        onRiderPhoneChange={onRiderPhoneChange}
         onSendOrderDetailsToRider={onSendOrderDetailsToRider}
         onSendReceipt={onSendReceipt}
         onSendRiderToCustomer={onSendRiderToCustomer}
         onWhatsApp={onWhatsApp}
+        riderPhone={riderPhone}
         showPostShipmentActions={showPostShipmentActions}
       />
     </View>

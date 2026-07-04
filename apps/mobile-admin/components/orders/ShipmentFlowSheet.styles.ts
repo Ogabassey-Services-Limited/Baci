@@ -19,9 +19,17 @@ export const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: SHEET_BACKDROP_COLOR,
   },
+  dismissRegion: {
+    flex: 1,
+    width: '100%',
+  },
   keyboardContent: {
     flexGrow: 1,
     justifyContent: 'flex-end',
+    // Override the keyboard container's default bottom padding so the sheet
+    // sits flush on top of the keyboard; the sheet's own paddingBottom still
+    // protects the safe area when no keyboard is shown.
+    paddingBottom: 0,
   },
   sheet: {
     borderTopLeftRadius: RADIUS.xl,
@@ -62,6 +70,27 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     gap: COMPACT_GAP,
+  },
+  stepCounter: {
+    alignItems: 'center',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  stepCounterCopy: {
+    flex: 1,
+    gap: CONTENT_GAP,
+  },
+  stepCounterLabel: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: '700',
+  },
+  stepCounterMeta: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontWeight: '600',
   },
   stepDot: {
     alignItems: 'center',
@@ -127,6 +156,20 @@ export const styles = StyleSheet.create({
   },
   input: {
     fontSize: TYPOGRAPHY.size.md,
+  },
+  fulfillmentItemBanner: {
+    borderRadius: RADIUS.lg,
+    gap: CONTENT_GAP,
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+  },
+  fulfillmentItemLabel: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontWeight: '700',
+  },
+  fulfillmentItemCount: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontWeight: '600',
   },
   riderPhoneRow: {
     alignItems: 'center',

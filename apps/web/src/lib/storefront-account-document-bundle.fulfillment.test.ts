@@ -80,6 +80,21 @@ function createBundleInput(itemRows: BundleInput['itemRows']): BundleInput {
   };
 }
 
+function createBundleInputWithOrder(
+  order: Partial<BundleInput['order']>,
+  itemRows: BundleInput['itemRows']
+): BundleInput {
+  const baseInput = createBundleInput(itemRows);
+
+  return {
+    ...baseInput,
+    order: {
+      ...baseInput.order,
+      ...order,
+    },
+  };
+}
+
 describe('buildStorefrontAccountDocumentBundle fulfillment fallbacks', () => {
   it('prefers normalized fulfillment details over raw fulfillment data', () => {
     const result = buildStorefrontAccountDocumentBundle(
@@ -151,6 +166,104 @@ describe('buildStorefrontAccountDocumentBundle fulfillment fallbacks', () => {
     );
     expect(result.invoiceData.items[0]?.description).not.toContain(
       'DETAILS-IMEI'
+    );
+  });
+
+  it('attaches order-level fulfillment items to matching invoice lines', () => {
+    const result = buildStorefrontAccountDocumentBundle(
+      createBundleInputWithOrder(
+        {
+          fulfillment_details: {
+            items: [
+              {
+                imei: '111111111111111',
+                orderItemId: 'item-1',
+              },
+              {
+                orderItemId: 'item-2',
+                serialNumber: 'SN-SECOND',
+              },
+            ],
+          },
+        },
+        [
+          {
+            id: 'item-1',
+            product_id: 'product-1',
+            variant_id: null,
+            variant_name: null,
+            name: 'Leather Case',
+            quantity: 1,
+            price: 100000,
+          },
+          {
+            id: 'item-2',
+            product_id: 'product-2',
+            variant_id: null,
+            variant_name: null,
+            name: 'iPhone 16',
+            quantity: 1,
+            price: 900000,
+          },
+        ]
+      )
+    );
+
+    expect(result.invoiceData.items[0]?.description).toContain(
+      'IMEI: 111111111111111'
+    );
+    expect(result.invoiceData.items[0]?.description).not.toContain('SN-SECOND');
+    expect(result.invoiceData.items[1]?.description).toContain(
+      'S/N: SN-SECOND'
+    );
+    expect(result.invoiceData.items[1]?.description).not.toContain(
+      '111111111111111'
+    );
+  });
+
+  it('preserves order-level fulfillment fallback when item entries do not match', () => {
+    const result = buildStorefrontAccountDocumentBundle(
+      createBundleInputWithOrder(
+        {
+          fulfillment_details: {
+            imei: 'ORDER-LEVEL-IMEI',
+            items: [
+              {
+                orderItemId: 'missing-item',
+                serialNumber: 'UNMATCHED-SERIAL',
+              },
+            ],
+          },
+        },
+        [
+          {
+            id: 'item-1',
+            product_id: 'product-1',
+            variant_id: null,
+            variant_name: null,
+            name: 'Leather Case',
+            quantity: 1,
+            price: 100000,
+          },
+          {
+            id: 'item-2',
+            product_id: 'product-2',
+            variant_id: null,
+            variant_name: null,
+            name: 'iPhone 16',
+            quantity: 1,
+            price: 900000,
+          },
+        ]
+      )
+    );
+
+    expect(result.invoiceData.items[0]?.description).toBeUndefined();
+    expect(result.invoiceData.items[1]?.description).toContain(
+      'IMEI: ORDER-LEVEL-IMEI'
+    );
+    expect(result.invoiceData.items[1]?.description).not.toContain(
+      'UNMATCHED-SERIAL'
     );
   });
 });

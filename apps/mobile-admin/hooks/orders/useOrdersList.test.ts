@@ -249,6 +249,28 @@ describe('fetchOrders', () => {
     ).toHaveLength(1);
   });
 
+  it('applies payment-status filters separately from fulfillment status filters', async () => {
+    await fetchOrders(
+      'merchant-1',
+      0,
+      {
+        paymentStatus: 'paid',
+      },
+      { type: 'all' }
+    );
+
+    expect(supabaseMock.chainCalls).toEqual(
+      expect.arrayContaining([
+        { method: 'eq', args: ['payment_status', 'paid'] },
+      ])
+    );
+    expect(supabaseMock.chainCalls).not.toEqual(
+      expect.arrayContaining([
+        { method: 'eq', args: ['shipping_status', 'paid'] },
+      ])
+    );
+  });
+
   it('escapes order search wildcards before building PostgREST ilike filters', async () => {
     await fetchOrders(
       'merchant-1',
@@ -375,7 +397,12 @@ describe('fetchOrders', () => {
   });
 
   it('configures the useOrders infinite query with branch-scope cache keys', async () => {
-    const query = useOrders('pending', 'order-1', 'Today') as unknown as {
+    const query = useOrders(
+      'pending',
+      'order-1',
+      'Today',
+      'paid'
+    ) as unknown as {
       enabled: boolean;
       queryFn: (input: { pageParam?: number }) => Promise<unknown>;
       queryKey: unknown[];
@@ -389,6 +416,7 @@ describe('fetchOrders', () => {
           'merchant-1',
           {
             dateFilter: 'Today',
+            paymentStatus: 'paid',
             search: 'order-1',
             status: 'pending',
           },
@@ -403,6 +431,7 @@ describe('fetchOrders', () => {
       expect.arrayContaining([
         { method: 'eq', args: ['merchant_id', 'merchant-1'] },
         { method: 'eq', args: ['shipping_status', 'pending'] },
+        { method: 'eq', args: ['payment_status', 'paid'] },
       ])
     );
   });

@@ -170,11 +170,15 @@ describe('renderTermsHtml', () => {
       storeUrl: 'https://shop.example.com/storefront?ref=receipt',
     });
 
+    expect(html).toContain('Terms and Conditions');
+    expect(html).toContain(
+      'By shopping with us, you agree to our terms and conditions and return policies stated below.'
+    );
     expect(html).toContain('href="https://shop.example.com/terms"');
     expect(html).not.toContain('/storefront?ref=receipt/terms');
   });
 
-  it('normalizes store URLs before rendering the full terms link', () => {
+  it('uses concise receipt terms copy instead of embedding full page terms', () => {
     const html = renderTermsHtml(
       createReceiptMerchant({ pages: { terms: '<p>Returns in 7 days</p>' } }),
       {
@@ -182,7 +186,10 @@ describe('renderTermsHtml', () => {
       }
     );
 
-    expect(html).toContain('Returns in 7 days');
+    expect(html).toContain(
+      'By shopping with us, you agree to our terms and conditions and return policies stated below.'
+    );
+    expect(html).not.toContain('Returns in 7 days');
     expect(html).toContain('href="https://shop.example.com/terms"');
     expect(html).not.toContain('/storefront//terms');
   });

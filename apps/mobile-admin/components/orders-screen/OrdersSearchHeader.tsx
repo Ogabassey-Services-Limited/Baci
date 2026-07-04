@@ -1,43 +1,55 @@
-import type { ShippingStatus } from '@baci/shared';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
-import Animated from 'react-native-reanimated';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { FilterTab } from './FilterTab';
-import type { OrdersCountSnapshot, ThemeColors } from './types';
+import type {
+  OrdersCountSnapshot,
+  OrdersFilterKey,
+  ThemeColors,
+} from './types';
 
 interface OrdersSearchHeaderProps {
   colors: ThemeColors;
   searchQuery: string;
-  searchHeaderStyle: object;
-  statusFilter: ShippingStatus | undefined;
+  selectedFilter: OrdersFilterKey;
   counts: OrdersCountSnapshot | null | undefined;
   onSearchChange: (value: string) => void;
-  onStatusSelect: (status: ShippingStatus | undefined) => void;
+  onFilterSelect: (filter: OrdersFilterKey) => void;
 }
 
-const ORDER_FILTERS: Array<{ status: ShippingStatus | 'all'; label: string }> =
-  [
-    { status: 'all', label: 'All' },
-    { status: 'pending', label: 'Pending' },
-    { status: 'processing', label: 'Processing' },
-    { status: 'shipped', label: 'Shipped' },
-    { status: 'delivered', label: 'Delivered' },
-    { status: 'cancelled', label: 'Cancelled' },
-    { status: 'returned', label: 'Returned' },
-  ];
+const ORDER_FILTERS: Array<{
+  countKey: keyof OrdersCountSnapshot;
+  key: OrdersFilterKey;
+  label: string;
+}> = [
+  { countKey: 'all', key: 'all', label: 'All' },
+  { countKey: 'paid', key: 'paid', label: 'Paid' },
+  { countKey: 'pending', key: 'pending', label: 'Pending' },
+  { countKey: 'processing', key: 'processing', label: 'Processing' },
+  { countKey: 'shipped', key: 'shipped', label: 'Shipped' },
+  { countKey: 'delivered', key: 'delivered', label: 'Delivered' },
+  { countKey: 'cancelled', key: 'cancelled', label: 'Cancelled' },
+  { countKey: 'returned', key: 'returned', label: 'Returned' },
+];
+
+const FILTER_ROW_GAP = SPACING.lg;
 
 export function OrdersSearchHeader({
   colors,
   searchQuery,
-  searchHeaderStyle,
-  statusFilter,
+  selectedFilter,
   counts,
   onSearchChange,
-  onStatusSelect,
+  onFilterSelect,
 }: OrdersSearchHeaderProps) {
   return (
-    <Animated.View style={[styles.searchContainer, searchHeaderStyle]}>
+    <View testID="orders-search-header" style={styles.searchContainer}>
       <SearchBar
         colors={colors}
         searchQuery={searchQuery}
@@ -48,20 +60,22 @@ export function OrdersSearchHeader({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filterContent}
         style={styles.filterContainer}
+        testID="orders-filter-row"
       >
         {ORDER_FILTERS.map((filter) => (
           <FilterTab
-            key={filter.status}
-            status={filter.status}
+            countKey={filter.countKey}
+            key={filter.key}
+            filterKey={filter.key}
             label={filter.label}
-            statusFilter={statusFilter}
+            selectedFilter={selectedFilter}
             counts={counts}
             colors={colors}
-            onSelect={onStatusSelect}
+            onSelect={onFilterSelect}
           />
         ))}
       </ScrollView>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -71,7 +85,10 @@ function SearchBar({
   onSearchChange,
 }: Pick<OrdersSearchHeaderProps, 'colors' | 'searchQuery' | 'onSearchChange'>) {
   return (
-    <Animated.View style={[styles.searchBar, { backgroundColor: colors.card }]}>
+    <View
+      testID="orders-search-bar"
+      style={[styles.searchBar, { backgroundColor: colors.card }]}
+    >
       <Ionicons name="search" size={20} color={colors.textMuted} />
       <TextInput
         style={[styles.searchInput, { color: colors.text }]}
@@ -93,18 +110,20 @@ function SearchBar({
           <Ionicons name="close-circle" size={20} color={colors.textMuted} />
         </Pressable>
       ) : null}
-    </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.md,
+    marginBottom: 0,
+    flexShrink: 0,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 56,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.lg,
@@ -122,7 +141,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  filterContainer: { marginTop: SPACING.sm },
+  filterContainer: { marginTop: FILTER_ROW_GAP },
   filterContent: {
     paddingHorizontal: SPACING.lg,
     gap: SPACING.sm,

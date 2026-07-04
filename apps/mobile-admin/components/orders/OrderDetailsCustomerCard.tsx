@@ -1,6 +1,12 @@
 import { BRAND_COLORS } from '@baci/shared';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import { orderDetailsOverviewStyles as styles } from './order-details-overview.styles';
 
@@ -12,10 +18,12 @@ interface OrderDetailsCustomerCardProps {
   isGeneratingReceipt: boolean;
   onCall: () => void;
   onEmail: () => void;
+  onRiderPhoneChange: (value: string) => void;
   onSendOrderDetailsToRider: () => void;
   onSendReceipt: () => void;
   onSendRiderToCustomer: () => void;
   onWhatsApp: () => void;
+  riderPhone: string;
   showPostShipmentActions: boolean;
 }
 
@@ -27,10 +35,12 @@ export function OrderDetailsCustomerCard({
   isGeneratingReceipt,
   onCall,
   onEmail,
+  onRiderPhoneChange,
   onSendOrderDetailsToRider,
   onSendReceipt,
   onSendRiderToCustomer,
   onWhatsApp,
+  riderPhone,
   showPostShipmentActions,
 }: OrderDetailsCustomerCardProps) {
   const hasCustomerPhone = Boolean(customerPhone?.trim());
@@ -155,21 +165,51 @@ export function OrderDetailsCustomerCard({
       </View>
 
       {showPostShipmentActions ? (
-        <Pressable
-          accessibilityLabel="Send order details to rider"
-          accessibilityRole="button"
-          onPress={onSendOrderDetailsToRider}
-          style={[styles.primaryAction, { backgroundColor: colors.gold }]}
-        >
-          <Ionicons
-            color={BRAND_COLORS.whatsapp}
-            name="logo-whatsapp"
-            size={20}
-          />
-          <Text style={[styles.primaryActionText, { color: colors.text }]}>
-            Send Order Details to Rider
+        <View style={styles.riderActionGroup}>
+          <Text style={[styles.riderFieldLabel, { color: colors.textMuted }]}>
+            Dispatch rider WhatsApp
           </Text>
-        </Pressable>
+          <TextInput
+            accessibilityLabel="Dispatch rider WhatsApp number"
+            keyboardType="phone-pad"
+            maxLength={20}
+            onChangeText={(value) =>
+              onRiderPhoneChange(
+                value
+                  .replace(/[^\d+]/g, '')
+                  .replace(/(?!^)\+/g, '')
+                  .slice(0, 20)
+              )
+            }
+            placeholder="Enter rider number"
+            placeholderTextColor={colors.textSecondary}
+            style={[
+              styles.riderPhoneInput,
+              {
+                backgroundColor: colors.backgroundLight,
+                borderColor: colors.border,
+                color: colors.text,
+              },
+            ]}
+            textContentType="telephoneNumber"
+            value={riderPhone}
+          />
+          <Pressable
+            accessibilityLabel="Send order details to rider"
+            accessibilityRole="button"
+            onPress={onSendOrderDetailsToRider}
+            style={[styles.primaryAction, { backgroundColor: colors.gold }]}
+          >
+            <Ionicons
+              color={BRAND_COLORS.whatsapp}
+              name="logo-whatsapp"
+              size={20}
+            />
+            <Text style={[styles.primaryActionText, { color: colors.text }]}>
+              Send Order Details to Rider
+            </Text>
+          </Pressable>
+        </View>
       ) : null}
 
       {showPostShipmentActions && hasCustomerPhone ? (

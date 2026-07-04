@@ -20,15 +20,17 @@ const supabaseMock = vi.hoisted(() => {
     for (const method of ['select', 'eq', 'not', 'or']) {
       chain[method] = passthrough(method);
     }
-    chain.then = (
-      resolve: (value: {
-        count: number;
-        error: { message: string } | null;
-      }) => unknown
-    ) =>
-      Promise.resolve(results.shift() ?? { count: 1, error: null }).then(
-        resolve
-      );
+    Object.defineProperty(chain, 'then', {
+      value: (
+        resolve: (value: {
+          count: number;
+          error: { message: string } | null;
+        }) => unknown
+      ) =>
+        Promise.resolve(results.shift() ?? { count: 1, error: null }).then(
+          resolve
+        ),
+    });
     return chain;
   }
 
@@ -83,30 +85,24 @@ describe('fetchOrderCounts', () => {
           (call) => call.method === 'eq' && call.args[0] === 'branch_id'
         )
       )
-    ).toEqual([
-      { method: 'eq', args: ['branch_id', 'branch-1'] },
-      { method: 'eq', args: ['branch_id', 'branch-1'] },
-      { method: 'eq', args: ['branch_id', 'branch-1'] },
-      { method: 'eq', args: ['branch_id', 'branch-1'] },
-      { method: 'eq', args: ['branch_id', 'branch-1'] },
-      { method: 'eq', args: ['branch_id', 'branch-1'] },
-      { method: 'eq', args: ['branch_id', 'branch-1'] },
-    ]);
+    ).toEqual(
+      Array.from({ length: 8 }, () => ({
+        method: 'eq',
+        args: ['branch_id', 'branch-1'],
+      }))
+    );
     expect(
       supabaseMock.chains.map((calls) =>
         calls.find(
           (call) => call.method === 'eq' && call.args[0] === 'merchant_id'
         )
       )
-    ).toEqual([
-      { method: 'eq', args: ['merchant_id', 'merchant-1'] },
-      { method: 'eq', args: ['merchant_id', 'merchant-1'] },
-      { method: 'eq', args: ['merchant_id', 'merchant-1'] },
-      { method: 'eq', args: ['merchant_id', 'merchant-1'] },
-      { method: 'eq', args: ['merchant_id', 'merchant-1'] },
-      { method: 'eq', args: ['merchant_id', 'merchant-1'] },
-      { method: 'eq', args: ['merchant_id', 'merchant-1'] },
-    ]);
+    ).toEqual(
+      Array.from({ length: 8 }, () => ({
+        method: 'eq',
+        args: ['merchant_id', 'merchant-1'],
+      }))
+    );
   });
 
   it('does not add branch filters for all-location counts', async () => {
@@ -125,15 +121,32 @@ describe('fetchOrderCounts', () => {
           (call) => call.method === 'eq' && call.args[0] === 'merchant_id'
         )
       )
-    ).toEqual([
-      { method: 'eq', args: ['merchant_id', 'merchant-1'] },
-      { method: 'eq', args: ['merchant_id', 'merchant-1'] },
-      { method: 'eq', args: ['merchant_id', 'merchant-1'] },
-      { method: 'eq', args: ['merchant_id', 'merchant-1'] },
-      { method: 'eq', args: ['merchant_id', 'merchant-1'] },
-      { method: 'eq', args: ['merchant_id', 'merchant-1'] },
-      { method: 'eq', args: ['merchant_id', 'merchant-1'] },
-    ]);
+    ).toEqual(
+      Array.from({ length: 8 }, () => ({
+        method: 'eq',
+        args: ['merchant_id', 'merchant-1'],
+      }))
+    );
+  });
+
+  it('counts paid orders by payment status while keeping fulfillment status counts', async () => {
+    await fetchOrderCounts('merchant-1', { type: 'all' });
+
+    expect(supabaseMock.chains[1]).toEqual(
+      expect.arrayContaining([
+        { method: 'eq', args: ['payment_status', 'paid'] },
+      ])
+    );
+    expect(supabaseMock.chains[1]).not.toEqual(
+      expect.arrayContaining([
+        { method: 'eq', args: ['shipping_status', 'paid'] },
+      ])
+    );
+    expect(supabaseMock.chains[2]).toEqual(
+      expect.arrayContaining([
+        { method: 'eq', args: ['shipping_status', 'pending'] },
+      ])
+    );
   });
 
   it('keeps checkout drop-offs out of every order count', async () => {
@@ -158,6 +171,7 @@ describe('fetchOrderCounts', () => {
   it('throws query errors while preserving merchant and branch filters', async () => {
     supabaseMock.enqueue([
       { count: 0, error: { message: 'Count failed' } },
+      { count: 1, error: null },
       { count: 1, error: null },
       { count: 1, error: null },
       { count: 1, error: null },
