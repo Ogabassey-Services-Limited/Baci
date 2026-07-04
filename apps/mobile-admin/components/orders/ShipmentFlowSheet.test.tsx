@@ -55,8 +55,16 @@ vi.mock('@/components/ui/KeyboardAwareModalContainer', () => ({
 }));
 
 vi.mock('./ShipmentIdentifierScanner', () => ({
-  ShipmentIdentifierScanner: ({ visible }: { visible: boolean }) =>
-    visible ? <div data-testid="identifier-scanner" /> : null,
+  ShipmentIdentifierScanner: ({
+    field,
+    visible,
+  }: {
+    field: string;
+    visible: boolean;
+  }) =>
+    visible ? (
+      <div data-field={field} data-testid="identifier-scanner" />
+    ) : null,
 }));
 
 vi.mock('react-native', () => {
@@ -186,5 +194,21 @@ describe('ShipmentFlowSheet', () => {
     );
 
     expect(defaultProps.onClose).not.toHaveBeenCalled();
+  });
+
+  it('resets the identifier scanner when the sheet closes while still mounted', () => {
+    const { rerender } = render(<ShipmentFlowSheet {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Scan IMEI' }));
+
+    expect(screen.getByTestId('identifier-scanner')).toHaveAttribute(
+      'data-field',
+      'imei'
+    );
+
+    rerender(<ShipmentFlowSheet {...defaultProps} visible={false} />);
+    rerender(<ShipmentFlowSheet {...defaultProps} visible={true} />);
+
+    expect(screen.queryByTestId('identifier-scanner')).not.toBeInTheDocument();
   });
 });

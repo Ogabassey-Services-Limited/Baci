@@ -15,6 +15,7 @@ import { OrderDetailsHeaderActions } from './OrderDetailsHeaderActions';
 import { OrderDetailsItemsAndPaymentSection } from './OrderDetailsItemsAndPaymentSection';
 import { OrderDetailsOverviewSection } from './OrderDetailsOverviewSection';
 import { OrderDetailsShippingSection } from './OrderDetailsShippingSection';
+import { shouldHideOrderDetailsContentFromAccessibility } from './order-details-accessibility';
 
 interface OrderDetailsScreenContentProps {
   controller: ReturnType<typeof useOrderDetailsController>;
@@ -31,6 +32,8 @@ export function OrderDetailsScreenContent({
   const canEditOrder = !['cancelled', 'returned'].includes(
     String(order.shipping_status)
   );
+  const hideMainContentFromAccessibility =
+    shouldHideOrderDetailsContentFromAccessibility(controller);
 
   return (
     <View style={{ backgroundColor: controller.colors.background, flex: 1 }}>
@@ -51,95 +54,99 @@ export function OrderDetailsScreenContent({
           ),
         }}
       />
-
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
-        <OrderDetailsOverviewSection
-          colors={controller.colors}
-          createdAtLabel={controller.formatDate(order.created_at)}
-          customerEmail={order.customer_email}
-          customerName={order.customer_name}
-          customerPhone={order.customer_phone}
-          isGeneratingReceipt={controller.isGeneratingReceipt}
-          onCall={controller.handleCall}
-          onEmail={controller.handleEmail}
-          onSendOrderDetailsToRider={() => {
-            void controller.handleSendOrderDetailsToRider();
-          }}
-          onSendReceipt={() => void controller.handleSendReceipt()}
-          onSendRiderToCustomer={controller.handleSendRiderToCustomer}
-          onWhatsApp={controller.handleWhatsApp}
-          recordedByName={order.recorded_by_name}
-          riderPhone={controller.riderPhone}
-          shippingColor={controller.shippingColor}
-          shippingConfig={{
-            icon: controller.shippingConfig.icon,
-            label: controller.shippingConfig.label,
-          }}
-          shippingStatus={order.shipping_status}
-          showPostShipmentActions={controller.showPostShipmentActions}
-          source={order.source}
-          sourceInfo={controller.sourceInfo}
-          onRiderPhoneChange={controller.setRiderPhone}
-          updatedAtLabel={controller.formatDate(order.updated_at)}
-        />
-
-        <OrderDetailsItemsAndPaymentSection
-          amountPaid={Number(order.amount_paid) || 0}
-          balance={order.balance}
-          colors={controller.colors}
-          discountAmount={order.discount_amount}
-          formatPrice={controller.formatPrice}
-          items={order.items || []}
-          onRecordPayment={() => {
-            const amount = Math.round(order.balance ?? order.total);
-            if (amount > 0) {
-              controller.setPaymentAmount(String(amount));
-              controller.setShowRecordPaymentModal(true);
+      <View
+        accessibilityElementsHidden={hideMainContentFromAccessibility}
+        importantForAccessibility={
+          hideMainContentFromAccessibility ? 'no-hide-descendants' : 'auto'
+        }
+        style={{ flex: 1 }}
+        testID="order-details-main-content"
+      >
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
+          <OrderDetailsOverviewSection
+            colors={controller.colors}
+            createdAtLabel={controller.formatDate(order.created_at)}
+            customerEmail={order.customer_email}
+            customerName={order.customer_name}
+            customerPhone={order.customer_phone}
+            isGeneratingReceipt={controller.isGeneratingReceipt}
+            onCall={controller.handleCall}
+            onEmail={controller.handleEmail}
+            onSendOrderDetailsToRider={() =>
+              void controller.handleSendOrderDetailsToRider()
             }
-          }}
-          onRequestPayment={() => void controller.handleSendReminder()}
-          onSelectItem={(item) =>
-            controller.setSelectedOrderItem({
-              ...item,
-              product_id: item.product_id ?? undefined,
-            })
-          }
-          paymentColor={controller.paymentColor}
-          paymentLabel={controller.paymentConfig.label}
-          paymentMethod={order.payment_method}
-          paymentStatus={order.payment_status}
-          shippingFee={order.shipping_fee}
-          subtotal={order.subtotal}
-          total={order.total}
-        />
+            onSendReceipt={() => void controller.handleSendReceipt()}
+            onSendRiderToCustomer={controller.handleSendRiderToCustomer}
+            onWhatsApp={controller.handleWhatsApp}
+            recordedByName={order.recorded_by_name}
+            riderPhone={controller.riderPhone}
+            shippingColor={controller.shippingColor}
+            shippingConfig={{
+              icon: controller.shippingConfig.icon,
+              label: controller.shippingConfig.label,
+            }}
+            shippingStatus={order.shipping_status}
+            showPostShipmentActions={controller.showPostShipmentActions}
+            source={order.source}
+            sourceInfo={controller.sourceInfo}
+            onRiderPhoneChange={controller.setRiderPhone}
+            updatedAtLabel={controller.formatDate(order.updated_at)}
+          />
+          <OrderDetailsItemsAndPaymentSection
+            amountPaid={Number(order.amount_paid) || 0}
+            balance={order.balance}
+            colors={controller.colors}
+            discountAmount={order.discount_amount}
+            formatPrice={controller.formatPrice}
+            items={order.items || []}
+            onRecordPayment={() => {
+              const amount = Math.round(order.balance ?? order.total);
+              if (amount > 0) {
+                controller.setPaymentAmount(String(amount));
+                controller.setShowRecordPaymentModal(true);
+              }
+            }}
+            onRequestPayment={() => void controller.handleSendReminder()}
+            onSelectItem={(item) =>
+              controller.setSelectedOrderItem({
+                ...item,
+                product_id: item.product_id ?? undefined,
+              })
+            }
+            paymentColor={controller.paymentColor}
+            paymentLabel={controller.paymentConfig.label}
+            paymentMethod={order.payment_method}
+            paymentStatus={order.payment_status}
+            shippingFee={order.shipping_fee}
+            subtotal={order.subtotal}
+            total={order.total}
+          />
+          <OrderDetailsShippingSection
+            address={controller.formatAddress(order.shipping_address)}
+            colors={controller.colors}
+          />
 
-        <OrderDetailsShippingSection
-          address={controller.formatAddress(order.shipping_address)}
+          <OrderAuditTrailCard
+            colors={controller.colors}
+            events={controller.auditEvents}
+            formatDate={controller.formatDate}
+            isError={controller.isAuditEventsError}
+            isLoading={controller.isAuditEventsLoading}
+          />
+        </ScrollView>
+
+        <OrderDetailsFooterBar
           colors={controller.colors}
+          currentStatusLabel={controller.shippingConfig.label}
+          onPress={() => controller.setShowStatusModal(true)}
+          statusColor={controller.shippingColor}
         />
-
-        <OrderAuditTrailCard
-          colors={controller.colors}
-          events={controller.auditEvents}
-          formatDate={controller.formatDate}
-          isError={controller.isAuditEventsError}
-          isLoading={controller.isAuditEventsLoading}
-        />
-      </ScrollView>
-
-      <OrderDetailsFooterBar
-        colors={controller.colors}
-        currentStatusLabel={controller.shippingConfig.label}
-        onPress={() => controller.setShowStatusModal(true)}
-        statusColor={controller.shippingColor}
-      />
+      </View>
 
       <OrderStatusSheet
         colors={controller.colors}
         onClose={() => controller.setShowStatusModal(false)}
-        onSelectStatus={(status) => {
-          void controller.handleStatusUpdate(status);
-        }}
+        onSelectStatus={(status) => void controller.handleStatusUpdate(status)}
         shippingStatus={order.shipping_status}
         visible={controller.showStatusModal}
       />
@@ -149,9 +156,7 @@ export function OrderDetailsScreenContent({
         creditNotes={controller.creditNotes}
         isSubmitting={controller.shipOnCreditMutation.isPending}
         onClose={() => controller.setShowCreditModal(false)}
-        onConfirm={() => {
-          void controller.handleShipOnCredit();
-        }}
+        onConfirm={() => void controller.handleShipOnCredit()}
         onCreditNotesChange={controller.setCreditNotes}
         visible={controller.showCreditModal}
       />
@@ -170,12 +175,10 @@ export function OrderDetailsScreenContent({
         isSubmitting={controller.isShipmentSubmitting}
         onClose={controller.closeShipmentFlow}
         onContinueFromDetails={controller.proceedFromFulfillmentDetails}
-        onContinueFromMethod={() => {
-          void controller.proceedFromShipmentMethod();
-        }}
-        onConfirmSelfFulfillment={() => {
-          void controller.handleSubmitSelfFulfillment();
-        }}
+        onContinueFromMethod={() => void controller.proceedFromShipmentMethod()}
+        onConfirmSelfFulfillment={() =>
+          void controller.handleSubmitSelfFulfillment()
+        }
         onFulfillmentDetailsChange={controller.updateFulfillmentDetails}
         onModeChange={controller.setPendingShipmentMode}
         onRiderPhoneChange={controller.setRiderPhone}
@@ -219,9 +222,7 @@ export function OrderDetailsScreenContent({
         isSubmitting={controller.recordPaymentMutation.isPending}
         onAmountChange={controller.handlePaymentAmountChange}
         onClose={() => controller.setShowRecordPaymentModal(false)}
-        onConfirm={() => {
-          void controller.handleRecordPayment();
-        }}
+        onConfirm={() => void controller.handleRecordPayment()}
         onMethodChange={controller.setPaymentMethod}
         onNotesChange={controller.setPaymentNotes}
         paymentAmount={controller.paymentAmount}
@@ -271,9 +272,7 @@ export function OrderDetailsScreenContent({
         visible={controller.showReceiptPreview}
         html={controller.receiptHtml}
         onClose={() => controller.setShowReceiptPreview(false)}
-        onShare={() => {
-          void controller.handleShareReceiptPdf();
-        }}
+        onShare={() => void controller.handleShareReceiptPdf()}
         isPaid={order.payment_status === 'paid'}
       />
 

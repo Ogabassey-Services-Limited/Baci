@@ -4,6 +4,7 @@ import {
   normalizeReceiptFulfillmentDetails,
   type ReceiptMerchant,
   type ReceiptOrder,
+  resolveReceiptItemFulfillmentDetails,
 } from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
@@ -266,7 +267,7 @@ export async function GET(
     }
 
     const typedOrderItems = orderItems as OrderItem[];
-    const fulfillment = normalizeReceiptFulfillmentDetails(
+    const orderFulfillment = normalizeReceiptFulfillmentDetails(
       order.fulfillment_details
     );
     const hasDeviceItem = typedOrderItems.some((item) =>
@@ -327,11 +328,21 @@ export async function GET(
 
     // Build invoice line items
     const items: InvoiceLineItem[] = typedOrderItems.map((item, index) => {
+      const matchedFulfillment = resolveReceiptItemFulfillmentDetails(
+        orderFulfillment,
+        {
+          id: item.id,
+          line_id: item.line_id,
+          name: item.name,
+          product_name: item.name,
+        }
+      );
+      const itemFulfillment = matchedFulfillment || orderFulfillment;
       const desc = appendReceiptFulfillmentDescription({
         description: item.item_description || undefined,
-        fulfillment,
-        hasDeviceItem,
-        index,
+        fulfillment: itemFulfillment,
+        hasDeviceItem: matchedFulfillment ? false : hasDeviceItem,
+        index: matchedFulfillment ? 0 : index,
         itemName: item.name || '',
       });
       const { vatCategoryCode, vatRate } = lineVatMetadata[index] ?? {};
@@ -645,7 +656,7 @@ export async function GET(
             account_name: paymentAccount.account_name || '',
           }
         : null,
-      fulfillment_details: fulfillment,
+      fulfillment_details: orderFulfillment,
       items: items.map((item) => ({
         product_name: item.name || 'Item',
         description: item.description,

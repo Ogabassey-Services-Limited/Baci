@@ -153,6 +153,37 @@ describe('createOrderDetailsContactActions', () => {
     );
   });
 
+  it('uses a newly typed rider number instead of an older saved dispatch phone', async () => {
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: { business_address: '21 Broad Street', business_name: 'Baci' },
+      order: buildOrder({
+        self_fulfillment_data: {
+          carrierName: 'Dispatch Rider',
+          dispatchPhone: '+2348031111111',
+        },
+      }),
+      riderPhone: '+2348034444444',
+      savedRiders: [],
+      setSavedRiders: vi.fn(),
+    });
+
+    await actions.handleSendRiderToCustomer();
+
+    expect(apiClient).toHaveBeenCalledWith('/api/shipping/self-fulfill', {
+      body: JSON.stringify({
+        carrierName: 'Dispatch Rider',
+        dispatchPhone: '2348034444444',
+        orderId: 'order-1',
+      }),
+      method: 'PATCH',
+    });
+    const url = vi.mocked(Linking.openURL).mock.calls[0]?.[0] as string;
+    const message = decodeURIComponent(url.split('?text=')[1] ?? '');
+    expect(message).toContain('Dispatch Rider: +2348034444444');
+    expect(message).not.toContain('2348031111111');
+  });
+
   it('stops before WhatsApp when saving a typed rider number fails', async () => {
     vi.mocked(apiClient).mockRejectedValueOnce(new Error('save failed'));
     const actions = createOrderDetailsContactActions({

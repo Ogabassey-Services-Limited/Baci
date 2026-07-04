@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
@@ -116,6 +116,12 @@ export function ShipmentFlowSheet({
             ? `Book with ${providerLabel}`
             : 'Use Shipping Provider'
         : 'Mark Shipped';
+
+  useEffect(() => {
+    if (!visible) {
+      setActiveScanField(null);
+    }
+  }, [visible]);
 
   if (!visible) {
     return null;

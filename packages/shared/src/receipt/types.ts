@@ -36,6 +36,18 @@ export interface ReceiptMerchant {
 
 export interface ReceiptFulfillmentDetails {
   imei?: string | null;
+  items?: Array<{
+    id?: string | null;
+    imei?: string | null;
+    orderItemId?: string | null;
+    order_item_id?: string | null;
+    productName?: string | null;
+    product_name?: string | null;
+    serialNumber?: string | null;
+    serial_number?: string | null;
+    variantName?: string | null;
+    variant_name?: string | null;
+  }> | null;
   serialNumber?: string | null;
   serial_number?: string | null;
 }
@@ -72,6 +84,7 @@ export interface ReceiptOrder {
   } | null;
   fulfillment_details?: ReceiptFulfillmentDetails | null;
   items: Array<{
+    id?: string | null;
     line_id?: number;
     product_id?: string | null;
     product_name: string;

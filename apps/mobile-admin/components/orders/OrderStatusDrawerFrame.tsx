@@ -155,6 +155,8 @@ export function OrderStatusDrawerFrame({
 
   return (
     <View
+      accessibilityViewIsModal={true}
+      importantForAccessibility="yes"
       pointerEvents="box-none"
       style={[styles.overlayHost, { height: windowHeight }]}
       testID="order-status-drawer-host"

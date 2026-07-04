@@ -152,7 +152,7 @@ ${amountToCollect}
       order.self_fulfillment_data?.dispatchPhone
     );
     const typedDispatchPhone = normalizeWhatsAppPhone(riderPhone);
-    const dispatchPhone = savedDispatchPhone || typedDispatchPhone;
+    const dispatchPhone = typedDispatchPhone || savedDispatchPhone;
     const carrierName =
       order.self_fulfillment_data?.carrierName?.trim() || 'Dispatch Rider';
 
@@ -181,8 +181,8 @@ ${amountToCollect}
       return;
     }
     if (
-      !savedDispatchPhone &&
       typedDispatchPhone &&
+      typedDispatchPhone !== savedDispatchPhone &&
       order.self_fulfillment_data
     ) {
       try {

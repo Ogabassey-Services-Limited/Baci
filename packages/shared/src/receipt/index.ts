@@ -8,6 +8,7 @@ export {
   getReceiptFulfillmentSummary,
   isDeviceReceiptItemName,
   normalizeReceiptFulfillmentDetails,
+  resolveReceiptItemFulfillmentDetails,
   shouldAttachFulfillmentToItem,
 } from './receipt-fulfillment';
 export { sanitizeSvg } from './sanitize-svg';

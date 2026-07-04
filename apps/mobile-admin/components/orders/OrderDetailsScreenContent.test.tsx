@@ -55,8 +55,28 @@ vi.mock('react-native', async () => {
       ),
     ScrollView: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
-    View: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
+    View: ({
+      accessibilityElementsHidden,
+      children,
+      importantForAccessibility,
+      testID,
+    }: {
+      accessibilityElementsHidden?: boolean;
+      children?: React.ReactNode;
+      importantForAccessibility?: string;
+      testID?: string;
+    }) =>
+      React.createElement(
+        'div',
+        {
+          'data-accessibility-elements-hidden': String(
+            Boolean(accessibilityElementsHidden)
+          ),
+          'data-important-for-accessibility': importantForAccessibility,
+          'data-testid': testID,
+        },
+        children
+      ),
   };
 });
 
@@ -256,5 +276,35 @@ describe('OrderDetailsScreenContent', () => {
     expect(
       screen.queryByRole('button', { name: 'Edit order' })
     ).not.toBeInTheDocument();
+  });
+
+  it('hides the order screen content from accessibility while the status drawer is open', () => {
+    render(
+      <OrderDetailsScreenContent
+        controller={createController({ showStatusModal: true })}
+      />
+    );
+
+    expect(screen.getByTestId('order-details-main-content')).toHaveAttribute(
+      'data-accessibility-elements-hidden',
+      'true'
+    );
+    expect(screen.getByTestId('order-details-main-content')).toHaveAttribute(
+      'data-important-for-accessibility',
+      'no-hide-descendants'
+    );
+  });
+
+  it('keeps the order screen content accessible by default', () => {
+    render(<OrderDetailsScreenContent controller={createController()} />);
+
+    expect(screen.getByTestId('order-details-main-content')).toHaveAttribute(
+      'data-accessibility-elements-hidden',
+      'false'
+    );
+    expect(screen.getByTestId('order-details-main-content')).toHaveAttribute(
+      'data-important-for-accessibility',
+      'auto'
+    );
   });
 });

@@ -199,7 +199,7 @@ function createSupabaseMock({
 }
 
 function createOrderResultWithFulfillment(
-  fulfillmentDetails: Record<string, string | null>
+  fulfillmentDetails: Record<string, unknown>
 ): QueryResult {
   return {
     data: {
@@ -293,6 +293,41 @@ describe('GET /api/orders/[id]/invoice', () => {
         taxSubtotals: expect.any(Array),
       })
     );
+  });
+
+  it('attaches order-level fulfillment items to their matching invoice lines', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        order: createOrderResultWithFulfillment({
+          items: [
+            {
+              imei: '111111111111111',
+              orderItemId: 'item-1',
+              productName: 'Leather Case',
+            },
+            {
+              orderItemId: 'item-2',
+              productName: 'iPhone 15 Pro',
+              serialNumber: 'IPHONE-SERIAL-2',
+            },
+          ],
+        }),
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+
+    const invoiceItems = getGeneratedInvoiceItems();
+
+    expect(invoiceItems[0]?.description).toContain('IMEI: 111111111111111');
+    expect(invoiceItems[0]?.description).not.toContain('IPHONE-SERIAL-2');
+    expect(invoiceItems[1]?.description).toContain('S/N: IPHONE-SERIAL-2');
+    expect(invoiceItems[1]?.description).not.toContain('111111111111111');
   });
 
   it('includes the assurance premium in BT-109/BT-112 when stored tax totals are product-only', async () => {

@@ -3,7 +3,9 @@ import {
   getReceiptFulfillmentRowsFromDetails,
   getReceiptFulfillmentSummary,
   isDeviceReceiptItemName,
+  normalizeReceiptFulfillmentDetails,
   type ReceiptFulfillmentRow,
+  resolveReceiptItemFulfillmentDetails,
   shouldAttachFulfillmentToItem,
 } from './receipt-fulfillment';
 import {
@@ -66,13 +68,19 @@ export function renderItemRows(
       let fulfillmentHtml = '';
       let fulfillmentSummary: string | null = null;
 
-      const itemFulfillmentDetails = {
-        imei: item.fulfillment_details?.imei || item.imei,
-        serialNumber:
-          item.fulfillment_details?.serialNumber || item.serialNumber,
-        serial_number:
-          item.fulfillment_details?.serial_number || item.serial_number,
-      };
+      const itemFulfillmentDetails = normalizeReceiptFulfillmentDetails(
+        item.fulfillment_details
+      ) ||
+        resolveReceiptItemFulfillmentDetails(
+          order.fulfillment_details,
+          item
+        ) || {
+          imei: item.fulfillment_details?.imei || item.imei,
+          serialNumber:
+            item.fulfillment_details?.serialNumber || item.serialNumber,
+          serial_number:
+            item.fulfillment_details?.serial_number || item.serial_number,
+        };
       const itemSummary = getReceiptFulfillmentSummary({
         imei: itemFulfillmentDetails.imei,
         serialNumber: itemFulfillmentDetails.serialNumber,

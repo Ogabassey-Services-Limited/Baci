@@ -126,12 +126,16 @@ vi.mock('react-native', () => ({
   },
   Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
   View: ({
+    accessibilityViewIsModal,
     children,
+    importantForAccessibility,
     pointerEvents,
     style,
     testID,
   }: {
+    accessibilityViewIsModal?: boolean;
     children?: ReactNode;
+    importantForAccessibility?: string;
     pointerEvents?: string;
     style?: unknown;
     testID?: string;
@@ -155,6 +159,10 @@ vi.mock('react-native', () => ({
 
     return (
       <div
+        data-accessibility-view-is-modal={String(
+          Boolean(accessibilityViewIsModal)
+        )}
+        data-important-for-accessibility={importantForAccessibility}
         data-pointer-events={pointerEvents}
         data-style-height={getHeight(style)}
         data-testid={testID}
@@ -251,6 +259,14 @@ describe('OrderStatusDrawerFrame', () => {
     expect(screen.getByTestId('order-status-drawer-host')).toHaveAttribute(
       'data-style-height',
       '844'
+    );
+    expect(screen.getByTestId('order-status-drawer-host')).toHaveAttribute(
+      'data-accessibility-view-is-modal',
+      'true'
+    );
+    expect(screen.getByTestId('order-status-drawer-host')).toHaveAttribute(
+      'data-important-for-accessibility',
+      'yes'
     );
     expect(screen.queryByLabelText('status-modal')).not.toBeInTheDocument();
     expect(screen.getByText('Update Order Status')).toBeInTheDocument();
