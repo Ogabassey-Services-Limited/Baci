@@ -112,16 +112,58 @@ describe('resolveBlogPostStaticParams', () => {
     ]);
   });
 
-  it('falls back to the placeholder when every listing lookup rejects', async () => {
-    mockGetCachedBlogListing.mockRejectedValue(new Error('build-time outage'));
+  it('falls back to the placeholder AND warns when every listing lookup rejects', async () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const outage = new Error('build-time outage');
+    mockGetCachedBlogListing.mockRejectedValue(outage);
 
-    const params = await resolveBlogPostStaticParams();
+    try {
+      const params = await resolveBlogPostStaticParams();
 
-    expect(params).toEqual([
-      {
-        slug: BLOG_POST_PRERENDER_PLACEHOLDER_STORE_SLUG,
-        postSlug: BLOG_POST_PRERENDER_PLACEHOLDER_POST_SLUG,
-      },
-    ]);
+      expect(params).toEqual([
+        {
+          slug: BLOG_POST_PRERENDER_PLACEHOLDER_STORE_SLUG,
+          postSlug: BLOG_POST_PRERENDER_PLACEHOLDER_POST_SLUG,
+        },
+      ]);
+      // The build-time failure must not be swallowed silently.
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Failed to collect blog post static params for tenant',
+        expect.objectContaining({ tenant: 'ogabassey.com', error: outage })
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('still prerenders healthy tenants and warns when one tenant listing throws', async () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const outage = new Error('tenant outage');
+    mockGetCachedBlogListing.mockImplementation((tenant: string) => {
+      if (tenant === 'ogabassey.com') {
+        return Promise.reject(outage);
+      }
+      return Promise.resolve(listingForPage(1, 2));
+    });
+
+    try {
+      const params = await resolveBlogPostStaticParams();
+
+      // The failing tenant is skipped, but the healthy tenant's posts still ship.
+      expect(params).toEqual([
+        { slug: 'ogabassey', postSlug: 'post-1-0' },
+        { slug: 'ogabassey', postSlug: 'post-1-1' },
+      ]);
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Failed to collect blog post static params for tenant',
+        expect.objectContaining({ tenant: 'ogabassey.com', error: outage })
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });

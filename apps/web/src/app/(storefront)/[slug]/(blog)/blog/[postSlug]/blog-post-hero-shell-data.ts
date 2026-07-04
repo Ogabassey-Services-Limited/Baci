@@ -36,6 +36,10 @@ export interface BlogPostHeroShell {
  * `locale` is intentionally omitted — the page root cannot read `headers()`
  * without breaking the static shell. The streamed body still resolves the
  * header-accurate byline prefix and locale for its own structured data.
+ * Accepted cost: a non-default-locale visitor may briefly see a default-locale
+ * date string in the static shell (the streamed body remains locale-accurate).
+ * This is a deliberate part of the static-shell contract, not a bug — do not
+ * "fix" it by reading request headers here (that would force the route dynamic).
  */
 export async function resolveBlogPostHeroShell(
   slug: string,

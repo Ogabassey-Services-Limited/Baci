@@ -161,19 +161,32 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     });
   });
 
-  it('keeps present:true without redirectPath when legacy resolution is uncertain', async () => {
+  it('fails open with no-store when legacy resolution errors for a present alias slug', async () => {
+    // An archived alias is still a member of the slug set, so this reaches the
+    // redirect-resolution step. If resolution errors we cannot prove the slug is
+    // a plain live product rather than an alias that must 308 — caching the
+    // {present:true} verdict would suppress the canonical redirect for the TTL.
+    mockGetCachedStorefrontProductSlugSet.mockResolvedValue({
+      hasError: false,
+      slugs: ['iphone-15-pro-max-8gb-256gb'],
+    });
     mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
       hasError: true,
       present: false,
     });
 
-    const res = await GET(request('iphone-15', `Bearer ${SECRET}`), context());
+    const res = await GET(
+      request('iphone-15-pro-max-8gb-256gb', `Bearer ${SECRET}`),
+      context()
+    );
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ hasError: false, present: true });
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
+    expect(await res.json()).toEqual(FAIL_OPEN);
   });
 
-  it('keeps present:true and logs when legacy resolution throws', async () => {
+  it('fails open with no-store and logs when legacy resolution throws', async () => {
     const warnSpy = vi
       .spyOn(logger, 'warn')
       .mockImplementation(() => undefined);
@@ -188,7 +201,11 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
       );
 
       expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ hasError: false, present: true });
+      // A thrown resolution is the same uncertainty as hasError: never cache a
+      // verdict that could suppress an alias 308.
+      expect(res.headers.get('Cache-Control')).toBe('no-store');
+      expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
+      expect(await res.json()).toEqual(FAIL_OPEN);
       expect(warnSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           message: 'Failed to resolve legacy product redirect target',

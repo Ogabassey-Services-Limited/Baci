@@ -38,9 +38,16 @@ async function collectNewestPublishedPostSlugs(
     let listing: Awaited<ReturnType<typeof getCachedBlogListing>> = null;
     try {
       listing = await getCachedBlogListing(tenant, { page });
-    } catch {
+    } catch (error) {
       // A rejected listing lookup at build/prerender time must stop paging for
-      // this tenant, not fail the whole prerender step.
+      // this tenant, not fail the whole prerender step. Surface it (instead of
+      // swallowing silently) so a systematically-failing tenant is visible in
+      // build logs rather than quietly shipping fewer prerendered posts.
+      console.warn('Failed to collect blog post static params for tenant', {
+        tenant,
+        page,
+        error,
+      });
       break;
     }
 

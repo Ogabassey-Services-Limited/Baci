@@ -5,6 +5,7 @@ import {
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_WIDTHS,
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
 } from '@/components/storefront/ogabassey/config/product-media';
+import { DEFAULT_IMAGE_QUALITY } from '@/config/cdn';
 import {
   buildOgabasseyCdnImageLoaderUrl,
   isOgabasseyCdnImageUrl,
@@ -71,13 +72,14 @@ const PDP_HERO_WIDTH_QUALITY_PAIRS: readonly WidthQualityPair[] = [
 // `sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"`. There is
 // no shared width export for this surface, so these mirror the device-size
 // buckets that `sizes` expression resolves to for common phone/tablet
-// viewports. Quality mirrors `DEFAULT_IMAGE_QUALITY` in `lib/image-loader.ts`
-// (75) — ProductCard renders without an explicit `quality` prop.
-const LISTING_CARD_IMAGE_QUALITY = 75;
+// viewports. ProductCard renders without an explicit `quality` prop, so the
+// custom loader falls back to `DEFAULT_IMAGE_QUALITY` — reuse that shared
+// constant here so the primed variants stay in lockstep with what the loader
+// actually requests.
 const LISTING_CARD_WIDTH_QUALITY_PAIRS: readonly WidthQualityPair[] = [
-  { width: 384, quality: LISTING_CARD_IMAGE_QUALITY },
-  { width: 640, quality: LISTING_CARD_IMAGE_QUALITY },
-  { width: 750, quality: LISTING_CARD_IMAGE_QUALITY },
+  { width: 384, quality: DEFAULT_IMAGE_QUALITY },
+  { width: 640, quality: DEFAULT_IMAGE_QUALITY },
+  { width: 750, quality: DEFAULT_IMAGE_QUALITY },
 ];
 
 // NOTE: blog hero widths/quality (config/blog-media.ts) are intentionally

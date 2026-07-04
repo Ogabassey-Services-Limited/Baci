@@ -916,10 +916,15 @@ export async function PUT(
     revalidateProducts(merchantId, updatedProduct.slug);
 
     // Pre-warm the CDN image-transform cache for the product's images so the
-    // first real storefront visitor never pays the cold-transform cost.
-    schedulePrewarmProductImageTransforms(
-      extractProductImageUrls((updatedProduct as { images?: unknown }).images)
-    );
+    // first real storefront visitor never pays the cold-transform cost. Only
+    // when this update actually wrote the images column — a name/price/stock-only
+    // edit leaves the (already-warmed) images untouched, so re-priming them on
+    // every PUT is wasted outbound fan-out.
+    if (updates.images !== undefined) {
+      schedulePrewarmProductImageTransforms(
+        extractProductImageUrls((updatedProduct as { images?: unknown }).images)
+      );
+    }
 
     return NextResponse.json({ product: updatedProduct });
   } catch (error) {

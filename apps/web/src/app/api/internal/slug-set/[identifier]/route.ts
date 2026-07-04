@@ -52,11 +52,12 @@ const FAIL_OPEN = { hasError: true, present: false };
  * doesn't add slug-list transfer/parse to every PDP navigation.
  *
  * `identifier` is the storefront slug or custom domain the proxy has; `?slug=`
- * is the product slug to test. Always 200 (no-store). Fails open
+ * is the product slug to test. Fails open
  * (`{ hasError: true, present: false }`) on an unconfigured secret, invalid
- * input, an unresolved or UNPUBLISHED merchant, or a slug-set error — so the
- * proxy never hard-404s a live product (and never pre-empts the coming-soon
- * layout for an unpublished store).
+ * input, an unresolved or UNPUBLISHED merchant, a slug-set error, or a
+ * legacy-redirect resolution error — so the proxy never hard-404s a live
+ * product, never pre-empts the coming-soon layout for an unpublished store, and
+ * never caches a non-redirect verdict for a slug that should 308.
  *
  * Auth: `x-baci-internal-auth: ${INTERNAL_API_SECRET}` (preferred — keeps the
  * verdict CDN-cacheable) or the legacy `Authorization: Bearer ${...}` (both
@@ -127,7 +128,15 @@ export async function GET(
       merchant.id,
       query.data.slug
     );
-    if (!resolution.hasError && resolution.redirectTarget) {
+    if (resolution.hasError) {
+      // Resolution failed: we cannot PROVE this present slug is a plain live
+      // product rather than an archived alias that must 308. Caching the
+      // {present:true} verdict below would suppress the canonical redirect for
+      // the whole TTL window (revalidateTag cannot purge this header-based edge
+      // entry). Fail open no-store so the next request re-resolves.
+      return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
+    }
+    if (resolution.redirectTarget) {
       const redirectPath = toSafeInternalRedirectPath(
         getProductUrl(resolution.redirectTarget)
       );
@@ -150,6 +159,9 @@ export async function GET(
       merchantId: merchant.id,
       slug: query.data.slug,
     });
+    // A thrown resolution carries the same uncertainty as hasError above:
+    // never cache {present:true}, which could suppress an alias 308. Fail open.
+    return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
   }
 
   return NextResponse.json(

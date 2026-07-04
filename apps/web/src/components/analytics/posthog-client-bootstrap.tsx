@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { logger } from '@/lib/logger';
 import { hasPostHogBrowserInitialized } from '@/lib/posthog/browser-state';
 import { getPostHogBrowserEnv } from '@/lib/posthog/config';
@@ -10,76 +10,103 @@ import { scheduleIdleBoot } from '@/lib/posthog/schedule-idle-boot';
 
 const postHogBrowserEnv = getPostHogBrowserEnv();
 
-export function PostHogClientBootstrap() {
-  const pathname = usePathname();
+/**
+ * Boot the browser PostHog client for `currentPathname`. On a public blog path
+ * it stays off the full client unless PostHog was already booted elsewhere,
+ * keeping the blog critical path free of instrumentation. `isCancelled` lets an
+ * in-flight boot abort if the component unmounts between the dynamic imports.
+ */
+async function bootPostHogForPathname(
+  currentPathname: string,
+  isCancelled: () => boolean
+): Promise<void> {
+  const isPublicBlog = isPublicBlogPathname(currentPathname, {
+    hostname: globalThis.location?.hostname,
+  });
 
-  useEffect(() => {
-    const currentPathname = pathname ?? globalThis.location?.pathname;
+  if (isPublicBlog && !hasPostHogBrowserInitialized()) {
+    return;
+  }
 
-    if (!currentPathname) {
+  try {
+    const { initializePostHogBrowser } = await import('@/lib/posthog/browser');
+
+    if (isCancelled()) {
       return;
     }
 
-    const isPublicBlog = isPublicBlogPathname(currentPathname, {
+    initializePostHogBrowser(postHogBrowserEnv, console, {
+      lightweight: isPublicBlog,
+      pathname: currentPathname,
       hostname: globalThis.location?.hostname,
     });
 
-    if (isPublicBlog && !hasPostHogBrowserInitialized()) {
+    if (isPublicBlog) {
       return;
     }
 
-    let cancelled = false;
+    const { initializePostHogInstrumentationIfAllowed } = await import(
+      '@/instrumentation-client'
+    );
 
-    async function initialize() {
-      try {
-        const { initializePostHogBrowser } = await import(
-          '@/lib/posthog/browser'
-        );
-
-        if (cancelled) {
-          return;
-        }
-
-        initializePostHogBrowser(postHogBrowserEnv, console, {
-          lightweight: isPublicBlog,
-          pathname: currentPathname,
-          hostname: globalThis.location?.hostname,
-        });
-
-        if (isPublicBlog) {
-          return;
-        }
-
-        const { initializePostHogInstrumentationIfAllowed } = await import(
-          '@/instrumentation-client'
-        );
-
-        if (!cancelled) {
-          initializePostHogInstrumentationIfAllowed(currentPathname);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          logger.warn({
-            error,
-            message: 'PostHog client bootstrap failed to initialize.',
-          });
-        }
-      }
+    if (!isCancelled()) {
+      initializePostHogInstrumentationIfAllowed(currentPathname);
     }
+  } catch (error) {
+    if (!isCancelled()) {
+      logger.warn({
+        error,
+        message: 'PostHog client bootstrap failed to initialize.',
+      });
+    }
+  }
+}
 
-    // Defer the browser PostHog boot off the initial critical path. The idle
-    // gate boots on the first idle period, window load, first interaction, or a
-    // hard timeout, so instrumentation never blocks first paint.
+export function PostHogClientBootstrap() {
+  const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+  const hasIdledRef = useRef(false);
+  const cancelledRef = useRef(false);
+
+  // Schedule the deferred idle boot exactly ONCE on mount. Previously this
+  // effect was keyed on the pathname, so every client navigation cancelled and
+  // rescheduled the idle listeners — listener churn that also delayed the boot
+  // under rapid navigation. The idle gate still boots on the first idle period,
+  // window load, first interaction, or a hard timeout, so instrumentation never
+  // blocks first paint. The boot reads the latest pathname from a ref, so it
+  // never needs to be a dependency here.
+  useEffect(() => {
+    cancelledRef.current = false;
+    const isCancelled = () => cancelledRef.current;
+
     const cancelIdleBoot = scheduleIdleBoot(() => {
-      if (!cancelled) {
-        void initialize();
+      hasIdledRef.current = true;
+      const currentPathname =
+        pathnameRef.current ?? globalThis.location?.pathname;
+      if (!isCancelled() && currentPathname) {
+        void bootPostHogForPathname(currentPathname, isCancelled);
       }
     });
 
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
       cancelIdleBoot();
     };
+  }, []);
+
+  // Pathname-dependent boot, split out of the scheduling effect above. Once the
+  // idle gate has elapsed, a client navigation (e.g. blog -> non-blog) can boot
+  // immediately without re-arming the idle scheduler; before it elapses the
+  // mount-once effect owns the single boot for the current pathname.
+  useEffect(() => {
+    pathnameRef.current = pathname;
+    if (!hasIdledRef.current) {
+      return;
+    }
+    const currentPathname = pathname ?? globalThis.location?.pathname;
+    if (currentPathname) {
+      void bootPostHogForPathname(currentPathname, () => cancelledRef.current);
+    }
   }, [pathname]);
 
   return null;

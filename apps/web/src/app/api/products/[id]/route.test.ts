@@ -1381,7 +1381,7 @@ describe('PUT /api/products/[id]', () => {
   });
 
   describe('CDN image-transform prewarm', () => {
-    it('pre-warms the updated product images after a successful update', async () => {
+    it('pre-warms the updated product images when the update writes the images column', async () => {
       product = {
         id: PRODUCT_ID,
         name: 'Old Name',
@@ -1398,9 +1398,19 @@ describe('PUT /api/products/[id]', () => {
         ],
       };
 
-      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
-        params: Promise.resolve({ id: PRODUCT_ID }),
-      });
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          ...validUpdateBody,
+          images: [
+            {
+              url: 'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
 
       expect(res.status).toBe(200);
       expect(mockPrewarmOgabasseyImageTransforms).toHaveBeenCalledWith([
@@ -1409,7 +1419,33 @@ describe('PUT /api/products/[id]', () => {
       ]);
     });
 
-    it('does not call the prewarm when the updated product has no images', async () => {
+    it('does not call the prewarm when the update does not touch the images column', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Old Name',
+        condition: 'new',
+      };
+      // The refreshed row still carries the existing (already-warmed) images, but
+      // this name/price-only edit never wrote them, so the prewarm must not fire.
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        price: '6000',
+        slug: 'updated-product',
+        images: [
+          { url: 'https://cdn.ogabassey.com/core-assets/products/phone.avif' },
+        ],
+      };
+
+      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockPrewarmOgabasseyImageTransforms).not.toHaveBeenCalled();
+    });
+
+    it('does not call the prewarm when the images column is written empty', async () => {
       product = {
         id: PRODUCT_ID,
         name: 'Old Name',
@@ -1423,9 +1459,12 @@ describe('PUT /api/products/[id]', () => {
         images: [],
       };
 
-      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
-        params: Promise.resolve({ id: PRODUCT_ID }),
-      });
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, { ...validUpdateBody, images: [] }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
 
       expect(res.status).toBe(200);
       expect(mockPrewarmOgabasseyImageTransforms).not.toHaveBeenCalled();
