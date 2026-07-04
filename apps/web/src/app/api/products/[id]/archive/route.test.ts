@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
     slug: 'phone-ultra',
     status: 'archived',
   } as { id: string; slug: string | null; status: string } | null,
+  authenticateApiRequest: vi.fn(),
   checkCsrfProtection: vi.fn(),
   filters: [] as [string, unknown][],
   getUserAccess: vi.fn(),
@@ -18,13 +19,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/api-auth', () => ({
-  authenticateApiRequest: vi.fn(() =>
-    Promise.resolve({
-      error: null,
-      supabase: mocks.supabase,
-      user: { id: 'user-1' },
-    })
-  ),
+  authenticateApiRequest: mocks.authenticateApiRequest,
   getUserAccess: mocks.getUserAccess,
   hasPermission: mocks.hasPermission,
 }));
@@ -92,6 +87,11 @@ describe('PATCH /api/products/[id]/archive', () => {
     mocks.filters.length = 0;
     mocks.supabase = createSupabase();
     mocks.updatePayload = null;
+    mocks.authenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: mocks.supabase,
+      user: { id: 'user-1' },
+    });
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
     mocks.getUserAccess.mockResolvedValue({
       isOwner: false,
@@ -128,6 +128,34 @@ describe('PATCH /api/products/[id]/archive', () => {
     );
   });
 
+  it('returns 401 when the user is not authenticated', async () => {
+    mocks.authenticateApiRequest.mockResolvedValue({
+      error: 'Unauthorized',
+      supabase: null,
+      user: null,
+    });
+
+    const response = await PATCH(makeRequest(), makeContext());
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' });
+    expect(mocks.updatePayload).toBeNull();
+    expect(mocks.revalidateProducts).not.toHaveBeenCalled();
+  });
+
+  it('rejects requests that fail CSRF validation', async () => {
+    mocks.checkCsrfProtection.mockResolvedValue({ valid: false });
+
+    const response = await PATCH(makeRequest(), makeContext());
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: 'CSRF validation failed',
+    });
+    expect(mocks.updatePayload).toBeNull();
+    expect(mocks.revalidateProducts).not.toHaveBeenCalled();
+  });
+
   it('rejects users without product delete permission', async () => {
     mocks.hasPermission.mockReturnValue(false);
 
@@ -148,5 +176,18 @@ describe('PATCH /api/products/[id]/archive', () => {
       error: 'Invalid product id',
     });
     expect(mocks.updatePayload).toBeNull();
+  });
+
+  it('returns 500 when the archive update fails', async () => {
+    mocks.archiveError = { code: '23505', message: 'update failed' };
+
+    const response = await PATCH(makeRequest(), makeContext());
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to archive product',
+    });
+    expect(mocks.updatePayload).toMatchObject({ status: 'archived' });
+    expect(mocks.revalidateProducts).not.toHaveBeenCalled();
   });
 });

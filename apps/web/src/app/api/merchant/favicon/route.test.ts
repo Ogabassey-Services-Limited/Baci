@@ -3,7 +3,14 @@ import { POST } from './route';
 
 const mocks = vi.hoisted(() => ({
   checkCsrfProtection: vi.fn(),
+  checkRateLimit: vi.fn(),
   authenticateApiRequest: vi.fn(),
+  FaviconValidationError: class FaviconValidationError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'FaviconValidationError';
+    }
+  },
   getUserAccess: vi.fn(),
   hasPermission: vi.fn(),
   processFavicon: vi.fn(),
@@ -22,7 +29,12 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 
 vi.mock('@/lib/favicon-processor', () => ({
+  FaviconValidationError: mocks.FaviconValidationError,
   processFavicon: mocks.processFavicon,
+}));
+
+vi.mock('@/lib/rate-limiter', () => ({
+  checkRateLimit: mocks.checkRateLimit,
 }));
 
 function buildRequest(formData?: FormData) {
@@ -60,6 +72,7 @@ describe('POST /api/merchant/favicon', () => {
       permissions: {},
     });
     mocks.hasPermission.mockReturnValue(true);
+    mocks.checkRateLimit.mockResolvedValue(true);
     mocks.processFavicon.mockResolvedValue({
       svg_url: undefined,
       png_32_url: 'https://cdn/32.png',
@@ -95,6 +108,20 @@ describe('POST /api/merchant/favicon', () => {
     const response = await POST(buildRequest());
 
     expect(response.status).toBe(403);
+  });
+
+  it('returns 429 when favicon uploads are rate limited', async () => {
+    mocks.checkRateLimit.mockResolvedValue(false);
+
+    const response = await POST(buildRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(json).toEqual({
+      code: 'rate_limited',
+      error: 'Rate limit exceeded',
+    });
+    expect(mocks.processFavicon).not.toHaveBeenCalled();
   });
 
   it('returns 400 when no file is provided', async () => {
@@ -170,7 +197,9 @@ describe('POST /api/merchant/favicon', () => {
 
   it('returns 400 with the real message when the image is invalid', async () => {
     mocks.processFavicon.mockRejectedValue(
-      new Error('Favicon must be a PNG, JPEG, WEBP, or SVG')
+      new mocks.FaviconValidationError(
+        'Favicon must be a PNG, JPEG, WEBP, or SVG'
+      )
     );
     const form = new FormData();
     form.append(
@@ -185,5 +214,22 @@ describe('POST /api/merchant/favicon', () => {
 
     expect(response.status).toBe(400);
     expect(json.error).toContain('Favicon must be a PNG');
+  });
+
+  it('returns 500 when favicon processing fails unexpectedly', async () => {
+    mocks.processFavicon.mockRejectedValue(new Error('sharp failed'));
+    const form = new FormData();
+    form.append(
+      'file',
+      new File([new Uint8Array([1])], 'icon.png', {
+        type: 'image/png',
+      })
+    );
+
+    const response = await POST(buildRequest(form));
+    const json = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(json.error).toBe('sharp failed');
   });
 });

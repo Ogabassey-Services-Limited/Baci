@@ -23,6 +23,13 @@ export interface FaviconUploadResult {
   apple_touch_url: string;
 }
 
+export class FaviconValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FaviconValidationError';
+  }
+}
+
 /**
  * Process uploaded favicon and generate all required sizes
  * Accepts SVG or PNG input, generates standardized outputs
@@ -40,15 +47,17 @@ export async function processFavicon(
 ): Promise<FaviconUploadResult> {
   // Validate merchantId to prevent path traversal
   if (!merchantId || !/^[a-f0-9-]{36}$/i.test(merchantId)) {
-    throw new Error('Invalid merchant ID format');
+    throw new FaviconValidationError('Invalid merchant ID format');
   }
 
   if (!ALLOWED_FAVICON_TYPES.has(file.type)) {
-    throw new Error('Favicon must be a PNG, JPEG, WEBP, or SVG');
+    throw new FaviconValidationError(
+      'Favicon must be a PNG, JPEG, WEBP, or SVG'
+    );
   }
 
   if (file.size > MAX_FAVICON_BYTES) {
-    throw new Error('Favicon exceeds the 1MB upload limit');
+    throw new FaviconValidationError('Favicon exceeds the 1MB upload limit');
   }
 
   const isSvg = file.type === 'image/svg+xml';

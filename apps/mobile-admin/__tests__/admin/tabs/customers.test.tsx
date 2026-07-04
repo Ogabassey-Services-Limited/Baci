@@ -155,4 +155,49 @@ describe('CustomersScreen UI rendering', () => {
       search: '',
     });
   });
+
+  it('renders empty states for failed orders and customer lists', () => {
+    render(<CustomersScreen />);
+
+    expect(screen.getByText('No issues')).toBeTruthy();
+    expect(
+      screen.getByText('All recent transactions are successful!')
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'People' }));
+
+    expect(screen.getByText('No customers yet')).toBeTruthy();
+    expect(
+      screen.getByText('Customers will appear here after their first purchase')
+    ).toBeTruthy();
+  });
+
+  it('suppresses the failed-orders empty state while failed orders are loading', () => {
+    customerHookMocks.useFailedOrders.mockReturnValue({
+      data: [],
+      isLoading: true,
+      refetch: vi.fn(),
+    });
+
+    render(<CustomersScreen />);
+
+    expect(screen.queryByText('No issues')).toBeNull();
+  });
+
+  it('suppresses the customer empty state while customers are loading', () => {
+    customerHookMocks.useCustomers.mockReturnValue({
+      data: { pages: [{ customers: [] }] },
+      isLoading: true,
+      isFetchingNextPage: false,
+      hasNextPage: false,
+      fetchNextPage,
+      refetch: vi.fn(),
+    });
+
+    render(<CustomersScreen />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'People' }));
+
+    expect(screen.queryByText('No customers yet')).toBeNull();
+  });
 });

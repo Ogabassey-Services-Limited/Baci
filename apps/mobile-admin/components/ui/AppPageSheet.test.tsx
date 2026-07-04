@@ -8,6 +8,12 @@ const renderState = vi.hoisted(() => ({
   staticRendered: false,
 }));
 
+function flattenStyle(
+  style?: Record<string, unknown> | null | (Record<string, unknown> | null)[]
+) {
+  return Array.isArray(style) ? Object.assign({}, ...style) : style;
+}
+
 function Text({ children }: { children?: React.ReactNode }) {
   return <span>{children}</span>;
 }
@@ -68,9 +74,26 @@ vi.mock('react-native', () => {
         {children}
       </button>
     ),
-    ScrollView: ({ children }: { children?: React.ReactNode }) => {
+    ScrollView: ({
+      children,
+      contentContainerStyle,
+    }: {
+      children?: React.ReactNode;
+      contentContainerStyle?:
+        | Record<string, unknown>
+        | null
+        | (Record<string, unknown> | null)[];
+    }) => {
       renderState.scrollRendered = true;
-      return <section aria-label="page-sheet-scroll-view">{children}</section>;
+      const flattenedStyle = flattenStyle(contentContainerStyle);
+      return (
+        <section
+          aria-label="page-sheet-scroll-view"
+          data-padding-bottom={String(flattenedStyle?.paddingBottom ?? '')}
+        >
+          {children}
+        </section>
+      );
     },
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
@@ -86,19 +109,21 @@ vi.mock('react-native', () => {
     }: {
       children?: React.ReactNode;
       pointerEvents?: string;
-      style?: Record<string, unknown> | Record<string, unknown>[];
+      style?:
+        | Record<string, unknown>
+        | null
+        | (Record<string, unknown> | null)[];
       testID?: string;
     }) => {
       if (testID === 'app-page-sheet-static') {
         renderState.staticRendered = true;
       }
-      const flattenedStyle = Array.isArray(style)
-        ? Object.assign({}, ...style)
-        : style;
+      const flattenedStyle = flattenStyle(style);
 
       return (
         <div
           data-height={String(flattenedStyle?.height ?? '')}
+          data-padding-bottom={String(flattenedStyle?.paddingBottom ?? '')}
           data-testid={testID}
         >
           {children}
@@ -152,6 +177,10 @@ describe('AppPageSheet', () => {
     expect(
       screen.getByTestId('app-page-sheet-floating-footer')
     ).toHaveTextContent('Floating search');
+    expect(screen.getByLabelText('page-sheet-scroll-view')).toHaveAttribute(
+      'data-padding-bottom',
+      '8'
+    );
     expect(screen.getByText('Solid action')).toBeInTheDocument();
   });
 

@@ -42,6 +42,14 @@ describe('archiveProductById', () => {
       { method: 'PATCH' }
     );
   });
+
+  it('propagates archive endpoint failures', async () => {
+    mocks.apiClient.mockRejectedValueOnce(new Error('archive failed'));
+
+    await expect(archiveProductById('product-1')).rejects.toThrow(
+      'archive failed'
+    );
+  });
 });
 
 describe('useArchiveProduct', () => {
@@ -66,6 +74,31 @@ describe('useArchiveProduct', () => {
       await result.current.mutateAsync({ productId: 'product-1' });
     });
 
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['products', 'merchant-1'],
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['product', 'merchant-1', 'product-1'],
+    });
+  });
+
+  it('surfaces errors and still settles product query invalidation', async () => {
+    mocks.apiClient.mockRejectedValueOnce(new Error('archive failed'));
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useArchiveProduct(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({ productId: 'product-1' })
+      ).rejects.toThrow('archive failed');
+    });
+
+    expect(result.current.isError).toBe(true);
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['products', 'merchant-1'],
     });

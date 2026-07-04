@@ -53,7 +53,7 @@ export async function PATCH(
       return jsonError('Product not found', 404);
     }
 
-    return jsonError('Failed to delete product', 500);
+    return jsonError('Failed to archive product', 500);
   }
 
   revalidateProducts(access.merchantId, product.slug ?? undefined);

@@ -18,9 +18,11 @@ import {
   hasPermission,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { processFavicon } from '@/lib/favicon-processor';
-
-const VALIDATION_ERROR = /must be a PNG|exceeds the 1MB|Invalid merchant ID/i;
+import {
+  FaviconValidationError,
+  processFavicon,
+} from '@/lib/favicon-processor';
+import { checkRateLimit } from '@/lib/rate-limiter';
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,6 +51,20 @@ export async function POST(request: NextRequest) {
     }
     if (!hasPermission(access, 'settings', 'edit')) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    const allowed = await checkRateLimit(
+      auth.supabase,
+      auth.user.id,
+      'merchant-favicon-upload',
+      5,
+      1
+    );
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded', code: 'rate_limited' },
+        { status: 429 }
+      );
     }
 
     const formData = await request.formData();
@@ -85,7 +101,7 @@ export async function POST(request: NextRequest) {
     console.error('Favicon update failed:', error);
     return NextResponse.json(
       { error: message },
-      { status: VALIDATION_ERROR.test(message) ? 400 : 500 }
+      { status: error instanceof FaviconValidationError ? 400 : 500 }
     );
   }
 }

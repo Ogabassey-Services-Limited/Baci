@@ -593,6 +593,7 @@ export default function CustomersScreen() {
       </Animated.View>
       {/* Tabs */}
       <ScrollView
+        accessibilityRole="tablist"
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.tabContainer}

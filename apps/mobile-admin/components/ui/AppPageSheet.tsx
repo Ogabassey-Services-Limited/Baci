@@ -1,5 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -47,13 +47,22 @@ export function AppPageSheet({
 }: AppPageSheetProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const [floatingFooterHeight, setFloatingFooterHeight] = useState(0);
+  const safeBottomPadding = Math.max(insets.bottom, SPACING.md);
+  const contentBottomPadding = floatingFooter
+    ? floatingFooterHeight + SPACING.sm
+    : !footer
+      ? safeBottomPadding
+      : undefined;
 
   const content = scrollEnabled ? (
     <ScrollView
       contentContainerStyle={[
         styles.scrollContent,
         contentContainerStyle,
-        !footer && { paddingBottom: Math.max(insets.bottom, SPACING.md) },
+        contentBottomPadding === undefined
+          ? null
+          : { paddingBottom: contentBottomPadding },
       ]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
@@ -68,7 +77,9 @@ export function AppPageSheet({
         styles.content,
         styles.staticContent,
         contentContainerStyle,
-        !footer && { paddingBottom: Math.max(insets.bottom, SPACING.md) },
+        contentBottomPadding === undefined
+          ? null
+          : { paddingBottom: contentBottomPadding },
       ]}
       testID="app-page-sheet-static"
     >
@@ -159,10 +170,13 @@ export function AppPageSheet({
 
           {floatingFooter ? (
             <View
+              onLayout={(event) => {
+                setFloatingFooterHeight(event.nativeEvent.layout.height);
+              }}
               pointerEvents="box-none"
               style={[
                 styles.floatingFooter,
-                { paddingBottom: Math.max(insets.bottom, SPACING.md) },
+                { paddingBottom: safeBottomPadding },
                 floatingFooterContainerStyle,
               ]}
               testID="app-page-sheet-floating-footer"

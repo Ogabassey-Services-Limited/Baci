@@ -81,8 +81,14 @@ async function pickAndUploadFavicon(
 
     setIsUploading(true);
     const asset = result.assets[0];
-    const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'png';
-    const mimeType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
+    const uriExt = asset.uri.split('.').pop()?.toLowerCase();
+    const fileNameExt = asset.fileName?.split('.').pop()?.toLowerCase();
+    const fallbackExt = fileNameExt || uriExt || 'png';
+    const mimeType =
+      asset.mimeType || `image/${fallbackExt === 'jpg' ? 'jpeg' : fallbackExt}`;
+    const mimeExt = mimeType.split('/')[1]?.toLowerCase();
+    const fileExt = mimeExt === 'jpeg' ? 'jpg' : mimeExt || fallbackExt;
+    const fileName = asset.fileName || `favicon.${fileExt}`;
 
     // Favicon variants are generated server-side (sharp), so send the picked
     // image to the web API rather than uploading from the device. The route
@@ -92,7 +98,7 @@ async function pickAndUploadFavicon(
       'file',
       createUploadFile({
         uri: asset.uri,
-        name: `favicon.${fileExt}`,
+        name: fileName,
         type: mimeType,
       })
     );
