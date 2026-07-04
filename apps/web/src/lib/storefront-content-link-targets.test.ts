@@ -94,6 +94,36 @@ describe('collectStorefrontContentLinkTargets', () => {
     });
   });
 
+  it('classifies products under a merchant category slugged compare', () => {
+    const html = '<a href="/compare/galaxy-s25-ultra">Compare-category PDP</a>';
+
+    expect(collectStorefrontContentLinkTargets(html)).toEqual({
+      blogSlugs: [],
+      productSlugs: ['galaxy-s25-ultra'],
+    });
+  });
+
+  it('collects inline markdown links with angle-bracket destinations', () => {
+    const markdown = 'Read [the draft](</blog/angled-draft>) today.';
+
+    expect(collectStorefrontContentLinkTargets(markdown)).toEqual({
+      blogSlugs: ['angled-draft'],
+      productSlugs: [],
+    });
+  });
+
+  it('never classifies blog utility routes as post slugs', () => {
+    const html =
+      '<a href="/blog/news-sitemap.xml">Sitemap</a>' +
+      '<a href="/blog/author">Authors</a>' +
+      '<a href="/blog/category">Categories</a>';
+
+    expect(collectStorefrontContentLinkTargets(html)).toEqual({
+      blogSlugs: [],
+      productSlugs: [],
+    });
+  });
+
   it('collects hrefs from markdown link syntax', () => {
     const markdown = 'See [this post](/blog/markdown-draft) for details.';
 
@@ -290,6 +320,15 @@ describe('isDeadStorefrontContentHref', () => {
       isDeadStorefrontContentHref('/track/missing-widget', {
         deadBlogSlugs,
         deadProductSlugs: new Set(['missing-widget']),
+      })
+    ).toBe(false);
+  });
+
+  it('never unwraps blog utility routes even when present in the dead set', () => {
+    expect(
+      isDeadStorefrontContentHref('/blog/news-sitemap.xml', {
+        deadBlogSlugs: new Set(['news-sitemap.xml']),
+        deadProductSlugs: new Set(),
       })
     ).toBe(false);
   });

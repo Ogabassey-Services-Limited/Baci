@@ -19,7 +19,7 @@ const UNQUOTED_HREF_ATTRIBUTE_REGEX = /\bhref\s*=\s*([^"'\s<>=][^\s<>]*)/gi;
 const MARKDOWN_REFERENCE_DEFINITION_REGEX =
   /^[ \t]*\[[^\]\n]+\]:[ \t]*(<[^<>\s]+>|\S+)/gm;
 const MARKDOWN_LINK_REGEX =
-  /\]\(\s*([^()\s]+)(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)/g;
+  /\]\(\s*(<[^<>\s]+>|[^()\s]+)(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)/g;
 
 // First segments that are never merchant category pages. Any other
 // two-segment path is treated as a product-link candidate so links under
@@ -34,7 +34,6 @@ const NON_PRODUCT_FIRST_SEGMENTS = new Set([
   'blog',
   'cart',
   'checkout',
-  'compare',
   'faq',
   'favicon',
   'icon',
@@ -75,6 +74,12 @@ export const UUID_SHAPED_PRODUCT_IDENTIFIER_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const MAX_COLLECTED_SLUGS_PER_KIND = 50;
+
+// Blog utility routes that share the /blog/<segment> shape but are not
+// posts (they must never be dead-checked or unwrapped). Extension-shaped
+// segments (news-sitemap.xml, rss.xml, ...) are excluded generically.
+const BLOG_UTILITY_SEGMENTS = new Set(['author', 'category']);
+const FILE_EXTENSION_SEGMENT_REGEX = /\.[a-z0-9]+$/i;
 
 const SLUG_REGEX = /^[a-z0-9][a-z0-9._~-]*$/;
 
@@ -125,6 +130,12 @@ function classifySegments(
   }
 
   if (first === 'blog') {
+    if (
+      BLOG_UTILITY_SEGMENTS.has(second) ||
+      FILE_EXTENSION_SEGMENT_REGEX.test(second)
+    ) {
+      return null;
+    }
     return { kind: 'blog', slug: second };
   }
 

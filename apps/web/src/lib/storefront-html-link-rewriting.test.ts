@@ -180,4 +180,28 @@ describe('rewriteHtmlStorefrontHrefs', () => {
 
     expect(result).toBe('<a href="/blog/kept-post">Kept</a>');
   });
+
+  it('does not rewrite href-shaped text inside other attribute values or text content', () => {
+    const html =
+      '<a title="see href=/phones/x" href=/blog/dead-draft>Post</a>' +
+      '<code>href=/phones/inline-example</code>';
+
+    const result = rewriteHtmlStorefrontHrefs(html, {
+      baseUrl: 'https://ogabassey.com',
+      merchantSlug: 'ogabassey',
+    });
+
+    expect(result).toContain('title="see href=/phones/x"');
+    expect(result).toContain('href="/blog/dead-draft"');
+    expect(result).toContain('<code>href=/phones/inline-example</code>');
+  });
+
+  it('preserves single-quote style when rewriting quoted hrefs', () => {
+    const result = rewriteHtmlStorefrontHrefs(
+      "<a href='/phones/iphone-15'>Phone</a>",
+      { baseUrl: 'https://ogabassey.com', merchantSlug: 'ogabassey' }
+    );
+
+    expect(result).toBe("<a href='/smartphones/iphone-15'>Phone</a>");
+  });
 });
