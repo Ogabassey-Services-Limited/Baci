@@ -88,3 +88,47 @@ describe('unwrapDeadHtmlAnchors', () => {
     expect(result).toBe('<p>Draft Post</p>');
   });
 });
+
+describe('unwrapDeadHtmlAnchors with rewriteHref', () => {
+  it('rewrites redirectable hrefs in place instead of unwrapping', () => {
+    const html =
+      '<p>Get the <a href="/audio/apple-airpods-2" class="link">AirPods 2</a> now.</p>';
+
+    const result = unwrapDeadHtmlAnchors(
+      html,
+      () => true,
+      (href) =>
+        href === '/audio/apple-airpods-2' ? '/earbuds/apple-airpods-2' : null
+    );
+
+    expect(result).toBe(
+      '<p>Get the <a href="/earbuds/apple-airpods-2" class="link">AirPods 2</a> now.</p>'
+    );
+  });
+
+  it('still unwraps dead anchors that have no rewrite', () => {
+    const html = '<p><a href="/blog/draft-post">Draft</a> text.</p>';
+
+    const result = unwrapDeadHtmlAnchors(
+      html,
+      (href) => href === '/blog/draft-post',
+      () => null
+    );
+
+    expect(result).toBe('<p>Draft text.</p>');
+  });
+
+  it('escapes attribute-unsafe characters in the rewritten href', () => {
+    const html = '<a href="/audio/apple-airpods-2">x</a>';
+
+    const result = unwrapDeadHtmlAnchors(
+      html,
+      () => false,
+      () => '/earbuds/apple-airpods-2?a=1&b="2"'
+    );
+
+    expect(result).toBe(
+      '<a href="/earbuds/apple-airpods-2?a=1&amp;b=&quot;2&quot;">x</a>'
+    );
+  });
+});

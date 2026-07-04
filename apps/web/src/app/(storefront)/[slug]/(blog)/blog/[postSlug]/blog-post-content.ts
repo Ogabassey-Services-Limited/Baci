@@ -220,6 +220,13 @@ type ResolveBlogPostContentOptions = NormalizeStorefrontContentHrefOptions & {
    * text instead of rendering a 404 link.
    */
   isDeadHref?: (href: string) => boolean;
+  /**
+   * When provided, anchors whose href resolves through a permanent redirect
+   * (renamed posts, consolidated/re-categorized products) are rewritten to the
+   * canonical target instead of emitting a redirecting link. Runs before
+   * isDeadHref.
+   */
+  rewriteHref?: (href: string) => string | null;
 };
 
 export async function resolveBlogPostContent(
@@ -252,7 +259,11 @@ export async function resolveBlogPostContent(
     const rawHtml = isHtml ? contentStr : await marked(contentStr || '');
     const rewrittenHtml = rewriteHtmlStorefrontHrefs(rawHtml, options);
     const liveLinkHtml = options.isDeadHref
-      ? unwrapDeadHtmlAnchors(rewrittenHtml, options.isDeadHref)
+      ? unwrapDeadHtmlAnchors(
+          rewrittenHtml,
+          options.isDeadHref,
+          options.rewriteHref
+        )
       : rewrittenHtml;
     const sanitizedHtml = sanitizeHtml(liveLinkHtml, {
       stripNofollowFromLinks: true,

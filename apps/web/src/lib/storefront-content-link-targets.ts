@@ -22,6 +22,52 @@ const PRODUCT_CATEGORY_SEGMENTS = new Set<string>([
   ...Object.values(STOREFRONT_CATEGORY_ALIASES),
 ]);
 
+// First segments that are never merchant category pages. The BROAD classifier
+// (collection + canonical rewriting) treats any other two-segment path as a
+// product-link candidate so links under merchant-specific categories
+// (/audio/x, /gaming/x, …) can be canonicalized. The strict classifier keeps
+// unwrapping conservative: destroying a link on a misclassified segment is
+// worse than leaving it, while rewriting only ever acts on slugs the resolver
+// matched to a real product.
+const NON_PRODUCT_FIRST_SEGMENTS = new Set([
+  'about',
+  'account',
+  'api',
+  'blog',
+  'cart',
+  'checkout',
+  'compare',
+  'faq',
+  'favicon',
+  'icon',
+  'imei-check',
+  'manifest',
+  'my-account',
+  'opengraph-image',
+  'orders',
+  'pages',
+  'privacy',
+  'privacy-policy',
+  'products',
+  'repair',
+  'repairs',
+  'returns',
+  'robots',
+  'rss',
+  'search',
+  'shipping',
+  'sitemap',
+  'sitemaps',
+  'swap',
+  'terms',
+  'track',
+  'twitter-image',
+  'user',
+  'wallet',
+  'warranty',
+  'wishlist',
+]);
+
 // Bounds the `IN (...)` lookup queries; posts realistically contain far fewer
 // internal links than this.
 const MAX_COLLECTED_SLUGS_PER_KIND = 50;
@@ -63,7 +109,8 @@ function getPathSegments(pathname: string, merchantSlug?: string): string[] {
 }
 
 function classifySegments(
-  segments: string[]
+  segments: string[],
+  mode: 'strict' | 'broad' = 'strict'
 ): { kind: 'blog' | 'product'; slug: string } | null {
   if (segments.length !== 2) {
     return null;
@@ -79,6 +126,14 @@ function classifySegments(
   }
 
   if (first === 'products' || PRODUCT_CATEGORY_SEGMENTS.has(first)) {
+    return { kind: 'product', slug: second };
+  }
+
+  if (
+    mode === 'broad' &&
+    SLUG_REGEX.test(first) &&
+    !NON_PRODUCT_FIRST_SEGMENTS.has(first)
+  ) {
     return { kind: 'product', slug: second };
   }
 
@@ -113,7 +168,8 @@ export function collectStorefrontContentLinkTargets(
       if (!pathname) continue;
 
       const classified = classifySegments(
-        getPathSegments(pathname, merchantSlug)
+        getPathSegments(pathname, merchantSlug),
+        'broad'
       );
       if (!classified) continue;
 
@@ -133,6 +189,72 @@ export function collectStorefrontContentLinkTargets(
       .sort()
       .slice(0, MAX_COLLECTED_SLUGS_PER_KIND),
   };
+}
+
+export interface StorefrontContentLinkRewrites {
+  /** Renamed blog posts: source slug -> live target slug. */
+  blogSlugs: Record<string, string>;
+  /** Product slugs -> canonical `/<category>/<slug>` path. */
+  productPaths: Record<string, string>;
+}
+
+export interface RewriteStorefrontContentHrefOptions {
+  basePath?: string;
+  rewrites: StorefrontContentLinkRewrites;
+}
+
+/**
+ * Returns the canonical replacement for an internal content href whose target
+ * resolves through a permanent redirect (renamed blog post, consolidated or
+ * re-categorized product), or null when the href is already canonical or not
+ * an internal blog/product link. Query strings and hashes are preserved, as is
+ * a leading basePath prefix.
+ */
+export function rewriteStorefrontContentHref(
+  href: string,
+  options: RewriteStorefrontContentHrefOptions
+): string | null {
+  if (!href.startsWith('/') || href.startsWith('//')) {
+    return null;
+  }
+
+  const { blogSlugs, productPaths } = options.rewrites;
+  if (
+    Object.keys(blogSlugs).length === 0 &&
+    Object.keys(productPaths).length === 0
+  ) {
+    return null;
+  }
+
+  const suffixStart = href.search(/[?#]/);
+  const suffix = suffixStart === -1 ? '' : href.slice(suffixStart);
+  let pathname = suffixStart === -1 ? href : href.slice(0, suffixStart);
+
+  let prefix = '';
+  const basePath = options.basePath?.replace(/\/+$/, '');
+  if (basePath && basePath !== '/' && pathname.startsWith(`${basePath}/`)) {
+    prefix = basePath;
+    pathname = pathname.slice(basePath.length);
+  }
+
+  const classified = classifySegments(getPathSegments(pathname), 'broad');
+  if (!classified) {
+    return null;
+  }
+
+  const canonicalPath =
+    classified.kind === 'blog'
+      ? blogSlugs[classified.slug]
+        ? `/blog/${blogSlugs[classified.slug]}`
+        : null
+      : (productPaths[classified.slug] ?? null);
+
+  if (!canonicalPath) {
+    return null;
+  }
+
+  const rewritten = `${prefix}${canonicalPath}${suffix}`;
+  return rewritten === href ? null : rewritten;
 }
 
 export interface IsDeadStorefrontContentHrefOptions {

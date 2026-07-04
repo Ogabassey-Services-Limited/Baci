@@ -504,6 +504,56 @@ describe('BlogContentRenderer', () => {
       );
     });
 
+    it('rewrites a redirectable product link to its canonical path instead of unwrapping', () => {
+      const json = doc(
+        paragraph(
+          textNode('AirPods 2', [
+            { type: 'link', attrs: { href: '/audio/apple-airpods-2' } },
+          ])
+        )
+      );
+
+      render(
+        <BlogContentRenderer
+          json={json}
+          contentLinkRewrites={{
+            blogSlugs: {},
+            productPaths: { 'apple-airpods-2': '/earbuds/apple-airpods-2' },
+          }}
+          deadContentLinks={{ blog: [], products: ['apple-airpods-2'] }}
+        />
+      );
+
+      expect(screen.getByRole('link', { name: 'AirPods 2' })).toHaveAttribute(
+        'href',
+        '/earbuds/apple-airpods-2'
+      );
+    });
+
+    it('rewrites a renamed blog post link to the live slug', () => {
+      const json = doc(
+        paragraph(
+          textNode('Used iPhone Guide', [
+            { type: 'link', attrs: { href: '/blog/buying-a-used-iphone' } },
+          ])
+        )
+      );
+
+      render(
+        <BlogContentRenderer
+          json={json}
+          contentLinkRewrites={{
+            blogSlugs: { 'buying-a-used-iphone': 'used-iphone-checklist' },
+            productPaths: {},
+          }}
+        />
+      );
+
+      expect(
+        screen.getByRole('link', { name: 'Used iPhone Guide' })
+      ).toHaveAttribute('href', '/blog/used-iphone-checklist');
+    });
+
     it('treats empty dead content link arrays the same as no dead links', () => {
       const json = doc(
         paragraph(

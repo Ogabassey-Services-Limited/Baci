@@ -17,15 +17,30 @@ function unescapeHtmlAttribute(value: string): string {
   );
 }
 
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 /**
  * Replaces `<a>` tags whose href is reported dead by `isDeadHref` with their
  * inner content, so links to unpublished blog posts or missing products
  * degrade to plain text instead of 404 links. Anchors cannot nest in valid
  * HTML, so a non-greedy tag match is sufficient.
+ *
+ * When `rewriteHref` is provided it runs first: hrefs it maps to a canonical
+ * replacement (renamed posts, consolidated/re-categorized products) are
+ * rewritten in place instead of unwrapped — those targets resolve via a
+ * permanent redirect, so the link works and should be fixed, not removed.
  */
 export function unwrapDeadHtmlAnchors(
   html: string,
-  isDeadHref: (href: string) => boolean
+  isDeadHref: (href: string) => boolean,
+  rewriteHref?: (href: string) => string | null
 ): string {
   if (!html || !/<a\b/i.test(html)) {
     return html;
@@ -38,6 +53,16 @@ export function unwrapDeadHtmlAnchors(
     }
 
     const href = unescapeHtmlAttribute(hrefMatch[2]);
+
+    const rewrittenHref = rewriteHref?.(href);
+    if (rewrittenHref && rewrittenHref !== href) {
+      const quote = hrefMatch[1];
+      return anchor.replace(
+        hrefMatch[0],
+        `href=${quote}${escapeHtmlAttribute(rewrittenHref)}${quote}`
+      );
+    }
+
     return isDeadHref(href) ? innerContent : anchor;
   });
 }

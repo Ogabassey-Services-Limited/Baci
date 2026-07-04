@@ -14,6 +14,8 @@ import { sanitizeUrl } from '@/lib/sanitize-core';
 import {
   type DeadStorefrontContentLinkSlugs,
   isDeadStorefrontContentHref,
+  rewriteStorefrontContentHref,
+  type StorefrontContentLinkRewrites,
 } from '@/lib/storefront-content-link-targets';
 import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
 import { cn } from '@/lib/utils';
@@ -75,6 +77,7 @@ interface DeadContentLinkSets {
 interface NodeRendererProps {
   basePath?: string;
   baseUrl?: string;
+  contentLinkRewrites?: StorefrontContentLinkRewrites;
   deadContentLinkSets?: DeadContentLinkSets;
   merchantSlug?: string;
   node: TipTapNode;
@@ -86,6 +89,12 @@ interface NodeRendererProps {
 interface BlogContentRendererProps {
   basePath?: string;
   baseUrl?: string;
+  /**
+   * Canonical replacements for internal links that resolve through permanent
+   * redirects (renamed posts, consolidated/re-categorized products). Matching
+   * hrefs are rewritten in place. Applied before the dead-link check.
+   */
+  contentLinkRewrites?: StorefrontContentLinkRewrites;
   /**
    * Internal blog/product slugs known to be dead (unpublished posts, missing
    * products). Links resolving to them render as plain text instead of 404s.
@@ -106,12 +115,14 @@ const TextRenderer = ({
   node,
   basePath,
   baseUrl,
+  contentLinkRewrites,
   deadContentLinkSets,
   merchantSlug,
 }: {
   node: TipTapNode;
   basePath?: string;
   baseUrl?: string;
+  contentLinkRewrites?: StorefrontContentLinkRewrites;
   deadContentLinkSets?: DeadContentLinkSets;
   merchantSlug?: string;
 }) => {
@@ -166,15 +177,26 @@ const TextRenderer = ({
             normalizedHref.startsWith('/') && !normalizedHref.startsWith('//');
           const isAnchor = normalizedHref.startsWith('#');
 
+          // Canonicalize links whose target resolves via a permanent redirect
+          // (renamed post, consolidated/re-categorized product) before the
+          // dead-link check — a rewritten link is live by construction.
+          const rewrittenInternalHref =
+            isRelative && contentLinkRewrites
+              ? rewriteStorefrontContentHref(normalizedHref, {
+                  basePath,
+                  rewrites: contentLinkRewrites,
+                })
+              : null;
+          const resolvedHref = rewrittenInternalHref ?? normalizedHref;
+
           const safeHref =
-            isRelative || isAnchor
-              ? normalizedHref
-              : sanitizeUrl(normalizedHref);
+            isRelative || isAnchor ? resolvedHref : sanitizeUrl(resolvedHref);
 
           const isExternal =
             !!safeHref && !isRelative && !isAnchor && !safeHref.startsWith('/');
 
           const isDeadInternal =
+            !rewrittenInternalHref &&
             isRelative &&
             !!deadContentLinkSets &&
             isDeadStorefrontContentHref(normalizedHref, {
@@ -238,6 +260,7 @@ function getBlogBodyHeadingLevel(sourceLevel: number): 2 | 3 | 4 | 5 | 6 {
 const NodeRenderer = ({
   basePath,
   baseUrl,
+  contentLinkRewrites,
   deadContentLinkSets,
   merchantSlug,
   node,
@@ -251,6 +274,7 @@ const NodeRenderer = ({
       key={`${child.type}-${i}`}
       basePath={basePath}
       baseUrl={baseUrl}
+      contentLinkRewrites={contentLinkRewrites}
       deadContentLinkSets={deadContentLinkSets}
       merchantSlug={merchantSlug}
       node={child}
@@ -483,6 +507,7 @@ const NodeRenderer = ({
           node={node}
           basePath={basePath}
           baseUrl={baseUrl}
+          contentLinkRewrites={contentLinkRewrites}
           deadContentLinkSets={deadContentLinkSets}
           merchantSlug={merchantSlug}
         />
@@ -572,6 +597,7 @@ export const BlogContentRenderer = ({
   json,
   basePath,
   baseUrl,
+  contentLinkRewrites,
   deadContentLinks,
   merchantSlug,
   priorityInlineImageSrc,
@@ -598,12 +624,19 @@ export const BlogContentRenderer = ({
         products: new Set(deadContentLinks.products),
       }
     : undefined;
+  const hasContentLinkRewrites =
+    !!contentLinkRewrites &&
+    (Object.keys(contentLinkRewrites.blogSlugs).length > 0 ||
+      Object.keys(contentLinkRewrites.productPaths).length > 0);
 
   return (
     <div className="blog-content-renderer prose dark:prose-invert prose-baci max-w-none text-foreground">
       <NodeRenderer
         basePath={basePath}
         baseUrl={baseUrl}
+        contentLinkRewrites={
+          hasContentLinkRewrites ? contentLinkRewrites : undefined
+        }
         deadContentLinkSets={deadContentLinkSets}
         merchantSlug={merchantSlug}
         node={parsed.doc}

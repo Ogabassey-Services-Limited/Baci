@@ -9,60 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { removeDuplicateLegacyFeaturedImage } from '@/lib/blog-legacy-featured-image-dedupe';
-import { getCachedDeadContentLinkSlugs } from '@/lib/cached-dead-content-links';
 import {
-  collectStorefrontContentLinkTargets,
-  type DeadStorefrontContentLinkSlugs,
   isDeadStorefrontContentHref,
+  rewriteStorefrontContentHref,
 } from '@/lib/storefront-content-link-targets';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { BlogVideoPanel } from './BlogVideoPanel';
+import { resolveContentLinks } from './blog-content-link-resolution';
 import { buildBlogUrl, resolveBlogPostContent } from './blog-post-content';
-
-const NO_DEAD_CONTENT_LINKS: DeadStorefrontContentLinkSlugs = {
-  blog: [],
-  products: [],
-};
-
-async function resolveDeadContentLinks(
-  content: unknown,
-  merchantId: string | undefined,
-  merchantSlug: string
-): Promise<DeadStorefrontContentLinkSlugs> {
-  if (!merchantId) {
-    return NO_DEAD_CONTENT_LINKS;
-  }
-
-  const contentStr =
-    typeof content === 'string'
-      ? content
-      : content && typeof content === 'object'
-        ? JSON.stringify(content)
-        : '';
-  const { blogSlugs, productSlugs } = collectStorefrontContentLinkTargets(
-    contentStr,
-    merchantSlug
-  );
-
-  if (blogSlugs.length === 0 && productSlugs.length === 0) {
-    return NO_DEAD_CONTENT_LINKS;
-  }
-
-  try {
-    return await getCachedDeadContentLinkSlugs(
-      merchantId,
-      blogSlugs,
-      productSlugs
-    );
-  } catch (error) {
-    // Fail open: keep all links rather than unwrapping on a transient error.
-    console.error('Error resolving dead content links', {
-      error,
-      merchantId,
-    });
-    return NO_DEAD_CONTENT_LINKS;
-  }
-}
 
 export interface BlogPostBodyProps {
   basePath: string;
@@ -125,7 +79,7 @@ export async function BlogPostBody({
   // image. Keep body images lazy so the page never emits two high-priority image
   // candidates for the same viewport.
   const hasPreloadedHeroImage = true;
-  const deadContentLinks = await resolveDeadContentLinks(
+  const { deadContentLinks, rewrites } = await resolveContentLinks(
     content,
     merchantId,
     merchantSlug
@@ -134,6 +88,9 @@ export async function BlogPostBody({
   const deadProductSlugs = new Set(deadContentLinks.products);
   const hasDeadContentLinks =
     deadBlogSlugs.size > 0 || deadProductSlugs.size > 0;
+  const hasContentLinkRewrites =
+    Object.keys(rewrites.blogSlugs).length > 0 ||
+    Object.keys(rewrites.productPaths).length > 0;
 
   const { isJson, legacyHtml, legacyPriorityImageSources, renderedContent } =
     await resolveBlogPostContent(content, {
@@ -141,15 +98,19 @@ export async function BlogPostBody({
       baseUrl,
       fallbackImageAlt: post.title,
       hasPreloadedHeroImage,
-      isDeadHref: hasDeadContentLinks
-        ? (href) =>
-            isDeadStorefrontContentHref(href, {
-              basePath,
-              deadBlogSlugs,
-              deadProductSlugs,
-            })
-        : undefined,
+      isDeadHref:
+        hasDeadContentLinks || hasContentLinkRewrites
+          ? (href) =>
+              isDeadStorefrontContentHref(href, {
+                basePath,
+                deadBlogSlugs,
+                deadProductSlugs,
+              })
+          : undefined,
       merchantSlug,
+      rewriteHref: hasContentLinkRewrites
+        ? (href) => rewriteStorefrontContentHref(href, { basePath, rewrites })
+        : undefined,
     });
   const shareUrl = postUrl || buildBlogUrl(baseUrl, basePath, post.slug);
   const safeRelatedProducts = relatedProducts.flatMap((product) => {
@@ -184,6 +145,7 @@ export async function BlogPostBody({
             json={renderedContent}
             basePath={basePath}
             baseUrl={baseUrl}
+            contentLinkRewrites={hasContentLinkRewrites ? rewrites : undefined}
             deadContentLinks={
               hasDeadContentLinks ? deadContentLinks : undefined
             }
