@@ -2795,14 +2795,14 @@ export async function getCachedProductReviews(
     .select(`
         id,
         rating,
-        review_title,
-        review_text,
-        reviewer_name,
-        is_verified_purchase,
+        review_title:title,
+        review_text:body,
+        reviewer_name:customer_name,
+        is_verified_purchase:verified_purchase,
         helpful_count,
         created_at,
         merchant_response,
-        response_at
+        response_at:merchant_response_at
       `)
     .eq('product_id', productId)
     .eq('status', 'approved')
