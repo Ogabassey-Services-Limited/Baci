@@ -12,9 +12,9 @@ concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+# TURBO_TOKEN/TURBO_TEAM (Vercel Remote Cache secrets) are scoped to the `deploy`
+# job's env below — the only job that builds — instead of the workflow level, so
+# they are not exposed to the `changes`/`db-migrations` jobs or their actions.
 
 jobs:
   changes:
@@ -113,6 +113,8 @@ jobs:
       contents: read
     timeout-minutes: 150
     env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
       BLOG_SMOKE_BASE_URL: ${{ vars.BLOG_SMOKE_BASE_URL || 'https://ogabassey.com' }}
       BLOG_SMOKE_LISTING_ATTEMPTS: "6"
       BLOG_SMOKE_LISTING_RETRY_DELAY_MS: "10000"

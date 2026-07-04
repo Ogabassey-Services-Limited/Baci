@@ -54,11 +54,14 @@ function hasNotificationRequestApi(
 }
 
 function warnNotificationsPermissionApiUnavailable(method: string) {
-  console.warn(`Notification permission API unavailable: ${method}`);
+  // Pass the dynamic method name as a separate console argument rather than
+  // interpolating it into the format string, so it is never treated as a
+  // format specifier (avoids the unsafe-format-string class of issue).
+  console.warn('Notification permission API unavailable:', method);
 }
 
 function warnNotificationsPermissionApiFailed(method: string, error: unknown) {
-  console.warn(`Notification permission API failed: ${method}`, error);
+  console.warn('Notification permission API failed:', method, error);
 }
 
 export async function getNotificationPermissionStatus(

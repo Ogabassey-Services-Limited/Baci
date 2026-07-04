@@ -112,7 +112,8 @@ describe('usePermissionBooster native module loading', () => {
     await expect(getNotificationPermissionStatus({})).resolves.toBeNull();
     expect(mockGetPermissionsAsync).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
-      'Notification permission API unavailable: getPermissionsAsync'
+      'Notification permission API unavailable:',
+      'getPermissionsAsync'
     );
   });
 
@@ -132,7 +133,8 @@ describe('usePermissionBooster native module loading', () => {
       })
     ).resolves.toBeNull();
     expect(warnSpy).toHaveBeenCalledWith(
-      'Notification permission API failed: getPermissionsAsync',
+      'Notification permission API failed:',
+      'getPermissionsAsync',
       permissionError
     );
   });
@@ -148,7 +150,8 @@ describe('usePermissionBooster native module loading', () => {
     await expect(requestNotificationPermissionStatus({})).resolves.toBe(false);
     expect(mockRequestPermissionsAsync).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
-      'Notification permission API unavailable: requestPermissionsAsync'
+      'Notification permission API unavailable:',
+      'requestPermissionsAsync'
     );
   });
 
@@ -168,7 +171,8 @@ describe('usePermissionBooster native module loading', () => {
       })
     ).resolves.toBe(false);
     expect(warnSpy).toHaveBeenCalledWith(
-      'Notification permission API failed: requestPermissionsAsync',
+      'Notification permission API failed:',
+      'requestPermissionsAsync',
       permissionError
     );
   });
