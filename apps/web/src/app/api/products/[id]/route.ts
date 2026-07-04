@@ -92,6 +92,25 @@ function schedulePrewarmProductImageTransforms(imagePaths: string[]): void {
   }
 }
 
+/**
+ * Normalize a PostgREST `categories:category_id(slug)` embed — which comes back
+ * as an object, an array, or null depending on the inferred relationship shape
+ * — down to the single joined category slug (or null). Mirrors the
+ * object-or-array guard in `cached-product-canonical-paths.ts` so the purge's
+ * category resolution matches the storefront canonical (join-driven when a
+ * `category_id` is set, PR #2914).
+ */
+function extractJoinedCategorySlug(categories: unknown): string | null {
+  const record = Array.isArray(categories) ? categories[0] : categories;
+  if (record && typeof record === 'object' && 'slug' in record) {
+    const slug = (record as { slug?: unknown }).slug;
+    if (typeof slug === 'string' && slug.trim()) {
+      return slug.trim();
+    }
+  }
+  return null;
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -314,7 +333,11 @@ export async function PUT(
     const { data: existingProduct, error: fetchError } = await supabase
       .from('products')
       .select(
-        'id, name, description, brand, color, slug, condition, condition_detail, has_variants, variant_model'
+        // `category` (legacy text) + `categories:category_id(slug)` (the join)
+        // are read here so the Cloudflare purge derives the OLD row's canonical
+        // segment from the OLD data. The join is not writable in this handler,
+        // so this value is also the product's current joined category.
+        'id, name, description, brand, color, slug, category, condition, condition_detail, has_variants, variant_model, categories:category_id(slug)'
       )
       .eq('id', id)
       .eq('merchant_id', merchantId)
@@ -770,7 +793,12 @@ export async function PUT(
       }
     }
 
-    let updatedProduct = existingProduct;
+    // `updatedProduct` is re-read via PRODUCT_COLUMNS, which does NOT embed the
+    // category join, so type it without `categories`. The join is only read
+    // from `existingProduct` for the purge and is immutable across this update
+    // (`category_id` is not writable here).
+    let updatedProduct: Omit<typeof existingProduct, 'categories'> =
+      existingProduct;
     let hasFreshProductRow = false;
     if (Object.keys(updates).length > 1) {
       const { data: persistedProduct, error: updateError } = await supabase
@@ -929,22 +957,46 @@ export async function PUT(
     try {
       const previousSlug = existingProduct.slug;
       const nextSlug = updatedProduct.slug;
-      const productPurgeCategorySegment = resolveProductPurgeCategorySegment({
+      // The joined category (`category_id`) is not writable in this handler, so
+      // it is immutable across the update: read it once from the existing row
+      // and reuse it for both entries. Only the legacy TEXT category can change,
+      // so the NEW entry uses the fresh row's text and the OLD entry uses the
+      // OLD row's text — the joined slug still wins in
+      // resolveProductPurgeCategorySegment (PR #2914) whenever it is present.
+      const joinedCategorySlug = extractJoinedCategorySlug(
+        (existingProduct as { categories?: unknown }).categories
+      );
+      const joinedCategory = joinedCategorySlug
+        ? { slug: joinedCategorySlug }
+        : null;
+      const nextCategorySegment = resolveProductPurgeCategorySegment({
         slug: nextSlug,
         name: updatedProduct.name,
         category: (updatedProduct as { category?: string | null }).category,
+        categories: joinedCategory,
       });
       const productPurgeEntries: StorefrontProductPurgeEntry[] = [
-        { slug: nextSlug, categorySegment: productPurgeCategorySegment },
+        { slug: nextSlug, categorySegment: nextCategorySegment },
       ];
-      if (previousSlug && previousSlug !== nextSlug) {
-        // A slug change (e.g. rename) leaves the OLD PDP URLs cached, so evict
-        // them too. The category is assumed unchanged (the common rename case);
-        // the always-emitted /products/<old-slug> fallback still covers a
-        // simultaneous category change.
+      const previousCategorySegment = resolveProductPurgeCategorySegment({
+        slug: previousSlug ?? nextSlug,
+        name: existingProduct.name,
+        category: (existingProduct as { category?: string | null }).category,
+        categories: joinedCategory,
+      });
+      // A rename (slug change) OR a category move (segment change) leaves the
+      // OLD canonical PDP `/<old-category>/<old-slug>` AND the OLD category
+      // listing cached — derive the old entry from the OLD row's own data so
+      // both get evicted (the builder emits a listing per distinct segment, so
+      // pushing the old entry also purges `/<old-category>` when it differs).
+      if (
+        previousSlug &&
+        (previousSlug !== nextSlug ||
+          (previousCategorySegment ?? '') !== (nextCategorySegment ?? ''))
+      ) {
         productPurgeEntries.push({
           slug: previousSlug,
-          categorySegment: productPurgeCategorySegment,
+          categorySegment: previousCategorySegment,
         });
       }
       scheduleStorefrontProductPurge(
@@ -1011,14 +1063,16 @@ export async function DELETE(
     }
     const merchantId = merchantContext.merchantId;
 
-    // Return the deleted row's slug/category so we can evict its public URLs
-    // from Cloudflare without a second lookup (delete is a rare admin action).
+    // Return the deleted row's slug/category (legacy text + `category_id` join)
+    // so we can evict its public URLs from Cloudflare without a second lookup
+    // (delete is a rare admin action). The join is included so the purge
+    // resolves the same join-driven canonical the storefront served (PR #2914).
     const { data: deletedProducts, error: deleteError } = await supabase
       .from('products')
       .delete()
       .eq('id', id)
       .eq('merchant_id', merchantId)
-      .select('slug, name, category');
+      .select('slug, name, category, categories:category_id(slug)');
 
     if (deleteError) {
       console.error('Error deleting product:', deleteError);
@@ -1042,9 +1096,13 @@ export async function DELETE(
             slug?: string | null;
             name?: string | null;
             category?: string | null;
+            categories?: unknown;
           }
         | undefined;
       if (deletedProduct?.slug) {
+        const joinedCategorySlug = extractJoinedCategorySlug(
+          deletedProduct.categories
+        );
         scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
           {
             slug: deletedProduct.slug,
@@ -1052,6 +1110,9 @@ export async function DELETE(
               slug: deletedProduct.slug,
               name: deletedProduct.name,
               category: deletedProduct.category,
+              categories: joinedCategorySlug
+                ? { slug: joinedCategorySlug }
+                : null,
             }),
           },
         ]);

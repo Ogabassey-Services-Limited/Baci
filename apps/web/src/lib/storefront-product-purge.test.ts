@@ -45,10 +45,12 @@ describe('scheduleStorefrontProductPurge', () => {
     expect(mockAfter).toHaveBeenCalledTimes(1);
     expect(mockPurgeCloudflareUrls).toHaveBeenCalledWith([
       'https://ogabassey.com/',
+      'https://ogabassey.com/products',
       'https://ogabassey.com/smartphones/iphone-15',
       'https://ogabassey.com/products/iphone-15',
       'https://ogabassey.com/smartphones',
       'https://www.ogabassey.com/',
+      'https://www.ogabassey.com/products',
       'https://www.ogabassey.com/smartphones/iphone-15',
       'https://www.ogabassey.com/products/iphone-15',
       'https://www.ogabassey.com/smartphones',

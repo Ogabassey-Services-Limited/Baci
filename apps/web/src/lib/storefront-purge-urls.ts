@@ -192,9 +192,10 @@ function dedupeProductPurgeEntries(
  * products change. For every resolved hostname of a matched storefront this
  * emits, per affected product: the canonical PDP `/<category>/<slug>` (when the
  * category is known) and the always-valid fallback `/products/<slug>`; plus,
- * once per hostname, each affected category listing `/<category>` and the home
- * page `/` (both list products). Storefronts without a public cache policy
- * resolve to no hostnames and return an empty list (purge is a no-op).
+ * once per hostname, each affected category listing `/<category>`, the
+ * all-products listing `/products`, and the home page `/` (all list products).
+ * Storefronts without a public cache policy resolve to no hostnames and return
+ * an empty list (purge is a no-op).
  */
 export function buildStorefrontProductPurgeUrls(
   identifiers: readonly string[],
@@ -217,6 +218,10 @@ export function buildStorefrontProductPurgeUrls(
       // The storefront home lists products, so any product mutation can change
       // it — evict it once per hostname.
       urls.add(`https://${hostname}/`);
+      // The all-products listing (/products) is a cacheable public document
+      // rendered from the product index, so any create / delete / status change
+      // can leave it stale — evict it once per hostname too.
+      urls.add(`https://${hostname}/products`);
 
       for (const entry of dedupedEntries) {
         // The canonical categorized PDP is the URL the storefront serves 200

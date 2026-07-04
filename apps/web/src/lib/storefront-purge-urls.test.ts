@@ -181,6 +181,21 @@ describe('resolveProductPurgeCategorySegment', () => {
     ).toBe('tablets');
   });
 
+  it('prefers the joined category slug over both category_slug and legacy text', () => {
+    // Full PR #2914 precedence: direct category_id join wins over the
+    // category_slug and the legacy text column, so the purge targets the same
+    // canonical the storefront serves.
+    expect(
+      resolveProductPurgeCategorySegment({
+        slug: 'rog-ally',
+        name: 'ROG Ally',
+        category: 'Legacy Text',
+        category_slug: 'legacy-slug',
+        categories: { name: 'Gaming', slug: 'gaming-laptops' },
+      })
+    ).toBe('gaming-laptops');
+  });
+
   it('returns null when the product resolves to the /products/<slug> fallback', () => {
     expect(
       resolveProductPurgeCategorySegment({
@@ -207,17 +222,33 @@ describe('buildStorefrontProductPurgeUrls', () => {
 
     expect(urls).toEqual([
       'https://ogabassey.com/',
+      'https://ogabassey.com/products',
       'https://ogabassey.com/smartphones/iphone-15',
       'https://ogabassey.com/products/iphone-15',
       'https://ogabassey.com/smartphones',
       'https://www.ogabassey.com/',
+      'https://www.ogabassey.com/products',
       'https://www.ogabassey.com/smartphones/iphone-15',
       'https://www.ogabassey.com/products/iphone-15',
       'https://www.ogabassey.com/smartphones',
     ]);
   });
 
-  it('emits only the fallback PDP and home when the category is unknown', () => {
+  it('emits the /products listing once per hostname for every product mutation', () => {
+    const urls = buildStorefrontProductPurgeUrls(
+      ['ogabassey'],
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+    );
+
+    // The all-products listing is a cacheable public document, so it must be
+    // evicted (exactly once per hostname) on any product change.
+    expect(
+      urls.filter((url) => url === 'https://ogabassey.com/products')
+    ).toEqual(['https://ogabassey.com/products']);
+    expect(urls).toContain('https://www.ogabassey.com/products');
+  });
+
+  it('emits only the fallback PDP, products listing, and home when the category is unknown', () => {
     const urls = buildStorefrontProductPurgeUrls(
       ['ogabassey'],
       [{ slug: 'mystery-box', categorySegment: null }]
@@ -225,8 +256,10 @@ describe('buildStorefrontProductPurgeUrls', () => {
 
     expect(urls).toEqual([
       'https://ogabassey.com/',
+      'https://ogabassey.com/products',
       'https://ogabassey.com/products/mystery-box',
       'https://www.ogabassey.com/',
+      'https://www.ogabassey.com/products',
       'https://www.ogabassey.com/products/mystery-box',
     ]);
   });
@@ -245,6 +278,7 @@ describe('buildStorefrontProductPurgeUrls', () => {
     // (canonical + fallback) is still emitted.
     expect(urls).toEqual([
       'https://ogabassey.com/',
+      'https://ogabassey.com/products',
       'https://ogabassey.com/smartphones/iphone-15',
       'https://ogabassey.com/products/iphone-15',
       'https://ogabassey.com/smartphones/galaxy-s24',
@@ -254,6 +288,7 @@ describe('buildStorefrontProductPurgeUrls', () => {
       'https://ogabassey.com/smartphones',
       'https://ogabassey.com/tablets',
       'https://www.ogabassey.com/',
+      'https://www.ogabassey.com/products',
       'https://www.ogabassey.com/smartphones/iphone-15',
       'https://www.ogabassey.com/products/iphone-15',
       'https://www.ogabassey.com/smartphones/galaxy-s24',
@@ -273,10 +308,12 @@ describe('buildStorefrontProductPurgeUrls', () => {
 
     expect(urls).toEqual([
       'https://ogabassey.com/',
+      'https://ogabassey.com/products',
       'https://ogabassey.com/Smartphones/IPhone-15',
       'https://ogabassey.com/products/IPhone-15',
       'https://ogabassey.com/Smartphones',
       'https://www.ogabassey.com/',
+      'https://www.ogabassey.com/products',
       'https://www.ogabassey.com/Smartphones/IPhone-15',
       'https://www.ogabassey.com/products/IPhone-15',
       'https://www.ogabassey.com/Smartphones',
@@ -297,10 +334,12 @@ describe('buildStorefrontProductPurgeUrls', () => {
     // emitted once); the case-duplicate entry and the blank slug are dropped.
     expect(urls).toEqual([
       'https://ogabassey.com/',
+      'https://ogabassey.com/products',
       'https://ogabassey.com/smartphones/iphone-15',
       'https://ogabassey.com/products/iphone-15',
       'https://ogabassey.com/smartphones',
       'https://www.ogabassey.com/',
+      'https://www.ogabassey.com/products',
       'https://www.ogabassey.com/smartphones/iphone-15',
       'https://www.ogabassey.com/products/iphone-15',
       'https://www.ogabassey.com/smartphones',
