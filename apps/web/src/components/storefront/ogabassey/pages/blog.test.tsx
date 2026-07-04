@@ -145,7 +145,16 @@ describe('OgabasseyV2Blog', () => {
   });
 
   it('uses crawlable canonical category paths instead of redirecting query links', () => {
-    render(<OgabasseyV2Blog posts={mockPosts} storeSlug="/test-store" />);
+    render(
+      <OgabasseyV2Blog
+        posts={mockPosts}
+        storeSlug="/test-store"
+        categories={[
+          { name: 'Tech News', slug: 'tech-news' },
+          { name: 'Tips and Tricks', slug: 'tips-and-tricks' },
+        ]}
+      />
+    );
 
     expect(screen.getByRole('link', { name: 'All' })).toHaveAttribute(
       'href',
@@ -157,8 +166,37 @@ describe('OgabasseyV2Blog', () => {
     );
   });
 
+  it('keeps hard-coded chips without published posts on the query form', () => {
+    render(
+      <OgabasseyV2Blog
+        posts={mockPosts}
+        storeSlug="/test-store"
+        categories={[{ name: 'Tech News', slug: 'tech-news' }]}
+      />
+    );
+
+    // the clean category route notFound()s slugs with no published posts, so
+    // a post-less hard-coded chip must keep the non-redirecting query form
+    expect(
+      screen.getByRole('link', { name: 'Mobile Gadgets' })
+    ).toHaveAttribute('href', '/test-store/blog?category=Mobile%20Gadgets');
+    expect(screen.getByRole('link', { name: 'Tech News' })).toHaveAttribute(
+      'href',
+      '/test-store/blog/category/tech-news'
+    );
+  });
+
   it('normalizes a bare merchant-slug basePath into a rooted category path', () => {
-    render(<OgabasseyV2Blog posts={mockPosts} storeSlug="test-store" />);
+    render(
+      <OgabasseyV2Blog
+        posts={mockPosts}
+        storeSlug="test-store"
+        categories={[
+          { name: 'Tech News', slug: 'tech-news' },
+          { name: 'Tips and Tricks', slug: 'tips-and-tricks' },
+        ]}
+      />
+    );
 
     expect(screen.getByRole('link', { name: 'Tech News' })).toHaveAttribute(
       'href',
@@ -204,7 +242,16 @@ describe('OgabasseyV2Blog', () => {
   });
 
   it('keeps the green tips CTA inside the published category taxonomy', () => {
-    render(<OgabasseyV2Blog posts={mockPosts} storeSlug="/test-store" />);
+    render(
+      <OgabasseyV2Blog
+        posts={mockPosts}
+        storeSlug="/test-store"
+        categories={[
+          { name: 'Tech News', slug: 'tech-news' },
+          { name: 'Tips and Tricks', slug: 'tips-and-tricks' },
+        ]}
+      />
+    );
 
     expect(screen.getByRole('link', { name: 'View Green Tips' })).toHaveAttribute(
       'href',

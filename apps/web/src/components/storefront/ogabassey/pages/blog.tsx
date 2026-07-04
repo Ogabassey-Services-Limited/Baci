@@ -63,24 +63,31 @@ function blogHref(basePath: string, path = ''): string {
 // Emit the canonical /blog/category/<slug> path (via the shared routing
 // helper) instead of the legacy ?category= query form, which 308s to it —
 // Semrush flagged ~1,700 internal redirect links from these chips alone.
-// The helper falls back to the query form only for reserved or colliding
-// slugs, which the listing route still resolves. basePath is normalized
-// through joinRouteBasePath first because it can arrive as an absolute
-// store URL, a bare merchant slug, or empty — buildBlogCategoryHref only
-// handles the first and last forms on its own.
+//
+// Clean paths are emitted ONLY for labels backed by published posts: the
+// clean category route validates against get_public_blog_categories and
+// notFound()s unknown slugs, so a hard-coded chip with no posts (e.g.
+// Mobile Gadgets on a store without them) keeps the ?category= query form,
+// which the listing renders as an empty filter (200, no redirect). basePath
+// is normalized through joinRouteBasePath first because it can arrive as an
+// absolute store URL, a bare merchant slug, or empty.
 function blogCategoryHref(
   basePath: string,
   category: string,
-  categories: string[]
+  publishedCategories: string[]
 ): string {
   if (category === 'All') {
     return blogHref(basePath);
   }
 
+  if (!publishedCategories.includes(category)) {
+    return blogHref(basePath, `?category=${encodeURIComponent(category)}`);
+  }
+
   return buildBlogCategoryHref(
     joinRouteBasePath(basePath, '/'),
     category,
-    categories
+    publishedCategories
   );
 }
 
@@ -96,6 +103,9 @@ export function OgabasseyV2Blog({
   const activeCategory = category || 'All';
   const isSearching = Boolean(searchQuery);
   const categories = getCategoryLabels(propCategories);
+  const publishedCategories = (propCategories ?? [])
+    .map((entry) => entry.name)
+    .filter(Boolean);
   const filteredPosts =
     activeCategory === 'All'
       ? posts
@@ -180,7 +190,7 @@ export function OgabasseyV2Blog({
             {categories.map((cat) => (
               <Link
                 key={cat}
-                href={asRoute(blogCategoryHref(basePath, cat, categories))}
+                href={asRoute(blogCategoryHref(basePath, cat, publishedCategories))}
                 className={`whitespace-nowrap rounded-lg border px-4 py-2 font-bold text-sm transition-all ${
                   activeCategory === cat
                     ? 'scale-105 transform border-gray-900 bg-gray-900 text-white shadow-md'
@@ -263,7 +273,9 @@ export function OgabasseyV2Blog({
             </p>
           </div>
           <Link
-            href={asRoute(blogCategoryHref(basePath, 'Tips and Tricks', categories))}
+            href={asRoute(
+              blogCategoryHref(basePath, 'Tips and Tricks', publishedCategories)
+            )}
             className="rounded-xl bg-green-600 px-8 py-4 font-bold text-white shadow-xl transition-all hover:-translate-y-1 hover:bg-green-700 hover:shadow-2xl active:scale-95"
           >
             View Green Tips
