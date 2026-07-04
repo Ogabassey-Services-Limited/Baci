@@ -219,4 +219,27 @@ describe('unwrapDeadHtmlAnchors attribute tokenization', () => {
       '<a title=\'href="/audio/apple-airpods-2"\' href="/earbuds/apple-airpods-2">AirPods</a>'
     );
   });
+
+  it('unwraps dead anchors whose href is unquoted', () => {
+    const html = '<p><a href=/blog/dead-post>Dead</a></p>';
+
+    const result = unwrapDeadHtmlAnchors(
+      html,
+      (href) => href === '/blog/dead-post'
+    );
+
+    expect(result).toBe('<p>Dead</p>');
+  });
+
+  it('rewrites unquoted hrefs into quoted canonical form', () => {
+    const html = '<p><a href=/blog/renamed-post>Guide</a></p>';
+
+    const result = unwrapDeadHtmlAnchors(
+      html,
+      () => false,
+      (href) => (href === '/blog/renamed-post' ? '/blog/new-post' : null)
+    );
+
+    expect(result).toBe('<p><a href="/blog/new-post">Guide</a></p>');
+  });
 });

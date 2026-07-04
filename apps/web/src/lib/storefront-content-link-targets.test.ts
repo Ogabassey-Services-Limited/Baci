@@ -75,6 +75,25 @@ describe('collectStorefrontContentLinkTargets', () => {
     });
   });
 
+  it('collects unquoted href attributes from legacy HTML', () => {
+    const html = '<a href=/blog/unquoted-draft>Old style</a>';
+
+    expect(collectStorefrontContentLinkTargets(html)).toEqual({
+      blogSlugs: ['unquoted-draft'],
+      productSlugs: [],
+    });
+  });
+
+  it('collects reference-style markdown link definitions', () => {
+    const markdown =
+      'See [the guide][draft] for details.\n\n[draft]: /blog/reference-draft\n[other]: </products/reference-widget>';
+
+    expect(collectStorefrontContentLinkTargets(markdown)).toEqual({
+      blogSlugs: ['reference-draft'],
+      productSlugs: ['reference-widget'],
+    });
+  });
+
   it('collects hrefs from markdown link syntax', () => {
     const markdown = 'See [this post](/blog/markdown-draft) for details.';
 

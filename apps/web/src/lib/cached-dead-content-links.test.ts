@@ -1,12 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetPublicSupabaseClient } = vi.hoisted(() => ({
-  mockGetPublicSupabaseClient: vi.fn(),
-}));
+const { mockGetPublicSupabaseClient, mockGetSlugResolution } = vi.hoisted(
+  () => ({
+    mockGetPublicSupabaseClient: vi.fn(),
+    mockGetSlugResolution: vi.fn(),
+  })
+);
 
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
 vi.mock('@/lib/cached-data', () => ({
   getPublicSupabaseClient: mockGetPublicSupabaseClient,
+}));
+vi.mock('@/lib/cached-storefront-product-slug-resolution', () => ({
+  getCachedStorefrontProductSlugResolution: (...args: unknown[]) =>
+    mockGetSlugResolution(...args),
 }));
 
 import { cacheLife, cacheTag } from 'next/cache';
@@ -74,6 +81,7 @@ function setupSupabaseMock({
 describe('getCachedDeadContentLinkSlugs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetSlugResolution.mockResolvedValue({ hasError: false, present: true });
   });
 
   afterEach(() => {
@@ -294,5 +302,70 @@ describe('getCachedDeadContentLinkSlugs UUID fail-open', () => {
     // archived id 308s to its parent and distinguishing that from a missing
     // id would need a privileged read, so it fails open
     expect(dead.products).toEqual(['gone-forever']);
+  });
+
+  it('reports genuinely nonexistent UUID product links as dead via the RPC', async () => {
+    const uuid = '323e4567-e89b-12d3-a456-426614174000';
+    setupSupabaseMock({
+      productResults: [
+        { data: [], error: null },
+        { data: [], error: null },
+      ],
+    });
+    mockGetSlugResolution.mockResolvedValue({
+      hasError: false,
+      present: false,
+    });
+
+    const result = await getCachedDeadContentLinkSlugs(
+      'merchant-1',
+      [],
+      [uuid]
+    );
+
+    expect(result.products).toEqual([uuid]);
+    expect(mockGetSlugResolution).toHaveBeenCalledWith('merchant-1', uuid);
+  });
+
+  it('keeps archived-redirect UUID links live when the RPC reports them present', async () => {
+    const uuid = '423e4567-e89b-12d3-a456-426614174000';
+    setupSupabaseMock({
+      productResults: [
+        { data: [], error: null },
+        { data: [], error: null },
+      ],
+    });
+    mockGetSlugResolution.mockResolvedValue({
+      hasError: false,
+      present: true,
+      redirectTarget: { id: 'p1', name: 'Parent', slug: 'parent' },
+    });
+
+    const result = await getCachedDeadContentLinkSlugs(
+      'merchant-1',
+      [],
+      [uuid]
+    );
+
+    expect(result.products).toEqual([]);
+  });
+
+  it('fails open for UUID links when the RPC resolution errors', async () => {
+    const uuid = '523e4567-e89b-12d3-a456-426614174000';
+    setupSupabaseMock({
+      productResults: [
+        { data: [], error: null },
+        { data: [], error: null },
+      ],
+    });
+    mockGetSlugResolution.mockResolvedValue({ hasError: true, present: false });
+
+    const result = await getCachedDeadContentLinkSlugs(
+      'merchant-1',
+      [],
+      [uuid]
+    );
+
+    expect(result.products).toEqual([]);
   });
 });

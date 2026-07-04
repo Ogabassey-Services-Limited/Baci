@@ -9,7 +9,8 @@ const ANCHOR_TAG_REGEX =
 // (e.g. title='see href="/x"') is swallowed by that attribute's token and can
 // never be mistaken for the real href. Also rejects `data-href` and other
 // suffixed names, since the token name must equal `href` exactly.
-const ATTRIBUTE_TOKEN_REGEX = /([^\s=]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+const ATTRIBUTE_TOKEN_REGEX =
+  /([^\s=]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
 
 interface HrefAttributeToken {
   index: number;
@@ -26,8 +27,8 @@ function findHrefAttribute(attributes: string): HrefAttributeToken | null {
       return {
         index: match.index,
         raw: match[0],
-        quote: match[2] !== undefined ? '"' : "'",
-        value: match[2] ?? match[3] ?? '',
+        quote: match[3] !== undefined ? "'" : '"',
+        value: match[2] ?? match[3] ?? match[4] ?? '',
       };
     }
     match = ATTRIBUTE_TOKEN_REGEX.exec(attributes);

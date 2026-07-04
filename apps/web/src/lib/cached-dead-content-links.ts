@@ -1,5 +1,6 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import { getPublicSupabaseClient } from '@/lib/cached-data';
+import { getCachedStorefrontProductSlugResolution } from '@/lib/cached-storefront-product-slug-resolution';
 import { isPublicBlogPost } from '@/lib/public-blog-content-quality';
 import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
 import type { DeadStorefrontContentLinkSlugs } from '@/lib/storefront-content-link-targets';
@@ -104,16 +105,33 @@ export async function getCachedDeadContentLinkSlugs(
     ...(productIdResult.data ?? []).map((row) => row.id.toLowerCase()),
   ]);
 
+  // UUID identifiers that did not resolve as active are adjudicated through
+  // the same anon-callable RPC the PDP/proxy use: `present` covers both an
+  // active product and an archived id that 308s to its active parent, so
+  // only genuinely nonexistent ids are reported dead. On resolver errors the
+  // id stays live (fail open — never destroy a possibly working link).
+  const unresolvedUuids = productIdCandidates.filter(
+    (uuid) => !liveProductSlugs.has(uuid.toLowerCase())
+  );
+  const deadUuids = new Set<string>();
+  await Promise.all(
+    unresolvedUuids.map(async (uuid) => {
+      const resolution = await getCachedStorefrontProductSlugResolution(
+        merchantId,
+        uuid
+      );
+      if (!resolution.hasError && !resolution.present) {
+        deadUuids.add(uuid);
+      }
+    })
+  );
+
   return {
     blog: blogSlugs.filter((slug) => !liveBlogSlugs.has(slug)),
-    // UUID-shaped identifiers that did not resolve as active are NEVER dead:
-    // an archived id 308s to its active parent on the PDP, and telling that
-    // apart from a nonexistent id would require a privileged read this anon
-    // path must not perform. Fail open — the link stays clickable and the
-    // PDP adjudicates it at request time.
-    products: productSlugs.filter(
-      (slug) =>
-        !liveProductSlugs.has(slug.toLowerCase()) && !UUID_REGEX.test(slug)
+    products: productSlugs.filter((slug) =>
+      UUID_REGEX.test(slug)
+        ? deadUuids.has(slug)
+        : !liveProductSlugs.has(slug.toLowerCase())
     ),
   };
 }
