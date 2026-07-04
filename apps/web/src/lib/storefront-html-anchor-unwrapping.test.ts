@@ -132,3 +132,38 @@ describe('unwrapDeadHtmlAnchors with rewriteHref', () => {
     );
   });
 });
+
+describe('unwrapDeadHtmlAnchors parsing hardening', () => {
+  it('ignores href-shaped text inside the anchor inner content', () => {
+    const html =
+      '<p><a class="x">see href="/blog/draft-post" for details</a></p>';
+
+    const result = unwrapDeadHtmlAnchors(html, () => true);
+
+    // the anchor has no real href, so it must be left untouched
+    expect(result).toBe(html);
+  });
+
+  it('parses opening tags containing a literal > inside a quoted attribute', () => {
+    const html = '<a title="a > b" href="/blog/draft-post">Dead</a>';
+
+    const result = unwrapDeadHtmlAnchors(
+      html,
+      (href) => href === '/blog/draft-post'
+    );
+
+    expect(result).toBe('Dead');
+  });
+
+  it('decodes numeric entities in hrefs before the dead check', () => {
+    // /blog/draft-post with 'd' encoded as decimal and hex entities
+    const html = '<a href="/blog/&#100;raft-&#x70;ost">Dead</a>';
+
+    const result = unwrapDeadHtmlAnchors(
+      html,
+      (href) => href === '/blog/draft-post'
+    );
+
+    expect(result).toBe('Dead');
+  });
+});

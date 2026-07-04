@@ -662,6 +662,22 @@ describe('resolveBlogPostContent', () => {
     expect(nullResult.isJson).toBe(false);
     expect(nullResult.legacyHtml).toBe('');
   });
+
+  it('rewrites legacy HTML anchors when only rewriteHref is provided', async () => {
+    const content =
+      '<p>Get the <a href="/audio/apple-airpods-2">AirPods 2</a> today.</p>';
+
+    const result = await resolveBlogPostContent(content, {
+      rewriteHref: (href) =>
+        href === '/audio/apple-airpods-2' ? '/earbuds/apple-airpods-2' : null,
+    });
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain('href="/earbuds/apple-airpods-2"');
+    expect(result.legacyHtml).not.toContain('href="/audio/apple-airpods-2"');
+    // the anchor itself must survive — rewriteHref alone never unwraps
+    expect(result.legacyHtml).toContain('AirPods 2</a>');
+  });
 });
 
 describe('transformImageTitlesToFigureCaptions', () => {

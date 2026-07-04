@@ -60,7 +60,7 @@ export async function resolveContentLinks(
 
   // Fail open independently: on a transient error keep all links (no
   // unwrapping) and/or leave hrefs untouched (no rewriting).
-  const [dead, rewrites] = await Promise.all([
+  const [dead, rewritesOutcome] = await Promise.all([
     getCachedDeadContentLinkSlugs(merchantId, blogSlugs, productSlugs).catch(
       (error) => {
         console.error('Error resolving dead content links', {
@@ -70,17 +70,28 @@ export async function resolveContentLinks(
         return NO_DEAD_CONTENT_LINKS;
       }
     ),
-    getCachedContentLinkRewrites(merchantId, blogSlugs, productSlugs).catch(
+    getCachedContentLinkRewrites(merchantId, blogSlugs, productSlugs).then(
+      (rewrites) => ({ rewrites, failed: false }),
       (error) => {
         console.error('Error resolving content link rewrites', {
           error,
           merchantId,
         });
-        return NO_CONTENT_LINK_REWRITES;
+        return { rewrites: NO_CONTENT_LINK_REWRITES, failed: true };
       }
     ),
   ]);
 
+  // The dead sets are only trustworthy when the rewrites lookup succeeded:
+  // without it a redirectable slug (archived variant, renamed post) cannot be
+  // excluded and would be unwrapped even though its link works. Suppress
+  // unwrapping entirely for that request instead — a dead link surviving one
+  // render beats destroying a working link.
+  if (rewritesOutcome.failed) {
+    return NO_CONTENT_LINK_RESOLUTION;
+  }
+
+  const { rewrites } = rewritesOutcome;
   return {
     deadContentLinks: {
       blog: dead.blog.filter((slug) => !rewrites.blogSlugs[slug]),

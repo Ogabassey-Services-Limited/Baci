@@ -50,6 +50,11 @@ vi.mock('./blog-post-content', async () => {
 vi.mock('@/lib/cached-dead-content-links', () => ({
   getCachedDeadContentLinkSlugs: mockGetCachedDeadContentLinkSlugs,
 }));
+vi.mock('@/lib/cached-content-link-rewrites', () => ({
+  getCachedContentLinkRewrites: vi
+    .fn()
+    .mockResolvedValue({ blogSlugs: {}, productPaths: {} }),
+}));
 
 describe('BlogPostBody', () => {
   afterEach(() => {

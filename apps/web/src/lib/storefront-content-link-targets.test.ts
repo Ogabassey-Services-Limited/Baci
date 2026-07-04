@@ -331,3 +331,23 @@ describe('rewriteStorefrontContentHref', () => {
     ).toBeNull();
   });
 });
+
+describe('collectStorefrontContentLinkTargets broad-mode fallback', () => {
+  it('collects product slugs under merchant-defined category segments', () => {
+    const targets = collectStorefrontContentLinkTargets(
+      '<a href="/audio/apple-airpods-2">AirPods</a>' +
+        '<a href="/gaming/cyberpunk-2077">Game</a>'
+    );
+
+    expect(targets.productSlugs).toEqual(['apple-airpods-2', 'cyberpunk-2077']);
+  });
+
+  it('never classifies known non-product segments as products', () => {
+    const targets = collectStorefrontContentLinkTargets(
+      '<a href="/account/orders">Orders</a><a href="/cart/items">Cart</a>'
+    );
+
+    expect(targets.productSlugs).toEqual([]);
+    expect(targets.blogSlugs).toEqual([]);
+  });
+});

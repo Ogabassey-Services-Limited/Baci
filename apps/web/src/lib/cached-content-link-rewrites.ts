@@ -1,9 +1,8 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
-import { getSupabaseServiceRoleKey, getSupabaseUrl } from '@/env';
 import { getPublicSupabaseClient } from '@/lib/cached-data';
 import { getCachedProductCanonicalPaths } from '@/lib/cached-product-canonical-paths';
 import type { StorefrontContentLinkRewrites } from '@/lib/storefront-content-link-targets';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 const EMPTY_REWRITES: StorefrontContentLinkRewrites = {
   blogSlugs: {},
@@ -82,16 +81,7 @@ async function resolveArchivedParentSlugs(
     return new Map();
   }
 
-  const supabase = createSupabaseClient(
-    getSupabaseUrl(),
-    getSupabaseServiceRoleKey(),
-    {
-      auth: { persistSession: false, autoRefreshToken: false },
-      global: {
-        headers: { 'X-Client-Info': 'baci-web-content-link-rewrites' },
-      },
-    }
-  );
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from('products')
@@ -123,8 +113,11 @@ async function resolveArchivedParentSlugs(
  * getCachedDeadContentLinkSlugs — slugs with a rewrite here must NOT be
  * treated as dead, or working links would be unwrapped instead of fixed.
  *
- * Throws on query errors so Cache Components skips caching the failure —
- * callers fail open (leave hrefs untouched).
+ * The blog-redirect and archived-parent lookups throw on query errors so
+ * Cache Components skips caching the failure — callers fail open (leave hrefs
+ * untouched). Note getCachedProductCanonicalPaths swallows its own errors and
+ * returns {} instead, so a transient failure there yields a cached
+ * missing-rewrite for its lifetime rather than a thrown error.
  */
 export async function getCachedContentLinkRewrites(
   merchantId: string,

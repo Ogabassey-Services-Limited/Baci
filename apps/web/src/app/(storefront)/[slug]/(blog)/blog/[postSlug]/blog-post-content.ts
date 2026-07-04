@@ -258,13 +258,14 @@ export async function resolveBlogPostContent(
   if (!isJson) {
     const rawHtml = isHtml ? contentStr : await marked(contentStr || '');
     const rewrittenHtml = rewriteHtmlStorefrontHrefs(rawHtml, options);
-    const liveLinkHtml = options.isDeadHref
-      ? unwrapDeadHtmlAnchors(
-          rewrittenHtml,
-          options.isDeadHref,
-          options.rewriteHref
-        )
-      : rewrittenHtml;
+    const liveLinkHtml =
+      options.isDeadHref || options.rewriteHref
+        ? unwrapDeadHtmlAnchors(
+            rewrittenHtml,
+            options.isDeadHref ?? (() => false),
+            options.rewriteHref
+          )
+        : rewrittenHtml;
     const sanitizedHtml = sanitizeHtml(liveLinkHtml, {
       stripNofollowFromLinks: true,
     });

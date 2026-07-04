@@ -88,4 +88,24 @@ describe('resolveContentLinks', () => {
       '/earbuds/apple-airpods-2'
     );
   });
+
+  it('suppresses unwrapping entirely when only the rewrites lookup fails', async () => {
+    // apple-airpods-2 is dead per the slug query (archived) but would have a
+    // rewrite to its parent — with the rewrites lookup down we cannot tell it
+    // apart from a truly dead slug, so nothing may be unwrapped this render.
+    mockGetCachedDeadContentLinkSlugs.mockResolvedValue({
+      blog: [],
+      products: ['apple-airpods-2', 'gone-forever'],
+    });
+    mockGetCachedContentLinkRewrites.mockRejectedValue(new Error('boom'));
+
+    const result = await resolveContentLinks(
+      CONTENT_WITH_LINKS,
+      'merchant-1',
+      'store'
+    );
+
+    expect(result.deadContentLinks).toEqual({ blog: [], products: [] });
+    expect(result.rewrites).toEqual({ blogSlugs: {}, productPaths: {} });
+  });
 });

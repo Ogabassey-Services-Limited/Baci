@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  mockCreateSupabaseClient,
+  mockCreateAdminClient,
   mockGetCachedProductCanonicalPaths,
   mockGetPublicSupabaseClient,
 } = vi.hoisted(() => ({
-  mockCreateSupabaseClient: vi.fn(),
+  mockCreateAdminClient: vi.fn(),
   mockGetCachedProductCanonicalPaths: vi.fn(),
   mockGetPublicSupabaseClient: vi.fn(),
 }));
@@ -22,8 +22,8 @@ vi.mock('@/lib/cached-product-canonical-paths', () => ({
   getCachedProductCanonicalPaths: (...args: unknown[]) =>
     mockGetCachedProductCanonicalPaths(...args),
 }));
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: (...args: unknown[]) => mockCreateSupabaseClient(...args),
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
 }));
 
 import { getCachedContentLinkRewrites } from '@/lib/cached-content-link-rewrites';
@@ -77,7 +77,7 @@ function setupClients({
       throw new Error(`Unexpected public table: ${table}`);
     }),
   });
-  mockCreateSupabaseClient.mockReturnValue({
+  mockCreateAdminClient.mockReturnValue({
     from: vi.fn((table: string) => {
       if (table === 'products') {
         return {
@@ -105,7 +105,7 @@ describe('getCachedContentLinkRewrites', () => {
 
     expect(rewrites).toEqual({ blogSlugs: {}, productPaths: {} });
     expect(mockGetPublicSupabaseClient).not.toHaveBeenCalled();
-    expect(mockCreateSupabaseClient).not.toHaveBeenCalled();
+    expect(mockCreateAdminClient).not.toHaveBeenCalled();
   });
 
   it('returns canonical paths for live products', async () => {
