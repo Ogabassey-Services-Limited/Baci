@@ -22,6 +22,7 @@ export * from './product-variant-media';
 export * from './product-variant-model';
 export * from './push-notification-payloads';
 export * from './receipt-claim-url';
+export * from './sanitize-html-text';
 export * from './string-values';
 export * from './supabase-error-log';
 export * from './vtu-loyalty-points';

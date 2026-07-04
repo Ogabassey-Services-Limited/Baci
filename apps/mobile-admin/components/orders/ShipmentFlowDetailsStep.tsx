@@ -4,6 +4,7 @@ import { useTheme } from '@/hooks/useTheme';
 import type { ShipmentFulfillmentDetails } from '@/lib/order-shipment';
 import { withTwentyPercentAlpha } from '@/utils/colors/withTwentyPercentAlpha';
 import { ShipmentField } from './ShipmentField';
+import { identifierStyles } from './ShipmentFlowIdentifier.styles';
 import { styles } from './ShipmentFlowSheet.styles';
 import { ShipmentInfoCard } from './ShipmentInfoCard';
 
@@ -91,7 +92,7 @@ export function ShipmentFlowDetailsStep({
         value={imei}
         withInnerPadding={false}
       >
-        <View style={styles.identifierInputRow}>
+        <View style={identifierStyles.inputRow}>
           <TextInput
             keyboardType="numeric"
             maxLength={15}
@@ -104,7 +105,7 @@ export function ShipmentFlowDetailsStep({
             placeholder="e.g. 353456789012345"
             placeholderTextColor={colors.textSecondary}
             returnKeyType="done"
-            style={[styles.identifierInput, { color: colors.text }]}
+            style={[identifierStyles.input, { color: colors.text }]}
             value={imei}
           />
           <Pressable
@@ -112,7 +113,7 @@ export function ShipmentFlowDetailsStep({
             accessibilityRole="button"
             onPress={() => onScanIdentifier('imei')}
             style={[
-              styles.identifierScanButton,
+              identifierStyles.scanButton,
               {
                 backgroundColor: withTwentyPercentAlpha(colors.primary),
                 borderColor: colors.primary,
@@ -122,7 +123,7 @@ export function ShipmentFlowDetailsStep({
             <Ionicons color={colors.primary} name="barcode-outline" size={20} />
             <Text
               style={[
-                styles.identifierScanButtonText,
+                identifierStyles.scanButtonText,
                 { color: colors.primary },
               ]}
             >
@@ -138,7 +139,7 @@ export function ShipmentFlowDetailsStep({
         value={serialNumber}
         withInnerPadding={false}
       >
-        <View style={styles.identifierInputRow}>
+        <View style={identifierStyles.inputRow}>
           <TextInput
             autoCapitalize="characters"
             autoCorrect={false}
@@ -151,7 +152,7 @@ export function ShipmentFlowDetailsStep({
             placeholder="e.g. C02ZK0ABC123"
             placeholderTextColor={colors.textSecondary}
             returnKeyType="done"
-            style={[styles.identifierInput, { color: colors.text }]}
+            style={[identifierStyles.input, { color: colors.text }]}
             value={serialNumber}
           />
           <Pressable
@@ -159,7 +160,7 @@ export function ShipmentFlowDetailsStep({
             accessibilityRole="button"
             onPress={() => onScanIdentifier('serialNumber')}
             style={[
-              styles.identifierScanButton,
+              identifierStyles.scanButton,
               {
                 backgroundColor: withTwentyPercentAlpha(colors.primary),
                 borderColor: colors.primary,
@@ -169,7 +170,7 @@ export function ShipmentFlowDetailsStep({
             <Ionicons color={colors.primary} name="barcode-outline" size={20} />
             <Text
               style={[
-                styles.identifierScanButtonText,
+                identifierStyles.scanButtonText,
                 { color: colors.primary },
               ]}
             >

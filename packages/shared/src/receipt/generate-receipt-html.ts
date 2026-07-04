@@ -12,7 +12,6 @@ import { createMoneyFormatter, hexToRgba } from './receipt-money';
 import { renderBankDetailsHtml } from './receipt-payment-instructions';
 import {
   renderFinancialSummaryLines,
-  renderFulfillmentDetailsHtml,
   renderItemRows,
   renderLogoHtml,
   renderPaymentHistoryHtml,
@@ -165,7 +164,6 @@ export function generateReceiptHtml(
     contactPhone,
     dateStr,
     docTitle,
-    fulfillmentDetailsHtml: renderFulfillmentDetailsHtml(order),
     isPaid,
     itemRows: renderItemRows(order, formatMoney),
     logoHtml: renderLogoHtml(merchant, storeName, options.svgXml),

@@ -12,6 +12,9 @@ import {
   type MoneyFormatter,
   shouldShowVatLine,
 } from './receipt-money';
+
+export { renderTermsHtml } from './receipt-terms';
+
 import { sanitizeSvg } from './sanitize-svg';
 import type { ReceiptMerchant, ReceiptOptions, ReceiptOrder } from './types';
 
@@ -272,64 +275,4 @@ export function renderQrHtml(options: ReceiptOptions, isPaid: boolean): string {
   return options.qrCodeDataUri
     ? `<div class="qr-block"><img src="${escapeHtml(options.qrCodeDataUri)}" alt="QR Code" width="100" height="100"><div class="qr-caption">${isPaid ? 'Track your order' : 'Pay online'}</div></div>`
     : '';
-}
-
-export function renderFulfillmentDetailsHtml(_order: ReceiptOrder): string {
-  return '';
-}
-
-function buildTermsUrl(rawStoreUrl: string | undefined): string | null {
-  const trimmed = rawStoreUrl?.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed) && !/^https?:\/\//i.test(trimmed)) {
-    return null;
-  }
-
-  try {
-    const parsed = new URL(
-      /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
-    );
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return null;
-    }
-    return `${parsed.origin}/terms`;
-  } catch {
-    return null;
-  }
-}
-
-export function renderTermsHtml(
-  merchant: ReceiptMerchant,
-  options: ReceiptOptions
-): string {
-  const rawTerms = merchant.pages?.terms;
-  const termsUrl = buildTermsUrl(options.storeUrl);
-  if (termsUrl) {
-    return `<div class="terms-block"><div class="terms-label">Terms and Conditions</div><div class="terms-text">By shopping with us, you agree to our terms and conditions and return policies stated below.</div><div class="terms-link"><a href="${escapeHtml(termsUrl)}">${escapeHtml(termsUrl)}</a></div></div>`;
-  }
-
-  if (!rawTerms) {
-    return '';
-  }
-
-  const plainTerms = rawTerms
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!plainTerms) {
-    return '';
-  }
-
-  const truncated =
-    plainTerms.length > 500 ? `${plainTerms.slice(0, 497)}...` : plainTerms;
-  return `<div class="terms-block"><div class="terms-label">Terms and Conditions</div><div class="terms-text">${escapeHtml(truncated)}</div></div>`;
 }

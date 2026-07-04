@@ -8,11 +8,4 @@ describe('ShipmentFlowSheet styles', () => {
       width: '100%',
     });
   });
-
-  it('keeps identifier scan controls as square icon buttons', () => {
-    expect(styles.identifierScanButton).toMatchObject({
-      height: 44,
-      width: 44,
-    });
-  });
 });

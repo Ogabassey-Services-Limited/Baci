@@ -15,7 +15,6 @@ export interface ReceiptDocumentParams {
   contactPhone: string | null;
   dateStr: string;
   docTitle: string;
-  fulfillmentDetailsHtml: string;
   isPaid: boolean;
   itemRows: string;
   logoHtml: string;
@@ -41,7 +40,6 @@ export function renderReceiptDocument(params: ReceiptDocumentParams): string {
     contactPhone,
     dateStr,
     docTitle,
-    fulfillmentDetailsHtml,
     isPaid,
     itemRows,
     logoHtml,
@@ -142,7 +140,6 @@ export function renderReceiptDocument(params: ReceiptDocumentParams): string {
       </div>
     </div>
 
-    ${fulfillmentDetailsHtml}
     ${paymentHistoryHtml}
     ${bankDetailsHtml}
     ${qrHtml}

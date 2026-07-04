@@ -1,16 +1,10 @@
-import type {
-  ReceiptFulfillmentDetails,
-  ReceiptMerchant,
-  ReceiptOrder,
-} from '@baci/shared';
+import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
 import { generateReceiptHtml, sanitizeSvg } from '@baci/shared';
 import { Alert } from 'react-native';
-import type {
-  OrderDetailsItem,
-  OrderDetailsRecord,
-} from '@/components/orders/order-details.types';
+import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import { supabase } from '@/lib/supabase';
 import { resolveOrderReceiptVirtualAccount } from './resolveOrderReceiptVirtualAccount';
+import { resolveReceiptItemFulfillmentDetails } from './resolveReceiptItemFulfillmentDetails';
 
 let PrintModule: typeof import('expo-print') | null = null;
 let SharingModule: typeof import('expo-sharing') | null = null;
@@ -65,10 +59,6 @@ interface CreateOrderDetailsReceiptActionsParams {
   storeUrl?: string;
 }
 
-type FulfillmentItemEntry = NonNullable<
-  NonNullable<OrderDetailsRecord['fulfillment_details']>['items']
->[number];
-
 function resolveMerchantPages(
   pages: Record<string, unknown> | null | undefined
 ): { terms?: string } | null {
@@ -90,96 +80,6 @@ function isSvgLogoUrl(logoUrl: string) {
   } catch {
     return false;
   }
-}
-
-function getFirstNonBlankString(...values: unknown[]): string {
-  for (const value of values) {
-    if (typeof value !== 'string') {
-      continue;
-    }
-
-    const trimmed = value.trim();
-    if (trimmed) {
-      return trimmed;
-    }
-  }
-
-  return '';
-}
-
-function getUniqueJoinedIdentifiers(values: string[]) {
-  return Array.from(
-    new Set(values.map((value) => value.trim()).filter(Boolean))
-  ).join(', ');
-}
-
-function fulfillmentEntryMatchesOrderItem(
-  entry: FulfillmentItemEntry,
-  item: OrderDetailsItem
-) {
-  const entryId = getFirstNonBlankString(entry.id);
-  if (entryId === item.id || entryId.startsWith(`${item.id}:`)) {
-    return true;
-  }
-
-  const orderItemId = getFirstNonBlankString(
-    entry.orderItemId,
-    entry.order_item_id
-  );
-  if (orderItemId === item.id) {
-    return true;
-  }
-
-  const entryProductName = getFirstNonBlankString(
-    entry.productName,
-    entry.product_name
-  ).toLowerCase();
-  const itemProductName = getFirstNonBlankString(
-    item.product_name,
-    item.name
-  ).toLowerCase();
-  if (!entryProductName || entryProductName !== itemProductName) {
-    return false;
-  }
-
-  const entryVariantName = getFirstNonBlankString(
-    entry.variantName,
-    entry.variant_name
-  ).toLowerCase();
-  const itemVariantName = getFirstNonBlankString(
-    item.variant_name
-  ).toLowerCase();
-  return !entryVariantName || entryVariantName === itemVariantName;
-}
-
-function resolveReceiptItemFulfillmentDetails(
-  details: OrderDetailsRecord['fulfillment_details'],
-  item: OrderDetailsItem
-): ReceiptFulfillmentDetails | null {
-  const matchingItems = (details?.items ?? []).filter((entry) =>
-    fulfillmentEntryMatchesOrderItem(entry, item)
-  );
-  if (matchingItems.length === 0) {
-    return null;
-  }
-
-  const imei = getUniqueJoinedIdentifiers(
-    matchingItems.map((entry) => getFirstNonBlankString(entry.imei))
-  );
-  const serialNumber = getUniqueJoinedIdentifiers(
-    matchingItems.map((entry) =>
-      getFirstNonBlankString(entry.serialNumber, entry.serial_number)
-    )
-  );
-
-  if (!imei && !serialNumber) {
-    return null;
-  }
-
-  return {
-    imei: imei || null,
-    serialNumber: serialNumber || null,
-  };
 }
 
 function getOrderReceiptDate(order: OrderDetailsRecord | undefined) {

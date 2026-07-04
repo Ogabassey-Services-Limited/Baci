@@ -3,7 +3,7 @@ import { Camera, CameraView } from 'expo-camera';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
-import { styles } from './ShipmentFlowSheet.styles';
+import { identifierStyles } from './ShipmentFlowIdentifier.styles';
 
 function normalizeScannedIdentifier(
   field: 'imei' | 'serialNumber',
@@ -67,7 +67,7 @@ export function ShipmentIdentifierScanner({
   return (
     <View
       style={[
-        styles.identifierScannerOverlay,
+        identifierStyles.scannerOverlay,
         { backgroundColor: colors.background },
       ]}
     >
@@ -87,24 +87,24 @@ export function ShipmentIdentifierScanner({
             ],
           }}
           onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-          style={styles.identifierScannerCamera}
+          style={identifierStyles.scannerCamera}
         >
-          <View style={styles.identifierScannerShade}>
-            <View style={styles.identifierScannerFrame} />
-            <Text style={styles.identifierScannerText}>
+          <View style={identifierStyles.scannerShade}>
+            <View style={identifierStyles.scannerFrame} />
+            <Text style={identifierStyles.scannerText}>
               Scan {field === 'imei' ? 'IMEI' : 'serial number'}
             </Text>
           </View>
         </CameraView>
       ) : (
-        <View style={styles.identifierScannerFallback}>
+        <View style={identifierStyles.scannerFallback}>
           <Ionicons
             color={colors.textSecondary}
             name="camera-outline"
             size={42}
           />
           <Text
-            style={[styles.identifierScannerMessage, { color: colors.text }]}
+            style={[identifierStyles.scannerMessage, { color: colors.text }]}
           >
             {hasPermission === false
               ? 'Camera permission is required to scan identifiers.'
@@ -118,7 +118,7 @@ export function ShipmentIdentifierScanner({
         accessibilityRole="button"
         onPress={onClose}
         style={[
-          styles.identifierScannerClose,
+          identifierStyles.scannerClose,
           { backgroundColor: colors.cardHover },
         ]}
       >
