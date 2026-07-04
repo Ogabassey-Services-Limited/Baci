@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { BlogListingFallback } from '../../BlogListingFallback';
 import { resolveBlogCategoryHub } from '../../blog-category-hub';
 import {
@@ -92,6 +93,12 @@ export async function generateMetadata({
   searchParams,
 }: BlogCategoryPageProps): Promise<Metadata> {
   const { slug, categorySlug } = await params;
+  // Over-long / repeatedly-encoded bot slugs can never match a category; bail
+  // before the `'use cache'` resolveBlogCategoryHub lookup runs with an
+  // unbounded key.
+  if (!evaluateStorefrontSlugSafety(categorySlug).safe) {
+    return CATEGORY_NOT_FOUND_METADATA;
+  }
   const hub = await resolveBlogCategoryHub(slug, categorySlug);
   if (!hub) {
     return CATEGORY_NOT_FOUND_METADATA;
@@ -129,6 +136,12 @@ export default async function BlogCategoryPage({
   // Deterministic, cache-safe hub validation before any streaming so unknown
   // clean categories return a real 404 (not a streamed 200).
   const { slug, categorySlug } = await params;
+  // Over-long / repeatedly-encoded bot slugs can never match a category; bail
+  // before the `'use cache'` resolveBlogCategoryHub lookup runs with an
+  // unbounded key.
+  if (!evaluateStorefrontSlugSafety(categorySlug).safe) {
+    notFound();
+  }
   const hub = await resolveBlogCategoryHub(slug, categorySlug);
   if (!hub) {
     notFound();

@@ -147,6 +147,47 @@ describe('legacy singular product route', () => {
     expect(mockNotFound).not.toHaveBeenCalled();
   });
 
+  it('renders soft-not-found for over-encoded bot slugs without any product lookups', async () => {
+    let overEncodedSlug = 'samsung-s10 8gb-128gb';
+    for (let i = 0; i < 10; i++) {
+      overEncodedSlug = encodeURIComponent(overEncodedSlug);
+    }
+
+    render(
+      await LegacyProductPage({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          productSlug: overEncodedSlug,
+        }),
+      })
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Product not found' })
+    ).toBeInTheDocument();
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+    expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
+    expect(mockNotFound).not.toHaveBeenCalled();
+  });
+
+  it('renders soft-not-found for extremely long slugs without any product lookups', async () => {
+    render(
+      await LegacyProductPage({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          productSlug: 'a'.repeat(4000),
+        }),
+      })
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Product not found' })
+    ).toBeInTheDocument();
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+    expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
+    expect(mockNotFound).not.toHaveBeenCalled();
+  });
+
   it('links domain-routed missing legacy products back to the domain root', async () => {
     render(
       await LegacyProductPage({

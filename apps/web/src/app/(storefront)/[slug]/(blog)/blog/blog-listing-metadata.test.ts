@@ -124,6 +124,39 @@ describe('blog listing metadata builder', () => {
     );
   });
 
+  it('returns noindex not-found metadata for over-encoded bot category filters without the listing lookup', async () => {
+    let overEncodedCategory = 'some phrase';
+    for (let i = 0; i < 10; i++) {
+      overEncodedCategory = encodeURIComponent(overEncodedCategory);
+    }
+
+    const metadata = await buildBlogListingMetadata({
+      slug: 'ogabassey.com',
+      searchParams: { category: overEncodedCategory },
+    });
+
+    expect(metadata).toEqual({
+      title: 'Blog Not Found',
+      robots: { index: false, follow: false },
+    });
+    expect(mockGetCachedBlogListing).not.toHaveBeenCalled();
+  });
+
+  it('clamps an extremely long search filter instead of 404ing, and still runs the lookup', async () => {
+    const metadata = await buildBlogListingMetadata({
+      slug: 'ogabassey.com',
+      searchParams: { search: 'a'.repeat(4000) },
+    });
+
+    // Search is free-form text, not a slug: no "Blog Not Found" 404. The cached
+    // lookup receives the query clamped to a bounded length.
+    expect(metadata.title).not.toBe('Blog Not Found');
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith(
+      'ogabassey.com',
+      expect.objectContaining({ searchQuery: 'a'.repeat(100) })
+    );
+  });
+
   it('returns noindex fallback metadata when listing data is missing', async () => {
     mockGetCachedBlogListing.mockResolvedValueOnce(null);
 

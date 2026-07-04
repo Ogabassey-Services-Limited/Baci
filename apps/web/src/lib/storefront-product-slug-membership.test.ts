@@ -119,6 +119,54 @@ describe('isStorefrontProductSlugMissing', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
+  it('fails open (not missing) for over-encoded bot slugs without fetching', async () => {
+    const fetchImpl = vi.fn();
+    let overEncodedSlug = 'samsung-s10 8gb-128gb';
+    for (let i = 0; i < 10; i++) {
+      overEncodedSlug = encodeURIComponent(overEncodedSlug);
+    }
+
+    const result = await isStorefrontProductSlugMissing({
+      ...BASE,
+      productSlug: overEncodedSlug,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    // Fail open, not hard 404: the endpoint fails open for unpublished stores,
+    // so the render layer (not the proxy) decides published vs coming-soon.
+    expect(result).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] skip',
+      expect.objectContaining({
+        surface: 'product-slug',
+        reason: 'over-encoded',
+      })
+    );
+  });
+
+  it('fails open for extremely long slugs with a bounded log', async () => {
+    const fetchImpl = vi.fn();
+
+    const result = await isStorefrontProductSlugMissing({
+      ...BASE,
+      productSlug: 'a'.repeat(4000),
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    const skipCall = vi
+      .mocked(console.warn)
+      .mock.calls.find(
+        ([message]) => message === '[storefront-internal-preflight] skip'
+      );
+    expect(skipCall).toBeDefined();
+    const context = skipCall?.[1] as { reason: string; slug: string };
+    expect(context.reason).toBe('too-long');
+    expect(context.slug.length).toBeLessThan(200);
+  });
+
   it('fails open on a non-2xx response', async () => {
     const fetchImpl = vi
       .fn()

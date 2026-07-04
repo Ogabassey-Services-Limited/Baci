@@ -76,6 +76,7 @@ import {
   DEFAULT_STORE_NAME,
   DEFAULT_STOREFRONT_SEO_CATEGORY,
 } from '@/lib/storefront-seo-defaults';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { mergeStorefrontSmartAppBannerOther } from '@/lib/storefront-smart-app-banner-metadata';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import {
@@ -835,8 +836,12 @@ function startKnownOgaBasseyPdpProductPreload(
   const knownOgaBasseyMerchantId = getKnownOgaBasseyMerchantId(storeSlug);
   const isKnownOgaBasseyCustomDomain =
     storeSlug.trim().toLowerCase() === OGABASSEY_DOMAIN.toLowerCase();
+  // The prewarm runs before route control, so it needs its own unsafe-slug
+  // gate to keep unbounded bot keys out of the `'use cache'` pipeline.
   const knownOgaBasseyImageLcpHintPromise =
-    knownOgaBasseyMerchantId && isKnownOgaBasseyCustomDomain
+    knownOgaBasseyMerchantId &&
+    isKnownOgaBasseyCustomDomain &&
+    evaluateStorefrontSlugSafety(productSlug).safe
       ? getCachedProductLcpHint(knownOgaBasseyMerchantId, productSlug, {
           includeVariants: isKnownOgaBasseyCustomDomain,
         })
@@ -916,6 +921,16 @@ const getProductRouteControl = cache(
     categorySlug: string,
     productSlug: string
   ): Promise<CategoryProductRouteControl | null> => {
+    // Over-long / repeatedly-encoded bot slugs can never match a product; bail
+    // before any `'use cache'`/Supabase lookup runs with an unbounded key.
+    if (!evaluateStorefrontSlugSafety(productSlug).safe) {
+      console.warn(
+        'Skipped product route lookups for unsafe product slug:',
+        sanitizeLookupLogValue(productSlug)
+      );
+      return null;
+    }
+
     const merchant = await getRequestScopedMerchant(storeSlug);
 
     if (!merchant) {
@@ -1181,11 +1196,17 @@ export async function generateMetadata({
     return PRODUCT_NOT_FOUND_METADATA;
   }
 
-  const routeControl = await getProductRouteControl(
-    slug,
-    category,
-    productSlug
-  );
+  // Gate only productSlug (the crash vector — it reaches `'use cache'`/Supabase
+  // lookups): skip getProductRouteControl for an unsafe product slug, then fall
+  // through to the shared missing-route handling below (which still runs the
+  // bounded merchant existence check, so a nonexistent tenant hard-404s). The
+  // category segment is NOT gated: it only feeds an in-memory string comparison
+  // (hasCategoryMismatch), never a cache/DB key, so a valid product under an
+  // over-long category must still reach getProductRouteControl to emit the
+  // canonical-category 308 redirect instead of a soft not-found.
+  const routeControl = evaluateStorefrontSlugSafety(productSlug).safe
+    ? await getProductRouteControl(slug, category, productSlug)
+    : null;
 
   if (!routeControl) {
     const merchant = await getRequestScopedMerchant(slug);
@@ -1444,6 +1465,23 @@ export default async function CategoryProductPage({
   }
 
   if (productSlug === PRERENDER_PLACEHOLDER_PRODUCT_SLUG) {
+    return renderCategoryProductNotFoundContent(slug);
+  }
+
+  // Gate only productSlug (the crash vector — it reaches `'use cache'`/Supabase
+  // lookups): skip the LCP prewarm and getProductRouteControl for an unsafe
+  // product slug, keeping the bounded merchant existence check so a nonexistent
+  // tenant hard-404s. The category segment is NOT gated: it only feeds an
+  // in-memory string comparison (hasCategoryMismatch), never a cache/DB key, so
+  // a valid product under an over-long category must still reach
+  // getProductRouteControl to emit the canonical-category 308 redirect.
+  if (!evaluateStorefrontSlugSafety(productSlug).safe) {
+    const merchant = await getRequestScopedMerchant(slug);
+
+    if (!merchant) {
+      notFound();
+    }
+
     return renderCategoryProductNotFoundContent(slug);
   }
 

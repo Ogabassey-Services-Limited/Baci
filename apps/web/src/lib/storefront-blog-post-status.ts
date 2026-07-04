@@ -1,5 +1,6 @@
 import z from 'zod';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { createAbortSignalTimeout } from './abort-signal-timeout';
 import { storefrontInternalPreflight } from './storefront-internal-preflight';
 
@@ -35,6 +36,21 @@ export async function resolveStorefrontBlogPostStatus(
     identifier: opts.identifier,
     slug: opts.postSlug,
   };
+
+  // Unsafe (over-long / repeatedly-encoded) slugs can never be live posts, but
+  // do NOT hard-404 here: the internal blog-post-status endpoint deliberately
+  // fails open for unpublished/unknown storefronts (so they still render the
+  // coming-soon shell instead of a proxy 404). Skip the doomed internal hop and
+  // fail open too, letting the App Router decide — a published store renders the
+  // render-route not-found gate, an unpublished store its coming-soon shell.
+  const slugSafety = evaluateStorefrontSlugSafety(opts.postSlug);
+  if (!slugSafety.safe) {
+    storefrontInternalPreflight.warnSkip({
+      ...failOpenContext,
+      reason: slugSafety.reason,
+    });
+    return { kind: 'present-or-unknown' };
+  }
 
   if (!opts.secret) {
     storefrontInternalPreflight.warnFailOpen({

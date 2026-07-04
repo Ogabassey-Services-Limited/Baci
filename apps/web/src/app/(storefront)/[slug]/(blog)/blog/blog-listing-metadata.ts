@@ -5,6 +5,10 @@ import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import {
+  clampBlogSearchQuery,
+  evaluateStorefrontSlugSafety,
+} from '@/lib/storefront-slug-safety';
+import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
 } from '@/lib/storefront-social-images';
@@ -56,7 +60,20 @@ export async function buildBlogListingMetadata({
   slug,
 }: BlogListingMetadataInput): Promise<Metadata> {
   const filterCategory = toSingleBlogSearchParam(searchParams.category)?.trim();
-  const filterSearch = toSingleBlogSearchParam(searchParams.search)?.trim();
+  // Search is free-form text, not a slug — clamp it (bounding the cached-lookup
+  // key) rather than 404'ing, and clamp before display normalization too.
+  const filterSearch = clampBlogSearchQuery(
+    toSingleBlogSearchParam(searchParams.search)
+  );
+  // An over-long / repeatedly-encoded category can never match a listing;
+  // return the not-found metadata before getCachedBlogListing (`'use cache'`)
+  // runs with an unbounded key.
+  if (filterCategory && !evaluateStorefrontSlugSafety(filterCategory).safe) {
+    return {
+      title: 'Blog Not Found',
+      robots: { index: false, follow: false },
+    };
+  }
   const currentPage = parseBlogListingPage(
     toSingleBlogSearchParam(searchParams.page)
   );

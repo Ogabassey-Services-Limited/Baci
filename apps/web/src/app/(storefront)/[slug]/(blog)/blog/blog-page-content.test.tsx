@@ -103,6 +103,38 @@ describe('BlogPageContent', () => {
     expect(mockNotFound).toHaveBeenCalledOnce();
   });
 
+  it('throws not found for over-encoded bot category filters before the listing lookup', async () => {
+    let overEncodedCategory = 'some phrase';
+    for (let i = 0; i < 10; i++) {
+      overEncodedCategory = encodeURIComponent(overEncodedCategory);
+    }
+
+    await expect(
+      BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({ category: overEncodedCategory }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockNotFound).toHaveBeenCalledOnce();
+    expect(mockGetCachedBlogListing).not.toHaveBeenCalled();
+  });
+
+  it('clamps an extremely long search filter instead of 404ing, and still runs the lookup', async () => {
+    await BlogPageContent({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({ search: 'a'.repeat(4000) }),
+    });
+
+    // Search is free-form text, not a slug: it must not 404. The cached lookup
+    // receives the query clamped to a bounded length (unbounded key avoided).
+    expect(mockNotFound).not.toHaveBeenCalled();
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith(
+      'ogabassey',
+      expect.objectContaining({ searchQuery: 'a'.repeat(100) })
+    );
+  });
+
   it('renders crawlable blog links in the route HTML instead of a Suspense shell', async () => {
     mockDefaultBlogUi.mockImplementation((props: MockDefaultBlogUiProps) => (
       <section>

@@ -7,6 +7,7 @@ import {
   getMerchantByIdentifier,
 } from '@/lib/cached-data';
 import { getProductUrl } from '@/lib/seo-utils';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
@@ -36,6 +37,12 @@ async function resolveLegacyProductPath(
   productSlug: string
 ): Promise<string | null> {
   if (!isValidMerchantIdentifier(slug)) {
+    return null;
+  }
+
+  // Over-long / repeatedly-encoded bot slugs can never match a product; bail
+  // before any `'use cache'`/Supabase lookup runs with an unbounded key.
+  if (!evaluateStorefrontSlugSafety(productSlug).safe) {
     return null;
   }
 

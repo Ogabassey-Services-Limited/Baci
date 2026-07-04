@@ -87,6 +87,34 @@ describe('resolveStorefrontBlogPostStatus', () => {
     });
   });
 
+  it('fails open (not missing) for over-encoded bot post slugs without fetching', async () => {
+    const fetchImpl = vi.fn();
+    let overEncodedSlug = 'my blog post';
+    for (let i = 0; i < 10; i++) {
+      overEncodedSlug = encodeURIComponent(overEncodedSlug);
+    }
+
+    const result = await resolveStorefrontBlogPostStatus({
+      origin: 'https://ogabassey.com',
+      identifier: 'ogabassey.com',
+      postSlug: overEncodedSlug,
+      secret: 'internal-secret',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    // Fail open, not hard 404: the endpoint fails open for unpublished stores,
+    // so the render layer (not the proxy) decides published vs coming-soon.
+    expect(result).toEqual({ kind: 'present-or-unknown' });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] skip',
+      expect.objectContaining({
+        surface: 'blog-post-status',
+        reason: 'over-encoded',
+      })
+    );
+  });
+
   it('keeps fetching when native AbortSignal.timeout is unavailable', async () => {
     removeNativeAbortSignalTimeout();
     const fetchImpl = vi

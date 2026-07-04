@@ -11,6 +11,7 @@ import {
 import type { Product } from '@/lib/products';
 import { asRoute } from '@/lib/routes';
 import { getProductUrl } from '@/lib/seo-utils';
+import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { buildProductRedirectPath } from './build-product-redirect-path';
 import { mapDetailedCachedProductToProduct } from './detailed-product-mapper';
@@ -114,6 +115,16 @@ export async function getProductCached(
   productSlug: string
 ): Promise<ProductLookupResult | null> {
   if (!isValidMerchantIdentifier(storeSlug)) {
+    return null;
+  }
+
+  // Over-long / repeatedly-encoded bot slugs can never match a product; bail
+  // before any `'use cache'`/Supabase lookup runs with an unbounded key.
+  if (!evaluateStorefrontSlugSafety(productSlug).safe) {
+    console.warn(
+      'Skipped product route lookups for unsafe product slug:',
+      sanitizeLookupLogValue(productSlug)
+    );
     return null;
   }
 
