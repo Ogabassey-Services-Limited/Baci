@@ -243,6 +243,29 @@ describe('loadComparePage', () => {
     );
   });
 
+  it('keeps the full brand-vs-brand metaTitle when a long category name exceeds the SERP display cap', async () => {
+    // A long category name pushes "{leftBrand} vs {rightBrand} {category}"
+    // past the 60-char SERP display cap; without the higher compare cap the
+    // tail is sliced off and distinct brand pages collapse into duplicate
+    // titles.
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      ...categoryPageData,
+      fallbackName: 'Premium Flagship Android and iOS Smartphones',
+    });
+
+    const result = await loadComparePage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      comparisonSlug: 'apple-vs-samsung',
+    });
+
+    expect(result?.kind).toBe('brand');
+    expect(result?.metaTitle).toBe(
+      'Apple vs Samsung Premium Flagship Android and iOS Smartphones in Nigeria | Ogabassey'
+    );
+    expect(result?.metaTitle).not.toContain('...');
+  });
+
   it('keeps product compare pages indexable when detail payloads omit key specs but still expose rich spec rows', async () => {
     const leftDetail = {
       ...categoryPageData.products[0],
