@@ -88,27 +88,33 @@ function getPathSegments(pathname: string): string[] {
     .map((segment) => segment.trim());
 }
 
-// Classify a path, retrying with a legacy `/<merchantSlug>/` prefix stripped
-// ONLY when the unstripped form does not classify. The fallback order matters:
-// a merchant whose slug doubles as a real category (e.g. a store slugged
-// `smartphones` linking /smartphones/<product>) must classify unstripped,
-// while path-mode links like /ogabassey/audio/<product> only classify after
-// the prefix is removed.
+// Classify a path, handling a legacy `/<merchantSlug>/` prefix. When the
+// first segment matches the merchant slug the STRIPPED interpretation wins
+// if it classifies (path-mode links like /ogabassey/audio/<product>);
+// otherwise the unstripped form is used, so a merchant whose slug doubles as
+// a real category (a store slugged `smartphones` linking
+// /smartphones/<product>) keeps its category segment.
+//
+// The remaining ambiguity — /<merchantSlug>/<app-route> like
+// /ogabassey/checkout classifying as product slug "checkout" — cannot cause
+// a destructive unwrap: on path-mode storefronts the renderer strips
+// basePath before matching (leaving the unclassifiable single segment
+// /checkout), and on domain storefronts /<merchantSlug>/<x> is itself a PDP
+// attempt that 404s, so unwrapping it is correct. Locked in by tests.
 function classifyPathSegments(
   pathname: string,
   merchantSlug?: string
 ): { kind: 'blog' | 'product'; slug: string } | null {
   const segments = getPathSegments(pathname);
-  const direct = classifySegments(segments);
-  if (direct) {
-    return direct;
-  }
 
   if (merchantSlug && segments[0] === merchantSlug.toLowerCase()) {
-    return classifySegments(segments.slice(1));
+    const stripped = classifySegments(segments.slice(1));
+    if (stripped) {
+      return stripped;
+    }
   }
 
-  return null;
+  return classifySegments(segments);
 }
 
 function classifySegments(

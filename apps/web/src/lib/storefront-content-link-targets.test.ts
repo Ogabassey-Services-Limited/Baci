@@ -212,6 +212,15 @@ describe('collectStorefrontContentLinkTargets', () => {
     });
   });
 
+  it('prefers the stripped interpretation for merchant-prefixed catalog links', () => {
+    const html = '<a href="/ogabassey/audio/dead-speaker">Speaker</a>';
+
+    expect(collectStorefrontContentLinkTargets(html, 'ogabassey')).toEqual({
+      blogSlugs: [],
+      productSlugs: ['dead-speaker'],
+    });
+  });
+
   it('keeps two-segment links classifiable when the merchant slug matches a category', () => {
     // A store slugged `smartphones` linking /smartphones/<product> must not
     // have its category segment stripped away.
@@ -358,6 +367,20 @@ describe('isDeadStorefrontContentHref', () => {
       isDeadStorefrontContentHref('/checkout/missing-widget', {
         deadBlogSlugs,
         deadProductSlugs: new Set(['missing-widget']),
+      })
+    ).toBe(false);
+  });
+
+  it('never unwraps path-mode app links even when a coincident slug is dead', () => {
+    // Collection may record "checkout" as a dead product slug from an
+    // ambiguous /<merchantSlug>/checkout link, but on path-mode storefronts
+    // the renderer strips basePath before matching: /ogabassey/checkout
+    // becomes the unclassifiable single segment /checkout.
+    expect(
+      isDeadStorefrontContentHref('/ogabassey/checkout', {
+        basePath: '/ogabassey',
+        deadBlogSlugs: new Set(),
+        deadProductSlugs: new Set(['checkout']),
       })
     ).toBe(false);
   });
