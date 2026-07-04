@@ -40,27 +40,35 @@ function createQueryBuilder(result: QueryResult) {
 
 function setupSupabaseMock({
   blogResult = { data: [], error: null },
-  productResult = { data: [], error: null },
+  productResults = [{ data: [], error: null }],
 }: {
   blogResult?: QueryResult;
-  productResult?: QueryResult;
+  productResults?: QueryResult[];
 } = {}) {
   const blogBuilder = createQueryBuilder(blogResult);
-  const productBuilder = createQueryBuilder(productResult);
+  // The loader issues up to two `products` queries per call (active-by-slug,
+  // then active-by-id for UUID-shaped candidates) — hand out one builder per
+  // query in order.
+  const productBuilders = productResults.map(createQueryBuilder);
+  let productQueryIndex = 0;
 
   const from = vi.fn((table: string) => {
     if (table === 'blog_posts') {
       return { select: vi.fn(() => blogBuilder) };
     }
     if (table === 'products') {
-      return { select: vi.fn(() => productBuilder) };
+      const builder =
+        productBuilders[productQueryIndex] ??
+        createQueryBuilder({ data: [], error: null });
+      productQueryIndex += 1;
+      return { select: vi.fn(() => builder) };
     }
     throw new Error(`Unexpected table: ${table}`);
   });
 
   mockGetPublicSupabaseClient.mockReturnValue({ from });
 
-  return { blogBuilder, from, productBuilder };
+  return { blogBuilder, from, productBuilders };
 }
 
 describe('getCachedDeadContentLinkSlugs', () => {
@@ -92,7 +100,10 @@ describe('getCachedDeadContentLinkSlugs', () => {
 
   it('returns requested blog slugs that have no live published post', async () => {
     const { blogBuilder } = setupSupabaseMock({
-      blogResult: { data: [{ slug: 'live-post' }], error: null },
+      blogResult: {
+        data: [{ slug: 'live-post', title: 'A live post' }],
+        error: null,
+      },
     });
 
     const result = await getCachedDeadContentLinkSlugs(
@@ -112,8 +123,8 @@ describe('getCachedDeadContentLinkSlugs', () => {
   });
 
   it('returns requested product slugs that have no live active product', async () => {
-    const { productBuilder } = setupSupabaseMock({
-      productResult: { data: [{ slug: 'active-item' }], error: null },
+    const { productBuilders } = setupSupabaseMock({
+      productResults: [{ data: [{ slug: 'active-item' }], error: null }],
     });
 
     const result = await getCachedDeadContentLinkSlugs(
@@ -123,17 +134,84 @@ describe('getCachedDeadContentLinkSlugs', () => {
     );
 
     expect(result).toEqual({ blog: [], products: ['missing-item'] });
-    expect(productBuilder.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
-    expect(productBuilder.eq).toHaveBeenCalledWith('status', 'active');
-    expect(productBuilder.in).toHaveBeenCalledWith('slug', [
+    expect(productBuilders[0].eq).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-1'
+    );
+    expect(productBuilders[0].eq).toHaveBeenCalledWith('status', 'active');
+    expect(productBuilders[0].in).toHaveBeenCalledWith('slug', [
       'active-item',
       'missing-item',
     ]);
   });
 
+  it('treats published posts suppressed by the public blog filters as dead', async () => {
+    // The SQL-level filters exclude suppressed slugs in production; the
+    // row-level isPublicBlogPost check must also hold when a row slips
+    // through (e.g. title-prefix suppression).
+    setupSupabaseMock({
+      blogResult: {
+        data: [
+          { slug: 'real-guide', title: 'A real guide' },
+          { slug: 'test-post-agent-integration-working', title: 'Test post' },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await getCachedDeadContentLinkSlugs(
+      'merchant-1',
+      ['real-guide', 'test-post-agent-integration-working'],
+      []
+    );
+
+    expect(result).toEqual({
+      blog: ['test-post-agent-integration-working'],
+      products: [],
+    });
+  });
+
+  it('applies the public blog suppression filters to the blog query', async () => {
+    const { blogBuilder } = setupSupabaseMock({
+      blogResult: { data: [], error: null },
+    });
+
+    await getCachedDeadContentLinkSlugs('merchant-1', ['draft-post'], []);
+
+    expect(blogBuilder.not).toHaveBeenCalledWith(
+      'title',
+      'ilike',
+      'test post%'
+    );
+    expect(blogBuilder.not).toHaveBeenCalledWith(
+      'slug',
+      'ilike',
+      '%agent-integration-working%'
+    );
+  });
+
+  it('treats UUID-shaped links to active products as live via the id lookup', async () => {
+    const uuid = '123e4567-e89b-12d3-a456-426614174000';
+    const { productBuilders } = setupSupabaseMock({
+      productResults: [
+        { data: [], error: null },
+        { data: [{ id: uuid.toUpperCase() }], error: null },
+      ],
+    });
+
+    const result = await getCachedDeadContentLinkSlugs(
+      'merchant-1',
+      [],
+      [uuid, 'missing-item']
+    );
+
+    expect(result).toEqual({ blog: [], products: ['missing-item'] });
+    expect(productBuilders[1].in).toHaveBeenCalledWith('id', [uuid]);
+  });
+
   it('skips the blog query when no blog slugs were collected', async () => {
     const { from } = setupSupabaseMock({
-      productResult: { data: [], error: null },
+      productResults: [{ data: [], error: null }],
     });
 
     await getCachedDeadContentLinkSlugs('merchant-1', [], ['missing-item']);
@@ -156,7 +234,7 @@ describe('getCachedDeadContentLinkSlugs', () => {
   it('treats all requested slugs as dead when none are found live', async () => {
     setupSupabaseMock({
       blogResult: { data: [], error: null },
-      productResult: { data: [], error: null },
+      productResults: [{ data: [], error: null }],
     });
 
     const result = await getCachedDeadContentLinkSlugs(
@@ -184,7 +262,9 @@ describe('getCachedDeadContentLinkSlugs', () => {
   it('throws when the product query returns an error even if the blog query succeeds', async () => {
     setupSupabaseMock({
       blogResult: { data: [], error: null },
-      productResult: { data: null, error: new Error('product query failed') },
+      productResults: [
+        { data: null, error: new Error('product query failed') },
+      ],
     });
 
     await expect(

@@ -101,6 +101,16 @@ describe('normalizeStorefrontContentHref', () => {
     ).toBe('/products');
   });
 
+  it('collapses WordPress-era /categories/product/ links to the products index like /category/', () => {
+    expect(
+      normalizeStorefrontContentHref('/categories/product/iphone-15', {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('/products');
+  });
+
   it('normalizes legacy category aliases under the /categories/ alias path', () => {
     expect(
       normalizeStorefrontContentHref('/categories/phones', {

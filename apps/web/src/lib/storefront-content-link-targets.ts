@@ -1,4 +1,5 @@
 import { STOREFRONT_CATEGORY_ALIASES } from '@/lib/normalize-storefront-category-slug';
+import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
 
 /**
  * Helpers for validating internal storefront links found inside merchant
@@ -164,7 +165,20 @@ export function collectStorefrontContentLinkTargets(
 
   if (contentStr) {
     for (const href of collectHrefCandidates(contentStr)) {
-      const pathname = extractPathname(href);
+      // Normalize first so candidates match the canonical form the renderer
+      // emits: legacy alias segments (`/phones/x`), category-prefix shapes
+      // (`/categories/<cat>/<slug>`, `/category/...`, `/product-category/...`)
+      // and merchant-domain absolute URLs all collapse to `/<category>/<slug>`
+      // before classification.
+      const normalizedHref = normalizeStorefrontContentHref(href, {
+        merchantSlug,
+      });
+      // Hrefs that stay non-root-relative after normalization are external
+      // (or unparseable) — never candidates for internal liveness checks.
+      if (!normalizedHref.startsWith('/') || normalizedHref.startsWith('//')) {
+        continue;
+      }
+      const pathname = extractPathname(normalizedHref);
       if (!pathname) continue;
 
       const classified = classifySegments(

@@ -85,6 +85,32 @@ describe('collectStorefrontContentLinkTargets', () => {
     });
   });
 
+  it('collects product slugs from legacy /categories/<category>/<slug> paths', () => {
+    // These are 3-segment in raw content but normalize to the canonical
+    // 2-segment PDP shape before classification.
+    const html =
+      '<a href="/categories/phones/iphone-15">iPhone</a>' +
+      '<a href="/category/laptops/dell-xps-13">Dell</a>' +
+      '<a href="/product-category/accesories/magic-mouse">Mouse</a>';
+
+    expect(collectStorefrontContentLinkTargets(html)).toEqual({
+      blogSlugs: [],
+      productSlugs: ['dell-xps-13', 'iphone-15', 'magic-mouse'],
+    });
+  });
+
+  it('collects targets from absolute merchant-domain URLs', () => {
+    const html =
+      '<a href="https://ogabassey.com/categories/smartphones/tecno-pop-10">Tecno</a>' +
+      '<a href="https://ogabassey.com/blog/some-draft-post">Post</a>' +
+      '<a href="https://example.com/blog/external-post">External</a>';
+
+    expect(collectStorefrontContentLinkTargets(html, 'ogabassey')).toEqual({
+      blogSlugs: ['some-draft-post'],
+      productSlugs: ['tecno-pop-10'],
+    });
+  });
+
   it('ignores 2-segment paths whose first segment is not a recognized internal section', () => {
     const html = '<a href="/about/team">About</a>';
 
