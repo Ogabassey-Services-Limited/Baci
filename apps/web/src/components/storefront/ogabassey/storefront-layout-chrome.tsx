@@ -58,6 +58,9 @@ function StorefrontSemanticFooterFallback({ basePath }: { basePath: string }) {
     ['Track Order', '/track-order'],
     ['Contact Us', '/contact'],
     ['FAQ', '/faq'],
+    ['Returns', '/returns'],
+    ['Shipping', '/shipping'],
+    ['Warranty', '/warranty'],
     ['Terms of Service', '/terms'],
     ['Privacy Policy', '/privacy'],
   ] as const;

@@ -142,6 +142,18 @@ describe('OgabasseyLayoutChrome', () => {
       'href',
       '/ogabassey/products'
     );
+    expect(screen.getByRole('link', { name: /returns/i })).toHaveAttribute(
+      'href',
+      '/ogabassey/returns'
+    );
+    expect(screen.getByRole('link', { name: /shipping/i })).toHaveAttribute(
+      'href',
+      '/ogabassey/shipping'
+    );
+    expect(screen.getByRole('link', { name: /warranty/i })).toHaveAttribute(
+      'href',
+      '/ogabassey/warranty'
+    );
     expect(
       screen.queryByRole('contentinfo', { name: /full storefront footer/i })
     ).not.toBeInTheDocument();
