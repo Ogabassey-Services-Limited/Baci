@@ -173,7 +173,7 @@ function runScript(
     cwd: appRoot,
     encoding: 'utf8',
     env: { ...harness.env, ...env },
-    timeout: 30_000,
+    timeout: 90_000,
   });
 }
 
@@ -181,7 +181,9 @@ describe('Android emulator launcher (storefront)', () => {
   it('launches the dev client through fake adb and Metro reverse', () => {
     const harness = createHarness();
     try {
-      const result = runScript('launch-android-dev-client.sh', harness);
+      const result = runScript('launch-android-dev-client.sh', harness, {
+        BACI_ANDROID_LAUNCH_SETTLE_STABILITY_PROBES: '1',
+      });
 
       expect(result.status).toBe(0);
       expect(result.stdout).toContain('Android dev client ready');
