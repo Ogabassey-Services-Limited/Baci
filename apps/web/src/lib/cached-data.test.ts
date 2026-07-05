@@ -445,6 +445,20 @@ describe('getCachedProductReviews', () => {
     expect(harness.mockEq).toHaveBeenCalledWith('product_id', 'product-1');
     expect(harness.mockLimit).toHaveBeenCalledWith(10);
   });
+
+  it('returns an empty array when the review query fails', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const error = { message: 'query failed' };
+    harness.mockListResult.data = null;
+    harness.mockListResult.error = error;
+
+    const result = await getCachedProductReviews('product-1');
+
+    expect(result).toEqual([]);
+    expect(consoleSpy).toHaveBeenCalledWith('Error fetching reviews:', error);
+  });
 });
 
 describe('getCachedProductRatingStats', () => {
