@@ -69,13 +69,6 @@ export const QuoteRequestSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.shipmentType !== 'international') return;
-    if (!data.sender) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Sender is required for international quotes',
-        path: ['sender'],
-      });
-    }
     if (!data.receiver.country?.trim()) {
       ctx.addIssue({
         code: 'custom',

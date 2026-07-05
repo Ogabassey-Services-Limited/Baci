@@ -172,7 +172,33 @@ describe('QuoteRequestSchema international item metadata', () => {
     });
   });
 
-  it('requires sender and explicit destination country for international quotes', () => {
+  it('allows international quotes without sender so routes can use merchant fallback', () => {
+    const result = QuoteRequestSchema.safeParse({
+      shipmentType: 'international',
+      receiver: {
+        name: 'Jane Receiver',
+        address: '123 Queen Street West',
+        city: 'Toronto',
+        state: 'Ontario',
+        country: 'Canada',
+        countryCode: 'CA',
+      },
+      items: [
+        {
+          name: 'Phone',
+          quantity: 1,
+          weight: 1,
+          value: 100_000,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.sender).toBeUndefined();
+  });
+
+  it('requires explicit destination country for international quotes', () => {
     const result = QuoteRequestSchema.safeParse({
       shipmentType: 'international',
       receiver: {
@@ -194,11 +220,7 @@ describe('QuoteRequestSchema international item metadata', () => {
     expect(result.success).toBe(false);
     if (result.success) return;
     expect(result.error.issues.map((issue) => issue.path.join('.'))).toEqual(
-      expect.arrayContaining([
-        'sender',
-        'receiver.country',
-        'receiver.countryCode',
-      ])
+      expect.arrayContaining(['receiver.country', 'receiver.countryCode'])
     );
   });
 });

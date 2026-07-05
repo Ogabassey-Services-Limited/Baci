@@ -9,6 +9,7 @@ import {
   selectPreferredQuote,
   toShipmentItems,
 } from '@/lib/shipping/order-shipment-booking-utils';
+import { GIGL_INTERNATIONAL_PROVIDER_RATE_PREFIX } from '@/lib/shipping/providers/gigl.international-payload';
 import type {
   BookingRequest,
   ShipmentBookingResult,
@@ -323,9 +324,32 @@ export async function bookOrderShipment(
     );
   }
 
-  const receiver = buildReceiver(typedOrder);
+  const storedQuoteRequest = parseStoredQuoteRequest(
+    resolvedQuote.quote_request
+  );
+  const isGiglInternationalQuote =
+    typedOrder.shipping_provider === 'GIGL' &&
+    resolvedQuote.provider_rate_id?.startsWith(
+      `${GIGL_INTERNATIONAL_PROVIDER_RATE_PREFIX}_`
+    ) === true;
+
+  if (isGiglInternationalQuote && !storedQuoteRequest) {
+    throw new OrderShipmentBookingError(
+      'The saved international shipping quote is missing its original request. Please get a new quote before shipping.',
+      400,
+      'INTERNATIONAL_QUOTE_REQUEST_MISSING'
+    );
+  }
+
+  const receiver =
+    isGiglInternationalQuote && storedQuoteRequest
+      ? storedQuoteRequest.receiver
+      : buildReceiver(typedOrder);
   const sender = buildSender(typedMerchant);
-  const items = toShipmentItems(orderItems);
+  const items =
+    isGiglInternationalQuote && storedQuoteRequest
+      ? storedQuoteRequest.items
+      : toShipmentItems(orderItems);
 
   const bookingRequest: BookingRequest = {
     orderId: typedOrder.id,
