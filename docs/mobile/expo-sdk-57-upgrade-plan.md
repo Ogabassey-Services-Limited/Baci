@@ -216,8 +216,16 @@ package.json** (no native template changes).
 
 ## Phase 2 — Refresh orphaned patches
 
-- Recreate `react-native@0.86.0.patch` and `@react-native__gradle-plugin@0.86.x.patch` (re-apply
-  intent vs new source; update key + filename).
+- **`@react-native/gradle-plugin@0.85.3.patch` → DELETE, not refresh** (verified 2026-07-05):
+  its only change (foojay-resolver-convention 0.5.0 → 1.0.0) is already upstream in RN 0.86.0's
+  `settings.gradle.kts`. Remove patch file + `patchedDependencies` key.
+- **`react-native@0.85.3.patch` → re-author against 0.86.0** (verified: upstream did NOT absorb it).
+  Intent (keep all three parts): (1) no-op deprecated `StatusBarModule.setColor`/`setTranslucent`,
+  (2) force `WindowInsetsControllerCompat` paths in `WindowUtil.statusBarHide/Show`, (3) strip
+  deprecated `statusBarColor`/`navigationBarColor` assignments in `enableEdgeToEdge` so no
+  compiler-emitted deprecated calls land in the dex. 0.86 restructured these files
+  (`isStatusBarContrastEnforced`, `enforceNavigationBarContrast` param, feature-flag init moved) —
+  the patch will NOT auto-apply; rewrite hunks against 0.86 bodies.
 - Re-verify every other pinned patch applies post-`--fix`; refresh any bumped (esp. any kept-local
   patched dep). `pnpm install` must apply **all** patches with zero "could not apply" warnings.
 - **Prune orphaned patch files.** Diff `patches/` against `patchedDependencies` keys and remove stale
