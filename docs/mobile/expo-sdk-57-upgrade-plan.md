@@ -190,7 +190,12 @@ Method: debug APK (arm64) + Metro dev client on `Baci_Pixel_9_Pro_XL_API_36_Goog
 | App | Package | Median PSS | Samples |
 |---|---|---|---|
 | storefront | com.ogabassey.store | **1,575,934 kB (~1.54 GiB)** | 1,564,018 → 1,587,126 kB (mild upward drift) |
-| admin | com.ogabassey.baci | _pending_ | _pending_ |
+| admin | com.ogabassey.baci | **784,328 kB (~766 MiB)** | flat plateau 781,756 → 784,484 kB over 8 min (48 samples, median of last 5) |
+
+Observation: RN 0.85 dev-mode crashes reproducibly in
+`CxxInspectorPackagerConnection.didReceiveMessage` (NPE) when the dev client reconnects to a Metro
+whose inspector proxy holds stale sessions from a previous crash; a fresh Metro restart clears it.
+RN 0.86 ships DevTools/inspector fixes — re-check this crash after the upgrade (Phase 5).
 
 Baseline suite state: lint/typecheck green; storefront 662 suites / 4,239 tests pass; admin green
 (turbo-cached). Both debug APKs build clean (storefront 11m29s cold, admin 6m44s warm).
