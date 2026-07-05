@@ -4,7 +4,7 @@ run_with_timeout() {
   local timeout_seconds="$1"
   shift
 
-  if command -v timeout >/dev/null 2>&1 && timeout --help 2>/dev/null | grep -F -- '--kill-after' >/dev/null; then
+  if [[ "${BACI_ANDROID_TIMEOUT_BACKEND:-auto}" != "python" ]] && command -v timeout >/dev/null 2>&1 && timeout --help 2>/dev/null | grep -F -- '--kill-after' >/dev/null; then
     timeout --kill-after=2s "$timeout_seconds" "$@"
     local status=$?
     if ((status == 124 || status == 137)); then

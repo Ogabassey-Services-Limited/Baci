@@ -17,7 +17,6 @@ function writeExecutable(filePath: string, source: string) {
   fs.writeFileSync(filePath, source);
   fs.chmodSync(filePath, 0o755);
 }
-
 function createHarness(): Harness {
   const root = fs.mkdtempSync(path.join(tmpdir(), 'baci-storefront-android-'));
   const sdkRoot = path.join(root, 'sdk');
@@ -132,6 +131,7 @@ done
     BACI_ANDROID_LAUNCH_REVERSE_TIMEOUT_SECONDS: '60',
     BACI_ANDROID_LAUNCH_SETTLE_TIMEOUT_SECONDS: '60',
     BACI_ANDROID_LAUNCH_SHELL_TIMEOUT_SECONDS: '60',
+    BACI_ANDROID_TIMEOUT_BACKEND: 'python',
     BACI_ANDROID_EMULATOR_LOG: path.join(stateDir, 'emulator.log'),
     BACI_FAKE_ADB_BOOT_COMPLETED: '1',
     BACI_FAKE_ADB_LOADAVG: '0.01 0.01 0.01 1/100 123',
