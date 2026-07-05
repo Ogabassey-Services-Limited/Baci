@@ -89,6 +89,12 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
+    packagingOptions {
+        jniLibs {
+            def enableLegacyPackaging = findProperty('expo.useLegacyPackaging') ?: 'false'
+            useLegacyPackaging enableLegacyPackaging.toBoolean()
+        }
+    }
 }
 `
     );
@@ -147,6 +153,7 @@ android {
     expect(appBuildGradle).toContain('ANDROID_KEYSTORE_FILE');
     expect(appBuildGradle).toContain('signingConfig signingConfigs.release');
     expect(appBuildGradle).toContain('proguard-android-optimize.txt');
+    expect(appBuildGradle).toContain("pickFirsts += ['**/libworklets.so']");
     expect(appBuildGradle).toContain(
       'PostHog Android source-map upload is best-effort'
     );

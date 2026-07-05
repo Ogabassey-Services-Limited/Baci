@@ -7,12 +7,14 @@
  * 3. Changes proguard-android.txt → proguard-android-optimize.txt (AGP 9.x requirement)
  * 4. Bumps Gradle wrapper to 9.3.1 (minimum for AGP 9.x)
  * 5. Adds async-storage local maven repo
+ * 6. Adds Worklets jniLibs pickFirst for release packaging
  */
 const { withDangerousMod, withFinalizedMod } = require('@expo/config-plugins');
 const fs = require('node:fs');
 const path = require('node:path');
 const {
   addAsyncStorageRepo,
+  assertReplaceOrThrow,
   ensureGradleProperty,
   ensureMergedJvmArgs,
   ensureGradleWrapperVersion,
@@ -33,6 +35,21 @@ function getAndroidProjectRoot(modRequest) {
   }
 
   return null;
+}
+
+function ensureWorkletsPickFirst(content) {
+  if (content.includes("pickFirsts += ['**/libworklets.so']")) {
+    return content;
+  }
+
+  return assertReplaceOrThrow(
+    content,
+    /useLegacyPackaging enableLegacyPackaging\.toBoolean\(\)\n/m,
+    `useLegacyPackaging enableLegacyPackaging.toBoolean()
+            pickFirsts += ['**/libworklets.so']
+`,
+    'worklets pickFirsts injection'
+  );
 }
 
 function ensureFinalizedPostHogAndroidUploadBestEffort(modRequest) {
@@ -107,6 +124,7 @@ function withAndroidGradleFixes(config) {
         );
 
         content = ensureReleaseSigning(content);
+        content = ensureWorkletsPickFirst(content);
         content = ensurePostHogAndroidUploadBestEffort(content);
 
         // Dynamically inject Facebook SDK resource entries to avoid hardcoding secrets in VCS
