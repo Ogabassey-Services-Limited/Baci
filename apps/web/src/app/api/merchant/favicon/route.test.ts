@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   getUserAccess: vi.fn(),
   hasPermission: vi.fn(),
   processFavicon: vi.fn(),
+  revalidateMerchant: vi.fn(),
   update: vi.fn(),
   updateEq: vi.fn(),
 }));
@@ -26,6 +27,10 @@ vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: mocks.authenticateApiRequest,
   getUserAccess: mocks.getUserAccess,
   hasPermission: mocks.hasPermission,
+}));
+
+vi.mock('@/lib/cache-revalidation', () => ({
+  revalidateMerchant: mocks.revalidateMerchant,
 }));
 
 vi.mock('@/lib/favicon-processor', () => ({
@@ -46,6 +51,15 @@ function buildRequest(formData?: FormData) {
     method: 'POST',
     formData: async () => body,
   } as unknown as Parameters<typeof POST>[0];
+}
+
+function buildFaviconFormData(fileName = 'icon.png', type = 'image/png') {
+  const form = new FormData();
+  form.append(
+    'file',
+    new File([new Uint8Array([1, 2, 3])], fileName, { type })
+  );
+  return form;
 }
 
 function authedSupabase() {
@@ -110,6 +124,37 @@ describe('POST /api/merchant/favicon', () => {
     expect(response.status).toBe(403);
   });
 
+  it('accepts staff with full access grants for settings uploads', async () => {
+    mocks.hasPermission.mockImplementation(
+      (_access, resource, action) =>
+        resource === 'full_access' && action === 'all'
+    );
+    mocks.getUserAccess.mockResolvedValue({
+      merchantId: 'merchant-1',
+      isOwner: false,
+      permissions: { full_access: { all: true } },
+    });
+
+    const response = await POST(buildRequest(buildFaviconFormData()));
+
+    expect(response.status).toBe(200);
+  });
+
+  it('accepts staff with settings all grants for settings uploads', async () => {
+    mocks.hasPermission.mockImplementation(
+      (_access, resource, action) => resource === 'settings' && action === 'all'
+    );
+    mocks.getUserAccess.mockResolvedValue({
+      merchantId: 'merchant-1',
+      isOwner: false,
+      permissions: { settings: { all: true } },
+    });
+
+    const response = await POST(buildRequest(buildFaviconFormData()));
+
+    expect(response.status).toBe(200);
+  });
+
   it('returns 429 when favicon uploads are rate limited', async () => {
     mocks.checkRateLimit.mockResolvedValue(false);
 
@@ -132,13 +177,7 @@ describe('POST /api/merchant/favicon', () => {
   });
 
   it('processes the favicon and persists every variant on success', async () => {
-    const form = new FormData();
-    form.append(
-      'file',
-      new File([new Uint8Array([1, 2, 3])], 'icon.png', {
-        type: 'image/png',
-      })
-    );
+    const form = buildFaviconFormData();
 
     const response = await POST(buildRequest(form));
     const json = await response.json();
@@ -153,18 +192,31 @@ describe('POST /api/merchant/favicon', () => {
       expect.anything()
     );
     expect(mocks.updateEq).toHaveBeenCalledWith('id', 'merchant-1');
+    expect(mocks.revalidateMerchant).toHaveBeenCalledWith('merchant-1');
+  });
+
+  it('keeps favicon upload successful when cache revalidation fails', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => void 0);
+    mocks.revalidateMerchant.mockImplementationOnce(() => {
+      throw new Error('cache unavailable');
+    });
+
+    const response = await POST(buildRequest(buildFaviconFormData()));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Merchant favicon cache revalidation failed:',
+      expect.objectContaining({ merchantId: 'merchant-1' })
+    );
+    warnSpy.mockRestore();
   });
 
   it('clears the stored SVG favicon when a raster image is uploaded', async () => {
     // processFavicon returns no svg_url for PNG/JPEG/WEBP uploads; the route
     // must persist null so a previously stored SVG is not left in place.
-    const form = new FormData();
-    form.append(
-      'file',
-      new File([new Uint8Array([1, 2, 3])], 'icon.png', {
-        type: 'image/png',
-      })
-    );
+    const form = buildFaviconFormData();
 
     await POST(buildRequest(form));
 
@@ -180,13 +232,7 @@ describe('POST /api/merchant/favicon', () => {
       png_192_url: 'https://cdn/192.png',
       apple_touch_url: 'https://cdn/180.png',
     });
-    const form = new FormData();
-    form.append(
-      'file',
-      new File([new Uint8Array([1, 2, 3])], 'icon.svg', {
-        type: 'image/svg+xml',
-      })
-    );
+    const form = buildFaviconFormData('icon.svg', 'image/svg+xml');
 
     await POST(buildRequest(form));
 

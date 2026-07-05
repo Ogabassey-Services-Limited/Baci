@@ -31,7 +31,7 @@ export async function PATCH(
   }
 
   const access = await getUserAccess(auth.supabase);
-  if (!access || !hasPermission(access, 'products', 'delete')) {
+  if (!access || !hasPermission(access, 'products', 'edit')) {
     return jsonError('Permission denied', 403);
   }
 

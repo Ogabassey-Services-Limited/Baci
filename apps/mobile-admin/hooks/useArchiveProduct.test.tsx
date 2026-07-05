@@ -61,7 +61,7 @@ describe('useArchiveProduct', () => {
     });
   });
 
-  it('invalidates product queries after archiving', async () => {
+  it('invalidates product and inventory stats queries after archiving', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -79,6 +79,9 @@ describe('useArchiveProduct', () => {
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['product', 'merchant-1', 'product-1'],
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['inventory-stats', 'merchant-1'],
     });
   });
 
@@ -103,6 +106,9 @@ describe('useArchiveProduct', () => {
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['product', 'merchant-1', 'product-1'],
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['inventory-stats', 'merchant-1'],
     });
   });
 });

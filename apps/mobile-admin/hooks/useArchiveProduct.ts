@@ -36,6 +36,9 @@ export function useArchiveProduct() {
       queryClient.invalidateQueries({
         queryKey: ['product', merchant?.id, productId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ['inventory-stats', merchant?.id],
+      });
     },
   });
 }
