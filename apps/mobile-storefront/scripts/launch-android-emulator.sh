@@ -153,8 +153,8 @@ process = subprocess.Popen(
 print(process.pid)
 PY
 )"
-echo "Emulator PID: $emulator_pid"
 track_cleanup_process "$emulator_pid"
+echo "Emulator PID: $emulator_pid"
 
 if ! wait_for_adb_shell_ready "$BOOT_TIMEOUT_SECONDS"; then
   echo "Emulator did not reach a responsive adb shell within ${BOOT_TIMEOUT_SECONDS}s." >&2

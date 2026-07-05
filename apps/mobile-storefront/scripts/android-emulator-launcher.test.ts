@@ -1,13 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
-import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import * as fs from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -21,18 +13,18 @@ type Harness = {
 };
 type EnvOverrides = Record<string, string | undefined>;
 function writeExecutable(filePath: string, source: string) {
-  mkdirSync(path.dirname(filePath), { recursive: true });
-  writeFileSync(filePath, source);
-  chmodSync(filePath, 0o755);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, source);
+  fs.chmodSync(filePath, 0o755);
 }
 
 function createHarness(): Harness {
-  const root = mkdtempSync(path.join(tmpdir(), 'baci-storefront-android-'));
+  const root = fs.mkdtempSync(path.join(tmpdir(), 'baci-storefront-android-'));
   const sdkRoot = path.join(root, 'sdk');
   const stateDir = path.join(root, 'state');
   const avdHome = path.join(root, 'avd-home');
-  mkdirSync(stateDir, { recursive: true });
-  mkdirSync(path.join(avdHome, `${avdName}.avd`), { recursive: true });
+  fs.mkdirSync(stateDir, { recursive: true });
+  fs.mkdirSync(path.join(avdHome, `${avdName}.avd`), { recursive: true });
   writeExecutable(
     path.join(sdkRoot, 'platform-tools/adb'),
     `#!/usr/bin/env bash
@@ -123,7 +115,7 @@ if [[ "\${1:-}" == "-list-avds" ]]; then
   exit 0
 fi
 echo "$$" > "$STATE_DIR/fake-emulator-pid"
-trap 'echo terminated > "$STATE_DIR/fake-emulator-terminated"; exit 0' TERM INT
+trap 'echo terminated > "$STATE_DIR/fake-emulator-terminated"; exit 0' EXIT TERM INT
 while true; do
   sleep 1
 done
@@ -131,20 +123,31 @@ done
   );
 
   const env: NodeJS.ProcessEnv = {
-    ...process.env,
     ANDROID_AVD_HOME: avdHome,
     ANDROID_HOME: sdkRoot,
     ANDROID_SDK_ROOT: sdkRoot,
+    BACI_ANDROID_LAUNCH_AM_START_TIMEOUT_SECONDS: '5',
+    BACI_ANDROID_LAUNCH_PID_TIMEOUT_SECONDS: '5',
+    BACI_ANDROID_LAUNCH_REVERSE_TIMEOUT_SECONDS: '5',
+    BACI_ANDROID_LAUNCH_SETTLE_TIMEOUT_SECONDS: '5',
+    BACI_ANDROID_LAUNCH_SHELL_TIMEOUT_SECONDS: '5',
     BACI_ANDROID_EMULATOR_LOG: path.join(stateDir, 'emulator.log'),
+    BACI_FAKE_ADB_BOOT_COMPLETED: '1',
+    BACI_FAKE_ADB_LOADAVG: '0.01 0.01 0.01 1/100 123',
+    BACI_FAKE_ADB_PIDOF: '4242',
+    BACI_FAKE_ADB_START_STALL: '0',
     BACI_FAKE_ANDROID_STATE_DIR: stateDir,
     HOME: root,
+    NODE_ENV: process.env.NODE_ENV ?? 'test',
+    PATH: process.env.PATH,
+    TMPDIR: process.env.TMPDIR,
   };
 
   return {
     cleanup: () => {
       const pidPath = path.join(stateDir, 'fake-emulator-pid');
-      if (existsSync(pidPath)) {
-        const pid = Number.parseInt(readFileSync(pidPath, 'utf8'), 10);
+      if (fs.existsSync(pidPath)) {
+        const pid = Number.parseInt(fs.readFileSync(pidPath, 'utf8'), 10);
         if (Number.isFinite(pid)) {
           try {
             process.kill(-pid, 'SIGKILL');
@@ -157,7 +160,7 @@ done
           }
         }
       }
-      rmSync(root, { force: true, recursive: true });
+      fs.rmSync(root, { force: true, recursive: true });
     },
     env,
     stateDir,
@@ -187,8 +190,8 @@ describe('Android emulator launcher (storefront)', () => {
 
       expect(result.status).toBe(0);
       expect(result.stdout).toContain('Android dev client ready');
-      const reverseLog = readFileSync(path.join(harness.stateDir, 'reverse-ran'), 'utf8');
-      const activityLog = readFileSync(path.join(harness.stateDir, 'am-ran'), 'utf8');
+      const reverseLog = fs.readFileSync(path.join(harness.stateDir, 'reverse-ran'), 'utf8');
+      const activityLog = fs.readFileSync(path.join(harness.stateDir, 'am-ran'), 'utf8');
       expect(reverseLog).toContain('tcp:8082 tcp:8082');
       expect(activityLog).toContain('android.intent.action.VIEW');
     } finally {
@@ -206,7 +209,7 @@ describe('Android emulator launcher (storefront)', () => {
 
       expect(result.status).toBe(1);
       expect(result.stderr).toContain('Timed out starting adb server within 0.1s');
-      expect(existsSync(path.join(harness.stateDir, 'fake-emulator-pid'))).toBe(false);
+      expect(fs.existsSync(path.join(harness.stateDir, 'fake-emulator-pid'))).toBe(false);
     } finally {
       harness.cleanup();
     }
@@ -215,7 +218,7 @@ describe('Android emulator launcher (storefront)', () => {
   it('waits for the previous emulator to disappear before relaunching', () => {
     const harness = createHarness();
     try {
-      writeFileSync(path.join(harness.stateDir, 'device-present'), '1');
+      fs.writeFileSync(path.join(harness.stateDir, 'device-present'), '1');
       const result = runScript('launch-android-emulator.sh', harness, {
         BACI_ANDROID_ADB_SERVER_TIMEOUT_SECONDS: '1',
         BACI_ANDROID_OLD_EMULATOR_SHUTDOWN_TIMEOUT_SECONDS: '1',
@@ -223,10 +226,8 @@ describe('Android emulator launcher (storefront)', () => {
       });
 
       expect(result.status).toBe(1);
-      expect(result.stderr).toContain(
-        'Previous emulator on emulator-5554 did not shut down within 1s'
-      );
-      expect(existsSync(path.join(harness.stateDir, 'fake-emulator-pid'))).toBe(false);
+      expect(result.stderr).toContain('Previous emulator on emulator-5554 did not shut down within 1s');
+      expect(fs.existsSync(path.join(harness.stateDir, 'fake-emulator-pid'))).toBe(false);
     } finally {
       harness.cleanup();
     }
@@ -287,9 +288,7 @@ describe('Android emulator launcher (storefront)', () => {
         });
         const exit = await exitPromise;
         expect(exit.code).toBe(130);
-        expect(existsSync(path.join(harness.stateDir, 'fake-emulator-terminated'))).toBe(
-          true
-        );
+        expect(fs.existsSync(path.join(harness.stateDir, 'fake-emulator-terminated'))).toBe(true);
       } finally {
         child.kill('SIGKILL');
         harness.cleanup();
