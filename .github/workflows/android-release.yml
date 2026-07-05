@@ -46,6 +46,9 @@ env:
   # true only when Google Play rejects API commits and asks for
   # changesNotSentForReview=true; then submit the pending edit in Play Console.
   ANDROID_ADMIN_CHANGES_NOT_SENT_FOR_REVIEW: ${{ vars.ANDROID_ADMIN_CHANGES_NOT_SENT_FOR_REVIEW || 'false' }}
+  # Major.minor for the human-facing versionName; the version code becomes the
+  # patch so versionName auto-increments each release (was hardcoded "2.0.1").
+  APP_VERSION_MAJOR_MINOR: '2.0'
 
 jobs:
   build-and-deploy:
@@ -150,6 +153,7 @@ jobs:
           GH_RUN_NUMBER: ${{ github.run_number }}
           INPUT_VERSION_CODE: ${{ inputs.version_code }}
           VERSION_CODE_BASE: ${{ env.VERSION_CODE_BASE }}
+          APP_VERSION_MAJOR_MINOR: ${{ env.APP_VERSION_MAJOR_MINOR }}
         run: |
           if [ "$GH_EVENT_NAME" = "workflow_dispatch" ] && [ -n "$INPUT_VERSION_CODE" ]; then
             VERSION_CODE="$INPUT_VERSION_CODE"
@@ -171,8 +175,19 @@ jobs:
             exit 1
           fi
 
+          if ! [[ "$APP_VERSION_MAJOR_MINOR" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid APP_VERSION_MAJOR_MINOR '$APP_VERSION_MAJOR_MINOR'. Must match <major>.<minor> (e.g., 2.0)."
+            exit 1
+          fi
+
+          # versionName = <major.minor>.<version code> so it auto-increments each
+          # release, mirroring the iOS "2.0.<build number>" scheme.
+          APP_VERSION="${APP_VERSION_MAJOR_MINOR}.${VERSION_CODE}"
+
           echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Materialize Firebase Android config
         working-directory: ${{ env.WORKING_DIR }}
@@ -197,6 +212,7 @@ jobs:
           CI: "1"
           NODE_OPTIONS: ${{ env.ANDROID_NODE_OPTIONS }}
           ANDROID_VERSION_CODE: ${{ env.VERSION_CODE }}
+          APP_VERSION: ${{ env.APP_VERSION }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           EXPO_PUBLIC_WEB_API_URL: https://usebaci.com

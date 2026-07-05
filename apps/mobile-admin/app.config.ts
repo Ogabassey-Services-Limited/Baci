@@ -57,17 +57,24 @@ if (rawIosBuildNumber !== undefined) {
   }
 }
 
-const rawIosAppVersion = process.env.IOS_APP_VERSION;
-let _iosAppVersion: string | undefined;
+// Human-facing app version (Android versionName + iOS CFBundleShortVersionString).
+// Release workflows inject an auto-incrementing value: APP_VERSION (Android) or
+// the legacy IOS_APP_VERSION (iOS). Without it, builds fall back to the pinned
+// baseline below — which is why every Android release previously shipped "2.0.1".
+// Use `|| ` (not `??`) so an empty/whitespace APP_VERSION — e.g. a workflow that
+// exports it without a value — is treated as unset and still falls through to
+// IOS_APP_VERSION rather than silently dropping to the pinned baseline.
+const rawAppVersion =
+  process.env.APP_VERSION?.trim() || process.env.IOS_APP_VERSION?.trim();
+let _appVersion: string | undefined;
 
-if (rawIosAppVersion !== undefined && rawIosAppVersion.trim().length > 0) {
-  const trimmed = rawIosAppVersion.trim();
-  if (!/^\d+\.\d+\.\d+$/.test(trimmed)) {
+if (rawAppVersion) {
+  if (!/^\d+\.\d+\.\d+$/.test(rawAppVersion)) {
     throw new Error(
-      `[app.config] Invalid IOS_APP_VERSION="${rawIosAppVersion}". Must be semantic version major.minor.patch (e.g., 2.0.31).`
+      `[app.config] Invalid app version "${rawAppVersion}" (from APP_VERSION/IOS_APP_VERSION). Must be semantic version major.minor.patch (e.g., 2.0.31).`
     );
   }
-  _iosAppVersion = trimmed;
+  _appVersion = rawAppVersion;
 }
 
 const tiktokIosAppStoreId =
@@ -108,7 +115,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'Baci - The Ecommerce Builder',
   slug: 'baci',
   owner: 'ogabassey-services-limited',
-  version: _iosAppVersion ?? '2.0.1',
+  version: _appVersion ?? '2.0.1',
   orientation: 'default',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',

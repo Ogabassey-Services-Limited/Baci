@@ -53,3 +53,59 @@ describe('mobile-admin app config PostHog wiring', () => {
     });
   });
 });
+
+describe('mobile-admin app config version resolution', () => {
+  it('uses APP_VERSION as the versionName (Android release auto-increment)', async () => {
+    vi.stubEnv('APP_VERSION', '2.0.640');
+
+    const { default: buildConfig } = await import('./app.config');
+    const config = buildConfig(TEST_CONFIG_CONTEXT);
+
+    expect(config.version).toBe('2.0.640');
+  });
+
+  it('falls back to IOS_APP_VERSION when APP_VERSION is unset (iOS back-compat)', async () => {
+    vi.stubEnv('IOS_APP_VERSION', '2.0.364');
+
+    const { default: buildConfig } = await import('./app.config');
+    const config = buildConfig(TEST_CONFIG_CONTEXT);
+
+    expect(config.version).toBe('2.0.364');
+  });
+
+  it('treats an empty APP_VERSION as unset and still falls back to IOS_APP_VERSION', async () => {
+    vi.stubEnv('APP_VERSION', '');
+    vi.stubEnv('IOS_APP_VERSION', '2.0.364');
+
+    const { default: buildConfig } = await import('./app.config');
+    const config = buildConfig(TEST_CONFIG_CONTEXT);
+
+    expect(config.version).toBe('2.0.364');
+  });
+
+  it('prefers APP_VERSION over IOS_APP_VERSION', async () => {
+    vi.stubEnv('APP_VERSION', '2.0.640');
+    vi.stubEnv('IOS_APP_VERSION', '2.0.364');
+
+    const { default: buildConfig } = await import('./app.config');
+    const config = buildConfig(TEST_CONFIG_CONTEXT);
+
+    expect(config.version).toBe('2.0.640');
+  });
+
+  it('falls back to the pinned baseline when no version env is set', async () => {
+    vi.stubEnv('APP_VERSION', '');
+    vi.stubEnv('IOS_APP_VERSION', '');
+
+    const { default: buildConfig } = await import('./app.config');
+    const config = buildConfig(TEST_CONFIG_CONTEXT);
+
+    expect(config.version).toBe('2.0.1');
+  });
+
+  it('rejects a non-semver app version at load time', async () => {
+    vi.stubEnv('APP_VERSION', '2.0');
+
+    await expect(import('./app.config')).rejects.toThrow(/Invalid app version/);
+  });
+});
