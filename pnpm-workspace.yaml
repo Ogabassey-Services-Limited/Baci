@@ -289,5 +289,5 @@ patchedDependencies:
   "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch"
   # Backport of vercel/next.js#94630; fixes PPR resume mismatch digest 1617769459 for htmlLimitedBots under cacheComponents. Remove when a stable Next release contains the fix.
   "next@16.2.9": "patches/next@16.2.9.patch"
-  metro@0.84.4: patches/metro@0.84.4.patch
-  metro-runtime@0.84.4: patches/metro-runtime@0.84.4.patch
+  "metro@0.84.4": "patches/metro@0.84.4.patch"
+  "metro-runtime@0.84.4": "patches/metro-runtime@0.84.4.patch"
