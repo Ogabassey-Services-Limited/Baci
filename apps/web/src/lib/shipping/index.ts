@@ -30,6 +30,7 @@ import type {
 
 const registry = new ShippingProviderRegistry();
 const trackingRegistry = new ShippingProviderRegistry();
+const operationsRegistry = new ShippingProviderRegistry();
 
 function isTopshipEnabledForNewShipments(): boolean {
   return !isExplicitlyDisabledEnv(process.env.TOPSHIP_ENABLED);
@@ -40,6 +41,7 @@ if (isGiglRuntimeConfigured()) {
   const giglProvider = new GiglProvider();
   registry.register(giglProvider);
   trackingRegistry.register(giglProvider);
+  operationsRegistry.register(giglProvider);
 }
 
 const topshipProvider = new TopshipProvider();
@@ -47,6 +49,7 @@ if (isTopshipEnabledForNewShipments()) {
   registry.register(topshipProvider);
 }
 trackingRegistry.register(topshipProvider);
+operationsRegistry.register(topshipProvider);
 
 // Create aggregator
 const aggregator = new QuoteAggregator(registry);
@@ -58,11 +61,13 @@ const aggregator = new QuoteAggregator(registry);
 export class ShippingService {
   private registry: ShippingProviderRegistry;
   private trackingRegistry: ShippingProviderRegistry;
+  private operationsRegistry: ShippingProviderRegistry;
   private aggregator: QuoteAggregator;
 
   constructor() {
     this.registry = registry;
     this.trackingRegistry = trackingRegistry;
+    this.operationsRegistry = operationsRegistry;
     this.aggregator = aggregator;
   }
 
@@ -182,7 +187,7 @@ export class ShippingService {
     provider: ShippingProviderCode,
     shipmentId: string
   ): Promise<CancellationResult> {
-    const providerInstance = this.registry.get(provider);
+    const providerInstance = this.operationsRegistry.get(provider);
     if (!providerInstance) {
       throw new Error(`Provider ${provider} not found`);
     }

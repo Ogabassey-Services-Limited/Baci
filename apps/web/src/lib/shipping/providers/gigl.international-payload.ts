@@ -37,6 +37,8 @@ interface PackageDimensions {
   Width: number;
 }
 
+const MAX_DIMENSIONAL_PACKAGES_PER_ITEM = 100;
+
 export function isNigeriaAddress(address: ShippingAddress): boolean {
   const countryCode = address.countryCode.trim().toUpperCase();
   const country = address.country.trim().toLowerCase();
@@ -90,14 +92,22 @@ export function buildInternationalItems(items: ShipmentItem[]) {
 export function buildInternationalPackages(items: ShipmentItem[]) {
   return items.flatMap((item) => {
     const dimensions = getPackageDimensions(item);
-    return dimensions
-      ? [
-          {
-            Weight: item.weight,
-            ...dimensions,
-          },
-        ]
-      : [];
+    if (!dimensions) {
+      return [];
+    }
+
+    if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+      throw new Error('Invalid package quantity for GIGL international item');
+    }
+    if (item.quantity > MAX_DIMENSIONAL_PACKAGES_PER_ITEM) {
+      throw new Error('Too many packages for one GIGL international item');
+    }
+
+    const packageCount = item.quantity;
+    return Array.from({ length: packageCount }, () => ({
+      Weight: item.weight,
+      ...dimensions,
+    }));
   });
 }
 

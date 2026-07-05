@@ -32,7 +32,7 @@ describe('GIGL international payload helpers', () => {
       width: number;
     } = {
       name: 'Phone',
-      quantity: 1,
+      quantity: 2,
       weight: 1,
       value: 100_000,
       hsCode: '851712',
@@ -48,12 +48,10 @@ describe('GIGL international payload helpers', () => {
       Width: 8,
       Height: 6,
     });
-    expect(buildInternationalPackages([item])[0]).toEqual({
-      Weight: 1,
-      Length: 10,
-      Width: 8,
-      Height: 6,
-    });
+    expect(buildInternationalPackages([item])).toEqual([
+      { Weight: 1, Length: 10, Width: 8, Height: 6 },
+      { Weight: 1, Length: 10, Width: 8, Height: 6 },
+    ]);
   });
 
   it('omits package payloads when dimensions are incomplete', () => {
@@ -68,6 +66,29 @@ describe('GIGL international payload helpers', () => {
       IsVolumetric: false,
     });
     expect(buildInternationalPackages([item])).toEqual([]);
+  });
+
+  it('rejects invalid dimensional package quantities', () => {
+    const item: ShipmentItem & {
+      height: number;
+      length: number;
+      width: number;
+    } = {
+      name: 'Phone',
+      quantity: 1,
+      weight: 1,
+      value: 100_000,
+      length: 10,
+      width: 8,
+      height: 6,
+    };
+
+    expect(() =>
+      buildInternationalPackages([{ ...item, quantity: 0 }])
+    ).toThrow('Invalid package quantity for GIGL international item');
+    expect(() =>
+      buildInternationalPackages([{ ...item, quantity: 101 }])
+    ).toThrow('Too many packages for one GIGL international item');
   });
 
   it('matches countries by short code, code, or name', () => {

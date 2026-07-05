@@ -74,6 +74,10 @@ function mockShippingProviders() {
       new Error('Topship booking should be disabled before provider call')
     )
   );
+  const topshipCancelShipment = vi.fn(async () => ({
+    success: true,
+    message: 'cancelled',
+  }));
   const giglTrackShipment = vi.fn(() =>
     Promise.reject(new Error('GIGL did not find shipment'))
   );
@@ -110,7 +114,7 @@ function mockShippingProviders() {
       getQuotes = topshipGetQuotes;
       bookShipment = topshipBookShipment;
       trackShipment = topshipTrackShipment;
-      cancelShipment = vi.fn();
+      cancelShipment = topshipCancelShipment;
       isAvailable = vi.fn(async () => true);
     },
   }));
@@ -118,6 +122,7 @@ function mockShippingProviders() {
   return {
     giglTrackShipment,
     topshipBookShipment,
+    topshipCancelShipment,
     topshipGetQuotes,
     topshipTrackShipment,
   };
@@ -227,11 +232,12 @@ describe('shippingService', () => {
     expect(topshipGetQuotes).not.toHaveBeenCalled();
   });
 
-  it('keeps explicit Topship tracking available when Topship is disabled for new shipments', async () => {
+  it('keeps existing Topship operations available when Topship is disabled for new shipments', async () => {
     stubGiglRuntimeEnv();
     vi.stubEnv('TOPSHIP_API_KEY', 'topship-secret');
     vi.stubEnv('TOPSHIP_ENABLED', 'false');
-    const { topshipTrackShipment } = mockShippingProviders();
+    const { topshipCancelShipment, topshipTrackShipment } =
+      mockShippingProviders();
 
     const { shippingService } = await importShippingService();
 
@@ -242,6 +248,10 @@ describe('shippingService', () => {
       trackingNumber: 'TS-123',
     });
     expect(topshipTrackShipment).toHaveBeenCalledWith('TS-123');
+    await expect(
+      shippingService.cancelShipment('TOPSHIP', 'ship-123')
+    ).resolves.toMatchObject({ success: true });
+    expect(topshipCancelShipment).toHaveBeenCalledWith('ship-123');
   });
 
   it('keeps providerless tracking fallback available for disabled Topship waybills', async () => {
@@ -266,29 +276,7 @@ describe('shippingService', () => {
     const { shippingService } = await importShippingService();
 
     await expect(
-      shippingService.bookShipment('MISSING' as never, {
-        orderId: 'order-1',
-        quoteId: 'quote-1',
-        sender: {
-          name: 'Merchant',
-          phone: '+2348000000000',
-          address: '1 Merchant Street',
-          city: 'Lagos',
-          state: 'Lagos',
-          country: 'Nigeria',
-          countryCode: 'NG',
-        },
-        receiver: {
-          name: 'Customer',
-          phone: '+2348000000001',
-          address: '1 Customer Street',
-          city: 'Lagos',
-          state: 'Lagos',
-          country: 'Nigeria',
-          countryCode: 'NG',
-        },
-        items: [],
-      })
+      shippingService.bookShipment('MISSING' as never, bookingRequest)
     ).rejects.toThrow('Provider MISSING not found');
   });
 });
