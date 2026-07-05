@@ -156,7 +156,10 @@ describe('Android emulator launcher (storefront)', () => {
       'run_stabilization_adb shell settings put global window_animation_scale 0'
     );
     expect(androidHelpers).toContain(
-      'run_stabilization_adb shell cmd package disable-user --user 0 "$package_name"'
+      'run_stabilization_adb shell cmd package disable-user --user 0 "$package_name" || true'
+    );
+    expect(androidHelpers).toContain(
+      'run_stabilization_adb shell svc bluetooth disable || return $?'
     );
     expect(launcher).toContain(
       'Emulator booted, but Android stabilization timed out.'

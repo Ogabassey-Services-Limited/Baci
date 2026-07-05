@@ -140,6 +140,6 @@ stabilize_android_system() {
   # the launcher keeps background load stable but removes the home screen until
   # the package is re-enabled or the AVD is reset.
   for package_name in "${package_names[@]}"; do
-    run_stabilization_adb shell cmd package disable-user --user 0 "$package_name" || return $?
+    run_stabilization_adb shell cmd package disable-user --user 0 "$package_name" || true
   done
 }
