@@ -727,6 +727,9 @@ importers:
       tailwindcss:
         specifier: ^4.3.1
         version: 4.3.1
+      uuid:
+        specifier: ^11.1.1
+        version: 11.1.1
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -14300,7 +14303,7 @@ snapshots:
       ws: 8.21.0
       zod: 3.25.76
     optionalDependencies:
-      expo-router: 57.0.3(663b4af4ce91f6ceb53ebdb1024eea9e)
+      expo-router: 57.0.3(6d754e1f473bd225d3e5d86a3f45fc15)
       react-native: 0.86.0(@babel/core@7.29.6)(@react-native/jest-preset@0.86.0(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3)
     transitivePeerDependencies:
       - '@expo/dom-webview'
@@ -14790,7 +14793,7 @@ snapshots:
       react: 19.2.3
     optionalDependencies:
       '@expo/metro-runtime': 57.0.3(@expo/log-box@57.0.0)(expo@57.0.2)(react-dom@19.2.3(react@19.2.3))(react-native@0.86.0(@babel/core@7.29.6)(@react-native/jest-preset@0.86.0(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
-      expo-router: 57.0.3(663b4af4ce91f6ceb53ebdb1024eea9e)
+      expo-router: 57.0.3(6d754e1f473bd225d3e5d86a3f45fc15)
       react-dom: 19.2.3(react@19.2.3)
     transitivePeerDependencies:
       - supports-color

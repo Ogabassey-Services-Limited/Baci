@@ -6,7 +6,27 @@ ANDROID_PLATFORM_PACKAGE="${BACI_ANDROID_PLATFORM_PACKAGE:-platforms;android-36}
 ANDROID_SYSTEM_IMAGE_PACKAGE="${BACI_ANDROID_SYSTEM_IMAGE_PACKAGE:-system-images;android-36;google_apis;arm64-v8a}"
 ANDROID_DEVICE_PROFILE="${BACI_ANDROID_DEVICE_PROFILE:-pixel_9_pro_xl}"
 GPU_MODE="${BACI_ANDROID_GPU_MODE:-auto}"
-SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Library/Android/sdk}}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+source "${SCRIPT_DIR}/lib/timeout.sh"
+
+default_sdk_root() {
+  case "$(uname -s)" in
+    Darwin)
+      printf '%s\n' "$HOME/Library/Android/sdk"
+      ;;
+    Linux)
+      printf '%s\n' "$HOME/Android/Sdk"
+      ;;
+    MINGW* | MSYS* | CYGWIN*)
+      if [[ -n "${LOCALAPPDATA:-}" ]]; then
+        printf '%s\n' "${LOCALAPPDATA}\\Android\\Sdk"
+      fi
+      ;;
+  esac
+}
+
+SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$(default_sdk_root)}}"
 AVD_DIR="${ANDROID_AVD_HOME:-$HOME/.android/avd}/${AVD_NAME}.avd"
 ADB="${SDK_ROOT}/platform-tools/adb"
 EMULATOR="${SDK_ROOT}/emulator/emulator"
@@ -114,36 +134,6 @@ if ! "$EMULATOR" -list-avds | grep -Fxq -- "$AVD_NAME"; then
   exit 1
 fi
 
-run_with_timeout() {
-  local timeout_seconds="$1"
-  shift
-
-  "$@" &
-  local command_pid="$!"
-  local elapsed=0
-
-  while kill -0 "$command_pid" 2>/dev/null; do
-    if (( elapsed >= timeout_seconds )); then
-      kill "$command_pid" 2>/dev/null || true
-      wait "$command_pid" 2>/dev/null || true
-      return 124
-    fi
-
-    sleep 1
-    elapsed=$((elapsed + 1))
-  done
-
-  wait "$command_pid"
-}
-
-capture_with_timeout() {
-  local timeout_seconds="$1"
-  local output_file="$2"
-  shift 2
-
-  run_with_timeout "$timeout_seconds" "$@" >"$output_file" 2>&1
-}
-
 wait_for_adb_shell() {
   local deadline=$((SECONDS + BOOT_TIMEOUT_SECONDS))
   local boot_output
@@ -235,9 +225,18 @@ stabilize_android_system() {
   "$ADB" -s "$ADB_SERIAL" shell settings put global animator_duration_scale 0 >/dev/null 2>&1 || true
   "$ADB" -s "$ADB_SERIAL" reverse "tcp:${METRO_PORT}" "tcp:${METRO_PORT}" >/dev/null 2>&1 || true
 
+  # This is a dedicated Baci QA AVD, not a general manual-use emulator. Disabling
+  # the launcher keeps background load stable but removes the home screen until
+  # the package is re-enabled or the AVD is reset.
   for package_name in "${package_names[@]}"; do
     "$ADB" -s "$ADB_SERIAL" shell cmd package disable-user --user 0 "$package_name" >/dev/null 2>&1 || true
   done
+}
+
+terminate_process_group() {
+  local process_pid="$1"
+
+  kill -- "-${process_pid}" >/dev/null 2>&1 || kill "$process_pid" >/dev/null 2>&1 || true
 }
 
 wait_for_android_settle() {
@@ -341,7 +340,7 @@ if ! wait_for_adb_shell; then
   echo "Emulator did not reach a responsive adb shell within ${BOOT_TIMEOUT_SECONDS}s." >&2
   echo "Last emulator log lines:" >&2
   tail -40 "$LOG_FILE" >&2 || true
-  kill "$emulator_pid" >/dev/null 2>&1 || true
+  terminate_process_group "$emulator_pid"
   exit 1
 fi
 
@@ -349,7 +348,7 @@ if ! confirm_adb_shell_stable; then
   echo "Emulator booted, but adb shell did not stay responsive." >&2
   echo "Last emulator log lines:" >&2
   tail -40 "$LOG_FILE" >&2 || true
-  kill "$emulator_pid" >/dev/null 2>&1 || true
+  terminate_process_group "$emulator_pid"
   exit 1
 fi
 
@@ -359,7 +358,7 @@ if ! wait_for_android_settle; then
   echo "Emulator booted, but Android did not settle below load ${SETTLE_LOAD_MAX} within ${SETTLE_TIMEOUT_SECONDS}s." >&2
   echo "Last emulator log lines:" >&2
   tail -40 "$LOG_FILE" >&2 || true
-  kill "$emulator_pid" >/dev/null 2>&1 || true
+  terminate_process_group "$emulator_pid"
   exit 1
 fi
 

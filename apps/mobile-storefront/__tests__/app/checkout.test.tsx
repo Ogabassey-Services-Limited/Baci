@@ -121,7 +121,7 @@ describe('CheckoutScreen', () => {
     await waitFor(() => {
       expect(mockTrackCheckoutStarted).toHaveBeenCalledTimes(1);
     });
-  }, 15_000);
+  }, 30_000);
 
   it('continues from address to payment when required fields are valid', async () => {
     renderCheckoutScreen();

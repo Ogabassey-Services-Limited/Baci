@@ -11,6 +11,10 @@ describe('Android emulator launcher (storefront)', () => {
     path.join(appRoot, 'scripts/launch-android-emulator.sh'),
     'utf8'
   );
+  const timeoutHelpers = readFileSync(
+    path.join(appRoot, 'scripts/lib/timeout.sh'),
+    'utf8'
+  );
   const debugApkInstaller = readFileSync(
     path.join(appRoot, 'scripts/install-android-debug.sh'),
     'utf8'
@@ -47,6 +51,9 @@ describe('Android emulator launcher (storefront)', () => {
     expect(launcher).toContain('BACI_ANDROID_EMULATOR_PORT:-5554');
     expect(launcher).toContain('BACI_ANDROID_EMULATOR_MEMORY_MB:-4096');
     expect(launcher).toContain('BACI_ANDROID_EMULATOR_CORES:-2');
+    expect(launcher).toContain('default_sdk_root');
+    expect(launcher).toContain('$HOME/Android/Sdk');
+    expect(launcher).toContain('source "${SCRIPT_DIR}/lib/timeout.sh"');
     expect(launcher).toContain('remove_stale_avd_locks');
     expect(launcher).toContain('confirm_adb_shell_stable');
     expect(launcher).toContain('stabilize_android_system');
@@ -57,6 +64,9 @@ describe('Android emulator launcher (storefront)', () => {
   it('targets storefront Metro port and log file in the emulator launcher', () => {
     expect(launcher).toContain('BACI_ANDROID_METRO_PORT:-8082');
     expect(launcher).toContain('baci-mobile-storefront-emulator.log');
+    expect(launcher).toContain('dedicated Baci QA AVD');
+    expect(launcher).toContain('terminate_process_group "$emulator_pid"');
+    expect(launcher).toContain('kill -- "-${process_pid}"');
     expect(launcher).toContain(
       'pnpm --filter @baci/mobile-storefront android:emulator'
     );
@@ -69,6 +79,10 @@ describe('Android emulator launcher (storefront)', () => {
     );
     expect(debugApkInstaller).toContain('getprop sys.boot_completed');
     expect(debugApkInstaller).toContain('install -r -d -t --no-streaming');
+    expect(debugApkInstaller).toContain('BACI_ANDROID_ADB_INSTALL_TIMEOUT_SECONDS:-120');
+    expect(debugApkInstaller).toContain(
+      'run_with_timeout "$ADB_INSTALL_TIMEOUT_SECONDS" "$ADB" -s "$ADB_SERIAL" install'
+    );
     expect(debugApkInstaller).not.toContain('installDebug');
     expect(debugApkInstaller).toContain(
       'pnpm --filter @baci/mobile-storefront android:emulator'
@@ -81,6 +95,15 @@ describe('Android emulator launcher (storefront)', () => {
     );
     expect(devClientLauncher).toContain('BACI_ANDROID_SCHEME:-ogabassey');
     expect(devClientLauncher).toContain('BACI_ANDROID_METRO_PORT:-8082');
+    expect(devClientLauncher).toContain('BACI_ANDROID_EMULATOR_PORT:-5554');
+    expect(devClientLauncher).toContain(
+      'ADB_SERIAL="${BACI_ANDROID_ADB_SERIAL:-emulator-${EMULATOR_PORT}}"'
+    );
+    expect(devClientLauncher).toContain('default_sdk_root');
+    expect(devClientLauncher).toContain('$HOME/Android/Sdk');
+    expect(devClientLauncher).toContain(
+      'source "${SCRIPT_DIR}/lib/timeout.sh"'
+    );
     expect(devClientLauncher).toContain(
       'BACI_ANDROID_DEV_SERVER_URL:-http://10.0.2.2:${METRO_PORT}'
     );
@@ -88,5 +111,33 @@ describe('Android emulator launcher (storefront)', () => {
     expect(devClientLauncher).toContain('ensure_metro_reverse');
     expect(devClientLauncher).toContain('pidof -s "$APP_ID"');
     expect(devClientLauncher).not.toContain('com.ogabassey.baci');
+  });
+
+  it('uses shared timeout helpers that terminate stalled child process groups', () => {
+    expect(timeoutHelpers).toContain('start_new_session=True');
+    expect(timeoutHelpers).toContain('os.killpg(process.pid, signal.SIGTERM)');
+    expect(timeoutHelpers).toContain('os.killpg(process.pid, signal.SIGKILL)');
+    expect(timeoutHelpers).toContain('sys.exit(124)');
+    expect(timeoutHelpers).toContain('capture_with_timeout()');
+    expect(launcher).not.toContain('run_with_timeout()');
+    expect(devClientLauncher).not.toContain('run_with_timeout()');
+  });
+
+  it('bounds dev-client adb probes through the shared timeout helper', () => {
+    expect(devClientLauncher).toContain(
+      'run_with_timeout 5 "$ADB" -s "$ADB_SERIAL" shell getprop sys.boot_completed'
+    );
+    expect(devClientLauncher).toContain(
+      'run_with_timeout 5 "$ADB" -s "$ADB_SERIAL" shell echo ok'
+    );
+    expect(devClientLauncher).toContain(
+      'run_with_timeout 5 "$ADB" -s "$ADB_SERIAL" shell cat /proc/loadavg'
+    );
+    expect(devClientLauncher).toContain(
+      'run_with_timeout 5 "$ADB" -s "$ADB_SERIAL" shell pidof -s "$APP_ID"'
+    );
+    expect(devClientLauncher).toContain(
+      'run_with_timeout "$REVERSE_TIMEOUT_SECONDS" "$ADB" -s "$ADB_SERIAL" reverse'
+    );
   });
 });
