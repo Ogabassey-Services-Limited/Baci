@@ -143,7 +143,7 @@
     "doctor": {
       "appConfigFieldsNotSyncedCheck": {
         "enabled": false,
-        "reason": "Native android/ios projects are committed and are the source of truth for builds; Expo Doctor cannot sync app.config.ts fields in this non-CNG setup, so this documented check is disabled intentionally."
+        "reason": "Hybrid CNG: release CI regenerates android/ios from app.config.ts via expo prebuild --clean; the committed native projects exist only for fast local dev (expo run). Expo Doctor cannot sync dynamic app.config.ts fields into the committed copies, so this check stays disabled; the prebuild path is the release source of truth."
       }
     }
   }

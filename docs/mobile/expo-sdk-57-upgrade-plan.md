@@ -286,6 +286,16 @@ Baseline suite state: lint/typecheck green; storefront 662 suites / 4,239 tests 
   `pnpm --dir apps/mobile-storefront dlx expo-doctor@latest` (and admin) — resolve or document every
   warning.
 
+### Phase 3 findings (2026-07-05, executed)
+
+- All storefront (6) and admin (2 + hardening) local config plugins **apply cleanly** on SDK 57
+  prebuild; posthog classpath + `apply from …posthog.gradle` and system-bars styling survive.
+- The committed `apply plugin: "com.posthog.android"` line in storefront app/build.gradle is
+  **hand-synced** (66476eaeb1) — the posthog expo plugin emits it order-dependently, so a local
+  bare prebuild drops it. Regenerated output was therefore **NOT committed**; committed native dirs
+  (which already build on RN 0.86) remain as-is. Release CI regenerates with full env.
+- `expo.doctor.appConfigFieldsNotSyncedCheck` reasons rewritten to describe the hybrid-CNG reality.
+
 ## Phase 4 — Enable worklets bundle mode (the memory win)
 
 - Implement the **Bundle mode composition plan** above: babel option, `getBundleModeMetroConfig`
