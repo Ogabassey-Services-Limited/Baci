@@ -11,10 +11,12 @@ vi.mock('@shopify/flash-list', async () => {
       data,
       renderItem,
       ListEmptyComponent,
+      onEndReached,
     }: {
       data?: unknown[] | null;
       renderItem: (params: { item: unknown; index: number }) => React.ReactNode;
       ListEmptyComponent?: React.ReactNode;
+      onEndReached?: () => void;
     }) =>
       React.createElement(
         'div',
@@ -23,7 +25,16 @@ vi.mock('@shopify/flash-list', async () => {
           ? data.map((item: unknown, index: number) =>
               renderItem({ item, index })
             )
-          : ListEmptyComponent
+          : ListEmptyComponent,
+        React.createElement(
+          'button',
+          {
+            'aria-label': 'reach customers list end',
+            onClick: () => onEndReached?.(),
+            type: 'button',
+          },
+          'reach end'
+        )
       ),
   };
 });
@@ -154,6 +165,46 @@ describe('CustomersScreen UI rendering', () => {
       customerType: 'company',
       search: '',
     });
+  });
+
+  it('paginates People and Companies tabs when the list reaches the end', () => {
+    customerHookMocks.useCustomers.mockReturnValue({
+      data: {
+        pages: [
+          {
+            customers: [
+              {
+                id: 'customer-1',
+                full_name: 'Ada Person',
+                email: 'ada@example.com',
+                phone: null,
+                total_spent: 0,
+                order_count: 0,
+              },
+            ],
+          },
+        ],
+      },
+      isLoading: false,
+      isFetchingNextPage: false,
+      hasNextPage: true,
+      fetchNextPage,
+      refetch: vi.fn(),
+    });
+
+    render(<CustomersScreen />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'People' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'reach customers list end' })
+    );
+    expect(fetchNextPage).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Companies' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'reach customers list end' })
+    );
+    expect(fetchNextPage).toHaveBeenCalledTimes(2);
   });
 
   it('renders empty states for failed orders and customer lists', () => {

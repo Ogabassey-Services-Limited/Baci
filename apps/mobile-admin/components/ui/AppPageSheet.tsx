@@ -47,10 +47,11 @@ export function AppPageSheet({
 }: AppPageSheetProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const [footerHeight, setFooterHeight] = useState(0);
   const [floatingFooterHeight, setFloatingFooterHeight] = useState(0);
   const safeBottomPadding = Math.max(insets.bottom, SPACING.md);
   const contentBottomPadding = floatingFooter
-    ? floatingFooterHeight + SPACING.sm
+    ? floatingFooterHeight + footerHeight + SPACING.sm
     : !footer
       ? safeBottomPadding
       : undefined;
@@ -176,7 +177,7 @@ export function AppPageSheet({
               pointerEvents="box-none"
               style={[
                 styles.floatingFooter,
-                { paddingBottom: safeBottomPadding },
+                { bottom: footerHeight, paddingBottom: safeBottomPadding },
                 floatingFooterContainerStyle,
               ]}
               testID="app-page-sheet-floating-footer"
@@ -187,12 +188,15 @@ export function AppPageSheet({
 
           {footer ? (
             <View
+              onLayout={(event) => {
+                setFooterHeight(event.nativeEvent.layout.height);
+              }}
               style={[
                 styles.footer,
                 {
                   backgroundColor: colors.card,
                   borderTopColor: colors.border,
-                  paddingBottom: Math.max(insets.bottom, SPACING.md),
+                  paddingBottom: safeBottomPadding,
                 },
               ]}
             >

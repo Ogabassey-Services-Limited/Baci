@@ -88,4 +88,57 @@ describe('SubscriptionStatusCard', () => {
     fireEvent.click(loadingCard);
     expect(onPress).not.toHaveBeenCalled();
   });
+
+  it('renders the Pro subscription state and opens management', () => {
+    const onPress = vi.fn();
+
+    render(
+      <SubscriptionStatusCard
+        colors={colors}
+        customerInfo={null}
+        isLoading={false}
+        isPro={true}
+        onPress={onPress}
+        shadows={shadows}
+      />
+    );
+
+    const card = screen.getByRole('button', {
+      name: /Baci Pro Merchant subscription/i,
+    });
+
+    expect(screen.getByText('Baci Pro Merchant')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
+
+    fireEvent.click(card);
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the Free subscription state and opens upgrade options', () => {
+    const onPress = vi.fn();
+
+    render(
+      <SubscriptionStatusCard
+        colors={colors}
+        customerInfo={null}
+        isLoading={false}
+        isPro={false}
+        onPress={onPress}
+        shadows={shadows}
+      />
+    );
+
+    const card = screen.getByRole('button', {
+      name: /Free Plan. Upgrade to Pro/i,
+    });
+
+    expect(screen.getByText('Free Plan')).toBeInTheDocument();
+    expect(
+      screen.getByText('Upgrade to Pro for more features')
+    ).toBeInTheDocument();
+    expect(screen.getByText('UPGRADE')).toBeInTheDocument();
+
+    fireEvent.click(card);
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
 });

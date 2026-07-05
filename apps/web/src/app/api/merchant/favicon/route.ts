@@ -96,12 +96,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
+    const isValidationError = error instanceof FaviconValidationError;
     const message =
-      error instanceof Error ? error.message : 'Failed to update favicon';
+      isValidationError && error instanceof Error
+        ? error.message
+        : 'Failed to update favicon';
     console.error('Favicon update failed:', error);
     return NextResponse.json(
       { error: message },
-      { status: error instanceof FaviconValidationError ? 400 : 500 }
+      { status: isValidationError ? 400 : 500 }
     );
   }
 }

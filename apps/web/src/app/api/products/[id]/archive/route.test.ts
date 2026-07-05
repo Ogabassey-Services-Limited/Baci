@@ -190,4 +190,17 @@ describe('PATCH /api/products/[id]/archive', () => {
     expect(mocks.updatePayload).toMatchObject({ status: 'archived' });
     expect(mocks.revalidateProducts).not.toHaveBeenCalled();
   });
+
+  it('returns 404 when the product does not belong to the merchant', async () => {
+    mocks.archiveError = { code: 'PGRST116', message: 'no rows' };
+
+    const response = await PATCH(makeRequest(), makeContext());
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Product not found',
+    });
+    expect(mocks.updatePayload).toMatchObject({ status: 'archived' });
+    expect(mocks.revalidateProducts).not.toHaveBeenCalled();
+  });
 });

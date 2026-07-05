@@ -181,6 +181,7 @@ export default function ExpensesScreen() {
                         styles.sectionHeaderLabel,
                         { color: colors.textSecondary },
                       ]}
+                      accessibilityRole="header"
                     >
                       {item.title}
                     </Text>

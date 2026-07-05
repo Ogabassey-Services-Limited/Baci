@@ -63,8 +63,9 @@ export function ProductDeleteCard({
         </Text>
       </View>
       <Pressable
-        accessibilityLabel="Delete product"
+        accessibilityLabel={disabled ? 'Deleting product' : 'Delete product'}
         accessibilityRole="button"
+        accessibilityState={{ busy: disabled, disabled }}
         disabled={disabled}
         onPress={handlePress}
         style={[
@@ -76,7 +77,9 @@ export function ProductDeleteCard({
           },
         ]}
       >
-        <Text style={[styles.buttonText, { color: colors.error }]}>Delete</Text>
+        <Text style={[styles.buttonText, { color: colors.error }]}>
+          {disabled ? 'Deleting...' : 'Delete'}
+        </Text>
       </Pressable>
     </View>
   );

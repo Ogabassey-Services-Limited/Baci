@@ -230,6 +230,6 @@ describe('POST /api/merchant/favicon', () => {
     const json = await response.json();
 
     expect(response.status).toBe(500);
-    expect(json.error).toBe('sharp failed');
+    expect(json.error).toBe('Failed to update favicon');
   });
 });

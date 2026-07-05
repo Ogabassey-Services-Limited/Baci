@@ -92,12 +92,11 @@ export function resolveBaseUrl(
       const host = getHostFromHostUri(hostUri);
       const detectedLocalUrl = `http://${formatBaseUrlHost(host)}:3000`;
 
-      if (configuredBaseUrl && isLinkLocalHost(host)) {
-        return configuredBaseUrl.replace(/\/+$/, '');
-      }
-
-      if (fallbackConfiguredBaseUrl && isLinkLocalHost(host)) {
-        return fallbackConfiguredBaseUrl.replace(/\/+$/, '');
+      if (isLinkLocalHost(host)) {
+        const preferredBaseUrl = configuredBaseUrl || fallbackConfiguredBaseUrl;
+        if (preferredBaseUrl) {
+          return preferredBaseUrl.replace(/\/+$/, '');
+        }
       }
 
       if (configuredBaseUrl && isLikelyLocalDevUrl(configuredBaseUrl)) {

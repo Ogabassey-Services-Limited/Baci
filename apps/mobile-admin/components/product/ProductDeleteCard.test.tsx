@@ -132,7 +132,8 @@ describe('ProductDeleteCard', () => {
     );
 
     expect(
-      screen.getByRole('button', { name: 'Delete product' })
+      screen.getByRole('button', { name: 'Deleting product' })
     ).toBeDisabled();
+    expect(screen.getByText('Deleting...')).toBeInTheDocument();
   });
 });
