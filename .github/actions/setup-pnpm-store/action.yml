@@ -32,14 +32,34 @@ runs:
         STORE_DIR: ${{ inputs.store-dir }}
         PNPM_BIN_DIR: ${{ inputs.pnpm-bin-dir }}
       run: |
-        PNPM_CMD="pnpm"
-        if [ -n "$PNPM_BIN_DIR" ]; then
+        set -euo pipefail
+
+        PNPM_CMD=""
+        if [ -n "${PNPM_BIN_DIR:-}" ] &&
+          [ -x "$PNPM_BIN_DIR/pnpm" ] &&
+          "$PNPM_BIN_DIR/pnpm" --version >/dev/null 2>&1; then
           PNPM_CMD="$PNPM_BIN_DIR/pnpm"
+        elif command -v pnpm >/dev/null 2>&1 && pnpm --version >/dev/null 2>&1; then
+          PNPM_CMD="$(command -v pnpm)"
+        else
+          echo "::warning::No runnable pnpm shim found; falling back to Corepack"
+          NODE_BIN_DIR="$(dirname "$(command -v node)")"
+          corepack enable pnpm
+          package_manager="$(node -p "require('./package.json').packageManager || ''")"
+          if [[ "$package_manager" == pnpm@* ]]; then
+            corepack prepare "$package_manager" --activate
+          fi
+          export PATH="$NODE_BIN_DIR:$PATH"
+          PNPM_CMD="$NODE_BIN_DIR/pnpm"
+          if [ ! -x "$PNPM_CMD" ]; then
+            PNPM_CMD="$(command -v pnpm)"
+          fi
+          "$PNPM_CMD" --version >/dev/null
         fi
 
-        if ! command -v "$PNPM_CMD" >/dev/null 2>&1; then
-          echo "::error::Unable to find pnpm executable at '$PNPM_CMD'"
-          exit 1
-        fi
+        PNPM_CMD_DIR="$(dirname "$PNPM_CMD")"
+        echo "$PNPM_CMD_DIR" >> "$GITHUB_PATH"
+        export PATH="$PNPM_CMD_DIR:$PATH"
 
         "$PNPM_CMD" config set store-dir "$STORE_DIR"
+        "$PNPM_CMD" --version

@@ -47,6 +47,7 @@ jobs:
       - name: Build & Analyze
         run: pnpm --filter @baci/web run analyze
         env:
+          NODE_OPTIONS: "--max_old_space_size=8192"
           # Fallback to dummy values for Dependabot PRs (which can't access repo secrets)
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
@@ -56,5 +57,6 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: bundle-analysis-report
-          path: apps/web/.next/analyze/
+          path: apps/web/.next/diagnostics/analyze/
           retention-days: 30
+          if-no-files-found: warn

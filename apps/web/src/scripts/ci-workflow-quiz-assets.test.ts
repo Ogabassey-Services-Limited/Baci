@@ -20,10 +20,19 @@ const bundleAnalysisWorkflowPath = resolve(
   currentDirectory,
   '../../../../.github/workflows/bundle-analysis.yml'
 );
+const androidReleaseWorkflowPath = resolve(
+  currentDirectory,
+  '../../../../.github/workflows/android-release.yml'
+);
+const webPackageJsonPath = resolve(currentDirectory, '../../package.json');
 const workflow = readFileSync(workflowPath, 'utf8');
 const deployWorkflow = readFileSync(deployWorkflowPath, 'utf8');
 const securityWorkflow = readFileSync(securityWorkflowPath, 'utf8');
 const bundleAnalysisWorkflow = readFileSync(bundleAnalysisWorkflowPath, 'utf8');
+const androidReleaseWorkflow = readFileSync(androidReleaseWorkflowPath, 'utf8');
+const webPackageJson = JSON.parse(readFileSync(webPackageJsonPath, 'utf8')) as {
+  scripts?: Record<string, string>;
+};
 const WEB_FILTER_REGEX = /^\s{12}web:\n(?<body>(?:\s{14}- .+\n)+)/m;
 
 function getWebFilter(workflowContent = workflow) {
@@ -73,5 +82,36 @@ describe('CI workflow quiz asset coverage', () => {
 
   it('runs bundle analysis when root Next config changes', () => {
     expect(bundleAnalysisWorkflow).toContain('- "next.config.ts"');
+  });
+
+  it('uses the Turbopack-compatible Next bundle analyzer script', () => {
+    expect(webPackageJson.scripts?.analyze).toBe(
+      'next experimental-analyze --output'
+    );
+  });
+
+  it('keeps enough memory available for bundle analysis in CI', () => {
+    expect(bundleAnalysisWorkflow).toContain(
+      'NODE_OPTIONS: "--max_old_space_size=8192"'
+    );
+  });
+
+  it('uploads the Next Turbopack analyzer output directory when present', () => {
+    expect(bundleAnalysisWorkflow).toContain(
+      'path: apps/web/.next/diagnostics/analyze/'
+    );
+    expect(bundleAnalysisWorkflow).toContain('if-no-files-found: warn');
+  });
+
+  it('keeps Android Play rejected-change recovery explicit', () => {
+    expect(androidReleaseWorkflow).toContain(
+      'ANDROID_ADMIN_CHANGES_NOT_SENT_FOR_REVIEW'
+    );
+    expect(androidReleaseWorkflow).toContain(
+      "github.event_name == 'workflow_dispatch' && inputs.changes_not_sent_for_review"
+    );
+    expect(androidReleaseWorkflow).toContain(
+      "env.ANDROID_ADMIN_CHANGES_NOT_SENT_FOR_REVIEW == 'true'"
+    );
   });
 });

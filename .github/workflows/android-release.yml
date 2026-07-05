@@ -42,6 +42,10 @@ env:
   # Offset added to github.run_number to avoid collisions with
   # version codes previously uploaded via EAS (1-9) and earlier runs (10).
   VERSION_CODE_BASE: '10'
+  # Keep automatic review by default. Temporarily set this repo variable to
+  # true only when Google Play rejects API commits and asks for
+  # changesNotSentForReview=true; then submit the pending edit in Play Console.
+  ANDROID_ADMIN_CHANGES_NOT_SENT_FOR_REVIEW: ${{ vars.ANDROID_ADMIN_CHANGES_NOT_SENT_FOR_REVIEW || 'false' }}
 
 jobs:
   build-and-deploy:
@@ -281,8 +285,9 @@ jobs:
           tracks: production
           status: completed
           # Keep automatic releases in the normal Play review flow. Manual
-          # recovery dispatches can set this after Play rejects automatic review.
-          changesNotSentForReview: ${{ github.event_name == 'workflow_dispatch' && inputs.changes_not_sent_for_review }}
+          # recovery dispatches or the temporary repo variable can opt into
+          # Google's rejected-change recovery mode without editing this workflow.
+          changesNotSentForReview: ${{ (github.event_name == 'workflow_dispatch' && inputs.changes_not_sent_for_review) || env.ANDROID_ADMIN_CHANGES_NOT_SENT_FOR_REVIEW == 'true' }}
 
       - name: Reconcile Android live-build update gate
         if: success() && steps.play_upload.outcome == 'success'

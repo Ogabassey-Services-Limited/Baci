@@ -36,7 +36,7 @@ runs:
 
     - name: Install pnpm
       id: setup_pnpm
-      uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       with:
         dest: ${{ runner.temp }}/setup-pnpm-install-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
 
@@ -58,18 +58,36 @@ runs:
       run: |
         set -euo pipefail
 
-        if [ -z "$PNPM_BIN_DIR" ]; then
-          echo "::error::pnpm/action-setup did not expose bin_dest"
-          exit 1
+        PNPM_CMD=""
+
+        if command -v pnpm >/dev/null 2>&1 && pnpm --version >/dev/null 2>&1; then
+          PNPM_CMD="$(command -v pnpm)"
+        elif [ -n "${PNPM_BIN_DIR:-}" ] &&
+          [ -x "$PNPM_BIN_DIR/pnpm" ] &&
+          "$PNPM_BIN_DIR/pnpm" --version >/dev/null 2>&1; then
+          PNPM_CMD="$PNPM_BIN_DIR/pnpm"
+        else
+          echo "::warning::pnpm/action-setup did not expose a runnable pnpm; falling back to Corepack"
+          NODE_BIN_DIR="$(dirname "$(command -v node)")"
+          corepack enable pnpm
+          package_manager="$(node -p "require('./package.json').packageManager || ''")"
+          if [[ "$package_manager" == pnpm@* ]]; then
+            corepack prepare "$package_manager" --activate
+          fi
+          export PATH="$NODE_BIN_DIR:$PATH"
+          PNPM_CMD="$NODE_BIN_DIR/pnpm"
+          if [ ! -x "$PNPM_CMD" ]; then
+            PNPM_CMD="$(command -v pnpm)"
+          fi
+          "$PNPM_CMD" --version >/dev/null
         fi
 
-        PNPM_CMD="$PNPM_BIN_DIR/pnpm"
-        if [ ! -x "$PNPM_CMD" ]; then
-          echo "::error::Unable to find pnpm executable at '$PNPM_CMD'"
-          exit 1
-        fi
+        PNPM_CMD_DIR="$(dirname "$PNPM_CMD")"
+        echo "$PNPM_CMD_DIR" >> "$GITHUB_PATH"
+        export PATH="$PNPM_CMD_DIR:$PATH"
 
         "$PNPM_CMD" config set store-dir "$STORE_DIR"
+        "$PNPM_CMD" --version
         echo "PNPM_STORE_DIR=$STORE_DIR" >> "$GITHUB_ENV"
 
     - name: Install Dependencies
