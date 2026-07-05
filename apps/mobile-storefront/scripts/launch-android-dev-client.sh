@@ -22,6 +22,7 @@ PID_TIMEOUT_SECONDS="${BACI_ANDROID_LAUNCH_PID_TIMEOUT_SECONDS:-45}"
 AM_START_TIMEOUT_SECONDS="${BACI_ANDROID_LAUNCH_AM_START_TIMEOUT_SECONDS:-20}"
 REVERSE_TIMEOUT_SECONDS="${BACI_ANDROID_LAUNCH_REVERSE_TIMEOUT_SECONDS:-20}"
 FORCE_STOP="${BACI_ANDROID_FORCE_STOP:-1}"
+register_temp_file_cleanup_traps
 
 export ANDROID_HOME="$SDK_ROOT"
 export ANDROID_SDK_ROOT="$SDK_ROOT"
@@ -51,46 +52,6 @@ print(quote(sys.argv[1], safe=""))
 PY
 )"
 DEV_CLIENT_URL="${SCHEME}://expo-development-client/?url=${encoded_dev_server_url}"
-
-wait_for_adb_shell() {
-  local deadline=$((SECONDS + SHELL_TIMEOUT_SECONDS))
-  local boot_completed
-  local probe
-
-  while (( SECONDS < deadline )); do
-    boot_completed="$(run_with_timeout 5 "$ADB" -s "$ADB_SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r\n ' || true)"
-    probe="$(run_with_timeout 5 "$ADB" -s "$ADB_SERIAL" shell echo ok 2>/dev/null | tr -d '\r\n ' || true)"
-    if [[ "$boot_completed" == "1" && "$probe" == "ok" ]]; then
-      return 0
-    fi
-    sleep 3
-  done
-
-  return 1
-}
-
-wait_for_android_settle() {
-  local deadline=$((SECONDS + SETTLE_TIMEOUT_SECONDS))
-  local load_one
-  local stable_probe_count=0
-
-  while (( SECONDS < deadline )); do
-    load_one="$(run_with_timeout 5 "$ADB" -s "$ADB_SERIAL" shell cat /proc/loadavg 2>/dev/null | awk '{print $1}' || true)"
-    if [[ -n "$load_one" ]] && awk -v load="$load_one" -v max="$SETTLE_LOAD_MAX" 'BEGIN { exit !(load <= max) }'; then
-      stable_probe_count=$((stable_probe_count + 1))
-      if (( stable_probe_count >= SETTLE_STABILITY_PROBES )); then
-        return 0
-      fi
-    else
-      stable_probe_count=0
-    fi
-
-    echo "Android load average: ${load_one:-unknown} (target <= $SETTLE_LOAD_MAX)"
-    sleep 5
-  done
-
-  return 1
-}
 
 ensure_metro_reverse() {
   if ! run_with_timeout "$REVERSE_TIMEOUT_SECONDS" "$ADB" -s "$ADB_SERIAL" reverse "tcp:${METRO_PORT}" "tcp:${METRO_PORT}" >/dev/null; then
@@ -124,12 +85,12 @@ echo "Device: $ADB_SERIAL"
 echo "Package: $APP_ID"
 echo "Metro: $DEV_SERVER_URL"
 
-if ! wait_for_adb_shell; then
+if ! wait_for_adb_shell_ready "$SHELL_TIMEOUT_SECONDS"; then
   echo "No responsive Android shell on ${ADB_SERIAL}. Start with: pnpm --filter @baci/mobile-storefront android:emulator" >&2
   exit 1
 fi
 
-if ! wait_for_android_settle; then
+if ! wait_for_android_load_settle "$SETTLE_TIMEOUT_SECONDS" "$SETTLE_LOAD_MAX" "$SETTLE_STABILITY_PROBES"; then
   echo "Android did not settle below load ${SETTLE_LOAD_MAX} within ${SETTLE_TIMEOUT_SECONDS}s." >&2
   exit 1
 fi

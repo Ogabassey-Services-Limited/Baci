@@ -157,6 +157,9 @@ jobs:
           CI: "1"
           NODE_OPTIONS: ${{ env.ANDROID_NODE_OPTIONS }}
           ANDROID_VERSION_CODE: ${{ env.VERSION_CODE }}
+          # Embedded Android release bundles can use Worklets bundle mode; OTA
+          # update jobs intentionally leave this unset until the loader is fixed.
+          BACI_MOBILE_STOREFRONT_WORKLETS_BUNDLE_MODE: "1"
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           EXPO_PUBLIC_WEB_API_URL: https://usebaci.com
@@ -202,6 +205,9 @@ jobs:
         env:
           GRADLE_OPTS: ${{ env.ANDROID_GRADLE_OPTS }}
           NODE_OPTIONS: ${{ env.ANDROID_NODE_OPTIONS }}
+          # Embedded Android release bundles can use Worklets bundle mode; OTA
+          # update jobs intentionally leave this unset until the loader is fixed.
+          BACI_MOBILE_STOREFRONT_WORKLETS_BUNDLE_MODE: "1"
           ANDROID_KEYSTORE_FILE: ${{ env.ANDROID_STOREFRONT_KEYSTORE_FILE }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_STOREFRONT_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_STOREFRONT_KEY_ALIAS }}

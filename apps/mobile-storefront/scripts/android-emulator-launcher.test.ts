@@ -1,186 +1,298 @@
-import { readFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const appRoot = path.resolve(__dirname, '..');
+const scriptsRoot = path.join(appRoot, 'scripts');
+const avdName = 'Baci_Pixel_9_Pro_XL_API_36_Google';
+type Harness = {
+  cleanup: () => void;
+  env: NodeJS.ProcessEnv;
+  stateDir: string;
+};
+type EnvOverrides = Record<string, string | undefined>;
+function writeExecutable(filePath: string, source: string) {
+  mkdirSync(path.dirname(filePath), { recursive: true });
+  writeFileSync(filePath, source);
+  chmodSync(filePath, 0o755);
+}
 
-function expectAndroidHelpersHasSdkRootDefaults(source: string) {
-  expect(source).toContain('default_sdk_root');
-  expect(source).toContain('$HOME/Android/Sdk');
+function createHarness(): Harness {
+  const root = mkdtempSync(path.join(tmpdir(), 'baci-storefront-android-'));
+  const sdkRoot = path.join(root, 'sdk');
+  const stateDir = path.join(root, 'state');
+  const avdHome = path.join(root, 'avd-home');
+  mkdirSync(stateDir, { recursive: true });
+  mkdirSync(path.join(avdHome, `${avdName}.avd`), { recursive: true });
+  writeExecutable(
+    path.join(sdkRoot, 'platform-tools/adb'),
+    `#!/usr/bin/env bash
+set -euo pipefail
+STATE_DIR="\${BACI_FAKE_ANDROID_STATE_DIR:?}"
+serial=""
+if [[ "\${1:-}" == "-s" ]]; then
+  serial="$2"
+  shift 2
+fi
+cmd="\${1:-}"
+if [[ "$#" -gt 0 ]]; then
+  shift
+fi
+echo "\${serial:+-s $serial }\${cmd} $*" >> "$STATE_DIR/adb.log"
+case "$cmd" in
+  kill-server)
+    exit 0 ;;
+  start-server)
+    if [[ "\${BACI_FAKE_ADB_START_STALL:-0}" == "1" ]]; then
+      sleep 30
+    fi
+    exit 0 ;;
+  devices)
+    echo "List of devices attached"
+    if [[ -f "$STATE_DIR/device-present" ]]; then
+      printf 'emulator-%s\\tdevice\\n' "\${BACI_ANDROID_EMULATOR_PORT:-5554}"
+    fi
+    ;;
+  emu)
+    if [[ "\${1:-}" == "kill" && "\${BACI_FAKE_ADB_KEEP_DEVICE_AFTER_KILL:-0}" != "1" ]]; then
+      rm -f "$STATE_DIR/device-present"
+    fi
+    ;;
+  get-state)
+    echo "device" ;;
+  reverse)
+    if [[ "\${1:-}" == "--list" ]]; then
+      echo "emulator-5554 tcp:8082 tcp:8082"
+    else
+      echo "reverse $*" >> "$STATE_DIR/reverse-ran"
+    fi
+    ;;
+  shell)
+    subcmd="\${1:-}"
+    if [[ "$#" -gt 0 ]]; then
+      shift
+    fi
+    case "$subcmd" in
+      getprop)
+        if [[ "\${1:-}" == "sys.boot_completed" ]]; then
+          printf '%s\\n' "\${BACI_FAKE_ADB_BOOT_COMPLETED:-1}"
+        fi
+        ;;
+      echo)
+        printf '%s\\n' "$*"
+        ;;
+      cat)
+        if [[ "\${1:-}" == "/proc/loadavg" ]]; then
+          echo "\${BACI_FAKE_ADB_LOADAVG:-0.01 0.01 0.01 1/100 123}"
+        fi
+        ;;
+      pidof)
+        echo "\${BACI_FAKE_ADB_PIDOF:-4242}"
+        ;;
+      am)
+        echo "am $*" >> "$STATE_DIR/am-ran"
+        ;;
+      svc | settings | cmd)
+        exit 0
+        ;;
+    esac
+    ;;
+esac
+`
+  );
+  writeExecutable(
+    path.join(sdkRoot, 'emulator/emulator'),
+    `#!/usr/bin/env bash
+set -euo pipefail
+STATE_DIR="\${BACI_FAKE_ANDROID_STATE_DIR:?}"
+if [[ "\${1:-}" == "-version" ]]; then
+  echo "Android emulator version 36.3.10.0 (build_id 15261927)"
+  exit 0
+fi
+if [[ "\${1:-}" == "-list-avds" ]]; then
+  echo "${avdName}"
+  exit 0
+fi
+echo "$$" > "$STATE_DIR/fake-emulator-pid"
+trap 'echo terminated > "$STATE_DIR/fake-emulator-terminated"; exit 0' TERM INT
+while true; do
+  sleep 1
+done
+`
+  );
+
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    ANDROID_AVD_HOME: avdHome,
+    ANDROID_HOME: sdkRoot,
+    ANDROID_SDK_ROOT: sdkRoot,
+    BACI_ANDROID_EMULATOR_LOG: path.join(stateDir, 'emulator.log'),
+    BACI_FAKE_ANDROID_STATE_DIR: stateDir,
+    HOME: root,
+  };
+
+  return {
+    cleanup: () => {
+      const pidPath = path.join(stateDir, 'fake-emulator-pid');
+      if (existsSync(pidPath)) {
+        const pid = Number.parseInt(readFileSync(pidPath, 'utf8'), 10);
+        if (Number.isFinite(pid)) {
+          try {
+            process.kill(-pid, 'SIGKILL');
+          } catch {
+            try {
+              process.kill(pid, 'SIGKILL');
+            } catch {
+              // The launcher may already have terminated the fake emulator.
+            }
+          }
+        }
+      }
+      rmSync(root, { force: true, recursive: true });
+    },
+    env,
+    stateDir,
+  };
+}
+
+function runScript(
+  scriptName: string,
+  harness: Harness,
+  env: EnvOverrides = {}
+) {
+  return spawnSync('bash', [path.join(scriptsRoot, scriptName)], {
+    cwd: appRoot,
+    encoding: 'utf8',
+    env: { ...harness.env, ...env },
+    timeout: 10_000,
+  });
 }
 
 describe('Android emulator launcher (storefront)', () => {
-  const packageJson = JSON.parse(
-    readFileSync(path.join(appRoot, 'package.json'), 'utf8')
-  ) as { scripts?: Record<string, string> };
-  const launcher = readFileSync(
-    path.join(appRoot, 'scripts/launch-android-emulator.sh'),
-    'utf8'
+  it('launches the dev client through fake adb and Metro reverse', () => {
+    const harness = createHarness();
+    try {
+      const result = runScript('launch-android-dev-client.sh', harness);
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('Android dev client ready');
+      const reverseLog = readFileSync(path.join(harness.stateDir, 'reverse-ran'), 'utf8');
+      const activityLog = readFileSync(path.join(harness.stateDir, 'am-ran'), 'utf8');
+      expect(reverseLog).toContain('tcp:8082 tcp:8082');
+      expect(activityLog).toContain('android.intent.action.VIEW');
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it('fails cleanly when adb server start stalls before boot probes', () => {
+    const harness = createHarness();
+    try {
+      const result = runScript('launch-android-emulator.sh', harness, {
+        BACI_ANDROID_ADB_SERVER_TIMEOUT_SECONDS: '0.1',
+        BACI_FAKE_ADB_START_STALL: '1',
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('Timed out starting adb server within 0.1s');
+      expect(existsSync(path.join(harness.stateDir, 'fake-emulator-pid'))).toBe(false);
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it('waits for the previous emulator to disappear before relaunching', () => {
+    const harness = createHarness();
+    try {
+      writeFileSync(path.join(harness.stateDir, 'device-present'), '1');
+      const result = runScript('launch-android-emulator.sh', harness, {
+        BACI_ANDROID_ADB_SERVER_TIMEOUT_SECONDS: '1',
+        BACI_ANDROID_OLD_EMULATOR_SHUTDOWN_TIMEOUT_SECONDS: '1',
+        BACI_FAKE_ADB_KEEP_DEVICE_AFTER_KILL: '1',
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        'Previous emulator on emulator-5554 did not shut down within 1s'
+      );
+      expect(existsSync(path.join(harness.stateDir, 'fake-emulator-pid'))).toBe(false);
+    } finally {
+      harness.cleanup();
+    }
+  });
+  it('rejects nonnumeric Android load probes', () => {
+    const harness = createHarness();
+    try {
+      const result = runScript('launch-android-dev-client.sh', harness, {
+        BACI_ANDROID_LAUNCH_SETTLE_TIMEOUT_SECONDS: '1',
+        BACI_FAKE_ADB_LOADAVG: 'not-ready',
+      });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('Android did not settle below load');
+    } finally {
+      harness.cleanup();
+    }
+  });
+  it(
+    'terminates the detached emulator process group on SIGINT',
+    async () => {
+      const harness = createHarness();
+      const child = spawn('bash', [path.join(scriptsRoot, 'launch-android-emulator.sh')], {
+        cwd: appRoot,
+        env: {
+          ...harness.env,
+          BACI_ANDROID_BOOT_TIMEOUT_SECONDS: '30',
+          BACI_FAKE_ADB_BOOT_COMPLETED: '0',
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      try {
+        let stdout = '';
+        let sawEmulatorPid = false;
+        const childStdout = child.stdout;
+        if (!childStdout) {
+          throw new Error('Expected launcher stdout to be piped.');
+        }
+        const exitPromise = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
+          (resolve) => {
+            child.on('exit', (code, signal) => resolve({ code, signal }));
+          }
+        );
+        await new Promise<void>((resolve, reject) => {
+          child.on('error', reject);
+          child.on('exit', () => {
+            if (!sawEmulatorPid) {
+              reject(new Error(stdout));
+            }
+          });
+          childStdout.on('data', (chunk: Buffer) => {
+            stdout += chunk.toString('utf8');
+            if (stdout.includes('Emulator PID:')) {
+              sawEmulatorPid = true;
+              child.kill('SIGINT');
+              resolve();
+            }
+          });
+        });
+        const exit = await exitPromise;
+        expect(exit.code).toBe(130);
+        expect(existsSync(path.join(harness.stateDir, 'fake-emulator-terminated'))).toBe(
+          true
+        );
+      } finally {
+        child.kill('SIGKILL');
+        harness.cleanup();
+      }
+    },
+    12_000
   );
-  const timeoutHelpers = readFileSync(
-    path.join(appRoot, 'scripts/lib/timeout.sh'),
-    'utf8'
-  );
-  const androidHelpers = readFileSync(
-    path.join(appRoot, 'scripts/lib/android-common.sh'),
-    'utf8'
-  );
-  const debugApkInstaller = readFileSync(
-    path.join(appRoot, 'scripts/install-android-debug.sh'),
-    'utf8'
-  );
-  const devClientLauncher = readFileSync(
-    path.join(appRoot, 'scripts/launch-android-dev-client.sh'),
-    'utf8'
-  );
-
-  it('wires the four android QA entrypoints in package.json', () => {
-    expect(packageJson.scripts?.['android:emulator']).toBe(
-      'bash ./scripts/launch-android-emulator.sh'
-    );
-    expect(packageJson.scripts?.['android:install']).toBe(
-      'bash ./scripts/install-android-debug.sh'
-    );
-    expect(packageJson.scripts?.['android:metro']).toBe(
-      "NODE_OPTIONS='--no-warnings --import tsx' expo start --dev-client --scheme ogabassey --host lan --port 8082"
-    );
-    expect(packageJson.scripts?.['android:launch']).toBe(
-      'bash ./scripts/launch-android-dev-client.sh'
-    );
-  });
-
-  it('keeps the emulator launcher on the shared AVD with safe GPU and boot policy', () => {
-    expect(launcher).toContain(
-      'BACI_ANDROID_AVD_NAME:-Baci_Pixel_9_Pro_XL_API_36_Google'
-    );
-    expect(launcher).toContain('BACI_ANDROID_GPU_MODE:-auto');
-    expect(launcher).toContain('Refusing -gpu swiftshader_indirect');
-    expect(launcher).toContain(
-      'BACI_ANDROID_SYSTEM_IMAGE_PACKAGE:-system-images;android-36;google_apis;arm64-v8a'
-    );
-    expect(launcher).toContain('BACI_ANDROID_EMULATOR_PORT:-5554');
-    expect(launcher).toContain('BACI_ANDROID_EMULATOR_MEMORY_MB:-4096');
-    expect(launcher).toContain('BACI_ANDROID_EMULATOR_CORES:-2');
-    expect(launcher).toContain('source "${SCRIPT_DIR}/lib/android-common.sh"');
-    expectAndroidHelpersHasSdkRootDefaults(androidHelpers);
-    expect(launcher).toContain('source "${SCRIPT_DIR}/lib/timeout.sh"');
-    expect(launcher).toContain('remove_stale_avd_locks');
-    expect(launcher).toContain('confirm_adb_shell_stable');
-    expect(launcher).toContain('stabilize_android_system');
-    expect(launcher).toContain('wait_for_android_settle');
-    expect(launcher).toContain('register_temp_file_cleanup_traps');
-    expect(androidHelpers).toContain('trap cleanup EXIT');
-    expect(launcher.split('\n').length).toBeLessThanOrEqual(300);
-  });
-
-  it('targets storefront Metro port and log file in the emulator launcher', () => {
-    expect(launcher).toContain('BACI_ANDROID_METRO_PORT:-8082');
-    expect(launcher).toContain('baci-mobile-storefront-emulator.log');
-    expect(androidHelpers).toContain('dedicated Baci QA AVD');
-    expect(launcher).toContain('terminate_process_group "$emulator_pid"');
-    expect(androidHelpers).toContain('kill -- "-${process_pid}"');
-    expect(androidHelpers).toContain('kill -0 -- "-${process_pid}"');
-    expect(androidHelpers).toContain('kill -9 -- "-${process_pid}"');
-    expect(launcher).toContain(
-      'pnpm --filter @baci/mobile-storefront android:emulator'
-    );
-    expect(launcher).not.toContain('baci-mobile-admin');
-  });
-
-  it('installs the debug APK with the non-streaming flags and boot checks', () => {
-    expect(debugApkInstaller).toContain(
-      'BACI_ANDROID_APK_PATH:-android/app/build/outputs/apk/debug/app-debug.apk'
-    );
-    expect(debugApkInstaller).toContain('getprop sys.boot_completed');
-    expect(debugApkInstaller).toContain(
-      'run_with_timeout "$ADB_SHELL_TIMEOUT_SECONDS" "$ADB" -s "$ADB_SERIAL" get-state'
-    );
-    expect(debugApkInstaller).toContain('install -r -d -t --no-streaming');
-    expect(debugApkInstaller).toContain('BACI_ANDROID_ADB_INSTALL_TIMEOUT_SECONDS:-120');
-    expect(debugApkInstaller).toContain(
-      'run_with_timeout "$ADB_INSTALL_TIMEOUT_SECONDS" "$ADB" -s "$ADB_SERIAL" install'
-    );
-    expect(debugApkInstaller).not.toContain('installDebug');
-    expect(debugApkInstaller).toContain(
-      'pnpm --filter @baci/mobile-storefront android:emulator'
-    );
-  });
-
-  it('launches the dev client with storefront app id, scheme, and Metro reverse', () => {
-    expect(devClientLauncher).toContain(
-      'BACI_ANDROID_APP_ID:-com.ogabassey.store'
-    );
-    expect(devClientLauncher).toContain('BACI_ANDROID_SCHEME:-ogabassey');
-    expect(devClientLauncher).toContain('BACI_ANDROID_METRO_PORT:-8082');
-    expect(devClientLauncher).toContain('BACI_ANDROID_EMULATOR_PORT:-5554');
-    expect(devClientLauncher).toContain(
-      'ADB_SERIAL="${BACI_ANDROID_ADB_SERIAL:-emulator-${EMULATOR_PORT}}"'
-    );
-    expect(devClientLauncher).toContain(
-      'source "${SCRIPT_DIR}/lib/android-common.sh"'
-    );
-    expectAndroidHelpersHasSdkRootDefaults(androidHelpers);
-    expect(devClientLauncher).toContain(
-      'source "${SCRIPT_DIR}/lib/timeout.sh"'
-    );
-    expect(devClientLauncher).toContain(
-      'BACI_ANDROID_DEV_SERVER_URL:-http://10.0.2.2:${METRO_PORT}'
-    );
-    expect(devClientLauncher).toContain('expo-development-client');
-    expect(devClientLauncher).toContain('ensure_metro_reverse');
-    expect(devClientLauncher).toContain('pidof -s "$APP_ID"');
-    expect(devClientLauncher).not.toContain('com.ogabassey.baci');
-  });
-
-  it('uses shared timeout helpers that terminate stalled child process groups', () => {
-    expect(timeoutHelpers).toContain('start_new_session=True');
-    expect(timeoutHelpers).toContain('os.killpg(process.pid, signal.SIGTERM)');
-    expect(timeoutHelpers).toContain('os.killpg(process.pid, signal.SIGKILL)');
-    expect(timeoutHelpers).toContain('sys.exit(124)');
-    expect(timeoutHelpers).toContain('capture_with_timeout()');
-    expect(launcher).not.toContain('run_with_timeout()');
-    expect(devClientLauncher).not.toContain('run_with_timeout()');
-  });
-
-  it('bounds emulator stabilization commands through the shared timeout helper', () => {
-    expect(androidHelpers).toContain('run_stabilization_adb()');
-    expect(androidHelpers).toContain(
-      'run_with_timeout "$timeout_seconds" "$ADB" -s "$ADB_SERIAL" "$@"'
-    );
-    expect(androidHelpers).toContain(
-      'failed during Android stabilization with exit ${status}'
-    );
-    expect(androidHelpers).toContain(
-      'run_stabilization_adb shell svc bluetooth disable'
-    );
-    expect(androidHelpers).toContain(
-      'run_stabilization_adb shell settings put global window_animation_scale 0'
-    );
-    expect(androidHelpers).toContain(
-      'run_stabilization_adb shell cmd package disable-user --user 0 "$package_name" || true'
-    );
-    expect(androidHelpers).toContain(
-      'run_stabilization_adb shell svc bluetooth disable || return $?'
-    );
-    expect(launcher).toContain(
-      'Emulator booted, but Android stabilization timed out.'
-    );
-  });
-
-  it('bounds dev-client adb probes through the shared timeout helper', () => {
-    expect(devClientLauncher).toContain(
-      'run_with_timeout 5 "$ADB" -s "$ADB_SERIAL" shell getprop sys.boot_completed'
-    );
-    expect(devClientLauncher).toContain(
-      'run_with_timeout 5 "$ADB" -s "$ADB_SERIAL" shell echo ok'
-    );
-    expect(devClientLauncher).toContain(
-      'run_with_timeout 5 "$ADB" -s "$ADB_SERIAL" shell cat /proc/loadavg'
-    );
-    expect(devClientLauncher).toContain(
-      'run_with_timeout 5 "$ADB" -s "$ADB_SERIAL" shell pidof -s "$APP_ID"'
-    );
-    expect(devClientLauncher).toContain(
-      'run_with_timeout "$REVERSE_TIMEOUT_SECONDS" "$ADB" -s "$ADB_SERIAL" reverse'
-    );
-  });
 });

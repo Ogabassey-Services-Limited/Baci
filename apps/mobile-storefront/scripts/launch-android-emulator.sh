@@ -21,6 +21,8 @@ EMULATOR_PORT="${BACI_ANDROID_EMULATOR_PORT:-5554}"
 ADB_SERIAL="${BACI_ANDROID_ADB_SERIAL:-emulator-${EMULATOR_PORT}}"
 MIN_EMULATOR_BUILD="${BACI_ANDROID_MIN_EMULATOR_BUILD:-15261927}"
 ADB_STABILITY_PROBES="${BACI_ANDROID_ADB_STABILITY_PROBES:-3}"
+ADB_SERVER_TIMEOUT_SECONDS="${BACI_ANDROID_ADB_SERVER_TIMEOUT_SECONDS:-20}"
+OLD_EMULATOR_SHUTDOWN_TIMEOUT_SECONDS="${BACI_ANDROID_OLD_EMULATOR_SHUTDOWN_TIMEOUT_SECONDS:-60}"
 EMULATOR_MEMORY_MB="${BACI_ANDROID_EMULATOR_MEMORY_MB:-4096}"
 EMULATOR_CORES="${BACI_ANDROID_EMULATOR_CORES:-2}"
 COLD_BOOT="${BACI_ANDROID_COLD_BOOT:-0}"
@@ -81,90 +83,6 @@ if ! "$EMULATOR" -list-avds | grep -Fxq -- "$AVD_NAME"; then
   exit 1
 fi
 
-wait_for_adb_shell() {
-  local deadline=$((SECONDS + BOOT_TIMEOUT_SECONDS))
-  local boot_output
-  local probe_output
-
-  while (( SECONDS < deadline )); do
-    boot_output="$(mktemp)"
-    track_temp_file "$boot_output"
-    if capture_with_timeout 5 "$boot_output" "$ADB" -s "$ADB_SERIAL" shell getprop sys.boot_completed; then
-      if [[ "$(tr -d '\r\n ' < "$boot_output")" == "1" ]]; then
-        probe_output="$(mktemp)"
-        track_temp_file "$probe_output"
-        if capture_with_timeout 5 "$probe_output" "$ADB" -s "$ADB_SERIAL" shell echo ok; then
-          if [[ "$(tr -d '\r\n ' < "$probe_output")" == "ok" ]]; then
-            remove_temp_file "$boot_output"
-            remove_temp_file "$probe_output"
-            return 0
-          fi
-        fi
-        remove_temp_file "$probe_output"
-      fi
-    fi
-    remove_temp_file "$boot_output"
-    sleep 3
-  done
-
-  return 1
-}
-
-confirm_adb_shell_stable() {
-  local probe
-  local probe_output
-
-  for ((probe = 1; probe <= ADB_STABILITY_PROBES; probe++)); do
-    probe_output="$(mktemp)"
-    track_temp_file "$probe_output"
-    if ! capture_with_timeout 5 "$probe_output" "$ADB" -s "$ADB_SERIAL" shell echo ok; then
-      remove_temp_file "$probe_output"
-      return 1
-    fi
-
-    if [[ "$(tr -d '\r\n ' < "$probe_output")" != "ok" ]]; then
-      remove_temp_file "$probe_output"
-      return 1
-    fi
-
-    remove_temp_file "$probe_output"
-    sleep 2
-  done
-
-  return 0
-}
-
-wait_for_android_settle() {
-  local deadline=$((SECONDS + SETTLE_TIMEOUT_SECONDS))
-  local load_output
-  local load_one
-  local stable_probe_count=0
-
-  while (( SECONDS < deadline )); do
-    load_output="$(mktemp)"
-    track_temp_file "$load_output"
-    if capture_with_timeout 5 "$load_output" "$ADB" -s "$ADB_SERIAL" shell cat /proc/loadavg; then
-      load_one="$(awk '{print $1}' "$load_output")"
-      if awk -v load="$load_one" -v max="$SETTLE_LOAD_MAX" 'BEGIN { exit !(load <= max) }'; then
-        stable_probe_count=$((stable_probe_count + 1))
-        if (( stable_probe_count >= SETTLE_STABILITY_PROBES )); then
-          remove_temp_file "$load_output"
-          return 0
-        fi
-      else
-        stable_probe_count=0
-      fi
-      echo "Android load average: ${load_one:-unknown} (target <= $SETTLE_LOAD_MAX)"
-    else
-      stable_probe_count=0
-    fi
-    remove_temp_file "$load_output"
-    sleep 5
-  done
-
-  return 1
-}
-
 echo "Starting Android emulator for mobile-storefront QA"
 echo "AVD: $AVD_NAME"
 echo "Platform package: $ANDROID_PLATFORM_PACKAGE"
@@ -179,12 +97,18 @@ echo "DNS servers: ${DNS_SERVERS:-host default}"
 echo "Emulator: $emulator_version_output"
 echo "Log: $LOG_FILE"
 
-"$ADB" kill-server >/dev/null 2>&1 || true
-"$ADB" start-server >/dev/null
+run_with_timeout "$ADB_SERVER_TIMEOUT_SECONDS" "$ADB" kill-server >/dev/null 2>&1 || true
+if ! run_with_timeout "$ADB_SERVER_TIMEOUT_SECONDS" "$ADB" start-server >/dev/null; then
+  echo "Timed out starting adb server within ${ADB_SERVER_TIMEOUT_SECONDS}s." >&2
+  exit 1
+fi
 
-if "$ADB" devices | grep -q "^${ADB_SERIAL}[[:space:]]"; then
-  "$ADB" -s "$ADB_SERIAL" emu kill >/dev/null 2>&1 || true
-  sleep 3
+if adb_serial_is_listed "$ADB_SERVER_TIMEOUT_SECONDS"; then
+  run_with_timeout "$ADB_SERVER_TIMEOUT_SECONDS" "$ADB" -s "$ADB_SERIAL" emu kill >/dev/null 2>&1 || true
+  if ! wait_for_emulator_shutdown "$OLD_EMULATOR_SHUTDOWN_TIMEOUT_SECONDS" "$ADB_SERVER_TIMEOUT_SECONDS"; then
+    echo "Previous emulator on ${ADB_SERIAL} did not shut down within ${OLD_EMULATOR_SHUTDOWN_TIMEOUT_SECONDS}s." >&2
+    exit 1
+  fi
 fi
 remove_stale_avd_locks
 
@@ -230,8 +154,9 @@ print(process.pid)
 PY
 )"
 echo "Emulator PID: $emulator_pid"
+track_cleanup_process "$emulator_pid"
 
-if ! wait_for_adb_shell; then
+if ! wait_for_adb_shell_ready "$BOOT_TIMEOUT_SECONDS"; then
   echo "Emulator did not reach a responsive adb shell within ${BOOT_TIMEOUT_SECONDS}s." >&2
   echo "Last emulator log lines:" >&2
   tail -40 "$LOG_FILE" >&2 || true
@@ -239,7 +164,7 @@ if ! wait_for_adb_shell; then
   exit 1
 fi
 
-if ! confirm_adb_shell_stable; then
+if ! confirm_adb_shell_stable "$ADB_STABILITY_PROBES"; then
   echo "Emulator booted, but adb shell did not stay responsive." >&2
   echo "Last emulator log lines:" >&2
   tail -40 "$LOG_FILE" >&2 || true
@@ -255,7 +180,7 @@ if ! stabilize_android_system; then
   exit 1
 fi
 
-if ! wait_for_android_settle; then
+if ! wait_for_android_load_settle "$SETTLE_TIMEOUT_SECONDS" "$SETTLE_LOAD_MAX" "$SETTLE_STABILITY_PROBES"; then
   echo "Emulator booted, but Android did not settle below load ${SETTLE_LOAD_MAX} within ${SETTLE_TIMEOUT_SECONDS}s." >&2
   echo "Last emulator log lines:" >&2
   tail -40 "$LOG_FILE" >&2 || true
@@ -263,5 +188,6 @@ if ! wait_for_android_settle; then
   exit 1
 fi
 
+untrack_cleanup_process "$emulator_pid"
 echo "Android emulator ready on $ADB_SERIAL."
 echo "Use this emulator for QA; do not relaunch it with raw emulator commands or -gpu swiftshader_indirect."
