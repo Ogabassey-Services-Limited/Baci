@@ -61,7 +61,12 @@ module.exports = (api) => {
           ],
         },
       ],
-      'react-native-worklets/plugin',
+      // Bundle mode (worklets 0.10 stable) loads worklets from the JS bundle
+      // instead of duplicating them per runtime — recovers the Hermes/Android
+      // memory cost of importing reanimated. Disabled under jest: tests have
+      // no worklet runtimes to load bundles into. strictGlobal deliberately
+      // NOT enabled yet — separate change, separate risk.
+      ['react-native-worklets/plugin', isTest ? {} : { bundleMode: true }],
     ],
     env: {
       test: {

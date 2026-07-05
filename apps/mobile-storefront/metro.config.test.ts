@@ -22,6 +22,10 @@ type MetroResolver = (
 jest.mock('expo/metro-config', () => ({
   getDefaultConfig: () => ({
     resolver: {},
+    // Worklets bundle mode writes serializer.createModuleIdFactory and wraps
+    // transformer.getTransformOptions; the real Expo config always has these.
+    serializer: {},
+    transformer: {},
   }),
 }));
 
@@ -157,5 +161,15 @@ describe('Metro web runtime resolution', () => {
       'react',
       'web'
     );
+  });
+
+  it('applies worklets bundle mode as the outermost config wrapper', () => {
+    const serializer = (
+      metroConfig as unknown as {
+        serializer: { createModuleIdFactory?: unknown };
+      }
+    ).serializer;
+
+    expect(serializer.createModuleIdFactory).toEqual(expect.any(Function));
   });
 });

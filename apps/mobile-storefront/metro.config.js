@@ -118,4 +118,12 @@ config.resolver = {
   ],
 };
 
-module.exports = config;
+// Worklets bundle mode must wrap the FULL config LAST: it composes
+// resolver.resolveRequest, so applying it before the resolver assignment above
+// would let `config.resolver = {…}` overwrite it. Recovers the Hermes/Android
+// memory cost of importing reanimated (SDK 57 / worklets 0.10 stable).
+const {
+  getBundleModeMetroConfig,
+} = require('react-native-worklets/bundleMode');
+
+module.exports = getBundleModeMetroConfig(config);
