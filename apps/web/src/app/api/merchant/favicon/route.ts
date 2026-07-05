@@ -16,13 +16,23 @@ import {
   authenticateApiRequest,
   getUserAccess,
   hasPermission,
+  type UserAccess,
 } from '@/lib/api-auth';
+import { revalidateMerchant } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   FaviconValidationError,
   processFavicon,
 } from '@/lib/favicon-processor';
 import { checkRateLimit } from '@/lib/rate-limiter';
+
+function canEditSettings(access: UserAccess) {
+  return (
+    hasPermission(access, 'settings', 'edit') ||
+    hasPermission(access, 'settings', 'all') ||
+    hasPermission(access, 'full_access', 'all')
+  );
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,7 +59,7 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-    if (!hasPermission(access, 'settings', 'edit')) {
+    if (!canEditSettings(access)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -92,6 +102,15 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       throw updateError;
+    }
+
+    try {
+      revalidateMerchant(merchantId);
+    } catch (revalidationError) {
+      console.warn('Merchant favicon cache revalidation failed:', {
+        error: revalidationError,
+        merchantId,
+      });
     }
 
     return NextResponse.json({ success: true, ...result });

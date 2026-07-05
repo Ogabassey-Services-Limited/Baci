@@ -97,13 +97,13 @@ describe('PATCH /api/products/[id]/archive', () => {
       isOwner: false,
       isStaff: true,
       merchantId: 'merchant-1',
-      permissions: { products: { delete: true } },
+      permissions: { products: { edit: true } },
       role: 'manager',
     });
     mocks.hasPermission.mockReturnValue(true);
   });
 
-  it('archives a merchant product when the user has delete permission', async () => {
+  it('archives a merchant product when the user has edit permission', async () => {
     const response = await PATCH(makeRequest(), makeContext());
 
     expect(response.status).toBe(200);
@@ -114,7 +114,7 @@ describe('PATCH /api/products/[id]/archive', () => {
     expect(mocks.hasPermission).toHaveBeenCalledWith(
       expect.objectContaining({ merchantId: 'merchant-1' }),
       'products',
-      'delete'
+      'edit'
     );
     expect(mocks.updatePayload).toMatchObject({ status: 'archived' });
     expect(mocks.filters).toContainEqual([
@@ -156,7 +156,7 @@ describe('PATCH /api/products/[id]/archive', () => {
     expect(mocks.revalidateProducts).not.toHaveBeenCalled();
   });
 
-  it('rejects users without product delete permission', async () => {
+  it('rejects users without product edit permission', async () => {
     mocks.hasPermission.mockReturnValue(false);
 
     const response = await PATCH(makeRequest(), makeContext());
