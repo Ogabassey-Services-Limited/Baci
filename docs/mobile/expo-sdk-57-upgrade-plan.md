@@ -93,14 +93,14 @@ review's findings and must be re-verified.
 | `react-native` | 0.85.3 | **0.86.0** | **Upgrade** | Core of the SDK bump. Refresh `react-native@*.patch`. |
 | `react-native-reanimated` | 4.4.1 | ~4.5 | **Upgrade** | Bundle-mode + fixes. |
 | `react-native-worklets` | 0.9.2 | ~0.10 | **Upgrade** | Bundle mode stable. |
-| `react-native-gesture-handler` | ~3.0.1 | (changelog cites 2.32) | **Verify** | Local is a *major ahead* of changelog text — confirm 57's real pin; likely keep local. |
+| `react-native-gesture-handler` | ~3.0.1 | ~2.32.0 (confirmed) | **Keep local** | Local 3.x is a major AHEAD of 57's pin; keep, verify RN 0.86 compat. |
 | `@react-native-async-storage/async-storage` | ^3.1.1 | 2.2.0 | **Keep local** | Do **not** downgrade; verify 3.x runs on RN 0.86. |
 | `@shopify/flash-list` | 2.3.2 | 2.0.2 | **Keep local** | Keep newer; verify RN 0.86 compat. |
 | `react-native-safe-area-context` | 5.8.0 | ~5.7.0 | **Keep local** | Has a pinned patch (`@5.8.0`) — keep + re-verify patch applies. |
 | `react-native-svg` | 15.15.5 | 15.15.4 | **Keep local** | Version **override** only (no pnpm patch); keep pin one ahead. |
 | `react-native-keyboard-controller` (storefront) | 1.21.11 | 1.21.9 | **Keep local** | Keep newer. |
-| `react-native-web` | ~0.21.2 | (verify) | **Verify** | Align to 57 if it moves. |
-| `react-native-screens` | 4.25.2 | (verify) | **Verify** | Not excluded in admin exclude list — bumped by `--fix`; confirm. |
+| `react-native-web` | ~0.21.2 | ~0.21.0 (confirmed) | **Keep local** | In range; no action. |
+| `react-native-screens` | 4.25.2 | 4.25.2 (confirmed) | **Unchanged** | 57 pins the exact local version; no action. |
 
 **Policy:** default to **keep-local** for excluded packages that SDK 57 pins lower; only downgrade if
 a package is provably incompatible with RN 0.86. Record the final resolved version + reason per package
@@ -161,6 +161,15 @@ patches, and confirmation the release bundle (not just dev) builds with bundle m
 Both apps: `expo` `~56.0.12`, `expo-router` `~56.2.11`, `react`/`react-dom` `19.2.3`,
 `react-native` `0.85.3`, `reanimated` `4.4.1`, `worklets` `0.9.2`, `gesture-handler` `~3.0.1`,
 `screens` `4.25.2`, `safe-area-context` `5.8.0`. Storefront `expo-image` `~56.0.11`.
+
+**Confirmed against `expo@57.0.2` `bundledNativeModules.json` (2026-07-05):** SDK 57 pins
+`react-native-webview@13.16.1`, `@react-native-community/datetimepicker@9.1.0`,
+`lottie-react-native@~7.3.8`, and `react-native-screens@4.25.2` at their exact local versions, and
+`react-native-mmkv`/`react-native-nitro-modules` are not Expo-pinned — so **only the two RN patches
+orphan** (`react-native@0.85.3`, `@react-native/gradle-plugin@0.85.3`); every other pnpm patch stays
+valid as-is. Reanimated target is exactly 4.5.0, worklets 0.10.0. Admin devDep
+`@react-native/metro-config` 0.85.3 → 0.86.0. RN template diff 0.85.3→0.86.0 touches **only
+package.json** (no native template changes).
 
 **Version-pinned pnpm patches** (orphan on the RN bump → refresh in-PR):
 `react-native@0.85.3`, `@react-native/gradle-plugin@0.85.3`, `react-native-mmkv@4.3.1`,
