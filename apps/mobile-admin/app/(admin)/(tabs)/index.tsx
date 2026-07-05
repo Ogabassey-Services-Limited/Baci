@@ -31,6 +31,7 @@ import { useOrders } from '@/hooks/useOrders';
 import { useSettingsStore } from '@/hooks/useSettingsStore';
 import { useStoreReadiness } from '@/hooks/useStoreReadiness';
 import { useTheme } from '@/hooks/useTheme';
+import { BASE_URL } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
 import { createUploadFile, type RNFormData } from '@/types/upload';
 
@@ -55,7 +56,6 @@ const PERIOD_OPTIONS: { value: TimePeriod; label: string }[] = [
 // Module-scope helper keeps try/finally and throw-inside-try out of the
 // component body so React Compiler can memoize HomeScreen.
 async function pickAndUploadFavicon(
-  merchantId: string | undefined,
   setIsUploading: (uploading: boolean) => void,
   queryClient: QueryClient
 ) {
@@ -81,45 +81,46 @@ async function pickAndUploadFavicon(
 
     setIsUploading(true);
     const asset = result.assets[0];
-    const fileExt = asset.uri.split('.').pop() || 'png';
-    const fileName = `${merchantId}/favicon-${Date.now()}.${fileExt}`;
+    const uriExt = asset.uri.split('.').pop()?.toLowerCase();
+    const fileNameExt = asset.fileName?.split('.').pop()?.toLowerCase();
+    const fallbackExt = fileNameExt || uriExt || 'png';
+    const mimeType =
+      asset.mimeType || `image/${fallbackExt === 'jpg' ? 'jpeg' : fallbackExt}`;
+    const mimeExt = mimeType.split('/')[1]?.toLowerCase();
+    const fileExt = mimeExt === 'jpeg' ? 'jpg' : mimeExt || fallbackExt;
+    const fileName = asset.fileName || `favicon.${fileExt}`;
 
-    // Use FormData for reliable file upload in React Native
+    // Favicon variants are generated server-side (sharp), so send the picked
+    // image to the web API rather than uploading from the device. The route
+    // resolves the merchant from the auth token and persists every variant.
     const fileData = new FormData() as RNFormData;
     fileData.append(
       'file',
       createUploadFile({
         uri: asset.uri,
-        name: fileName.split('/').pop() || 'image.png',
-        type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+        name: fileName,
+        type: mimeType,
       })
     );
 
-    // Upload to Supabase storage
-    const { error: uploadError } = await supabase.storage
-      .from('merchant-assets')
-      .upload(fileName, fileData, {
-        contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-        upsert: true,
-      });
-
-    if (uploadError) {
-      throw uploadError;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('Your session has expired. Please sign in again.');
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('merchant-assets')
-      .getPublicUrl(fileName);
+    const response = await fetch(`${BASE_URL}/api/merchant/favicon`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: fileData as unknown as FormData,
+    });
 
-    // Update merchant favicon in database
-    const { error: updateError } = await supabase
-      .from('merchants')
-      .update({ favicon_png_192_url: urlData.publicUrl })
-      .eq('id', merchantId);
-
-    if (updateError) {
-      throw updateError;
+    const payload = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    if (!response.ok) {
+      throw new Error(payload?.error || 'Failed to update favicon');
     }
 
     // Invalidate merchant query to refetch
@@ -127,7 +128,12 @@ async function pickAndUploadFavicon(
     Alert.alert('Success', 'Favicon updated successfully!');
   } catch (error) {
     console.error('Error updating favicon:', error);
-    Alert.alert('Error', 'Failed to update favicon. Please try again.');
+    Alert.alert(
+      'Error',
+      error instanceof Error
+        ? error.message
+        : 'Failed to update favicon. Please try again.'
+    );
   } finally {
     setIsUploading(false);
   }
@@ -169,7 +175,7 @@ export default function HomeScreen() {
   const [_, setIsUploadingFavicon] = useState(false);
 
   const handleAvatarPress = () =>
-    pickAndUploadFavicon(merchant?.id, setIsUploadingFavicon, queryClient);
+    pickAndUploadFavicon(setIsUploadingFavicon, queryClient);
 
   const currentPeriodLabel =
     PERIOD_OPTIONS.find((p) => p.value === period)?.label ?? 'Last 7 Days';
@@ -475,9 +481,10 @@ export default function HomeScreen() {
             />
             <QuickActionButton
               icon="chatbubbles-outline"
-              label="Negotiation Requests"
+              label="Negotiations"
               iconColor={colors.gold}
               backgroundColor={colors.goldLight}
+              iconSize={21}
               onPress={() => router.push('/(admin)/negotiations')}
             />
             <QuickActionButton

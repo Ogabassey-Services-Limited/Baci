@@ -186,6 +186,11 @@ if ! command -v pnpm >/dev/null 2>&1; then
   exit 0
 fi
 
+TURBO_CMD=(pnpm --config.verify-deps-before-run=false exec turbo)
+if [ -x "$ROOT/node_modules/.bin/turbo" ]; then
+  TURBO_CMD=("$ROOT/node_modules/.bin/turbo")
+fi
+
 run_check() {
   local label="$1"
   shift
@@ -198,9 +203,9 @@ run_check() {
   fi
 }
 
-run_check "Biome lint" pnpm turbo lint
-run_check "TypeScript typecheck" pnpm turbo typecheck
-run_check "Test suite" pnpm turbo test
+run_check "Biome lint" "${TURBO_CMD[@]}" lint
+run_check "TypeScript typecheck" "${TURBO_CMD[@]}" typecheck
+run_check "Test suite" "${TURBO_CMD[@]}" test
 
 should_run_coderabbit=0
 case "${CODEX_QUALITY_GATE_CODERABBIT:-auto}" in

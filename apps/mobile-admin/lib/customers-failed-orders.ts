@@ -1,0 +1,106 @@
+import type { FailedOrder } from '@/hooks/useFailedOrders';
+
+export type GroupedFailedOrderListItem =
+  | {
+      dateKey: string;
+      key: string;
+      title: string;
+      type: 'header';
+    }
+  | {
+      data: FailedOrder;
+      key: string;
+      type: 'item';
+    };
+
+export function getLocalDateKey(value: string | Date): string | null {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getDateGroupTitle(
+  dateKey: string,
+  todayKey: string | null,
+  yesterdayKey: string | null
+): string {
+  if (dateKey === todayKey) {
+    return 'Today';
+  }
+  if (dateKey === yesterdayKey) {
+    return 'Yesterday';
+  }
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'long',
+    weekday: 'long',
+    year: 'numeric',
+  });
+}
+
+export function groupFailedOrdersByDate(
+  orders: FailedOrder[],
+  now = new Date()
+): {
+  data: GroupedFailedOrderListItem[];
+  stickyHeaderIndices: number[];
+} {
+  const groups = new Map<string, FailedOrder[]>();
+
+  for (const order of orders) {
+    const dateKey = getLocalDateKey(order.created_at);
+    if (!dateKey) {
+      continue;
+    }
+
+    const existing = groups.get(dateKey);
+    if (existing) {
+      existing.push(order);
+    } else {
+      groups.set(dateKey, [order]);
+    }
+  }
+
+  const todayKey = getLocalDateKey(now);
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = getLocalDateKey(yesterday);
+
+  const data: GroupedFailedOrderListItem[] = [];
+  const stickyHeaderIndices: number[] = [];
+
+  const sortedDateKeys = [...groups.keys()].sort((a, b) => b.localeCompare(a));
+
+  for (const dateKey of sortedDateKeys) {
+    stickyHeaderIndices.push(data.length);
+
+    data.push({
+      dateKey,
+      key: `failed-orders-header-${dateKey}`,
+      title: getDateGroupTitle(dateKey, todayKey, yesterdayKey),
+      type: 'header',
+    });
+
+    const groupOrders = [...(groups.get(dateKey) ?? [])].sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    for (const order of groupOrders) {
+      data.push({
+        data: order,
+        key: `failed-order-${order.id}`,
+        type: 'item',
+      });
+    }
+  }
+
+  return { data, stickyHeaderIndices };
+}

@@ -8,6 +8,12 @@ const renderState = vi.hoisted(() => ({
   staticRendered: false,
 }));
 
+function flattenStyle(
+  style?: Record<string, unknown> | null | (Record<string, unknown> | null)[]
+) {
+  return Array.isArray(style) ? Object.assign({}, ...style) : style;
+}
+
 function Text({ children }: { children?: React.ReactNode }) {
   return <span>{children}</span>;
 }
@@ -37,6 +43,13 @@ vi.mock('react-native-safe-area-context', () => ({
 
 vi.mock('react-native', () => {
   return {
+    Platform: {
+      OS: 'ios',
+      select: (objs: Record<string, unknown>) => objs.ios || objs.default,
+    },
+    KeyboardAvoidingView: ({ children }: { children?: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
     StatusBar: () => null,
     Modal: ({
       children,
@@ -61,9 +74,26 @@ vi.mock('react-native', () => {
         {children}
       </button>
     ),
-    ScrollView: ({ children }: { children?: React.ReactNode }) => {
+    ScrollView: ({
+      children,
+      contentContainerStyle,
+    }: {
+      children?: React.ReactNode;
+      contentContainerStyle?:
+        | Record<string, unknown>
+        | null
+        | (Record<string, unknown> | null)[];
+    }) => {
       renderState.scrollRendered = true;
-      return <section aria-label="page-sheet-scroll-view">{children}</section>;
+      const flattenedStyle = flattenStyle(contentContainerStyle);
+      return (
+        <section
+          aria-label="page-sheet-scroll-view"
+          data-padding-bottom={String(flattenedStyle?.paddingBottom ?? '')}
+        >
+          {children}
+        </section>
+      );
     },
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
@@ -74,15 +104,31 @@ vi.mock('react-native', () => {
     ),
     View: ({
       children,
+      style,
       testID,
     }: {
       children?: React.ReactNode;
+      pointerEvents?: string;
+      style?:
+        | Record<string, unknown>
+        | null
+        | (Record<string, unknown> | null)[];
       testID?: string;
     }) => {
       if (testID === 'app-page-sheet-static') {
         renderState.staticRendered = true;
       }
-      return <div>{children}</div>;
+      const flattenedStyle = flattenStyle(style);
+
+      return (
+        <div
+          data-height={String(flattenedStyle?.height ?? '')}
+          data-padding-bottom={String(flattenedStyle?.paddingBottom ?? '')}
+          data-testid={testID}
+        >
+          {children}
+        </div>
+      );
     },
   };
 });
@@ -115,6 +161,47 @@ describe('AppPageSheet', () => {
     expect(renderState.scrollRendered).toBe(true);
   });
 
+  it('renders floating footer content separately from the solid footer', () => {
+    render(
+      <AppPageSheet
+        floatingFooter={<Text>Floating search</Text>}
+        footer={<Text>Solid action</Text>}
+        onClose={vi.fn()}
+        title="Receipt Preview"
+        visible={true}
+      >
+        <Text>Preview content</Text>
+      </AppPageSheet>
+    );
+
+    expect(
+      screen.getByTestId('app-page-sheet-floating-footer')
+    ).toHaveTextContent('Floating search');
+    expect(screen.getByLabelText('page-sheet-scroll-view')).toHaveAttribute(
+      'data-padding-bottom',
+      '8'
+    );
+    expect(screen.getByText('Solid action')).toBeInTheDocument();
+  });
+
+  it('applies custom sheet container sizing', () => {
+    render(
+      <AppPageSheet
+        onClose={vi.fn()}
+        sheetContainerStyle={{ height: '92%' }}
+        title="Product Picker"
+        visible={true}
+      >
+        <Text>Picker content</Text>
+      </AppPageSheet>
+    );
+
+    expect(screen.getByTestId('app-page-sheet-container')).toHaveAttribute(
+      'data-height',
+      '92%'
+    );
+  });
+
   it('calls onClose from the shared close action', () => {
     const onClose = vi.fn();
 
@@ -125,6 +212,22 @@ describe('AppPageSheet', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Close sheet' }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onClose when backdrop overlay is tapped', () => {
+    const onClose = vi.fn();
+
+    render(
+      <AppPageSheet onClose={onClose} title="Customer Details" visible={true}>
+        <Text>Body</Text>
+      </AppPageSheet>
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close sheet backdrop' })
+    );
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });

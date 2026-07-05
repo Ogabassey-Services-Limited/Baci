@@ -45,11 +45,12 @@ export default function MenuScreen() {
   const { signOut } = useAuth();
   const { resetOnboarding } = useOnboarding();
   const { isPro, customerInfo } = useRevenueCat();
-  const { merchant } = useMerchant();
+  const { merchant, isLoading: isMerchantLoading } = useMerchant();
   const { unregisterPush } = usePushNotifications();
   const router = useRouter();
   const hasProSubscription =
     isPro || baciFeatureGates.hasFullProAccess(merchant);
+  const isSubscriptionStatusLoading = !isPro && isMerchantLoading;
 
   const canAccessFeature = (feature: MobileFeatureGate) =>
     isPro || baciFeatureGates.hasFeature(merchant, feature);
@@ -350,6 +351,7 @@ export default function MenuScreen() {
       >
         {/* Subscription Card */}
         <SubscriptionStatusCard
+          isLoading={isSubscriptionStatusLoading}
           isPro={hasProSubscription}
           customerInfo={customerInfo}
           colors={colors}

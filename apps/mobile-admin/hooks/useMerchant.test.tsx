@@ -86,9 +86,9 @@ describe('fetchMerchantData', () => {
     const result = await fetchMerchantData('user-1');
 
     expect(result.merchant?.id).toBe('merchant-1');
+    expect(result.merchant?.plan_expires_at).toBe('2026-12-31T23:59:59.000Z');
     expect(result.merchant?.plan_tier).toBe('pro');
     expect(result.merchant?.premium_features).toEqual(['custom_domain']);
-    expect(result.merchant?.plan_expires_at).toBe('2026-12-31T23:59:59.000Z');
     expect(result.primaryDomain?.domain).toBe('baci.usebaci.com');
     expect(mockFrom).not.toHaveBeenCalled();
   });

@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import sharp from 'sharp';
 import {
@@ -22,6 +23,13 @@ export interface FaviconUploadResult {
   apple_touch_url: string;
 }
 
+export class FaviconValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FaviconValidationError';
+  }
+}
+
 /**
  * Process uploaded favicon and generate all required sizes
  * Accepts SVG or PNG input, generates standardized outputs
@@ -31,26 +39,31 @@ export interface FaviconUploadResult {
  */
 export async function processFavicon(
   file: File,
-  merchantId: string
+  merchantId: string,
+  // Optional pre-authenticated client. Web (cookie auth) omits it and falls
+  // back to the cookie-based server client; mobile (Bearer token) passes its
+  // scoped client so the favicons-bucket RLS upload runs as the right user.
+  client?: SupabaseClient
 ): Promise<FaviconUploadResult> {
   // Validate merchantId to prevent path traversal
   if (!merchantId || !/^[a-f0-9-]{36}$/i.test(merchantId)) {
-    throw new Error('Invalid merchant ID format');
+    throw new FaviconValidationError('Invalid merchant ID format');
   }
 
   if (!ALLOWED_FAVICON_TYPES.has(file.type)) {
-    throw new Error('Favicon must be a PNG, JPEG, WEBP, or SVG');
+    throw new FaviconValidationError(
+      'Favicon must be a PNG, JPEG, WEBP, or SVG'
+    );
   }
 
   if (file.size > MAX_FAVICON_BYTES) {
-    throw new Error('Favicon exceeds the 1MB upload limit');
+    throw new FaviconValidationError('Favicon exceeds the 1MB upload limit');
   }
 
   const isSvg = file.type === 'image/svg+xml';
   let buffer = Buffer.from(await file.arrayBuffer());
 
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = client ?? createClient(await cookies());
   const storagePaths = getFaviconStoragePaths(merchantId);
 
   const result: FaviconUploadResult = {

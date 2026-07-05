@@ -8,6 +8,10 @@ type TestBranchScope = { type: 'all' } | { type: 'branch'; branchId: string };
 
 const mocks = vi.hoisted(() => ({
   branchScope: { type: 'branch', branchId: 'branch-1' } as TestBranchScope,
+  flashListProps: [] as Array<{
+    stickyHeaderConfig?: unknown;
+    stickyHeaderIndices?: unknown;
+  }>,
   queryCalls: [] as Array<{ method: string; args: unknown[] }>,
   queryResult: { data: [], error: null } as {
     data: unknown[] | null;
@@ -34,6 +38,7 @@ function makeQueryChain() {
   for (const method of ['select', 'eq', 'order']) {
     chain[method] = passthrough(method);
   }
+  // biome-ignore lint/suspicious/noThenProperty: Supabase query builders are thenable and the component awaits this mock.
   chain.then = (
     resolve: (value: {
       data: unknown[] | null;
@@ -125,22 +130,30 @@ vi.mock('@shopify/flash-list', async () => {
       keyExtractor,
       ListEmptyComponent,
       renderItem,
+      stickyHeaderConfig,
+      stickyHeaderIndices,
     }: {
       data?: unknown[];
       keyExtractor?: (item: unknown, index: number) => string;
       ListEmptyComponent?: ComponentType | ReactNode;
       renderItem: (input: { index: number; item: unknown }) => ReactNode;
-    }) => (
-      <div aria-label="expenses-list">
-        {data.length === 0
-          ? renderEmptyComponent(ListEmptyComponent)
-          : data.map((item, index) => (
-              <div key={keyExtractor?.(item, index) ?? index}>
-                {renderItem({ item, index })}
-              </div>
-            ))}
-      </div>
-    ),
+      stickyHeaderConfig?: unknown;
+      stickyHeaderIndices?: unknown;
+    }) =>
+      (() => {
+        mocks.flashListProps.push({ stickyHeaderConfig, stickyHeaderIndices });
+        return (
+          <section aria-label="expenses-list">
+            {data.length === 0
+              ? renderEmptyComponent(ListEmptyComponent)
+              : data.map((item, index) => (
+                  <div key={keyExtractor?.(item, index) ?? index}>
+                    {renderItem({ item, index })}
+                  </div>
+                ))}
+          </section>
+        );
+      })(),
   };
 });
 
@@ -191,6 +204,7 @@ import ExpensesScreen from './index';
 describe('ExpensesScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.flashListProps.length = 0;
     mocks.queryCalls.length = 0;
     mocks.queryResult = { data: [], error: null };
     mocks.queryState = null;
@@ -279,6 +293,39 @@ describe('ExpensesScreen', () => {
 
     expect(screen.getByText('Inventory')).toBeInTheDocument();
     expect(screen.getByText('Office internet')).toBeInTheDocument();
+  });
+
+  it('renders grouped month headers with sticky header configuration', () => {
+    vi.useFakeTimers({
+      now: new Date('2026-07-05T12:00:00.000Z'),
+    });
+    mocks.queryState = {
+      data: [
+        {
+          amount: 12_500,
+          branch_id: 'branch-1',
+          category: 'Inventory',
+          date: '2026-05-05T00:00:00.000Z',
+          description: 'Office internet',
+          id: 'expense-1',
+          receipt_url: null,
+        },
+      ],
+      error: null,
+      isError: false,
+      isLoading: false,
+    };
+
+    render(<ExpensesScreen />);
+
+    expect(screen.getByText('May 2026')).toBeInTheDocument();
+    expect(screen.getByText('Office internet')).toBeInTheDocument();
+    expect(mocks.flashListProps.at(-1)).toEqual(
+      expect.objectContaining({
+        stickyHeaderConfig: { hideRelatedCell: true, zIndex: 10 },
+        stickyHeaderIndices: [0],
+      })
+    );
   });
 
   it('ignores malformed expense dates when calculating the monthly total', () => {

@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     plan_tier: 'free' as string | null,
     premium_features: [] as string[],
   },
+  merchantLoading: false,
   resetOnboarding: vi.fn(),
   router: {
     push: vi.fn(),
@@ -73,13 +74,16 @@ vi.mock('react-native-safe-area-context', () => ({
 
 vi.mock('@/components/settings/SubscriptionStatusCard', () => ({
   SubscriptionStatusCard: ({
+    isLoading,
     isPro,
     onPress,
   }: {
+    isLoading?: boolean;
     isPro?: boolean;
     onPress?: () => void;
   }) => (
     <button onClick={() => onPress?.()} type="button">
+      {isLoading ? 'Loading subscription status' : null}
       {isPro ? 'Baci Pro Merchant Active' : 'Free Plan UPGRADE'}
     </button>
   ),
@@ -99,6 +103,7 @@ vi.mock('@/hooks/useAuth', () => ({
 
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({
+    isLoading: mocks.merchantLoading,
     merchant: mocks.merchant,
   }),
 }));
@@ -150,6 +155,7 @@ describe('MenuScreen', () => {
     mocks.hasFeature.mockReturnValue(true);
     mocks.hasFullProAccess.mockReturnValue(false);
     mocks.isPro = true;
+    mocks.merchantLoading = false;
     mocks.merchant = {
       id: 'merchant-1',
       plan_expires_at: null,
@@ -265,5 +271,18 @@ describe('MenuScreen', () => {
 
     expect(screen.getByText(/Free Plan UPGRADE/i)).toBeTruthy();
     expect(screen.queryByText(/Baci Pro Merchant Active/i)).toBeNull();
+  });
+
+  it('passes loading state to the subscription card for non-Pro merchant loads', () => {
+    mocks.isPro = false;
+    mocks.merchantLoading = true;
+
+    render(<MenuScreen />);
+
+    expect(
+      screen.getByRole('button', {
+        name: /Loading subscription status.*Free Plan UPGRADE/i,
+      })
+    ).toBeTruthy();
   });
 });

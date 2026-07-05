@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { ProductAttributesCard } from '@/components/product/ProductAttributesCard';
 import { ProductBasicInformationCard } from '@/components/product/ProductBasicInformationCard';
 import { ProductCategorySheet } from '@/components/product/ProductCategorySheet';
+import { ProductDeleteSection } from '@/components/product/ProductDeleteSection';
 import { ProductFulfillmentSheet } from '@/components/product/ProductFulfillmentSheet';
 import { ProductHasVariantsToggleCard } from '@/components/product/ProductHasVariantsToggleCard';
 import { ProductImageCard } from '@/components/product/ProductImageCard';
@@ -74,6 +75,7 @@ export default function ProductEditScreen() {
   const isSaving =
     controller.updateProductMutation.isPending ||
     controller.createProductMutation.isPending;
+  const editableProductId = controller.isEditing ? controller.id : undefined;
 
   return (
     <>
@@ -226,6 +228,14 @@ export default function ProductEditScreen() {
             />
           </>
         )}
+
+        {editableProductId ? (
+          <ProductDeleteSection
+            colors={colors}
+            productId={editableProductId}
+            productName={controller.formData.name}
+          />
+        ) : null}
       </AppFormScreen>
 
       <ProductCategorySheet

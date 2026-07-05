@@ -24,10 +24,17 @@ vi.mock('react-native-reanimated', () => ({
       accessibilityLabel?: string;
     }) => <section aria-label="animated-success-view">{children}</section>,
   },
-  FadeInUp: {
-    springify: () => ({
-      damping: () => ({}),
-    }),
+  Keyframe: class {
+    duration() {
+      return this;
+    }
+    delay() {
+      return this;
+    }
+  },
+  Easing: {
+    out: (easing: unknown) => easing,
+    cubic: () => 0,
   },
 }));
 

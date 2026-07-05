@@ -1,0 +1,41 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+import { useMerchant } from './useMerchant';
+
+interface ArchiveProductResponse {
+  product: {
+    id: string;
+    status: string;
+  };
+  success: boolean;
+}
+
+export function archiveProductById(
+  productId: string
+): Promise<ArchiveProductResponse> {
+  if (!productId) {
+    throw new Error('Product id is required');
+  }
+
+  return apiClient<ArchiveProductResponse>(
+    `/api/products/${encodeURIComponent(productId)}/archive`,
+    { method: 'PATCH' }
+  );
+}
+
+export function useArchiveProduct() {
+  const queryClient = useQueryClient();
+  const { merchant } = useMerchant();
+
+  return useMutation({
+    mutationFn: ({ productId }: { productId: string }) =>
+      archiveProductById(productId),
+    mutationKey: ['archiveProduct'],
+    onSettled: (_data, _error, { productId }) => {
+      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ['product', merchant?.id, productId],
+      });
+    },
+  });
+}

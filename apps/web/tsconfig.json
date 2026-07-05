@@ -38,6 +38,8 @@
     "supabase",
     "supabase/**/*",
     "scripts",
-    "src/scripts"
+    "src/scripts",
+    ".next/dev",
+    ".next/dev/**/*"
   ]
 }

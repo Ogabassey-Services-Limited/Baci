@@ -1,12 +1,19 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import type { CustomerInfo } from 'react-native-purchases';
 import type { ThemeColors, ThemeShadows } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 interface SubscriptionStatusCardProps {
   isPro: boolean;
+  isLoading: boolean;
   customerInfo: CustomerInfo | null;
   colors: ThemeColors;
   shadows: ThemeShadows;
@@ -50,6 +57,7 @@ function getLatestProEntitlement(customerInfo: CustomerInfo | null) {
 
 export function SubscriptionStatusCard({
   isPro,
+  isLoading,
   customerInfo,
   colors,
   shadows,
@@ -64,6 +72,42 @@ export function SubscriptionStatusCard({
         year: '2-digit',
       })
     : null;
+
+  if (isLoading) {
+    return (
+      <Pressable
+        style={[
+          styles.freeCardContainer,
+          { backgroundColor: colors.card },
+          shadows.sm,
+        ]}
+        disabled
+        accessibilityLabel="Checking subscription status"
+        accessibilityRole="button"
+        accessibilityHint="Subscription status is loading"
+        accessibilityState={{ busy: true, disabled: true }}
+      >
+        <View
+          style={[
+            styles.freeCardIcon,
+            { backgroundColor: colors.primaryLight },
+          ]}
+        >
+          <ActivityIndicator color={colors.primary} />
+        </View>
+        <View style={styles.freeCardContent}>
+          <Text style={[styles.freeCardTitle, { color: colors.text }]}>
+            Checking plan
+          </Text>
+          <Text
+            style={[styles.freeCardSubtitle, { color: colors.textSecondary }]}
+          >
+            Syncing subscription status
+          </Text>
+        </View>
+      </Pressable>
+    );
+  }
 
   if (isPro) {
     return (

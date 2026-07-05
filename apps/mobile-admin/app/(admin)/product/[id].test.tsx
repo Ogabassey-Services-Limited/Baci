@@ -165,6 +165,10 @@ vi.mock('@/components/product/ProductBasicInformationCard', () => ({
   },
 }));
 
+vi.mock('@/components/product/ProductDeleteSection', () => ({
+  ProductDeleteSection: () => <Text>product-delete-section</Text>,
+}));
+
 vi.mock('@/components/ui/InvalidRouteScreen', () => ({
   InvalidRouteScreen: () => (
     <div>

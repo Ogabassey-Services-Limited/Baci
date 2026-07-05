@@ -2,9 +2,31 @@ import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { AppDialogModal } from '@/components/ui/AppDialogModal';
 import { useTheme } from '@/hooks/useTheme';
+
+// Calm fade + gentle scale-in for the card — no spring/bounce.
+const CARD_ENTER = new Keyframe({
+  0: { opacity: 0, transform: [{ scale: 0.96 }] },
+  100: {
+    opacity: 1,
+    transform: [{ scale: 1 }],
+    easing: Easing.out(Easing.cubic),
+  },
+}).duration(220);
+
+// Checkmark settles cleanly a beat after the card, no overshoot.
+const CHECK_ENTER = new Keyframe({
+  0: { opacity: 0, transform: [{ scale: 0.7 }] },
+  100: {
+    opacity: 1,
+    transform: [{ scale: 1 }],
+    easing: Easing.out(Easing.cubic),
+  },
+})
+  .duration(260)
+  .delay(90);
 
 interface SuccessModalProps {
   actionIcon?: IoniconsIconName;
@@ -40,14 +62,15 @@ export function SuccessModal({
       visible={visible}
     >
       <Animated.View
-        entering={FadeInUp.springify().damping(15)}
+        entering={CARD_ENTER}
         style={[styles.container, { backgroundColor: colors.card }]}
         accessible={true}
         accessibilityViewIsModal={true}
         accessibilityLabel={`${title} dialog. ${message}`}
       >
         <View style={styles.iconContainer}>
-          <View
+          <Animated.View
+            entering={CHECK_ENTER}
             style={[
               styles.iconBg,
               {
@@ -57,25 +80,7 @@ export function SuccessModal({
             ]}
           >
             <Ionicons name="checkmark" size={40} color={colors.success} />
-          </View>
-          <View
-            style={[
-              styles.particle,
-              { top: 0, left: 10, backgroundColor: colors.success },
-            ]}
-          />
-          <View
-            style={[
-              styles.particle,
-              { top: 10, right: 0, backgroundColor: colors.successLight },
-            ]}
-          />
-          <View
-            style={[
-              styles.particle,
-              { bottom: 0, left: 20, backgroundColor: colors.success },
-            ]}
-          />
+          </Animated.View>
         </View>
 
         <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
@@ -182,12 +187,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-  },
-  particle: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
   },
   title: {
     fontSize: 24,

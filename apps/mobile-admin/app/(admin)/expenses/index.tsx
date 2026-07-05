@@ -7,6 +7,10 @@ import { Pressable, StatusBar, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExpenseListItem } from '@/components/expenses/ExpenseListItem';
 import { styles } from '@/components/expenses/expenses-list.styles';
+import {
+  type GroupedExpenseListItem,
+  groupExpensesByMonth,
+} from '@/components/expenses/expenses-list.utils';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useBranchScope } from '@/hooks/useBranchScope';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -63,6 +67,10 @@ export default function ExpensesScreen() {
       })
       .reduce((sum, e) => sum + Number(e.amount), 0);
   })();
+
+  const { data: groupedExpenses, stickyHeaderIndices } = groupExpensesByMonth(
+    expenses ?? []
+  );
 
   return (
     <>
@@ -157,12 +165,38 @@ export default function ExpensesScreen() {
             </Text>
           </View>
         ) : (
-          <FlashList
-            data={expenses ?? []}
-            renderItem={({ item }) => (
-              <ExpenseListItem item={item} merchant={merchant} />
-            )}
-            keyExtractor={(item) => item.id}
+          <FlashList<GroupedExpenseListItem>
+            data={groupedExpenses}
+            renderItem={({ item }) => {
+              if (item.type === 'header') {
+                return (
+                  <View
+                    style={[
+                      styles.sectionHeader,
+                      { backgroundColor: colors.background },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.sectionHeaderLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                      accessibilityRole="header"
+                    >
+                      {item.title}
+                    </Text>
+                  </View>
+                );
+              }
+              return <ExpenseListItem item={item.data} merchant={merchant} />;
+            }}
+            keyExtractor={(item) => item.key}
+            getItemType={(item) => item.type}
+            stickyHeaderIndices={stickyHeaderIndices}
+            stickyHeaderConfig={{
+              zIndex: 10,
+              hideRelatedCell: true,
+            }}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
