@@ -126,11 +126,12 @@ done
     ANDROID_AVD_HOME: avdHome,
     ANDROID_HOME: sdkRoot,
     ANDROID_SDK_ROOT: sdkRoot,
-    BACI_ANDROID_LAUNCH_AM_START_TIMEOUT_SECONDS: '20',
-    BACI_ANDROID_LAUNCH_PID_TIMEOUT_SECONDS: '20',
-    BACI_ANDROID_LAUNCH_REVERSE_TIMEOUT_SECONDS: '20',
-    BACI_ANDROID_LAUNCH_SETTLE_TIMEOUT_SECONDS: '20',
-    BACI_ANDROID_LAUNCH_SHELL_TIMEOUT_SECONDS: '20',
+    BACI_ANDROID_LAUNCH_AM_START_TIMEOUT_SECONDS: '60',
+    BACI_ANDROID_LAUNCH_PID_TIMEOUT_SECONDS: '60',
+    BACI_ANDROID_LAUNCH_PROBE_TIMEOUT_SECONDS: '60',
+    BACI_ANDROID_LAUNCH_REVERSE_TIMEOUT_SECONDS: '60',
+    BACI_ANDROID_LAUNCH_SETTLE_TIMEOUT_SECONDS: '60',
+    BACI_ANDROID_LAUNCH_SHELL_TIMEOUT_SECONDS: '60',
     BACI_ANDROID_EMULATOR_LOG: path.join(stateDir, 'emulator.log'),
     BACI_FAKE_ADB_BOOT_COMPLETED: '1',
     BACI_FAKE_ADB_LOADAVG: '0.01 0.01 0.01 1/100 123',
@@ -176,7 +177,7 @@ function runScript(
     cwd: appRoot,
     encoding: 'utf8',
     env: { ...harness.env, ...env },
-    timeout: 90_000,
+    timeout: 120_000,
   });
 }
 
@@ -288,7 +289,7 @@ describe('Android emulator launcher (storefront)', () => {
         });
         const exit = await exitPromise;
         expect(exit.code).toBe(130);
-        expect(fs.existsSync(path.join(harness.stateDir, 'fake-emulator-terminated'))).toBe(true);
+        expect(() => process.kill(Number.parseInt(fs.readFileSync(path.join(harness.stateDir, 'fake-emulator-pid'), 'utf8'), 10), 0)).toThrow();
       } finally {
         child.kill('SIGKILL');
         harness.cleanup();

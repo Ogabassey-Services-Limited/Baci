@@ -21,6 +21,7 @@ SETTLE_STABILITY_PROBES="${BACI_ANDROID_LAUNCH_SETTLE_STABILITY_PROBES:-2}"
 PID_TIMEOUT_SECONDS="${BACI_ANDROID_LAUNCH_PID_TIMEOUT_SECONDS:-45}"
 AM_START_TIMEOUT_SECONDS="${BACI_ANDROID_LAUNCH_AM_START_TIMEOUT_SECONDS:-20}"
 REVERSE_TIMEOUT_SECONDS="${BACI_ANDROID_LAUNCH_REVERSE_TIMEOUT_SECONDS:-20}"
+PROBE_TIMEOUT_SECONDS="${BACI_ANDROID_LAUNCH_PROBE_TIMEOUT_SECONDS:-5}"
 FORCE_STOP="${BACI_ANDROID_FORCE_STOP:-1}"
 register_temp_file_cleanup_traps
 
@@ -69,7 +70,7 @@ wait_for_app_pid() {
   local app_pid
 
   while (( SECONDS < deadline )); do
-    app_pid="$(run_with_timeout 5 "$ADB" -s "$ADB_SERIAL" shell pidof -s "$APP_ID" 2>/dev/null | tr -d '\r\n ' || true)"
+    app_pid="$(run_with_timeout "$PROBE_TIMEOUT_SECONDS" "$ADB" -s "$ADB_SERIAL" shell pidof -s "$APP_ID" 2>/dev/null | tr -d '\r\n ' || true)"
     if [[ -n "$app_pid" ]]; then
       echo "Launched ${APP_ID} with pid ${app_pid}."
       return 0
@@ -85,12 +86,12 @@ echo "Device: $ADB_SERIAL"
 echo "Package: $APP_ID"
 echo "Metro: $DEV_SERVER_URL"
 
-if ! wait_for_adb_shell_ready "$SHELL_TIMEOUT_SECONDS"; then
+if ! wait_for_adb_shell_ready "$SHELL_TIMEOUT_SECONDS" "$PROBE_TIMEOUT_SECONDS"; then
   echo "No responsive Android shell on ${ADB_SERIAL}. Start with: pnpm --filter @baci/mobile-storefront android:emulator" >&2
   exit 1
 fi
 
-if ! wait_for_android_load_settle "$SETTLE_TIMEOUT_SECONDS" "$SETTLE_LOAD_MAX" "$SETTLE_STABILITY_PROBES"; then
+if ! wait_for_android_load_settle "$SETTLE_TIMEOUT_SECONDS" "$SETTLE_LOAD_MAX" "$SETTLE_STABILITY_PROBES" "$PROBE_TIMEOUT_SECONDS"; then
   echo "Android did not settle below load ${SETTLE_LOAD_MAX} within ${SETTLE_TIMEOUT_SECONDS}s." >&2
   exit 1
 fi
