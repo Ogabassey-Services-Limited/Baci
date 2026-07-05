@@ -4,6 +4,15 @@ run_with_timeout() {
   local timeout_seconds="$1"
   shift
 
+  if command -v timeout >/dev/null 2>&1 && timeout --help 2>/dev/null | grep -q -- '--kill-after'; then
+    timeout --kill-after=2s "$timeout_seconds" "$@"
+    local status=$?
+    if ((status == 124 || status == 137)); then
+      return 124
+    fi
+    return "$status"
+  fi
+
   python3 - "$timeout_seconds" "$@" <<'PY'
 import os
 import signal
