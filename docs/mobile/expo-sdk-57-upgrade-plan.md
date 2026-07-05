@@ -239,13 +239,16 @@ Baseline suite state: lint/typecheck green; storefront 662 suites / 4,239 tests 
 - **`@react-native/gradle-plugin@0.85.3.patch` → DELETE, not refresh** (verified 2026-07-05):
   its only change (foojay-resolver-convention 0.5.0 → 1.0.0) is already upstream in RN 0.86.0's
   `settings.gradle.kts`. Remove patch file + `patchedDependencies` key.
-- **`react-native@0.85.3.patch` → re-author against 0.86.0** (verified: upstream did NOT absorb it).
-  Intent (keep all three parts): (1) no-op deprecated `StatusBarModule.setColor`/`setTranslucent`,
-  (2) force `WindowInsetsControllerCompat` paths in `WindowUtil.statusBarHide/Show`, (3) strip
-  deprecated `statusBarColor`/`navigationBarColor` assignments in `enableEdgeToEdge` so no
-  compiler-emitted deprecated calls land in the dex. 0.86 restructured these files
-  (`isStatusBarContrastEnforced`, `enforceNavigationBarContrast` param, feature-flag init moved) —
-  the patch will NOT auto-apply; rewrite hunks against 0.86 bodies.
+- **`react-native@0.85.3.patch` → DROPPED, not re-authored** (evidence gathered 2026-07-05 during
+  execution — supersedes the earlier "re-author" decision). The patch edits ReactAndroid **Kotlin
+  sources**, but every Baci build path consumes the **prebuilt** `com.facebook.react:react-android`
+  AAR from Maven Central (verified: `react-android-0.85.3-debug.aar` in the Gradle cache after the
+  baseline build; no `buildFromSource` in gradle.properties, settings.gradle, eas.json,
+  expo-build-properties, or release workflows). The patch has been inert since PR #2273 — the
+  effective edge-to-edge behavior comes from that PR's other pieces (`withAndroidSystemBars` plugin,
+  styles.xml, NavigationBarStyleProvider). On RN 0.86 the deprecated paths are additionally
+  runtime-guarded by `isEdgeToEdgeFeatureFlagOn`. Old patch preserved in git history
+  (`e9fe6581ea`). **Flag for user review in the PR.**
 - Re-verify every other pinned patch applies post-`--fix`; refresh any bumped (esp. any kept-local
   patched dep). `pnpm install` must apply **all** patches with zero "could not apply" warnings.
 - **Prune orphaned patch files.** Diff `patches/` against `patchedDependencies` keys and remove stale
