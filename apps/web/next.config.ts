@@ -1,5 +1,4 @@
 import path from 'node:path';
-import bundleAnalyzer from '@next/bundle-analyzer';
 import { withPostHogConfig } from '@posthog/nextjs-config';
 import type { NextConfig } from 'next';
 import { OGABASSEY_AGENT_DISCOVERY_LINK_HEADER } from './src/config/agent-discovery-link-header';
@@ -18,10 +17,6 @@ import {
   isPostHogSourceMapUploadEnabled,
 } from './src/lib/posthog/config';
 
-const withBundleAnalyzer = bundleAnalyzer({
-  enabled: process.env.ANALYZE === 'true',
-  openAnalyzer: false,
-});
 // Keep this as an explicit static-asset suffix list. A generic dotted-path
 // exclusion drops valid HTML routes such as `/products/iphone-v1.2`.
 const HTML_DOCUMENT_STATIC_FILE_EXTENSION_PATTERN =
@@ -726,4 +721,4 @@ function applyPostHogConfig(config: NextConfig): NextConfig {
   });
 }
 
-export default applyPostHogConfig(withBundleAnalyzer(nextConfig));
+export default applyPostHogConfig(nextConfig);
