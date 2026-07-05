@@ -41,9 +41,14 @@ describe('storefront blog post metadata', () => {
       'apple-studio-display-review',
       false
     );
-    expect(metadata.title).toEqual({
-      absolute: 'The Great 5K Stall | Ogabassey',
-    });
+    const expectedTitle = 'The Great 5K Stall | Ogabassey';
+    expect(metadata.title).toEqual({ absolute: expectedTitle });
+    expect(metadata.openGraph).toEqual(
+      expect.objectContaining({ title: expectedTitle })
+    );
+    expect(metadata.twitter).toEqual(
+      expect.objectContaining({ title: expectedTitle })
+    );
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/blog/apple-studio-display-review'
     );
