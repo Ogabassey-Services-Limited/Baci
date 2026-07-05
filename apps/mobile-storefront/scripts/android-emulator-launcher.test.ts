@@ -189,7 +189,7 @@ describe('Android emulator launcher (storefront)', () => {
         BACI_ANDROID_LAUNCH_SETTLE_STABILITY_PROBES: '1',
       });
 
-      expect(result.status).toBe(0);
+      expect({ error: result.error?.message, signal: result.signal, status: result.status, stderr: result.stderr, stdout: result.stdout }).toMatchObject({ status: 0 });
       expect(result.stdout).toContain('Android dev client ready');
       const reverseLog = fs.readFileSync(path.join(harness.stateDir, 'reverse-ran'), 'utf8');
       const activityLog = fs.readFileSync(path.join(harness.stateDir, 'am-ran'), 'utf8');
