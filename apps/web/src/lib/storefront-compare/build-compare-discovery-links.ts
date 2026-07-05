@@ -20,6 +20,7 @@ interface CompareDiscoveryInput {
   categoryName: string;
   includeBrandCompareLinks?: boolean;
   products: CompareDiscoveryProduct[];
+  requiredProductSlugs?: string[];
 }
 
 export const PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT = 150;
@@ -128,11 +129,50 @@ function dedupeLinks<T extends CommercialSupportLink>(links: T[]) {
   });
 }
 
-function buildProductScopedSupportLinks(input: CompareDiscoveryInput) {
-  const products = input.products.slice(
-    0,
-    PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT
+function buildProductScopedDiscoveryWindow(input: {
+  limit: number;
+  products: CompareDiscoveryProduct[];
+  requiredProductSlugs?: string[];
+}) {
+  const requiredSlugs = new Set(
+    (input.requiredProductSlugs ?? [])
+      .map((slug) => slug.trim())
+      .filter(Boolean)
   );
+  const seenSlugs = new Set<string>();
+  const windowProducts: CompareDiscoveryProduct[] = [];
+
+  for (const product of input.products) {
+    if (!requiredSlugs.has(product.slug) || seenSlugs.has(product.slug)) {
+      continue;
+    }
+
+    seenSlugs.add(product.slug);
+    windowProducts.push(product);
+  }
+
+  for (const product of input.products) {
+    if (seenSlugs.has(product.slug)) {
+      continue;
+    }
+
+    seenSlugs.add(product.slug);
+    windowProducts.push(product);
+
+    if (windowProducts.length >= input.limit) {
+      break;
+    }
+  }
+
+  return windowProducts.slice(0, input.limit);
+}
+
+function buildProductScopedSupportLinks(input: CompareDiscoveryInput) {
+  const products = buildProductScopedDiscoveryWindow({
+    limit: PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT,
+    products: input.products,
+    requiredProductSlugs: input.requiredProductSlugs,
+  });
 
   return products.flatMap((product) =>
     buildProductSupportLinks({

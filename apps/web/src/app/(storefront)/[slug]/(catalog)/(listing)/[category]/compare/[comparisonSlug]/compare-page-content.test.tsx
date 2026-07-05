@@ -3,6 +3,23 @@ import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockLoadComparePage = vi.fn();
+const mockCompareRelatedLinks = vi.fn(
+  (props: {
+    links: Array<{ description: string; href: string; label: string }>;
+    merchantCustomDomain?: string | null;
+    merchantSlug: string;
+    storeUrl: string;
+  }) => (
+    <section aria-labelledby="related-comparisons-heading">
+      <h2 id="related-comparisons-heading">More comparisons to check</h2>
+      {props.links.map((link) => (
+        <a href={link.href} key={link.href}>
+          {link.label}
+        </a>
+      ))}
+    </section>
+  )
+);
 
 vi.mock('@/lib/storefront-compare/load-compare-page', () => ({
   loadComparePage: (...args: unknown[]) => mockLoadComparePage(...args),
@@ -10,6 +27,15 @@ vi.mock('@/lib/storefront-compare/load-compare-page', () => ({
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
   safeJsonLdStringify: (value: unknown) => JSON.stringify(value),
+}));
+
+vi.mock('./compare-related-links', () => ({
+  CompareRelatedLinks: (props: {
+    links: Array<{ description: string; href: string; label: string }>;
+    merchantCustomDomain?: string | null;
+    merchantSlug: string;
+    storeUrl: string;
+  }) => mockCompareRelatedLinks(props),
 }));
 
 const comparePageModel = {
@@ -82,10 +108,27 @@ const comparePageModel = {
       kind: 'best-in-nigeria' as const,
     },
   ],
+  relatedCompareLinks: [
+    {
+      href: '/smartphones/compare/galaxy-s24-fe-vs-iphone-17-pro-max',
+      label: 'Compare iPhone 17 Pro Max with Galaxy S24 FE',
+      description:
+        'Compare price, specs, condition, and buying fit for iPhone 17 Pro Max and Galaxy S24 FE.',
+      categorySlug: 'smartphones',
+      comparisonSlug: 'galaxy-s24-fe-vs-iphone-17-pro-max',
+      productSlugs: ['iphone-17-pro-max', 'galaxy-s24-fe'] as [string, string],
+      productNames: ['iPhone 17 Pro Max', 'Galaxy S24 FE'] as [string, string],
+      anchorProductSlug: 'iphone-17-pro-max',
+      score: 32,
+    },
+  ],
   merchant: {
+    custom_domain: 'ogabassey.com',
     payout_currency: 'NGN',
+    slug: 'ogabassey',
   },
   isIndexable: true,
+  isLegacyFallback: false,
   leftProduct: {
     id: 'left-product',
     image: 'https://cdn.ogabassey.com/products/iphone-17-pro-max.avif',
@@ -107,6 +150,7 @@ const comparePageModel = {
 describe('ComparePageContent', () => {
   beforeEach(() => {
     mockLoadComparePage.mockReset();
+    mockCompareRelatedLinks.mockClear();
     mockLoadComparePage.mockResolvedValue(comparePageModel);
   });
 
@@ -145,6 +189,25 @@ describe('ComparePageContent', () => {
     ).toHaveAttribute(
       'href',
       'https://ogabassey.com/blog/best-phones-in-nigeria'
+    );
+    expect(
+      screen.getByRole('heading', { name: 'More comparisons to check' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', {
+        name: 'Compare iPhone 17 Pro Max with Galaxy S24 FE',
+      })
+    ).toHaveAttribute(
+      'href',
+      '/smartphones/compare/galaxy-s24-fe-vs-iphone-17-pro-max'
+    );
+    expect(mockCompareRelatedLinks).toHaveBeenCalledWith(
+      expect.objectContaining({
+        links: comparePageModel.relatedCompareLinks,
+        merchantCustomDomain: 'ogabassey.com',
+        merchantSlug: 'ogabassey',
+        storeUrl: 'https://ogabassey.com',
+      })
     );
     expect(container.querySelectorAll('tbody')).toHaveLength(1);
   });
@@ -392,10 +455,12 @@ describe('ComparePageContent', () => {
         },
       ],
       guideLinks: [],
+      relatedCompareLinks: [],
       merchant: {
         payout_currency: 'NGN',
       },
       isIndexable: true,
+      isLegacyFallback: false,
       leftBrand: 'Apple',
       rightBrand: 'Samsung',
     });

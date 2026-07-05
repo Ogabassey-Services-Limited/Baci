@@ -115,4 +115,32 @@ describe('compare indexability policy', () => {
       false
     );
   });
+
+  it('treats required eligible deep product pairs as curated', () => {
+    const deepProducts = Array.from({ length: 152 }, (_, index) => ({
+      slug: `phone-${index}`,
+      name: `Phone ${index}`,
+      brand: `Brand ${index % 4}`,
+      price: 300_000 + index,
+      category_slug: 'smartphones',
+      product_key_specs: {
+        chipset: `Chip ${index}`,
+        ram_gb: 8 + index,
+        storage_gb: 128 + index,
+      },
+    }));
+    const left = deepProducts[150];
+    const right = deepProducts[151];
+    const curatedSlugs = buildCuratedCompareSlugSet({
+      storeUrl: 'https://ogabassey.com',
+      categorySlug: 'smartphones',
+      categoryName: 'Smartphones',
+      products: deepProducts,
+      requiredProductSlugs: [left.slug, right.slug],
+    });
+
+    expect(
+      isCuratedCompareSlug(`${left.slug}-vs-${right.slug}`, curatedSlugs)
+    ).toBe(true);
+  });
 });

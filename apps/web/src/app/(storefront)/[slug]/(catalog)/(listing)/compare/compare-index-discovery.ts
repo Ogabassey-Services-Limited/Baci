@@ -1,5 +1,8 @@
 import { isRawDbProductRecord } from '@/lib/raw-db-product';
-import { buildCompareDiscoveryLinks } from '@/lib/storefront-compare/build-compare-discovery-links';
+import {
+  buildCompareLinkGraph,
+  COMPARE_GRAPH_INDEXABLE_CATEGORY_LINK_LIMIT,
+} from '@/lib/storefront-link-modules/compare-link-graph';
 import {
   buildCanonicalCompareCategories,
   type CompareIndexSection,
@@ -12,7 +15,8 @@ export const COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT = 20;
 export const COMPARE_INDEX_CATEGORY_SCAN_LIMIT = 80;
 export const COMPARE_INDEX_DISCOVERY_CONCURRENCY = 3;
 export const COMPARE_INDEX_PRODUCTS_PER_CATEGORY_LIMIT = 80;
-export const COMPARE_INDEX_LINKS_PER_CATEGORY_LIMIT = 80;
+export const COMPARE_INDEX_LINKS_PER_CATEGORY_LIMIT =
+  COMPARE_GRAPH_INDEXABLE_CATEGORY_LINK_LIMIT;
 export const COMPARE_INDEX_TOTAL_LINK_LIMIT = 800;
 
 interface CompareIndexCategory {
@@ -107,18 +111,17 @@ async function buildCompareIndexSection(input: {
     .map((product) => normalizeCompareProduct(product, categorySlug));
   const categoryName =
     categoryData.fallbackName || category.name || categorySlug;
-  const links = buildCompareDiscoveryLinks({
+  const links = buildCompareLinkGraph({
     storeUrl: input.storeUrl,
     categorySlug,
     categoryName,
-    includeBrandCompareLinks: false,
     products,
-  })
-    .slice(0, input.linksPerCategoryLimit)
-    .map((link) => ({
-      href: toRequestRelativeHref(link.href, input.storeUrl, input.pathPrefix),
-      label: link.label,
-    }));
+    productsAreKnownActive: true,
+    maxLinks: input.linksPerCategoryLimit,
+  }).map((link) => ({
+    href: toRequestRelativeHref(link.href, input.storeUrl, input.pathPrefix),
+    label: link.label,
+  }));
 
   if (links.length === 0) {
     return null;

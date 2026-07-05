@@ -1,5 +1,6 @@
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import type { Product } from '@/lib/products';
+import { buildCompareLinkGraph } from '@/lib/storefront-link-modules/compare-link-graph';
 import { buildProductContextParagraphs } from '@/lib/storefront-product/build-product-context-paragraphs';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import {
@@ -11,15 +12,17 @@ import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 interface OgabasseyPdpSemanticMerchant {
   business_name?: string | null;
   country?: string | null;
+  custom_domain?: string | null;
   id: string;
   payout_currency?: string | null;
 }
 
-interface OgabasseyPdpSemanticSectionsProps {
+export interface OgabasseyPdpSemanticSectionsProps {
   categoryName: string;
   categorySlug: string;
   merchant: OgabasseyPdpSemanticMerchant;
   product: Product;
+  productComparePathPrefix: string;
   storeSlug: string;
   storeUrl: string;
 }
@@ -29,6 +32,7 @@ export async function OgabasseyPdpSemanticSections({
   categorySlug,
   merchant,
   product,
+  productComparePathPrefix,
   storeSlug,
   storeUrl,
 }: OgabasseyPdpSemanticSectionsProps) {
@@ -68,6 +72,20 @@ export async function OgabasseyPdpSemanticSections({
     category_slug: product.category_slug ?? categorySlug,
     product_key_specs: product.product_key_specs,
   };
+  const compareInventory = inventory.some(
+    (candidate) => candidate.slug === currentProduct.slug
+  )
+    ? inventory
+    : [currentProduct, ...inventory];
+  const productCompareLinks = buildCompareLinkGraph({
+    storeUrl,
+    categorySlug,
+    categoryName,
+    products: compareInventory,
+    productsAreKnownActive: true,
+    anchorProductSlug: currentProduct.slug,
+    maxLinks: 8,
+  });
   const semanticModel = buildProductSemanticModel({
     storeUrl,
     merchantBusinessName: merchant.business_name || 'Baci Store',
@@ -100,6 +118,10 @@ export async function OgabasseyPdpSemanticSections({
           semanticModel,
         }),
       }}
+      productCompareLinks={productCompareLinks}
+      productComparePathPrefix={productComparePathPrefix}
+      merchantName={merchant.business_name || 'Baci Store'}
+      productName={product.name}
     />
   );
 }

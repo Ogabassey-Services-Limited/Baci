@@ -10,6 +10,7 @@ const {
   mockGenerateCollectionPageSchema,
   mockGenerateFAQSchema,
   mockGetCachedCategoryPageData,
+  mockGetCachedProductSemanticInventory,
   mockGetMerchantByIdentifier,
   mockGetPublishedClusterPosts,
   mockHeaders,
@@ -23,6 +24,7 @@ const {
   mockGenerateCollectionPageSchema: vi.fn(() => ({})),
   mockGenerateFAQSchema: vi.fn(() => ({})),
   mockGetCachedCategoryPageData: vi.fn(),
+  mockGetCachedProductSemanticInventory: vi.fn(),
   mockGetMerchantByIdentifier: vi.fn(),
   mockGetPublishedClusterPosts: vi.fn(),
   mockHeaders: vi.fn(),
@@ -118,6 +120,14 @@ vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
     mockGetPublishedClusterPosts(...args),
 }));
 
+vi.mock(
+  '@/lib/storefront-product/get-cached-product-semantic-inventory',
+  () => ({
+    getCachedProductSemanticInventory: (...args: unknown[]) =>
+      mockGetCachedProductSemanticInventory(...args),
+  })
+);
+
 vi.mock('@/lib/validation', () => ({
   isDomainIdentifier: (value: string) => value.includes('.'),
 }));
@@ -146,6 +156,7 @@ describe('CategoryPageContent', () => {
     mockBuildStoreUrl.mockReturnValue('https://store.example.com');
     mockBuildRequestScopedStoreUrl.mockReturnValue('https://store.example.com');
     mockGetPublishedClusterPosts.mockResolvedValue([]);
+    mockGetCachedProductSemanticInventory.mockResolvedValue([]);
     mockGetCachedCategoryPageData.mockResolvedValue({
       isCollection: true,
       category: null,
@@ -245,6 +256,46 @@ describe('CategoryPageContent', () => {
     expect(mockGenerateCollectionPageSchema).toHaveBeenCalledWith(
       expect.objectContaining({ currency: 'KES' })
     );
+  });
+
+  it('keeps category support fallback links when maintained compare graph is empty', async () => {
+    mockGetCachedCategoryPageData.mockResolvedValueOnce({
+      isCollection: false,
+      category: {
+        id: 'cat-1',
+        name: 'Phones',
+        slug: 'phones',
+        description: 'Phones',
+        image_url: null,
+        is_active: true,
+        parent_id: null,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      fallbackName: 'Phones',
+      fallbackDescription: 'Phones',
+      isInactiveCategory: false,
+      productCount: 1,
+      productsArePrePaginated: true,
+      products: [{ id: 'product-1' }],
+      productSlots: [{ id: 'product-1' }],
+      productIdsQueryFailed: false,
+      productsQueryFailed: false,
+      categoryQueryFailed: false,
+    });
+
+    await CategoryPageContent({
+      params: Promise.resolve({ slug: 'demo-store', category: 'phones' }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    const hubModelInput = mockBuildCategoryPageHubModel.mock.calls.at(-1)?.[0];
+
+    expect(hubModelInput).not.toHaveProperty('comparisonLinks');
+    expect(mockGetCachedProductSemanticInventory).not.toHaveBeenCalled();
   });
 
   it('renders category product prices with the merchant country currency', async () => {

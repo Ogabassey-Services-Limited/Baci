@@ -11,6 +11,14 @@ interface CompareIndexabilityProduct {
   product_key_specs?: ComparableProductKeySpecs | null;
 }
 
+interface BuildCuratedCompareSlugSetInput {
+  storeUrl: string;
+  categorySlug: string;
+  categoryName: string;
+  products: CompareIndexabilityProduct[];
+  requiredProductSlugs?: string[];
+}
+
 function addCanonicalCompareSlug(slugs: Set<string>, slug: string | null) {
   if (!slug) {
     return;
@@ -23,12 +31,9 @@ function addCanonicalCompareSlug(slugs: Set<string>, slug: string | null) {
   }
 }
 
-export function buildCuratedCompareSlugSet(input: {
-  storeUrl: string;
-  categorySlug: string;
-  categoryName: string;
-  products: CompareIndexabilityProduct[];
-}) {
+export function buildCuratedCompareSlugSet(
+  input: BuildCuratedCompareSlugSetInput
+) {
   const slugs = new Set<string>();
 
   for (const link of buildCompareDiscoveryLinks(input)) {
@@ -38,12 +43,9 @@ export function buildCuratedCompareSlugSet(input: {
   return slugs;
 }
 
-export function buildApprovedCompareSlugsForCategory(input: {
-  storeUrl: string;
-  categorySlug: string;
-  categoryName: string;
-  products: CompareIndexabilityProduct[];
-}) {
+export function buildApprovedCompareSlugsForCategory(
+  input: BuildCuratedCompareSlugSetInput
+) {
   return [...buildCuratedCompareSlugSet(input)].sort();
 }
 

@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import type { BreadcrumbList, CollectionPage, FAQPage } from 'schema-dts';
 import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
@@ -33,6 +34,7 @@ import {
   type StorefrontCategoryProduct,
 } from './category-page-content-helpers';
 import { CategoryPageCrawlSummary } from './category-page-crawl-summary';
+import { CategoryPageDeferredCompareLinks } from './category-page-deferred-compare-links';
 
 interface PageProps {
   params: Promise<{
@@ -41,7 +43,6 @@ interface PageProps {
   }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
-
 function renderCategoryNotFoundContent({
   slug,
   title = 'Category not found',
@@ -51,9 +52,6 @@ function renderCategoryNotFoundContent({
   title?: string;
   message?: string;
 }) {
-  // Metadata generation remains the primary hard notFound/noindex gate. This
-  // streamed content fallback is only for render-time races after a valid
-  // merchant/category shell has already started.
   return (
     <StorefrontRouteNotFoundContent
       backHref={isDomainIdentifier(slug) ? '/' : `/${slug}`}
@@ -107,11 +105,6 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     notFound();
   }
 
-  // An over-long / repeatedly-encoded category can never match; bail before
-  // getCachedCategoryPageData -> getCachedCategoryPageShellData
-  // (`'use cache: remote'`, keys on category + queries eq('slug', category))
-  // runs with an unbounded key. (slug is already bounded by
-  // getMerchantByIdentifier above.)
   if (!evaluateStorefrontSlugSafety(category).safe) {
     return renderCategoryNotFoundContent({ slug });
   }
@@ -289,6 +282,16 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
         merchantName={merchant.business_name}
         productNames={categoryPageProducts.map((product) => product.name)}
       />
+      {!data.isCollection && (hubContent.comparisonLinks?.length ?? 0) === 0 ? (
+        <Suspense fallback={null}>
+          <CategoryPageDeferredCompareLinks
+            storeUrl={requestScopedBaseUrl}
+            merchantId={merchant.id}
+            categorySlug={category}
+            categoryName={categoryName}
+          />
+        </Suspense>
+      ) : null}
     </>
   );
 }

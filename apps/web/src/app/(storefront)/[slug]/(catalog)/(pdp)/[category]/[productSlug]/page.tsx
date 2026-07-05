@@ -90,7 +90,7 @@ import {
   normalizeRouteProductVariants,
   shouldRedirectVariantSelectionParams,
 } from './critical-variant-selection';
-import { OgabasseyPdpSemanticSections } from './ogabassey-pdp-semantic-sections';
+import { OgabasseyPdpRequestScopedSemanticSections } from './ogabassey-pdp-request-scoped-semantic-sections';
 
 const CANONICAL_PRODUCT_REDIRECT_METADATA: Metadata = {
   // Replace root metadata alternates so noindex fallback pages do not inherit a canonical.
@@ -1350,7 +1350,7 @@ async function CategoryProductPageContent({
     // still kept for downstream hydration/render failures.
     <SemanticSectionsErrorBoundary fallback={null}>
       <Suspense fallback={null}>
-        <OgabasseyPdpSemanticSections
+        <OgabasseyPdpRequestScopedSemanticSections
           categoryName={renderableProduct.category || 'All Products'}
           categorySlug={resolvedCategorySlug}
           merchant={merchant}

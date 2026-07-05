@@ -1,0 +1,256 @@
+export type CrawlDepthUrlKind =
+  | 'blog'
+  | 'blog-category-alias-cleanup'
+  | 'blog-pagination-cleanup'
+  | 'broken-cleanup'
+  | 'compare'
+  | 'demo-cleanup'
+  | 'listing-page'
+  | 'product'
+  | 'redirect-cleanup';
+
+export interface ClassifiedCrawlDepthUrl {
+  kind: CrawlDepthUrlKind;
+  path: string;
+  canonicalPath?: string;
+}
+
+interface ClusterSummary {
+  coveredRows: number;
+  missingRows: number;
+  totalRows: number;
+}
+
+export interface CrawlDepthCoverageReport {
+  cleanupRows: number;
+  clusters: Record<string, ClusterSummary>;
+  coveredMaintainedRows: number;
+  missing: ClassifiedCrawlDepthUrl[];
+  missingMaintainedRows: number;
+  totalRows: number;
+}
+
+const CLEANUP_KINDS = new Set<CrawlDepthUrlKind>([
+  'blog-category-alias-cleanup',
+  'blog-pagination-cleanup',
+  'broken-cleanup',
+  'demo-cleanup',
+  'redirect-cleanup',
+]);
+const COMPARE_CLUSTERS = [
+  'vs-xiaomi-13t',
+  'vs-lenovo-thinkpad-x1-carbon-gen-7',
+] as const;
+
+function pathWithSearch(url: URL) {
+  return `${url.pathname}${url.search}`;
+}
+
+function listingPagePath(url: URL) {
+  return `${url.pathname}?page=${url.searchParams.get('page')}`;
+}
+
+export function classifyCrawlDepthUrl(url: string): ClassifiedCrawlDepthUrl {
+  const parsedUrl = new URL(url);
+
+  if (parsedUrl.hostname !== 'ogabassey.com') {
+    return { kind: 'redirect-cleanup', path: parsedUrl.pathname || '/' };
+  }
+
+  if (parsedUrl.pathname.startsWith('/categories/')) {
+    return { kind: 'broken-cleanup', path: parsedUrl.pathname };
+  }
+
+  if (parsedUrl.pathname === '/products/demo') {
+    return { kind: 'demo-cleanup', path: parsedUrl.pathname };
+  }
+
+  if (
+    parsedUrl.pathname === '/blog' &&
+    (parsedUrl.searchParams.has('category') ||
+      parsedUrl.searchParams.has('page'))
+  ) {
+    const params = new URLSearchParams();
+    const category = parsedUrl.searchParams.get('category');
+    const page = parsedUrl.searchParams.get('page');
+
+    if (category) {
+      params.set('category', category);
+    }
+
+    if (page) {
+      params.set('page', page);
+    }
+
+    return {
+      kind: 'blog-pagination-cleanup',
+      path: `${parsedUrl.pathname}?${params.toString()}`,
+    };
+  }
+
+  if (parsedUrl.pathname === '/blog/category/review') {
+    return {
+      canonicalPath: '/blog/category/reviews',
+      kind: 'blog-category-alias-cleanup',
+      path: parsedUrl.pathname,
+    };
+  }
+
+  if (parsedUrl.pathname.startsWith('/blog/')) {
+    return { kind: 'blog', path: parsedUrl.pathname };
+  }
+
+  if (
+    parsedUrl.pathname.endsWith('/compare') ||
+    parsedUrl.pathname.includes('/compare/')
+  ) {
+    return { kind: 'compare', path: parsedUrl.pathname };
+  }
+
+  if (parsedUrl.searchParams.has('page')) {
+    return {
+      kind: 'listing-page',
+      path: listingPagePath(parsedUrl),
+    };
+  }
+
+  return { kind: 'product', path: pathWithSearch(parsedUrl) };
+}
+
+function normalizeHref(href: string) {
+  const parsedUrl = new URL(href, 'https://ogabassey.com');
+  return `${parsedUrl.pathname}${parsedUrl.search}`;
+}
+
+export function isCoveredByMaintainedModules(
+  classifiedUrl: ClassifiedCrawlDepthUrl,
+  moduleHrefs: Set<string>
+) {
+  if (CLEANUP_KINDS.has(classifiedUrl.kind)) {
+    return true;
+  }
+
+  return moduleHrefs.has(normalizeHref(classifiedUrl.path));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function collectHrefs(value: unknown, hrefs: Set<string>) {
+  if (typeof value === 'string') {
+    if (value.startsWith('/') || value.startsWith('https://ogabassey.com')) {
+      hrefs.add(normalizeHref(value));
+    }
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectHrefs(item, hrefs);
+    }
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  if (typeof value.href === 'string') {
+    hrefs.add(normalizeHref(value.href));
+  }
+
+  for (const nestedValue of Object.values(value)) {
+    collectHrefs(nestedValue, hrefs);
+  }
+}
+
+export function collectModuleHrefs(value: unknown) {
+  const hrefs = new Set<string>();
+  collectHrefs(value, hrefs);
+  return hrefs;
+}
+
+function emptyClusterSummary(): ClusterSummary {
+  return {
+    coveredRows: 0,
+    missingRows: 0,
+    totalRows: 0,
+  };
+}
+
+export function buildCrawlDepthCoverageReport(
+  urls: string[],
+  moduleHrefs: Set<string>
+): CrawlDepthCoverageReport {
+  const clusters: Record<string, ClusterSummary> = Object.fromEntries(
+    COMPARE_CLUSTERS.map((cluster) => [cluster, emptyClusterSummary()])
+  );
+  const report: CrawlDepthCoverageReport = {
+    cleanupRows: 0,
+    clusters,
+    coveredMaintainedRows: 0,
+    missing: [],
+    missingMaintainedRows: 0,
+    totalRows: urls.length,
+  };
+
+  for (const url of urls) {
+    const classifiedUrl = classifyCrawlDepthUrl(url);
+    const isCleanup = CLEANUP_KINDS.has(classifiedUrl.kind);
+    const covered = isCoveredByMaintainedModules(classifiedUrl, moduleHrefs);
+
+    if (isCleanup) {
+      report.cleanupRows += 1;
+    } else if (covered) {
+      report.coveredMaintainedRows += 1;
+    } else {
+      report.missingMaintainedRows += 1;
+      report.missing.push(classifiedUrl);
+    }
+
+    for (const cluster of COMPARE_CLUSTERS) {
+      if (!classifiedUrl.path.includes(cluster)) {
+        continue;
+      }
+
+      clusters[cluster].totalRows += 1;
+
+      if (covered) {
+        clusters[cluster].coveredRows += 1;
+      } else {
+        clusters[cluster].missingRows += 1;
+      }
+    }
+  }
+
+  return report;
+}
+
+export function formatCrawlDepthCoverageReport(
+  report: CrawlDepthCoverageReport
+) {
+  const lines = [
+    `total_rows ${report.totalRows}`,
+    `covered_maintained_rows ${report.coveredMaintainedRows}`,
+    `missing_maintained_rows ${report.missingMaintainedRows}`,
+    `cleanup_rows ${report.cleanupRows}`,
+  ];
+
+  for (const [cluster, summary] of Object.entries(report.clusters)) {
+    lines.push(
+      `cluster ${cluster} covered_representative ${
+        summary.totalRows > 0 && summary.missingRows === 0
+      } covered_rows ${summary.coveredRows} total_rows ${summary.totalRows}`
+    );
+  }
+
+  if (report.missing.length > 0) {
+    lines.push('missing_samples');
+    for (const missingUrl of report.missing.slice(0, 20)) {
+      lines.push(`${missingUrl.kind} ${missingUrl.path}`);
+    }
+  }
+
+  return lines.join('\n');
+}

@@ -1,5 +1,6 @@
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
 import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
+import { resolveStorefrontPathHref } from '@/lib/storefront-path-prefix';
 
 export interface CompareIndexSection {
   categoryName: string;
@@ -15,21 +16,15 @@ interface CompareCategory {
   slug: string | null;
 }
 
-export function getStorefrontPathPrefix(
-  headersList: { has(name: string): boolean },
-  merchantSlug: string
-) {
-  return headersList.has('x-custom-domain') ||
-    headersList.has('x-merchant-slug')
-    ? ''
-    : `/${merchantSlug}`;
-}
-
 export function toRequestRelativeHref(
   href: string,
   storeUrl: string,
   pathPrefix: string
 ) {
+  if (href.startsWith('/') && !href.startsWith('//')) {
+    return resolveStorefrontPathHref(pathPrefix, href);
+  }
+
   try {
     const url = new URL(href);
     const canonicalStoreUrl = new URL(storeUrl);
@@ -48,11 +43,7 @@ export function toRequestRelativeHref(
         return relativeHref;
       }
 
-      const normalizedPathPrefix = pathPrefix.replace(/\/+$/g, '');
-
-      return normalizedPathPrefix
-        ? `${normalizedPathPrefix}${relativeHref}`
-        : relativeHref;
+      return resolveStorefrontPathHref(pathPrefix, relativeHref);
     }
   } catch {
     return href;
@@ -68,13 +59,19 @@ export function normalizeCompareProduct(
   const normalizedProduct = normalizeProduct(product, {
     preferredCategorySlug: categorySlug,
   });
+  const hasJoinedCategory =
+    Boolean(product.categories) ||
+    (Array.isArray(product.product_categories) &&
+      product.product_categories.some((entry) => Boolean(entry.categories)));
 
   return {
     slug: normalizedProduct.slug,
     name: normalizedProduct.name,
     brand: normalizedProduct.brand,
     price: normalizedProduct.price,
-    category_slug: normalizedProduct.category_slug,
+    category_slug: hasJoinedCategory
+      ? normalizedProduct.category_slug
+      : categorySlug,
     product_key_specs: normalizedProduct.product_key_specs,
   };
 }

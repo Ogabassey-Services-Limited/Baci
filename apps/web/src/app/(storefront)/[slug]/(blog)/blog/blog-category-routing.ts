@@ -19,6 +19,19 @@ export function getBlogCategorySlug(category: string): string {
 }
 
 const RESERVED_CLEAN_BLOG_CATEGORY_SLUGS = new Set(['product']);
+const OGABASSEY_BLOG_CATEGORY_SLUG_ALIASES = new Map([['review', 'reviews']]);
+
+export function getCanonicalBlogCategorySlug(categorySlug: string): string {
+  return categorySlug.toLowerCase();
+}
+
+export function getOgabasseyBlogCategoryAliasSlug(
+  categorySlug: string
+): string | null {
+  return (
+    OGABASSEY_BLOG_CATEGORY_SLUG_ALIASES.get(categorySlug.toLowerCase()) ?? null
+  );
+}
 
 export function canUseCleanBlogCategorySlug(categorySlug: string): boolean {
   return (
@@ -108,7 +121,7 @@ export function findBlogCategoryLabelBySlug(
   categories: string[],
   categorySlug: string
 ): string | null {
-  const normalizedSlug = categorySlug.toLowerCase();
+  const normalizedSlug = getCanonicalBlogCategorySlug(categorySlug);
   if (!canUseCleanBlogCategorySlug(normalizedSlug)) {
     return null;
   }

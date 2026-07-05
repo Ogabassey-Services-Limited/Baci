@@ -403,8 +403,8 @@ vi.mock(
   })
 );
 
-vi.mock('./ogabassey-pdp-semantic-sections', () => ({
-  OgabasseyPdpSemanticSections: (props: unknown) => {
+vi.mock('./ogabassey-pdp-request-scoped-semantic-sections', () => ({
+  OgabasseyPdpRequestScopedSemanticSections: (props: unknown) => {
     mockOgabasseyPdpSemanticSections(props);
     return <section data-testid="ogabassey-pdp-semantic-sections" />;
   },

@@ -4,7 +4,9 @@ import {
   buildListingResult,
   merchant,
   mockGetCachedBlogListing,
+  mockHeaders,
   mockNotFound,
+  mockPermanentRedirect,
   mockRedirect,
   mockResolveBlogCategoryHub,
   resetBlogPageContentMocks,
@@ -25,6 +27,7 @@ interface MockBlogPageContentProps {
 const mockBlogPageContent = vi.hoisted(() =>
   vi.fn((_props: MockBlogPageContentProps) => <div>Ogabassey blog</div>)
 );
+
 vi.mock('../../blog-page-content', () => ({
   BlogPageContent: (props: unknown) =>
     mockBlogPageContent(props as MockBlogPageContentProps),
@@ -39,6 +42,8 @@ const {
 describe('blog category page', () => {
   beforeEach(() => {
     resetBlogPageContentMocks();
+    mockHeaders.mockReset();
+    mockHeaders.mockReturnValue(new Headers());
     mockBlogPageContent.mockReset();
     mockBlogPageContent.mockReturnValue(<div>Ogabassey blog</div>);
     mockResolveBlogCategoryHub.mockResolvedValue({
@@ -239,6 +244,115 @@ describe('blog category page', () => {
     expect(mockBlogPageContent).not.toHaveBeenCalled();
   });
 
+  it('permanently redirects duplicate review category aliases to the canonical reviews archive', async () => {
+    mockResolveBlogCategoryHub
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        canonicalUrl: 'https://ogabassey.com/blog/category/reviews',
+        categoryLabel: 'Reviews',
+      });
+
+    await expect(
+      BlogCategoryPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          categorySlug: 'review',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_PERMANENT_REDIRECT:/blog/category/reviews');
+
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      '/blog/category/reviews'
+    );
+    expect(mockResolveBlogCategoryHub).toHaveBeenNthCalledWith(
+      1,
+      'ogabassey.com',
+      'review'
+    );
+    expect(mockResolveBlogCategoryHub).toHaveBeenNthCalledWith(
+      2,
+      'ogabassey.com',
+      'reviews'
+    );
+    expect(mockBlogPageContent).not.toHaveBeenCalled();
+  });
+
+  it('prefixes duplicate review redirects for path-mode storefronts', async () => {
+    mockResolveBlogCategoryHub
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        canonicalUrl: 'https://ogabassey.com/blog/category/reviews',
+        categoryLabel: 'Reviews',
+      });
+
+    await expect(
+      BlogCategoryPage({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          categorySlug: 'review',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:/ogabassey/blog/category/reviews'
+    );
+
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      '/ogabassey/blog/category/reviews'
+    );
+  });
+
+  it('keeps duplicate review redirects unprefixed for subdomain storefronts', async () => {
+    mockHeaders.mockReturnValue(
+      new Headers([['x-merchant-slug', 'ogabassey']])
+    );
+    mockResolveBlogCategoryHub
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        canonicalUrl: 'https://ogabassey.com/blog/category/reviews',
+        categoryLabel: 'Reviews',
+      });
+
+    await expect(
+      BlogCategoryPage({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          categorySlug: 'review',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_PERMANENT_REDIRECT:/blog/category/reviews');
+
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      '/blog/category/reviews'
+    );
+  });
+
+  it('does not redirect a non-Ogabassey singular review category', async () => {
+    mockResolveBlogCategoryHub.mockResolvedValueOnce({
+      canonicalUrl: 'https://merchant.example/blog/category/review',
+      categoryLabel: 'Review',
+    });
+
+    render(
+      await BlogCategoryPage({
+        params: Promise.resolve({
+          slug: 'merchant-a',
+          categorySlug: 'review',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+    expect(mockResolveBlogCategoryHub).toHaveBeenCalledWith(
+      'merchant-a',
+      'review'
+    );
+    expect(await screen.findByText('Ogabassey blog')).toBeInTheDocument();
+  });
+
   it('calls notFound without resolving the hub for over-encoded bot category slugs', async () => {
     let overEncodedSlug = 'smartphones and tablets';
     for (let i = 0; i < 10; i++) {
@@ -309,6 +423,36 @@ describe('blog category page', () => {
     expect(metadata.robots).toMatchObject({ index: true, follow: true });
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/blog/category/smartphones'
+    );
+  });
+
+  it('resolves duplicate review category alias metadata to the canonical reviews archive', async () => {
+    mockResolveBlogCategoryHub
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        canonicalUrl: 'https://ogabassey.com/blog/category/reviews',
+        categoryLabel: 'Reviews',
+      });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        categorySlug: 'review',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(mockResolveBlogCategoryHub).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'review'
+    );
+    expect(mockResolveBlogCategoryHub).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'reviews'
+    );
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates?.canonical).toBe(
+      'https://ogabassey.com/blog/category/reviews'
     );
   });
 

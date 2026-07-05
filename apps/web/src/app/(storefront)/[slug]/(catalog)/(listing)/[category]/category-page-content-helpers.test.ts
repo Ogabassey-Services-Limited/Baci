@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { getCachedCategoryPageData } from '@/lib/cached-data';
 import type { RawDbProduct } from '@/lib/normalize-product';
 import {
+  buildCategoryPageHubModel,
   getCategoryPageProductSlots,
   isCategoryPageProductSlot,
   normalizeCategoryPageProducts,
@@ -216,5 +217,54 @@ describe('normalizeCategoryPageProducts', () => {
 
     expect(result.price).toContain('₦');
     expect(result.price).not.toContain('$');
+  });
+});
+
+describe('buildCategoryPageHubModel', () => {
+  it('uses maintained comparison links when category rendering provides them', () => {
+    const model = buildCategoryPageHubModel({
+      data: categoryDataStub({
+        isCollection: false,
+        category: {
+          description: null,
+          id: 'cat-1',
+          is_active: true,
+          name: 'Smartphones',
+          slug: 'smartphones',
+          seo_heading: null,
+          seo_description: null,
+          seo_features: [],
+          seo_faq: [],
+          image_url: null,
+          parent: null,
+        },
+      }),
+      categorySlug: 'smartphones',
+      categoryName: 'Smartphones',
+      merchantBusinessName: 'Ogabassey',
+      storeUrl: 'https://ogabassey.com',
+      products: [],
+      comparisonLinks: [
+        {
+          href: 'https://ogabassey.com/smartphones/compare',
+          label: 'View all smartphones comparisons',
+        },
+        {
+          href: 'https://ogabassey.com/smartphones/compare/alpha-vs-beta',
+          label: 'Compare Alpha with Beta',
+        },
+      ],
+    });
+
+    expect(model.comparisonLinks).toEqual([
+      {
+        href: 'https://ogabassey.com/smartphones/compare',
+        label: 'View all smartphones comparisons',
+      },
+      {
+        href: 'https://ogabassey.com/smartphones/compare/alpha-vs-beta',
+        label: 'Compare Alpha with Beta',
+      },
+    ]);
   });
 });

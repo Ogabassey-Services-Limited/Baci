@@ -1,15 +1,24 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
+import { asRoute } from '@/lib/routes';
+import {
+  getStorefrontPathPrefix,
+  resolveStorefrontPathHref,
+} from '@/lib/storefront-path-prefix';
 import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
+import { isDomainIdentifier } from '@/lib/validation';
 import { BlogListingFallback } from '../../BlogListingFallback';
 import { resolveBlogCategoryHub } from '../../blog-category-hub';
 import {
   canUseCleanBlogCategorySlug,
   getBlogCategorySlug,
+  getCanonicalBlogCategorySlug,
   getCollidingBlogCategorySlugs,
+  getOgabasseyBlogCategoryAliasSlug,
   isOgabasseyBlogStaticTenant,
   OGABASSEY_BLOG_PRIMARY_STATIC_TENANT,
   OGABASSEY_BLOG_STATIC_TENANTS,
@@ -46,6 +55,23 @@ const OGABASSEY_CATEGORY_STATIC_FALLBACK_SLUGS = [
   'laptops',
   'smartphones',
 ] as const;
+
+function buildCanonicalCategoryRoute(input: {
+  categorySlug: string;
+  headersList: Parameters<typeof getStorefrontPathPrefix>[0];
+  slug: string;
+}) {
+  const pathPrefix = isDomainIdentifier(input.slug)
+    ? ''
+    : getStorefrontPathPrefix(input.headersList, input.slug);
+
+  return asRoute(
+    resolveStorefrontPathHref(
+      pathPrefix,
+      `/blog/category/${input.categorySlug}`
+    )
+  );
+}
 
 function getStaticCategorySlugs(categories: string[]): string[] {
   const publicCategories = filterPublicBlogCategories(categories);
@@ -99,9 +125,28 @@ export async function generateMetadata({
   if (!evaluateStorefrontSlugSafety(categorySlug).safe) {
     return CATEGORY_NOT_FOUND_METADATA;
   }
-  const hub = await resolveBlogCategoryHub(slug, categorySlug);
-  if (!hub) {
+  const canonicalCategorySlug = getCanonicalBlogCategorySlug(categorySlug);
+  const hub = await resolveBlogCategoryHub(slug, canonicalCategorySlug);
+  const aliasCategorySlug =
+    !hub && isOgabasseyBlogStaticTenant(slug)
+      ? getOgabasseyBlogCategoryAliasSlug(categorySlug)
+      : null;
+  const aliasHub = aliasCategorySlug
+    ? await resolveBlogCategoryHub(slug, aliasCategorySlug)
+    : null;
+  const resolvedHub = hub ?? aliasHub;
+
+  if (!resolvedHub) {
     return CATEGORY_NOT_FOUND_METADATA;
+  }
+
+  if (aliasHub) {
+    return buildBlogListingMetadata({
+      slug,
+      searchParams: { category: aliasHub.categoryLabel },
+      canonicalUrl: aliasHub.canonicalUrl,
+      indexable: false,
+    });
   }
 
   // Static tenant metadata stays request-searchParams-free (prerenderable);
@@ -110,8 +155,8 @@ export async function generateMetadata({
   if (isOgabasseyBlogStaticTenant(slug)) {
     return buildBlogListingMetadata({
       slug,
-      searchParams: { category: hub.categoryLabel },
-      canonicalUrl: hub.canonicalUrl,
+      searchParams: { category: resolvedHub.categoryLabel },
+      canonicalUrl: resolvedHub.canonicalUrl,
       indexable: true,
     });
   }
@@ -123,8 +168,9 @@ export async function generateMetadata({
 
   return buildBlogListingMetadata({
     slug,
-    searchParams: { category: hub.categoryLabel, page, search },
-    canonicalUrl: !search && currentPage === 1 ? hub.canonicalUrl : undefined,
+    searchParams: { category: resolvedHub.categoryLabel, page, search },
+    canonicalUrl:
+      !search && currentPage === 1 ? resolvedHub.canonicalUrl : undefined,
     indexable: currentPage === 1,
   });
 }
@@ -142,16 +188,37 @@ export default async function BlogCategoryPage({
   if (!evaluateStorefrontSlugSafety(categorySlug).safe) {
     notFound();
   }
-  const hub = await resolveBlogCategoryHub(slug, categorySlug);
-  if (!hub) {
+  const canonicalCategorySlug = getCanonicalBlogCategorySlug(categorySlug);
+
+  const hub = await resolveBlogCategoryHub(slug, canonicalCategorySlug);
+  const aliasCategorySlug =
+    !hub && isOgabasseyBlogStaticTenant(slug)
+      ? getOgabasseyBlogCategoryAliasSlug(categorySlug)
+      : null;
+  const aliasHub = aliasCategorySlug
+    ? await resolveBlogCategoryHub(slug, aliasCategorySlug)
+    : null;
+
+  if (aliasHub && aliasCategorySlug) {
+    permanentRedirect(
+      buildCanonicalCategoryRoute({
+        categorySlug: aliasCategorySlug,
+        headersList: await headers(),
+        slug,
+      })
+    );
+  }
+
+  const resolvedHub = hub ?? aliasHub;
+  if (!resolvedHub) {
     notFound();
   }
 
   const content = (
     <BlogPageContent
-      categoryOverride={hub.categoryLabel}
+      categoryOverride={resolvedHub.categoryLabel}
       isCleanCategoryRoute
-      itemListSchemaUrl={hub.canonicalUrl}
+      itemListSchemaUrl={resolvedHub.canonicalUrl}
       params={Promise.resolve({ slug })}
       searchParams={searchParams ?? Promise.resolve({})}
     />

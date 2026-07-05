@@ -65,6 +65,22 @@ describe('ProductSemanticSections', () => {
             ],
           },
         }}
+        merchantName="Demo Store"
+        productCompareLinks={[
+          {
+            href: '/smartphones/compare/google-pixel-8-vs-xiaomi-13t',
+            label: 'Compare Google Pixel 8 with Xiaomi 13T',
+            description: 'Compare price, specs, condition, and buying fit.',
+            categorySlug: 'smartphones',
+            comparisonSlug: 'google-pixel-8-vs-xiaomi-13t',
+            productSlugs: ['google-pixel-8', 'xiaomi-13t'],
+            productNames: ['Google Pixel 8', 'Xiaomi 13T'],
+            anchorProductSlug: 'xiaomi-13t',
+            score: 12,
+          },
+        ]}
+        productComparePathPrefix="/ogabassey"
+        productName="Xiaomi 13T"
       />,
     );
 
@@ -91,6 +107,22 @@ describe('ProductSemanticSections', () => {
     expect(
       screen.getByRole('heading', { name: 'Compare and Buying Guides' })
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        name: 'Popular comparisons for this product',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/similar Demo Store options/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', {
+        name: 'Compare Google Pixel 8 with Xiaomi 13T',
+      })
+    ).toHaveAttribute(
+      'href',
+      '/ogabassey/smartphones/compare/google-pixel-8-vs-xiaomi-13t'
+    );
     expect(
       screen.getByRole('link', { name: 'Shop more Smartphones' })
     ).toHaveAttribute('href', '/smartphones');

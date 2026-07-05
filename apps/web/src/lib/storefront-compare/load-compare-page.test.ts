@@ -6,6 +6,7 @@ const mockGetCachedCategoryPageData = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedFeatureSettings = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
+const mockGetCachedProductSemanticInventory = vi.fn();
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
     mockGetMerchantByIdentifier(...args),
@@ -21,6 +22,14 @@ vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
   getPublishedClusterPosts: (...args: unknown[]) =>
     mockGetPublishedClusterPosts(...args),
 }));
+
+vi.mock(
+  '@/lib/storefront-product/get-cached-product-semantic-inventory',
+  () => ({
+    getCachedProductSemanticInventory: (...args: unknown[]) =>
+      mockGetCachedProductSemanticInventory(...args),
+  })
+);
 
 const merchant = {
   id: 'merchant-1',
@@ -136,10 +145,21 @@ describe('loadComparePage', () => {
     mockGetCachedProductWithDetails.mockReset();
     mockGetCachedFeatureSettings.mockReset();
     mockGetPublishedClusterPosts.mockReset();
+    mockGetCachedProductSemanticInventory.mockReset();
     mockGetMerchantByIdentifier.mockResolvedValue(merchant);
     mockGetCachedCategoryPageData.mockResolvedValue(categoryPageData);
     mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
     mockGetPublishedClusterPosts.mockResolvedValue([]);
+    mockGetCachedProductSemanticInventory.mockResolvedValue(
+      categoryPageData.products.map((product) => ({
+        slug: product.slug,
+        name: product.name,
+        brand: product.brand,
+        price: product.price,
+        category_slug: product.category_slug,
+        product_key_specs: product.product_key_specs,
+      }))
+    );
   });
 
   afterEach(() => {
@@ -188,6 +208,12 @@ describe('loadComparePage', () => {
       rightValue: expect.any(String),
     });
     expect(result?.breadcrumbItems.at(-1)?.url).toBe(result?.canonicalUrl);
+    expect(result?.relatedCompareLinks.length).toBeLessThanOrEqual(6);
+    expect(
+      result?.relatedCompareLinks.some(
+        (link) => link.comparisonSlug === result.canonicalSlug
+      )
+    ).toBe(false);
   });
 
   it('keeps full product names in metaTitle when the pair exceeds the SERP display cap', async () => {
@@ -357,9 +383,9 @@ describe('loadComparePage', () => {
     });
   });
 
-  it('preserves valid non-curated compare slugs as monitored noindex legacy fallbacks', async () => {
+  it('marks maintained graph-emitted product compare routes as indexable', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
-      // Suppress expected telemetry in this regression test.
+      // No fallback warning should be emitted for a graph-emitted pair.
     });
 
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
@@ -382,16 +408,99 @@ describe('loadComparePage', () => {
     });
 
     expect(result?.kind).toBe('product');
-    expect(result?.isIndexable).toBe(false);
-    expect(result?.isLegacyFallback).toBe(true);
+    expect(result?.isIndexable).toBe(true);
+    expect(result?.isLegacyFallback).toBe(false);
     expect(result?.canonicalSlug).toBe('iphone-se-vs-samsung-galaxy-z-trifold');
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(warnSpy).not.toHaveBeenCalledWith(
       'COMPARE_NON_CURATED_FALLBACK',
+      expect.anything()
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('keeps valid PDP-emitted compare routes indexable when the anchor is outside bounded graph inventory', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      // No fallback warning should be emitted for a valid clicked pair.
+    });
+    mockGetCachedProductSemanticInventory.mockResolvedValueOnce([
+      {
+        slug: 'samsung-galaxy-z-trifold',
+        name: 'Samsung Galaxy Z TriFold',
+        brand: 'Samsung',
+        price: 2_300_000,
+        category_slug: 'smartphones',
+        product_key_specs: {
+          chipset: 'Snapdragon 8 Elite',
+          ram_gb: 16,
+          storage_gb: 512,
+        },
+      },
+    ]);
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categoryPageData.products[0],
+      product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
+    });
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categoryPageData.products[1],
+      product_key_specs: {
+        chipset: 'Snapdragon 8 Elite',
+        ram_gb: 16,
+        storage_gb: 512,
+      },
+    });
+
+    const result = await loadComparePage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+    });
+
+    expect(result?.kind).toBe('product');
+    expect(result?.isIndexable).toBe(true);
+    expect(result?.isLegacyFallback).toBe(false);
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      'COMPARE_NON_CURATED_FALLBACK',
+      expect.anything()
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('preserves curated product compare indexability when bounded graph inventory fails', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      // Suppress expected bounded-inventory warning.
+    });
+    mockGetCachedProductSemanticInventory.mockRejectedValueOnce(
+      new Error('inventory timeout')
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categoryPageData.products[0],
+      product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
+    });
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categoryPageData.products[1],
+      product_key_specs: {
+        chipset: 'Snapdragon 8 Elite',
+        ram_gb: 16,
+        storage_gb: 512,
+      },
+    });
+
+    const result = await loadComparePage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+    });
+
+    expect(result?.kind).toBe('product');
+    expect(result?.isIndexable).toBe(true);
+    expect(result?.isLegacyFallback).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Failed to load bounded compare graph inventory',
       expect.objectContaining({
         categorySlug: 'smartphones',
-        comparisonSlug: 'iphone-se-vs-samsung-galaxy-z-trifold',
-        policy:
-          'docs/superpowers/plans/2026-06-07-ogabassey-shared-comparison-spec-matrix.md',
+        merchantId: 'merchant-1',
       })
     );
 

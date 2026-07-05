@@ -60,12 +60,14 @@ export function buildCategoryHubModel(
     bestForCards,
     brandCards,
     priceBandCards,
-    comparisonLinks: buildCategorySupportLinks({
-      storeUrl: input.storeUrl,
-      categorySlug: input.categorySlug,
-      categoryName: input.categoryName,
-      products: input.products,
-    }),
+    comparisonLinks:
+      input.comparisonLinks ??
+      buildCategorySupportLinks({
+        storeUrl: input.storeUrl,
+        categorySlug: input.categorySlug,
+        categoryName: input.categoryName,
+        products: input.products,
+      }),
     guideLinks,
     faqItems,
   };

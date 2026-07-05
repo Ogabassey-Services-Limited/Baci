@@ -8,6 +8,7 @@ import { asRoute } from '@/lib/routes';
 import { sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { generateBreadcrumbSchema, getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { getStorefrontPathPrefix } from '@/lib/storefront-path-prefix';
 import { getStorefrontSearchProducts } from '@/lib/storefront-search';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { ProductIndexCard } from '../products/product-index-card';
@@ -32,16 +33,6 @@ function getPriceFormatter(currency: string): Intl.NumberFormat {
     priceFormatterCache.set(currency, formatter);
   }
   return formatter;
-}
-
-function getStorefrontPathPrefix(
-  headersList: Awaited<ReturnType<typeof headers>>,
-  merchantSlug: string
-) {
-  return headersList.has('x-custom-domain') ||
-    headersList.has('x-merchant-slug')
-    ? ''
-    : `/${merchantSlug}`;
 }
 
 function formatResultCount(count: number) {
@@ -105,7 +96,7 @@ export async function SearchPageContent({
   const searchQuery = searchResult.query;
 
   const headersList = await headers();
-  const pathPrefix = getStorefrontPathPrefix(headersList, merchant.slug);
+  const pathPrefix = getStorefrontPathPrefix(headersList, merchant);
   const allProductsHref = `${pathPrefix}/products`;
   const contactHref = `${pathPrefix}/contact`;
   const didYouMeanHref = searchResult.didYouMean
