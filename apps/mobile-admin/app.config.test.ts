@@ -73,6 +73,16 @@ describe('mobile-admin app config version resolution', () => {
     expect(config.version).toBe('2.0.364');
   });
 
+  it('treats an empty APP_VERSION as unset and still falls back to IOS_APP_VERSION', async () => {
+    vi.stubEnv('APP_VERSION', '');
+    vi.stubEnv('IOS_APP_VERSION', '2.0.364');
+
+    const { default: buildConfig } = await import('./app.config');
+    const config = buildConfig(TEST_CONFIG_CONTEXT);
+
+    expect(config.version).toBe('2.0.364');
+  });
+
   it('prefers APP_VERSION over IOS_APP_VERSION', async () => {
     vi.stubEnv('APP_VERSION', '2.0.640');
     vi.stubEnv('IOS_APP_VERSION', '2.0.364');

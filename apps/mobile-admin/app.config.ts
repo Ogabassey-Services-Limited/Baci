@@ -61,17 +61,20 @@ if (rawIosBuildNumber !== undefined) {
 // Release workflows inject an auto-incrementing value: APP_VERSION (Android) or
 // the legacy IOS_APP_VERSION (iOS). Without it, builds fall back to the pinned
 // baseline below — which is why every Android release previously shipped "2.0.1".
-const rawAppVersion = process.env.APP_VERSION ?? process.env.IOS_APP_VERSION;
+// Use `|| ` (not `??`) so an empty/whitespace APP_VERSION — e.g. a workflow that
+// exports it without a value — is treated as unset and still falls through to
+// IOS_APP_VERSION rather than silently dropping to the pinned baseline.
+const rawAppVersion =
+  process.env.APP_VERSION?.trim() || process.env.IOS_APP_VERSION?.trim();
 let _appVersion: string | undefined;
 
-if (rawAppVersion !== undefined && rawAppVersion.trim().length > 0) {
-  const trimmed = rawAppVersion.trim();
-  if (!/^\d+\.\d+\.\d+$/.test(trimmed)) {
+if (rawAppVersion) {
+  if (!/^\d+\.\d+\.\d+$/.test(rawAppVersion)) {
     throw new Error(
       `[app.config] Invalid app version "${rawAppVersion}" (from APP_VERSION/IOS_APP_VERSION). Must be semantic version major.minor.patch (e.g., 2.0.31).`
     );
   }
-  _appVersion = trimmed;
+  _appVersion = rawAppVersion;
 }
 
 const tiktokIosAppStoreId =
