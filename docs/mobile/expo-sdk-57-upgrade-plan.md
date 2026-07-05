@@ -180,6 +180,21 @@ package.json** (no native template changes).
 
 ---
 
+## Baseline measurements (SDK 56, recorded 2026-07-05)
+
+Method: debug APK (arm64) + Metro dev client on `Baci_Pixel_9_Pro_XL_API_36_Google` (4096 MB,
+2 cores), app foregrounded on its start screen; PSS via `run-as <pkg> cat /proc/<pid>/smaps_rollup`
+(kernel-side — `dumpsys meminfo` binder calls time out while the dev-mode main thread is busy);
+5 samples × 10 s, median. Post-upgrade (Phase 4) MUST reuse this exact method.
+
+| App | Package | Median PSS | Samples |
+|---|---|---|---|
+| storefront | com.ogabassey.store | **1,575,934 kB (~1.54 GiB)** | 1,564,018 → 1,587,126 kB (mild upward drift) |
+| admin | com.ogabassey.baci | _pending_ | _pending_ |
+
+Baseline suite state: lint/typecheck green; storefront 662 suites / 4,239 tests pass; admin green
+(turbo-cached). Both debug APKs build clean (storefront 11m29s cold, admin 6m44s warm).
+
 ## Phase 0 — Prep, baseline & storefront tooling gap (P2)
 
 - New branch off `main` in an **isolated worktree**; re-run `pnpm install` after branching.
