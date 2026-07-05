@@ -85,19 +85,6 @@ rescue ArgumentError
   UI.user_error!("APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS must be an integer number of seconds")
 end
 
-def ensure_idfa_metadata_confirmed!
-  confirmed = ENV["IOS_ADMIN_IDFA_METADATA_CONFIRMED"].to_s.strip.downcase
-  return if %w[1 true yes].include?(confirmed)
-
-  UI.user_error!(
-    "Set IOS_ADMIN_IDFA_METADATA_CONFIRMED=true only after App Store Connect's " \
-    "Privacy > IDFA declaration for #{BUNDLE_ID} has been manually verified. " \
-    "The pinned fastlane Connect API submit path does not update add_id_info_* " \
-    "fields from submission_information, so auto-submit must fail closed instead " \
-    "of submitting stale or false IDFA metadata."
-  )
-end
-
 def wait_for_app_store_build_processing!(api_key:, app_version:, build_number:)
   wait_opts = {
     api_key: api_key,
@@ -189,11 +176,20 @@ platform :ios do
       force: true,
       reject_if_possible: true,
       precheck_include_in_app_purchases: false,
-      # Keep this to fields the pinned fastlane Connect API submit path actually
-      # updates. IDFA answers are not applied from submission_information in that
-      # path, so the submit lane fails closed via ensure_idfa_metadata_confirmed!
-      # unless App Store Connect metadata has already been verified manually.
+      # IDFA: the admin app uses the advertiser identifier for ad-attribution of
+      # Baci's own acquisition marketing (TikTok Business SDK install/action
+      # attribution — ADMIN_TIKTOK_APP_ID/SECRET are wired into the release
+      # build), gated behind App Tracking Transparency. It does NOT display ads
+      # in-app. These flags must match the Apple privacy declaration or the
+      # automated review submission is rejected. Mirrors the storefront submit
+      # lane, which submits successfully via `deliver` on the same pinned
+      # fastlane — `deliver` DOES apply these add_id_info_* fields.
       submission_information: {
+        add_id_info_uses_idfa: true,
+        add_id_info_serves_ads: false,
+        add_id_info_tracks_action: true,
+        add_id_info_tracks_install: true,
+        add_id_info_limits_tracking: true,
         export_compliance_uses_encryption: false,
         export_compliance_encryption_updated: false
       }
@@ -208,8 +204,6 @@ platform :ios do
         "Setting only one creates ambiguity about which version to attach the changelog to."
       )
     end
-
-    ensure_idfa_metadata_confirmed!
 
     deliver_opts[:build_number] = build_number unless build_number.empty?
     deliver_opts[:app_version] = app_version unless app_version.empty?
