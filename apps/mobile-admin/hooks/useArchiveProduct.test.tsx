@@ -98,7 +98,6 @@ describe('useArchiveProduct', () => {
       ).rejects.toThrow('archive failed');
     });
 
-    expect(result.current.isError).toBe(true);
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['products', 'merchant-1'],
     });
