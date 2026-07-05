@@ -121,6 +121,7 @@ android {
     );
 
     withAndroidGradleFixes({ name: 'Ogabassey', slug: 'ogabassey' });
+    withAndroidGradleFixes({ name: 'Ogabassey', slug: 'ogabassey' });
 
     const rootBuildGradle = readProjectFile(
       mockPlatformProjectRoot,
@@ -153,7 +154,9 @@ android {
     expect(appBuildGradle).toContain('ANDROID_KEYSTORE_FILE');
     expect(appBuildGradle).toContain('signingConfig signingConfigs.release');
     expect(appBuildGradle).toContain('proguard-android-optimize.txt');
-    expect(appBuildGradle).toContain("pickFirsts += ['**/libworklets.so']");
+    const workletsPickFirstMatches =
+      appBuildGradle.match(/pickFirsts \+= \['\*\*\/libworklets\.so'\]/g) ?? [];
+    expect(workletsPickFirstMatches).toHaveLength(1);
     expect(appBuildGradle).toContain(
       'PostHog Android source-map upload is best-effort'
     );
