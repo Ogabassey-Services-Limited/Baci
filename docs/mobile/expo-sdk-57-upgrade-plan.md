@@ -190,9 +190,15 @@ Method: debug APK (arm64) + Metro dev client on `Baci_Pixel_9_Pro_XL_API_36_Goog
 | App | Package | Median PSS | Samples |
 |---|---|---|---|
 | storefront | com.ogabassey.store | **1,575,934 kB (~1.54 GiB)** | 1,564,018 → 1,587,126 kB (mild upward drift) |
-| **storefront (SDK 57 + bundle mode)** | com.ogabassey.store | **1,086,774 kB (~1.04 GiB) — −31.0%** | 48 samples / 8 min, no crash; plateau ~1.01–1.09 GB |
+| **storefront (SDK 57 + bundle mode)** | com.ogabassey.store | **1,090,963 kB (~1.04 GiB) — −30.8%** | FINAL (reanimated 4.5.0 + worklets 0.10.0): 48 samples / 8 min, no crash |
 | admin | com.ogabassey.baci | **784,328 kB (~766 MiB)** | flat plateau 781,756 → 784,484 kB over 8 min (48 samples, median of last 5) |
-| **admin (SDK 57 + bundle mode)** | com.ogabassey.baci | **666,154 kB (~651 MiB) — −15.1%** | 48 samples / 8 min, no crash; RN 0.85 inspector NPE did NOT reproduce on 0.86 |
+| **admin (SDK 57 + bundle mode)** | com.ogabassey.baci | **648,786 kB (~634 MiB) — −17.3%** | FINAL (reanimated 4.5.0 + worklets 0.10.0): 48 samples / 8 min, no crash; RN 0.85 inspector NPE did NOT reproduce on 0.86 |
+
+**Measurement provenance note:** an interim measurement pass (SF −31.0% / admin −15.1%) ran while
+stealth `pnpm-workspace.yaml` overrides still pinned reanimated 4.4.1 + worklets 0.9.2 (bundle mode
+ran as 0.9.2's experimental variant). After lifting the overrides to 4.5.0/0.10.0 (commit
+759d911e01) both apps were rebuilt and re-measured; the FINAL rows above are the shipping numbers.
+Takeaway: the memory win comes overwhelmingly from bundle mode itself; 4.5.0 adds ~2 pts on admin.
 
 Observation: RN 0.85 dev-mode crashes reproducibly in
 `CxxInspectorPackagerConnection.didReceiveMessage` (NPE) when the dev client reconnects to a Metro
