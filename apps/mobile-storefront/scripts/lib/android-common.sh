@@ -83,6 +83,18 @@ terminate_process_group() {
   local process_pid="$1"
 
   kill -- "-${process_pid}" >/dev/null 2>&1 || kill "$process_pid" >/dev/null 2>&1 || true
+
+  local waited=0
+  while ((waited < 5)); do
+    if ! kill -0 -- "-${process_pid}" >/dev/null 2>&1 && ! kill -0 "$process_pid" >/dev/null 2>&1; then
+      return 0
+    fi
+
+    sleep 1
+    waited=$((waited + 1))
+  done
+
+  kill -9 -- "-${process_pid}" >/dev/null 2>&1 || kill -9 "$process_pid" >/dev/null 2>&1 || true
 }
 
 run_stabilization_adb() {

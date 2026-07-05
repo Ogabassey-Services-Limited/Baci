@@ -78,6 +78,8 @@ describe('Android emulator launcher (storefront)', () => {
     expect(androidHelpers).toContain('dedicated Baci QA AVD');
     expect(launcher).toContain('terminate_process_group "$emulator_pid"');
     expect(androidHelpers).toContain('kill -- "-${process_pid}"');
+    expect(androidHelpers).toContain('kill -0 -- "-${process_pid}"');
+    expect(androidHelpers).toContain('kill -9 -- "-${process_pid}"');
     expect(launcher).toContain(
       'pnpm --filter @baci/mobile-storefront android:emulator'
     );
