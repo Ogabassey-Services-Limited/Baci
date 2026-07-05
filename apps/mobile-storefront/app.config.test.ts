@@ -112,6 +112,19 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
     expect(config.runtimeVersion).toBeTruthy();
   });
 
+  it('uses an Android-specific runtime boundary for the SDK 57 native upgrade', () => {
+    const appConfig = loadAppConfigWithEnv({
+      EXPO_PUBLIC_POSTHOG_API_KEY: 'ph_test',
+      STOREFRONT_FACEBOOK_APP_ID: '123456789',
+      STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
+    });
+    const config = renderConfig(appConfig);
+
+    expect(config.version).toBe('2.0.0');
+    expect(config.runtimeVersion).toBe('2.0.0');
+    expect(config.android?.runtimeVersion).toBe('2.0.0-android-sdk57');
+  });
+
   it('defaults the storefront merchant domain for production BNPL returns', () => {
     const appConfig = loadAppConfigWithEnv({
       EXPO_PUBLIC_POSTHOG_API_KEY: 'ph_test',
