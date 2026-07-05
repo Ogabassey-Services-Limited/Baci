@@ -3,6 +3,11 @@ import path from 'node:path';
 
 const appRoot = path.resolve(__dirname, '..');
 
+function expectAndroidHelpersHasSdkRootDefaults(source: string) {
+  expect(source).toContain('default_sdk_root');
+  expect(source).toContain('$HOME/Android/Sdk');
+}
+
 describe('Android emulator launcher (storefront)', () => {
   const packageJson = JSON.parse(
     readFileSync(path.join(appRoot, 'package.json'), 'utf8')
@@ -13,6 +18,10 @@ describe('Android emulator launcher (storefront)', () => {
   );
   const timeoutHelpers = readFileSync(
     path.join(appRoot, 'scripts/lib/timeout.sh'),
+    'utf8'
+  );
+  const androidHelpers = readFileSync(
+    path.join(appRoot, 'scripts/lib/android-common.sh'),
     'utf8'
   );
   const debugApkInstaller = readFileSync(
@@ -51,22 +60,24 @@ describe('Android emulator launcher (storefront)', () => {
     expect(launcher).toContain('BACI_ANDROID_EMULATOR_PORT:-5554');
     expect(launcher).toContain('BACI_ANDROID_EMULATOR_MEMORY_MB:-4096');
     expect(launcher).toContain('BACI_ANDROID_EMULATOR_CORES:-2');
-    expect(launcher).toContain('default_sdk_root');
-    expect(launcher).toContain('$HOME/Android/Sdk');
+    expect(launcher).toContain('source "${SCRIPT_DIR}/lib/android-common.sh"');
+    expectAndroidHelpersHasSdkRootDefaults(androidHelpers);
     expect(launcher).toContain('source "${SCRIPT_DIR}/lib/timeout.sh"');
     expect(launcher).toContain('remove_stale_avd_locks');
     expect(launcher).toContain('confirm_adb_shell_stable');
     expect(launcher).toContain('stabilize_android_system');
     expect(launcher).toContain('wait_for_android_settle');
-    expect(launcher).toContain('trap cleanup EXIT');
+    expect(launcher).toContain('register_temp_file_cleanup_traps');
+    expect(androidHelpers).toContain('trap cleanup EXIT');
+    expect(launcher.split('\n').length).toBeLessThanOrEqual(300);
   });
 
   it('targets storefront Metro port and log file in the emulator launcher', () => {
     expect(launcher).toContain('BACI_ANDROID_METRO_PORT:-8082');
     expect(launcher).toContain('baci-mobile-storefront-emulator.log');
-    expect(launcher).toContain('dedicated Baci QA AVD');
+    expect(androidHelpers).toContain('dedicated Baci QA AVD');
     expect(launcher).toContain('terminate_process_group "$emulator_pid"');
-    expect(launcher).toContain('kill -- "-${process_pid}"');
+    expect(androidHelpers).toContain('kill -- "-${process_pid}"');
     expect(launcher).toContain(
       'pnpm --filter @baci/mobile-storefront android:emulator'
     );
@@ -78,6 +89,9 @@ describe('Android emulator launcher (storefront)', () => {
       'BACI_ANDROID_APK_PATH:-android/app/build/outputs/apk/debug/app-debug.apk'
     );
     expect(debugApkInstaller).toContain('getprop sys.boot_completed');
+    expect(debugApkInstaller).toContain(
+      'run_with_timeout "$ADB_SHELL_TIMEOUT_SECONDS" "$ADB" -s "$ADB_SERIAL" get-state'
+    );
     expect(debugApkInstaller).toContain('install -r -d -t --no-streaming');
     expect(debugApkInstaller).toContain('BACI_ANDROID_ADB_INSTALL_TIMEOUT_SECONDS:-120');
     expect(debugApkInstaller).toContain(
@@ -99,8 +113,10 @@ describe('Android emulator launcher (storefront)', () => {
     expect(devClientLauncher).toContain(
       'ADB_SERIAL="${BACI_ANDROID_ADB_SERIAL:-emulator-${EMULATOR_PORT}}"'
     );
-    expect(devClientLauncher).toContain('default_sdk_root');
-    expect(devClientLauncher).toContain('$HOME/Android/Sdk');
+    expect(devClientLauncher).toContain(
+      'source "${SCRIPT_DIR}/lib/android-common.sh"'
+    );
+    expectAndroidHelpersHasSdkRootDefaults(androidHelpers);
     expect(devClientLauncher).toContain(
       'source "${SCRIPT_DIR}/lib/timeout.sh"'
     );
@@ -121,6 +137,28 @@ describe('Android emulator launcher (storefront)', () => {
     expect(timeoutHelpers).toContain('capture_with_timeout()');
     expect(launcher).not.toContain('run_with_timeout()');
     expect(devClientLauncher).not.toContain('run_with_timeout()');
+  });
+
+  it('bounds emulator stabilization commands through the shared timeout helper', () => {
+    expect(androidHelpers).toContain('run_stabilization_adb()');
+    expect(androidHelpers).toContain(
+      'run_with_timeout "$timeout_seconds" "$ADB" -s "$ADB_SERIAL" "$@"'
+    );
+    expect(androidHelpers).toContain(
+      'failed during Android stabilization with exit ${status}'
+    );
+    expect(androidHelpers).toContain(
+      'run_stabilization_adb shell svc bluetooth disable'
+    );
+    expect(androidHelpers).toContain(
+      'run_stabilization_adb shell settings put global window_animation_scale 0'
+    );
+    expect(androidHelpers).toContain(
+      'run_stabilization_adb shell cmd package disable-user --user 0 "$package_name"'
+    );
+    expect(launcher).toContain(
+      'Emulator booted, but Android stabilization timed out.'
+    );
   });
 
   it('bounds dev-client adb probes through the shared timeout helper', () => {

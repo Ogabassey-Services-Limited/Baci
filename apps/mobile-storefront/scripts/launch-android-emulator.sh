@@ -9,22 +9,7 @@ GPU_MODE="${BACI_ANDROID_GPU_MODE:-auto}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source "${SCRIPT_DIR}/lib/timeout.sh"
-
-default_sdk_root() {
-  case "$(uname -s)" in
-    Darwin)
-      printf '%s\n' "$HOME/Library/Android/sdk"
-      ;;
-    Linux)
-      printf '%s\n' "$HOME/Android/Sdk"
-      ;;
-    MINGW* | MSYS* | CYGWIN*)
-      if [[ -n "${LOCALAPPDATA:-}" ]]; then
-        printf '%s\n' "${LOCALAPPDATA}\\Android\\Sdk"
-      fi
-      ;;
-  esac
-}
+source "${SCRIPT_DIR}/lib/android-common.sh"
 
 SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$(default_sdk_root)}}"
 AVD_DIR="${ANDROID_AVD_HOME:-$HOME/.android/avd}/${AVD_NAME}.avd"
@@ -44,49 +29,11 @@ SETTLE_TIMEOUT_SECONDS="${BACI_ANDROID_SETTLE_TIMEOUT_SECONDS:-600}"
 SETTLE_LOAD_MAX="${BACI_ANDROID_SETTLE_LOAD_MAX:-8.0}"
 SETTLE_STABILITY_PROBES="${BACI_ANDROID_SETTLE_STABILITY_PROBES:-2}"
 METRO_PORT="${BACI_ANDROID_METRO_PORT:-8082}"
-cleanup_files=()
+register_temp_file_cleanup_traps
 
 export ANDROID_HOME="$SDK_ROOT"
 export ANDROID_SDK_ROOT="$SDK_ROOT"
 export PATH="${SDK_ROOT}/platform-tools:${SDK_ROOT}/emulator:${SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
-
-cleanup() {
-  if ((${#cleanup_files[@]} > 0)); then
-    rm -f "${cleanup_files[@]}" 2>/dev/null || true
-  fi
-}
-
-track_temp_file() {
-  cleanup_files+=("$1")
-}
-
-untrack_temp_file() {
-  local target="$1"
-  local remaining=()
-  local file
-
-  for file in "${cleanup_files[@]}"; do
-    if [[ "$file" != "$target" ]]; then
-      remaining+=("$file")
-    fi
-  done
-
-  if ((${#remaining[@]} == 0)); then
-    cleanup_files=()
-  else
-    cleanup_files=("${remaining[@]}")
-  fi
-}
-
-remove_temp_file() {
-  local target="$1"
-  rm -f "$target"
-  untrack_temp_file "$target"
-}
-
-trap cleanup EXIT
-trap 'cleanup; exit 130' INT
-trap 'cleanup; exit 143' TERM
 
 if [[ ! -x "$ADB" ]]; then
   echo "Android adb not found at $ADB" >&2
@@ -163,27 +110,6 @@ wait_for_adb_shell() {
   return 1
 }
 
-remove_stale_avd_locks() {
-  local lock_file
-
-  if [[ ! -d "$AVD_DIR" ]]; then
-    return 0
-  fi
-
-  if "$ADB" devices | grep -q "^${ADB_SERIAL}[[:space:]]"; then
-    return 0
-  fi
-
-  if command -v pgrep >/dev/null 2>&1 && pgrep -f "[e]mulator.*@${AVD_NAME}|[q]emu-system.*${AVD_NAME}" >/dev/null 2>&1; then
-    return 0
-  fi
-
-  while IFS= read -r -d '' lock_file; do
-    rm -rf "$lock_file"
-    echo "Removed stale AVD lock: $lock_file"
-  done < <(find "$AVD_DIR" -maxdepth 1 -name '*.lock' -print0)
-}
-
 confirm_adb_shell_stable() {
   local probe
   local probe_output
@@ -206,37 +132,6 @@ confirm_adb_shell_stable() {
   done
 
   return 0
-}
-
-stabilize_android_system() {
-  local package_name
-  local package_names=(
-    com.android.bluetooth
-    com.android.launcher3
-    com.android.quicksearchbox
-    com.android.localtransport
-    com.android.printspooler
-  )
-
-  "$ADB" -s "$ADB_SERIAL" shell svc bluetooth disable >/dev/null 2>&1 || true
-  "$ADB" -s "$ADB_SERIAL" shell settings put global bluetooth_on 0 >/dev/null 2>&1 || true
-  "$ADB" -s "$ADB_SERIAL" shell settings put global window_animation_scale 0 >/dev/null 2>&1 || true
-  "$ADB" -s "$ADB_SERIAL" shell settings put global transition_animation_scale 0 >/dev/null 2>&1 || true
-  "$ADB" -s "$ADB_SERIAL" shell settings put global animator_duration_scale 0 >/dev/null 2>&1 || true
-  "$ADB" -s "$ADB_SERIAL" reverse "tcp:${METRO_PORT}" "tcp:${METRO_PORT}" >/dev/null 2>&1 || true
-
-  # This is a dedicated Baci QA AVD, not a general manual-use emulator. Disabling
-  # the launcher keeps background load stable but removes the home screen until
-  # the package is re-enabled or the AVD is reset.
-  for package_name in "${package_names[@]}"; do
-    "$ADB" -s "$ADB_SERIAL" shell cmd package disable-user --user 0 "$package_name" >/dev/null 2>&1 || true
-  done
-}
-
-terminate_process_group() {
-  local process_pid="$1"
-
-  kill -- "-${process_pid}" >/dev/null 2>&1 || kill "$process_pid" >/dev/null 2>&1 || true
 }
 
 wait_for_android_settle() {
@@ -352,7 +247,13 @@ if ! confirm_adb_shell_stable; then
   exit 1
 fi
 
-stabilize_android_system
+if ! stabilize_android_system; then
+  echo "Emulator booted, but Android stabilization timed out." >&2
+  echo "Last emulator log lines:" >&2
+  tail -40 "$LOG_FILE" >&2 || true
+  terminate_process_group "$emulator_pid"
+  exit 1
+fi
 
 if ! wait_for_android_settle; then
   echo "Emulator booted, but Android did not settle below load ${SETTLE_LOAD_MAX} within ${SETTLE_TIMEOUT_SECONDS}s." >&2

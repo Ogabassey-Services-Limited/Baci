@@ -4,22 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source "${SCRIPT_DIR}/lib/timeout.sh"
-
-default_sdk_root() {
-  case "$(uname -s)" in
-    Darwin)
-      printf '%s\n' "$HOME/Library/Android/sdk"
-      ;;
-    Linux)
-      printf '%s\n' "$HOME/Android/Sdk"
-      ;;
-    MINGW* | MSYS* | CYGWIN*)
-      if [[ -n "${LOCALAPPDATA:-}" ]]; then
-        printf '%s\n' "${LOCALAPPDATA}\\Android\\Sdk"
-      fi
-      ;;
-  esac
-}
+source "${SCRIPT_DIR}/lib/android-common.sh"
 
 SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$(default_sdk_root)}}"
 ADB="${SDK_ROOT}/platform-tools/adb"
