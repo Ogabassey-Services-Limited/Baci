@@ -29,7 +29,10 @@ const mockSignInWithOtp = jest.fn<AuthState['signInWithOtp']>();
 const mockSignInWithPassword = jest.fn<AuthState['signInWithPassword']>();
 const mockVerifyOtp = jest.fn<AuthState['verifyOtp']>();
 const mockBackHandlerRemove = jest.fn();
-let hardwareBackPressHandler: (() => boolean | null | undefined) | null = null;
+type HardwareBackPressHandler = Parameters<
+  typeof BackHandler.addEventListener
+>[1];
+let hardwareBackPressHandler: HardwareBackPressHandler | null = null;
 const mockWithKeyboardDismiss = jest.fn(
   <T extends (...args: never[]) => unknown>(handler: T) => handler
 );
@@ -271,7 +274,11 @@ describe('LoginScreen', () => {
 
     let handledBackPress = false;
     act(() => {
-      handledBackPress = hardwareBackPressHandler?.() === true;
+      handledBackPress =
+        hardwareBackPressHandler?.({
+          type: 'hardwareBackPress',
+          timeStamp: 0,
+        }) === true;
     });
 
     expect(handledBackPress).toBe(true);
