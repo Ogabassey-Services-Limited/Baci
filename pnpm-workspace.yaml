@@ -90,6 +90,11 @@ overrides:
   react-native-phone-number-input: "2.1.0"
   react-native-safe-area-context: "5.8.0"
   react-native-webview: "13.16.1"
+  # Worklets bundle-mode support (SDK 57): official Software Mansion patches —
+  # metro (index .worklets/* modules for SHA-1) + metro-runtime (Fast Refresh
+  # to worklet runtimes). Refresh both patches when bumping metro.
+  metro: "0.84.4"
+  metro-runtime: "0.84.4"
   # --- Security / dedupe overrides ---
   # Pin to 6.1.6 to mitigate GHSA-737v-mqg7-c878 / CVE-2026-35209: replace the vulnerable transitive deep-merge helper.
   defu: "6.1.6"
@@ -284,3 +289,5 @@ patchedDependencies:
   "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch"
   # Backport of vercel/next.js#94630; fixes PPR resume mismatch digest 1617769459 for htmlLimitedBots under cacheComponents. Remove when a stable Next release contains the fix.
   "next@16.2.9": "patches/next@16.2.9.patch"
+  metro@0.84.4: patches/metro@0.84.4.patch
+  metro-runtime@0.84.4: patches/metro-runtime@0.84.4.patch
