@@ -341,10 +341,16 @@ export async function bookOrderShipment(
     );
   }
 
+  const orderReceiver = buildReceiver(typedOrder);
   const receiver =
     isGiglInternationalQuote && storedQuoteRequest
-      ? storedQuoteRequest.receiver
-      : buildReceiver(typedOrder);
+      ? {
+          ...storedQuoteRequest.receiver,
+          name: orderReceiver.name,
+          email: orderReceiver.email,
+          phone: orderReceiver.phone,
+        }
+      : orderReceiver;
   const sender = buildSender(typedMerchant);
   const items =
     isGiglInternationalQuote && storedQuoteRequest

@@ -46,8 +46,8 @@ const quoteRequest = {
   },
   receiver: {
     name: 'Jane Receiver',
-    phone: '+14165550123',
-    email: 'jane@example.com',
+    phone: '',
+    email: 'old-recipient@example.com',
     address: '123 Queen Street West',
     city: 'Toronto',
     state: 'Ontario',
@@ -175,6 +175,9 @@ describe('bookOrderShipment GIGL international quotes', () => {
           countryCode: 'NG',
         }),
         receiver: expect.objectContaining({
+          name: 'Jane Doe',
+          phone: '08012345678',
+          email: 'jane@example.com',
           city: 'Toronto',
           country: 'Canada',
           countryCode: 'CA',
@@ -196,6 +199,9 @@ describe('bookOrderShipment GIGL international quotes', () => {
           countryCode: 'NG',
         }),
         receiver_address: expect.objectContaining({
+          name: 'Jane Doe',
+          phone: '08012345678',
+          email: 'jane@example.com',
           country: 'Canada',
           countryCode: 'CA',
         }),
