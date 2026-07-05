@@ -192,6 +192,7 @@ Method: debug APK (arm64) + Metro dev client on `Baci_Pixel_9_Pro_XL_API_36_Goog
 | storefront | com.ogabassey.store | **1,575,934 kB (~1.54 GiB)** | 1,564,018 → 1,587,126 kB (mild upward drift) |
 | **storefront (SDK 57 + bundle mode)** | com.ogabassey.store | **1,086,774 kB (~1.04 GiB) — −31.0%** | 48 samples / 8 min, no crash; plateau ~1.01–1.09 GB |
 | admin | com.ogabassey.baci | **784,328 kB (~766 MiB)** | flat plateau 781,756 → 784,484 kB over 8 min (48 samples, median of last 5) |
+| **admin (SDK 57 + bundle mode)** | com.ogabassey.baci | **666,154 kB (~651 MiB) — −15.1%** | 48 samples / 8 min, no crash; RN 0.85 inspector NPE did NOT reproduce on 0.86 |
 
 Observation: RN 0.85 dev-mode crashes reproducibly in
 `CxxInspectorPackagerConnection.didReceiveMessage` (NPE) when the dev client reconnects to a Metro
