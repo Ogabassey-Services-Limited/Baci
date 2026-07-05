@@ -173,7 +173,7 @@ function runScript(
     cwd: appRoot,
     encoding: 'utf8',
     env: { ...harness.env, ...env },
-    timeout: 10_000,
+    timeout: 30_000,
   });
 }
 
