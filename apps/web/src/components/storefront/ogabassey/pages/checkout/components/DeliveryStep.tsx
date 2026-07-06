@@ -7,7 +7,10 @@ import { DeliveryAddressSection } from './DeliveryAddressSection';
 import { DeliveryMethodDetails } from './DeliveryMethodDetails';
 import { DeliveryMethodSelector } from './DeliveryMethodSelector';
 import type { DeliveryMethod, SavedAddress, ShippingQuote } from '../types';
-import { getStationPickupQuote } from '../utils';
+import {
+  getSelectedQuoteIdForDeliveryMethod,
+  getStationPickupQuote,
+} from '../utils';
 
 type StepName = 'contact' | 'delivery' | 'payment';
 
@@ -107,6 +110,16 @@ export function DeliveryStep({
         (!isNewAddressMode && selectedAddressId)),
   );
   const stationPickupQuote = getStationPickupQuote(shippingQuotes);
+  const selectDeliveryMethod = (method: DeliveryMethod) => {
+    setSelectedQuoteId(
+      getSelectedQuoteIdForDeliveryMethod(
+        method,
+        selectedQuoteId,
+        shippingQuotes,
+      ),
+    );
+    setDeliveryMethod(method);
+  };
 
   useEffect(() => {
     if (!canChooseDeliveryMethod) return;
@@ -206,7 +219,7 @@ export function DeliveryStep({
               isNewAddressMode={isNewAddressMode}
               selectedAddressId={selectedAddressId}
               deliveryMethod={deliveryMethod}
-              setDeliveryMethod={setDeliveryMethod}
+              setDeliveryMethod={selectDeliveryMethod}
               stationPickupQuote={stationPickupQuote}
             />
 

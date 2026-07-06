@@ -32,6 +32,7 @@ vi.mock('../../../components/SmartQuoteLoader', () => ({
 describe('DeliveryStep station pickup', () => {
   it('shows GIGL pickup stations when a station quote is available', () => {
     const setDeliveryMethod = vi.fn();
+    const setSelectedQuoteId = vi.fn();
 
     render(
       <DeliveryStep
@@ -54,7 +55,7 @@ describe('DeliveryStep station pickup', () => {
         newAddressState="Rivers"
         newAddressStreet=""
         selectedAddressId={0}
-        selectedQuoteId=""
+        selectedQuoteId="door-quote"
         setAirportType={vi.fn()}
         setCompletedSteps={vi.fn()}
         setCurrentStep={vi.fn()}
@@ -64,10 +65,22 @@ describe('DeliveryStep station pickup', () => {
         setNewAddressState={vi.fn()}
         setNewAddressStreet={vi.fn()}
         setSelectedAddressId={vi.fn()}
-        setSelectedQuoteId={vi.fn()}
+        setSelectedQuoteId={setSelectedQuoteId}
         setShippingQuotes={vi.fn()}
         shippingCities={['Port Harcourt']}
         shippingQuotes={[
+          {
+            id: 'door-quote',
+            provider: 'GIGL',
+            serviceTier: 'door',
+            carrierName: 'GIG Logistics',
+            displayName: 'Door Delivery',
+            price: 6200,
+            estimatedDays: 3,
+            currency: 'NGN',
+            pickupIncluded: true,
+            insuranceIncluded: true,
+          },
           {
             id: 'station-quote',
             provider: 'GIGL',
@@ -92,5 +105,6 @@ describe('DeliveryStep station pickup', () => {
     );
 
     expect(setDeliveryMethod).toHaveBeenCalledWith('pickup_station');
+    expect(setSelectedQuoteId).toHaveBeenCalledWith('station-quote');
   });
 });

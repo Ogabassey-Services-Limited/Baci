@@ -147,8 +147,9 @@ describe('POST /api/shipping/quotes', () => {
     );
   });
 
-  it('uses merchant sender details for public international quotes', async () => {
-    mockCreateAdminClient.mockReturnValue(buildSupabaseMock(null));
+  it('rejects public international quotes with an arbitrary merchant ID', async () => {
+    const supabase = buildSupabaseMock(null);
+    mockCreateAdminClient.mockReturnValue(supabase);
     const { POST } = await import('./route');
 
     const response = await POST(
@@ -166,22 +167,36 @@ describe('POST /api/shipping/quotes', () => {
       })
     );
 
-    expect(response.status).toBe(200);
-    expect(mockGetQuotes).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sender: expect.objectContaining({
-          name: 'Merchant Store',
-          address: '1 Merchant Road, Lagos',
-          phone: '08012345678',
-          country: 'Nigeria',
-          countryCode: 'NG',
-        }),
-      })
-    );
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Sender is required for international quotes',
+    });
+    expect(supabase.from).not.toHaveBeenCalled();
+    expect(mockGetQuotes).not.toHaveBeenCalled();
   });
 
-  it('stores the resolved merchant on public international quote requests', async () => {
-    const supabase = buildSupabaseMock(null);
+  it('rejects international quote merchant IDs when auth has no merchant context', async () => {
+    const supabase = buildSupabaseMock({ id: 'user-1' });
+    mockCreateAdminClient.mockReturnValue(supabase);
+    mockGetMerchantForApiRequest.mockResolvedValue(null);
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      buildQuoteRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+      })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Sender is required for international quotes',
+    });
+    expect(supabase.from).not.toHaveBeenCalled();
+    expect(mockGetQuotes).not.toHaveBeenCalled();
+  });
+
+  it('stores the resolved authenticated merchant on international quote requests', async () => {
+    const supabase = buildSupabaseMock({ id: 'user-1' });
     mockCreateAdminClient.mockReturnValue(supabase);
     mockGetQuotes.mockResolvedValue({
       quotes: {
@@ -208,11 +223,7 @@ describe('POST /api/shipping/quotes', () => {
     });
     const { POST } = await import('./route');
 
-    const response = await POST(
-      buildQuoteRequest({
-        merchantId: '11111111-1111-4111-8111-111111111111',
-      })
-    );
+    const response = await POST(buildQuoteRequest());
 
     expect(response.status).toBe(200);
     const quotesTable = supabase.from('shipping_quotes') as {
@@ -221,7 +232,7 @@ describe('POST /api/shipping/quotes', () => {
     expect(quotesTable.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         quote_request: expect.objectContaining({
-          merchantId: '11111111-1111-4111-8111-111111111111',
+          merchantId: 'merchant-1',
         }),
       }),
       { onConflict: 'id' }
@@ -230,15 +241,11 @@ describe('POST /api/shipping/quotes', () => {
 
   it('returns 500 when merchant sender lookup fails', async () => {
     mockCreateAdminClient.mockReturnValue(
-      buildSupabaseMock(null, { message: 'database unavailable' })
+      buildSupabaseMock({ id: 'user-1' }, { message: 'database unavailable' })
     );
     const { POST } = await import('./route');
 
-    const response = await POST(
-      buildQuoteRequest({
-        merchantId: '11111111-1111-4111-8111-111111111111',
-      })
-    );
+    const response = await POST(buildQuoteRequest());
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
@@ -247,15 +254,13 @@ describe('POST /api/shipping/quotes', () => {
     expect(mockGetQuotes).not.toHaveBeenCalled();
   });
 
-  it('does not treat a missing public merchant row as a query failure', async () => {
-    mockCreateAdminClient.mockReturnValue(buildSupabaseMock(null, null, null));
+  it('does not treat a missing authenticated merchant row as a query failure', async () => {
+    mockCreateAdminClient.mockReturnValue(
+      buildSupabaseMock({ id: 'user-1' }, null, null)
+    );
     const { POST } = await import('./route');
 
-    const response = await POST(
-      buildQuoteRequest({
-        merchantId: '11111111-1111-4111-8111-111111111111',
-      })
-    );
+    const response = await POST(buildQuoteRequest());
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({

@@ -92,7 +92,9 @@ export async function POST(request: NextRequest) {
           merchantSenderBusinessName = merchantContext.businessName;
         }
       }
-      merchantSenderId ??= data.merchantId;
+      if (user && data.shipmentType !== 'international') {
+        merchantSenderId ??= data.merchantId;
+      }
     }
 
     if (merchantSenderId) {

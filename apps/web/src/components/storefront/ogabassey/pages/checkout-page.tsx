@@ -94,6 +94,7 @@ import {
   KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST,
   getDoorDeliveryQuotes,
   getPreferredDoorQuoteId,
+  getSelectedQuoteIdForDeliveryMethod,
   getStationPickupAddressText,
   getStationPickupQuote,
   inferAddressLocationFromInput,
@@ -1045,6 +1046,16 @@ export const CheckoutPage: React.FC = () => {
         (deliveryMethod === 'pickup_station' &&
           isStationPickupQuote(selectedQuote))),
   );
+  const selectDeliveryMethod = (method: DeliveryMethod) => {
+    setSelectedQuoteId(
+      getSelectedQuoteIdForDeliveryMethod(
+        method,
+        selectedQuoteId,
+        shippingQuotes,
+      ),
+    );
+    setDeliveryMethod(method);
+  };
   const eligibleDeliveryMethod =
     deliveryMethod === 'pickup_station' && !stationPickupQuote
       ? 'door'
@@ -3412,7 +3423,7 @@ export const CheckoutPage: React.FC = () => {
                               return (
                                 <button type="button"
                                   key={method}
-                                  onClick={() => setDeliveryMethod(method)}
+                                  onClick={() => selectDeliveryMethod(method)}
                                   className={`flex-1 flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all gap-1 min-w-[100px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-store-primary focus-visible:ring-offset-2 ${deliveryMethod === method
                                     ? 'border-store-primary bg-store-primary/5 text-store-primary'
                                     : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200 hover:bg-gray-50'

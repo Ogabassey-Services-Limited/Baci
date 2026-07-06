@@ -183,6 +183,27 @@ export function getPreferredDoorQuoteId(quotes: ShippingQuote[]): string {
   return getDoorDeliveryQuotes(quotes)[0]?.id ?? '';
 }
 
+export function getSelectedQuoteIdForDeliveryMethod(
+  deliveryMethod: DeliveryMethod,
+  selectedQuoteId: string,
+  shippingQuotes: ShippingQuote[],
+): string {
+  if (deliveryMethod === 'pickup_station') {
+    return getStationPickupQuote(shippingQuotes)?.id ?? selectedQuoteId;
+  }
+
+  if (deliveryMethod === 'door') {
+    const selectedQuote = shippingQuotes.find(
+      (quote) => String(quote.id) === String(selectedQuoteId),
+    );
+    return selectedQuote && !isStationPickupQuote(selectedQuote)
+      ? selectedQuoteId
+      : getPreferredDoorQuoteId(shippingQuotes);
+  }
+
+  return selectedQuoteId;
+}
+
 export function getStationPickupAddressText(quote: ShippingQuote): string {
   return [quote.stationName, quote.stationAddress]
     .filter((line): line is string => Boolean(line))

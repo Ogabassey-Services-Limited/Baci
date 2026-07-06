@@ -201,7 +201,7 @@ describe('validateBookingQuoteRequestPayload', () => {
           country: 'Canada',
           countryCode: 'CA',
         },
-        order_items: [{ name: 'Phone', quantity: 1 }],
+        order_items: [{ name: 'Phone', quantity: 1, price: 100_000 }],
       })
     ).toEqual({ ok: true });
   });
