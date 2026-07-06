@@ -138,6 +138,7 @@ function resolveBaseUrl(origin: string): string | null {
 function warnFailOpen(context: StorefrontInternalPreflightContext) {
   console.warn('[storefront-internal-preflight] fail-open', {
     ...context,
+    identifier: truncateSlugForDiagnostics(context.identifier),
     slug: truncateSlugForDiagnostics(context.slug),
   });
   // Pass the original context through — captureFailOpen truncates the slug
@@ -155,6 +156,7 @@ function warnFailOpen(context: StorefrontInternalPreflightContext) {
 function warnSkip(context: StorefrontInternalPreflightSkipContext) {
   console.warn('[storefront-internal-preflight] skip', {
     ...context,
+    identifier: truncateSlugForDiagnostics(context.identifier),
     slug: truncateSlugForDiagnostics(context.slug),
   });
 }
@@ -176,7 +178,7 @@ async function captureFailOpen(context: StorefrontInternalPreflightContext) {
         // http-401 can title an issue whose volume is really timeouts.
         $exception_fingerprint: `storefront-internal-preflight:${context.surface}:${context.reason}`,
         event_source: 'storefront-internal-preflight',
-        identifier: context.identifier,
+        identifier: truncateSlugForDiagnostics(context.identifier),
         reason: context.reason,
         slug: truncateSlugForDiagnostics(context.slug),
         status: context.status,
@@ -238,24 +240,6 @@ async function readJsonResponse(
   }
 }
 
-/**
- * Classifies a `hasError: true` verdict body: the internal routes mark their
- * DESIGNED unknown/unpublished-storefront fail-open with
- * `failOpenReason: 'unknown-storefront'` (junk-subdomain and bot traffic),
- * which is logged without capturing an exception. Every other `hasError`
- * verdict is a genuine fail-open and is captured.
- */
-function warnHasErrorFailOpen(
-  context: Omit<StorefrontInternalPreflightContext, 'reason'>,
-  failOpenReason: string | undefined
-) {
-  if (failOpenReason === UNKNOWN_STOREFRONT_FAIL_OPEN_REASON) {
-    warnSkip({ ...context, reason: UNKNOWN_STOREFRONT_FAIL_OPEN_REASON });
-    return;
-  }
-  warnFailOpen({ ...context, reason: 'has-error' });
-}
-
 function isAbortLikeError(error: unknown): boolean {
   return (
     error instanceof DOMException &&
@@ -275,6 +259,5 @@ export const storefrontInternalPreflight = {
   readJsonResponse,
   resolveBaseUrl,
   warnFailOpen,
-  warnHasErrorFailOpen,
   warnSkip,
 };
