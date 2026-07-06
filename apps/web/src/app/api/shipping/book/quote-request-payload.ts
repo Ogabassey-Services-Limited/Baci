@@ -26,6 +26,7 @@ type BookingQuoteRecord = {
 type QuoteRequestPayload = {
   items: ShipmentItem[];
   receiver: ShippingAddress;
+  sender?: ShippingAddress;
   storedQuoteRequest?: QuoteRequest;
   validationError?: BookingQuoteValidation;
 };
@@ -51,7 +52,7 @@ export function resolveBookingQuoteRequestPayload(
   }
 
   const storedQuoteRequest = parseStoredQuoteRequest(quote.quote_request);
-  if (!storedQuoteRequest) {
+  if (!storedQuoteRequest?.sender) {
     return null;
   }
 
@@ -83,6 +84,7 @@ export function resolveBookingQuoteRequestPayload(
       email: receiver.email,
       phone: receiver.phone,
     },
+    sender: storedQuoteRequest.sender,
     storedQuoteRequest,
     validationError,
   };

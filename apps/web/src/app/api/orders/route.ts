@@ -1373,7 +1373,12 @@ export async function POST(request: NextRequest) {
       shippingAddressForOrder = await enrichShippingAddressWithQuoteDestination(
         supabase,
         body.selected_quote_id,
-        shipping_address
+        shipping_address,
+        {
+          items: body.items,
+          merchantId: body.merchant_id,
+          shippingFee: shippingFeeValue,
+        }
       );
     } catch (error) {
       if (error instanceof OrderQuoteDestinationMismatchError) {

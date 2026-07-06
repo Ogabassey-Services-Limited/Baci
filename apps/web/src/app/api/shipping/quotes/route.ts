@@ -154,6 +154,7 @@ export async function POST(request: NextRequest) {
 
     // Build quote request
     const quoteRequest: QuoteRequest = {
+      merchantId: merchantSenderId,
       sender: senderInfo,
       receiver: {
         ...data.receiver,

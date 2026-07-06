@@ -15,6 +15,15 @@ const receiver = {
 };
 
 const items = [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }];
+const sender = {
+  name: 'Merchant Store',
+  phone: '+2348011111111',
+  address: '1 Merchant Road',
+  city: 'Ikeja',
+  state: 'Lagos',
+  country: 'Nigeria',
+  countryCode: 'NG',
+};
 
 describe('resolveBookingQuoteRequestPayload', () => {
   it('reuses saved destination and derives item metadata from the order product', () => {
@@ -25,6 +34,7 @@ describe('resolveBookingQuoteRequestPayload', () => {
         quote_request: {
           sessionId: 'session-1',
           shipmentType: 'international',
+          sender,
           receiver: {
             name: 'Old Name',
             phone: '',
@@ -125,6 +135,7 @@ describe('validateBookingQuoteRequestPayload', () => {
         quote_request: {
           sessionId: 'session-1',
           shipmentType: 'international',
+          sender,
           receiver: {
             name: 'Old Name',
             phone: '',
@@ -188,6 +199,7 @@ describe('validateBookingQuoteRequestPayload', () => {
         quote_request: {
           sessionId: 'session-1',
           shipmentType: 'international',
+          sender,
           receiver: {
             name: 'Old Name',
             phone: '',

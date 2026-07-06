@@ -137,6 +137,11 @@ export function parseStoredQuoteRequest(value: unknown): QuoteRequest | null {
   }
 
   return {
+    merchantId:
+      typeof quoteRequest.merchantId === 'string' &&
+      quoteRequest.merchantId.trim().length > 0
+        ? quoteRequest.merchantId
+        : undefined,
     sessionId:
       typeof quoteRequest.sessionId === 'string' &&
       quoteRequest.sessionId.length > 0

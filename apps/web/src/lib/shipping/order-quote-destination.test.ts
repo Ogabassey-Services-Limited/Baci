@@ -20,6 +20,14 @@ const shippingAddress = {
   postalCode: undefined,
   state: 'Ontario',
 };
+const checkoutPhoneItem = {
+  condition: undefined,
+  name: 'Phone',
+  price: 100_000,
+  productName: undefined,
+  product_id: 'product-1',
+  quantity: 1,
+};
 
 describe('enrichShippingAddressWithQuoteDestination', () => {
   it('persists international destination fields from the saved quote request', async () => {
@@ -98,6 +106,149 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
       )
     ).rejects.toMatchObject({
       code: 'INTERNATIONAL_QUOTE_DESTINATION_MISMATCH',
+      status: 400,
+    });
+  });
+
+  it('rejects saved international quotes from another merchant before checkout', async () => {
+    await expect(
+      enrichShippingAddressWithQuoteDestination(
+        createSupabase({
+          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          quote_request: {
+            merchantId: 'merchant-other',
+            sessionId: 'session-1',
+            shipmentType: 'international',
+            receiver: {
+              name: 'Jane Receiver',
+              phone: '',
+              address: '123 Queen Street West',
+              city: 'Toronto',
+              state: 'Ontario',
+              country: 'Canada',
+              countryCode: 'CA',
+            },
+            items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+          },
+        }) as unknown as SupabaseClient,
+        'quote-1',
+        shippingAddress,
+        {
+          merchantId: 'merchant-current',
+          items: [checkoutPhoneItem],
+          shippingFee: 10_000,
+        }
+      )
+    ).rejects.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_MERCHANT_MISMATCH',
+      status: 400,
+    });
+  });
+
+  it('rejects saved international quotes that no longer match checkout items or price', async () => {
+    await expect(
+      enrichShippingAddressWithQuoteDestination(
+        createSupabase({
+          price: 10_000,
+          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          quote_request: {
+            merchantId: 'merchant-current',
+            sessionId: 'session-1',
+            shipmentType: 'international',
+            receiver: {
+              name: 'Jane Receiver',
+              phone: '',
+              address: '123 Queen Street West',
+              city: 'Toronto',
+              state: 'Ontario',
+              country: 'Canada',
+              countryCode: 'CA',
+            },
+            items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+          },
+        }) as unknown as SupabaseClient,
+        'quote-1',
+        shippingAddress,
+        {
+          merchantId: 'merchant-current',
+          items: [{ ...checkoutPhoneItem, name: 'Laptop' }],
+          shippingFee: 10_000,
+        }
+      )
+    ).rejects.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
+      status: 400,
+    });
+  });
+
+  it('rejects saved international quotes when the checkout shipping fee changes', async () => {
+    await expect(
+      enrichShippingAddressWithQuoteDestination(
+        createSupabase({
+          price: 10_000,
+          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          quote_request: {
+            merchantId: 'merchant-current',
+            sessionId: 'session-1',
+            shipmentType: 'international',
+            receiver: {
+              name: 'Jane Receiver',
+              phone: '',
+              address: '123 Queen Street West',
+              city: 'Toronto',
+              state: 'Ontario',
+              country: 'Canada',
+              countryCode: 'CA',
+            },
+            items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+          },
+        }) as unknown as SupabaseClient,
+        'quote-1',
+        shippingAddress,
+        {
+          merchantId: 'merchant-current',
+          items: [checkoutPhoneItem],
+          shippingFee: 1,
+        }
+      )
+    ).rejects.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
+      status: 400,
+    });
+  });
+
+  it('rejects changed checkout shipping fees when stored quote price is a string', async () => {
+    await expect(
+      enrichShippingAddressWithQuoteDestination(
+        createSupabase({
+          price: '10000',
+          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          quote_request: {
+            merchantId: 'merchant-current',
+            sessionId: 'session-1',
+            shipmentType: 'international',
+            receiver: {
+              name: 'Jane Receiver',
+              phone: '',
+              address: '123 Queen Street West',
+              city: 'Toronto',
+              state: 'Ontario',
+              country: 'Canada',
+              countryCode: 'CA',
+            },
+            items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+          },
+        }) as unknown as SupabaseClient,
+        'quote-1',
+        shippingAddress,
+        {
+          merchantId: 'merchant-current',
+          items: [checkoutPhoneItem],
+          shippingFee: 1,
+        }
+      )
+    ).rejects.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
       status: 400,
     });
   });

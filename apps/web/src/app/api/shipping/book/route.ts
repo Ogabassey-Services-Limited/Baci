@@ -7,12 +7,12 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { shippingService } from '@/lib/shipping';
-import { deriveMerchantLocation } from '@/lib/shipping/order-shipment-booking-utils';
-import type {
-  BookingRequest,
-  ShippingProviderCode,
-} from '@/lib/shipping/types';
-import { SHIPPING_PROVIDER_CODES } from '@/lib/shipping/types';
+import {
+  deriveMerchantLocation,
+  isShippingProviderCode,
+  OrderShipmentBookingError,
+} from '@/lib/shipping/order-shipment-booking-utils';
+import type { BookingRequest } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
 import { BookingRequestSchema } from '@/schemas/shipping';
 import {
@@ -20,10 +20,6 @@ import {
   validateBookingQuoteRequestPayload,
 } from './quote-request-payload';
 import { buildShipmentInsertPayload } from './shipment-insert-payload';
-
-function isShippingProviderCode(value: string): value is ShippingProviderCode {
-  return (SHIPPING_PROVIDER_CODES as readonly string[]).includes(value);
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -174,13 +170,14 @@ export async function POST(request: NextRequest) {
         { status: quoteValidation.status }
       );
     }
+    const resolvedSenderInfo = quotePayload.sender ?? senderInfo;
 
     const bookingRequest: BookingRequest = {
       orderId: data.orderId,
       quoteId: data.quoteId,
       providerRateId: quote.provider_rate_id,
       quoteMetadata: quote.provider_metadata,
-      sender: senderInfo,
+      sender: resolvedSenderInfo,
       receiver: quotePayload.receiver,
       items: quotePayload.items,
       instructions: data.instructions,
@@ -192,8 +189,10 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const provider: ShippingProviderCode = quote.provider;
-    const result = await shippingService.bookShipment(provider, bookingRequest);
+    const result = await shippingService.bookShipment(
+      quote.provider,
+      bookingRequest
+    );
 
     const { data: shipment, error: shipmentError } = await supabase
       .from('shipments')
@@ -201,7 +200,7 @@ export async function POST(request: NextRequest) {
         buildShipmentInsertPayload({
           orderId: data.orderId,
           merchantId,
-          senderInfo,
+          senderInfo: resolvedSenderInfo,
           receiver: quotePayload.receiver,
           items: quotePayload.items,
           quote,
@@ -285,12 +284,14 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof OrderShipmentBookingError)
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.status }
+      );
     console.error('Error booking shipment:', error);
     return NextResponse.json(
-      {
-        error: 'Failed to book shipment',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: 'Failed to book shipment' },
       { status: 500 }
     );
   }

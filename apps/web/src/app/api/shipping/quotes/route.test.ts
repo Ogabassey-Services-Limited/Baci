@@ -51,6 +51,9 @@ function buildSupabaseMock(
   user: { id: string } | null = null,
   merchantError: unknown = null
 ) {
+  const shippingQuotesTable = {
+    upsert: vi.fn().mockResolvedValue({ error: null }),
+  };
   const merchantSelect = {
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({
@@ -72,7 +75,7 @@ function buildSupabaseMock(
         return { select: vi.fn(() => merchantSelect) };
       }
       if (table === 'shipping_quotes') {
-        return { upsert: vi.fn().mockResolvedValue({ error: null }) };
+        return shippingQuotesTable;
       }
       throw new Error(`Unexpected table: ${table}`);
     }),
@@ -167,6 +170,54 @@ describe('POST /api/shipping/quotes', () => {
           countryCode: 'NG',
         }),
       })
+    );
+  });
+
+  it('stores the resolved merchant on public international quote requests', async () => {
+    const supabase = buildSupabaseMock(null);
+    mockCreateAdminClient.mockReturnValue(supabase);
+    mockGetQuotes.mockResolvedValue({
+      quotes: {
+        featured: [],
+        all: [
+          {
+            id: '33333333-3333-4333-8333-333333333333',
+            provider: 'GIGL',
+            serviceTier: 'Standard',
+            carrierName: 'GIG Logistics',
+            displayName: 'GIG Logistics International',
+            estimatedDays: 5,
+            price: 25_000,
+            currency: 'NGN',
+            pickupIncluded: true,
+            insuranceIncluded: true,
+            providerRateId: 'GIGL_INTL_1_2_3_4',
+            expiresAt: new Date(Date.now() + 60_000),
+          },
+        ],
+      },
+      sessionId: 'session-1',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      buildQuoteRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const quotesTable = supabase.from('shipping_quotes') as {
+      upsert: ReturnType<typeof vi.fn>;
+    };
+    expect(quotesTable.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quote_request: expect.objectContaining({
+          merchantId: '11111111-1111-4111-8111-111111111111',
+        }),
+      }),
+      { onConflict: 'id' }
     );
   });
 

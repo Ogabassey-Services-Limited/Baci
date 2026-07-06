@@ -8,18 +8,27 @@ export type OrderShippingAddressForQuote = NonNullable<
 >;
 
 type QuoteDestinationRecord = {
+  price?: number | string | null;
   provider_rate_id: string | null;
   quote_request: unknown;
 };
 
+type CheckoutItemForQuote = OrderCreateInput['items'][number];
+
+type QuoteCheckoutContext = {
+  items?: CheckoutItemForQuote[];
+  merchantId?: string;
+  shippingFee?: number;
+};
+
 export class OrderQuoteDestinationMismatchError extends Error {
-  readonly code = 'INTERNATIONAL_QUOTE_DESTINATION_MISMATCH';
   readonly status = 400;
 
-  constructor() {
-    super(
-      'The saved international shipping quote no longer matches this delivery address. Please get a new quote before checkout.'
-    );
+  constructor(
+    message = 'The saved international shipping quote no longer matches this delivery address. Please get a new quote before checkout.',
+    readonly code = 'INTERNATIONAL_QUOTE_DESTINATION_MISMATCH'
+  ) {
+    super(message);
     this.name = 'OrderQuoteDestinationMismatchError';
   }
 }
@@ -55,10 +64,73 @@ function matchesQuoteDestination(
   );
 }
 
+function throwQuoteMismatch(code: string): never {
+  throw new OrderQuoteDestinationMismatchError(
+    'The saved international shipping quote no longer matches this checkout. Please get a new quote before checkout.',
+    code
+  );
+}
+
+function readComparableItemValue(item: CheckoutItemForQuote): number {
+  return item.negotiatedPrice ?? item.value ?? item.price;
+}
+
+function matchesQuoteItem(
+  checkoutItem: CheckoutItemForQuote,
+  quoteItem: NonNullable<
+    ReturnType<typeof parseStoredQuoteRequest>
+  >['items'][number]
+): boolean {
+  return (
+    normalizeText(checkoutItem.name) === normalizeText(quoteItem.name) &&
+    checkoutItem.quantity === quoteItem.quantity &&
+    readComparableItemValue(checkoutItem) === quoteItem.value
+  );
+}
+
+function validateQuoteCheckoutContext(
+  quote: QuoteDestinationRecord,
+  quoteRequest: NonNullable<ReturnType<typeof parseStoredQuoteRequest>>,
+  context: QuoteCheckoutContext
+): void {
+  if (
+    context.merchantId &&
+    (!quoteRequest.merchantId || quoteRequest.merchantId !== context.merchantId)
+  ) {
+    throwQuoteMismatch('INTERNATIONAL_QUOTE_MERCHANT_MISMATCH');
+  }
+
+  const quotePrice = Number(quote.price);
+  if (
+    typeof context.shippingFee === 'number' &&
+    Number.isFinite(quotePrice) &&
+    context.shippingFee !== quotePrice
+  ) {
+    throwQuoteMismatch('INTERNATIONAL_QUOTE_ORDER_MISMATCH');
+  }
+
+  if (!context.items) return;
+  if (context.items.length !== quoteRequest.items.length) {
+    throwQuoteMismatch('INTERNATIONAL_QUOTE_ORDER_MISMATCH');
+  }
+
+  const unmatchedCheckoutItems = [...context.items];
+  for (const quoteItem of quoteRequest.items) {
+    const matchIndex = unmatchedCheckoutItems.findIndex((checkoutItem) =>
+      matchesQuoteItem(checkoutItem, quoteItem)
+    );
+    if (matchIndex === -1) {
+      throwQuoteMismatch('INTERNATIONAL_QUOTE_ORDER_MISMATCH');
+    }
+    unmatchedCheckoutItems.splice(matchIndex, 1);
+  }
+}
+
 export async function enrichShippingAddressWithQuoteDestination(
   supabase: SupabaseClient,
   selectedQuoteId: string | null | undefined,
-  shippingAddress: OrderShippingAddressForQuote | undefined
+  shippingAddress: OrderShippingAddressForQuote | undefined,
+  context: QuoteCheckoutContext = {}
 ): Promise<OrderShippingAddressForQuote | undefined> {
   if (!selectedQuoteId || !shippingAddress) {
     return shippingAddress;
@@ -66,7 +138,7 @@ export async function enrichShippingAddressWithQuoteDestination(
 
   const { data: quote } = (await supabase
     .from('shipping_quotes')
-    .select('provider_rate_id, quote_request')
+    .select('provider_rate_id, quote_request, price')
     .eq('id', selectedQuoteId)
     .maybeSingle()) as { data: QuoteDestinationRecord | null };
 
@@ -86,6 +158,7 @@ export async function enrichShippingAddressWithQuoteDestination(
   if (!matchesQuoteDestination(shippingAddress, quoteRequest)) {
     throw new OrderQuoteDestinationMismatchError();
   }
+  validateQuoteCheckoutContext(quote, quoteRequest, context);
 
   return {
     ...shippingAddress,

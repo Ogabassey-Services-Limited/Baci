@@ -66,9 +66,32 @@ function buildBookingRequest(): NextRequest {
   }) as unknown as NextRequest;
 }
 
-function buildSupabaseMock(
-  selectedQuoteId = '22222222-2222-4222-8222-222222222222'
-) {
+function buildSupabaseMock({
+  matchingDestination = false,
+  selectedQuoteId = '22222222-2222-4222-8222-222222222222',
+}: {
+  matchingDestination?: boolean;
+  selectedQuoteId?: string;
+} = {}) {
+  const quoteReceiver = matchingDestination
+    ? {
+        name: 'Old Recipient',
+        phone: '',
+        address: '999 New Address',
+        city: 'Vancouver',
+        state: 'British Columbia',
+        country: 'Canada',
+        countryCode: 'CA',
+      }
+    : {
+        name: 'Old Recipient',
+        phone: '',
+        address: '123 Queen Street West',
+        city: 'Toronto',
+        state: 'Ontario',
+        country: 'Canada',
+        countryCode: 'CA',
+      };
   const ordersSelectChain = {
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({
@@ -89,6 +112,13 @@ function buildSupabaseMock(
       error: null,
     }),
   };
+  const mutationChain = {
+    eq: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    single: vi
+      .fn()
+      .mockResolvedValue({ data: { id: 'shipment-1' }, error: null }),
+  };
   const quotesSelectChain = {
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockImplementation(() => {
@@ -103,17 +133,19 @@ function buildSupabaseMock(
           provider_rate_id: 'GIGL_INTL_1_2_3_4',
           provider_metadata: {},
           quote_request: {
+            merchantId: 'merchant-1',
             sessionId: 'session-1',
             shipmentType: 'international',
-            receiver: {
-              name: 'Old Recipient',
-              phone: '',
-              address: '123 Queen Street West',
-              city: 'Toronto',
-              state: 'Ontario',
-              country: 'Canada',
-              countryCode: 'CA',
+            sender: {
+              name: 'Quoted Merchant Store',
+              phone: '+2348099999999',
+              address: '7 Quoted Origin',
+              city: 'Ikeja',
+              state: 'Lagos',
+              country: 'Nigeria',
+              countryCode: 'NG',
             },
+            receiver: quoteReceiver,
             items: [{ name: 'Phone', quantity: 1, weight: 1, value: 500000 }],
           },
           expires_at: new Date(Date.now() + 60_000).toISOString(),
@@ -135,10 +167,19 @@ function buildSupabaseMock(
     },
     from: vi.fn((table: string) => {
       if (table === 'orders') {
-        return { select: vi.fn(() => ordersSelectChain) };
+        return {
+          select: vi.fn(() => ordersSelectChain),
+          update: vi.fn(() => mutationChain),
+        };
       }
       if (table === 'shipping_quotes') {
-        return { select: vi.fn(() => quotesSelectChain) };
+        return {
+          select: vi.fn(() => quotesSelectChain),
+          update: vi.fn(() => mutationChain),
+        };
+      }
+      if (table === 'shipments') {
+        return { insert: vi.fn(() => mutationChain) };
       }
       throw new Error(`Unexpected table: ${table}`);
     }),
@@ -174,7 +215,9 @@ describe('POST /api/shipping/book GIGL international guards', () => {
 
   it('rejects quote IDs that are not selected on the merchant order', async () => {
     mockCreateClient.mockReturnValue(
-      buildSupabaseMock('33333333-3333-4333-8333-333333333333')
+      buildSupabaseMock({
+        selectedQuoteId: '33333333-3333-4333-8333-333333333333',
+      })
     );
     const { POST } = await import('./route');
 
@@ -185,5 +228,39 @@ describe('POST /api/shipping/book GIGL international guards', () => {
       error: 'Quote does not match order',
     });
     expect(mockBookShipment).not.toHaveBeenCalled();
+  });
+
+  it('books GIGL international shipments with the saved quote sender', async () => {
+    mockCreateClient.mockReturnValue(
+      buildSupabaseMock({ matchingDestination: true })
+    );
+    mockBookShipment.mockResolvedValue({
+      provider: 'GIGL',
+      providerShipmentId: 'provider-1',
+      trackingNumber: 'GIGL-TRACK-1',
+      carrierName: 'GIG Logistics',
+      status: 'processing',
+    });
+    const { POST } = await import('./route');
+
+    const response = await POST(buildBookingRequest());
+
+    expect(response.status).toBe(201);
+    expect(mockBookShipment).toHaveBeenCalledWith(
+      'GIGL',
+      expect.objectContaining({
+        receiver: expect.objectContaining({
+          name: 'Jane Customer',
+          phone: '+14165550123',
+          country: 'Canada',
+          countryCode: 'CA',
+        }),
+        sender: expect.objectContaining({
+          name: 'Quoted Merchant Store',
+          address: '7 Quoted Origin',
+          phone: '+2348099999999',
+        }),
+      })
+    );
   });
 });
