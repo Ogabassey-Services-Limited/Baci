@@ -85,6 +85,14 @@ function readComparableItemValue(item: CheckoutItemForQuote): number {
   return Number(item.negotiatedPrice ?? item.value ?? item.price);
 }
 
+function hasComparableItemValue(item: CheckoutItemForQuote): boolean {
+  return (
+    item.negotiatedPrice !== undefined ||
+    item.value !== undefined ||
+    (item.price !== undefined && item.price !== null)
+  );
+}
+
 function matchesQuoteItem(
   checkoutItem: CheckoutItemForQuote,
   quoteItem: NonNullable<
@@ -94,7 +102,8 @@ function matchesQuoteItem(
   return (
     normalizeText(checkoutItem.name) === normalizeText(quoteItem.name) &&
     checkoutItem.quantity === quoteItem.quantity &&
-    readComparableItemValue(checkoutItem) === quoteItem.value
+    (!hasComparableItemValue(checkoutItem) ||
+      readComparableItemValue(checkoutItem) === quoteItem.value)
   );
 }
 

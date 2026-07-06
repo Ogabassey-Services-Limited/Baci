@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (order.selected_quote_id !== data.quoteId) {
+    if (order.selected_quote_id && order.selected_quote_id !== data.quoteId) {
       return NextResponse.json(
         { error: 'Quote does not match order' },
         { status: 400 }

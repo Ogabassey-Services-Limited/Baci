@@ -71,7 +71,7 @@ function buildSupabaseMock({
   selectedQuoteId = '22222222-2222-4222-8222-222222222222',
 }: {
   matchingDestination?: boolean;
-  selectedQuoteId?: string;
+  selectedQuoteId?: string | null;
 } = {}) {
   const quoteReceiver = matchingDestination
     ? {
@@ -262,5 +262,24 @@ describe('POST /api/shipping/book GIGL international guards', () => {
         }),
       })
     );
+  });
+
+  it('allows direct booking to bind a valid quote when the order has no saved quote', async () => {
+    mockCreateClient.mockReturnValue(
+      buildSupabaseMock({ matchingDestination: true, selectedQuoteId: null })
+    );
+    mockBookShipment.mockResolvedValue({
+      provider: 'GIGL',
+      providerShipmentId: 'provider-1',
+      trackingNumber: 'GIGL-TRACK-1',
+      carrierName: 'GIG Logistics',
+      status: 'processing',
+    });
+    const { POST } = await import('./route');
+
+    const response = await POST(buildBookingRequest());
+
+    expect(response.status).toBe(201);
+    expect(mockBookShipment).toHaveBeenCalledOnce();
   });
 });
