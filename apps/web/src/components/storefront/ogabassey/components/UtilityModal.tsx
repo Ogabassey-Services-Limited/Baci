@@ -367,6 +367,7 @@ export const UtilityModal = ({
                 <div className="mt-3">
                   <WalletFundingPanel
                     account={fundingAccount}
+                    autoCreate
                     merchantSlug={merchant?.slug}
                     onAccountCreated={setFundingAccount}
                     onRefreshBalance={refreshWallet}

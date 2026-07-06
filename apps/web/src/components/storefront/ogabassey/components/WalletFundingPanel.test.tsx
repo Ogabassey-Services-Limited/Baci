@@ -121,6 +121,43 @@ describe('WalletFundingPanel', () => {
     );
   });
 
+  it('creates the account automatically when opened via Pay with Bank Transfer', async () => {
+    const onAccountCreated = vi.fn();
+    mockFetchWithCsrf.mockResolvedValue({
+      ok: true,
+      json: async () => ({ account, requiresConsent: false }),
+    });
+
+    render(
+      <WalletFundingPanel
+        account={null}
+        autoCreate
+        merchantSlug="ogabassey"
+        onAccountCreated={onAccountCreated}
+        requiresConsent={true}
+      />
+    );
+
+    await waitFor(() => {
+      expect(onAccountCreated).toHaveBeenCalledWith(account);
+    });
+    expect(mockFetchWithCsrf).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not auto-create when an account already exists', () => {
+    render(
+      <WalletFundingPanel
+        account={account}
+        autoCreate
+        merchantSlug="ogabassey"
+        onAccountCreated={vi.fn()}
+        requiresConsent={false}
+      />
+    );
+
+    expect(mockFetchWithCsrf).not.toHaveBeenCalled();
+  });
+
   it('surfaces the API error when account creation fails', async () => {
     const user = userEvent.setup();
     mockFetchWithCsrf.mockResolvedValue({

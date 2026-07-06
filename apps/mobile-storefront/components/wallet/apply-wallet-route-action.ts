@@ -41,6 +41,15 @@ export function applyWalletRouteAction({
     setShowSavingsProgressModal(false);
     return;
   }
+  if (routeAction === 'bank-transfer') {
+    // Funding-account (DVA) setup surfaces in the hero section, not a
+    // panel — close everything; use-wallet-route-action-setup owns the
+    // account auto-creation.
+    setShowFundPanel(false);
+    setShowRedeemPanel(false);
+    setShowSavingsProgressModal(false);
+    return;
+  }
   if (routeAction === 'savings') {
     setShowFundPanel(false);
     setShowRedeemPanel(false);

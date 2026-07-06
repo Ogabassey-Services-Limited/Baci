@@ -15,8 +15,8 @@ import type { WalletSelection } from '@/lib/wallet-payment-helpers';
 import { UtilityPaystackTrustBadge } from './UtilityPaystackTrustBadge';
 
 const WALLET_FUNDING_NUDGE =
-  'Pay from your wallet to skip card fees — fund it by bank transfer to your account number.';
-const WALLET_FUNDING_CTA = 'Fund wallet';
+  'Pay from your wallet to skip card fees — transfers to your wallet account number cost 1%, capped at ₦300.';
+const WALLET_FUNDING_CTA = 'Pay with Bank Transfer';
 
 interface UtilityPaymentOptionsProps {
   amount: number;
@@ -103,7 +103,12 @@ export function UtilityPaymentOptions({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={WALLET_FUNDING_CTA}
-            onPress={() => router.push('/wallet')}
+            onPress={() =>
+              router.push({
+                pathname: '/wallet',
+                params: { action: 'bank-transfer' },
+              })
+            }
           >
             <Text style={styles.walletNudgeCta}>{WALLET_FUNDING_CTA}</Text>
           </Pressable>

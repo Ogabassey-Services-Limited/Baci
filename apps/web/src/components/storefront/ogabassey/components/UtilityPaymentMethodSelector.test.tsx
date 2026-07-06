@@ -135,7 +135,7 @@ describe('UtilityPaymentMethodSelector', () => {
     expect(screen.getByRole('radio', { name: /pay with card/i })).toBeEnabled();
   });
 
-  it('invokes onFundWallet from the bank-transfer funding CTA', async () => {
+  it('invokes onFundWallet from the Pay with Bank Transfer option', async () => {
     const user = userEvent.setup();
     const onFundWallet = vi.fn();
 
@@ -154,13 +154,16 @@ describe('UtilityPaymentMethodSelector', () => {
     );
 
     await user.click(
-      screen.getByRole('button', { name: /fund by bank transfer/i })
+      screen.getByRole('button', { name: /pay with bank transfer/i })
     );
 
     expect(onFundWallet).toHaveBeenCalledOnce();
+    expect(
+      screen.getByText(/1% fee, max ₦300/i)
+    ).toBeInTheDocument();
   });
 
-  it('hides the funding CTA when onFundWallet is not provided', () => {
+  it('hides the bank-transfer option when onFundWallet is not provided', () => {
     render(
       <UtilityPaymentMethodSelector
         canUseWallet={true}
@@ -175,7 +178,7 @@ describe('UtilityPaymentMethodSelector', () => {
     );
 
     expect(
-      screen.queryByRole('button', { name: /fund by bank transfer/i })
+      screen.queryByRole('button', { name: /pay with bank transfer/i })
     ).not.toBeInTheDocument();
   });
 

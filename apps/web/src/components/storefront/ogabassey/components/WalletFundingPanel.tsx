@@ -2,13 +2,19 @@
 
 import type { StorefrontWalletFundingAccount } from '@baci/shared';
 import { Copy, Landmark, Loader2, RefreshCw } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
 import { WALLET_FUNDING_COPY } from './wallet-funding-copy';
 
 interface WalletFundingPanelProps {
   account: StorefrontWalletFundingAccount | null;
+  /**
+   * Create the account without the extra consent click. Only pass true when
+   * the panel is opened by an explicit "Pay with Bank Transfer" action —
+   * that action IS the customer's consent.
+   */
+  autoCreate?: boolean;
   merchantSlug: string | undefined;
   onAccountCreated: (account: StorefrontWalletFundingAccount) => void;
   onRefreshBalance?: () => void;
@@ -50,6 +56,7 @@ const requestFundingAccount = async (
 
 export function WalletFundingPanel({
   account,
+  autoCreate = false,
   merchantSlug,
   onAccountCreated,
   onRefreshBalance,
@@ -57,6 +64,7 @@ export function WalletFundingPanel({
 }: WalletFundingPanelProps) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoCreateAttempted, setAutoCreateAttempted] = useState(false);
 
   const handleCreate = async () => {
     if (!merchantSlug || creating) return;
@@ -70,6 +78,20 @@ export function WalletFundingPanel({
     }
     setCreating(false);
   };
+
+  useEffect(() => {
+    if (
+      !autoCreate ||
+      autoCreateAttempted ||
+      account ||
+      !requiresConsent ||
+      !merchantSlug
+    ) {
+      return;
+    }
+    setAutoCreateAttempted(true);
+    void handleCreate();
+  });
 
   const handleCopy = async () => {
     if (!account) return;

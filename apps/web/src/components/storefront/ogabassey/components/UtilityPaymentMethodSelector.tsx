@@ -1,6 +1,6 @@
 'use client';
 
-import { CreditCard, Wallet } from 'lucide-react';
+import { CreditCard, Landmark, Wallet } from 'lucide-react';
 import { type KeyboardEvent, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import type { UtilityPaymentMethod } from './utility-types';
@@ -143,9 +143,24 @@ export function UtilityPaymentMethodSelector({
         <button
           type="button"
           onClick={onFundWallet}
-          className="text-xs font-semibold text-store-primary hover:underline"
+          disabled={isLoading}
+          className={cn(
+            'w-full rounded-xl border-2 border-gray-200 bg-white p-3 text-left transition-all',
+            'flex items-center gap-3 hover:border-gray-300',
+            isLoading && 'cursor-not-allowed opacity-70'
+          )}
         >
-          {WALLET_FUNDING_COPY.fundCta}
+          <span className="flex size-10 items-center justify-center rounded-lg bg-store-primary/10 text-store-primary">
+            <Landmark size={20} />
+          </span>
+          <span className="flex-1">
+            <span className="block text-sm font-bold text-gray-900">
+              {WALLET_FUNDING_COPY.fundCta}
+            </span>
+            <span className="block text-xs text-gray-500">
+              {WALLET_FUNDING_COPY.fundCtaSubtitle}
+            </span>
+          </span>
         </button>
       ) : null}
     </div>

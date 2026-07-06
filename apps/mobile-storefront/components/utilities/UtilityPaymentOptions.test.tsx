@@ -256,12 +256,17 @@ describe('UtilityPaymentOptions', () => {
     );
 
     expect(
-      screen.getByText(/fund it by bank transfer to your account number/i)
+      screen.getByText(/transfers to your wallet account number cost 1%/i)
     ).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Fund wallet' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Pay with Bank Transfer' })
+    );
 
-    expect(mockRouterPush).toHaveBeenCalledWith('/wallet');
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/wallet',
+      params: { action: 'bank-transfer' },
+    });
   });
 
   it('hides the wallet funding nudge when the wallet already covers the bill', () => {
@@ -281,7 +286,9 @@ describe('UtilityPaymentOptions', () => {
       />
     );
 
-    expect(screen.queryByText(/fund it by bank transfer/i)).toBeNull();
+    expect(
+      screen.queryByText(/transfers to your wallet account number/i)
+    ).toBeNull();
   });
 
   it('does not render the funding nudge when the screen has not opted into wallet payments', () => {
@@ -299,7 +306,9 @@ describe('UtilityPaymentOptions', () => {
       />
     );
 
-    expect(screen.queryByText(/fund it by bank transfer/i)).toBeNull();
+    expect(
+      screen.queryByText(/transfers to your wallet account number/i)
+    ).toBeNull();
   });
 
   // Phase B.8 — wallet gating contract. The shared selector treats

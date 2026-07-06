@@ -59,6 +59,20 @@ describe('applyWalletRouteAction', () => {
     expect(setters.setShowRedeemPanel).toHaveBeenCalledWith(false);
   });
 
+  it('closes every panel for bank-transfer actions (funding account lives in the hero)', () => {
+    applyWalletRouteAction({
+      routeAction: 'bank-transfer',
+      routeRequiredAmount: '',
+      walletReturnTo: undefined,
+      ...setters,
+    });
+
+    expect(setters.setShowFundPanel).toHaveBeenCalledWith(false);
+    expect(setters.setShowRedeemPanel).toHaveBeenCalledWith(false);
+    expect(setters.setShowSavingsProgressModal).toHaveBeenCalledWith(false);
+    expect(setters.setFundAmount).not.toHaveBeenCalled();
+  });
+
   it('does nothing for unrecognized route actions', () => {
     applyWalletRouteAction({
       routeAction: undefined,

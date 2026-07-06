@@ -2,10 +2,10 @@ import * as Crypto from 'expo-crypto';
 import { Redirect, router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { applyWalletRouteAction } from '@/components/wallet/apply-wallet-route-action';
 import { useColorScheme } from '@/components/useColorScheme';
 import { deriveWalletFundingAccountAvailability } from '@/components/wallet/deriveWalletFundingAccountAvailability';
 import { useWalletBalanceContractWarning } from '@/components/wallet/use-wallet-balance-contract-warning';
+import { useWalletRouteActionSetup } from '@/components/wallet/use-wallet-route-action-setup';
 import { WalletScreenView } from '@/components/wallet/WalletScreenView';
 import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from '@/components/wallet/wallet-tab.constants';
 import Colors, { SPACING } from '@/constants/Colors';
@@ -90,8 +90,6 @@ export function WalletScreen({
   const [isAddingSavingsContribution, setIsAddingSavingsContribution] =
     useState(false);
   const [fundReturnTo, setFundReturnTo] = useState(walletReturnTo);
-  const routeActionKey = `${routeAction ?? ''}|${routeRequiredAmount}|${walletReturnTo ?? ''}`;
-  const [prevRouteActionKey, setPrevRouteActionKey] = useState(routeActionKey);
   const savingsContributionIdempotencyKeyRef = useRef<string | null>(null);
   const activeMerchantId =
     pickMerchantId(merchantId, CONFIG.MERCHANT_ID) ?? undefined;
@@ -114,20 +112,6 @@ export function WalletScreen({
     ownerId: customer?.id ?? user?.id ?? '',
     walletData: data?.wallet,
   });
-  // Adjust panel state inline during render on route-action changes.
-  if (prevRouteActionKey !== routeActionKey) {
-    setPrevRouteActionKey(routeActionKey);
-    applyWalletRouteAction({
-      routeAction,
-      routeRequiredAmount,
-      walletReturnTo,
-      setFundAmount,
-      setFundReturnTo,
-      setShowFundPanel,
-      setShowRedeemPanel,
-      setShowSavingsProgressModal,
-    });
-  }
   const handleFundAmountChange = (value: string) =>
     setFundAmount(sanitizeWalletFundAmount(value));
   const handleCreateFundingAccount = () =>
@@ -141,6 +125,23 @@ export function WalletScreen({
       isPaymentSettingsPending,
       walletDvaEnabled,
     });
+  useWalletRouteActionSetup({
+    bankTransfer: {
+      canCreateFundingAccount,
+      createFundingAccount: handleCreateFundingAccount,
+      hasFundingAccount: Boolean(data?.wallet?.funding_account),
+      hasWalletData: Boolean(data),
+      isCreating: createFundingAccountMutation.isPending,
+    },
+    routeAction,
+    routeRequiredAmount,
+    setFundAmount,
+    setFundReturnTo,
+    setShowFundPanel,
+    setShowRedeemPanel,
+    setShowSavingsProgressModal,
+    walletReturnTo,
+  });
   const resetFundPanel = () => {
     setShowFundPanel(false);
     setFundAmount('');

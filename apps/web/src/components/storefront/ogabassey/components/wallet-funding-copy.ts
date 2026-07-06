@@ -12,7 +12,8 @@ export const WALLET_FUNDING_COPY = {
   copyCta: 'Copy',
   creating: 'Setting up your account number...',
   feeNote: 'Bank transfers cost just 1% (capped at ₦300) — cheaper than card fees.',
-  fundCta: 'Fund by bank transfer — 1% fee, max ₦300',
+  fundCta: 'Pay with Bank Transfer',
+  fundCtaSubtitle: 'Transfer to your wallet account number — 1% fee, max ₦300',
   refreshCta: "I've sent it — refresh balance",
   subtitle:
     'Transfer to your personal account number below and your wallet is credited automatically.',
