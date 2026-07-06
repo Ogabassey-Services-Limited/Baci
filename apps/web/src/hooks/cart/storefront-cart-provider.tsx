@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { pruneExpiredVoucherCartLines } from '@/lib/checkout/quiz-voucher-expiry';
 import { logger } from '@/lib/logger';
 import type { Product } from '@/lib/products';
 import { resolveDefaultVariantSelection } from '../../../../../packages/shared/src/lib/product-default-variant';
@@ -73,7 +74,10 @@ export function StorefrontCartProvider({
     setPrevInitialMerchantSlug(initialMerchantSlug);
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
     setMerchantSlugState(slugToUse);
-    setCart(getCartFromStorage(slugToUse));
+    // Prune quiz-prize voucher lines whose signed token has already expired
+    // (7-day window). An expired voucher line is forced to ₦0 and re-fails
+    // every checkout until removed, so it must never survive rehydration.
+    setCart(pruneExpiredVoucherCartLines(getCartFromStorage(slugToUse)));
     // Re-read the group flag for the new merchant too, so it stays consistent
     // with the freshly loaded cart (otherwise the previous merchant's flag
     // leaks onto this cart).
@@ -92,7 +96,7 @@ export function StorefrontCartProvider({
   // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only hydration; initialMerchantSlug prop changes handled during render
   useEffect(() => {
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
-    setCart(getCartFromStorage(slugToUse));
+    setCart(pruneExpiredVoucherCartLines(getCartFromStorage(slugToUse)));
     setCartWideNegotiationActive(getCartWideNegotiationFromStorage(slugToUse));
     setMerchantSlugState(slugToUse);
     setIsHydrated(true);

@@ -88,6 +88,11 @@ import {
   getCheckoutIdempotencyKey,
 } from './checkout/checkout-idempotency';
 import { persistCreditDirectPopupReference } from './checkout/persist-credit-direct-popup-reference';
+import {
+  getCheckoutOrderErrorMessage,
+  getOrderCreateErrorCode,
+  isQuizVoucherRejectionCode,
+} from './checkout/checkout-order-error-message';
 import { PaymentStep } from './checkout/components/PaymentStep';
 import {
   KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST,
@@ -505,7 +510,7 @@ async function requestDvaInitialization({
 }
 
 export const CheckoutPage: React.FC = () => {
-  const { cart, clearCart, isHydrated } = useCart();
+  const { cart, clearCart, isHydrated, removeFromCart } = useCart();
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
 
@@ -1875,13 +1880,26 @@ export const CheckoutPage: React.FC = () => {
             clearPendingCheckoutOrder();
             await clearCheckoutIdempotencyKey(checkoutFingerprint);
           }
+          // A quiz voucher rejected server-side (used / not-approved / expired)
+          // would otherwise stick in the cart at ₦0 and re-fail every future
+          // checkout. Prune the unredeemable voucher line(s) so the shopper can
+          // proceed. (A sign-in-required rejection is NOT pruned — the voucher
+          // is still valid once they authenticate.)
+          const orderErrorCode = getOrderCreateErrorCode(errorData);
+          if (isQuizVoucherRejectionCode(orderErrorCode)) {
+            for (const line of cart) {
+              if (line.quizVoucherToken || line.quizAwardId) {
+                removeFromCart(line.cartItemId ?? line.id, line.variantId);
+              }
+            }
+          }
           console.error('Order creation failed:', {
             status: orderResponse.status,
             error: errorData.error,
             details: errorData.details,
             fullResponse: errorData
           });
-          raiseCheckoutError(errorData.details || errorData.error || 'Failed to create order');
+          raiseCheckoutError(getCheckoutOrderErrorMessage(errorData));
         }
 
         const orderData = await orderResponse.json();
