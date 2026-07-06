@@ -158,6 +158,37 @@ describe('WalletFundingPanel', () => {
     expect(mockFetchWithCsrf).not.toHaveBeenCalled();
   });
 
+  it('maps the order-reservation conflict to actionable retry copy', async () => {
+    const user = userEvent.setup();
+    mockFetchWithCsrf.mockResolvedValue({
+      ok: false,
+      json: async () => ({
+        error: 'This Paystack account is still reserved for an active order payment',
+        code: 'WALLET_DVA_ORDER_ALIAS_CONFLICT',
+      }),
+    });
+
+    render(
+      <WalletFundingPanel
+        account={null}
+        merchantSlug="ogabassey"
+        onAccountCreated={vi.fn()}
+        requiresConsent={true}
+      />
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /get my account number/i })
+    );
+
+    expect(
+      await screen.findByText(/handling an order payment right now/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/still reserved for an active order payment/i)
+    ).not.toBeInTheDocument();
+  });
+
   it('surfaces the API error when account creation fails', async () => {
     const user = userEvent.setup();
     mockFetchWithCsrf.mockResolvedValue({

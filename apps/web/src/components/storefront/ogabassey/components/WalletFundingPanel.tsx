@@ -40,6 +40,14 @@ const requestFundingAccount = async (
     );
     const data = await response.json();
     if (!response.ok || !data.account) {
+      // The customer's Paystack NUBAN is inside an active order-payment
+      // reservation window (max ~90 min) — actionable, not a hard failure.
+      if (data.code === 'WALLET_DVA_ORDER_ALIAS_CONFLICT') {
+        return {
+          kind: 'error',
+          message: WALLET_FUNDING_COPY.orderPaymentInProgress,
+        };
+      }
       return {
         kind: 'error',
         message:

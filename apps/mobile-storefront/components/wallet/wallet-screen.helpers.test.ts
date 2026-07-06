@@ -1,5 +1,6 @@
 import { VTU_MIN_REDEEMABLE_POINTS } from '@baci/shared/lib';
 import { WALLET_TOP_UP_MIN_AMOUNT } from '@/lib/wallet-top-up-constants';
+import { WALLET_FUNDING_ACCOUNT_MESSAGES } from './wallet-funding-account.constants';
 import {
   buildWalletTopUpGatewayParams,
   deriveWalletDisplayData,
@@ -210,6 +211,21 @@ describe('wallet-screen.helpers', () => {
       alertMessage: 'Request failed',
       status: 'error',
       telemetryMessage: 'Request failed',
+    });
+  });
+
+  it('maps the order-reservation conflict to actionable copy while keeping raw telemetry', async () => {
+    const serverMessage =
+      'This Paystack account is still reserved for an active order payment';
+
+    await expect(
+      resolveCreateFundingAccountOutcome(async () => {
+        throw new Error(serverMessage);
+      })
+    ).resolves.toEqual({
+      alertMessage: WALLET_FUNDING_ACCOUNT_MESSAGES.ORDER_PAYMENT_IN_PROGRESS,
+      status: 'error',
+      telemetryMessage: serverMessage,
     });
   });
 

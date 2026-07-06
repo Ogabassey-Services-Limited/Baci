@@ -1,10 +1,14 @@
+import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
+import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import {
   WALLET_TOP_UP_MAX_AMOUNT,
   WALLET_TOP_UP_MIN_AMOUNT,
 } from '@/lib/wallet-top-up-constants';
-import { formatNgnCurrency } from '@/lib/format-ngn-currency';
-import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
 import type { WalletDisplayFundingAccount } from './wallet.types';
+import {
+  ORDER_ALIAS_CONFLICT_MESSAGE_FRAGMENT,
+  WALLET_FUNDING_ACCOUNT_MESSAGES,
+} from './wallet-funding-account.constants';
 
 interface CustomerLike {
   email?: string | null;
@@ -112,14 +116,16 @@ export async function resolveCreateFundingAccountOutcome(
 
     return { status: 'success' };
   } catch (error) {
+    const rawMessage = error instanceof Error ? error.message : null;
+    const isOrderAliasConflict = Boolean(
+      rawMessage?.includes(ORDER_ALIAS_CONFLICT_MESSAGE_FRAGMENT)
+    );
     return {
-      alertMessage:
-        error instanceof Error
-          ? error.message
-          : 'Please try again in a moment.',
+      alertMessage: isOrderAliasConflict
+        ? WALLET_FUNDING_ACCOUNT_MESSAGES.ORDER_PAYMENT_IN_PROGRESS
+        : (rawMessage ?? 'Please try again in a moment.'),
       status: 'error',
-      telemetryMessage:
-        error instanceof Error ? error.message : 'Unknown error',
+      telemetryMessage: rawMessage ?? 'Unknown error',
     };
   }
 }
