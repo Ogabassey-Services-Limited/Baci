@@ -343,7 +343,7 @@ export async function POST(req: NextRequest) {
           role: 'owner',
           status: 'active',
         },
-        { onConflict: 'user_id, merchant_id' }
+        { onConflict: 'user_id,merchant_id' }
       );
     if (staffError) {
       console.error('Failed to create/update staff member profile', staffError);
