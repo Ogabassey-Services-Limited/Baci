@@ -236,6 +236,18 @@ describe('GiglProvider international shipments', () => {
                 ShipmentMethod: 3,
                 DeliveryType: 2,
               },
+              {
+                GrandTotal: 80_000,
+                LogisticCompany: 1.5,
+                ShipmentMethod: 3,
+                DeliveryType: 2,
+              },
+              {
+                GrandTotal: 75_000,
+                LogisticCompany: 1,
+                ShipmentMethod: -1,
+                DeliveryType: 2,
+              },
             ],
           },
         })

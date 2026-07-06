@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { shippingService } from '@/lib/shipping';
+import { assertInternationalQuoteMatchesOrder } from '@/lib/shipping/international-quote-order-guard';
 import {
   buildReceiver,
   buildSender,
@@ -343,6 +344,10 @@ export async function bookOrderShipment(
   }
 
   const orderReceiver = buildReceiver(typedOrder);
+  if (isGiglInternationalQuote && storedQuoteRequest) {
+    assertInternationalQuoteMatchesOrder(storedQuoteRequest, typedOrder);
+  }
+
   const receiver =
     isGiglInternationalQuote && storedQuoteRequest
       ? {

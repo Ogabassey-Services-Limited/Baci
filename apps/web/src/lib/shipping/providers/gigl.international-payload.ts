@@ -38,6 +38,7 @@ interface PackageDimensions {
 }
 
 const MAX_DIMENSIONAL_PACKAGES_PER_ITEM = 100;
+const MAX_TOTAL_DIMENSIONAL_PACKAGES = 500;
 
 export function isNigeriaAddress(address: ShippingAddress): boolean {
   const countryCode = address.countryCode.trim().toUpperCase();
@@ -90,6 +91,8 @@ export function buildInternationalItems(items: ShipmentItem[]) {
 }
 
 export function buildInternationalPackages(items: ShipmentItem[]) {
+  let totalPackageCount = 0;
+
   return items.flatMap((item) => {
     const dimensions = getPackageDimensions(item);
     if (!dimensions) {
@@ -104,6 +107,11 @@ export function buildInternationalPackages(items: ShipmentItem[]) {
     }
 
     const packageCount = item.quantity;
+    totalPackageCount += packageCount;
+    if (totalPackageCount > MAX_TOTAL_DIMENSIONAL_PACKAGES) {
+      throw new Error('Too many packages for GIGL international shipment');
+    }
+
     return Array.from({ length: packageCount }, () => ({
       Weight: item.weight,
       ...dimensions,

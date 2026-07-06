@@ -18,9 +18,9 @@ const order = {
   selected_quote_id: 'quote-1',
   shipping_provider: 'GIGL',
   shipping_address: {
-    address: '123 Main St',
-    city: 'Lagos',
-    state: 'Lagos',
+    address: '123 Queen Street West',
+    city: 'Toronto',
+    state: 'Ontario',
     phone: '08012345678',
   },
   order_items: [{ name: 'Phone', quantity: 1, price: 100_000 }],
@@ -229,5 +229,28 @@ describe('bookOrderShipment GIGL international quotes', () => {
       code: 'INTERNATIONAL_QUOTE_REQUEST_MISSING',
       status: 400,
     });
+  });
+
+  it('rejects stale international quote destinations before booking', async () => {
+    const staleQuoteRequest = {
+      ...quoteRequest,
+      receiver: {
+        ...quoteRequest.receiver,
+        city: 'Vancouver',
+      },
+    };
+
+    const booking = bookOrderShipment(
+      createSupabase(staleQuoteRequest),
+      'merchant-1',
+      'order-1'
+    );
+
+    await expect(booking).rejects.toThrow('no longer matches this order');
+    await expect(booking).rejects.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
+      status: 400,
+    });
+    expect(shippingService.bookShipment).not.toHaveBeenCalled();
   });
 });

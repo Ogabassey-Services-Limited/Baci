@@ -91,6 +91,26 @@ describe('GIGL international payload helpers', () => {
     ).toThrow('Too many packages for one GIGL international item');
   });
 
+  it('caps total dimensional packages before expansion', () => {
+    const item: ShipmentItem & {
+      height: number;
+      length: number;
+      width: number;
+    } = {
+      name: 'Phone',
+      quantity: 100,
+      weight: 1,
+      value: 100_000,
+      length: 10,
+      width: 8,
+      height: 6,
+    };
+
+    expect(() =>
+      buildInternationalPackages(Array.from({ length: 6 }, () => item))
+    ).toThrow('Too many packages for GIGL international shipment');
+  });
+
   it('matches countries by short code, code, or name', () => {
     const country = matchDestinationCountry(receiver, [
       {

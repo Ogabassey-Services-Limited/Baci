@@ -163,8 +163,12 @@ function hasInternationalBookingSelectors(rate: {
   ShipmentMethod: number;
 } {
   return (
-    Number.isFinite(rate.DeliveryType) &&
-    Number.isFinite(rate.LogisticCompany) &&
-    Number.isFinite(rate.ShipmentMethod)
+    isRateSelector(rate.DeliveryType) &&
+    isRateSelector(rate.LogisticCompany) &&
+    isRateSelector(rate.ShipmentMethod)
   );
+}
+
+function isRateSelector(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
