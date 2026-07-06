@@ -1,6 +1,8 @@
 import { IMEI_SERVICE_TIERS } from '@baci/shared/imei';
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { router } from 'expo-router';
+import type { ReactNode } from 'react';
 import Colors from '@/constants/Colors';
 import type { ImeiResult } from '@/lib/validation';
 import { ImeiCheckResultView } from './imei-check-result-view';
@@ -18,7 +20,12 @@ jest.mock('expo-image', () => ({
 
 jest.mock('expo-router', () => ({
   router: { back: jest.fn() },
-  Stack: { Screen: () => null },
+  Stack: {
+    // Render headerLeft so tests can exercise the header back button.
+    Screen: ({ options }: { options?: { headerLeft?: () => ReactNode } }) => (
+      <>{options?.headerLeft?.() ?? null}</>
+    ),
+  },
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -124,6 +131,16 @@ describe('ImeiCheckResultView', () => {
     fireEvent.press(screen.getByText('Check Another Device'));
 
     expect(onReset).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns to the checker via onReset from the header back button (never pops to home)', () => {
+    const onReset = jest.fn();
+    render(<ImeiCheckResultView {...baseProps} onReset={onReset} />);
+
+    fireEvent.press(screen.getByLabelText('Back'));
+
+    expect(onReset).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(router.back)).not.toHaveBeenCalled();
   });
 
   it('omits the model line when the result has no model number', () => {

@@ -3,7 +3,7 @@ import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
 import { Image } from 'expo-image';
-import { router, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND, SPACING, withAlpha } from '@/constants/Colors';
@@ -38,10 +38,13 @@ export function ImeiCheckResultView({
           title: 'IMEI Results',
           headerLeft: () => (
             <Pressable
-              accessibilityHint="Returns to the previous screen"
+              accessibilityHint="Returns to the IMEI checker"
               accessibilityLabel="Back"
               accessibilityRole="button"
-              onPress={() => router.back()}
+              // Back = leave the result, not the checker: the result is a
+              // conditional render on this route, so router.back() would pop
+              // the whole screen and land on home.
+              onPress={onReset}
             >
               <Ionicons name="arrow-back" size={24} color={colors.text} />
             </Pressable>
