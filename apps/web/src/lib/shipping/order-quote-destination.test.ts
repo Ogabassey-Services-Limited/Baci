@@ -3,11 +3,22 @@ import { describe, expect, it, vi } from 'vitest';
 import { enrichShippingAddressWithQuoteDestination } from './order-quote-destination';
 
 function createSupabase(quote: unknown) {
+  const quoteRecord =
+    quote && typeof quote === 'object' && !Array.isArray(quote)
+      ? {
+          expires_at: new Date(Date.now() + 60_000).toISOString(),
+          provider: 'GIGL',
+          ...(quote as Record<string, unknown>),
+        }
+      : quote;
+
   return {
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({ data: quote, error: null }),
+      maybeSingle: vi
+        .fn()
+        .mockResolvedValue({ data: quoteRecord, error: null }),
     })),
   };
 }
@@ -15,9 +26,9 @@ function createSupabase(quote: unknown) {
 const shippingAddress = {
   address: '123 Queen Street West',
   city: 'Toronto',
-  country: undefined,
-  countryCode: undefined,
-  postalCode: undefined,
+  country: 'Canada',
+  countryCode: 'CA',
+  postalCode: 'M5V 3L9',
   state: 'Ontario',
 };
 const checkoutPhoneItem = {
@@ -127,6 +138,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
               state: 'Ontario',
               country: 'Canada',
               countryCode: 'CA',
+              postalCode: 'M5V 3L9',
             },
             items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
           },
@@ -163,6 +175,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
               state: 'Ontario',
               country: 'Canada',
               countryCode: 'CA',
+              postalCode: 'M5V 3L9',
             },
             items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
           },
@@ -199,6 +212,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
               state: 'Ontario',
               country: 'Canada',
               countryCode: 'CA',
+              postalCode: 'M5V 3L9',
             },
             items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
           },
@@ -235,6 +249,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
               state: 'Ontario',
               country: 'Canada',
               countryCode: 'CA',
+              postalCode: 'M5V 3L9',
             },
             items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
           },

@@ -1,32 +1,41 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OrderCreateInput } from '@/schemas/orders';
 import { parseStoredQuoteRequest } from './order-shipment-booking-utils';
-import { GIGL_INTERNATIONAL_PROVIDER_RATE_PREFIX } from './providers/gigl.international-payload';
+import { isGiglInternationalProviderRate } from './providers/gigl.international-payload';
+import type { ShippingProviderCode } from './types';
 
 export type OrderShippingAddressForQuote = NonNullable<
   OrderCreateInput['shipping_address']
 >;
 
 type QuoteDestinationRecord = {
+  expires_at?: string | null;
   price?: number | string | null;
+  provider?: string | null;
   provider_rate_id: string | null;
   quote_request: unknown;
 };
 
-type CheckoutItemForQuote = OrderCreateInput['items'][number];
+type CheckoutItemForQuote = {
+  name: string | null;
+  negotiatedPrice?: number;
+  price?: number | string | null;
+  quantity: number | null;
+  value?: number;
+};
 
 type QuoteCheckoutContext = {
   items?: CheckoutItemForQuote[];
   merchantId?: string;
   shippingFee?: number;
+  shippingProvider?: ShippingProviderCode | string | null;
 };
 
 export class OrderQuoteDestinationMismatchError extends Error {
-  readonly status = 400;
-
   constructor(
     message = 'The saved international shipping quote no longer matches this delivery address. Please get a new quote before checkout.',
-    readonly code = 'INTERNATIONAL_QUOTE_DESTINATION_MISMATCH'
+    readonly code = 'INTERNATIONAL_QUOTE_DESTINATION_MISMATCH',
+    readonly status = 400
   ) {
     super(message);
     this.name = 'OrderQuoteDestinationMismatchError';
@@ -42,10 +51,10 @@ function matchesOptionalText(
   quoteValue: string | null | undefined
 ): boolean {
   const normalizedOrderValue = normalizeText(orderValue);
-  return (
-    normalizedOrderValue.length === 0 ||
-    normalizedOrderValue === normalizeText(quoteValue)
-  );
+  const normalizedQuoteValue = normalizeText(quoteValue);
+  if (!normalizedOrderValue && !normalizedQuoteValue) return true;
+  if (!normalizedOrderValue || !normalizedQuoteValue) return false;
+  return normalizedOrderValue === normalizedQuoteValue;
 }
 
 function matchesQuoteDestination(
@@ -64,15 +73,16 @@ function matchesQuoteDestination(
   );
 }
 
-function throwQuoteMismatch(code: string): never {
+function throwQuoteMismatch(code: string, status = 400): never {
   throw new OrderQuoteDestinationMismatchError(
     'The saved international shipping quote no longer matches this checkout. Please get a new quote before checkout.',
-    code
+    code,
+    status
   );
 }
 
 function readComparableItemValue(item: CheckoutItemForQuote): number {
-  return item.negotiatedPrice ?? item.value ?? item.price;
+  return Number(item.negotiatedPrice ?? item.value ?? item.price);
 }
 
 function matchesQuoteItem(
@@ -93,6 +103,14 @@ function validateQuoteCheckoutContext(
   quoteRequest: NonNullable<ReturnType<typeof parseStoredQuoteRequest>>,
   context: QuoteCheckoutContext
 ): void {
+  if (
+    context.shippingProvider &&
+    quote.provider &&
+    quote.provider !== context.shippingProvider
+  ) {
+    throwQuoteMismatch('INTERNATIONAL_QUOTE_PROVIDER_MISMATCH');
+  }
+
   if (
     context.merchantId &&
     (!quoteRequest.merchantId || quoteRequest.merchantId !== context.merchantId)
@@ -136,18 +154,34 @@ export async function enrichShippingAddressWithQuoteDestination(
     return shippingAddress;
   }
 
-  const { data: quote } = (await supabase
+  const { data: quote, error: quoteError } = (await supabase
     .from('shipping_quotes')
-    .select('provider_rate_id, quote_request, price')
+    .select('provider, provider_rate_id, quote_request, price, expires_at')
     .eq('id', selectedQuoteId)
-    .maybeSingle()) as { data: QuoteDestinationRecord | null };
+    .maybeSingle()) as {
+    data: QuoteDestinationRecord | null;
+    error?: { message?: string } | null;
+  };
 
-  const isGiglInternationalQuote =
-    quote?.provider_rate_id?.startsWith(
-      `${GIGL_INTERNATIONAL_PROVIDER_RATE_PREFIX}_`
-    ) === true;
-  if (!isGiglInternationalQuote) {
+  if (quoteError) {
+    throw new OrderQuoteDestinationMismatchError(
+      'Unable to validate the saved international shipping quote. Please get a new quote before checkout.',
+      'INTERNATIONAL_QUOTE_LOOKUP_FAILED',
+      500
+    );
+  }
+
+  const isGiglInternationalQuote = isGiglInternationalProviderRate(
+    quote?.provider,
+    quote?.provider_rate_id
+  );
+  if (!quote || !isGiglInternationalQuote) {
     return shippingAddress;
+  }
+
+  const expiresAt = Date.parse(quote.expires_at ?? '');
+  if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+    throwQuoteMismatch('INTERNATIONAL_QUOTE_EXPIRED');
   }
 
   const quoteRequest = parseStoredQuoteRequest(quote.quote_request);

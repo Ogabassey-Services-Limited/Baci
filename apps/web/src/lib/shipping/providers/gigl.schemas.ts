@@ -154,6 +154,7 @@ export const giglSchemas = {
   stationsData: z.array(station),
   countryData: z.array(country),
   priceData,
+  internationalPriceRate,
   internationalPriceData: z.array(internationalPriceRate),
   bookingData,
   internationalBookingData,

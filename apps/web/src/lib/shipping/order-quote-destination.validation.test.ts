@@ -1,0 +1,130 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { describe, expect, it, vi } from 'vitest';
+import { enrichShippingAddressWithQuoteDestination } from './order-quote-destination';
+
+function createSupabase({
+  error = null,
+  quote,
+}: {
+  error?: unknown;
+  quote: unknown;
+}) {
+  return {
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: quote, error }),
+    })),
+  };
+}
+
+const receiver = {
+  name: 'Jane Receiver',
+  phone: '',
+  address: '123 Queen Street West',
+  city: 'Toronto',
+  state: 'Ontario',
+  country: 'Canada',
+  countryCode: 'CA',
+  postalCode: 'M5V 3L9',
+};
+
+const internationalQuote = {
+  expires_at: new Date(Date.now() + 60_000).toISOString(),
+  price: 10_000,
+  provider: 'GIGL',
+  provider_rate_id: 'GIGL_INTL_1_2_3_4',
+  quote_request: {
+    merchantId: 'merchant-current',
+    receiver,
+    sessionId: 'session-1',
+    shipmentType: 'international',
+    items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+  },
+};
+
+const shippingAddress = {
+  address: receiver.address,
+  city: receiver.city,
+  country: receiver.country,
+  countryCode: receiver.countryCode,
+  postalCode: receiver.postalCode,
+  state: receiver.state,
+};
+
+const checkoutContext = {
+  merchantId: 'merchant-current',
+  shippingFee: 10_000,
+  shippingProvider: 'GIGL',
+  items: [{ name: 'Phone', price: 100_000, quantity: 1 }],
+};
+
+describe('enrichShippingAddressWithQuoteDestination validation', () => {
+  it('rejects saved international quotes selected with a different provider', async () => {
+    await expect(
+      enrichShippingAddressWithQuoteDestination(
+        createSupabase({
+          quote: internationalQuote,
+        }) as unknown as SupabaseClient,
+        'quote-1',
+        shippingAddress,
+        { ...checkoutContext, shippingProvider: 'TOPSHIP' }
+      )
+    ).rejects.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_PROVIDER_MISMATCH',
+      status: 400,
+    });
+  });
+
+  it('rejects expired saved international quotes before checkout', async () => {
+    await expect(
+      enrichShippingAddressWithQuoteDestination(
+        createSupabase({
+          quote: {
+            ...internationalQuote,
+            expires_at: new Date(Date.now() - 60_000).toISOString(),
+          },
+        }) as unknown as SupabaseClient,
+        'quote-1',
+        shippingAddress,
+        checkoutContext
+      )
+    ).rejects.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_EXPIRED',
+      status: 400,
+    });
+  });
+
+  it('fails closed when the saved quote lookup errors', async () => {
+    await expect(
+      enrichShippingAddressWithQuoteDestination(
+        createSupabase({
+          error: { message: 'database unavailable' },
+          quote: null,
+        }) as unknown as SupabaseClient,
+        'quote-1',
+        shippingAddress,
+        checkoutContext
+      )
+    ).rejects.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_LOOKUP_FAILED',
+      status: 500,
+    });
+  });
+
+  it('rejects checkout addresses missing quote-required postal code', async () => {
+    await expect(
+      enrichShippingAddressWithQuoteDestination(
+        createSupabase({
+          quote: internationalQuote,
+        }) as unknown as SupabaseClient,
+        'quote-1',
+        { ...shippingAddress, postalCode: undefined },
+        checkoutContext
+      )
+    ).rejects.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_DESTINATION_MISMATCH',
+      status: 400,
+    });
+  });
+});

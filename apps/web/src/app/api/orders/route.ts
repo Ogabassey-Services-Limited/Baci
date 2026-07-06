@@ -1378,6 +1378,7 @@ export async function POST(request: NextRequest) {
           items: body.items,
           merchantId: body.merchant_id,
           shippingFee: shippingFeeValue,
+          shippingProvider: resolvedShippingProvider,
         }
       );
     } catch (error) {

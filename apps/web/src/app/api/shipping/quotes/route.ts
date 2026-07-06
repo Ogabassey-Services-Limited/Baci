@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
         .from('merchants')
         .select('business_name, business_address, phone')
         .eq('id', merchantSenderId)
-        .single();
+        .maybeSingle();
 
       if (merchantError) {
         console.error(
@@ -159,8 +159,8 @@ export async function POST(request: NextRequest) {
       receiver: {
         ...data.receiver,
         phone: data.receiver.phone || '', // Default to empty string for type safety
-        country: data.receiver.country || 'Nigeria',
-        countryCode: data.receiver.countryCode || 'NG',
+        country: data.receiver.country,
+        countryCode: data.receiver.countryCode,
       },
       items: data.items,
       sessionId: data.sessionId || crypto.randomUUID(),

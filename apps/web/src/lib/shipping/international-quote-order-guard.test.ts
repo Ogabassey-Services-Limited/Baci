@@ -74,6 +74,18 @@ describe('assertInternationalQuoteMatchesOrder', () => {
     ).toThrow('no longer matches this order');
   });
 
+  it('rejects orders missing a postal code when the saved quote has one', () => {
+    expect(() =>
+      assertInternationalQuoteMatchesOrder(quoteRequest, {
+        ...matchingOrder,
+        shipping_address: {
+          ...matchingOrder.shipping_address,
+          postalCode: undefined,
+        },
+      })
+    ).toThrow('no longer matches this order');
+  });
+
   it('matches saved quote items independent of order row order', () => {
     const multiItemQuoteRequest: QuoteRequest = {
       ...quoteRequest,

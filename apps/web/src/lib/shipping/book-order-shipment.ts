@@ -14,7 +14,7 @@ import {
   selectPreferredQuote,
   toShipmentItems,
 } from '@/lib/shipping/order-shipment-booking-utils';
-import { GIGL_INTERNATIONAL_PROVIDER_RATE_PREFIX } from '@/lib/shipping/providers/gigl.international-payload';
+import { isGiglInternationalProviderRate } from '@/lib/shipping/providers/gigl.international-payload';
 import type {
   BookingRequest,
   ShipmentBookingResult,
@@ -327,11 +327,10 @@ export async function bookOrderShipment(
   const storedQuoteRequest = parseStoredQuoteRequest(
     resolvedQuote.quote_request
   );
-  const isGiglInternationalQuote =
-    typedOrder.shipping_provider === 'GIGL' &&
-    resolvedQuote.provider_rate_id?.startsWith(
-      `${GIGL_INTERNATIONAL_PROVIDER_RATE_PREFIX}_`
-    ) === true;
+  const isGiglInternationalQuote = isGiglInternationalProviderRate(
+    typedOrder.shipping_provider,
+    resolvedQuote.provider_rate_id
+  );
 
   if (isGiglInternationalQuote && !storedQuoteRequest) {
     throw new OrderShipmentBookingError(
@@ -355,7 +354,10 @@ export async function bookOrderShipment(
           phone: orderReceiver.phone,
         }
       : orderReceiver;
-  const sender = buildSender(typedMerchant);
+  const sender =
+    isGiglInternationalQuote && storedQuoteRequest?.sender
+      ? storedQuoteRequest.sender
+      : buildSender(typedMerchant);
   const items =
     isGiglInternationalQuote && storedQuoteRequest
       ? toInternationalShipmentItemsFromOrder(

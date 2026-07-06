@@ -34,10 +34,11 @@ function matchesOptionalText(
   orderValue: string | null | undefined,
   quoteValue: string | null | undefined
 ): boolean {
-  return (
-    !hasComparableText(orderValue) ||
-    normalizeText(orderValue) === normalizeText(quoteValue)
-  );
+  const hasOrderValue = hasComparableText(orderValue);
+  const hasQuoteValue = hasComparableText(quoteValue);
+  if (!hasOrderValue && !hasQuoteValue) return true;
+  if (!hasOrderValue || !hasQuoteValue) return false;
+  return normalizeText(orderValue) === normalizeText(quoteValue);
 }
 
 function matchesQuoteItem(

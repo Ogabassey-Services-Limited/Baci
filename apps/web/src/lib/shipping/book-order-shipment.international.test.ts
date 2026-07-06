@@ -20,6 +20,9 @@ const order = {
   shipping_address: {
     address: '123 Queen Street West',
     city: 'Toronto',
+    country: 'Canada',
+    countryCode: 'CA',
+    postalCode: 'M5V 3L9',
     state: 'Ontario',
     phone: '08012345678',
   },
@@ -50,11 +53,12 @@ const quoteRequest = {
   sender: {
     name: 'Test Store',
     phone: '08098765432',
-    address: '456 Market Rd',
+    address: '789 Quoted Warehouse',
     city: 'Lagos',
     state: 'Lagos',
     country: 'Nigeria',
     countryCode: 'NG',
+    postalCode: '100001',
   },
   receiver: {
     name: 'Jane Receiver',
@@ -183,8 +187,10 @@ describe('bookOrderShipment GIGL international quotes', () => {
       'GIGL',
       expect.objectContaining({
         sender: expect.objectContaining({
+          address: '789 Quoted Warehouse',
           country: 'Nigeria',
           countryCode: 'NG',
+          postalCode: '100001',
         }),
         receiver: expect.objectContaining({
           name: 'Jane Doe',
@@ -209,8 +215,10 @@ describe('bookOrderShipment GIGL international quotes', () => {
     expect(insertedShipments[0]).toEqual(
       expect.objectContaining({
         sender_address: expect.objectContaining({
+          address: '789 Quoted Warehouse',
           country: 'Nigeria',
           countryCode: 'NG',
+          postalCode: '100001',
         }),
         receiver_address: expect.objectContaining({
           name: 'Jane Doe',

@@ -93,11 +93,7 @@ export async function getGiglInternationalQuotes(
       return [];
     }
 
-    const rates = apiClient.parseEnvelopeData(
-      envelope,
-      giglSchemas.internationalPriceData,
-      'international price'
-    );
+    const rates = parseInternationalRates(envelope.data, io);
 
     return rates.flatMap((rate) => {
       if (!hasInternationalBookingSelectors(rate)) {
@@ -171,4 +167,28 @@ function hasInternationalBookingSelectors(rate: {
 
 function isRateSelector(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+function parseInternationalRates(
+  data: unknown,
+  io: GiglQuoteIo
+): ReturnType<typeof giglSchemas.internationalPriceRate.parse>[] {
+  if (!Array.isArray(data)) {
+    io.log('warn', 'Invalid GIGL international price response', {
+      reason: 'data is not an array',
+    });
+    return [];
+  }
+
+  return data.flatMap((rate, index) => {
+    const parsed = giglSchemas.internationalPriceRate.safeParse(rate);
+    if (!parsed.success) {
+      io.log('warn', 'Skipping invalid GIGL international rate', {
+        index,
+        issues: parsed.error.issues,
+      });
+      return [];
+    }
+    return [parsed.data];
+  });
 }

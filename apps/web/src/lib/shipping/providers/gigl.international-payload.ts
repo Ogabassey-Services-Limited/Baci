@@ -10,6 +10,18 @@ import { giglSchemas } from './gigl.schemas';
 
 export const GIGL_INTERNATIONAL_PROVIDER_RATE_PREFIX = 'GIGL_INTL';
 
+export function isGiglInternationalProviderRate(
+  provider: string | null | undefined,
+  providerRateId: string | null | undefined
+): boolean {
+  return (
+    provider === 'GIGL' &&
+    providerRateId?.startsWith(
+      `${GIGL_INTERNATIONAL_PROVIDER_RATE_PREFIX}_`
+    ) === true
+  );
+}
+
 export interface GiglInternationalCountry {
   CountryId: number;
   CountryName?: string;

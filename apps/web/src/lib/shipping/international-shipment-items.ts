@@ -30,11 +30,17 @@ function readPositiveNumber(value: unknown): number | undefined {
     : undefined;
 }
 
-function readNonNegativeNumber(value: unknown): number {
+function readNonNegativeNumber(value: unknown, itemName: string): number {
   const parsed = typeof value === 'string' ? Number(value) : value;
-  return typeof parsed === 'number' && Number.isFinite(parsed) && parsed >= 0
-    ? parsed
-    : 0;
+  if (typeof parsed === 'number' && Number.isFinite(parsed) && parsed >= 0) {
+    return parsed;
+  }
+
+  throw new OrderShipmentBookingError(
+    `Order item "${itemName}" has an invalid price and cannot be shipped internationally.`,
+    400,
+    'INTERNATIONAL_ITEM_INVALID_VALUE'
+  );
 }
 
 function readOptionalNonNegativeNumber(value: unknown): number | undefined {
@@ -254,7 +260,7 @@ export function toInternationalShipmentItemsFromOrder(
       weight,
       value:
         readOptionalNonNegativeNumber(quoteItem?.value) ??
-        readNonNegativeNumber(item.price),
+        readNonNegativeNumber(item.price, name),
       ...(hsCode ? { hsCode } : {}),
       ...(dimensions ?? {}),
     };

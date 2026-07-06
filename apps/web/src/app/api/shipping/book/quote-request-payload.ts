@@ -10,7 +10,7 @@ import {
   OrderShipmentBookingError,
   parseStoredQuoteRequest,
 } from '@/lib/shipping/order-shipment-booking-utils';
-import { GIGL_INTERNATIONAL_PROVIDER_RATE_PREFIX } from '@/lib/shipping/providers/gigl.international-payload';
+import { isGiglInternationalProviderRate } from '@/lib/shipping/providers/gigl.international-payload';
 import type {
   QuoteRequest,
   ShipmentItem,
@@ -41,11 +41,10 @@ export function resolveBookingQuoteRequestPayload(
   items: ShipmentItem[],
   orderItems: InternationalShipmentOrderItem[] = []
 ): QuoteRequestPayload | null {
-  const isGiglInternationalQuote =
-    quote.provider === 'GIGL' &&
-    quote.provider_rate_id?.startsWith(
-      `${GIGL_INTERNATIONAL_PROVIDER_RATE_PREFIX}_`
-    ) === true;
+  const isGiglInternationalQuote = isGiglInternationalProviderRate(
+    quote.provider,
+    quote.provider_rate_id
+  );
 
   if (!isGiglInternationalQuote) {
     return { items, receiver };

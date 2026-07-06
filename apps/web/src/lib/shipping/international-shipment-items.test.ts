@@ -142,13 +142,30 @@ describe('toInternationalShipmentItemsFromOrder', () => {
     ]);
   });
 
-  it('normalizes millimeter dimensions and invalid prices safely', () => {
-    expect(
+  it('rejects invalid order item values instead of defaulting customs value to zero', () => {
+    expect(() =>
       toInternationalShipmentItemsFromOrder([
         {
           name: 'Tablet',
           quantity: 1,
           price: 'not-a-number',
+          product: {
+            weight_value: 1,
+            weight_unit: 'kg',
+            dimensions: { length: 100, width: 80, height: 60, unit: 'mm' },
+          },
+        },
+      ])
+    ).toThrow('invalid price');
+  });
+
+  it('normalizes millimeter dimensions', () => {
+    expect(
+      toInternationalShipmentItemsFromOrder([
+        {
+          name: 'Tablet',
+          quantity: 1,
+          price: 150_000,
           product: {
             weight_value: 1,
             weight_unit: 'kg',
@@ -172,7 +189,7 @@ describe('toInternationalShipmentItemsFromOrder', () => {
         description: 'Tablet',
         quantity: 1,
         weight: 1,
-        value: 0,
+        value: 150_000,
         length: 10,
         width: 8,
         height: 6,

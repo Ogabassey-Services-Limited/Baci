@@ -49,7 +49,12 @@ function buildQuoteRequest(
 
 function buildSupabaseMock(
   user: { id: string } | null = null,
-  merchantError: unknown = null
+  merchantError: unknown = null,
+  merchantDetails: unknown = {
+    business_name: 'Merchant Store',
+    business_address: '1 Merchant Road, Lagos',
+    phone: '08012345678',
+  }
 ) {
   const shippingQuotesTable = {
     upsert: vi.fn().mockResolvedValue({ error: null }),
@@ -57,11 +62,13 @@ function buildSupabaseMock(
   const merchantSelect = {
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({
-      data: {
-        business_name: 'Merchant Store',
-        business_address: '1 Merchant Road, Lagos',
-        phone: '08012345678',
-      },
+      data: merchantDetails,
+      error:
+        merchantError ??
+        (merchantDetails ? null : { code: 'PGRST116', message: 'No rows' }),
+    }),
+    maybeSingle: vi.fn().mockResolvedValue({
+      data: merchantDetails,
       error: merchantError,
     }),
   };
@@ -236,6 +243,23 @@ describe('POST /api/shipping/quotes', () => {
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
       error: 'Failed to resolve merchant sender',
+    });
+    expect(mockGetQuotes).not.toHaveBeenCalled();
+  });
+
+  it('does not treat a missing public merchant row as a query failure', async () => {
+    mockCreateAdminClient.mockReturnValue(buildSupabaseMock(null, null, null));
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      buildQuoteRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+      })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Sender is required for international quotes',
     });
     expect(mockGetQuotes).not.toHaveBeenCalled();
   });
