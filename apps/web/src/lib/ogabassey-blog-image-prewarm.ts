@@ -24,26 +24,32 @@ import { BLOG_IMAGE_WIDTH_QUALITY_PAIRS } from '@/lib/ogabassey-image-prewarm-pa
 export function schedulePrewarmBlogImageTransforms(
   imageUrls: ReadonlyArray<string | null | undefined>
 ): void {
-  const urls = Array.from(
-    new Set(
-      imageUrls.filter(
-        (url): url is string => typeof url === 'string' && url.trim().length > 0
-      )
-    )
-  );
-  if (urls.length === 0) {
-    return;
-  }
-
+  // The whole body is guarded so the never-throws contract holds
+  // mechanically — call sites run this between a committed write and the
+  // response, where a scheduling failure must never surface to the caller.
   try {
-    after(() =>
+    const urls = Array.from(
+      new Set(
+        imageUrls
+          .map((url) => (typeof url === 'string' ? url.trim() : null))
+          .filter((url): url is string => Boolean(url))
+      )
+    );
+    if (urls.length === 0) {
+      return;
+    }
+
+    const run = () =>
       prewarmOgabasseyImageTransforms(urls, {
         widthQualityPairs: BLOG_IMAGE_WIDTH_QUALITY_PAIRS,
-      })
-    );
-  } catch {
-    void prewarmOgabasseyImageTransforms(urls, {
-      widthQualityPairs: BLOG_IMAGE_WIDTH_QUALITY_PAIRS,
-    });
+      });
+
+    try {
+      after(run);
+    } catch {
+      void run();
+    }
+  } catch (error) {
+    console.warn('Failed to schedule blog image prewarm', { error });
   }
 }

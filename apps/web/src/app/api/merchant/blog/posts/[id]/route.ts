@@ -399,9 +399,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Pre-warm CDN transforms only when this write made a cold featured image
     // publicly reachable: a new image URL on a published post, or a post
     // transitioning to published. Metadata-only edits keep the same source
-    // image, whose variants are already warm.
+    // image, whose variants are already warm. `featuredImageUrlChanged` is
+    // also true when the image was CLEARED — the null check skips that no-op.
     if (
       updatedPost.status === 'published' &&
+      updatedPost.featured_image_url &&
       (featuredImageUrlChanged || publishingNow)
     ) {
       schedulePrewarmBlogImageTransforms([updatedPost.featured_image_url]);

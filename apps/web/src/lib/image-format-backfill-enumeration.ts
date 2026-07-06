@@ -51,15 +51,22 @@ async function fetchStatusRows(
   let offset = 0;
 
   for (;;) {
+    // Cap the window by the remaining limit so a small sample run (--limit)
+    // does not fetch a full 1000-row page just to slice it locally.
+    const pageSize =
+      limit !== undefined
+        ? Math.min(PAGE_SIZE, limit - rows.length)
+        : PAGE_SIZE;
+    const rangeEnd = offset + pageSize - 1;
     const { data, error } = await supabase
       .from(table)
       .select(columns)
       .eq('status', status)
-      .range(offset, offset + PAGE_SIZE - 1);
+      .range(offset, rangeEnd);
 
     if (error) {
       throw new Error(
-        `Failed to fetch ${table} rows ${offset}-${offset + PAGE_SIZE - 1}: ${error.message}`
+        `Failed to fetch ${table} rows ${offset}-${rangeEnd}: ${error.message}`
       );
     }
 
@@ -69,10 +76,10 @@ async function fetchStatusRows(
     if (limit !== undefined && rows.length >= limit) {
       return rows.slice(0, limit);
     }
-    if (page.length < PAGE_SIZE) {
+    if (page.length < pageSize) {
       return rows;
     }
-    offset += PAGE_SIZE;
+    offset += pageSize;
   }
 }
 
