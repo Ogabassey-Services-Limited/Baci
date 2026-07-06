@@ -1,11 +1,14 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockCategoryHubSections = vi.fn();
 const mockLoadCategoryPageCompareLinks = vi.fn();
 
 vi.mock('@/components/storefront/ogabassey/seo/category-hub-sections', () => ({
   CategoryHubSections: ({
     hub,
+    headingIdPrefix,
+    comparisonHeading,
   }: {
     hub: {
       comparisonLinks: Array<{
@@ -13,15 +16,22 @@ vi.mock('@/components/storefront/ogabassey/seo/category-hub-sections', () => ({
         label: string;
       }>;
     };
-  }) => (
-    <section aria-label="Deferred category comparisons">
-      {hub.comparisonLinks.map((link) => (
-        <a href={link.href} key={link.href}>
-          {link.label}
-        </a>
-      ))}
-    </section>
-  ),
+    headingIdPrefix?: string;
+    comparisonHeading?: string;
+  }) =>
+    mockCategoryHubSections({
+      comparisonHeading,
+      headingIdPrefix,
+      hub,
+    }) ?? (
+      <section aria-label="Deferred category comparisons">
+        {hub.comparisonLinks.map((link) => (
+          <a href={link.href} key={link.href}>
+            {link.label}
+          </a>
+        ))}
+      </section>
+    ),
 }));
 
 vi.mock('./category-page-compare-links', () => ({
@@ -60,6 +70,12 @@ describe('CategoryPageDeferredCompareLinks', () => {
     ).toHaveAttribute(
       'href',
       'https://store.example.com/smartphones/compare/a-vs-b'
+    );
+    expect(mockCategoryHubSections).toHaveBeenCalledWith(
+      expect.objectContaining({
+        comparisonHeading: 'More product comparisons',
+        headingIdPrefix: 'maintained-category-comparisons',
+      })
     );
   });
 

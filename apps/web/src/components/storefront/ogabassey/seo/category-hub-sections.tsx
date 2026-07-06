@@ -12,14 +12,22 @@ import type { CategoryHubModel } from '@/lib/storefront-category/category-hub-ty
 import { CategoryHubCardGrid } from './category-hub-card-grid';
 
 interface CategoryHubSectionsProps {
+  comparisonHeading?: string;
   hub: CategoryHubModel;
+  headingIdPrefix?: string;
 }
 
-function buildHeadingId(title: string) {
-  return title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+function buildHeadingId(title: string, prefix?: string) {
+  const baseId = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+  return prefix ? `${prefix}-${baseId}` : baseId;
 }
 
-export function CategoryHubSections({ hub }: CategoryHubSectionsProps) {
+export function CategoryHubSections({
+  comparisonHeading = 'Compare and Buying Guides',
+  hub,
+  headingIdPrefix,
+}: CategoryHubSectionsProps) {
   const introHeading =
     hub.intro.heading.trim().length > 0 ? hub.intro.heading : 'Introduction';
   const hasIntro =
@@ -53,11 +61,11 @@ export function CategoryHubSections({ hub }: CategoryHubSectionsProps) {
       <div className="space-y-8">
         {hasIntro ? (
           <section
-            aria-labelledby={buildHeadingId(introHeading)}
+            aria-labelledby={buildHeadingId(introHeading, headingIdPrefix)}
             className="space-y-4 rounded-3xl border border-store-background-text/10 bg-store-background p-5 md:p-6"
           >
             <h2
-              id={buildHeadingId(introHeading)}
+              id={buildHeadingId(introHeading, headingIdPrefix)}
               className="text-2xl font-bold text-store-background-text"
             >
               {introHeading}
@@ -72,11 +80,11 @@ export function CategoryHubSections({ hub }: CategoryHubSectionsProps) {
 
         {hasTrustFeatures ? (
           <section
-            aria-labelledby={buildHeadingId('Why shop here')}
+            aria-labelledby={buildHeadingId('Why shop here', headingIdPrefix)}
             className="space-y-4 rounded-3xl border border-store-background-text/10 bg-store-background p-5 md:p-6"
           >
             <h2
-              id={buildHeadingId('Why shop here')}
+              id={buildHeadingId('Why shop here', headingIdPrefix)}
               className="text-lg font-semibold text-store-background-text"
             >
               Why shop here
@@ -107,14 +115,17 @@ export function CategoryHubSections({ hub }: CategoryHubSectionsProps) {
 
         {hasComparisonLinks ? (
           <section
-            aria-labelledby={buildHeadingId('Compare and Buying Guides')}
+            aria-labelledby={buildHeadingId(
+              comparisonHeading,
+              headingIdPrefix
+            )}
             className="space-y-4 rounded-3xl border border-store-background-text/10 bg-store-background p-5 md:p-6"
           >
             <h2
-              id={buildHeadingId('Compare and Buying Guides')}
+              id={buildHeadingId(comparisonHeading, headingIdPrefix)}
               className="text-lg font-semibold text-store-background-text"
             >
-              Compare and Buying Guides
+              {comparisonHeading}
             </h2>
             <ul className="space-y-3">
               {hub.comparisonLinks.map((link) => (
@@ -133,11 +144,17 @@ export function CategoryHubSections({ hub }: CategoryHubSectionsProps) {
 
         {hasGuideLinks ? (
           <section
-            aria-labelledby={buildHeadingId('Buyer guides and support articles')}
+            aria-labelledby={buildHeadingId(
+              'Buyer guides and support articles',
+              headingIdPrefix
+            )}
             className="space-y-4 rounded-3xl border border-store-background-text/10 bg-store-background p-5 md:p-6"
           >
             <h2
-              id={buildHeadingId('Buyer guides and support articles')}
+              id={buildHeadingId(
+                'Buyer guides and support articles',
+                headingIdPrefix
+              )}
               className="text-lg font-semibold text-store-background-text"
             >
               Buyer guides and support articles
@@ -162,11 +179,17 @@ export function CategoryHubSections({ hub }: CategoryHubSectionsProps) {
 
         {hasFaqItems ? (
           <section
-            aria-labelledby={buildHeadingId('Frequently Asked Questions')}
+            aria-labelledby={buildHeadingId(
+              'Frequently Asked Questions',
+              headingIdPrefix
+            )}
             className="space-y-4 rounded-3xl border border-store-background-text/10 bg-store-background p-5 md:p-6"
           >
             <h2
-              id={buildHeadingId('Frequently Asked Questions')}
+              id={buildHeadingId(
+                'Frequently Asked Questions',
+                headingIdPrefix
+              )}
               className="text-lg font-semibold text-store-background-text"
             >
               Frequently Asked Questions

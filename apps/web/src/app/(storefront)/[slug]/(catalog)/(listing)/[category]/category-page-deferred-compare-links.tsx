@@ -46,6 +46,10 @@ export async function CategoryPageDeferredCompareLinks({
   }
 
   return (
-    <CategoryHubSections hub={buildComparisonOnlyHubModel(comparisonLinks)} />
+    <CategoryHubSections
+      comparisonHeading="More product comparisons"
+      headingIdPrefix="maintained-category-comparisons"
+      hub={buildComparisonOnlyHubModel(comparisonLinks)}
+    />
   );
 }
