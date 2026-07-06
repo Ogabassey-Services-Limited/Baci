@@ -50,6 +50,11 @@ export function OgabasseyV2Wallet() {
   const canFetch = isAuthenticated && Boolean(merchant?.slug);
   const loading = isAuthLoading || (canFetch && !hasFetchSettled);
 
+  // A DVA created during a payment attempt is the customer's permanent
+  // wallet account number — always display it once it exists. Only the
+  // consent/creation flow stays behind the Fund Wallet button.
+  const showFundingPanel = showFunding || Boolean(wallet?.fundingAccount);
+
   const handleFundWallet = () => {
     setShowFunding((visible) => !visible);
   };
@@ -109,7 +114,7 @@ export function OgabasseyV2Wallet() {
               </div>
             </div>
 
-            {showFunding ? (
+            {showFundingPanel ? (
               <WalletFundingPanel
                 account={wallet?.fundingAccount ?? null}
                 merchantSlug={merchant?.slug}

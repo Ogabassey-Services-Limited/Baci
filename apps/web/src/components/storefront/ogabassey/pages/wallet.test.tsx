@@ -65,16 +65,10 @@ describe('OgabasseyV2Wallet', () => {
     expect(await screen.findByText('₦2,500.00')).toBeInTheDocument();
   });
 
-  it('opens the bank-transfer funding panel from the Fund Wallet button', async () => {
-    const user = userEvent.setup();
+  it('always shows an existing DVA as the wallet account number without any click', async () => {
     render(<OgabasseyV2Wallet />);
 
     await screen.findByText('₦2,500.00');
-    expect(
-      screen.queryByTestId('wallet-funding-panel')
-    ).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /fund wallet/i }));
 
     expect(screen.getByTestId('wallet-funding-panel')).toBeInTheDocument();
     expect(fundingPanelProps.current).toMatchObject({
@@ -84,12 +78,39 @@ describe('OgabasseyV2Wallet', () => {
     });
   });
 
-  it('refetches the wallet when the funding panel requests a balance refresh', async () => {
+  it('keeps the consent flow behind the Fund Wallet button when no account exists', async () => {
     const user = userEvent.setup();
+    vi.mocked(fetch).mockResolvedValue({
+      json: async () => ({
+        balance: 0,
+        fundingAccount: null,
+        requiresFundingAccountConsent: true,
+        totalEarned: 0,
+        totalRedeemed: 0,
+        transactions: [],
+      }),
+    } as Response);
+
+    render(<OgabasseyV2Wallet />);
+
+    await screen.findByText('₦0.00');
+    expect(
+      screen.queryByTestId('wallet-funding-panel')
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /fund wallet/i }));
+
+    expect(screen.getByTestId('wallet-funding-panel')).toBeInTheDocument();
+    expect(fundingPanelProps.current).toMatchObject({
+      account: null,
+      requiresConsent: true,
+    });
+  });
+
+  it('refetches the wallet when the funding panel requests a balance refresh', async () => {
     render(<OgabasseyV2Wallet />);
 
     await screen.findByText('₦2,500.00');
-    await user.click(screen.getByRole('button', { name: /fund wallet/i }));
 
     const onRefreshBalance = fundingPanelProps.current
       ?.onRefreshBalance as () => void;
