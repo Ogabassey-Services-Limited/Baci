@@ -236,7 +236,7 @@ wait_for_android_load_settle() {
     if capture_with_timeout "$probe_timeout_seconds" "$load_output" "$ADB" -s "$ADB_SERIAL" shell cat /proc/loadavg; then
       load_one="$(awk '{print $1}' "$load_output")"
       if [[ "$load_one" =~ ^[0-9]+([.][0-9]+)?$ ]] &&
-        awk -v load="$load_one" -v max="$load_max" 'BEGIN { exit !(load <= max) }'; then
+        awk -v load_value="$load_one" -v max_load="$load_max" 'BEGIN { exit !(load_value <= max_load) }'; then
         stable_probe_count=$((stable_probe_count + 1))
         if ((stable_probe_count >= stability_probe_count)); then
           remove_temp_file "$load_output"
