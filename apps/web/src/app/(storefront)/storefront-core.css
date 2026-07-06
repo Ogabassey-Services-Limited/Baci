@@ -21,7 +21,12 @@
     margin: 0;
     background: var(--store-background, #ffffff);
     color: var(--store-background-text, #111827);
-    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    /* --font-naira is a ~1.2KB Inter subset scoped by unicode-range to the
+       naira sign (U+20A6) only; every other glyph falls through to Inter
+       (--font-sans). Keeps ₦ out of Inter's lazy 86KB latin-ext slice. */
+    font-family:
+      var(--font-naira, var(--font-sans)), var(--font-sans), ui-sans-serif,
+      system-ui, sans-serif;
   }
 
   *,

@@ -300,13 +300,60 @@ describe('HomeProductGrid', () => {
 
     expect(loadInteractionBindings).not.toHaveBeenCalled();
 
-    fireEvent.pointerDown(window);
+    fireEvent.pointerDown(screen.getByRole('article'));
 
     await act(async () => {
       await Promise.resolve();
     });
 
     expect(loadInteractionBindings).not.toHaveBeenCalled();
+
+    await flushPostPaintActivation();
+
+    expect(loadInteractionBindings).toHaveBeenCalledOnce();
+  });
+
+  it('does not load interactive modules on pointer activity outside the grid', async () => {
+    const loadInteractionBindings = vi.fn().mockResolvedValue({
+      ProductGridInteractionBindings: ({
+        children,
+      }: {
+        children: (bindings: {
+          isAdded: () => boolean;
+          getCartQuantity: () => number;
+          isWishlisted: () => boolean;
+          onAddToCart: () => void;
+          onToggleWishlist: () => void;
+          particles: [];
+        }) => ReactNode;
+      }) =>
+        children({
+          isAdded: () => false,
+          getCartQuantity: () => 0,
+          isWishlisted: () => false,
+          onAddToCart: () => undefined,
+          onToggleWishlist: () => undefined,
+          particles: [],
+        }),
+    });
+
+    render(
+      <HomeProductGrid
+        products={[createTestProduct(1)]}
+        loadInteractionBindings={loadInteractionBindings}
+      />
+    );
+
+    // Pointer activity anywhere outside the grid (hero, nav, page shell) must
+    // not pull in the interactive-card graph.
+    fireEvent.pointerDown(document.body);
+    fireEvent.pointerDown(window);
+
+    await flushPostPaintActivation();
+
+    expect(loadInteractionBindings).not.toHaveBeenCalled();
+
+    fireEvent.pointerDown(screen.getByRole('article'));
 
     await flushPostPaintActivation();
 
@@ -379,7 +426,7 @@ describe('HomeProductGrid', () => {
     );
     expect(loadInteractiveCard).not.toHaveBeenCalled();
 
-    fireEvent.pointerDown(window);
+    fireEvent.pointerDown(screen.getByRole('article'));
 
     await act(async () => {
       await Promise.resolve();
@@ -439,5 +486,46 @@ describe('HomeProductGrid', () => {
     });
 
     expect(loadInteractionBindings).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch the mock preview catalog when real products are provided', async () => {
+    const loadPreviewCatalog = vi.fn().mockResolvedValue({
+      products: [createTestProduct(99)],
+    });
+
+    render(
+      <HomeProductGrid
+        storeSlug="test-store"
+        products={[createTestProduct(1)]}
+        loadPreviewCatalog={loadPreviewCatalog}
+      />
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(loadPreviewCatalog).not.toHaveBeenCalled();
+    expect(screen.getByText('Product 1')).toBeInTheDocument();
+  });
+
+  it('lazily loads the mock preview catalog when no products are provided', async () => {
+    const loadPreviewCatalog = vi.fn().mockResolvedValue({
+      products: [createTestProduct(101), createTestProduct(102)],
+    });
+
+    render(<HomeProductGrid loadPreviewCatalog={loadPreviewCatalog} />);
+
+    // Before the async catalog resolves the grid renders its empty shell.
+    expect(screen.getByText('No products found.')).toBeInTheDocument();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(loadPreviewCatalog).toHaveBeenCalledOnce();
+    expect(screen.getByText('Product 101')).toBeInTheDocument();
+    expect(screen.getByText('Product 102')).toBeInTheDocument();
+    expect(screen.queryByText('No products found.')).not.toBeInTheDocument();
   });
 });

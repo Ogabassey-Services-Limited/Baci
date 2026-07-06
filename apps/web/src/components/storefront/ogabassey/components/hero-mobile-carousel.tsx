@@ -12,6 +12,18 @@ import {
   MOBILE_HERO_IMAGE_QUALITY,
   MOBILE_HERO_IMAGE_SIZES,
 } from './hero-mobile-image-config';
+import {
+  HERO_MOBILE_CONTROLS_ROW_CLASSES,
+  HERO_MOBILE_CTA_CLASSES,
+  HERO_MOBILE_EYEBROW_CLASSES,
+  HERO_MOBILE_IMAGE_COLUMN_CLASSES,
+  HERO_MOBILE_PANEL_CLASSES,
+  HERO_MOBILE_PRICE_CLASSES,
+  HERO_MOBILE_SLIDE_GRID_CLASSES,
+  HERO_MOBILE_TEXT_COLUMN_CLASSES,
+  HERO_MOBILE_TITLE_CLASSES,
+  HERO_MOBILE_WRAPPER_CLASSES,
+} from './hero-mobile-geometry';
 import { MobileLcpHeroImage } from './mobile-lcp-hero-image';
 
 const AUTO_ADVANCE_MS = 5000;
@@ -152,12 +164,12 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
   };
 
   return (
-    <div className="md:hidden mb-4 order-1">
+    <div className={HERO_MOBILE_WRAPPER_CLASSES}>
       {/** biome-ignore lint/a11y/noStaticElementInteractions: swipe gestures augment the dot/link controls; keyboard users use the buttons below. */}
       <div
         aria-label="Featured launch product carousel"
         aria-roledescription="carousel"
-        className="relative h-48 touch-pan-y overflow-hidden rounded-2xl bg-store-secondary shadow-2xl ring-1 ring-store-border/70"
+        className={HERO_MOBILE_PANEL_CLASSES}
         data-ogabassey-mobile-hero-panel="true"
         // Focus-within pause scoped to the PANEL (the auto-advancing link) only,
         // not the controls below — so the Play toggle resumes immediately.
@@ -186,25 +198,25 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
               aria-hidden={!isCurrent}
               aria-label={`${index + 1} of ${slideCount}`}
               aria-roledescription="slide"
-              className={`absolute inset-0 grid grid-cols-5 transition-opacity [transition-duration:400ms] ease-in-out ${isCurrent ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+              className={`${HERO_MOBILE_SLIDE_GRID_CLASSES} transition-opacity [transition-duration:400ms] ease-in-out ${isCurrent ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
               inert={!isCurrent}
               role="group"
             >
-              <div className="col-span-3 flex flex-col justify-center gap-1 px-5 py-4">
-                <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-store-primary">
+              <div className={HERO_MOBILE_TEXT_COLUMN_CLASSES}>
+                <span className={HERO_MOBILE_EYEBROW_CLASSES}>
                   Just launched
                 </span>
-                <h2 className="line-clamp-2 text-[1.2rem] font-extrabold leading-tight text-store-secondary-text">
+                <h2 className={HERO_MOBILE_TITLE_CLASSES}>
                   {slide.name}
                 </h2>
-                <p className="text-[11px] font-semibold text-store-secondary-text">
+                <p className={HERO_MOBILE_PRICE_CLASSES}>
                   {slide.priceLabel}
                 </p>
-                <span className="mt-2 inline-flex w-fit items-center rounded-full bg-store-primary px-4 py-1.5 text-[11px] font-bold text-store-on-primary shadow-sm">
+                <span className={HERO_MOBILE_CTA_CLASSES}>
                   {slide.ctaLabel}
                 </span>
               </div>
-              <div className="relative col-span-2">
+              <div className={HERO_MOBILE_IMAGE_COLUMN_CLASSES}>
                 {isMobileLcpImage ? (
                   <MobileLcpHeroImage
                     alt={slide.imageAlt}
@@ -239,7 +251,7 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
       </div>
 
       {hasMultipleSlides ? (
-        <div className="mt-2 flex items-center gap-2 px-1">
+        <div className={HERO_MOBILE_CONTROLS_ROW_CLASSES}>
           <div
             aria-label="Hero carousel slide controls"
             className="flex flex-1 items-center gap-1.5"

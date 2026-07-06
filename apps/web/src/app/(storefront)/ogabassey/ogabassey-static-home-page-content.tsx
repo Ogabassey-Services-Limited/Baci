@@ -7,6 +7,8 @@ import {
   OGABASSEY_TITLE,
 } from '@/config/ogabassey';
 import { OgabasseyHomeHeroFallback } from './ogabassey-home-hero-fallback';
+import { preloadOgabasseyHomeHeroResources } from './ogabassey-home-hero-resource-hints';
+import { resolveOgabasseyHomeHeroShell } from './ogabassey-home-hero-shell-data';
 import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
 import { OgabasseyHomeStyleLoader } from './ogabassey-home-style-loader';
 
@@ -34,18 +36,30 @@ const ogabasseyStaticHomepageSchema = {
   },
 } as const;
 
-export function OgabasseyStaticHomePageContent({
+export async function OgabasseyStaticHomePageContent({
   pathPrefix,
 }: OgabasseyStaticHomePageContentProps) {
+  // Cached-only lookup (never request APIs — those stay in the dynamic
+  // subtree). Slide-0 becomes both a first-flush preload hint and a
+  // pixel-identical fallback frame; failure degrades to the generic banner.
+  const heroShell = await resolveOgabasseyHomeHeroShell(pathPrefix);
+  const shellSlides = heroShell?.slides ?? null;
+  if (shellSlides?.[0]) {
+    preloadOgabasseyHomeHeroResources(shellSlides[0].imageUrl);
+  }
+
   return (
     <>
       <JsonLd data={ogabasseyStaticHomepageSchema} />
       <OgabasseyHomeStyleLoader />
-      {/* The static PPR shell first-flushes a hero-shaped fallback with the same
-          critical CSS tokens and geometry as the final product hero. The real,
-          uncached product hero then streams after request headers resolve
-          path-mode vs subdomain links. */}
-      <Suspense fallback={<OgabasseyHomeHeroFallback />}>
+      {/* The static PPR shell first-flushes the REAL slide-0 hero frame (cached
+          lookup, non-hydrated, same image URL as the streamed hero) so the LCP
+          image is discoverable immediately and the Suspense swap is visually a
+          no-op. The interactive carousel still streams after request headers
+          resolve path-mode vs subdomain links. */}
+      <Suspense
+        fallback={<OgabasseyHomeHeroFallback shellSlides={shellSlides} />}
+      >
         <OgabasseyHomePageContent pathPrefix={pathPrefix} />
       </Suspense>
     </>
