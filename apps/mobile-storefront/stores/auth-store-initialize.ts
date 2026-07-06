@@ -14,6 +14,7 @@ import { clearLocalAndDeactivatePushToken } from './auth-store-push';
 import { syncAuthenticatedState } from './auth-store-sync';
 import { useCartStore } from './cart-store';
 import { useComparisonStore } from './comparison-store';
+import { useQuizStore } from './quiz-store';
 import { useSavedStore } from './saved-store';
 
 const log = createLogger('AuthStore');
@@ -141,6 +142,9 @@ export function createInitializeAction({
           const { merchantId } = get();
           try {
             if (event === 'SIGNED_IN' && session?.user) {
+              // A fresh sign-in (including an account switch) must not inherit a
+              // prior user's quiz attempt/result/prize.
+              useQuizStore.getState().reset();
               await syncAuthenticatedState({
                 merchantId,
                 session,
@@ -160,6 +164,7 @@ export function createInitializeAction({
               useCartStore.getState().clearCart();
               useSavedStore.getState().clearSaved();
               useComparisonStore.getState().clearComparison();
+              useQuizStore.getState().reset();
               set({ user: null, session: null, customer: null });
             } else if (event === 'TOKEN_REFRESHED' && session) {
               set({ session });

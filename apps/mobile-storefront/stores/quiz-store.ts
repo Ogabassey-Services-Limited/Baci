@@ -1,10 +1,12 @@
 import { create } from 'zustand';
+import { getFriendlyQuizErrorMessage } from '@/services/quiz-error-messages';
 import type {
   QuizAttempt,
   QuizEvent,
   QuizResult,
   StartQuizAttemptInput,
 } from '@/services/quiz';
+import { QuizServiceError } from '@/services/quiz-types';
 
 type QuizStatus =
   | 'idle'
@@ -34,6 +36,7 @@ interface QuizStore {
   ) => Promise<void>;
   selectAnswer: (optionId: string) => void;
   submitSelectedAnswer: (submitter: () => Promise<QuizResult>) => Promise<void>;
+  forfeitAnswer: (submitter: () => Promise<QuizResult>) => Promise<void>;
   setError: (actionError: string) => void;
   reset: () => void;
 }
@@ -50,10 +53,14 @@ const initialState = {
 };
 
 function getMessage(error: unknown): string {
+  // Known quiz codes (e.g. the new attempt-cap QZ030) render friendly copy.
+  if (error instanceof QuizServiceError) {
+    return getFriendlyQuizErrorMessage(error, 'Quiz request failed');
+  }
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
 
-  let serialized = '';
+  let serialized: string;
   try {
     serialized = JSON.stringify(error);
   } catch {
@@ -68,85 +75,116 @@ function getMessage(error: unknown): string {
   return `Quiz action failed (${runtimeType}: ${serialized})`;
 }
 
-export const useQuizStore = create<QuizStore>((set, get) => ({
-  ...initialState,
-  loadEvents: async (loader) => {
-    set({ status: 'loading', error: null });
-    try {
-      const events = await loader();
-      set({ status: 'ready', events, error: null });
-    } catch (error) {
-      set({ status: 'ready', error: getMessage(error) });
+/**
+ * Compute the next store state from a submit response. Shared by the manual
+ * submit and the timer forfeit paths so both handle recovered wins (which now
+ * carry a `prizeClaim`) and next-question advancement identically.
+ */
+function computeNextSubmitState(
+  currentAttempt: QuizAttempt | null,
+  result: QuizResult
+): Partial<QuizStore> {
+  if (result.status === 'in_progress') {
+    const nextQuestion = result.question;
+    if (!nextQuestion || !currentAttempt) {
+      return {
+        status: 'error',
+        error: 'Quiz response did not include the next question.',
+      };
     }
-  },
-  startEvent: async (eventId, integrityTier, starter) => {
-    set({
-      status: 'starting',
-      attempt: null,
-      selectedEventId: eventId,
-      attemptIntegrityTier: integrityTier,
+    return {
+      status: 'question',
+      attempt: { ...currentAttempt, question: nextQuestion },
       selectedOptionId: null,
       result: null,
       error: null,
-    });
-    try {
-      const attempt = await starter();
-      set({ status: 'question', attempt, error: null });
-    } catch (error) {
-      set({ status: 'ready', error: getMessage(error) });
-    }
-  },
-  selectAnswer: (optionId) => {
-    const { status } = get();
-    if (status === 'submitting') {
-      set({ error: 'Answer is already being submitted.' });
-      return;
-    }
-    if (status !== 'question') {
-      set({ error: 'Cannot select answer outside question phase.' });
-      return;
-    }
-    set({ error: null, selectedOptionId: optionId });
-  },
-  submitSelectedAnswer: async (submitter) => {
-    const { attempt: currentAttempt, selectedOptionId } = get();
-    if (!selectedOptionId) {
-      set({ error: 'Select an answer before submitting.' });
-      return;
-    }
+    };
+  }
 
+  // A completed response (including a recovered win with a prizeClaim) surfaces
+  // the whole result object so the screen can render the claim affordance.
+  return { status: 'result', result, error: null };
+}
+
+export const useQuizStore = create<QuizStore>((set, get) => {
+  async function performSubmit(submitter: () => Promise<QuizResult>) {
+    const currentAttempt = get().attempt;
+    // Synchronous in-flight guard: a manual tap and the timer auto-submit can
+    // race; the first flips status to `submitting` before either awaits, so the
+    // second bails here instead of firing a duplicate answer request.
+    if (get().status === 'submitting') return;
     set({ status: 'submitting', error: null });
     try {
       const result = await submitter();
-      if (result.status === 'in_progress') {
-        const nextQuestion = result.question;
-        if (!nextQuestion || !currentAttempt) {
-          set({
-            status: 'error',
-            error: 'Quiz response did not include the next question.',
-          });
-          return;
-        }
-        set({
-          status: 'question',
-          attempt: { ...currentAttempt, question: nextQuestion },
-          selectedOptionId: null,
-          result: null,
-          error: null,
-        });
-        return;
-      }
-
-      set({ status: 'result', result, error: null });
+      set(computeNextSubmitState(currentAttempt, result));
     } catch (error) {
       set({
         status: currentAttempt ? 'question' : 'ready',
         error: getMessage(error),
       });
     }
-  },
-  setError: (actionError) => {
-    set({ status: 'error', error: actionError });
-  },
-  reset: () => set(initialState),
-}));
+  }
+
+  return {
+    ...initialState,
+    loadEvents: async (loader) => {
+      set({ status: 'loading', error: null });
+      try {
+        const events = await loader();
+        set({ status: 'ready', events, error: null });
+      } catch (error) {
+        set({ status: 'ready', error: getMessage(error) });
+      }
+    },
+    startEvent: async (eventId, integrityTier, starter) => {
+      // Synchronous in-flight guard against a double-tapped start button firing
+      // two attempts (double point charge) before React disables the button.
+      if (get().status === 'starting') return;
+      set({
+        status: 'starting',
+        attempt: null,
+        selectedEventId: eventId,
+        attemptIntegrityTier: integrityTier,
+        selectedOptionId: null,
+        result: null,
+        error: null,
+      });
+      try {
+        const attempt = await starter();
+        set({ status: 'question', attempt, error: null });
+      } catch (error) {
+        set({ status: 'ready', error: getMessage(error) });
+      }
+    },
+    selectAnswer: (optionId) => {
+      const { status } = get();
+      if (status === 'submitting') {
+        set({ error: 'Answer is already being submitted.' });
+        return;
+      }
+      if (status !== 'question') {
+        set({ error: 'Cannot select answer outside question phase.' });
+        return;
+      }
+      set({ error: null, selectedOptionId: optionId });
+    },
+    submitSelectedAnswer: async (submitter) => {
+      if (!get().selectedOptionId) {
+        set({ error: 'Select an answer before submitting.' });
+        return;
+      }
+      await performSubmit(submitter);
+    },
+    // Timer-driven submit when the question window expires. Unlike the manual
+    // path it does not require a selected option: the caller submits either the
+    // current selection or a forfeit sentinel so the attempt still advances.
+    forfeitAnswer: async (submitter) => {
+      if (!get().attempt) return;
+      await performSubmit(submitter);
+    },
+    setError: (actionError) => {
+      set({ status: 'error', error: actionError });
+    },
+    reset: () => set(initialState),
+  };
+});

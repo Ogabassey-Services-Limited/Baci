@@ -1,5 +1,6 @@
 import { act } from '@testing-library/react-native';
 import type { QuizResult } from '@/services/quiz';
+import { QuizServiceError } from '@/services/quiz-types';
 import { useQuizStore } from './quiz-store';
 import {
   attempt,
@@ -283,5 +284,92 @@ describe('useQuizStore', () => {
       status: 'question',
       error: 'Select an answer before submitting.',
     });
+  });
+
+  it('submits a forfeit without a selected answer and completes to a result', async () => {
+    await act(async () => {
+      await useQuizStore
+        .getState()
+        .startEvent('event-1', 'basic', async () => attempt);
+    });
+
+    const submitter = jest.fn(async () => result);
+    await act(async () => {
+      await useQuizStore.getState().forfeitAnswer(submitter);
+    });
+
+    expect(submitter).toHaveBeenCalledTimes(1);
+    expect(useQuizStore.getState()).toMatchObject({ status: 'result', result });
+  });
+
+  it('advances to the next question when a forfeit returns in_progress', async () => {
+    const nextQuestion = {
+      ...attempt.question,
+      id: 'question-2',
+      index: 2,
+      prompt: 'Next one',
+    };
+
+    await act(async () => {
+      await useQuizStore
+        .getState()
+        .startEvent('event-1', 'basic', async () => attempt);
+    });
+
+    await act(async () => {
+      await useQuizStore.getState().forfeitAnswer(async () => ({
+        ...result,
+        status: 'in_progress',
+        question: nextQuestion,
+      }));
+    });
+
+    expect(useQuizStore.getState()).toMatchObject({
+      status: 'question',
+      selectedOptionId: null,
+      attempt: { ...attempt, question: nextQuestion },
+    });
+  });
+
+  it('ignores a concurrent start while one attempt is already starting', async () => {
+    const deferred = createDeferred<typeof attempt>();
+    const firstStarter = jest.fn(() => deferred.promise);
+    const secondStarter = jest.fn(async () => attempt);
+
+    const startPromise = act(async () => {
+      await useQuizStore
+        .getState()
+        .startEvent('event-1', 'strong', firstStarter);
+    });
+
+    // A double-tap fires a second start before the first resolves.
+    act(() => {
+      void useQuizStore
+        .getState()
+        .startEvent('event-1', 'strong', secondStarter);
+    });
+
+    expect(secondStarter).not.toHaveBeenCalled();
+    expect(useQuizStore.getState().status).toBe('starting');
+
+    deferred.resolve(attempt);
+    await startPromise;
+    expect(firstStarter).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders friendly copy for a known quiz service error code', async () => {
+    await act(async () => {
+      await useQuizStore.getState().loadEvents(async () => {
+        throw new QuizServiceError(
+          'attempt_limit_reached',
+          'QUIZ_ATTEMPT_LIMIT_REACHED',
+          409
+        );
+      });
+    });
+
+    expect(useQuizStore.getState().error).toBe(
+      "You've reached the maximum number of attempts for this quiz."
+    );
   });
 });

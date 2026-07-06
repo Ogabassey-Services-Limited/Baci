@@ -11,6 +11,7 @@ import { clearLocalAndDeactivatePushToken } from './auth-store-push';
 import type { AuthStoreGet, AuthStoreSet, Customer } from './auth-store.types';
 import { useCartStore } from './cart-store';
 import { useComparisonStore } from './comparison-store';
+import { useQuizStore } from './quiz-store';
 import { useSavedStore } from './saved-store';
 
 const log = createLogger('AuthStore');
@@ -20,6 +21,9 @@ function clearUserStores() {
   useCartStore.getState().clearCart();
   useSavedStore.getState().clearSaved();
   useComparisonStore.getState().clearComparison();
+  // Prevent a signed-out (or switched) user from seeing the prior account's
+  // quiz attempt, result, or won-prize claim.
+  useQuizStore.getState().reset();
 }
 
 export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {

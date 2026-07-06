@@ -1,5 +1,5 @@
 import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -26,6 +26,15 @@ import {
   getQuizErrorMessage,
   shouldShowEventList,
 } from './QuizScreen.utils';
+import { useQuizQuestionTimer } from './use-quiz-question-timer';
+
+// Lazy-loaded so the winning-prize path's product/cart dependency graph is only
+// required when a shopper actually wins — keeping the common quiz screen light.
+const QuizPrizeClaimPanel = lazy(() =>
+  import('./QuizPrizeClaimPanel').then((module) => ({
+    default: module.QuizPrizeClaimPanel,
+  }))
+);
 
 const log = createLogger('Quiz');
 
@@ -33,6 +42,11 @@ const QUIZ_COPY = {
   actionFailed: 'Quiz action failed',
   timeNotSet: 'Time not set',
 } as const;
+
+// Sentinel answer submitted when the question window closes with nothing
+// selected. The server records an unmatched answer as incorrect and advances
+// the attempt (the too-late path no longer fails), so the quiz never stalls.
+const QUIZ_FORFEIT_ANSWER = '__timeout_no_answer__';
 interface QuizScreenProps {
   integrityTier?: QuizIntegrityTier;
   locale?: string;
@@ -56,6 +70,7 @@ export function QuizScreen({
     selectAnswer,
     setError,
     submitSelectedAnswer,
+    forfeitAnswer,
   } = useQuizStore(
     useShallow((state) => ({
       status: state.status,
@@ -70,6 +85,7 @@ export function QuizScreen({
       selectAnswer: state.selectAnswer,
       setError: state.setError,
       submitSelectedAnswer: state.submitSelectedAnswer,
+      forfeitAnswer: state.forfeitAnswer,
     }))
   );
 
@@ -99,24 +115,48 @@ export function QuizScreen({
     }
   };
 
-  const handleSubmit = async () => {
-    // Defensive guard: the submit button is disabled until these values exist.
-    if (!attempt || !selectedOptionId) return;
+  const submitAnswerValue = async (answer: string, viaForfeit: boolean) => {
+    if (!attempt) return;
+
+    const submitter = () =>
+      submitQuizAnswer({
+        answer,
+        integrityTier: attemptIntegrityTier ?? 'basic',
+        attemptId: attempt.attemptId,
+        questionId: attempt.question.id,
+        clientAnsweredAt: new Date().toISOString(),
+      });
 
     try {
-      await submitSelectedAnswer(() =>
-        submitQuizAnswer({
-          answer: selectedOptionId,
-          integrityTier: attemptIntegrityTier ?? 'basic',
-          attemptId: attempt.attemptId,
-          questionId: attempt.question.id,
-        })
-      );
+      await (viaForfeit
+        ? forfeitAnswer(submitter)
+        : submitSelectedAnswer(submitter));
     } catch (error) {
       log.warn('Failed to submit quiz answer', error);
       setError(getQuizErrorMessage(error, QUIZ_COPY.actionFailed));
     }
   };
+
+  const handleSubmit = async () => {
+    // Defensive guard: the submit button is disabled until these values exist.
+    if (!attempt || !selectedOptionId) return;
+    await submitAnswerValue(selectedOptionId, false);
+  };
+
+  // When the countdown reaches the auto-submit lead, submit the current
+  // selection or a forfeit sentinel so the attempt always advances. The store's
+  // in-flight guard makes this safe against a simultaneous manual submit.
+  const handleTimeExpired = () => {
+    if (!attempt || status !== 'question') return;
+    void submitAnswerValue(selectedOptionId ?? QUIZ_FORFEIT_ANSWER, true);
+  };
+
+  const { remainingSeconds } = useQuizQuestionTimer({
+    questionId: attempt?.question.id ?? null,
+    timeLimitSeconds: attempt?.question.timeLimitSeconds ?? 0,
+    isActive: status === 'question',
+    onExpire: handleTimeExpired,
+  });
 
   const questionProgressPercent = attempt
     ? Math.min(
@@ -219,8 +259,12 @@ export function QuizScreen({
               ]}
             />
           </View>
-          <Text style={styles.timer}>
-            You have {attempt.question.timeLimitSeconds}s per question
+          <Text
+            accessibilityLabel={`Time left: ${remainingSeconds} seconds`}
+            accessibilityLiveRegion="polite"
+            style={styles.timer}
+          >
+            Time left: {remainingSeconds}s
           </Text>
           <Text style={styles.passReceipt}>
             {formatPointCount(attempt.examPassPointsSpent)} exam pass used.{' '}
@@ -278,11 +322,24 @@ export function QuizScreen({
           <Text style={styles.resultScore}>
             {result.correctAnswers} of {result.totalQuestions} correct
           </Text>
-          <Text style={styles.eventMeta}>
-            {result.prizeEligible
-              ? 'Prize entry recorded'
-              : 'Practice result only'}
-          </Text>
+          {result.prizeClaim ? (
+            <Suspense
+              fallback={
+                <ActivityIndicator accessibilityLabel="Preparing your prize" />
+              }
+            >
+              <QuizPrizeClaimPanel
+                prizeClaim={result.prizeClaim}
+                styles={styles}
+              />
+            </Suspense>
+          ) : (
+            <Text style={styles.eventMeta}>
+              {result.prizeEligible
+                ? 'Prize entry recorded'
+                : 'Practice result only'}
+            </Text>
+          )}
         </View>
       ) : null}
     </ScrollView>

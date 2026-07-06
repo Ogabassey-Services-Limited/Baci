@@ -73,22 +73,31 @@ describe('QuizScreen', () => {
     jest.clearAllMocks();
   });
 
-  it('renders a load error as an accessible alert', async () => {
-    jest
-      .mocked(fetchQuizEvents)
-      .mockRejectedValueOnce(new Error('Events offline'));
+  // This is the first render in the file, so it absorbs React Native's one-time
+  // cold-start cost. Under `jest --runInBand` memory pressure (560+ suites) that
+  // can exceed the default 5s per-test timeout even though the flow itself is
+  // instant, so the first test gets extra headroom (see jest.setup.ts note on
+  // the same accumulated-pressure effect widening asyncUtilTimeout).
+  it(
+    'renders a load error as an accessible alert',
+    async () => {
+      jest
+        .mocked(fetchQuizEvents)
+        .mockRejectedValueOnce(new Error('Events offline'));
 
-    render(<QuizScreen integrityTier="device" locale="en-US" />);
+      render(<QuizScreen integrityTier="device" locale="en-US" />);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Events offline'
-    );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Retry loading quiz events' })
-    );
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Events offline'
+      );
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Retry loading quiz events' })
+      );
 
-    expect(await screen.findByText('Daily Prize Quiz')).toBeTruthy();
-  });
+      expect(await screen.findByText('Daily Prize Quiz')).toBeTruthy();
+    },
+    15_000
+  );
 
   it('renders fetched quiz events', async () => {
     render(<QuizScreen integrityTier="device" locale="en-US" />);
@@ -151,7 +160,7 @@ describe('QuizScreen', () => {
     });
 
     expect(await screen.findByText('What is 2 + 2?')).toBeTruthy();
-    expect(screen.getByText('You have 30s per question')).toBeTruthy();
+    expect(screen.getByText('Time left: 30s')).toBeTruthy();
     expect(
       screen.getByText('1 point exam pass used. 4 points left.')
     ).toBeTruthy();
@@ -185,6 +194,7 @@ describe('QuizScreen', () => {
     expect(submitQuizAnswer).toHaveBeenCalledWith({
       answer: 'b',
       attemptId: 'attempt-1',
+      clientAnsweredAt: expect.any(String),
       integrityTier: 'strong',
       questionId: 'question-1',
     });
@@ -257,6 +267,7 @@ describe('QuizScreen', () => {
     expect(submitQuizAnswer).toHaveBeenCalledWith({
       answer: 'b',
       attemptId: 'attempt-1',
+      clientAnsweredAt: expect.any(String),
       integrityTier: 'strong',
       questionId: 'question-1',
     });

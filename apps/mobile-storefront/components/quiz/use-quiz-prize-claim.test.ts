@@ -1,0 +1,112 @@
+import { act, renderHook } from '@testing-library/react-native';
+import { useCartStore } from '@/stores/cart-store';
+import type { Product } from '@/types/product';
+import type { QuizPrizeClaim } from '@/services/quiz';
+import { useQuizPrizeClaim } from './use-quiz-prize-claim';
+
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
+}));
+
+const mockUseProduct = jest.fn();
+jest.mock('@/hooks/use-product', () => ({
+  useProduct: (identifier: string) => mockUseProduct(identifier),
+}));
+
+const product: Product = {
+  id: 'prod-1',
+  name: 'iPhone 15',
+  slug: 'iphone-15',
+  price: 500_000,
+  image: 'https://cdn.example.com/iphone.jpg',
+};
+
+const prizeClaim: QuizPrizeClaim = {
+  awardId: 'award-1',
+  productId: 'prod-1',
+  variantId: 'variant-1',
+  condition: 'new',
+  voucherToken: 'token-abc',
+  cartPath: '/ogabassey/cart?item_id=prod-1',
+};
+
+describe('useQuizPrizeClaim', () => {
+  beforeEach(() => {
+    mockPush.mockClear();
+    useCartStore.getState().clearCart();
+    mockUseProduct.mockReturnValue({
+      product,
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+  });
+
+  it('fetches the prize product by its id', () => {
+    renderHook(() => useQuizPrizeClaim(prizeClaim));
+    expect(mockUseProduct).toHaveBeenCalledWith('prod-1');
+  });
+
+  it('adds the prize as a voucher line and opens the cart', () => {
+    const { result } = renderHook(() => useQuizPrizeClaim(prizeClaim));
+    expect(result.current.isReady).toBe(true);
+
+    act(() => {
+      result.current.claimPrize();
+    });
+
+    const { items } = useCartStore.getState();
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      product_id: 'prod-1',
+      slug: 'iphone-15',
+      variant_id: 'variant-1',
+      name: 'iPhone 15',
+      price: 500_000,
+      quantity: 1,
+      condition: 'New',
+      voucher_token: 'token-abc',
+      voucher_award_id: 'award-1',
+    });
+    expect(mockPush).toHaveBeenCalledWith('/cart');
+  });
+
+  it('reports preparing and does not touch the cart while the product loads', () => {
+    mockUseProduct.mockReturnValue({
+      product: null,
+      isLoading: true,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    const { result } = renderHook(() => useQuizPrizeClaim(prizeClaim));
+    expect(result.current.isPreparing).toBe(true);
+    expect(result.current.isReady).toBe(false);
+
+    act(() => {
+      result.current.claimPrize();
+    });
+
+    expect(useCartStore.getState().items).toHaveLength(0);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a load error and retries via refetch', () => {
+    const refetch = jest.fn();
+    mockUseProduct.mockReturnValue({
+      product: null,
+      isLoading: false,
+      error: 'Product offline',
+      refetch,
+    });
+
+    const { result } = renderHook(() => useQuizPrizeClaim(prizeClaim));
+    expect(result.current.error).toBe('Product offline');
+
+    act(() => {
+      result.current.retry();
+    });
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+});
