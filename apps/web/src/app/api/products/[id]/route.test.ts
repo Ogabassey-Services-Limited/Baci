@@ -1903,6 +1903,16 @@ describe('DELETE /api/products/[id]', () => {
         'test-store',
         [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
       );
+      // The deleted slug's Next cache tag is busted BEFORE the edge purge so a
+      // post-purge MISS cannot refill a stale "product exists" page.
+      expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
+        'iphone-15',
+      ]);
+      expect(
+        mockRevalidateProductSlugs.mock.invocationCallOrder[0]
+      ).toBeLessThan(
+        mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]
+      );
     });
 
     it('pre-reads the row (select before delete) and reads the category_id join', async () => {
@@ -1949,6 +1959,14 @@ describe('DELETE /api/products/[id]', () => {
         expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
           'test-store',
           [{ slug: PRODUCT_ID, categorySegment: null }]
+        );
+        expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
+          PRODUCT_ID,
+        ]);
+        expect(
+          mockRevalidateProductSlugs.mock.invocationCallOrder[0]
+        ).toBeLessThan(
+          mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]
         );
       } finally {
         consoleWarnSpy.mockRestore();
