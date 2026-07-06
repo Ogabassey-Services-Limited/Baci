@@ -21,10 +21,12 @@ function ProfileEditViewHarness({
   errors = {},
   isDirty = true,
   isSubmitting = false,
+  usernameSection,
 }: {
   errors?: FieldErrors<ProfileFormData>;
   isDirty?: boolean;
   isSubmitting?: boolean;
+  usernameSection?: ReactNode;
 }) {
   const form = useForm<ProfileFormData>({
     defaultValues: {
@@ -44,6 +46,7 @@ function ProfileEditViewHarness({
       isSubmitting={isSubmitting}
       onSave={mockSave}
       toast={<Text>Toast outlet</Text>}
+      usernameSection={usernameSection}
     />
   );
 }
@@ -94,5 +97,21 @@ describe('ProfileEditView', () => {
     fireEvent.press(saveAction);
 
     expect(mockSave).not.toHaveBeenCalled();
+  });
+
+  it('renders the optional username section between the phone field and email', () => {
+    render(
+      <ProfileEditViewHarness
+        usernameSection={<Text>Username section outlet</Text>}
+      />
+    );
+
+    expect(screen.getByText('Username section outlet')).toBeTruthy();
+  });
+
+  it('renders nothing extra when no username section is provided', () => {
+    render(<ProfileEditViewHarness />);
+
+    expect(screen.queryByText('Username section outlet')).toBeNull();
   });
 });

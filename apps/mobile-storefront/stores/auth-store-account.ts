@@ -15,6 +15,20 @@ import { useSavedStore } from './saved-store';
 
 const log = createLogger('AuthStore');
 
+// set_customer_username raises these as the Postgres error message.
+const USERNAME_ERROR_MESSAGES: Record<string, string> = {
+  username_taken: 'That username is already taken. Try another.',
+  reserved_username: 'That username is not available.',
+  invalid_username:
+    'Use 3-20 letters, numbers, or single . _ separators (start and end with a letter or number).',
+  customer_not_found: 'No shopper account found for this store.',
+  not_authenticated: 'Please sign in to choose a username.',
+};
+
+function mapUsernameError(message: string): string {
+  return USERNAME_ERROR_MESSAGES[message] ?? 'Could not set username';
+}
+
 function clearUserStores() {
   queryClient.clear();
   useCartStore.getState().clearCart();
@@ -127,7 +141,7 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
           .update(updates)
           .eq('id', customer.id)
           .eq('merchant_id', merchantId)
-          .select('id, email, first_name, last_name, phone, loyalty_points')
+          .select('id, email, first_name, last_name, phone, loyalty_points, username')
           .single();
         if (error) return { success: false, error: error.message };
 
@@ -144,12 +158,51 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
             last_name: updateValidation.data.last_name ?? undefined,
             phone: updateValidation.data.phone ?? undefined,
             loyalty_points: updateValidation.data.loyalty_points ?? undefined,
+            username: updateValidation.data.username ?? undefined,
           },
         });
         return { success: true };
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Failed to update profile';
+        return { success: false, error: message };
+      }
+    },
+
+    setUsername: async (username: string) => {
+      try {
+        const { customer, merchantId } = get();
+        if (!customer || !merchantId) {
+          return { success: false, error: 'Not logged in' };
+        }
+
+        const {
+          data: { user: verifiedUser },
+          error: authError,
+        } = await supabase.auth.getUser();
+        if (authError || !verifiedUser) {
+          return {
+            success: false,
+            error: 'Session expired. Please sign in again.',
+          };
+        }
+
+        // The RPC re-derives the customer from auth.uid() + merchant, enforces
+        // per-merchant case-insensitive uniqueness, and raises friendly codes.
+        const { data, error } = await supabase.rpc('set_customer_username', {
+          p_merchant_id: merchantId,
+          p_username: username,
+        });
+        if (error) {
+          return { success: false, error: mapUsernameError(error.message) };
+        }
+
+        const stored = typeof data === 'string' ? data : username.trim();
+        set({ customer: { ...customer, username: stored } });
+        return { success: true, username: stored };
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Could not set username';
         return { success: false, error: message };
       }
     },

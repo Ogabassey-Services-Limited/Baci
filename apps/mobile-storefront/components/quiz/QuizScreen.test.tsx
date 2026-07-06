@@ -1,5 +1,11 @@
 import { jest } from '@jest/globals';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 import { QuizScreen } from '@/components/quiz/QuizScreen';
 import type { QuizAttempt, QuizEvent, QuizResult } from '@/services/quiz';
 import {
@@ -8,6 +14,36 @@ import {
   submitQuizAnswer,
 } from '@/services/quiz';
 import { useQuizStore } from '@/stores/quiz-store';
+
+// The username gate pulls in additional modules (UsernamePrompt, the zod
+// username schema, the gate modal) that add one-time mount cost to whichever
+// test in this file runs first — that can push it past Jest's 5000ms default
+// under load. Widen this file's timeout rather than the shared jest config.
+jest.setTimeout(15000);
+
+// Defaults to a customer that already has a username so the pre-existing
+// start-flow tests below are unaffected by the username gate. The gate
+// itself is covered by the dedicated test further down.
+let mockUsername: string | null = 'ogafan';
+const mockSetUsername =
+  jest.fn<
+    (
+      username: string
+    ) => Promise<{ success: boolean; error?: string; username?: string }>
+  >();
+
+jest.mock('@/stores/auth-store', () => ({
+  useAuthStore: (
+    selector: (state: {
+      customer: { username: string | null } | null;
+      setUsername: typeof mockSetUsername;
+    }) => unknown
+  ) =>
+    selector({
+      customer: { username: mockUsername },
+      setUsername: mockSetUsername,
+    }),
+}));
 
 const quizEvent: QuizEvent = {
   endsAt: '2026-05-20T10:10:00.000Z',
@@ -64,6 +100,8 @@ jest.mock('@/services/quiz', () => ({
 describe('QuizScreen', () => {
   beforeEach(() => {
     useQuizStore.getState().reset();
+    mockUsername = 'ogafan';
+    mockSetUsername.mockReset();
     jest.mocked(fetchQuizEvents).mockResolvedValue([quizEvent]);
     jest.mocked(startQuizAttempt).mockResolvedValue(quizAttempt);
     jest.mocked(submitQuizAnswer).mockResolvedValue(quizResult);
@@ -260,5 +298,59 @@ describe('QuizScreen', () => {
       integrityTier: 'strong',
       questionId: 'question-1',
     });
+  });
+
+  it('gates the quiz start behind setting a username, then starts once one is set', async () => {
+    mockUsername = null;
+    mockSetUsername.mockResolvedValue({ success: true, username: 'ogafan' });
+    render(<QuizScreen integrityTier="device" locale="en-US" />);
+
+    fireEvent.press(
+      await screen.findByRole('button', {
+        name: 'Use 1 point to start Daily Prize Quiz',
+      })
+    );
+
+    expect(
+      await screen.findByRole('header', {
+        name: 'Choose a username to appear on the leaderboard',
+      })
+    ).toBeTruthy();
+    expect(startQuizAttempt).not.toHaveBeenCalled();
+
+    fireEvent.changeText(screen.getByLabelText('Username'), 'ogafan');
+    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => {
+      expect(mockSetUsername).toHaveBeenCalledWith('ogafan');
+    });
+    await waitFor(() => {
+      expect(startQuizAttempt).toHaveBeenCalledWith({
+        eventId: 'event-1',
+        integrityTier: 'device',
+      });
+    });
+    expect(await screen.findByText('What is 2 + 2?')).toBeTruthy();
+  });
+
+  it('closes the username gate without starting when cancelled', async () => {
+    mockUsername = null;
+    render(<QuizScreen integrityTier="device" locale="en-US" />);
+
+    fireEvent.press(
+      await screen.findByRole('button', {
+        name: 'Use 1 point to start Daily Prize Quiz',
+      })
+    );
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Cancel username setup' })
+    );
+
+    expect(
+      screen.queryByRole('header', {
+        name: 'Choose a username to appear on the leaderboard',
+      })
+    ).toBeNull();
+    expect(startQuizAttempt).not.toHaveBeenCalled();
   });
 });

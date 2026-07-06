@@ -43,6 +43,7 @@ export const CustomerRowSchema = z.object({
   last_name: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   loyalty_points: z.number().nullable().optional(),
+  username: z.string().nullable().optional(),
 });
 
 export type CustomerRow = z.infer<typeof CustomerRowSchema>;

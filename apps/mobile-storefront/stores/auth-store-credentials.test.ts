@@ -47,6 +47,7 @@ describe('createCredentialActions', () => {
     signInWithPassword: jest.fn<AuthState['signInWithPassword']>(),
     signOut: jest.fn<AuthState['signOut']>(),
     updateProfile: jest.fn<AuthState['updateProfile']>(),
+    setUsername: jest.fn<AuthState['setUsername']>(),
     user: null,
     verifyOtp: jest.fn<AuthState['verifyOtp']>(),
   };

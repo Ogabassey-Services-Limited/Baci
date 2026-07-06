@@ -3,7 +3,8 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { Redirect, router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { type Resolver, useForm } from 'react-hook-form';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { UsernamePrompt } from '@/components/account/UsernamePrompt';
 import { ProfileEditView } from '@/components/profile/ProfileEditView';
 import { styles } from '@/components/profile/profile-edit.styles';
 import { useToast } from '@/components/ui/Toast';
@@ -109,6 +110,34 @@ export default function ProfileEditScreen() {
         isSubmitting={isSubmitting}
         onSave={handleSubmit(onSubmit)}
         toast={<toast.Toast />}
+        usernameSection={
+          <View style={styles.inputGroup}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Username
+            </Text>
+            <View
+              style={[
+                styles.emailContainer,
+                { backgroundColor: colors.muted, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.emailText, { color: colors.text }]}>
+                {customer?.username ? `@${customer.username}` : 'Not set yet'}
+              </Text>
+            </View>
+            <View style={styles.usernamePromptSpacing}>
+              <UsernamePrompt
+                initialValue={customer?.username ?? ''}
+                onSuccess={() => {
+                  toast.success('Username saved');
+                }}
+                submitLabel={
+                  customer?.username ? 'Update username' : 'Save username'
+                }
+              />
+            </View>
+          </View>
+        }
       />
     </>
   );

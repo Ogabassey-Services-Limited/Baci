@@ -8,6 +8,7 @@ export interface Customer {
   last_name?: string;
   phone?: string;
   loyalty_points?: number;
+  username?: string | null;
 }
 
 export interface AuthState {
@@ -42,6 +43,9 @@ export interface AuthState {
   updateProfile: (
     data: Partial<Customer>
   ) => Promise<{ success: boolean; error?: string }>;
+  setUsername: (
+    username: string
+  ) => Promise<{ success: boolean; error?: string; username?: string }>;
   clearError: () => void;
 }
 

@@ -1,0 +1,81 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import { UsernamePrompt } from './UsernamePrompt';
+
+const mockSetUsername =
+  jest.fn<
+    (
+      username: string
+    ) => Promise<{ success: boolean; error?: string; username?: string }>
+  >();
+
+jest.mock('@/stores/auth-store', () => ({
+  useAuthStore: (
+    selector: (state: { setUsername: typeof mockSetUsername }) => unknown
+  ) => selector({ setUsername: mockSetUsername }),
+}));
+
+describe('UsernamePrompt', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('renders the username input and keeps submit disabled while empty', () => {
+    render(<UsernamePrompt />);
+
+    expect(screen.getByLabelText('Username')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Save username' })
+    ).toHaveAccessibilityState({ disabled: true });
+  });
+
+  it('shows an inline error and keeps submit disabled for an invalid username', () => {
+    render(<UsernamePrompt />);
+
+    fireEvent.changeText(screen.getByLabelText('Username'), '.ab');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Start and end with a letter or number. Only letters, numbers, . and _ are allowed.'
+    );
+    expect(
+      screen.getByRole('button', { name: 'Save username' })
+    ).toHaveAccessibilityState({ disabled: true });
+    expect(mockSetUsername).not.toHaveBeenCalled();
+  });
+
+  it('submits a trimmed, valid username and calls onSuccess', async () => {
+    mockSetUsername.mockResolvedValue({ success: true, username: 'ogafan' });
+    const onSuccess = jest.fn();
+    render(<UsernamePrompt onSuccess={onSuccess} />);
+
+    fireEvent.changeText(screen.getByLabelText('Username'), '  ogafan  ');
+    fireEvent.press(screen.getByRole('button', { name: 'Save username' }));
+
+    expect(await screen.findByRole('button', { name: 'Save username' })).toBeTruthy();
+    expect(mockSetUsername).toHaveBeenCalledWith('ogafan');
+    await Promise.resolve();
+    expect(onSuccess).toHaveBeenCalledWith('ogafan');
+  });
+
+  it('renders the returned friendly error when the RPC rejects the username', async () => {
+    mockSetUsername.mockResolvedValue({
+      success: false,
+      error: 'That username is already taken. Try another.',
+    });
+    render(<UsernamePrompt />);
+
+    fireEvent.changeText(screen.getByLabelText('Username'), 'takenname');
+    fireEvent.press(screen.getByRole('button', { name: 'Save username' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'That username is already taken. Try another.'
+    );
+  });
+
+  it('prefills the input from initialValue and honors a custom submitLabel', () => {
+    render(<UsernamePrompt initialValue="ogafan" submitLabel="Continue" />);
+
+    expect(screen.getByLabelText('Username').props.value).toBe('ogafan');
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeTruthy();
+  });
+});

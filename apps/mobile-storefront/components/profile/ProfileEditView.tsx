@@ -40,6 +40,10 @@ interface ProfileEditViewProps {
   isSubmitting: boolean;
   onSave: () => void;
   toast: ReactNode;
+  // Rendered below the phone field. Kept separate from the react-hook-form
+  // fields above: setting a username uses its own dedicated auth-store
+  // action (setUsername), not updateProfile.
+  usernameSection?: ReactNode;
 }
 
 function ProfileFormField({
@@ -103,6 +107,7 @@ export function ProfileEditView({
   isSubmitting,
   onSave,
   toast,
+  usernameSection,
 }: ProfileEditViewProps) {
   const isSaveDisabled = isSubmitting || !isDirty;
 
@@ -151,6 +156,8 @@ export function ProfileEditView({
             placeholder="08012345678"
             textContentType={TextContentTypes.telephoneNumber}
           />
+
+          {usernameSection}
 
           <Text style={[styles.emailLabel, { color: colors.textSecondary }]}>
             Email

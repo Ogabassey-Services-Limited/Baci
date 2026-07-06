@@ -1450,6 +1450,76 @@ describe('useAuthStore', () => {
   });
 
   // -------------------------------------------------------------------------
+  describe('setUsername()', () => {
+    beforeEach(() => {
+      (useAuthStore.setState as (state: object) => void)({
+        user: mockUser,
+        session: mockSession,
+        customer: mockCustomerRow,
+        merchantId: MERCHANT_ID,
+        isLoading: false,
+        isInitialized: true,
+      });
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+    });
+
+    it('updates customer.username in state when the RPC succeeds', async () => {
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: 'OgaFan',
+        error: null,
+      });
+
+      let result!: { success: boolean; error?: string; username?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setUsername('OgaFan');
+      });
+
+      expect(supabase.rpc).toHaveBeenCalledWith('set_customer_username', {
+        p_merchant_id: MERCHANT_ID,
+        p_username: 'OgaFan',
+      });
+      expect(result).toEqual({ success: true, username: 'OgaFan' });
+      expect(useAuthStore.getState().customer?.username).toBe('OgaFan');
+    });
+
+    it('returns the friendly taken-username message and leaves state unchanged when the RPC reports username_taken', async () => {
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { message: 'username_taken' },
+      });
+
+      let result!: { success: boolean; error?: string; username?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setUsername('taken');
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error: 'That username is already taken. Try another.',
+      });
+      expect(useAuthStore.getState().customer?.username).toBeUndefined();
+    });
+
+    it('returns an error without calling the RPC when not logged in', async () => {
+      (useAuthStore.setState as (state: object) => void)({
+        customer: null,
+        merchantId: null,
+      });
+
+      let result!: { success: boolean; error?: string; username?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setUsername('ogafan');
+      });
+
+      expect(result).toEqual({ success: false, error: 'Not logged in' });
+      expect(supabase.rpc).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
   describe('cleanup()', () => {
     it('unsubscribes the auth listener after initialize()', async () => {
       // Arrange
