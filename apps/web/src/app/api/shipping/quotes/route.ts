@@ -110,6 +110,13 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      if (!senderInfo && data.shipmentType === 'international') {
+        return NextResponse.json(
+          { error: 'Sender is required for international quotes' },
+          { status: 400 }
+        );
+      }
+
       // Default sender if no merchant found
       if (!senderInfo) {
         senderInfo = {

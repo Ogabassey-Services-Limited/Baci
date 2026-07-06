@@ -44,6 +44,27 @@ function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
         id: '11111111-1111-4111-8111-111111111111',
         merchant_id: 'merchant-1',
         shipping_status: 'pending',
+        shipping_address: {
+          address: '123 Queen Street West',
+          city: 'Toronto',
+          state: 'Ontario',
+          country: 'Canada',
+          countryCode: 'CA',
+          postalCode: 'M5V 3L9',
+        },
+        order_items: [
+          {
+            name: 'Phone',
+            quantity: 1,
+            price: 500000,
+            product: {
+              weight_value: 1,
+              weight_unit: 'kg',
+              dimensions: { length: 10, width: 8, height: 6, unit: 'cm' },
+              commodity_code: '851712',
+            },
+          },
+        ],
       },
       error: null,
     }),
@@ -210,7 +231,7 @@ describe('POST /api/shipping/book', () => {
     expect(shipmentInsertPayloads).toEqual([]);
   });
 
-  it('books GIGL international shipments with the saved quote request payload', async () => {
+  it('books GIGL international shipments with the saved destination', async () => {
     mockCreateClient.mockReturnValue(
       buildSupabaseMock({
         provider_rate_id: 'GIGL_INTL_1_2_3_4',
@@ -231,12 +252,9 @@ describe('POST /api/shipping/book', () => {
             {
               name: 'Phone',
               quantity: 1,
-              weight: 1,
+              weight: 0.1,
               value: 500000,
-              hsCode: '851712',
-              length: 10,
-              width: 8,
-              height: 6,
+              hsCode: 'TAMPERED',
             },
           ],
         },
@@ -259,6 +277,7 @@ describe('POST /api/shipping/book', () => {
         }),
         items: [
           expect.objectContaining({
+            weight: 1,
             hsCode: '851712',
             length: 10,
             width: 8,

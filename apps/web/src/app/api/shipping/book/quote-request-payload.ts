@@ -1,6 +1,21 @@
-import { parseStoredQuoteRequest } from '@/lib/shipping/order-shipment-booking-utils';
+import {
+  assertInternationalQuoteMatchesOrder,
+  type InternationalQuoteOrder,
+} from '@/lib/shipping/international-quote-order-guard';
+import {
+  type InternationalShipmentOrderItem,
+  toInternationalShipmentItemsFromOrder,
+} from '@/lib/shipping/international-shipment-items';
+import {
+  OrderShipmentBookingError,
+  parseStoredQuoteRequest,
+} from '@/lib/shipping/order-shipment-booking-utils';
 import { GIGL_INTERNATIONAL_PROVIDER_RATE_PREFIX } from '@/lib/shipping/providers/gigl.international-payload';
-import type { ShipmentItem, ShippingAddress } from '@/lib/shipping/types';
+import type {
+  QuoteRequest,
+  ShipmentItem,
+  ShippingAddress,
+} from '@/lib/shipping/types';
 
 type BookingQuoteRecord = {
   provider_code: string | null;
@@ -11,12 +26,18 @@ type BookingQuoteRecord = {
 type QuoteRequestPayload = {
   items: ShipmentItem[];
   receiver: ShippingAddress;
+  storedQuoteRequest?: QuoteRequest;
 };
+
+export type BookingQuoteValidation =
+  | { ok: true }
+  | { code: string; error: string; ok: false; status: number };
 
 export function resolveBookingQuoteRequestPayload(
   quote: BookingQuoteRecord,
   receiver: ShippingAddress,
-  items: ShipmentItem[]
+  items: ShipmentItem[],
+  orderItems: InternationalShipmentOrderItem[] = []
 ): QuoteRequestPayload | null {
   const isGiglInternationalQuote =
     quote.provider_code === 'GIGL' &&
@@ -34,12 +55,37 @@ export function resolveBookingQuoteRequestPayload(
   }
 
   return {
-    items: storedQuoteRequest.items,
+    items: toInternationalShipmentItemsFromOrder(orderItems),
     receiver: {
       ...storedQuoteRequest.receiver,
       name: receiver.name,
       email: receiver.email,
       phone: receiver.phone,
     },
+    storedQuoteRequest,
   };
+}
+
+export function validateBookingQuoteRequestPayload(
+  payload: QuoteRequestPayload,
+  order: InternationalQuoteOrder
+): BookingQuoteValidation {
+  if (!payload.storedQuoteRequest) {
+    return { ok: true };
+  }
+
+  try {
+    assertInternationalQuoteMatchesOrder(payload.storedQuoteRequest, order);
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof OrderShipmentBookingError) {
+      return {
+        ok: false,
+        error: error.message,
+        code: error.code,
+        status: error.status,
+      };
+    }
+    throw error;
+  }
 }

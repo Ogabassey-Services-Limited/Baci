@@ -23,7 +23,19 @@ const order = {
     state: 'Ontario',
     phone: '08012345678',
   },
-  order_items: [{ name: 'Phone', quantity: 1, price: 100_000 }],
+  order_items: [
+    {
+      name: 'Phone',
+      quantity: 1,
+      price: 100_000,
+      product: {
+        weight_value: 1.2,
+        weight_unit: 'kg',
+        dimensions: { length: 10, width: 8, height: 6, unit: 'cm' },
+        commodity_code: '851712',
+      },
+    },
+  ],
 };
 
 const merchant = {
@@ -59,12 +71,9 @@ const quoteRequest = {
     {
       name: 'Phone',
       quantity: 1,
-      weight: 1.2,
+      weight: 0.1,
       value: 100_000,
-      hsCode: '851712',
-      length: 10,
-      width: 8,
-      height: 6,
+      hsCode: 'TAMPERED',
     },
   ],
 };
@@ -148,7 +157,7 @@ describe('bookOrderShipment GIGL international quotes', () => {
     vi.clearAllMocks();
   });
 
-  it('uses the saved quote destination and item metadata', async () => {
+  it('uses the saved quote destination and server-derived item metadata', async () => {
     const insertedShipments: unknown[] = [];
     vi.mocked(shippingService.bookShipment).mockResolvedValue({
       provider: 'GIGL',
@@ -184,6 +193,7 @@ describe('bookOrderShipment GIGL international quotes', () => {
         }),
         items: [
           expect.objectContaining({
+            weight: 1.2,
             hsCode: '851712',
             length: 10,
             width: 8,
@@ -207,6 +217,7 @@ describe('bookOrderShipment GIGL international quotes', () => {
         }),
         items: [
           expect.objectContaining({
+            weight: 1.2,
             hsCode: '851712',
             length: 10,
             width: 8,

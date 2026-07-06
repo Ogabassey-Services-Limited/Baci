@@ -13,21 +13,17 @@ type OrderShippingAddress = {
 
 type OrderItemRecord = {
   name: string | null;
+  price?: number | string | null;
   quantity: number | null;
-  price: number | string | null;
 };
 
-type InternationalQuoteOrder = {
+export type InternationalQuoteOrder = {
   shipping_address: OrderShippingAddress | null;
   order_items: OrderItemRecord[] | null;
 };
 
 function normalizeText(value: string | null | undefined): string {
   return (value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
-}
-
-function normalizeAmount(value: number | string | null | undefined): number {
-  return Number(value ?? 0);
 }
 
 function hasComparableText(value: string | null | undefined): boolean {
@@ -50,8 +46,7 @@ function matchesQuoteItem(
 ): boolean {
   return (
     normalizeText(orderItem.name) === normalizeText(quoteItem.name) &&
-    (orderItem.quantity ?? 1) === quoteItem.quantity &&
-    normalizeAmount(orderItem.price) === quoteItem.value
+    (orderItem.quantity ?? 1) === quoteItem.quantity
   );
 }
 

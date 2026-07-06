@@ -99,6 +99,15 @@ describe('assertInternationalQuoteMatchesOrder', () => {
     ).not.toThrow();
   });
 
+  it('does not reject discounted orders when item identity and quantity match', () => {
+    expect(() =>
+      assertInternationalQuoteMatchesOrder(quoteRequest, {
+        ...matchingOrder,
+        order_items: [{ name: 'Phone', quantity: 1, price: 80_000 }],
+      })
+    ).not.toThrow();
+  });
+
   it('rejects stale saved quote items before booking', () => {
     expect(() =>
       assertInternationalQuoteMatchesOrder(quoteRequest, {

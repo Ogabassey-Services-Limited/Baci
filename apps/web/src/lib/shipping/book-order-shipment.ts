@@ -2,6 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { shippingService } from '@/lib/shipping';
 import { assertInternationalQuoteMatchesOrder } from '@/lib/shipping/international-quote-order-guard';
 import {
+  type InternationalShipmentOrderItem,
+  toInternationalShipmentItemsFromOrder,
+} from '@/lib/shipping/international-shipment-items';
+import {
   buildReceiver,
   buildSender,
   isShippingProviderCode,
@@ -44,13 +48,7 @@ type OrderRecord = {
     state?: string | null;
     phone?: string | null;
   } | null;
-  order_items:
-    | {
-        name: string | null;
-        quantity: number | null;
-        price: number | string | null;
-      }[]
-    | null;
+  order_items: InternationalShipmentOrderItem[] | null;
 };
 
 type MerchantRecord = {
@@ -237,7 +235,7 @@ export async function bookOrderShipment(
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .select(
-      'id, customer_name, customer_email, customer_phone, selected_quote_id, shipping_provider, shipping_address, order_items(name, quantity, price)'
+      'id, customer_name, customer_email, customer_phone, selected_quote_id, shipping_provider, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
     )
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
@@ -360,7 +358,7 @@ export async function bookOrderShipment(
   const sender = buildSender(typedMerchant);
   const items =
     isGiglInternationalQuote && storedQuoteRequest
-      ? storedQuoteRequest.items
+      ? toInternationalShipmentItemsFromOrder(orderItems)
       : toShipmentItems(orderItems);
 
   const bookingRequest: BookingRequest = {
