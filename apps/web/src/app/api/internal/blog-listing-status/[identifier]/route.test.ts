@@ -124,12 +124,39 @@ describe('GET /api/internal/blog-listing-status/[identifier]', () => {
       notFound: true,
     });
 
+    // Custom (cache-eligible) header so the no-store assertion proves the
+    // notFound verdict shape is what disables caching, not the auth path.
     const response = await GET(
-      buildRequest('kind=author&authorSlug=bassey-john'),
+      buildRequest('kind=author&authorSlug=bassey-john', {
+        'x-baci-internal-auth': 'test-internal-secret',
+      }),
       context()
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Vercel-Cache-Tag')).toBeNull();
+  });
+
+  it('keeps unknown/unpublished-storefront NOOPs no-store so a publish flip is never suppressed', async () => {
+    vi.mocked(getCachedStorefrontBlogListingStatus).mockResolvedValueOnce({
+      hasError: false,
+      redirectPath: null,
+      permanent: false,
+      notFound: false,
+      unpublishedStorefront: true,
+    });
+
+    const response = await GET(
+      buildRequest('kind=category-query&category=Smartphones', {
+        'x-baci-internal-auth': 'test-internal-secret',
+      }),
+      context()
+    );
+
+    expect(response.status).toBe(200);
+    // Publish-state changes purge merchant tags only (never `blog-posts`), so
+    // a cached pre-publish NOOP would outlive the store going live.
     expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect(response.headers.get('Vercel-Cache-Tag')).toBeNull();
   });
@@ -166,8 +193,12 @@ describe('GET /api/internal/blog-listing-status/[identifier]', () => {
       notFound: false,
     });
 
+    // Custom (cache-eligible) header so the no-store assertion proves the
+    // REDIRECT verdict shape is what disables caching, not the auth path.
     const response = await GET(
-      buildRequest('kind=listing-page&page=99'),
+      buildRequest('kind=listing-page&page=99', {
+        'x-baci-internal-auth': 'test-internal-secret',
+      }),
       context()
     );
 
@@ -209,8 +240,12 @@ describe('GET /api/internal/blog-listing-status/[identifier]', () => {
       new Error('boom')
     );
 
+    // Custom (cache-eligible) header so the no-store assertion proves the
+    // fail-open shape is what disables caching, not the auth path.
     const response = await GET(
-      buildRequest('kind=category-query&category=Smartphones'),
+      buildRequest('kind=category-query&category=Smartphones', {
+        'x-baci-internal-auth': 'test-internal-secret',
+      }),
       context()
     );
 

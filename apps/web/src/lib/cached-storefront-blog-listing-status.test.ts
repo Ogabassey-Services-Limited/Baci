@@ -55,7 +55,7 @@ describe('getCachedStorefrontBlogListingStatus', () => {
     mockGetCachedBlogListing.mockResolvedValue(listing());
   });
 
-  it('fails open (no-op) for an unpublished storefront with blog data', async () => {
+  it('fails open (no-op) for an unpublished storefront with blog data, marked uncacheable', async () => {
     mockGetMerchantStrict.mockResolvedValue({ id: 'm1', is_published: false });
     const result = await getCachedStorefrontBlogListingStatus('ogabassey.com', {
       kind: 'category-query',
@@ -66,6 +66,9 @@ describe('getCachedStorefrontBlogListingStatus', () => {
       redirectPath: null,
       permanent: false,
       notFound: false,
+      // Publish-state changes never purge `blog-posts`, so the endpoint must
+      // keep this NOOP out of the CDN.
+      unpublishedStorefront: true,
     });
     expect(mockGetCachedBlogListing).not.toHaveBeenCalled();
   });

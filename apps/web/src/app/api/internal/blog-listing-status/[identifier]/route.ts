@@ -43,7 +43,12 @@ function isCacheableNoopVerdict(result: BlogListingStatusBody): boolean {
   return (
     result.hasError === false &&
     result.redirectPath === null &&
-    result.notFound === false
+    result.notFound === false &&
+    // The unknown/unpublished-storefront NOOP must never stick: publish-state
+    // changes purge merchant tags only (never `blog-posts`), so a cached
+    // pre-publish NOOP would suppress listing redirects/clamps after the store
+    // goes live until the entry's natural TTL.
+    result.unpublishedStorefront !== true
   );
 }
 

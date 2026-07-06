@@ -38,6 +38,16 @@ const NO_REDIRECT = {
 // verdicts, absent verdicts, and every fail-open branch stay no-store so a
 // changed canonical target or a since-published product is never sticky for
 // the TTL window.
+//
+// ACCEPTED BOUNDED STALENESS: `revalidateTag(tag, profile)` marks the 'use
+// cache' sources stale and serves the stale entry ONCE while refreshing in the
+// background (see lib/cache-revalidation.ts), so the first request after a
+// canonical-path change can recompute this verdict from stale data and re-cache
+// it for up to s-maxage (300s, +1 SWR serve per region). Users are unaffected
+// (the PDP route still emits its own permanentRedirect); only crawler-visible
+// proxy 308s lag for that window on the rare category/canonical mutation.
+// Blocking expiry is not available here: `updateTag` is Server-Action-only and
+// revalidateProducts/revalidateCategories run in route handlers.
 const PREFLIGHT_CACHE = {
   'Cache-Control': 's-maxage=300, stale-while-revalidate=3600',
   Vary: INTERNAL_AUTH_HEADER,

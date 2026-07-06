@@ -24,6 +24,14 @@ export interface BlogListingStatusBody {
   /** `true` → 308 (category canonicalization); `false` → 307 (page clamp). */
   permanent: boolean;
   notFound: boolean;
+  /**
+   * Set when the NOOP comes from the unknown/unpublished-storefront gate, not
+   * from a real listing resolution. The endpoint must NOT edge-cache these:
+   * publish-state changes purge merchant tags only (never `blog-posts`), so a
+   * cached pre-publish NOOP would suppress listing redirects/clamps after the
+   * store goes live until the entry's natural TTL.
+   */
+  unpublishedStorefront?: boolean;
 }
 
 /** Parsed intent the proxy derives from a listing pathname + query. */
@@ -208,7 +216,7 @@ export async function getCachedStorefrontBlogListingStatus(
   // definitive "no published storefront", which is safe to cache as NOOP.
   const merchant = await getMerchantStrict(lookupKey);
   if (!merchant?.is_published) {
-    return NOOP;
+    return { ...NOOP, unpublishedStorefront: true };
   }
 
   switch (intent.kind) {
