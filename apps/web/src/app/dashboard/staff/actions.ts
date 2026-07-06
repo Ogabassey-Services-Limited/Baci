@@ -371,7 +371,7 @@ export async function removeStaffMember(id: string) {
   // Soft delete - verify a row was actually updated
   const { data: removed, error } = await supabase
     .from('staff_members')
-    .update({ status: 'removed' })
+    .update({ status: 'removed', user_id: null })
     .eq('id', id)
     .eq('merchant_id', merchant.id)
     .select('id')

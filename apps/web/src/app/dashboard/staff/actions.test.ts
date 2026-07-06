@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   single: vi.fn(),
   insert: vi.fn(),
   updateEq: vi.fn(),
+  update: vi.fn(),
 }));
 
 vi.mock('@/lib/merchant-server', () => ({
@@ -26,7 +27,13 @@ function makeSupabase() {
   builder.eq = () => builder;
   builder.single = () => mocks.single();
   builder.insert = () => mocks.insert();
-  builder.update = () => ({ eq: () => mocks.updateEq() });
+  builder.update = (payload: unknown) => {
+    mocks.update(payload);
+    const updateChain: Record<string, unknown> = {};
+    updateChain.eq = () => updateChain;
+    updateChain.select = () => ({ single: () => mocks.updateEq() });
+    return updateChain;
+  };
   return { from: () => builder };
 }
 
@@ -46,7 +53,11 @@ vi.mock('@/lib/staff-invite-email', () => ({
   }),
 }));
 
-import { inviteStaffMember, resendInvitation } from './actions';
+import {
+  inviteStaffMember,
+  removeStaffMember,
+  resendInvitation,
+} from './actions';
 
 const validInvite = {
   email: 'new@example.com',
@@ -119,5 +130,26 @@ describe('resendInvitation', () => {
     expect(result.message).toContain(
       'https://app.test/staff/accept?token=tok-1'
     );
+  });
+});
+
+describe('removeStaffMember', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.ensurePermission.mockResolvedValue({
+      merchant: { id: 'm1', business_name: 'Shop' },
+    });
+    mocks.updateEq.mockResolvedValue({ data: { id: 's1' }, error: null });
+  });
+
+  it('clears user_id when soft-removing staff so future invitations can be accepted', async () => {
+    const result = await removeStaffMember('s1');
+
+    expect(result).toEqual({ success: true });
+    expect(mocks.update).toHaveBeenCalledWith({
+      status: 'removed',
+      user_id: null,
+    });
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/dashboard/staff');
   });
 });

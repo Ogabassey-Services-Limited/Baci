@@ -103,7 +103,7 @@ function createRawRequest(body: string) {
   });
 }
 
-describe('PATCH /api/staff/[id]', () => {
+describe('PATCH and DELETE /api/staff/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     lookupEqCalls.length = 0;
@@ -199,6 +199,26 @@ describe('PATCH /api/staff/[id]', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Staff member not found',
     });
+  });
+
+  it('removes staff by clearing the accepted user identity for future re-invites', async () => {
+    const { DELETE } = await import('./route');
+    const request = new NextRequest('https://usebaci.com/api/staff/staff-1', {
+      method: 'DELETE',
+    });
+
+    const response = await DELETE(request, {
+      params: Promise.resolve({ id: 'staff-1' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(update).toHaveBeenCalledWith({ status: 'removed', user_id: null });
+    expect(updateEqCalls).toEqual(
+      expect.arrayContaining([
+        ['id', 'staff-1'],
+        ['merchant_id', MERCHANT_ID],
+      ])
+    );
   });
 
   it('returns 401 when the user is not authenticated', async () => {

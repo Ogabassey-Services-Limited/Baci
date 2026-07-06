@@ -33,5 +33,8 @@ describe('staff_members user-merchant uniqueness migration', () => {
       /ADD\s+CONSTRAINT\s+staff_members_user_id_merchant_id_key\s+UNIQUE\s*\(\s*user_id\s*,\s*merchant_id\s*\)/i
     );
     expect(migration.sql).toMatch(/HAVING\s+COUNT\(\*\)\s*>\s*1/i);
+    expect(migration.sql).toMatch(
+      /UPDATE\s+public\.staff_members[\s\S]*SET\s+user_id\s*=\s*NULL[\s\S]*WHERE\s+status\s*=\s*'removed'/i
+    );
   });
 });

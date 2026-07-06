@@ -10,6 +10,15 @@
 -- multiple NULL user_id values, while non-null accepted/onboarded users become
 -- one staff profile per merchant. A partial index would not be inferable by the
 -- route's plain onConflict target.
+--
+-- Existing soft-deleted staff rows used to retain user_id. Clear those identities
+-- before adding the constraint so a removed user can accept a future re-invite
+-- under the same merchant without colliding with their old removed row.
+
+UPDATE public.staff_members
+   SET user_id = NULL
+ WHERE status = 'removed'
+   AND user_id IS NOT NULL;
 
 DO $$
 BEGIN
