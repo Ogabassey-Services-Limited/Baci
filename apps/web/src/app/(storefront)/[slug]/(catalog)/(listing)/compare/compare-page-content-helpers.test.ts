@@ -1,27 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCanonicalCompareCategories,
-  getStorefrontPathPrefix,
+  normalizeCompareProduct,
   sortCompareSections,
   toRequestRelativeHref,
 } from './compare-page-content-helpers';
 
 describe('compare page content helpers', () => {
-  it('uses no path prefix for custom-domain storefront requests', () => {
-    expect(
-      getStorefrontPathPrefix(new Headers([['x-custom-domain', '1']]), 'store')
-    ).toBe('');
-  });
-
-  it('uses no path prefix for merchant-slug storefront requests', () => {
-    expect(
-      getStorefrontPathPrefix(
-        new Headers([['x-merchant-slug', 'store']]),
-        'store'
-      )
-    ).toBe('');
-  });
-
   it('keeps platform paths scoped to the merchant slug without double-prefixing development URLs', () => {
     expect(
       toRequestRelativeHref(
@@ -37,6 +22,16 @@ describe('compare page content helpers', () => {
         '/ogabassey'
       )
     ).toBe('/ogabassey/laptops/compare/a-vs-b');
+  });
+
+  it('normalizes protocol-relative hrefs as storefront paths', () => {
+    expect(
+      toRequestRelativeHref(
+        '//evil.com/laptops/compare/a-vs-b',
+        'https://ogabassey.usebaci.com',
+        '/ogabassey'
+      )
+    ).toBe('/ogabassey/evil.com/laptops/compare/a-vs-b');
   });
 
   it('keeps malformed and cross-origin compare URLs unchanged', () => {
@@ -68,6 +63,86 @@ describe('compare page content helpers', () => {
       { name: 'Laptop duplicates', slug: 'laptops', categorySlug: 'laptops' },
       { name: 'Audio', slug: 'audio', categorySlug: 'audio' },
     ]);
+  });
+
+  it('preserves the normalized product category slug for parent category scans', () => {
+    expect(
+      normalizeCompareProduct(
+        {
+          id: 'product-1',
+          name: 'Child Category Phone',
+          slug: 'child-category-phone',
+          brand: 'Example',
+          categories: {
+            id: 'child-category',
+            name: 'Android Phones',
+            slug: 'android-phones',
+          },
+          category: 'Android Phones',
+          price: 100_000,
+          product_key_specs: { ram_gb: 8 },
+        },
+        'smartphones'
+      )
+    ).toEqual(
+      expect.objectContaining({
+        category_slug: 'android-phones',
+        slug: 'child-category-phone',
+      })
+    );
+  });
+
+  it('preserves category slugs joined through product_categories', () => {
+    expect(
+      normalizeCompareProduct(
+        {
+          id: 'product-2',
+          name: 'Joined Category Phone',
+          slug: 'joined-category-phone',
+          brand: 'Example',
+          category: 'Phones',
+          price: 120_000,
+          product_categories: [
+            {
+              categories: {
+                id: 'joined-category',
+                name: 'Android Phones',
+                slug: 'android-phones',
+              },
+            },
+          ],
+          product_key_specs: { ram_gb: 8 },
+        },
+        'smartphones'
+      )
+    ).toEqual(
+      expect.objectContaining({
+        category_slug: 'android-phones',
+        slug: 'joined-category-phone',
+      })
+    );
+  });
+
+  it('falls back to the scanned category when no joined category slug exists', () => {
+    expect(
+      normalizeCompareProduct(
+        {
+          id: 'product-3',
+          name: 'Fallback Category Phone',
+          slug: 'fallback-category-phone',
+          brand: 'Example',
+          category: '',
+          price: 130_000,
+          product_key_specs: { ram_gb: 8 },
+        },
+        'smartphones'
+      )
+    ).toEqual(
+      expect.objectContaining({
+        category_slug: 'smartphones',
+        slug: 'fallback-category-phone',
+      })
+    );
   });
 
   it('sorts compare sections by link count before label', () => {

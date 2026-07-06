@@ -5,7 +5,9 @@ import {
   canUseCleanBlogCategorySlug,
   findBlogCategoryLabelBySlug,
   getBlogCategorySlug,
+  getCanonicalBlogCategorySlug,
   getCollidingBlogCategorySlugs,
+  getOgabasseyBlogCategoryAliasSlug,
   hasBlogCategorySlugCollision,
   OGABASSEY_BLOG_PRIMARY_STATIC_TENANT,
   OGABASSEY_BLOG_STATIC_TENANTS,
@@ -89,6 +91,16 @@ describe('blog category routing', () => {
         'cases-covers'
       )
     ).toBe('Cases & Covers');
+  });
+
+  it('keeps review category slugs exact and exposes the Ogabassey cleanup alias separately', () => {
+    expect(getCanonicalBlogCategorySlug('review')).toBe('review');
+    expect(getOgabasseyBlogCategoryAliasSlug('review')).toBe('reviews');
+    expect(findBlogCategoryLabelBySlug(['Review'], 'review')).toBe('Review');
+    expect(findBlogCategoryLabelBySlug(['Reviews'], 'review')).toBeNull();
+    expect(buildBlogCategorySchemaUrl('https://ogabassey.com', 'Reviews')).toBe(
+      'https://ogabassey.com/blog/category/reviews'
+    );
   });
 
   it('detects colliding category slugs', () => {

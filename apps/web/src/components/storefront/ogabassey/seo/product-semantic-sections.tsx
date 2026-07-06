@@ -1,13 +1,23 @@
 import type { ProductSemanticModel } from '@/lib/storefront-product/product-semantic-types';
+import type { CompareLinkGraphEntry } from '@/lib/storefront-link-modules/compare-link-graph';
 import { CategoryHubCardGrid } from './category-hub-card-grid';
 import { CommercialSupportLinks } from './commercial-support-links';
+import { ProductCompareLinks } from './product-compare-links';
 
 interface ProductSemanticSectionsProps {
   model: ProductSemanticModel;
+  merchantName?: string;
+  productCompareLinks?: CompareLinkGraphEntry[];
+  productComparePathPrefix?: string;
+  productName?: string;
 }
 
 export function ProductSemanticSections({
+  merchantName = 'this store',
   model,
+  productCompareLinks = [],
+  productComparePathPrefix = '',
+  productName,
 }: ProductSemanticSectionsProps) {
   const contextParagraphs = model.contextParagraphs ?? [];
   const hasCards = Boolean(
@@ -15,8 +25,17 @@ export function ProductSemanticSections({
   );
   const hasContext = contextParagraphs.length > 0;
   const hasGuideLinks = model.guideLinks.length > 0;
+  const productCompareProductName = productName || '';
+  const hasProductCompareLinks =
+    productCompareProductName.length > 0 && productCompareLinks.length > 0;
 
-  if (!model.supportLinks.length && !hasContext && !hasGuideLinks && !hasCards) {
+  if (
+    !model.supportLinks.length &&
+    !hasContext &&
+    !hasGuideLinks &&
+    !hasCards &&
+    !hasProductCompareLinks
+  ) {
     return null;
   }
 
@@ -91,6 +110,15 @@ export function ProductSemanticSections({
         <CategoryHubCardGrid
           title={model.samePrice.heading}
           cards={model.samePrice.cards}
+        />
+      ) : null}
+
+      {hasProductCompareLinks ? (
+        <ProductCompareLinks
+          links={productCompareLinks}
+          merchantName={merchantName}
+          pathPrefix={productComparePathPrefix}
+          productName={productCompareProductName}
         />
       ) : null}
 

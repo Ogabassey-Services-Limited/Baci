@@ -147,7 +147,9 @@ describe('ComparePageContent', () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(merchant);
     vi.mocked(getCachedCategories).mockResolvedValue(categories);
     vi.mocked(getCachedCategoryPageData).mockResolvedValue(categoryPageData);
-    mockHeaders.mockResolvedValue(new Headers([['x-custom-domain', '1']]));
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
   });
 
   it('renders grouped canonical compare links without platform prefixes on a custom domain', async () => {
@@ -165,7 +167,7 @@ describe('ComparePageContent', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
-        name: 'Dell XPS 13 9350 vs 15" MacBook Air M4 (2025)',
+        name: 'Compare Dell XPS 13 9350 with 15" MacBook Air M4 (2025)',
       })
     ).toHaveAttribute(
       'href',
@@ -189,7 +191,7 @@ describe('ComparePageContent', () => {
 
     expect(
       screen.getByRole('link', {
-        name: 'Dell XPS 13 9350 vs 15" MacBook Air M4 (2025)',
+        name: 'Compare Dell XPS 13 9350 with 15" MacBook Air M4 (2025)',
       })
     ).toHaveAttribute(
       'href',

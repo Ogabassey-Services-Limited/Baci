@@ -7,6 +7,7 @@ import {
   type RawDbProduct,
 } from '@/lib/normalize-product';
 import { buildCategoryHubModel } from '@/lib/storefront-category/build-category-hub-model';
+import type { CategoryHubComparisonLink } from '@/lib/storefront-category/category-hub-types';
 import type { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 
 type CategoryPageData = Awaited<ReturnType<typeof getCachedCategoryPageData>>;
@@ -87,6 +88,7 @@ export function buildCategoryPageHubModel(input: {
   merchantBusinessName: string;
   storeUrl: string;
   products: StorefrontCategoryProduct[];
+  comparisonLinks?: CategoryHubComparisonLink[];
   guidePosts?: Awaited<ReturnType<typeof getPublishedClusterPosts>>;
 }) {
   return buildCategoryHubModel({
@@ -95,6 +97,7 @@ export function buildCategoryPageHubModel(input: {
     merchantBusinessName: input.merchantBusinessName,
     storeUrl: input.storeUrl,
     guidePosts: input.guidePosts ?? [],
+    comparisonLinks: input.comparisonLinks,
     products: input.products.map((product) => ({
       slug: product.slug || '',
       name: product.name,
@@ -114,5 +117,19 @@ export function buildCategoryPageHubModel(input: {
         },
     collectionSeo: input.data.isCollection ? input.data.seo : undefined,
     isCollection: input.data.isCollection,
+  });
+}
+
+export function hasMaintainedCategoryCompareHubLink(
+  comparisonLinks: CategoryHubComparisonLink[],
+  categorySlug: string
+) {
+  const hubPathSuffix = `/${categorySlug}/compare`;
+
+  return comparisonLinks.some((link) => {
+    const [pathOnly] = link.href.trim().split(/[?#]/);
+    const pathname = pathOnly.replace(/\/+$/, '');
+
+    return pathname.endsWith(hubPathSuffix);
   });
 }

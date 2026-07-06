@@ -165,6 +165,60 @@ describe('CategoryHubSections', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('allows a second comparison section to use distinct heading text and ids', () => {
+    const comparisonOnlyHub = {
+      ...richModel,
+      intro: {
+        heading: '',
+        description: '',
+        source: 'fallback' as const,
+      },
+      trustFeatures: [],
+      bestForCards: [],
+      brandCards: [],
+      priceBandCards: [],
+      guideLinks: [],
+      faqItems: [],
+    };
+
+    const { container } = render(
+      <>
+        <CategoryHubSections hub={comparisonOnlyHub} />
+        <CategoryHubSections
+          hub={comparisonOnlyHub}
+          headingIdPrefix="maintained-category-comparisons"
+          comparisonHeading="More product comparisons"
+        />
+      </>
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Compare and Buying Guides' })
+    ).toHaveAttribute('id', 'compare-and-buying-guides');
+    expect(
+      screen.getByRole('heading', { name: 'More product comparisons' })
+    ).toHaveAttribute(
+      'id',
+      'maintained-category-comparisons-more-product-comparisons'
+    );
+
+    const ids = Array.from(container.querySelectorAll('[id]')).map(
+      (element) => element.id
+    );
+
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(
+      container.querySelectorAll(
+        'section[aria-labelledby="compare-and-buying-guides"]'
+      )
+    ).toHaveLength(1);
+    expect(
+      container.querySelectorAll(
+        'section[aria-labelledby="maintained-category-comparisons-more-product-comparisons"]'
+      )
+    ).toHaveLength(1);
+  });
+
   it('reorders duplicate-question faq items without stale accordion state', () => {
     const { rerender } = render(
       <CategoryHubSections

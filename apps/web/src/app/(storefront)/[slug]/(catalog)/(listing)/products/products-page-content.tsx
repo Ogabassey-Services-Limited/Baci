@@ -1,10 +1,10 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import type { BreadcrumbList, CollectionPage } from 'schema-dts';
 import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { StorefrontPagination } from '@/components/storefront/ogabassey/components/StorefrontPagination';
-import { InternalLinkEquitySection } from '@/components/storefront/ogabassey/seo/internal-link-equity-section';
 import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import {
   getCachedCategories,
@@ -12,7 +12,6 @@ import {
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
-import { getOgabasseyInternalLinkEquityGroups } from '@/lib/ogabassey-internal-link-equity-groups';
 import { asRoute } from '@/lib/routes';
 import {
   generateBreadcrumbSchema,
@@ -25,22 +24,14 @@ import {
   STOREFRONT_CRAWL_DISCOVERY_PRODUCT_PAGE_LIMIT,
   STOREFRONT_PRODUCTS_PER_PAGE,
 } from '@/lib/storefront-pagination';
+import { getStorefrontPathPrefix } from '@/lib/storefront-path-prefix';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { ProductIndexCard } from './product-index-card';
+import { ProductsPageDeferredLinkModules } from './products-page-deferred-link-modules';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
-
-function getStorefrontPathPrefix(
-  headersList: Awaited<ReturnType<typeof headers>>,
-  merchantSlug: string
-) {
-  return headersList.has('x-custom-domain') ||
-    headersList.has('x-merchant-slug')
-    ? ''
-    : `/${merchantSlug}`;
 }
 
 export async function ProductsPageContent({ params, searchParams }: PageProps) {
@@ -64,27 +55,20 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
 
   const headersList = await headers();
 
-  const showInternalLinkEquitySection = merchant.id === OGABASSEY_MERCHANT_ID;
+  const showMaintainedLinkModules = merchant.id === OGABASSEY_MERCHANT_ID;
 
-  const [
-    categories,
-    currentProductIndex,
-    firstPageProductIndex,
-    internalLinkEquityGroups,
-  ] = await Promise.all([
-    getCachedCategories(merchant.id),
-    getCachedStorefrontProductIndex(merchant.id, {
-      page: currentPage,
-      limit: STOREFRONT_PRODUCTS_PER_PAGE,
-    }),
-    getCachedStorefrontProductIndex(merchant.id, {
-      page: 1,
-      limit: STOREFRONT_PRODUCTS_PER_PAGE,
-    }),
-    showInternalLinkEquitySection
-      ? getOgabasseyInternalLinkEquityGroups(merchant.id)
-      : Promise.resolve([]),
-  ]);
+  const [categories, currentProductIndex, firstPageProductIndex] =
+    await Promise.all([
+      getCachedCategories(merchant.id),
+      getCachedStorefrontProductIndex(merchant.id, {
+        page: currentPage,
+        limit: STOREFRONT_PRODUCTS_PER_PAGE,
+      }),
+      getCachedStorefrontProductIndex(merchant.id, {
+        page: 1,
+        limit: STOREFRONT_PRODUCTS_PER_PAGE,
+      }),
+    ]);
   const totalPages = Math.max(1, currentProductIndex.totalPages || 1);
 
   if (!currentProductIndex.hasError && currentPage > totalPages) {
@@ -92,13 +76,14 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
   }
 
   const baseUrl = buildStoreUrl(merchant);
-  const pathPrefix = getStorefrontPathPrefix(headersList, merchant.slug);
+  const pathPrefix = getStorefrontPathPrefix(headersList, merchant);
   const description =
     merchant.site_description ||
     `Browse all products available at ${merchant.business_name}.`;
   const displayCategories = Array.from(
     new Map(
       categories
+        .filter((category) => category.is_active !== false)
         .map((category) => {
           const canonicalSlug = canonicalizeCategorySlug(category.slug);
           if (canonicalSlug === null) {
@@ -218,11 +203,16 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
             </section>
           )}
 
-          {showInternalLinkEquitySection && (
-            <InternalLinkEquitySection
-              groups={internalLinkEquityGroups}
-              pathPrefix={pathPrefix}
-            />
+          {showMaintainedLinkModules && (
+            <Suspense fallback={null}>
+              <ProductsPageDeferredLinkModules
+                baseUrl={baseUrl}
+                categories={displayCategories}
+                merchantId={merchant.id}
+                pathPrefix={pathPrefix}
+                productTotalPages={totalPages}
+              />
+            </Suspense>
           )}
 
           {currentProductIndex.products.length === 0 ? (

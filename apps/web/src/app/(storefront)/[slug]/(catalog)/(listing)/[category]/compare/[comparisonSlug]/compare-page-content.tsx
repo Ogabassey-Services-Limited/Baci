@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import type { BreadcrumbList, FAQPage, ItemList } from 'schema-dts';
 import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import {
@@ -6,6 +7,7 @@ import {
   buildProductCompareItemListSchema,
 } from '@/lib/storefront-compare/compare-schema';
 import { loadComparePage } from '@/lib/storefront-compare/load-compare-page';
+import { CompareRelatedLinks } from './compare-related-links';
 import {
   type ProductCompareSchemaProduct,
   toProductCompareSchemaProduct,
@@ -251,6 +253,17 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
               </ul>
             </section>
           )}
+
+          {page.relatedCompareLinks.length > 0 ? (
+            <Suspense fallback={null}>
+              <CompareRelatedLinks
+                links={page.relatedCompareLinks}
+                merchantCustomDomain={page.merchant.custom_domain}
+                merchantSlug={page.merchant.slug}
+                storeUrl={page.breadcrumbItems[0]?.url ?? page.canonicalUrl}
+              />
+            </Suspense>
+          ) : null}
         </div>
       </div>
     </>

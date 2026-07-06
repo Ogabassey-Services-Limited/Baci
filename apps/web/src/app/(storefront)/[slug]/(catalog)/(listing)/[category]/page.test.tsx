@@ -12,6 +12,8 @@ import type { CategoryHubModel } from '@/lib/storefront-category/category-hub-ty
 
 const NORMALIZED_PLACEHOLDER_IMAGE = '/placeholder.svg';
 const mockGetPublishedClusterPosts = vi.fn();
+const mockGetCachedProductSemanticInventory = vi.fn();
+const mockCategoryPageDeferredCompareLinks = vi.hoisted(() => vi.fn());
 const mockConnection = vi.hoisted(() => vi.fn());
 const { mockCategoryPageContent } = vi.hoisted(() => ({
   mockCategoryPageContent: vi.fn((_props: unknown) => (
@@ -82,6 +84,14 @@ vi.mock('@/components/storefront/ogabassey/pages/category-page', () => ({
     currentPage?: number;
     hubContent?: CategoryHubModel;
   }) => categoryPageSpy(props),
+}));
+
+vi.mock('./category-page-deferred-compare-links', () => ({
+  CategoryPageDeferredCompareLinks: (props: { categorySlug: string }) => {
+    mockCategoryPageDeferredCompareLinks(props);
+
+    return <section>Maintained category compare links</section>;
+  },
 }));
 
 vi.mock(
@@ -174,6 +184,14 @@ vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
   getPublishedClusterPosts: (...args: unknown[]) =>
     mockGetPublishedClusterPosts(...args),
 }));
+
+vi.mock(
+  '@/lib/storefront-product/get-cached-product-semantic-inventory',
+  () => ({
+    getCachedProductSemanticInventory: (...args: unknown[]) =>
+      mockGetCachedProductSemanticInventory(...args),
+  })
+);
 
 vi.mock('./category-page-content', async (importOriginal) => {
   const actual =
@@ -523,6 +541,8 @@ describe('category page route', () => {
     mockGenerateCollectionPageSchema.mockClear();
     mockGenerateFAQSchema.mockClear();
     mockGetPublishedClusterPosts.mockReset();
+    mockGetCachedProductSemanticInventory.mockReset();
+    mockCategoryPageDeferredCompareLinks.mockReset();
     mockConnection.mockReset();
     mockCategoryPageContent.mockReset();
     mockCategoryPageContent.mockImplementation(() => (
@@ -569,6 +589,10 @@ describe('category page route', () => {
         reading_time_minutes: 6,
       },
     ]);
+    mockGetCachedProductSemanticInventory.mockImplementation(
+      (_merchantId: string, categorySlug: string) =>
+        categorySlug === 'smartphones' ? smartphoneHubProducts : []
+    );
   });
 
   it('keeps the route shell stable and shows the catalog skeleton while category content is suspended', () => {
@@ -648,13 +672,13 @@ describe('category page route', () => {
       screen.getByText('Price band: Best Smartphones Under ₦1,000,000')
     ).toBeInTheDocument();
     expect(
+      screen.queryByText('Compare link: View all smartphones comparisons')
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByText('Compare link: Alpha Phone vs Beta Phone')
     ).toBeInTheDocument();
     expect(
       screen.getByText('Compare link: Apple vs Samsung')
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('Compare link: Best Smartphones Under ₦500,000')
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -667,6 +691,10 @@ describe('category page route', () => {
     expect(
       screen.queryByText('CommercialSupportLinks footer')
     ).not.toBeInTheDocument();
+    expect(mockCategoryPageDeferredCompareLinks).toHaveBeenCalledWith(
+      expect.objectContaining({ categorySlug: 'smartphones' })
+    );
+    expect(mockGetCachedProductSemanticInventory).not.toHaveBeenCalled();
   });
 
   it('prefers merchant-authored intro and faq over curated smartphone defaults', async () => {

@@ -31,12 +31,14 @@ export interface CategoryHubModel {
   bestForCards: CategoryHubCard[];
   brandCards: CategoryHubCard[];
   priceBandCards: CategoryHubCard[];
-  comparisonLinks: {
-    href: string;
-    label: string;
-  }[];
+  comparisonLinks: CategoryHubComparisonLink[];
   guideLinks: InformationalGuideLink[];
   faqItems: CategoryHubFaqItem[];
+}
+
+export interface CategoryHubComparisonLink {
+  href: string;
+  label: string;
 }
 
 export interface CategoryHubProduct {
@@ -88,6 +90,7 @@ export interface BuildCategoryHubModelInput {
   merchantBusinessName: string;
   storeUrl: string;
   products: CategoryHubProduct[];
+  comparisonLinks?: CategoryHubComparisonLink[];
   guidePosts?: PublishedClusterPost[];
   categorySeo?: CategoryHubSeoInput | null;
   collectionSeo?: CategoryHubSeoInput | null;

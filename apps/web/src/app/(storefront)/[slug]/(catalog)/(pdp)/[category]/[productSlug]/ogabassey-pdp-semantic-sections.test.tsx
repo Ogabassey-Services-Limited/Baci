@@ -17,8 +17,20 @@ const mockGetCachedProductSeoLinkData = vi.fn();
 const mockBuildProductSemanticModel =
   vi.fn<(input: unknown) => SemanticModel>();
 const mockProductSemanticSections = vi.fn(
-  ({ model }: { model: SemanticModel }) => (
+  ({
+    model,
+    merchantName,
+    productComparePathPrefix,
+  }: {
+    merchantName?: string;
+    model: SemanticModel;
+    productCompareLinks?: unknown[];
+    productComparePathPrefix?: string;
+    productName?: string;
+  }) => (
     <section aria-label="semantic sections">
+      {merchantName}
+      {productComparePathPrefix}
       {model.trustBullets.join(' | ')}
       {model.contextParagraphs?.join(' | ')}
     </section>
@@ -52,7 +64,11 @@ const product = {
   price: 3500000,
   stock: 4,
   category_slug: 'laptops',
-  product_key_specs: { ram_gb: 32 },
+  product_key_specs: {
+    chipset: 'AMD Ryzen 9',
+    ram_gb: 32,
+    storage_gb: 1024,
+  },
 } as Product;
 
 describe('OgabasseyPdpSemanticSections', () => {
@@ -67,7 +83,11 @@ describe('OgabasseyPdpSemanticSections', () => {
           price: 4500000,
           stock: 2,
           category_slug: 'laptops',
-          product_key_specs: { ram_gb: 18 },
+          product_key_specs: {
+            chipset: 'Apple M4 Max',
+            ram_gb: 18,
+            storage_gb: 512,
+          },
         },
       ],
       guidePosts: [
@@ -98,6 +118,7 @@ describe('OgabasseyPdpSemanticSections', () => {
           payout_currency: 'USD',
         },
         product,
+        productComparePathPrefix: '/ogabassey',
         storeSlug: 'ogabassey',
         storeUrl: 'https://ogabassey.com',
       })
@@ -149,6 +170,14 @@ describe('OgabasseyPdpSemanticSections', () => {
           ),
         ]),
       }),
+      merchantName: 'OgaBassey',
+      productCompareLinks: [
+        expect.objectContaining({
+          href: '/laptops/compare/lenovo-legion-vs-macbook-pro',
+        }),
+      ],
+      productComparePathPrefix: '/ogabassey',
+      productName: 'Lenovo Legion',
     });
   });
 
@@ -168,6 +197,7 @@ describe('OgabasseyPdpSemanticSections', () => {
         business_name: 'OgaBassey',
       },
       product,
+      productComparePathPrefix: '/ogabassey',
       storeSlug: 'ogabassey',
       storeUrl: 'https://ogabassey.com',
     });

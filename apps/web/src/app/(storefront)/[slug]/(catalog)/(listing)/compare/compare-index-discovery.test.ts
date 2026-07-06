@@ -1,12 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockBuildCompareDiscoveryLinks = vi.hoisted(() => vi.fn());
-
-vi.mock('@/lib/storefront-compare/build-compare-discovery-links', () => ({
-  buildCompareDiscoveryLinks: (...args: unknown[]) =>
-    mockBuildCompareDiscoveryLinks(...args),
-}));
-
 const {
   buildCompareIndexSections,
   COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT,
@@ -15,49 +8,31 @@ const {
   COMPARE_INDEX_PRODUCTS_PER_CATEGORY_LIMIT,
 } = await import('./compare-index-discovery');
 
-function makeProducts() {
-  return [
-    {
-      id: 'product-a',
-      name: 'Product A',
-      slug: 'product-a',
-      brand: 'Brand A',
-      category: 'Category',
-      price: 1000,
-      product_key_specs: {
-        chipset: 'A1',
-        ram_gb: 8,
-        storage_gb: 128,
-      },
+function makeProduct(index: number) {
+  const letter = String.fromCharCode(65 + index);
+
+  return {
+    id: `product-${letter.toLowerCase()}`,
+    name: `Product ${letter}`,
+    slug: `product-${letter.toLowerCase()}`,
+    brand: `Brand ${letter}`,
+    category: 'Category',
+    price: 1000 + index * 1000,
+    product_key_specs: {
+      chipset: `${letter}1`,
+      ram_gb: 8 + index * 4,
+      storage_gb: 128 + index * 128,
     },
-    {
-      id: 'product-b',
-      name: 'Product B',
-      slug: 'product-b',
-      brand: 'Brand B',
-      category: 'Category',
-      price: 2000,
-      product_key_specs: {
-        chipset: 'B1',
-        ram_gb: 16,
-        storage_gb: 256,
-      },
-    },
-  ];
+  };
+}
+
+function makeProducts(count = 2) {
+  return Array.from({ length: count }, (_item, index) => makeProduct(index));
 }
 
 describe('compare index discovery', () => {
   beforeEach(() => {
-    mockBuildCompareDiscoveryLinks.mockReset();
-    mockBuildCompareDiscoveryLinks.mockImplementation(
-      ({ categorySlug }: { categorySlug: string }) => [
-        {
-          canonicalSlug: 'product-a-vs-product-b',
-          href: `https://store.test/${categorySlug}/compare/product-a-vs-product-b`,
-          label: 'Product A vs Product B',
-        },
-      ]
-    );
+    vi.clearAllMocks();
   });
 
   it('bounds scanned category discovery and concurrent category data loads', async () => {
@@ -102,15 +77,6 @@ describe('compare index discovery', () => {
   });
 
   it('caps compare links per category and across the full index', async () => {
-    mockBuildCompareDiscoveryLinks.mockImplementation(
-      ({ categorySlug }: { categorySlug: string }) =>
-        Array.from({ length: 5 }, (_, index) => ({
-          canonicalSlug: `product-a-${index}-vs-product-b-${index}`,
-          href: `https://store.test/${categorySlug}/compare/product-a-${index}-vs-product-b-${index}`,
-          label: `Product A ${index} vs Product B ${index}`,
-        }))
-    );
-
     const sections = await buildCompareIndexSections({
       categories: [
         { name: 'Category A', slug: 'category-a' },
@@ -119,7 +85,7 @@ describe('compare index discovery', () => {
       getCategoryPageData: vi.fn(async () => ({
         isCollection: false,
         isInactiveCategory: false,
-        products: makeProducts(),
+        products: makeProducts(4),
       })),
       linksPerCategoryLimit: 3,
       pathPrefix: '/demo-store',
@@ -129,8 +95,8 @@ describe('compare index discovery', () => {
 
     expect(sections.map((section) => section.links.length)).toEqual([3, 1]);
     expect(sections[0]?.links[0]).toEqual({
-      href: '/demo-store/category-a/compare/product-a-0-vs-product-b-0',
-      label: 'Product A 0 vs Product B 0',
+      href: '/demo-store/category-a/compare/product-a-vs-product-b',
+      label: 'Compare Product A with Product B',
     });
   });
 
@@ -188,18 +154,6 @@ describe('compare index discovery', () => {
   });
 
   it('scans past non-publishing categories until a populated section is found', async () => {
-    mockBuildCompareDiscoveryLinks.mockImplementation(
-      ({ categorySlug }: { categorySlug: string }) =>
-        categorySlug === 'working'
-          ? [
-              {
-                canonicalSlug: 'product-a-vs-product-b',
-                href: `https://store.test/${categorySlug}/compare/product-a-vs-product-b`,
-                label: 'Product A vs Product B',
-              },
-            ]
-          : []
-    );
     const categories = [
       ...Array.from(
         { length: COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT },
@@ -210,10 +164,10 @@ describe('compare index discovery', () => {
       ),
       { name: 'Working', slug: 'working' },
     ];
-    const getCategoryPageData = vi.fn(async () => ({
+    const getCategoryPageData = vi.fn(async (categorySlug: string) => ({
       isCollection: false,
       isInactiveCategory: false,
-      products: makeProducts(),
+      products: categorySlug === 'working' ? makeProducts() : [],
     }));
 
     const sections = await buildCompareIndexSections({
@@ -234,7 +188,7 @@ describe('compare index discovery', () => {
         links: [
           {
             href: '/working/compare/product-a-vs-product-b',
-            label: 'Product A vs Product B',
+            label: 'Compare Product A with Product B',
           },
         ],
       },
@@ -242,7 +196,6 @@ describe('compare index discovery', () => {
   });
 
   it('caps raw category scans when no categories can publish links', async () => {
-    mockBuildCompareDiscoveryLinks.mockReturnValue([]);
     const categories = Array.from(
       { length: COMPARE_INDEX_CATEGORY_SCAN_LIMIT + 5 },
       (_, index) => ({
@@ -253,7 +206,7 @@ describe('compare index discovery', () => {
     const getCategoryPageData = vi.fn(async () => ({
       isCollection: false,
       isInactiveCategory: false,
-      products: makeProducts(),
+      products: [],
     }));
 
     const sections = await buildCompareIndexSections({
@@ -274,79 +227,26 @@ describe('compare index discovery', () => {
   });
 
   it('enforces the configured product cap even when category data returns extra rows', async () => {
-    mockBuildCompareDiscoveryLinks.mockImplementation(
-      ({
-        categorySlug,
-        products,
-      }: {
-        categorySlug: string;
-        products: Array<{ slug: string; name: string }>;
-      }) =>
-        products.map((product) => ({
-          canonicalSlug: `${product.slug}-vs-anchor`,
-          href: `https://store.test/${categorySlug}/compare/${product.slug}-vs-anchor`,
-          label: `${product.name} vs Anchor`,
-        }))
-    );
-
     const sections = await buildCompareIndexSections({
       categories: [{ name: 'Category A', slug: 'category-a' }],
       getCategoryPageData: vi.fn(async () => ({
         isCollection: false,
         isInactiveCategory: false,
-        products: [
-          ...makeProducts(),
-          {
-            id: 'product-c',
-            name: 'Product C',
-            slug: 'product-c',
-            brand: 'Brand C',
-            category: 'Category',
-            price: 3000,
-            product_key_specs: {
-              chipset: 'C1',
-              ram_gb: 32,
-              storage_gb: 512,
-            },
-          },
-        ],
+        products: makeProducts(3),
       })),
-      productLimit: 1,
+      productLimit: 2,
       storeUrl: 'https://store.test',
     });
 
-    expect(mockBuildCompareDiscoveryLinks).toHaveBeenCalledWith(
-      expect.objectContaining({
-        includeBrandCompareLinks: false,
-        products: [
-          expect.objectContaining({
-            slug: 'product-a',
-          }),
-        ],
-      })
-    );
     expect(sections[0]?.links).toEqual([
       {
-        href: '/category-a/compare/product-a-vs-anchor',
-        label: 'Product A vs Anchor',
+        href: '/category-a/compare/product-a-vs-product-b',
+        label: 'Compare Product A with Product B',
       },
     ]);
   });
 
   it('skips categories that cannot publish compare index links', async () => {
-    mockBuildCompareDiscoveryLinks.mockImplementation(
-      ({ categorySlug }: { categorySlug: string }) =>
-        categorySlug === 'without-links'
-          ? []
-          : [
-              {
-                canonicalSlug: 'product-a-vs-product-b',
-                href: `https://store.test/${categorySlug}/compare/product-a-vs-product-b`,
-                label: 'Product A vs Product B',
-              },
-            ]
-    );
-
     const sections = await buildCompareIndexSections({
       categories: [
         { name: 'Missing', slug: 'missing' },
@@ -378,7 +278,7 @@ describe('compare index discovery', () => {
         return Promise.resolve({
           isCollection: false,
           isInactiveCategory: false,
-          products: makeProducts(),
+          products: categorySlug === 'without-links' ? [] : makeProducts(),
         });
       }),
       storeUrl: 'https://store.test',
@@ -391,7 +291,7 @@ describe('compare index discovery', () => {
         links: [
           {
             href: '/working/compare/product-a-vs-product-b',
-            label: 'Product A vs Product B',
+            label: 'Compare Product A with Product B',
           },
         ],
       },

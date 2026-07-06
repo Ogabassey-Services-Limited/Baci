@@ -1,25 +1,28 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
-import { OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS } from '@/config/ogabassey-internal-link-equity';
 
 const {
   mockGenerateBreadcrumbSchema,
   mockGenerateCollectionPageSchema,
   mockGetCachedCategories,
   mockGetCachedProductCanonicalPaths,
+  mockGetCachedProductSemanticInventory,
   mockGetCachedStorefrontProductIndex,
   mockGetRequestScopedMerchant,
   mockHeaders,
+  mockProductsPageDeferredLinkModules,
 } = vi.hoisted(() => ({
   mockGenerateBreadcrumbSchema: vi.fn(() => ({})),
   mockGenerateCollectionPageSchema: vi.fn(() => ({})),
   mockGetCachedCategories: vi.fn(),
   mockGetCachedProductCanonicalPaths: vi.fn(),
+  mockGetCachedProductSemanticInventory: vi.fn(),
   mockGetCachedStorefrontProductIndex: vi.fn(),
   mockGetRequestScopedMerchant: vi.fn(),
   mockHeaders: vi.fn(),
+  mockProductsPageDeferredLinkModules: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -71,6 +74,14 @@ vi.mock('@/lib/cached-storefront-product-index', () => ({
     mockGetCachedStorefrontProductIndex(...args),
 }));
 
+vi.mock(
+  '@/lib/storefront-product/get-cached-product-semantic-inventory',
+  () => ({
+    getCachedProductSemanticInventory: (...args: unknown[]) =>
+      mockGetCachedProductSemanticInventory(...args),
+  })
+);
+
 vi.mock('@/lib/routes', () => ({
   asRoute: (path: string) => path,
 }));
@@ -80,6 +91,11 @@ vi.mock('@/components/seo/json-ld', () => ({
 }));
 
 vi.mock('@/lib/seo-utils', () => ({
+  generateSlug: (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, ''),
   generateBreadcrumbSchema: mockGenerateBreadcrumbSchema,
   generateCollectionPageSchema: mockGenerateCollectionPageSchema,
 }));
@@ -96,44 +112,100 @@ vi.mock('./product-index-card', () => ({
   ProductIndexCard: () => null,
 }));
 
+vi.mock('./products-page-deferred-link-modules', () => ({
+  ProductsPageDeferredLinkModules: (props: {
+    baseUrl: string;
+    categories: Array<{ canonicalSlug: string; id: string; name: string }>;
+    merchantId: string;
+    pathPrefix: string;
+    productTotalPages: number;
+  }) => {
+    mockProductsPageDeferredLinkModules(props);
+
+    return (
+      <section aria-label="Deferred maintained products links">
+        {props.pathPrefix}
+      </section>
+    );
+  },
+}));
+
 const { ProductsPageContent } = await import('./products-page-content');
 
 const OGABASSEY_TEST_MERCHANT = {
   id: OGABASSEY_MERCHANT_ID,
   business_name: 'Ogabassey',
+  custom_domain: 'ogabassey.com',
   slug: 'ogabassey',
   country: 'NG',
   payout_currency: 'NGN',
   site_description: 'Browse products',
 };
 
-const ALL_PRODUCT_LINKS = OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS.flatMap(
-  (group) => group.productLinks
-);
-const MISSING_PRODUCT_SLUG = 'iphone-air';
-const MISSING_PRODUCT_LABEL = 'iPhone Air';
-const PRODUCT_PATHS_FIXTURE = Object.fromEntries(
-  ALL_PRODUCT_LINKS.filter(
-    (link) => link.productSlug !== MISSING_PRODUCT_SLUG
-  ).map((link) => [link.productSlug, `/resolved/${link.productSlug}`])
-);
-
-describe('ProductsPageContent internal link equity', () => {
+describe('ProductsPageContent maintained buying path modules', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHeaders.mockResolvedValue(new Headers());
-    mockGetCachedCategories.mockResolvedValue([]);
-    mockGetCachedProductCanonicalPaths.mockResolvedValue(PRODUCT_PATHS_FIXTURE);
+    mockGetCachedCategories.mockResolvedValue([
+      {
+        id: 'cat-1',
+        name: 'Smartphones',
+        slug: 'smartphones',
+        is_active: true,
+        product_count: 120,
+      },
+      {
+        id: 'cat-2',
+        name: 'Laptops',
+        slug: 'laptops',
+        is_active: true,
+        product_count: 40,
+      },
+    ]);
+    mockGetCachedProductCanonicalPaths.mockResolvedValue({});
+    mockGetCachedProductSemanticInventory.mockImplementation(
+      (_merchantId: string, categorySlug: string) =>
+        categorySlug === 'smartphones'
+          ? Promise.resolve([
+              {
+                slug: 'xiaomi-13t',
+                name: 'Xiaomi 13T',
+                brand: 'Xiaomi',
+                price: 450_000,
+                category_slug: 'smartphones',
+                product_key_specs: {
+                  chipset: 'Dimensity 8200 Ultra',
+                  ram_gb: 8,
+                  storage_gb: 256,
+                },
+              },
+              {
+                slug: 'google-pixel-8',
+                name: 'Google Pixel 8',
+                brand: 'Google',
+                price: 620_000,
+                category_slug: 'smartphones',
+                product_key_specs: {
+                  chipset: 'Tensor G3',
+                  ram_gb: 12,
+                  storage_gb: 128,
+                },
+              },
+            ])
+          : Promise.resolve([])
+    );
     mockGetCachedStorefrontProductIndex.mockResolvedValue({
       hasError: false,
       products: [],
       totalCount: 0,
-      totalPages: 1,
+      totalPages: 6,
     });
   });
 
-  it('renders Ogabassey-only shortcuts on custom-domain product pages', async () => {
-    mockHeaders.mockResolvedValue(new Headers([['x-custom-domain', '1']]));
+  it('renders Ogabassey-only maintained module boundary on custom-domain product pages', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
     mockGetRequestScopedMerchant.mockResolvedValue(OGABASSEY_TEST_MERCHANT);
 
     const result = await ProductsPageContent({
@@ -143,62 +215,38 @@ describe('ProductsPageContent internal link equity', () => {
 
     render(result as React.ReactElement);
 
-    expect(mockGetCachedProductCanonicalPaths).toHaveBeenCalledWith(
-      OGABASSEY_MERCHANT_ID,
-      ALL_PRODUCT_LINKS.map((link) => link.productSlug)
-    );
     expect(
-      screen.getByRole('heading', { name: 'Explore more buying paths' })
+      screen.getByRole('region', {
+        name: 'Deferred maintained products links',
+      })
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'iPhone XR' })).toHaveAttribute(
-      'href',
-      '/resolved/iphone-xr'
-    );
-    expect(
-      screen.getByRole('link', { name: 'Compare products' })
-    ).toHaveAttribute('href', '/compare');
-    expect(screen.getByRole('link', { name: 'Laptops' })).toHaveAttribute(
-      'href',
-      '/laptops'
-    );
-
-    const shortcutSection = screen.getByRole('region', {
-      name: 'Explore more buying paths',
+    expect(mockProductsPageDeferredLinkModules).toHaveBeenCalledWith({
+      baseUrl: 'https://ogabassey.com',
+      categories: [
+        expect.objectContaining({
+          canonicalSlug: 'smartphones',
+          id: 'cat-1',
+        }),
+        expect.objectContaining({
+          canonicalSlug: 'laptops',
+          id: 'cat-2',
+        }),
+      ],
+      merchantId: OGABASSEY_MERCHANT_ID,
+      pathPrefix: '',
+      productTotalPages: 6,
     });
-    const shortcutHrefs = within(shortcutSection)
-      .getAllByRole('link')
-      .map((link) => link.getAttribute('href'));
-    const expectedShortcutCount =
-      OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS.reduce(
-        (total, group) => total + group.links.length,
-        0
-      ) +
-      ALL_PRODUCT_LINKS.length -
-      1; // the fixture omits MISSING_PRODUCT_SLUG
-
-    expect(shortcutHrefs).toHaveLength(expectedShortcutCount);
-    expect(new Set(shortcutHrefs).size).toBe(shortcutHrefs.length);
-    expect(shortcutHrefs.every((href) => href?.startsWith('/'))).toBe(true);
-    expect(shortcutHrefs.some((href) => href?.startsWith('http'))).toBe(false);
-    expect(shortcutHrefs).toEqual(
-      expect.arrayContaining([
-        '/compare',
-        '/accessories',
-        '/audio',
-        '/earbuds',
-        '/laptops',
-        '/lg-tvs',
-        '/portable-gaming',
-        '/repair',
-        '/repairs',
-        '/samsung-tvs',
-        '/smartphones',
-      ])
-    );
+    expect(
+      screen.queryByRole('link', { name: 'iPhone 16 Pro 512GB open box' })
+    ).not.toBeInTheDocument();
+    expect(mockGetCachedProductCanonicalPaths).not.toHaveBeenCalled();
+    expect(mockGetCachedProductSemanticInventory).not.toHaveBeenCalled();
   });
 
-  it('omits product shortcuts whose slug no longer resolves', async () => {
-    mockHeaders.mockResolvedValue(new Headers([['x-custom-domain', '1']]));
+  it('does not render manual product shortcut labels', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
     mockGetRequestScopedMerchant.mockResolvedValue(OGABASSEY_TEST_MERCHANT);
 
     const result = await ProductsPageContent({
@@ -209,8 +257,9 @@ describe('ProductsPageContent internal link equity', () => {
     render(result as React.ReactElement);
 
     expect(
-      screen.queryByRole('link', { name: MISSING_PRODUCT_LABEL })
+      screen.queryByRole('link', { name: 'iPhone Air' })
     ).not.toBeInTheDocument();
+    expect(mockGetCachedProductCanonicalPaths).not.toHaveBeenCalled();
   });
 
   it('does not render the shortcuts for other merchants', async () => {
@@ -231,8 +280,28 @@ describe('ProductsPageContent internal link equity', () => {
     render(result as React.ReactElement);
 
     expect(
-      screen.queryByRole('heading', { name: 'Explore more buying paths' })
+      screen.queryByRole('heading', { name: 'Explore Ogabassey buying paths' })
     ).not.toBeInTheDocument();
+    expect(mockProductsPageDeferredLinkModules).not.toHaveBeenCalled();
     expect(mockGetCachedProductCanonicalPaths).not.toHaveBeenCalled();
+  });
+
+  it('returns the catalog shell without loading maintained modules on the critical path', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+    mockGetRequestScopedMerchant.mockResolvedValue(OGABASSEY_TEST_MERCHANT);
+    mockGetCachedProductSemanticInventory.mockImplementation(() => {
+      throw new Error('semantic inventory should be deferred');
+    });
+
+    await expect(
+      ProductsPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })
+    ).resolves.toBeTruthy();
+
+    expect(mockGetCachedProductSemanticInventory).not.toHaveBeenCalled();
   });
 });

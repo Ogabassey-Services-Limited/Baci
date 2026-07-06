@@ -11,9 +11,9 @@ import {
 import { asRoute } from '@/lib/routes';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { getStorefrontPathPrefix } from '@/lib/storefront-path-prefix';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { buildCompareIndexSections } from './compare-index-discovery';
-import { getStorefrontPathPrefix } from './compare-page-content-helpers';
 
 interface ComparePageContentProps {
   params: Promise<{ slug: string }>;
@@ -41,7 +41,7 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
   const headersList = await headers();
   const categories = await getCachedCategories(merchant.id);
   const storeUrl = buildStoreUrl(merchant);
-  const pathPrefix = getStorefrontPathPrefix(headersList, merchant.slug);
+  const pathPrefix = getStorefrontPathPrefix(headersList, merchant);
   const storefrontName = merchant.business_name?.trim();
   const compareIndexDescription = buildCompareIndexDescription(storefrontName);
   const sections = await buildCompareIndexSections({
