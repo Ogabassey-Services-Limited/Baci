@@ -173,138 +173,77 @@ describe('Android emulator launcher', () => {
     );
     expect(androidQaPlan).not.toContain('"$EMULATOR" -avd');
     expect(androidQaPlan).not.toContain('shell am start -n "$ACTIVITY"');
+    // Policy invariants the docs and error messages reference directly.
     expect(launcher).toContain('BACI_ANDROID_GPU_MODE:-auto');
     expect(launcher).toContain(
       'BACI_ANDROID_AVD_NAME:-Baci_Pixel_9_Pro_XL_API_36_Google'
     );
-    expect(launcher).toContain('BACI_ANDROID_PLATFORM_PACKAGE:-platforms;android-36');
-    expect(launcher).toContain(
-      'BACI_ANDROID_SYSTEM_IMAGE_PACKAGE:-system-images;android-36;google_apis;arm64-v8a'
-    );
-    expect(launcher).toContain('BACI_ANDROID_DEVICE_PROFILE:-pixel_9_pro_xl');
-    expect(launcher).toContain('BACI_ANDROID_EMULATOR_PORT:-5554');
-    expect(launcher).toContain('BACI_ANDROID_ADB_SERIAL:-emulator-${EMULATOR_PORT}');
-    expect(launcher).toContain('BACI_ANDROID_MIN_EMULATOR_BUILD:-15261927');
-    expect(launcher).toContain('BACI_ANDROID_BOOT_TIMEOUT_SECONDS:-420');
-    expect(launcher).toContain('BACI_ANDROID_EMULATOR_MEMORY_MB:-4096');
-    expect(launcher).toContain('BACI_ANDROID_EMULATOR_CORES:-2');
-    expect(launcher).toContain('BACI_ANDROID_COLD_BOOT:-0');
-    expect(launcher).toContain('BACI_ANDROID_DNS_SERVERS:-8.8.8.8,1.1.1.1');
-    expect(launcher).toContain('BACI_ANDROID_SETTLE_TIMEOUT_SECONDS:-600');
-    expect(launcher).toContain('BACI_ANDROID_SETTLE_LOAD_MAX:-8.0');
-    expect(launcher).toContain('BACI_ANDROID_SETTLE_STABILITY_PROBES:-2');
-    expect(launcher).toContain('BACI_ANDROID_METRO_PORT:-8081');
-    expect(launcher).toContain('BACI_ANDROID_COLD_BOOT must be 0 or 1');
-    expect(launcher).toContain('Required AVD');
-    expect(launcher).toContain('sdkmanager --sdk_root=${SDK_ROOT}');
-    expect(launcher).toContain('avdmanager create avd');
-    expect(launcher).toContain('system-images;android-36;google_apis;arm64-v8a');
-    expect(launcher).toContain('platforms;android-36');
-    expect(launcher).toContain('pixel_9_pro_xl');
-    expect(launcher).not.toContain('Baci_Pixel_9_API_35_ATD');
-    expect(launcher).not.toContain('system-images;android-35;aosp_atd;arm64-v8a');
-    expect(launcher).not.toContain('system-images;android-35;google_atd;arm64-v8a');
-    expect(launcher).not.toContain('system-images;android-35;default;arm64-v8a');
-    expect(launcher).not.toContain('system-images;android-36;default;arm64-v8a');
-    expect(launcher).not.toContain('system-images;android-36.1');
     expect(launcher).toContain('Refusing -gpu swiftshader_indirect');
-    expect(launcher).toContain('Android Emulator is too old');
-    expect(launcher).toContain('shell echo ok');
-    expect(launcher).toContain('export ANDROID_HOME="$SDK_ROOT"');
-    expect(launcher).toContain('export ANDROID_SDK_ROOT="$SDK_ROOT"');
-    expect(launcher).toContain('${SDK_ROOT}/platform-tools');
-    expect(launcher).toContain('${SDK_ROOT}/emulator');
-    expect(launcher).toContain('${SDK_ROOT}/cmdline-tools/latest/bin');
-    expect(launcher).toContain('AVD_DIR="${ANDROID_AVD_HOME:-$HOME/.android/avd}/${AVD_NAME}.avd"');
-    expect(launcher).toContain('remove_stale_avd_locks');
-    expect(launcher).toContain("Removed stale AVD lock");
-    expect(launcher).toContain("rm -rf \"$lock_file\"");
-    expect(launcher).toContain("find \"$AVD_DIR\" -maxdepth 1 -name '*.lock' -print0");
-    expect(launcher).toContain("'-port'");
-    expect(launcher).toContain("'-dns-server'");
-    expect(launcher).toContain('run_with_timeout');
-    expect(launcher).toContain('BACI_ANDROID_ADB_STABILITY_PROBES:-3');
-    expect(launcher).toContain('confirm_adb_shell_stable');
-    expect(launcher).toContain('stabilize_android_system');
-    expect(launcher).toContain('com.android.bluetooth');
-    expect(launcher).not.toContain('com.android.phone');
-    expect(launcher).toContain('com.android.launcher3');
-    expect(launcher).toContain('com.android.quicksearchbox');
-    expect(launcher).toContain('com.android.localtransport');
-    expect(launcher).toContain('reverse "tcp:${METRO_PORT}" "tcp:${METRO_PORT}"');
-    expect(launcher).toContain('wait_for_android_settle');
-    expect(launcher).toContain('cat /proc/loadavg');
-    expect(launcher).toContain('cleanup_files=()');
-    expect(launcher).toContain('if ((${#remaining[@]} == 0))');
-    expect(launcher).toContain('trap cleanup EXIT');
-    expect(launcher).toContain('python3 is required');
-    expect(launcher).toContain('start_new_session=True');
-    expect(launcher).toContain("emulator_args.append('-no-snapshot-load')");
-    expect(launcher).not.toContain("'-no-snapshot'");
-    expect(debugApkInstaller).toContain('BACI_ANDROID_EMULATOR_PORT:-5554');
-    expect(debugApkInstaller).toContain(
-      'BACI_ANDROID_ADB_SERIAL:-emulator-${EMULATOR_PORT}'
-    );
-    expect(debugApkInstaller).toContain(
-      'BACI_ANDROID_APK_PATH:-android/app/build/outputs/apk/debug/app-debug.apk'
-    );
-    expect(debugApkInstaller).toContain(
-      'BACI_ANDROID_ADB_WAIT_TIMEOUT_SECONDS:-60'
-    );
-    expect(debugApkInstaller).toContain(
-      'BACI_ANDROID_ADB_SHELL_TIMEOUT_SECONDS:-20'
-    );
-    expect(debugApkInstaller).toContain(
-      'BACI_ANDROID_ADB_WAIT_TIMEOUT_SECONDS must be a positive integer.'
-    );
-    expect(debugApkInstaller).toContain(
-      'BACI_ANDROID_ADB_SHELL_TIMEOUT_SECONDS must be a positive integer.'
-    );
-    expect(debugApkInstaller).toContain('default_sdk_root');
-    expect(debugApkInstaller).toContain('uname -s');
-    expect(debugApkInstaller).toContain('LOCALAPPDATA');
-    expect(debugApkInstaller).toContain('cd \\"${APP_ROOT}/android\\"');
-    expect(debugApkInstaller).toContain('run_adb_shell_with_timeout');
-    expect(debugApkInstaller).toContain('set +e');
-    expect(debugApkInstaller).toContain(
-      'if ! [[ "$exit_status" =~ ^[0-9]+$ ]]'
-    );
-    expect(debugApkInstaller).toContain('return "${exit_status:-1}"');
-    expect(debugApkInstaller).toContain('get-state');
-    expect(debugApkInstaller).toContain("tr -d '\\r\\n '");
-    expect(debugApkInstaller).toContain('getprop sys.boot_completed');
-    expect(debugApkInstaller).toContain(
-      'did not become ready and boot-complete within'
-    );
-    expect(debugApkInstaller).toContain('boot-complete');
-    expect(debugApkInstaller).toContain('echo ok');
     expect(debugApkInstaller).toContain('install -r -d -t --no-streaming');
-    expect(debugApkInstaller).not.toContain('wait-for-device');
     expect(debugApkInstaller).not.toContain('installDebug');
-    expect(devClientLauncher).toContain('BACI_ANDROID_ADB_SERIAL:-emulator-5554');
     expect(devClientLauncher).toContain('BACI_ANDROID_APP_ID:-com.ogabassey.baci');
     expect(devClientLauncher).toContain('BACI_ANDROID_SCHEME:-baciadmin');
     expect(devClientLauncher).toContain('BACI_ANDROID_METRO_PORT:-8081');
-    expect(devClientLauncher).toContain(
-      'BACI_ANDROID_DEV_SERVER_URL:-http://10.0.2.2:${METRO_PORT}'
+
+    // Parity contract: the admin launcher scripts are the storefront scripts
+    // with only the app-identity tokens swapped. Any hardening applied to one
+    // copy must be applied to both (PR #2951 follow-up). If this fails, port
+    // the change to the other app instead of loosening the assertion.
+    const storefrontScriptsRoot = path.join(
+      repoRoot,
+      'apps/mobile-storefront/scripts'
     );
-    expect(devClientLauncher).toContain('BACI_ANDROID_LAUNCH_LOAD_MAX:-8.0');
-    expect(devClientLauncher).toContain(
-      'BACI_ANDROID_LAUNCH_AM_START_TIMEOUT_SECONDS:-20'
-    );
-    expect(devClientLauncher).toContain('BACI_ANDROID_FORCE_STOP:-1');
-    expect(devClientLauncher).toContain('wait_for_adb_shell');
-    expect(devClientLauncher).toContain('wait_for_android_settle');
-    expect(devClientLauncher).toContain('ensure_metro_reverse');
-    expect(devClientLauncher).toContain('reverse "tcp:${METRO_PORT}" "tcp:${METRO_PORT}"');
-    expect(devClientLauncher).toContain('expo-development-client');
-    expect(devClientLauncher).toContain('android.intent.action.VIEW');
-    expect(devClientLauncher).toContain('shell am start');
-    expect(devClientLauncher).toContain(
-      'run_with_timeout "$AM_START_TIMEOUT_SECONDS"'
-    );
-    expect(devClientLauncher).toContain('pidof -s "$APP_ID"');
-    expect(devClientLauncher).toContain('raw adb launch commands');
+    const adaptStorefrontScript = (content: string) =>
+      content
+        .replaceAll(
+          '/tmp/baci-mobile-storefront-emulator.log',
+          '/tmp/baci-mobile-admin-emulator.log'
+        )
+        .replaceAll('BACI_ANDROID_METRO_PORT:-8082', 'BACI_ANDROID_METRO_PORT:-8081')
+        .replaceAll('mobile-storefront QA', 'mobile-admin QA')
+        .replaceAll(
+          'pnpm --filter @baci/mobile-storefront',
+          'pnpm --filter baci-mobile-admin'
+        )
+        .replaceAll(
+          'Launching mobile-storefront Android dev client',
+          'Launching mobile-admin Android dev client'
+        )
+        .replaceAll(
+          'BACI_ANDROID_APP_ID:-com.ogabassey.store',
+          'BACI_ANDROID_APP_ID:-com.ogabassey.baci'
+        )
+        .replaceAll('BACI_ANDROID_SCHEME:-ogabassey', 'BACI_ANDROID_SCHEME:-baciadmin')
+        .replaceAll(
+          'Starting Android emulator for mobile-storefront',
+          'Starting Android emulator for mobile-admin'
+        );
+
+    for (const [scriptName, adminContent] of [
+      ['launch-android-emulator.sh', launcher],
+      ['install-android-debug.sh', debugApkInstaller],
+      ['launch-android-dev-client.sh', devClientLauncher],
+    ] as const) {
+      const storefrontContent = readFileSync(
+        path.join(storefrontScriptsRoot, scriptName),
+        'utf8'
+      );
+      expect(adminContent).toBe(adaptStorefrontScript(storefrontContent));
+    }
+
+    // The shared helper libraries must be byte-identical across the two apps.
+    for (const libName of ['android-common.sh', 'timeout.sh']) {
+      const adminLib = readFileSync(
+        path.join(appRoot, 'scripts/lib', libName),
+        'utf8'
+      );
+      const storefrontLib = readFileSync(
+        path.join(storefrontScriptsRoot, 'lib', libName),
+        'utf8'
+      );
+      expect(adminLib).toBe(storefrontLib);
+    }
+
     expect(debugManifest).toContain('firebase_messaging_auto_init_enabled');
     expect(debugManifest).toContain(
       'firebase_analytics_collection_enabled'
