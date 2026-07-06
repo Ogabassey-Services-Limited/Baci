@@ -1,4 +1,7 @@
-import type { CompareLinkGraphEntry } from '@/lib/storefront-link-modules/compare-link-graph';
+import {
+  MAX_PRODUCT_COMPARE_LINKS,
+  type CompareLinkGraphEntry,
+} from '@/lib/storefront-link-modules/compare-link-graph';
 import { resolveStorefrontPathHref } from '@/lib/storefront-path-prefix';
 
 interface ProductCompareLinksProps {
@@ -7,8 +10,6 @@ interface ProductCompareLinksProps {
   merchantName: string;
   pathPrefix?: string;
 }
-
-export const MAX_PRODUCT_COMPARE_LINKS = 8;
 
 export function ProductCompareLinks({
   productName,

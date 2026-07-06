@@ -78,4 +78,31 @@ describe('loadCategoryPageCompareLinks', () => {
       })
     ).resolves.toEqual([]);
   });
+
+  it('returns no links for empty or singleton category inventories', async () => {
+    mockedInventory.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      {
+        slug: 'xiaomi-13t',
+        name: 'Xiaomi 13T',
+        brand: 'Xiaomi',
+        category_slug: 'smartphones',
+        price: 450_000,
+        product_key_specs: {
+          chipset: 'Dimensity 8200 Ultra',
+          ram_gb: 12,
+          storage_gb: 256,
+        },
+      },
+    ]);
+
+    const input = {
+      storeUrl: 'https://ogabassey.com',
+      merchantId: 'merchant-1',
+      categorySlug: 'smartphones',
+      categoryName: 'Smartphones',
+    };
+
+    await expect(loadCategoryPageCompareLinks(input)).resolves.toEqual([]);
+    await expect(loadCategoryPageCompareLinks(input)).resolves.toEqual([]);
+  });
 });

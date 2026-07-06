@@ -25,8 +25,9 @@ export function ProductSemanticSections({
   );
   const hasContext = contextParagraphs.length > 0;
   const hasGuideLinks = model.guideLinks.length > 0;
+  const productCompareProductName = productName || '';
   const hasProductCompareLinks =
-    Boolean(productName) && productCompareLinks.length > 0;
+    productCompareProductName.length > 0 && productCompareLinks.length > 0;
 
   if (
     !model.supportLinks.length &&
@@ -112,12 +113,12 @@ export function ProductSemanticSections({
         />
       ) : null}
 
-      {productName ? (
+      {hasProductCompareLinks ? (
         <ProductCompareLinks
           links={productCompareLinks}
           merchantName={merchantName}
           pathPrefix={productComparePathPrefix}
-          productName={productName}
+          productName={productCompareProductName}
         />
       ) : null}
 

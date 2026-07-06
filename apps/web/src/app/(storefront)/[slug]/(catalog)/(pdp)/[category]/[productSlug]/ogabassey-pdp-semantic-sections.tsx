@@ -1,7 +1,9 @@
-import { MAX_PRODUCT_COMPARE_LINKS } from '@/components/storefront/ogabassey/seo/product-compare-links';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import type { Product } from '@/lib/products';
-import { buildCompareLinkGraph } from '@/lib/storefront-link-modules/compare-link-graph';
+import {
+  buildCompareLinkGraph,
+  MAX_PRODUCT_COMPARE_LINKS,
+} from '@/lib/storefront-link-modules/compare-link-graph';
 import { buildProductContextParagraphs } from '@/lib/storefront-product/build-product-context-paragraphs';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import {

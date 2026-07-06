@@ -43,13 +43,14 @@ const CLEANUP_KINDS = new Set<CrawlDepthUrlKind>([
   'demo-cleanup',
   'redirect-cleanup',
 ]);
-const COMPARE_CLUSTERS = [
-  'vs-xiaomi-13t',
-  'vs-lenovo-thinkpad-x1-carbon-gen-7',
-] as const;
 
 function pathWithSearch(url: URL) {
   return `${url.pathname}${url.search}`;
+}
+
+function compareClusterKey(path: string) {
+  const match = path.match(/\/compare\/[^/]+-vs-([^/?#]+)/);
+  return match ? `vs-${match[1]}` : null;
 }
 
 function listingPagePath(url: URL) {
@@ -226,9 +227,7 @@ export function buildCrawlDepthCoverageReport(
   urls: string[],
   moduleHrefs: Set<string>
 ): CrawlDepthCoverageReport {
-  const clusters: Record<string, ClusterSummary> = Object.fromEntries(
-    COMPARE_CLUSTERS.map((cluster) => [cluster, emptyClusterSummary()])
-  );
+  const clusters: Record<string, ClusterSummary> = {};
   const report: CrawlDepthCoverageReport = {
     cleanupRows: 0,
     clusters,
@@ -252,11 +251,13 @@ export function buildCrawlDepthCoverageReport(
       report.missing.push(classifiedUrl);
     }
 
-    for (const cluster of COMPARE_CLUSTERS) {
-      if (!classifiedUrl.path.includes(cluster)) {
-        continue;
-      }
+    const cluster =
+      classifiedUrl.kind === 'compare'
+        ? compareClusterKey(classifiedUrl.path)
+        : null;
 
+    if (cluster) {
+      clusters[cluster] ??= emptyClusterSummary();
       clusters[cluster].totalRows += 1;
 
       if (covered) {

@@ -41,7 +41,7 @@ export function StorefrontLinkModulesSection({
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         {visibleModules.map((module) => (
-          <section key={module.id} aria-labelledby={`${module.id}-heading`}>
+          <div key={module.id}>
             <h3
               id={`${module.id}-heading`}
               className="text-sm font-semibold text-store-background-text"
@@ -64,7 +64,7 @@ export function StorefrontLinkModulesSection({
                 </li>
               ))}
             </ul>
-          </section>
+          </div>
         ))}
       </div>
     </section>

@@ -127,10 +127,8 @@ export function hasMaintainedCategoryCompareHubLink(
   const hubPathSuffix = `/${categorySlug}/compare`;
 
   return comparisonLinks.some((link) => {
-    const pathname = new URL(
-      link.href.trim(),
-      'https://storefront.local'
-    ).pathname.replace(/\/+$/, '');
+    const [pathOnly] = link.href.trim().split(/[?#]/);
+    const pathname = pathOnly.replace(/\/+$/, '');
 
     return pathname.endsWith(hubPathSuffix);
   });
