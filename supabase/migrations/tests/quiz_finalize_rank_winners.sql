@@ -69,6 +69,7 @@ DECLARE
   v_c4 uuid := '00000000-0000-4000-8000-0000000fc004'; -- disqualified, must be excluded
   v_e_verified uuid := '00000000-0000-4000-8000-0000000fe001';
   v_e_unverified uuid := '00000000-0000-4000-8000-0000000fe002';
+  v_e_noconfig uuid := '00000000-0000-4000-8000-0000000fe003'; -- verified + due but NO prize config
   v_a1 uuid := '00000000-0000-4000-8000-0000000fa011'; -- c1 best
   v_a2 uuid := '00000000-0000-4000-8000-0000000fa012'; -- c1 lower (dedup target)
   v_a3 uuid := '00000000-0000-4000-8000-0000000fa013'; -- c2
@@ -81,6 +82,8 @@ DECLARE
   v_cash2 record;
   v_cash3 record;
   v_unverified_awards integer;
+  v_noconfig_minted integer;
+  v_noconfig_awards integer;
 BEGIN
   INSERT INTO public.merchants (id, email) VALUES (v_merchant, 'rank-winners@test.com');
 
@@ -94,7 +97,11 @@ BEGIN
     (v_e_verified, v_merchant, 'rw-verified', 'RW Verified', 'completed', v_now - interval '1 hour', true,
       '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb),
     (v_e_unverified, v_merchant, 'rw-unverified', 'RW Unverified', 'completed', v_now - interval '1 hour', false,
-      '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb);
+      '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb),
+    -- Compliance-verified and due, but carries NO ranked-prize configuration
+    -- (mirrors legacy/e2e events). Must never be finalized or minted.
+    (v_e_noconfig, v_merchant, 'rw-noconfig', 'RW No Config', 'active', v_now - interval '1 hour', true,
+      '{"prize_name":"QA prize","time_limit_seconds":30}'::jsonb);
 
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
     (v_a1, v_e_verified, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '8 min'),
@@ -105,6 +112,9 @@ BEGIN
   -- An eligible-looking attempt on the UNVERIFIED event to prove the compliance gate.
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
     ('00000000-0000-4000-8000-0000000fa016', v_e_unverified, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '8 min');
+  -- An eligible-looking attempt on the NO-CONFIG event to prove the prize-config gate.
+  INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
+    ('00000000-0000-4000-8000-0000000fa017', v_e_noconfig, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '8 min');
 
   -- Mint the verified event.
   v_minted := public.mint_quiz_event_ranked_awards(v_e_verified);
@@ -156,6 +166,13 @@ BEGIN
     RAISE EXCEPTION 'Verified event must have exactly 3 awards after idempotent re-run';
   END IF;
 
+  -- Prize-config gate (defense-in-depth): a verified, due event with NO prize
+  -- configuration must mint nothing when minted directly.
+  v_noconfig_minted := public.mint_quiz_event_ranked_awards(v_e_noconfig);
+  IF v_noconfig_minted IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'Event without prize config must mint 0 awards, got %', v_noconfig_minted;
+  END IF;
+
   -- Fail-closed compliance gate: finalize_due must skip the unverified event.
   PERFORM public.finalize_due_quiz_events();
 
@@ -171,6 +188,16 @@ BEGIN
   -- The verified event should have been finalized (award_finalized_at stamped).
   IF (SELECT award_finalized_at FROM public.quiz_events WHERE id = v_e_verified) IS NULL THEN
     RAISE EXCEPTION 'Verified due event must be finalized by finalize_due_quiz_events';
+  END IF;
+
+  -- Prize-config gate: the no-config event must be left alone by finalize_due —
+  -- not finalized and no awards minted (no unwanted money-path drift).
+  SELECT count(*) INTO v_noconfig_awards FROM public.quiz_awards WHERE event_id = v_e_noconfig;
+  IF v_noconfig_awards IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'No-config event must mint zero awards, got %', v_noconfig_awards;
+  END IF;
+  IF (SELECT award_finalized_at FROM public.quiz_events WHERE id = v_e_noconfig) IS NOT NULL THEN
+    RAISE EXCEPTION 'No-config event must not be finalized by finalize_due_quiz_events';
   END IF;
 END;
 $$ LANGUAGE plpgsql;
