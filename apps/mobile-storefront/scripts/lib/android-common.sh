@@ -258,10 +258,14 @@ wait_for_android_load_settle() {
 run_stabilization_adb() {
   local timeout_seconds="${BACI_ANDROID_STABILIZE_ADB_TIMEOUT_SECONDS:-10}"
   local status
+  local errexit_was_set=0
+  case $- in *e*) errexit_was_set=1 ;; esac
   set +e
   run_with_timeout "$timeout_seconds" "$ADB" -s "$ADB_SERIAL" "$@" >/dev/null 2>&1
   status=$?
-  set -e
+  if ((errexit_was_set)); then
+    set -e
+  fi
   if ((status == 124)); then
     echo "Timed out running adb $* during Android stabilization." >&2
     return 124
