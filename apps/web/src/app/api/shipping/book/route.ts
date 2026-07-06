@@ -35,7 +35,6 @@ export async function POST(request: NextRequest) {
         NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
       );
     }
-
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -46,7 +45,6 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
     const merchantContext = await getMerchantForApiRequest(supabase, user.id);
     if (!merchantContext) {
       return NextResponse.json(
@@ -54,14 +52,12 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-
     const access = toUserAccess(merchantContext);
     if (!hasPermission(access, 'orders', 'fulfill')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const merchantId = merchantContext.merchantId;
-
     const body = await request.json();
 
     const parseResult = BookingRequestSchema.safeParse(body);
@@ -76,11 +72,10 @@ export async function POST(request: NextRequest) {
     }
 
     const data = parseResult.data;
-
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, merchant_id, shipping_status, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
+        'id, merchant_id, selected_quote_id, shipping_status, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
       )
       .eq('id', data.orderId)
       .eq('merchant_id', merchantId)
@@ -99,13 +94,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (order.selected_quote_id !== data.quoteId) {
+      return NextResponse.json(
+        { error: 'Quote does not match order' },
+        { status: 400 }
+      );
+    }
+
     const { data: quote, error: quoteError } = await supabase
       .from('shipping_quotes')
       .select(
         'id, provider, provider_rate_id, provider_metadata, quote_request, expires_at, price, currency, estimated_days'
       )
       .eq('id', data.quoteId)
-      .eq('merchant_id', merchantId)
       .single();
 
     if (quoteError || !quote) {

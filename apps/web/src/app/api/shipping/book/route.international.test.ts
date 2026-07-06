@@ -66,13 +66,16 @@ function buildBookingRequest(): NextRequest {
   }) as unknown as NextRequest;
 }
 
-function buildSupabaseMock() {
+function buildSupabaseMock(
+  selectedQuoteId = '22222222-2222-4222-8222-222222222222'
+) {
   const ordersSelectChain = {
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({
       data: {
         id: '11111111-1111-4111-8111-111111111111',
         merchant_id: 'merchant-1',
+        selected_quote_id: selectedQuoteId,
         shipping_status: 'pending',
         shipping_address: {
           address: '999 New Address',
@@ -89,9 +92,9 @@ function buildSupabaseMock() {
   const quotesSelectChain = {
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockImplementation(() => {
-      expect(quotesSelectChain.eq).toHaveBeenCalledWith(
+      expect(quotesSelectChain.eq).not.toHaveBeenCalledWith(
         'merchant_id',
-        'merchant-1'
+        expect.any(String)
       );
       return Promise.resolve({
         data: {
@@ -165,6 +168,21 @@ describe('POST /api/shipping/book GIGL international guards', () => {
       error:
         'The saved international shipping quote no longer matches this order. Please get a new quote before shipping.',
       code: 'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
+    });
+    expect(mockBookShipment).not.toHaveBeenCalled();
+  });
+
+  it('rejects quote IDs that are not selected on the merchant order', async () => {
+    mockCreateClient.mockReturnValue(
+      buildSupabaseMock('33333333-3333-4333-8333-333333333333')
+    );
+    const { POST } = await import('./route');
+
+    const response = await POST(buildBookingRequest());
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Quote does not match order',
     });
     expect(mockBookShipment).not.toHaveBeenCalled();
   });
