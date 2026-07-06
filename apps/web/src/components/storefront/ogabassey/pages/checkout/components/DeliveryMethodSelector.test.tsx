@@ -60,6 +60,33 @@ describe('DeliveryMethodSelector', () => {
     expect(screen.queryByRole('radio', { name: /pickup/i })).not.toBeInTheDocument();
   });
 
+  it('renders GIGL pickup stations when a station quote is available', () => {
+    render(
+      <DeliveryMethodSelector
+        {...defaultProps}
+        newAddressState="Rivers"
+        newAddressCity="Port Harcourt"
+        stationPickupQuote={{
+          id: 'station-quote',
+          provider: 'GIGL',
+          serviceTier: 'station',
+          carrierName: 'GIG Logistics',
+          displayName: 'Pickup Stations (GIGL)',
+          price: 4200,
+          estimatedDays: 3,
+          currency: 'NGN',
+          pickupIncluded: true,
+          insuranceIncluded: true,
+          isStationPickup: true,
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole('radio', { name: /pickup stations \(gigl\)/i }),
+    ).toBeInTheDocument();
+  });
+
   it('calls setDeliveryMethod when a delivery option is selected', () => {
     render(<DeliveryMethodSelector {...defaultProps} />);
 

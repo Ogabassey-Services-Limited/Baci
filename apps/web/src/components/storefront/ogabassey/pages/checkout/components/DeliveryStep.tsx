@@ -7,6 +7,7 @@ import { DeliveryAddressSection } from './DeliveryAddressSection';
 import { DeliveryMethodDetails } from './DeliveryMethodDetails';
 import { DeliveryMethodSelector } from './DeliveryMethodSelector';
 import type { DeliveryMethod, SavedAddress, ShippingQuote } from '../types';
+import { getStationPickupQuote } from '../utils';
 
 type StepName = 'contact' | 'delivery' | 'payment';
 
@@ -105,12 +106,14 @@ export function DeliveryStep({
       ((newAddressState && newAddressCity) ||
         (!isNewAddressMode && selectedAddressId)),
   );
+  const stationPickupQuote = getStationPickupQuote(shippingQuotes);
 
   useEffect(() => {
     if (!canChooseDeliveryMethod) return;
 
     const isMethodEligible =
       deliveryMethod === 'door' ||
+      (deliveryMethod === 'pickup_station' && Boolean(stationPickupQuote)) ||
       (deliveryMethod === 'pickup' && isPickupEligible(newAddressState)) ||
       (deliveryMethod === 'airport' &&
         isAirportDeliveryEligible(newAddressState));
@@ -123,6 +126,7 @@ export function DeliveryStep({
     deliveryMethod,
     newAddressState,
     setDeliveryMethod,
+    stationPickupQuote,
   ]);
 
   return (
@@ -203,11 +207,13 @@ export function DeliveryStep({
               selectedAddressId={selectedAddressId}
               deliveryMethod={deliveryMethod}
               setDeliveryMethod={setDeliveryMethod}
+              stationPickupQuote={stationPickupQuote}
             />
 
             {canChooseDeliveryMethod && (
               <DeliveryMethodDetails
                 deliveryMethod={deliveryMethod}
+                setDeliveryMethod={setDeliveryMethod}
                 airportType={airportType}
                 setAirportType={setAirportType}
                 shippingQuotes={shippingQuotes}

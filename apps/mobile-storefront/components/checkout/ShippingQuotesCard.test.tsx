@@ -44,6 +44,30 @@ describe('ShippingQuotesCard', () => {
     expect(screen.getByText(/refresh rates/i)).toBeTruthy();
   });
 
+  it('explains when only GIGL pickup stations are available for a door address', () => {
+    render(
+      <ShippingQuotesCard
+        {...baseProps}
+        shippingQuotes={[]}
+        stationPickupQuote={{
+          id: 'station-quote',
+          displayName: 'GIG Logistics - Pickup at PORT HARCOURT',
+          isStationPickup: true,
+          price: 9493,
+          provider: 'GIGL',
+          stationName: 'PORT HARCOURT',
+        }}
+      />
+    );
+
+    expect(
+      screen.getByText(
+        /gigl doesn't currently support door delivery to this location/i
+      )
+    ).toBeTruthy();
+    expect(screen.getByText(/choose pickup stations \(gigl\)/i)).toBeTruthy();
+  });
+
   it('calls onRetryQuotes when retry pressable is pressed', () => {
     render(<ShippingQuotesCard {...baseProps} shippingQuotes={[]} />);
 

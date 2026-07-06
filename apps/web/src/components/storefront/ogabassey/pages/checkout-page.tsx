@@ -39,6 +39,7 @@ import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import type {
   CryptoChain,
   CryptoCurrency,
+  DeliveryMethod,
   CryptoPaymentData,
   DvaData,
   PaymentMethod,
@@ -91,7 +92,12 @@ import { persistCreditDirectPopupReference } from './checkout/persist-credit-dir
 import { PaymentStep } from './checkout/components/PaymentStep';
 import {
   KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST,
+  getDoorDeliveryQuotes,
+  getPreferredDoorQuoteId,
+  getStationPickupAddressText,
+  getStationPickupQuote,
   inferAddressLocationFromInput,
+  isStationPickupQuote,
   isKlumpUnavailableForGatewayAmount,
 } from './checkout/utils';
 
@@ -335,9 +341,9 @@ async function loadShippingQuotes({
       const { quotes } = normalizeShippingQuoteResponse(data);
       setShippingQuotes(quotes);
 
-      // Auto-select the first (cheapest) quote if available
-      if (quotes.length > 0) {
-        setSelectedQuoteId(quotes[0].id);
+      const preferredDoorQuoteId = getPreferredDoorQuoteId(quotes);
+      if (preferredDoorQuoteId) {
+        setSelectedQuoteId(preferredDoorQuoteId);
       }
     } else {
       console.warn('Failed to fetch quotes:', await res.text());
@@ -1018,16 +1024,7 @@ export const CheckoutPage: React.FC = () => {
 
   const [selectedAddressId, setSelectedAddressId] = useState<number>(0);
   const [isNewAddressMode, setIsNewAddressMode] = useState(true);
-  const [deliveryMethod, setDeliveryMethod] = useState<
-    'pickup' | 'door' | 'airport'
-  >('door');
-  const eligibleDeliveryMethod = resolveEligibleWebStorefrontDeliveryMethod(
-    deliveryMethod,
-    newAddressState,
-  );
-  if (eligibleDeliveryMethod !== deliveryMethod) {
-    setDeliveryMethod(eligibleDeliveryMethod);
-  }
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('door');
   const [airportType, setAirportType] = useState<'delivery' | 'pickup'>('delivery');
 
   // Shipping State
@@ -1037,13 +1034,39 @@ export const CheckoutPage: React.FC = () => {
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuote[]>([]);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>('');
+  const stationPickupQuote = getStationPickupQuote(shippingQuotes);
+  const doorDeliveryQuotes = getDoorDeliveryQuotes(shippingQuotes);
+  const selectedQuote = shippingQuotes.find(
+    (quote) => String(quote.id) === String(selectedQuoteId),
+  );
+  const selectedQuoteMatchesDeliveryMethod = Boolean(
+    selectedQuote &&
+      ((deliveryMethod === 'door' && !isStationPickupQuote(selectedQuote)) ||
+        (deliveryMethod === 'pickup_station' &&
+          isStationPickupQuote(selectedQuote))),
+  );
+  const eligibleDeliveryMethod =
+    deliveryMethod === 'pickup_station' && !stationPickupQuote
+      ? 'door'
+      : resolveEligibleWebStorefrontDeliveryMethod(
+          deliveryMethod,
+          newAddressState,
+        );
+  if (eligibleDeliveryMethod !== deliveryMethod) {
+    setDeliveryMethod(eligibleDeliveryMethod);
+  }
 
   // Delivery step validation (hydration-safe)
   const rawIsDeliveryValid = (() => {
     if (!deliveryMethod) return false;
     if (eligibleDeliveryMethod !== deliveryMethod) return false;
     // For door delivery, a shipping quote MUST be selected
-    if (deliveryMethod === 'door') return !!selectedQuoteId;
+    if (deliveryMethod === 'door') {
+      return Boolean(selectedQuoteId && selectedQuoteMatchesDeliveryMethod);
+    }
+    if (deliveryMethod === 'pickup_station') {
+      return Boolean(selectedQuoteId && selectedQuoteMatchesDeliveryMethod);
+    }
     // For airport, a type (pickup/delivery) must be selected
     if (deliveryMethod === 'airport') return !!airportType;
     // Pickup is valid as long as the current state is eligible.
@@ -1306,9 +1329,9 @@ export const CheckoutPage: React.FC = () => {
   const deliveryCost =
     deliveryMethod === 'pickup'
       ? 0
-      : deliveryMethod === 'door'
-        ? selectedQuoteId
-          ? shippingQuotes.find(q => String(q.id) === String(selectedQuoteId))?.price ?? 0
+      : deliveryMethod === 'door' || deliveryMethod === 'pickup_station'
+        ? selectedQuoteId && selectedQuote && selectedQuoteMatchesDeliveryMethod
+          ? selectedQuote.price
           : 0 // Fallback: 0 if loading or no quote selected
         : airportType === 'delivery' ? 25000 : 20000; // Airport Delivery: ₦25,000, Airport Pickup: ₦20,000
 
@@ -1543,7 +1566,10 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
 
-    if (deliveryMethod === 'door' && !selectedQuoteId) {
+    if (
+      (deliveryMethod === 'door' || deliveryMethod === 'pickup_station') &&
+      !selectedQuoteId
+    ) {
       toast({
         title: 'Select Delivery Option',
         description: 'Please select a delivery option before placing your order.',
@@ -1641,6 +1667,23 @@ export const CheckoutPage: React.FC = () => {
           finalCity = parts[parts.length - 2]?.trim() || '';
         }
       }
+    } else if (deliveryMethod === 'pickup_station') {
+      const quote = shippingQuotes.find(
+        (q) => String(q.id) === String(selectedQuoteId),
+      );
+      finalAddress =
+        (quote && getStationPickupAddressText(quote)) ||
+        quote?.displayName ||
+        'GIGL pickup station';
+      finalCity = newAddressCity;
+      finalState = newAddressState;
+      if ((!finalCity || !finalState) && selectedAddress?.address) {
+        const parts = selectedAddress.address.split(',');
+        if (parts.length >= 2) {
+          finalCity ||= parts[parts.length - 2]?.trim() || '';
+          finalState ||= parts[parts.length - 1]?.trim() || '';
+        }
+      }
     } else if (deliveryMethod === 'pickup') {
       finalAddress = 'Pickup at Store';
       finalCity = 'Lagos';
@@ -1682,7 +1725,10 @@ export const CheckoutPage: React.FC = () => {
     // persists a silent zero-shipping order. Mirrors the pre-submit
     // block in `place-order.ts`. Treat empty string as no quote too —
     // the state hook initializes selectedQuoteId to `''` (line ~573).
-    if (deliveryMethod === 'door' && !selectedQuoteId) {
+    if (
+      (deliveryMethod === 'door' || deliveryMethod === 'pickup_station') &&
+      !selectedQuoteId
+    ) {
       toast({
         title: 'Delivery option required',
         description: 'Please select a delivery option to continue.',
@@ -1693,9 +1739,16 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
 
-    if (deliveryMethod === 'door' && selectedQuoteId) {
+    if (
+      (deliveryMethod === 'door' || deliveryMethod === 'pickup_station') &&
+      selectedQuoteId
+    ) {
       const quote = shippingQuotes.find(q => String(q.id) === String(selectedQuoteId));
-      if (quote) {
+      if (
+        quote &&
+        ((deliveryMethod === 'door' && !isStationPickupQuote(quote)) ||
+          (deliveryMethod === 'pickup_station' && isStationPickupQuote(quote)))
+      ) {
         shippingProvider = quote.provider; // e.g. 'GIGL', 'Topship'
       } else {
         // B3 review fix #1: do NOT fabricate a 'Standard' provider —
@@ -1725,7 +1778,9 @@ export const CheckoutPage: React.FC = () => {
       shippingFee: deliveryCost,
       shippingProvider,
       selectedQuoteId:
-        deliveryMethod === 'door' ? selectedQuoteId || undefined : undefined,
+        deliveryMethod === 'door' || deliveryMethod === 'pickup_station'
+          ? selectedQuoteId || undefined
+          : undefined,
       shippingAddress: shippingAddressData,
       items: orderItems.map((item) => ({
         product_id: item.product_id,
@@ -1761,7 +1816,9 @@ export const CheckoutPage: React.FC = () => {
         paymentMethod: normalizedPaymentMethod,
         shippingProvider,
         selectedQuoteId:
-          deliveryMethod === 'door' ? selectedQuoteId || undefined : undefined,
+          deliveryMethod === 'door' || deliveryMethod === 'pickup_station'
+            ? selectedQuoteId || undefined
+            : undefined,
       });
 
       if (reusablePendingOrder.clearStoredOrder) {
@@ -1853,7 +1910,9 @@ export const CheckoutPage: React.FC = () => {
             // empty string AND undefined defensively. The RPC schema
             // is `.nullable().optional()` so null is canonical.
             selected_quote_id:
-              deliveryMethod === 'door' ? (selectedQuoteId || null) : null,
+              deliveryMethod === 'door' || deliveryMethod === 'pickup_station'
+                ? selectedQuoteId || null
+                : null,
             // Wallet redemption (2025: auto-apply at checkout)
             use_wallet_credit: payWithWallet && walletAmountUsed > 0,
             wallet_amount: walletAmountUsed,
@@ -3164,7 +3223,13 @@ export const CheckoutPage: React.FC = () => {
                   </h2>
                   {completedSteps.delivery && currentStep !== 'delivery' && (
                     <p className="mt-1 pl-8 text-xs font-normal text-gray-500 truncate">
-                      {deliveryMethod === 'door' ? 'Door delivery' : deliveryMethod === 'pickup' ? 'Store pickup' : 'Airport'}
+                      {deliveryMethod === 'door'
+                        ? 'Door delivery'
+                        : deliveryMethod === 'pickup_station'
+                          ? 'Pickup Stations (GIGL)'
+                          : deliveryMethod === 'pickup'
+                            ? 'Store pickup'
+                            : 'Airport'}
                       {deliveryMethod === 'door' && newAddressCity ? ` · ${newAddressCity}` : ''}
                     </p>
                   )}
@@ -3309,10 +3374,13 @@ export const CheckoutPage: React.FC = () => {
                             How would you like to receive your order?
                           </label>
                           <div className="flex gap-3 overflow-x-auto pb-1">
-                            {(['door', 'pickup', 'airport'] as const).map((method) => {
+                            {(['door', 'pickup_station', 'pickup', 'airport'] as const).map((method) => {
                               // Store ships from Lagos: pickup is Lagos-only and
                               // airport is for non-Lagos states with an airport.
                               // Shared with the mobile storefront so they can't drift.
+                              if (method === 'pickup_station' && !stationPickupQuote) {
+                                return null;
+                              }
                               if (method === 'pickup' && !isPickupEligible(newAddressState)) {
                                 return null;
                               }
@@ -3323,9 +3391,23 @@ export const CheckoutPage: React.FC = () => {
                                 return null;
                               }
 
-                              const Icon = method === 'door' ? Truck : method === 'pickup' ? Building2 : Plane;
-                              const label = method === 'door' ? 'Door Delivery' : method === 'pickup' ? 'Pickup' : 'Airport';
-                              const subtitle = method === 'door' ? 'To your address' : method === 'pickup' ? 'Collect at store' : 'Via air cargo';
+                              const Icon = method === 'door' ? Truck : method === 'airport' ? Plane : Building2;
+                              const label =
+                                method === 'door'
+                                  ? 'Door Delivery'
+                                  : method === 'pickup_station'
+                                    ? 'Pickup Stations (GIGL)'
+                                    : method === 'pickup'
+                                      ? 'Pickup'
+                                      : 'Airport';
+                              const subtitle =
+                                method === 'door'
+                                  ? 'To your address'
+                                  : method === 'pickup_station'
+                                    ? 'Collect at service centre'
+                                    : method === 'pickup'
+                                      ? 'Collect at store'
+                                      : 'Via air cargo';
 
                               return (
                                 <button type="button"
@@ -3359,6 +3441,26 @@ export const CheckoutPage: React.FC = () => {
                               </p>
                               <div className="mt-2 text-xs font-mono bg-white inline-block px-2 py-1 rounded border border-gray-200 text-gray-500">
                                 Pickup closes at 6 PM
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {deliveryMethod === 'pickup_station' && stationPickupQuote && (
+                          <div className="mt-4 bg-store-primary/5 p-4 rounded-xl border border-store-primary/20 flex items-start gap-4 animate-in fade-in">
+                            <div className="bg-store-background p-2 rounded-lg border border-store-background-text/10">
+                              <Building2 size={24} className="text-store-primary" />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-store-background-text text-sm">
+                                Pickup Stations (GIGL)
+                              </h4>
+                              <p className="text-sm text-store-background-text/65 mt-1">
+                                {getStationPickupAddressText(stationPickupQuote) ||
+                                  'Collect from the selected GIGL service centre.'}
+                              </p>
+                              <div className="mt-2 text-xs font-bold bg-store-background inline-block px-2 py-1 rounded border border-store-background-text/10 text-store-background-text">
+                                ₦{stationPickupQuote.price.toLocaleString()}
                               </div>
                             </div>
                           </div>
@@ -3439,9 +3541,9 @@ export const CheckoutPage: React.FC = () => {
 
                             {isLoadingQuotes ? (
                               <SmartQuoteLoader />
-                            ) : shippingQuotes.length > 0 ? (
+                            ) : doorDeliveryQuotes.length > 0 ? (
                               <div className="space-y-3">
-                                {shippingQuotes.map((quote) => (
+                                {doorDeliveryQuotes.map((quote) => (
                                   <label
                                     key={quote.id}
                                     className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer hover:border-store-primary/60 transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${selectedQuoteId === quote.id
@@ -3473,6 +3575,41 @@ export const CheckoutPage: React.FC = () => {
                                     </span>
                                   </label>
                                 ))}
+                              </div>
+                            ) : stationPickupQuote ? (
+                              <div className="rounded-xl border border-store-primary/20 bg-store-primary/5 p-5">
+                                <div className="flex items-start gap-3">
+                                  <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-store-primary/10 text-store-primary">
+                                    <Building2 size={22} />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <h4 className="text-sm font-bold text-store-background-text">
+                                      GIGL doesn't currently support door delivery to this location.
+                                    </h4>
+                                    <p className="mt-1 text-xs text-store-background-text/65">
+                                      Choose Pickup Stations (GIGL) to collect from a nearby service centre.
+                                    </p>
+                                    <p className="mt-3 text-xs font-medium text-store-background-text">
+                                      {getStationPickupAddressText(stationPickupQuote) ||
+                                        stationPickupQuote.displayName}
+                                    </p>
+                                    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                      <span className="text-sm font-bold text-store-background-text">
+                                        ₦{stationPickupQuote.price.toLocaleString()}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedQuoteId(stationPickupQuote.id);
+                                          setDeliveryMethod('pickup_station');
+                                        }}
+                                        className="inline-flex items-center justify-center rounded-full bg-store-primary px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-store-primary/90"
+                                      >
+                                        Choose Pickup Stations (GIGL)
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                             ) : (
                               <button

@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { ShippingPickupFallbackNotice } from '@/components/checkout/ShippingPickupFallbackNotice';
 import { ShippingQuotesRetryCard } from '@/components/checkout/ShippingQuotesRetryCard';
 import type { ShippingQuote } from '@/components/checkout/types';
 import type Colors from '@/constants/Colors';
@@ -21,6 +22,7 @@ interface ShippingQuotesCardProps {
   isDark: boolean;
   isLoadingQuotes: boolean;
   shippingQuotes: ShippingQuote[];
+  stationPickupQuote?: ShippingQuote;
   selectedQuoteId: string;
   onSelectQuote: (id: string) => void;
   onRetryQuotes: () => void;
@@ -31,6 +33,7 @@ export function ShippingQuotesCard({
   isDark,
   isLoadingQuotes,
   shippingQuotes,
+  stationPickupQuote,
   selectedQuoteId,
   onSelectQuote,
   onRetryQuotes,
@@ -66,6 +69,11 @@ export function ShippingQuotesCard({
               Fetching delivery options…
             </Text>
           </View>
+        ) : shippingQuotes.length === 0 && stationPickupQuote ? (
+          <ShippingPickupFallbackNotice
+            colors={colors}
+            stationPickupQuote={stationPickupQuote}
+          />
         ) : shippingQuotes.length === 0 ? (
           <ShippingQuotesRetryCard
             colors={colors}

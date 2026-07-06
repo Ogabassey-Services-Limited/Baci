@@ -81,6 +81,42 @@ describe('DoorDeliveryQuotes', () => {
     ).toBeInTheDocument();
   });
 
+  it('offers GIGL pickup stations when door delivery is unavailable', () => {
+    const onSelectStationPickup = vi.fn();
+    render(
+      <DoorDeliveryQuotes
+        {...defaultProps}
+        stationPickupQuote={{
+          id: 'station-quote',
+          provider: 'GIGL',
+          serviceTier: 'station',
+          carrierName: 'GIG Logistics',
+          displayName: 'Pickup Stations (GIGL)',
+          price: 4200,
+          estimatedDays: 3,
+          currency: 'NGN',
+          pickupIncluded: true,
+          insuranceIncluded: true,
+          isStationPickup: true,
+          stationName: 'PORT HARCOURT',
+          stationAddress: 'GIGL Aba Road, Port Harcourt',
+        }}
+        onSelectStationPickup={onSelectStationPickup}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        /gigl doesn't currently support door delivery to this location/i,
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /choose pickup stations \(gigl\)/i }),
+    );
+    expect(onSelectStationPickup).toHaveBeenCalledWith('station-quote');
+  });
+
   it('refreshes rates with the current address and customer details', () => {
     render(<DoorDeliveryQuotes {...defaultProps} />);
 

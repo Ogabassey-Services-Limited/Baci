@@ -2,7 +2,7 @@
 
 import { ThumbnailImage } from '@/components/optimized-image';
 import { ChevronRight, Loader2, ShieldCheck } from 'lucide-react';
-import type { PaymentMethod, ResumedOrder } from '../types';
+import type { DeliveryMethod, PaymentMethod, ResumedOrder } from '../types';
 
 interface OrderItem {
   cartItemId?: string;
@@ -25,7 +25,7 @@ interface OrderSummarySidebarProps {
   walletAmountUsed: number;
   orderTotals: { total: number; taxAmount: number } | null;
   taxRate: number;
-  deliveryMethod: 'pickup' | 'door' | 'airport';
+  deliveryMethod: DeliveryMethod;
   selectedQuoteId: string;
   giftWrappingCost: number;
   walletLoading: boolean;

@@ -7,9 +7,12 @@ import { normalizeOrderPaymentMethod } from '../pending-checkout-order';
 import { persistCreditDirectPopupReference } from '../persist-credit-direct-popup-reference';
 import {
   KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST,
+  getStationPickupAddressText,
+  isStationPickupQuote,
   isKlumpUnavailableForGatewayAmount,
 } from '../utils';
 import type {
+  DeliveryMethod,
   SavedAddress,
   ShippingQuote,
   PaymentMethod,
@@ -40,7 +43,7 @@ export interface PlaceOrderOptions {
   firstName: string;
   lastName: string;
   customerPhone: string;
-  deliveryMethod: 'pickup' | 'door' | 'airport';
+  deliveryMethod: DeliveryMethod;
   isNewAddressMode: boolean;
   newAddressStreet: string;
   newAddressCity: string;
@@ -106,11 +109,14 @@ function buildShippingAddress(opts: PlaceOrderOptions) {
     addresses,
     airportType,
     customerPhone,
+    selectedQuoteId,
+    shippingQuotes,
   } = opts;
 
   let finalAddress = 'Address not provided';
   let finalCity = '';
   let finalState = '';
+  const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
 
   if (deliveryMethod === 'door') {
     if (isNewAddressMode) {
@@ -118,14 +124,28 @@ function buildShippingAddress(opts: PlaceOrderOptions) {
       finalCity = newAddressCity;
       finalState = newAddressState;
     } else {
-      const selectedAddress = addresses.find(
-        (a) => a.id === selectedAddressId,
-      );
       finalAddress = selectedAddress?.address || 'Address not provided';
       const parts = finalAddress.split(',');
       if (parts.length >= 2) {
         finalState = parts[parts.length - 1]?.trim() || '';
         finalCity = parts[parts.length - 2]?.trim() || '';
+      }
+    }
+  } else if (deliveryMethod === 'pickup_station') {
+    const selectedQuote = shippingQuotes.find(
+      (quote) => String(quote.id) === String(selectedQuoteId),
+    );
+    finalAddress =
+      (selectedQuote && getStationPickupAddressText(selectedQuote)) ||
+      selectedQuote?.displayName ||
+      'GIGL pickup station';
+    finalCity = newAddressCity;
+    finalState = newAddressState;
+    if ((!finalCity || !finalState) && selectedAddress?.address) {
+      const parts = selectedAddress.address.split(',');
+      if (parts.length >= 2) {
+        finalCity ||= parts[parts.length - 2]?.trim() || '';
+        finalState ||= parts[parts.length - 1]?.trim() || '';
       }
     }
   } else if (deliveryMethod === 'pickup') {
@@ -139,8 +159,6 @@ function buildShippingAddress(opts: PlaceOrderOptions) {
     finalCity = newAddressCity || 'Airport';
     finalState = newAddressState || 'Nigeria';
   }
-
-  const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
 
   return {
     address: finalAddress,
@@ -170,15 +188,24 @@ type ShippingProviderResolution =
   | { ok: false; reason: 'dangling_quote' };
 
 function getShippingProvider(
-  deliveryMethod: string,
+  deliveryMethod: DeliveryMethod,
   selectedQuoteId: string,
   shippingQuotes: ShippingQuote[],
 ): ShippingProviderResolution {
-  if (deliveryMethod === 'door' && selectedQuoteId) {
+  if (
+    (deliveryMethod === 'door' || deliveryMethod === 'pickup_station') &&
+    selectedQuoteId
+  ) {
     const quote = shippingQuotes.find(
       (q) => String(q.id) === String(selectedQuoteId),
     );
     if (!quote) {
+      return { ok: false, reason: 'dangling_quote' };
+    }
+    if (deliveryMethod === 'door' && isStationPickupQuote(quote)) {
+      return { ok: false, reason: 'dangling_quote' };
+    }
+    if (deliveryMethod === 'pickup_station' && !isStationPickupQuote(quote)) {
       return { ok: false, reason: 'dangling_quote' };
     }
     return { ok: true, provider: quote.provider || null };
@@ -288,7 +315,10 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
   // legitimate "no shipping" (pickup/airport) from broken "door
   // without quote" — the client knows the deliveryMethod and is the
   // right place to enforce.
-  if (deliveryMethod === 'door' && !selectedQuoteId) {
+  if (
+    (deliveryMethod === 'door' || deliveryMethod === 'pickup_station') &&
+    !selectedQuoteId
+  ) {
     toast({
       title: 'Delivery option required',
       description: 'Please select a delivery option to continue.',
@@ -377,7 +407,9 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
         // the pre-submit door-no-quote guard above is bypassed by a
         // future refactor. Schemas are `.nullable().optional()`.
         selected_quote_id:
-          deliveryMethod === 'door' ? (selectedQuoteId || null) : null,
+          deliveryMethod === 'door' || deliveryMethod === 'pickup_station'
+            ? selectedQuoteId || null
+            : null,
         use_wallet_credit: payWithWallet && walletAmountUsed > 0,
         wallet_amount: walletAmountUsed,
         user_id: user?.id,

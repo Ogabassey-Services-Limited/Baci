@@ -1,4 +1,9 @@
-import type { CryptoChain, CryptoCurrency, ShippingQuote } from './types';
+import type {
+  CryptoChain,
+  CryptoCurrency,
+  DeliveryMethod,
+  ShippingQuote,
+} from './types';
 
 /** Date range string for door delivery (tomorrow to +3 days). */
 export function getDeliveryDateRange(): string {
@@ -129,23 +134,59 @@ export function inferAddressLocationFromInput(
 
 /** Calculate the delivery cost based on selected method and quote. */
 export function calculateDeliveryCost(
-  deliveryMethod: 'pickup' | 'door' | 'airport',
+  deliveryMethod: DeliveryMethod,
   selectedQuoteId: string,
   shippingQuotes: ShippingQuote[],
   airportType: 'delivery' | 'pickup',
 ): number {
   if (deliveryMethod === 'pickup') return 0;
 
-  if (deliveryMethod === 'door') {
+  if (deliveryMethod === 'door' || deliveryMethod === 'pickup_station') {
     if (!selectedQuoteId) return 0;
-    return (
-      shippingQuotes.find((q) => String(q.id) === String(selectedQuoteId))
-        ?.price ?? 0
+    const selectedQuote = shippingQuotes.find(
+      (quote) => String(quote.id) === String(selectedQuoteId),
     );
+    if (!selectedQuote) return 0;
+    if (deliveryMethod === 'door' && isStationPickupQuote(selectedQuote)) {
+      return 0;
+    }
+    if (
+      deliveryMethod === 'pickup_station' &&
+      !isStationPickupQuote(selectedQuote)
+    ) {
+      return 0;
+    }
+    return selectedQuote.price;
   }
 
   // Airport
   return airportType === 'delivery' ? 25000 : 20000;
+}
+
+export function isStationPickupQuote(quote: ShippingQuote): boolean {
+  return quote.isStationPickup === true;
+}
+
+export function getDoorDeliveryQuotes(
+  quotes: ShippingQuote[],
+): ShippingQuote[] {
+  return quotes.filter((quote) => !isStationPickupQuote(quote));
+}
+
+export function getStationPickupQuote(
+  quotes: ShippingQuote[],
+): ShippingQuote | undefined {
+  return quotes.find(isStationPickupQuote);
+}
+
+export function getPreferredDoorQuoteId(quotes: ShippingQuote[]): string {
+  return getDoorDeliveryQuotes(quotes)[0]?.id ?? '';
+}
+
+export function getStationPickupAddressText(quote: ShippingQuote): string {
+  return [quote.stationName, quote.stationAddress]
+    .filter((line): line is string => Boolean(line))
+    .join(', ');
 }
 
 export function isGatewayAmountDifferentFromOrderTotal(

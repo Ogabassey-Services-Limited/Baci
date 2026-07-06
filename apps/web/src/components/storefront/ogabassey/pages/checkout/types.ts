@@ -93,7 +93,7 @@ export type CryptoChain = 'TRX' | 'ETH' | 'MATIC' | 'AVAXC';
 export type CryptoCurrency = 'USDT' | 'USDC';
 export type CryptoVerificationStatus = 'idle' | 'checking' | 'confirmed' | 'pending' | 'failed';
 
-export type DeliveryMethod = 'pickup' | 'door' | 'airport';
+export type DeliveryMethod = 'pickup' | 'door' | 'airport' | 'pickup_station';
 export type CheckoutStep = 'contact' | 'delivery' | 'payment';
 export type PaymentMethod =
   | 'paystack'

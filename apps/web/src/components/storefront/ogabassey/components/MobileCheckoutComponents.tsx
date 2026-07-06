@@ -5,6 +5,7 @@ import Image from 'next/image';
 import type React from 'react';
 import { useId, useState } from 'react';
 import type { CartItem } from '@/hooks/cart';
+import type { DeliveryMethod } from '../pages/checkout/types';
 
 // --- Types ---
 
@@ -12,7 +13,7 @@ interface MobileOrderSummaryProps {
     cart: CartItem[];
     cartTotal: number;
     deliveryCost: number;
-    deliveryMethod: 'door' | 'pickup' | 'airport' | null;
+    deliveryMethod: DeliveryMethod | null;
     giftWrappingCost: number;
     walletBalance: number;
     payWithWallet: boolean;

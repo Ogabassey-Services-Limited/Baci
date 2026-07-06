@@ -2,7 +2,7 @@
 
 import { Building2, Plane, Truck } from 'lucide-react';
 import { isAirportDeliveryEligible, isPickupEligible } from '@baci/shared';
-import type { DeliveryMethod } from '../types';
+import type { DeliveryMethod, ShippingQuote } from '../types';
 
 interface DeliveryMethodSelectorProps {
   isHydrated: boolean;
@@ -12,11 +12,19 @@ interface DeliveryMethodSelectorProps {
   selectedAddressId: number;
   deliveryMethod: DeliveryMethod;
   setDeliveryMethod: (value: DeliveryMethod) => void;
+  stationPickupQuote?: ShippingQuote;
 }
 
 function getDeliveryMethodCopy(method: DeliveryMethod) {
   if (method === 'door') {
     return { Icon: Truck, label: 'Door Delivery', subtitle: 'To your address' };
+  }
+  if (method === 'pickup_station') {
+    return {
+      Icon: Building2,
+      label: 'Pickup Stations (GIGL)',
+      subtitle: 'Collect at service centre',
+    };
   }
   if (method === 'pickup') {
     return { Icon: Building2, label: 'Pickup', subtitle: 'Collect at store' };
@@ -32,6 +40,7 @@ export function DeliveryMethodSelector({
   selectedAddressId,
   deliveryMethod,
   setDeliveryMethod,
+  stationPickupQuote,
 }: DeliveryMethodSelectorProps) {
   const canChooseDeliveryMethod =
     isHydrated &&
@@ -47,7 +56,10 @@ export function DeliveryMethodSelector({
           How would you like to receive your order?
         </p>
         <div className="flex gap-3 overflow-x-auto pb-1">
-          {(['door', 'pickup', 'airport'] as const).map((method) => {
+          {(['door', 'pickup_station', 'pickup', 'airport'] as const).map((method) => {
+            if (method === 'pickup_station' && !stationPickupQuote) {
+              return null;
+            }
             if (method === 'pickup' && !isPickupEligible(newAddressState)) {
               return null;
             }

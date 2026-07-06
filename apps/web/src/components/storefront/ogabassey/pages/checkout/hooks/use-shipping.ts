@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { normalizeShippingQuoteResponse } from '@/lib/shipping/quote-response';
-import type { ShippingLocation, ShippingQuote, SavedAddress } from '../types';
+import type {
+  DeliveryMethod,
+  SavedAddress,
+  ShippingLocation,
+  ShippingQuote,
+} from '../types';
+import { getPreferredDoorQuoteId } from '../utils';
 
 interface CartItem {
   name: string;
@@ -12,7 +18,7 @@ interface CartItem {
 }
 
 interface UseShippingOptions {
-  deliveryMethod: 'pickup' | 'door' | 'airport';
+  deliveryMethod: DeliveryMethod;
   isNewAddressMode: boolean;
   newAddressState: string;
   newAddressCity: string;
@@ -121,8 +127,9 @@ async function loadShippingQuotes(
       const { quotes } = normalizeShippingQuoteResponse(data);
       setShippingQuotes(quotes);
 
-      if (quotes.length > 0) {
-        setSelectedQuoteId(quotes[0].id);
+      const preferredDoorQuoteId = getPreferredDoorQuoteId(quotes);
+      if (preferredDoorQuoteId) {
+        setSelectedQuoteId(preferredDoorQuoteId);
       }
     } else {
       console.warn('Failed to fetch quotes:', await res.text());

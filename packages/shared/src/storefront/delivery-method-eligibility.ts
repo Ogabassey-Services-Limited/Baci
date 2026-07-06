@@ -5,14 +5,18 @@
  * The store ships from Lagos:
  * - Door delivery: always available.
  * - Pickup at the store: only for customers in Lagos.
+ * - Provider pickup stations: only shown by callers after a station quote exists.
  * - Airport (air-cargo) delivery: only for non-Lagos states that have an
  *   airport (the list below).
  *
- * Callers map these primitives onto their own delivery-method identifiers
- * (web uses `pickup`; mobile uses `pickup_station`).
+ * Callers decide whether `pickup_station` is visible based on quote data.
  */
 
-export type WebStorefrontDeliveryMethod = 'pickup' | 'door' | 'airport';
+export type WebStorefrontDeliveryMethod =
+  | 'pickup'
+  | 'door'
+  | 'airport'
+  | 'pickup_station';
 
 /** Nigerian states (incl. FCT) with an airport that supports air-cargo delivery. */
 export const AIRPORT_DELIVERY_STATES = [
@@ -82,6 +86,9 @@ export function isWebStorefrontDeliveryMethodEligible(
   }
   if (method === 'pickup') {
     return isPickupEligible(state);
+  }
+  if (method === 'pickup_station') {
+    return true;
   }
   return isAirportDeliveryEligible(state);
 }

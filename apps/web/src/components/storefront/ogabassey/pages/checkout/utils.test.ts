@@ -100,6 +100,31 @@ describe('calculateDeliveryCost', () => {
     expect(cost).toBe(0);
   });
 
+  it('returns the station quote price for provider pickup stations', () => {
+    const cost = calculateDeliveryCost(
+      'pickup_station',
+      'station-1',
+      [
+        ...mockQuotes,
+        {
+          id: 'station-1',
+          provider: 'GIGL',
+          serviceTier: 'station',
+          carrierName: 'GIG Logistics',
+          displayName: 'Pickup Stations (GIGL)',
+          price: 4200,
+          estimatedDays: 3,
+          currency: 'NGN',
+          pickupIncluded: true,
+          insuranceIncluded: true,
+          isStationPickup: true,
+        },
+      ],
+      'delivery',
+    );
+    expect(cost).toBe(4200);
+  });
+
   it('returns 0 for door delivery with no selected quote', () => {
     const cost = calculateDeliveryCost('door', '', mockQuotes, 'delivery');
     expect(cost).toBe(0);

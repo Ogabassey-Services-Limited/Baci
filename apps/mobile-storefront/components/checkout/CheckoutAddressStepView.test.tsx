@@ -172,6 +172,7 @@ describe('CheckoutAddressStepView station pickup quotes', () => {
     };
     const quotesProps = mockShippingQuotesCard.mock.calls[0]?.[0] as {
       shippingQuotes: ShippingQuote[];
+      stationPickupQuote?: ShippingQuote;
     };
 
     expect(deliveryProps.doorPrice).toBe('—');
@@ -180,6 +181,7 @@ describe('CheckoutAddressStepView station pickup quotes', () => {
     );
     expect(deliveryProps.pickupStationQuote).toBe(stationQuote);
     expect(quotesProps.shippingQuotes).toEqual([doorQuote]);
+    expect(quotesProps.stationPickupQuote).toBe(stationQuote);
   });
 
   it('passes selected door quote details through the door delivery option', () => {

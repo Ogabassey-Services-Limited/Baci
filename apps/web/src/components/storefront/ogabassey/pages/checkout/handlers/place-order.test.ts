@@ -806,6 +806,48 @@ describe('handlePlaceOrder', () => {
       expect(fetchBody.selected_quote_id).toBeNull();
     });
 
+    it('uses provider quote details for GIGL pickup station delivery', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          order: { id: 'order-station' },
+          wallet: null,
+          amountDueToGateway: 14_493,
+        }),
+      });
+
+      const opts = buildOpts({
+        deliveryCost: 4493,
+        deliveryMethod: 'pickup_station',
+        selectedQuoteId: 'station-quote',
+        shippingQuotes: [
+          {
+            id: 'station-quote',
+            provider: 'GIGL',
+            serviceTier: 'station',
+            carrierName: 'GIG Logistics',
+            displayName: 'Pickup Stations (GIGL)',
+            price: 4493,
+            estimatedDays: 3,
+            currency: 'NGN',
+            pickupIncluded: true,
+            insuranceIncluded: true,
+            isStationPickup: true,
+            stationName: 'PORT HARCOURT',
+            stationAddress: 'GIGL Aba Road, Port Harcourt',
+          },
+        ],
+      });
+      await handlePlaceOrder(opts);
+
+      const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(fetchBody.shipping_provider).toBe('GIGL');
+      expect(fetchBody.selected_quote_id).toBe('station-quote');
+      expect(fetchBody.shipping_address.address).toBe(
+        'PORT HARCOURT, GIGL Aba Road, Port Harcourt',
+      );
+    });
+
     it('omits shipping_provider for airport delivery (B3 — delivery-method labels are not providers)', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
