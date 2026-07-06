@@ -17,6 +17,10 @@ export type InternationalShipmentOrderItem = {
 };
 
 type PackageDimensions = Pick<ShipmentItem, 'length' | 'width' | 'height'>;
+export type InternationalQuoteValidationItem = Pick<
+  ShipmentItem,
+  'height' | 'hsCode' | 'length' | 'name' | 'quantity' | 'weight' | 'width'
+>;
 const METADATA_TOLERANCE = 0.001;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -261,6 +265,27 @@ export function toInternationalShipmentItemsFromOrder(
       value:
         readOptionalNonNegativeNumber(quoteItem?.value) ??
         readNonNegativeNumber(item.price, name),
+      ...(hsCode ? { hsCode } : {}),
+      ...(dimensions ?? {}),
+    };
+  });
+}
+
+export function toInternationalQuoteValidationItemsFromOrder(
+  orderItems: InternationalShipmentOrderItem[]
+): InternationalQuoteValidationItem[] {
+  return orderItems.map((item) => {
+    const product = readProductMetadata(item);
+    const hsCode = product?.commodity_code?.trim() || undefined;
+    const dimensions = readPackageDimensions(product);
+    const name = item.name || 'Order item';
+    const quantity = Math.max(1, item.quantity ?? 1);
+    const weight = normalizeWeightKg(product);
+
+    return {
+      name,
+      quantity,
+      weight,
       ...(hsCode ? { hsCode } : {}),
       ...(dimensions ?? {}),
     };

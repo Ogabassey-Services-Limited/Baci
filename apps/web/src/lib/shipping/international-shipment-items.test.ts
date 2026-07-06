@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { toInternationalShipmentItemsFromOrder } from './international-shipment-items';
+import {
+  toInternationalQuoteValidationItemsFromOrder,
+  toInternationalShipmentItemsFromOrder,
+} from './international-shipment-items';
 
 describe('toInternationalShipmentItemsFromOrder', () => {
   it('derives international package metadata from the linked product', () => {
@@ -203,6 +206,34 @@ describe('toInternationalShipmentItemsFromOrder', () => {
         length: 10,
         width: 8,
         height: 6,
+      },
+    ]);
+  });
+
+  it('derives quote validation metadata without requiring item price', () => {
+    expect(
+      toInternationalQuoteValidationItemsFromOrder([
+        {
+          name: 'Phone',
+          quantity: 1,
+          price: null,
+          product: {
+            weight_value: '500',
+            weight_unit: 'g',
+            dimensions: { length: 4, width: 3, height: 2, unit: 'in' },
+            commodity_code: '851712',
+          },
+        },
+      ])
+    ).toEqual([
+      {
+        name: 'Phone',
+        quantity: 1,
+        weight: 0.5,
+        hsCode: '851712',
+        length: 10.16,
+        width: 7.62,
+        height: 5.08,
       },
     ]);
   });

@@ -49,7 +49,7 @@ describe('enrichShippingAddressWithQuoteDestination reuse validation', () => {
         shippingAddress,
         {
           merchantId: 'merchant-current',
-          items: [{ name: 'Phone', price: null, quantity: 1 }],
+          items: [{ name: 'Phone', price: null, quantity: 1, weight: 1 }],
           shippingFee: 10_000,
           shippingProvider: 'GIGL',
         }

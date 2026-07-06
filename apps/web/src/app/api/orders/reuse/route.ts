@@ -4,105 +4,16 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import {
   enrichShippingAddressWithQuoteDestination,
   OrderQuoteDestinationMismatchError,
-  type OrderShippingAddressForQuote,
 } from '@/lib/shipping/order-quote-destination';
 import { createClient } from '@/lib/supabase/server';
 import {
   type ReuseCheckoutOrderInput,
   reuseCheckoutOrderSchema,
 } from '@/schemas/orders';
-
-type ReuseOrderQuoteItem = {
-  name: string | null;
-  price?: number | string | null;
-  quantity: number | null;
-};
-
-type ReuseOrderQuoteValidationContext = {
-  order_items: ReuseOrderQuoteItem[];
-  selected_quote_id: string | null;
-  shipping_address: OrderShippingAddressForQuote | undefined;
-  shipping_fee: number | string | null;
-  shipping_provider: string | null;
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function readOrderShippingAddress(
-  value: unknown
-): OrderShippingAddressForQuote | undefined {
-  if (!isRecord(value)) return undefined;
-  const address = value.address;
-  const city = value.city;
-  const state = value.state;
-  if (
-    typeof address !== 'string' ||
-    typeof city !== 'string' ||
-    typeof state !== 'string'
-  ) {
-    return undefined;
-  }
-
-  return {
-    address,
-    city,
-    country: typeof value.country === 'string' ? value.country : undefined,
-    countryCode:
-      typeof value.countryCode === 'string' ? value.countryCode : undefined,
-    postalCode:
-      typeof value.postalCode === 'string' ? value.postalCode : undefined,
-    state,
-  };
-}
-
-function readOrderQuoteItem(value: unknown): ReuseOrderQuoteItem | null {
-  if (!isRecord(value)) return null;
-  const name = value.name;
-  const quantity = value.quantity;
-  const price = value.price;
-  return {
-    name: typeof name === 'string' ? name : null,
-    price:
-      typeof price === 'number' || typeof price === 'string' ? price : null,
-    quantity: typeof quantity === 'number' ? quantity : null,
-  };
-}
-
-function readValidationContext(
-  data: unknown
-): ReuseOrderQuoteValidationContext | null {
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!isRecord(row)) return null;
-
-  const shippingFee = row.shipping_fee;
-  const shippingProvider = row.shipping_provider;
-  const selectedQuoteId = row.selected_quote_id;
-  return {
-    order_items: Array.isArray(row.order_items)
-      ? row.order_items.flatMap((item) => {
-          const parsed = readOrderQuoteItem(item);
-          return parsed ? [parsed] : [];
-        })
-      : [],
-    selected_quote_id:
-      typeof selectedQuoteId === 'string' ? selectedQuoteId : null,
-    shipping_address: readOrderShippingAddress(row.shipping_address),
-    shipping_fee:
-      typeof shippingFee === 'number' || typeof shippingFee === 'string'
-        ? shippingFee
-        : null,
-    shipping_provider:
-      typeof shippingProvider === 'string' ? shippingProvider : null,
-  };
-}
-
-function readOptionalShippingFee(value: number | string | null): number {
-  return typeof value === 'number' || typeof value === 'string'
-    ? Number(value)
-    : Number.NaN;
-}
+import {
+  readOptionalShippingFee,
+  readReuseQuoteValidationContext,
+} from './quote-validation-context';
 
 function mapReuseOrderError(
   error: { message?: string; code?: string } | null | undefined
@@ -187,7 +98,7 @@ async function validateSelectedQuoteForReuse(
     );
   }
 
-  const context = readValidationContext(validationData);
+  const context = readReuseQuoteValidationContext(validationData);
   if (!context) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
