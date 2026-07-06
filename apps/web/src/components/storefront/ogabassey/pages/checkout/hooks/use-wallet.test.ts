@@ -166,6 +166,80 @@ describe('useWallet', () => {
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
   });
 
+  it('should expose the funding account and consent flag from the wallet response', async () => {
+    const fundingAccount = {
+      accountName: 'OGB / JOHN DOE',
+      accountNumber: '9012345678',
+      bankName: 'Wema Bank',
+      provider: 'paystack',
+    };
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        balance: 1500,
+        fundingAccount,
+        requiresFundingAccountConsent: false,
+      }),
+    });
+
+    const { result } = renderHook(() =>
+      useWallet({ userId: 'user-123', merchantSlug: 'test-merchant' }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.fundingAccount).toEqual(fundingAccount);
+      expect(result.current.requiresFundingAccountConsent).toBe(false);
+    });
+  });
+
+  it('should flip the consent flag off when setFundingAccount stores a new account', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        balance: 0,
+        fundingAccount: null,
+        requiresFundingAccountConsent: true,
+      }),
+    });
+
+    const { result } = renderHook(() =>
+      useWallet({ userId: 'user-123', merchantSlug: 'test-merchant' }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.requiresFundingAccountConsent).toBe(true);
+    });
+
+    const account = {
+      accountName: null,
+      accountNumber: '9012345678',
+      bankName: 'Wema Bank',
+      provider: 'paystack',
+    };
+    await waitFor(() => {
+      result.current.setFundingAccount(account);
+      expect(result.current.fundingAccount).toEqual(account);
+      expect(result.current.requiresFundingAccountConsent).toBe(false);
+    });
+  });
+
+  it('should refetch when refreshWallet is called', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ balance: 500 }),
+    });
+
+    const { result } = renderHook(() =>
+      useWallet({ userId: 'user-123', merchantSlug: 'test-merchant' }),
+    );
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+
+    result.current.refreshWallet();
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+  });
+
   it('should refetch when merchantSlug changes', async () => {
     mockFetch.mockResolvedValue({
       ok: true,

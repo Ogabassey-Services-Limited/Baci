@@ -46,9 +46,9 @@ function createTestQueryClient() {
     defaultOptions: {
       queries: {
         retry: false,
-        gcTime: Infinity,
+        gcTime: Number.POSITIVE_INFINITY,
         refetchOnMount: false,
-        staleTime: Infinity,
+        staleTime: Number.POSITIVE_INFINITY,
       },
     },
   });
@@ -114,10 +114,29 @@ describe('useUtilityPayment', () => {
       expect(result.current.selectedSavedCardId).toBe('card-1');
     });
 
-    expect(result.current.supportedGateways).toEqual([
-      'paystack',
-      'korapay',
-    ]);
+    expect(result.current.supportedGateways).toEqual(['paystack', 'korapay']);
+  });
+
+  it('never offers bank_transfer as a VTU gateway even when the merchant enables it', async () => {
+    mockUseMerchantPaymentSettings.mockReturnValue({
+      data: {
+        paystack_enabled: true,
+        korapay_enabled: true,
+        wallet_paystack_dva_enabled: true,
+      },
+    });
+
+    const { result } = renderHook(() => useUtilityPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCards).toBe(false);
+    });
+
+    // Bank transfers are wallet-DVA only: VTU must never route through
+    // Paystack's hosted pay-with-transfer channel.
+    expect(result.current.supportedGateways).toEqual(['paystack', 'korapay']);
   });
 
   it('keeps saved card cleared when the user chooses another Paystack card', async () => {
@@ -205,7 +224,7 @@ describe('useUtilityPayment', () => {
   // three VTU controllers (bill / airtime / data) read & write the
   // same selection. Pin the public shape so a future refactor that
   // moves the state elsewhere can't silently break the controllers.
-  it('exposes walletBalance, walletSelection, and setWalletSelection', async () => {
+  it('auto-selects wallet payment when a usable balance exists (wallet-first)', async () => {
     mockWalletQuery = {
       data: { wallet: { balance: 1_500 } },
       error: null,
@@ -217,15 +236,46 @@ describe('useUtilityPayment', () => {
     });
 
     expect(result.current.walletBalance).toBe(1500);
-    expect(result.current.walletSelection).toBeUndefined();
+    expect(result.current.walletSelection).toEqual({
+      use: true,
+      amount: 500,
+    });
 
     act(() => {
-      result.current.setWalletSelection({ use: true, amount: 500 });
+      result.current.setWalletSelection({ use: false, amount: 0 });
+    });
+
+    expect(result.current.walletSelection).toBeUndefined();
+  });
+
+  it('does not auto-select wallet payment when the balance is zero', () => {
+    mockWalletQuery = {
+      data: { wallet: { balance: 0 } },
+      error: null,
+      isError: false,
+      isLoading: false,
+    };
+    const { result } = renderHook(() => useUtilityPayment(500), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.walletSelection).toBeUndefined();
+  });
+
+  it('caps the auto-selected wallet amount at the available balance for partial cover', () => {
+    mockWalletQuery = {
+      data: { wallet: { balance: 300 } },
+      error: null,
+      isError: false,
+      isLoading: false,
+    };
+    const { result } = renderHook(() => useUtilityPayment(1_000), {
+      wrapper: createWrapper(),
     });
 
     expect(result.current.walletSelection).toEqual({
       use: true,
-      amount: 500,
+      amount: 300,
     });
   });
 

@@ -1,5 +1,6 @@
 'use client';
 
+import type { StorefrontWalletFundingAccount } from '@baci/shared';
 import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 
 interface UseWalletOptions {
@@ -13,12 +14,21 @@ interface UseWalletReturn {
   payWithWallet: boolean;
   setPayWithWallet: (v: boolean) => void;
   setWalletBalance: Dispatch<SetStateAction<number>>;
+  fundingAccount: StorefrontWalletFundingAccount | null;
+  requiresFundingAccountConsent: boolean;
+  setFundingAccount: (account: StorefrontWalletFundingAccount | null) => void;
+  refreshWallet: () => void;
 }
 
 export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWalletReturn {
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletLoading, setWalletLoading] = useState(false);
   const [payWithWallet, setPayWithWallet] = useState(false);
+  const [fundingAccount, setFundingAccount] =
+    useState<StorefrontWalletFundingAccount | null>(null);
+  const [requiresFundingAccountConsent, setRequiresFundingAccountConsent] =
+    useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -35,6 +45,10 @@ export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWallet
           const data = await response.json();
           const balance = Number(data.balance) || 0;
           setWalletBalance(balance);
+          setFundingAccount(data.fundingAccount ?? null);
+          setRequiresFundingAccountConsent(
+            data.requiresFundingAccountConsent === true
+          );
           if (balance > 0) {
             setPayWithWallet(true);
           }
@@ -54,7 +68,20 @@ export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWallet
     fetchWalletBalance();
 
     return () => abortController.abort();
-  }, [userId, merchantSlug]);
+  }, [userId, merchantSlug, refreshToken]);
 
-  return { walletBalance, walletLoading, payWithWallet, setPayWithWallet, setWalletBalance };
+  return {
+    walletBalance,
+    walletLoading,
+    payWithWallet,
+    setPayWithWallet,
+    setWalletBalance,
+    fundingAccount,
+    requiresFundingAccountConsent,
+    setFundingAccount: (account) => {
+      setFundingAccount(account);
+      setRequiresFundingAccountConsent(!account);
+    },
+    refreshWallet: () => setRefreshToken((token) => token + 1),
+  };
 }

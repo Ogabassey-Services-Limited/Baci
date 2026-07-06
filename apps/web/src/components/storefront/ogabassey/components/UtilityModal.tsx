@@ -16,6 +16,7 @@ import {
 import { AirtimeDataForm } from './utility/AirtimeDataForm';
 import { BillPaymentForm } from './utility/BillPaymentForm';
 import { UtilityPaymentMethodSelector } from './UtilityPaymentMethodSelector';
+import { WalletFundingPanel } from './WalletFundingPanel';
 import { UtilitySuccessView } from './UtilitySuccessView';
 import { UtilityTabs, type UtilityTabId } from './UtilityTabs';
 import type { UtilityPaymentMethod } from './utility-types';
@@ -156,7 +157,11 @@ export const UtilityModal = ({
   const isAuthLoading = auth?.isLoading ?? false;
   const user = auth?.user ?? null;
   const {
+    fundingAccount,
     payWithWallet,
+    refreshWallet,
+    requiresFundingAccountConsent,
+    setFundingAccount,
     setPayWithWallet,
     setWalletBalance,
     walletBalance,
@@ -165,6 +170,7 @@ export const UtilityModal = ({
     merchantSlug: merchant?.slug,
     userId: user?.id,
   });
+  const [showFundingPanel, setShowFundingPanel] = useState(false);
   const canUseWallet = isAuthenticated && walletBalance > 0;
   const selectedPaymentMethod: UtilityPaymentMethod =
     canUseWallet && payWithWallet ? 'wallet' : 'card';
@@ -345,12 +351,29 @@ export const UtilityModal = ({
               <UtilityPaymentMethodSelector
                 canUseWallet={canUseWallet}
                 isLoading={loading}
+                onFundWallet={
+                  isAuthenticated
+                    ? () => setShowFundingPanel((visible) => !visible)
+                    : undefined
+                }
                 onSelectCard={() => setPayWithWallet(false)}
                 onSelectWallet={() => setPayWithWallet(true)}
                 selectedPaymentMethod={selectedPaymentMethod}
+                showWalletRow={isAuthenticated}
                 walletBalance={walletBalance}
                 walletLoading={walletLoading}
               />
+              {showFundingPanel && isAuthenticated ? (
+                <div className="mt-3">
+                  <WalletFundingPanel
+                    account={fundingAccount}
+                    merchantSlug={merchant?.slug}
+                    onAccountCreated={setFundingAccount}
+                    onRefreshBalance={refreshWallet}
+                    requiresConsent={requiresFundingAccountConsent}
+                  />
+                </div>
+              ) : null}
               {(activeTab === 'airtime' || activeTab === 'data') && (
                 <AirtimeDataForm
                   type={activeTab}

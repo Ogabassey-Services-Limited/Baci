@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import {
   ActivityIndicator,
   Pressable,
@@ -8,13 +9,14 @@ import {
 import { PaymentMethodSelector } from '@/components/checkout/PaymentMethodSelector';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import type { UtilityPaymentGateway } from '@/hooks/use-utility-payment';
 import type { SavedVtuCard } from '@/lib/vtu-checkout';
 import type { WalletSelection } from '@/lib/wallet-payment-helpers';
-import type { UtilityPaymentGateway } from '@/hooks/use-utility-payment';
 import { UtilityPaystackTrustBadge } from './UtilityPaystackTrustBadge';
 
-const CARD_CASHBACK_BADGE = '2x cashback';
-const CARD_CASHBACK_DESCRIPTION = '2x cashback on your first card payment';
+const WALLET_FUNDING_NUDGE =
+  'Pay from your wallet to skip card fees — fund it by bank transfer to your account number.';
+const WALLET_FUNDING_CTA = 'Fund wallet';
 
 interface UtilityPaymentOptionsProps {
   amount: number;
@@ -61,15 +63,17 @@ export function UtilityPaymentOptions({
     Number.isFinite(walletSelection?.amount) &&
     walletSelection?.use === true &&
     walletSelection.amount >= amount;
-  const methodLabelOverrides = {
-    bank_transfer: 'Pay with Bank Transfer',
-    ...(cards.length > 0 ? { paystack: 'Use another card' } : {}),
-  };
+  const methodLabelOverrides =
+    cards.length > 0 ? { paystack: 'Use another card' } : undefined;
   const hasPaystackOption =
     cards.length > 0 ||
-    supportedGateways.some(
-      (gateway) => gateway === 'paystack' || gateway === 'bank_transfer'
-    );
+    supportedGateways.some((gateway) => gateway === 'paystack');
+  const showWalletFundingNudge =
+    Boolean(onWalletToggle) &&
+    walletIsLoading !== true &&
+    !walletError &&
+    amount > 0 &&
+    (walletBalance ?? 0) < amount;
 
   return (
     <View style={styles.container}>
@@ -81,6 +85,29 @@ export function UtilityPaymentOptions({
           colors={colors}
           isDark={(colorScheme ?? 'light') === 'dark'}
         />
+      ) : null}
+
+      {showWalletFundingNudge ? (
+        <View
+          style={[
+            styles.walletNudge,
+            {
+              backgroundColor: `${BRAND.primary}10`,
+              borderColor: `${BRAND.primary}30`,
+            },
+          ]}
+        >
+          <Text style={[styles.walletNudgeText, { color: colors.text }]}>
+            {WALLET_FUNDING_NUDGE}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={WALLET_FUNDING_CTA}
+            onPress={() => router.push('/wallet')}
+          >
+            <Text style={styles.walletNudgeCta}>{WALLET_FUNDING_CTA}</Text>
+          </Pressable>
+        </View>
       ) : null}
 
       {isLoadingCards ? (
@@ -160,11 +187,7 @@ export function UtilityPaymentOptions({
       <PaymentMethodSelector
         enabledMethods={supportedGateways}
         onSelectMethod={(method) => {
-          if (
-            method === 'paystack' ||
-            method === 'korapay' ||
-            method === 'bank_transfer'
-          ) {
+          if (method === 'paystack' || method === 'korapay') {
             onSelectGateway(method);
           }
         }}
@@ -177,12 +200,6 @@ export function UtilityPaymentOptions({
           selectedSavedCardId && !walletCoversBill ? ['paystack'] : undefined
         }
         methodLabelOverrides={methodLabelOverrides}
-        methodDescriptionOverrides={{
-          paystack: CARD_CASHBACK_DESCRIPTION,
-        }}
-        methodBadgeOverrides={{
-          paystack: CARD_CASHBACK_BADGE,
-        }}
         walletMode={onWalletToggle ? 'vtu' : 'off'}
         walletBalance={walletBalance}
         walletError={walletError}
@@ -259,5 +276,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 12,
+  },
+  walletNudge: {
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+  },
+  walletNudgeCta: {
+    color: BRAND.primary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  walletNudgeText: {
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

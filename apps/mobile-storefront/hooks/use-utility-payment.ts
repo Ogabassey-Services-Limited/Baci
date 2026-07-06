@@ -3,19 +3,22 @@ import * as Crypto from 'expo-crypto';
 import { useRef, useState } from 'react';
 import { listSavedVtuCards, type VTUPaymentGateway } from '@/lib/vtu-checkout';
 import type { WalletSelection } from '@/lib/wallet-payment-helpers';
+import { useAuthStore } from '@/stores/auth-store';
+import { useWallet } from './use-wallet';
 import {
   getEnabledPaymentMethods,
   useMerchantPaymentSettings,
 } from './useMerchantPaymentSettings';
-import { useWallet } from './use-wallet';
-import { useAuthStore } from '@/stores/auth-store';
 
 export type UtilityPaymentGateway = VTUPaymentGateway;
 
+// bank_transfer is intentionally NOT a VTU gateway: the VTU initialize
+// route maps it to Paystack's hosted pay-with-transfer channel
+// (1.5% + ₦100, capped ₦2,000). Bank transfers must go through the
+// customer's wallet DVA instead (1%, capped ₦300) — fund wallet, pay wallet.
 const SUPPORTED_UTILITY_GATEWAYS: UtilityPaymentGateway[] = [
   'paystack',
   'korapay',
-  'bank_transfer',
 ];
 
 export function useUtilityPayment(amount = 0) {
@@ -27,7 +30,10 @@ export function useUtilityPayment(amount = 0) {
   );
   const [shouldAutoSelectDefaultCard, setShouldAutoSelectDefaultCard] =
     useState(true);
-  const [useWalletPayment, setUseWalletPayment] = useState(false);
+  // Wallet-first: default ON so eligible balances are applied to the
+  // bill automatically (full cover or partial deduct). Users can still
+  // opt out via the wallet toggle row.
+  const [useWalletPayment, setUseWalletPayment] = useState(true);
   // Wallet-only Idempotency-Key. Held in a ref so a network failure
   // doesn't lose the key — the user's retry MUST send the same key
   // for the route's `vtu_idempotency_keys` table to dedupe.

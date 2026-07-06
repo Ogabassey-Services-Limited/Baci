@@ -41,6 +41,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Bank transfers must never ride Paystack's hosted pay-with-transfer
+    // channel (1.5% + ₦100, capped ₦2,000). The supported transfer path is
+    // the customer's dedicated wallet funding account (1% capped ₦300):
+    // fund the wallet by transfer, then pay via the wallet-only route. The
+    // gateway enum still accepts the value so stale mobile clients get this
+    // actionable message instead of a generic validation error.
+    if (parsed.data.gateway === 'bank_transfer') {
+      return NextResponse.json(
+        {
+          error:
+            'Bank transfer now goes through your wallet. Fund your wallet by bank transfer, then pay from your wallet balance.',
+          code: 'BANK_TRANSFER_VIA_WALLET',
+        },
+        { status: 400 }
+      );
+    }
+
     // Wallet residual: when the customer covers some of the bill from
     // wallet credit, the gateway charges only the residual. Full
     // coverage (`walletAmount === amount`) must use the wallet-only
@@ -91,12 +108,7 @@ export async function POST(request: NextRequest) {
     const notificationUrl = `${protocol}://${rootDomain}/api/payments/webhook`;
     const paymentGateway =
       parsed.data.gateway === 'korapay' ? 'korapay' : 'paystack';
-    const paymentChannel =
-      parsed.data.gateway === 'bank_transfer'
-        ? 'bank_transfer'
-        : parsed.data.gateway === 'paystack'
-          ? 'card'
-          : 'korapay';
+    const paymentChannel = paymentGateway === 'paystack' ? 'card' : 'korapay';
 
     const metadata = {
       cancel_action: cancelUrl,
@@ -118,10 +130,7 @@ export async function POST(request: NextRequest) {
       let gatewayResponse: Record<string, unknown> | null = null;
 
       if (paymentGateway === 'paystack') {
-        const channels: PaymentChannel[] =
-          parsed.data.gateway === 'bank_transfer'
-            ? ['bank_transfer']
-            : ['card'];
+        const channels: PaymentChannel[] = ['card'];
         const paystack = await initializePaystackTransaction({
           channels,
           email: customerEmail,

@@ -1,0 +1,24 @@
+/**
+ * Copy for the wallet bank-transfer (Paystack DVA) funding surfaces.
+ * The fee note reflects Paystack's dedicated-virtual-account pricing:
+ * 1% per inbound transfer, capped at ₦300 — versus 1.5% + ₦100 (capped
+ * ₦2,000) on card/hosted checkout rails.
+ */
+export const WALLET_FUNDING_COPY = {
+  consentBlurb:
+    'We create a dedicated bank account number just for you. Any transfer you send to it lands in your wallet automatically.',
+  consentCta: 'Get my account number',
+  copied: 'Account number copied',
+  copyCta: 'Copy',
+  creating: 'Setting up your account number...',
+  feeNote: 'Bank transfers cost just 1% (capped at ₦300) — cheaper than card fees.',
+  fundCta: 'Fund by bank transfer — 1% fee, max ₦300',
+  refreshCta: "I've sent it — refresh balance",
+  subtitle:
+    'Transfer to your personal account number below and your wallet is credited automatically.',
+  title: 'Fund by bank transfer',
+  unavailable:
+    'Bank transfer funding is not available right now. Please try again later.',
+  walletRecommendedBadge: 'Recommended',
+  zeroBalanceHint: 'Fund your wallet to pay without card fees',
+} as const;

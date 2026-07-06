@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { CreditCard, History, Plus, Wallet, Loader2 } from 'lucide-react';
 import { EmptyState } from '../components/empty-state';
+import { WalletFundingPanel } from '../components/WalletFundingPanel';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import type { StorefrontWallet } from '@baci/shared';
@@ -22,6 +23,8 @@ export function OgabasseyV2Wallet() {
 
   const [wallet, setWallet] = useState<StorefrontWallet | null>(null);
   const [hasFetchSettled, setHasFetchSettled] = useState(false);
+  const [showFunding, setShowFunding] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
 
   useEffect(() => {
     if (!isAuthenticated || !merchant?.slug) {
@@ -40,7 +43,7 @@ export function OgabasseyV2Wallet() {
       .finally(() => {
         setHasFetchSettled(true);
       });
-  }, [isAuthenticated, merchant?.slug]);
+  }, [isAuthenticated, merchant?.slug, refreshToken]);
 
   // Derived instead of setState-in-effect: show the spinner while auth is
   // resolving or while the first wallet fetch is in flight.
@@ -48,8 +51,7 @@ export function OgabasseyV2Wallet() {
   const loading = isAuthLoading || (canFetch && !hasFetchSettled);
 
   const handleFundWallet = () => {
-    // Placeholder for now as per instructions/limitations
-    alert('Wallet funding is currently being updated. Please try again later.');
+    setShowFunding((visible) => !visible);
   };
 
   const handleAddCard = () => {
@@ -106,6 +108,26 @@ export function OgabasseyV2Wallet() {
                 </div>
               </div>
             </div>
+
+            {showFunding ? (
+              <WalletFundingPanel
+                account={wallet?.fundingAccount ?? null}
+                merchantSlug={merchant?.slug}
+                onAccountCreated={(account) =>
+                  setWallet((current) =>
+                    current
+                      ? {
+                          ...current,
+                          fundingAccount: account,
+                          requiresFundingAccountConsent: false,
+                        }
+                      : current
+                  )
+                }
+                onRefreshBalance={() => setRefreshToken((token) => token + 1)}
+                requiresConsent={wallet?.requiresFundingAccountConsent === true}
+              />
+            ) : null}
 
             {/* Quick Actions / Info */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">

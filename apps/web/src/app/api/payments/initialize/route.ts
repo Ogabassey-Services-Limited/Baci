@@ -59,11 +59,14 @@ type PaymentGateway = (typeof PAYMENT_GATEWAYS)[number];
 
 type PreferredGateway = 'paystack' | 'korapay';
 
+// 'bank_transfer' is deliberately excluded: Paystack's hosted pay-with-transfer
+// channel bills at 1.5% + ₦100 (capped ₦2,000). Bank transfers are only offered
+// through the dedicated-virtual-account branch (payment_type === 'dva'), which
+// bills at 1% capped ₦300.
 const PAYSTACK_NIGERIAN_CHANNELS = [
   'card',
   'bank',
   'ussd',
-  'bank_transfer',
 ] as const satisfies readonly PaymentChannel[];
 const PAYSTACK_INTERNATIONAL_CHANNELS = [
   'card',
@@ -362,17 +365,13 @@ function isNigerianPaystackCustomer(
 function getPaystackChannelsForCustomer(
   data: PaymentInitRequest,
   formattedCustomerPhone: string,
-  gatewaySettings: GatewaySettings
+  _gatewaySettings: GatewaySettings
 ): PaymentChannel[] {
   if (!isNigerianPaystackCustomer(data, formattedCustomerPhone)) {
     return [...PAYSTACK_INTERNATIONAL_CHANNELS];
   }
 
-  const allowedNigerianChannels = gatewaySettings.wallet_paystack_dva_enabled
-    ? [...PAYSTACK_NIGERIAN_CHANNELS]
-    : PAYSTACK_NIGERIAN_CHANNELS.filter(
-        (channel) => channel !== 'bank_transfer'
-      );
+  const allowedNigerianChannels = [...PAYSTACK_NIGERIAN_CHANNELS];
 
   if (!data.channels?.length) {
     return allowedNigerianChannels;
