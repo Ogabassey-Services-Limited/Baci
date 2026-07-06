@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   getCronSecret: vi.fn<() => string | undefined>(() => 'cron-secret'),
   limit: vi.fn(),
+  statusIn: vi.fn(),
+  lt: vi.fn(),
+  gte: vi.fn(),
   notifyMerchant: vi.fn(),
   loggerWarn: vi.fn(),
   loggerError: vi.fn(),
@@ -19,18 +22,18 @@ vi.mock('@/lib/supabase/admin', () => ({
       from: vi.fn(),
       select: vi.fn(),
       eq: vi.fn(),
-      in: vi.fn(),
-      lt: vi.fn(),
-      gte: vi.fn(),
+      in: mocks.statusIn,
+      lt: mocks.lt,
+      gte: mocks.gte,
       order: vi.fn(),
       limit: mocks.limit,
     };
     chain.from.mockReturnValue(chain);
     chain.select.mockReturnValue(chain);
     chain.eq.mockReturnValue(chain);
-    chain.in.mockReturnValue(chain);
-    chain.lt.mockReturnValue(chain);
-    chain.gte.mockReturnValue(chain);
+    mocks.statusIn.mockReturnValue(chain);
+    mocks.lt.mockReturnValue(chain);
+    mocks.gte.mockReturnValue(chain);
     chain.order.mockReturnValue(chain);
     return chain;
   },
@@ -66,7 +69,7 @@ function stuckOrder(overrides: Record<string, unknown> = {}) {
     merchant_id: 'merchant-1',
     total: 100000,
     payment_method: 'credit_direct',
-    created_at: '2026-07-01T00:00:00.000Z',
+    updated_at: '2026-07-01T00:00:00.000Z',
     notes: '{"credit_directTransactionId":"txn-1"}',
     ...overrides,
   };
@@ -165,6 +168,45 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
         merchantId: 'merchant-1',
         stuckOrderCount: 2,
         withProviderReference: 1,
+      })
+    );
+  });
+
+  it('scans every stuck BNPL status and ages on row movement, not creation', async () => {
+    await GET(createCronRequest());
+
+    expect(mocks.statusIn).toHaveBeenCalledWith('payment_status', [
+      'bnpl_pending',
+      'bnpl_approved',
+      'pending',
+      'unpaid',
+    ]);
+    expect(mocks.statusIn).toHaveBeenCalledWith('payment_method', [
+      'credit_direct',
+      'klump',
+      'credpal',
+    ]);
+    expect(mocks.lt).toHaveBeenCalledWith('updated_at', expect.any(String));
+    expect(mocks.gte).toHaveBeenCalledWith('updated_at', expect.any(String));
+  });
+
+  it('warns that the report may be partial when the scan hits its limit', async () => {
+    mocks.limit.mockResolvedValue({
+      data: Array.from({ length: 500 }, (_, index) =>
+        stuckOrder({ id: `order-${index}`, order_number: `ORD-${index}` })
+      ),
+      error: null,
+    });
+
+    const response = await GET(createCronRequest());
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.stuckOrders).toBe(500);
+    expect(mocks.loggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Stuck-BNPL scan hit scan limit; report may be partial',
+        scanLimit: 500,
       })
     );
   });

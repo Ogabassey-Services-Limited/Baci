@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
     const { data: orders, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, merchant_id, total, payment_status, shipping_status, payment_method, customer_email, customer_name, order_number, notes'
+        'id, merchant_id, total, amount_paid, wallet_amount_used, payment_status, shipping_status, payment_method, customer_email, customer_name, order_number, notes'
       )
       .in('payment_method', ['credit_direct', 'klump'])
       .ilike('notes', `%${payload.checkoutTransactionId}%`);
@@ -175,6 +175,8 @@ export async function POST(request: NextRequest) {
       id: string;
       merchant_id: string;
       total: number;
+      amount_paid: number | string | null;
+      wallet_amount_used: number | string | null;
       payment_status: string;
       shipping_status: string | null;
       payment_method: string | null;
@@ -188,7 +190,7 @@ export async function POST(request: NextRequest) {
       const { data: orderById } = await supabase
         .from('orders')
         .select(
-          'id, merchant_id, total, payment_status, shipping_status, payment_method, customer_email, customer_name, order_number, notes'
+          'id, merchant_id, total, amount_paid, wallet_amount_used, payment_status, shipping_status, payment_method, customer_email, customer_name, order_number, notes'
         )
         .eq('id', payload.metaData)
         .single();
@@ -355,11 +357,20 @@ export async function POST(request: NextRequest) {
         // Credit Direct has paid the merchant in full
         // Mark order as fully paid and create transaction record
         const webhookTotal = getWebhookProductsTotal(payload.products);
-        // Anchor the payout validation to the order's own total. The signed
-        // amount in notes is written by an anon-callable RPC, so it must not
-        // decide how much money marks this order as paid — BNPL semantics pay
-        // the merchant the full order total. Keep it for drift diagnostics.
-        const expectedAmount = Number(order.total) || 0;
+        // Anchor the payout validation to server-owned order columns. The
+        // signed amount in notes is written by an anon-callable RPC, so it
+        // must not decide how much money marks this order as paid. Wallet or
+        // savings redemptions settle before the gateway leg (recorded as
+        // amount_paid / wallet_amount_used at order creation), so Credit
+        // Direct legitimately collects the residual — not always the full
+        // order total.
+        const orderTotal = Number(order.total) || 0;
+        const preGatewayPaid = Math.max(
+          Number(order.amount_paid) || 0,
+          Number(order.wallet_amount_used) || 0
+        );
+        const expectedAmount =
+          Math.round((orderTotal - preGatewayPaid) * 100) / 100;
         if (
           signedAmount !== null &&
           Math.abs(signedAmount - expectedAmount) > 0.01

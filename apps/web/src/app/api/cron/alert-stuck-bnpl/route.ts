@@ -7,8 +7,19 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 const STUCK_BNPL_MIN_AGE_HOURS = 24;
 const STUCK_BNPL_MAX_AGE_DAYS = 7;
-const STUCK_BNPL_ORDER_SCAN_LIMIT = 200;
+const STUCK_BNPL_ORDER_SCAN_LIMIT = 500;
 const BNPL_PAYMENT_METHODS = ['credit_direct', 'klump', 'credpal'];
+// bnpl_pending: provider session opened, no completion webhook yet.
+// bnpl_approved: customer-completed webhook arrived but the merchant-payout
+//   webhook never did (partial delivery).
+// pending/unpaid: BNPL methods that never reached the session RPC flip —
+//   CredPal in particular never transitions to bnpl_pending.
+const STUCK_BNPL_PAYMENT_STATUSES = [
+  'bnpl_pending',
+  'bnpl_approved',
+  'pending',
+  'unpaid',
+];
 
 interface StuckBnplOrderRow {
   id: string;
@@ -16,7 +27,7 @@ interface StuckBnplOrderRow {
   merchant_id: string;
   total: number | string | null;
   payment_method: string | null;
-  created_at: string;
+  updated_at: string;
   notes: string | null;
 }
 
@@ -24,10 +35,10 @@ function hasProviderTransactionReference(notes: string | null) {
   return Boolean(notes && /transactionid/i.test(notes));
 }
 
-function getOrderAgeDays(createdAt: string, now: Date) {
-  const created = new Date(createdAt).getTime();
-  if (!Number.isFinite(created)) return 0;
-  return Math.max(0, Math.floor((now.getTime() - created) / 86_400_000));
+function getStuckAgeDays(lastMovementAt: string, now: Date) {
+  const lastMovement = new Date(lastMovementAt).getTime();
+  if (!Number.isFinite(lastMovement)) return 0;
+  return Math.max(0, Math.floor((now.getTime() - lastMovement) / 86_400_000));
 }
 
 // Alerts merchants about BNPL orders stuck awaiting provider confirmation.
@@ -57,17 +68,20 @@ export async function GET(request: NextRequest) {
       now.getTime() - STUCK_BNPL_MAX_AGE_DAYS * 86_400_000
     ).toISOString();
 
+    // Age on updated_at, not created_at: resumed/reminder orders flip into a
+    // BNPL state long after creation (set_credit_direct_session does not
+    // touch created_at), and a genuinely stuck order has no row movement.
     const supabase = createAdminClient();
     const { data: stuckOrders, error } = await supabase
       .from('orders')
       .select(
-        'id, order_number, merchant_id, total, payment_method, created_at, notes'
+        'id, order_number, merchant_id, total, payment_method, updated_at, notes'
       )
-      .eq('payment_status', 'bnpl_pending')
+      .in('payment_status', STUCK_BNPL_PAYMENT_STATUSES)
       .in('payment_method', BNPL_PAYMENT_METHODS)
-      .lt('created_at', minAgeCutoff)
-      .gte('created_at', maxAgeCutoff)
-      .order('created_at', { ascending: true })
+      .lt('updated_at', minAgeCutoff)
+      .gte('updated_at', maxAgeCutoff)
+      .order('updated_at', { ascending: true })
       .limit(STUCK_BNPL_ORDER_SCAN_LIMIT);
 
     if (error) {
@@ -119,7 +133,7 @@ export async function GET(request: NextRequest) {
         hasProviderTransactionReference(order.notes)
       ).length;
       const oldest = merchantOrders[0];
-      const oldestAgeDays = getOrderAgeDays(oldest.created_at, now);
+      const oldestAgeDays = getStuckAgeDays(oldest.updated_at, now);
       const orderCount = merchantOrders.length;
 
       logger.warn({
@@ -137,7 +151,7 @@ export async function GET(request: NextRequest) {
         const result = await notifyMerchant(
           merchantId,
           '⚠️ BNPL orders need attention',
-          `${orderCount} BNPL order${orderCount === 1 ? '' : 's'} totalling ${formatCurrency(totalAmount)} ${orderCount === 1 ? 'is' : 'are'} still awaiting payment confirmation after 24h. Oldest: #${oldest.order_number || oldest.id.slice(0, 8)} (${oldestAgeDays} day${oldestAgeDays === 1 ? '' : 's'} old).`,
+          `${orderCount} BNPL order${orderCount === 1 ? '' : 's'} totalling ${formatCurrency(totalAmount)} ${orderCount === 1 ? 'is' : 'are'} still awaiting payment confirmation after 24h. Oldest: #${oldest.order_number || oldest.id.slice(0, 8)} (stuck ${oldestAgeDays} day${oldestAgeDays === 1 ? '' : 's'}).`,
           {
             type: 'stuck_bnpl_alert',
             stuck_order_count: orderCount,
