@@ -26,6 +26,15 @@ import { createStorefrontPreflightCircuitBreaker } from './storefront-preflight-
  *  - a consecutive-failure circuit breaker fails every preflight open
  *    instantly during a Supabase brownout instead of stalling each document
  *    navigation for the full budget, twice.
+ *
+ * ACCEPTED EXPOSURE: the verdict RPCs are anon-GRANTed SECURITY DEFINER
+ * functions, so they are directly callable at PostgREST with the public anon
+ * key, bypassing this transport's memo/breaker/kill-switch — the same class
+ * as the shipped resolve_storefront_auth_merchant and
+ * get_merchant_product_slug_resolution RPCs. They expose only public
+ * storefront verdict data, are index-backed point reads, and carry their own
+ * statement_timeout; platform-side anon rate limiting is the control surface
+ * for direct abuse.
  */
 
 export interface StorefrontPreflightRpcContext {

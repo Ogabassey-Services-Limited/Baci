@@ -7,10 +7,12 @@
  *
  * Semantics: `openUntil` is set after `threshold` CONSECUTIVE failures; while
  * open, callers skip the RPC and fail open instantly. After `cooldownMs` the
- * next caller becomes the half-open probe (state resets to closed-with-history
- * so a single success clears it and a single failure re-opens immediately).
- * State is per-middleware-instance module state — approximate by design; the
- * goal is bounding incident amplification, not distributed consensus.
+ * breaker half-opens: state resets to closed-with-history so a single success
+ * clears it and a single failure re-opens immediately. Concurrent callers in
+ * the half-open window may ALL probe (no single-flight gating) — a small,
+ * accepted thundering-herd since state is per-middleware-instance module
+ * state anyway; the goal is bounding incident amplification, not distributed
+ * consensus.
  */
 export interface StorefrontPreflightCircuitBreaker {
   /** True when calls should be skipped (fail open) without probing. */

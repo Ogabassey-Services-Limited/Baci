@@ -405,12 +405,6 @@ REVOKE ALL ON FUNCTION public.get_storefront_blog_post_status(text, text)
 GRANT EXECUTE ON FUNCTION public.get_storefront_blog_post_status(text, text)
   TO anon, authenticated, service_role;
 
--- The PDP preflight matches case-insensitively (lower(p.slug) = lowered
--- input, mirroring the slug set's case-insensitive scan), which the raw
--- (merchant_id, slug) indexes cannot seek. This expression index restores an
--- index seek per lookup so large catalogs never pay a per-tenant partition
--- scan under the RPC's statement_timeout.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS
-  idx_products_merchant_lower_slug_active_archived
-  ON public.products (merchant_id, lower(slug))
-  WHERE status = ANY (ARRAY['active'::text, 'archived'::text]);
+-- The (merchant_id, lower(slug)) expression index these RPCs seek on lives in
+-- the follow-up migration 20260706200100 — CREATE INDEX CONCURRENTLY cannot
+-- run inside this file's migration transaction.
