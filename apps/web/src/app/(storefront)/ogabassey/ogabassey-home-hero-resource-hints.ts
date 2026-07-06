@@ -37,32 +37,37 @@ export function preloadOgabasseyHomeHeroResources(
     return;
   }
 
-  prefetchDNS(OGABASSEY_CDN_ORIGIN);
-  preconnect(OGABASSEY_CDN_ORIGIN);
+  try {
+    prefetchDNS(OGABASSEY_CDN_ORIGIN);
+    preconnect(OGABASSEY_CDN_ORIGIN);
 
-  const {
-    props: { srcSet, sizes },
-  } = getImageProps({
-    alt: '',
-    height: MOBILE_HERO_IMAGE_HEIGHT,
-    quality: MOBILE_HERO_IMAGE_QUALITY,
-    sizes: MOBILE_HERO_IMAGE_SIZES,
-    src: candidate,
-    width: MOBILE_HERO_IMAGE_WIDTH,
-  });
+    const {
+      props: { srcSet, sizes },
+    } = getImageProps({
+      alt: '',
+      height: MOBILE_HERO_IMAGE_HEIGHT,
+      quality: MOBILE_HERO_IMAGE_QUALITY,
+      sizes: MOBILE_HERO_IMAGE_SIZES,
+      src: candidate,
+      width: MOBILE_HERO_IMAGE_WIDTH,
+    });
 
-  const href = imageLoader({
-    quality: MOBILE_HERO_IMAGE_QUALITY,
-    src: candidate,
-    width: MOBILE_HERO_IMAGE_WIDTH,
-  });
+    const href = imageLoader({
+      quality: MOBILE_HERO_IMAGE_QUALITY,
+      src: candidate,
+      width: MOBILE_HERO_IMAGE_WIDTH,
+    });
 
-  preload(href, {
-    as: 'image',
-    fetchPriority: 'high',
-    imageSizes: sizes ?? MOBILE_HERO_IMAGE_SIZES,
-    imageSrcSet: srcSet ?? `${href} ${MOBILE_HERO_IMAGE_WIDTH}w`,
-    media: MOBILE_HERO_SOURCE_MEDIA,
-    type: getOgabasseyImagePreloadType(href),
-  });
+    preload(href, {
+      as: 'image',
+      fetchPriority: 'high',
+      imageSizes: sizes ?? MOBILE_HERO_IMAGE_SIZES,
+      imageSrcSet: srcSet ?? `${href} ${MOBILE_HERO_IMAGE_WIDTH}w`,
+      media: MOBILE_HERO_SOURCE_MEDIA,
+      type: getOgabasseyImagePreloadType(href),
+    });
+  } catch (error) {
+    // Fail-open: an optimization hint must never break the shell render.
+    console.error('Failed to emit home hero preload hints', { error });
+  }
 }

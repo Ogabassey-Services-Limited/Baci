@@ -1,5 +1,7 @@
 'use client';
 
+import { HERO_MOBILE_PLAY_TOGGLE_SLOT_CLASSES } from './hero-mobile-geometry';
+
 interface CarouselPlayToggleProps {
   isPlaying: boolean;
   onToggle: () => void;
@@ -20,7 +22,7 @@ export function CarouselPlayToggle({
     <button
       aria-label={isPlaying ? 'Pause auto-rotation' : 'Play auto-rotation'}
       aria-pressed={!isPlaying}
-      className={`flex h-11 min-w-11 items-center justify-center rounded-full text-store-on-primary ${className}`}
+      className={`flex items-center justify-center text-store-on-primary ${HERO_MOBILE_PLAY_TOGGLE_SLOT_CLASSES} ${className}`}
       onClick={onToggle}
       type="button"
     >

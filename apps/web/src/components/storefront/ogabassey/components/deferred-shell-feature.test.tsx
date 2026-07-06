@@ -216,6 +216,30 @@ describe('DeferredShellFeature', () => {
     expect(screen.getByText('Scoped child')).toBeInTheDocument();
   });
 
+  it('scopes keydown activation to the interaction target element', async () => {
+    render(<ScopedShellFeatureHarness />);
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Outside trigger' }), {
+      key: 'Enter',
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText('Scoped child')).not.toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Inside trigger' }), {
+      key: 'Enter',
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('Scoped child')).toBeInTheDocument();
+  });
+
   it('activates when focus enters the interaction target element', async () => {
     render(<ScopedShellFeatureHarness />);
 

@@ -7,10 +7,17 @@ vi.mock('@/components/seo/json-ld', () => ({
 vi.mock('./ogabassey-home-style-loader', () => ({
   OgabasseyHomeStyleLoader: () => <style data-testid="style-loader" />,
 }));
+const mockDynamicContentSuspends = vi.hoisted(() => ({ value: false }));
 vi.mock('./ogabassey-home-page-content', () => ({
-  OgabasseyHomePageContent: ({ pathPrefix }: { pathPrefix: string }) => (
-    <section aria-label="Dynamic home content" data-prefix={pathPrefix} />
-  ),
+  OgabasseyHomePageContent: ({ pathPrefix }: { pathPrefix: string }) => {
+    if (mockDynamicContentSuspends.value) {
+      // Suspend forever so the Suspense fallback actually renders.
+      throw new Promise(() => undefined);
+    }
+    return (
+      <section aria-label="Dynamic home content" data-prefix={pathPrefix} />
+    );
+  },
 }));
 
 const mockResolveHeroShell = vi.hoisted(() => vi.fn());
@@ -25,8 +32,9 @@ vi.mock('./ogabassey-home-hero-resource-hints', () => ({
     mockPreloadHeroResources(...args),
 }));
 
+const mockHeroFallback = vi.hoisted(() => vi.fn((_props: unknown) => null));
 vi.mock('./ogabassey-home-hero-fallback', () => ({
-  OgabasseyHomeHeroFallback: () => null,
+  OgabasseyHomeHeroFallback: (props: unknown) => mockHeroFallback(props),
 }));
 
 import { OgabasseyStaticHomePageContent } from './ogabassey-static-home-page-content';
@@ -45,6 +53,7 @@ const SHELL_SLIDE = {
 describe('OgabasseyStaticHomePageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockDynamicContentSuspends.value = false;
     mockResolveHeroShell.mockResolvedValue({ slides: [SHELL_SLIDE] });
   });
 
@@ -69,6 +78,27 @@ describe('OgabasseyStaticHomePageContent', () => {
     render(await OgabasseyStaticHomePageContent({ pathPrefix: '' }));
 
     expect(mockPreloadHeroResources).toHaveBeenCalledWith(SHELL_SLIDE.imageUrl);
+  });
+
+  it('threads the resolved shell slides into the Suspense fallback', async () => {
+    mockDynamicContentSuspends.value = true;
+
+    render(await OgabasseyStaticHomePageContent({ pathPrefix: '' }));
+
+    expect(mockHeroFallback).toHaveBeenCalledWith(
+      expect.objectContaining({ shellSlides: [SHELL_SLIDE] })
+    );
+  });
+
+  it('threads null shell slides into the fallback when the lookup fails open', async () => {
+    mockDynamicContentSuspends.value = true;
+    mockResolveHeroShell.mockResolvedValue(null);
+
+    render(await OgabasseyStaticHomePageContent({ pathPrefix: '' }));
+
+    expect(mockHeroFallback).toHaveBeenCalledWith(
+      expect.objectContaining({ shellSlides: null })
+    );
   });
 
   it('skips the preload and keeps rendering when the shell lookup fails open', async () => {

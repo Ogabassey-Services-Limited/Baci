@@ -41,5 +41,6 @@ export const HERO_MOBILE_CONTROLS_ROW_CLASSES =
 
 export const HERO_MOBILE_CONTROL_TRACK_CLASSES = 'h-11 flex-1';
 
+/** Geometry only — the call sites add their own fill (`bg-store-primary`). */
 export const HERO_MOBILE_PLAY_TOGGLE_SLOT_CLASSES =
-  'h-11 min-w-11 rounded-full bg-store-primary';
+  'h-11 min-w-11 rounded-full';

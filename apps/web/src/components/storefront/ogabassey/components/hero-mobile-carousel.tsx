@@ -13,6 +13,7 @@ import {
   MOBILE_HERO_IMAGE_SIZES,
 } from './hero-mobile-image-config';
 import {
+  HERO_MOBILE_CONTROL_TRACK_CLASSES,
   HERO_MOBILE_CONTROLS_ROW_CLASSES,
   HERO_MOBILE_CTA_CLASSES,
   HERO_MOBILE_EYEBROW_CLASSES,
@@ -265,7 +266,7 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
               <button
                 aria-current={isActive ? 'true' : undefined}
                 aria-label={`Go to hero slide ${idx + 1}`}
-                className="group relative h-11 flex-1 cursor-pointer"
+                className={`group relative cursor-pointer ${HERO_MOBILE_CONTROL_TRACK_CLASSES}`}
                 key={slide.id}
                 onClick={() => goToSlide(idx)}
                 type="button"
