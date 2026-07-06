@@ -22,6 +22,14 @@ import {
     type BnplOrder,
 } from '@/lib/klump-utils';
 import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from './checkout/pending-checkout-order';
+import {
+    clearCreditDirectPopupMarker,
+    type CreditDirectPopupMarker,
+    readCreditDirectPopupMarker,
+    writeCreditDirectPopupMarker,
+} from './checkout/credit-direct-popup-return';
+import { useCreditDirectVerification } from './checkout/hooks/use-credit-direct-verification';
+import { CreditDirectVerificationView } from './checkout/components/CreditDirectVerificationView';
 
 declare global {
     interface Window {
@@ -373,6 +381,7 @@ async function launchBnplPayment({
                     })
                 ),
                 onSuccess: (ref) => {
+                    clearCreditDirectPopupMarker(order.id);
                     const successQuery = new URLSearchParams({
                         orderId: order.id,
                         reference: ref,
@@ -384,6 +393,7 @@ async function launchBnplPayment({
                     router.push(`/order-success?${successQuery.toString()}` as Route);
                 },
                 onPopup: async (transactionId) => {
+                    writeCreditDirectPopupMarker(order.id, transactionId);
                     try {
                         await apiPost('/api/orders/update-payment-ref', {
                             gateway: 'credit_direct',
@@ -641,8 +651,52 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const paymentLaunchKeyRef = useRef<string | null>(null);
     const klumpSuccessRedirectRef = useRef(false);
+    const [creditDirectPopupMarker, setCreditDirectPopupMarker] =
+        useState<CreditDirectPopupMarker | null>(null);
+
+    const adoptCreditDirectPopupMarker = (marker: CreditDirectPopupMarker) => {
+        setCreditDirectPopupMarker((current) =>
+            current && current.transactionId === marker.transactionId
+                ? current
+                : marker
+        );
+    };
+
+    // The Credit Direct popup can replace this document (mobile WebView) or
+    // restore it from the back/forward cache. Both paths must resume as a
+    // status verification instead of relaunching the SDK.
+    useEffect(() => {
+        if (gateway !== 'credit_direct' || klumpCallback) {
+            return;
+        }
+
+        const handlePageShow = (event: PageTransitionEvent) => {
+            if (!event.persisted) {
+                return;
+            }
+            clearPaymentLaunch(paymentLaunchKeyRef);
+            const marker = readCreditDirectPopupMarker(orderId);
+            if (marker) {
+                adoptCreditDirectPopupMarker(marker);
+            }
+        };
+
+        window.addEventListener('pageshow', handlePageShow);
+        return () => window.removeEventListener('pageshow', handlePageShow);
+    }, [gateway, klumpCallback, orderId]);
 
     useEffect(() => {
+        if (gateway === 'credit_direct' && !klumpCallback) {
+            if (creditDirectPopupMarker) {
+                return;
+            }
+            const marker = readCreditDirectPopupMarker(orderId);
+            if (marker) {
+                adoptCreditDirectPopupMarker(marker);
+                return;
+            }
+        }
+
         void launchBnplPayment({
             orderId,
             gateway,
@@ -677,9 +731,85 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
         klumpTransactionId,
         router,
         trackingToken,
+        creditDirectPopupMarker,
     ]);
 
+    const creditDirectVerification = useCreditDirectVerification({
+        active: Boolean(
+            creditDirectPopupMarker &&
+                orderId &&
+                gateway === 'credit_direct' &&
+                !klumpCallback
+        ),
+        orderId,
+        merchantSlug:
+            merchantSlugParam ||
+            merchantContext?.merchant?.slug ||
+            merchantSlug,
+        trackingToken,
+        lookupEmail,
+    });
+
+    useEffect(() => {
+        if (
+            creditDirectVerification.phase !== 'confirmed' ||
+            !orderId ||
+            !creditDirectPopupMarker
+        ) {
+            return;
+        }
+
+        const successQuery = new URLSearchParams({
+            orderId,
+            reference: creditDirectPopupMarker.transactionId,
+            type: 'credit_direct',
+        });
+        if (trackingToken) {
+            successQuery.set('trackingToken', trackingToken);
+        }
+        clearCreditDirectPopupMarker(orderId);
+        router.push(`/order-success?${successQuery.toString()}` as Route);
+    }, [
+        creditDirectVerification.phase,
+        creditDirectPopupMarker,
+        orderId,
+        trackingToken,
+        router,
+    ]);
+
+    useEffect(() => {
+        if (creditDirectVerification.phase !== 'cancelled' || !orderId) {
+            return;
+        }
+        clearCreditDirectPopupMarker(orderId);
+    }, [creditDirectVerification.phase, orderId]);
+
+    const retryCreditDirectPayment = () => {
+        clearCreditDirectPopupMarker(orderId);
+        clearPaymentLaunch(paymentLaunchKeyRef);
+        setErrorMessage(null);
+        setStatus('loading');
+        setCreditDirectPopupMarker(null);
+    };
+
     const shouldLoadKlumpScript = gateway === 'klump' && !klumpCallback;
+
+    const verificationPhase = creditDirectVerification.phase;
+    if (
+        creditDirectPopupMarker &&
+        (verificationPhase === 'polling' ||
+            verificationPhase === 'timeout' ||
+            verificationPhase === 'cancelled')
+    ) {
+        return (
+            <CreditDirectVerificationView
+                phase={verificationPhase}
+                onKeepWaiting={creditDirectVerification.restart}
+                onRetryPayment={retryCreditDirectPayment}
+                onReturnHome={() => router.push('/')}
+            />
+        );
+    }
 
     if (status === 'error') {
         return (
