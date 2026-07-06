@@ -47,6 +47,7 @@ import type {
 import { mergeReceiptItemsWithInvoiceMetadata } from '@/lib/invoice-receipt-item-metadata';
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
+import { recordPreGatewayRedemption } from '@/lib/payments/record-pre-gateway-redemption';
 import { generatePaymentAccount } from '@/lib/paystack';
 import {
   generatePeppolInvoiceXml,
@@ -2013,6 +2014,14 @@ export async function POST(request: NextRequest) {
       orderTotal - savingsAmountUsed - walletAmountUsed;
     let walletFinalized = false;
     let storeCreditFinalized = false;
+
+    // Persist the redemption onto the order row so payment webhooks can
+    // validate residual gateway payouts against server-owned columns.
+    await recordPreGatewayRedemption(
+      order.id,
+      savingsAmountUsed,
+      walletAmountUsed
+    );
 
     // If wallet fully covers the order, mark as paid immediately (2025 best practice)
     if (

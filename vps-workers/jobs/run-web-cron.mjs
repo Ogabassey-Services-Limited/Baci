@@ -10,6 +10,7 @@ import { config } from 'dotenv';
 // scheduled work. The VPS worker must not call OAuth callbacks.
 const WEB_CRON_CONFIG = new Map([
   ['/api/ai-jobs/worker', { method: 'GET', timeoutMs: 15 * 60_000 }],
+  ['/api/cron/alert-stuck-bnpl', { method: 'GET', timeoutMs: 5 * 60_000 }],
   ['/api/cron/cleanup-orders', { method: 'GET', timeoutMs: 5 * 60_000 }],
   ['/api/cron/process-settlements', { method: 'POST', timeoutMs: 5 * 60_000 }],
   [

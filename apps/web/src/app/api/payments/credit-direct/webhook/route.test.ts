@@ -1284,6 +1284,108 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       });
     });
 
+    it('accepts a webhook when the popup reference persist failed and metaData names the order', async () => {
+      const sessionOnlyOrder = {
+        ...mockOrder,
+        notes: JSON.stringify({
+          creditDirectSessionId: 'session_123456789',
+          creditDirectSignedAmount: 50000,
+        }),
+      };
+      const unpersistedPayload = {
+        ...customerPaymentPayload,
+        checkoutTransactionId: 'txn_never_persisted',
+      };
+
+      vi.mocked(parseWebhookPayload).mockReturnValue(unpersistedPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      const mockChain = supabaseMock.from('orders');
+      let fromCallCount = 0;
+      supabaseMock.from.mockImplementation((_table: string) => {
+        fromCallCount++;
+        if (fromCallCount === 1) {
+          const orderLookupChain = { ...mockChain };
+          orderLookupChain.select = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.eq = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.ilike = vi.fn().mockResolvedValue({
+            data: [sessionOnlyOrder],
+            error: null,
+          });
+          return orderLookupChain;
+        }
+        const updateChain = { ...mockChain };
+        updateChain.update = vi.fn().mockReturnValue(updateChain);
+        updateChain.eq = vi.fn().mockReturnValue(updateChain);
+        updateChain.select = vi.fn().mockReturnValue(updateChain);
+        updateChain.maybeSingle = vi.fn().mockResolvedValue({
+          data: {
+            id: 'order_abc',
+            payment_status: 'bnpl_approved',
+            shipping_status: 'processing',
+            cancelled_at: null,
+          },
+          error: null,
+        });
+        return updateChain;
+      });
+
+      const request = createMockRequest(unpersistedPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({ received: true });
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message:
+            'Accepting Credit Direct webhook without a persisted popup reference',
+          orderId: 'order_abc',
+          transactionId: 'txn_never_persisted',
+        })
+      );
+    });
+
+    it('still rejects an unpersisted-reference webhook when metaData names a different order', async () => {
+      const sessionOnlyOrder = {
+        ...mockOrder,
+        notes: JSON.stringify({
+          creditDirectSessionId: 'session_123456789',
+        }),
+      };
+      const mismatchedPayload = {
+        ...customerPaymentPayload,
+        checkoutTransactionId: 'txn_never_persisted',
+        metaData: 'order_other',
+      };
+
+      vi.mocked(parseWebhookPayload).mockReturnValue(mismatchedPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      const mockChain = supabaseMock.from('orders');
+      mockChain.select.mockReturnValue(mockChain);
+      mockChain.eq.mockReturnValue(mockChain);
+      mockChain.single.mockResolvedValue({ data: null, error: null });
+      mockChain.ilike.mockResolvedValue({
+        data: [sessionOnlyOrder],
+        error: null,
+      });
+
+      const request = createMockRequest(mismatchedPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        received: true,
+        warning: 'Stale Credit Direct session',
+      });
+    });
+
     it('rejects a payout that only matches a tampered-low signed amount', async () => {
       const tamperedOrder = {
         ...mockOrder,

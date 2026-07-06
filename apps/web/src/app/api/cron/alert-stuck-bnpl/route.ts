@@ -20,6 +20,11 @@ const STUCK_BNPL_PAYMENT_STATUSES = [
   'pending',
   'unpaid',
 ];
+// pending/unpaid only prove the customer PICKED a BNPL method at checkout;
+// require provider-session evidence (a persisted transaction/session
+// reference in notes) so plain abandoned carts — which cleanup-orders
+// reclassifies at 72h — don't page merchants at 24h.
+const STATUSES_REQUIRING_PROVIDER_EVIDENCE = new Set(['pending', 'unpaid']);
 
 interface StuckBnplOrderRow {
   id: string;
@@ -27,6 +32,7 @@ interface StuckBnplOrderRow {
   merchant_id: string;
   total: number | string | null;
   payment_method: string | null;
+  payment_status: string | null;
   updated_at: string;
   notes: string | null;
 }
@@ -75,7 +81,7 @@ export async function GET(request: NextRequest) {
     const { data: stuckOrders, error } = await supabase
       .from('orders')
       .select(
-        'id, order_number, merchant_id, total, payment_method, updated_at, notes'
+        'id, order_number, merchant_id, total, payment_method, payment_status, updated_at, notes'
       )
       .in('payment_status', STUCK_BNPL_PAYMENT_STATUSES)
       .in('payment_method', BNPL_PAYMENT_METHODS)
@@ -95,13 +101,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const orders = (stuckOrders ?? []) as StuckBnplOrderRow[];
-    if (orders.length === STUCK_BNPL_ORDER_SCAN_LIMIT) {
+    const scannedOrders = (stuckOrders ?? []) as StuckBnplOrderRow[];
+    if (scannedOrders.length === STUCK_BNPL_ORDER_SCAN_LIMIT) {
       logger.warn({
         message: 'Stuck-BNPL scan hit scan limit; report may be partial',
         scanLimit: STUCK_BNPL_ORDER_SCAN_LIMIT,
       });
     }
+    const orders = scannedOrders.filter(
+      (order) =>
+        !STATUSES_REQUIRING_PROVIDER_EVIDENCE.has(order.payment_status || '') ||
+        hasProviderTransactionReference(order.notes)
+    );
     if (orders.length === 0) {
       return NextResponse.json({
         success: true,

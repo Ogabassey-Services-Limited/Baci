@@ -69,6 +69,7 @@ function stuckOrder(overrides: Record<string, unknown> = {}) {
     merchant_id: 'merchant-1',
     total: 100000,
     payment_method: 'credit_direct',
+    payment_status: 'bnpl_pending',
     updated_at: '2026-07-01T00:00:00.000Z',
     notes: '{"credit_directTransactionId":"txn-1"}',
     ...overrides,
@@ -208,6 +209,44 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
         message: 'Stuck-BNPL scan hit scan limit; report may be partial',
         scanLimit: 500,
       })
+    );
+  });
+
+  it('requires provider-session evidence for pending/unpaid orders', async () => {
+    mocks.limit.mockResolvedValue({
+      data: [
+        stuckOrder({
+          id: 'order-1',
+          payment_status: 'unpaid',
+          payment_method: 'credpal',
+          notes: null,
+        }),
+        stuckOrder({
+          id: 'order-2',
+          payment_status: 'unpaid',
+          payment_method: 'credpal',
+          notes: '{"credpalTransactionId":"cp-1"}',
+        }),
+        stuckOrder({
+          id: 'order-3',
+          payment_status: 'bnpl_pending',
+          notes: null,
+        }),
+      ],
+      error: null,
+    });
+
+    const response = await GET(createCronRequest());
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.stuckOrders).toBe(2);
+    expect(mocks.notifyMerchant).toHaveBeenCalledWith(
+      'merchant-1',
+      expect.any(String),
+      expect.stringContaining('2 BNPL orders'),
+      expect.objectContaining({ stuck_order_count: 2 }),
+      'orders'
     );
   });
 

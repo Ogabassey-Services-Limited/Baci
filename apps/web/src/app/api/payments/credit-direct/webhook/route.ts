@@ -221,9 +221,22 @@ export async function POST(request: NextRequest) {
     const activeSessionId = readNoteString(parsedNotes.creditDirectSessionId);
     const activeReference = activeTransactionId ?? activeSessionId;
 
+    const matchesActiveReference =
+      activeReference === payload.checkoutTransactionId;
+    // The launcher persists the popup transaction id best-effort; if that
+    // write failed (e.g. the WebView navigated away mid-flight), notes still
+    // hold only the sign-time session id. Accept the payload for this order
+    // when no popup reference was ever persisted and the webhook's metaData
+    // names this order — a retried checkout re-signs and overwrites the
+    // session id, so a genuinely superseded session is still rejected.
+    const acceptsUnpersistedPopupReference =
+      activeTransactionId === null &&
+      activeSessionId !== null &&
+      payload.metaData === order.id;
+
     if (
       order.payment_method !== 'credit_direct' ||
-      activeReference !== payload.checkoutTransactionId
+      (!matchesActiveReference && !acceptsUnpersistedPopupReference)
     ) {
       logger.warn({
         message: 'Ignoring stale Credit Direct webhook for inactive session',
@@ -235,6 +248,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         received: true,
         warning: 'Stale Credit Direct session',
+      });
+    }
+
+    if (!matchesActiveReference && acceptsUnpersistedPopupReference) {
+      logger.info({
+        message:
+          'Accepting Credit Direct webhook without a persisted popup reference',
+        orderId: order.id,
+        activeSessionId,
+        transactionId: payload.checkoutTransactionId,
       });
     }
 
