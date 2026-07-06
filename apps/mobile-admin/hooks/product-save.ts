@@ -174,16 +174,20 @@ async function saveProductWithVariants(args: {
   // `/<oldCat>/<slug>` PDP still pointing at this product. Web enrichment
   // resolves the segment for an ID-carrying entry from the CURRENT row, so the
   // primary entry above can only purge the NEW location. Recover the OLD segment
-  // server-side by whichever pre-save signal is available:
-  //   - Legacy TEXT present: append a HINT-ONLY entry (NO id) carrying the text.
-  //     Web enrichment only OVERRIDES id-carrying entries (see apps/web
-  //     src/app/api/cache/revalidate/route.ts +
+  // server-side from BOTH pre-save signals when available (belt-and-braces):
+  //   - Old category ID present: ALWAYS carry it on the PRIMARY entry. The web
+  //     route resolves the id to the OLD category's slug from the id's OWN join
+  //     (authoritative) and appends the old-segment purge itself
+  //     (src/lib/previous-category-purge-entries.ts). This is the source of
+  //     truth and must NOT be shadowed by the text hint: a stale/display-name
+  //     legacy `category` text whose slug differs from the JOIN slug would
+  //     otherwise purge the wrong old segment.
+  //   - Legacy TEXT present: ALSO append a HINT-ONLY entry (NO id) carrying the
+  //     text. Web enrichment only OVERRIDES id-carrying entries (see apps/web
   //     src/lib/internal-product-purge-entries.ts), so a no-id hint keeps its
-  //     text and resolves the OLD text segment. Behavior unchanged from before.
-  //   - Legacy TEXT blank (a category_id-ONLY move — mobile persists only
-  //     `category_id`): carry the old category ID on the PRIMARY entry instead.
-  //     Mobile cannot know the old slug, so the web route resolves the id to the
-  //     old slug and appends the old-segment purge itself.
+  //     text and resolves the OLD text segment. The builder dedupes exact
+  //     (slug, segment) pairs case-insensitively, so if the id and the text
+  //     resolve to the SAME old segment the duplicate collapses harmlessly.
   if (
     args.productId &&
     hasCategoryMoved({
@@ -193,13 +197,14 @@ async function saveProductWithVariants(args: {
       previousCategoryId: args.previousCategoryId,
     })
   ) {
+    if (normalizeCategoryValue(args.previousCategoryId)) {
+      purgeEntries[0].previousCategoryId = args.previousCategoryId ?? null;
+    }
     if (normalizeCategoryValue(args.previousCategory)) {
       purgeEntries.push({
         slug: product.slug,
         category: args.previousCategory ?? null,
       });
-    } else {
-      purgeEntries[0].previousCategoryId = args.previousCategoryId ?? null;
     }
   }
 

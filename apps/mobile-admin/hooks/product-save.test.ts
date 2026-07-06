@@ -174,7 +174,7 @@ describe('product save helpers', () => {
     );
   });
 
-  it('adds a hint-only old-category entry when an edit moves the product to a new category', async () => {
+  it('carries previousCategoryId on the primary entry AND keeps the text hint when an edit moves the product to a new category', async () => {
     mocks.response = {
       data: {
         id: 'product-1',
@@ -195,11 +195,19 @@ describe('product save helpers', () => {
       previousCategoryId: 'cat-old',
     });
 
-    // Primary entry (id-carrying, NEW category) plus a hint-only entry (NO id,
-    // OLD category text) so the web purges both the new and old category URLs.
+    // Primary entry (id-carrying, NEW category) now ALSO carries the OLD
+    // category id — the web route resolves it to the authoritative old slug and
+    // appends the old-segment purge, so a stale legacy display-name text can no
+    // longer shadow the correct old segment. The no-id text hint is KEPT too
+    // (belt-and-braces); the builder dedupes exact (slug, segment) pairs.
     expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith(
       [
-        { slug: 'ankara-bag', id: 'product-1', category: 'Handbags' },
+        {
+          slug: 'ankara-bag',
+          id: 'product-1',
+          category: 'Handbags',
+          previousCategoryId: 'cat-old',
+        },
         { slug: 'ankara-bag', category: 'Bags' },
       ],
       'merchant-1'

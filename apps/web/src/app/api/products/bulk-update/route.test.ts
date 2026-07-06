@@ -16,8 +16,11 @@ vi.mock('@/env', () => ({
 }));
 
 const mockRevalidateProducts = vi.fn();
+const mockRevalidateProductSlugs = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
+  revalidateProductSlugs: (...args: unknown[]) =>
+    mockRevalidateProductSlugs(...args),
 }));
 
 const mockScheduleStorefrontProductPurge = vi.fn();
@@ -397,6 +400,22 @@ describe('POST /api/products/bulk-update', () => {
       cost_price: 90,
     });
     expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+  });
+
+  it('busts per-slug Next caches before scheduling the bulk purge', async () => {
+    const { POST } = await import('./route');
+    await POST(
+      makeRequest({
+        changes: [{ type: 'update', productId: 'p1', details: { price: 900 } }],
+      })
+    );
+
+    expect(mockRevalidateProductSlugs).toHaveBeenCalled();
+    const revalidateOrder =
+      mockRevalidateProductSlugs.mock.invocationCallOrder[0];
+    const purgeOrder =
+      mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0];
+    expect(revalidateOrder).toBeLessThan(purgeOrder);
   });
 
   it('schedules a Cloudflare purge for the affected updated products', async () => {

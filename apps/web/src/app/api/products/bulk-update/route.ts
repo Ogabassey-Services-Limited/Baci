@@ -1,7 +1,10 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
-import { revalidateProducts } from '@/lib/cache-revalidation';
+import {
+  revalidateProductSlugs,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getCurrencyConfig } from '@/lib/currency';
 import {
@@ -308,6 +311,13 @@ export async function POST(request: NextRequest) {
       // sheet with repeated rows for one product does not inflate the count and
       // wrongly suppress its per-PDP purge.
       const distinctPurgeCount = countDistinctProductPurgeEntries(purgeEntries);
+      // Bust every purged slug's Next product cache BEFORE the edge purge —
+      // revalidateProducts(merchantId) above is slug-less and leaves the
+      // per-slug scoped tags cached, so a CF MISS would refill stale.
+      revalidateProductSlugs(
+        merchantId,
+        purgeEntries.map((entry) => entry.slug)
+      );
       scheduleStorefrontProductPurge(
         merchantContext.merchantSlug,
         purgeEntries,

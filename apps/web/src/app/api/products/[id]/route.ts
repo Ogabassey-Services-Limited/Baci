@@ -2,7 +2,10 @@ import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRoleKey } from '@/env';
 import { hasPermission } from '@/lib/api-auth';
-import { revalidateProducts } from '@/lib/cache-revalidation';
+import {
+  revalidateProductSlugs,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
 import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { deriveProductVariantWriteProjections } from '@/lib/derive-product-variant-projections';
@@ -989,6 +992,13 @@ export async function PUT(
           categorySegment: previousCategorySegment,
         });
       }
+      // Bust the per-slug Next product caches for every slug being purged
+      // (old + new on a rename) BEFORE the edge purge — a CF MISS would
+      // otherwise refill from the stale Next-cached snapshot until TTL.
+      revalidateProductSlugs(
+        merchantId,
+        productPurgeEntries.map((entry) => entry.slug)
+      );
       scheduleStorefrontProductPurge(
         merchantContext.merchantSlug,
         productPurgeEntries
@@ -1107,6 +1117,9 @@ export async function DELETE(
         // addressable by id, so fall back to the deleted row's id
         // (`/products/<id>`) when the slug is missing.
         const purgeSlug = deletedProduct.slug?.trim() || id;
+        // Bust the deleted slug's Next cache tag before the edge purge so a
+        // post-purge MISS cannot serve a stale "product still exists" page.
+        revalidateProductSlugs(merchantId, [purgeSlug]);
         scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
           {
             slug: purgeSlug,
@@ -1131,6 +1144,7 @@ export async function DELETE(
           'Product purge pre-read missing after delete; scheduling id-based fallback purge',
           { id, preReadError }
         );
+        revalidateProductSlugs(merchantId, [id]);
         scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
           { slug: id, categorySegment: null },
         ]);

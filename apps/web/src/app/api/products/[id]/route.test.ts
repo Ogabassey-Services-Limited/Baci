@@ -38,8 +38,11 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
   }),
 }));
 
+const mockRevalidateProductSlugs = vi.fn();
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: vi.fn(),
+  revalidateProductSlugs: (...args: unknown[]) =>
+    mockRevalidateProductSlugs(...args),
 }));
 
 const mockScheduleStorefrontProductPurge = vi.fn();
@@ -783,6 +786,37 @@ describe('PUT /api/products/[id]', () => {
       // The pre-update fetch must read the category_id join so the purge can
       // resolve the same join-driven canonical the storefront serves.
       expect(productSelectArgs[0]).toContain('categories:category_id(slug)');
+    });
+
+    it('busts per-slug Next caches (old + new) before the rename purge', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Old Name',
+        description: 'Old description',
+        condition: 'new',
+        slug: 'old-name',
+        category: 'Smartphones',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        slug: 'updated-product',
+        category: 'Smartphones',
+      };
+
+      await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(
+        MERCHANT_ID,
+        expect.arrayContaining(['updated-product', 'old-name'])
+      );
+      expect(
+        mockRevalidateProductSlugs.mock.invocationCallOrder[0]
+      ).toBeLessThan(
+        mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]
+      );
     });
 
     it('purges both the old and new slug when a rename changes the slug', async () => {
