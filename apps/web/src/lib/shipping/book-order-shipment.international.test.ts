@@ -111,7 +111,7 @@ function createSupabase(
         price: 2500,
         currency: 'NGN',
         estimated_days: 7,
-        provider_rate_id: 'GIGL_INTL_1_2_3_4',
+        provider_rate_id: 'GIGL_INTL_1_2_3_1',
         expires_at: new Date(Date.now() + 86400000).toISOString(),
         quote_request: savedQuoteRequest,
         provider_metadata: {},

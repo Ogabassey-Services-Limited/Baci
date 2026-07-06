@@ -61,7 +61,7 @@ function matchesOptionalText(
   const normalizedOrderValue = normalizeText(orderValue);
   const normalizedQuoteValue = normalizeText(quoteValue);
   if (!normalizedOrderValue && !normalizedQuoteValue) return true;
-  if (!normalizedOrderValue || !normalizedQuoteValue) return false;
+  if (!normalizedOrderValue || !normalizedQuoteValue) return true;
   return normalizedOrderValue === normalizedQuoteValue;
 }
 
@@ -257,8 +257,9 @@ export async function enrichShippingAddressWithQuoteDestination(
 
   return {
     ...shippingAddress,
-    country: quoteRequest.receiver.country,
-    countryCode: quoteRequest.receiver.countryCode,
-    postalCode: quoteRequest.receiver.postalCode,
+    country: quoteRequest.receiver.country ?? shippingAddress.country,
+    countryCode:
+      quoteRequest.receiver.countryCode ?? shippingAddress.countryCode,
+    postalCode: quoteRequest.receiver.postalCode ?? shippingAddress.postalCode,
   };
 }

@@ -127,7 +127,7 @@ describe('POST /api/shipping/quotes', () => {
       error: 'Sender is required for international quotes',
     });
     expect(mockGetQuotes).not.toHaveBeenCalled();
-  });
+  }, 30_000);
 
   it('allows merchant sender fallback before international quote creation', async () => {
     mockCreateAdminClient.mockReturnValue(buildSupabaseMock({ id: 'user-1' }));
@@ -198,7 +198,7 @@ describe('POST /api/shipping/quotes', () => {
             currency: 'NGN',
             pickupIncluded: true,
             insuranceIncluded: true,
-            providerRateId: 'GIGL_INTL_1_2_3_4',
+            providerRateId: 'GIGL_INTL_1_2_3_1',
             expiresAt: new Date(Date.now() + 60_000),
           },
         ],

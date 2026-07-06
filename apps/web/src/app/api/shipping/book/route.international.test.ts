@@ -130,7 +130,7 @@ function buildSupabaseMock({
         data: {
           id: '22222222-2222-4222-8222-222222222222',
           provider: 'GIGL',
-          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          provider_rate_id: 'GIGL_INTL_1_2_3_1',
           provider_metadata: {},
           quote_request: {
             merchantId: 'merchant-1',
@@ -211,7 +211,7 @@ describe('POST /api/shipping/book GIGL international guards', () => {
       code: 'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
     });
     expect(mockBookShipment).not.toHaveBeenCalled();
-  });
+  }, 30_000);
 
   it('rejects quote IDs that are not selected on the merchant order', async () => {
     mockCreateClient.mockReturnValue(

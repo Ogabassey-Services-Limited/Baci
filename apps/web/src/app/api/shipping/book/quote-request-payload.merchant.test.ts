@@ -21,7 +21,7 @@ describe('validateBookingQuoteRequestPayload merchant binding', () => {
     const payload = resolveBookingQuoteRequestPayload(
       {
         provider: 'GIGL',
-        provider_rate_id: 'GIGL_INTL_1_2_3_4',
+        provider_rate_id: 'GIGL_INTL_1_2_3_1',
         quote_request: {
           merchantId: 'merchant-other',
           sessionId: 'session-1',

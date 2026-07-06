@@ -21,7 +21,7 @@ function createSupabase() {
           expires_at: new Date(Date.now() + 60_000).toISOString(),
           price: 10_000,
           provider: 'GIGL',
-          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          provider_rate_id: 'GIGL_INTL_1_2_3_1',
           quote_request: {
             merchantId: 'merchant-current',
             sessionId: 'session-1',

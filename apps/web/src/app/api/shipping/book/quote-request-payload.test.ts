@@ -30,7 +30,7 @@ describe('resolveBookingQuoteRequestPayload', () => {
     const payload = resolveBookingQuoteRequestPayload(
       {
         provider: 'GIGL',
-        provider_rate_id: 'GIGL_INTL_1_2_3_4',
+        provider_rate_id: 'GIGL_INTL_1_2_3_1',
         quote_request: {
           sessionId: 'session-1',
           shipmentType: 'international',
@@ -117,7 +117,7 @@ describe('resolveBookingQuoteRequestPayload', () => {
       resolveBookingQuoteRequestPayload(
         {
           provider: 'GIGL',
-          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          provider_rate_id: 'GIGL_INTL_1_2_3_1',
         },
         receiver,
         items
@@ -129,7 +129,7 @@ describe('resolveBookingQuoteRequestPayload', () => {
     const payload = resolveBookingQuoteRequestPayload(
       {
         provider: 'GIGL',
-        provider_rate_id: 'GIGL_INTL_1_2_3_4',
+        provider_rate_id: 'GIGL_INTL_1_2_3_1',
         quote_request: {
           sessionId: 'session-1',
           shipmentType: 'international',
@@ -167,7 +167,7 @@ describe('validateBookingQuoteRequestPayload', () => {
     const payload = resolveBookingQuoteRequestPayload(
       {
         provider: 'GIGL',
-        provider_rate_id: 'GIGL_INTL_1_2_3_4',
+        provider_rate_id: 'GIGL_INTL_1_2_3_1',
         quote_request: {
           sessionId: 'session-1',
           shipmentType: 'international',
@@ -231,7 +231,7 @@ describe('validateBookingQuoteRequestPayload', () => {
     const payload = resolveBookingQuoteRequestPayload(
       {
         provider: 'GIGL',
-        provider_rate_id: 'GIGL_INTL_1_2_3_4',
+        provider_rate_id: 'GIGL_INTL_1_2_3_1',
         quote_request: {
           sessionId: 'session-1',
           shipmentType: 'international',

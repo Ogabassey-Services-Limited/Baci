@@ -44,7 +44,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
   it('persists international destination fields from the saved quote request', async () => {
     const result = await enrichShippingAddressWithQuoteDestination(
       createSupabase({
-        provider_rate_id: 'GIGL_INTL_1_2_3_4',
+        provider_rate_id: 'GIGL_INTL_1_2_3_1',
         quote_request: {
           sessionId: 'session-1',
           shipmentType: 'international',
@@ -91,7 +91,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
     await expect(
       enrichShippingAddressWithQuoteDestination(
         createSupabase({
-          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          provider_rate_id: 'GIGL_INTL_1_2_3_1',
           quote_request: {
             sessionId: 'session-1',
             shipmentType: 'international',
@@ -126,7 +126,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
     await expect(
       enrichShippingAddressWithQuoteDestination(
         createSupabase({
-          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          provider_rate_id: 'GIGL_INTL_1_2_3_1',
           quote_request: {
             merchantId: 'merchant-other',
             sessionId: 'session-1',
@@ -164,7 +164,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
       enrichShippingAddressWithQuoteDestination(
         createSupabase({
           price: 10_000,
-          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          provider_rate_id: 'GIGL_INTL_1_2_3_1',
           quote_request: {
             merchantId: 'merchant-current',
             sessionId: 'session-1',
@@ -202,7 +202,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
       enrichShippingAddressWithQuoteDestination(
         createSupabase({
           price: 10_000,
-          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          provider_rate_id: 'GIGL_INTL_1_2_3_1',
           quote_request: {
             merchantId: 'merchant-current',
             sessionId: 'session-1',
@@ -240,7 +240,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
       enrichShippingAddressWithQuoteDestination(
         createSupabase({
           price: '10000',
-          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          provider_rate_id: 'GIGL_INTL_1_2_3_1',
           quote_request: {
             merchantId: 'merchant-current',
             sessionId: 'session-1',

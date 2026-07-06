@@ -9,6 +9,7 @@ import {
   estimatedDays,
   internationalRateId,
   internationalServiceTier,
+  isGiglInternationalProviderRate,
   isNigeriaAddress,
   matchDestinationCountry,
   parseInternationalRateId,
@@ -184,6 +185,10 @@ describe('GIGL international payload helpers', () => {
     );
     expect(() => parseInternationalRateId('GIGL_INTL_2.5_0_0_1')).toThrow(
       'Invalid GIGL international rate selection'
+    );
+    expect(isGiglInternationalProviderRate('GIGL', rateId)).toBe(true);
+    expect(isGiglInternationalProviderRate('GIGL', 'GIGL_INTL_2_BAD_0_1')).toBe(
+      false
     );
   });
 

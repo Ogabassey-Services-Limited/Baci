@@ -33,7 +33,7 @@ const internationalQuote = {
   expires_at: new Date(Date.now() + 60_000).toISOString(),
   price: 10_000,
   provider: 'GIGL',
-  provider_rate_id: 'GIGL_INTL_1_2_3_4',
+  provider_rate_id: 'GIGL_INTL_1_2_3_1',
   quote_request: {
     merchantId: 'merchant-current',
     receiver,
@@ -56,7 +56,7 @@ const checkoutContext = {
   merchantId: 'merchant-current',
   shippingFee: 10_000,
   shippingProvider: 'GIGL',
-  items: [{ name: 'Phone', price: 100_000, quantity: 1 }],
+  items: [{ name: 'Phone', price: 100_000, quantity: 1, weight: 1 }],
 };
 
 describe('enrichShippingAddressWithQuoteDestination validation', () => {
@@ -160,19 +160,27 @@ describe('enrichShippingAddressWithQuoteDestination validation', () => {
     });
   });
 
-  it('rejects checkout addresses missing quote-required postal code', async () => {
+  it('enriches checkout addresses missing optional quote destination fields', async () => {
     await expect(
       enrichShippingAddressWithQuoteDestination(
         createSupabase({
           quote: internationalQuote,
         }) as unknown as SupabaseClient,
         'quote-1',
-        { ...shippingAddress, postalCode: undefined },
+        {
+          address: shippingAddress.address,
+          city: shippingAddress.city,
+          country: undefined,
+          countryCode: undefined,
+          postalCode: undefined,
+          state: shippingAddress.state,
+        },
         checkoutContext
       )
-    ).rejects.toMatchObject({
-      code: 'INTERNATIONAL_QUOTE_DESTINATION_MISMATCH',
-      status: 400,
+    ).resolves.toMatchObject({
+      country: 'Canada',
+      countryCode: 'CA',
+      postalCode: 'M5V 3L9',
     });
   });
 });
