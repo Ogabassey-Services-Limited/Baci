@@ -44,6 +44,8 @@ export interface BuildCompareLinkGraphInput {
 }
 
 export const COMPARE_GRAPH_INDEXABLE_CATEGORY_LINK_LIMIT = 80;
+const COMPARE_GRAPH_UNANCHORED_PRODUCT_WINDOW_MIN = 48;
+const COMPARE_GRAPH_UNANCHORED_PRODUCT_WINDOW_MULTIPLIER = 8;
 
 function hasUsefulSpecs(product: CompareLinkGraphProduct) {
   return Object.keys(product.product_key_specs ?? {}).length > 0;
@@ -105,6 +107,23 @@ function entryScore(
   return anchorBoost + productScore(left) + productScore(right);
 }
 
+function getPairCandidateProducts(input: {
+  activeProducts: CompareLinkGraphProduct[];
+  anchorProductSlug?: string;
+  maxLinks: number;
+}) {
+  if (input.anchorProductSlug) {
+    return input.activeProducts;
+  }
+
+  const productWindowSize = Math.max(
+    COMPARE_GRAPH_UNANCHORED_PRODUCT_WINDOW_MIN,
+    input.maxLinks * COMPARE_GRAPH_UNANCHORED_PRODUCT_WINDOW_MULTIPLIER
+  );
+
+  return input.activeProducts.slice(0, productWindowSize);
+}
+
 export function buildCompareLinkGraph({
   storeUrl,
   categorySlug,
@@ -120,6 +139,11 @@ export function buildCompareLinkGraph({
       product.category_slug === categorySlug &&
       isActiveCompareProduct(product, productsAreKnownActive)
   );
+  const pairCandidateProducts = getPairCandidateProducts({
+    activeProducts,
+    anchorProductSlug,
+    maxLinks,
+  });
   const policyProducts = activeProducts.map((product) => ({
     slug: product.slug?.trim() ?? '',
     name: product.name,
@@ -131,7 +155,7 @@ export function buildCompareLinkGraph({
   const candidateEntries: CompareLinkGraphEntry[] = [];
 
   forEachComparePair(
-    activeProducts,
+    pairCandidateProducts,
     anchorProductSlug,
     (left: CompareLinkGraphProduct, right: CompareLinkGraphProduct) => {
       const leftSlug = left.slug?.trim();
