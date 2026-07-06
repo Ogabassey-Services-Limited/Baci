@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
-import { createClient } from '@/lib/supabase/server';
 import { setCustomerUsernameSchema } from '@/schemas/customer-username';
 
 // Maps the RPC's raised errcodes/messages to shopper-facing responses.
@@ -30,17 +30,24 @@ const RPC_ERROR_RESPONSES: Record<
     error: 'No shopper account found for this store.',
     status: 404,
   },
+  not_authenticated: {
+    code: 'UNAUTHORIZED',
+    error: 'Please sign in to choose a username.',
+    status: 401,
+  },
 };
 
 export async function POST(request: NextRequest) {
-  // 1. Auth first.
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // 1. Auth first — bearer-aware so both mobile (Authorization header) and web
+  // (cookie) storefront callers authenticate, matching sibling customer routes.
+  const auth = await authenticateApiRequest(request);
+  if (auth.error || !auth.user || !auth.supabase) {
+    return NextResponse.json(
+      { error: auth.error || 'Unauthorized' },
+      { status: 401 }
+    );
   }
+  const { user, supabase } = auth;
 
   // 2. CSRF (skipped for mobile Bearer auth inside the helper).
   const csrf = await checkCsrfProtection(request);

@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const getUser = vi.fn();
+const authenticateApiRequest = vi.fn();
 const rpc = vi.fn();
 const checkCsrfProtection = vi.fn();
 
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(async () => ({ auth: { getUser }, rpc })),
+vi.mock('@/lib/api-auth', () => ({
+  authenticateApiRequest: (req: unknown) => authenticateApiRequest(req),
 }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (req: unknown) => checkCsrfProtection(req),
@@ -32,18 +32,38 @@ function request(body: unknown) {
 describe('POST /api/storefront/customer/username', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
+    authenticateApiRequest.mockResolvedValue({
+      user: { id: 'user-1' },
+      error: null,
+      supabase: { rpc },
+    });
     checkCsrfProtection.mockResolvedValue({ valid: true });
     rpc.mockResolvedValue({ data: 'OgaFan_7', error: null });
   });
 
   it('returns 401 when unauthenticated', async () => {
-    getUser.mockResolvedValue({ data: { user: null } });
+    authenticateApiRequest.mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
     const res = await POST(
       request({ merchantId: MERCHANT_ID, username: 'oga_fan' })
     );
     expect(res.status).toBe(401);
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('maps a not_authenticated RPC error to 401', async () => {
+    rpc.mockResolvedValue({
+      data: null,
+      error: { message: 'not_authenticated' },
+    });
+    const res = await POST(
+      request({ merchantId: MERCHANT_ID, username: 'oga_fan' })
+    );
+    expect(res.status).toBe(401);
+    expect(await res.json()).toMatchObject({ code: 'UNAUTHORIZED' });
   });
 
   it('returns 403 when CSRF validation fails', async () => {
