@@ -1,3 +1,4 @@
+import { OrderShipmentBookingError } from '../order-shipment-booking-utils';
 import type { QuoteRequest, ShipmentItem, ShippingAddress } from '../types';
 import type { GiglApiClient } from './gigl.auth';
 import {
@@ -51,6 +52,10 @@ interface PackageDimensions {
 
 const MAX_DIMENSIONAL_PACKAGES_PER_ITEM = 100;
 const MAX_TOTAL_DIMENSIONAL_PACKAGES = 500;
+
+function throwInternationalPackageLimit(message: string, code: string): never {
+  throw new OrderShipmentBookingError(message, 400, code);
+}
 
 export function isNigeriaAddress(address: ShippingAddress): boolean {
   const countryCode = address.countryCode.trim().toUpperCase();
@@ -112,16 +117,25 @@ export function buildInternationalPackages(items: ShipmentItem[]) {
     }
 
     if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
-      throw new Error('Invalid package quantity for GIGL international item');
+      throwInternationalPackageLimit(
+        'Invalid package quantity for GIGL international item',
+        'GIGL_INTERNATIONAL_PACKAGE_QUANTITY_INVALID'
+      );
     }
     if (item.quantity > MAX_DIMENSIONAL_PACKAGES_PER_ITEM) {
-      throw new Error('Too many packages for one GIGL international item');
+      throwInternationalPackageLimit(
+        'Too many packages for one GIGL international item',
+        'GIGL_INTERNATIONAL_ITEM_PACKAGE_LIMIT'
+      );
     }
 
     const packageCount = item.quantity;
     totalPackageCount += packageCount;
     if (totalPackageCount > MAX_TOTAL_DIMENSIONAL_PACKAGES) {
-      throw new Error('Too many packages for GIGL international shipment');
+      throwInternationalPackageLimit(
+        'Too many packages for GIGL international shipment',
+        'GIGL_INTERNATIONAL_SHIPMENT_PACKAGE_LIMIT'
+      );
     }
 
     return Array.from({ length: packageCount }, () => ({

@@ -64,6 +64,7 @@ import {
   resolveReceiptLogoDataUri,
 } from '@/lib/receipt-pdf-generator';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
+import { toInternationalShipmentItemsFromOrder } from '@/lib/shipping/international-shipment-items';
 import {
   enrichShippingAddressWithQuoteDestination,
   OrderQuoteDestinationMismatchError,
@@ -140,12 +141,17 @@ type QuizVoucherItemCandidate = {
 };
 type OrderCreateItem = OrderCreateInput['items'][number];
 type OrderQuoteValidationPayloadItem = {
+  price?: number | string | null;
   product_id?: string | null;
   quantity: number;
 };
 type OrderQuoteValidationProductRow = {
+  commodity_code?: string | null;
+  dimensions?: unknown;
   id: string;
   name: string | null;
+  weight_unit?: string | null;
+  weight_value?: number | string | null;
 };
 type ImmediateInvoiceOrderItem = Omit<OrderCreateItem, 'assurance_fee'> & {
   assurance_fee?: number;
@@ -403,7 +409,7 @@ async function buildOrderQuoteValidationItems({
 
   const { data: products, error } = await supabase
     .from('products')
-    .select('id, name')
+    .select('id, name, weight_value, weight_unit, dimensions, commodity_code')
     .eq('merchant_id', merchantId)
     .in('id', productIds)
     .returns<OrderQuoteValidationProductRow[]>();
@@ -416,13 +422,20 @@ async function buildOrderQuoteValidationItems({
     );
   }
 
-  const productMap = new Map(
-    products.map((product) => [product.id, product.name])
+  const productMap = new Map(products.map((product) => [product.id, product]));
+  return toInternationalShipmentItemsFromOrder(
+    items.map((item) => {
+      const product = item.product_id
+        ? (productMap.get(item.product_id) ?? null)
+        : null;
+      return {
+        name: product?.name ?? null,
+        price: item.price ?? null,
+        quantity: item.quantity,
+        product,
+      };
+    })
   );
-  return items.map((item) => ({
-    name: item.product_id ? (productMap.get(item.product_id) ?? null) : null,
-    quantity: item.quantity,
-  }));
 }
 
 function getOrderItemAssuranceFee(item: ImmediateInvoiceOrderItem) {

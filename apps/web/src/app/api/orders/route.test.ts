@@ -166,11 +166,15 @@ function buildMockSupabase(
   overrides: RpcOverrides = {},
   opts: {
     productRows?: Array<{
+      commodity_code?: string | null;
+      dimensions?: unknown;
       id: string;
       name?: string | null;
       price: number;
       vat_category_code?: string | null;
       vat_rate?: number | null;
+      weight_unit?: string | null;
+      weight_value?: number | string | null;
     }>;
     shippingQuote?: unknown;
   } = {}
@@ -1663,6 +1667,89 @@ describe('POST /api/orders — selected shipping quote validation', () => {
           items: [
             {
               product_id: 'p-2',
+              name: 'Phone',
+              quantity: 1,
+              price: 500_000,
+            },
+          ],
+          subtotal: 500_000,
+          shipping_fee: 4500,
+          selected_quote_id: '11111111-1111-4111-8111-111111111111',
+          shipping_provider: 'GIGL',
+          shipping_address: {
+            address: '123 Queen Street West',
+            city: 'Toronto',
+            state: 'Ontario',
+            country: 'Canada',
+            countryCode: 'CA',
+            postalCode: 'M5V 3L9',
+          },
+        }),
+      })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.anything()
+    );
+  });
+
+  it('rejects selected GIGL international quotes with stale product shipping metadata', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    const supabase = buildMockSupabase(
+      {},
+      {
+        productRows: [
+          {
+            id: 'p-1',
+            name: 'Phone',
+            price: 500_000,
+            vat_category_code: 'S',
+            vat_rate: 0,
+            weight_unit: 'kg',
+            weight_value: 2,
+          },
+        ],
+        shippingQuote: {
+          provider: 'GIGL',
+          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          price: 4500,
+          expires_at: new Date(Date.now() + 60_000).toISOString(),
+          quote_request: {
+            merchantId: MERCHANT_ID,
+            sessionId: 'session-1',
+            shipmentType: 'international',
+            receiver: {
+              name: 'Jane Customer',
+              phone: '+14165550123',
+              address: '123 Queen Street West',
+              city: 'Toronto',
+              state: 'Ontario',
+              country: 'Canada',
+              countryCode: 'CA',
+              postalCode: 'M5V 3L9',
+            },
+            items: [{ name: 'Phone', quantity: 1, weight: 1, value: 500_000 }],
+          },
+        },
+      }
+    );
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          items: [
+            {
+              product_id: 'p-1',
               name: 'Phone',
               quantity: 1,
               price: 500_000,

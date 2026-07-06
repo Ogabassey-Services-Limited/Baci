@@ -16,7 +16,15 @@ type QuoteDestinationRecord = {
   quote_request: unknown;
 };
 
-type CheckoutItemForQuote = {
+type PhysicalQuoteMetadata = {
+  height?: number;
+  hsCode?: string;
+  length?: number;
+  weight?: number;
+  width?: number;
+};
+
+type CheckoutItemForQuote = PhysicalQuoteMetadata & {
   name: string | null;
   negotiatedPrice?: number;
   price?: number | string | null;
@@ -93,6 +101,45 @@ function hasComparableItemValue(item: CheckoutItemForQuote): boolean {
   );
 }
 
+function numbersMatch(
+  left: number | undefined,
+  right: number | undefined
+): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return Math.abs(left - right) <= 0.001;
+}
+
+function hasDimensions(
+  item: Pick<PhysicalQuoteMetadata, 'height' | 'length' | 'width'>
+): boolean {
+  return (
+    item.length !== undefined ||
+    item.width !== undefined ||
+    item.height !== undefined
+  );
+}
+
+function matchesQuotePhysicalMetadata(
+  checkoutItem: PhysicalQuoteMetadata,
+  quoteItem: PhysicalQuoteMetadata
+): boolean {
+  if (!numbersMatch(checkoutItem.weight, quoteItem.weight)) {
+    return false;
+  }
+
+  if (hasDimensions(checkoutItem) || hasDimensions(quoteItem)) {
+    if (
+      !numbersMatch(checkoutItem.length, quoteItem.length) ||
+      !numbersMatch(checkoutItem.width, quoteItem.width) ||
+      !numbersMatch(checkoutItem.height, quoteItem.height)
+    ) {
+      return false;
+    }
+  }
+
+  return normalizeText(checkoutItem.hsCode) === normalizeText(quoteItem.hsCode);
+}
+
 function matchesQuoteItem(
   checkoutItem: CheckoutItemForQuote,
   quoteItem: NonNullable<
@@ -103,7 +150,8 @@ function matchesQuoteItem(
     normalizeText(checkoutItem.name) === normalizeText(quoteItem.name) &&
     checkoutItem.quantity === quoteItem.quantity &&
     (!hasComparableItemValue(checkoutItem) ||
-      readComparableItemValue(checkoutItem) === quoteItem.value)
+      readComparableItemValue(checkoutItem) === quoteItem.value) &&
+    matchesQuotePhysicalMetadata(checkoutItem, quoteItem)
   );
 }
 

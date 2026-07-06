@@ -132,6 +132,8 @@ describe('GiglProvider international shipments', () => {
       provider: 'GIGL',
       serviceTier: 'International Express',
       carrierName: 'GIG Logistics',
+      displayName: 'GIG Logistics - International Express Pickup',
+      isStationPickup: true,
       price: 114_534,
       currency: 'NGN',
       providerRateId: 'GIGL_INTL_2_0_0_1',

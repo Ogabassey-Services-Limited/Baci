@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { OrderShipmentBookingError } from '../order-shipment-booking-utils';
 import type { QuoteRequest, ShipmentItem, ShippingAddress } from '../types';
 import { PickupOptions } from './gigl.constants';
 import {
@@ -106,6 +107,17 @@ describe('GIGL international payload helpers', () => {
       height: 6,
     };
 
+    let thrown: unknown;
+    try {
+      buildInternationalPackages(Array.from({ length: 6 }, () => item));
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(OrderShipmentBookingError);
+    expect(thrown).toMatchObject({
+      code: 'GIGL_INTERNATIONAL_SHIPMENT_PACKAGE_LIMIT',
+    });
     expect(() =>
       buildInternationalPackages(Array.from({ length: 6 }, () => item))
     ).toThrow('Too many packages for GIGL international shipment');
