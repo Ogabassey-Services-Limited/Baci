@@ -119,3 +119,19 @@ export function buildCategoryPageHubModel(input: {
     isCollection: input.data.isCollection,
   });
 }
+
+export function hasMaintainedCategoryCompareHubLink(
+  comparisonLinks: CategoryHubComparisonLink[],
+  categorySlug: string
+) {
+  const hubPathSuffix = `/${categorySlug}/compare`;
+
+  return comparisonLinks.some((link) => {
+    const pathname = new URL(
+      link.href.trim(),
+      'https://storefront.local'
+    ).pathname.replace(/\/+$/, '');
+
+    return pathname.endsWith(hubPathSuffix);
+  });
+}

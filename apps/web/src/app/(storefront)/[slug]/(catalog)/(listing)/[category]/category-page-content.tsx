@@ -28,6 +28,7 @@ import { StorefrontRouteNotFoundContent } from '../../../storefront-route-not-fo
 import {
   buildCategoryPageHubModel,
   getCategoryPageProductSlots,
+  hasMaintainedCategoryCompareHubLink,
   isCategoryPageProductSlot,
   normalizeCategoryPageProducts,
   resolveCategoryPageName,
@@ -283,7 +284,8 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
         merchantName={merchant.business_name}
         productNames={categoryPageProducts.map((product) => product.name)}
       />
-      {!data.isCollection && comparisonLinks.length === 0 ? (
+      {!data.isCollection &&
+      !hasMaintainedCategoryCompareHubLink(comparisonLinks, category) ? (
         <Suspense fallback={null}>
           <CategoryPageDeferredCompareLinks
             storeUrl={requestScopedBaseUrl}

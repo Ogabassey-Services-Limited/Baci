@@ -13,6 +13,7 @@ import type { CategoryHubModel } from '@/lib/storefront-category/category-hub-ty
 const NORMALIZED_PLACEHOLDER_IMAGE = '/placeholder.svg';
 const mockGetPublishedClusterPosts = vi.fn();
 const mockGetCachedProductSemanticInventory = vi.fn();
+const mockCategoryPageDeferredCompareLinks = vi.hoisted(() => vi.fn());
 const mockConnection = vi.hoisted(() => vi.fn());
 const { mockCategoryPageContent } = vi.hoisted(() => ({
   mockCategoryPageContent: vi.fn((_props: unknown) => (
@@ -83,6 +84,14 @@ vi.mock('@/components/storefront/ogabassey/pages/category-page', () => ({
     currentPage?: number;
     hubContent?: CategoryHubModel;
   }) => categoryPageSpy(props),
+}));
+
+vi.mock('./category-page-deferred-compare-links', () => ({
+  CategoryPageDeferredCompareLinks: (props: { categorySlug: string }) => {
+    mockCategoryPageDeferredCompareLinks(props);
+
+    return <section>Maintained category compare links</section>;
+  },
 }));
 
 vi.mock(
@@ -533,6 +542,7 @@ describe('category page route', () => {
     mockGenerateFAQSchema.mockClear();
     mockGetPublishedClusterPosts.mockReset();
     mockGetCachedProductSemanticInventory.mockReset();
+    mockCategoryPageDeferredCompareLinks.mockReset();
     mockConnection.mockReset();
     mockCategoryPageContent.mockReset();
     mockCategoryPageContent.mockImplementation(() => (
@@ -681,6 +691,9 @@ describe('category page route', () => {
     expect(
       screen.queryByText('CommercialSupportLinks footer')
     ).not.toBeInTheDocument();
+    expect(mockCategoryPageDeferredCompareLinks).toHaveBeenCalledWith(
+      expect.objectContaining({ categorySlug: 'smartphones' })
+    );
     expect(mockGetCachedProductSemanticInventory).not.toHaveBeenCalled();
   });
 

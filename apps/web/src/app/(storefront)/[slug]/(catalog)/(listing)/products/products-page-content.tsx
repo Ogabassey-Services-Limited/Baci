@@ -1,10 +1,10 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import type { BreadcrumbList, CollectionPage } from 'schema-dts';
 import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { StorefrontPagination } from '@/components/storefront/ogabassey/components/StorefrontPagination';
-import { StorefrontLinkModulesSection } from '@/components/storefront/ogabassey/seo/storefront-link-modules-section';
 import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import {
   getCachedCategories,
@@ -27,7 +27,7 @@ import {
 import { getStorefrontPathPrefix } from '@/lib/storefront-path-prefix';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { ProductIndexCard } from './product-index-card';
-import { loadProductsPageLinkModules } from './products-page-link-modules';
+import { ProductsPageDeferredLinkModules } from './products-page-deferred-link-modules';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -109,14 +109,6 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
         .map((category) => [category.canonicalSlug, category])
     ).values()
   );
-  const linkModules = showMaintainedLinkModules
-    ? await loadProductsPageLinkModules({
-        baseUrl,
-        categories: displayCategories,
-        merchantId: merchant.id,
-        productTotalPages: totalPages,
-      })
-    : [];
   const productsPageUrl =
     currentPage > 1
       ? `${baseUrl}/products?page=${currentPage}`
@@ -212,10 +204,15 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
           )}
 
           {showMaintainedLinkModules && (
-            <StorefrontLinkModulesSection
-              modules={linkModules}
-              pathPrefix={pathPrefix}
-            />
+            <Suspense fallback={null}>
+              <ProductsPageDeferredLinkModules
+                baseUrl={baseUrl}
+                categories={displayCategories}
+                merchantId={merchant.id}
+                pathPrefix={pathPrefix}
+                productTotalPages={totalPages}
+              />
+            </Suspense>
           )}
 
           {currentProductIndex.products.length === 0 ? (

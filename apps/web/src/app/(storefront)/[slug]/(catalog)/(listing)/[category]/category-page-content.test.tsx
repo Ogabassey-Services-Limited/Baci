@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   mockBuildCategoryPageHubModel,
   mockBuildRequestScopedStoreUrl,
+  mockCategoryPageDeferredCompareLinks,
   mockBuildStoreUrl,
   mockGenerateBreadcrumbSchema,
   mockGenerateCollectionPageSchema,
@@ -13,12 +14,14 @@ const {
   mockGetCachedProductSemanticInventory,
   mockGetMerchantByIdentifier,
   mockGetPublishedClusterPosts,
+  mockHasMaintainedCategoryCompareHubLink,
   mockHeaders,
   mockNormalizeCategoryPageProducts,
   mockResolveCategoryPageName,
 } = vi.hoisted(() => ({
   mockBuildCategoryPageHubModel: vi.fn(),
   mockBuildRequestScopedStoreUrl: vi.fn(),
+  mockCategoryPageDeferredCompareLinks: vi.fn(),
   mockBuildStoreUrl: vi.fn(),
   mockGenerateBreadcrumbSchema: vi.fn(() => ({})),
   mockGenerateCollectionPageSchema: vi.fn(() => ({})),
@@ -27,6 +30,7 @@ const {
   mockGetCachedProductSemanticInventory: vi.fn(),
   mockGetMerchantByIdentifier: vi.fn(),
   mockGetPublishedClusterPosts: vi.fn(),
+  mockHasMaintainedCategoryCompareHubLink: vi.fn(),
   mockHeaders: vi.fn(),
   mockNormalizeCategoryPageProducts: vi.fn(),
   mockResolveCategoryPageName: vi.fn(),
@@ -92,6 +96,18 @@ vi.mock(
   })
 );
 
+vi.mock('./category-page-deferred-compare-links', () => ({
+  CategoryPageDeferredCompareLinks: (props: { categorySlug: string }) => {
+    mockCategoryPageDeferredCompareLinks(props);
+
+    return (
+      <section aria-label="Maintained category compare links">
+        {props.categorySlug}
+      </section>
+    );
+  },
+}));
+
 vi.mock('@/lib/cached-data', () => ({
   getCachedCategoryPageData: (...args: unknown[]) =>
     mockGetCachedCategoryPageData(...args),
@@ -140,6 +156,8 @@ vi.mock('./category-page-content-helpers', () => ({
     productSlots?: unknown[];
     products: unknown[];
   }) => data.productSlots ?? data.products,
+  hasMaintainedCategoryCompareHubLink: (...args: unknown[]) =>
+    mockHasMaintainedCategoryCompareHubLink(...args),
   isCategoryPageProductSlot: (product: unknown) => product !== null,
   normalizeCategoryPageProducts: (...args: unknown[]) =>
     mockNormalizeCategoryPageProducts(...args),
@@ -157,6 +175,7 @@ describe('CategoryPageContent', () => {
     mockBuildRequestScopedStoreUrl.mockReturnValue('https://store.example.com');
     mockGetPublishedClusterPosts.mockResolvedValue([]);
     mockGetCachedProductSemanticInventory.mockResolvedValue([]);
+    mockHasMaintainedCategoryCompareHubLink.mockReturnValue(false);
     mockGetCachedCategoryPageData.mockResolvedValue({
       isCollection: true,
       category: null,
@@ -296,6 +315,73 @@ describe('CategoryPageContent', () => {
 
     expect(hubModelInput).not.toHaveProperty('comparisonLinks');
     expect(mockGetCachedProductSemanticInventory).not.toHaveBeenCalled();
+  });
+
+  it('renders maintained compare links even when legacy support links exist', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Demo Store',
+      slug: 'demo-store',
+      country: 'NG',
+      payout_currency: 'NGN',
+    });
+    mockGetCachedCategoryPageData.mockResolvedValueOnce({
+      isCollection: false,
+      category: {
+        id: 'cat-1',
+        name: 'Phones',
+        slug: 'phones',
+        description: 'Phones',
+        image_url: null,
+        is_active: true,
+        parent_id: null,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      fallbackName: 'Phones',
+      fallbackDescription: 'Phones',
+      isInactiveCategory: false,
+      productCount: 1,
+      productsArePrePaginated: true,
+      products: [{ id: 'product-1' }],
+      productSlots: [{ id: 'product-1' }],
+      productIdsQueryFailed: false,
+      productsQueryFailed: false,
+      categoryQueryFailed: false,
+    });
+    mockBuildCategoryPageHubModel.mockReturnValueOnce({
+      intro: { heading: 'Phones', description: 'Phone collection' },
+      trustFeatures: [],
+      faqItems: [],
+      comparisonLinks: [
+        {
+          href: '/phones/compare/legacy-a-vs-legacy-b',
+          label: 'Legacy comparison',
+        },
+      ],
+    });
+
+    render(
+      await CategoryPageContent({
+        params: Promise.resolve({ slug: 'demo-store', category: 'phones' }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })
+    );
+
+    expect(
+      screen.getByRole('region', {
+        name: 'Maintained category compare links',
+      })
+    ).toHaveTextContent('phones');
+    expect(mockCategoryPageDeferredCompareLinks).toHaveBeenCalledWith(
+      expect.objectContaining({
+        categorySlug: 'phones',
+        categoryName: 'Phones',
+      })
+    );
   });
 
   it('renders category product prices with the merchant country currency', async () => {

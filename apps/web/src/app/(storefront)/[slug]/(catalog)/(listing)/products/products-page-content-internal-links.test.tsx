@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
@@ -12,6 +12,7 @@ const {
   mockGetCachedStorefrontProductIndex,
   mockGetRequestScopedMerchant,
   mockHeaders,
+  mockProductsPageDeferredLinkModules,
 } = vi.hoisted(() => ({
   mockGenerateBreadcrumbSchema: vi.fn(() => ({})),
   mockGenerateCollectionPageSchema: vi.fn(() => ({})),
@@ -21,6 +22,7 @@ const {
   mockGetCachedStorefrontProductIndex: vi.fn(),
   mockGetRequestScopedMerchant: vi.fn(),
   mockHeaders: vi.fn(),
+  mockProductsPageDeferredLinkModules: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -110,6 +112,24 @@ vi.mock('./product-index-card', () => ({
   ProductIndexCard: () => null,
 }));
 
+vi.mock('./products-page-deferred-link-modules', () => ({
+  ProductsPageDeferredLinkModules: (props: {
+    baseUrl: string;
+    categories: Array<{ canonicalSlug: string; id: string; name: string }>;
+    merchantId: string;
+    pathPrefix: string;
+    productTotalPages: number;
+  }) => {
+    mockProductsPageDeferredLinkModules(props);
+
+    return (
+      <section aria-label="Deferred maintained products links">
+        {props.pathPrefix}
+      </section>
+    );
+  },
+}));
+
 const { ProductsPageContent } = await import('./products-page-content');
 
 const OGABASSEY_TEST_MERCHANT = {
@@ -182,7 +202,7 @@ describe('ProductsPageContent maintained buying path modules', () => {
     });
   });
 
-  it('renders Ogabassey-only maintained modules on custom-domain product pages', async () => {
+  it('renders Ogabassey-only maintained module boundary on custom-domain product pages', async () => {
     mockHeaders.mockResolvedValue(
       new Headers([['x-custom-domain', 'ogabassey.com']])
     );
@@ -196,43 +216,31 @@ describe('ProductsPageContent maintained buying path modules', () => {
     render(result as React.ReactElement);
 
     expect(
-      screen.getByRole('heading', { name: 'Explore Ogabassey buying paths' })
-    ).toBeInTheDocument();
-    const shortcutSection = screen.getByRole('region', {
-      name: 'Explore Ogabassey buying paths',
-    });
-    expect(
-      within(shortcutSection).getByRole('link', { name: 'Smartphones' })
-    ).toHaveAttribute('href', '/smartphones');
-    expect(
-      within(shortcutSection).getByRole('link', { name: 'Laptops' })
-    ).toHaveAttribute('href', '/laptops');
-    expect(
-      within(shortcutSection).getByRole('link', { name: 'Products page 6' })
-    ).toHaveAttribute('href', '/products?page=6');
-    expect(
-      within(shortcutSection).getByRole('link', {
-        name: 'Compare Google Pixel 8 with Xiaomi 13T',
+      screen.getByRole('region', {
+        name: 'Deferred maintained products links',
       })
-    ).toHaveAttribute(
-      'href',
-      '/smartphones/compare/google-pixel-8-vs-xiaomi-13t'
-    );
+    ).toBeInTheDocument();
+    expect(mockProductsPageDeferredLinkModules).toHaveBeenCalledWith({
+      baseUrl: 'https://ogabassey.com',
+      categories: [
+        expect.objectContaining({
+          canonicalSlug: 'smartphones',
+          id: 'cat-1',
+        }),
+        expect.objectContaining({
+          canonicalSlug: 'laptops',
+          id: 'cat-2',
+        }),
+      ],
+      merchantId: OGABASSEY_MERCHANT_ID,
+      pathPrefix: '',
+      productTotalPages: 6,
+    });
     expect(
       screen.queryByRole('link', { name: 'iPhone 16 Pro 512GB open box' })
     ).not.toBeInTheDocument();
     expect(mockGetCachedProductCanonicalPaths).not.toHaveBeenCalled();
-
-    const shortcutHrefs = within(shortcutSection)
-      .getAllByRole('link')
-      .map((link) => link.getAttribute('href'));
-
-    expect(new Set(shortcutHrefs).size).toBe(shortcutHrefs.length);
-    expect(shortcutHrefs.every((href) => href?.startsWith('/'))).toBe(true);
-    expect(shortcutHrefs.some((href) => href?.startsWith('http'))).toBe(false);
-    expect(shortcutHrefs).toEqual(
-      expect.arrayContaining(['/laptops', '/products?page=6', '/smartphones'])
-    );
+    expect(mockGetCachedProductSemanticInventory).not.toHaveBeenCalled();
   });
 
   it('does not render manual product shortcut labels', async () => {
@@ -274,6 +282,26 @@ describe('ProductsPageContent maintained buying path modules', () => {
     expect(
       screen.queryByRole('heading', { name: 'Explore Ogabassey buying paths' })
     ).not.toBeInTheDocument();
+    expect(mockProductsPageDeferredLinkModules).not.toHaveBeenCalled();
     expect(mockGetCachedProductCanonicalPaths).not.toHaveBeenCalled();
+  });
+
+  it('returns the catalog shell without loading maintained modules on the critical path', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+    mockGetRequestScopedMerchant.mockResolvedValue(OGABASSEY_TEST_MERCHANT);
+    mockGetCachedProductSemanticInventory.mockImplementation(() => {
+      throw new Error('semantic inventory should be deferred');
+    });
+
+    await expect(
+      ProductsPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })
+    ).resolves.toBeTruthy();
+
+    expect(mockGetCachedProductSemanticInventory).not.toHaveBeenCalled();
   });
 });
