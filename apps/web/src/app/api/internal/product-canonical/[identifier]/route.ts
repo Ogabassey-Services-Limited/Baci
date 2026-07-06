@@ -10,10 +10,13 @@ import {
   getValidatedInternalAuthMethod,
   INTERNAL_AUTH_HEADER,
 } from '@/lib/internal-auth-header';
-import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getProductSlugSetCacheTag } from '@/lib/product-cache-tags';
-import { getProductUrl } from '@/lib/seo-utils';
 import { UNKNOWN_STOREFRONT_FAIL_OPEN_REASON } from '@/lib/storefront-internal-preflight';
+import {
+  buildStorefrontPdpCanonicalPath,
+  normalizeStorefrontPdpPathForCompare,
+  type StorefrontPdpCanonicalSource,
+} from '@/lib/storefront-pdp-canonical-path';
 import { isDomainIdentifier } from '@/lib/validation';
 import {
   internalProductCanonicalRedirectQuerySchema,
@@ -91,58 +94,8 @@ function toVerdictResponse(
   });
 }
 
-interface ProductUrlSource {
-  canonical_url?: string | null;
-  category?: string | null;
-  categories?:
-    | { name?: string | null; slug?: string | null }
-    | { name?: string | null; slug?: string | null }[]
-    | null;
-  condition?: string | null;
-  condition_detail?: string | null;
-  id: string;
-  name: string;
-  slug?: string | null;
+interface ProductUrlSource extends StorefrontPdpCanonicalSource {
   status?: string | null;
-}
-
-function normalizePublicPdpPath(path: string) {
-  const pathname = path.split(/[?#]/, 1)[0] || '/';
-  const segments = pathname.split('/').filter(Boolean);
-  if (segments.length !== 2) {
-    return pathname.replace(/\/+$/g, '') || '/';
-  }
-
-  const [category, slug] = segments;
-  const normalizedCategory =
-    normalizeStorefrontCategorySlug(category) ?? category;
-  return `/${normalizedCategory}/${slug}`;
-}
-
-function normalizePath(path: string) {
-  return normalizePublicPdpPath(path).toLowerCase();
-}
-
-function asProductUrlSource(value: ProductUrlSource) {
-  const category = Array.isArray(value.categories)
-    ? (value.categories[0] ?? null)
-    : (value.categories ?? null);
-
-  return {
-    canonical_url: value.canonical_url,
-    category: value.category,
-    categories: category?.slug
-      ? {
-          name: category.name ?? undefined,
-          slug: category.slug,
-        }
-      : null,
-    condition: value.condition ?? undefined,
-    condition_detail: value.condition_detail ?? undefined,
-    id: value.id,
-    name: value.name,
-    slug: value.slug ?? undefined,
-  };
 }
 
 async function getPublishedMerchant(identifier: string) {
@@ -159,15 +112,13 @@ function getRedirectResponseForTarget(
   requestedSlug: string,
   target: ProductUrlSource
 ) {
-  const targetPath = normalizePublicPdpPath(
-    getProductUrl({
-      ...asProductUrlSource(target),
-      canonical_url: null,
-    })
-  );
+  const targetPath = buildStorefrontPdpCanonicalPath(target);
   const requestedPath = `/${requestedCategory}/${requestedSlug}`;
 
-  if (normalizePath(targetPath) === normalizePath(requestedPath)) {
+  if (
+    normalizeStorefrontPdpPathForCompare(targetPath) ===
+    normalizeStorefrontPdpPathForCompare(requestedPath)
+  ) {
     return { hasError: false, matchedProduct: true, redirectPath: null };
   }
 
