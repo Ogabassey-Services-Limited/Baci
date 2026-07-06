@@ -16,9 +16,7 @@ import type {
 } from '@/lib/storefront-content/content-cluster-types';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import {
-  buildCompareLinkGraph,
   type CompareLinkGraphEntry,
-  type CompareLinkGraphProduct,
   isMaintainedCompareGraphSlug,
 } from '@/lib/storefront-link-modules/compare-link-graph';
 import {
@@ -27,7 +25,6 @@ import {
   getStorefrontLocale,
 } from '@/lib/storefront-localization';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
-import { getCachedProductSemanticInventory } from '@/lib/storefront-product/get-cached-product-semantic-inventory';
 import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import {
   buildProductComparisonMatrix,
@@ -42,6 +39,11 @@ import {
   buildCuratedCompareSlugSet,
   isCuratedCompareSlug,
 } from './compare-indexability-policy';
+import {
+  buildRelatedCompareLinks,
+  includeClickedCompareProducts,
+  loadCompareGraphProducts,
+} from './compare-page-link-helpers';
 import { parseCompareSlug } from './compare-slugs';
 
 interface CompareBreadcrumbItem {
@@ -292,87 +294,6 @@ function loadSupportedGuidePosts(
     : Promise.resolve([]);
 }
 
-async function loadCompareGraphProducts(input: {
-  categorySlug: string;
-  merchantId: string;
-}) {
-  try {
-    return {
-      failed: false,
-      products: await getCachedProductSemanticInventory(
-        input.merchantId,
-        input.categorySlug
-      ),
-    };
-  } catch (error) {
-    console.warn('Failed to load bounded compare graph inventory', {
-      categorySlug: input.categorySlug,
-      merchantId: input.merchantId,
-      error,
-    });
-    return { failed: true, products: [] };
-  }
-}
-
-function includeClickedCompareProducts(input: {
-  products: CompareLinkGraphProduct[];
-  clickedProducts: Array<ComparableCategoryProduct | undefined>;
-}) {
-  const productSlugs = new Set(
-    input.products
-      .map((product) => product.slug?.trim())
-      .filter((slug): slug is string => Boolean(slug))
-  );
-  const clickedProducts = input.clickedProducts.filter(
-    (product): product is ComparableCategoryProduct =>
-      Boolean(product?.slug && !productSlugs.has(product.slug))
-  );
-
-  return clickedProducts.length > 0
-    ? [...input.products, ...clickedProducts]
-    : input.products;
-}
-
-function dedupeCompareLinks(links: CompareLinkGraphEntry[]) {
-  return links.filter(
-    (link, index) =>
-      links.findIndex((candidate) => candidate.href === link.href) === index
-  );
-}
-
-function buildRelatedCompareLinks(input: {
-  storeUrl: string;
-  categorySlug: string;
-  categoryName: string;
-  products: CompareLinkGraphProduct[];
-  leftProductSlug: string;
-  rightProductSlug: string;
-  currentComparisonSlug: string;
-}) {
-  const leftLinks = buildCompareLinkGraph({
-    storeUrl: input.storeUrl,
-    categorySlug: input.categorySlug,
-    categoryName: input.categoryName,
-    products: input.products,
-    productsAreKnownActive: true,
-    anchorProductSlug: input.leftProductSlug,
-    currentComparisonSlug: input.currentComparisonSlug,
-    maxLinks: 3,
-  });
-  const rightLinks = buildCompareLinkGraph({
-    storeUrl: input.storeUrl,
-    categorySlug: input.categorySlug,
-    categoryName: input.categoryName,
-    products: input.products,
-    productsAreKnownActive: true,
-    anchorProductSlug: input.rightProductSlug,
-    currentComparisonSlug: input.currentComparisonSlug,
-    maxLinks: 3,
-  });
-
-  return dedupeCompareLinks([...leftLinks, ...rightLinks]).slice(0, 6);
-}
-
 export function loadComparePage(args: {
   merchantSlug: string;
   categorySlug: string;
@@ -605,7 +526,7 @@ async function loadComparePageUncached(args: {
       storeUrl,
       categorySlug: args.categorySlug,
       categoryName,
-      products: semanticCompareProducts,
+      products: routeApprovalProducts,
       leftProductSlug: leftDetails.slug || parsed.leftKey,
       rightProductSlug: rightDetails.slug || parsed.rightKey,
       currentComparisonSlug: parsed.canonicalSlug,

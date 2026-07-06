@@ -21,7 +21,7 @@ async function loadCategoryCompareProducts(input: {
   }
 }
 
-function buildRequestScopedLink(storeUrl: string, href: string) {
+function buildStoreAbsoluteHref(storeUrl: string, href: string) {
   if (href.startsWith('http://') || href.startsWith('https://')) {
     return href;
   }
@@ -59,11 +59,14 @@ export async function loadCategoryPageCompareLinks(input: {
 
   return [
     {
-      href: `${input.storeUrl}/${input.categorySlug}/compare`,
+      href: buildStoreAbsoluteHref(
+        input.storeUrl,
+        `/${input.categorySlug}/compare`
+      ),
       label: `View all ${categoryLabel} comparisons`,
     },
     ...graphLinks.map((link) => ({
-      href: buildRequestScopedLink(input.storeUrl, link.href),
+      href: buildStoreAbsoluteHref(input.storeUrl, link.href),
       label: link.label,
     })),
   ];

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
+import { cache } from 'react';
 import type { BreadcrumbList, ItemList } from 'schema-dts';
 import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
@@ -86,34 +87,50 @@ function buildNoindexMetadata(input: {
   };
 }
 
+const loadCategoryCompareHubViewData = cache(
+  async (merchantSlug: string, categorySlug: string) => {
+    const data = await loadCategoryCompareHubData({
+      merchantSlug,
+      categorySlug,
+    });
+
+    if (!data) {
+      return null;
+    }
+
+    const compareLinks = buildCompareLinkGraph({
+      storeUrl: data.storeUrl,
+      categorySlug: data.categorySlug,
+      categoryName: data.categoryName,
+      products: data.products,
+      productsAreKnownActive: true,
+      maxLinks: 48,
+    });
+
+    return {
+      ...data,
+      canonicalUrl: `${data.storeUrl}/${data.categorySlug}/compare`,
+      compareLinks,
+    };
+  }
+);
+
 export async function generateMetadata({
   params,
   searchParams,
 }: CategoryCompareIndexPageProps): Promise<Metadata> {
   const { slug, category } = await params;
   const resolvedSearchParams = await (searchParams ?? Promise.resolve({}));
-  const data = await loadCategoryCompareHubData({
-    merchantSlug: slug,
-    categorySlug: category,
-  });
+  const data = await loadCategoryCompareHubViewData(slug, category);
 
   if (!data) {
     return buildNoindexMetadata({});
   }
 
-  const canonicalUrl = `${data.storeUrl}/${data.categorySlug}/compare`;
   const isCanonicalCategoryPath = isCanonicalCategoryCompareRequest(
     category,
     data.categorySlug
   );
-  const compareLinks = buildCompareLinkGraph({
-    storeUrl: data.storeUrl,
-    categorySlug: data.categorySlug,
-    categoryName: data.categoryName,
-    products: data.products,
-    productsAreKnownActive: true,
-    maxLinks: 48,
-  });
   const title = `${data.categoryName} comparisons | ${data.merchant.business_name}`;
   const description = generateMetaDescription(
     `Compare ${data.categoryName.toLowerCase()} from ${data.merchant.business_name} by specs, price, condition, warranty, and buying priorities.`,
@@ -128,18 +145,18 @@ export async function generateMetadata({
     title,
     description,
     alternates: {
-      canonical: canonicalUrl,
+      canonical: data.canonicalUrl,
     },
     robots:
       isCanonicalCategoryPath &&
-      compareLinks.length > 0 &&
+      data.compareLinks.length > 0 &&
       !hasCompareHubSearchParams(resolvedSearchParams)
         ? getIndexableRobotsMetadata()
         : { index: false, follow: true },
     openGraph: {
       title,
       description,
-      url: canonicalUrl,
+      url: data.canonicalUrl,
       type: 'website',
       siteName: data.merchant.business_name,
     },
@@ -155,10 +172,7 @@ export default async function CategoryCompareIndexPage({
   params,
 }: CategoryCompareIndexPageProps) {
   const { slug, category } = await params;
-  const data = await loadCategoryCompareHubData({
-    merchantSlug: slug,
-    categorySlug: category,
-  });
+  const data = await loadCategoryCompareHubViewData(slug, category);
 
   if (!data) {
     notFound();
@@ -175,25 +189,16 @@ export default async function CategoryCompareIndexPage({
     );
   }
 
-  const compareLinks = buildCompareLinkGraph({
-    storeUrl: data.storeUrl,
-    categorySlug: data.categorySlug,
-    categoryName: data.categoryName,
-    products: data.products,
-    productsAreKnownActive: true,
-    maxLinks: 48,
-  });
-  const canonicalUrl = `${data.storeUrl}/${data.categorySlug}/compare`;
   const breadcrumbSchema: JsonLdData<BreadcrumbList> = generateBreadcrumbSchema(
     [
       { name: data.merchant.business_name, url: data.storeUrl },
       { name: data.categoryName, url: `${data.storeUrl}/${data.categorySlug}` },
-      { name: `${data.categoryName} comparisons`, url: canonicalUrl },
+      { name: `${data.categoryName} comparisons`, url: data.canonicalUrl },
     ]
   );
   const itemListSchema = buildCompareHubItemListSchema({
-    canonicalUrl,
-    compareLinks,
+    canonicalUrl: data.canonicalUrl,
+    compareLinks: data.compareLinks,
     storeUrl: data.storeUrl,
   });
 
@@ -204,7 +209,7 @@ export default async function CategoryCompareIndexPage({
       <CompareIndexPageContent
         categoryName={data.categoryName}
         categoryHref={`/${data.categorySlug}`}
-        compareLinks={compareLinks}
+        compareLinks={data.compareLinks}
         merchantName={data.merchant.business_name}
         pathPrefix={pathPrefix}
       />

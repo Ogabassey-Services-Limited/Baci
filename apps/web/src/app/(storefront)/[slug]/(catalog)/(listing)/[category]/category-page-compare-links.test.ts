@@ -60,7 +60,7 @@ describe('loadCategoryPageCompareLinks', () => {
         },
         {
           href: 'https://ogabassey.com/smartphones/compare/samsung-galaxy-s24-ultra-vs-xiaomi-13t',
-          label: 'Compare Xiaomi 13T with Samsung Galaxy S24 Ultra',
+          label: 'Compare Samsung Galaxy S24 Ultra with Xiaomi 13T',
         },
       ])
     );

@@ -80,4 +80,10 @@ describe('getStorefrontPathPrefix', () => {
       )
     ).toBe('https://ogabassey.com/smartphones');
   });
+
+  it('normalizes protocol-relative hrefs into storefront paths', () => {
+    expect(resolveStorefrontPathHref('/ogabassey', '//evil.com/path')).toBe(
+      '/ogabassey/evil.com/path'
+    );
+  });
 });

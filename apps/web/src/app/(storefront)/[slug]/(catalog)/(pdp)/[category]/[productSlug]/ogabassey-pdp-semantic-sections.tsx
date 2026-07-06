@@ -1,3 +1,4 @@
+import { MAX_PRODUCT_COMPARE_LINKS } from '@/components/storefront/ogabassey/seo/product-compare-links';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import type { Product } from '@/lib/products';
 import { buildCompareLinkGraph } from '@/lib/storefront-link-modules/compare-link-graph';
@@ -84,7 +85,7 @@ export async function OgabasseyPdpSemanticSections({
     products: compareInventory,
     productsAreKnownActive: true,
     anchorProductSlug: currentProduct.slug,
-    maxLinks: 8,
+    maxLinks: MAX_PRODUCT_COMPARE_LINKS,
   });
   const semanticModel = buildProductSemanticModel({
     storeUrl,

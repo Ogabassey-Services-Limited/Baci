@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  capLinkModuleItems,
   dedupeLinkModuleItems,
   pruneEmptyLinkModules,
   validateInternalModuleHref,
@@ -14,6 +15,9 @@ describe('storefront link module utilities', () => {
     expect(() =>
       validateInternalModuleHref('https://ogabassey.com/smartphones')
     ).toThrow("Storefront link module href must start with '/'");
+    expect(() => validateInternalModuleHref('//evil.com')).toThrow(
+      "Storefront link module href must start with '/'"
+    );
   });
 
   it('deduplicates module items by href while preserving first useful label', () => {
@@ -53,5 +57,31 @@ describe('storefront link module utilities', () => {
         items: [{ href: '/smartphones', label: 'Smartphones' }],
       },
     ]);
+  });
+
+  it('caps module items after deduping while preserving order', () => {
+    expect(
+      capLinkModuleItems(
+        [
+          { href: '/smartphones', label: 'Smartphones' },
+          { href: '/laptops', label: 'Laptops' },
+          { href: '/smartphones', label: 'Phones' },
+          { href: '/audio', label: 'Audio' },
+        ],
+        2
+      )
+    ).toEqual([
+      { href: '/smartphones', label: 'Smartphones' },
+      { href: '/laptops', label: 'Laptops' },
+    ]);
+  });
+
+  it('returns no module items when the cap is zero or lower', () => {
+    expect(
+      capLinkModuleItems([{ href: '/smartphones', label: 'Smartphones' }], 0)
+    ).toEqual([]);
+    expect(
+      capLinkModuleItems([{ href: '/smartphones', label: 'Smartphones' }], -1)
+    ).toEqual([]);
   });
 });

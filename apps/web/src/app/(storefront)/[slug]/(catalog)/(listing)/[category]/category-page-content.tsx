@@ -249,6 +249,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
           hubContent.faqItems
         ) as unknown as JsonLdData<FAQPage>)
       : null;
+  const comparisonLinks = hubContent.comparisonLinks ?? [];
 
   return (
     <>
@@ -282,7 +283,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
         merchantName={merchant.business_name}
         productNames={categoryPageProducts.map((product) => product.name)}
       />
-      {!data.isCollection && (hubContent.comparisonLinks?.length ?? 0) === 0 ? (
+      {!data.isCollection && comparisonLinks.length === 0 ? (
         <Suspense fallback={null}>
           <CategoryPageDeferredCompareLinks
             storeUrl={requestScopedBaseUrl}

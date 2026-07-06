@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { asRoute } from '@/lib/routes';
 import type { CompareLinkGraphEntry } from '@/lib/storefront-link-modules/compare-link-graph';
+import { resolveStorefrontPathHref } from '@/lib/storefront-path-prefix';
 
 interface CompareIndexPageContentProps {
   categoryName: string;
@@ -8,14 +9,6 @@ interface CompareIndexPageContentProps {
   compareLinks: CompareLinkGraphEntry[];
   merchantName: string;
   pathPrefix: string;
-}
-
-function resolveStorefrontHref(pathPrefix: string, href: string) {
-  if (href.startsWith('http://') || href.startsWith('https://')) {
-    return href;
-  }
-
-  return href === '/' ? pathPrefix || '/' : `${pathPrefix}${href}`;
 }
 
 export function CompareIndexPageContent({
@@ -46,7 +39,7 @@ export function CompareIndexPageContent({
             >
               <Link
                 className="text-base font-semibold text-store-primary hover:underline"
-                href={asRoute(resolveStorefrontHref(pathPrefix, link.href))}
+                href={asRoute(resolveStorefrontPathHref(pathPrefix, link.href))}
                 prefetch={false}
               >
                 {link.label}
@@ -64,7 +57,7 @@ export function CompareIndexPageContent({
           </p>
           <Link
             className="mt-4 inline-flex text-sm font-semibold text-store-primary hover:underline"
-            href={asRoute(resolveStorefrontHref(pathPrefix, categoryHref))}
+            href={asRoute(resolveStorefrontPathHref(pathPrefix, categoryHref))}
             prefetch={false}
           >
             Browse {categoryName}

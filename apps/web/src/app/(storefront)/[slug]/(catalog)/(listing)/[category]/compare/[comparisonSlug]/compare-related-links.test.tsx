@@ -8,6 +8,16 @@ vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
 }));
 
+vi.mock('next/link', () => ({
+  default: ({
+    children,
+    href,
+  }: {
+    children: React.ReactNode;
+    href: string;
+  }) => <a href={href}>{children}</a>,
+}));
+
 const links = [
   {
     href: '/smartphones/compare/galaxy-s24-fe-vs-iphone-17-pro-max',

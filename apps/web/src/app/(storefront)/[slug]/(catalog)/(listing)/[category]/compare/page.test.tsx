@@ -99,7 +99,7 @@ describe('CategoryCompareIndexPage', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
-        name: 'Compare Xiaomi 13T with Google Pixel 8',
+        name: 'Compare Google Pixel 8 with Xiaomi 13T',
       })
     ).toHaveAttribute(
       'href',

@@ -99,6 +99,24 @@ describe('buildCompareLinkGraph', () => {
     ).toBe(false);
   });
 
+  it('uses canonical pair order for labels, descriptions, and product metadata', () => {
+    const graph = buildCompareLinkGraph({
+      storeUrl: 'https://ogabassey.com',
+      categorySlug: 'smartphones',
+      categoryName: 'Smartphones',
+      products: [products[0], products[1]],
+      maxLinks: 1,
+    });
+
+    expect(graph[0]).toMatchObject({
+      comparisonSlug: 'google-pixel-8-vs-xiaomi-13t',
+      label: 'Compare Google Pixel 8 with Xiaomi 13T',
+      productSlugs: ['google-pixel-8', 'xiaomi-13t'],
+      productNames: ['Google Pixel 8', 'Xiaomi 13T'],
+    });
+    expect(graph[0]?.description).toContain('Google Pixel 8 and Xiaomi 13T');
+  });
+
   it('supports the dominant Semrush compare clusters', () => {
     const smartphoneGraph = buildCompareLinkGraph({
       storeUrl: 'https://ogabassey.com',

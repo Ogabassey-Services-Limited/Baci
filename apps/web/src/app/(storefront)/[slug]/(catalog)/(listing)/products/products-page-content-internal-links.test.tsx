@@ -122,7 +122,7 @@ const OGABASSEY_TEST_MERCHANT = {
   site_description: 'Browse products',
 };
 
-describe('ProductsPageContent internal link equity', () => {
+describe('ProductsPageContent maintained buying path modules', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHeaders.mockResolvedValue(new Headers());
@@ -212,7 +212,7 @@ describe('ProductsPageContent internal link equity', () => {
     ).toHaveAttribute('href', '/products?page=6');
     expect(
       within(shortcutSection).getByRole('link', {
-        name: 'Compare Xiaomi 13T with Google Pixel 8',
+        name: 'Compare Google Pixel 8 with Xiaomi 13T',
       })
     ).toHaveAttribute(
       'href',

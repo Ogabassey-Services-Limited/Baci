@@ -8,6 +8,8 @@ interface ProductCompareLinksProps {
   pathPrefix?: string;
 }
 
+export const MAX_PRODUCT_COMPARE_LINKS = 8;
+
 export function ProductCompareLinks({
   productName,
   links,
@@ -31,7 +33,7 @@ export function ProductCompareLinks({
         choosing.
       </p>
       <ul className="mt-4 space-y-3">
-        {links.slice(0, 8).map((link) => (
+        {links.slice(0, MAX_PRODUCT_COMPARE_LINKS).map((link) => (
           <li key={link.href}>
             <a
               className="text-sm font-semibold text-store-primary hover:underline"

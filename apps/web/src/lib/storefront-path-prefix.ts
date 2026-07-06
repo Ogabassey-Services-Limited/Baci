@@ -58,7 +58,7 @@ export function resolveStorefrontPathHref(pathPrefix: string, href: string) {
     return normalizedPathPrefix || '/';
   }
 
-  const normalizedHref = href.startsWith('/') ? href : `/${href}`;
+  const normalizedHref = `/${href.replace(/^\/+/, '')}`;
 
   return `${normalizedPathPrefix}${normalizedHref}`;
 }

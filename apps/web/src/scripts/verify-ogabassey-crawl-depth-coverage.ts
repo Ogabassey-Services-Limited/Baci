@@ -1,3 +1,8 @@
+import {
+  getCanonicalBlogCategorySlug,
+  getOgabasseyBlogCategoryAliasSlug,
+} from '@/app/(storefront)/[slug]/(blog)/blog/blog-category-routing';
+
 export type CrawlDepthUrlKind =
   | 'blog'
   | 'blog-category-alias-cleanup'
@@ -7,7 +12,8 @@ export type CrawlDepthUrlKind =
   | 'demo-cleanup'
   | 'listing-page'
   | 'product'
-  | 'redirect-cleanup';
+  | 'redirect-cleanup'
+  | 'unparseable';
 
 export interface ClassifiedCrawlDepthUrl {
   kind: CrawlDepthUrlKind;
@@ -47,11 +53,30 @@ function pathWithSearch(url: URL) {
 }
 
 function listingPagePath(url: URL) {
-  return `${url.pathname}?page=${url.searchParams.get('page')}`;
+  const params = new URLSearchParams();
+  const page = url.searchParams.get('page');
+
+  for (const [key, value] of url.searchParams.entries()) {
+    if (key !== 'page') {
+      params.append(key, value);
+    }
+  }
+
+  if (page) {
+    params.set('page', page);
+  }
+
+  return `${url.pathname}?${params.toString()}`;
 }
 
 export function classifyCrawlDepthUrl(url: string): ClassifiedCrawlDepthUrl {
-  const parsedUrl = new URL(url);
+  let parsedUrl: URL;
+
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    return { kind: 'unparseable', path: url.trim() || '(blank)' };
+  }
 
   if (parsedUrl.hostname !== 'ogabassey.com') {
     return { kind: 'redirect-cleanup', path: parsedUrl.pathname || '/' };
@@ -88,12 +113,30 @@ export function classifyCrawlDepthUrl(url: string): ClassifiedCrawlDepthUrl {
     };
   }
 
-  if (parsedUrl.pathname === '/blog/category/review') {
-    return {
-      canonicalPath: '/blog/category/reviews',
-      kind: 'blog-category-alias-cleanup',
-      path: parsedUrl.pathname,
-    };
+  const blogCategoryMatch = parsedUrl.pathname.match(
+    /^\/blog\/category\/([^/]+)$/
+  );
+
+  if (blogCategoryMatch) {
+    let categorySlug: string;
+
+    try {
+      categorySlug = decodeURIComponent(blogCategoryMatch[1]);
+    } catch {
+      return { kind: 'unparseable', path: parsedUrl.pathname };
+    }
+
+    const canonicalSlug =
+      getOgabasseyBlogCategoryAliasSlug(categorySlug) ??
+      getCanonicalBlogCategorySlug(categorySlug);
+
+    if (canonicalSlug !== categorySlug) {
+      return {
+        canonicalPath: `/blog/category/${canonicalSlug}`,
+        kind: 'blog-category-alias-cleanup',
+        path: parsedUrl.pathname,
+      };
+    }
   }
 
   if (parsedUrl.pathname.startsWith('/blog/')) {

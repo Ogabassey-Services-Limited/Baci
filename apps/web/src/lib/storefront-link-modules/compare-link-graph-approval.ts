@@ -49,6 +49,10 @@ export function selectApprovedCompareGraphEntries<
   requiredProductSlugs,
   maxLinks,
 }: SelectApprovedCompareGraphEntriesInput<TEntry>) {
+  if (maxLinks <= 0) {
+    return [];
+  }
+
   const approvedEntries: TEntry[] = [];
   const curatedCompareSlugs = buildCuratedCompareSlugSet({
     storeUrl,
@@ -97,15 +101,15 @@ export function selectApprovedCompareGraphEntries<
   };
 
   for (const [index, entry] of candidateEntries.entries()) {
+    if (approvedEntries.length >= maxLinks) {
+      break;
+    }
+
     if (!isApprovedEntry(entry, index)) {
       continue;
     }
 
     approvedEntries.push(entry);
-
-    if (approvedEntries.length >= maxLinks) {
-      break;
-    }
   }
 
   return approvedEntries;

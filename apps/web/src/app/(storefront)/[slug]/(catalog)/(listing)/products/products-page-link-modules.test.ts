@@ -120,37 +120,41 @@ describe('loadProductsPageLinkModules', () => {
     const consoleSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
-    mockedInventory.mockResolvedValue([]);
-    mockedCategoryProductCounts.mockRejectedValue(new Error('count failed'));
+    try {
+      mockedInventory.mockResolvedValue([]);
+      mockedCategoryProductCounts.mockRejectedValue(new Error('count failed'));
 
-    const modules = await loadProductsPageLinkModules({
-      baseUrl: 'https://ogabassey.com',
-      merchantId: 'merchant-1',
-      productTotalPages: 1,
-      categories: [
-        {
-          id: 'cat-1',
-          slug: 'smartphones',
-          canonicalSlug: 'smartphones',
-          name: 'Smartphones',
-          description: null,
-          image_url: null,
-          is_active: true,
-          parent_id: null,
-        },
-      ],
-    });
+      const modules = await loadProductsPageLinkModules({
+        baseUrl: 'https://ogabassey.com',
+        merchantId: 'merchant-1',
+        productTotalPages: 1,
+        categories: [
+          {
+            id: 'cat-1',
+            slug: 'smartphones',
+            canonicalSlug: 'smartphones',
+            name: 'Smartphones',
+            description: null,
+            image_url: null,
+            is_active: true,
+            parent_id: null,
+          },
+        ],
+      });
 
-    expect(modules.some((module) => module.id === 'catalog-categories')).toBe(
-      true
-    );
-    expect(modules.some((module) => module.id === 'category-pages')).toBe(
-      false
-    );
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Failed to load category product counts',
-      expect.objectContaining({ merchantId: 'merchant-1' })
-    );
+      expect(modules.some((module) => module.id === 'catalog-categories')).toBe(
+        true
+      );
+      expect(modules.some((module) => module.id === 'category-pages')).toBe(
+        false
+      );
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to load category product counts',
+        expect.objectContaining({ merchantId: 'merchant-1' })
+      );
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 
   it('keeps non-compare modules when category inventory loading fails', async () => {

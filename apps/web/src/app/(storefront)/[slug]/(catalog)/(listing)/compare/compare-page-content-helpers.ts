@@ -21,7 +21,7 @@ export function toRequestRelativeHref(
   storeUrl: string,
   pathPrefix: string
 ) {
-  if (href.startsWith('/') && !href.startsWith('//')) {
+  if (href.startsWith('/')) {
     return resolveStorefrontPathHref(pathPrefix, href);
   }
 
@@ -69,9 +69,10 @@ export function normalizeCompareProduct(
     name: normalizedProduct.name,
     brand: normalizedProduct.brand,
     price: normalizedProduct.price,
-    category_slug: hasJoinedCategory
-      ? normalizedProduct.category_slug
-      : categorySlug,
+    category_slug:
+      hasJoinedCategory && normalizedProduct.category_slug
+        ? normalizedProduct.category_slug
+        : categorySlug,
     product_key_specs: normalizedProduct.product_key_specs,
   };
 }

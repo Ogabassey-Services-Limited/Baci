@@ -4,6 +4,10 @@ import {
   parseCompareSlug,
 } from '@/lib/storefront-compare/compare-slugs';
 import { selectApprovedCompareGraphEntries } from './compare-link-graph-approval';
+import {
+  buildCanonicalPair,
+  forEachComparePair,
+} from './compare-link-graph-pairs';
 
 export interface CompareLinkGraphProduct {
   id?: string | null;
@@ -126,27 +130,15 @@ export function buildCompareLinkGraph({
   }));
   const candidateEntries: CompareLinkGraphEntry[] = [];
 
-  for (let leftIndex = 0; leftIndex < activeProducts.length; leftIndex += 1) {
-    for (
-      let rightIndex = leftIndex + 1;
-      rightIndex < activeProducts.length;
-      rightIndex += 1
-    ) {
-      const left = activeProducts[leftIndex];
-      const right = activeProducts[rightIndex];
+  forEachComparePair(
+    activeProducts,
+    anchorProductSlug,
+    (left: CompareLinkGraphProduct, right: CompareLinkGraphProduct) => {
       const leftSlug = left.slug?.trim();
       const rightSlug = right.slug?.trim();
 
       if (!leftSlug || !rightSlug) {
-        continue;
-      }
-
-      if (
-        anchorProductSlug &&
-        leftSlug !== anchorProductSlug &&
-        rightSlug !== anchorProductSlug
-      ) {
-        continue;
+        return;
       }
 
       const comparisonSlug = buildCanonicalProductCompareSlug(
@@ -155,42 +147,54 @@ export function buildCompareLinkGraph({
       );
 
       if (comparisonSlug === currentComparisonSlug) {
-        continue;
+        return;
+      }
+
+      const canonicalPair = buildCanonicalPair({
+        comparisonSlug,
+        left,
+        leftSlug,
+        right,
+        rightSlug,
+      });
+
+      if (!canonicalPair) {
+        return;
       }
 
       const candidate = buildProductCompareCandidate({
         categorySlug,
         leftProduct: {
-          slug: leftSlug,
-          name: left.name,
-          category_slug: left.category_slug,
-          product_key_specs: left.product_key_specs,
+          slug: canonicalPair.leftSlug,
+          name: canonicalPair.left.name,
+          category_slug: canonicalPair.left.category_slug,
+          product_key_specs: canonicalPair.left.product_key_specs,
         },
         rightProduct: {
-          slug: rightSlug,
-          name: right.name,
-          category_slug: right.category_slug,
-          product_key_specs: right.product_key_specs,
+          slug: canonicalPair.rightSlug,
+          name: canonicalPair.right.name,
+          category_slug: canonicalPair.right.category_slug,
+          product_key_specs: canonicalPair.right.product_key_specs,
         },
       });
 
       if (!candidate.isIndexable) {
-        continue;
+        return;
       }
 
       candidateEntries.push({
         href: `/${categorySlug}/compare/${comparisonSlug}`,
-        label: `Compare ${left.name} with ${right.name}`,
-        description: `Compare price, specs, condition, and buying fit for ${left.name} and ${right.name}.`,
+        label: `Compare ${canonicalPair.left.name} with ${canonicalPair.right.name}`,
+        description: `Compare price, specs, condition, and buying fit for ${canonicalPair.left.name} and ${canonicalPair.right.name}.`,
         categorySlug,
         comparisonSlug,
-        productSlugs: [leftSlug, rightSlug],
-        productNames: [left.name, right.name],
+        productSlugs: [canonicalPair.leftSlug, canonicalPair.rightSlug],
+        productNames: [canonicalPair.left.name, canonicalPair.right.name],
         anchorProductSlug,
         score: entryScore(left, right, anchorProductSlug),
       });
     }
-  }
+  );
 
   const sortedCandidateEntries = candidateEntries.sort(
     (left, right) =>

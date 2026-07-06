@@ -1,7 +1,9 @@
 import { headers } from 'next/headers';
+import Link from 'next/link';
+import { toRequestRelativeHref } from '@/app/(storefront)/[slug]/(catalog)/(listing)/compare/compare-page-content-helpers';
+import { asRoute } from '@/lib/routes';
 import type { CompareLinkGraphEntry } from '@/lib/storefront-link-modules/compare-link-graph';
 import { getStorefrontPathPrefix } from '@/lib/storefront-path-prefix';
-import { toRequestRelativeHref } from '../../../compare/compare-page-content-helpers';
 
 interface CompareRelatedLinksProps {
   links: CompareLinkGraphEntry[];
@@ -39,12 +41,15 @@ export async function CompareRelatedLinks({
             className="space-y-2 rounded-2xl border border-store-border p-4"
             key={link.href}
           >
-            <a
+            <Link
               className="text-base font-semibold text-store-primary underline-offset-4 hover:underline"
-              href={toRequestRelativeHref(link.href, storeUrl, pathPrefix)}
+              href={asRoute(
+                toRequestRelativeHref(link.href, storeUrl, pathPrefix)
+              )}
+              prefetch={false}
             >
               {link.label}
-            </a>
+            </Link>
             <p className="text-sm text-store-background-text/70">
               {link.description}
             </p>

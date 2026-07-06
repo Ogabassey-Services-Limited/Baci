@@ -56,6 +56,12 @@ describe('verify Ogabassey crawl-depth coverage', () => {
       kind: 'blog-category-alias-cleanup',
       path: '/blog/category/review',
     });
+    expect(
+      classifyCrawlDepthUrl('https://ogabassey.com/smartphones?page=2&brand=Apple')
+    ).toEqual({
+      kind: 'listing-page',
+      path: '/smartphones?brand=Apple&page=2',
+    });
   });
 
   it('proves compare and listing rows are covered by maintained module hrefs', () => {
@@ -156,6 +162,60 @@ describe('verify Ogabassey crawl-depth coverage', () => {
     );
     expect(formatCrawlDepthCoverageReport(report)).toContain(
       'cluster vs-xiaomi-13t covered_representative true'
+    );
+  });
+
+  it('reports missing maintained rows with samples', () => {
+    const report = buildCrawlDepthCoverageReport(
+      [
+        'https://ogabassey.com/smartphones/compare/iphone-12-vs-xiaomi-13t',
+        'https://ogabassey.com/smartphones/iphone-xr-3gb-128gb',
+      ],
+      new Set(['/smartphones/compare/iphone-12-vs-xiaomi-13t'])
+    );
+
+    expect(report.missingMaintainedRows).toBe(1);
+    expect(report.missing).toEqual([
+      {
+        kind: 'product',
+        path: '/smartphones/iphone-xr-3gb-128gb',
+      },
+    ]);
+    expect(formatCrawlDepthCoverageReport(report)).toContain(
+      'missing_samples\nproduct /smartphones/iphone-xr-3gb-128gb'
+    );
+  });
+
+  it('treats malformed crawl-depth rows as missing instead of aborting', () => {
+    const report = buildCrawlDepthCoverageReport(
+      ['not a url'],
+      new Set<string>()
+    );
+
+    expect(report.missingMaintainedRows).toBe(1);
+    expect(report.missing).toEqual([
+      {
+        kind: 'unparseable',
+        path: 'not a url',
+      },
+    ]);
+  });
+
+  it('treats malformed blog category percent-encoding as missing instead of aborting', () => {
+    const report = buildCrawlDepthCoverageReport(
+      ['https://ogabassey.com/blog/category/50%'],
+      new Set<string>()
+    );
+
+    expect(report.missingMaintainedRows).toBe(1);
+    expect(report.missing).toEqual([
+      {
+        kind: 'unparseable',
+        path: '/blog/category/50%',
+      },
+    ]);
+    expect(formatCrawlDepthCoverageReport(report)).toContain(
+      'unparseable /blog/category/50%'
     );
   });
 });

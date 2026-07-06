@@ -67,6 +67,36 @@ describe('getCachedCategoryProductCounts', () => {
     );
   });
 
+  it('pages through active product category rows before counting', async () => {
+    harness.mockListResults.push(
+      {
+        data: Array.from({ length: 1000 }, (_, index) => ({
+          id: `product-${index}`,
+          product_categories: [{ category_id: 'parent' }],
+        })),
+        error: null,
+      },
+      {
+        data: [
+          {
+            id: 'product-1000',
+            product_categories: [{ category_id: 'parent' }],
+          },
+        ],
+        error: null,
+      }
+    );
+
+    const result = await getCachedCategoryProductCounts('merchant-1', [
+      { id: 'parent', is_active: true, parent_id: null },
+    ]);
+
+    expect(result).toEqual({ parent: 1001 });
+    expect(harness.mockOrder).toHaveBeenCalledWith('id', { ascending: true });
+    expect(harness.mockRange).toHaveBeenNthCalledWith(1, 0, 999);
+    expect(harness.mockRange).toHaveBeenNthCalledWith(2, 1000, 1999);
+  });
+
   it('returns empty counts when there are no active categories', async () => {
     const result = await getCachedCategoryProductCounts('merchant-1', [
       { id: 'inactive', is_active: false, parent_id: null },

@@ -167,7 +167,7 @@ describe('ComparePageContent', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
-        name: 'Compare 15" MacBook Air M4 (2025) with Dell XPS 13 9350',
+        name: 'Compare Dell XPS 13 9350 with 15" MacBook Air M4 (2025)',
       })
     ).toHaveAttribute(
       'href',
@@ -191,7 +191,7 @@ describe('ComparePageContent', () => {
 
     expect(
       screen.getByRole('link', {
-        name: 'Compare 15" MacBook Air M4 (2025) with Dell XPS 13 9350',
+        name: 'Compare Dell XPS 13 9350 with 15" MacBook Air M4 (2025)',
       })
     ).toHaveAttribute(
       'href',

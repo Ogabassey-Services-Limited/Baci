@@ -41,4 +41,23 @@ describe('compare link graph approval', () => {
       })
     ).toEqual([candidate]);
   });
+
+  it('does not approve entries when maxLinks is zero', () => {
+    const candidate = {
+      comparisonSlug: 'phone-150-vs-phone-151',
+      productSlugs: ['phone-150', 'phone-151'] as [string, string],
+      href: '/smartphones/compare/phone-150-vs-phone-151',
+    };
+
+    expect(
+      selectApprovedCompareGraphEntries({
+        storeUrl: 'https://ogabassey.com',
+        categorySlug: 'smartphones',
+        categoryName: 'Smartphones',
+        policyProducts: deepProducts,
+        candidateEntries: [candidate],
+        maxLinks: 0,
+      })
+    ).toEqual([]);
+  });
 });

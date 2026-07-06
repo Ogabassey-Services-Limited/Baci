@@ -1,6 +1,7 @@
 import {
   buildStorefrontPageHref,
   getStorefrontCrawlDiscoveryPages,
+  STOREFRONT_CRAWL_DISCOVERY_PRODUCT_PAGE_LIMIT,
 } from '@/lib/storefront-pagination';
 import type {
   StorefrontLinkModule,
@@ -38,8 +39,8 @@ function buildPaginationItems(
   return getStorefrontCrawlDiscoveryPages({
     totalPages,
     currentPage: 1,
-    allPagesThreshold: 100,
-    maxPages: 100,
+    allPagesThreshold: STOREFRONT_CRAWL_DISCOVERY_PRODUCT_PAGE_LIMIT,
+    maxPages: STOREFRONT_CRAWL_DISCOVERY_PRODUCT_PAGE_LIMIT,
   })
     .filter((page) => page > 1)
     .map((page) => ({

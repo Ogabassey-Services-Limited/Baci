@@ -59,16 +59,35 @@ const OGABASSEY_CATEGORY_STATIC_FALLBACK_SLUGS = [
 function buildCanonicalCategoryRoute(input: {
   categorySlug: string;
   headersList: Parameters<typeof getStorefrontPathPrefix>[0];
+  searchParams?: {
+    page?: BlogSearchParamValue;
+    search?: BlogSearchParamValue;
+  };
   slug: string;
 }) {
   const pathPrefix = isDomainIdentifier(input.slug)
     ? ''
     : getStorefrontPathPrefix(input.headersList, input.slug);
+  const routeSearchParams = new URLSearchParams();
+  const page = toSingleBlogSearchParam(input.searchParams?.page);
+  const search = toSingleBlogSearchParam(input.searchParams?.search);
+
+  if (page) {
+    routeSearchParams.set('page', page);
+  }
+
+  if (search) {
+    routeSearchParams.set('search', search);
+  }
+
+  const searchSuffix = routeSearchParams.toString()
+    ? `?${routeSearchParams.toString()}`
+    : '';
 
   return asRoute(
     resolveStorefrontPathHref(
       pathPrefix,
-      `/blog/category/${input.categorySlug}`
+      `/blog/category/${input.categorySlug}${searchSuffix}`
     )
   );
 }
@@ -127,6 +146,7 @@ export async function generateMetadata({
   }
   const canonicalCategorySlug = getCanonicalBlogCategorySlug(categorySlug);
   const hub = await resolveBlogCategoryHub(slug, canonicalCategorySlug);
+  const isCanonicalCategoryPath = categorySlug === canonicalCategorySlug;
   const aliasCategorySlug =
     !hub && isOgabasseyBlogStaticTenant(slug)
       ? getOgabasseyBlogCategoryAliasSlug(categorySlug)
@@ -138,6 +158,15 @@ export async function generateMetadata({
 
   if (!resolvedHub) {
     return CATEGORY_NOT_FOUND_METADATA;
+  }
+
+  if (hub && !isCanonicalCategoryPath) {
+    return buildBlogListingMetadata({
+      slug,
+      searchParams: { category: hub.categoryLabel },
+      canonicalUrl: hub.canonicalUrl,
+      indexable: false,
+    });
   }
 
   if (aliasHub) {
@@ -191,6 +220,17 @@ export default async function BlogCategoryPage({
   const canonicalCategorySlug = getCanonicalBlogCategorySlug(categorySlug);
 
   const hub = await resolveBlogCategoryHub(slug, canonicalCategorySlug);
+  if (hub && categorySlug !== canonicalCategorySlug) {
+    permanentRedirect(
+      buildCanonicalCategoryRoute({
+        categorySlug: canonicalCategorySlug,
+        headersList: await headers(),
+        searchParams: await (searchParams ?? Promise.resolve({})),
+        slug,
+      })
+    );
+  }
+
   const aliasCategorySlug =
     !hub && isOgabasseyBlogStaticTenant(slug)
       ? getOgabasseyBlogCategoryAliasSlug(categorySlug)
@@ -204,6 +244,7 @@ export default async function BlogCategoryPage({
       buildCanonicalCategoryRoute({
         categorySlug: aliasCategorySlug,
         headersList: await headers(),
+        searchParams: await (searchParams ?? Promise.resolve({})),
         slug,
       })
     );

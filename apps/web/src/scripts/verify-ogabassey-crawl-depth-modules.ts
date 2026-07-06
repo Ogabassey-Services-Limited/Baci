@@ -10,10 +10,8 @@ import { parseSemrushCsvPageUrls } from './verify-ogabassey-crawl-depth-csv';
 
 export {
   buildCrawlDepthCoverageReport,
-  classifyCrawlDepthUrl,
   collectModuleHrefs,
   formatCrawlDepthCoverageReport,
-  isCoveredByMaintainedModules,
 } from './verify-ogabassey-crawl-depth-coverage';
 export { parseSemrushCsvPageUrls } from './verify-ogabassey-crawl-depth-csv';
 

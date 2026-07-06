@@ -24,6 +24,16 @@ describe('compare page content helpers', () => {
     ).toBe('/ogabassey/laptops/compare/a-vs-b');
   });
 
+  it('normalizes protocol-relative hrefs as storefront paths', () => {
+    expect(
+      toRequestRelativeHref(
+        '//evil.com/laptops/compare/a-vs-b',
+        'https://ogabassey.usebaci.com',
+        '/ogabassey'
+      )
+    ).toBe('/ogabassey/evil.com/laptops/compare/a-vs-b');
+  });
+
   it('keeps malformed and cross-origin compare URLs unchanged', () => {
     expect(
       toRequestRelativeHref(
@@ -78,6 +88,59 @@ describe('compare page content helpers', () => {
       expect.objectContaining({
         category_slug: 'android-phones',
         slug: 'child-category-phone',
+      })
+    );
+  });
+
+  it('preserves category slugs joined through product_categories', () => {
+    expect(
+      normalizeCompareProduct(
+        {
+          id: 'product-2',
+          name: 'Joined Category Phone',
+          slug: 'joined-category-phone',
+          brand: 'Example',
+          category: 'Phones',
+          price: 120_000,
+          product_categories: [
+            {
+              categories: {
+                id: 'joined-category',
+                name: 'Android Phones',
+                slug: 'android-phones',
+              },
+            },
+          ],
+          product_key_specs: { ram_gb: 8 },
+        },
+        'smartphones'
+      )
+    ).toEqual(
+      expect.objectContaining({
+        category_slug: 'android-phones',
+        slug: 'joined-category-phone',
+      })
+    );
+  });
+
+  it('falls back to the scanned category when no joined category slug exists', () => {
+    expect(
+      normalizeCompareProduct(
+        {
+          id: 'product-3',
+          name: 'Fallback Category Phone',
+          slug: 'fallback-category-phone',
+          brand: 'Example',
+          category: '',
+          price: 130_000,
+          product_key_specs: { ram_gb: 8 },
+        },
+        'smartphones'
+      )
+    ).toEqual(
+      expect.objectContaining({
+        category_slug: 'smartphones',
+        slug: 'fallback-category-phone',
       })
     );
   });

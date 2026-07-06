@@ -7,6 +7,16 @@ interface CachedCategoryProductCountCategory {
   parent_id?: string | null;
 }
 
+interface ProductCategoryCountRow {
+  id?: string | null;
+  product_categories?:
+    | Array<{ category_id?: string | null }>
+    | { category_id?: string | null }
+    | null;
+}
+
+const CATEGORY_PRODUCT_COUNT_QUERY_PAGE_SIZE = 1000;
+
 function normalizeProductCategoryRows(
   productCategories:
     | Array<{ category_id?: string | null }>
@@ -88,18 +98,31 @@ export async function getCachedCategoryProductCounts(
   }
 
   const supabase = getPublicSupabaseClient();
-  const { data, error } = await supabase
-    .from('products')
-    .select('id, product_categories!inner(category_id)')
-    .eq('merchant_id', merchantId)
-    .eq('status', 'active')
-    .in('product_categories.category_id', [
-      ...ownerCategoryIdsByScopedId.keys(),
-    ]);
+  const scopedCategoryIds = [...ownerCategoryIdsByScopedId.keys()];
+  const rows: ProductCategoryCountRow[] = [];
 
-  if (error) {
-    console.error('Error fetching category product counts:', error);
-    return {};
+  for (let from = 0; ; from += CATEGORY_PRODUCT_COUNT_QUERY_PAGE_SIZE) {
+    const to = from + CATEGORY_PRODUCT_COUNT_QUERY_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, product_categories!inner(category_id)')
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .in('product_categories.category_id', scopedCategoryIds)
+      .order('id', { ascending: true })
+      .range(from, to);
+
+    if (error) {
+      console.error('Error fetching category product counts:', error);
+      return {};
+    }
+
+    const pageRows = (data || []) as ProductCategoryCountRow[];
+    rows.push(...pageRows);
+
+    if (pageRows.length < CATEGORY_PRODUCT_COUNT_QUERY_PAGE_SIZE) {
+      break;
+    }
   }
 
   const productIdsByCategoryId = new Map<string, Set<string>>();
@@ -108,13 +131,7 @@ export async function getCachedCategoryProductCounts(
     productIdsByCategoryId.set(categoryId, new Set<string>());
   }
 
-  for (const product of (data || []) as Array<{
-    id?: string | null;
-    product_categories?:
-      | Array<{ category_id?: string | null }>
-      | { category_id?: string | null }
-      | null;
-  }>) {
+  for (const product of rows) {
     if (!product.id) {
       continue;
     }
