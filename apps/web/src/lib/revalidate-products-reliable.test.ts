@@ -122,6 +122,21 @@ describe('revalidateProductsReliable', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('busts per-slug Next caches even when merchantSlug is missing (purge skipped)', async () => {
+    mockRevalidateProducts.mockReturnValue(undefined);
+    await revalidateProductsReliable('merchant-1', {
+      products: [{ slug: 'iphone-15', id: 'p1' }],
+    });
+
+    // The Next-layer bust needs only merchantId — a failed/absent merchant-slug
+    // resolution must not skip it; only the Cloudflare purge is gated.
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(
+      'merchant-1',
+      expect.arrayContaining(['iphone-15'])
+    );
+    expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+  });
+
   it('schedules an in-process Cloudflare purge when merchantSlug + products are supplied', async () => {
     mockRevalidateProducts.mockReturnValue(undefined);
     const fetchImpl = vi.fn();

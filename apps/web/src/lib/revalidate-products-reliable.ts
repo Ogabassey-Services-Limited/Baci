@@ -62,13 +62,13 @@ export async function revalidateProductsReliable(
     // In-process revalidation succeeded (we had a Next store context), so the
     // Cloudflare purge can be scheduled in-process too (scheduleStorefrontProductPurge
     // is guarded and never throws). Return before the HTTP fallback.
-    if (shouldPurge && merchantSlug && products) {
-      // F3 parity: bust the per-slug Next product-detail caches for the caller's
-      // resolved slugs (slug + id — no store client here to resolve authoritative
-      // rows) BEFORE scheduling the edge purge, so a Cloudflare MISS cannot refill
-      // from the still-tagged Next entry the slug-less revalidateProducts above
-      // left cached until its cacheLife TTL.
+    // Per-slug Next cache busting needs only merchantId — run it for every
+    // products-carrying call, decoupled from the merchant-slug-gated Cloudflare
+    // purge (a failed slug lookup must not skip the Next-layer bust).
+    if (products && products.length > 0) {
       revalidateProductSlugs(merchantId, collectResolvedProductSlugs(products));
+    }
+    if (shouldPurge && merchantSlug && products) {
       // Mirror the HTTP route's fan-out guard: base the listings-only decision
       // on the DISTINCT (slug, segment) count so duplicate entries for one
       // product do not inflate the count and wrongly suppress its per-PDP purge.
