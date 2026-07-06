@@ -26,6 +26,7 @@ const parsedAndroidVersionCode =
 
 let androidVersionCode: number | undefined;
 const appVersion = '2.0.0';
+const androidRuntimeVersion = `${appVersion}-android-sdk57`;
 
 // `parsedAndroidVersionCode` is undefined iff `rawAndroidVersionCode` is, so
 // checking only the parsed value is sufficient and narrows the type below.
@@ -221,6 +222,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
   },
   android: {
+    runtimeVersion: androidRuntimeVersion,
     ...(androidVersionCode !== undefined
       ? { versionCode: androidVersionCode }
       : {}),

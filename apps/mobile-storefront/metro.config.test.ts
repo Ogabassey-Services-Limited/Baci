@@ -22,6 +22,10 @@ type MetroResolver = (
 jest.mock('expo/metro-config', () => ({
   getDefaultConfig: () => ({
     resolver: {},
+    // Worklets bundle mode writes serializer.createModuleIdFactory and wraps
+    // transformer.getTransformOptions; the real Expo config always has these.
+    serializer: {},
+    transformer: {},
   }),
 }));
 
@@ -34,6 +38,20 @@ const mockGetPostHogExpoConfig = jest.fn(
 
 jest.mock('posthog-react-native/metro', () => ({
   getPostHogExpoConfig: mockGetPostHogExpoConfig,
+}));
+
+const mockGetBundleModeMetroConfig = jest.fn(
+  (inputConfig: { serializer?: Record<string, unknown> }) => ({
+    ...inputConfig,
+    serializer: {
+      ...inputConfig.serializer,
+      createModuleIdFactory: () => 'bundle-mode',
+    },
+  })
+);
+
+jest.mock('react-native-worklets/bundleMode', () => ({
+  getBundleModeMetroConfig: mockGetBundleModeMetroConfig,
 }));
 
 const metroConfig = jest.requireActual<{
@@ -53,6 +71,22 @@ function getResolver(): MetroResolver {
   }
 
   return resolveRequest;
+}
+
+function withWorkletsBundleModeEnv<T>(value: string, callback: () => T): T {
+  const originalValue = process.env.BACI_MOBILE_STOREFRONT_WORKLETS_BUNDLE_MODE;
+
+  process.env.BACI_MOBILE_STOREFRONT_WORKLETS_BUNDLE_MODE = value;
+
+  try {
+    return callback();
+  } finally {
+    if (originalValue === undefined) {
+      delete process.env.BACI_MOBILE_STOREFRONT_WORKLETS_BUNDLE_MODE;
+    } else {
+      process.env.BACI_MOBILE_STOREFRONT_WORKLETS_BUNDLE_MODE = originalValue;
+    }
+  }
 }
 
 describe('Metro web runtime resolution', () => {
@@ -156,6 +190,33 @@ describe('Metro web runtime resolution', () => {
       expect.any(Object),
       'react',
       'web'
+    );
+  });
+
+  it('keeps worklets bundle mode disabled by default for expo-updates OTA safety', () => {
+    const serializer = (
+      metroConfig as unknown as {
+        serializer: { createModuleIdFactory?: unknown };
+      }
+    ).serializer;
+
+    expect(serializer.createModuleIdFactory).toBeUndefined();
+    expect(mockGetBundleModeMetroConfig).not.toHaveBeenCalled();
+  });
+
+  it('applies worklets bundle mode as the outermost config wrapper when opted in', () => {
+    mockGetBundleModeMetroConfig.mockClear();
+
+    const enabledMetroConfig = withWorkletsBundleModeEnv('1', () => {
+      jest.resetModules();
+      return jest.requireActual<{
+        serializer: { createModuleIdFactory?: unknown };
+      }>('./metro.config.js');
+    });
+
+    expect(mockGetBundleModeMetroConfig).toHaveBeenCalledTimes(1);
+    expect(enabledMetroConfig.serializer.createModuleIdFactory).toEqual(
+      expect.any(Function)
     );
   });
 });

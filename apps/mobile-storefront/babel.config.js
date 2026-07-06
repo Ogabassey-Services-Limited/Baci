@@ -1,3 +1,5 @@
+const shouldEnableWorkletsBundleMode = require('./config/shouldEnableWorkletsBundleMode');
+
 const isNodeModule = (filename) =>
   filename.includes('/node_modules/') || filename.includes('\\node_modules\\');
 
@@ -12,6 +14,7 @@ const shouldCompileSource = (filename) =>
 
 module.exports = (api) => {
   const isTest = api.env('test');
+  const enableWorkletsBundleMode = shouldEnableWorkletsBundleMode();
 
   return {
     presets: [
@@ -61,7 +64,14 @@ module.exports = (api) => {
           ],
         },
       ],
-      'react-native-worklets/plugin',
+      // Worklets bundle mode is opt-in while SDK 57 / RN 0.86 / worklets 0.10
+      // Android expo-updates bundles can crash at startup from downloaded OTA
+      // paths. Keep this disabled for update bundles unless the native loader
+      // is patched or an embedded-only build explicitly opts in.
+      [
+        'react-native-worklets/plugin',
+        isTest || !enableWorkletsBundleMode ? {} : { bundleMode: true },
+      ],
     ],
     env: {
       test: {

@@ -90,6 +90,11 @@ overrides:
   react-native-phone-number-input: "2.1.0"
   react-native-safe-area-context: "5.8.0"
   react-native-webview: "13.16.1"
+  # Worklets bundle-mode support (SDK 57): official Software Mansion patches —
+  # metro (index .worklets/* modules for SHA-1) + metro-runtime (Fast Refresh
+  # to worklet runtimes). Refresh both patches when bumping metro.
+  metro: "0.84.4"
+  metro-runtime: "0.84.4"
   # --- Security / dedupe overrides ---
   # Pin to 6.1.6 to mitigate GHSA-737v-mqg7-c878 / CVE-2026-35209: replace the vulnerable transitive deep-merge helper.
   defu: "6.1.6"
@@ -116,7 +121,9 @@ overrides:
   qs: "6.15.2"
   markdown-it: "14.2.0"
   "@modelcontextprotocol/sdk": "^1.25.2"
-  react-native-worklets: "0.9.2"
+  # SDK 57 alignment (expo@57 pins worklets 0.10.0; bundle mode stable). Keep in
+  # lockstep with the reanimated/worklets pair when bumping Expo SDK.
+  react-native-worklets: "0.10.0"
   # Pin patched Hono floor for GHSA-2gcr-mfcq-wcc3, GHSA-xrhx-7g5j-rcj5, GHSA-3hrh-pfw6-9m5x, and GHSA-f577-qrjj-4474.
   hono: "^4.12.23"
   "@hono/node-server": "^2.0.2"
@@ -178,7 +185,8 @@ overrides:
   lodash-es: "4.18.1"
   diff: "^8.0.3"
   react-native-screens: "4.25.2"
-  react-native-reanimated: "4.4.1"
+  # SDK 57 alignment — keep in lockstep with react-native-worklets above.
+  react-native-reanimated: "4.5.0"
   react-native-svg: "15.15.5"
   express-rate-limit: "8.2.2"
   # Keep the editor ecosystem on one current TipTap 3.x instance. Novel and Puck depend
@@ -274,10 +282,8 @@ overrides:
 patchedDependencies:
   "@react-native-community/datetimepicker@9.1.0": "patches/@react-native-community/datetimepicker@9.1.0.patch"
   "@react-native-google-signin/google-signin@16.1.2": "patches/@react-native-google-signin/google-signin@16.1.2.patch"
-  '@react-native/gradle-plugin@0.85.3': patches/@react-native__gradle-plugin@0.85.3.patch
   "lottie-react-native@7.3.8": "patches/lottie-react-native@7.3.8.patch"
   "novel@1.0.2": "patches/novel@1.0.2.patch"
-  "react-native@0.85.3": "patches/react-native@0.85.3.patch"
   "react-native-mmkv@4.3.1": "patches/react-native-mmkv@4.3.1.patch"
   "react-native-nitro-modules@0.35.9": "patches/react-native-nitro-modules@0.35.9.patch"
   "react-native-phone-number-input@2.1.0": "patches/react-native-phone-number-input@2.1.0.patch"
@@ -286,3 +292,5 @@ patchedDependencies:
   "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch"
   # Backport of vercel/next.js#94630; fixes PPR resume mismatch digest 1617769459 for htmlLimitedBots under cacheComponents. Remove when a stable Next release contains the fix.
   "next@16.2.9": "patches/next@16.2.9.patch"
+  "metro@0.84.4": "patches/metro@0.84.4.patch"
+  "metro-runtime@0.84.4": "patches/metro-runtime@0.84.4.patch"

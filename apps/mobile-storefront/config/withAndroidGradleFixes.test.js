@@ -89,6 +89,12 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
+    packagingOptions {
+        jniLibs {
+            def enableLegacyPackaging = findProperty('expo.useLegacyPackaging') ?: 'false'
+            useLegacyPackaging enableLegacyPackaging.toBoolean()
+        }
+    }
 }
 `
     );
@@ -114,6 +120,7 @@ android {
       'distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-bin.zip\n'
     );
 
+    withAndroidGradleFixes({ name: 'Ogabassey', slug: 'ogabassey' });
     withAndroidGradleFixes({ name: 'Ogabassey', slug: 'ogabassey' });
 
     const rootBuildGradle = readProjectFile(
@@ -147,6 +154,9 @@ android {
     expect(appBuildGradle).toContain('ANDROID_KEYSTORE_FILE');
     expect(appBuildGradle).toContain('signingConfig signingConfigs.release');
     expect(appBuildGradle).toContain('proguard-android-optimize.txt');
+    const workletsPickFirstMatches =
+      appBuildGradle.match(/pickFirsts \+= \['\*\*\/libworklets\.so'\]/g) ?? [];
+    expect(workletsPickFirstMatches).toHaveLength(1);
     expect(appBuildGradle).toContain(
       'PostHog Android source-map upload is best-effort'
     );

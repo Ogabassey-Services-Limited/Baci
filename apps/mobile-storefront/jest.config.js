@@ -3,6 +3,9 @@ const reactDomPath = require.resolve('react-dom');
 const reactJsxRuntimePath = require.resolve('react/jsx-runtime');
 const reactJsxDevRuntimePath = require.resolve('react/jsx-dev-runtime');
 const reactTestRendererPath = require.resolve('react-test-renderer');
+// jest-expo's browser export condition resolves uuid to its untransformed
+// esm-browser build; pin it to the CJS entry Node resolves.
+const uuidPath = require.resolve('uuid');
 
 /** @type {import('jest').Config} */
 const config = {
@@ -31,6 +34,7 @@ const config = {
     '^react/jsx-runtime$': reactJsxRuntimePath,
     '^react/jsx-dev-runtime$': reactJsxDevRuntimePath,
     '^react-test-renderer$': reactTestRendererPath,
+    '^uuid$': uuidPath,
     // Prevent expo winter runtime from loading native-only modules in Jest
     'expo/src/winter/ImportMetaRegistry':
       '<rootDir>/__mocks__/expo-import-meta-registry.js',

@@ -2,8 +2,10 @@
   "expo.jsEngine": "hermes",
   "EX_DEV_CLIENT_NETWORK_INSPECTOR": "true",
   "expo.inlineModules.watchedDirectories": "[]",
+  "expo.inlineModules.xcodeProjectTargets": "{\"mainTarget\":\"BaciTheEcommerceBuilder\",\"targets\":[]}",
   "ios.deploymentTarget": "16.4",
   "ios.forceStaticLinking": "[]",
+  "apple.extraPods": "[{\"name\":\"GoogleUtilities\",\"modular_headers\":true},{\"name\":\"RecaptchaInterop\",\"modular_headers\":true}]",
   "apple.privacyManifestAggregationEnabled": "true",
-  "EXPO_USE_PRECOMPILED_MODULES": "false"
+  "EXPO_USE_PRECOMPILED_MODULES": "true"
 }

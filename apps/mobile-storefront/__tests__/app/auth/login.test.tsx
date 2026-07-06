@@ -29,7 +29,8 @@ const mockSignInWithOtp = jest.fn<AuthState['signInWithOtp']>();
 const mockSignInWithPassword = jest.fn<AuthState['signInWithPassword']>();
 const mockVerifyOtp = jest.fn<AuthState['verifyOtp']>();
 const mockBackHandlerRemove = jest.fn();
-let hardwareBackPressHandler: (() => boolean | null | undefined) | null = null;
+type HardwareBackPressHandler = () => boolean;
+let hardwareBackPressHandler: HardwareBackPressHandler | null = null;
 const mockWithKeyboardDismiss = jest.fn(
   <T extends (...args: never[]) => unknown>(handler: T) => handler
 );
@@ -142,7 +143,8 @@ describe('LoginScreen', () => {
     jest
       .spyOn(BackHandler, 'addEventListener')
       .mockImplementation((_eventName, handler) => {
-        hardwareBackPressHandler = handler;
+        hardwareBackPressHandler =
+          handler as unknown as HardwareBackPressHandler;
         return {
           remove: mockBackHandlerRemove,
         } as ReturnType<typeof BackHandler.addEventListener>;

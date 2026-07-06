@@ -2,6 +2,7 @@
 const path = require('node:path');
 const { getDefaultConfig } = require('expo/metro-config');
 const { getPostHogExpoConfig } = require('posthog-react-native/metro');
+const shouldEnableWorkletsBundleMode = require('./config/shouldEnableWorkletsBundleMode');
 
 /**
  * Metro Configuration for Expo SDK 54+ Monorepo (2026 Elite Standard)
@@ -118,4 +119,17 @@ config.resolver = {
   ],
 };
 
-module.exports = config;
+// Worklets bundle mode must wrap the FULL config LAST when explicitly enabled:
+// it composes resolver.resolveRequest, so applying it before the resolver
+// assignment above would let `config.resolver = {…}` overwrite it. Default off
+// while Android expo-updates OTA bundles are unsafe on SDK 57 / RN 0.86 /
+// worklets 0.10.
+if (shouldEnableWorkletsBundleMode()) {
+  const {
+    getBundleModeMetroConfig,
+  } = require('react-native-worklets/bundleMode');
+
+  module.exports = getBundleModeMetroConfig(config);
+} else {
+  module.exports = config;
+}
