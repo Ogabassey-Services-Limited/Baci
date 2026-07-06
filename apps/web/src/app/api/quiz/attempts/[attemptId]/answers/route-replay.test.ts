@@ -20,7 +20,11 @@ vi.mock('@/lib/logger', () => ({
 
 const ATTEMPT_ID = '22222222-2222-4222-8222-222222222222';
 const QUESTION_ID = '33333333-3333-4333-8333-333333333333';
-const USER_ID = 'user-1';
+const AWARD_ID = '44444444-4444-4444-8444-444444444444';
+const PRODUCT_ID = '55555555-5555-4555-8555-555555555555';
+// A real auth UUID is required because a winning replay signs a voucher token,
+// whose payload schema validates `userId` as a UUID.
+const USER_ID = '11111111-1111-4111-8111-111111111111';
 const ORIGINAL_QUIZ_RPC_SERVER_SECRET = process.env.QUIZ_RPC_SERVER_SECRET;
 
 function jsonRequest(body: unknown) {
@@ -36,6 +40,7 @@ function jsonRequest(body: unknown) {
 
 function mockReplaySupabase({
   attemptResult = { data: null, error: null },
+  awardResult = { data: null, error: null },
   rpcError = {
     code: 'QZ004',
     message: 'quiz attempt question is not answerable',
@@ -43,6 +48,7 @@ function mockReplaySupabase({
   user = { id: USER_ID },
 }: {
   attemptResult?: { data: unknown; error: unknown };
+  awardResult?: { data: unknown; error: unknown };
   rpcError?: { code: string; message: string };
   user?: { id: string } | null;
 } = {}) {
@@ -51,8 +57,15 @@ function mockReplaySupabase({
     maybeSingle: vi.fn().mockResolvedValue(attemptResult),
     select: vi.fn(() => attemptBuilder),
   };
+  const awardBuilder = {
+    eq: vi.fn(() => awardBuilder),
+    maybeSingle: vi.fn().mockResolvedValue(awardResult),
+    not: vi.fn(() => awardBuilder),
+    select: vi.fn(() => awardBuilder),
+  };
   const from = vi.fn((table: string) => {
     if (table === 'quiz_attempts') return attemptBuilder;
+    if (table === 'quiz_awards') return awardBuilder;
     throw new Error(`Unexpected table: ${table}`);
   });
   const rpc = vi.fn().mockResolvedValue({
@@ -71,7 +84,7 @@ function mockReplaySupabase({
   };
 
   vi.mocked(createClient).mockResolvedValue(supabase as never);
-  return { attemptBuilder, rpc };
+  return { attemptBuilder, awardBuilder, rpc };
 }
 
 describe('submit quiz answer replay recovery', () => {
@@ -212,6 +225,100 @@ describe('submit quiz answer replay recovery', () => {
       totalQuestions: 2,
     });
     expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  // FIX B: a winner whose final-answer HTTP response was lost retries; the
+  // RPC replays (QZ004/QZ026) so the recovery path must re-issue the signed
+  // prize claim from the persisted, user-scoped award — not report a practice
+  // result with no claim button.
+  it('re-issues the signed prize claim when a winning final answer is replayed', async () => {
+    const { awardBuilder } = mockReplaySupabase({
+      attemptResult: {
+        data: {
+          status: 'submitted',
+          quiz_attempt_questions: [
+            { quiz_attempt_answers: [{ score_delta: 1 }] },
+          ],
+        },
+        error: null,
+      },
+      awardResult: {
+        data: {
+          id: AWARD_ID,
+          product_id: PRODUCT_ID,
+          variant_id: null,
+          condition: null,
+        },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({
+        answer: 'A',
+        integrityTier: 'strong',
+        questionId: QUESTION_ID,
+      }),
+      { params: Promise.resolve({ attemptId: ATTEMPT_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toMatchObject({
+      attemptId: ATTEMPT_ID,
+      correctAnswers: 1,
+      prizeEligible: true,
+      status: 'completed',
+      totalQuestions: 1,
+      prizeClaim: {
+        awardId: AWARD_ID,
+        condition: null,
+        productId: PRODUCT_ID,
+        variantId: null,
+      },
+    });
+    expect(typeof body.prizeClaim.voucherToken).toBe('string');
+    expect(body.prizeClaim.voucherToken.length).toBeGreaterThan(0);
+    expect(body.prizeClaim.cartPath).toContain(`quiz_award_id=${AWARD_ID}`);
+    expect(awardBuilder.eq).toHaveBeenCalledWith('customers.user_id', USER_ID);
+    expect(awardBuilder.eq).toHaveBeenCalledWith('attempt_id', ATTEMPT_ID);
+  });
+
+  // FIX B: a genuine non-winner retry keeps the practice-result behavior with
+  // no prize claim attached.
+  it('reports a practice result with no claim when the attempt has no award', async () => {
+    mockReplaySupabase({
+      attemptResult: {
+        data: {
+          status: 'submitted',
+          quiz_attempt_questions: [
+            { quiz_attempt_answers: [{ score_delta: 0 }] },
+          ],
+        },
+        error: null,
+      },
+      awardResult: { data: null, error: null },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({
+        answer: 'A',
+        integrityTier: 'strong',
+        questionId: QUESTION_ID,
+      }),
+      { params: Promise.resolve({ attemptId: ATTEMPT_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      attemptId: ATTEMPT_ID,
+      correctAnswers: 0,
+      prizeEligible: false,
+      status: 'completed',
+      totalQuestions: 1,
+    });
   });
 
   it('returns a recoverable conflict when replay state cannot be completed', async () => {

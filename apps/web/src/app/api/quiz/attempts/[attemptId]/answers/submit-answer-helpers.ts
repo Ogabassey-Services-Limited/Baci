@@ -1,0 +1,278 @@
+import { NextResponse } from 'next/server';
+import type { requireQuizUser } from '@/app/api/quiz/_shared/route-helpers';
+import { rpcErrorResponse } from '@/app/api/quiz/_shared/route-helpers';
+import {
+  createQuizVoucherToken,
+  QuizVoucherTokenConfigError,
+} from '@/lib/quiz-voucher-token';
+
+type QuizSupabase = Awaited<ReturnType<typeof requireQuizUser>>['supabase'];
+
+export type SubmittedAttemptScore = {
+  correctAnswers: number;
+  totalQuestions: number;
+};
+
+type PrizeCondition = 'new' | 'used' | 'open_box' | 'refurbished' | null;
+
+export type RawPrizeClaim = {
+  awardId: string;
+  condition: PrizeCondition;
+  productId: string;
+  variantId: string | null;
+};
+
+export function normalizePrizeCondition(value: unknown): PrizeCondition {
+  return value === 'new' ||
+    value === 'used' ||
+    value === 'open_box' ||
+    value === 'refurbished'
+    ? value
+    : null;
+}
+
+function getRpcErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== 'object' || !('code' in error)) return null;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' ? code : null;
+}
+
+export function isReplayStateError(error: unknown) {
+  const code = getRpcErrorCode(error);
+  return code === 'QZ004' || code === 'QZ026';
+}
+
+export function getRawPrizeClaim(data: unknown): RawPrizeClaim | null {
+  if (!data || typeof data !== 'object') return null;
+  const claim = (data as { prizeClaim?: unknown }).prizeClaim;
+  if (!claim || typeof claim !== 'object') return null;
+
+  const {
+    awardId,
+    condition = null,
+    productId,
+    variantId = null,
+  } = claim as Partial<RawPrizeClaim>;
+  if (typeof awardId !== 'string' || typeof productId !== 'string') {
+    return null;
+  }
+
+  return {
+    awardId,
+    condition: normalizePrizeCondition(condition),
+    productId,
+    variantId: typeof variantId === 'string' ? variantId : null,
+  };
+}
+
+export function voucherTokenConfigResponse() {
+  return NextResponse.json(
+    {
+      code: 'QUIZ_VOUCHER_TOKEN_CONFIG_MISSING',
+      error: 'Quiz voucher signing is not configured',
+    },
+    { status: 500 }
+  );
+}
+
+export function addSignedPrizeClaim(data: unknown, userId: string): unknown {
+  const prizeClaim = getRawPrizeClaim(data);
+  if (!prizeClaim || !data || typeof data !== 'object') return data;
+
+  const expiresAt = new Date(
+    Date.now() + 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
+  const voucherToken = createQuizVoucherToken({
+    payload: {
+      awardId: prizeClaim.awardId,
+      condition: prizeClaim.condition,
+      expiresAt,
+      productId: prizeClaim.productId,
+      userId,
+      variantId: prizeClaim.variantId,
+    },
+  });
+  const searchParams = new URLSearchParams({
+    item_id: prizeClaim.productId,
+    quiz_award_id: prizeClaim.awardId,
+    quiz_voucher_token: voucherToken,
+  });
+  if (prizeClaim.variantId) {
+    searchParams.set('variant_id', prizeClaim.variantId);
+  }
+  if (prizeClaim.condition) {
+    searchParams.set('condition', prizeClaim.condition);
+  }
+
+  return {
+    ...(data as Record<string, unknown>),
+    prizeClaim: {
+      ...prizeClaim,
+      cartPath: `/ogabassey/cart?${searchParams.toString()}`,
+      voucherToken,
+    },
+  };
+}
+
+function getQuestionRows(row: unknown): unknown[] {
+  if (!row || typeof row !== 'object' || !('quiz_attempt_questions' in row)) {
+    return [];
+  }
+
+  const questions = (row as { quiz_attempt_questions?: unknown })
+    .quiz_attempt_questions;
+  return Array.isArray(questions) ? questions : [];
+}
+
+function getQuestionScore(question: unknown): number {
+  if (
+    !question ||
+    typeof question !== 'object' ||
+    !('quiz_attempt_answers' in question)
+  ) {
+    return 0;
+  }
+
+  const answers = (question as { quiz_attempt_answers?: unknown })
+    .quiz_attempt_answers;
+  const answerRows = Array.isArray(answers)
+    ? answers
+    : answers
+      ? [answers]
+      : [];
+  return answerRows.reduce<number>((score, answer) => {
+    if (!answer || typeof answer !== 'object' || !('score_delta' in answer)) {
+      return score;
+    }
+
+    const delta = (answer as { score_delta?: unknown }).score_delta;
+    return score + (typeof delta === 'number' ? delta : 0);
+  }, 0);
+}
+
+export function mapSubmittedAttemptScore(
+  row: unknown
+): SubmittedAttemptScore | null {
+  if (!row || typeof row !== 'object' || !('status' in row)) return null;
+  if ((row as { status?: unknown }).status !== 'submitted') return null;
+
+  const questions = getQuestionRows(row);
+  if (questions.length === 0) return null;
+
+  return {
+    correctAnswers: questions.reduce<number>(
+      (score, question) => score + getQuestionScore(question),
+      0
+    ),
+    totalQuestions: questions.length,
+  };
+}
+
+async function getSubmittedAttemptScore(
+  supabase: QuizSupabase,
+  attemptId: string,
+  userId: string
+): Promise<{ error: unknown; score: SubmittedAttemptScore | null }> {
+  if (!supabase) return { error: null, score: null };
+
+  const { data, error } = await supabase
+    .from('quiz_attempts')
+    .select(
+      'id, status, customers!inner(user_id), quiz_attempt_questions(id, quiz_attempt_answers(score_delta))'
+    )
+    .eq('id', attemptId)
+    .eq('customers.user_id', userId)
+    .maybeSingle();
+
+  if (error) return { error, score: null };
+  return { error: null, score: mapSubmittedAttemptScore(data) };
+}
+
+// FIX B: on a replayed final answer the RPC no longer returns the prizeClaim,
+// so recover the persisted, user-scoped product award and re-issue the signed
+// voucher. Without this a winner whose first response was lost sees "Practice
+// result recorded" with no claim button and the prize becomes unclaimable.
+async function getAttemptPrizeAwardClaim(
+  supabase: QuizSupabase,
+  attemptId: string,
+  userId: string
+): Promise<{ claim: RawPrizeClaim | null; error: unknown }> {
+  if (!supabase) return { claim: null, error: null };
+
+  // Product-backed prizes are persisted as a single `store_credit` award per
+  // attempt (unique on attempt_id + award_type). A null product_id (a pure
+  // store-credit award) yields no claim via the guard below.
+  const { data, error } = await supabase
+    .from('quiz_awards')
+    .select('id, product_id, variant_id, condition, customers!inner(user_id)')
+    .eq('attempt_id', attemptId)
+    .eq('customers.user_id', userId)
+    .eq('award_type', 'store_credit')
+    .maybeSingle();
+
+  if (error) return { claim: null, error };
+  if (!data || typeof data !== 'object') return { claim: null, error: null };
+
+  const record = data as {
+    condition?: unknown;
+    id?: unknown;
+    product_id?: unknown;
+    variant_id?: unknown;
+  };
+  if (typeof record.id !== 'string' || typeof record.product_id !== 'string') {
+    return { claim: null, error: null };
+  }
+
+  return {
+    claim: {
+      awardId: record.id,
+      condition: normalizePrizeCondition(record.condition),
+      productId: record.product_id,
+      variantId:
+        typeof record.variant_id === 'string' ? record.variant_id : null,
+    },
+    error: null,
+  };
+}
+
+export async function recoverReplayedAttemptResponse(
+  supabase: QuizSupabase,
+  attemptId: string,
+  userId: string
+) {
+  const recovered = await getSubmittedAttemptScore(supabase, attemptId, userId);
+  if (recovered.error) return rpcErrorResponse();
+  if (!recovered.score) {
+    return NextResponse.json(
+      {
+        code: 'quiz_attempt_not_answerable',
+        error: 'Quiz answer is no longer accepted for this attempt',
+      },
+      { status: 409 }
+    );
+  }
+
+  const award = await getAttemptPrizeAwardClaim(supabase, attemptId, userId);
+  if (award.error) return rpcErrorResponse();
+
+  const baseResult = {
+    attemptId,
+    correctAnswers: recovered.score.correctAnswers,
+    prizeEligible: award.claim !== null,
+    status: 'completed' as const,
+    totalQuestions: recovered.score.totalQuestions,
+  };
+
+  if (!award.claim) return NextResponse.json(baseResult);
+
+  try {
+    return NextResponse.json(
+      addSignedPrizeClaim({ ...baseResult, prizeClaim: award.claim }, userId)
+    );
+  } catch (tokenError) {
+    if (tokenError instanceof QuizVoucherTokenConfigError) {
+      return voucherTokenConfigResponse();
+    }
+    throw tokenError;
+  }
+}
