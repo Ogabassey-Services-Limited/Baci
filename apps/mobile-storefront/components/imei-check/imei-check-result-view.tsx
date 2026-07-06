@@ -29,7 +29,11 @@ export function ImeiCheckResultView({
 }: ImeiCheckResultViewProps) {
   const insets = useSafeAreaInsets();
   const verdictColors = getVerdictColors(result.verdictType, colors);
-  const statusCards = getImeiResultStatusCards(result, colors);
+  const statusCards = getImeiResultStatusCards(
+    result,
+    colors,
+    currentTier.checksIncluded
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

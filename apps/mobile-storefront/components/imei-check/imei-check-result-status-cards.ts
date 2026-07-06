@@ -1,3 +1,4 @@
+import type { ImeiCheckField } from '@baci/shared/imei';
 import type { IoniconsIconName } from '@react-native-vector-icons/ionicons';
 import type { ImeiResult } from '@/lib/validation';
 import type { ImeiCheckerColors } from './imei-check.types';
@@ -12,15 +13,24 @@ export interface ImeiResultStatusCard {
 
 export function getImeiResultStatusCards(
   result: ImeiResult,
-  colors: ImeiCheckerColors
+  colors: ImeiCheckerColors,
+  checksIncluded: readonly ImeiCheckField[]
 ): ImeiResultStatusCard[] {
+  // The core status cards render "Unknown" when the provider omits them, so
+  // they are gated on what the tier actually checks — a serial-info report
+  // otherwise shows a wall of Unknown blacklist/iCloud/SIM/carrier cards it
+  // never looked up. Optional cards stay value-gated: when the provider
+  // returns bonus data the tier didn't promise, showing it is a feature.
+  const included = new Set<ImeiCheckField>(checksIncluded);
   return [
-    {
-      cleanAware: true,
-      icon: 'shield-checkmark',
-      label: 'Blacklist Status',
-      value: result.blacklistStatus,
-    },
+    included.has('blacklistStatus')
+      ? {
+          cleanAware: true,
+          icon: 'shield-checkmark' as const,
+          label: 'Blacklist Status',
+          value: result.blacklistStatus,
+        }
+      : null,
     optionalStatusCard(result.activationStatus, {
       icon: 'sparkles',
       label: 'Activation Status',
@@ -36,30 +46,40 @@ export function getImeiResultStatusCards(
       icon: 'shield-outline',
       label: 'Mi Lost Status',
     }),
-    {
-      cleanAware: true,
-      icon: 'cloud-outline',
-      label: 'iCloud Status',
-      value: result.icloud,
-    },
-    {
-      cleanAware: true,
-      icon: 'lock-closed',
-      label: 'Find My iPhone',
-      value: result.icloudLock,
-    },
-    {
-      icon: 'globe',
-      label: 'SIM Lock',
-      tint: colors.primary,
-      value: result.simLock,
-    },
-    {
-      icon: 'cellular',
-      label: 'Carrier',
-      tint: colors.accent,
-      value: result.carrier,
-    },
+    // Both iCloud cards ride on the 'icloud' check (icloudLock has no
+    // separate ImeiCheckField).
+    included.has('icloud')
+      ? {
+          cleanAware: true,
+          icon: 'cloud-outline' as const,
+          label: 'iCloud Status',
+          value: result.icloud,
+        }
+      : null,
+    included.has('icloud')
+      ? {
+          cleanAware: true,
+          icon: 'lock-closed' as const,
+          label: 'Find My iPhone',
+          value: result.icloudLock,
+        }
+      : null,
+    included.has('simLock')
+      ? {
+          icon: 'globe' as const,
+          label: 'SIM Lock',
+          tint: colors.primary,
+          value: result.simLock,
+        }
+      : null,
+    included.has('carrier')
+      ? {
+          icon: 'cellular' as const,
+          label: 'Carrier',
+          tint: colors.accent,
+          value: result.carrier,
+        }
+      : null,
     optionalStatusCard(result.serialNumber, {
       icon: 'barcode-outline',
       label: 'Serial Number',
