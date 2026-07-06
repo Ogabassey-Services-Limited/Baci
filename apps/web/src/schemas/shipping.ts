@@ -25,17 +25,35 @@ const AddressSchema = z.object({
 /**
  * Shipping item schema
  */
-const ShippingItemSchema = z.object({
-  name: z.string().min(1),
-  quantity: z.number().int().positive(),
-  weight: z.number().positive(),
-  value: z.number().nonnegative(),
-  category: z.string().optional(),
-  hsCode: z.string().optional(),
-  length: z.number().positive().optional(),
-  width: z.number().positive().optional(),
-  height: z.number().positive().optional(),
-});
+const ShippingItemSchema = z
+  .object({
+    name: z.string().min(1),
+    quantity: z.number().int().positive(),
+    weight: z.number().positive(),
+    value: z.number().nonnegative(),
+    category: z.string().optional(),
+    hsCode: z.string().optional(),
+    length: z.number().positive().optional(),
+    width: z.number().positive().optional(),
+    height: z.number().positive().optional(),
+  })
+  .superRefine((item, ctx) => {
+    const dimensionKeys = ['length', 'width', 'height'] as const;
+    const providedCount = dimensionKeys.filter(
+      (key) => item[key] !== undefined
+    ).length;
+    if (providedCount === 0 || providedCount === dimensionKeys.length) return;
+
+    for (const key of dimensionKeys) {
+      if (item[key] === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Length, width, and height must be provided together',
+          path: [key],
+        });
+      }
+    }
+  });
 
 // Quote-time requests are allowed to be lighter than booking requests because
 // domestic quote calls can be completed with merchant defaults before checkout.

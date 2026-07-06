@@ -36,7 +36,7 @@ vi.mock('@/lib/shipping', () => ({
   },
 }));
 
-function buildSupabaseMock() {
+function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
   const ordersSelectChain = {
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({
@@ -56,10 +56,12 @@ function buildSupabaseMock() {
         provider_code: 'GIGL',
         provider_rate_id: 'gigl:service-centre:5',
         provider_metadata: { stationId: 5 },
+        quote_request: null,
         expires_at: new Date(Date.now() + 60_000).toISOString(),
         price: 4500,
         currency: 'NGN',
         estimated_days: 2,
+        ...quoteOverrides,
       },
       error: null,
     }),
@@ -206,5 +208,64 @@ describe('POST /api/shipping/book', () => {
     expect(body).toEqual({ error: 'Forbidden' });
     expect(mockBookShipment).not.toHaveBeenCalled();
     expect(shipmentInsertPayloads).toEqual([]);
+  });
+
+  it('books GIGL international shipments with the saved quote request payload', async () => {
+    mockCreateClient.mockReturnValue(
+      buildSupabaseMock({
+        provider_rate_id: 'GIGL_INTL_1_2_3_4',
+        quote_request: {
+          sessionId: 'session-1',
+          shipmentType: 'international',
+          receiver: {
+            name: 'Old Recipient',
+            phone: '',
+            address: '123 Queen Street West',
+            city: 'Toronto',
+            state: 'Ontario',
+            country: 'Canada',
+            countryCode: 'CA',
+            postalCode: 'M5V 3L9',
+          },
+          items: [
+            {
+              name: 'Phone',
+              quantity: 1,
+              weight: 1,
+              value: 500000,
+              hsCode: '851712',
+              length: 10,
+              width: 8,
+              height: 6,
+            },
+          ],
+        },
+      })
+    );
+    const { POST } = await import('./route');
+
+    const response = await POST(buildBookingRequest());
+
+    expect(response.status).toBe(201);
+    expect(mockBookShipment).toHaveBeenCalledWith(
+      'GIGL',
+      expect.objectContaining({
+        receiver: expect.objectContaining({
+          name: 'Jane Customer',
+          phone: '+2348022222222',
+          country: 'Canada',
+          countryCode: 'CA',
+          postalCode: 'M5V 3L9',
+        }),
+        items: [
+          expect.objectContaining({
+            hsCode: '851712',
+            length: 10,
+            width: 8,
+            height: 6,
+          }),
+        ],
+      })
+    );
   });
 });

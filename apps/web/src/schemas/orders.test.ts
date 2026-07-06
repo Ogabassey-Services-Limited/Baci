@@ -222,6 +222,28 @@ describe('orderCreateSchema', () => {
     }
   });
 
+  it('preserves international destination fields on shipping addresses', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      shipping_address: {
+        address: '123 Queen Street West',
+        city: 'Toronto',
+        state: 'Ontario',
+        country: 'Canada',
+        countryCode: 'CA',
+        postalCode: 'M5V 3L9',
+      },
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.shipping_address).toMatchObject({
+      country: 'Canada',
+      countryCode: 'CA',
+      postalCode: 'M5V 3L9',
+    });
+  });
+
   it('prefers selected_quote_id when both quote fields are present', () => {
     const selectedQuoteId = '123e4567-e89b-12d3-a456-426614174112';
     const legacyQuoteId = '123e4567-e89b-12d3-a456-426614174113';

@@ -124,6 +124,35 @@ describe('BookingRequestSchema international item metadata', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('rejects partial package dimensions before provider booking', () => {
+    const result = BookingRequestSchema.safeParse({
+      orderId: ORDER_ID,
+      carrierId: 'GIGL',
+      quoteId: ORDER_ID,
+      receiver: {
+        name: 'Jane Receiver',
+        phone: '+14165550123',
+        address: '123 Queen Street West',
+        city: 'Toronto',
+        state: 'Ontario',
+        country: 'Canada',
+        countryCode: 'CA',
+      },
+      items: [
+        {
+          name: 'Phone',
+          quantity: 1,
+          weight: 1,
+          value: 100_000,
+          length: 10,
+          width: 8,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('QuoteRequestSchema international item metadata', () => {
@@ -170,6 +199,31 @@ describe('QuoteRequestSchema international item metadata', () => {
       width: 8,
       height: 6,
     });
+  });
+
+  it('rejects partial package dimensions before provider quotes', () => {
+    const result = QuoteRequestSchema.safeParse({
+      shipmentType: 'international',
+      receiver: {
+        name: 'Jane Receiver',
+        address: '123 Queen Street West',
+        city: 'Toronto',
+        state: 'Ontario',
+        country: 'Canada',
+        countryCode: 'CA',
+      },
+      items: [
+        {
+          name: 'Phone',
+          quantity: 1,
+          weight: 1,
+          value: 100_000,
+          length: 10,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it('allows international quotes without sender so routes can use merchant fallback', () => {

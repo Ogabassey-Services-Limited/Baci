@@ -1,8 +1,3 @@
-/**
- * Shipping Booking API
- * Book a shipment with the selected provider
- */
-
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
@@ -20,15 +15,14 @@ import type {
 import { SHIPPING_PROVIDER_CODES } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
 import { BookingRequestSchema } from '@/schemas/shipping';
+import { resolveBookingQuoteRequestPayload } from './quote-request-payload';
 import { buildShipmentInsertPayload } from './shipment-insert-payload';
 
 function isShippingProviderCode(value: string): value is ShippingProviderCode {
   return (SHIPPING_PROVIDER_CODES as readonly string[]).includes(value);
 }
 
-// =============================================================================
 // POST /api/shipping/book - Book a shipment
-// =============================================================================
 
 export async function POST(request: NextRequest) {
   try {
@@ -99,7 +93,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Check if already shipped
     // Check if already shipped or being processed
     if (
       ['shipped', 'delivered', 'processing'].includes(order.shipping_status)
@@ -114,7 +107,7 @@ export async function POST(request: NextRequest) {
     const { data: quote, error: quoteError } = await supabase
       .from('shipping_quotes')
       .select(
-        'id, provider_code, provider_rate_id, provider_metadata, expires_at, price, currency, estimated_days'
+        'id, provider_code, provider_rate_id, provider_metadata, quote_request, expires_at, price, currency, estimated_days'
       )
       .eq('id', data.quoteId)
       .single();
@@ -161,19 +154,30 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Build booking request
+    const quotePayload = resolveBookingQuoteRequestPayload(
+      quote,
+      {
+        ...data.receiver,
+        country: data.receiver.country || 'Nigeria',
+        countryCode: data.receiver.countryCode || 'NG',
+      },
+      data.items
+    );
+    if (!quotePayload) {
+      return NextResponse.json(
+        { error: 'Saved international quote request not found' },
+        { status: 400 }
+      );
+    }
+
     const bookingRequest: BookingRequest = {
       orderId: data.orderId,
       quoteId: data.quoteId,
       providerRateId: quote.provider_rate_id,
       quoteMetadata: quote.provider_metadata,
       sender: senderInfo,
-      receiver: {
-        ...data.receiver,
-        country: data.receiver.country || 'Nigeria',
-        countryCode: data.receiver.countryCode || 'NG',
-      },
-      items: data.items,
+      receiver: quotePayload.receiver,
+      items: quotePayload.items,
       instructions: data.instructions,
     };
 
@@ -195,8 +199,8 @@ export async function POST(request: NextRequest) {
           orderId: data.orderId,
           merchantId,
           senderInfo,
-          receiver: data.receiver,
-          items: data.items,
+          receiver: quotePayload.receiver,
+          items: quotePayload.items,
           quote,
           result,
         })

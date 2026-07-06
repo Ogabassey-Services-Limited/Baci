@@ -63,6 +63,7 @@ import {
   resolveReceiptLogoDataUri,
 } from '@/lib/receipt-pdf-generator';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
+import { enrichShippingAddressWithQuoteDestination } from '@/lib/shipping/order-quote-destination';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
@@ -1361,6 +1362,12 @@ export async function POST(request: NextRequest) {
 
     const resolvedShippingProvider = body.shipping_provider ?? null;
     const resolvedTrackingNumber = body.tracking_number ?? null;
+    const shippingAddressForOrder =
+      await enrichShippingAddressWithQuoteDestination(
+        supabase,
+        body.selected_quote_id,
+        shipping_address
+      );
 
     const payOnDelivery = isPayOnDelivery(payment_method);
 
@@ -1373,7 +1380,7 @@ export async function POST(request: NextRequest) {
           message: 'Rider Notification Triggered (POD)',
           riderPhone: merchant.rider_phone_number,
           customerName: customer_name,
-          customerAddress: shipping_address?.address,
+          customerAddress: shippingAddressForOrder?.address,
         });
       } else {
         logger.warn({
@@ -1504,6 +1511,7 @@ export async function POST(request: NextRequest) {
       ? hashOrderIdempotencyPayload(
           buildOrderIdempotencyPayload({
             ...body,
+            shipping_address: shippingAddressForOrder,
             // STABLE code identity, NOT the recomputed amount, so a merchant
             // editing the code between a checkout and its retry can't trip
             // checkout_idempotency_conflict before the wrapper's replay path.
@@ -1556,7 +1564,7 @@ export async function POST(request: NextRequest) {
       p_payment_method: payment_method,
       p_payment_status: effectivePaymentStatus,
       p_shipping_status: shipping_status,
-      p_shipping_address: shipping_address || null,
+      p_shipping_address: shippingAddressForOrder || null,
       p_source: source,
       p_notes: notes || null,
       p_ad_tracking: adTrackingPayload,
@@ -2001,9 +2009,9 @@ export async function POST(request: NextRequest) {
           shippingFee: orderShippingFee,
           total: orderTotal,
           shippingAddress: {
-            address: shipping_address?.address || '',
-            city: shipping_address?.city || '',
-            state: shipping_address?.state || '',
+            address: shippingAddressForOrder?.address || '',
+            city: shippingAddressForOrder?.city || '',
+            state: shippingAddressForOrder?.state || '',
             phone: customer_phone || '',
           },
           merchantName: merchant.business_name,
@@ -2170,8 +2178,9 @@ export async function POST(request: NextRequest) {
                   customer_name,
                   customer_email,
                   customer_phone: customer_phone || null,
-                  shipping_address:
-                    buildImmediateInvoiceShippingAddress(shipping_address),
+                  shipping_address: buildImmediateInvoiceShippingAddress(
+                    shippingAddressForOrder
+                  ),
                   virtual_account: invoiceVirtualAccount,
                   fulfillment_details: fulfillment,
                   items: invoiceItems.map((item, index) => {
@@ -2211,7 +2220,7 @@ export async function POST(request: NextRequest) {
                   orderSubtotal,
                   orderTotal,
                   paymentAccount: invoiceVirtualAccount,
-                  shippingAddress: shipping_address,
+                  shippingAddress: shippingAddressForOrder,
                 });
                 let peppolInvoiceXml: string | null = null;
 
