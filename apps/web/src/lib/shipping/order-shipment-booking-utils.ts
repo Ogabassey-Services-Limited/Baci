@@ -170,12 +170,22 @@ export function toShipmentItems(orderItems: OrderItemRecord[]): ShipmentItem[] {
 
 export function selectPreferredQuote(
   quotes: ShippingQuote[],
-  currentQuote: { serviceTier: string | null; carrierName: string | null }
+  currentQuote: {
+    serviceTier: string | null;
+    carrierName: string | null;
+    providerRateId?: string | null;
+  }
 ): ShippingQuote | null {
   const normalizedServiceTier = currentQuote.serviceTier?.toLowerCase() ?? null;
   const normalizedCarrierName = currentQuote.carrierName?.toLowerCase() ?? null;
+  const normalizedProviderRateId = currentQuote.providerRateId?.trim() || null;
 
   return (
+    quotes.find(
+      (quote) =>
+        normalizedProviderRateId &&
+        quote.providerRateId === normalizedProviderRateId
+    ) ||
     quotes.find(
       (quote) =>
         quote.serviceTier.toLowerCase() === normalizedServiceTier &&

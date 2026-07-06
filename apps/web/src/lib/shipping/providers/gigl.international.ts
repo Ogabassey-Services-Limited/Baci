@@ -99,32 +99,44 @@ export async function getGiglInternationalQuotes(
       'international price'
     );
 
-    return rates.map((rate) => {
-      const deliveryType = rate.DeliveryType ?? 0;
-      const logisticsCompany = rate.LogisticCompany ?? 0;
-      const shipmentMethod = rate.ShipmentMethod ?? 0;
+    return rates.flatMap((rate) => {
+      if (!hasInternationalBookingSelectors(rate)) {
+        io.log('warn', 'Skipping GIGL international rate without selectors', {
+          deliveryType: rate.DeliveryType,
+          grandTotal: rate.GrandTotal,
+          logisticCompany: rate.LogisticCompany,
+          shipmentMethod: rate.ShipmentMethod,
+        });
+        return [];
+      }
+
+      const deliveryType = rate.DeliveryType;
+      const logisticsCompany = rate.LogisticCompany;
+      const shipmentMethod = rate.ShipmentMethod;
       const serviceTier = internationalServiceTier(deliveryType);
 
-      return {
-        id: io.generateQuoteId(),
-        provider: 'GIGL',
-        serviceTier,
-        carrierName: 'GIG Logistics',
-        displayName: `GIG Logistics - ${serviceTier}`,
-        estimatedDays: estimatedDays(rate.EstimatedDeliveryDateAndTime),
-        price: Math.round(rate.GrandTotal),
-        currency: 'NGN',
-        pickupIncluded: true,
-        insuranceIncluded: true,
-        providerRateId: internationalRateId({
-          deliveryType,
-          logisticsCompany,
-          shipmentMethod,
-          pickupOption,
-        }),
-        expiresAt: io.getQuoteExpiry(1),
-        rawResponse: rate,
-      };
+      return [
+        {
+          id: io.generateQuoteId(),
+          provider: 'GIGL',
+          serviceTier,
+          carrierName: 'GIG Logistics',
+          displayName: `GIG Logistics - ${serviceTier}`,
+          estimatedDays: estimatedDays(rate.EstimatedDeliveryDateAndTime),
+          price: Math.round(rate.GrandTotal),
+          currency: 'NGN',
+          pickupIncluded: true,
+          insuranceIncluded: true,
+          providerRateId: internationalRateId({
+            deliveryType,
+            logisticsCompany,
+            shipmentMethod,
+            pickupOption,
+          }),
+          expiresAt: io.getQuoteExpiry(1),
+          rawResponse: rate,
+        },
+      ];
     });
   } catch (error) {
     if (signal.aborted || isGiglAbortError(error)) {
@@ -139,4 +151,20 @@ export async function getGiglInternationalQuotes(
     });
     return [];
   }
+}
+
+function hasInternationalBookingSelectors(rate: {
+  DeliveryType?: number;
+  LogisticCompany?: number;
+  ShipmentMethod?: number;
+}): rate is {
+  DeliveryType: number;
+  LogisticCompany: number;
+  ShipmentMethod: number;
+} {
+  return (
+    Number.isFinite(rate.DeliveryType) &&
+    Number.isFinite(rate.LogisticCompany) &&
+    Number.isFinite(rate.ShipmentMethod)
+  );
 }

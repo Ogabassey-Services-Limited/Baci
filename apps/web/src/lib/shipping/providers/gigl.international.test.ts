@@ -211,4 +211,54 @@ describe('GiglProvider international shipments', () => {
       `${baseUrl}/country/get?CountryName=Atlantis`,
     ]);
   });
+
+  it('skips international rates that are missing booking selectors', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
+      .mockResolvedValueOnce(jsonResponse(countryResponse))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          data: {
+            message: 'Success',
+            status: 200,
+            data: [
+              {
+                GrandTotal: 114_534.49,
+                LogisticCompany: 0,
+                DeliveryType: 2,
+              },
+              {
+                GrandTotal: 95_000,
+                LogisticCompany: 1,
+                ShipmentMethod: 3,
+                DeliveryType: 2,
+              },
+            ],
+          },
+        })
+      );
+
+    const provider = buildHarness();
+    const quotes = await provider.getQuotes({
+      ...quoteRequest,
+      shipmentType: 'international',
+      receiver: {
+        ...quoteRequest.receiver,
+        address: '123 Queen Street West',
+        city: 'Toronto',
+        state: 'Ontario',
+        country: 'Canada',
+        countryCode: 'CA',
+      },
+    });
+
+    expect(quotes).toHaveLength(1);
+    expect(quotes[0]).toMatchObject({
+      price: 95_000,
+      providerRateId: 'GIGL_INTL_2_1_3_1',
+    });
+  });
 });

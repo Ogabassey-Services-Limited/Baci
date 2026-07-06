@@ -97,6 +97,8 @@ export async function bookGiglInternationalShipment(
                 DeliveryType: selectedRate.deliveryType,
                 IsVacuumSeal: false,
                 IsPhytosanitaryCertification: false,
+                // ShipmentMethod is part of the quote rate ID, but the current
+                // /intlShipment/create schema does not accept it.
                 LogisticsCompany: selectedRate.logisticsCompany,
               },
               ...(shipmentPackages.length > 0

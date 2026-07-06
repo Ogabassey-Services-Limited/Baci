@@ -122,6 +122,7 @@ async function resolveQuote(
   const replacement = selectPreferredQuote(freshQuotes, {
     serviceTier: quote.service_tier,
     carrierName: quote.carrier_name,
+    providerRateId: quote.provider_rate_id,
   });
 
   if (!replacement) {

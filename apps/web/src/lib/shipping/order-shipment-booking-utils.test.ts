@@ -77,6 +77,76 @@ describe('order-shipment-booking-utils', () => {
     expect(selected?.id).toBe('quote-2');
   });
 
+  it('matches refreshed quotes by provider rate id before tier and carrier', () => {
+    const selected = selectPreferredQuote(
+      [
+        {
+          id: 'quote-1',
+          provider: 'GIGL',
+          serviceTier: 'International Express',
+          carrierName: 'GIG Logistics',
+          displayName: 'GIG Logistics - International Express',
+          estimatedDays: 5,
+          price: 120000,
+          currency: 'NGN',
+          pickupIncluded: true,
+          insuranceIncluded: true,
+          providerRateId: 'GIGL_INTL_2_0_0_1',
+          expiresAt: new Date('2026-03-23T10:00:00Z'),
+        },
+        {
+          id: 'quote-2',
+          provider: 'GIGL',
+          serviceTier: 'International Express',
+          carrierName: 'GIG Logistics',
+          displayName: 'GIG Logistics - International Express',
+          estimatedDays: 5,
+          price: 150000,
+          currency: 'NGN',
+          pickupIncluded: true,
+          insuranceIncluded: true,
+          providerRateId: 'GIGL_INTL_2_1_3_1',
+          expiresAt: new Date('2026-03-23T10:00:00Z'),
+        },
+      ],
+      {
+        serviceTier: 'International Express',
+        carrierName: 'GIG Logistics',
+        providerRateId: 'GIGL_INTL_2_1_3_1',
+      }
+    );
+
+    expect(selected?.id).toBe('quote-2');
+  });
+
+  it('falls back to tier and carrier when refreshed quotes do not contain the provider rate id', () => {
+    const selected = selectPreferredQuote(
+      [
+        {
+          id: 'quote-1',
+          provider: 'GIGL',
+          serviceTier: 'International Express',
+          carrierName: 'GIG Logistics',
+          displayName: 'GIG Logistics - International Express',
+          estimatedDays: 5,
+          price: 120000,
+          currency: 'NGN',
+          pickupIncluded: true,
+          insuranceIncluded: true,
+          providerRateId: 'GIGL_INTL_2_0_0_1',
+          expiresAt: new Date('2026-03-23T10:00:00Z'),
+        },
+      ],
+      {
+        serviceTier: 'International Express',
+        carrierName: 'GIG Logistics',
+        providerRateId: 'GIGL_INTL_2_1_3_1',
+      }
+    );
+
+    expect(selected?.id).toBe('quote-1');
+  });
+
   it('builds shipment items with the default order-booking weight', () => {
     expect(
       toShipmentItems([

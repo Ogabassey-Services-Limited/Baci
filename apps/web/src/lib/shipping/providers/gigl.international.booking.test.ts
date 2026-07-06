@@ -151,6 +151,9 @@ describe('GiglProvider international booking', () => {
         DeclaredValue: 100_000,
       },
     });
+    expect(bookingPayload.Shipments[0].ShipmentDetails).not.toHaveProperty(
+      'ShipmentMethod'
+    );
     expect(bookingPayload.Shipments[0].ShipmentItems[0]).toMatchObject({
       InternationalShipmentItemType: 0,
       Quantity: 1,
