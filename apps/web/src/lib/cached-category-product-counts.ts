@@ -66,7 +66,12 @@ export async function getCachedCategoryProductCounts(
 ): Promise<Record<string, number>> {
   'use cache: remote';
   cacheLife('categories');
-  cacheTag('categories', `categories-${merchantId}`, 'products');
+  cacheTag(
+    'categories',
+    `categories-${merchantId}`,
+    'products',
+    `products-${merchantId}`
+  );
 
   const activeCategories = categories.filter(
     (category) => category.is_active !== false

@@ -30,24 +30,30 @@ function normalizeHostnameValue(value: string | null | undefined) {
   return normalized?.split(':')[0] || null;
 }
 
+function stripWwwPrefix(hostname: string | null) {
+  return hostname?.replace(/^www\./, '') || null;
+}
+
 export function getStorefrontPathPrefix(
   headersList: StorefrontPathPrefixHeaders,
   merchant: StorefrontPathPrefixMerchant | string
 ) {
   const merchantSlug = typeof merchant === 'string' ? merchant : merchant.slug;
-  const merchantCustomDomain =
+  const merchantCustomDomain = stripWwwPrefix(
     typeof merchant === 'string'
       ? null
-      : normalizeHostnameValue(merchant.custom_domain);
+      : normalizeHostnameValue(merchant.custom_domain)
+  );
   const normalizedMerchantSlug = normalizeHeaderValue(merchantSlug);
   const requestHost = normalizeHostnameValue(
     headersList.get('x-forwarded-host') ?? headersList.get('host')
   );
+  const requestHostApex = stripWwwPrefix(requestHost);
   const requestMerchantSlug = normalizeHeaderValue(
     headersList.get('x-merchant-slug')
   );
-  const requestCustomDomain = normalizeHostnameValue(
-    headersList.get('x-custom-domain')
+  const requestCustomDomain = stripWwwPrefix(
+    normalizeHostnameValue(headersList.get('x-custom-domain'))
   );
   const servedAtSubdomainRoot =
     requestHost !== null &&
@@ -55,10 +61,10 @@ export function getStorefrontPathPrefix(
     requestMerchantSlug === normalizedMerchantSlug &&
     requestHost.startsWith(`${normalizedMerchantSlug}.`);
   const servedAtCustomDomainRoot =
-    requestHost !== null &&
+    requestHostApex !== null &&
     merchantCustomDomain !== null &&
     requestCustomDomain === merchantCustomDomain &&
-    requestHost === merchantCustomDomain;
+    requestHostApex === merchantCustomDomain;
   const servedAtDomainRoot = servedAtSubdomainRoot || servedAtCustomDomainRoot;
 
   return servedAtDomainRoot ? '' : `/${merchantSlug}`;

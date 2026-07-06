@@ -23,6 +23,18 @@ describe('getStorefrontPathPrefix', () => {
     ).toBe('');
   });
 
+  it('uses root-relative links for www custom-domain storefront requests', () => {
+    expect(
+      getStorefrontPathPrefix(
+        new Headers([
+          ['host', 'www.ogabassey.com'],
+          ['x-custom-domain', 'ogabassey.com'],
+        ]),
+        { custom_domain: 'https://ogabassey.com/', slug: 'ogabassey' }
+      )
+    ).toBe('');
+  });
+
   it('uses root-relative links for subdomain storefront requests', () => {
     expect(
       getStorefrontPathPrefix(

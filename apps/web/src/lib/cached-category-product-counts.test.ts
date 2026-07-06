@@ -19,6 +19,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
+import { cacheTag } from 'next/cache';
 import { getCachedCategoryProductCounts } from '@/lib/cached-category-product-counts';
 
 let harness: CachedDataTestHarness;
@@ -64,6 +65,22 @@ describe('getCachedCategoryProductCounts', () => {
     expect(harness.mockIn).toHaveBeenCalledWith(
       'product_categories.category_id',
       expect.arrayContaining(['parent', 'child'])
+    );
+  });
+
+  it('tags counts with product mutation invalidation keys', async () => {
+    harness.mockListResult.data = [];
+    harness.mockListResult.error = null;
+
+    await getCachedCategoryProductCounts('merchant-1', [
+      { id: 'parent', is_active: true, parent_id: null },
+    ]);
+
+    expect(cacheTag).toHaveBeenCalledWith(
+      'categories',
+      'categories-merchant-1',
+      'products',
+      'products-merchant-1'
     );
   });
 
