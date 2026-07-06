@@ -1,34 +1,36 @@
-import z from 'zod';
-import { INTERNAL_AUTH_HEADER } from '@/lib/internal-auth-header';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
 import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
-import { createAbortSignalTimeout } from './abort-signal-timeout';
+import {
+  STOREFRONT_PDP_PREFLIGHT_RPC,
+  storefrontPdpPreflightRowSchema,
+} from '@/schemas/storefront-preflight-rpc';
 import { storefrontInternalPreflight } from './storefront-internal-preflight';
-
-const slugSetResponseSchema = z.object({
-  hasError: z.boolean(),
-  present: z.boolean().optional(),
-  redirectPath: z.unknown().optional(),
-  failOpenReason: z.string().optional(),
-});
+import { buildStorefrontPdpCanonicalPath } from './storefront-pdp-canonical-path';
+import {
+  callStorefrontPreflightRpc,
+  gateStorefrontPreflightStatus,
+  type StorefrontPreflightRpcImpl,
+} from './storefront-preflight-rpc';
 
 interface SlugMissingOptions {
   /**
-   * Public request origin, e.g. `https://ogabassey.com` — used as the fallback
-   * fetch base only. Production calls use the configured public platform root,
-   * never Vercel's generated deployment host, because protected generated URLs
-   * can SSO-wall middleware self-fetches.
+   * Public request origin. Retained so the proxy call sites stay untouched;
+   * the direct-RPC transport resolves its own target from the Supabase env.
    */
   origin: string;
   /** Storefront slug or custom domain the proxy has (resolved by the route). */
   identifier: string;
   /** The product slug from the PDP path (`/{category}/{productSlug}`). */
   productSlug: string;
-  /** `INTERNAL_API_SECRET`; when absent the check fails open. */
+  /**
+   * `INTERNAL_API_SECRET`; when absent the check fails open. Kept as the
+   * operational kill-switch: unsetting the secret disables every preflight
+   * without a deploy.
+   */
   secret: string | undefined;
   /** Injectable for tests. */
-  fetchImpl?: typeof fetch;
-  /** Tight budget — a slow internal hop must not delay navigations. */
+  rpcImpl?: StorefrontPreflightRpcImpl;
+  /** Tight budget — a slow verdict must not delay navigations. */
   timeoutMs?: number;
 }
 
@@ -42,15 +44,17 @@ export type StorefrontProductSlugResolution =
  * 404s, archived aliases become real 308s, and every uncertain/live case falls
  * through to the App Router.
  *
- * Delegates the membership decision to the internal route (which can legally
- * call the `'use cache'` slug-set builder the proxy cannot) and reads back only
- * `{ hasError, present, redirectPath? }` — never the full slug list — so a
- * large catalog adds no slug-list transfer/parse to the navigation.
+ * The verdict comes from ONE direct Supabase RPC (`get_storefront_pdp_preflight`
+ * — the same call the canonical preflight makes, collapsed by the transport
+ * memo into a single round trip per navigation), replacing the
+ * /api/internal/slug-set self-fetch whose function-invocation latency tail
+ * produced steady timeout fail-opens.
  *
- * Fail-open by construction: a missing secret, non-2xx, transport error,
- * timeout, `hasError`, malformed body, or unsafe redirect all return
- * `present-or-unknown` so the proxy never hard-404s or open-redirects a live
- * product on a stale/unavailable set.
+ * Fail-open by construction: a missing secret, transport error, timeout,
+ * open circuit breaker, unknown/unpublished storefront, EMPTY catalog (an
+ * empty slug set cannot PROVE a slug is absent), malformed row, or unsafe
+ * alias redirect all return `present-or-unknown` so the proxy never hard-404s
+ * or open-redirects a live product on stale/unavailable data.
  */
 export async function resolveStorefrontProductSlugResolution(
   opts: SlugMissingOptions
@@ -62,11 +66,9 @@ export async function resolveStorefrontProductSlugResolution(
   };
 
   // Unsafe (over-long / repeatedly-encoded) slugs can never be live products,
-  // but do NOT hard-404 here: the internal slug-set endpoint deliberately
-  // fails open for unpublished/unknown storefronts (so they still render the
-  // coming-soon shell instead of a proxy 404). Skip the doomed internal hop and
-  // fail open too, letting the App Router decide — a published store renders
-  // the render-route not-found gate, an unpublished store its coming-soon shell.
+  // but do NOT hard-404 here: unknown/unpublished storefronts must still
+  // render their coming-soon shell instead of a proxy 404. Skip the doomed
+  // lookup and fail open, letting the App Router decide.
   const slugSafety = evaluateStorefrontSlugSafety(opts.productSlug);
   if (!slugSafety.safe) {
     storefrontInternalPreflight.warnSkip({
@@ -84,90 +86,79 @@ export async function resolveStorefrontProductSlugResolution(
     return { kind: 'present-or-unknown' };
   }
 
-  // No trusted base → fail open WITHOUT sending the secret to an untrusted host.
-  const baseUrl = storefrontInternalPreflight.resolveBaseUrl(opts.origin);
-  if (!baseUrl) {
-    storefrontInternalPreflight.warnFailOpen({
-      ...failOpenContext,
-      reason: 'no-base-url',
-    });
-    return { kind: 'present-or-unknown' };
-  }
-
-  try {
-    const url = new URL(
-      `/api/internal/slug-set/${encodeURIComponent(opts.identifier)}`,
-      baseUrl
-    );
-    url.searchParams.set('slug', opts.productSlug);
-
-    const timeout = createAbortSignalTimeout(opts.timeoutMs ?? 800);
-    try {
-      const response = await (opts.fetchImpl ?? fetch)(url, {
-        // Authenticate via the custom header, NOT Authorization: Vercel's CDN
-        // never caches a response to a request carrying an Authorization header,
-        // so this keeps the internal verdict edge-cacheable. Sending both would
-        // re-trigger the bypass.
-        headers: { [INTERNAL_AUTH_HEADER]: opts.secret },
-        redirect: 'manual',
-        signal: timeout.signal,
-      });
-      const json = await storefrontInternalPreflight.readJsonResponse(
-        response,
-        failOpenContext
-      );
-      if (json === null) {
-        return { kind: 'present-or-unknown' };
-      }
-
-      const bodyResult = slugSetResponseSchema.safeParse(json);
-      if (!bodyResult.success) {
-        storefrontInternalPreflight.warnFailOpen({
-          ...failOpenContext,
-          reason: 'parse',
-        });
-        return { kind: 'present-or-unknown' };
-      }
-      const body = bodyResult.data;
-
-      if (body.hasError !== false) {
-        storefrontInternalPreflight.warnHasErrorFailOpen(
-          failOpenContext,
-          body.failOpenReason
-        );
-        return { kind: 'present-or-unknown' };
-      }
-
-      const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
-      if (body.present === true && redirectPath) {
-        return { kind: 'redirect', redirectPath };
-      }
-
-      if (body.redirectPath != null && !redirectPath) {
-        storefrontInternalPreflight.warnFailOpen({
-          ...failOpenContext,
-          reason: 'unsafe-redirect',
-        });
-        return { kind: 'present-or-unknown' };
-      }
-
-      // Hard-404 ONLY on an explicit, error-free "absent" verdict. Any other
-      // shape (present true/undefined, malformed) falls through.
-      if (body.present === false) {
-        return { kind: 'missing' };
-      }
-
-      return { kind: 'present-or-unknown' };
-    } finally {
-      timeout.clear();
+  const row = await callStorefrontPreflightRpc(
+    STOREFRONT_PDP_PREFLIGHT_RPC,
+    { p_identifier: opts.identifier, p_product_slug: opts.productSlug },
+    {
+      failOpenContext,
+      rpcImpl: opts.rpcImpl,
+      timeoutMs: opts.timeoutMs,
     }
-  } catch (error) {
+  );
+  if (row === null) {
+    return { kind: 'present-or-unknown' };
+  }
+
+  const parsed = storefrontPdpPreflightRowSchema.safeParse(row);
+  if (!parsed.success) {
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
-      reason: storefrontInternalPreflight.getFetchErrorReason(error),
+      reason: 'parse',
     });
     return { kind: 'present-or-unknown' };
   }
+  const verdict = parsed.data;
+
+  if (
+    !gateStorefrontPreflightStatus(verdict.storefront_status, failOpenContext)
+  ) {
+    return { kind: 'present-or-unknown' };
+  }
+
+  // An empty catalog cannot PROVE a slug is absent (e.g. the first product's
+  // publish window). Hard-404ing here would de-index a merchant's first live
+  // product — fail open exactly as the slug-set route always has.
+  if (!verdict.catalog_nonempty) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: 'has-error',
+    });
+    return { kind: 'present-or-unknown' };
+  }
+
+  // Hard-404 ONLY on a definitive, error-free "absent" verdict.
+  if (!verdict.present) {
+    return { kind: 'missing' };
+  }
+
+  // Archived alias with a live parent: 308 to the parent's canonical path.
+  // An uncomposable/unsafe path downgrades to present-with-no-redirect ("we
+  // know it exists, we just won't say where") — never a fail-open capture.
+  if (
+    verdict.match_kind === 'alias' &&
+    verdict.product_id &&
+    verdict.product_name
+  ) {
+    const redirectPath = toSafeInternalRedirectPath(
+      buildStorefrontPdpCanonicalPath({
+        id: verdict.product_id,
+        name: verdict.product_name,
+        slug: verdict.product_slug,
+        category: verdict.product_category,
+        categories: verdict.category_slug
+          ? {
+              name: verdict.category_name ?? undefined,
+              slug: verdict.category_slug,
+            }
+          : null,
+      })
+    );
+    if (redirectPath) {
+      return { kind: 'redirect', redirectPath };
+    }
+  }
+
+  return { kind: 'present-or-unknown' };
 }
 
 /**

@@ -1,9 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import {
   removeNativeAbortSignalTimeout,
   restoreAbortSignalTimeout,
 } from './abort-signal-timeout.test-utils';
+import { resetStorefrontPreflightRpcForTests } from './storefront-preflight-rpc';
 
 const BASE = {
   origin: 'https://ogabassey.com',
@@ -11,70 +12,42 @@ const BASE = {
   secret: 'internal-secret',
 };
 
-const ORIGINAL_INTERNAL_BASE_ENV = {
-  NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
-  NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
-  NODE_ENV: process.env.NODE_ENV,
-  VERCEL_ENV: process.env.VERCEL_ENV,
-  VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
-  VERCEL_URL: process.env.VERCEL_URL,
-};
-
-function restoreInternalBaseEnv() {
-  vi.unstubAllEnvs();
-  for (const [key, value] of Object.entries(ORIGINAL_INTERNAL_BASE_ENV)) {
-    if (key === 'NODE_ENV') continue;
-    if (value === undefined) {
-      delete process.env[key];
-    } else {
-      process.env[key] = value;
-    }
-  }
+function aliasRow(overrides: Record<string, unknown> = {}) {
+  return {
+    storefront_status: 'published',
+    catalog_nonempty: true,
+    present: true,
+    match_kind: 'alias',
+    product_id: '11111111-1111-4111-8111-111111111111',
+    product_name: 'iPhone 15 Pro Max',
+    product_slug: 'iphone-15-pro-max',
+    product_category: 'Smartphones',
+    category_id: '22222222-2222-4222-8222-222222222222',
+    category_name: 'Smartphones',
+    category_slug: 'smartphones',
+    ...overrides,
+  };
 }
 
-function clearConfiguredInternalBaseEnv() {
-  delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
-  delete process.env.NEXT_PUBLIC_SITE_URL;
-  delete process.env.VERCEL_ENV;
-  delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
-  delete process.env.VERCEL_URL;
-  vi.stubEnv('NODE_ENV', 'test');
+function rpcImplReturning(row: Record<string, unknown>) {
+  return vi.fn().mockResolvedValue({ data: [row], error: null });
 }
 
-function jsonResponse(body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    headers: { 'Content-Type': 'application/json' },
-    status: 200,
-  });
-}
-
-describe('resolveStorefrontProductSlugResolution', () => {
+describe('resolveStorefrontProductSlugResolution redirect-path safety', () => {
   beforeEach(() => {
-    clearConfiguredInternalBaseEnv();
-    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
-    process.env.VERCEL_URL = 'baci-test.vercel.app';
+    resetStorefrontPreflightRpcForTests();
+    restoreAbortSignalTimeout();
+    vi.restoreAllMocks();
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
-  afterEach(() => {
-    restoreAbortSignalTimeout();
-    restoreInternalBaseEnv();
-    vi.restoreAllMocks();
-  });
-
-  it('returns redirect for a safe internal redirectPath from the route', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      jsonResponse({
-        hasError: false,
-        present: true,
-        redirectPath: '/smartphones/iphone-15-pro-max',
-      })
-    );
+  it('returns the composed canonical redirect for an archived alias with a live parent', async () => {
+    const rpcImpl = rpcImplReturning(aliasRow());
 
     const result = await resolveStorefrontProductSlugResolution({
       ...BASE,
       productSlug: 'iphone-15-pro-max-8gb-256gb',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      rpcImpl,
     });
 
     expect(result).toEqual({
@@ -83,129 +56,98 @@ describe('resolveStorefrontProductSlugResolution', () => {
     });
   });
 
+  // The redirect path is COMPOSED from the alias target's own fields, so the
+  // attack surface is malicious/corrupted product or category values. Any
+  // composition that fails the safe-internal-path gate must silently downgrade
+  // to present-with-no-redirect ("we know it exists, we just won't say where")
+  // — never a redirect, never a hard 404.
   it.each([
-    'https://evil.example/path',
-    '//evil.example/path',
-    '/\\evil.example',
-    '/smartphones/iphone:15',
-    '/%2f%2fevil.example/path',
-    '/smartphones/iphone%3a15',
-    '',
-  ])('fails open for unsafe redirectPath %s', async (redirectPath) => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      jsonResponse({
-        hasError: false,
-        present: true,
-        redirectPath,
-      })
-    );
+    ['a colon in the target slug', { product_slug: 'iphone:15' }],
+    ['a backslash in the target slug', { product_slug: 'iphone\\15' }],
+    [
+      'a traversal segment in the target slug',
+      { product_slug: '..', category_slug: 'smartphones' },
+    ],
+    [
+      'a colon in the category slug',
+      { category_slug: 'smart:phones', product_slug: 'iphone-15' },
+    ],
+    [
+      'a protocol-relative category composition',
+      { category_slug: '\\evil.example', product_slug: 'iphone-15' },
+    ],
+  ])('fails open to present-or-unknown for %s', async (label, overrides) => {
+    const rpcImpl = rpcImplReturning(aliasRow(overrides));
 
     const result = await resolveStorefrontProductSlugResolution({
       ...BASE,
+      identifier: `safety-${label.replaceAll(' ', '-')}`,
       productSlug: 'iphone-15-pro-max-8gb-256gb',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      rpcImpl,
     });
 
     expect(result).toEqual({ kind: 'present-or-unknown' });
   });
 
-  it('returns present-or-unknown for a present product without a redirectPath', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(jsonResponse({ hasError: false, present: true }));
+  it('returns present-or-unknown for a live active product (no redirect composed)', async () => {
+    const rpcImpl = rpcImplReturning(
+      aliasRow({ match_kind: 'active', product_slug: 'iphone-15' })
+    );
 
     const result = await resolveStorefrontProductSlugResolution({
       ...BASE,
+      identifier: 'active-product-case',
       productSlug: 'iphone-15',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      rpcImpl,
     });
 
     expect(result).toEqual({ kind: 'present-or-unknown' });
   });
 
   it('returns missing only for an explicit error-free absent verdict', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(jsonResponse({ hasError: false, present: false }));
+    const rpcImpl = rpcImplReturning(
+      aliasRow({
+        present: false,
+        match_kind: 'none',
+        product_id: null,
+        product_name: null,
+        product_slug: null,
+        category_slug: null,
+      })
+    );
 
     const result = await resolveStorefrontProductSlugResolution({
       ...BASE,
+      identifier: 'absent-case',
       productSlug: 'not-real',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      rpcImpl,
     });
 
     expect(result).toEqual({ kind: 'missing' });
   });
 
-  it('keeps fetching when native AbortSignal.timeout is unavailable', async () => {
+  it('still passes an AbortSignal to the rpc when native AbortSignal.timeout is unavailable', async () => {
     removeNativeAbortSignalTimeout();
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(jsonResponse({ hasError: false, present: false }));
+    const rpcImpl = rpcImplReturning(
+      aliasRow({
+        present: false,
+        match_kind: 'none',
+        product_id: null,
+        product_name: null,
+        product_slug: null,
+        category_slug: null,
+      })
+    );
 
     const result = await resolveStorefrontProductSlugResolution({
       ...BASE,
+      identifier: 'fallback-timer-case',
       productSlug: 'not-real',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      rpcImpl,
     });
 
     expect(result).toEqual({ kind: 'missing' });
-    expect(fetchImpl).toHaveBeenCalledOnce();
-    expect((fetchImpl.mock.calls[0][1] as RequestInit).signal).toBeInstanceOf(
-      AbortSignal
-    );
-  });
-
-  it('fails open without fetching when the internal API secret is missing', async () => {
-    const fetchImpl = vi.fn();
-
-    const result = await resolveStorefrontProductSlugResolution({
-      ...BASE,
-      secret: undefined,
-      productSlug: 'iphone-15',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-
-    expect(result).toEqual({ kind: 'present-or-unknown' });
-    expect(fetchImpl).not.toHaveBeenCalled();
-    expect(console.warn).toHaveBeenCalledWith(
-      '[storefront-internal-preflight] fail-open',
-      expect.objectContaining({ reason: 'no-secret' })
-    );
-  });
-
-  it('fails open without fetching when no trusted internal base URL exists', async () => {
-    clearConfiguredInternalBaseEnv();
-    const fetchImpl = vi.fn();
-
-    const result = await resolveStorefrontProductSlugResolution({
-      ...BASE,
-      productSlug: 'iphone-15',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-
-    expect(result).toEqual({ kind: 'present-or-unknown' });
-    expect(fetchImpl).not.toHaveBeenCalled();
-    expect(console.warn).toHaveBeenCalledWith(
-      '[storefront-internal-preflight] fail-open',
-      expect.objectContaining({ reason: 'no-base-url' })
-    );
-  });
-
-  it('fails open when the internal slug-set fetch throws', async () => {
-    const fetchImpl = vi.fn().mockRejectedValue(new Error('network down'));
-
-    const result = await resolveStorefrontProductSlugResolution({
-      ...BASE,
-      productSlug: 'iphone-15',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-
-    expect(result).toEqual({ kind: 'present-or-unknown' });
-    expect(fetchImpl).toHaveBeenCalledOnce();
-    expect(console.warn).toHaveBeenCalledWith(
-      '[storefront-internal-preflight] fail-open',
-      expect.objectContaining({ reason: 'fetch-error' })
-    );
+    expect(rpcImpl).toHaveBeenCalledOnce();
+    expect(rpcImpl.mock.calls[0][2]).toBeInstanceOf(AbortSignal);
   });
 });

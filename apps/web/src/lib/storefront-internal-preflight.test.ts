@@ -217,40 +217,35 @@ describe('storefrontInternalPreflight', () => {
     );
   });
 
-  it('logs unknown-storefront verdicts as skips without capturing exceptions', async () => {
-    // Run in the runtime where captures ARE possible so the negative
-    // assertion below is meaningful.
+  it('truncates multi-kilobyte identifiers in fail-open logs and telemetry', async () => {
     vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const hugeIdentifier = `${'sub.'.repeat(1000)}example.com`;
 
-    storefrontInternalPreflight.warnHasErrorFailOpen(
-      CONTEXT,
-      'unknown-storefront'
-    );
+    try {
+      storefrontInternalPreflight.warnFailOpen({
+        ...CONTEXT,
+        identifier: hugeIdentifier,
+        reason: 'has-error',
+      });
+      await vi.waitFor(() =>
+        expect(mocks.captureServerException).toHaveBeenCalled()
+      );
 
-    expect(console.warn).toHaveBeenCalledWith(
-      '[storefront-internal-preflight] skip',
-      expect.objectContaining({ reason: 'unknown-storefront' })
-    );
-    // Drain the microtask queue so a wrongly-scheduled fire-and-forget
-    // capture would have run before the negative assertion.
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(mocks.captureServerException).not.toHaveBeenCalled();
-  });
-
-  it('captures plain has-error verdicts as fail-opens', async () => {
-    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
-
-    storefrontInternalPreflight.warnHasErrorFailOpen(CONTEXT, undefined);
-
-    expect(console.warn).toHaveBeenCalledWith(
-      '[storefront-internal-preflight] fail-open',
-      expect.objectContaining({ reason: 'has-error' })
-    );
-    await vi.waitFor(() =>
-      expect(mocks.captureServerException).toHaveBeenCalled()
-    );
+      const [, warnContext] = consoleWarnSpy.mock.calls.find(
+        ([message]) => message === '[storefront-internal-preflight] fail-open'
+      ) as [string, { identifier: string }];
+      expect(warnContext.identifier.length).toBeLessThan(200);
+      const [, captureContext] = mocks.captureServerException.mock.calls[0] as [
+        Error,
+        { identifier: string },
+      ];
+      expect(captureContext.identifier.length).toBeLessThan(200);
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
   });
 
   it('maps fetch exceptions to timeout or fetch-error reasons', () => {

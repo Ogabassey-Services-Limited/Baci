@@ -1,97 +1,43 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { StorefrontPreflightRpcImpl } from './storefront-preflight-rpc';
+import { resetStorefrontPreflightRpcForTests } from './storefront-preflight-rpc';
+import { getStorefrontProductCanonicalRedirectResult } from './storefront-product-canonical-redirect';
 import {
-  getStorefrontProductCanonicalRedirectPath,
-  getStorefrontProductCanonicalRedirectResult,
-} from './storefront-product-canonical-redirect';
-import {
-  clearConfiguredInternalBaseEnv,
-  jsonResponse,
-  restoreInternalBaseEnv,
+  makeStorefrontPdpPreflightRow,
+  overEncodedSlug,
+  rpcImplResolving,
 } from './storefront-product-canonical-redirect.test-utils';
 
-const SECRET = 'test-secret';
+const BASE = {
+  origin: 'https://ogabassey.com',
+  secret: 'test-secret',
+};
 
-describe('getStorefrontProductCanonicalRedirectPath', () => {
+describe('getStorefrontProductCanonicalRedirectResult', () => {
   beforeEach(() => {
-    clearConfiguredInternalBaseEnv();
-    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
-    process.env.VERCEL_URL = 'baci-platform.vercel.app';
+    resetStorefrontPreflightRpcForTests();
+    vi.stubEnv('VERCEL_ENV', '');
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
-    restoreInternalBaseEnv();
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
-  it('returns a safe canonical redirect path from the internal endpoint', async () => {
-    const fetchImpl = vi.fn<typeof fetch>(async () =>
-      jsonResponse({ hasError: false, redirectPath: '/smartphones/iphone-15' })
-    );
+  it('returns unknown and skips the RPC for unsafe (over-encoded) product slugs', async () => {
+    const rpcImpl = vi.fn();
 
-    const result = await getStorefrontProductCanonicalRedirectPath({
-      origin: 'https://ogabassey.com',
-      identifier: 'ogabassey.com',
-      category: 'apple',
-      productSlug: 'iphone-15-128gb',
-      secret: SECRET,
-      fetchImpl,
+    const result = await getStorefrontProductCanonicalRedirectResult({
+      ...BASE,
+      identifier: 'unsafe-product-slug.example',
+      category: 'smartphones',
+      productSlug: overEncodedSlug(),
+      rpcImpl: rpcImpl as unknown as StorefrontPreflightRpcImpl,
     });
 
-    expect(result).toBe('/smartphones/iphone-15');
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchImpl.mock.calls[0];
-    expect(String(url)).toBe(
-      'https://usebaci.com/api/internal/product-canonical/ogabassey.com?category=apple&slug=iphone-15-128gb'
-    );
-    // The secret goes via `x-baci-internal-auth`, NOT Authorization, so
-    // Vercel's CDN can cache the verdict — the exact-match assertion proves no
-    // Authorization header is sent.
-    expect((init as RequestInit).headers).toEqual({
-      'x-baci-internal-auth': SECRET,
-    });
-  });
-
-  it('returns checked-no-redirect when the internal endpoint matched a canonical product', async () => {
-    const fetchImpl = vi.fn<typeof fetch>(async () =>
-      jsonResponse({
-        hasError: false,
-        matchedProduct: true,
-        redirectPath: null,
-      })
-    );
-
-    await expect(
-      getStorefrontProductCanonicalRedirectResult({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        category: 'smartphones',
-        productSlug: 'iphone-15',
-        secret: SECRET,
-        fetchImpl,
-      })
-    ).resolves.toEqual({ kind: 'checked-no-redirect' });
-  });
-
-  it('skips the internal fetch for over-encoded bot product slugs', async () => {
-    const fetchImpl = vi.fn<typeof fetch>();
-    let overEncodedSlug = 'samsung-s10 8gb-128gb';
-    for (let i = 0; i < 10; i++) {
-      overEncodedSlug = encodeURIComponent(overEncodedSlug);
-    }
-
-    await expect(
-      getStorefrontProductCanonicalRedirectResult({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        category: 'smartphones',
-        productSlug: overEncodedSlug,
-        secret: SECRET,
-        fetchImpl,
-      })
-    ).resolves.toEqual({ kind: 'unknown' });
-
-    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(result).toEqual({ kind: 'unknown' });
+    expect(rpcImpl).not.toHaveBeenCalled();
     expect(console.warn).toHaveBeenCalledWith(
       '[storefront-internal-preflight] skip',
       expect.objectContaining({
@@ -101,21 +47,19 @@ describe('getStorefrontProductCanonicalRedirectPath', () => {
     );
   });
 
-  it('skips the internal fetch for over-long category segments', async () => {
-    const fetchImpl = vi.fn<typeof fetch>();
+  it('returns unknown and skips the RPC for over-long category segments', async () => {
+    const rpcImpl = vi.fn();
 
-    await expect(
-      getStorefrontProductCanonicalRedirectResult({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        category: 'c'.repeat(600),
-        productSlug: 'iphone-15',
-        secret: SECRET,
-        fetchImpl,
-      })
-    ).resolves.toEqual({ kind: 'unknown' });
+    const result = await getStorefrontProductCanonicalRedirectResult({
+      ...BASE,
+      identifier: 'unsafe-category.example',
+      category: 'c'.repeat(600),
+      productSlug: 'iphone-15',
+      rpcImpl: rpcImpl as unknown as StorefrontPreflightRpcImpl,
+    });
 
-    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(result).toEqual({ kind: 'unknown' });
+    expect(rpcImpl).not.toHaveBeenCalled();
     expect(console.warn).toHaveBeenCalledWith(
       '[storefront-internal-preflight] skip',
       expect.objectContaining({
@@ -125,155 +69,159 @@ describe('getStorefrontProductCanonicalRedirectPath', () => {
     );
   });
 
-  it('returns unknown when the internal endpoint found no active or legacy product', async () => {
-    const fetchImpl = vi.fn<typeof fetch>(async () =>
-      jsonResponse({
-        hasError: false,
-        matchedProduct: false,
-        redirectPath: null,
-      })
-    );
+  it('returns unknown and fails open without calling rpcImpl when the secret is missing', async () => {
+    const rpcImpl = vi.fn();
 
-    await expect(
-      getStorefrontProductCanonicalRedirectResult({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        category: 'smartphones',
-        productSlug: 'missing-product',
-        secret: SECRET,
-        fetchImpl,
-      })
-    ).resolves.toEqual({ kind: 'unknown' });
-  });
+    const result = await getStorefrontProductCanonicalRedirectResult({
+      ...BASE,
+      identifier: 'no-secret.example',
+      category: 'smartphones',
+      productSlug: 'iphone-15',
+      secret: undefined,
+      rpcImpl: rpcImpl as unknown as StorefrontPreflightRpcImpl,
+    });
 
-  it('fails open when the endpoint reports no redirect or an error', async () => {
-    await expect(
-      getStorefrontProductCanonicalRedirectPath({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        category: 'smartphones',
-        productSlug: 'iphone-15',
-        secret: SECRET,
-        fetchImpl: vi.fn<typeof fetch>(async () =>
-          jsonResponse({ hasError: false, redirectPath: null })
-        ),
-      })
-    ).resolves.toBeNull();
-
-    await expect(
-      getStorefrontProductCanonicalRedirectPath({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        category: 'smartphones',
-        productSlug: 'iphone-15',
-        secret: SECRET,
-        fetchImpl: vi.fn<typeof fetch>(async () =>
-          jsonResponse({
-            hasError: true,
-            redirectPath: '/smartphones/iphone-15',
-          })
-        ),
-      })
-    ).resolves.toBeNull();
-  });
-
-  it('logs unknown-storefront fail-opens as skips instead of incidents', async () => {
-    const fetchImpl = vi.fn<typeof fetch>(async () =>
-      jsonResponse({
-        hasError: true,
-        matchedProduct: false,
-        redirectPath: null,
-        failOpenReason: 'unknown-storefront',
-      })
-    );
-
-    await expect(
-      getStorefrontProductCanonicalRedirectResult({
-        origin: 'https://ogabassey.com',
-        identifier: 'laptops',
-        category: 'compare',
-        productSlug: 'hp-vs-lenovo',
-        secret: SECRET,
-        fetchImpl,
-      })
-    ).resolves.toEqual({ kind: 'unknown' });
-
+    expect(result).toEqual({ kind: 'unknown' });
+    expect(rpcImpl).not.toHaveBeenCalled();
     expect(console.warn).toHaveBeenCalledWith(
-      '[storefront-internal-preflight] skip',
-      expect.objectContaining({ reason: 'unknown-storefront' })
-    );
-    expect(console.warn).not.toHaveBeenCalledWith(
       '[storefront-internal-preflight] fail-open',
-      expect.anything()
+      expect.objectContaining({ reason: 'no-secret' })
+    );
+  });
+
+  it('returns unknown when the RPC transport rejects', async () => {
+    // The transport already logs its own fail-open reason; this suite only
+    // asserts the caller's fail-open verdict.
+    const rpcImpl = vi.fn().mockRejectedValue(new Error('network unreachable'));
+
+    const result = await getStorefrontProductCanonicalRedirectResult({
+      ...BASE,
+      identifier: 'transport-error.example',
+      category: 'smartphones',
+      productSlug: 'iphone-15',
+      rpcImpl: rpcImpl as unknown as StorefrontPreflightRpcImpl,
+    });
+
+    expect(result).toEqual({ kind: 'unknown' });
+  });
+
+  it('returns unknown when the RPC row fails schema validation', async () => {
+    const rpcImpl = rpcImplResolving(
+      makeStorefrontPdpPreflightRow({ present: 'yes' as unknown as boolean })
+    );
+
+    const result = await getStorefrontProductCanonicalRedirectResult({
+      ...BASE,
+      identifier: 'schema-fail.example',
+      category: 'smartphones',
+      productSlug: 'iphone-15',
+      rpcImpl,
+    });
+
+    expect(result).toEqual({ kind: 'unknown' });
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'parse' })
     );
   });
 
   it.each([
-    'https://evil.test/x',
-    '/\\evil.com',
-    '/category/../dashboard',
-    '/category/%2e%2e/dashboard',
-    '/category/%2e/dashboard',
-  ])('rejects unsafe redirect path %s', async (redirectPath) => {
-    const fetchImpl = vi.fn<typeof fetch>(async () =>
-      jsonResponse({ hasError: false, redirectPath })
+    'unknown',
+    'unpublished',
+  ])('returns unknown and skips for a %s storefront status', async (storefront_status) => {
+    const rpcImpl = rpcImplResolving(
+      makeStorefrontPdpPreflightRow({ storefront_status })
     );
 
-    await expect(
-      getStorefrontProductCanonicalRedirectPath({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        category: 'apple',
-        productSlug: 'iphone-15-128gb',
-        secret: SECRET,
-        fetchImpl,
-      })
-    ).resolves.toBeNull();
-  });
-
-  it('uses the production root domain fallback for canonical preflight redirects', async () => {
-    clearConfiguredInternalBaseEnv();
-    vi.stubEnv('NODE_ENV', 'production');
-    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
-    const fetchImpl = vi.fn<typeof fetch>(async () =>
-      jsonResponse({ hasError: false, redirectPath: '/earbuds/airpods-pro' })
-    );
-
-    await expect(
-      getStorefrontProductCanonicalRedirectPath({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        category: 'audio',
-        productSlug: 'airpods-pro',
-        secret: SECRET,
-        fetchImpl,
-      })
-    ).resolves.toBe('/earbuds/airpods-pro');
-
-    expect(String(fetchImpl.mock.calls[0][0])).toBe(
-      'https://usebaci.com/api/internal/product-canonical/ogabassey.com?category=audio&slug=airpods-pro'
-    );
-    expect(fetchImpl.mock.calls[0][1]?.headers).toEqual({
-      'x-baci-internal-auth': SECRET,
+    const result = await getStorefrontProductCanonicalRedirectResult({
+      ...BASE,
+      identifier: `storefront-status-${storefront_status}.example`,
+      category: 'smartphones',
+      productSlug: 'iphone-15',
+      rpcImpl,
     });
+
+    expect(result).toEqual({ kind: 'unknown' });
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] skip',
+      expect.objectContaining({ reason: 'unknown-storefront' })
+    );
   });
 
-  it('does not send the secret when there is no trusted internal base URL', async () => {
-    clearConfiguredInternalBaseEnv();
-    const fetchImpl = vi.fn<typeof fetch>(async () =>
-      jsonResponse({ hasError: false })
+  it('returns unknown when the RPC found no active or alias match', async () => {
+    const rpcImpl = rpcImplResolving(
+      makeStorefrontPdpPreflightRow({
+        match_kind: 'none',
+        product_id: null,
+        product_name: null,
+      })
     );
 
-    await expect(
-      getStorefrontProductCanonicalRedirectPath({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        category: 'apple',
-        productSlug: 'iphone-15-128gb',
-        secret: SECRET,
-        fetchImpl,
+    const result = await getStorefrontProductCanonicalRedirectResult({
+      ...BASE,
+      identifier: 'no-match.example',
+      category: 'smartphones',
+      productSlug: 'missing-product',
+      rpcImpl,
+    });
+
+    expect(result).toEqual({ kind: 'unknown' });
+  });
+
+  it('returns checked-no-redirect for an active match already at its canonical path', async () => {
+    const rpcImpl = rpcImplResolving(
+      makeStorefrontPdpPreflightRow({
+        match_kind: 'active',
+        product_id: '33333333-3333-4333-8333-333333333333',
+        product_name: 'Tecno Spark 40',
+        product_slug: 'tecno-spark-40',
+        category_slug: 'smartphones',
+        category_name: 'Smartphones',
       })
-    ).resolves.toBeNull();
-    expect(fetchImpl).not.toHaveBeenCalled();
+    );
+
+    const result = await getStorefrontProductCanonicalRedirectResult({
+      ...BASE,
+      identifier: 'active-canonical.example',
+      category: 'smartphones',
+      productSlug: 'tecno-spark-40',
+      rpcImpl,
+    });
+
+    expect(result).toEqual({ kind: 'checked-no-redirect' });
+    expect(rpcImpl).toHaveBeenCalledWith(
+      'get_storefront_pdp_preflight',
+      {
+        p_identifier: 'active-canonical.example',
+        p_product_slug: 'tecno-spark-40',
+      },
+      expect.any(AbortSignal)
+    );
+  });
+
+  it('returns a redirect to the canonical category when the requested category is wrong', async () => {
+    const rpcImpl = rpcImplResolving(
+      makeStorefrontPdpPreflightRow({
+        match_kind: 'active',
+        product_id: '33333333-3333-4333-8333-333333333333',
+        product_name: 'Tecno Spark 40',
+        product_slug: 'tecno-spark-40',
+        category_slug: 'smartphones',
+        category_name: 'Smartphones',
+      })
+    );
+
+    const result = await getStorefrontProductCanonicalRedirectResult({
+      ...BASE,
+      identifier: 'active-wrong-category.example',
+      category: 'tecno',
+      productSlug: 'tecno-spark-40',
+      rpcImpl,
+    });
+
+    expect(result).toEqual({
+      kind: 'redirect',
+      redirectPath: '/smartphones/tecno-spark-40',
+    });
   });
 });

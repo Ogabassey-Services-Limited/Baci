@@ -1,114 +1,74 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  removeNativeAbortSignalTimeout,
-  restoreAbortSignalTimeout,
-} from './abort-signal-timeout.test-utils';
 import { resolveStorefrontBlogPostStatus } from './storefront-blog-post-status';
+import {
+  resetStorefrontPreflightRpcForTests,
+  type StorefrontPreflightRpcImpl,
+  type StorefrontPreflightRpcResult,
+} from './storefront-preflight-rpc';
 
-const ORIGINAL_INTERNAL_BASE_ENV = {
-  NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
-  NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
-  NODE_ENV: process.env.NODE_ENV,
-  VERCEL_ENV: process.env.VERCEL_ENV,
-  VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
-  VERCEL_URL: process.env.VERCEL_URL,
-};
+interface BlogPostStatusRowOverrides {
+  storefront_status?: string;
+  blog_enabled?: unknown;
+  live_present?: unknown;
+  redirect_target_slug?: unknown;
+}
 
-function restoreInternalBaseEnv() {
-  vi.unstubAllEnvs();
-  for (const [key, value] of Object.entries(ORIGINAL_INTERNAL_BASE_ENV)) {
-    if (key === 'NODE_ENV') continue;
-    if (value === undefined) {
-      delete process.env[key];
-    } else {
-      process.env[key] = value;
-    }
+function makeRow(overrides: BlogPostStatusRowOverrides = {}) {
+  return {
+    storefront_status: 'published',
+    blog_enabled: true,
+    live_present: true,
+    redirect_target_slug: null,
+    ...overrides,
+  };
+}
+
+function rpcImplResolving(row: unknown): StorefrontPreflightRpcImpl {
+  return vi.fn(
+    async (): Promise<StorefrontPreflightRpcResult> => ({
+      data: [row],
+      error: null,
+    })
+  );
+}
+
+function overEncodedSlug(): string {
+  let slug = 'my blog post';
+  for (let i = 0; i < 10; i++) {
+    slug = encodeURIComponent(slug);
   }
-}
-
-function clearConfiguredInternalBaseEnv() {
-  delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
-  delete process.env.NEXT_PUBLIC_SITE_URL;
-  delete process.env.VERCEL_ENV;
-  delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
-  delete process.env.VERCEL_URL;
-  vi.stubEnv('NODE_ENV', 'test');
-}
-
-function jsonResponse(body: unknown, ok = true): Response {
-  return new Response(JSON.stringify(body), {
-    headers: { 'Content-Type': 'application/json' },
-    status: ok ? 200 : 500,
-  });
-}
-
-function htmlResponse(status = 200): Response {
-  return new Response('<!doctype html><title>SSO</title>', {
-    headers: { 'Content-Type': 'text/html' },
-    status,
-  });
+  return slug;
 }
 
 describe('resolveStorefrontBlogPostStatus', () => {
   beforeEach(() => {
-    clearConfiguredInternalBaseEnv();
-    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
-    process.env.VERCEL_URL = 'baci-test.vercel.app';
+    resetStorefrontPreflightRpcForTests();
+    // VERCEL_ENV is normally unset in vitest, which passes the transport's
+    // preview gate by default; delete defensively in case another suite left
+    // it stubbed.
+    delete process.env.VERCEL_ENV;
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
-    restoreAbortSignalTimeout();
-    restoreInternalBaseEnv();
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
-  it('returns missing only when the internal endpoint reports an error-free absent post', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(jsonResponse({ hasError: false, present: false }));
+  it('fails open and skips the RPC for unsafe (over-encoded) slugs without calling rpcImpl', async () => {
+    const rpcImpl = vi.fn();
+    const slug = overEncodedSlug();
 
     const result = await resolveStorefrontBlogPostStatus({
       origin: 'https://ogabassey.com',
-      identifier: 'ogabassey.com',
-      postSlug: 'missing-post',
+      identifier: 'unsafe-slug.example',
+      postSlug: slug,
       secret: 'internal-secret',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      rpcImpl: rpcImpl as unknown as StorefrontPreflightRpcImpl,
     });
 
-    expect(result).toEqual({ kind: 'missing' });
-    const [calledUrl, init] = fetchImpl.mock.calls[0];
-    const url = new URL(String(calledUrl));
-    expect(url.origin).toBe('https://usebaci.com');
-    expect(url.pathname).toBe('/api/internal/blog-post-status/ogabassey.com');
-    expect(url.searchParams.get('slug')).toBe('missing-post');
-    // Authenticate via the custom header ONLY (never Authorization) so Vercel's
-    // CDN can cache the internal verdict — the exact-match assertion proves no
-    // Authorization header is sent.
-    expect((init as RequestInit).headers).toEqual({
-      'x-baci-internal-auth': 'internal-secret',
-    });
-  });
-
-  it('fails open (not missing) for over-encoded bot post slugs without fetching', async () => {
-    const fetchImpl = vi.fn();
-    let overEncodedSlug = 'my blog post';
-    for (let i = 0; i < 10; i++) {
-      overEncodedSlug = encodeURIComponent(overEncodedSlug);
-    }
-
-    const result = await resolveStorefrontBlogPostStatus({
-      origin: 'https://ogabassey.com',
-      identifier: 'ogabassey.com',
-      postSlug: overEncodedSlug,
-      secret: 'internal-secret',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-
-    // Fail open, not hard 404: the endpoint fails open for unpublished stores,
-    // so the render layer (not the proxy) decides published vs coming-soon.
     expect(result).toEqual({ kind: 'present-or-unknown' });
-    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(rpcImpl).not.toHaveBeenCalled();
     expect(console.warn).toHaveBeenCalledWith(
       '[storefront-internal-preflight] skip',
       expect.objectContaining({
@@ -118,201 +78,206 @@ describe('resolveStorefrontBlogPostStatus', () => {
     );
   });
 
-  it('keeps fetching when native AbortSignal.timeout is unavailable', async () => {
-    removeNativeAbortSignalTimeout();
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(jsonResponse({ hasError: false, present: false }));
+  it('fails open without calling rpcImpl when the internal secret is missing', async () => {
+    const rpcImpl = vi.fn();
 
     const result = await resolveStorefrontBlogPostStatus({
       origin: 'https://ogabassey.com',
-      identifier: 'ogabassey.com',
-      postSlug: 'missing-post',
-      secret: 'internal-secret',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      identifier: 'no-secret.example',
+      postSlug: 'some-post',
+      secret: undefined,
+      rpcImpl: rpcImpl as unknown as StorefrontPreflightRpcImpl,
     });
 
-    expect(result).toEqual({ kind: 'missing' });
-    expect(fetchImpl).toHaveBeenCalledOnce();
-    expect((fetchImpl.mock.calls[0][1] as RequestInit).signal).toBeInstanceOf(
-      AbortSignal
+    expect(result).toEqual({ kind: 'present-or-unknown' });
+    expect(rpcImpl).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'no-secret' })
     );
   });
 
-  it('returns redirect only for safe internal blog redirect paths', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      jsonResponse({
-        hasError: false,
-        present: true,
-        redirectPath: '/blog/canonical-post',
-      })
+  it('fails open when the RPC transport rejects', async () => {
+    const rpcImpl = vi.fn().mockRejectedValue(new Error('network unreachable'));
+
+    const result = await resolveStorefrontBlogPostStatus({
+      origin: 'https://ogabassey.com',
+      identifier: 'transport-error.example',
+      postSlug: 'some-post',
+      secret: 'internal-secret',
+      rpcImpl: rpcImpl as unknown as StorefrontPreflightRpcImpl,
+    });
+
+    expect(result).toEqual({ kind: 'present-or-unknown' });
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'fetch-error' })
+    );
+  });
+
+  it('fails open when the RPC row fails schema validation', async () => {
+    const rpcImpl = rpcImplResolving(
+      makeRow({ blog_enabled: 'false' as unknown as boolean })
     );
 
-    await expect(
-      resolveStorefrontBlogPostStatus({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        postSlug: 'retired-post',
-        secret: 'internal-secret',
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-      })
-    ).resolves.toEqual({
-      kind: 'redirect',
-      redirectPath: '/blog/canonical-post',
+    const result = await resolveStorefrontBlogPostStatus({
+      origin: 'https://ogabassey.com',
+      identifier: 'schema-fail.example',
+      postSlug: 'some-post',
+      secret: 'internal-secret',
+      rpcImpl,
     });
+
+    expect(result).toEqual({ kind: 'present-or-unknown' });
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'parse' })
+    );
   });
 
   it.each([
-    { hasError: false, present: true },
-    { hasError: true, present: false },
-    {
-      hasError: false,
-      present: true,
-      redirectPath: 'https://evil.test/blog/x',
-    },
-  ])('fails open for non-missing or unsafe body %o', async (body) => {
-    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(body));
+    'unknown',
+    'unpublished',
+  ])('fails open and skips for a %s storefront status', async (storefront_status) => {
+    const rpcImpl = rpcImplResolving(makeRow({ storefront_status }));
 
-    await expect(
-      resolveStorefrontBlogPostStatus({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        postSlug: 'post',
-        secret: 'internal-secret',
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-      })
-    ).resolves.toEqual({ kind: 'present-or-unknown' });
+    const result = await resolveStorefrontBlogPostStatus({
+      origin: 'https://ogabassey.com',
+      identifier: `storefront-status-${storefront_status}.example`,
+      postSlug: 'some-post',
+      secret: 'internal-secret',
+      rpcImpl,
+    });
+
+    expect(result).toEqual({ kind: 'present-or-unknown' });
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] skip',
+      expect.objectContaining({ reason: 'unknown-storefront' })
+    );
   });
 
-  it('fails open when the internal endpoint returns an invalid response body', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      jsonResponse({
-        hasError: 'false',
-        present: false,
-        redirectPath: null,
-      })
+  it('returns missing when the blog feature is disabled on a published storefront', async () => {
+    const rpcImpl = rpcImplResolving(
+      makeRow({ blog_enabled: false, live_present: false })
     );
 
-    await expect(
-      resolveStorefrontBlogPostStatus({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        postSlug: 'post',
-        secret: 'internal-secret',
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-      })
-    ).resolves.toEqual({ kind: 'present-or-unknown' });
+    const result = await resolveStorefrontBlogPostStatus({
+      origin: 'https://ogabassey.com',
+      identifier: 'blog-disabled.example',
+      postSlug: 'some-post',
+      secret: 'internal-secret',
+      rpcImpl,
+    });
+
+    expect(result).toEqual({ kind: 'missing' });
   });
 
-  it('fails open without calling the endpoint when the internal secret is missing', async () => {
-    const fetchImpl = vi.fn();
+  it('returns present-or-unknown when the post is live', async () => {
+    const rpcImpl = rpcImplResolving(makeRow({ live_present: true }));
 
-    await expect(
-      resolveStorefrontBlogPostStatus({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        postSlug: 'post',
-        secret: undefined,
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-      })
-    ).resolves.toEqual({ kind: 'present-or-unknown' });
-    expect(fetchImpl).not.toHaveBeenCalled();
+    const result = await resolveStorefrontBlogPostStatus({
+      origin: 'https://ogabassey.com',
+      identifier: 'live-post.example',
+      postSlug: 'some-post',
+      secret: 'internal-secret',
+      rpcImpl,
+    });
+
+    expect(result).toEqual({ kind: 'present-or-unknown' });
+    expect(rpcImpl).toHaveBeenCalledWith(
+      'get_storefront_blog_post_status',
+      { p_identifier: 'live-post.example', p_post_slug: 'some-post' },
+      expect.any(AbortSignal)
+    );
   });
 
-  it('fails open when the internal endpoint returns a non-OK response', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({}, false));
+  it('returns a redirect to the current slug when the post has moved', async () => {
+    const rpcImpl = rpcImplResolving(
+      makeRow({ live_present: false, redirect_target_slug: 'new-slug' })
+    );
 
-    await expect(
-      resolveStorefrontBlogPostStatus({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        postSlug: 'post',
-        secret: 'internal-secret',
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-      })
-    ).resolves.toEqual({ kind: 'present-or-unknown' });
+    const result = await resolveStorefrontBlogPostStatus({
+      origin: 'https://ogabassey.com',
+      identifier: 'retired-post.example',
+      postSlug: 'old-slug',
+      secret: 'internal-secret',
+      rpcImpl,
+    });
+
+    expect(result).toEqual({
+      kind: 'redirect',
+      redirectPath: '/blog/new-slug',
+    });
   });
 
-  it('fails open when the internal endpoint redirects to deployment protection', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(htmlResponse(302));
+  it('returns missing when the redirect target is the requested slug itself (case/whitespace insensitive)', async () => {
+    const rpcImpl = rpcImplResolving(
+      makeRow({ live_present: false, redirect_target_slug: 'old-post' })
+    );
 
-    await expect(
-      resolveStorefrontBlogPostStatus({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        postSlug: 'post',
-        secret: 'internal-secret',
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-      })
-    ).resolves.toEqual({ kind: 'present-or-unknown' });
-    expect(fetchImpl.mock.calls[0][1]).toMatchObject({ redirect: 'manual' });
+    const result = await resolveStorefrontBlogPostStatus({
+      origin: 'https://ogabassey.com',
+      identifier: 'self-redirect.example',
+      postSlug: 'Old-Post',
+      secret: 'internal-secret',
+      rpcImpl,
+    });
+
+    expect(result).toEqual({ kind: 'missing' });
+  });
+
+  it.each([
+    '',
+    '   ',
+  ])('returns missing when the redirect target slug is %j', async (redirect_target_slug) => {
+    const rpcImpl = rpcImplResolving(
+      makeRow({ live_present: false, redirect_target_slug })
+    );
+
+    const result = await resolveStorefrontBlogPostStatus({
+      origin: 'https://ogabassey.com',
+      identifier: `blank-redirect-${redirect_target_slug.length}.example`,
+      postSlug: 'some-post',
+      secret: 'internal-secret',
+      rpcImpl,
+    });
+
+    expect(result).toEqual({ kind: 'missing' });
+  });
+
+  it('fails open when the redirect target fails safe-internal-redirect-path validation', async () => {
+    const rpcImpl = rpcImplResolving(
+      makeRow({ live_present: false, redirect_target_slug: 'foo:bar' })
+    );
+
+    const result = await resolveStorefrontBlogPostStatus({
+      origin: 'https://ogabassey.com',
+      identifier: 'unsafe-redirect-target.example',
+      postSlug: 'some-post',
+      secret: 'internal-secret',
+      rpcImpl,
+    });
+
+    expect(result).toEqual({ kind: 'present-or-unknown' });
     expect(console.warn).toHaveBeenCalledWith(
       '[storefront-internal-preflight] fail-open',
-      expect.objectContaining({ reason: 'redirect', status: 302 })
+      expect.objectContaining({ reason: 'has-error' })
     );
   });
 
-  it('fails open when the internal endpoint returns HTML with a 200 status', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(htmlResponse(200));
-
-    await expect(
-      resolveStorefrontBlogPostStatus({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        postSlug: 'post',
-        secret: 'internal-secret',
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-      })
-    ).resolves.toEqual({ kind: 'present-or-unknown' });
-    expect(console.warn).toHaveBeenCalledWith(
-      '[storefront-internal-preflight] fail-open',
-      expect.objectContaining({ reason: 'non-json', status: 200 })
+  it('returns missing when there is no live post and no redirect target', async () => {
+    const rpcImpl = rpcImplResolving(
+      makeRow({ live_present: false, redirect_target_slug: null })
     );
-  });
 
-  it('fails open when the internal endpoint request throws', async () => {
-    const fetchImpl = vi.fn().mockRejectedValue(new Error('network failed'));
+    const result = await resolveStorefrontBlogPostStatus({
+      origin: 'https://ogabassey.com',
+      identifier: 'dangling-post.example',
+      postSlug: 'some-post',
+      secret: 'internal-secret',
+      rpcImpl,
+    });
 
-    await expect(
-      resolveStorefrontBlogPostStatus({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        postSlug: 'post',
-        secret: 'internal-secret',
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-      })
-    ).resolves.toEqual({ kind: 'present-or-unknown' });
-  });
-
-  it('fails open when the internal endpoint request is aborted', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockRejectedValue(new DOMException('timed out', 'AbortError'));
-
-    await expect(
-      resolveStorefrontBlogPostStatus({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        postSlug: 'post',
-        secret: 'internal-secret',
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-      })
-    ).resolves.toEqual({ kind: 'present-or-unknown' });
-  });
-
-  it('does not send the secret when there is no trusted internal base URL', async () => {
-    clearConfiguredInternalBaseEnv();
-    const fetchImpl = vi.fn();
-
-    await expect(
-      resolveStorefrontBlogPostStatus({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        postSlug: 'missing-post',
-        secret: 'internal-secret',
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-      })
-    ).resolves.toEqual({ kind: 'present-or-unknown' });
-    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(result).toEqual({ kind: 'missing' });
   });
 });
