@@ -57,6 +57,21 @@ describe('UsernamePrompt', () => {
     expect(onSuccess).toHaveBeenCalledWith('ogafan');
   });
 
+  it('normalizes full-width look-alike input before submitting', async () => {
+    mockSetUsername.mockResolvedValue({ success: true, username: 'ogafan' });
+    render(<UsernamePrompt />);
+
+    // Full-width "ｏｇａｆａｎ" should NFKC-fold to ASCII "ogafan" client-side so the
+    // RPC receives the same value the web route would send.
+    fireEvent.changeText(screen.getByLabelText('Username'), 'ｏｇａｆａｎ');
+    fireEvent.press(screen.getByRole('button', { name: 'Save username' }));
+
+    expect(
+      await screen.findByRole('button', { name: 'Save username' })
+    ).toBeTruthy();
+    expect(mockSetUsername).toHaveBeenCalledWith('ogafan');
+  });
+
   it('renders the returned friendly error when the RPC rejects the username', async () => {
     mockSetUsername.mockResolvedValue({
       success: false,

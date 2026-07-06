@@ -1,5 +1,28 @@
 import { describe, expect, it } from '@jest/globals';
-import { getUsernameValidationError, UsernameSchema } from '@/schemas/username';
+import {
+  cleanUsername,
+  getUsernameValidationError,
+  UsernameSchema,
+} from '@/schemas/username';
+
+describe('cleanUsername', () => {
+  it('strips zero-width characters and trims', () => {
+    expect(cleanUsername('  co​de‍  ')).toBe('code');
+  });
+
+  it('NFKC-normalizes full-width look-alikes to ASCII', () => {
+    // Full-width "ｇａｍｅｒ" normalizes to ASCII "gamer".
+    expect(cleanUsername('ｇａｍｅｒ')).toBe('gamer');
+  });
+
+  it('strips soft-hyphen and BOM control characters', () => {
+    expect(cleanUsername('﻿a­b1')).toBe('ab1');
+  });
+
+  it('keeps the chosen casing', () => {
+    expect(cleanUsername('OgaFan_7')).toBe('OgaFan_7');
+  });
+});
 
 describe('UsernameSchema', () => {
   it('accepts a valid username with mixed letters, numbers, and separators', () => {

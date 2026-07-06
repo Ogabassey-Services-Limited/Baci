@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
-import { getUsernameValidationError } from '@/schemas/username';
+import { cleanUsername, getUsernameValidationError } from '@/schemas/username';
 import { useAuthStore } from '@/stores/auth-store';
 import { styles } from './UsernamePrompt.styles';
 
@@ -23,11 +23,15 @@ export function UsernamePrompt({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const trimmedValue = value.trim();
+  // Clean (NFKC + zero-width strip + trim) before validating and submitting so
+  // the mobile client feeds the RPC the same normalized value the web route
+  // does — otherwise a full-width look-alike would validate here yet be
+  // rejected server-side.
+  const cleanedValue = cleanUsername(value);
   const validationError =
-    trimmedValue.length > 0 ? getUsernameValidationError(trimmedValue) : null;
+    cleanedValue.length > 0 ? getUsernameValidationError(cleanedValue) : null;
   const isSubmitDisabled =
-    isSubmitting || trimmedValue.length === 0 || validationError !== null;
+    isSubmitting || cleanedValue.length === 0 || validationError !== null;
   const errorMessage = submitError ?? validationError;
 
   const handleChangeText = (text: string) => {
@@ -42,10 +46,10 @@ export function UsernamePrompt({
 
     setIsSubmitting(true);
     setSubmitError(null);
-    return setUsername(trimmedValue)
+    return setUsername(cleanedValue)
       .then((result) => {
         if (result.success) {
-          onSuccess?.(result.username ?? trimmedValue);
+          onSuccess?.(result.username ?? cleanedValue);
         } else {
           setSubmitError(result.error || 'Could not set username');
         }

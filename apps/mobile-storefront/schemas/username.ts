@@ -3,6 +3,23 @@ import { z } from 'zod';
 export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 20;
 
+// Zero-width space/joiner/non-joiner/BOM/word-joiner/soft-hyphen + C0/C1
+// control ranges. Mirrors the web `cleanUsername` strip set so both clients
+// feed the authoritative RPC the exact same normalized value.
+const ZERO_WIDTH_AND_CONTROL =
+  // eslint-disable-next-line no-control-regex
+  /[\u200B-\u200F\uFEFF\u2060\u00AD\u0000-\u001F\u007F-\u009F]/g;
+
+/**
+ * Clean a raw username: NFKC-normalize (folds full-width look-alikes to ASCII),
+ * strip zero-width/control characters, then trim. Casing is preserved. Mirrors
+ * `apps/web/src/lib/username-normalize.ts` so the web and mobile clients enforce
+ * the same effective input rules against the shared `set_customer_username` RPC.
+ */
+export function cleanUsername(raw: string): string {
+  return raw.normalize('NFKC').replace(ZERO_WIDTH_AND_CONTROL, '').trim();
+}
+
 // First/last char must be alphanumeric; middle chars may include single
 // separators. Consecutive separators are rejected by a separate refine()
 // below so we can surface a more specific message for that case.

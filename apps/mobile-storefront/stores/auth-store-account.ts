@@ -5,6 +5,7 @@ import {
 import { createLogger } from '../lib/logger';
 import { queryClient } from '../lib/query-client';
 import { getStoredPushToken } from '../lib/push-token-storage';
+import { cleanUsername } from '@/schemas/username';
 import { supabase } from '../lib/supabase';
 import { CustomerRowSchema } from '../lib/validation';
 import { clearLocalAndDeactivatePushToken } from './auth-store-push';
@@ -187,17 +188,21 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
           };
         }
 
+        // Normalize (NFKC + zero-width strip + trim) at the RPC boundary, the
+        // same way the web API route does, so both clients send identical input.
+        const cleaned = cleanUsername(username);
+
         // The RPC re-derives the customer from auth.uid() + merchant, enforces
         // per-merchant case-insensitive uniqueness, and raises friendly codes.
         const { data, error } = await supabase.rpc('set_customer_username', {
           p_merchant_id: merchantId,
-          p_username: username,
+          p_username: cleaned,
         });
         if (error) {
           return { success: false, error: mapUsernameError(error.message) };
         }
 
-        const stored = typeof data === 'string' ? data : username.trim();
+        const stored = typeof data === 'string' ? data : cleaned;
         set({ customer: { ...customer, username: stored } });
         return { success: true, username: stored };
       } catch (error) {
