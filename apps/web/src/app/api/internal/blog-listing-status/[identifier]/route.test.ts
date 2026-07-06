@@ -15,11 +15,18 @@ vi.mock('@/lib/cached-storefront-blog-listing-status', () => ({
   getCachedStorefrontBlogListingStatus: vi.fn(),
 }));
 
-function buildRequest(query: string, auth = 'test-internal-secret') {
+function buildRequest(
+  query: string,
+  headers: Record<string, string> = {
+    Authorization: 'Bearer test-internal-secret',
+  }
+) {
   const request = new NextRequest(
     `https://usebaci.com/api/internal/blog-listing-status/ogabassey?${query}`
   );
-  request.headers.set('Authorization', `Bearer ${auth}`);
+  for (const [name, value] of Object.entries(headers)) {
+    request.headers.set(name, value);
+  }
   return request;
 }
 
@@ -55,13 +62,62 @@ describe('GET /api/internal/blog-listing-status/[identifier]', () => {
 
   it('rejects unauthenticated requests before resolving status', async () => {
     const response = await GET(
-      buildRequest('kind=category-query&category=Smartphones', 'wrong'),
+      buildRequest('kind=category-query&category=Smartphones', {
+        Authorization: 'Bearer wrong',
+      }),
       context()
     );
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' });
     expect(getCachedStorefrontBlogListingStatus).not.toHaveBeenCalled();
+  });
+
+  it('rejects a wrong custom internal auth header', async () => {
+    const response = await GET(
+      buildRequest('kind=category-query&category=Smartphones', {
+        'x-baci-internal-auth': 'wrong',
+      }),
+      context()
+    );
+
+    expect(response.status).toBe(401);
+    expect(getCachedStorefrontBlogListingStatus).not.toHaveBeenCalled();
+  });
+
+  it('accepts the custom internal auth header and edge-caches the NOOP verdict', async () => {
+    const response = await GET(
+      buildRequest('kind=category-query&category=Smartphones', {
+        'x-baci-internal-auth': 'test-internal-secret',
+      }),
+      context()
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual(NOOP);
+    expect(response.headers.get('Cache-Control')).toBe(
+      's-maxage=300, stale-while-revalidate=3600'
+    );
+    expect(response.headers.get('Vary')).toBe('x-baci-internal-auth');
+    expect(response.headers.get('Vercel-Cache-Tag')).toBe('blog-posts');
+  });
+
+  it('keeps notFound verdicts no-store so a since-published author page is never sticky', async () => {
+    vi.mocked(getCachedStorefrontBlogListingStatus).mockResolvedValueOnce({
+      hasError: false,
+      redirectPath: null,
+      permanent: false,
+      notFound: true,
+    });
+
+    const response = await GET(
+      buildRequest('kind=author&authorSlug=bassey-john'),
+      context()
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Vercel-Cache-Tag')).toBeNull();
   });
 
   it('returns 400 for an unknown kind', async () => {
@@ -145,6 +201,7 @@ describe('GET /api/internal/blog-listing-status/[identifier]', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     await expect(response.json()).resolves.toEqual({
       hasError: true,
       redirectPath: null,

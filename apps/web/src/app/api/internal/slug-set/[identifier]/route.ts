@@ -96,7 +96,15 @@ export async function GET(
   if (!merchant?.is_published) {
     // Unknown or unpublished storefront — fail open. An unpublished store still
     // renders its coming-soon layout; the proxy must not 404 a typo before it.
-    return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
+    // Marked `unknown-storefront` so the caller logs this expected verdict
+    // (junk-subdomain/bot traffic) without capturing an exception. A merchant
+    // LOOKUP outage can also surface here (getMerchantSafe returns null after
+    // exhausting retries), but the paired product-canonical preflight on the
+    // same navigation still captures that case as a plain fail-open.
+    return NextResponse.json(
+      { ...FAIL_OPEN, failOpenReason: 'unknown-storefront' },
+      { status: 200, headers: NO_STORE }
+    );
   }
 
   const set = await getCachedStorefrontProductSlugSet(merchant.id);

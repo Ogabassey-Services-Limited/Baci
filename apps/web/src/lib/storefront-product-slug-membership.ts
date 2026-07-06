@@ -9,6 +9,7 @@ const slugSetResponseSchema = z.object({
   hasError: z.boolean(),
   present: z.boolean().optional(),
   redirectPath: z.unknown().optional(),
+  failOpenReason: z.string().optional(),
 });
 
 interface SlugMissingOptions {
@@ -130,10 +131,10 @@ export async function resolveStorefrontProductSlugResolution(
       const body = bodyResult.data;
 
       if (body.hasError !== false) {
-        storefrontInternalPreflight.warnFailOpen({
-          ...failOpenContext,
-          reason: 'has-error',
-        });
+        storefrontInternalPreflight.warnHasErrorFailOpen(
+          failOpenContext,
+          body.failOpenReason
+        );
         return { kind: 'present-or-unknown' };
       }
 

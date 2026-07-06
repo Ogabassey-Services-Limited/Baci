@@ -75,8 +75,11 @@ describe('getStorefrontProductCanonicalRedirectPath', () => {
     expect(String(url)).toBe(
       'https://usebaci.com/api/internal/product-canonical/ogabassey.com?category=apple&slug=iphone-15-128gb'
     );
+    // The secret goes via `x-baci-internal-auth`, NOT Authorization, so
+    // Vercel's CDN can cache the verdict — the exact-match assertion proves no
+    // Authorization header is sent.
     expect((init as RequestInit).headers).toEqual({
-      Authorization: `Bearer ${SECRET}`,
+      'x-baci-internal-auth': SECRET,
     });
   });
 
@@ -205,6 +208,37 @@ describe('getStorefrontProductCanonicalRedirectPath', () => {
     ).resolves.toBeNull();
   });
 
+  it('logs unknown-storefront fail-opens as skips instead of incidents', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      jsonResponse({
+        hasError: true,
+        matchedProduct: false,
+        redirectPath: null,
+        failOpenReason: 'unknown-storefront',
+      })
+    );
+
+    await expect(
+      getStorefrontProductCanonicalRedirectResult({
+        origin: 'https://ogabassey.com',
+        identifier: 'laptops',
+        category: 'compare',
+        productSlug: 'hp-vs-lenovo',
+        secret: SECRET,
+        fetchImpl,
+      })
+    ).resolves.toEqual({ kind: 'unknown' });
+
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] skip',
+      expect.objectContaining({ reason: 'unknown-storefront' })
+    );
+    expect(console.warn).not.toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.anything()
+    );
+  });
+
   it.each([
     'https://evil.test/x',
     '/\\evil.com',
@@ -251,7 +285,7 @@ describe('getStorefrontProductCanonicalRedirectPath', () => {
       'https://usebaci.com/api/internal/product-canonical/ogabassey.com?category=audio&slug=airpods-pro'
     );
     expect(fetchImpl.mock.calls[0][1]?.headers).toEqual({
-      Authorization: `Bearer ${SECRET}`,
+      'x-baci-internal-auth': SECRET,
     });
   });
 

@@ -6,8 +6,9 @@ import {
   getCachedProductCanonicalRedirectTarget,
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductSlugResolution } from '@/lib/cached-storefront-product-slug-resolution';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
+import { hasValidInternalAuth } from '@/lib/internal-auth-header';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
+import { getProductSlugSetCacheTag } from '@/lib/product-cache-tags';
 import { getProductUrl } from '@/lib/seo-utils';
 import { isDomainIdentifier } from '@/lib/validation';
 import {
@@ -22,6 +23,49 @@ const NO_REDIRECT = {
   matchedProduct: false,
   redirectPath: null,
 };
+// Same cacheable-verdict mechanics as the slug-set/blog-post-status preflights:
+// the proxy authenticates via `x-baci-internal-auth` (an `Authorization` header
+// makes a response ineligible for Vercel's CDN cache), `Vary` keys the edge
+// entry to the secret value, and the `Vercel-Cache-Tag` is the SAME
+// `product-slug-set-${merchantId}` tag that `revalidateProducts` invalidates on
+// every product mutation. Only the definitive live no-redirect verdict
+// (`matchedProduct: true`, no redirectPath) is cached — it is self-healing (the
+// page itself still canonicalizes or 404s a since-changed product). Redirect
+// verdicts, absent verdicts, and every fail-open branch stay no-store so a
+// changed canonical target or a since-published product is never sticky for
+// the TTL window.
+const PREFLIGHT_CACHE = {
+  'Cache-Control': 's-maxage=300, stale-while-revalidate=3600',
+  Vary: 'x-baci-internal-auth',
+} as const;
+
+interface CanonicalVerdictBody {
+  hasError: boolean;
+  matchedProduct: boolean;
+  redirectPath: string | null;
+  /** Present when the fail-open is expected (no published storefront), not an incident. */
+  failOpenReason?: 'unknown-storefront';
+}
+
+function toVerdictResponse(
+  body: CanonicalVerdictBody,
+  cacheTagMerchantId: string
+): NextResponse {
+  const cacheable =
+    body.hasError === false &&
+    body.matchedProduct === true &&
+    body.redirectPath === null;
+
+  return NextResponse.json(body, {
+    status: 200,
+    headers: cacheable
+      ? {
+          ...PREFLIGHT_CACHE,
+          'Vercel-Cache-Tag': getProductSlugSetCacheTag(cacheTagMerchantId),
+        }
+      : NO_STORE,
+  });
+}
 
 interface ProductUrlSource {
   canonical_url?: string | null;
@@ -118,11 +162,9 @@ export async function GET(
     );
   }
 
-  const authHeader = request.headers.get('Authorization');
-  if (
-    !authHeader ||
-    !constantTimeEqual(authHeader, `Bearer ${expectedSecret}`)
-  ) {
+  // Custom-header auth (preferred — keeps the verdict CDN-cacheable) with the
+  // legacy `Authorization: Bearer` still accepted for mixed-deploy callers.
+  if (!hasValidInternalAuth(request, expectedSecret)) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401, headers: NO_STORE }
@@ -141,7 +183,15 @@ export async function GET(
   try {
     const merchant = await getPublishedMerchant(params.data.identifier);
     if (!merchant) {
-      return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
+      // Definitive absence: the cached merchant lookups THROW on transient
+      // errors (caught below as a plain fail-open), so a null here means no
+      // published storefront exists for this identifier — expected junk
+      // subdomain/bot traffic the proxy should log without capturing an
+      // exception.
+      return NextResponse.json(
+        { ...FAIL_OPEN, failOpenReason: 'unknown-storefront' },
+        { status: 200, headers: NO_STORE }
+      );
     }
 
     const product = (await getCachedProductCanonicalRedirectTarget(
@@ -150,13 +200,13 @@ export async function GET(
     )) as ProductUrlSource | null;
 
     if (product?.status === 'active') {
-      return NextResponse.json(
+      return toVerdictResponse(
         getRedirectResponseForTarget(
           query.data.category,
           query.data.slug,
           product
         ),
-        { status: 200, headers: NO_STORE }
+        merchant.id
       );
     }
 
@@ -170,20 +220,20 @@ export async function GET(
     }
 
     if (slugResolution.redirectTarget) {
-      return NextResponse.json(
+      return toVerdictResponse(
         getRedirectResponseForTarget(
           query.data.category,
           query.data.slug,
           slugResolution.redirectTarget
         ),
-        { status: 200, headers: NO_STORE }
+        merchant.id
       );
     }
 
     if (slugResolution.present) {
-      return NextResponse.json(
+      return toVerdictResponse(
         { hasError: false, matchedProduct: true, redirectPath: null },
-        { status: 200, headers: NO_STORE }
+        merchant.id
       );
     }
 

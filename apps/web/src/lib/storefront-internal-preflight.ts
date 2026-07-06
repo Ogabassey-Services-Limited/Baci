@@ -27,11 +27,20 @@ interface StorefrontInternalPreflightContext {
   status?: number;
 }
 
+/**
+ * Reasons a preflight is skipped or resolved as expected non-incident garbage:
+ * unsafe bot slugs (never sent to the internal route) and the internal route's
+ * own `unknown-storefront` verdict (junk subdomains / unpublished stores).
+ */
+type StorefrontInternalPreflightSkipReason =
+  | StorefrontSlugSafetyReason
+  | 'unknown-storefront';
+
 interface StorefrontInternalPreflightSkipContext {
   surface: StorefrontInternalPreflightSurface;
   identifier: string;
   slug: string;
-  reason: StorefrontSlugSafetyReason;
+  reason: StorefrontInternalPreflightSkipReason;
 }
 
 // Bot slugs reach kilobytes; bound every diagnostic copy so log lines and
@@ -150,6 +159,10 @@ async function captureFailOpen(context: StorefrontInternalPreflightContext) {
         `Storefront internal preflight fail-open: ${context.surface} ${context.reason}`
       ),
       {
+        // Group PostHog issues per surface+reason: without this, every failure
+        // mode shares one fingerprint (same Error type + frame), so a lone
+        // http-401 can title an issue whose volume is really timeouts.
+        $exception_fingerprint: `storefront-internal-preflight:${context.surface}:${context.reason}`,
         event_source: 'storefront-internal-preflight',
         identifier: context.identifier,
         reason: context.reason,
@@ -200,27 +213,48 @@ async function readJsonResponse(
 
   try {
     return await response.json();
-  } catch {
+  } catch (error) {
     warnFailOpen({
       ...context,
-      reason: 'parse',
+      // The fetch budget can abort while the BODY is still streaming —
+      // `response.json()` then rejects with the abort, which is a timeout,
+      // not a malformed payload.
+      reason: isAbortLikeError(error) ? 'timeout' : 'parse',
       status: response.status,
     });
     return null;
   }
 }
 
+/**
+ * Classifies a `hasError: true` verdict body: the internal routes mark their
+ * DESIGNED unknown/unpublished-storefront fail-open with
+ * `failOpenReason: 'unknown-storefront'` (junk-subdomain and bot traffic),
+ * which is logged without capturing an exception. Every other `hasError`
+ * verdict is a genuine fail-open and is captured.
+ */
+function warnHasErrorFailOpen(
+  context: Omit<StorefrontInternalPreflightContext, 'reason'>,
+  failOpenReason: string | undefined
+) {
+  if (failOpenReason === 'unknown-storefront') {
+    warnSkip({ ...context, reason: 'unknown-storefront' });
+    return;
+  }
+  warnFailOpen({ ...context, reason: 'has-error' });
+}
+
+function isAbortLikeError(error: unknown): boolean {
+  return (
+    error instanceof DOMException &&
+    (error.name === 'AbortError' || error.name === 'TimeoutError')
+  );
+}
+
 function getFetchErrorReason(
   error: unknown
 ): StorefrontInternalPreflightFailOpenReason {
-  if (
-    error instanceof DOMException &&
-    (error.name === 'AbortError' || error.name === 'TimeoutError')
-  ) {
-    return 'timeout';
-  }
-
-  return 'fetch-error';
+  return isAbortLikeError(error) ? 'timeout' : 'fetch-error';
 }
 
 export const storefrontInternalPreflight = {
@@ -229,5 +263,6 @@ export const storefrontInternalPreflight = {
   readJsonResponse,
   resolveBaseUrl,
   warnFailOpen,
+  warnHasErrorFailOpen,
   warnSkip,
 };

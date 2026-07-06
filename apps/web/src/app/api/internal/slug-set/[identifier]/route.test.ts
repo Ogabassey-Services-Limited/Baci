@@ -360,7 +360,7 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     expect(mockGetMerchantSafe).not.toHaveBeenCalled();
   });
 
-  it('fails open when the merchant does not resolve', async () => {
+  it('marks an unresolved merchant as an expected unknown-storefront fail-open', async () => {
     mockGetMerchantSafe.mockResolvedValue(null);
 
     const res = await GET(
@@ -369,11 +369,15 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual(FAIL_OPEN);
+    expect(await res.json()).toEqual({
+      ...FAIL_OPEN,
+      failOpenReason: 'unknown-storefront',
+    });
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(mockGetCachedStorefrontProductSlugSet).not.toHaveBeenCalled();
   });
 
-  it('fails open when the merchant is unpublished (coming-soon store)', async () => {
+  it('marks an unpublished merchant (coming-soon store) as an unknown-storefront fail-open', async () => {
     mockGetMerchantSafe.mockResolvedValue({
       id: MERCHANT_ID,
       is_published: false,
@@ -382,7 +386,10 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     const res = await GET(request('iphone-15', `Bearer ${SECRET}`), context());
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual(FAIL_OPEN);
+    expect(await res.json()).toEqual({
+      ...FAIL_OPEN,
+      failOpenReason: 'unknown-storefront',
+    });
     expect(mockGetCachedStorefrontProductSlugSet).not.toHaveBeenCalled();
   });
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { INTERNAL_AUTH_HEADER } from '@/lib/internal-auth-header';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
 import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { createAbortSignalTimeout } from './abort-signal-timeout';
@@ -141,7 +142,11 @@ export async function resolveStorefrontBlogListingStatus(
     const timeout = createAbortSignalTimeout(opts.timeoutMs ?? 800);
     try {
       const response = await (opts.fetchImpl ?? fetch)(url, {
-        headers: { Authorization: `Bearer ${opts.secret}` },
+        // Authenticate via the custom header, NOT Authorization: Vercel's CDN
+        // never caches a response to a request carrying an Authorization header,
+        // so this keeps the internal verdict edge-cacheable. Sending both would
+        // re-trigger the bypass.
+        headers: { [INTERNAL_AUTH_HEADER]: opts.secret },
         redirect: 'manual',
         signal: timeout.signal,
       });
