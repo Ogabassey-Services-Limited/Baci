@@ -107,6 +107,9 @@ describe('next.config OgaBassey resource headers', () => {
     expect(getStorefrontMetadataCacheBucket('Twitterbot/1.0')).toBe(
       'metadata-blocking'
     );
+    expect(getStorefrontMetadataCacheBucket('SemrushBot/7~bl')).toBe(
+      'metadata-blocking'
+    );
     expect(getStorefrontMetadataCacheBucket('GPTBot/1.1')).toBe(
       'metadata-blocking'
     );
@@ -122,6 +125,7 @@ describe('next.config OgaBassey resource headers', () => {
     expect(getStorefrontMetadataCacheBucket('Perplexity-User/1.0')).toBe(
       'metadata-blocking'
     );
+    expect(nextConfig.htmlLimitedBots?.test('SemrushBot/7~bl')).toBe(true);
     expect(nextConfig.htmlLimitedBots?.test('GPTBot/1.1')).toBe(true);
     expect(nextConfig.htmlLimitedBots?.test('ClaudeBot/1.0')).toBe(true);
     expect(nextConfig.htmlLimitedBots?.test('Claude-User/1.0')).toBe(true);

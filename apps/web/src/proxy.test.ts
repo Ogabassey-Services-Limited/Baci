@@ -2237,6 +2237,33 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
   });
 
+  it.each([
+    ['Googlebot', 'Googlebot/2.1'],
+    ['SemrushBot', 'SemrushBot/7~bl'],
+  ])('keeps custom-domain blog post metadata in the blocking bucket for %s', async (_label, userAgent) => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/infinix-hot-70-pro-420200-6000mah-144hz-5g-checks-1783286195'
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', userAgent);
+
+    const res = await proxy(req);
+    const rewriteUrl = new URL(
+      res.headers.get('x-middleware-rewrite') as string
+    );
+
+    expect(rewriteUrl.pathname).toBe(
+      '/ogabassey.com/blog/infinix-hot-70-pro-420200-6000mah-144hz-5g-checks-1783286195'
+    );
+    expect(
+      rewriteUrl.searchParams.get(STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM)
+    ).toBe('metadata-blocking');
+    expect(
+      res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
+    ).toBe('metadata-blocking');
+    expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
+  });
+
   it('applies streaming cache partitioning to merchant subdomain browsers', async () => {
     const req = new NextRequest(
       `https://ogabassey.${ROOT_DOMAIN}/smartphones/samsung-galaxy-a37-5g`
