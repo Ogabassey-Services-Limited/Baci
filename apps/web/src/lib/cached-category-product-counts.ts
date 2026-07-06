@@ -44,6 +44,10 @@ function buildChildrenByParentId(
       continue;
     }
 
+    if (category.is_active !== true) {
+      continue;
+    }
+
     const siblings = childrenByParentId.get(category.parent_id) ?? [];
     siblings.push(category);
     childrenByParentId.set(category.parent_id, siblings);

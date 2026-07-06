@@ -67,6 +67,31 @@ describe('getCachedCategoryProductCounts', () => {
     );
   });
 
+  it('excludes non-true child categories from parent pagination counts', async () => {
+    harness.mockListResult.data = [
+      {
+        id: 'product-1',
+        product_categories: [{ category_id: 'parent' }],
+      },
+      {
+        id: 'product-2',
+        product_categories: [{ category_id: 'null-active-child' }],
+      },
+    ];
+    harness.mockListResult.error = null;
+
+    const result = await getCachedCategoryProductCounts('merchant-1', [
+      { id: 'parent', is_active: true, parent_id: null },
+      { id: 'null-active-child', is_active: null, parent_id: 'parent' },
+    ]);
+
+    expect(result).toEqual({ 'null-active-child': 1, parent: 1 });
+    expect(harness.mockIn).toHaveBeenCalledWith(
+      'product_categories.category_id',
+      ['parent', 'null-active-child']
+    );
+  });
+
   it('pages through active product category rows before counting', async () => {
     harness.mockListResults.push(
       {

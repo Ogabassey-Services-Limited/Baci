@@ -111,6 +111,71 @@ describe('CategoryCompareIndexPage', () => {
     expect(container.textContent).toContain('"@type":"ItemList"');
   });
 
+  it('renders crawlable child-category comparison links on parent hubs', async () => {
+    mockLoadCategoryCompareHubData.mockResolvedValueOnce({
+      categoryName: 'Laptops',
+      categorySlug: 'laptops',
+      merchant: {
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+      },
+      productGroups: [
+        {
+          categoryName: 'Business Laptops',
+          categorySlug: 'business-laptops',
+          products: [
+            {
+              slug: 'dell-latitude-7400',
+              name: 'Dell Latitude 7400',
+              brand: 'Dell',
+              price: 480_000,
+              category_slug: 'business-laptops',
+              product_key_specs: {
+                chipset: 'Intel Core i5-8365U',
+                display_size_inches: 14.5,
+                ram_gb: 16,
+                storage_gb: 512,
+              },
+            },
+            {
+              slug: 'lenovo-thinkpad-x1-carbon-gen-7',
+              name: 'Lenovo ThinkPad X1 Carbon Gen 7',
+              brand: 'Lenovo',
+              price: 540_000,
+              category_slug: 'business-laptops',
+              product_key_specs: {
+                chipset: 'Intel Core i7-8665U',
+                display_size_inches: 14,
+                ram_gb: 16,
+                storage_gb: 256,
+              },
+            },
+          ],
+        },
+      ],
+      products: [],
+      storeUrl: 'https://ogabassey.com',
+    });
+
+    render(
+      (await CategoryCompareIndexPage({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          category: 'laptops',
+        }),
+      })) as React.ReactElement
+    );
+
+    expect(
+      screen.getByRole('link', {
+        name: 'Compare Dell Latitude 7400 with Lenovo ThinkPad X1 Carbon Gen 7',
+      })
+    ).toHaveAttribute(
+      'href',
+      '/ogabassey/business-laptops/compare/dell-latitude-7400-vs-lenovo-thinkpad-x1-carbon-gen-7'
+    );
+  });
+
   it('noindexes parameterized compare hubs while preserving the canonical hub URL', async () => {
     await expect(
       generateMetadata({
