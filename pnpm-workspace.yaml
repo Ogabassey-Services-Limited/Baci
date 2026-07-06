@@ -121,8 +121,9 @@ overrides:
   qs: "6.15.2"
   markdown-it: "14.2.0"
   "@modelcontextprotocol/sdk": "^1.25.2"
-  # SDK 57 alignment (expo@57 pins worklets 0.10.0; bundle mode stable). Keep in
-  # lockstep with the reanimated/worklets pair when bumping Expo SDK.
+  # SDK 57 alignment (0.10.1 carries the bundle-mode stability fixes paired with
+  # reanimated 4.5.1; see #2960). Keep in lockstep with the reanimated pin below
+  # when bumping Expo SDK.
   react-native-worklets: "0.10.1"
   # Pin patched Hono floor for GHSA-2gcr-mfcq-wcc3, GHSA-xrhx-7g5j-rcj5, GHSA-3hrh-pfw6-9m5x, and GHSA-f577-qrjj-4474.
   hono: "^4.12.23"
