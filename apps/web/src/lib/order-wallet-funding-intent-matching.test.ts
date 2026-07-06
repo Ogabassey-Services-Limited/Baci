@@ -6,6 +6,85 @@ import {
 } from '@/lib/order-wallet-funding-intents.test-utils';
 
 describe('findActiveWalletFundingIntentForTransfer', () => {
+  it('routes a replayed transfer back to its owning intent, not an amount-matched one', async () => {
+    // Regression (codex P1): a partial recorded against intent A leaves it
+    // underfunded; a second intent B opens; Paystack retries the transfer.
+    // Amount disambiguation alone would route the retry to B and freeze it.
+    // The reference lookup must win so the finalizer idempotent-hits A.
+    const owning = intent({
+      expectedAmount: 15_000,
+      fundedAmount: 5_000,
+      id: 'intent-a-underfunded',
+      status: 'underfunded',
+    });
+    const findWalletAccountIntentByTransferReference = vi.fn(
+      async () => owning
+    );
+    const findActiveWalletAccountIntents = vi.fn(async () => [
+      owning,
+      intent({ expectedAmount: 5_000, fundedAmount: 0, id: 'intent-b' }),
+    ]);
+    const repository = createRepository({
+      findActiveWalletAccountIntents,
+      findWalletAccountIntentByTransferReference,
+    });
+
+    await expect(
+      findActiveWalletFundingIntentForTransfer({
+        amount: 5_000,
+        gatewayReference: 'PSTK-REF-1',
+        paidAt: new Date('2026-05-26T12:05:00.000Z'),
+        repository,
+        walletPaymentAccountId: 'wallet-account-1',
+      })
+    ).resolves.toEqual({ intent: owning, kind: 'match' });
+    expect(findWalletAccountIntentByTransferReference).toHaveBeenCalledWith({
+      gatewayReference: 'PSTK-REF-1',
+      walletPaymentAccountId: 'wallet-account-1',
+    });
+    // The replay short-circuits before amount disambiguation.
+    expect(findActiveWalletAccountIntents).not.toHaveBeenCalled();
+  });
+
+  it('falls through to normal matching when the transfer has no prior payment', async () => {
+    const candidate = intent({ id: 'intent-fresh' });
+    const findWalletAccountIntentByTransferReference = vi.fn(async () => null);
+    const repository = createRepository({
+      findActiveWalletAccountIntents: vi.fn(async () => [candidate]),
+      findWalletAccountIntentByTransferReference,
+    });
+
+    await expect(
+      findActiveWalletFundingIntentForTransfer({
+        amount: 15_000,
+        gatewayReference: 'PSTK-REF-NEW',
+        paidAt: new Date('2026-05-26T12:05:00.000Z'),
+        repository,
+        walletPaymentAccountId: 'wallet-account-1',
+      })
+    ).resolves.toEqual({ intent: candidate, kind: 'match' });
+    expect(findWalletAccountIntentByTransferReference).toHaveBeenCalledOnce();
+  });
+
+  it('skips the reference lookup when no gatewayReference is supplied', async () => {
+    const findWalletAccountIntentByTransferReference = vi.fn(async () => null);
+    const repository = createRepository({
+      findActiveWalletAccountIntents: vi.fn(async () => [
+        intent({ id: 'intent-single' }),
+      ]),
+      findWalletAccountIntentByTransferReference,
+    });
+
+    await findActiveWalletFundingIntentForTransfer({
+      amount: 15_000,
+      paidAt: new Date('2026-05-26T12:05:00.000Z'),
+      repository,
+      walletPaymentAccountId: 'wallet-account-1',
+    });
+
+    expect(findWalletAccountIntentByTransferReference).not.toHaveBeenCalled();
+  });
+
   it('matches a partial transfer below the remaining amount (finalizer accumulates)', async () => {
     const candidate = intent({
       expectedAmount: 15_000,

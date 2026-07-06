@@ -296,6 +296,7 @@ export async function processWalletFundedOrderPayment({
 
   const match = await findActiveWalletFundingIntentForTransfer({
     amount,
+    gatewayReference,
     paidAt,
     supabase,
     walletPaymentAccountId,

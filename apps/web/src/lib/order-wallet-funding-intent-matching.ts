@@ -32,6 +32,7 @@ import {
  */
 export async function findActiveWalletFundingIntentForTransfer(args: {
   amount: number;
+  gatewayReference?: string | null;
   paidAt: Date;
   repository?: OrderWalletFundingIntentRepository;
   supabase?: SupabaseClient;
@@ -52,6 +53,25 @@ export async function findActiveWalletFundingIntentForTransfer(args: {
     now: args.paidAt,
     walletPaymentAccountId: args.walletPaymentAccountId,
   });
+
+  // Idempotency across webhook retries: if this exact transfer already
+  // recorded a payment against an intent, route the replay back to THAT
+  // intent so finalize_wallet_funded_order hits its idempotent-hit branch
+  // (keyed on the same intent id). Without this, a retry arriving after a
+  // second intent opens would be re-disambiguated by amount and could match
+  // a DIFFERENT active intent, which the finalizer then wrongly freezes to
+  // review_required.
+  if (args.gatewayReference) {
+    const priorIntent =
+      await repository.findWalletAccountIntentByTransferReference({
+        gatewayReference: args.gatewayReference,
+        walletPaymentAccountId: args.walletPaymentAccountId,
+      });
+    if (priorIntent) {
+      return { intent: priorIntent, kind: 'match' };
+    }
+  }
+
   const compatible = (
     await repository.findActiveWalletAccountIntents({
       walletPaymentAccountId: args.walletPaymentAccountId,

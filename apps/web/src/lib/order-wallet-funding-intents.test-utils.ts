@@ -79,6 +79,7 @@ export function createRepository(
     expireStaleWalletFundingIntents: vi.fn(async () => undefined),
     findActiveOrderIntent: vi.fn(async () => null),
     findActiveWalletAccountIntents: vi.fn(async () => []),
+    findWalletAccountIntentByTransferReference: vi.fn(async () => null),
     getOrderForCustomer: vi.fn(async () => order),
     getOrderWalletFundingIntent: vi.fn(async () => intent()),
     getPaymentSettings: vi.fn(async () => ({
