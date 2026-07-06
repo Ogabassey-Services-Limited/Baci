@@ -644,6 +644,12 @@ describe('POST /api/cache/revalidate', () => {
       );
 
       expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+      // The per-slug Next cache bust only needs merchantId, not the storefront
+      // slug, so it must still run even though the Cloudflare purge is skipped.
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        getProductScopedCacheTag('product', MERCHANT_ID, 'iphone-15'),
+        'products'
+      );
     });
 
     it('logs and still purges from caller hints when the authoritative product-row lookup errors', async () => {
@@ -818,6 +824,13 @@ describe('POST /api/cache/revalidate', () => {
         // Revalidation still succeeds; only the fail-open purge is skipped.
         expect(res.status).toBe(200);
         expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+        // The merchantSlug guard covers ONLY the Cloudflare edge purge — the
+        // Next-layer per-slug busting is independent (only needs merchantId)
+        // and must still run when the slug lookup fails.
+        expect(mockRevalidateTag).toHaveBeenCalledWith(
+          getProductScopedCacheTag('product', MERCHANT_ID, 'iphone-15'),
+          'products'
+        );
         expect(consoleErrorSpy).toHaveBeenCalledWith(
           expect.stringContaining('Failed to resolve merchant slug'),
           expect.objectContaining({

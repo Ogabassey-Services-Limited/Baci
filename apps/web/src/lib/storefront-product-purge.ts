@@ -49,6 +49,10 @@ export function scheduleStorefrontProductPurge(
       void purgeCloudflareUrls(urls);
     }
   } catch (error) {
-    console.warn('Skipped Cloudflare product purge scheduling', { error });
+    console.warn('Skipped Cloudflare product purge scheduling', {
+      identifier,
+      entryCount: entries.length,
+      error,
+    });
   }
 }

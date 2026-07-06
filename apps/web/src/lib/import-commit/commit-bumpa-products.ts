@@ -230,11 +230,20 @@ export async function commitBumpaProducts({
         // URLs from Cloudflare. A missing/blank slug (or a lookup miss) degrades
         // to Next-cache-only revalidation — the pre-existing behavior. The
         // helper's listings-only threshold bounds the fan-out for large imports.
-        const { data: merchantRow } = await supabase
+        const { data: merchantRow, error: merchantLookupError } = await supabase
           .from('merchants')
           .select('slug')
           .eq('id', merchantId)
           .maybeSingle();
+        if (merchantLookupError) {
+          // Fail-open: log for observability but degrade to Next-cache-only
+          // revalidation below — a stale storefront cache self-heals on its
+          // TTL, so a failed lookup must never break the import.
+          console.warn(
+            'Failed to resolve merchant slug for import Cloudflare product purge (degrading to Next-cache-only revalidation):',
+            { importJobId, merchantId, error: merchantLookupError }
+          );
+        }
         const merchantSlug = merchantRow?.slug ?? null;
         const purgeProducts = boundImportPurgeEntries(changedProducts);
         await revalidateProductsReliable(

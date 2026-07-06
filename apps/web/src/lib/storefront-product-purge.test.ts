@@ -135,7 +135,11 @@ describe('scheduleStorefrontProductPurge', () => {
     expect(mockPurgeCloudflareUrls).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
       'Skipped Cloudflare product purge scheduling',
-      { error: expect.any(Error) }
+      {
+        identifier: 'ogabassey',
+        entryCount: 1,
+        error: expect.any(Error),
+      }
     );
     warnSpy.mockRestore();
   });

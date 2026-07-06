@@ -38,7 +38,10 @@ function createProduct(
  * (`.from('merchants').select('slug').eq('id', …).maybeSingle()`) the purge
  * adoption performs before the reliable revalidation.
  */
-function makeMerchantsQuery(slug: string | null) {
+function makeMerchantsQuery(
+  slug: string | null,
+  error: { message: string } | null = null
+) {
   const query = {
     select: vi.fn(),
     eq: vi.fn(),
@@ -48,7 +51,7 @@ function makeMerchantsQuery(slug: string | null) {
   query.eq.mockReturnValue(query);
   query.maybeSingle.mockResolvedValue({
     data: slug === null ? null : { slug },
-    error: null,
+    error,
   });
   return query;
 }
@@ -209,6 +212,62 @@ describe('commitBumpaProducts', () => {
     // Restore so the suppressed console.error doesn't leak into later tests
     // (the suite uses clearAllMocks, which does not restore spy implementations).
     consoleSpy.mockRestore();
+  });
+
+  it('warns and degrades to Next-cache-only revalidation when the merchants-slug lookup errors', async () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      range: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.order.mockReturnValue(loadQuery);
+    loadQuery.range.mockResolvedValue({ data: [], error: null });
+
+    const insertQuery = { insert: vi.fn() };
+    insertQuery.insert.mockResolvedValue({ error: null });
+
+    const merchantsQuery = makeMerchantsQuery(null, {
+      message: 'db unavailable',
+    });
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadQuery)
+        .mockReturnValueOnce(insertQuery)
+        .mockReturnValueOnce(merchantsQuery),
+    } as unknown as SupabaseClient;
+
+    const result = await commitBumpaProducts({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      products: [createProduct()],
+    });
+
+    expect(result).toEqual({ createdProducts: 1, updatedProducts: 0 });
+    // The lookup failure must not break the import: revalidation STILL runs,
+    // just degraded to Next-cache-only (no merchantSlug means no Cloudflare
+    // purge is attempted).
+    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith(
+      'merchant-1',
+      undefined
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Failed to resolve merchant slug for import Cloudflare product purge (degrading to Next-cache-only revalidation):',
+      expect.objectContaining({
+        importJobId: 'job-1',
+        merchantId: 'merchant-1',
+        error: { message: 'db unavailable' },
+      })
+    );
+    warnSpy.mockRestore();
   });
 
   it('revalidates committed mutations even when a later row fails (partial import)', async () => {

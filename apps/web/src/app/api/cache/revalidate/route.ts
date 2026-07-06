@@ -169,6 +169,32 @@ export async function POST(request: NextRequest) {
     // survivable, so it never fails the revalidation.
     if (products && products.length > 0) {
       try {
+        // Resolve authoritative purge entries (real slug/category URLs for
+        // {id}-only or join-categorized products, plus old-category moves) from
+        // the product ROWS via the shared enrichment used by the internal route
+        // too, and bust the per-slug Next product-detail caches for every
+        // resolved slug. This only needs `merchantId` — NOT the merchant's
+        // Cloudflare-facing slug below — so it must run for EVERY
+        // products-carrying request, independent of whether that slug lookup
+        // succeeds. Fail-open lives inside enrichProductPurgeEntries: any lookup
+        // problem falls back to the caller's flat hints.
+        const { entries, resolvedSlugs } = await enrichProductPurgeEntries(
+          auth.supabase,
+          merchantId,
+          products
+        );
+        // Bust the per-slug Next product-detail caches for every resolved slug
+        // BEFORE scheduling the edge purge below: without this, a Cloudflare
+        // MISS after the purge refills the edge from the still-tagged Next
+        // entry (getCachedProduct is tagged per-slug, unaffected by the
+        // slug-less revalidateProducts above) until its cacheLife TTL,
+        // defeating it.
+        revalidateProductSlugs(merchantId, resolvedSlugs);
+
+        // The Cloudflare edge purge additionally needs the merchant's public
+        // storefront slug (to build the hostnames to purge) — resolve it here
+        // and gate ONLY `scheduleStorefrontProductPurge` on it. A failed/missing
+        // lookup must never skip the Next-layer busting above.
         const { data: merchantRow, error: merchantLookupError } =
           await auth.supabase
             .from('merchants')
@@ -186,22 +212,6 @@ export async function POST(request: NextRequest) {
         }
         const merchantSlug = merchantRow?.slug ?? null;
         if (merchantSlug) {
-          // Resolve authoritative purge entries (real slug/category URLs for
-          // {id}-only or join-categorized products, plus old-category moves)
-          // from the product ROWS via the shared enrichment used by the internal
-          // route too. Fail-open lives inside: any lookup problem falls back to
-          // the caller's flat hints.
-          const { entries, resolvedSlugs } = await enrichProductPurgeEntries(
-            auth.supabase,
-            merchantId,
-            products
-          );
-          // Bust the per-slug Next product-detail caches for every resolved slug
-          // BEFORE scheduling the edge purge: without this, a Cloudflare MISS
-          // after the purge refills the edge from the still-tagged Next entry
-          // (getCachedProduct is tagged per-slug, unaffected by the slug-less
-          // revalidateProducts above) until its cacheLife TTL, defeating it.
-          revalidateProductSlugs(merchantId, resolvedSlugs);
           // Base the fan-out threshold on the DISTINCT (slug, segment) count so
           // duplicate entries for one product do not inflate the count and
           // wrongly suppress its per-PDP purge. Counts the old-category entries
