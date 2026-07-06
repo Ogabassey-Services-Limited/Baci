@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { prewarmOgabasseyImageTransforms } from './ogabassey-image-prewarm';
+import {
+  PREWARM_ACCEPT_HEADER,
+  prewarmOgabasseyImageTransforms,
+} from './ogabassey-image-prewarm';
 
 const CDN_PRODUCT_IMAGE =
   'https://cdn.ogabassey.com/core-assets/products/phone.avif';
@@ -48,6 +51,47 @@ describe('prewarmOgabasseyImageTransforms', () => {
       expect(url).toContain('/image/width=');
       expect(url).toContain('/core-assets/products/phone.avif');
     }
+  });
+
+  it('sends an AVIF-first Accept header on HEAD requests (warm-first locks the smallest format)', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(okResponse());
+
+    await prewarmOgabasseyImageTransforms([CDN_PRODUCT_IMAGE], {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    // Cloudflare Free cannot vary the transform cache by Accept, so the
+    // format the prewarm negotiates is the format EVERY visitor gets until
+    // the variant expires. An Accept-less fetch negotiates */* and locks the
+    // original (often JPEG) format — the header must always be present.
+    for (const [, init] of fetchImpl.mock.calls as [string, RequestInit][]) {
+      expect((init.headers as Record<string, string>).Accept).toBe(
+        PREWARM_ACCEPT_HEADER
+      );
+    }
+    expect(PREWARM_ACCEPT_HEADER.startsWith('image/avif')).toBe(true);
+  });
+
+  it('sends the AVIF-first Accept header on the ranged-GET fallback too', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(okResponse(405))
+      .mockResolvedValue(okResponse(206));
+
+    await prewarmOgabasseyImageTransforms([CDN_PRODUCT_IMAGE], {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const getCall = (fetchImpl.mock.calls as [string, RequestInit][]).find(
+      ([, init]) => init.method === 'GET'
+    );
+    expect(getCall).toBeDefined();
+    const headers = (getCall as [string, RequestInit])[1].headers as Record<
+      string,
+      string
+    >;
+    expect(headers.Accept).toBe(PREWARM_ACCEPT_HEADER);
+    expect(headers.Range).toBe('bytes=0-0');
   });
 
   it('recognizes a CDN blog asset path as transformable (guard is not product-only)', async () => {

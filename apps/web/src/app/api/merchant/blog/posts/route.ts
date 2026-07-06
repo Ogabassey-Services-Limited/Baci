@@ -26,6 +26,7 @@ import {
   getIndexNowHostFromIdentifiers,
   submitIndexNowUrls,
 } from '@/lib/indexnow';
+import { schedulePrewarmBlogImageTransforms } from '@/lib/ogabassey-blog-image-prewarm';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
 import { dispatchZohoBlogCampaign } from '@/lib/zoho-blog-campaign-dispatch';
@@ -422,6 +423,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (newPost?.status === 'published') {
+      schedulePrewarmBlogImageTransforms([newPost.featured_image_url]);
       after(async () => {
         const indexNowHost = getIndexNowHostFromIdentifiers(
           blogRevalidation?.identifiers

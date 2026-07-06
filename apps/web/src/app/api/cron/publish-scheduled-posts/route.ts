@@ -5,6 +5,7 @@ import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { hasValidCronSecret } from '@/lib/cron-secret-auth';
 import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
+import { schedulePrewarmBlogImageTransforms } from '@/lib/ogabassey-blog-image-prewarm';
 import { createServiceClient } from '@/lib/supabase/service';
 import { dispatchZohoBlogCampaign } from '@/lib/zoho-blog-campaign-dispatch';
 
@@ -150,6 +151,7 @@ export async function POST(request: Request) {
       string,
       {
         categories: Set<string>;
+        featuredImageUrls: string[];
         listingPages: number[];
         postSlugs: string[];
       }
@@ -158,6 +160,7 @@ export async function POST(request: Request) {
     for (const post of eligiblePosts) {
       const merchantPosts = postsByMerchant.get(post.merchant_id) ?? {
         categories: new Set<string>(),
+        featuredImageUrls: [],
         listingPages: [1],
         postSlugs: [],
       };
@@ -168,6 +171,10 @@ export async function POST(request: Request) {
 
       if (post.category) {
         merchantPosts.categories.add(post.category);
+      }
+
+      if (post.featured_image_url) {
+        merchantPosts.featuredImageUrls.push(post.featured_image_url);
       }
 
       postsByMerchant.set(post.merchant_id, merchantPosts);
@@ -248,6 +255,10 @@ export async function POST(request: Request) {
           listingPages: merchantPosts.listingPages,
           postSlugs: merchantPosts.postSlugs,
         });
+        // Warm CDN transforms for the featured images that just became
+        // publicly reachable. The helper is fail-open and owns the
+        // after()/detached-promise fallback, so no `after` import here.
+        schedulePrewarmBlogImageTransforms(merchantPosts.featuredImageUrls);
         console.log(
           `🔄 Cron: Revalidated blog cache for merchant ${merchantId} across ${merchantPosts.postSlugs.length} posts`
         );
