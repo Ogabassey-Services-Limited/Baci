@@ -28,13 +28,22 @@ interface StorefrontInternalPreflightContext {
 }
 
 /**
+ * Wire value the internal preflight routes use to mark their DESIGNED
+ * unknown/unpublished-storefront fail-open verdict. Client response schemas
+ * still accept any string so a mixed-deploy caller never hard-fails parsing a
+ * future reason value; this constant keeps route emitters and the client
+ * comparison from drifting apart.
+ */
+export const UNKNOWN_STOREFRONT_FAIL_OPEN_REASON = 'unknown-storefront';
+
+/**
  * Reasons a preflight is skipped or resolved as expected non-incident garbage:
  * unsafe bot slugs (never sent to the internal route) and the internal route's
  * own `unknown-storefront` verdict (junk subdomains / unpublished stores).
  */
 type StorefrontInternalPreflightSkipReason =
   | StorefrontSlugSafetyReason
-  | 'unknown-storefront';
+  | typeof UNKNOWN_STOREFRONT_FAIL_OPEN_REASON;
 
 interface StorefrontInternalPreflightSkipContext {
   surface: StorefrontInternalPreflightSurface;
@@ -237,8 +246,8 @@ function warnHasErrorFailOpen(
   context: Omit<StorefrontInternalPreflightContext, 'reason'>,
   failOpenReason: string | undefined
 ) {
-  if (failOpenReason === 'unknown-storefront') {
-    warnSkip({ ...context, reason: 'unknown-storefront' });
+  if (failOpenReason === UNKNOWN_STOREFRONT_FAIL_OPEN_REASON) {
+    warnSkip({ ...context, reason: UNKNOWN_STOREFRONT_FAIL_OPEN_REASON });
     return;
   }
   warnFailOpen({ ...context, reason: 'has-error' });

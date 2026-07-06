@@ -8,6 +8,7 @@ import { logger } from '@/lib/logger';
 import { getProductSlugSetCacheTag } from '@/lib/product-cache-tags';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
 import { getProductUrl } from '@/lib/seo-utils';
+import { UNKNOWN_STOREFRONT_FAIL_OPEN_REASON } from '@/lib/storefront-internal-preflight';
 import {
   internalSlugSetParamsSchema,
   internalSlugSetQuerySchema,
@@ -102,7 +103,7 @@ export async function GET(
     // exhausting retries), but the paired product-canonical preflight on the
     // same navigation still captures that case as a plain fail-open.
     return NextResponse.json(
-      { ...FAIL_OPEN, failOpenReason: 'unknown-storefront' },
+      { ...FAIL_OPEN, failOpenReason: UNKNOWN_STOREFRONT_FAIL_OPEN_REASON },
       { status: 200, headers: NO_STORE }
     );
   }

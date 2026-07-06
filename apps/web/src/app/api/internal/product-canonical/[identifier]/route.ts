@@ -10,6 +10,7 @@ import { hasValidInternalAuth } from '@/lib/internal-auth-header';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getProductSlugSetCacheTag } from '@/lib/product-cache-tags';
 import { getProductUrl } from '@/lib/seo-utils';
+import { UNKNOWN_STOREFRONT_FAIL_OPEN_REASON } from '@/lib/storefront-internal-preflight';
 import { isDomainIdentifier } from '@/lib/validation';
 import {
   internalProductCanonicalRedirectQuerySchema,
@@ -189,7 +190,7 @@ export async function GET(
       // subdomain/bot traffic the proxy should log without capturing an
       // exception.
       return NextResponse.json(
-        { ...FAIL_OPEN, failOpenReason: 'unknown-storefront' },
+        { ...FAIL_OPEN, failOpenReason: UNKNOWN_STOREFRONT_FAIL_OPEN_REASON },
         { status: 200, headers: NO_STORE }
       );
     }

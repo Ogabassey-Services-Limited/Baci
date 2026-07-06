@@ -217,7 +217,11 @@ describe('storefrontInternalPreflight', () => {
     );
   });
 
-  it('logs unknown-storefront verdicts as skips without capturing exceptions', () => {
+  it('logs unknown-storefront verdicts as skips without capturing exceptions', async () => {
+    // Run in the runtime where captures ARE possible so the negative
+    // assertion below is meaningful.
+    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+
     storefrontInternalPreflight.warnHasErrorFailOpen(
       CONTEXT,
       'unknown-storefront'
@@ -227,6 +231,11 @@ describe('storefrontInternalPreflight', () => {
       '[storefront-internal-preflight] skip',
       expect.objectContaining({ reason: 'unknown-storefront' })
     );
+    // Drain the microtask queue so a wrongly-scheduled fire-and-forget
+    // capture would have run before the negative assertion.
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
     expect(mocks.captureServerException).not.toHaveBeenCalled();
   });
 
