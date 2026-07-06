@@ -355,7 +355,23 @@ export async function POST(request: NextRequest) {
         // Credit Direct has paid the merchant in full
         // Mark order as fully paid and create transaction record
         const webhookTotal = getWebhookProductsTotal(payload.products);
-        const expectedAmount = signedAmount ?? (Number(order.total) || 0);
+        // Anchor the payout validation to the order's own total. The signed
+        // amount in notes is written by an anon-callable RPC, so it must not
+        // decide how much money marks this order as paid — BNPL semantics pay
+        // the merchant the full order total. Keep it for drift diagnostics.
+        const expectedAmount = Number(order.total) || 0;
+        if (
+          signedAmount !== null &&
+          Math.abs(signedAmount - expectedAmount) > 0.01
+        ) {
+          logger.warn({
+            message: 'Credit Direct signed amount drifted from order total',
+            orderId: order.id,
+            signedAmount,
+            orderTotal: expectedAmount,
+            transactionId: payload.checkoutTransactionId,
+          });
+        }
         if (webhookTotal === null) {
           logger.error({
             message: 'Invalid Credit Direct webhook product amount',

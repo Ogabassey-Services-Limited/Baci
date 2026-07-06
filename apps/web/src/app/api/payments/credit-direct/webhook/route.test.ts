@@ -1284,6 +1284,149 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       });
     });
 
+    it('rejects a payout that only matches a tampered-low signed amount', async () => {
+      const tamperedOrder = {
+        ...mockOrder,
+        notes: JSON.stringify({
+          creditDirectSessionId: 'session_123456789',
+          creditDirectTransactionId: 'txn_123456789',
+          credit_directTransactionId: 'txn_123456789',
+          creditDirectSignedAmount: 100,
+        }),
+      };
+      const lowPayoutPayload = {
+        ...merchantPaymentPayload,
+        products: [
+          {
+            productName: 'Product 1',
+            productAmount: 100,
+            productId: 'prod_1',
+          },
+        ],
+      };
+
+      vi.mocked(parseWebhookPayload).mockReturnValue(lowPayoutPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      const mockChain = supabaseMock.from('orders');
+      mockChain.select.mockReturnValue(mockChain);
+      mockChain.eq.mockReturnValue(mockChain);
+      mockChain.ilike.mockResolvedValue({
+        data: [tamperedOrder],
+        error: null,
+      });
+
+      const request = createMockRequest(lowPayoutPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data).toEqual({ error: 'Payment amount mismatch' });
+      expect(logger.warn).toHaveBeenCalledWith({
+        message: 'Credit Direct signed amount drifted from order total',
+        orderId: 'order_abc',
+        signedAmount: 100,
+        orderTotal: 50000,
+        transactionId: 'txn_123456789',
+      });
+      expect(logger.error).toHaveBeenCalledWith({
+        message: 'BNPL amount does not match expected total',
+        orderId: 'order_abc',
+        webhookTotal: 100,
+        expectedAmount: 50000,
+      });
+    });
+
+    it('pays at the order total and logs drift when the signed amount disagrees', async () => {
+      const driftedOrder = {
+        ...mockOrder,
+        notes: JSON.stringify({
+          creditDirectSessionId: 'session_123456789',
+          creditDirectTransactionId: 'txn_123456789',
+          credit_directTransactionId: 'txn_123456789',
+          creditDirectSignedAmount: 45000,
+        }),
+      };
+
+      vi.mocked(parseWebhookPayload).mockReturnValue(merchantPaymentPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      const mockChain = supabaseMock.from('orders');
+      let fromCallCount = 0;
+      supabaseMock.from.mockImplementation((_table: string) => {
+        fromCallCount++;
+        if (fromCallCount === 1) {
+          const orderLookupChain = { ...mockChain };
+          orderLookupChain.select = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.eq = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.ilike = vi.fn().mockResolvedValue({
+            data: [driftedOrder],
+            error: null,
+          });
+          return orderLookupChain;
+        } else if (fromCallCount === 2) {
+          const updateChain = { ...mockChain };
+          updateChain.update = vi.fn().mockReturnValue(updateChain);
+          updateChain.eq = vi.fn().mockReturnValue(updateChain);
+          updateChain.select = vi.fn().mockReturnValue(updateChain);
+          updateChain.maybeSingle = vi.fn().mockResolvedValue({
+            data: {
+              id: 'order_abc',
+              shipping_status: 'processing',
+              cancelled_at: null,
+            },
+            error: null,
+          });
+          return updateChain;
+        } else if (fromCallCount === 3) {
+          const txCheckChain = { ...mockChain };
+          txCheckChain.select = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.eq = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.single = vi.fn().mockResolvedValue({
+            data: null,
+            error: null,
+          });
+          return txCheckChain;
+        } else if (fromCallCount === 4) {
+          const txInsertChain = { ...mockChain };
+          txInsertChain.insert = vi.fn().mockReturnValue(txInsertChain);
+          txInsertChain.select = vi.fn().mockReturnValue(txInsertChain);
+          txInsertChain.single = vi.fn().mockResolvedValue({
+            data: { id: 'cd-txn-1' },
+            error: null,
+          });
+          return txInsertChain;
+        }
+        return mockChain;
+      });
+
+      const request = createMockRequest(merchantPaymentPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({ received: true });
+      expect(logger.warn).toHaveBeenCalledWith({
+        message: 'Credit Direct signed amount drifted from order total',
+        orderId: 'order_abc',
+        signedAmount: 45000,
+        orderTotal: 50000,
+        transactionId: 'txn_123456789',
+      });
+      expect(logger.info).toHaveBeenCalledWith({
+        message: 'Credit Direct merchant payment completed',
+        orderId: 'order_abc',
+        transactionId: 'txn_123456789',
+        amount: 50000,
+        platformFee: 1000,
+        merchantAmount: 49000,
+      });
+    });
+
     it('is idempotent when order is already paid', async () => {
       const paidOrder = { ...mockOrder, payment_status: 'paid' };
 
