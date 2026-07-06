@@ -2016,13 +2016,18 @@ export async function POST(request: NextRequest) {
     let storeCreditFinalized = false;
 
     // Persist the redemption onto the order row so payment webhooks can
-    // validate residual gateway payouts against server-owned columns.
-    await recordPreGatewayRedemption(
-      order.id,
-      orderTotal,
-      savingsAmountUsed,
-      walletAmountUsed
-    );
+    // validate residual gateway payouts against server-owned columns. Only
+    // when a gateway payment actually follows — fully covered orders are
+    // settled by the finalize RPCs below, and pre-writing amount_paid there
+    // would make a failed finalization look like nothing is due.
+    if (amountDueToGateway > 0) {
+      await recordPreGatewayRedemption(
+        order.id,
+        orderTotal,
+        savingsAmountUsed,
+        walletAmountUsed
+      );
+    }
 
     // If wallet fully covers the order, mark as paid immediately (2025 best practice)
     if (
