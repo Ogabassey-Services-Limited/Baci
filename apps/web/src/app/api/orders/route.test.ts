@@ -108,6 +108,13 @@ vi.mock('@/lib/expo-push', () => ({
 
 vi.mock('@/lib/zeptomail', () => ({ sendEmail: mockSendEmail }));
 
+const mockRecordPreGatewayRedemption = vi.hoisted(() =>
+  vi.fn().mockResolvedValue(undefined)
+);
+vi.mock('@/lib/payments/record-pre-gateway-redemption', () => ({
+  recordPreGatewayRedemption: mockRecordPreGatewayRedemption,
+}));
+
 vi.mock('@/lib/geo-privacy', () => ({
   detectPrivacyRegion: vi.fn().mockResolvedValue({
     country: 'NG',
@@ -910,6 +917,14 @@ describe('POST /api/orders — wallet response shape', () => {
       transactionId: '99999999-aaaa-bbbb-cccc-dddddddddddd',
     });
     expect(body.amountDueToGateway).toBe(700);
+    // The redemption is persisted onto the order row so payment webhooks can
+    // validate the residual gateway payout.
+    expect(mockRecordPreGatewayRedemption).toHaveBeenCalledWith(
+      expect.any(String),
+      1000,
+      0,
+      300
+    );
   });
 
   it('applies savings before wallet and returns the combined residual', async () => {
