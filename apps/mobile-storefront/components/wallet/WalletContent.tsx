@@ -1,8 +1,7 @@
 import { VTU_MIN_REDEEMABLE_POINTS } from '@baci/shared/lib';
 import { useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import { Alert, RefreshControl, Text, TextInput } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import { Alert, RefreshControl } from 'react-native';
 import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
 import type Colors from '@/constants/Colors';
 import { useDebounce } from '@/hooks/use-debounce';
@@ -10,8 +9,8 @@ import { useProducts } from '@/hooks/use-products';
 import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
 import type { Product } from '@/types/product';
 import { WalletActionsRow } from './WalletActionsRow';
+import { WalletFundPanel } from './WalletFundPanel';
 import { WalletHeroSection } from './WalletHeroSection';
-import { WalletPanelActionButtons } from './WalletPanelActionButtons';
 import { WalletRedeemPanel } from './WalletRedeemPanel';
 import { WalletSavingsDeviceSwapModal } from './WalletSavingsDeviceSwapModal';
 import { WalletSavingsProgressModal } from './WalletSavingsProgressModal';
@@ -19,7 +18,6 @@ import {
   type WalletTransaction,
   WalletTransactionHistory,
 } from './WalletTransactionHistory';
-import { styles } from './wallet.styles';
 import type { WalletDisplayFundingAccount } from './wallet.types';
 
 type WalletColors = (typeof Colors)['light'];
@@ -190,54 +188,21 @@ export function WalletContent({
         />
 
         {showFundPanel ? (
-          <Animated.View
-            entering={FadeIn.duration(200)}
-            style={[
-              styles.redeemPanel,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <Text style={[styles.redeemPanelTitle, { color: colors.text }]}>
-              Add Funds
-            </Text>
-            <Text
-              style={[
-                styles.redeemPanelSubtitle,
-                { color: colors.textSecondary },
-              ]}
-            >
-              Enter the amount you want to add to your wallet.
-            </Text>
-
-            <TextInput
-              accessibilityLabel="Wallet top-up amount"
-              style={[
-                styles.redeemInput,
-                {
-                  backgroundColor: colors.muted,
-                  // Brand accent border on the amount input (matches Add Money).
-                  borderColor: colors.primary,
-                  borderWidth: 2,
-                  color: colors.text,
-                },
-              ]}
-              value={fundAmount}
-              onChangeText={onChangeFundAmount}
-              keyboardType="number-pad"
-              placeholder="Enter amount (min ₦100)"
-              placeholderTextColor={colors.placeholder}
-            />
-
-            <WalletPanelActionButtons
-              cancelAccessibilityLabel="Cancel wallet top-up"
-              confirmAccessibilityLabel="Confirm wallet top-up"
-              confirmText="Continue"
-              colors={colors}
-              isPending={isFundPending}
-              onCancel={onResetFund}
-              onConfirm={onConfirmFund}
-            />
-          </Animated.View>
+          <WalletFundPanel
+            canCreateFundingAccount={canCreateFundingAccount}
+            colors={colors}
+            createFundingAccountUnavailableMessage={
+              createFundingAccountUnavailableMessage
+            }
+            fundAmount={fundAmount}
+            fundingAccount={fundingAccount}
+            isCreatingFundingAccount={isCreatingFundingAccount}
+            isFundPending={isFundPending}
+            onChangeFundAmount={onChangeFundAmount}
+            onConfirmFund={onConfirmFund}
+            onCreateFundingAccount={onCreateFundingAccount}
+            onResetFund={onResetFund}
+          />
         ) : null}
 
         {showRedeemPanel ? (
