@@ -75,19 +75,17 @@ describe('migration progress utils', () => {
       commitTotalRecords: 200,
     };
 
-    expect(getMigrationProgressValue('committing', 200, 200, summary)).toBe(20);
+    expect(getMigrationProgressValue('committing', 200, 200, summary)).toBe(85);
     expect(getMigrationProgressDetail('committing', 200, 200, summary)).toBe(
       '40 of 200 records imported'
     );
+    summary.commitProcessedRecords = 0;
+    expect(getMigrationProgressValue('committing', 200, 200, summary)).toBe(84);
   });
 
   it('uses a stable commit fallback while record totals are unavailable', () => {
     expect(getMigrationProgressValue('committing', 0, 0, null)).toBe(84);
-    expect(getMigrationProgressValue('committing', 0, 0, {})).toBe(84);
     expect(getMigrationProgressDetail('committing', 0, 0, null)).toBe(
-      'Preparing records for import...'
-    );
-    expect(getMigrationProgressDetail('committing', 0, 0, {})).toBe(
       'Preparing records for import...'
     );
   });
@@ -98,19 +96,17 @@ describe('migration progress utils', () => {
       notificationTotalRecipients: 500,
     };
 
-    expect(getMigrationProgressValue('notifying', 800, 800, summary)).toBe(25);
+    expect(getMigrationProgressValue('notifying', 800, 800, summary)).toBe(98);
     expect(getMigrationProgressDetail('notifying', 800, 800, summary)).toBe(
       '125 of 500 customer emails processed'
     );
+    summary.notificationProcessedRecipients = 0;
+    expect(getMigrationProgressValue('notifying', 800, 800, summary)).toBe(97);
   });
 
   it('uses a stable notification fallback while recipient totals are unavailable', () => {
     expect(getMigrationProgressValue('notifying', 0, 0, null)).toBe(97);
-    expect(getMigrationProgressValue('notifying', 0, 0, {})).toBe(97);
     expect(getMigrationProgressDetail('notifying', 0, 0, null)).toBe(
-      'Preparing customer email recipients...'
-    );
-    expect(getMigrationProgressDetail('notifying', 0, 0, {})).toBe(
       'Preparing customer email recipients...'
     );
   });

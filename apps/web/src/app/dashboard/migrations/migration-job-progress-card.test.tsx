@@ -34,7 +34,7 @@ describe('MigrationJobProgressCard', () => {
     expect(
       screen.getByText(/sending customer notifications/i)
     ).toBeInTheDocument();
-    expect(screen.getByText('25%')).toBeInTheDocument();
+    expect(screen.getByText('98%')).toBeInTheDocument();
     expect(
       screen.getByText('125 of 500 customer emails processed')
     ).toBeInTheDocument();

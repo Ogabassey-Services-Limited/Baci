@@ -38,6 +38,23 @@ function getClampedPercent(processed: number, total: number) {
   );
 }
 
+function getLifecycleStagePercent(
+  processed: number,
+  total: number,
+  start: number,
+  end: number
+) {
+  if (total <= 0) {
+    return null;
+  }
+
+  const ratio = Math.min(1, Math.max(0, processed) / total);
+  return Math.min(
+    end,
+    Math.max(start, Math.round(start + ratio * (end - start)))
+  );
+}
+
 function encodeMigrationRowsCacheKeyPart(value: string) {
   return encodeURIComponent(value);
 }
@@ -77,18 +94,22 @@ export function getMigrationProgressValue(
       return 68;
     case 'committing':
       return (
-        getClampedPercent(
+        getLifecycleStagePercent(
           summaryNumber(summary, 'commitProcessedRecords'),
-          summaryNumber(summary, 'commitTotalRecords')
+          summaryNumber(summary, 'commitTotalRecords'),
+          84,
+          91
         ) ?? 84
       );
     case 'notify_queued':
       return 92;
     case 'notifying':
       return (
-        getClampedPercent(
+        getLifecycleStagePercent(
           summaryNumber(summary, 'notificationProcessedRecipients'),
-          summaryNumber(summary, 'notificationTotalRecipients')
+          summaryNumber(summary, 'notificationTotalRecipients'),
+          97,
+          99
         ) ?? 97
       );
     case 'failed':
