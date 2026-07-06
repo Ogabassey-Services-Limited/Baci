@@ -125,12 +125,12 @@ done
     ANDROID_AVD_HOME: avdHome,
     ANDROID_HOME: sdkRoot,
     ANDROID_SDK_ROOT: sdkRoot,
-    BACI_ANDROID_LAUNCH_AM_START_TIMEOUT_SECONDS: '60',
-    BACI_ANDROID_LAUNCH_PID_TIMEOUT_SECONDS: '60',
-    BACI_ANDROID_LAUNCH_PROBE_TIMEOUT_SECONDS: '60',
-    BACI_ANDROID_LAUNCH_REVERSE_TIMEOUT_SECONDS: '60',
-    BACI_ANDROID_LAUNCH_SETTLE_TIMEOUT_SECONDS: '60',
-    BACI_ANDROID_LAUNCH_SHELL_TIMEOUT_SECONDS: '60',
+    BACI_ANDROID_LAUNCH_AM_START_TIMEOUT_SECONDS: '10',
+    BACI_ANDROID_LAUNCH_PID_TIMEOUT_SECONDS: '10',
+    BACI_ANDROID_LAUNCH_PROBE_TIMEOUT_SECONDS: '10',
+    BACI_ANDROID_LAUNCH_REVERSE_TIMEOUT_SECONDS: '10',
+    BACI_ANDROID_LAUNCH_SETTLE_TIMEOUT_SECONDS: '10',
+    BACI_ANDROID_LAUNCH_SHELL_TIMEOUT_SECONDS: '10',
     BACI_ANDROID_TIMEOUT_BACKEND: 'python',
     BACI_ANDROID_EMULATOR_LOG: path.join(stateDir, 'emulator.log'),
     BACI_FAKE_ADB_BOOT_COMPLETED: '1',
@@ -189,7 +189,7 @@ describe('Android emulator launcher (storefront)', () => {
         BACI_ANDROID_LAUNCH_SETTLE_STABILITY_PROBES: '1',
       });
 
-      expect({ error: result.error?.message, signal: result.signal, status: result.status, stderr: result.stderr, stdout: result.stdout }).toMatchObject({ status: 0 });
+      if (result.status !== 0) throw new Error(`Expected launch success, got status ${result.status}, signal ${result.signal}, error ${result.error?.message ?? 'none'}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
       expect(result.stdout).toContain('Android dev client ready');
       const reverseLog = fs.readFileSync(path.join(harness.stateDir, 'reverse-ran'), 'utf8');
       const activityLog = fs.readFileSync(path.join(harness.stateDir, 'am-ran'), 'utf8');
