@@ -45,12 +45,14 @@ const DELIVERY_ESTIMATE_MS = 5 * 24 * 60 * 60 * 1000;
 async function fetchOrderData(
   orderId: string,
   merchantSlug: string | undefined,
-  orderToken: string | null
+  orderToken: string | null,
+  lookupEmail: string | null = null
 ): Promise<OrderData | null> {
   try {
     const query = new URLSearchParams();
     if (merchantSlug) query.set('merchant_slug', merchantSlug);
     if (orderToken) query.set('token', orderToken);
+    if (!orderToken && lookupEmail) query.set('email', lookupEmail);
     const url = query.toString()
       ? `/api/storefront/orders/${orderId}?${query.toString()}`
       : `/api/storefront/orders/${orderId}`;
@@ -72,6 +74,9 @@ function OrderSuccessContent() {
   const orderId = searchParams.get('orderId');
   const orderToken =
     searchParams.get('trackingToken') || searchParams.get('token');
+  // Guest orders confirmed via email-only lookup (no tracking token) pass
+  // the email through so the order fetch below can still authenticate.
+  const lookupEmail = searchParams.get('email');
   const _type = searchParams.get('type'); // Reserved for future use
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath;
@@ -101,13 +106,15 @@ function OrderSuccessContent() {
       return;
     }
 
-    fetchOrderData(orderId, merchant?.slug, orderToken).then((data) => {
-      if (data) {
-        setOrder(data);
+    fetchOrderData(orderId, merchant?.slug, orderToken, lookupEmail).then(
+      (data) => {
+        if (data) {
+          setOrder(data);
+        }
+        setLoading(false);
       }
-      setLoading(false);
-    });
-  }, [orderId, merchant?.slug, orderToken]);
+    );
+  }, [orderId, merchant?.slug, orderToken, lookupEmail]);
 
   // Without an order id there is nothing to fetch, so we are never loading.
   const isLoading = loading && Boolean(orderId);

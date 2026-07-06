@@ -782,6 +782,10 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
         });
         if (trackingToken) {
             successQuery.set('trackingToken', trackingToken);
+        } else if (lookupEmail) {
+            // Email-only guest lookups have no tracking token; order-success
+            // needs the email to fetch the order it is celebrating.
+            successQuery.set('email', lookupEmail);
         }
         clearCreditDirectPopupMarker(orderId);
         router.push(
@@ -792,6 +796,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
         creditDirectPopupMarker,
         orderId,
         trackingToken,
+        lookupEmail,
         router,
     ]);
 
@@ -824,7 +829,9 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                 phase={verificationPhase}
                 onKeepWaiting={creditDirectVerification.restart}
                 onRetryPayment={retryCreditDirectPayment}
-                onReturnHome={() => router.push('/')}
+                onReturnHome={() =>
+                    router.push((buildLauncherScopedPath('') || '/') as Route)
+                }
             />
         );
     }

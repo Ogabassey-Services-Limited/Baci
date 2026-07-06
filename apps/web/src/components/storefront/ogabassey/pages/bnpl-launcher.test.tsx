@@ -1088,6 +1088,48 @@ describe('BnplLauncher', () => {
       expect(readCreditDirectPopupMarker('order-1')).toBeNull();
     });
 
+    it('includes the lookup email on the verified success redirect when no tracking token exists', async () => {
+      mockSearchParams.mockReturnValue(
+        new URLSearchParams({
+          orderId: 'order-1',
+          gateway: 'credit_direct',
+          merchant_slug: 'test-store',
+          email: 'customer@example.com',
+        })
+      );
+      seedPopupMarker('order-1', 'txn-123');
+      stubOrderStatusFetch('bnpl_approved');
+
+      render(<BnplLauncher />);
+
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith(
+          '/order-success?orderId=order-1&reference=txn-123&type=credit_direct&email=customer%40example.com'
+        );
+      });
+    });
+
+    it('returns to the storefront home from the verification view on slug-prefixed launchers', async () => {
+      vi.useFakeTimers();
+      try {
+        window.history.replaceState({}, '', '/test-store/checkout/bnpl');
+        seedPopupMarker('order-1', 'txn-123');
+        stubOrderStatusFetch('bnpl_pending');
+
+        render(<BnplLauncher />);
+        await act(async () => {});
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(151_000);
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+
+      fireEvent.click(screen.getByRole('button', { name: 'Return to Home' }));
+
+      expect(mockPush).toHaveBeenCalledWith('/test-store');
+    });
+
     it('keeps the storefront slug prefix on the verified success redirect', async () => {
       window.history.replaceState({}, '', '/test-store/checkout/bnpl');
       seedPopupMarker('order-1', 'txn-123');
