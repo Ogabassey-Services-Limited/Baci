@@ -204,6 +204,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         updateData[field] = value;
       }
     }
+    if (updateData.status === 'removed') {
+      updateData.user_id = null;
+    }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(

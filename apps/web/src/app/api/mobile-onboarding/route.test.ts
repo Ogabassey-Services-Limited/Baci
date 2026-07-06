@@ -619,7 +619,7 @@ describe('POST /api/mobile-onboarding', () => {
 
   // --- Success path ---
 
-  it('upserts the owner staff profile with the user-merchant conflict target', async () => {
+  it('upserts the owner staff profile with a valid staff role and user-merchant conflict target', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     mockSignUp.mockResolvedValue({
       data: {
@@ -665,7 +665,7 @@ describe('POST /api/mobile-onboarding', () => {
       expect.objectContaining({
         user_id: 'user-1',
         merchant_id: 'merch-1',
-        role: 'owner',
+        role: 'admin',
         status: 'active',
       }),
       { onConflict: 'user_id,merchant_id' }

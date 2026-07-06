@@ -330,9 +330,18 @@ export async function updateStaffMember(
   }
 
   // Explicitly construct update object with only allowed fields
-  const updateData: { role?: StaffRole; status?: StaffStatus } = {};
+  const updateData: {
+    role?: StaffRole;
+    status?: StaffStatus;
+    user_id?: null;
+  } = {};
   if (data.role) updateData.role = data.role;
-  if (data.status) updateData.status = data.status;
+  if (data.status) {
+    updateData.status = data.status;
+    if (data.status === 'removed') {
+      updateData.user_id = null;
+    }
+  }
 
   if (Object.keys(updateData).length === 0) {
     throw new Error('No valid fields to update');

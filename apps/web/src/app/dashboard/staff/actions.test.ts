@@ -57,6 +57,7 @@ import {
   inviteStaffMember,
   removeStaffMember,
   resendInvitation,
+  updateStaffMember,
 } from './actions';
 
 const validInvite = {
@@ -130,6 +131,27 @@ describe('resendInvitation', () => {
     expect(result.message).toContain(
       'https://app.test/staff/accept?token=tok-1'
     );
+  });
+});
+
+describe('updateStaffMember', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.ensurePermission.mockResolvedValue({
+      merchant: { id: 'm1', business_name: 'Shop' },
+    });
+    mocks.updateEq.mockResolvedValue({ data: { id: 's1' }, error: null });
+  });
+
+  it('clears user_id when status is changed to removed so future invitations can be accepted', async () => {
+    const result = await updateStaffMember('s1', { status: 'removed' });
+
+    expect(result).toEqual({ success: true });
+    expect(mocks.update).toHaveBeenCalledWith({
+      status: 'removed',
+      user_id: null,
+    });
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/dashboard/staff');
   });
 });
 

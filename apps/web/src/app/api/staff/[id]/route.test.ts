@@ -144,6 +144,21 @@ describe('PATCH and DELETE /api/staff/[id]', () => {
     );
   });
 
+  it('clears user_id when status is patched to removed so future invitations can be accepted', async () => {
+    const { PATCH } = await import('./route');
+    const request = createRequest({ status: 'removed' });
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ id: 'staff-1' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(update).toHaveBeenCalledWith({
+      status: 'removed',
+      user_id: null,
+    });
+  });
+
   it('returns 400 when there are no valid fields to update', async () => {
     const { PATCH } = await import('./route');
     const request = createRequest({ invalidField: 'value' });
