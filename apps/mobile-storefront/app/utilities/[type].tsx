@@ -14,6 +14,7 @@ import { UtilityPurchaseSuccessView } from '@/components/utilities/UtilityPurcha
 import { UtilityTypeTabs } from '@/components/utilities/UtilityTypeTabs';
 import { useQuickRepeat } from '@/components/utilities/use-quick-repeat';
 import {
+  getUtilityHistoryIconColor,
   isValidUtilityType,
   UTILITY_TYPE_TITLES,
 } from '@/components/utilities/utility-purchase.config';
@@ -27,7 +28,7 @@ import type {
   UtilityPurchaseResult,
   ValidUtilityType,
 } from '@/components/utilities/utility-purchase.types';
-import Colors, { BRAND } from '@/constants/Colors';
+import Colors from '@/constants/Colors';
 import { walletKeys } from '@/hooks/use-wallet';
 import { CONFIG } from '@/lib/config';
 import { RouteRepeatParamsSchema } from '@/schemas/utility-purchase';
@@ -236,7 +237,7 @@ export default function UtilityPurchaseScreen() {
         dividerColor={colors.border}
         iconBackgroundColor={colors.card}
         iconColor={colors.text}
-        historyIconColor={BRAND.secondary}
+        historyIconColor={getUtilityHistoryIconColor(colorScheme)}
         topInset={insets.top}
         surfaceColor={colors.background}
       />
