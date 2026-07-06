@@ -147,7 +147,11 @@ export function parseStoredQuoteRequest(value: unknown): QuoteRequest | null {
         ? 'international'
         : 'domestic',
     sender: isShippingAddress(quoteRequest.sender)
-      ? quoteRequest.sender
+      ? {
+          ...quoteRequest.sender,
+          country: quoteRequest.sender.country || 'Nigeria',
+          countryCode: quoteRequest.sender.countryCode || 'NG',
+        }
       : undefined,
     receiver: {
       ...quoteRequest.receiver,

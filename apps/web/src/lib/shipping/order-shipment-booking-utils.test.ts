@@ -21,6 +21,13 @@ describe('order-shipment-booking-utils', () => {
         country: 'Nigeria',
         countryCode: 'NG',
       },
+      sender: {
+        name: 'Store',
+        phone: '08000000001',
+        address: '1 Merchant Road',
+        city: 'Yaba',
+        state: 'Lagos',
+      },
       items: [{ name: 'Phone', quantity: 1, weight: 1, value: 500000 }],
     });
 
@@ -37,7 +44,15 @@ describe('order-shipment-booking-utils', () => {
         countryCode: 'NG',
       },
       items: [{ name: 'Phone', quantity: 1, weight: 1, value: 500000 }],
-      sender: undefined,
+      sender: {
+        name: 'Store',
+        phone: '08000000001',
+        address: '1 Merchant Road',
+        city: 'Yaba',
+        state: 'Lagos',
+        country: 'Nigeria',
+        countryCode: 'NG',
+      },
     });
   });
 

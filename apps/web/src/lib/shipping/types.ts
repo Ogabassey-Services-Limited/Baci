@@ -311,7 +311,7 @@ export const PROVIDER_CONFIGS: Record<ShippingProviderCode, ProviderConfig> = {
     name: 'GIGL',
     displayName: 'GIG Logistics',
     enabled: true,
-    supportsInternational: false,
+    supportsInternational: true,
     supportsDomestic: true,
   },
   TOPSHIP: {
