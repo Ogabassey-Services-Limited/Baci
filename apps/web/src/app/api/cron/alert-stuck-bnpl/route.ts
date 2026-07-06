@@ -153,6 +153,23 @@ export async function GET(request: NextRequest) {
         hasProviderTransactionReference(order.notes) ||
         orderIdsWithTransactionEvidence.has(order.id)
     );
+
+    // CredPal never progresses its transactions row past 'pending' and its
+    // launcher flow writes no notes reference, so a stuck CredPal order is
+    // indistinguishable from an abandoned cart. Surface the dropped set to
+    // ops logs instead of paging merchants with unavoidable false positives.
+    const weakEvidenceDropped = evidenceCandidates.filter(
+      (order) => !orderIdsWithTransactionEvidence.has(order.id)
+    );
+    if (weakEvidenceDropped.length > 0) {
+      logger.warn({
+        message:
+          'Stuck-BNPL scan dropped pending/unpaid BNPL orders without provider evidence (possible stuck CredPal)',
+        droppedCount: weakEvidenceDropped.length,
+        orderIds: weakEvidenceDropped.slice(0, 10).map((order) => order.id),
+      });
+    }
+
     if (orders.length === 0) {
       return NextResponse.json({
         success: true,

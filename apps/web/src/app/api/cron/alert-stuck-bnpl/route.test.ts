@@ -272,6 +272,14 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
     expect(response.status).toBe(200);
     expect(data.stuckOrders).toBe(0);
     expect(mocks.notifyMerchant).not.toHaveBeenCalled();
+    expect(mocks.loggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          'Stuck-BNPL scan dropped pending/unpaid BNPL orders without provider evidence (possible stuck CredPal)',
+        droppedCount: 1,
+        orderIds: ['order-1'],
+      })
+    );
   });
 
   it('skips pending orders conservatively when the transaction-evidence check fails', async () => {

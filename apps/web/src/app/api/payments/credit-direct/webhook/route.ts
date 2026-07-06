@@ -556,6 +556,22 @@ export async function POST(request: NextRequest) {
         // suppress the push + confirmation email and file a reconciliation row
         // linked to the recorded (disbursed) transaction. Ack Credit Direct 200.
         if (updatedOrder && isOrderClampedAsCancelled(updatedOrder)) {
+          // The reopen trigger clamps the status fields but not amount_paid;
+          // restore it so a duplicate webhook still resolves the expected
+          // residual instead of failing amount validation forever.
+          const { error: amountRestoreError } = await supabase
+            .from('orders')
+            .update({ amount_paid: order.amount_paid ?? 0 })
+            .eq('id', order.id);
+          if (amountRestoreError) {
+            logger.warn({
+              message:
+                'Failed to restore amount_paid on cancelled Credit Direct order',
+              orderId: order.id,
+              error: amountRestoreError,
+            });
+          }
+
           await handlePaymentForCancelledOrder({
             gatewayReference: payload.checkoutTransactionId,
             order: updatedOrder,
