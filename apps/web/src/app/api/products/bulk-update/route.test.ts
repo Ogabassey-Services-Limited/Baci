@@ -1,7 +1,12 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PURGE_LISTINGS_ONLY_THRESHOLD } from '@/lib/storefront-product-purge-urls';
 
 // ---- Mocks ----
+
+const mockGenerateProductSlug = vi.hoisted(() =>
+  vi.fn((name: string) => name.toLowerCase().replace(/\s+/g, '-'))
+);
 
 vi.mock('@/env', () => ({
   getSupabaseUrl: () => 'https://test.supabase.co',
@@ -11,8 +16,17 @@ vi.mock('@/env', () => ({
 }));
 
 const mockRevalidateProducts = vi.fn();
+const mockRevalidateProductSlugs = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
+  revalidateProductSlugs: (...args: unknown[]) =>
+    mockRevalidateProductSlugs(...args),
+}));
+
+const mockScheduleStorefrontProductPurge = vi.fn();
+vi.mock('@/lib/storefront-product-purge', () => ({
+  scheduleStorefrontProductPurge: (...args: unknown[]) =>
+    mockScheduleStorefrontProductPurge(...args),
 }));
 
 let csrfValid = true;
@@ -31,8 +45,29 @@ vi.mock('@/lib/csrf', () => ({
 
 vi.mock('@/lib/seo-utils', () => ({
   generateProductSlug: (name: string) =>
-    name.toLowerCase().replace(/\s+/g, '-'),
+    mockGenerateProductSlug(name) as string,
   generateSlug: (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
+  // Minimal stand-in used by resolveProductPurgeCategorySegment: build a
+  // categorized PDP path from the resolved category (join slug/name/text) or
+  // fall back to the /products path — enough to derive the leading segment.
+  getProductUrl: (product: {
+    slug?: string | null;
+    id?: string;
+    category?: string | null;
+    categories?: { name?: string; slug?: string } | null;
+    category_slug?: string | null;
+  }) => {
+    const slug = product.slug || product.id || '';
+    const segment =
+      product.categories?.slug ||
+      product.category_slug ||
+      product.categories?.name ||
+      product.category;
+    if (segment) {
+      return `/${String(segment).toLowerCase().replace(/\s+/g, '-')}/${slug}`;
+    }
+    return `/products/${slug}`;
+  },
 }));
 
 vi.mock('@/lib/countries', () => ({
@@ -45,6 +80,7 @@ vi.mock('@/lib/countries', () => ({
 
 type MerchantContextMock = {
   merchantId: string;
+  merchantSlug?: string;
   businessName: string;
   staffAccess: {
     isOwner: boolean;
@@ -57,6 +93,7 @@ type MerchantContextMock = {
 const merchantContextMock = {
   current: {
     merchantId: 'merchant-123',
+    merchantSlug: 'ogabassey',
     businessName: 'Test Store',
     staffAccess: {
       isOwner: true,
@@ -106,11 +143,22 @@ let updateError: unknown = null;
 let insertError: unknown = null;
 let productInserts: unknown[] = [];
 let productUpdates: unknown[] = [];
+// Rows returned by the `.select(...)` appended to the update/archive queries so
+// the route can derive the Cloudflare purge targets.
+let productUpdateSelectRows: unknown[] = [];
 
-// Creates a query builder that supports chaining .eq() and resolves with { error }
-function createQueryBuilder(getError: () => unknown) {
+// Creates a query builder that supports chaining .eq(); resolves with { error }
+// when awaited directly, or with { data, error } when `.select(...)` is called
+// (the purge path appends a returning select to the update/archive queries).
+function createQueryBuilder(
+  getError: () => unknown,
+  getRows: () => unknown[] = () => []
+) {
   const builder: Record<string, unknown> = {};
   builder.eq = vi.fn(() => builder);
+  builder.select = vi.fn(() =>
+    Promise.resolve({ data: getRows(), error: getError() })
+  );
   // biome-ignore lint/suspicious/noThenProperty: Needed for vitest promise mocking
   builder.then = vi.fn((resolve: (value: { error: unknown }) => void) =>
     resolve({ error: getError() })
@@ -160,11 +208,25 @@ vi.mock('@/lib/supabase/server', () => ({
         return {
           update: vi.fn((payload: unknown) => {
             productUpdates.push(payload);
-            return createQueryBuilder(() => updateError);
+            return createQueryBuilder(
+              () => updateError,
+              () => productUpdateSelectRows
+            );
           }),
           insert: vi.fn((payload: unknown) => {
             productInserts.push(payload);
-            return Promise.resolve({ error: insertError });
+            // Route chains .select('id').maybeSingle() to read the created id
+            // (used for the blank-slug purge fallback).
+            return {
+              select: vi.fn(() => ({
+                maybeSingle: vi.fn(() =>
+                  Promise.resolve({
+                    data: insertError ? null : { id: 'created-id-1' },
+                    error: insertError,
+                  })
+                ),
+              })),
+            };
           }),
         };
       }
@@ -202,6 +264,7 @@ describe('POST /api/products/bulk-update', () => {
     };
     merchantContextMock.current = {
       merchantId: MERCHANT_ID,
+      merchantSlug: 'ogabassey',
       businessName: 'Test Store',
       staffAccess: {
         isOwner: true,
@@ -215,6 +278,7 @@ describe('POST /api/products/bulk-update', () => {
     insertError = null;
     productInserts = [];
     productUpdates = [];
+    productUpdateSelectRows = [];
     csrfValid = true;
   });
 
@@ -336,6 +400,161 @@ describe('POST /api/products/bulk-update', () => {
       cost_price: 90,
     });
     expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+  });
+
+  it('busts per-slug Next caches before scheduling the bulk purge', async () => {
+    const { POST } = await import('./route');
+    await POST(
+      makeRequest({
+        changes: [{ type: 'update', productId: 'p1', details: { price: 900 } }],
+      })
+    );
+
+    expect(mockRevalidateProductSlugs).toHaveBeenCalled();
+    const revalidateOrder =
+      mockRevalidateProductSlugs.mock.invocationCallOrder[0];
+    const purgeOrder =
+      mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0];
+    expect(revalidateOrder).toBeLessThan(purgeOrder);
+  });
+
+  it('schedules a Cloudflare purge for the affected updated products', async () => {
+    const { POST } = await import('./route');
+    productUpdateSelectRows = [
+      {
+        id: 'product-1',
+        slug: 'updated-product',
+        category: 'Electronics',
+        categories: null,
+        product_categories: [],
+      },
+    ];
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'update',
+            productId: 'product-1',
+            newPrice: 150,
+            details: { name: 'Updated Product', price: 150 },
+          },
+        ],
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'ogabassey',
+      [{ slug: 'updated-product', categorySegment: 'electronics' }],
+      { listingsOnly: false }
+    );
+  });
+
+  it('falls back to the product id for the purge target when the row slug is null', async () => {
+    const { POST } = await import('./route');
+    productUpdateSelectRows = [
+      {
+        id: 'legacy-id',
+        slug: null,
+        category: null,
+        categories: null,
+        product_categories: [],
+      },
+    ];
+
+    await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'update',
+            productId: 'legacy-id',
+            details: { name: 'Legacy', price: 10 },
+          },
+        ],
+      })
+    );
+
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'ogabassey',
+      [{ slug: 'legacy-id', categorySegment: null }],
+      { listingsOnly: false }
+    );
+  });
+
+  it('falls back to the created id when a bulk-created slug is blank', async () => {
+    mockGenerateProductSlug.mockReturnValueOnce('');
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'new',
+            details: { name: 'X', price: 100, category: 'Gadgets' },
+          },
+        ],
+      })
+    );
+
+    expect(res.status).toBe(200);
+    const entries = mockScheduleStorefrontProductPurge.mock.calls[0]?.[1];
+    expect(entries).toEqual([
+      expect.objectContaining({ slug: 'created-id-1' }),
+    ]);
+  });
+
+  it('schedules a Cloudflare purge for newly created products', async () => {
+    const { POST } = await import('./route');
+
+    await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'new',
+            details: { name: 'New Product', price: 20, category: 'Audio' },
+          },
+        ],
+      })
+    );
+
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'ogabassey',
+      [{ slug: 'new-product', categorySegment: 'audio' }],
+      { listingsOnly: false }
+    );
+  });
+
+  it('purges only listing surfaces past the per-op product threshold', async () => {
+    const { POST } = await import('./route');
+    // One update matching more rows than the shared threshold triggers the
+    // listings-only fan-out guard.
+    productUpdateSelectRows = Array.from(
+      { length: PURGE_LISTINGS_ONLY_THRESHOLD + 1 },
+      (_, index) => ({
+        id: `p-${index}`,
+        slug: `slug-${index}`,
+        category: 'Electronics',
+        categories: null,
+        product_categories: [],
+      })
+    );
+
+    await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'update',
+            productId: 'product-1',
+            details: { name: 'Bulk', price: 10 },
+          },
+        ],
+      })
+    );
+
+    const call = mockScheduleStorefrontProductPurge.mock.calls[0];
+    expect(call[0]).toBe('ogabassey');
+    expect(call[2]).toEqual({ listingsOnly: true });
   });
 
   it('does not persist whitespace-only product names during targeted updates', async () => {

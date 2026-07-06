@@ -17,6 +17,14 @@ const inventoryStatsState = vi.hoisted(() => ({
   totalProducts: 1000 as number | undefined,
 }));
 
+const productState = vi.hoisted(() => ({
+  current: undefined as Record<string, unknown> | undefined,
+}));
+
+const updateProductState = vi.hoisted(() => ({
+  mutateAsync: vi.fn(),
+}));
+
 vi.mock('expo-router', () => ({
   useLocalSearchParams: () => routeParamsState.current,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
@@ -53,8 +61,11 @@ vi.mock('@/hooks/useProducts', () => ({
         ? undefined
         : { totalProducts: inventoryStatsState.totalProducts },
   }),
-  useProduct: () => ({ data: undefined, error: null }),
-  useUpdateProduct: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useProduct: () => ({ data: productState.current, error: null }),
+  useUpdateProduct: () => ({
+    mutateAsync: updateProductState.mutateAsync,
+    isPending: false,
+  }),
   useUpdateProductStatus: () => ({
     mutate: vi.fn(),
     mutateAsync: vi.fn(),
@@ -107,6 +118,8 @@ describe('useProductEditController', () => {
     persistenceState.lastParams = null;
     inventoryStatsState.totalProducts = 1000;
     revenueCatState.isPro = false;
+    productState.current = undefined;
+    updateProductState.mutateAsync.mockReset();
   });
 
   it('initialises in new-product mode when id is "new"', () => {
@@ -155,5 +168,40 @@ describe('useProductEditController', () => {
     const { result } = renderHook(() => useProductEditController());
 
     expect(result.current.isEditing).toBe(true);
+  });
+
+  it('derives updateProduct previousCategory/previousCategoryId from the LOADED product snapshot, not the edited input', async () => {
+    const productId = '123e4567-e89b-42d3-a456-426614174000';
+    routeParamsState.current = { id: productId };
+    // The pre-save snapshot: the product currently lives under "Smartphones".
+    productState.current = {
+      category: 'Smartphones',
+      category_id: 'cat-old',
+      variants: [],
+    };
+    updateProductState.mutateAsync.mockResolvedValue(undefined);
+
+    renderHook(() => useProductEditController());
+
+    const updateProduct = persistenceState.lastParams?.updateProduct as (
+      input: Record<string, unknown>
+    ) => Promise<unknown>;
+
+    // The edited input carries a DIFFERENT (moved-to) category, but the
+    // previous* fields must reflect the loaded snapshot so a category MOVE
+    // still purges the OLD category's cached storefront URLs.
+    await updateProduct({
+      id: productId,
+      updates: {},
+      category: 'Laptops',
+      category_id: 'cat-new',
+    });
+
+    expect(updateProductState.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        previousCategory: 'Smartphones',
+        previousCategoryId: 'cat-old',
+      })
+    );
   });
 });

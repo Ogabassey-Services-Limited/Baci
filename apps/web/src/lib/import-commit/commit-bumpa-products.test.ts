@@ -33,6 +33,29 @@ function createProduct(
   };
 }
 
+/**
+ * Stub for the once-per-run merchant slug lookup
+ * (`.from('merchants').select('slug').eq('id', …).maybeSingle()`) the purge
+ * adoption performs before the reliable revalidation.
+ */
+function makeMerchantsQuery(
+  slug: string | null,
+  error: { message: string } | null = null
+) {
+  const query = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    maybeSingle: vi.fn(),
+  };
+  query.select.mockReturnValue(query);
+  query.eq.mockReturnValue(query);
+  query.maybeSingle.mockResolvedValue({
+    data: slug === null ? null : { slug },
+    error,
+  });
+  return query;
+}
+
 describe('commitBumpaProducts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -81,12 +104,15 @@ describe('commitBumpaProducts', () => {
     };
     insertQuery.insert.mockResolvedValue({ error: null });
 
+    const merchantsQuery = makeMerchantsQuery('ogabassey');
+
     const supabase = {
       from: vi
         .fn()
         .mockReturnValueOnce(loadQuery)
         .mockReturnValueOnce(updateQuery)
-        .mockReturnValueOnce(insertQuery),
+        .mockReturnValueOnce(insertQuery)
+        .mockReturnValueOnce(merchantsQuery),
     } as unknown as SupabaseClient;
 
     const result = await commitBumpaProducts({
@@ -123,8 +149,17 @@ describe('commitBumpaProducts', () => {
       })
     );
     // Imported products must invalidate product caches (incl. the proxy
-    // crawl-budget slug-set) so their PDPs aren't hard-404ed until TTL expiry.
-    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith('merchant-1');
+    // crawl-budget slug-set) so their PDPs aren't hard-404ed until TTL expiry —
+    // AND evict their public storefront URLs from Cloudflare (merchant slug
+    // resolved once per run, id carried for updates so the internal route can
+    // resolve the authoritative category).
+    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith('merchant-1', {
+      merchantSlug: 'ogabassey',
+      products: [
+        { slug: 'imported-phone', id: 'existing-product', category: 'Phones' },
+        { slug: 'fresh-phone-2', category: 'Phones' },
+      ],
+    });
   });
 
   it('still succeeds when reliable revalidation rejects (best-effort, non-fatal)', async () => {
@@ -145,11 +180,14 @@ describe('commitBumpaProducts', () => {
     const insertQuery = { insert: vi.fn() };
     insertQuery.insert.mockResolvedValue({ error: null });
 
+    const merchantsQuery = makeMerchantsQuery('ogabassey');
+
     const supabase = {
       from: vi
         .fn()
         .mockReturnValueOnce(loadQuery)
-        .mockReturnValueOnce(insertQuery),
+        .mockReturnValueOnce(insertQuery)
+        .mockReturnValueOnce(merchantsQuery),
     } as unknown as SupabaseClient;
 
     // The reliable helper is fail-safe, but even if it rejected the import must
@@ -166,11 +204,70 @@ describe('commitBumpaProducts', () => {
     });
 
     expect(result).toEqual({ createdProducts: 1, updatedProducts: 0 });
-    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith('merchant-1');
+    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith('merchant-1', {
+      merchantSlug: 'ogabassey',
+      products: [{ slug: 'imported-phone', category: 'Phones' }],
+    });
     expect(consoleSpy).toHaveBeenCalled();
     // Restore so the suppressed console.error doesn't leak into later tests
     // (the suite uses clearAllMocks, which does not restore spy implementations).
     consoleSpy.mockRestore();
+  });
+
+  it('warns and degrades to Next-cache-only revalidation when the merchants-slug lookup errors', async () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      range: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.order.mockReturnValue(loadQuery);
+    loadQuery.range.mockResolvedValue({ data: [], error: null });
+
+    const insertQuery = { insert: vi.fn() };
+    insertQuery.insert.mockResolvedValue({ error: null });
+
+    const merchantsQuery = makeMerchantsQuery(null, {
+      message: 'db unavailable',
+    });
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadQuery)
+        .mockReturnValueOnce(insertQuery)
+        .mockReturnValueOnce(merchantsQuery),
+    } as unknown as SupabaseClient;
+
+    const result = await commitBumpaProducts({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      products: [createProduct()],
+    });
+
+    expect(result).toEqual({ createdProducts: 1, updatedProducts: 0 });
+    // The lookup failure must not break the import: revalidation STILL runs,
+    // just degraded to Next-cache-only (no merchantSlug means no Cloudflare
+    // purge is attempted).
+    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith(
+      'merchant-1',
+      undefined
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Failed to resolve merchant slug for import Cloudflare product purge (degrading to Next-cache-only revalidation):',
+      expect.objectContaining({
+        importJobId: 'job-1',
+        merchantId: 'merchant-1',
+        error: { message: 'db unavailable' },
+      })
+    );
+    warnSpy.mockRestore();
   });
 
   it('revalidates committed mutations even when a later row fails (partial import)', async () => {
@@ -191,12 +288,15 @@ describe('commitBumpaProducts', () => {
       insert: vi.fn().mockResolvedValue({ error: { message: 'boom' } }),
     };
 
+    const merchantsQuery = makeMerchantsQuery('ogabassey');
+
     const supabase = {
       from: vi
         .fn()
         .mockReturnValueOnce(loadQuery)
         .mockReturnValueOnce(insertOk)
-        .mockReturnValueOnce(insertFail),
+        .mockReturnValueOnce(insertFail)
+        .mockReturnValueOnce(merchantsQuery),
     } as unknown as SupabaseClient;
 
     await expect(
@@ -216,8 +316,12 @@ describe('commitBumpaProducts', () => {
     ).rejects.toThrow('Failed to create imported product');
 
     // The committed first product MUST still trigger revalidation (finally) so
-    // its live slug isn't left out of the slug-set until TTL and hard-404ed.
-    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith('merchant-1');
+    // its live slug isn't left out of the slug-set until TTL and hard-404ed —
+    // and only the committed product is forwarded for the Cloudflare purge.
+    expect(mockRevalidateProductsReliable).toHaveBeenCalledWith('merchant-1', {
+      merchantSlug: 'ogabassey',
+      products: [{ slug: 'phone-one', category: 'Phones' }],
+    });
   });
 
   it('throws when loading existing products fails', async () => {

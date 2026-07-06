@@ -26,8 +26,19 @@ vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: vi.fn(),
 }));
 
+const mockScheduleStorefrontProductPurge = vi.fn();
+const mockGenerateProductSlug = vi.hoisted(() =>
+  vi.fn((name: string) => name.toLowerCase().replace(/\s/g, '-'))
+);
+
+vi.mock('@/lib/storefront-product-purge', () => ({
+  scheduleStorefrontProductPurge: (...args: unknown[]) =>
+    mockScheduleStorefrontProductPurge(...args),
+}));
+
 type MerchantContextMock = {
   merchantId: string;
+  merchantSlug?: string;
   businessName: string;
   staffAccess: {
     isOwner: boolean;
@@ -40,6 +51,7 @@ type MerchantContextMock = {
 const merchantContextMock = {
   current: {
     merchantId: 'merchant-123',
+    merchantSlug: 'test-store',
     businessName: 'Test Store',
     staffAccess: {
       isOwner: true,
@@ -87,8 +99,15 @@ vi.mock('@/lib/sanitize-core', () => ({
 vi.mock('@/lib/seo-utils', () => ({
   generateMetaDescription: (str: string) => `${str.substring(0, 50)}...`,
   generateProductSchema: () => ({ '@type': 'Product' }),
-  generateProductSlug: (name: string) => name.toLowerCase().replace(/\s/g, '-'),
+  generateProductSlug: (name: string) =>
+    mockGenerateProductSlug(name) as string,
   generateSlug: (name: string) => name.toLowerCase().replace(/\s/g, '-'),
+  // Minimal canonical-path builder so resolveProductPurgeCategorySegment (the
+  // real helper) resolves a category segment from the mocked product data.
+  getProductUrl: (product: { slug?: string; category?: string | null }) =>
+    product.category
+      ? `/${product.category.toLowerCase().replace(/\s+/g, '-')}/${product.slug}`
+      : `/products/${product.slug}`,
 }));
 
 vi.mock('@/lib/countries', () => ({
@@ -337,6 +356,7 @@ function resetMocks() {
   };
   merchantContextMock.current = {
     merchantId: MERCHANT_ID,
+    merchantSlug: 'test-store',
     businessName: 'Test Store',
     staffAccess: {
       isOwner: true,
@@ -653,6 +673,47 @@ describe('POST /api/products', () => {
       expect(res.status).toBe(201);
       expect(json.product).toBeDefined();
       expect(json.product.id).toBe(PRODUCT_ID);
+    });
+
+    it('schedules a Cloudflare purge for the new product', async () => {
+      insertResult = { id: PRODUCT_ID, slug: 'test-product' };
+
+      const res = await POST(makePostRequest(validCreateBody));
+
+      expect(res.status).toBe(201);
+      // validCreateBody has category 'Electronics'; the slug is derived from the
+      // product name ('Test Product' → 'test-product').
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [{ slug: 'test-product', categorySegment: 'electronics' }]
+      );
+    });
+
+    it('falls back to the created id when the generated slug is blank', async () => {
+      insertResult = { id: PRODUCT_ID, slug: '' };
+
+      // A name of only stripped characters produces an empty slug; the purge
+      // must still fire using the created row's id so listings are evicted.
+      mockGenerateProductSlug.mockReturnValueOnce('');
+      const res = await POST(makePostRequest(validCreateBody));
+
+      expect(res.status).toBe(201);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [{ slug: PRODUCT_ID, categorySegment: expect.anything() }]
+      );
+    });
+
+    it('completes creation even when scheduling the purge throws', async () => {
+      insertResult = { id: PRODUCT_ID, slug: 'test-product' };
+      mockScheduleStorefrontProductPurge.mockImplementationOnce(() => {
+        throw new Error('purge scheduling failed');
+      });
+
+      const res = await POST(makePostRequest(validCreateBody));
+
+      // The purge is best-effort; a scheduling failure must not fail creation.
+      expect(res.status).toBe(201);
     });
 
     it('persists unlimited-stock products as unmanaged inventory', async () => {

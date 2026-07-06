@@ -5,12 +5,36 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
-import { revalidateProducts } from '@/lib/cache-revalidation';
+import {
+  revalidateProductSlugs,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
+import { resolveProductPurgeCategorySegmentForRow } from '@/lib/storefront-product-purge-urls';
 
 const paramsSchema = z.object({
   id: z.uuid(),
 });
+
+/**
+ * The archived product row shape: slug/name + legacy text `category` + the
+ * `category_id` direct join + the `product_categories` junction, so the
+ * Cloudflare purge resolves the same join-driven canonical segment the
+ * storefront served (PR #2914 precedence: direct join → legacy text →
+ * junction). Archiving only flips `status`, so the row (and its junction rows)
+ * survive the update — the `update(...).select(...)` reuse avoids a separate
+ * pre-read.
+ */
+interface ArchivedProductRow {
+  id: string;
+  slug: string | null;
+  status: string;
+  name: string | null;
+  category: string | null;
+  categories: unknown;
+  product_categories: unknown;
+}
 
 function jsonError(error: string, status: number) {
   return NextResponse.json({ error }, { status });
@@ -45,8 +69,14 @@ export async function PATCH(
     .update({ status: 'archived', updated_at: new Date().toISOString() })
     .eq('id', parsedParams.data.id)
     .eq('merchant_id', access.merchantId)
-    .select('id, slug, status')
-    .single<{ id: string; slug: string | null; status: string }>();
+    // Read the purge inputs (legacy text `category` + the `category_id` direct
+    // join + the `product_categories` junction) alongside the archive so the
+    // eviction below resolves the row's canonical category segment. All three
+    // are immutable in this handler and survive the status flip.
+    .select(
+      'id, slug, status, name, category, categories:category_id(slug), product_categories(categories(slug))'
+    )
+    .single<ArchivedProductRow>();
 
   if (error) {
     if (error.code === 'PGRST116') {
@@ -58,5 +88,49 @@ export async function PATCH(
 
   revalidateProducts(access.merchantId, product.slug ?? undefined);
 
-  return NextResponse.json({ product, success: true });
+  // Archiving removes the product from listings AND changes its PDP (the
+  // storefront redirects archived slugs), yet nothing else evicts the raised
+  // edge TTL — the CDN would keep serving the pre-archive listing/PDP. Evict the
+  // affected public URLs the same way the DELETE route does. Fire-and-forget: a
+  // purge is always survivable (caches self-heal on their TTL), so it must never
+  // break the archive — guard the whole derive + schedule.
+  try {
+    // Legacy rows can have a null/blank slug but stay addressable at
+    // `/products/<id>`, so fall back to the id for the purge target.
+    const purgeSlug = product.slug?.trim() || parsedParams.data.id;
+    // Bust the archived slug's Next product cache BEFORE the edge purge so a
+    // post-purge MISS cannot refill a stale "product still listed" page. Runs
+    // first (needs only the merchant id) so a failed merchant-slug read below
+    // cannot skip it.
+    revalidateProductSlugs(access.merchantId, [purgeSlug]);
+    // scheduleStorefrontProductPurge needs the MERCHANT slug (this route auths
+    // via getUserAccess, which only yields the merchant id). Resolve it here; a
+    // miss makes the schedule a silent no-op (fail-open).
+    const { data: merchantRow } = await auth.supabase
+      .from('merchants')
+      .select('slug')
+      .eq('id', access.merchantId)
+      .single<{ slug: string | null }>();
+    scheduleStorefrontProductPurge(merchantRow?.slug, [
+      {
+        slug: purgeSlug,
+        categorySegment: resolveProductPurgeCategorySegmentForRow({
+          slug: purgeSlug,
+          name: product.name,
+          category: product.category,
+          categories: product.categories,
+          product_categories: product.product_categories,
+        }),
+      },
+    ]);
+  } catch (purgeError) {
+    console.warn('Skipped Cloudflare product purge after archive', {
+      purgeError,
+    });
+  }
+
+  return NextResponse.json({
+    product: { id: product.id, slug: product.slug, status: product.status },
+    success: true,
+  });
 }

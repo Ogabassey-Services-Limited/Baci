@@ -1,8 +1,18 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getInternalApiSecret } from '@/env';
-import { revalidateProducts } from '@/lib/cache-revalidation';
+import { enrichProductPurgeEntries } from '@/lib/authoritative-product-purge-enrichment';
+import {
+  revalidateProductSlugs,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
+import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
+import {
+  countDistinctProductPurgeEntries,
+  PURGE_LISTINGS_ONLY_THRESHOLD,
+} from '@/lib/storefront-product-purge-urls';
+import { createPublicClient } from '@/lib/supabase/public';
 import { internalRevalidateProductsBodySchema } from '@/schemas/internal-revalidate-products-route';
 
 /**
@@ -52,8 +62,59 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
+  const { merchantId, merchantSlug, products } = parsed.data;
+
   // Runs in a route context, so revalidateTag works here (unlike the CLI worker).
-  revalidateProducts(parsed.data.merchantId);
+  revalidateProducts(merchantId);
+
+  // When the caller supplies product entries, resolve them against the DB and
+  // bust their per-slug Next caches; when it ALSO supplies the merchant slug,
+  // evict the products' public URLs from Cloudflare (the standalone import
+  // worker and the mobile-admin save path have no Next store context, so this
+  // Bearer-authed route is where the purge reliably runs). The per-slug bust
+  // needs only merchantId, so it is deliberately NOT gated on merchantSlug — a
+  // failed slug lookup upstream must not leave stale PDP entries in the Next
+  // cache. Fire-and-forget: a purge is always survivable, so it must never
+  // fail the revalidation.
+  if (products && products.length > 0) {
+    try {
+      // Enrich from the product ROWS with the SAME resolution `/api/cache/revalidate`
+      // performs, so an {id}-only import/save entry purges the real slug/category
+      // URLs (not `/products/<uuid>`). Service-role client: this route is
+      // Anon public client per repo rule (no service-role for lookups): the
+      // anon policy exposes only ACTIVE rows, which is sufficient — draft/
+      // pending PDPs are never publicly cached, so an unresolved row simply
+      // falls back to the caller's hints + the always-purged fallback URLs.
+      // Fail-open lives inside the enrichment.
+      const supabase = createPublicClient({
+        clientInfo: 'internal-revalidate-products-purge',
+      });
+      const { entries, resolvedSlugs } = await enrichProductPurgeEntries(
+        supabase,
+        merchantId,
+        products
+      );
+      // Bust the per-slug Next product-detail caches for every resolved slug
+      // BEFORE scheduling the edge purge: getCachedProduct is tagged per-slug and
+      // is NOT invalidated by the slug-less revalidateProducts above, so a
+      // Cloudflare MISS would otherwise refill from stale Next data until TTL.
+      revalidateProductSlugs(merchantId, resolvedSlugs);
+      if (merchantSlug) {
+        // Base the fan-out threshold on the DISTINCT (slug, segment) count so
+        // duplicate entries for one product do not inflate the count and
+        // wrongly suppress its per-PDP purge.
+        const distinctPurgeCount = countDistinctProductPurgeEntries(entries);
+        scheduleStorefrontProductPurge(merchantSlug, entries, {
+          listingsOnly: distinctPurgeCount > PURGE_LISTINGS_ONLY_THRESHOLD,
+        });
+      }
+    } catch (purgeError) {
+      logger.error({
+        message: 'Skipped Cloudflare product purge in revalidate-products',
+        error: purgeError,
+      });
+    }
+  }
 
   return NextResponse.json({ ok: true }, { status: 200 });
 }

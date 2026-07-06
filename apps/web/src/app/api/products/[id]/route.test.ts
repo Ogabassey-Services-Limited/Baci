@@ -38,8 +38,17 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
   }),
 }));
 
+const mockRevalidateProductSlugs = vi.fn();
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: vi.fn(),
+  revalidateProductSlugs: (...args: unknown[]) =>
+    mockRevalidateProductSlugs(...args),
+}));
+
+const mockScheduleStorefrontProductPurge = vi.fn();
+vi.mock('@/lib/storefront-product-purge', () => ({
+  scheduleStorefrontProductPurge: (...args: unknown[]) =>
+    mockScheduleStorefrontProductPurge(...args),
 }));
 
 const mockPrewarmOgabasseyImageTransforms = vi
@@ -82,6 +91,25 @@ vi.mock('@/lib/seo-utils', () => ({
   generateProductSchema: () => ({ '@type': 'Product' }),
   generateProductSlug: (name: string) => name.toLowerCase().replace(/\s/g, '-'),
   generateSlug: (name: string) => name.toLowerCase().replace(/\s/g, '-'),
+  // Minimal canonical-path builder so resolveProductPurgeCategorySegment (the
+  // real helper) resolves a category segment from the mocked product data,
+  // honoring the join slug (from the direct or junction category) over the
+  // legacy text — mirroring the real getProductUrl precedence.
+  getProductUrl: (product: {
+    slug?: string;
+    category?: string | null;
+    categories?: { slug?: string; name?: string } | null;
+    category_slug?: string | null;
+  }) => {
+    const segment =
+      product.categories?.slug ||
+      product.category_slug ||
+      product.categories?.name ||
+      product.category;
+    return segment
+      ? `/${String(segment).toLowerCase().replace(/\s+/g, '-')}/${product.slug}`
+      : `/products/${product.slug}`;
+  },
 }));
 
 vi.mock('@/lib/countries', () => ({
@@ -130,6 +158,14 @@ let anchorVariants: unknown[] = [];
 let updateResult: unknown = null;
 let updateError: unknown = null;
 let deleteError: unknown = null;
+// The single product row the DELETE handler pre-reads (before the lean delete)
+// to derive its Cloudflare purge inputs, or null when the product no longer
+// exists. Returned by `.from('products').select(...).maybeSingle()`.
+let productToDelete: unknown = null;
+// Error returned by the DELETE handler's pre-read of the product's purge inputs
+// (before the lean delete). When set with a null `productToDelete` and a
+// successful delete, the handler schedules the id-based fallback purge.
+let preReadError: unknown = null;
 let variantInsertError: unknown = null;
 let variantUpsertError: unknown = null;
 let variantSyncError: { code?: string; message?: string } | null = null;
@@ -140,6 +176,15 @@ let lastRpcCall: {
 let lastProductUpdatePayload: unknown = null;
 const productUpdatePayloads: unknown[] = [];
 const lastVariantDeleteFilters: [string, unknown][] = [];
+// Captures every `.from('products').select(...)` argument (e.g. the pre-update
+// existingProduct fetch and the pre-delete purge-input fetch) so tests can
+// assert the Cloudflare purge reads the `categories:category_id(slug)` join and
+// the `product_categories(categories(slug))` junction.
+const productSelectArgs: string[] = [];
+// Ordered log of `products` table operations ('select' / 'delete') so tests can
+// assert the DELETE handler pre-reads the row BEFORE deleting it (the junction
+// rows cascade away with the delete, so reading after would come back empty).
+const productOps: string[] = [];
 
 const createMockSupabase = () => ({
   rpc: vi.fn((functionName: string, args: Record<string, unknown>) => {
@@ -184,6 +229,9 @@ const createMockSupabase = () => ({
       const deleteChain: { eq: ReturnType<typeof vi.fn> } = {
         eq: vi.fn((): unknown => {
           eqCallCount++;
+          // The route now runs a LEAN delete (`delete().eq('id').eq('merchant')`)
+          // with no trailing select — the purge inputs are pre-read separately
+          // via `select(...).maybeSingle()` before the delete.
           if (eqCallCount >= 2) {
             return Promise.resolve({ error: deleteError });
           }
@@ -191,13 +239,33 @@ const createMockSupabase = () => ({
         }),
       };
 
-      return {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
+      const productsApi: {
+        select: ReturnType<typeof vi.fn>;
+        eq: ReturnType<typeof vi.fn>;
+        single: ReturnType<typeof vi.fn>;
+        maybeSingle: ReturnType<typeof vi.fn>;
+        update: ReturnType<typeof vi.fn>;
+        delete: ReturnType<typeof vi.fn>;
+      } = {
+        select: vi.fn((arg?: string) => {
+          if (typeof arg === 'string') {
+            productSelectArgs.push(arg);
+          }
+          productOps.push('select');
+          return productsApi;
+        }),
+        eq: vi.fn(() => productsApi),
         single: vi.fn(() =>
           Promise.resolve({
             data: productError ? null : product,
             error: productError,
+          })
+        ),
+        maybeSingle: vi.fn(() =>
+          // The DELETE handler pre-reads the row's purge inputs here.
+          Promise.resolve({
+            data: productToDelete,
+            error: preReadError,
           })
         ),
         update: vi.fn((payload: unknown) => {
@@ -220,9 +288,11 @@ const createMockSupabase = () => ({
         }),
         delete: vi.fn(() => {
           eqCallCount = 0; // Reset counter
+          productOps.push('delete');
           return deleteChain;
         }),
       };
+      return productsApi;
     }
     if (table === 'product_variants') {
       const variantSelectFilters: [string, unknown][] = [];
@@ -368,6 +438,8 @@ function resetMocks() {
   updateResult = null;
   updateError = null;
   deleteError = null;
+  productToDelete = null;
+  preReadError = null;
   variantInsertError = null;
   variantUpsertError = null;
   variantSyncError = null;
@@ -375,6 +447,8 @@ function resetMocks() {
   lastProductUpdatePayload = null;
   productUpdatePayloads.length = 0;
   lastVariantDeleteFilters.length = 0;
+  productSelectArgs.length = 0;
+  productOps.length = 0;
   csrfValid = true;
 }
 
@@ -680,6 +754,257 @@ describe('PUT /api/products/[id]', () => {
       expect(res.status).toBe(200);
       expect(json.product).toBeDefined();
       expect(json.product.name).toBe('Updated Product');
+    });
+
+    it('schedules a Cloudflare purge for the updated product and reads the category join', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Old Name',
+        description: 'Old description',
+        condition: 'new',
+        slug: 'updated-product',
+        category: 'Smartphones',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        slug: 'updated-product',
+        category: 'Smartphones',
+      };
+
+      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      // Slug and category are unchanged, so only the single (new) entry is
+      // purged — no spurious old-slug/old-category entry.
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [{ slug: 'updated-product', categorySegment: 'smartphones' }]
+      );
+      // The pre-update fetch must read the category_id join so the purge can
+      // resolve the same join-driven canonical the storefront serves.
+      expect(productSelectArgs[0]).toContain('categories:category_id(slug)');
+    });
+
+    it('busts per-slug Next caches (old + new) before the rename purge', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Old Name',
+        description: 'Old description',
+        condition: 'new',
+        slug: 'old-name',
+        category: 'Smartphones',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        slug: 'updated-product',
+        category: 'Smartphones',
+      };
+
+      await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(
+        MERCHANT_ID,
+        expect.arrayContaining(['updated-product', 'old-name'])
+      );
+      expect(
+        mockRevalidateProductSlugs.mock.invocationCallOrder[0]
+      ).toBeLessThan(
+        mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]
+      );
+    });
+
+    it('purges both the old and new slug when a rename changes the slug', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Old Name',
+        description: 'Old description',
+        condition: 'new',
+        slug: 'old-name',
+        category: 'Smartphones',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        slug: 'updated-product',
+        category: 'Smartphones',
+      };
+
+      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [
+          { slug: 'updated-product', categorySegment: 'smartphones' },
+          { slug: 'old-name', categorySegment: 'smartphones' },
+        ]
+      );
+    });
+
+    it('purges the OLD category segment (not the new one) when a rename also moves the category', async () => {
+      // The OLD row lived at /audio/old-name; the update renames it AND moves it
+      // to Smartphones. The old entry must carry the OLD segment (audio) so the
+      // builder evicts /audio/old-name and the /audio listing — deriving the old
+      // entry from the new segment would purge /smartphones/old-name (never
+      // cached) and leave the stale /audio URLs live.
+      product = {
+        id: PRODUCT_ID,
+        name: 'Old Name',
+        description: 'Old description',
+        condition: 'new',
+        slug: 'old-name',
+        category: 'Audio',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        slug: 'updated-product',
+        category: 'Smartphones',
+      };
+
+      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [
+          { slug: 'updated-product', categorySegment: 'smartphones' },
+          { slug: 'old-name', categorySegment: 'audio' },
+        ]
+      );
+    });
+
+    it('purges the old category listing when only the category moves (slug unchanged)', async () => {
+      // A category move without a rename still leaves /audio/gadget and the
+      // /audio listing cached, so the old entry (same slug, OLD segment) is
+      // pushed alongside the new one.
+      product = {
+        id: PRODUCT_ID,
+        name: 'Gadget',
+        description: 'Old description',
+        condition: 'new',
+        slug: 'gadget',
+        category: 'Audio',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Gadget',
+        slug: 'gadget',
+        category: 'Smartphones',
+      };
+
+      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [
+          { slug: 'gadget', categorySegment: 'smartphones' },
+          { slug: 'gadget', categorySegment: 'audio' },
+        ]
+      );
+    });
+
+    it('purges the junction category when there is no direct join and no legacy text', async () => {
+      // The product is assigned ONLY via the product_categories junction (no
+      // category_id, no legacy text), so its canonical PDP still lives under the
+      // junction category and must be purged there — not at /products/<slug>.
+      product = {
+        id: PRODUCT_ID,
+        name: 'Cable',
+        description: 'Old description',
+        condition: 'new',
+        slug: 'usb-c-cable',
+        category: null,
+        categories: null,
+        product_categories: [{ categories: { slug: 'accessories' } }],
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Cable',
+        slug: 'usb-c-cable',
+        category: null,
+      };
+
+      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [{ slug: 'usb-c-cable', categorySegment: 'accessories' }]
+      );
+      // The pre-update fetch must read the junction embed too.
+      expect(productSelectArgs[0]).toContain(
+        'product_categories(categories(slug))'
+      );
+    });
+
+    it('falls back to the product id for the purge target when the slug is null', async () => {
+      // Legacy rows can have a null slug but stay addressable at /products/<id>.
+      product = {
+        id: PRODUCT_ID,
+        name: 'Legacy',
+        description: 'Old description',
+        condition: 'new',
+        slug: null,
+        category: null,
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Legacy',
+        slug: null,
+        category: null,
+      };
+
+      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [{ slug: PRODUCT_ID, categorySegment: null }]
+      );
+    });
+
+    it('completes the update even when scheduling the purge throws', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Old Name',
+        description: 'Old description',
+        condition: 'new',
+        slug: 'updated-product',
+      };
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        slug: 'updated-product',
+        category: 'Smartphones',
+      };
+      mockScheduleStorefrontProductPurge.mockImplementationOnce(() => {
+        throw new Error('purge scheduling failed');
+      });
+
+      const res = await PUT(makePutRequest(PRODUCT_ID, validUpdateBody), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      // The purge is best-effort; a scheduling failure must not fail the update.
+      expect(res.status).toBe(200);
     });
 
     it('preserves explicit images when single-image fields are also provided', async () => {
@@ -1559,6 +1884,183 @@ describe('DELETE /api/products/[id]', () => {
       });
 
       expect(mockPrewarmOgabasseyImageTransforms).not.toHaveBeenCalled();
+    });
+
+    it('schedules a Cloudflare purge for the deleted product', async () => {
+      deleteError = null;
+      productToDelete = {
+        slug: 'iphone-15',
+        name: 'iPhone 15',
+        category: 'Smartphones',
+      };
+
+      const res = await DELETE(makeDeleteRequest(PRODUCT_ID), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+      );
+      // The deleted slug's Next cache tag is busted BEFORE the edge purge so a
+      // post-purge MISS cannot refill a stale "product exists" page.
+      expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
+        'iphone-15',
+      ]);
+      expect(
+        mockRevalidateProductSlugs.mock.invocationCallOrder[0]
+      ).toBeLessThan(
+        mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]
+      );
+    });
+
+    it('pre-reads the row (select before delete) and reads the category_id join', async () => {
+      deleteError = null;
+      productToDelete = {
+        slug: 'iphone-15',
+        name: 'iPhone 15',
+        category: 'Smartphones',
+        categories: { slug: 'smartphones' },
+      };
+
+      const res = await DELETE(makeDeleteRequest(PRODUCT_ID), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      // The purge inputs must be read BEFORE the delete — the junction rows
+      // cascade away with the delete, so a post-delete read would be empty.
+      expect(productOps).toEqual(['select', 'delete']);
+      // The pre-delete select must fetch the join so the purge resolves the same
+      // join-driven canonical the storefront served (PR #2914).
+      expect(
+        productSelectArgs.some((arg) =>
+          arg.includes('categories:category_id(slug)')
+        )
+      ).toBe(true);
+    });
+
+    it('schedules an id-based fallback purge when the pre-read is null but the delete succeeded', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      try {
+        deleteError = null;
+        // Pre-read returned no row, yet the delete succeeded — the deleted
+        // product's cached 200 must still be evicted via the id fallback.
+        productToDelete = null;
+
+        const res = await DELETE(makeDeleteRequest(PRODUCT_ID), {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        });
+
+        expect(res.status).toBe(200);
+        expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+          'test-store',
+          [{ slug: PRODUCT_ID, categorySegment: null }]
+        );
+        expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
+          PRODUCT_ID,
+        ]);
+        expect(
+          mockRevalidateProductSlugs.mock.invocationCallOrder[0]
+        ).toBeLessThan(
+          mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]
+        );
+      } finally {
+        consoleWarnSpy.mockRestore();
+      }
+    });
+
+    it('schedules an id-based fallback purge when the pre-read errored but the delete succeeded', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      try {
+        deleteError = null;
+        productToDelete = null;
+        preReadError = { message: 'read failed' };
+
+        const res = await DELETE(makeDeleteRequest(PRODUCT_ID), {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        });
+
+        expect(res.status).toBe(200);
+        // Falls back to the route's product id so `/`, `/products`, and
+        // `/products/<id>` are evicted even though the row is unknown.
+        expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+          'test-store',
+          [{ slug: PRODUCT_ID, categorySegment: null }]
+        );
+        expect(consoleWarnSpy).toHaveBeenCalledWith(
+          'Product purge pre-read missing after delete; scheduling id-based fallback purge',
+          expect.objectContaining({ id: PRODUCT_ID })
+        );
+      } finally {
+        consoleWarnSpy.mockRestore();
+      }
+    });
+
+    it('purges the junction category and reads the junction embed on the pre-delete select', async () => {
+      deleteError = null;
+      // Assigned ONLY via the product_categories junction (no category_id, no
+      // legacy text) — the junction rows only exist BEFORE the cascading delete.
+      productToDelete = {
+        slug: 'usb-c-cable',
+        name: 'Cable',
+        category: null,
+        categories: null,
+        product_categories: [{ categories: { slug: 'accessories' } }],
+      };
+
+      const res = await DELETE(makeDeleteRequest(PRODUCT_ID), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [{ slug: 'usb-c-cable', categorySegment: 'accessories' }]
+      );
+      expect(
+        productSelectArgs.some((arg) =>
+          arg.includes('product_categories(categories(slug))')
+        )
+      ).toBe(true);
+    });
+
+    it('falls back to the product id for the purge when the deleted slug is null', async () => {
+      deleteError = null;
+      productToDelete = { slug: null, name: 'Legacy', category: null };
+
+      await DELETE(makeDeleteRequest(PRODUCT_ID), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'test-store',
+        [{ slug: PRODUCT_ID, categorySegment: null }]
+      );
+    });
+
+    it('completes the delete even when scheduling the purge throws', async () => {
+      deleteError = null;
+      productToDelete = {
+        slug: 'iphone-15',
+        name: 'iPhone 15',
+        category: 'Smartphones',
+      };
+      mockScheduleStorefrontProductPurge.mockImplementationOnce(() => {
+        throw new Error('purge scheduling failed');
+      });
+
+      const res = await DELETE(makeDeleteRequest(PRODUCT_ID), {
+        params: Promise.resolve({ id: PRODUCT_ID }),
+      });
+
+      // The purge is best-effort; a scheduling failure must not fail the delete.
+      expect(res.status).toBe(200);
     });
   });
 

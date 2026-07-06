@@ -8,6 +8,7 @@ import {
   applyAdminProductStockFilter,
   fetchAdminProductSearchRows,
 } from '@/lib/product-search';
+import { revalidateStorefrontProducts } from '@/lib/revalidate-storefront-products';
 import { supabase } from '@/lib/supabase';
 import type { Product, ProductStatus, ProductsPage } from './products.types';
 
@@ -78,7 +79,18 @@ export async function updateProductStock(
     .single();
 
   if (error) throw new Error(error.message);
-  return normalizeProductInventory(data);
+  const product = normalizeProductInventory(data);
+
+  // The quick stock edit mutated the product via Supabase directly (no web
+  // route ran), so nothing evicted the storefront's raised-TTL edge cache.
+  // Fire-and-forget the SAME purge the save path uses (never awaited, never
+  // throws) so the storefront reflects the new stock/availability immediately.
+  void revalidateStorefrontProducts(
+    [{ slug: product.slug, id: product.id, category: product.category }],
+    merchantId
+  );
+
+  return product;
 }
 
 export async function updateProductStatus(
@@ -95,7 +107,18 @@ export async function updateProductStatus(
     .single();
 
   if (error) throw new Error(error.message);
-  return normalizeProductInventory(data);
+  const product = normalizeProductInventory(data);
+
+  // A status flip (e.g. archive/activate) changes what the storefront lists and
+  // serves, but was written straight to Supabase with no web route to evict the
+  // raised-TTL edge cache. Fire-and-forget the same storefront purge the save
+  // path uses (never awaited, never throws).
+  void revalidateStorefrontProducts(
+    [{ slug: product.slug, id: product.id, category: product.category }],
+    merchantId
+  );
+
+  return product;
 }
 
 export type { AdminProductStockFilter };

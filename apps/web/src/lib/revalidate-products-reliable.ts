@@ -1,5 +1,18 @@
 import { getAppUrl, getInternalApiSecret } from '@/env';
-import { revalidateProducts } from '@/lib/cache-revalidation';
+import {
+  revalidateProductSlugs,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
+import {
+  buildInternalProductPurgeEntries,
+  collectResolvedProductSlugs,
+} from '@/lib/internal-product-purge-entries';
+import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
+import {
+  countDistinctProductPurgeEntries,
+  PURGE_LISTINGS_ONLY_THRESHOLD,
+} from '@/lib/storefront-product-purge-urls';
+import type { InternalRevalidateProductEntry } from '@/schemas/internal-revalidate-products-route';
 
 interface RevalidateProductsReliableOptions {
   /** Injectable for tests. */
@@ -10,6 +23,15 @@ interface RevalidateProductsReliableOptions {
   secret?: string;
   /** HTTP fallback timeout. */
   timeoutMs?: number;
+  /**
+   * Merchant slug (or a custom hostname) identifying the storefront cache
+   * policy. Required — together with `products` — to additionally purge the
+   * affected products' public URLs from Cloudflare. Omit to only revalidate the
+   * Next caches (the pre-existing behavior).
+   */
+  merchantSlug?: string;
+  /** Products whose public URLs should also be evicted from Cloudflare. */
+  products?: readonly InternalRevalidateProductEntry[];
 }
 
 /**
@@ -32,11 +54,34 @@ export async function revalidateProductsReliable(
   merchantId: string,
   options: RevalidateProductsReliableOptions = {}
 ): Promise<void> {
+  const { merchantSlug, products } = options;
+  const shouldPurge = Boolean(merchantSlug && products && products.length > 0);
+
   try {
     revalidateProducts(merchantId);
-    return; // In-process revalidation succeeded (we had a Next store context).
+    // In-process revalidation succeeded (we had a Next store context), so the
+    // Cloudflare purge can be scheduled in-process too (scheduleStorefrontProductPurge
+    // is guarded and never throws). Return before the HTTP fallback.
+    // Per-slug Next cache busting needs only merchantId — run it for every
+    // products-carrying call, decoupled from the merchant-slug-gated Cloudflare
+    // purge (a failed slug lookup must not skip the Next-layer bust).
+    if (products && products.length > 0) {
+      revalidateProductSlugs(merchantId, collectResolvedProductSlugs(products));
+    }
+    if (shouldPurge && merchantSlug && products) {
+      // Mirror the HTTP route's fan-out guard: base the listings-only decision
+      // on the DISTINCT (slug, segment) count so duplicate entries for one
+      // product do not inflate the count and wrongly suppress its per-PDP purge.
+      const purgeEntries = buildInternalProductPurgeEntries(products);
+      const distinctPurgeCount = countDistinctProductPurgeEntries(purgeEntries);
+      scheduleStorefrontProductPurge(merchantSlug, purgeEntries, {
+        listingsOnly: distinctPurgeCount > PURGE_LISTINGS_ONLY_THRESHOLD,
+      });
+    }
+    return;
   } catch {
-    // No store context (standalone worker) — fall back to the HTTP endpoint.
+    // No store context (standalone worker) — fall back to the HTTP endpoint,
+    // which forwards the purge inputs so the route schedules the purge instead.
   }
 
   const secret = options.secret ?? getInternalApiSecret();
@@ -64,7 +109,14 @@ export async function revalidateProductsReliable(
           Authorization: `Bearer ${secret}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ merchantId }),
+        // Forward `products` whenever available — even without a resolved
+        // merchantSlug — so the route can still bust the per-slug Next caches;
+        // the route gates only the Cloudflare purge on merchantSlug.
+        body: JSON.stringify({
+          merchantId,
+          ...(merchantSlug ? { merchantSlug } : {}),
+          ...(products && products.length > 0 ? { products } : {}),
+        }),
         signal: AbortSignal.timeout(options.timeoutMs ?? 5000),
       }
     );

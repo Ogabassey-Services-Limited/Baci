@@ -9,6 +9,7 @@ type RpcResponse = {
 
 const mocks = vi.hoisted(() => ({
   assertNoDuplicateProduct: vi.fn(),
+  revalidateStorefrontProducts: vi.fn(),
   calls: [] as RpcCall[],
   response: {
     data: null,
@@ -26,6 +27,11 @@ vi.mock('@/lib/product-inventory', () => ({
     ...product,
     normalized: true,
   }),
+}));
+
+vi.mock('@/lib/revalidate-storefront-products', () => ({
+  revalidateStorefrontProducts: (...args: unknown[]) =>
+    mocks.revalidateStorefrontProducts(...args),
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -87,11 +93,14 @@ const productForm = {
 describe('product save helpers', () => {
   beforeEach(() => {
     mocks.assertNoDuplicateProduct.mockReset();
+    mocks.revalidateStorefrontProducts.mockReset();
     mocks.calls = [];
     mocks.response = {
       data: {
         id: 'product-1',
         name: 'Ankara Bag',
+        slug: 'ankara-bag',
+        category: 'Bags',
         variant_model: 'sku_matrix',
       },
       error: null,
@@ -151,6 +160,181 @@ describe('product save helpers', () => {
       }),
       name: 'save_mobile_admin_product_with_variants',
     });
+  });
+
+  it('schedules a storefront purge with the saved product after a successful save', async () => {
+    await createProductRecord({
+      merchantId: 'merchant-1',
+      newProduct: productForm,
+    });
+
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith(
+      [{ slug: 'ankara-bag', id: 'product-1', category: 'Bags' }],
+      'merchant-1'
+    );
+  });
+
+  it('carries previousCategoryId on the primary entry AND keeps the text hint when an edit moves the product to a new category', async () => {
+    mocks.response = {
+      data: {
+        id: 'product-1',
+        name: 'Ankara Bag',
+        slug: 'ankara-bag',
+        category: 'Handbags',
+        category_id: 'cat-new',
+        variant_model: 'sku_matrix',
+      },
+      error: null,
+    };
+
+    await updateProductRecord({
+      id: 'product-1',
+      merchantId: 'merchant-1',
+      updates: productForm,
+      previousCategory: 'Bags',
+      previousCategoryId: 'cat-old',
+    });
+
+    // Primary entry (id-carrying, NEW category) now ALSO carries the OLD
+    // category id — the web route resolves it to the authoritative old slug and
+    // appends the old-segment purge, so a stale legacy display-name text can no
+    // longer shadow the correct old segment. The no-id text hint is KEPT too
+    // (belt-and-braces); the builder dedupes exact (slug, segment) pairs.
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith(
+      [
+        {
+          slug: 'ankara-bag',
+          id: 'product-1',
+          category: 'Handbags',
+          previousCategoryId: 'cat-old',
+        },
+        { slug: 'ankara-bag', category: 'Bags' },
+      ],
+      'merchant-1'
+    );
+  });
+
+  it('carries previousCategoryId on the primary entry for a category_id-only move (blank legacy text)', async () => {
+    // Mobile persists only category_id; the legacy text is blank. The move is by
+    // id alone, so the old segment cannot be hinted from text — the primary
+    // entry carries previousCategoryId for the web route to resolve server-side.
+    mocks.response = {
+      data: {
+        id: 'product-1',
+        name: 'Ankara Bag',
+        slug: 'ankara-bag',
+        category: null,
+        category_id: 'cat-new',
+        variant_model: 'sku_matrix',
+      },
+      error: null,
+    };
+
+    await updateProductRecord({
+      id: 'product-1',
+      merchantId: 'merchant-1',
+      updates: productForm,
+      previousCategory: null,
+      previousCategoryId: 'cat-old',
+    });
+
+    // A SINGLE entry (no text hint available) — the primary entry carries the
+    // old category id so the web route can purge the old listing + PDP.
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith(
+      [
+        {
+          slug: 'ankara-bag',
+          id: 'product-1',
+          category: null,
+          previousCategoryId: 'cat-old',
+        },
+      ],
+      'merchant-1'
+    );
+  });
+
+  it('does not carry previousCategoryId when a category_id-only edit does not move the product', async () => {
+    mocks.response = {
+      data: {
+        id: 'product-1',
+        name: 'Ankara Bag',
+        slug: 'ankara-bag',
+        category: null,
+        category_id: 'cat-old',
+        variant_model: 'sku_matrix',
+      },
+      error: null,
+    };
+
+    await updateProductRecord({
+      id: 'product-1',
+      merchantId: 'merchant-1',
+      updates: productForm,
+      previousCategory: null,
+      previousCategoryId: 'cat-old',
+    });
+
+    // Same category_id both sides → no move → no previousCategoryId, no hint.
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith(
+      [{ slug: 'ankara-bag', id: 'product-1', category: null }],
+      'merchant-1'
+    );
+  });
+
+  it('schedules a single entry when an edit does not change the category', async () => {
+    mocks.response = {
+      data: {
+        id: 'product-1',
+        name: 'Ankara Bag',
+        slug: 'ankara-bag',
+        category: 'Bags',
+        category_id: 'cat-old',
+        variant_model: 'sku_matrix',
+      },
+      error: null,
+    };
+
+    await updateProductRecord({
+      id: 'product-1',
+      merchantId: 'merchant-1',
+      updates: productForm,
+      previousCategory: 'Bags',
+      previousCategoryId: 'cat-old',
+    });
+
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith(
+      [{ slug: 'ankara-bag', id: 'product-1', category: 'Bags' }],
+      'merchant-1'
+    );
+  });
+
+  it('schedules a single entry for a create (no previous category to purge)', async () => {
+    await createProductRecord({
+      merchantId: 'merchant-1',
+      newProduct: productForm,
+    });
+
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith(
+      [{ slug: 'ankara-bag', id: 'product-1', category: 'Bags' }],
+      'merchant-1'
+    );
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not schedule a storefront purge when the save RPC fails', async () => {
+    mocks.response = {
+      data: null,
+      error: { code: '23505', message: 'duplicate key value violates unique' },
+    };
+
+    await expect(
+      createProductRecord({
+        merchantId: 'merchant-1',
+        newProduct: productForm,
+      })
+    ).rejects.toThrow();
+
+    expect(mocks.revalidateStorefrontProducts).not.toHaveBeenCalled();
   });
 
   it('maps duplicate RPC errors to the product duplicate message', async () => {

@@ -3,15 +3,48 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetInternalApiSecret = vi.fn();
 const mockRevalidateProducts = vi.fn();
+const mockRevalidateProductSlugs = vi.fn();
+const mockScheduleStorefrontProductPurge = vi.fn();
+const mockCreateAdminClient = vi.fn();
 
 vi.mock('@/env', () => ({
   getInternalApiSecret: () => mockGetInternalApiSecret(),
 }));
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
+  revalidateProductSlugs: (...args: unknown[]) =>
+    mockRevalidateProductSlugs(...args),
+}));
+vi.mock('@/lib/storefront-product-purge', () => ({
+  scheduleStorefrontProductPurge: (...args: unknown[]) =>
+    mockScheduleStorefrontProductPurge(...args),
+}));
+vi.mock('@/lib/supabase/public', () => ({
+  createPublicClient: (...args: unknown[]) => mockCreateAdminClient(...args),
+  createClient: (...args: unknown[]) => mockCreateAdminClient(...args),
 }));
 
 import { POST } from './route';
+
+/**
+ * Minimal service-role stub matching the enrichment's
+ * `.from(table).select(...).eq('merchant_id', …).in('id', …)` chain.
+ */
+function makeAdminClient(productRows: Record<string, unknown>[] = []) {
+  return {
+    from: (table: string) => ({
+      select: () => ({
+        eq: () => ({
+          in: () =>
+            Promise.resolve({
+              data: table === 'products' ? productRows : [],
+              error: null,
+            }),
+        }),
+      }),
+    }),
+  };
+}
 
 const SECRET = 'test-internal-secret';
 const MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
@@ -34,6 +67,7 @@ describe('POST /api/internal/revalidate-products', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetInternalApiSecret.mockReturnValue(SECRET);
+    mockCreateAdminClient.mockReturnValue(makeAdminClient([]));
   });
 
   it('revalidates the merchant product caches for a valid authed request', async () => {
@@ -44,6 +78,100 @@ describe('POST /api/internal/revalidate-products', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
     expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+  });
+
+  it('does NOT schedule a purge for a merchantId-only body', async () => {
+    await POST(request({ merchantId: MERCHANT_ID }, `Bearer ${SECRET}`));
+
+    expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+  });
+
+  it('schedules a purge when merchantSlug and products are present', async () => {
+    const res = await POST(
+      request(
+        {
+          merchantId: MERCHANT_ID,
+          merchantSlug: 'ogabassey',
+          products: [{ slug: 'iphone-15', category: 'Smartphones' }],
+        },
+        `Bearer ${SECRET}`
+      )
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'ogabassey',
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+      { listingsOnly: false }
+    );
+  });
+
+  it('resolves authoritative rows and busts per-slug Next caches BEFORE scheduling the purge (F1 + F3)', async () => {
+    // {id}-only entry: the enrichment must resolve the real slug/category from
+    // the authoritative row (service-role client) instead of purging /products/<uuid>.
+    mockCreateAdminClient.mockReturnValue(
+      makeAdminClient([
+        {
+          id: 'prod-1',
+          slug: 'iphone-15',
+          name: 'iPhone 15',
+          category: 'Smartphones',
+          categories: null,
+          product_categories: [],
+        },
+      ])
+    );
+
+    const res = await POST(
+      request(
+        {
+          merchantId: MERCHANT_ID,
+          merchantSlug: 'ogabassey',
+          products: [{ id: 'prod-1' }],
+        },
+        `Bearer ${SECRET}`
+      )
+    );
+
+    expect(res.status).toBe(200);
+    // Authoritative slug + category resolved from the row (not the uuid path).
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'ogabassey',
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+      { listingsOnly: false }
+    );
+    // Per-slug Next caches busted for the authoritative slug + id, BEFORE the
+    // edge purge is scheduled.
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
+      'iphone-15',
+      'prod-1',
+    ]);
+    expect(mockRevalidateProductSlugs.mock.invocationCallOrder[0]).toBeLessThan(
+      mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('busts per-slug Next caches for products sent WITHOUT merchantSlug (purge skipped)', async () => {
+    const res = await POST(
+      request(
+        {
+          merchantId: MERCHANT_ID,
+          products: [{ slug: 'iphone-15', category: 'Smartphones' }],
+        },
+        `Bearer ${SECRET}`
+      )
+    );
+
+    // The per-slug Next bust needs only merchantId — a caller whose merchant-slug
+    // lookup failed must still get its PDP caches busted; only the Cloudflare
+    // purge (which needs the storefront hostname) is skipped.
+    expect(res.status).toBe(200);
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(
+      MERCHANT_ID,
+      expect.arrayContaining(['iphone-15'])
+    );
+    expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
   });
 
   it('returns 500 when the internal secret is not configured', async () => {

@@ -1,7 +1,10 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
-import { revalidateProducts } from '@/lib/cache-revalidation';
+import {
+  revalidateProductSlugs,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getCurrencyConfig } from '@/lib/currency';
 import {
@@ -9,8 +12,53 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { generateProductSlug, generateSlug } from '@/lib/seo-utils';
+import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
+import {
+  countDistinctProductPurgeEntries,
+  PURGE_LISTINGS_ONLY_THRESHOLD,
+  resolveProductPurgeCategorySegment,
+  resolveProductPurgeCategorySegmentForRow,
+  type StorefrontProductPurgeEntry,
+} from '@/lib/storefront-product-purge-urls';
 import { createClient } from '@/lib/supabase/server';
 import { BulkUpdateChangesSchema } from '@/schemas/dashboard-product-import-actions';
+
+// The columns a bulk-affected product row must return so its canonical PDP
+// purge URL can be derived (id is the slug fallback for legacy null-slug rows;
+// the direct join + junction resolve the same canonical the storefront serves).
+const BULK_PURGE_ROW_COLUMNS =
+  'id, slug, category, categories:category_id(slug), product_categories(categories(slug))';
+
+interface BulkPurgeProductRow {
+  id: string;
+  slug: string | null;
+  category: string | null;
+  categories?: unknown;
+  product_categories?: unknown;
+}
+
+function collectPurgeEntriesFromRows(
+  rows: BulkPurgeProductRow[] | null | undefined,
+  into: StorefrontProductPurgeEntry[]
+): void {
+  for (const row of rows ?? []) {
+    // Legacy rows can have a null/blank slug but stay addressable by id
+    // (`/products/<id>`), so fall back to the id for the purge target.
+    const slug = row.slug?.trim() || row.id;
+    if (!slug) {
+      continue;
+    }
+    into.push({
+      slug,
+      categorySegment: resolveProductPurgeCategorySegmentForRow({
+        slug,
+        category: row.category,
+        categories: row.categories,
+        product_categories: row.product_categories,
+      }),
+    });
+  }
+}
 
 export async function POST(request: NextRequest) {
   const { valid, response } = await checkCsrfProtection(request);
@@ -86,6 +134,10 @@ export async function POST(request: NextRequest) {
       errors: [] as string[],
     };
 
+    // Product purge targets accumulated across the whole batch so the raised
+    // storefront edge TTL never serves a stale listing/PDP after a bulk edit.
+    const purgeEntries: StorefrontProductPurgeEntry[] = [];
+
     for (const change of changes) {
       try {
         if (change.type === 'update') {
@@ -132,8 +184,17 @@ export async function POST(request: NextRequest) {
               .eq('merchant_id', merchantId);
           }
 
-          const { error } = await matchQuery;
+          // Return the affected rows (slug + category joins) in the SAME query
+          // so the Cloudflare purge covers every updated PDP/listing without an
+          // extra round trip.
+          const { data: updatedRows, error } = await matchQuery.select(
+            BULK_PURGE_ROW_COLUMNS
+          );
           if (error) throw error;
+          collectPurgeEntriesFromRows(
+            updatedRows as BulkPurgeProductRow[] | null,
+            purgeEntries
+          );
           results.updated++;
         } else if (change.type === 'new') {
           const slug = generateProductSlug(
@@ -145,53 +206,81 @@ export async function POST(request: NextRequest) {
             change.details.sku ||
             generateSlug(change.details.name).toUpperCase().substring(0, 20);
 
-          // Basic product insert
-          const { error } = await supabase.from('products').insert({
-            merchant_id: merchantId,
-            name: change.details.name,
-            description: change.details.description || '',
-            price: change.details.price,
-            cost_price: change.details.cost_price,
-            stock_quantity: change.details.stock || 0,
-            sku: sku,
-            slug: slug,
-            status: 'draft', // Always draft for new imports
-            condition: 'new',
-            manage_stock: true,
-            brand: change.details.brand || merchantBusinessName,
-
-            category: change.details.category || 'General',
-            taxable: true,
-            // Minimal defaults
-            schema_markup: {
-              '@context': 'https://schema.org/',
-              '@type': 'Product',
+          // Basic product insert (returning `id` in the same round trip so a
+          // blank generated slug can still purge via the id fallback below)
+          const { data: insertedRow, error } = await supabase
+            .from('products')
+            .insert({
+              merchant_id: merchantId,
               name: change.details.name,
+              description: change.details.description || '',
+              price: change.details.price,
+              cost_price: change.details.cost_price,
+              stock_quantity: change.details.stock || 0,
               sku: sku,
-              brand: {
-                '@type': 'Brand',
-                name: change.details.brand || merchantBusinessName,
+              slug: slug,
+              status: 'draft', // Always draft for new imports
+              condition: 'new',
+              manage_stock: true,
+              brand: change.details.brand || merchantBusinessName,
+
+              category: change.details.category || 'General',
+              taxable: true,
+              // Minimal defaults
+              schema_markup: {
+                '@context': 'https://schema.org/',
+                '@type': 'Product',
+                name: change.details.name,
+                sku: sku,
+                brand: {
+                  '@type': 'Brand',
+                  name: change.details.brand || merchantBusinessName,
+                },
+                offers: {
+                  '@type': 'Offer',
+                  priceCurrency: currency,
+                  price: change.details.price,
+                  availability: 'https://schema.org/InStock',
+                },
               },
-              offers: {
-                '@type': 'Offer',
-                priceCurrency: currency,
-                price: change.details.price,
-                availability: 'https://schema.org/InStock',
-              },
-            },
-          });
+            })
+            .select('id')
+            .maybeSingle();
 
           if (error) throw error;
+          // A freshly inserted product has no `category_id`/junction yet, so its
+          // canonical segment derives from the legacy text (or the /products
+          // fallback). Fall back to the inserted row's id when the generated
+          // slug is blank (fully-stripped names) — an empty entry would be
+          // dropped and even the listing purges skipped.
+          const createdPurgeSlug = slug?.trim() || insertedRow?.id;
+          if (createdPurgeSlug) {
+            purgeEntries.push({
+              slug: createdPurgeSlug,
+              categorySegment: resolveProductPurgeCategorySegment({
+                slug: createdPurgeSlug,
+                name: change.details.name,
+                // Mirror the inserted `category` (defaults to 'General') so the
+                // purge targets the same listing the new product is filed under.
+                category: change.details.category || 'General',
+              }),
+            });
+          }
           results.created++;
         } else if (change.type === 'remove') {
           // Remove Logic (Archive)
           if (change.productId) {
-            const { error } = await supabase
+            const { data: archivedRows, error } = await supabase
               .from('products')
               .update({ status: 'archived' })
               .eq('id', change.productId)
-              .eq('merchant_id', merchantId);
+              .eq('merchant_id', merchantId)
+              .select(BULK_PURGE_ROW_COLUMNS);
             if (error) throw error;
+            collectPurgeEntriesFromRows(
+              archivedRows as BulkPurgeProductRow[] | null,
+              purgeEntries
+            );
             results.removed++;
           }
         }
@@ -211,6 +300,36 @@ export async function POST(request: NextRequest) {
 
     // Invalidate product caches after bulk update
     revalidateProducts(merchantId);
+
+    // Evict the Cloudflare-fronted public URLs the batch changed so the raised
+    // edge TTL never serves stale listings/PDPs. Fire-and-forget: a purge is
+    // always survivable (caches self-heal on their TTL), so it must never break
+    // the bulk update. Past the threshold, purge only the shared listing
+    // surfaces to bound the outbound fan-out (see the threshold's docs).
+    try {
+      // Base the fan-out threshold on the DISTINCT (slug, segment) count so a
+      // sheet with repeated rows for one product does not inflate the count and
+      // wrongly suppress its per-PDP purge.
+      const distinctPurgeCount = countDistinctProductPurgeEntries(purgeEntries);
+      // Bust every purged slug's Next product cache BEFORE the edge purge —
+      // revalidateProducts(merchantId) above is slug-less and leaves the
+      // per-slug scoped tags cached, so a CF MISS would refill stale.
+      revalidateProductSlugs(
+        merchantId,
+        purgeEntries.map((entry) => entry.slug)
+      );
+      scheduleStorefrontProductPurge(
+        merchantContext.merchantSlug,
+        purgeEntries,
+        {
+          listingsOnly: distinctPurgeCount > PURGE_LISTINGS_ONLY_THRESHOLD,
+        }
+      );
+    } catch (purgeError) {
+      console.warn('Skipped Cloudflare product purge after bulk update', {
+        purgeError,
+      });
+    }
 
     return NextResponse.json({ success: true, results });
   } catch (error) {

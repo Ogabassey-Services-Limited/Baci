@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   chainCalls: [] as Array<{ method: string; args: unknown[] }>,
+  createProductRecord: vi.fn(),
   fetchProductDetail: vi.fn(),
   infiniteQueryConfigs: [] as Array<{
     queryFn: (args: { pageParam?: number }) => Promise<unknown>;
@@ -9,12 +10,14 @@ const mocks = vi.hoisted(() => ({
     staleTime?: number;
   }>,
   mutationConfigs: [] as Array<{
+    mutationFn?: (variables: unknown) => unknown;
     onSettled?: (
       data: unknown,
       error: unknown,
       variables: { productId: string; stock: number }
     ) => void;
   }>,
+  updateProductRecord: vi.fn(),
   productQueryResult: {
     count: 0,
     data: [] as unknown[],
@@ -81,6 +84,7 @@ vi.mock('@tanstack/react-query', () => ({
     return {};
   },
   useMutation: (config: {
+    mutationFn?: (variables: unknown) => unknown;
     onSettled?: (
       data: unknown,
       error: unknown,
@@ -101,6 +105,10 @@ vi.mock('@tanstack/react-query', () => ({
     return {};
   },
   useQueryClient: () => mocks.queryClient,
+}));
+
+vi.mock('@/lib/revalidate-storefront-products', () => ({
+  revalidateStorefrontProducts: vi.fn(),
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({
@@ -124,10 +132,16 @@ vi.mock('./product-detail-query', () => ({
   fetchProductDetail: mocks.fetchProductDetail,
 }));
 
+vi.mock('./product-save', () => ({
+  createProductRecord: mocks.createProductRecord,
+  updateProductRecord: mocks.updateProductRecord,
+}));
+
 import {
   useInventoryStats,
   useProduct,
   useProducts,
+  useUpdateProduct,
   useUpdateProductStock,
 } from './useProducts';
 
@@ -147,6 +161,8 @@ describe('useProducts branch semantics', () => {
     mocks.queryClient.setQueriesData.mockReset();
     mocks.queryClient.setQueryData.mockReset();
     mocks.rpc.mockReset();
+    mocks.createProductRecord.mockReset();
+    mocks.updateProductRecord.mockReset();
   });
 
   it('does not add branch_id filters to merchant-wide product catalog queries', () => {
@@ -223,6 +239,32 @@ describe('useProducts branch semantics', () => {
     });
     expect(mocks.rpc).toHaveBeenCalledWith('get_merchant_inventory_stats', {
       p_merchant_id: 'merchant-1',
+    });
+  });
+
+  it('forwards previousCategory/previousCategoryId into updateProductRecord', async () => {
+    mocks.updateProductRecord.mockResolvedValue({ id: 'product-1' });
+
+    useUpdateProduct();
+
+    const config = mocks.mutationConfigs[0];
+    expect(config?.mutationFn).toBeDefined();
+
+    await config?.mutationFn?.({
+      id: 'product-1',
+      updates: { name: 'iPhone 15' },
+      previousCategory: 'Smartphones',
+      previousCategoryId: 'cat-old',
+    });
+
+    // The category MOVE snapshot must reach the save layer so the OLD category's
+    // cached storefront URLs are also purged.
+    expect(mocks.updateProductRecord).toHaveBeenCalledWith({
+      id: 'product-1',
+      merchantId: 'merchant-1',
+      updates: { name: 'iPhone 15' },
+      previousCategory: 'Smartphones',
+      previousCategoryId: 'cat-old',
     });
   });
 

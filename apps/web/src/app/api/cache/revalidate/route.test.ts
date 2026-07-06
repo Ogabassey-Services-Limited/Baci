@@ -22,6 +22,16 @@ vi.mock('@/lib/api-auth', () => ({
   hasPermission: (...args: unknown[]) => mockHasPermission(...args),
 }));
 
+// Mock the merchant re-resolution used to VERIFY a client-supplied merchantId.
+const mockGetMerchantForApiRequest = vi.fn();
+const mockToUserAccess = vi.fn();
+
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: (...args: unknown[]) =>
+    mockGetMerchantForApiRequest(...args),
+  toUserAccess: (...args: unknown[]) => mockToUserAccess(...args),
+}));
+
 // Mock CSRF
 const mockCheckCsrfProtection = vi.fn();
 const mockGetMerchantBlogCacheIdentifiers = vi.fn();
@@ -63,13 +73,24 @@ vi.mock('@/lib/cloudflare-purge', () => ({
   purgeCloudflareUrls: (...args: unknown[]) => mockPurgeCloudflareUrls(...args),
 }));
 
+// Mock the product Cloudflare purge scheduler so the mobile-admin-driven
+// product purge can be asserted directly.
+const mockScheduleStorefrontProductPurge = vi.fn();
+vi.mock('@/lib/storefront-product-purge', () => ({
+  scheduleStorefrontProductPurge: (...args: unknown[]) =>
+    mockScheduleStorefrontProductPurge(...args),
+}));
+
 // ---- Import handler AFTER mocks ----
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
+import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { POST } from './route';
 
 // ---- Helpers ----
 
 const MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
+// A DIFFERENT merchant the caller also belongs to (multi-merchant staff/owner).
+const OTHER_MERCHANT_ID = 'b0f4a2c1-1111-4c2b-9aaa-222233334444';
 
 function makeRequest(body: Record<string, unknown>) {
   return new NextRequest('http://localhost:3000/api/cache/revalidate', {
@@ -79,10 +100,56 @@ function makeRequest(body: Record<string, unknown>) {
   });
 }
 
+// Merchant row returned by the slug lookup the product-purge path performs.
+let merchantSlugRow: { slug: string | null } | null = { slug: 'ogabassey' };
+// Optional error the merchant slug lookup surfaces (fail-open coverage).
+let merchantSlugError: { message: string } | null = null;
+// Product rows returned by the authoritative category lookup (id → row).
+let productCategoryRows: Record<string, unknown>[] = [];
+// Optional error the authoritative product-row lookup surfaces (fail-open).
+let productRowsError: { message: string } | null = null;
+// Category rows returned by the previous-category slug lookup (id → { slug }).
+let categoryRows: Record<string, unknown>[] = [];
+// Optional error the previous-category slug lookup surfaces (fail-open).
+let categoryRowsError: { message: string } | null = null;
+
+function makeSupabaseMock() {
+  return {
+    from: vi.fn((table: string) => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn(() =>
+            Promise.resolve({
+              data: merchantSlugError ? null : merchantSlugRow,
+              error: merchantSlugError,
+            })
+          ),
+          in: vi.fn(() => {
+            if (table === 'categories') {
+              return Promise.resolve({
+                data: categoryRowsError ? null : categoryRows,
+                error: categoryRowsError,
+              });
+            }
+            return Promise.resolve({
+              data: productRowsError
+                ? null
+                : table === 'products'
+                  ? productCategoryRows
+                  : [],
+              error: productRowsError,
+            });
+          }),
+        })),
+      })),
+    })),
+  };
+}
+
 function setupAuth(hasAccess = true, hasPermissionValue = true) {
   mockAuthenticateApiRequest.mockResolvedValue({
     user: hasAccess ? { id: 'user-123' } : null,
-    supabase: hasAccess ? {} : null,
+    supabase: hasAccess ? makeSupabaseMock() : null,
     error: hasAccess ? null : 'Unauthorized',
   });
 
@@ -110,6 +177,12 @@ function setupCsrf(valid = true) {
 describe('POST /api/cache/revalidate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    merchantSlugRow = { slug: 'ogabassey' };
+    merchantSlugError = null;
+    productCategoryRows = [];
+    productRowsError = null;
+    categoryRows = [];
+    categoryRowsError = null;
     setupCsrf(true);
     mockGetMerchantBlogCacheIdentifiers.mockResolvedValue({
       identifiers: ['test-store', 'ogabassey.com'],
@@ -168,7 +241,7 @@ describe('POST /api/cache/revalidate', () => {
   });
 
   describe('permissions', () => {
-    it('returns 403 when user lacks settings edit permission', async () => {
+    it('returns 403 when a products-only request has neither settings:edit nor products:edit', async () => {
       setupAuth(true, false);
 
       const res = await POST(makeRequest({ targets: ['products'] }));
@@ -181,6 +254,225 @@ describe('POST /api/cache/revalidate', () => {
         'settings',
         'edit'
       );
+    });
+
+    it('allows a products-only purge for staff with products:edit but not settings:edit', async () => {
+      setupAuth(true, true);
+      // Staff who can edit products but not settings — the mobile-admin save
+      // and quick-action paths run as this kind of user.
+      mockHasPermission.mockImplementation(
+        (_access: unknown, resource: string, action: string) =>
+          resource === 'products' && action === 'edit'
+      );
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [
+            { slug: 'iphone-15', id: 'prod-1', category: 'Smartphones' },
+          ],
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.revalidated).toContain('products');
+      // The staff-scoped product purge still fires for the server-resolved slug.
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'ogabassey',
+        [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+        { listingsOnly: false }
+      );
+    });
+
+    it('allows a products-only purge for staff with products:create only (mobile create flow)', async () => {
+      setupAuth(true, true);
+      mockHasPermission.mockImplementation(
+        (_access: unknown, resource: string, action: string) =>
+          resource === 'products' && action === 'create'
+      );
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [{ slug: 'new-gadget', id: 'prod-9' }],
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.revalidated).toContain('products');
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalled();
+    });
+
+    it('prefers the authoritative row category (join) over the caller text hint', async () => {
+      setupAuth(true, true);
+      mockHasPermission.mockImplementation(
+        (_access: unknown, resource: string, action: string) =>
+          resource === 'products' && action === 'edit'
+      );
+      // The caller (mobile) only knows the legacy text "Audio", but the row's
+      // direct category_id join says the canonical lives under "earbuds".
+      productCategoryRows = [
+        {
+          id: 'prod-1',
+          slug: 'buds-pro',
+          name: 'Buds Pro',
+          category: 'Audio',
+          categories: { slug: 'earbuds' },
+          product_categories: [],
+        },
+      ];
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [{ slug: 'buds-pro', id: 'prod-1', category: 'Audio' }],
+        })
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'ogabassey',
+        [{ slug: 'buds-pro', categorySegment: 'earbuds' }],
+        { listingsOnly: false }
+      );
+    });
+
+    it('requires settings:edit for non-product legs even when the caller has products:edit', async () => {
+      setupAuth(true, true);
+      mockHasPermission.mockImplementation(
+        (_access: unknown, resource: string, action: string) =>
+          resource === 'products' && action === 'edit'
+      );
+
+      const res = await POST(
+        makeRequest({ targets: ['products', 'merchant'] })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(403);
+      expect(json.error).toBe('Permission denied');
+    });
+
+    it('requires settings:edit for the catch-all `all` target', async () => {
+      setupAuth(true, true);
+      mockHasPermission.mockImplementation(
+        (_access: unknown, resource: string, action: string) =>
+          resource === 'products' && action === 'edit'
+      );
+
+      const res = await POST(makeRequest({ targets: ['all'] }));
+
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe('multi-merchant merchantId verification', () => {
+    it('does not re-verify when no merchantId is supplied (default single-merchant path)', async () => {
+      setupAuth(true, true);
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [{ slug: 'iphone-15', id: 'prod-1' }],
+        })
+      );
+
+      expect(res.status).toBe(200);
+      // No client merchantId → the default get_user_access merchant is used and
+      // the scoped re-resolution never runs.
+      expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'ogabassey',
+        [{ slug: 'iphone-15', categorySegment: null }],
+        { listingsOnly: false }
+      );
+    });
+
+    it('does not re-verify when the supplied merchantId equals the default access merchant', async () => {
+      setupAuth(true, true);
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          merchantId: MERCHANT_ID,
+          products: [{ slug: 'iphone-15', id: 'prod-1' }],
+        })
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+    });
+
+    it('verifies access and purges the named merchant when the caller belongs to it', async () => {
+      setupAuth(true, true);
+      // The active merchant differs from the caller's default access merchant.
+      mockGetMerchantForApiRequest.mockResolvedValue({
+        merchantId: OTHER_MERCHANT_ID,
+        merchantSlug: 'other-merchant',
+        staffAccess: {
+          isStaff: true,
+          isOwner: false,
+          role: 'manager',
+          permissions: { products: { edit: true } },
+        },
+      });
+      mockToUserAccess.mockReturnValue({
+        merchantId: OTHER_MERCHANT_ID,
+        role: 'manager',
+        isOwner: false,
+        isStaff: true,
+        permissions: { products: { edit: true } },
+      });
+      mockHasPermission.mockImplementation(
+        (_access: unknown, resource: string, action: string) =>
+          resource === 'products' && action === 'edit'
+      );
+      // The server-resolved slug for the VERIFIED merchant.
+      merchantSlugRow = { slug: 'other-merchant' };
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          merchantId: OTHER_MERCHANT_ID,
+          products: [{ slug: 'buds-pro', id: 'prod-1' }],
+        })
+      );
+
+      expect(res.status).toBe(200);
+      // Verification ran against the CLIENT-supplied merchant id + the auth user.
+      expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+        expect.anything(),
+        'user-123',
+        { requestedMerchantId: OTHER_MERCHANT_ID }
+      );
+      // The purge targets the VERIFIED merchant's server-resolved slug.
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'other-merchant',
+        [{ slug: 'buds-pro', categorySegment: null }],
+        { listingsOnly: false }
+      );
+    });
+
+    it('returns 403 and does not purge when the caller has no access to the named merchant', async () => {
+      setupAuth(true, true);
+      // Caller does NOT own / staff the requested merchant → no membership.
+      mockGetMerchantForApiRequest.mockResolvedValue(null);
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          merchantId: OTHER_MERCHANT_ID,
+          products: [{ slug: 'buds-pro', id: 'prod-1' }],
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(403);
+      expect(json.error).toBe('Permission denied');
+      // Hard 403 — never a silent fall-back to the default merchant.
+      expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
     });
   });
 
@@ -278,6 +570,279 @@ describe('POST /api/cache/revalidate', () => {
       );
     });
 
+    it('does NOT schedule a product purge when no products are supplied', async () => {
+      setupAuth(true, true);
+
+      await POST(makeRequest({ targets: ['products'] }));
+
+      expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+    });
+
+    it('schedules a Cloudflare product purge for supplied products (mobile-admin save path)', async () => {
+      setupAuth(true, true);
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [
+            { slug: 'iphone-15', id: 'prod-1', category: 'Smartphones' },
+          ],
+        })
+      );
+
+      expect(res.status).toBe(200);
+      // The merchant slug is resolved server-side (never trusted from the client).
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'ogabassey',
+        [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+        { listingsOnly: false }
+      );
+    });
+
+    it('busts the per-slug Next product caches BEFORE scheduling the purge (F3)', async () => {
+      setupAuth(true, true);
+
+      await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [
+            { slug: 'iphone-15', id: 'prod-1', category: 'Smartphones' },
+          ],
+        })
+      );
+
+      // The per-slug scoped product tag (getCachedProduct) is invalidated for the
+      // resolved slug so a CF MISS after the purge cannot refill from stale Next
+      // data. The slug-less revalidateProducts alone would never bust it.
+      const scopedTag = getProductScopedCacheTag(
+        'product',
+        MERCHANT_ID,
+        'iphone-15'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(scopedTag, 'products');
+
+      // Ordering: the per-slug tag is busted before the edge purge is scheduled.
+      const scopedCallIndex = mockRevalidateTag.mock.calls.findIndex(
+        ([tag]) => tag === scopedTag
+      );
+      const scopedOrder =
+        mockRevalidateTag.mock.invocationCallOrder[scopedCallIndex];
+      const scheduleOrder =
+        mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0];
+      expect(scopedOrder).toBeLessThan(scheduleOrder);
+    });
+
+    it('does not purge when the merchant has no resolvable slug', async () => {
+      setupAuth(true, true);
+      merchantSlugRow = { slug: null };
+
+      await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [{ slug: 'iphone-15', category: 'Smartphones' }],
+        })
+      );
+
+      expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+      // The per-slug Next cache bust only needs merchantId, not the storefront
+      // slug, so it must still run even though the Cloudflare purge is skipped.
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        getProductScopedCacheTag('product', MERCHANT_ID, 'iphone-15'),
+        'products'
+      );
+    });
+
+    it('logs and still purges from caller hints when the authoritative product-row lookup errors', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      try {
+        setupAuth(true, true);
+        // The authoritative row lookup fails, but the merchant slug still
+        // resolves — the purge must fail open onto the caller's flat text hint.
+        productRowsError = { message: 'db unavailable' };
+
+        const res = await POST(
+          makeRequest({
+            targets: ['products'],
+            products: [{ slug: 'buds-pro', id: 'prod-1', category: 'Audio' }],
+          })
+        );
+
+        expect(res.status).toBe(200);
+        // Fell back to the caller's "Audio" text hint (→ "audio") for the segment.
+        expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+          'ogabassey',
+          [{ slug: 'buds-pro', categorySegment: 'audio' }],
+          { listingsOnly: false }
+        );
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          expect.stringContaining(
+            'Failed to resolve authoritative product rows'
+          ),
+          expect.objectContaining({
+            merchantId: MERCHANT_ID,
+            error: { message: 'db unavailable' },
+          })
+        );
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
+    });
+
+    it('resolves previousCategoryId to the old slug and appends the old-category purge (category_id-only move)', async () => {
+      setupAuth(true, true);
+      // The authoritative row lives under "smartphones"; the pre-save category
+      // (id-only move, blank legacy text) resolves to "phones".
+      productCategoryRows = [
+        {
+          id: 'prod-1',
+          slug: 'iphone-15',
+          name: 'iPhone 15',
+          category: 'Smartphones',
+          categories: null,
+          product_categories: [],
+        },
+      ];
+      categoryRows = [{ id: 'cat-old', slug: 'phones' }];
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [
+            {
+              slug: 'iphone-15',
+              id: 'prod-1',
+              category: 'Smartphones',
+              previousCategoryId: 'cat-old',
+            },
+          ],
+        })
+      );
+
+      expect(res.status).toBe(200);
+      // Primary entry purges the NEW location; the appended hint-only entry
+      // purges the OLD ("phones") listing + canonical PDP.
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'ogabassey',
+        [
+          { slug: 'iphone-15', categorySegment: 'smartphones' },
+          { slug: 'iphone-15', categorySegment: 'phones' },
+        ],
+        { listingsOnly: false }
+      );
+    });
+
+    it('does not append an old-category purge when the previous category resolves to the same segment', async () => {
+      setupAuth(true, true);
+      // The pre-save category resolves to the SAME "smartphones" segment as the
+      // current one → no real move → no old-segment purge.
+      categoryRows = [{ id: 'cat-old', slug: 'smartphones' }];
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [
+            {
+              slug: 'iphone-15',
+              id: 'prod-1',
+              category: 'Smartphones',
+              previousCategoryId: 'cat-old',
+            },
+          ],
+        })
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'ogabassey',
+        [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+        { listingsOnly: false }
+      );
+    });
+
+    it('fails open to the current-location purge when the previous-category slug lookup errors', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      try {
+        setupAuth(true, true);
+        // The old-category slug lookup fails; the current-location purge must
+        // still fire (the stale old page self-heals on its TTL).
+        categoryRowsError = { message: 'db unavailable' };
+
+        const res = await POST(
+          makeRequest({
+            targets: ['products'],
+            products: [
+              {
+                slug: 'iphone-15',
+                id: 'prod-1',
+                category: 'Smartphones',
+                previousCategoryId: 'cat-old',
+              },
+            ],
+          })
+        );
+
+        expect(res.status).toBe(200);
+        // Only the current-location entry — the old-segment append is skipped.
+        expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+          'ogabassey',
+          [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+          { listingsOnly: false }
+        );
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Failed to resolve previous category slugs'),
+          expect.objectContaining({
+            merchantId: MERCHANT_ID,
+            error: { message: 'db unavailable' },
+          })
+        );
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
+    });
+
+    it('logs and skips the (survivable) purge when the merchant slug lookup errors', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      try {
+        setupAuth(true, true);
+        merchantSlugError = { message: 'db unavailable' };
+
+        const res = await POST(
+          makeRequest({
+            targets: ['products'],
+            products: [
+              { slug: 'iphone-15', id: 'prod-1', category: 'Smartphones' },
+            ],
+          })
+        );
+
+        // Revalidation still succeeds; only the fail-open purge is skipped.
+        expect(res.status).toBe(200);
+        expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+        // The merchantSlug guard covers ONLY the Cloudflare edge purge — the
+        // Next-layer per-slug busting is independent (only needs merchantId)
+        // and must still run when the slug lookup fails.
+        expect(mockRevalidateTag).toHaveBeenCalledWith(
+          getProductScopedCacheTag('product', MERCHANT_ID, 'iphone-15'),
+          'products'
+        );
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Failed to resolve merchant slug'),
+          expect.objectContaining({
+            merchantId: MERCHANT_ID,
+            error: { message: 'db unavailable' },
+          })
+        );
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
+    });
+
     it('revalidates categories cache when categories target specified', async () => {
       setupAuth(true, true);
 
@@ -327,15 +892,15 @@ describe('POST /api/cache/revalidate', () => {
       expect(json.revalidated).toContain('blog');
 
       expect(mockGetMerchantBlogCacheIdentifiers).toHaveBeenCalledWith(
-        {},
+        expect.anything(),
         MERCHANT_ID
       );
       expect(mockGetMerchantBlogPostSlugs).toHaveBeenCalledWith(
-        {},
+        expect.anything(),
         MERCHANT_ID
       );
       expect(mockGetMerchantBlogPostCategories).toHaveBeenCalledWith(
-        {},
+        expect.anything(),
         MERCHANT_ID
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(

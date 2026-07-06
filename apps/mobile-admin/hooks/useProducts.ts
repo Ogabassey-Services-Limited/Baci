@@ -25,6 +25,10 @@ import {
   updateProductStatus,
   updateProductStock,
 } from './products-data';
+import {
+  buildUpdateProductArgs,
+  type UpdateProductVariables,
+} from './update-product-args';
 import { useMerchant } from './useMerchant';
 
 export type StockFilter = AdminProductStockFilter;
@@ -68,20 +72,12 @@ export function useUpdateProduct() {
   const queryClient = useQueryClient();
   const { merchant } = useMerchant();
 
-  return useMutation<
-    Product,
-    Error,
-    { id: string; updates: ProductFormValues }
-  >({
-    mutationFn: ({
-      id,
-      updates,
-    }: {
-      id: string;
-      updates: ProductFormValues;
-    }) => {
+  return useMutation<Product, Error, UpdateProductVariables>({
+    mutationFn: (variables: UpdateProductVariables) => {
       if (!merchant?.id) throw new Error('No merchant');
-      return updateProductRecord({ id, merchantId: merchant.id, updates });
+      return updateProductRecord(
+        buildUpdateProductArgs(merchant.id, variables)
+      );
     },
     mutationKey: ['updateProduct'],
     onSuccess: (data) => {

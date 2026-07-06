@@ -2,10 +2,7 @@ import * as Crypto from 'expo-crypto';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { createInitialProductEditFormData } from '@/components/product/product-edit.defaults';
-import type {
-  ProductEditFormData,
-  ProductFulfillmentItemDraft,
-} from '@/components/product/product-edit.types';
+import type { ProductEditFormData } from '@/components/product/product-edit.types';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useProductNameSuggestions } from '@/hooks/useProductNameSuggestions';
 import {
@@ -19,48 +16,11 @@ import {
 } from '@/hooks/useProducts';
 import { baciFeatureGates } from '@/lib/feature-gates';
 import { normalizeComparableProductName } from '@/lib/product-matching';
-import { buildVariantFormValues } from '@/lib/product-variant-form';
-import { stripHtmlTags } from '@/lib/utils';
 import { routeParamsSchema } from '@/schemas/product-route-params';
 import { createProductEditImageActions } from './createProductEditImageActions';
 import { createProductEditPersistenceActions } from './createProductEditPersistenceActions';
 import { createProductEditVariantActions } from './createProductEditVariantActions';
-
-type FulfillmentSourceItem = {
-  id?: string;
-  imei?: string;
-  serial_number?: string;
-};
-
-function createFulfillmentItemDraft(
-  overrides: Partial<Omit<ProductFulfillmentItemDraft, 'id'>> = {}
-): ProductFulfillmentItemDraft {
-  return {
-    id: Crypto.randomUUID(),
-    imei: overrides.imei ?? '',
-    serial_number: overrides.serial_number ?? '',
-  };
-}
-
-function normalizeFulfillmentItems(
-  items: FulfillmentSourceItem[] | null | undefined,
-  fallbackCount = 0
-): ProductFulfillmentItemDraft[] {
-  const normalizedItems =
-    items?.map((item) => ({
-      id: item.id?.trim() || Crypto.randomUUID(),
-      imei: item.imei ?? '',
-      serial_number: item.serial_number ?? '',
-    })) ?? [];
-
-  if (normalizedItems.length > 0) {
-    return normalizedItems;
-  }
-
-  return Array.from({ length: fallbackCount }, () =>
-    createFulfillmentItemDraft()
-  );
-}
+import { buildProductEditFormData } from './product-edit-form-data';
 
 export function useProductEditController() {
   const rawParams = useLocalSearchParams<{ id: string; sku?: string }>();
@@ -117,52 +77,7 @@ export function useProductEditController() {
   );
 
   if (product && !isInitialized) {
-    setFormData({
-      brand: product.brand ?? product.brands?.name ?? '',
-      category: product.category || '',
-      category_id: product.category_id || '',
-      color: product.color || '',
-      cost_price: product.cost_price || 0,
-      description: stripHtmlTags(product.description || ''),
-      fulfillment_details:
-        product.fulfillment_details &&
-        typeof product.fulfillment_details === 'object' &&
-        'items' in product.fulfillment_details
-          ? {
-              items: normalizeFulfillmentItems(
-                (
-                  product.fulfillment_details as {
-                    items: FulfillmentSourceItem[];
-                  }
-                ).items
-              ),
-            }
-          : {
-              items: normalizeFulfillmentItems([], product.stock_quantity || 0),
-            },
-      has_variants: product.has_variants || product.variants.length > 0,
-      images: (product.images as string[]) || [],
-      low_stock_threshold: product.low_stock_threshold || 3,
-      manage_stock: product.manage_stock ?? true,
-      name: product.name || '',
-      price: product.price || 0,
-      sku: product.sku || '',
-      status: (product.status as 'active' | 'draft' | 'archived') || 'active',
-      stock_quantity: product.stock_quantity || 0,
-      variant_attributes: product.variant_attributes
-        ? Object.entries(
-            product.variant_attributes as Record<string, unknown>
-          ).map(([key, value]) => ({
-            id: Crypto.randomUUID(),
-            key,
-            value: String(value),
-          }))
-        : [],
-      variants: buildVariantFormValues(product.variants, {
-        costPrice: product.cost_price || 0,
-        price: product.price || 0,
-      }),
-    });
+    setFormData(buildProductEditFormData(product));
     setIsInitialized(true);
   }
 
@@ -217,7 +132,14 @@ export function useProductEditController() {
       saveInFlightRef: saveInFlightLock,
       selectCreatedCategory: (categoryId, categoryName) =>
         updateCategory({ id: categoryId, name: categoryName }),
-      updateProduct: updateProductMutation.mutateAsync,
+      // Capture the loaded product's PRE-SAVE category so a category MOVE also
+      // purges the OLD category's cached storefront URLs (see product-save).
+      updateProduct: (input) =>
+        updateProductMutation.mutateAsync({
+          ...input,
+          previousCategory: product?.category ?? null,
+          previousCategoryId: product?.category_id ?? null,
+        }),
       updateStatus: (input, callbacks) =>
         updateStatusMutation.mutate(input, callbacks),
     });
