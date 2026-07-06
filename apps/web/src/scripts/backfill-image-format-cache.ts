@@ -77,10 +77,15 @@ export async function runBackfillImageFormatCacheCli(
 
   console.log(JSON.stringify(summary, null, 2));
 
-  // Hard failure ONLY when errors occurred and no purge was even requested:
-  // the run accomplished nothing and is safe to fix + re-run. Once purges
-  // were issued, per-URL errors are reported in the summary instead of
-  // failing the run — residualNonAvif is the purge-success ground truth.
+  // Two hard-failure modes, both safe to fix + re-run (the run is
+  // idempotent): (a) errors occurred and no purge was even requested — the
+  // run accomplished nothing; (b) variants remained non-AVIF after their
+  // purge + re-warm — residualNonAvif is the ground truth that the purge
+  // did not actually evict (fail-open helper, CF hiccup, bad creds), and a
+  // "successful" exit would mask still-poisoned variants.
+  if (summary.residualNonAvif > 0) {
+    return 1;
+  }
   return summary.errored > 0 && summary.purgeRequested === 0 ? 1 : 0;
 }
 

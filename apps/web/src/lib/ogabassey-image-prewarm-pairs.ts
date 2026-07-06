@@ -39,19 +39,22 @@ const PDP_HERO_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] =
     quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
   }));
 
-// Listing/grid card thumbnail (components/ProductCard.tsx), rendered with
-// `sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"`. There is
-// no shared width export for this surface, so these mirror the device-size
-// buckets that `sizes` expression resolves to for common phone/tablet
-// viewports. ProductCard renders without an explicit `quality` prop, so the
-// custom loader falls back to `DEFAULT_IMAGE_QUALITY` — reuse that shared
-// constant here so the primed variants stay in lockstep with what the loader
-// actually requests.
-const LISTING_CARD_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] = [
-  { width: 384, quality: DEFAULT_IMAGE_QUALITY },
-  { width: 640, quality: DEFAULT_IMAGE_QUALITY },
-  { width: 750, quality: DEFAULT_IMAGE_QUALITY },
+// Quality-less card surfaces (ProductCard, BlogSnippet) fall back to the
+// loader's DEFAULT_IMAGE_QUALITY across the full responsive ladder: their
+// `sizes` expressions (50vw/33vw/25vw product cards, 100vw-mobile blog
+// snippets) resolve to buckets ABOVE 750 on DPR-2/3 phones, tablets and wide
+// desktops (e.g. 33vw × DPR-3 tablet → 1080; 25vw × 2560px DPR-2 → 1440), so
+// stopping at 750 would leave real production card URLs unchecked and
+// unwarmed.
+const CARD_DEFAULT_QUALITY_WIDTHS: readonly number[] = [
+  384, 640, 750, 828, 1080, 1200, 1440,
 ];
+
+const LISTING_CARD_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] =
+  CARD_DEFAULT_QUALITY_WIDTHS.map((width) => ({
+    width,
+    quality: DEFAULT_IMAGE_QUALITY,
+  }));
 
 // Blog surfaces all render at BLOG_HERO_IMAGE_QUALITY: the post hero
 // (preload width 1200), the listing featured story (preload width 750), and
@@ -68,17 +71,15 @@ const BLOG_HERO_WIDTHS: readonly number[] = [
 ];
 
 // BlogSnippet (home/blog cross-links) renders featured images WITHOUT a
-// quality prop, so the loader requests DEFAULT_IMAGE_QUALITY at the card
-// buckets — those q75 URLs are real production variants too.
-const BLOG_CARD_DEFAULT_QUALITY_WIDTHS: readonly number[] = [384, 640, 750];
-
+// quality prop — its 100vw-mobile sizes expression emits the same responsive
+// ladder at the loader default quality as the product cards above.
 export const BLOG_IMAGE_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] =
   [
     ...BLOG_HERO_WIDTHS.map((width) => ({
       width,
       quality: BLOG_HERO_IMAGE_QUALITY,
     })),
-    ...BLOG_CARD_DEFAULT_QUALITY_WIDTHS.map((width) => ({
+    ...CARD_DEFAULT_QUALITY_WIDTHS.map((width) => ({
       width,
       quality: DEFAULT_IMAGE_QUALITY,
     })),

@@ -111,6 +111,13 @@ describe('runBackfillImageFormatCacheCli', () => {
     );
   });
 
+  it('exits 1 when variants remain non-AVIF after purge + re-warm', async () => {
+    mockRunImageFormatBackfill.mockResolvedValueOnce(
+      summary({ poisoned: 5, purgeRequested: 5, rewarmed: 3, residualNonAvif: 2 })
+    );
+    await expect(runBackfillImageFormatCacheCli([])).resolves.toBe(1);
+  });
+
   it('exits 1 only when errors occurred AND nothing was purged', async () => {
     mockRunImageFormatBackfill.mockResolvedValueOnce(
       summary({ errored: 3, purgeRequested: 0 })

@@ -30,7 +30,9 @@ describe('ogabassey image prewarm pair matrices', () => {
       (pair) => pair.quality === DEFAULT_IMAGE_QUALITY
     );
 
-    expect(listingPairs.map((pair) => pair.width)).toEqual([384, 640, 750]);
+    expect(listingPairs.map((pair) => pair.width)).toEqual([
+      384, 640, 750, 828, 1080, 1200, 1440,
+    ]);
   });
 
   it('covers blog hero widths at blog quality plus quality-less card buckets', () => {
@@ -46,8 +48,11 @@ describe('ogabassey image prewarm pair matrices', () => {
     expect(heroPairs.map((pair) => pair.width)).toEqual([
       384, 640, 750, 828, 1080, 1200, 1440,
     ]);
-    // BlogSnippet renders without a quality prop → loader default quality.
-    expect(cardPairs.map((pair) => pair.width)).toEqual([384, 640, 750]);
+    // BlogSnippet renders without a quality prop → loader default quality,
+    // across the full responsive ladder (100vw on mobile).
+    expect(cardPairs.map((pair) => pair.width)).toEqual([
+      384, 640, 750, 828, 1080, 1200, 1440,
+    ]);
     // Blog pairs stay OUT of the product default set (per-invocation budget).
     expect(
       ALL_WIDTH_QUALITY_PAIRS.some(

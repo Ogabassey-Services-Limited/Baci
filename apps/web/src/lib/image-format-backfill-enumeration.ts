@@ -1,3 +1,4 @@
+import { resolveLowestPricedVariantSelection } from '@baci/shared/lib';
 import { buildOgabasseyPrewarmTransformUrls } from '@/lib/ogabassey-image-prewarm';
 import { BLOG_IMAGE_WIDTH_QUALITY_PAIRS } from '@/lib/ogabassey-image-prewarm-pairs';
 import { getPrimaryProductImage } from '@/lib/product-image';
@@ -88,26 +89,50 @@ async function fetchStatusRows(
   }
 }
 
-function extractSeedVariantImage(row: Record<string, unknown>): string | null {
-  // The PDP's above-fold render uses the DEFAULT selection's variant image
-  // (`selection.variant.primary_image || selection.variant.images?.[0]`,
-  // critical-commerce-selection.ts) — when it differs from the product
-  // primary, THAT is the LCP URL. Only the first (seed) variant is included:
-  // other variants' images load on user interaction, so their cold cost is
-  // never on the critical path and warming all of them would multiply the
-  // run size for products with large variant matrices.
-  const variants = Array.isArray(row.product_variants)
-    ? row.product_variants
-    : [];
-  const seed = variants[0];
-  if (!seed || typeof seed !== 'object') {
+interface BackfillVariantRow {
+  id: string;
+  images?: unknown;
+  price_override?: number | null;
+  primary_image?: string | null;
+  stock_quantity?: number | null;
+}
+
+function extractDefaultVariantImage(
+  row: Record<string, unknown>
+): string | null {
+  // The PDP opens on the LOWEST-PRICED purchasable variant
+  // (resolveLowestPricedVariantSelection — the exact production resolver),
+  // and renders `variant.primary_image || variant.images?.[0]` above the
+  // fold; when that differs from the product primary, THAT is the LCP URL.
+  // Only the default selection's image is included: other variants render on
+  // user interaction, so their cold cost is never on the critical path and
+  // warming all of them would multiply the run size for large matrices.
+  const variants = (
+    Array.isArray(row.product_variants) ? row.product_variants : []
+  ).filter(
+    (variant): variant is BackfillVariantRow =>
+      Boolean(variant) &&
+      typeof variant === 'object' &&
+      typeof (variant as BackfillVariantRow).id === 'string'
+  );
+  if (variants.length === 0) {
     return null;
   }
-  const record = seed as Record<string, unknown>;
-  if (typeof record.primary_image === 'string' && record.primary_image) {
-    return record.primary_image;
+
+  const selection = resolveLowestPricedVariantSelection({
+    manage_stock:
+      typeof row.manage_stock === 'boolean' ? row.manage_stock : null,
+    price: typeof row.price === 'number' ? row.price : 0,
+    variants,
+  });
+  const variant = selection?.variant ?? null;
+  if (!variant) {
+    return null;
   }
-  const images = Array.isArray(record.images) ? record.images : [];
+  if (typeof variant.primary_image === 'string' && variant.primary_image) {
+    return variant.primary_image;
+  }
+  const images = Array.isArray(variant.images) ? variant.images : [];
   const first = images.find((image) => typeof image === 'string' && image);
   return typeof first === 'string' ? first : null;
 }
@@ -119,7 +144,7 @@ function addProductVariantUrls(
   for (const row of productRows) {
     const sources = [
       getPrimaryProductImage(Array.isArray(row.images) ? row.images : null),
-      extractSeedVariantImage(row),
+      extractDefaultVariantImage(row),
     ];
     for (const source of sources) {
       if (!source) {
@@ -166,7 +191,7 @@ export async function enumerateImageFormatBackfillTargets(
   const productRows = await fetchStatusRows(
     supabase,
     'products',
-    'id, images, product_variants(primary_image, images)',
+    'id, images, price, manage_stock, product_variants!product_variants_product_id_fkey(id, primary_image, images, price_override, stock_quantity)',
     'active',
     options.limit
   );

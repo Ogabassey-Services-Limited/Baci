@@ -145,7 +145,8 @@ describe('enumerateImageFormatBackfillTargets', () => {
     expect(calls).toEqual([
       {
         table: 'products',
-        columns: 'id, images, product_variants(primary_image, images)',
+        columns:
+          'id, images, price, manage_stock, product_variants!product_variants_product_id_fkey(id, primary_image, images, price_override, stock_quantity)',
         eq: ['status', 'active'],
         range: [0, 999],
       },
@@ -158,9 +159,11 @@ describe('enumerateImageFormatBackfillTargets', () => {
     ]);
   });
 
-  it('includes the default-selection variant image alongside the product primary', async () => {
-    // The PDP's above-fold render uses the seed variant's image when present
-    // (critical-commerce-selection.ts) — the seed variant must be checked too.
+  it('includes the LOWEST-PRICED purchasable variant image alongside the product primary', async () => {
+    // The PDP opens on the lowest-priced purchasable variant
+    // (resolveLowestPricedVariantSelection) and renders ITS image above the
+    // fold — not the first embedded row's. variant-b is cheaper here, so its
+    // image is the LCP URL that must be checked.
     const { client } = createBackfillSupabaseStub({
       productPages: [
         [
@@ -169,16 +172,24 @@ describe('enumerateImageFormatBackfillTargets', () => {
             images: [
               'https://cdn.ogabassey.com/core-assets/products/parent.avif',
             ],
+            price: 1000,
+            manage_stock: true,
             product_variants: [
               {
+                id: 'v-a',
                 primary_image:
                   'https://cdn.ogabassey.com/core-assets/products/variant-a.avif',
                 images: [],
+                price_override: 900,
+                stock_quantity: 5,
               },
               {
+                id: 'v-b',
                 primary_image:
                   'https://cdn.ogabassey.com/core-assets/products/variant-b.avif',
                 images: [],
+                price_override: 700,
+                stock_quantity: 5,
               },
             ],
           },
@@ -189,12 +200,12 @@ describe('enumerateImageFormatBackfillTargets', () => {
     const targets = await enumerateImageFormatBackfillTargets(client);
 
     expect(targets.urls.some((url) => url.includes('parent.avif'))).toBe(true);
-    expect(targets.urls.some((url) => url.includes('variant-a.avif'))).toBe(
+    expect(targets.urls.some((url) => url.includes('variant-b.avif'))).toBe(
       true
     );
-    // Non-seed variants only render on user interaction — deliberately
+    // Non-default variants only render on user interaction — deliberately
     // excluded to keep the run bounded.
-    expect(targets.urls.some((url) => url.includes('variant-b.avif'))).toBe(
+    expect(targets.urls.some((url) => url.includes('variant-a.avif'))).toBe(
       false
     );
   });
