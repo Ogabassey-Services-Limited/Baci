@@ -6,6 +6,7 @@ CREATE OR REPLACE FUNCTION public.get_storefront_order_quote_validation_context(
   p_selected_quote_id uuid DEFAULT NULL
 )
 RETURNS TABLE (
+  selected_quote_id uuid,
   shipping_address jsonb,
   shipping_fee numeric,
   order_items jsonb
@@ -33,15 +34,12 @@ BEGIN
     RAISE EXCEPTION 'email_required';
   END IF;
 
-  IF p_selected_quote_id IS NULL THEN
-    RAISE EXCEPTION 'shipping_quote_required';
-  END IF;
-
   SELECT
     o.id,
     o.merchant_id,
     o.tracking_token,
     o.customer_email,
+    COALESCE(p_selected_quote_id, o.selected_quote_id) AS selected_quote_id,
     o.shipping_address,
     o.shipping_fee,
     o.payment_status,
@@ -83,6 +81,7 @@ BEGIN
 
   RETURN QUERY
   SELECT
+    v_order.selected_quote_id,
     v_order.shipping_address,
     v_order.shipping_fee,
     COALESCE(
@@ -90,8 +89,7 @@ BEGIN
         SELECT jsonb_agg(
           jsonb_build_object(
             'name', oi.name,
-            'quantity', oi.quantity,
-            'price', oi.price
+            'quantity', oi.quantity
           )
           ORDER BY oi.created_at, oi.id
         )

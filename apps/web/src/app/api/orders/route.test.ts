@@ -3723,6 +3723,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
           ...baseOrderPayload.shipping_address,
           country: 'Canada',
           countryCode: 'CA',
+          postalCode: 'M5V 3L9',
         },
       }),
     });
@@ -3797,13 +3798,14 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     ];
     const pdfOptions = lastReceiptBlobCall[2];
     const receiptOrder = lastReceiptBlobCall[0] as {
-      shipping_address?: { country?: string } | null;
+      shipping_address?: { country?: string; postal_code?: string } | null;
       items?: Array<{
         description?: string;
         line_extension_amount?: number;
       }>;
     };
     expect(receiptOrder.shipping_address?.country).toBe('CA');
+    expect(receiptOrder.shipping_address?.postal_code).toBe('M5V 3L9');
     expect(receiptOrder.items?.[0]).toMatchObject({
       description: expect.stringContaining('Includes device assurance fee'),
       line_extension_amount: 1050,

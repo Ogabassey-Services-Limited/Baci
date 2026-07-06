@@ -318,6 +318,7 @@ function buildImmediateInvoiceShippingAddress(
     address_line1: shippingAddress.address,
     city: shippingAddress.city,
     state: shippingAddress.state,
+    postal_code: shippingAddress.postalCode,
     country: shippingAddress.countryCode || shippingAddress.country || 'NG',
   };
 }

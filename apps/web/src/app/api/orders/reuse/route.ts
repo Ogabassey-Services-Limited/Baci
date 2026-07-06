@@ -14,12 +14,13 @@ import {
 
 type ReuseOrderQuoteItem = {
   name: string | null;
-  price: number | string | null;
+  price?: number | string | null;
   quantity: number | null;
 };
 
 type ReuseOrderQuoteValidationContext = {
   order_items: ReuseOrderQuoteItem[];
+  selected_quote_id: string | null;
   shipping_address: OrderShippingAddressForQuote | undefined;
   shipping_fee: number | string | null;
 };
@@ -75,6 +76,7 @@ function readValidationContext(
   if (!isRecord(row)) return null;
 
   const shippingFee = row.shipping_fee;
+  const selectedQuoteId = row.selected_quote_id;
   return {
     order_items: Array.isArray(row.order_items)
       ? row.order_items.flatMap((item) => {
@@ -82,6 +84,8 @@ function readValidationContext(
           return parsed ? [parsed] : [];
         })
       : [],
+    selected_quote_id:
+      typeof selectedQuoteId === 'string' ? selectedQuoteId : null,
     shipping_address: readOrderShippingAddress(row.shipping_address),
     shipping_fee:
       typeof shippingFee === 'number' || typeof shippingFee === 'string'
@@ -157,8 +161,6 @@ async function validateSelectedQuoteForReuse(
   supabase: ReturnType<typeof createClient>,
   data: ReuseCheckoutOrderInput
 ): Promise<NextResponse | null> {
-  if (!data.selected_quote_id) return null;
-
   const { data: validationData, error } = await supabase.rpc(
     'get_storefront_order_quote_validation_context',
     {
@@ -187,10 +189,12 @@ async function validateSelectedQuoteForReuse(
   }
 
   const shippingFee = readOptionalShippingFee(context.shipping_fee);
+  if (!context.selected_quote_id) return null;
+
   try {
     await enrichShippingAddressWithQuoteDestination(
       supabase,
-      data.selected_quote_id,
+      context.selected_quote_id,
       context.shipping_address,
       {
         items: context.order_items,

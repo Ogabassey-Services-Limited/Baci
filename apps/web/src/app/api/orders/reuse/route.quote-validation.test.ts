@@ -58,13 +58,14 @@ describe('POST /api/orders/reuse selected quote validation', () => {
   it('rejects stale selected international quotes before reusing the order', async () => {
     mockRpc.mockResolvedValueOnce({
       data: {
+        selected_quote_id: '11111111-1111-4111-8111-111111111111',
         shipping_address: {
           address: '123 Queen Street West',
           city: 'Toronto',
           state: 'Ontario',
         },
         shipping_fee: 10_000,
-        order_items: [{ name: 'Phone', quantity: 1, price: 100_000 }],
+        order_items: [{ name: 'Phone', quantity: 1 }],
       },
       error: null,
     });
@@ -106,13 +107,14 @@ describe('POST /api/orders/reuse selected quote validation', () => {
     mockRpc
       .mockResolvedValueOnce({
         data: {
+          selected_quote_id: '11111111-1111-4111-8111-111111111111',
           shipping_address: {
             address: '123 Queen Street West',
             city: 'Toronto',
             state: 'Ontario',
           },
           shipping_fee: null,
-          order_items: [{ name: 'Phone', quantity: 1, price: 100_000 }],
+          order_items: [{ name: 'Phone', quantity: 1 }],
         },
         error: null,
       })
@@ -151,6 +153,62 @@ describe('POST /api/orders/reuse selected quote validation', () => {
       '11111111-1111-4111-8111-111111111111',
       expect.objectContaining({ address: '123 Queen Street West' }),
       expect.objectContaining({ shippingProvider: 'GIGL' })
+    );
+  });
+
+  it('validates the existing selected quote when the reuse request omits a new quote id', async () => {
+    mockRpc
+      .mockResolvedValueOnce({
+        data: {
+          selected_quote_id: '22222222-2222-4222-8222-222222222222',
+          shipping_address: {
+            address: '123 Queen Street West',
+            city: 'Toronto',
+            state: 'Ontario',
+          },
+          shipping_fee: 10_000,
+          order_items: [{ name: 'Phone', quantity: 1 }],
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'order-123',
+          order_number: 'ORD-123',
+        },
+        error: null,
+      });
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders/reuse', {
+        method: 'POST',
+        body: JSON.stringify({
+          order_id: '4dc0ee52-d9c4-406a-b6ca-80c84eef6a8f',
+          merchant_id: 'e6e2e46c-5e3c-40c1-b0ae-832d6d20f0a2',
+          tracking_token: 'tracking-token-123',
+          customer_email: 'john@example.com',
+          payment_method: 'card',
+          shipping_provider: 'GIGL',
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      1,
+      'get_storefront_order_quote_validation_context',
+      expect.objectContaining({
+        p_selected_quote_id: undefined,
+      })
+    );
+    expect(mockEnrichShippingAddressWithQuoteDestination).toHaveBeenCalledWith(
+      expect.anything(),
+      '22222222-2222-4222-8222-222222222222',
+      expect.objectContaining({ address: '123 Queen Street West' }),
+      expect.objectContaining({
+        items: [expect.not.objectContaining({ price: expect.anything() })],
+        shippingProvider: 'GIGL',
+      })
     );
   });
 });
