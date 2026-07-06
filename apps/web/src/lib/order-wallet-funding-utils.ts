@@ -52,11 +52,16 @@ export function paidAtFitsIntent(
   return paidAt >= createdAt && paidAt < expiresAt;
 }
 
+/**
+ * Full-cover check: the transfer alone covers the intent's remaining
+ * expected amount (ONE_KOBO tolerance for gateway rounding drift). Used
+ * ONLY as the disambiguator when several intents are active on one wallet
+ * account — a single active intent accepts partial transfers instead.
+ */
 export function amountFitsIntent(
   intent: OrderWalletFundingIntent,
   amount: number
 ) {
   const remaining = Math.max(intent.expectedAmount - intent.fundedAmount, 0);
-  // amountFitsIntent allows ONE_KOBO for gateway and currency rounding drift.
   return amount + ONE_KOBO >= remaining;
 }

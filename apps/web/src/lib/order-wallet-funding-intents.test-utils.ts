@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import type { OrderWalletFundingIntentStatus } from '@/lib/order-wallet-funding-intent-types';
 import type { OrderWalletFundingIntentRepository } from '@/lib/order-wallet-funding-intents';
 
 export const merchant = {
@@ -59,7 +60,7 @@ export function baseIntent() {
     merchantId: 'merchant-1',
     orderId: 'order-1',
     provider: 'paystack' as const,
-    status: 'pending' as const,
+    status: 'pending' as OrderWalletFundingIntentStatus,
     targetOrderAmount: 18_000,
     walletBalanceSnapshot: 3_000,
     walletPaymentAccountId: 'wallet-account-1',

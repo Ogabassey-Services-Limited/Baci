@@ -195,13 +195,14 @@ describe('order wallet funding intent helpers', () => {
     });
   });
 
-  it('returns none when no active wallet intent fits the transfer', async () => {
+  it('matches a partial transfer against the in-window intent and skips expired windows', async () => {
+    const candidate = intent({ expectedAmount: 15_000, fundedAmount: 0 });
     const result = await findActiveWalletFundingIntentForTransfer({
       amount: 5_000,
       paidAt: new Date('2026-05-26T12:05:00.000Z'),
       repository: createRepository({
         findActiveWalletAccountIntents: vi.fn(async () => [
-          intent({ expectedAmount: 15_000, fundedAmount: 0 }),
+          candidate,
           intent({
             createdAt: '2026-05-26T11:00:00.000Z',
             expiresAt: '2026-05-26T11:30:00.000Z',
@@ -212,6 +213,8 @@ describe('order wallet funding intent helpers', () => {
       walletPaymentAccountId: 'wallet-account-1',
     });
 
-    expect(result).toEqual({ kind: 'none' });
+    // Partial transfers accumulate on the intent; the finalizer only debits
+    // once the wallet balance covers target_order_amount.
+    expect(result).toEqual({ intent: candidate, kind: 'match' });
   });
 });
