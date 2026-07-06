@@ -3,6 +3,10 @@ import type { NormalizedImportedProduct } from '@/lib/imports/bumpa/bumpa-types'
 import { revalidateProductsReliable } from '@/lib/revalidate-products-reliable';
 import { generateProductSlug } from '@/lib/seo-utils';
 import type { InternalRevalidateProductEntry } from '@/schemas/internal-revalidate-products-route';
+import {
+  type CommitProgressCallback,
+  createCommitProgress,
+} from './import-commit-progress';
 
 // The internal revalidate-products contract caps `products` at 1000 entries
 // (`internalRevalidateProductsBodySchema`). A bulk import can exceed that, so
@@ -44,6 +48,7 @@ interface CommitBumpaProductsInput {
   merchantId: string;
   importJobId: string;
   products: NormalizedImportedProduct[];
+  onProgress?: CommitProgressCallback;
 }
 
 interface ExistingProductRecord {
@@ -91,6 +96,7 @@ export async function commitBumpaProducts({
   merchantId,
   importJobId,
   products,
+  onProgress,
 }: CommitBumpaProductsInput): Promise<CommitBumpaProductsResult> {
   const existingProducts: ExistingProductRecord[] = [];
   const pageSize = 1000;
@@ -138,6 +144,8 @@ export async function commitBumpaProducts({
   const changedProducts: InternalRevalidateProductEntry[] = [];
 
   try {
+    const progress = createCommitProgress(products.length, onProgress);
+
     for (const product of products) {
       const existingProduct = productsByExternalId.get(
         product.externalSourceId
@@ -197,6 +205,7 @@ export async function commitBumpaProducts({
           id: existingProduct.id,
           category: product.category,
         });
+        await progress.reportNext();
         continue;
       }
 
@@ -211,6 +220,7 @@ export async function commitBumpaProducts({
 
       createdProducts += 1;
       changedProducts.push({ slug, category: product.category });
+      await progress.reportNext();
     }
   } finally {
     // Invalidate product caches so imported products are immediately reflected —

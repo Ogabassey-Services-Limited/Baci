@@ -94,7 +94,11 @@ describe('sendImportNotificationCampaign app-first claim links', () => {
       },
     });
 
-    expect(result).toEqual({ sentCount: 1, skippedCount: 1, failedCount: 0 });
+    expect(result).toMatchObject({
+      sentCount: 1,
+      skippedCount: 1,
+      failedCount: 0,
+    });
     expect(createReceiptClaimToken).toHaveBeenCalledTimes(1);
     const rpc = (
       supabase as unknown as {

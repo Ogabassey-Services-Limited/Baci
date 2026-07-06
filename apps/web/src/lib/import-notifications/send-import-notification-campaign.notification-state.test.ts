@@ -96,7 +96,7 @@ describe('sendImportNotificationCampaign notification state', () => {
       },
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       failedCount: 2,
       sentCount: 0,
       skippedCount: 0,

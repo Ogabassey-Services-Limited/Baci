@@ -332,6 +332,50 @@ describe('commitBumpaOrders', () => {
     });
   });
 
+  it('reports commit progress after each created or updated order', async () => {
+    const onProgress = vi.fn();
+    const { supabase } = createSupabaseMock({
+      existingOrders: [
+        {
+          id: 'order-existing',
+          external_id: 'ext-2',
+          tracking_token: 'tracking-existing',
+          updated_at: '2026-03-21T10:00:00.000Z',
+          fulfillment_details: null,
+          shipping_address: null,
+        },
+      ],
+    });
+
+    const result = await commitBumpaOrders({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      orders: [
+        createOrder({ externalSourceId: 'ext-1' }),
+        createOrder({
+          externalSourceId: 'ext-2',
+          orderNumber: 'ORD-1002',
+        }),
+      ],
+      onProgress,
+    });
+
+    expect(result).toMatchObject({
+      createdOrders: 1,
+      updatedOrders: 1,
+    });
+    expect(onProgress).toHaveBeenCalledTimes(2);
+    expect(onProgress).toHaveBeenNthCalledWith(1, {
+      processedRecords: 1,
+      totalRecords: 2,
+    });
+    expect(onProgress).toHaveBeenNthCalledWith(2, {
+      processedRecords: 2,
+      totalRecords: 2,
+    });
+  });
+
   it('preserves rounded imported line totals and item timestamps for new orders', async () => {
     const { supabase, rpc } = createSupabaseMock();
 

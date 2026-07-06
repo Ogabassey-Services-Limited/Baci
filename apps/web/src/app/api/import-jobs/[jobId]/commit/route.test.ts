@@ -230,6 +230,11 @@ describe('POST /api/import-jobs/[jobId]/commit', () => {
     expect(startImportJob).toHaveBeenCalledWith(jobId, 'http://localhost');
     expect(query.update).toHaveBeenNthCalledWith(1, {
       status: 'commit_queued',
+      summary: {
+        commitProcessedRecords: 0,
+        commitTotalRecords: 3,
+        validRows: 3,
+      },
       error: null,
       error_details: null,
     });

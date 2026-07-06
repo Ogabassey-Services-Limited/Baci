@@ -68,6 +68,48 @@ describe('migration progress utils', () => {
       '0 of 10 rows processed'
     );
   });
+
+  it('uses summary counters for commit progress', () => {
+    const summary = {
+      commitProcessedRecords: 40,
+      commitTotalRecords: 200,
+    };
+
+    expect(getMigrationProgressValue('committing', 200, 200, summary)).toBe(85);
+    expect(getMigrationProgressDetail('committing', 200, 200, summary)).toBe(
+      '40 of 200 records imported'
+    );
+    summary.commitProcessedRecords = 0;
+    expect(getMigrationProgressValue('committing', 200, 200, summary)).toBe(84);
+  });
+
+  it('uses a stable commit fallback while record totals are unavailable', () => {
+    expect(getMigrationProgressValue('committing', 0, 0, null)).toBe(84);
+    expect(getMigrationProgressDetail('committing', 0, 0, null)).toBe(
+      'Preparing records for import...'
+    );
+  });
+
+  it('uses grouped recipient counters for notification progress', () => {
+    const summary = {
+      notificationProcessedRecipients: 125,
+      notificationTotalRecipients: 500,
+    };
+
+    expect(getMigrationProgressValue('notifying', 800, 800, summary)).toBe(98);
+    expect(getMigrationProgressDetail('notifying', 800, 800, summary)).toBe(
+      '125 of 500 customer emails processed'
+    );
+    summary.notificationProcessedRecipients = 0;
+    expect(getMigrationProgressValue('notifying', 800, 800, summary)).toBe(97);
+  });
+
+  it('uses a stable notification fallback while recipient totals are unavailable', () => {
+    expect(getMigrationProgressValue('notifying', 0, 0, null)).toBe(97);
+    expect(getMigrationProgressDetail('notifying', 0, 0, null)).toBe(
+      'Preparing customer email recipients...'
+    );
+  });
 });
 
 describe('decorateImportJob', () => {

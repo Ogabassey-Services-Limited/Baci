@@ -98,12 +98,19 @@ describe('runClaimedImportJob commit flows', () => {
   });
 
   it('commits normalized rows and merges commit summary data', async () => {
-    vi.mocked(commitBumpaOrders).mockResolvedValue({
-      createdOrders: 1,
-      updatedOrders: 0,
-      createdCustomers: 1,
+    vi.mocked(commitBumpaOrders).mockImplementation(async ({ onProgress }) => {
+      await onProgress?.({ processedRecords: 1, totalRecords: 1 });
+      return {
+        createdOrders: 1,
+        updatedOrders: 0,
+        createdCustomers: 1,
+      };
     });
 
+    const progressUpdateQuery = createUpdateQuery();
+    const completedProgressQuery = createUpdateQuery();
+    const finalUpdateQuery = createUpdateQuery();
+    const deleteQuery = createDeleteQuery();
     const supabase = {
       from: vi
         .fn()
@@ -114,8 +121,10 @@ describe('runClaimedImportJob commit flows', () => {
             items: [],
           })
         )
-        .mockReturnValueOnce(createUpdateQuery())
-        .mockReturnValueOnce(createDeleteQuery()),
+        .mockReturnValueOnce(progressUpdateQuery)
+        .mockReturnValueOnce(completedProgressQuery)
+        .mockReturnValueOnce(finalUpdateQuery)
+        .mockReturnValueOnce(deleteQuery),
     } as unknown as SupabaseClient;
 
     const result = await runClaimedImportJob(supabase, createJob('committing'));
@@ -125,6 +134,23 @@ describe('runClaimedImportJob commit flows', () => {
       status: 'committed',
       processed: 1,
     });
+    expect(progressUpdateQuery.update).toHaveBeenCalledWith({
+      summary: {
+        commitProcessedRecords: 0,
+        commitTotalRecords: 1,
+        validRows: 1,
+      },
+    });
+    expect(finalUpdateQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'committed',
+        summary: expect.objectContaining({
+          commitProcessedRecords: 1,
+          commitTotalRecords: 1,
+          createdOrders: 1,
+        }),
+      })
+    );
     expect(commitBumpaOrders).toHaveBeenCalledWith(
       expect.objectContaining({
         merchantId: 'merchant-1',
@@ -149,6 +175,7 @@ describe('runClaimedImportJob commit flows', () => {
             price: 1000,
           })
         )
+        .mockReturnValueOnce(createUpdateQuery())
         .mockReturnValueOnce(createUpdateQuery())
         .mockReturnValueOnce(createDeleteQuery()),
     } as unknown as SupabaseClient;
@@ -181,6 +208,7 @@ describe('runClaimedImportJob commit flows', () => {
             items: [],
           })
         )
+        .mockReturnValueOnce(createUpdateQuery())
         .mockReturnValueOnce(createUpdateQuery()),
     } as unknown as SupabaseClient;
 
@@ -207,6 +235,7 @@ describe('runClaimedImportJob commit flows', () => {
             price: 1000,
           })
         )
+        .mockReturnValueOnce(createUpdateQuery())
         .mockReturnValueOnce(createUpdateQuery()),
     } as unknown as SupabaseClient;
 

@@ -62,6 +62,7 @@ describe('commitBumpaProducts', () => {
   });
 
   it('updates existing imported products and inserts new ones with unique slugs', async () => {
+    const onProgress = vi.fn();
     const loadQuery = {
       select: vi.fn(),
       eq: vi.fn(),
@@ -127,11 +128,21 @@ describe('commitBumpaProducts', () => {
           sku: 'SKU-2',
         }),
       ],
+      onProgress,
     });
 
     expect(result).toEqual({
       createdProducts: 1,
       updatedProducts: 1,
+    });
+    expect(onProgress).toHaveBeenCalledTimes(2);
+    expect(onProgress).toHaveBeenNthCalledWith(1, {
+      processedRecords: 1,
+      totalRecords: 2,
+    });
+    expect(onProgress).toHaveBeenNthCalledWith(2, {
+      processedRecords: 2,
+      totalRecords: 2,
     });
     expect(updateQuery.update).toHaveBeenCalledWith(
       expect.objectContaining({

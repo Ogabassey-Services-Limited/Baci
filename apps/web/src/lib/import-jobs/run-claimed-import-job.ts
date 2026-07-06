@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { commitBumpaOrders } from '@/lib/import-commit/commit-bumpa-orders';
 import { commitBumpaProducts } from '@/lib/import-commit/commit-bumpa-products';
 import { createPreviewProgressReporter } from '@/lib/import-jobs/create-preview-progress-reporter';
+import { createImportJobSummaryProgressReporter } from '@/lib/import-jobs/import-job-progress';
 import {
   buildImportJobRowInserts,
   buildImportPreviewChunksForJob,
@@ -232,23 +233,49 @@ async function processCommittingJob(
     throw new Error(`Failed to load import commit rows: ${error.message}`);
   }
 
+  const normalizedPayloads = (data || []).map((row) => row.normalized_payload);
+  const normalizedOrders = normalizedPayloads.filter(isOrderPayload);
+  const normalizedProducts = normalizedPayloads.filter(isProductPayload);
+  const commitTotalRecords =
+    job.entity_type === 'orders'
+      ? normalizedOrders.length
+      : normalizedProducts.length;
+  const commitProgress = createImportJobSummaryProgressReporter({
+    job,
+    logger,
+    processedKey: 'commitProcessedRecords',
+    supabase,
+    totalKey: 'commitTotalRecords',
+  });
+
+  await commitProgress.report({
+    processed: 0,
+    total: commitTotalRecords,
+  });
+
   const summary =
     job.entity_type === 'orders'
       ? await commitBumpaOrders({
           supabase,
           merchantId: job.merchant_id,
           importJobId: job.id,
-          orders: (data || [])
-            .map((row) => row.normalized_payload)
-            .filter(isOrderPayload),
+          orders: normalizedOrders,
+          onProgress: ({ processedRecords, totalRecords }) =>
+            commitProgress.report({
+              processed: processedRecords,
+              total: totalRecords,
+            }),
         })
       : await commitBumpaProducts({
           supabase,
           merchantId: job.merchant_id,
           importJobId: job.id,
-          products: (data || [])
-            .map((row) => row.normalized_payload)
-            .filter(isProductPayload),
+          products: normalizedProducts,
+          onProgress: ({ processedRecords, totalRecords }) =>
+            commitProgress.report({
+              processed: processedRecords,
+              total: totalRecords,
+            }),
         });
 
   const { error: updateError } = await supabase
@@ -256,7 +283,11 @@ async function processCommittingJob(
     .update({
       status: 'committed',
       committed_at: new Date().toISOString(),
-      summary: mergeImportJobSummary(job.summary, summary),
+      summary: mergeImportJobSummary(commitProgress.getSummary(), {
+        ...summary,
+        commitProcessedRecords: commitTotalRecords,
+        commitTotalRecords,
+      }),
       error: null,
       error_details: null,
     })
@@ -273,7 +304,7 @@ async function processCommittingJob(
   return {
     id: job.id,
     status: 'committed',
-    processed: Array.isArray(data) ? data.length : 0,
+    processed: commitTotalRecords,
   };
 }
 
@@ -343,6 +374,14 @@ async function processNotifyingJob(
     );
   }
 
+  const notificationProgress = createImportJobSummaryProgressReporter({
+    job,
+    logger,
+    processedKey: 'notificationProcessedRecipients',
+    supabase,
+    totalKey: 'notificationTotalRecipients',
+  });
+
   const summary = await sendImportNotificationCampaign({
     supabase,
     importJobId: job.id,
@@ -353,6 +392,11 @@ async function processNotifyingJob(
     customSettings:
       (featureSettings?.custom_settings as Record<string, unknown> | null) ||
       null,
+    onProgress: ({ processedRecipients, totalRecipients }) =>
+      notificationProgress.report({
+        processed: processedRecipients,
+        total: totalRecipients,
+      }),
   });
 
   const { error: updateError } = await supabase
@@ -361,7 +405,10 @@ async function processNotifyingJob(
       status: 'completed',
       notified_at: new Date().toISOString(),
       completed_at: new Date().toISOString(),
-      summary: mergeImportJobSummary(job.summary, summary),
+      summary: mergeImportJobSummary(
+        notificationProgress.getSummary(),
+        summary
+      ),
       error: null,
       error_details: null,
     })

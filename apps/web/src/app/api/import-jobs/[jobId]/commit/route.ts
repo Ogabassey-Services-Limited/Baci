@@ -78,10 +78,17 @@ export async function POST(
       );
     }
 
+    const summary = {
+      ...(job.summary || {}),
+      commitProcessedRecords: 0,
+      commitTotalRecords: validRows,
+    };
+
     const { data, error } = await authResult.context.supabase
       .from('import_jobs')
       .update({
         status: 'commit_queued',
+        summary,
         error: null,
         error_details: null,
       })

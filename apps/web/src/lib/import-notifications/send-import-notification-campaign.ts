@@ -15,6 +15,10 @@ import {
   normalizeClaimEmail,
   type ReceiptClaimOrderForDeviceList,
 } from '@/lib/import-notifications/receipt-claim-links';
+import {
+  createImportNotificationProgressReporter,
+  type ImportNotificationProgressCallback,
+} from '@/lib/import-notifications/send-import-notification-progress';
 import { sendEmail } from '@/lib/zeptomail';
 import { createReceiptClaimResultSchema } from '@/schemas/receipt-claim-rpc';
 
@@ -43,11 +47,14 @@ interface SendImportNotificationCampaignInput {
   importJobId: string;
   merchant: MerchantNotificationContext;
   customSettings: Record<string, unknown> | null;
+  onProgress?: ImportNotificationProgressCallback;
 }
 interface SendImportNotificationCampaignResult {
   sentCount: number;
   skippedCount: number;
   failedCount: number;
+  notificationProcessedRecipients: number;
+  notificationTotalRecipients: number;
 }
 interface CreatedReceiptClaimLink {
   claimId: string;
@@ -164,6 +171,7 @@ export async function sendImportNotificationCampaign({
   importJobId,
   merchant,
   customSettings,
+  onProgress,
 }: SendImportNotificationCampaignInput): Promise<SendImportNotificationCampaignResult> {
   const { data, error } = await supabase
     .from('orders')
@@ -184,10 +192,13 @@ export async function sendImportNotificationCampaign({
     (data || []) as NotificationRecipientOrder[]
   );
   const delivery = resolveReceiptNotificationDelivery(merchant, customSettings);
+  const progress = createImportNotificationProgressReporter({
+    importJobId,
+    onProgress,
+    totalRecipients: recipientsByEmail.size,
+  });
 
-  let sentCount = 0;
-  let skippedCount = 0;
-  let failedCount = 0;
+  await progress.report();
 
   for (const recipient of recipientsByEmail.values()) {
     let createdClaim: CreatedReceiptClaimLink | null = null;
@@ -202,13 +213,13 @@ export async function sendImportNotificationCampaign({
       });
 
       if (!createdClaim) {
-        skippedCount += 1;
+        await progress.markProcessed('skipped');
         continue;
       }
 
       receiptUrl = createdClaim.claimUrl;
     } else if (!recipient.customerId) {
-      skippedCount += 1;
+      await progress.markProcessed('skipped');
       continue;
     }
 
@@ -236,7 +247,7 @@ export async function sendImportNotificationCampaign({
       });
     } catch {
       await cleanUpUnsentClaim({ claim: createdClaim, supabase });
-      failedCount += 1;
+      await progress.markProcessed('failed');
       continue;
     }
 
@@ -253,23 +264,27 @@ export async function sendImportNotificationCampaign({
             error,
             importJobId,
           });
-          failedCount += 1;
+          await progress.markProcessed('failed');
           continue;
         }
       }
 
-      sentCount += 1;
+      await progress.markProcessed('sent');
       continue;
     }
 
     await cleanUpUnsentClaim({ claim: createdClaim, supabase });
 
-    failedCount += 1;
+    await progress.markProcessed('failed');
   }
 
+  const summary = progress.getSnapshot();
+
   return {
-    sentCount,
-    skippedCount,
-    failedCount,
+    sentCount: summary.sentCount,
+    skippedCount: summary.skippedCount,
+    failedCount: summary.failedCount,
+    notificationProcessedRecipients: summary.processedRecipients,
+    notificationTotalRecipients: summary.totalRecipients,
   };
 }
