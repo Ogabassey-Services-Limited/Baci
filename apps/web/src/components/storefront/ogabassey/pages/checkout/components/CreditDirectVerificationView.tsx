@@ -65,7 +65,7 @@ export function CreditDirectVerificationView({
           <button
             type="button"
             onClick={onReturnHome}
-            className="w-full py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
+            className="w-full py-3 bg-store-primary text-store-on-primary rounded-lg font-medium hover:opacity-90 transition-opacity"
           >
             Return to Home
           </button>
@@ -83,16 +83,19 @@ export function CreditDirectVerificationView({
         <h2 className="text-xl font-bold text-gray-900 mb-2">
           Payment confirmation pending
         </h2>
-        <p className="text-gray-600 mb-6">
+        <p className="text-gray-600 mb-4">
           If you completed your Credit Direct application, your order will be
           confirmed automatically and you&apos;ll receive an email receipt —
-          you will not be charged twice. You can keep checking or try the
-          payment again.
+          you will not be charged twice.
+        </p>
+        <p className="text-gray-600 mb-6">
+          Only start a new attempt if you did <strong>not</strong> finish your
+          previous application — a new attempt replaces the earlier one.
         </p>
         <button
           type="button"
           onClick={onKeepWaiting}
-          className="w-full py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
+          className="w-full py-3 bg-store-primary text-store-on-primary rounded-lg font-medium hover:opacity-90 transition-opacity"
         >
           Keep checking
         </button>
@@ -101,7 +104,7 @@ export function CreditDirectVerificationView({
           onClick={onRetryPayment}
           className="w-full mt-3 py-3 border border-gray-300 text-gray-900 rounded-lg font-medium hover:bg-gray-50 transition-colors"
         >
-          Try payment again
+          Start a new payment attempt
         </button>
         <button
           type="button"

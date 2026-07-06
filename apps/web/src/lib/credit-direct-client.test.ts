@@ -140,7 +140,7 @@ describe('openCreditDirectCheckout', () => {
     expect(options.onError).not.toHaveBeenCalled();
   });
 
-  it('ignores popup events without a transaction id', async () => {
+  it('falls back to the signed session id for popup events without a transaction id', async () => {
     window.Connect = function MockConnect(config: {
       onPopup: (payload?: { checkoutTransactionId?: string }) => void;
     }) {
@@ -152,7 +152,7 @@ describe('openCreditDirectCheckout', () => {
 
     await openCreditDirectCheckout(options);
 
-    expect(options.onPopup).not.toHaveBeenCalled();
+    expect(options.onPopup).toHaveBeenCalledWith('session-123');
     expect(options.onError).not.toHaveBeenCalled();
   });
 });

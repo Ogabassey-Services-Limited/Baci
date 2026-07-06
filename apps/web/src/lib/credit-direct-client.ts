@@ -217,11 +217,12 @@ export async function openCreditDirectCheckout(
         const popupTransactionId = response?.checkoutTransactionId?.trim();
         console.log(
           'Credit Direct popup opened:',
-          popupTransactionId || 'No ID returned'
+          popupTransactionId || 'No ID returned (using session id)'
         );
-        if (popupTransactionId) {
-          onPopup?.(popupTransactionId);
-        }
+        // Fall back to the signing sessionId (same fallback onSuccess uses):
+        // the popup handoff must always be observable so the launcher can
+        // record it before the popup replaces the document in a WebView.
+        onPopup?.(resolveTransactionId(response));
       },
     });
 

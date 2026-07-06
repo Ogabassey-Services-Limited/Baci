@@ -85,6 +85,22 @@ function buildCurrentPathRedirectUrl(callbackQuery: URLSearchParams) {
     return `${window.location.origin}${window.location.pathname}?${callbackQuery.toString()}`;
 }
 
+// Slug-prefixed storefront contexts (localhost, previews, the root domain)
+// serve the launcher at /{slug}/checkout/bnpl; an absolute /order-success
+// would escape the storefront there. Preserve whatever prefix the launcher
+// itself was served under.
+function buildLauncherScopedPath(target: string) {
+    if (typeof window === 'undefined') {
+        return target;
+    }
+    const { pathname } = window.location;
+    const anchorIndex = pathname.lastIndexOf('/checkout/bnpl');
+    if (anchorIndex <= 0) {
+        return target;
+    }
+    return `${pathname.slice(0, anchorIndex)}${target}`;
+}
+
 function clearPendingKlumpRedirect() {
     try {
         window.localStorage.removeItem(KLUMP_REDIRECT_URL_KEY);
@@ -768,7 +784,9 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
             successQuery.set('trackingToken', trackingToken);
         }
         clearCreditDirectPopupMarker(orderId);
-        router.push(`/order-success?${successQuery.toString()}` as Route);
+        router.push(
+            `${buildLauncherScopedPath('/order-success')}?${successQuery.toString()}` as Route
+        );
     }, [
         creditDirectVerification.phase,
         creditDirectPopupMarker,
@@ -826,7 +844,14 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                     </h2>
                     <p className="text-gray-600 mb-6">{errorMessage}</p>
                     <button type="button"
-                        onClick={() => window.location.reload()}
+                        onClick={() => {
+                            // A cancelled/errored SDK attempt may have left a
+                            // popup marker behind; clear it so the reload
+                            // relaunches checkout instead of entering the
+                            // verification flow.
+                            clearCreditDirectPopupMarker(orderId);
+                            window.location.reload();
+                        }}
                         className="w-full py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
                     >
                         Try Again

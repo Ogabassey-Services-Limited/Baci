@@ -117,6 +117,29 @@ describe('useCreditDirectVerification', () => {
     expect(result.current.phase).toBe('confirmed');
   });
 
+  it('reaches the timeout even when a poll request hangs indefinitely', async () => {
+    fetchMock.mockImplementation(
+      (_url: string, init?: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new Error('aborted'))
+          );
+        }),
+    );
+
+    const { result } = renderHook(() =>
+      useCreditDirectVerification({ ...baseOptions, requestTimeoutMs: 20 }),
+    );
+    await act(async () => {});
+    expect(result.current.phase).toBe('polling');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(70);
+    });
+
+    expect(result.current.phase).toBe('timeout');
+  });
+
   it('times out after the deadline when the status never resolves', async () => {
     fetchMock.mockResolvedValue(orderResponse('bnpl_pending'));
 

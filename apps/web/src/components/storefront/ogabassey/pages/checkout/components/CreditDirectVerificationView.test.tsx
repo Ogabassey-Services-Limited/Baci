@@ -40,7 +40,9 @@ describe('CreditDirectVerificationView', () => {
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Keep checking' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Try payment again' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Start a new payment attempt' })
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Return to Home' }));
 
     expect(onKeepWaiting).toHaveBeenCalledTimes(1);

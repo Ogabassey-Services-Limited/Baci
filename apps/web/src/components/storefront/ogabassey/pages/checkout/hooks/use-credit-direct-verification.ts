@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 const DEFAULT_POLL_INTERVAL_MS = 5_000;
 const DEFAULT_TIMEOUT_MS = 150_000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 const CONFIRMED_PAYMENT_STATUSES = new Set(['paid', 'bnpl_approved']);
 const CANCELLED_PAYMENT_STATUSES = new Set(['cancelled', 'refunded']);
 
@@ -20,6 +21,7 @@ interface UseCreditDirectVerificationOptions {
   lookupEmail: string | null;
   pollIntervalMs?: number;
   timeoutMs?: number;
+  requestTimeoutMs?: number;
 }
 
 interface OrderStatusResponse {
@@ -41,6 +43,7 @@ export function useCreditDirectVerification({
   lookupEmail,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
 }: UseCreditDirectVerificationOptions) {
   const [phase, setPhase] = useState<CreditDirectVerificationPhase>('idle');
   const [pollEpoch, setPollEpoch] = useState(0);
@@ -53,7 +56,7 @@ export function useCreditDirectVerification({
 
     let disposed = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const controller = new AbortController();
+    let activeController: AbortController | null = null;
     setPhase('polling');
 
     const query = new URLSearchParams({ merchant_slug: merchantSlug });
@@ -63,6 +66,14 @@ export function useCreditDirectVerification({
     const startedAt = Date.now();
 
     const checkOnce = async () => {
+      // Abort each poll request on its own deadline so a hung fetch on a
+      // flaky connection cannot hold the customer past the overall timeout.
+      const controller = new AbortController();
+      activeController = controller;
+      const requestDeadline = setTimeout(
+        () => controller.abort(),
+        requestTimeoutMs
+      );
       try {
         const response = await fetch(orderUrl, {
           signal: controller.signal,
@@ -80,7 +91,10 @@ export function useCreditDirectVerification({
           }
         }
       } catch {
-        // Transient network failure — keep polling until the deadline.
+        // Transient network failure or aborted request — keep polling
+        // until the deadline.
+      } finally {
+        clearTimeout(requestDeadline);
       }
 
       if (disposed) return;
@@ -97,7 +111,7 @@ export function useCreditDirectVerification({
 
     return () => {
       disposed = true;
-      controller.abort();
+      activeController?.abort();
       if (timer) clearTimeout(timer);
     };
   }, [
@@ -108,6 +122,7 @@ export function useCreditDirectVerification({
     lookupEmail,
     pollIntervalMs,
     timeoutMs,
+    requestTimeoutMs,
     pollEpoch,
   ]);
 

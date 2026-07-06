@@ -1063,7 +1063,7 @@ describe('BnplLauncher', () => {
       expect(readCreditDirectPopupMarker('order-1')).toBeNull();
     });
 
-    it('relaunches checkout after Try payment again on a verification timeout', async () => {
+    it('relaunches checkout after starting a new attempt on a verification timeout', async () => {
       vi.useFakeTimers();
       try {
         seedPopupMarker('order-1', 'txn-123');
@@ -1079,12 +1079,48 @@ describe('BnplLauncher', () => {
       }
 
       fireEvent.click(
-        screen.getByRole('button', { name: 'Try payment again' })
+        screen.getByRole('button', { name: 'Start a new payment attempt' })
       );
 
       await waitFor(() => {
         expect(mockOpenCreditDirectCheckout).toHaveBeenCalled();
       });
+      expect(readCreditDirectPopupMarker('order-1')).toBeNull();
+    });
+
+    it('keeps the storefront slug prefix on the verified success redirect', async () => {
+      window.history.replaceState({}, '', '/test-store/checkout/bnpl');
+      seedPopupMarker('order-1', 'txn-123');
+      stubOrderStatusFetch('bnpl_approved');
+
+      render(<BnplLauncher />);
+
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith(
+          '/test-store/order-success?orderId=order-1&reference=txn-123&type=credit_direct&trackingToken=tok-123'
+        );
+      });
+    });
+
+    it('clears a stale popup marker when retrying from the SDK error view', async () => {
+      mockOpenCreditDirectCheckout.mockImplementation(
+        async ({ onPopup, onError }) => {
+          await onPopup('txn-999');
+          onError('SDK failed to open');
+        }
+      );
+
+      render(<BnplLauncher />);
+
+      expect(
+        await screen.findByRole('heading', { name: 'Something went wrong' })
+      ).toBeInTheDocument();
+      expect(readCreditDirectPopupMarker('order-1')?.transactionId).toBe(
+        'txn-999'
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
+
       expect(readCreditDirectPopupMarker('order-1')).toBeNull();
     });
   });
