@@ -109,3 +109,52 @@ describe('mobile-admin app config version resolution', () => {
     await expect(import('./app.config')).rejects.toThrow(/Invalid app version/);
   });
 });
+
+describe('mobile-admin Supabase auth config', () => {
+  it('exposes the publishable key and keeps a one-release anon fallback', async () => {
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_URL', 'https://abc123.supabase.co');
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_test');
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_ANON_KEY', 'legacy-anon-key');
+
+    const { default: buildConfig } = await import('./app.config');
+    const config = buildConfig(TEST_CONFIG_CONTEXT);
+
+    expect(config.extra).toMatchObject({
+      supabaseAnonKey: 'legacy-anon-key',
+      supabasePublishableKey: 'sb_publishable_test',
+      supabaseUrl: 'https://abc123.supabase.co',
+    });
+  });
+
+  it('maps the legacy anon key into the publishable key extra during fallback', async () => {
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_URL', 'https://abc123.supabase.co');
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY', '');
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_ANON_KEY', 'legacy-anon-key');
+
+    const { default: buildConfig } = await import('./app.config');
+    const config = buildConfig(TEST_CONFIG_CONTEXT);
+
+    expect(config.extra).toMatchObject({
+      supabasePublishableKey: 'legacy-anon-key',
+      supabaseUrl: 'https://abc123.supabase.co',
+    });
+  });
+
+  it('configures expo-secure-store explicitly for auth key material', async () => {
+    const { default: buildConfig } = await import('./app.config');
+    const config = buildConfig(TEST_CONFIG_CONTEXT);
+
+    expect(config.plugins).toEqual(
+      expect.arrayContaining([
+        [
+          'expo-secure-store',
+          {
+            configureAndroidBackup: true,
+            faceIDPermission:
+              'Allow Baci Admin to protect your merchant account credentials.',
+          },
+        ],
+      ])
+    );
+  });
+});

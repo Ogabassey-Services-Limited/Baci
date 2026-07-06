@@ -8,6 +8,24 @@ BUNDLE_ID = "com.ogabassey.baci"
 OUTPUT_DIR = File.expand_path("../build", __dir__)
 APP_STORE_RELEASE_NOTES_MAX_LENGTH = 4000
 APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS = 5400
+LEGACY_SUPABASE_ANON_KEY_FALLBACK_CUTOFF =
+  ENV.fetch("LEGACY_SUPABASE_ANON_KEY_FALLBACK_CUTOFF", "2027-01-01")
+
+def legacy_supabase_anon_key_fallback_cutoff
+  cutoff = LEGACY_SUPABASE_ANON_KEY_FALLBACK_CUTOFF.to_s.strip
+  unless cutoff.match?(/\A\d{4}-\d{2}-\d{2}\z/)
+    UI.user_error!(
+      "Invalid LEGACY_SUPABASE_ANON_KEY_FALLBACK_CUTOFF: #{cutoff}. Expected YYYY-MM-DD."
+    )
+  end
+
+  year, month, day = cutoff.split("-").map(&:to_i)
+  Time.utc(year, month, day)
+rescue ArgumentError
+  UI.user_error!(
+    "Invalid LEGACY_SUPABASE_ANON_KEY_FALLBACK_CUTOFF: #{cutoff}. Expected a real YYYY-MM-DD date."
+  )
+end
 
 def ensure_required_env!(keys)
   missing = keys.select { |key| ENV[key].to_s.strip.empty? }
@@ -16,6 +34,36 @@ def ensure_required_env!(keys)
   UI.user_error!(
     "Missing required build environment variables: #{missing.join(', ')}. " \
     "These values must be present during xcodebuild so Expo can embed the release JS bundle correctly."
+  )
+end
+
+def ensure_supabase_client_key_env!
+  ensure_required_env!(%w[
+    EXPO_PUBLIC_SUPABASE_URL
+  ])
+
+  return unless ENV["EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY"].to_s.strip.empty?
+
+  unless ENV["EXPO_PUBLIC_SUPABASE_ANON_KEY"].to_s.strip.empty?
+    fallback_cutoff = legacy_supabase_anon_key_fallback_cutoff
+    if Time.now.utc >= fallback_cutoff
+      UI.user_error!(
+        "Legacy EXPO_PUBLIC_SUPABASE_ANON_KEY fallback expired on " \
+        "#{fallback_cutoff.strftime('%Y-%m-%d')}. " \
+        "Set EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY instead."
+      )
+    end
+
+    UI.important(
+      "Using legacy EXPO_PUBLIC_SUPABASE_ANON_KEY fallback; migrate mobile-admin builds " \
+      "to EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY before end of 2026."
+    )
+    return
+  end
+
+  UI.user_error!(
+    "Missing required build environment variable: EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY. " \
+    "A legacy EXPO_PUBLIC_SUPABASE_ANON_KEY is accepted through 2026 only."
   )
 end
 
@@ -113,10 +161,7 @@ platform :ios do
   desc "Build signed IPA and upload to TestFlight"
   lane :release do
     api_key = asc_api_key
-    ensure_required_env!(%w[
-      EXPO_PUBLIC_SUPABASE_URL
-      EXPO_PUBLIC_SUPABASE_ANON_KEY
-    ])
+    ensure_supabase_client_key_env!
 
     match(
       type: "appstore",

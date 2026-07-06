@@ -8,6 +8,9 @@
 
 import type { Session, User } from '@supabase/supabase-js';
 import { create } from 'zustand';
+import { getAuthErrorCode } from '@/lib/auth/auth-error-classification';
+import { createAuthStateController } from '@/lib/auth/auth-state-controller';
+import { removeAuthStorageKeys } from '@/lib/auth/auth-session-storage';
 import {
   type PasswordSignUpResult,
   runPasswordSignUp,
@@ -17,7 +20,7 @@ import {
   type SocialAuthProvider,
 } from '@/lib/auth/social-auth-helper';
 import { clearAdminQueryCache } from '@/lib/query-client';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAuthStorageKey } from '@/lib/supabase';
 import { trackAuthTelemetry } from '@/services/auth-telemetry';
 import { useRevenueCatStore } from '@/stores/revenueCatStore';
 
@@ -67,6 +70,13 @@ async function resetUserStores(): Promise<void> {
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => {
+  const authStateController = createAuthStateController({
+    auth: supabase.auth,
+    getState: () => ({ user: get().user }),
+    resetUserStores,
+    setState: (state) => set(state),
+  });
+
   return {
     activeAuthProvider: null,
     isAuthenticating: false,
@@ -76,102 +86,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
     isAuthenticated: false,
     isInitialized: false,
 
-    initialize: () => {
-      // Validate auth with server (getSession only reads local JWT, which could be stale/tampered)
-      supabase.auth
-        .getUser()
-        .then(({ data: { user }, error }) => {
-          if (error || !user) {
-            // If we have a refresh token error, the session is dead. Clear it.
-            // This prevents the "Invalid Refresh Token" loop.
-            if (
-              error?.message.includes('Refresh Token') ||
-              error?.message.includes('invalid_grant')
-            ) {
-              console.warn(
-                '[AuthStore] Invalid refresh token detected, forcing sign out'
-              );
-              get().signOut();
-            }
-
-            set({
-              activeAuthProvider: null,
-              isAuthenticating: false,
-              session: null,
-              user: null,
-              isLoading: false,
-              isAuthenticated: false,
-              isInitialized: true,
-            });
-          } else {
-            set({ user });
-            // Also fetch session for token access after server validation
-            supabase.auth
-              .getSession()
-              .then(({ data: { session } }) => {
-                set({
-                  session,
-                  isAuthenticated: !!session,
-                  isLoading: false,
-                  isInitialized: true,
-                });
-              })
-              .catch(() => {
-                // Session fetch failed but we have a valid user — mark as initialized
-                set({ isLoading: false, isInitialized: true });
-              });
-          }
-        })
-        .catch(() => {
-          // Network error on getUser — stop loading spinner so the app is usable
-          set({
-            activeAuthProvider: null,
-            isAuthenticating: false,
-            session: null,
-            user: null,
-            isLoading: false,
-            isAuthenticated: false,
-            isInitialized: true,
-          });
-        });
-
-      // Single listener for the entire app
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((event, session) => {
-        // Don't update state from the listener until after the initial getUser() completes.
-        // This prevents INITIAL_SESSION from setting auth state before server validation.
-        if (!get().isInitialized) {
-          return;
-        }
-
-        // On SIGNED_IN, reset user-specific stores to prevent cross-user data bleed
-        if (event === 'SIGNED_IN') {
-          const currentUserId = get().user?.id;
-          const nextUserId = session?.user?.id;
-
-          if (nextUserId && currentUserId !== nextUserId) {
-            void resetUserStores();
-          }
-        }
-
-        // 2026 Critical Fix: On SIGNED_OUT (session expiry), reset stores to prevent stale data
-        if (event === 'SIGNED_OUT' && get().user) {
-          void resetUserStores();
-        }
-
-        set({
-          activeAuthProvider: null,
-          isAuthenticating: false,
-          session,
-          user: session?.user ?? null,
-          isAuthenticated: !!session,
-          isLoading: false,
-        });
-      });
-
-      return () => subscription.unsubscribe();
-    },
+    initialize: () => authStateController.initialize(),
 
     signIn: async (email: string, password: string) => {
       const startedAt = Date.now();
@@ -282,7 +197,6 @@ export const useAuthStore = create<AuthStore>((set, get) => {
     },
 
     signOut: async (onBeforeSignOut?: () => Promise<void>) => {
-      // Run caller-provided cleanup (e.g. push notification unregistration)
       if (onBeforeSignOut) {
         try {
           await onBeforeSignOut();
@@ -290,9 +204,47 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           console.error('[AuthStore] onBeforeSignOut callback failed:', error);
         }
       }
-      // Reset all user-specific caches and stores
+
       await resetUserStores();
-      await supabase.auth.signOut();
+
+      let signOutError: unknown = null;
+      try {
+        const { error } = await supabase.auth.signOut({ scope: 'local' });
+        signOutError = error;
+      } catch (error) {
+        signOutError = error;
+      } finally {
+        await authStateController.clearLocalAuthState({ resetStores: false });
+      }
+
+      if (!signOutError) {
+        return;
+      }
+
+      const signOutErrorCode = getAuthErrorCode(signOutError);
+      const normalizedSignOutErrorCode = signOutErrorCode?.toLowerCase();
+      if (
+        normalizedSignOutErrorCode === 'authsessionmissingerror' ||
+        normalizedSignOutErrorCode === 'session_not_found'
+      ) {
+        return;
+      }
+
+      console.warn('[AuthStore] Local sign out returned an error', {
+        code: signOutErrorCode,
+      });
+
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session && supabaseAuthStorageKey) {
+          removeAuthStorageKeys(supabaseAuthStorageKey);
+        }
+      } catch {
+        // Local auth state is already cleared. Storage fallback is best effort.
+      }
     },
   };
 });

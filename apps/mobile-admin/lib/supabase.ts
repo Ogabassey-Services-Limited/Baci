@@ -2,12 +2,17 @@
  * Supabase Client for Admin App
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, processLock } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
-import { storage } from './storage';
+import {
+  authSessionStorage,
+  getDefaultSupabaseAuthStorageKey,
+} from './auth/auth-session-storage';
+import { registerAuthRefreshLifecycle } from './auth/auth-refresh-lifecycle';
 
 type ExpoExtraConfig = {
   supabaseAnonKey?: string;
+  supabasePublishableKey?: string;
   supabaseUrl?: string;
 };
 
@@ -24,25 +29,33 @@ function getExpoExtraConfig(): ExpoExtraConfig {
 const expoExtra = getExpoExtraConfig();
 const supabaseUrl =
   process.env.EXPO_PUBLIC_SUPABASE_URL || expoExtra.supabaseUrl || '';
-const supabaseAnonKey =
+const supabasePublishableKey =
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  expoExtra.supabasePublishableKey ||
+  '';
+const legacySupabaseAnonKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || expoExtra.supabaseAnonKey || '';
+const supabaseClientKey = supabasePublishableKey || legacySupabaseAnonKey;
+const isUsingLegacyAnonKey = !supabasePublishableKey && !!legacySupabaseAnonKey;
 
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!supabaseUrl || !supabaseClientKey) {
   console.error(
-    '[Supabase] CRITICAL: Supabase URL or Anon Key is missing from environment variables.'
+    '[Supabase] CRITICAL: Supabase URL or publishable key is missing from environment variables.'
   );
   console.error(
-    '[Supabase] Please ensure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are set in your build environment.'
+    '[Supabase] Please ensure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY are set in your build environment.'
   );
 }
 
-const mmkvStorage = {
-  getItem: (key: string) => storage.getString(key) ?? null,
-  setItem: (key: string, value: string) => storage.set(key, value),
-  removeItem: (key: string) => {
-    storage.remove(key);
-  },
-};
+if (isUsingLegacyAnonKey) {
+  console.warn(
+    '[Supabase] Using legacy anon key fallback; migrate mobile-admin builds to EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY before end of 2026.'
+  );
+}
+
+export const supabaseAuthStorageKey = supabaseUrl
+  ? getDefaultSupabaseAuthStorageKey(supabaseUrl)
+  : '';
 
 const isServerRuntime = typeof window === 'undefined';
 
@@ -53,10 +66,11 @@ const authOptions = isServerRuntime
       detectSessionInUrl: false,
     }
   : {
-      storage: mmkvStorage,
+      storage: authSessionStorage,
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,
+      lock: processLock,
     };
 
 function createMissingCredentialsClient() {
@@ -65,16 +79,22 @@ function createMissingCredentialsClient() {
     {
       get() {
         throw new Error(
-          '[Supabase] Client accessed without EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.'
+          '[Supabase] Client accessed without EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.'
         );
       },
     }
   ) as ReturnType<typeof createClient>;
 }
 
-export const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey, {
+const supabaseClient =
+  supabaseUrl && supabaseClientKey
+    ? createClient(supabaseUrl, supabaseClientKey, {
         auth: authOptions,
       })
     : createMissingCredentialsClient();
+
+if (supabaseUrl && supabaseClientKey && !isServerRuntime) {
+  registerAuthRefreshLifecycle(supabaseClient.auth);
+}
+
+export const supabase = supabaseClient;

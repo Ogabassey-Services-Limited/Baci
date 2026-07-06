@@ -199,7 +199,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         style: 'dark',
       },
     ],
-    'expo-secure-store',
+    [
+      'expo-secure-store',
+      {
+        configureAndroidBackup: true,
+        faceIDPermission:
+          'Allow Baci Admin to protect your merchant account credentials.',
+      },
+    ],
     [
       'expo-notifications',
       {
@@ -282,6 +289,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   extra: {
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+    supabasePublishableKey:
+      process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
