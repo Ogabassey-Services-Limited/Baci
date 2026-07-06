@@ -16,6 +16,8 @@ import type { BrandColors } from '@/types';
 // and hero-image assignment can also be slow. The default 10s is not enough.
 export const maxDuration = 60;
 
+const MOBILE_ONBOARDING_OWNER_PROFILE_STAFF_ROLE = 'admin';
+
 type SlugResolverClient = {
   rpc: (
     fn: string,
@@ -340,10 +342,10 @@ export async function POST(req: NextRequest) {
           name: fullName || null,
           phone: phone || null,
           email: user.email || email,
-          role: 'owner',
+          role: MOBILE_ONBOARDING_OWNER_PROFILE_STAFF_ROLE,
           status: 'active',
         },
-        { onConflict: 'user_id, merchant_id' }
+        { onConflict: 'user_id,merchant_id' }
       );
     if (staffError) {
       console.error('Failed to create/update staff member profile', staffError);

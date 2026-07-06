@@ -619,6 +619,59 @@ describe('POST /api/mobile-onboarding', () => {
 
   // --- Success path ---
 
+  it('upserts the owner staff profile with a valid staff role and user-merchant conflict target', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    mockSignUp.mockResolvedValue({
+      data: {
+        user: { id: 'user-1', email: 'test@example.com' },
+        session: { access_token: 'tok-123' },
+      },
+      error: null,
+    });
+
+    const staffUpsert = vi.fn().mockResolvedValue({ data: null, error: null });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          single: vi.fn().mockResolvedValue({
+            data: { id: 'merch-1', slug: 'test' },
+            error: null,
+          }),
+        };
+      }
+      if (table === 'domains') {
+        return {
+          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
+      if (table === 'staff_members') {
+        return {
+          upsert: staffUpsert,
+        };
+      }
+      return {
+        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+    });
+
+    const res = await POST(makeRequest(validBody));
+
+    expect(res.status).toBe(200);
+    expect(staffUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: 'user-1',
+        merchant_id: 'merch-1',
+        role: 'admin',
+        status: 'active',
+      }),
+      { onConflict: 'user_id,merchant_id' }
+    );
+  });
+
   it('returns success for valid new registration', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     mockSignUp.mockResolvedValue({

@@ -330,9 +330,18 @@ export async function updateStaffMember(
   }
 
   // Explicitly construct update object with only allowed fields
-  const updateData: { role?: StaffRole; status?: StaffStatus } = {};
+  const updateData: {
+    role?: StaffRole;
+    status?: StaffStatus;
+    user_id?: null;
+  } = {};
   if (data.role) updateData.role = data.role;
-  if (data.status) updateData.status = data.status;
+  if (data.status) {
+    updateData.status = data.status;
+    if (data.status === 'removed') {
+      updateData.user_id = null;
+    }
+  }
 
   if (Object.keys(updateData).length === 0) {
     throw new Error('No valid fields to update');
@@ -371,7 +380,7 @@ export async function removeStaffMember(id: string) {
   // Soft delete - verify a row was actually updated
   const { data: removed, error } = await supabase
     .from('staff_members')
-    .update({ status: 'removed' })
+    .update({ status: 'removed', user_id: null })
     .eq('id', id)
     .eq('merchant_id', merchant.id)
     .select('id')

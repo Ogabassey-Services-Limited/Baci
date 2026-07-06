@@ -204,6 +204,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         updateData[field] = value;
       }
     }
+    if (updateData.status === 'removed') {
+      updateData.user_id = null;
+    }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
@@ -292,7 +295,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     // Soft delete staff member
     const { error } = await supabase
       .from('staff_members')
-      .update({ status: 'removed' })
+      .update({ status: 'removed', user_id: null })
       .eq('id', id)
       .eq('merchant_id', merchantId);
 
