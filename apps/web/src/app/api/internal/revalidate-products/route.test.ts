@@ -152,6 +152,28 @@ describe('POST /api/internal/revalidate-products', () => {
     );
   });
 
+  it('busts per-slug Next caches for products sent WITHOUT merchantSlug (purge skipped)', async () => {
+    const res = await POST(
+      request(
+        {
+          merchantId: MERCHANT_ID,
+          products: [{ slug: 'iphone-15', category: 'Smartphones' }],
+        },
+        `Bearer ${SECRET}`
+      )
+    );
+
+    // The per-slug Next bust needs only merchantId — a caller whose merchant-slug
+    // lookup failed must still get its PDP caches busted; only the Cloudflare
+    // purge (which needs the storefront hostname) is skipped.
+    expect(res.status).toBe(200);
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(
+      MERCHANT_ID,
+      expect.arrayContaining(['iphone-15'])
+    );
+    expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when the internal secret is not configured', async () => {
     mockGetInternalApiSecret.mockReturnValue(undefined);
 

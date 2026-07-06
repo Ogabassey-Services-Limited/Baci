@@ -67,12 +67,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Runs in a route context, so revalidateTag works here (unlike the CLI worker).
   revalidateProducts(merchantId);
 
-  // When the caller supplies the merchant slug AND product entries, also evict
-  // the affected products' public URLs from Cloudflare (the standalone import
+  // When the caller supplies product entries, resolve them against the DB and
+  // bust their per-slug Next caches; when it ALSO supplies the merchant slug,
+  // evict the products' public URLs from Cloudflare (the standalone import
   // worker and the mobile-admin save path have no Next store context, so this
-  // Bearer-authed route is where the purge reliably runs). Fire-and-forget: a
-  // purge is always survivable, so it must never fail the revalidation.
-  if (merchantSlug && products && products.length > 0) {
+  // Bearer-authed route is where the purge reliably runs). The per-slug bust
+  // needs only merchantId, so it is deliberately NOT gated on merchantSlug — a
+  // failed slug lookup upstream must not leave stale PDP entries in the Next
+  // cache. Fire-and-forget: a purge is always survivable, so it must never
+  // fail the revalidation.
+  if (products && products.length > 0) {
     try {
       // Enrich from the product ROWS with the SAME resolution `/api/cache/revalidate`
       // performs, so an {id}-only import/save entry purges the real slug/category
@@ -95,13 +99,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // is NOT invalidated by the slug-less revalidateProducts above, so a
       // Cloudflare MISS would otherwise refill from stale Next data until TTL.
       revalidateProductSlugs(merchantId, resolvedSlugs);
-      // Base the fan-out threshold on the DISTINCT (slug, segment) count so
-      // duplicate entries for one product do not inflate the count and wrongly
-      // suppress its per-PDP purge.
-      const distinctPurgeCount = countDistinctProductPurgeEntries(entries);
-      scheduleStorefrontProductPurge(merchantSlug, entries, {
-        listingsOnly: distinctPurgeCount > PURGE_LISTINGS_ONLY_THRESHOLD,
-      });
+      if (merchantSlug) {
+        // Base the fan-out threshold on the DISTINCT (slug, segment) count so
+        // duplicate entries for one product do not inflate the count and
+        // wrongly suppress its per-PDP purge.
+        const distinctPurgeCount = countDistinctProductPurgeEntries(entries);
+        scheduleStorefrontProductPurge(merchantSlug, entries, {
+          listingsOnly: distinctPurgeCount > PURGE_LISTINGS_ONLY_THRESHOLD,
+        });
+      }
     } catch (purgeError) {
       logger.error({
         message: 'Skipped Cloudflare product purge in revalidate-products',

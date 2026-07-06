@@ -56,10 +56,11 @@ export type InternalRevalidateProductEntry = z.infer<
  * Body for `POST /api/internal/revalidate-products` — the merchant whose
  * product caches (incl. the proxy crawl-budget slug-set) should be revalidated.
  *
- * `merchantSlug` + `products` are OPTIONAL and backward compatible: when BOTH
- * are present the route additionally schedules a Cloudflare purge of the listed
- * products' public URLs (the slug identifies the storefront's cache policy).
- * Existing callers that send only `merchantId` keep working unchanged.
+ * `merchantSlug` + `products` are OPTIONAL and backward compatible: `products`
+ * alone busts the per-slug Next product-detail caches; adding `merchantSlug`
+ * (which identifies the storefront's cache policy) additionally schedules a
+ * Cloudflare purge of the listed products' public URLs. Existing callers that
+ * send only `merchantId` keep working unchanged.
  */
 export const internalRevalidateProductsBodySchema = z.object({
   merchantId: z.string().trim().min(1).max(255),

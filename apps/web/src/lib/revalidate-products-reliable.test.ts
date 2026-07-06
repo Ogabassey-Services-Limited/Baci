@@ -227,6 +227,27 @@ describe('revalidateProductsReliable', () => {
     expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
   });
 
+  it('forwards products WITHOUT merchantSlug in the HTTP fallback body', async () => {
+    mockRevalidateProducts.mockImplementation(() => {
+      throw new Error('no store');
+    });
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true } as Response);
+    const products = [{ slug: 'iphone-15', category: 'Smartphones' }];
+
+    // Merchant-slug lookup failed upstream: the fallback must still forward the
+    // product entries so the internal route can bust the per-slug Next caches
+    // (the route gates only the Cloudflare purge on merchantSlug).
+    await revalidateProductsReliable('merchant-1', {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      products,
+    });
+
+    const [, init] = fetchImpl.mock.calls[0];
+    expect((init as RequestInit).body).toBe(
+      JSON.stringify({ merchantId: 'merchant-1', products })
+    );
+  });
+
   it('does not fetch (no secret leak) when the revalidation target is unavailable', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     mockRevalidateProducts.mockImplementation(() => {

@@ -109,9 +109,14 @@ export async function revalidateProductsReliable(
           Authorization: `Bearer ${secret}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(
-          shouldPurge ? { merchantId, merchantSlug, products } : { merchantId }
-        ),
+        // Forward `products` whenever available — even without a resolved
+        // merchantSlug — so the route can still bust the per-slug Next caches;
+        // the route gates only the Cloudflare purge on merchantSlug.
+        body: JSON.stringify({
+          merchantId,
+          ...(merchantSlug ? { merchantSlug } : {}),
+          ...(products && products.length > 0 ? { products } : {}),
+        }),
         signal: AbortSignal.timeout(options.timeoutMs ?? 5000),
       }
     );
