@@ -29,6 +29,7 @@ import {
   getCachedMerchantByDomain,
   getCachedMerchantById,
   getCachedProductRatingStats,
+  getCachedProductReviews,
   getCachedProducts,
   getCachedStorefrontHomeProducts,
   getCachedStorefrontLaunchProducts,
@@ -397,6 +398,66 @@ describe('getCachedFeatureSettings', () => {
     });
     expect(result).not.toHaveProperty('facebook_capi_token');
     expect(result).not.toHaveProperty('ga4_api_secret');
+  });
+});
+
+describe('getCachedProductReviews', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    harness = buildCachedDataTestHarness();
+    mockCreateClient.mockReturnValue({
+      from: harness.mockFrom,
+      rpc: harness.mockRpc,
+      auth: { getUser: vi.fn() },
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('queries live review columns through the aliases used by the PDP', async () => {
+    const review = {
+      id: 'review-1',
+      rating: 5,
+      review_title: 'Excellent',
+      review_text: 'Fast delivery and clean device.',
+      reviewer_name: 'Ada',
+      is_verified_purchase: true,
+      helpful_count: 4,
+      created_at: '2026-07-04T10:00:00Z',
+      merchant_response: 'Thank you.',
+      response_at: '2026-07-04T11:00:00Z',
+    };
+    harness.mockListResult.data = [review];
+    harness.mockListResult.error = null;
+
+    const result = await getCachedProductReviews('product-1', { limit: 10 });
+
+    expect(result).toEqual([review]);
+    const selectColumns = String(harness.mockSelect.mock.calls[0]?.[0] ?? '');
+    expect(selectColumns).toContain('review_title:title');
+    expect(selectColumns).toContain('review_text:body');
+    expect(selectColumns).toContain('reviewer_name:customer_name');
+    expect(selectColumns).toContain('is_verified_purchase:verified_purchase');
+    expect(selectColumns).toContain('response_at:merchant_response_at');
+    expect(selectColumns).not.toContain('\n        review_title,');
+    expect(harness.mockEq).toHaveBeenCalledWith('product_id', 'product-1');
+    expect(harness.mockLimit).toHaveBeenCalledWith(10);
+  });
+
+  it('returns an empty array when the review query fails', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const error = { message: 'query failed' };
+    harness.mockListResult.data = null;
+    harness.mockListResult.error = error;
+
+    const result = await getCachedProductReviews('product-1');
+
+    expect(result).toEqual([]);
+    expect(consoleSpy).toHaveBeenCalledWith('Error fetching reviews:', error);
   });
 });
 
