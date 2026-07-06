@@ -17,18 +17,13 @@ export type InternationalShipmentOrderItem = {
 };
 
 type PackageDimensions = Pick<ShipmentItem, 'length' | 'width' | 'height'>;
-type DerivedItemMetadata = {
-  dimensions: PackageDimensions | undefined;
-  hsCode: string | undefined;
-  name: string;
-  product: ProductShippingMetadata | null;
-  quantity: number;
-  weight: number;
-};
-export type InternationalQuoteValidationItem = Pick<
+type DerivedItemMetadata = Pick<
   ShipmentItem,
-  'height' | 'hsCode' | 'length' | 'name' | 'quantity' | 'weight' | 'width'
->;
+  'hsCode' | 'name' | 'quantity' | 'weight'
+> & {
+  dimensions: PackageDimensions | undefined;
+  product: ProductShippingMetadata | null;
+};
 const METADATA_TOLERANCE = 0.001;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -73,23 +68,18 @@ function readProductMetadata(
   const product = Array.isArray(relatedProduct)
     ? relatedProduct[0]
     : relatedProduct;
-  return product && typeof product === 'object' ? product : null;
+  return isRecord(product) ? product : null;
 }
 
 function normalizeWeightKg(product: ProductShippingMetadata | null): number {
   const weight = readPositiveNumber(product?.weight_value);
   if (!weight) return 1;
 
-  switch (product?.weight_unit?.toLowerCase()) {
-    case 'g':
-      return weight / 1000;
-    case 'lb':
-      return weight * 0.453_592_37;
-    case 'oz':
-      return weight * 0.028_349_523_125;
-    default:
-      return weight;
-  }
+  const unit = product?.weight_unit?.toLowerCase();
+  const multiplier = { g: 0.001, lb: 0.453_592_37, oz: 0.028_349_523_125 }[
+    unit ?? ''
+  ];
+  return weight * (multiplier ?? 1);
 }
 
 function hasProductWeight(product: ProductShippingMetadata | null): boolean {
@@ -103,33 +93,24 @@ function normalizeDimensionCm(
   const dimension = readPositiveNumber(value);
   if (!dimension) return undefined;
 
-  switch (unit?.toLowerCase()) {
-    case 'in':
-      return dimension * 2.54;
-    case 'm':
-      return dimension * 100;
-    case 'mm':
-      return dimension / 10;
-    default:
-      return dimension;
-  }
+  const multiplier = { in: 2.54, m: 100, mm: 0.1 }[unit?.toLowerCase() ?? ''];
+  return dimension * (multiplier ?? 1);
 }
 
 function readPackageDimensions(
   product: ProductShippingMetadata | null
 ): PackageDimensions | undefined {
-  if (!isRecord(product?.dimensions)) return undefined;
+  const dimensions = product?.dimensions;
+  if (!isRecord(dimensions)) return undefined;
 
   const unit =
-    typeof product.dimensions.unit === 'string'
-      ? product.dimensions.unit
-      : undefined;
+    typeof dimensions.unit === 'string' ? dimensions.unit : undefined;
   const length = normalizeDimensionCm(
-    product.dimensions.length ?? product.dimensions.depth,
+    dimensions.length ?? dimensions.depth,
     unit
   );
-  const width = normalizeDimensionCm(product.dimensions.width, unit);
-  const height = normalizeDimensionCm(product.dimensions.height, unit);
+  const width = normalizeDimensionCm(dimensions.width, unit);
+  const height = normalizeDimensionCm(dimensions.height, unit);
 
   return length && width && height ? { length, width, height } : undefined;
 }
@@ -157,16 +138,7 @@ function dimensionsMatch(
   expected: PackageDimensions | undefined,
   quoted: ShipmentItem
 ): boolean {
-  const quotedDimensions =
-    quoted.length !== undefined ||
-    quoted.width !== undefined ||
-    quoted.height !== undefined
-      ? {
-          length: quoted.length,
-          width: quoted.width,
-          height: quoted.height,
-        }
-      : undefined;
+  const quotedDimensions = readQuoteDimensions(quoted);
 
   if (!expected && !quotedDimensions) return true;
   if (!expected || !quotedDimensions) return false;
@@ -188,11 +160,42 @@ function isQuotedPhysicalMetadataValid({
   quoteItem: ShipmentItem;
   weight: number;
 }) {
-  if (hasProductWeight(product) && !numbersMatch(weight, quoteItem.weight)) {
-    return false;
+  return !(
+    (hasProductWeight(product) && !numbersMatch(weight, quoteItem.weight)) ||
+    (dimensions && !dimensionsMatch(dimensions, quoteItem))
+  );
+}
+
+function readQuoteDimensions(
+  quoteItem: ShipmentItem | undefined
+): PackageDimensions | undefined {
+  if (
+    quoteItem?.length === undefined ||
+    quoteItem.width === undefined ||
+    quoteItem.height === undefined
+  ) {
+    return undefined;
   }
 
-  return dimensionsMatch(dimensions, quoteItem);
+  return {
+    height: quoteItem.height,
+    length: quoteItem.length,
+    width: quoteItem.width,
+  };
+}
+
+function resolveBookingMetadata(
+  metadata: DerivedItemMetadata,
+  quoteItem: ShipmentItem | undefined
+) {
+  return {
+    dimensions: metadata.dimensions ?? readQuoteDimensions(quoteItem),
+    hsCode: metadata.hsCode ?? quoteItem?.hsCode?.trim() ?? undefined,
+    weight:
+      hasProductWeight(metadata.product) || quoteItem?.weight === undefined
+        ? metadata.weight
+        : quoteItem.weight,
+  };
 }
 
 function findMatchingQuoteItemIndex(
@@ -253,7 +256,7 @@ export function toInternationalShipmentItemsFromOrder(
 
   return orderItems.map((item) => {
     const metadata = deriveItemMetadata(item);
-    const { dimensions, hsCode, name, product, quantity, weight } = metadata;
+    const { dimensions, name, product, quantity, weight } = metadata;
     const quoteItemIndex = findMatchingQuoteItemIndex(
       metadata,
       unmatchedQuoteItems
@@ -263,24 +266,25 @@ export function toInternationalShipmentItemsFromOrder(
         ? undefined
         : unmatchedQuoteItems.splice(quoteItemIndex, 1)[0];
     validateQuotedPhysicalMetadata({ dimensions, product, quoteItem, weight });
+    const bookingMetadata = resolveBookingMetadata(metadata, quoteItem);
 
     return {
       name,
       description: name,
       quantity,
-      weight,
+      weight: bookingMetadata.weight,
       value:
         readOptionalNonNegativeNumber(quoteItem?.value) ??
         readNonNegativeNumber(item.price, name),
-      ...(hsCode ? { hsCode } : {}),
-      ...(dimensions ?? {}),
+      ...(bookingMetadata.hsCode ? { hsCode: bookingMetadata.hsCode } : {}),
+      ...(bookingMetadata.dimensions ?? {}),
     };
   });
 }
 
 export function toInternationalQuoteValidationItemsFromOrder(
   orderItems: InternationalShipmentOrderItem[]
-): InternationalQuoteValidationItem[] {
+) {
   return orderItems.map((item) => {
     const { dimensions, hsCode, name, quantity, weight } =
       deriveItemMetadata(item);

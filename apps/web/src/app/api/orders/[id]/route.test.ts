@@ -912,7 +912,20 @@ describe('PATCH /api/orders/[id]', () => {
     expect(payload).toEqual({ order: updatedOrder });
   });
 
-  it('releases the booking lock when shipment booking fails before provider state is created', async () => {
+  it.each([
+    [
+      'INTERNATIONAL_QUOTE_ITEM_METADATA_MISMATCH',
+      'The saved international shipping quote no longer matches the current product shipping details.',
+    ],
+    [
+      'GIGL_INTERNATIONAL_COUNTRY_LOOKUP_FAILED',
+      'GIGL international destination country lookup failed',
+    ],
+    [
+      'GIGL_INTERNATIONAL_DESTINATION_COUNTRY_NOT_FOUND',
+      'GIGL international destination country not found',
+    ],
+  ])('releases the booking lock when shipment booking fails with %s', async (code, message) => {
     const existingOrder: ExistingOrder = {
       id: 'order-1',
       order_number: 'BACI-001',
@@ -942,11 +955,7 @@ describe('PATCH /api/orders/[id]', () => {
       supabase,
     });
     vi.mocked(bookOrderShipment).mockRejectedValue(
-      new OrderShipmentBookingError(
-        'The saved international shipping quote no longer matches the current product shipping details.',
-        400,
-        'INTERNATIONAL_QUOTE_ITEM_METADATA_MISMATCH'
-      )
+      new OrderShipmentBookingError(message, 400, code)
     );
 
     const response = await PATCH(
@@ -959,9 +968,8 @@ describe('PATCH /api/orders/[id]', () => {
 
     expect(response.status).toBe(400);
     expect(payload).toEqual({
-      error:
-        'The saved international shipping quote no longer matches the current product shipping details.',
-      code: 'INTERNATIONAL_QUOTE_ITEM_METADATA_MISMATCH',
+      error: message,
+      code,
     });
     expect(clearOrderShipmentBookingLock).toHaveBeenCalledWith(
       supabase,

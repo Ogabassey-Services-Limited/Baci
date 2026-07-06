@@ -85,6 +85,45 @@ describe('toInternationalShipmentItemsFromOrder', () => {
     ]);
   });
 
+  it('preserves quoted physical metadata when product metadata is absent', () => {
+    expect(
+      toInternationalShipmentItemsFromOrder(
+        [
+          {
+            name: 'Imported phone',
+            quantity: 1,
+            price: 100_000,
+            product: null,
+          },
+        ],
+        [
+          {
+            name: 'Imported phone',
+            quantity: 1,
+            weight: 5,
+            value: 85_000,
+            hsCode: '851712',
+            length: 20,
+            width: 12,
+            height: 8,
+          },
+        ]
+      )
+    ).toEqual([
+      {
+        name: 'Imported phone',
+        description: 'Imported phone',
+        quantity: 1,
+        weight: 5,
+        value: 85_000,
+        hsCode: '851712',
+        length: 20,
+        width: 12,
+        height: 8,
+      },
+    ]);
+  });
+
   it('rejects quote physical metadata that differs from product metadata', () => {
     expect(() =>
       toInternationalShipmentItemsFromOrder(

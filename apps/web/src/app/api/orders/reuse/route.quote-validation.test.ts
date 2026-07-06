@@ -210,6 +210,13 @@ describe('POST /api/orders/reuse selected quote validation', () => {
         shippingProvider: 'GIGL',
       })
     );
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      2,
+      'prepare_storefront_order_for_checkout',
+      expect.objectContaining({
+        p_selected_quote_id: '22222222-2222-4222-8222-222222222222',
+      })
+    );
   });
 
   it('uses the preserved provider when the reuse request omits shipping provider', async () => {

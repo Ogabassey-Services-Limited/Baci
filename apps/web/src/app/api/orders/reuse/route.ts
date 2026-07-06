@@ -4,6 +4,7 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import {
   enrichShippingAddressWithQuoteDestination,
   OrderQuoteDestinationMismatchError,
+  type OrderShippingAddressForQuote,
 } from '@/lib/shipping/order-quote-destination';
 import { createClient } from '@/lib/supabase/server';
 import {
@@ -72,10 +73,17 @@ function getSafeReuseOrderErrorMessage(
     .slice(0, 300);
 }
 
+type ReuseQuoteValidationResult =
+  | { response: NextResponse }
+  | {
+      selectedQuoteId: string | null;
+      shippingAddress: OrderShippingAddressForQuote | undefined;
+    };
+
 async function validateSelectedQuoteForReuse(
   supabase: ReturnType<typeof createClient>,
   data: ReuseCheckoutOrderInput
-): Promise<NextResponse | null> {
+): Promise<ReuseQuoteValidationResult> {
   const { data: validationData, error } = await supabase.rpc(
     'get_storefront_order_quote_validation_context',
     {
@@ -89,27 +97,36 @@ async function validateSelectedQuoteForReuse(
 
   if (error) {
     const mappedError = mapReuseOrderError(error);
-    return NextResponse.json(
-      {
-        error: mappedError.error,
-        ...(mappedError.code ? { code: mappedError.code } : {}),
-      },
-      { status: mappedError.status }
-    );
+    return {
+      response: NextResponse.json(
+        {
+          error: mappedError.error,
+          ...(mappedError.code ? { code: mappedError.code } : {}),
+        },
+        { status: mappedError.status }
+      ),
+    };
   }
 
   const context = readReuseQuoteValidationContext(validationData);
   if (!context) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    return {
+      response: NextResponse.json(
+        { error: 'Order not found' },
+        { status: 404 }
+      ),
+    };
   }
 
   const shippingFee = readOptionalShippingFee(context.shipping_fee);
-  if (!context.selected_quote_id) return null;
+  if (!context.selected_quote_id) {
+    return { selectedQuoteId: null, shippingAddress: undefined };
+  }
   const effectiveShippingProvider =
     data.shipping_provider ?? context.shipping_provider;
 
   try {
-    await enrichShippingAddressWithQuoteDestination(
+    const shippingAddress = await enrichShippingAddressWithQuoteDestination(
       supabase,
       context.selected_quote_id,
       context.shipping_address,
@@ -120,17 +137,18 @@ async function validateSelectedQuoteForReuse(
         shippingProvider: effectiveShippingProvider,
       }
     );
+    return { selectedQuoteId: context.selected_quote_id, shippingAddress };
   } catch (error) {
     if (error instanceof OrderQuoteDestinationMismatchError) {
-      return NextResponse.json(
-        { error: error.message, code: error.code },
-        { status: error.status }
-      );
+      return {
+        response: NextResponse.json(
+          { error: error.message, code: error.code },
+          { status: error.status }
+        ),
+      };
     }
     throw error;
   }
-
-  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -169,8 +187,8 @@ export async function POST(request: NextRequest) {
     supabase,
     parsed.data
   );
-  if (selectedQuoteValidationResponse) {
-    return selectedQuoteValidationResponse;
+  if ('response' in selectedQuoteValidationResponse) {
+    return selectedQuoteValidationResponse.response;
   }
 
   const { data, error } = await supabase.rpc(
@@ -182,7 +200,9 @@ export async function POST(request: NextRequest) {
       p_customer_email: parsed.data.customer_email,
       p_payment_method: parsed.data.payment_method,
       p_shipping_provider: parsed.data.shipping_provider || null,
-      p_selected_quote_id: parsed.data.selected_quote_id || null,
+      p_selected_quote_id: selectedQuoteValidationResponse.selectedQuoteId,
+      p_shipping_address:
+        selectedQuoteValidationResponse.shippingAddress ?? null,
     }
   );
 
