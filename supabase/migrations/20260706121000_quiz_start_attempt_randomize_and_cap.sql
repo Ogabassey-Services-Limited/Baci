@@ -11,6 +11,16 @@
 --   quiz_attempt_questions.variant_id, so the "same question re-issued returns the
 --   same variant" property is preserved (re-issue reads the stored row).
 --
+--   IMPORTANT — this randomization only bites when a slot has 2+ variants to
+--   choose from. The current admin generator (create_merchant_quiz_draft via
+--   quiz-generate-helpers.createVariantRows) inserts exactly ONE variant per
+--   slot, so today the per-attempt seed resolves to the same single row and the
+--   question set does not actually vary between attempts. Until a variant POOL
+--   is generated per slot, the operative mitigation for the answer-oracle is the
+--   attempt cap in FIX 4 (default 3), NOT this reseed. The reseed is in place so
+--   that variant pools, once generated, are shuffled per attempt with no further
+--   migration. Follow-up: have the generator emit multiple variants per slot.
+--
 -- FIX 4 (attempt cap): start_quiz_attempt imposed NO per-user/per-event ceiling
 --   and only cost 1 loyalty point. We read quiz_events.settings->>'max_attempts'
 --   (defaulting to 3 when unset/invalid), count the caller's existing attempts for

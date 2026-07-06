@@ -32,22 +32,30 @@ export function useQuizCountdown({
 }: UseQuizCountdownArgs): number {
   const [remainingSeconds, setRemainingSeconds] = useState(timeLimitSeconds);
   const onExpireRef = useRef(onExpire);
+  const deadlineRef = useRef(0);
 
   useEffect(() => {
     onExpireRef.current = onExpire;
   });
 
+  // The deadline is fixed when the question is RECEIVED and must not reset when
+  // the timer merely pauses/resumes (e.g. a failed same-question retry toggles
+  // `active`): the server's issued_at is unchanged, so resetting here would let
+  // the client auto-submit after the real server window and be scored late.
+  useEffect(() => {
+    deadlineRef.current = Date.now() + timeLimitSeconds * 1000;
+    setRemainingSeconds(timeLimitSeconds);
+  }, [questionId, timeLimitSeconds]);
+
   useEffect(() => {
     if (!active) return;
 
-    const deadline = Date.now() + timeLimitSeconds * 1000;
     let expired = false;
     let intervalId = 0;
-    setRemainingSeconds(timeLimitSeconds);
 
     const stop = () => window.clearInterval(intervalId);
     const tick = () => {
-      const msLeft = deadline - Date.now();
+      const msLeft = deadlineRef.current - Date.now();
       setRemainingSeconds(Math.max(0, Math.ceil(msLeft / 1000)));
       if (!expired && msLeft <= QUIZ_AUTO_SUBMIT_LEAD_MS) {
         expired = true;

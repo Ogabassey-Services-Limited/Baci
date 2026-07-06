@@ -33,6 +33,7 @@ jobs:
       mobile_admin: ${{ steps.gate.outputs.mobile_admin }}
       mobile_storefront: ${{ steps.gate.outputs.mobile_storefront }}
       web: ${{ steps.gate.outputs.web }}
+      quiz_db: ${{ steps.gate.outputs.quiz_db }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -88,6 +89,8 @@ jobs:
               - 'pnpm-workspace.yaml'
             # Root Next config changes affect the web app even when apps/web/**
             # is untouched; keep them in the web quality-gate filter.
+            quiz_db:
+              - 'supabase/migrations/**'
             web:
               - 'apps/web/**'
               - 'apps/mobile-storefront/assets/quiz/**'
@@ -123,21 +126,25 @@ jobs:
           FILTER_MOBILE_ADMIN: ${{ steps.filter.outputs.mobile_admin }}
           FILTER_MOBILE_STOREFRONT: ${{ steps.filter.outputs.mobile_storefront }}
           FILTER_WEB: ${{ steps.filter.outputs.web }}
+          FILTER_QUIZ_DB: ${{ steps.filter.outputs.quiz_db }}
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" = "merge_group" ]; then
             mobile_admin=true
             mobile_storefront=true
             web=true
+            quiz_db=true
           else
             mobile_admin="${FILTER_MOBILE_ADMIN:-false}"
             mobile_storefront="${FILTER_MOBILE_STOREFRONT:-false}"
             web="${FILTER_WEB:-false}"
+            quiz_db="${FILTER_QUIZ_DB:-false}"
           fi
           {
             echo "mobile_admin=$mobile_admin"
             echo "mobile_storefront=$mobile_storefront"
             echo "web=$web"
+            echo "quiz_db=$quiz_db"
           } >> "$GITHUB_OUTPUT"
 
   quality-lint:
@@ -223,7 +230,7 @@ jobs:
   quality-misc:
     name: Quality Gate - Misc
     needs: [changes]
-    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.mobile_storefront == 'true'
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.mobile_storefront == 'true' || needs.changes.outputs.quiz_db == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -242,7 +249,7 @@ jobs:
       # quiz RPC server secret against the live database. Skipped on normal PRs
       # so it never blocks unrelated work, but visible as its own named step.
       - name: Verify Quiz Production Approval
-        if: needs.changes.outputs.web == 'true' && vars.QUIZ_PHASE == 'production'
+        if: (needs.changes.outputs.web == 'true' || needs.changes.outputs.quiz_db == 'true') && vars.QUIZ_PHASE == 'production'
         env:
           QUIZ_PHASE: ${{ vars.QUIZ_PHASE }}
           QUIZ_PRODUCTION_APPROVED: ${{ vars.QUIZ_PRODUCTION_APPROVED }}

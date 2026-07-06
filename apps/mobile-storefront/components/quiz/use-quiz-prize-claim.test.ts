@@ -63,12 +63,19 @@ describe('useQuizPrizeClaim', () => {
       slug: 'iphone-15',
       variant_id: 'variant-1',
       name: 'iPhone 15',
-      price: 500_000,
+      // Prize is free: the voucher line must be priced 0 (the orders API trusts
+      // the submitted price for voucher-verified lines).
+      price: 0,
+      compare_at_price: 500_000,
       quantity: 1,
-      condition: 'New',
+      // Raw enum, not the 'New' display label — must match the value signed
+      // into the voucher for server-side token verification.
+      condition: 'new',
       voucher_token: 'token-abc',
       voucher_award_id: 'award-1',
     });
+    // The human-readable label is still available for the cart UI.
+    expect(items[0].variant_attributes).toMatchObject({ condition: 'New' });
     expect(mockPush).toHaveBeenCalledWith('/cart');
   });
 

@@ -1889,7 +1889,15 @@ export const CheckoutPage: React.FC = () => {
           if (isQuizVoucherRejectionCode(orderErrorCode)) {
             for (const line of cart) {
               if (line.quizVoucherToken || line.quizAwardId) {
-                removeFromCart(line.cartItemId ?? line.id, line.variantId);
+                // removeFromCart matches a cartItemId directly, but its
+                // product-id branch compares against item.id — so passing both
+                // a cartItemId and a variantId never matches. Prefer the
+                // cartItemId alone; fall back to (productId, variantId).
+                if (line.cartItemId) {
+                  removeFromCart(line.cartItemId);
+                } else {
+                  removeFromCart(line.id, line.variantId);
+                }
               }
             }
           }

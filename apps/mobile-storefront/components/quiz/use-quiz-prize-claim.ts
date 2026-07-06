@@ -44,16 +44,24 @@ export function useQuizPrizeClaim(
       product_id: prizeClaim.productId,
       slug: product.slug,
       variant_id: prizeClaim.variantId ?? undefined,
+      // Display-only label for the cart UI; the top-level `condition` below
+      // must stay the raw enum so it matches the value signed into the voucher.
       variant_attributes: conditionDisplay
         ? { condition: conditionDisplay }
         : undefined,
       name: product.name,
       brand: product.brand,
-      price: product.price,
-      compare_at_price: product.compare_at_price,
+      // The prize is free: the voucher line must be priced 0 client-side (the
+      // orders API trusts the submitted price for voucher-verified lines, and
+      // the web path zeroes it the same way in build-order-items). Keep the
+      // catalog price as compare_at so the cart shows the "was" amount.
+      price: 0,
+      compare_at_price: product.compare_at_price ?? product.price,
       quantity: 1,
       image_url: product.image || product.images?.[0],
-      condition: conditionDisplay,
+      // Raw enum ('new' | 'used' | ...) — the orders route compares this
+      // directly against the condition signed into the voucher token.
+      condition: prizeClaim.condition ?? undefined,
       voucher_token: prizeClaim.voucherToken,
       voucher_award_id: prizeClaim.awardId,
     });
