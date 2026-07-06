@@ -4,9 +4,8 @@ import dynamic from 'next/dynamic';
 import type { Route } from 'next';
 import Link from 'next/link';
 import type React from 'react';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { prioritizeSmartphoneProducts } from '@baci/shared/storefront';
-import { products as mockProducts } from '../data/products';
 import { useDeferredActivation } from './deferred-shell-feature';
 import type {
   ProductGridInteractionBindingsValue,
@@ -35,6 +34,10 @@ interface ProductGridItemModule {
   ProductGridItem: React.ComponentType<ProductGridItemProps>;
 }
 
+interface PreviewCatalogModule {
+  products: Product[];
+}
+
 interface HomeProductGridProps {
   basePath?: string;
   storeSlug?: string;
@@ -45,6 +48,7 @@ interface HomeProductGridProps {
   inlineAdBreakpoints?: number[];
   loadInteractionBindings?: () => Promise<ProductGridInteractionBindingsModule>;
   loadInteractiveCard?: () => Promise<ProductGridItemModule>;
+  loadPreviewCatalog?: () => Promise<PreviewCatalogModule>;
 }
 
 const PRODUCTS_PER_PAGE = 20;
@@ -54,6 +58,10 @@ const loadDefaultInteractionBindingsModule = () =>
   import('./ProductGridInteractionBindings');
 
 const loadDefaultInteractiveCardModule = () => import('./ProductGridItem');
+
+// The mock catalog only backs the template preview (no merchant products yet),
+// so it must never be eagerly bundled into real storefront home payloads.
+const loadDefaultPreviewCatalogModule = () => import('../data/products');
 
 const STATIC_BINDINGS: ProductGridInteractionBindingsValue = {
   isAdded: () => false,
@@ -80,6 +88,7 @@ export function HomeProductGrid({
   inlineAdBreakpoints = [8, 16],
   loadInteractionBindings,
   loadInteractiveCard,
+  loadPreviewCatalog,
 }: HomeProductGridProps) {
   const [displayCount, setDisplayCount] = useState(
     Math.max(1, initialDisplayCount)
@@ -97,11 +106,36 @@ export function HomeProductGrid({
   const [InteractiveCard, setInteractiveCard] = useState<
     ProductGridItemModule['ProductGridItem'] | null
   >(null);
+  const [previewCatalog, setPreviewCatalog] = useState<Product[] | null>(null);
+  const gridRef = useRef<HTMLElement | null>(null);
+  // Scope activation to the grid itself so pointer/keyboard activity elsewhere
+  // on the page (hero, nav, search) never downloads the interactive-card graph.
   const interactionsActivated = useDeferredActivation({
     timeoutMs: 0,
     activateOnIdle: false,
     deferInteractionActivationUntilNextPaint: true,
+    interactionTargetRef: gridRef,
   });
+  const hasRealProducts = Boolean(products && products.length > 0);
+
+  useEffect(() => {
+    if (hasRealProducts || previewCatalog) {
+      return;
+    }
+
+    let cancelled = false;
+    void (loadPreviewCatalog ?? loadDefaultPreviewCatalogModule)().then(
+      (previewCatalogModule) => {
+        if (!cancelled) {
+          setPreviewCatalog(previewCatalogModule.products);
+        }
+      }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasRealProducts, loadPreviewCatalog, previewCatalog]);
 
   useEffect(() => {
     if (!interactionsActivated || (InteractionBindings && InteractiveCard)) {
@@ -147,7 +181,8 @@ export function HomeProductGrid({
     explicitBasePath ?? (storeSlug ? `/${storeSlug}` : '');
   const basePath = normalizeRouteBasePath(rawBasePath);
   const allProductsHref = joinRouteBasePath(basePath, '/products');
-  const allProducts = products && products.length > 0 ? products : mockProducts;
+  const allProducts =
+    products && products.length > 0 ? products : (previewCatalog ?? []);
   const featuredProducts = prioritizeSmartphoneProducts(allProducts);
   const visibleProducts = featuredProducts.slice(0, displayCount);
   const hasMoreProducts = displayCount < featuredProducts.length;
@@ -156,7 +191,7 @@ export function HomeProductGrid({
     bindings: ProductGridInteractionBindingsValue,
     deferInteractiveChrome: boolean
   ) => (
-    <section className="ogabassey-home-products">
+    <section ref={gridRef} className="ogabassey-home-products">
       <div className="ogabassey-home-products__header">
         <div>
           {title === 'Featured Products' && (

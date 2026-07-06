@@ -11,6 +11,14 @@ interface DeferredShellFeatureProps {
   activateOnIdle?: boolean;
   activateOnInteraction?: boolean;
   deferInteractionActivationUntilNextPaint?: boolean;
+  /**
+   * Scopes interaction activation to a specific element. When set, pointer,
+   * keyboard, and `focusin` (tab-entry) activity inside this element activates
+   * the feature. When omitted — or if the ref is still null when listeners
+   * attach — listeners fail open to `window`, the historical default for
+   * existing callers.
+   */
+  interactionTargetRef?: React.RefObject<HTMLElement | null>;
 }
 
 export function useDeferredActivation({
@@ -19,6 +27,7 @@ export function useDeferredActivation({
   activateOnIdle = true,
   activateOnInteraction = true,
   deferInteractionActivationUntilNextPaint = false,
+  interactionTargetRef,
 }: Omit<DeferredShellFeatureProps, 'children'>) {
   const [isActivated, setIsActivated] = useState(false);
 
@@ -135,12 +144,29 @@ export function useDeferredActivation({
       }
     }
 
+    let interactionListenerTarget: HTMLElement | Window | undefined;
+
     if (activateOnInteraction) {
-      window.addEventListener('pointerdown', handleInteraction, {
+      interactionListenerTarget = interactionTargetRef?.current ?? window;
+      interactionListenerTarget.addEventListener(
+        'pointerdown',
+        handleInteraction,
+        {
+          once: true,
+          passive: true,
+        }
+      );
+      interactionListenerTarget.addEventListener('keydown', handleInteraction, {
         once: true,
-        passive: true,
       });
-      window.addEventListener('keydown', handleInteraction, { once: true });
+
+      if (interactionListenerTarget !== window) {
+        interactionListenerTarget.addEventListener(
+          'focusin',
+          handleInteraction,
+          { once: true }
+        );
+      }
     }
 
     return () => {
@@ -170,14 +196,27 @@ export function useDeferredActivation({
         window.removeEventListener('load', handleWindowLoad);
       }
 
-      window.removeEventListener('pointerdown', handleInteraction);
-      window.removeEventListener('keydown', handleInteraction);
+      if (interactionListenerTarget !== undefined) {
+        interactionListenerTarget.removeEventListener(
+          'pointerdown',
+          handleInteraction
+        );
+        interactionListenerTarget.removeEventListener(
+          'keydown',
+          handleInteraction
+        );
+        interactionListenerTarget.removeEventListener(
+          'focusin',
+          handleInteraction
+        );
+      }
     };
   }, [
     activateOnIdle,
     activateOnInteraction,
     deferInteractionActivationUntilNextPaint,
     enabled,
+    interactionTargetRef,
     isActivated,
     timeoutMs,
   ]);

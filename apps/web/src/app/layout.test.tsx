@@ -15,6 +15,12 @@ vi.mock('next/font/google', () => ({
   }),
 }));
 
+vi.mock('next/font/local', () => ({
+  default: () => ({
+    variable: 'font-naira',
+  }),
+}));
+
 vi.mock('@/app/root-dynamic-body', () => ({
   RootDynamicBody: mockRootDynamicBody,
 }));
@@ -47,6 +53,17 @@ describe('RootLayout', () => {
     expect(screen.getByTestId('root-dynamic-body')).toBeInTheDocument();
     expect(mockRootDynamicBody).toHaveBeenCalledTimes(1);
     expect(mockRootDynamicBody.mock.calls[0]?.[0]).toEqual({});
+  });
+
+  it('applies the Inter and naira-subset font variables to the body', () => {
+    render(
+      <RootLayout>
+        <main>Main content</main>
+      </RootLayout>
+    );
+
+    expect(document.body.className).toContain('font-inter');
+    expect(document.body.className).toContain('font-naira');
   });
 
   it('keeps the page shell visible when root dynamic providers suspend', () => {

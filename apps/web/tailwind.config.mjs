@@ -163,7 +163,13 @@ const config = {
         inner: 'var(--theme-shadow-inner)',
       },
       fontFamily: {
-        sans: ['var(--font-sans)', 'sans-serif'],
+        // --font-naira: ~1.2KB Inter subset unicode-range-scoped to ₦ (U+20A6);
+        // all other glyphs fall through to Inter (--font-sans).
+        sans: [
+          'var(--font-naira, var(--font-sans))',
+          'var(--font-sans)',
+          'sans-serif',
+        ],
       },
       keyframes: {
         'accordion-down': {

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
+import localFont from 'next/font/local';
 import { Suspense } from 'react';
 import './skip-link.css';
 import { RootDynamicBody } from '@/app/root-dynamic-body';
@@ -11,6 +12,26 @@ const inter = Inter({
   variable: '--font-sans',
   display: 'swap', // Prevents FOIT (Flash of Invisible Text)
   preload: true, // Preloads font for faster initial render
+});
+
+// Tiny (~1.2KB) Inter subset containing ONLY the naira sign (U+20A6), served
+// ahead of Inter in the font stack. The unicode-range declaration scopes it so
+// only ₦ resolves here — every other character falls through to Inter. Without
+// this, ₦ lives in next/font's lazy latin-ext slice (~86KB, no preload,
+// display: swap), which loads seconds later on cold caches and swaps every
+// price glyph → CLS. display: optional makes this subset mathematically
+// CLS-proof (it renders only if ready before first paint), and because ₦ never
+// resolves to Inter's latin-ext range anymore, the 86KB fetch is skipped
+// entirely. adjustFontFallback is off so no synthetic fallback @font-face is
+// injected ahead of Inter for non-naira glyphs.
+const interNaira = localFont({
+  src: './fonts/inter-naira.woff2',
+  weight: '100 900',
+  display: 'optional',
+  preload: true,
+  adjustFontFallback: false,
+  declarations: [{ prop: 'unicode-range', value: 'U+20A6' }],
+  variable: '--font-naira',
 });
 
 export const metadata: Metadata = {
@@ -115,7 +136,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
-      <body className={inter.variable} suppressHydrationWarning>
+      <body
+        className={`${inter.variable} ${interNaira.variable}`}
+        suppressHydrationWarning
+      >
         {/* Skip link for accessibility - allows keyboard users to bypass navigation */}
         <a href="#main-content" className="baci-skip-link">
           Skip to main content
