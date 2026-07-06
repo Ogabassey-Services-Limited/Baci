@@ -75,13 +75,22 @@ export function voucherTokenConfigResponse() {
   );
 }
 
-export function addSignedPrizeClaim(data: unknown, userId: string): unknown {
+const QUIZ_VOUCHER_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function addSignedPrizeClaim(
+  data: unknown,
+  userId: string,
+  // Replay-recovery passes the ORIGINAL expiry (award mint time + TTL) so a
+  // late retry does not extend the redemption window past the first win. The
+  // first-success path omits it and gets a fresh TTL.
+  expiresAtOverride?: string
+): unknown {
   const prizeClaim = getRawPrizeClaim(data);
   if (!prizeClaim || !data || typeof data !== 'object') return data;
 
-  const expiresAt = new Date(
-    Date.now() + 7 * 24 * 60 * 60 * 1000
-  ).toISOString();
+  const expiresAt =
+    expiresAtOverride ??
+    new Date(Date.now() + QUIZ_VOUCHER_TTL_MS).toISOString();
   const voucherToken = createQuizVoucherToken({
     payload: {
       awardId: prizeClaim.awardId,
@@ -196,31 +205,43 @@ async function getAttemptPrizeAwardClaim(
   supabase: QuizSupabase,
   attemptId: string,
   userId: string
-): Promise<{ claim: RawPrizeClaim | null; error: unknown }> {
-  if (!supabase) return { claim: null, error: null };
+): Promise<{
+  claim: RawPrizeClaim | null;
+  createdAt: string | null;
+  error: unknown;
+}> {
+  if (!supabase) return { claim: null, createdAt: null, error: null };
 
   // Product-backed prizes are persisted as a single `store_credit` award per
   // attempt (unique on attempt_id + award_type). A null product_id (a pure
-  // store-credit award) yields no claim via the guard below.
+  // store-credit award) yields no claim via the guard below. Only an
+  // `approved` (unredeemed, non-void) award should surface a claim button — a
+  // replay after redemption/void must NOT re-issue a token.
   const { data, error } = await supabase
     .from('quiz_awards')
-    .select('id, product_id, variant_id, condition, customers!inner(user_id)')
+    .select(
+      'id, product_id, variant_id, condition, created_at, customers!inner(user_id)'
+    )
     .eq('attempt_id', attemptId)
     .eq('customers.user_id', userId)
     .eq('award_type', 'store_credit')
+    .eq('status', 'approved')
     .maybeSingle();
 
-  if (error) return { claim: null, error };
-  if (!data || typeof data !== 'object') return { claim: null, error: null };
+  if (error) return { claim: null, createdAt: null, error };
+  if (!data || typeof data !== 'object') {
+    return { claim: null, createdAt: null, error: null };
+  }
 
   const record = data as {
     condition?: unknown;
+    created_at?: unknown;
     id?: unknown;
     product_id?: unknown;
     variant_id?: unknown;
   };
   if (typeof record.id !== 'string' || typeof record.product_id !== 'string') {
-    return { claim: null, error: null };
+    return { claim: null, createdAt: null, error: null };
   }
 
   return {
@@ -231,6 +252,7 @@ async function getAttemptPrizeAwardClaim(
       variantId:
         typeof record.variant_id === 'string' ? record.variant_id : null,
     },
+    createdAt: typeof record.created_at === 'string' ? record.created_at : null,
     error: null,
   };
 }
@@ -265,9 +287,21 @@ export async function recoverReplayedAttemptResponse(
 
   if (!award.claim) return NextResponse.json(baseResult);
 
+  // Re-issue with the ORIGINAL expiry (award mint time + TTL), not a fresh 7
+  // days, so replaying a days-old attempt cannot extend the redemption window.
+  // If the original window has already passed, the token mints expired and the
+  // orders route rejects it — the intended deadline still holds.
+  const originalExpiresAt = award.createdAt
+    ? new Date(Date.parse(award.createdAt) + QUIZ_VOUCHER_TTL_MS).toISOString()
+    : undefined;
+
   try {
     return NextResponse.json(
-      addSignedPrizeClaim({ ...baseResult, prizeClaim: award.claim }, userId)
+      addSignedPrizeClaim(
+        { ...baseResult, prizeClaim: award.claim },
+        userId,
+        originalExpiresAt
+      )
     );
   } catch (tokenError) {
     if (tokenError instanceof QuizVoucherTokenConfigError) {

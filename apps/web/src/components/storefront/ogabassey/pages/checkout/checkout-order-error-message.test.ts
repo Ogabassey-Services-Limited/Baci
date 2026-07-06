@@ -59,6 +59,19 @@ describe('getCheckoutOrderErrorMessage', () => {
 
     expect(message).toBe('Your quiz prize voucher has expired.');
   });
+
+  it('prefers the human error over a bare machine code when unmapped', () => {
+    // e.g. CHECKOUT_ORDER_NOT_REUSABLE ships a readable `error` but no `details`
+    // — the shopper should see the sentence, not the enum.
+    const message = getCheckoutOrderErrorMessage({
+      code: 'CHECKOUT_ORDER_NOT_REUSABLE',
+      error: 'This order can no longer be reused. Please start a new checkout.',
+    });
+
+    expect(message).toBe(
+      'This order can no longer be reused. Please start a new checkout.'
+    );
+  });
 });
 
 describe('getOrderCreateErrorCode', () => {

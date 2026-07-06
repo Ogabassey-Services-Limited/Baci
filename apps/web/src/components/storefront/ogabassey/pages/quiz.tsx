@@ -34,8 +34,10 @@ const QUIZ_INTEGRITY_TIER = 'basic';
 // Non-empty sentinel so an auto-submitted forfeit still satisfies the answer
 // schema (min length 1). The server treats any non-matching answer as
 // incorrect and advances the attempt, so a timed-out player is scored wrong
-// rather than left stalled.
-const QUIZ_FORFEIT_ANSWER = '__forfeit__';
+// rather than left stalled. It is intentionally longer than the 20-char option
+// id cap (generatedQuizOptionSchema) so it can never equal a real option id and
+// be scored correct by accident.
+const QUIZ_FORFEIT_ANSWER = '__baci_quiz_timeout_forfeit_no_answer__';
 async function fetchQuizEvents(merchantSlug: string) {
   const query = new URLSearchParams({ limit: '50', merchantSlug, offset: '0' });
   const parsed = quizEventsResponseSchema.safeParse(

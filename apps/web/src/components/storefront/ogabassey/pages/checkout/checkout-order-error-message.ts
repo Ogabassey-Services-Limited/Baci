@@ -87,5 +87,14 @@ export function getCheckoutOrderErrorMessage(
   if (mapped) {
     return mapped;
   }
-  return code ?? DEFAULT_ORDER_CREATE_ERROR;
+  // No friendly mapping. Prefer the specific `details` code, then a human
+  // `error` message over a bare machine `code` (e.g. CHECKOUT_ORDER_NOT_REUSABLE
+  // ships with a readable `error` but no `details`).
+  const details =
+    typeof errorData.details === 'string' ? errorData.details : null;
+  if (details) {
+    return details;
+  }
+  const error = typeof errorData.error === 'string' ? errorData.error : null;
+  return error ?? code ?? DEFAULT_ORDER_CREATE_ERROR;
 }
