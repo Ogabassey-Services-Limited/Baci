@@ -176,10 +176,7 @@ describe('runClaimedImportJob notification and failure flows', () => {
     );
     expect(progressUpdateQuery.update).toHaveBeenCalledWith({
       summary: {
-        notificationFailedCount: 0,
         notificationProcessedRecipients: 4,
-        notificationSentCount: 3,
-        notificationSkippedCount: 1,
         notificationTotalRecipients: 4,
         validRows: 1,
       },

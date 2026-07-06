@@ -271,10 +271,7 @@ describe('POST /api/import-jobs/[jobId]/notify-customers', () => {
     expect(query.update).toHaveBeenNthCalledWith(1, {
       status: 'notify_queued',
       summary: {
-        notificationFailedCount: 0,
         notificationProcessedRecipients: 0,
-        notificationSentCount: 0,
-        notificationSkippedCount: 0,
         notificationTotalRecipients: 0,
         validRows: 10,
       },

@@ -204,4 +204,77 @@ describe('sendImportNotificationCampaign recipient grouping', () => {
     );
     expect(sendEmail).toHaveBeenCalledTimes(1);
   });
+
+  it('continues sending when the progress callback fails', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const onProgress = vi.fn().mockRejectedValue(new Error('progress down'));
+    const supabase = createSupabaseMock(
+      {
+        data: [
+          {
+            id: 'order-1',
+            customer_id: 'customer-1',
+            customer_email: 'ada@example.com',
+            customer_name: 'Ada',
+            order_number: 'ORD-1',
+            payment_status: 'paid',
+            shipping_status: 'delivered',
+            order_items: [{ name: 'Pixel 9', quantity: 1 }],
+          },
+        ],
+        error: null,
+      },
+      {
+        claimRpcResponses: [
+          { data: { claim_id: 'claim-1', status: 'created' }, error: null },
+        ],
+      }
+    );
+
+    vi.mocked(sendEmail).mockResolvedValue({
+      success: true,
+      messageId: 'msg-1',
+    });
+
+    const result = await sendImportNotificationCampaign({
+      supabase,
+      importJobId: 'job-progress-failure',
+      merchant: {
+        id: 'merchant-progress',
+        slug: 'ogabassey',
+        business_name: 'Ogabassey',
+        custom_domain: null,
+        support_email: null,
+        email_sender_name: null,
+        email: 'hello@ogabassey.com',
+      },
+      customSettings: {
+        migration_imports: {
+          receipt_access_mode: 'app_first',
+          receipt_app_links_enabled: true,
+        },
+      },
+      onProgress,
+    });
+
+    expect(result).toMatchObject({
+      failedCount: 0,
+      notificationProcessedRecipients: 1,
+      notificationTotalRecipients: 1,
+      sentCount: 1,
+      skippedCount: 0,
+    });
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(onProgress).toHaveBeenCalledTimes(2);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to report import notification progress',
+      expect.objectContaining({
+        importJobId: 'job-progress-failure',
+      })
+    );
+
+    consoleSpy.mockRestore();
+  });
 });

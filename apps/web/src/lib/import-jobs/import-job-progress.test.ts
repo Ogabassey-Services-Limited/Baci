@@ -84,7 +84,7 @@ describe('createImportJobSummaryProgressReporter', () => {
 
     await expect(
       reporter.report({
-        extra: { notificationSentCount: 1 },
+        extra: { retryCount: 1 },
         processed: 1,
         total: 2,
       })
@@ -95,10 +95,104 @@ describe('createImportJobSummaryProgressReporter', () => {
         jobId: 'job-1',
         summary: {
           notificationProcessedRecipients: 1,
-          notificationSentCount: 1,
           notificationTotalRecipients: 2,
+          retryCount: 1,
         },
       })
     );
+  });
+
+  it('skips persistence when progress has not advanced enough inside the throttle window', async () => {
+    const { query, supabase } = createSupabaseMock();
+    const reporter = createImportJobSummaryProgressReporter({
+      job: createJob(null),
+      logger: { error: vi.fn() },
+      minUpdateMs: 10_000,
+      processedKey: 'commitProcessedRecords',
+      supabase,
+      totalKey: 'commitTotalRecords',
+    });
+
+    await reporter.report({ processed: 1, total: 100 });
+    await reporter.report({ processed: 2, total: 100 });
+
+    expect(query.update).toHaveBeenCalledTimes(1);
+    expect(reporter.getSummary()).toEqual({
+      commitProcessedRecords: 1,
+      commitTotalRecords: 100,
+    });
+  });
+
+  it('persists inside the throttle window when the total changes', async () => {
+    const { query, supabase } = createSupabaseMock();
+    const reporter = createImportJobSummaryProgressReporter({
+      job: createJob(null),
+      logger: { error: vi.fn() },
+      minUpdateMs: 10_000,
+      processedKey: 'commitProcessedRecords',
+      supabase,
+      totalKey: 'commitTotalRecords',
+    });
+
+    await reporter.report({ processed: 1, total: 100 });
+    await reporter.report({ processed: 2, total: 101 });
+
+    expect(query.update).toHaveBeenCalledTimes(2);
+    expect(reporter.getSummary()).toEqual({
+      commitProcessedRecords: 2,
+      commitTotalRecords: 101,
+    });
+  });
+
+  it('always persists the final update even when the adaptive step is not met', async () => {
+    const { query, supabase } = createSupabaseMock();
+    const reporter = createImportJobSummaryProgressReporter({
+      job: createJob(null),
+      logger: { error: vi.fn() },
+      minUpdateMs: 10_000,
+      processedKey: 'commitProcessedRecords',
+      supabase,
+      totalKey: 'commitTotalRecords',
+    });
+
+    await reporter.report({ processed: 998, total: 1000 });
+    await reporter.report({ processed: 1000, total: 1000 });
+
+    expect(query.update).toHaveBeenCalledTimes(2);
+    expect(reporter.getSummary()).toEqual({
+      commitProcessedRecords: 1000,
+      commitTotalRecords: 1000,
+    });
+  });
+
+  it('clamps negative, fractional, and non-finite counts before persisting', async () => {
+    const { query, supabase } = createSupabaseMock();
+    const reporter = createImportJobSummaryProgressReporter({
+      job: createJob(null),
+      logger: { error: vi.fn() },
+      minUpdateMs: 0,
+      processedKey: 'notificationProcessedRecipients',
+      supabase,
+      totalKey: 'notificationTotalRecipients',
+    });
+
+    await reporter.report({ processed: -4.7, total: 3.9 });
+    await reporter.report({
+      processed: Number.POSITIVE_INFINITY,
+      total: Number.NaN,
+    });
+
+    expect(query.update).toHaveBeenNthCalledWith(1, {
+      summary: {
+        notificationProcessedRecipients: 0,
+        notificationTotalRecipients: 3,
+      },
+    });
+    expect(query.update).toHaveBeenNthCalledWith(2, {
+      summary: {
+        notificationProcessedRecipients: 0,
+        notificationTotalRecipients: 0,
+      },
+    });
   });
 });

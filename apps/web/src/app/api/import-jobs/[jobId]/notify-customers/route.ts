@@ -79,10 +79,7 @@ export async function POST(
 
     const summary = {
       ...(job.summary || {}),
-      notificationFailedCount: 0,
       notificationProcessedRecipients: 0,
-      notificationSentCount: 0,
-      notificationSkippedCount: 0,
       notificationTotalRecipients: 0,
     };
 

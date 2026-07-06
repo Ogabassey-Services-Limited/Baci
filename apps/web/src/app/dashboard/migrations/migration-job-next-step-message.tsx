@@ -1,5 +1,3 @@
-'use client';
-
 import { CheckCircle2, Mail } from 'lucide-react';
 import type { ImportJobDetail } from '@/app/dashboard/migrations/migration-types';
 

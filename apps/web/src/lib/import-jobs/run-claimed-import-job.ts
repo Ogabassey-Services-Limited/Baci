@@ -392,21 +392,10 @@ async function processNotifyingJob(
     customSettings:
       (featureSettings?.custom_settings as Record<string, unknown> | null) ||
       null,
-    onProgress: ({
-      failedCount,
-      processedRecipients,
-      sentCount,
-      skippedCount,
-      totalRecipients,
-    }) =>
+    onProgress: ({ processedRecipients, totalRecipients }) =>
       notificationProgress.report({
         processed: processedRecipients,
         total: totalRecipients,
-        extra: {
-          notificationFailedCount: failedCount,
-          notificationSentCount: sentCount,
-          notificationSkippedCount: skippedCount,
-        },
       }),
   });
 

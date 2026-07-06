@@ -202,13 +202,33 @@ export async function sendImportNotificationCampaign({
   const totalRecipients = recipientsByEmail.size;
 
   const reportProgress = async () => {
-    await onProgress?.({
-      failedCount,
-      processedRecipients,
-      sentCount,
-      skippedCount,
-      totalRecipients,
-    });
+    try {
+      await onProgress?.({
+        failedCount,
+        processedRecipients,
+        sentCount,
+        skippedCount,
+        totalRecipients,
+      });
+    } catch (error) {
+      console.error('Failed to report import notification progress', {
+        error,
+        importJobId,
+      });
+    }
+  };
+
+  const markProcessed = async (outcome: 'failed' | 'sent' | 'skipped') => {
+    if (outcome === 'failed') {
+      failedCount += 1;
+    } else if (outcome === 'sent') {
+      sentCount += 1;
+    } else {
+      skippedCount += 1;
+    }
+
+    processedRecipients += 1;
+    await reportProgress();
   };
 
   await reportProgress();
@@ -226,17 +246,13 @@ export async function sendImportNotificationCampaign({
       });
 
       if (!createdClaim) {
-        skippedCount += 1;
-        processedRecipients += 1;
-        await reportProgress();
+        await markProcessed('skipped');
         continue;
       }
 
       receiptUrl = createdClaim.claimUrl;
     } else if (!recipient.customerId) {
-      skippedCount += 1;
-      processedRecipients += 1;
-      await reportProgress();
+      await markProcessed('skipped');
       continue;
     }
 
@@ -264,9 +280,7 @@ export async function sendImportNotificationCampaign({
       });
     } catch {
       await cleanUpUnsentClaim({ claim: createdClaim, supabase });
-      failedCount += 1;
-      processedRecipients += 1;
-      await reportProgress();
+      await markProcessed('failed');
       continue;
     }
 
@@ -283,24 +297,18 @@ export async function sendImportNotificationCampaign({
             error,
             importJobId,
           });
-          failedCount += 1;
-          processedRecipients += 1;
-          await reportProgress();
+          await markProcessed('failed');
           continue;
         }
       }
 
-      sentCount += 1;
-      processedRecipients += 1;
-      await reportProgress();
+      await markProcessed('sent');
       continue;
     }
 
     await cleanUpUnsentClaim({ claim: createdClaim, supabase });
 
-    failedCount += 1;
-    processedRecipients += 1;
-    await reportProgress();
+    await markProcessed('failed');
   }
 
   return {
