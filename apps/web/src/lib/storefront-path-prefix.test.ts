@@ -35,6 +35,15 @@ describe('getStorefrontPathPrefix', () => {
     ).toBe('');
   });
 
+  it('uses root-relative links for trusted custom-domain headers without host fixtures', () => {
+    expect(
+      getStorefrontPathPrefix(
+        new Headers([['x-custom-domain', 'ogabassey.com']]),
+        { custom_domain: 'ogabassey.com', slug: 'ogabassey' }
+      )
+    ).toBe('');
+  });
+
   it('uses root-relative links for subdomain storefront requests', () => {
     expect(
       getStorefrontPathPrefix(
@@ -42,6 +51,15 @@ describe('getStorefrontPathPrefix', () => {
           ['host', 'ogabassey.usebaci.com'],
           ['x-merchant-slug', 'ogabassey'],
         ]),
+        'ogabassey'
+      )
+    ).toBe('');
+  });
+
+  it('uses root-relative links for trusted subdomain headers without host fixtures', () => {
+    expect(
+      getStorefrontPathPrefix(
+        new Headers([['x-merchant-slug', 'ogabassey']]),
         'ogabassey'
       )
     ).toBe('');

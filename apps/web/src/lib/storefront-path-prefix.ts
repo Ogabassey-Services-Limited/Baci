@@ -56,15 +56,14 @@ export function getStorefrontPathPrefix(
     normalizeHostnameValue(headersList.get('x-custom-domain'))
   );
   const servedAtSubdomainRoot =
-    requestHost !== null &&
     normalizedMerchantSlug !== null &&
     requestMerchantSlug === normalizedMerchantSlug &&
-    requestHost.startsWith(`${normalizedMerchantSlug}.`);
+    (requestHost === null ||
+      requestHost.startsWith(`${normalizedMerchantSlug}.`));
   const servedAtCustomDomainRoot =
-    requestHostApex !== null &&
     merchantCustomDomain !== null &&
     requestCustomDomain === merchantCustomDomain &&
-    requestHostApex === merchantCustomDomain;
+    (requestHostApex === null || requestHostApex === merchantCustomDomain);
   const servedAtDomainRoot = servedAtSubdomainRoot || servedAtCustomDomainRoot;
 
   return servedAtDomainRoot ? '' : `/${merchantSlug}`;
