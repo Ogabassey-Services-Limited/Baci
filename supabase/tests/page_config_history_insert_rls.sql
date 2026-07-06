@@ -1,7 +1,9 @@
 -- =============================================
 -- REGRESSION TEST: page_config_history INSERT RLS
---   Ensures merchant/staff publishers can archive builder history rows while
---   insert access remains scoped through the parent page_configs merchant.
+--   Ensures builder publishers can archive history rows while insert access
+--   stays scoped to the parent page_configs merchant AND the builder.edit
+--   permission (owner, or staff whose effective permissions grant it) —
+--   mirroring the publish route's hasPermission(access, 'builder', 'edit').
 --
 -- USAGE:
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/page_config_history_insert_rls.sql
@@ -35,11 +37,19 @@ BEGIN
 
   IF check_expr IS NULL
     OR check_expr NOT LIKE '%page_configs%'
-    OR check_expr NOT LIKE '%has_merchant_access%'
+    OR check_expr NOT LIKE '%check_staff_permission%'
     OR check_expr NOT LIKE '%merchant_id%'
+    OR check_expr NOT LIKE '%builder%'
+    OR check_expr NOT LIKE '%edit%'
   THEN
     RAISE EXCEPTION
-      'page_config_history INSERT policy must scope through page_configs merchant access, found %',
+      'page_config_history INSERT policy must scope through page_configs and the builder.edit permission, found %',
+      check_expr;
+  END IF;
+
+  IF check_expr LIKE '%has_merchant_access%' THEN
+    RAISE EXCEPTION
+      'page_config_history INSERT policy must use check_staff_permission (builder.edit), not the broader has_merchant_access, found %',
       check_expr;
   END IF;
 
