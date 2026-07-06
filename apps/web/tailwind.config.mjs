@@ -168,6 +168,8 @@ const config = {
         sans: [
           'var(--font-naira, var(--font-sans))',
           'var(--font-sans)',
+          'ui-sans-serif',
+          'system-ui',
           'sans-serif',
         ],
       },

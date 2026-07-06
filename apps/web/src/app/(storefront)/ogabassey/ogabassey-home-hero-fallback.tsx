@@ -99,7 +99,9 @@ export function OgabasseyHomeHeroFallback({
                     key={controlSlide.id}
                   />
                 ))}
-                <div className={HERO_MOBILE_PLAY_TOGGLE_SLOT_CLASSES} />
+                <div
+                  className={`${HERO_MOBILE_PLAY_TOGGLE_SLOT_CLASSES} bg-store-primary`}
+                />
               </div>
             ) : null}
           </div>

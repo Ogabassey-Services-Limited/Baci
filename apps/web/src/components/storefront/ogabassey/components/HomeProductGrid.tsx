@@ -124,13 +124,16 @@ export function HomeProductGrid({
     }
 
     let cancelled = false;
-    void (loadPreviewCatalog ?? loadDefaultPreviewCatalogModule)().then(
-      (previewCatalogModule) => {
+    void (loadPreviewCatalog ?? loadDefaultPreviewCatalogModule)()
+      .then((previewCatalogModule) => {
         if (!cancelled) {
           setPreviewCatalog(previewCatalogModule.products);
         }
-      }
-    );
+      })
+      .catch(() => {
+        // Preview catalog is a best-effort template fallback; keep the empty
+        // shell rendered if the module fails to load.
+      });
 
     return () => {
       cancelled = true;

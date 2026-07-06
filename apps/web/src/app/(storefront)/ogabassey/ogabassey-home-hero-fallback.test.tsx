@@ -53,6 +53,19 @@ describe('OgabasseyHomeHeroFallback', () => {
     expect(screen.queryByText('Just Launched')).not.toBeInTheDocument();
   });
 
+  it('renders the slide-0 image with the SAME source and alt the streamed hero uses', () => {
+    const { container } = render(
+      <OgabasseyHomeHeroFallback shellSlides={SLIDES} />
+    );
+
+    // Image URL parity is the core no-op-swap guarantee: identical URLs
+    // dedupe in the browser cache, so the swap repaints nothing.
+    const picture = container.querySelector('picture source');
+    expect(picture?.getAttribute('srcset')).toContain(SLIDES[0].imageUrl);
+    const img = container.querySelector('picture img');
+    expect(img?.getAttribute('alt')).toBe(SLIDES[0].imageAlt);
+  });
+
   it('contains no links or interactive elements in the slide-0 frame (aria-hidden shell)', () => {
     const { container } = render(
       <OgabasseyHomeHeroFallback shellSlides={SLIDES} />
