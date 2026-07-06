@@ -12,30 +12,42 @@ const google = createGoogleGenerativeAI({
  * Gemini Model Exports (Vercel AI SDK)
  *
  * Model Selection Guide:
- * - gemini20Flash: Standard Gemini 2.0 Flash text model
- * - geminiFlash: Alias to Gemini 2.0 Flash for backwards compatibility
- * - geminiPro: Alias to Gemini 2.0 Flash
- * - gemini25Flash: Legacy Gemini 2.5 Flash (deprecated, kept for fallback)
+ * - activeTextModel: Standard Gemini 2.5 Flash text model
+ * - fallbackTextModel: Gemini 2.5 Flash-Lite, used when the primary model's
+ *   quota pool is exhausted (free-tier daily quotas are per model)
+ * - geminiFlash / geminiPro: Aliases to the primary text model
  * - gemini25FlashImage: Multimodal model for text, image understanding, AND image generation
  *   Use with providerOptions: { google: { responseModalities: ['TEXT', 'IMAGE'] } }
  */
 
-// Primary text model - Gemini 2.0 Flash
-export const ACTIVE_TEXT_MODEL_NAME = 'gemini-2.0-flash';
-const gemini20Flash = google(ACTIVE_TEXT_MODEL_NAME);
+// Primary text model - Gemini 2.5 Flash.
+// Do NOT move this back to the 2.0 family: Google zeroed gemini-2.0-flash's
+// free-tier quota (429 "generate_content_free_tier_input_token_count,
+// limit: 0" — probed against the production key on 2026-07-06), which made
+// every text surface (AI copilot, chat, product descriptions) fail 100% of
+// the time on a free-tier key. The 2.5 family carries the free-tier quota.
+export const ACTIVE_TEXT_MODEL_NAME = 'gemini-2.5-flash';
+const primaryTextModel = google(ACTIVE_TEXT_MODEL_NAME);
+
+// Quota fallback: free-tier requests-per-day pools are PER MODEL, so when the
+// primary model's daily pool runs dry a flash-lite retry keeps AI editing
+// alive instead of dead-ending merchants (a Play "Broken Functionality"
+// repeat offender). Flash-Lite also has the largest free-tier RPD of the family.
+export const FALLBACK_TEXT_MODEL_NAME = 'gemini-2.5-flash-lite';
+export const fallbackTextModel = google(FALLBACK_TEXT_MODEL_NAME);
 
 // UNIFIED MODEL EXPORTS - USE THESE FOR NEW FEATURES
 // --------------------------------------------------------------------------
-export const activeTextModel = gemini20Flash; // The single standard text model for the platform
+export const activeTextModel = primaryTextModel; // The single standard text model for the platform
 export const activeImageModel = google('gemini-2.5-flash-image'); // Fast, cost-effective image generation
 // --------------------------------------------------------------------------
 
 // Legacy / Specific Aliases (Prefer activeTextModel where possible)
-export const geminiFlash = gemini20Flash; // Alias for backwards compatibility
-export const geminiPro = gemini20Flash; // Alias for pro-level tasks
+export const geminiFlash = primaryTextModel; // Alias for backwards compatibility
+export const geminiPro = primaryTextModel; // Alias for pro-level tasks
 
 // Legacy models (kept for fallback)
-export const gemini25Flash = google('gemini-2.5-flash'); // Legacy Gemini 2.5 Flash
+export const gemini25Flash = primaryTextModel; // Alias — 2.5 Flash is now the primary model
 
 // Image generation models (December 2025)
 // Image generation models (December 2025)

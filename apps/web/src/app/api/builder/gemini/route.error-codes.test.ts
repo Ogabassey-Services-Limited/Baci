@@ -31,10 +31,12 @@ vi.mock('ai', () => ({
 
 vi.mock('@/ai/provider', () => ({
   ACTIVE_TEXT_MODEL_NAME: 'gemini-3-flash-preview',
+  FALLBACK_TEXT_MODEL_NAME: 'gemini-3-flash-lite-preview',
   AI_RATE_LIMITS: {
     builder: { requests: 10, windowMs: 60 * 1000 },
   },
   activeTextModel: {},
+  fallbackTextModel: {},
   checkRateLimit: vi.fn(),
   sanitizePromptInput: vi.fn((prompt: string) => ({ value: prompt })),
   withRetry: vi.fn(),
@@ -118,8 +120,8 @@ describe('/api/builder/gemini structured error codes', () => {
     );
   });
 
-  it('returns ai_provider_rate_limited when Gemini quota is exhausted', async () => {
-    vi.mocked(generateObject).mockRejectedValueOnce(
+  it('returns ai_provider_rate_limited when both primary and fallback model quotas are exhausted', async () => {
+    vi.mocked(generateObject).mockRejectedValue(
       new Error(
         'Quota exceeded for metric: generate_content_free_tier_requests'
       )
@@ -137,6 +139,34 @@ describe('/api/builder/gemini structured error codes', () => {
         requestId: expect.any(String),
       })
     );
+    // Primary quota failure must attempt the flash-lite fallback before 429ing.
+    expect(vi.mocked(generateObject).mock.calls.length).toBeGreaterThanOrEqual(
+      2
+    );
+  });
+
+  it('succeeds via the fallback model when only the primary model quota is exhausted', async () => {
+    vi.mocked(generateObject)
+      .mockRejectedValueOnce(
+        new Error(
+          'Quota exceeded for metric: generate_content_free_tier_requests'
+        )
+      )
+      .mockResolvedValueOnce({
+        object: {
+          content: [{ type: 'Hero', props: { title: 'Updated hero' } }],
+          root: { title: 'Updated home' },
+          zones: {},
+        },
+      } as Awaited<ReturnType<typeof generateObject>>);
+
+    const { POST } = await import('./route');
+    const response = await POST(createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.config.content[0].props.title).toBe('Updated hero');
+    expect(vi.mocked(generateObject)).toHaveBeenCalledTimes(2);
   });
 
   it('keeps non-provider route failures out of provider error mapping', async () => {

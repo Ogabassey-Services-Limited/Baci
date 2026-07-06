@@ -6,6 +6,8 @@ import {
   AI_RATE_LIMITS,
   activeTextModel,
   checkRateLimit,
+  FALLBACK_TEXT_MODEL_NAME,
+  fallbackTextModel,
   sanitizePromptInput,
   withRetry,
 } from '@/ai/provider';
@@ -22,6 +24,7 @@ import {
   BUILDER_GEMINI_RETRY_CONFIG,
   type BuilderGeminiLogContext,
   getBuilderGeminiFailure,
+  isBuilderGeminiQuotaError,
   logBuilderGeminiError,
   runBuilderGeminiWithTimeout,
 } from './route-provider-errors';
@@ -186,18 +189,46 @@ User Request: ${sanitizedPrompt}
 
 Please return the complete updated configuration as valid JSON. Make intelligent modifications based on the request while preserving all existing structure and content unless explicitly asked to change or remove it.`;
 
+    // Thinking is disabled for latency: the copilot must respond within the
+    // route timeout, and this structured config-edit task doesn't benefit
+    // from extended reasoning.
+    const generateBuilderConfig = (
+      model: typeof activeTextModel,
+      abortSignal: AbortSignal
+    ) =>
+      generateObject({
+        model,
+        schema: aiBuilderConfigSchema,
+        system: BUILDER_GEMINI_SYSTEM_PROMPT,
+        prompt: builtPrompt,
+        abortSignal,
+        providerOptions: {
+          google: { thinkingConfig: { thinkingBudget: 0 } },
+        },
+      });
+
     // Generate the updated config using Vercel AI SDK with retry logic
     let updatedConfig: AiBuilderConfig;
     try {
       const result = (await runBuilderGeminiWithTimeout((abortSignal) =>
         withRetry(async () => {
-          return await generateObject({
-            model: activeTextModel,
-            schema: aiBuilderConfigSchema,
-            system: BUILDER_GEMINI_SYSTEM_PROMPT,
-            prompt: builtPrompt,
-            abortSignal,
-          });
+          try {
+            return await generateBuilderConfig(activeTextModel, abortSignal);
+          } catch (error) {
+            // Free-tier quota pools are per model: when the primary model's
+            // pool is exhausted, one flash-lite attempt keeps the copilot
+            // working instead of dead-ending the merchant with a 429.
+            if (!isBuilderGeminiQuotaError(error)) throw error;
+            logBuilderGeminiError(
+              `Gemini AI Builder primary model quota exhausted; falling back to ${FALLBACK_TEXT_MODEL_NAME}:`,
+              error,
+              requestId,
+              aiLogContext,
+              'warn'
+            );
+            aiLogContext.model = FALLBACK_TEXT_MODEL_NAME;
+            return await generateBuilderConfig(fallbackTextModel, abortSignal);
+          }
         }, BUILDER_GEMINI_RETRY_CONFIG)
       )) as { object: AiBuilderConfig };
       updatedConfig = result.object;
