@@ -943,9 +943,9 @@ describe('PATCH /api/orders/[id]', () => {
     });
     vi.mocked(bookOrderShipment).mockRejectedValue(
       new OrderShipmentBookingError(
-        'Shipping address is incomplete.',
+        'The saved international shipping quote no longer matches this order.',
         400,
-        'INCOMPLETE_SHIPPING_ADDRESS'
+        'INTERNATIONAL_QUOTE_ORDER_MISMATCH'
       )
     );
 
@@ -959,8 +959,9 @@ describe('PATCH /api/orders/[id]', () => {
 
     expect(response.status).toBe(400);
     expect(payload).toEqual({
-      error: 'Shipping address is incomplete.',
-      code: 'INCOMPLETE_SHIPPING_ADDRESS',
+      error:
+        'The saved international shipping quote no longer matches this order.',
+      code: 'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
     });
     expect(clearOrderShipmentBookingLock).toHaveBeenCalledWith(
       supabase,

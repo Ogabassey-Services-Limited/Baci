@@ -5,6 +5,10 @@ type OrderShippingAddress = {
   address?: string | null;
   city?: string | null;
   state?: string | null;
+  country?: string | null;
+  countryCode?: string | null;
+  postal_code?: string | null;
+  postalCode?: string | null;
 };
 
 type OrderItemRecord = {
@@ -24,6 +28,31 @@ function normalizeText(value: string | null | undefined): string {
 
 function normalizeAmount(value: number | string | null | undefined): number {
   return Number(value ?? 0);
+}
+
+function hasComparableText(value: string | null | undefined): boolean {
+  return normalizeText(value).length > 0;
+}
+
+function matchesOptionalText(
+  orderValue: string | null | undefined,
+  quoteValue: string | null | undefined
+): boolean {
+  return (
+    !hasComparableText(orderValue) ||
+    normalizeText(orderValue) === normalizeText(quoteValue)
+  );
+}
+
+function matchesQuoteItem(
+  orderItem: OrderItemRecord,
+  quoteItem: QuoteRequest['items'][number]
+): boolean {
+  return (
+    normalizeText(orderItem.name) === normalizeText(quoteItem.name) &&
+    (orderItem.quantity ?? 1) === quoteItem.quantity &&
+    normalizeAmount(orderItem.price) === quoteItem.value
+  );
 }
 
 function throwMismatch(): never {
@@ -49,7 +78,16 @@ export function assertInternationalQuoteMatchesOrder(
     normalizeText(orderAddress.city) !==
       normalizeText(quoteRequest.receiver.city) ||
     normalizeText(orderAddress.state) !==
-      normalizeText(quoteRequest.receiver.state)
+      normalizeText(quoteRequest.receiver.state) ||
+    !matchesOptionalText(orderAddress.country, quoteRequest.receiver.country) ||
+    !matchesOptionalText(
+      orderAddress.countryCode,
+      quoteRequest.receiver.countryCode
+    ) ||
+    !matchesOptionalText(
+      orderAddress.postalCode ?? orderAddress.postal_code,
+      quoteRequest.receiver.postalCode
+    )
   ) {
     throwMismatch();
   }
@@ -59,15 +97,14 @@ export function assertInternationalQuoteMatchesOrder(
     throwMismatch();
   }
 
-  for (const [index, quoteItem] of quoteRequest.items.entries()) {
-    const orderItem = orderItems[index];
-    if (
-      !orderItem ||
-      normalizeText(orderItem.name) !== normalizeText(quoteItem.name) ||
-      (orderItem.quantity ?? 1) !== quoteItem.quantity ||
-      normalizeAmount(orderItem.price) !== quoteItem.value
-    ) {
+  const unmatchedOrderItems = [...orderItems];
+  for (const quoteItem of quoteRequest.items) {
+    const orderItemIndex = unmatchedOrderItems.findIndex((orderItem) =>
+      matchesQuoteItem(orderItem, quoteItem)
+    );
+    if (orderItemIndex === -1) {
       throwMismatch();
     }
+    unmatchedOrderItems.splice(orderItemIndex, 1);
   }
 }

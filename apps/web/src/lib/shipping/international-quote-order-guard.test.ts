@@ -35,6 +35,9 @@ const matchingOrder = {
     address: '123 Queen Street West',
     city: 'Toronto',
     state: 'Ontario',
+    country: 'Canada',
+    countryCode: 'CA',
+    postalCode: 'M5V 3L9',
   },
   order_items: [{ name: 'Phone', quantity: 1, price: 100_000 }],
 };
@@ -56,6 +59,44 @@ describe('assertInternationalQuoteMatchesOrder', () => {
         },
       })
     ).toThrow('no longer matches this order');
+  });
+
+  it('rejects stale saved quote country and postal code fields before booking', () => {
+    expect(() =>
+      assertInternationalQuoteMatchesOrder(quoteRequest, {
+        ...matchingOrder,
+        shipping_address: {
+          ...matchingOrder.shipping_address,
+          countryCode: 'US',
+          postalCode: '10001',
+        },
+      })
+    ).toThrow('no longer matches this order');
+  });
+
+  it('matches saved quote items independent of order row order', () => {
+    const multiItemQuoteRequest: QuoteRequest = {
+      ...quoteRequest,
+      items: [
+        ...quoteRequest.items,
+        {
+          name: 'Laptop',
+          quantity: 2,
+          weight: 1.5,
+          value: 250_000,
+        },
+      ],
+    };
+
+    expect(() =>
+      assertInternationalQuoteMatchesOrder(multiItemQuoteRequest, {
+        ...matchingOrder,
+        order_items: [
+          { name: 'Laptop', quantity: 2, price: 250_000 },
+          { name: 'Phone', quantity: 1, price: 100_000 },
+        ],
+      })
+    ).not.toThrow();
   });
 
   it('rejects stale saved quote items before booking', () => {
