@@ -90,7 +90,12 @@ export function ImeiCheckInputSection({
           keyboardType={isImeiOnly ? 'number-pad' : 'default'}
           autoCapitalize="characters"
           autoCorrect={false}
-          returnKeyType="go"
+          // Number pads have no return-key row, so iOS floats a "Go" pill
+          // above the keys when returnKeyType is set — it inflates the
+          // reported keyboard frame (extra gap under the footer) and the
+          // Verify button is the submit affordance anyway. The full keyboard
+          // (serial input) keeps "go" as a normal return key.
+          returnKeyType={isImeiOnly ? undefined : 'go'}
           onSubmitEditing={onCheck}
           autoComplete="off"
         />
