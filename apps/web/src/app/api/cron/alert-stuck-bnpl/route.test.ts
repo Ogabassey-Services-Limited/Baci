@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   statusIn: vi.fn(),
   lt: vi.fn(),
   gte: vi.fn(),
+  transactionsIn: vi.fn(),
   notifyMerchant: vi.fn(),
   loggerWarn: vi.fn(),
   loggerError: vi.fn(),
@@ -18,8 +19,7 @@ vi.mock('@/env', () => ({
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => {
-    const chain = {
-      from: vi.fn(),
+    const ordersChain = {
       select: vi.fn(),
       eq: vi.fn(),
       in: mocks.statusIn,
@@ -28,14 +28,24 @@ vi.mock('@/lib/supabase/admin', () => ({
       order: vi.fn(),
       limit: mocks.limit,
     };
-    chain.from.mockReturnValue(chain);
-    chain.select.mockReturnValue(chain);
-    chain.eq.mockReturnValue(chain);
-    mocks.statusIn.mockReturnValue(chain);
-    mocks.lt.mockReturnValue(chain);
-    mocks.gte.mockReturnValue(chain);
-    chain.order.mockReturnValue(chain);
-    return chain;
+    ordersChain.select.mockReturnValue(ordersChain);
+    ordersChain.eq.mockReturnValue(ordersChain);
+    mocks.statusIn.mockReturnValue(ordersChain);
+    mocks.lt.mockReturnValue(ordersChain);
+    mocks.gte.mockReturnValue(ordersChain);
+    ordersChain.order.mockReturnValue(ordersChain);
+
+    const transactionsChain = {
+      select: vi.fn(),
+      in: mocks.transactionsIn,
+    };
+    transactionsChain.select.mockReturnValue(transactionsChain);
+
+    return {
+      from: vi.fn((table: string) =>
+        table === 'transactions' ? transactionsChain : ordersChain
+      ),
+    };
   },
 }));
 
@@ -82,6 +92,7 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
     mocks.getCronSecret.mockReturnValue('cron-secret');
     mocks.notifyMerchant.mockResolvedValue({ sent: 1, failed: 0, errors: [] });
     mocks.limit.mockResolvedValue({ data: [], error: null });
+    mocks.transactionsIn.mockResolvedValue({ data: [], error: null });
   });
 
   it('returns 401 when the cron secret does not match', async () => {
@@ -210,6 +221,32 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
         scanLimit: 500,
       })
     );
+  });
+
+  it('accepts a transactions row as provider evidence for pending orders without notes', async () => {
+    mocks.limit.mockResolvedValue({
+      data: [
+        stuckOrder({
+          id: 'order-1',
+          payment_status: 'unpaid',
+          payment_method: 'credpal',
+          notes: null,
+        }),
+      ],
+      error: null,
+    });
+    mocks.transactionsIn.mockResolvedValue({
+      data: [{ order_id: 'order-1' }],
+      error: null,
+    });
+
+    const response = await GET(createCronRequest());
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.stuckOrders).toBe(1);
+    expect(mocks.transactionsIn).toHaveBeenCalledWith('order_id', ['order-1']);
+    expect(mocks.notifyMerchant).toHaveBeenCalledTimes(1);
   });
 
   it('requires provider-session evidence for pending/unpaid orders', async () => {

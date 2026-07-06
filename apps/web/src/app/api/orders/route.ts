@@ -2019,6 +2019,7 @@ export async function POST(request: NextRequest) {
     // validate residual gateway payouts against server-owned columns.
     await recordPreGatewayRedemption(
       order.id,
+      orderTotal,
       savingsAmountUsed,
       walletAmountUsed
     );

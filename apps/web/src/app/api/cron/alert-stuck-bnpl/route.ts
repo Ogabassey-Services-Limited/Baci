@@ -108,10 +108,43 @@ export async function GET(request: NextRequest) {
         scanLimit: STUCK_BNPL_ORDER_SCAN_LIMIT,
       });
     }
+    // Some BNPL flows (e.g. CredPal via /api/payments/initialize) never write
+    // a reference into notes but do create a transactions row — check that as
+    // a second evidence source before dropping pending/unpaid orders.
+    const evidenceCandidates = scannedOrders.filter(
+      (order) =>
+        STATUSES_REQUIRING_PROVIDER_EVIDENCE.has(order.payment_status || '') &&
+        !hasProviderTransactionReference(order.notes)
+    );
+    let orderIdsWithTransactionEvidence = new Set<string>();
+    if (evidenceCandidates.length > 0) {
+      const { data: transactionRows, error: transactionError } = await supabase
+        .from('transactions')
+        .select('order_id')
+        .in(
+          'order_id',
+          evidenceCandidates.map((order) => order.id)
+        );
+      if (transactionError) {
+        logger.warn({
+          message:
+            'Stuck-BNPL scan could not check transaction evidence; pending/unpaid orders without notes evidence are skipped this run',
+          error: transactionError,
+        });
+      } else {
+        orderIdsWithTransactionEvidence = new Set(
+          (transactionRows ?? []).map(
+            (row) => (row as { order_id: string }).order_id
+          )
+        );
+      }
+    }
+
     const orders = scannedOrders.filter(
       (order) =>
         !STATUSES_REQUIRING_PROVIDER_EVIDENCE.has(order.payment_status || '') ||
-        hasProviderTransactionReference(order.notes)
+        hasProviderTransactionReference(order.notes) ||
+        orderIdsWithTransactionEvidence.has(order.id)
     );
     if (orders.length === 0) {
       return NextResponse.json({

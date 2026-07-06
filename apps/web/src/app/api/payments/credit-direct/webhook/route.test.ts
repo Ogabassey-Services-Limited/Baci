@@ -1386,6 +1386,81 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       });
     });
 
+    it('rejects an unpersisted-reference webhook for a superseded session reference', async () => {
+      const retriedOrder = {
+        ...mockOrder,
+        notes: JSON.stringify({
+          creditDirectSessionId: 'session_B',
+          creditDirectSupersededReferences: ['txn_old_session'],
+        }),
+      };
+      const staleSessionPayload = {
+        ...customerPaymentPayload,
+        checkoutTransactionId: 'txn_old_session',
+      };
+
+      vi.mocked(parseWebhookPayload).mockReturnValue(staleSessionPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      const mockChain = supabaseMock.from('orders');
+      mockChain.select.mockReturnValue(mockChain);
+      mockChain.eq.mockReturnValue(mockChain);
+      mockChain.ilike.mockResolvedValue({
+        data: [retriedOrder],
+        error: null,
+      });
+
+      const request = createMockRequest(staleSessionPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        received: true,
+        warning: 'Stale Credit Direct session',
+      });
+    });
+
+    it('rejects an unpersisted-reference webhook that predates the current session', async () => {
+      const resignedOrder = {
+        ...mockOrder,
+        notes: JSON.stringify({
+          creditDirectSessionId: 'session_B',
+          // Current session signed 90 minutes AFTER the payload event time.
+          creditDirectSignedAt: '2024-01-15T12:00:00.000Z',
+        }),
+      };
+      const predatedPayload = {
+        ...customerPaymentPayload,
+        checkoutTransactionId: 'txn_from_before_resign',
+      };
+
+      vi.mocked(parseWebhookPayload).mockReturnValue(predatedPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      const mockChain = supabaseMock.from('orders');
+      mockChain.select.mockReturnValue(mockChain);
+      mockChain.eq.mockReturnValue(mockChain);
+      mockChain.ilike.mockResolvedValue({
+        data: [resignedOrder],
+        error: null,
+      });
+
+      const request = createMockRequest(predatedPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        received: true,
+        warning: 'Stale Credit Direct session',
+      });
+    });
+
     it('rejects a payout that only matches a tampered-low signed amount', async () => {
       const tamperedOrder = {
         ...mockOrder,

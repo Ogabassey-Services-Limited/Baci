@@ -227,12 +227,36 @@ export async function POST(request: NextRequest) {
     // write failed (e.g. the WebView navigated away mid-flight), notes still
     // hold only the sign-time session id. Accept the payload for this order
     // when no popup reference was ever persisted and the webhook's metaData
-    // names this order — a retried checkout re-signs and overwrites the
-    // session id, so a genuinely superseded session is still rejected.
+    // names this order — but positively exclude references retained from
+    // superseded sessions (set_credit_direct_session keeps them in
+    // creditDirectSupersededReferences on every re-sign) and payloads whose
+    // event time predates the current session's signing, so a retried
+    // checkout cannot have a stale session's webhook clobber the live one.
+    const supersededReferences = Array.isArray(
+      parsedNotes.creditDirectSupersededReferences
+    )
+      ? parsedNotes.creditDirectSupersededReferences.filter(
+          (value): value is string => typeof value === 'string'
+        )
+      : [];
+    const isSupersededReference = supersededReferences.includes(
+      payload.checkoutTransactionId
+    );
+    const signedAtMs = Date.parse(
+      readNoteString(parsedNotes.creditDirectSignedAt) ?? ''
+    );
+    const payloadTimeMs = Date.parse(payload.timeStamp);
+    const CLOCK_SKEW_TOLERANCE_MS = 5 * 60_000;
+    const predatesCurrentSession =
+      Number.isFinite(signedAtMs) &&
+      Number.isFinite(payloadTimeMs) &&
+      payloadTimeMs < signedAtMs - CLOCK_SKEW_TOLERANCE_MS;
     const acceptsUnpersistedPopupReference =
       activeTransactionId === null &&
       activeSessionId !== null &&
-      payload.metaData === order.id;
+      payload.metaData === order.id &&
+      !isSupersededReference &&
+      !predatesCurrentSession;
 
     if (
       order.payment_method !== 'credit_direct' ||
@@ -453,6 +477,10 @@ export async function POST(request: NextRequest) {
           .from('orders')
           .update({
             payment_status: 'paid',
+            // Fully settled: pre-gateway redemption + gateway residual =
+            // the order total. Keeps balance math (total - amount_paid)
+            // truthful for receipts and reminders.
+            amount_paid: orderTotal,
             notes: JSON.stringify({
               ...parsedNotes,
               merchantPaidAt: payload.timeStamp,
