@@ -32,6 +32,7 @@ type SupabaseAuthForController = {
       };
     };
   };
+  signOut: (options: { scope: 'local' }) => Promise<{ error: unknown }>;
 };
 
 type AuthStateControllerParams = {
@@ -91,6 +92,24 @@ export function createAuthStateController({
     console.warn('[AuthStore] Terminal auth validation failure', {
       code: getAuthErrorCode(error),
     });
+
+    try {
+      const { error: signOutError } = await auth.signOut({ scope: 'local' });
+      if (signOutError) {
+        console.warn('[AuthStore] Terminal auth cleanup sign-out failed', {
+          code: getAuthErrorCode(signOutError),
+        });
+      }
+    } catch (signOutError) {
+      console.warn('[AuthStore] Terminal auth cleanup sign-out failed', {
+        code: getAuthErrorCode(signOutError),
+      });
+    }
+
+    if (!isCurrent(epoch)) {
+      return;
+    }
+
     await clearLocalAuthState();
   }
 
@@ -151,7 +170,9 @@ export function createAuthStateController({
     epoch: number
   ): void {
     setState(getSessionAuthState(session));
-    void validatePersistedSession(session, epoch);
+    setTimeout(() => {
+      void validatePersistedSession(session, epoch);
+    }, 0);
   }
 
   let startupSessionHandled = false;

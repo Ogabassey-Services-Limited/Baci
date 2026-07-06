@@ -38,6 +38,7 @@ describe('createAuthStateController', () => {
     getSession: vi.fn(),
     getUser: vi.fn(),
     onAuthStateChange: vi.fn(),
+    signOut: vi.fn(),
   };
   const resetUserStores = vi.fn();
   const setState = vi.fn();
@@ -57,6 +58,7 @@ describe('createAuthStateController', () => {
       data: { user: null },
       error: null,
     });
+    auth.signOut.mockResolvedValue({ error: null });
     resetUserStores.mockResolvedValue(undefined);
     auth.onAuthStateChange.mockReturnValue({
       data: { subscription: { unsubscribe: vi.fn() } },
@@ -152,8 +154,36 @@ describe('createAuthStateController', () => {
           user: session.user,
         })
       );
+      expect(auth.getUser).toHaveBeenCalledTimes(1);
     });
-    expect(auth.getUser).toHaveBeenCalledTimes(1);
+  });
+
+  it('defers persisted session validation until after the auth callback returns', async () => {
+    const session = createSession();
+    const storedSession = deferred<{
+      data: { session: Session | null };
+      error: null;
+    }>();
+    auth.getSession.mockReturnValue(storedSession.promise);
+    auth.getUser.mockResolvedValue({
+      data: { user: session.user },
+      error: null,
+    });
+    const controller = buildController();
+
+    controller.initialize();
+    const listener = getLatestListener();
+    listener?.('INITIAL_SESSION', session);
+
+    expect(auth.getClaims).not.toHaveBeenCalled();
+    expect(auth.getUser).not.toHaveBeenCalled();
+
+    await vi.waitFor(() => {
+      expect(auth.getClaims).toHaveBeenCalledTimes(1);
+      expect(auth.getUser).toHaveBeenCalledTimes(1);
+    });
+
+    storedSession.resolve({ data: { session }, error: null });
   });
 
   it('clears auth state when claims validation returns a terminal error', async () => {
@@ -172,6 +202,7 @@ describe('createAuthStateController', () => {
         expect.objectContaining({ isAuthenticated: false })
       );
     });
+    expect(auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(resetUserStores).toHaveBeenCalledTimes(1);
   });
 
@@ -191,6 +222,7 @@ describe('createAuthStateController', () => {
         expect.objectContaining({ isAuthenticated: false })
       );
     });
+    expect(auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(resetUserStores).toHaveBeenCalledTimes(1);
   });
 

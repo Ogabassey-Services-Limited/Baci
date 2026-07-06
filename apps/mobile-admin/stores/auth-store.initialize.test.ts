@@ -22,6 +22,7 @@ describe('useAuthStore initialize', () => {
       data: { user: null },
       error: null,
     });
+    mocks.signOut.mockResolvedValue({ error: null });
     mocks.onAuthStateChange.mockImplementation(() => ({
       data: { subscription: { unsubscribe: vi.fn() } },
     }));
@@ -101,6 +102,7 @@ describe('useAuthStore initialize', () => {
       expect(mocks.revenueCleanup).toHaveBeenCalledTimes(1);
       expect(mocks.resetSettings).toHaveBeenCalledTimes(1);
     });
+    expect(mocks.signOut).toHaveBeenCalledWith({ scope: 'local' });
     cleanup();
   });
 
