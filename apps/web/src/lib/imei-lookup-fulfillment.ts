@@ -299,7 +299,10 @@ function isProviderNotFoundError(normalizedMessage: string): boolean {
     normalizedMessage.includes('invalid imei') ||
     normalizedMessage.includes('imei invalid') ||
     normalizedMessage.includes('invalid serial') ||
-    normalizedMessage.includes('serial invalid')
+    normalizedMessage.includes('serial invalid') ||
+    // e.g. 'Rejected: 10 Characters Serial Not supported!' — the service
+    // cannot serve this identifier, so retrying the same input is pointless.
+    normalizedMessage.includes('not supported')
   );
 }
 
@@ -330,9 +333,19 @@ function normalizeResult(result: unknown): string | Record<string, unknown> {
 
 function getProviderError(payload: Record<string, unknown>): string | null {
   const result = payload.result;
-  const isErrorObject = payload.status === 'error' || Boolean(payload.error);
+  // Sickw signals failure as status 'error' OR 'rejected' (live example:
+  // { status: 'rejected', result: 'Rejected: 10 Characters Serial Not
+  // supported!' }). Treating 'rejected' as success charged customers for a
+  // rejection notice rendered as an all-Unknown result with no refund.
+  const isErrorObject =
+    payload.status === 'error' ||
+    payload.status === 'rejected' ||
+    Boolean(payload.error);
+  const normalizedResult =
+    typeof result === 'string' ? result.trim().toLowerCase() : '';
   const isErrorString =
-    typeof result === 'string' && result.toLowerCase().startsWith('error');
+    normalizedResult.startsWith('error') ||
+    normalizedResult.startsWith('rejected');
 
   if (!isErrorObject && !isErrorString) {
     return null;
