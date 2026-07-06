@@ -117,6 +117,8 @@ describe('BookingRequestSchema international item metadata', () => {
           weight: 1,
           value: 100_000,
           length: -10,
+          width: 8,
+          height: 6,
         },
       ],
     });

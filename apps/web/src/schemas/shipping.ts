@@ -192,7 +192,8 @@ export const locationsQuerySchema = z.object({
   search: z.string().min(2).optional(),
 });
 
-export type QuoteRequestInput = z.infer<typeof QuoteRequestSchema>;
+export type QuoteRequestInput = z.input<typeof QuoteRequestSchema>;
+export type ParsedQuoteRequest = z.infer<typeof QuoteRequestSchema>;
 export type BookingRequestInput = z.infer<typeof BookingRequestSchema>;
 export type SelfFulfillmentInput = z.infer<typeof SelfFulfillmentSchema>;
 export type SelfFulfillmentUpdateInput = z.infer<

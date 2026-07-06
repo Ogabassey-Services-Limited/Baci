@@ -90,6 +90,12 @@ function readValidationContext(
   };
 }
 
+function readOptionalShippingFee(value: number | string | null): number {
+  return typeof value === 'number' || typeof value === 'string'
+    ? Number(value)
+    : Number.NaN;
+}
+
 function mapReuseOrderError(
   error: { message?: string; code?: string } | null | undefined
 ) {
@@ -180,7 +186,7 @@ async function validateSelectedQuoteForReuse(
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 
-  const shippingFee = Number(context.shipping_fee);
+  const shippingFee = readOptionalShippingFee(context.shipping_fee);
   try {
     await enrichShippingAddressWithQuoteDestination(
       supabase,

@@ -10,6 +10,9 @@ import { SHIPPING_PROVIDER_CODES } from '@/lib/shipping/types';
 type OrderShippingAddress = {
   address?: string | null;
   city?: string | null;
+  country?: string | null;
+  countryCode?: string | null;
+  postalCode?: string | null;
   state?: string | null;
   phone?: string | null;
 };
@@ -229,8 +232,9 @@ export function buildReceiver(order: OrderRecord): ShippingAddress {
     address,
     city,
     state,
-    country: 'Nigeria',
-    countryCode: 'NG',
+    country: shippingAddress.country?.trim() || 'Nigeria',
+    countryCode: shippingAddress.countryCode?.trim() || 'NG',
+    postalCode: shippingAddress.postalCode?.trim() || undefined,
   };
 }
 

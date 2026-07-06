@@ -45,6 +45,9 @@ type OrderRecord = {
   shipping_address: {
     address?: string | null;
     city?: string | null;
+    country?: string | null;
+    countryCode?: string | null;
+    postalCode?: string | null;
     state?: string | null;
     phone?: string | null;
   } | null;

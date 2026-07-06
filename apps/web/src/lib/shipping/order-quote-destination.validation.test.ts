@@ -95,6 +95,54 @@ describe('enrichShippingAddressWithQuoteDestination validation', () => {
     });
   });
 
+  it('rejects saved international quotes when checkout omits the provider', async () => {
+    await expect(
+      enrichShippingAddressWithQuoteDestination(
+        createSupabase({
+          quote: internationalQuote,
+        }) as unknown as SupabaseClient,
+        'quote-1',
+        shippingAddress,
+        { ...checkoutContext, shippingProvider: undefined }
+      )
+    ).rejects.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_PROVIDER_MISMATCH',
+      status: 400,
+    });
+  });
+
+  it('rejects saved international quotes when checkout omits the address', async () => {
+    await expect(
+      enrichShippingAddressWithQuoteDestination(
+        createSupabase({
+          quote: internationalQuote,
+        }) as unknown as SupabaseClient,
+        'quote-1',
+        undefined,
+        checkoutContext
+      )
+    ).rejects.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_DESTINATION_MISMATCH',
+      status: 400,
+    });
+  });
+
+  it('rejects unreadable saved international quote requests before checkout', async () => {
+    await expect(
+      enrichShippingAddressWithQuoteDestination(
+        createSupabase({
+          quote: { ...internationalQuote, quote_request: null },
+        }) as unknown as SupabaseClient,
+        'quote-1',
+        shippingAddress,
+        checkoutContext
+      )
+    ).rejects.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_REQUEST_MISSING',
+      status: 400,
+    });
+  });
+
   it('fails closed when the saved quote lookup errors', async () => {
     await expect(
       enrichShippingAddressWithQuoteDestination(

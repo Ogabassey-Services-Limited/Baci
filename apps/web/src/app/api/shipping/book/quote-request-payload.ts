@@ -51,7 +51,7 @@ export function resolveBookingQuoteRequestPayload(
   }
 
   const storedQuoteRequest = parseStoredQuoteRequest(quote.quote_request);
-  if (!storedQuoteRequest?.sender) {
+  if (!storedQuoteRequest) {
     return null;
   }
 

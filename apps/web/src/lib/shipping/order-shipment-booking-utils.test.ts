@@ -218,4 +218,26 @@ describe('order-shipment-booking-utils', () => {
       })
     ).toThrow('This order is missing a complete shipping address.');
   });
+
+  it('preserves international receiver country fields from the order address', () => {
+    expect(
+      buildReceiver({
+        customer_name: 'Jane Doe',
+        customer_email: 'jane@example.com',
+        customer_phone: '08000000000',
+        shipping_address: {
+          address: '123 Queen Street West',
+          city: 'Toronto',
+          state: 'Ontario',
+          country: 'Canada',
+          countryCode: 'CA',
+          postalCode: 'M5V 3L9',
+        },
+      })
+    ).toMatchObject({
+      country: 'Canada',
+      countryCode: 'CA',
+      postalCode: 'M5V 3L9',
+    });
+  });
 });

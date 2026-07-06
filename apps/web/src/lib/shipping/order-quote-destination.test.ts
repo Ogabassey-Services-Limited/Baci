@@ -62,7 +62,8 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
         },
       }) as unknown as SupabaseClient,
       'quote-1',
-      shippingAddress
+      shippingAddress,
+      { shippingProvider: 'GIGL' }
     );
 
     expect(result).toEqual({
@@ -149,6 +150,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
           merchantId: 'merchant-current',
           items: [checkoutPhoneItem],
           shippingFee: 10_000,
+          shippingProvider: 'GIGL',
         }
       )
     ).rejects.toMatchObject({
@@ -186,6 +188,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
           merchantId: 'merchant-current',
           items: [{ ...checkoutPhoneItem, name: 'Laptop' }],
           shippingFee: 10_000,
+          shippingProvider: 'GIGL',
         }
       )
     ).rejects.toMatchObject({
@@ -223,6 +226,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
           merchantId: 'merchant-current',
           items: [checkoutPhoneItem],
           shippingFee: 1,
+          shippingProvider: 'GIGL',
         }
       )
     ).rejects.toMatchObject({
@@ -260,6 +264,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
           merchantId: 'merchant-current',
           items: [checkoutPhoneItem],
           shippingFee: 1,
+          shippingProvider: 'GIGL',
         }
       )
     ).rejects.toMatchObject({

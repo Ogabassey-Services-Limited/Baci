@@ -103,11 +103,11 @@ function validateQuoteCheckoutContext(
   quoteRequest: NonNullable<ReturnType<typeof parseStoredQuoteRequest>>,
   context: QuoteCheckoutContext
 ): void {
-  if (
-    context.shippingProvider &&
-    quote.provider &&
-    quote.provider !== context.shippingProvider
-  ) {
+  if (!context.shippingProvider || !quote.provider) {
+    throwQuoteMismatch('INTERNATIONAL_QUOTE_PROVIDER_MISMATCH');
+  }
+
+  if (quote.provider !== context.shippingProvider) {
     throwQuoteMismatch('INTERNATIONAL_QUOTE_PROVIDER_MISMATCH');
   }
 
@@ -150,7 +150,7 @@ export async function enrichShippingAddressWithQuoteDestination(
   shippingAddress: OrderShippingAddressForQuote | undefined,
   context: QuoteCheckoutContext = {}
 ): Promise<OrderShippingAddressForQuote | undefined> {
-  if (!selectedQuoteId || !shippingAddress) {
+  if (!selectedQuoteId) {
     return shippingAddress;
   }
 
@@ -179,6 +179,10 @@ export async function enrichShippingAddressWithQuoteDestination(
     return shippingAddress;
   }
 
+  if (!shippingAddress) {
+    throwQuoteMismatch('INTERNATIONAL_QUOTE_DESTINATION_MISMATCH');
+  }
+
   const expiresAt = Date.parse(quote.expires_at ?? '');
   if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
     throwQuoteMismatch('INTERNATIONAL_QUOTE_EXPIRED');
@@ -186,7 +190,7 @@ export async function enrichShippingAddressWithQuoteDestination(
 
   const quoteRequest = parseStoredQuoteRequest(quote.quote_request);
   if (!quoteRequest) {
-    return shippingAddress;
+    throwQuoteMismatch('INTERNATIONAL_QUOTE_REQUEST_MISSING');
   }
 
   if (!matchesQuoteDestination(shippingAddress, quoteRequest)) {

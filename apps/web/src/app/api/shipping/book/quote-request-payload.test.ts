@@ -124,6 +124,42 @@ describe('resolveBookingQuoteRequestPayload', () => {
       )
     ).toBeNull();
   });
+
+  it('keeps saved international payloads without sender so merchant fallback can apply', () => {
+    const payload = resolveBookingQuoteRequestPayload(
+      {
+        provider: 'GIGL',
+        provider_rate_id: 'GIGL_INTL_1_2_3_4',
+        quote_request: {
+          sessionId: 'session-1',
+          shipmentType: 'international',
+          receiver: {
+            name: 'Old Name',
+            phone: '',
+            address: '123 Queen Street West',
+            city: 'Toronto',
+            state: 'Ontario',
+            country: 'Canada',
+            countryCode: 'CA',
+          },
+          items,
+        },
+      },
+      receiver,
+      items,
+      [{ name: 'Phone', quantity: 1, price: 100_000 }]
+    );
+
+    expect(payload).toEqual(
+      expect.objectContaining({
+        sender: undefined,
+        receiver: expect.objectContaining({
+          country: 'Canada',
+          countryCode: 'CA',
+        }),
+      })
+    );
+  });
 });
 
 describe('validateBookingQuoteRequestPayload', () => {
