@@ -86,10 +86,12 @@ BEGIN
   END IF;
 
   IF jsonb_array_length(v_superseded) > 8 THEN
-    SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+    -- Keep the 8 MOST RECENT references, preserving chronological order so
+    -- repeated trims keep evicting the oldest entries (not the newest).
+    SELECT COALESCE(jsonb_agg(elem ORDER BY ord), '[]'::jsonb)
       INTO v_superseded
     FROM (
-      SELECT elem
+      SELECT elem, ord
       FROM jsonb_array_elements(v_superseded) WITH ORDINALITY AS t(elem, ord)
       ORDER BY ord DESC
       LIMIT 8

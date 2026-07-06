@@ -236,7 +236,7 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
       error: null,
     });
     mocks.transactionsIn.mockResolvedValue({
-      data: [{ order_id: 'order-1' }],
+      data: [{ order_id: 'order-1', status: 'processing' }],
       error: null,
     });
 
@@ -247,6 +247,31 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
     expect(data.stuckOrders).toBe(1);
     expect(mocks.transactionsIn).toHaveBeenCalledWith('order_id', ['order-1']);
     expect(mocks.notifyMerchant).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores still-pending transaction rows so initialize-flow abandoners stay excluded', async () => {
+    mocks.limit.mockResolvedValue({
+      data: [
+        stuckOrder({
+          id: 'order-1',
+          payment_status: 'unpaid',
+          payment_method: 'credpal',
+          notes: null,
+        }),
+      ],
+      error: null,
+    });
+    mocks.transactionsIn.mockResolvedValue({
+      data: [{ order_id: 'order-1', status: 'pending' }],
+      error: null,
+    });
+
+    const response = await GET(createCronRequest());
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.stuckOrders).toBe(0);
+    expect(mocks.notifyMerchant).not.toHaveBeenCalled();
   });
 
   it('skips pending orders conservatively when the transaction-evidence check fails', async () => {

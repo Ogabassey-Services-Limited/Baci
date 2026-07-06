@@ -110,7 +110,11 @@ export async function GET(request: NextRequest) {
     }
     // Some BNPL flows (e.g. CredPal via /api/payments/initialize) never write
     // a reference into notes but do create a transactions row — check that as
-    // a second evidence source before dropping pending/unpaid orders.
+    // a second evidence source before dropping pending/unpaid orders. Only
+    // rows that progressed beyond 'pending' count: initialize creates its
+    // pending transaction row before the customer even opens the provider
+    // popup, so treating those as evidence would re-admit plain abandoned
+    // carts.
     const evidenceCandidates = scannedOrders.filter(
       (order) =>
         STATUSES_REQUIRING_PROVIDER_EVIDENCE.has(order.payment_status || '') &&
@@ -120,7 +124,7 @@ export async function GET(request: NextRequest) {
     if (evidenceCandidates.length > 0) {
       const { data: transactionRows, error: transactionError } = await supabase
         .from('transactions')
-        .select('order_id')
+        .select('order_id, status')
         .in(
           'order_id',
           evidenceCandidates.map((order) => order.id)
@@ -133,9 +137,12 @@ export async function GET(request: NextRequest) {
         });
       } else {
         orderIdsWithTransactionEvidence = new Set(
-          (transactionRows ?? []).map(
-            (row) => (row as { order_id: string }).order_id
-          )
+          (transactionRows ?? [])
+            .map((row) => row as { order_id: string; status: string | null })
+            .filter(
+              (row) => row.status === 'processing' || row.status === 'completed'
+            )
+            .map((row) => row.order_id)
         );
       }
     }
