@@ -34,9 +34,12 @@ const UNKNOWN_STOREFRONT_FAIL_OPEN = {
 };
 const PREFLIGHT_CACHE_CONTROL = 's-maxage=300, stale-while-revalidate=3600';
 
+// Default to the custom cacheable auth path (what the proxy sends in
+// production); the legacy Authorization path is exercised by dedicated
+// no-store regression tests below.
 function request(
   params: { category?: string; slug?: string } = {},
-  headers: Record<string, string> = { Authorization: `Bearer ${SECRET}` }
+  headers: Record<string, string> = { 'x-baci-internal-auth': SECRET }
 ): NextRequest {
   const url = new URL(
     `https://platform.test/api/internal/product-canonical/${IDENTIFIER}`
@@ -444,6 +447,34 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
 
     expect(await res.json()).toEqual(FAIL_OPEN);
     expect(res.headers.get('Cache-Control')).toBe('no-store');
+  });
+
+  it('accepts legacy Bearer auth but keeps even the live no-redirect verdict no-store', async () => {
+    mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
+      hasError: false,
+      present: true,
+    });
+
+    const res = await GET(
+      request(
+        { category: 'smartphones', slug: 'iphone-15' },
+        { Authorization: `Bearer ${SECRET}` }
+      ),
+      context()
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      hasError: false,
+      matchedProduct: true,
+      redirectPath: null,
+    });
+    // RFC 9111 lets a shared cache store an Authorization-request response
+    // when s-maxage is present, so the legacy path must never emit cacheable
+    // headers — the entry would be keyed with the custom header absent, the
+    // same Vary key an unauthenticated request hits.
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
   });
 
   it('returns 401 when the bearer token is invalid', async () => {

@@ -102,6 +102,20 @@ describe('GET /api/internal/blog-listing-status/[identifier]', () => {
     expect(response.headers.get('Vercel-Cache-Tag')).toBe('blog-posts');
   });
 
+  it('keeps the NOOP verdict no-store under legacy Bearer auth', async () => {
+    const response = await GET(
+      buildRequest('kind=category-query&category=Smartphones'),
+      context()
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual(NOOP);
+    // RFC 9111 lets a shared cache store an Authorization-request response
+    // when s-maxage is present; only the custom-header path may be cacheable.
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Vercel-Cache-Tag')).toBeNull();
+  });
+
   it('keeps notFound verdicts no-store so a since-published author page is never sticky', async () => {
     vi.mocked(getCachedStorefrontBlogListingStatus).mockResolvedValueOnce({
       hasError: false,

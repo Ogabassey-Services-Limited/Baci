@@ -86,11 +86,12 @@ describe('resolveStorefrontBlogListingStatus', () => {
     expect(url.searchParams.get('kind')).toBe('category-query');
     expect(url.searchParams.get('category')).toBe('Smartphones');
     // The secret goes via `x-baci-internal-auth`, NOT Authorization, so
-    // Vercel's CDN can cache the verdict.
-    expect(fetchImpl.mock.calls[0][1]).toMatchObject({
-      headers: { 'x-baci-internal-auth': 'internal-secret' },
-      redirect: 'manual',
+    // Vercel's CDN can cache the verdict — the exact-match assertion proves no
+    // Authorization header is sent alongside it.
+    expect(fetchImpl.mock.calls[0][1]?.headers).toEqual({
+      'x-baci-internal-auth': 'internal-secret',
     });
+    expect(fetchImpl.mock.calls[0][1]).toMatchObject({ redirect: 'manual' });
   });
 
   it('skips the internal fetch for over-encoded bot category-query slugs', async () => {

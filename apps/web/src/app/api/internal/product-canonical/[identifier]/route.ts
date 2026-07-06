@@ -6,7 +6,10 @@ import {
   getCachedProductCanonicalRedirectTarget,
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductSlugResolution } from '@/lib/cached-storefront-product-slug-resolution';
-import { hasValidInternalAuth } from '@/lib/internal-auth-header';
+import {
+  getValidatedInternalAuthMethod,
+  INTERNAL_AUTH_HEADER,
+} from '@/lib/internal-auth-header';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getProductSlugSetCacheTag } from '@/lib/product-cache-tags';
 import { getProductUrl } from '@/lib/seo-utils';
@@ -37,7 +40,7 @@ const NO_REDIRECT = {
 // the TTL window.
 const PREFLIGHT_CACHE = {
   'Cache-Control': 's-maxage=300, stale-while-revalidate=3600',
-  Vary: 'x-baci-internal-auth',
+  Vary: INTERNAL_AUTH_HEADER,
 } as const;
 
 interface CanonicalVerdictBody {
@@ -50,9 +53,11 @@ interface CanonicalVerdictBody {
 
 function toVerdictResponse(
   body: CanonicalVerdictBody,
-  cacheTagMerchantId: string
+  cacheTagMerchantId: string,
+  allowEdgeCache: boolean
 ): NextResponse {
   const cacheable =
+    allowEdgeCache &&
     body.hasError === false &&
     body.matchedProduct === true &&
     body.redirectPath === null;
@@ -165,12 +170,18 @@ export async function GET(
 
   // Custom-header auth (preferred — keeps the verdict CDN-cacheable) with the
   // legacy `Authorization: Bearer` still accepted for mixed-deploy callers.
-  if (!hasValidInternalAuth(request, expectedSecret)) {
+  const authMethod = getValidatedInternalAuthMethod(request, expectedSecret);
+  if (!authMethod) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401, headers: NO_STORE }
     );
   }
+  // Only custom-header requests may receive cacheable headers: RFC 9111 §3.5
+  // lets a shared cache store an Authorization-request response when s-maxage
+  // is present, and such an entry would be keyed with the custom header ABSENT
+  // — the same Vary key an unauthenticated request would hit.
+  const allowEdgeCache = authMethod === 'custom-header';
 
   const params = internalSlugSetParamsSchema.safeParse(await context.params);
   const query = internalProductCanonicalRedirectQuerySchema.safeParse({
@@ -207,7 +218,8 @@ export async function GET(
           query.data.slug,
           product
         ),
-        merchant.id
+        merchant.id,
+        allowEdgeCache
       );
     }
 
@@ -227,14 +239,16 @@ export async function GET(
           query.data.slug,
           slugResolution.redirectTarget
         ),
-        merchant.id
+        merchant.id,
+        allowEdgeCache
       );
     }
 
     if (slugResolution.present) {
       return toVerdictResponse(
         { hasError: false, matchedProduct: true, redirectPath: null },
-        merchant.id
+        merchant.id,
+        allowEdgeCache
       );
     }
 

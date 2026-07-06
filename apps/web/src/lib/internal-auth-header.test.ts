@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getValidatedInternalAuthMethod,
   hasValidInternalAuth,
   INTERNAL_AUTH_HEADER,
 } from '@/lib/internal-auth-header';
@@ -52,5 +53,54 @@ describe('hasValidInternalAuth', () => {
     const request = requestWith({ [INTERNAL_AUTH_HEADER]: '' });
 
     expect(hasValidInternalAuth(request, SECRET)).toBe(false);
+  });
+});
+
+describe('getValidatedInternalAuthMethod', () => {
+  it('identifies the custom-header path (the only cache-eligible one)', () => {
+    const request = requestWith({ [INTERNAL_AUTH_HEADER]: SECRET });
+
+    expect(getValidatedInternalAuthMethod(request, SECRET)).toBe(
+      'custom-header'
+    );
+  });
+
+  it('identifies the legacy Authorization path', () => {
+    const request = requestWith({ Authorization: `Bearer ${SECRET}` });
+
+    expect(getValidatedInternalAuthMethod(request, SECRET)).toBe(
+      'authorization'
+    );
+  });
+
+  it('prefers the custom header when both headers carry the secret', () => {
+    const request = requestWith({
+      [INTERNAL_AUTH_HEADER]: SECRET,
+      Authorization: `Bearer ${SECRET}`,
+    });
+
+    expect(getValidatedInternalAuthMethod(request, SECRET)).toBe(
+      'custom-header'
+    );
+  });
+
+  it('falls back to a valid Authorization header when the custom header is wrong', () => {
+    const request = requestWith({
+      [INTERNAL_AUTH_HEADER]: 'wrong',
+      Authorization: `Bearer ${SECRET}`,
+    });
+
+    expect(getValidatedInternalAuthMethod(request, SECRET)).toBe(
+      'authorization'
+    );
+  });
+
+  it('returns null when neither header matches', () => {
+    const request = requestWith({
+      [INTERNAL_AUTH_HEADER]: 'wrong',
+      Authorization: 'Bearer wrong',
+    });
+
+    expect(getValidatedInternalAuthMethod(request, SECRET)).toBeNull();
   });
 });

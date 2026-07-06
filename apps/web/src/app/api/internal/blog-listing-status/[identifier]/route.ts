@@ -4,7 +4,10 @@ import {
   type BlogListingStatusBody,
   getCachedStorefrontBlogListingStatus,
 } from '@/lib/cached-storefront-blog-listing-status';
-import { hasValidInternalAuth } from '@/lib/internal-auth-header';
+import {
+  getValidatedInternalAuthMethod,
+  INTERNAL_AUTH_HEADER,
+} from '@/lib/internal-auth-header';
 import {
   internalBlogListingStatusQuerySchema,
   internalSlugSetParamsSchema,
@@ -24,7 +27,7 @@ const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 // any post/category change purges these CDN entries immediately.
 const PREFLIGHT_CACHE = {
   'Cache-Control': 's-maxage=300, stale-while-revalidate=3600',
-  Vary: 'x-baci-internal-auth',
+  Vary: INTERNAL_AUTH_HEADER,
   'Vercel-Cache-Tag': 'blog-posts',
 } as const;
 // Typed against the shared contract so a shape change fails at compile time.
@@ -58,12 +61,18 @@ export async function GET(
 
   // Custom-header auth (preferred — keeps the verdict CDN-cacheable) with the
   // legacy `Authorization: Bearer` still accepted for mixed-deploy callers.
-  if (!hasValidInternalAuth(request, expectedSecret)) {
+  const authMethod = getValidatedInternalAuthMethod(request, expectedSecret);
+  if (!authMethod) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401, headers: NO_STORE }
     );
   }
+  // Only custom-header requests may receive cacheable headers: RFC 9111 §3.5
+  // lets a shared cache store an Authorization-request response when s-maxage
+  // is present, and such an entry would be keyed with the custom header ABSENT
+  // — the same Vary key an unauthenticated request would hit.
+  const allowEdgeCache = authMethod === 'custom-header';
 
   const params = internalSlugSetParamsSchema.safeParse(await context.params);
   const searchParams = request.nextUrl.searchParams;
@@ -88,7 +97,10 @@ export async function GET(
     );
     return NextResponse.json(result, {
       status: 200,
-      headers: isCacheableNoopVerdict(result) ? PREFLIGHT_CACHE : NO_STORE,
+      headers:
+        allowEdgeCache && isCacheableNoopVerdict(result)
+          ? PREFLIGHT_CACHE
+          : NO_STORE,
     });
   } catch (error) {
     console.error('Internal blog listing status resolution failed', { error });
