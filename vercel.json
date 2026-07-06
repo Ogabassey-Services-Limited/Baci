@@ -6,7 +6,10 @@
   "framework": "nextjs",
   "ignoreCommand": "exit 0",
   "regions": ["dub1"],
-  "crons": [{ "path": "/api/cron/web-vitals-health", "schedule": "0 4 * * *" }],
+  "crons": [
+    { "path": "/api/cron/web-vitals-health", "schedule": "0 4 * * *" },
+    { "path": "/api/quiz/finalize", "schedule": "* * * * *" }
+  ],
   "functions": {
     "src/app/api/ai-jobs/worker/route.ts": { "memory": 1024 },
     "src/app/api/ai/grade-device/route.ts": { "memory": 1024 },
