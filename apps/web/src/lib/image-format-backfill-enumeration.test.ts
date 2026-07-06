@@ -44,6 +44,9 @@ function createBackfillSupabaseStub(config: BackfillSupabaseStubConfig = {}): {
         select(columns: string) {
           let eqArgs: [string, string] = ['', ''];
           const builder = {
+            order() {
+              return this;
+            },
             eq(column: string, value: string) {
               eqArgs = [column, value];
               return builder;
@@ -142,7 +145,7 @@ describe('enumerateImageFormatBackfillTargets', () => {
     expect(calls).toEqual([
       {
         table: 'products',
-        columns: 'id, images',
+        columns: 'id, images, product_variants(primary_image, images)',
         eq: ['status', 'active'],
         range: [0, 999],
       },
@@ -153,6 +156,47 @@ describe('enumerateImageFormatBackfillTargets', () => {
         range: [0, 999],
       },
     ]);
+  });
+
+  it('includes the default-selection variant image alongside the product primary', async () => {
+    // The PDP's above-fold render uses the seed variant's image when present
+    // (critical-commerce-selection.ts) — the seed variant must be checked too.
+    const { client } = createBackfillSupabaseStub({
+      productPages: [
+        [
+          {
+            id: 'p1',
+            images: [
+              'https://cdn.ogabassey.com/core-assets/products/parent.avif',
+            ],
+            product_variants: [
+              {
+                primary_image:
+                  'https://cdn.ogabassey.com/core-assets/products/variant-a.avif',
+                images: [],
+              },
+              {
+                primary_image:
+                  'https://cdn.ogabassey.com/core-assets/products/variant-b.avif',
+                images: [],
+              },
+            ],
+          },
+        ],
+      ],
+    });
+
+    const targets = await enumerateImageFormatBackfillTargets(client);
+
+    expect(targets.urls.some((url) => url.includes('parent.avif'))).toBe(true);
+    expect(targets.urls.some((url) => url.includes('variant-a.avif'))).toBe(
+      true
+    );
+    // Non-seed variants only render on user interaction — deliberately
+    // excluded to keep the run bounded.
+    expect(targets.urls.some((url) => url.includes('variant-b.avif'))).toBe(
+      false
+    );
   });
 
   it('dedupes identical variant URLs shared by multiple products', async () => {

@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
+import { getCloudflareApiToken, getCloudflareZoneId } from '@/env';
 import { runImageFormatBackfill } from '@/lib/image-format-backfill';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -56,6 +57,17 @@ export async function runBackfillImageFormatCacheCli(
   argv: string[] = process.argv.slice(2)
 ): Promise<number> {
   const args = parseArgs(argv);
+
+  // The default purge is fail-open (warn + no-op on missing env) — right for
+  // fire-and-forget revalidation, wrong for a one-shot operator run whose
+  // whole job is the purge. Refuse a wet run outright instead of reporting a
+  // purgeRequested count that purged nothing.
+  if (!args.dryRun && (!getCloudflareApiToken() || !getCloudflareZoneId())) {
+    console.error(
+      'CLOUDFLARE_API_TOKEN and CLOUDFLARE_ZONE_ID are required for a wet run (the purge would silently no-op without them). Set them or use --dry-run.'
+    );
+    return 1;
+  }
   const summary = await runImageFormatBackfill({
     supabase: createServiceClient(),
     concurrency: args.concurrency,
@@ -65,10 +77,11 @@ export async function runBackfillImageFormatCacheCli(
 
   console.log(JSON.stringify(summary, null, 2));
 
-  // Hard failure ONLY when errors occurred and nothing was purged: the run
-  // accomplished nothing and is safe to fix + re-run. Once purges happened,
-  // per-URL errors are reported in the summary instead of failing the run.
-  return summary.errored > 0 && summary.purged === 0 ? 1 : 0;
+  // Hard failure ONLY when errors occurred and no purge was even requested:
+  // the run accomplished nothing and is safe to fix + re-run. Once purges
+  // were issued, per-URL errors are reported in the summary instead of
+  // failing the run — residualNonAvif is the purge-success ground truth.
+  return summary.errored > 0 && summary.purgeRequested === 0 ? 1 : 0;
 }
 
 const currentFile = process.argv[1]

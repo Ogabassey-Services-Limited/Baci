@@ -23,6 +23,7 @@ interface BackfillQueryResult {
 
 interface BackfillQueryBuilder {
   eq(column: string, value: string): BackfillQueryBuilder;
+  order(column: string, options: { ascending: boolean }): BackfillQueryBuilder;
   range(from: number, to: number): PromiseLike<BackfillQueryResult>;
 }
 
@@ -62,6 +63,10 @@ async function fetchStatusRows(
       .from(table)
       .select(columns)
       .eq('status', status)
+      // Stable order is REQUIRED for range pagination: without it later
+      // pages can overlap or skip rows, silently leaving poisoned variants
+      // out of a run that reports a full scan.
+      .order('id', { ascending: true })
       .range(offset, rangeEnd);
 
     if (error) {
@@ -83,20 +88,47 @@ async function fetchStatusRows(
   }
 }
 
+function extractSeedVariantImage(row: Record<string, unknown>): string | null {
+  // The PDP's above-fold render uses the DEFAULT selection's variant image
+  // (`selection.variant.primary_image || selection.variant.images?.[0]`,
+  // critical-commerce-selection.ts) — when it differs from the product
+  // primary, THAT is the LCP URL. Only the first (seed) variant is included:
+  // other variants' images load on user interaction, so their cold cost is
+  // never on the critical path and warming all of them would multiply the
+  // run size for products with large variant matrices.
+  const variants = Array.isArray(row.product_variants)
+    ? row.product_variants
+    : [];
+  const seed = variants[0];
+  if (!seed || typeof seed !== 'object') {
+    return null;
+  }
+  const record = seed as Record<string, unknown>;
+  if (typeof record.primary_image === 'string' && record.primary_image) {
+    return record.primary_image;
+  }
+  const images = Array.isArray(record.images) ? record.images : [];
+  const first = images.find((image) => typeof image === 'string' && image);
+  return typeof first === 'string' ? first : null;
+}
+
 function addProductVariantUrls(
   productRows: Record<string, unknown>[],
   urls: Set<string>
 ): void {
   for (const row of productRows) {
-    const primaryImage = getPrimaryProductImage(
-      Array.isArray(row.images) ? row.images : null
-    );
-    if (!primaryImage) {
-      continue;
-    }
-    // Default pairs = the product surfaces' matrix (PDP hero + listing card).
-    for (const url of buildOgabasseyPrewarmTransformUrls(primaryImage)) {
-      urls.add(url);
+    const sources = [
+      getPrimaryProductImage(Array.isArray(row.images) ? row.images : null),
+      extractSeedVariantImage(row),
+    ];
+    for (const source of sources) {
+      if (!source) {
+        continue;
+      }
+      // Default pairs = the product surfaces' matrix (PDP hero + listing card).
+      for (const url of buildOgabasseyPrewarmTransformUrls(source)) {
+        urls.add(url);
+      }
     }
   }
 }
@@ -134,7 +166,7 @@ export async function enumerateImageFormatBackfillTargets(
   const productRows = await fetchStatusRows(
     supabase,
     'products',
-    'id, images',
+    'id, images, product_variants(primary_image, images)',
     'active',
     options.limit
   );

@@ -18,7 +18,7 @@ describe('ogabassey image prewarm pair matrices', () => {
     );
 
     expect(pdpPairs.map((pair) => pair.width)).toEqual([
-      640, 750, 828, 1080, 1200,
+      640, 750, 828, 1080, 1200, 1440,
     ]);
     expect(ALL_WIDTH_QUALITY_PAIRS.some((pair) => pair.quality === 30)).toBe(
       false
@@ -33,15 +33,22 @@ describe('ogabassey image prewarm pair matrices', () => {
     expect(listingPairs.map((pair) => pair.width)).toEqual([384, 640, 750]);
   });
 
-  it('keeps blog pairs OUT of the product default set and at the blog quality', () => {
-    // Product prewarms must never spend their per-invocation URL budget on
-    // blog-only variants — blog call sites pass this set explicitly.
-    for (const pair of BLOG_IMAGE_WIDTH_QUALITY_PAIRS) {
-      expect(pair.quality).toBe(BLOG_HERO_IMAGE_QUALITY);
-    }
-    expect(BLOG_IMAGE_WIDTH_QUALITY_PAIRS.map((pair) => pair.width)).toEqual([
-      384, 640, 750, 1080, 1200,
+  it('covers blog hero widths at blog quality plus quality-less card buckets', () => {
+    const heroPairs = BLOG_IMAGE_WIDTH_QUALITY_PAIRS.filter(
+      (pair) => pair.quality === BLOG_HERO_IMAGE_QUALITY
+    );
+    const cardPairs = BLOG_IMAGE_WIDTH_QUALITY_PAIRS.filter(
+      (pair) => pair.quality === DEFAULT_IMAGE_QUALITY
+    );
+
+    // Hero/featured surfaces are 100vw — 828 (DPR-2 414px) and 1440 (DPR-3
+    // ~480px) became selectable when deviceSizes gained those tiers.
+    expect(heroPairs.map((pair) => pair.width)).toEqual([
+      384, 640, 750, 828, 1080, 1200, 1440,
     ]);
+    // BlogSnippet renders without a quality prop → loader default quality.
+    expect(cardPairs.map((pair) => pair.width)).toEqual([384, 640, 750]);
+    // Blog pairs stay OUT of the product default set (per-invocation budget).
     expect(
       ALL_WIDTH_QUALITY_PAIRS.some(
         (pair) => pair.quality === BLOG_HERO_IMAGE_QUALITY

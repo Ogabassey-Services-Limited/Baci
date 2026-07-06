@@ -56,6 +56,9 @@ function createBackfillSupabaseStub(config: BackfillSupabaseStubConfig = {}): {
             eq() {
               return builder;
             },
+            order() {
+              return builder;
+            },
             range(from: number, to: number) {
               calls.push({ table, range: [from, to] });
               const isProducts = table === 'products';
@@ -157,7 +160,7 @@ describe('runImageFormatBackfill', () => {
         checked: 0,
         healthy: 0,
         poisoned: 0,
-        purged: 0,
+        purgeRequested: 0,
         rewarmed: 0,
         residualNonAvif: 0,
         errored: 0,
@@ -217,7 +220,7 @@ describe('runImageFormatBackfill', () => {
         checked: PRODUCT_VARIANT_URLS.length,
         healthy: PRODUCT_VARIANT_URLS.length - 2,
         poisoned: 2,
-        purged: 2,
+        purgeRequested: 2,
         rewarmed: 2,
         residualNonAvif: 0,
         errored: 0,
@@ -247,7 +250,7 @@ describe('runImageFormatBackfill', () => {
         checked: PRODUCT_VARIANT_URLS.length,
         healthy: PRODUCT_VARIANT_URLS.length - 3,
         poisoned: 0,
-        purged: 0,
+        purgeRequested: 0,
         rewarmed: 0,
         errored: 3,
       });
@@ -282,7 +285,7 @@ describe('runImageFormatBackfill', () => {
       expect(fetchImpl).toHaveBeenCalledTimes(PRODUCT_VARIANT_URLS.length + 3);
       expect(summary).toMatchObject({
         poisoned: 3,
-        purged: 3,
+        purgeRequested: 3,
         rewarmed: 1,
         residualNonAvif: 1,
         errored: 1,

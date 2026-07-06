@@ -65,7 +65,14 @@ export interface ImageFormatBackfillSummary {
   checked: number;
   healthy: number;
   poisoned: number;
-  purged: number;
+  /**
+   * Poisoned URLs HANDED to the purge implementation — NOT confirmed purges.
+   * The default `purgeCloudflareUrls` is fail-open (missing env / API errors
+   * warn and no-op), so treat `residualNonAvif` as the ground truth: an
+   * unpurged variant re-checks as non-AVIF in the re-warm phase and lands
+   * there. The CLI refuses to start a wet run without Cloudflare env.
+   */
+  purgeRequested: number;
   rewarmed: number;
   /** Purged but still not AVIF after re-warm (reported, never re-purged). */
   residualNonAvif: number;
@@ -177,7 +184,7 @@ export async function runImageFormatBackfill(
     checked: 0,
     healthy: 0,
     poisoned: 0,
-    purged: 0,
+    purgeRequested: 0,
     rewarmed: 0,
     residualNonAvif: 0,
     errored: 0,
@@ -219,7 +226,7 @@ export async function runImageFormatBackfill(
 
   if (poisonedUrls.length > 0) {
     await purgeImpl(poisonedUrls, { fetchImpl, timeoutMs });
-    summary.purged = poisonedUrls.length;
+    summary.purgeRequested = poisonedUrls.length;
 
     // Re-warm + verify in one step: the AVIF-first HEAD re-creates the purged
     // variant and reports which format the fresh cache entry locked.

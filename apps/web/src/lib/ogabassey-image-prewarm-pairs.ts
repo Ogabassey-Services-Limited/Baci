@@ -28,6 +28,9 @@ const PDP_HERO_WIDTHS: readonly number[] = [
   828,
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_HEADER_PRELOAD_WIDTH,
   1200,
+  // Selectable since deviceSizes gained the 1440 tier: sub-768px CSS widths
+  // at DPR 2 (e.g. 720px tablets/foldables) resolve calc(100vw - 32px) here.
+  1440,
 ];
 
 const PDP_HERO_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] =
@@ -57,11 +60,29 @@ const LISTING_CARD_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] = [
 // the product default set, so product prewarms never spend their URL budget
 // on blog-only variants (and vice versa). Retina tiers ≥1920 are omitted,
 // the same trade-off the PDP set accepts.
+const BLOG_HERO_WIDTHS: readonly number[] = [
+  // 828/1440 joined the emitted set when deviceSizes gained those tiers: the
+  // listing featured story is sizes="100vw" and the post hero is 100vw up to
+  // 1200px, so DPR-2 414px phones pick 828 and DPR-3 ~480px phones pick 1440.
+  384, 640, 750, 828, 1080, 1200, 1440,
+];
+
+// BlogSnippet (home/blog cross-links) renders featured images WITHOUT a
+// quality prop, so the loader requests DEFAULT_IMAGE_QUALITY at the card
+// buckets — those q75 URLs are real production variants too.
+const BLOG_CARD_DEFAULT_QUALITY_WIDTHS: readonly number[] = [384, 640, 750];
+
 export const BLOG_IMAGE_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] =
-  [384, 640, 750, 1080, 1200].map((width) => ({
-    width,
-    quality: BLOG_HERO_IMAGE_QUALITY,
-  }));
+  [
+    ...BLOG_HERO_WIDTHS.map((width) => ({
+      width,
+      quality: BLOG_HERO_IMAGE_QUALITY,
+    })),
+    ...BLOG_CARD_DEFAULT_QUALITY_WIDTHS.map((width) => ({
+      width,
+      quality: DEFAULT_IMAGE_QUALITY,
+    })),
+  ];
 
 export const ALL_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] = [
   ...PDP_HERO_WIDTH_QUALITY_PAIRS,

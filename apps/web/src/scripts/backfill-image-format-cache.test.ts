@@ -11,6 +11,13 @@ vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: vi.fn(() => ({ from: vi.fn() })),
 }));
 
+const mockGetCloudflareApiToken = vi.hoisted(() => vi.fn(() => 'cf-token'));
+const mockGetCloudflareZoneId = vi.hoisted(() => vi.fn(() => 'cf-zone'));
+vi.mock('@/env', () => ({
+  getCloudflareApiToken: () => mockGetCloudflareApiToken(),
+  getCloudflareZoneId: () => mockGetCloudflareZoneId(),
+}));
+
 function summary(overrides: Record<string, number | boolean> = {}) {
   return {
     products: 0,
@@ -19,7 +26,7 @@ function summary(overrides: Record<string, number | boolean> = {}) {
     checked: 0,
     healthy: 0,
     poisoned: 0,
-    purged: 0,
+    purgeRequested: 0,
     rewarmed: 0,
     residualNonAvif: 0,
     errored: 0,
@@ -33,6 +40,10 @@ describe('runBackfillImageFormatCacheCli', () => {
     vi.clearAllMocks();
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     mockRunImageFormatBackfill.mockResolvedValue(summary());
+    // Re-prime the env getters every test: a queued `mockReturnValueOnce`
+    // from a guard test must never leak into the next test's wet run.
+    mockGetCloudflareApiToken.mockReturnValue('cf-token');
+    mockGetCloudflareZoneId.mockReturnValue('cf-zone');
   });
 
   it('parses --dry-run, --limit, and --concurrency into backfill options', async () => {
@@ -80,17 +91,37 @@ describe('runBackfillImageFormatCacheCli', () => {
     expect(mockRunImageFormatBackfill).not.toHaveBeenCalled();
   });
 
+  it('refuses a wet run when Cloudflare purge env is missing', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockGetCloudflareApiToken.mockReturnValue('');
+
+    await expect(runBackfillImageFormatCacheCli([])).resolves.toBe(1);
+    expect(mockRunImageFormatBackfill).not.toHaveBeenCalled();
+  });
+
+  it('allows a dry run without Cloudflare purge env (no purge will fire)', async () => {
+    mockGetCloudflareApiToken.mockReturnValue('');
+    mockGetCloudflareZoneId.mockReturnValue('');
+
+    await expect(runBackfillImageFormatCacheCli(['--dry-run'])).resolves.toBe(
+      0
+    );
+    expect(mockRunImageFormatBackfill).toHaveBeenCalledWith(
+      expect.objectContaining({ dryRun: true })
+    );
+  });
+
   it('exits 1 only when errors occurred AND nothing was purged', async () => {
     mockRunImageFormatBackfill.mockResolvedValueOnce(
-      summary({ errored: 3, purged: 0 })
+      summary({ errored: 3, purgeRequested: 0 })
     );
     await expect(runBackfillImageFormatCacheCli([])).resolves.toBe(1);
   });
 
   it.each([
     ['clean run', summary()],
-    ['errors alongside successful purges', summary({ errored: 3, purged: 10 })],
-    ['pure success', summary({ poisoned: 5, purged: 5, rewarmed: 5 })],
+    ['errors alongside successful purges', summary({ errored: 3, purgeRequested: 10 })],
+    ['pure success', summary({ poisoned: 5, purgeRequested: 5, rewarmed: 5 })],
   ])('exits 0 for a %s', async (_name, result) => {
     mockRunImageFormatBackfill.mockResolvedValueOnce(result);
     await expect(runBackfillImageFormatCacheCli([])).resolves.toBe(0);
@@ -98,7 +129,7 @@ describe('runBackfillImageFormatCacheCli', () => {
 
   it('prints the summary as JSON for operator inspection', async () => {
     const logSpy = vi.spyOn(console, 'log');
-    const result = summary({ poisoned: 2, purged: 2 });
+    const result = summary({ poisoned: 2, purgeRequested: 2 });
     mockRunImageFormatBackfill.mockResolvedValueOnce(result);
 
     await runBackfillImageFormatCacheCli([]);
