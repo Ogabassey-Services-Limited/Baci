@@ -145,16 +145,49 @@ function dimensionsMatch(
   );
 }
 
-function findMatchingQuoteItem(
+function isQuotedPhysicalMetadataValid({
+  dimensions,
+  product,
+  quoteItem,
+  weight,
+}: {
+  dimensions: PackageDimensions | undefined;
+  product: ProductShippingMetadata | null;
+  quoteItem: ShipmentItem;
+  weight: number;
+}) {
+  if (hasProductWeight(product) && !numbersMatch(weight, quoteItem.weight)) {
+    return false;
+  }
+
+  return dimensionsMatch(dimensions, quoteItem);
+}
+
+function findMatchingQuoteItemIndex(
   item: InternationalShipmentOrderItem,
-  quoteItems: ShipmentItem[]
-): ShipmentItem | undefined {
+  quoteItems: ShipmentItem[],
+  metadata: {
+    dimensions: PackageDimensions | undefined;
+    product: ProductShippingMetadata | null;
+    weight: number;
+  }
+): number {
   const itemQuantity = Math.max(1, item.quantity ?? 1);
   const itemName = normalizeText(item.name);
-  return quoteItems.find(
-    (quoteItem) =>
-      normalizeText(quoteItem.name) === itemName &&
-      quoteItem.quantity === itemQuantity
+  const matchingIndexes = quoteItems
+    .map((quoteItem, index) => ({ index, quoteItem }))
+    .filter(
+      ({ quoteItem }) =>
+        normalizeText(quoteItem.name) === itemName &&
+        quoteItem.quantity === itemQuantity
+    );
+
+  return (
+    matchingIndexes.find(({ quoteItem }) =>
+      isQuotedPhysicalMetadataValid({ ...metadata, quoteItem })
+    )?.index ??
+    matchingIndexes[0]?.index ??
+    -1
   );
 }
 
@@ -179,11 +212,9 @@ function validateQuotedPhysicalMetadata({
 }) {
   if (!quoteItem) return;
 
-  if (hasProductWeight(product) && !numbersMatch(weight, quoteItem.weight)) {
-    throwMetadataMismatch();
-  }
-
-  if (!dimensionsMatch(dimensions, quoteItem)) {
+  if (
+    !isQuotedPhysicalMetadataValid({ dimensions, product, quoteItem, weight })
+  ) {
     throwMetadataMismatch();
   }
 }
@@ -192,6 +223,8 @@ export function toInternationalShipmentItemsFromOrder(
   orderItems: InternationalShipmentOrderItem[],
   quoteItems: ShipmentItem[] = []
 ): ShipmentItem[] {
+  const unmatchedQuoteItems = [...quoteItems];
+
   return orderItems.map((item) => {
     const product = readProductMetadata(item);
     const hsCode = product?.commodity_code?.trim() || undefined;
@@ -199,7 +232,19 @@ export function toInternationalShipmentItemsFromOrder(
     const name = item.name || 'Order item';
     const quantity = Math.max(1, item.quantity ?? 1);
     const weight = normalizeWeightKg(product);
-    const quoteItem = findMatchingQuoteItem(item, quoteItems);
+    const quoteItemIndex = findMatchingQuoteItemIndex(
+      item,
+      unmatchedQuoteItems,
+      {
+        dimensions,
+        product,
+        weight,
+      }
+    );
+    const quoteItem =
+      quoteItemIndex === -1
+        ? undefined
+        : unmatchedQuoteItems.splice(quoteItemIndex, 1)[0];
     validateQuotedPhysicalMetadata({ dimensions, product, quoteItem, weight });
 
     return {

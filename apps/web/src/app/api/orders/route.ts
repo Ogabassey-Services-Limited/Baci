@@ -318,7 +318,7 @@ function buildImmediateInvoiceShippingAddress(
     address_line1: shippingAddress.address,
     city: shippingAddress.city,
     state: shippingAddress.state,
-    country: 'NG',
+    country: shippingAddress.countryCode || shippingAddress.country || 'NG',
   };
 }
 
@@ -698,7 +698,10 @@ function buildImmediatePeppolInvoiceData(input: {
             street: input.shippingAddress.address,
             city: input.shippingAddress.city,
             state: input.shippingAddress.state,
-            country: 'NG',
+            country:
+              input.shippingAddress.countryCode ||
+              input.shippingAddress.country ||
+              'NG',
           }
         : undefined,
     },

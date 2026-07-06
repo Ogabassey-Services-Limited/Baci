@@ -3719,6 +3719,11 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
           },
         ],
         payment_method: 'invoice',
+        shipping_address: {
+          ...baseOrderPayload.shipping_address,
+          country: 'Canada',
+          countryCode: 'CA',
+        },
       }),
     });
 
@@ -3792,11 +3797,13 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     ];
     const pdfOptions = lastReceiptBlobCall[2];
     const receiptOrder = lastReceiptBlobCall[0] as {
+      shipping_address?: { country?: string } | null;
       items?: Array<{
         description?: string;
         line_extension_amount?: number;
       }>;
     };
+    expect(receiptOrder.shipping_address?.country).toBe('CA');
     expect(receiptOrder.items?.[0]).toMatchObject({
       description: expect.stringContaining('Includes device assurance fee'),
       line_extension_amount: 1050,

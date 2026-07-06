@@ -111,6 +111,37 @@ describe('toInternationalShipmentItemsFromOrder', () => {
     ).toThrow('no longer matches the current product shipping details');
   });
 
+  it('consumes each duplicate quote item match only once', () => {
+    const orderItems = [
+      {
+        name: 'Phone',
+        quantity: 1,
+        price: 100_000,
+        product: { weight_value: 1, weight_unit: 'kg' },
+      },
+      {
+        name: 'Phone',
+        quantity: 1,
+        price: 200_000,
+        product: { weight_value: 1, weight_unit: 'kg' },
+      },
+    ];
+    const quoteItems = [
+      { name: 'Phone', quantity: 1, weight: 1, value: 90_000 },
+      { name: 'Phone', quantity: 1, weight: 1, value: 180_000 },
+    ];
+
+    const result = toInternationalShipmentItemsFromOrder(
+      orderItems,
+      quoteItems
+    );
+
+    expect(result).toEqual([
+      expect.objectContaining({ weight: 1, value: 90_000 }),
+      expect.objectContaining({ weight: 1, value: 180_000 }),
+    ]);
+  });
+
   it('normalizes millimeter dimensions and invalid prices safely', () => {
     expect(
       toInternationalShipmentItemsFromOrder([

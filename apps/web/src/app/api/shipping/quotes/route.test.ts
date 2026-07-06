@@ -25,7 +25,9 @@ vi.mock('@/lib/shipping', () => ({
   },
 }));
 
-function buildQuoteRequest(): NextRequest {
+function buildQuoteRequest(
+  overrides: Record<string, unknown> = {}
+): NextRequest {
   return new Request('https://usebaci.com/api/shipping/quotes', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -40,11 +42,15 @@ function buildQuoteRequest(): NextRequest {
         countryCode: 'CA',
       },
       items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+      ...overrides,
     }),
   }) as unknown as NextRequest;
 }
 
-function buildSupabaseMock(user: { id: string } | null = null) {
+function buildSupabaseMock(
+  user: { id: string } | null = null,
+  merchantError: unknown = null
+) {
   const merchantSelect = {
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({
@@ -53,7 +59,7 @@ function buildSupabaseMock(user: { id: string } | null = null) {
         business_address: '1 Merchant Road, Lagos',
         phone: '08012345678',
       },
-      error: null,
+      error: merchantError,
     }),
   };
 
@@ -88,11 +94,23 @@ describe('POST /api/shipping/quotes', () => {
     });
   });
 
-  it('rejects public international quotes without a sender', async () => {
+  it('rejects public international quotes without a merchant sender', async () => {
     mockCreateAdminClient.mockReturnValue(buildSupabaseMock(null));
     const { POST } = await import('./route');
 
-    const response = await POST(buildQuoteRequest());
+    const response = await POST(
+      buildQuoteRequest({
+        sender: {
+          name: 'Caller Supplied Origin',
+          phone: '08099999999',
+          address: 'Cheap Origin',
+          city: 'Aba',
+          state: 'Abia',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+      })
+    );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
@@ -117,5 +135,57 @@ describe('POST /api/shipping/quotes', () => {
         }),
       })
     );
+  });
+
+  it('uses merchant sender details for public international quotes', async () => {
+    mockCreateAdminClient.mockReturnValue(buildSupabaseMock(null));
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      buildQuoteRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+        sender: {
+          name: 'Caller Supplied Origin',
+          phone: '08099999999',
+          address: 'Cheap Origin',
+          city: 'Aba',
+          state: 'Abia',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetQuotes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sender: expect.objectContaining({
+          name: 'Merchant Store',
+          address: '1 Merchant Road, Lagos',
+          phone: '08012345678',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        }),
+      })
+    );
+  });
+
+  it('returns 500 when merchant sender lookup fails', async () => {
+    mockCreateAdminClient.mockReturnValue(
+      buildSupabaseMock(null, { message: 'database unavailable' })
+    );
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      buildQuoteRequest({
+        merchantId: '11111111-1111-4111-8111-111111111111',
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to resolve merchant sender',
+    });
+    expect(mockGetQuotes).not.toHaveBeenCalled();
   });
 });

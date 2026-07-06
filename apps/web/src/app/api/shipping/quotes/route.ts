@@ -52,10 +52,16 @@ export async function POST(request: NextRequest) {
     // mobile (Authorization: Bearer <token>) callers.
     const supabase = createAdminClient();
 
-    // Get merchant info for sender details if not provided
-    let senderInfo = data.sender;
+    // Get merchant info for sender details if not provided. International
+    // quotes must use the merchant's real origin, not caller-supplied sender data.
+    let senderInfo =
+      data.shipmentType === 'international' ? undefined : data.sender;
+    const shouldResolveMerchantSender =
+      data.shipmentType === 'international' || !senderInfo;
+    let merchantSenderId: string | undefined;
+    let merchantSenderBusinessName: string | undefined;
 
-    if (!senderInfo) {
+    if (shouldResolveMerchantSender) {
       // Extract Bearer token from Authorization header (mobile) or fall back
       // to cookie-less getUser which returns null for unauthenticated callers.
       const authHeader = request.headers.get('authorization');
@@ -82,53 +88,68 @@ export async function POST(request: NextRequest) {
           if (!hasPermission(access, 'orders', 'fulfill')) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
           }
-
-          // Fetch address/phone details by merchant id
-          const { data: merchantDetails } = await supabase
-            .from('merchants')
-            .select('business_name, business_address, phone')
-            .eq('id', merchantContext.merchantId)
-            .single();
-
-          if (merchantDetails) {
-            const location = deriveMerchantLocation(
-              merchantDetails.business_address
-            );
-            senderInfo = {
-              name:
-                merchantDetails.business_name ||
-                merchantContext.businessName ||
-                'Merchant',
-              phone: merchantDetails.phone || '',
-              address: location.address,
-              city: location.city,
-              state: location.state,
-              country: 'Nigeria',
-              countryCode: 'NG',
-            };
-          }
+          merchantSenderId = merchantContext.merchantId;
+          merchantSenderBusinessName = merchantContext.businessName;
         }
       }
+      merchantSenderId ??= data.merchantId;
+    }
 
-      if (!senderInfo && data.shipmentType === 'international') {
+    if (merchantSenderId) {
+      const { data: merchantDetails, error: merchantError } = await supabase
+        .from('merchants')
+        .select('business_name, business_address, phone')
+        .eq('id', merchantSenderId)
+        .single();
+
+      if (merchantError) {
+        console.error(
+          'Error fetching merchant for sender info:',
+          merchantError
+        );
         return NextResponse.json(
-          { error: 'Sender is required for international quotes' },
-          { status: 400 }
+          { error: 'Failed to resolve merchant sender' },
+          { status: 500 }
         );
       }
 
-      // Default sender if no merchant found
-      if (!senderInfo) {
+      if (merchantDetails) {
+        const location = deriveMerchantLocation(
+          merchantDetails.business_address
+        );
         senderInfo = {
-          name: 'Merchant',
-          phone: '',
-          address: 'Lagos',
-          city: 'Lagos',
-          state: 'Lagos',
+          name:
+            merchantDetails.business_name ||
+            merchantSenderBusinessName ||
+            'Merchant',
+          phone: merchantDetails.phone || '',
+          address: location.address,
+          city: location.city,
+          state: location.state,
           country: 'Nigeria',
           countryCode: 'NG',
         };
       }
+    }
+
+    if (!senderInfo && data.shipmentType === 'international') {
+      return NextResponse.json(
+        { error: 'Sender is required for international quotes' },
+        { status: 400 }
+      );
+    }
+
+    // Default sender if no merchant found
+    if (!senderInfo) {
+      senderInfo = {
+        name: 'Merchant',
+        phone: '',
+        address: 'Lagos',
+        city: 'Lagos',
+        state: 'Lagos',
+        country: 'Nigeria',
+        countryCode: 'NG',
+      };
     }
 
     // Build quote request

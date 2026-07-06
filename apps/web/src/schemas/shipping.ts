@@ -77,11 +77,20 @@ const QuoteSenderAddressSchema = BaseQuoteAddressSchema.extend({
   phone: z.string().min(1),
 });
 
+function defaultBlank(value: string | undefined, fallback: string): string {
+  const trimmed = value?.trim();
+  return trimmed || fallback;
+}
+
 export const QuoteRequestSchema = z
   .object({
     receiver: QuoteReceiverAddressSchema,
     sender: QuoteSenderAddressSchema.optional(),
     items: z.array(ShippingItemSchema).min(1),
+    merchantId: z
+      .string()
+      .refine(isValidUuid, { message: 'Invalid merchant ID' })
+      .optional(),
     sessionId: z.string().optional(),
     shipmentType: z.enum(['domestic', 'international']).default('domestic'),
   })
@@ -106,14 +115,14 @@ export const QuoteRequestSchema = z
     ...data,
     receiver: {
       ...data.receiver,
-      country: data.receiver.country ?? 'Nigeria',
-      countryCode: data.receiver.countryCode ?? 'NG',
+      country: defaultBlank(data.receiver.country, 'Nigeria'),
+      countryCode: defaultBlank(data.receiver.countryCode, 'NG'),
     },
     sender: data.sender
       ? {
           ...data.sender,
-          country: data.sender.country ?? 'Nigeria',
-          countryCode: data.sender.countryCode ?? 'NG',
+          country: defaultBlank(data.sender.country, 'Nigeria'),
+          countryCode: defaultBlank(data.sender.countryCode, 'NG'),
         }
       : undefined,
   }));
