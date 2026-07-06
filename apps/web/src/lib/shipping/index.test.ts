@@ -214,7 +214,11 @@ describe('shippingService', () => {
 
     await expect(
       shippingService.bookShipment('TOPSHIP', bookingRequest)
-    ).rejects.toThrow('Provider TOPSHIP is disabled for new shipments');
+    ).rejects.toMatchObject({
+      code: 'SHIPPING_PROVIDER_DISABLED',
+      message: 'Provider TOPSHIP is disabled for new shipments',
+      status: 400,
+    });
     expect(topshipBookShipment).not.toHaveBeenCalled();
   });
 
@@ -228,7 +232,11 @@ describe('shippingService', () => {
 
     await expect(
       shippingService.getProviderQuotes('TOPSHIP', quoteRequest)
-    ).rejects.toThrow('Provider TOPSHIP is disabled for new shipments');
+    ).rejects.toMatchObject({
+      code: 'SHIPPING_PROVIDER_DISABLED',
+      message: 'Provider TOPSHIP is disabled for new shipments',
+      status: 400,
+    });
     expect(topshipGetQuotes).not.toHaveBeenCalled();
   });
 

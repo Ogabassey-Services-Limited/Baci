@@ -5,6 +5,7 @@
  */
 
 import { QuoteAggregator } from './aggregator';
+import { OrderShipmentBookingError } from './order-shipment-booking-utils';
 import { ShippingProviderRegistry } from './providers/base';
 import { GiglProvider } from './providers/gigl';
 import {
@@ -78,7 +79,11 @@ export class ShippingService {
     }
 
     if (this.trackingRegistry.get(provider)) {
-      throw new Error(`Provider ${provider} is disabled for new shipments`);
+      throw new OrderShipmentBookingError(
+        `Provider ${provider} is disabled for new shipments`,
+        400,
+        'SHIPPING_PROVIDER_DISABLED'
+      );
     }
 
     throw new Error(`Provider ${provider} not found`);

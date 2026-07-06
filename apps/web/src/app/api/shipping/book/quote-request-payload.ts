@@ -18,7 +18,7 @@ import type {
 } from '@/lib/shipping/types';
 
 type BookingQuoteRecord = {
-  provider_code: string | null;
+  provider: string | null;
   provider_rate_id: string | null;
   quote_request?: unknown;
 };
@@ -41,7 +41,7 @@ export function resolveBookingQuoteRequestPayload(
   orderItems: InternationalShipmentOrderItem[] = []
 ): QuoteRequestPayload | null {
   const isGiglInternationalQuote =
-    quote.provider_code === 'GIGL' &&
+    quote.provider === 'GIGL' &&
     quote.provider_rate_id?.startsWith(
       `${GIGL_INTERNATIONAL_PROVIDER_RATE_PREFIX}_`
     ) === true;

@@ -74,7 +74,7 @@ function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
     single: vi.fn().mockResolvedValue({
       data: {
         id: '22222222-2222-4222-8222-222222222222',
-        provider_code: 'GIGL',
+        provider: 'GIGL',
         provider_rate_id: 'gigl:service-centre:5',
         provider_metadata: { stationId: 5 },
         quote_request: null,
@@ -119,7 +119,11 @@ function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
 
       if (table === 'shipping_quotes') {
         return {
-          select: vi.fn(() => quotesSelectChain),
+          select: vi.fn((columns: string) => {
+            expect(columns).toContain('provider,');
+            expect(columns).not.toContain('provider_code');
+            return quotesSelectChain;
+          }),
           update: vi.fn(() => ({
             eq: vi.fn().mockResolvedValue({ error: null }),
           })),

@@ -88,32 +88,38 @@ function buildSupabaseMock() {
   };
   const quotesSelectChain = {
     eq: vi.fn().mockReturnThis(),
-    single: vi.fn().mockResolvedValue({
-      data: {
-        id: '22222222-2222-4222-8222-222222222222',
-        provider_code: 'GIGL',
-        provider_rate_id: 'GIGL_INTL_1_2_3_4',
-        provider_metadata: {},
-        quote_request: {
-          sessionId: 'session-1',
-          shipmentType: 'international',
-          receiver: {
-            name: 'Old Recipient',
-            phone: '',
-            address: '123 Queen Street West',
-            city: 'Toronto',
-            state: 'Ontario',
-            country: 'Canada',
-            countryCode: 'CA',
+    single: vi.fn().mockImplementation(() => {
+      expect(quotesSelectChain.eq).toHaveBeenCalledWith(
+        'merchant_id',
+        'merchant-1'
+      );
+      return Promise.resolve({
+        data: {
+          id: '22222222-2222-4222-8222-222222222222',
+          provider: 'GIGL',
+          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          provider_metadata: {},
+          quote_request: {
+            sessionId: 'session-1',
+            shipmentType: 'international',
+            receiver: {
+              name: 'Old Recipient',
+              phone: '',
+              address: '123 Queen Street West',
+              city: 'Toronto',
+              state: 'Ontario',
+              country: 'Canada',
+              countryCode: 'CA',
+            },
+            items: [{ name: 'Phone', quantity: 1, weight: 1, value: 500000 }],
           },
-          items: [{ name: 'Phone', quantity: 1, weight: 1, value: 500000 }],
+          expires_at: new Date(Date.now() + 60_000).toISOString(),
+          price: 4500,
+          currency: 'NGN',
+          estimated_days: 2,
         },
-        expires_at: new Date(Date.now() + 60_000).toISOString(),
-        price: 4500,
-        currency: 'NGN',
-        estimated_days: 2,
-      },
-      error: null,
+        error: null,
+      });
     }),
   };
 

@@ -102,9 +102,10 @@ export async function POST(request: NextRequest) {
     const { data: quote, error: quoteError } = await supabase
       .from('shipping_quotes')
       .select(
-        'id, provider_code, provider_rate_id, provider_metadata, quote_request, expires_at, price, currency, estimated_days'
+        'id, provider, provider_rate_id, provider_metadata, quote_request, expires_at, price, currency, estimated_days'
       )
       .eq('id', data.quoteId)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (quoteError || !quote) {
@@ -184,13 +185,13 @@ export async function POST(request: NextRequest) {
       instructions: data.instructions,
     };
 
-    if (!isShippingProviderCode(quote.provider_code)) {
+    if (!isShippingProviderCode(quote.provider)) {
       return NextResponse.json(
         { error: 'Invalid shipping provider in quote' },
         { status: 400 }
       );
     }
-    const provider: ShippingProviderCode = quote.provider_code;
+    const provider: ShippingProviderCode = quote.provider;
     const result = await shippingService.bookShipment(provider, bookingRequest);
 
     const { data: shipment, error: shipmentError } = await supabase

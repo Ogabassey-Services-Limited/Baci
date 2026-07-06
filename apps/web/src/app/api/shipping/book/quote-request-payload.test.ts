@@ -20,7 +20,7 @@ describe('resolveBookingQuoteRequestPayload', () => {
   it('reuses saved destination and derives item metadata from the order product', () => {
     const payload = resolveBookingQuoteRequestPayload(
       {
-        provider_code: 'GIGL',
+        provider: 'GIGL',
         provider_rate_id: 'GIGL_INTL_1_2_3_4',
         quote_request: {
           sessionId: 'session-1',
@@ -93,7 +93,7 @@ describe('resolveBookingQuoteRequestPayload', () => {
     expect(
       resolveBookingQuoteRequestPayload(
         {
-          provider_code: 'GIGL',
+          provider: 'GIGL',
           provider_rate_id: 'gigl:service-centre:5',
         },
         receiver,
@@ -106,7 +106,7 @@ describe('resolveBookingQuoteRequestPayload', () => {
     expect(
       resolveBookingQuoteRequestPayload(
         {
-          provider_code: 'GIGL',
+          provider: 'GIGL',
           provider_rate_id: 'GIGL_INTL_1_2_3_4',
         },
         receiver,
@@ -120,7 +120,7 @@ describe('validateBookingQuoteRequestPayload', () => {
   it('accepts saved international quotes that still match the order', () => {
     const payload = resolveBookingQuoteRequestPayload(
       {
-        provider_code: 'GIGL',
+        provider: 'GIGL',
         provider_rate_id: 'GIGL_INTL_1_2_3_4',
         quote_request: {
           sessionId: 'session-1',
@@ -162,7 +162,7 @@ describe('validateBookingQuoteRequestPayload', () => {
   it('accepts non-international pass-through payloads', () => {
     const payload = resolveBookingQuoteRequestPayload(
       {
-        provider_code: 'GIGL',
+        provider: 'GIGL',
         provider_rate_id: 'gigl:service-centre:5',
       },
       receiver,
@@ -183,7 +183,7 @@ describe('validateBookingQuoteRequestPayload', () => {
   it('rejects saved international quotes that no longer match the order', () => {
     const payload = resolveBookingQuoteRequestPayload(
       {
-        provider_code: 'GIGL',
+        provider: 'GIGL',
         provider_rate_id: 'GIGL_INTL_1_2_3_4',
         quote_request: {
           sessionId: 'session-1',
