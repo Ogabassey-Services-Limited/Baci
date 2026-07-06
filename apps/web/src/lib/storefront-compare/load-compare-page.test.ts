@@ -499,6 +499,68 @@ describe('loadComparePage', () => {
     warnSpy.mockRestore();
   });
 
+  it('keeps clicked inactive products from approving maintained compare routes', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      // Suppress expected non-maintained fallback warning.
+    });
+    const inactiveLeft = {
+      ...categoryPageData.products[0],
+      status: 'draft',
+    };
+    const activeRight = {
+      ...categoryPageData.products[1],
+      status: 'active',
+    };
+    mockGetCachedCategoryPageData.mockResolvedValueOnce({
+      ...categoryPageData,
+      products: [inactiveLeft, activeRight],
+    });
+    mockGetCachedProductSemanticInventory.mockResolvedValueOnce([
+      {
+        slug: 'samsung-galaxy-z-trifold',
+        name: 'Samsung Galaxy Z TriFold',
+        brand: 'Samsung',
+        price: 2_300_000,
+        category_slug: 'smartphones',
+        product_key_specs: {
+          chipset: 'Snapdragon 8 Elite',
+          ram_gb: 16,
+          storage_gb: 512,
+        },
+      },
+    ]);
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...inactiveLeft,
+      product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
+    });
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...activeRight,
+      product_key_specs: {
+        chipset: 'Snapdragon 8 Elite',
+        ram_gb: 16,
+        storage_gb: 512,
+      },
+    });
+
+    const result = await loadComparePage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+    });
+
+    expect(result?.kind).toBe('product');
+    expect(result?.isIndexable).toBe(false);
+    expect(result?.isLegacyFallback).toBe(true);
+    expect(warnSpy).toHaveBeenCalledWith(
+      'COMPARE_NON_CURATED_FALLBACK',
+      expect.objectContaining({
+        comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+      })
+    );
+
+    warnSpy.mockRestore();
+  });
+
   it('preserves curated product compare indexability when bounded graph inventory fails', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
       // Suppress expected bounded-inventory warning.

@@ -68,6 +68,7 @@ interface ComparableCategoryProduct {
   brand: string | null;
   price: number;
   category_slug: string;
+  status?: string | null;
   product_key_specs: ComparableProductKeySpecs | null;
 }
 
@@ -397,6 +398,7 @@ async function loadComparePageUncached(args: {
       brand: normalizedProduct.brand,
       price: normalizedProduct.price,
       category_slug: normalizedProduct.category_slug,
+      status: normalizedProduct.status ?? 'active',
       product_key_specs: extractComparableKeySpecs(
         (product as { product_key_specs?: unknown }).product_key_specs
       ),
@@ -493,7 +495,12 @@ async function loadComparePageUncached(args: {
         product_key_specs: rightComparableKeySpecs,
       },
     });
-    const semanticCompareProducts = compareGraphProducts.products;
+    const semanticCompareProducts = compareGraphProducts.products.map(
+      (product) => ({
+        ...product,
+        status: 'active',
+      })
+    );
     const routeApprovalProducts = compareGraphProducts.failed
       ? semanticCompareProducts
       : includeClickedCompareProducts({
@@ -507,7 +514,7 @@ async function loadComparePageUncached(args: {
           categorySlug: args.categorySlug,
           categoryName,
           products: routeApprovalProducts,
-          productsAreKnownActive: true,
+          productsAreKnownActive: false,
           comparisonSlug: parsed.canonicalSlug,
         });
     const isMaintainedIndexableSlug =

@@ -353,7 +353,10 @@ describe('blog category page', () => {
 
   it('keeps duplicate review redirects unprefixed for subdomain storefronts', async () => {
     mockHeaders.mockReturnValue(
-      new Headers([['x-merchant-slug', 'ogabassey']])
+      new Headers([
+        ['host', 'ogabassey.usebaci.com'],
+        ['x-merchant-slug', 'ogabassey'],
+      ])
     );
     mockResolveBlogCategoryHub
       .mockResolvedValueOnce(null)

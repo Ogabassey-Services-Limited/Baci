@@ -24,6 +24,12 @@ function normalizeCustomDomainValue(value: string | null | undefined) {
   return hostname || null;
 }
 
+function normalizeHostnameValue(value: string | null | undefined) {
+  const normalized = normalizeCustomDomainValue(value);
+
+  return normalized?.split(':')[0] || null;
+}
+
 export function getStorefrontPathPrefix(
   headersList: StorefrontPathPrefixHeaders,
   merchant: StorefrontPathPrefixMerchant | string
@@ -32,17 +38,28 @@ export function getStorefrontPathPrefix(
   const merchantCustomDomain =
     typeof merchant === 'string'
       ? null
-      : normalizeCustomDomainValue(merchant.custom_domain);
+      : normalizeHostnameValue(merchant.custom_domain);
+  const normalizedMerchantSlug = normalizeHeaderValue(merchantSlug);
+  const requestHost = normalizeHostnameValue(
+    headersList.get('x-forwarded-host') ?? headersList.get('host')
+  );
   const requestMerchantSlug = normalizeHeaderValue(
     headersList.get('x-merchant-slug')
   );
-  const requestCustomDomain = normalizeCustomDomainValue(
+  const requestCustomDomain = normalizeHostnameValue(
     headersList.get('x-custom-domain')
   );
-  const servedAtDomainRoot =
-    requestMerchantSlug === normalizeHeaderValue(merchantSlug) ||
-    (merchantCustomDomain !== null &&
-      requestCustomDomain === merchantCustomDomain);
+  const servedAtSubdomainRoot =
+    requestHost !== null &&
+    normalizedMerchantSlug !== null &&
+    requestMerchantSlug === normalizedMerchantSlug &&
+    requestHost.startsWith(`${normalizedMerchantSlug}.`);
+  const servedAtCustomDomainRoot =
+    requestHost !== null &&
+    merchantCustomDomain !== null &&
+    requestCustomDomain === merchantCustomDomain &&
+    requestHost === merchantCustomDomain;
+  const servedAtDomainRoot = servedAtSubdomainRoot || servedAtCustomDomainRoot;
 
   return servedAtDomainRoot ? '' : `/${merchantSlug}`;
 }
@@ -59,6 +76,14 @@ export function resolveStorefrontPathHref(pathPrefix: string, href: string) {
   }
 
   const normalizedHref = `/${href.replace(/^\/+/, '')}`;
+
+  if (
+    normalizedPathPrefix &&
+    (normalizedHref === normalizedPathPrefix ||
+      normalizedHref.startsWith(`${normalizedPathPrefix}/`))
+  ) {
+    return normalizedHref;
+  }
 
   return `${normalizedPathPrefix}${normalizedHref}`;
 }
