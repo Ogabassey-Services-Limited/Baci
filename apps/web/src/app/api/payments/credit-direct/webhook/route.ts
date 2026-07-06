@@ -592,6 +592,10 @@ export async function POST(request: NextRequest) {
               {
                 payment_status: order.payment_status ?? null,
                 shipping_status: order.shipping_status ?? null,
+                // The paid update above set amount_paid to the order total;
+                // restore the pre-webhook value so a retried payout does not
+                // validate against a zero residual.
+                amount_paid: order.amount_paid ?? 0,
               }
             );
           } catch (rollbackError) {

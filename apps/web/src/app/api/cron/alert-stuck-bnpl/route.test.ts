@@ -249,6 +249,37 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
     expect(mocks.notifyMerchant).toHaveBeenCalledTimes(1);
   });
 
+  it('skips pending orders conservatively when the transaction-evidence check fails', async () => {
+    mocks.limit.mockResolvedValue({
+      data: [
+        stuckOrder({
+          id: 'order-1',
+          payment_status: 'unpaid',
+          payment_method: 'credpal',
+          notes: null,
+        }),
+      ],
+      error: null,
+    });
+    mocks.transactionsIn.mockResolvedValue({
+      data: null,
+      error: { message: 'transactions unavailable' },
+    });
+
+    const response = await GET(createCronRequest());
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.stuckOrders).toBe(0);
+    expect(mocks.notifyMerchant).not.toHaveBeenCalled();
+    expect(mocks.loggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          'Stuck-BNPL scan could not check transaction evidence; pending/unpaid orders without notes evidence are skipped this run',
+      })
+    );
+  });
+
   it('requires provider-session evidence for pending/unpaid orders', async () => {
     mocks.limit.mockResolvedValue({
       data: [
