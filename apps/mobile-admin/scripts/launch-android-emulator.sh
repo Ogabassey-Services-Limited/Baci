@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Both apps' QA launchers intentionally share one emulator instance (same AVD,
+# same port 5554): the host runs a single 4 GB QA AVD and the apps install
+# side by side; run their QA flows sequentially. For concurrent emulators,
+# override BACI_ANDROID_AVD_NAME and BACI_ANDROID_EMULATOR_PORT explicitly.
 AVD_NAME="${BACI_ANDROID_AVD_NAME:-Baci_Pixel_9_Pro_XL_API_36_Google}"
 ANDROID_PLATFORM_PACKAGE="${BACI_ANDROID_PLATFORM_PACKAGE:-platforms;android-36}"
 ANDROID_SYSTEM_IMAGE_PACKAGE="${BACI_ANDROID_SYSTEM_IMAGE_PACKAGE:-system-images;android-36;google_apis;arm64-v8a}"

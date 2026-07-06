@@ -213,11 +213,7 @@ describe('Android emulator launcher', () => {
           'BACI_ANDROID_APP_ID:-com.ogabassey.store',
           'BACI_ANDROID_APP_ID:-com.ogabassey.baci'
         )
-        .replaceAll('BACI_ANDROID_SCHEME:-ogabassey', 'BACI_ANDROID_SCHEME:-baciadmin')
-        .replaceAll(
-          'Starting Android emulator for mobile-storefront',
-          'Starting Android emulator for mobile-admin'
-        );
+        .replaceAll('BACI_ANDROID_SCHEME:-ogabassey', 'BACI_ANDROID_SCHEME:-baciadmin');
 
     for (const [scriptName, adminContent] of [
       ['launch-android-emulator.sh', launcher],
