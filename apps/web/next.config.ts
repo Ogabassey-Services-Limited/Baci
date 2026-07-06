@@ -170,6 +170,11 @@ const nextConfig: NextConfig = {
     // back into the default image optimizer pipeline.
     loader: 'custom',
     loaderFile: './src/lib/image-loader.ts',
+    // Next's default deviceSizes jump 1200 → 1920, so any 100vw image on a
+    // DPR≥2.6 phone (e.g. 393px viewport × 3 = 1179 → next bucket up) selects
+    // the 1920w candidate and over-fetches 25–33% (measured 7–16KB waste per
+    // image). The added 1440 tier gives those viewports an exact-fit bucket.
+    deviceSizes: [640, 750, 828, 1080, 1200, 1440, 1920, 2048, 3840],
     // Note: remotePatterns are effectively documentation here. The custom
     // loader returns final URLs directly, so Next's default optimizer and
     // its remotePatterns enforcement are not on the request path.

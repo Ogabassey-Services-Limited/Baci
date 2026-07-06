@@ -19,6 +19,7 @@ import {
   getIndexNowHostFromIdentifiers,
   submitIndexNowUrls,
 } from '@/lib/indexnow';
+import { schedulePrewarmBlogImageTransforms } from '@/lib/ogabassey-blog-image-prewarm';
 import { createServiceClient } from '@/lib/supabase/service';
 import { blogPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
 import { dispatchZohoBlogCampaign } from '@/lib/zoho-blog-campaign-dispatch';
@@ -393,6 +394,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         postSlug: updatedPost.slug,
         error,
       });
+    }
+
+    // Pre-warm CDN transforms only when this write made a cold featured image
+    // publicly reachable: a new image URL on a published post, or a post
+    // transitioning to published. Metadata-only edits keep the same source
+    // image, whose variants are already warm.
+    if (
+      updatedPost.status === 'published' &&
+      (featuredImageUrlChanged || publishingNow)
+    ) {
+      schedulePrewarmBlogImageTransforms([updatedPost.featured_image_url]);
     }
 
     if (publishingNow) {

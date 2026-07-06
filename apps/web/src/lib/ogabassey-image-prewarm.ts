@@ -1,15 +1,11 @@
 import {
-  OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH,
-  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_HEADER_PRELOAD_WIDTH,
-  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
-  OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_WIDTHS,
-  OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
-} from '@/components/storefront/ogabassey/config/product-media';
-import { DEFAULT_IMAGE_QUALITY } from '@/config/cdn';
-import {
   buildOgabasseyCdnImageLoaderUrl,
   isOgabasseyCdnImageUrl,
 } from '@/lib/ogabassey-cdn-image-url';
+import {
+  ALL_WIDTH_QUALITY_PAIRS,
+  type PrewarmWidthQualityPair,
+} from '@/lib/ogabassey-image-prewarm-pairs';
 
 /**
  * Pre-warm Cloudflare's image-resizing transform cache for the exact width ×
@@ -34,66 +30,6 @@ import {
  *     pays the cold-transform cost instead, exactly as before this existed.
  */
 
-interface WidthQualityPair {
-  quality: number;
-  width: number;
-}
-
-// PDP hero: mirrors the mobile srcset widths next/image actually renders
-// (product-image-source.ts `buildOgabasseyPdpMobileImageSrcSet`), the desktop
-// preload width, and the mobile Link-header preload width
-// (ogabassey-pdp-product-resource-hints.ts). The smallest mobile tier (256px)
-// is dropped to keep this list small — the PDP hero `sizes` floor
-// (`calc(100vw - 32px)`) rarely resolves to it on real devices.
-const PDP_HERO_WIDTH_QUALITY_PAIRS: readonly WidthQualityPair[] = [
-  {
-    width: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_WIDTHS[1],
-    quality: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
-  },
-  {
-    width: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_WIDTHS[2],
-    quality: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
-  },
-  {
-    width: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_WIDTHS[3],
-    quality: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
-  },
-  {
-    width: OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH,
-    quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
-  },
-  {
-    width: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_HEADER_PRELOAD_WIDTH,
-    quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
-  },
-];
-
-// Listing/grid card thumbnail (components/ProductCard.tsx), rendered with
-// `sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"`. There is
-// no shared width export for this surface, so these mirror the device-size
-// buckets that `sizes` expression resolves to for common phone/tablet
-// viewports. ProductCard renders without an explicit `quality` prop, so the
-// custom loader falls back to `DEFAULT_IMAGE_QUALITY` — reuse that shared
-// constant here so the primed variants stay in lockstep with what the loader
-// actually requests.
-const LISTING_CARD_WIDTH_QUALITY_PAIRS: readonly WidthQualityPair[] = [
-  { width: 384, quality: DEFAULT_IMAGE_QUALITY },
-  { width: 640, quality: DEFAULT_IMAGE_QUALITY },
-  { width: 750, quality: DEFAULT_IMAGE_QUALITY },
-];
-
-// NOTE: blog hero widths/quality (config/blog-media.ts) are intentionally
-// NOT included here. This lib is only wired at the product-update call site
-// today (see apps/web/src/app/api/products/[id]/route.ts); adding blog pairs
-// with no blog call site would just waste part of the per-invocation URL
-// budget priming variants no real request ever asks for. Add a
-// `BLOG_HERO_WIDTH_QUALITY_PAIRS` set (mirroring the pattern below) when a
-// blog post-write call site is wired.
-const ALL_WIDTH_QUALITY_PAIRS: readonly WidthQualityPair[] = [
-  ...PDP_HERO_WIDTH_QUALITY_PAIRS,
-  ...LISTING_CARD_WIDTH_QUALITY_PAIRS,
-];
-
 // buildOgabasseyCdnImageLoaderUrl() only rewrites the URL into a
 // `/image/width=...` transform when the path is a transformable product/blog
 // asset; otherwise it returns the source unchanged. Probing once with an
@@ -110,9 +46,25 @@ const MAX_PREWARM_URLS_PER_INVOCATION = 40;
 const DEFAULT_PREWARM_CONCURRENCY = 4;
 const DEFAULT_PREWARM_TIMEOUT_MS = 5000;
 
+// `format=auto` negotiates on the Accept header, but Cloudflare Free cannot
+// vary its cache by Accept — whichever format the FIRST requester negotiates
+// is locked in for every later visitor until the variant expires. Without an
+// explicit header this prewarm negotiates `*/*` (server-side fetch default)
+// and locks the ORIGINAL format (often JPEG at 1.4–2.8× AVIF bytes), actively
+// poisoning the cache it is meant to warm. Sending a browser-like AVIF-first
+// Accept makes the prewarmed (and therefore locked) variant the smallest one.
+export const PREWARM_ACCEPT_HEADER =
+  'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8';
+
 export interface PrewarmOgabasseyImageTransformsOptions {
   /** Max simultaneous in-flight requests. Defaults to 4. */
   concurrency?: number;
+  /**
+   * Width×quality variants to prime per image. Defaults to the product
+   * surfaces' matrix (PDP hero + listing card); blog call sites pass
+   * `BLOG_IMAGE_WIDTH_QUALITY_PAIRS` instead.
+   */
+  widthQualityPairs?: readonly PrewarmWidthQualityPair[];
   /** Injectable for tests. Defaults to the global `fetch`. */
   fetchImpl?: typeof fetch;
   /** Per-request timeout in milliseconds. Defaults to 5000. */
@@ -132,24 +84,37 @@ function isCdnTransformableUrl(imagePath: string): boolean {
   return probeUrl.includes(TRANSFORM_URL_MARKER);
 }
 
-function buildTransformUrlsForImage(imagePath: string): string[] {
+/**
+ * Build the exact transform-URL variants production requests for one source
+ * image (PDP hero + listing card width×quality matrix). Exported for the
+ * one-time format-poisoning backfill script, which must check/purge/re-warm
+ * the SAME variants this lib warms — a second hand-maintained matrix would
+ * silently drift.
+ */
+export function buildOgabasseyPrewarmTransformUrls(
+  imagePath: string,
+  pairs: readonly PrewarmWidthQualityPair[] = ALL_WIDTH_QUALITY_PAIRS
+): string[] {
   if (!isCdnTransformableUrl(imagePath)) {
     return [];
   }
 
-  return ALL_WIDTH_QUALITY_PAIRS.map(({ width, quality }) =>
+  return pairs.map(({ width, quality }) =>
     buildOgabasseyCdnImageLoaderUrl(imagePath, width, quality)
   );
 }
 
-function buildPrewarmUrls(imagePaths: string[]): string[] {
+function buildPrewarmUrls(
+  imagePaths: string[],
+  pairs: readonly PrewarmWidthQualityPair[]
+): string[] {
   const urls = new Set<string>();
 
   for (const imagePath of imagePaths) {
     if (typeof imagePath !== 'string' || imagePath.length === 0) {
       continue;
     }
-    for (const url of buildTransformUrlsForImage(imagePath)) {
+    for (const url of buildOgabasseyPrewarmTransformUrls(imagePath, pairs)) {
       urls.add(url);
     }
   }
@@ -179,6 +144,7 @@ async function prewarmSingleUrl(
   try {
     const headResponse = await fetchImpl(url, {
       method: 'HEAD',
+      headers: { Accept: PREWARM_ACCEPT_HEADER },
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (headResponse.ok) {
@@ -200,7 +166,7 @@ async function prewarmSingleUrl(
   try {
     const getResponse = await fetchImpl(url, {
       method: 'GET',
-      headers: { Range: 'bytes=0-0' },
+      headers: { Accept: PREWARM_ACCEPT_HEADER, Range: 'bytes=0-0' },
       signal: AbortSignal.timeout(timeoutMs),
     });
     return getResponse.ok || getResponse.status === 206;
@@ -219,7 +185,10 @@ export async function prewarmOgabasseyImageTransforms(
   imagePaths: string[],
   options: PrewarmOgabasseyImageTransformsOptions = {}
 ): Promise<void> {
-  const urls = buildPrewarmUrls(imagePaths);
+  const urls = buildPrewarmUrls(
+    imagePaths,
+    options.widthQualityPairs ?? ALL_WIDTH_QUALITY_PAIRS
+  );
   if (urls.length === 0) {
     return;
   }

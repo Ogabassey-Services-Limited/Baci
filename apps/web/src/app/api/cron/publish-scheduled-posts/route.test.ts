@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
+import { BLOG_IMAGE_WIDTH_QUALITY_PAIRS } from '@/lib/ogabassey-image-prewarm-pairs';
 
 const mockGetMerchantBlogCacheIdentifiers = vi.fn();
 const mockRevalidateBlogPosts = vi.fn();
@@ -40,6 +41,18 @@ vi.mock('@/lib/cache-revalidation', () => ({
 vi.mock('@/lib/zoho-blog-campaign-dispatch', () => ({
   dispatchZohoBlogCampaign: (...args: unknown[]) =>
     mockDispatchZohoBlogCampaign(...args),
+}));
+
+// Mock the underlying prewarm lib so the real schedulePrewarmBlogImageTransforms
+// helper runs (outside a request scope its after() call throws and the helper
+// falls back to a synchronous detached invocation we can observe here).
+const mockPrewarmOgabasseyImageTransforms = vi
+  .fn()
+  .mockResolvedValue(undefined);
+
+vi.mock('@/lib/ogabassey-image-prewarm', () => ({
+  prewarmOgabasseyImageTransforms: (...args: unknown[]) =>
+    mockPrewarmOgabasseyImageTransforms(...args),
 }));
 
 vi.mock('@/env', () => ({
@@ -591,5 +604,129 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
     ]);
     expect(mockSupabase.update).not.toHaveBeenCalled();
     expect(mockRevalidateBlogPosts).not.toHaveBeenCalled();
+  });
+
+  it('schedules a blog image prewarm for just-published featured images', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    mockSupabase.lte.mockResolvedValue({
+      data: [
+        {
+          id: 'post-ready',
+          slug: 'ready-post',
+          merchant_id: merchantId,
+          category: 'guides',
+          featured_image_url: managedFeaturedImageUrl,
+          featured_image_width: 1200,
+          featured_image_height: 675,
+          featured_image_variants: {
+            landscape_16x9: managedLandscapeVariantUrl,
+          },
+        },
+        {
+          id: 'post-imageless',
+          slug: 'imageless-post',
+          merchant_id: merchantId,
+          category: 'guides',
+          featured_image_url: null,
+          featured_image_width: null,
+          featured_image_height: null,
+          featured_image_variants: {},
+        },
+      ],
+      error: null,
+    });
+    mockSupabase.in
+      .mockResolvedValueOnce({
+        data: [
+          {
+            merchant_id: merchantId,
+            blog_discover_image_validation_enabled: false,
+          },
+        ],
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: [],
+        error: null,
+      })
+      .mockResolvedValueOnce({ error: null });
+    mockGetMerchantBlogCacheIdentifiers.mockResolvedValue({
+      identifiers: ['test-store'],
+      canonicalMerchantSlug: 'test-store',
+    });
+
+    const response = await POST(
+      new Request('http://localhost/api/cron/publish-scheduled-posts', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer test-secret',
+        },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockPrewarmOgabasseyImageTransforms).toHaveBeenCalledTimes(1);
+    expect(mockPrewarmOgabasseyImageTransforms).toHaveBeenCalledWith(
+      [managedFeaturedImageUrl],
+      { widthQualityPairs: BLOG_IMAGE_WIDTH_QUALITY_PAIRS }
+    );
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('does not schedule a blog image prewarm when no published post has a featured image', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    mockSupabase.lte.mockResolvedValue({
+      data: [
+        {
+          id: 'post-imageless',
+          slug: 'imageless-post',
+          merchant_id: merchantId,
+          category: 'guides',
+          featured_image_url: null,
+          featured_image_width: null,
+          featured_image_height: null,
+          featured_image_variants: {},
+        },
+      ],
+      error: null,
+    });
+    mockSupabase.in
+      .mockResolvedValueOnce({
+        data: [
+          {
+            merchant_id: merchantId,
+            blog_discover_image_validation_enabled: false,
+          },
+        ],
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: [],
+        error: null,
+      })
+      .mockResolvedValueOnce({ error: null });
+    mockGetMerchantBlogCacheIdentifiers.mockResolvedValue({
+      identifiers: ['test-store'],
+      canonicalMerchantSlug: 'test-store',
+    });
+
+    const response = await POST(
+      new Request('http://localhost/api/cron/publish-scheduled-posts', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer test-secret',
+        },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockPrewarmOgabasseyImageTransforms).not.toHaveBeenCalled();
+    consoleWarnSpy.mockRestore();
   });
 });
