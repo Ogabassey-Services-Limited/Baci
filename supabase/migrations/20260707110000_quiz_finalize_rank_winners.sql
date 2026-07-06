@@ -59,6 +59,20 @@ BEGIN
     RETURN 0;
   END IF;
 
+  -- Defense-in-depth: an event with NO prize configuration is not a ranked-prize
+  -- event. Never mint for it (the winner_count=3 default is only a count fallback
+  -- for events that DO carry some prize config). This mirrors the selection
+  -- predicate in finalize_due_quiz_events so neither path can mint for an
+  -- unconfigured event.
+  IF NOT (
+    v_settings ? 'ranked_prizes'
+    OR v_settings ? 'ranked_winner_count'
+    OR v_settings ? 'grand_prize_amount'
+    OR v_settings ? 'cash_prize_amount'
+  ) THEN
+    RETURN 0;
+  END IF;
+
   -- ranked_winner_count controls how many ranks receive a prize (default 3).
   v_ranked_count := COALESCE(
     NULLIF(pg_catalog.btrim(v_settings->>'ranked_winner_count'), '')::integer,
@@ -243,6 +257,15 @@ BEGIN
       AND e.award_finalized_at IS NULL
       AND e.compliance_verified = true            -- fail-closed money gate
       AND e.status IN ('active', 'scheduled', 'completed')
+      -- Only auto-finalize events that carry prize configuration. Unconfigured
+      -- events (e.g. legacy/e2e test events with no prize settings) are left
+      -- untouched: no stamp, no awards, and never re-selected (no retry storm).
+      AND (
+        e.settings ? 'ranked_prizes'
+        OR e.settings ? 'ranked_winner_count'
+        OR e.settings ? 'grand_prize_amount'
+        OR e.settings ? 'cash_prize_amount'
+      )
     ORDER BY e.ends_at ASC
     FOR UPDATE SKIP LOCKED
   LOOP
