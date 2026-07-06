@@ -33,6 +33,10 @@ const UNKNOWN_STOREFRONT_FAIL_OPEN = {
   failOpenReason: 'unknown-storefront',
 };
 const PREFLIGHT_CACHE_CONTROL = 's-maxage=300, stale-while-revalidate=3600';
+// Product mutations purge the slug-set tag; category slug changes (which move
+// canonical paths without a slug-set mutation) purge the global
+// canonical-redirect tag. Comma = Vercel tag separator.
+const PREFLIGHT_CACHE_TAG = `product-slug-set-${MERCHANT_ID},product-canonical-redirect`;
 
 // Default to the custom cacheable auth path (what the proxy sends in
 // production); the legacy Authorization path is exercised by dedicated
@@ -123,9 +127,7 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
     });
     expect(res.headers.get('Cache-Control')).toBe(PREFLIGHT_CACHE_CONTROL);
     expect(res.headers.get('Vary')).toBe('x-baci-internal-auth');
-    expect(res.headers.get('Vercel-Cache-Tag')).toBe(
-      `product-slug-set-${MERCHANT_ID}`
-    );
+    expect(res.headers.get('Vercel-Cache-Tag')).toBe(PREFLIGHT_CACHE_TAG);
   });
 
   it('ignores stale stored canonical_url values when the product fields already match', async () => {
@@ -300,9 +302,15 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
   });
 
   it('accepts the custom internal auth header and edge-caches the live no-redirect verdict', async () => {
-    mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
-      hasError: false,
-      present: true,
+    // Category-AWARE primary lookup: only this path may be cached — it proves
+    // the requested category is canonical.
+    mockGetCachedProductCanonicalRedirectTarget.mockResolvedValue({
+      id: 'product-1',
+      name: 'iPhone 15',
+      slug: 'iphone-15',
+      category: 'Smartphones',
+      categories: { name: 'Smartphones', slug: 'smartphones' },
+      status: 'active',
     });
 
     const res = await GET(
@@ -321,9 +329,7 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
     });
     expect(res.headers.get('Cache-Control')).toBe(PREFLIGHT_CACHE_CONTROL);
     expect(res.headers.get('Vary')).toBe('x-baci-internal-auth');
-    expect(res.headers.get('Vercel-Cache-Tag')).toBe(
-      `product-slug-set-${MERCHANT_ID}`
-    );
+    expect(res.headers.get('Vercel-Cache-Tag')).toBe(PREFLIGHT_CACHE_TAG);
   });
 
   it('keeps redirect verdicts no-store so a changed canonical target is never sticky', async () => {
@@ -387,7 +393,7 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
     expect(await res.json()).toEqual(FAIL_OPEN);
   });
 
-  it('marks public slug-resolution matches without redirects as checked', async () => {
+  it('marks category-blind slug-resolution matches as checked but never caches them', async () => {
     mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
       hasError: false,
       present: true,
@@ -403,6 +409,11 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
       matchedProduct: true,
       redirectPath: null,
     });
+    // `present` alone cannot prove the REQUESTED category is canonical (the
+    // category-aware primary lookup missed), so caching this verdict could
+    // suppress the proxy 308 for wrong-category PDP URLs.
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
   });
 
   it('marks unpublished merchants as expected unknown-storefront fail-opens', async () => {
@@ -450,9 +461,15 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
   });
 
   it('accepts legacy Bearer auth but keeps even the live no-redirect verdict no-store', async () => {
-    mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
-      hasError: false,
-      present: true,
+    // Same category-aware cacheable verdict as the custom-header test above —
+    // only the auth method differs, isolating it as the no-store cause.
+    mockGetCachedProductCanonicalRedirectTarget.mockResolvedValue({
+      id: 'product-1',
+      name: 'iPhone 15',
+      slug: 'iphone-15',
+      category: 'Smartphones',
+      categories: { name: 'Smartphones', slug: 'smartphones' },
+      status: 'active',
     });
 
     const res = await GET(

@@ -4,12 +4,12 @@ const {
   mockGetCachedBlogListing,
   mockGetCachedBlogAuthor,
   mockGetBlogAuthorBySlug,
-  mockGetMerchantSafe,
+  mockGetMerchantStrict,
 } = vi.hoisted(() => ({
   mockGetCachedBlogListing: vi.fn(),
   mockGetCachedBlogAuthor: vi.fn(),
   mockGetBlogAuthorBySlug: vi.fn(),
-  mockGetMerchantSafe: vi.fn(),
+  mockGetMerchantStrict: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({
@@ -21,7 +21,7 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedBlogListing: (...args: unknown[]) =>
     mockGetCachedBlogListing(...args),
   getCachedBlogAuthor: (...args: unknown[]) => mockGetCachedBlogAuthor(...args),
-  getMerchantSafe: (...args: unknown[]) => mockGetMerchantSafe(...args),
+  getMerchantStrict: (...args: unknown[]) => mockGetMerchantStrict(...args),
 }));
 
 vi.mock('@/lib/blog-authors', () => ({
@@ -51,12 +51,12 @@ function listing(
 describe('getCachedStorefrontBlogListingStatus', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetMerchantSafe.mockResolvedValue({ id: 'm1', is_published: true });
+    mockGetMerchantStrict.mockResolvedValue({ id: 'm1', is_published: true });
     mockGetCachedBlogListing.mockResolvedValue(listing());
   });
 
   it('fails open (no-op) for an unpublished storefront with blog data', async () => {
-    mockGetMerchantSafe.mockResolvedValue({ id: 'm1', is_published: false });
+    mockGetMerchantStrict.mockResolvedValue({ id: 'm1', is_published: false });
     const result = await getCachedStorefrontBlogListingStatus('ogabassey.com', {
       kind: 'category-query',
       category: 'Smartphones',
@@ -67,6 +67,21 @@ describe('getCachedStorefrontBlogListingStatus', () => {
       permanent: false,
       notFound: false,
     });
+    expect(mockGetCachedBlogListing).not.toHaveBeenCalled();
+  });
+
+  it('propagates a transient merchant-lookup failure instead of returning a cacheable NOOP', async () => {
+    // A thrown lookup must reach the endpoint's no-store fail-open handler —
+    // returning NOOP here would let the data cache AND the route's CDN cache
+    // store a fail-open verdict for the whole TTL window.
+    mockGetMerchantStrict.mockRejectedValue(new Error('supabase timeout'));
+
+    await expect(
+      getCachedStorefrontBlogListingStatus('ogabassey.com', {
+        kind: 'category-query',
+        category: 'Smartphones',
+      })
+    ).rejects.toThrow('supabase timeout');
     expect(mockGetCachedBlogListing).not.toHaveBeenCalled();
   });
 

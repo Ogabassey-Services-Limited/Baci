@@ -67,7 +67,15 @@ function toVerdictResponse(
     headers: cacheable
       ? {
           ...PREFLIGHT_CACHE,
-          'Vercel-Cache-Tag': getProductSlugSetCacheTag(cacheTagMerchantId),
+          // Two purge paths (comma = tag separator): product mutations purge
+          // `product-slug-set-${merchantId}` via revalidateProducts, and
+          // CATEGORY slug changes — which move a product's canonical path
+          // without any slug-set mutation — purge the same global
+          // `product-canonical-redirect` tag the underlying 'use cache'
+          // lookup carries and revalidateCategories invalidates.
+          'Vercel-Cache-Tag': `${getProductSlugSetCacheTag(
+            cacheTagMerchantId
+          )},product-canonical-redirect`,
         }
       : NO_STORE,
   });
@@ -245,10 +253,15 @@ export async function GET(
     }
 
     if (slugResolution.present) {
+      // Category-BLIND fallback: `present` only proves the slug belongs to
+      // the merchant — the category-aware primary lookup above missed, so we
+      // cannot prove the REQUESTED /{category}/{slug} path is canonical.
+      // Caching this no-redirect verdict would suppress the proxy 308 for
+      // wrong-category PDP URLs for the whole TTL window; keep it no-store.
       return toVerdictResponse(
         { hasError: false, matchedProduct: true, redirectPath: null },
         merchant.id,
-        allowEdgeCache
+        false
       );
     }
 
