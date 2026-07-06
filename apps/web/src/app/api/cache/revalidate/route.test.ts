@@ -83,6 +83,7 @@ vi.mock('@/lib/storefront-product-purge', () => ({
 
 // ---- Import handler AFTER mocks ----
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
+import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { POST } from './route';
 
 // ---- Helpers ----
@@ -107,6 +108,10 @@ let merchantSlugError: { message: string } | null = null;
 let productCategoryRows: Record<string, unknown>[] = [];
 // Optional error the authoritative product-row lookup surfaces (fail-open).
 let productRowsError: { message: string } | null = null;
+// Category rows returned by the previous-category slug lookup (id → { slug }).
+let categoryRows: Record<string, unknown>[] = [];
+// Optional error the previous-category slug lookup surfaces (fail-open).
+let categoryRowsError: { message: string } | null = null;
 
 function makeSupabaseMock() {
   return {
@@ -119,16 +124,22 @@ function makeSupabaseMock() {
               error: merchantSlugError,
             })
           ),
-          in: vi.fn(() =>
-            Promise.resolve({
+          in: vi.fn(() => {
+            if (table === 'categories') {
+              return Promise.resolve({
+                data: categoryRowsError ? null : categoryRows,
+                error: categoryRowsError,
+              });
+            }
+            return Promise.resolve({
               data: productRowsError
                 ? null
                 : table === 'products'
                   ? productCategoryRows
                   : [],
               error: productRowsError,
-            })
-          ),
+            });
+          }),
         })),
       })),
     })),
@@ -170,6 +181,8 @@ describe('POST /api/cache/revalidate', () => {
     merchantSlugError = null;
     productCategoryRows = [];
     productRowsError = null;
+    categoryRows = [];
+    categoryRowsError = null;
     setupCsrf(true);
     mockGetMerchantBlogCacheIdentifiers.mockResolvedValue({
       identifiers: ['test-store', 'ogabassey.com'],
@@ -586,6 +599,39 @@ describe('POST /api/cache/revalidate', () => {
       );
     });
 
+    it('busts the per-slug Next product caches BEFORE scheduling the purge (F3)', async () => {
+      setupAuth(true, true);
+
+      await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [
+            { slug: 'iphone-15', id: 'prod-1', category: 'Smartphones' },
+          ],
+        })
+      );
+
+      // The per-slug scoped product tag (getCachedProduct) is invalidated for the
+      // resolved slug so a CF MISS after the purge cannot refill from stale Next
+      // data. The slug-less revalidateProducts alone would never bust it.
+      const scopedTag = getProductScopedCacheTag(
+        'product',
+        MERCHANT_ID,
+        'iphone-15'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(scopedTag, 'products');
+
+      // Ordering: the per-slug tag is busted before the edge purge is scheduled.
+      const scopedCallIndex = mockRevalidateTag.mock.calls.findIndex(
+        ([tag]) => tag === scopedTag
+      );
+      const scopedOrder =
+        mockRevalidateTag.mock.invocationCallOrder[scopedCallIndex];
+      const scheduleOrder =
+        mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0];
+      expect(scopedOrder).toBeLessThan(scheduleOrder);
+    });
+
     it('does not purge when the merchant has no resolvable slug', async () => {
       setupAuth(true, true);
       merchantSlugRow = { slug: null };
@@ -628,6 +674,120 @@ describe('POST /api/cache/revalidate', () => {
           expect.stringContaining(
             'Failed to resolve authoritative product rows'
           ),
+          expect.objectContaining({
+            merchantId: MERCHANT_ID,
+            error: { message: 'db unavailable' },
+          })
+        );
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
+    });
+
+    it('resolves previousCategoryId to the old slug and appends the old-category purge (category_id-only move)', async () => {
+      setupAuth(true, true);
+      // The authoritative row lives under "smartphones"; the pre-save category
+      // (id-only move, blank legacy text) resolves to "phones".
+      productCategoryRows = [
+        {
+          id: 'prod-1',
+          slug: 'iphone-15',
+          name: 'iPhone 15',
+          category: 'Smartphones',
+          categories: null,
+          product_categories: [],
+        },
+      ];
+      categoryRows = [{ id: 'cat-old', slug: 'phones' }];
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [
+            {
+              slug: 'iphone-15',
+              id: 'prod-1',
+              category: 'Smartphones',
+              previousCategoryId: 'cat-old',
+            },
+          ],
+        })
+      );
+
+      expect(res.status).toBe(200);
+      // Primary entry purges the NEW location; the appended hint-only entry
+      // purges the OLD ("phones") listing + canonical PDP.
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'ogabassey',
+        [
+          { slug: 'iphone-15', categorySegment: 'smartphones' },
+          { slug: 'iphone-15', categorySegment: 'phones' },
+        ],
+        { listingsOnly: false }
+      );
+    });
+
+    it('does not append an old-category purge when the previous category resolves to the same segment', async () => {
+      setupAuth(true, true);
+      // The pre-save category resolves to the SAME "smartphones" segment as the
+      // current one → no real move → no old-segment purge.
+      categoryRows = [{ id: 'cat-old', slug: 'smartphones' }];
+
+      const res = await POST(
+        makeRequest({
+          targets: ['products'],
+          products: [
+            {
+              slug: 'iphone-15',
+              id: 'prod-1',
+              category: 'Smartphones',
+              previousCategoryId: 'cat-old',
+            },
+          ],
+        })
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+        'ogabassey',
+        [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+        { listingsOnly: false }
+      );
+    });
+
+    it('fails open to the current-location purge when the previous-category slug lookup errors', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      try {
+        setupAuth(true, true);
+        // The old-category slug lookup fails; the current-location purge must
+        // still fire (the stale old page self-heals on its TTL).
+        categoryRowsError = { message: 'db unavailable' };
+
+        const res = await POST(
+          makeRequest({
+            targets: ['products'],
+            products: [
+              {
+                slug: 'iphone-15',
+                id: 'prod-1',
+                category: 'Smartphones',
+                previousCategoryId: 'cat-old',
+              },
+            ],
+          })
+        );
+
+        expect(res.status).toBe(200);
+        // Only the current-location entry — the old-segment append is skipped.
+        expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+          'ogabassey',
+          [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+          { listingsOnly: false }
+        );
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Failed to resolve previous category slugs'),
           expect.objectContaining({
             merchantId: MERCHANT_ID,
             error: { message: 'db unavailable' },

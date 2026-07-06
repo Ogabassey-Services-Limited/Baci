@@ -104,10 +104,16 @@ function normalizeCategoryValue(value: string | null | undefined): string {
 }
 
 /**
- * True when an edit moved the product to a DIFFERENT category (by legacy text or
- * category_id). Requires a non-blank PRE-SAVE category text: without it we have
- * no old segment to hint, and a product that had NO category simply gains one —
- * its old `/products/<slug>` fallback is already re-purged by the primary entry.
+ * True when an edit moved the product to a DIFFERENT category (by legacy text OR
+ * category_id). Requires the product to have HAD a category (non-blank pre-save
+ * text OR id): a product that had NO category simply gains one — its old
+ * `/products/<slug>` fallback is already re-purged by the primary entry, and
+ * there is no stale old listing to evict.
+ *
+ * Unlike earlier rounds this no longer requires a non-blank pre-save TEXT: mobile
+ * saves persist only `category_id` (the text can be blank), so a category_id-only
+ * move must still count — the web route resolves the old slug from
+ * `previousCategoryId` server-side.
  */
 function hasCategoryMoved(args: {
   previousCategory: string | null | undefined;
@@ -115,7 +121,10 @@ function hasCategoryMoved(args: {
   nextCategory: string | null | undefined;
   nextCategoryId: string | null | undefined;
 }): boolean {
-  if (!normalizeCategoryValue(args.previousCategory)) {
+  const hadCategory =
+    Boolean(normalizeCategoryValue(args.previousCategory)) ||
+    Boolean(normalizeCategoryValue(args.previousCategoryId));
+  if (!hadCategory) {
     return false;
   }
   return (
@@ -164,12 +173,17 @@ async function saveProductWithVariants(args: {
   // A category MOVE leaves the OLD category's cached `/<oldCat>` listing and
   // `/<oldCat>/<slug>` PDP still pointing at this product. Web enrichment
   // resolves the segment for an ID-carrying entry from the CURRENT row, so the
-  // primary entry above can only purge the NEW location. Append a HINT-ONLY
-  // entry (NO id) carrying the pre-save category text: web enrichment only
-  // OVERRIDES id-carrying entries (see apps/web
-  // src/app/api/cache/revalidate/route.ts +
-  // src/lib/internal-product-purge-entries.ts), so a no-id hint keeps its text
-  // and resolves the OLD segment to purge.
+  // primary entry above can only purge the NEW location. Recover the OLD segment
+  // server-side by whichever pre-save signal is available:
+  //   - Legacy TEXT present: append a HINT-ONLY entry (NO id) carrying the text.
+  //     Web enrichment only OVERRIDES id-carrying entries (see apps/web
+  //     src/app/api/cache/revalidate/route.ts +
+  //     src/lib/internal-product-purge-entries.ts), so a no-id hint keeps its
+  //     text and resolves the OLD text segment. Behavior unchanged from before.
+  //   - Legacy TEXT blank (a category_id-ONLY move — mobile persists only
+  //     `category_id`): carry the old category ID on the PRIMARY entry instead.
+  //     Mobile cannot know the old slug, so the web route resolves the id to the
+  //     old slug and appends the old-segment purge itself.
   if (
     args.productId &&
     hasCategoryMoved({
@@ -179,10 +193,14 @@ async function saveProductWithVariants(args: {
       previousCategoryId: args.previousCategoryId,
     })
   ) {
-    purgeEntries.push({
-      slug: product.slug,
-      category: args.previousCategory ?? null,
-    });
+    if (normalizeCategoryValue(args.previousCategory)) {
+      purgeEntries.push({
+        slug: product.slug,
+        category: args.previousCategory ?? null,
+      });
+    } else {
+      purgeEntries[0].previousCategoryId = args.previousCategoryId ?? null;
+    }
   }
 
   void revalidateStorefrontProducts(purgeEntries, args.merchantId);

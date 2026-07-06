@@ -57,3 +57,42 @@ export function buildInternalProductPurgeEntries(
   }
   return entries;
 }
+
+/**
+ * Collect the DISTINCT slug-values under which the given products' per-slug Next
+ * product-detail cache (`getProductScopedCacheTag('product', merchantId, slug)`,
+ * used by `getCachedProduct`/`getCachedProductWithDetails`/…) may be tagged, so a
+ * caller can bust those tags BEFORE scheduling the Cloudflare purge — otherwise a
+ * CF MISS refills the edge from the still-cached, still-tagged Next entry until
+ * its cacheLife TTL, defeating the purge.
+ *
+ * Per product this yields, deduplicated:
+ * - the AUTHORITATIVE row slug (when server-resolved) — the slug the storefront
+ *   actually serves the PDP under, so the one the Next entry is tagged with;
+ * - the CALLER-provided slug — busts the OLD tag on a slug rename (both survive);
+ * - the id — legacy null-slug rows are served (and cached/tagged) at
+ *   `/products/<id>`, so the id doubles as a slug for tagging.
+ */
+export function collectResolvedProductSlugs(
+  products: readonly InternalRevalidateProductEntry[],
+  authoritativeSlugsById?: ReadonlyMap<string, string>
+): string[] {
+  const slugs = new Set<string>();
+  for (const product of products) {
+    const id = product.id?.trim();
+    const authoritativeSlug = id
+      ? authoritativeSlugsById?.get(id)?.trim()
+      : undefined;
+    if (authoritativeSlug) {
+      slugs.add(authoritativeSlug);
+    }
+    const callerSlug = product.slug?.trim();
+    if (callerSlug) {
+      slugs.add(callerSlug);
+    }
+    if (id) {
+      slugs.add(id);
+    }
+  }
+  return Array.from(slugs);
+}

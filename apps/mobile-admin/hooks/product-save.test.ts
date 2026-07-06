@@ -206,6 +206,73 @@ describe('product save helpers', () => {
     );
   });
 
+  it('carries previousCategoryId on the primary entry for a category_id-only move (blank legacy text)', async () => {
+    // Mobile persists only category_id; the legacy text is blank. The move is by
+    // id alone, so the old segment cannot be hinted from text — the primary
+    // entry carries previousCategoryId for the web route to resolve server-side.
+    mocks.response = {
+      data: {
+        id: 'product-1',
+        name: 'Ankara Bag',
+        slug: 'ankara-bag',
+        category: null,
+        category_id: 'cat-new',
+        variant_model: 'sku_matrix',
+      },
+      error: null,
+    };
+
+    await updateProductRecord({
+      id: 'product-1',
+      merchantId: 'merchant-1',
+      updates: productForm,
+      previousCategory: null,
+      previousCategoryId: 'cat-old',
+    });
+
+    // A SINGLE entry (no text hint available) — the primary entry carries the
+    // old category id so the web route can purge the old listing + PDP.
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith(
+      [
+        {
+          slug: 'ankara-bag',
+          id: 'product-1',
+          category: null,
+          previousCategoryId: 'cat-old',
+        },
+      ],
+      'merchant-1'
+    );
+  });
+
+  it('does not carry previousCategoryId when a category_id-only edit does not move the product', async () => {
+    mocks.response = {
+      data: {
+        id: 'product-1',
+        name: 'Ankara Bag',
+        slug: 'ankara-bag',
+        category: null,
+        category_id: 'cat-old',
+        variant_model: 'sku_matrix',
+      },
+      error: null,
+    };
+
+    await updateProductRecord({
+      id: 'product-1',
+      merchantId: 'merchant-1',
+      updates: productForm,
+      previousCategory: null,
+      previousCategoryId: 'cat-old',
+    });
+
+    // Same category_id both sides → no move → no previousCategoryId, no hint.
+    expect(mocks.revalidateStorefrontProducts).toHaveBeenCalledWith(
+      [{ slug: 'ankara-bag', id: 'product-1', category: null }],
+      'merchant-1'
+    );
+  });
+
   it('schedules a single entry when an edit does not change the category', async () => {
     mocks.response = {
       data: {

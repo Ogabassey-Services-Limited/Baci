@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockRevalidateProducts = vi.fn();
+const mockRevalidateProductSlugs = vi.fn();
 const mockScheduleStorefrontProductPurge = vi.fn();
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
+  revalidateProductSlugs: (...args: unknown[]) =>
+    mockRevalidateProductSlugs(...args),
 }));
 vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) =>
@@ -136,6 +139,29 @@ describe('revalidateProductsReliable', () => {
       'ogabassey',
       [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
       { listingsOnly: false }
+    );
+  });
+
+  it('busts the per-slug Next product caches BEFORE scheduling the in-process purge (F3 parity)', async () => {
+    mockRevalidateProducts.mockReturnValue(undefined);
+    const fetchImpl = vi.fn();
+
+    await revalidateProductsReliable('merchant-1', {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      merchantSlug: 'ogabassey',
+      products: [{ slug: 'iphone-15', id: 'prod-1', category: 'Smartphones' }],
+    });
+
+    // Per-slug invalidation for the caller-resolved slug + id (no store client
+    // here to resolve authoritative rows).
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledWith('merchant-1', [
+      'iphone-15',
+      'prod-1',
+    ]);
+    // Ordering: the Next per-slug tags are busted before the edge purge is
+    // scheduled, so a CF MISS cannot refill from stale Next data.
+    expect(mockRevalidateProductSlugs.mock.invocationCallOrder[0]).toBeLessThan(
+      mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]
     );
   });
 

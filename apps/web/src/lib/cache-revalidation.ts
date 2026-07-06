@@ -124,6 +124,43 @@ export function revalidateProducts(merchantId: string, productSlug?: string) {
 }
 
 /**
+ * Invalidate ONLY the per-slug scoped product-detail Next cache tags for the
+ * given slugs. `getCachedProduct`, `getCachedProductWithDetails`, and
+ * `getCachedProductLcpHint` each tag their entry with
+ * `getProductScopedCacheTag('product', merchantId, slug)`. `revalidateProducts`
+ * (called with no slug) busts the merchant-WIDE product tags but leaves each
+ * product's per-slug entry cached until its cacheLife TTL — so a Cloudflare MISS
+ * after an edge purge would REFILL the edge from stale Next-cached product data,
+ * defeating the purge. Product-purge callers invoke this for every RESOLVED slug
+ * BEFORE scheduling the edge purge to close that gap.
+ *
+ * Blank/duplicate slugs are skipped. Safe to over-supply (authoritative slug +
+ * caller slug + id): a tag with no cached entry revalidates to a no-op.
+ */
+export function revalidateProductSlugs(
+  merchantId: string,
+  slugs: readonly (string | null | undefined)[]
+): void {
+  const normalizedMerchantId = normalizeMerchantIdForRevalidation(merchantId);
+  if (!normalizedMerchantId) {
+    return;
+  }
+
+  const seen = new Set<string>();
+  for (const rawSlug of slugs) {
+    const slug = rawSlug?.trim();
+    if (!slug || seen.has(slug)) {
+      continue;
+    }
+    seen.add(slug);
+    revalidateTag(
+      getProductScopedCacheTag('product', normalizedMerchantId, slug),
+      'products'
+    );
+  }
+}
+
+/**
  * Revalidate all cached data related to a merchant's categories.
  * Call after category create/update/delete.
  */

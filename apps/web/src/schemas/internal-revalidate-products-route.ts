@@ -12,6 +12,14 @@ import z from 'zod';
  * string | null`): a saved row can carry a null slug (legacy) or a null id, and
  * the caller relies on the slug-or-id fallback. The refinement still rejects an
  * entry with neither, so a null slug requires a present id (and vice versa).
+ *
+ * `previousCategoryId` is the OPTIONAL id of the product's PRE-SAVE category on a
+ * category MOVE. Mobile saves persist only `category_id` (the legacy `category`
+ * TEXT can be blank), so a caller that moved a product by id alone cannot supply
+ * the old category's slug — only its id. The route resolves that id to the old
+ * category slug server-side and purges the stale old listing + canonical PDP.
+ * The legacy old TEXT is still carried by a separate no-id hint entry (backward
+ * compatible); this field adds the id path for text-blank moves.
  */
 // A blank ('' / whitespace) slug or id is treated as ABSENT rather than a
 // validation failure so a caller sending `{ slug: '', id }` (legacy rows)
@@ -31,6 +39,10 @@ export const internalRevalidateProductEntrySchema = z
     ),
     category: z.string().trim().max(300).nullish(),
     categorySlug: z.string().trim().max(300).nullish(),
+    previousCategoryId: z.preprocess(
+      blankAsNull,
+      z.string().trim().max(255).nullable().optional()
+    ),
   })
   .refine((value) => Boolean(value.slug || value.id), {
     message: 'Each product requires a slug or id',

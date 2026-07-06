@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildInternalProductPurgeEntries } from './internal-product-purge-entries';
+import {
+  buildInternalProductPurgeEntries,
+  collectResolvedProductSlugs,
+} from './internal-product-purge-entries';
 
 describe('buildInternalProductPurgeEntries', () => {
   it('substitutes the authoritative row slug for id-only entries', () => {
@@ -66,5 +69,40 @@ describe('buildInternalProductPurgeEntries', () => {
 
   it('returns an empty list for no products', () => {
     expect(buildInternalProductPurgeEntries([])).toEqual([]);
+  });
+});
+
+describe('collectResolvedProductSlugs', () => {
+  it('includes the authoritative slug, caller slug, and id (rename-safe)', () => {
+    expect(
+      collectResolvedProductSlugs(
+        [{ slug: 'old-slug', id: 'prod-1' }],
+        new Map([['prod-1', 'new-slug']])
+      )
+    ).toEqual(['new-slug', 'old-slug', 'prod-1']);
+  });
+
+  it('falls back to caller slug and id when no authoritative map is given', () => {
+    expect(
+      collectResolvedProductSlugs([{ slug: 'iphone-15', id: 'prod-1' }])
+    ).toEqual(['iphone-15', 'prod-1']);
+  });
+
+  it('uses the id alone for legacy null-slug rows', () => {
+    expect(collectResolvedProductSlugs([{ id: 'prod-9' }])).toEqual(['prod-9']);
+  });
+
+  it('deduplicates slug-values across products and trims blanks', () => {
+    expect(
+      collectResolvedProductSlugs([
+        { slug: 'shared', id: 'prod-1' },
+        { slug: '  shared  ', id: '  prod-1  ' },
+        { slug: '   ' },
+      ])
+    ).toEqual(['shared', 'prod-1']);
+  });
+
+  it('returns an empty list for no products', () => {
+    expect(collectResolvedProductSlugs([])).toEqual([]);
   });
 });

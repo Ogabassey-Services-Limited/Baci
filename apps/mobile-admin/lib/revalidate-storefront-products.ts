@@ -5,12 +5,18 @@ import { apiClient } from '@/lib/api-client';
  * storefront CDN. `slug` OR `id` is required (legacy rows with a null slug stay
  * addressable at `/products/<id>`); `category` (legacy text) is an optional hint
  * used to derive the canonical PDP category segment.
+ *
+ * `previousCategoryId` is the PRE-SAVE category id on a MOVE. Mobile persists
+ * only `category_id` (the legacy `category` text can be blank), so an id-only
+ * move cannot supply the old category slug — only its id. The web route resolves
+ * it to the old slug server-side and purges the stale old listing + PDP.
  */
 export interface StorefrontProductRevalidateEntry {
   slug?: string | null;
   id?: string | null;
   category?: string | null;
   categorySlug?: string | null;
+  previousCategoryId?: string | null;
 }
 
 /**

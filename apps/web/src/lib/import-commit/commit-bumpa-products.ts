@@ -2,6 +2,42 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NormalizedImportedProduct } from '@/lib/imports/bumpa/bumpa-types';
 import { revalidateProductsReliable } from '@/lib/revalidate-products-reliable';
 import { generateProductSlug } from '@/lib/seo-utils';
+import type { InternalRevalidateProductEntry } from '@/schemas/internal-revalidate-products-route';
+
+// The internal revalidate-products contract caps `products` at 1000 entries
+// (`internalRevalidateProductsBodySchema`). A bulk import can exceed that, so
+// past the cap we collapse to one representative entry per distinct category
+// (see `boundImportPurgeEntries`) rather than dropping the purge — which would
+// otherwise 400 the HTTP fallback and lose the slug-set revalidation too.
+const INTERNAL_REVALIDATE_PRODUCTS_MAX_ENTRIES = 1000;
+
+/**
+ * Keep the import's purge entries within the internal route's 1000-entry cap.
+ * Under the cap, pass them through unchanged. Over it, collapse to ONE entry per
+ * distinct category: a large import is past the listings-only fan-out threshold,
+ * where the per-PDP URLs are skipped anyway, so only the distinct category
+ * listings (which these representatives still carry) need evicting.
+ */
+function boundImportPurgeEntries(
+  entries: readonly InternalRevalidateProductEntry[]
+): InternalRevalidateProductEntry[] {
+  if (entries.length <= INTERNAL_REVALIDATE_PRODUCTS_MAX_ENTRIES) {
+    return [...entries];
+  }
+  const byCategory = new Map<string, InternalRevalidateProductEntry>();
+  for (const entry of entries) {
+    const key = (entry.categorySlug || entry.category || '')
+      .trim()
+      .toLowerCase();
+    if (!byCategory.has(key)) {
+      byCategory.set(key, entry);
+    }
+  }
+  return Array.from(byCategory.values()).slice(
+    0,
+    INTERNAL_REVALIDATE_PRODUCTS_MAX_ENTRIES
+  );
+}
 
 interface CommitBumpaProductsInput {
   supabase: SupabaseClient;
@@ -95,6 +131,11 @@ export async function commitBumpaProducts({
 
   let createdProducts = 0;
   let updatedProducts = 0;
+  // Accumulate the changed/created products so the reliable revalidation can also
+  // evict their public storefront URLs from Cloudflare (the slug/category are in
+  // hand at write time). Created rows carry no id (the insert does not RETURN one
+  // to keep the write cheap); their slug is enough to address the PDP.
+  const changedProducts: InternalRevalidateProductEntry[] = [];
 
   try {
     for (const product of products) {
@@ -151,6 +192,11 @@ export async function commitBumpaProducts({
         }
 
         updatedProducts += 1;
+        changedProducts.push({
+          slug,
+          id: existingProduct.id,
+          category: product.category,
+        });
         continue;
       }
 
@@ -164,6 +210,7 @@ export async function commitBumpaProducts({
       }
 
       createdProducts += 1;
+      changedProducts.push({ slug, category: product.category });
     }
   } finally {
     // Invalidate product caches so imported products are immediately reflected —
@@ -178,7 +225,24 @@ export async function commitBumpaProducts({
       // call from the standalone CLI worker (no store context). Never throws —
       // a missing context must not break the import.
       try {
-        await revalidateProductsReliable(merchantId);
+        // Resolve the storefront slug ONCE per commit run (not per product) so
+        // the reliable helper can additionally evict the changed products' public
+        // URLs from Cloudflare. A missing/blank slug (or a lookup miss) degrades
+        // to Next-cache-only revalidation — the pre-existing behavior. The
+        // helper's listings-only threshold bounds the fan-out for large imports.
+        const { data: merchantRow } = await supabase
+          .from('merchants')
+          .select('slug')
+          .eq('id', merchantId)
+          .maybeSingle();
+        const merchantSlug = merchantRow?.slug ?? null;
+        const purgeProducts = boundImportPurgeEntries(changedProducts);
+        await revalidateProductsReliable(
+          merchantId,
+          merchantSlug && purgeProducts.length > 0
+            ? { merchantSlug, products: purgeProducts }
+            : undefined
+        );
       } catch (error) {
         console.error(
           'Failed to revalidate product caches after import (non-fatal):',

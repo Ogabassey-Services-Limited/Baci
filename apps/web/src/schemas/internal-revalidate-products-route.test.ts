@@ -123,4 +123,48 @@ describe('internalRevalidateProductEntrySchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('accepts an optional previousCategoryId and trims it', () => {
+    const result = internalRevalidateProductEntrySchema.safeParse({
+      slug: 'iphone-15',
+      id: 'prod-1',
+      previousCategoryId: '  cat-old  ',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.previousCategoryId).toBe('cat-old');
+    }
+  });
+
+  it('leaves previousCategoryId undefined when omitted (backward compatible)', () => {
+    const result = internalRevalidateProductEntrySchema.safeParse({
+      slug: 'iphone-15',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.previousCategoryId).toBeUndefined();
+    }
+  });
+
+  it('treats a blank previousCategoryId as absent (null)', () => {
+    const result = internalRevalidateProductEntrySchema.safeParse({
+      slug: 'iphone-15',
+      previousCategoryId: '   ',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.previousCategoryId).toBeNull();
+    }
+  });
+
+  it('accepts an explicit null previousCategoryId', () => {
+    const result = internalRevalidateProductEntrySchema.safeParse({
+      slug: 'iphone-15',
+      previousCategoryId: null,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.previousCategoryId).toBeNull();
+    }
+  });
 });

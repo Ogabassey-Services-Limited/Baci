@@ -1,6 +1,12 @@
 import { getAppUrl, getInternalApiSecret } from '@/env';
-import { revalidateProducts } from '@/lib/cache-revalidation';
-import { buildInternalProductPurgeEntries } from '@/lib/internal-product-purge-entries';
+import {
+  revalidateProductSlugs,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
+import {
+  buildInternalProductPurgeEntries,
+  collectResolvedProductSlugs,
+} from '@/lib/internal-product-purge-entries';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
   countDistinctProductPurgeEntries,
@@ -57,6 +63,12 @@ export async function revalidateProductsReliable(
     // Cloudflare purge can be scheduled in-process too (scheduleStorefrontProductPurge
     // is guarded and never throws). Return before the HTTP fallback.
     if (shouldPurge && merchantSlug && products) {
+      // F3 parity: bust the per-slug Next product-detail caches for the caller's
+      // resolved slugs (slug + id — no store client here to resolve authoritative
+      // rows) BEFORE scheduling the edge purge, so a Cloudflare MISS cannot refill
+      // from the still-tagged Next entry the slug-less revalidateProducts above
+      // left cached until its cacheLife TTL.
+      revalidateProductSlugs(merchantId, collectResolvedProductSlugs(products));
       // Mirror the HTTP route's fan-out guard: base the listings-only decision
       // on the DISTINCT (slug, segment) count so duplicate entries for one
       // product do not inflate the count and wrongly suppress its per-PDP purge.

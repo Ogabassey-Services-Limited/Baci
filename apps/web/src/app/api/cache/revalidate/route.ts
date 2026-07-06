@@ -6,6 +6,7 @@ import {
   hasPermission,
   type UserAccess,
 } from '@/lib/api-auth';
+import { enrichProductPurgeEntries } from '@/lib/authoritative-product-purge-enrichment';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import {
   revalidateBlogPosts,
@@ -13,6 +14,7 @@ import {
   revalidateFeatures,
   revalidateMerchant,
   revalidatePageConfig,
+  revalidateProductSlugs,
   revalidateProducts,
   revalidateReviews,
 } from '@/lib/cache-revalidation';
@@ -24,13 +26,10 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { buildInternalProductPurgeEntries } from '@/lib/internal-product-purge-entries';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
   countDistinctProductPurgeEntries,
-  type ProductPurgeCategoryRow,
   PURGE_LISTINGS_ONLY_THRESHOLD,
-  resolveProductPurgeCategorySegmentForRow,
 } from '@/lib/storefront-product-purge-urls';
 import { internalRevalidateProductEntrySchema } from '@/schemas/internal-revalidate-products-route';
 
@@ -187,56 +186,28 @@ export async function POST(request: NextRequest) {
         }
         const merchantSlug = merchantRow?.slug ?? null;
         if (merchantSlug) {
-          // Resolve authoritative category segments from the product ROWS so a
-          // join-categorized product purges its real canonical path even when
-          // the caller (mobile) only knows the legacy text hint. Fail-open: on
-          // any lookup problem the flat hints below still apply.
-          const idsToResolve = products
-            .map((product) => product.id?.trim())
-            .filter((id): id is string => Boolean(id));
-          const authoritativeSegmentsById = new Map<string, string | null>();
-          const authoritativeSlugsById = new Map<string, string>();
-          if (idsToResolve.length > 0) {
-            const { data: productRows, error: productRowsError } =
-              await auth.supabase
-                .from('products')
-                .select(
-                  'id, slug, name, category, categories:category_id(slug), product_categories(categories(slug))'
-                )
-                .eq('merchant_id', merchantId)
-                .in('id', idsToResolve);
-            if (productRowsError) {
-              // Fail-open: log and fall through — with no authoritative rows the
-              // purge still fires from the caller's flat category hints below.
-              console.error(
-                'Failed to resolve authoritative product rows for Cloudflare product purge (continuing with caller hints):',
-                { merchantId, error: productRowsError }
-              );
-            }
-            for (const row of productRows ?? []) {
-              const typedRow = row as unknown as ProductPurgeCategoryRow & {
-                id: string;
-              };
-              authoritativeSegmentsById.set(
-                typedRow.id,
-                resolveProductPurgeCategorySegmentForRow(typedRow)
-              );
-              if (typedRow.slug?.trim()) {
-                authoritativeSlugsById.set(typedRow.id, typedRow.slug.trim());
-              }
-            }
-          }
-          const purgeEntries = buildInternalProductPurgeEntries(
-            products,
-            authoritativeSegmentsById,
-            authoritativeSlugsById
+          // Resolve authoritative purge entries (real slug/category URLs for
+          // {id}-only or join-categorized products, plus old-category moves)
+          // from the product ROWS via the shared enrichment used by the internal
+          // route too. Fail-open lives inside: any lookup problem falls back to
+          // the caller's flat hints.
+          const { entries, resolvedSlugs } = await enrichProductPurgeEntries(
+            auth.supabase,
+            merchantId,
+            products
           );
+          // Bust the per-slug Next product-detail caches for every resolved slug
+          // BEFORE scheduling the edge purge: without this, a Cloudflare MISS
+          // after the purge refills the edge from the still-tagged Next entry
+          // (getCachedProduct is tagged per-slug, unaffected by the slug-less
+          // revalidateProducts above) until its cacheLife TTL, defeating it.
+          revalidateProductSlugs(merchantId, resolvedSlugs);
           // Base the fan-out threshold on the DISTINCT (slug, segment) count so
           // duplicate entries for one product do not inflate the count and
-          // wrongly suppress its per-PDP purge.
-          const distinctPurgeCount =
-            countDistinctProductPurgeEntries(purgeEntries);
-          scheduleStorefrontProductPurge(merchantSlug, purgeEntries, {
+          // wrongly suppress its per-PDP purge. Counts the old-category entries
+          // too so a move that adds a distinct old target is reflected here.
+          const distinctPurgeCount = countDistinctProductPurgeEntries(entries);
+          scheduleStorefrontProductPurge(merchantSlug, entries, {
             listingsOnly: distinctPurgeCount > PURGE_LISTINGS_ONLY_THRESHOLD,
           });
         }
