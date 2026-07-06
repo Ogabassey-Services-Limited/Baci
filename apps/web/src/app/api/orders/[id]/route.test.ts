@@ -925,6 +925,14 @@ describe('PATCH /api/orders/[id]', () => {
       'GIGL_INTERNATIONAL_DESTINATION_COUNTRY_NOT_FOUND',
       'GIGL international destination country not found',
     ],
+    [
+      'GIGL_INTERNATIONAL_ITEM_PACKAGE_LIMIT',
+      'Too many packages for one GIGL international item',
+    ],
+    [
+      'GIGL_INTERNATIONAL_SHIPMENT_PACKAGE_LIMIT',
+      'Too many packages for GIGL international shipment',
+    ],
   ])('releases the booking lock when shipment booking fails with %s', async (code, message) => {
     const existingOrder: ExistingOrder = {
       id: 'order-1',

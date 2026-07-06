@@ -41,13 +41,32 @@ function matchesOptionalText(
   return normalizeText(orderValue) === normalizeText(quoteValue);
 }
 
+function normalizeAmount(value: number | string | null | undefined) {
+  const parsed = typeof value === 'string' ? Number(value) : value;
+  return typeof parsed === 'number' && Number.isFinite(parsed)
+    ? parsed
+    : undefined;
+}
+
+function amountsMatch(
+  orderValue: number | string | null | undefined,
+  quoteValue: number
+) {
+  const normalizedOrderValue = normalizeAmount(orderValue);
+  return (
+    normalizedOrderValue !== undefined &&
+    Math.abs(normalizedOrderValue - quoteValue) <= 0.001
+  );
+}
+
 function matchesQuoteItem(
   orderItem: OrderItemRecord,
   quoteItem: QuoteRequest['items'][number]
 ): boolean {
   return (
     normalizeText(orderItem.name) === normalizeText(quoteItem.name) &&
-    (orderItem.quantity ?? 1) === quoteItem.quantity
+    (orderItem.quantity ?? 1) === quoteItem.quantity &&
+    amountsMatch(orderItem.price, quoteItem.value)
   );
 }
 

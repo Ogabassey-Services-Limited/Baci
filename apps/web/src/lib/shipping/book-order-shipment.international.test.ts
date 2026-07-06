@@ -76,7 +76,7 @@ const quoteRequest = {
       name: 'Phone',
       quantity: 1,
       weight: 1.2,
-      value: 85_000,
+      value: 100_000,
       hsCode: '851712',
       length: 10,
       width: 8,
@@ -207,7 +207,7 @@ describe('bookOrderShipment GIGL international quotes', () => {
             length: 10,
             width: 8,
             height: 6,
-            value: 85_000,
+            value: 100_000,
           }),
         ],
       })
@@ -234,7 +234,7 @@ describe('bookOrderShipment GIGL international quotes', () => {
             length: 10,
             width: 8,
             height: 6,
-            value: 85_000,
+            value: 100_000,
           }),
         ],
       })
