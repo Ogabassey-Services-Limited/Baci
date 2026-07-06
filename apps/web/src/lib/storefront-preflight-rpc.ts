@@ -32,9 +32,10 @@ import { createStorefrontPreflightCircuitBreaker } from './storefront-preflight-
  * key, bypassing this transport's memo/breaker/kill-switch — the same class
  * as the shipped resolve_storefront_auth_merchant and
  * get_merchant_product_slug_resolution RPCs. They expose only public
- * storefront verdict data, are index-backed point reads, and carry their own
- * statement_timeout; platform-side anon rate limiting is the control surface
- * for direct abuse.
+ * storefront verdict data, are index-backed point reads, and are capped
+ * DB-side by the anon role's statement_timeout (a function-level SET could
+ * not re-arm the timer for the already-running statement); platform-side
+ * anon rate limiting is the control surface for direct abuse.
  */
 
 export interface StorefrontPreflightRpcContext {
@@ -68,7 +69,7 @@ const DEFAULT_TIMEOUT_MS = 800;
 // verdict outlive the freshness the no-store route transport guaranteed.
 const MEMO_TTL_MS = 3_000;
 const MEMO_MAX_ENTRIES = 512;
-// Postgres statement_timeout error (the RPCs pin one to the same budget).
+// Postgres statement_timeout error (the anon role's DB-side cap).
 const POSTGRES_STATEMENT_TIMEOUT_CODE = '57014';
 
 const memo = new Map<string, { expires: number; row: unknown }>();

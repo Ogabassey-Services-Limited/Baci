@@ -3,8 +3,8 @@
 -- case-insensitively (lower(p.slug) = lowered input, mirroring the slug set's
 -- case-insensitive scan), which the raw (merchant_id, slug) indexes cannot
 -- seek. This expression index restores an index seek per lookup so large
--- catalogs never pay a per-tenant partition scan under the RPCs'
--- statement_timeout.
+-- catalogs never pay a per-tenant partition scan under the anon role's
+-- statement_timeout cap.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS
   idx_products_merchant_lower_slug_active_archived
   ON public.products (merchant_id, lower(slug))

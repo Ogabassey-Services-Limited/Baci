@@ -8,6 +8,12 @@
 -- REVOKE PUBLIC + explicit grants. Both functions ALWAYS return exactly one
 -- row (invalid/oversized input degrades to storefront_status='unknown') so the
 -- middleware caller never has to distinguish empty result sets from verdicts.
+--
+-- Runtime bounds: a function-level SET statement_timeout would NOT re-arm the
+-- timer for the already-running RPC statement (statement_timeout is armed when
+-- the top-level command starts), so none is declared here. The effective caps
+-- are the anon role's statement_timeout (3s on this project) DB-side and the
+-- transport's 800ms abort client-side.
 
 -- ---------------------------------------------------------------------------
 -- PDP preflight: one round trip answers BOTH proxy checks for a
@@ -48,7 +54,6 @@ LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path TO ''
-SET statement_timeout TO '800ms'
 AS $$
   WITH normalized_input AS (
     SELECT
@@ -271,7 +276,6 @@ LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path TO ''
-SET statement_timeout TO '800ms'
 AS $$
   WITH normalized_input AS (
     SELECT
