@@ -16,6 +16,7 @@ import {
 } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import {
+  CanonicalOrderSubtotalLoadError,
   computeCanonicalOrderSubtotal,
   isCanonicalOrderSubtotalUuidError,
 } from '@/lib/checkout/canonical-order-subtotal';
@@ -138,6 +139,14 @@ type QuizVoucherItemCandidate = {
   voucher_token?: unknown;
 };
 type OrderCreateItem = OrderCreateInput['items'][number];
+type OrderQuoteValidationPayloadItem = {
+  product_id?: string | null;
+  quantity: number;
+};
+type OrderQuoteValidationProductRow = {
+  id: string;
+  name: string | null;
+};
 type ImmediateInvoiceOrderItem = Omit<OrderCreateItem, 'assurance_fee'> & {
   assurance_fee?: number;
   item_description?: string | null;
@@ -369,6 +378,51 @@ function getStringRecord(value: unknown): Record<string, string> | undefined {
 
 function getOrderItemUnitPrice(item: OrderCreateItem) {
   return item.negotiatedPrice ?? item.price;
+}
+
+async function buildOrderQuoteValidationItems({
+  items,
+  merchantId,
+  supabase,
+}: {
+  items: OrderQuoteValidationPayloadItem[];
+  merchantId: string;
+  supabase: ReturnType<typeof createClient>;
+}) {
+  const productIds = Array.from(
+    new Set(
+      items
+        .map((item) => item.product_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    )
+  );
+
+  if (productIds.length === 0) {
+    return items.map((item) => ({ name: null, quantity: item.quantity }));
+  }
+
+  const { data: products, error } = await supabase
+    .from('products')
+    .select('id, name')
+    .eq('merchant_id', merchantId)
+    .in('id', productIds)
+    .returns<OrderQuoteValidationProductRow[]>();
+
+  if (error || !products) {
+    throw new CanonicalOrderSubtotalLoadError(
+      'Unable to load products for international quote validation',
+      { cause: error ?? undefined },
+      (error as { code?: string } | null | undefined)?.code
+    );
+  }
+
+  const productMap = new Map(
+    products.map((product) => [product.id, product.name])
+  );
+  return items.map((item) => ({
+    name: item.product_id ? (productMap.get(item.product_id) ?? null) : null,
+    quantity: item.quantity,
+  }));
 }
 
 function getOrderItemAssuranceFee(item: ImmediateInvoiceOrderItem) {
@@ -1369,6 +1423,43 @@ export async function POST(request: NextRequest) {
 
     const resolvedShippingProvider = body.shipping_provider ?? null;
     const resolvedTrackingNumber = body.tracking_number ?? null;
+    let quoteValidationItems:
+      | Awaited<ReturnType<typeof buildOrderQuoteValidationItems>>
+      | undefined;
+    if (body.selected_quote_id) {
+      try {
+        quoteValidationItems = await buildOrderQuoteValidationItems({
+          items: orderItemsPayload,
+          merchantId: body.merchant_id,
+          supabase,
+        });
+      } catch (quoteValidationItemsError) {
+        if (isCanonicalOrderSubtotalUuidError(quoteValidationItemsError)) {
+          logger.warn({
+            error: quoteValidationItemsError,
+            merchantId: body.merchant_id,
+            message:
+              'Storefront order received malformed identifier during quote validation',
+          });
+          return NextResponse.json(
+            { error: 'Failed to create order', details: 'invalid_items' },
+            { status: 400 }
+          );
+        }
+        logger.error({
+          error: quoteValidationItemsError,
+          merchantId: body.merchant_id,
+          message: 'Storefront order quote validation item lookup failed',
+        });
+        return NextResponse.json(
+          {
+            code: 'QUOTE_VALIDATION_FAILED',
+            error: 'Unable to validate quote',
+          },
+          { status: 500 }
+        );
+      }
+    }
     let shippingAddressForOrder: OrderCreateInput['shipping_address'];
     try {
       shippingAddressForOrder = await enrichShippingAddressWithQuoteDestination(
@@ -1376,7 +1467,7 @@ export async function POST(request: NextRequest) {
         body.selected_quote_id,
         shipping_address,
         {
-          items: body.items,
+          items: quoteValidationItems,
           merchantId: body.merchant_id,
           shippingFee: shippingFeeValue,
           shippingProvider: resolvedShippingProvider,

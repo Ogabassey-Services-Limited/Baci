@@ -9,6 +9,7 @@ RETURNS TABLE (
   selected_quote_id uuid,
   shipping_address jsonb,
   shipping_fee numeric,
+  shipping_provider text,
   order_items jsonb
 )
 LANGUAGE plpgsql
@@ -42,6 +43,7 @@ BEGIN
     COALESCE(p_selected_quote_id, o.selected_quote_id) AS selected_quote_id,
     o.shipping_address,
     o.shipping_fee,
+    o.shipping_provider,
     o.payment_status,
     o.shipping_status
   INTO v_order
@@ -84,6 +86,7 @@ BEGIN
     v_order.selected_quote_id,
     v_order.shipping_address,
     v_order.shipping_fee,
+    v_order.shipping_provider,
     COALESCE(
       (
         SELECT jsonb_agg(

@@ -23,6 +23,7 @@ type ReuseOrderQuoteValidationContext = {
   selected_quote_id: string | null;
   shipping_address: OrderShippingAddressForQuote | undefined;
   shipping_fee: number | string | null;
+  shipping_provider: string | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -76,6 +77,7 @@ function readValidationContext(
   if (!isRecord(row)) return null;
 
   const shippingFee = row.shipping_fee;
+  const shippingProvider = row.shipping_provider;
   const selectedQuoteId = row.selected_quote_id;
   return {
     order_items: Array.isArray(row.order_items)
@@ -91,6 +93,8 @@ function readValidationContext(
       typeof shippingFee === 'number' || typeof shippingFee === 'string'
         ? shippingFee
         : null,
+    shipping_provider:
+      typeof shippingProvider === 'string' ? shippingProvider : null,
   };
 }
 
@@ -190,6 +194,8 @@ async function validateSelectedQuoteForReuse(
 
   const shippingFee = readOptionalShippingFee(context.shipping_fee);
   if (!context.selected_quote_id) return null;
+  const effectiveShippingProvider =
+    data.shipping_provider ?? context.shipping_provider;
 
   try {
     await enrichShippingAddressWithQuoteDestination(
@@ -200,7 +206,7 @@ async function validateSelectedQuoteForReuse(
         items: context.order_items,
         merchantId: data.merchant_id,
         shippingFee: Number.isFinite(shippingFee) ? shippingFee : undefined,
-        shippingProvider: data.shipping_provider,
+        shippingProvider: effectiveShippingProvider,
       }
     );
   } catch (error) {

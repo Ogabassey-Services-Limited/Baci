@@ -162,7 +162,8 @@ export async function POST(request: NextRequest) {
     }
     const quoteValidation = validateBookingQuoteRequestPayload(
       quotePayload,
-      order
+      order,
+      merchantId
     );
     if (!quoteValidation.ok) {
       return NextResponse.json(

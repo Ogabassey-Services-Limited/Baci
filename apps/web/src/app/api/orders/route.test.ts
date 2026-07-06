@@ -164,7 +164,16 @@ interface RpcOverrides {
 
 function buildMockSupabase(
   overrides: RpcOverrides = {},
-  opts: { productRows?: Array<{ id: string; price: number }> } = {}
+  opts: {
+    productRows?: Array<{
+      id: string;
+      name?: string | null;
+      price: number;
+      vat_category_code?: string | null;
+      vat_rate?: number | null;
+    }>;
+    shippingQuote?: unknown;
+  } = {}
 ) {
   const sharedChainable: any = {
     select: vi.fn().mockReturnThis(),
@@ -210,7 +219,9 @@ function buildMockSupabase(
     // modern `.overrideTypes()` idiom (postgrest deprecated `.returns()`).
     // Mirror `returns` so every order-create test resolves the products
     // select; an empty catalog → loader returns null (no-op, no rejection).
-    overrideTypes: vi.fn().mockResolvedValue({ data: [], error: null }),
+    overrideTypes: vi
+      .fn()
+      .mockResolvedValue({ data: opts.productRows ?? [], error: null }),
     insert: vi.fn().mockResolvedValue({ error: null }),
     update: vi.fn().mockReturnThis(),
     // biome-ignore lint/suspicious/noThenProperty: thenable mock
@@ -311,9 +322,19 @@ function buildMockSupabase(
 
   return {
     auth: { getUser: vi.fn() },
-    from: vi.fn((table: string) =>
-      table === 'quiz_awards' ? quizAwardChainable : sharedChainable
-    ),
+    from: vi.fn((table: string) => {
+      if (table === 'quiz_awards') return quizAwardChainable;
+      if (table === 'shipping_quotes') {
+        return {
+          ...sharedChainable,
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: opts.shippingQuote ?? null,
+            error: null,
+          }),
+        };
+      }
+      return sharedChainable;
+    }),
     rpc: vi.fn((name: string) => {
       const outcome = overrides[name as keyof RpcOverrides] ??
         defaultRpcOutcomes[name] ?? { data: null, error: null };
@@ -1579,6 +1600,98 @@ describe('POST /api/orders — discount guard', () => {
       code: 'discount_amount_not_supported',
       error: 'Failed to create order',
     });
+  });
+});
+
+describe('POST /api/orders — selected shipping quote validation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
+  });
+
+  it('validates selected GIGL international quote items against canonical products', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    const supabase = buildMockSupabase(
+      {},
+      {
+        productRows: [
+          {
+            id: 'p-2',
+            name: 'Laptop',
+            price: 500_000,
+            vat_category_code: 'S',
+            vat_rate: 0,
+          },
+        ],
+        shippingQuote: {
+          provider: 'GIGL',
+          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          price: 4500,
+          expires_at: new Date(Date.now() + 60_000).toISOString(),
+          quote_request: {
+            merchantId: MERCHANT_ID,
+            sessionId: 'session-1',
+            shipmentType: 'international',
+            receiver: {
+              name: 'Jane Customer',
+              phone: '+14165550123',
+              address: '123 Queen Street West',
+              city: 'Toronto',
+              state: 'Ontario',
+              country: 'Canada',
+              countryCode: 'CA',
+              postalCode: 'M5V 3L9',
+            },
+            items: [{ name: 'Phone', quantity: 1, weight: 1, value: 500_000 }],
+          },
+        },
+      }
+    );
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          items: [
+            {
+              product_id: 'p-2',
+              name: 'Phone',
+              quantity: 1,
+              price: 500_000,
+            },
+          ],
+          subtotal: 500_000,
+          shipping_fee: 4500,
+          selected_quote_id: '11111111-1111-4111-8111-111111111111',
+          shipping_provider: 'GIGL',
+          shipping_address: {
+            address: '123 Queen Street West',
+            city: 'Toronto',
+            state: 'Ontario',
+            country: 'Canada',
+            countryCode: 'CA',
+            postalCode: 'M5V 3L9',
+          },
+        }),
+      })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.anything()
+    );
   });
 });
 

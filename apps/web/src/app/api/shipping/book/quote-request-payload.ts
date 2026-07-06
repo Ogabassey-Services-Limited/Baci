@@ -91,13 +91,26 @@ export function resolveBookingQuoteRequestPayload(
 
 export function validateBookingQuoteRequestPayload(
   payload: QuoteRequestPayload,
-  order: InternationalQuoteOrder
+  order: InternationalQuoteOrder,
+  expectedMerchantId?: string
 ): BookingQuoteValidation {
   if (!payload.storedQuoteRequest) {
     return { ok: true };
   }
   if (payload.validationError) {
     return payload.validationError;
+  }
+  if (
+    expectedMerchantId &&
+    payload.storedQuoteRequest.merchantId !== expectedMerchantId
+  ) {
+    return {
+      ok: false,
+      error:
+        'The saved international shipping quote no longer matches this order. Please get a new quote before shipping.',
+      code: 'INTERNATIONAL_QUOTE_MERCHANT_MISMATCH',
+      status: 400,
+    };
   }
 
   try {
