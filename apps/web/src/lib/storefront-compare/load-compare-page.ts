@@ -414,6 +414,7 @@ async function loadComparePageUncached(args: {
     getStorefrontLocale(merchant.country),
     payoutCurrency
   );
+  const isCanonicalSlugRequest = args.comparisonSlug === parsed.canonicalSlug;
   const countryContext = getCountryShoppingContext(merchant.country);
   const countrySuffix = countryContext ? ` ${countryContext}` : '';
   const leftProduct = normalizedProducts.find(
@@ -428,38 +429,22 @@ async function loadComparePageUncached(args: {
     categoryName,
     products: normalizedProducts,
   });
-  const compareGraphProducts = await loadCompareGraphProducts({
-    categorySlug: args.categorySlug,
-    merchantId: merchant.id,
-  });
-  const semanticCompareProducts = compareGraphProducts.products;
-  const routeApprovalProducts = compareGraphProducts.failed
-    ? semanticCompareProducts
-    : includeClickedCompareProducts({
-        products: semanticCompareProducts,
-        clickedProducts: [leftProduct, rightProduct],
-      });
   const isCuratedCanonicalSlug = isCuratedCompareSlug(
     parsed.canonicalSlug,
     curatedCompareSlugs
   );
-  const isMaintainedGraphCanonicalSlug = compareGraphProducts.failed
-    ? isCuratedCanonicalSlug
-    : isMaintainedCompareGraphSlug({
-        storeUrl,
-        categorySlug: args.categorySlug,
-        categoryName,
-        products: routeApprovalProducts,
-        productsAreKnownActive: true,
-        comparisonSlug: parsed.canonicalSlug,
-      });
 
   if (leftProduct && rightProduct) {
-    const [leftDetails, rightDetails, guidePosts] = await Promise.all([
-      getCachedProductWithDetails(merchant.id, parsed.leftKey),
-      getCachedProductWithDetails(merchant.id, parsed.rightKey),
-      loadSupportedGuidePosts(merchant.id, supportedClusterCategory),
-    ]);
+    const [leftDetails, rightDetails, guidePosts, compareGraphProducts] =
+      await Promise.all([
+        getCachedProductWithDetails(merchant.id, parsed.leftKey),
+        getCachedProductWithDetails(merchant.id, parsed.rightKey),
+        loadSupportedGuidePosts(merchant.id, supportedClusterCategory),
+        loadCompareGraphProducts({
+          categorySlug: args.categorySlug,
+          merchantId: merchant.id,
+        }),
+      ]);
 
     if (!leftDetails || !rightDetails) {
       return null;
@@ -508,6 +493,25 @@ async function loadComparePageUncached(args: {
         product_key_specs: rightComparableKeySpecs,
       },
     });
+    const semanticCompareProducts = compareGraphProducts.products;
+    const routeApprovalProducts = compareGraphProducts.failed
+      ? semanticCompareProducts
+      : includeClickedCompareProducts({
+          products: semanticCompareProducts,
+          clickedProducts: [leftProduct, rightProduct],
+        });
+    const isMaintainedGraphCanonicalSlug = compareGraphProducts.failed
+      ? isCuratedCanonicalSlug
+      : isMaintainedCompareGraphSlug({
+          storeUrl,
+          categorySlug: args.categorySlug,
+          categoryName,
+          products: routeApprovalProducts,
+          productsAreKnownActive: true,
+          comparisonSlug: parsed.canonicalSlug,
+        });
+    const isMaintainedIndexableSlug =
+      isCanonicalSlugRequest && isMaintainedGraphCanonicalSlug;
     const differenceLabels = summarizeDifferenceLabels(keyDifferences);
     const breadcrumbItems = [
       { name: merchant.business_name, url: storeUrl },
@@ -532,7 +536,7 @@ async function loadComparePageUncached(args: {
       currentComparisonSlug: parsed.canonicalSlug,
     });
 
-    if (!isMaintainedGraphCanonicalSlug) {
+    if (!isMaintainedIndexableSlug) {
       logNonCuratedCompareFallback({
         merchantSlug: args.merchantSlug,
         categorySlug: args.categorySlug,
@@ -586,8 +590,8 @@ async function loadComparePageUncached(args: {
         : [],
       relatedCompareLinks,
       merchant,
-      isIndexable: candidate.isIndexable && isMaintainedGraphCanonicalSlug,
-      isLegacyFallback: !isMaintainedGraphCanonicalSlug,
+      isIndexable: candidate.isIndexable && isMaintainedIndexableSlug,
+      isLegacyFallback: !isMaintainedIndexableSlug,
       leftProduct: leftDetails,
       rightProduct: rightDetails,
     };
@@ -663,7 +667,10 @@ async function loadComparePageUncached(args: {
     { name: heading, url: canonicalUrl },
   ];
 
-  if (!isCuratedCanonicalSlug) {
+  const isCuratedIndexableSlug =
+    isCanonicalSlugRequest && isCuratedCanonicalSlug;
+
+  if (!isCuratedIndexableSlug) {
     logNonCuratedCompareFallback({
       merchantSlug: args.merchantSlug,
       categorySlug: args.categorySlug,
@@ -716,8 +723,8 @@ async function loadComparePageUncached(args: {
       : [],
     relatedCompareLinks: [],
     merchant,
-    isIndexable: brandCandidate.isIndexable && isCuratedCanonicalSlug,
-    isLegacyFallback: !isCuratedCanonicalSlug,
+    isIndexable: brandCandidate.isIndexable && isCuratedIndexableSlug,
+    isLegacyFallback: !isCuratedIndexableSlug,
     leftBrand: brandCandidate.leftBrand,
     rightBrand: brandCandidate.rightBrand,
   };
