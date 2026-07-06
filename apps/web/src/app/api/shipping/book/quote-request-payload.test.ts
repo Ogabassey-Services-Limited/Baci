@@ -39,9 +39,12 @@ describe('resolveBookingQuoteRequestPayload', () => {
             {
               name: 'Phone',
               quantity: 1,
-              weight: 0.1,
-              value: 100_000,
-              hsCode: 'TAMPERED',
+              weight: 1.2,
+              value: 85_000,
+              hsCode: '851712',
+              length: 10,
+              width: 8,
+              height: 6,
             },
           ],
         },
@@ -79,6 +82,7 @@ describe('resolveBookingQuoteRequestPayload', () => {
             length: 10,
             width: 8,
             height: 6,
+            value: 85_000,
           }),
         ],
       })

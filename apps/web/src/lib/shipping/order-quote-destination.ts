@@ -12,6 +12,49 @@ type QuoteDestinationRecord = {
   quote_request: unknown;
 };
 
+export class OrderQuoteDestinationMismatchError extends Error {
+  readonly code = 'INTERNATIONAL_QUOTE_DESTINATION_MISMATCH';
+  readonly status = 400;
+
+  constructor() {
+    super(
+      'The saved international shipping quote no longer matches this delivery address. Please get a new quote before checkout.'
+    );
+    this.name = 'OrderQuoteDestinationMismatchError';
+  }
+}
+
+function normalizeText(value: string | null | undefined): string {
+  return (value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function matchesOptionalText(
+  orderValue: string | null | undefined,
+  quoteValue: string | null | undefined
+): boolean {
+  const normalizedOrderValue = normalizeText(orderValue);
+  return (
+    normalizedOrderValue.length === 0 ||
+    normalizedOrderValue === normalizeText(quoteValue)
+  );
+}
+
+function matchesQuoteDestination(
+  shippingAddress: OrderShippingAddressForQuote,
+  quoteRequest: NonNullable<ReturnType<typeof parseStoredQuoteRequest>>
+): boolean {
+  const receiver = quoteRequest.receiver;
+  return (
+    normalizeText(shippingAddress.address) ===
+      normalizeText(receiver.address) &&
+    normalizeText(shippingAddress.city) === normalizeText(receiver.city) &&
+    normalizeText(shippingAddress.state) === normalizeText(receiver.state) &&
+    matchesOptionalText(shippingAddress.country, receiver.country) &&
+    matchesOptionalText(shippingAddress.countryCode, receiver.countryCode) &&
+    matchesOptionalText(shippingAddress.postalCode, receiver.postalCode)
+  );
+}
+
 export async function enrichShippingAddressWithQuoteDestination(
   supabase: SupabaseClient,
   selectedQuoteId: string | null | undefined,
@@ -38,6 +81,10 @@ export async function enrichShippingAddressWithQuoteDestination(
   const quoteRequest = parseStoredQuoteRequest(quote.quote_request);
   if (!quoteRequest) {
     return shippingAddress;
+  }
+
+  if (!matchesQuoteDestination(shippingAddress, quoteRequest)) {
+    throw new OrderQuoteDestinationMismatchError();
   }
 
   return {

@@ -63,7 +63,10 @@ import {
   resolveReceiptLogoDataUri,
 } from '@/lib/receipt-pdf-generator';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
-import { enrichShippingAddressWithQuoteDestination } from '@/lib/shipping/order-quote-destination';
+import {
+  enrichShippingAddressWithQuoteDestination,
+  OrderQuoteDestinationMismatchError,
+} from '@/lib/shipping/order-quote-destination';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
@@ -1362,12 +1365,22 @@ export async function POST(request: NextRequest) {
 
     const resolvedShippingProvider = body.shipping_provider ?? null;
     const resolvedTrackingNumber = body.tracking_number ?? null;
-    const shippingAddressForOrder =
-      await enrichShippingAddressWithQuoteDestination(
+    let shippingAddressForOrder: OrderCreateInput['shipping_address'];
+    try {
+      shippingAddressForOrder = await enrichShippingAddressWithQuoteDestination(
         supabase,
         body.selected_quote_id,
         shipping_address
       );
+    } catch (error) {
+      if (error instanceof OrderQuoteDestinationMismatchError) {
+        return NextResponse.json(
+          { error: error.message, code: error.code },
+          { status: error.status }
+        );
+      }
+      throw error;
+    }
 
     const payOnDelivery = isPayOnDelivery(payment_method);
 

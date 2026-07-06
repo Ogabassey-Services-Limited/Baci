@@ -27,6 +27,7 @@ type QuoteRequestPayload = {
   items: ShipmentItem[];
   receiver: ShippingAddress;
   storedQuoteRequest?: QuoteRequest;
+  validationError?: BookingQuoteValidation;
 };
 
 export type BookingQuoteValidation =
@@ -54,8 +55,28 @@ export function resolveBookingQuoteRequestPayload(
     return null;
   }
 
+  let resolvedItems: ShipmentItem[] = [];
+  let validationError: BookingQuoteValidation | undefined;
+  try {
+    resolvedItems = toInternationalShipmentItemsFromOrder(
+      orderItems,
+      storedQuoteRequest.items
+    );
+  } catch (error) {
+    if (error instanceof OrderShipmentBookingError) {
+      validationError = {
+        ok: false,
+        error: error.message,
+        code: error.code,
+        status: error.status,
+      };
+    } else {
+      throw error;
+    }
+  }
+
   return {
-    items: toInternationalShipmentItemsFromOrder(orderItems),
+    items: resolvedItems,
     receiver: {
       ...storedQuoteRequest.receiver,
       name: receiver.name,
@@ -63,6 +84,7 @@ export function resolveBookingQuoteRequestPayload(
       phone: receiver.phone,
     },
     storedQuoteRequest,
+    validationError,
   };
 }
 
@@ -72,6 +94,9 @@ export function validateBookingQuoteRequestPayload(
 ): BookingQuoteValidation {
   if (!payload.storedQuoteRequest) {
     return { ok: true };
+  }
+  if (payload.validationError) {
+    return payload.validationError;
   }
 
   try {

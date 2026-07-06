@@ -53,6 +53,64 @@ describe('toInternationalShipmentItemsFromOrder', () => {
     ]);
   });
 
+  it('preserves the declared value from the matching quote item', () => {
+    expect(
+      toInternationalShipmentItemsFromOrder(
+        [
+          {
+            name: 'Phone',
+            quantity: 1,
+            price: 100_000,
+            product: {
+              weight_value: 1,
+              weight_unit: 'kg',
+              commodity_code: '851712',
+            },
+          },
+        ],
+        [{ name: 'Phone', quantity: 1, weight: 1, value: 85_000 }]
+      )
+    ).toEqual([
+      {
+        name: 'Phone',
+        description: 'Phone',
+        quantity: 1,
+        weight: 1,
+        value: 85_000,
+        hsCode: '851712',
+      },
+    ]);
+  });
+
+  it('rejects quote physical metadata that differs from product metadata', () => {
+    expect(() =>
+      toInternationalShipmentItemsFromOrder(
+        [
+          {
+            name: 'Phone',
+            quantity: 1,
+            price: 100_000,
+            product: {
+              weight_value: 1.2,
+              weight_unit: 'kg',
+              dimensions: { length: 10, width: 8, height: 6, unit: 'cm' },
+              commodity_code: '851712',
+            },
+          },
+        ],
+        [
+          {
+            name: 'Phone',
+            quantity: 1,
+            weight: 0.1,
+            value: 85_000,
+            hsCode: '851712',
+          },
+        ]
+      )
+    ).toThrow('no longer matches the current product shipping details');
+  });
+
   it('normalizes millimeter dimensions and invalid prices safely', () => {
     expect(
       toInternationalShipmentItemsFromOrder([

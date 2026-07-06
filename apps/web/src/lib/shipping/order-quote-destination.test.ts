@@ -66,4 +66,39 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
       )
     ).resolves.toEqual(shippingAddress);
   });
+
+  it('rejects saved international quote destinations that do not match checkout address', async () => {
+    await expect(
+      enrichShippingAddressWithQuoteDestination(
+        createSupabase({
+          provider_rate_id: 'GIGL_INTL_1_2_3_4',
+          quote_request: {
+            sessionId: 'session-1',
+            shipmentType: 'international',
+            receiver: {
+              name: 'Jane Receiver',
+              phone: '',
+              address: '123 Queen Street West',
+              city: 'Toronto',
+              state: 'Ontario',
+              country: 'United States',
+              countryCode: 'US',
+              postalCode: '10001',
+            },
+            items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+          },
+        }) as unknown as SupabaseClient,
+        'quote-1',
+        {
+          ...shippingAddress,
+          country: 'Canada',
+          countryCode: 'CA',
+          postalCode: 'M5V 3L9',
+        }
+      )
+    ).rejects.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_DESTINATION_MISMATCH',
+      status: 400,
+    });
+  });
 });

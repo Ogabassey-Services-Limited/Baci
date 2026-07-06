@@ -358,7 +358,10 @@ export async function bookOrderShipment(
   const sender = buildSender(typedMerchant);
   const items =
     isGiglInternationalQuote && storedQuoteRequest
-      ? toInternationalShipmentItemsFromOrder(orderItems)
+      ? toInternationalShipmentItemsFromOrder(
+          orderItems,
+          storedQuoteRequest.items
+        )
       : toShipmentItems(orderItems);
 
   const bookingRequest: BookingRequest = {
