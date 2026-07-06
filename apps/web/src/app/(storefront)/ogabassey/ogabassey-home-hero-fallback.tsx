@@ -99,6 +99,10 @@ export function OgabasseyHomeHeroFallback({
                     key={controlSlide.id}
                   />
                 ))}
+                {/* Rendered unconditionally: the real carousel hides the play
+                    toggle under prefers-reduced-motion, but the slot shares the
+                    tracks' h-11 height, so the reduced-motion swap only shifts
+                    width split — intentional, not a parity gap. */}
                 <div
                   className={`${HERO_MOBILE_PLAY_TOGGLE_SLOT_CLASSES} bg-store-primary`}
                 />

@@ -46,6 +46,10 @@ export function preloadOgabasseyHomeHeroResources(
     } = getImageProps({
       alt: '',
       height: MOBILE_HERO_IMAGE_HEIGHT,
+      // Explicit loader for candidate parity with MobileLcpHeroImage's
+      // rendered <source> — relying on the global loaderFile leaves room for
+      // the preload srcset to diverge from what the picture actually requests.
+      loader: imageLoader,
       quality: MOBILE_HERO_IMAGE_QUALITY,
       sizes: MOBILE_HERO_IMAGE_SIZES,
       src: candidate,
