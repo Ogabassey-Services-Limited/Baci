@@ -51,7 +51,7 @@ describe('resolveBookingQuoteRequestPayload', () => {
               quantity: 1,
               weight: 1.2,
               value: 85_000,
-              hsCode: '851712',
+              hsCode: '000000',
               length: 10,
               width: 8,
               height: 6,

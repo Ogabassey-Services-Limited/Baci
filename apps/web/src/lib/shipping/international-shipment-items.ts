@@ -17,6 +17,14 @@ export type InternationalShipmentOrderItem = {
 };
 
 type PackageDimensions = Pick<ShipmentItem, 'length' | 'width' | 'height'>;
+type DerivedItemMetadata = {
+  dimensions: PackageDimensions | undefined;
+  hsCode: string | undefined;
+  name: string;
+  product: ProductShippingMetadata | null;
+  quantity: number;
+  weight: number;
+};
 export type InternationalQuoteValidationItem = Pick<
   ShipmentItem,
   'height' | 'hsCode' | 'length' | 'name' | 'quantity' | 'weight' | 'width'
@@ -126,6 +134,20 @@ function readPackageDimensions(
   return length && width && height ? { length, width, height } : undefined;
 }
 
+function deriveItemMetadata(
+  item: InternationalShipmentOrderItem
+): DerivedItemMetadata {
+  const product = readProductMetadata(item);
+  return {
+    product,
+    hsCode: product?.commodity_code?.trim() || undefined,
+    dimensions: readPackageDimensions(product),
+    name: item.name || 'Order item',
+    quantity: Math.max(1, item.quantity ?? 1),
+    weight: normalizeWeightKg(product),
+  };
+}
+
 function numbersMatch(left: number | undefined, right: number | undefined) {
   if (left === undefined || right === undefined) return left === right;
   return Math.abs(left - right) <= METADATA_TOLERANCE;
@@ -174,22 +196,16 @@ function isQuotedPhysicalMetadataValid({
 }
 
 function findMatchingQuoteItemIndex(
-  item: InternationalShipmentOrderItem,
-  quoteItems: ShipmentItem[],
-  metadata: {
-    dimensions: PackageDimensions | undefined;
-    product: ProductShippingMetadata | null;
-    weight: number;
-  }
+  metadata: DerivedItemMetadata,
+  quoteItems: ShipmentItem[]
 ): number {
-  const itemQuantity = Math.max(1, item.quantity ?? 1);
-  const itemName = normalizeText(item.name);
+  const itemName = normalizeText(metadata.name);
   const matchingIndexes = quoteItems
     .map((quoteItem, index) => ({ index, quoteItem }))
     .filter(
       ({ quoteItem }) =>
         normalizeText(quoteItem.name) === itemName &&
-        quoteItem.quantity === itemQuantity
+        quoteItem.quantity === metadata.quantity
     );
 
   return (
@@ -236,20 +252,11 @@ export function toInternationalShipmentItemsFromOrder(
   const unmatchedQuoteItems = [...quoteItems];
 
   return orderItems.map((item) => {
-    const product = readProductMetadata(item);
-    const hsCode = product?.commodity_code?.trim() || undefined;
-    const dimensions = readPackageDimensions(product);
-    const name = item.name || 'Order item';
-    const quantity = Math.max(1, item.quantity ?? 1);
-    const weight = normalizeWeightKg(product);
+    const metadata = deriveItemMetadata(item);
+    const { dimensions, hsCode, name, product, quantity, weight } = metadata;
     const quoteItemIndex = findMatchingQuoteItemIndex(
-      item,
-      unmatchedQuoteItems,
-      {
-        dimensions,
-        product,
-        weight,
-      }
+      metadata,
+      unmatchedQuoteItems
     );
     const quoteItem =
       quoteItemIndex === -1
@@ -275,12 +282,8 @@ export function toInternationalQuoteValidationItemsFromOrder(
   orderItems: InternationalShipmentOrderItem[]
 ): InternationalQuoteValidationItem[] {
   return orderItems.map((item) => {
-    const product = readProductMetadata(item);
-    const hsCode = product?.commodity_code?.trim() || undefined;
-    const dimensions = readPackageDimensions(product);
-    const name = item.name || 'Order item';
-    const quantity = Math.max(1, item.quantity ?? 1);
-    const weight = normalizeWeightKg(product);
+    const { dimensions, hsCode, name, quantity, weight } =
+      deriveItemMetadata(item);
 
     return {
       name,

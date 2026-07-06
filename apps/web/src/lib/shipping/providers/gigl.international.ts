@@ -41,14 +41,21 @@ export async function getGiglInternationalQuotes(
     );
     const declaredValue = totalDeclaredValue(request);
     const pickupOption = PickupOptions.ServiceCentre;
-    const destinationCountryId = await resolveDestinationCountryId(
+    const destinationCountry = await resolveDestinationCountryId(
       apiClient,
       tokenData,
       request,
       GIGL_QUOTE_TIMEOUT_MS,
       signal
     );
-    if (destinationCountryId === undefined) {
+    if (destinationCountry.status === 'lookup_failed') {
+      io.log('warn', 'GIGL international destination country lookup failed', {
+        envelopeStatus: destinationCountry.envelopeStatus,
+        responseStatus: destinationCountry.responseStatus,
+      });
+      return [];
+    }
+    if (destinationCountry.status === 'not_found') {
       io.log('warn', 'GIGL international destination country not found', {
         country: request.receiver.country,
         countryCode: request.receiver.countryCode,
@@ -64,7 +71,7 @@ export async function getGiglInternationalQuotes(
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            DestinationCountryId: destinationCountryId,
+            DestinationCountryId: destinationCountry.countryId,
             ReceiverCity: request.receiver.city,
             ReceiverAddress: request.receiver.address,
             ReceiverPostalCode: request.receiver.postalCode,

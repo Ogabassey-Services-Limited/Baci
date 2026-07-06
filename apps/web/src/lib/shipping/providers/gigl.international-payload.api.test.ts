@@ -94,7 +94,7 @@ describe('GIGL international API payload helpers', () => {
         5000,
         AbortSignal.timeout(5000)
       )
-    ).resolves.toBe(36);
+    ).resolves.toEqual({ status: 'found', countryId: 36 });
   });
 
   it('handles failed destination country lookups', async () => {
@@ -109,7 +109,11 @@ describe('GIGL international API payload helpers', () => {
         5000,
         AbortSignal.timeout(5000)
       )
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({
+      status: 'lookup_failed',
+      envelopeStatus: 500,
+      responseStatus: 200,
+    });
     await expect(
       resolveDestinationCountryId(
         apiClientFor({

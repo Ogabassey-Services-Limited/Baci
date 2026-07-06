@@ -25,6 +25,11 @@ export interface GiglInternationalCountry {
   IsInternationalShippingCountry?: boolean;
 }
 
+export type DestinationCountryResolution =
+  | { status: 'found'; countryId: number }
+  | { status: 'lookup_failed'; envelopeStatus?: number; responseStatus: number }
+  | { status: 'not_found' };
+
 type DimensionalShipmentItem = ShipmentItem & {
   height?: unknown;
   length?: unknown;
@@ -196,7 +201,7 @@ export async function resolveDestinationCountryId(
   request: Pick<QuoteRequest, 'receiver'>,
   timeout: number,
   signal: AbortSignal
-): Promise<number | undefined> {
+): Promise<DestinationCountryResolution> {
   const { envelope, response } =
     await apiClient.safeFetchEnvelopeWithAccessToken(
       buildCountryLookupUrl(apiClient.baseUrl, request.receiver),
@@ -209,7 +214,11 @@ export async function resolveDestinationCountryId(
     );
 
   if (!response.ok || envelope?.status !== 200) {
-    return undefined;
+    return {
+      status: 'lookup_failed',
+      envelopeStatus: envelope?.status,
+      responseStatus: response.status,
+    };
   }
 
   const countries = apiClient.parseEnvelopeData(
@@ -217,7 +226,13 @@ export async function resolveDestinationCountryId(
     giglSchemas.countryData,
     'country'
   );
-  return matchDestinationCountry(request.receiver, countries)?.CountryId;
+  const countryId = matchDestinationCountry(
+    request.receiver,
+    countries
+  )?.CountryId;
+  return countryId === undefined
+    ? { status: 'not_found' }
+    : { status: 'found', countryId };
 }
 
 export async function generateInternationalInvoiceLabel(

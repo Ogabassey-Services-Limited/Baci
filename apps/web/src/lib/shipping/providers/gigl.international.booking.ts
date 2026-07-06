@@ -1,3 +1,4 @@
+import { OrderShipmentBookingError } from '../order-shipment-booking-utils';
 import type { BookingRequest, ShipmentBookingResult } from '../types';
 import type { GiglApiClient } from './gigl.auth';
 import {
@@ -28,13 +29,24 @@ export function isGiglInternationalBookingRequest(
   );
 }
 
+function parseSelectedInternationalRateId(providerRateId?: string) {
+  try {
+    return parseInternationalRateId(providerRateId);
+  } catch {
+    throw new OrderShipmentBookingError(
+      'Invalid GIGL international rate selection',
+      400,
+      'GIGL_INTERNATIONAL_RATE_INVALID'
+    );
+  }
+}
+
 export async function bookGiglInternationalShipment(
   apiClient: GiglApiClient,
   io: GiglProviderIo,
   request: BookingRequest
 ): Promise<ShipmentBookingResult> {
   const signal = AbortSignal.timeout(GIGL_BOOKING_TIMEOUT_MS);
-  const selectedRate = parseInternationalRateId(request.providerRateId);
   let bookingTokenData!: GiglToken;
   let bookingData!: ReturnType<
     typeof giglSchemas.internationalBookingData.parse
@@ -42,22 +54,40 @@ export async function bookGiglInternationalShipment(
   let trackingNumber!: string;
 
   try {
+    const selectedRate = parseSelectedInternationalRateId(
+      request.providerRateId
+    );
+    const shipmentPackages = buildInternationalPackages(request.items);
     const tokenData = await apiClient.getApiToken(
       GIGL_BOOKING_TIMEOUT_MS,
       signal
     );
     const declaredValue = totalDeclaredValue(request);
-    const destinationCountryId = await resolveDestinationCountryId(
+    const destinationCountry = await resolveDestinationCountryId(
       apiClient,
       tokenData,
       request,
       GIGL_BOOKING_TIMEOUT_MS,
       signal
     );
-    if (destinationCountryId === undefined) {
-      throw new Error('GIGL international destination country not found');
+    if (destinationCountry.status === 'lookup_failed') {
+      io.log('warn', 'GIGL international destination country lookup failed', {
+        envelopeStatus: destinationCountry.envelopeStatus,
+        responseStatus: destinationCountry.responseStatus,
+      });
+      throw new OrderShipmentBookingError(
+        'GIGL international destination country lookup failed',
+        502,
+        'GIGL_INTERNATIONAL_COUNTRY_LOOKUP_FAILED'
+      );
     }
-    const shipmentPackages = buildInternationalPackages(request.items);
+    if (destinationCountry.status === 'not_found') {
+      throw new OrderShipmentBookingError(
+        'GIGL international destination country not found',
+        400,
+        'GIGL_INTERNATIONAL_DESTINATION_COUNTRY_NOT_FOUND'
+      );
+    }
     const {
       envelope,
       response,
@@ -86,7 +116,7 @@ export async function bookGiglInternationalShipment(
               },
               ShipmentItems: buildInternationalItems(request.items),
               ShipmentDetails: {
-                DestinationCountryId: destinationCountryId,
+                DestinationCountryId: destinationCountry.countryId,
                 Description:
                   request.specialInstructions ||
                   request.instructions ||
