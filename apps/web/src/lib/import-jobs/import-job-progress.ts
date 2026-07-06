@@ -81,10 +81,16 @@ export function createImportJobSummaryProgressReporter({
       [totalKey]: safeTotal,
       ...(extra || {}),
     };
-    const { error } = await supabase
-      .from('import_jobs')
-      .update({ summary: nextSummary })
-      .eq('id', job.id);
+    let error: unknown = null;
+    try {
+      const result = await supabase
+        .from('import_jobs')
+        .update({ summary: nextSummary })
+        .eq('id', job.id);
+      error = result.error;
+    } catch (caughtError) {
+      error = caughtError;
+    }
 
     if (error) {
       logger.error({

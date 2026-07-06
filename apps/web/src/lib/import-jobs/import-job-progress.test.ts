@@ -102,6 +102,35 @@ describe('createImportJobSummaryProgressReporter', () => {
     );
   });
 
+  it('logs thrown progress persistence failures without throwing', async () => {
+    const logger = { error: vi.fn() };
+    const { query, supabase } = createSupabaseMock();
+    query.eq.mockRejectedValueOnce(new Error('network unavailable'));
+    const reporter = createImportJobSummaryProgressReporter({
+      job: createJob(null),
+      logger,
+      minUpdateMs: 0,
+      processedKey: 'commitProcessedRecords',
+      supabase,
+      totalKey: 'commitTotalRecords',
+    });
+
+    await expect(
+      reporter.report({ processed: 1, total: 2 })
+    ).resolves.toBeUndefined();
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobId: 'job-1',
+        error: expect.any(Error),
+        summary: {
+          commitProcessedRecords: 1,
+          commitTotalRecords: 2,
+        },
+      })
+    );
+  });
+
   it('skips persistence when progress has not advanced enough inside the throttle window', async () => {
     const { query, supabase } = createSupabaseMock();
     const reporter = createImportJobSummaryProgressReporter({

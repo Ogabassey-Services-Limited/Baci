@@ -8,6 +8,10 @@ import {
   type ExistingOrderRecord,
   getPreviewExistingOrderUpdatedAt,
 } from './commit-bumpa-order-payload';
+import {
+  type CommitProgressCallback,
+  createCommitProgress,
+} from './import-commit-progress';
 import { createImportCustomerResolver } from './resolve-import-customer';
 
 interface CommitBumpaOrdersInput {
@@ -15,15 +19,7 @@ interface CommitBumpaOrdersInput {
   merchantId: string;
   importJobId: string;
   orders: NormalizedImportedOrder[];
-  onProgress?: (progress: {
-    processedRecords: number;
-    totalRecords: number;
-  }) => void | Promise<void>;
-}
-interface CommitBumpaOrdersResult {
-  createdOrders: number;
-  updatedOrders: number;
-  createdCustomers: number;
+  onProgress?: CommitProgressCallback;
 }
 const LOOKUP_CHUNK_SIZE = 150;
 const LOOKUP_PAGE_SIZE = 1000;
@@ -170,7 +166,7 @@ export async function commitBumpaOrders({
   importJobId,
   orders,
   onProgress,
-}: CommitBumpaOrdersInput): Promise<CommitBumpaOrdersResult> {
+}: CommitBumpaOrdersInput) {
   const [customerResolver, existingOrders] = await Promise.all([
     createImportCustomerResolver(supabase, merchantId),
     loadExistingImportedOrders(supabase, merchantId, orders),
@@ -186,8 +182,7 @@ export async function commitBumpaOrders({
   let createdOrders = 0;
   let updatedOrders = 0;
   let createdCustomers = 0;
-
-  let processedRecords = 0;
+  const progress = createCommitProgress(orders.length, onProgress);
 
   for (const order of orders) {
     const { customerId, createdCustomer } =
@@ -294,16 +289,8 @@ export async function commitBumpaOrders({
       }
     }
 
-    processedRecords += 1;
-    await onProgress?.({
-      processedRecords,
-      totalRecords: orders.length,
-    });
+    await progress.reportNext();
   }
 
-  return {
-    createdOrders,
-    updatedOrders,
-    createdCustomers,
-  };
+  return { createdOrders, updatedOrders, createdCustomers };
 }

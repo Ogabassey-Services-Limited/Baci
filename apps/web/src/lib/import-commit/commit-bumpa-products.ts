@@ -3,6 +3,10 @@ import type { NormalizedImportedProduct } from '@/lib/imports/bumpa/bumpa-types'
 import { revalidateProductsReliable } from '@/lib/revalidate-products-reliable';
 import { generateProductSlug } from '@/lib/seo-utils';
 import type { InternalRevalidateProductEntry } from '@/schemas/internal-revalidate-products-route';
+import {
+  type CommitProgressCallback,
+  createCommitProgress,
+} from './import-commit-progress';
 
 // The internal revalidate-products contract caps `products` at 1000 entries
 // (`internalRevalidateProductsBodySchema`). A bulk import can exceed that, so
@@ -44,10 +48,7 @@ interface CommitBumpaProductsInput {
   merchantId: string;
   importJobId: string;
   products: NormalizedImportedProduct[];
-  onProgress?: (progress: {
-    processedRecords: number;
-    totalRecords: number;
-  }) => void | Promise<void>;
+  onProgress?: CommitProgressCallback;
 }
 
 interface ExistingProductRecord {
@@ -143,7 +144,7 @@ export async function commitBumpaProducts({
   const changedProducts: InternalRevalidateProductEntry[] = [];
 
   try {
-    let processedRecords = 0;
+    const progress = createCommitProgress(products.length, onProgress);
 
     for (const product of products) {
       const existingProduct = productsByExternalId.get(
@@ -204,11 +205,7 @@ export async function commitBumpaProducts({
           id: existingProduct.id,
           category: product.category,
         });
-        processedRecords += 1;
-        await onProgress?.({
-          processedRecords,
-          totalRecords: products.length,
-        });
+        await progress.reportNext();
         continue;
       }
 
@@ -223,11 +220,7 @@ export async function commitBumpaProducts({
 
       createdProducts += 1;
       changedProducts.push({ slug, category: product.category });
-      processedRecords += 1;
-      await onProgress?.({
-        processedRecords,
-        totalRecords: products.length,
-      });
+      await progress.reportNext();
     }
   } finally {
     // Invalidate product caches so imported products are immediately reflected —
