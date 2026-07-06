@@ -231,6 +231,36 @@ describe('isStorefrontProductSlugMissing', () => {
     });
 
     expect(result).toBe(false);
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'has-error' })
+    );
+  });
+
+  it('fails open on an unknown-storefront verdict as a skip, not an incident', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse({
+        hasError: true,
+        present: false,
+        failOpenReason: 'unknown-storefront',
+      })
+    );
+
+    const result = await isStorefrontProductSlugMissing({
+      ...BASE,
+      productSlug: 'totally-made-up',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toBe(false);
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] skip',
+      expect.objectContaining({ reason: 'unknown-storefront' })
+    );
+    expect(console.warn).not.toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.anything()
+    );
   });
 
   it('fails open on a malformed/ambiguous response (present undefined)', async () => {

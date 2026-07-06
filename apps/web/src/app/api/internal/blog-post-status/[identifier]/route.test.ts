@@ -101,7 +101,12 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
       redirectPath: null,
     });
 
-    const response = await GET(buildRequest('live-post'), context());
+    // The cache-eligible path is the custom header (what the proxy sends);
+    // the legacy Bearer path is covered by the no-store regression below.
+    const response = await GET(
+      buildRequest('live-post', 'test-internal-secret', 'custom'),
+      context()
+    );
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Cache-Control')).toBe(
@@ -127,26 +132,27 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
     );
   });
 
-  it('accepts the custom x-baci-internal-auth header and caches the verdict', async () => {
+  it('accepts legacy Bearer auth but keeps even the live-post verdict no-store', async () => {
     vi.mocked(getCachedStorefrontBlogPostStatus).mockResolvedValueOnce({
       hasError: false,
       present: true,
       redirectPath: null,
     });
 
-    const response = await GET(
-      buildRequest('live-post', 'test-internal-secret', 'custom'),
-      context()
-    );
+    const response = await GET(buildRequest('live-post'), context());
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('Cache-Control')).toBe(
-      's-maxage=300, stale-while-revalidate=3600'
-    );
-    expect(response.headers.get('Vary')).toBe('x-baci-internal-auth');
-    expect(response.headers.get('Vercel-Cache-Tag')).toBe(
-      getBlogCacheTag('ogabassey', 'live-post')
-    );
+    await expect(response.json()).resolves.toEqual({
+      hasError: false,
+      present: true,
+      redirectPath: null,
+    });
+    // RFC 9111 lets a shared cache store an Authorization-request response
+    // when s-maxage is present, so the legacy path must never emit cacheable
+    // headers — the entry would be keyed with the custom header absent, the
+    // same Vary key an unauthenticated request hits.
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Vercel-Cache-Tag')).toBeNull();
   });
 
   it('does not edge-cache a retired-slug redirect verdict (target/slug can change with no purge path)', async () => {

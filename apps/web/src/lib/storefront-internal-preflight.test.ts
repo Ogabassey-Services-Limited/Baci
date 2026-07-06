@@ -195,6 +195,64 @@ describe('storefrontInternalPreflight', () => {
     );
   });
 
+  it('classifies a body-read abort as a timeout, not a parse failure', async () => {
+    const abortedBody = new ReadableStream({
+      start(controller) {
+        controller.error(new DOMException('aborted', 'AbortError'));
+      },
+    });
+
+    const result = await storefrontInternalPreflight.readJsonResponse(
+      new Response(abortedBody, {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200,
+      }),
+      CONTEXT
+    );
+
+    expect(result).toBeNull();
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'timeout', status: 200 })
+    );
+  });
+
+  it('logs unknown-storefront verdicts as skips without capturing exceptions', async () => {
+    // Run in the runtime where captures ARE possible so the negative
+    // assertion below is meaningful.
+    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+
+    storefrontInternalPreflight.warnHasErrorFailOpen(
+      CONTEXT,
+      'unknown-storefront'
+    );
+
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] skip',
+      expect.objectContaining({ reason: 'unknown-storefront' })
+    );
+    // Drain the microtask queue so a wrongly-scheduled fire-and-forget
+    // capture would have run before the negative assertion.
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mocks.captureServerException).not.toHaveBeenCalled();
+  });
+
+  it('captures plain has-error verdicts as fail-opens', async () => {
+    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+
+    storefrontInternalPreflight.warnHasErrorFailOpen(CONTEXT, undefined);
+
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'has-error' })
+    );
+    await vi.waitFor(() =>
+      expect(mocks.captureServerException).toHaveBeenCalled()
+    );
+  });
+
   it('maps fetch exceptions to timeout or fetch-error reasons', () => {
     expect(
       storefrontInternalPreflight.getFetchErrorReason(
@@ -225,6 +283,10 @@ describe('storefrontInternalPreflight', () => {
     expect(mocks.captureServerException).toHaveBeenCalledWith(
       expect.any(Error),
       {
+        // Groups PostHog issues per surface+reason so one failure mode can
+        // never title or re-open an issue for a different one.
+        $exception_fingerprint:
+          'storefront-internal-preflight:product-slug:fetch-error',
         event_source: 'storefront-internal-preflight',
         identifier: 'ogabassey.com',
         reason: 'fetch-error',

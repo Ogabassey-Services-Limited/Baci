@@ -9,7 +9,7 @@ import { getBlogAuthorBySlug } from '@/lib/blog-authors';
 import {
   getCachedBlogAuthor,
   getCachedBlogListing,
-  getMerchantSafe,
+  getMerchantStrict,
 } from '@/lib/cached-data';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
 
@@ -24,6 +24,14 @@ export interface BlogListingStatusBody {
   /** `true` → 308 (category canonicalization); `false` → 307 (page clamp). */
   permanent: boolean;
   notFound: boolean;
+  /**
+   * Set when the NOOP comes from the unknown/unpublished-storefront gate, not
+   * from a real listing resolution. The endpoint must NOT edge-cache these:
+   * publish-state changes purge merchant tags only (never `blog-posts`), so a
+   * cached pre-publish NOOP would suppress listing redirects/clamps after the
+   * store goes live until the entry's natural TTL.
+   */
+  unpublishedStorefront?: boolean;
 }
 
 /** Parsed intent the proxy derives from a listing pathname + query. */
@@ -201,9 +209,14 @@ export async function getCachedStorefrontBlogListingStatus(
 
   // Unpublished storefronts render the StoreNotPublished shell, so never leak a
   // hard redirect/404 from the preflight (mirrors the blog-post preflight).
-  const merchant = await getMerchantSafe(lookupKey);
+  // STRICT lookup: a transient merchant-lookup failure must THROW to the
+  // endpoint's no-store fail-open handler — the safe variant would return the
+  // same NOOP shape as a real listing, which the data cache AND the route's
+  // CDN cache would then store for the whole TTL window. A strict null is a
+  // definitive "no published storefront", which is safe to cache as NOOP.
+  const merchant = await getMerchantStrict(lookupKey);
   if (!merchant?.is_published) {
-    return NOOP;
+    return { ...NOOP, unpublishedStorefront: true };
   }
 
   switch (intent.kind) {

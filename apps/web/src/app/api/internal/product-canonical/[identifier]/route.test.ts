@@ -28,10 +28,22 @@ const MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
 const IDENTIFIER = 'ogabassey.com';
 const SECRET = 'test-internal-secret';
 const FAIL_OPEN = { hasError: true, matchedProduct: false, redirectPath: null };
+const UNKNOWN_STOREFRONT_FAIL_OPEN = {
+  ...FAIL_OPEN,
+  failOpenReason: 'unknown-storefront',
+};
+const PREFLIGHT_CACHE_CONTROL = 's-maxage=300, stale-while-revalidate=3600';
+// Product mutations purge the slug-set tag; category slug changes (which move
+// canonical paths without a slug-set mutation) purge the global
+// canonical-redirect tag. Comma = Vercel tag separator.
+const PREFLIGHT_CACHE_TAG = `product-slug-set-${MERCHANT_ID},product-canonical-redirect`;
 
+// Default to the custom cacheable auth path (what the proxy sends in
+// production); the legacy Authorization path is exercised by dedicated
+// no-store regression tests below.
 function request(
   params: { category?: string; slug?: string } = {},
-  authHeader = `Bearer ${SECRET}`
+  headers: Record<string, string> = { 'x-baci-internal-auth': SECRET }
 ): NextRequest {
   const url = new URL(
     `https://platform.test/api/internal/product-canonical/${IDENTIFIER}`
@@ -39,7 +51,7 @@ function request(
   if (params.category !== undefined)
     url.searchParams.set('category', params.category);
   if (params.slug !== undefined) url.searchParams.set('slug', params.slug);
-  return new NextRequest(url, { headers: { Authorization: authHeader } });
+  return new NextRequest(url, { headers });
 }
 
 function context(identifier = IDENTIFIER) {
@@ -113,6 +125,9 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
       matchedProduct: true,
       redirectPath: null,
     });
+    expect(res.headers.get('Cache-Control')).toBe(PREFLIGHT_CACHE_CONTROL);
+    expect(res.headers.get('Vary')).toBe('x-baci-internal-auth');
+    expect(res.headers.get('Vercel-Cache-Tag')).toBe(PREFLIGHT_CACHE_TAG);
   });
 
   it('ignores stale stored canonical_url values when the product fields already match', async () => {
@@ -280,6 +295,64 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
       matchedProduct: false,
       redirectPath: null,
     });
+    // An absent verdict must never stick: a product published after a cached
+    // miss would otherwise skip canonicalization for the whole TTL window.
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
+  });
+
+  it('accepts the custom internal auth header and edge-caches the live no-redirect verdict', async () => {
+    // Category-AWARE primary lookup: only this path may be cached — it proves
+    // the requested category is canonical.
+    mockGetCachedProductCanonicalRedirectTarget.mockResolvedValue({
+      id: 'product-1',
+      name: 'iPhone 15',
+      slug: 'iphone-15',
+      category: 'Smartphones',
+      categories: { name: 'Smartphones', slug: 'smartphones' },
+      status: 'active',
+    });
+
+    const res = await GET(
+      request(
+        { category: 'smartphones', slug: 'iphone-15' },
+        { 'x-baci-internal-auth': SECRET }
+      ),
+      context()
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      hasError: false,
+      matchedProduct: true,
+      redirectPath: null,
+    });
+    expect(res.headers.get('Cache-Control')).toBe(PREFLIGHT_CACHE_CONTROL);
+    expect(res.headers.get('Vary')).toBe('x-baci-internal-auth');
+    expect(res.headers.get('Vercel-Cache-Tag')).toBe(PREFLIGHT_CACHE_TAG);
+  });
+
+  it('keeps redirect verdicts no-store so a changed canonical target is never sticky', async () => {
+    mockGetCachedProductCanonicalRedirectTarget.mockResolvedValue({
+      id: 'product-1',
+      name: 'TECNO Spark 40',
+      slug: 'tecno-spark-40',
+      category: 'Smartphones',
+      categories: { name: 'Smartphones', slug: 'smartphones' },
+      status: 'active',
+    });
+
+    const res = await GET(
+      request(
+        { category: 'tecno', slug: 'tecno-spark-40' },
+        { 'x-baci-internal-auth': SECRET }
+      ),
+      context()
+    );
+
+    expect((await res.json()).redirectPath).toBe('/smartphones/tecno-spark-40');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
   });
 
   it('resolves custom-domain identifiers through the domain cache path', async () => {
@@ -320,7 +393,7 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
     expect(await res.json()).toEqual(FAIL_OPEN);
   });
 
-  it('marks public slug-resolution matches without redirects as checked', async () => {
+  it('marks category-blind slug-resolution matches as checked but never caches them', async () => {
     mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
       hasError: false,
       present: true,
@@ -336,9 +409,14 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
       matchedProduct: true,
       redirectPath: null,
     });
+    // `present` alone cannot prove the REQUESTED category is canonical (the
+    // category-aware primary lookup missed), so caching this verdict could
+    // suppress the proxy 308 for wrong-category PDP URLs.
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
   });
 
-  it('fails open for unpublished merchants without product lookups', async () => {
+  it('marks unpublished merchants as expected unknown-storefront fail-opens', async () => {
     mockGetCachedMerchantByDomain.mockResolvedValue({
       id: MERCHANT_ID,
       is_published: false,
@@ -349,12 +427,13 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
       context()
     );
 
-    expect(await res.json()).toEqual(FAIL_OPEN);
+    expect(await res.json()).toEqual(UNKNOWN_STOREFRONT_FAIL_OPEN);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(mockGetCachedProductCanonicalRedirectTarget).not.toHaveBeenCalled();
     expect(mockGetCachedStorefrontProductSlugResolution).not.toHaveBeenCalled();
   });
 
-  it('fails open for invalid input or unresolved merchants', async () => {
+  it('fails open plainly for invalid input but marks unresolved merchants as unknown-storefront', async () => {
     expect(
       await (await GET(request({ slug: 'iphone-15' }), context())).json()
     ).toEqual(FAIL_OPEN);
@@ -364,12 +443,77 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
       await (
         await GET(request({ category: 'apple', slug: 'iphone-15' }), context())
       ).json()
-    ).toEqual(FAIL_OPEN);
+    ).toEqual(UNKNOWN_STOREFRONT_FAIL_OPEN);
+  });
+
+  it('fails open plainly when the merchant lookup throws (transient error)', async () => {
+    mockGetCachedMerchantByDomain.mockRejectedValue(
+      new Error('supabase timeout')
+    );
+
+    const res = await GET(
+      request({ category: 'apple', slug: 'iphone-15' }),
+      context()
+    );
+
+    expect(await res.json()).toEqual(FAIL_OPEN);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+  });
+
+  it('accepts legacy Bearer auth but keeps even the live no-redirect verdict no-store', async () => {
+    // Same category-aware cacheable verdict as the custom-header test above —
+    // only the auth method differs, isolating it as the no-store cause.
+    mockGetCachedProductCanonicalRedirectTarget.mockResolvedValue({
+      id: 'product-1',
+      name: 'iPhone 15',
+      slug: 'iphone-15',
+      category: 'Smartphones',
+      categories: { name: 'Smartphones', slug: 'smartphones' },
+      status: 'active',
+    });
+
+    const res = await GET(
+      request(
+        { category: 'smartphones', slug: 'iphone-15' },
+        { Authorization: `Bearer ${SECRET}` }
+      ),
+      context()
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      hasError: false,
+      matchedProduct: true,
+      redirectPath: null,
+    });
+    // RFC 9111 lets a shared cache store an Authorization-request response
+    // when s-maxage is present, so the legacy path must never emit cacheable
+    // headers — the entry would be keyed with the custom header absent, the
+    // same Vary key an unauthenticated request hits.
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
   });
 
   it('returns 401 when the bearer token is invalid', async () => {
     const res = await GET(
-      request({ category: 'apple', slug: 'iphone-15' }, 'Bearer wrong'),
+      request(
+        { category: 'apple', slug: 'iphone-15' },
+        { Authorization: 'Bearer wrong' }
+      ),
+      context()
+    );
+
+    expect(res.status).toBe(401);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(mockGetCachedMerchantByDomain).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when the custom internal auth header is invalid', async () => {
+    const res = await GET(
+      request(
+        { category: 'apple', slug: 'iphone-15' },
+        { 'x-baci-internal-auth': 'wrong' }
+      ),
       context()
     );
 
