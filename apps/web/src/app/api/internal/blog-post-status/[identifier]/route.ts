@@ -2,7 +2,10 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getInternalApiSecret } from '@/env';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { getCachedStorefrontBlogPostStatus } from '@/lib/cached-storefront-blog-post-status';
-import { hasValidInternalAuth } from '@/lib/internal-auth-header';
+import {
+  getValidatedInternalAuthMethod,
+  INTERNAL_AUTH_HEADER,
+} from '@/lib/internal-auth-header';
 import {
   internalBlogPostStatusQuerySchema,
   internalSlugSetParamsSchema,
@@ -34,7 +37,7 @@ const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 // would otherwise be wrong for the whole TTL window).
 const PREFLIGHT_CACHE = {
   'Cache-Control': 's-maxage=300, stale-while-revalidate=3600',
-  Vary: 'x-baci-internal-auth',
+  Vary: INTERNAL_AUTH_HEADER,
 } as const;
 const FAIL_OPEN = { hasError: true, present: false, redirectPath: null };
 const INVALID_REQUEST = { error: 'Invalid input', code: 'invalid_input' };
@@ -51,12 +54,18 @@ export async function GET(
     );
   }
 
-  if (!hasValidInternalAuth(request, expectedSecret)) {
+  const authMethod = getValidatedInternalAuthMethod(request, expectedSecret);
+  if (!authMethod) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401, headers: NO_STORE }
     );
   }
+  // Only custom-header requests may receive cacheable headers: RFC 9111 §3.5
+  // lets a shared cache store an Authorization-request response when s-maxage
+  // is present, and such an entry would be keyed with the custom header ABSENT
+  // — the same Vary key an unauthenticated request would hit.
+  const allowEdgeCache = authMethod === 'custom-header';
 
   const params = internalSlugSetParamsSchema.safeParse(await context.params);
   const query = internalBlogPostStatusQuerySchema.safeParse({
@@ -84,6 +93,7 @@ export async function GET(
     // header-based edge entry, so a cached redirect would go stale for the whole
     // TTL window (mirrors the slug-set route).
     const cacheable =
+      allowEdgeCache &&
       result.hasError === false &&
       result.present === true &&
       result.redirectPath == null;

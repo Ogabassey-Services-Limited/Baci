@@ -3,7 +3,10 @@ import { getInternalApiSecret } from '@/env';
 import { getMerchantSafe } from '@/lib/cached-data';
 import { getCachedStorefrontProductSlugResolution } from '@/lib/cached-storefront-product-slug-resolution';
 import { getCachedStorefrontProductSlugSet } from '@/lib/cached-storefront-product-slug-set';
-import { hasValidInternalAuth } from '@/lib/internal-auth-header';
+import {
+  getValidatedInternalAuthMethod,
+  INTERNAL_AUTH_HEADER,
+} from '@/lib/internal-auth-header';
 import { logger } from '@/lib/logger';
 import { getProductSlugSetCacheTag } from '@/lib/product-cache-tags';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
@@ -39,7 +42,7 @@ const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 // never sticks.
 const PREFLIGHT_CACHE = {
   'Cache-Control': 's-maxage=300, stale-while-revalidate=3600',
-  Vary: 'x-baci-internal-auth',
+  Vary: INTERNAL_AUTH_HEADER,
 } as const;
 // Fail-open membership: the proxy hard-404s ONLY when `present` is false AND
 // `hasError` is false, so any uncertainty returns hasError:true.
@@ -77,12 +80,18 @@ export async function GET(
     );
   }
 
-  if (!hasValidInternalAuth(request, expectedSecret)) {
+  const authMethod = getValidatedInternalAuthMethod(request, expectedSecret);
+  if (!authMethod) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401, headers: NO_STORE }
     );
   }
+  // Only custom-header requests may receive cacheable headers: RFC 9111 §3.5
+  // lets a shared cache store an Authorization-request response when s-maxage
+  // is present, and such an entry would be keyed with the custom header ABSENT
+  // — the same Vary key an unauthenticated request would hit.
+  const allowEdgeCache = authMethod === 'custom-header';
 
   const params = internalSlugSetParamsSchema.safeParse(await context.params);
   const query = internalSlugSetQuerySchema.safeParse({
@@ -177,13 +186,15 @@ export async function GET(
     { hasError: false, present: true },
     {
       status: 200,
-      headers: {
-        ...PREFLIGHT_CACHE,
-        // Same tag the underlying 'use cache' slug set carries and that
-        // revalidateProducts invalidates for this merchant — so any product
-        // mutation purges this CDN entry immediately.
-        'Vercel-Cache-Tag': getProductSlugSetCacheTag(merchant.id),
-      },
+      headers: allowEdgeCache
+        ? {
+            ...PREFLIGHT_CACHE,
+            // Same tag the underlying 'use cache' slug set carries and that
+            // revalidateProducts invalidates for this merchant — so any product
+            // mutation purges this CDN entry immediately.
+            'Vercel-Cache-Tag': getProductSlugSetCacheTag(merchant.id),
+          }
+        : NO_STORE,
     }
   );
 }

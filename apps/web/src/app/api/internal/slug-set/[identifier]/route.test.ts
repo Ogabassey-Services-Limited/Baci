@@ -81,7 +81,9 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
   });
 
   it('returns present:true when the slug exists for the merchant', async () => {
-    const res = await GET(request('iphone-15', `Bearer ${SECRET}`), context());
+    // The cache-eligible path is the custom header (what the proxy sends);
+    // the legacy Bearer path is covered by the no-store regression below.
+    const res = await GET(customHeaderRequest('iphone-15', SECRET), context());
 
     expect(res.status).toBe(200);
     expect(res.headers.get('Cache-Control')).toBe(
@@ -107,18 +109,17 @@ describe('GET /api/internal/slug-set/[identifier]', () => {
     );
   });
 
-  it('accepts the custom x-baci-internal-auth header and caches the verdict', async () => {
-    const res = await GET(customHeaderRequest('iphone-15', SECRET), context());
+  it('accepts legacy Bearer auth but keeps even the live verdict no-store', async () => {
+    const res = await GET(request('iphone-15', `Bearer ${SECRET}`), context());
 
     expect(res.status).toBe(200);
-    expect(res.headers.get('Cache-Control')).toBe(
-      's-maxage=300, stale-while-revalidate=3600'
-    );
-    expect(res.headers.get('Vary')).toBe('x-baci-internal-auth');
-    expect(res.headers.get('Vercel-Cache-Tag')).toBe(
-      `product-slug-set-${MERCHANT_ID}`
-    );
     expect(await res.json()).toEqual({ hasError: false, present: true });
+    // RFC 9111 lets a shared cache store an Authorization-request response
+    // when s-maxage is present, so the legacy path must never emit cacheable
+    // headers — the entry would be keyed with the custom header absent, the
+    // same Vary key an unauthenticated request hits.
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
   });
 
   it('returns redirectPath with no-store when a present slug is an archived alias for a canonical product', async () => {
