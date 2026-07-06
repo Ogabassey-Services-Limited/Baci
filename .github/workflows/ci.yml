@@ -236,6 +236,21 @@ jobs:
       - name: Verify Quiz Assets
         if: needs.changes.outputs.web == 'true'
         run: pnpm --filter @baci/web verify:quiz-assets
+      # Hard pre-launch gate: only enforced when the repo is configured for the
+      # production quiz phase (QUIZ_PHASE repo variable = "production"). It
+      # validates NLRC permits, published odds, compliance tracker rows, and the
+      # quiz RPC server secret against the live database. Skipped on normal PRs
+      # so it never blocks unrelated work, but visible as its own named step.
+      - name: Verify Quiz Production Approval
+        if: needs.changes.outputs.web == 'true' && vars.QUIZ_PHASE == 'production'
+        env:
+          QUIZ_PHASE: ${{ vars.QUIZ_PHASE }}
+          QUIZ_PRODUCTION_APPROVED: ${{ vars.QUIZ_PRODUCTION_APPROVED }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          QUIZ_RPC_SERVER_SECRET: ${{ secrets.QUIZ_RPC_SERVER_SECRET }}
+        run: pnpm --filter @baci/web check:quiz-approval
       - name: Run Storefront Guardrail Unit Tests
         if: needs.changes.outputs.mobile_storefront == 'true'
         run: pnpm --filter @baci/mobile-storefront exec jest scripts/check-platform-drift.test.ts scripts/check-module-size.test.ts scripts/check-ad-tracking-native-config.test.ts --runInBand

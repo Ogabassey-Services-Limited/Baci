@@ -46,6 +46,12 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   '/api/newsletter': { maxRequests: 5, windowMs: 900_000 },
   '/api/wallet': { maxRequests: 5, windowMs: 60_000 },
   '/api/payments/credit-direct/sign': { maxRequests: 5, windowMs: 60_000 },
+  // Quiz: the Gemma generation route is an expensive AI call, and the claim
+  // routes mint real prizes/cash — keep both well below the per-IP default.
+  '/api/merchant/quiz/generate': { maxRequests: 5, windowMs: 60_000 },
+  '/api/quiz/attempts/start': { maxRequests: 20, windowMs: 60_000 },
+  '/api/quiz/awards/cash/claim': { maxRequests: 10, windowMs: 60_000 },
+  '/api/quiz/prizes/grand/claim': { maxRequests: 10, windowMs: 60_000 },
   default: { maxRequests: 50, windowMs: 60_000 },
 };
 

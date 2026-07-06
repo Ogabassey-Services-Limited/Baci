@@ -46,7 +46,8 @@ const mockQuizEventUpdateSingle = vi.fn();
 const mockQuizEventSelect = vi.fn(() => ({
   single: mockQuizEventUpdateSingle,
 }));
-const mockQuizEventEqSecond = vi.fn(() => ({ select: mockQuizEventSelect }));
+const mockQuizEventEqThird = vi.fn(() => ({ select: mockQuizEventSelect }));
+const mockQuizEventEqSecond = vi.fn(() => ({ eq: mockQuizEventEqThird }));
 const mockQuizEventEqFirst = vi.fn(() => ({ eq: mockQuizEventEqSecond }));
 const mockQuizEventUpdate = vi.fn(() => ({ eq: mockQuizEventEqFirst }));
 const mockPrizeProductBuilder = {
@@ -257,11 +258,16 @@ describe('POST /api/merchant/quiz/generate', () => {
       },
       questions: [
         {
+          // The AI-marked answer key IS returned to the authenticated admin so
+          // they can review it before opening the quiz.
+          correctOptionId: 'b',
+          explanation: 'USB-C arrived on iPhone 15.',
           prompt: 'Which iPhone model introduced USB-C?',
           topic: 'iPhone buying advice',
         },
       ],
     });
+    // Generating a draft must never auto-open the event.
     expect(mockQuizEventUpdate).not.toHaveBeenCalled();
     expect(mockPrizeProductBuilder.select).toHaveBeenCalledWith(
       'id, name, images, default_variant_id'
@@ -277,33 +283,54 @@ describe('POST /api/merchant/quiz/generate', () => {
     expect(mockPrizeProductBuilder.eq).toHaveBeenCalledWith('status', 'active');
   });
 
-  it('opens the generated quiz when requested by the merchant', async () => {
+  it('opens a reviewed draft only via a separate confirmed activation request', async () => {
     const response = await POST(
       createRequest({
-        difficulty: 'standard',
-        prizeProductId: PRIZE_PRODUCT_ID,
-        publicationMode: 'active',
-        questionCountPerTopic: 1,
-        timeLimitSeconds: 30,
-        title: 'Daily Phone Quiz',
-        topics: ['iPhone buying advice'],
+        confirmActivation: true,
+        eventId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       })
     );
     const body = await response.json();
 
-    expect(response.status).toBe(201);
+    expect(response.status).toBe(200);
+    // Activation must not regenerate questions.
+    expect(mockGenerateQuizQuestionsWithGemma).not.toHaveBeenCalled();
     expect(mockQuizEventUpdate).toHaveBeenCalledWith({
       ends_at: null,
       starts_at: expect.any(String),
       status: 'active',
     });
-    expect(mockQuizEventEqFirst).toHaveBeenCalledWith('id', 'event-1');
+    expect(mockQuizEventEqFirst).toHaveBeenCalledWith(
+      'id',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    );
     expect(mockQuizEventEqSecond).toHaveBeenCalledWith(
       'merchant_id',
       'merchant-1'
     );
+    // Only drafts can be activated.
+    expect(mockQuizEventEqThird).toHaveBeenCalledWith('status', 'draft');
     expect(mockQuizEventSelect).toHaveBeenCalledWith('id, slug, status, title');
     expect(body.event.status).toBe('active');
+  });
+
+  it('returns 400 when the draft to activate cannot be opened', async () => {
+    mockQuizEventUpdateSingle.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'not found' },
+    });
+
+    const response = await POST(
+      createRequest({
+        confirmActivation: true,
+        eventId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: 'QUIZ_ACTIVATION_FAILED',
+    });
   });
 
   it('requires marketing edit permission', async () => {

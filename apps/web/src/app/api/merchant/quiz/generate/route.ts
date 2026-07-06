@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
@@ -13,210 +12,31 @@ import {
 } from '@/lib/quiz/gemma-question-generator';
 import {
   type GeneratedQuizQuestion,
+  merchantQuizActivationRequestSchema,
   merchantQuizGenerationRequestSchema,
 } from '@/schemas/quiz';
+import {
+  activateMerchantQuizDraft,
+  createSlotRows,
+  createVariantRows,
+  isQuizDraftEvent,
+  type QuizSupabaseClient,
+  resolveMerchantQuizContext,
+  resolvePrizeProduct,
+  slugifyTitle,
+} from './quiz-generate-helpers';
 
 export const maxDuration = 120;
 
-type SlotRow = {
-  active: true;
-  category: string | null;
-  difficulty: GeneratedQuizQuestion['difficulty'];
-  id: string;
-  slot_index: number;
+type MerchantAuthContext = {
+  merchantDisplayName: string;
+  merchantId: string;
+  supabase: QuizSupabaseClient;
 };
 
-type QuizDraftEvent = {
-  id: string;
-  slug: string;
-  status: string;
-  title: string;
-};
-
-type MerchantNameRow = {
-  business_name: string | null;
-  slug: string | null;
-};
-
-type MerchantQuizContext = {
-  displayName: string;
-  slug: string | null;
-};
-
-type PrizeProductRow = {
-  default_variant_id: string | null;
-  id: string;
-  images: Array<string | { url?: string | null }> | null;
-  name: string;
-};
-
-function slugifyTitle(title: string): string {
-  const slug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  const baseSlug = slug || 'quiz';
-  return `${baseSlug}-${crypto.randomBytes(4).toString('hex')}`;
-}
-
-function hashAnswerKey(answer: string): string {
-  return crypto
-    .createHash('sha256')
-    .update(answer.trim().toLowerCase())
-    .digest('hex');
-}
-
-function sanitizeGeneratedQuestions(questions: GeneratedQuizQuestion[]) {
-  return questions.map(
-    ({ correctOptionId: _answer, explanation: _explanation, ...question }) =>
-      question
-  );
-}
-
-function createSlotRows(questions: GeneratedQuizQuestion[]): SlotRow[] {
-  return questions.map((question, index) => ({
-    active: true,
-    category: question.topic,
-    difficulty: question.difficulty,
-    id: crypto.randomUUID(),
-    slot_index: index + 1,
-  }));
-}
-
-function createVariantRows(
-  questions: GeneratedQuizQuestion[],
-  slots: SlotRow[]
-) {
-  const slotsByIndex = new Map(slots.map((slot) => [slot.slot_index, slot]));
-
-  return questions.map((question, index) => {
-    const slot = slotsByIndex.get(index + 1);
-    if (!slot) {
-      throw new Error('Quiz slot creation returned an incomplete result');
-    }
-
-    return {
-      active: true,
-      answer_key_hash: hashAnswerKey(question.correctOptionId),
-      explanation: question.explanation,
-      options: question.options,
-      prompt: question.prompt,
-      slot_id: slot.id,
-      variant_key: `gemma-${index + 1}`,
-    };
-  });
-}
-
-function isQuizDraftEvent(value: unknown): value is QuizDraftEvent {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  const event = value as Record<string, unknown>;
-  return (
-    typeof event.id === 'string' &&
-    typeof event.slug === 'string' &&
-    typeof event.status === 'string' &&
-    typeof event.title === 'string'
-  );
-}
-
-async function openQuizEventIfRequested(
-  supabase: NonNullable<
-    Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
-  >,
-  event: QuizDraftEvent,
-  merchantId: string,
-  publicationMode: 'draft' | 'active'
-): Promise<{ event: QuizDraftEvent; error: boolean }> {
-  if (publicationMode !== 'active') {
-    return { event, error: false };
-  }
-
-  const { data, error } = await supabase
-    .from('quiz_events')
-    .update({
-      ends_at: null,
-      starts_at: new Date().toISOString(),
-      status: 'active',
-    })
-    .eq('id', event.id)
-    .eq('merchant_id', merchantId)
-    .select('id, slug, status, title')
-    .single();
-
-  if (error || !isQuizDraftEvent(data)) {
-    return { event, error: true };
-  }
-
-  return { event: data, error: false };
-}
-
-async function resolveMerchantQuizContext(
-  supabase: NonNullable<
-    Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
-  >,
-  merchantId: string
-): Promise<MerchantQuizContext> {
-  const { data, error } = await supabase
-    .from('merchants')
-    .select('business_name, slug')
-    .eq('id', merchantId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('Merchant display name lookup failed:', error.message);
-    return { displayName: merchantId, slug: null };
-  }
-
-  const merchant = data as MerchantNameRow | null;
-  return {
-    displayName:
-      merchant?.business_name?.trim() || merchant?.slug?.trim() || merchantId,
-    slug: merchant?.slug?.trim().toLowerCase() || null,
-  };
-}
-
-async function resolvePrizeProduct(
-  supabase: NonNullable<
-    Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
-  >,
-  merchantId: string,
-  productId: string
-): Promise<PrizeProductRow | null> {
-  const { data, error } = await supabase
-    .from('products')
-    .select('id, name, images, default_variant_id')
-    .eq('id', productId)
-    .eq('merchant_id', merchantId)
-    .eq('status', 'active')
-    .maybeSingle();
-
-  if (error || !data) {
-    return null;
-  }
-
-  const product = data as Partial<PrizeProductRow>;
-  if (
-    typeof product.id !== 'string' ||
-    typeof product.name !== 'string' ||
-    product.name.trim().length === 0
-  ) {
-    return null;
-  }
-
-  return {
-    default_variant_id:
-      typeof product.default_variant_id === 'string'
-        ? product.default_variant_id
-        : null,
-    id: product.id,
-    images: Array.isArray(product.images) ? product.images : null,
-    name: product.name.trim(),
-  };
-}
-
-export async function POST(request: NextRequest) {
+async function authorizeMerchantQuizRequest(
+  request: NextRequest
+): Promise<MerchantAuthContext | NextResponse> {
   const auth = await authenticateApiRequest(request);
   if (auth.error || !auth.user || !auth.supabase) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -239,21 +59,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-  }
-
-  const parsed = merchantQuizGenerationRequestSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid input', code: 'INVALID_INPUT' },
-      { status: 400 }
-    );
-  }
-
   const merchantContext = await resolveMerchantQuizContext(
     auth.supabase,
     access.merchantId
@@ -265,9 +70,55 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  return {
+    merchantDisplayName: merchantContext.displayName,
+    merchantId: access.merchantId,
+    supabase: auth.supabase,
+  };
+}
+
+async function handleActivation(
+  context: MerchantAuthContext,
+  body: unknown
+): Promise<NextResponse> {
+  const parsed = merchantQuizActivationRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', code: 'INVALID_INPUT' },
+      { status: 400 }
+    );
+  }
+
+  const activatedEvent = await activateMerchantQuizDraft(
+    context.supabase,
+    parsed.data.eventId,
+    context.merchantId
+  );
+  if (!activatedEvent) {
+    return NextResponse.json(
+      { error: 'Failed to open quiz event', code: 'QUIZ_ACTIVATION_FAILED' },
+      { status: 400 }
+    );
+  }
+
+  return NextResponse.json({ event: activatedEvent }, { status: 200 });
+}
+
+async function handleGeneration(
+  context: MerchantAuthContext,
+  body: unknown
+): Promise<NextResponse> {
+  const parsed = merchantQuizGenerationRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', code: 'INVALID_INPUT' },
+      { status: 400 }
+    );
+  }
+
   const prizeProduct = await resolvePrizeProduct(
-    auth.supabase,
-    access.merchantId,
+    context.supabase,
+    context.merchantId,
     parsed.data.prizeProductId
   );
   if (!prizeProduct) {
@@ -284,7 +135,7 @@ export async function POST(request: NextRequest) {
   try {
     questions = await generateQuizQuestionsWithGemma({
       difficulty: parsed.data.difficulty,
-      merchantName: merchantContext.displayName,
+      merchantName: context.merchantDisplayName,
       questionCountPerTopic: parsed.data.questionCountPerTopic,
       topics: parsed.data.topics,
     });
@@ -306,9 +157,9 @@ export async function POST(request: NextRequest) {
   const prizeVariantId =
     parsed.data.prizeVariantId ?? prizeProduct.default_variant_id ?? null;
   const prizeProductImageUrl = getPrimaryProductImage(prizeProduct.images);
-  const { data: event, error: eventError } = await auth.supabase
+  const { data: event, error: eventError } = await context.supabase
     .rpc('create_merchant_quiz_draft', {
-      p_merchant_id: access.merchantId,
+      p_merchant_id: context.merchantId,
       p_settings: {
         prize_name: prizeProduct.name,
         prize_product_id: prizeProduct.id,
@@ -331,24 +182,37 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const openedEvent = await openQuizEventIfRequested(
-    auth.supabase,
-    event,
-    access.merchantId,
-    parsed.data.publicationMode
+  // Generation always yields a DRAFT and returns the AI-marked answer key so the
+  // admin can review it before deliberately opening the event in a second,
+  // confirmed request (`confirmActivation`).
+  return NextResponse.json({ event, questions }, { status: 201 });
+}
+
+function isActivationRequest(body: unknown): boolean {
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    'confirmActivation' in body &&
+    (body as { confirmActivation: unknown }).confirmActivation === true
   );
-  if (openedEvent.error) {
-    return NextResponse.json(
-      { error: 'Failed to open quiz event' },
-      { status: 500 }
-    );
+}
+
+export async function POST(request: NextRequest) {
+  const context = await authorizeMerchantQuizRequest(request);
+  if (context instanceof NextResponse) {
+    return context;
   }
 
-  return NextResponse.json(
-    {
-      event: openedEvent.event,
-      questions: sanitizeGeneratedQuestions(questions),
-    },
-    { status: 201 }
-  );
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  if (isActivationRequest(body)) {
+    return handleActivation(context, body);
+  }
+
+  return handleGeneration(context, body);
 }

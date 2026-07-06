@@ -1,0 +1,255 @@
+import crypto from 'node:crypto';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { GeneratedQuizQuestion } from '@/schemas/quiz';
+import {
+  activateMerchantQuizDraft,
+  createSlotRows,
+  createVariantRows,
+  hashAnswerKey,
+  isQuizDraftEvent,
+  type QuizSupabaseClient,
+  slugifyTitle,
+} from './quiz-generate-helpers';
+
+function buildQuestion(
+  overrides: Partial<GeneratedQuizQuestion> = {}
+): GeneratedQuizQuestion {
+  return {
+    correctOptionId: 'b',
+    difficulty: 'standard',
+    explanation: 'USB-C arrived on iPhone 15.',
+    options: [
+      { id: 'a', label: 'iPhone 13' },
+      { id: 'b', label: 'iPhone 15' },
+    ],
+    prompt: 'Which iPhone model introduced USB-C?',
+    topic: 'iPhone buying advice',
+    ...overrides,
+  } as GeneratedQuizQuestion;
+}
+
+describe('slugifyTitle', () => {
+  it('slugifies a title and appends an 8-char hex suffix', () => {
+    expect(slugifyTitle('Daily Phone Quiz!')).toMatch(
+      /^daily-phone-quiz-[0-9a-f]{8}$/
+    );
+  });
+
+  it('falls back to a "quiz" base when the title has no alphanumerics', () => {
+    expect(slugifyTitle('!!! ???')).toMatch(/^quiz-[0-9a-f]{8}$/);
+  });
+});
+
+describe('hashAnswerKey', () => {
+  it('hashes case- and whitespace-insensitively', () => {
+    expect(hashAnswerKey('  B  ')).toBe(hashAnswerKey('b'));
+  });
+
+  it('produces the expected sha256 hex digest', () => {
+    const expected = crypto.createHash('sha256').update('b').digest('hex');
+    expect(hashAnswerKey('B')).toBe(expected);
+    expect(hashAnswerKey('b')).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe('createSlotRows', () => {
+  it('maps each question to an active slot with a 1-based slot index', () => {
+    const slots = createSlotRows([
+      buildQuestion({ topic: 'Topic A' }),
+      buildQuestion({ topic: 'Topic B', difficulty: 'hard' }),
+    ]);
+
+    expect(slots).toHaveLength(2);
+    expect(slots[0]).toMatchObject({
+      active: true,
+      category: 'Topic A',
+      difficulty: 'standard',
+      slot_index: 1,
+    });
+    expect(slots[1]).toMatchObject({
+      category: 'Topic B',
+      difficulty: 'hard',
+      slot_index: 2,
+    });
+    expect(slots[0]?.id).not.toBe(slots[1]?.id);
+  });
+});
+
+describe('createVariantRows', () => {
+  it('links each variant to its slot and hashes the answer key', () => {
+    const questions = [
+      buildQuestion(),
+      buildQuestion({ correctOptionId: 'a' }),
+    ];
+    const slots = createSlotRows(questions);
+    const variants = createVariantRows(questions, slots);
+
+    expect(variants).toHaveLength(2);
+    expect(variants[0]).toMatchObject({
+      active: true,
+      answer_key_hash: hashAnswerKey('b'),
+      prompt: 'Which iPhone model introduced USB-C?',
+      slot_id: slots[0]?.id,
+      variant_key: 'gemma-1',
+    });
+    expect(variants[1]?.answer_key_hash).toBe(hashAnswerKey('a'));
+    expect(variants[1]?.variant_key).toBe('gemma-2');
+  });
+
+  it('throws when a question has no matching slot', () => {
+    const questions = [buildQuestion(), buildQuestion()];
+    const slots = createSlotRows([buildQuestion()]); // only one slot
+
+    expect(() => createVariantRows(questions, slots)).toThrow(
+      'Quiz slot creation returned an incomplete result'
+    );
+  });
+});
+
+describe('isQuizDraftEvent', () => {
+  it('accepts a fully-formed draft event', () => {
+    expect(
+      isQuizDraftEvent({
+        id: 'event-1',
+        slug: 'daily-phone-quiz',
+        status: 'draft',
+        title: 'Daily Phone Quiz',
+      })
+    ).toBe(true);
+  });
+
+  it('rejects non-objects and objects missing required string fields', () => {
+    expect(isQuizDraftEvent(null)).toBe(false);
+    expect(isQuizDraftEvent('event')).toBe(false);
+    expect(isQuizDraftEvent({ id: 'event-1', slug: 'daily-phone-quiz' })).toBe(
+      false
+    );
+    expect(
+      isQuizDraftEvent({
+        id: 1,
+        slug: 'x',
+        status: 'draft',
+        title: 't',
+      })
+    ).toBe(false);
+  });
+});
+
+type EqCall = [string, string];
+
+interface QuizEventsHarness {
+  supabase: QuizSupabaseClient;
+  updatePayload: () => Record<string, unknown> | undefined;
+  eqCalls: () => EqCall[];
+  selectArg: () => string | undefined;
+}
+
+function buildQuizEventsHarness(single: {
+  data: unknown;
+  error: unknown;
+}): QuizEventsHarness {
+  const eqCalls: EqCall[] = [];
+  let updatePayload: Record<string, unknown> | undefined;
+  let selectArg: string | undefined;
+
+  const builder = {
+    eq: vi.fn((column: string, value: string) => {
+      eqCalls.push([column, value]);
+      return builder;
+    }),
+    select: vi.fn((columns: string) => {
+      selectArg = columns;
+      return builder;
+    }),
+    single: vi.fn(async () => single),
+  };
+
+  const from = vi.fn((table: string) => {
+    if (table !== 'quiz_events') {
+      throw new Error(`Unexpected table: ${table}`);
+    }
+    return {
+      update: vi.fn((payload: Record<string, unknown>) => {
+        updatePayload = payload;
+        return builder;
+      }),
+    };
+  });
+
+  return {
+    eqCalls: () => eqCalls,
+    selectArg: () => selectArg,
+    supabase: { from } as unknown as QuizSupabaseClient,
+    updatePayload: () => updatePayload,
+  };
+}
+
+describe('activateMerchantQuizDraft', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('flips only the merchant-owned draft row to active and returns it', async () => {
+    const harness = buildQuizEventsHarness({
+      data: {
+        id: 'event-1',
+        slug: 'daily-phone-quiz',
+        status: 'active',
+        title: 'Daily Phone Quiz',
+      },
+      error: null,
+    });
+
+    const result = await activateMerchantQuizDraft(
+      harness.supabase,
+      'event-1',
+      'merchant-1'
+    );
+
+    expect(result).toMatchObject({ id: 'event-1', status: 'active' });
+    expect(harness.updatePayload()).toMatchObject({
+      ends_at: null,
+      status: 'active',
+    });
+    expect(typeof harness.updatePayload()?.starts_at).toBe('string');
+    // Activation is scoped to the caller's own DRAFT event.
+    expect(harness.eqCalls()).toEqual([
+      ['id', 'event-1'],
+      ['merchant_id', 'merchant-1'],
+      ['status', 'draft'],
+    ]);
+    expect(harness.selectArg()).toBe('id, slug, status, title');
+  });
+
+  it('returns null when no draft row matches (non-draft or non-owned event)', async () => {
+    const harness = buildQuizEventsHarness({
+      data: null,
+      error: { message: 'no rows updated' },
+    });
+
+    const result = await activateMerchantQuizDraft(
+      harness.supabase,
+      'event-1',
+      'merchant-1'
+    );
+
+    expect(result).toBeNull();
+    // The status='draft' filter is what prevents re-activating a live event.
+    expect(harness.eqCalls()).toContainEqual(['status', 'draft']);
+  });
+
+  it('returns null when the update returns a malformed row', async () => {
+    const harness = buildQuizEventsHarness({
+      data: { id: 'event-1', status: 'active' },
+      error: null,
+    });
+
+    const result = await activateMerchantQuizDraft(
+      harness.supabase,
+      'event-1',
+      'merchant-1'
+    );
+
+    expect(result).toBeNull();
+  });
+});
