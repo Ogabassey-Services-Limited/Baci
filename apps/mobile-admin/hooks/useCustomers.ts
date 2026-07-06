@@ -1,8 +1,3 @@
-/**
- * useCustomers Hook
- * Fetches customers with infinite scroll, search, and stats
- */
-
 import {
   buildCustomerAddressLine,
   buildCustomerRecordNameFields,
@@ -14,11 +9,30 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { sanitizeEmail, sanitizePhone } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import { fetchCustomerStats, fetchCustomers } from './customers-data';
 import { useMerchant } from './useMerchant';
 
 export type { Customer } from './customers-data';
+
+const DUPLICATE_CUSTOMER_MESSAGE =
+  'Customer with this email or phone already exists';
+
+function escapeIlikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
+}
+
+function isDuplicateCustomerConstraintError(
+  error: { message?: string | null } | null
+): boolean {
+  const message = error?.message ?? '';
+
+  return (
+    message.includes('customers_merchant_email_unique') ||
+    message.includes('customers_merchant_phone_unique')
+  );
+}
 
 export function useCustomers(filters?: {
   customerType?: 'individual' | 'company';
@@ -50,16 +64,13 @@ export function useCustomer(customerId: string) {
     queryFn: async () => {
       if (!merchantId) throw new Error('No merchant selected');
 
-      // PERFORMANCE: Use Promise.all to fetch customer details and recent orders concurrently
       const [customerRes, ordersRes] = await Promise.all([
-        // Fetch customer
         supabase
           .from('customers')
           .select(CUSTOMER_ADMIN_COLUMNS)
           .eq('id', customerId)
           .eq('merchant_id', merchantId)
           .single(),
-        // Fetch recent orders
         supabase
           .from('orders')
           .select('id, order_number, total, shipping_status, created_at')
@@ -116,24 +127,42 @@ export function useCreateCustomer() {
     }) => {
       if (!merchant?.id) throw new Error('No merchant selected');
 
+      const normalizedEmail = newCustomer.email
+        ? sanitizeEmail(newCustomer.email)
+        : '';
+      const normalizedPhone = newCustomer.phone
+        ? sanitizePhone(newCustomer.phone)
+        : '';
+
       // Check if customer already exists by email or phone
-      if (newCustomer.email || newCustomer.phone) {
-        let query = supabase
-          .from('customers')
-          .select('id')
-          .eq('merchant_id', merchant.id)
-          .is('deleted_at', null);
+      if (normalizedPhone) {
+        const { data: existingPhoneCustomer, error: phoneLookupError } =
+          await supabase
+            .from('customers')
+            .select('id')
+            .eq('merchant_id', merchant.id)
+            .is('deleted_at', null)
+            .eq('phone', normalizedPhone)
+            .limit(1);
 
-        const conditions = [];
-        if (newCustomer.email) conditions.push(`email.eq.${newCustomer.email}`);
-        if (newCustomer.phone) conditions.push(`phone.eq.${newCustomer.phone}`);
+        if (phoneLookupError) throw new Error(phoneLookupError.message);
+        if (existingPhoneCustomer?.[0])
+          throw new Error(DUPLICATE_CUSTOMER_MESSAGE);
+      }
 
-        if (conditions.length > 0) {
-          query = query.or(conditions.join(','));
-          const { data: existing } = await query.maybeSingle();
-          if (existing)
-            throw new Error('Customer with this email or phone already exists');
-        }
+      if (normalizedEmail) {
+        const { data: existingEmailCustomer, error: emailLookupError } =
+          await supabase
+            .from('customers')
+            .select('id')
+            .eq('merchant_id', merchant.id)
+            .is('deleted_at', null)
+            .ilike('email', escapeIlikePattern(normalizedEmail))
+            .limit(1);
+
+        if (emailLookupError) throw new Error(emailLookupError.message);
+        if (existingEmailCustomer?.[0])
+          throw new Error(DUPLICATE_CUSTOMER_MESSAGE);
       }
 
       const nameFields = buildCustomerRecordNameFields({
@@ -141,7 +170,7 @@ export function useCreateCustomer() {
         customer_type: newCustomer.customer_type ?? 'individual',
         first_name: newCustomer.first_name,
         last_name: newCustomer.last_name,
-        email: newCustomer.email,
+        email: normalizedEmail || undefined,
       });
       const address = buildCustomerAddressLine(
         newCustomer.address,
@@ -155,8 +184,8 @@ export function useCreateCustomer() {
         .insert({
           merchant_id: merchant.id,
           ...nameFields,
-          email: newCustomer.email || null,
-          phone: newCustomer.phone || null,
+          email: normalizedEmail || null,
+          phone: normalizedPhone || null,
           address,
           store_credit: 0,
           total_orders: 0,
@@ -166,7 +195,12 @@ export function useCreateCustomer() {
         .select(CUSTOMER_ADMIN_COLUMNS)
         .single();
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        if (isDuplicateCustomerConstraintError(error)) {
+          throw new Error(DUPLICATE_CUSTOMER_MESSAGE);
+        }
+        throw new Error(error.message);
+      }
       return data;
     },
     onSuccess: () => {
