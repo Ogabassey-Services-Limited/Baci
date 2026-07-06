@@ -52,6 +52,8 @@ jobs:
               - 'packages/shared/**'
               - '.github/actions/pnpm-install-cached/**'
               - '.github/actions/setup-pnpm-store/**'
+              - '.github/scripts/resolve-ci-test-plan.mjs'
+              - '.github/scripts/resolve-ci-test-plan.test.mjs'
               - '.github/workflows/ci.yml'
               - 'package.json'
               - 'pnpm-lock.yaml'
@@ -205,15 +207,24 @@ jobs:
           filter: blob:none
           persist-credentials: false
       - uses: ./.github/actions/pnpm-install-cached
+      - name: Resolve test plan
+        id: test-plan
+        run: node .github/scripts/resolve-ci-test-plan.mjs --event "${{ github.event_name }}" --base "$TURBO_SCM_BASE"
       - name: Run Tests
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
         run: |
+          if [ "${{ steps.test-plan.outputs.mode }}" = "targeted-web-vitest" ]; then
+            echo "${{ steps.test-plan.outputs.reason }}"
+            pnpm --filter @baci/web exec vitest run --changed "$TURBO_SCM_BASE" --passWithNoTests
+            exit 0
+          fi
+
           turbo_cache_args=("--cache=local:rw,remote:r")
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             # PR tokens can read Vercel Remote Cache but may not be allowed to write artifacts.
-            # Use --affected to test only impacted files.
+            # Use --affected to test only impacted packages.
             turbo_cache_args+=(--affected)
           else
             turbo_cache_args=("--cache=local:rw,remote:rw")
