@@ -1131,6 +1131,7 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
 
       const transactionInsert = vi.fn().mockReturnThis();
+      const amountRestoreUpdate = vi.fn().mockReturnThis();
       const mockChain = supabaseMock.from('orders');
 
       let fromCallCount = 0;
@@ -1184,7 +1185,11 @@ describe('POST /api/payments/credit-direct/webhook', () => {
             .mockResolvedValue({ data: { id: 'cd-txn-1' }, error: null });
           return txInsertChain;
         }
-        return mockChain;
+        // amount_paid restore on the clamped cancelled order
+        const restoreChain = { ...mockChain };
+        restoreChain.update = amountRestoreUpdate;
+        restoreChain.eq = vi.fn().mockResolvedValue({ error: null });
+        return restoreChain;
       });
 
       const request = createMockRequest(merchantPaymentPayload);
@@ -1198,6 +1203,9 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       });
       // The disbursed BNPL transaction IS recorded (N4) so the money is tracked.
       expect(transactionInsert).toHaveBeenCalled();
+      // The clamp branch restores the pre-webhook amount_paid so duplicate
+      // deliveries still resolve the correct residual and ack.
+      expect(amountRestoreUpdate).toHaveBeenCalledWith({ amount_paid: 0 });
       // Reconciliation row WAS filed through the service-role admin client,
       // linked to the recorded transaction.
       expect(mockReconciliationInsert).toHaveBeenCalledWith(
