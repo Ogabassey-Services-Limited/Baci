@@ -143,6 +143,23 @@ describe('storefront order success page', () => {
     });
   });
 
+  it('falls back to the email param when no tracking token is present', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-123',
+        email: 'buyer@example.com',
+      })
+    );
+
+    render(<OrderSuccessPage />);
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/storefront/orders/order-123?merchant_slug=test-store&email=buyer%40example.com'
+      );
+    });
+  });
+
   it('formats the order total with the merchant country currency', async () => {
     mockMerchant = { slug: 'test-store', country: 'IN' };
 
