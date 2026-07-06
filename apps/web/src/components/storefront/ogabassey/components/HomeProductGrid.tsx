@@ -14,6 +14,7 @@ import type {
 import { DeferredAdUnit } from './deferred-ad-unit';
 import { HomeProductGridCard } from './HomeProductGridCard';
 import type { ProductGridItemProps } from './ProductGridItem';
+import { useHomePreviewCatalog } from './useHomePreviewCatalog';
 import type { Product } from '../types';
 import { joinRouteBasePath, normalizeRouteBasePath } from '@/lib/routes';
 
@@ -59,10 +60,6 @@ const loadDefaultInteractionBindingsModule = () =>
 
 const loadDefaultInteractiveCardModule = () => import('./ProductGridItem');
 
-// The mock catalog only backs the template preview (no merchant products yet),
-// so it must never be eagerly bundled into real storefront home payloads.
-const loadDefaultPreviewCatalogModule = () => import('../data/products');
-
 const STATIC_BINDINGS: ProductGridInteractionBindingsValue = {
   isAdded: () => false,
   getCartQuantity: () => 0,
@@ -106,7 +103,10 @@ export function HomeProductGrid({
   const [InteractiveCard, setInteractiveCard] = useState<
     ProductGridItemModule['ProductGridItem'] | null
   >(null);
-  const [previewCatalog, setPreviewCatalog] = useState<Product[] | null>(null);
+  const previewCatalog = useHomePreviewCatalog({
+    products,
+    loadPreviewCatalog,
+  });
   const gridRef = useRef<HTMLElement | null>(null);
   // Scope activation to the grid itself so pointer/keyboard activity elsewhere
   // on the page (hero, nav, search) never downloads the interactive-card graph.
@@ -116,30 +116,6 @@ export function HomeProductGrid({
     deferInteractionActivationUntilNextPaint: true,
     interactionTargetRef: gridRef,
   });
-  const hasRealProducts = Boolean(products && products.length > 0);
-
-  useEffect(() => {
-    if (hasRealProducts || previewCatalog) {
-      return;
-    }
-
-    let cancelled = false;
-    void (loadPreviewCatalog ?? loadDefaultPreviewCatalogModule)()
-      .then((previewCatalogModule) => {
-        if (!cancelled) {
-          setPreviewCatalog(previewCatalogModule.products);
-        }
-      })
-      .catch(() => {
-        // Preview catalog is a best-effort template fallback; keep the empty
-        // shell rendered if the module fails to load.
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hasRealProducts, loadPreviewCatalog, previewCatalog]);
-
   useEffect(() => {
     if (!interactionsActivated || (InteractionBindings && InteractiveCard)) {
       return;

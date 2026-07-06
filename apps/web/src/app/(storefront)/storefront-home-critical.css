@@ -24,6 +24,10 @@
 /* stylelint-disable scss/at-rule-no-unknown -- Tailwind v4 source discovery directives. */
 @source "../../components/storefront/ogabassey/components/Hero.tsx";
 @source "../../components/storefront/ogabassey/components/hero-mobile-carousel.tsx";
+/* Shared geometry class constants consumed by BOTH the carousel and the shell
+   fallback — classes that exist only here (moved out of the components) must
+   stay discoverable or the built CSS silently drops them. */
+@source "../../components/storefront/ogabassey/components/hero-mobile-geometry.ts";
 @source "../../components/storefront/ogabassey/components/carousel-progress-fill.tsx";
 @source "../../components/storefront/ogabassey/components/carousel-play-toggle.tsx";
 @source "../../components/storefront/ogabassey/components/hero-desktop-grid.tsx";

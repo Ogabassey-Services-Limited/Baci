@@ -79,6 +79,7 @@
 @source "../../components/storefront/ogabassey/components/empty-state.tsx";
 @source "../../components/storefront/ogabassey/components/hero-desktop-grid.tsx";
 @source "../../components/storefront/ogabassey/components/hero-mobile-carousel.tsx";
+@source "../../components/storefront/ogabassey/components/hero-mobile-geometry.ts";
 @source "../../components/storefront/ogabassey/components/hero-utility-panel.tsx";
 @source "../../components/storefront/ogabassey/components/mobile-lcp-hero-image.tsx";
 @source "../../components/ui/input.tsx";

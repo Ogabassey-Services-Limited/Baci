@@ -2,8 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import type { MouseEvent, TouchEvent } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { asRoute } from '@/lib/routes';
 import { CarouselPlayToggle } from './carousel-play-toggle';
 import { CarouselProgressFill } from './carousel-progress-fill';
@@ -26,9 +25,9 @@ import {
   HERO_MOBILE_WRAPPER_CLASSES,
 } from './hero-mobile-geometry';
 import { MobileLcpHeroImage } from './mobile-lcp-hero-image';
+import { useHeroSwipe } from './use-hero-swipe';
 
 const AUTO_ADVANCE_MS = 5000;
-const SWIPE_THRESHOLD_PX = 40;
 
 interface HeroMobileCarouselProps {
   /** Launch products (newest-first, pins applied). slides[0]'s image is the
@@ -50,17 +49,6 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
   // focused slide/link can't be hidden (inert) out from under the user.
   const [isFocusWithin, setIsFocusWithin] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const touchStartXRef = useRef<number | null>(null);
-  const swipeHandledRef = useRef(false);
-  const swipeResetTimerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (swipeResetTimerRef.current !== null) {
-        window.clearTimeout(swipeResetTimerRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -96,73 +84,26 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
     // `cycle` is a dependency so a manual restart re-arms a full countdown.
   }, [autoAdvances, currentSlide, cycle, slideCount]);
 
-  if (slideCount === 0) {
-    return null;
-  }
-
   const goToSlide = (index: number) => {
     setCurrentSlide(((index % slideCount) + slideCount) % slideCount);
     setCycle((value) => value + 1);
   };
 
-  const handleTouchStart = (event: TouchEvent) => {
-    touchStartXRef.current = event.touches[0]?.clientX ?? null;
-    swipeHandledRef.current = false;
-    setIsPaused(true);
-  };
+  const {
+    handleClickCapture,
+    handleTouchCancel,
+    handleTouchEnd,
+    handleTouchStart,
+  } = useHeroSwipe({
+    hasMultipleSlides,
+    onPausedChange: setIsPaused,
+    onRearm: () => setCycle((value) => value + 1),
+    onSwipe: (direction) => goToSlide(currentSlide + direction),
+  });
 
-  const handleTouchEnd = (event: TouchEvent) => {
-    const startX = touchStartXRef.current;
-    touchStartXRef.current = null;
-    if (startX !== null && hasMultipleSlides) {
-      const endX = event.changedTouches[0]?.clientX ?? startX;
-      const deltaX = endX - startX;
-      if (Math.abs(deltaX) > SWIPE_THRESHOLD_PX) {
-        swipeHandledRef.current = true;
-        goToSlide(currentSlide + (deltaX < 0 ? 1 : -1));
-        // Safety net: if the browser never emits the post-swipe click, clear the
-        // suppression flag after a beat so the next genuine tap isn't blocked.
-        if (swipeResetTimerRef.current !== null) {
-          window.clearTimeout(swipeResetTimerRef.current);
-        }
-        swipeResetTimerRef.current = window.setTimeout(() => {
-          swipeHandledRef.current = false;
-          swipeResetTimerRef.current = null;
-        }, 400);
-      } else {
-        // A tap/hold without a swipe just re-arms the current slide's timer.
-        setCycle((value) => value + 1);
-      }
-    }
-    setIsPaused(false);
-  };
-
-  // touchcancel (e.g. the browser hijacks the gesture for a vertical scroll)
-  // fires instead of touchend — clear the same state so autoplay resumes.
-  const handleTouchCancel = () => {
-    touchStartXRef.current = null;
-    swipeHandledRef.current = false;
-    if (swipeResetTimerRef.current !== null) {
-      window.clearTimeout(swipeResetTimerRef.current);
-      swipeResetTimerRef.current = null;
-    }
-    setIsPaused(false);
-    // Re-arm the countdown + fill so they resume in sync after the cancel.
-    setCycle((value) => value + 1);
-  };
-
-  // A completed swipe must not also trigger the slide's full-bleed PDP link.
-  const handleClickCapture = (event: MouseEvent) => {
-    if (swipeHandledRef.current) {
-      event.preventDefault();
-      event.stopPropagation();
-      swipeHandledRef.current = false;
-      if (swipeResetTimerRef.current !== null) {
-        window.clearTimeout(swipeResetTimerRef.current);
-        swipeResetTimerRef.current = null;
-      }
-    }
-  };
+  if (slideCount === 0) {
+    return null;
+  }
 
   return (
     <div className={HERO_MOBILE_WRAPPER_CLASSES}>
