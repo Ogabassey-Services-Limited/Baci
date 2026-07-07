@@ -79,14 +79,27 @@ export function WalletFundPanel({
     }
     setAutoCreateAttempted(true);
     void (async () => {
-      const created = await onCreateFundingAccount();
-      // A false result means creation failed (DVA conflict, transient
-      // error) — fall back to card entry instead of an endless spinner.
-      if (created === false) {
+      try {
+        const created = await onCreateFundingAccount();
+        // A false result means creation failed (DVA conflict, transient
+        // error) — fall back to card entry instead of an endless spinner.
+        if (created === false) {
+          setAutoCreateFailed(true);
+        }
+      } catch {
+        // A rejection (rather than a false result) must also fall back,
+        // never leave the "Setting up..." spinner running forever.
         setAutoCreateFailed(true);
       }
     })();
-  });
+  }, [
+    autoCreateAttempted,
+    canCreateFundingAccount,
+    fundAmount,
+    fundingAccount,
+    isCreatingFundingAccount,
+    onCreateFundingAccount,
+  ]);
 
   const bankTransferUnavailable =
     !fundingAccount && !canCreateFundingAccount && !isCreatingFundingAccount;

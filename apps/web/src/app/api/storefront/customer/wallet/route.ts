@@ -178,10 +178,18 @@ export async function GET(request: Request) {
     // route to a DVA_DISABLED dead end. Read via the SECURITY DEFINER
     // storefront-settings RPC — a direct merchant_feature_settings SELECT is
     // RLS-restricted to merchant staff, so it returns no row for customers.
-    const { data: storefrontPaymentSettings } = await supabase.rpc(
-      'get_storefront_payment_settings',
-      { p_merchant_id: merchant.id }
-    );
+    const { data: storefrontPaymentSettings, error: paymentSettingsError } =
+      await supabase.rpc('get_storefront_payment_settings', {
+        p_merchant_id: merchant.id,
+      });
+    if (paymentSettingsError) {
+      // Fail soft (walletDvaEnabled stays false), but log so an RPC outage is
+      // distinguishable from a merchant genuinely having DVA disabled.
+      console.error('Customer wallet optional fetch failed', {
+        error: paymentSettingsError,
+        label: 'storefront payment settings',
+      });
+    }
     const paymentSettingsRow = Array.isArray(storefrontPaymentSettings)
       ? storefrontPaymentSettings[0]
       : storefrontPaymentSettings;

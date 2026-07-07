@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { utilityModalTestHarness as harness } from './utility-modal-test-support';
 import { UtilityModal } from './UtilityModal';
 
@@ -85,5 +85,68 @@ describe('UtilityModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
 
     expect(harness.onClose).toHaveBeenCalledOnce();
+  });
+
+  it('offers the bank-transfer CTA when wallet DVAs are enabled and the customer has a phone', () => {
+    harness.useWallet.mockReturnValue({
+      fundingAccount: null,
+      payWithWallet: true,
+      refreshWallet: vi.fn(),
+      requiresFundingAccountConsent: true,
+      setFundingAccount: vi.fn(),
+      setPayWithWallet: vi.fn(),
+      setWalletBalance: vi.fn(),
+      walletBalance: 500,
+      walletDvaEnabled: true,
+      walletLoading: false,
+    });
+
+    renderOpenModal();
+
+    expect(
+      screen.getByRole('button', { name: /pay with bank transfer/i })
+    ).toBeInTheDocument();
+  });
+
+  it('hides the bank-transfer CTA when the merchant has wallet DVAs disabled', () => {
+    // Default harness wallet mock leaves walletDvaEnabled undefined (falsy).
+    renderOpenModal();
+
+    expect(
+      screen.queryByRole('button', { name: /pay with bank transfer/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('hides the bank-transfer CTA when the customer has no phone and no DVA yet', () => {
+    harness.useAuth.mockReturnValue({
+      customer: {
+        id: 'customer-1',
+        email: 'customer@example.com',
+        first_name: 'Test',
+        last_name: 'Customer',
+        phone: null,
+      },
+      isAuthenticated: true,
+      isLoading: false,
+      user: { email: 'customer@example.com', id: 'user-1', role: 'customer' },
+    });
+    harness.useWallet.mockReturnValue({
+      fundingAccount: null,
+      payWithWallet: true,
+      refreshWallet: vi.fn(),
+      requiresFundingAccountConsent: true,
+      setFundingAccount: vi.fn(),
+      setPayWithWallet: vi.fn(),
+      setWalletBalance: vi.fn(),
+      walletBalance: 500,
+      walletDvaEnabled: true,
+      walletLoading: false,
+    });
+
+    renderOpenModal();
+
+    expect(
+      screen.queryByRole('button', { name: /pay with bank transfer/i })
+    ).not.toBeInTheDocument();
   });
 });
