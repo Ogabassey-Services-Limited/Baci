@@ -818,9 +818,26 @@ export async function sendBatchEmailWithTemplate({
   auditContext?: EmailAuditContext;
 }): Promise<EmailResult> {
   const sender = getSenderAddress(emailType, fromName);
+  const normalizedRecipients = recipients.map((recipient) => ({
+    ...recipient,
+    to: normalizeRuntimeRecipientEmail(recipient.to),
+  }));
+
+  if (normalizedRecipients.some((recipient) => !recipient.to)) {
+    return {
+      success: false,
+      error: 'Invalid email address',
+    };
+  }
+
+  const validRecipients = normalizedRecipients as Array<{
+    to: string;
+    toName?: string;
+    mergeInfo: Record<string, string>;
+  }>;
 
   // Validate all emails
-  const invalidEmails = recipients.filter((r) => !isValidEmail(r.to));
+  const invalidEmails = validRecipients.filter((r) => !isValidEmail(r.to));
   if (invalidEmails.length > 0) {
     await insertEmailAttempts(
       invalidEmails.map((recipient) =>
@@ -848,7 +865,7 @@ export async function sendBatchEmailWithTemplate({
   let lastError: { message: string; code?: string; details?: unknown } | null =
     null;
   const auditIds = await insertEmailAttempts(
-    recipients.map((recipient) =>
+    validRecipients.map((recipient) =>
       createAuditAttempt({
         transportType: 'batch_template',
         emailType,
@@ -870,7 +887,7 @@ export async function sendBatchEmailWithTemplate({
         {
           template_key: templateKey,
           from: sender,
-          to: recipients.map((r) => ({
+          to: validRecipients.map((r) => ({
             email_address: {
               address: r.to,
               name: r.toName || r.to,

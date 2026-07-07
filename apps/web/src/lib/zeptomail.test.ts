@@ -318,6 +318,27 @@ describe('zeptomail audit logging', () => {
     });
   });
 
+  it('rejects missing runtime batch recipients without writing invalid audit rows', async () => {
+    const { sendBatchEmailWithTemplate } = await import('./zeptomail');
+
+    const result = await sendBatchEmailWithTemplate({
+      templateKey: 'newsletter-template',
+      recipients: [
+        {
+          to: null as unknown as string,
+          toName: 'Missing',
+          mergeInfo: { name: 'Missing' },
+        },
+      ],
+    });
+
+    expect(mailBatchWithTemplateMock).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Invalid email address');
+    expect(auditState.inserts).toHaveLength(0);
+    expect(auditState.updates).toHaveLength(0);
+  });
+
   it('logs one batch attempt row per recipient', async () => {
     mailBatchWithTemplateMock.mockResolvedValue({ request_id: 'batch-789' });
     const { sendBatchEmailWithTemplate } = await import('./zeptomail');
