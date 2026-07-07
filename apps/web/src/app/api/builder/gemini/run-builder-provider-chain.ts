@@ -11,6 +11,7 @@ import {
   BUILDER_CONFIG_SHAPE_ERROR_NAME,
   BUILDER_GEMINI_RETRY_CONFIG,
   isBuilderConfigShapeError,
+  isBuilderGeminiQuotaError,
 } from './route-provider-errors';
 
 // Generate one builder-config draft from a single provider using
@@ -187,14 +188,17 @@ export async function runBuilderProviderChain({
       // Every RELIABLE provider — including the PRIMARY — keeps a transient
       // retry: a flaky 5xx/network blip retries once before the fallback is
       // spent, preserving the pre-chain availability behavior for keyless
-      // (Gemini-only) deployments. `attemptSignal` is threaded through so the
-      // retry is skipped the moment THIS provider's own budget timeout (or the
-      // route deadline) fires — a budget-exhausted provider falls straight to
-      // the next link instead of paying an idle backoff on an already-dead
-      // signal. The opportunistic tail is best-effort and is not retried (it is
-      // usually 429-contended anyway).
+      // (Gemini-only) deployments. `signal` is threaded through so the retry is
+      // skipped the moment THIS provider's own budget timeout (or the route
+      // deadline) fires, and quota/rate-limit errors are classified
+      // non-retryable so an already-exhausted free pool falls straight to the
+      // next link instead of paying an idle backoff + extra upstream call. The
+      // opportunistic tail is best-effort and is not retried.
       return await (isReliable
-        ? withRetry(attempt, BUILDER_GEMINI_RETRY_CONFIG, attemptSignal)
+        ? withRetry(attempt, BUILDER_GEMINI_RETRY_CONFIG, {
+            signal: attemptSignal,
+            isNonRetryable: isBuilderGeminiQuotaError,
+          })
         : attempt());
     } catch (error) {
       lastError = error;

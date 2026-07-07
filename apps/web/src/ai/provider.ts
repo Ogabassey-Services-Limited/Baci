@@ -149,23 +149,38 @@ export const AI_RETRY_CONFIG = {
   backoffMultiplier: 2,
 };
 
-function isAbortLikeError(error: Error): boolean {
-  return error.name === 'AbortError' || error.name === 'TimeoutError';
+export interface WithRetryOptions {
+  /**
+   * The AbortSignal the operation runs under. When it aborts (deadline,
+   * per-attempt budget timeout, or cancellation) the retry is skipped — the
+   * operation reuses this signal, so a retry is doomed and only burns backoff.
+   * NOTE: this keys off the signal, not the error name — a standalone
+   * TimeoutError from a caller that passed no signal is a transient failure
+   * that SHOULD still retry.
+   */
+  signal?: AbortSignal;
+  /**
+   * Extra caller-specific classifier for errors that must NOT be retried (e.g.
+   * quota / rate-limit failures a short backoff can't clear). Checked in
+   * addition to the built-in non-retryable keyword list.
+   */
+  isNonRetryable?: (error: Error) => boolean;
 }
 
 /**
  * Wrapper for AI calls with retry logic.
  *
- * Pass `signal` (the same AbortSignal the operation runs under) so a retry is
- * skipped once that signal aborts — a deadline, per-attempt budget timeout, or
- * cancellation. Retrying a doomed, already-aborted operation only burns backoff
- * time out of the caller's remaining budget.
+ * Pass `options.signal` (the same AbortSignal the operation runs under) so a
+ * retry is skipped once that signal aborts. Pass `options.isNonRetryable` to
+ * fail fast on provider-specific terminal errors (e.g. quota) instead of
+ * wasting a retry.
  */
 export async function withRetry<T>(
   operation: () => Promise<T>,
   config = AI_RETRY_CONFIG,
-  signal?: AbortSignal
+  options: WithRetryOptions = {}
 ): Promise<T> {
+  const { signal, isNonRetryable } = options;
   let lastError: Error | null = null;
   let delay = config.initialDelayMs;
 
@@ -175,11 +190,17 @@ export async function withRetry<T>(
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
 
-      // Never retry once the operation's signal has aborted (deadline,
+      // Never retry once the operation's own signal has aborted (deadline,
       // per-attempt budget timeout, or cancellation): `operation` reuses that
-      // same signal, so the retry is doomed and only wastes backoff time. Also
-      // covers abort/timeout-typed errors for callers that don't pass a signal.
-      if (signal?.aborted || isAbortLikeError(lastError)) {
+      // signal, so the retry is doomed and only wastes backoff time.
+      if (signal?.aborted) {
+        throw lastError;
+      }
+
+      // Caller-classified terminal errors (e.g. quota/rate-limit) — a short
+      // backoff can't clear them, so fail fast instead of burning a retry and
+      // an extra upstream call on an already-exhausted provider.
+      if (isNonRetryable?.(lastError)) {
         throw lastError;
       }
 

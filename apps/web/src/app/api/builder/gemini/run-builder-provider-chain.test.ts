@@ -74,12 +74,16 @@ describe('runBuilderProviderChain', () => {
     expect(result.content).toHaveLength(1);
     // The PRIMARY (not just the last fallback) is retry-wrapped...
     expect(withRetry).toHaveBeenCalledTimes(1);
-    // ...and the attempt's own AbortSignal is threaded through so withRetry can
-    // skip a doomed retry the moment that signal (budget/route deadline) fires.
+    // ...and the attempt's own AbortSignal + a quota classifier are threaded in
+    // so withRetry can skip a doomed retry the moment that signal (budget/route
+    // deadline) fires, and fail fast on an exhausted free pool.
     expect(withRetry).toHaveBeenCalledWith(
       expect.any(Function),
       expect.anything(),
-      expect.any(AbortSignal)
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        isNonRetryable: expect.any(Function),
+      })
     );
   });
 
