@@ -95,10 +95,112 @@ test('keeps full affected tests when mobile storefront test setup changes', () =
 });
 
 test('keeps full affected tests when CI test planning changes', () => {
+  assert.deepEqual(
+    resolveCiTestPlan({
+      baseRef: 'origin/main',
+      changedFiles: ['.github/scripts/resolve-ci-test-plan-config.mjs'],
+      eventName: 'pull_request',
+    }),
+    {
+      mode: 'full-affected',
+      reason:
+        'Shared, package, CI, or test setup changes require the full affected test path.',
+      command: 'pnpm turbo run test --concurrency=3 --log-order=stream',
+    }
+  );
+});
+
+test('uses config smoke tests when turbo build env only adds allowlist entries', () => {
+  assert.deepEqual(
+    resolveCiTestPlan({
+      baseRef: 'origin/main',
+      changedFileContents: {
+        'turbo.json': {
+          before: {
+            tasks: {
+              build: {
+                env: ['NEXT_PUBLIC_SUPABASE_URL'],
+                outputs: ['dist/**'],
+              },
+            },
+          },
+          after: {
+            tasks: {
+              build: {
+                env: ['NEXT_PUBLIC_SUPABASE_URL', 'GIGL_EMAIL'],
+                outputs: ['dist/**'],
+              },
+            },
+          },
+        },
+      },
+      changedFiles: ['turbo.json'],
+      eventName: 'pull_request',
+    }),
+    {
+      mode: 'config-smoke',
+      reason:
+        'Pull request changes only add Turbo build environment allowlist entries.',
+      command:
+        'pnpm exec biome check turbo.json .github/scripts/resolve-ci-test-plan.mjs .github/scripts/resolve-ci-test-plan.test.mjs .github/scripts/resolve-ci-test-plan-config.mjs .github/scripts/resolve-ci-test-plan-config.test.mjs && node --test .github/scripts/resolve-ci-test-plan.test.mjs .github/scripts/resolve-ci-test-plan-config.test.mjs',
+    }
+  );
+});
+
+test('keeps full affected tests when turbo build env removes allowlist entries', () => {
   assert.equal(
     resolveCiTestPlan({
       baseRef: 'origin/main',
-      changedFiles: ['.github/workflows/ci.yml'],
+      changedFileContents: {
+        'turbo.json': {
+          before: {
+            tasks: {
+              build: {
+                env: ['NEXT_PUBLIC_SUPABASE_URL', 'GIGL_EMAIL'],
+              },
+            },
+          },
+          after: {
+            tasks: {
+              build: {
+                env: ['NEXT_PUBLIC_SUPABASE_URL'],
+              },
+            },
+          },
+        },
+      },
+      changedFiles: ['turbo.json'],
+      eventName: 'pull_request',
+    }).mode,
+    'full-affected'
+  );
+});
+
+test('keeps full affected tests when turbo build task changes outside env', () => {
+  assert.equal(
+    resolveCiTestPlan({
+      baseRef: 'origin/main',
+      changedFileContents: {
+        'turbo.json': {
+          before: {
+            tasks: {
+              build: {
+                env: ['NEXT_PUBLIC_SUPABASE_URL'],
+                outputs: ['dist/**'],
+              },
+            },
+          },
+          after: {
+            tasks: {
+              build: {
+                env: ['NEXT_PUBLIC_SUPABASE_URL', 'GIGL_EMAIL'],
+                outputs: ['dist/**', '.next/**'],
+              },
+            },
+          },
+        },
+      },
+      changedFiles: ['turbo.json'],
       eventName: 'pull_request',
     }).mode,
     'full-affected'

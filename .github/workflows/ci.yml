@@ -32,6 +32,8 @@ jobs:
     outputs:
       mobile_admin: ${{ steps.gate.outputs.mobile_admin }}
       mobile_storefront: ${{ steps.gate.outputs.mobile_storefront }}
+      test_plan_mode: ${{ steps.test-plan.outputs.mode }}
+      test_plan_reason: ${{ steps.test-plan.outputs.reason }}
       web: ${{ steps.gate.outputs.web }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -53,6 +55,8 @@ jobs:
               - '.github/actions/pnpm-install-cached/**'
               - '.github/actions/setup-pnpm-store/**'
               - '.github/scripts/resolve-ci-test-plan.mjs'
+              - '.github/scripts/resolve-ci-test-plan-config.mjs'
+              - '.github/scripts/resolve-ci-test-plan-config.test.mjs'
               - '.github/scripts/resolve-ci-test-plan.test.mjs'
               - '.github/workflows/ci.yml'
               - 'package.json'
@@ -111,6 +115,8 @@ jobs:
               - '.github/actions/pnpm-install-cached/**'
               - '.github/actions/setup-pnpm-store/**'
               - '.github/scripts/resolve-ci-test-plan.mjs'
+              - '.github/scripts/resolve-ci-test-plan-config.mjs'
+              - '.github/scripts/resolve-ci-test-plan-config.test.mjs'
               - '.github/scripts/resolve-ci-test-plan.test.mjs'
               - '.github/workflows/ci.yml'
               - 'package.json'
@@ -143,11 +149,16 @@ jobs:
             echo "mobile_storefront=$mobile_storefront"
             echo "web=$web"
           } >> "$GITHUB_OUTPUT"
+      - name: Resolve test plan
+        id: test-plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: node .github/scripts/resolve-ci-test-plan.mjs --event "$EVENT_NAME" --base "$TURBO_SCM_BASE"
 
   quality-lint:
     name: Quality Gate - Lint
     needs: [changes]
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' && needs.changes.outputs.test_plan_mode != 'config-smoke'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -171,7 +182,7 @@ jobs:
   quality-typecheck:
     name: Quality Gate - Typecheck
     needs: [changes]
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' && needs.changes.outputs.test_plan_mode != 'config-smoke'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -222,6 +233,13 @@ jobs:
           TEST_PLAN_MODE: ${{ steps.test-plan.outputs.mode }}
           TEST_PLAN_REASON: ${{ steps.test-plan.outputs.reason }}
         run: |
+          if [ "$TEST_PLAN_MODE" = "config-smoke" ]; then
+            echo "$TEST_PLAN_REASON"
+            pnpm exec biome check turbo.json .github/scripts/resolve-ci-test-plan.mjs .github/scripts/resolve-ci-test-plan.test.mjs .github/scripts/resolve-ci-test-plan-config.mjs .github/scripts/resolve-ci-test-plan-config.test.mjs
+            node --test .github/scripts/resolve-ci-test-plan.test.mjs .github/scripts/resolve-ci-test-plan-config.test.mjs
+            exit 0
+          fi
+
           if [ "$TEST_PLAN_MODE" = "targeted-web-vitest" ]; then
             echo "$TEST_PLAN_REASON"
             pnpm --filter @baci/web exec vitest run --changed "$TURBO_SCM_BASE" --passWithNoTests
@@ -254,7 +272,7 @@ jobs:
   quality-misc:
     name: Quality Gate - Misc
     needs: [changes]
-    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.mobile_storefront == 'true'
+    if: (needs.changes.outputs.web == 'true' || needs.changes.outputs.mobile_storefront == 'true') && needs.changes.outputs.test_plan_mode != 'config-smoke'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -264,6 +282,9 @@ jobs:
           filter: blob:none
           persist-credentials: false
       - uses: ./.github/actions/pnpm-install-cached
+      - name: Run CI Test Planner Unit Tests
+        if: needs.changes.outputs.web == 'true'
+        run: node --test .github/scripts/resolve-ci-test-plan.test.mjs .github/scripts/resolve-ci-test-plan-config.test.mjs
       - name: Verify Quiz Assets
         if: needs.changes.outputs.web == 'true'
         run: pnpm --filter @baci/web verify:quiz-assets
@@ -353,23 +374,23 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - if: needs.changes.outputs.mobile_admin == 'true'
+      - if: needs.changes.outputs.mobile_admin == 'true' && needs.changes.outputs.test_plan_mode != 'config-smoke'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           filter: blob:none
           persist-credentials: false
-      - if: needs.changes.outputs.mobile_admin == 'true'
+      - if: needs.changes.outputs.mobile_admin == 'true' && needs.changes.outputs.test_plan_mode != 'config-smoke'
         uses: ./.github/actions/pnpm-install-cached
-      - if: needs.changes.outputs.mobile_admin == 'true'
+      - if: needs.changes.outputs.mobile_admin == 'true' && needs.changes.outputs.test_plan_mode != 'config-smoke'
         run: pnpm --dir apps/mobile-admin exec vitest run scripts/check-platform-drift.test.ts
-      - if: needs.changes.outputs.mobile_admin == 'true'
+      - if: needs.changes.outputs.mobile_admin == 'true' && needs.changes.outputs.test_plan_mode != 'config-smoke'
         run: pnpm --dir apps/mobile-admin exec vitest run scripts/check-module-size.test.ts
-      - if: needs.changes.outputs.mobile_admin == 'true'
+      - if: needs.changes.outputs.mobile_admin == 'true' && needs.changes.outputs.test_plan_mode != 'config-smoke'
         run: pnpm --dir apps/mobile-admin check:platform-drift
-      - if: needs.changes.outputs.mobile_admin == 'true'
+      - if: needs.changes.outputs.mobile_admin == 'true' && needs.changes.outputs.test_plan_mode != 'config-smoke'
         run: pnpm --dir apps/mobile-admin check:module-size
-      - if: needs.changes.outputs.mobile_admin != 'true'
+      - if: needs.changes.outputs.mobile_admin != 'true' || needs.changes.outputs.test_plan_mode == 'config-smoke'
         run: echo "No mobile-admin changes — skipping mobile guardrail checks"
 
   build:
@@ -378,17 +399,17 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - if: needs.changes.outputs.web == 'true'
+      - if: needs.changes.outputs.web == 'true' && needs.changes.outputs.test_plan_mode != 'config-smoke'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           filter: blob:none
           persist-credentials: false
-      - if: needs.changes.outputs.web == 'true'
+      - if: needs.changes.outputs.web == 'true' && needs.changes.outputs.test_plan_mode != 'config-smoke'
         uses: ./.github/actions/pnpm-install-cached
       - id: next-cache
         name: Restore Next.js build cache
-        if: needs.changes.outputs.web == 'true'
+        if: needs.changes.outputs.web == 'true' && needs.changes.outputs.test_plan_mode != 'config-smoke'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ github.workspace }}/apps/web/.next/cache
@@ -396,7 +417,7 @@ jobs:
           restore-keys: |
             nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
             nextjs-${{ runner.os }}-
-      - if: needs.changes.outputs.web == 'true'
+      - if: needs.changes.outputs.web == 'true' && needs.changes.outputs.test_plan_mode != 'config-smoke'
         run: pnpm turbo build --filter=@baci/web
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -409,6 +430,7 @@ jobs:
       - name: Save Next.js build cache (main branch only)
         if: >
           needs.changes.outputs.web == 'true' &&
+          needs.changes.outputs.test_plan_mode != 'config-smoke' &&
           github.ref == 'refs/heads/main' &&
           github.event_name == 'push' &&
           steps.next-cache.outputs.cache-hit != 'true'
@@ -416,5 +438,5 @@ jobs:
         with:
           path: ${{ github.workspace }}/apps/web/.next/cache
           key: ${{ steps.next-cache.outputs.cache-primary-key }}
-      - if: needs.changes.outputs.web != 'true'
+      - if: needs.changes.outputs.web != 'true' || needs.changes.outputs.test_plan_mode == 'config-smoke'
         run: echo "No web changes — skipping build"
