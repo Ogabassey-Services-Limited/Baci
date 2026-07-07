@@ -7,8 +7,9 @@ on:
     paths:
       - 'apps/mobile-storefront/**'
       - 'packages/shared/**'
-      - '.github/workflows/ios-storefront-release.yml'
-      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+      - '.npmrc'
     tags:
       - 'v*-storefront-ios'
   workflow_dispatch:
