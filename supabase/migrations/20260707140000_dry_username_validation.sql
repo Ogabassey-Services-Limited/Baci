@@ -74,9 +74,17 @@ AS $$
 DECLARE
   v_norm text := pg_catalog.lower(pg_catalog.btrim(NEW.username));
 BEGIN
-  -- Same shared predicate as the setter. The trigger's WHEN clause guarantees
-  -- NEW.username IS NOT NULL here.
-  IF NOT public.is_valid_username_format(NEW.username) THEN
+  -- The 20260707120000 migration recreated this trigger WITHOUT a
+  -- `WHEN (NEW.username IS NOT NULL)` clause (to also guard direct table
+  -- writes), so it now fires on EVERY customer INSERT/UPDATE OF username —
+  -- including inserts that omit username (auth/order-created customers before
+  -- they choose a handle). NULL must pass through untouched; only a NON-NULL
+  -- value is format-validated. (is_valid_username_format returns FALSE for NULL,
+  -- so without this guard a NULL insert would wrongly raise and break customer
+  -- creation.)
+  IF NEW.username IS NOT NULL
+    AND NOT public.is_valid_username_format(NEW.username)
+  THEN
     RAISE EXCEPTION 'invalid_username' USING ERRCODE = '22023';
   END IF;
 
