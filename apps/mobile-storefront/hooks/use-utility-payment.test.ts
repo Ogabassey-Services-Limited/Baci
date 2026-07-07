@@ -117,6 +117,39 @@ describe('useUtilityPayment', () => {
     expect(result.current.supportedGateways).toEqual(['paystack', 'korapay']);
   });
 
+  it('exposes canFundByBankTransfer when authed and the merchant DVA is enabled', async () => {
+    mockUseMerchantPaymentSettings.mockReturnValue({
+      data: {
+        paystack_enabled: true,
+        korapay_enabled: true,
+        wallet_paystack_dva_enabled: true,
+      },
+    });
+
+    const { result } = renderHook(() => useUtilityPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCards).toBe(false);
+    });
+
+    expect(result.current.canFundByBankTransfer).toBe(true);
+  });
+
+  it('does not expose canFundByBankTransfer when the merchant DVA is disabled', async () => {
+    // beforeEach mocks paystack/korapay enabled without wallet DVA.
+    const { result } = renderHook(() => useUtilityPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCards).toBe(false);
+    });
+
+    expect(result.current.canFundByBankTransfer).toBe(false);
+  });
+
   it('never offers bank_transfer as a VTU gateway even when the merchant enables it', async () => {
     mockUseMerchantPaymentSettings.mockReturnValue({
       data: {

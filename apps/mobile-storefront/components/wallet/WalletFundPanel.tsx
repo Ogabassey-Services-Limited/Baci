@@ -21,6 +21,8 @@ const BANK_TRANSFER_TITLE = 'Add Money';
 const BANK_TRANSFER_SUBTITLE =
   'Transfer to your account number below and your wallet is credited automatically — 1% fee, capped at ₦300.';
 const SETTING_UP_ACCOUNT = 'Setting up your account number...';
+const SETUP_FAILED =
+  "We couldn't set up your account number just now. Fund with card below, or try bank transfer again later.";
 const CARD_TOGGLE_LABEL = 'Fund with card instead';
 const CARD_SUBTITLE = 'Enter the amount you want to add to your wallet.';
 
@@ -34,7 +36,9 @@ interface WalletFundPanelProps {
   isFundPending: boolean;
   onChangeFundAmount: (value: string) => void;
   onConfirmFund: () => void;
-  onCreateFundingAccount: () => void;
+  // Returns a boolean success flag when awaited (false = creation failed);
+  // typed as unknown so a plain `() => void` handler is still accepted.
+  onCreateFundingAccount: () => unknown;
   onResetFund: () => void;
 }
 
@@ -55,26 +59,38 @@ export function WalletFundPanel({
   // returnTo) are explicit card/gateway funding intents — start expanded.
   const [showCardEntry, setShowCardEntry] = useState(fundAmount !== '');
   const [autoCreateAttempted, setAutoCreateAttempted] = useState(false);
+  const [autoCreateFailed, setAutoCreateFailed] = useState(false);
   const { copyToClipboard, feedback: copyFeedback } = useCopyToClipboard();
 
-  // Opening Add Money IS a funding intent, so it doubles as consent:
-  // provision the account number immediately when none exists yet.
+  // Opening Add Money with NO prefilled amount is a bank-transfer funding
+  // intent, so it doubles as consent: provision the account number once.
+  // Prefilled amounts (savings top-up, checkout returnTo) are explicit
+  // card/gateway intents — never silently provision a DVA for those.
   useEffect(() => {
     if (
       autoCreateAttempted ||
       fundingAccount ||
       !canCreateFundingAccount ||
-      isCreatingFundingAccount
+      isCreatingFundingAccount ||
+      fundAmount !== ''
     ) {
       return;
     }
     setAutoCreateAttempted(true);
-    onCreateFundingAccount();
+    void (async () => {
+      const created = await onCreateFundingAccount();
+      // A false result means creation failed (DVA conflict, transient
+      // error) — fall back to card entry instead of an endless spinner.
+      if (created === false) {
+        setAutoCreateFailed(true);
+      }
+    })();
   });
 
   const bankTransferUnavailable =
     !fundingAccount && !canCreateFundingAccount && !isCreatingFundingAccount;
-  const cardEntryVisible = showCardEntry || bankTransferUnavailable;
+  const cardEntryVisible =
+    showCardEntry || bankTransferUnavailable || autoCreateFailed;
 
   return (
     <Animated.View
@@ -133,6 +149,15 @@ export function WalletFundPanel({
             </Text>
           ) : null}
         </>
+      ) : autoCreateFailed ? (
+        <Text
+          style={[
+            walletStyles.redeemPanelSubtitle,
+            { color: colors.textSecondary },
+          ]}
+        >
+          {SETUP_FAILED}
+        </Text>
       ) : isCreatingFundingAccount || canCreateFundingAccount ? (
         <View style={styles.settingUpRow}>
           <ActivityIndicator color={colors.primary} size="small" />

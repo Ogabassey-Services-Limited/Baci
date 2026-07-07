@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,13 +12,12 @@ import type { UtilityPaymentGateway } from '@/hooks/use-utility-payment';
 import type { SavedVtuCard } from '@/lib/vtu-checkout';
 import type { WalletSelection } from '@/lib/wallet-payment-helpers';
 import { UtilityPaystackTrustBadge } from './UtilityPaystackTrustBadge';
-
-const WALLET_FUNDING_NUDGE =
-  'Pay from your wallet to skip card fees — transfers to your wallet account number cost 1%, capped at ₦300.';
-const WALLET_FUNDING_CTA = 'Pay with Bank Transfer';
+import { UtilityWalletTransferNudge } from './UtilityWalletTransferNudge';
 
 interface UtilityPaymentOptionsProps {
   amount: number;
+  /** Signed-in customer of a merchant with wallet DVAs enabled. */
+  canFundByBankTransfer?: boolean;
   cards: SavedVtuCard[];
   isLoadingCards: boolean;
   onSelectGateway: (gateway: UtilityPaymentGateway) => void;
@@ -43,6 +41,7 @@ interface UtilityPaymentOptionsProps {
 
 export function UtilityPaymentOptions({
   amount,
+  canFundByBankTransfer = false,
   cards,
   isLoadingCards,
   onSelectGateway,
@@ -68,12 +67,6 @@ export function UtilityPaymentOptions({
   const hasPaystackOption =
     cards.length > 0 ||
     supportedGateways.some((gateway) => gateway === 'paystack');
-  const showWalletFundingNudge =
-    Boolean(onWalletToggle) &&
-    walletIsLoading !== true &&
-    !walletError &&
-    amount > 0 &&
-    (walletBalance ?? 0) < amount;
 
   return (
     <View style={styles.container}>
@@ -87,33 +80,15 @@ export function UtilityPaymentOptions({
         />
       ) : null}
 
-      {showWalletFundingNudge ? (
-        <View
-          style={[
-            styles.walletNudge,
-            {
-              backgroundColor: `${BRAND.primary}10`,
-              borderColor: `${BRAND.primary}30`,
-            },
-          ]}
-        >
-          <Text style={[styles.walletNudgeText, { color: colors.text }]}>
-            {WALLET_FUNDING_NUDGE}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={WALLET_FUNDING_CTA}
-            onPress={() =>
-              router.push({
-                pathname: '/wallet',
-                params: { action: 'bank-transfer' },
-              })
-            }
-          >
-            <Text style={styles.walletNudgeCta}>{WALLET_FUNDING_CTA}</Text>
-          </Pressable>
-        </View>
-      ) : null}
+      <UtilityWalletTransferNudge
+        amount={amount}
+        canFundByBankTransfer={canFundByBankTransfer}
+        colors={colors}
+        hasWalletToggle={Boolean(onWalletToggle)}
+        walletBalance={walletBalance}
+        walletError={walletError}
+        walletIsLoading={walletIsLoading}
+      />
 
       {isLoadingCards ? (
         <ActivityIndicator color={BRAND.primary} style={styles.loader} />
@@ -281,21 +256,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 12,
-  },
-  walletNudge: {
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-    marginBottom: SPACING.md,
-    padding: SPACING.md,
-  },
-  walletNudgeCta: {
-    color: BRAND.primary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  walletNudgeText: {
-    fontSize: 13,
-    lineHeight: 18,
   },
 });

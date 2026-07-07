@@ -1,5 +1,10 @@
 import { jest } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 import { WalletFundPanel } from '@/components/wallet/WalletFundPanel';
 import type { WalletDisplayFundingAccount } from '@/components/wallet/wallet.types';
 import Colors from '@/constants/Colors';
@@ -95,6 +100,29 @@ describe('WalletFundPanel', () => {
 
     expect(props.onCreateFundingAccount).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/setting up your account number/i)).toBeTruthy();
+  });
+
+  it('does not auto-create a DVA when opened with a prefilled amount (card intent)', () => {
+    const props = renderPanel({ fundingAccount: null, fundAmount: '1000' });
+
+    // Savings top-up / checkout returnTo flows are card/gateway intents.
+    expect(props.onCreateFundingAccount).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Wallet top-up amount')).toBeTruthy();
+  });
+
+  it('falls back to card entry when auto-create fails instead of spinning forever', async () => {
+    renderPanel({
+      fundingAccount: null,
+      onCreateFundingAccount: jest.fn(async () => false),
+    });
+
+    expect(
+      await screen.findByText(/couldn't set up your account number/i)
+    ).toBeTruthy();
+    expect(screen.getByLabelText('Wallet top-up amount')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByText(/setting up your account number/i)).toBeNull();
+    });
   });
 
   it('falls back to card entry with the unavailable message when accounts are disabled', () => {

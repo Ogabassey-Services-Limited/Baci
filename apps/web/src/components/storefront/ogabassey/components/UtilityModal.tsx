@@ -165,6 +165,7 @@ export const UtilityModal = ({
     setPayWithWallet,
     setWalletBalance,
     walletBalance,
+    walletDvaEnabled,
     walletLoading,
   } = useWallet({
     merchantSlug: merchant?.slug,
@@ -172,6 +173,10 @@ export const UtilityModal = ({
   });
   const [showFundingPanel, setShowFundingPanel] = useState(false);
   const canUseWallet = isAuthenticated && walletBalance > 0;
+  // Only offer bank-transfer funding when the merchant has wallet DVAs on —
+  // otherwise the CTA routes to a create-account flow that returns
+  // WALLET_DVA_DISABLED.
+  const canFundByBankTransfer = isAuthenticated && walletDvaEnabled;
   const selectedPaymentMethod: UtilityPaymentMethod =
     canUseWallet && payWithWallet ? 'wallet' : 'card';
 
@@ -185,6 +190,9 @@ export const UtilityModal = ({
     if (isOpen) {
       setActiveTab(initialTab);
       setStep('details');
+      // Collapse the funding panel so reopening never re-triggers DVA
+      // auto-create without a fresh "Pay with Bank Transfer" tap.
+      setShowFundingPanel(false);
     }
   }
 
@@ -352,7 +360,7 @@ export const UtilityModal = ({
                 canUseWallet={canUseWallet}
                 isLoading={loading}
                 onFundWallet={
-                  isAuthenticated
+                  canFundByBankTransfer
                     ? () => setShowFundingPanel((visible) => !visible)
                     : undefined
                 }
@@ -363,7 +371,7 @@ export const UtilityModal = ({
                 walletBalance={walletBalance}
                 walletLoading={walletLoading}
               />
-              {showFundingPanel && isAuthenticated ? (
+              {showFundingPanel && canFundByBankTransfer ? (
                 <div className="mt-3">
                   <WalletFundingPanel
                     account={fundingAccount}

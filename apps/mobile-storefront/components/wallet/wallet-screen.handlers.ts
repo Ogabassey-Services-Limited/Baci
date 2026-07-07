@@ -1,10 +1,11 @@
 import { VTU_MIN_REDEEMABLE_POINTS } from '@baci/shared/lib';
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
-import { initializeWalletTopUp } from '@/lib/wallet-top-up';
 import { createLogger } from '@/lib/logger';
+import { initializeWalletTopUp } from '@/lib/wallet-top-up';
 import { trackError, trackEvent } from '@/services/analytics';
 import { scheduleLocalNotification } from '@/services/push-notifications';
+import { WALLET_FUNDING_ACCOUNT_MESSAGES } from './wallet-funding-account.constants';
 import {
   buildWalletTopUpGatewayParams,
   getWalletCustomerName,
@@ -12,7 +13,6 @@ import {
   resolveWalletRedeemPointsOutcome,
   validateWalletTopUpAmount,
 } from './wallet-screen.helpers';
-import { WALLET_FUNDING_ACCOUNT_MESSAGES } from './wallet-funding-account.constants';
 
 const log = createLogger('Wallet');
 
@@ -75,13 +75,13 @@ export async function createWalletFundingAccount({
   isPaymentSettingsError,
   isPaymentSettingsPending,
   walletDvaEnabled,
-}: WalletFundingAccountHandlerParams): Promise<void> {
+}: WalletFundingAccountHandlerParams): Promise<boolean> {
   if (isPaymentSettingsPending) {
     Alert.alert(
       'Account number unavailable',
       WALLET_FUNDING_ACCOUNT_MESSAGES.AVAILABILITY_CHECKING
     );
-    return;
+    return false;
   }
 
   if (isPaymentSettingsError) {
@@ -89,7 +89,7 @@ export async function createWalletFundingAccount({
       'Account number unavailable',
       WALLET_FUNDING_ACCOUNT_MESSAGES.AVAILABILITY_ERROR
     );
-    return;
+    return false;
   }
 
   if (!walletDvaEnabled) {
@@ -97,7 +97,7 @@ export async function createWalletFundingAccount({
       'Account number unavailable',
       WALLET_FUNDING_ACCOUNT_MESSAGES.DVA_DISABLED
     );
-    return;
+    return false;
   }
 
   if (!customerPhone) {
@@ -105,7 +105,7 @@ export async function createWalletFundingAccount({
       'Phone number required',
       WALLET_FUNDING_ACCOUNT_MESSAGES.PHONE_REQUIRED
     );
-    return;
+    return false;
   }
 
   const outcome =
@@ -121,11 +121,12 @@ export async function createWalletFundingAccount({
       }
     );
     Alert.alert('Unable to create account number', outcome.alertMessage);
-    return;
+    return false;
   }
   if (outcome.accountSummary) {
     Alert.alert('Account Ready', outcome.accountSummary);
   }
+  return true;
 }
 
 export async function fundWallet({

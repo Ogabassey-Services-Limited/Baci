@@ -62,4 +62,5 @@ export interface StorefrontWallet {
   hasWallet?: boolean;
   fundingAccount?: StorefrontWalletFundingAccount | null;
   requiresFundingAccountConsent?: boolean;
+  walletDvaEnabled?: boolean;
 }

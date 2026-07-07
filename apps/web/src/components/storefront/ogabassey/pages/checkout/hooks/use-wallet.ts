@@ -16,6 +16,7 @@ interface UseWalletReturn {
   setWalletBalance: Dispatch<SetStateAction<number>>;
   fundingAccount: StorefrontWalletFundingAccount | null;
   requiresFundingAccountConsent: boolean;
+  walletDvaEnabled: boolean;
   setFundingAccount: (account: StorefrontWalletFundingAccount | null) => void;
   refreshWallet: () => void;
 }
@@ -28,6 +29,7 @@ export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWallet
     useState<StorefrontWalletFundingAccount | null>(null);
   const [requiresFundingAccountConsent, setRequiresFundingAccountConsent] =
     useState(false);
+  const [walletDvaEnabled, setWalletDvaEnabled] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
 
   useEffect(() => {
@@ -49,6 +51,7 @@ export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWallet
           setRequiresFundingAccountConsent(
             data.requiresFundingAccountConsent === true
           );
+          setWalletDvaEnabled(data.walletDvaEnabled === true);
           if (balance > 0) {
             setPayWithWallet(true);
           }
@@ -78,6 +81,7 @@ export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWallet
     setWalletBalance,
     fundingAccount,
     requiresFundingAccountConsent,
+    walletDvaEnabled,
     setFundingAccount: (account) => {
       setFundingAccount(account);
       setRequiresFundingAccountConsent(!account);

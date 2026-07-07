@@ -65,6 +65,9 @@ describe('GET /api/storefront/customer/wallet email fallback', () => {
 
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') return singleQuery({ id: 'merchant-1' });
+      if (table === 'merchant_feature_settings') {
+        return maybeSingleQuery({ wallet_paystack_dva_enabled: true });
+      }
       if (table === 'customers') {
         customerLookupCount += 1;
         if (customerLookupCount === 1) {

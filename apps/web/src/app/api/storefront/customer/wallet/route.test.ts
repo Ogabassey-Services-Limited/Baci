@@ -132,6 +132,9 @@ describe('GET /api/storefront/customer/wallet', () => {
   it('returns the expanded empty wallet contract when the customer is not linked yet', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') return singleQuery({ id: 'merchant-1' });
+      if (table === 'merchant_feature_settings') {
+        return maybeSingleQuery({ wallet_paystack_dva_enabled: true });
+      }
       if (table === 'customers') return singleQuery(null);
       throw new Error(`Unexpected table ${table}`);
     });
@@ -151,6 +154,7 @@ describe('GET /api/storefront/customer/wallet', () => {
       totalEarned: 0,
       totalRedeemed: 0,
       transactions: [],
+      walletDvaEnabled: true,
     });
   });
 
@@ -160,6 +164,9 @@ describe('GET /api/storefront/customer/wallet', () => {
       .mockImplementation(() => undefined);
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') return singleQuery({ id: 'merchant-1' });
+      if (table === 'merchant_feature_settings') {
+        return maybeSingleQuery({ wallet_paystack_dva_enabled: true });
+      }
       if (table === 'customers') {
         return singleQuery({
           id: 'customer-1',
@@ -195,6 +202,7 @@ describe('GET /api/storefront/customer/wallet', () => {
       fundingAccount: null,
       requiresFundingAccountConsent: true,
       savingsBalance: 0,
+      walletDvaEnabled: true,
     });
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'Customer wallet optional fetch failed',
@@ -216,6 +224,9 @@ describe('GET /api/storefront/customer/wallet', () => {
   it('returns wallet, savings, loyalty, transactions, and funding account summary', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') return singleQuery({ id: 'merchant-1' });
+      if (table === 'merchant_feature_settings') {
+        return maybeSingleQuery({ wallet_paystack_dva_enabled: true });
+      }
       if (table === 'customers') {
         return singleQuery({
           id: 'customer-1',
@@ -278,6 +289,7 @@ describe('GET /api/storefront/customer/wallet', () => {
       savingsBalance: 35000.5,
       totalEarned: 8000,
       totalRedeemed: 3000,
+      walletDvaEnabled: true,
     });
     expect(body.transactions).toHaveLength(1);
   });

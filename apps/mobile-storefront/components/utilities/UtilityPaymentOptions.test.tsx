@@ -239,10 +239,11 @@ describe('UtilityPaymentOptions', () => {
     expect(screen.queryByText(/2x cashback/i)).toBeNull();
   });
 
-  it('nudges the customer to fund their wallet when the balance cannot cover the bill', () => {
+  it('renders the bank-transfer nudge when eligible and the balance is short', () => {
     render(
       <UtilityPaymentOptions
         amount={1000}
+        canFundByBankTransfer={true}
         cards={[]}
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
@@ -258,43 +259,13 @@ describe('UtilityPaymentOptions', () => {
     expect(
       screen.getByText(/transfers to your wallet account number cost 1%/i)
     ).toBeTruthy();
-
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Pay with Bank Transfer' })
-    );
-
-    expect(mockRouterPush).toHaveBeenCalledWith({
-      pathname: '/wallet',
-      params: { action: 'bank-transfer' },
-    });
   });
 
-  it('hides the wallet funding nudge when the wallet already covers the bill', () => {
+  it('hides the bank-transfer nudge when the merchant has no wallet DVA (gated off)', () => {
     render(
       <UtilityPaymentOptions
         amount={1000}
-        cards={[]}
-        isLoadingCards={false}
-        onSelectGateway={mockOnSelectGateway}
-        onSelectSavedCard={mockOnSelectSavedCard}
-        selectedGateway="paystack"
-        selectedSavedCardId={null}
-        supportedGateways={['paystack', 'korapay']}
-        walletBalance={5000}
-        walletSelection={{ use: true, amount: 1000 }}
-        onWalletToggle={jest.fn()}
-      />
-    );
-
-    expect(
-      screen.queryByText(/transfers to your wallet account number/i)
-    ).toBeNull();
-  });
-
-  it('does not render the funding nudge when the screen has not opted into wallet payments', () => {
-    render(
-      <UtilityPaymentOptions
-        amount={1000}
+        canFundByBankTransfer={false}
         cards={[]}
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
@@ -303,6 +274,7 @@ describe('UtilityPaymentOptions', () => {
         selectedSavedCardId={null}
         supportedGateways={['paystack', 'korapay']}
         walletBalance={200}
+        onWalletToggle={jest.fn()}
       />
     );
 

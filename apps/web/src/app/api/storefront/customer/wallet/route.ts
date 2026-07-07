@@ -46,10 +46,12 @@ function emptyWalletResponse({
   fundingAccount = null,
   loyaltyPoints = 0,
   savingsBalance = 0,
+  walletDvaEnabled = false,
 }: {
   fundingAccount?: ReturnType<typeof formatFundingAccount>;
   loyaltyPoints?: number;
   savingsBalance?: number;
+  walletDvaEnabled?: boolean;
 } = {}) {
   return {
     balance: 0,
@@ -62,6 +64,7 @@ function emptyWalletResponse({
     totalEarned: 0,
     totalRedeemed: 0,
     transactions: [],
+    walletDvaEnabled,
   };
 }
 
@@ -170,6 +173,17 @@ export async function GET(request: Request) {
       );
     }
 
+    // Whether this merchant offers wallet bank-transfer (DVA) funding. Lets
+    // the client hide the "Pay with Bank Transfer" CTA when it would only
+    // route to a DVA_DISABLED dead end.
+    const { data: featureSettings } = await supabase
+      .from('merchant_feature_settings')
+      .select('wallet_paystack_dva_enabled')
+      .eq('merchant_id', merchant.id)
+      .maybeSingle();
+    const walletDvaEnabled =
+      featureSettings?.wallet_paystack_dva_enabled === true;
+
     // Get customer record for this user + merchant
     // Try by user_id first, then fallback to email (guest customers may not have user_id linked)
     let customer: CustomerWalletOwner | null = null;
@@ -202,7 +216,7 @@ export async function GET(request: Request) {
 
     if (!customer) {
       // Customer doesn't exist yet - return zero balance
-      return NextResponse.json(emptyWalletResponse());
+      return NextResponse.json(emptyWalletResponse({ walletDvaEnabled }));
     }
 
     const loyaltyPoints = toNumber(customer.loyalty_points);
@@ -245,6 +259,7 @@ export async function GET(request: Request) {
           fundingAccount,
           loyaltyPoints,
           savingsBalance,
+          walletDvaEnabled,
         })
       );
     }
@@ -267,6 +282,7 @@ export async function GET(request: Request) {
       totalEarned: toNumber(wallet.total_earned),
       totalRedeemed: toNumber(wallet.total_redeemed),
       transactions: transactions || [],
+      walletDvaEnabled,
       hasWallet: true,
     });
   } catch (error) {

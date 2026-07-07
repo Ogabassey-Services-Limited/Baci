@@ -179,6 +179,7 @@ describe('useWallet', () => {
         balance: 1500,
         fundingAccount,
         requiresFundingAccountConsent: false,
+        walletDvaEnabled: true,
       }),
     });
 
@@ -189,6 +190,7 @@ describe('useWallet', () => {
     await waitFor(() => {
       expect(result.current.fundingAccount).toEqual(fundingAccount);
       expect(result.current.requiresFundingAccountConsent).toBe(false);
+      expect(result.current.walletDvaEnabled).toBe(true);
     });
   });
 

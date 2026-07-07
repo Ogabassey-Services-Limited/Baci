@@ -175,7 +175,6 @@ export function WalletScreen({
     paddingBottom:
       presentation === 'tab' ? WALLET_TAB_SCROLL_PADDING_BOTTOM : SPACING.xl,
   });
-
   if (authLoading) {
     return <WalletScreenView colors={colors} presentation={presentation} />;
   }
@@ -240,7 +239,6 @@ export function WalletScreen({
       refetchWallet: refetch,
       setIsAddingSavingsContribution,
     });
-
   return (
     <WalletScreenView
       colors={colors}

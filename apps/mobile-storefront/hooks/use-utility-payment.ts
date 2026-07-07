@@ -40,6 +40,12 @@ export function useUtilityPayment(amount = 0) {
   // Rotated only after a definitive HTTP response (success or 4xx).
   const walletIdempotencyKeyRef = useRef<string | null>(null);
   const paymentSettings = useMerchantPaymentSettings();
+  // The bank-transfer funding nudge deep-links into DVA creation, so only
+  // offer it to signed-in customers of merchants that have wallet DVAs
+  // enabled — otherwise the CTA routes to a flow that returns DVA_DISABLED.
+  const canFundByBankTransfer =
+    isAuthenticated &&
+    paymentSettings.data?.wallet_paystack_dva_enabled === true;
   const wallet = useWallet();
   const walletBalance = wallet.data?.wallet.balance ?? 0;
   const walletError = wallet.error instanceof Error ? wallet.error : null;
@@ -91,6 +97,7 @@ export function useUtilityPayment(amount = 0) {
   }
 
   return {
+    canFundByBankTransfer,
     cards: savedCards ?? [],
     isLoadingCards,
     refetchCards,
