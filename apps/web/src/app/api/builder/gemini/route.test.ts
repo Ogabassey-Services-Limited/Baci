@@ -1,7 +1,6 @@
 import { generateObject } from 'ai';
 import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { withRetry } from '@/ai/provider';
 
 const mockCheckCsrfProtection = vi.fn();
 const mockGetAuthenticatedUser = vi.fn();
@@ -30,20 +29,19 @@ vi.mock('ai', () => ({
 }));
 
 vi.mock('@/ai/provider', () => ({
-  ACTIVE_TEXT_MODEL_NAME: 'gemini-3-flash-preview',
-  FALLBACK_TEXT_MODEL_NAME: 'gemini-3-flash-lite-preview',
   AI_RATE_LIMITS: {
     builder: { requests: 10, windowMs: 60 * 1000 },
   },
-  activeTextModel: {},
-  fallbackTextModel: {},
+  getCopilotTextProviderChain: vi.fn(() => [
+    { name: 'test:primary', model: {} },
+    { name: 'test:fallback', model: {} },
+  ]),
   checkRateLimit: vi.fn(() => ({
     allowed: true,
     remaining: 9,
     resetIn: 60 * 1000,
   })),
   sanitizePromptInput: vi.fn((prompt: string) => ({ value: prompt })),
-  withRetry: vi.fn(),
 }));
 
 describe('/api/builder/gemini route', () => {
@@ -149,9 +147,6 @@ describe('/api/builder/gemini route', () => {
       supabase: {},
     });
 
-    vi.mocked(withRetry).mockImplementation(
-      async (fn: () => Promise<unknown>) => fn()
-    );
     vi.mocked(generateObject).mockResolvedValue({
       object: {
         content: [{ type: 'Hero', props: { title: 'Updated hero' } }],
@@ -202,9 +197,6 @@ describe('/api/builder/gemini route', () => {
       supabase: {},
     });
 
-    vi.mocked(withRetry).mockImplementation(
-      async (fn: () => Promise<unknown>) => fn()
-    );
     vi.mocked(generateObject).mockResolvedValue({
       object: {
         content: [],

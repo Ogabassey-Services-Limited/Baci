@@ -2,14 +2,11 @@ import { generateObject } from 'ai';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import {
-  ACTIVE_TEXT_MODEL_NAME,
   AI_RATE_LIMITS,
-  activeTextModel,
+  type CopilotTextProvider,
   checkRateLimit,
-  FALLBACK_TEXT_MODEL_NAME,
-  fallbackTextModel,
+  getCopilotTextProviderChain,
   sanitizePromptInput,
-  withRetry,
 } from '@/ai/provider';
 import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
@@ -21,13 +18,18 @@ import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 import { builderConfigSchema } from '@/schemas/builder';
 import { BUILDER_GEMINI_SYSTEM_PROMPT } from '../gemini-system-prompt';
 import {
-  BUILDER_GEMINI_RETRY_CONFIG,
   type BuilderGeminiLogContext,
   getBuilderGeminiFailure,
-  isBuilderGeminiQuotaError,
   logBuilderGeminiError,
   runBuilderGeminiWithTimeout,
 } from './route-provider-errors';
+
+// Per-provider attempt budget. Every provider in the chain answers this task
+// in ~1-4s when healthy (measured 2026-07-07), so a provider that hasn't
+// responded in 10s is effectively down — abort it and fall through to the
+// next one instead of letting a hung upstream burn the whole route timeout.
+// The last provider is exempt and gets whatever remains of the global budget.
+const PER_PROVIDER_TIMEOUT_MS = 10_000;
 
 const PuckThemeColorsSchema = z
   .object({
@@ -170,10 +172,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid prompt' }, { status: 400 });
     }
 
+    const providerChain = getCopilotTextProviderChain();
+
     Object.assign(aiLogContext, {
       userId: user.id,
       merchantId: merchantContext.merchantId,
-      model: ACTIVE_TEXT_MODEL_NAME,
+      model: providerChain[0]?.name,
       promptLength: sanitizedPrompt.length,
       componentCount: currentConfig.content.length,
     });
@@ -191,9 +195,10 @@ Please return the complete updated configuration as valid JSON. Make intelligent
 
     // Thinking is disabled for latency: the copilot must respond within the
     // route timeout, and this structured config-edit task doesn't benefit
-    // from extended reasoning.
+    // from extended reasoning. providerOptions are namespaced — non-Google
+    // providers in the chain simply ignore the `google` entry.
     const generateBuilderConfig = (
-      model: typeof activeTextModel,
+      model: CopilotTextProvider['model'],
       abortSignal: AbortSignal
     ) =>
       generateObject({
@@ -207,30 +212,47 @@ Please return the complete updated configuration as valid JSON. Make intelligent
         },
       });
 
-    // Generate the updated config using Vercel AI SDK with retry logic
+    // Walk the provider chain (Cerebras → Groq → Gemini → Gemini-Lite when
+    // fully configured). ANY failure — quota, 5xx, network, per-provider
+    // timeout — falls through to the next provider; the chain itself is the
+    // retry, spread across independent infrastructures, so a single-provider
+    // outage or exhausted free pool never dead-ends the merchant.
     let updatedConfig: AiBuilderConfig;
     try {
-      const result = (await runBuilderGeminiWithTimeout((abortSignal) =>
-        withRetry(async () => {
+      const result = (await runBuilderGeminiWithTimeout(async (abortSignal) => {
+        let lastError: unknown;
+        for (const [index, provider] of providerChain.entries()) {
+          const isLastProvider = index === providerChain.length - 1;
+          aiLogContext.model = provider.name;
+          const attemptSignal = isLastProvider
+            ? abortSignal
+            : AbortSignal.any([
+                abortSignal,
+                AbortSignal.timeout(PER_PROVIDER_TIMEOUT_MS),
+              ]);
           try {
-            return await generateBuilderConfig(activeTextModel, abortSignal);
+            return await generateBuilderConfig(provider.model, attemptSignal);
           } catch (error) {
-            // Free-tier quota pools are per model: when the primary model's
-            // pool is exhausted, one flash-lite attempt keeps the copilot
-            // working instead of dead-ending the merchant with a 429.
-            if (!isBuilderGeminiQuotaError(error)) throw error;
+            lastError = error;
+            // The route-level timeout fired mid-attempt: stop the chain so
+            // the timeout maps to the usual failure response instead of
+            // burning it on providers that can no longer answer in time.
+            if (abortSignal.aborted) throw error;
             logBuilderGeminiError(
-              `Gemini AI Builder primary model quota exhausted; falling back to ${FALLBACK_TEXT_MODEL_NAME}:`,
+              `AI Builder provider ${provider.name} failed${
+                isLastProvider
+                  ? '; provider chain exhausted:'
+                  : '; falling back to the next provider:'
+              }`,
               error,
               requestId,
               aiLogContext,
-              'warn'
+              isLastProvider ? 'error' : 'warn'
             );
-            aiLogContext.model = FALLBACK_TEXT_MODEL_NAME;
-            return await generateBuilderConfig(fallbackTextModel, abortSignal);
           }
-        }, BUILDER_GEMINI_RETRY_CONFIG)
-      )) as { object: AiBuilderConfig };
+        }
+        throw lastError;
+      })) as { object: AiBuilderConfig };
       updatedConfig = result.object;
     } catch (error) {
       const failure = getBuilderGeminiFailure(error, requestId);
