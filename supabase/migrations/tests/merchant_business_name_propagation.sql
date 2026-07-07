@@ -90,7 +90,7 @@ BEGIN
 
   SELECT business_name INTO v_name FROM public.merchants WHERE id = v_mid;
   IF v_name <> 'Yodha shop' THEN
-    RAISE EXCEPTION 'normalization failed on INSERT: got "%%" (expected "Yodha shop")', v_name;
+    RAISE EXCEPTION 'normalization failed on INSERT: got "%" (expected "Yodha shop")', v_name;
   END IF;
 
   -- Reset to the baked name and attach a config for the propagation tests.
@@ -103,7 +103,7 @@ BEGIN
 
   SELECT business_name INTO v_name FROM public.merchants WHERE id = v_mid;
   IF v_name <> 'Zorvexa' THEN
-    RAISE EXCEPTION 'normalization failed on UPDATE: got "%%"', v_name;
+    RAISE EXCEPTION 'normalization failed on UPDATE: got "%"', v_name;
   END IF;
 
   SELECT
@@ -114,13 +114,13 @@ BEGIN
   FROM public.page_configs WHERE merchant_id = v_mid AND page_slug = 'home';
 
   IF v_store <> 'Zorvexa' THEN
-    RAISE EXCEPTION 'draft Header.storeName not propagated: got "%%"', v_store;
+    RAISE EXCEPTION 'draft Header.storeName not propagated: got "%"', v_store;
   END IF;
   IF v_hero <> 'Welcome to Zorvexa' THEN
-    RAISE EXCEPTION 'draft hero title not propagated: got "%%"', v_hero;
+    RAISE EXCEPTION 'draft hero title not propagated: got "%"', v_hero;
   END IF;
   IF v_pub <> 'Zorvexa' THEN
-    RAISE EXCEPTION 'published Header.storeName not propagated: got "%%"', v_pub;
+    RAISE EXCEPTION 'published Header.storeName not propagated: got "%"', v_pub;
   END IF;
 
   -- The second slide title (not "Welcome to <name>") must be preserved.
@@ -138,7 +138,7 @@ BEGIN
   SELECT updated_at INTO v_updated
   FROM public.page_configs WHERE merchant_id = v_mid AND page_slug = 'home';
   IF v_updated <= TIMESTAMPTZ '2021-01-01T00:00:00Z' THEN
-    RAISE EXCEPTION 'propagation did not bump page_configs.updated_at (still %%)', v_updated;
+    RAISE EXCEPTION 'propagation did not bump page_configs.updated_at (still %)', v_updated;
   END IF;
 
   -- ================= TEST 3: customized store name is preserved =================
@@ -154,7 +154,7 @@ BEGIN
   INTO v_store FROM public.page_configs WHERE merchant_id = v_mid2 AND page_slug = 'home';
 
   IF v_store <> 'My Custom Brand' THEN
-    RAISE EXCEPTION 'customized storeName must NOT change on rename: got "%%"', v_store;
+    RAISE EXCEPTION 'customized storeName must NOT change on rename: got "%"', v_store;
   END IF;
 
   -- ================= TEST 4: a content-less config survives a rename unchanged =================
@@ -176,7 +176,7 @@ BEGIN
     RAISE EXCEPTION 'content-less draft_config was wiped to NULL on rename';
   END IF;
   IF v_after IS DISTINCT FROM v_content_less THEN
-    RAISE EXCEPTION 'content-less draft_config was altered on rename: %%', v_after;
+    RAISE EXCEPTION 'content-less draft_config was altered on rename: %', v_after;
   END IF;
 
   RAISE NOTICE 'merchant_business_name_propagation: ALL ASSERTIONS PASSED';
