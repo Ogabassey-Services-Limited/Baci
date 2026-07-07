@@ -154,7 +154,8 @@ describe('GET /api/storefront/customer/wallet', () => {
       fundingAccount: null,
       hasWallet: false,
       loyaltyPoints: 0,
-      requiresFundingAccountConsent: true,
+      // No customer row -> creation would 404, so never advertise consent.
+      requiresFundingAccountConsent: false,
       savingsBalance: 0,
       totalEarned: 0,
       totalRedeemed: 0,

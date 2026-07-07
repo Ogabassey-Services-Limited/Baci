@@ -42,6 +42,7 @@ describe('OgabasseyV2Wallet', () => {
     mockUseCustomerAuth.mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
+      user: { id: 'user-1' },
     });
     mockUseMerchantSafe.mockReturnValue({ merchant: { slug: 'ogabassey' } });
     vi.stubGlobal(
@@ -147,5 +148,25 @@ describe('OgabasseyV2Wallet', () => {
     await waitFor(() => {
       expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it('drops the previous account number immediately on sign-out', async () => {
+    const { rerender } = render(<OgabasseyV2Wallet />);
+
+    // Existing DVA auto-shows for the signed-in customer.
+    expect(await screen.findByText('₦2,500.00')).toBeInTheDocument();
+    expect(screen.getByTestId('wallet-funding-panel')).toBeInTheDocument();
+
+    // Same-tab sign-out: the reusable account number must not linger.
+    mockUseCustomerAuth.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+      user: null,
+    });
+    rerender(<OgabasseyV2Wallet />);
+
+    expect(
+      screen.queryByTestId('wallet-funding-panel')
+    ).not.toBeInTheDocument();
   });
 });

@@ -27,7 +27,15 @@ export function useWalletFundPanelAutoCreate({
   isCreatingFundingAccount,
   onCreateFundingAccount,
 }: UseWalletFundPanelAutoCreateArgs) {
-  const [openedWithPrefill] = useState(fundAmount !== '');
+  // Latches the moment a prefilled amount is EVER seen — at mount, or later
+  // if a route action (`action=fund&requiredAmount=...`) sets it in place
+  // while the panel stays mounted. Once latched it never resets, so clearing
+  // the amount afterward can't flip a card intent back into auto-creating a
+  // DVA. React "adjusting state during render" pattern.
+  const [openedWithPrefill, setOpenedWithPrefill] = useState(fundAmount !== '');
+  if (fundAmount !== '' && !openedWithPrefill) {
+    setOpenedWithPrefill(true);
+  }
   const [autoCreateAttempted, setAutoCreateAttempted] = useState(false);
   const [autoCreateFailed, setAutoCreateFailed] = useState(false);
 

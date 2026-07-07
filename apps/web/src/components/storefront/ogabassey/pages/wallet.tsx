@@ -18,13 +18,26 @@ const NGN_CURRENCY_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat(
 );
 
 export function OgabasseyV2Wallet() {
-  const { isAuthenticated, isLoading: isAuthLoading } = useCustomerAuth();
+  const { isAuthenticated, isLoading: isAuthLoading, user } = useCustomerAuth();
   const { merchant } = useMerchantSafe() || {};
 
   const [wallet, setWallet] = useState<StorefrontWallet | null>(null);
   const [hasFetchSettled, setHasFetchSettled] = useState(false);
   const [showFunding, setShowFunding] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
+
+  // Signing out (or switching customer/storefront) must drop the previous
+  // wallet immediately — the auto-show rule below renders a reusable DVA
+  // account number, which can't linger for a different session.
+  const identity =
+    isAuthenticated && merchant?.slug ? `${user?.id ?? ''}:${merchant.slug}` : null;
+  const [fetchedIdentity, setFetchedIdentity] = useState<string | null>(null);
+  if (identity !== fetchedIdentity) {
+    setFetchedIdentity(identity);
+    setWallet(null);
+    setShowFunding(false);
+    setHasFetchSettled(false);
+  }
 
   useEffect(() => {
     if (!isAuthenticated || !merchant?.slug) {
@@ -43,7 +56,7 @@ export function OgabasseyV2Wallet() {
       .finally(() => {
         setHasFetchSettled(true);
       });
-  }, [isAuthenticated, merchant?.slug, refreshToken]);
+  }, [isAuthenticated, merchant?.slug, user?.id, refreshToken]);
 
   // Derived instead of setState-in-effect: show the spinner while auth is
   // resolving or while the first wallet fetch is in flight.

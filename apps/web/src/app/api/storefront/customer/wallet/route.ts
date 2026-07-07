@@ -45,11 +45,13 @@ function formatFundingAccount(row: WalletFundingAccountRow | null) {
 function emptyWalletResponse({
   fundingAccount = null,
   loyaltyPoints = 0,
+  requiresFundingAccountConsent,
   savingsBalance = 0,
   walletDvaEnabled = false,
 }: {
   fundingAccount?: ReturnType<typeof formatFundingAccount>;
   loyaltyPoints?: number;
+  requiresFundingAccountConsent?: boolean;
   savingsBalance?: number;
   walletDvaEnabled?: boolean;
 } = {}) {
@@ -59,7 +61,8 @@ function emptyWalletResponse({
     fundingAccount,
     hasWallet: false,
     loyaltyPoints,
-    requiresFundingAccountConsent: !fundingAccount,
+    requiresFundingAccountConsent:
+      requiresFundingAccountConsent ?? !fundingAccount,
     savingsBalance,
     totalEarned: 0,
     totalRedeemed: 0,
@@ -227,8 +230,15 @@ export async function GET(request: Request) {
     }
 
     if (!customer) {
-      // Customer doesn't exist yet - return zero balance
-      return NextResponse.json(emptyWalletResponse({ walletDvaEnabled }));
+      // Customer doesn't exist yet - return zero balance. No customer row
+      // means account creation would fail ("Customer not found"), so never
+      // advertise the funding consent CTA for this response.
+      return NextResponse.json(
+        emptyWalletResponse({
+          requiresFundingAccountConsent: false,
+          walletDvaEnabled,
+        })
+      );
     }
 
     const loyaltyPoints = toNumber(customer.loyalty_points);
