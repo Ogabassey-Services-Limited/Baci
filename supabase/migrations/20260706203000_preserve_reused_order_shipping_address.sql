@@ -1,6 +1,8 @@
 DROP FUNCTION IF EXISTS public.prepare_storefront_order_for_checkout(UUID, UUID, TEXT, TEXT, TEXT, TEXT, UUID);
+DROP FUNCTION IF EXISTS public.prepare_storefront_order_for_checkout(UUID, UUID, TEXT, TEXT, TEXT, TEXT, UUID, JSONB);
 
 DROP FUNCTION IF EXISTS private.prepare_storefront_order_for_checkout(UUID, UUID, TEXT, TEXT, TEXT, TEXT, UUID);
+DROP FUNCTION IF EXISTS private.prepare_storefront_order_for_checkout(UUID, UUID, TEXT, TEXT, TEXT, TEXT, UUID, JSONB);
 
 CREATE OR REPLACE FUNCTION private.prepare_storefront_order_for_checkout(
   p_order_id UUID,
@@ -10,7 +12,8 @@ CREATE OR REPLACE FUNCTION private.prepare_storefront_order_for_checkout(
   p_payment_method TEXT,
   p_shipping_provider TEXT DEFAULT NULL,
   p_selected_quote_id UUID DEFAULT NULL,
-  p_shipping_address JSONB DEFAULT NULL
+  p_shipping_address JSONB DEFAULT NULL,
+  p_has_selected_quote_id BOOLEAN DEFAULT FALSE
 )
 RETURNS TABLE (
   id UUID,
@@ -119,8 +122,14 @@ BEGIN
     payment_status = v_effective_payment_status,
     shipping_status = 'pending',
     shipping_address = COALESCE(p_shipping_address, o.shipping_address),
-    shipping_provider = COALESCE(p_shipping_provider, o.shipping_provider),
-    selected_quote_id = COALESCE(p_selected_quote_id, o.selected_quote_id),
+    shipping_provider = CASE
+      WHEN p_has_selected_quote_id THEN p_shipping_provider
+      ELSE COALESCE(p_shipping_provider, o.shipping_provider)
+    END,
+    selected_quote_id = CASE
+      WHEN p_has_selected_quote_id THEN p_selected_quote_id
+      ELSE COALESCE(p_selected_quote_id, o.selected_quote_id)
+    END,
     updated_at = now()
   WHERE o.id = p_order_id;
 
@@ -226,7 +235,8 @@ CREATE OR REPLACE FUNCTION public.prepare_storefront_order_for_checkout(
   p_payment_method TEXT,
   p_shipping_provider TEXT DEFAULT NULL,
   p_selected_quote_id UUID DEFAULT NULL,
-  p_shipping_address JSONB DEFAULT NULL
+  p_shipping_address JSONB DEFAULT NULL,
+  p_has_selected_quote_id BOOLEAN DEFAULT FALSE
 )
 RETURNS TABLE (
   id UUID,
@@ -253,15 +263,16 @@ BEGIN
     p_payment_method,
     p_shipping_provider,
     p_selected_quote_id,
-    p_shipping_address
+    p_shipping_address,
+    p_has_selected_quote_id
   );
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.prepare_storefront_order_for_checkout(UUID, UUID, TEXT, TEXT, TEXT, TEXT, UUID, JSONB) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.prepare_storefront_order_for_checkout(UUID, UUID, TEXT, TEXT, TEXT, TEXT, UUID, JSONB, BOOLEAN) FROM PUBLIC, anon, authenticated, service_role;
 
-GRANT EXECUTE ON FUNCTION public.prepare_storefront_order_for_checkout(UUID, UUID, TEXT, TEXT, TEXT, TEXT, UUID, JSONB) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.prepare_storefront_order_for_checkout(UUID, UUID, TEXT, TEXT, TEXT, TEXT, UUID, JSONB, BOOLEAN) TO anon, authenticated, service_role;
 
-REVOKE ALL ON FUNCTION private.prepare_storefront_order_for_checkout(UUID, UUID, TEXT, TEXT, TEXT, TEXT, UUID, JSONB) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION private.prepare_storefront_order_for_checkout(UUID, UUID, TEXT, TEXT, TEXT, TEXT, UUID, JSONB, BOOLEAN) FROM PUBLIC, anon, authenticated, service_role;
 
-GRANT EXECUTE ON FUNCTION private.prepare_storefront_order_for_checkout(UUID, UUID, TEXT, TEXT, TEXT, TEXT, UUID, JSONB) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION private.prepare_storefront_order_for_checkout(UUID, UUID, TEXT, TEXT, TEXT, TEXT, UUID, JSONB, BOOLEAN) TO anon, authenticated, service_role;

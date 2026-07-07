@@ -160,6 +160,7 @@ interface RpcOverrides {
   redeem_savings_for_order?: { data: unknown; error: unknown };
   finalize_wallet_order_payment?: { data: unknown; error: unknown };
   finalize_store_credit_order_payment?: { data: unknown; error: unknown };
+  get_checkout_shipping_quote?: { data: unknown; error: unknown };
 }
 
 function buildMockSupabase(
@@ -281,6 +282,10 @@ function buildMockSupabase(
       // B3.5 round 7 (CodeRabbit High): the helper's variant lookup
       // now routes through this SECURITY DEFINER RPC.
       get_order_variant_overrides: { data: [], error: null },
+      get_checkout_shipping_quote: {
+        data: opts.shippingQuote ? [opts.shippingQuote] : null,
+        error: null,
+      },
     };
 
   if (!overrides.create_storefront_order_with_savings) {
@@ -1695,6 +1700,98 @@ describe('POST /api/orders — selected shipping quote validation', () => {
     expect(supabase.rpc).not.toHaveBeenCalledWith(
       'create_storefront_order',
       expect.anything()
+    );
+  });
+
+  it('allows selected GIGL international quotes to keep quoted physical metadata when product metadata is absent', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    const supabase = buildMockSupabase(
+      {},
+      {
+        productRows: [
+          {
+            id: 'p-1',
+            name: 'Phone',
+            price: 500_000,
+            vat_category_code: 'S',
+            vat_rate: 0,
+          },
+        ],
+        shippingQuote: {
+          provider: 'GIGL',
+          provider_rate_id: 'GIGL_INTL_1_2_3_1',
+          price: 4500,
+          expires_at: new Date(Date.now() + 60_000).toISOString(),
+          quote_request: {
+            merchantId: MERCHANT_ID,
+            sessionId: 'session-1',
+            shipmentType: 'international',
+            receiver: {
+              name: 'Jane Customer',
+              phone: '+14165550123',
+              address: '123 Queen Street West',
+              city: 'Toronto',
+              state: 'Ontario',
+              country: 'Canada',
+              countryCode: 'CA',
+              postalCode: 'M5V 3L9',
+            },
+            items: [
+              {
+                name: 'Phone',
+                quantity: 1,
+                weight: 1,
+                value: 500_000,
+                hsCode: '851712',
+                length: 10,
+                width: 8,
+                height: 6,
+              },
+            ],
+          },
+        },
+      }
+    );
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          items: [
+            {
+              product_id: 'p-1',
+              name: 'Phone',
+              quantity: 1,
+              price: 500_000,
+            },
+          ],
+          subtotal: 500_000,
+          shipping_fee: 4500,
+          selected_quote_id: '11111111-1111-4111-8111-111111111111',
+          shipping_provider: 'GIGL',
+          shipping_address: {
+            address: '123 Queen Street West',
+            city: 'Toronto',
+            state: 'Ontario',
+            country: 'Canada',
+            countryCode: 'CA',
+            postalCode: 'M5V 3L9',
+          },
+        }),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({
+        p_selected_quote_id: '11111111-1111-4111-8111-111111111111',
+        p_shipping_provider: 'GIGL',
+      })
     );
   });
 

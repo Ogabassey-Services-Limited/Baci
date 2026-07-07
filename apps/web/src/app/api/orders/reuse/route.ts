@@ -205,6 +205,7 @@ export async function POST(request: NextRequest) {
         p_tracking_token: parsed.data.tracking_token,
         p_customer_email: parsed.data.customer_email,
         p_payment_method: parsed.data.payment_method,
+        p_has_selected_quote_id: hasSelectedQuoteInput(parsed.data),
         p_shipping_provider: parsed.data.shipping_provider || null,
         p_selected_quote_id: selectedQuoteValidationResponse.selectedQuoteId,
         p_shipping_address:

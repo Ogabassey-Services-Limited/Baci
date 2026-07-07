@@ -216,6 +216,7 @@ describe('POST /api/orders/reuse selected quote validation', () => {
       2,
       'prepare_storefront_order_for_checkout',
       expect.objectContaining({
+        p_has_selected_quote_id: false,
         p_selected_quote_id: '22222222-2222-4222-8222-222222222222',
       })
     );
@@ -276,6 +277,7 @@ describe('POST /api/orders/reuse selected quote validation', () => {
       2,
       'prepare_storefront_order_for_checkout',
       expect.objectContaining({
+        p_has_selected_quote_id: true,
         p_selected_quote_id: null,
         p_shipping_provider: null,
       })

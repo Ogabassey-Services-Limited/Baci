@@ -214,9 +214,9 @@ export async function resolveQuoteMerchantContext({
   }
 
   const merchantId =
-    permittedAuthenticatedMerchantId ?? storefrontMerchantId ?? data.merchantId;
+    storefrontMerchantId ?? permittedAuthenticatedMerchantId ?? data.merchantId;
   const trustedSenderMerchantId =
-    permittedAuthenticatedMerchantId ?? storefrontMerchantId;
+    storefrontMerchantId ?? permittedAuthenticatedMerchantId;
 
   let senderInfo =
     data.shipmentType === 'international' ? undefined : data.sender;

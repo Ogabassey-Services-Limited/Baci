@@ -263,4 +263,35 @@ describe('resolveQuoteMerchantContext', () => {
       }),
     });
   });
+
+  it('prefers trusted storefront context over an ambient authenticated merchant session', async () => {
+    const supabase = createSupabase();
+    mockCreateServerClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'merchant-user' } },
+          error: null,
+        }),
+      },
+    });
+
+    const result = await resolveQuoteMerchantContext({
+      data: { shipmentType: 'international' },
+      request: createRequest({
+        host: 'ogabassey.usebaci.com',
+        'x-merchant-slug': 'ogabassey',
+      }),
+      supabase: supabase as never,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      merchantId: 'merchant-1',
+      senderInfo: expect.objectContaining({
+        name: 'Merchant Store',
+        phone: '08012345678',
+        city: 'Ikeja',
+      }),
+    });
+  });
 });

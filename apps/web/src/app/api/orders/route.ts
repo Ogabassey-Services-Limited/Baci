@@ -64,7 +64,7 @@ import {
   resolveReceiptLogoDataUri,
 } from '@/lib/receipt-pdf-generator';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
-import { toInternationalShipmentItemsFromOrder } from '@/lib/shipping/international-shipment-items';
+import { toInternationalQuoteValidationItemsFromOrder } from '@/lib/shipping/international-shipment-items';
 import {
   enrichShippingAddressWithQuoteDestination,
   OrderQuoteDestinationMismatchError,
@@ -423,7 +423,7 @@ async function buildOrderQuoteValidationItems({
   }
 
   const productMap = new Map(products.map((product) => [product.id, product]));
-  return toInternationalShipmentItemsFromOrder(
+  return toInternationalQuoteValidationItemsFromOrder(
     items.map((item) => {
       const product = item.product_id
         ? (productMap.get(item.product_id) ?? null)
@@ -434,7 +434,8 @@ async function buildOrderQuoteValidationItems({
         quantity: item.quantity,
         product,
       };
-    })
+    }),
+    { includeValue: true }
   );
 }
 
