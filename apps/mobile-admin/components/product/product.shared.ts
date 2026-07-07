@@ -14,13 +14,26 @@ export const formatPrice = (amount: number, currencySymbol: string) =>
 
 export function getCurrencySymbol(currencyCode: string | null | undefined) {
   const symbols: Record<string, string> = {
+    AED: 'د.إ',
+    AUD: '$',
+    BRL: 'R$',
+    CAD: '$',
+    EGP: 'E£',
     EUR: '€',
     GBP: '£',
+    GHS: 'GH₵',
+    INR: '₹',
+    JPY: '¥',
+    KES: 'KSh',
     NGN: '₦',
     USD: '$',
+    XAF: 'FCFA',
+    XOF: 'CFA',
+    ZAR: 'R',
   };
 
-  return symbols[currencyCode || 'NGN'] || '₦';
+  const normalizedCode = (currencyCode || 'NGN').toUpperCase();
+  return symbols[normalizedCode] || normalizedCode;
 }
 
 export const formatLargePrice = (amount: number, currencySymbol: string) => {

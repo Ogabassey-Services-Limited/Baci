@@ -29,11 +29,27 @@ describe('product.shared formatters', () => {
     expect(formatMetric(999_999_500)).toBe('1B');
   });
 
-  it('returns supported currency symbols and falls back to naira', () => {
+  it('returns supported currency symbols for major and Baci multi-country currencies', () => {
     expect(getCurrencySymbol('USD')).toBe('$');
     expect(getCurrencySymbol('EUR')).toBe('€');
     expect(getCurrencySymbol('GBP')).toBe('£');
-    expect(getCurrencySymbol('UNKNOWN')).toBe('₦');
+    expect(getCurrencySymbol('INR')).toBe('₹');
+    expect(getCurrencySymbol('AED')).toBe('د.إ');
+    expect(getCurrencySymbol('KES')).toBe('KSh');
+    expect(getCurrencySymbol('GHS')).toBe('GH₵');
+    expect(getCurrencySymbol('ZAR')).toBe('R');
+    expect(getCurrencySymbol('EGP')).toBe('E£');
+    expect(getCurrencySymbol('XAF')).toBe('FCFA');
+    expect(getCurrencySymbol('XOF')).toBe('CFA');
+    expect(getCurrencySymbol('CAD')).toBe('$');
+    expect(getCurrencySymbol('AUD')).toBe('$');
+    expect(getCurrencySymbol('JPY')).toBe('¥');
+    expect(getCurrencySymbol('BRL')).toBe('R$');
     expect(getCurrencySymbol(undefined)).toBe('₦');
+  });
+
+  it('falls back to the currency code itself for unrecognized codes instead of naira', () => {
+    expect(getCurrencySymbol('UNKNOWN')).toBe('UNKNOWN');
+    expect(getCurrencySymbol('sar')).toBe('SAR');
   });
 });

@@ -1,8 +1,8 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
-import { formatCurrency } from '@/utils/format';
 
 interface OrderReportStats {
   completedCount: number;
@@ -17,6 +17,7 @@ interface OrderReportStatsPanelProps {
 
 export function OrderReportStatsPanel({ stats }: OrderReportStatsPanelProps) {
   const { colors } = useTheme();
+  const { format: formatCurrency } = useCurrency();
 
   return (
     <>
@@ -26,7 +27,10 @@ export function OrderReportStatsPanel({ stats }: OrderReportStatsPanelProps) {
             Total Revenue
           </Text>
           <Text style={[styles.statValue, { color: colors.text }]}>
-            {formatCurrency(stats.totalRevenue)}
+            {formatCurrency(stats.totalRevenue, {
+              maximumFractionDigits: 0,
+              minimumFractionDigits: 0,
+            })}
           </Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: colors.background }]}>
