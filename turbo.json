@@ -10,6 +10,13 @@
     "biome.json",
     "tsconfig*.json"
   ],
+  "globalPassThroughEnv": [
+    "CEREBRAS_API_KEY",
+    "GROQ_API_KEY",
+    "OPENROUTER_API_KEY",
+    "COPILOT_CEREBRAS_MODEL",
+    "COPILOT_GROQ_MODEL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

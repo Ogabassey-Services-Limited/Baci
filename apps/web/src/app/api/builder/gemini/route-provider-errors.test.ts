@@ -38,6 +38,50 @@ describe('builder Gemini provider errors', () => {
     expect(failure.response.code).toBe('ai_provider_rate_limited');
   });
 
+  it('classifies OpenAI-compatible rate-limit prose (Groq/Cerebras) as controlled rate limits', () => {
+    const error = new Error(
+      'Rate limit reached for model `openai/gpt-oss-120b` in organization org-x on tokens per minute (TPM)'
+    );
+
+    const failure = getBuilderGeminiFailure(error, 'request-groq');
+
+    expect(isBuilderGeminiQuotaError(error)).toBe(true);
+    expect(failure.status).toBe(429);
+    expect(failure.response.code).toBe('ai_provider_rate_limited');
+  });
+
+  it('classifies OpenRouter upstream throttling as a controlled rate limit', () => {
+    const error = new Error(
+      'google/gemma-4-31b-it:free is temporarily rate-limited upstream. Please retry shortly.'
+    );
+
+    expect(isBuilderGeminiQuotaError(error)).toBe(true);
+    expect(getBuilderGeminiFailure(error, 'request-or').status).toBe(429);
+  });
+
+  it('classifies an APICallError-style statusCode 429 as a controlled rate limit', () => {
+    const error = Object.assign(new Error('Too Many Requests'), {
+      statusCode: 429,
+    });
+
+    const failure = getBuilderGeminiFailure(error, 'request-429');
+
+    expect(isBuilderGeminiQuotaError(error)).toBe(true);
+    expect(failure.status).toBe(429);
+    expect(failure.response.code).toBe('ai_provider_rate_limited');
+  });
+
+  it('does not classify non-429 status codes or unrelated prose as rate limits', () => {
+    const serverError = Object.assign(new Error('Internal error'), {
+      statusCode: 500,
+    });
+
+    expect(isBuilderGeminiQuotaError(serverError)).toBe(false);
+    expect(getBuilderGeminiFailure(serverError, 'request-500').status).toBe(
+      503
+    );
+  });
+
   it('keeps unknown provider failures as temporary service failures', () => {
     const failure = getBuilderGeminiFailure(
       new Error('network unavailable'),

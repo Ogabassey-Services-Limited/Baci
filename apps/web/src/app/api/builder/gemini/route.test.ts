@@ -1,7 +1,6 @@
 import { generateObject } from 'ai';
 import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { withRetry } from '@/ai/provider';
 
 const mockCheckCsrfProtection = vi.fn();
 const mockGetAuthenticatedUser = vi.fn();
@@ -29,21 +28,24 @@ vi.mock('ai', () => ({
   generateObject: vi.fn(),
 }));
 
+vi.mock('@/ai/copilot-provider-chain', () => ({
+  getCopilotTextProviderChain: vi.fn(() => [
+    { name: 'test:primary', model: {} },
+    { name: 'test:fallback', model: {} },
+  ]),
+}));
+
 vi.mock('@/ai/provider', () => ({
-  ACTIVE_TEXT_MODEL_NAME: 'gemini-3-flash-preview',
-  FALLBACK_TEXT_MODEL_NAME: 'gemini-3-flash-lite-preview',
   AI_RATE_LIMITS: {
     builder: { requests: 10, windowMs: 60 * 1000 },
   },
-  activeTextModel: {},
-  fallbackTextModel: {},
   checkRateLimit: vi.fn(() => ({
     allowed: true,
     remaining: 9,
     resetIn: 60 * 1000,
   })),
   sanitizePromptInput: vi.fn((prompt: string) => ({ value: prompt })),
-  withRetry: vi.fn(),
+  withRetry: vi.fn((fn: () => Promise<unknown>) => fn()),
 }));
 
 describe('/api/builder/gemini route', () => {
@@ -149,9 +151,6 @@ describe('/api/builder/gemini route', () => {
       supabase: {},
     });
 
-    vi.mocked(withRetry).mockImplementation(
-      async (fn: () => Promise<unknown>) => fn()
-    );
     vi.mocked(generateObject).mockResolvedValue({
       object: {
         content: [{ type: 'Hero', props: { title: 'Updated hero' } }],
@@ -202,12 +201,12 @@ describe('/api/builder/gemini route', () => {
       supabase: {},
     });
 
-    vi.mocked(withRetry).mockImplementation(
-      async (fn: () => Promise<unknown>) => fn()
-    );
     vi.mocked(generateObject).mockResolvedValue({
       object: {
-        content: [],
+        // Realistic copilot output returns the existing content; this test
+        // isolates theme merging. (The route rejects a MISSING content array —
+        // the default-masking wipe — but accepts an explicit empty [].)
+        content: [{ type: 'Hero', props: { title: 'Home' } }],
         root: { title: 'Home' },
         zones: {},
         theme: {
@@ -234,7 +233,7 @@ describe('/api/builder/gemini route', () => {
       body: JSON.stringify({
         prompt: 'Refresh the visual design',
         currentConfig: {
-          content: [],
+          content: [{ type: 'Hero', props: { title: 'Home' } }],
           root: { title: 'Home' },
           zones: {},
           theme: {
@@ -281,5 +280,46 @@ describe('/api/builder/gemini route', () => {
         },
       },
     });
+  });
+
+  it('preserves existing zones when the model omits them (no nested-content wipe)', async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      user: { id: 'user-1' },
+      supabase: {},
+    });
+
+    // Model returns valid content + root but NO `zones` key. Without the guard,
+    // builderConfigSchema would default zones to {} and wipe the merchant's
+    // nested/dropzone content.
+    vi.mocked(generateObject).mockResolvedValue({
+      object: {
+        content: [{ type: 'Hero', props: { title: 'Updated' } }],
+        root: { title: 'Home' },
+      },
+    } as unknown as Awaited<ReturnType<typeof generateObject>>);
+
+    const existingZones = {
+      'hero-dropzone': [{ type: 'Text', props: { text: 'Nested' } }],
+    };
+
+    const request = new NextRequest('http://localhost/api/builder/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: 'Update the hero title',
+        currentConfig: {
+          content: [{ type: 'Hero', props: { title: 'Home' } }],
+          root: { title: 'Home' },
+          zones: existingZones,
+        },
+      }),
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.config.zones).toEqual(existingZones);
   });
 });

@@ -1,15 +1,10 @@
-import { generateObject } from 'ai';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
+import { getCopilotTextProviderChain } from '@/ai/copilot-provider-chain';
 import {
-  ACTIVE_TEXT_MODEL_NAME,
   AI_RATE_LIMITS,
-  activeTextModel,
   checkRateLimit,
-  FALLBACK_TEXT_MODEL_NAME,
-  fallbackTextModel,
   sanitizePromptInput,
-  withRetry,
 } from '@/ai/provider';
 import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
@@ -18,59 +13,23 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
-import { builderConfigSchema } from '@/schemas/builder';
-import { BUILDER_GEMINI_SYSTEM_PROMPT } from '../gemini-system-prompt';
 import {
-  BUILDER_GEMINI_RETRY_CONFIG,
+  type AiBuilderConfig,
+  aiBuilderConfigSchema,
+} from './builder-config-shape';
+import {
+  BUILDER_GEMINI_TIMEOUT_MS,
   type BuilderGeminiLogContext,
   getBuilderGeminiFailure,
-  isBuilderGeminiQuotaError,
   logBuilderGeminiError,
   runBuilderGeminiWithTimeout,
 } from './route-provider-errors';
-
-const PuckThemeColorsSchema = z
-  .object({
-    primary: z.string().optional(),
-    accent: z.string().optional(),
-    header: z
-      .object({
-        background: z.string().optional(),
-        text: z.string().optional(),
-        iconColor: z.string().optional(),
-
-        searchBorder: z.string().optional(),
-        searchBackground: z.string().optional(),
-      })
-      .optional(),
-    footer: z
-      .object({
-        background: z.string().optional(),
-        text: z.string().optional(),
-        linkColor: z.string().optional(),
-        linkHoverColor: z.string().optional(),
-      })
-      .optional(),
-  })
-  .passthrough();
-
-const aiBuilderConfigSchema = builderConfigSchema
-  .extend({
-    theme: z
-      .object({
-        colors: PuckThemeColorsSchema.optional(),
-      })
-      .passthrough()
-      .optional(),
-  })
-  .passthrough();
+import { runBuilderProviderChain } from './run-builder-provider-chain';
 
 const builderGeminiRequestSchema = z.object({
   prompt: z.string().trim().min(1, 'Prompt is required'),
   currentConfig: aiBuilderConfigSchema,
 });
-
-type AiBuilderConfig = z.infer<typeof aiBuilderConfigSchema>;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -170,10 +129,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid prompt' }, { status: 400 });
     }
 
+    const providerChain = getCopilotTextProviderChain();
+
     Object.assign(aiLogContext, {
       userId: user.id,
       merchantId: merchantContext.merchantId,
-      model: ACTIVE_TEXT_MODEL_NAME,
+      model: providerChain[0]?.name,
       promptLength: sanitizedPrompt.length,
       componentCount: currentConfig.content.length,
     });
@@ -189,49 +150,32 @@ User Request: ${sanitizedPrompt}
 
 Please return the complete updated configuration as valid JSON. Make intelligent modifications based on the request while preserving all existing structure and content unless explicitly asked to change or remove it.`;
 
-    // Thinking is disabled for latency: the copilot must respond within the
-    // route timeout, and this structured config-edit task doesn't benefit
-    // from extended reasoning.
-    const generateBuilderConfig = (
-      model: typeof activeTextModel,
-      abortSignal: AbortSignal
-    ) =>
-      generateObject({
-        model,
-        schema: aiBuilderConfigSchema,
-        system: BUILDER_GEMINI_SYSTEM_PROMPT,
-        prompt: builtPrompt,
-        abortSignal,
-        providerOptions: {
-          google: { thinkingConfig: { thinkingBudget: 0 } },
-        },
-      });
-
-    // Generate the updated config using Vercel AI SDK with retry logic
     let updatedConfig: AiBuilderConfig;
     try {
-      const result = (await runBuilderGeminiWithTimeout((abortSignal) =>
-        withRetry(async () => {
-          try {
-            return await generateBuilderConfig(activeTextModel, abortSignal);
-          } catch (error) {
-            // Free-tier quota pools are per model: when the primary model's
-            // pool is exhausted, one flash-lite attempt keeps the copilot
-            // working instead of dead-ending the merchant with a 429.
-            if (!isBuilderGeminiQuotaError(error)) throw error;
+      updatedConfig = await runBuilderGeminiWithTimeout((abortSignal) =>
+        runBuilderProviderChain({
+          providerChain,
+          builtPrompt,
+          currentConfig,
+          routeDeadlineMs: Date.now() + BUILDER_GEMINI_TIMEOUT_MS,
+          abortSignal,
+          onProviderAttempt: (name) => {
+            aiLogContext.model = name;
+          },
+          onProviderError: (name, error, isLastProvider) =>
             logBuilderGeminiError(
-              `Gemini AI Builder primary model quota exhausted; falling back to ${FALLBACK_TEXT_MODEL_NAME}:`,
+              `AI Builder provider ${name} failed${
+                isLastProvider
+                  ? '; provider chain exhausted:'
+                  : '; falling back to the next provider:'
+              }`,
               error,
               requestId,
               aiLogContext,
-              'warn'
-            );
-            aiLogContext.model = FALLBACK_TEXT_MODEL_NAME;
-            return await generateBuilderConfig(fallbackTextModel, abortSignal);
-          }
-        }, BUILDER_GEMINI_RETRY_CONFIG)
-      )) as { object: AiBuilderConfig };
-      updatedConfig = result.object;
+              isLastProvider ? 'error' : 'warn'
+            ),
+        })
+      );
     } catch (error) {
       const failure = getBuilderGeminiFailure(error, requestId);
       logBuilderGeminiError(
@@ -253,45 +197,21 @@ Please return the complete updated configuration as valid JSON. Make intelligent
         ) as Record<string, unknown>)
       : (currentConfig.theme ?? {});
 
-    // Ensure all components have unique IDs
-    if (updatedConfig.content && Array.isArray(updatedConfig.content)) {
-      const contentWithIds = updatedConfig.content.map((component, index) => ({
-        ...component,
-        props: {
-          ...component.props,
-          id:
-            component.props?.id ||
-            `${component.type.toLowerCase()}-${Date.now()}-${index}`,
-        },
-      }));
-      updatedConfig = {
-        ...updatedConfig,
-        theme: mergedTheme,
-        content: contentWithIds,
-      };
-    }
-
-    // Validate the structure
-    if (!updatedConfig.content || !Array.isArray(updatedConfig.content)) {
-      console.error('Gemini AI Builder Invalid Output:', {
-        requestId,
-        userId: aiLogContext.userId,
-        merchantId: aiLogContext.merchantId,
-        model: aiLogContext.model,
-        promptLength: aiLogContext.promptLength,
-        componentCount: aiLogContext.componentCount,
-        reason: 'missing_content_array',
-      });
-
-      return NextResponse.json(
-        {
-          error: 'AI editor returned an invalid draft',
-          code: 'ai_builder_invalid_output',
-          requestId,
-        },
-        { status: 502 }
-      );
-    }
+    // runBuilderProviderChain rejects missing/non-array content before returning.
+    const contentWithIds = updatedConfig.content.map((component, index) => ({
+      ...component,
+      props: {
+        ...component.props,
+        id:
+          component.props?.id ||
+          `${component.type.toLowerCase()}-${Date.now()}-${index}`,
+      },
+    }));
+    updatedConfig = {
+      ...updatedConfig,
+      theme: mergedTheme,
+      content: contentWithIds,
+    };
 
     if (!updatedConfig.root) {
       updatedConfig.root = currentConfig.root || { title: 'Home' };

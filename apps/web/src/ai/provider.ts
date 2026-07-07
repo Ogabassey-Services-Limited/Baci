@@ -36,6 +36,10 @@ const primaryTextModel = google(ACTIVE_TEXT_MODEL_NAME);
 export const FALLBACK_TEXT_MODEL_NAME = 'gemini-2.5-flash-lite';
 export const fallbackTextModel = google(FALLBACK_TEXT_MODEL_NAME);
 
+// The AI Copilot multi-provider chain (Cerebras Gemma → Groq → Gemini →
+// OpenRouter) lives in ./copilot-provider-chain to keep this shared provider
+// module focused on model definitions and under the 300-line file limit.
+
 // UNIFIED MODEL EXPORTS - USE THESE FOR NEW FEATURES
 // --------------------------------------------------------------------------
 export const activeTextModel = primaryTextModel; // The single standard text model for the platform
@@ -132,55 +136,13 @@ export function checkRateLimit(
   };
 }
 
-/**
- * Retry configuration for AI requests
- *
- * Note: `maxRetries` means the number of additional attempts after the initial try.
- * Total attempts = 1 (initial) + maxRetries = 4 attempts with default config.
- */
-export const AI_RETRY_CONFIG = {
-  maxRetries: 3,
-  initialDelayMs: 1000,
-  maxDelayMs: 10000,
-  backoffMultiplier: 2,
-};
-
-/**
- * Wrapper for AI calls with retry logic
- */
-export async function withRetry<T>(
-  operation: () => Promise<T>,
-  config = AI_RETRY_CONFIG
-): Promise<T> {
-  let lastError: Error | null = null;
-  let delay = config.initialDelayMs;
-
-  for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
-    try {
-      return await operation();
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-
-      // Don't retry on non-retryable errors
-      const errorMessage = lastError.message.toLowerCase();
-      if (
-        errorMessage.includes('invalid') ||
-        errorMessage.includes('unauthorized') ||
-        errorMessage.includes('forbidden') ||
-        errorMessage.includes('not found')
-      ) {
-        throw lastError;
-      }
-
-      if (attempt < config.maxRetries) {
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        delay = Math.min(delay * config.backoffMultiplier, config.maxDelayMs);
-      }
-    }
-  }
-
-  throw lastError;
-}
+// Retry logic lives in ./with-retry (extracted to keep this file <300 lines);
+// re-exported here so existing '@/ai/provider' call sites keep working.
+export {
+  AI_RETRY_CONFIG,
+  type WithRetryOptions,
+  withRetry,
+} from './with-retry';
 
 /**
  * Result of sanitizing prompt input

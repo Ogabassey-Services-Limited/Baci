@@ -32,7 +32,10 @@
     "mcp": "tsx mcp-server/server.ts"
   },
   "dependencies": {
+    "@ai-sdk/cerebras": "^2.0.62",
     "@ai-sdk/google": "^3.0.82",
+    "@ai-sdk/groq": "^3.0.47",
+    "@ai-sdk/openai-compatible": "2.0.56",
     "@ai-sdk/rsc": "^2.0.205",
     "@baci/shared": "workspace:*",
     "@copilotkit/react-core": "^1.60.1",
