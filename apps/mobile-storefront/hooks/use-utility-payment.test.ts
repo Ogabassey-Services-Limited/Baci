@@ -7,7 +7,16 @@ import { useUtilityPayment } from '@/hooks/use-utility-payment';
 const mockUseMerchantPaymentSettings = jest.fn();
 const mockListSavedVtuCards = jest.fn();
 let mockWalletQuery: {
-  data?: { wallet: { balance: number } };
+  data?: {
+    wallet: {
+      balance: number;
+      funding_account?: {
+        account_name?: string | null;
+        account_number?: string | null;
+        bank_name?: string | null;
+      } | null;
+    };
+  };
   error?: Error | null;
   isError?: boolean;
   isLoading?: boolean;
@@ -178,6 +187,43 @@ describe('useUtilityPayment', () => {
     });
 
     expect(result.current.canFundByBankTransfer).toBe(false);
+  });
+
+  it('exposes canFundByBankTransfer for a phoneless customer who already has a DVA', async () => {
+    mockAuthState.customer = { phone: null };
+    mockUseMerchantPaymentSettings.mockReturnValue({
+      data: {
+        paystack_enabled: true,
+        korapay_enabled: true,
+        wallet_paystack_dva_enabled: true,
+      },
+    });
+    mockWalletQuery = {
+      data: {
+        wallet: {
+          balance: 0,
+          funding_account: {
+            account_name: 'OGB / JOHN DOE',
+            account_number: '9814644749',
+            bank_name: 'Wema Bank',
+          },
+        },
+      },
+      error: null,
+      isError: false,
+      isLoading: false,
+    };
+
+    const { result } = renderHook(() => useUtilityPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCards).toBe(false);
+    });
+
+    // Viewing an existing account number needs no phone — only creation does.
+    expect(result.current.canFundByBankTransfer).toBe(true);
   });
 
   it('never offers bank_transfer as a VTU gateway even when the merchant enables it', async () => {

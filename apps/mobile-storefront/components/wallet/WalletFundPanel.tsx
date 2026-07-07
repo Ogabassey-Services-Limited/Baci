@@ -1,5 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -11,6 +11,7 @@ import {
 import Animated, { FadeIn } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { useWalletFundPanelAutoCreate } from './use-wallet-fund-panel-auto-create';
 import { WalletPanelActionButtons } from './WalletPanelActionButtons';
 import { styles as walletStyles } from './wallet.styles';
 import type { WalletDisplayFundingAccount } from './wallet.types';
@@ -59,54 +60,23 @@ export function WalletFundPanel({
   // whenever a prefilled amount is present (see cardEntryVisible), which
   // covers a route change that prefills the amount while the panel is open.
   const [showCardEntry, setShowCardEntry] = useState(false);
-  const [autoCreateAttempted, setAutoCreateAttempted] = useState(false);
-  const [autoCreateFailed, setAutoCreateFailed] = useState(false);
   const { copyToClipboard, feedback: copyFeedback } = useCopyToClipboard();
-
-  // Opening Add Money with NO prefilled amount is a bank-transfer funding
-  // intent, so it doubles as consent: provision the account number once.
-  // Prefilled amounts (savings top-up, checkout returnTo) are explicit
-  // card/gateway intents — never silently provision a DVA for those.
-  useEffect(() => {
-    if (
-      autoCreateAttempted ||
-      fundingAccount ||
-      !canCreateFundingAccount ||
-      isCreatingFundingAccount ||
-      fundAmount !== ''
-    ) {
-      return;
-    }
-    setAutoCreateAttempted(true);
-    void (async () => {
-      try {
-        const created = await onCreateFundingAccount();
-        // A false result means creation failed (DVA conflict, transient
-        // error) — fall back to card entry instead of an endless spinner.
-        if (created === false) {
-          setAutoCreateFailed(true);
-        }
-      } catch {
-        // A rejection (rather than a false result) must also fall back,
-        // never leave the "Setting up..." spinner running forever.
-        setAutoCreateFailed(true);
-      }
-    })();
-  }, [
-    autoCreateAttempted,
+  const { autoCreateFailed, openedWithPrefill } = useWalletFundPanelAutoCreate({
     canCreateFundingAccount,
     fundAmount,
-    fundingAccount,
+    hasFundingAccount: Boolean(fundingAccount),
     isCreatingFundingAccount,
     onCreateFundingAccount,
-  ]);
+  });
 
   const bankTransferUnavailable =
     !fundingAccount && !canCreateFundingAccount && !isCreatingFundingAccount;
   // Reactive to fundAmount so a prefilled amount always reveals card entry,
-  // even if it arrives after the panel is already mounted.
+  // even if it arrives after the panel is already mounted; openedWithPrefill
+  // keeps it visible if the customer clears the prefilled input.
   const cardEntryVisible =
     showCardEntry ||
+    openedWithPrefill ||
     fundAmount !== '' ||
     bankTransferUnavailable ||
     autoCreateFailed;
@@ -177,11 +147,12 @@ export function WalletFundPanel({
         >
           {SETUP_FAILED}
         </Text>
-      ) : fundAmount === '' &&
+      ) : !openedWithPrefill &&
+        fundAmount === '' &&
         (isCreatingFundingAccount || canCreateFundingAccount) ? (
         // Only while the empty-amount auto-create flow is pending. Prefilled
-        // amounts skip auto-create, so they must not show this spinner above
-        // the (already-visible) card entry form.
+        // opens never auto-create (even after the input is cleared), so they
+        // must not show this spinner above the card entry form.
         <View style={styles.settingUpRow}>
           <ActivityIndicator color={colors.primary} size="small" />
           <Text

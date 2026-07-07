@@ -148,6 +148,54 @@ describe('useWallet', () => {
     expect(capturedSignal!.aborted).toBe(true);
   });
 
+  it('clears the previous identity wallet state before fetching for a new user', async () => {
+    const firstAccount = {
+      accountName: 'OGB / JANE ONE',
+      accountNumber: '1111111111',
+      bankName: 'Wema Bank',
+      provider: 'paystack',
+    };
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        balance: 900,
+        fundingAccount: firstAccount,
+        requiresFundingAccountConsent: false,
+        walletDvaEnabled: true,
+      }),
+    });
+    // Second identity's fetch never resolves — the stale first-identity
+    // account must be cleared without waiting on the network.
+    let resolveSecond: (value: unknown) => void = () => {};
+    mockFetch.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveSecond = resolve;
+        })
+    );
+
+    const { result, rerender } = renderHook(
+      ({ userId, merchantSlug }) => useWallet({ userId, merchantSlug }),
+      { initialProps: { userId: 'user-1', merchantSlug: 'merchant-1' } }
+    );
+
+    await waitFor(() => {
+      expect(result.current.fundingAccount).toEqual(firstAccount);
+      expect(result.current.walletBalance).toBe(900);
+    });
+
+    rerender({ userId: 'user-2', merchantSlug: 'merchant-1' });
+
+    await waitFor(() => {
+      expect(result.current.fundingAccount).toBeNull();
+      expect(result.current.walletBalance).toBe(0);
+      expect(result.current.payWithWallet).toBe(false);
+      expect(result.current.walletDvaEnabled).toBe(false);
+    });
+
+    resolveSecond({ ok: false });
+  });
+
   it('should refetch when userId changes', async () => {
     mockFetch.mockResolvedValue({
       ok: true,

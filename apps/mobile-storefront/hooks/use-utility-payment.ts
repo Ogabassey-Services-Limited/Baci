@@ -41,15 +41,17 @@ export function useUtilityPayment(amount = 0) {
   // Rotated only after a definitive HTTP response (success or 4xx).
   const walletIdempotencyKeyRef = useRef<string | null>(null);
   const paymentSettings = useMerchantPaymentSettings();
-  // The bank-transfer funding nudge deep-links into DVA creation, so only
-  // offer it to signed-in customers, with a usable phone, of merchants that
-  // have wallet DVAs enabled. Otherwise the CTA routes to a flow that
-  // immediately fails with DVA_DISABLED or a phone-required alert.
+  const wallet = useWallet();
+  // The bank-transfer funding nudge deep-links into DVA territory, so only
+  // offer it to signed-in customers of merchants with wallet DVAs enabled,
+  // and only when the customer either already HAS an account number (viewing
+  // needs no phone) or has a usable phone for creation. Otherwise the CTA
+  // routes to a flow that fails with DVA_DISABLED or a phone-required alert.
   const canFundByBankTransfer =
     isAuthenticated &&
-    Boolean(customerPhone?.trim()) &&
-    paymentSettings.data?.wallet_paystack_dva_enabled === true;
-  const wallet = useWallet();
+    paymentSettings.data?.wallet_paystack_dva_enabled === true &&
+    (Boolean(wallet.data?.wallet.funding_account) ||
+      Boolean(customerPhone?.trim()));
   const walletBalance = wallet.data?.wallet.balance ?? 0;
   const walletError = wallet.error instanceof Error ? wallet.error : null;
   const walletCanRender =

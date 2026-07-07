@@ -137,6 +137,29 @@ describe('WalletFundPanel', () => {
     expect(screen.queryByText(/setting up your account number/i)).toBeNull();
   });
 
+  it('keeps the card intent when the prefilled amount is cleared (no DVA, no spinner)', () => {
+    const baseProps = {
+      canCreateFundingAccount: true,
+      colors: Colors.light,
+      fundAmount: '1000',
+      fundingAccount: null,
+      isCreatingFundingAccount: false,
+      isFundPending: false,
+      onChangeFundAmount: jest.fn(),
+      onConfirmFund: jest.fn(),
+      onCreateFundingAccount: jest.fn(),
+      onResetFund: jest.fn(),
+    };
+    const { rerender } = render(<WalletFundPanel {...baseProps} />);
+
+    // Customer clears the prefilled input mid-entry.
+    rerender(<WalletFundPanel {...baseProps} fundAmount="" />);
+
+    expect(baseProps.onCreateFundingAccount).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Wallet top-up amount')).toBeTruthy();
+    expect(screen.queryByText(/setting up your account number/i)).toBeNull();
+  });
+
   it('falls back to card entry when auto-create fails instead of spinning forever', async () => {
     renderPanel({
       fundingAccount: null,
