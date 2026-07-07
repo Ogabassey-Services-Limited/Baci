@@ -18,6 +18,7 @@ DECLARE
   v_order_id uuid := '8f0ed783-0000-4000-8000-000000000802';
   v_shipped_count integer;
   v_delivered_count integer;
+  v_repeat_shipped_count integer;
   v_claimed record;
   v_processing_status text;
 BEGIN
@@ -66,6 +67,33 @@ BEGIN
 
   IF v_shipped_count <> 1 THEN
     RAISE EXCEPTION 'expected exactly one shipped outbox event, got %', v_shipped_count;
+  END IF;
+
+  UPDATE public.order_notification_outbox
+  SET
+    status = 'sent',
+    sent_at = now(),
+    updated_at = now()
+  WHERE order_id = v_order_id
+    AND event_type = 'order_shipped';
+
+  UPDATE public.orders
+  SET shipping_status = 'returned'
+  WHERE id = v_order_id;
+
+  UPDATE public.orders
+  SET shipping_status = 'shipped'
+  WHERE id = v_order_id;
+
+  SELECT count(*)::integer
+  INTO v_repeat_shipped_count
+  FROM public.order_notification_outbox
+  WHERE order_id = v_order_id
+    AND event_type = 'order_shipped';
+
+  IF v_repeat_shipped_count <> 2 THEN
+    RAISE EXCEPTION 'expected re-shipping after terminal outbox row to enqueue a second shipped event, got %',
+      v_repeat_shipped_count;
   END IF;
 
   UPDATE public.orders
