@@ -1,4 +1,5 @@
 import type { createAdminClient } from '@/lib/supabase/admin';
+import { withMerchantSlugAliasFallback } from '@/lib/with-merchant-slug-alias-fallback';
 
 type AdminSupabaseClient = ReturnType<typeof createAdminClient>;
 
@@ -90,11 +91,14 @@ export async function resolveWalletTopUpMerchant<T>(
   }
 
   if (identifiers.merchantSlug) {
-    const { data, error } = await supabase
-      .from('merchants')
-      .select(columns)
-      .eq('slug', identifiers.merchantSlug)
-      .maybeSingle();
+    // Alias-aware: the slug can arrive stale in a request body after a "Change
+    // store URL" rename (the proxy can't rewrite bodies), so fall back to
+    // merchant_slug_aliases before giving up.
+    const { data, error } = await withMerchantSlugAliasFallback(
+      identifiers.merchantSlug,
+      (s) =>
+        supabase.from('merchants').select(columns).eq('slug', s).maybeSingle()
+    );
     if (error) {
       throwLookupError({
         error,

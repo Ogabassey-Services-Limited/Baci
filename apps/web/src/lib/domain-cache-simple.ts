@@ -91,6 +91,18 @@ async function getFromCacheOrDb(merchantSlug: string): Promise<string | null> {
 }
 
 /**
+ * Drop the forward slug->custom-domain cache entry for `slug` (including a cached
+ * NEGATIVE result). Called by the rename flow: a slug probed shortly BEFORE it
+ * became a merchant's live slug can hold a cached `null` for up to CACHE_TTL, so
+ * the new subdomain would fail to 301 to the merchant's custom domain (and
+ * retired-alias redirects could land on {slug}.<root> instead) until it expires.
+ * Cheap: a single Map delete.
+ */
+export function invalidateForwardDomainCacheForSlug(slug: string): void {
+  domainCache.delete(slug);
+}
+
+/**
  * Reverse lookup: given a custom domain, find the merchant slug.
  * Uses in-memory cache with DB fallback (same pattern as getCustomDomainForSlug).
  * Used by the proxy to rewrite SEO file paths (sitemap, robots) without dots in [slug].
@@ -101,6 +113,22 @@ interface ReverseCacheEntry {
 }
 
 const reverseDomainCache = new Map<string, ReverseCacheEntry>();
+
+/**
+ * Drop any reverse domain->slug cache entries that currently map to `slug`.
+ * Called by the rename flow so a custom domain stops resolving to a retired slug
+ * on THIS instance immediately. Other instances are corrected cross-instance by
+ * the proxy's alias-aware fallback (a stale domain->oldSlug is followed to the
+ * current slug via the alias table) plus the Edge Config resync. Cheap: the cache
+ * is bounded to MAX_CACHE_SIZE entries.
+ */
+export function invalidateReverseDomainCacheForSlug(slug: string): void {
+  for (const [domain, entry] of reverseDomainCache) {
+    if (entry.slug === slug) {
+      reverseDomainCache.delete(domain);
+    }
+  }
+}
 
 export async function getSlugForCustomDomain(
   domain: string

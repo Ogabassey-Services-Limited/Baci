@@ -26,7 +26,7 @@ const {
         return {
           select: vi.fn(() => ({
             eq: vi.fn(() => ({
-              single: mockMerchantSingle,
+              maybeSingle: mockMerchantSingle,
             })),
           })),
         };
@@ -66,6 +66,14 @@ vi.mock('next/cache', () => ({
 vi.mock('@/env', () => ({
   getSupabaseAnonKey: vi.fn(() => 'anon-key'),
   getSupabaseUrl: vi.fn(() => 'https://example.supabase.co'),
+}));
+
+// Default: the slug is not a retired alias. Individual tests override for the
+// retired-slug path (params.slug on /api/storefront/{oldSlug}/products).
+const mockGetCurrentSlugForAlias = vi.fn().mockResolvedValue(null);
+vi.mock('@/lib/slug-alias-cache', () => ({
+  getCurrentSlugForAlias: (...args: unknown[]) =>
+    mockGetCurrentSlugForAlias(...args),
 }));
 
 vi.mock('@/lib/product-stock', () => ({
@@ -162,6 +170,30 @@ describe('GET /api/storefront/[slug]/products', () => {
     expect(response.headers.get('Cache-Control')).toBe(
       'public, s-maxage=300, stale-while-revalidate=86400'
     );
+  });
+
+  it('resolves a RETIRED slug via the alias table for /api/storefront/{oldSlug}/products', async () => {
+    // Stale client still calls the OLD slug in the PATH after a rename. The proxy
+    // can't rewrite a path param, so the route resolves it through the alias table:
+    // first lookup (old slug) misses, the alias resolves the current slug, retry hits.
+    mockMerchantSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: { id: 'merchant-123' }, error: null });
+    mockGetCurrentSlugForAlias.mockResolvedValueOnce('new-store');
+    mockProductOrder.mockResolvedValue({
+      data: [product()],
+      error: null,
+    });
+
+    const response = await requestProducts(
+      'https://example.com/api/storefront/old-store/products',
+      'old-store'
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.products).toHaveLength(1);
+    expect(mockGetCurrentSlugForAlias).toHaveBeenCalledWith('old-store');
   });
 
   it('defaults the public slug product API to the compact listing projection', async () => {

@@ -33,6 +33,9 @@ function mockChain(returnValue: { data: unknown; error: unknown }) {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue(returnValue),
+    // The merchant lookup now goes through resolveMerchantIdBySlugOrAlias, which
+    // uses maybeSingle (with a merchant_slug_aliases fallback on a miss).
+    maybeSingle: vi.fn().mockResolvedValue(returnValue),
     update: vi.fn().mockReturnThis(),
   };
   // update().eq() should resolve to returnValue for update calls

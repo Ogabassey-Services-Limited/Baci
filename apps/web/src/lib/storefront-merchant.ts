@@ -1,7 +1,5 @@
-import {
-  type CachedMerchant,
-  getMerchantByIdentifier,
-} from '@/lib/cached-data';
+import type { CachedMerchant } from '@/lib/cached-data';
+import { getMerchantByIdentifierOrAlias } from '@/lib/get-merchant-by-identifier-or-alias';
 import { resolveStorefrontRouteIdentifiers } from '@/lib/storefront-host';
 import { RouteIdentifierSchema } from '@/schemas/route-identifier';
 
@@ -65,7 +63,7 @@ export async function resolveStorefrontMerchantFromRequest({
   let lastLookupError: unknown;
   for (const routeIdentifier of parsedRouteIdentifiers) {
     try {
-      const merchant = await getMerchantByIdentifier(routeIdentifier);
+      const merchant = await getMerchantByIdentifierOrAlias(routeIdentifier);
 
       if (merchant) {
         return {

@@ -1,10 +1,8 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import z from 'zod';
-import {
-  type CachedMerchant,
-  getMerchantByIdentifier,
-} from '@/lib/cached-data';
+import type { CachedMerchant } from '@/lib/cached-data';
+import { getMerchantByIdentifierOrAlias } from '@/lib/get-merchant-by-identifier-or-alias';
 import { createClient } from '@/lib/supabase/server';
 import { resolveTrustedStorefrontRedirectUrl } from '../oauth-redirect';
 
@@ -42,7 +40,7 @@ export async function POST(request: Request) {
     // table has no such column), so it works for both 'ogabassey' and
     // 'ogabassey.com'.
     const merchant: CachedMerchant | null =
-      await getMerchantByIdentifier(merchantSlug);
+      await getMerchantByIdentifierOrAlias(merchantSlug);
 
     if (!merchant) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });
@@ -57,7 +55,8 @@ export async function POST(request: Request) {
 
     const trustedRedirectUrl = resolveTrustedStorefrontRedirectUrl(
       redirectUrl,
-      merchant
+      merchant,
+      merchantSlug
     );
     if (!trustedRedirectUrl) {
       return NextResponse.json(

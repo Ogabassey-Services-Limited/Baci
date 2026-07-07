@@ -15,6 +15,7 @@ import {
 import { normalizeVtuNetworkProvider } from '@/lib/normalize-vtu-network-provider';
 import { calculateCommerce } from '@/lib/supabase/client';
 import { resolveVtuProvider } from '@/lib/vtu-commission-rates';
+import { withMerchantSlugAliasFallback } from '@/lib/with-merchant-slug-alias-fallback';
 import type { Biller, BillerProduct } from '@/schemas/monnify-bills-schema';
 import { COMMISSION_CATEGORY_MAP, type PurchaseInput } from '@/schemas/vtu';
 
@@ -508,11 +509,17 @@ export async function preparePendingVtuTransaction({
     throw new Error('Invalid customer phone number');
   }
 
-  const { data: merchant, error: merchantError } = await supabase
-    .from('merchants')
-    .select('id, slug, business_name, paystack_subaccount_code')
-    .eq('slug', input.merchantSlug)
-    .single();
+  // Alias-aware: VTU purchase flows POST the merchant slug in the body (the proxy
+  // can't rewrite bodies), so a stale tab on a just-renamed store resolves via the
+  // alias table instead of a spurious "Merchant not found". A live slug wins.
+  const { data: merchant, error: merchantError } =
+    await withMerchantSlugAliasFallback(input.merchantSlug, (s) =>
+      supabase
+        .from('merchants')
+        .select('id, slug, business_name, paystack_subaccount_code')
+        .eq('slug', s)
+        .maybeSingle()
+    );
 
   if (merchantError || !merchant) {
     throw new Error('Merchant not found');

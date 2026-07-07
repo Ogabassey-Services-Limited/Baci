@@ -183,7 +183,12 @@ export default function RegisterScreen() {
         businessType: formData.businessType,
         country: formData.country,
         otherBusinessType: formData.otherBusinessType,
+        // Send the DISPLAYED Store Link (so the URL the user sees is what gets
+        // provisioned when free) plus whether they edited it: an edited slug is
+        // honored verbatim (409 if taken); an untouched auto-slug is a preference
+        // the server de-dupes via generate_slug (never a surprising 409).
         slug: formData.slug || undefined,
+        slugIsCustom: isSlugEdited,
         brandColors: JSON.stringify({
           primary: '#000000',
           background: '#ffffff',
@@ -207,6 +212,20 @@ export default function RegisterScreen() {
           const networkError = error as NetworkError;
 
           // Handle specific server error codes
+          const errorCode = (networkError.data as { code?: string } | undefined)
+            ?.code;
+          if (
+            networkError.statusCode === 409 &&
+            errorCode === 'slug_unavailable'
+          ) {
+            // The user's chosen Store Link is taken/retired — offer to pick
+            // another, NOT "go to login" (which would be the wrong recovery).
+            Alert.alert(
+              'Store URL Unavailable',
+              'That store URL is already taken. Please choose a different one.'
+            );
+            return;
+          }
           if (networkError.statusCode === 409) {
             Alert.alert(
               'Account Exists',

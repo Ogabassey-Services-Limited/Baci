@@ -1,7 +1,86 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getCurrentSlugForAlias } from '@/lib/slug-alias-cache';
 import { resolveStorefrontAuthMerchant } from './resolve-storefront-auth-merchant';
 
+vi.mock('@/lib/slug-alias-cache', () => ({
+  getCurrentSlugForAlias: vi.fn(),
+}));
+
 describe('resolveStorefrontAuthMerchant', () => {
+  beforeEach(() => {
+    // Default: not a retired alias (so RPC-miss paths return null as before).
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue(null);
+  });
+
+  it('falls back to the alias table for a retired slug and retries with the current slug', async () => {
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const rpc = vi
+      .fn()
+      .mockImplementation((_fn, args: { p_identifier: string }) =>
+        args.p_identifier === 'zorvexa'
+          ? Promise.resolve({
+              data: [
+                {
+                  business_name: 'Zorvexa',
+                  custom_domain: null,
+                  id: 'merchant-1',
+                  is_published: true,
+                  slug: 'zorvexa',
+                },
+              ],
+              error: null,
+            })
+          : Promise.resolve({ data: [], error: null })
+      );
+
+    const merchant = await resolveStorefrontAuthMerchant({ rpc }, 'yodhashop');
+
+    expect(merchant?.slug).toBe('zorvexa');
+    expect(rpc).toHaveBeenCalledWith('resolve_storefront_auth_merchant', {
+      p_identifier: 'yodhashop',
+    });
+    expect(rpc).toHaveBeenCalledWith('resolve_storefront_auth_merchant', {
+      p_identifier: 'zorvexa',
+    });
+  });
+
+  it('resolves a retired slug that is now RESERVED via the alias table', async () => {
+    // A store used 'staff' before it was reserved, then renamed to 'zorvexa'.
+    // 'staff' is no longer a valid merchant identifier, but an OTP/session request
+    // from a still-open staff.usebaci.com tab must still resolve the current store
+    // instead of dead-ending at "Store not found".
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const rpc = vi
+      .fn()
+      .mockImplementation((_fn, args: { p_identifier: string }) =>
+        args.p_identifier === 'zorvexa'
+          ? Promise.resolve({
+              data: [
+                {
+                  business_name: 'Zorvexa',
+                  custom_domain: null,
+                  id: 'merchant-1',
+                  is_published: true,
+                  slug: 'zorvexa',
+                },
+              ],
+              error: null,
+            })
+          : Promise.resolve({ data: [], error: null })
+      );
+
+    const merchant = await resolveStorefrontAuthMerchant({ rpc }, 'staff');
+
+    expect(merchant?.slug).toBe('zorvexa');
+    // Never queried the RPC for the reserved slug itself — only the resolved current one.
+    expect(rpc).not.toHaveBeenCalledWith('resolve_storefront_auth_merchant', {
+      p_identifier: 'staff',
+    });
+    expect(rpc).toHaveBeenCalledWith('resolve_storefront_auth_merchant', {
+      p_identifier: 'zorvexa',
+    });
+  });
+
   it('uses the uncached public auth merchant RPC with a normalized identifier', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: [

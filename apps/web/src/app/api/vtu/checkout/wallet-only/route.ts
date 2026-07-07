@@ -9,6 +9,7 @@ import {
   resolveVtuCustomer,
 } from '@/lib/vtu-pending-transaction';
 import { computeVtuWalletRequestFingerprint } from '@/lib/vtu-wallet-fingerprint';
+import { withMerchantSlugAliasFallback } from '@/lib/with-merchant-slug-alias-fallback';
 import { vtuWalletOnlyChargeSchema } from '@/schemas/vtu';
 
 const UUID_PATTERN =
@@ -63,11 +64,12 @@ async function resolveRequestingCustomerId(
   user: NonNullable<Awaited<ReturnType<typeof authenticateApiRequest>>['user']>,
   merchantSlug: string
 ): Promise<string | null> {
-  const { data: merchant, error: merchantError } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('slug', merchantSlug)
-    .maybeSingle();
+  // Alias-aware: the slug arrives in the POST body, which the proxy can't rewrite,
+  // so a stale tab on a just-renamed store resolves via the alias table.
+  const { data: merchant, error: merchantError } =
+    await withMerchantSlugAliasFallback(merchantSlug, (s) =>
+      supabase.from('merchants').select('id').eq('slug', s).maybeSingle()
+    );
   if (merchantError || !merchant) {
     return null;
   }

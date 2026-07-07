@@ -140,9 +140,11 @@ function createMockSupabase({
     from: vi.fn((table: string) => {
       if (table === 'merchants') {
         return {
-          select: vi
-            .fn()
-            .mockReturnValue({ eq: vi.fn().mockReturnValue({ single }) }),
+          select: vi.fn().mockReturnValue({
+            // The merchant lookup is alias-aware and uses .maybeSingle();
+            // keep .single() too for any other caller. Same resolved value.
+            eq: vi.fn().mockReturnValue({ single, maybeSingle: single }),
+          }),
         };
       }
       if (table === 'merchant_feature_settings') {

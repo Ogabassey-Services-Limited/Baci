@@ -41,9 +41,15 @@ function createRequest(headers: Record<string, string>) {
 function createSupabase({
   domainLookupError = null,
   slugLookupError = null,
+  retiredSlug = null,
+  retiredMerchantId = 'merchant-renamed',
+  aliasLookupError = null,
 }: {
   domainLookupError?: Error | null;
   slugLookupError?: Error | null;
+  retiredSlug?: string | null;
+  retiredMerchantId?: string;
+  aliasLookupError?: Error | null;
 } = {}) {
   const from = vi.fn((table: string) => {
     const filters: Record<string, string> = {};
@@ -59,6 +65,38 @@ function createSupabase({
           }
 
           return Promise.resolve({ data: { id: 'merchant-1' }, error: null });
+        }
+        // A retired slug: the live-merchant lookup MISSES (store was renamed),
+        // then the alias table resolves it to the current merchant.
+        if (
+          table === 'merchants' &&
+          retiredSlug &&
+          filters.slug === retiredSlug
+        ) {
+          return Promise.resolve({ data: null, error: null });
+        }
+        if (
+          table === 'merchant_slug_aliases' &&
+          retiredSlug &&
+          filters.old_slug === retiredSlug
+        ) {
+          if (aliasLookupError) {
+            return Promise.resolve({ data: null, error: aliasLookupError });
+          }
+          return Promise.resolve({
+            data: { merchant_id: retiredMerchantId },
+            error: null,
+          });
+        }
+        if (table === 'merchants' && filters.id === retiredMerchantId) {
+          return Promise.resolve({
+            data: {
+              business_address: '1 Merchant Road, Ikeja, Lagos',
+              business_name: 'Renamed Store',
+              phone: '08055554444',
+            },
+            error: null,
+          });
         }
         if (table === 'merchants' && filters.id === 'merchant-1') {
           return Promise.resolve({
@@ -140,6 +178,66 @@ describe('resolveQuoteMerchantContext', () => {
       }),
     });
     expect(supabase.from).toHaveBeenCalledWith('merchants');
+  });
+
+  it('resolves a renamed store via the retired-slug alias fallback when the old subdomain is still in use', async () => {
+    const supabase = createSupabase({
+      retiredSlug: 'yodhashop',
+      retiredMerchantId: 'merchant-renamed',
+    });
+
+    const result = await resolveQuoteMerchantContext({
+      data: { shipmentType: 'international' },
+      request: createRequest({
+        host: 'yodhashop.usebaci.com',
+        'x-merchant-slug': 'yodhashop',
+      }),
+      supabase: supabase as never,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      merchantId: 'merchant-renamed',
+      senderInfo: expect.objectContaining({
+        name: 'Renamed Store',
+        phone: '08055554444',
+      }),
+    });
+    expect(supabase.from).toHaveBeenCalledWith('merchant_slug_aliases');
+  });
+
+  it('surfaces retired-slug alias lookup errors instead of silently dropping merchant context', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const supabase = createSupabase({
+      retiredSlug: 'yodhashop',
+      aliasLookupError: new Error('alias table down'),
+    });
+
+    const result = await resolveQuoteMerchantContext({
+      data: {
+        merchantId: 'merchant-body',
+        shipmentType: 'international',
+      },
+      request: createRequest({
+        host: 'yodhashop.usebaci.com',
+        'x-merchant-slug': 'yodhashop',
+      }),
+      supabase: supabase as never,
+    });
+
+    expect(result).toEqual({
+      error: 'Failed to resolve storefront merchant',
+      ok: false,
+      status: 500,
+    });
+    expect(consoleError).toHaveBeenCalledWith(
+      'Error resolving storefront merchant alias:',
+      expect.any(Error)
+    );
+
+    consoleError.mockRestore();
   });
 
   it('does not trust spoofed storefront headers on the platform host', async () => {

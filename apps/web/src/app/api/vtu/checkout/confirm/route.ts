@@ -19,6 +19,7 @@ import {
   normalizeMetadata,
   scheduleVoucherPinBackfill,
 } from '@/lib/vtu-voucher-backfill';
+import { withMerchantSlugAliasFallback } from '@/lib/with-merchant-slug-alias-fallback';
 import { vtuCheckoutConfirmSchema } from '@/schemas/vtu';
 
 function getVerifiedAmount(
@@ -66,11 +67,12 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createAdminClient();
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('slug', parsed.data.merchantSlug)
-      .single();
+    // Alias-aware: a stale tab on a just-renamed store POSTs the retired slug in
+    // the body (the proxy can't rewrite bodies), so resolve it to the current slug.
+    const { data: merchant, error: merchantError } =
+      await withMerchantSlugAliasFallback(parsed.data.merchantSlug, (s) =>
+        supabase.from('merchants').select('id').eq('slug', s).maybeSingle()
+      );
 
     if (merchantError || !merchant) {
       return NextResponse.json(
