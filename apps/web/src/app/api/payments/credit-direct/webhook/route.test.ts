@@ -1510,21 +1510,16 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       expect(response.status).toBe(400);
       expect(data).toEqual({ error: 'Payment amount mismatch' });
       expect(logger.warn).toHaveBeenCalledWith({
-        message: 'Credit Direct signed amount drifted from order total',
+        message:
+          'Credit Direct signed amount drifted from expected gateway amount',
         orderId: 'order_abc',
         signedAmount: 100,
-        orderTotal: 50000,
+        expectedGatewayAmount: 50000,
         transactionId: 'txn_123456789',
-      });
-      expect(logger.error).toHaveBeenCalledWith({
-        message: 'BNPL amount does not match expected total',
-        orderId: 'order_abc',
-        webhookTotal: 100,
-        expectedAmount: 50000,
       });
     });
 
-    it('pays at the order total and logs drift when the signed amount disagrees', async () => {
+    it('rejects payout completion when the signed amount disagrees with the expected residual', async () => {
       const driftedOrder = {
         ...mockOrder,
         notes: JSON.stringify({
@@ -1593,23 +1588,21 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       const response = await POST(request);
       const data = await response.json();
 
-      expect(response.status).toBe(200);
-      expect(data).toEqual({ received: true });
+      expect(response.status).toBe(400);
+      expect(data).toEqual({ error: 'Payment amount mismatch' });
       expect(logger.warn).toHaveBeenCalledWith({
-        message: 'Credit Direct signed amount drifted from order total',
+        message:
+          'Credit Direct signed amount drifted from expected gateway amount',
         orderId: 'order_abc',
         signedAmount: 45000,
-        orderTotal: 50000,
+        expectedGatewayAmount: 50000,
         transactionId: 'txn_123456789',
       });
-      expect(logger.info).toHaveBeenCalledWith({
-        message: 'Credit Direct merchant payment completed',
-        orderId: 'order_abc',
-        transactionId: 'txn_123456789',
-        amount: 50000,
-        platformFee: 1000,
-        merchantAmount: 49000,
-      });
+      expect(logger.info).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Credit Direct merchant payment completed',
+        })
+      );
     });
 
     it('accepts a residual payout when wallet credit covered part of the order', async () => {
@@ -1696,7 +1689,8 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       expect(data).toEqual({ received: true });
       expect(logger.warn).not.toHaveBeenCalledWith(
         expect.objectContaining({
-          message: 'Credit Direct signed amount drifted from order total',
+          message:
+            'Credit Direct signed amount drifted from expected gateway amount',
         })
       );
       expect(logger.info).toHaveBeenCalledWith({

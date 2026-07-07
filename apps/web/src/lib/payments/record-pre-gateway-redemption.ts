@@ -31,23 +31,34 @@ export async function recordPreGatewayRedemption(
   const totalRedeemed = Math.min(savings + wallet, total);
   if (totalRedeemed <= 0) return;
 
-  const supabase = createAdminClient();
-  const { error } = await supabase
-    .from('orders')
-    .update({
-      amount_paid: totalRedeemed,
-      ...(wallet > 0 && { wallet_amount_used: wallet }),
-    })
-    .eq('id', orderId)
-    .in('payment_status', ['unpaid', 'pending'])
-    .eq('amount_paid', 0);
+  const logContext = {
+    message: 'Failed to record pre-gateway redemption on order',
+    orderId,
+    savingsAmountUsed: savings,
+    walletAmountUsed: wallet,
+  };
 
-  if (error) {
+  try {
+    const supabase = createAdminClient();
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        amount_paid: totalRedeemed,
+        ...(wallet > 0 && { wallet_amount_used: wallet }),
+      })
+      .eq('id', orderId)
+      .in('payment_status', ['unpaid', 'pending'])
+      .eq('amount_paid', 0);
+
+    if (error) {
+      logger.error({
+        ...logContext,
+        error,
+      });
+    }
+  } catch (error) {
     logger.error({
-      message: 'Failed to record pre-gateway redemption on order',
-      orderId,
-      savingsAmountUsed: savings,
-      walletAmountUsed: wallet,
+      ...logContext,
       error,
     });
   }

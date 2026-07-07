@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 const STUCK_BNPL_MIN_AGE_HOURS = 24;
 const STUCK_BNPL_MAX_AGE_DAYS = 7;
+const STUCK_BNPL_NOTIFICATION_CONCURRENCY = 5;
 const STUCK_BNPL_ORDER_SCAN_LIMIT = 500;
 const BNPL_PAYMENT_METHODS = ['credit_direct', 'klump', 'credpal'];
 // bnpl_pending: provider session opened, no completion webhook yet.
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
       .in('payment_status', STUCK_BNPL_PAYMENT_STATUSES)
       .in('payment_method', BNPL_PAYMENT_METHODS)
       .lt('updated_at', minAgeCutoff)
-      .gte('updated_at', maxAgeCutoff)
+      .or(`payment_status.eq.bnpl_approved,updated_at.gte.${maxAgeCutoff}`)
       .order('updated_at', { ascending: true })
       .limit(STUCK_BNPL_ORDER_SCAN_LIMIT);
 
@@ -121,6 +122,7 @@ export async function GET(request: NextRequest) {
         !hasProviderTransactionReference(order.notes)
     );
     let orderIdsWithTransactionEvidence = new Set<string>();
+    let transactionEvidenceLookupFailed = false;
     if (evidenceCandidates.length > 0) {
       const { data: transactionRows, error: transactionError } = await supabase
         .from('transactions')
@@ -130,6 +132,7 @@ export async function GET(request: NextRequest) {
           evidenceCandidates.map((order) => order.id)
         );
       if (transactionError) {
+        transactionEvidenceLookupFailed = true;
         logger.warn({
           message:
             'Stuck-BNPL scan could not check transaction evidence; pending/unpaid orders without notes evidence are skipped this run',
@@ -161,7 +164,7 @@ export async function GET(request: NextRequest) {
     const weakEvidenceDropped = evidenceCandidates.filter(
       (order) => !orderIdsWithTransactionEvidence.has(order.id)
     );
-    if (weakEvidenceDropped.length > 0) {
+    if (!transactionEvidenceLookupFailed && weakEvidenceDropped.length > 0) {
       logger.warn({
         message:
           'Stuck-BNPL scan dropped pending/unpaid BNPL orders without provider evidence (possible stuck CredPal)',
@@ -192,56 +195,77 @@ export async function GET(request: NextRequest) {
     let merchantsNotified = 0;
     const pushFailures: string[] = [];
 
-    for (const [merchantId, merchantOrders] of ordersByMerchant) {
-      const totalAmount = merchantOrders.reduce(
-        (sum, order) => sum + (Number(order.total) || 0),
-        0
+    const merchantEntries = Array.from(ordersByMerchant.entries());
+    for (
+      let index = 0;
+      index < merchantEntries.length;
+      index += STUCK_BNPL_NOTIFICATION_CONCURRENCY
+    ) {
+      const batchResults = await Promise.all(
+        merchantEntries
+          .slice(index, index + STUCK_BNPL_NOTIFICATION_CONCURRENCY)
+          .map(async ([merchantId, merchantOrders]) => {
+            const totalAmount = merchantOrders.reduce(
+              (sum, order) => sum + (Number(order.total) || 0),
+              0
+            );
+            const withProviderReference = merchantOrders.filter((order) =>
+              hasProviderTransactionReference(order.notes)
+            ).length;
+            const oldest = merchantOrders[0];
+            const oldestAgeDays = getStuckAgeDays(oldest.updated_at, now);
+            const orderCount = merchantOrders.length;
+
+            logger.warn({
+              message: 'BNPL orders stuck awaiting provider confirmation',
+              merchantId,
+              stuckOrderCount: orderCount,
+              totalAmount,
+              withProviderReference,
+              oldestOrderId: oldest.id,
+              oldestOrderNumber: oldest.order_number,
+              oldestAgeDays,
+            });
+
+            try {
+              const result = await notifyMerchant(
+                merchantId,
+                '⚠️ BNPL orders need attention',
+                `${orderCount} BNPL order${orderCount === 1 ? '' : 's'} totalling ${formatCurrency(totalAmount)} ${orderCount === 1 ? 'is' : 'are'} still awaiting payment confirmation after 24h. Oldest: #${oldest.order_number || oldest.id.slice(0, 8)} (stuck ${oldestAgeDays} day${oldestAgeDays === 1 ? '' : 's'}).`,
+                {
+                  type: 'stuck_bnpl_alert',
+                  stuck_order_count: orderCount,
+                  total_amount: totalAmount,
+                  with_provider_reference: withProviderReference,
+                  oldest_order_id: oldest.id,
+                },
+                'orders'
+              );
+
+              return {
+                merchantId,
+                notified: result.sent > 0,
+              };
+            } catch (pushError) {
+              logger.error({
+                message: 'Failed to push stuck-BNPL alert',
+                merchantId,
+                error: pushError,
+              });
+              return {
+                merchantId,
+                notified: false,
+              };
+            }
+          })
       );
-      const withProviderReference = merchantOrders.filter((order) =>
-        hasProviderTransactionReference(order.notes)
-      ).length;
-      const oldest = merchantOrders[0];
-      const oldestAgeDays = getStuckAgeDays(oldest.updated_at, now);
-      const orderCount = merchantOrders.length;
 
-      logger.warn({
-        message: 'BNPL orders stuck awaiting provider confirmation',
-        merchantId,
-        stuckOrderCount: orderCount,
-        totalAmount,
-        withProviderReference,
-        oldestOrderId: oldest.id,
-        oldestOrderNumber: oldest.order_number,
-        oldestAgeDays,
-      });
-
-      try {
-        const result = await notifyMerchant(
-          merchantId,
-          '⚠️ BNPL orders need attention',
-          `${orderCount} BNPL order${orderCount === 1 ? '' : 's'} totalling ${formatCurrency(totalAmount)} ${orderCount === 1 ? 'is' : 'are'} still awaiting payment confirmation after 24h. Oldest: #${oldest.order_number || oldest.id.slice(0, 8)} (stuck ${oldestAgeDays} day${oldestAgeDays === 1 ? '' : 's'}).`,
-          {
-            type: 'stuck_bnpl_alert',
-            stuck_order_count: orderCount,
-            total_amount: totalAmount,
-            with_provider_reference: withProviderReference,
-            oldest_order_id: oldest.id,
-          },
-          'orders'
-        );
-
-        if (result.sent > 0) {
+      for (const result of batchResults) {
+        if (result.notified) {
           merchantsNotified++;
         } else {
-          pushFailures.push(merchantId);
+          pushFailures.push(result.merchantId);
         }
-      } catch (pushError) {
-        logger.error({
-          message: 'Failed to push stuck-BNPL alert',
-          merchantId,
-          error: pushError,
-        });
-        pushFailures.push(merchantId);
       }
     }
 

@@ -423,12 +423,17 @@ export async function POST(request: NextRequest) {
           Math.abs(signedAmount - expectedAmount) > 0.01
         ) {
           logger.warn({
-            message: 'Credit Direct signed amount drifted from order total',
+            message:
+              'Credit Direct signed amount drifted from expected gateway amount',
             orderId: order.id,
             signedAmount,
-            orderTotal: expectedAmount,
+            expectedGatewayAmount: expectedAmount,
             transactionId: payload.checkoutTransactionId,
           });
+          return NextResponse.json(
+            { error: 'Payment amount mismatch' },
+            { status: 400 }
+          );
         }
         if (webhookTotal === null) {
           logger.error({

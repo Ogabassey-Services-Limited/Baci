@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   statusIn: vi.fn(),
   lt: vi.fn(),
   gte: vi.fn(),
+  statusOr: vi.fn(),
   transactionsIn: vi.fn(),
   notifyMerchant: vi.fn(),
   loggerWarn: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock('@/lib/supabase/admin', () => ({
       in: mocks.statusIn,
       lt: mocks.lt,
       gte: mocks.gte,
+      or: mocks.statusOr,
       order: vi.fn(),
       limit: mocks.limit,
     };
@@ -33,6 +35,7 @@ vi.mock('@/lib/supabase/admin', () => ({
     mocks.statusIn.mockReturnValue(ordersChain);
     mocks.lt.mockReturnValue(ordersChain);
     mocks.gte.mockReturnValue(ordersChain);
+    mocks.statusOr.mockReturnValue(ordersChain);
     ordersChain.order.mockReturnValue(ordersChain);
 
     const transactionsChain = {
@@ -199,7 +202,21 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
       'credpal',
     ]);
     expect(mocks.lt).toHaveBeenCalledWith('updated_at', expect.any(String));
-    expect(mocks.gte).toHaveBeenCalledWith('updated_at', expect.any(String));
+    expect(mocks.statusOr).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /^payment_status\.eq\.bnpl_approved,updated_at\.gte\./
+      )
+    );
+  });
+
+  it('keeps old approved BNPL orders in scope while bounding unresolved pending states', async () => {
+    await GET(createCronRequest());
+
+    expect(mocks.statusOr).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /^payment_status\.eq\.bnpl_approved,updated_at\.gte\./
+      )
+    );
   });
 
   it('warns that the report may be partial when the scan hits its limit', async () => {
@@ -311,6 +328,12 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
           'Stuck-BNPL scan could not check transaction evidence; pending/unpaid orders without notes evidence are skipped this run',
       })
     );
+    expect(mocks.loggerWarn).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          'Stuck-BNPL scan dropped pending/unpaid BNPL orders without provider evidence (possible stuck CredPal)',
+      })
+    );
   });
 
   it('requires provider-session evidence for pending/unpaid orders', async () => {
@@ -373,6 +396,57 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
       merchantsNotified: 0,
       pushFailures: ['merchant-1'],
     });
+  });
+
+  it('notifies merchants concurrently instead of waiting for each merchant serially', async () => {
+    let resolveFirstPush:
+      | ((value: { sent: number; failed: number }) => void)
+      | undefined;
+    const firstPush = new Promise<{ sent: number; failed: number }>(
+      (resolve) => {
+        resolveFirstPush = resolve;
+      }
+    );
+    mocks.limit.mockResolvedValue({
+      data: [
+        stuckOrder({ id: 'order-1', merchant_id: 'merchant-1' }),
+        stuckOrder({ id: 'order-2', merchant_id: 'merchant-2' }),
+      ],
+      error: null,
+    });
+    mocks.notifyMerchant.mockImplementation((merchantId: string) =>
+      merchantId === 'merchant-1'
+        ? firstPush
+        : Promise.resolve({ sent: 1, failed: 0 })
+    );
+
+    const responsePromise = GET(createCronRequest());
+    await Promise.resolve();
+
+    expect(mocks.notifyMerchant).toHaveBeenCalledWith(
+      'merchant-1',
+      expect.any(String),
+      expect.any(String),
+      expect.any(Object),
+      'orders'
+    );
+    expect(mocks.notifyMerchant).toHaveBeenCalledWith(
+      'merchant-2',
+      expect.any(String),
+      expect.any(String),
+      expect.any(Object),
+      'orders'
+    );
+
+    if (!resolveFirstPush) {
+      throw new Error('First push resolver was not initialized');
+    }
+    resolveFirstPush({ sent: 1, failed: 0 });
+    const response = await responsePromise;
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.merchantsNotified).toBe(2);
   });
 
   it('still succeeds when the push helper throws', async () => {

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  createAdminClient: vi.fn(),
   update: vi.fn(),
   eq: vi.fn(),
   inFilter: vi.fn(),
@@ -11,18 +12,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: () => {
-    const chain: Record<string, unknown> = {};
-    chain.from = vi.fn().mockReturnValue(chain);
-    chain.update = mocks.update.mockReturnValue(chain);
-    chain.eq = mocks.eq.mockReturnValue(chain);
-    chain.in = mocks.inFilter.mockReturnValue(chain);
-    // Supabase query builders are thenable; resolve with the configured
-    // outcome no matter which filter method is awaited last.
-    // biome-ignore lint/suspicious/noThenProperty: intentionally thenable to mirror the Supabase builder
-    chain.then = (resolve: (value: unknown) => void) => resolve(mocks.result());
-    return chain;
-  },
+  createAdminClient: (...args: unknown[]) => mocks.createAdminClient(...args),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -36,9 +26,23 @@ vi.mock('@/lib/logger', () => ({
 
 import { recordPreGatewayRedemption } from './record-pre-gateway-redemption';
 
+function createOrdersChain() {
+  const chain: Record<string, unknown> = {};
+  chain.from = vi.fn().mockReturnValue(chain);
+  chain.update = mocks.update.mockReturnValue(chain);
+  chain.eq = mocks.eq.mockReturnValue(chain);
+  chain.in = mocks.inFilter.mockReturnValue(chain);
+  // Supabase query builders are thenable; resolve with the configured
+  // outcome no matter which filter method is awaited last.
+  // biome-ignore lint/suspicious/noThenProperty: intentionally thenable to mirror the Supabase builder
+  chain.then = (resolve: (value: unknown) => void) => resolve(mocks.result());
+  return chain;
+}
+
 describe('recordPreGatewayRedemption', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.createAdminClient.mockImplementation(() => createOrdersChain());
     mocks.result.mockReturnValue({ error: null });
   });
 
@@ -103,6 +107,46 @@ describe('recordPreGatewayRedemption', () => {
       expect.objectContaining({
         message: 'Failed to record pre-gateway redemption on order',
         orderId: 'order-1',
+      })
+    );
+  });
+
+  it('logs but does not throw when the admin client cannot be created', async () => {
+    mocks.createAdminClient.mockImplementation(() => {
+      throw new Error('admin unavailable');
+    });
+
+    await expect(
+      recordPreGatewayRedemption('order-1', 50000, 0, 20000)
+    ).resolves.toBeUndefined();
+
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to record pre-gateway redemption on order',
+        orderId: 'order-1',
+        error: expect.any(Error),
+      })
+    );
+  });
+
+  it('logs but does not throw when the order update throws', async () => {
+    mocks.createAdminClient.mockImplementation(() => {
+      const chain = createOrdersChain();
+      chain.update = vi.fn(() => {
+        throw new Error('update unavailable');
+      });
+      return chain;
+    });
+
+    await expect(
+      recordPreGatewayRedemption('order-1', 50000, 0, 20000)
+    ).resolves.toBeUndefined();
+
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to record pre-gateway redemption on order',
+        orderId: 'order-1',
+        error: expect.any(Error),
       })
     );
   });
