@@ -5,7 +5,6 @@ import {
   type Dispatch,
   type SetStateAction,
   useEffect,
-  useRef,
   useState,
 } from 'react';
 
@@ -37,27 +36,29 @@ export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWallet
     useState(false);
   const [walletDvaEnabled, setWalletDvaEnabled] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
-  const fetchedIdentityRef = useRef<string | null>(null);
+
+  // Clear the previous identity's wallet + funding account SYNCHRONOUSLY
+  // (render-phase) when the customer or storefront changes, so consumers
+  // never read a stale account number for even one render after a switch.
+  // Keyed on identity only — a manual refresh (refreshToken bump) keeps
+  // state to avoid a zero-flash. React "adjusting state during render".
+  const identity =
+    userId && merchantSlug ? `${userId}:${merchantSlug}` : null;
+  const [fetchedIdentity, setFetchedIdentity] = useState<string | null>(null);
+  if (identity !== fetchedIdentity) {
+    setFetchedIdentity(identity);
+    setWalletBalance(0);
+    setPayWithWallet(false);
+    setFundingAccount(null);
+    setRequiresFundingAccountConsent(false);
+    setWalletDvaEnabled(false);
+  }
 
   useEffect(() => {
     const abortController = new AbortController();
 
     const fetchWalletBalance = () => {
       if (!userId || !merchantSlug) return;
-
-      // A different customer (or storefront) is now signed in: clear the
-      // previous identity's wallet + funding account BEFORE fetching so
-      // their account number never flashes for the new session. Manual
-      // refreshes (refreshToken bumps) keep state to avoid a zero-flash.
-      const identity = `${userId}:${merchantSlug}`;
-      if (fetchedIdentityRef.current !== identity) {
-        fetchedIdentityRef.current = identity;
-        setWalletBalance(0);
-        setPayWithWallet(false);
-        setFundingAccount(null);
-        setRequiresFundingAccountConsent(false);
-        setWalletDvaEnabled(false);
-      }
 
       setWalletLoading(true);
       fetch(`/api/storefront/customer/wallet?merchant=${merchantSlug}`, {
