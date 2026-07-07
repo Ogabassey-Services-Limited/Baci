@@ -48,30 +48,13 @@ import {
 import { useAuth } from '@/contexts/auth-context';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
-import { getCountryByCode } from '@/lib/countries';
+import { formatMerchantCurrency } from '@/lib/resolve-merchant-currency';
 import {
   type CreateCustomerData,
   type Customer,
   createCustomer,
   getCustomers,
 } from './actions';
-
-const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
-function getCurrencyFormatter(
-  locale: string,
-  currency: string
-): Intl.NumberFormat {
-  const key = `${locale}:${currency}`;
-  let formatter = _currencyFormatterCache.get(key);
-  if (!formatter) {
-    formatter = new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency,
-    });
-    _currencyFormatterCache.set(key, formatter);
-  }
-  return formatter;
-}
 
 interface CustomersClientPageProps {
   initialCustomers?: Customer[];
@@ -186,15 +169,8 @@ export default function CustomersClientPage({
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    const country = merchant?.country
-      ? getCountryByCode(merchant.country)
-      : undefined;
-    const locale = country ? `en-${country.code}` : 'en-US';
-    const currency = country ? country.currency : 'NGN';
-
-    return getCurrencyFormatter(locale, currency).format(amount);
-  };
+  const formatCurrency = (amount: number) =>
+    formatMerchantCurrency(amount, merchant ?? {});
 
   if (authLoading) {
     return (

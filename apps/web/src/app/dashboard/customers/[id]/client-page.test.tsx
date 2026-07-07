@@ -1,9 +1,16 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ChangeEvent, ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Customer, CustomerOrder } from '../actions';
 import CustomerDetailClientPage from './client-page';
+
+const merchantState = vi.hoisted(() => ({
+  merchant: { country: 'NG', payout_currency: 'NGN' } as {
+    country: string;
+    payout_currency: string;
+  },
+}));
 
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children?: ReactNode; href: string }) => (
@@ -159,6 +166,10 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: vi.fn() }),
 }));
 
+vi.mock('@/hooks/use-merchant-client', () => ({
+  useMerchant: () => ({ merchant: merchantState.merchant }),
+}));
+
 vi.mock('@/lib/api-client', () => ({
   apiDelete: vi.fn(),
   apiPatch: vi.fn(),
@@ -189,6 +200,10 @@ function makeCustomer(overrides: Partial<Customer> = {}): Customer {
 }
 
 describe('CustomerDetailClientPage', () => {
+  afterEach(() => {
+    merchantState.merchant = { country: 'NG', payout_currency: 'NGN' };
+  });
+
   it('lets the edit dialog switch between person and company fields', () => {
     render(
       <CustomerDetailClientPage
@@ -227,5 +242,38 @@ describe('CustomerDetailClientPage', () => {
       'true'
     );
     expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();
+  });
+
+  it('formats Total Spent and Store Credit in NGN for an NGN merchant', () => {
+    render(
+      <CustomerDetailClientPage
+        initialCustomer={makeCustomer({
+          total_spent: 50000,
+          store_credit: 2500,
+        })}
+        initialOrders={[] as CustomerOrder[]}
+      />
+    );
+
+    expect(screen.getByText('₦50,000.00')).toBeInTheDocument();
+    expect(screen.getByText('₦2,500.00')).toBeInTheDocument();
+  });
+
+  it('formats Total Spent and Store Credit in the merchant payout currency for an INR merchant', () => {
+    merchantState.merchant = { country: 'IN', payout_currency: 'INR' };
+
+    render(
+      <CustomerDetailClientPage
+        initialCustomer={makeCustomer({
+          total_spent: 50000,
+          store_credit: 2500,
+        })}
+        initialOrders={[] as CustomerOrder[]}
+      />
+    );
+
+    expect(screen.getByText('₹50,000.00')).toBeInTheDocument();
+    expect(screen.getByText('₹2,500.00')).toBeInTheDocument();
+    expect(screen.queryByText(/₦/)).not.toBeInTheDocument();
   });
 });

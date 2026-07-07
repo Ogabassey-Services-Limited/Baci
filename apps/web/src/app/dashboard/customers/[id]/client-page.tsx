@@ -32,26 +32,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PhoneInput } from '@/components/ui/phone-input';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { apiDelete, apiPatch } from '@/lib/api-client';
+import { formatMerchantCurrency } from '@/lib/resolve-merchant-currency';
 import type { Customer, CustomerOrder } from '../actions';
-
-const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
-function getCurrencyFormatter(
-  locale: string,
-  currency: string
-): Intl.NumberFormat {
-  const key = `${locale}:${currency}`;
-  let formatter = _currencyFormatterCache.get(key);
-  if (!formatter) {
-    formatter = new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency,
-    });
-    _currencyFormatterCache.set(key, formatter);
-  }
-  return formatter;
-}
 
 interface CustomerDetailClientPageProps {
   initialCustomer: Customer;
@@ -93,6 +78,7 @@ export default function CustomerDetailClientPage({
 }: CustomerDetailClientPageProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { merchant } = useMerchant();
   const [customer, setCustomer] = useState<Customer>(initialCustomer);
   const [orders] = useState<CustomerOrder[]>(initialOrders);
 
@@ -189,18 +175,8 @@ export default function CustomerDetailClientPage({
     }
   };
 
-  const formatCurrency = (
-    amount: number,
-    locale?: string,
-    currency?: string
-  ) => {
-    // Fallback to browser locale and NGN if not specified
-    const userLocale =
-      locale ||
-      (typeof navigator !== 'undefined' ? navigator.language : 'en-US');
-    const userCurrency = currency || 'NGN';
-    return getCurrencyFormatter(userLocale, userCurrency).format(amount);
-  };
+  const formatCurrency = (amount: number) =>
+    formatMerchantCurrency(amount, merchant ?? {});
 
   if (!customer) {
     return <div>Customer not found</div>;
