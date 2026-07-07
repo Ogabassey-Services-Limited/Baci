@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import { mkdtemp, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -31,12 +32,27 @@ function waitForQueuedWork() {
 }
 
 function createFakeImage(toFilePromise, onDestroy = () => undefined) {
+  // Real Sharp instances are Duplex streams (EventEmitters); the timeout
+  // path attaches an 'error' listener before destroy(), so the fake must
+  // model that surface.
+  const emitter = new EventEmitter();
   return {
     avif() {
       return this;
     },
     destroy(error) {
       onDestroy(error);
+    },
+    emit(...args) {
+      return emitter.emit(...args);
+    },
+    on(...args) {
+      emitter.on(...args);
+      return this;
+    },
+    once(...args) {
+      emitter.once(...args);
+      return this;
     },
     jpeg() {
       return this;
@@ -179,6 +195,72 @@ test('ensureTransformed rejects timed-out image work with 504', async () => {
       error?.message === 'Image transform timed out after 10ms'
   );
   assert.equal(destroyedStatusCode, 504);
+});
+
+test('ensureTransformed survives a late Sharp stream error after timeout (regression: process crash)', async () => {
+  // Production incident 2026-07-06: real Sharp streams emit 'error' on a
+  // LATER tick after destroy(error). Without the pre-attached listener the
+  // emission is an unhandled 'error' event and kills the whole process.
+  const originalWarn = console.warn;
+  const warnings = [];
+  console.warn = (...args) => {
+    warnings.push(args);
+  };
+
+  // Settle the write in cleanup so the slot the timed-out transform holds is
+  // released — otherwise this test leaks module-level queue state and starves
+  // later tests (e.g. the pending-queue-full case) of a transform slot.
+  let settleTransform;
+  const transformWrite = new Promise((_, reject) => {
+    settleTransform = reject;
+  });
+  try {
+    let fakeImage;
+    const deps = createTransformDeps({
+      sharpFactory: () => {
+        fakeImage = createFakeImage(transformWrite, (error) => {
+          // Mirror real Sharp: the stream emits 'error' asynchronously
+          // after destroy(error), NOT inside the destroy() call.
+          setImmediate(() => {
+            fakeImage.emit('error', error);
+          });
+        });
+        return fakeImage;
+      },
+      transformTimeoutMs: 10,
+    });
+
+    await assert.rejects(
+      ensureTransformed(
+        'late-error-source.png',
+        'late-error-cache.webp',
+        options,
+        'webp',
+        deps
+      ),
+      (error) => error?.statusCode === 504
+    );
+
+    // Let the late emission fire; with no listener attached this tick would
+    // throw an uncaughtException and fail the run.
+    await new Promise((resolve) => {
+      setImmediate(() => setImmediate(resolve));
+    });
+
+    assert.ok(
+      warnings.some(
+        (args) => args[0] === 'Timed-out image transform emitted late error'
+      ),
+      'late stream error must be absorbed and logged, not crash the process'
+    );
+  } finally {
+    console.warn = originalWarn;
+    // Release the deferred transform slot before the next test runs.
+    settleTransform(new Error('test cleanup'));
+    await new Promise((resolve) => {
+      setImmediate(() => setImmediate(resolve));
+    });
+  }
 });
 
 test('ensureTransformed reports timeout before slow transform cleanup settles', async () => {
