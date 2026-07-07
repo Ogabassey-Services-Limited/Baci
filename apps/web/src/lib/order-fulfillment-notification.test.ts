@@ -166,6 +166,25 @@ describe('sendOrderFulfillmentNotification', () => {
     );
   });
 
+  it('treats completed orders as delivered for fulfillment notifications', async () => {
+    const result = await sendOrderFulfillmentNotification({
+      eventType: 'order_delivered',
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      supabase: createSupabaseMock({
+        order: { ...baseOrder, shipping_status: 'completed' },
+      }),
+    });
+
+    expect(result).toMatchObject({
+      messageId: 'msg-1',
+      status: 'sent',
+    });
+    expect(generateOrderDeliveredEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ googlePlaceId: 'place-1' })
+    );
+  });
+
   it('does not send when the order no longer matches the queued event state', async () => {
     const result = await sendOrderFulfillmentNotification({
       eventType: 'order_shipped',

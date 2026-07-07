@@ -111,6 +111,7 @@ function createSupabaseMock(order = deliveredOrder) {
       }
       throw new Error(`Unexpected table: ${table}`);
     }),
+    rpc: vi.fn().mockResolvedValue({ data: 1, error: null }),
   } as unknown as SupabaseClient;
 }
 
@@ -169,6 +170,31 @@ describe('POST /api/orders/[id]/delivered', () => {
         textContent: 'delivered text',
       })
     );
+  });
+
+  it('marks a queued delivered outbox event consumed after manual send success', async () => {
+    const supabase = createSupabaseMock();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(createRequest(), {
+      params: Promise.resolve({ id: orderId }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(
+      (supabase as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc
+    ).toHaveBeenCalledWith('complete_order_notification_outbox_manual_result', {
+      p_event_type: 'order_delivered',
+      p_merchant_id: 'merchant-1',
+      p_message_id: 'msg-1',
+      p_order_id: orderId,
+      p_skip_reason: null,
+      p_status: 'sent',
+    });
   });
 
   it('skips delivered email for legacy orders without a customer email', async () => {

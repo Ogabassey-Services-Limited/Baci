@@ -97,10 +97,21 @@ function tableQuery(
   return supabase.from(table) as QueryBuilder;
 }
 
-function getRequiredShippingStatus(
+function getRequiredShippingStatusMessage(
   eventType: OrderFulfillmentNotificationEventType
 ): 'shipped' | 'delivered' {
   return eventType === 'order_shipped' ? 'shipped' : 'delivered';
+}
+
+function isOrderInRequiredShippingStatus(
+  eventType: OrderFulfillmentNotificationEventType,
+  shippingStatus: z.infer<typeof fulfillmentShippingStatusSchema>
+): boolean {
+  if (eventType === 'order_shipped') {
+    return shippingStatus === 'shipped';
+  }
+
+  return shippingStatus === 'delivered' || shippingStatus === 'completed';
 }
 
 async function loadMerchant(
@@ -237,15 +248,12 @@ export async function sendOrderFulfillmentNotification({
     return { status: 'failed', error: 'Invalid order payload' };
   }
 
-  const requiredStatus = getRequiredShippingStatus(eventType);
-  if (order.shipping_status !== requiredStatus) {
+  if (!isOrderInRequiredShippingStatus(eventType, order.shipping_status)) {
     if (mismatchBehavior === 'invalid_state') {
+      const requiredStatus = getRequiredShippingStatusMessage(eventType);
       return {
         status: 'invalid_state',
-        error:
-          eventType === 'order_shipped'
-            ? 'Order must be marked as shipped first'
-            : 'Order must be marked as delivered first',
+        error: `Order must be marked as ${requiredStatus} first`,
       };
     }
 

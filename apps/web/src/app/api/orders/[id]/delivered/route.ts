@@ -8,6 +8,7 @@ import {
   type OrderFulfillmentNotificationResult,
   sendOrderFulfillmentNotification,
 } from '@/lib/order-fulfillment-notification';
+import { completeManualOrderNotificationOutboxEvent } from '@/lib/order-notification-outbox-manual-result';
 import { orderIdParamsSchema } from '@/schemas/orders';
 
 function responseForResult(result: OrderFulfillmentNotificationResult) {
@@ -92,6 +93,14 @@ export async function POST(
       merchantId,
       mismatchBehavior: 'invalid_state',
       orderId: parsedParams.data.id,
+      supabase: auth.supabase,
+    });
+
+    await completeManualOrderNotificationOutboxEvent({
+      eventType: 'order_delivered',
+      merchantId,
+      orderId: parsedParams.data.id,
+      result,
       supabase: auth.supabase,
     });
 

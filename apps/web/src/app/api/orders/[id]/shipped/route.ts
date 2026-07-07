@@ -9,6 +9,7 @@ import {
   type OrderFulfillmentNotificationResult,
   sendOrderFulfillmentNotification,
 } from '@/lib/order-fulfillment-notification';
+import { completeManualOrderNotificationOutboxEvent } from '@/lib/order-notification-outbox-manual-result';
 import { orderIdParamsSchema } from '@/schemas/orders';
 
 const optionalTrimmedStringSchema = z.preprocess(
@@ -133,6 +134,14 @@ export async function POST(
       orderId: parsedParams.data.id,
       supabase: auth.supabase,
       trackingNumber,
+    });
+
+    await completeManualOrderNotificationOutboxEvent({
+      eventType: 'order_shipped',
+      merchantId,
+      orderId: parsedParams.data.id,
+      result,
+      supabase: auth.supabase,
     });
 
     return responseForResult(result);
