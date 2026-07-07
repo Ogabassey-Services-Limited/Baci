@@ -239,7 +239,7 @@ describe('web cron worker', () => {
   it('allows the order notification outbox cron endpoint', async () => {
     const calls = [];
     const result = await runWebCron({
-      path: '/api/cron/order-notifications',
+      path: '/api/cron/order-notifications?batchSize=5',
       env: {
         BACI_WEB_BASE_URL: 'https://ogabassey.com',
         CRON_SECRET: 'secret',
@@ -255,7 +255,7 @@ describe('web cron worker', () => {
     assert.equal(calls.length, 1);
     assert.equal(
       calls[0].url,
-      'https://ogabassey.com/api/cron/order-notifications'
+      'https://ogabassey.com/api/cron/order-notifications?batchSize=5'
     );
     assert.equal(calls[0].init.method, 'GET');
   });

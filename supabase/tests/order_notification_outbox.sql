@@ -338,6 +338,33 @@ BEGIN
       v_manual_terminal_status;
   END IF;
 
+  SELECT public.complete_order_notification_outbox_manual_result(
+    v_manual_skipped_order_id,
+    v_merchant_id,
+    'order_shipped',
+    'sent',
+    'manual-message-after-skip-1',
+    NULL
+  )
+  INTO v_manual_updated_count;
+
+  IF v_manual_updated_count <> 1 THEN
+    RAISE EXCEPTION 'expected manual retry completion to update skipped row, got %',
+      v_manual_updated_count;
+  END IF;
+
+  SELECT public.get_order_notification_outbox_manual_terminal_status(
+    v_manual_skipped_order_id,
+    v_merchant_id,
+    'order_shipped'
+  )
+  INTO v_manual_terminal_status;
+
+  IF v_manual_terminal_status IS DISTINCT FROM 'sent' THEN
+    RAISE EXCEPTION 'expected manual retry completion to create sent marker, got %',
+      v_manual_terminal_status;
+  END IF;
+
 
   UPDATE public.orders
   SET shipping_status = 'shipped'

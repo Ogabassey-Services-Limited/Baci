@@ -34,7 +34,7 @@ describe('deploy crontab', () => {
     );
     assert.match(
       deployScript,
-      /\$NODE_BIN \$REMOTE_DIR\/jobs\/run-web-cron\.mjs \/api\/cron\/order-notifications/
+      /\$NODE_BIN \$REMOTE_DIR\/jobs\/run-web-cron\.mjs \/api\/cron\/order-notifications\?batchSize=5/
     );
     assert.match(
       deployScript,

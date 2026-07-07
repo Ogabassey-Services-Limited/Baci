@@ -81,9 +81,9 @@ function buildWebCronRequest({ baseUrl, path }) {
   if (!baseUrl) {
     throw new Error('BACI_WEB_BASE_URL is required');
   }
-  const webCronConfig = getWebCronConfig(path);
 
   const url = new URL(path, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
+  const webCronConfig = getWebCronConfig(url.pathname);
   if (url.protocol !== 'https:') {
     throw new Error('BACI_WEB_BASE_URL must use https');
   }
