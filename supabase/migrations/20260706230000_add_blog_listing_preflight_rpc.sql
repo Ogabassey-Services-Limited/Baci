@@ -126,13 +126,28 @@ AS $$
     LEFT JOIN public.merchant_feature_settings AS mfs
       ON mfs.merchant_id = pm.id
   ),
+  -- Post/category/author aggregation must be gated on an ENABLED blog: this
+  -- function is SECURITY DEFINER and anon-granted, so returning counts for a
+  -- merchant who disabled their blog would leak content they intentionally
+  -- suppressed (the resolver returned BEFORE querying posts when the blog
+  -- feature was off — getCachedBlogListing/getCachedBlogAuthor short-circuit to
+  -- null). When the blog is off, published_posts is empty, so total_count is 0
+  -- and the arrays are empty; the blog_enabled flag itself is still surfaced so
+  -- the TS helper keeps its disabled-blog verdict (NOOP / author 404).
+  blog_enabled_merchant AS (
+    SELECT pm.id
+    FROM published_merchant AS pm
+    LEFT JOIN public.merchant_feature_settings AS mfs
+      ON mfs.merchant_id = pm.id
+    WHERE COALESCE(mfs.blog_enabled, false)
+  ),
   -- Byte-identical to getCachedBlogListing's blog_posts filter set (no category
   -- blocklist, no category-null requirement): drives total_count and, filtered
   -- to non-null categories, the per-category counts.
   published_posts AS (
     SELECT bp.category AS category, bp.author_name AS author_name
     FROM public.blog_posts AS bp
-    JOIN published_merchant AS pm ON bp.merchant_id = pm.id
+    JOIN blog_enabled_merchant AS bem ON bp.merchant_id = bem.id
     WHERE bp.status = 'published'
       AND bp.published_at IS NOT NULL
       AND bp.title IS NOT NULL
