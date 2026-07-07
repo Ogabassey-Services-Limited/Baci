@@ -21,6 +21,10 @@ import { getQuizPhaseEnv } from '@/env';
 import { logger } from '@/lib/logger';
 import { startQuizAttemptSchema } from '@/schemas/quiz';
 
+function isBearerAuthenticated(request: NextRequest): boolean {
+  return request.headers.get('Authorization')?.startsWith('Bearer ') ?? false;
+}
+
 function isExamPassRequiredError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const code =
@@ -59,7 +63,17 @@ export async function POST(request: NextRequest) {
         parsed.data.eventId
       );
       await enforceQuizAgeGate(auth.supabase, merchantId, auth.user.id);
-      await enforceQuizUsernameGate(auth.supabase, merchantId, auth.user.id);
+      // The username is required for the leaderboard, but only the mobile
+      // storefront (which authenticates with a Bearer token) has a
+      // username-collection UI today. Web storefront customers have no way to
+      // set one yet, so enforcing here would hard-block them with no
+      // remediation. Scope the gate to the clients that can actually satisfy
+      // it — bearer-authenticated mobile requests — until a web username flow
+      // exists. Mobile has no cookie session, so it cannot skip the gate by
+      // dropping the Bearer token (that path is unauthenticated → 401).
+      if (isBearerAuthenticated(request)) {
+        await enforceQuizUsernameGate(auth.supabase, merchantId, auth.user.id);
+      }
     } catch (error) {
       if (isQuizAgeGateError(error)) {
         return quizAgeGateErrorResponse(error);

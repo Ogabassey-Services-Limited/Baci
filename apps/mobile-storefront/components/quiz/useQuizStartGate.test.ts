@@ -15,7 +15,7 @@ describe('useQuizStartGate', () => {
     mockCustomer = { username: null };
   });
 
-  it('opens the gate instead of starting when the customer has no username', () => {
+  it('opens the gate instead of starting when the loaded customer has no username', () => {
     const onStart = jest.fn();
     const { result } = renderHook(() => useQuizStartGate(onStart));
 
@@ -81,8 +81,9 @@ describe('useQuizStartGate', () => {
     expect(onStart).not.toHaveBeenCalled();
   });
 
-  it('does not show the modal while the customer is still hydrating', () => {
-    // Cold start: session is present but the customer row has not loaded yet.
+  it('falls back to the server start when the customer is not loaded (hydrating)', () => {
+    // Cold start: the session is present but the customer row has not hydrated
+    // yet, so we cannot tell whether a username exists.
     mockCustomer = null;
     const onStart = jest.fn();
     const { result } = renderHook(() => useQuizStartGate(onStart));
@@ -91,50 +92,24 @@ describe('useQuizStartGate', () => {
       result.current.requestStart('event-1');
     });
 
-    // The gate must stay hidden (customer not loaded), and the start is queued
-    // rather than flashing the "set a username" prompt at a returning shopper.
+    // No modal flash for a returning shopper; the server decides.
     expect(result.current.isGateVisible).toBe(false);
-    expect(onStart).not.toHaveBeenCalled();
+    expect(onStart).toHaveBeenCalledWith('event-1');
+    expect(onStart).toHaveBeenCalledTimes(1);
   });
 
-  it('auto-continues the queued start once hydration supplies a username', () => {
+  it('does not leave a dead Start button when customer hydration fails (null customer)', () => {
+    // syncAuthenticatedState leaves customer null on a post-auth sync failure;
+    // the tap must still reach the server rather than being swallowed.
     mockCustomer = null;
     const onStart = jest.fn();
-    const { result, rerender } = renderHook(() => useQuizStartGate(onStart));
+    const { result } = renderHook(() => useQuizStartGate(onStart));
 
     act(() => {
-      result.current.requestStart('event-1');
-    });
-    expect(onStart).not.toHaveBeenCalled();
-
-    // Hydration resolves with an existing username.
-    mockCustomer = { username: 'ogafan' };
-    act(() => {
-      rerender({});
+      result.current.requestStart('event-9');
     });
 
-    expect(onStart).toHaveBeenCalledWith('event-1');
-    expect(onStart).toHaveBeenCalledTimes(1);
+    expect(onStart).toHaveBeenCalledWith('event-9');
     expect(result.current.isGateVisible).toBe(false);
-  });
-
-  it('starts only once when a username arrives and the gate is also confirmed', () => {
-    const onStart = jest.fn();
-    const { result, rerender } = renderHook(() => useQuizStartGate(onStart));
-
-    act(() => {
-      result.current.requestStart('event-1');
-    });
-
-    // Simulate the modal setting a username (store now reflects it) AND the
-    // modal's success callback confirming the gate in the same cycle.
-    mockCustomer = { username: 'ogafan' };
-    act(() => {
-      rerender({});
-      result.current.confirmGate();
-    });
-
-    expect(onStart).toHaveBeenCalledTimes(1);
-    expect(onStart).toHaveBeenCalledWith('event-1');
   });
 });

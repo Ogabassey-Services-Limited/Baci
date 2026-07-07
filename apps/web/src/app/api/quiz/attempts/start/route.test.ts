@@ -1,9 +1,14 @@
 import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
+
+vi.mock('@/lib/api-auth', () => ({
+  authenticateApiRequest: vi.fn(),
+}));
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(),
@@ -33,6 +38,19 @@ function jsonRequest(body: unknown) {
   return new NextRequest('http://localhost/api/quiz/attempts/start', {
     body: JSON.stringify(body),
     headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+  });
+}
+
+// Mobile storefront requests carry a Bearer token (no cookie session). The
+// username gate only applies to these bearer-authenticated clients.
+function bearerRequest(body: unknown) {
+  return new NextRequest('http://localhost/api/quiz/attempts/start', {
+    body: JSON.stringify(body),
+    headers: {
+      Authorization: 'Bearer test-token',
+      'Content-Type': 'application/json',
+    },
     method: 'POST',
   });
 }
@@ -96,7 +114,13 @@ function mockAuthenticatedSupabase({
   };
 
   vi.mocked(createClient).mockResolvedValue(supabase as never);
-  return { customerAgeBuilder, eventGuardBuilder, from, rpc };
+  // Bearer (mobile) requests authenticate via authenticateApiRequest instead of
+  // the cookie client; return the same mock supabase so both paths share it.
+  vi.mocked(authenticateApiRequest).mockResolvedValue({
+    supabase,
+    user,
+  } as never);
+  return { customerAgeBuilder, eventGuardBuilder, from, rpc, supabase };
 }
 
 describe('start quiz attempt route', () => {
@@ -331,7 +355,7 @@ describe('start quiz attempt route', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it('blocks production quiz start when the customer has no username', async () => {
+  it('blocks a production mobile (bearer) quiz start when the customer has no username', async () => {
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
     const { customerAgeBuilder, rpc } = mockAuthenticatedSupabase({
@@ -343,7 +367,7 @@ describe('start quiz attempt route', () => {
 
     const { POST } = await import('./route');
     const response = await POST(
-      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+      bearerRequest({ eventId: EVENT_ID, integrityTier: 'device' })
     );
 
     expect(response.status).toBe(409);
@@ -355,7 +379,30 @@ describe('start quiz attempt route', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it('starts production quiz play when age and username gates pass', async () => {
+  it('does not block a production web (cookie) start when the username is missing', async () => {
+    // Web has no username-collection UI yet, so the gate is scoped to mobile.
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+    const { rpc } = mockAuthenticatedSupabase({
+      customerAgeResult: {
+        data: { date_of_birth: '1990-01-01', username: null },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith(
+      'start_quiz_attempt',
+      expect.objectContaining({ p_event_id: EVENT_ID, p_user_id: USER_ID })
+    );
+  });
+
+  it('starts a production mobile quiz when age and username gates pass', async () => {
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
     const { rpc } = mockAuthenticatedSupabase({
@@ -367,7 +414,7 @@ describe('start quiz attempt route', () => {
 
     const { POST } = await import('./route');
     const response = await POST(
-      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+      bearerRequest({ eventId: EVENT_ID, integrityTier: 'device' })
     );
 
     expect(response.status).toBe(200);
