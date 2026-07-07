@@ -122,6 +122,53 @@ describe('AddressAutocomplete', () => {
       expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
     });
 
+    it('resets the interaction latch on touchCancel so a later blur still closes', async () => {
+      mockFetchSuccess();
+      render(<AddressAutocomplete />);
+
+      const input = await typeAndWaitForPredictions();
+      const scrollView = screen.UNSAFE_getByType(ScrollView);
+      // Gesture interrupted (handed to parent scroll / finger off-bounds).
+      fireEvent(scrollView, 'touchStart');
+      fireEvent(scrollView, 'touchCancel');
+      fireEvent(input, 'blur');
+      act(() => {
+        jest.advanceTimersByTime(200);
+      });
+
+      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
+    });
+
+    it('resets the interaction latch when a fling ends via momentum', async () => {
+      mockFetchSuccess();
+      render(<AddressAutocomplete />);
+
+      const input = await typeAndWaitForPredictions();
+      const scrollView = screen.UNSAFE_getByType(ScrollView);
+      fireEvent(scrollView, 'touchStart');
+      fireEvent(scrollView, 'momentumScrollEnd');
+      fireEvent(input, 'blur');
+      act(() => {
+        jest.advanceTimersByTime(200);
+      });
+
+      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
+    });
+
+    it('closes the dropdown when the outside-tap scrim is pressed', async () => {
+      mockFetchSuccess();
+      render(<AddressAutocomplete />);
+
+      await typeAndWaitForPredictions();
+      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
+
+      // Sticky state: dropdown open after a scroll blur; tapping outside it
+      // (the scrim) must dismiss it since the input can no longer blur.
+      fireEvent.press(screen.getByLabelText('Close address suggestions'));
+
+      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
+    });
+
     it('cancels the blur-close timer when the input is refocused', async () => {
       mockFetchSuccess();
       render(<AddressAutocomplete />);

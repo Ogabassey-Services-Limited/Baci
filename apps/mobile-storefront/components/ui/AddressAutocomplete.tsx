@@ -76,6 +76,15 @@ export function AddressAutocomplete({
   // the blur handler would close the dropdown mid-scroll.
   const dropdownInteractingRef = useRef(false);
 
+  // Backstop the interaction latch: if the dropdown unmounts mid-touch (or a
+  // gesture is handed to the parent scroll and no reset event lands), clear the
+  // ref whenever the dropdown is closed so a later genuine blur still closes it.
+  useEffect(() => {
+    if (!isOpen) {
+      dropdownInteractingRef.current = false;
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     return () => {
       if (debounceTimer.current) {
@@ -168,6 +177,12 @@ export function AddressAutocomplete({
     setIsOpen(false);
   };
 
+  const closeDropdown = () => {
+    dropdownInteractingRef.current = false;
+    setIsOpen(false);
+    Keyboard.dismiss();
+  };
+
   return (
     <View ref={wrapperRef} style={[styles.wrapper, containerStyle]}>
       {label && (
@@ -203,6 +218,9 @@ export function AddressAutocomplete({
           value={internalValue}
           onChangeText={handleInputChange}
           onFocus={(event) => {
+            // Focus can only return after a blur, so any prior dropdown drag is
+            // over — clear the latch before the next blur can be suppressed.
+            dropdownInteractingRef.current = false;
             if (blurCloseTimerRef.current) {
               clearTimeout(blurCloseTimerRef.current);
               blurCloseTimerRef.current = null;
@@ -272,18 +290,29 @@ export function AddressAutocomplete({
       )}
 
       {isOpen && predictions.length > 0 && (
-        <AddressPredictionsDropdown
-          colors={colors}
-          isDark={isDark}
-          onInteractEnd={() => {
-            dropdownInteractingRef.current = false;
-          }}
-          onInteractStart={() => {
-            dropdownInteractingRef.current = true;
-          }}
-          onSelectPrediction={handlePredictionSelect}
-          predictions={predictions}
-        />
+        <>
+          {/* Tap-outside-to-dismiss: after keyboard-dismiss-on-drag blurs the
+              input, the dropdown can no longer close via blur, so a scrim
+              behind it catches taps on the obscured form and closes it. */}
+          <Pressable
+            accessibilityLabel="Close address suggestions"
+            accessibilityRole="button"
+            onPress={closeDropdown}
+            style={styles.dropdownScrim}
+          />
+          <AddressPredictionsDropdown
+            colors={colors}
+            isDark={isDark}
+            onInteractEnd={() => {
+              dropdownInteractingRef.current = false;
+            }}
+            onInteractStart={() => {
+              dropdownInteractingRef.current = true;
+            }}
+            onSelectPrediction={handlePredictionSelect}
+            predictions={predictions}
+          />
+        </>
       )}
     </View>
   );

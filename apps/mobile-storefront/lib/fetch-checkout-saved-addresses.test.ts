@@ -89,6 +89,10 @@ describe('fetchCheckoutSavedAddresses', () => {
     expect(addresses.filter((address) => address.id === 'addr-1')).toHaveLength(
       1
     );
+    // Keep-first: the surviving addr-1 is the first occurrence (Lagos), not Abuja.
+    expect(addresses.find((address) => address.id === 'addr-1')?.city).toBe(
+      'Lagos'
+    );
     expect(mockTrackError).not.toHaveBeenCalled();
   });
 

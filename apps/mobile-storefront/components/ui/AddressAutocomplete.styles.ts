@@ -45,6 +45,20 @@ export const addressAutocompleteStyles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
+  // Transparent tap-catcher covering the form area below the input (where the
+  // absolute dropdown overlays City/State etc.). Starts at top:'100%' so it
+  // never covers the input itself, and sits just under the dropdown's z so
+  // predictions stay tappable while any outside tap dismisses the list. Large
+  // negative insets guarantee coverage regardless of the input's scroll offset.
+  dropdownScrim: {
+    position: 'absolute',
+    top: '100%',
+    left: -2000,
+    right: -2000,
+    bottom: -2000,
+    zIndex: 9998,
+    elevation: 9998,
+  },
   dropdown: {
     position: 'absolute',
     top: '100%',
