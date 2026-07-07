@@ -50,12 +50,20 @@ BEGIN
   -- Authorization (preserved from #2965): caller must be a customer of the
   -- event's merchant. loyalty_points is a wallet-like balance and is NOT
   -- projected — it stays an internal ORDER BY tiebreaker only.
+  --
+  -- `c.deleted_at IS NULL` excludes soft-deleted customer rows so a shopper who
+  -- offboarded (but whose row still carries their user_id) cannot pass the
+  -- membership check and read the merchant's leaderboard. This matches every
+  -- sibling membership guard added in this PR (e.g. is_customer_username_available
+  -- in 20260707100000_customer_usernames.sql); #2965's original guard omitted it,
+  -- and since this migration runs last it is the authoritative, tighter version.
   IF NOT EXISTS (
     SELECT 1
     FROM public.customers c
     JOIN public.quiz_events e ON e.id = p_event_id
     WHERE c.merchant_id = e.merchant_id
       AND c.user_id = auth.uid()
+      AND c.deleted_at IS NULL
   ) THEN
     RAISE EXCEPTION 'not_authorized' USING ERRCODE = 'QZ031';
   END IF;

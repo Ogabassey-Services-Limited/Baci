@@ -54,6 +54,15 @@ BEGIN
       fn_def;
   END IF;
 
+  -- The membership guard must exclude soft-deleted customer rows (consistent
+  -- with the other membership guards in this PR), otherwise an offboarded
+  -- customer whose row still carries their user_id could read the leaderboard.
+  IF fn_def NOT LIKE '%deleted_at IS NULL%' THEN
+    RAISE EXCEPTION
+      'get_quiz_leaderboard membership guard must exclude soft-deleted customers (deleted_at IS NULL), found %',
+      fn_def;
+  END IF;
+
   -- The #2965 double precision cast must be preserved so plpgsql RETURN QUERY
   -- does not raise SQLSTATE 42804 at call time.
   IF fn_def NOT LIKE '%::double precision%' THEN
