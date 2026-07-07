@@ -7,7 +7,9 @@ on:
     paths:
       - 'apps/mobile-admin/**'
       - 'packages/shared/**'
-      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+      - '.npmrc'
     tags:
       # Tag pushes bypass the paths filter above (GitHub Actions behaviour).
       - 'v*-admin-ios'
@@ -109,6 +111,7 @@ jobs:
           # still uploads so its native crashes symbolicate.
           {
             echo '#!/usr/bin/env sh'
+            # shellcheck disable=SC2016 # $1/$2/$@ must remain literal in the generated wrapper.
             printf 'if [ "$1" = "dsym" ] && [ "$2" = "upload" ]; then exec node "%s" "$@" --skip-on-conflict; fi\n' "$POSTHOG_CLI_JS"
             printf 'exec node "%s" "$@"\n' "$POSTHOG_CLI_JS"
           } > "$HOME/.posthog/posthog-cli"

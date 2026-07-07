@@ -7,7 +7,9 @@ on:
     paths:
       - 'apps/mobile-admin/**'
       - 'packages/shared/**'
-      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+      - '.npmrc'
     tags:
       # Tag pushes bypass the paths filter above (GitHub Actions behaviour).
       - 'v*-admin'
@@ -238,6 +240,18 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_PATH"
           chmod 600 "$KEYSTORE_PATH"
           echo "ANDROID_ADMIN_KEYSTORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+
+      - name: Reset Worklets bundle artifacts
+        run: |
+          WORKLETS_DIR="$GITHUB_WORKSPACE/node_modules/react-native-worklets/.worklets"
+          rm -rf "$WORKLETS_DIR"
+          mkdir -p "$WORKLETS_DIR"
+
+          for CACHE_ROOT in "${RUNNER_TEMP:-}" "${TMPDIR:-/tmp}" /tmp; do
+            if [ -n "$CACHE_ROOT" ]; then
+              rm -rf "$CACHE_ROOT"/metro-* "$CACHE_ROOT"/haste-map-* 2>/dev/null || true
+            fi
+          done
 
       - name: Build Android App Bundle
         working-directory: ${{ env.WORKING_DIR }}/android
