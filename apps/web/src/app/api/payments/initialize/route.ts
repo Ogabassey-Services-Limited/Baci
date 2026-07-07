@@ -32,11 +32,11 @@ import {
   type Currency,
   calculatePlatformFee as calculateKorapayFee,
   initializePayment as initializeKorapayPayment,
-  SUPPORTED_CURRENCIES,
 } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
 import { redactPaymentLogValue } from '@/lib/payments/redact-payment-log-value';
+import { resolveChargeCurrency } from '@/lib/payments/resolve-charge-currency';
 import {
   calculatePlatformFee as calculatePaystackFee,
   initializeTransaction as initializePaystackPayment,
@@ -1033,12 +1033,16 @@ export async function POST(request: NextRequest) {
 
     const data = parseResult.data;
 
-    // Validate currency
-    const validCurrency = SUPPORTED_CURRENCIES.includes(
-      data.currency as Currency
-    )
-      ? data.currency
-      : 'NGN';
+    // The client never dictates the charge currency (see resolveChargeCurrency).
+    // Capture whether the request EXPLICITLY carried a currency: the Zod schema
+    // defaults `currency` to 'NGN', so `data.currency` cannot distinguish an
+    // omitted field from a client that genuinely sent NGN.
+    const rawBodyCurrency =
+      body && typeof body === 'object' && !Array.isArray(body)
+        ? (body as { currency?: unknown }).currency
+        : undefined;
+    const clientRequestedCurrency =
+      typeof rawBodyCurrency === 'string' ? rawBodyCurrency : undefined;
 
     // Use the admin client throughout this route.
     // This endpoint is called by the mobile storefront which authenticates via
@@ -1098,6 +1102,16 @@ export async function POST(request: NextRequest) {
       );
     }
     const merchantId = orderSnapshot.merchant_id;
+
+    // The charge currency is the order's currency (server-authoritative from the
+    // snapshot, stamped from the merchant payout currency at order creation).
+    // Legacy rows without a stamped currency are all genuinely NGN, so an empty
+    // value falls back to NGN rather than failing a Nigerian checkout.
+    const orderCurrency =
+      typeof orderSnapshot.currency === 'string' &&
+      orderSnapshot.currency.trim().length > 0
+        ? orderSnapshot.currency.trim().toUpperCase()
+        : 'NGN';
 
     const { data: orderPaymentRow, error: orderPaymentError } =
       await adminSupabase
@@ -1213,10 +1227,32 @@ export async function POST(request: NextRequest) {
         : data.gateway && PAYMENT_GATEWAYS.includes(data.gateway)
           ? data.gateway
           : selectGateway(
-              validCurrency,
+              orderCurrency,
               gatewaySettings,
               hasPaystackSubaccount
             );
+
+    // Resolve the charge currency against the selected gateway. This replaces the
+    // old silent NGN coercion: an order whose currency the gateway cannot charge
+    // now fails closed (UNSUPPORTED_CURRENCY) instead of being charged in NGN, and
+    // a client that explicitly disagrees with the order fails closed
+    // (CURRENCY_MISMATCH). NGN orders are supported by every gateway, so the
+    // entire existing Nigerian flow is unchanged.
+    const currencyResolution = resolveChargeCurrency({
+      orderCurrency,
+      clientCurrency: clientRequestedCurrency,
+      gateway,
+    });
+
+    if (!currencyResolution.ok) {
+      return createErrorResponse(
+        currencyResolution.error,
+        currencyResolution.code,
+        400
+      );
+    }
+
+    const chargeCurrency = currencyResolution.currency;
 
     const payableAmount =
       gateway === 'klump'
@@ -1234,7 +1270,7 @@ export async function POST(request: NextRequest) {
     const paymentData: AuthorizedPaymentInitRequest = {
       ...data,
       amount: payableAmount,
-      currency: validCurrency,
+      currency: chargeCurrency,
     };
 
     if (gateway === 'korapay' && !gatewaySettings.korapay_enabled) {
@@ -1264,7 +1300,9 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (validCurrency !== 'NGN') {
+      // Defense-in-depth: resolveChargeCurrency already rejects a non-NGN order
+      // routed to Klump (NGN-only) with UNSUPPORTED_CURRENCY before this point.
+      if (chargeCurrency !== 'NGN') {
         return createErrorResponse(
           'Klump only supports NGN payments',
           'UNSUPPORTED_CURRENCY',
