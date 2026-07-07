@@ -235,6 +235,31 @@ describe('web cron worker', () => {
     assert.equal(signal instanceof AbortSignal, true);
   });
 
+
+  it('allows the order notification outbox cron endpoint', async () => {
+    const calls = [];
+    const result = await runWebCron({
+      path: '/api/cron/order-notifications',
+      env: {
+        BACI_WEB_BASE_URL: 'https://ogabassey.com',
+        CRON_SECRET: 'secret',
+      },
+      fetchFn: (url, init) => {
+        calls.push({ url, init });
+        return new Response('ok', { status: 200 });
+      },
+      logger: noopLogger,
+    });
+
+    assert.deepEqual(result, { status: 200, body: 'ok' });
+    assert.equal(calls.length, 1);
+    assert.equal(
+      calls[0].url,
+      'https://ogabassey.com/api/cron/order-notifications'
+    );
+    assert.equal(calls[0].init.method, 'GET');
+  });
+
   it('rejects unsupported paths', () => {
     assert.throws(
       () =>

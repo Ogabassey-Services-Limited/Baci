@@ -54,8 +54,10 @@ const merchant = {
   cac_rc_number: null,
 };
 
+const orderId = 'aaffdc6b-f171-4e65-86a4-b379fd3d1757';
+
 const shippedOrder = {
-  id: 'order-1',
+  id: orderId,
   customer_id: 'customer-1',
   order_number: 'ORD-001',
   customer_name: 'Jane Doe',
@@ -120,7 +122,7 @@ function createSupabaseMock(order: ShippedOrderFixture = shippedOrder) {
 }
 
 function createRequest(body: Record<string, unknown> = {}) {
-  return new NextRequest('http://localhost/api/orders/order-1/shipped', {
+  return new NextRequest(`http://localhost/api/orders/${orderId}/shipped`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -152,7 +154,7 @@ describe('POST /api/orders/[id]/shipped', () => {
 
   it('uses saved order tracking details when the mobile client sends an empty body', async () => {
     const response = await POST(createRequest(), {
-      params: Promise.resolve({ id: 'order-1' }),
+      params: Promise.resolve({ id: orderId }),
     });
 
     expect(response.status).toBe(200);
@@ -181,6 +183,20 @@ describe('POST /api/orders/[id]/shipped', () => {
     );
   });
 
+  it('returns 400 for invalid order ids before sending mail', async () => {
+    const response = await POST(createRequest(), {
+      params: Promise.resolve({ id: 'not-a-uuid' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({
+      code: 'INVALID_ORDER_ID',
+      error: 'Invalid order ID',
+    });
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
   it('skips shipped email for legacy orders without a customer email', async () => {
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       error: null,
@@ -192,7 +208,7 @@ describe('POST /api/orders/[id]/shipped', () => {
     });
 
     const response = await POST(createRequest(), {
-      params: Promise.resolve({ id: 'order-1' }),
+      params: Promise.resolve({ id: orderId }),
     });
     const body = await response.json();
 
@@ -216,7 +232,7 @@ describe('POST /api/orders/[id]/shipped', () => {
     });
 
     const response = await POST(createRequest(), {
-      params: Promise.resolve({ id: 'order-1' }),
+      params: Promise.resolve({ id: orderId }),
     });
 
     expect(response.status).toBe(200);
