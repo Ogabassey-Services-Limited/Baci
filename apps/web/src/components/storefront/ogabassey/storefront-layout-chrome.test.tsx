@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import type { MerchantData } from '@/hooks/merchant/types';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -102,6 +103,28 @@ vi.mock('./storefront-deferred-overlay-chrome', () => ({
 
 import { OgabasseyLayoutChrome } from './storefront-layout-chrome';
 
+const merchantWithPublishablePolicies = {
+  id: 'merchant-1',
+  user_id: 'user-1',
+  business_name: 'Ogabassey',
+  business_type: 'electronics',
+  template_id: 'ogabassey',
+  trust_profile: {
+    return_policy: { summary: 'Returns accepted within 7 days.' },
+    shipping_policy: { summary: 'Ships nationwide.' },
+    warranty_policy: { summary: 'Warranty applies to eligible devices.' },
+  },
+} as MerchantData;
+
+const merchantWithoutPublishableWarranty = {
+  ...merchantWithPublishablePolicies,
+  trust_profile: {
+    return_policy: { summary: 'Returns accepted within 7 days.' },
+    shipping_policy: { summary: 'Ships nationwide.' },
+    warranty_policy: {},
+  },
+} as MerchantData;
+
 describe('OgabasseyLayoutChrome', () => {
   beforeEach(() => {
     mockUsePathname.mockReset();
@@ -128,7 +151,13 @@ describe('OgabasseyLayoutChrome', () => {
   });
 
   it('renders mobile and lightweight semantic footer links immediately while deferring full footer commerce widgets', () => {
-    render(<OgabasseyLayoutChrome basePath="/ogabassey" section="footer" />);
+    render(
+      <OgabasseyLayoutChrome
+        basePath="/ogabassey"
+        merchant={merchantWithPublishablePolicies}
+        section="footer"
+      />
+    );
 
     expect(
       screen.getByRole('navigation', { name: /mobile footer/i })
@@ -198,6 +227,28 @@ describe('OgabasseyLayoutChrome', () => {
       'href',
       '/about'
     );
+  });
+
+  it('omits non-publishable warranty links from the immediate fallback footer', () => {
+    render(
+      <OgabasseyLayoutChrome
+        basePath="/ogabassey"
+        merchant={merchantWithoutPublishableWarranty}
+        section="footer"
+      />
+    );
+
+    expect(screen.getByRole('link', { name: /returns/i })).toHaveAttribute(
+      'href',
+      '/ogabassey/returns'
+    );
+    expect(screen.getByRole('link', { name: /shipping/i })).toHaveAttribute(
+      'href',
+      '/ogabassey/shipping'
+    );
+    expect(
+      screen.queryByRole('link', { name: /warranty/i })
+    ).not.toBeInTheDocument();
   });
 
   it('mounts deferred footer commerce chrome after activation', async () => {
