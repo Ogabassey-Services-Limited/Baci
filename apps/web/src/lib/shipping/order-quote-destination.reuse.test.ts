@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { enrichShippingAddressWithQuoteDestination } from './order-quote-destination';
+import { createSupabaseRpcMock } from './test-helpers/create-supabase-rpc-mock';
 
 const shippingAddress = {
   address: '123 Queen Street West',
@@ -11,14 +12,12 @@ const shippingAddress = {
   state: 'Ontario',
 };
 
-function createSupabase() {
-  return {
-    rpc: vi.fn().mockResolvedValue({
-      data: [
-        {
-          expires_at: new Date(Date.now() + 60_000).toISOString(),
+describe('enrichShippingAddressWithQuoteDestination reuse validation', () => {
+  it('allows reused international order items to validate without a comparable price', async () => {
+    await expect(
+      enrichShippingAddressWithQuoteDestination(
+        createSupabaseRpcMock({
           price: 10_000,
-          provider: 'GIGL',
           provider_rate_id: 'GIGL_INTL_1_2_3_1',
           quote_request: {
             merchantId: 'merchant-current',
@@ -31,18 +30,7 @@ function createSupabase() {
             },
             items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
           },
-        },
-      ],
-      error: null,
-    }),
-  };
-}
-
-describe('enrichShippingAddressWithQuoteDestination reuse validation', () => {
-  it('allows reused international order items to validate without a comparable price', async () => {
-    await expect(
-      enrichShippingAddressWithQuoteDestination(
-        createSupabase() as unknown as SupabaseClient,
+        }) as unknown as SupabaseClient,
         'quote-1',
         shippingAddress,
         {

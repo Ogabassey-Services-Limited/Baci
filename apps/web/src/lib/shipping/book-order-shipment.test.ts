@@ -51,6 +51,7 @@ function createMockSupabase(overrides?: {
   order?: { data: unknown; error: unknown };
   existingShipment?: { data: unknown; error: unknown };
   quote?: { data: unknown; error: unknown };
+  quoteUpdate?: { error: unknown };
   merchant?: { data: unknown; error: unknown };
   shipmentInsert?: { data: unknown; error: unknown };
   onShipmentInsert?: (payload: unknown) => void;
@@ -105,7 +106,7 @@ function createMockSupabase(overrides?: {
     select: vi.fn().mockReturnValue(shipmentsInsertSelectChain),
   };
   const shippingQuotesUpdateChain = {
-    error: null,
+    error: overrides?.quoteUpdate?.error ?? null,
     eq: vi.fn(),
   };
   shippingQuotesUpdateChain.eq.mockReturnValue(shippingQuotesUpdateChain);
@@ -416,5 +417,24 @@ describe('bookOrderShipment', () => {
     await expect(
       bookOrderShipment(supabase, 'merchant-1', 'order-1')
     ).rejects.toThrow('could not be saved locally');
+  });
+
+  it('throws QUOTE_UPDATE_FAILED when the booked quote cannot be marked used', async () => {
+    vi.mocked(shippingService.bookShipment).mockResolvedValue(bookingResult);
+
+    const supabase = createMockSupabase({
+      order: { data: validOrder, error: null },
+      quote: { data: validQuote, error: null },
+      quoteUpdate: { error: { message: 'permission denied' } },
+      merchant: { data: validMerchant, error: null },
+      shipmentInsert: { data: { id: 'shipment-1' }, error: null },
+    });
+
+    await expect(
+      bookOrderShipment(supabase, 'merchant-1', 'order-1')
+    ).rejects.toMatchObject({
+      code: 'QUOTE_UPDATE_FAILED',
+      status: 500,
+    });
   });
 });

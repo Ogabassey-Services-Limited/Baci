@@ -422,11 +422,19 @@ export async function bookOrderShipment(
     );
   }
 
-  await supabase
+  const { error: quoteUpdateError } = await supabase
     .from('shipping_quotes')
     .update({ used: true })
     .eq('id', resolvedQuote.id)
     .eq('merchant_id', merchantId);
+
+  if (quoteUpdateError) {
+    throw new OrderShipmentBookingError(
+      `Shipment booked with ${result.provider} but the quote could not be marked as used. Tracking: ${result.trackingNumber}`,
+      500,
+      'QUOTE_UPDATE_FAILED'
+    );
+  }
 
   return {
     shipmentId: typedShipment.id,

@@ -1,24 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { enrichShippingAddressWithQuoteDestination } from './order-quote-destination';
-
-function createSupabase(quote: unknown) {
-  const quoteRecord =
-    quote && typeof quote === 'object' && !Array.isArray(quote)
-      ? {
-          expires_at: new Date(Date.now() + 60_000).toISOString(),
-          provider: 'GIGL',
-          ...(quote as Record<string, unknown>),
-        }
-      : quote;
-
-  return {
-    rpc: vi.fn().mockResolvedValue({
-      data: quoteRecord ? [quoteRecord] : [],
-      error: null,
-    }),
-  };
-}
+import { createSupabaseRpcMock } from './test-helpers/create-supabase-rpc-mock';
 
 const shippingAddress = {
   address: '123 Queen Street West',
@@ -40,7 +23,7 @@ const checkoutPhoneItem = {
 describe('enrichShippingAddressWithQuoteDestination', () => {
   it('persists international destination fields from the saved quote request', async () => {
     const result = await enrichShippingAddressWithQuoteDestination(
-      createSupabase({
+      createSupabaseRpcMock({
         provider_rate_id: 'GIGL_INTL_1_2_3_1',
         quote_request: {
           merchantId: 'merchant-current',
@@ -75,7 +58,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
   it('keeps the original address for non-international quotes', async () => {
     await expect(
       enrichShippingAddressWithQuoteDestination(
-        createSupabase({
+        createSupabaseRpcMock({
           provider_rate_id: 'gigl:service-centre:5',
           quote_request: null,
         }) as unknown as SupabaseClient,
@@ -88,7 +71,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
   it('rejects saved international quote destinations that do not match checkout address', async () => {
     await expect(
       enrichShippingAddressWithQuoteDestination(
-        createSupabase({
+        createSupabaseRpcMock({
           provider_rate_id: 'GIGL_INTL_1_2_3_1',
           quote_request: {
             merchantId: 'merchant-current',
@@ -125,7 +108,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
   it('rejects saved international quotes from another merchant before checkout', async () => {
     await expect(
       enrichShippingAddressWithQuoteDestination(
-        createSupabase({
+        createSupabaseRpcMock({
           provider_rate_id: 'GIGL_INTL_1_2_3_1',
           quote_request: {
             merchantId: 'merchant-other',
@@ -162,7 +145,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
   it('rejects saved international quotes that no longer match checkout items or price', async () => {
     await expect(
       enrichShippingAddressWithQuoteDestination(
-        createSupabase({
+        createSupabaseRpcMock({
           price: 10_000,
           provider_rate_id: 'GIGL_INTL_1_2_3_1',
           quote_request: {
@@ -200,7 +183,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
   it('rejects saved international quotes when the checkout shipping fee changes', async () => {
     await expect(
       enrichShippingAddressWithQuoteDestination(
-        createSupabase({
+        createSupabaseRpcMock({
           price: 10_000,
           provider_rate_id: 'GIGL_INTL_1_2_3_1',
           quote_request: {
@@ -238,7 +221,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
   it('rejects changed checkout shipping fees when stored quote price is a string', async () => {
     await expect(
       enrichShippingAddressWithQuoteDestination(
-        createSupabase({
+        createSupabaseRpcMock({
           price: '10000',
           provider_rate_id: 'GIGL_INTL_1_2_3_1',
           quote_request: {

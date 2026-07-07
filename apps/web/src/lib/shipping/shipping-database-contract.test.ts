@@ -50,6 +50,9 @@ describe('shipping database contract', () => {
     expect(quoteScopeMigration).toContain(
       'ADD COLUMN IF NOT EXISTS merchant_id uuid'
     );
+    expect(quoteScopeMigration).toMatch(
+      /UPDATE\s+public\.shipping_quotes\s+sq\s+SET\s+merchant_id\s+=\s+o\.merchant_id\s+FROM\s+public\.orders\s+o/i
+    );
     expect(quoteScopeMigration).toContain(
       'DROP POLICY IF EXISTS "Public can read quotes"'
     );

@@ -98,16 +98,25 @@ async function resolveAuthenticatedMerchantId(
 async function resolveStorefrontMerchantId(
   request: HeaderReader,
   supabase: SupabaseClient
-): Promise<string | undefined> {
+): Promise<string | undefined | QuoteMerchantContextResult> {
   if (!isTrustedStorefrontHeader(request)) return undefined;
 
   const slug = normalizeHeader(request.headers.get('x-merchant-slug'));
   if (slug) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('merchants')
       .select('id')
       .eq('slug', slug)
       .maybeSingle();
+    if (error) {
+      console.error('Error resolving storefront merchant slug:', error);
+      return {
+        error: 'Failed to resolve storefront merchant',
+        ok: false,
+        status: 500,
+      };
+    }
+
     const merchant = data as { id?: string } | null;
     if (merchant?.id) return merchant.id;
   }
@@ -115,12 +124,21 @@ async function resolveStorefrontMerchantId(
   const domain = normalizeHeader(request.headers.get('x-merchant-domain'));
   if (!domain) return undefined;
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('domains')
     .select('merchant_id')
     .eq('domain', domain)
     .eq('status', 'active')
     .maybeSingle();
+  if (error) {
+    console.error('Error resolving storefront merchant domain:', error);
+    return {
+      error: 'Failed to resolve storefront merchant',
+      ok: false,
+      status: 500,
+    };
+  }
+
   const domainRow = data as { merchant_id?: string } | null;
   return domainRow?.merchant_id;
 }
@@ -182,6 +200,10 @@ export async function resolveQuoteMerchantContext({
     request,
     supabase
   );
+  if (storefrontMerchantId && typeof storefrontMerchantId === 'object') {
+    return storefrontMerchantId;
+  }
+
   const merchantId =
     authenticatedMerchantId ?? storefrontMerchantId ?? data.merchantId;
   const trustedSenderMerchantId =

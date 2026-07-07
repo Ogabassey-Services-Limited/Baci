@@ -33,7 +33,13 @@ function createRequest(headers: Record<string, string>) {
   };
 }
 
-function createSupabase() {
+function createSupabase({
+  domainLookupError = null,
+  slugLookupError = null,
+}: {
+  domainLookupError?: Error | null;
+  slugLookupError?: Error | null;
+} = {}) {
   const from = vi.fn((table: string) => {
     const filters: Record<string, string> = {};
     const query = {
@@ -43,6 +49,10 @@ function createSupabase() {
       }),
       maybeSingle: vi.fn(() => {
         if (table === 'merchants' && filters.slug === 'ogabassey') {
+          if (slugLookupError) {
+            return Promise.resolve({ data: null, error: slugLookupError });
+          }
+
           return Promise.resolve({ data: { id: 'merchant-1' }, error: null });
         }
         if (table === 'merchants' && filters.id === 'merchant-1') {
@@ -52,6 +62,16 @@ function createSupabase() {
               business_name: 'Merchant Store',
               phone: '08012345678',
             },
+            error: null,
+          });
+        }
+        if (table === 'domains' && filters.domain === 'shop.example.com') {
+          if (domainLookupError) {
+            return Promise.resolve({ data: null, error: domainLookupError });
+          }
+
+          return Promise.resolve({
+            data: { merchant_id: 'merchant-1' },
             error: null,
           });
         }
@@ -129,5 +149,71 @@ describe('resolveQuoteMerchantContext', () => {
       senderInfo: sender,
     });
     expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it('surfaces trusted storefront slug lookup errors instead of falling back to caller merchantId', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const supabase = createSupabase({
+      slugLookupError: new Error('database unavailable'),
+    });
+
+    const result = await resolveQuoteMerchantContext({
+      data: {
+        merchantId: 'merchant-body',
+        shipmentType: 'international',
+      },
+      request: createRequest({
+        host: 'ogabassey.usebaci.com',
+        'x-merchant-slug': 'ogabassey',
+      }),
+      supabase: supabase as never,
+    });
+
+    expect(result).toEqual({
+      error: 'Failed to resolve storefront merchant',
+      ok: false,
+      status: 500,
+    });
+    expect(consoleError).toHaveBeenCalledWith(
+      'Error resolving storefront merchant slug:',
+      expect.any(Error)
+    );
+
+    consoleError.mockRestore();
+  });
+
+  it('surfaces trusted storefront domain lookup errors instead of falling back to caller merchantId', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const supabase = createSupabase({
+      domainLookupError: new Error('domain lookup failed'),
+    });
+
+    const result = await resolveQuoteMerchantContext({
+      data: {
+        merchantId: 'merchant-body',
+        shipmentType: 'international',
+      },
+      request: createRequest({
+        host: 'shop.example.com',
+        'x-merchant-domain': 'shop.example.com',
+      }),
+      supabase: supabase as never,
+    });
+
+    expect(result).toEqual({
+      error: 'Failed to resolve storefront merchant',
+      ok: false,
+      status: 500,
+    });
+    expect(consoleError).toHaveBeenCalledWith(
+      'Error resolving storefront merchant domain:',
+      expect.any(Error)
+    );
+
+    consoleError.mockRestore();
   });
 });

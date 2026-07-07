@@ -1,6 +1,13 @@
 ALTER TABLE public.shipping_quotes
   ADD COLUMN IF NOT EXISTS merchant_id uuid;
 
+UPDATE public.shipping_quotes sq
+SET merchant_id = o.merchant_id
+FROM public.orders o
+WHERE o.selected_quote_id = sq.id
+  AND sq.merchant_id IS NULL
+  AND o.merchant_id IS NOT NULL;
+
 DO $$
 BEGIN
   IF NOT EXISTS (

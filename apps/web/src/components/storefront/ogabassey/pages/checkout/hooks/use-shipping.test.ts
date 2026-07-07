@@ -283,6 +283,7 @@ describe('useShipping', () => {
           firstName: 'John',
           lastName: 'Doe',
           customerEmail: 'john@example.com',
+          merchantId: 'merchant-1',
           cart,
         }),
       );
@@ -298,6 +299,7 @@ describe('useShipping', () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            merchantId: 'merchant-1',
             receiver: {
               name: 'John Doe',
               email: 'john@example.com',
