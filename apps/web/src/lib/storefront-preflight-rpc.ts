@@ -123,6 +123,23 @@ function isAbortLikeError(error: unknown): boolean {
 }
 
 /**
+ * Bounded, secrets-free `code message` diagnostic for a fail-open. PostgREST
+ * error messages carry no secrets; bounding keeps a pathological message from
+ * bloating the telemetry payload. Empty → undefined so the property is omitted.
+ */
+function boundedErrorDetail(code: string, message: string): string | undefined {
+  return `${code} ${message}`.trim().slice(0, 160) || undefined;
+}
+
+/** Same diagnostic for the rare THROWN (not resolved-`{ error }`) rejection. */
+function thrownErrorDetail(error: unknown): string | undefined {
+  if (error instanceof Error || error instanceof DOMException) {
+    return boundedErrorDetail(error.name, error.message);
+  }
+  return undefined;
+}
+
+/**
  * Calls a preflight verdict RPC and returns its single row, or null after
  * logging/capturing the fail-open (callers return their surface's fail-open
  * verdict on null). Never throws.
@@ -174,6 +191,7 @@ export async function callStorefrontPreflightRpc(
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
       reason: isAbortLikeError(error) ? 'timeout' : 'fetch-error',
+      detail: thrownErrorDetail(error),
     });
     captureBreakerOpenTransition(failOpenContext);
     return null;
@@ -186,12 +204,10 @@ export async function callStorefrontPreflightRpc(
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
       reason: classifyRpcErrorReason(result.error),
-      // PostgREST error messages are safe to log (no secrets); the code+message
-      // is what makes a fail-open diagnosable from PostHog. Bounded so a
-      // pathological message can never bloat the telemetry payload.
-      detail: `${result.error.code ?? ''} ${result.error.message ?? ''}`
-        .trim()
-        .slice(0, 160),
+      detail: boundedErrorDetail(
+        result.error.code ?? '',
+        result.error.message ?? ''
+      ),
     });
     captureBreakerOpenTransition(failOpenContext);
     return null;

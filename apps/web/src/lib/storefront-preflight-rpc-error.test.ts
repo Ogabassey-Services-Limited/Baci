@@ -63,6 +63,16 @@ describe('classifyRpcErrorReason', () => {
       { code: 'XX000', message: 'boom' },
       'has-error',
     ],
+    // A coded DB error whose message mentions "abort" is NOT a transport abort
+    // (e.g. SQLSTATE 25P02) — the non-empty code keeps it has-error.
+    [
+      'a coded transaction-aborted SQLSTATE',
+      {
+        code: '25P02',
+        message: 'current transaction is aborted, commands ignored',
+      },
+      'has-error',
+    ],
   ] as const)('classifies %s as %s', (_label, error, expected) => {
     expect(classifyRpcErrorReason(error)).toBe(expected);
   });

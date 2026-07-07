@@ -99,13 +99,17 @@ describe('callStorefrontPreflightRpc', () => {
     expectFailOpenReason(consoleWarnSpy, reason);
   });
 
-  it('classifies a plain rejection as fetch-error', async () => {
+  it('classifies a plain rejection as fetch-error and forwards its detail', async () => {
     const rpcImpl = vi.fn().mockRejectedValue(new Error('network down'));
 
     const result = await callRpc('fetch_error_fn', {}, rpcImpl);
 
     expect(result).toBeNull();
     expectFailOpenReason(consoleWarnSpy, 'fetch-error');
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ detail: 'Error network down' })
+    );
   });
 
   it('classifies a Postgres statement-timeout error code as timeout', async () => {
