@@ -2,12 +2,17 @@ import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreateAdminClient = vi.fn();
+const mockCreateServerClient = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockHasPermission = vi.fn();
 const mockGetQuotes = vi.fn();
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: mockCreateAdminClient,
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: mockCreateServerClient,
 }));
 
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
@@ -102,6 +107,7 @@ describe('POST /api/shipping/quotes', () => {
       sessionId: 'session-1',
       expiresAt: new Date(Date.now() + 60_000).toISOString(),
     });
+    mockCreateServerClient.mockResolvedValue(buildSupabaseMock(null));
   });
 
   it('rejects public international quotes without a merchant sender', async () => {
@@ -131,11 +137,15 @@ describe('POST /api/shipping/quotes', () => {
 
   it('allows merchant sender fallback before international quote creation', async () => {
     mockCreateAdminClient.mockReturnValue(buildSupabaseMock({ id: 'user-1' }));
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' })
+    );
     const { POST } = await import('./route');
 
     const response = await POST(buildQuoteRequest());
 
     expect(response.status).toBe(200);
+    expect(mockCreateServerClient).toHaveBeenCalled();
     expect(mockGetQuotes).toHaveBeenCalledWith(
       expect.objectContaining({
         sender: expect.objectContaining({
@@ -178,6 +188,9 @@ describe('POST /api/shipping/quotes', () => {
   it('rejects international quote merchant IDs when auth has no merchant context', async () => {
     const supabase = buildSupabaseMock({ id: 'user-1' });
     mockCreateAdminClient.mockReturnValue(supabase);
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' })
+    );
     mockGetMerchantForApiRequest.mockResolvedValue(null);
     const { POST } = await import('./route');
 
@@ -198,6 +211,9 @@ describe('POST /api/shipping/quotes', () => {
   it('stores the resolved authenticated merchant on international quote requests', async () => {
     const supabase = buildSupabaseMock({ id: 'user-1' });
     mockCreateAdminClient.mockReturnValue(supabase);
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' })
+    );
     mockGetQuotes.mockResolvedValue({
       quotes: {
         featured: [],
@@ -243,6 +259,9 @@ describe('POST /api/shipping/quotes', () => {
     mockCreateAdminClient.mockReturnValue(
       buildSupabaseMock({ id: 'user-1' }, { message: 'database unavailable' })
     );
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' })
+    );
     const { POST } = await import('./route');
 
     const response = await POST(buildQuoteRequest());
@@ -257,6 +276,9 @@ describe('POST /api/shipping/quotes', () => {
   it('does not treat a missing authenticated merchant row as a query failure', async () => {
     mockCreateAdminClient.mockReturnValue(
       buildSupabaseMock({ id: 'user-1' }, null, null)
+    );
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' })
     );
     const { POST } = await import('./route');
 

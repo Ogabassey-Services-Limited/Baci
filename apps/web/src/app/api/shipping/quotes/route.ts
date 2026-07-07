@@ -8,7 +8,8 @@
  * The cookie-based client always resolves to an unauthenticated session for
  * mobile requests. To validate the caller's JWT we extract the raw token from
  * the Authorization header and pass it to supabase.auth.getUser(token) explicitly,
- * which works for both web (cookie) sessions and mobile Bearer tokens.
+ * Mobile Bearer tokens are validated explicitly; web requests use the
+ * request-bound cookie client before service-role quote storage.
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
@@ -21,6 +22,7 @@ import { shippingService } from '@/lib/shipping';
 import { deriveMerchantLocation } from '@/lib/shipping/order-shipment-booking-utils';
 import type { QuoteRequest } from '@/lib/shipping/types';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
 import { QuoteRequestSchema } from '@/schemas/shipping';
 
 // =============================================================================
@@ -62,24 +64,24 @@ export async function POST(request: NextRequest) {
     let merchantSenderBusinessName: string | undefined;
 
     if (shouldResolveMerchantSender) {
-      // Extract Bearer token from Authorization header (mobile) or fall back
-      // to cookie-less getUser which returns null for unauthenticated callers.
       const authHeader = request.headers.get('authorization');
       const token = authHeader?.startsWith('Bearer ')
         ? authHeader.slice(7)
         : undefined;
 
+      const authClient = token ? supabase : await createServerSupabaseClient();
       const {
         data: { user },
       } = token
-        ? await supabase.auth.getUser(token)
-        : await supabase.auth.getUser();
+        ? await authClient.auth.getUser(token)
+        : await authClient.auth.getUser();
 
       if (user) {
         // Resolve merchant context (supports both owners and staff)
         const merchantContext = await getMerchantForApiRequest(
           supabase,
-          user.id
+          user.id,
+          { requestedMerchantId: data.merchantId }
         );
 
         if (merchantContext) {
@@ -91,9 +93,6 @@ export async function POST(request: NextRequest) {
           merchantSenderId = merchantContext.merchantId;
           merchantSenderBusinessName = merchantContext.businessName;
         }
-      }
-      if (user && data.shipmentType !== 'international') {
-        merchantSenderId ??= data.merchantId;
       }
     }
 
