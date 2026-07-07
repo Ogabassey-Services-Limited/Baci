@@ -32,6 +32,7 @@ describe('handlePlaceOrder', () => {
     overrides: Partial<PlaceOrderOptions> = {},
   ): PlaceOrderOptions => ({
     merchant: { id: 'merchant-1', slug: 'test-store' },
+    currency: 'NGN',
     customerEmail: 'john@example.com',
     firstName: 'John',
     lastName: 'Doe',
@@ -396,6 +397,36 @@ describe('handlePlaceOrder', () => {
           country: 'NG',
         }),
       );
+      // Currency threaded from the merchant-resolved code, not hardcoded.
+      expect(initBody.currency).toBe('NGN');
+    });
+
+    it('threads the merchant-resolved currency into payment initialization', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            order: { id: 'order-kes' },
+            wallet: null,
+            amountDueToGateway: 12000,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            success: true,
+            authorization_url: 'https://paystack.test/checkout',
+          }),
+        });
+
+      const opts = buildOpts({
+        paymentMethod: 'paystack',
+        currency: 'KES',
+      });
+      await handlePlaceOrder(opts);
+
+      const initBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(initBody.currency).toBe('KES');
     });
 
     it('throws on failed order creation', async () => {

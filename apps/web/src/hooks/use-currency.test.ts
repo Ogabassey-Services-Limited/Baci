@@ -32,15 +32,16 @@ describe('useCurrency', () => {
     expect(result.current.currencyCode).toBe('USD');
   });
 
-  it('should default to USD if merchant has no country or payout currency', () => {
+  it('should default to NGN (platform fallback) if merchant has no country or payout currency', () => {
     vi.mocked(useMerchantSafe).mockReturnValue({
       merchant: { country: null },
     } as unknown as ReturnType<typeof useMerchantSafe>);
 
     const { result } = renderHook(() => useCurrency());
 
-    expect(result.current.formatCurrency(1000)).toBe('$1,000.00');
-    expect(result.current.currencyCode).toBe('USD');
+    // Canonical resolver falls back to NGN (Baci's home market), not USD.
+    expect(result.current.formatCurrency(1000)).toBe('₦1,000.00');
+    expect(result.current.currencyCode).toBe('NGN');
   });
 
   it('should use payout currency when merchant country is missing', () => {
@@ -64,12 +65,12 @@ describe('useCurrencyWithCountry', () => {
     expect(result.current.currencySymbol).toBe('₦');
   });
 
-  it('falls back to USD when country and payout currency are missing', () => {
+  it('falls back to NGN (platform fallback) when country and payout currency are missing', () => {
     const { result } = renderHook(() => useCurrencyWithCountry(null, null));
 
-    expect(result.current.formatCurrency(1000)).toBe('$1,000.00');
-    expect(result.current.currencyCode).toBe('USD');
-    expect(result.current.currencySymbol).toBe('$');
+    expect(result.current.formatCurrency(1000)).toBe('₦1,000.00');
+    expect(result.current.currencyCode).toBe('NGN');
+    expect(result.current.currencySymbol).toBe('₦');
   });
 
   it('uses payout currency when country lookup fails', () => {
@@ -77,6 +78,7 @@ describe('useCurrencyWithCountry', () => {
 
     expect(result.current.formatCurrency(1000)).toContain('1,000.00');
     expect(result.current.currencyCode).toBe('KES');
-    expect(result.current.currencySymbol).toBe('Ksh');
+    // Symbol comes from the canonical CURRENCY_SYMBOLS map (payout, no country).
+    expect(result.current.currencySymbol).toBe('KSh');
   });
 });

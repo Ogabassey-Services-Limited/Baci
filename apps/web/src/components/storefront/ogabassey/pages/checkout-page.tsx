@@ -36,6 +36,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useCart } from '@/hooks/cart';
 import type { CartItem } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { useCurrency } from '@/hooks/use-currency';
 import type {
   CryptoChain,
   CryptoCurrency,
@@ -407,6 +408,8 @@ interface RequestCryptoPaymentInitializationParams {
   pendingOrder: PendingCryptoOrder;
   chain: CryptoChain;
   currency: CryptoCurrency;
+  /** Merchant-resolved fiat order currency (server derives from order). */
+  orderCurrency: string;
 }
 
 async function requestCryptoPaymentInitialization({
@@ -414,6 +417,7 @@ async function requestCryptoPaymentInitialization({
   pendingOrder,
   chain,
   currency,
+  orderCurrency,
 }: RequestCryptoPaymentInitializationParams): Promise<CryptoPaymentData> {
   const paymentResponse = await fetch('/api/payments/initialize', {
     method: 'POST',
@@ -421,7 +425,7 @@ async function requestCryptoPaymentInitialization({
     body: JSON.stringify({
       merchant_id: merchantId,
       order_id: pendingOrder.orderId,
-      currency: 'NGN',
+      currency: orderCurrency,
       customer_email: pendingOrder.customerEmail,
       customer_name: pendingOrder.customerName,
       customer_phone: pendingOrder.customerPhone,
@@ -466,6 +470,8 @@ interface RequestDvaInitializationParams {
   customerName: string;
   customerPhone: string;
   billingAddress: DvaBillingAddress;
+  /** Merchant-resolved fiat order currency (server derives from order). */
+  orderCurrency: string;
 }
 
 interface DvaBillingAddress {
@@ -483,6 +489,7 @@ async function requestDvaInitialization({
   customerName,
   customerPhone,
   billingAddress,
+  orderCurrency,
 }: RequestDvaInitializationParams): Promise<{
   dva: Omit<DvaData, 'amount' | 'reference'>;
   reference: string;
@@ -493,7 +500,7 @@ async function requestDvaInitialization({
     body: JSON.stringify({
       merchant_id: merchantId,
       order_id: orderId,
-      currency: 'NGN',
+      currency: orderCurrency,
       customer_email: customerEmail,
       customer_name: customerName,
       customer_phone: customerPhone,
@@ -519,6 +526,11 @@ export const CheckoutPage: React.FC = () => {
   const { cart, clearCart, isHydrated } = useCart();
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
+
+  // Merchant-resolved currency (payout_currency first, country second, NGN
+  // fallback). `currencyCode` is sent to /api/payments/initialize instead of a
+  // hardcoded 'NGN'; the compact formatter renders order amounts.
+  const { formatCurrencyCompact, currencySymbol, currencyCode } = useCurrency();
 
   const hasPriceNegotiation = hasPriceNegotiationEntitlement(merchant?.plan_tier, merchant?.slug);
 
@@ -853,6 +865,7 @@ export const CheckoutPage: React.FC = () => {
       pendingOrder: pendingCryptoOrder,
       chain: selectedCryptoChain,
       currency: selectedCryptoCurrency,
+      orderCurrency: currencyCode,
     })
       .then((cryptoPayment) => {
         setShowCryptoSelector(false);
@@ -2089,7 +2102,7 @@ export const CheckoutPage: React.FC = () => {
           body: JSON.stringify({
             merchant_id: merchant.id,
             order_id: order.id,
-            currency: 'NGN',
+            currency: currencyCode,
             customer_email: customerEmail,
             customer_name: `${firstName} ${lastName}`.trim(),
             customer_phone: customerPhone,
@@ -2340,6 +2353,7 @@ export const CheckoutPage: React.FC = () => {
       customerName: `${firstName} ${lastName}`.trim(),
       customerPhone,
       billingAddress,
+      orderCurrency: currencyCode,
     })
       .then((result) => {
         setDvaData({
@@ -2859,7 +2873,7 @@ export const CheckoutPage: React.FC = () => {
               <div className="text-center p-4 bg-gray-50 rounded-2xl border border-gray-100">
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Send Exactly</p>
                 <p className="text-3xl font-black text-gray-900">
-                  ₦{dvaData.amount.toLocaleString()}
+                  {formatCurrencyCompact(dvaData.amount)}
                 </p>
               </div>
 
@@ -3480,7 +3494,7 @@ export const CheckoutPage: React.FC = () => {
                                   'Collect from the selected GIGL service centre.'}
                               </p>
                               <div className="mt-2 text-xs font-bold bg-store-background inline-block px-2 py-1 rounded border border-store-background-text/10 text-store-background-text">
-                                ₦{stationPickupQuote.price.toLocaleString()}
+                                {formatCurrencyCompact(stationPickupQuote.price)}
                               </div>
                             </div>
                           </div>
@@ -3591,7 +3605,7 @@ export const CheckoutPage: React.FC = () => {
                                       </div>
                                     </div>
                                     <span className="font-bold text-sm text-gray-900">
-                                      ₦{quote.price.toLocaleString()}
+                                      {formatCurrencyCompact(quote.price)}
                                     </span>
                                   </label>
                                 ))}
@@ -3615,7 +3629,7 @@ export const CheckoutPage: React.FC = () => {
                                     </p>
                                     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                       <span className="text-sm font-bold text-store-background-text">
-                                        ₦{stationPickupQuote.price.toLocaleString()}
+                                        {formatCurrencyCompact(stationPickupQuote.price)}
                                       </span>
                                       <button
                                         type="button"
@@ -3764,7 +3778,7 @@ export const CheckoutPage: React.FC = () => {
                           <span>
                             {isQuizGift
                               ? 'Free gift'
-                              : `₦${itemPrice.toLocaleString()}`}
+                              : formatCurrencyCompact(itemPrice)}
                           </span>
                         </div>
                       </div>
@@ -3778,12 +3792,12 @@ export const CheckoutPage: React.FC = () => {
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-gray-600 text-sm">
                   <span>Subtotal</span>
-                  <span>₦{effectiveCheckoutCartTotal.toLocaleString()}</span>
+                  <span>{formatCurrencyCompact(effectiveCheckoutCartTotal)}</span>
                 </div>
                 {orderTotals && (
                   <div className="flex justify-between text-gray-600 text-sm">
                     <span>VAT (7.5%)</span>
-                    <span>₦{orderTotals.taxAmount.toLocaleString()}</span>
+                    <span>{formatCurrencyCompact(orderTotals.taxAmount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-gray-600 text-sm">
@@ -3797,13 +3811,13 @@ export const CheckoutPage: React.FC = () => {
                   >
                     {deliveryMethod === 'door' && !selectedQuoteId && deliveryCost === 0
                       ? <span className="text-gray-500 font-normal italic">Calculated…</span>
-                      : deliveryCost === 0 ? 'Free' : `₦${deliveryCost.toLocaleString()}`}
+                      : deliveryCost === 0 ? 'Free' : formatCurrencyCompact(deliveryCost)}
                   </span>
                 </div>
                 {giftWrappingCost > 0 && (
                   <div className="flex justify-between text-gray-600 text-sm">
                     <span>Gift Wrapping</span>
-                    <span>₦{giftWrappingCost.toLocaleString()}</span>
+                    <span>{formatCurrencyCompact(giftWrappingCost)}</span>
                   </div>
                 )}
 
@@ -3820,11 +3834,11 @@ export const CheckoutPage: React.FC = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="size-6 rounded-full bg-green-100 flex items-center justify-center">
-                              <span className="text-green-600 text-xs font-bold">₦</span>
+                              <span className="text-green-600 text-xs font-bold">{currencySymbol}</span>
                             </div>
                             <div>
                               <span className="text-sm font-medium text-gray-700">Wallet Credit</span>
-                              <span className="text-xs text-gray-500 ml-1">(₦{walletBalance.toLocaleString()} available)</span>
+                              <span className="text-xs text-gray-500 ml-1">({formatCurrencyCompact(walletBalance)} available)</span>
                             </div>
                           </div>
                           <button
@@ -3842,7 +3856,7 @@ export const CheckoutPage: React.FC = () => {
                         {payWithWallet && walletAmountUsed > 0 && (
                           <div className="flex justify-between text-green-700 text-sm font-medium mt-2 pl-8">
                             <span>Applied Credit</span>
-                            <span>-₦{walletAmountUsed.toLocaleString()}</span>
+                            <span>-{formatCurrencyCompact(walletAmountUsed)}</span>
                           </div>
                         )}
                       </>
@@ -3859,7 +3873,7 @@ export const CheckoutPage: React.FC = () => {
                       ? 'Amount Due'
                       : 'Total'}
                   </span>
-                  <span>₦{remainingAmount.toLocaleString()}</span>
+                  <span>{formatCurrencyCompact(remainingAmount)}</span>
                 </div>
               </div>
 
