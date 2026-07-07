@@ -72,8 +72,15 @@ describe('runBuilderProviderChain', () => {
     });
 
     expect(result.content).toHaveLength(1);
-    // The PRIMARY (not just the last fallback) is retry-wrapped.
+    // The PRIMARY (not just the last fallback) is retry-wrapped...
     expect(withRetry).toHaveBeenCalledTimes(1);
+    // ...and the attempt's own AbortSignal is threaded through so withRetry can
+    // skip a doomed retry the moment that signal (budget/route deadline) fires.
+    expect(withRetry).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.anything(),
+      expect.any(AbortSignal)
+    );
   });
 
   it('falls through to the reliable fallback when the primary has a transient failure', async () => {
