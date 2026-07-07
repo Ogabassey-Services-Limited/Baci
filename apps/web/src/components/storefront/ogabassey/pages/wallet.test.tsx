@@ -40,6 +40,7 @@ describe('OgabasseyV2Wallet', () => {
     vi.clearAllMocks();
     fundingPanelProps.current = null;
     mockUseCustomerAuth.mockReturnValue({
+      customer: { id: 'customer-1', phone: '08012345678' },
       isAuthenticated: true,
       isLoading: false,
       user: { id: 'user-1' },
@@ -130,6 +131,37 @@ describe('OgabasseyV2Wallet', () => {
 
     // DVA disabled -> consent is withheld so the panel renders its
     // unavailable state instead of a create request that would 403.
+    expect(fundingPanelProps.current).toMatchObject({
+      account: null,
+      requiresConsent: false,
+    });
+  });
+
+  it('withholds consent when the customer has no phone (create would 400)', async () => {
+    const user = userEvent.setup();
+    mockUseCustomerAuth.mockReturnValue({
+      customer: { id: 'customer-1', phone: null },
+      isAuthenticated: true,
+      isLoading: false,
+      user: { id: 'user-1' },
+    });
+    vi.mocked(fetch).mockResolvedValue({
+      json: async () => ({
+        balance: 0,
+        fundingAccount: null,
+        requiresFundingAccountConsent: true,
+        totalEarned: 0,
+        totalRedeemed: 0,
+        transactions: [],
+        walletDvaEnabled: true,
+      }),
+    } as Response);
+
+    render(<OgabasseyV2Wallet />);
+
+    await screen.findByText('₦0.00');
+    await user.click(screen.getByRole('button', { name: /fund wallet/i }));
+
     expect(fundingPanelProps.current).toMatchObject({
       account: null,
       requiresConsent: false,

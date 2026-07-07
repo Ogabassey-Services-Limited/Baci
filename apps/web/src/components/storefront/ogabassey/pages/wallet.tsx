@@ -18,7 +18,12 @@ const NGN_CURRENCY_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat(
 );
 
 export function OgabasseyV2Wallet() {
-  const { isAuthenticated, isLoading: isAuthLoading, user } = useCustomerAuth();
+  const {
+    customer,
+    isAuthenticated,
+    isLoading: isAuthLoading,
+    user,
+  } = useCustomerAuth();
   const { merchant } = useMerchantSafe() || {};
 
   const [wallet, setWallet] = useState<StorefrontWallet | null>(null);
@@ -44,18 +49,31 @@ export function OgabasseyV2Wallet() {
       return;
     }
 
+    // Abort on identity change so a sign-out/switch mid-flight can't land a
+    // previous customer's response (and re-show their DVA) after the reset.
+    const abortController = new AbortController();
     // Promise chain instead of try/finally so React Compiler can optimize.
-    fetch(`/api/storefront/customer/wallet?merchant=${merchant.slug}`)
+    fetch(`/api/storefront/customer/wallet?merchant=${merchant.slug}`, {
+      signal: abortController.signal,
+    })
       .then((res) => res.json())
       .then((data: StorefrontWallet) => {
-        setWallet(data);
+        if (!abortController.signal.aborted) {
+          setWallet(data);
+        }
       })
       .catch((err) => {
-        console.error('Failed to fetch wallet', err);
+        if (err instanceof Error && err.name !== 'AbortError') {
+          console.error('Failed to fetch wallet', err);
+        }
       })
       .finally(() => {
-        setHasFetchSettled(true);
+        if (!abortController.signal.aborted) {
+          setHasFetchSettled(true);
+        }
       });
+
+    return () => abortController.abort();
   }, [isAuthenticated, merchant?.slug, user?.id, refreshToken]);
 
   // Derived instead of setState-in-effect: show the spinner while auth is
@@ -145,7 +163,8 @@ export function OgabasseyV2Wallet() {
                 onRefreshBalance={() => setRefreshToken((token) => token + 1)}
                 requiresConsent={
                   wallet?.requiresFundingAccountConsent === true &&
-                  wallet?.walletDvaEnabled === true
+                  wallet?.walletDvaEnabled === true &&
+                  Boolean(customer?.phone?.trim())
                 }
               />
             ) : null}
