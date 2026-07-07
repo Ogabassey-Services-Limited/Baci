@@ -17,6 +17,11 @@ vi.mock('@/lib/api-auth', () => ({
   hasPermission: vi.fn(() => true),
 }));
 
+const { getMerchantForApiRequest } = await import(
+  '@/lib/get-merchant-for-api-request'
+);
+const { hasPermission } = await import('@/lib/api-auth');
+
 const sender: ShippingAddress = {
   name: 'Caller Origin',
   phone: '08099999999',
@@ -92,6 +97,16 @@ function createSupabase({
 describe('resolveQuoteMerchantContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getMerchantForApiRequest).mockResolvedValue({
+      merchantId: 'merchant-auth',
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: { full_access: { all: true } },
+        role: null,
+      },
+    });
+    vi.mocked(hasPermission).mockReturnValue(true);
     mockCreateServerClient.mockResolvedValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({
@@ -215,5 +230,37 @@ describe('resolveQuoteMerchantContext', () => {
     );
 
     consoleError.mockRestore();
+  });
+
+  it('uses trusted storefront context when an authenticated user lacks fulfillment permission', async () => {
+    const supabase = createSupabase();
+    vi.mocked(hasPermission).mockReturnValue(false);
+    mockCreateServerClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'staff-user' } },
+          error: null,
+        }),
+      },
+    });
+
+    const result = await resolveQuoteMerchantContext({
+      data: { shipmentType: 'international' },
+      request: createRequest({
+        host: 'ogabassey.usebaci.com',
+        'x-merchant-slug': 'ogabassey',
+      }),
+      supabase: supabase as never,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      merchantId: 'merchant-1',
+      senderInfo: expect.objectContaining({
+        name: 'Merchant Store',
+        phone: '08012345678',
+        city: 'Ikeja',
+      }),
+    });
   });
 });

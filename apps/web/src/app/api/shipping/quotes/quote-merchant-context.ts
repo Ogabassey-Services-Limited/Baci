@@ -192,9 +192,6 @@ export async function resolveQuoteMerchantContext({
     supabase,
     data.merchantId
   );
-  if (authenticatedMerchantId && typeof authenticatedMerchantId === 'object') {
-    return authenticatedMerchantId;
-  }
 
   const storefrontMerchantId = await resolveStorefrontMerchantId(
     request,
@@ -203,11 +200,23 @@ export async function resolveQuoteMerchantContext({
   if (storefrontMerchantId && typeof storefrontMerchantId === 'object') {
     return storefrontMerchantId;
   }
+  const permittedAuthenticatedMerchantId =
+    typeof authenticatedMerchantId === 'string'
+      ? authenticatedMerchantId
+      : undefined;
+
+  if (
+    authenticatedMerchantId &&
+    typeof authenticatedMerchantId === 'object' &&
+    !storefrontMerchantId
+  ) {
+    return authenticatedMerchantId;
+  }
 
   const merchantId =
-    authenticatedMerchantId ?? storefrontMerchantId ?? data.merchantId;
+    permittedAuthenticatedMerchantId ?? storefrontMerchantId ?? data.merchantId;
   const trustedSenderMerchantId =
-    authenticatedMerchantId ?? storefrontMerchantId;
+    permittedAuthenticatedMerchantId ?? storefrontMerchantId;
 
   let senderInfo =
     data.shipmentType === 'international' ? undefined : data.sender;
