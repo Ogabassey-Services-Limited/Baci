@@ -73,6 +73,15 @@ function writeImageWithTimeout(image, tempPath, timeoutMs) {
   const timeout = new Promise((_, reject) => {
     timeoutId = setTimeout(() => {
       try {
+        // destroy(error) makes the Sharp duplex stream EMIT 'error' on a
+        // later tick; without a listener Node treats it as an unhandled
+        // 'error' event and CRASHES the process (observed in production:
+        // every timed-out transform under sustained load killed the
+        // service). The toFile() promise rejection is a separate channel —
+        // its .catch() cannot absorb the stream event.
+        image.once('error', (error) => {
+          console.warn('Timed-out image transform emitted late error', error);
+        });
         image.destroy(timeoutError);
       } catch (error) {
         console.warn('Failed to abort timed-out transform', error);
