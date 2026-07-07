@@ -1,5 +1,5 @@
 import { resolveLocationStateLabel } from '@baci/shared/lib';
-import Constants from 'expo-constants';
+import { CONFIG } from '@/lib/config';
 import {
   getPreferredShippingQuoteId,
   normalizeShippingQuotes,
@@ -7,10 +7,9 @@ import {
 import type { CartItem } from '@/stores/cart-store';
 import type { ShippingQuote } from './types';
 
-const expoMerchantId = Constants.expoConfig?.extra?.merchantId;
 const MERCHANT_ID =
-  typeof expoMerchantId === 'string' && expoMerchantId.trim()
-    ? expoMerchantId.trim()
+  typeof CONFIG.MERCHANT_ID === 'string' && CONFIG.MERCHANT_ID.trim()
+    ? CONFIG.MERCHANT_ID.trim()
     : undefined;
 
 export interface QuoteResponse {

@@ -100,6 +100,7 @@ import {
   inferAddressLocationFromInput,
   isStationPickupQuote,
   isKlumpUnavailableForGatewayAmount,
+  resetDeliveryQuotesForAddressChange,
 } from './checkout/utils';
 
 /**
@@ -1055,6 +1056,12 @@ export const CheckoutPage: React.FC = () => {
     setSelectedQuoteId,
     shippingQuotes,
   });
+  const resetQuotesForAddressChange = () =>
+    resetDeliveryQuotesForAddressChange({
+      setDeliveryMethod,
+      setSelectedQuoteId,
+      setShippingQuotes,
+    });
   const eligibleDeliveryMethod =
     deliveryMethod === 'pickup_station' && !stationPickupQuote
       ? 'door'
@@ -1175,29 +1182,36 @@ export const CheckoutPage: React.FC = () => {
     receiverLastName: string,
     email: string
   ) =>
-    loadShippingQuotes({
-      address,
-      state,
-      city,
-      phone,
-      receiverFirstName,
-      receiverLastName,
-      email,
-      merchantId: merchant?.id || '',
-      items: checkoutCart.map((item) => ({
-        name: item.name,
-        quantity: item.quantity,
-        weight: 1, // Default weight 1kg if not strictly defined
-        value: item.negotiatedPrice || item.price,
-      })),
-      setIsLoadingQuotes,
-      setSelectedQuoteId,
-      setShippingQuotes,
-    });
+    merchant?.id
+      ? loadShippingQuotes({
+          address,
+          state,
+          city,
+          phone,
+          receiverFirstName,
+          receiverLastName,
+          email,
+          merchantId: merchant.id,
+          items: checkoutCart.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            weight: 1, // Default weight 1kg if not strictly defined
+            value: item.negotiatedPrice || item.price,
+          })),
+          setIsLoadingQuotes,
+          setSelectedQuoteId,
+          setShippingQuotes,
+        })
+      : resetQuotesForAddressChange();
 
   // Trigger quote fetch when Door Delivery is selected and we have BOTH state AND city
   useEffect(() => {
     if (deliveryMethod === 'door') {
+      if (!merchant?.id) {
+        resetQuotesForAddressChange();
+        return;
+      }
+
       if (isNewAddressMode) {
         // STRICT: Only fetch if BOTH State AND City are explicitly selected
         // Do NOT use fallbacks - wait for proper location input
@@ -1251,6 +1265,7 @@ export const CheckoutPage: React.FC = () => {
     newAddressCity,
     // Trigger if we switch back to a saved address
     addresses,
+    merchant?.id,
     quoteItemsFingerprint,
   ]);
 
@@ -3281,6 +3296,7 @@ export const CheckoutPage: React.FC = () => {
                                   setSelectedAddressId(addr.id);
                                   setIsNewAddressMode(false);
                                   clearInferredLocationDebounce();
+                                  resetQuotesForAddressChange();
                                   // Extract state from saved address for eligibility checks
                                   const parts = addr.address.split(',').map(s => s.trim());
                                   if (parts.length >= 2) {
@@ -3324,9 +3340,7 @@ export const CheckoutPage: React.FC = () => {
                                 clearInferredLocationDebounce();
                                 setNewAddressState('');
                                 setNewAddressCity('');
-                                setShippingQuotes([]);
-                                setSelectedQuoteId('');
-                                setDeliveryMethod('door'); // Reset to default
+                                resetQuotesForAddressChange();
                                 return;
                               }
 
@@ -3337,6 +3351,7 @@ export const CheckoutPage: React.FC = () => {
                                 shippingStates,
                               );
                               if (inferred) {
+                                resetQuotesForAddressChange();
                                 scheduleInferredLocationUpdate(inferred);
                               } else {
                                 clearInferredLocationDebounce();
@@ -3344,14 +3359,13 @@ export const CheckoutPage: React.FC = () => {
                                   newAddressCity: '',
                                   newAddressState: '',
                                 });
-                                setShippingQuotes([]);
-                                setSelectedQuoteId('');
-                                setDeliveryMethod('door');
+                                resetQuotesForAddressChange();
                               }
                             }}
                             onSelect={(place: any) => {
                               clearInferredLocationDebounce();
                               setNewAddressStreet(place.formattedAddress);
+                              resetQuotesForAddressChange();
                               if (place.state) {
                                 setNewAddressState(place.state);
                               }

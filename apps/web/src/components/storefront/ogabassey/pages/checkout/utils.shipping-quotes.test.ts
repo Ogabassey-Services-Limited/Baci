@@ -8,6 +8,7 @@ import {
   getStationPickupAddressText,
   getStationPickupQuote,
   isStationPickupQuote,
+  resetDeliveryQuotesForAddressChange,
 } from './utils';
 
 const doorQuote: ShippingQuote = {
@@ -83,5 +84,21 @@ describe('checkout shipping quote helpers', () => {
         stationAddress: undefined,
       })
     ).toBe('Ikeja Service Centre');
+  });
+
+  it('clears stale delivery quotes when the address changes', () => {
+    const setDeliveryMethod = vi.fn();
+    const setSelectedQuoteId = vi.fn();
+    const setShippingQuotes = vi.fn();
+
+    resetDeliveryQuotesForAddressChange({
+      setDeliveryMethod,
+      setSelectedQuoteId,
+      setShippingQuotes,
+    });
+
+    expect(setShippingQuotes).toHaveBeenCalledWith([]);
+    expect(setSelectedQuoteId).toHaveBeenCalledWith('');
+    expect(setDeliveryMethod).toHaveBeenCalledWith('door');
   });
 });

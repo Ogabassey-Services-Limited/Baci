@@ -227,6 +227,20 @@ export function createSelectDeliveryMethod({
   };
 }
 
+export function resetDeliveryQuotesForAddressChange({
+  setDeliveryMethod,
+  setSelectedQuoteId,
+  setShippingQuotes,
+}: {
+  setDeliveryMethod: (method: DeliveryMethod) => void;
+  setSelectedQuoteId: (quoteId: string) => void;
+  setShippingQuotes: (quotes: ShippingQuote[]) => void;
+}) {
+  setShippingQuotes([]);
+  setSelectedQuoteId('');
+  setDeliveryMethod('door');
+}
+
 export function getStationPickupAddressText(quote: ShippingQuote): string {
   return [quote.stationName, quote.stationAddress]
     .filter((line): line is string => Boolean(line))

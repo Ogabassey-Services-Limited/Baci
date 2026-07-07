@@ -1010,6 +1010,121 @@ describe('CheckoutPage', () => {
     fetchMock.mockRestore();
   });
 
+  it('refetches door quotes after merchant context resolves', async () => {
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: 'Obafemi Awolowo Way',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'delivery',
+        completedSteps: { contact: true, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: null,
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/shipping/quotes')) {
+          return {
+            ok: true,
+            json: async () => ({
+              quotes: {
+                all: [
+                  {
+                    carrierName: 'GIG Logistics',
+                    currency: 'NGN',
+                    displayName: 'Door Delivery',
+                    estimatedDays: 2,
+                    id: 'quote-1',
+                    insuranceIncluded: true,
+                    pickupIncluded: true,
+                    price: 2500,
+                    provider: 'GIGL',
+                    serviceTier: 'standard',
+                  },
+                ],
+              },
+            }),
+            text: async () => '',
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    const { rerender } = render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/shipping/locations');
+    });
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        String(url).startsWith('/api/shipping/quotes')
+      )
+    ).toBe(false);
+
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+
+    rerender(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).startsWith('/api/shipping/quotes')
+        )
+      ).toBe(true);
+    });
+    const quoteCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).startsWith('/api/shipping/quotes')
+    );
+    expect(JSON.parse(String(quoteCall?.[1]?.body))).toEqual(
+      expect.objectContaining({ merchantId: 'merchant-1' })
+    );
+
+    fetchMock.mockRestore();
+  });
+
   it('sends a stable idempotency key when creating an order', async () => {
     const scrollSpy = vi
       .spyOn(window, 'scrollTo')

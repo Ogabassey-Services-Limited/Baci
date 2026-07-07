@@ -419,8 +419,11 @@ describe('bookOrderShipment', () => {
     ).rejects.toThrow('could not be saved locally');
   });
 
-  it('throws QUOTE_UPDATE_FAILED when the booked quote cannot be marked used', async () => {
+  it('returns the shipment when a booked quote cannot be marked used', async () => {
     vi.mocked(shippingService.bookShipment).mockResolvedValue(bookingResult);
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
 
     const supabase = createMockSupabase({
       order: { data: validOrder, error: null },
@@ -430,11 +433,26 @@ describe('bookOrderShipment', () => {
       shipmentInsert: { data: { id: 'shipment-1' }, error: null },
     });
 
-    await expect(
-      bookOrderShipment(supabase, 'merchant-1', 'order-1')
-    ).rejects.toMatchObject({
-      code: 'QUOTE_UPDATE_FAILED',
-      status: 500,
-    });
+    const result = await bookOrderShipment(supabase, 'merchant-1', 'order-1');
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        shipmentId: 'shipment-1',
+        provider: bookingResult.provider,
+        trackingNumber: bookingResult.trackingNumber,
+        quoteId: 'quote-1',
+      })
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Shipment booked but quote could not be marked as used',
+      expect.objectContaining({
+        error: { message: 'permission denied' },
+        orderId: 'order-1',
+        provider: bookingResult.provider,
+        quoteId: 'quote-1',
+        trackingNumber: bookingResult.trackingNumber,
+      })
+    );
+    consoleErrorSpy.mockRestore();
   });
 });

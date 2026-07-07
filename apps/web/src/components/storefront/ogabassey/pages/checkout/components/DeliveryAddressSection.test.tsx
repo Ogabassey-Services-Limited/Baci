@@ -115,6 +115,7 @@ describe('DeliveryAddressSection', () => {
     expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith('Ikeja');
     expect(defaultProps.setShippingQuotes).toHaveBeenCalledWith([]);
     expect(defaultProps.setSelectedQuoteId).toHaveBeenCalledWith('');
+    expect(defaultProps.setDeliveryMethod).toHaveBeenCalledWith('door');
   });
 
   it('reveals manual State and City fields when Places suggestions fail', () => {
@@ -179,6 +180,9 @@ describe('DeliveryAddressSection', () => {
     );
     expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('');
     expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith('');
+    expect(defaultProps.setShippingQuotes).toHaveBeenCalledWith([]);
+    expect(defaultProps.setSelectedQuoteId).toHaveBeenCalledWith('');
+    expect(defaultProps.setDeliveryMethod).toHaveBeenCalledWith('door');
   });
 
   it('parses saved addresses with trailing country before setting state and city', () => {
@@ -201,6 +205,9 @@ describe('DeliveryAddressSection', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /home/i }));
 
+    expect(defaultProps.setShippingQuotes).toHaveBeenCalledWith([]);
+    expect(defaultProps.setSelectedQuoteId).toHaveBeenCalledWith('');
+    expect(defaultProps.setDeliveryMethod).toHaveBeenCalledWith('door');
     expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('Lagos');
     expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith('Ikeja');
   });

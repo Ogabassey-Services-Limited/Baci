@@ -429,11 +429,13 @@ export async function bookOrderShipment(
     .eq('merchant_id', merchantId);
 
   if (quoteUpdateError) {
-    throw new OrderShipmentBookingError(
-      `Shipment booked with ${result.provider} but the quote could not be marked as used. Tracking: ${result.trackingNumber}`,
-      500,
-      'QUOTE_UPDATE_FAILED'
-    );
+    console.error('Shipment booked but quote could not be marked as used', {
+      error: quoteUpdateError,
+      orderId,
+      provider: result.provider,
+      quoteId: resolvedQuote.id,
+      trackingNumber: result.trackingNumber,
+    });
   }
 
   return {

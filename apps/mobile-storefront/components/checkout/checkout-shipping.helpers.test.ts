@@ -1,14 +1,9 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import type { CartItem } from '@/stores/cart-store';
 
-jest.mock('expo-constants', () => ({
-  __esModule: true,
-  default: {
-    expoConfig: {
-      extra: {
-        merchantId: 'merchant-1',
-      },
-    },
+jest.mock('@/lib/config', () => ({
+  CONFIG: {
+    MERCHANT_ID: 'merchant-1',
   },
 }));
 
