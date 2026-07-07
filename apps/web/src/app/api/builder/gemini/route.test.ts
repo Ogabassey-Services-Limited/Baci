@@ -28,20 +28,24 @@ vi.mock('ai', () => ({
   generateObject: vi.fn(),
 }));
 
-vi.mock('@/ai/provider', () => ({
-  AI_RATE_LIMITS: {
-    builder: { requests: 10, windowMs: 60 * 1000 },
-  },
+vi.mock('@/ai/copilot-provider-chain', () => ({
   getCopilotTextProviderChain: vi.fn(() => [
     { name: 'test:primary', model: {} },
     { name: 'test:fallback', model: {} },
   ]),
+}));
+
+vi.mock('@/ai/provider', () => ({
+  AI_RATE_LIMITS: {
+    builder: { requests: 10, windowMs: 60 * 1000 },
+  },
   checkRateLimit: vi.fn(() => ({
     allowed: true,
     remaining: 9,
     resetIn: 60 * 1000,
   })),
   sanitizePromptInput: vi.fn((prompt: string) => ({ value: prompt })),
+  withRetry: vi.fn((fn: () => Promise<unknown>) => fn()),
 }));
 
 describe('/api/builder/gemini route', () => {
@@ -199,7 +203,10 @@ describe('/api/builder/gemini route', () => {
 
     vi.mocked(generateObject).mockResolvedValue({
       object: {
-        content: [],
+        // Realistic copilot output preserves existing content (the route now
+        // rejects an empty content array as a wipe); this test isolates theme
+        // merging.
+        content: [{ type: 'Hero', props: { title: 'Home' } }],
         root: { title: 'Home' },
         zones: {},
         theme: {
@@ -226,7 +233,7 @@ describe('/api/builder/gemini route', () => {
       body: JSON.stringify({
         prompt: 'Refresh the visual design',
         currentConfig: {
-          content: [],
+          content: [{ type: 'Hero', props: { title: 'Home' } }],
           root: { title: 'Home' },
           zones: {},
           theme: {

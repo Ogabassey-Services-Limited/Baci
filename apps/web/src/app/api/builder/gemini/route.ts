@@ -2,11 +2,14 @@ import { generateObject } from 'ai';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import {
-  AI_RATE_LIMITS,
   type CopilotTextProvider,
-  checkRateLimit,
   getCopilotTextProviderChain,
+} from '@/ai/copilot-provider-chain';
+import {
+  AI_RATE_LIMITS,
+  checkRateLimit,
   sanitizePromptInput,
+  withRetry,
 } from '@/ai/provider';
 import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
@@ -20,6 +23,7 @@ import { BUILDER_GEMINI_SYSTEM_PROMPT } from '../gemini-system-prompt';
 import { computeNonFinalProviderBudgetMs } from './provider-chain-budget';
 import {
   BUILDER_CONFIG_SHAPE_ERROR_NAME,
+  BUILDER_GEMINI_RETRY_CONFIG,
   BUILDER_GEMINI_TIMEOUT_MS,
   type BuilderGeminiLogContext,
   getBuilderGeminiFailure,
@@ -219,15 +223,32 @@ Please return the complete updated configuration as valid JSON. Make intelligent
         },
       });
 
-      const parsed = aiBuilderConfigSchema.safeParse(object);
-      if (!parsed.success) {
+      const failShape = (reason: string): never => {
         const shapeError = new Error(
-          `builder config JSON failed validation: ${
-            parsed.error.issues[0]?.message ?? 'unknown shape'
-          }`
+          `builder config JSON failed validation: ${reason}`
         );
         shapeError.name = BUILDER_CONFIG_SHAPE_ERROR_NAME;
         throw shapeError;
+      };
+
+      // Reject partial/empty drafts BEFORE aiBuilderConfigSchema's defaults can
+      // mask them. builderConfigSchema defaults `content`→[], `root`→{title},
+      // `zones`→{}, so a provider that returns only `theme` (or an empty
+      // content array) would otherwise validate as a blank storefront and the
+      // client would apply it over the merchant's real page — a silent wipe.
+      // Require the model to have actually returned a non-empty content array;
+      // anything less is treated as a failed attempt and the chain falls
+      // through to the next provider.
+      const rawContent = (object as { content?: unknown } | null)?.content;
+      if (!Array.isArray(rawContent) || rawContent.length === 0) {
+        return failShape(
+          'model returned no content array (partial or empty draft)'
+        );
+      }
+
+      const parsed = aiBuilderConfigSchema.safeParse(object);
+      if (!parsed.success) {
+        return failShape(parsed.error.issues[0]?.message ?? 'unknown shape');
       }
       return parsed.data;
     };
@@ -242,18 +263,35 @@ Please return the complete updated configuration as valid JSON. Make intelligent
     try {
       updatedConfig = await runBuilderGeminiWithTimeout(async (abortSignal) => {
         const routeDeadline = Date.now() + BUILDER_GEMINI_TIMEOUT_MS;
+        // Index of the last RELIABLE provider (the opportunistic OpenRouter
+        // tail is excluded). The reliable tail gets the full remaining route
+        // budget; opportunistic providers only run with whatever time is left
+        // and never have budget reserved on their behalf — so the contended
+        // OpenRouter pool can never abort a still-working Gemini fallback early.
+        let lastReliableIndex = providerChain.length - 1;
+        while (
+          lastReliableIndex > 0 &&
+          providerChain[lastReliableIndex]?.opportunistic
+        ) {
+          lastReliableIndex--;
+        }
+
         let lastError: unknown;
         for (const [index, provider] of providerChain.entries()) {
           const isLastProvider = index === providerChain.length - 1;
+          const isLastReliable = index === lastReliableIndex;
           aiLogContext.model = provider.name;
           let attemptSignal: AbortSignal;
-          if (isLastProvider) {
-            // Final provider gets the whole remaining route budget.
+          if (index >= lastReliableIndex) {
+            // Last reliable provider (and any opportunistic tail after it) gets
+            // the whole remaining route budget — no per-provider cap.
             attemptSignal = abortSignal;
           } else {
             const budget = computeNonFinalProviderBudgetMs(
               routeDeadline - Date.now(),
-              providerChain.length - index
+              // Divide only among the RELIABLE providers still ahead, so the
+              // opportunistic tail doesn't shrink everyone's share.
+              lastReliableIndex - index + 1
             );
             attemptSignal = AbortSignal.any([
               abortSignal,
@@ -261,7 +299,15 @@ Please return the complete updated configuration as valid JSON. Make intelligent
             ]);
           }
           try {
-            return await generateBuilderConfig(provider.model, attemptSignal);
+            // Restore a single transient retry on the last reliable provider —
+            // in a Gemini-only deployment (chain = flash + flash-lite) a flaky
+            // 5xx on the final fallback should retry once instead of 503ing
+            // immediately, matching the pre-chain behavior.
+            const attempt = () =>
+              generateBuilderConfig(provider.model, attemptSignal);
+            return await (isLastReliable
+              ? withRetry(attempt, BUILDER_GEMINI_RETRY_CONFIG)
+              : attempt());
           } catch (error) {
             lastError = error;
             // The route-level timeout fired mid-attempt: stop the chain so

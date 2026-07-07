@@ -1,70 +1,34 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { checkRateLimit } from './provider';
 
-afterEach(() => {
-  vi.resetModules();
-  vi.unstubAllEnvs();
-});
+describe('checkRateLimit', () => {
+  const config = { requests: 3, windowMs: 60_000 };
 
-describe('getCopilotTextProviderChain', () => {
-  it('orders Cerebras → Groq → Gemini → Gemini-Lite → OpenRouter when all provider keys are set', async () => {
-    vi.stubEnv('CEREBRAS_API_KEY', 'csk-test');
-    vi.stubEnv('GROQ_API_KEY', 'gsk-test');
-    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test');
-
-    const { getCopilotTextProviderChain } = await import('./provider');
-    const names = getCopilotTextProviderChain().map((p) => p.name);
-
-    expect(names).toEqual([
-      'cerebras:gemma-4-31b',
-      'groq:openai/gpt-oss-120b',
-      'google:gemini-2.5-flash',
-      'google:gemini-2.5-flash-lite',
-      'openrouter:google/gemma-4-31b-it:free',
-    ]);
+  it('allows the first request in a fresh window and reports remaining', () => {
+    const result = checkRateLimit(`fresh-${Math.random()}`, config);
+    expect(result.allowed).toBe(true);
+    expect(result.remaining).toBe(2);
+    expect(result.resetIn).toBeGreaterThan(0);
   });
 
-  it('degrades to the Gemini-only chain when no provider keys are configured', async () => {
-    vi.stubEnv('CEREBRAS_API_KEY', '');
-    vi.stubEnv('GROQ_API_KEY', '');
-    vi.stubEnv('OPENROUTER_API_KEY', '');
+  it('decrements remaining across requests and blocks once the limit is hit', () => {
+    const id = `burst-${Math.random()}`;
+    expect(checkRateLimit(id, config).remaining).toBe(2);
+    expect(checkRateLimit(id, config).remaining).toBe(1);
+    expect(checkRateLimit(id, config).remaining).toBe(0);
 
-    const { getCopilotTextProviderChain } = await import('./provider');
-    const names = getCopilotTextProviderChain().map((p) => p.name);
-
-    expect(names).toEqual([
-      'google:gemini-2.5-flash',
-      'google:gemini-2.5-flash-lite',
-    ]);
+    const blocked = checkRateLimit(id, config);
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.remaining).toBe(0);
+    expect(blocked.resetIn).toBeGreaterThan(0);
   });
 
-  it('includes only the provider whose key is configured', async () => {
-    vi.stubEnv('CEREBRAS_API_KEY', '');
-    vi.stubEnv('GROQ_API_KEY', 'gsk-test');
-    vi.stubEnv('OPENROUTER_API_KEY', '');
-
-    const { getCopilotTextProviderChain } = await import('./provider');
-    const names = getCopilotTextProviderChain().map((p) => p.name);
-
-    expect(names).toEqual([
-      'groq:openai/gpt-oss-120b',
-      'google:gemini-2.5-flash',
-      'google:gemini-2.5-flash-lite',
-    ]);
-  });
-
-  it('keeps the Gemini models ahead of the contended OpenRouter free pool', async () => {
-    vi.stubEnv('CEREBRAS_API_KEY', 'csk-test');
-    vi.stubEnv('GROQ_API_KEY', 'gsk-test');
-    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test');
-
-    const { getCopilotTextProviderChain } = await import('./provider');
-    const chain = getCopilotTextProviderChain();
-
-    expect(chain.at(-3)?.name).toBe('google:gemini-2.5-flash');
-    expect(chain.at(-2)?.name).toBe('google:gemini-2.5-flash-lite');
-    expect(chain.at(-1)?.name).toBe('openrouter:google/gemma-4-31b-it:free');
-    for (const provider of chain) {
-      expect(provider.model).toBeDefined();
-    }
+  it('tracks separate identifiers independently', () => {
+    const a = `id-a-${Math.random()}`;
+    const b = `id-b-${Math.random()}`;
+    checkRateLimit(a, config);
+    checkRateLimit(a, config);
+    // b is untouched by a's usage.
+    expect(checkRateLimit(b, config).remaining).toBe(2);
   });
 });

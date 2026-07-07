@@ -1,8 +1,4 @@
-import { createCerebras } from '@ai-sdk/cerebras';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { createGroq } from '@ai-sdk/groq';
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import type { LanguageModel } from 'ai';
 
 // Configure Google AI provider with API key from environment
 const google = createGoogleGenerativeAI({
@@ -40,83 +36,9 @@ const primaryTextModel = google(ACTIVE_TEXT_MODEL_NAME);
 export const FALLBACK_TEXT_MODEL_NAME = 'gemini-2.5-flash-lite';
 export const fallbackTextModel = google(FALLBACK_TEXT_MODEL_NAME);
 
-// ---------------------------------------------------------------------------
-// AI Copilot text-provider chain (builder route)
-//
-// Order: Cerebras Gemma (fastest; free 1M tokens/day) → Groq gpt-oss-120b
-// (free 14,400 req/day; supports the strict json_schema response format the
-// AI SDK uses — Groq's Llama models do not) → Gemini 2.5 Flash → Flash-Lite.
-// The Cerebras/Groq entries only join the chain when their API keys are
-// configured, so environments without those keys keep the Gemini-only
-// behavior. Independent free pools across several infrastructures mean AI
-// editing keeps working even when any one provider is down or
-// quota-exhausted — no Google billing dependency.
-//
-// Measured on the real copilot task (production keys, 2026-07-07):
-// cerebras/gemma-4-31b 0.6-0.8s, groq/gpt-oss-120b 1-3s, gemini-2.5-flash
-// 3-4s — all returned correct, structure-preserving JSON via json mode.
-// Note: Cerebras' free tier caps context at ~8K tokens; oversized configs
-// fail fast there and fall through to Groq/Gemini (131K/1M context).
-export const COPILOT_CEREBRAS_MODEL = 'gemma-4-31b';
-export const COPILOT_GROQ_MODEL = 'openai/gpt-oss-120b';
-// OpenRouter's free Gemma 4 pool is heavily contended (probes on 2026-07-07
-// hit upstream 429 "temporarily rate-limited" consistently), so it sits LAST:
-// a bonus free Gemma-4 pool (262K context) that is only consulted when every
-// other provider has already failed — it can only help, never slow the chain.
-export const COPILOT_OPENROUTER_MODEL = 'google/gemma-4-31b-it:free';
-
-export interface CopilotTextProvider {
-  /** Stable identifier for logs/metrics, e.g. "cerebras:gemma-4-31b". */
-  name: string;
-  model: LanguageModel;
-}
-
-const cerebrasApiKey = process.env.CEREBRAS_API_KEY?.trim();
-const groqApiKey = process.env.GROQ_API_KEY?.trim();
-const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
-
-const cerebras = cerebrasApiKey
-  ? createCerebras({ apiKey: cerebrasApiKey })
-  : null;
-const groq = groqApiKey ? createGroq({ apiKey: groqApiKey }) : null;
-const openRouter = openRouterApiKey
-  ? createOpenAICompatible({
-      name: 'openrouter',
-      baseURL: 'https://openrouter.ai/api/v1',
-      apiKey: openRouterApiKey,
-    })
-  : null;
-
-export function getCopilotTextProviderChain(): CopilotTextProvider[] {
-  const chain: CopilotTextProvider[] = [];
-  if (cerebras) {
-    chain.push({
-      name: `cerebras:${COPILOT_CEREBRAS_MODEL}`,
-      model: cerebras(COPILOT_CEREBRAS_MODEL),
-    });
-  }
-  if (groq) {
-    chain.push({
-      name: `groq:${COPILOT_GROQ_MODEL}`,
-      model: groq(COPILOT_GROQ_MODEL),
-    });
-  }
-  chain.push({
-    name: `google:${ACTIVE_TEXT_MODEL_NAME}`,
-    model: activeTextModel,
-  });
-  chain.push({
-    name: `google:${FALLBACK_TEXT_MODEL_NAME}`,
-    model: fallbackTextModel,
-  });
-  if (openRouter) {
-    chain.push({
-      name: `openrouter:${COPILOT_OPENROUTER_MODEL}`,
-      model: openRouter(COPILOT_OPENROUTER_MODEL),
-    });
-  }
-  return chain;
-}
+// The AI Copilot multi-provider chain (Cerebras Gemma → Groq → Gemini →
+// OpenRouter) lives in ./copilot-provider-chain to keep this shared provider
+// module focused on model definitions and under the 300-line file limit.
 
 // UNIFIED MODEL EXPORTS - USE THESE FOR NEW FEATURES
 // --------------------------------------------------------------------------
