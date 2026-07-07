@@ -197,45 +197,21 @@ Please return the complete updated configuration as valid JSON. Make intelligent
         ) as Record<string, unknown>)
       : (currentConfig.theme ?? {});
 
-    // Ensure all components have unique IDs
-    if (updatedConfig.content && Array.isArray(updatedConfig.content)) {
-      const contentWithIds = updatedConfig.content.map((component, index) => ({
-        ...component,
-        props: {
-          ...component.props,
-          id:
-            component.props?.id ||
-            `${component.type.toLowerCase()}-${Date.now()}-${index}`,
-        },
-      }));
-      updatedConfig = {
-        ...updatedConfig,
-        theme: mergedTheme,
-        content: contentWithIds,
-      };
-    }
-
-    // Validate the structure
-    if (!updatedConfig.content || !Array.isArray(updatedConfig.content)) {
-      console.error('Gemini AI Builder Invalid Output:', {
-        requestId,
-        userId: aiLogContext.userId,
-        merchantId: aiLogContext.merchantId,
-        model: aiLogContext.model,
-        promptLength: aiLogContext.promptLength,
-        componentCount: aiLogContext.componentCount,
-        reason: 'missing_content_array',
-      });
-
-      return NextResponse.json(
-        {
-          error: 'AI editor returned an invalid draft',
-          code: 'ai_builder_invalid_output',
-          requestId,
-        },
-        { status: 502 }
-      );
-    }
+    // runBuilderProviderChain rejects missing/non-array content before returning.
+    const contentWithIds = updatedConfig.content.map((component, index) => ({
+      ...component,
+      props: {
+        ...component.props,
+        id:
+          component.props?.id ||
+          `${component.type.toLowerCase()}-${Date.now()}-${index}`,
+      },
+    }));
+    updatedConfig = {
+      ...updatedConfig,
+      theme: mergedTheme,
+      content: contentWithIds,
+    };
 
     if (!updatedConfig.root) {
       updatedConfig.root = currentConfig.root || { title: 'Home' };
