@@ -95,6 +95,30 @@ describe('WalletFundPanel', () => {
     expect(screen.getByLabelText('Wallet top-up amount')).toBeTruthy();
   });
 
+  it('reveals card entry when the amount is prefilled after the panel is open', () => {
+    const baseProps = {
+      canCreateFundingAccount: true,
+      colors: Colors.light,
+      fundAmount: '',
+      fundingAccount,
+      isCreatingFundingAccount: false,
+      isFundPending: false,
+      onChangeFundAmount: jest.fn(),
+      onConfirmFund: jest.fn(),
+      onCreateFundingAccount: jest.fn(),
+      onResetFund: jest.fn(),
+    };
+    const { rerender } = render(<WalletFundPanel {...baseProps} />);
+
+    // Toggle collapsed initially with no amount.
+    expect(screen.queryByLabelText('Wallet top-up amount')).toBeNull();
+
+    // A route action (savings / checkout) prefills the amount while open.
+    rerender(<WalletFundPanel {...baseProps} fundAmount="1000" />);
+
+    expect(screen.getByLabelText('Wallet top-up amount')).toBeTruthy();
+  });
+
   it('auto-creates the funding account when none exists (Add Money = consent)', () => {
     const props = renderPanel({ fundingAccount: null });
 

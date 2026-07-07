@@ -55,9 +55,10 @@ export function WalletFundPanel({
   onCreateFundingAccount,
   onResetFund,
 }: WalletFundPanelProps) {
-  // Flows that arrive with a prefilled amount (savings top-up, checkout
-  // returnTo) are explicit card/gateway funding intents — start expanded.
-  const [showCardEntry, setShowCardEntry] = useState(fundAmount !== '');
+  // Tracks the "Fund with card instead" toggle. Card entry is ALSO shown
+  // whenever a prefilled amount is present (see cardEntryVisible), which
+  // covers a route change that prefills the amount while the panel is open.
+  const [showCardEntry, setShowCardEntry] = useState(false);
   const [autoCreateAttempted, setAutoCreateAttempted] = useState(false);
   const [autoCreateFailed, setAutoCreateFailed] = useState(false);
   const { copyToClipboard, feedback: copyFeedback } = useCopyToClipboard();
@@ -89,8 +90,13 @@ export function WalletFundPanel({
 
   const bankTransferUnavailable =
     !fundingAccount && !canCreateFundingAccount && !isCreatingFundingAccount;
+  // Reactive to fundAmount so a prefilled amount always reveals card entry,
+  // even if it arrives after the panel is already mounted.
   const cardEntryVisible =
-    showCardEntry || bankTransferUnavailable || autoCreateFailed;
+    showCardEntry ||
+    fundAmount !== '' ||
+    bankTransferUnavailable ||
+    autoCreateFailed;
 
   return (
     <Animated.View
