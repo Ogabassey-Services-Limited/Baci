@@ -1,60 +1,43 @@
-import { z } from 'zod';
-import { INTERNAL_AUTH_HEADER } from '@/lib/internal-auth-header';
-import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
+import { getBlogAuthorBySlug } from '@/lib/blog-authors';
 import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
-import { createAbortSignalTimeout } from './abort-signal-timeout';
+import {
+  STOREFRONT_BLOG_LISTING_STATUS_RPC,
+  storefrontBlogListingStatusRowSchema,
+} from '@/schemas/storefront-preflight-rpc';
 import type { BlogListingStatusIntent } from './cached-storefront-blog-listing-status';
+import {
+  resolveBlogListingVerdict,
+  type StorefrontBlogListingStatusResolution,
+} from './storefront-blog-listing-verdict';
 import { storefrontInternalPreflight } from './storefront-internal-preflight';
+import {
+  callStorefrontPreflightRpc,
+  gateStorefrontPreflightStatus,
+  type StorefrontPreflightRpcImpl,
+} from './storefront-preflight-rpc';
 
-const blogListingStatusResponseSchema = z.object({
-  hasError: z.boolean(),
-  redirectPath: z.string().nullable().optional(),
-  permanent: z.boolean().optional(),
-  notFound: z.boolean().optional(),
-});
+export type { StorefrontBlogListingStatusResolution };
 
 interface BlogListingStatusOptions {
-  /** Public request origin, used only as a trusted-base fallback in local dev. */
+  /**
+   * Public request origin. Retained so the proxy call sites stay untouched; the
+   * direct-RPC transport resolves its own target from the Supabase env.
+   */
   origin: string;
   /** Storefront slug or custom domain resolved by the proxy. */
   identifier: string;
   /** Parsed listing/category/author intent from the pathname + query. */
   intent: BlogListingStatusIntent;
-  /** INTERNAL_API_SECRET; when absent the check is a no-op. */
+  /**
+   * `INTERNAL_API_SECRET`; when absent the check is a no-op. Kept as the
+   * operational kill-switch: unsetting the secret disables every preflight
+   * without a deploy.
+   */
   secret: string | undefined;
-  fetchImpl?: typeof fetch;
+  /** Injectable for tests. */
+  rpcImpl?: StorefrontPreflightRpcImpl;
+  /** Tight budget — a slow verdict must not delay navigations. */
   timeoutMs?: number;
-}
-
-export type StorefrontBlogListingStatusResolution =
-  | { kind: 'noop' }
-  | { kind: 'notFound' }
-  | { kind: 'redirect'; redirectPath: string; status: 307 | 308 };
-
-function buildIntentQuery(intent: BlogListingStatusIntent): URLSearchParams {
-  const query = new URLSearchParams({ kind: intent.kind });
-  switch (intent.kind) {
-    case 'category-query':
-      query.set('category', intent.category);
-      break;
-    case 'listing-page':
-      query.set('page', String(intent.page));
-      if (intent.category) {
-        query.set('category', intent.category);
-      }
-      break;
-    case 'category-page':
-      query.set('categorySlug', intent.categorySlug);
-      query.set('page', String(intent.page));
-      break;
-    case 'author':
-      query.set('authorSlug', intent.authorSlug);
-      query.set('page', String(intent.page));
-      break;
-    default:
-      break;
-  }
-  return query;
 }
 
 function getIntentLogSlug(intent: BlogListingStatusIntent): string {
@@ -90,6 +73,24 @@ function getIntentUserSlug(intent: BlogListingStatusIntent): string | null {
   }
 }
 
+/**
+ * Resolves the hard status of a storefront blog listing/category/author URL for
+ * the proxy: known `?category=` canonicalizes to a clean hub (308), out-of-range
+ * pagination clamps to the last real page (307), a known author with zero posts
+ * becomes a real 404, and live/uncertain cases fall through to the App Router.
+ *
+ * The verdict comes from ONE direct Supabase RPC
+ * (`get_storefront_blog_listing_status`), replacing the
+ * /api/internal/blog-listing-status self-fetch whose function-invocation
+ * latency tail produced steady timeout fail-opens. The RPC returns only raw
+ * listing data; every href, page clamp, and category-label match is composed
+ * here in TS with the same helpers the routes use — exactly as the resolver did
+ * from `getCachedBlogListing`/`getCachedBlogAuthor`.
+ *
+ * Fail-open by construction: a missing secret, transport error, timeout, open
+ * circuit breaker, unknown/unpublished storefront, or malformed row all return
+ * `noop`.
+ */
 export async function resolveStorefrontBlogListingStatus(
   opts: BlogListingStatusOptions
 ): Promise<StorefrontBlogListingStatusResolution> {
@@ -100,7 +101,7 @@ export async function resolveStorefrontBlogListingStatus(
   };
 
   // Unsafe (over-long / repeatedly-encoded) category/author segments can never
-  // match a listing; skip the internal hop and let the App Router resolve it.
+  // match a listing; skip the lookup and let the App Router resolve it.
   const userSlug = getIntentUserSlug(opts.intent);
   if (userSlug !== null) {
     const slugSafety = evaluateStorefrontSlugSafety(userSlug);
@@ -121,83 +122,50 @@ export async function resolveStorefrontBlogListingStatus(
     return { kind: 'noop' };
   }
 
-  const baseUrl = storefrontInternalPreflight.resolveBaseUrl(opts.origin);
-  if (!baseUrl) {
-    storefrontInternalPreflight.warnFailOpen({
-      ...failOpenContext,
-      reason: 'no-base-url',
-    });
-    return { kind: 'noop' };
-  }
-
-  try {
-    const url = new URL(
-      `/api/internal/blog-listing-status/${encodeURIComponent(opts.identifier)}`,
-      baseUrl
+  // The author intent's profile lookup stays in TS (a static registry, not a DB
+  // table). Resolve it BEFORE the RPC so a non-author URL skips the round trip
+  // entirely and the DB only counts the resolved canonical author name.
+  let authorName = '';
+  if (opts.intent.kind === 'author') {
+    const profile = getBlogAuthorBySlug(
+      opts.intent.authorSlug.toLowerCase(),
+      opts.identifier
     );
-    for (const [key, value] of buildIntentQuery(opts.intent)) {
-      url.searchParams.set(key, value);
-    }
-
-    const timeout = createAbortSignalTimeout(opts.timeoutMs ?? 800);
-    try {
-      const response = await (opts.fetchImpl ?? fetch)(url, {
-        // Authenticate via the custom header, NOT Authorization: Vercel's CDN
-        // never caches a response to a request carrying an Authorization header,
-        // so this keeps the internal verdict edge-cacheable. Sending both would
-        // re-trigger the bypass.
-        headers: { [INTERNAL_AUTH_HEADER]: opts.secret },
-        redirect: 'manual',
-        signal: timeout.signal,
-      });
-      const json = await storefrontInternalPreflight.readJsonResponse(
-        response,
-        failOpenContext
-      );
-      if (json === null) {
-        return { kind: 'noop' };
-      }
-
-      const bodyResult = blogListingStatusResponseSchema.safeParse(json);
-      if (!bodyResult.success || bodyResult.data.hasError !== false) {
-        storefrontInternalPreflight.warnFailOpen({
-          ...failOpenContext,
-          reason: bodyResult.success ? 'has-error' : 'parse',
-        });
-        return { kind: 'noop' };
-      }
-      const body = bodyResult.data;
-
-      const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
-      if (redirectPath) {
-        return {
-          kind: 'redirect',
-          redirectPath,
-          status: body.permanent === true ? 308 : 307,
-        };
-      }
-
-      if (body.redirectPath != null) {
-        storefrontInternalPreflight.warnFailOpen({
-          ...failOpenContext,
-          reason: 'unsafe-redirect',
-        });
-        return { kind: 'noop' };
-      }
-
-      if (body.notFound === true) {
-        return { kind: 'notFound' };
-      }
-
+    if (!profile) {
+      // Unknown author is resolved before the shell in the route; fall through.
       return { kind: 'noop' };
-    } finally {
-      timeout.clear();
     }
-  } catch (error) {
+    authorName = profile.name;
+  }
+
+  const row = await callStorefrontPreflightRpc(
+    STOREFRONT_BLOG_LISTING_STATUS_RPC,
+    { p_identifier: opts.identifier, p_author_name: authorName },
+    {
+      failOpenContext,
+      rpcImpl: opts.rpcImpl,
+      timeoutMs: opts.timeoutMs,
+    }
+  );
+  if (row === null) {
+    return { kind: 'noop' };
+  }
+
+  const parsed = storefrontBlogListingStatusRowSchema.safeParse(row);
+  if (!parsed.success) {
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
-      reason: storefrontInternalPreflight.getFetchErrorReason(error),
+      reason: 'parse',
     });
     return { kind: 'noop' };
   }
+  const verdict = parsed.data;
+
+  if (
+    !gateStorefrontPreflightStatus(verdict.storefront_status, failOpenContext)
+  ) {
+    return { kind: 'noop' };
+  }
+
+  return resolveBlogListingVerdict(opts.intent, verdict);
 }

@@ -8,6 +8,8 @@ import { z } from 'zod';
 export const STOREFRONT_PDP_PREFLIGHT_RPC = 'get_storefront_pdp_preflight';
 export const STOREFRONT_BLOG_POST_STATUS_RPC =
   'get_storefront_blog_post_status';
+export const STOREFRONT_BLOG_LISTING_STATUS_RPC =
+  'get_storefront_blog_listing_status';
 
 /**
  * Row contracts for the storefront preflight verdict RPCs
@@ -48,4 +50,32 @@ export const storefrontBlogPostStatusRowSchema = z.object({
 
 export type StorefrontBlogPostStatusRow = z.infer<
   typeof storefrontBlogPostStatusRowSchema
+>;
+
+/**
+ * Row contract for `get_storefront_blog_listing_status`
+ * (supabase/migrations/20260706230000_add_blog_listing_preflight_rpc.sql).
+ *
+ * The RPC returns RAW listing data only; TS composes every href/clamp/label
+ * (mirroring what `getCachedBlogListing` feeds the resolver). `categories` and
+ * `category_counts` are parallel arrays (`categories[i]` pairs with
+ * `category_counts[i]`), where each `categories[i]` is the RAW (untrimmed)
+ * `blog_posts.category` value so a TS exact-string lookup reproduces the
+ * resolver's `.eq('category', X)` count. `total_count` is the merchant's total
+ * published-post count (no category filter); `author_count` is the
+ * published-post count for the single author name passed in (0 when none). As
+ * with the sibling rows, `storefront_status` stays a tolerant string so a
+ * mixed-deploy caller never hard-fails on a future status value.
+ */
+export const storefrontBlogListingStatusRowSchema = z.object({
+  storefront_status: z.string(),
+  blog_enabled: z.boolean(),
+  total_count: z.number(),
+  categories: z.array(z.string()),
+  category_counts: z.array(z.number()),
+  author_count: z.number(),
+});
+
+export type StorefrontBlogListingStatusRow = z.infer<
+  typeof storefrontBlogListingStatusRowSchema
 >;

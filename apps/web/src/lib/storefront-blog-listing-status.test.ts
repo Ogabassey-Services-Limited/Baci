@@ -1,114 +1,48 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  removeNativeAbortSignalTimeout,
-  restoreAbortSignalTimeout,
-} from './abort-signal-timeout.test-utils';
 import { resolveStorefrontBlogListingStatus } from './storefront-blog-listing-status';
+import {
+  makeBlogListingRow as makeRow,
+  overEncoded,
+  rpcImplResolving,
+} from './storefront-blog-listing-status.test-utils';
+import {
+  resetStorefrontPreflightRpcForTests,
+  type StorefrontPreflightRpcImpl,
+} from './storefront-preflight-rpc';
 
-const ORIGINAL_INTERNAL_BASE_ENV = {
-  NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
-  NODE_ENV: process.env.NODE_ENV,
-  NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
-  VERCEL_ENV: process.env.VERCEL_ENV,
-  VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
-  VERCEL_URL: process.env.VERCEL_URL,
-};
-
-function restoreInternalBaseEnv() {
-  vi.unstubAllEnvs();
-  for (const [key, value] of Object.entries(ORIGINAL_INTERNAL_BASE_ENV)) {
-    if (key === 'NODE_ENV') continue;
-    if (value === undefined) {
-      delete process.env[key];
-    } else {
-      process.env[key] = value;
-    }
-  }
-}
-
-function jsonResponse(body: unknown, ok = true): Response {
-  return new Response(JSON.stringify(body), {
-    headers: { 'Content-Type': 'application/json' },
-    status: ok ? 200 : 500,
-  });
-}
-
-const BASE_OPTS = {
-  origin: 'https://ogabassey.com',
-  identifier: 'ogabassey.com',
-  secret: 'internal-secret',
-} as const;
+// getBlogAuthorBySlug only resolves profiles for the ogabassey tenant, so author
+// intents must use an ogabassey identifier to reach the RPC.
+const OGABASSEY = 'ogabassey.com';
 
 describe('resolveStorefrontBlogListingStatus', () => {
   beforeEach(() => {
-    delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
-    delete process.env.NEXT_PUBLIC_SITE_URL;
+    resetStorefrontPreflightRpcForTests();
+    // VERCEL_ENV is normally unset in vitest, which passes the transport's
+    // preview gate; delete defensively in case another suite left it stubbed.
     delete process.env.VERCEL_ENV;
-    delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
-    vi.stubEnv('NODE_ENV', 'test');
-    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
-    process.env.VERCEL_URL = 'baci-platform.vercel.app';
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
-    restoreAbortSignalTimeout();
-    restoreInternalBaseEnv();
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
-  it('maps a permanent category redirect to a 308 and builds the query', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      jsonResponse({
-        hasError: false,
-        redirectPath: '/blog/category/smartphones',
-        permanent: true,
-        notFound: false,
-      })
-    );
-
+  it('skips the RPC for over-encoded bot category-query slugs', async () => {
+    const rpcImpl = vi.fn();
     const result = await resolveStorefrontBlogListingStatus({
-      ...BASE_OPTS,
-      intent: { kind: 'category-query', category: 'Smartphones' },
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-
-    expect(result).toEqual({
-      kind: 'redirect',
-      redirectPath: '/blog/category/smartphones',
-      status: 308,
-    });
-    const url = new URL(String(fetchImpl.mock.calls[0][0]));
-    expect(url.origin).toBe('https://usebaci.com');
-    expect(url.pathname).toBe(
-      '/api/internal/blog-listing-status/ogabassey.com'
-    );
-    expect(url.searchParams.get('kind')).toBe('category-query');
-    expect(url.searchParams.get('category')).toBe('Smartphones');
-    // The secret goes via `x-baci-internal-auth`, NOT Authorization, so
-    // Vercel's CDN can cache the verdict — the exact-match assertion proves no
-    // Authorization header is sent alongside it.
-    expect(fetchImpl.mock.calls[0][1]?.headers).toEqual({
-      'x-baci-internal-auth': 'internal-secret',
-    });
-    expect(fetchImpl.mock.calls[0][1]).toMatchObject({ redirect: 'manual' });
-  });
-
-  it('skips the internal fetch for over-encoded bot category-query slugs', async () => {
-    const fetchImpl = vi.fn();
-    let overEncodedSlug = 'smartphones and tablets';
-    for (let i = 0; i < 10; i++) {
-      overEncodedSlug = encodeURIComponent(overEncodedSlug);
-    }
-
-    const result = await resolveStorefrontBlogListingStatus({
-      ...BASE_OPTS,
-      intent: { kind: 'category-query', category: overEncodedSlug },
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      origin: 'https://ogabassey.com',
+      identifier: 'skip-category-query.example',
+      intent: {
+        kind: 'category-query',
+        category: overEncoded('smartphones and tablets'),
+      },
+      secret: 'internal-secret',
+      rpcImpl: rpcImpl as unknown as StorefrontPreflightRpcImpl,
     });
 
     expect(result).toEqual({ kind: 'noop' });
-    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(rpcImpl).not.toHaveBeenCalled();
     expect(console.warn).toHaveBeenCalledWith(
       '[storefront-internal-preflight] skip',
       expect.objectContaining({
@@ -118,240 +52,225 @@ describe('resolveStorefrontBlogListingStatus', () => {
     );
   });
 
-  it('skips the internal fetch for extremely long category-page slugs', async () => {
-    const fetchImpl = vi.fn();
-
+  it('skips the RPC for extremely long category-page slugs', async () => {
+    const rpcImpl = vi.fn();
     const result = await resolveStorefrontBlogListingStatus({
-      ...BASE_OPTS,
+      origin: 'https://ogabassey.com',
+      identifier: 'skip-category-page.example',
       intent: {
         kind: 'category-page',
         categorySlug: 'a'.repeat(4000),
         page: 2,
       },
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      secret: 'internal-secret',
+      rpcImpl: rpcImpl as unknown as StorefrontPreflightRpcImpl,
     });
 
     expect(result).toEqual({ kind: 'noop' });
-    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(rpcImpl).not.toHaveBeenCalled();
   });
 
-  it('skips the internal fetch for over-encoded author slugs', async () => {
-    const fetchImpl = vi.fn();
-    let overEncodedSlug = 'jane doe writer';
-    for (let i = 0; i < 10; i++) {
-      overEncodedSlug = encodeURIComponent(overEncodedSlug);
-    }
-
+  it('skips the RPC for unsafe listing-page category segments', async () => {
+    const rpcImpl = vi.fn();
     const result = await resolveStorefrontBlogListingStatus({
-      ...BASE_OPTS,
-      intent: { kind: 'author', authorSlug: overEncodedSlug, page: 1 },
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      origin: 'https://ogabassey.com',
+      identifier: 'skip-listing-category.example',
+      intent: {
+        kind: 'listing-page',
+        category: overEncoded('smartphones and tablets'),
+        page: 2,
+      },
+      secret: 'internal-secret',
+      rpcImpl: rpcImpl as unknown as StorefrontPreflightRpcImpl,
     });
 
     expect(result).toEqual({ kind: 'noop' });
-    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(rpcImpl).not.toHaveBeenCalled();
   });
 
-  it('skips the internal fetch for unsafe listing-page category segments', async () => {
-    const fetchImpl = vi.fn();
-    let overEncodedSlug = 'smartphones and tablets';
-    for (let i = 0; i < 10; i++) {
-      overEncodedSlug = encodeURIComponent(overEncodedSlug);
-    }
-
+  it('still calls the RPC for page-only listing intents (no unsafe segment)', async () => {
+    const rpcImpl = rpcImplResolving(makeRow({ total_count: 12 }));
     const result = await resolveStorefrontBlogListingStatus({
-      ...BASE_OPTS,
-      intent: { kind: 'listing-page', category: overEncodedSlug, page: 2 },
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      origin: 'https://ogabassey.com',
+      identifier: 'page-only.example',
+      intent: { kind: 'listing-page', page: 2 },
+      secret: 'internal-secret',
+      rpcImpl,
     });
 
-    expect(result).toEqual({ kind: 'noop' });
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-
-  it('still fetches for page-only listing intents (no unsafe user segment)', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(
-        jsonResponse({ hasError: false, redirectPath: null, notFound: false })
-      );
-
-    const result = await resolveStorefrontBlogListingStatus({
-      ...BASE_OPTS,
-      intent: { kind: 'listing-page', page: 5 },
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+    // total_count 12 → 1 page; page 2 clamps to page 1 (`/blog`).
+    expect(result).toEqual({
+      kind: 'redirect',
+      redirectPath: '/blog',
+      status: 307,
     });
-
-    expect(result).toEqual({ kind: 'noop' });
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-  });
-
-  it('maps a page-clamp redirect to a 307', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      jsonResponse({
-        hasError: false,
-        redirectPath: '/blog?page=3',
-        permanent: false,
-        notFound: false,
-      })
+    expect(rpcImpl).toHaveBeenCalledWith(
+      'get_storefront_blog_listing_status',
+      { p_identifier: 'page-only.example', p_author_name: '' },
+      expect.any(AbortSignal)
     );
+  });
 
+  it('fails open without calling the RPC when the internal secret is missing', async () => {
+    const rpcImpl = vi.fn();
     const result = await resolveStorefrontBlogListingStatus({
-      ...BASE_OPTS,
+      origin: 'https://ogabassey.com',
+      identifier: 'no-secret.example',
       intent: { kind: 'listing-page', page: 99 },
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      secret: undefined,
+      rpcImpl: rpcImpl as unknown as StorefrontPreflightRpcImpl,
+    });
+
+    expect(result).toEqual({ kind: 'noop' });
+    expect(rpcImpl).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'no-secret' })
+    );
+  });
+
+  it('is a NOOP without calling the RPC for an author URL with no profile', async () => {
+    const rpcImpl = vi.fn();
+    const result = await resolveStorefrontBlogListingStatus({
+      // A non-ogabassey tenant owns no author profiles.
+      origin: 'https://other-store.example',
+      identifier: 'other-store.example',
+      intent: { kind: 'author', authorSlug: 'bassey-john', page: 1 },
+      secret: 'internal-secret',
+      rpcImpl: rpcImpl as unknown as StorefrontPreflightRpcImpl,
+    });
+
+    expect(result).toEqual({ kind: 'noop' });
+    expect(rpcImpl).not.toHaveBeenCalled();
+  });
+
+  it('passes the resolved canonical author name to the RPC and clamps out-of-range author pages', async () => {
+    const rpcImpl = rpcImplResolving(
+      makeRow({ author_count: 287, categories: [], category_counts: [] })
+    );
+    const result = await resolveStorefrontBlogListingStatus({
+      origin: 'https://ogabassey.com',
+      identifier: OGABASSEY,
+      intent: { kind: 'author', authorSlug: 'Bassey-John', page: 999 },
+      secret: 'internal-secret',
+      rpcImpl,
     });
 
     expect(result).toEqual({
       kind: 'redirect',
-      redirectPath: '/blog?page=3',
+      redirectPath: '/blog/author/bassey-john?page=24',
       status: 307,
     });
-    const url = new URL(String(fetchImpl.mock.calls[0][0]));
-    expect(url.searchParams.get('page')).toBe('99');
+    expect(rpcImpl).toHaveBeenCalledWith(
+      'get_storefront_blog_listing_status',
+      { p_identifier: OGABASSEY, p_author_name: 'Bassey John' },
+      expect.any(AbortSignal)
+    );
   });
 
-  it('maps a notFound body to a notFound resolution', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(
-        jsonResponse({ hasError: false, redirectPath: null, notFound: true })
-      );
-
+  it('returns notFound for a known author with zero published posts', async () => {
+    const rpcImpl = rpcImplResolving(
+      makeRow({ author_count: 0, categories: [], category_counts: [] })
+    );
     const result = await resolveStorefrontBlogListingStatus({
-      ...BASE_OPTS,
+      origin: 'https://ogabassey.com',
+      identifier: OGABASSEY,
       intent: { kind: 'author', authorSlug: 'bassey-john', page: 1 },
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      secret: 'internal-secret',
+      rpcImpl,
     });
 
     expect(result).toEqual({ kind: 'notFound' });
   });
 
-  it('fails open to noop when redirectPath is unsafe (external URL)', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      jsonResponse({
-        hasError: false,
-        redirectPath: 'https://evil.example/x',
-        notFound: false,
-      })
-    );
-
+  it('308-redirects a known ?category= to the clean category route', async () => {
+    const rpcImpl = rpcImplResolving(makeRow());
     const result = await resolveStorefrontBlogListingStatus({
-      ...BASE_OPTS,
+      origin: 'https://ogabassey.com',
+      identifier: 'category-query.example',
+      intent: { kind: 'category-query', category: 'Smartphones' },
+      secret: 'internal-secret',
+      rpcImpl,
+    });
+
+    expect(result).toEqual({
+      kind: 'redirect',
+      redirectPath: '/blog/category/smartphones',
+      status: 308,
+    });
+  });
+
+  it('307-clamps an out-of-range listing page to the last page', async () => {
+    const rpcImpl = rpcImplResolving(makeRow());
+    const result = await resolveStorefrontBlogListingStatus({
+      origin: 'https://ogabassey.com',
+      identifier: 'listing-clamp.example',
+      intent: { kind: 'listing-page', page: 999 },
+      secret: 'internal-secret',
+      rpcImpl,
+    });
+
+    // total_count 515 → 43 pages.
+    expect(result).toEqual({
+      kind: 'redirect',
+      redirectPath: '/blog?page=43',
+      status: 307,
+    });
+  });
+
+  it.each([
+    'unknown',
+    'unpublished',
+  ])('fails open and skips for a %s storefront status', async (storefront_status) => {
+    const rpcImpl = rpcImplResolving(makeRow({ storefront_status }));
+    const result = await resolveStorefrontBlogListingStatus({
+      origin: 'https://ogabassey.com',
+      identifier: `status-${storefront_status}.example`,
       intent: { kind: 'listing-page', page: 99 },
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      secret: 'internal-secret',
+      rpcImpl,
+    });
+
+    expect(result).toEqual({ kind: 'noop' });
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] skip',
+      expect.objectContaining({ reason: 'unknown-storefront' })
+    );
+  });
+
+  it('fails open to NOOP when the RPC row fails schema validation', async () => {
+    // A string count is what a mixed-deploy shape drift would send; the row must
+    // fail zod parsing and degrade to NOOP rather than compose a bad clamp.
+    const rpcImpl = rpcImplResolving({ ...makeRow(), total_count: '515' });
+    const result = await resolveStorefrontBlogListingStatus({
+      origin: 'https://ogabassey.com',
+      identifier: 'schema-fail.example',
+      intent: { kind: 'listing-page', page: 99 },
+      secret: 'internal-secret',
+      rpcImpl,
     });
 
     expect(result).toEqual({ kind: 'noop' });
     expect(console.warn).toHaveBeenCalledWith(
       '[storefront-internal-preflight] fail-open',
-      expect.objectContaining({ reason: 'unsafe-redirect' })
+      expect.objectContaining({ reason: 'parse' })
     );
   });
 
-  it('is a no-op when the secret is absent (never calls the endpoint)', async () => {
-    const fetchImpl = vi.fn();
+  it('fails open to NOOP when the RPC transport rejects', async () => {
+    const rpcImpl = vi.fn().mockRejectedValue(new Error('network unreachable'));
     const result = await resolveStorefrontBlogListingStatus({
-      ...BASE_OPTS,
-      secret: undefined,
+      origin: 'https://ogabassey.com',
+      identifier: 'transport-error.example',
       intent: { kind: 'listing-page', page: 99 },
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      secret: 'internal-secret',
+      rpcImpl: rpcImpl as unknown as StorefrontPreflightRpcImpl,
     });
 
     expect(result).toEqual({ kind: 'noop' });
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-
-  it('is a no-op without sending the secret when there is no trusted base URL', async () => {
-    delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
-    const fetchImpl = vi.fn();
-
-    const result = await resolveStorefrontBlogListingStatus({
-      ...BASE_OPTS,
-      intent: { kind: 'listing-page', page: 99 },
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-
-    expect(result).toEqual({ kind: 'noop' });
-    expect(fetchImpl).not.toHaveBeenCalled();
     expect(console.warn).toHaveBeenCalledWith(
       '[storefront-internal-preflight] fail-open',
-      expect.objectContaining({ reason: 'no-base-url' })
+      expect.objectContaining({ reason: 'fetch-error' })
     );
-  });
-
-  it('fails open to noop when the endpoint reports hasError', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(
-        jsonResponse({ hasError: true, redirectPath: null, notFound: false })
-      );
-
-    const result = await resolveStorefrontBlogListingStatus({
-      ...BASE_OPTS,
-      intent: { kind: 'listing-page', page: 99 },
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-
-    expect(result).toEqual({ kind: 'noop' });
-  });
-
-  it('fails open to noop on a non-2xx or non-JSON response', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ hasError: false }, false))
-      .mockResolvedValueOnce(
-        new Response('<!doctype html>', {
-          headers: { 'Content-Type': 'text/html' },
-          status: 200,
-        })
-      );
-
-    await expect(
-      resolveStorefrontBlogListingStatus({
-        ...BASE_OPTS,
-        intent: { kind: 'listing-page', page: 99 },
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-      })
-    ).resolves.toEqual({ kind: 'noop' });
-    await expect(
-      resolveStorefrontBlogListingStatus({
-        ...BASE_OPTS,
-        intent: { kind: 'listing-page', page: 99 },
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-      })
-    ).resolves.toEqual({ kind: 'noop' });
-  });
-
-  it('keeps fetching when native AbortSignal.timeout is unavailable', async () => {
-    removeNativeAbortSignalTimeout();
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(
-        jsonResponse({ hasError: false, redirectPath: null, notFound: true })
-      );
-
-    const result = await resolveStorefrontBlogListingStatus({
-      ...BASE_OPTS,
-      intent: { kind: 'listing-page', page: 99 },
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-
-    expect(result).toEqual({ kind: 'notFound' });
-    expect((fetchImpl.mock.calls[0][1] as RequestInit).signal).toBeInstanceOf(
-      AbortSignal
-    );
-  });
-
-  it('fails open to noop when the request throws (timeout)', async () => {
-    const fetchImpl = vi.fn().mockRejectedValue(new Error('aborted'));
-
-    const result = await resolveStorefrontBlogListingStatus({
-      ...BASE_OPTS,
-      intent: { kind: 'listing-page', page: 99 },
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-
-    expect(result).toEqual({ kind: 'noop' });
   });
 });

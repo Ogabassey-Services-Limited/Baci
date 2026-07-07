@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  STOREFRONT_BLOG_LISTING_STATUS_RPC,
   STOREFRONT_BLOG_POST_STATUS_RPC,
   STOREFRONT_PDP_PREFLIGHT_RPC,
+  storefrontBlogListingStatusRowSchema,
   storefrontBlogPostStatusRowSchema,
   storefrontPdpPreflightRowSchema,
 } from '@/schemas/storefront-preflight-rpc';
@@ -25,6 +27,15 @@ const validBlogRow = {
   blog_enabled: true,
   live_present: true,
   redirect_target_slug: 'new-post-slug',
+};
+
+const validBlogListingRow = {
+  storefront_status: 'published',
+  blog_enabled: true,
+  total_count: 515,
+  categories: ['Smartphones', 'Laptops'],
+  category_counts: [228, 80],
+  author_count: 287,
 };
 
 describe('storefrontPdpPreflightRowSchema', () => {
@@ -155,11 +166,83 @@ describe('storefrontBlogPostStatusRowSchema', () => {
   });
 });
 
+describe('storefrontBlogListingStatusRowSchema', () => {
+  it('parses a valid row', () => {
+    const result =
+      storefrontBlogListingStatusRowSchema.safeParse(validBlogListingRow);
+
+    expect(result.success).toBe(true);
+  });
+
+  it('parses empty category arrays and a zero author count', () => {
+    const result = storefrontBlogListingStatusRowSchema.safeParse({
+      ...validBlogListingRow,
+      total_count: 0,
+      categories: [],
+      category_counts: [],
+      author_count: 0,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('parses an unknown, future storefront_status value (tolerant contract)', () => {
+    const result = storefrontBlogListingStatusRowSchema.safeParse({
+      ...validBlogListingRow,
+      storefront_status: 'suspended',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('strips unknown extra keys instead of rejecting the row', () => {
+    const result = storefrontBlogListingStatusRowSchema.safeParse({
+      ...validBlogListingRow,
+      extra_future_column: 'unexpected',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).not.toHaveProperty('extra_future_column');
+    }
+  });
+
+  it('rejects a count field sent as a string', () => {
+    const result = storefrontBlogListingStatusRowSchema.safeParse({
+      ...validBlogListingRow,
+      total_count: '515',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects categories sent as a non-array', () => {
+    const result = storefrontBlogListingStatusRowSchema.safeParse({
+      ...validBlogListingRow,
+      categories: 'Smartphones',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects null for the non-nullable blog_enabled field', () => {
+    const result = storefrontBlogListingStatusRowSchema.safeParse({
+      ...validBlogListingRow,
+      blog_enabled: null,
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
 describe('RPC name constants', () => {
   it('match the migration function names exactly', () => {
     expect(STOREFRONT_PDP_PREFLIGHT_RPC).toBe('get_storefront_pdp_preflight');
     expect(STOREFRONT_BLOG_POST_STATUS_RPC).toBe(
       'get_storefront_blog_post_status'
+    );
+    expect(STOREFRONT_BLOG_LISTING_STATUS_RPC).toBe(
+      'get_storefront_blog_listing_status'
     );
   });
 });
