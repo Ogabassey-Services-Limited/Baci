@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatAmountInCurrency,
   formatMerchantCurrency,
   type MerchantCurrencySource,
   resolveMerchantCurrencyConfig,
@@ -215,6 +216,38 @@ describe('formatMerchantCurrency', () => {
 
     // Act
     const formatted = formatMerchantCurrency(1000, merchant);
+
+    // Assert
+    expect(formatted).toContain('ZZZ');
+  });
+});
+
+describe('formatAmountInCurrency', () => {
+  it('formats using the currency code default locale and symbol', () => {
+    // Arrange
+    const amount = 4000;
+
+    // Act
+    const formatted = formatAmountInCurrency(amount, 'INR');
+
+    // Assert
+    expect(formatted).toContain('₹');
+    expect(formatted).toContain('4,000');
+  });
+
+  it('falls back to NGN for missing or malformed codes', () => {
+    // Arrange + Act
+    const missing = formatAmountInCurrency(500, null);
+    const malformed = formatAmountInCurrency(500, 'naira!');
+
+    // Assert
+    expect(missing).toContain('₦');
+    expect(malformed).toContain('₦');
+  });
+
+  it('renders unknown but well-formed codes without throwing', () => {
+    // Arrange + Act
+    const formatted = formatAmountInCurrency(12.5, 'ZZZ');
 
     // Assert
     expect(formatted).toContain('ZZZ');

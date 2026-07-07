@@ -104,3 +104,26 @@ export function formatMerchantCurrency(
   const config = resolveMerchantCurrencyConfig(merchant);
   return formatCurrencyWithConfig(amount, config, options);
 }
+
+/**
+ * Format an amount when only a bare currency code is available (e.g.
+ * `order.currency` on records where the merchant row isn't loaded).
+ *
+ * @param amount - Numeric amount to format.
+ * @param currencyCode - ISO 4217 code; malformed/missing input falls back to NGN.
+ * @param options - Optional `Intl.NumberFormat` overrides.
+ * @returns Localized currency string.
+ */
+export function formatAmountInCurrency(
+  amount: number,
+  currencyCode?: string | null,
+  options?: Partial<Intl.NumberFormatOptions>
+): string {
+  const code = normalizeCurrencyCode(currencyCode) ?? DEFAULT_CURRENCY_CODE;
+  const config: CurrencyConfig = {
+    code,
+    symbol: CURRENCY_SYMBOLS[code] ?? code,
+    locale: CURRENCY_DEFAULT_LOCALES[code] ?? DEFAULT_LOCALE,
+  };
+  return formatCurrencyWithConfig(amount, config, options);
+}
