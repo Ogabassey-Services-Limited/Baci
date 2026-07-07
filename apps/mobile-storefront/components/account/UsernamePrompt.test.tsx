@@ -93,4 +93,33 @@ describe('UsernamePrompt', () => {
     expect(screen.getByLabelText('Username').props.value).toBe('ogafan');
     expect(screen.getByRole('button', { name: 'Continue' })).toBeTruthy();
   });
+
+  it('syncs the input when initialValue changes after mount (late hydration)', () => {
+    // Returning shopper: the prompt first renders while the customer row is
+    // still hydrating (initialValue empty), then the real username arrives.
+    const { rerender } = render(<UsernamePrompt initialValue="" />);
+    expect(screen.getByLabelText('Username').props.value).toBe('');
+    expect(
+      screen.getByRole('button', { name: 'Save username' })
+    ).toHaveAccessibilityState({ disabled: true });
+
+    rerender(<UsernamePrompt initialValue="ogafan" />);
+
+    expect(screen.getByLabelText('Username').props.value).toBe('ogafan');
+    expect(
+      screen.getByRole('button', { name: 'Save username' })
+    ).toHaveAccessibilityState({ disabled: false });
+  });
+
+  it('keeps the user\'s typed value when initialValue is unchanged on re-render', () => {
+    const { rerender } = render(<UsernamePrompt initialValue="" />);
+
+    fireEvent.changeText(screen.getByLabelText('Username'), 'typed_name');
+    expect(screen.getByLabelText('Username').props.value).toBe('typed_name');
+
+    // A re-render that does not change initialValue must not clobber typing.
+    rerender(<UsernamePrompt initialValue="" />);
+
+    expect(screen.getByLabelText('Username').props.value).toBe('typed_name');
+  });
 });

@@ -20,8 +20,23 @@ export function UsernamePrompt({
   const setUsername = useAuthStore((state) => state.setUsername);
 
   const [value, setValue] = useState(initialValue);
+  const [lastInitialValue, setLastInitialValue] = useState(initialValue);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Sync local input state when the parent supplies a new `initialValue` after
+  // mount — e.g. a returning shopper whose customer row (and username) hydrates
+  // AFTER this prompt first rendered with an empty value. Without this, the edit
+  // control keeps showing stale/blank state and disables the submit button until
+  // the user retypes their existing username. React's "adjust state during
+  // render" pattern (https://react.dev/learn/you-might-not-need-an-effect) is
+  // used instead of an effect so there's no extra render pass and no manual
+  // memo, keeping it React Compiler friendly.
+  if (initialValue !== lastInitialValue) {
+    setLastInitialValue(initialValue);
+    setValue(initialValue);
+    setSubmitError(null);
+  }
 
   // Clean (NFKC + zero-width strip + trim) before validating and submitting so
   // the mobile client feeds the RPC the same normalized value the web route
