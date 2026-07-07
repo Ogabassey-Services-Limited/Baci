@@ -1,5 +1,4 @@
-import type { RefObject } from 'react';
-import type { ScrollView, TextInputProps, ViewStyle } from 'react-native';
+import type { TextInputProps, ViewStyle } from 'react-native';
 
 export interface PlacePrediction {
   placeId: string;
@@ -29,6 +28,4 @@ export interface AddressAutocompleteProps
   error?: string;
   label?: string;
   country?: string;
-  scrollRef?: RefObject<ScrollView | null>;
-  scrollOffsetRef?: RefObject<number>;
 }

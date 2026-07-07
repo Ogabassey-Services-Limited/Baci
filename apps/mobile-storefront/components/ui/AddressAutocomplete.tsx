@@ -23,9 +23,15 @@ import type {
 } from './AddressAutocomplete.types';
 import { AddressPredictionsDropdown } from './AddressPredictionsDropdown';
 import { applyPlaceSelection } from './apply-place-selection';
-import { useAddressAutocompleteKeyboard } from './use-address-autocomplete-keyboard';
 
 export type { PlaceDetails } from './AddressAutocomplete.types';
+
+// How long after the user last touched the predictions dropdown a blur is
+// still attributed to that interaction (and must not close the dropdown).
+// Android can steal the gesture from the inner list (firing touchCancel)
+// before the keyboard-dismiss blur lands, so a live boolean latch loses the
+// race — recency is what both platforms agree on.
+const DROPDOWN_INTERACTION_GRACE_MS = 750;
 
 export function AddressAutocomplete({
   value = '',
@@ -38,8 +44,6 @@ export function AddressAutocomplete({
   placeholder = 'Start typing your address...',
   onBlur,
   onFocus,
-  scrollRef,
-  scrollOffsetRef,
   ...props
 }: AddressAutocompleteProps) {
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
@@ -70,18 +74,16 @@ export function AddressAutocomplete({
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const blurCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrapperRef = useRef<View>(null);
-  // True while the user is touching the predictions dropdown. Dragging the
-  // dropdown dismisses the keyboard (the parent ScrollView uses
-  // keyboardDismissMode="on-drag"), which blurs this input — without this guard
-  // the blur handler would close the dropdown mid-scroll.
-  const dropdownInteractingRef = useRef(false);
+  // Epoch ms of the user's last touch on the predictions dropdown. A blur
+  // arriving within DROPDOWN_INTERACTION_GRACE_MS of it is attributed to that
+  // touch (keyboard-dismiss-on-drag) and must not close the dropdown.
+  const lastDropdownInteractionAtRef = useRef(0);
 
-  // Backstop the interaction latch: if the dropdown unmounts mid-touch (or a
-  // gesture is handed to the parent scroll and no reset event lands), clear the
-  // ref whenever the dropdown is closed so a later genuine blur still closes it.
+  // Backstop: whenever the dropdown closes, clear the recency marker so a
+  // stale touch can't suppress a later genuine blur-close.
   useEffect(() => {
     if (!isOpen) {
-      dropdownInteractingRef.current = false;
+      lastDropdownInteractionAtRef.current = 0;
     }
   }, [isOpen]);
 
@@ -97,14 +99,6 @@ export function AddressAutocomplete({
       }
     };
   }, []);
-
-  useAddressAutocompleteKeyboard({
-    isOpen,
-    predictionCount: predictions.length,
-    scrollOffsetRef,
-    scrollRef,
-    wrapperRef,
-  });
 
   // Adjust state inline during render when the controlled value prop changes
   // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
@@ -178,7 +172,7 @@ export function AddressAutocomplete({
   };
 
   const closeDropdown = () => {
-    dropdownInteractingRef.current = false;
+    lastDropdownInteractionAtRef.current = 0;
     setIsOpen(false);
     Keyboard.dismiss();
   };
@@ -219,8 +213,8 @@ export function AddressAutocomplete({
           onChangeText={handleInputChange}
           onFocus={(event) => {
             // Focus can only return after a blur, so any prior dropdown drag is
-            // over — clear the latch before the next blur can be suppressed.
-            dropdownInteractingRef.current = false;
+            // over — clear the recency marker before the next blur.
+            lastDropdownInteractionAtRef.current = 0;
             if (blurCloseTimerRef.current) {
               clearTimeout(blurCloseTimerRef.current);
               blurCloseTimerRef.current = null;
@@ -233,10 +227,14 @@ export function AddressAutocomplete({
           }}
           onBlur={(event) => {
             setIsFocused(false);
-            // Don't close the dropdown when the blur was caused by dragging the
-            // dropdown itself (keyboard dismiss on scroll) — only when focus
-            // genuinely left the field.
-            if (!dropdownInteractingRef.current) {
+            // Don't close the dropdown when the blur was caused by touching the
+            // dropdown itself (keyboard-dismiss-on-drag blurs this input) —
+            // only when focus genuinely left the field. Recency, not a live
+            // flag: Android can cancel the dropdown touch before this blur
+            // lands. The scrim is the dismissal path while the list stays open.
+            const sinceDropdownTouch =
+              Date.now() - lastDropdownInteractionAtRef.current;
+            if (sinceDropdownTouch > DROPDOWN_INTERACTION_GRACE_MS) {
               if (blurCloseTimerRef.current) {
                 clearTimeout(blurCloseTimerRef.current);
               }
@@ -304,10 +302,10 @@ export function AddressAutocomplete({
             colors={colors}
             isDark={isDark}
             onInteractEnd={() => {
-              dropdownInteractingRef.current = false;
+              lastDropdownInteractionAtRef.current = Date.now();
             }}
             onInteractStart={() => {
-              dropdownInteractingRef.current = true;
+              lastDropdownInteractionAtRef.current = Date.now();
             }}
             onSelectPrediction={handlePredictionSelect}
             predictions={predictions}

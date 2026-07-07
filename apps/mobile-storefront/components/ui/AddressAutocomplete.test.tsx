@@ -7,7 +7,7 @@ import {
   jest,
 } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Dimensions, Keyboard, ScrollView, View } from 'react-native';
+import { ScrollView } from 'react-native';
 import { AddressAutocomplete } from './AddressAutocomplete';
 
 jest.mock('expo-constants', () => ({
@@ -95,7 +95,7 @@ describe('AddressAutocomplete', () => {
       expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
 
       // Dragging the dropdown dismisses the keyboard, which blurs the input.
-      // touchStart fires before the blur, so the close must be suppressed.
+      // The touch is recent, so the close must be suppressed.
       const scrollView = screen.UNSAFE_getByType(ScrollView);
       fireEvent(scrollView, 'touchStart');
       fireEvent(input, 'blur');
@@ -106,29 +106,15 @@ describe('AddressAutocomplete', () => {
       expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
     });
 
-    it('closes on a genuine blur once dropdown interaction has ended', async () => {
+    it('suppresses a blur arriving right after the dropdown touch was cancelled', async () => {
       mockFetchSuccess();
       render(<AddressAutocomplete />);
 
       const input = await typeAndWaitForPredictions();
       const scrollView = screen.UNSAFE_getByType(ScrollView);
-      fireEvent(scrollView, 'touchStart');
-      fireEvent(scrollView, 'touchEnd');
-      fireEvent(input, 'blur');
-      act(() => {
-        jest.advanceTimersByTime(200);
-      });
-
-      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
-    });
-
-    it('resets the interaction latch on touchCancel so a later blur still closes', async () => {
-      mockFetchSuccess();
-      render(<AddressAutocomplete />);
-
-      const input = await typeAndWaitForPredictions();
-      const scrollView = screen.UNSAFE_getByType(ScrollView);
-      // Gesture interrupted (handed to parent scroll / finger off-bounds).
+      // Android gesture-steal: the parent ScrollView takes over the drag,
+      // cancelling the dropdown touch BEFORE the keyboard-dismiss blur lands.
+      // Recency (not a live flag) must keep the dropdown open.
       fireEvent(scrollView, 'touchStart');
       fireEvent(scrollView, 'touchCancel');
       fireEvent(input, 'blur');
@@ -136,10 +122,30 @@ describe('AddressAutocomplete', () => {
         jest.advanceTimersByTime(200);
       });
 
+      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
+    });
+
+    it('closes on a genuine blur after the interaction grace window has passed', async () => {
+      mockFetchSuccess();
+      render(<AddressAutocomplete />);
+
+      const input = await typeAndWaitForPredictions();
+      const scrollView = screen.UNSAFE_getByType(ScrollView);
+      fireEvent(scrollView, 'touchStart');
+      fireEvent(scrollView, 'touchEnd');
+      // Let the 750ms grace window expire — the next blur is genuine.
+      act(() => {
+        jest.advanceTimersByTime(800);
+      });
+      fireEvent(input, 'blur');
+      act(() => {
+        jest.advanceTimersByTime(200);
+      });
+
       expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
     });
 
-    it('resets the interaction latch when a fling ends via momentum', async () => {
+    it('closes on a blur long after a momentum fling ended', async () => {
       mockFetchSuccess();
       render(<AddressAutocomplete />);
 
@@ -147,6 +153,9 @@ describe('AddressAutocomplete', () => {
       const scrollView = screen.UNSAFE_getByType(ScrollView);
       fireEvent(scrollView, 'touchStart');
       fireEvent(scrollView, 'momentumScrollEnd');
+      act(() => {
+        jest.advanceTimersByTime(800);
+      });
       fireEvent(input, 'blur');
       act(() => {
         jest.advanceTimersByTime(200);
@@ -191,152 +200,4 @@ describe('AddressAutocomplete', () => {
     });
   });
 
-  describe('parent-scroll adjustment', () => {
-    it('calls scrollRef.scrollTo when the dropdown would be clipped by the keyboard', async () => {
-      mockFetchSuccess();
-
-      const scrollRef = { current: { scrollTo: jest.fn() } };
-      const scrollOffsetRef = { current: 0 };
-
-      // Screen height 800, keyboard height 300 → keyboardTop = 500
-      jest.spyOn(Dimensions, 'get').mockReturnValue({
-        width: 375,
-        height: 800,
-        scale: 2,
-        fontScale: 1,
-      });
-      jest.spyOn(Keyboard, 'metrics').mockReturnValue({
-        height: 300,
-        screenX: 0,
-        screenY: 500,
-        width: 375,
-      });
-      // screenY=400, inputHeight=52 → dropdownBottom = 400+52+280+16 = 748 > 500
-      type MeasureFn = (
-        cb: (x: number, y: number, w: number, h: number) => void
-      ) => void;
-      const measureSpy = jest
-        .spyOn(
-          View.prototype as { measureInWindow: MeasureFn },
-          'measureInWindow'
-        )
-        .mockImplementation((cb) => cb(0, 400, 375, 52));
-
-      render(
-        <AddressAutocomplete
-          scrollRef={
-            scrollRef as unknown as React.RefObject<
-              import('react-native').ScrollView | null
-            >
-          }
-          scrollOffsetRef={scrollOffsetRef as React.RefObject<number>}
-        />
-      );
-
-      await typeAndWaitForPredictions();
-
-      expect(scrollRef.current.scrollTo).toHaveBeenCalledWith(
-        expect.objectContaining({ y: expect.any(Number), animated: true })
-      );
-      expect(scrollRef.current.scrollTo.mock.calls.length).toBeGreaterThan(0);
-      const firstScrollOptions = scrollRef.current.scrollTo.mock
-        .calls[0][0] as {
-        y: number;
-      };
-      expect(firstScrollOptions.y).toBeGreaterThan(0);
-
-      measureSpy.mockRestore();
-    });
-
-    it('does not call scrollRef.scrollTo when there is no keyboard overlap', async () => {
-      mockFetchSuccess();
-
-      const scrollRef = { current: { scrollTo: jest.fn() } };
-      const scrollOffsetRef = { current: 0 };
-
-      jest.spyOn(Dimensions, 'get').mockReturnValue({
-        width: 375,
-        height: 800,
-        scale: 2,
-        fontScale: 1,
-      });
-      jest.spyOn(Keyboard, 'metrics').mockReturnValue(undefined);
-
-      // screenY=50 → dropdownBottom = 50+52+280+16 = 398 which is ≤ 800 (no keyboard)
-      type MeasureFn = (
-        cb: (x: number, y: number, w: number, h: number) => void
-      ) => void;
-      const measureSpy = jest
-        .spyOn(
-          View.prototype as { measureInWindow: MeasureFn },
-          'measureInWindow'
-        )
-        .mockImplementation((cb) => cb(0, 50, 375, 52));
-
-      render(
-        <AddressAutocomplete
-          scrollRef={
-            scrollRef as unknown as React.RefObject<
-              import('react-native').ScrollView | null
-            >
-          }
-          scrollOffsetRef={scrollOffsetRef as React.RefObject<number>}
-        />
-      );
-
-      await typeAndWaitForPredictions();
-
-      expect(scrollRef.current.scrollTo).not.toHaveBeenCalled();
-
-      measureSpy.mockRestore();
-    });
-
-    it('does not call scrollRef.scrollTo when measureInWindow returns zeroed coordinates', async () => {
-      mockFetchSuccess();
-
-      const scrollRef = { current: { scrollTo: jest.fn() } };
-      const scrollOffsetRef = { current: 0 };
-
-      jest.spyOn(Dimensions, 'get').mockReturnValue({
-        width: 375,
-        height: 800,
-        scale: 2,
-        fontScale: 1,
-      });
-      jest.spyOn(Keyboard, 'metrics').mockReturnValue({
-        height: 300,
-        screenX: 0,
-        screenY: 500,
-        width: 375,
-      });
-
-      // screenY=0, inputHeight=0 — view unmounted / not yet laid out
-      type MeasureFn = (
-        cb: (x: number, y: number, w: number, h: number) => void
-      ) => void;
-      const measureSpy = jest
-        .spyOn(
-          View.prototype as { measureInWindow: MeasureFn },
-          'measureInWindow'
-        )
-        .mockImplementation((cb) => cb(0, 0, 375, 0));
-
-      render(
-        <AddressAutocomplete
-          scrollRef={
-            scrollRef as unknown as React.RefObject<
-              import('react-native').ScrollView | null
-            >
-          }
-          scrollOffsetRef={scrollOffsetRef as React.RefObject<number>}
-        />
-      );
-
-      await typeAndWaitForPredictions();
-
-      expect(scrollRef.current.scrollTo).not.toHaveBeenCalled();
-
-      measureSpy.mockRestore();
-    });
-  });
 });

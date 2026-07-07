@@ -1,6 +1,4 @@
-import type { RefObject } from 'react';
 import type { Control, FieldErrors } from 'react-hook-form';
-import type { ScrollView } from 'react-native';
 import type { PlaceDetails } from '@/components/ui/AddressAutocomplete';
 import type { SavedAddress } from '@/lib/checkout-saved-address';
 import type { ShippingAddressInput } from '@/lib/validation';
@@ -48,8 +46,6 @@ export type CheckoutDeliveryCardProps = {
   ) => void;
   saveAsDefaultAddress: boolean;
   savedAddresses: SavedAddress[];
-  scrollOffsetRef: RefObject<number>;
-  scrollRef: RefObject<ScrollView | null>;
   selectedSavedAddress: SavedAddress | null;
   selectedSavedAddressId: string | null;
 };
