@@ -227,4 +227,22 @@ describe('CheckoutAddressStepView station pickup quotes', () => {
     expect(deliveryProps.pickupStationQuote).toBeUndefined();
     expect(quotesProps.shippingQuotes).toEqual([]);
   });
+
+  it('waits for a resolved delivery state and city before showing delivery methods', () => {
+    const screen = render(
+      <CheckoutAddressStepView
+        {...createProps({
+          selectedQuote: undefined,
+          selectedQuoteId: '',
+          shippingQuotes: [],
+          watchedCity: '',
+          watchedState: '',
+        })}
+      />
+    );
+
+    expect(screen.queryByText('delivery method card')).toBeNull();
+    expect(mockDeliveryMethodCard).not.toHaveBeenCalled();
+    expect(mockShippingQuotesCard).not.toHaveBeenCalled();
+  });
 });

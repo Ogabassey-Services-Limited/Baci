@@ -134,6 +134,7 @@ export function CheckoutAddressStepView({
   const doorShippingQuotes = shippingQuotes.filter(
     (quote) => !isProviderStationPickupQuote(quote)
   );
+  const canChooseDeliveryMethod = Boolean(watchedState && watchedCity);
 
   return (
     <ScrollView
@@ -212,25 +213,30 @@ export function CheckoutAddressStepView({
         />
       )}
 
-      <DeliveryMethodCard
-        colors={colors}
-        isDark={isDark}
-        selectedMethod={deliveryMethod}
-        onSelectMethod={onSelectDeliveryMethod}
-        deliveryState={watchedState}
-        doorSubtitle={
-          doorSelectedQuote != null
-            ? getDeliveryMethodSummary('door', doorSelectedQuote)
-            : 'Rates loaded after you enter your address'
-        }
-        doorPrice={
-          doorSelectedQuote != null ? formatPrice(doorSelectedQuote.price) : '—'
-        }
-        airportFee={AIRPORT_DELIVERY_FEE}
-        pickupStationQuote={stationPickupQuote}
-      />
+      {canChooseDeliveryMethod && (
+        <DeliveryMethodCard
+          colors={colors}
+          isDark={isDark}
+          selectedMethod={deliveryMethod}
+          onSelectMethod={onSelectDeliveryMethod}
+          deliveryState={watchedState}
+          doorSubtitle={
+            doorSelectedQuote != null
+              ? getDeliveryMethodSummary('door', doorSelectedQuote)
+              : 'Rates loaded after you enter your address'
+          }
+          doorPrice={
+            doorSelectedQuote != null
+              ? formatPrice(doorSelectedQuote.price)
+              : '—'
+          }
+          airportFee={AIRPORT_DELIVERY_FEE}
+          pickupStationQuote={stationPickupQuote}
+        />
+      )}
 
-      {deliveryMethod === 'pickup_station' &&
+      {canChooseDeliveryMethod &&
+        deliveryMethod === 'pickup_station' &&
         !isProviderStationPickupQuote(selectedQuote) && (
           <PickupStationCard colors={colors} isDark={isDark} />
         )}
