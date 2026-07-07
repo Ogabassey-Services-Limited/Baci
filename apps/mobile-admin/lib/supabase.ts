@@ -38,7 +38,18 @@ const legacySupabaseAnonKey =
 const supabaseClientKey = supabasePublishableKey || legacySupabaseAnonKey;
 const isUsingLegacyAnonKey = !supabasePublishableKey && !!legacySupabaseAnonKey;
 
-if (!supabaseUrl || !supabaseClientKey) {
+function getValidSupabaseUrl(url: string): string {
+  try {
+    return url && new URL(url) ? url : '';
+  } catch {
+    return '';
+  }
+}
+
+const validSupabaseUrl = getValidSupabaseUrl(supabaseUrl);
+const hasSupabaseCredentials = Boolean(validSupabaseUrl && supabaseClientKey);
+
+if (!hasSupabaseCredentials) {
   console.error(
     '[Supabase] CRITICAL: Supabase URL or publishable key is missing from environment variables.'
   );
@@ -53,8 +64,8 @@ if (isUsingLegacyAnonKey) {
   );
 }
 
-export const supabaseAuthStorageKey = supabaseUrl
-  ? getDefaultSupabaseAuthStorageKey(supabaseUrl)
+export const supabaseAuthStorageKey = validSupabaseUrl
+  ? getDefaultSupabaseAuthStorageKey(validSupabaseUrl)
   : '';
 
 const isServerRuntime = typeof window === 'undefined';
@@ -87,13 +98,13 @@ function createMissingCredentialsClient() {
 }
 
 const supabaseClient =
-  supabaseUrl && supabaseClientKey
-    ? createClient(supabaseUrl, supabaseClientKey, {
+  hasSupabaseCredentials
+    ? createClient(validSupabaseUrl, supabaseClientKey, {
         auth: authOptions,
       })
     : createMissingCredentialsClient();
 
-if (supabaseUrl && supabaseClientKey && !isServerRuntime) {
+if (hasSupabaseCredentials && !isServerRuntime) {
   registerAuthRefreshLifecycle(supabaseClient.auth);
 }
 

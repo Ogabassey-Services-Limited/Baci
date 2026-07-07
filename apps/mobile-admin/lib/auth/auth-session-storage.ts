@@ -1,10 +1,10 @@
 import type { SupportedStorage } from '@supabase/supabase-js';
 import { storage } from '@/lib/storage';
 
-export const MIGRATED_SUPABASE_AUTH_STORAGE_KEY =
+const MIGRATED_SUPABASE_AUTH_STORAGE_KEY_PREFIX =
   'baci-mobile-admin-auth-token';
 
-export function getDefaultSupabaseAuthStorageKey(supabaseUrl: string): string {
+function getSupabaseProjectRef(supabaseUrl: string): string {
   let host: string;
   try {
     host = new URL(supabaseUrl).hostname;
@@ -21,7 +21,21 @@ export function getDefaultSupabaseAuthStorageKey(supabaseUrl: string): string {
     );
   }
 
+  return projectRef;
+}
+
+export function getDefaultSupabaseAuthStorageKey(supabaseUrl: string): string {
+  const projectRef = getSupabaseProjectRef(supabaseUrl);
+
   return `sb-${projectRef}-auth-token`;
+}
+
+export function getMigratedSupabaseAuthStorageKey(
+  supabaseUrl: string
+): string {
+  const projectRef = getSupabaseProjectRef(supabaseUrl);
+
+  return `${MIGRATED_SUPABASE_AUTH_STORAGE_KEY_PREFIX}-${projectRef}`;
 }
 
 export function getActiveAuthStorageKey(params: {
@@ -29,7 +43,7 @@ export function getActiveAuthStorageKey(params: {
   useMigratedStorageKey: boolean;
 }): string {
   return params.useMigratedStorageKey
-    ? MIGRATED_SUPABASE_AUTH_STORAGE_KEY
+    ? getMigratedSupabaseAuthStorageKey(params.supabaseUrl)
     : getDefaultSupabaseAuthStorageKey(params.supabaseUrl);
 }
 

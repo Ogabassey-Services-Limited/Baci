@@ -195,4 +195,24 @@ describe('supabase client config', () => {
 
     consoleErrorSpy.mockRestore();
   });
+
+  it('logs a critical error and skips createClient when the Supabase URL is invalid', async () => {
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_URL', 'not-a-url');
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'env-publishable-key');
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_ANON_KEY', '');
+    testState.expoExtra = {};
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    await import('./supabase');
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[Supabase] CRITICAL: Supabase URL or publishable key is missing from environment variables.'
+    );
+    expect(testState.createClient).not.toHaveBeenCalled();
+    expect(testState.registerAuthRefreshLifecycle).not.toHaveBeenCalled();
+
+    consoleErrorSpy.mockRestore();
+  });
 });

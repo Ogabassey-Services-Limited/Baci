@@ -290,6 +290,7 @@ EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_actual_publishable_key_here
 ```
 
 ### For EAS Builds:
+
 ```bash
 # Set secrets in EAS
 npx eas secret:create --name EXPO_PUBLIC_SUPABASE_URL --value "https://aivqthbxdshhltbwipbr.supabase.co" --type string

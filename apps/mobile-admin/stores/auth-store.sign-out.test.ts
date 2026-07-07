@@ -54,6 +54,30 @@ describe('useAuthStore signOut', () => {
     warnSpy.mockRestore();
   });
 
+  it('still signs out and clears local auth when resetting user stores fails', async () => {
+    const resetError = new Error('reset failed');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    mocks.revenueCleanup.mockImplementationOnce(() => {
+      throw resetError;
+    });
+
+    await useAuthStore.getState().signOut();
+
+    expect(mocks.signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(useAuthStore.getState()).toMatchObject({
+      isAuthenticated: false,
+      session: null,
+      user: null,
+    });
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[AuthStore] resetUserStores failed during sign-out',
+      resetError
+    );
+    warnSpy.mockRestore();
+  });
+
   it('removes only Supabase auth storage keys if sign-out fails and a session remains persisted', async () => {
     const session = createSession();
     mocks.signOut.mockResolvedValue({

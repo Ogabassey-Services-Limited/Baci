@@ -3,7 +3,7 @@ import {
   authSessionStorage,
   getActiveAuthStorageKey,
   getDefaultSupabaseAuthStorageKey,
-  MIGRATED_SUPABASE_AUTH_STORAGE_KEY,
+  getMigratedSupabaseAuthStorageKey,
   removeAuthStorageKeys,
 } from './auth-session-storage';
 
@@ -46,7 +46,16 @@ describe('auth session storage keys', () => {
         supabaseUrl: 'https://abc123.supabase.co',
         useMigratedStorageKey: true,
       })
-    ).toBe(MIGRATED_SUPABASE_AUTH_STORAGE_KEY);
+    ).toBe('baci-mobile-admin-auth-token-abc123');
+  });
+
+  it('namespaces the migrated key by Supabase project ref', () => {
+    expect(
+      getMigratedSupabaseAuthStorageKey('https://prod123.supabase.co')
+    ).toBe('baci-mobile-admin-auth-token-prod123');
+    expect(
+      getMigratedSupabaseAuthStorageKey('https://stage456.supabase.co')
+    ).toBe('baci-mobile-admin-auth-token-stage456');
   });
 });
 

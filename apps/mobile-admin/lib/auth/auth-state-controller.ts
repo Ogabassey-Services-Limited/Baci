@@ -214,11 +214,19 @@ export function createAuthStateController({
   }
 
   async function initializeFromStoredSession(): Promise<void> {
+    if (startupSessionHandled) {
+      return;
+    }
+
     try {
       const {
         data: { session },
         error,
       } = await auth.getSession();
+
+      if (startupSessionHandled) {
+        return;
+      }
 
       if (error && classifyAuthError(error) === 'terminal') {
         await clearLocalAuthState();
@@ -230,14 +238,14 @@ export function createAuthStateController({
         return;
       }
 
-      if (startupSessionHandled) {
-        return;
-      }
-
       startupSessionHandled = true;
       const epoch = nextEpoch();
       commitAndValidatePersistedSession(session, epoch);
     } catch {
+      if (startupSessionHandled) {
+        return;
+      }
+
       setState(getClearedAuthState());
     }
   }

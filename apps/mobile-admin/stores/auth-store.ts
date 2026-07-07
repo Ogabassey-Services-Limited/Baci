@@ -8,7 +8,10 @@
 
 import type { Session, User } from '@supabase/supabase-js';
 import { create } from 'zustand';
-import { getAuthErrorCode } from '@/lib/auth/auth-error-classification';
+import {
+  classifyAuthError,
+  getAuthErrorCode,
+} from '@/lib/auth/auth-error-classification';
 import { createAuthStateController } from '@/lib/auth/auth-state-controller';
 import { removeAuthStorageKeys } from '@/lib/auth/auth-session-storage';
 import {
@@ -205,7 +208,11 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         }
       }
 
-      await resetUserStores();
+      try {
+        await resetUserStores();
+      } catch (error) {
+        console.warn('[AuthStore] resetUserStores failed during sign-out', error);
+      }
 
       let signOutError: unknown = null;
       try {
@@ -222,11 +229,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       }
 
       const signOutErrorCode = getAuthErrorCode(signOutError);
-      const normalizedSignOutErrorCode = signOutErrorCode?.toLowerCase();
-      if (
-        normalizedSignOutErrorCode === 'authsessionmissingerror' ||
-        normalizedSignOutErrorCode === 'session_not_found'
-      ) {
+      if (classifyAuthError(signOutError) === 'terminal') {
         return;
       }
 

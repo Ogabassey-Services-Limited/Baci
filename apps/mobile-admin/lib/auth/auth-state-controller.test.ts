@@ -278,7 +278,7 @@ describe('createAuthStateController', () => {
 
     expect(resetUserStores).not.toHaveBeenCalled();
     await vi.waitFor(() => {
-      expect(setState).toHaveBeenCalledWith(
+      expect(setState).toHaveBeenLastCalledWith(
         expect.objectContaining({
           isAuthenticated: true,
           session,
