@@ -7,6 +7,7 @@ import {
   UNKNOWN_STOREFRONT_FAIL_OPEN_REASON,
 } from './storefront-internal-preflight';
 import { createStorefrontPreflightCircuitBreaker } from './storefront-preflight-circuit-breaker';
+import { classifyRpcErrorReason } from './storefront-preflight-rpc-error';
 
 /**
  * Direct-Supabase transport for the proxy middleware's storefront preflights.
@@ -69,8 +70,6 @@ const DEFAULT_TIMEOUT_MS = 800;
 // verdict outlive the freshness the no-store route transport guaranteed.
 const MEMO_TTL_MS = 3_000;
 const MEMO_MAX_ENTRIES = 512;
-// Postgres statement_timeout error (the anon role's DB-side cap).
-const POSTGRES_STATEMENT_TIMEOUT_CODE = '57014';
 
 const memo = new Map<string, { expires: number; row: unknown }>();
 const breaker = createStorefrontPreflightCircuitBreaker();
@@ -186,10 +185,13 @@ export async function callStorefrontPreflightRpc(
     breaker.recordFailure();
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
-      reason:
-        result.error.code === POSTGRES_STATEMENT_TIMEOUT_CODE
-          ? 'timeout'
-          : 'has-error',
+      reason: classifyRpcErrorReason(result.error),
+      // PostgREST error messages are safe to log (no secrets); the code+message
+      // is what makes a fail-open diagnosable from PostHog. Bounded so a
+      // pathological message can never bloat the telemetry payload.
+      detail: `${result.error.code ?? ''} ${result.error.message ?? ''}`
+        .trim()
+        .slice(0, 160),
     });
     captureBreakerOpenTransition(failOpenContext);
     return null;

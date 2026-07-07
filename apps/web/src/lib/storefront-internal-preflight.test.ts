@@ -292,6 +292,25 @@ describe('storefrontInternalPreflight', () => {
     );
   });
 
+  it('forwards the error detail to fail-open telemetry when present', async () => {
+    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+
+    await expect(
+      storefrontInternalPreflight.captureFailOpen({
+        ...CONTEXT,
+        reason: 'has-error',
+        detail: 'PGRST202 Could not find the function',
+      })
+    ).resolves.toBe(true);
+
+    expect(mocks.captureServerException).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({
+        detail: 'PGRST202 Could not find the function',
+      })
+    );
+  });
+
   it('fails closed when fail-open diagnostic capture rejects', async () => {
     vi.stubEnv('NEXT_RUNTIME', 'nodejs');
     mocks.captureServerException.mockRejectedValueOnce(

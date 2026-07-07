@@ -26,6 +26,12 @@ interface StorefrontInternalPreflightContext {
   slug: string;
   reason: StorefrontInternalPreflightFailOpenReason;
   status?: number;
+  /**
+   * Bounded, secrets-free diagnostic string (e.g. a PostgREST `code message`)
+   * that pins down WHY a fail-open happened. warnFailOpen surfaces it via the
+   * spread; captureFailOpen forwards it as a PostHog property.
+   */
+  detail?: string;
 }
 
 /**
@@ -177,6 +183,7 @@ async function captureFailOpen(context: StorefrontInternalPreflightContext) {
         // mode shares one fingerprint (same Error type + frame), so a lone
         // http-401 can title an issue whose volume is really timeouts.
         $exception_fingerprint: `storefront-internal-preflight:${context.surface}:${context.reason}`,
+        detail: context.detail,
         event_source: 'storefront-internal-preflight',
         identifier: truncateSlugForDiagnostics(context.identifier),
         reason: context.reason,

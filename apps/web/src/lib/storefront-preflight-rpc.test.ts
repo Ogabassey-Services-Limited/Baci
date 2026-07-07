@@ -132,6 +132,22 @@ describe('callStorefrontPreflightRpc', () => {
     expectFailOpenReason(consoleWarnSpy, 'has-error');
   });
 
+  it('re-classifies a supabase-js-resolved fetch failure as fetch-error and forwards diagnostics', async () => {
+    const rpcImpl = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: '', message: 'fetch failed' },
+    });
+
+    const result = await callRpc('resolved_fetch_fail_fn', {}, rpcImpl);
+
+    expect(result).toBeNull();
+    expectFailOpenReason(consoleWarnSpy, 'fetch-error');
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ detail: 'fetch failed' })
+    );
+  });
+
   it.each([
     ['a non-array, non-object payload', 'nonsense'],
     ['an empty rows array', [] as unknown[]],
