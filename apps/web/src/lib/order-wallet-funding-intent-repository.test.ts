@@ -164,6 +164,41 @@ describe('createOrderWalletFundingIntentRepository', () => {
     ).resolves.toHaveLength(2);
   });
 
+  it('resolves the owning intent for a transfer reference already in the payments ledger', async () => {
+    const supabase = createTableSupabaseMock({
+      order_wallet_funding_intent_payments: [
+        createQueryResult({ data: { intent_id: 'intent-1' } }),
+      ],
+      order_wallet_funding_intents: [createQueryResult({ data: intentRow })],
+    });
+    const repository = createOrderWalletFundingIntentRepository(
+      supabase.client as never
+    );
+
+    await expect(
+      repository.findWalletAccountIntentByTransferReference({
+        gatewayReference: 'PSTK-REF-1',
+        walletPaymentAccountId: 'wallet-account-1',
+      })
+    ).resolves.toMatchObject({ id: 'intent-1' });
+  });
+
+  it('returns null when no payment ledger row exists for the transfer reference', async () => {
+    const supabase = createTableSupabaseMock({
+      order_wallet_funding_intent_payments: [createQueryResult({ data: null })],
+    });
+    const repository = createOrderWalletFundingIntentRepository(
+      supabase.client as never
+    );
+
+    await expect(
+      repository.findWalletAccountIntentByTransferReference({
+        gatewayReference: 'PSTK-REF-MISSING',
+        walletPaymentAccountId: 'wallet-account-1',
+      })
+    ).resolves.toBeNull();
+  });
+
   it('reads scoped order rows and returns null when missing', async () => {
     const orderRow = {
       currency: 'NGN',

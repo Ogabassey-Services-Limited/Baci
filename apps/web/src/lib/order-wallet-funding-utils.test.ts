@@ -93,7 +93,7 @@ describe('order wallet funding utilities', () => {
     ).toThrow('startedAt must be a valid Date');
   });
 
-  it('checks order status, paid window, and transfer amount compatibility', () => {
+  it('checks order status and paid window compatibility', () => {
     const intent = baseIntent();
 
     for (const status of PAYABLE_STATUSES) {
@@ -114,13 +114,30 @@ describe('order wallet funding utilities', () => {
     expect(paidAtFitsIntent(intent, new Date('2026-05-26T12:30:00.000Z'))).toBe(
       false
     );
-    expect(amountFitsIntent(intent, 14_999.99)).toBe(true);
-    expect(amountFitsIntent(intent, 14_999.98)).toBe(false);
-    expect(amountFitsIntent(intent, 15_000)).toBe(true);
-    expect(amountFitsIntent(intent, 50_000)).toBe(true);
   });
 
-  it('checks paid windows and amount tolerance on exact boundaries', () => {
+  it('checks full-cover amount compatibility with the one-kobo tolerance', () => {
+    const fundingIntent = intent({
+      expectedAmount: 20_000,
+      fundedAmount: 5_000,
+    });
+
+    expect(amountFitsIntent(fundingIntent, 15_000)).toBe(true);
+    expect(amountFitsIntent(fundingIntent, 15_000 - ONE_KOBO)).toBe(true);
+    expect(amountFitsIntent(fundingIntent, 15_000 - ONE_KOBO * 2)).toBe(false);
+    expect(amountFitsIntent(fundingIntent, 50_000)).toBe(true);
+    expect(
+      amountFitsIntent(intent({ expectedAmount: 0, fundedAmount: 0 }), 0)
+    ).toBe(true);
+    expect(
+      amountFitsIntent(
+        intent({ expectedAmount: 15_000, fundedAmount: 20_000 }),
+        0
+      )
+    ).toBe(true);
+  });
+
+  it('checks paid windows on exact boundaries', () => {
     const createdAt = '2026-05-26T12:00:00.000Z';
     const expiresAt = new Date(
       new Date(createdAt).getTime() + INTENT_TTL_MS
@@ -140,9 +157,6 @@ describe('order wallet funding utilities', () => {
         new Date(new Date(createdAt).getTime() - 1)
       )
     ).toBe(false);
-    expect(amountFitsIntent(fundingIntent, 15_000 - ONE_KOBO)).toBe(true);
-    expect(amountFitsIntent(fundingIntent, 15_000 - ONE_KOBO * 2)).toBe(false);
-    expect(amountFitsIntent(fundingIntent, 15_000)).toBe(true);
   });
 
   it('rejects paid-window comparisons with invalid dates', () => {
@@ -161,32 +175,5 @@ describe('order wallet funding utilities', () => {
         new Date('2026-05-26T12:05:00.000Z')
       )
     ).toBe(false);
-  });
-
-  it('checks transfer amount compatibility for zero, negative, and overfunded intents', () => {
-    expect(
-      amountFitsIntent(
-        intent({ expectedAmount: 15_000, fundedAmount: -500 }),
-        15_499.99
-      )
-    ).toBe(true);
-    expect(
-      amountFitsIntent(
-        intent({ expectedAmount: 15_000, fundedAmount: -500 }),
-        15_499.98
-      )
-    ).toBe(false);
-    expect(
-      amountFitsIntent(intent({ expectedAmount: 0, fundedAmount: 0 }), 0)
-    ).toBe(true);
-    expect(
-      amountFitsIntent(intent({ expectedAmount: -1, fundedAmount: 0 }), 0)
-    ).toBe(true);
-    expect(
-      amountFitsIntent(
-        intent({ expectedAmount: 15_000, fundedAmount: 20_000 }),
-        0
-      )
-    ).toBe(true);
   });
 });

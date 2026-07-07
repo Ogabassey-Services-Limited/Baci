@@ -84,6 +84,15 @@ export interface OrderWalletFundingIntentRepository {
   findActiveWalletAccountIntents(args: {
     walletPaymentAccountId: string;
   }): Promise<OrderWalletFundingIntent[]>;
+  /**
+   * Returns the intent that already recorded a payment for this transfer
+   * reference (any status), or null. Makes transfer→intent routing
+   * idempotent across webhook retries.
+   */
+  findWalletAccountIntentByTransferReference(args: {
+    gatewayReference: string;
+    walletPaymentAccountId: string;
+  }): Promise<OrderWalletFundingIntent | null>;
   getOrderForCustomer(args: {
     customerId: string;
     merchantId: string;

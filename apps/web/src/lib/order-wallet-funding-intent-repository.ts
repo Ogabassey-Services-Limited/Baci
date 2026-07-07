@@ -161,6 +161,37 @@ export function createOrderWalletFundingIntentRepository(
         ? data.map((row) => normalizeIntent(row as Record<string, unknown>))
         : [];
     },
+    async findWalletAccountIntentByTransferReference({
+      gatewayReference,
+      walletPaymentAccountId,
+    }) {
+      // The payments ledger is the authoritative transfer→intent binding
+      // (unique on (provider, gateway_reference)). A Paystack webhook retry
+      // reuses the reference, so if a payment already exists we route the
+      // replay back to its owning intent regardless of the intent's status.
+      const { data: paymentData, error: paymentError } = await supabase
+        .from('order_wallet_funding_intent_payments')
+        .select('intent_id')
+        .eq('provider', 'paystack')
+        .eq('gateway_reference', gatewayReference)
+        .limit(1)
+        .maybeSingle();
+      throwIfError(paymentError, 'wallet funding payment lookup failed');
+      const paymentRow = getDataRow(paymentData);
+      const intentId = paymentRow?.intent_id;
+      if (typeof intentId !== 'string' || intentId.length === 0) {
+        return null;
+      }
+      const { data, error } = await supabase
+        .from('order_wallet_funding_intents')
+        .select(INTENT_SELECT)
+        .eq('id', intentId)
+        .eq('wallet_payment_account_id', walletPaymentAccountId)
+        .maybeSingle();
+      throwIfError(error, 'wallet funding intent lookup failed');
+      const row = getDataRow(data);
+      return row ? normalizeIntent(row) : null;
+    },
     async getOrderForCustomer({ customerId, merchantId, orderId }) {
       const { data, error } = await supabase
         .from('orders')
