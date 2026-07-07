@@ -71,6 +71,13 @@ function createParams(overrides: Partial<ShippingParams> = {}): ShippingParams {
   };
 }
 
+function createLocatedParams(
+  watchedState: string,
+  watchedCity: string
+): ShippingParams {
+  return createParams({ watchedCity, watchedState });
+}
+
 function createPlace(overrides: Partial<PlaceDetails> = {}): PlaceDetails {
   return {
     city: 'ikeja',
@@ -303,7 +310,7 @@ describe('useCheckoutShipping', () => {
   it('falls back to door when the address state no longer supports airport', () => {
     const { rerender, result } = renderHook(
       (props: ShippingParams) => useCheckoutShipping(props),
-      { initialProps: createParams({ watchedState: 'Rivers' }) }
+      { initialProps: createLocatedParams('Rivers', 'Port Harcourt') }
     );
 
     act(() => {
@@ -312,14 +319,14 @@ describe('useCheckoutShipping', () => {
     expect(result.current.deliveryMethod).toBe('airport');
 
     // Switching to Lagos (no airport delivery) must reset the method.
-    rerender(createParams({ watchedState: 'Lagos' }));
+    rerender(createLocatedParams('Lagos', 'Ikeja'));
     expect(result.current.deliveryMethod).toBe('door');
   });
 
   it('falls back to door when the address state no longer supports pickup', () => {
     const { rerender, result } = renderHook(
       (props: ShippingParams) => useCheckoutShipping(props),
-      { initialProps: createParams({ watchedState: 'Lagos' }) }
+      { initialProps: createLocatedParams('Lagos', 'Ikeja') }
     );
 
     act(() => {
@@ -328,7 +335,7 @@ describe('useCheckoutShipping', () => {
     expect(result.current.deliveryMethod).toBe('pickup_station');
 
     // Pickup is Lagos-only; moving to another state must reset the method.
-    rerender(createParams({ watchedState: 'Oyo' }));
+    rerender(createLocatedParams('Oyo', 'Ibadan'));
     expect(result.current.deliveryMethod).toBe('door');
   });
 });
