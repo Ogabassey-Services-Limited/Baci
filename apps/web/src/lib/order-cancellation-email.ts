@@ -106,6 +106,7 @@ export async function sendOrderCancellationEmail({
     cancelledBy,
     merchantName: merchant.business_name,
     merchantUrl,
+    currency: order.currency || 'NGN',
     supportEmail: merchant.support_email,
     merchantTin: merchant.tax_identification_number ?? undefined,
     merchantRcNumber: merchant.cac_rc_number ?? undefined,

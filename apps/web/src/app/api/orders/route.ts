@@ -69,6 +69,7 @@ import {
   generateReceiptBlob,
   resolveReceiptLogoDataUri,
 } from '@/lib/receipt-pdf-generator';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { toInternationalQuoteValidationItemsFromOrder } from '@/lib/shipping/international-shipment-items';
 import {
@@ -1184,7 +1185,7 @@ export async function POST(request: NextRequest) {
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
       .select(
-        'id, phone, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, plan_tier, vat_registration_status, vat_rate, registered_address, support_phone, logo_url, legal_entity_name, brand_colors, bank_code, bank_account_number, bank_name, bank_account_name, social_media, pages'
+        'id, phone, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, plan_tier, vat_registration_status, vat_rate, registered_address, support_phone, logo_url, legal_entity_name, brand_colors, bank_code, bank_account_number, bank_name, bank_account_name, social_media, pages, payout_currency, country'
       )
       .eq('id', merchant_id)
       .single();
@@ -1802,6 +1803,11 @@ export async function POST(request: NextRequest) {
 
     const order = Array.isArray(orderRows) ? orderRows[0] : orderRows;
 
+    // The order-create RPC's RETURNS TABLE carries no currency column, so the
+    // stamped orders.currency is derived the same way the RPC derives it:
+    // from the merchant record (payout_currency -> country -> NGN).
+    const orderCurrency = resolveMerchantCurrencyConfig(merchant).code;
+
     if (orderError || !order) {
       const code =
         typeof orderError?.code === 'string' ? orderError.code : null;
@@ -2234,6 +2240,7 @@ export async function POST(request: NextRequest) {
           subtotal: orderSubtotal,
           shippingFee: orderShippingFee,
           total: orderTotal,
+          currency: orderCurrency,
           shippingAddress: {
             address: shippingAddressForOrder?.address || '',
             city: shippingAddressForOrder?.city || '',
@@ -2388,7 +2395,7 @@ export async function POST(request: NextRequest) {
                   created_at: String(
                     order.created_at || new Date().toISOString()
                   ),
-                  currency: order.currency || 'NGN',
+                  currency: orderCurrency,
                   total: orderTotal,
                   subtotal: orderSubtotal,
                   shipping_fee: orderShippingFee,
@@ -2634,7 +2641,7 @@ export async function POST(request: NextRequest) {
             orderNum,
             customer_name,
             orderTotal,
-            order.currency || 'NGN'
+            orderCurrency
           );
           if (pushResult.failed > 0 || pushResult.errors.length > 0) {
             logger.warn({
@@ -2655,7 +2662,7 @@ export async function POST(request: NextRequest) {
             const paymentPushResult = await notifyPaymentReceived(
               merchant_id,
               orderTotal,
-              order.currency || 'NGN',
+              orderCurrency,
               orderNum,
               order.id
             );

@@ -128,6 +128,7 @@ interface OrderConfirmationRecord {
   subtotal?: string;
   shipping_fee?: string;
   total: string;
+  currency?: string | null;
   shipping_address?: {
     address?: string;
     city?: string;
@@ -167,6 +168,7 @@ const ORDER_CONFIRMATION_SELECT = [
   'subtotal',
   'shipping_fee',
   'total',
+  'currency',
   'shipping_address',
   'order_items(id, image_url, name, quantity, price)',
 ].join(', ');
@@ -751,6 +753,7 @@ export async function resendOrderConfirmation(
       subtotal: Number.parseFloat(order.subtotal || '0'),
       shippingFee: Number.parseFloat(order.shipping_fee || '0'),
       total: Number.parseFloat(order.total || '0'),
+      currency: order.currency || 'NGN',
       shippingAddress: {
         address: order.shipping_address?.address || '',
         city: order.shipping_address?.city || '',

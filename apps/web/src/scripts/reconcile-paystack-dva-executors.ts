@@ -157,6 +157,7 @@ export function buildScriptExecutors(
       subtotal: order.subtotal,
       shippingFee: order.shipping_fee,
       total: order.total,
+      currency: richOrder.currency || 'NGN',
       shippingAddress: {
         address: shippingAddress.address ?? '',
         city: shippingAddress.city ?? '',
