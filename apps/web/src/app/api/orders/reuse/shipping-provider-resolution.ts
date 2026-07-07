@@ -2,11 +2,11 @@ import { OrderQuoteDestinationMismatchError } from '@/lib/shipping/order-quote-d
 import type { createClient } from '@/lib/supabase/server';
 import type { ReuseCheckoutOrderInput } from '@/schemas/orders';
 
-export function hasSelectedQuoteInput(data: ReuseCheckoutOrderInput): boolean {
+function hasSelectedQuoteInput(data: ReuseCheckoutOrderInput): boolean {
   return Object.hasOwn(data, 'selected_quote_id');
 }
 
-export function normalizeShippingProvider(
+function normalizeShippingProvider(
   provider: string | null | undefined
 ): string | null {
   const normalized = provider?.trim();
@@ -24,7 +24,7 @@ function readQuoteProvider(data: unknown): string | null {
     : null;
 }
 
-export async function resolveSuppliedQuoteProvider(
+async function resolveSuppliedQuoteProvider(
   supabase: ReturnType<typeof createClient>,
   data: ReuseCheckoutOrderInput
 ): Promise<string | null> {
@@ -57,3 +57,9 @@ export async function resolveSuppliedQuoteProvider(
 
   return quoteProvider;
 }
+
+export const shippingProviderResolution = {
+  hasSelectedQuoteInput,
+  normalizeShippingProvider,
+  resolveSuppliedQuoteProvider,
+};

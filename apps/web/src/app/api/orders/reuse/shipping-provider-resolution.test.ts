@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { OrderQuoteDestinationMismatchError } from '@/lib/shipping/order-quote-destination';
-import {
-  hasSelectedQuoteInput,
-  normalizeShippingProvider,
-  resolveSuppliedQuoteProvider,
-} from './shipping-provider-resolution';
+import { shippingProviderResolution } from './shipping-provider-resolution';
 
 const baseInput = {
   order_id: '4dc0ee52-d9c4-406a-b6ca-80c84eef6a8f',
@@ -17,16 +13,29 @@ const baseInput = {
 
 describe('reuse shipping provider resolution', () => {
   it('normalizes blank providers to null', () => {
-    expect(normalizeShippingProvider(undefined)).toBeNull();
-    expect(normalizeShippingProvider(null)).toBeNull();
-    expect(normalizeShippingProvider('   ')).toBeNull();
-    expect(normalizeShippingProvider(' GIGL ')).toBe('GIGL');
+    expect(
+      shippingProviderResolution.normalizeShippingProvider(undefined)
+    ).toBeNull();
+    expect(
+      shippingProviderResolution.normalizeShippingProvider(null)
+    ).toBeNull();
+    expect(
+      shippingProviderResolution.normalizeShippingProvider('   ')
+    ).toBeNull();
+    expect(shippingProviderResolution.normalizeShippingProvider(' GIGL ')).toBe(
+      'GIGL'
+    );
   });
 
   it('detects whether the caller supplied selected_quote_id', () => {
-    expect(hasSelectedQuoteInput(baseInput)).toBe(false);
+    expect(shippingProviderResolution.hasSelectedQuoteInput(baseInput)).toBe(
+      false
+    );
     expect(
-      hasSelectedQuoteInput({ ...baseInput, selected_quote_id: null })
+      shippingProviderResolution.hasSelectedQuoteInput({
+        ...baseInput,
+        selected_quote_id: null,
+      })
     ).toBe(true);
   });
 
@@ -37,10 +46,13 @@ describe('reuse shipping provider resolution', () => {
     });
 
     await expect(
-      resolveSuppliedQuoteProvider({ rpc } as never, {
-        ...baseInput,
-        selected_quote_id: '22222222-2222-4222-8222-222222222222',
-      })
+      shippingProviderResolution.resolveSuppliedQuoteProvider(
+        { rpc } as never,
+        {
+          ...baseInput,
+          selected_quote_id: '22222222-2222-4222-8222-222222222222',
+        }
+      )
     ).resolves.toBe('GIGL');
     expect(rpc).toHaveBeenCalledWith('get_checkout_shipping_quote', {
       p_merchant_id: 'e6e2e46c-5e3c-40c1-b0ae-832d6d20f0a2',
@@ -55,10 +67,13 @@ describe('reuse shipping provider resolution', () => {
     });
 
     await expect(
-      resolveSuppliedQuoteProvider({ rpc } as never, {
-        ...baseInput,
-        selected_quote_id: '22222222-2222-4222-8222-222222222222',
-      })
+      shippingProviderResolution.resolveSuppliedQuoteProvider(
+        { rpc } as never,
+        {
+          ...baseInput,
+          selected_quote_id: '22222222-2222-4222-8222-222222222222',
+        }
+      )
     ).rejects.toMatchObject({
       code: 'INTERNATIONAL_QUOTE_PROVIDER_MISMATCH',
     } satisfies Partial<OrderQuoteDestinationMismatchError>);
