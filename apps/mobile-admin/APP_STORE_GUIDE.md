@@ -284,14 +284,17 @@ Before building for production, set up environment variables:
 ### Create `.env` file (DO NOT COMMIT):
 ```env
 EXPO_PUBLIC_SUPABASE_URL=https://aivqthbxdshhltbwipbr.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your_actual_anon_key_here
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_actual_publishable_key_here
+# Temporary fallback through 2026 only:
+# EXPO_PUBLIC_SUPABASE_ANON_KEY=your_legacy_anon_key_here
 ```
 
 ### For EAS Builds:
+
 ```bash
 # Set secrets in EAS
 npx eas secret:create --name EXPO_PUBLIC_SUPABASE_URL --value "https://aivqthbxdshhltbwipbr.supabase.co" --type string
-npx eas secret:create --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "your_key" --type string
+npx eas secret:create --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value "your_key" --type string
 ```
 
 ---

@@ -108,7 +108,9 @@ Create a `.env` file (not committed to git):
 
 ```env
 EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+# Temporary fallback through 2026 only:
+# EXPO_PUBLIC_SUPABASE_ANON_KEY=your_legacy_supabase_anon_key
 ```
 
 ### Android Emulator QA

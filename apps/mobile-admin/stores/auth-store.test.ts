@@ -1,104 +1,15 @@
-import type { Session, User } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  createSession,
+  createSignedOutAuthState,
+  mocks,
+} from './auth-store-test-utils';
 import { useAuthStore } from '@/stores/auth-store';
-
-const mocks = vi.hoisted(() => ({
-  clearAdminQueryCache: vi.fn(),
-  getSession: vi.fn(),
-  getUser: vi.fn(),
-  onAuthStateChange: vi.fn(() => ({
-    data: { subscription: { unsubscribe: vi.fn() } },
-  })),
-  resetSettings: vi.fn(),
-  revenueCleanup: vi.fn(),
-  signInWithAppleNative: vi.fn(),
-  signInWithGoogleNative: vi.fn(),
-  signInWithPassword: vi.fn(),
-  signOut: vi.fn(),
-  signUp: vi.fn(),
-  trackAuthTelemetry: vi.fn(),
-}));
-
-vi.mock('@/lib/query-client', () => ({
-  clearAdminQueryCache: mocks.clearAdminQueryCache,
-}));
-
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: mocks.getSession,
-      getUser: mocks.getUser,
-      onAuthStateChange: mocks.onAuthStateChange,
-      signInWithPassword: mocks.signInWithPassword,
-      signOut: mocks.signOut,
-      signUp: mocks.signUp,
-    },
-  },
-}));
-
-vi.mock('@/lib/auth/sign-in-with-apple', () => ({
-  signInWithAppleNative: mocks.signInWithAppleNative,
-}));
-
-vi.mock('@/lib/auth/sign-in-with-google', () => ({
-  signInWithGoogleNative: mocks.signInWithGoogleNative,
-}));
-
-vi.mock('@/stores/revenueCatStore', () => ({
-  useRevenueCatStore: {
-    getState: () => ({
-      cleanup: mocks.revenueCleanup,
-    }),
-  },
-}));
-
-vi.mock('@/services/auth-telemetry', () => ({
-  trackAuthTelemetry: mocks.trackAuthTelemetry,
-}));
-
-vi.mock('@/hooks/useSettingsStore', () => ({
-  useSettingsStore: {
-    getState: () => ({
-      reset: mocks.resetSettings,
-    }),
-  },
-}));
-
-function createSession(): Session {
-  const user: User = {
-    app_metadata: {
-      provider: 'email',
-      providers: ['email'],
-    },
-    aud: 'authenticated',
-    created_at: '2026-03-24T00:00:00.000Z',
-    id: 'user-1',
-    user_metadata: {},
-  };
-
-  return {
-    access_token: 'access-token',
-    expires_at: 1_900_000_000,
-    expires_in: 3600,
-    refresh_token: 'refresh-token',
-    token_type: 'bearer',
-    user,
-  };
-}
 
 describe('useAuthStore signIn', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    useAuthStore.setState({
-      activeAuthProvider: null,
-      isAuthenticating: false,
-      isAuthenticated: false,
-      isInitialized: true,
-      isLoading: false,
-      session: null,
-      user: null,
-    });
+    useAuthStore.setState(createSignedOutAuthState());
   });
 
   it('commits the returned session immediately after password sign-in', async () => {
@@ -153,8 +64,6 @@ describe('useAuthStore signIn', () => {
     expect(useAuthStore.getState()).toMatchObject({
       activeAuthProvider: null,
       isAuthenticating: false,
-    });
-    expect(useAuthStore.getState()).toMatchObject({
       isAuthenticated: false,
       session: null,
       user: null,
@@ -227,15 +136,7 @@ describe('useAuthStore signIn', () => {
 describe('useAuthStore signUp', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useAuthStore.setState({
-      activeAuthProvider: null,
-      isAuthenticating: false,
-      isAuthenticated: false,
-      isInitialized: true,
-      isLoading: false,
-      session: null,
-      user: null,
-    });
+    useAuthStore.setState(createSignedOutAuthState());
   });
 
   it('commits the session for a brand-new account (no merchant created)', async () => {
