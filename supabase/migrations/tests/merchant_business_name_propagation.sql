@@ -1,6 +1,6 @@
 -- =============================================
 -- REGRESSION TEST: merchant business_name normalization + propagation
---   Validates 20260706120000_normalize_and_propagate_merchant_business_name.sql
+--   Validates 20260707073000_normalize_and_propagate_merchant_business_name.sql
 --
 -- USAGE:
 --   psql $DATABASE_URL -f supabase/migrations/tests/merchant_business_name_propagation.sql

@@ -16,6 +16,7 @@ import { getCountryByCode } from '@/lib/countries';
 import { sendWelcomeEmail } from '@/lib/email';
 import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { logger } from '@/lib/logger';
+import { normalizeBusinessName } from '@/lib/normalize-business-name';
 import type { createAdminClient as createAdminClientFactory } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { parseBrandColors } from '@/schemas/brand-colors';
@@ -146,13 +147,16 @@ export async function submitOnboarding(
   const {
     email,
     password,
-    businessName,
+    businessName: rawBusinessName,
     businessType,
     otherBusinessType,
     country,
     logoUrl,
     brandColors: brandColorsString,
   } = validationResult.data;
+  // Normalize once at entry so the name baked into page_configs matches what the
+  // aa_normalize_merchant_business_name trigger stores in merchants.business_name.
+  const businessName = normalizeBusinessName(rawBusinessName);
   const payoutCurrency = getCountryByCode(country)?.currency ?? 'USD';
 
   // Parse brand colors defensively. On a malformed JSON payload we MUST NOT
