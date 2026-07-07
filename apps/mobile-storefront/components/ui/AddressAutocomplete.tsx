@@ -70,6 +70,11 @@ export function AddressAutocomplete({
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const blurCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrapperRef = useRef<View>(null);
+  // True while the user is touching the predictions dropdown. Dragging the
+  // dropdown dismisses the keyboard (the parent ScrollView uses
+  // keyboardDismissMode="on-drag"), which blurs this input — without this guard
+  // the blur handler would close the dropdown mid-scroll.
+  const dropdownInteractingRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -210,13 +215,18 @@ export function AddressAutocomplete({
           }}
           onBlur={(event) => {
             setIsFocused(false);
-            if (blurCloseTimerRef.current) {
-              clearTimeout(blurCloseTimerRef.current);
+            // Don't close the dropdown when the blur was caused by dragging the
+            // dropdown itself (keyboard dismiss on scroll) — only when focus
+            // genuinely left the field.
+            if (!dropdownInteractingRef.current) {
+              if (blurCloseTimerRef.current) {
+                clearTimeout(blurCloseTimerRef.current);
+              }
+              blurCloseTimerRef.current = setTimeout(() => {
+                setIsOpen(false);
+                blurCloseTimerRef.current = null;
+              }, 150);
             }
-            blurCloseTimerRef.current = setTimeout(() => {
-              setIsOpen(false);
-              blurCloseTimerRef.current = null;
-            }, 150);
             onBlur?.(event);
           }}
           placeholder={placeholder}
@@ -265,6 +275,12 @@ export function AddressAutocomplete({
         <AddressPredictionsDropdown
           colors={colors}
           isDark={isDark}
+          onInteractEnd={() => {
+            dropdownInteractingRef.current = false;
+          }}
+          onInteractStart={() => {
+            dropdownInteractingRef.current = true;
+          }}
           onSelectPrediction={handlePredictionSelect}
           predictions={predictions}
         />

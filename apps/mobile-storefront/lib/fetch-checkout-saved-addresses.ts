@@ -1,5 +1,8 @@
 import { withSupabaseRetry } from '@/lib/api';
-import type { SavedAddress } from '@/lib/checkout-saved-address';
+import {
+  dedupeSavedAddressesById,
+  type SavedAddress,
+} from '@/lib/checkout-saved-address';
 import { supabase } from '@/lib/supabase';
 import { trackFetchFailure } from '@/services/track-fetch-failure';
 
@@ -50,7 +53,10 @@ export async function fetchCheckoutSavedAddresses({
       (left, right) =>
         Number(Boolean(right.is_default)) - Number(Boolean(left.is_default))
     );
-    return addresses;
+    // The stored `saved_addresses` JSON can repeat the same id (content-matched
+    // upserts race on concurrent saves), which collides on the React key when
+    // rendered. De-dupe at the data boundary, after the default-first sort.
+    return dedupeSavedAddressesById(addresses);
   } catch (error) {
     // Checkout unmounted mid-retry: withSupabaseRetry can surface an earlier
     // retryable result after aborted attempts — that is lifecycle noise, not

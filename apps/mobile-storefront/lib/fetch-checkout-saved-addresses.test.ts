@@ -64,6 +64,34 @@ describe('fetchCheckoutSavedAddresses', () => {
     expect(mockTrackError).not.toHaveBeenCalled();
   });
 
+  it('de-duplicates saved addresses that repeat the same id', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        saved_addresses: [
+          { id: 'addr-1', is_default: false, city: 'Lagos' },
+          { id: 'addr-1', is_default: false, city: 'Abuja' },
+          { id: 'addr-2', is_default: true },
+        ],
+      },
+      error: null,
+    });
+
+    const addresses = await fetchCheckoutSavedAddresses({
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+    });
+
+    // Default-first sort, then de-dupe: addr-2 (default), then the first addr-1.
+    expect(addresses.map((address) => address.id)).toEqual([
+      'addr-2',
+      'addr-1',
+    ]);
+    expect(addresses.filter((address) => address.id === 'addr-1')).toHaveLength(
+      1
+    );
+    expect(mockTrackError).not.toHaveBeenCalled();
+  });
+
   it('treats a missing customer row as an empty state, not an error', async () => {
     mockMaybeSingle.mockResolvedValue({ data: null, error: null });
 

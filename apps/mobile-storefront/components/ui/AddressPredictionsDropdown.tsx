@@ -10,6 +10,8 @@ type ColorsScheme = (typeof Colors)['light'];
 interface AddressPredictionsDropdownProps {
   colors: ColorsScheme;
   isDark: boolean;
+  onInteractEnd?: () => void;
+  onInteractStart?: () => void;
   onSelectPrediction: (prediction: PlacePrediction) => void;
   predictions: PlacePrediction[];
 }
@@ -17,6 +19,8 @@ interface AddressPredictionsDropdownProps {
 export function AddressPredictionsDropdown({
   colors,
   isDark,
+  onInteractEnd,
+  onInteractStart,
   onSelectPrediction,
   predictions,
 }: AddressPredictionsDropdownProps) {
@@ -35,6 +39,11 @@ export function AddressPredictionsDropdown({
       <ScrollView
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
+        onMomentumScrollEnd={onInteractEnd}
+        onScrollEndDrag={onInteractEnd}
+        onTouchCancel={onInteractEnd}
+        onTouchEnd={onInteractEnd}
+        onTouchStart={onInteractStart}
         showsVerticalScrollIndicator={false}
       >
         {predictions.map((item) => (

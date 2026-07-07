@@ -7,7 +7,7 @@ import {
   jest,
 } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Dimensions, Keyboard, View } from 'react-native';
+import { Dimensions, Keyboard, ScrollView, View } from 'react-native';
 import { AddressAutocomplete } from './AddressAutocomplete';
 
 jest.mock('expo-constants', () => ({
@@ -82,6 +82,41 @@ describe('AddressAutocomplete', () => {
       fireEvent(input, 'blur');
       act(() => {
         jest.advanceTimersByTime(160);
+      });
+
+      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
+    });
+
+    it('stays open when the blur is caused by scrolling the dropdown', async () => {
+      mockFetchSuccess();
+      render(<AddressAutocomplete />);
+
+      const input = await typeAndWaitForPredictions();
+      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
+
+      // Dragging the dropdown dismisses the keyboard, which blurs the input.
+      // touchStart fires before the blur, so the close must be suppressed.
+      const scrollView = screen.UNSAFE_getByType(ScrollView);
+      fireEvent(scrollView, 'touchStart');
+      fireEvent(input, 'blur');
+      act(() => {
+        jest.advanceTimersByTime(200);
+      });
+
+      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
+    });
+
+    it('closes on a genuine blur once dropdown interaction has ended', async () => {
+      mockFetchSuccess();
+      render(<AddressAutocomplete />);
+
+      const input = await typeAndWaitForPredictions();
+      const scrollView = screen.UNSAFE_getByType(ScrollView);
+      fireEvent(scrollView, 'touchStart');
+      fireEvent(scrollView, 'touchEnd');
+      fireEvent(input, 'blur');
+      act(() => {
+        jest.advanceTimersByTime(200);
       });
 
       expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
