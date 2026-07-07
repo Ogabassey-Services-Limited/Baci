@@ -18,6 +18,8 @@ DECLARE
   v_order_id uuid := '8f0ed783-0000-4000-8000-000000000802';
   v_import_order_id uuid := '8f0ed783-0000-4000-8000-000000000803';
   v_manual_order_id uuid := '8f0ed783-0000-4000-8000-000000000804';
+  v_manual_processing_order_id uuid := '8f0ed783-0000-4000-8000-000000000805';
+  v_delivered_completed_order_id uuid := '8f0ed783-0000-4000-8000-000000000806';
   v_shipped_count integer;
   v_delivered_count integer;
   v_repeat_shipped_count integer;
@@ -25,6 +27,8 @@ DECLARE
   v_manual_active_count integer;
   v_manual_status text;
   v_manual_updated_count integer;
+  v_manual_processing_status text;
+  v_delivered_completed_count integer;
   v_claimed record;
   v_processing_status text;
 BEGIN
@@ -155,6 +159,66 @@ BEGIN
     RAISE EXCEPTION 'expected manual endpoint consumed row to be sent, got %', v_manual_status;
   END IF;
 
+  INSERT INTO public.orders (
+    id,
+    merchant_id,
+    order_number,
+    customer_name,
+    customer_email,
+    shipping_status,
+    payment_status,
+    total
+  )
+  VALUES (
+    v_manual_processing_order_id,
+    v_merchant_id,
+    'OUTBOX-MANUAL-PROCESSING-001',
+    'Manual Processing Customer',
+    'manual-processing-customer@example.com',
+    'processing',
+    'paid',
+    10000
+  );
+
+  UPDATE public.orders
+  SET shipping_status = 'shipped'
+  WHERE id = v_manual_processing_order_id;
+
+  UPDATE public.order_notification_outbox
+  SET
+    status = 'processing',
+    locked_at = now(),
+    locked_by = 'cron-worker',
+    updated_at = now()
+  WHERE order_id = v_manual_processing_order_id
+    AND event_type = 'order_shipped';
+
+  SELECT public.complete_order_notification_outbox_manual_result(
+    v_manual_processing_order_id,
+    v_merchant_id,
+    'order_shipped',
+    'sent',
+    'manual-message-processing-1',
+    NULL
+  )
+  INTO v_manual_updated_count;
+
+  IF v_manual_updated_count <> 0 THEN
+    RAISE EXCEPTION 'expected manual endpoint completion to leave cron-claimed rows untouched, got % updates',
+      v_manual_updated_count;
+  END IF;
+
+  SELECT status
+  INTO v_manual_processing_status
+  FROM public.order_notification_outbox
+  WHERE order_id = v_manual_processing_order_id
+    AND event_type = 'order_shipped';
+
+  IF v_manual_processing_status IS DISTINCT FROM 'processing' THEN
+    RAISE EXCEPTION 'expected cron-claimed row to remain processing, got %',
+      v_manual_processing_status;
+  END IF;
+
   UPDATE public.orders
   SET shipping_status = 'shipped'
   WHERE id = v_order_id;
@@ -212,6 +276,54 @@ BEGIN
 
   IF v_delivered_count <> 1 THEN
     RAISE EXCEPTION 'expected exactly one delivered outbox event, got %', v_delivered_count;
+  END IF;
+
+  INSERT INTO public.orders (
+    id,
+    merchant_id,
+    order_number,
+    customer_name,
+    customer_email,
+    shipping_status,
+    payment_status,
+    total
+  )
+  VALUES (
+    v_delivered_completed_order_id,
+    v_merchant_id,
+    'OUTBOX-DELIVERED-COMPLETED-001',
+    'Delivered Completed Customer',
+    'delivered-completed-customer@example.com',
+    'processing',
+    'paid',
+    10000
+  );
+
+  UPDATE public.orders
+  SET shipping_status = 'delivered'
+  WHERE id = v_delivered_completed_order_id;
+
+  UPDATE public.order_notification_outbox
+  SET
+    status = 'sent',
+    sent_at = now(),
+    updated_at = now()
+  WHERE order_id = v_delivered_completed_order_id
+    AND event_type = 'order_delivered';
+
+  UPDATE public.orders
+  SET shipping_status = 'completed'
+  WHERE id = v_delivered_completed_order_id;
+
+  SELECT count(*)::integer
+  INTO v_delivered_completed_count
+  FROM public.order_notification_outbox
+  WHERE order_id = v_delivered_completed_order_id
+    AND event_type = 'order_delivered';
+
+  IF v_delivered_completed_count <> 1 THEN
+    RAISE EXCEPTION 'expected delivered->completed normalization to avoid duplicate delivered events, got %',
+      v_delivered_completed_count;
   END IF;
 
   SELECT *

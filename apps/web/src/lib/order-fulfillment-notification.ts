@@ -105,9 +105,13 @@ function getRequiredShippingStatusMessage(
 
 function isOrderInRequiredShippingStatus(
   eventType: OrderFulfillmentNotificationEventType,
-  shippingStatus: z.infer<typeof fulfillmentShippingStatusSchema>
+  shippingStatus: z.infer<typeof fulfillmentShippingStatusSchema>,
+  allowHistoricalShippedEvent: boolean
 ): boolean {
   if (eventType === 'order_shipped') {
+    if (allowHistoricalShippedEvent) {
+      return ['completed', 'delivered', 'shipped'].includes(shippingStatus);
+    }
     return shippingStatus === 'shipped';
   }
 
@@ -248,7 +252,13 @@ export async function sendOrderFulfillmentNotification({
     return { status: 'failed', error: 'Invalid order payload' };
   }
 
-  if (!isOrderInRequiredShippingStatus(eventType, order.shipping_status)) {
+  if (
+    !isOrderInRequiredShippingStatus(
+      eventType,
+      order.shipping_status,
+      mismatchBehavior === 'skip'
+    )
+  ) {
     if (mismatchBehavior === 'invalid_state') {
       const requiredStatus = getRequiredShippingStatusMessage(eventType);
       return {
