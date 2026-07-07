@@ -72,19 +72,28 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  v_norm text := pg_catalog.lower(pg_catalog.btrim(NEW.username));
+  v_norm text;
 BEGIN
-  -- The 20260707120000 migration recreated this trigger WITHOUT a
-  -- `WHEN (NEW.username IS NOT NULL)` clause (to also guard direct table
-  -- writes), so it now fires on EVERY customer INSERT/UPDATE OF username —
-  -- including inserts that omit username (auth/order-created customers before
-  -- they choose a handle). NULL must pass through untouched; only a NON-NULL
-  -- value is format-validated. (is_valid_username_format returns FALSE for NULL,
-  -- so without this guard a NULL insert would wrongly raise and break customer
-  -- creation.)
-  IF NEW.username IS NOT NULL
-    AND NOT public.is_valid_username_format(NEW.username)
-  THEN
+  -- NULL semantics reproduced VERBATIM from 20260707120000 (the trigger has no
+  -- WHEN clause, so it fires on every INSERT/UPDATE OF username):
+  --   * INSERT with NULL           -> allowed (new customers have no handle yet;
+  --                                   raising here would break customer creation)
+  --   * UPDATE NULL -> NULL        -> allowed (no-op)
+  --   * UPDATE non-NULL -> NULL    -> BLOCKED (a direct-write clear; the set RPC
+  --                                   never produces one, and clearing would drop
+  --                                   the leaderboard display name outside the RPC)
+  IF NEW.username IS NULL THEN
+    IF TG_OP = 'UPDATE' AND OLD.username IS NOT NULL THEN
+      RAISE EXCEPTION 'invalid_username' USING ERRCODE = '22023';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  v_norm := pg_catalog.lower(pg_catalog.btrim(NEW.username));
+
+  -- Only the format rule is DRY'd onto the shared predicate; everything else
+  -- matches 20260707120000.
+  IF NOT public.is_valid_username_format(NEW.username) THEN
     RAISE EXCEPTION 'invalid_username' USING ERRCODE = '22023';
   END IF;
 

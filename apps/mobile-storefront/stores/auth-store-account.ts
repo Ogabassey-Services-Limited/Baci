@@ -152,6 +152,12 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
           return { success: false, error: 'Invalid data received from server' };
         }
 
+        // updateProfile never writes username, so the response's username is a
+        // point-in-time read that can be STALE if a concurrent setUsername
+        // resolved while this update was in flight (the mirror of the race
+        // handled in setUsername below). Prefer the live store value — it can
+        // only be newer, since this action cannot legitimately change it.
+        const liveUsername = get().customer?.username;
         set({
           customer: {
             id: updateValidation.data.id,
@@ -160,7 +166,8 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
             last_name: updateValidation.data.last_name ?? undefined,
             phone: updateValidation.data.phone ?? undefined,
             loyalty_points: updateValidation.data.loyalty_points ?? undefined,
-            username: updateValidation.data.username ?? undefined,
+            username:
+              liveUsername ?? updateValidation.data.username ?? undefined,
           },
         });
         return { success: true };

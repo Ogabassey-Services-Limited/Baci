@@ -1526,6 +1526,44 @@ describe('useAuthStore', () => {
       expect(finalCustomer?.phone).toBe('+2348099999999');
     });
 
+    it('does not let a stale updateProfile response clobber a username set mid-flight', async () => {
+      // Mirror of the setUsername race: updateProfile's UPDATE..RETURNING row is
+      // read before a concurrent setUsername lands, so its response carries a
+      // stale NULL username. The final merge must keep the live store value.
+      const chain: Record<string, jest.Mock> = {};
+      for (const m of ['select', 'eq', 'update']) {
+        chain[m] = jest.fn(() => chain);
+      }
+      chain.single = jest.fn(async () => {
+        // A concurrent setUsername resolves while this update is in flight.
+        (useAuthStore.setState as (state: object) => void)({
+          customer: { ...mockCustomerRow, username: 'OgaFan' },
+        });
+        return {
+          data: {
+            ...mockCustomerRow,
+            phone: '+2348011111111',
+            username: null,
+          },
+          error: null,
+        };
+      });
+      (supabase.from as jest.Mock).mockImplementation(() => chain);
+
+      let result!: { success: boolean; error?: string };
+      await act(async () => {
+        result = await useAuthStore
+          .getState()
+          .updateProfile({ phone: '+2348011111111' });
+      });
+
+      expect(result).toEqual({ success: true });
+      const finalCustomer = useAuthStore.getState().customer;
+      expect(finalCustomer?.phone).toBe('+2348011111111');
+      // Live username preserved — not clobbered by the stale NULL.
+      expect(finalCustomer?.username).toBe('OgaFan');
+    });
+
     it('returns an error without calling the RPC when not logged in', async () => {
       (useAuthStore.setState as (state: object) => void)({
         customer: null,
