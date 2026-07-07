@@ -232,6 +232,22 @@ describe('zeptomail audit logging', () => {
     expect(sendMailMock.mock.calls[1]?.[0]).not.toHaveProperty('attachments');
   });
 
+  it('rejects missing runtime recipients without writing invalid audit rows', async () => {
+    const { sendEmail } = await import('./zeptomail');
+
+    const result = await sendEmail({
+      to: null as unknown as string,
+      subject: 'Broken',
+      htmlContent: '<p>Hi</p>',
+    });
+
+    expect(sendMailMock).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Invalid email address');
+    expect(auditState.inserts).toHaveLength(0);
+    expect(auditState.updates).toHaveLength(0);
+  });
+
   it('logs invalid recipient validation failures without calling the provider', async () => {
     const { sendEmail } = await import('./zeptomail');
 
@@ -300,6 +316,27 @@ describe('zeptomail audit logging', () => {
         provider_error_message: 'Server overloaded',
       },
     });
+  });
+
+  it('rejects missing runtime batch recipients without writing invalid audit rows', async () => {
+    const { sendBatchEmailWithTemplate } = await import('./zeptomail');
+
+    const result = await sendBatchEmailWithTemplate({
+      templateKey: 'newsletter-template',
+      recipients: [
+        {
+          to: null as unknown as string,
+          toName: 'Missing',
+          mergeInfo: { name: 'Missing' },
+        },
+      ],
+    });
+
+    expect(mailBatchWithTemplateMock).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Invalid email address');
+    expect(auditState.inserts).toHaveLength(0);
+    expect(auditState.updates).toHaveLength(0);
   });
 
   it('logs one batch attempt row per recipient', async () => {

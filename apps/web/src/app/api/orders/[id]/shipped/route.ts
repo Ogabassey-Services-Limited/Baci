@@ -10,6 +10,7 @@ import {
   generateOrderShippedText,
 } from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
+import { resolveOrderNotificationRecipient } from '@/lib/order-notification-recipient';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { sendEmail } from '@/lib/zeptomail';
 
@@ -31,7 +32,7 @@ const shippedOrderSchema = z.object({
   customer_id: z.string().nullable().optional(),
   order_number: z.string().nullable(),
   customer_name: z.string().min(1),
-  customer_email: z.email(),
+  customer_email: z.string().nullable().optional(),
   customer_phone: z.string().nullable(),
   shipping_status: z.string().min(1),
   shipping_provider: z.string().nullable(),
@@ -189,6 +190,27 @@ export async function POST(
       );
     }
 
+    const recipient = resolveOrderNotificationRecipient(
+      shippedOrder.customer_email
+    );
+    if (!recipient.ok) {
+      logger.warn({
+        message:
+          'Skipping shipped email because order has no valid customer email',
+        orderId: shippedOrder.id,
+        merchantId,
+        customerId: shippedOrder.customer_id,
+        reason: recipient.reason,
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Shipped notification skipped',
+        notificationSkipped: true,
+        reason: recipient.reason,
+      });
+    }
+
     // Prepare email data
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
     const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
@@ -244,7 +266,7 @@ export async function POST(
 
     // Send email
     const emailResult = await sendEmail({
-      to: shippedOrder.customer_email,
+      to: recipient.email,
       toName: shippedOrder.customer_name,
       subject: `Your Order #${shippedData.orderNumber} Has Shipped! 🚚`,
       htmlContent,

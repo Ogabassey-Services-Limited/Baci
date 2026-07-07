@@ -9,6 +9,7 @@ import {
   generateOrderDeliveredText,
 } from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
+import { resolveOrderNotificationRecipient } from '@/lib/order-notification-recipient';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { sendEmail } from '@/lib/zeptomail';
 import { orderIdParamsSchema } from '@/schemas/orders';
@@ -132,6 +133,26 @@ export async function POST(
       );
     }
 
+    const recipient = resolveOrderNotificationRecipient(order.customer_email);
+    if (!recipient.ok) {
+      logger.warn({
+        message:
+          'Skipping delivered email because order has no valid customer email',
+        orderId: order.id,
+        merchantId,
+        customerId: order.customer_id,
+        reason: recipient.reason,
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Delivered notification skipped',
+        notificationSkipped: true,
+        reason: recipient.reason,
+        hasGoogleRating: !!featureSettings?.google_place_id,
+      });
+    }
+
     // Prepare email data
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
     const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
@@ -167,7 +188,7 @@ export async function POST(
 
     // Send email
     const emailResult = await sendEmail({
-      to: order.customer_email,
+      to: recipient.email,
       toName: order.customer_name,
       subject: `Your Order #${deliveredData.orderNumber} Has Been Delivered! 🎉`,
       htmlContent,

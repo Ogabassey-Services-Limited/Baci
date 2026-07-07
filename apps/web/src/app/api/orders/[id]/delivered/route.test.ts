@@ -12,15 +12,15 @@ vi.mock('@/lib/csrf', () => ({
 }));
 
 vi.mock('@/lib/email-templates', () => ({
-  generateOrderShippedEmail: vi.fn(() => '<html>shipped</html>'),
-  generateOrderShippedText: vi.fn(() => 'shipped text'),
+  generateOrderDeliveredEmail: vi.fn(() => '<html>delivered</html>'),
+  generateOrderDeliveredText: vi.fn(() => 'delivered text'),
 }));
 
 vi.mock('@/lib/logger', () => ({
   logger: {
+    error: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
-    error: vi.fn(),
   },
 }));
 
@@ -37,11 +37,13 @@ import {
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import {
-  generateOrderShippedEmail,
-  generateOrderShippedText,
+  generateOrderDeliveredEmail,
+  generateOrderDeliveredText,
 } from '@/lib/email-templates';
 import { sendEmail } from '@/lib/zeptomail';
 import { POST } from './route';
+
+const orderId = 'aaffdc6b-f171-4e65-86a4-b379fd3d1757';
 
 const merchant = {
   id: 'merchant-1',
@@ -54,32 +56,18 @@ const merchant = {
   cac_rc_number: null,
 };
 
-const shippedOrder = {
-  id: 'order-1',
+const featureSettings = {
+  google_place_id: 'place-1',
+};
+
+const deliveredOrder = {
+  id: orderId,
   customer_id: 'customer-1',
   order_number: 'ORD-001',
   customer_name: 'Jane Doe',
-  customer_email: 'jane@example.com',
-  customer_phone: '08012345678',
-  shipping_status: 'shipped',
-  shipping_provider: 'TOPSHIP',
-  tracking_number: 'T222600389',
-  tracking_token: 'track-token-123',
-  shipping_address: {
-    address: '1 Test Street',
-    city: 'Lagos',
-    state: 'Lagos',
-  },
+  customer_email: 'jane@example.com' as string | null,
+  shipping_status: 'delivered',
   order_items: [{ name: 'Test parcel', quantity: 1 }],
-};
-
-type ShippedOrderFixture = Omit<
-  typeof shippedOrder,
-  'tracking_number' | 'tracking_token' | 'customer_email'
-> & {
-  tracking_number: string | null;
-  tracking_token: string | null;
-  customer_email: string | null;
 };
 
 function createMockUser(): User {
@@ -102,14 +90,21 @@ function createSelectBuilder<T>(result: { data: T; error: unknown }) {
   return builder;
 }
 
-function createSupabaseMock(order: ShippedOrderFixture = shippedOrder) {
+function createSupabaseMock(order = deliveredOrder) {
   const merchantBuilder = createSelectBuilder({ data: merchant, error: null });
+  const settingsBuilder = createSelectBuilder({
+    data: featureSettings,
+    error: null,
+  });
   const orderBuilder = createSelectBuilder({ data: order, error: null });
 
   return {
     from: vi.fn((table: string) => {
       if (table === 'merchants') {
         return merchantBuilder;
+      }
+      if (table === 'merchant_feature_settings') {
+        return settingsBuilder;
       }
       if (table === 'orders') {
         return orderBuilder;
@@ -119,18 +114,16 @@ function createSupabaseMock(order: ShippedOrderFixture = shippedOrder) {
   } as unknown as SupabaseClient;
 }
 
-function createRequest(body: Record<string, unknown> = {}) {
-  return new NextRequest('http://localhost/api/orders/order-1/shipped', {
+function createRequest() {
+  return new NextRequest(`http://localhost/api/orders/${orderId}/delivered`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
       Authorization: 'Bearer token',
     },
-    body: JSON.stringify(body),
   });
 }
 
-describe('POST /api/orders/[id]/shipped', () => {
+describe('POST /api/orders/[id]/delivered', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv('NEXT_PUBLIC_ROOT_DOMAIN', 'usebaci.com');
@@ -150,49 +143,46 @@ describe('POST /api/orders/[id]/shipped', () => {
     vi.unstubAllEnvs();
   });
 
-  it('uses saved order tracking details when the mobile client sends an empty body', async () => {
+  it('sends delivered email when the order has a valid customer email', async () => {
     const response = await POST(createRequest(), {
-      params: Promise.resolve({ id: 'order-1' }),
+      params: Promise.resolve({ id: orderId }),
     });
 
     expect(response.status).toBe(200);
-    expect(generateOrderShippedEmail).toHaveBeenCalledWith(
+    expect(generateOrderDeliveredEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        trackingNumber: 'T222600389',
-        courierName: 'TOPSHIP',
-        trackingUrl:
-          'https://test-store.usebaci.com/track-order?token=track-token-123',
+        orderNumber: 'ORD-001',
+        customerName: 'Jane Doe',
+        googlePlaceId: 'place-1',
       })
     );
-    expect(generateOrderShippedText).toHaveBeenCalledWith(
+    expect(generateOrderDeliveredText).toHaveBeenCalledWith(
       expect.objectContaining({
-        trackingNumber: 'T222600389',
-        courierName: 'TOPSHIP',
-        trackingUrl:
-          'https://test-store.usebaci.com/track-order?token=track-token-123',
+        orderNumber: 'ORD-001',
+        customerName: 'Jane Doe',
       })
     );
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'jane@example.com',
-        htmlContent: '<html>shipped</html>',
-        textContent: 'shipped text',
+        htmlContent: '<html>delivered</html>',
+        textContent: 'delivered text',
       })
     );
   });
 
-  it('skips shipped email for legacy orders without a customer email', async () => {
+  it('skips delivered email for legacy orders without a customer email', async () => {
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       error: null,
       user: createMockUser(),
       supabase: createSupabaseMock({
-        ...shippedOrder,
+        ...deliveredOrder,
         customer_email: null,
       }),
     });
 
     const response = await POST(createRequest(), {
-      params: Promise.resolve({ id: 'order-1' }),
+      params: Promise.resolve({ id: orderId }),
     });
     const body = await response.json();
 
@@ -203,28 +193,5 @@ describe('POST /api/orders/[id]/shipped', () => {
       reason: 'missing_customer_email',
     });
     expect(sendEmail).not.toHaveBeenCalled();
-  });
-
-  it('falls back to the global tracking page when the order has no tracking token', async () => {
-    vi.mocked(authenticateApiRequest).mockResolvedValue({
-      error: null,
-      user: createMockUser(),
-      supabase: createSupabaseMock({
-        ...shippedOrder,
-        tracking_token: null,
-      }),
-    });
-
-    const response = await POST(createRequest(), {
-      params: Promise.resolve({ id: 'order-1' }),
-    });
-
-    expect(response.status).toBe(200);
-    expect(generateOrderShippedEmail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        trackingNumber: 'T222600389',
-        trackingUrl: 'https://usebaci.com/track/T222600389',
-      })
-    );
   });
 });
