@@ -90,7 +90,10 @@ function createSelectBuilder<T>(result: { data: T; error: unknown }) {
   return builder;
 }
 
-function createSupabaseMock(order = deliveredOrder) {
+function createSupabaseMock(
+  order = deliveredOrder,
+  terminalOutboxStatus: 'sent' | 'skipped' | null = null
+) {
   const merchantBuilder = createSelectBuilder({ data: merchant, error: null });
   const settingsBuilder = createSelectBuilder({
     data: featureSettings,
@@ -111,7 +114,12 @@ function createSupabaseMock(order = deliveredOrder) {
       }
       throw new Error(`Unexpected table: ${table}`);
     }),
-    rpc: vi.fn().mockResolvedValue({ data: 1, error: null }),
+    rpc: vi.fn((fn: string) => {
+      if (fn === 'get_order_notification_outbox_manual_terminal_status') {
+        return Promise.resolve({ data: terminalOutboxStatus, error: null });
+      }
+      return Promise.resolve({ data: 1, error: null });
+    }),
   } as unknown as SupabaseClient;
 }
 
@@ -195,6 +203,33 @@ describe('POST /api/orders/[id]/delivered', () => {
       p_skip_reason: null,
       p_status: 'sent',
     });
+  });
+
+  it('skips manual delivered email when the outbox already sent it', async () => {
+    const supabase = createSupabaseMock(deliveredOrder, 'sent');
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(createRequest(), {
+      params: Promise.resolve({ id: orderId }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      notificationSkipped: true,
+      reason: 'notification_already_sent',
+    });
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(
+      (supabase as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc
+    ).not.toHaveBeenCalledWith(
+      'complete_order_notification_outbox_manual_result',
+      expect.anything()
+    );
   });
 
   it('skips delivered email for legacy orders without a customer email', async () => {

@@ -26,6 +26,7 @@ DECLARE
   v_import_outbox_count integer;
   v_manual_active_count integer;
   v_manual_status text;
+  v_manual_terminal_status text;
   v_manual_updated_count integer;
   v_manual_processing_status text;
   v_delivered_completed_count integer;
@@ -159,6 +160,18 @@ BEGIN
     RAISE EXCEPTION 'expected manual endpoint consumed row to be sent, got %', v_manual_status;
   END IF;
 
+  SELECT public.get_order_notification_outbox_manual_terminal_status(
+    v_manual_order_id,
+    v_merchant_id,
+    'order_shipped'
+  )
+  INTO v_manual_terminal_status;
+
+  IF v_manual_terminal_status IS DISTINCT FROM 'sent' THEN
+    RAISE EXCEPTION 'expected manual terminal-state RPC to return sent, got %',
+      v_manual_terminal_status;
+  END IF;
+
   INSERT INTO public.orders (
     id,
     merchant_id,
@@ -217,6 +230,18 @@ BEGIN
   IF v_manual_processing_status IS DISTINCT FROM 'processing' THEN
     RAISE EXCEPTION 'expected cron-claimed row to remain processing, got %',
       v_manual_processing_status;
+  END IF;
+
+  SELECT public.get_order_notification_outbox_manual_terminal_status(
+    v_manual_processing_order_id,
+    v_merchant_id,
+    'order_shipped'
+  )
+  INTO v_manual_terminal_status;
+
+  IF v_manual_terminal_status IS NOT NULL THEN
+    RAISE EXCEPTION 'expected manual terminal-state RPC to ignore processing rows, got %',
+      v_manual_terminal_status;
   END IF;
 
   UPDATE public.orders

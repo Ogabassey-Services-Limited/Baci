@@ -9,6 +9,7 @@ import {
   sendOrderFulfillmentNotification,
 } from '@/lib/order-fulfillment-notification';
 import { completeManualOrderNotificationOutboxEvent } from '@/lib/order-notification-outbox-manual-result';
+import { getManualOrderNotificationOutboxTerminalState } from '@/lib/order-notification-outbox-manual-state';
 import { orderIdParamsSchema } from '@/schemas/orders';
 
 function responseForResult(result: OrderFulfillmentNotificationResult) {
@@ -86,6 +87,25 @@ export async function POST(
         { error: 'Merchant not found' },
         { status: 404 }
       );
+    }
+
+    const terminalState = await getManualOrderNotificationOutboxTerminalState({
+      eventType: 'order_delivered',
+      merchantId,
+      orderId: parsedParams.data.id,
+      supabase: auth.supabase,
+    });
+    if (terminalState.status === 'error') {
+      return NextResponse.json(
+        { error: 'Failed to verify notification state' },
+        { status: 500 }
+      );
+    }
+    if (terminalState.status === 'terminal') {
+      return responseForResult({
+        status: 'skipped',
+        reason: `notification_already_${terminalState.outboxStatus}`,
+      });
     }
 
     const result = await sendOrderFulfillmentNotification({

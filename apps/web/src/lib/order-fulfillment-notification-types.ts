@@ -15,6 +15,8 @@ export type OrderFulfillmentNotificationResult =
       status: 'skipped';
       reason:
         | OrderNotificationRecipientFailureReason
+        | 'notification_already_sent'
+        | 'notification_already_skipped'
         | 'order_not_in_required_status';
       hasGoogleRating?: boolean;
     }

@@ -10,6 +10,7 @@ import {
   sendOrderFulfillmentNotification,
 } from '@/lib/order-fulfillment-notification';
 import { completeManualOrderNotificationOutboxEvent } from '@/lib/order-notification-outbox-manual-result';
+import { getManualOrderNotificationOutboxTerminalState } from '@/lib/order-notification-outbox-manual-state';
 import { orderIdParamsSchema } from '@/schemas/orders';
 
 const optionalTrimmedStringSchema = z.preprocess(
@@ -123,6 +124,25 @@ export async function POST(
         { error: 'Invalid order ID', code: 'INVALID_ORDER_ID' },
         { status: 400 }
       );
+    }
+
+    const terminalState = await getManualOrderNotificationOutboxTerminalState({
+      eventType: 'order_shipped',
+      merchantId,
+      orderId: parsedParams.data.id,
+      supabase: auth.supabase,
+    });
+    if (terminalState.status === 'error') {
+      return NextResponse.json(
+        { error: 'Failed to verify notification state' },
+        { status: 500 }
+      );
+    }
+    if (terminalState.status === 'terminal') {
+      return responseForResult({
+        status: 'skipped',
+        reason: `notification_already_${terminalState.outboxStatus}`,
+      });
     }
 
     const result = await sendOrderFulfillmentNotification({

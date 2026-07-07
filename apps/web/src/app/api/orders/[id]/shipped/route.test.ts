@@ -104,7 +104,10 @@ function createSelectBuilder<T>(result: { data: T; error: unknown }) {
   return builder;
 }
 
-function createSupabaseMock(order: ShippedOrderFixture = shippedOrder) {
+function createSupabaseMock(
+  order: ShippedOrderFixture = shippedOrder,
+  terminalOutboxStatus: 'sent' | 'skipped' | null = null
+) {
   const merchantBuilder = createSelectBuilder({ data: merchant, error: null });
   const orderBuilder = createSelectBuilder({ data: order, error: null });
 
@@ -118,7 +121,12 @@ function createSupabaseMock(order: ShippedOrderFixture = shippedOrder) {
       }
       throw new Error(`Unexpected table: ${table}`);
     }),
-    rpc: vi.fn().mockResolvedValue({ data: 1, error: null }),
+    rpc: vi.fn((fn: string) => {
+      if (fn === 'get_order_notification_outbox_manual_terminal_status') {
+        return Promise.resolve({ data: terminalOutboxStatus, error: null });
+      }
+      return Promise.resolve({ data: 1, error: null });
+    }),
   } as unknown as SupabaseClient;
 }
 
@@ -207,6 +215,33 @@ describe('POST /api/orders/[id]/shipped', () => {
       p_skip_reason: null,
       p_status: 'sent',
     });
+  });
+
+  it('skips manual shipped email when the outbox already sent it', async () => {
+    const supabase = createSupabaseMock(shippedOrder, 'sent');
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(createRequest(), {
+      params: Promise.resolve({ id: orderId }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      notificationSkipped: true,
+      reason: 'notification_already_sent',
+    });
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(
+      (supabase as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc
+    ).not.toHaveBeenCalledWith(
+      'complete_order_notification_outbox_manual_result',
+      expect.anything()
+    );
   });
 
   it('returns 400 for invalid order ids before sending mail', async () => {
