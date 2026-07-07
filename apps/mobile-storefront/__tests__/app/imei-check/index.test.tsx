@@ -1,5 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -8,6 +9,13 @@ import {
 import * as Crypto from 'expo-crypto';
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
+
+// Capture the latest usePreventRemove(preventRemove, callback) args so the
+// back-swipe intercept can be asserted and fired without a nav container.
+const mockPreventRemoveState: {
+  prevent: boolean;
+  callback: (() => void) | null;
+} = { prevent: false, callback: null };
 
 const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 const mockWalletRefetch = jest.fn();
@@ -23,7 +31,16 @@ beforeEach(() => {
   mockWalletIsLoading = false;
   mockWalletRefetch.mockClear();
   global.fetch = jest.fn() as typeof fetch;
+  mockPreventRemoveState.prevent = false;
+  mockPreventRemoveState.callback = null;
 });
+
+jest.mock('expo-router/react-navigation', () => ({
+  usePreventRemove: (prevent: boolean, callback: () => void) => {
+    mockPreventRemoveState.prevent = prevent;
+    mockPreventRemoveState.callback = callback;
+  },
+}));
 
 jest.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
@@ -369,5 +386,51 @@ describe('ImeiCheckerScreen', () => {
       firstHeaders['Idempotency-Key']
     );
     expect(Crypto.randomUUID).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns to the checker form when the back-swipe fires while a result is showing', async () => {
+    jest.mocked(fetch).mockResolvedValueOnce({
+      json: () =>
+        Promise.resolve({
+          data: {
+            blacklistStatus: 'Clean',
+            carrier: 'Unlocked',
+            device: 'iPhone 13 Pro',
+            deviceImage: '',
+            deviceType: 'apple',
+            icloud: 'Off',
+            icloudLock: 'Off',
+            imei: '490154203237518',
+            modelNumber: 'A2638',
+            score: 98,
+            simLock: 'Unlocked',
+            status: 'Clean',
+            verdict: 'Safe to buy',
+            verdictType: 'safe',
+          },
+          success: true,
+        }),
+      ok: true,
+      status: 200,
+    } as Response);
+    render(<ImeiCheckerScreen />);
+
+    // Form is showing: back should leave the screen normally (not prevented).
+    expect(mockPreventRemoveState.prevent).toBe(false);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Enter 15-digit IMEI'),
+      '490154203237518'
+    );
+    fireEvent.press(screen.getByText('Verify Now - ₦1,500'));
+    await screen.findByText('iPhone 13 Pro');
+
+    // Result is showing: back-swipe must be intercepted, not pop to home.
+    expect(mockPreventRemoveState.prevent).toBe(true);
+
+    // Firing the intercept returns to the checker form instead of leaving.
+    act(() => mockPreventRemoveState.callback?.());
+    await screen.findByText('Verify Now - ₦1,500');
+    expect(screen.queryByText('iPhone 13 Pro')).toBeNull();
   });
 });
