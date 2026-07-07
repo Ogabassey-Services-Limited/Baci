@@ -6,6 +6,7 @@ import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { env, getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { getCountryByCode } from '@/lib/countries';
+import { normalizeBusinessName } from '@/lib/normalize-business-name';
 import { checkPasswordBreach } from '@/lib/password-breach';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
     const {
       email,
       password,
-      businessName,
+      businessName: rawBusinessName,
       businessType,
       otherBusinessType,
       country,
@@ -86,6 +87,9 @@ export async function POST(req: NextRequest) {
       lastName,
       phone,
     } = validationResult.data;
+    // Normalize once at entry so the name baked into page_configs matches what the
+    // aa_normalize_merchant_business_name trigger stores in merchants.business_name.
+    const businessName = normalizeBusinessName(rawBusinessName);
 
     // Combine first and last name for Supabase user metadata
     const fullName =
