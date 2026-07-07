@@ -14,9 +14,12 @@ export interface CurrencyConfig {
 }
 
 /**
- * Locale mapping for countries to ensure proper number formatting
+ * Locale mapping for countries to ensure proper number formatting.
+ *
+ * Keyed by ISO 3166-1 alpha-2 country code. Keep in sync with the country
+ * coverage in `countries.ts`.
  */
-const COUNTRY_LOCALES: Record<string, string> = {
+export const COUNTRY_LOCALES: Record<string, string> = {
   US: 'en-US',
   NG: 'en-NG',
   GB: 'en-GB',
@@ -28,6 +31,17 @@ const COUNTRY_LOCALES: Record<string, string> = {
   IN: 'en-IN',
   BR: 'pt-BR',
   ZA: 'en-ZA',
+  AE: 'en-AE',
+  KE: 'en-KE',
+  GH: 'en-GH',
+  EG: 'ar-EG',
+  CM: 'fr-CM',
+  CI: 'fr-CI',
+  SN: 'fr-SN',
+  BF: 'fr-BF',
+  RW: 'rw-RW',
+  TZ: 'sw-TZ',
+  UG: 'en-UG',
 };
 
 const CURRENCY_FALLBACK_LOCALES: Record<string, string> = {
@@ -145,6 +159,15 @@ export const COMPACT_OPTIONS = {
  *
  * @param countryCode - Fallback country code used when payoutCurrency is absent or invalid.
  * @param payoutCurrency - Merchant selling/payout currency; takes precedence when valid.
+ *
+ * @remarks
+ * This is the legacy display API. Its USD fallback is intentionally preserved
+ * for existing callers. New code that has a merchant record should prefer
+ * `resolveMerchantCurrencyConfig` from `@/lib/resolve-merchant-currency`, which
+ * is the single canonical resolver (payout-currency first, NGN platform
+ * fallback) shared by display, feeds, and JSON-LD.
+ *
+ * @see resolveMerchantCurrencyConfig
  */
 export function getCurrencyConfig(
   countryCode?: string | null,
