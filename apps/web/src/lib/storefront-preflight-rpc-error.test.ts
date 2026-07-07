@@ -26,7 +26,23 @@ describe('classifyRpcErrorReason', () => {
       'timeout',
     ],
     ['an AbortError code', { code: 'AbortError', message: 'x' }, 'timeout'],
-    // Network-like: flattened transport failures (empty code).
+    // Node/Vercel flatten DOMException aborts/timeouts to their NUMERIC legacy
+    // codes (AbortError=20, TimeoutError=23) — a non-empty code that must still
+    // classify as a transport timeout, not has-error.
+    [
+      'a flattened TimeoutError legacy code',
+      {
+        code: '23',
+        message: 'TimeoutError: The operation was aborted due to timeout',
+      },
+      'timeout',
+    ],
+    [
+      'a flattened AbortError legacy code',
+      { code: '20', message: 'AbortError: The operation was aborted' },
+      'timeout',
+    ],
+    // Network-like: flattened transport failures (empty or numeric code).
     [
       'an empty-code fetch failure',
       { code: '', message: 'fetch failed' },

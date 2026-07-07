@@ -5,30 +5,40 @@ import type { StorefrontInternalPreflightFailOpenReason } from './storefront-int
  * reason.
  *
  * supabase-js `.rpc()` does NOT throw on transport failures — an aborted or
- * network-failed fetch RESOLVES into `{ error }` with an EMPTY `code` and the
- * underlying message, so the transport's try/catch almost never fires and a
- * blanket 'has-error' buried real timeout/network incidents. This re-separates
- * those flattened transport failures from genuine PostgREST/SQLSTATE errors so
- * PostHog volume is attributed to the right failure mode.
+ * network-failed fetch RESOLVES into `{ error }`, so the transport's try/catch
+ * almost never fires and a blanket 'has-error' buried real timeout/network
+ * incidents. This re-separates flattened transport failures from genuine
+ * PostgREST/SQLSTATE errors so PostHog volume is attributed to the right mode.
  */
 
 // Postgres statement_timeout (the anon role's DB-side cap). Local: this module
 // exposes a single utility (one export per file).
 const POSTGRES_STATEMENT_TIMEOUT_CODE = '57014';
 
-// A DOMException name (or, defensively, code) that survived flattening.
+// An AbortError/TimeoutError name (or code) that survived flattening.
 const ABORT_ERROR_NAME_PATTERN = /^(AbortError|TimeoutError)$/;
+
+// A genuine PostgREST/SQLSTATE error code, which is AUTHORITATIVE and must
+// never be reclassified by message wording: a 5-char SQLSTATE (e.g. 57014,
+// 25P02, XX000) or a PostgREST code (PGRST + digits). A flattened transport
+// failure instead carries an EMPTY code or a small numeric DOMException legacy
+// code (AbortError=20, TimeoutError=23), neither of which matches this shape.
+const DATABASE_ERROR_CODE_PATTERN = /^(?:[0-9A-Z]{5}|PGRST\d+)$/;
+
+// Abort/timeout wording in a flattened transport message. `timeout` never
+// matches the network error code "ETIMEDOUT" (…TIMED-OUT, not TIME-OUT).
+const ABORT_OR_TIMEOUT_MESSAGE_PATTERN = /abort|timeout/i;
 
 /**
  * Pure and directly testable. Precedence:
  *  1. Postgres statement_timeout code (57014) → 'timeout';
  *  2. an explicit AbortError/TimeoutError name or code → 'timeout';
- *  3. a flattened transport failure (EMPTY code): message mentions 'abort' →
- *     'timeout', otherwise any non-empty message → 'fetch-error';
- *  4. everything else stays 'has-error' — a genuine PostgREST (PGRSTxxx) or
- *     SQLSTATE error ALWAYS carries a non-empty code, so it is never
- *     reclassified by its message wording (e.g. 25P02 "current transaction is
- *     aborted" must not be mislabelled a timeout).
+ *  3. a genuine coded DB error (SQLSTATE / PostgREST shape) → 'has-error',
+ *     regardless of message wording (e.g. 25P02 "current transaction is
+ *     aborted" is NOT a transport abort);
+ *  4. otherwise a flattened transport failure (empty or numeric legacy code):
+ *     abort/timeout message → 'timeout', any other non-empty message →
+ *     'fetch-error', else 'has-error'.
  */
 export function classifyRpcErrorReason(error: {
   code?: string;
@@ -53,15 +63,19 @@ export function classifyRpcErrorReason(error: {
     return 'timeout';
   }
 
-  // Only an empty code is a flattened transport failure; a coded database error
-  // stays has-error below regardless of its message wording.
-  if (code === '') {
-    if (/abort/i.test(message)) {
-      return 'timeout';
-    }
-    if (message.length > 0) {
-      return 'fetch-error';
-    }
+  // A real database error code is authoritative — never reclassify it by the
+  // message (25P02's message contains "aborted" but it is a DB error).
+  if (DATABASE_ERROR_CODE_PATTERN.test(code)) {
+    return 'has-error';
+  }
+
+  // Otherwise this is a flattened transport failure (empty code, or a small
+  // numeric DOMException legacy code such as 20/23): classify from the message.
+  if (ABORT_OR_TIMEOUT_MESSAGE_PATTERN.test(message)) {
+    return 'timeout';
+  }
+  if (message.length > 0) {
+    return 'fetch-error';
   }
 
   return 'has-error';
