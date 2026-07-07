@@ -18,11 +18,18 @@ import {
   rpcErrorResponse,
 } from '@/app/api/quiz/_shared/route-helpers';
 import { getQuizPhaseEnv } from '@/env';
+import { getBearerTokenFromRequest } from '@/lib/api-auth';
 import { logger } from '@/lib/logger';
 import { startQuizAttemptSchema } from '@/schemas/quiz';
 
 function isBearerAuthenticated(request: NextRequest): boolean {
-  return request.headers.get('Authorization')?.startsWith('Bearer ') ?? false;
+  // Use the SAME bearer detection as the auth (getBearerTokenFromRequest) and
+  // CSRF (checkCsrfProtection) paths — both accept the scheme case-insensitively
+  // and tolerate leading whitespace. A stricter `startsWith('Bearer ')` check
+  // here would let a request that authenticated as bearer (e.g. lowercase
+  // `authorization: bearer <token>`) slip past the username gate and create a
+  // leaderboard-bound attempt without a username, defeating the invariant.
+  return getBearerTokenFromRequest(request) !== null;
 }
 
 function isExamPassRequiredError(error: unknown): boolean {

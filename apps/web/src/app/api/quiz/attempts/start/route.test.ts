@@ -8,6 +8,13 @@ import { createClient } from '@/lib/supabase/server';
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: vi.fn(),
+  // Faithful stub of the real case-insensitive, whitespace-tolerant detection
+  // so the route's bearer check matches the auth/CSRF paths in tests too.
+  getBearerTokenFromRequest: (request: Request) => {
+    const header = request.headers.get('Authorization') ?? '';
+    const match = header.match(/^\s*bearer\s+(.+?)\s*$/i);
+    return match?.[1]?.trim() || null;
+  },
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -49,6 +56,19 @@ function bearerRequest(body: unknown) {
     body: JSON.stringify(body),
     headers: {
       Authorization: 'Bearer test-token',
+      'Content-Type': 'application/json',
+    },
+    method: 'POST',
+  });
+}
+
+// A valid-but-lowercase bearer scheme. getBearerTokenFromRequest and the CSRF
+// check accept this case-insensitively, so the username gate must too.
+function lowercaseBearerRequest(body: unknown) {
+  return new NextRequest('http://localhost/api/quiz/attempts/start', {
+    body: JSON.stringify(body),
+    headers: {
+      Authorization: 'bearer test-token',
       'Content-Type': 'application/json',
     },
     method: 'POST',
@@ -376,6 +396,32 @@ describe('start quiz attempt route', () => {
       error: 'Choose a username before starting the quiz',
     });
     expect(customerAgeBuilder.select).toHaveBeenCalledWith('username');
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('enforces the username gate for a lowercase bearer scheme (case-insensitive)', async () => {
+    // Regression: a stricter startsWith('Bearer ') check let a request that
+    // authenticated as bearer via the lowercase `bearer` scheme skip the gate
+    // and create a leaderboard attempt with no username.
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+    const { rpc } = mockAuthenticatedSupabase({
+      customerAgeResult: {
+        data: { date_of_birth: '1990-01-01', username: null },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      lowercaseBearerRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      code: 'quiz_username_required',
+      error: 'Choose a username before starting the quiz',
+    });
     expect(rpc).not.toHaveBeenCalled();
   });
 
