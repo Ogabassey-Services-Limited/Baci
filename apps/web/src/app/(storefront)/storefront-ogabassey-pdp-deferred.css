@@ -11,6 +11,9 @@
 @source "../../components/storefront/ogabassey/components/BannerCarousel.tsx";
 @source "../../components/storefront/ogabassey/components/banner-carousel-content.ts";
 @source "../../components/storefront/ogabassey/components/carousel-play-toggle.tsx";
+/* carousel-play-toggle consumes shared geometry constants — without this
+   source its h-11/min-w-11/rounded-full classes vanish from this partition. */
+@source "../../components/storefront/ogabassey/components/hero-mobile-geometry.ts";
 @source "../../components/storefront/ogabassey/components/FlyToCartAnimation.tsx";
 @source "../../components/storefront/ogabassey/components/NegotiationModal.tsx";
 @source "../../components/storefront/ogabassey/components/ProductComparisonTable.tsx";

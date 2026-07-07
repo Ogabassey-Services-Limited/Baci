@@ -67,6 +67,16 @@ describe('resolveOgabasseyHomeHeroShell', () => {
     expect(mockLoadLaunchProducts).not.toHaveBeenCalled();
   });
 
+  it('returns null when the publication status is null (matches the streamed page gate)', async () => {
+    mockGetCachedMerchant.mockResolvedValue({
+      id: 'merchant-1',
+      is_published: null,
+    });
+
+    await expect(resolveOgabasseyHomeHeroShell('')).resolves.toBeNull();
+    expect(mockLoadLaunchProducts).not.toHaveBeenCalled();
+  });
+
   it('returns null when the merchant is unpublished', async () => {
     mockGetCachedMerchant.mockResolvedValue({
       id: 'merchant-1',
