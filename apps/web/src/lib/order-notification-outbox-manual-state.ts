@@ -1,12 +1,12 @@
 import { logger } from '@/lib/logger';
 import type { OrderFulfillmentNotificationEventType } from '@/lib/order-fulfillment-notification-types';
 
-type TerminalOutboxStatus = 'sent' | 'skipped';
+type BlockingOutboxStatus = 'pending' | 'processing' | 'sent';
 
 type ManualOutboxStateResult =
   | { status: 'clear' }
   | { status: 'error'; error: string }
-  | { status: 'terminal'; outboxStatus: TerminalOutboxStatus };
+  | { status: 'blocked'; outboxStatus: BlockingOutboxStatus };
 
 interface ManualOutboxStateSupabaseClient {
   rpc: (
@@ -26,8 +26,8 @@ interface GetManualOutboxStateParams {
   supabase: ManualOutboxStateSupabaseClient;
 }
 
-function isTerminalOutboxStatus(value: unknown): value is TerminalOutboxStatus {
-  return value === 'sent' || value === 'skipped';
+function isBlockingOutboxStatus(value: unknown): value is BlockingOutboxStatus {
+  return value === 'pending' || value === 'processing' || value === 'sent';
 }
 
 function getErrorMessage(error: unknown): string {
@@ -43,7 +43,7 @@ function getErrorMessage(error: unknown): string {
   return 'unknown_error';
 }
 
-export async function getManualOrderNotificationOutboxTerminalState({
+export async function getManualOrderNotificationOutboxBlockingState({
   eventType,
   merchantId,
   orderId,
@@ -61,7 +61,7 @@ export async function getManualOrderNotificationOutboxTerminalState({
   if (error) {
     const message = getErrorMessage(error);
     logger.warn({
-      message: 'Failed to read manual order notification outbox terminal state',
+      message: 'Failed to read manual order notification outbox blocking state',
       error,
       eventType,
       merchantId,
@@ -74,16 +74,20 @@ export async function getManualOrderNotificationOutboxTerminalState({
     return { status: 'clear' };
   }
 
-  if (isTerminalOutboxStatus(data)) {
-    return { status: 'terminal', outboxStatus: data };
+  if (isBlockingOutboxStatus(data)) {
+    return { status: 'blocked', outboxStatus: data };
+  }
+
+  if (data === 'skipped' || data === 'failed') {
+    return { status: 'clear' };
   }
 
   logger.warn({
-    message: 'Unexpected manual order notification outbox terminal state',
+    message: 'Unexpected manual order notification outbox blocking state',
     eventType,
     merchantId,
     orderId,
     state: data,
   });
-  return { status: 'error', error: 'unexpected_outbox_terminal_state' };
+  return { status: 'error', error: 'unexpected_outbox_blocking_state' };
 }

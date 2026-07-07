@@ -10,7 +10,7 @@ import {
   sendOrderFulfillmentNotification,
 } from '@/lib/order-fulfillment-notification';
 import { completeManualOrderNotificationOutboxEvent } from '@/lib/order-notification-outbox-manual-result';
-import { getManualOrderNotificationOutboxTerminalState } from '@/lib/order-notification-outbox-manual-state';
+import { getManualOrderNotificationOutboxBlockingState } from '@/lib/order-notification-outbox-manual-state';
 import { orderIdParamsSchema } from '@/schemas/orders';
 
 const optionalTrimmedStringSchema = z.preprocess(
@@ -126,23 +126,40 @@ export async function POST(
       );
     }
 
-    const terminalState = await getManualOrderNotificationOutboxTerminalState({
+    const blockingState = await getManualOrderNotificationOutboxBlockingState({
       eventType: 'order_shipped',
       merchantId,
       orderId: parsedParams.data.id,
       supabase: auth.supabase,
     });
-    if (terminalState.status === 'error') {
+    if (blockingState.status === 'error') {
       return NextResponse.json(
         { error: 'Failed to verify notification state' },
         { status: 500 }
       );
     }
-    if (terminalState.status === 'terminal') {
-      return responseForResult({
-        status: 'skipped',
-        reason: `notification_already_${terminalState.outboxStatus}`,
-      });
+    if (blockingState.status === 'blocked') {
+      switch (blockingState.outboxStatus) {
+        case 'sent':
+          return responseForResult({
+            status: 'skipped',
+            reason: 'notification_already_sent',
+          });
+        case 'pending':
+          return responseForResult({
+            status: 'skipped',
+            reason: 'notification_pending',
+          });
+        case 'processing':
+          return responseForResult({
+            status: 'skipped',
+            reason: 'notification_processing',
+          });
+        default: {
+          const exhaustive: never = blockingState.outboxStatus;
+          return exhaustive;
+        }
+      }
     }
 
     const result = await sendOrderFulfillmentNotification({

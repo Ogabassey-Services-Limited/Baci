@@ -106,7 +106,12 @@ function createSelectBuilder<T>(result: { data: T; error: unknown }) {
 
 function createSupabaseMock(
   order: ShippedOrderFixture = shippedOrder,
-  terminalOutboxStatus: 'sent' | 'skipped' | null = null
+  terminalOutboxStatus:
+    | 'sent'
+    | 'skipped'
+    | 'pending'
+    | 'processing'
+    | null = null
 ) {
   const merchantBuilder = createSelectBuilder({ data: merchant, error: null });
   const orderBuilder = createSelectBuilder({ data: order, error: null });
@@ -242,6 +247,76 @@ describe('POST /api/orders/[id]/shipped', () => {
       'complete_order_notification_outbox_manual_result',
       expect.anything()
     );
+  });
+
+  it('does not send manual shipped email while the outbox row is pending', async () => {
+    const supabase = createSupabaseMock(shippedOrder, 'pending');
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(createRequest(), {
+      params: Promise.resolve({ id: orderId }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      notificationSkipped: true,
+      reason: 'notification_pending',
+    });
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(
+      (supabase as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc
+    ).not.toHaveBeenCalledWith(
+      'complete_order_notification_outbox_manual_result',
+      expect.anything()
+    );
+  });
+
+  it('does not send manual shipped email while the outbox row is processing', async () => {
+    const supabase = createSupabaseMock(shippedOrder, 'processing');
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(createRequest(), {
+      params: Promise.resolve({ id: orderId }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      notificationSkipped: true,
+      reason: 'notification_processing',
+    });
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(
+      (supabase as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc
+    ).not.toHaveBeenCalledWith(
+      'complete_order_notification_outbox_manual_result',
+      expect.anything()
+    );
+  });
+
+  it('allows manual shipped retry after a skipped outbox row', async () => {
+    const supabase = createSupabaseMock(shippedOrder, 'skipped');
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(createRequest(), {
+      params: Promise.resolve({ id: orderId }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(sendEmail).toHaveBeenCalled();
   });
 
   it('returns 400 for invalid order ids before sending mail', async () => {

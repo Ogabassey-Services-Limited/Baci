@@ -17,8 +17,10 @@ DECLARE
   v_merchant_id uuid := '8f0ed783-0000-4000-8000-000000000801';
   v_order_id uuid := '8f0ed783-0000-4000-8000-000000000802';
   v_import_order_id uuid := '8f0ed783-0000-4000-8000-000000000803';
+  v_import_sync_order_id uuid := '8f0ed783-0000-4000-8000-000000000807';
   v_manual_order_id uuid := '8f0ed783-0000-4000-8000-000000000804';
   v_manual_processing_order_id uuid := '8f0ed783-0000-4000-8000-000000000805';
+  v_manual_skipped_order_id uuid := '8f0ed783-0000-4000-8000-000000000808';
   v_delivered_completed_order_id uuid := '8f0ed783-0000-4000-8000-000000000806';
   v_shipped_count integer;
   v_delivered_count integer;
@@ -94,8 +96,54 @@ BEGIN
   FROM public.order_notification_outbox
   WHERE order_id = v_import_order_id;
 
+  IF v_import_outbox_count <> 1 THEN
+    RAISE EXCEPTION 'expected merchant update on imported order to enqueue outbox event, got % events',
+      v_import_outbox_count;
+  END IF;
+
+  UPDATE public.order_notification_outbox
+  SET
+    status = 'sent',
+    sent_at = now(),
+    updated_at = now()
+  WHERE order_id = v_import_order_id;
+
+  INSERT INTO public.orders (
+    id,
+    merchant_id,
+    order_number,
+    customer_name,
+    customer_email,
+    shipping_status,
+    payment_status,
+    total,
+    external_source
+  )
+  VALUES (
+    v_import_sync_order_id,
+    v_merchant_id,
+    'OUTBOX-IMPORT-SYNC-001',
+    'Imported Sync Customer',
+    'imported-sync-customer@example.com',
+    'processing',
+    'paid',
+    10000,
+    'bumpa'
+  );
+
+  PERFORM set_config('baci.order_notification_outbox.suppress_enqueue', 'true', true);
+  UPDATE public.orders
+  SET shipping_status = 'shipped'
+  WHERE id = v_import_sync_order_id;
+  PERFORM set_config('baci.order_notification_outbox.suppress_enqueue', 'false', true);
+
+  SELECT count(*)::integer
+  INTO v_import_outbox_count
+  FROM public.order_notification_outbox
+  WHERE order_id = v_import_sync_order_id;
+
   IF v_import_outbox_count <> 0 THEN
-    RAISE EXCEPTION 'expected imported order status refresh to skip outbox enqueue, got % events',
+    RAISE EXCEPTION 'expected explicit imported order sync context to skip outbox enqueue, got % events',
       v_import_outbox_count;
   END IF;
 
@@ -239,10 +287,57 @@ BEGIN
   )
   INTO v_manual_terminal_status;
 
-  IF v_manual_terminal_status IS NOT NULL THEN
-    RAISE EXCEPTION 'expected manual terminal-state RPC to ignore processing rows, got %',
+  IF v_manual_terminal_status IS DISTINCT FROM 'processing' THEN
+    RAISE EXCEPTION 'expected manual outbox-state RPC to block processing rows, got %',
       v_manual_terminal_status;
   END IF;
+
+  INSERT INTO public.orders (
+    id,
+    merchant_id,
+    order_number,
+    customer_name,
+    customer_email,
+    shipping_status,
+    payment_status,
+    total
+  )
+  VALUES (
+    v_manual_skipped_order_id,
+    v_merchant_id,
+    'OUTBOX-MANUAL-SKIPPED-001',
+    'Manual Skipped Customer',
+    'manual-skipped-customer@example.com',
+    'processing',
+    'paid',
+    10000
+  );
+
+  UPDATE public.orders
+  SET shipping_status = 'shipped'
+  WHERE id = v_manual_skipped_order_id;
+
+  UPDATE public.order_notification_outbox
+  SET
+    status = 'skipped',
+    skip_reason = 'missing_customer_email',
+    skipped_at = now(),
+    updated_at = now()
+  WHERE order_id = v_manual_skipped_order_id
+    AND event_type = 'order_shipped';
+
+  SELECT public.get_order_notification_outbox_manual_terminal_status(
+    v_manual_skipped_order_id,
+    v_merchant_id,
+    'order_shipped'
+  )
+  INTO v_manual_terminal_status;
+
+  IF v_manual_terminal_status IS NOT NULL THEN
+    RAISE EXCEPTION 'expected manual outbox-state RPC to allow skipped-row retry, got %',
+      v_manual_terminal_status;
+  END IF;
+
 
   UPDATE public.orders
   SET shipping_status = 'shipped'

@@ -105,7 +105,7 @@ describe('GET /api/cron/order-notifications', () => {
     expect(response.status).toBe(200);
     expect(mockSupabase.rpc).toHaveBeenCalledWith(
       'claim_order_notification_outbox',
-      expect.objectContaining({ p_batch_size: 25 })
+      expect.objectContaining({ p_batch_size: 1 })
     );
     expect(sendOrderFulfillmentNotification).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -123,6 +123,85 @@ describe('GET /api/cron/order-notifications', () => {
       success: true,
     });
     expect(mockSupabase.from).toHaveBeenCalledWith('order_notification_outbox');
+  });
+
+  it('honors an explicit bounded batch size for manual drains', async () => {
+    const response = await GET(
+      cronRequest('/api/cron/order-notifications?batchSize=7')
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      'claim_order_notification_outbox',
+      expect.objectContaining({ p_batch_size: 7 })
+    );
+  });
+
+  it('serializes claimed events for the same order while allowing different orders to proceed', async () => {
+    const orderOneShipped = {
+      attempt_count: 1,
+      event_type: 'order_shipped',
+      id: 'outbox-order-1-shipped',
+      max_attempts: 5,
+      merchant_id: 'merchant-1',
+      order_id: 'order-1',
+    };
+    const orderOneDelivered = {
+      attempt_count: 1,
+      event_type: 'order_delivered',
+      id: 'outbox-order-1-delivered',
+      max_attempts: 5,
+      merchant_id: 'merchant-1',
+      order_id: 'order-1',
+    };
+    const orderTwoShipped = {
+      attempt_count: 1,
+      event_type: 'order_shipped',
+      id: 'outbox-order-2-shipped',
+      max_attempts: 5,
+      merchant_id: 'merchant-1',
+      order_id: 'order-2',
+    };
+    const callsStarted: string[] = [];
+    let resolveFirstOrderSend: (() => void) | undefined;
+
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: [orderOneShipped, orderOneDelivered, orderTwoShipped],
+      error: null,
+    });
+    mockSendOrderFulfillmentNotification.mockReset();
+    mockSendOrderFulfillmentNotification.mockImplementation(
+      async ({ eventType, orderId }) => {
+        const callKey = `${orderId}:${eventType}`;
+        callsStarted.push(callKey);
+        if (callKey === 'order-1:order_shipped') {
+          await new Promise<void>((resolve) => {
+            resolveFirstOrderSend = resolve;
+          });
+        }
+        return { status: 'sent', messageId: `${callKey}:message` };
+      }
+    );
+
+    const responsePromise = GET(
+      cronRequest('/api/cron/order-notifications?batchSize=3')
+    );
+    await vi.waitFor(() => {
+      expect(callsStarted).toContain('order-1:order_shipped');
+      expect(callsStarted).toContain('order-2:order_shipped');
+    });
+
+    expect(callsStarted).not.toContain('order-1:order_delivered');
+    resolveFirstOrderSend?.();
+
+    const response = await responsePromise;
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ claimed: 3, sent: 3, success: true });
+    expect(callsStarted.indexOf('order-1:order_shipped')).toBeLessThan(
+      callsStarted.indexOf('order-1:order_delivered')
+    );
   });
 
   it('reschedules retryable failures instead of failing the cron batch', async () => {

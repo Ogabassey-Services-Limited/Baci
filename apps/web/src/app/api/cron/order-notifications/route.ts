@@ -10,8 +10,8 @@ import { createServiceClient } from '@/lib/supabase/service';
 
 export const maxDuration = 60;
 
-const DEFAULT_BATCH_SIZE = 25;
-const MAX_BATCH_SIZE = 100;
+const DEFAULT_BATCH_SIZE = 1;
+const MAX_BATCH_SIZE = 10;
 const RETRY_BASE_DELAY_MS = 5 * 60 * 1000;
 const RETRY_MAX_DELAY_MS = 60 * 60 * 1000;
 const PROCESS_CONCURRENCY = 5;
@@ -164,20 +164,40 @@ async function processClaimedRow(
   }
 }
 
+function groupRowsByOrderId(rows: ClaimedOrderNotificationOutboxRow[]) {
+  const groups: ClaimedOrderNotificationOutboxRow[][] = [];
+  const groupIndexesByOrderId = new Map<string, number>();
+
+  for (const row of rows) {
+    const existingIndex = groupIndexesByOrderId.get(row.order_id);
+    if (existingIndex !== undefined) {
+      groups[existingIndex]?.push(row);
+      continue;
+    }
+
+    groupIndexesByOrderId.set(row.order_id, groups.length);
+    groups.push([row]);
+  }
+
+  return groups;
+}
+
 async function processClaimedRows(
   supabase: SupabaseClientLike,
   rows: ClaimedOrderNotificationOutboxRow[],
   summary: CronSummary
 ) {
-  let nextIndex = 0;
-  const workerCount = Math.min(PROCESS_CONCURRENCY, rows.length);
+  const groups = groupRowsByOrderId(rows);
+  let nextGroupIndex = 0;
+  const workerCount = Math.min(PROCESS_CONCURRENCY, groups.length);
 
   await Promise.all(
     Array.from({ length: workerCount }, async () => {
-      while (nextIndex < rows.length) {
-        const row = rows[nextIndex];
-        nextIndex += 1;
-        if (row) {
+      while (nextGroupIndex < groups.length) {
+        const group = groups[nextGroupIndex];
+        nextGroupIndex += 1;
+
+        for (const row of group ?? []) {
           await processClaimedRow(supabase, row, summary);
         }
       }

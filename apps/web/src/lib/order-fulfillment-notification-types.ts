@@ -17,6 +17,8 @@ export type OrderFulfillmentNotificationResult =
         | OrderNotificationRecipientFailureReason
         | 'notification_already_sent'
         | 'notification_already_skipped'
+        | 'notification_pending'
+        | 'notification_processing'
         | 'order_not_in_required_status';
       hasGoogleRating?: boolean;
     }
