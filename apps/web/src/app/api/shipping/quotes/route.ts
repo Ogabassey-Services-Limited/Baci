@@ -8,71 +8,16 @@
  * The cookie-based client always resolves to an unauthenticated session for
  * mobile requests. To validate the caller's JWT we extract the raw token from
  * the Authorization header and pass it to supabase.auth.getUser(token) explicitly,
- * which works for both web (cookie) sessions and mobile Bearer tokens.
+ * Mobile Bearer tokens are validated explicitly; web requests use the
+ * request-bound cookie client before service-role quote storage.
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
-import { hasPermission } from '@/lib/api-auth';
-import {
-  getMerchantForApiRequest,
-  toUserAccess,
-} from '@/lib/get-merchant-for-api-request';
 import { shippingService } from '@/lib/shipping';
-import { deriveMerchantLocation } from '@/lib/shipping/order-shipment-booking-utils';
 import type { QuoteRequest } from '@/lib/shipping/types';
 import { createAdminClient } from '@/lib/supabase/admin';
-
-// =============================================================================
-// REQUEST VALIDATION
-// =============================================================================
-
-const QuoteRequestSchema = z.object({
-  // Receiver info (required)
-  receiver: z.object({
-    name: z.string().min(1),
-    email: z.email().optional(),
-    phone: z.string().optional(), // Optional for quote calculation, required for actual booking
-    address: z.string().min(1),
-    city: z.string().min(1),
-    state: z.string().min(1),
-    country: z.string().default('Nigeria'),
-    countryCode: z.string().default('NG'),
-    postalCode: z.string().optional(),
-    stationId: z.number().optional(),
-  }),
-  // Sender info (optional - uses merchant address)
-  sender: z
-    .object({
-      name: z.string().min(1),
-      email: z.email().optional(),
-      phone: z.string().min(1),
-      address: z.string().min(1),
-      city: z.string().min(1),
-      state: z.string().min(1),
-      country: z.string().default('Nigeria'),
-      countryCode: z.string().default('NG'),
-      postalCode: z.string().optional(),
-      stationId: z.number().optional(),
-    })
-    .optional(),
-  // Items (required)
-  items: z
-    .array(
-      z.object({
-        name: z.string().min(1),
-        quantity: z.number().int().positive(),
-        weight: z.number().positive(),
-        value: z.number().nonnegative(),
-        category: z.string().optional(),
-      })
-    )
-    .min(1),
-  // Session ID for quote caching
-  sessionId: z.string().optional(),
-  // Shipment type
-  shipmentType: z.enum(['domestic', 'international']).default('domestic'),
-});
+import { QuoteRequestSchema } from '@/schemas/shipping';
+import { resolveQuoteMerchantContext } from './quote-merchant-context';
 
 // =============================================================================
 // POST /api/shipping/quotes - Get shipping quotes
@@ -103,86 +48,48 @@ export async function POST(request: NextRequest) {
     // mobile (Authorization: Bearer <token>) callers.
     const supabase = createAdminClient();
 
-    // Get merchant info for sender details if not provided
-    let senderInfo = data.sender;
+    const merchantContext = await resolveQuoteMerchantContext({
+      data,
+      request,
+      supabase,
+    });
+    if (!merchantContext.ok) {
+      return NextResponse.json(
+        { error: merchantContext.error },
+        { status: merchantContext.status }
+      );
+    }
+    let senderInfo = merchantContext.senderInfo;
 
+    if (!senderInfo && data.shipmentType === 'international') {
+      return NextResponse.json(
+        { error: 'Sender is required for international quotes' },
+        { status: 400 }
+      );
+    }
+
+    // Default sender if no merchant found
     if (!senderInfo) {
-      // Extract Bearer token from Authorization header (mobile) or fall back
-      // to cookie-less getUser which returns null for unauthenticated callers.
-      const authHeader = request.headers.get('authorization');
-      const token = authHeader?.startsWith('Bearer ')
-        ? authHeader.slice(7)
-        : undefined;
-
-      const {
-        data: { user },
-      } = token
-        ? await supabase.auth.getUser(token)
-        : await supabase.auth.getUser();
-
-      if (user) {
-        // Resolve merchant context (supports both owners and staff)
-        const merchantContext = await getMerchantForApiRequest(
-          supabase,
-          user.id
-        );
-
-        if (merchantContext) {
-          // Permission check
-          const access = toUserAccess(merchantContext);
-          if (!hasPermission(access, 'orders', 'fulfill')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-          }
-
-          // Fetch address/phone details by merchant id
-          const { data: merchantDetails } = await supabase
-            .from('merchants')
-            .select('business_name, business_address, phone')
-            .eq('id', merchantContext.merchantId)
-            .single();
-
-          if (merchantDetails) {
-            const location = deriveMerchantLocation(
-              merchantDetails.business_address
-            );
-            senderInfo = {
-              name:
-                merchantDetails.business_name ||
-                merchantContext.businessName ||
-                'Merchant',
-              phone: merchantDetails.phone || '',
-              address: location.address,
-              city: location.city,
-              state: location.state,
-              country: 'Nigeria',
-              countryCode: 'NG',
-            };
-          }
-        }
-      }
-
-      // Default sender if no merchant found
-      if (!senderInfo) {
-        senderInfo = {
-          name: 'Merchant',
-          phone: '',
-          address: 'Lagos',
-          city: 'Lagos',
-          state: 'Lagos',
-          country: 'Nigeria',
-          countryCode: 'NG',
-        };
-      }
+      senderInfo = {
+        name: 'Merchant',
+        phone: '',
+        address: 'Lagos',
+        city: 'Lagos',
+        state: 'Lagos',
+        country: 'Nigeria',
+        countryCode: 'NG',
+      };
     }
 
     // Build quote request
     const quoteRequest: QuoteRequest = {
+      merchantId: merchantContext.merchantId,
       sender: senderInfo,
       receiver: {
         ...data.receiver,
         phone: data.receiver.phone || '', // Default to empty string for type safety
-        country: data.receiver.country || 'Nigeria',
-        countryCode: data.receiver.countryCode || 'NG',
+        country: data.receiver.country,
+        countryCode: data.receiver.countryCode,
       },
       items: data.items,
       sessionId: data.sessionId || crypto.randomUUID(),
@@ -198,6 +105,7 @@ export async function POST(request: NextRequest) {
         supabase.from('shipping_quotes').upsert(
           {
             id: quote.id,
+            merchant_id: quoteRequest.merchantId ?? null,
             session_id: response.sessionId,
             provider: quote.provider,
             service_tier: quote.serviceTier,

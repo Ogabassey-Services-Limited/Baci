@@ -10,6 +10,9 @@ import { SHIPPING_PROVIDER_CODES } from '@/lib/shipping/types';
 type OrderShippingAddress = {
   address?: string | null;
   city?: string | null;
+  country?: string | null;
+  countryCode?: string | null;
+  postalCode?: string | null;
   state?: string | null;
   phone?: string | null;
 };
@@ -137,6 +140,11 @@ export function parseStoredQuoteRequest(value: unknown): QuoteRequest | null {
   }
 
   return {
+    merchantId:
+      typeof quoteRequest.merchantId === 'string' &&
+      quoteRequest.merchantId.trim().length > 0
+        ? quoteRequest.merchantId
+        : undefined,
     sessionId:
       typeof quoteRequest.sessionId === 'string' &&
       quoteRequest.sessionId.length > 0
@@ -147,7 +155,11 @@ export function parseStoredQuoteRequest(value: unknown): QuoteRequest | null {
         ? 'international'
         : 'domestic',
     sender: isShippingAddress(quoteRequest.sender)
-      ? quoteRequest.sender
+      ? {
+          ...quoteRequest.sender,
+          country: quoteRequest.sender.country || 'Nigeria',
+          countryCode: quoteRequest.sender.countryCode || 'NG',
+        }
       : undefined,
     receiver: {
       ...quoteRequest.receiver,
@@ -170,12 +182,22 @@ export function toShipmentItems(orderItems: OrderItemRecord[]): ShipmentItem[] {
 
 export function selectPreferredQuote(
   quotes: ShippingQuote[],
-  currentQuote: { serviceTier: string | null; carrierName: string | null }
+  currentQuote: {
+    serviceTier: string | null;
+    carrierName: string | null;
+    providerRateId?: string | null;
+  }
 ): ShippingQuote | null {
   const normalizedServiceTier = currentQuote.serviceTier?.toLowerCase() ?? null;
   const normalizedCarrierName = currentQuote.carrierName?.toLowerCase() ?? null;
+  const normalizedProviderRateId = currentQuote.providerRateId?.trim() || null;
 
   return (
+    quotes.find(
+      (quote) =>
+        normalizedProviderRateId &&
+        quote.providerRateId === normalizedProviderRateId
+    ) ||
     quotes.find(
       (quote) =>
         quote.serviceTier.toLowerCase() === normalizedServiceTier &&
@@ -210,8 +232,9 @@ export function buildReceiver(order: OrderRecord): ShippingAddress {
     address,
     city,
     state,
-    country: 'Nigeria',
-    countryCode: 'NG',
+    country: shippingAddress.country?.trim() || 'Nigeria',
+    countryCode: shippingAddress.countryCode?.trim() || 'NG',
+    postalCode: shippingAddress.postalCode?.trim() || undefined,
   };
 }
 

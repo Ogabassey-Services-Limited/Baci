@@ -1,8 +1,3 @@
-/**
- * Shipping Booking API
- * Book a shipment with the selected provider
- */
-
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
@@ -12,27 +7,22 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { shippingService } from '@/lib/shipping';
-import { deriveMerchantLocation } from '@/lib/shipping/order-shipment-booking-utils';
-import type {
-  BookingRequest,
-  ShippingProviderCode,
-} from '@/lib/shipping/types';
-import { SHIPPING_PROVIDER_CODES } from '@/lib/shipping/types';
+import {
+  deriveMerchantLocation,
+  isShippingProviderCode,
+  OrderShipmentBookingError,
+} from '@/lib/shipping/order-shipment-booking-utils';
+import type { BookingRequest } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
 import { BookingRequestSchema } from '@/schemas/shipping';
+import {
+  resolveBookingQuoteRequestPayload,
+  validateBookingQuoteRequestPayload,
+} from './quote-request-payload';
 import { buildShipmentInsertPayload } from './shipment-insert-payload';
-
-function isShippingProviderCode(value: string): value is ShippingProviderCode {
-  return (SHIPPING_PROVIDER_CODES as readonly string[]).includes(value);
-}
-
-// =============================================================================
-// POST /api/shipping/book - Book a shipment
-// =============================================================================
 
 export async function POST(request: NextRequest) {
   try {
-    // CSRF protection
     const { valid: csrfValid, response: csrfResponse } =
       await checkCsrfProtection(request);
     if (!csrfValid) {
@@ -41,11 +31,9 @@ export async function POST(request: NextRequest) {
         NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
       );
     }
-
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Authenticate
     const {
       data: { user },
       error: authError,
@@ -53,8 +41,6 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    // Get merchant (supports both owners and staff)
     const merchantContext = await getMerchantForApiRequest(supabase, user.id);
     if (!merchantContext) {
       return NextResponse.json(
@@ -62,18 +48,14 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-
-    // Permission check
     const access = toUserAccess(merchantContext);
     if (!hasPermission(access, 'orders', 'fulfill')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const merchantId = merchantContext.merchantId;
-
     const body = await request.json();
 
-    // Validate request
     const parseResult = BookingRequestSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
@@ -86,11 +68,11 @@ export async function POST(request: NextRequest) {
     }
 
     const data = parseResult.data;
-
-    // Verify the order belongs to this merchant
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, merchant_id, shipping_status')
+      .select(
+        'id, merchant_id, selected_quote_id, shipping_status, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
+      )
       .eq('id', data.orderId)
       .eq('merchant_id', merchantId)
       .single();
@@ -99,8 +81,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Check if already shipped
-    // Check if already shipped or being processed
     if (
       ['shipped', 'delivered', 'processing'].includes(order.shipping_status)
     ) {
@@ -110,13 +90,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the selected quote
+    if (order.selected_quote_id && order.selected_quote_id !== data.quoteId) {
+      return NextResponse.json(
+        { error: 'Quote does not match order' },
+        { status: 400 }
+      );
+    }
+
     const { data: quote, error: quoteError } = await supabase
       .from('shipping_quotes')
       .select(
-        'id, provider_code, provider_rate_id, provider_metadata, expires_at, price, currency, estimated_days'
+        'id, merchant_id, provider, provider_rate_id, provider_metadata, quote_request, expires_at, price, currency, estimated_days'
       )
       .eq('id', data.quoteId)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (quoteError || !quote) {
@@ -126,7 +113,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if quote is expired
     if (new Date(quote.expires_at) < new Date()) {
       return NextResponse.json(
         { error: 'Quote has expired. Please get a new quote.' },
@@ -134,10 +120,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build sender info
     let senderInfo = data.sender;
     if (!senderInfo) {
-      // Fetch merchant address/phone details for sender fallback
       const { data: merchantDetails } = await supabase
         .from('merchants')
         .select('business_name, business_address, phone')
@@ -161,53 +145,75 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Build booking request
+    const quotePayload = resolveBookingQuoteRequestPayload(
+      quote,
+      {
+        ...data.receiver,
+        country: data.receiver.country || 'Nigeria',
+        countryCode: data.receiver.countryCode || 'NG',
+      },
+      data.items,
+      order.order_items ?? []
+    );
+    if (!quotePayload) {
+      return NextResponse.json(
+        { error: 'Saved international quote request not found' },
+        { status: 400 }
+      );
+    }
+    const quoteValidation = validateBookingQuoteRequestPayload(
+      quotePayload,
+      order,
+      merchantId
+    );
+    if (!quoteValidation.ok) {
+      return NextResponse.json(
+        { error: quoteValidation.error, code: quoteValidation.code },
+        { status: quoteValidation.status }
+      );
+    }
+    const resolvedSenderInfo = quotePayload.sender ?? senderInfo;
+
     const bookingRequest: BookingRequest = {
       orderId: data.orderId,
       quoteId: data.quoteId,
       providerRateId: quote.provider_rate_id,
       quoteMetadata: quote.provider_metadata,
-      sender: senderInfo,
-      receiver: {
-        ...data.receiver,
-        country: data.receiver.country || 'Nigeria',
-        countryCode: data.receiver.countryCode || 'NG',
-      },
-      items: data.items,
+      sender: resolvedSenderInfo,
+      receiver: quotePayload.receiver,
+      items: quotePayload.items,
       instructions: data.instructions,
     };
 
-    // Book the shipment
-    if (!isShippingProviderCode(quote.provider_code)) {
+    if (!isShippingProviderCode(quote.provider)) {
       return NextResponse.json(
         { error: 'Invalid shipping provider in quote' },
         { status: 400 }
       );
     }
-    const provider: ShippingProviderCode = quote.provider_code;
-    const result = await shippingService.bookShipment(provider, bookingRequest);
+    const result = await shippingService.bookShipment(
+      quote.provider,
+      bookingRequest
+    );
 
-    // Create shipment record in database
     const { data: shipment, error: shipmentError } = await supabase
       .from('shipments')
       .insert(
         buildShipmentInsertPayload({
           orderId: data.orderId,
           merchantId,
-          senderInfo,
-          receiver: data.receiver,
-          items: data.items,
+          senderInfo: resolvedSenderInfo,
+          receiver: quotePayload.receiver,
+          items: quotePayload.items,
           quote,
           result,
         })
       )
-      // PERFORMANCE: Use explicit column selection instead of .select() to prevent overfetching full shipment rows on insertion, as only the ID is needed below
       .select('id')
       .single();
 
     if (shipmentError) {
       console.error('Error creating shipment record:', shipmentError);
-      // Return error - inconsistent state is worse than failed booking
       return NextResponse.json(
         {
           error:
@@ -219,7 +225,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update order with shipment info
     const { error: orderUpdateError } = await supabase
       .from('orders')
       .update({
@@ -248,12 +253,11 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    // Mark quote as used
     const { error: quoteUpdateError } = await supabase
       .from('shipping_quotes')
       .update({ used: true })
-      .eq('id', data.quoteId);
+      .eq('id', data.quoteId)
+      .eq('merchant_id', merchantId);
 
     if (quoteUpdateError) {
       console.error(
@@ -282,12 +286,14 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof OrderShipmentBookingError)
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.status }
+      );
     console.error('Error booking shipment:', error);
     return NextResponse.json(
-      {
-        error: 'Failed to book shipment',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: 'Failed to book shipment' },
       { status: 500 }
     );
   }

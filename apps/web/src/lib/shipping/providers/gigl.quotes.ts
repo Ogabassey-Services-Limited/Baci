@@ -10,6 +10,7 @@ import {
   PickupOptions,
   ShipmentType,
 } from './gigl.constants';
+import { getGiglInternationalQuotes } from './gigl.international';
 import type { GiglStation } from './gigl.schemas';
 import { giglSchemas } from './gigl.schemas';
 import type { GiglStationsService } from './gigl.stations';
@@ -20,6 +21,10 @@ export function getGiglQuotes(
   io: GiglQuoteIo,
   request: QuoteRequest
 ): Promise<ShippingQuote[]> {
+  if (request.shipmentType === 'international') {
+    return getGiglInternationalQuotes(apiClient, io, request);
+  }
+
   const signal = AbortSignal.timeout(GIGL_QUOTE_TIMEOUT_MS);
   return getQuotesWithinTimeout(
     apiClient,

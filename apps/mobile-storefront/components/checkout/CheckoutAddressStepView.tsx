@@ -241,6 +241,7 @@ export function CheckoutAddressStepView({
           isDark={isDark}
           isLoadingQuotes={isLoadingQuotes}
           shippingQuotes={doorShippingQuotes}
+          stationPickupQuote={stationPickupQuote}
           selectedQuoteId={selectedQuoteId}
           onSelectQuote={onSelectQuote}
           onRetryQuotes={onRetryQuotes}

@@ -51,6 +51,7 @@ function createMockSupabase(overrides?: {
   order?: { data: unknown; error: unknown };
   existingShipment?: { data: unknown; error: unknown };
   quote?: { data: unknown; error: unknown };
+  quoteUpdate?: { error: unknown };
   merchant?: { data: unknown; error: unknown };
   shipmentInsert?: { data: unknown; error: unknown };
   onShipmentInsert?: (payload: unknown) => void;
@@ -105,8 +106,10 @@ function createMockSupabase(overrides?: {
     select: vi.fn().mockReturnValue(shipmentsInsertSelectChain),
   };
   const shippingQuotesUpdateChain = {
-    eq: vi.fn().mockResolvedValue({ error: null }),
+    error: overrides?.quoteUpdate?.error ?? null,
+    eq: vi.fn(),
   };
+  shippingQuotesUpdateChain.eq.mockReturnValue(shippingQuotesUpdateChain);
 
   const chain: MockChain = {
     rpc: vi.fn(),
@@ -166,6 +169,7 @@ const validOrder = {
 
 const validQuote = {
   id: 'quote-1',
+  merchant_id: 'merchant-1',
   provider: 'TOPSHIP',
   service_tier: 'standard',
   carrier_name: 'Topship Express',
@@ -413,5 +417,42 @@ describe('bookOrderShipment', () => {
     await expect(
       bookOrderShipment(supabase, 'merchant-1', 'order-1')
     ).rejects.toThrow('could not be saved locally');
+  });
+
+  it('returns the shipment when a booked quote cannot be marked used', async () => {
+    vi.mocked(shippingService.bookShipment).mockResolvedValue(bookingResult);
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    const supabase = createMockSupabase({
+      order: { data: validOrder, error: null },
+      quote: { data: validQuote, error: null },
+      quoteUpdate: { error: { message: 'permission denied' } },
+      merchant: { data: validMerchant, error: null },
+      shipmentInsert: { data: { id: 'shipment-1' }, error: null },
+    });
+
+    const result = await bookOrderShipment(supabase, 'merchant-1', 'order-1');
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        shipmentId: 'shipment-1',
+        provider: bookingResult.provider,
+        trackingNumber: bookingResult.trackingNumber,
+        quoteId: 'quote-1',
+      })
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Shipment booked but quote could not be marked as used',
+      expect.objectContaining({
+        error: { message: 'permission denied' },
+        orderId: 'order-1',
+        provider: bookingResult.provider,
+        quoteId: 'quote-1',
+        trackingNumber: bookingResult.trackingNumber,
+      })
+    );
+    consoleErrorSpy.mockRestore();
   });
 });

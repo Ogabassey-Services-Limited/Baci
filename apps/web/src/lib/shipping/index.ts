@@ -5,9 +5,16 @@
  */
 
 import { QuoteAggregator } from './aggregator';
-import { ShippingProviderRegistry } from './providers/base';
+import { OrderShipmentBookingError } from './order-shipment-booking-utils';
+import {
+  type ShippingProvider,
+  ShippingProviderRegistry,
+} from './providers/base';
 import { GiglProvider } from './providers/gigl';
-import { isGiglRuntimeConfigured } from './providers/gigl.constants';
+import {
+  isExplicitlyDisabledEnv,
+  isGiglRuntimeConfigured,
+} from './providers/gigl.constants';
 import { TopshipProvider } from './providers/topship';
 import type {
   BookingRequest,
@@ -26,12 +33,32 @@ import type {
 // =============================================================================
 
 const registry = new ShippingProviderRegistry();
+const trackingRegistry = new ShippingProviderRegistry();
+const operationsRegistry = new ShippingProviderRegistry();
+
+function isTopshipEnabledForNewShipments(): boolean {
+  return !isExplicitlyDisabledEnv(process.env.TOPSHIP_ENABLED);
+}
+
+function registerProvider(
+  provider: ShippingProvider,
+  { enabledForNewShipments }: { enabledForNewShipments: boolean }
+) {
+  if (enabledForNewShipments) {
+    registry.register(provider);
+  }
+  trackingRegistry.register(provider);
+  operationsRegistry.register(provider);
+}
 
 // Register providers
 if (isGiglRuntimeConfigured()) {
-  registry.register(new GiglProvider());
+  registerProvider(new GiglProvider(), { enabledForNewShipments: true });
 }
-registry.register(new TopshipProvider());
+
+registerProvider(new TopshipProvider(), {
+  enabledForNewShipments: isTopshipEnabledForNewShipments(),
+});
 
 // Create aggregator
 const aggregator = new QuoteAggregator(registry);
@@ -42,11 +69,32 @@ const aggregator = new QuoteAggregator(registry);
 
 export class ShippingService {
   private registry: ShippingProviderRegistry;
+  private trackingRegistry: ShippingProviderRegistry;
+  private operationsRegistry: ShippingProviderRegistry;
   private aggregator: QuoteAggregator;
 
   constructor() {
     this.registry = registry;
+    this.trackingRegistry = trackingRegistry;
+    this.operationsRegistry = operationsRegistry;
     this.aggregator = aggregator;
+  }
+
+  private getProviderForNewShipment(provider: ShippingProviderCode) {
+    const providerInstance = this.registry.get(provider);
+    if (providerInstance) {
+      return providerInstance;
+    }
+
+    if (this.trackingRegistry.get(provider)) {
+      throw new OrderShipmentBookingError(
+        `Provider ${provider} is disabled for new shipments`,
+        400,
+        'SHIPPING_PROVIDER_DISABLED'
+      );
+    }
+
+    throw new Error(`Provider ${provider} not found`);
   }
 
   // ==========================================================================
@@ -67,10 +115,7 @@ export class ShippingService {
     provider: ShippingProviderCode,
     request: QuoteRequest
   ): Promise<ShippingQuote[]> {
-    const providerInstance = this.registry.get(provider);
-    if (!providerInstance) {
-      throw new Error(`Provider ${provider} not found`);
-    }
+    const providerInstance = this.getProviderForNewShipment(provider);
     return await providerInstance.getQuotes(request);
   }
 
@@ -85,10 +130,7 @@ export class ShippingService {
     provider: ShippingProviderCode,
     request: BookingRequest
   ): Promise<ShipmentBookingResult> {
-    const providerInstance = this.registry.get(provider);
-    if (!providerInstance) {
-      throw new Error(`Provider ${provider} not found`);
-    }
+    const providerInstance = this.getProviderForNewShipment(provider);
 
     console.log('[ShippingService] Booking shipment', {
       provider,
@@ -120,7 +162,7 @@ export class ShippingService {
   ): Promise<TrackingResult> {
     // If provider is specified, use it directly
     if (provider) {
-      const providerInstance = this.registry.get(provider);
+      const providerInstance = this.trackingRegistry.get(provider);
       if (!providerInstance) {
         throw new Error(`Provider ${provider} not found`);
       }
@@ -128,7 +170,7 @@ export class ShippingService {
     }
 
     // Try all providers
-    const providers = this.registry.getAll();
+    const providers = this.trackingRegistry.getAll();
     const errors: string[] = [];
 
     for (const p of providers) {
@@ -158,7 +200,7 @@ export class ShippingService {
     provider: ShippingProviderCode,
     shipmentId: string
   ): Promise<CancellationResult> {
-    const providerInstance = this.registry.get(provider);
+    const providerInstance = this.operationsRegistry.get(provider);
     if (!providerInstance) {
       throw new Error(`Provider ${provider} not found`);
     }

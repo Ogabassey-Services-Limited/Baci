@@ -21,6 +21,13 @@ describe('order-shipment-booking-utils', () => {
         country: 'Nigeria',
         countryCode: 'NG',
       },
+      sender: {
+        name: 'Store',
+        phone: '08000000001',
+        address: '1 Merchant Road',
+        city: 'Yaba',
+        state: 'Lagos',
+      },
       items: [{ name: 'Phone', quantity: 1, weight: 1, value: 500000 }],
     });
 
@@ -37,7 +44,15 @@ describe('order-shipment-booking-utils', () => {
         countryCode: 'NG',
       },
       items: [{ name: 'Phone', quantity: 1, weight: 1, value: 500000 }],
-      sender: undefined,
+      sender: {
+        name: 'Store',
+        phone: '08000000001',
+        address: '1 Merchant Road',
+        city: 'Yaba',
+        state: 'Lagos',
+        country: 'Nigeria',
+        countryCode: 'NG',
+      },
     });
   });
 
@@ -75,6 +90,76 @@ describe('order-shipment-booking-utils', () => {
     );
 
     expect(selected?.id).toBe('quote-2');
+  });
+
+  it('matches refreshed quotes by provider rate id before tier and carrier', () => {
+    const selected = selectPreferredQuote(
+      [
+        {
+          id: 'quote-1',
+          provider: 'GIGL',
+          serviceTier: 'International Express',
+          carrierName: 'GIG Logistics',
+          displayName: 'GIG Logistics - International Express',
+          estimatedDays: 5,
+          price: 120000,
+          currency: 'NGN',
+          pickupIncluded: true,
+          insuranceIncluded: true,
+          providerRateId: 'GIGL_INTL_2_0_0_1',
+          expiresAt: new Date('2026-03-23T10:00:00Z'),
+        },
+        {
+          id: 'quote-2',
+          provider: 'GIGL',
+          serviceTier: 'International Express',
+          carrierName: 'GIG Logistics',
+          displayName: 'GIG Logistics - International Express',
+          estimatedDays: 5,
+          price: 150000,
+          currency: 'NGN',
+          pickupIncluded: true,
+          insuranceIncluded: true,
+          providerRateId: 'GIGL_INTL_2_1_3_1',
+          expiresAt: new Date('2026-03-23T10:00:00Z'),
+        },
+      ],
+      {
+        serviceTier: 'International Express',
+        carrierName: 'GIG Logistics',
+        providerRateId: 'GIGL_INTL_2_1_3_1',
+      }
+    );
+
+    expect(selected?.id).toBe('quote-2');
+  });
+
+  it('falls back to tier and carrier when refreshed quotes do not contain the provider rate id', () => {
+    const selected = selectPreferredQuote(
+      [
+        {
+          id: 'quote-1',
+          provider: 'GIGL',
+          serviceTier: 'International Express',
+          carrierName: 'GIG Logistics',
+          displayName: 'GIG Logistics - International Express',
+          estimatedDays: 5,
+          price: 120000,
+          currency: 'NGN',
+          pickupIncluded: true,
+          insuranceIncluded: true,
+          providerRateId: 'GIGL_INTL_2_0_0_1',
+          expiresAt: new Date('2026-03-23T10:00:00Z'),
+        },
+      ],
+      {
+        serviceTier: 'International Express',
+        carrierName: 'GIG Logistics',
+        providerRateId: 'GIGL_INTL_2_1_3_1',
+      }
+    );
+
+    expect(selected?.id).toBe('quote-1');
   });
 
   it('builds shipment items with the default order-booking weight', () => {
@@ -132,5 +217,27 @@ describe('order-shipment-booking-utils', () => {
         },
       })
     ).toThrow('This order is missing a complete shipping address.');
+  });
+
+  it('preserves international receiver country fields from the order address', () => {
+    expect(
+      buildReceiver({
+        customer_name: 'Jane Doe',
+        customer_email: 'jane@example.com',
+        customer_phone: '08000000000',
+        shipping_address: {
+          address: '123 Queen Street West',
+          city: 'Toronto',
+          state: 'Ontario',
+          country: 'Canada',
+          countryCode: 'CA',
+          postalCode: 'M5V 3L9',
+        },
+      })
+    ).toMatchObject({
+      country: 'Canada',
+      countryCode: 'CA',
+      postalCode: 'M5V 3L9',
+    });
   });
 });

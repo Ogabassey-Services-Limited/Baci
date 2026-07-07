@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { SelfFulfillmentSchema, SelfFulfillmentUpdateSchema } from './shipping';
+import {
+  BookingRequestSchema,
+  SelfFulfillmentSchema,
+  SelfFulfillmentUpdateSchema,
+} from './shipping';
 
 const ORDER_ID = '123e4567-e89b-12d3-a456-426614174000';
 
@@ -48,6 +52,106 @@ describe('SelfFulfillmentUpdateSchema dispatchPhone (optional rider number)', ()
       orderId: ORDER_ID,
       dispatchPhone: '0803',
     });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('BookingRequestSchema international item metadata', () => {
+  it('preserves customs and package dimensions for provider payloads', () => {
+    const result = BookingRequestSchema.safeParse({
+      orderId: ORDER_ID,
+      carrierId: 'GIGL',
+      quoteId: ORDER_ID,
+      receiver: {
+        name: 'Jane Receiver',
+        phone: '+14165550123',
+        address: '123 Queen Street West',
+        city: 'Toronto',
+        state: 'Ontario',
+        country: 'Canada',
+        countryCode: 'CA',
+        postalCode: 'M5V 3L9',
+      },
+      items: [
+        {
+          name: 'Phone',
+          quantity: 1,
+          weight: 1,
+          value: 100_000,
+          hsCode: '851712',
+          length: 10,
+          width: 8,
+          height: 6,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.items[0]).toMatchObject({
+      hsCode: '851712',
+      length: 10,
+      width: 8,
+      height: 6,
+    });
+  });
+
+  it('rejects invalid package dimensions before provider booking', () => {
+    const result = BookingRequestSchema.safeParse({
+      orderId: ORDER_ID,
+      carrierId: 'GIGL',
+      quoteId: ORDER_ID,
+      receiver: {
+        name: 'Jane Receiver',
+        phone: '+14165550123',
+        address: '123 Queen Street West',
+        city: 'Toronto',
+        state: 'Ontario',
+        country: 'Canada',
+        countryCode: 'CA',
+      },
+      items: [
+        {
+          name: 'Phone',
+          quantity: 1,
+          weight: 1,
+          value: 100_000,
+          length: -10,
+          width: 8,
+          height: 6,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects partial package dimensions before provider booking', () => {
+    const result = BookingRequestSchema.safeParse({
+      orderId: ORDER_ID,
+      carrierId: 'GIGL',
+      quoteId: ORDER_ID,
+      receiver: {
+        name: 'Jane Receiver',
+        phone: '+14165550123',
+        address: '123 Queen Street West',
+        city: 'Toronto',
+        state: 'Ontario',
+        country: 'Canada',
+        countryCode: 'CA',
+      },
+      items: [
+        {
+          name: 'Phone',
+          quantity: 1,
+          weight: 1,
+          value: 100_000,
+          length: 10,
+          width: 8,
+        },
+      ],
+    });
+
     expect(result.success).toBe(false);
   });
 });

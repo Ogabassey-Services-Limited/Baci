@@ -23,7 +23,7 @@ export class GiglProvider extends BaseShippingProvider {
   readonly code = 'GIGL' as const;
   readonly name = 'GIGL';
   readonly displayName = 'GIG Logistics';
-  readonly supportsInternational = false;
+  readonly supportsInternational = true;
   readonly supportsDomestic = true;
 
   private readonly apiClient = new GiglApiClient({

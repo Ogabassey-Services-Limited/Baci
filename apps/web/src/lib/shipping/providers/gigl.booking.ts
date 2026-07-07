@@ -10,6 +10,10 @@ import {
   parseGiglProviderRateId,
   ShipmentType,
 } from './gigl.constants';
+import {
+  bookGiglInternationalShipment,
+  isGiglInternationalBookingRequest,
+} from './gigl.international.booking';
 import { giglSchemas } from './gigl.schemas';
 import type { GiglStationsService } from './gigl.stations';
 
@@ -19,6 +23,10 @@ export async function bookGiglShipment(
   io: GiglProviderIo,
   request: BookingRequest
 ): Promise<ShipmentBookingResult> {
+  if (isGiglInternationalBookingRequest(request)) {
+    return bookGiglInternationalShipment(apiClient, io, request);
+  }
+
   const signal = AbortSignal.timeout(GIGL_BOOKING_TIMEOUT_MS);
   const selectedRate = parseGiglProviderRateId(request.providerRateId);
   const isStationPickup =

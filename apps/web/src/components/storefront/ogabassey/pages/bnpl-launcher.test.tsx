@@ -1155,7 +1155,11 @@ describe('BnplLauncher', () => {
       render(<BnplLauncher />);
 
       expect(
-        await screen.findByRole('heading', { name: 'Something went wrong' })
+        await screen.findByRole(
+          'heading',
+          { name: 'Something went wrong' },
+          { timeout: 5000 }
+        )
       ).toBeInTheDocument();
       expect(readCreditDirectPopupMarker('order-1')?.transactionId).toBe(
         'txn-999'

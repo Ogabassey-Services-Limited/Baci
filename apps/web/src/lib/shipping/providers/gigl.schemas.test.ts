@@ -30,4 +30,71 @@ describe('giglSchemas', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('validates GIGL country payloads', () => {
+    expect(
+      giglSchemas.countryData.safeParse([
+        {
+          CountryId: 36,
+          CountryName: 'Canada',
+          CountryCode: 'CANADA',
+          CountryShortCode: 'CA',
+          IsInternationalShippingCountry: true,
+        },
+      ]).success
+    ).toBe(true);
+    expect(
+      giglSchemas.countryData.safeParse([
+        {
+          CountryName: 'Canada',
+        },
+      ]).success
+    ).toBe(false);
+  });
+
+  it('validates international price rates', () => {
+    expect(
+      giglSchemas.internationalPriceData.safeParse([
+        {
+          GrandTotal: 114_534.49,
+          LogisticCompany: 0,
+          ShipmentMethod: 0,
+          DeliveryType: 2,
+        },
+      ]).success
+    ).toBe(true);
+    expect(
+      giglSchemas.internationalPriceData.safeParse([
+        {
+          GrandTotal: 0,
+          LogisticCompany: 0,
+          ShipmentMethod: 0,
+          DeliveryType: 2,
+        },
+      ]).success
+    ).toBe(false);
+  });
+
+  it('rejects empty international booking payloads', () => {
+    const result = giglSchemas.internationalBookingData.safeParse({});
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects blank international booking identifiers', () => {
+    const result = giglSchemas.internationalBookingData.safeParse({
+      Waybill: '   ',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('requires an invoice label when an invoice payload is parsed', () => {
+    expect(
+      giglSchemas.invoiceData.safeParse({
+        WaybillLabel: 'https://example.test/label.pdf',
+      }).success
+    ).toBe(true);
+    expect(giglSchemas.invoiceData.safeParse({}).success).toBe(false);
+  });
 });

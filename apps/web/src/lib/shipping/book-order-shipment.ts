@@ -1,5 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { shippingService } from '@/lib/shipping';
+import { assertInternationalQuoteMatchesOrder } from '@/lib/shipping/international-quote-order-guard';
+import {
+  type InternationalShipmentOrderItem,
+  toInternationalShipmentItemsFromOrder,
+} from '@/lib/shipping/international-shipment-items';
 import {
   buildReceiver,
   buildSender,
@@ -9,6 +14,7 @@ import {
   selectPreferredQuote,
   toShipmentItems,
 } from '@/lib/shipping/order-shipment-booking-utils';
+import { isGiglInternationalProviderRate } from '@/lib/shipping/providers/gigl.international-payload';
 import type {
   BookingRequest,
   ShipmentBookingResult,
@@ -17,6 +23,7 @@ import type {
 
 type QuoteRecord = {
   id: string;
+  merchant_id: string | null;
   provider: string;
   service_tier: string | null;
   carrier_name: string | null;
@@ -39,16 +46,13 @@ type OrderRecord = {
   shipping_address: {
     address?: string | null;
     city?: string | null;
+    country?: string | null;
+    countryCode?: string | null;
+    postalCode?: string | null;
     state?: string | null;
     phone?: string | null;
   } | null;
-  order_items:
-    | {
-        name: string | null;
-        quantity: number | null;
-        price: number | string | null;
-      }[]
-    | null;
+  order_items: InternationalShipmentOrderItem[] | null;
 };
 
 type MerchantRecord = {
@@ -121,6 +125,7 @@ async function resolveQuote(
   const replacement = selectPreferredQuote(freshQuotes, {
     serviceTier: quote.service_tier,
     carrierName: quote.carrier_name,
+    providerRateId: quote.provider_rate_id,
   });
 
   if (!replacement) {
@@ -133,6 +138,7 @@ async function resolveQuote(
 
   const nextQuote: QuoteRecord = {
     id: replacement.id,
+    merchant_id: quote.merchant_id,
     provider,
     service_tier: replacement.serviceTier,
     carrier_name: replacement.carrierName,
@@ -148,6 +154,7 @@ async function resolveQuote(
   await supabase.from('shipping_quotes').upsert(
     {
       id: nextQuote.id,
+      merchant_id: quote.merchant_id,
       session_id: quoteRequest.sessionId,
       provider,
       service_tier: nextQuote.service_tier,
@@ -234,7 +241,7 @@ export async function bookOrderShipment(
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .select(
-      'id, customer_name, customer_email, customer_phone, selected_quote_id, shipping_provider, shipping_address, order_items(name, quantity, price)'
+      'id, customer_name, customer_email, customer_phone, selected_quote_id, shipping_provider, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
     )
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
@@ -289,9 +296,10 @@ export async function bookOrderShipment(
   const { data: storedQuote, error: quoteError } = await supabase
     .from('shipping_quotes')
     .select(
-      'id, provider, service_tier, carrier_name, price, currency, estimated_days, provider_rate_id, expires_at, quote_request, provider_metadata'
+      'id, merchant_id, provider, service_tier, carrier_name, price, currency, estimated_days, provider_rate_id, expires_at, quote_request, provider_metadata'
     )
     .eq('id', typedOrder.selected_quote_id)
+    .eq('merchant_id', merchantId)
     .single();
   const typedStoredQuote = storedQuote as QuoteRecord | null;
 
@@ -323,9 +331,47 @@ export async function bookOrderShipment(
     );
   }
 
-  const receiver = buildReceiver(typedOrder);
-  const sender = buildSender(typedMerchant);
-  const items = toShipmentItems(orderItems);
+  const storedQuoteRequest = parseStoredQuoteRequest(
+    resolvedQuote.quote_request
+  );
+  const isGiglInternationalQuote = isGiglInternationalProviderRate(
+    typedOrder.shipping_provider,
+    resolvedQuote.provider_rate_id
+  );
+
+  if (isGiglInternationalQuote && !storedQuoteRequest) {
+    throw new OrderShipmentBookingError(
+      'The saved international shipping quote is missing its original request. Please get a new quote before shipping.',
+      400,
+      'INTERNATIONAL_QUOTE_REQUEST_MISSING'
+    );
+  }
+
+  const orderReceiver = buildReceiver(typedOrder);
+  if (isGiglInternationalQuote && storedQuoteRequest) {
+    assertInternationalQuoteMatchesOrder(storedQuoteRequest, typedOrder);
+  }
+
+  const receiver =
+    isGiglInternationalQuote && storedQuoteRequest
+      ? {
+          ...storedQuoteRequest.receiver,
+          name: orderReceiver.name,
+          email: orderReceiver.email,
+          phone: orderReceiver.phone,
+        }
+      : orderReceiver;
+  const sender =
+    isGiglInternationalQuote && storedQuoteRequest?.sender
+      ? storedQuoteRequest.sender
+      : buildSender(typedMerchant);
+  const items =
+    isGiglInternationalQuote && storedQuoteRequest
+      ? toInternationalShipmentItemsFromOrder(
+          orderItems,
+          storedQuoteRequest.items
+        )
+      : toShipmentItems(orderItems);
 
   const bookingRequest: BookingRequest = {
     orderId: typedOrder.id,
@@ -376,10 +422,21 @@ export async function bookOrderShipment(
     );
   }
 
-  await supabase
+  const { error: quoteUpdateError } = await supabase
     .from('shipping_quotes')
     .update({ used: true })
-    .eq('id', resolvedQuote.id);
+    .eq('id', resolvedQuote.id)
+    .eq('merchant_id', merchantId);
+
+  if (quoteUpdateError) {
+    console.error('Shipment booked but quote could not be marked as used', {
+      error: quoteUpdateError,
+      orderId,
+      provider: result.provider,
+      quoteId: resolvedQuote.id,
+      trackingNumber: result.trackingNumber,
+    });
+  }
 
   return {
     shipmentId: typedShipment.id,

@@ -1,8 +1,20 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
+import {
+  enrichShippingAddressWithQuoteDestination,
+  OrderQuoteDestinationMismatchError,
+  type OrderShippingAddressForQuote,
+} from '@/lib/shipping/order-quote-destination';
 import { createClient } from '@/lib/supabase/server';
-import { reuseCheckoutOrderSchema } from '@/schemas/orders';
+import {
+  type ReuseCheckoutOrderInput,
+  reuseCheckoutOrderSchema,
+} from '@/schemas/orders';
+import {
+  readOptionalShippingFee,
+  readReuseQuoteValidationContext,
+} from './quote-validation-context';
 
 function mapReuseOrderError(
   error: { message?: string; code?: string } | null | undefined
@@ -61,70 +73,179 @@ function getSafeReuseOrderErrorMessage(
     .slice(0, 300);
 }
 
-export async function POST(request: NextRequest) {
-  const { valid: csrfValid, response: csrfResponse } =
-    await checkCsrfProtection(request);
-  if (!csrfValid) {
-    return (
-      csrfResponse ??
-      NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
-    );
-  }
+type ReuseQuoteValidationResult =
+  | { response: NextResponse }
+  | {
+      selectedQuoteId: string | null;
+      shippingAddress: OrderShippingAddressForQuote | undefined;
+    };
 
-  let body: unknown;
+function hasSelectedQuoteInput(data: ReuseCheckoutOrderInput): boolean {
+  return Object.hasOwn(data, 'selected_quote_id');
+}
 
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-  }
-
-  const parsed = reuseCheckoutOrderSchema.safeParse(body);
-
-  if (!parsed.success) {
-    console.warn('POST /api/orders/reuse validation failed', {
-      errors: parsed.error.flatten(),
-    });
-    return NextResponse.json(
-      { error: 'Invalid request data', code: 'validation_error' },
-      { status: 400 }
-    );
-  }
-
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-  const { data, error } = await supabase.rpc(
-    'prepare_storefront_order_for_checkout',
+async function validateSelectedQuoteForReuse(
+  supabase: ReturnType<typeof createClient>,
+  data: ReuseCheckoutOrderInput
+): Promise<ReuseQuoteValidationResult> {
+  const { data: validationData, error } = await supabase.rpc(
+    'get_storefront_order_quote_validation_context',
     {
-      p_order_id: parsed.data.order_id,
-      p_merchant_id: parsed.data.merchant_id,
-      p_tracking_token: parsed.data.tracking_token,
-      p_customer_email: parsed.data.customer_email,
-      p_payment_method: parsed.data.payment_method,
-      p_shipping_provider: parsed.data.shipping_provider || null,
-      p_selected_quote_id: parsed.data.selected_quote_id || null,
+      p_customer_email: data.customer_email,
+      p_has_selected_quote_id: hasSelectedQuoteInput(data),
+      p_merchant_id: data.merchant_id,
+      p_order_id: data.order_id,
+      p_selected_quote_id: data.selected_quote_id,
+      p_tracking_token: data.tracking_token,
     }
   );
 
-  const order = Array.isArray(data) ? data[0] : data;
-
-  if (error || !order) {
+  if (error) {
     const mappedError = mapReuseOrderError(error);
-    if (!isExpectedReuseOrderError(error)) {
-      console.warn('POST /api/orders/reuse RPC failed', {
-        code: error?.code || null,
-        message: getSafeReuseOrderErrorMessage(error),
-        mappedStatus: mappedError.status,
-      });
-    }
-    return NextResponse.json(
-      {
-        error: mappedError.error,
-        ...(mappedError.code ? { code: mappedError.code } : {}),
-      },
-      { status: mappedError.status }
-    );
+    return {
+      response: NextResponse.json(
+        {
+          error: mappedError.error,
+          ...(mappedError.code ? { code: mappedError.code } : {}),
+        },
+        { status: mappedError.status }
+      ),
+    };
   }
 
-  return NextResponse.json({ order });
+  const context = readReuseQuoteValidationContext(validationData);
+  if (!context) {
+    return {
+      response: NextResponse.json(
+        { error: 'Order not found' },
+        { status: 404 }
+      ),
+    };
+  }
+
+  const shippingFee = readOptionalShippingFee(context.shipping_fee);
+  if (!context.selected_quote_id) {
+    return { selectedQuoteId: null, shippingAddress: undefined };
+  }
+  const effectiveShippingProvider =
+    data.shipping_provider ?? context.shipping_provider;
+
+  try {
+    const shippingAddress = await enrichShippingAddressWithQuoteDestination(
+      supabase,
+      context.selected_quote_id,
+      context.shipping_address,
+      {
+        items: context.order_items,
+        merchantId: data.merchant_id,
+        shippingFee: Number.isFinite(shippingFee) ? shippingFee : undefined,
+        shippingProvider: effectiveShippingProvider,
+      }
+    );
+    return { selectedQuoteId: context.selected_quote_id, shippingAddress };
+  } catch (error) {
+    if (error instanceof OrderQuoteDestinationMismatchError) {
+      return {
+        response: NextResponse.json(
+          { error: error.message, code: error.code },
+          { status: error.status }
+        ),
+      };
+    }
+    throw error;
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+      );
+    }
+
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const parsed = reuseCheckoutOrderSchema.safeParse(body);
+
+    if (!parsed.success) {
+      console.warn('POST /api/orders/reuse validation failed', {
+        errors: parsed.error.flatten(),
+      });
+      return NextResponse.json(
+        { error: 'Invalid request data', code: 'validation_error' },
+        { status: 400 }
+      );
+    }
+
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+    const selectedQuoteValidationResponse = await validateSelectedQuoteForReuse(
+      supabase,
+      parsed.data
+    );
+    if ('response' in selectedQuoteValidationResponse) {
+      return selectedQuoteValidationResponse.response;
+    }
+
+    const { data, error } = await supabase.rpc(
+      'prepare_storefront_order_for_checkout',
+      {
+        p_order_id: parsed.data.order_id,
+        p_merchant_id: parsed.data.merchant_id,
+        p_tracking_token: parsed.data.tracking_token,
+        p_customer_email: parsed.data.customer_email,
+        p_payment_method: parsed.data.payment_method,
+        p_has_selected_quote_id: hasSelectedQuoteInput(parsed.data),
+        p_shipping_provider: parsed.data.shipping_provider || null,
+        p_selected_quote_id: selectedQuoteValidationResponse.selectedQuoteId,
+        p_shipping_address:
+          selectedQuoteValidationResponse.shippingAddress ?? null,
+      }
+    );
+
+    const order = Array.isArray(data) ? data[0] : data;
+
+    if (error || !order) {
+      const mappedError = mapReuseOrderError(error);
+      if (!isExpectedReuseOrderError(error)) {
+        console.warn('POST /api/orders/reuse RPC failed', {
+          code: error?.code || null,
+          message: getSafeReuseOrderErrorMessage(error),
+          mappedStatus: mappedError.status,
+        });
+      }
+      return NextResponse.json(
+        {
+          error: mappedError.error,
+          ...(mappedError.code ? { code: mappedError.code } : {}),
+        },
+        { status: mappedError.status }
+      );
+    }
+
+    return NextResponse.json({ order });
+  } catch (error) {
+    console.warn('POST /api/orders/reuse failed', {
+      message: getSafeReuseOrderErrorMessage(
+        error instanceof Error ? error : undefined
+      ),
+    });
+    return NextResponse.json(
+      {
+        error: 'Failed to prepare reusable order',
+        code: 'reuse_order_failed',
+      },
+      { status: 500 }
+    );
+  }
 }

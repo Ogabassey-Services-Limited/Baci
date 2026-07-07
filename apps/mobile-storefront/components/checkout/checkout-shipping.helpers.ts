@@ -1,10 +1,18 @@
 import { resolveLocationStateLabel } from '@baci/shared/lib';
+import { CONFIG } from '@/lib/config';
 import {
   getPreferredShippingQuoteId,
   normalizeShippingQuotes,
 } from '@/lib/shipping-quotes';
 import type { CartItem } from '@/stores/cart-store';
+import { CHECKOUT_MERCHANT_ID } from './checkout-screen.constants';
 import type { ShippingQuote } from './types';
+
+function getQuoteMerchantId(): string | undefined {
+  const configuredMerchantId =
+    typeof CONFIG.MERCHANT_ID === 'string' ? CONFIG.MERCHANT_ID.trim() : '';
+  return configuredMerchantId || CHECKOUT_MERCHANT_ID || undefined;
+}
 
 export interface QuoteResponse {
   quotes: {
@@ -75,10 +83,12 @@ export const fetchShippingQuotes = async ({
   }
 
   try {
+    const merchantId = getQuoteMerchantId();
     const response = await fetch(`${apiUrl}/api/shipping/quotes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        ...(merchantId ? { merchantId } : {}),
         receiver: {
           name:
             `${watchedFirstName} ${watchedLastName}`.trim() ||

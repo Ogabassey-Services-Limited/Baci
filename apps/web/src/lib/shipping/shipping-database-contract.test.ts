@@ -11,6 +11,13 @@ const baselineMigration = readFileSync(
   ),
   'utf8'
 );
+const quoteScopeMigration = readFileSync(
+  resolve(
+    currentDir,
+    '../../../../../supabase/migrations/20260707015215_scope_shipping_quotes_to_merchant.sql'
+  ),
+  'utf8'
+);
 
 function tableDefinition(tableName: string): string {
   const start = baselineMigration.indexOf(
@@ -37,5 +44,33 @@ describe('shipping database contract', () => {
       expect(table).not.toContain('"pickup_station_name"');
       expect(table).not.toContain('"pickup_station_address"');
     }
+  });
+
+  it('scopes cached shipping quotes to merchants without public table access', () => {
+    expect(quoteScopeMigration).toContain(
+      'ADD COLUMN IF NOT EXISTS merchant_id uuid'
+    );
+    expect(quoteScopeMigration).toMatch(
+      /UPDATE\s+public\.shipping_quotes\s+sq\s+SET\s+merchant_id\s+=\s+o\.merchant_id\s+FROM\s+public\.orders\s+o/i
+    );
+    expect(quoteScopeMigration).toContain(
+      'DROP POLICY IF EXISTS "Public can read quotes"'
+    );
+    expect(quoteScopeMigration).toContain(
+      'DROP POLICY IF EXISTS "Public can create quotes"'
+    );
+    expect(quoteScopeMigration).toMatch(
+      /REVOKE\s+ALL\s+ON\s+TABLE\s+public\.shipping_quotes\s+FROM\s+anon/i
+    );
+    expect(quoteScopeMigration).toMatch(
+      /public\.has_merchant_access\(merchant_id\)/
+    );
+    expect(quoteScopeMigration).toContain(
+      'CREATE OR REPLACE FUNCTION public.get_checkout_shipping_quote'
+    );
+    expect(quoteScopeMigration).toContain("sq.quote_request - 'sender'");
+    expect(quoteScopeMigration).toMatch(
+      /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.get_checkout_shipping_quote\(uuid,\s*uuid\)\s+TO\s+anon,\s+authenticated,\s+service_role/i
+    );
   });
 });

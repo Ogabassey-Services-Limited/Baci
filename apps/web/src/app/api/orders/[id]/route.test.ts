@@ -912,7 +912,48 @@ describe('PATCH /api/orders/[id]', () => {
     expect(payload).toEqual({ order: updatedOrder });
   });
 
-  it('releases the booking lock when shipment booking fails before provider state is created', async () => {
+  it.each([
+    [
+      'INCOMPLETE_SHIPPING_ADDRESS',
+      'Complete shipping address is required before booking shipment',
+    ],
+    [
+      'INTERNATIONAL_QUOTE_REQUEST_MISSING',
+      'Saved international quote request not found',
+    ],
+    [
+      'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
+      'The saved international shipping quote no longer matches this order.',
+    ],
+    [
+      'INTERNATIONAL_QUOTE_ITEM_METADATA_MISMATCH',
+      'The saved international shipping quote no longer matches the current product shipping details.',
+    ],
+    [
+      'SHIPPING_PROVIDER_DISABLED',
+      'Provider TOPSHIP is disabled for new shipments',
+    ],
+    [
+      'GIGL_INTERNATIONAL_COUNTRY_LOOKUP_FAILED',
+      'GIGL international destination country lookup failed',
+    ],
+    [
+      'GIGL_INTERNATIONAL_DESTINATION_COUNTRY_NOT_FOUND',
+      'GIGL international destination country not found',
+    ],
+    [
+      'GIGL_INTERNATIONAL_ITEM_HS_CODE_MISSING',
+      'HS code is required for international item',
+    ],
+    [
+      'GIGL_INTERNATIONAL_ITEM_PACKAGE_LIMIT',
+      'Too many packages for one GIGL international item',
+    ],
+    [
+      'GIGL_INTERNATIONAL_SHIPMENT_PACKAGE_LIMIT',
+      'Too many packages for GIGL international shipment',
+    ],
+  ])('releases the booking lock when shipment booking fails with %s', async (code, message) => {
     const existingOrder: ExistingOrder = {
       id: 'order-1',
       order_number: 'BACI-001',
@@ -942,11 +983,7 @@ describe('PATCH /api/orders/[id]', () => {
       supabase,
     });
     vi.mocked(bookOrderShipment).mockRejectedValue(
-      new OrderShipmentBookingError(
-        'Shipping address is incomplete.',
-        400,
-        'INCOMPLETE_SHIPPING_ADDRESS'
-      )
+      new OrderShipmentBookingError(message, 400, code)
     );
 
     const response = await PATCH(
@@ -959,8 +996,8 @@ describe('PATCH /api/orders/[id]', () => {
 
     expect(response.status).toBe(400);
     expect(payload).toEqual({
-      error: 'Shipping address is incomplete.',
-      code: 'INCOMPLETE_SHIPPING_ADDRESS',
+      error: message,
+      code,
     });
     expect(clearOrderShipmentBookingLock).toHaveBeenCalledWith(
       supabase,

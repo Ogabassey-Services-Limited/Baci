@@ -36,14 +36,36 @@ vi.mock('@/lib/shipping', () => ({
   },
 }));
 
-function buildSupabaseMock() {
+function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
   const ordersSelectChain = {
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({
       data: {
         id: '11111111-1111-4111-8111-111111111111',
         merchant_id: 'merchant-1',
+        selected_quote_id: '22222222-2222-4222-8222-222222222222',
         shipping_status: 'pending',
+        shipping_address: {
+          address: '123 Queen Street West',
+          city: 'Toronto',
+          state: 'Ontario',
+          country: 'Canada',
+          countryCode: 'CA',
+          postalCode: 'M5V 3L9',
+        },
+        order_items: [
+          {
+            name: 'Phone',
+            quantity: 1,
+            price: 500000,
+            product: {
+              weight_value: 1,
+              weight_unit: 'kg',
+              dimensions: { length: 10, width: 8, height: 6, unit: 'cm' },
+              commodity_code: '851712',
+            },
+          },
+        ],
       },
       error: null,
     }),
@@ -53,13 +75,15 @@ function buildSupabaseMock() {
     single: vi.fn().mockResolvedValue({
       data: {
         id: '22222222-2222-4222-8222-222222222222',
-        provider_code: 'GIGL',
+        provider: 'GIGL',
         provider_rate_id: 'gigl:service-centre:5',
         provider_metadata: { stationId: 5 },
+        quote_request: null,
         expires_at: new Date(Date.now() + 60_000).toISOString(),
         price: 4500,
         currency: 'NGN',
         estimated_days: 2,
+        ...quoteOverrides,
       },
       error: null,
     }),
@@ -76,6 +100,11 @@ function buildSupabaseMock() {
     eq: vi.fn().mockReturnThis(),
   };
   updateChain.eq.mockReturnValue(updateChain);
+  const shippingQuoteUpdateChain = {
+    error: null,
+    eq: vi.fn(),
+  };
+  shippingQuoteUpdateChain.eq.mockReturnValue(shippingQuoteUpdateChain);
 
   return {
     auth: {
@@ -96,10 +125,12 @@ function buildSupabaseMock() {
 
       if (table === 'shipping_quotes') {
         return {
-          select: vi.fn(() => quotesSelectChain),
-          update: vi.fn(() => ({
-            eq: vi.fn().mockResolvedValue({ error: null }),
-          })),
+          select: vi.fn((columns: string) => {
+            expect(columns).toContain('provider,');
+            expect(columns).not.toContain('provider_code');
+            return quotesSelectChain;
+          }),
+          update: vi.fn(() => shippingQuoteUpdateChain),
         };
       }
 

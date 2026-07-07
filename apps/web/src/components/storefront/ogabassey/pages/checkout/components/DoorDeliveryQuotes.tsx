@@ -1,15 +1,18 @@
 'use client';
 
-import { Truck } from 'lucide-react';
+import { Building2, Truck } from 'lucide-react';
 import { getCarrierBadge } from '@/components/storefront/ogabassey/config/checkout/shipping-carriers';
 import { SmartQuoteLoader } from '../../../components/SmartQuoteLoader';
 import type { ShippingQuote } from '../types';
+import { getStationPickupAddressText } from '../utils';
 
 interface DoorDeliveryQuotesProps {
   shippingQuotes: ShippingQuote[];
+  stationPickupQuote?: ShippingQuote;
   isLoadingQuotes: boolean;
   selectedQuoteId: string;
   setSelectedQuoteId: (value: string) => void;
+  onSelectStationPickup?: (quoteId: string) => void;
   fetchShippingQuotes: (
     address: string,
     state: string,
@@ -30,9 +33,11 @@ interface DoorDeliveryQuotesProps {
 
 export function DoorDeliveryQuotes({
   shippingQuotes,
+  stationPickupQuote,
   isLoadingQuotes,
   selectedQuoteId,
   setSelectedQuoteId,
+  onSelectStationPickup,
   fetchShippingQuotes,
   newAddressStreet,
   newAddressState,
@@ -99,6 +104,39 @@ export function DoorDeliveryQuotes({
                 </label>
               );
             })}
+          </div>
+        ) : stationPickupQuote ? (
+          <div className="rounded-xl border border-store-primary/20 bg-store-primary/5 p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-store-primary/10 text-store-primary">
+                <Building2 size={22} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-sm font-bold text-store-background-text">
+                  GIGL doesn't currently support door delivery to this location.
+                </h4>
+                <p className="mt-1 text-xs text-store-background-text/65">
+                  Choose Pickup Stations (GIGL) to collect from a nearby service
+                  centre.
+                </p>
+                <p className="mt-3 text-xs font-medium text-store-background-text">
+                  {getStationPickupAddressText(stationPickupQuote) ||
+                    stationPickupQuote.displayName}
+                </p>
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm font-bold text-store-background-text">
+                    ₦{stationPickupQuote.price.toLocaleString()}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onSelectStationPickup?.(stationPickupQuote.id)}
+                    className="inline-flex items-center justify-center rounded-full bg-store-primary px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-store-primary/90"
+                  >
+                    Choose Pickup Stations (GIGL)
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
           <button

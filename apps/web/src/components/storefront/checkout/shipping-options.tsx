@@ -17,6 +17,7 @@ interface QuoteItemPayload {
 }
 
 interface ShippingOptionsProps {
+  merchantId: string;
   receiverCity: string;
   receiverState: string;
   receiverAddress: string;
@@ -33,6 +34,7 @@ interface ShippingOptionsProps {
 }
 
 export function ShippingOptions({
+  merchantId,
   receiverCity,
   receiverState,
   receiverAddress,
@@ -84,8 +86,12 @@ export function ShippingOptions({
       return;
     }
 
+    if (!merchantId) {
+      return;
+    }
+
     // Create a key for this specific fetch request
-    const fetchKey = `${receiverCity}-${receiverState}-${receiverAddress}-${serializedCartItems}`;
+    const fetchKey = `${merchantId}-${receiverCity}-${receiverState}-${receiverAddress}-${serializedCartItems}`;
 
     // Skip if we've already fetched for this exact configuration
     if (lastFetchKey.current === fetchKey && quotes.length > 0) {
@@ -98,6 +104,7 @@ export function ShippingOptions({
       lastFetchKey.current = fetchKey;
 
       apiPost<unknown>('/api/shipping/quotes', {
+        merchantId,
         receiver: {
           name: receiverName || 'Customer',
           phone: receiverPhone || '',
@@ -148,6 +155,7 @@ export function ShippingOptions({
     receiverPhone,
     serializedCartItems,
     quotes.length,
+    merchantId,
   ]);
 
   const formatDeliveryTime = (quote: ShippingQuote) => {

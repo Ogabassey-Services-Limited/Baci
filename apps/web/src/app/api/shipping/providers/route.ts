@@ -24,9 +24,10 @@ export async function GET() {
         name: 'GIG Logistics',
         displayName: 'GIG Logistics',
         supportsDomestic: true,
-        supportsInternational: false,
+        supportsInternational: true,
         hasStationPickup: true,
-        description: 'Nigerian logistics company with nationwide coverage',
+        description:
+          'Nigerian logistics company with nationwide and international coverage',
       },
       TOPSHIP: {
         name: 'Topship',

@@ -10,6 +10,7 @@ vi.mock('../../../components/SmartQuoteLoader', () => ({
 describe('DeliveryMethodDetails', () => {
   const defaultProps: ComponentProps<typeof DeliveryMethodDetails> = {
     deliveryMethod: 'door',
+    setDeliveryMethod: vi.fn(),
     airportType: 'delivery',
     setAirportType: vi.fn(),
     shippingQuotes: [],
@@ -74,6 +75,39 @@ describe('DeliveryMethodDetails', () => {
 
     expect(screen.getByText('Standard Delivery')).toBeInTheDocument();
     expect(defaultProps.setSelectedQuoteId).toHaveBeenCalledWith('q1');
+  });
+
+  it('renders the selected GIGL pickup station details', () => {
+    render(
+      <DeliveryMethodDetails
+        {...defaultProps}
+        deliveryMethod="pickup_station"
+        selectedQuoteId="station-quote"
+        shippingQuotes={[
+          {
+            id: 'station-quote',
+            provider: 'GIGL',
+            serviceTier: 'station',
+            carrierName: 'GIG Logistics',
+            displayName: 'Pickup Stations (GIGL)',
+            price: 4200,
+            estimatedDays: 3,
+            currency: 'NGN',
+            pickupIncluded: true,
+            insuranceIncluded: true,
+            isStationPickup: true,
+            stationName: 'PORT HARCOURT',
+            stationAddress: 'GIGL Aba Road, Port Harcourt',
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Pickup Stations (GIGL)')).toBeInTheDocument();
+    expect(screen.getByText('PORT HARCOURT')).toBeInTheDocument();
+    expect(
+      screen.getByText(/gigl aba road, port harcourt/i),
+    ).toBeInTheDocument();
   });
 
   it('refreshes shipping quotes using the current address', () => {

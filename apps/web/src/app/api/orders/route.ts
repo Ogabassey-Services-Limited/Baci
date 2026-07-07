@@ -16,6 +16,7 @@ import {
 } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import {
+  CanonicalOrderSubtotalLoadError,
   computeCanonicalOrderSubtotal,
   isCanonicalOrderSubtotalUuidError,
 } from '@/lib/checkout/canonical-order-subtotal';
@@ -63,6 +64,11 @@ import {
   resolveReceiptLogoDataUri,
 } from '@/lib/receipt-pdf-generator';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
+import { toInternationalQuoteValidationItemsFromOrder } from '@/lib/shipping/international-shipment-items';
+import {
+  enrichShippingAddressWithQuoteDestination,
+  OrderQuoteDestinationMismatchError,
+} from '@/lib/shipping/order-quote-destination';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
@@ -134,6 +140,19 @@ type QuizVoucherItemCandidate = {
   voucher_token?: unknown;
 };
 type OrderCreateItem = OrderCreateInput['items'][number];
+type OrderQuoteValidationPayloadItem = {
+  price?: number | string | null;
+  product_id?: string | null;
+  quantity: number;
+};
+type OrderQuoteValidationProductRow = {
+  commodity_code?: string | null;
+  dimensions?: unknown;
+  id: string;
+  name: string | null;
+  weight_unit?: string | null;
+  weight_value?: number | string | null;
+};
 type ImmediateInvoiceOrderItem = Omit<OrderCreateItem, 'assurance_fee'> & {
   assurance_fee?: number;
   item_description?: string | null;
@@ -314,7 +333,8 @@ function buildImmediateInvoiceShippingAddress(
     address_line1: shippingAddress.address,
     city: shippingAddress.city,
     state: shippingAddress.state,
-    country: 'NG',
+    postal_code: shippingAddress.postalCode,
+    country: shippingAddress.countryCode || shippingAddress.country || 'NG',
   };
 }
 
@@ -364,6 +384,59 @@ function getStringRecord(value: unknown): Record<string, string> | undefined {
 
 function getOrderItemUnitPrice(item: OrderCreateItem) {
   return item.negotiatedPrice ?? item.price;
+}
+
+async function buildOrderQuoteValidationItems({
+  items,
+  merchantId,
+  supabase,
+}: {
+  items: OrderQuoteValidationPayloadItem[];
+  merchantId: string;
+  supabase: ReturnType<typeof createClient>;
+}) {
+  const productIds = Array.from(
+    new Set(
+      items
+        .map((item) => item.product_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    )
+  );
+
+  if (productIds.length === 0) {
+    return items.map((item) => ({ name: null, quantity: item.quantity }));
+  }
+
+  const { data: products, error } = await supabase
+    .from('products')
+    .select('id, name, weight_value, weight_unit, dimensions, commodity_code')
+    .eq('merchant_id', merchantId)
+    .in('id', productIds)
+    .returns<OrderQuoteValidationProductRow[]>();
+
+  if (error || !products) {
+    throw new CanonicalOrderSubtotalLoadError(
+      'Unable to load products for international quote validation',
+      { cause: error ?? undefined },
+      (error as { code?: string } | null | undefined)?.code
+    );
+  }
+
+  const productMap = new Map(products.map((product) => [product.id, product]));
+  return toInternationalQuoteValidationItemsFromOrder(
+    items.map((item) => {
+      const product = item.product_id
+        ? (productMap.get(item.product_id) ?? null)
+        : null;
+      return {
+        name: product?.name ?? null,
+        price: item.price ?? null,
+        quantity: item.quantity,
+        product,
+      };
+    }),
+    { includeValue: true }
+  );
 }
 
 function getOrderItemAssuranceFee(item: ImmediateInvoiceOrderItem) {
@@ -694,7 +767,10 @@ function buildImmediatePeppolInvoiceData(input: {
             street: input.shippingAddress.address,
             city: input.shippingAddress.city,
             state: input.shippingAddress.state,
-            country: 'NG',
+            country:
+              input.shippingAddress.countryCode ||
+              input.shippingAddress.country ||
+              'NG',
           }
         : undefined,
     },
@@ -1361,6 +1437,65 @@ export async function POST(request: NextRequest) {
 
     const resolvedShippingProvider = body.shipping_provider ?? null;
     const resolvedTrackingNumber = body.tracking_number ?? null;
+    let quoteValidationItems:
+      | Awaited<ReturnType<typeof buildOrderQuoteValidationItems>>
+      | undefined;
+    if (body.selected_quote_id) {
+      try {
+        quoteValidationItems = await buildOrderQuoteValidationItems({
+          items: orderItemsPayload,
+          merchantId: body.merchant_id,
+          supabase,
+        });
+      } catch (quoteValidationItemsError) {
+        if (isCanonicalOrderSubtotalUuidError(quoteValidationItemsError)) {
+          logger.warn({
+            error: quoteValidationItemsError,
+            merchantId: body.merchant_id,
+            message:
+              'Storefront order received malformed identifier during quote validation',
+          });
+          return NextResponse.json(
+            { error: 'Failed to create order', details: 'invalid_items' },
+            { status: 400 }
+          );
+        }
+        logger.error({
+          error: quoteValidationItemsError,
+          merchantId: body.merchant_id,
+          message: 'Storefront order quote validation item lookup failed',
+        });
+        return NextResponse.json(
+          {
+            code: 'QUOTE_VALIDATION_FAILED',
+            error: 'Unable to validate quote',
+          },
+          { status: 500 }
+        );
+      }
+    }
+    let shippingAddressForOrder: OrderCreateInput['shipping_address'];
+    try {
+      shippingAddressForOrder = await enrichShippingAddressWithQuoteDestination(
+        supabase,
+        body.selected_quote_id,
+        shipping_address,
+        {
+          items: quoteValidationItems,
+          merchantId: body.merchant_id,
+          shippingFee: shippingFeeValue,
+          shippingProvider: resolvedShippingProvider,
+        }
+      );
+    } catch (error) {
+      if (error instanceof OrderQuoteDestinationMismatchError) {
+        return NextResponse.json(
+          { error: error.message, code: error.code },
+          { status: error.status }
+        );
+      }
+      throw error;
+    }
 
     const payOnDelivery = isPayOnDelivery(payment_method);
 
@@ -1373,7 +1508,7 @@ export async function POST(request: NextRequest) {
           message: 'Rider Notification Triggered (POD)',
           riderPhone: merchant.rider_phone_number,
           customerName: customer_name,
-          customerAddress: shipping_address?.address,
+          customerAddress: shippingAddressForOrder?.address,
         });
       } else {
         logger.warn({
@@ -1504,6 +1639,7 @@ export async function POST(request: NextRequest) {
       ? hashOrderIdempotencyPayload(
           buildOrderIdempotencyPayload({
             ...body,
+            shipping_address: shippingAddressForOrder,
             // STABLE code identity, NOT the recomputed amount, so a merchant
             // editing the code between a checkout and its retry can't trip
             // checkout_idempotency_conflict before the wrapper's replay path.
@@ -1556,7 +1692,7 @@ export async function POST(request: NextRequest) {
       p_payment_method: payment_method,
       p_payment_status: effectivePaymentStatus,
       p_shipping_status: shipping_status,
-      p_shipping_address: shipping_address || null,
+      p_shipping_address: shippingAddressForOrder || null,
       p_source: source,
       p_notes: notes || null,
       p_ad_tracking: adTrackingPayload,
@@ -2001,9 +2137,9 @@ export async function POST(request: NextRequest) {
           shippingFee: orderShippingFee,
           total: orderTotal,
           shippingAddress: {
-            address: shipping_address?.address || '',
-            city: shipping_address?.city || '',
-            state: shipping_address?.state || '',
+            address: shippingAddressForOrder?.address || '',
+            city: shippingAddressForOrder?.city || '',
+            state: shippingAddressForOrder?.state || '',
             phone: customer_phone || '',
           },
           merchantName: merchant.business_name,
@@ -2170,8 +2306,9 @@ export async function POST(request: NextRequest) {
                   customer_name,
                   customer_email,
                   customer_phone: customer_phone || null,
-                  shipping_address:
-                    buildImmediateInvoiceShippingAddress(shipping_address),
+                  shipping_address: buildImmediateInvoiceShippingAddress(
+                    shippingAddressForOrder
+                  ),
                   virtual_account: invoiceVirtualAccount,
                   fulfillment_details: fulfillment,
                   items: invoiceItems.map((item, index) => {
@@ -2211,7 +2348,7 @@ export async function POST(request: NextRequest) {
                   orderSubtotal,
                   orderTotal,
                   paymentAccount: invoiceVirtualAccount,
-                  shippingAddress: shipping_address,
+                  shippingAddress: shippingAddressForOrder,
                 });
                 let peppolInvoiceXml: string | null = null;
 

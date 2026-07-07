@@ -4,7 +4,10 @@ import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { AddressAutocomplete } from '@/components/address-autocomplete';
 import type { DeliveryMethod, SavedAddress, ShippingQuote } from '../types';
-import { inferAddressLocationFromInput } from '../utils';
+import {
+  inferAddressLocationFromInput,
+  resetDeliveryQuotesForAddressChange,
+} from '../utils';
 
 interface DeliveryAddressSectionProps {
   user: { id: string } | null | undefined;
@@ -60,6 +63,12 @@ export function DeliveryAddressSection({
     manualLocationOpen || manualLocationLocked || placesFailed;
   const showManualLocation = manualLocationInUse;
   const showManualToggle = !showManualLocation && !hasDetectedLocation;
+  const resetQuotesForAddressChange = () =>
+    resetDeliveryQuotesForAddressChange({
+      setDeliveryMethod,
+      setSelectedQuoteId,
+      setShippingQuotes,
+    });
 
   return (
     <div className="space-y-4">
@@ -95,6 +104,7 @@ export function DeliveryAddressSection({
                   onChange={() => {
                     setSelectedAddressId(addr.id);
                     setIsNewAddressMode(false);
+                    resetQuotesForAddressChange();
                     const inferred = inferAddressLocationFromInput(
                       addr.address,
                       shippingStates,
@@ -149,9 +159,7 @@ export function DeliveryAddressSection({
                 if (!manualLocationInUse) {
                   setNewAddressState('');
                   setNewAddressCity('');
-                  setShippingQuotes([]);
-                  setSelectedQuoteId('');
-                  setDeliveryMethod('door');
+                  resetQuotesForAddressChange();
                 }
                 if (!newVal) setManualLocationOpen(false);
                 return;
@@ -162,19 +170,19 @@ export function DeliveryAddressSection({
                 shippingStates,
               );
               if (inferred) {
+                resetQuotesForAddressChange();
                 setNewAddressState(inferred.state);
                 setNewAddressCity(inferred.city);
                 setManualLocationLocked(false);
               } else if (!manualLocationInUse) {
                 setNewAddressState('');
                 setNewAddressCity('');
-                setShippingQuotes([]);
-                setSelectedQuoteId('');
-                setDeliveryMethod('door');
+                resetQuotesForAddressChange();
               }
             }}
             onSelect={(place) => {
               setNewAddressStreet(place.formattedAddress);
+              resetQuotesForAddressChange();
               setNewAddressState(place.state);
               setNewAddressCity(place.city);
               setManualLocationLocked(false);
@@ -229,8 +237,7 @@ export function DeliveryAddressSection({
                       setManualLocationOpen(true);
                       setManualLocationLocked(true);
                       setNewAddressState(e.target.value);
-                      setShippingQuotes([]);
-                      setSelectedQuoteId('');
+                      resetQuotesForAddressChange();
                     }}
                     className="w-full rounded-xl border border-store-background-text/10 bg-store-background px-4 py-3 text-sm text-store-background-text focus:border-store-primary focus:outline-hidden disabled:opacity-50"
                   >
@@ -260,8 +267,7 @@ export function DeliveryAddressSection({
                       setManualLocationOpen(true);
                       setManualLocationLocked(true);
                       setNewAddressCity(e.target.value);
-                      setShippingQuotes([]);
-                      setSelectedQuoteId('');
+                      resetQuotesForAddressChange();
                     }}
                     placeholder="e.g. Lekki"
                     className="w-full rounded-xl border border-store-background-text/10 bg-store-background px-4 py-3 text-sm text-store-background-text placeholder:text-store-background-text/40 focus:border-store-primary focus:outline-hidden"

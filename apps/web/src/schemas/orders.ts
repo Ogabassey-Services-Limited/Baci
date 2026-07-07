@@ -208,6 +208,18 @@ const orderCreateSchemaBase = z
           .string()
           .optional()
           .transform((val) => (val ? sanitizeText(val) : val)),
+        country: z
+          .string()
+          .optional()
+          .transform((val) => (val ? sanitizeText(val) : val)),
+        countryCode: z
+          .string()
+          .optional()
+          .transform((val) => (val ? sanitizeText(val) : val)),
+        postalCode: z
+          .string()
+          .optional()
+          .transform((val) => (val ? sanitizeText(val) : val)),
       })
       .optional(),
     source: z

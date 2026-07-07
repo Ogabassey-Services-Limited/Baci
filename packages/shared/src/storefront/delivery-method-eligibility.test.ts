@@ -59,6 +59,9 @@ describe('web storefront delivery method eligibility', () => {
     expect(isWebStorefrontDeliveryMethodEligible('airport', 'Lagos')).toBe(
       false
     );
+    expect(
+      isWebStorefrontDeliveryMethodEligible('pickup_station', 'Rivers')
+    ).toBe(true);
   });
 
   it('falls back to door delivery when a selected method becomes ineligible', () => {
@@ -83,5 +86,8 @@ describe('web storefront delivery method eligibility', () => {
     expect(resolveEligibleWebStorefrontDeliveryMethod('airport', 'FCT')).toBe(
       'airport'
     );
+    expect(
+      resolveEligibleWebStorefrontDeliveryMethod('pickup_station', 'Oyo')
+    ).toBe('pickup_station');
   });
 });

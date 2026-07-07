@@ -43,6 +43,9 @@ export interface ShipmentItem {
   value: number; // Naira
   category?: string; // For Topship categories
   hsCode?: string; // For international shipments
+  length?: number; // cm, for international volumetric pricing
+  width?: number; // cm, for international volumetric pricing
+  height?: number; // cm, for international volumetric pricing
   description?: string;
 }
 
@@ -308,7 +311,7 @@ export const PROVIDER_CONFIGS: Record<ShippingProviderCode, ProviderConfig> = {
     name: 'GIGL',
     displayName: 'GIG Logistics',
     enabled: true,
-    supportsInternational: false,
+    supportsInternational: true,
     supportsDomestic: true,
   },
   TOPSHIP: {

@@ -1,5 +1,20 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { CartItem } from '@/stores/cart-store';
+
+let mockMerchantId = 'merchant-1';
+
+jest.mock('@/lib/config', () => ({
+  CONFIG: {
+    get MERCHANT_ID() {
+      return mockMerchantId;
+    },
+  },
+}));
+
+jest.mock('./checkout-screen.constants', () => ({
+  CHECKOUT_MERCHANT_ID: 'checkout-merchant-1',
+}));
+
 import {
   fetchShippingQuotes,
   normalizeStateName,
@@ -27,6 +42,10 @@ const createShippingQuote = (
 });
 
 describe('checkout-shipping.helpers', () => {
+  beforeEach(() => {
+    mockMerchantId = 'merchant-1';
+  });
+
   it('normalizes Google state aliases to known shipping state labels', () => {
     expect(normalizeStateName('fct', ['FCT - Abuja', 'Lagos'])).toBe(
       'FCT - Abuja'
@@ -44,14 +63,15 @@ describe('checkout-shipping.helpers', () => {
   });
 
   it('sets normalized quotes and preferred selection when quote request succeeds', async () => {
-    global.fetch = jest.fn(async () => ({
+    const fetchMock = jest.fn<typeof fetch>().mockResolvedValue({
       json: async () => ({
         quotes: {
           all: [createShippingQuote({ id: 'quote-1', provider: 'Provider A' })],
         },
       }),
       ok: true,
-    })) as unknown as typeof fetch;
+    } as Response);
+    global.fetch = fetchMock as unknown as typeof fetch;
 
     const setIsLoadingQuotes = jest.fn();
     const setSelectedQuoteId = jest.fn();
@@ -91,6 +111,45 @@ describe('checkout-shipping.helpers', () => {
     );
     expect(setSelectedQuoteId).toHaveBeenLastCalledWith('quote-1');
     expect(setIsLoadingQuotes).toHaveBeenLastCalledWith(false);
+    const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+    const requestBody = JSON.parse(String(requestInit?.body));
+    expect(requestBody.merchantId).toBe('merchant-1');
+  });
+
+  it('falls back to the checkout merchant id when config merchant id is blank', async () => {
+    mockMerchantId = '';
+    const fetchMock = jest.fn<typeof fetch>().mockResolvedValue({
+      json: async () => ({
+        quotes: {
+          all: [createShippingQuote({ id: 'quote-1', provider: 'Provider A' })],
+        },
+      }),
+      ok: true,
+    } as Response);
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await fetchShippingQuotes({
+      apiUrl: 'https://example.com',
+      city: 'Lagos',
+      customer: null,
+      items: [createCartItem()],
+      quoteContextKey: 'Lagos|Lagos',
+      setIsLoadingQuotes: jest.fn(),
+      setResolvedShippingQuoteContextKey: jest.fn(),
+      setSelectedQuoteId: jest.fn(),
+      setShippingQuotes: jest.fn(),
+      shouldResetSelection: true,
+      state: 'Lagos',
+      watchedAddress: '1 Marina',
+      watchedEmail: 'ada@example.com',
+      watchedFirstName: 'Ada',
+      watchedLastName: 'Lovelace',
+      watchedPhone: '08031234567',
+    });
+
+    const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+    const requestBody = JSON.parse(String(requestInit?.body));
+    expect(requestBody.merchantId).toBe('checkout-merchant-1');
   });
 
   it('clears quotes when request fails and selection reset is required', async () => {
