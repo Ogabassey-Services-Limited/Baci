@@ -28,6 +28,10 @@ DECLARE
   missing  text;
   base_cfg jsonb;
   custom_cfg jsonb;
+  v_mid3   uuid := '8f0ed783-0000-4000-8000-000000000403';
+  v_content_less jsonb;
+  v_after  jsonb;
+  v_updated timestamptz;
 BEGIN
   -- ---------- object existence ----------
   IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid = 'public.normalize_merchant_business_name()'::regprocedure) THEN
@@ -91,8 +95,8 @@ BEGIN
 
   -- Reset to the baked name and attach a config for the propagation tests.
   UPDATE public.merchants SET business_name = 'Yodhashop' WHERE id = v_mid;
-  INSERT INTO public.page_configs (merchant_id, page_slug, page_name, draft_config, published_config, is_published)
-  VALUES (v_mid, 'home', 'Home', base_cfg, base_cfg, true);
+  INSERT INTO public.page_configs (merchant_id, page_slug, page_name, draft_config, published_config, is_published, updated_at)
+  VALUES (v_mid, 'home', 'Home', base_cfg, base_cfg, true, TIMESTAMPTZ '2020-01-01T00:00:00Z');
 
   -- ================= TEST 2: propagation on rename =================
   UPDATE public.merchants SET business_name = '  Zorvexa  ' WHERE id = v_mid;  -- also exercises trim
@@ -129,6 +133,14 @@ BEGIN
     RAISE EXCEPTION 'non-name slide title was clobbered';
   END IF;
 
+  -- The propagation must bump updated_at (the builder's optimistic-concurrency
+  -- token) so a stale builder save cannot silently overwrite the rewrite.
+  SELECT updated_at INTO v_updated
+  FROM public.page_configs WHERE merchant_id = v_mid AND page_slug = 'home';
+  IF v_updated <= TIMESTAMPTZ '2021-01-01T00:00:00Z' THEN
+    RAISE EXCEPTION 'propagation did not bump page_configs.updated_at (still %%)', v_updated;
+  END IF;
+
   -- ================= TEST 3: customized store name is preserved =================
   custom_cfg := jsonb_set(base_cfg, '{content,0,props,storeName}', to_jsonb('My Custom Brand'::text));
   INSERT INTO public.merchants (id, email, business_name, slug)
@@ -143,6 +155,28 @@ BEGIN
 
   IF v_store <> 'My Custom Brand' THEN
     RAISE EXCEPTION 'customized storeName must NOT change on rename: got "%%"', v_store;
+  END IF;
+
+  -- ================= TEST 4: a content-less config survives a rename unchanged =================
+  -- Regression for the NULL-wipe bug: a page config with no top-level `content`
+  -- array must be left exactly as-is, never wiped to NULL by a strict jsonb_set.
+  v_content_less := jsonb_build_object(
+    'root', jsonb_build_object('props', jsonb_build_object('title', 'Home'))
+  );
+  INSERT INTO public.merchants (id, email, business_name, slug)
+  VALUES (v_mid3, 'name-prop3@example.com', 'Yodhashop', 'name-prop-fixture-3');
+  INSERT INTO public.page_configs (merchant_id, page_slug, page_name, draft_config, published_config, is_published)
+  VALUES (v_mid3, 'home', 'Home', v_content_less, v_content_less, true);
+
+  UPDATE public.merchants SET business_name = 'Zorvexa' WHERE id = v_mid3;
+
+  SELECT draft_config INTO v_after
+  FROM public.page_configs WHERE merchant_id = v_mid3 AND page_slug = 'home';
+  IF v_after IS NULL THEN
+    RAISE EXCEPTION 'content-less draft_config was wiped to NULL on rename';
+  END IF;
+  IF v_after IS DISTINCT FROM v_content_less THEN
+    RAISE EXCEPTION 'content-less draft_config was altered on rename: %%', v_after;
   END IF;
 
   RAISE NOTICE 'merchant_business_name_propagation: ALL ASSERTIONS PASSED';

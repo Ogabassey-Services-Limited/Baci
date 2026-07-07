@@ -45,7 +45,11 @@ AS $$
     WHEN cfg IS NULL
       OR old_name IS NULL OR old_name = ''
       OR new_name IS NULL OR new_name = ''
-      OR jsonb_typeof(cfg -> 'content') <> 'array'
+      -- IS DISTINCT FROM (not <>) so a config with a missing/NULL `content` key
+      -- evaluates TRUE here and is returned unchanged. With `<>`, jsonb_typeof(NULL)
+      -- makes the guard NULL, falling through to the ELSE where a strict jsonb_set
+      -- with a NULL new_value would wipe the whole config to NULL.
+      OR jsonb_typeof(cfg -> 'content') IS DISTINCT FROM 'array'
     THEN cfg
     ELSE jsonb_set(
       cfg,
@@ -144,7 +148,13 @@ BEGIN
       ),
       published_config = public.rewrite_config_business_name(
         pc.published_config, OLD.business_name, NEW.business_name
-      )
+      ),
+      -- Bump the optimistic-concurrency token. The builder (builder-route-utils.ts)
+      -- gates its save/publish UPDATE on `.eq('updated_at', <last seen>)`; without
+      -- this, a builder session open across a rename keeps a stale-but-matching
+      -- token and its next save silently overwrites this rewrite back to the old
+      -- name. page_configs has no updated_at auto-bump trigger, so set it here.
+      updated_at = now()
     WHERE pc.merchant_id = NEW.id
       AND (
         pc.draft_config IS DISTINCT FROM public.rewrite_config_business_name(
