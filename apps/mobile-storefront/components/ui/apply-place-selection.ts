@@ -10,7 +10,8 @@ interface ApplyPlaceSelectionParams {
   isMountedRef: RefObject<boolean>;
   onSelect?: (place: PlaceDetails) => void;
   setIsLoading: (value: boolean) => void;
-  setPredictions: (value: PlacePrediction[]) => void;
+  /** Optional: predictions state lives in AddressSearchOverlay, which resets on open. */
+  setPredictions?: (value: PlacePrediction[]) => void;
   setSessionToken: (value: string) => void;
 }
 
@@ -38,7 +39,7 @@ export function applyPlaceSelection({
   } finally {
     if (isMountedRef.current) {
       setIsLoading(false);
-      setPredictions([]);
+      setPredictions?.([]);
     }
   }
 }

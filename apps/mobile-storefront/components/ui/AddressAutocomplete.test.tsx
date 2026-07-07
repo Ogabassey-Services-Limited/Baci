@@ -7,8 +7,8 @@ import {
   jest,
 } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { ScrollView } from 'react-native';
 import { AddressAutocomplete } from './AddressAutocomplete';
+import { clearPredictionCache } from './AddressAutocomplete.api';
 
 jest.mock('expo-constants', () => ({
   default: { expoConfig: { extra: { apiUrl: 'http://localhost:3000' } } },
@@ -25,7 +25,19 @@ const TEST_PREDICTION = {
 };
 const fetchMock = jest.fn<typeof fetch>();
 
-function mockFetchSuccess() {
+const TEST_DETAILS_RESPONSE = {
+  details: {
+    streetNumber: '123',
+    route: 'Main Street',
+    city: 'Lagos',
+    state: 'Lagos',
+    postalCode: '100001',
+    country: 'Nigeria',
+    formattedAddress: '123 Main Street, Lagos, Nigeria',
+  },
+};
+
+function mockPredictionsSuccess() {
   fetchMock.mockResolvedValueOnce({
     ok: true,
     json: async () => ({ predictions: [TEST_PREDICTION] }),
@@ -33,8 +45,21 @@ function mockFetchSuccess() {
   } as Response);
 }
 
+function mockDetailsSuccess() {
+  fetchMock.mockResolvedValueOnce({
+    ok: true,
+    json: async () => TEST_DETAILS_RESPONSE,
+    text: async () => '',
+  });
+}
+
+function openSearchSheet() {
+  fireEvent.press(screen.getByRole('button', { name: 'Street address' }));
+  return screen.getByPlaceholderText('Start typing your address...');
+}
+
 async function typeAndWaitForPredictions(text = 'Lagos') {
-  const input = screen.getByRole('combobox');
+  const input = openSearchSheet();
   fireEvent.changeText(input, text);
   await act(async () => {
     jest.runAllTimers();
@@ -49,6 +74,9 @@ describe('AddressAutocomplete', () => {
     jest.useFakeTimers();
     fetchMock.mockReset();
     global.fetch = fetchMock;
+    // The predictions API keeps a module-level cache; clear it so each test's
+    // queued fetch mocks are consumed by the calls they were queued for.
+    clearPredictionCache();
   });
 
   afterEach(() => {
@@ -56,148 +84,117 @@ describe('AddressAutocomplete', () => {
     jest.useRealTimers();
   });
 
-  describe('blur-delay close', () => {
-    it('keeps the dropdown open within the 150ms blur delay', async () => {
-      mockFetchSuccess();
-      render(<AddressAutocomplete />);
+  it('renders the trigger row with the placeholder when empty', () => {
+    render(<AddressAutocomplete />);
 
-      const input = await typeAndWaitForPredictions();
-      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
-
-      fireEvent(input, 'blur');
-      act(() => {
-        jest.advanceTimersByTime(100);
-      });
-
-      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
-    });
-
-    it('closes the dropdown after the 150ms blur delay elapses', async () => {
-      mockFetchSuccess();
-      render(<AddressAutocomplete />);
-
-      const input = await typeAndWaitForPredictions();
-      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
-
-      fireEvent(input, 'blur');
-      act(() => {
-        jest.advanceTimersByTime(160);
-      });
-
-      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
-    });
-
-    it('stays open when the blur is caused by scrolling the dropdown', async () => {
-      mockFetchSuccess();
-      render(<AddressAutocomplete />);
-
-      const input = await typeAndWaitForPredictions();
-      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
-
-      // Dragging the dropdown dismisses the keyboard, which blurs the input.
-      // The touch is recent, so the close must be suppressed.
-      const scrollView = screen.UNSAFE_getByType(ScrollView);
-      fireEvent(scrollView, 'touchStart');
-      fireEvent(input, 'blur');
-      act(() => {
-        jest.advanceTimersByTime(200);
-      });
-
-      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
-    });
-
-    it('suppresses a blur arriving right after the dropdown touch was cancelled', async () => {
-      mockFetchSuccess();
-      render(<AddressAutocomplete />);
-
-      const input = await typeAndWaitForPredictions();
-      const scrollView = screen.UNSAFE_getByType(ScrollView);
-      // Android gesture-steal: the parent ScrollView takes over the drag,
-      // cancelling the dropdown touch BEFORE the keyboard-dismiss blur lands.
-      // Recency (not a live flag) must keep the dropdown open.
-      fireEvent(scrollView, 'touchStart');
-      fireEvent(scrollView, 'touchCancel');
-      fireEvent(input, 'blur');
-      act(() => {
-        jest.advanceTimersByTime(200);
-      });
-
-      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
-    });
-
-    it('closes on a genuine blur after the interaction grace window has passed', async () => {
-      mockFetchSuccess();
-      render(<AddressAutocomplete />);
-
-      const input = await typeAndWaitForPredictions();
-      const scrollView = screen.UNSAFE_getByType(ScrollView);
-      fireEvent(scrollView, 'touchStart');
-      fireEvent(scrollView, 'touchEnd');
-      // Let the 750ms grace window expire — the next blur is genuine.
-      act(() => {
-        jest.advanceTimersByTime(800);
-      });
-      fireEvent(input, 'blur');
-      act(() => {
-        jest.advanceTimersByTime(200);
-      });
-
-      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
-    });
-
-    it('closes on a blur long after a momentum fling ended', async () => {
-      mockFetchSuccess();
-      render(<AddressAutocomplete />);
-
-      const input = await typeAndWaitForPredictions();
-      const scrollView = screen.UNSAFE_getByType(ScrollView);
-      fireEvent(scrollView, 'touchStart');
-      fireEvent(scrollView, 'momentumScrollEnd');
-      act(() => {
-        jest.advanceTimersByTime(800);
-      });
-      fireEvent(input, 'blur');
-      act(() => {
-        jest.advanceTimersByTime(200);
-      });
-
-      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
-    });
-
-    it('closes the dropdown when the outside-tap scrim is pressed', async () => {
-      mockFetchSuccess();
-      render(<AddressAutocomplete />);
-
-      await typeAndWaitForPredictions();
-      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
-
-      // Sticky state: dropdown open after a scroll blur; tapping outside it
-      // (the scrim) must dismiss it since the input can no longer blur.
-      fireEvent.press(screen.getByLabelText('Close address suggestions'));
-
-      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
-    });
-
-    it('cancels the blur-close timer when the input is refocused', async () => {
-      mockFetchSuccess();
-      render(<AddressAutocomplete />);
-
-      const input = await typeAndWaitForPredictions();
-      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
-
-      // Blur midway, then refocus before the delay expires
-      fireEvent(input, 'blur');
-      act(() => {
-        jest.advanceTimersByTime(100);
-      });
-      fireEvent(input, 'focus');
-
-      // Advance well past the original 150ms — dropdown should stay open
-      act(() => {
-        jest.advanceTimersByTime(200);
-      });
-      expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeTruthy();
-    });
+    expect(screen.getByText('Start typing your address...')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Street address' })).toBeTruthy();
   });
 
+  it('shows the current value on the trigger row', () => {
+    render(<AddressAutocomplete value="7 Marina Road" />);
+
+    expect(screen.getByText('7 Marina Road')).toBeTruthy();
+  });
+
+  it('opens the search sheet when the trigger is pressed', () => {
+    render(<AddressAutocomplete />);
+
+    const input = openSearchSheet();
+
+    expect(input).toBeTruthy();
+  });
+
+  it('shows predictions in the sheet after typing', async () => {
+    mockPredictionsSuccess();
+    render(<AddressAutocomplete />);
+
+    await typeAndWaitForPredictions();
+
+    expect(screen.getByText(TEST_PREDICTION.mainText)).toBeTruthy();
+    expect(screen.getByText(TEST_PREDICTION.secondaryText)).toBeTruthy();
+  });
+
+  it('commits a prediction on a single tap: writes text, fetches details, closes the sheet', async () => {
+    mockPredictionsSuccess();
+    mockDetailsSuccess();
+    const onChangeText = jest.fn();
+    const onSelect = jest.fn();
+    render(
+      <AddressAutocomplete onChangeText={onChangeText} onSelect={onSelect} />
+    );
+
+    await typeAndWaitForPredictions();
+    fireEvent.press(
+      screen.getByRole('button', {
+        name: `${TEST_PREDICTION.mainText}, ${TEST_PREDICTION.secondaryText}`,
+      })
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onChangeText).toHaveBeenCalledWith(TEST_PREDICTION.mainText);
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ city: 'Lagos', route: 'Main Street' })
+    );
+    // Sheet is closed — its search input is gone.
+    expect(
+      screen.queryByPlaceholderText('Start typing your address...')
+    ).toBeNull();
+  });
+
+  it('commits free text via the "Use typed address" row without calling onSelect', async () => {
+    const onChangeText = jest.fn();
+    const onSelect = jest.fn();
+    render(
+      <AddressAutocomplete onChangeText={onChangeText} onSelect={onSelect} />
+    );
+
+    const input = openSearchSheet();
+    fireEvent.changeText(input, 'Off-grid address 5');
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Use Off-grid address 5 as address' })
+    );
+
+    expect(onChangeText).toHaveBeenCalledWith('Off-grid address 5');
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(
+      screen.queryByPlaceholderText('Start typing your address...')
+    ).toBeNull();
+  });
+
+  it('keeps the existing value when the sheet is dismissed without choosing', () => {
+    const onChangeText = jest.fn();
+    render(
+      <AddressAutocomplete value="7 Marina Road" onChangeText={onChangeText} />
+    );
+
+    openSearchSheet();
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Close address search' })
+    );
+
+    expect(onChangeText).not.toHaveBeenCalled();
+    expect(screen.getByText('7 Marina Road')).toBeTruthy();
+  });
+
+  it('clears the value from the trigger row', () => {
+    const onChangeText = jest.fn();
+    render(
+      <AddressAutocomplete value="7 Marina Road" onChangeText={onChangeText} />
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Clear address' }));
+
+    expect(onChangeText).toHaveBeenCalledWith('');
+  });
+
+  it('renders the error message', () => {
+    render(<AddressAutocomplete error="Address is required" />);
+
+    expect(screen.getByText('Address is required')).toBeTruthy();
+  });
 });

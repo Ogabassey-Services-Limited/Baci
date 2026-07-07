@@ -1,7 +1,6 @@
 import { Controller } from 'react-hook-form';
 import { View } from 'react-native';
 import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete';
-import { CHECKOUT_DELIVERY_Z_INDEX } from './CheckoutDeliveryCard.constants';
 import { checkoutDeliveryCardStyles as styles } from './CheckoutDeliveryCard.styles';
 import type { CheckoutDeliveryCardProps } from './CheckoutDeliveryCard.types';
 import { CheckoutDeliveryDefaultCheckbox } from './CheckoutDeliveryDefaultCheckbox';
@@ -50,8 +49,6 @@ export function CheckoutDeliveryCard({
       collapsed={showCollapseAction && isCollapsed}
       canCollapse={showCollapseAction}
       onToggle={onToggleCollapsed}
-      overflowVisible
-      zIndex={CHECKOUT_DELIVERY_Z_INDEX.card}
       summary={
         <CheckoutDeliverySummary
           colors={colors}
@@ -61,15 +58,7 @@ export function CheckoutDeliveryCard({
         />
       }
     >
-      <View
-        style={[
-          styles.cardBody,
-          {
-            overflow: 'visible',
-            zIndex: CHECKOUT_DELIVERY_Z_INDEX.body,
-          },
-        ]}
-      >
+      <View style={styles.cardBody}>
         <SavedAddressOptions
           colors={colors}
           defaultSavedAddress={defaultSavedAddress}

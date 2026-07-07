@@ -1,4 +1,4 @@
-import type { TextInputProps, ViewStyle } from 'react-native';
+import type { ViewStyle } from 'react-native';
 
 export interface PlacePrediction {
   placeId: string;
@@ -19,8 +19,7 @@ export interface PlaceDetails {
   longitude?: number;
 }
 
-export interface AddressAutocompleteProps
-  extends Omit<TextInputProps, 'value' | 'onChangeText'> {
+export interface AddressAutocompleteProps {
   value?: string;
   onChangeText?: (value: string) => void;
   onSelect?: (place: PlaceDetails) => void;
@@ -28,4 +27,5 @@ export interface AddressAutocompleteProps
   error?: string;
   label?: string;
   country?: string;
+  placeholder?: string;
 }

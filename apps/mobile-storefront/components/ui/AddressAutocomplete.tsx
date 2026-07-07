@@ -1,18 +1,10 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Keyboard,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import {
   clearPredictionCache,
-  fetchAddressPredictions,
   fetchPlaceDetails,
   generateSessionToken,
 } from './AddressAutocomplete.api';
@@ -21,18 +13,17 @@ import type {
   AddressAutocompleteProps,
   PlacePrediction,
 } from './AddressAutocomplete.types';
-import { AddressPredictionsDropdown } from './AddressPredictionsDropdown';
+import { AddressSearchOverlay } from './AddressSearchOverlay';
 import { applyPlaceSelection } from './apply-place-selection';
 
 export type { PlaceDetails } from './AddressAutocomplete.types';
 
-// How long after the user last touched the predictions dropdown a blur is
-// still attributed to that interaction (and must not close the dropdown).
-// Android can steal the gesture from the inner list (firing touchCancel)
-// before the keyboard-dismiss blur lands, so a live boolean latch loses the
-// race — recency is what both platforms agree on.
-const DROPDOWN_INTERACTION_GRACE_MS = 750;
-
+/**
+ * Address field for forms: a read-only trigger row that opens a full-screen
+ * search sheet (AddressSearchOverlay). Suggestions never render inline inside
+ * the host ScrollView — that legacy pattern fights Android gesture stealing,
+ * keyboard-dismiss blur races, and out-of-bounds hit-testing (RN #54659).
+ */
 export function AddressAutocomplete({
   value = '',
   onChangeText,
@@ -42,11 +33,9 @@ export function AddressAutocomplete({
   label,
   country = 'ng',
   placeholder = 'Start typing your address...',
-  onBlur,
-  onFocus,
-  ...props
 }: AddressAutocompleteProps) {
-  const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [sessionToken, setSessionToken] = useState(generateSessionToken);
   const prevSessionTokenRef = useRef(sessionToken);
   useEffect(() => {
@@ -55,13 +44,10 @@ export function AddressAutocomplete({
       prevSessionTokenRef.current = sessionToken;
     }
   }, [sessionToken]);
-  const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [internalValue, setInternalValue] = useState(value);
+
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const isDark = (colorScheme ?? 'light') === 'dark';
-  const [isFocused, setIsFocused] = useState(false);
 
   const isMountedRef = useRef(true);
   useEffect(() => {
@@ -71,84 +57,9 @@ export function AddressAutocomplete({
     };
   }, []);
 
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
-  const blurCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wrapperRef = useRef<View>(null);
-  // Epoch ms of the user's last touch on the predictions dropdown. A blur
-  // arriving within DROPDOWN_INTERACTION_GRACE_MS of it is attributed to that
-  // touch (keyboard-dismiss-on-drag) and must not close the dropdown.
-  const lastDropdownInteractionAtRef = useRef(0);
-
-  // Backstop: whenever the dropdown closes, clear the recency marker so a
-  // stale touch can't suppress a later genuine blur-close.
-  useEffect(() => {
-    if (!isOpen) {
-      lastDropdownInteractionAtRef.current = 0;
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    return () => {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-        debounceTimer.current = null;
-      }
-      if (blurCloseTimerRef.current) {
-        clearTimeout(blurCloseTimerRef.current);
-        blurCloseTimerRef.current = null;
-      }
-    };
-  }, []);
-
-  // Adjust state inline during render when the controlled value prop changes
-  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
-  const [prevValue, setPrevValue] = useState(value);
-  if (value !== prevValue) {
-    setPrevValue(value);
-    setInternalValue(value);
-  }
-
-  const fetchPredictions = async (input: string) => {
-    if (input.length < 2) {
-      if (isMountedRef.current) {
-        setPredictions([]);
-      }
-      return;
-    }
-
-    if (isMountedRef.current) {
-      setIsLoading(true);
-    }
-    const results = await fetchAddressPredictions({
-      country,
-      input,
-      sessionToken,
-    });
-    if (isMountedRef.current) {
-      setPredictions(results);
-      setIsLoading(false);
-    }
-  };
-
-  const handleInputChange = (text: string) => {
-    setInternalValue(text);
-    onChangeText?.(text);
-    setIsOpen(text.trim().length >= 2);
-
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-
-    debounceTimer.current = setTimeout(() => {
-      fetchPredictions(text);
-    }, 300);
-  };
-
   const handlePredictionSelect = async (prediction: PlacePrediction) => {
-    Keyboard.dismiss();
-    setInternalValue(prediction.mainText);
+    setIsSearchOpen(false);
     onChangeText?.(prediction.mainText);
-    setIsOpen(false);
     if (isMountedRef.current) {
       setIsLoading(true);
     }
@@ -159,26 +70,21 @@ export function AddressAutocomplete({
       isMountedRef,
       onSelect,
       setIsLoading,
-      setPredictions,
       setSessionToken,
     });
   };
 
-  const handleClear = () => {
-    setInternalValue('');
-    onChangeText?.('');
-    setPredictions([]);
-    setIsOpen(false);
+  const handleUseTypedAddress = (address: string) => {
+    setIsSearchOpen(false);
+    onChangeText?.(address);
   };
 
-  const closeDropdown = () => {
-    lastDropdownInteractionAtRef.current = 0;
-    setIsOpen(false);
-    Keyboard.dismiss();
+  const handleClear = () => {
+    onChangeText?.('');
   };
 
   return (
-    <View ref={wrapperRef} style={[styles.wrapper, containerStyle]}>
+    <View style={[styles.wrapper, containerStyle]}>
       {label && (
         <Text style={[styles.label, { color: colors.textSecondary }]}>
           {label}
@@ -192,11 +98,7 @@ export function AddressAutocomplete({
             backgroundColor: isDark
               ? 'rgba(255, 255, 255, 0.05)'
               : colors.muted,
-            borderColor: error
-              ? colors.error
-              : isFocused
-                ? BRAND.primary
-                : colors.border,
+            borderColor: error ? colors.error : colors.border,
           },
         ]}
       >
@@ -207,54 +109,23 @@ export function AddressAutocomplete({
           style={styles.icon}
         />
 
-        <TextInput
-          style={[styles.input, { color: colors.text }]}
-          value={internalValue}
-          onChangeText={handleInputChange}
-          onFocus={(event) => {
-            // Focus can only return after a blur, so any prior dropdown drag is
-            // over — clear the recency marker before the next blur.
-            lastDropdownInteractionAtRef.current = 0;
-            if (blurCloseTimerRef.current) {
-              clearTimeout(blurCloseTimerRef.current);
-              blurCloseTimerRef.current = null;
-            }
-            setIsFocused(true);
-            if (internalValue.trim().length >= 2) {
-              setIsOpen(true);
-            }
-            onFocus?.(event);
-          }}
-          onBlur={(event) => {
-            setIsFocused(false);
-            // Don't close the dropdown when the blur was caused by touching the
-            // dropdown itself (keyboard-dismiss-on-drag blurs this input) —
-            // only when focus genuinely left the field. Recency, not a live
-            // flag: Android can cancel the dropdown touch before this blur
-            // lands. The scrim is the dismissal path while the list stays open.
-            const sinceDropdownTouch =
-              Date.now() - lastDropdownInteractionAtRef.current;
-            if (sinceDropdownTouch > DROPDOWN_INTERACTION_GRACE_MS) {
-              if (blurCloseTimerRef.current) {
-                clearTimeout(blurCloseTimerRef.current);
-              }
-              blurCloseTimerRef.current = setTimeout(() => {
-                setIsOpen(false);
-                blurCloseTimerRef.current = null;
-              }, 150);
-            }
-            onBlur?.(event);
-          }}
-          placeholder={placeholder}
-          placeholderTextColor={colors.placeholder}
-          autoComplete="street-address"
-          textContentType="fullStreetAddress"
+        <Pressable
+          style={styles.input}
+          onPress={() => setIsSearchOpen(true)}
+          accessibilityRole="button"
           accessibilityLabel="Street address"
-          accessibilityHint="Start typing to see address suggestions"
-          accessibilityRole="combobox"
-          accessibilityState={{ expanded: isOpen }}
-          {...props}
-        />
+          accessibilityHint="Opens address search"
+        >
+          <Text
+            style={[
+              styles.triggerText,
+              { color: value ? colors.text : colors.placeholder },
+            ]}
+            numberOfLines={1}
+          >
+            {value || placeholder}
+          </Text>
+        </Pressable>
 
         {isLoading ? (
           <ActivityIndicator
@@ -262,7 +133,7 @@ export function AddressAutocomplete({
             color={BRAND.primary}
             style={styles.loader}
           />
-        ) : internalValue ? (
+        ) : value ? (
           <Pressable
             onPress={handleClear}
             style={({ pressed }) => [
@@ -287,31 +158,17 @@ export function AddressAutocomplete({
         </Text>
       )}
 
-      {isOpen && predictions.length > 0 && (
-        <>
-          {/* Tap-outside-to-dismiss: after keyboard-dismiss-on-drag blurs the
-              input, the dropdown can no longer close via blur, so a scrim
-              behind it catches taps on the obscured form and closes it. */}
-          <Pressable
-            accessibilityLabel="Close address suggestions"
-            accessibilityRole="button"
-            onPress={closeDropdown}
-            style={styles.dropdownScrim}
-          />
-          <AddressPredictionsDropdown
-            colors={colors}
-            isDark={isDark}
-            onInteractEnd={() => {
-              lastDropdownInteractionAtRef.current = Date.now();
-            }}
-            onInteractStart={() => {
-              lastDropdownInteractionAtRef.current = Date.now();
-            }}
-            onSelectPrediction={handlePredictionSelect}
-            predictions={predictions}
-          />
-        </>
-      )}
+      <AddressSearchOverlay
+        colors={colors}
+        country={country}
+        initialValue={value}
+        isDark={isDark}
+        onClose={() => setIsSearchOpen(false)}
+        onSelectPrediction={handlePredictionSelect}
+        onUseTypedAddress={handleUseTypedAddress}
+        sessionToken={sessionToken}
+        visible={isSearchOpen}
+      />
     </View>
   );
 }

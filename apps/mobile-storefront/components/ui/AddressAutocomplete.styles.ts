@@ -1,12 +1,9 @@
 import { StyleSheet } from 'react-native';
-import { palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
+import { palette, RADIUS, SPACING } from '@/constants/Colors';
 
 export const addressAutocompleteStyles = StyleSheet.create({
   wrapper: {
     position: 'relative',
-    overflow: 'visible',
-    zIndex: 1000,
-    elevation: 1000,
   },
   label: {
     fontSize: 13,
@@ -18,7 +15,6 @@ export const addressAutocompleteStyles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: RADIUS.xl,
-    overflow: 'visible',
     minHeight: 52,
     borderColor: 'transparent',
   },
@@ -34,6 +30,9 @@ export const addressAutocompleteStyles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: SPACING.sm,
   },
+  triggerText: {
+    fontSize: 15,
+  },
   loader: {
     paddingRight: SPACING.md,
   },
@@ -45,33 +44,77 @@ export const addressAutocompleteStyles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
-  // Transparent tap-catcher covering the form area below the input (where the
-  // absolute dropdown overlays City/State etc.). Starts at top:'100%' so it
-  // never covers the input itself, and sits just under the dropdown's z so
-  // predictions stay tappable while any outside tap dismisses the list. Large
-  // negative insets guarantee coverage regardless of the input's scroll offset.
-  dropdownScrim: {
-    position: 'absolute',
-    top: '100%',
-    left: -2000,
-    right: -2000,
-    bottom: -2000,
-    zIndex: 9998,
-    elevation: 9998,
+  // Address search sheet (Modal) — mirrors the checkout City/State pickers.
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
   },
-  dropdown: {
+  sheetBackdrop: {
     position: 'absolute',
-    top: '100%',
+    top: 0,
     left: 0,
     right: 0,
-    borderWidth: StyleSheet.hairlineWidth,
+    bottom: 0,
+  },
+  sheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: SPACING.md,
+    maxHeight: '80%',
+    minHeight: '45%',
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  sheetSearchContainer: {
+    borderWidth: 1,
     borderRadius: RADIUS.xl,
-    ...SHADOWS.md,
-    overflow: 'hidden',
-    marginTop: 4,
-    maxHeight: 280,
-    zIndex: 9999,
-    elevation: 9999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: SPACING.sm,
+    borderColor: 'transparent',
+    minHeight: 48,
+  },
+  sheetSearchInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingVertical: 10,
+  },
+  useTypedRow: {
+    borderWidth: 1,
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 10,
+    marginBottom: SPACING.xs,
+  },
+  useTypedContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  useTypedLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.4,
+    color: palette.amber[600],
+    textTransform: 'uppercase',
+  },
+  useTypedText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 2,
   },
   predictionItem: {
     paddingHorizontal: SPACING.md,
