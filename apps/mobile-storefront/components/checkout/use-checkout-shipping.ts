@@ -92,10 +92,12 @@ export function useCheckoutShipping({
   const stationPickupQuote = isCurrentQuoteContext
     ? getStationPickupQuote(shippingQuotes)
     : undefined;
+  const hasResolvedDeliveryLocation = Boolean(watchedState && watchedCity);
   const canUsePickupStation =
     isPickupEligible(watchedState) || stationPickupQuote !== undefined;
 
   if (
+    (deliveryMethod !== 'door' && !hasResolvedDeliveryLocation) ||
     (deliveryMethod === 'airport' &&
       !isAirportDeliveryEligible(watchedState)) ||
     (deliveryMethod === 'pickup_station' && !canUsePickupStation)

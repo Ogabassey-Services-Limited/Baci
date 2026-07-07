@@ -953,6 +953,10 @@ describe('PATCH /api/orders/[id]', () => {
       'GIGL_INTERNATIONAL_SHIPMENT_PACKAGE_LIMIT',
       'Too many packages for GIGL international shipment',
     ],
+    [
+      'GIGL_INTERNATIONAL_RATE_INVALID',
+      'Selected GIGL international rate is invalid',
+    ],
   ])('releases the booking lock when shipment booking fails with %s', async (code, message) => {
     const existingOrder: ExistingOrder = {
       id: 'order-1',
