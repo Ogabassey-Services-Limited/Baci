@@ -24,7 +24,10 @@ async function resolveShellSlides(
   pathPrefix: string
 ): Promise<OgabasseyHomeHeroShell | null> {
   const merchant = await getCachedMerchant(OGABASSEY_MERCHANT_SLUG);
-  if (!merchant?.id || merchant.is_published === false) {
+  // `!== true` so a NULL publication status counts as unpublished — the
+  // streamed page gates on `!merchant.is_published`, and the shell must never
+  // show a product hero for a merchant the page will render as unpublished.
+  if (!merchant?.id || merchant.is_published !== true) {
     return null;
   }
 
