@@ -231,18 +231,23 @@ Please return the complete updated configuration as valid JSON. Make intelligent
         throw shapeError;
       };
 
-      // Reject partial/empty drafts BEFORE aiBuilderConfigSchema's defaults can
-      // mask them. builderConfigSchema defaults `content`→[], `root`→{title},
-      // `zones`→{}, so a provider that returns only `theme` (or an empty
-      // content array) would otherwise validate as a blank storefront and the
-      // client would apply it over the merchant's real page — a silent wipe.
-      // Require the model to have actually returned a non-empty content array;
-      // anything less is treated as a failed attempt and the chain falls
-      // through to the next provider.
+      // Reject partial drafts BEFORE aiBuilderConfigSchema's defaults can mask
+      // them. builderConfigSchema defaults a MISSING `content` to [], so a
+      // provider that returns only `theme` (a truncated/partial draft) would
+      // otherwise validate as a blank storefront and the client would apply it
+      // over the merchant's real page — a silent wipe. Require `content` to be
+      // an actual array the model returned; a missing or wrong-typed value is a
+      // failed attempt that falls through to the next provider.
+      //
+      // An explicitly-present EMPTY array is allowed: it's a valid config (a
+      // blank/new store's default payload is `content: []`, and a merchant can
+      // legitimately ask to clear the page). The copilot returns a draft the
+      // merchant reviews before publishing, so an unintended empty draft is
+      // recoverable — unlike the default-masking wipe above.
       const rawContent = (object as { content?: unknown } | null)?.content;
-      if (!Array.isArray(rawContent) || rawContent.length === 0) {
+      if (!Array.isArray(rawContent)) {
         return failShape(
-          'model returned no content array (partial or empty draft)'
+          'model returned no content array (partial draft — content missing)'
         );
       }
 

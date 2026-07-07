@@ -267,10 +267,28 @@ describe('/api/builder/gemini structured error codes', () => {
 
     expect(response.status).toBe(502);
     expect(body.code).toBe('ai_builder_invalid_output');
-    // Never returns a config with empty content (the wipe vector).
+    // Never returns a config with defaulted content (the wipe vector).
     expect(body.config).toBeUndefined();
     // Both providers were tried (the partial draft fell through, not applied).
     expect(vi.mocked(generateObject)).toHaveBeenCalledTimes(2);
+  });
+
+  it('accepts a valid explicitly-empty config (content: []) — e.g. a cleared or blank page', async () => {
+    // An explicit empty array is a legitimate config (blank/new store default,
+    // or a "clear the page" request) and must NOT be rejected as a partial
+    // draft — only a MISSING content array (masked by schema defaults) is.
+    vi.mocked(generateObject).mockResolvedValue({
+      object: { content: [], root: { title: 'Home' }, zones: {} },
+    } as unknown as Awaited<ReturnType<typeof generateObject>>);
+
+    const { POST } = await import('./route');
+    const response = await POST(createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.config.content).toEqual([]);
+    // First provider's valid (empty) config is applied — no fall-through.
+    expect(vi.mocked(generateObject)).toHaveBeenCalledTimes(1);
   });
 
   it('recovers from a partial draft: falls through to a provider that returns content', async () => {
