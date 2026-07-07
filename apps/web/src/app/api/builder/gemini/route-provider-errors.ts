@@ -5,7 +5,18 @@ export const BUILDER_GEMINI_RETRY_CONFIG = {
   backoffMultiplier: 2,
 };
 
-const BUILDER_GEMINI_TIMEOUT_MS = 25_000;
+export const BUILDER_GEMINI_TIMEOUT_MS = 25_000;
+
+// Thrown when a provider returns JSON that doesn't match the builder config
+// shape. Named so getBuilderGeminiFailure can map an exhausted chain of
+// shape failures to the 502 "invalid draft" contract rather than a 503.
+export const BUILDER_CONFIG_SHAPE_ERROR_NAME = 'BuilderConfigShapeError';
+
+export function isBuilderConfigShapeError(error: unknown): boolean {
+  return (
+    error instanceof Error && error.name === BUILDER_CONFIG_SHAPE_ERROR_NAME
+  );
+}
 
 export type BuilderGeminiFailure = {
   logLevel: 'error' | 'warn';
@@ -89,6 +100,20 @@ export function getBuilderGeminiFailure(
   error: unknown,
   requestId: string
 ): BuilderGeminiFailure {
+  // Every provider returned JSON that failed the builder schema — the AI
+  // couldn't produce a usable draft (distinct from a transient outage).
+  if (isBuilderConfigShapeError(error)) {
+    return {
+      logLevel: 'error',
+      response: {
+        error: 'AI editor returned an invalid draft',
+        code: 'ai_builder_invalid_output',
+        requestId,
+      },
+      status: 502,
+    };
+  }
+
   if (isBuilderGeminiQuotaError(error)) {
     return {
       logLevel: 'warn',

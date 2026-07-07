@@ -17,19 +17,15 @@ import {
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 import { builderConfigSchema } from '@/schemas/builder';
 import { BUILDER_GEMINI_SYSTEM_PROMPT } from '../gemini-system-prompt';
+import { computeNonFinalProviderBudgetMs } from './provider-chain-budget';
 import {
+  BUILDER_CONFIG_SHAPE_ERROR_NAME,
+  BUILDER_GEMINI_TIMEOUT_MS,
   type BuilderGeminiLogContext,
   getBuilderGeminiFailure,
   logBuilderGeminiError,
   runBuilderGeminiWithTimeout,
 } from './route-provider-errors';
-
-// Per-provider attempt budget. Every provider in the chain answers this task
-// in ~1-4s when healthy (measured 2026-07-07), so a provider that hasn't
-// responded in 10s is effectively down — abort it and fall through to the
-// next one instead of letting a hung upstream burn the whole route timeout.
-// The last provider is exempt and gets whatever remains of the global budget.
-const PER_PROVIDER_TIMEOUT_MS = 10_000;
 
 const PuckThemeColorsSchema = z
   .object({
@@ -193,17 +189,28 @@ User Request: ${sanitizedPrompt}
 
 Please return the complete updated configuration as valid JSON. Make intelligent modifications based on the request while preserving all existing structure and content unless explicitly asked to change or remove it.`;
 
-    // Thinking is disabled for latency: the copilot must respond within the
-    // route timeout, and this structured config-edit task doesn't benefit
-    // from extended reasoning. providerOptions are namespaced — non-Google
-    // providers in the chain simply ignore the `google` entry.
-    const generateBuilderConfig = (
+    // Generate with `output: 'no-schema'` (loose JSON mode) and validate the
+    // result in-code with aiBuilderConfigSchema, rather than handing each
+    // provider a strict JSON schema. The builder config is an OPEN shape
+    // (looseObject + arbitrary props/zones/theme dictionaries) and the
+    // providers' strict structured-output modes reject it in incompatible
+    // ways — Cerebras rejects string `minLength` and empty (`{}`) sub-schemas,
+    // Groq rejects the `propertyNames` emitted by record types. Loose JSON
+    // mode is universally supported (verified end-to-end on cerebras
+    // gemma-4-31b 0.7s, groq gpt-oss-120b 1.8s, gemini 2.5 flash/lite), and
+    // the in-code safeParse is the "is this a renderable config" gate: a
+    // provider that returns off-shape JSON is treated as a failed attempt and
+    // the chain falls through to the next one.
+    //
+    // Thinking is disabled for latency (Google-namespaced providerOption;
+    // other providers ignore it).
+    const generateBuilderConfig = async (
       model: CopilotTextProvider['model'],
       abortSignal: AbortSignal
-    ) =>
-      generateObject({
+    ): Promise<AiBuilderConfig> => {
+      const { object } = await generateObject({
         model,
-        schema: aiBuilderConfigSchema,
+        output: 'no-schema',
         system: BUILDER_GEMINI_SYSTEM_PROMPT,
         prompt: builtPrompt,
         abortSignal,
@@ -212,24 +219,47 @@ Please return the complete updated configuration as valid JSON. Make intelligent
         },
       });
 
-    // Walk the provider chain (Cerebras → Groq → Gemini → Gemini-Lite when
-    // fully configured). ANY failure — quota, 5xx, network, per-provider
-    // timeout — falls through to the next provider; the chain itself is the
-    // retry, spread across independent infrastructures, so a single-provider
-    // outage or exhausted free pool never dead-ends the merchant.
+      const parsed = aiBuilderConfigSchema.safeParse(object);
+      if (!parsed.success) {
+        const shapeError = new Error(
+          `builder config JSON failed validation: ${
+            parsed.error.issues[0]?.message ?? 'unknown shape'
+          }`
+        );
+        shapeError.name = BUILDER_CONFIG_SHAPE_ERROR_NAME;
+        throw shapeError;
+      }
+      return parsed.data;
+    };
+
+    // Walk the provider chain (Cerebras → Groq → Gemini → Gemini-Lite →
+    // OpenRouter when fully configured). ANY failure — quota, 5xx, network,
+    // per-provider timeout, or off-shape JSON — falls through to the next
+    // provider; the chain itself is the retry, spread across independent
+    // infrastructures, so a single-provider outage or exhausted free pool
+    // never dead-ends the merchant.
     let updatedConfig: AiBuilderConfig;
     try {
-      const result = (await runBuilderGeminiWithTimeout(async (abortSignal) => {
+      updatedConfig = await runBuilderGeminiWithTimeout(async (abortSignal) => {
+        const routeDeadline = Date.now() + BUILDER_GEMINI_TIMEOUT_MS;
         let lastError: unknown;
         for (const [index, provider] of providerChain.entries()) {
           const isLastProvider = index === providerChain.length - 1;
           aiLogContext.model = provider.name;
-          const attemptSignal = isLastProvider
-            ? abortSignal
-            : AbortSignal.any([
-                abortSignal,
-                AbortSignal.timeout(PER_PROVIDER_TIMEOUT_MS),
-              ]);
+          let attemptSignal: AbortSignal;
+          if (isLastProvider) {
+            // Final provider gets the whole remaining route budget.
+            attemptSignal = abortSignal;
+          } else {
+            const budget = computeNonFinalProviderBudgetMs(
+              routeDeadline - Date.now(),
+              providerChain.length - index
+            );
+            attemptSignal = AbortSignal.any([
+              abortSignal,
+              AbortSignal.timeout(budget),
+            ]);
+          }
           try {
             return await generateBuilderConfig(provider.model, attemptSignal);
           } catch (error) {
@@ -252,8 +282,7 @@ Please return the complete updated configuration as valid JSON. Make intelligent
           }
         }
         throw lastError;
-      })) as { object: AiBuilderConfig };
-      updatedConfig = result.object;
+      });
     } catch (error) {
       const failure = getBuilderGeminiFailure(error, requestId);
       logBuilderGeminiError(

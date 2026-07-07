@@ -204,13 +204,12 @@ describe('/api/builder/gemini structured error codes', () => {
     );
   });
 
-  it('returns ai_builder_invalid_output when generated content is malformed', async () => {
-    vi.mocked(generateObject).mockResolvedValueOnce({
-      object: {
-        root: { title: 'Home' },
-        zones: {},
-      },
-    } as Awaited<ReturnType<typeof generateObject>>);
+  it('returns ai_builder_invalid_output when every provider returns off-shape JSON', async () => {
+    // content present but not an array → fails aiBuilderConfigSchema validation
+    // (a default only fills a missing key, not a present-but-wrong one).
+    vi.mocked(generateObject).mockResolvedValue({
+      object: { content: 'not-an-array', root: {}, zones: {} },
+    } as unknown as Awaited<ReturnType<typeof generateObject>>);
 
     const { POST } = await import('./route');
     const response = await POST(createRequest());
@@ -224,5 +223,29 @@ describe('/api/builder/gemini structured error codes', () => {
         requestId: expect.any(String),
       })
     );
+    // Both providers in the mocked chain were tried before giving up.
+    expect(vi.mocked(generateObject)).toHaveBeenCalledTimes(2);
+  });
+
+  it('falls through off-shape JSON from one provider and succeeds on the next (renderable-config gate)', async () => {
+    vi.mocked(generateObject)
+      .mockResolvedValueOnce({
+        object: { content: 'not-an-array' },
+      } as unknown as Awaited<ReturnType<typeof generateObject>>)
+      .mockResolvedValueOnce({
+        object: {
+          content: [{ type: 'Hero', props: { title: 'Updated hero' } }],
+          root: { title: 'Home' },
+          zones: {},
+        },
+      } as unknown as Awaited<ReturnType<typeof generateObject>>);
+
+    const { POST } = await import('./route');
+    const response = await POST(createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.config.content[0].props.title).toBe('Updated hero');
+    expect(vi.mocked(generateObject)).toHaveBeenCalledTimes(2);
   });
 });
