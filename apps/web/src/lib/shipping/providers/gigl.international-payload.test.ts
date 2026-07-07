@@ -62,12 +62,27 @@ describe('GIGL international payload helpers', () => {
       quantity: 1,
       weight: 1,
       value: 100_000,
+      hsCode: '851712',
     };
 
     expect(buildInternationalItems([item])[0]).toMatchObject({
+      HSCode: '851712',
       IsVolumetric: false,
     });
     expect(buildInternationalPackages([item])).toEqual([]);
+  });
+
+  it('rejects international items without HS codes', () => {
+    const item: ShipmentItem = {
+      name: 'Phone',
+      quantity: 1,
+      weight: 1,
+      value: 100_000,
+    };
+
+    expect(() => buildInternationalItems([item])).toThrow(
+      'HS code is required for international item "Phone".'
+    );
   });
 
   it('rejects invalid dimensional package quantities', () => {

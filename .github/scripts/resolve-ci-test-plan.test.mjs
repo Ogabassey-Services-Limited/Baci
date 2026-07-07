@@ -21,6 +21,46 @@ test('targets Vitest changed tests for pull requests with only local web source 
   );
 });
 
+test('targets Jest changed tests for pull requests with only mobile storefront source changes', () => {
+  assert.deepEqual(
+    resolveCiTestPlan({
+      baseRef: 'origin/main',
+      changedFiles: [
+        'apps/mobile-storefront/components/checkout/checkout-shipping.helpers.ts',
+        'apps/mobile-storefront/components/checkout/checkout-shipping.helpers.test.ts',
+      ],
+      eventName: 'pull_request',
+    }),
+    {
+      mode: 'targeted-storefront-jest',
+      reason:
+        'Pull request changes are limited to mobile storefront source or test files.',
+      command:
+        'pnpm --filter @baci/mobile-storefront exec jest --changedSince origin/main --runInBand --passWithNoTests',
+    }
+  );
+});
+
+test('targets web and mobile storefront changed tests for mixed source changes', () => {
+  assert.deepEqual(
+    resolveCiTestPlan({
+      baseRef: 'origin/main',
+      changedFiles: [
+        'apps/web/src/lib/shipping/providers/gigl.booking.ts',
+        'apps/mobile-storefront/components/checkout/checkout-shipping.helpers.ts',
+      ],
+      eventName: 'pull_request',
+    }),
+    {
+      mode: 'targeted-web-and-storefront-tests',
+      reason:
+        'Pull request changes are limited to apps/web and mobile storefront source or test files.',
+      command:
+        'pnpm --filter @baci/web exec vitest run --changed origin/main --passWithNoTests && pnpm --filter @baci/mobile-storefront exec jest --changedSince origin/main --runInBand --passWithNoTests',
+    }
+  );
+});
+
 test('keeps full affected tests when shared packages change', () => {
   assert.equal(
     resolveCiTestPlan({
@@ -37,6 +77,17 @@ test('keeps full affected tests when web test setup changes', () => {
     resolveCiTestPlan({
       baseRef: 'origin/main',
       changedFiles: ['apps/web/vitest.setup.ts'],
+      eventName: 'pull_request',
+    }).mode,
+    'full-affected'
+  );
+});
+
+test('keeps full affected tests when mobile storefront test setup changes', () => {
+  assert.equal(
+    resolveCiTestPlan({
+      baseRef: 'origin/main',
+      changedFiles: ['apps/mobile-storefront/jest.setup.ts'],
       eventName: 'pull_request',
     }).mode,
     'full-affected'

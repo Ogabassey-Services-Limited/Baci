@@ -942,6 +942,10 @@ describe('PATCH /api/orders/[id]', () => {
       'GIGL international destination country not found',
     ],
     [
+      'GIGL_INTERNATIONAL_ITEM_HS_CODE_MISSING',
+      'HS code is required for international item',
+    ],
+    [
       'GIGL_INTERNATIONAL_ITEM_PACKAGE_LIMIT',
       'Too many packages for one GIGL international item',
     ],

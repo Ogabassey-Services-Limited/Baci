@@ -204,6 +204,29 @@ export function getSelectedQuoteIdForDeliveryMethod(
   return selectedQuoteId;
 }
 
+export function createSelectDeliveryMethod({
+  selectedQuoteId,
+  setDeliveryMethod,
+  setSelectedQuoteId,
+  shippingQuotes,
+}: {
+  selectedQuoteId: string;
+  setDeliveryMethod: (method: DeliveryMethod) => void;
+  setSelectedQuoteId: (quoteId: string) => void;
+  shippingQuotes: ShippingQuote[];
+}) {
+  return (method: DeliveryMethod) => {
+    setSelectedQuoteId(
+      getSelectedQuoteIdForDeliveryMethod(
+        method,
+        selectedQuoteId,
+        shippingQuotes,
+      ),
+    );
+    setDeliveryMethod(method);
+  };
+}
+
 export function getStationPickupAddressText(quote: ShippingQuote): string {
   return [quote.stationName, quote.stationAddress]
     .filter((line): line is string => Boolean(line))

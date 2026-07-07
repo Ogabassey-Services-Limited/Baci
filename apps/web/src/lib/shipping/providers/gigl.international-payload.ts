@@ -81,9 +81,23 @@ function getPackageDimensions(
     : undefined;
 }
 
+function readHsCode(item: ShipmentItem): string {
+  const hsCode = item.hsCode?.trim();
+  if (!hsCode) {
+    throw new OrderShipmentBookingError(
+      `HS code is required for international item "${item.name}".`,
+      400,
+      'GIGL_INTERNATIONAL_ITEM_HS_CODE_MISSING'
+    );
+  }
+
+  return hsCode;
+}
+
 export function buildInternationalItems(items: ShipmentItem[]) {
   return items.map((item) => {
     const dimensions = getPackageDimensions(item);
+    const hsCode = readHsCode(item);
     return {
       InternationalShipmentItemType: 0,
       Description: item.description || item.name,
@@ -94,7 +108,7 @@ export function buildInternationalItems(items: ShipmentItem[]) {
       ...(dimensions ?? {}),
       PackagingType: 1,
       Value: item.value,
-      HSCode: item.hsCode,
+      HSCode: hsCode,
     };
   });
 }

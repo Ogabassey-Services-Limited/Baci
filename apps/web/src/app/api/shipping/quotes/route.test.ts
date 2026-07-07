@@ -30,6 +30,10 @@ vi.mock('@/lib/shipping', () => ({
   },
 }));
 
+const quoteItems = [
+  { hsCode: '851712', name: 'Phone', quantity: 1, value: 100_000, weight: 1 },
+];
+
 function buildQuoteRequest(
   overrides: Record<string, unknown> = {}
 ): NextRequest {
@@ -46,7 +50,7 @@ function buildQuoteRequest(
         country: 'Canada',
         countryCode: 'CA',
       },
-      items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+      items: quoteItems,
       ...overrides,
     }),
   }) as unknown as NextRequest;

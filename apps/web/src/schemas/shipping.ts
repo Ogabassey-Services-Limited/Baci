@@ -110,6 +110,15 @@ export const QuoteRequestSchema = z
         path: ['receiver', 'countryCode'],
       });
     }
+    data.items.forEach((item, index) => {
+      if (!item.hsCode?.trim()) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'HS code is required for international quotes',
+          path: ['items', index, 'hsCode'],
+        });
+      }
+    });
   })
   .transform((data) => ({
     ...data,

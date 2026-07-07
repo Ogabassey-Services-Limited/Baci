@@ -34,10 +34,31 @@ const WEB_FULL_TEST_FILES = new Set([
   'apps/web/vitest.setup.ts',
 ]);
 
+const MOBILE_STOREFRONT_FULL_TEST_FILES = new Set([
+  'apps/mobile-storefront/app.config.ts',
+  'apps/mobile-storefront/babel.config.js',
+  'apps/mobile-storefront/jest.config.js',
+  'apps/mobile-storefront/jest.setup.ts',
+  'apps/mobile-storefront/metro.config.js',
+  'apps/mobile-storefront/package.json',
+  'apps/mobile-storefront/tsconfig.json',
+]);
+
 const WEB_TARGETED_PREFIXES = [
   'apps/web/mcp-server/',
   'apps/web/src/',
   'apps/web/tools/',
+];
+
+const MOBILE_STOREFRONT_TARGETED_PREFIXES = [
+  'apps/mobile-storefront/app/',
+  'apps/mobile-storefront/components/',
+  'apps/mobile-storefront/constants/',
+  'apps/mobile-storefront/hooks/',
+  'apps/mobile-storefront/lib/',
+  'apps/mobile-storefront/schemas/',
+  'apps/mobile-storefront/services/',
+  'apps/mobile-storefront/stores/',
 ];
 
 function normalizeChangedFile(file) {
@@ -45,7 +66,11 @@ function normalizeChangedFile(file) {
 }
 
 function isFullAffectedTrigger(file) {
-  if (ROOT_FULL_TEST_FILES.has(file) || WEB_FULL_TEST_FILES.has(file)) {
+  if (
+    ROOT_FULL_TEST_FILES.has(file) ||
+    WEB_FULL_TEST_FILES.has(file) ||
+    MOBILE_STOREFRONT_FULL_TEST_FILES.has(file)
+  ) {
     return true;
   }
 
@@ -54,6 +79,20 @@ function isFullAffectedTrigger(file) {
 
 function isTargetableWebFile(file) {
   return WEB_TARGETED_PREFIXES.some((prefix) => file.startsWith(prefix));
+}
+
+function isTargetableMobileStorefrontFile(file) {
+  return MOBILE_STOREFRONT_TARGETED_PREFIXES.some((prefix) =>
+    file.startsWith(prefix)
+  );
+}
+
+function targetedWebCommand(baseRef) {
+  return `pnpm --filter @baci/web exec vitest run --changed ${baseRef} --passWithNoTests`;
+}
+
+function targetedMobileStorefrontCommand(baseRef) {
+  return `pnpm --filter @baci/mobile-storefront exec jest --changedSince ${baseRef} --runInBand --passWithNoTests`;
 }
 
 export function resolveCiTestPlan({
@@ -89,11 +128,37 @@ export function resolveCiTestPlan({
     };
   }
 
-  if (normalizedFiles.every(isTargetableWebFile)) {
+  const hasTargetableWebFiles = normalizedFiles.some(isTargetableWebFile);
+  const hasTargetableMobileStorefrontFiles = normalizedFiles.some(
+    isTargetableMobileStorefrontFile
+  );
+  const allFilesAreTargetable = normalizedFiles.every(
+    (file) => isTargetableWebFile(file) || isTargetableMobileStorefrontFile(file)
+  );
+
+  if (allFilesAreTargetable && hasTargetableWebFiles) {
+    if (hasTargetableMobileStorefrontFiles) {
+      return {
+        mode: 'targeted-web-and-storefront-tests',
+        reason:
+          'Pull request changes are limited to apps/web and mobile storefront source or test files.',
+        command: `${targetedWebCommand(baseRef)} && ${targetedMobileStorefrontCommand(baseRef)}`,
+      };
+    }
+
     return {
       mode: 'targeted-web-vitest',
       reason: 'Pull request changes are limited to apps/web source or test files.',
-      command: `pnpm --filter @baci/web exec vitest run --changed ${baseRef} --passWithNoTests`,
+      command: targetedWebCommand(baseRef),
+    };
+  }
+
+  if (allFilesAreTargetable && hasTargetableMobileStorefrontFiles) {
+    return {
+      mode: 'targeted-storefront-jest',
+      reason:
+        'Pull request changes are limited to mobile storefront source or test files.',
+      command: targetedMobileStorefrontCommand(baseRef),
     };
   }
 

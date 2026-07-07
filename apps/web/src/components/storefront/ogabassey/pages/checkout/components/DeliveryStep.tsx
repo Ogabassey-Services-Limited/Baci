@@ -8,7 +8,7 @@ import { DeliveryMethodDetails } from './DeliveryMethodDetails';
 import { DeliveryMethodSelector } from './DeliveryMethodSelector';
 import type { DeliveryMethod, SavedAddress, ShippingQuote } from '../types';
 import {
-  getSelectedQuoteIdForDeliveryMethod,
+  createSelectDeliveryMethod,
   getStationPickupQuote,
 } from '../utils';
 
@@ -110,16 +110,12 @@ export function DeliveryStep({
         (!isNewAddressMode && selectedAddressId)),
   );
   const stationPickupQuote = getStationPickupQuote(shippingQuotes);
-  const selectDeliveryMethod = (method: DeliveryMethod) => {
-    setSelectedQuoteId(
-      getSelectedQuoteIdForDeliveryMethod(
-        method,
-        selectedQuoteId,
-        shippingQuotes,
-      ),
-    );
-    setDeliveryMethod(method);
-  };
+  const selectDeliveryMethod = createSelectDeliveryMethod({
+    selectedQuoteId,
+    setDeliveryMethod,
+    setSelectedQuoteId,
+    shippingQuotes,
+  });
 
   useEffect(() => {
     if (!canChooseDeliveryMethod) return;

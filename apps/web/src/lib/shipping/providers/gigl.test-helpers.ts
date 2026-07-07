@@ -87,6 +87,23 @@ export const failedStationsEnvelope = {
   },
 };
 
+export const internationalCountriesResponse = {
+  success: true,
+  data: {
+    message: 'Success',
+    status: 200,
+    data: [
+      {
+        CountryId: 36,
+        CountryName: 'Canada',
+        CountryCode: 'CANADA',
+        CountryShortCode: 'CA',
+        IsInternationalShippingCountry: true,
+      },
+    ],
+  },
+};
+
 export const priceResponse = {
   success: true,
   data: {
@@ -141,6 +158,7 @@ export const quoteRequest: QuoteRequest = {
       quantity: 1,
       weight: 1,
       value: 100000,
+      hsCode: '851712',
     },
   ],
 };
@@ -178,6 +196,7 @@ export const bookingRequest: BookingRequest = {
       quantity: 1,
       weight: 1,
       value: 100000,
+      hsCode: '851712',
     },
   ],
 };

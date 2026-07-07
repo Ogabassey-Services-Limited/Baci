@@ -228,6 +228,19 @@ jobs:
             exit 0
           fi
 
+          if [ "$TEST_PLAN_MODE" = "targeted-storefront-jest" ]; then
+            echo "$TEST_PLAN_REASON"
+            pnpm --filter @baci/mobile-storefront exec jest --changedSince "$TURBO_SCM_BASE" --runInBand --passWithNoTests
+            exit 0
+          fi
+
+          if [ "$TEST_PLAN_MODE" = "targeted-web-and-storefront-tests" ]; then
+            echo "$TEST_PLAN_REASON"
+            pnpm --filter @baci/web exec vitest run --changed "$TURBO_SCM_BASE" --passWithNoTests
+            pnpm --filter @baci/mobile-storefront exec jest --changedSince "$TURBO_SCM_BASE" --runInBand --passWithNoTests
+            exit 0
+          fi
+
           turbo_cache_args=("--cache=local:rw,remote:r")
           if [ "$EVENT_NAME" = "pull_request" ]; then
             # PR tokens can read Vercel Remote Cache but may not be allowed to write artifacts.

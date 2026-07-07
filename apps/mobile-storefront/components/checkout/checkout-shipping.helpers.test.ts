@@ -1,5 +1,17 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import type { CartItem } from '@/stores/cart-store';
+
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    expoConfig: {
+      extra: {
+        merchantId: 'merchant-1',
+      },
+    },
+  },
+}));
+
 import {
   fetchShippingQuotes,
   normalizeStateName,
@@ -44,14 +56,15 @@ describe('checkout-shipping.helpers', () => {
   });
 
   it('sets normalized quotes and preferred selection when quote request succeeds', async () => {
-    global.fetch = jest.fn(async () => ({
+    const fetchMock = jest.fn<typeof fetch>().mockResolvedValue({
       json: async () => ({
         quotes: {
           all: [createShippingQuote({ id: 'quote-1', provider: 'Provider A' })],
         },
       }),
       ok: true,
-    })) as unknown as typeof fetch;
+    } as Response);
+    global.fetch = fetchMock as unknown as typeof fetch;
 
     const setIsLoadingQuotes = jest.fn();
     const setSelectedQuoteId = jest.fn();
@@ -91,6 +104,9 @@ describe('checkout-shipping.helpers', () => {
     );
     expect(setSelectedQuoteId).toHaveBeenLastCalledWith('quote-1');
     expect(setIsLoadingQuotes).toHaveBeenLastCalledWith(false);
+    const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+    const requestBody = JSON.parse(String(requestInit?.body));
+    expect(requestBody.merchantId).toBe('merchant-1');
   });
 
   it('clears quotes when request fails and selection reset is required', async () => {

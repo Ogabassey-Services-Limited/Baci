@@ -214,6 +214,30 @@ describe('POST /api/orders/reuse', () => {
     expect(data).toEqual({ error: 'Order is no longer reusable' });
   });
 
+  it('returns a JSON 500 response when the reuse RPC throws', async () => {
+    mockRpc.mockRejectedValue(new Error('database unavailable'));
+
+    const request = new NextRequest('http://localhost/api/orders/reuse', {
+      method: 'POST',
+      body: JSON.stringify({
+        order_id: '4dc0ee52-d9c4-406a-b6ca-80c84eef6a8f',
+        merchant_id: 'e6e2e46c-5e3c-40c1-b0ae-832d6d20f0a2',
+        tracking_token: 'tracking-token-123',
+        customer_email: 'john@example.com',
+        payment_method: 'card',
+      }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data).toEqual({
+      error: 'Failed to prepare reusable order',
+      code: 'reuse_order_failed',
+    });
+  });
+
   it('maps serialized_inventory_unavailable to 409 with proper code and message', async () => {
     mockRpc.mockResolvedValue({
       data: null,

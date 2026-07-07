@@ -10,7 +10,13 @@ const receiver = {
   countryCode: 'CA',
 };
 
-const item = { name: 'Phone', quantity: 1, weight: 1, value: 100_000 };
+const item = {
+  name: 'Phone',
+  quantity: 1,
+  weight: 1,
+  value: 100_000,
+  hsCode: '851712',
+};
 
 describe('QuoteRequestSchema international item metadata', () => {
   it('preserves customs and package dimensions for provider quote payloads', () => {
@@ -55,6 +61,20 @@ describe('QuoteRequestSchema international item metadata', () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it('requires HS codes for international quote items', () => {
+    const result = QuoteRequestSchema.safeParse({
+      shipmentType: 'international',
+      receiver,
+      items: [{ ...item, hsCode: '' }],
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues.map((issue) => issue.path.join('.'))).toContain(
+      'items.0.hsCode'
+    );
   });
 
   it('allows international quotes without sender so routes can use merchant fallback', () => {

@@ -1,10 +1,17 @@
 import { resolveLocationStateLabel } from '@baci/shared/lib';
+import Constants from 'expo-constants';
 import {
   getPreferredShippingQuoteId,
   normalizeShippingQuotes,
 } from '@/lib/shipping-quotes';
 import type { CartItem } from '@/stores/cart-store';
 import type { ShippingQuote } from './types';
+
+const expoMerchantId = Constants.expoConfig?.extra?.merchantId;
+const MERCHANT_ID =
+  typeof expoMerchantId === 'string' && expoMerchantId.trim()
+    ? expoMerchantId.trim()
+    : undefined;
 
 export interface QuoteResponse {
   quotes: {
@@ -79,6 +86,7 @@ export const fetchShippingQuotes = async ({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        ...(MERCHANT_ID ? { merchantId: MERCHANT_ID } : {}),
         receiver: {
           name:
             `${watchedFirstName} ${watchedLastName}`.trim() ||

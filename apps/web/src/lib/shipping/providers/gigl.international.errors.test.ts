@@ -12,26 +12,11 @@ import { getGiglQuotes } from './gigl.quotes';
 import { GiglStationsService } from './gigl.stations';
 import {
   baseUrl,
+  internationalCountriesResponse,
   jsonResponse,
   loginResponseWithoutCustomerType,
   quoteRequest,
 } from './gigl.test-helpers';
-
-const countryResponse = {
-  success: true,
-  data: {
-    message: 'Success',
-    status: 200,
-    data: [
-      {
-        CountryId: 36,
-        CountryName: 'Canada',
-        CountryShortCode: 'CA',
-        IsInternationalShippingCountry: true,
-      },
-    ],
-  },
-};
 
 function buildHarness() {
   const log = vi.fn();
@@ -92,7 +77,7 @@ describe('GiglProvider international quote errors', () => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock
       .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
-      .mockResolvedValueOnce(jsonResponse(countryResponse))
+      .mockResolvedValueOnce(jsonResponse(internationalCountriesResponse))
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
@@ -114,7 +99,7 @@ describe('GiglProvider international quote errors', () => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock
       .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
-      .mockResolvedValueOnce(jsonResponse(countryResponse))
+      .mockResolvedValueOnce(jsonResponse(internationalCountriesResponse))
       .mockRejectedValueOnce(new Error('network unavailable'));
 
     const provider = buildHarness();
@@ -128,7 +113,7 @@ describe('GiglProvider international quote errors', () => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock
       .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
-      .mockResolvedValueOnce(jsonResponse(countryResponse))
+      .mockResolvedValueOnce(jsonResponse(internationalCountriesResponse))
       .mockResolvedValueOnce(
         jsonResponse({
           success: true,

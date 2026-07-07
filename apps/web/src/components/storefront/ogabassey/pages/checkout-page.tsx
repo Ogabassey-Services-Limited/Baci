@@ -92,9 +92,9 @@ import { persistCreditDirectPopupReference } from './checkout/persist-credit-dir
 import { PaymentStep } from './checkout/components/PaymentStep';
 import {
   KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST,
+  createSelectDeliveryMethod,
   getDoorDeliveryQuotes,
   getPreferredDoorQuoteId,
-  getSelectedQuoteIdForDeliveryMethod,
   getStationPickupAddressText,
   getStationPickupQuote,
   inferAddressLocationFromInput,
@@ -1049,16 +1049,12 @@ export const CheckoutPage: React.FC = () => {
         (deliveryMethod === 'pickup_station' &&
           isStationPickupQuote(selectedQuote))),
   );
-  const selectDeliveryMethod = (method: DeliveryMethod) => {
-    setSelectedQuoteId(
-      getSelectedQuoteIdForDeliveryMethod(
-        method,
-        selectedQuoteId,
-        shippingQuotes,
-      ),
-    );
-    setDeliveryMethod(method);
-  };
+  const selectDeliveryMethod = createSelectDeliveryMethod({
+    selectedQuoteId,
+    setDeliveryMethod,
+    setSelectedQuoteId,
+    shippingQuotes,
+  });
   const eligibleDeliveryMethod =
     deliveryMethod === 'pickup_station' && !stationPickupQuote
       ? 'door'
@@ -1758,13 +1754,8 @@ export const CheckoutPage: React.FC = () => {
       (deliveryMethod === 'door' || deliveryMethod === 'pickup_station') &&
       selectedQuoteId
     ) {
-      const quote = shippingQuotes.find(q => String(q.id) === String(selectedQuoteId));
-      if (
-        quote &&
-        ((deliveryMethod === 'door' && !isStationPickupQuote(quote)) ||
-          (deliveryMethod === 'pickup_station' && isStationPickupQuote(quote)))
-      ) {
-        shippingProvider = quote.provider; // e.g. 'GIGL', 'Topship'
+      if (selectedQuote && selectedQuoteMatchesDeliveryMethod) {
+        shippingProvider = selectedQuote.provider; // e.g. 'GIGL', 'Topship'
       } else {
         // B3 review fix #1: do NOT fabricate a 'Standard' provider —
         // selectedQuoteId is dangling (stored id with no matching

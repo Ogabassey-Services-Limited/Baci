@@ -6,7 +6,10 @@
 
 import { QuoteAggregator } from './aggregator';
 import { OrderShipmentBookingError } from './order-shipment-booking-utils';
-import { ShippingProviderRegistry } from './providers/base';
+import {
+  type ShippingProvider,
+  ShippingProviderRegistry,
+} from './providers/base';
 import { GiglProvider } from './providers/gigl';
 import {
   isExplicitlyDisabledEnv,
@@ -37,20 +40,25 @@ function isTopshipEnabledForNewShipments(): boolean {
   return !isExplicitlyDisabledEnv(process.env.TOPSHIP_ENABLED);
 }
 
-// Register providers
-if (isGiglRuntimeConfigured()) {
-  const giglProvider = new GiglProvider();
-  registry.register(giglProvider);
-  trackingRegistry.register(giglProvider);
-  operationsRegistry.register(giglProvider);
+function registerProvider(
+  provider: ShippingProvider,
+  { enabledForNewShipments }: { enabledForNewShipments: boolean }
+) {
+  if (enabledForNewShipments) {
+    registry.register(provider);
+  }
+  trackingRegistry.register(provider);
+  operationsRegistry.register(provider);
 }
 
-const topshipProvider = new TopshipProvider();
-if (isTopshipEnabledForNewShipments()) {
-  registry.register(topshipProvider);
+// Register providers
+if (isGiglRuntimeConfigured()) {
+  registerProvider(new GiglProvider(), { enabledForNewShipments: true });
 }
-trackingRegistry.register(topshipProvider);
-operationsRegistry.register(topshipProvider);
+
+registerProvider(new TopshipProvider(), {
+  enabledForNewShipments: isTopshipEnabledForNewShipments(),
+});
 
 // Create aggregator
 const aggregator = new QuoteAggregator(registry);

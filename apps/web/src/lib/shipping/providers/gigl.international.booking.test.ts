@@ -14,26 +14,10 @@ import { GiglStationsService } from './gigl.stations';
 import {
   baseUrl,
   bookingRequest,
+  internationalCountriesResponse,
   jsonResponse,
   loginResponseWithoutCustomerType,
 } from './gigl.test-helpers';
-
-const countryResponse = {
-  success: true,
-  data: {
-    message: 'Success',
-    status: 200,
-    data: [
-      {
-        CountryId: 36,
-        CountryName: 'Canada',
-        CountryCode: 'CANADA',
-        CountryShortCode: 'CA',
-        IsInternationalShippingCountry: true,
-      },
-    ],
-  },
-};
 
 const internationalBookingResponse = {
   success: true,
@@ -88,7 +72,7 @@ describe('GiglProvider international booking', () => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock
       .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
-      .mockResolvedValueOnce(jsonResponse(countryResponse))
+      .mockResolvedValueOnce(jsonResponse(internationalCountriesResponse))
       .mockResolvedValueOnce(jsonResponse(internationalBookingResponse))
       .mockResolvedValueOnce(jsonResponse(invoiceResponse));
 
@@ -210,7 +194,7 @@ describe('GiglProvider international booking', () => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock
       .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
-      .mockResolvedValueOnce(jsonResponse(countryResponse))
+      .mockResolvedValueOnce(jsonResponse(internationalCountriesResponse))
       .mockResolvedValueOnce(
         jsonResponse({
           success: true,
@@ -244,7 +228,7 @@ describe('GiglProvider international booking', () => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock
       .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
-      .mockResolvedValueOnce(jsonResponse(countryResponse))
+      .mockResolvedValueOnce(jsonResponse(internationalCountriesResponse))
       .mockResolvedValueOnce(jsonResponse(internationalBookingResponse))
       .mockRejectedValueOnce(new Error('invoice timeout'));
 

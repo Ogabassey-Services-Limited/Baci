@@ -100,9 +100,11 @@ export function validateBookingQuoteRequestPayload(
   if (payload.validationError) {
     return payload.validationError;
   }
+  const storedMerchantId = payload.storedQuoteRequest.merchantId;
   if (
     expectedMerchantId &&
-    payload.storedQuoteRequest.merchantId !== expectedMerchantId
+    storedMerchantId &&
+    storedMerchantId !== expectedMerchantId
   ) {
     return {
       ok: false,

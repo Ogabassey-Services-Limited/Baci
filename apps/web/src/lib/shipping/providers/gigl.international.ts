@@ -117,7 +117,8 @@ export async function getGiglInternationalQuotes(
       const logisticsCompany = rate.LogisticCompany;
       const shipmentMethod = rate.ShipmentMethod;
       const serviceTier = internationalServiceTier(deliveryType);
-      const isStationPickup = pickupOption === PickupOptions.ServiceCentre;
+      // GIGL international currently prices collection at a service centre.
+      const isStationPickup = true;
 
       return [
         {

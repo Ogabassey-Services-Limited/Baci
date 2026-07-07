@@ -12,6 +12,7 @@ import { getGiglQuotes } from './gigl.quotes';
 import { GiglStationsService } from './gigl.stations';
 import {
   baseUrl,
+  internationalCountriesResponse,
   jsonResponse,
   loginResponseWithoutCustomerType,
   quoteRequest,
@@ -32,23 +33,6 @@ const internationalQuoteResponse = {
         DeliveryType: 2,
         EstimatedDeliveryDateAndTime: '2026-07-12T10:45:58.229Z',
         DeclaredValue: 100_000,
-      },
-    ],
-  },
-};
-
-const countryResponse = {
-  success: true,
-  data: {
-    message: 'Success',
-    status: 200,
-    data: [
-      {
-        CountryId: 36,
-        CountryName: 'Canada',
-        CountryCode: 'CANADA',
-        CountryShortCode: 'CA',
-        IsInternationalShippingCountry: true,
       },
     ],
   },
@@ -100,7 +84,7 @@ describe('GiglProvider international shipments', () => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock
       .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
-      .mockResolvedValueOnce(jsonResponse(countryResponse))
+      .mockResolvedValueOnce(jsonResponse(internationalCountriesResponse))
       .mockResolvedValueOnce(jsonResponse(internationalQuoteResponse));
 
     const provider = buildHarness();
@@ -219,7 +203,7 @@ describe('GiglProvider international shipments', () => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock
       .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
-      .mockResolvedValueOnce(jsonResponse(countryResponse))
+      .mockResolvedValueOnce(jsonResponse(internationalCountriesResponse))
       .mockResolvedValueOnce(
         jsonResponse({
           success: true,
