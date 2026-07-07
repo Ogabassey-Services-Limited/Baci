@@ -136,15 +136,15 @@ async function validateSelectedQuoteForReuse(
       shippingProvider: requestedShippingProvider,
     };
   }
-  const suppliedQuoteProvider = requestedShippingProvider
-    ? null
-    : await resolveSuppliedQuoteProvider(supabase, data);
-  const effectiveShippingProvider =
-    requestedShippingProvider ??
-    suppliedQuoteProvider ??
-    normalizeShippingProvider(context.shipping_provider);
 
   try {
+    const suppliedQuoteProvider = requestedShippingProvider
+      ? null
+      : await resolveSuppliedQuoteProvider(supabase, data);
+    const effectiveShippingProvider =
+      requestedShippingProvider ??
+      suppliedQuoteProvider ??
+      normalizeShippingProvider(context.shipping_provider);
     const shippingAddress = await enrichShippingAddressWithQuoteDestination(
       supabase,
       context.selected_quote_id,
