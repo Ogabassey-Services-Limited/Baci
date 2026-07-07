@@ -26,7 +26,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 
 const mockUnsubscribe = jest.fn();
 // Holds the raw auth-state-change callback so tests can invoke it directly
-let mockAuthListenerCb: (event: string, session: unknown) => Promise<void>;
+let mockAuthListenerCb: (event: string, session: unknown) => void;
 const mockMakeRedirectUri = jest.fn(() => 'ogabassey://auth');
 const mockGetQueryParams = jest.fn();
 const mockOpenAuthSessionAsync = jest.fn();
@@ -39,6 +39,7 @@ jest.mock('../lib/supabase', () => ({
     auth: {
       getSession: jest.fn(),
       getUser: jest.fn(),
+      exchangeCodeForSession: jest.fn(),
       refreshSession: jest.fn(),
       setSession: jest.fn(),
       signOut: jest.fn().mockResolvedValue({ error: null }),
@@ -200,6 +201,11 @@ let mockRemovePushTokenFromServer: jest.SpyInstance;
 // push-token cleanup before other state mutations).
 const _flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+async function emitAuthStateChange(event: string, session: unknown) {
+  mockAuthListenerCb(event, session);
+  await _flushPromises();
+}
+
 // ---------------------------------------------------------------------------
 // Shared test data
 // ---------------------------------------------------------------------------
@@ -304,6 +310,10 @@ function resetSupabaseMocks({
     data: { session: null, user: null },
     error: null,
   });
+  (supabase.auth.exchangeCodeForSession as jest.Mock).mockResolvedValue({
+    data: { session: null, user: null },
+    error: null,
+  });
   (supabase.auth.signInWithOAuth as jest.Mock).mockResolvedValue({
     data: { url: 'https://accounts.google.com/o/oauth2/v2/auth' },
     error: null,
@@ -314,7 +324,7 @@ function resetSupabaseMocks({
   });
   (supabase.auth.updateUser as jest.Mock).mockResolvedValue({ error: null });
   (supabase.auth.onAuthStateChange as jest.Mock).mockImplementation(
-    (cb: (event: string, session: unknown) => Promise<void>) => {
+    (cb: (event: string, session: unknown) => void) => {
       mockAuthListenerCb = cb;
       return { data: { subscription: { unsubscribe: mockUnsubscribe } } };
     }
@@ -331,7 +341,7 @@ describe('useAuthStore', () => {
     mockUnsubscribe.mockReset();
     mockClearCart.mockReset();
     // Reset the captured auth listener so no test leaks a stale callback
-    mockAuthListenerCb = async () => {
+    mockAuthListenerCb = () => {
       /* noop default */
     };
     resetStore();
@@ -340,13 +350,12 @@ describe('useAuthStore', () => {
     mockGetQueryParams.mockReturnValue({
       errorCode: null,
       params: {
-        access_token: 'oauth-access-token',
-        refresh_token: 'oauth-refresh-token',
+        code: 'oauth-code',
       },
     });
     mockOpenAuthSessionAsync.mockResolvedValue({
       type: 'success',
-      url: 'ogabassey://auth#access_token=oauth-access-token&refresh_token=oauth-refresh-token',
+      url: 'ogabassey://auth?code=oauth-code',
     });
     // Wire push-token-storage spies — spyOn ensures the module-level import in
     // auth-store.ts gets intercepted regardless of jest-expo module resolution.
@@ -747,7 +756,7 @@ describe('useAuthStore', () => {
 
       // Act
       await act(async () => {
-        await mockAuthListenerCb('SIGNED_IN', mockSession);
+        await emitAuthStateChange('SIGNED_IN', mockSession);
       });
 
       // Assert
@@ -766,7 +775,7 @@ describe('useAuthStore', () => {
 
       // Act
       await act(async () => {
-        await mockAuthListenerCb('SIGNED_IN', mockSession);
+        await emitAuthStateChange('SIGNED_IN', mockSession);
       });
 
       // Assert
@@ -795,7 +804,7 @@ describe('useAuthStore', () => {
 
       // Act
       await act(async () => {
-        await mockAuthListenerCb('SIGNED_IN', mockSession);
+        await emitAuthStateChange('SIGNED_IN', mockSession);
       });
 
       // Assert
@@ -821,7 +830,7 @@ describe('useAuthStore', () => {
 
       // Act
       await act(async () => {
-        await mockAuthListenerCb('SIGNED_IN', mockSession);
+        await emitAuthStateChange('SIGNED_IN', mockSession);
       });
 
       // Assert: no customers table query made
@@ -840,7 +849,7 @@ describe('useAuthStore', () => {
 
       // Act
       await act(async () => {
-        await mockAuthListenerCb('SIGNED_IN', mockSession);
+        await emitAuthStateChange('SIGNED_IN', mockSession);
       });
 
       // Assert
@@ -872,7 +881,7 @@ describe('useAuthStore', () => {
 
       // Act
       await act(async () => {
-        await mockAuthListenerCb('SIGNED_OUT', null);
+        await emitAuthStateChange('SIGNED_OUT', null);
         await _flushPromises();
       });
 
@@ -899,7 +908,7 @@ describe('useAuthStore', () => {
 
       // Act
       await act(async () => {
-        await mockAuthListenerCb('TOKEN_REFRESHED', refreshedSession);
+        await emitAuthStateChange('TOKEN_REFRESHED', refreshedSession);
       });
 
       // Assert
@@ -915,7 +924,7 @@ describe('useAuthStore', () => {
 
       // Act
       await act(async () => {
-        await mockAuthListenerCb('TOKEN_REFRESHED', null);
+        await emitAuthStateChange('TOKEN_REFRESHED', null);
       });
 
       // Assert: session unchanged
@@ -931,7 +940,7 @@ describe('useAuthStore', () => {
         isLoading: false,
         isInitialized: true,
       });
-      (supabase.auth.setSession as jest.Mock).mockResolvedValue({
+      (supabase.auth.exchangeCodeForSession as jest.Mock).mockResolvedValue({
         data: {
           session: mockSession,
           user: mockUser,
@@ -955,6 +964,10 @@ describe('useAuthStore', () => {
       });
 
       expect(result).toEqual({ success: true });
+      expect(supabase.auth.exchangeCodeForSession).toHaveBeenCalledWith(
+        'oauth-code'
+      );
+      expect(supabase.auth.setSession).not.toHaveBeenCalled();
       expect(useAuthStore.getState().user?.id).toBe(USER_ID);
       expect(useAuthStore.getState().session?.access_token).toBe(
         'access-token-abc'
@@ -962,8 +975,8 @@ describe('useAuthStore', () => {
       expect(useAuthStore.getState().customer?.id).toBe('customer-uuid-1');
     });
 
-    it('returns an error when no authenticated user is available after setSession', async () => {
-      (supabase.auth.setSession as jest.Mock).mockResolvedValue({
+    it('returns an error when no authenticated user is available after code exchange', async () => {
+      (supabase.auth.exchangeCodeForSession as jest.Mock).mockResolvedValue({
         data: { session: null, user: null },
         error: null,
       });
@@ -976,6 +989,25 @@ describe('useAuthStore', () => {
       expect(result.success).toBe(false);
       expect(result.error).toContain('Unable to complete sign-in');
       expect(useAuthStore.getState().user).toBeNull();
+    });
+
+    it('returns an error when Google does not return an authorization code', async () => {
+      mockGetQueryParams.mockReturnValueOnce({
+        errorCode: null,
+        params: {},
+      });
+
+      let result!: { success: boolean; error?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().signInWithGoogle();
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error: 'No authorization code received from Google',
+      });
+      expect(supabase.auth.exchangeCodeForSession).not.toHaveBeenCalled();
+      expect(supabase.auth.setSession).not.toHaveBeenCalled();
     });
   });
 
@@ -1333,7 +1365,7 @@ describe('useAuthStore', () => {
       });
 
       await act(async () => {
-        await mockAuthListenerCb('SIGNED_OUT', null);
+        await emitAuthStateChange('SIGNED_OUT', null);
         await _flushPromises();
       });
 
@@ -1357,7 +1389,7 @@ describe('useAuthStore', () => {
       });
 
       await act(async () => {
-        await mockAuthListenerCb('SIGNED_OUT', null);
+        await emitAuthStateChange('SIGNED_OUT', null);
         await _flushPromises();
       });
 

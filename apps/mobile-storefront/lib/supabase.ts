@@ -1,23 +1,29 @@
 /**
  * Supabase Client for React Native
- * Uses expo-secure-store for secure token persistence
+ * Uses platform-appropriate auth persistence
  *
  * 2026 Best Practices:
- * - SecureStore for native platforms (iOS/Android)
- * - sessionStorage for web (less persistent than localStorage, clears on tab close)
+ * - Publishable keys for public clients
+ * - Native storage and process lock for iOS/Android
+ * - Browser sessionStorage for Expo web
  * - Network connectivity checks before edge function calls
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, processLock } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
-import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import {
+  authSessionStorage,
+  getDefaultSupabaseAuthStorageKey,
+} from './auth/auth-session-storage';
+import { registerAuthRefreshLifecycle } from './auth/auth-refresh-lifecycle';
 import { createLogger } from './logger';
 
 const log = createLogger('Supabase');
 
 type ExpoExtraConfig = {
   supabaseAnonKey?: string;
+  supabasePublishableKey?: string;
   supabaseUrl?: string;
 };
 
@@ -34,20 +40,53 @@ function getExpoExtraConfig(): ExpoExtraConfig {
 const expoExtra = getExpoExtraConfig();
 const supabaseUrl =
   process.env.EXPO_PUBLIC_SUPABASE_URL || expoExtra.supabaseUrl || '';
-const supabaseAnonKey =
+const supabasePublishableKey =
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  expoExtra.supabasePublishableKey ||
+  '';
+const legacySupabaseAnonKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || expoExtra.supabaseAnonKey || '';
+const supabaseClientKey = supabasePublishableKey || legacySupabaseAnonKey;
+const isUsingLegacyAnonKey =
+  !supabasePublishableKey && !!legacySupabaseAnonKey;
+
+function getValidSupabaseUrl(url: string): string {
+  try {
+    if (!url) {
+      return '';
+    }
+
+    new URL(url);
+    return url;
+  } catch {
+    return '';
+  }
+}
+
+const validSupabaseUrl = getValidSupabaseUrl(supabaseUrl);
+const hasSupabaseCredentials = Boolean(validSupabaseUrl && supabaseClientKey);
 
 // Runtime warning when Supabase credentials are missing
-if (!supabaseUrl) {
+if (!validSupabaseUrl) {
   console.warn(
     '[Supabase] SUPABASE_URL is not configured. Set EXPO_PUBLIC_SUPABASE_URL or configure extra.supabaseUrl in app.json.'
   );
 }
-if (!supabaseAnonKey) {
+if (!supabaseClientKey) {
   console.warn(
-    '[Supabase] SUPABASE_ANON_KEY is not configured. Set EXPO_PUBLIC_SUPABASE_ANON_KEY or configure extra.supabaseAnonKey in app.json.'
+    '[Supabase] SUPABASE_PUBLISHABLE_KEY is not configured. Set EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY or configure extra.supabasePublishableKey in app.json.'
   );
 }
+
+if (isUsingLegacyAnonKey) {
+  console.warn(
+    '[Supabase] Using legacy anon key fallback; migrate mobile-storefront builds to EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY before end of 2026.'
+  );
+}
+
+export const supabaseAuthStorageKey = validSupabaseUrl
+  ? getDefaultSupabaseAuthStorageKey(validSupabaseUrl)
+  : '';
 
 function createMissingCredentialsClient() {
   return new Proxy(
@@ -55,89 +94,90 @@ function createMissingCredentialsClient() {
     {
       get() {
         throw new Error(
-          '[Supabase] Client accessed without EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.'
+          '[Supabase] Client accessed without EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.'
         );
       },
     }
   ) as ReturnType<typeof createClient>;
 }
 
-/**
- * Custom storage adapter using expo-secure-store
- * 2026 Best Practice: sessionStorage for web (more secure than localStorage)
- * - sessionStorage clears when tab closes, reducing token exposure
- * - localStorage persists indefinitely and is accessible to XSS attacks
- * - Native platforms use SecureStore (encrypted keychain/keystore)
- */
-const ExpoSecureStoreAdapter = {
-  getItem: async (key: string): Promise<string | null> => {
-    if (Platform.OS === 'web') {
-      // 2026 Best Practice: Use sessionStorage instead of localStorage
-      // Less persistent but more secure - tokens cleared when tab closes
-      if (typeof window !== 'undefined') {
-        return window.sessionStorage.getItem(key);
-      }
-      return null;
-    }
-    try {
-      return await SecureStore.getItemAsync(key);
-    } catch (error) {
-      log.error('SecureStore getItem error:', error);
-      return null;
-    }
-  },
+const isServerRuntime = Platform.OS === 'web' && typeof window === 'undefined';
+const isNativeRuntime = Platform.OS !== 'web';
 
-  setItem: async (key: string, value: string): Promise<void> => {
-    if (Platform.OS === 'web') {
-      // 2026 Best Practice: sessionStorage for auth tokens on web
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(key, value);
-      }
-      return;
-    }
-    try {
-      await SecureStore.setItemAsync(key, value);
-    } catch (error) {
-      log.error('SecureStore setItem error:', error);
-    }
-  },
-
-  removeItem: async (key: string): Promise<void> => {
-    if (Platform.OS === 'web') {
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.removeItem(key);
-      }
-      return;
-    }
-    try {
-      await SecureStore.deleteItemAsync(key);
-    } catch (error) {
-      log.error('SecureStore removeItem error:', error);
-    }
-  },
+const nonServerAuthOptions = {
+  storageKey: supabaseAuthStorageKey,
+  autoRefreshToken: true,
+  persistSession: true,
+  detectSessionInUrl: false,
+  flowType: 'pkce' as const,
 };
 
+function getBrowserSessionStorage(): Storage | undefined {
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+
+  try {
+    return window.sessionStorage;
+  } catch {
+    return undefined;
+  }
+}
+
+function createMemoryAuthStorage() {
+  const values = new Map<string, string>();
+
+  return {
+    getItem(key: string) {
+      return values.get(key) ?? null;
+    },
+    setItem(key: string, value: string) {
+      values.set(key, value);
+    },
+    removeItem(key: string) {
+      values.delete(key);
+    },
+  };
+}
+
+const authOptions = isServerRuntime
+  ? {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    }
+  : isNativeRuntime
+    ? {
+        ...nonServerAuthOptions,
+        storage: authSessionStorage,
+        lock: processLock,
+      }
+    : {
+        ...nonServerAuthOptions,
+        storage: getBrowserSessionStorage() ?? createMemoryAuthStorage(),
+      };
+
 /**
- * Supabase client instance with secure storage
+ * Supabase client instance with platform-appropriate auth storage
  */
-export const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          storage: ExpoSecureStoreAdapter,
-          autoRefreshToken: true,
-          persistSession: true,
-          detectSessionInUrl: false, // Important for React Native
-          flowType: 'implicit', // Implicit flow is officially recommended for React Native (PKCE code_verifier gets lost with expo-web-browser)
-        },
+const supabaseClient =
+  hasSupabaseCredentials
+    ? createClient(validSupabaseUrl, supabaseClientKey, {
+        auth: authOptions,
       })
     : createMissingCredentialsClient();
+
+if (hasSupabaseCredentials && !isServerRuntime && isNativeRuntime) {
+  registerAuthRefreshLifecycle(supabaseClient.auth);
+}
+
+export const supabase = supabaseClient;
 
 /**
  * Check if Supabase is configured
  */
 export function isSupabaseConfigured(): boolean {
-  return Boolean(supabaseUrl && supabaseAnonKey);
+  return hasSupabaseCredentials;
 }
 
 /**

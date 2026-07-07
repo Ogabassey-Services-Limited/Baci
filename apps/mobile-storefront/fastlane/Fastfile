@@ -17,6 +17,15 @@ def ensure_required_env!(keys)
   )
 end
 
+def ensure_any_required_env!(keys)
+  return if keys.any? { |key| !ENV[key].to_s.strip.empty? }
+
+  UI.user_error!(
+    "Missing required build environment variable: one of #{keys.join(', ')}. " \
+    "These values must be present during xcodebuild so Expo can embed the storefront release JS bundle correctly."
+  )
+end
+
 def asc_api_key
   app_store_connect_api_key(
     key_id: ENV.fetch("ASC_API_KEY_ID"),
@@ -77,8 +86,11 @@ platform :ios do
     api_key = asc_api_key
     ensure_required_env!(%w[
       EXPO_PUBLIC_SUPABASE_URL
-      EXPO_PUBLIC_SUPABASE_ANON_KEY
       EXPO_PUBLIC_API_URL
+    ])
+    ensure_any_required_env!(%w[
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+      EXPO_PUBLIC_SUPABASE_ANON_KEY
     ])
 
     match(

@@ -52,17 +52,17 @@ export function createOAuthActions(set: AuthStoreSet, get: AuthStoreGet) {
           set({ isLoading: false });
           return { success: false, error: errorCode };
         }
-        const { access_token, refresh_token } = params;
-        if (!access_token) {
+        const code = params.code;
+        if (!code) {
           set({ isLoading: false });
           return {
             success: false,
-            error: 'No access token received from Google',
+            error: 'No authorization code received from Google',
           };
         }
 
         const { data: sessionData, error: sessionError } =
-          await supabase.auth.setSession({ access_token, refresh_token });
+          await supabase.auth.exchangeCodeForSession(code);
         if (sessionError) {
           set({ isLoading: false });
           Alert.alert('Sign-In Error', sessionError.message);

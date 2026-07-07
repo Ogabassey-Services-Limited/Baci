@@ -10,6 +10,9 @@ function loadAppConfigWithEnv(env: {
   EXPO_PUBLIC_MERCHANT_DOMAIN?: string;
   EXPO_PUBLIC_POSTHOG_API_KEY?: string;
   EXPO_PUBLIC_POSTHOG_HOST?: string;
+  EXPO_PUBLIC_SUPABASE_ANON_KEY?: string;
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?: string;
+  EXPO_PUBLIC_SUPABASE_URL?: string;
   EXPO_UPDATE_CHANNEL?: string;
   STOREFRONT_FACEBOOK_APP_ID?: string;
   STOREFRONT_FACEBOOK_CLIENT_TOKEN?: string;
@@ -19,6 +22,9 @@ function loadAppConfigWithEnv(env: {
   delete process.env.EXPO_PUBLIC_MERCHANT_DOMAIN;
   delete process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
   delete process.env.EXPO_PUBLIC_POSTHOG_HOST;
+  delete process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  delete process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  delete process.env.EXPO_PUBLIC_SUPABASE_URL;
   delete process.env.EXPO_UPDATE_CHANNEL;
   delete process.env.STOREFRONT_FACEBOOK_APP_ID;
   delete process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
