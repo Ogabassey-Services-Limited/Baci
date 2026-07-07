@@ -5,7 +5,9 @@ import {
   enforceCashAwardPrizeGuard,
   enforceEventPrizeGuard,
   enforceQuizAgeGate,
+  enforceQuizUsernameGate,
   QuizAgeGateError,
+  QuizUsernameRequiredError,
   type ServerSupabaseClient,
 } from './route-helpers-guards';
 
@@ -264,6 +266,81 @@ describe('quiz route helper prize guards', () => {
 
     await expect(
       enforceQuizAgeGate(supabase, 'merchant-1', 'user-1')
+    ).resolves.toBeUndefined();
+  });
+
+  it('rejects quiz username gate checks without merchant scope', async () => {
+    const { supabase } = mockSupabaseResult({
+      data: { username: 'ogafan' },
+      error: null,
+    });
+
+    await expect(
+      enforceQuizUsernameGate(supabase, null, 'user-1')
+    ).rejects.toBeInstanceOf(QuizUsernameRequiredError);
+
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: 'Quiz username gate missing merchant context',
+      userId: 'user-1',
+    });
+  });
+
+  it('rejects quiz username gate when the username is missing', async () => {
+    const { queryBuilder, supabase } = mockSupabaseResult({
+      data: { username: null },
+      error: null,
+    });
+
+    await expect(
+      enforceQuizUsernameGate(supabase, 'merchant-1', 'user-1')
+    ).rejects.toBeInstanceOf(QuizUsernameRequiredError);
+
+    expect(supabase.from).toHaveBeenCalledWith('customers');
+    expect(queryBuilder.select).toHaveBeenCalledWith('username');
+    expect(queryBuilder.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(queryBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(logger.warn).toHaveBeenCalledWith({
+      merchantId: 'merchant-1',
+      message: 'Quiz username gate blocked customer without display name',
+      userId: 'user-1',
+    });
+  });
+
+  it('rejects quiz username gate when the username is blank', async () => {
+    const { supabase } = mockSupabaseResult({
+      data: { username: '   ' },
+      error: null,
+    });
+
+    await expect(
+      enforceQuizUsernameGate(supabase, 'merchant-1', 'user-1')
+    ).rejects.toBeInstanceOf(QuizUsernameRequiredError);
+  });
+
+  it('throws and logs username gate lookup failures', async () => {
+    const dbError = new Error('customer lookup failed');
+    const { supabase } = mockSupabaseResult({ data: null, error: dbError });
+
+    await expect(
+      enforceQuizUsernameGate(supabase, 'merchant-1', 'user-1')
+    ).rejects.toThrow('Quiz username gate customer lookup failed for user-1');
+
+    expect(logger.error).toHaveBeenCalledWith({
+      error: dbError,
+      merchantId: 'merchant-1',
+      message: 'Quiz username gate customer lookup failed',
+      userId: 'user-1',
+    });
+  });
+
+  it('passes username gate checks when a username is set', async () => {
+    const { supabase } = mockSupabaseResult({
+      data: { username: 'ogafan' },
+      error: null,
+    });
+
+    await expect(
+      enforceQuizUsernameGate(supabase, 'merchant-1', 'user-1')
     ).resolves.toBeUndefined();
   });
 });

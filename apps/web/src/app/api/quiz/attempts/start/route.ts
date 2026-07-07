@@ -4,12 +4,15 @@ import {
   createRouteProof,
   enforceEventPrizeGuard,
   enforceQuizAgeGate,
+  enforceQuizUsernameGate,
   invalidInputResponse,
   isQuizAgeGateError,
+  isQuizUsernameRequiredError,
   parseJsonBody,
   prizeGuardErrorResponse,
   quizAgeGateErrorResponse,
   quizRpcClientErrorResponse,
+  quizUsernameGateErrorResponse,
   requireQuizCsrf,
   requireQuizUser,
   rpcErrorResponse,
@@ -56,9 +59,13 @@ export async function POST(request: NextRequest) {
         parsed.data.eventId
       );
       await enforceQuizAgeGate(auth.supabase, merchantId, auth.user.id);
+      await enforceQuizUsernameGate(auth.supabase, merchantId, auth.user.id);
     } catch (error) {
       if (isQuizAgeGateError(error)) {
         return quizAgeGateErrorResponse(error);
+      }
+      if (isQuizUsernameRequiredError(error)) {
+        return quizUsernameGateErrorResponse(error);
       }
       return prizeGuardErrorResponse(error);
     }

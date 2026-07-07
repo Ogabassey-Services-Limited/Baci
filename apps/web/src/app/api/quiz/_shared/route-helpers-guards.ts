@@ -53,6 +53,11 @@ export class QuizAgeGateError extends Error {
   readonly status = 403;
 }
 
+export class QuizUsernameRequiredError extends Error {
+  readonly code = 'quiz_username_required';
+  readonly status = 409;
+}
+
 function parseDateOfBirth(dateOfBirth: string): Date | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOfBirth);
   if (!match) return null;
@@ -182,6 +187,59 @@ export async function enforceQuizAgeGate(
       userId,
     });
     throw new QuizAgeGateError('Quiz participation is age restricted');
+  }
+}
+
+export async function enforceQuizUsernameGate(
+  supabase: ServerSupabaseClient,
+  merchantId: string | null,
+  userId: string
+) {
+  if (!merchantId) {
+    logger.warn({
+      message: 'Quiz username gate missing merchant context',
+      userId,
+    });
+    throw new QuizUsernameRequiredError(
+      'Quiz participation requires merchant scope'
+    );
+  }
+
+  const { data, error } = await supabase
+    .from('customers')
+    .select('username')
+    .eq('merchant_id', merchantId)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    logger.error({
+      error,
+      merchantId,
+      message: 'Quiz username gate customer lookup failed',
+      userId,
+    });
+    throw new Error(`Quiz username gate customer lookup failed for ${userId}`);
+  }
+
+  const customer = data as { username?: string | null } | null;
+  const username =
+    typeof customer?.username === 'string' ? customer.username.trim() : '';
+
+  // Leaderboard-bound attempts must carry a display name. The mobile UI gates
+  // this before starting, but the server is the authoritative invariant so a
+  // web caller or crafted/stale mobile request cannot create a nameless
+  // leaderboard attempt (and be charged the exam pass) by posting directly.
+  if (!username) {
+    logger.warn({
+      merchantId,
+      message: 'Quiz username gate blocked customer without display name',
+      userId,
+    });
+    throw new QuizUsernameRequiredError(
+      'Quiz participation requires a leaderboard display name'
+    );
   }
 }
 

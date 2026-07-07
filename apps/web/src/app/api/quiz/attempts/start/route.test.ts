@@ -330,4 +330,54 @@ describe('start quiz attempt route', () => {
     expect(customerAgeBuilder.eq).toHaveBeenCalledWith('user_id', USER_ID);
     expect(rpc).not.toHaveBeenCalled();
   });
+
+  it('blocks production quiz start when the customer has no username', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+    const { customerAgeBuilder, rpc } = mockAuthenticatedSupabase({
+      customerAgeResult: {
+        data: { date_of_birth: '1990-01-01', username: null },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      code: 'quiz_username_required',
+      error: 'Choose a username before starting the quiz',
+    });
+    expect(customerAgeBuilder.select).toHaveBeenCalledWith('username');
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('starts production quiz play when age and username gates pass', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+    const { rpc } = mockAuthenticatedSupabase({
+      customerAgeResult: {
+        data: { date_of_birth: '1990-01-01', username: 'ogafan' },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith(
+      'start_quiz_attempt',
+      expect.objectContaining({
+        p_event_id: EVENT_ID,
+        p_integrity_tier: 'device',
+        p_user_id: USER_ID,
+      })
+    );
+  });
 });
