@@ -6,6 +6,7 @@ import {
 } from '@/lib/llms-markdown-storefront-faq';
 import { normalizeOrigin } from '@/lib/normalize-origin';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
@@ -209,6 +210,9 @@ export function buildCategoryMarkdown(
   const safeTitle = sanitizeMarkdownText(title);
   const safeDescription = sanitizeMarkdownText(description);
   const businessName = sanitizeMarkdownText(merchant.business_name);
+  const merchantCurrency = sanitizeMarkdownText(
+    resolveMerchantCurrencyConfig(merchant).code
+  );
   const products = data.products
     .filter(isRawDbProduct)
     .map((product) => normalizeProduct(product));
@@ -233,7 +237,7 @@ export function buildCategoryMarkdown(
         });
 
         return [
-          `- [${sanitizeMarkdownText(product.name)}](${getProductMarkdownMirrorUrl(productUrl)}): ${product.price} ${sanitizeMarkdownText(merchant.payout_currency || 'NGN')}${product.brand ? `, ${sanitizeMarkdownText(product.brand)}` : ''}`,
+          `- [${sanitizeMarkdownText(product.name)}](${getProductMarkdownMirrorUrl(productUrl)}): ${product.price} ${merchantCurrency}${product.brand ? `, ${sanitizeMarkdownText(product.brand)}` : ''}`,
         ];
       }),
     '',
@@ -257,9 +261,12 @@ export function buildProductMarkdown(
     stock_quantity: rawProduct.stock_quantity,
     low_stock_threshold: rawProduct.low_stock_threshold,
   });
+  const currency = sanitizeMarkdownText(
+    resolveMerchantCurrencyConfig(merchant).code
+  );
   const compareAt =
     product.compare_at_price && product.compare_at_price > product.price
-      ? `- Compare at price: ${product.compare_at_price} ${sanitizeMarkdownText(merchant.payout_currency || 'NGN')}`
+      ? `- Compare at price: ${product.compare_at_price} ${currency}`
       : '';
   const description = product.description || `Buy ${product.name}.`;
   const productName = sanitizeMarkdownText(product.name);
@@ -268,7 +275,6 @@ export function buildProductMarkdown(
   const category = sanitizeMarkdownText(product.category);
   const brand = sanitizeMarkdownText(product.brand);
   const condition = sanitizeMarkdownText(product.condition);
-  const currency = sanitizeMarkdownText(merchant.payout_currency || 'NGN');
   const primaryImage = product.images[0]
     ? sanitizeMarkdownText(product.images[0])
     : '';

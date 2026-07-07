@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import type { BreadcrumbList, FAQPage, ItemList } from 'schema-dts';
 import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import {
   buildComparePageSchemas,
   buildProductCompareItemListSchema,
@@ -88,7 +89,7 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
       ? buildProductCompareItemListSchema({
           pageName: page.heading,
           pageUrl: page.canonicalUrl,
-          currency: page.merchant.payout_currency || 'NGN',
+          currency: resolveMerchantCurrencyConfig(page.merchant).code,
           products: productSchemaProducts,
           comparisonMatrix: page.comparisonMatrix,
         })

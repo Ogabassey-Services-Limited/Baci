@@ -12,6 +12,7 @@ import {
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { asRoute } from '@/lib/routes';
 import {
   generateBreadcrumbSchema,
@@ -119,6 +120,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
       { name: 'Products', url: productsPageUrl },
     ]
   );
+  const payoutCurrency = resolveMerchantCurrencyConfig(merchant).code;
   const collectionSchema: JsonLdData<CollectionPage> =
     generateCollectionPageSchema({
       name: 'Products',
@@ -126,9 +128,8 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
       url: productsPageUrl,
       products: currentProductIndex.products,
       merchantName: merchant.business_name,
-      currency: merchant.payout_currency || 'NGN',
+      currency: payoutCurrency,
     });
-  const payoutCurrency = merchant.payout_currency || 'NGN';
   const formatProductPrice = (amount: number) =>
     formatDisplayCurrency(amount, payoutCurrency, {
       minimumFractionDigits: 0,

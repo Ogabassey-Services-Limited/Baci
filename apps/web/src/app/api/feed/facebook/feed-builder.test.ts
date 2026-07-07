@@ -285,4 +285,27 @@ describe('generateFacebookCatalogFeed', () => {
     expect(xml).not.toContain('<g:id>product-1</g:id>');
     expect(xml).not.toContain('<item>');
   });
+
+  it('emits the merchant payout currency (not a hardcoded USD default)', () => {
+    const xml = generateFacebookCatalogFeed(
+      [baseProduct],
+      { ...merchant, payout_currency: 'GHS', country: 'GH' },
+      'https://ogabassey.com',
+      imageManifest
+    );
+
+    expect(xml).toContain('<g:sale_price>1200000.00 GHS</g:sale_price>');
+    expect(xml).not.toContain('USD');
+  });
+
+  it('falls back to the platform default (NGN) when payout currency is missing', () => {
+    const xml = generateFacebookCatalogFeed(
+      [baseProduct],
+      { ...merchant, payout_currency: undefined, country: undefined },
+      'https://ogabassey.com',
+      imageManifest
+    );
+
+    expect(xml).toContain('<g:sale_price>1200000.00 NGN</g:sale_price>');
+  });
 });

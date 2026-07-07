@@ -15,6 +15,7 @@ import {
   type OrderConversionData,
   sendPurchaseConversion,
 } from '@/lib/offline-conversions';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 
 /**
  * Strongly typed interface for order data needed for conversions
@@ -131,6 +132,32 @@ function toConversionItems(
 }
 
 /**
+ * Resolve the currency code for a conversion event. The order's own
+ * `currency` column is authoritative when present (set at checkout from the
+ * merchant's resolved currency); only when it's missing do we fall back to
+ * looking up the merchant's `payout_currency`/`country` via the shared
+ * resolver (which itself falls back to the platform default, NGN).
+ */
+async function resolveConversionCurrency(
+  supabase: SupabaseClient,
+  merchantId: string,
+  order: OrderForConversion
+): Promise<string> {
+  const orderCurrency = order.currency?.trim();
+  if (orderCurrency) {
+    return orderCurrency;
+  }
+
+  const { data: merchant } = await supabase
+    .from('merchants')
+    .select('country, payout_currency')
+    .eq('id', merchantId)
+    .maybeSingle();
+
+  return resolveMerchantCurrencyConfig(merchant ?? {}).code;
+}
+
+/**
  * Triggers a Purchase conversion event to all configured ad platforms
  * (Facebook CAPI, TikTok Events API, Google Analytics 4, Snapchat CAPI)
  *
@@ -207,11 +234,17 @@ export async function triggerPurchaseConversion(
         ? Number.parseFloat(order.total)
         : order.total;
 
+    const currency = await resolveConversionCurrency(
+      supabase,
+      merchantId,
+      order
+    );
+
     const orderConversionData: OrderConversionData = {
       orderId: order.id,
       orderNumber,
       total: orderTotal || 0,
-      currency: order.currency || 'NGN',
+      currency,
       customerEmail: order.customer_email ?? undefined,
       customerPhone: order.customer_phone ?? undefined,
       customerName: order.customer_name ?? undefined,

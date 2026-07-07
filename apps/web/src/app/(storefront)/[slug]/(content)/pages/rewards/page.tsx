@@ -29,6 +29,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useLoyalty } from '@/hooks/use-loyalty';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 
 interface MerchantInfoSetters {
   setMerchantId: (id: string | null) => void;
@@ -84,6 +85,15 @@ export default function RewardsPage() {
   const { customer } = useCustomerAuth();
   // Derive directly from the auth context instead of mirroring it into state
   const customerId = customer?.id ?? null;
+
+  // Merchant currency (country/payout_currency) for the rewards catalog's
+  // fixed-value discount labels. `useMerchantSafe` (not the throwing
+  // `useMerchant`) because this page renders under `StorefrontMerchantProvider`
+  // in production but has no provider ancestor in its unit tests.
+  const merchantCurrencyContext = useMerchantSafe();
+  const merchantCountry = merchantCurrencyContext?.merchant?.country ?? null;
+  const merchantPayoutCurrency =
+    merchantCurrencyContext?.merchant?.payout_currency ?? null;
 
   // Fetch merchant info on mount and when slug changes
   useEffect(() => {
@@ -302,7 +312,12 @@ export default function RewardsPage() {
             </TabsList>
 
             <TabsContent value="rewards" className="mt-4">
-              <RewardsCatalog merchantId={merchantId} customerId={customerId} />
+              <RewardsCatalog
+                merchantId={merchantId}
+                customerId={customerId}
+                merchantCountry={merchantCountry}
+                merchantPayoutCurrency={merchantPayoutCurrency}
+              />
             </TabsContent>
 
             <TabsContent value="history" className="mt-4">

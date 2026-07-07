@@ -9,6 +9,7 @@ import {
   resolveGmcPrimaryImage,
 } from '@/lib/gmc-feed-images';
 import { getEffectiveStock } from '@/lib/product-stock';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
 import { escapeXml } from '@/lib/xml-utils';
 import type {
@@ -212,7 +213,7 @@ export function generateFacebookCatalogFeed(
   baseUrl: string,
   imageManifest: ImageManifestMap
 ): string {
-  const currency = merchant.payout_currency || 'USD';
+  const currency = resolveMerchantCurrencyConfig(merchant).code;
   const brandName = merchant.business_name;
   const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
 

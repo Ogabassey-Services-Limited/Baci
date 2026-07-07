@@ -17,6 +17,7 @@ import {
 } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import type { Product } from '@/lib/products';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { asRoute } from '@/lib/routes';
 import {
   generateCollectionPageSchema,
@@ -327,7 +328,7 @@ export async function StorefrontContent({
           url: baseUrl,
           products: schemaProducts,
           merchantName: merchant.business_name,
-          currency: merchant.payout_currency || 'NGN',
+          currency: resolveMerchantCurrencyConfig(merchant).code,
         })
       : null;
   // Key each discovery link by its canonicalized slug (lowercase + trim only)

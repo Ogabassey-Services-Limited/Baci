@@ -366,6 +366,42 @@ describe('StorefrontContent', () => {
     expect(schema.mainEntity?.['@type']).toBe('ItemList');
   });
 
+  it('uses the resolved merchant currency for the homepage collection schema', async () => {
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      createMockHomeProduct({
+        id: 'product-1',
+        name: 'Galaxy Fold',
+        description: '<p>Premium foldable phone.</p>',
+        price: 15_000,
+        manage_stock: false,
+        stock: 3,
+        category: 'Smartphones',
+        slug: 'galaxy-fold',
+      }),
+    ]);
+
+    const result = await StorefrontContent({
+      merchant: { ...mockMerchant, payout_currency: 'GHS', country: 'GH' },
+    });
+
+    render(result as React.ReactElement);
+
+    const schemaScript = document.querySelector(
+      'script[type="application/ld+json"]'
+    );
+    const schema = JSON.parse(schemaScript?.textContent || '{}') as {
+      mainEntity?: {
+        itemListElement?: Array<{
+          item?: { offers?: { priceCurrency?: string } };
+        }>;
+      };
+    };
+
+    expect(
+      schema.mainEntity?.itemListElement?.[0]?.item?.offers?.priceCurrency
+    ).toBe('GHS');
+  });
+
   it('caps OgaBassey homepage collection schema to first-render products', async () => {
     const { resolveStorefrontTemplateId } = await import(
       './resolve-storefront-template'

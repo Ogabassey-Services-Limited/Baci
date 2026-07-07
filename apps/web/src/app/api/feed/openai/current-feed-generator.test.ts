@@ -217,4 +217,25 @@ describe('generateCurrentOpenAIProductFeed', () => {
       currency: 'NGN',
     });
   });
+
+  it('emits the merchant payout currency for non-NGN merchants', () => {
+    const ghMerchant: Merchant = {
+      id: 'merchant-2',
+      business_name: 'Accra Store',
+      country: 'GH',
+      payout_currency: 'GHS',
+      slug: 'accra-store',
+    };
+    const [line] = generateCurrentOpenAIProductFeed(
+      [product()],
+      ghMerchant,
+      'https://accra-store.com'
+    );
+    const parsed = parseLine(line);
+
+    expect(parsed.variants[0].price).toEqual({
+      amount: 50_000,
+      currency: 'GHS',
+    });
+  });
 });

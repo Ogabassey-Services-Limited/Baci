@@ -223,6 +223,45 @@ describe('llms markdown storefront builders', () => {
     expect(result).toContain('new');
   });
 
+  it('uses the resolved merchant currency (not a hardcoded default) in product and category markdown', () => {
+    const ghMerchant: CachedMerchant = {
+      ...merchant,
+      payout_currency: 'GHS',
+      country: 'GH',
+    };
+    const product = {
+      id: 'p7',
+      name: 'Power Bank',
+      slug: 'power-bank',
+      description: '20,000mAh power bank.',
+      price: 350,
+      compare_at_price: 400,
+      category: 'Accessories',
+      stock: 5,
+      stock_quantity: 5,
+      manage_stock: true,
+      images: [],
+    };
+
+    const productMarkdown = buildProductMarkdown(
+      ghMerchant,
+      'https://accra-store.com',
+      product
+    );
+    const categoryMarkdown = buildCategoryMarkdown(
+      ghMerchant,
+      'https://accra-store.com',
+      'accessories',
+      { isCollection: true, name: 'Accessories', products: [product] }
+    );
+
+    expect(productMarkdown).toContain('350 GHS');
+    expect(productMarkdown).toContain('Compare at price: 400 GHS');
+    expect(categoryMarkdown).toContain('350 GHS');
+    expect(productMarkdown).not.toContain('NGN');
+    expect(categoryMarkdown).not.toContain('NGN');
+  });
+
   it.each([
     {
       label: 'tracked out-of-stock',

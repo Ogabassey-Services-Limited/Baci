@@ -1,5 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
+import {
+  type PlatformEventRequestInput,
+  platformEventRequestSchema,
+} from '@/schemas/platform-event';
 
 // Lazy initialization to avoid build-time errors
 function getSupabaseAdmin() {
@@ -8,6 +12,9 @@ function getSupabaseAdmin() {
     process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
   );
 }
+
+/** Platform-wide default currency when an event doesn't carry its own. */
+const DEFAULT_PLATFORM_CURRENCY = 'NGN';
 
 /**
  * Platform Events API
@@ -23,28 +30,20 @@ function getSupabaseAdmin() {
  * - platform_purchase: Any purchase on the platform
  */
 
-export type PlatformEventType =
-  | 'landing_page_view'
-  | 'pricing_page_view'
-  | 'merchant_signup_started'
-  | 'merchant_signup_completed'
-  | 'merchant_first_sale'
-  | 'merchant_store_published'
-  | 'platform_checkout'
-  | 'platform_purchase';
-
-interface PlatformEventRequest {
-  event_type: PlatformEventType;
-  event_data?: Record<string, unknown>;
-  merchant_id?: string;
-  session_id?: string;
-  page_url?: string;
-  referrer?: string;
-}
+export type PlatformEventType = PlatformEventRequestInput['event_type'];
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as PlatformEventRequest;
+    const body: unknown = await request.json();
+    const result = platformEventRequestSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: result.error.flatten() },
+        { status: 400 }
+      );
+    }
+
     const {
       event_type,
       event_data,
@@ -52,14 +51,7 @@ export async function POST(request: NextRequest) {
       session_id,
       page_url,
       referrer,
-    } = body;
-
-    if (!event_type) {
-      return NextResponse.json(
-        { error: 'Missing required field: event_type' },
-        { status: 400 }
-      );
-    }
+    } = result.data;
 
     // Get request metadata
     const userAgent = request.headers.get('user-agent') || undefined;
@@ -107,12 +99,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
+type PlatformEventData = PlatformEventRequestInput['event_data'];
+
 /**
  * Forward events to platform's configured analytics (GA4, Facebook, etc.)
  */
 async function forwardToPlatformAnalytics(
   eventType: PlatformEventType,
-  eventData: Record<string, unknown> | undefined,
+  eventData: PlatformEventData,
   request: NextRequest
 ) {
   // Get platform settings
@@ -156,9 +150,14 @@ async function forwardToPlatformAnalytics(
           userAgent: request.headers.get('user-agent') || undefined,
         },
         {
-          // Add value for purchase events
+          // Add value for purchase events. Honor the client-passed (and
+          // Zod-validated) currency instead of discarding it — only fall
+          // back to the platform default when the event carries none.
           ...(eventType === 'platform_purchase' && eventData?.value
-            ? { value: eventData.value as number, currency: 'NGN' }
+            ? {
+                value: eventData.value,
+                currency: eventData.currency ?? DEFAULT_PLATFORM_CURRENCY,
+              }
             : {}),
           // Add page info
           page_location: eventData?.page_url as string,
@@ -205,8 +204,8 @@ async function forwardToPlatformAnalytics(
           },
           eventType === 'platform_purchase'
             ? {
-                value: (eventData?.value as number) || 0,
-                currency: (eventData?.currency as string) || 'NGN',
+                value: eventData?.value || 0,
+                currency: eventData?.currency ?? DEFAULT_PLATFORM_CURRENCY,
               }
             : undefined,
           eventData?.page_url as string

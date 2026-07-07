@@ -54,6 +54,7 @@ import { getKnownOgaBasseyMerchantId } from '@/lib/ogabassey-route-identity';
 import { isPaystackConfigured } from '@/lib/paystack';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product, ProductCondition } from '@/lib/products';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import {
   buildStorefrontAcceptedPaymentMethods,
@@ -1012,7 +1013,7 @@ function buildCategoryProductMetadata({
     product.category ||
     DEFAULT_STOREFRONT_SEO_CATEGORY;
   const merchantDisplayName = merchant?.business_name || DEFAULT_STORE_NAME;
-  const currency = merchant.payout_currency || 'NGN';
+  const currency = resolveMerchantCurrencyConfig(merchant).code;
   const priceSeoCopy = buildProductPriceSeoCopy({
     product,
     merchantDisplayName,
@@ -1333,7 +1334,7 @@ async function CategoryProductPageContent({
       ? generateSlug(renderableProduct.category)
       : 'products');
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
-  const currency = merchant.payout_currency || 'NGN';
+  const currency = resolveMerchantCurrencyConfig(merchant).code;
   const priceSeoCopy = buildProductPriceSeoCopy({
     product: renderableProduct,
     merchantDisplayName: merchant?.business_name || DEFAULT_STORE_NAME,
