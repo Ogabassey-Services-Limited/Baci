@@ -99,13 +99,17 @@ describe('callStorefrontPreflightRpc', () => {
     expectFailOpenReason(consoleWarnSpy, reason);
   });
 
-  it('classifies a plain rejection as fetch-error', async () => {
+  it('classifies a plain rejection as fetch-error and forwards its detail', async () => {
     const rpcImpl = vi.fn().mockRejectedValue(new Error('network down'));
 
     const result = await callRpc('fetch_error_fn', {}, rpcImpl);
 
     expect(result).toBeNull();
     expectFailOpenReason(consoleWarnSpy, 'fetch-error');
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ detail: 'Error network down' })
+    );
   });
 
   it('classifies a Postgres statement-timeout error code as timeout', async () => {
@@ -130,6 +134,22 @@ describe('callStorefrontPreflightRpc', () => {
 
     expect(result).toBeNull();
     expectFailOpenReason(consoleWarnSpy, 'has-error');
+  });
+
+  it('re-classifies a supabase-js-resolved fetch failure as fetch-error and forwards diagnostics', async () => {
+    const rpcImpl = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: '', message: 'fetch failed' },
+    });
+
+    const result = await callRpc('resolved_fetch_fail_fn', {}, rpcImpl);
+
+    expect(result).toBeNull();
+    expectFailOpenReason(consoleWarnSpy, 'fetch-error');
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ detail: 'fetch failed' })
+    );
   });
 
   it.each([

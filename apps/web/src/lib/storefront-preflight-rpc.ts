@@ -7,6 +7,7 @@ import {
   UNKNOWN_STOREFRONT_FAIL_OPEN_REASON,
 } from './storefront-internal-preflight';
 import { createStorefrontPreflightCircuitBreaker } from './storefront-preflight-circuit-breaker';
+import { classifyRpcErrorReason } from './storefront-preflight-rpc-error';
 
 /**
  * Direct-Supabase transport for the proxy middleware's storefront preflights.
@@ -69,8 +70,6 @@ const DEFAULT_TIMEOUT_MS = 800;
 // verdict outlive the freshness the no-store route transport guaranteed.
 const MEMO_TTL_MS = 3_000;
 const MEMO_MAX_ENTRIES = 512;
-// Postgres statement_timeout error (the anon role's DB-side cap).
-const POSTGRES_STATEMENT_TIMEOUT_CODE = '57014';
 
 const memo = new Map<string, { expires: number; row: unknown }>();
 const breaker = createStorefrontPreflightCircuitBreaker();
@@ -121,6 +120,23 @@ function isAbortLikeError(error: unknown): boolean {
     error instanceof DOMException &&
     (error.name === 'AbortError' || error.name === 'TimeoutError')
   );
+}
+
+/**
+ * Bounded, secrets-free `code message` diagnostic for a fail-open. PostgREST
+ * error messages carry no secrets; bounding keeps a pathological message from
+ * bloating the telemetry payload. Empty → undefined so the property is omitted.
+ */
+function boundedErrorDetail(code: string, message: string): string | undefined {
+  return `${code} ${message}`.trim().slice(0, 160) || undefined;
+}
+
+/** Same diagnostic for the rare THROWN (not resolved-`{ error }`) rejection. */
+function thrownErrorDetail(error: unknown): string | undefined {
+  if (error instanceof Error || error instanceof DOMException) {
+    return boundedErrorDetail(error.name, error.message);
+  }
+  return undefined;
 }
 
 /**
@@ -175,6 +191,7 @@ export async function callStorefrontPreflightRpc(
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
       reason: isAbortLikeError(error) ? 'timeout' : 'fetch-error',
+      detail: thrownErrorDetail(error),
     });
     captureBreakerOpenTransition(failOpenContext);
     return null;
@@ -186,10 +203,11 @@ export async function callStorefrontPreflightRpc(
     breaker.recordFailure();
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
-      reason:
-        result.error.code === POSTGRES_STATEMENT_TIMEOUT_CODE
-          ? 'timeout'
-          : 'has-error',
+      reason: classifyRpcErrorReason(result.error),
+      detail: boundedErrorDetail(
+        result.error.code ?? '',
+        result.error.message ?? ''
+      ),
     });
     captureBreakerOpenTransition(failOpenContext);
     return null;
