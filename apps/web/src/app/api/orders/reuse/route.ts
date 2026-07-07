@@ -15,6 +15,11 @@ import {
   readOptionalShippingFee,
   readReuseQuoteValidationContext,
 } from './quote-validation-context';
+import {
+  hasSelectedQuoteInput,
+  normalizeShippingProvider,
+  resolveSuppliedQuoteProvider,
+} from './shipping-provider-resolution';
 
 function mapReuseOrderError(
   error: { message?: string; code?: string } | null | undefined
@@ -78,11 +83,8 @@ type ReuseQuoteValidationResult =
   | {
       selectedQuoteId: string | null;
       shippingAddress: OrderShippingAddressForQuote | undefined;
+      shippingProvider: string | null;
     };
-
-function hasSelectedQuoteInput(data: ReuseCheckoutOrderInput): boolean {
-  return Object.hasOwn(data, 'selected_quote_id');
-}
 
 async function validateSelectedQuoteForReuse(
   supabase: ReturnType<typeof createClient>,
@@ -124,11 +126,23 @@ async function validateSelectedQuoteForReuse(
   }
 
   const shippingFee = readOptionalShippingFee(context.shipping_fee);
+  const requestedShippingProvider = normalizeShippingProvider(
+    data.shipping_provider
+  );
   if (!context.selected_quote_id) {
-    return { selectedQuoteId: null, shippingAddress: undefined };
+    return {
+      selectedQuoteId: null,
+      shippingAddress: undefined,
+      shippingProvider: requestedShippingProvider,
+    };
   }
+  const suppliedQuoteProvider = requestedShippingProvider
+    ? null
+    : await resolveSuppliedQuoteProvider(supabase, data);
   const effectiveShippingProvider =
-    data.shipping_provider ?? context.shipping_provider;
+    requestedShippingProvider ??
+    suppliedQuoteProvider ??
+    normalizeShippingProvider(context.shipping_provider);
 
   try {
     const shippingAddress = await enrichShippingAddressWithQuoteDestination(
@@ -142,7 +156,11 @@ async function validateSelectedQuoteForReuse(
         shippingProvider: effectiveShippingProvider,
       }
     );
-    return { selectedQuoteId: context.selected_quote_id, shippingAddress };
+    return {
+      selectedQuoteId: context.selected_quote_id,
+      shippingAddress,
+      shippingProvider: effectiveShippingProvider,
+    };
   } catch (error) {
     if (error instanceof OrderQuoteDestinationMismatchError) {
       return {
@@ -206,7 +224,9 @@ export async function POST(request: NextRequest) {
         p_customer_email: parsed.data.customer_email,
         p_payment_method: parsed.data.payment_method,
         p_has_selected_quote_id: hasSelectedQuoteInput(parsed.data),
-        p_shipping_provider: parsed.data.shipping_provider || null,
+        p_shipping_provider:
+          normalizeShippingProvider(parsed.data.shipping_provider) ??
+          selectedQuoteValidationResponse.shippingProvider,
         p_selected_quote_id: selectedQuoteValidationResponse.selectedQuoteId,
         p_shipping_address:
           selectedQuoteValidationResponse.shippingAddress ?? null,
