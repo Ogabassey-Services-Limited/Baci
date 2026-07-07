@@ -1,3 +1,4 @@
+import { getImageProps } from 'next/image';
 import { preconnect, prefetchDNS, preload } from 'react-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { preloadOgabasseyHomeHeroResources } from './ogabassey-home-hero-resource-hints';
@@ -59,5 +60,27 @@ describe('preloadOgabasseyHomeHeroResources', () => {
     preloadOgabasseyHomeHeroResources(undefined);
 
     expect(preload).not.toHaveBeenCalled();
+  });
+
+  it('fails open and swallows the error when getImageProps throws (must never break the shell render)', () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    vi.mocked(getImageProps).mockImplementationOnce(() => {
+      throw new Error('getImageProps boom');
+    });
+
+    expect(() => preloadOgabasseyHomeHeroResources(CDN_HERO)).not.toThrow();
+
+    // prefetchDNS/preconnect run BEFORE getImageProps and may still fire —
+    // what matters is that the throw itself never escapes and preload (which
+    // depends on getImageProps' output) never runs with bad data.
+    expect(preload).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to emit home hero preload hints',
+      expect.objectContaining({ error: expect.any(Error) })
+    );
+
+    consoleErrorSpy.mockRestore();
   });
 });

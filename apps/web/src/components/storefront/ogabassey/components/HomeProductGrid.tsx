@@ -14,7 +14,7 @@ import type {
 import { DeferredAdUnit } from './deferred-ad-unit';
 import { HomeProductGridCard } from './HomeProductGridCard';
 import type { ProductGridItemProps } from './ProductGridItem';
-import { useHomePreviewCatalog } from './useHomePreviewCatalog';
+import { hasRealProducts, useHomePreviewCatalog } from './useHomePreviewCatalog';
 import type { Product } from '../types';
 import { joinRouteBasePath, normalizeRouteBasePath } from '@/lib/routes';
 
@@ -160,8 +160,9 @@ export function HomeProductGrid({
     explicitBasePath ?? (storeSlug ? `/${storeSlug}` : '');
   const basePath = normalizeRouteBasePath(rawBasePath);
   const allProductsHref = joinRouteBasePath(basePath, '/products');
-  const allProducts =
-    products && products.length > 0 ? products : (previewCatalog ?? []);
+  const allProducts = hasRealProducts(products)
+    ? products
+    : (previewCatalog ?? []);
   const featuredProducts = prioritizeSmartphoneProducts(allProducts);
   const visibleProducts = featuredProducts.slice(0, displayCount);
   const hasMoreProducts = displayCount < featuredProducts.length;
