@@ -107,6 +107,15 @@ function isValidEmail(email: string): boolean {
   return true;
 }
 
+function normalizeRuntimeRecipientEmail(email: unknown): string | null {
+  if (typeof email !== 'string') {
+    return null;
+  }
+
+  const trimmedEmail = email.trim();
+  return trimmedEmail.length > 0 ? trimmedEmail : null;
+}
+
 interface SendEmailParams {
   to: string;
   toName?: string;
@@ -381,14 +390,22 @@ export async function sendEmail({
     fromName,
     merchantId ?? auditContext?.merchantId
   );
+  const recipientEmail = normalizeRuntimeRecipientEmail(to);
 
   // Validate email
-  if (!isValidEmail(to)) {
+  if (!recipientEmail) {
+    return {
+      success: false,
+      error: 'Invalid email address',
+    };
+  }
+
+  if (!isValidEmail(recipientEmail)) {
     await insertEmailAttempts([
       createAuditAttempt({
         transportType: 'html',
         emailType,
-        recipientEmail: to,
+        recipientEmail,
         recipientName: toName,
         fromAddress: sender.address,
         fromName: sender.name,
@@ -396,13 +413,13 @@ export async function sendEmail({
         subject,
         auditContext,
         status: 'failed',
-        providerErrorMessage: `Invalid email address: ${to}`,
+        providerErrorMessage: `Invalid email address: ${recipientEmail}`,
       }),
     ]);
 
     return {
       success: false,
-      error: `Invalid email address: ${to}`,
+      error: `Invalid email address: ${recipientEmail}`,
     };
   }
 
@@ -411,7 +428,7 @@ export async function sendEmail({
       createAuditAttempt({
         transportType: 'html',
         emailType,
-        recipientEmail: to,
+        recipientEmail,
         recipientName: toName,
         fromAddress: sender.address,
         fromName: sender.name,
@@ -433,7 +450,7 @@ export async function sendEmail({
     createAuditAttempt({
       transportType: 'html',
       emailType,
-      recipientEmail: to,
+      recipientEmail,
       recipientName: toName,
       fromAddress: sender.address,
       fromName: sender.name,
@@ -463,8 +480,8 @@ export async function sendEmail({
             to: [
               {
                 email_address: {
-                  address: to,
-                  name: toName || to,
+                  address: recipientEmail,
+                  name: toName || recipientEmail,
                 },
               },
             ],
@@ -588,14 +605,22 @@ export async function sendEmailWithTemplate({
     fromName,
     merchantId ?? auditContext?.merchantId
   );
+  const recipientEmail = normalizeRuntimeRecipientEmail(to);
 
   // Validate email
-  if (!isValidEmail(to)) {
+  if (!recipientEmail) {
+    return {
+      success: false,
+      error: 'Invalid email address',
+    };
+  }
+
+  if (!isValidEmail(recipientEmail)) {
     await insertEmailAttempts([
       createAuditAttempt({
         transportType: 'template',
         emailType,
-        recipientEmail: to,
+        recipientEmail,
         recipientName: toName,
         fromAddress: sender.address,
         fromName: sender.name,
@@ -603,13 +628,13 @@ export async function sendEmailWithTemplate({
         templateKey,
         auditContext,
         status: 'failed',
-        providerErrorMessage: `Invalid email address: ${to}`,
+        providerErrorMessage: `Invalid email address: ${recipientEmail}`,
       }),
     ]);
 
     return {
       success: false,
-      error: `Invalid email address: ${to}`,
+      error: `Invalid email address: ${recipientEmail}`,
     };
   }
 
@@ -618,7 +643,7 @@ export async function sendEmailWithTemplate({
       createAuditAttempt({
         transportType: 'template',
         emailType,
-        recipientEmail: to,
+        recipientEmail,
         recipientName: toName,
         fromAddress: sender.address,
         fromName: sender.name,
@@ -642,7 +667,7 @@ export async function sendEmailWithTemplate({
     createAuditAttempt({
       transportType: 'template',
       emailType,
-      recipientEmail: to,
+      recipientEmail,
       recipientName: toName,
       fromAddress: sender.address,
       fromName: sender.name,
@@ -680,8 +705,8 @@ export async function sendEmailWithTemplate({
             to: [
               {
                 email_address: {
-                  address: to,
-                  name: toName || to,
+                  address: recipientEmail,
+                  name: toName || recipientEmail,
                 },
               },
             ],
