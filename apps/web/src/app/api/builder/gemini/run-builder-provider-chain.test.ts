@@ -128,6 +128,54 @@ describe('runBuilderProviderChain', () => {
     expect(withRetry).toHaveBeenCalledTimes(2);
   });
 
+  it('classifies quota AND shape errors as non-retryable for the per-provider retry', async () => {
+    respondByModel({ flash: 'valid' });
+
+    await runBuilderProviderChain({
+      ...baseOptions(),
+      providerChain: [provider('flash')],
+    });
+
+    // Capture the classifier the chain hands to withRetry and probe it: a
+    // shape-rejected draft or an exhausted pool must fall straight to the next
+    // provider (no same-provider retry), while a transient outage stays
+    // retryable.
+    const options = vi.mocked(withRetry).mock.calls[0]?.[2] as {
+      isNonRetryable?: (error: Error) => boolean;
+    };
+    const shapeError = new Error('builder config JSON failed validation: x');
+    shapeError.name = 'BuilderConfigShapeError';
+    expect(options?.isNonRetryable?.(shapeError)).toBe(true);
+    expect(
+      options?.isNonRetryable?.(new Error('Rate limit reached for model'))
+    ).toBe(true);
+    expect(options?.isNonRetryable?.(new Error('upstream 503'))).toBe(false);
+  });
+
+  it('treats a mid-chain opportunistic provider as best-effort (no retry), not reliable', async () => {
+    // Hypothetical future config: opportunistic entry BEFORE the last reliable
+    // provider. The per-provider flag (not chain position) must govern.
+    respondByModel({
+      flash: 'offshape',
+      openrouter: 'offshape',
+      lite: 'valid',
+    });
+
+    const result = await runBuilderProviderChain({
+      ...baseOptions(),
+      providerChain: [
+        provider('flash'),
+        provider('openrouter', true),
+        provider('lite'),
+      ],
+    });
+
+    expect(result.content).toHaveLength(1);
+    // withRetry wraps flash + lite only — the sandwiched opportunistic entry
+    // runs bare.
+    expect(withRetry).toHaveBeenCalledTimes(2);
+  });
+
   it('surfaces an early outage over a trailing shape error (503, not 502)', async () => {
     // Mixed failure: primary is a genuine outage, the last provider merely
     // returns off-shape JSON. The thrown cause must be the outage so the route

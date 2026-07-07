@@ -152,9 +152,10 @@ export async function runBuilderProviderChain({
 
   for (const [index, provider] of providerChain.entries()) {
     const isLastProvider = index === providerChain.length - 1;
-    // Reliable = the primary and every fallback up to and including the last
-    // reliable provider; the opportunistic tail after it is best-effort.
-    const isReliable = index <= lastReliableIndex;
+    // Reliable follows the per-provider flag (not chain position), so an
+    // opportunistic entry is never retried or budget-reserved even if a future
+    // chain config placed one before the last reliable provider.
+    const isReliable = !provider.opportunistic;
     onProviderAttempt?.(provider.name);
 
     let attemptSignal: AbortSignal;
@@ -163,13 +164,17 @@ export async function runBuilderProviderChain({
       // the whole remaining route budget — no per-provider cap.
       attemptSignal = abortSignal;
     } else {
-      // Reserve a MIN floor for each RELIABLE provider still downstream so the
-      // fallback tail always gets a real attempt, but otherwise let this
-      // provider — the PRIMARY, in a Gemini-only chain — use most of the route
-      // deadline instead of a fixed per-provider cap.
+      // Reserve a realistic window for the reliable tail so it always gets a
+      // real attempt, but otherwise let this provider — the PRIMARY, in a
+      // Gemini-only chain — use most of the route deadline instead of a fixed
+      // per-provider cap. Only RELIABLE providers still downstream count
+      // toward the reservation.
+      const downstreamReliableCount = providerChain
+        .slice(index + 1, lastReliableIndex + 1)
+        .filter((downstream) => !downstream.opportunistic).length;
       const budget = computeNonFinalProviderBudgetMs(
         routeDeadlineMs - Date.now(),
-        lastReliableIndex - index // reliable providers still downstream
+        downstreamReliableCount
       );
       attemptSignal = AbortSignal.any([
         abortSignal,
@@ -190,14 +195,19 @@ export async function runBuilderProviderChain({
       // spent, preserving the pre-chain availability behavior for keyless
       // (Gemini-only) deployments. `signal` is threaded through so the retry is
       // skipped the moment THIS provider's own budget timeout (or the route
-      // deadline) fires, and quota/rate-limit errors are classified
-      // non-retryable so an already-exhausted free pool falls straight to the
-      // next link instead of paying an idle backoff + extra upstream call. The
+      // deadline) fires. Two error classes are terminal for a provider (fall
+      // straight to the next link, no backoff or duplicate upstream call):
+      // quota/rate-limit (an exhausted pool won't recover in 750ms) and shape
+      // errors (the chain's contract is that off-shape JSON advances to the
+      // next provider — a model that just returned a malformed draft is likely
+      // to repeat it, and the retry burns budget the fallbacks need). The
       // opportunistic tail is best-effort and is not retried.
       return await (isReliable
         ? withRetry(attempt, BUILDER_GEMINI_RETRY_CONFIG, {
             signal: attemptSignal,
-            isNonRetryable: isBuilderGeminiQuotaError,
+            isNonRetryable: (error) =>
+              isBuilderGeminiQuotaError(error) ||
+              isBuilderConfigShapeError(error),
           })
         : attempt());
     } catch (error) {
