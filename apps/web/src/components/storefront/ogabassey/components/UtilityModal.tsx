@@ -200,6 +200,15 @@ export const UtilityModal = ({
     }
   }
 
+  // Collapse the funding panel if the signed-in customer changes while the
+  // modal stays mounted (same-tab sign-out/switch) — a previous customer's
+  // open bank-transfer panel must not carry over to the new session.
+  const [prevUserId, setPrevUserId] = useState(user?.id);
+  if (user?.id !== prevUserId) {
+    setPrevUserId(user?.id);
+    setShowFundingPanel(false);
+  }
+
   const getWalletIdempotencyKey = (payloadSignature: string) => {
     if (walletIdempotencyAttemptRef.current?.payloadSignature !== payloadSignature) {
       walletIdempotencyAttemptRef.current = {

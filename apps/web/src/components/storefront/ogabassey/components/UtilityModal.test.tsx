@@ -149,4 +149,50 @@ describe('UtilityModal', () => {
       screen.queryByRole('button', { name: /pay with bank transfer/i })
     ).not.toBeInTheDocument();
   });
+
+  it('collapses an open funding panel when the customer switches mid-session', () => {
+    harness.useWallet.mockReturnValue({
+      fundingAccount: {
+        accountName: 'OGB / TEST',
+        accountNumber: '9099887766',
+        bankName: 'Wema Bank',
+        provider: 'paystack',
+      },
+      payWithWallet: true,
+      refreshWallet: vi.fn(),
+      requiresFundingAccountConsent: false,
+      setFundingAccount: vi.fn(),
+      setPayWithWallet: vi.fn(),
+      setWalletBalance: vi.fn(),
+      walletBalance: 500,
+      walletDvaEnabled: true,
+      walletLoading: false,
+    });
+
+    const { rerender } = renderOpenModal();
+
+    // Open the funding panel — the existing account number is shown.
+    fireEvent.click(
+      screen.getByRole('button', { name: /pay with bank transfer/i })
+    );
+    expect(screen.getByText('9099887766')).toBeInTheDocument();
+
+    // A same-tab customer switch (new user id) must collapse the panel so
+    // the previous customer's account number can't carry over.
+    harness.useAuth.mockReturnValue({
+      customer: {
+        id: 'customer-2',
+        email: 'other@example.com',
+        first_name: 'Other',
+        last_name: 'Customer',
+        phone: '08098765432',
+      },
+      isAuthenticated: true,
+      isLoading: false,
+      user: { email: 'other@example.com', id: 'user-2', role: 'customer' },
+    });
+    rerender(<UtilityModal isOpen={true} onClose={harness.onClose} />);
+
+    expect(screen.queryByText('9099887766')).not.toBeInTheDocument();
+  });
 });
