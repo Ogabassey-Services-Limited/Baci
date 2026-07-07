@@ -23,6 +23,7 @@ vi.mock('next/navigation', () => ({
   unstable_rethrow: vi.fn(),
 }));
 
+import { unstable_rethrow } from 'next/navigation';
 import { resolveOgabasseyHomeHeroShell } from './ogabassey-home-hero-shell-data';
 
 const SLIDE = {
@@ -87,5 +88,39 @@ describe('resolveOgabasseyHomeHeroShell', () => {
     mockGetCachedMerchant.mockRejectedValue(new Error('cache backend down'));
 
     await expect(resolveOgabasseyHomeHeroShell('')).resolves.toBeNull();
+  });
+
+  it('rethrows a Next-internal error instead of swallowing it (unstable_rethrow contract)', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const nextInternalError = new Error('NEXT_HTTP_ERROR_FALLBACK;404');
+    mockGetCachedMerchant.mockRejectedValue(nextInternalError);
+    vi.mocked(unstable_rethrow).mockImplementationOnce((error: unknown) => {
+      throw error;
+    });
+
+    await expect(resolveOgabasseyHomeHeroShell('')).rejects.toThrow(
+      nextInternalError
+    );
+  });
+
+  it('resolves to null once the cached lookup exceeds the SHELL_LOOKUP_BUDGET_MS budget', async () => {
+    vi.useFakeTimers();
+    try {
+      // Never resolves within the test — the budget race must win instead.
+      mockGetCachedMerchant.mockReturnValue(
+        new Promise<never>(() => {
+          // Intentionally left pending: exercises the SHELL_LOOKUP_BUDGET_MS
+          // timeout race rather than a resolved/rejected merchant lookup.
+        })
+      );
+
+      const shellPromise = resolveOgabasseyHomeHeroShell('');
+      await vi.advanceTimersByTimeAsync(500);
+
+      await expect(shellPromise).resolves.toBeNull();
+      expect(mockBuildLaunchSlides).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -130,4 +130,33 @@ describe('hero mobile geometry parity (fallback vs carousel first frame)', () =>
 
     expect(fallback.querySelector('.mt-2.flex.items-center')).toBeNull();
   });
+
+  it('renders the fallback slide-0 image with the SAME src/srcset the carousel actually uses', () => {
+    const fallback = render(
+      <OgabasseyHomeHeroFallback shellSlides={SLIDES} />
+    ).container;
+    const carousel = render(<HeroMobileCarousel slides={SLIDES} />).container;
+
+    // Both surfaces render slide 0 via MobileLcpHeroImage, which builds its
+    // own <picture><source/><img/></picture> from getImageProps — proving the
+    // rendered srcset carries SLIDES[0].imageUrl AND is identical between the
+    // fallback and the carousel is the actual no-op-swap guarantee; asserting
+    // presence alone (without the cross-render comparison) would pass even if
+    // the fallback silently drifted from the streamed hero's image.
+    const fallbackSource = fallback.querySelector('picture source');
+    const carouselSource = carousel.querySelector('picture source');
+    expect(fallbackSource?.getAttribute('srcset')).toContain(
+      SLIDES[0].imageUrl
+    );
+    expect(fallbackSource?.getAttribute('srcset')).toBe(
+      carouselSource?.getAttribute('srcset')
+    );
+
+    const fallbackImg = fallback.querySelector('picture img');
+    const carouselImg = carousel.querySelector('picture img');
+    expect(fallbackImg?.getAttribute('alt')).toBe(SLIDES[0].imageAlt);
+    expect(fallbackImg?.getAttribute('alt')).toBe(
+      carouselImg?.getAttribute('alt')
+    );
+  });
 });

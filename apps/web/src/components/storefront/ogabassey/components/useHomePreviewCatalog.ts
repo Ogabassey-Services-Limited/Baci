@@ -11,6 +11,15 @@ interface UseHomePreviewCatalogOptions {
 const loadDefaultPreviewCatalogModule = () => import('../data/products');
 
 /**
+ * Single source of truth for "this store has its own products" — shared by the
+ * hook and HomeProductGrid so the preview-catalog gate can't drift between the
+ * two call sites.
+ */
+export function hasRealProducts(products?: Product[]): products is Product[] {
+  return Boolean(products && products.length > 0);
+}
+
+/**
  * Lazily loads the mock preview catalog for storefront homes that have no
  * merchant products yet. When real products are provided the import is
  * skipped entirely, and a failed import is swallowed so the grid keeps
@@ -21,10 +30,10 @@ export function useHomePreviewCatalog({
   loadPreviewCatalog,
 }: UseHomePreviewCatalogOptions): Product[] | null {
   const [previewCatalog, setPreviewCatalog] = useState<Product[] | null>(null);
-  const hasRealProducts = Boolean(products && products.length > 0);
+  const storeHasProducts = hasRealProducts(products);
 
   useEffect(() => {
-    if (hasRealProducts || previewCatalog) {
+    if (storeHasProducts || previewCatalog) {
       return;
     }
 
@@ -43,7 +52,7 @@ export function useHomePreviewCatalog({
     return () => {
       cancelled = true;
     };
-  }, [hasRealProducts, loadPreviewCatalog, previewCatalog]);
+  }, [storeHasProducts, loadPreviewCatalog, previewCatalog]);
 
   return previewCatalog;
 }
