@@ -100,9 +100,10 @@ export async function POST(request: NextRequest) {
     const { data: quote, error: quoteError } = await supabase
       .from('shipping_quotes')
       .select(
-        'id, provider, provider_rate_id, provider_metadata, quote_request, expires_at, price, currency, estimated_days'
+        'id, merchant_id, provider, provider_rate_id, provider_metadata, quote_request, expires_at, price, currency, estimated_days'
       )
       .eq('id', data.quoteId)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (quoteError || !quote) {
@@ -252,11 +253,11 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
     const { error: quoteUpdateError } = await supabase
       .from('shipping_quotes')
       .update({ used: true })
-      .eq('id', data.quoteId);
+      .eq('id', data.quoteId)
+      .eq('merchant_id', merchantId);
 
     if (quoteUpdateError) {
       console.error(

@@ -10,6 +10,7 @@ export type OrderShippingAddressForQuote = NonNullable<
 
 type QuoteDestinationRecord = {
   expires_at?: string | null;
+  merchant_id?: string | null;
   price?: number | string | null;
   provider?: string | null;
   provider_rate_id: string | null;
@@ -37,6 +38,11 @@ type QuoteCheckoutContext = {
   merchantId?: string;
   shippingFee?: number;
   shippingProvider?: ShippingProviderCode | string | null;
+};
+
+type CheckoutQuoteLookupResponse = {
+  data: QuoteDestinationRecord[] | QuoteDestinationRecord | null;
+  error?: { message?: string } | null;
 };
 
 export class OrderQuoteDestinationMismatchError extends Error {
@@ -201,6 +207,25 @@ function validateQuoteCheckoutContext(
   }
 }
 
+async function lookupCheckoutQuote(
+  supabase: SupabaseClient,
+  selectedQuoteId: string,
+  merchantId: string | undefined
+): Promise<{
+  error?: { message?: string } | null;
+  quote: QuoteDestinationRecord | null;
+}> {
+  if (!merchantId) return { quote: null };
+
+  const { data, error } = (await supabase.rpc('get_checkout_shipping_quote', {
+    p_merchant_id: merchantId,
+    p_quote_id: selectedQuoteId,
+  })) as CheckoutQuoteLookupResponse;
+  const quote = Array.isArray(data) ? data[0] : data;
+
+  return { error, quote: quote ?? null };
+}
+
 export async function enrichShippingAddressWithQuoteDestination(
   supabase: SupabaseClient,
   selectedQuoteId: string | null | undefined,
@@ -211,21 +236,24 @@ export async function enrichShippingAddressWithQuoteDestination(
     return shippingAddress;
   }
 
-  const { data: quote, error: quoteError } = (await supabase
-    .from('shipping_quotes')
-    .select('provider, provider_rate_id, quote_request, price, expires_at')
-    .eq('id', selectedQuoteId)
-    .maybeSingle()) as {
-    data: QuoteDestinationRecord | null;
-    error?: { message?: string } | null;
-  };
-
+  const { error: quoteError, quote } = await lookupCheckoutQuote(
+    supabase,
+    selectedQuoteId,
+    context.merchantId
+  );
   if (quoteError) {
     throw new OrderQuoteDestinationMismatchError(
       'Unable to validate the saved international shipping quote. Please get a new quote before checkout.',
       'INTERNATIONAL_QUOTE_LOOKUP_FAILED',
       500
     );
+  }
+
+  if (
+    !quote &&
+    (context.shippingProvider || context.shippingFee !== undefined)
+  ) {
+    throwQuoteMismatch('INTERNATIONAL_QUOTE_ORDER_MISMATCH');
   }
 
   const isGiglInternationalQuote = isGiglInternationalProviderRate(

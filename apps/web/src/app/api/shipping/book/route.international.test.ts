@@ -122,13 +122,14 @@ function buildSupabaseMock({
   const quotesSelectChain = {
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockImplementation(() => {
-      expect(quotesSelectChain.eq).not.toHaveBeenCalledWith(
+      expect(quotesSelectChain.eq).toHaveBeenCalledWith(
         'merchant_id',
-        expect.any(String)
+        'merchant-1'
       );
       return Promise.resolve({
         data: {
           id: '22222222-2222-4222-8222-222222222222',
+          merchant_id: 'merchant-1',
           provider: 'GIGL',
           provider_rate_id: 'GIGL_INTL_1_2_3_1',
           provider_metadata: {},
@@ -211,7 +212,7 @@ describe('POST /api/shipping/book GIGL international guards', () => {
       code: 'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
     });
     expect(mockBookShipment).not.toHaveBeenCalled();
-  }, 30_000);
+  });
 
   it('rejects quote IDs that are not selected on the merchant order', async () => {
     mockCreateClient.mockReturnValue(

@@ -13,13 +13,10 @@ function createSupabase(quote: unknown) {
       : quote;
 
   return {
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi
-        .fn()
-        .mockResolvedValue({ data: quoteRecord, error: null }),
-    })),
+    rpc: vi.fn().mockResolvedValue({
+      data: quoteRecord ? [quoteRecord] : [],
+      error: null,
+    }),
   };
 }
 
@@ -46,6 +43,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
       createSupabase({
         provider_rate_id: 'GIGL_INTL_1_2_3_1',
         quote_request: {
+          merchantId: 'merchant-current',
           sessionId: 'session-1',
           shipmentType: 'international',
           receiver: {
@@ -63,7 +61,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
       }) as unknown as SupabaseClient,
       'quote-1',
       shippingAddress,
-      { shippingProvider: 'GIGL' }
+      { merchantId: 'merchant-current', shippingProvider: 'GIGL' }
     );
 
     expect(result).toEqual({
@@ -93,6 +91,7 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
         createSupabase({
           provider_rate_id: 'GIGL_INTL_1_2_3_1',
           quote_request: {
+            merchantId: 'merchant-current',
             sessionId: 'session-1',
             shipmentType: 'international',
             receiver: {
@@ -114,7 +113,8 @@ describe('enrichShippingAddressWithQuoteDestination', () => {
           country: 'Canada',
           countryCode: 'CA',
           postalCode: 'M5V 3L9',
-        }
+        },
+        { merchantId: 'merchant-current', shippingProvider: 'GIGL' }
       )
     ).rejects.toMatchObject({
       code: 'INTERNATIONAL_QUOTE_DESTINATION_MISMATCH',

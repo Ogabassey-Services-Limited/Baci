@@ -79,8 +79,12 @@ describe('POST /api/shipping/quotes merchant context', () => {
     );
     expect(adminClient.from).not.toHaveBeenCalledWith('merchants');
     expect(mockGetQuotes).toHaveBeenCalledWith(
-      expect.not.objectContaining({
+      expect.objectContaining({
         merchantId: '11111111-1111-4111-8111-111111111111',
+        sender: expect.objectContaining({
+          address: 'Lagos',
+          name: 'Merchant',
+        }),
       })
     );
   });

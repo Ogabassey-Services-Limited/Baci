@@ -23,6 +23,7 @@ import type {
 
 type QuoteRecord = {
   id: string;
+  merchant_id: string | null;
   provider: string;
   service_tier: string | null;
   carrier_name: string | null;
@@ -137,6 +138,7 @@ async function resolveQuote(
 
   const nextQuote: QuoteRecord = {
     id: replacement.id,
+    merchant_id: quote.merchant_id,
     provider,
     service_tier: replacement.serviceTier,
     carrier_name: replacement.carrierName,
@@ -152,6 +154,7 @@ async function resolveQuote(
   await supabase.from('shipping_quotes').upsert(
     {
       id: nextQuote.id,
+      merchant_id: quote.merchant_id,
       session_id: quoteRequest.sessionId,
       provider,
       service_tier: nextQuote.service_tier,
@@ -293,9 +296,10 @@ export async function bookOrderShipment(
   const { data: storedQuote, error: quoteError } = await supabase
     .from('shipping_quotes')
     .select(
-      'id, provider, service_tier, carrier_name, price, currency, estimated_days, provider_rate_id, expires_at, quote_request, provider_metadata'
+      'id, merchant_id, provider, service_tier, carrier_name, price, currency, estimated_days, provider_rate_id, expires_at, quote_request, provider_metadata'
     )
     .eq('id', typedOrder.selected_quote_id)
+    .eq('merchant_id', merchantId)
     .single();
   const typedStoredQuote = storedQuote as QuoteRecord | null;
 
@@ -421,7 +425,8 @@ export async function bookOrderShipment(
   await supabase
     .from('shipping_quotes')
     .update({ used: true })
-    .eq('id', resolvedQuote.id);
+    .eq('id', resolvedQuote.id)
+    .eq('merchant_id', merchantId);
 
   return {
     shipmentId: typedShipment.id,

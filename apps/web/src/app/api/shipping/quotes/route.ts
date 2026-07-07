@@ -13,17 +13,11 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { hasPermission } from '@/lib/api-auth';
-import {
-  getMerchantForApiRequest,
-  toUserAccess,
-} from '@/lib/get-merchant-for-api-request';
 import { shippingService } from '@/lib/shipping';
-import { deriveMerchantLocation } from '@/lib/shipping/order-shipment-booking-utils';
 import type { QuoteRequest } from '@/lib/shipping/types';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
 import { QuoteRequestSchema } from '@/schemas/shipping';
+import { resolveQuoteMerchantContext } from './quote-merchant-context';
 
 // =============================================================================
 // POST /api/shipping/quotes - Get shipping quotes
@@ -54,84 +48,18 @@ export async function POST(request: NextRequest) {
     // mobile (Authorization: Bearer <token>) callers.
     const supabase = createAdminClient();
 
-    // Get merchant info for sender details if not provided. International
-    // quotes must use the merchant's real origin, not caller-supplied sender data.
-    let senderInfo =
-      data.shipmentType === 'international' ? undefined : data.sender;
-    const shouldResolveMerchantSender =
-      data.shipmentType === 'international' || !senderInfo;
-    let merchantSenderId: string | undefined;
-    let merchantSenderBusinessName: string | undefined;
-
-    if (shouldResolveMerchantSender) {
-      const authHeader = request.headers.get('authorization');
-      const token = authHeader?.startsWith('Bearer ')
-        ? authHeader.slice(7)
-        : undefined;
-
-      const authClient = token ? supabase : await createServerSupabaseClient();
-      const {
-        data: { user },
-      } = token
-        ? await authClient.auth.getUser(token)
-        : await authClient.auth.getUser();
-
-      if (user) {
-        // Resolve merchant context (supports both owners and staff)
-        const merchantContext = await getMerchantForApiRequest(
-          supabase,
-          user.id,
-          { requestedMerchantId: data.merchantId }
-        );
-
-        if (merchantContext) {
-          // Permission check
-          const access = toUserAccess(merchantContext);
-          if (!hasPermission(access, 'orders', 'fulfill')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-          }
-          merchantSenderId = merchantContext.merchantId;
-          merchantSenderBusinessName = merchantContext.businessName;
-        }
-      }
+    const merchantContext = await resolveQuoteMerchantContext({
+      data,
+      request,
+      supabase,
+    });
+    if (!merchantContext.ok) {
+      return NextResponse.json(
+        { error: merchantContext.error },
+        { status: merchantContext.status }
+      );
     }
-
-    if (merchantSenderId) {
-      const { data: merchantDetails, error: merchantError } = await supabase
-        .from('merchants')
-        .select('business_name, business_address, phone')
-        .eq('id', merchantSenderId)
-        .maybeSingle();
-
-      if (merchantError) {
-        console.error(
-          'Error fetching merchant for sender info:',
-          merchantError
-        );
-        return NextResponse.json(
-          { error: 'Failed to resolve merchant sender' },
-          { status: 500 }
-        );
-      }
-
-      if (merchantDetails) {
-        const location = deriveMerchantLocation(
-          merchantDetails.business_address
-        );
-        senderInfo = {
-          name:
-            merchantDetails.business_name ||
-            merchantSenderBusinessName ||
-            'Merchant',
-          phone: merchantDetails.phone || '',
-          address: location.address,
-          city: location.city,
-          state: location.state,
-          country: 'Nigeria',
-          countryCode: 'NG',
-        };
-      }
-    }
+    let senderInfo = merchantContext.senderInfo;
 
     if (!senderInfo && data.shipmentType === 'international') {
       return NextResponse.json(
@@ -155,7 +83,7 @@ export async function POST(request: NextRequest) {
 
     // Build quote request
     const quoteRequest: QuoteRequest = {
-      merchantId: merchantSenderId,
+      merchantId: merchantContext.merchantId,
       sender: senderInfo,
       receiver: {
         ...data.receiver,
@@ -177,6 +105,7 @@ export async function POST(request: NextRequest) {
         supabase.from('shipping_quotes').upsert(
           {
             id: quote.id,
+            merchant_id: quoteRequest.merchantId ?? null,
             session_id: response.sessionId,
             provider: quote.provider,
             service_tier: quote.serviceTier,

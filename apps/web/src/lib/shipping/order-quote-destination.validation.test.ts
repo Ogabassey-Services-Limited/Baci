@@ -10,11 +10,10 @@ function createSupabase({
   quote: unknown;
 }) {
   return {
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({ data: quote, error }),
-    })),
+    rpc: vi.fn().mockResolvedValue({
+      data: quote ? [quote] : [],
+      error,
+    }),
   };
 }
 
@@ -157,6 +156,22 @@ describe('enrichShippingAddressWithQuoteDestination validation', () => {
     ).rejects.toMatchObject({
       code: 'INTERNATIONAL_QUOTE_LOOKUP_FAILED',
       status: 500,
+    });
+  });
+
+  it('rejects selected quotes that are not scoped to the checkout merchant', async () => {
+    await expect(
+      enrichShippingAddressWithQuoteDestination(
+        createSupabase({
+          quote: null,
+        }) as unknown as SupabaseClient,
+        'quote-1',
+        shippingAddress,
+        checkoutContext
+      )
+    ).rejects.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
+      status: 400,
     });
   });
 

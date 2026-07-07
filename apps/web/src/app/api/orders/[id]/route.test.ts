@@ -914,8 +914,24 @@ describe('PATCH /api/orders/[id]', () => {
 
   it.each([
     [
+      'INCOMPLETE_SHIPPING_ADDRESS',
+      'Complete shipping address is required before booking shipment',
+    ],
+    [
+      'INTERNATIONAL_QUOTE_REQUEST_MISSING',
+      'Saved international quote request not found',
+    ],
+    [
+      'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
+      'The saved international shipping quote no longer matches this order.',
+    ],
+    [
       'INTERNATIONAL_QUOTE_ITEM_METADATA_MISMATCH',
       'The saved international shipping quote no longer matches the current product shipping details.',
+    ],
+    [
+      'SHIPPING_PROVIDER_DISABLED',
+      'Provider TOPSHIP is disabled for new shipments',
     ],
     [
       'GIGL_INTERNATIONAL_COUNTRY_LOOKUP_FAILED',

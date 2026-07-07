@@ -105,6 +105,7 @@ function createSupabase(
     single: vi.fn().mockResolvedValue({
       data: {
         id: 'quote-1',
+        merchant_id: 'merchant-1',
         provider: 'GIGL',
         service_tier: 'International',
         carrier_name: 'GIG Logistics',
@@ -131,8 +132,10 @@ function createSupabase(
     }),
   };
   const quoteUpdate = {
-    eq: vi.fn().mockResolvedValue({ error: null }),
+    error: null,
+    eq: vi.fn(),
   };
+  quoteUpdate.eq.mockReturnValue(quoteUpdate);
 
   return {
     from: vi.fn((table: string) => {

@@ -18,6 +18,7 @@ interface CartItem {
 }
 
 interface UseShippingOptions {
+  merchantId?: string;
   deliveryMethod: DeliveryMethod;
   isNewAddressMode: boolean;
   newAddressState: string;
@@ -40,6 +41,7 @@ interface QuoteReceiver {
   fName: string;
   lName: string;
   email: string;
+  merchantId?: string;
 }
 
 interface ShippingQuoteSetters {
@@ -104,6 +106,7 @@ async function loadShippingQuotes(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        merchantId: receiver.merchantId || undefined,
         receiver: {
           name: `${fName} ${lName}`.trim() || 'Valued Customer',
           email: email || 'guest@example.com',
@@ -143,6 +146,7 @@ async function loadShippingQuotes(
 
 export function useShipping({
   deliveryMethod,
+  merchantId,
   isNewAddressMode,
   newAddressState,
   newAddressCity,
@@ -194,11 +198,15 @@ export function useShipping({
     lName: string,
     email: string,
   ) =>
-    loadShippingQuotes({ address, state, city, phone, fName, lName, email }, cart, {
-      setIsLoadingQuotes,
-      setSelectedQuoteId,
-      setShippingQuotes,
-    });
+    loadShippingQuotes(
+      { address, state, city, phone, fName, lName, email, merchantId },
+      cart,
+      {
+        setIsLoadingQuotes,
+        setSelectedQuoteId,
+        setShippingQuotes,
+      }
+    );
 
   // Trigger quote fetch when Door Delivery is selected and we have BOTH state AND city
   useEffect(() => {

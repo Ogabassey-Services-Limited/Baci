@@ -892,6 +892,7 @@ function Step1_Shipping({
             Shipping Options
           </h3>
           <ShippingOptions
+            merchantId={merchant?.id || ''}
             receiverCity={watchCity}
             receiverState={watchState}
             receiverAddress={watchAddress}

@@ -247,6 +247,7 @@ describe('POST /api/shipping/quotes', () => {
     };
     expect(quotesTable.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
+        merchant_id: 'merchant-1',
         quote_request: expect.objectContaining({
           merchantId: 'merchant-1',
         }),

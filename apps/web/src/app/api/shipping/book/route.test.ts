@@ -100,6 +100,11 @@ function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
     eq: vi.fn().mockReturnThis(),
   };
   updateChain.eq.mockReturnValue(updateChain);
+  const shippingQuoteUpdateChain = {
+    error: null,
+    eq: vi.fn(),
+  };
+  shippingQuoteUpdateChain.eq.mockReturnValue(shippingQuoteUpdateChain);
 
   return {
     auth: {
@@ -125,9 +130,7 @@ function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
             expect(columns).not.toContain('provider_code');
             return quotesSelectChain;
           }),
-          update: vi.fn(() => ({
-            eq: vi.fn().mockResolvedValue({ error: null }),
-          })),
+          update: vi.fn(() => shippingQuoteUpdateChain),
         };
       }
 

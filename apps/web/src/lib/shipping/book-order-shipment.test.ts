@@ -105,8 +105,10 @@ function createMockSupabase(overrides?: {
     select: vi.fn().mockReturnValue(shipmentsInsertSelectChain),
   };
   const shippingQuotesUpdateChain = {
-    eq: vi.fn().mockResolvedValue({ error: null }),
+    error: null,
+    eq: vi.fn(),
   };
+  shippingQuotesUpdateChain.eq.mockReturnValue(shippingQuotesUpdateChain);
 
   const chain: MockChain = {
     rpc: vi.fn(),
@@ -166,6 +168,7 @@ const validOrder = {
 
 const validQuote = {
   id: 'quote-1',
+  merchant_id: 'merchant-1',
   provider: 'TOPSHIP',
   service_tier: 'standard',
   carrier_name: 'Topship Express',

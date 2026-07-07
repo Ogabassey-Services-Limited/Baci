@@ -288,6 +288,7 @@ async function loadShippingStates({
 
 interface LoadShippingQuotesParams {
   address: string;
+  merchantId: string;
   state: string;
   city: string;
   phone: string;
@@ -302,6 +303,7 @@ interface LoadShippingQuotesParams {
 
 async function loadShippingQuotes({
   address,
+  merchantId,
   state,
   city,
   phone,
@@ -324,6 +326,7 @@ async function loadShippingQuotes({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        merchantId: merchantId || undefined,
         receiver: {
           name: `${receiverFirstName} ${receiverLastName}`.trim() || 'Valued Customer', // Fallback for guest who hasn't typed name yet
           email: email || 'guest@example.com',
@@ -1184,6 +1187,7 @@ export const CheckoutPage: React.FC = () => {
       receiverFirstName,
       receiverLastName,
       email,
+      merchantId: merchant?.id || '',
       items: checkoutCart.map((item) => ({
         name: item.name,
         quantity: item.quantity,

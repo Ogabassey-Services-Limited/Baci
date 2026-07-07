@@ -13,11 +13,9 @@ const shippingAddress = {
 
 function createSupabase() {
   return {
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: {
+    rpc: vi.fn().mockResolvedValue({
+      data: [
+        {
           expires_at: new Date(Date.now() + 60_000).toISOString(),
           price: 10_000,
           provider: 'GIGL',
@@ -34,9 +32,9 @@ function createSupabase() {
             items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
           },
         },
-        error: null,
-      }),
-    })),
+      ],
+      error: null,
+    }),
   };
 }
 

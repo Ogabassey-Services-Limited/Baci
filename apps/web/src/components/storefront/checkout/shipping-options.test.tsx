@@ -49,6 +49,7 @@ const quotesResponse = {
 };
 
 const baseProps = {
+  merchantId: '11111111-1111-4111-8111-111111111111',
   receiverCity: 'Lagos',
   receiverState: 'Lagos',
   receiverAddress: '1 Marina Road',
@@ -89,6 +90,7 @@ describe('ShippingOptions', () => {
 
     expect(mockApiPost).toHaveBeenCalledTimes(1);
     expect(mockApiPost).toHaveBeenCalledWith('/api/shipping/quotes', {
+      merchantId: '11111111-1111-4111-8111-111111111111',
       receiver: {
         name: 'Ada',
         phone: '08000000000',
