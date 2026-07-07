@@ -88,6 +88,7 @@ describe('OgabasseyV2Wallet', () => {
         totalEarned: 0,
         totalRedeemed: 0,
         transactions: [],
+        walletDvaEnabled: true,
       }),
     } as Response);
 
@@ -104,6 +105,33 @@ describe('OgabasseyV2Wallet', () => {
     expect(fundingPanelProps.current).toMatchObject({
       account: null,
       requiresConsent: true,
+    });
+  });
+
+  it('does not offer consent when the merchant has wallet DVAs disabled', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetch).mockResolvedValue({
+      json: async () => ({
+        balance: 0,
+        fundingAccount: null,
+        requiresFundingAccountConsent: true,
+        totalEarned: 0,
+        totalRedeemed: 0,
+        transactions: [],
+        walletDvaEnabled: false,
+      }),
+    } as Response);
+
+    render(<OgabasseyV2Wallet />);
+
+    await screen.findByText('₦0.00');
+    await user.click(screen.getByRole('button', { name: /fund wallet/i }));
+
+    // DVA disabled -> consent is withheld so the panel renders its
+    // unavailable state instead of a create request that would 403.
+    expect(fundingPanelProps.current).toMatchObject({
+      account: null,
+      requiresConsent: false,
     });
   });
 

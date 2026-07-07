@@ -158,7 +158,11 @@ export function WalletFundPanel({
         >
           {SETUP_FAILED}
         </Text>
-      ) : isCreatingFundingAccount || canCreateFundingAccount ? (
+      ) : fundAmount === '' &&
+        (isCreatingFundingAccount || canCreateFundingAccount) ? (
+        // Only while the empty-amount auto-create flow is pending. Prefilled
+        // amounts skip auto-create, so they must not show this spinner above
+        // the (already-visible) card entry form.
         <View style={styles.settingUpRow}>
           <ActivityIndicator color={colors.primary} size="small" />
           <Text

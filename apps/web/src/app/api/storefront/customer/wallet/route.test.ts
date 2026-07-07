@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCookies = vi.fn();
 const mockFrom = vi.fn();
+const mockRpc = vi.fn();
 const mockGetUser = vi.fn();
 
 vi.mock('next/headers', () => ({
@@ -12,6 +13,7 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: mockGetUser },
     from: mockFrom,
+    rpc: mockRpc,
   })),
 }));
 
@@ -68,6 +70,12 @@ describe('GET /api/storefront/customer/wallet', () => {
     mockCookies.mockResolvedValue(new Map());
     mockGetUser.mockResolvedValue({
       data: { user: { email: 'jane@example.com', id: 'user-1' } },
+      error: null,
+    });
+    // get_storefront_payment_settings RPC — SECURITY DEFINER, returns the
+    // merchant's wallet DVA flag for storefront customers.
+    mockRpc.mockResolvedValue({
+      data: [{ wallet_paystack_dva_enabled: true }],
       error: null,
     });
   });
@@ -132,9 +140,6 @@ describe('GET /api/storefront/customer/wallet', () => {
   it('returns the expanded empty wallet contract when the customer is not linked yet', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') return singleQuery({ id: 'merchant-1' });
-      if (table === 'merchant_feature_settings') {
-        return maybeSingleQuery({ wallet_paystack_dva_enabled: true });
-      }
       if (table === 'customers') return singleQuery(null);
       throw new Error(`Unexpected table ${table}`);
     });
@@ -164,9 +169,6 @@ describe('GET /api/storefront/customer/wallet', () => {
       .mockImplementation(() => undefined);
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') return singleQuery({ id: 'merchant-1' });
-      if (table === 'merchant_feature_settings') {
-        return maybeSingleQuery({ wallet_paystack_dva_enabled: true });
-      }
       if (table === 'customers') {
         return singleQuery({
           id: 'customer-1',
@@ -224,9 +226,6 @@ describe('GET /api/storefront/customer/wallet', () => {
   it('returns wallet, savings, loyalty, transactions, and funding account summary', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') return singleQuery({ id: 'merchant-1' });
-      if (table === 'merchant_feature_settings') {
-        return maybeSingleQuery({ wallet_paystack_dva_enabled: true });
-      }
       if (table === 'customers') {
         return singleQuery({
           id: 'customer-1',
@@ -292,5 +291,23 @@ describe('GET /api/storefront/customer/wallet', () => {
       walletDvaEnabled: true,
     });
     expect(body.transactions).toHaveLength(1);
+  });
+
+  it('reports walletDvaEnabled false when the merchant has DVA funding disabled', async () => {
+    mockRpc.mockResolvedValue({
+      data: [{ wallet_paystack_dva_enabled: false }],
+      error: null,
+    });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') return singleQuery({ id: 'merchant-1' });
+      if (table === 'customers') return singleQuery(null);
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.walletDvaEnabled).toBe(false);
   });
 });

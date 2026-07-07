@@ -35,10 +35,17 @@ jest.mock('@/hooks/use-wallet', () => ({
   useWallet: () => mockWalletQuery,
 }));
 
+const mockAuthState: {
+  session: { access_token: string } | null;
+  customer: { phone?: string | null } | null;
+} = {
+  session: { access_token: 'token-123' },
+  customer: { phone: '08012345678' },
+};
+
 jest.mock('@/stores/auth-store', () => ({
-  useAuthStore: (
-    selector: (state: { session: { access_token: string } }) => unknown
-  ) => selector({ session: { access_token: 'token-123' } }),
+  useAuthStore: (selector: (state: typeof mockAuthState) => unknown) =>
+    selector(mockAuthState),
 }));
 
 function createTestQueryClient() {
@@ -81,6 +88,8 @@ afterAll(() => {
 describe('useUtilityPayment', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAuthState.session = { access_token: 'token-123' };
+    mockAuthState.customer = { phone: '08012345678' };
     mockUseMerchantPaymentSettings.mockReturnValue({
       data: { paystack_enabled: true, korapay_enabled: true },
     });
@@ -139,6 +148,27 @@ describe('useUtilityPayment', () => {
 
   it('does not expose canFundByBankTransfer when the merchant DVA is disabled', async () => {
     // beforeEach mocks paystack/korapay enabled without wallet DVA.
+    const { result } = renderHook(() => useUtilityPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCards).toBe(false);
+    });
+
+    expect(result.current.canFundByBankTransfer).toBe(false);
+  });
+
+  it('does not expose canFundByBankTransfer when the customer has no phone', async () => {
+    mockAuthState.customer = { phone: null };
+    mockUseMerchantPaymentSettings.mockReturnValue({
+      data: {
+        paystack_enabled: true,
+        korapay_enabled: true,
+        wallet_paystack_dva_enabled: true,
+      },
+    });
+
     const { result } = renderHook(() => useUtilityPayment(), {
       wrapper: createWrapper(),
     });

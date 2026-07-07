@@ -108,6 +108,9 @@ describe('WalletFundPanel', () => {
     // Savings top-up / checkout returnTo flows are card/gateway intents.
     expect(props.onCreateFundingAccount).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Wallet top-up amount')).toBeTruthy();
+    // No auto-create runs, so the "Setting up..." spinner must not linger
+    // above the card form.
+    expect(screen.queryByText(/setting up your account number/i)).toBeNull();
   });
 
   it('falls back to card entry when auto-create fails instead of spinning forever', async () => {

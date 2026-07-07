@@ -175,14 +175,18 @@ export async function GET(request: Request) {
 
     // Whether this merchant offers wallet bank-transfer (DVA) funding. Lets
     // the client hide the "Pay with Bank Transfer" CTA when it would only
-    // route to a DVA_DISABLED dead end.
-    const { data: featureSettings } = await supabase
-      .from('merchant_feature_settings')
-      .select('wallet_paystack_dva_enabled')
-      .eq('merchant_id', merchant.id)
-      .maybeSingle();
+    // route to a DVA_DISABLED dead end. Read via the SECURITY DEFINER
+    // storefront-settings RPC — a direct merchant_feature_settings SELECT is
+    // RLS-restricted to merchant staff, so it returns no row for customers.
+    const { data: storefrontPaymentSettings } = await supabase.rpc(
+      'get_storefront_payment_settings',
+      { p_merchant_id: merchant.id }
+    );
+    const paymentSettingsRow = Array.isArray(storefrontPaymentSettings)
+      ? storefrontPaymentSettings[0]
+      : storefrontPaymentSettings;
     const walletDvaEnabled =
-      featureSettings?.wallet_paystack_dva_enabled === true;
+      paymentSettingsRow?.wallet_paystack_dva_enabled === true;
 
     // Get customer record for this user + merchant
     // Try by user_id first, then fallback to email (guest customers may not have user_id linked)

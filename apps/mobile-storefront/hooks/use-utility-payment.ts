@@ -23,6 +23,7 @@ const SUPPORTED_UTILITY_GATEWAYS: UtilityPaymentGateway[] = [
 
 export function useUtilityPayment(amount = 0) {
   const isAuthenticated = useAuthStore((state) => !!state.session);
+  const customerPhone = useAuthStore((state) => state.customer?.phone);
   const [selectedGateway, setSelectedGateway] =
     useState<UtilityPaymentGateway>('paystack');
   const [selectedSavedCardId, setSelectedSavedCardId] = useState<string | null>(
@@ -41,10 +42,12 @@ export function useUtilityPayment(amount = 0) {
   const walletIdempotencyKeyRef = useRef<string | null>(null);
   const paymentSettings = useMerchantPaymentSettings();
   // The bank-transfer funding nudge deep-links into DVA creation, so only
-  // offer it to signed-in customers of merchants that have wallet DVAs
-  // enabled — otherwise the CTA routes to a flow that returns DVA_DISABLED.
+  // offer it to signed-in customers, with a usable phone, of merchants that
+  // have wallet DVAs enabled. Otherwise the CTA routes to a flow that
+  // immediately fails with DVA_DISABLED or a phone-required alert.
   const canFundByBankTransfer =
     isAuthenticated &&
+    Boolean(customerPhone?.trim()) &&
     paymentSettings.data?.wallet_paystack_dva_enabled === true;
   const wallet = useWallet();
   const walletBalance = wallet.data?.wallet.balance ?? 0;

@@ -130,7 +130,10 @@ export function OgabasseyV2Wallet() {
                   )
                 }
                 onRefreshBalance={() => setRefreshToken((token) => token + 1)}
-                requiresConsent={wallet?.requiresFundingAccountConsent === true}
+                requiresConsent={
+                  wallet?.requiresFundingAccountConsent === true &&
+                  wallet?.walletDvaEnabled === true
+                }
               />
             ) : null}
 
