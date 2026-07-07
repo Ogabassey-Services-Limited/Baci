@@ -8,6 +8,7 @@ import { getStoredPushToken } from '../lib/push-token-storage';
 import { cleanUsername } from '@/schemas/username';
 import { supabase } from '../lib/supabase';
 import { CustomerRowSchema } from '../lib/validation';
+import { CUSTOMER_SELECT_COLUMNS } from './auth-helpers';
 import { clearLocalAndDeactivatePushToken } from './auth-store-push';
 import type { AuthStoreGet, AuthStoreSet, Customer } from './auth-store.types';
 import { useCartStore } from './cart-store';
@@ -142,7 +143,7 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
           .update(updates)
           .eq('id', customer.id)
           .eq('merchant_id', merchantId)
-          .select('id, email, first_name, last_name, phone, loyalty_points, username')
+          .select(CUSTOMER_SELECT_COLUMNS)
           .single();
         if (error) return { success: false, error: error.message };
 

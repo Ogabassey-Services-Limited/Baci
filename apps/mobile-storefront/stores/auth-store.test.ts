@@ -1540,6 +1540,52 @@ describe('useAuthStore', () => {
       expect(result).toEqual({ success: false, error: 'Not logged in' });
       expect(supabase.rpc).not.toHaveBeenCalled();
     });
+
+    it('returns a session-expired error without calling the RPC when getUser fails', async () => {
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: null },
+        error: { message: 'jwt expired' },
+      });
+
+      let result!: { success: boolean; error?: string; username?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setUsername('OgaFan');
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error: 'Session expired. Please sign in again.',
+      });
+      expect(supabase.rpc).not.toHaveBeenCalled();
+      expect(useAuthStore.getState().customer?.username).toBeUndefined();
+    });
+
+    it.each([
+      ['reserved_username', 'That username is not available.'],
+      [
+        'invalid_username',
+        'Use 3-20 letters, numbers, or single . _ separators (start and end with a letter or number).',
+      ],
+      ['customer_not_found', 'No shopper account found for this store.'],
+      ['not_authenticated', 'Please sign in to choose a username.'],
+      ['some_unmapped_code', 'Could not set username'],
+    ])(
+      'maps RPC error %s to friendly copy and leaves state unchanged',
+      async (code, message) => {
+        (supabase.rpc as jest.Mock).mockResolvedValue({
+          data: null,
+          error: { message: code },
+        });
+
+        let result!: { success: boolean; error?: string; username?: string };
+        await act(async () => {
+          result = await useAuthStore.getState().setUsername('OgaFan');
+        });
+
+        expect(result).toEqual({ success: false, error: message });
+        expect(useAuthStore.getState().customer?.username).toBeUndefined();
+      }
+    );
   });
 
   // -------------------------------------------------------------------------

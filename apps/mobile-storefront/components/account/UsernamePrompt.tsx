@@ -83,7 +83,7 @@ export function UsernamePrompt({
         Username
       </Text>
       <TextInput
-        accessibilityHint="3 to 20 letters, numbers, periods, or underscores"
+        accessibilityHint="3 to 20 characters: letters, numbers, and single periods or underscores. Must start and end with a letter or number."
         accessibilityLabel="Username"
         autoCapitalize="none"
         autoComplete="off"

@@ -12,7 +12,7 @@ import {
  * friendly error and the DB stays the authoritative guard.
  */
 export const setCustomerUsernameSchema = z.object({
-  merchantId: z.string().uuid(),
+  merchantId: z.uuid(),
   username: z
     .string()
     .min(1)

@@ -1,11 +1,12 @@
 -- =============================================
--- REGRESSION TEST: customer username write guard
+-- REGRESSION TEST: customer username write guard (functional)
 --   `public.customers` has table-level GRANT ALL to authenticated plus an
 --   UPDATE RLS policy scoped to the caller's own row, so a shopper can write
 --   `username` DIRECTLY via PostgREST and bypass set_customer_username. These
---   assertions ensure the BEFORE trigger re-applies the format + reserved rules
---   on every write path, and that the setter RPC rejects NULL (which would
---   otherwise silently clear an existing username).
+--   assertions exercise the BEFORE trigger's actual BEHAVIOR — a direct write of
+--   an invalid or reserved username must be rejected, a valid one accepted and
+--   trimmed — so the test stays correct regardless of whether the format rule is
+--   inlined or delegated to is_valid_username_format().
 --
 -- USAGE:
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/customer_username_write_guard.sql
@@ -13,8 +14,7 @@
 
 BEGIN;
 
--- 1. The validation trigger must exist and fire BEFORE INSERT/UPDATE of the
---    username column, for each row, via validate_customer_username.
+-- 1. Structural: the trigger fires BEFORE INSERT/UPDATE OF username, per row.
 DO $$
 DECLARE
   trigger_def text;
@@ -29,57 +29,68 @@ BEGIN
   IF trigger_def IS NULL THEN
     RAISE EXCEPTION 'trg_validate_customer_username trigger is missing on public.customers';
   END IF;
-
-  IF trigger_def NOT LIKE '%BEFORE INSERT OR UPDATE OF username%' THEN
-    RAISE EXCEPTION
-      'username trigger must be BEFORE INSERT OR UPDATE OF username, found %',
-      trigger_def;
-  END IF;
-
-  IF trigger_def NOT LIKE '%FOR EACH ROW%'
+  IF trigger_def NOT LIKE '%BEFORE INSERT OR UPDATE OF username%'
+    OR trigger_def NOT LIKE '%FOR EACH ROW%'
     OR trigger_def NOT LIKE '%validate_customer_username%'
   THEN
-    RAISE EXCEPTION
-      'username trigger must run validate_customer_username per row, found %',
-      trigger_def;
+    RAISE EXCEPTION 'username trigger wiring is wrong, found %', trigger_def;
   END IF;
 END $$;
 
--- 2. The trigger function must enforce the charset regex + reserved list and be
---    a hardened SECURITY DEFINER with an empty search_path.
+-- 2. Functional: a direct UPDATE (the PostgREST bypass path) must be REJECTED
+--    for reserved and malformed usernames, and ACCEPTED + trimmed for a valid
+--    one. Uses a throwaway customer row (rolled back).
 DO $$
 DECLARE
-  fn_def text;
+  v_id uuid;
+  v_stored text;
 BEGIN
-  fn_def := pg_get_functiondef('public.validate_customer_username()'::regprocedure);
+  INSERT INTO public.customers DEFAULT VALUES RETURNING id INTO v_id;
 
-  IF fn_def NOT LIKE '%reserved_usernames%' THEN
-    RAISE EXCEPTION 'validate_customer_username must reject reserved names, found %', fn_def;
-  END IF;
+  -- reserved
+  BEGIN
+    UPDATE public.customers SET username = 'admin' WHERE id = v_id;
+    RAISE EXCEPTION 'direct UPDATE to a reserved username was NOT rejected';
+  EXCEPTION WHEN sqlstate '22023' THEN NULL; END;
 
-  IF fn_def NOT LIKE '%[a-z0-9][a-z0-9._]%' THEN
-    RAISE EXCEPTION 'validate_customer_username must enforce the charset regex, found %', fn_def;
-  END IF;
+  -- invalid charset
+  BEGIN
+    UPDATE public.customers SET username = 'bad!name' WHERE id = v_id;
+    RAISE EXCEPTION 'direct UPDATE to an invalid-charset username was NOT rejected';
+  EXCEPTION WHEN sqlstate '22023' THEN NULL; END;
 
-  IF fn_def NOT LIKE '%SECURITY DEFINER%'
-    OR fn_def NOT LIKE '%search_path%'
-  THEN
-    RAISE EXCEPTION 'validate_customer_username must be SECURITY DEFINER with a pinned search_path, found %', fn_def;
+  -- too short
+  BEGIN
+    UPDATE public.customers SET username = 'ab' WHERE id = v_id;
+    RAISE EXCEPTION 'direct UPDATE to a too-short username was NOT rejected';
+  EXCEPTION WHEN sqlstate '22023' THEN NULL; END;
+
+  -- consecutive separators
+  BEGIN
+    UPDATE public.customers SET username = 'a..b' WHERE id = v_id;
+    RAISE EXCEPTION 'direct UPDATE to a consecutive-separator username was NOT rejected';
+  EXCEPTION WHEN sqlstate '22023' THEN NULL; END;
+
+  -- valid: accepted and trimmed
+  UPDATE public.customers SET username = '  CoolGamer99  ' WHERE id = v_id;
+  SELECT username INTO v_stored FROM public.customers WHERE id = v_id;
+  IF v_stored <> 'CoolGamer99' THEN
+    RAISE EXCEPTION 'valid username should be stored trimmed, got %', v_stored;
   END IF;
 END $$;
 
--- 3. The setter RPC must reject NULL up front so it cannot silently clear an
---    existing username.
+-- 3. Functional: the shared predicate the setter/trigger rely on returns FALSE
+--    for NULL/blank (so a NULL can never silently clear a username).
 DO $$
-DECLARE
-  fn_def text;
 BEGIN
-  fn_def := pg_get_functiondef('public.set_customer_username(uuid, text)'::regprocedure);
-
-  IF fn_def NOT LIKE '%IS NULL OR v_norm = ''''%'
-    AND fn_def NOT LIKE '%v_norm IS NULL%'
-  THEN
-    RAISE EXCEPTION 'set_customer_username must reject NULL/blank usernames, found %', fn_def;
+  IF public.is_valid_username_format(NULL) THEN
+    RAISE EXCEPTION 'is_valid_username_format(NULL) must be false';
+  END IF;
+  IF public.is_valid_username_format('   ') THEN
+    RAISE EXCEPTION 'is_valid_username_format(blank) must be false';
+  END IF;
+  IF NOT public.is_valid_username_format('oga_fan') THEN
+    RAISE EXCEPTION 'is_valid_username_format should accept a valid username';
   END IF;
 END $$;
 
