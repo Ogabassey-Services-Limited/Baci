@@ -1,15 +1,10 @@
-import { generateObject } from 'ai';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
-import {
-  type CopilotTextProvider,
-  getCopilotTextProviderChain,
-} from '@/ai/copilot-provider-chain';
+import { getCopilotTextProviderChain } from '@/ai/copilot-provider-chain';
 import {
   AI_RATE_LIMITS,
   checkRateLimit,
   sanitizePromptInput,
-  withRetry,
 } from '@/ai/provider';
 import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
@@ -18,61 +13,23 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
-import { builderConfigSchema } from '@/schemas/builder';
-import { BUILDER_GEMINI_SYSTEM_PROMPT } from '../gemini-system-prompt';
-import { computeNonFinalProviderBudgetMs } from './provider-chain-budget';
 import {
-  BUILDER_CONFIG_SHAPE_ERROR_NAME,
-  BUILDER_GEMINI_RETRY_CONFIG,
+  type AiBuilderConfig,
+  aiBuilderConfigSchema,
+} from './builder-config-shape';
+import {
   BUILDER_GEMINI_TIMEOUT_MS,
   type BuilderGeminiLogContext,
   getBuilderGeminiFailure,
   logBuilderGeminiError,
   runBuilderGeminiWithTimeout,
 } from './route-provider-errors';
-
-const PuckThemeColorsSchema = z
-  .object({
-    primary: z.string().optional(),
-    accent: z.string().optional(),
-    header: z
-      .object({
-        background: z.string().optional(),
-        text: z.string().optional(),
-        iconColor: z.string().optional(),
-
-        searchBorder: z.string().optional(),
-        searchBackground: z.string().optional(),
-      })
-      .optional(),
-    footer: z
-      .object({
-        background: z.string().optional(),
-        text: z.string().optional(),
-        linkColor: z.string().optional(),
-        linkHoverColor: z.string().optional(),
-      })
-      .optional(),
-  })
-  .passthrough();
-
-const aiBuilderConfigSchema = builderConfigSchema
-  .extend({
-    theme: z
-      .object({
-        colors: PuckThemeColorsSchema.optional(),
-      })
-      .passthrough()
-      .optional(),
-  })
-  .passthrough();
+import { runBuilderProviderChain } from './run-builder-provider-chain';
 
 const builderGeminiRequestSchema = z.object({
   prompt: z.string().trim().min(1, 'Prompt is required'),
   currentConfig: aiBuilderConfigSchema,
 });
-
-type AiBuilderConfig = z.infer<typeof aiBuilderConfigSchema>;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -193,150 +150,21 @@ User Request: ${sanitizedPrompt}
 
 Please return the complete updated configuration as valid JSON. Make intelligent modifications based on the request while preserving all existing structure and content unless explicitly asked to change or remove it.`;
 
-    // Generate with `output: 'no-schema'` (loose JSON mode) and validate the
-    // result in-code with aiBuilderConfigSchema, rather than handing each
-    // provider a strict JSON schema. The builder config is an OPEN shape
-    // (looseObject + arbitrary props/zones/theme dictionaries) and the
-    // providers' strict structured-output modes reject it in incompatible
-    // ways — Cerebras rejects string `minLength` and empty (`{}`) sub-schemas,
-    // Groq rejects the `propertyNames` emitted by record types. Loose JSON
-    // mode is universally supported (verified end-to-end on cerebras
-    // gemma-4-31b 0.7s, groq gpt-oss-120b 1.8s, gemini 2.5 flash/lite), and
-    // the in-code safeParse is the "is this a renderable config" gate: a
-    // provider that returns off-shape JSON is treated as a failed attempt and
-    // the chain falls through to the next one.
-    //
-    // Thinking is disabled for latency (Google-namespaced providerOption;
-    // other providers ignore it).
-    const generateBuilderConfig = async (
-      model: CopilotTextProvider['model'],
-      abortSignal: AbortSignal
-    ): Promise<AiBuilderConfig> => {
-      const { object } = await generateObject({
-        model,
-        output: 'no-schema',
-        system: BUILDER_GEMINI_SYSTEM_PROMPT,
-        prompt: builtPrompt,
-        abortSignal,
-        providerOptions: {
-          google: { thinkingConfig: { thinkingBudget: 0 } },
-        },
-      });
-
-      const failShape = (reason: string): never => {
-        const shapeError = new Error(
-          `builder config JSON failed validation: ${reason}`
-        );
-        shapeError.name = BUILDER_CONFIG_SHAPE_ERROR_NAME;
-        throw shapeError;
-      };
-
-      // Reject partial drafts BEFORE aiBuilderConfigSchema's defaults can mask
-      // them. builderConfigSchema defaults a MISSING `content` to [], so a
-      // provider that returns only `theme` (a truncated/partial draft) would
-      // otherwise validate as a blank storefront and the client would apply it
-      // over the merchant's real page — a silent wipe. Require `content` to be
-      // an actual array the model returned; a missing or wrong-typed value is a
-      // failed attempt that falls through to the next provider.
-      //
-      // An explicitly-present EMPTY array is allowed: it's a valid config (a
-      // blank/new store's default payload is `content: []`, and a merchant can
-      // legitimately ask to clear the page). The copilot returns a draft the
-      // merchant reviews before publishing, so an unintended empty draft is
-      // recoverable — unlike the default-masking wipe above.
-      const rawContent = (object as { content?: unknown } | null)?.content;
-      if (!Array.isArray(rawContent)) {
-        return failShape(
-          'model returned no content array (partial draft — content missing)'
-        );
-      }
-
-      const parsed = aiBuilderConfigSchema.safeParse(object);
-      if (!parsed.success) {
-        return failShape(parsed.error.issues[0]?.message ?? 'unknown shape');
-      }
-
-      // Preserve the merchant's existing zones/root when the model OMITTED
-      // them. builderConfigSchema defaults a missing `zones` to {} and `root`
-      // to a title-only object — but Puck stores nested/dropzone content in
-      // `zones` and the client's setData replaces the whole tree, so applying a
-      // draft that dropped `zones` would wipe nested sections. Only take the
-      // model's zones/root when it actually returned them (the same
-      // "preserve unless changed" rule already applied to theme downstream).
-      const rawObj = object as Record<string, unknown> | null;
-      const result = parsed.data;
-      if (rawObj && !('zones' in rawObj)) {
-        result.zones = currentConfig.zones;
-      }
-      if (rawObj && !('root' in rawObj)) {
-        result.root = currentConfig.root;
-      }
-      return result;
-    };
-
-    // Walk the provider chain (Cerebras → Groq → Gemini → Gemini-Lite →
-    // OpenRouter when fully configured). ANY failure — quota, 5xx, network,
-    // per-provider timeout, or off-shape JSON — falls through to the next
-    // provider; the chain itself is the retry, spread across independent
-    // infrastructures, so a single-provider outage or exhausted free pool
-    // never dead-ends the merchant.
     let updatedConfig: AiBuilderConfig;
     try {
-      updatedConfig = await runBuilderGeminiWithTimeout(async (abortSignal) => {
-        const routeDeadline = Date.now() + BUILDER_GEMINI_TIMEOUT_MS;
-        // Index of the last RELIABLE provider (the opportunistic OpenRouter
-        // tail is excluded). The reliable tail gets the full remaining route
-        // budget; opportunistic providers only run with whatever time is left
-        // and never have budget reserved on their behalf — so the contended
-        // OpenRouter pool can never abort a still-working Gemini fallback early.
-        let lastReliableIndex = providerChain.length - 1;
-        while (
-          lastReliableIndex > 0 &&
-          providerChain[lastReliableIndex]?.opportunistic
-        ) {
-          lastReliableIndex--;
-        }
-
-        let lastError: unknown;
-        for (const [index, provider] of providerChain.entries()) {
-          const isLastProvider = index === providerChain.length - 1;
-          const isLastReliable = index === lastReliableIndex;
-          aiLogContext.model = provider.name;
-          let attemptSignal: AbortSignal;
-          if (index >= lastReliableIndex) {
-            // Last reliable provider (and any opportunistic tail after it) gets
-            // the whole remaining route budget — no per-provider cap.
-            attemptSignal = abortSignal;
-          } else {
-            const budget = computeNonFinalProviderBudgetMs(
-              routeDeadline - Date.now(),
-              // Divide only among the RELIABLE providers still ahead, so the
-              // opportunistic tail doesn't shrink everyone's share.
-              lastReliableIndex - index + 1
-            );
-            attemptSignal = AbortSignal.any([
-              abortSignal,
-              AbortSignal.timeout(budget),
-            ]);
-          }
-          try {
-            // Restore a single transient retry on the last reliable provider —
-            // in a Gemini-only deployment (chain = flash + flash-lite) a flaky
-            // 5xx on the final fallback should retry once instead of 503ing
-            // immediately, matching the pre-chain behavior.
-            const attempt = () =>
-              generateBuilderConfig(provider.model, attemptSignal);
-            return await (isLastReliable
-              ? withRetry(attempt, BUILDER_GEMINI_RETRY_CONFIG)
-              : attempt());
-          } catch (error) {
-            lastError = error;
-            // The route-level timeout fired mid-attempt: stop the chain so
-            // the timeout maps to the usual failure response instead of
-            // burning it on providers that can no longer answer in time.
-            if (abortSignal.aborted) throw error;
+      updatedConfig = await runBuilderGeminiWithTimeout((abortSignal) =>
+        runBuilderProviderChain({
+          providerChain,
+          builtPrompt,
+          currentConfig,
+          routeDeadlineMs: Date.now() + BUILDER_GEMINI_TIMEOUT_MS,
+          abortSignal,
+          onProviderAttempt: (name) => {
+            aiLogContext.model = name;
+          },
+          onProviderError: (name, error, isLastProvider) =>
             logBuilderGeminiError(
-              `AI Builder provider ${provider.name} failed${
+              `AI Builder provider ${name} failed${
                 isLastProvider
                   ? '; provider chain exhausted:'
                   : '; falling back to the next provider:'
@@ -345,11 +173,9 @@ Please return the complete updated configuration as valid JSON. Make intelligent
               requestId,
               aiLogContext,
               isLastProvider ? 'error' : 'warn'
-            );
-          }
-        }
-        throw lastError;
-      });
+            ),
+        })
+      );
     } catch (error) {
       const failure = getBuilderGeminiFailure(error, requestId);
       logBuilderGeminiError(
