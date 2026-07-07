@@ -203,9 +203,9 @@ describe('/api/builder/gemini route', () => {
 
     vi.mocked(generateObject).mockResolvedValue({
       object: {
-        // Realistic copilot output preserves existing content (the route now
-        // rejects an empty content array as a wipe); this test isolates theme
-        // merging.
+        // Realistic copilot output returns the existing content; this test
+        // isolates theme merging. (The route rejects a MISSING content array —
+        // the default-masking wipe — but accepts an explicit empty [].)
         content: [{ type: 'Hero', props: { title: 'Home' } }],
         root: { title: 'Home' },
         zones: {},
