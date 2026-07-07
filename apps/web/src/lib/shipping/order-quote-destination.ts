@@ -111,7 +111,8 @@ function numbersMatch(
   left: number | undefined,
   right: number | undefined
 ): boolean {
-  if (left === undefined || right === undefined) return left === right;
+  if (left === undefined) return true;
+  if (right === undefined) return false;
   return Math.abs(left - right) <= 0.001;
 }
 
@@ -134,6 +135,7 @@ function matchesQuotePhysicalMetadata(
   }
 
   if (hasDimensions(checkoutItem) || hasDimensions(quoteItem)) {
+    if (!hasDimensions(checkoutItem)) return true;
     if (
       !numbersMatch(checkoutItem.length, quoteItem.length) ||
       !numbersMatch(checkoutItem.width, quoteItem.width) ||
@@ -143,7 +145,9 @@ function matchesQuotePhysicalMetadata(
     }
   }
 
-  return normalizeText(checkoutItem.hsCode) === normalizeText(quoteItem.hsCode);
+  const checkoutHsCode = normalizeText(checkoutItem.hsCode);
+  if (!checkoutHsCode) return true;
+  return checkoutHsCode === normalizeText(quoteItem.hsCode);
 }
 
 function matchesQuoteItem(

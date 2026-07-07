@@ -164,7 +164,7 @@ describe('GiglProvider international booking', () => {
       trackingNumber: 'GIGL-INTL-1',
       labelUrl: 'https://example.test/gigl-label.pdf',
       carrierName: 'GIG Logistics',
-      isStationPickup: true,
+      isStationPickup: false,
       status: 'booked',
     });
   });

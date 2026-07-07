@@ -1,9 +1,18 @@
+DROP FUNCTION IF EXISTS public.get_storefront_order_quote_validation_context(
+  uuid,
+  uuid,
+  text,
+  text,
+  uuid
+);
+
 CREATE OR REPLACE FUNCTION public.get_storefront_order_quote_validation_context(
   p_order_id uuid,
   p_merchant_id uuid,
   p_tracking_token text,
   p_customer_email text,
-  p_selected_quote_id uuid DEFAULT NULL
+  p_selected_quote_id uuid DEFAULT NULL,
+  p_has_selected_quote_id boolean DEFAULT FALSE
 )
 RETURNS TABLE (
   selected_quote_id uuid,
@@ -40,7 +49,10 @@ BEGIN
     o.merchant_id,
     o.tracking_token,
     o.customer_email,
-    COALESCE(p_selected_quote_id, o.selected_quote_id) AS selected_quote_id,
+    CASE
+      WHEN p_has_selected_quote_id THEN p_selected_quote_id
+      ELSE o.selected_quote_id
+    END AS selected_quote_id,
     o.shipping_address,
     o.shipping_fee,
     o.shipping_provider,
@@ -92,6 +104,7 @@ BEGIN
         SELECT jsonb_agg(
           jsonb_build_object(
             'name', oi.name,
+            'price', oi.price,
             'quantity', oi.quantity,
             'product', CASE
               WHEN p.id IS NULL THEN NULL
@@ -121,7 +134,8 @@ REVOKE ALL ON FUNCTION public.get_storefront_order_quote_validation_context(
   uuid,
   text,
   text,
-  uuid
+  uuid,
+  boolean
 ) FROM PUBLIC, anon, authenticated, service_role;
 
 GRANT EXECUTE ON FUNCTION public.get_storefront_order_quote_validation_context(
@@ -129,5 +143,6 @@ GRANT EXECUTE ON FUNCTION public.get_storefront_order_quote_validation_context(
   uuid,
   text,
   text,
-  uuid
+  uuid,
+  boolean
 ) TO anon, authenticated, service_role;

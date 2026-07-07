@@ -70,7 +70,10 @@ function readOrderQuoteItem(
   const quantity = value.quantity;
   return {
     name: typeof name === 'string' ? name : null,
-    price: null,
+    price:
+      typeof value.price === 'number' || typeof value.price === 'string'
+        ? value.price
+        : null,
     product: readProductShippingMetadata(value.product),
     quantity: typeof quantity === 'number' ? quantity : null,
   };
@@ -93,7 +96,9 @@ export function readReuseQuoteValidationContext(
     : [];
 
   return {
-    order_items: toInternationalQuoteValidationItemsFromOrder(orderItems),
+    order_items: toInternationalQuoteValidationItemsFromOrder(orderItems, {
+      includeValue: true,
+    }),
     selected_quote_id:
       typeof selectedQuoteId === 'string' ? selectedQuoteId : null,
     shipping_address: readOrderShippingAddress(row.shipping_address),

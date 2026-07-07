@@ -86,6 +86,10 @@ export function ShippingOptions({
       return;
     }
 
+    if (!merchantId) {
+      return;
+    }
+
     // Create a key for this specific fetch request
     const fetchKey = `${merchantId}-${receiverCity}-${receiverState}-${receiverAddress}-${serializedCartItems}`;
 
@@ -100,7 +104,7 @@ export function ShippingOptions({
       lastFetchKey.current = fetchKey;
 
       apiPost<unknown>('/api/shipping/quotes', {
-        merchantId: merchantId || undefined,
+        merchantId,
         receiver: {
           name: receiverName || 'Customer',
           phone: receiverPhone || '',

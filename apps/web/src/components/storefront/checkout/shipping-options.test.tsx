@@ -80,6 +80,16 @@ describe('ShippingOptions', () => {
     expect(mockApiPost).not.toHaveBeenCalled();
   });
 
+  it('does not fetch quotes before the merchant id is available', async () => {
+    render(<ShippingOptions {...baseProps} merchantId="" onSelect={vi.fn()} />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(mockApiPost).not.toHaveBeenCalled();
+  });
+
   it('fetches quotes after the debounce and auto-selects the cheapest option', async () => {
     const onSelect = vi.fn();
 

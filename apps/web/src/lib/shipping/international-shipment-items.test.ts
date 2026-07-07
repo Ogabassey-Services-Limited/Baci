@@ -276,4 +276,44 @@ describe('toInternationalShipmentItemsFromOrder', () => {
       },
     ]);
   });
+
+  it('omits absent physical metadata from quote validation items', () => {
+    expect(
+      toInternationalQuoteValidationItemsFromOrder([
+        {
+          name: 'Phone',
+          quantity: 1,
+          price: null,
+          product: null,
+        },
+      ])
+    ).toEqual([
+      {
+        name: 'Phone',
+        quantity: 1,
+      },
+    ]);
+  });
+
+  it('can include order item value for reusable order quote validation', () => {
+    expect(
+      toInternationalQuoteValidationItemsFromOrder(
+        [
+          {
+            name: 'Phone',
+            quantity: 1,
+            price: '100000',
+            product: null,
+          },
+        ],
+        { includeValue: true }
+      )
+    ).toEqual([
+      {
+        name: 'Phone',
+        quantity: 1,
+        value: 100_000,
+      },
+    ]);
+  });
 });

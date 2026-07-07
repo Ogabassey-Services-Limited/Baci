@@ -19,6 +19,7 @@ describe('readReuseQuoteValidationContext', () => {
         order_items: [
           {
             name: 'Phone',
+            price: '100000',
             quantity: 1,
             product: {
               weight_value: '500',
@@ -45,6 +46,7 @@ describe('readReuseQuoteValidationContext', () => {
         {
           name: 'Phone',
           quantity: 1,
+          value: 100_000,
           weight: 0.5,
           hsCode: '851712',
           length: 10.16,

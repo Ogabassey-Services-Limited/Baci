@@ -6,7 +6,6 @@ import {
   type GiglProviderIo,
   type GiglToken,
   isGiglAbortError,
-  PickupOptions,
 } from './gigl.constants';
 import {
   buildInternationalItems,
@@ -52,14 +51,12 @@ export async function bookGiglInternationalShipment(
   let bookingData!: ReturnType<
     typeof giglSchemas.internationalBookingData.parse
   >;
-  let isStationPickup = false;
   let trackingNumber!: string;
 
   try {
     const selectedRate = parseSelectedInternationalRateId(
       request.providerRateId
     );
-    isStationPickup = selectedRate.pickupOption === PickupOptions.ServiceCentre;
     const shipmentPackages = buildInternationalPackages(request.items);
     const tokenData = await apiClient.getApiToken(
       GIGL_BOOKING_TIMEOUT_MS,
@@ -216,7 +213,7 @@ export async function bookGiglInternationalShipment(
     labelUrl,
     carrierName: 'GIG Logistics',
     status: 'booked',
-    isStationPickup,
+    isStationPickup: false,
     rawResponse: bookingData,
   };
 }

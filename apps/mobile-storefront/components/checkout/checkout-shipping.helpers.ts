@@ -5,12 +5,14 @@ import {
   normalizeShippingQuotes,
 } from '@/lib/shipping-quotes';
 import type { CartItem } from '@/stores/cart-store';
+import { CHECKOUT_MERCHANT_ID } from './checkout-screen.constants';
 import type { ShippingQuote } from './types';
 
-const MERCHANT_ID =
-  typeof CONFIG.MERCHANT_ID === 'string' && CONFIG.MERCHANT_ID.trim()
-    ? CONFIG.MERCHANT_ID.trim()
-    : undefined;
+function getQuoteMerchantId(): string | undefined {
+  const configuredMerchantId =
+    typeof CONFIG.MERCHANT_ID === 'string' ? CONFIG.MERCHANT_ID.trim() : '';
+  return configuredMerchantId || CHECKOUT_MERCHANT_ID || undefined;
+}
 
 export interface QuoteResponse {
   quotes: {
@@ -81,11 +83,12 @@ export const fetchShippingQuotes = async ({
   }
 
   try {
+    const merchantId = getQuoteMerchantId();
     const response = await fetch(`${apiUrl}/api/shipping/quotes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...(MERCHANT_ID ? { merchantId: MERCHANT_ID } : {}),
+        ...(merchantId ? { merchantId } : {}),
         receiver: {
           name:
             `${watchedFirstName} ${watchedLastName}`.trim() ||

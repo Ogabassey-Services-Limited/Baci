@@ -117,18 +117,13 @@ export async function getGiglInternationalQuotes(
       const logisticsCompany = rate.LogisticCompany;
       const shipmentMethod = rate.ShipmentMethod;
       const serviceTier = internationalServiceTier(deliveryType);
-      // GIGL international currently prices collection at a service centre.
-      const isStationPickup = true;
-
       return [
         {
           id: io.generateQuoteId(),
           provider: 'GIGL',
           serviceTier,
           carrierName: 'GIG Logistics',
-          displayName: isStationPickup
-            ? `GIG Logistics - ${serviceTier} Pickup`
-            : `GIG Logistics - ${serviceTier}`,
+          displayName: `GIG Logistics - ${serviceTier}`,
           estimatedDays: estimatedDays(rate.EstimatedDeliveryDateAndTime),
           price: Math.round(rate.GrandTotal),
           currency: 'NGN',
@@ -140,7 +135,7 @@ export async function getGiglInternationalQuotes(
             shipmentMethod,
             pickupOption,
           }),
-          isStationPickup,
+          isStationPickup: false,
           expiresAt: io.getQuoteExpiry(1),
           rawResponse: rate,
         },

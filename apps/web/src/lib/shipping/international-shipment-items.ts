@@ -274,16 +274,21 @@ export function toInternationalShipmentItemsFromOrder(
 }
 
 export function toInternationalQuoteValidationItemsFromOrder(
-  orderItems: InternationalShipmentOrderItem[]
+  orderItems: InternationalShipmentOrderItem[],
+  options: { includeValue?: boolean } = {}
 ) {
   return orderItems.map((item) => {
-    const { dimensions, hsCode, name, quantity, weight } =
+    const { dimensions, hsCode, name, product, quantity, weight } =
       deriveItemMetadata(item);
+    const value = options.includeValue
+      ? readOptionalNonNegativeNumber(item.price)
+      : undefined;
 
     return {
       name,
       quantity,
-      weight,
+      ...(hasProductWeight(product) ? { weight } : {}),
+      ...(value !== undefined ? { value } : {}),
       ...(hsCode ? { hsCode } : {}),
       ...(dimensions ?? {}),
     };

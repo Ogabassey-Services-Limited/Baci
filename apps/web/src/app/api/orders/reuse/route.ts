@@ -80,6 +80,10 @@ type ReuseQuoteValidationResult =
       shippingAddress: OrderShippingAddressForQuote | undefined;
     };
 
+function hasSelectedQuoteInput(data: ReuseCheckoutOrderInput): boolean {
+  return Object.hasOwn(data, 'selected_quote_id');
+}
+
 async function validateSelectedQuoteForReuse(
   supabase: ReturnType<typeof createClient>,
   data: ReuseCheckoutOrderInput
@@ -88,6 +92,7 @@ async function validateSelectedQuoteForReuse(
     'get_storefront_order_quote_validation_context',
     {
       p_customer_email: data.customer_email,
+      p_has_selected_quote_id: hasSelectedQuoteInput(data),
       p_merchant_id: data.merchant_id,
       p_order_id: data.order_id,
       p_selected_quote_id: data.selected_quote_id,
