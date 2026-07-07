@@ -70,6 +70,35 @@ describe('useQuizStartGate', () => {
     expect(onStart).toHaveBeenCalledWith('event-1');
   });
 
+  it('does not start the quiz when a late success callback fires after cancellation', () => {
+    // Reproduces the cancel-race: the shopper taps Continue (which captures a
+    // confirmGate closure while an async setUsername is in flight), then taps
+    // Cancel before the RPC resolves. The captured (stale) confirmGate must be
+    // a no-op — the exam pass must not be spent against an explicit cancel.
+    const onStart = jest.fn();
+    const { result } = renderHook(() => useQuizStartGate(onStart));
+
+    act(() => {
+      result.current.requestStart('event-1');
+    });
+
+    // Capture the confirmGate from the "Continue" render, as UsernamePrompt's
+    // in-flight promise chain would.
+    const staleConfirmGate = result.current.confirmGate;
+
+    act(() => {
+      result.current.cancelGate();
+    });
+
+    // setUsername resolves now and invokes the pre-cancel confirmGate closure.
+    act(() => {
+      staleConfirmGate();
+    });
+
+    expect(onStart).not.toHaveBeenCalled();
+    expect(result.current.isGateVisible).toBe(false);
+  });
+
   it('does nothing when confirmGate is called without a pending event', () => {
     const onStart = jest.fn();
     const { result } = renderHook(() => useQuizStartGate(onStart));

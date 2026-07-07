@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
 
 /**
@@ -21,6 +21,15 @@ export function useQuizStartGate(onStart: (eventId: string) => void) {
   const isCustomerLoaded = customer !== null;
 
   const [pendingEventId, setPendingEventId] = useState<string | null>(null);
+  // Authoritative pending event, mirrored in a ref so a LATE success callback
+  // reads the live value rather than the snapshot its closure captured. The
+  // username prompt's `setUsername` resolves asynchronously; if the shopper
+  // taps Continue and then Cancel before the RPC returns, the in-flight promise
+  // still holds the pre-cancel `confirmGate` closure. Reading `pendingEventId`
+  // state from that stale closure would start the quiz (and spend the exam
+  // pass) despite the cancellation. The ref is a stable object across renders,
+  // so any closure sees `cancelGate` having cleared it.
+  const pendingEventRef = useRef<string | null>(null);
 
   const requestStart = (eventId: string) => {
     if (username) {
@@ -29,6 +38,7 @@ export function useQuizStartGate(onStart: (eventId: string) => void) {
     }
     if (isCustomerLoaded) {
       // Loaded row with no username: we know a display name is needed.
+      pendingEventRef.current = eventId;
       setPendingEventId(eventId);
       return;
     }
@@ -38,11 +48,16 @@ export function useQuizStartGate(onStart: (eventId: string) => void) {
   };
 
   const cancelGate = () => {
+    // Clear the token first: a success callback that resolves after this must
+    // be a no-op, even if it was created (and captured its event id) before the
+    // cancel.
+    pendingEventRef.current = null;
     setPendingEventId(null);
   };
 
   const confirmGate = () => {
-    const eventId = pendingEventId;
+    const eventId = pendingEventRef.current;
+    pendingEventRef.current = null;
     setPendingEventId(null);
     if (eventId) onStart(eventId);
   };
