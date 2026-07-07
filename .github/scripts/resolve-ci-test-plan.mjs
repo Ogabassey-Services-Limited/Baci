@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { ciTestPlanConfig } from './resolve-ci-test-plan-config.mjs';
 
 const FULL_AFFECTED_COMMAND =
   'pnpm turbo run test --concurrency=3 --log-order=stream';
@@ -8,6 +9,8 @@ const FULL_AFFECTED_COMMAND =
 const ROOT_FULL_TEST_FILES = new Set([
   '.npmrc',
   '.github/scripts/resolve-ci-test-plan.mjs',
+  '.github/scripts/resolve-ci-test-plan-config.mjs',
+  '.github/scripts/resolve-ci-test-plan-config.test.mjs',
   '.github/scripts/resolve-ci-test-plan.test.mjs',
   '.github/workflows/ci.yml',
   'biome.json',
@@ -97,6 +100,7 @@ function targetedMobileStorefrontCommand(baseRef) {
 
 export function resolveCiTestPlan({
   baseRef,
+  changedFileContents = {},
   changedFiles,
   eventName,
 }) {
@@ -120,7 +124,23 @@ export function resolveCiTestPlan({
     };
   }
 
-  if (normalizedFiles.some(isFullAffectedTrigger)) {
+  const safeConfigFiles = normalizedFiles.filter((file) =>
+    ciTestPlanConfig.isSafeConfigSmokeChange(file, changedFileContents)
+  );
+  const scopedFiles = normalizedFiles.filter(
+    (file) => !safeConfigFiles.includes(file)
+  );
+
+  if (safeConfigFiles.length === normalizedFiles.length) {
+    return {
+      mode: 'config-smoke',
+      reason:
+        'Pull request changes only add Turbo build environment allowlist entries.',
+      command: ciTestPlanConfig.CONFIG_SMOKE_COMMAND,
+    };
+  }
+
+  if (scopedFiles.some(isFullAffectedTrigger)) {
     return {
       mode: 'full-affected',
       reason: 'Shared, package, CI, or test setup changes require the full affected test path.',
@@ -128,11 +148,11 @@ export function resolveCiTestPlan({
     };
   }
 
-  const hasTargetableWebFiles = normalizedFiles.some(isTargetableWebFile);
-  const hasTargetableMobileStorefrontFiles = normalizedFiles.some(
+  const hasTargetableWebFiles = scopedFiles.some(isTargetableWebFile);
+  const hasTargetableMobileStorefrontFiles = scopedFiles.some(
     isTargetableMobileStorefrontFile
   );
-  const allFilesAreTargetable = normalizedFiles.every(
+  const allFilesAreTargetable = scopedFiles.every(
     (file) => isTargetableWebFile(file) || isTargetableMobileStorefrontFile(file)
   );
 
@@ -226,8 +246,14 @@ function writeGithubOutput(plan) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const changedFiles = getChangedFiles(args.baseRef, args.headRef);
+  const changedFileContents = ciTestPlanConfig.getChangedFileContents(
+    changedFiles,
+    args.baseRef,
+    args.headRef
+  );
   const plan = resolveCiTestPlan({
     baseRef: args.baseRef,
+    changedFileContents,
     changedFiles,
     eventName: args.eventName,
   });
