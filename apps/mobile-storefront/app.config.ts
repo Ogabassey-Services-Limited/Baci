@@ -348,6 +348,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     businessType: 'electronics',
     templateId: 'default',
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+    supabasePublishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     apiUrl: process.env.EXPO_PUBLIC_API_URL,
     posthogApiKey,

@@ -18,6 +18,14 @@ import { useSavedStore } from './saved-store';
 
 const log = createLogger('AuthStore');
 
+function deferAuthStateChange(work: () => Promise<void>) {
+  setTimeout(() => {
+    void work().catch((authListenerError: unknown) => {
+      log.error('Error in auth state change handler:', authListenerError);
+    });
+  }, 0);
+}
+
 export function createInitializeAction({
   get,
   merchantSlug,
@@ -137,9 +145,9 @@ export function createInitializeAction({
       }
 
       const { data: authListener } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
+        (event, session) => {
           const { merchantId } = get();
-          try {
+          deferAuthStateChange(async () => {
             if (event === 'SIGNED_IN' && session?.user) {
               await syncAuthenticatedState({
                 merchantId,
@@ -164,9 +172,7 @@ export function createInitializeAction({
             } else if (event === 'TOKEN_REFRESHED' && session) {
               set({ session });
             }
-          } catch (authListenerError) {
-            log.error('Error in auth state change handler:', authListenerError);
-          }
+          });
         }
       );
 
