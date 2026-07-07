@@ -110,6 +110,8 @@ jobs:
               - 'next.config.test.ts'
               - '.github/actions/pnpm-install-cached/**'
               - '.github/actions/setup-pnpm-store/**'
+              - '.github/scripts/resolve-ci-test-plan.mjs'
+              - '.github/scripts/resolve-ci-test-plan.test.mjs'
               - '.github/workflows/ci.yml'
               - 'package.json'
               - 'pnpm-lock.yaml'

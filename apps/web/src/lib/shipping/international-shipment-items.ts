@@ -139,7 +139,6 @@ function dimensionsMatch(
   quoted: ShipmentItem
 ): boolean {
   const quotedDimensions = readQuoteDimensions(quoted);
-
   if (!expected && !quotedDimensions) return true;
   if (!expected || !quotedDimensions) return false;
   return (
@@ -151,17 +150,22 @@ function dimensionsMatch(
 
 function isQuotedPhysicalMetadataValid({
   dimensions,
+  hsCode,
   product,
   quoteItem,
   weight,
 }: {
   dimensions: PackageDimensions | undefined;
+  hsCode?: string;
   product: ProductShippingMetadata | null;
   quoteItem: ShipmentItem;
   weight: number;
 }) {
   return !(
     (hasProductWeight(product) && !numbersMatch(weight, quoteItem.weight)) ||
+    (hsCode &&
+      quoteItem.hsCode?.trim() &&
+      hsCode.toUpperCase() !== quoteItem.hsCode.trim().toUpperCase()) ||
     (dimensions && !dimensionsMatch(dimensions, quoteItem))
   );
 }
@@ -169,19 +173,15 @@ function isQuotedPhysicalMetadataValid({
 function readQuoteDimensions(
   quoteItem: ShipmentItem | undefined
 ): PackageDimensions | undefined {
-  if (
-    quoteItem?.length === undefined ||
+  return quoteItem?.length === undefined ||
     quoteItem.width === undefined ||
     quoteItem.height === undefined
-  ) {
-    return undefined;
-  }
-
-  return {
-    height: quoteItem.height,
-    length: quoteItem.length,
-    width: quoteItem.width,
-  };
+    ? undefined
+    : {
+        height: quoteItem.height,
+        length: quoteItem.length,
+        width: quoteItem.width,
+      };
 }
 
 function resolveBookingMetadata(
@@ -228,22 +228,13 @@ function throwMetadataMismatch(): never {
   );
 }
 
-function validateQuotedPhysicalMetadata({
-  dimensions,
-  product,
-  quoteItem,
-  weight,
-}: {
-  dimensions: PackageDimensions | undefined;
-  product: ProductShippingMetadata | null;
-  quoteItem: ShipmentItem | undefined;
-  weight: number;
-}) {
+function validateQuotedPhysicalMetadata(
+  metadata: DerivedItemMetadata,
+  quoteItem: ShipmentItem | undefined
+) {
   if (!quoteItem) return;
 
-  if (
-    !isQuotedPhysicalMetadataValid({ dimensions, product, quoteItem, weight })
-  ) {
+  if (!isQuotedPhysicalMetadataValid({ ...metadata, quoteItem })) {
     throwMetadataMismatch();
   }
 }
@@ -256,7 +247,7 @@ export function toInternationalShipmentItemsFromOrder(
 
   return orderItems.map((item) => {
     const metadata = deriveItemMetadata(item);
-    const { dimensions, name, product, quantity, weight } = metadata;
+    const { name, quantity } = metadata;
     const quoteItemIndex = findMatchingQuoteItemIndex(
       metadata,
       unmatchedQuoteItems
@@ -265,7 +256,7 @@ export function toInternationalShipmentItemsFromOrder(
       quoteItemIndex === -1
         ? undefined
         : unmatchedQuoteItems.splice(quoteItemIndex, 1)[0];
-    validateQuotedPhysicalMetadata({ dimensions, product, quoteItem, weight });
+    validateQuotedPhysicalMetadata(metadata, quoteItem);
     const bookingMetadata = resolveBookingMetadata(metadata, quoteItem);
 
     return {
