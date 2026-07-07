@@ -173,10 +173,11 @@ export const UtilityModal = ({
   });
   const [showFundingPanel, setShowFundingPanel] = useState(false);
   const canUseWallet = isAuthenticated && walletBalance > 0;
-  // Only offer bank-transfer funding when the merchant has wallet DVAs on —
-  // otherwise the CTA routes to a create-account flow that returns
-  // WALLET_DVA_DISABLED.
-  const canFundByBankTransfer = isAuthenticated && walletDvaEnabled;
+  // Only offer bank-transfer funding when the merchant has wallet DVAs on
+  // AND the customer has a usable phone — otherwise the create-account flow
+  // returns WALLET_DVA_DISABLED or CUSTOMER_PHONE_REQUIRED.
+  const canFundByBankTransfer =
+    isAuthenticated && walletDvaEnabled && Boolean(customer?.phone?.trim());
   const selectedPaymentMethod: UtilityPaymentMethod =
     canUseWallet && payWithWallet ? 'wallet' : 'card';
 
