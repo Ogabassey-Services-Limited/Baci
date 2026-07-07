@@ -25,6 +25,18 @@ describe('getCopilotTextProviderChain', () => {
     ]);
   });
 
+  it('honors COPILOT_CEREBRAS_MODEL to swap the preview model without a code change', async () => {
+    vi.stubEnv('CEREBRAS_API_KEY', 'csk-test');
+    vi.stubEnv('COPILOT_CEREBRAS_MODEL', 'gemma-4-production');
+
+    const { getCopilotTextProviderChain } = await import(
+      './copilot-provider-chain'
+    );
+    const names = getCopilotTextProviderChain().map((p) => p.name);
+
+    expect(names[0]).toBe('cerebras:gemma-4-production');
+  });
+
   it('degrades to the Gemini-only chain when no provider keys are configured', async () => {
     vi.stubEnv('CEREBRAS_API_KEY', '');
     vi.stubEnv('GROQ_API_KEY', '');

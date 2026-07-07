@@ -27,8 +27,20 @@ import {
 // via loose JSON mode (see the builder route for why no strict schema is
 // sent). Cerebras' free tier caps context at ~8K tokens; oversized configs
 // fail fast there and fall through.
-export const COPILOT_CEREBRAS_MODEL = 'gemma-4-31b';
-export const COPILOT_GROQ_MODEL = 'openai/gpt-oss-120b';
+// Cerebras serves Gemma 4 only as a PREVIEW endpoint (evaluation-tier, may
+// change/discontinue on short notice). It is the primary here by deliberate
+// choice: the product goal is a Gemma-served copilot, and Cerebras is the only
+// currently-healthy Gemma host (Google's Gemma API 500s since April 2026;
+// OpenRouter's free Gemma pool is 429-contended). Two things gate the risk:
+// (1) it is opt-in — the chain only uses Cerebras when CEREBRAS_API_KEY is
+// explicitly set (production otherwise runs Gemini); and (2) any Cerebras
+// failure falls through to Groq → Gemini. The exact model is env-overridable
+// (COPILOT_CEREBRAS_MODEL) so ops can swap to a stable/production model without
+// a code change if the preview endpoint is retired.
+export const COPILOT_CEREBRAS_MODEL =
+  process.env.COPILOT_CEREBRAS_MODEL?.trim() || 'gemma-4-31b';
+export const COPILOT_GROQ_MODEL =
+  process.env.COPILOT_GROQ_MODEL?.trim() || 'openai/gpt-oss-120b';
 // OpenRouter's free Gemma-4 pool is heavily contended — probes on 2026-07-07
 // hit upstream 429 "temporarily rate-limited" on 25/25 attempts across two
 // keys/two days. It sits LAST and is flagged `opportunistic`: a bonus free

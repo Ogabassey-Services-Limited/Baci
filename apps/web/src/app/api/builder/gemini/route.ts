@@ -255,7 +255,23 @@ Please return the complete updated configuration as valid JSON. Make intelligent
       if (!parsed.success) {
         return failShape(parsed.error.issues[0]?.message ?? 'unknown shape');
       }
-      return parsed.data;
+
+      // Preserve the merchant's existing zones/root when the model OMITTED
+      // them. builderConfigSchema defaults a missing `zones` to {} and `root`
+      // to a title-only object — but Puck stores nested/dropzone content in
+      // `zones` and the client's setData replaces the whole tree, so applying a
+      // draft that dropped `zones` would wipe nested sections. Only take the
+      // model's zones/root when it actually returned them (the same
+      // "preserve unless changed" rule already applied to theme downstream).
+      const rawObj = object as Record<string, unknown> | null;
+      const result = parsed.data;
+      if (rawObj && !('zones' in rawObj)) {
+        result.zones = currentConfig.zones;
+      }
+      if (rawObj && !('root' in rawObj)) {
+        result.root = currentConfig.root;
+      }
+      return result;
     };
 
     // Walk the provider chain (Cerebras → Groq → Gemini → Gemini-Lite →
