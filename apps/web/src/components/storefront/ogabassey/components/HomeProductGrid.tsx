@@ -15,6 +15,7 @@ import { DeferredAdUnit } from './deferred-ad-unit';
 import { HomeProductGridCard } from './HomeProductGridCard';
 import type { ProductGridItemProps } from './ProductGridItem';
 import { hasRealProducts, useHomePreviewCatalog } from './useHomePreviewCatalog';
+import { useActivationFocusRestore } from './use-activation-focus-restore';
 import type { Product } from '../types';
 import { joinRouteBasePath, normalizeRouteBasePath } from '@/lib/routes';
 
@@ -108,6 +109,12 @@ export function HomeProductGrid({
     loadPreviewCatalog,
   });
   const gridRef = useRef<HTMLElement | null>(null);
+  // Grid-scoped focusin activation can swap the subtree out from under a
+  // keyboard user's focused element — capture before the swap, restore after.
+  const { capture: captureFocusBeforeSwap } = useActivationFocusRestore(
+    gridRef,
+    Boolean(InteractionBindings && InteractiveCard)
+  );
   // Scope activation to the grid itself so pointer/keyboard activity elsewhere
   // on the page (hero, nav, search) never downloads the interactive-card graph.
   const interactionsActivated = useDeferredActivation({
@@ -141,6 +148,7 @@ export function HomeProductGrid({
         return;
       }
 
+      captureFocusBeforeSwap();
       setInteractionBindings(() => bindingsModule.ProductGridInteractionBindings);
       setInteractiveCard(() => interactiveCardModule.ProductGridItem);
     });

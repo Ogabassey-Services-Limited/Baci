@@ -126,6 +126,40 @@ describe('HomeProductGrid interaction/activation', () => {
     expect(loadInteractionBindings).toHaveBeenCalledOnce();
   });
 
+  it('preserves keyboard focus across the static-to-interactive swap (a11y regression)', async () => {
+    const loadInteractionBindings = vi
+      .fn()
+      .mockResolvedValue(createMockInteractionBindingsModule());
+    const loadInteractiveCard = vi
+      .fn()
+      .mockResolvedValue(createMockInteractiveCardModule());
+
+    render(
+      <HomeProductGrid
+        products={[createTestProduct(1)]}
+        loadInteractionBindings={loadInteractionBindings}
+        loadInteractiveCard={loadInteractiveCard}
+      />
+    );
+
+    // A keyboard user tabs into the grid: focus lands on the view-all link,
+    // and that focusin is itself the activation trigger for the swap.
+    const viewAll = screen.getByRole('link', { name: /view all products/i });
+    act(() => {
+      viewAll.focus();
+    });
+    fireEvent.focusIn(viewAll);
+
+    await flushPostPaintActivation();
+
+    // The swap remounts the subtree; focus must land back on the equivalent
+    // link instead of being dropped to <body>.
+    const viewAllAfterSwap = screen.getByRole('link', {
+      name: /view all products/i,
+    });
+    expect(document.activeElement).toBe(viewAllAfterSwap);
+  });
+
   it('does not load interactive modules on pointer activity outside the grid', async () => {
     const loadInteractionBindings = vi
       .fn()
