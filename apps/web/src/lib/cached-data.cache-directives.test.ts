@@ -66,31 +66,9 @@ describe('cached-data cache directives', () => {
     expect(source).toContain('getCachedCategoryPageProducts');
   });
 
-  it('keeps category shell and product IDs in the shared remote cache', () => {
-    for (const functionName of [
-      'getCachedCategoryPageShellData',
-      'getCachedCategoryPageProductIds',
-    ]) {
-      const source = getFunctionSource(functionName);
-      expect(source, functionName).toContain("'use cache: remote';");
-      expect(source, functionName).toContain("cacheLife('storefront-page');");
-      expect(source, functionName).toContain(
-        "cacheTag('category-page-data', 'products', 'categories');"
-      );
-    }
-  });
-
-  it('keeps rich category product detail chunks out of the remote cache handler', () => {
-    const source = getFunctionSource('getCategoryPageProductDetailsChunk');
-
-    expect(source).not.toContain("'use cache';");
-    expect(source).not.toContain("'use cache: remote';");
-    expect(source).not.toContain("cacheLife('storefront-page');");
-  });
-
   it('keeps category detail chunk reads bounded and inventory-safe', () => {
     const detailsSource = getFunctionSource(
-      'getCategoryPageProductDetailsChunk'
+      'getCachedCategoryPageProductDetailsChunk'
     );
     const aggregateSource = getFunctionSource(
       'getCachedCategoryPageProductsUncached'
@@ -103,6 +81,43 @@ describe('cached-data cache directives', () => {
     expect(aggregateSource).toContain(
       'CATEGORY_PAGE_PRODUCT_DETAIL_CONCURRENCY'
     );
+  });
+
+  it('keeps transient category detail query fallbacks outside the cached chunk', () => {
+    const cachedDetailsSource = getFunctionSource(
+      'getCachedCategoryPageProductDetailsChunk'
+    );
+    const wrapperSource = getFunctionSource(
+      'getCategoryPageProductDetailsChunk'
+    );
+
+    expect(cachedDetailsSource).toContain('throw error');
+    expect(cachedDetailsSource).not.toContain('productIds.map(() => null)');
+    expect(wrapperSource).toContain('Product detail query error:');
+    expect(wrapperSource).toContain('productIds.map(() => null)');
+  });
+
+  it('keeps serialized inventory availability out of the products cache', () => {
+    const hydrateSource = getFunctionSource('hydrateAndSanitizeProducts');
+
+    expect(CACHED_DATA_SOURCE).not.toContain(
+      'getCachedPublicSerializedVariantSummariesByProductId'
+    );
+    expect(CACHED_DATA_SOURCE).not.toContain('serialized-variant-summaries');
+    expect(hydrateSource).toContain(
+      'getPublicSerializedVariantSummariesByProductId'
+    );
+    expect(hydrateSource).toContain('supabase');
+  });
+
+  it('keeps storefront home and launch product caches shared across instances', () => {
+    for (const functionName of [
+      'getCachedStorefrontHomeProducts',
+      'getCachedStorefrontLaunchProducts',
+    ]) {
+      const source = getFunctionSource(functionName);
+      expect(source, functionName).toContain("'use cache: remote';");
+    }
   });
 
   it('keeps high-cardinality public product reads off the remote cache handler', () => {

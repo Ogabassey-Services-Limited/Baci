@@ -410,7 +410,10 @@ describe('storefrontInternalPreflight', () => {
     }
   });
 
-  it('logs skipped preflights with a bounded slug and never captures exceptions', () => {
+  it('logs malformed skipped preflights as bounded info and never captures exceptions', () => {
+    const consoleInfoSpy = vi
+      .spyOn(console, 'info')
+      .mockImplementation(() => undefined);
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
@@ -423,7 +426,8 @@ describe('storefrontInternalPreflight', () => {
         reason: 'too-long',
       });
 
-      const [message, context] = consoleWarnSpy.mock.calls[0] as [
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+      const [message, context] = consoleInfoSpy.mock.calls[0] as [
         string,
         { reason: string; slug: string },
       ];
@@ -432,6 +436,7 @@ describe('storefrontInternalPreflight', () => {
       expect(context.slug.length).toBeLessThan(200);
       expect(mocks.captureServerException).not.toHaveBeenCalled();
     } finally {
+      consoleInfoSpy.mockRestore();
       consoleWarnSpy.mockRestore();
     }
   });

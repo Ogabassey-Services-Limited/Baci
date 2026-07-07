@@ -1,3 +1,4 @@
+import { cacheLife, cacheTag } from 'next/cache';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedCategoryPageData } from '@/lib/cached-data';
 import {
@@ -156,6 +157,46 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
       productsQueryFailed: false,
       categoryQueryFailed: false,
     });
+  });
+
+  it('applies category/product cache scopes while resolving category products', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-active-123',
+        name: 'Active Category',
+        slug: 'active-category',
+        description: 'Standard active category',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null },
+      { data: [{ id: 'product-1' }], error: null },
+      { data: [{ id: 'product-1', name: 'Scoped Product' }], error: null }
+    );
+
+    await getCachedCategoryPageData(
+      'merchant-123',
+      'active-category',
+      'test-store'
+    );
+
+    expect(cacheLife).toHaveBeenCalledWith('storefront-page');
+    expect(cacheLife).toHaveBeenCalledWith('products');
+    expect(cacheTag).toHaveBeenCalledWith(
+      'category-page-data',
+      'products',
+      'categories',
+      'products-merchant-123',
+      'categories-merchant-123'
+    );
   });
 
   it('preserves ID slots when an early detail chunk fails and a later chunk succeeds', async () => {

@@ -17,6 +17,7 @@ describe('getStorefrontProductCanonicalRedirectResult', () => {
   beforeEach(() => {
     resetStorefrontPreflightRpcForTests();
     vi.stubEnv('VERCEL_ENV', '');
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
@@ -38,7 +39,7 @@ describe('getStorefrontProductCanonicalRedirectResult', () => {
 
     expect(result).toEqual({ kind: 'unknown' });
     expect(rpcImpl).not.toHaveBeenCalled();
-    expect(console.warn).toHaveBeenCalledWith(
+    expect(console.info).toHaveBeenCalledWith(
       '[storefront-internal-preflight] skip',
       expect.objectContaining({
         surface: 'product-canonical',
@@ -60,7 +61,7 @@ describe('getStorefrontProductCanonicalRedirectResult', () => {
 
     expect(result).toEqual({ kind: 'unknown' });
     expect(rpcImpl).not.toHaveBeenCalled();
-    expect(console.warn).toHaveBeenCalledWith(
+    expect(console.info).toHaveBeenCalledWith(
       '[storefront-internal-preflight] skip',
       expect.objectContaining({
         surface: 'product-canonical',

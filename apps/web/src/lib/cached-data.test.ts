@@ -177,30 +177,92 @@ describe('cached merchant entity normalization', () => {
   });
 
   it('normalizes the OgaBassey domain merchant away from stale fashion business type', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce({
-      data: { merchant_id: mockMerchant.id, domain: 'ogabassey.com' },
+    harness.mockRpc.mockResolvedValueOnce({
+      data: [
+        {
+          custom_domain: 'ogabassey.com',
+          feature_settings: null,
+          merchant_data: {
+            ...mockMerchant,
+            business_type: 'fashion',
+            slug: 'ogabassey',
+          },
+        },
+      ],
       error: null,
-      count: null,
-    });
-    harness.mockSingle.mockResolvedValueOnce({
-      data: {
-        ...mockMerchant,
-        business_type: 'fashion',
-        feature_settings: [],
-        slug: 'ogabassey',
-      },
-      error: null,
-      count: null,
     });
 
     const merchant = await getCachedMerchantByDomain('ogabassey.com');
 
+    expect(harness.mockRpc).toHaveBeenCalledWith(
+      'resolve_storefront_cached_merchant',
+      {
+        p_identifier: 'ogabassey.com',
+      }
+    );
+    expect(harness.mockFrom).not.toHaveBeenCalledWith('domains');
     expect(merchant).toEqual(
       expect.objectContaining({
         business_type: 'electronics',
         custom_domain: 'ogabassey.com',
         slug: 'ogabassey',
       })
+    );
+  });
+
+  it('uses the merchant resolver RPC for domain lookups to avoid serial PostgREST reads', async () => {
+    harness.mockRpc.mockResolvedValueOnce({
+      data: [
+        {
+          custom_domain: 'fashion.example',
+          feature_settings: { blog_enabled: true },
+          merchant_data: {
+            ...mockMerchant,
+            business_type: 'fashion',
+            slug: 'fashion-store',
+          },
+        },
+      ],
+      error: null,
+    });
+
+    const merchant = await getCachedMerchantByDomain('fashion.example');
+
+    expect(harness.mockRpc).toHaveBeenCalledWith(
+      'resolve_storefront_cached_merchant',
+      {
+        p_identifier: 'fashion.example',
+      }
+    );
+    expect(harness.mockFrom).not.toHaveBeenCalledWith('domains');
+    expect(merchant).toEqual(
+      expect.objectContaining({
+        business_type: 'fashion',
+        custom_domain: 'fashion.example',
+        feature_settings: expect.objectContaining({ blog_enabled: true }),
+        slug: 'fashion-store',
+      })
+    );
+  });
+
+  it('returns null when the storefront merchant resolver has no domain match', async () => {
+    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+
+    const merchant = await getCachedMerchantByDomain('missing.example');
+
+    expect(merchant).toBeNull();
+  });
+
+  it('throws transient lookup errors from the storefront merchant resolver', async () => {
+    harness.mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        message: 'TimeoutError: The operation was aborted due to timeout',
+      },
+    });
+
+    await expect(getCachedMerchantByDomain('ogabassey.com')).rejects.toThrow(
+      'Database error resolving merchant for domain: ogabassey.com'
     );
   });
 
@@ -254,20 +316,19 @@ describe('cached merchant entity normalization', () => {
   });
 
   it('preserves business type for non-OgaBassey domain merchants', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce({
-      data: { merchant_id: mockMerchant.id, domain: 'fashion.example' },
+    harness.mockRpc.mockResolvedValueOnce({
+      data: [
+        {
+          custom_domain: 'fashion.example',
+          feature_settings: null,
+          merchant_data: {
+            ...mockMerchant,
+            business_type: 'fashion',
+            slug: 'fashionstore',
+          },
+        },
+      ],
       error: null,
-      count: null,
-    });
-    harness.mockSingle.mockResolvedValueOnce({
-      data: {
-        ...mockMerchant,
-        business_type: 'fashion',
-        feature_settings: [],
-        slug: 'fashionstore',
-      },
-      error: null,
-      count: null,
     });
 
     const merchant = await getCachedMerchantByDomain('fashion.example');
@@ -590,6 +651,22 @@ describe('getCachedProducts', () => {
     expect(result[0].product_variants).toHaveLength(1);
     // Product without variant
     expect(result[1].product_variants).toEqual([]);
+  });
+
+  it('throws instead of caching products with empty variants when the variant RPC fails', async () => {
+    harness.mockListResult.data = [
+      { id: 'p1', name: 'Phone', status: 'active' },
+    ];
+    harness.mockListResult.error = null;
+    harness.mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '57014', message: 'statement timeout' },
+    });
+
+    await expect(getCachedProducts('merchant-1')).rejects.toMatchObject({
+      code: '57014',
+      message: 'statement timeout',
+    });
   });
 });
 

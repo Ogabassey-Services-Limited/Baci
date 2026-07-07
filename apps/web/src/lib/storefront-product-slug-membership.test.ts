@@ -66,6 +66,7 @@ describe('resolveStorefrontProductSlugResolution', () => {
   beforeEach(() => {
     resetStorefrontPreflightRpcForTests();
     vi.stubEnv('VERCEL_ENV', '');
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
@@ -86,7 +87,7 @@ describe('resolveStorefrontProductSlugResolution', () => {
 
     expect(result).toEqual({ kind: 'present-or-unknown' });
     expect(rpcImpl).not.toHaveBeenCalled();
-    expect(console.warn).toHaveBeenCalledWith(
+    expect(console.info).toHaveBeenCalledWith(
       '[storefront-internal-preflight] skip',
       expect.objectContaining({
         surface: 'product-slug',
