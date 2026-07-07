@@ -46,16 +46,15 @@ export const fallbackTextModel = google(FALLBACK_TEXT_MODEL_NAME);
 // Order: Cerebras Gemma (fastest; free 1M tokens/day) → Groq gpt-oss-120b
 // (free 14,400 req/day; supports the strict json_schema response format the
 // AI SDK uses — Groq's Llama models do not) → Gemini 2.5 Flash → Flash-Lite.
-// The Cerebras/Groq entries
-// only join the chain when their API keys are configured, so environments
-// without those keys keep the Gemini-only behavior. Four independent free
-// pools across three infrastructures means AI editing keeps working even
-// when any one provider is down or quota-exhausted — no Google billing
-// dependency.
+// The Cerebras/Groq entries only join the chain when their API keys are
+// configured, so environments without those keys keep the Gemini-only
+// behavior. Independent free pools across several infrastructures mean AI
+// editing keeps working even when any one provider is down or
+// quota-exhausted — no Google billing dependency.
 //
-// Measured on the real copilot task (production key, 2026-07-07):
-// cerebras/gemma-4-31b 0.8s, groq/gpt-oss-120b 2.9s, gemini-2.5-flash 3-4s —
-// all returned correct, structure-preserving JSON via json mode.
+// Measured on the real copilot task (production keys, 2026-07-07):
+// cerebras/gemma-4-31b 0.6-0.8s, groq/gpt-oss-120b 1-3s, gemini-2.5-flash
+// 3-4s — all returned correct, structure-preserving JSON via json mode.
 // Note: Cerebras' free tier caps context at ~8K tokens; oversized configs
 // fail fast there and fall through to Groq/Gemini (131K/1M context).
 export const COPILOT_CEREBRAS_MODEL = 'gemma-4-31b';

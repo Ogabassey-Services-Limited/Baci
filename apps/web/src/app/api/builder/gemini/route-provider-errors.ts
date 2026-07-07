@@ -62,9 +62,26 @@ function getErrorText(error: unknown): string {
 }
 
 export function isBuilderGeminiQuotaError(error: unknown): boolean {
+  // The AI SDK's APICallError carries the upstream HTTP status — a 429 is a
+  // quota/rate-limit signal regardless of the provider's error prose.
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'statusCode' in error &&
+    (error as { statusCode?: unknown }).statusCode === 429
+  ) {
+    return true;
+  }
+
   const errorText = getErrorText(error);
   return (
-    /quota exceeded/i.test(errorText) || /resource_exhausted/i.test(errorText)
+    // Google vocabulary (Gemini free-tier exhaustion).
+    /quota exceeded/i.test(errorText) ||
+    /resource_exhausted/i.test(errorText) ||
+    // OpenAI-compatible vocabulary (Cerebras/Groq/OpenRouter in the copilot
+    // provider chain): "Rate limit reached...", "rate_limit_exceeded",
+    // "temporarily rate-limited upstream".
+    /rate.?limit/i.test(errorText)
   );
 }
 
