@@ -6,6 +6,7 @@ import {
 import Ionicons from '@react-native-vector-icons/ionicons';
 import * as Crypto from 'expo-crypto';
 import { router, Stack } from 'expo-router';
+import { usePreventRemove } from 'expo-router/react-navigation';
 import { useRef, useState } from 'react';
 import { Alert, Keyboard, Pressable, View } from 'react-native';
 import { ImeiCheckPager } from '@/components/imei-check/ImeiCheckPager';
@@ -206,6 +207,15 @@ export default function ImeiCheckerScreen() {
     setResult(null);
     setError(null);
   };
+
+  // The result view is a conditional render on this same route, so the native
+  // back-swipe (and Android hardware back) would pop the whole screen and land
+  // on the previous one. While a result is showing, intercept the removal and
+  // return to the checker form instead — mirrors the result header's back
+  // button, which already calls onReset directly.
+  usePreventRemove(result !== null, () => {
+    handleReset();
+  });
 
   return (
     <StorefrontScreenShell

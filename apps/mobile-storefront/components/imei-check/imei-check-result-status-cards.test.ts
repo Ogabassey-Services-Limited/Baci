@@ -1,3 +1,4 @@
+import { IMEI_SERVICE_TIERS, type ImeiCheckField } from '@baci/shared/imei';
 import { describe, expect, it } from '@jest/globals';
 import Colors from '@/constants/Colors';
 import type { ImeiResult } from '@/lib/validation';
@@ -20,9 +21,20 @@ const baseResult: ImeiResult = {
   verdictType: 'safe',
 };
 
+const CORE_CHECKS: readonly ImeiCheckField[] = [
+  'blacklistStatus',
+  'icloud',
+  'simLock',
+  'carrier',
+];
+
 describe('getImeiResultStatusCards', () => {
-  it('includes fixed status cards for every result', () => {
-    const cards = getImeiResultStatusCards(baseResult, Colors.light);
+  it('includes the core status cards the tier actually checks', () => {
+    const cards = getImeiResultStatusCards(
+      baseResult,
+      Colors.light,
+      CORE_CHECKS
+    );
 
     expect(cards.map((card) => card.label)).toEqual([
       'Blacklist Status',
@@ -33,6 +45,19 @@ describe('getImeiResultStatusCards', () => {
     ]);
   });
 
+  it('omits core cards the tier never checked (no wall of Unknown)', () => {
+    // A serial-info report checks device/model/serial only — it must not
+    // render Unknown blacklist/iCloud/FMI/SIM/carrier cards it never ran.
+    const cards = getImeiResultStatusCards(
+      { ...baseResult, serialNumber: 'C02XK1ZLJGH5' },
+      Colors.light,
+      IMEI_SERVICE_TIERS.serialInfo.checksIncluded
+    );
+    const labels = cards.map((card) => card.label);
+
+    expect(labels).toEqual(['Serial Number']);
+  });
+
   it('shows iCloud status separately from Find My lock status', () => {
     const cards = getImeiResultStatusCards(
       {
@@ -40,7 +65,8 @@ describe('getImeiResultStatusCards', () => {
         icloud: 'Lost',
         icloudLock: 'Unknown',
       },
-      Colors.light
+      Colors.light,
+      CORE_CHECKS
     );
 
     expect(cards.find((card) => card.label === 'iCloud Status')).toMatchObject({
@@ -70,7 +96,8 @@ describe('getImeiResultStatusCards', () => {
         miLockStatus: 'Locked',
         miLostStatus: 'Clean',
       },
-      Colors.light
+      Colors.light,
+      CORE_CHECKS
     );
 
     expect(cards.map((card) => card.label)).toEqual(
@@ -90,7 +117,11 @@ describe('getImeiResultStatusCards', () => {
   });
 
   it('omits optional status cards when provider fields are absent', () => {
-    const cards = getImeiResultStatusCards(baseResult, Colors.light);
+    const cards = getImeiResultStatusCards(
+      baseResult,
+      Colors.light,
+      CORE_CHECKS
+    );
     const labels = cards.map((card) => card.label);
 
     expect(labels).not.toEqual(
@@ -112,7 +143,8 @@ describe('getImeiResultStatusCards', () => {
         mdmStatus: '',
         serialNumber: '',
       },
-      Colors.light
+      Colors.light,
+      CORE_CHECKS
     );
     const labels = cards.map((card) => card.label);
 
@@ -133,7 +165,8 @@ describe('getImeiResultStatusCards', () => {
         serialNumber: 'F2LDN12345',
         warranty: 'Limited Warranty',
       },
-      Colors.dark
+      Colors.dark,
+      CORE_CHECKS
     );
 
     expect(

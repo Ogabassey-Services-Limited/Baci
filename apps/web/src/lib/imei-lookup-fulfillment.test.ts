@@ -118,4 +118,56 @@ describe('requestSickwCheck', () => {
       status: 502,
     });
   });
+
+  it('refunds a rejected unsupported-serial response instead of charging for it', async () => {
+    // Shape of the live Sickw payload that was billed as a "success" in prod:
+    // a modern 10-character Apple serial rejected by the serial-info service.
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({
+        imei: 'F0ABCD1234',
+        result: 'Rejected: 10 Characters Serial Not supported!',
+        status: 'rejected',
+      })
+    );
+
+    const result = await requestSickwCheck(LOOKUP_ARGS);
+
+    expect(result).toMatchObject({
+      body: { code: 'SICKW_NOT_FOUND', success: false },
+      ok: false,
+      refundReason: 'not_found',
+      sickwStatus: 'not_found',
+      status: 404,
+    });
+  });
+
+  it('maps a generic rejected status to a refunded 502', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({ result: 'Rejected: try again later', status: 'rejected' })
+    );
+
+    const result = await requestSickwCheck(LOOKUP_ARGS);
+
+    expect(result).toMatchObject({
+      body: { code: 'SICKW_UNAVAILABLE', success: false },
+      ok: false,
+      refundReason: 'error',
+      sickwStatus: 'provider_error',
+      status: 502,
+    });
+  });
+
+  it('treats a "Rejected:" result string as an error even without a status field', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({ result: 'Rejected: 10 Characters Serial Not supported!' })
+    );
+
+    const result = await requestSickwCheck(LOOKUP_ARGS);
+
+    expect(result).toMatchObject({
+      ok: false,
+      refundReason: 'not_found',
+      status: 404,
+    });
+  });
 });

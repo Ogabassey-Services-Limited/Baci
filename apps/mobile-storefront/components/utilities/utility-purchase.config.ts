@@ -1,9 +1,11 @@
+import type { ColorSchemeName } from 'react-native';
 import {
   type RawRouteRepeatParams,
   type RouteRepeatParams,
   VALID_UTILITY_TYPES,
   type ValidUtilityType,
 } from '@/components/utilities/utility-purchase.types';
+import { BRAND } from '@/constants/Colors';
 import type { UtilityRepeatDefaults } from '@/lib/utility-repeat';
 
 export const UTILITY_TYPE_TITLES: Record<ValidUtilityType, string> = {
@@ -14,6 +16,16 @@ export const UTILITY_TYPE_TITLES: Record<ValidUtilityType, string> = {
   // `gaming` is the internal Kuda bill category; storefront copy uses the domain label "Betting".
   gaming: 'Betting',
 };
+
+/**
+ * History (receipt) icon color for the utility header. Brand yellow reads
+ * well on dark surfaces but gets lost on light ones — use brand red there.
+ */
+export function getUtilityHistoryIconColor(
+  colorScheme: ColorSchemeName | null | undefined
+): string {
+  return colorScheme === 'dark' ? BRAND.secondary : BRAND.primary;
+}
 
 export function isValidUtilityType(value: string): value is ValidUtilityType {
   return (VALID_UTILITY_TYPES as readonly string[]).includes(value);

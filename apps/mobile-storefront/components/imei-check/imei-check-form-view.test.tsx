@@ -1,7 +1,14 @@
 import { IMEI_SERVICE_TIERS } from '@baci/shared/imei';
-import { describe, expect, it, jest } from '@jest/globals';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import Colors from '@/constants/Colors';
+import Colors, { SPACING } from '@/constants/Colors';
 import { ImeiCheckFormView } from './imei-check-form-view';
 
 jest.mock('@react-native-vector-icons/ionicons', () => ({
@@ -16,14 +23,25 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
 }));
 
+const mockInsets = { top: 0, bottom: 0, left: 0, right: 0 };
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children: unknown }) => children,
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  useSafeAreaInsets: () => mockInsets,
 }));
 
 jest.mock('@/components/ui/AppKeyboardContainer', () => ({
   __esModule: true,
   default: ({ children }: { children: unknown }) => children,
+}));
+
+const mockKeyboardResult = {
+  isKeyboardVisible: false,
+  keyboardHeight: 0,
+  dismissKeyboard: jest.fn(),
+  withKeyboardDismiss: (handler: unknown) => handler,
+};
+jest.mock('@/hooks/use-keyboard', () => ({
+  useKeyboard: () => mockKeyboardResult,
 }));
 
 const baseProps = {
@@ -165,5 +183,35 @@ describe('ImeiCheckFormView', () => {
     fireEvent.press(screen.getByText('Wallet unavailable'));
 
     expect(onCheck).not.toHaveBeenCalled();
+  });
+
+  describe('footer safe-area inset vs keyboard', () => {
+    beforeEach(() => {
+      mockInsets.bottom = 34;
+      mockKeyboardResult.isKeyboardVisible = false;
+    });
+
+    afterEach(() => {
+      mockInsets.bottom = 0;
+      mockKeyboardResult.isKeyboardVisible = false;
+    });
+
+    it('keeps the home-indicator inset when the keyboard is closed', () => {
+      render(<ImeiCheckFormView {...baseProps} />);
+
+      expect(screen.getByTestId('imei-check-footer')).toHaveStyle({
+        paddingBottom: 34,
+      });
+    });
+
+    it('drops to base padding while the keyboard is open (inset is under the keyboard)', () => {
+      mockKeyboardResult.isKeyboardVisible = true;
+
+      render(<ImeiCheckFormView {...baseProps} />);
+
+      expect(screen.getByTestId('imei-check-footer')).toHaveStyle({
+        paddingBottom: SPACING.sm,
+      });
+    });
   });
 });

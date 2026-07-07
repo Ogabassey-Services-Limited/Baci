@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND, SPACING } from '@/constants/Colors';
+import { useKeyboard } from '@/hooks/use-keyboard';
 import { formatServicePrice } from './format-service-price';
 import { ImeiBrandChips } from './ImeiBrandChips';
 import { styles } from './imei-check.styles';
@@ -73,6 +74,9 @@ export function ImeiCheckFormView({
   onToggleServices,
 }: ImeiCheckFormViewProps) {
   const insets = useSafeAreaInsets();
+  // The home-indicator inset is buried under the keyboard while it's open —
+  // keeping it floats the footer a full inset above the keyboard for nothing.
+  const { isKeyboardVisible } = useKeyboard();
   const isWalletReady = !(isWalletLoading || isWalletError);
   const hasEnoughBalance = isWalletReady && walletBalance >= currentTier.price;
   const needsTopUp = isWalletReady && !hasEnoughBalance;
@@ -140,12 +144,15 @@ export function ImeiCheckFormView({
         </ScrollView>
 
         <View
+          testID="imei-check-footer"
           style={[
             styles.bottomAction,
             {
               backgroundColor: colors.card,
               borderTopColor: colors.border,
-              paddingBottom: Math.max(insets.bottom, SPACING.sm),
+              paddingBottom: isKeyboardVisible
+                ? SPACING.sm
+                : Math.max(insets.bottom, SPACING.sm),
             },
           ]}
         >
