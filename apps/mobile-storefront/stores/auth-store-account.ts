@@ -203,7 +203,15 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
         }
 
         const stored = typeof data === 'string' ? data : cleaned;
-        set({ customer: { ...customer, username: stored } });
+        // Re-read the customer instead of spreading the top-of-function
+        // snapshot: two awaits (getUser + the RPC) ran since, during which a
+        // concurrent updateProfile could have replaced `customer`. Spreading the
+        // stale copy would silently clobber that change.
+        const latestCustomer = get().customer;
+        if (!latestCustomer) {
+          return { success: false, error: 'Not logged in' };
+        }
+        set({ customer: { ...latestCustomer, username: stored } });
         return { success: true, username: stored };
       } catch (error) {
         const message =

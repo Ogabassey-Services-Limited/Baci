@@ -1503,6 +1503,29 @@ describe('useAuthStore', () => {
       expect(useAuthStore.getState().customer?.username).toBeUndefined();
     });
 
+    it('preserves a concurrent customer update made while the RPC is in flight', async () => {
+      // A concurrent updateProfile lands after the top-of-function snapshot,
+      // while set_customer_username is awaiting. The final merge must build on
+      // the latest customer, not the stale snapshot.
+      (supabase.rpc as jest.Mock).mockImplementation(async () => {
+        (useAuthStore.setState as (state: object) => void)({
+          customer: { ...mockCustomerRow, phone: '+2348099999999' },
+        });
+        return { data: 'OgaFan', error: null };
+      });
+
+      let result!: { success: boolean; error?: string; username?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setUsername('OgaFan');
+      });
+
+      expect(result).toEqual({ success: true, username: 'OgaFan' });
+      const finalCustomer = useAuthStore.getState().customer;
+      expect(finalCustomer?.username).toBe('OgaFan');
+      // The concurrent phone change survives — not overwritten by the snapshot.
+      expect(finalCustomer?.phone).toBe('+2348099999999');
+    });
+
     it('returns an error without calling the RPC when not logged in', async () => {
       (useAuthStore.setState as (state: object) => void)({
         customer: null,
