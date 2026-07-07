@@ -8,6 +8,17 @@ import { buildCorsHeaders, CONTENT_TYPES } from './config.mjs';
 // standing up a real socket.
 const defaultServeFileDeps = { createReadStream };
 
+// Client-disconnect variants that are NOT real streaming failures on this
+// high-abort image endpoint: a graceful early close (pipeline's own code), a
+// TCP reset (mobile network switch / tab close), or a write after the socket
+// is already gone. Swallowing these keeps the logs signal-only — the previous
+// incident was prolonged by misleading error output, so log hygiene matters.
+const BENIGN_STREAM_ABORT_CODES = new Set([
+  'ERR_STREAM_PREMATURE_CLOSE',
+  'ECONNRESET',
+  'EPIPE',
+]);
+
 export function sendText(response, statusCode, message) {
   response.writeHead(statusCode, {
     'Cache-Control': 'no-store',
@@ -83,9 +94,9 @@ export async function serveFile(
   // exhausting the 4096 ceiling in days and failing ALL transforms with
   // EMFILE ("Input file contains unsupported image format" from sharp).
   pipeline(stream, response, (error) => {
-    // No error, or the client disconnected mid-download (premature close) —
-    // nothing to answer.
-    if (!error || error.code === 'ERR_STREAM_PREMATURE_CLOSE') {
+    // No error, or the client simply went away mid-download — nothing to
+    // answer, and these abort variants are not real streaming failures.
+    if (!error || BENIGN_STREAM_ABORT_CODES.has(error.code)) {
       return;
     }
     // The 200 status + headers were already flushed before streaming began,
