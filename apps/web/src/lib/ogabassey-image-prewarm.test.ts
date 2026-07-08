@@ -39,7 +39,7 @@ describe('prewarmOgabasseyImageTransforms', () => {
       RequestInit,
     ];
     expect(firstUrl).toMatch(
-      /^https:\/\/cdn\.ogabassey\.com\/image\/width=\d+,quality=\d+,format=auto\/core-assets\/products\/phone\.avif$/
+      /^https:\/\/cdn\.ogabassey\.com\/image\/width=\d+,quality=\d+,format=jpeg\/core-assets\/products\/phone\.avif$/
     );
     expect(firstInit.method).toBe('HEAD');
 
@@ -49,21 +49,22 @@ describe('prewarmOgabasseyImageTransforms', () => {
     expect(new Set(requestedUrls).size).toBe(requestedUrls.length);
     for (const url of requestedUrls) {
       expect(url).toContain('/image/width=');
+      expect(url).toContain('format=jpeg');
+      expect(url).not.toContain('format=auto');
       expect(url).toContain('/core-assets/products/phone.avif');
     }
   });
 
-  it('sends an AVIF-first Accept header on HEAD requests (warm-first locks the smallest format)', async () => {
+  it('keeps the AVIF-first Accept header on HEAD requests for legacy auto probes', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(okResponse());
 
     await prewarmOgabasseyImageTransforms([CDN_PRODUCT_IMAGE], {
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });
 
-    // Cloudflare Free cannot vary the transform cache by Accept, so the
-    // format the prewarm negotiates is the format EVERY visitor gets until
-    // the variant expires. An Accept-less fetch negotiates */* and locks the
-    // original (often JPEG) format — the header must always be present.
+    // Current browser-facing prewarm URLs are explicit per-format keys. Keep
+    // the header AVIF-first for the one-time format backfill and any explicit
+    // legacy `format=auto` probes where Accept still controls negotiation.
     for (const [, init] of fetchImpl.mock.calls as [string, RequestInit][]) {
       expect((init.headers as Record<string, string>).Accept).toBe(
         PREWARM_ACCEPT_HEADER

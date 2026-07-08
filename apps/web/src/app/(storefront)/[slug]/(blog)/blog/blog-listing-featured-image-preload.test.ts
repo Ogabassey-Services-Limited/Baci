@@ -26,7 +26,7 @@ describe('preloadBlogListingFeaturedImage', () => {
     );
 
     expect(preload).toHaveBeenCalledWith(
-      'https://cdn.ogabassey.com/image/width=750,quality=50,format=auto/core-assets/blog/post/hero.jpg',
+      'https://cdn.ogabassey.com/image/width=750,quality=50,format=jpeg/core-assets/blog/post/hero.jpg',
       expect.objectContaining({
         as: 'image',
         fetchPriority: 'high',

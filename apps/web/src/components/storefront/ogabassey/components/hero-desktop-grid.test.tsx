@@ -118,20 +118,55 @@ describe('HeroDesktopGrid', () => {
     expect(bigLink).toHaveAttribute('data-prefetch', 'false');
   });
 
-  it('serves the big hero image as a desktop-scoped eager LCP picture', () => {
+  it('serves the big hero image as a desktop-scoped eager LCP picture with an explicit AVIF tier', () => {
     const { container } = render(<HeroDesktopGrid slides={SLIDES} />);
 
-    const source = container.querySelector(
-      'picture source[media="(min-width: 768px)"]'
+    const bigPicture = container.querySelector('picture');
+    const sources = bigPicture?.querySelectorAll(
+      'source[media="(min-width: 768px)"]'
     );
-    expect(source).toHaveAttribute(
-      'srcset',
-      'https://cdn.ogabassey.com/image/width=800,quality=70,format=auto/core-assets/products/product-1.avif 800w'
+    // Per-format URLs (AVIF tier + decodable fallback), never one `format=auto`
+    // body: CF Free ignores `Vary: Accept`, so a shared cache body serves AVIF
+    // bytes to non-AVIF browsers.
+    expect(sources).toHaveLength(2);
+    expect(sources?.[0]).toHaveAttribute('type', 'image/avif');
+    expect(sources?.[0]?.getAttribute('srcset')).toBe(
+      'https://cdn.ogabassey.com/image/width=800,quality=70,format=avif/core-assets/products/product-1.avif 800w'
+    );
+    expect(sources?.[1]).not.toHaveAttribute('type');
+    expect(sources?.[1]?.getAttribute('srcset')).toBe(
+      'https://cdn.ogabassey.com/image/width=800,quality=70,format=jpeg/core-assets/products/product-1.avif 800w'
+    );
+    expect(container.innerHTML).not.toContain('format=auto');
+
+    const img = container.querySelector('picture img');
+    expect(img).toHaveAttribute('loading', 'eager');
+    expect(img).toHaveAttribute('fetchpriority', 'high');
+  });
+
+  it('serves external desktop images with only the fallback source when no AVIF tier exists', () => {
+    const externalSlide = makeSlide({
+      id: 'external',
+      imageUrl: 'https://images.example.com/hero.jpg',
+      name: 'External Hero',
+    });
+
+    const { container } = render(<HeroDesktopGrid slides={[externalSlide]} />);
+
+    const picture = container.querySelector('picture');
+    const sources = picture?.querySelectorAll(
+      'source[media="(min-width: 768px)"]'
+    );
+    expect(sources).toHaveLength(1);
+    expect(sources?.[0]).not.toHaveAttribute('type');
+    expect(sources?.[0]?.getAttribute('srcset')).toBe(
+      'https://images.example.com/hero.jpg?w=800&q=70 800w'
     );
 
     const img = container.querySelector('picture img');
     expect(img).toHaveAttribute('loading', 'eager');
     expect(img).toHaveAttribute('fetchpriority', 'high');
+    expect(container.innerHTML).not.toContain('format=avif');
   });
 
   it('renders exactly two side cards from the next launch products, deep-linked', () => {
@@ -158,12 +193,25 @@ describe('HeroDesktopGrid', () => {
   it('media-gates side-card images so mobile receives transparent fallbacks', () => {
     const { container } = render(<HeroDesktopGrid slides={SLIDES} />);
 
-    const sources = Array.from(container.querySelectorAll('picture source'));
-    expect(sources).toHaveLength(3);
-    expect(sources[1]).toHaveAttribute('media', '(min-width: 768px)');
-    expect(sources[1]).toHaveAttribute(
-      'srcset',
-      'https://cdn.ogabassey.com/image/width=320,quality=70,format=auto/core-assets/products/product-2.avif 320w'
+    // Three pictures (big + 2 side), each with an AVIF tier + decodable
+    // fallback source → 6 sources, all desktop-media-scoped.
+    const pictures = Array.from(container.querySelectorAll('picture'));
+    expect(pictures).toHaveLength(3);
+    for (const picture of pictures) {
+      const pictureSources = picture.querySelectorAll(
+        'source[media="(min-width: 768px)"]'
+      );
+      expect(pictureSources).toHaveLength(2);
+      expect(pictureSources[0]).toHaveAttribute('type', 'image/avif');
+      expect(pictureSources[1]).not.toHaveAttribute('type');
+    }
+
+    const sideSources = pictures[1]?.querySelectorAll('source');
+    expect(sideSources?.[0]?.getAttribute('srcset')).toBe(
+      'https://cdn.ogabassey.com/image/width=320,quality=70,format=avif/core-assets/products/product-2.avif 320w'
+    );
+    expect(sideSources?.[1]?.getAttribute('srcset')).toBe(
+      'https://cdn.ogabassey.com/image/width=320,quality=70,format=jpeg/core-assets/products/product-2.avif 320w'
     );
 
     const images = Array.from(container.querySelectorAll('picture img'));

@@ -11,7 +11,11 @@ import {
 } from '@/components/storefront/ogabassey/components/hero-mobile-image-config';
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 import imageLoader from '@/lib/image-loader';
-import { isOgabasseyCdnImageUrl } from '@/lib/ogabassey-cdn-image-url';
+import {
+  isOgabasseyCdnImageUrl,
+  rewriteOgabasseyTransformUrlFormat,
+} from '@/lib/ogabassey-cdn-image-url';
+import { buildOgabasseyAvifSrcSet } from '@/lib/ogabassey-image-format-sources';
 
 /**
  * Early resource hints for the home hero's slide-0 LCP image.
@@ -22,6 +26,13 @@ import { isOgabasseyCdnImageUrl } from '@/lib/ogabassey-cdn-image-url';
  * responsive fetch. The hint is what kills the measured ~6s LCP loadDelay —
  * without it the hero URL is only discoverable after the dynamic subtree
  * streams and hydrates.
+ *
+ * The hint targets the AVIF tier the picture renders for AVIF-capable browsers
+ * (the ~93% majority): Cloudflare Free ignores `Vary: Accept`, so the picture
+ * ships explicit per-format `<source>`s instead of one `format=auto` body, and
+ * the preload must match the `image/avif` source or it fetches bytes the
+ * browser never paints. Non-AVIF browsers skip a preload whose `type` they
+ * cannot decode and discover the fallback `<source>` inline in the shell.
  *
  * Media-scoped to the mobile source (the field LCP problem is mobile;
  * desktop's grid streams its own images), and emitted via react-dom
@@ -61,15 +72,35 @@ export function preloadOgabasseyHomeHeroResources(
       src: candidate,
       width: MOBILE_HERO_IMAGE_WIDTH,
     });
+    const imageSizes = sizes ?? MOBILE_HERO_IMAGE_SIZES;
+    const fallbackSrcSet = srcSet ?? `${href} ${MOBILE_HERO_IMAGE_WIDTH}w`;
 
-    preload(href, {
-      as: 'image',
-      fetchPriority: 'high',
-      imageSizes: sizes ?? MOBILE_HERO_IMAGE_SIZES,
-      imageSrcSet: srcSet ?? `${href} ${MOBILE_HERO_IMAGE_WIDTH}w`,
-      media: MOBILE_HERO_SOURCE_MEDIA,
-      type: getOgabasseyImagePreloadType(href),
-    });
+    // Preload the exact tier the picture renders. AVIF-capable browsers get
+    // the `image/avif` source, so the hint must too (candidate + type parity
+    // → one deduped fetch). `null` twins mean an external image with no AVIF
+    // tier: fall back to preloading the decodable fallback for everyone.
+    const avifHref = rewriteOgabasseyTransformUrlFormat(href, 'avif');
+    const avifSrcSet = buildOgabasseyAvifSrcSet(fallbackSrcSet);
+
+    if (avifHref && avifSrcSet) {
+      preload(avifHref, {
+        as: 'image',
+        fetchPriority: 'high',
+        imageSizes,
+        imageSrcSet: avifSrcSet,
+        media: MOBILE_HERO_SOURCE_MEDIA,
+        type: 'image/avif',
+      });
+    } else {
+      preload(href, {
+        as: 'image',
+        fetchPriority: 'high',
+        imageSizes,
+        imageSrcSet: fallbackSrcSet,
+        media: MOBILE_HERO_SOURCE_MEDIA,
+        type: getOgabasseyImagePreloadType(href),
+      });
+    }
   } catch (error) {
     // Fail-open: an optimization hint must never break the shell render.
     console.error('Failed to emit home hero preload hints', { error });

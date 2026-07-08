@@ -46,13 +46,11 @@ const MAX_PREWARM_URLS_PER_INVOCATION = 40;
 const DEFAULT_PREWARM_CONCURRENCY = 4;
 const DEFAULT_PREWARM_TIMEOUT_MS = 5000;
 
-// `format=auto` negotiates on the Accept header, but Cloudflare Free cannot
-// vary its cache by Accept — whichever format the FIRST requester negotiates
-// is locked in for every later visitor until the variant expires. Without an
-// explicit header this prewarm negotiates `*/*` (server-side fetch default)
-// and locks the ORIGINAL format (often JPEG at 1.4–2.8× AVIF bytes), actively
-// poisoning the cache it is meant to warm. Sending a browser-like AVIF-first
-// Accept makes the prewarmed (and therefore locked) variant the smallest one.
+// Browser-facing transform URLs now carry explicit per-format cache keys
+// instead of `format=auto`, so this header is harmless for ordinary fallback
+// prewarms. Keep it AVIF-first for the one-time format backfill and any
+// explicit legacy `auto` probes, where Accept still controls the negotiated
+// body.
 export const PREWARM_ACCEPT_HEADER =
   'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8';
 

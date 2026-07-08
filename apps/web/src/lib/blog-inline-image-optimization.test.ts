@@ -143,15 +143,19 @@ describe('buildInlineImageSiblings', () => {
       width: undefined,
       height: undefined,
     });
-    expect(siblings.fallback).toContain('width=828,quality=70,format=auto');
+    // Per-format sibling FILES: base png stays png (`format=png`), the
+    // `.png.avif`/`.png.webp` siblings transcode to their own extension. Never
+    // `format=auto` — CF Free ignores Vary, so an Accept-negotiated URL is one
+    // shared cache body that could serve AVIF into the png <img> fallback.
+    expect(siblings.fallback).toContain('width=828,quality=70,format=png');
     expect(siblings.avifSrcSet).toContain(
-      'width=384,quality=70,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png.avif 384w'
+      'width=384,quality=70,format=avif/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png.avif 384w'
     );
     expect(siblings.webpSrcSet).toContain(
-      'width=1200,quality=70,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png.webp 1200w'
+      'width=1200,quality=70,format=webp/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png.webp 1200w'
     );
     expect(siblings.fallbackSrcSet).toContain(
-      'width=640,quality=70,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png 640w'
+      'width=640,quality=70,format=png/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png 640w'
     );
   });
 
@@ -164,13 +168,13 @@ describe('buildInlineImageSiblings', () => {
       const siblings = buildInlineImageSiblings(src);
 
       expect(siblings.fallback).toContain(
-        'https://media.example.com/image/width=828,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png'
+        'https://media.example.com/image/width=828,quality=70,format=png/core-assets/blog/x/inline-1-b9244d7a754d.png'
       );
       expect(siblings.avifSrcSet).toContain(
-        'https://media.example.com/image/width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.avif 384w'
+        'https://media.example.com/image/width=384,quality=70,format=avif/core-assets/blog/x/inline-1-b9244d7a754d.png.avif 384w'
       );
       expect(siblings.webpSrcSet).toContain(
-        'https://media.example.com/image/width=1200,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.webp 1200w'
+        'https://media.example.com/image/width=1200,quality=70,format=webp/core-assets/blog/x/inline-1-b9244d7a754d.png.webp 1200w'
       );
     } finally {
       if (prev === undefined) {
@@ -187,10 +191,10 @@ describe('buildInlineImageSiblings', () => {
     expect(siblings.avif).toBe(`${INLINE}.avif?v=2`);
     expect(siblings.webp).toBe(`${INLINE}.webp?v=2`);
     expect(siblings.fallback).toContain(
-      'width=828,quality=70,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png?v=2'
+      'width=828,quality=70,format=png/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png?v=2'
     );
     expect(siblings.avifSrcSet).toContain(
-      'width=384,quality=70,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png.avif?v=2 384w'
+      'width=384,quality=70,format=avif/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png.avif?v=2 384w'
     );
   });
   it('preserves explicit inline image dimensions when provided', () => {
@@ -207,9 +211,9 @@ describe('buildInlineImageSiblings', () => {
     const lowQualitySrc = `${CDN}/image/quality=35,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png`;
     const siblings = buildInlineImageSiblings(lowQualitySrc);
 
-    expect(siblings.fallback).toContain('width=828,quality=35,format=auto');
+    expect(siblings.fallback).toContain('width=828,quality=35,format=png');
     expect(siblings.fallbackSrcSet).toContain(
-      'width=640,quality=35,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png 640w'
+      'width=640,quality=35,format=png/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png 640w'
     );
   });
 
@@ -217,14 +221,14 @@ describe('buildInlineImageSiblings', () => {
     const pinnedWidthSrc = `${CDN}/image/width=1600,height=900,quality=50,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png`;
     const siblings = buildInlineImageSiblings(pinnedWidthSrc);
 
-    expect(siblings.fallback).toContain('width=828,quality=50,format=auto');
+    expect(siblings.fallback).toContain('width=828,quality=50,format=png');
     expect(siblings.fallback).not.toContain('width=1600');
     expect(siblings.fallback).not.toContain('height=900');
     expect(siblings.fallbackSrcSet).toContain(
-      'width=384,quality=50,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png 384w'
+      'width=384,quality=50,format=png/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png 384w'
     );
     expect(siblings.fallbackSrcSet).toContain(
-      'width=1200,quality=50,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png 1200w'
+      'width=1200,quality=50,format=png/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png 1200w'
     );
   });
 });

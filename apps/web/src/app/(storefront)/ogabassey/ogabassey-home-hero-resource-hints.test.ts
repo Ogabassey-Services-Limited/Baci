@@ -9,13 +9,36 @@ vi.mock('react-dom', () => ({
   preload: vi.fn(),
 }));
 
+// Mirror what the real loader emits (an explicit-format `/image/…` transform
+// URL) so the AVIF-rewrite branch is exercised, not a raw `?w=` shape that has
+// no AVIF twin.
 vi.mock('next/image', () => ({
-  getImageProps: vi.fn(({ sizes, src }) => ({
-    props: {
+  getImageProps: vi.fn(
+    ({
       sizes,
-      srcSet: `${src}?w=750&q=70 750w, ${src}?w=1440&q=70 1440w`,
-    },
-  })),
+      src,
+      loader,
+      quality,
+    }: {
+      sizes?: string;
+      src: string;
+      loader?: (input: {
+        src: string;
+        width: number;
+        quality?: number;
+      }) => string;
+      quality?: number;
+    }) => {
+      const candidate = (width: number) =>
+        loader ? loader({ src, width, quality }) : `${src}?w=${width}`;
+      return {
+        props: {
+          sizes,
+          srcSet: `${candidate(750)} 750w, ${candidate(1440)} 1440w`,
+        },
+      };
+    }
+  ),
 }));
 
 const CDN_ORIGIN = 'https://cdn.ogabassey.com';
@@ -32,7 +55,7 @@ describe('preloadOgabasseyHomeHeroResources', () => {
     expect(prefetchDNS).toHaveBeenCalledWith(CDN_ORIGIN);
     expect(preconnect).toHaveBeenCalledWith(CDN_ORIGIN);
     expect(preload).toHaveBeenCalledTimes(1);
-    const [, options] = vi.mocked(preload).mock.calls[0];
+    const [href, options] = vi.mocked(preload).mock.calls[0];
     if (!options) {
       throw new Error('preload was called without options');
     }
@@ -42,8 +65,15 @@ describe('preloadOgabasseyHomeHeroResources', () => {
       // Mobile-only: the field LCP problem is the mobile hero; desktop's
       // grid streams its own images.
       media: '(max-width: 767px)',
+      // Preload the AVIF tier the picture renders for the ~93% AVIF-capable
+      // majority — CF Free ignores Vary, so per-format URLs are the only way
+      // the hint matches what the browser paints (one deduped fetch).
+      type: 'image/avif',
     });
+    expect(String(href)).toContain('format=avif');
+    expect(options.imageSrcSet).toContain('format=avif');
     expect(options.imageSrcSet).toContain('750w');
+    expect(options.imageSrcSet).not.toContain('format=auto');
     expect(options.imageSizes).toContain('100vw');
   });
 

@@ -88,23 +88,26 @@ describe('MobileLcpHeroImage', () => {
     expect(lcpImage).toHaveAttribute('fetchpriority', 'high');
     expect(lcpImage).not.toHaveAttribute('srcset');
 
-    const mobileSource = container.querySelector(
+    // AVIF tier + decodable fallback (per-format URLs) — never one
+    // `format=auto` body, which CF Free serves to every client (AVIF bytes to
+    // non-AVIF browsers). AVIF <source> first so capable browsers pick it.
+    const mobileSources = container.querySelectorAll(
       'source[media="(max-width: 767px)"]'
     );
-    expect(mobileSource).not.toHaveAttribute('type');
-    expect(mobileSource).toHaveAttribute(
-      'srcset',
-      expect.stringContaining('format=auto')
+    expect(mobileSources).toHaveLength(2);
+    const [avifSource, fallbackSource] = mobileSources;
+    expect(avifSource).toHaveAttribute('type', 'image/avif');
+    expect(avifSource?.getAttribute('srcset')).toContain('format=avif');
+    expect(avifSource?.getAttribute('srcset')).toContain(
+      '/core-assets/products/a27.avif'
     );
-    expect(mobileSource).toHaveAttribute(
-      'srcset',
-      expect.stringContaining('/core-assets/products/a27.avif')
-    );
-    expect(mobileSource).toHaveAttribute(
+    expect(fallbackSource).not.toHaveAttribute('type');
+    expect(fallbackSource?.getAttribute('srcset')).toContain('format=jpeg');
+    expect(fallbackSource).toHaveAttribute(
       'sizes',
       '(max-width: 767px) 100vw, 50vw'
     );
-    expect(container.querySelector('source[type="image/jpeg"]')).toBeNull();
+    expect(container.innerHTML).not.toContain('format=auto');
   });
 
   it('uses the inline source for the mobile LCP candidate when provided', () => {

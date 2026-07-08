@@ -1,6 +1,7 @@
 import { getImageProps } from 'next/image';
 import Link from 'next/link';
 import imageLoader from '@/lib/image-loader';
+import { buildOgabasseyAvifSrcSet } from '@/lib/ogabassey-image-format-sources';
 import { asRoute } from '@/lib/routes';
 import { TRANSPARENT_PIXEL_SRC } from './hero-mobile-image-config';
 import type { LaunchProductSlide } from './LaunchCarousel';
@@ -59,12 +60,26 @@ function HeroBigImage({ alt, src }: { alt: string; src: string }) {
     width: BIG_IMAGE_WIDTH,
   });
 
+  const fallbackSrcSet = srcSet ?? imgSrc;
+  // AVIF twin (per-format URL) so AVIF-capable browsers keep AVIF: CF Free
+  // ignores `Vary: Accept`, so one `format=auto` body can't serve both tiers.
+  // `null` for external images — the plain `<source>` then serves everyone.
+  const avifSrcSet = buildOgabasseyAvifSrcSet(fallbackSrcSet);
+
   return (
     <picture className="absolute inset-0 block h-full w-full">
+      {avifSrcSet ? (
+        <source
+          media={BIG_IMAGE_SOURCE_MEDIA}
+          sizes={sizes ?? BIG_IMAGE_SIZES}
+          srcSet={avifSrcSet}
+          type="image/avif"
+        />
+      ) : null}
       <source
         media={BIG_IMAGE_SOURCE_MEDIA}
         sizes={sizes ?? BIG_IMAGE_SIZES}
-        srcSet={srcSet ?? imgSrc}
+        srcSet={fallbackSrcSet}
       />
       <img
         {...imgProps}
@@ -129,12 +144,23 @@ function HeroSideImage({ alt, src }: { alt: string; src: string }) {
     width: SIDE_IMAGE_WIDTH,
   });
 
+  const fallbackSrcSet = srcSet ?? imgSrc;
+  const avifSrcSet = buildOgabasseyAvifSrcSet(fallbackSrcSet);
+
   return (
     <picture className="absolute inset-0 block h-full w-full">
+      {avifSrcSet ? (
+        <source
+          media={SIDE_IMAGE_SOURCE_MEDIA}
+          sizes={sizes ?? SIDE_IMAGE_SIZES}
+          srcSet={avifSrcSet}
+          type="image/avif"
+        />
+      ) : null}
       <source
         media={SIDE_IMAGE_SOURCE_MEDIA}
         sizes={sizes ?? SIDE_IMAGE_SIZES}
-        srcSet={srcSet ?? imgSrc}
+        srcSet={fallbackSrcSet}
       />
       <img
         {...imgProps}

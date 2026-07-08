@@ -33,7 +33,7 @@ describe('preloadOgabasseyBlogPostHeroResources', () => {
     expect(preload).toHaveBeenCalledWith(
       // The rendered hero uses quality 50, so the preload URL must too — else
       // the browser fetches the image twice.
-      'https://cdn.ogabassey.com/image/width=1200,quality=50,format=auto/core-assets/blog/post/hero.jpg',
+      'https://cdn.ogabassey.com/image/width=1200,quality=50,format=jpeg/core-assets/blog/post/hero.jpg',
       expect.objectContaining({
         as: 'image',
         fetchPriority: 'high',
