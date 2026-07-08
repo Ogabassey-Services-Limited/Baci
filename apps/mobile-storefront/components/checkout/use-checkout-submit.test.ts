@@ -14,6 +14,7 @@ const mockRepriceCartItems = jest.fn() as jest.MockedFunction<
 >;
 const mockCreateOrder = jest.fn();
 const mockSubmitBnplCheckout = jest.fn();
+const mockBuildCheckoutOrderRequest = jest.fn();
 const mockValidateCheckoutSubmission = jest.fn();
 const mockRepriceItems = jest.fn();
 const mockRestoreItems = jest.fn();
@@ -69,7 +70,8 @@ jest.mock('./checkout-bnpl-submit', () => ({
 }));
 
 jest.mock('./checkout-order-builders', () => ({
-  buildCheckoutOrderRequest: jest.fn(),
+  buildCheckoutOrderRequest: (...args: unknown[]) =>
+    mockBuildCheckoutOrderRequest(...args),
   createCheckoutSnapshot: jest.fn(() => ({
     deliveryFee: 1500,
     subtotal: 1200000,
@@ -275,6 +277,36 @@ describe('useCheckoutSubmit', () => {
     // Standard path taken (createOrder called); BNPL flow NOT taken.
     expect(mockCreateOrder).toHaveBeenCalled();
     expect(mockSubmitBnplCheckout).not.toHaveBeenCalled();
+  });
+
+  it('forces a non-POD method for a voucher-only cart so the prize order is marked paid', async () => {
+    // The voucher RPC keys payment_status off the method: POD → pending, else →
+    // paid. A ₦0 prize with pay-on-delivery selected must still complete, so the
+    // order is submitted with a non-POD method.
+    cartItems = [
+      {
+        id: 'line-prize',
+        name: 'iPhone 15 (Prize)',
+        price: 0,
+        product_id: 'product-prize',
+        quantity: 1,
+        slug: 'iphone-15',
+        voucher_token: 'qv1.aaa.bbb',
+        voucher_award_id: 'award-1',
+      },
+    ];
+    mockRepriceCartItems.mockResolvedValue({ changes: [], priceById: {} });
+    const params = createParams({ selectedPayment: 'pay_on_delivery' });
+
+    const { result } = renderHook(() => useCheckoutSubmit(params));
+
+    await act(async () => {
+      await result.current(address);
+    });
+
+    expect(mockBuildCheckoutOrderRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentMethodForOrder: 'card' })
+    );
   });
 
   it('updates stale cart prices and aborts checkout after validation passes', async () => {

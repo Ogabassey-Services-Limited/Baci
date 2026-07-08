@@ -147,12 +147,15 @@ export function createInitializeAction({
 
       const { data: authListener } = supabase.auth.onAuthStateChange(
         (event, session) => {
-          const { merchantId } = get();
+          const { merchantId, user: previousUser } = get();
           deferAuthStateChange(async () => {
             if (event === 'SIGNED_IN' && session?.user) {
-              // A fresh sign-in (including an account switch) must not inherit a
-              // prior user's quiz attempt/result/prize.
-              useQuizStore.getState().reset();
+              // Only wipe quiz state on an actual account SWITCH. SIGNED_IN also
+              // fires on same-user session re-establishment / token refresh —
+              // resetting then would kick a shopper out of an in-progress quiz.
+              if (previousUser?.id !== session.user.id) {
+                useQuizStore.getState().reset();
+              }
               await syncAuthenticatedState({
                 merchantId,
                 session,

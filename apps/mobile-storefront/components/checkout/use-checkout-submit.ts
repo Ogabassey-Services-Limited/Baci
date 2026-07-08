@@ -142,8 +142,15 @@ export function useCheckoutSubmit({
       const customerEmail = customer?.email || address.email;
       const customerPhone = address.phone;
       const customerName = `${address.firstName} ${address.lastName}`;
-      const paymentMethodForOrder =
-        selectedPayment === 'payforme' ? 'invoice' : selectedPayment;
+      // A voucher-only cart is a ₦0 prize: force a non-POD method so the voucher
+      // RPC marks the pre-reserved order paid (it keys payment_status off
+      // p_payment_method — 'pod'/'pay_on_delivery' → pending, else → paid). With
+      // POD the prize order would be left pending while the cart is cleared.
+      const paymentMethodForOrder = isVoucherOnlyCart
+        ? 'card'
+        : selectedPayment === 'payforme'
+          ? 'invoice'
+          : selectedPayment;
       const isBNPL =
         selectedPayment === 'credpal' ||
         selectedPayment === 'credit_direct' ||

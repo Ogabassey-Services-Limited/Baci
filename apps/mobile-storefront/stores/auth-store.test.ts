@@ -775,6 +775,30 @@ describe('useAuthStore', () => {
       expect(mockQuizReset).toHaveBeenCalled();
     });
 
+    it('does NOT reset quiz state on a same-user SIGNED_IN (session refresh)', async () => {
+      // Arrange: shopper already signed in as USER_ID (mid-quiz).
+      await runInitialize();
+      (supabase.from as jest.Mock).mockImplementation((table: string) => {
+        if (table === 'merchants')
+          return makeChain({ data: mockMerchantRow, error: null });
+        return makeChain({ data: mockCustomerRow, error: null });
+      });
+      (useAuthStore.setState as (state: object) => void)({
+        user: { id: USER_ID },
+      });
+      mockQuizReset.mockClear();
+
+      // Act: SIGNED_IN fires again for the SAME user (token refresh / session
+      // re-establishment), not an account switch.
+      await act(async () => {
+        await emitAuthStateChange('SIGNED_IN', mockSession);
+      });
+
+      // Assert: quiz state is preserved; the store still syncs the session.
+      expect(mockQuizReset).not.toHaveBeenCalled();
+      expect(useAuthStore.getState().user?.id).toBe(USER_ID);
+    });
+
     it('still updates user/session when merchant lookup failed during initialize', async () => {
       // Arrange
       resetSupabaseMocks({
