@@ -5,7 +5,9 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import {
   Dimensions,
@@ -47,6 +49,35 @@ interface AddressSuggestionsContextValue {
   hide: () => void;
 }
 
+// External store so the dropdown's frequent anchor updates (it tracks the
+// field while the form scrolls) rerender ONLY the host layer, never the
+// provider's children (the whole checkout screen).
+interface SuggestionsStore {
+  getSnapshot: () => AddressSuggestionsState | null;
+  set: (state: AddressSuggestionsState | null) => void;
+  subscribe: (listener: () => void) => () => void;
+}
+
+function createSuggestionsStore(): SuggestionsStore {
+  let state: AddressSuggestionsState | null = null;
+  const listeners = new Set<() => void>();
+  return {
+    getSnapshot: () => state,
+    set: (next) => {
+      state = next;
+      for (const listener of listeners) {
+        listener();
+      }
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
 const AddressSuggestionsContext =
   createContext<AddressSuggestionsContextValue | null>(null);
 
@@ -72,30 +103,30 @@ export function AddressSuggestionsProvider({
 }: {
   children: ReactNode;
 }) {
-  const [state, setState] = useState<AddressSuggestionsState | null>(null);
+  const storeRef = useRef<SuggestionsStore | null>(null);
+  if (!storeRef.current) {
+    storeRef.current = createSuggestionsStore();
+  }
+  const store = storeRef.current;
 
-  const show = useCallback((next: AddressSuggestionsState) => {
-    setState(next);
-  }, []);
-  const hide = useCallback(() => {
-    setState(null);
-  }, []);
-
+  const show = useCallback(
+    (next: AddressSuggestionsState) => store.set(next),
+    [store]
+  );
+  const hide = useCallback(() => store.set(null), [store]);
   const value = useMemo(() => ({ show, hide }), [show, hide]);
 
   return (
     <AddressSuggestionsContext.Provider value={value}>
       {children}
-      <AddressSuggestionsHost state={state} />
+      <AddressSuggestionsHost store={store} />
     </AddressSuggestionsContext.Provider>
   );
 }
 
-function AddressSuggestionsHost({
-  state,
-}: {
-  state: AddressSuggestionsState | null;
-}) {
+function AddressSuggestionsHost({ store }: { store: SuggestionsStore }) {
+  const state = useSyncExternalStore(store.subscribe, store.getSnapshot);
+
   // Track the keyboard so the list never extends underneath it.
   const [keyboardTop, setKeyboardTop] = useState<number | null>(null);
   useEffect(() => {

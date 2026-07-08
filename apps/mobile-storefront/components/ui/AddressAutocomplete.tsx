@@ -28,6 +28,11 @@ export type { PlaceDetails } from './AddressAutocomplete.types';
 
 const PREDICTIONS_DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
+// While the dropdown is visible, re-measure the field at this cadence so the
+// list follows it through form scrolls; skip updates below the epsilon to
+// avoid no-op host renders.
+const ANCHOR_TRACK_INTERVAL_MS = 120;
+const ANCHOR_EPSILON_PX = 0.5;
 
 /**
  * Inline address field: type directly in the form, suggestions drop down
@@ -67,7 +72,6 @@ export function AddressAutocomplete({
   const isMountedRef = useRef(true);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const wrapperRef = useRef<View>(null);
-  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -109,27 +113,47 @@ export function AddressAutocomplete({
   };
 
   // Publish the dropdown into the screen-root portal whenever it should be
-  // visible; anchor at the field's window position. Re-measured per change so
-  // keyboard-driven layout shifts keep the list attached.
+  // visible, anchored at the field's window position. While visible, keep
+  // re-measuring on an interval so the list stays attached to the field when
+  // the form scrolls (scrolling must NOT dismiss the suggestions — the
+  // keyboard may tuck away via keyboardDismissMode="on-drag", but the list
+  // follows the field until the user picks, clears, or focuses elsewhere).
   const shouldShowSuggestions = isFocused && predictions.length > 0;
   useEffect(() => {
     if (!shouldShowSuggestions) {
       portal.hide();
       return;
     }
-    wrapperRef.current?.measureInWindow((x, y, width, height) => {
-      if (width <= 0 || height <= 0) {
-        return;
-      }
-      portal.show({
-        anchor: { height, width, x, y },
-        colors,
-        isDark,
-        onSelect: handlePredictionSelect,
-        predictions,
+    let lastX = -1;
+    let lastY = -1;
+    const publish = () => {
+      wrapperRef.current?.measureInWindow((x, y, width, height) => {
+        if (width <= 0 || height <= 0) {
+          return;
+        }
+        if (
+          Math.abs(x - lastX) < ANCHOR_EPSILON_PX &&
+          Math.abs(y - lastY) < ANCHOR_EPSILON_PX
+        ) {
+          return;
+        }
+        lastX = x;
+        lastY = y;
+        portal.show({
+          anchor: { height, width, x, y },
+          colors,
+          isDark,
+          onSelect: handlePredictionSelect,
+          predictions,
+        });
       });
-    });
-    return () => portal.hide();
+    };
+    publish();
+    const tracker = setInterval(publish, ANCHOR_TRACK_INTERVAL_MS);
+    return () => {
+      clearInterval(tracker);
+      portal.hide();
+    };
     // handlePredictionSelect is recreated per render; the effect keys off the
     // data that changes what the portal displays.
     // biome-ignore lint/correctness/useExhaustiveDependencies: see above
@@ -141,15 +165,6 @@ export function AddressAutocomplete({
     portal,
     handlePredictionSelect,
   ]);
-
-  // keyboardDismissMode="on-drag" on the form hides the keyboard when the
-  // user scrolls away — treat that as leaving the field.
-  useEffect(() => {
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
-      inputRef.current?.blur();
-    });
-    return () => hideSub.remove();
-  }, []);
 
   const fetchPredictions = async (input: string) => {
     if (input.length < MIN_QUERY_LENGTH) {
@@ -221,7 +236,6 @@ export function AddressAutocomplete({
         />
 
         <TextInput
-          ref={inputRef}
           style={[styles.input, { color: colors.text }]}
           value={internalValue}
           onChangeText={handleInputChange}
