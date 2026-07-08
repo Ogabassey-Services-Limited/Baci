@@ -140,6 +140,10 @@ export function parseStoredQuoteRequest(value: unknown): QuoteRequest | null {
   }
 
   return {
+    ...(quoteRequest.deliveryPreference === 'door' ||
+    quoteRequest.deliveryPreference === 'pickup_station'
+      ? { deliveryPreference: quoteRequest.deliveryPreference }
+      : {}),
     merchantId:
       typeof quoteRequest.merchantId === 'string' &&
       quoteRequest.merchantId.trim().length > 0

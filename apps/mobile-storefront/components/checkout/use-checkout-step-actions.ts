@@ -100,6 +100,12 @@ export function useCheckoutStepActions({
           if (stationAddress) {
             setValue('address', stationAddress, { shouldValidate: true });
           }
+        } else if (submitParams.requiresShippingQuote) {
+          Alert.alert(
+            'Shipping Required',
+            'Please select an available GIGL pickup station before continuing.'
+          );
+          return;
         } else {
           // Merchant's own free Lagos pickup counter.
           setValue('address', PICKUP_STATION_ADDRESS_LINES.join(', '), {

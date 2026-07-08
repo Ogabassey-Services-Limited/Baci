@@ -12,6 +12,7 @@ describe('order-shipment-booking-utils', () => {
     const result = parseStoredQuoteRequest({
       sessionId: 'session-1',
       shipmentType: 'domestic',
+      deliveryPreference: 'pickup_station',
       receiver: {
         name: 'Jane Doe',
         phone: '08000000000',
@@ -34,6 +35,7 @@ describe('order-shipment-booking-utils', () => {
     expect(result).toEqual({
       sessionId: 'session-1',
       shipmentType: 'domestic',
+      deliveryPreference: 'pickup_station',
       receiver: {
         name: 'Jane Doe',
         phone: '08000000000',
