@@ -10,7 +10,10 @@ vi.mock('@/lib/repairs/catalog-admin-auth', () => ({
   authorizeRepairsRequest,
 }));
 vi.mock('@/lib/repairs/catalog-admin-slugs', () => ({ loadTakenSlugs }));
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+}));
 
 import { GET, POST } from './route';
 

@@ -18,7 +18,10 @@ vi.mock('@/lib/repairs/import-commit-repository', () => ({
   createImportCommitRepository,
 }));
 vi.mock('@/lib/repairs/import-commit', () => ({ commitImportRows }));
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+}));
 
 import { POST } from './route';
 

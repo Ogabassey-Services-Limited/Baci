@@ -8,7 +8,10 @@ const { authorizeRepairsRequest } = vi.hoisted(() => ({
 vi.mock('@/lib/repairs/catalog-admin-auth', () => ({
   authorizeRepairsRequest,
 }));
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+}));
 
 import { DELETE, PATCH } from './route';
 

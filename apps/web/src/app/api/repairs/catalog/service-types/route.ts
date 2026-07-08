@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
+import { revalidateRepairsCatalog } from '@/lib/cache-revalidation';
 import { authorizeRepairsRequest } from '@/lib/repairs/catalog-admin-auth';
 import {
   buildServiceTypeInsert,
@@ -95,6 +96,7 @@ export async function POST(request: NextRequest) {
   }
 
   revalidatePath('/dashboard/repairs');
+  revalidateRepairsCatalog(authz.access.merchantId);
   return NextResponse.json(
     { serviceType: mapServiceTypeRow(data as Record<string, unknown>) },
     { status: 201 }
