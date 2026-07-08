@@ -6,11 +6,13 @@ import {
 } from '@/lib/product-variant-form';
 import {
   applyPricingUpdates,
+  areVariantFilterSelectionsEqual,
   buildVariantPricingGroups,
   filterVariantIndexes,
   getDefaultPricingAxisIds,
   getSimilarVariantIndexes,
   getVariantAxes,
+  pruneVariantFilterSelection,
 } from './variant-group-pricing';
 
 function makeVariant(params: {
@@ -183,6 +185,28 @@ describe('filterVariantIndexes', () => {
     expect(
       filterVariantIndexes(usedPhones, axes, { 'attr:storage': null })
     ).toEqual([0, 1, 2, 3]);
+  });
+});
+
+describe('pruneVariantFilterSelection', () => {
+  it('drops selected values that no longer exist on an active axis', () => {
+    const axes = getVariantAxes([
+      makeVariant({ color: 'Black', storage: '64GB' }),
+      makeVariant({ color: 'Blue', storage: '256GB' }),
+    ]);
+
+    expect(
+      pruneVariantFilterSelection(
+        { 'attr:color': 'blue', 'attr:storage': '128gb' },
+        axes
+      )
+    ).toEqual({ 'attr:color': 'blue' });
+  });
+
+  it('treats null and missing selections as equal', () => {
+    expect(
+      areVariantFilterSelectionsEqual({ 'attr:storage': null }, {})
+    ).toBe(true);
   });
 });
 

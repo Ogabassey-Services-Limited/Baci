@@ -234,6 +234,33 @@ export function filterVariantIndexes(
     );
 }
 
+export function pruneVariantFilterSelection(
+  selection: VariantFilterSelection,
+  axes: VariantAxis[]
+): VariantFilterSelection {
+  const next: VariantFilterSelection = {};
+  for (const axis of axes) {
+    const selectedValue = selection[axis.id];
+    if (selectedValue && axis.values.includes(selectedValue)) {
+      next[axis.id] = selectedValue;
+    }
+  }
+  return next;
+}
+
+export function areVariantFilterSelectionsEqual(
+  left: VariantFilterSelection,
+  right: VariantFilterSelection
+): boolean {
+  const activeLeft = Object.entries(left).filter(([, value]) => Boolean(value));
+  const activeRight = Object.entries(right).filter(([, value]) => Boolean(value));
+  if (activeLeft.length !== activeRight.length) {
+    return false;
+  }
+
+  return activeLeft.every(([axisId, value]) => right[axisId] === value);
+}
+
 /** Pure fan-out of pricing edits onto their target variants. */
 export function applyPricingUpdates(
   variants: EditableProductVariant[],

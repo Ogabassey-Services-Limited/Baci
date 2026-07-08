@@ -1,5 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import type { EditableProductCondition } from '@/lib/product-condition';
@@ -10,8 +10,10 @@ import {
 } from '@/lib/product-variant-form';
 import { isPlaceholderVariant } from '@/lib/variant-generation';
 import {
+  areVariantFilterSelectionsEqual,
   filterVariantIndexes,
   getVariantAxes,
+  pruneVariantFilterSelection,
   type VariantFilterSelection,
   type VariantPricingUpdate,
 } from '@/lib/variant-group-pricing';
@@ -85,17 +87,26 @@ export function ProductVariantsCard({
   const [isBuilderVisible, setIsBuilderVisible] = useState(false);
   const [isPricingVisible, setIsPricingVisible] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [filterSelection, setFilterSelection] =
-    useState<VariantFilterSelection>({});
+  const [filterSelection, setFilterSelection] = useState<VariantFilterSelection>({});
 
   const totalStock = getTotalVariantStock(variants);
   const axes = getVariantAxes(variants);
   const canFilterVariants = variants.length >= FILTER_MIN_VARIANTS;
-  const activeFilterSelection = canFilterVariants ? filterSelection : {};
+  const activeFilterSelection = canFilterVariants
+    ? pruneVariantFilterSelection(filterSelection, axes)
+    : {};
   const hasActiveFilter = axes.some((axis) => activeFilterSelection[axis.id]);
   const visibleIndexes = hasActiveFilter
     ? filterVariantIndexes(variants, axes, activeFilterSelection)
     : variants.map((_, index) => index);
+
+  useEffect(() => {
+    const nextAxes = getVariantAxes(variants);
+    const nextSelection = canFilterVariants ? pruneVariantFilterSelection(filterSelection, nextAxes) : {};
+    if (!areVariantFilterSelectionsEqual(filterSelection, nextSelection)) {
+      setFilterSelection(nextSelection);
+    }
+  }, [canFilterVariants, filterSelection, variants]);
 
   const existingConditions = Array.from(
     new Set(

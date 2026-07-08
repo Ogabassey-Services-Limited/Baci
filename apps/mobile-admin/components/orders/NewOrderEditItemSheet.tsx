@@ -2,8 +2,8 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { AppSheetModal } from '@/components/ui/AppSheetModal';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
-import { formatVariantAttributesSummary } from '@/lib/format-variant-attributes';
 import { NewOrderEditItemActions } from './NewOrderEditItemActions';
+import { getOrderItemVariantSummary } from './new-order-item-variant-summary';
 import { formatPriceInput, parseDecimalInput } from './new-order.shared';
 
 interface NewOrderEditItemSheetProps {
@@ -29,15 +29,14 @@ export function NewOrderEditItemSheet({
     setEditQtyValue,
     showEditItemModal,
   } = controller;
-  const variantSummary =
-    editingItem?.variant_name?.trim() ||
-    formatVariantAttributesSummary(editingItem?.variant_attributes);
+  const variantSummary = getOrderItemVariantSummary(editingItem);
   const canChangeVariant = Boolean(
     editingItem?.product_id &&
       editingItem.variant_id &&
       !editingItem.is_custom &&
       handleChangeEditingItemVariant
   );
+  const shouldShowVariantCard = Boolean(variantSummary || canChangeVariant);
 
   return (
     <AppSheetModal
@@ -98,7 +97,7 @@ export function NewOrderEditItemSheet({
         </View>
 
         <View style={{ gap: 20, marginBottom: 32 }}>
-          {variantSummary ? (
+          {shouldShowVariantCard ? (
             <View
               style={{
                 backgroundColor: colors.backgroundLight,
@@ -153,7 +152,7 @@ export function NewOrderEditItemSheet({
                   lineHeight: 20,
                 }}
               >
-                {variantSummary}
+                {variantSummary || 'Variant options'}
               </Text>
             </View>
           ) : null}
