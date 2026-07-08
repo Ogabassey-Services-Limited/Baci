@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import {
   claimDomainFulfillment,
+  markRegistrarAttempted,
   releaseDomainFulfillmentClaim,
 } from './fulfillment-claim';
 
@@ -57,6 +58,13 @@ describe('claimDomainFulfillment', () => {
     expect(chain.or).toHaveBeenCalledWith(
       expect.stringContaining('metadata->>fulfillment_claimed_by.is.null')
     );
+    // A stale claim whose registrar outcome is unknown must NOT be taken
+    // over — the stale branch requires the attempt marker to be absent.
+    expect(chain.or).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'metadata->>fulfillment_registrar_attempted_at.is.null'
+      )
+    );
   });
 
   it('returns contested when another path already holds the claim', async () => {
@@ -79,6 +87,62 @@ describe('claimDomainFulfillment', () => {
   });
 });
 
+describe('markRegistrarAttempted', () => {
+  it('stamps the attempt on the exact claim instance and returns true', async () => {
+    const { supabase, chain } = createSupabase({
+      data: { id: 'txn-1' },
+      error: null,
+    });
+
+    const stamped = await markRegistrarAttempted(supabase, {
+      ...input,
+      claimedAt: '2026-07-08T00:00:00.000Z',
+    });
+
+    expect(stamped).toBe(true);
+    expect(chain.update).toHaveBeenCalledWith({
+      metadata: expect.objectContaining({
+        fulfillment_claimed_by: 'webhook',
+        fulfillment_claimed_at: '2026-07-08T00:00:00.000Z',
+        fulfillment_registrar_attempted_at: expect.any(String),
+      }),
+    });
+    expect(chain.eq).toHaveBeenCalledWith(
+      'metadata->>fulfillment_claimed_by',
+      'webhook'
+    );
+    expect(chain.eq).toHaveBeenCalledWith(
+      'metadata->>fulfillment_claimed_at',
+      '2026-07-08T00:00:00.000Z'
+    );
+  });
+
+  it('returns false when the stamp cannot be confirmed (caller must not contact the registrar)', async () => {
+    const { supabase } = createSupabase({ data: null, error: null });
+
+    const stamped = await markRegistrarAttempted(supabase, {
+      ...input,
+      claimedAt: '2026-07-08T00:00:00.000Z',
+    });
+
+    expect(stamped).toBe(false);
+  });
+
+  it('returns false when the stamp write errors', async () => {
+    const { supabase } = createSupabase({
+      data: null,
+      error: { message: 'network' },
+    });
+
+    const stamped = await markRegistrarAttempted(supabase, {
+      ...input,
+      claimedAt: '2026-07-08T00:00:00.000Z',
+    });
+
+    expect(stamped).toBe(false);
+  });
+});
+
 describe('releaseDomainFulfillmentClaim', () => {
   it('strips the claim fields and matches the exact claim instance', async () => {
     const { supabase, chain } = createSupabase({ data: null, error: null });
@@ -89,6 +153,7 @@ describe('releaseDomainFulfillmentClaim', () => {
         ...input.metadata,
         fulfillment_claimed_by: 'webhook',
         fulfillment_claimed_at: '2026-07-08T00:00:00.000Z',
+        fulfillment_registrar_attempted_at: '2026-07-08T00:00:01.000Z',
       },
       claimedAt: '2026-07-08T00:00:00.000Z',
     });
@@ -109,5 +174,8 @@ describe('releaseDomainFulfillmentClaim', () => {
       'metadata->>fulfillment_claimed_at',
       '2026-07-08T00:00:00.000Z'
     );
+    // Releases must never overwrite a fulfilled row: the caller's metadata
+    // snapshot predates registration and would erase domain_purchased.
+    expect(chain.is).toHaveBeenCalledWith('metadata->>domain_purchased', null);
   });
 });

@@ -740,11 +740,14 @@ describe('POST /api/payments/webhook', () => {
       );
     });
 
-    it('skips registrar fulfillment when another path holds the claim (review #2991 P1 regression test)', async () => {
+    it('defers to gateway retry (503, no registrar call) when another path holds the claim (review #2991 P1 regression test)', async () => {
       // The dashboard callback (/api/domains/purchase) and this webhook can
       // both observe the same completed, unused transaction. Whoever loses the
       // atomic metadata claim must NOT call the registrar, or one payment
-      // would register (and pay the registrar for) the domain twice.
+      // would register (and pay the registrar for) the domain twice. The
+      // loser fails the delivery (503) so the gateway retries later — if the
+      // dashboard claimant died or released, the retry fulfills; once
+      // fulfilled, the retry no-ops.
       const body = {
         reference: 'DOM-REGRESSION2',
         status: 'success',
@@ -867,7 +870,7 @@ describe('POST /api/payments/webhook', () => {
 
       const response = await POST(request);
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(503);
       expect(registerDomain).not.toHaveBeenCalled();
       expect(mockServiceClient.rpc).not.toHaveBeenCalledWith(
         'record_merchant_settlement',

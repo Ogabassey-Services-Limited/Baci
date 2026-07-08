@@ -10,6 +10,7 @@ import { revalidateMerchantFeed } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   claimDomainFulfillment,
+  markRegistrarAttempted,
   releaseDomainFulfillmentClaim,
 } from '@/lib/domains/fulfillment-claim';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
@@ -430,6 +431,22 @@ export async function POST(request: NextRequest) {
     }
     const claimRelease = { ...claimInput, claimedAt: claimOutcome.claimedAt };
 
+    // Stamp the registrar attempt BEFORE contacting the registrar: a crash
+    // mid-call must leave a claim that can never be taken over (unknown
+    // outcome — manual reconciliation, never a double order).
+    const attemptStamped = await markRegistrarAttempted(
+      adminSupabase,
+      claimRelease
+    );
+    if (!attemptStamped) {
+      // Registrar NOT contacted — releasing is safe; the user can retry.
+      await releaseDomainFulfillmentClaim(adminSupabase, claimRelease);
+      return NextResponse.json(
+        { error: 'Could not start domain registration. Please try again.' },
+        { status: 500 }
+      );
+    }
+
     try {
       // Register domain via Go54
       const registrationResult = await registerDomain({
@@ -561,9 +578,14 @@ export async function POST(request: NextRequest) {
       const errorMessage =
         go54Error instanceof Error ? go54Error.message : 'Unknown error';
 
-      // Registration died mid-flight: release the claim so the webhook (or a
-      // retry) can attempt fulfillment for this paid transaction.
-      await releaseDomainFulfillmentClaim(adminSupabase, claimRelease);
+      // Registration threw mid-flight — the registrar outcome is UNKNOWN
+      // (e.g. a timeout after the order was accepted), so the claim is
+      // deliberately NOT released: an automatic retry could double-order the
+      // domain. Reconciled manually from this log.
+      console.error(
+        'Domain fulfillment ambiguous — claim retained, manual reconciliation required:',
+        { transactionId: payment.id, domain }
+      );
 
       return NextResponse.json(
         {

@@ -24,6 +24,7 @@ import {
 } from '@/lib/customer-wallet-top-up';
 import {
   claimDomainFulfillment,
+  markRegistrarAttempted,
   releaseDomainFulfillmentClaim,
 } from '@/lib/domains/fulfillment-claim';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
@@ -1683,14 +1684,51 @@ export async function POST(request: NextRequest) {
           }
 
           if (claimOutcome.status === 'contested') {
+            // Another path (usually the dashboard callback) holds the claim.
+            // Return a retryable failure instead of 200: if that claimant
+            // dies or releases after a definitive registrar failure, the
+            // gateway's redelivery re-enters fulfillment; once the purchase
+            // is fulfilled the retry no-ops and returns success.
             logger.info({
               message:
-                'Domain fulfillment already claimed by another path, skipping',
+                'Domain fulfillment claimed by another path — deferring to gateway retry',
               reference,
               domain: normalizedDomain,
             });
-          } else {
-            claimToken = claimOutcome.claimedAt;
+            return NextResponse.json(
+              { error: 'Domain fulfillment in progress' },
+              { status: 503 }
+            );
+          }
+
+          claimToken = claimOutcome.claimedAt;
+
+          // Stamp the registrar attempt BEFORE contacting the registrar: a
+          // crash mid-call must leave a claim that can never be taken over
+          // (unknown outcome — manual reconciliation, never a double order).
+          const attemptStamped = await markRegistrarAttempted(supabase, {
+            transactionId: transaction.id,
+            metadata,
+            claimant: 'webhook',
+            claimedAt: claimOutcome.claimedAt,
+          });
+          if (!attemptStamped) {
+            // Registrar NOT contacted — releasing is safe; let the gateway
+            // retry the delivery.
+            await releaseDomainFulfillmentClaim(supabase, {
+              transactionId: transaction.id,
+              metadata,
+              claimant: 'webhook',
+              claimedAt: claimOutcome.claimedAt,
+            });
+            claimToken = null;
+            return NextResponse.json(
+              { error: 'Domain fulfillment could not be started' },
+              { status: 500 }
+            );
+          }
+
+          {
             // 4. Register Domain via Go54
             const registration = await registerDomain({
               domain: normalizedDomain,
@@ -1861,13 +1899,16 @@ export async function POST(request: NextRequest) {
         });
 
         if (claimToken) {
-          // Fulfillment died mid-flight: release the claim so the dashboard
-          // callback (or a later retry) can attempt registration.
-          await releaseDomainFulfillmentClaim(supabase, {
+          // Fulfillment died AFTER the registrar attempt was stamped — the
+          // registrar outcome is unknown, so the claim is deliberately NOT
+          // released: an automatic retry could double-order the domain.
+          // Reconcile manually from this log.
+          logger.error({
+            message:
+              'Domain fulfillment ambiguous — claim retained, manual reconciliation required',
+            reference,
             transactionId: transaction.id,
-            metadata,
-            claimant: 'webhook',
-            claimedAt: claimToken,
+            domain: fallbackDomain,
           });
         }
 

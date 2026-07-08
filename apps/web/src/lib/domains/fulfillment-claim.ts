@@ -6,20 +6,23 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // the transaction row first is the only one allowed to call the registrar,
 // preventing duplicate (double-charged) registrations for one payment.
 //
-// The claim is a conditional UPDATE on transactions.metadata, atomic under
-// row locking:
-// - only rows NOT already fulfilled (`domain_purchased` unset) are eligible,
-//   so a replayed webhook can never re-register a purchase whose row is still
-//   `pending` because a status update was dropped;
-// - only unclaimed rows, or rows whose claim went stale (claimant crashed
-//   mid-registration), can be (re)claimed;
-// - the returned `fulfillment_claimed_at` stamp is this claim instance's
-//   token: release matches claimant AND stamp, so a timed-out original
-//   attempt can never release a newer claim taken by the same path.
+// Invariant: the registrar is contacted AT MOST ONCE per payment unless a
+// previous attempt DEFINITIVELY failed (the registrar answered "no"). Three
+// markers on transactions.metadata enforce it, all written atomically via
+// conditional UPDATEs:
+// - `fulfillment_claimed_by/_at`: the claim. Only unclaimed rows, or rows
+//   whose claim went stale BEFORE the registrar was contacted, are claimable.
+// - `fulfillment_registrar_attempted_at`: stamped immediately before the
+//   registrar call. A stale claim with this marker is NEVER taken over —
+//   the attempt's outcome is unknown (crash/timeout mid-call), so retrying
+//   risks a duplicate order; those rows are reconciled manually from logs.
+//   It is cleared only on a definitive registrar failure.
+// - `domain_purchased`: set the moment the registrar succeeds; such rows are
+//   never claimable again, and releases never touch them.
 //
-// Claims MUST be written with a service-role client — transactions has no
-// UPDATE policy for merchants, so a user-scoped client would silently update
-// zero rows and never win a claim.
+// All writes MUST use a service-role client — transactions has no UPDATE
+// policy for merchants, so a user-scoped client would silently update zero
+// rows and never win a claim.
 
 export const DOMAIN_FULFILLMENT_CLAIM_STALE_MS = 10 * 60 * 1000;
 
@@ -34,7 +37,7 @@ export interface DomainFulfillmentClaimInput {
 export type DomainFulfillmentClaimOutcome =
   /** This caller owns fulfillment; `claimedAt` is the release token. */
   | { status: 'claimed'; claimedAt: string }
-  /** Another live claim (or an already-fulfilled row) — skip quietly. */
+  /** A live claim, an ambiguous registrar attempt, or a fulfilled row. */
   | { status: 'contested' }
   /** The claim write itself failed — fulfillment state is UNKNOWN, surface it. */
   | { status: 'error' };
@@ -58,9 +61,12 @@ export async function claimDomainFulfillment(
       },
     })
     .eq('id', transactionId)
+    // Never re-claim a fulfilled purchase (webhook replay guard).
     .is('metadata->>domain_purchased', null)
+    // Unclaimed, or stale WITHOUT a registrar attempt: a stale claim whose
+    // registrar outcome is unknown must never be taken over automatically.
     .or(
-      `metadata->>fulfillment_claimed_by.is.null,metadata->>fulfillment_claimed_at.lt."${staleBefore}"`
+      `metadata->>fulfillment_claimed_by.is.null,and(metadata->>fulfillment_claimed_at.lt."${staleBefore}",metadata->>fulfillment_registrar_attempted_at.is.null)`
     )
     .select('id')
     .maybeSingle();
@@ -76,6 +82,53 @@ export async function claimDomainFulfillment(
   return data ? { status: 'claimed', claimedAt } : { status: 'contested' };
 }
 
+/**
+ * Stamp the claim with a registrar-attempt marker IMMEDIATELY before calling
+ * the registrar. Must succeed before the registrar is contacted: without it a
+ * crash mid-call would leave a stale claim that another path could take over
+ * and double-order. Returns false (and the caller must NOT contact the
+ * registrar) if the stamp could not be confirmed.
+ */
+export async function markRegistrarAttempted(
+  supabase: SupabaseClient,
+  {
+    transactionId,
+    metadata,
+    claimant,
+    claimedAt,
+  }: DomainFulfillmentClaimInput & { claimedAt: string }
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('transactions')
+    .update({
+      metadata: {
+        ...metadata,
+        fulfillment_claimed_by: claimant,
+        fulfillment_claimed_at: claimedAt,
+        fulfillment_registrar_attempted_at: new Date().toISOString(),
+      },
+    })
+    .eq('id', transactionId)
+    .eq('metadata->>fulfillment_claimed_by', claimant)
+    .eq('metadata->>fulfillment_claimed_at', claimedAt)
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    console.error('Failed to mark registrar attempt:', error);
+    return false;
+  }
+
+  return Boolean(data);
+}
+
+/**
+ * Release a claim so another path (or a retry) may fulfill. ONLY call this
+ * when the registrar definitively did NOT register — i.e. before the
+ * registrar was contacted, or after it returned an explicit failure. For
+ * ambiguous outcomes (exceptions/timeouts mid-call) the claim must be left in
+ * place and reconciled manually.
+ */
 export async function releaseDomainFulfillmentClaim(
   supabase: SupabaseClient,
   {
@@ -88,6 +141,7 @@ export async function releaseDomainFulfillmentClaim(
   const released: Record<string, unknown> = { ...metadata };
   delete released.fulfillment_claimed_by;
   delete released.fulfillment_claimed_at;
+  delete released.fulfillment_registrar_attempted_at;
 
   const { error } = await supabase
     .from('transactions')
@@ -97,6 +151,10 @@ export async function releaseDomainFulfillmentClaim(
     // Match this exact claim instance: after a stale takeover by the same
     // claimant, the original attempt must not release the newer claim.
     .eq('metadata->>fulfillment_claimed_at', claimedAt)
+    // Never overwrite a fulfilled row: the caller's metadata snapshot
+    // predates registration and would erase the domain_purchased marker,
+    // reopening the row to duplicate registration.
+    .is('metadata->>domain_purchased', null)
     .select('id')
     .maybeSingle();
 
