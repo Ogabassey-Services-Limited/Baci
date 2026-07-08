@@ -58,6 +58,8 @@ import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { getCredPalKey, openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { asRoute } from '@/lib/routes';
+import { AUTO_FRACTION_OPTIONS } from '@/lib/currency';
+import { formatAmountInCurrency } from '@/lib/resolve-merchant-currency';
 import type { ShippingQuote } from '@/types/shipping-quote';
 import { normalizeShippingQuoteResponse } from '@/lib/shipping/quote-response';
 import { toast } from '@/hooks/use-toast';
@@ -530,7 +532,7 @@ export const CheckoutPage: React.FC = () => {
   // Merchant-resolved currency (payout_currency first, country second, NGN
   // fallback). `currencyCode` is sent to /api/payments/initialize instead of a
   // hardcoded 'NGN'; the compact formatter renders order amounts.
-  const { formatCurrencyCompact, currencySymbol, currencyCode } = useCurrency();
+  const { formatCurrencyAuto, currencySymbol, currencyCode } = useCurrency();
 
   const hasPriceNegotiation = hasPriceNegotiationEntitlement(merchant?.plan_tier, merchant?.slug);
 
@@ -2873,7 +2875,7 @@ export const CheckoutPage: React.FC = () => {
               <div className="text-center p-4 bg-gray-50 rounded-2xl border border-gray-100">
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Send Exactly</p>
                 <p className="text-3xl font-black text-gray-900">
-                  {formatCurrencyCompact(dvaData.amount)}
+                  {formatCurrencyAuto(dvaData.amount)}
                 </p>
               </div>
 
@@ -3494,7 +3496,7 @@ export const CheckoutPage: React.FC = () => {
                                   'Collect from the selected GIGL service centre.'}
                               </p>
                               <div className="mt-2 text-xs font-bold bg-store-background inline-block px-2 py-1 rounded border border-store-background-text/10 text-store-background-text">
-                                {formatCurrencyCompact(stationPickupQuote.price)}
+                                {formatAmountInCurrency(stationPickupQuote.price, stationPickupQuote.currency, AUTO_FRACTION_OPTIONS)}
                               </div>
                             </div>
                           </div>
@@ -3605,7 +3607,7 @@ export const CheckoutPage: React.FC = () => {
                                       </div>
                                     </div>
                                     <span className="font-bold text-sm text-gray-900">
-                                      {formatCurrencyCompact(quote.price)}
+                                      {formatAmountInCurrency(quote.price, quote.currency, AUTO_FRACTION_OPTIONS)}
                                     </span>
                                   </label>
                                 ))}
@@ -3629,7 +3631,7 @@ export const CheckoutPage: React.FC = () => {
                                     </p>
                                     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                       <span className="text-sm font-bold text-store-background-text">
-                                        {formatCurrencyCompact(stationPickupQuote.price)}
+                                        {formatAmountInCurrency(stationPickupQuote.price, stationPickupQuote.currency, AUTO_FRACTION_OPTIONS)}
                                       </span>
                                       <button
                                         type="button"
@@ -3723,7 +3725,7 @@ export const CheckoutPage: React.FC = () => {
               user={user}
               remainingAmount={remainingAmount}
               orderAmount={total}
-              currency="NGN"
+              currency={currencyCode}
             />
 
           </div>
@@ -3778,7 +3780,7 @@ export const CheckoutPage: React.FC = () => {
                           <span>
                             {isQuizGift
                               ? 'Free gift'
-                              : formatCurrencyCompact(itemPrice)}
+                              : formatCurrencyAuto(itemPrice)}
                           </span>
                         </div>
                       </div>
@@ -3792,12 +3794,12 @@ export const CheckoutPage: React.FC = () => {
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-gray-600 text-sm">
                   <span>Subtotal</span>
-                  <span>{formatCurrencyCompact(effectiveCheckoutCartTotal)}</span>
+                  <span>{formatCurrencyAuto(effectiveCheckoutCartTotal)}</span>
                 </div>
                 {orderTotals && (
                   <div className="flex justify-between text-gray-600 text-sm">
                     <span>VAT (7.5%)</span>
-                    <span>{formatCurrencyCompact(orderTotals.taxAmount)}</span>
+                    <span>{formatCurrencyAuto(orderTotals.taxAmount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-gray-600 text-sm">
@@ -3811,13 +3813,13 @@ export const CheckoutPage: React.FC = () => {
                   >
                     {deliveryMethod === 'door' && !selectedQuoteId && deliveryCost === 0
                       ? <span className="text-gray-500 font-normal italic">Calculated…</span>
-                      : deliveryCost === 0 ? 'Free' : formatCurrencyCompact(deliveryCost)}
+                      : deliveryCost === 0 ? 'Free' : formatCurrencyAuto(deliveryCost)}
                   </span>
                 </div>
                 {giftWrappingCost > 0 && (
                   <div className="flex justify-between text-gray-600 text-sm">
                     <span>Gift Wrapping</span>
-                    <span>{formatCurrencyCompact(giftWrappingCost)}</span>
+                    <span>{formatCurrencyAuto(giftWrappingCost)}</span>
                   </div>
                 )}
 
@@ -3838,7 +3840,7 @@ export const CheckoutPage: React.FC = () => {
                             </div>
                             <div>
                               <span className="text-sm font-medium text-gray-700">Wallet Credit</span>
-                              <span className="text-xs text-gray-500 ml-1">({formatCurrencyCompact(walletBalance)} available)</span>
+                              <span className="text-xs text-gray-500 ml-1">({formatCurrencyAuto(walletBalance)} available)</span>
                             </div>
                           </div>
                           <button
@@ -3856,7 +3858,7 @@ export const CheckoutPage: React.FC = () => {
                         {payWithWallet && walletAmountUsed > 0 && (
                           <div className="flex justify-between text-green-700 text-sm font-medium mt-2 pl-8">
                             <span>Applied Credit</span>
-                            <span>-{formatCurrencyCompact(walletAmountUsed)}</span>
+                            <span>-{formatCurrencyAuto(walletAmountUsed)}</span>
                           </div>
                         )}
                       </>
@@ -3873,7 +3875,7 @@ export const CheckoutPage: React.FC = () => {
                       ? 'Amount Due'
                       : 'Total'}
                   </span>
-                  <span>{formatCurrencyCompact(remainingAmount)}</span>
+                  <span>{formatCurrencyAuto(remainingAmount)}</span>
                 </div>
               </div>
 

@@ -11,7 +11,7 @@
 
 UPDATE public.merchants
 SET country = 'NG'
-WHERE country = 'Nigeria';
+WHERE lower(trim(country)) = 'nigeria';
 
 UPDATE public.merchants
 SET country = 'NG'

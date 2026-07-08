@@ -154,6 +154,16 @@ export const COMPACT_OPTIONS = {
 } as const satisfies Partial<Intl.NumberFormatOptions>;
 
 /**
+ * Options for exact-but-tidy amounts: whole numbers render without decimals
+ * (like COMPACT_OPTIONS) while fractional amounts keep their cents instead of
+ * being rounded away — required for customer-facing charge amounts.
+ */
+export const AUTO_FRACTION_OPTIONS = {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+} as const satisfies Partial<Intl.NumberFormatOptions>;
+
+/**
  * Get currency configuration for a country
  * Defaults to USD if country not found
  *

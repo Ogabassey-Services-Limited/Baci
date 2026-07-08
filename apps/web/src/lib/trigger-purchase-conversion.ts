@@ -148,11 +148,20 @@ async function resolveConversionCurrency(
     return orderCurrency;
   }
 
-  const { data: merchant } = await supabase
+  const { data: merchant, error } = await supabase
     .from('merchants')
     .select('country, payout_currency')
     .eq('id', merchantId)
     .maybeSingle();
+
+  if (error) {
+    logger.warn({
+      message:
+        'Failed to resolve merchant for conversion currency; using platform fallback',
+      merchantId,
+      error,
+    });
+  }
 
   return resolveMerchantCurrencyConfig(merchant ?? {}).code;
 }

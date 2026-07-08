@@ -1,4 +1,5 @@
 import { COUNTRIES } from '@/constants/countries';
+import { MERCHANT_CURRENCY_LOCALES } from './currency-meta';
 import { formatCurrency, normalizeMerchantCurrency } from './utils';
 
 /**
@@ -13,34 +14,6 @@ export interface MerchantCurrencyProfile {
 }
 
 const DEFAULT_MERCHANT_CURRENCY = 'NGN';
-
-/**
- * Locale used to format each supported currency so grouping/decimal
- * conventions follow the currency's home market rather than the device's
- * runtime locale (e.g. Indian lakh/crore grouping for INR, or the Naira
- * glyph for NGN, which some locales' CLDR data render as the bare "NGN"
- * code instead of "₦"). Currencies without an entry fall back to the
- * runtime/device locale, matching the existing `formatCurrency`/
- * `useCurrency` behavior.
- */
-const MERCHANT_CURRENCY_LOCALES: Record<string, string> = {
-  AED: 'en-AE',
-  AUD: 'en-AU',
-  BRL: 'pt-BR',
-  CAD: 'en-CA',
-  EGP: 'en-EG',
-  EUR: 'de-DE',
-  GBP: 'en-GB',
-  GHS: 'en-GH',
-  INR: 'en-IN',
-  JPY: 'ja-JP',
-  KES: 'en-KE',
-  NGN: 'en-NG',
-  USD: 'en-US',
-  XAF: 'fr-CM',
-  XOF: 'fr-SN',
-  ZAR: 'en-ZA',
-};
 
 function resolveCountryCurrency(country?: string | null): string | undefined {
   const normalizedCountry = country?.trim().toUpperCase();

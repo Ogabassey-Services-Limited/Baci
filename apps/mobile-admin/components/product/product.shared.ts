@@ -1,3 +1,5 @@
+import { getMerchantCurrencySymbol } from '@/lib/currency-meta';
+
 const trimFixed = (value: number, fractionDigits: number) =>
   Number.parseFloat(value.toFixed(fractionDigits)).toString();
 
@@ -13,27 +15,7 @@ export const formatPrice = (amount: number, currencySymbol: string) =>
   `${currencySymbol}${amount.toLocaleString()}`;
 
 export function getCurrencySymbol(currencyCode: string | null | undefined) {
-  const symbols: Record<string, string> = {
-    AED: 'د.إ',
-    AUD: '$',
-    BRL: 'R$',
-    CAD: '$',
-    EGP: 'E£',
-    EUR: '€',
-    GBP: '£',
-    GHS: 'GH₵',
-    INR: '₹',
-    JPY: '¥',
-    KES: 'KSh',
-    NGN: '₦',
-    USD: '$',
-    XAF: 'FCFA',
-    XOF: 'CFA',
-    ZAR: 'R',
-  };
-
-  const normalizedCode = (currencyCode || 'NGN').toUpperCase();
-  return symbols[normalizedCode] || normalizedCode;
+  return getMerchantCurrencySymbol(currencyCode);
 }
 
 export const formatLargePrice = (amount: number, currencySymbol: string) => {

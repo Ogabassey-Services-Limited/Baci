@@ -60,11 +60,19 @@ export async function POST(request: NextRequest) {
     // display currency (not a hardcoded ₦) — a lightweight second select
     // instead of an embedded join to avoid Supabase relationship-name
     // ambiguity between products and merchants.
-    const { data: merchantCurrency } = await supabase
-      .from('merchants')
-      .select('payout_currency, country')
-      .eq('id', product.merchant_id)
-      .maybeSingle();
+    const { data: merchantCurrency, error: merchantCurrencyError } =
+      await supabase
+        .from('merchants')
+        .select('payout_currency, country')
+        .eq('id', product.merchant_id)
+        .maybeSingle();
+
+    if (merchantCurrencyError) {
+      console.error(
+        'Negotiation merchant currency lookup error:',
+        merchantCurrencyError
+      );
+    }
 
     const formatOfferPrice = (amount: number) =>
       formatMerchantCurrency(amount, merchantCurrency ?? {}, {

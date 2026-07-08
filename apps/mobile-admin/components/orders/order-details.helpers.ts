@@ -1,5 +1,6 @@
 import { SHIPPING_STATUS_CONFIG, type ShippingStatus } from '@baci/shared';
 import type { ThemeColors } from '@/constants/theme';
+import { getMerchantCurrencySymbol } from '@/lib/currency-meta';
 import type { OrderSourceInfo } from './order-details.types';
 
 export function normalizeOrderDetailsShippingStatus(
@@ -36,27 +37,7 @@ export function getOrderStatusColor(
 export function getOrderCurrencySymbol(
   currencyCode: string | null | undefined
 ) {
-  const symbols: Record<string, string> = {
-    AED: 'د.إ',
-    AUD: '$',
-    BRL: 'R$',
-    CAD: '$',
-    EGP: 'E£',
-    EUR: '€',
-    GBP: '£',
-    GHS: 'GH₵',
-    INR: '₹',
-    JPY: '¥',
-    KES: 'KSh',
-    NGN: '₦',
-    USD: '$',
-    XAF: 'FCFA',
-    XOF: 'CFA',
-    ZAR: 'R',
-  };
-
-  const normalizedCode = (currencyCode || 'NGN').toUpperCase();
-  return symbols[normalizedCode] || normalizedCode;
+  return getMerchantCurrencySymbol(currencyCode);
 }
 
 export function getOrderSourceInfo(

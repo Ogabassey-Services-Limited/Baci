@@ -21,6 +21,18 @@ describe('useCurrency', () => {
     expect(result.current.formatCurrencyCompact(1000)).toBe('₦1,000');
   });
 
+  it('formats exact amounts: whole numbers stay compact, cents are kept', () => {
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: { country: 'NG' },
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+
+    const { result } = renderHook(() => useCurrency());
+
+    expect(result.current.formatCurrencyAuto(1000)).toBe('₦1,000');
+    expect(result.current.formatCurrencyAuto(1000.5)).toBe('₦1,000.5');
+    expect(result.current.formatCurrencyAuto(1000.55)).toBe('₦1,000.55');
+  });
+
   it('should format currency using merchant country (US)', () => {
     vi.mocked(useMerchantSafe).mockReturnValue({
       merchant: { country: 'US' },

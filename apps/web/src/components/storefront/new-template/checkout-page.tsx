@@ -35,7 +35,7 @@ export const CheckoutPage: React.FC = () => {
   const stateId = useId();
   const zipCodeId = useId();
   const merchantContext = useMerchantSafe();
-  const { formatCurrencyCompact } = useCurrency();
+  const { formatCurrencyAuto } = useCurrency();
   const basePath = merchantContext?.basePath || '';
   const getHref = (path: string) => path.startsWith('http') ? path : `${basePath}${path}`;
 
@@ -280,7 +280,7 @@ export const CheckoutPage: React.FC = () => {
                   className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-red-600/20 active:scale-[0.98] flex items-center justify-center gap-2"
                 >
                   <Lock size={18} />
-                  Pay {formatCurrencyCompact(cartTotal)}
+                  Pay {formatCurrencyAuto(cartTotal)}
                 </button>
               </div>
             )}
@@ -336,7 +336,7 @@ export const CheckoutPage: React.FC = () => {
                           Qty: {item.quantity}
                         </p>
                         <p className="font-bold text-sm text-red-600">
-                          {formatCurrencyCompact(item.price * item.quantity)}
+                          {formatCurrencyAuto(item.price * item.quantity)}
                         </p>
                       </div>
                     </div>
@@ -347,7 +347,7 @@ export const CheckoutPage: React.FC = () => {
                   <div className="flex justify-between text-gray-600 text-sm">
                     <span>Subtotal</span>
                     <span className="font-bold text-gray-900">
-                      {formatCurrencyCompact(cartTotal)}
+                      {formatCurrencyAuto(cartTotal)}
                     </span>
                   </div>
                   <div className="flex justify-between text-gray-600 text-sm">
@@ -360,7 +360,7 @@ export const CheckoutPage: React.FC = () => {
                   <div className="flex justify-between items-end">
                     <span className="font-bold text-gray-900">Total</span>
                     <span className="font-bold text-2xl text-gray-900">
-                      {formatCurrencyCompact(cartTotal)}
+                      {formatCurrencyAuto(cartTotal)}
                     </span>
                   </div>
                 </div>

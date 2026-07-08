@@ -8,6 +8,7 @@
  */
 
 import {
+  AUTO_FRACTION_OPTIONS,
   COMPACT_OPTIONS,
   type CurrencyConfig,
   formatCurrencyWithConfig as formatCurrencyWithConfigUtil,
@@ -23,6 +24,12 @@ export interface UseCurrencyReturn {
   formatCurrency: (amount: number) => string;
   /** Format amount without decimals (e.g., "₦1,000") */
   formatCurrencyCompact: (amount: number) => string;
+  /**
+   * Format exact charge amounts: whole numbers without decimals ("₦1,000"),
+   * fractional amounts with cents kept ("₦1,000.50") instead of rounded away.
+   * Use for customer-facing totals and pay buttons.
+   */
+  formatCurrencyAuto: (amount: number) => string;
   /** Get just the currency symbol (e.g., "₦") */
   currencySymbol: string;
   /** Get the currency code (e.g., "NGN") */
@@ -50,6 +57,8 @@ function buildCurrencyReturn(
       formatCurrencyWithConfigUtil(amount, config),
     formatCurrencyCompact: (amount: number) =>
       formatCurrencyWithConfigUtil(amount, config, COMPACT_OPTIONS),
+    formatCurrencyAuto: (amount: number) =>
+      formatCurrencyWithConfigUtil(amount, config, AUTO_FRACTION_OPTIONS),
     currencySymbol: config.symbol,
     currencyCode: config.code,
     config,
