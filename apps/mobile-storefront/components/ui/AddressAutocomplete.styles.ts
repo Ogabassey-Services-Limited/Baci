@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { palette, RADIUS, SPACING } from '@/constants/Colors';
+import { palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 
 export const addressAutocompleteStyles = StyleSheet.create({
   wrapper: {
@@ -30,9 +30,6 @@ export const addressAutocompleteStyles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: SPACING.sm,
   },
-  triggerText: {
-    fontSize: 15,
-  },
   loader: {
     paddingRight: SPACING.md,
   },
@@ -44,77 +41,15 @@ export const addressAutocompleteStyles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
-  // Address search sheet (Modal) — mirrors the checkout City/State pickers.
-  sheetOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  sheetBackdrop: {
+  // Floating dropdown rendered by the screen-root suggestions portal —
+  // positioned in window coordinates under the field (left/top/width/maxHeight
+  // are set dynamically from the measured anchor).
+  floatingDropdown: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  sheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: SPACING.md,
-    maxHeight: '80%',
-    minHeight: '45%',
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  sheetTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  sheetSearchContainer: {
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: RADIUS.xl,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: SPACING.sm,
-    borderColor: 'transparent',
-    minHeight: 48,
-  },
-  sheetSearchInput: {
-    flex: 1,
-    fontSize: 15,
-    paddingVertical: 10,
-  },
-  useTypedRow: {
-    borderWidth: 1,
-    borderRadius: RADIUS.lg,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 10,
-    marginBottom: SPACING.xs,
-  },
-  useTypedContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  useTypedLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.4,
-    color: palette.amber[600],
-    textTransform: 'uppercase',
-  },
-  useTypedText: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 2,
+    ...SHADOWS.md,
+    overflow: 'hidden',
   },
   predictionItem: {
     paddingHorizontal: SPACING.md,
