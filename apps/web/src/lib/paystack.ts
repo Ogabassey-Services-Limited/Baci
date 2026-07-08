@@ -12,6 +12,7 @@
 
 import z from 'zod';
 import { logger } from './logger';
+import { calculatePlatformFee as computePlatformFee } from './payments/platform-fee';
 
 // =============================================================================
 // Configuration
@@ -20,10 +21,10 @@ import { logger } from './logger';
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
 
-// Platform fee percentage (2%) capped at ₦2,050
+// Platform fee percentage (2%). The fee computation itself lives in the shared
+// `lib/payments/platform-fee` module (NGN capped at ₦2,050); this exported
+// constant is retained for backwards compatibility with the public API surface.
 const PLATFORM_FEE_PERCENTAGE = 2;
-const PLATFORM_FEE_CAP_NAIRA = 2050;
-const PLATFORM_FEE_CAP_KOBO = PLATFORM_FEE_CAP_NAIRA * 100;
 
 // =============================================================================
 // Type Definitions
@@ -1219,25 +1220,21 @@ export async function initiateTransfer(data: {
 // =============================================================================
 
 /**
- * Calculate platform fee for split payments
- * Platform takes 2%, capped at ₦2,050
- * Amount should be in kobo
+ * Calculate platform fee for split payments.
+ * Platform takes 2%, capped at ₦2,050. Amount should be in kobo (minor units);
+ * the fee is rounded to whole kobo before capping. Delegates to the shared
+ * platform-fee module.
  */
 export function calculatePlatformFee(amountInKobo: number): {
   platformFee: number; // in kobo
   merchantAmount: number; // in kobo
   total: number; // in kobo
 } {
-  let platformFee = Math.round((amountInKobo * PLATFORM_FEE_PERCENTAGE) / 100);
-  platformFee = Math.min(platformFee, PLATFORM_FEE_CAP_KOBO);
-
-  const merchantAmount = amountInKobo - platformFee;
-
-  return {
-    platformFee,
-    merchantAmount,
-    total: amountInKobo,
-  };
+  return computePlatformFee(amountInKobo, {
+    currency: 'NGN',
+    unit: 'minor',
+    rounding: 'integer',
+  });
 }
 
 /**

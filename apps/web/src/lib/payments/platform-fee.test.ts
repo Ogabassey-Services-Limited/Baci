@@ -1,0 +1,217 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+  calculatePlatformFee as creditDirectFee,
+  calculateMerchantAmount as creditDirectMerchant,
+} from '../credit-direct';
+import { calculatePlatformFee as korapayFee } from '../korapay';
+import { calculatePlatformFee as paystackFee } from '../paystack';
+import { calculatePlatformFee } from './platform-fee';
+
+// ---------------------------------------------------------------------------
+// Legacy oracles — verbatim copies of the three pre-consolidation formulas.
+// The consolidated module must return EXACTLY these values (bit-for-bit).
+// ---------------------------------------------------------------------------
+
+/** Copy of the old `lib/korapay.ts` calculatePlatformFee (major units, 2dp). */
+function korapayOracle(amount: number) {
+  const pct = Number.parseFloat(process.env.PLATFORM_FEE_PERCENTAGE || '2');
+  let platformFee = (amount * pct) / 100;
+  platformFee = Math.min(platformFee, 2050);
+  const merchantAmount = amount - platformFee;
+  return {
+    platformFee: Math.round(platformFee * 100) / 100,
+    merchantAmount: Math.round(merchantAmount * 100) / 100,
+    total: amount,
+  };
+}
+
+/** Copy of the old `lib/paystack.ts` calculatePlatformFee (kobo, integer). */
+function paystackOracle(amountInKobo: number) {
+  const PCT = 2;
+  let platformFee = Math.round((amountInKobo * PCT) / 100);
+  platformFee = Math.min(platformFee, 2050 * 100);
+  const merchantAmount = amountInKobo - platformFee;
+  return { platformFee, merchantAmount, total: amountInKobo };
+}
+
+/** Copy of the old `lib/credit-direct.ts` fee helper (major units, unrounded). */
+function creditDirectFeeOracle(amount: number) {
+  const fee = amount * 0.02;
+  const cap = 2050;
+  return Math.min(fee, cap);
+}
+function creditDirectMerchantOracle(amount: number) {
+  return amount - creditDirectFeeOracle(amount);
+}
+
+// Grids: 0, negative, tiny, float-divergence (14.25), mid, exactly-at-cap,
+// above-cap, and huge.
+const NAIRA_AMOUNTS = [
+  0, -500, 0.5, 1, 13, 14.25, 35, 100, 1000, 12345.67, 102499.99, 102500,
+  102500.01, 200000, 1_000_000, 1e9, 1e12,
+];
+
+const KOBO_AMOUNTS = [
+  0, -50000, 1, 13, 24, 25, 149, 150, 250, 100000, 12345678, 10249999, 10250000,
+  10250050, 20000000, 1e9, 1e12,
+];
+
+describe('calculatePlatformFee — Korapay parity (NGN, major, cents)', () => {
+  beforeEach(() => {
+    delete process.env.PLATFORM_FEE_PERCENTAGE;
+  });
+
+  it.each(
+    NAIRA_AMOUNTS
+  )('matches the legacy Korapay result for amount %d', (amount) => {
+    // Arrange
+    const expected = korapayOracle(amount);
+    // Act
+    const shared = calculatePlatformFee(amount, {
+      currency: 'NGN',
+      unit: 'major',
+      rounding: 'cents',
+      honorEnvPercentageOverride: true,
+    });
+    // Assert
+    expect(shared).toEqual(expected);
+    expect(korapayFee(amount)).toEqual(expected);
+  });
+});
+
+describe('calculatePlatformFee — Paystack parity (NGN, minor, integer)', () => {
+  it.each(
+    KOBO_AMOUNTS
+  )('matches the legacy Paystack result for %d kobo', (amountInKobo) => {
+    // Arrange
+    const expected = paystackOracle(amountInKobo);
+    // Act
+    const shared = calculatePlatformFee(amountInKobo, {
+      currency: 'NGN',
+      unit: 'minor',
+      rounding: 'integer',
+    });
+    // Assert
+    expect(shared).toEqual(expected);
+    expect(paystackFee(amountInKobo)).toEqual(expected);
+  });
+});
+
+describe('calculatePlatformFee — Credit Direct parity (NGN, major, none)', () => {
+  it.each(
+    NAIRA_AMOUNTS
+  )('matches the legacy Credit Direct fee/merchant for amount %d', (amount) => {
+    // Arrange
+    const expectedFee = creditDirectFeeOracle(amount);
+    const expectedMerchant = creditDirectMerchantOracle(amount);
+    // Act
+    const shared = calculatePlatformFee(amount, {
+      currency: 'NGN',
+      unit: 'major',
+      rounding: 'none',
+    });
+    // Assert — bit-for-bit; Credit Direct never rounded its fee.
+    expect(shared.platformFee).toBe(expectedFee);
+    expect(shared.merchantAmount).toBe(expectedMerchant);
+    expect(creditDirectFee(amount)).toBe(expectedFee);
+    expect(creditDirectMerchant(amount)).toBe(expectedMerchant);
+  });
+});
+
+describe('PLATFORM_FEE_PERCENTAGE env override divergence', () => {
+  afterEach(() => {
+    delete process.env.PLATFORM_FEE_PERCENTAGE;
+  });
+
+  it('applies the override only for Korapay (honorEnvPercentageOverride)', () => {
+    // Arrange
+    process.env.PLATFORM_FEE_PERCENTAGE = '5';
+    // Act
+    const result = calculatePlatformFee(1000, {
+      currency: 'NGN',
+      unit: 'major',
+      rounding: 'cents',
+      honorEnvPercentageOverride: true,
+    });
+    // Assert — 5% of 1000, and the wrapper agrees with the env-aware oracle.
+    expect(result.platformFee).toBe(50);
+    expect(korapayFee(1000)).toEqual(korapayOracle(1000));
+  });
+
+  it('ignores the override for Paystack (fixed 2%)', () => {
+    // Arrange
+    process.env.PLATFORM_FEE_PERCENTAGE = '50';
+    // Act
+    const shared = calculatePlatformFee(100000, {
+      currency: 'NGN',
+      unit: 'minor',
+      rounding: 'integer',
+    });
+    // Assert — still 2% (2000 kobo), env-independent.
+    expect(shared.platformFee).toBe(2000);
+    expect(paystackFee(100000)).toEqual(paystackOracle(100000));
+  });
+
+  it('ignores the override for Credit Direct (fixed 2%)', () => {
+    // Arrange
+    process.env.PLATFORM_FEE_PERCENTAGE = '50';
+    // Act
+    const shared = calculatePlatformFee(1000, {
+      currency: 'NGN',
+      unit: 'major',
+      rounding: 'none',
+    });
+    // Assert — still 2% (20), env-independent.
+    expect(shared.platformFee).toBe(20);
+    expect(creditDirectFee(1000)).toBe(20);
+  });
+});
+
+describe('non-NGN currencies are percentage-only (no cap)', () => {
+  it('applies the percentage without the NGN cap for a large USD amount', () => {
+    // Arrange
+    const amount = 1_000_000;
+    // Act
+    const usd = calculatePlatformFee(amount, {
+      currency: 'USD',
+      unit: 'major',
+      rounding: 'cents',
+    });
+    const ngn = calculatePlatformFee(amount, {
+      currency: 'NGN',
+      unit: 'major',
+      rounding: 'cents',
+    });
+    // Assert — USD uncapped (2% = 20,000); NGN capped at 2,050.
+    expect(usd.platformFee).toBe(20000);
+    expect(ngn.platformFee).toBe(2050);
+  });
+
+  it('treats unknown/other currencies as uncapped and is case-insensitive', () => {
+    // Act
+    const kes = calculatePlatformFee(1_000_000, {
+      currency: 'KES',
+      rounding: 'cents',
+    });
+    const lowerUsd = calculatePlatformFee(1000, {
+      currency: 'usd',
+      rounding: 'cents',
+    });
+    // Assert
+    expect(kes.platformFee).toBe(20000);
+    expect(lowerUsd.platformFee).toBe(20);
+  });
+});
+
+describe('default options', () => {
+  it('defaults to NGN cents rounding with no env override', () => {
+    // Act
+    const result = calculatePlatformFee(1000, { currency: 'NGN' });
+    // Assert
+    expect(result).toEqual({
+      platformFee: 20,
+      merchantAmount: 980,
+      total: 1000,
+    });
+  });
+});

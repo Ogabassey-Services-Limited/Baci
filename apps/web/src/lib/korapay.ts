@@ -12,6 +12,7 @@
 
 import z from 'zod';
 import { logger } from './logger';
+import { calculatePlatformFee as computePlatformFee } from './payments/platform-fee';
 
 // =============================================================================
 // Configuration
@@ -22,11 +23,12 @@ const KORAPAY_BASE_URL =
 const KORAPAY_SECRET_KEY = process.env.KORAPAY_SECRET_KEY || '';
 const KORAPAY_PUBLIC_KEY = process.env.KORAPAY_PUBLIC_KEY || '';
 
-// Platform fee percentage (2%) capped at ₦2,050
+// Platform fee percentage (2%). The fee computation itself lives in the shared
+// `lib/payments/platform-fee` module (NGN capped at ₦2,050); this exported
+// constant is retained for backwards compatibility with the public API surface.
 const PLATFORM_FEE_PERCENTAGE = Number.parseFloat(
   process.env.PLATFORM_FEE_PERCENTAGE || '2'
 );
-const PLATFORM_FEE_CAP = 2050;
 
 // =============================================================================
 // Type Definitions
@@ -609,24 +611,21 @@ export async function createVirtualBankAccount(
 // =============================================================================
 
 /**
- * Calculate platform fee and merchant amount
- * Platform takes 2%, capped at ₦2,050
+ * Calculate platform fee and merchant amount (amounts in major currency units).
+ * Platform takes 2% (honouring the `PLATFORM_FEE_PERCENTAGE` env override),
+ * capped at ₦2,050. Delegates to the shared platform-fee module.
  */
 export function calculatePlatformFee(amount: number): {
   platformFee: number;
   merchantAmount: number;
   total: number;
 } {
-  let platformFee = (amount * PLATFORM_FEE_PERCENTAGE) / 100;
-  platformFee = Math.min(platformFee, PLATFORM_FEE_CAP);
-
-  const merchantAmount = amount - platformFee;
-
-  return {
-    platformFee: Math.round(platformFee * 100) / 100,
-    merchantAmount: Math.round(merchantAmount * 100) / 100,
-    total: amount,
-  };
+  return computePlatformFee(amount, {
+    currency: 'NGN',
+    unit: 'major',
+    rounding: 'cents',
+    honorEnvPercentageOverride: true,
+  });
 }
 
 /**

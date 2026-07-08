@@ -9,6 +9,7 @@
 
 import crypto from 'node:crypto';
 import { creditDirectWebhookSchema } from '@/schemas/credit-direct';
+import { calculatePlatformFee as computePlatformFee } from './payments/platform-fee';
 
 // ============================================================================
 // Types
@@ -405,15 +406,18 @@ export function isLiveMode(): boolean {
  * Calculate platform fee for Credit Direct transactions
  *
  * Note: Credit Direct pays merchants in full. This is for Baci's platform fee.
+ * 2% platform fee, capped at 2,050 NGN (same as other gateways), returned
+ * UNROUNDED. Delegates to the shared platform-fee module.
  *
  * @param amount - Transaction amount in NGN
  * @returns Platform fee amount
  */
 export function calculatePlatformFee(amount: number): number {
-  // 2% platform fee, capped at 2,050 NGN (same as other gateways)
-  const fee = amount * 0.02;
-  const cap = 2050;
-  return Math.min(fee, cap);
+  return computePlatformFee(amount, {
+    currency: 'NGN',
+    unit: 'major',
+    rounding: 'none',
+  }).platformFee;
 }
 
 /**
@@ -423,5 +427,9 @@ export function calculatePlatformFee(amount: number): number {
  * @returns Amount merchant receives after platform fee
  */
 export function calculateMerchantAmount(amount: number): number {
-  return amount - calculatePlatformFee(amount);
+  return computePlatformFee(amount, {
+    currency: 'NGN',
+    unit: 'major',
+    rounding: 'none',
+  }).merchantAmount;
 }
