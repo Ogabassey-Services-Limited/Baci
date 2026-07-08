@@ -79,6 +79,7 @@ describe('createRepairBooking', () => {
     expect(result).toEqual({
       success: false,
       error: 'Too many repair requests. Please try again in a minute.',
+      code: 'rate_limited',
     });
     expect(mocks.createClient).not.toHaveBeenCalled();
     expect(mocks.rpc).not.toHaveBeenCalled();
@@ -90,6 +91,7 @@ describe('createRepairBooking', () => {
     expect(result).toEqual({
       success: false,
       error: 'Invalid store reference.',
+      code: 'invalid_merchant',
     });
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
@@ -103,6 +105,7 @@ describe('createRepairBooking', () => {
     expect(result.success).toBe(false);
     if (result.success) throw new Error('expected failure');
     expect(result.fieldErrors).toBeDefined();
+    expect(result.code).toBe('validation_failed');
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
@@ -117,6 +120,7 @@ describe('createRepairBooking', () => {
     expect(result).toEqual({
       success: false,
       error: 'Too many repair requests. Please try again in a minute.',
+      code: 'rate_limited',
     });
   });
 
@@ -134,6 +138,7 @@ describe('createRepairBooking', () => {
     expect(result.success).toBe(false);
     if (result.success) throw new Error('expected failure');
     expect(result.error).toMatch(/no longer available/i);
+    expect(result.code).toBe('unavailable');
   });
 
   it('returns a generic failure when the RPC returns no row', async () => {
@@ -144,6 +149,7 @@ describe('createRepairBooking', () => {
     expect(result).toEqual({
       success: false,
       error: 'Failed to submit repair request. Please try again.',
+      code: 'unknown',
     });
   });
 });

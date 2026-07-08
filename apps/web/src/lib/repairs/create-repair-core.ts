@@ -1,55 +1,85 @@
 import { cookies } from 'next/headers';
 import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { createClient } from '@/lib/supabase/server';
-import {
-  type RepairBookingInput,
-  repairBookingSchema,
-} from '@/lib/validations/repair';
+import { repairBookingSchema } from '@/lib/validations/repair';
 import { repairMerchantIdSchema } from '@/schemas/repair-actions';
+
+/**
+ * Stable, machine-readable failure classification. The web server action
+ * ignores this (it only inspects `success`/`error`/`fieldErrors`), but the
+ * mobile storefront booking route (`POST /api/storefront/[slug]/repairs/book`)
+ * maps it directly to an HTTP status code so callers never need to
+ * pattern-match the human-readable `error` copy.
+ */
+export type RepairBookingErrorCode =
+  | 'rate_limited'
+  | 'invalid_merchant'
+  | 'validation_failed'
+  | 'not_found'
+  | 'unavailable'
+  | 'unknown';
 
 export type CreateRepairResult =
   | { success: true; id: string; ticketNumber: number }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+  | {
+      success: false;
+      error: string;
+      code: RepairBookingErrorCode;
+      fieldErrors?: Record<string, string[]>;
+    };
 
 const RATE_LIMIT_MESSAGE =
   'Too many repair requests. Please try again in a minute.';
 const GENERIC_FAILURE = 'Failed to submit repair request. Please try again.';
 
 /**
- * Maps the booking RPC's raised exception messages to storefront-safe copy.
- * The DB raises `rate_limited`, `merchant_not_found`, `quote_unavailable`, etc.
+ * Maps the booking RPC's raised exception messages to storefront-safe copy
+ * plus a stable error code.
  */
-function mapRpcError(message: string | undefined): string {
+function mapRpcError(message: string | undefined): {
+  error: string;
+  code: RepairBookingErrorCode;
+} {
   if (!message) {
-    return GENERIC_FAILURE;
+    return { error: GENERIC_FAILURE, code: 'unknown' };
   }
   if (message.includes('rate_limited')) {
-    return RATE_LIMIT_MESSAGE;
+    return { error: RATE_LIMIT_MESSAGE, code: 'rate_limited' };
   }
   if (
     message.includes('merchant_not_found') ||
     message.includes('merchant_required')
   ) {
-    return 'Store not found.';
+    return { error: 'Store not found.', code: 'not_found' };
   }
   if (
     message.includes('quote_unavailable') ||
     message.includes('device_unavailable') ||
     message.includes('catalog_disabled')
   ) {
-    return 'That repair option is no longer available. Please pick another.';
+    return {
+      error: 'That repair option is no longer available. Please pick another.',
+      code: 'unavailable',
+    };
   }
-  return GENERIC_FAILURE;
+  return { error: GENERIC_FAILURE, code: 'unknown' };
 }
 
 /**
- * Shared repair booking core used by the web server action and (later) the
- * mobile storefront route. Applies the app-layer rate limit FIRST, validates
- * input, then delegates the write to the SECURITY DEFINER booking RPC which
- * re-validates the merchant/active quote and snapshots the price server-side.
+ * Shared repair booking core used by the web server action
+ * (`app/actions/repair.ts`) and the mobile storefront booking route
+ * (`app/api/storefront/[slug]/repairs/book/route.ts`). Applies the app-layer
+ * rate limit FIRST, validates input, then delegates the write to the
+ * SECURITY DEFINER booking RPC which re-validates the merchant/active quote
+ * and snapshots the price server-side.
+ *
+ * `data` is intentionally `unknown` — the caller may be a typed React Hook
+ * Form submission (web) or a raw JSON body parsed from an HTTP request
+ * (mobile route); the Zod parse below is the single source of truth for
+ * validating either shape.
  */
 export async function createRepairBooking(
-  data: RepairBookingInput,
+  data: unknown,
   merchantId: string
 ): Promise<CreateRepairResult> {
   const allowed = await ensureActionRateLimit('repair-create', {
@@ -57,12 +87,16 @@ export async function createRepairBooking(
     windowMs: 60_000,
   });
   if (!allowed) {
-    return { success: false, error: RATE_LIMIT_MESSAGE };
+    return { success: false, error: RATE_LIMIT_MESSAGE, code: 'rate_limited' };
   }
 
   const parsedMerchantId = repairMerchantIdSchema.safeParse(merchantId);
   if (!parsedMerchantId.success) {
-    return { success: false, error: 'Invalid store reference.' };
+    return {
+      success: false,
+      error: 'Invalid store reference.',
+      code: 'invalid_merchant',
+    };
   }
 
   const parsed = repairBookingSchema.safeParse(data);
@@ -70,6 +104,7 @@ export async function createRepairBooking(
     return {
       success: false,
       error: 'Validation failed',
+      code: 'validation_failed',
       fieldErrors: parsed.error.flatten().fieldErrors,
     };
   }
@@ -97,7 +132,8 @@ export async function createRepairBooking(
 
   if (error) {
     console.error('Error creating repair booking:', error);
-    return { success: false, error: mapRpcError(error.message) };
+    const mapped = mapRpcError(error.message);
+    return { success: false, error: mapped.error, code: mapped.code };
   }
 
   const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
@@ -107,7 +143,7 @@ export async function createRepairBooking(
   const ticketNumber = record?.ticket_number;
 
   if (typeof id !== 'string' || typeof ticketNumber !== 'number') {
-    return { success: false, error: GENERIC_FAILURE };
+    return { success: false, error: GENERIC_FAILURE, code: 'unknown' };
   }
 
   return { success: true, id, ticketNumber };
