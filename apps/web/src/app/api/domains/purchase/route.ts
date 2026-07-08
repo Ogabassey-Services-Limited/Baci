@@ -56,6 +56,21 @@ const PurchaseRequestSchema = z.object({
   paymentReference: z.string().trim().min(1).optional(),
 });
 
+function hasDomainRegistrarProof(domain: {
+  domain_type?: string | null;
+  go54_order_id?: string | null;
+  status?: string | null;
+}) {
+  const hasRegistrarOrderId =
+    typeof domain.go54_order_id === 'string' &&
+    domain.go54_order_id.trim().length > 0;
+
+  return (
+    hasRegistrarOrderId ||
+    (domain.status === 'active' && domain.domain_type === 'purchased')
+  );
+}
+
 /**
  * POST /api/domains/purchase
  * Purchase a domain through Go54
@@ -491,7 +506,9 @@ export async function POST(request: NextRequest) {
     const { data: existingDomain, error: existingDomainError } =
       await adminSupabase
         .from('domains')
-        .select('id, merchant_id, status')
+        .select(
+          'id, merchant_id, status, domain_type, go54_order_id, is_primary'
+        )
         .eq('domain', domain)
         .maybeSingle();
 
@@ -506,7 +523,17 @@ export async function POST(request: NextRequest) {
     if (existingDomain) {
       if (existingDomain.merchant_id === merchantId) {
         // Domain already registered to this merchant - likely handled by webhook
-        if (existingDomain.status !== 'active') {
+        if (!hasDomainRegistrarProof(existingDomain)) {
+          console.warn(
+            'Existing domain row lacks registrar proof before registration attempt:',
+            {
+              domain,
+              existingDomainType: existingDomain.domain_type,
+              existingStatus: existingDomain.status,
+              paymentId: payment.id,
+            }
+          );
+        } else if (existingDomain.status !== 'active') {
           const activateExpiresAt = new Date();
           activateExpiresAt.setFullYear(
             activateExpiresAt.getFullYear() + years
@@ -551,32 +578,51 @@ export async function POST(request: NextRequest) {
               { status: 500 }
             );
           }
-        }
 
-        const marked = await markPaymentDomainPurchased(existingDomain.id);
-        if (!marked) {
-          return NextResponse.json(
-            {
-              error:
-                'Domain is active but payment usage could not be recorded. Please try again.',
-            },
-            { status: 500 }
-          );
+          const marked = await markPaymentDomainPurchased(existingDomain.id);
+          if (!marked) {
+            return NextResponse.json(
+              {
+                error:
+                  'Domain is active but payment usage could not be recorded. Please try again.',
+              },
+              { status: 500 }
+            );
+          }
+          revalidateMerchantFeed(merchantId);
+          after(() => triggerDomainEdgeConfigSync());
+          return NextResponse.json({
+            success: true,
+            domain: { ...existingDomain, status: 'active' },
+            message: `Successfully verified ${domain}`,
+            nextSteps: ['Domain is active'],
+          });
+        } else {
+          const marked = await markPaymentDomainPurchased(existingDomain.id);
+          if (!marked) {
+            return NextResponse.json(
+              {
+                error:
+                  'Domain is active but payment usage could not be recorded. Please try again.',
+              },
+              { status: 500 }
+            );
+          }
+          revalidateMerchantFeed(merchantId);
+          after(() => triggerDomainEdgeConfigSync());
+          return NextResponse.json({
+            success: true,
+            domain: { ...existingDomain, status: 'active' },
+            message: `Successfully verified ${domain}`,
+            nextSteps: ['Domain is active'],
+          });
         }
-        revalidateMerchantFeed(merchantId);
-        after(() => triggerDomainEdgeConfigSync());
-        return NextResponse.json({
-          success: true,
-          domain: { ...existingDomain, status: 'active' },
-          message: `Successfully verified ${domain}`,
-          nextSteps: ['Domain is active'],
-        });
+      } else {
+        return NextResponse.json(
+          { error: 'This domain is already registered' },
+          { status: 409 }
+        );
       }
-
-      return NextResponse.json(
-        { error: 'This domain is already registered' },
-        { status: 409 }
-      );
     }
 
     // Prepare contact information from merchant profile
@@ -814,39 +860,84 @@ export async function POST(request: NextRequest) {
       const shouldSetPrimary = !primaryDomainError && !existingPrimaryDomain;
       const nowIso = new Date().toISOString();
 
-      // Store domain in database
-      const { data: newDomain, error: insertError } = await adminSupabase
-        .from('domains')
-        .insert({
-          merchant_id: merchantId,
-          domain,
-          tld,
-          domain_type: 'purchased',
-          status: 'active',
-          is_primary: shouldSetPrimary,
-          verified_at: nowIso,
-          ssl_status: 'active',
-          go54_order_id: registrationResult.orderId || null,
-          purchase_price: priceCalculation.sellPrice,
-          renewal_price: priceCalculation.sellPrice,
-          registered_at: nowIso,
-          expires_at: expiresAt.toISOString(),
-          auto_renew: true,
-          nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
-        })
-        .select('id, domain, status, is_primary')
-        .single();
+      const domainPayload = {
+        merchant_id: merchantId,
+        domain,
+        tld,
+        domain_type: 'purchased',
+        status: 'active',
+        is_primary: shouldSetPrimary,
+        verified_at: nowIso,
+        ssl_status: 'active',
+        go54_order_id: registrationResult.orderId || null,
+        purchase_price: priceCalculation.sellPrice,
+        renewal_price: priceCalculation.sellPrice,
+        registered_at: nowIso,
+        expires_at: expiresAt.toISOString(),
+        auto_renew: true,
+        nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
+      };
 
-      if (insertError) {
-        console.error('Error storing domain after Go54 registration:', {
+      let newDomain: {
+        domain: string;
+        id: string;
+        is_primary: boolean;
+        status: string;
+      } | null = null;
+
+      if (existingDomain?.merchant_id === merchantId) {
+        const { error: updateExistingDomainError } = await adminSupabase
+          .from('domains')
+          .update(domainPayload)
+          .eq('id', existingDomain.id);
+
+        if (updateExistingDomainError) {
+          console.error('Error updating domain after Go54 registration:', {
+            domain,
+            merchantId,
+            go54OrderId: registrationResult.orderId || null,
+            registrationResult,
+            updateExistingDomainError,
+          });
+          return NextResponse.json(
+            { error: 'Domain registered but failed to update database record' },
+            { status: 500 }
+          );
+        }
+
+        newDomain = {
           domain,
-          merchantId,
-          go54OrderId: registrationResult.orderId || null,
-          registrationResult,
-          insertError,
-        });
+          id: existingDomain.id,
+          is_primary: shouldSetPrimary,
+          status: 'active',
+        };
+      } else {
+        const { data: insertedDomain, error: insertError } = await adminSupabase
+          .from('domains')
+          .insert(domainPayload)
+          .select('id, domain, status, is_primary')
+          .single();
+
+        if (insertError) {
+          console.error('Error storing domain after Go54 registration:', {
+            domain,
+            merchantId,
+            go54OrderId: registrationResult.orderId || null,
+            registrationResult,
+            insertError,
+          });
+          return NextResponse.json(
+            { error: 'Domain registered but failed to store in database' },
+            { status: 500 }
+          );
+        }
+
+        newDomain = insertedDomain;
+      }
+
+      if (!newDomain) {
         return NextResponse.json(
-          { error: 'Domain registered but failed to store in database' },
+          { error: 'Domain registered but persistence result was empty' },
           { status: 500 }
         );
       }

@@ -1395,6 +1395,8 @@ describe('POST /api/payments/webhook', () => {
             eq: vi.fn().mockReturnThis(),
             maybeSingle: vi.fn().mockResolvedValue({
               data: {
+                domain_type: 'purchased',
+                go54_order_id: null,
                 id: 'domain-existing',
                 merchant_id: 'merchant-123',
                 status: 'active',
@@ -1432,7 +1434,7 @@ describe('POST /api/payments/webhook', () => {
       expect(registerDomain).not.toHaveBeenCalled();
     });
 
-    it('activates a pre-existing pending domain row without calling registerDomain', async () => {
+    it('continues to registrar fulfillment when a pre-existing domain row lacks registrar proof', async () => {
       const body = {
         reference: 'DOM-REGRESSION9',
         status: 'success',
@@ -1579,9 +1581,10 @@ describe('POST /api/payments/webhook', () => {
       const response = await POST(request);
 
       expect(response.status).toBe(200);
-      expect(registerDomain).not.toHaveBeenCalled();
+      expect(registerDomain).toHaveBeenCalledTimes(1);
       expect(domainUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
+          go54_order_id: 'go54-777',
           status: 'active',
         })
       );

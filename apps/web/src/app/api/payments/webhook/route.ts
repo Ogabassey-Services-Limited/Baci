@@ -84,6 +84,68 @@ interface PaymentTransactionRecord {
   metadata: Record<string, unknown> | null;
 }
 
+function hasDomainRegistrarProof(domain: {
+  domain_type?: string | null;
+  go54_order_id?: string | null;
+  status?: string | null;
+}) {
+  const hasRegistrarOrderId =
+    typeof domain.go54_order_id === 'string' &&
+    domain.go54_order_id.trim().length > 0;
+
+  return (
+    hasRegistrarOrderId ||
+    (domain.status === 'active' && domain.domain_type === 'purchased')
+  );
+}
+
+function isRetryableDomainRegistrationFailure(error: unknown) {
+  const message =
+    typeof error === 'string'
+      ? error.toLowerCase()
+      : JSON.stringify(error ?? '').toLowerCase();
+
+  const terminalPatterns = [
+    'already registered',
+    'already taken',
+    'balance',
+    'contact',
+    'domain is unavailable',
+    'domain not available',
+    'domain unavailable',
+    'insufficient',
+    'invalid',
+    'missing',
+    'not available for registration',
+    'premium',
+    'required',
+    'unsupported',
+  ];
+  if (terminalPatterns.some((pattern) => message.includes(pattern))) {
+    return false;
+  }
+
+  const retryablePatterns = [
+    'bad gateway',
+    'connection',
+    'econn',
+    'gateway timeout',
+    'internal server',
+    'network',
+    'rate limit',
+    'registrar unavailable',
+    'service unavailable',
+    'socket',
+    'temporar',
+    'timeout',
+    'timed out',
+    'too many requests',
+    'try again',
+  ];
+
+  return retryablePatterns.some((pattern) => message.includes(pattern));
+}
+
 async function reconcileAgenticPaystackDvaSession({
   metadata,
   reference,
@@ -1892,6 +1954,20 @@ export async function POST(request: NextRequest) {
           }
 
           if (claimOutcome.status === 'contested') {
+            if (
+              typeof metadata.fulfillment_registrar_attempted_at === 'string'
+            ) {
+              logger.error({
+                message:
+                  'Domain fulfillment claim has an ambiguous registrar attempt — accepting webhook for manual reconciliation',
+                reference,
+                domain: normalizedDomain,
+                transactionId: transaction.id,
+                attemptedAt: metadata.fulfillment_registrar_attempted_at,
+              });
+              return null;
+            }
+
             // Another path (usually the dashboard callback) holds the claim.
             // Return a retryable failure instead of 200: if that claimant
             // dies or releases after a definitive registrar failure, the
@@ -1914,7 +1990,7 @@ export async function POST(request: NextRequest) {
           const { data: preExistingDomain, error: preExistingDomainError } =
             await supabase
               .from('domains')
-              .select('id, merchant_id, status')
+              .select('id, merchant_id, status, domain_type, go54_order_id')
               .eq('domain', normalizedDomain)
               .maybeSingle();
 
@@ -1959,7 +2035,16 @@ export async function POST(request: NextRequest) {
               return null;
             }
 
-            if (preExistingDomain.status !== 'active') {
+            if (!hasDomainRegistrarProof(preExistingDomain)) {
+              logger.warn({
+                message:
+                  'Existing domain row lacks registrar proof before registrar attempt — continuing to registrar',
+                domain: normalizedDomain,
+                reference,
+                existingStatus: preExistingDomain.status,
+                existingDomainType: preExistingDomain.domain_type,
+              });
+            } else if (preExistingDomain.status !== 'active') {
               const activateExpiresAt = new Date();
               activateExpiresAt.setFullYear(
                 activateExpiresAt.getFullYear() + purchaseYears
@@ -2010,34 +2095,61 @@ export async function POST(request: NextRequest) {
                   { status: 503 }
                 );
               }
-            }
 
-            const marked = await markTransactionDomainPurchased(
-              preExistingDomain.id
-            );
-            if (!marked) {
-              await releaseDomainFulfillmentClaim(supabase, {
-                transactionId: transaction.id,
-                metadata,
-                claimant: 'webhook',
-                claimedAt: claimOutcome.claimedAt,
-              });
-              claimToken = null;
-              return NextResponse.json(
-                { error: 'Domain purchase marker failed — will retry' },
-                { status: 503 }
+              const marked = await markTransactionDomainPurchased(
+                preExistingDomain.id
               );
-            }
+              if (!marked) {
+                await releaseDomainFulfillmentClaim(supabase, {
+                  transactionId: transaction.id,
+                  metadata,
+                  claimant: 'webhook',
+                  claimedAt: claimOutcome.claimedAt,
+                });
+                claimToken = null;
+                return NextResponse.json(
+                  { error: 'Domain purchase marker failed — will retry' },
+                  { status: 503 }
+                );
+              }
 
-            logger.info({
-              message:
-                'Existing domain row found before registrar attempt; marked transaction fulfilled without re-ordering',
-              domain: normalizedDomain,
-              reference,
-            });
-            revalidateMerchantFeed(transaction.merchant_id);
-            after(() => triggerDomainEdgeConfigSync());
-            return null;
+              logger.info({
+                message:
+                  'Existing domain row with registrar proof found before registrar attempt; marked transaction fulfilled without re-ordering',
+                domain: normalizedDomain,
+                reference,
+              });
+              revalidateMerchantFeed(transaction.merchant_id);
+              after(() => triggerDomainEdgeConfigSync());
+              return null;
+            } else {
+              const marked = await markTransactionDomainPurchased(
+                preExistingDomain.id
+              );
+              if (!marked) {
+                await releaseDomainFulfillmentClaim(supabase, {
+                  transactionId: transaction.id,
+                  metadata,
+                  claimant: 'webhook',
+                  claimedAt: claimOutcome.claimedAt,
+                });
+                claimToken = null;
+                return NextResponse.json(
+                  { error: 'Domain purchase marker failed — will retry' },
+                  { status: 503 }
+                );
+              }
+
+              logger.info({
+                message:
+                  'Existing active purchased domain row found before registrar attempt; marked transaction fulfilled without re-ordering',
+                domain: normalizedDomain,
+                reference,
+              });
+              revalidateMerchantFeed(transaction.merchant_id);
+              after(() => triggerDomainEdgeConfigSync());
+              return null;
+            }
           }
 
           // Preflight registrar credentials BEFORE stamping the attempt: a
@@ -2275,6 +2387,18 @@ export async function POST(request: NextRequest) {
                 error: registration.error,
                 domain: metadata.domain,
               });
+              if (!isRetryableDomainRegistrationFailure(registration.error)) {
+                logger.error({
+                  message:
+                    'Domain registration failed terminally — accepting webhook for manual review',
+                  error: registration.error,
+                  domain: metadata.domain,
+                  reference,
+                  transactionId: transaction.id,
+                });
+                return null;
+              }
+
               // Payment succeeded but registration failed: release the claim
               // so the dashboard callback (or a later retry) can fulfill.
               const released = await releaseDomainFulfillmentClaim(supabase, {

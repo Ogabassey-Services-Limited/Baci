@@ -92,7 +92,11 @@ function createMutationQuery(payload: Record<string, unknown>) {
   const query = {
     eq(column: string, value: unknown) {
       mutation.filters.push([column, value]);
-      return mutation.filters.length === 2
+      const isPaymentUsedMetadataWrite =
+        typeof payload.metadata === 'object' &&
+        payload.metadata !== null &&
+        'domain_purchased' in payload.metadata;
+      return isPaymentUsedMetadataWrite && mutation.filters.length === 2
         ? Promise.resolve({ error: mocks.transactionMutationError })
         : query;
     },
@@ -116,11 +120,17 @@ function createSupabase(
     premium_features: [],
   },
   existingDomain: {
+    domain_type?: string;
+    go54_order_id?: string | null;
     id: string;
+    is_primary?: boolean;
     merchant_id: string;
     status?: string;
   } | null = {
+    domain_type: 'purchased',
+    go54_order_id: null,
     id: 'domain-1',
+    is_primary: false,
     merchant_id: 'merchant-1',
     status: 'active',
   }
@@ -298,7 +308,7 @@ describe('POST /api/domains/purchase transaction scoping', () => {
     expect(mocks.revalidateMerchantFeed).toHaveBeenCalledWith('merchant-1');
   });
 
-  it('activates an existing pending domain before marking a fresh payment used', async () => {
+  it('registers before fulfilling a fresh payment when an existing row lacks registrar proof', async () => {
     supabase = createSupabase(
       {
         amount: 100,
@@ -313,24 +323,33 @@ describe('POST /api/domains/purchase transaction scoping', () => {
     );
 
     const { registerDomain } = await import('@/lib/go54');
+    vi.mocked(registerDomain).mockResolvedValue({
+      success: true,
+      orderId: 'go54-fresh-1',
+    } as never);
 
     const response = await POST(createRequest());
     const json = await response.json();
 
     expect(response.status).toBe(200);
     expect(json.domain.status).toBe('active');
-    expect(registerDomain).not.toHaveBeenCalled();
+    expect(registerDomain).toHaveBeenCalledTimes(1);
     expect(mocks.domainMutations).toHaveLength(1);
     expect(mocks.domainMutations[0].payload).toMatchObject({
+      go54_order_id: 'go54-fresh-1',
       status: 'active',
       ssl_status: 'active',
       purchase_price: 100,
       renewal_price: 100,
     });
     expect(mocks.domainMutations[0].filters).toEqual([['id', 'domain-1']]);
-    expect(mocks.transactionMutations[0].payload).toMatchObject({
-      metadata: expect.objectContaining({ domain_purchased: 'shop.com' }),
-    });
+    expect(
+      mocks.transactionMutations.some(
+        (mutation) =>
+          (mutation.payload.metadata as Record<string, unknown> | undefined)
+            ?.domain_purchased === 'shop.com'
+      )
+    ).toBe(true);
   });
 
   it('fails closed when an existing domain payment cannot be marked as used', async () => {
