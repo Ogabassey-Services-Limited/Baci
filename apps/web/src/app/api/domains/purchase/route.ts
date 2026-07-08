@@ -491,7 +491,7 @@ export async function POST(request: NextRequest) {
     const { data: existingDomain, error: existingDomainError } =
       await adminSupabase
         .from('domains')
-        .select('id, merchant_id')
+        .select('id, merchant_id, status')
         .eq('domain', domain)
         .maybeSingle();
 
@@ -506,6 +506,53 @@ export async function POST(request: NextRequest) {
     if (existingDomain) {
       if (existingDomain.merchant_id === merchantId) {
         // Domain already registered to this merchant - likely handled by webhook
+        if (existingDomain.status !== 'active') {
+          const activateExpiresAt = new Date();
+          activateExpiresAt.setFullYear(
+            activateExpiresAt.getFullYear() + years
+          );
+          const { data: activatePrimary, error: activatePrimaryError } =
+            await adminSupabase
+              .from('domains')
+              .select('id')
+              .eq('merchant_id', merchantId)
+              .in('domain_type', ['custom', 'purchased'])
+              .eq('status', 'active')
+              .eq('is_primary', true)
+              .limit(1)
+              .maybeSingle();
+          const domainPurchaseAmount =
+            Number(payment.amount) || priceCalculation.sellPrice;
+          const { error: activateError } = await adminSupabase
+            .from('domains')
+            .update({
+              status: 'active',
+              ssl_status: 'active',
+              verified_at: new Date().toISOString(),
+              expires_at: activateExpiresAt.toISOString(),
+              auto_renew: true,
+              is_primary: !activatePrimaryError && !activatePrimary,
+              purchase_price: domainPurchaseAmount,
+              renewal_price: domainPurchaseAmount,
+              nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
+            })
+            .eq('id', existingDomain.id);
+
+          if (activateError) {
+            console.error(
+              'Failed to activate existing domain before marking payment:',
+              activateError
+            );
+            return NextResponse.json(
+              {
+                error:
+                  'Domain is registered but could not be activated. Please try again.',
+              },
+              { status: 500 }
+            );
+          }
+        }
+
         const marked = await markPaymentDomainPurchased(existingDomain.id);
         if (!marked) {
           return NextResponse.json(
@@ -520,7 +567,7 @@ export async function POST(request: NextRequest) {
         after(() => triggerDomainEdgeConfigSync());
         return NextResponse.json({
           success: true,
-          domain: existingDomain,
+          domain: { ...existingDomain, status: 'active' },
           message: `Successfully verified ${domain}`,
           nextSteps: ['Domain is active'],
         });

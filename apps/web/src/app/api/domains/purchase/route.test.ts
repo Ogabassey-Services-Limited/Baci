@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => ({
     data: { id: string } | null;
     error: { message: string } | null;
   },
+  domainMutations: [] as MutationRecord[],
   getMerchantForApiRequest: vi.fn(),
   hasPermission: vi.fn(),
   revalidateMerchantFeed: vi.fn(),
@@ -191,7 +192,18 @@ function createSupabase(
         domainsChain.eq.mockReturnValue(domainsChain);
         domainsChain.in.mockReturnValue(domainsChain);
         domainsChain.limit.mockReturnValue(domainsChain);
-        domainsChain.update.mockReturnValue(domainsChain);
+        domainsChain.update.mockImplementation(
+          (payload: Record<string, unknown>) => {
+            const mutation: MutationRecord = { filters: [], payload };
+            mocks.domainMutations.push(mutation);
+            return {
+              eq: vi.fn((column: string, value: unknown) => {
+                mutation.filters.push([column, value]);
+                return Promise.resolve({ error: null });
+              }),
+            };
+          }
+        );
         return domainsChain;
       }
 
@@ -225,6 +237,7 @@ function createRequest() {
 describe('POST /api/domains/purchase transaction scoping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.domainMutations.length = 0;
     mocks.transactionMutations.length = 0;
     mocks.transactionMutationError = null;
     mocks.claimResult = { data: { id: 'claimed' }, error: null };
@@ -283,6 +296,41 @@ describe('POST /api/domains/purchase transaction scoping', () => {
       ['merchant_id', 'merchant-1'],
     ]);
     expect(mocks.revalidateMerchantFeed).toHaveBeenCalledWith('merchant-1');
+  });
+
+  it('activates an existing pending domain before marking a fresh payment used', async () => {
+    supabase = createSupabase(
+      {
+        amount: 100,
+        gateway: 'paystack',
+        id: 'transaction-owned',
+        merchant_id: 'merchant-1',
+        metadata: null,
+        status: 'completed',
+      },
+      undefined,
+      { id: 'domain-1', merchant_id: 'merchant-1', status: 'pending' }
+    );
+
+    const { registerDomain } = await import('@/lib/go54');
+
+    const response = await POST(createRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.domain.status).toBe('active');
+    expect(registerDomain).not.toHaveBeenCalled();
+    expect(mocks.domainMutations).toHaveLength(1);
+    expect(mocks.domainMutations[0].payload).toMatchObject({
+      status: 'active',
+      ssl_status: 'active',
+      purchase_price: 100,
+      renewal_price: 100,
+    });
+    expect(mocks.domainMutations[0].filters).toEqual([['id', 'domain-1']]);
+    expect(mocks.transactionMutations[0].payload).toMatchObject({
+      metadata: expect.objectContaining({ domain_purchased: 'shop.com' }),
+    });
   });
 
   it('fails closed when an existing domain payment cannot be marked as used', async () => {
