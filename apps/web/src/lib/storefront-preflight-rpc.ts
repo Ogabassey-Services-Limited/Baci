@@ -64,7 +64,17 @@ interface CallStorefrontPreflightRpcOptions {
   rpcImpl?: StorefrontPreflightRpcImpl;
 }
 
-const DEFAULT_TIMEOUT_MS = 800;
+// 2s, not the route transport's old 800ms: the RPCs execute in ~20ms
+// server-side, and PostHog `detail` telemetry showed the entire residual
+// timeout class (155 events/19h post-#2980) was OUR client abort firing on
+// transport-tail events (cold TLS + event-loop contention during page-data
+// fanout) — each one a fail-open that forfeits a crawler-facing 404/308
+// verdict. The old prohibition on budget bumps guarded a user-visible stall
+// bound on two SEQUENTIAL slow function hops; here the memo collapses the
+// second call on success, the circuit breaker bounds brownouts, and the
+// extra budget is only ever spent on genuine tail events, converting lost
+// verdicts into slightly-slower correct ones.
+const DEFAULT_TIMEOUT_MS = 2_000;
 // One navigation's canonical + membership helpers call within ~100ms of each
 // other; 3s also absorbs a crawler re-hitting the same URL without letting a
 // verdict outlive the freshness the no-store route transport guaranteed.

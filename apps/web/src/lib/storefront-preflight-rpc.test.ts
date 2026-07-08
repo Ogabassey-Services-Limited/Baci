@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createAbortSignalTimeout } from './abort-signal-timeout';
 import {
   gateStorefrontPreflightStatus,
   resetStorefrontPreflightRpcForTests,
@@ -9,6 +10,8 @@ import {
   expectFailOpenReason,
   expectSkipReason,
 } from './storefront-preflight-rpc.test-utils';
+
+vi.mock('./abort-signal-timeout', { spy: true });
 
 let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
@@ -24,6 +27,16 @@ describe('callStorefrontPreflightRpc', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
+  });
+
+  it('defaults the abort budget to 2 seconds (tail-event recovery, not a stall bound)', async () => {
+    const rpcImpl = vi
+      .fn()
+      .mockResolvedValue({ data: [{ ok: true }], error: null });
+
+    await callRpc('budget_default_fn', { p: 'budget' }, rpcImpl);
+
+    expect(vi.mocked(createAbortSignalTimeout)).toHaveBeenCalledWith(2_000);
   });
 
   it('returns the single row when the rpc call succeeds', async () => {
