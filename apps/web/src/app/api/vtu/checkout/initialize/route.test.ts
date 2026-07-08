@@ -119,7 +119,7 @@ describe('POST /api/vtu/checkout/initialize', () => {
     expect(response.status).toBe(401);
   });
 
-  it('initializes bank-transfer utility checkout through Paystack bank-transfer channel', async () => {
+  it('rejects the bank-transfer gateway so transfers go through the wallet DVA instead', async () => {
     const response = await POST(
       makeRequest({
         merchantSlug: 'ogabassey',
@@ -132,29 +132,11 @@ describe('POST /api/vtu/checkout/initialize', () => {
     );
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data).toMatchObject({
-      success: true,
-      authorization_url: 'https://paystack.com/pay/abc',
-      gateway: 'paystack',
-      vtu_reference: 'REQ-123',
-    });
-    expect(mockInitializePaystackTransaction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        amount: 1000 * 100,
-        channels: ['bank_transfer'],
-      })
-    );
-    expect(transactionsInsertCalls[0]).toMatchObject({
-      amount: 1000,
-      currency: 'NGN',
-      gateway: 'paystack',
-      metadata: expect.objectContaining({
-        paymentChannel: 'bank_transfer',
-        selectedGateway: 'bank_transfer',
-      }),
-      status: 'pending',
-    });
+    expect(response.status).toBe(400);
+    expect(data.code).toBe('BANK_TRANSFER_VIA_WALLET');
+    expect(data.error).toMatch(/fund your wallet/i);
+    expect(mockInitializePaystackTransaction).not.toHaveBeenCalled();
+    expect(transactionsInsertCalls).toHaveLength(0);
   });
 
   it('returns a hosted checkout payload for paystack', async () => {

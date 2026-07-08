@@ -16,6 +16,7 @@ import {
 import { AirtimeDataForm } from './utility/AirtimeDataForm';
 import { BillPaymentForm } from './utility/BillPaymentForm';
 import { UtilityPaymentMethodSelector } from './UtilityPaymentMethodSelector';
+import { WalletFundingPanel } from './WalletFundingPanel';
 import { UtilitySuccessView } from './UtilitySuccessView';
 import { UtilityTabs, type UtilityTabId } from './UtilityTabs';
 import type { UtilityPaymentMethod } from './utility-types';
@@ -156,16 +157,30 @@ export const UtilityModal = ({
   const isAuthLoading = auth?.isLoading ?? false;
   const user = auth?.user ?? null;
   const {
+    fundingAccount,
     payWithWallet,
+    refreshWallet,
+    requiresFundingAccountConsent,
+    setFundingAccount,
     setPayWithWallet,
     setWalletBalance,
     walletBalance,
+    walletDvaEnabled,
     walletLoading,
   } = useWallet({
     merchantSlug: merchant?.slug,
     userId: user?.id,
   });
+  const [showFundingPanel, setShowFundingPanel] = useState(false);
   const canUseWallet = isAuthenticated && walletBalance > 0;
+  // Offer bank-transfer funding when the merchant has wallet DVAs on and
+  // either the customer already has an account (viewing needs no phone) or
+  // has a usable phone for creation — otherwise the create-account flow
+  // returns WALLET_DVA_DISABLED or CUSTOMER_PHONE_REQUIRED.
+  const canFundByBankTransfer =
+    isAuthenticated &&
+    walletDvaEnabled &&
+    (Boolean(fundingAccount) || Boolean(customer?.phone?.trim()));
   const selectedPaymentMethod: UtilityPaymentMethod =
     canUseWallet && payWithWallet ? 'wallet' : 'card';
 
@@ -179,7 +194,19 @@ export const UtilityModal = ({
     if (isOpen) {
       setActiveTab(initialTab);
       setStep('details');
+      // Collapse the funding panel so reopening never re-triggers DVA
+      // auto-create without a fresh "Pay with Bank Transfer" tap.
+      setShowFundingPanel(false);
     }
+  }
+
+  // Collapse the funding panel if the signed-in customer changes while the
+  // modal stays mounted (same-tab sign-out/switch) — a previous customer's
+  // open bank-transfer panel must not carry over to the new session.
+  const [prevUserId, setPrevUserId] = useState(user?.id);
+  if (user?.id !== prevUserId) {
+    setPrevUserId(user?.id);
+    setShowFundingPanel(false);
   }
 
   const getWalletIdempotencyKey = (payloadSignature: string) => {
@@ -345,12 +372,30 @@ export const UtilityModal = ({
               <UtilityPaymentMethodSelector
                 canUseWallet={canUseWallet}
                 isLoading={loading}
+                onFundWallet={
+                  canFundByBankTransfer
+                    ? () => setShowFundingPanel((visible) => !visible)
+                    : undefined
+                }
                 onSelectCard={() => setPayWithWallet(false)}
                 onSelectWallet={() => setPayWithWallet(true)}
                 selectedPaymentMethod={selectedPaymentMethod}
+                showWalletRow={isAuthenticated}
                 walletBalance={walletBalance}
                 walletLoading={walletLoading}
               />
+              {showFundingPanel && canFundByBankTransfer ? (
+                <div className="mt-3">
+                  <WalletFundingPanel
+                    account={fundingAccount}
+                    autoCreate
+                    merchantSlug={merchant?.slug}
+                    onAccountCreated={setFundingAccount}
+                    onRefreshBalance={refreshWallet}
+                    requiresConsent={requiresFundingAccountConsent}
+                  />
+                </div>
+              ) : null}
               {(activeTab === 'airtime' || activeTab === 'data') && (
                 <AirtimeDataForm
                   type={activeTab}

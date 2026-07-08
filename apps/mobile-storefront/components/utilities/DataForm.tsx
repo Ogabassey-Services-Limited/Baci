@@ -263,6 +263,7 @@ export function DataForm({
         >
           <UtilityPaymentOptions
             amount={planAmount}
+            canFundByBankTransfer={payment.canFundByBankTransfer}
             cards={payment.cards}
             isLoadingCards={payment.isLoadingCards}
             onSelectGateway={payment.selectGateway}

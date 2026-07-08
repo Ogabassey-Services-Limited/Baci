@@ -721,7 +721,9 @@ describe('POST /api/payments/initialize', () => {
       );
     });
 
-    it('allows hosted Paystack bank transfer when DVA is enabled', async () => {
+    it('filters hosted Paystack bank transfer even when DVA is enabled', async () => {
+      // Hosted pay-with-transfer bills 1.5% + ₦100 capped ₦2,000; bank
+      // transfers are only offered via the DVA branch (1% capped ₦300).
       enableDvaForTest();
       mockInitializePaystack.mockResolvedValue({
         authorization_url: 'https://paystack.com/pay/filtered-channels',
@@ -740,7 +742,7 @@ describe('POST /api/payments/initialize', () => {
       expect(json.success).toBe(true);
       expect(mockInitializePaystack).toHaveBeenCalledWith(
         expect.objectContaining({
-          channels: ['card', 'bank_transfer'],
+          channels: ['card'],
         })
       );
     });
@@ -768,7 +770,7 @@ describe('POST /api/payments/initialize', () => {
       );
     });
 
-    it('includes bank transfer in Nigerian Paystack defaults when DVA is enabled', async () => {
+    it('keeps bank transfer out of Nigerian Paystack defaults even when DVA is enabled', async () => {
       enableDvaForTest();
       mockInitializePaystack.mockResolvedValue({
         authorization_url: 'https://paystack.com/pay/default-channels',
@@ -787,7 +789,7 @@ describe('POST /api/payments/initialize', () => {
       expect(json.success).toBe(true);
       expect(mockInitializePaystack).toHaveBeenCalledWith(
         expect.objectContaining({
-          channels: ['card', 'bank', 'ussd', 'bank_transfer'],
+          channels: ['card', 'bank', 'ussd'],
         })
       );
     });

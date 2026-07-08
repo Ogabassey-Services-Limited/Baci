@@ -3,23 +3,27 @@ import * as Crypto from 'expo-crypto';
 import { useRef, useState } from 'react';
 import { listSavedVtuCards, type VTUPaymentGateway } from '@/lib/vtu-checkout';
 import type { WalletSelection } from '@/lib/wallet-payment-helpers';
+import { useAuthStore } from '@/stores/auth-store';
+import { useWallet } from './use-wallet';
 import {
   getEnabledPaymentMethods,
   useMerchantPaymentSettings,
 } from './useMerchantPaymentSettings';
-import { useWallet } from './use-wallet';
-import { useAuthStore } from '@/stores/auth-store';
 
 export type UtilityPaymentGateway = VTUPaymentGateway;
 
+// bank_transfer is intentionally NOT a VTU gateway: the VTU initialize
+// route maps it to Paystack's hosted pay-with-transfer channel
+// (1.5% + ₦100, capped ₦2,000). Bank transfers must go through the
+// customer's wallet DVA instead (1%, capped ₦300) — fund wallet, pay wallet.
 const SUPPORTED_UTILITY_GATEWAYS: UtilityPaymentGateway[] = [
   'paystack',
   'korapay',
-  'bank_transfer',
 ];
 
 export function useUtilityPayment(amount = 0) {
   const isAuthenticated = useAuthStore((state) => !!state.session);
+  const customerPhone = useAuthStore((state) => state.customer?.phone);
   const [selectedGateway, setSelectedGateway] =
     useState<UtilityPaymentGateway>('paystack');
   const [selectedSavedCardId, setSelectedSavedCardId] = useState<string | null>(
@@ -27,7 +31,10 @@ export function useUtilityPayment(amount = 0) {
   );
   const [shouldAutoSelectDefaultCard, setShouldAutoSelectDefaultCard] =
     useState(true);
-  const [useWalletPayment, setUseWalletPayment] = useState(false);
+  // Wallet-first: default ON so eligible balances are applied to the
+  // bill automatically (full cover or partial deduct). Users can still
+  // opt out via the wallet toggle row.
+  const [useWalletPayment, setUseWalletPayment] = useState(true);
   // Wallet-only Idempotency-Key. Held in a ref so a network failure
   // doesn't lose the key — the user's retry MUST send the same key
   // for the route's `vtu_idempotency_keys` table to dedupe.
@@ -35,6 +42,16 @@ export function useUtilityPayment(amount = 0) {
   const walletIdempotencyKeyRef = useRef<string | null>(null);
   const paymentSettings = useMerchantPaymentSettings();
   const wallet = useWallet();
+  // The bank-transfer funding nudge deep-links into DVA territory, so only
+  // offer it to signed-in customers of merchants with wallet DVAs enabled,
+  // and only when the customer either already HAS an account number (viewing
+  // needs no phone) or has a usable phone for creation. Otherwise the CTA
+  // routes to a flow that fails with DVA_DISABLED or a phone-required alert.
+  const canFundByBankTransfer =
+    isAuthenticated &&
+    paymentSettings.data?.wallet_paystack_dva_enabled === true &&
+    (Boolean(wallet.data?.wallet.funding_account) ||
+      Boolean(customerPhone?.trim()));
   const walletBalance = wallet.data?.wallet.balance ?? 0;
   const walletError = wallet.error instanceof Error ? wallet.error : null;
   const walletCanRender =
@@ -85,6 +102,7 @@ export function useUtilityPayment(amount = 0) {
   }
 
   return {
+    canFundByBankTransfer,
     cards: savedCards ?? [],
     isLoadingCards,
     refetchCards,

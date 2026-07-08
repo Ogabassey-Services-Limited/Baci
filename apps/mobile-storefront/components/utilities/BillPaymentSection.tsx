@@ -59,6 +59,7 @@ export function BillPaymentSection({
 
       <UtilityPaymentOptions
         amount={numericAmount}
+        canFundByBankTransfer={payment.canFundByBankTransfer}
         cards={payment.cards}
         isLoadingCards={payment.isLoadingCards}
         onSelectGateway={payment.selectGateway}

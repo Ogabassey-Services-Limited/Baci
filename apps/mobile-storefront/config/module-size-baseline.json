@@ -15,10 +15,6 @@
       "lineCount": 345
     },
     {
-      "path": "components/wallet/wallet-screen.helpers.ts",
-      "lineCount": 321
-    },
-    {
       "path": "lib/sanitize-html.ts",
       "lineCount": 324
     }

@@ -47,10 +47,20 @@ export interface StorefrontWalletTransaction {
   created_at: string;
 }
 
+export interface StorefrontWalletFundingAccount {
+  accountName: string | null;
+  accountNumber: string;
+  bankName: string | null;
+  provider: string;
+}
+
 export interface StorefrontWallet {
   balance: number;
   totalEarned: number;
   totalRedeemed: number;
   transactions: StorefrontWalletTransaction[];
   hasWallet?: boolean;
+  fundingAccount?: StorefrontWalletFundingAccount | null;
+  requiresFundingAccountConsent?: boolean;
+  walletDvaEnabled?: boolean;
 }

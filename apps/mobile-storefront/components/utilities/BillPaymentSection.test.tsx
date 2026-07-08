@@ -19,6 +19,7 @@ type PaymentState = ReturnType<typeof useUtilityPayment>;
 
 function createPaymentState(): PaymentState {
   return {
+    canFundByBankTransfer: false,
     cards: [],
     isLoadingCards: false,
     refetchCards: jest.fn<PaymentState['refetchCards']>(),

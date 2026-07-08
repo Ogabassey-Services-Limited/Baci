@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { CreditCard, History, Plus, Wallet, Loader2 } from 'lucide-react';
 import { EmptyState } from '../components/empty-state';
+import { WalletFundingPanel } from '../components/WalletFundingPanel';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import type { StorefrontWallet } from '@baci/shared';
@@ -17,39 +18,76 @@ const NGN_CURRENCY_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat(
 );
 
 export function OgabasseyV2Wallet() {
-  const { isAuthenticated, isLoading: isAuthLoading } = useCustomerAuth();
+  const {
+    customer,
+    isAuthenticated,
+    isLoading: isAuthLoading,
+    user,
+  } = useCustomerAuth();
   const { merchant } = useMerchantSafe() || {};
 
   const [wallet, setWallet] = useState<StorefrontWallet | null>(null);
   const [hasFetchSettled, setHasFetchSettled] = useState(false);
+  const [showFunding, setShowFunding] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  // Signing out (or switching customer/storefront) must drop the previous
+  // wallet immediately — the auto-show rule below renders a reusable DVA
+  // account number, which can't linger for a different session.
+  const identity =
+    isAuthenticated && merchant?.slug ? `${user?.id ?? ''}:${merchant.slug}` : null;
+  const [fetchedIdentity, setFetchedIdentity] = useState<string | null>(null);
+  if (identity !== fetchedIdentity) {
+    setFetchedIdentity(identity);
+    setWallet(null);
+    setShowFunding(false);
+    setHasFetchSettled(false);
+  }
 
   useEffect(() => {
     if (!isAuthenticated || !merchant?.slug) {
       return;
     }
 
+    // Abort on identity change so a sign-out/switch mid-flight can't land a
+    // previous customer's response (and re-show their DVA) after the reset.
+    const abortController = new AbortController();
     // Promise chain instead of try/finally so React Compiler can optimize.
-    fetch(`/api/storefront/customer/wallet?merchant=${merchant.slug}`)
+    fetch(`/api/storefront/customer/wallet?merchant=${merchant.slug}`, {
+      signal: abortController.signal,
+    })
       .then((res) => res.json())
       .then((data: StorefrontWallet) => {
-        setWallet(data);
+        if (!abortController.signal.aborted) {
+          setWallet(data);
+        }
       })
       .catch((err) => {
-        console.error('Failed to fetch wallet', err);
+        if (err instanceof Error && err.name !== 'AbortError') {
+          console.error('Failed to fetch wallet', err);
+        }
       })
       .finally(() => {
-        setHasFetchSettled(true);
+        if (!abortController.signal.aborted) {
+          setHasFetchSettled(true);
+        }
       });
-  }, [isAuthenticated, merchant?.slug]);
+
+    return () => abortController.abort();
+  }, [isAuthenticated, merchant?.slug, user?.id, refreshToken]);
 
   // Derived instead of setState-in-effect: show the spinner while auth is
   // resolving or while the first wallet fetch is in flight.
   const canFetch = isAuthenticated && Boolean(merchant?.slug);
   const loading = isAuthLoading || (canFetch && !hasFetchSettled);
 
+  // A DVA created during a payment attempt is the customer's permanent
+  // wallet account number — always display it once it exists. Only the
+  // consent/creation flow stays behind the Fund Wallet button.
+  const showFundingPanel = showFunding || Boolean(wallet?.fundingAccount);
+
   const handleFundWallet = () => {
-    // Placeholder for now as per instructions/limitations
-    alert('Wallet funding is currently being updated. Please try again later.');
+    setShowFunding((visible) => !visible);
   };
 
   const handleAddCard = () => {
@@ -106,6 +144,30 @@ export function OgabasseyV2Wallet() {
                 </div>
               </div>
             </div>
+
+            {showFundingPanel ? (
+              <WalletFundingPanel
+                account={wallet?.fundingAccount ?? null}
+                merchantSlug={merchant?.slug}
+                onAccountCreated={(account) =>
+                  setWallet((current) =>
+                    current
+                      ? {
+                          ...current,
+                          fundingAccount: account,
+                          requiresFundingAccountConsent: false,
+                        }
+                      : current
+                  )
+                }
+                onRefreshBalance={() => setRefreshToken((token) => token + 1)}
+                requiresConsent={
+                  wallet?.requiresFundingAccountConsent === true &&
+                  wallet?.walletDvaEnabled === true &&
+                  Boolean(customer?.phone?.trim())
+                }
+              />
+            ) : null}
 
             {/* Quick Actions / Info */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">

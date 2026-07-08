@@ -19,6 +19,7 @@ describe('UtilityPaymentMethodSelector', () => {
         onSelectCard={vi.fn()}
         onSelectWallet={onSelectWallet}
         selectedPaymentMethod="card"
+        showWalletRow={true}
         walletBalance={500}
         walletLoading={false}
       />
@@ -28,6 +29,23 @@ describe('UtilityPaymentMethodSelector', () => {
 
     expect(onSelectWallet).toHaveBeenCalledOnce();
     expect(screen.getByText(/500 available/i)).toBeInTheDocument();
+  });
+
+  it('marks the wallet option as recommended', () => {
+    render(
+      <UtilityPaymentMethodSelector
+        canUseWallet={true}
+        isLoading={false}
+        onSelectCard={vi.fn()}
+        onSelectWallet={vi.fn()}
+        selectedPaymentMethod="wallet"
+        showWalletRow={true}
+        walletBalance={500}
+        walletLoading={false}
+      />
+    );
+
+    expect(screen.getByText('Recommended')).toBeInTheDocument();
   });
 
   it('selects card and applies merchant theming to the selected option', async () => {
@@ -41,6 +59,7 @@ describe('UtilityPaymentMethodSelector', () => {
         onSelectCard={onSelectCard}
         onSelectWallet={vi.fn()}
         selectedPaymentMethod="card"
+        showWalletRow={true}
         walletBalance={500}
         walletLoading={false}
       />
@@ -62,6 +81,7 @@ describe('UtilityPaymentMethodSelector', () => {
         onSelectCard={vi.fn()}
         onSelectWallet={vi.fn()}
         selectedPaymentMethod="card"
+        showWalletRow={false}
         walletBalance={0}
         walletLoading={true}
       />
@@ -73,7 +93,7 @@ describe('UtilityPaymentMethodSelector', () => {
     expect(screen.getByText(/checking wallet balance/i)).toBeInTheDocument();
   });
 
-  it('does not show wallet when no wallet credit is available', () => {
+  it('shows a disabled wallet option with a funding hint at zero balance', () => {
     render(
       <UtilityPaymentMethodSelector
         canUseWallet={false}
@@ -81,6 +101,29 @@ describe('UtilityPaymentMethodSelector', () => {
         onSelectCard={vi.fn()}
         onSelectWallet={vi.fn()}
         selectedPaymentMethod="card"
+        showWalletRow={true}
+        walletBalance={0}
+        walletLoading={false}
+      />
+    );
+
+    expect(
+      screen.getByRole('radio', { name: /pay with wallet/i })
+    ).toBeDisabled();
+    expect(
+      screen.getByText(/fund your wallet to pay without card fees/i)
+    ).toBeInTheDocument();
+  });
+
+  it('does not show wallet for signed-out customers', () => {
+    render(
+      <UtilityPaymentMethodSelector
+        canUseWallet={false}
+        isLoading={false}
+        onSelectCard={vi.fn()}
+        onSelectWallet={vi.fn()}
+        selectedPaymentMethod="card"
+        showWalletRow={false}
         walletBalance={0}
         walletLoading={false}
       />
@@ -92,6 +135,53 @@ describe('UtilityPaymentMethodSelector', () => {
     expect(screen.getByRole('radio', { name: /pay with card/i })).toBeEnabled();
   });
 
+  it('invokes onFundWallet from the Pay with Bank Transfer option', async () => {
+    const user = userEvent.setup();
+    const onFundWallet = vi.fn();
+
+    render(
+      <UtilityPaymentMethodSelector
+        canUseWallet={false}
+        isLoading={false}
+        onFundWallet={onFundWallet}
+        onSelectCard={vi.fn()}
+        onSelectWallet={vi.fn()}
+        selectedPaymentMethod="card"
+        showWalletRow={true}
+        walletBalance={0}
+        walletLoading={false}
+      />
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /pay with bank transfer/i })
+    );
+
+    expect(onFundWallet).toHaveBeenCalledOnce();
+    expect(
+      screen.getByText(/1% fee, max ₦300/i)
+    ).toBeInTheDocument();
+  });
+
+  it('hides the bank-transfer option when onFundWallet is not provided', () => {
+    render(
+      <UtilityPaymentMethodSelector
+        canUseWallet={true}
+        isLoading={false}
+        onSelectCard={vi.fn()}
+        onSelectWallet={vi.fn()}
+        selectedPaymentMethod="wallet"
+        showWalletRow={true}
+        walletBalance={500}
+        walletLoading={false}
+      />
+    );
+
+    expect(
+      screen.queryByRole('button', { name: /pay with bank transfer/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('disables available methods while a checkout request is pending', () => {
     render(
       <UtilityPaymentMethodSelector
@@ -100,6 +190,7 @@ describe('UtilityPaymentMethodSelector', () => {
         onSelectCard={vi.fn()}
         onSelectWallet={vi.fn()}
         selectedPaymentMethod="wallet"
+        showWalletRow={true}
         walletBalance={500}
         walletLoading={false}
       />
@@ -122,6 +213,7 @@ describe('UtilityPaymentMethodSelector', () => {
         onSelectCard={vi.fn()}
         onSelectWallet={onSelectWallet}
         selectedPaymentMethod="card"
+        showWalletRow={true}
         walletBalance={500}
         walletLoading={false}
       />

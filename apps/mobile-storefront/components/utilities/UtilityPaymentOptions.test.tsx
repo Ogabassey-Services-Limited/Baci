@@ -5,9 +5,14 @@ import type { SavedVtuCard } from '@/lib/vtu-checkout';
 
 const mockOnSelectGateway = jest.fn();
 const mockOnSelectSavedCard = jest.fn();
+const mockRouterPush = jest.fn();
 
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: jest.fn(() => 'light'),
+}));
+
+jest.mock('expo-router', () => ({
+  router: { push: (route: unknown) => mockRouterPush(route) },
 }));
 
 // Capture the props PaymentMethodSelector receives so the wallet
@@ -124,7 +129,6 @@ describe('UtilityPaymentOptions', () => {
     expect(lastSelectorProps.current).toMatchObject({
       suppressedSelectedMethods: ['paystack'],
       methodLabelOverrides: {
-        bank_transfer: 'Pay with Bank Transfer',
         paystack: 'Use another card',
       },
     });
@@ -213,7 +217,7 @@ describe('UtilityPaymentOptions', () => {
     expect(mockOnSelectGateway).toHaveBeenCalledWith('korapay');
   });
 
-  it('shows card and bank transfer options with Paystack trust and card cashback copy', () => {
+  it('shows the card option with Paystack trust copy and no cashback marketing', () => {
     render(
       <UtilityPaymentOptions
         amount={1000}
@@ -223,18 +227,60 @@ describe('UtilityPaymentOptions', () => {
         onSelectSavedCard={mockOnSelectSavedCard}
         selectedGateway="paystack"
         selectedSavedCardId={null}
-        supportedGateways={['paystack', 'bank_transfer']}
+        supportedGateways={['paystack', 'korapay']}
       />
     );
 
     expect(screen.getByText('Pay with Card')).toBeTruthy();
-    expect(screen.getByText('Pay with Bank Transfer')).toBeTruthy();
     expect(screen.getByText(/Secured by/i)).toBeTruthy();
     expect(screen.getByText('Paystack')).toBeTruthy();
+    // Cashback is payment-method-agnostic on the backend; the old
+    // '2x cashback' card badge was unbacked marketing copy.
+    expect(screen.queryByText(/2x cashback/i)).toBeNull();
+  });
+
+  it('renders the bank-transfer nudge when eligible and the balance is short', () => {
+    render(
+      <UtilityPaymentOptions
+        amount={1000}
+        canFundByBankTransfer={true}
+        cards={[]}
+        isLoadingCards={false}
+        onSelectGateway={mockOnSelectGateway}
+        onSelectSavedCard={mockOnSelectSavedCard}
+        selectedGateway="paystack"
+        selectedSavedCardId={null}
+        supportedGateways={['paystack', 'korapay']}
+        walletBalance={200}
+        onWalletToggle={jest.fn()}
+      />
+    );
+
     expect(
-      screen.getByText('2x cashback on your first card payment')
+      screen.getByText(/transfers to your wallet account number cost 1%/i)
     ).toBeTruthy();
-    expect(screen.getByText('2x cashback')).toBeTruthy();
+  });
+
+  it('hides the bank-transfer nudge when the merchant has no wallet DVA (gated off)', () => {
+    render(
+      <UtilityPaymentOptions
+        amount={1000}
+        canFundByBankTransfer={false}
+        cards={[]}
+        isLoadingCards={false}
+        onSelectGateway={mockOnSelectGateway}
+        onSelectSavedCard={mockOnSelectSavedCard}
+        selectedGateway="paystack"
+        selectedSavedCardId={null}
+        supportedGateways={['paystack', 'korapay']}
+        walletBalance={200}
+        onWalletToggle={jest.fn()}
+      />
+    );
+
+    expect(
+      screen.queryByText(/transfers to your wallet account number/i)
+    ).toBeNull();
   });
 
   // Phase B.8 — wallet gating contract. The shared selector treats

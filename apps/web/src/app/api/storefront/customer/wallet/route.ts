@@ -45,11 +45,15 @@ function formatFundingAccount(row: WalletFundingAccountRow | null) {
 function emptyWalletResponse({
   fundingAccount = null,
   loyaltyPoints = 0,
+  requiresFundingAccountConsent,
   savingsBalance = 0,
+  walletDvaEnabled = false,
 }: {
   fundingAccount?: ReturnType<typeof formatFundingAccount>;
   loyaltyPoints?: number;
+  requiresFundingAccountConsent?: boolean;
   savingsBalance?: number;
+  walletDvaEnabled?: boolean;
 } = {}) {
   return {
     balance: 0,
@@ -57,11 +61,13 @@ function emptyWalletResponse({
     fundingAccount,
     hasWallet: false,
     loyaltyPoints,
-    requiresFundingAccountConsent: !fundingAccount,
+    requiresFundingAccountConsent:
+      requiresFundingAccountConsent ?? !fundingAccount,
     savingsBalance,
     totalEarned: 0,
     totalRedeemed: 0,
     transactions: [],
+    walletDvaEnabled,
   };
 }
 
@@ -170,6 +176,29 @@ export async function GET(request: Request) {
       );
     }
 
+    // Whether this merchant offers wallet bank-transfer (DVA) funding. Lets
+    // the client hide the "Pay with Bank Transfer" CTA when it would only
+    // route to a DVA_DISABLED dead end. Read via the SECURITY DEFINER
+    // storefront-settings RPC — a direct merchant_feature_settings SELECT is
+    // RLS-restricted to merchant staff, so it returns no row for customers.
+    const { data: storefrontPaymentSettings, error: paymentSettingsError } =
+      await supabase.rpc('get_storefront_payment_settings', {
+        p_merchant_id: merchant.id,
+      });
+    if (paymentSettingsError) {
+      // Fail soft (walletDvaEnabled stays false), but log so an RPC outage is
+      // distinguishable from a merchant genuinely having DVA disabled.
+      console.error('Customer wallet optional fetch failed', {
+        error: paymentSettingsError,
+        label: 'storefront payment settings',
+      });
+    }
+    const paymentSettingsRow = Array.isArray(storefrontPaymentSettings)
+      ? storefrontPaymentSettings[0]
+      : storefrontPaymentSettings;
+    const walletDvaEnabled =
+      paymentSettingsRow?.wallet_paystack_dva_enabled === true;
+
     // Get customer record for this user + merchant
     // Try by user_id first, then fallback to email (guest customers may not have user_id linked)
     let customer: CustomerWalletOwner | null = null;
@@ -201,8 +230,15 @@ export async function GET(request: Request) {
     }
 
     if (!customer) {
-      // Customer doesn't exist yet - return zero balance
-      return NextResponse.json(emptyWalletResponse());
+      // Customer doesn't exist yet - return zero balance. No customer row
+      // means account creation would fail ("Customer not found"), so never
+      // advertise the funding consent CTA for this response.
+      return NextResponse.json(
+        emptyWalletResponse({
+          requiresFundingAccountConsent: false,
+          walletDvaEnabled,
+        })
+      );
     }
 
     const loyaltyPoints = toNumber(customer.loyalty_points);
@@ -245,6 +281,7 @@ export async function GET(request: Request) {
           fundingAccount,
           loyaltyPoints,
           savingsBalance,
+          walletDvaEnabled,
         })
       );
     }
@@ -267,6 +304,7 @@ export async function GET(request: Request) {
       totalEarned: toNumber(wallet.total_earned),
       totalRedeemed: toNumber(wallet.total_redeemed),
       transactions: transactions || [],
+      walletDvaEnabled,
       hasWallet: true,
     });
   } catch (error) {

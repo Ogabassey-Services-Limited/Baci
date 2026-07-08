@@ -1,10 +1,19 @@
+import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import {
   WALLET_TOP_UP_MAX_AMOUNT,
   WALLET_TOP_UP_MIN_AMOUNT,
 } from '@/lib/wallet-top-up-constants';
-import { formatNgnCurrency } from '@/lib/format-ngn-currency';
-import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
-import type { WalletDisplayFundingAccount } from './wallet.types';
+import {
+  deriveWalletDisplayData,
+  normalizeRequiredFundingAccountValue,
+} from './derive-wallet-display-data';
+import {
+  ORDER_ALIAS_CONFLICT_MESSAGE_FRAGMENT,
+  WALLET_FUNDING_ACCOUNT_MESSAGES,
+} from './wallet-funding-account.constants';
+
+// Re-exported so existing importers (WalletScreen, tests) keep their path.
+export { deriveWalletDisplayData };
 
 interface CustomerLike {
   email?: string | null;
@@ -14,22 +23,6 @@ interface CustomerLike {
 
 interface UserLike {
   email?: string | null;
-}
-
-interface WalletFundingAccountLike {
-  account_name?: string | null;
-  account_number?: string | null;
-  bank_name?: string | null;
-  provider?: string | null;
-}
-
-interface WalletDataLike {
-  active_savings_goal?: WalletActiveSavingsGoal | null;
-  balance?: number | null;
-  earnings_balance?: number | null;
-  funding_account?: WalletFundingAccountLike | null;
-  savings_balance?: number | null;
-  total_balance?: number | null;
 }
 
 interface WalletTopUpResultLike {
@@ -81,17 +74,6 @@ export type WalletRedeemPointsOutcome =
       telemetryMessage: string;
     };
 
-function normalizeRequiredFundingAccountValue(
-  value: string | null | undefined
-): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const trimmedValue = value.trim();
-  return trimmedValue.length > 0 ? trimmedValue : null;
-}
-
 export async function resolveCreateFundingAccountOutcome(
   createFundingAccount: () => Promise<WalletCreateFundingAccountResultLike>
 ): Promise<WalletCreateFundingAccountOutcome> {
@@ -112,14 +94,16 @@ export async function resolveCreateFundingAccountOutcome(
 
     return { status: 'success' };
   } catch (error) {
+    const rawMessage = error instanceof Error ? error.message : null;
+    const isOrderAliasConflict = Boolean(
+      rawMessage?.includes(ORDER_ALIAS_CONFLICT_MESSAGE_FRAGMENT)
+    );
     return {
-      alertMessage:
-        error instanceof Error
-          ? error.message
-          : 'Please try again in a moment.',
+      alertMessage: isOrderAliasConflict
+        ? WALLET_FUNDING_ACCOUNT_MESSAGES.ORDER_PAYMENT_IN_PROGRESS
+        : (rawMessage ?? 'Please try again in a moment.'),
       status: 'error',
-      telemetryMessage:
-        error instanceof Error ? error.message : 'Unknown error',
+      telemetryMessage: rawMessage ?? 'Unknown error',
     };
   }
 }
@@ -284,38 +268,4 @@ export function getWalletLoadingMessage({
   }
 
   return undefined;
-}
-
-export function deriveWalletDisplayData(walletData: WalletDataLike) {
-  const earningsBalance =
-    walletData.earnings_balance ?? walletData.balance ?? 0;
-  const savingsBalance = walletData.savings_balance ?? 0;
-  const totalBalance =
-    walletData.total_balance ?? earningsBalance + savingsBalance;
-  const rawFundingAccount = walletData.funding_account;
-  const accountName = normalizeRequiredFundingAccountValue(
-    rawFundingAccount?.account_name
-  );
-  const accountNumber = normalizeRequiredFundingAccountValue(
-    rawFundingAccount?.account_number
-  );
-  const bankName = normalizeRequiredFundingAccountValue(
-    rawFundingAccount?.bank_name
-  );
-  const provider = normalizeRequiredFundingAccountValue(
-    rawFundingAccount?.provider
-  );
-  const fundingAccount: WalletDisplayFundingAccount | null =
-    accountName && accountNumber && bankName && provider
-      ? { accountName, accountNumber, bankName, provider }
-      : null;
-
-  return {
-    earningsBalance,
-    activeSavingsGoal: walletData.active_savings_goal ?? null,
-    fundingAccount,
-    savingsBalance,
-    showQuickSave: Boolean(walletData.active_savings_goal),
-    totalBalance,
-  };
 }

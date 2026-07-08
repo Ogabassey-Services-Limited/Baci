@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCookies = vi.fn();
 const mockFrom = vi.fn();
+const mockRpc = vi.fn();
 const mockGetUser = vi.fn();
 
 vi.mock('next/headers', () => ({
@@ -12,6 +13,7 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: mockGetUser },
     from: mockFrom,
+    rpc: mockRpc,
   })),
 }));
 
@@ -56,6 +58,10 @@ describe('GET /api/storefront/customer/wallet email fallback', () => {
     mockCookies.mockResolvedValue(new Map());
     mockGetUser.mockResolvedValue({
       data: { user: { email: 'jane@example.com', id: 'user-1' } },
+      error: null,
+    });
+    mockRpc.mockResolvedValue({
+      data: [{ wallet_paystack_dva_enabled: true }],
       error: null,
     });
   });

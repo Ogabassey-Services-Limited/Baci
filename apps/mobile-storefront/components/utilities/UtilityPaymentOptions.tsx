@@ -8,16 +8,16 @@ import {
 import { PaymentMethodSelector } from '@/components/checkout/PaymentMethodSelector';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import type { UtilityPaymentGateway } from '@/hooks/use-utility-payment';
 import type { SavedVtuCard } from '@/lib/vtu-checkout';
 import type { WalletSelection } from '@/lib/wallet-payment-helpers';
-import type { UtilityPaymentGateway } from '@/hooks/use-utility-payment';
 import { UtilityPaystackTrustBadge } from './UtilityPaystackTrustBadge';
-
-const CARD_CASHBACK_BADGE = '2x cashback';
-const CARD_CASHBACK_DESCRIPTION = '2x cashback on your first card payment';
+import { UtilityWalletTransferNudge } from './UtilityWalletTransferNudge';
 
 interface UtilityPaymentOptionsProps {
   amount: number;
+  /** Signed-in customer of a merchant with wallet DVAs enabled. */
+  canFundByBankTransfer?: boolean;
   cards: SavedVtuCard[];
   isLoadingCards: boolean;
   onSelectGateway: (gateway: UtilityPaymentGateway) => void;
@@ -41,6 +41,7 @@ interface UtilityPaymentOptionsProps {
 
 export function UtilityPaymentOptions({
   amount,
+  canFundByBankTransfer = false,
   cards,
   isLoadingCards,
   onSelectGateway,
@@ -61,15 +62,11 @@ export function UtilityPaymentOptions({
     Number.isFinite(walletSelection?.amount) &&
     walletSelection?.use === true &&
     walletSelection.amount >= amount;
-  const methodLabelOverrides = {
-    bank_transfer: 'Pay with Bank Transfer',
-    ...(cards.length > 0 ? { paystack: 'Use another card' } : {}),
-  };
+  const methodLabelOverrides =
+    cards.length > 0 ? { paystack: 'Use another card' } : undefined;
   const hasPaystackOption =
     cards.length > 0 ||
-    supportedGateways.some(
-      (gateway) => gateway === 'paystack' || gateway === 'bank_transfer'
-    );
+    supportedGateways.some((gateway) => gateway === 'paystack');
 
   return (
     <View style={styles.container}>
@@ -82,6 +79,16 @@ export function UtilityPaymentOptions({
           isDark={(colorScheme ?? 'light') === 'dark'}
         />
       ) : null}
+
+      <UtilityWalletTransferNudge
+        amount={amount}
+        canFundByBankTransfer={canFundByBankTransfer}
+        colors={colors}
+        hasWalletToggle={Boolean(onWalletToggle)}
+        walletBalance={walletBalance}
+        walletError={walletError}
+        walletIsLoading={walletIsLoading}
+      />
 
       {isLoadingCards ? (
         <ActivityIndicator color={BRAND.primary} style={styles.loader} />
@@ -160,11 +167,7 @@ export function UtilityPaymentOptions({
       <PaymentMethodSelector
         enabledMethods={supportedGateways}
         onSelectMethod={(method) => {
-          if (
-            method === 'paystack' ||
-            method === 'korapay' ||
-            method === 'bank_transfer'
-          ) {
+          if (method === 'paystack' || method === 'korapay') {
             onSelectGateway(method);
           }
         }}
@@ -177,12 +180,6 @@ export function UtilityPaymentOptions({
           selectedSavedCardId && !walletCoversBill ? ['paystack'] : undefined
         }
         methodLabelOverrides={methodLabelOverrides}
-        methodDescriptionOverrides={{
-          paystack: CARD_CASHBACK_DESCRIPTION,
-        }}
-        methodBadgeOverrides={{
-          paystack: CARD_CASHBACK_BADGE,
-        }}
         walletMode={onWalletToggle ? 'vtu' : 'off'}
         walletBalance={walletBalance}
         walletError={walletError}

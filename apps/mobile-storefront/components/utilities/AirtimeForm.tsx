@@ -242,6 +242,7 @@ export function AirtimeForm(props: AirtimeFormProps) {
         <View onLayout={handlePaymentLayout}>
           <UtilityPaymentOptions
             amount={numericAmount}
+            canFundByBankTransfer={payment.canFundByBankTransfer}
             cards={payment.cards}
             isLoadingCards={payment.isLoadingCards}
             onSelectGateway={payment.selectGateway}

@@ -63,6 +63,7 @@ function createValidHandler(overrides: PurchaseHandlerOverrides = {}) {
     numericAmount: 1000,
     onSuccess: jest.fn(),
     payment: {
+      canFundByBankTransfer: false,
       cards: [],
       isLoadingCards: false,
       refetchCards: jest.fn<PaymentState['refetchCards']>(),

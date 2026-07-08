@@ -1,6 +1,12 @@
 'use client';
 
-import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
+import type { StorefrontWalletFundingAccount } from '@baci/shared';
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useState,
+} from 'react';
 
 interface UseWalletOptions {
   userId: string | undefined;
@@ -13,12 +19,40 @@ interface UseWalletReturn {
   payWithWallet: boolean;
   setPayWithWallet: (v: boolean) => void;
   setWalletBalance: Dispatch<SetStateAction<number>>;
+  fundingAccount: StorefrontWalletFundingAccount | null;
+  requiresFundingAccountConsent: boolean;
+  walletDvaEnabled: boolean;
+  setFundingAccount: (account: StorefrontWalletFundingAccount | null) => void;
+  refreshWallet: () => void;
 }
 
 export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWalletReturn {
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletLoading, setWalletLoading] = useState(false);
   const [payWithWallet, setPayWithWallet] = useState(false);
+  const [fundingAccount, setFundingAccount] =
+    useState<StorefrontWalletFundingAccount | null>(null);
+  const [requiresFundingAccountConsent, setRequiresFundingAccountConsent] =
+    useState(false);
+  const [walletDvaEnabled, setWalletDvaEnabled] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  // Clear the previous identity's wallet + funding account SYNCHRONOUSLY
+  // (render-phase) when the customer or storefront changes, so consumers
+  // never read a stale account number for even one render after a switch.
+  // Keyed on identity only — a manual refresh (refreshToken bump) keeps
+  // state to avoid a zero-flash. React "adjusting state during render".
+  const identity =
+    userId && merchantSlug ? `${userId}:${merchantSlug}` : null;
+  const [fetchedIdentity, setFetchedIdentity] = useState<string | null>(null);
+  if (identity !== fetchedIdentity) {
+    setFetchedIdentity(identity);
+    setWalletBalance(0);
+    setPayWithWallet(false);
+    setFundingAccount(null);
+    setRequiresFundingAccountConsent(false);
+    setWalletDvaEnabled(false);
+  }
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -35,6 +69,11 @@ export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWallet
           const data = await response.json();
           const balance = Number(data.balance) || 0;
           setWalletBalance(balance);
+          setFundingAccount(data.fundingAccount ?? null);
+          setRequiresFundingAccountConsent(
+            data.requiresFundingAccountConsent === true
+          );
+          setWalletDvaEnabled(data.walletDvaEnabled === true);
           if (balance > 0) {
             setPayWithWallet(true);
           }
@@ -54,7 +93,21 @@ export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWallet
     fetchWalletBalance();
 
     return () => abortController.abort();
-  }, [userId, merchantSlug]);
+  }, [userId, merchantSlug, refreshToken]);
 
-  return { walletBalance, walletLoading, payWithWallet, setPayWithWallet, setWalletBalance };
+  return {
+    walletBalance,
+    walletLoading,
+    payWithWallet,
+    setPayWithWallet,
+    setWalletBalance,
+    fundingAccount,
+    requiresFundingAccountConsent,
+    walletDvaEnabled,
+    setFundingAccount: (account) => {
+      setFundingAccount(account);
+      setRequiresFundingAccountConsent(!account);
+    },
+    refreshWallet: () => setRefreshToken((token) => token + 1),
+  };
 }
