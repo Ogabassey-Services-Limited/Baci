@@ -49,6 +49,13 @@ export const routes = {
   /** Repair Booking: /{slug}/repair */
   storefrontRepair: (slug: string) => `/${slug}/repair` as Route,
 
+  /** Repairs catalogue landing: /{slug}/repairs */
+  storefrontRepairs: (slug: string) => `/${slug}/repairs` as Route,
+
+  /** Repairs device detail: /{slug}/repairs/{deviceSlug} */
+  storefrontRepairDevice: (slug: string, deviceSlug: string) =>
+    `/${slug}/repairs/${deviceSlug}` as Route,
+
   // ============================================================
   // Dashboard Routes (authenticated merchant admin)
   // ============================================================
