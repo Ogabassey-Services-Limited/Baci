@@ -160,7 +160,13 @@ function warnFailOpen(context: StorefrontInternalPreflightContext) {
  * garbage, not an incident: log it bounded, never capture an exception.
  */
 function warnSkip(context: StorefrontInternalPreflightSkipContext) {
-  console.warn('[storefront-internal-preflight] skip', {
+  const log =
+    context.reason === UNKNOWN_STOREFRONT_FAIL_OPEN_REASON ||
+    context.reason === 'circuit-open'
+      ? console.warn
+      : console.info;
+
+  log('[storefront-internal-preflight] skip', {
     ...context,
     identifier: truncateSlugForDiagnostics(context.identifier),
     slug: truncateSlugForDiagnostics(context.slug),

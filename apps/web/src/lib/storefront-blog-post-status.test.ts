@@ -47,6 +47,7 @@ describe('resolveStorefrontBlogPostStatus', () => {
     // preview gate by default; delete defensively in case another suite left
     // it stubbed.
     delete process.env.VERCEL_ENV;
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
@@ -69,7 +70,7 @@ describe('resolveStorefrontBlogPostStatus', () => {
 
     expect(result).toEqual({ kind: 'present-or-unknown' });
     expect(rpcImpl).not.toHaveBeenCalled();
-    expect(console.warn).toHaveBeenCalledWith(
+    expect(console.info).toHaveBeenCalledWith(
       '[storefront-internal-preflight] skip',
       expect.objectContaining({
         surface: 'blog-post-status',

@@ -20,6 +20,7 @@ describe('resolveStorefrontBlogListingStatus', () => {
     // VERCEL_ENV is normally unset in vitest, which passes the transport's
     // preview gate; delete defensively in case another suite left it stubbed.
     delete process.env.VERCEL_ENV;
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
@@ -43,7 +44,7 @@ describe('resolveStorefrontBlogListingStatus', () => {
 
     expect(result).toEqual({ kind: 'noop' });
     expect(rpcImpl).not.toHaveBeenCalled();
-    expect(console.warn).toHaveBeenCalledWith(
+    expect(console.info).toHaveBeenCalledWith(
       '[storefront-internal-preflight] skip',
       expect.objectContaining({
         surface: 'blog-listing-status',

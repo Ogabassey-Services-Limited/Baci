@@ -175,6 +175,11 @@ describe('cached-data product query projections', () => {
       'products-merchant-123',
       getProductScopedCacheTag('product', 'merchant-123', 'iphone-16')
     );
+    expect(cacheTag).toHaveBeenCalledWith(
+      'products',
+      'product-variants',
+      'products-merchant-123'
+    );
     expect(result?.product_variants).toEqual([
       expect.objectContaining({
         attributes: { storage: '128GB' },
@@ -386,6 +391,11 @@ describe('cached-data product query projections', () => {
     expect(harness.mockQueryExecution.mock.invocationCallOrder[0]).toBeLessThan(
       harness.mockRpc.mock.invocationCallOrder[0]
     );
+    expect(cacheTag).toHaveBeenCalledWith(
+      'products',
+      'product-variants',
+      'products-merchant-123'
+    );
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).not.toMatch(standaloneCurrencyColumnPattern);
     expect(selectArg).not.toMatch(standaloneQuantityColumnPattern);
@@ -558,15 +568,14 @@ describe('cached-data product query projections', () => {
     );
   });
 
-  it('getCachedProducts falls back to empty variants when the public RPC fails', async () => {
+  it('getCachedProducts throws when the public variant RPC fails to avoid caching empty variants', async () => {
     harness.mockListResult.data = productList;
     harness.mockListResult.error = null;
     harness.mockRpc.mockResolvedValueOnce(rpcFailure);
 
-    await expect(getCachedProducts('merchant-123')).resolves.toEqual([
-      expect.objectContaining({ id: 'product-123', product_variants: [] }),
-      expect.objectContaining({ id: 'product-456', product_variants: [] }),
-    ]);
+    await expect(getCachedProducts('merchant-123')).rejects.toEqual(
+      rpcFailure.error
+    );
     expect(harness.mockRpc).toHaveBeenCalledWith(
       'get_storefront_product_variants',
       {
@@ -654,13 +663,13 @@ describe('cached-data product query projections', () => {
     );
   });
 
-  it('getCachedProduct falls back to empty variants when the public RPC fails', async () => {
+  it('getCachedProduct throws when the public variant RPC fails to avoid caching empty variants', async () => {
     harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
     harness.mockRpc.mockResolvedValueOnce(rpcFailure);
 
-    const result = await getCachedProduct('merchant-123', 'iphone-16');
-
-    expect(result?.product_variants).toEqual([]);
+    await expect(getCachedProduct('merchant-123', 'iphone-16')).rejects.toEqual(
+      rpcFailure.error
+    );
     expect(harness.mockRpc).toHaveBeenCalledWith(
       'get_storefront_product_variants',
       {
@@ -718,16 +727,13 @@ describe('cached-data product query projections', () => {
     );
   });
 
-  it('getCachedProductWithDetails falls back to empty variants when the public RPC fails', async () => {
+  it('getCachedProductWithDetails throws when the public variant RPC fails to avoid caching empty variants', async () => {
     harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
     harness.mockRpc.mockResolvedValueOnce(rpcFailure);
 
-    const result = await getCachedProductWithDetails(
-      'merchant-123',
-      'iphone-16'
-    );
-
-    expect(result?.product_variants).toEqual([]);
+    await expect(
+      getCachedProductWithDetails('merchant-123', 'iphone-16')
+    ).rejects.toEqual(rpcFailure.error);
     expect(harness.mockRpc).toHaveBeenCalledWith(
       'get_storefront_product_variants',
       {

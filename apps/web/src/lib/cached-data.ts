@@ -503,7 +503,14 @@ function withLegacyPriceFields<T extends LegacyPriceCompatibleProduct>(
   };
 }
 
-async function getPublicProductVariantsByProductIds(productIds: string[]) {
+async function getCachedPublicProductVariantsByProductIds(
+  merchantId: string,
+  productIds: string[]
+) {
+  'use cache';
+  cacheLife('products');
+  cacheTag('products', 'product-variants', `products-${merchantId}`);
+
   const uniqueProductIds = Array.from(
     new Set(productIds.filter((id): id is string => Boolean(id)))
   );
@@ -521,8 +528,7 @@ async function getPublicProductVariantsByProductIds(productIds: string[]) {
   );
 
   if (error) {
-    console.error('Error fetching storefront product variants:', error);
-    return {} as Record<string, PublicStorefrontProductVariant[]>;
+    throw error;
   }
 
   const variantsByProductId: Record<string, PublicStorefrontProductVariant[]> =
@@ -537,6 +543,16 @@ async function getPublicProductVariantsByProductIds(productIds: string[]) {
   }
 
   return variantsByProductId;
+}
+
+async function getPublicProductVariantsByProductIds(
+  merchantId: string,
+  productIds: string[]
+) {
+  return await getCachedPublicProductVariantsByProductIds(
+    merchantId,
+    productIds
+  );
 }
 
 // Type for merchant data with optional custom_domain
@@ -800,6 +816,47 @@ function redactUnpublishedMerchantContactFields<
   return merchant;
 }
 
+interface ResolvedStorefrontCachedMerchantRow {
+  custom_domain?: string | null;
+  feature_settings?: MerchantFeatureSettings | null;
+  merchant_data?: Partial<CachedMerchant> | null;
+}
+
+function firstResolvedStorefrontCachedMerchantRow(
+  data: unknown
+): ResolvedStorefrontCachedMerchantRow | null {
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== 'object') return null;
+
+  return row as ResolvedStorefrontCachedMerchantRow;
+}
+
+function normalizeResolvedStorefrontCachedMerchantRow(
+  row: ResolvedStorefrontCachedMerchantRow
+): CachedMerchant | null {
+  if (!row.merchant_data || typeof row.merchant_data !== 'object') {
+    return null;
+  }
+
+  const merchant = row.merchant_data as CachedMerchant;
+  redactUnpublishedMerchantContactFields(merchant);
+
+  const featureSettings =
+    row.feature_settings && typeof row.feature_settings === 'object'
+      ? row.feature_settings
+      : (merchantFeatureSettingsDefaults.buildPublicDefault(
+          merchant.id
+        ) as MerchantFeatureSettings);
+
+  return {
+    ...normalizeCachedMerchantEntity({
+      ...merchant,
+      custom_domain: row.custom_domain ?? undefined,
+    }),
+    feature_settings: featureSettings,
+  };
+}
+
 /**
  * Cached merchant data by slug.
  * Keep this hot storefront shell lookup in the local Cache Components cache.
@@ -905,77 +962,43 @@ export async function getCachedMerchantByDomain(
   // Use Service Role to allow lookup of unpublished merchants (for "Coming Soon" page).
   const supabase = getServiceRoleSupabaseClient();
 
-  // First, find the merchant_id from the domains table
-  const { data: domainData, error: domainError } = await supabase
-    .from('domains')
-    .select('merchant_id, domain')
-    .eq('domain', normalizedDomain)
-    .eq('status', 'active')
-    .maybeSingle();
+  const { data: resolvedData, error: resolveError } = await supabase.rpc(
+    'resolve_storefront_cached_merchant',
+    {
+      p_identifier: normalizedDomain,
+    }
+  );
 
-  if (domainError) {
-    const log = isTransientMerchantLookupError(domainError)
+  if (resolveError) {
+    const log = isTransientMerchantLookupError(resolveError)
       ? console.warn
       : console.error;
-    log('Error fetching domain', {
+    log('Error resolving merchant for domain', {
       domain: normalizedDomain,
-      error: domainError,
+      error: resolveError,
     });
-    // Throw on DB error to prevent negative caching
     throw createMerchantLookupError(
-      `Database error fetching domain: ${normalizedDomain}`,
-      domainError
+      `Database error resolving merchant for domain: ${normalizedDomain}`,
+      resolveError
     );
   }
 
-  if (!domainData) {
+  const resolvedMerchant = normalizeResolvedStorefrontCachedMerchantRow(
+    firstResolvedStorefrontCachedMerchantRow(resolvedData) ?? {}
+  );
+
+  if (!resolvedMerchant) {
     console.warn('No domain mapping found for:', normalizedDomain);
     return null;
   }
 
-  // Now fetch the merchant using the merchant_id
-  const { data, error } = await supabase
-    .from('merchants')
-    .select(MERCHANT_PUBLIC_SELECT)
-    .eq('id', domainData.merchant_id)
-    .single();
-
-  if (error) {
-    const log = isTransientMerchantLookupError(error)
-      ? console.warn
-      : console.error;
-    log('Error fetching merchant for domain', {
-      domain: normalizedDomain,
-      error: error,
-    });
-    throw createMerchantLookupError(
-      `Failed to fetch merchant for domain: ${normalizedDomain}`,
-      error
-    );
-  }
-
-  const normalizedSettings = await getCachedFeatureSettings(data.id);
-
   console.log('Successfully fetched merchant by domain', {
     domain: normalizedDomain,
-    slug: data.slug,
-    merchantId: data.id,
+    slug: resolvedMerchant.slug,
+    merchantId: resolvedMerchant.id,
   });
 
-  // SECURITY: If the store is NOT published, mask sensitive contact info.
-  // This allows the "Coming Soon" page to render the business name/logo
-  // without leaking the owner's private phone/email/address to the public.
-  redactUnpublishedMerchantContactFields(data);
-
-  // Return with the custom_domain set
-  const result: CachedMerchant = {
-    ...normalizeCachedMerchantEntity({
-      ...data,
-      custom_domain: domainData.domain,
-    }),
-    feature_settings: normalizedSettings ?? undefined,
-  };
-  return result;
+  return resolvedMerchant;
 }
 
 const TRANSIENT_MERCHANT_LOOKUP_ERROR = Symbol('transient-merchant-lookup');
@@ -1441,6 +1464,7 @@ export async function getCachedProducts(
     options?.includeVariants === false
       ? {}
       : await getPublicProductVariantsByProductIds(
+          merchantId,
           products.map((product) => product.id)
         );
 
@@ -1618,9 +1642,10 @@ export async function getCachedProductLcpHint(
     return product;
   }
 
-  const variantsByProductId = await getPublicProductVariantsByProductIds([
-    product.id,
-  ]);
+  const variantsByProductId = await getPublicProductVariantsByProductIds(
+    merchantId,
+    [product.id]
+  );
   const rawProduct = {
     ...product,
     product_variants: variantsByProductId[product.id] || [],
@@ -1725,9 +1750,10 @@ export async function getCachedProduct(
   }
 
   const product = withLegacyPriceFields(data);
-  const variantsByProductId = await getPublicProductVariantsByProductIds([
-    product.id,
-  ]);
+  const variantsByProductId = await getPublicProductVariantsByProductIds(
+    merchantId,
+    [product.id]
+  );
 
   const rawProduct = {
     ...product,
@@ -1854,9 +1880,10 @@ export async function getCachedProductWithDetails(
     return null;
   }
 
-  const variantsByProductId = await getPublicProductVariantsByProductIds([
-    data.id,
-  ]);
+  const variantsByProductId = await getPublicProductVariantsByProductIds(
+    merchantId,
+    [data.id]
+  );
 
   const rawProduct = {
     ...data,
@@ -2279,7 +2306,13 @@ async function getCachedCategoryPageShellData(
 ): Promise<CachedCategoryPageShellData> {
   'use cache: remote';
   cacheLife('storefront-page');
-  cacheTag('category-page-data', 'products', 'categories');
+  cacheTag(
+    'category-page-data',
+    'products',
+    'categories',
+    `products-${merchantId}`,
+    `categories-${merchantId}`
+  );
 
   if (isSpecialCollectionSlug(categorySlug)) {
     const collection = getSpecialCollectionCopy(categorySlug);
@@ -2423,7 +2456,13 @@ async function getCachedCategoryPageProductIds({
 }): Promise<CachedCategoryPageProductIdsResult> {
   'use cache: remote';
   cacheLife('storefront-page');
-  cacheTag('category-page-data', 'products', 'categories');
+  cacheTag(
+    'category-page-data',
+    'products',
+    'categories',
+    `products-${merchantId}`,
+    `categories-${merchantId}`
+  );
 
   if (scope.kind === 'none') {
     return { productIds: [], productsQueryFailed: false };
@@ -2520,12 +2559,12 @@ async function getCachedCategoryPageProductIds({
 /**
  * Direct product detail fetch for an ordered ID slice.
  *
- * This is deliberately not a remote cached function. Rich category-card
+ * This is deliberately local-cached, not remote-cached. Rich category-card
  * payloads include descriptions, images, and key specs, so writing them to
  * Vercel's remote cache can still trip per-item byte limits. The shared remote
- * ID list carries membership/order; detail rows are bounded, live reads.
+ * ID list carries membership/order; detail rows are bounded by stable ID slices.
  */
-async function getCategoryPageProductDetailsChunk({
+async function getCachedCategoryPageProductDetailsChunk({
   categoryIds,
   merchantId,
   productIds,
@@ -2534,6 +2573,16 @@ async function getCategoryPageProductDetailsChunk({
   merchantId: string;
   productIds: string[];
 }): Promise<CategoryPageProductDetailsResult> {
+  'use cache';
+  cacheLife('products');
+  cacheTag(
+    'category-page-data',
+    'products',
+    'categories',
+    `products-${merchantId}`,
+    `categories-${merchantId}`
+  );
+
   if (productIds.length === 0) {
     return {
       missingProductCount: 0,
@@ -2558,12 +2607,7 @@ async function getCategoryPageProductDetailsChunk({
   const { data, error } = await query;
 
   if (error) {
-    console.error('Product detail query error:', error);
-    return {
-      missingProductCount: 0,
-      productSlots: productIds.map(() => null),
-      productsQueryFailed: true,
-    };
+    throw error;
   }
 
   const productsById = new Map(
@@ -2585,6 +2629,31 @@ async function getCategoryPageProductDetailsChunk({
     ),
     productsQueryFailed: false,
   };
+}
+
+async function getCategoryPageProductDetailsChunk({
+  categoryIds,
+  merchantId,
+  productIds,
+}: {
+  categoryIds?: string[];
+  merchantId: string;
+  productIds: string[];
+}): Promise<CategoryPageProductDetailsResult> {
+  try {
+    return await getCachedCategoryPageProductDetailsChunk({
+      categoryIds,
+      merchantId,
+      productIds,
+    });
+  } catch (error) {
+    console.error('Product detail query error:', error);
+    return {
+      missingProductCount: 0,
+      productSlots: productIds.map(() => null),
+      productsQueryFailed: true,
+    };
+  }
 }
 
 async function mapWithConcurrency<T, R>(
@@ -3604,9 +3673,10 @@ const STOREFRONT_HOME_PRODUCT_RELATION_CATEGORY_SELECT = `
   `;
 
 /**
- * Cached launch-carousel candidate window ordered by creation time, not edits.
- * OgaBassey uses this for the product-driven hero so an old product update can
- * never eject a genuinely new launch before the carousel pin/cap logic runs.
+ * Remote-cached launch-carousel candidate window ordered by creation time, not
+ * edits. OgaBassey uses this for the product-driven hero so an old product
+ * update can never eject a genuinely new launch before the carousel pin/cap
+ * logic runs, while product mutations stay shared across Vercel instances.
  */
 export async function getCachedStorefrontLaunchProducts(
   merchantId: string
@@ -3641,9 +3711,10 @@ export async function getCachedStorefrontLaunchProducts(
 }
 
 /**
- * Cached storefront homepage products.
+ * Remote-cached storefront homepage products.
  * Uses the products cacheLife profile plus shared and sort-specific product
- * tags so revalidateProducts() can bust every home-product ordering.
+ * tags so revalidateProducts() can bust every home-product ordering across
+ * Vercel instances.
  */
 export async function getCachedStorefrontHomeProducts(
   merchantId: string,
@@ -3729,9 +3800,9 @@ export async function getCachedStorefrontHomeProducts(
       .order('price', { ascending: false })
       .limit(STOREFRONT_HOME_PRODUCT_LIMIT);
 
-    // Keep these awaits sequential instead of Promise.all: this path is remote
-    // cached, and a cold cache miss should not spend four PostgREST/Postgres
-    // connections at once for one homepage request.
+    // Keep these awaits sequential instead of Promise.all: a cold shared-cache
+    // miss should not spend four PostgREST/Postgres connections at once for
+    // one homepage request.
     const { data: phoneCandidates, error: phoneCandidatesError } =
       await phoneCandidatesQuery;
     if (phoneCandidatesError) {

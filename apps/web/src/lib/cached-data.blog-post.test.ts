@@ -109,15 +109,6 @@ function setupBlogPostFetch({
   publishedPost,
   relatedPostsResult,
 }: BlogPostFetchMocks) {
-  const domainLookupBuilder = createQueryBuilder({
-    singleResult: {
-      data: { merchant_id: 'merchant-1', domain: 'ogabassey.com' },
-      error: null,
-    },
-  });
-  const merchantLookupBuilder = createQueryBuilder({
-    singleResult: { data: merchantRow, error: null },
-  });
   const featureSettingsBuilder = createQueryBuilder({
     singleResult: { data: { blog_enabled: true }, error: null },
   });
@@ -135,15 +126,27 @@ function setupBlogPostFetch({
   });
   const relatedProductsBuilder = createQueryBuilder({});
 
+  // Merchant-by-domain resolution now happens in a single service-role RPC
+  // (resolve_storefront_cached_merchant) instead of serial domains + merchants
+  // reads.
+  const serviceRpc = vi.fn((fnName: string) => {
+    if (fnName === 'resolve_storefront_cached_merchant') {
+      return Promise.resolve({
+        data: [
+          {
+            custom_domain: 'ogabassey.com',
+            feature_settings: merchantRow.feature_settings ?? null,
+            merchant_data: merchantRow,
+          },
+        ],
+        error: null,
+      });
+    }
+
+    throw new Error(`Unexpected service RPC: ${fnName}`);
+  });
+
   const serviceFrom = vi.fn((table: string) => {
-    if (table === 'domains') {
-      return { select: vi.fn(() => domainLookupBuilder) };
-    }
-
-    if (table === 'merchants') {
-      return { select: vi.fn(() => merchantLookupBuilder) };
-    }
-
     if (table === 'merchant_feature_settings') {
       return { select: vi.fn(() => featureSettingsBuilder) };
     }
@@ -187,7 +190,7 @@ function setupBlogPostFetch({
   mockCreateClient.mockImplementation(
     (_url: string, key: string, _options?: unknown) => {
       if (key === 'test-service-role-key') {
-        return { from: serviceFrom };
+        return { from: serviceFrom, rpc: serviceRpc };
       }
 
       if (key === 'test-anon-key') {

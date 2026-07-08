@@ -65,13 +65,13 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
     });
 
     it('throws error when domain lookup fails', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
+      harness.mockRpc.mockResolvedValueOnce({
         data: null,
         error: { message: 'Database error', code: 'DB_ERROR' },
       });
 
       await expect(getMerchantByIdentifier('store.com')).rejects.toThrow(
-        'Database error fetching domain: store.com'
+        'Database error resolving merchant for domain: store.com'
       );
     });
 
@@ -79,26 +79,26 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
       const consoleWarnSpy = vi
         .spyOn(console, 'warn')
         .mockImplementation(() => undefined);
-      harness.mockMaybeSingle.mockResolvedValueOnce({
+      const resolveError = {
+        message: 'TimeoutError: The operation was aborted due to timeout',
+        details:
+          'TimeoutError: The operation was aborted due to timeout at undici',
+      };
+      harness.mockRpc.mockResolvedValueOnce({
         data: null,
-        error: {
-          message: 'TimeoutError: The operation was aborted due to timeout',
-          details:
-            'TimeoutError: The operation was aborted due to timeout at undici',
-        },
+        error: resolveError,
       });
 
       await expect(getMerchantByIdentifier('store.com')).rejects.toThrow(
-        'Database error fetching domain: store.com'
+        'Database error resolving merchant for domain: store.com'
       );
-      expect(consoleWarnSpy).toHaveBeenCalledWith('Error fetching domain', {
-        domain: 'store.com',
-        error: {
-          message: 'TimeoutError: The operation was aborted due to timeout',
-          details:
-            'TimeoutError: The operation was aborted due to timeout at undici',
-        },
-      });
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Error resolving merchant for domain',
+        {
+          domain: 'store.com',
+          error: resolveError,
+        }
+      );
     });
 
     it('returns null when merchant not found by slug', async () => {
@@ -113,8 +113,8 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
     });
 
     it('returns null when domain not found', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: null,
+      harness.mockRpc.mockResolvedValueOnce({
+        data: [],
         error: null,
       });
 
@@ -154,12 +154,14 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
 
     it('redacts contact info when store is not published (domain lookup)', async () => {
       const unpublishedMerchant = { ...mockMerchant, is_published: false };
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: { merchant_id: 'merchant-123', domain: 'store.com' },
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: unpublishedMerchant,
+      harness.mockRpc.mockResolvedValueOnce({
+        data: [
+          {
+            custom_domain: 'store.com',
+            feature_settings: null,
+            merchant_data: { ...unpublishedMerchant },
+          },
+        ],
         error: null,
       });
 
@@ -239,15 +241,17 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
     });
 
     it('preserves paystack_subaccount_code for domain lookups', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: { merchant_id: 'merchant-123', domain: 'store.com' },
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: {
-          ...mockMerchant,
-          paystack_subaccount_code: 'ACCT_domain_456',
-        },
+      harness.mockRpc.mockResolvedValueOnce({
+        data: [
+          {
+            custom_domain: 'store.com',
+            feature_settings: null,
+            merchant_data: {
+              ...mockMerchant,
+              paystack_subaccount_code: 'ACCT_domain_456',
+            },
+          },
+        ],
         error: null,
       });
 
@@ -256,25 +260,32 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
       expect(result?.paystack_subaccount_code).toBe('ACCT_domain_456');
     });
 
+    // The public projection now lives server-side in the
+    // resolve_storefront_cached_merchant RPC (asserted by the migration
+    // suite), so a domain lookup routes through the resolver instead of
+    // issuing a client-side merchants select.
     it('selects paystack_subaccount_code for domain lookups', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: { merchant_id: 'merchant-123', domain: 'store.com' },
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: mockMerchant,
+      harness.mockRpc.mockResolvedValueOnce({
+        data: [
+          {
+            custom_domain: 'store.com',
+            feature_settings: null,
+            merchant_data: {
+              ...mockMerchant,
+              paystack_subaccount_code: 'ACCT_domain_456',
+            },
+          },
+        ],
         error: null,
       });
 
-      await getMerchantByIdentifier('store.com');
+      const result = await getMerchantByIdentifier('store.com');
 
-      expect(
-        harness.mockSelect.mock.calls.some(
-          ([projection]) =>
-            typeof projection === 'string' &&
-            projection.includes('paystack_subaccount_code')
-        )
-      ).toBe(true);
+      expect(harness.mockRpc).toHaveBeenCalledWith(
+        'resolve_storefront_cached_merchant',
+        { p_identifier: 'store.com' }
+      );
+      expect(result?.paystack_subaccount_code).toBe('ACCT_domain_456');
     });
 
     it('selects published_config for slug lookups', async () => {
@@ -298,25 +309,32 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
       ).toBe(true);
     });
 
+    // published_config is projected server-side by the
+    // resolve_storefront_cached_merchant RPC, so assert it survives the
+    // resolver round-trip for a domain lookup rather than inspecting a
+    // client-side select projection.
     it('selects published_config for domain lookups', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: { merchant_id: 'merchant-123', domain: 'store.com' },
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: mockMerchant,
+      harness.mockRpc.mockResolvedValueOnce({
+        data: [
+          {
+            custom_domain: 'store.com',
+            feature_settings: null,
+            merchant_data: {
+              ...mockMerchant,
+              published_config: { theme: 'dark' },
+            },
+          },
+        ],
         error: null,
       });
 
-      await getMerchantByIdentifier('store.com');
+      const result = await getMerchantByIdentifier('store.com');
 
-      expect(
-        harness.mockSelect.mock.calls.some(
-          ([projection]) =>
-            typeof projection === 'string' &&
-            projection.includes('published_config')
-        )
-      ).toBe(true);
+      expect(harness.mockRpc).toHaveBeenCalledWith(
+        'resolve_storefront_cached_merchant',
+        { p_identifier: 'store.com' }
+      );
+      expect(result?.published_config).toEqual({ theme: 'dark' });
     });
 
     it('uses an allowlisted public-safe feature-settings projection for merchant lookups', async () => {
