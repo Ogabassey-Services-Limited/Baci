@@ -37,6 +37,7 @@ import { fetchWithCsrf } from '@/lib/api-client';
 import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { formatCurrencyCompact, getCurrencyCode } from '@/lib/currency';
 import { cn } from '@/lib/utils';
+import { PaypalProviderCard } from './components/paypal-provider-card';
 import { VirtualTerminalSettings } from './components/virtual-terminal-settings';
 
 interface PaymentGatewaySettings {
@@ -500,6 +501,9 @@ export default function PaymentSettingsPage() {
 
       {/* Virtual Terminal Section */}
       <VirtualTerminalSettings businessName={merchant?.business_name} />
+
+      {/* PayPal BYOK Connection Card */}
+      <PaypalProviderCard />
 
       {/* Credit Direct BNPL Card */}
       <Card>

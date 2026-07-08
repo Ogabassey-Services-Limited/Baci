@@ -52,6 +52,10 @@ vi.mock('./components/virtual-terminal-settings', () => ({
   ),
 }));
 
+vi.mock('./components/paypal-provider-card', () => ({
+  PaypalProviderCard: () => <div data-testid="paypal-provider-card" />,
+}));
+
 import { fetchWithCsrf } from '@/lib/api-client';
 import PaymentSettingsPage from './page';
 
