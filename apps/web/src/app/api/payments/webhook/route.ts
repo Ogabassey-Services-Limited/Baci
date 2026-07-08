@@ -1874,12 +1874,23 @@ export async function POST(request: NextRequest) {
               });
               // Payment succeeded but registration failed: release the claim
               // so the dashboard callback (or a later retry) can fulfill.
-              await releaseDomainFulfillmentClaim(supabase, {
+              const released = await releaseDomainFulfillmentClaim(supabase, {
                 transactionId: transaction.id,
                 metadata,
                 claimant: 'webhook',
                 claimedAt: claimOutcome.claimedAt,
               });
+              if (!released) {
+                // The attempt marker still blocks every automatic retry — a
+                // silently failed release strands this paid purchase.
+                logger.error({
+                  message:
+                    'Domain fulfillment claim release failed after registrar failure — claim retained, manual reconciliation required',
+                  reference,
+                  transactionId: transaction.id,
+                  domain: normalizedDomain,
+                });
+              }
             }
           }
         }

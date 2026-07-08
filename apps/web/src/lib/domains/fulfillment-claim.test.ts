@@ -178,4 +178,18 @@ describe('releaseDomainFulfillmentClaim', () => {
     // snapshot predates registration and would erase domain_purchased.
     expect(chain.is).toHaveBeenCalledWith('metadata->>domain_purchased', null);
   });
+
+  it('returns false when the release write fails so callers can surface the stranded claim', async () => {
+    const { supabase } = createSupabase({
+      data: null,
+      error: { message: 'network' },
+    });
+
+    const released = await releaseDomainFulfillmentClaim(supabase, {
+      ...input,
+      claimedAt: '2026-07-08T00:00:00.000Z',
+    });
+
+    expect(released).toBe(false);
+  });
 });

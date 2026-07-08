@@ -477,7 +477,18 @@ export async function POST(request: NextRequest) {
         );
         // Registration failed: release the claim so the webhook (or a retry)
         // can attempt fulfillment for this paid transaction.
-        await releaseDomainFulfillmentClaim(adminSupabase, claimRelease);
+        const released = await releaseDomainFulfillmentClaim(
+          adminSupabase,
+          claimRelease
+        );
+        if (!released) {
+          // The attempt marker still blocks every automatic retry — a
+          // silently failed release strands this paid purchase.
+          console.error(
+            'Domain fulfillment claim release failed after registrar failure — claim retained, manual reconciliation required:',
+            { transactionId: payment.id, domain }
+          );
+        }
         return NextResponse.json(
           {
             error: 'Failed to register domain with Go54',

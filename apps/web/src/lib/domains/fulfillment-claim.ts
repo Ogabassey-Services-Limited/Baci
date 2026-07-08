@@ -128,6 +128,12 @@ export async function markRegistrarAttempted(
  * registrar was contacted, or after it returned an explicit failure. For
  * ambiguous outcomes (exceptions/timeouts mid-call) the claim must be left in
  * place and reconciled manually.
+ *
+ * Returns false when the release WRITE failed. Callers releasing after a
+ * definitive registrar failure must surface that loudly: the row still
+ * carries the attempt marker, which blocks every automatic retry, so a
+ * silently failed release strands the paid purchase until manual
+ * reconciliation.
  */
 export async function releaseDomainFulfillmentClaim(
   supabase: SupabaseClient,
@@ -137,7 +143,7 @@ export async function releaseDomainFulfillmentClaim(
     claimant,
     claimedAt,
   }: DomainFulfillmentClaimInput & { claimedAt: string }
-): Promise<void> {
+): Promise<boolean> {
   const released: Record<string, unknown> = { ...metadata };
   delete released.fulfillment_claimed_by;
   delete released.fulfillment_claimed_at;
@@ -159,7 +165,9 @@ export async function releaseDomainFulfillmentClaim(
     .maybeSingle();
 
   if (error) {
-    // Non-fatal: the stale-claim window lets the other path retry eventually.
     console.error('Failed to release domain fulfillment claim:', error);
+    return false;
   }
+
+  return true;
 }
