@@ -102,6 +102,15 @@ function getOrCreateDistinctId(projectToken: string): string {
     return distinctId;
   }
   if (deviceId) {
+    // Backfill: the SDK record has a $device_id but no distinct_id yet (e.g.
+    // posthog-js was loaded but never captured an event on this origin). Seed
+    // distinct_id = deviceId so a later boot adopts THIS id instead of
+    // minting a fresh distinct_id, mirroring capturePublicBlogPageview's
+    // getExistingSdkDistinctId. Best-effort: seedSdkDistinctId already
+    // swallows storage errors, and the deviceId itself remains readable from
+    // persistence on the next call either way, so no in-memory fallback is
+    // needed here (unlike the generated-id branch below).
+    seedSdkDistinctId(projectToken, deviceId);
     return deviceId;
   }
 
