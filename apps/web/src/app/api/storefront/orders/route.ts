@@ -128,6 +128,8 @@ export async function GET(request: NextRequest) {
           id,
           name,
           product_id,
+          condition,
+          variant_name,
           image_url,
           condition,
           variant_name,

@@ -398,6 +398,40 @@ describe('orderCreateSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects mismatched variant name aliases', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      items: [
+        {
+          ...validOrder.items[0],
+          variantName: '512GB',
+          variant_name: '1TB',
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts matching sanitized variant name aliases', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      items: [
+        {
+          ...validOrder.items[0],
+          variantName: '  <strong>512GB</strong>  ',
+          variant_name: '512GB',
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items[0].variantName).toBe('512GB');
+      expect(result.data.items[0].variant_name).toBe('512GB');
+    }
+  });
+
   it('accepts matching voucher token aliases', () => {
     const result = orderCreateSchema.safeParse({
       ...validOrder,

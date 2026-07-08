@@ -47,7 +47,13 @@ const richOrder: RichPaidOrder = {
   id: 'order-1',
   merchant_id: 'merchant-1',
   order_items: [
-    { name: 'iPhone', price: '20000', quantity: 1, variant_name: 'Black' },
+    {
+      condition: 'open_box',
+      name: 'iPhone',
+      price: '20000',
+      quantity: 1,
+      variant_name: 'Black',
+    },
   ],
   order_number: 'BAC-1',
   payment_status: 'paid',
@@ -89,7 +95,9 @@ describe('buildEmailExecutor', () => {
     expect(result).toEqual({ messageId: 'msg-1' });
     expect(mocks.generateOrderConfirmationEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        items: [{ name: 'iPhone (Black)', price: 20_000, quantity: 1 }],
+        items: [
+          { name: 'iPhone (Open Box / Black)', price: 20_000, quantity: 1 },
+        ],
         merchantUrl: 'https://ogabassey.usebaci.test',
         orderNumber: 'BAC-1',
       })

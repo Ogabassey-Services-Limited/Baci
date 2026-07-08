@@ -115,8 +115,10 @@ export function mapCartItemsToOrderItems(
       name: item.name,
       quantity: item.quantity,
       price: effectivePrice,
+      condition: item.condition,
       image_url: item.image_url,
       variant_id: item.variant_id,
+      variant_name: item.variant_name,
       variant_attributes: item.variant_attributes,
       has_assurance: item.hasAssurance || false,
       assurance_fee: item.hasAssurance

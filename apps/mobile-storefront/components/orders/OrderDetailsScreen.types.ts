@@ -5,6 +5,8 @@ export interface OrderItem {
   product_slug: string;
   quantity: number;
   price: number;
+  condition?: string | null;
+  variant_name?: string | null;
   image_url?: string;
   has_assurance?: boolean;
   assurance_fee?: number;
@@ -42,6 +44,8 @@ export interface RawOrderItem {
   name: string;
   quantity: number;
   price: number;
+  condition?: string | null;
+  variant_name?: string | null;
   has_assurance?: boolean;
   assurance_fee?: number;
   products?:

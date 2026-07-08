@@ -15,7 +15,6 @@ import {
   Truck,
   XCircle,
 } from 'lucide-react';
-import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
@@ -28,6 +27,7 @@ import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { formatCurrency as formatCurrencyByCountry } from '@/lib/currency';
 import { cn } from '@/lib/utils';
+import { OrderItemRow, type TrackOrderItem } from './order-item-row';
 
 interface TimelineEvent {
   status: string;
@@ -41,16 +41,6 @@ interface TimelineEvent {
     | 'shipped'
     | 'delivered'
     | 'cancelled';
-}
-
-interface OrderItem {
-  id: string;
-  product_name: string;
-  variant_name?: string;
-  quantity: number;
-  unit_price: number;
-  total_price: number;
-  product_image?: string;
 }
 
 interface OrderData {
@@ -78,7 +68,7 @@ interface OrderData {
     state: string;
     country: string;
   };
-  items: OrderItem[];
+  items: TrackOrderItem[];
   timeline: TimelineEvent[];
   shipping_tracking: {
     provider: string;
@@ -751,38 +741,12 @@ function OrderTrackContent() {
             <CardContent>
               <div className="space-y-4">
                 {orderData.items.map((item) => (
-                  <div key={item.id} className="flex gap-4">
-                    {item.product_image && (
-                      <div className="relative size-16 bg-gray-100 rounded-lg overflow-hidden shrink-0">
-                        <Image
-                          src={item.product_image}
-                          alt={item.product_name}
-                          fill
-                          sizes="64px"
-                          className="object-cover"
-                        />
-                      </div>
-                    )}
-                    <div className="flex-1">
-                      <p className="font-medium">{item.product_name}</p>
-                      {item.variant_name && (
-                        <p className="text-sm text-muted-foreground">
-                          {item.variant_name}
-                        </p>
-                      )}
-                      <p className="text-sm text-muted-foreground">
-                        Qty: {item.quantity}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">
-                        {formatCurrency(
-                          item.total_price,
-                          orderData.order.currency
-                        )}
-                      </p>
-                    </div>
-                  </div>
+                  <OrderItemRow
+                    key={item.id}
+                    currency={orderData.order.currency}
+                    formatCurrency={formatCurrency}
+                    item={item}
+                  />
                 ))}
               </div>
 

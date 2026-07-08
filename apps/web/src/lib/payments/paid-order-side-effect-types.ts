@@ -15,6 +15,7 @@ export type MerchantDetails = {
 };
 
 export type RichOrderItem = {
+  condition?: string | null;
   name: string | null;
   price: number | string | null;
   quantity: number | null;

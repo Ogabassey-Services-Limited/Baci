@@ -61,6 +61,22 @@ const optionalVoucherTokenSchema = z.preprocess((value) => {
   return sanitized.length > 0 ? sanitized : undefined;
 }, z.string().max(VOUCHER_TOKEN_MAX_LENGTH).optional());
 
+function matchingAliasFields<Left extends string, Right extends string>(
+  left: Left,
+  right: Right
+) {
+  return (data: { [Key in Left | Right]?: unknown }) => {
+    const leftValue = data[left];
+    const rightValue = data[right];
+
+    return !leftValue || !rightValue || leftValue === rightValue;
+  };
+}
+
+function aliasFieldsMismatchMessage(left: string, right: string) {
+  return `${left} and ${right} must match when both are provided`;
+}
+
 const orderCreateSchemaBase = z
   .object({
     merchant_id: z.uuid(),
@@ -109,6 +125,14 @@ const orderCreateSchemaBase = z
               ),
             variantId: z.string().optional(),
             variant_id: z.string().optional(),
+            variantName: z
+              .string()
+              .optional()
+              .transform((val) => (val ? sanitizeText(val).trim() : val)),
+            variant_name: z
+              .string()
+              .optional()
+              .transform((val) => (val ? sanitizeText(val).trim() : val)),
             variantAttributes: z
               .record(
                 z.string(),
@@ -130,35 +154,21 @@ const orderCreateSchemaBase = z
             error:
               'At least one product identifier (product_id, productId, or id) is required',
           })
-          .refine(
-            (data) =>
-              !data.imageUrl ||
-              !data.image_url ||
-              data.imageUrl === data.image_url,
-            {
-              error: 'imageUrl and image_url must match when both are provided',
-            }
-          )
-          .refine(
-            (data) =>
-              !data.voucherToken ||
-              !data.voucher_token ||
-              data.voucherToken === data.voucher_token,
-            {
-              error:
-                'voucherToken and voucher_token must match when both are provided',
-            }
-          )
-          .refine(
-            (data) =>
-              !data.voucherAwardId ||
-              !data.voucher_award_id ||
-              data.voucherAwardId === data.voucher_award_id,
-            {
-              error:
-                'voucherAwardId and voucher_award_id must match when both are provided',
-            }
-          )
+          .refine(matchingAliasFields('imageUrl', 'image_url'), {
+            error: aliasFieldsMismatchMessage('imageUrl', 'image_url'),
+          })
+          .refine(matchingAliasFields('variantName', 'variant_name'), {
+            error: aliasFieldsMismatchMessage('variantName', 'variant_name'),
+          })
+          .refine(matchingAliasFields('voucherToken', 'voucher_token'), {
+            error: aliasFieldsMismatchMessage('voucherToken', 'voucher_token'),
+          })
+          .refine(matchingAliasFields('voucherAwardId', 'voucher_award_id'), {
+            error: aliasFieldsMismatchMessage(
+              'voucherAwardId',
+              'voucher_award_id'
+            ),
+          })
       )
       .min(1),
     subtotal: z.coerce.number().nonnegative(),

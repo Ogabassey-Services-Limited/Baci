@@ -1,5 +1,6 @@
 import {
   appendReceiptFulfillmentDescription,
+  formatOrderItemDisplayName,
   isDeviceReceiptItemName,
   normalizeReceiptFulfillmentDetails,
   type ReceiptMerchant,
@@ -225,9 +226,11 @@ export function buildStorefrontAccountDocumentBundle({
       allocatedVatAmount += explicitVatAmount;
     }
 
-    const itemName = item.variant_name
-      ? `${item.product_name || item.name} (${item.variant_name})`
-      : item.product_name || item.name;
+    const itemName = formatOrderItemDisplayName({
+      baseName: item.product_name || item.name || 'Item',
+      condition: item.condition,
+      variantName: item.variant_name,
+    });
     const itemFulfillment = normalizeReceiptFulfillmentDetails(
       item.fulfillment_details
     );

@@ -215,8 +215,8 @@ export function buildOrderItems(
     return {
       id: item.id,
       product_id: item.product_id || '',
-      variant_id: item.variant_id || undefined,
       condition: item.condition || undefined,
+      variant_id: item.variant_id || undefined,
       variant_name: buildReceiptVariantName(item),
       name: item.name,
       product_name: item.name,

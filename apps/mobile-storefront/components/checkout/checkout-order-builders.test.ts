@@ -96,6 +96,50 @@ describe('checkout order builders', () => {
     expect(request.client_total).toBeUndefined();
   });
 
+  it('preserves selected condition and variant labels in order items', () => {
+    const itemsSnapshot = [
+      {
+        id: 'line-1',
+        product_id: 'product-1',
+        slug: 'macbook-air-m2',
+        name: '13" MacBook Air M2 (2022)',
+        price: 690000,
+        quantity: 1,
+        condition: 'Open Box',
+        variant_id: 'variant-open-box-512',
+        variant_name: '512GB',
+        variant_attributes: {
+          storage: '512GB',
+        },
+      },
+    ];
+    const snapshot = createCheckoutSnapshot(itemsSnapshot, 0, 0);
+
+    const request = buildCheckoutOrderRequest({
+      address,
+      customerEmail: 'ada@example.com',
+      customerName: 'Ada Lovelace',
+      customerPhone: '08012345678',
+      deliveryMethod: 'door',
+      itemsSnapshot,
+      paymentMethodForOrder: 'paystack',
+      selectedQuote: undefined,
+      shippingProvider: undefined,
+      snapshot,
+    });
+
+    expect(request.items[0]).toEqual(
+      expect.objectContaining({
+        condition: 'Open Box',
+        variant_id: 'variant-open-box-512',
+        variant_name: '512GB',
+        variant_attributes: {
+          storage: '512GB',
+        },
+      })
+    );
+  });
+
   it('preserves expected_total through validation and payload serialization', () => {
     const parsed = CreateOrderRequestSchema.parse({
       customer_email: 'ada@example.com',

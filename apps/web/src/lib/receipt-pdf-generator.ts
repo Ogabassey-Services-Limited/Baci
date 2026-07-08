@@ -1,4 +1,8 @@
-import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
+import {
+  formatOrderItemDisplayName,
+  type ReceiptMerchant,
+  type ReceiptOrder,
+} from '@baci/shared';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { DEFAULT_MEDIA_CDN_ORIGIN } from '@/config/cdn';
@@ -496,10 +500,11 @@ export function generateReceiptPDF(
         : ['Item', 'Qty', 'Unit Price', 'Line Total'],
     ],
     body: (order.items || []).map((item) => {
-      const variantName = getReceiptItemVariantName(item);
-      const itemName = variantName
-        ? `${item.product_name || item.name || 'Item'} (${variantName})`
-        : item.product_name || item.name || 'Item';
+      const itemName = formatOrderItemDisplayName({
+        baseName: item.product_name || item.name || 'Item',
+        condition: item.condition,
+        variantName: getReceiptItemVariantName(item),
+      });
       const itemDetails = getReceiptItemDetailLines(item);
       const itemLabel =
         itemDetails.length > 0

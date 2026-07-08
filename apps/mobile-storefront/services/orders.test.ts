@@ -265,6 +265,48 @@ describe('createOrder — variant_attributes', () => {
     );
   });
 
+  it('includes selected condition and variant name in the API payload', async () => {
+    const { createOrder } = require('./orders');
+
+    await createOrder({
+      customer_email: 'test@example.com',
+      customer_name: 'Test User',
+      customer_phone: '+2348012345678',
+      items: [
+        {
+          id: 'prod-1',
+          name: '13" MacBook Air M2 (2022)',
+          quantity: 1,
+          price: 690000,
+          condition: 'Open Box',
+          variant_id: 'v-open-box-512',
+          variant_name: '512GB',
+          variant_attributes: { storage: '512GB' },
+        } as TestOrderItem,
+      ],
+      subtotal: 690000,
+      shipping_fee: 2000,
+      payment_method: 'card',
+      shipping_address: {
+        firstName: 'Test',
+        lastName: 'User',
+        address: '123 St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    });
+
+    const body = getLastFetchBody();
+    expect(body.items[0]).toEqual(
+      expect.objectContaining({
+        condition: 'Open Box',
+        variant_id: 'v-open-box-512',
+        variant_name: '512GB',
+        variant_attributes: { storage: '512GB' },
+      })
+    );
+  });
+
   it('includes the selected image_url in the API payload', async () => {
     const { createOrder } = require('./orders');
 

@@ -128,12 +128,30 @@ describe('paid-order email utilities', () => {
   it('maps order items into email template items', () => {
     expect(
       mapOrderItemToEmailItem({
+        condition: 'open_box',
         name: 'iPhone',
         price: '20000',
         quantity: 2,
         variant_name: 'Black',
-      })
-    ).toEqual({ name: 'iPhone (Black)', price: 20_000, quantity: 2 });
+      } as Parameters<typeof mapOrderItemToEmailItem>[0])
+    ).toEqual({
+      name: 'iPhone (Open Box / Black)',
+      price: 20_000,
+      quantity: 2,
+    });
+    expect(
+      mapOrderItemToEmailItem({
+        condition: 'used',
+        name: 'iPhone',
+        price: '20000',
+        quantity: 2,
+        variant_name: 'Open Box / Black',
+      } as Parameters<typeof mapOrderItemToEmailItem>[0])
+    ).toEqual({
+      name: 'iPhone (Used / Open Box / Black)',
+      price: 20_000,
+      quantity: 2,
+    });
     expect(
       mapOrderItemToEmailItem({
         name: 'iPhone',

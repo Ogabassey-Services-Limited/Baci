@@ -1,4 +1,5 @@
 import { escapeHtml, escapeJsString } from './escape-html';
+import { formatOrderItemDisplayName } from '../lib/order-item-display';
 import {
   getReceiptFulfillmentRowsFromDetails,
   getReceiptFulfillmentSummary,
@@ -61,9 +62,11 @@ export function renderItemRows(
   return order.items
     .map((item, index) => {
       const baseName = item.product_name || item.name || 'Item';
-      const itemLabel = item.variant_name
-        ? `${baseName} (${item.variant_name})`
-        : baseName;
+      const itemLabel = formatOrderItemDisplayName({
+        baseName,
+        condition: item.condition,
+        variantName: item.variant_name,
+      });
 
       let fulfillmentHtml = '';
       let fulfillmentSummary: string | null = null;
@@ -118,7 +121,7 @@ export function renderItemRows(
         description: item.description,
         fulfillmentSummary,
         itemLabel,
-        variantName: item.variant_name,
+        variantName: item.variant_name ?? undefined,
       });
 
       return `

@@ -1,6 +1,7 @@
 import {
   appendReceiptFulfillmentDescription,
   formatCanonicalProductConditionLabel,
+  formatOrderItemDisplayName,
   isDeviceReceiptItemName,
   normalizeReceiptFulfillmentDetails,
   type ReceiptFulfillmentDetails,
@@ -132,10 +133,15 @@ const SERVER_ASSURANCE_RATE = DEFAULT_ASSURANCE_RATE;
 // Imported from @/lib/feature-flags
 
 type EmailOrderItem = {
+  condition?: string | null;
   name?: string;
   productName?: string;
   quantity?: number;
   price?: number;
+  variantAttributes?: Record<string, string>;
+  variant_attributes?: Record<string, string>;
+  variantName?: string | null;
+  variant_name?: string | null;
 };
 
 type QuizVoucherItemCandidate = {
@@ -231,16 +237,27 @@ function getOrderItemVariantId(item: OrderCreateItem): string | null {
   return item.variantId || item.variant_id || null;
 }
 
-function getOrderItemCondition(item: OrderCreateItem): string | null {
+function getOrderItemCondition(item: {
+  condition?: string | null;
+}): string | null {
   return item.condition || null;
 }
 
-function getOrderItemBaseName(item: OrderCreateItem): string {
+function getOrderItemBaseName(item: {
+  name?: string;
+  productName?: string;
+}): string {
   return item.name || item.productName || 'Product';
 }
 
 function getOrderItemVariantLabel(
-  item: OrderCreateItem,
+  item: {
+    condition?: string | null;
+    variantAttributes?: Record<string, string>;
+    variant_attributes?: Record<string, string>;
+    variantName?: string | null;
+    variant_name?: unknown;
+  },
   options: { includeConditionFallback?: boolean } = {}
 ): string | null {
   const label = formatVariantAttributesLabel(
@@ -251,7 +268,7 @@ function getOrderItemVariantLabel(
     return label;
   }
 
-  const variantName = (item as { variant_name?: unknown }).variant_name;
+  const variantName = item.variantName || item.variant_name;
   if (typeof variantName === 'string' && variantName.trim().length > 0) {
     return variantName.trim();
   }
@@ -259,6 +276,22 @@ function getOrderItemVariantLabel(
   return options.includeConditionFallback === false
     ? null
     : (formatCanonicalProductConditionLabel(item.condition) ?? null);
+}
+
+function getOrderItemDisplayName(item: {
+  condition?: string | null;
+  name?: string;
+  productName?: string;
+  variantAttributes?: Record<string, string>;
+  variant_attributes?: Record<string, string>;
+  variantName?: string | null;
+  variant_name?: unknown;
+}) {
+  return formatOrderItemDisplayName({
+    baseName: getOrderItemBaseName(item),
+    condition: getOrderItemCondition(item),
+    variantName: getOrderItemVariantLabel(item),
+  });
 }
 
 function getOrderFulfillmentDetails(
@@ -505,6 +538,7 @@ function normalizePersistedInvoiceOrderItems(
         quantity,
         price,
         variant_id: getOptionalString(typedRow.variant_id),
+        variantName: undefined,
         variant_attributes: getStringRecord(typedRow.variant_attributes),
         has_assurance: typedRow.has_assurance === true,
         assurance_fee: toFiniteNumber(typedRow.assurance_fee) ?? undefined,
@@ -512,7 +546,7 @@ function normalizePersistedInvoiceOrderItems(
         line_extension_amount: toFiniteNumber(typedRow.line_extension_amount),
         sellers_item_id: getOptionalString(typedRow.sellers_item_id) ?? null,
         unit_code: getOptionalString(typedRow.unit_code) ?? null,
-        variant_name: getOptionalString(typedRow.variant_name) ?? null,
+        variant_name: getOptionalString(typedRow.variant_name) ?? undefined,
         vat_amount: toFiniteNumber(typedRow.vat_amount),
         vat_category_code:
           getOptionalString(typedRow.vat_category_code) ?? null,
@@ -714,7 +748,7 @@ function buildImmediatePeppolInvoiceData(input: {
     return {
       line_id: index + 1,
       product_id: getOrderItemProductId(item),
-      name: getOrderItemBaseName(item),
+      name: getOrderItemDisplayName(item),
       description,
       quantity: item.quantity,
       unit_code: item.unit_code || 'EA',
@@ -2184,24 +2218,7 @@ export async function POST(request: NextRequest) {
         const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
         const emailItems = items.map((item: EmailOrderItem) => ({
-          name: (() => {
-            const baseName = item.name || item.productName || 'Product';
-            const variantLabel = formatVariantAttributesLabel(
-              (
-                item as EmailOrderItem & {
-                  variantAttributes?: Record<string, string>;
-                  variant_attributes?: Record<string, string>;
-                }
-              ).variantAttributes ||
-                (
-                  item as EmailOrderItem & {
-                    variantAttributes?: Record<string, string>;
-                    variant_attributes?: Record<string, string>;
-                  }
-                ).variant_attributes
-            );
-            return variantLabel ? `${baseName} (${variantLabel})` : baseName;
-          })(),
+          name: getOrderItemDisplayName(item),
           quantity: item.quantity || 1,
           price: item.price || 0,
         }));
@@ -2397,6 +2414,7 @@ export async function POST(request: NextRequest) {
                       line_id: index + 1,
                       product_id: item.product_id || null,
                       product_name: getOrderItemBaseName(item),
+                      condition: getOrderItemCondition(item),
                       variant_id: item.variant_id || null,
                       variant_name: variantName || undefined,
                       description: appendReceiptFulfillmentDescription({

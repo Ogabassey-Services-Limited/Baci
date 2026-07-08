@@ -13,9 +13,9 @@ import { createClient } from '@/lib/supabase/server';
 interface OrderItem {
   id: string;
   product_id: string;
-  image_url?: string | null;
   condition?: string | null;
-  variant_name?: string;
+  image_url?: string | null;
+  variant_name?: string | null;
   product_name?: string;
   name?: string;
   quantity: number;
@@ -185,9 +185,9 @@ function mapOrderItemsWithRoutes(
       name: displayName,
       quantity: item.quantity,
       price: item.price,
+      condition: item.condition || null,
       image_url: item.image_url,
-      condition: item.condition,
-      variant_name: getOrderItemVariantName(item),
+      variant_name: getOrderItemVariantName(item) || null,
       product_images: item.product_images,
       ...flattenOrderItemProductData(item),
       ...(productRouteDetails?.get(item.product_id) || {}),
@@ -314,8 +314,8 @@ export async function GET(
             `
               id,
               product_id,
-              image_url,
               condition,
+              image_url,
               variant_name,
               product_name:name,
               quantity,

@@ -87,6 +87,7 @@ describe('buildStorefrontAccountDocumentBundle', () => {
           product_id: 'prod-1',
           variant_id: null,
           variant_name: 'Blue / 128GB',
+          condition: 'open_box',
           name: 'iPhone 16',
           quantity: 1,
           price: 100000,
@@ -122,7 +123,15 @@ describe('buildStorefrontAccountDocumentBundle', () => {
     expect(result.order.current_document_kind).toBe('receipt');
     expect(result.order.receipt_eligible).toBe(true);
     expect(result.order.customer_name).toBe('Oga Bassey');
-    expect(result.invoiceData.items[0]?.name).toBe('iPhone 16 (Blue / 128GB)');
+    expect(result.invoiceData.items[0]?.name).toBe(
+      'iPhone 16 (Open Box / Blue / 128GB)'
+    );
+    expect(result.receiptOrder.items[0]).toEqual(
+      expect.objectContaining({
+        condition: 'open_box',
+        variant_name: 'Blue / 128GB, Open Box',
+      })
+    );
     expect(result.invoiceData.items[0]?.description).toContain(
       'IMEI: IMEI-123'
     );

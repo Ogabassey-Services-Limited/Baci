@@ -11,6 +11,7 @@ interface MobileCheckoutIdempotencyRef {
 
 interface MobileCheckoutIdempotencyItem {
   assuranceFee?: number | null;
+  condition?: string | null;
   hasAssurance?: boolean | null;
   id: string;
   price: number;
@@ -18,6 +19,7 @@ interface MobileCheckoutIdempotencyItem {
   quantity: number;
   variantAttributes?: Record<string, string> | null;
   variantId?: string | null;
+  variantName?: string | null;
 }
 
 interface MobileCheckoutIdempotencyInput {
@@ -47,6 +49,7 @@ interface MobileCheckoutIdempotencyInput {
 }
 
 export interface MobileCheckoutOrderItemInput {
+  condition?: string;
   image_url?: string;
   name: string;
   negotiatedPrice?: number;
@@ -55,6 +58,7 @@ export interface MobileCheckoutOrderItemInput {
   quantity: number;
   variant_attributes?: Record<string, string>;
   variant_id?: string;
+  variant_name?: string;
   hasAssurance?: boolean;
   assuranceRate?: number;
 }
@@ -65,8 +69,10 @@ export interface MobileCheckoutOrderItemPayload {
   name: string;
   quantity: number;
   price: number;
+  condition?: string;
   image_url?: string;
   variant_id?: string;
+  variant_name?: string;
   variant_attributes?: Record<string, string>;
   has_assurance: boolean;
   assurance_fee: number;
@@ -115,6 +121,7 @@ export function buildMobileCheckoutFingerprint(
   const items = input.items
     .map((item) => ({
       assuranceFee: normalizeNumber(item.assuranceFee),
+      condition: normalizeString(item.condition),
       hasAssurance: Boolean(item.hasAssurance),
       id: normalizeString(item.id),
       price: normalizeNumber(item.price),
@@ -122,6 +129,7 @@ export function buildMobileCheckoutFingerprint(
       quantity: normalizeNumber(item.quantity),
       variantAttributes: normalizeAttributes(item.variantAttributes),
       variantId: normalizeString(item.variantId),
+      variantName: normalizeString(item.variantName),
     }))
     .sort((left, right) => {
       const productComparison = left.productId.localeCompare(right.productId);
@@ -153,6 +161,18 @@ export function buildMobileCheckoutFingerprint(
 
       if (left.hasAssurance !== right.hasAssurance) {
         return left.hasAssurance ? 1 : -1;
+      }
+
+      const conditionComparison = left.condition.localeCompare(right.condition);
+      if (conditionComparison !== 0) {
+        return conditionComparison;
+      }
+
+      const variantNameComparison = left.variantName.localeCompare(
+        right.variantName
+      );
+      if (variantNameComparison !== 0) {
+        return variantNameComparison;
       }
 
       return stableStringify(left.variantAttributes).localeCompare(
@@ -200,8 +220,10 @@ export function buildMobileCheckoutOrderItems(
       name: item.name,
       quantity: item.quantity,
       price: effectivePrice,
+      condition: item.condition,
       image_url: item.image_url,
       variant_id: item.variant_id,
+      variant_name: item.variant_name,
       variant_attributes: item.variant_attributes,
       has_assurance: item.hasAssurance || false,
       assurance_fee: item.hasAssurance
@@ -253,6 +275,7 @@ export function buildMobileCheckoutOrderFingerprint({
       quantity: item.quantity,
       variantAttributes: item.variant_attributes,
       variantId: item.variant_id,
+      variantName: item.variant_name,
     })),
   });
 }
