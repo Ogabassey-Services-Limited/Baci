@@ -35,6 +35,7 @@ export function buildAgentSkillMarkdown(baseUrl: string): string {
   const acpProfileUrl = `${storefrontOrigin}/.well-known/acp.json`;
   const agentCommerceUrl = `${storefrontOrigin}/agent-commerce.json`;
   const openApiUrl = `${storefrontOrigin}/openapi.json`;
+  const agentRepairsFeedUrl = `${storefrontOrigin}/feeds/agent-repairs.jsonl`;
 
   return `---
 name: baci-storefront
@@ -54,6 +55,7 @@ Use this skill when helping a user browse, compare, or buy from Ogabassey, a Bac
 - ACP profile: ${acpProfileUrl}
 - Agent commerce manifest: ${agentCommerceUrl}
 - OpenAPI description: ${openApiUrl}
+- Repairs services feed: ${agentRepairsFeedUrl}
 - MCP server: ${BACI_MCP_SERVER_URL}
 
 ## Safety
@@ -62,6 +64,8 @@ Use this skill when helping a user browse, compare, or buy from Ogabassey, a Bac
 - Use add_to_cart only when the user asks to add a specific product to cart.
 - Do not submit checkout, payment, account, wallet, or order-management actions.
 - Use the current storefront host as canonical when resolving product and cart URLs.
+- For device repairs, read the repairs services feed and link users to the
+  storefront /repairs pages; do not attempt to book a repair on the user's behalf.
 
 ## Useful MCP Tools
 
