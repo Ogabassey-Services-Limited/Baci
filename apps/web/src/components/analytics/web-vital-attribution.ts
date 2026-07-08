@@ -55,6 +55,36 @@ export function extractWebVitalAttribution(
     pick('inputDelay');
     pick('processingDuration');
     pick('presentationDelay');
+    // Long Animation Frames (LoAF) breakdown — identifies WHICH scripts own
+    // the long frame; prerequisite for the PR-WEIGHT diagnose-then-fix INP
+    // work (web-vitals v5 attribution build; LoAF stable since Chrome 123).
+    pick('totalScriptDuration', 'loafScriptDuration');
+    pick('totalStyleAndLayoutDuration', 'loafStyleLayoutDuration');
+    pick('totalPaintDuration', 'loafPaintDuration');
+    pick('totalUnattributedDuration', 'loafUnattributedDuration');
+    const longestScript = source.longestScript;
+    if (longestScript && typeof longestScript === 'object') {
+      const script = longestScript as {
+        subpart?: unknown;
+        intersectingDuration?: unknown;
+        entry?: { sourceURL?: unknown; invoker?: unknown };
+      };
+      if (typeof script.subpart === 'string') {
+        out.loafLongestScriptSubpart = script.subpart;
+      }
+      if (typeof script.intersectingDuration === 'number') {
+        out.loafLongestScriptDuration = script.intersectingDuration;
+      }
+      const entry = script.entry;
+      if (entry && typeof entry === 'object') {
+        if (typeof entry.sourceURL === 'string' && entry.sourceURL) {
+          out.loafLongestScriptSource = entry.sourceURL;
+        }
+        if (typeof entry.invoker === 'string' && entry.invoker) {
+          out.loafLongestScriptInvoker = entry.invoker;
+        }
+      }
+    }
   }
 
   return out;

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { reportPostHogWebVital } from '@/lib/posthog/report-web-vital';
+import { armWebVitalsPageHideFlush } from '@/lib/posthog/web-vitals-pagehide-flush';
 import { extractWebVitalAttribution } from './web-vital-attribution';
 import { buildWebVitalEndpointPayload } from './web-vital-endpoint-payload';
 
@@ -61,6 +62,7 @@ interface WebVitalMetric {
   name: string;
   value: number;
   id: string;
+  delta: number;
   rating: string;
   navigationType: string;
   attribution?: unknown;
@@ -80,6 +82,10 @@ function reportWebVitalToPostHog(metric: WebVitalMetric): void {
   reportPostHogWebVital({
     metric: metric.name,
     value: metric.value,
+    // Stable per-metric-instance id: hidden→visible round-trips re-emit
+    // updated CLS/INP values, so downstream dedupe is argMax(value, ts) BY id.
+    id: metric.id,
+    delta: metric.delta,
     rating: metric.rating,
     navigationType: metric.navigationType,
     pathname: globalThis.location?.pathname ?? '',
@@ -187,6 +193,9 @@ export function WebVitalsReporter({
   endpoint,
 }: WebVitalsReporterProps = {}) {
   useEffect(() => {
+    // Beacon queued vitals on page-hide so bounce-before-PostHog-boot
+    // sessions (the slow cohort) stop dropping their metrics.
+    armWebVitalsPageHideFlush();
     void registerWebVitals(debug, endpoint);
   }, [debug, endpoint]);
 

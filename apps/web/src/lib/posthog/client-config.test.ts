@@ -686,3 +686,21 @@ describe('PostHog client config', () => {
     });
   });
 });
+
+describe('capture_performance invariant (plan: PR-MEASURE)', () => {
+  it('NEVER enables PostHog web-vitals autocapture in any mode', () => {
+    // Invariant, not preference: PostHog's built-in $web_vitals autocapture
+    // (a) lacks TTFB entirely, (b) has no page-hide flush (our custom
+    // web_vitals pipeline beacons on visibilitychange→hidden), and
+    // (c) re-enabling it would run a duplicate, conflicting vitals pipeline
+    // next to the custom flat `web_vitals` event. See
+    // docs/perf/ogabassey-cwv-headroom-execution-plan.md → PR-MEASURE.
+    const full = buildPostHogClientConfig();
+    const lightweight = buildPostHogClientConfig(undefined, undefined, {
+      lightweight: true,
+    });
+
+    expect(full.capture_performance).toBe(false);
+    expect(lightweight.capture_performance).toBe(false);
+  });
+});
