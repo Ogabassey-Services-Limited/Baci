@@ -74,6 +74,7 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 }));
 
 vi.mock('@/lib/go54', () => ({
+  isGo54Configured: vi.fn(() => true),
   registerDomain: vi.fn(),
 }));
 
@@ -112,9 +113,14 @@ function createSupabase(
     plan_tier: 'pro',
     premium_features: [],
   },
-  existingDomain: { id: string; merchant_id: string } | null = {
+  existingDomain: {
+    id: string;
+    merchant_id: string;
+    status?: string;
+  } | null = {
     id: 'domain-1',
     merchant_id: 'merchant-1',
+    status: 'active',
   }
 ) {
   return {
@@ -161,6 +167,7 @@ function createSupabase(
           eq: vi.fn(),
           in: vi.fn(),
           limit: vi.fn(),
+          update: vi.fn(),
           maybeSingle: vi.fn().mockResolvedValue({
             data: existingDomain,
             error: null,
@@ -183,6 +190,7 @@ function createSupabase(
         domainsChain.eq.mockReturnValue(domainsChain);
         domainsChain.in.mockReturnValue(domainsChain);
         domainsChain.limit.mockReturnValue(domainsChain);
+        domainsChain.update.mockReturnValue(domainsChain);
         return domainsChain;
       }
 
@@ -375,6 +383,33 @@ describe('POST /api/domains/purchase transaction scoping', () => {
 
     expect(response.status).toBe(200);
     expect(json.message).toContain('Successfully verified');
+    expect(registerDomain).not.toHaveBeenCalled();
+  });
+
+  it('activates a pending fallback row for a fulfilled payment without contacting the registrar (review #2991 P2 regression test)', async () => {
+    // The webhook's fulfillment catch persists a pending fallback row; the
+    // retry must ACTIVATE it (the registrar order exists) — never re-order.
+    supabase = createSupabase(
+      {
+        amount: 100,
+        gateway: 'paystack',
+        id: 'transaction-owned',
+        merchant_id: 'merchant-1',
+        metadata: { domain_purchased: 'shop.com', years: 1 },
+        status: 'completed',
+      },
+      undefined,
+      { id: 'domain-1', merchant_id: 'merchant-1', status: 'pending' }
+    );
+
+    const { registerDomain } = await import('@/lib/go54');
+
+    const response = await POST(createRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.message).toContain('Successfully verified');
+    expect(json.domain.status).toBe('active');
     expect(registerDomain).not.toHaveBeenCalled();
   });
 

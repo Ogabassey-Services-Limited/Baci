@@ -18,7 +18,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { type ContactInfo, registerDomain } from '@/lib/go54';
+import { type ContactInfo, isGo54Configured, registerDomain } from '@/lib/go54';
 import {
   merchantFeatureUpgradeResponse,
   merchantHasFeature,
@@ -287,9 +287,53 @@ export async function POST(request: NextRequest) {
             { status: 409 }
           );
         }
+        if (fulfilledRow.status !== 'active') {
+          // A prior attempt left a non-active row (e.g. the webhook's
+          // fulfillment catch persists a pending fallback row): activate it —
+          // the registrar order already exists.
+          const activateExpiresAt = new Date(
+            typeof paymentMetadata.purchased_at === 'string'
+              ? paymentMetadata.purchased_at
+              : new Date().toISOString()
+          );
+          activateExpiresAt.setFullYear(
+            activateExpiresAt.getFullYear() +
+              (Number(paymentMetadata.years) || years)
+          );
+          const { error: activateError } = await supabase
+            .from('domains')
+            .update({
+              status: 'active',
+              ssl_status: 'active',
+              verified_at: new Date().toISOString(),
+              expires_at: activateExpiresAt.toISOString(),
+              auto_renew: true,
+              go54_order_id:
+                typeof paymentMetadata.domain_registrar_order_id === 'string'
+                  ? paymentMetadata.domain_registrar_order_id
+                  : null,
+            })
+            .eq('id', fulfilledRow.id);
+
+          if (activateError) {
+            console.error(
+              'Failed to activate repaired domains row:',
+              activateError
+            );
+            return NextResponse.json(
+              {
+                error:
+                  'Domain is registered but could not be activated. Please try again.',
+              },
+              { status: 500 }
+            );
+          }
+          revalidateMerchantFeed(merchantId);
+          after(() => triggerDomainEdgeConfigSync());
+        }
         return NextResponse.json({
           success: true,
-          domain: fulfilledRow,
+          domain: { ...fulfilledRow, status: 'active' },
           message: `Successfully verified ${purchasedDomain}`,
           nextSteps: ['Domain is active'],
         });
@@ -331,8 +375,10 @@ export async function POST(request: NextRequest) {
             typeof paymentMetadata.domain_registrar_order_id === 'string'
               ? paymentMetadata.domain_registrar_order_id
               : null,
-          purchase_price: priceCalculation.sellPrice,
-          renewal_price: priceCalculation.sellPrice,
+          // Record what was actually PAID, not today's price — the repair can
+          // run after a price change.
+          purchase_price: Number(payment.amount) || priceCalculation.sellPrice,
+          renewal_price: Number(payment.amount) || priceCalculation.sellPrice,
           registered_at: registeredAtIso,
           expires_at: repairExpiresAt.toISOString(),
           auto_renew: true,
@@ -547,6 +593,23 @@ export async function POST(request: NextRequest) {
       );
     }
     const claimRelease = { ...claimInput, claimedAt: claimOutcome.claimedAt };
+
+    // Preflight registrar credentials BEFORE stamping the attempt: a
+    // missing-config failure happens before any registrar request, so
+    // releasing is definitively safe (unlike a mid-request failure).
+    if (!isGo54Configured()) {
+      console.error(
+        'Domain registrar credentials not configured — cannot fulfill:',
+        { transactionId: payment.id, domain }
+      );
+      await releaseDomainFulfillmentClaim(adminSupabase, claimRelease);
+      return NextResponse.json(
+        {
+          error: 'Domain registrar is not configured. Please contact support.',
+        },
+        { status: 500 }
+      );
+    }
 
     // Stamp the registrar attempt BEFORE contacting the registrar: a crash
     // mid-call must leave a claim that can never be taken over (unknown

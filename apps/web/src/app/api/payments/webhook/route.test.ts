@@ -185,6 +185,7 @@ vi.mock('@/lib/zeptomail', () => ({
 }));
 
 vi.mock('@/lib/go54', () => ({
+  isGo54Configured: vi.fn(() => true),
   registerDomain: vi.fn(),
 }));
 

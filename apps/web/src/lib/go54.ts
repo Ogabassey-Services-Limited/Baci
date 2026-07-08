@@ -106,6 +106,16 @@ export interface DomainInformation {
  *
  * @see https://www.whogohost.com/host/index.php?rp=/knowledgebase/514/Introduction.html
  */
+/**
+ * Whether registrar credentials are configured. Callers that stamp a
+ * fulfillment attempt before contacting the registrar should preflight with
+ * this: a missing-config throw happens BEFORE any registrar request, so it is
+ * definitively safe to release the claim — unlike a mid-request failure.
+ */
+export function isGo54Configured(): boolean {
+  return Boolean(GO54_EMAIL && GO54_API_KEY);
+}
+
 function generateToken(): string {
   if (!GO54_EMAIL || !GO54_API_KEY) {
     throw new Error(

@@ -33,7 +33,7 @@ import {
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
-import { registerDomain } from '@/lib/go54';
+import { isGo54Configured, registerDomain } from '@/lib/go54';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
@@ -1567,11 +1567,63 @@ export async function POST(request: NextRequest) {
           const { data: fulfilledRow, error: fulfilledRowError } =
             await supabase
               .from('domains')
-              .select('id, merchant_id')
+              .select('id, merchant_id, status')
               .eq('domain', repairedDomain)
               .maybeSingle();
 
-          if (!fulfilledRowError && !fulfilledRow) {
+          if (
+            !fulfilledRowError &&
+            fulfilledRow &&
+            fulfilledRow.merchant_id === transaction.merchant_id &&
+            fulfilledRow.status !== 'active'
+          ) {
+            // A prior attempt left a non-active row (e.g. the fulfillment
+            // catch persists a pending fallback row): activate it — the
+            // registrar order already exists.
+            const activateExpiresAt = new Date(
+              typeof metadata.purchased_at === 'string'
+                ? metadata.purchased_at
+                : new Date().toISOString()
+            );
+            activateExpiresAt.setFullYear(
+              activateExpiresAt.getFullYear() + (Number(metadata.years) || 1)
+            );
+            const { error: activateError } = await supabase
+              .from('domains')
+              .update({
+                status: 'active',
+                ssl_status: 'active',
+                verified_at: new Date().toISOString(),
+                expires_at: activateExpiresAt.toISOString(),
+                auto_renew: true,
+                go54_order_id:
+                  typeof metadata.domain_registrar_order_id === 'string'
+                    ? metadata.domain_registrar_order_id
+                    : null,
+              })
+              .eq('id', fulfilledRow.id);
+
+            if (activateError) {
+              logger.error({
+                message: 'Failed to activate repaired domains row',
+                error: activateError,
+                domain: repairedDomain,
+                reference,
+              });
+              return NextResponse.json(
+                { error: 'Domain repair failed — will retry' },
+                { status: 503 }
+              );
+            }
+            logger.info({
+              message:
+                'Activated non-active domains row for fulfilled purchase',
+              domain: repairedDomain,
+              reference,
+            });
+            revalidateMerchantFeed(transaction.merchant_id);
+            after(() => triggerDomainEdgeConfigSync());
+          } else if (!fulfilledRowError && !fulfilledRow) {
             const repairYears = Number(metadata.years) || 1;
             const registeredAtIso =
               typeof metadata.purchased_at === 'string'
@@ -1828,6 +1880,29 @@ export async function POST(request: NextRequest) {
 
           claimToken = claimOutcome.claimedAt;
 
+          // Preflight registrar credentials BEFORE stamping the attempt: a
+          // missing-config failure happens before any registrar request, so
+          // releasing is definitively safe (unlike a mid-request failure).
+          if (!isGo54Configured()) {
+            logger.error({
+              message:
+                'Domain registrar credentials not configured — cannot fulfill',
+              reference,
+              domain: normalizedDomain,
+            });
+            await releaseDomainFulfillmentClaim(supabase, {
+              transactionId: transaction.id,
+              metadata,
+              claimant: 'webhook',
+              claimedAt: claimOutcome.claimedAt,
+            });
+            claimToken = null;
+            return NextResponse.json(
+              { error: 'Domain registrar not configured' },
+              { status: 500 }
+            );
+          }
+
           // Stamp the registrar attempt BEFORE contacting the registrar: a
           // crash mid-call must leave a claim that can never be taken over
           // (unknown outcome — manual reconciliation, never a double order).
@@ -1946,14 +2021,20 @@ export async function POST(request: NextRequest) {
                       error: updateDomainError,
                       domain: normalizedDomain,
                     });
-                  } else {
-                    await markTransactionDomainPurchased(
-                      existingDomain.id,
-                      registration.orderId
+                    // The purchase is marked fulfilled; fail the delivery so
+                    // the gateway retry lands in the repair path and
+                    // activates the row instead of hiding it behind a 200.
+                    return NextResponse.json(
+                      { error: 'Domain persistence failed — will retry' },
+                      { status: 503 }
                     );
-                    revalidateMerchantFeed(transaction.merchant_id);
-                    after(() => triggerDomainEdgeConfigSync());
                   }
+                  await markTransactionDomainPurchased(
+                    existingDomain.id,
+                    registration.orderId
+                  );
+                  revalidateMerchantFeed(transaction.merchant_id);
+                  after(() => triggerDomainEdgeConfigSync());
                 }
               } else {
                 const {
@@ -2008,14 +2089,20 @@ export async function POST(request: NextRequest) {
                     error: domainDbError,
                     domain: normalizedDomain,
                   });
-                } else {
-                  await markTransactionDomainPurchased(
-                    insertedDomain?.id,
-                    registration.orderId
+                  // The purchase is marked fulfilled; fail the delivery so
+                  // the gateway retry lands in the repair path and recreates
+                  // the row instead of hiding it behind a 200.
+                  return NextResponse.json(
+                    { error: 'Domain persistence failed — will retry' },
+                    { status: 503 }
                   );
-                  revalidateMerchantFeed(transaction.merchant_id);
-                  after(() => triggerDomainEdgeConfigSync());
                 }
+                await markTransactionDomainPurchased(
+                  insertedDomain?.id,
+                  registration.orderId
+                );
+                revalidateMerchantFeed(transaction.merchant_id);
+                after(() => triggerDomainEdgeConfigSync());
               }
             } else {
               logger.error({
