@@ -14,7 +14,7 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { shippingService } from '@/lib/shipping';
-import type { QuoteRequest } from '@/lib/shipping/types';
+import type { QuoteRequest, QuoteResponse } from '@/lib/shipping/types';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { QuoteRequestSchema } from '@/schemas/shipping';
 import { resolveQuoteMerchantContext } from './quote-merchant-context';
@@ -59,6 +59,26 @@ export async function POST(request: NextRequest) {
         { status: merchantContext.status }
       );
     }
+    // Every registered carrier (Topship/GIGL) is Nigerian and quotes are
+    // NGN-denominated with a Nigeria origin. For a non-Nigerian merchant
+    // those quotes would be wrong in both origin and currency (and would be
+    // summed into a non-NGN order total with no conversion), so return an
+    // empty quote set instead.
+    const merchantCountry = merchantContext.merchantCountry
+      ?.trim()
+      .toUpperCase();
+    if (merchantCountry && merchantCountry !== 'NG') {
+      const emptyResponse: QuoteResponse = {
+        quotes: { featured: [], all: [] },
+        sessionId: data.sessionId || crypto.randomUUID(),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+        warnings: [
+          'Carrier shipping rates are currently available for Nigerian merchants only.',
+        ],
+      };
+      return NextResponse.json(emptyResponse);
+    }
+
     let senderInfo = merchantContext.senderInfo;
 
     if (!senderInfo && data.shipmentType === 'international') {

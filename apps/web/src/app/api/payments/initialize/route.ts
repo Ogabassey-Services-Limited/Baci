@@ -283,22 +283,11 @@ function selectGateway(
     return 'paystack';
   }
 
-  // International payments
-  const preferred = settings.preferred_international_gateway;
-
-  if (preferred === 'korapay' && settings.korapay_enabled) {
-    return 'korapay';
-  }
-  if (
-    preferred === 'paystack' &&
-    settings.paystack_enabled &&
-    hasPaystackSubaccount
-  ) {
-    return 'paystack';
-  }
-  if (settings.korapay_enabled) {
-    return 'korapay';
-  }
+  // International (non-NGN) payments. Paystack is never auto-selected here:
+  // the platform's Paystack integration settles NGN only, so routing a
+  // non-NGN order to it would just fail the downstream charge-currency guard
+  // with UNSUPPORTED_CURRENCY. Korapay is the only multi-currency rail
+  // (whether it is actually enabled is enforced by the route's korapay guard).
   return 'korapay';
 }
 

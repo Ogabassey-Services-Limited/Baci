@@ -138,10 +138,23 @@ function renderTransactions(input: OrderReportHtmlInput): string {
 }
 
 export function buildOrderReportHtml(input: OrderReportHtmlInput): string {
-  // All orders in a report belong to a single merchant, so the first order's
-  // currency (set from the merchant payout currency at order time) is
-  // representative of the whole report's aggregate figures.
-  const currency = input.orders[0]?.currency;
+  // Orders in a report normally share one currency (stamped from the merchant
+  // payout currency at order time), but a payout-currency change or imported
+  // orders can mix denominations. Aggregates are labeled with the most
+  // frequent currency, and a visible warning is added when currencies mix so
+  // the combined totals are never silently presented as a single denomination.
+  const currencyCounts = new Map<string, number>();
+  for (const order of input.orders) {
+    const code = order.currency?.trim().toUpperCase() || 'NGN';
+    currencyCounts.set(code, (currencyCounts.get(code) ?? 0) + 1);
+  }
+  const currency =
+    [...currencyCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ??
+    input.orders[0]?.currency;
+  const mixedCurrencyWarning =
+    currencyCounts.size > 1
+      ? `<div style="margin: 12px 0; padding: 10px 14px; border: 1px solid #F59E0B; border-radius: 8px; background: #FFFBEB; color: #92400E; font-size: 12px;">⚠️ This report contains orders in multiple currencies (${escapeHtml([...currencyCounts.keys()].join(', '))}). Aggregate figures are labeled in ${escapeHtml(currency ?? 'NGN')} but combine amounts across currencies; per-order rows show each order's own currency.</div>`
+      : '';
   const initial = escapeHtml(
     input.storeName.trim().charAt(0).toUpperCase() || 'B'
   );
@@ -183,7 +196,7 @@ export function buildOrderReportHtml(input: OrderReportHtmlInput): string {
         </div>
 
         <div class="section-label">Executive Summary</div>
-
+        ${mixedCurrencyWarning}
         <div class="hero-grid">
           <div class="hero-card" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%);">
             <div class="label">💰 Total Revenue</div>

@@ -118,4 +118,46 @@ describe('buildOrderReportHtml', () => {
 
     expect(html).toContain(ngn(0));
   });
+
+  it('shows a multiple-currencies warning and labels aggregates in the dominant currency', () => {
+    const orders = [
+      makeOrder({ currency: 'NGN', id: 'order_ngn00001', total: 10000 }),
+      makeOrder({ currency: 'NGN', id: 'order_ngn00002', total: 5000 }),
+      makeOrder({ currency: 'INR', id: 'order_inr00002', total: 9600 }),
+    ];
+    const summary = buildOrderReportSummary(orders, []);
+
+    const html = buildOrderReportHtml({
+      dateRangeLabel: 'May 1 - May 10, 2026',
+      generatedAt: new Date('2026-05-10T12:00:00.000Z'),
+      orders,
+      storeName: 'Mixed Currency Store',
+      summary,
+    });
+
+    // NGN orders (2) outnumber INR orders (1), so aggregates are labeled NGN.
+    expect(html).toContain('multiple currencies');
+    expect(html).toContain('NGN');
+    expect(html).toContain('INR');
+    expect(html).toContain(ngn(summary.totalRevenue));
+    expect(html).not.toContain(inr(summary.totalRevenue));
+  });
+
+  it('does not show a multiple-currencies warning for single-currency orders', () => {
+    const orders = [
+      makeOrder({ currency: 'NGN', id: 'order_ngn00003', total: 10000 }),
+      makeOrder({ currency: 'NGN', id: 'order_ngn00004', total: 5000 }),
+    ];
+    const summary = buildOrderReportSummary(orders, []);
+
+    const html = buildOrderReportHtml({
+      dateRangeLabel: 'May 1 - May 10, 2026',
+      generatedAt: new Date('2026-05-10T12:00:00.000Z'),
+      orders,
+      storeName: 'Single Currency Store',
+      summary,
+    });
+
+    expect(html).not.toContain('multiple currencies');
+  });
 });

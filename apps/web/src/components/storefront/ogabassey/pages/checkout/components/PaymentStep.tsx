@@ -77,7 +77,10 @@ export function PaymentStep({
   currency = 'NGN',
 }: PaymentStepProps) {
   const paystackCheckoutAvailable = isPaystackCheckoutAvailable(merchant);
-  const korapayCheckoutAvailable = isKorapayCheckoutAvailable(merchant);
+  const korapayCheckoutAvailable = isKorapayCheckoutAvailable(
+    merchant,
+    currency
+  );
   const bankTransferCheckoutAvailable =
     isBankTransferCheckoutAvailable(merchant);
   const hasAvailableSelectedPaymentMethod = isPaymentMethodAvailable({

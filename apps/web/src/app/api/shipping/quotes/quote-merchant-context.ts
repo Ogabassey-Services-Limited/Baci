@@ -18,6 +18,7 @@ type MerchantDetails = {
   business_address: string | null;
   business_name: string | null;
   phone: string | null;
+  country: string | null;
 };
 
 export type QuoteMerchantContextResult =
@@ -25,6 +26,12 @@ export type QuoteMerchantContextResult =
       ok: true;
       merchantId?: string;
       senderInfo?: ShippingAddress;
+      /**
+       * Merchant's ISO country, when a merchant was resolved. The registered
+       * carriers are Nigerian, so the route returns an empty quote set for
+       * non-NG merchants instead of quoting Nigeria-origin rates.
+       */
+      merchantCountry?: string | null;
     }
   | { error: string; ok: false; status: number };
 
@@ -171,7 +178,7 @@ async function resolveMerchantDetails(
 ): Promise<MerchantDetails | null | QuoteMerchantContextResult> {
   const { data, error } = await supabase
     .from('merchants')
-    .select('business_name, business_address, phone')
+    .select('business_name, business_address, phone, country')
     .eq('id', merchantId)
     .maybeSingle();
 
@@ -242,22 +249,26 @@ export async function resolveQuoteMerchantContext({
 
   let senderInfo =
     data.shipmentType === 'international' ? undefined : data.sender;
+  let merchantCountry: string | null | undefined;
 
-  if (
-    trustedSenderMerchantId &&
-    (data.shipmentType === 'international' || !senderInfo)
-  ) {
+  if (trustedSenderMerchantId) {
     const details = await resolveMerchantDetails(
       supabase,
       trustedSenderMerchantId
     );
     if (details && 'ok' in details) return details;
-    if (details) senderInfo = buildSenderInfo(details);
+    if (details) {
+      merchantCountry = details.country;
+      if (data.shipmentType === 'international' || !senderInfo) {
+        senderInfo = buildSenderInfo(details);
+      }
+    }
   }
 
   return {
     ok: true,
     merchantId,
     senderInfo,
+    merchantCountry,
   };
 }

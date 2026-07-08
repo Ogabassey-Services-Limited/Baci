@@ -295,4 +295,71 @@ describe('POST /api/shipping/quotes', () => {
     });
     expect(mockGetQuotes).not.toHaveBeenCalled();
   });
+
+  it('returns empty quotes with a Nigerian-merchants-only warning for a non-NG merchant', async () => {
+    mockCreateAdminClient.mockReturnValue(
+      buildSupabaseMock({ id: 'user-1' }, null, {
+        business_name: 'Merchant Store',
+        business_address: '1 Merchant Road, Bengaluru',
+        country: 'IN',
+        phone: '+919876543210',
+      })
+    );
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' })
+    );
+    const { POST } = await import('./route');
+
+    const response = await POST(buildQuoteRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.quotes).toEqual({ featured: [], all: [] });
+    expect(
+      json.warnings.some((warning: string) =>
+        /Nigerian merchants/i.test(warning)
+      )
+    ).toBe(true);
+    expect(mockGetQuotes).not.toHaveBeenCalled();
+  });
+
+  it('still fetches quotes when the merchant country is Nigeria', async () => {
+    mockCreateAdminClient.mockReturnValue(
+      buildSupabaseMock({ id: 'user-1' }, null, {
+        business_name: 'Merchant Store',
+        business_address: '1 Merchant Road, Lagos',
+        country: 'NG',
+        phone: '08012345678',
+      })
+    );
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' })
+    );
+    const { POST } = await import('./route');
+
+    const response = await POST(buildQuoteRequest());
+
+    expect(response.status).toBe(200);
+    expect(mockGetQuotes).toHaveBeenCalled();
+  });
+
+  it('still fetches quotes when the merchant country is null', async () => {
+    mockCreateAdminClient.mockReturnValue(
+      buildSupabaseMock({ id: 'user-1' }, null, {
+        business_name: 'Merchant Store',
+        business_address: '1 Merchant Road, Lagos',
+        country: null,
+        phone: '08012345678',
+      })
+    );
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' })
+    );
+    const { POST } = await import('./route');
+
+    const response = await POST(buildQuoteRequest());
+
+    expect(response.status).toBe(200);
+    expect(mockGetQuotes).toHaveBeenCalled();
+  });
 });

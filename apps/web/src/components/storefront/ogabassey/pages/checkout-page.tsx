@@ -555,7 +555,10 @@ export const CheckoutPage: React.FC = () => {
   );
 
   const paystackCheckoutAvailable = isPaystackCheckoutAvailable(merchant);
-  const korapayCheckoutAvailable = isKorapayCheckoutAvailable(merchant);
+  const korapayCheckoutAvailable = isKorapayCheckoutAvailable(
+    merchant,
+    currencyCode
+  );
   const bankTransferCheckoutAvailable =
     isBankTransferCheckoutAvailable(merchant);
   const basePath = merchantContext?.basePath;

@@ -1899,5 +1899,34 @@ describe('POST /api/payments/initialize', () => {
         rpcCalls.some((call) => call.name === 'create_payment_transaction')
       ).toBe(false);
     });
+
+    it('(g) never auto-selects paystack for a non-NGN order even when preferred_international_gateway is paystack', async () => {
+      // Paystack settles NGN only, so international auto-selection must
+      // always route to korapay regardless of the merchant's preference.
+      featureSettingsResult = {
+        data: {
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_international_gateway: 'paystack',
+        },
+        error: null,
+      };
+      snapshotWithCurrency('GHS');
+      mockInitializeKorapay.mockResolvedValue({
+        authorization_url: 'https://korapay.com/checkout/ghs-auto',
+        checkout_url: 'https://korapay.com/checkout/ghs-auto',
+      });
+
+      const res = await POST(makeRequest({ ...validBody, currency: 'GHS' }));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.gateway).toBe('korapay');
+      expect(mockInitializeKorapay).toHaveBeenCalledWith(
+        expect.objectContaining({ currency: 'GHS' })
+      );
+      expect(mockInitializePaystack).not.toHaveBeenCalled();
+    });
   });
 });
