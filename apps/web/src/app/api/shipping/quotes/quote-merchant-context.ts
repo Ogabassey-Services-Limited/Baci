@@ -19,6 +19,7 @@ type MerchantDetails = {
   business_name: string | null;
   phone: string | null;
   country: string | null;
+  payout_currency: string | null;
 };
 
 export type QuoteMerchantContextResult =
@@ -32,6 +33,13 @@ export type QuoteMerchantContextResult =
        * non-NG merchants instead of quoting Nigeria-origin rates.
        */
       merchantCountry?: string | null;
+      /**
+       * Merchant's payout currency, when a merchant was resolved. The route
+       * resolves the canonical merchant currency (payout_currency -> country
+       * -> NGN) from this and blocks the NGN-denominated carrier quotes for
+       * merchants whose canonical currency is not NGN.
+       */
+      merchantPayoutCurrency?: string | null;
     }
   | { error: string; ok: false; status: number };
 
@@ -178,7 +186,7 @@ async function resolveMerchantDetails(
 ): Promise<MerchantDetails | null | QuoteMerchantContextResult> {
   const { data, error } = await supabase
     .from('merchants')
-    .select('business_name, business_address, phone, country')
+    .select('business_name, business_address, phone, country, payout_currency')
     .eq('id', merchantId)
     .maybeSingle();
 
@@ -250,6 +258,7 @@ export async function resolveQuoteMerchantContext({
   let senderInfo =
     data.shipmentType === 'international' ? undefined : data.sender;
   let merchantCountry: string | null | undefined;
+  let merchantPayoutCurrency: string | null | undefined;
 
   if (trustedSenderMerchantId) {
     const details = await resolveMerchantDetails(
@@ -259,6 +268,7 @@ export async function resolveQuoteMerchantContext({
     if (details && 'ok' in details) return details;
     if (details) {
       merchantCountry = details.country;
+      merchantPayoutCurrency = details.payout_currency;
       if (data.shipmentType === 'international' || !senderInfo) {
         senderInfo = buildSenderInfo(details);
       }
@@ -270,5 +280,6 @@ export async function resolveQuoteMerchantContext({
     merchantId,
     senderInfo,
     merchantCountry,
+    merchantPayoutCurrency,
   };
 }

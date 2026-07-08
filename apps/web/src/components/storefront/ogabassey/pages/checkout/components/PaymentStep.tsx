@@ -150,6 +150,7 @@ export function PaymentStep({
               featureSettings={merchant?.feature_settings}
               klumpEligible={klumpEligible}
               hasInstallmentOptions={hasInstallmentOptions}
+              currency={currency}
             />
           </div>
 

@@ -1201,6 +1201,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Canonical merchant currency (payout_currency -> country -> NGN). The
+    // order-create RPC stamps orders.currency the same way, so this is the
+    // currency any FRESH order created below will carry.
+    const merchantResolvedCurrency =
+      resolveMerchantCurrencyConfig(merchant).code;
+
     const orderItemsPayload = items.map((item, index) => {
       const hasAssurance = item.has_assurance || false;
       const itemPrice = item.negotiatedPrice ?? item.price;
@@ -1562,11 +1568,26 @@ export async function POST(request: NextRequest) {
 
     // Hoisted above the idempotency hash so both the discount-code combination
     // guard and the hash can reference it.
-    const requestedSavingsRedemption =
+    const savingsRedemptionRequested =
       use_savings_credit &&
       savings_goal_id &&
       typeof savings_amount === 'number' &&
       savings_amount > 0;
+    // Customer savings are funded through NGN rails and carry no currency
+    // column, so a ₦-denominated savings balance must never offset a non-NGN
+    // order total at face value. Drop the redemption and fall back to the
+    // plain (non-savings) order RPC instead of failing the checkout.
+    const savingsCurrencySupported = merchantResolvedCurrency === 'NGN';
+    if (savingsRedemptionRequested && !savingsCurrencySupported) {
+      logger.warn({
+        message: 'Savings redemption skipped: order currency is not NGN',
+        merchantId: merchant_id,
+        orderCurrency: merchantResolvedCurrency,
+        savingsGoalId: savings_goal_id,
+      });
+    }
+    const requestedSavingsRedemption =
+      savingsRedemptionRequested && savingsCurrencySupported;
 
     // Resolve + validate the discount code server-side, then compute the amount
     // from the CANONICAL subtotal (never the client cart total). Eligibility /
@@ -1803,11 +1824,6 @@ export async function POST(request: NextRequest) {
 
     const order = Array.isArray(orderRows) ? orderRows[0] : orderRows;
 
-    // The order-create RPC's RETURNS TABLE carries no currency column, so the
-    // stamped orders.currency is derived the same way the RPC derives it:
-    // from the merchant record (payout_currency -> country -> NGN).
-    const orderCurrency = resolveMerchantCurrencyConfig(merchant).code;
-
     if (orderError || !order) {
       const code =
         typeof orderError?.code === 'string' ? orderError.code : null;
@@ -1930,6 +1946,31 @@ export async function POST(request: NextRequest) {
         { status: isClientError ? 400 : 500 }
       );
     }
+
+    // The order-create RPC's RETURNS TABLE carries no currency column, and an
+    // idempotency replay can return an order that was stamped BEFORE a
+    // payout-currency change — so read the stamped orders.currency back from
+    // the row instead of re-deriving it from the CURRENT merchant record.
+    // Fall back to the merchant-derived code (exactly what the RPC stamps on
+    // a fresh order) when the read-back errors or returns no currency.
+    const { data: orderCurrencyRow, error: orderCurrencyError } = await supabase
+      .from('orders')
+      .select('currency')
+      .eq('id', order.id)
+      .maybeSingle();
+    if (orderCurrencyError) {
+      logger.warn({
+        message:
+          'Order currency read-back failed; falling back to merchant-resolved currency',
+        orderId: order.id,
+        error: orderCurrencyError,
+      });
+    }
+    const stampedOrderCurrency =
+      typeof orderCurrencyRow?.currency === 'string'
+        ? orderCurrencyRow.currency.trim().toUpperCase()
+        : '';
+    const orderCurrency = stampedOrderCurrency || merchantResolvedCurrency;
 
     const idempotencyReplayed =
       typeof order === 'object' &&

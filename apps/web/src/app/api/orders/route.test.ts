@@ -1272,6 +1272,215 @@ describe('POST /api/orders — wallet response shape', () => {
   });
 });
 
+describe('POST /api/orders — non-NGN currency guards', () => {
+  // Routes the `merchants` fetch to a payout-currency-aware fixture and the
+  // `orders` currency read-back to a stamped row, leaving every other table
+  // on the shared buildMockSupabase chainable.
+  function buildCurrencyAwareSupabase({
+    merchantPayoutCurrency,
+    orderRowCurrency,
+    rpcOverrides = {},
+    rpcSpy,
+  }: {
+    merchantPayoutCurrency?: string;
+    orderRowCurrency?: string;
+    rpcOverrides?: Parameters<typeof buildMockSupabase>[0];
+    rpcSpy?: (name: string, params?: unknown) => void;
+  }) {
+    const sb = buildMockSupabase(rpcOverrides);
+    const originalFrom = sb.from;
+    const merchantRow = {
+      id: MERCHANT_ID,
+      business_name: 'Test Merchant',
+      country: 'NG',
+      slug: 'test-merchant',
+      support_email: 'support@example.com',
+      email_sender_name: 'Test Store',
+      email: 'merchant@example.com',
+      ...(merchantPayoutCurrency
+        ? { payout_currency: merchantPayoutCurrency }
+        : {}),
+    };
+    const merchantsChainable = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: merchantRow, error: null }),
+      maybeSingle: vi
+        .fn()
+        .mockResolvedValue({ data: merchantRow, error: null }),
+    };
+    const ordersChainable = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: orderRowCurrency ? { currency: orderRowCurrency } : null,
+        error: null,
+      }),
+    };
+    sb.from = vi.fn((table: string) => {
+      if (table === 'merchants') return merchantsChainable;
+      if (table === 'orders') return ordersChainable;
+      return originalFrom(table);
+    }) as typeof sb.from;
+    if (rpcSpy) {
+      const originalRpc = sb.rpc;
+      sb.rpc = vi.fn((name: string, params?: unknown) => {
+        rpcSpy(name, params);
+        return originalRpc(name);
+      }) as typeof sb.rpc;
+    }
+    return sb;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
+  });
+
+  it('falls back to the plain order RPC and skips savings when the merchant currency is not NGN', async () => {
+    const rpcSpy = vi.fn();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() =>
+      buildCurrencyAwareSupabase({
+        merchantPayoutCurrency: 'GHS',
+        rpcSpy,
+      })) as unknown as never);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          savings_amount: 500,
+          savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+          use_savings_credit: true,
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(201);
+    expect(body.savings).toBeNull();
+    expect(rpcSpy).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.not.objectContaining({ p_savings_amount: expect.anything() })
+    );
+    expect(rpcSpy).not.toHaveBeenCalledWith(
+      'create_storefront_order_with_savings',
+      expect.anything()
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Savings redemption skipped: order currency is not NGN',
+        orderCurrency: 'GHS',
+        savingsGoalId: '123e4567-e89b-12d3-a456-426614174555',
+      })
+    );
+  });
+
+  it('governs the wallet NGN guard by the stamped order row currency, not the current merchant', async () => {
+    // Replay divergence: the merchant has since switched payout to GHS, but
+    // the (replayed) order row was stamped NGN — the wallet guard must follow
+    // the row, so the naira wallet still redeems against the naira order.
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() =>
+      buildCurrencyAwareSupabase({
+        merchantPayoutCurrency: 'GHS',
+        orderRowCurrency: 'NGN',
+        rpcOverrides: {
+          redeem_wallet_for_order: {
+            data: [
+              {
+                success: true,
+                redeemed_amount: 300,
+                new_balance: 200,
+                transaction_id: '99999999-aaaa-bbbb-cccc-dddddddddddd',
+              },
+            ],
+            error: null,
+          },
+        },
+      })) as unknown as never);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          use_wallet_credit: true,
+          wallet_amount: 300,
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(201);
+    expect(body.wallet).toEqual({
+      amountUsed: 300,
+      newBalance: 200,
+      transactionId: '99999999-aaaa-bbbb-cccc-dddddddddddd',
+    });
+    expect(logger.warn).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Wallet redemption skipped: order currency is not NGN',
+      })
+    );
+  });
+
+  it('skips wallet redemption when the stamped order row currency is not NGN', async () => {
+    const rpcSpy = vi.fn();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() =>
+      buildCurrencyAwareSupabase({
+        orderRowCurrency: 'GHS',
+        rpcOverrides: {
+          redeem_wallet_for_order: {
+            data: [
+              {
+                success: true,
+                redeemed_amount: 300,
+                new_balance: 200,
+                transaction_id: '99999999-aaaa-bbbb-cccc-dddddddddddd',
+              },
+            ],
+            error: null,
+          },
+        },
+        rpcSpy,
+      })) as unknown as never);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          use_wallet_credit: true,
+          wallet_amount: 300,
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(201);
+    expect(body.wallet).toBeNull();
+    expect(body.amountDueToGateway).toBe(1000);
+    expect(rpcSpy).not.toHaveBeenCalledWith(
+      'redeem_wallet_for_order',
+      expect.anything()
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Wallet redemption skipped: order currency is not NGN',
+        orderCurrency: 'GHS',
+      })
+    );
+  });
+});
+
 describe('POST /api/orders — checkout idempotency', () => {
   beforeEach(async () => {
     vi.clearAllMocks();

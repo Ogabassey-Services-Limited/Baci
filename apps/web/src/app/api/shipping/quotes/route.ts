@@ -13,6 +13,7 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { shippingService } from '@/lib/shipping';
 import type { QuoteRequest, QuoteResponse } from '@/lib/shipping/types';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -60,14 +61,23 @@ export async function POST(request: NextRequest) {
       );
     }
     // Every registered carrier (Topship/GIGL) is Nigerian and quotes are
-    // NGN-denominated with a Nigeria origin. For a non-Nigerian merchant
-    // those quotes would be wrong in both origin and currency (and would be
-    // summed into a non-NGN order total with no conversion), so return an
-    // empty quote set instead.
+    // NGN-denominated with a Nigeria origin. Both a merchant whose canonical
+    // currency (payout_currency -> country -> NGN) is not NGN and a merchant
+    // whose country is not Nigeria must not receive these quotes: the rates
+    // would be wrong in origin and/or currency (and would be summed into a
+    // non-NGN order total with no conversion), so return an empty quote set
+    // instead.
     const merchantCountry = merchantContext.merchantCountry
       ?.trim()
       .toUpperCase();
-    if (merchantCountry && merchantCountry !== 'NG') {
+    const merchantCurrency = resolveMerchantCurrencyConfig({
+      country: merchantCountry,
+      payout_currency: merchantContext.merchantPayoutCurrency,
+    }).code;
+    if (
+      merchantCurrency !== 'NGN' ||
+      (merchantCountry && merchantCountry !== 'NG')
+    ) {
       const emptyResponse: QuoteResponse = {
         quotes: { featured: [], all: [] },
         sessionId: data.sessionId || crypto.randomUUID(),

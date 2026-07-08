@@ -92,6 +92,54 @@ describe('payment-step availability helpers', () => {
     ).toBe(true);
   });
 
+  it('hides the NGN-only flag rails (Juicyway, CredPal) on non-NGN checkouts', () => {
+    const featureSettings = { juicyway_enabled: true, credpal_enabled: true };
+    const base = {
+      paystackCheckoutAvailable: false,
+      korapayCheckoutAvailable: false,
+      bankTransferCheckoutAvailable: false,
+      featureSettings,
+      orderAmount: 50_000,
+      payableAmount: 50_000,
+    };
+
+    for (const paymentMethod of ['juicyway', 'credpal'] as const) {
+      // Non-NGN checkout: never offered, even with the flag enabled.
+      expect(
+        isPaymentMethodAvailable({ ...base, paymentMethod, currency: 'GHS' }),
+      ).toBe(false);
+      // Missing currency fails closed (matches Klump/Credit Direct).
+      expect(
+        isPaymentMethodAvailable({ ...base, paymentMethod, currency: null }),
+      ).toBe(false);
+      // NGN checkout: unchanged.
+      expect(
+        isPaymentMethodAvailable({ ...base, paymentMethod, currency: 'NGN' }),
+      ).toBe(true);
+    }
+  });
+
+  it('reports no installment options when only CredPal is enabled on a non-NGN checkout', () => {
+    const featureSettings = { credpal_enabled: true };
+
+    expect(
+      hasAnyInstallmentOption({
+        featureSettings,
+        currency: 'GHS',
+        orderAmount: 50_000,
+        payableAmount: 50_000,
+      }),
+    ).toBe(false);
+    expect(
+      hasAnyInstallmentOption({
+        featureSettings,
+        currency: 'NGN',
+        orderAmount: 50_000,
+        payableAmount: 50_000,
+      }),
+    ).toBe(true);
+  });
+
   it('requires enabled NGN Credit Direct within its amount bounds', () => {
     expect(
       isCreditDirectEligible({

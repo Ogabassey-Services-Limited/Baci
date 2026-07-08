@@ -42,16 +42,67 @@ describe('PaymentOptionsPanel', () => {
         featureSettings={{ juicyway_enabled: true }}
         klumpEligible={false}
         hasInstallmentOptions={false}
+        currency="NGN"
       />,
     );
 
     expect(screen.getByRole('radio', { name: /paystack/i })).toBeInTheDocument();
     expect(screen.getByText('Bank Transfer')).toBeInTheDocument();
+    expect(screen.getByText('Juicyway')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /pay in installments/i }));
 
     expect(setPaymentTab).toHaveBeenCalledWith('installments');
     expect(setPaymentMethod).toHaveBeenCalledWith('');
+  });
+
+  it('hides the NGN-only rails (Juicyway, CredPal, Credit Direct) on non-NGN checkouts', () => {
+    const featureSettings = {
+      juicyway_enabled: true,
+      credpal_enabled: true,
+      credit_direct_enabled: true,
+    };
+
+    const { rerender } = render(
+      <PaymentOptionsPanel
+        paymentTab="full"
+        setPaymentTab={vi.fn()}
+        paymentMethod=""
+        setPaymentMethod={vi.fn()}
+        paystackCheckoutAvailable={false}
+        korapayCheckoutAvailable={true}
+        bankTransferCheckoutAvailable={false}
+        featureSettings={featureSettings}
+        klumpEligible={false}
+        hasInstallmentOptions={false}
+        currency="GHS"
+      />,
+    );
+
+    expect(screen.getByText('Korapay')).toBeInTheDocument();
+    expect(screen.queryByText('Juicyway')).not.toBeInTheDocument();
+
+    rerender(
+      <PaymentOptionsPanel
+        paymentTab="installments"
+        setPaymentTab={vi.fn()}
+        paymentMethod=""
+        setPaymentMethod={vi.fn()}
+        paystackCheckoutAvailable={false}
+        korapayCheckoutAvailable={true}
+        bankTransferCheckoutAvailable={false}
+        featureSettings={featureSettings}
+        klumpEligible={false}
+        hasInstallmentOptions={false}
+        currency="GHS"
+      />,
+    );
+
+    expect(screen.queryByText('CredPal')).not.toBeInTheDocument();
+    expect(screen.queryByText('Credit Direct')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('No installment options are currently available.'),
+    ).toBeInTheDocument();
   });
 
   it('renders Klump and its information when eligible and selected', () => {

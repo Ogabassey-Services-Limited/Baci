@@ -362,4 +362,76 @@ describe('POST /api/shipping/quotes', () => {
     expect(response.status).toBe(200);
     expect(mockGetQuotes).toHaveBeenCalled();
   });
+
+  it('returns empty quotes when the merchant payout currency is not NGN even for an NG merchant', async () => {
+    mockCreateAdminClient.mockReturnValue(
+      buildSupabaseMock({ id: 'user-1' }, null, {
+        business_name: 'Merchant Store',
+        business_address: '1 Merchant Road, Lagos',
+        country: 'NG',
+        payout_currency: 'GHS',
+        phone: '08012345678',
+      })
+    );
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' })
+    );
+    const { POST } = await import('./route');
+
+    const response = await POST(buildQuoteRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.quotes).toEqual({ featured: [], all: [] });
+    expect(
+      json.warnings.some((warning: string) =>
+        /Nigerian merchants/i.test(warning)
+      )
+    ).toBe(true);
+    expect(mockGetQuotes).not.toHaveBeenCalled();
+  });
+
+  it('returns empty quotes for a non-NGN payout merchant with no country set', async () => {
+    mockCreateAdminClient.mockReturnValue(
+      buildSupabaseMock({ id: 'user-1' }, null, {
+        business_name: 'Merchant Store',
+        business_address: '1 Merchant Road, Accra',
+        country: null,
+        payout_currency: 'GHS',
+        phone: '+233201234567',
+      })
+    );
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' })
+    );
+    const { POST } = await import('./route');
+
+    const response = await POST(buildQuoteRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.quotes).toEqual({ featured: [], all: [] });
+    expect(mockGetQuotes).not.toHaveBeenCalled();
+  });
+
+  it('still fetches quotes when the payout currency is NGN and the country is NG', async () => {
+    mockCreateAdminClient.mockReturnValue(
+      buildSupabaseMock({ id: 'user-1' }, null, {
+        business_name: 'Merchant Store',
+        business_address: '1 Merchant Road, Lagos',
+        country: 'NG',
+        payout_currency: 'NGN',
+        phone: '08012345678',
+      })
+    );
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' })
+    );
+    const { POST } = await import('./route');
+
+    const response = await POST(buildQuoteRequest());
+
+    expect(response.status).toBe(200);
+    expect(mockGetQuotes).toHaveBeenCalled();
+  });
 });
