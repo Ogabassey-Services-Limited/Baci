@@ -76,6 +76,33 @@ describe('order item display helpers', () => {
     ).toBe('Samsung Galaxy Fold 5 (Premium Used)');
   });
 
+  it('keeps condition metadata when the condition token is part of the product name', () => {
+    expect(
+      formatOrderItemDisplayName({
+        baseName: 'New Balance 574',
+        condition: 'new',
+      })
+    ).toBe('New Balance 574 (New)');
+  });
+
+  it('does not duplicate leading condition segments in the item name', () => {
+    expect(
+      formatOrderItemDisplayName({
+        baseName: 'Used, iPhone 12',
+        condition: 'used',
+      })
+    ).toBe('Used, iPhone 12');
+  });
+
+  it('does not duplicate exact condition-only item names', () => {
+    expect(
+      formatOrderItemDisplayName({
+        baseName: 'Used',
+        condition: 'used',
+      })
+    ).toBe('Used');
+  });
+
   it('still shows variant labels when the item name already has the condition', () => {
     expect(
       formatOrderItemDisplayName({

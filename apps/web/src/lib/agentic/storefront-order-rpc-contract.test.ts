@@ -706,25 +706,27 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
       /NULLIF\s*\(\s*trim\s*\(\s*COALESCE\s*\(\s*item->>'variant_name'\s*,\s*item->>'variantName'\s*\)\s*\)\s*,\s*''\s*\)\s+AS\s+variant_name/i
     );
 
-    const payloadVariantNameIndex = sql.indexOf(
-      "NULLIF(trim(r.variant_name), '')"
-    );
     const productVariantAttributesIndex = sql.indexOf(
-      'public.format_order_item_variant_name(v.attributes)',
-      payloadVariantNameIndex
+      'public.format_order_item_variant_name(v.attributes)'
+    );
+    const payloadVariantNameIndex = sql.indexOf(
+      "NULLIF(trim(r.variant_name), '')",
+      productVariantAttributesIndex
     );
     const payloadVariantAttributesIndex = sql.indexOf(
       'public.format_order_item_variant_name(r.variant_attributes)',
       payloadVariantNameIndex
     );
 
-    expect(payloadVariantNameIndex).toBeGreaterThan(-1);
-    expect(productVariantAttributesIndex).toBeGreaterThan(
-      payloadVariantNameIndex
+    expect(productVariantAttributesIndex).toBeGreaterThan(-1);
+    expect(payloadVariantNameIndex).toBeGreaterThan(
+      productVariantAttributesIndex
     );
     expect(payloadVariantAttributesIndex).toBeGreaterThan(
       payloadVariantNameIndex
     );
+    expect(sql).toContain('WHERE products.id = stock_rec.product_id');
+    expect(sql).toContain('WHERE product_variants.id = v_variant_id');
   });
 });
 

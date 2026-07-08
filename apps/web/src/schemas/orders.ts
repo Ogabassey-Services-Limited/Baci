@@ -45,6 +45,21 @@ const optionalHttpUrlSchema = z.preprocess(
     .optional()
 );
 
+const optionalVariantNameSchema = z.preprocess(
+  (value) => (value === null ? undefined : value),
+  z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val) {
+        return val;
+      }
+
+      const sanitized = sanitizeText(val).trim();
+      return sanitized.length > 0 ? sanitized : undefined;
+    })
+);
+
 const VOUCHER_TOKEN_MAX_LENGTH = 512;
 
 const optionalVoucherTokenSchema = z.preprocess((value) => {
@@ -125,14 +140,8 @@ const orderCreateSchemaBase = z
               ),
             variantId: z.string().optional(),
             variant_id: z.string().optional(),
-            variantName: z
-              .string()
-              .optional()
-              .transform((val) => (val ? sanitizeText(val).trim() : val)),
-            variant_name: z
-              .string()
-              .optional()
-              .transform((val) => (val ? sanitizeText(val).trim() : val)),
+            variantName: optionalVariantNameSchema,
+            variant_name: optionalVariantNameSchema,
             variantAttributes: z
               .record(
                 z.string(),

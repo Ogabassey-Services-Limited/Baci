@@ -309,8 +309,8 @@ BEGIN
     r.variant_id,
     r.variant_attributes,
     COALESCE(
-      NULLIF(trim(r.variant_name), ''),
       public.format_order_item_variant_name(v.attributes),
+      NULLIF(trim(r.variant_name), ''),
       public.format_order_item_variant_name(r.variant_attributes)
     ),
     r.quantity,
@@ -705,12 +705,12 @@ BEGIN
       BEGIN
         SELECT inventory_tracking_policy INTO v_prod_policy
         FROM public.products
-        WHERE id = stock_rec.product_id;
+        WHERE products.id = stock_rec.product_id;
 
         IF v_variant_id IS NOT NULL THEN
           SELECT inventory_tracking_policy INTO v_var_policy
           FROM public.product_variants
-          WHERE id = v_variant_id;
+          WHERE product_variants.id = v_variant_id;
         ELSE
           v_var_policy := 'inherit';
         END IF;

@@ -47,6 +47,31 @@ function normalizedTextContainsOption(value: string, optionKey: string) {
   return ` ${normalizeOptionToken(value)} `.includes(` ${optionKey} `);
 }
 
+function hasExplicitConditionSegment(value: string, optionKey: string) {
+  if (normalizeOptionToken(value) === optionKey) {
+    return true;
+  }
+
+  const bracketSegments = value.matchAll(/[\[(]([^\])]+)[\])]/g);
+  for (const segment of bracketSegments) {
+    if (segment[1] && normalizedTextContainsOption(segment[1], optionKey)) {
+      return true;
+    }
+  }
+
+  const splitSegments = value
+    .split(/\s+-\s+|[\/|,]/)
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+  if (splitSegments.length < 2) {
+    return false;
+  }
+
+  return splitSegments.some((segment) =>
+    normalizedTextContainsOption(segment, optionKey)
+  );
+}
+
 function stripConditionCommaSegments(value: string, conditionKey: string | null) {
   if (!conditionKey) {
     return value.trim();
@@ -130,7 +155,7 @@ export function formatOrderItemDisplayName({
     ? normalizeOptionToken(conditionLabel)
     : null;
   const includeConditionLabel = conditionKey
-    ? !normalizedTextContainsOption(displayName, conditionKey)
+    ? !hasExplicitConditionSegment(displayName, conditionKey)
     : true;
   const optionLabel = buildOrderItemOptionLabel(
     { condition, variantName },
