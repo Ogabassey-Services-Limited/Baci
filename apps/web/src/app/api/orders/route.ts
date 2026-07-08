@@ -1190,7 +1190,18 @@ export async function POST(request: NextRequest) {
           error: voucherAwardError,
           voucherAwardIds,
         });
-        return invalidQuizVoucherTokenResponse();
+        // A LOOKUP failure (transient DB/RLS/PostgREST) is NOT a bad voucher.
+        // Returning the 400 QUIZ_VOUCHER_TOKEN_INVALID shape would make checkout
+        // prune the only prize line and destroy a valid won prize. Return a
+        // non-pruning 5xx so the shopper can retry with the voucher intact.
+        return NextResponse.json(
+          {
+            code: 'QUIZ_VOUCHER_LOOKUP_FAILED',
+            error:
+              'Could not verify your quiz prize right now. Please try again.',
+          },
+          { status: 503 }
+        );
       }
 
       const voucherAwardRowById = new Map(

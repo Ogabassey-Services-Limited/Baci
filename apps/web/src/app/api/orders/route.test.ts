@@ -217,6 +217,8 @@ function buildMockSupabase(
       string,
       { award_type?: string; missing?: boolean; status?: string }
     >;
+    // Simulate a transient failure of the quiz_awards status lookup itself.
+    quizAwardLookupError?: boolean;
     shippingQuote?: unknown;
   } = {}
 ) {
@@ -279,6 +281,12 @@ function buildMockSupabase(
   const quizAwardChainable: any = {
     ...sharedChainable,
     in: vi.fn((_column: string, ids: string[]) => {
+      if (opts.quizAwardLookupError) {
+        return Promise.resolve({
+          data: null,
+          error: { message: 'transient lookup failure' },
+        });
+      }
       const rows = ids
         .filter((id) => !quizAwardOverrides[id]?.missing)
         .map((id) => ({
@@ -900,6 +908,65 @@ describe('POST /api/orders — quiz voucher guard', () => {
       error: 'Invalid quiz voucher token',
       rejectedVoucherToken: claimedToken,
     });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('returns a non-pruning 503 when the award status lookup itself fails', async () => {
+    // A transient quiz_awards lookup failure is NOT a bad voucher. Returning the
+    // prunable 400 QUIZ_VOUCHER_TOKEN_INVALID would make checkout drop the only
+    // prize line and destroy a valid won prize. The route must fail non-prunably
+    // (5xx, no rejectedVoucherToken) so the shopper can retry with it intact.
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const validAwardId = '11111111-1111-4111-8111-111111111111';
+    const productId = '22222222-2222-4222-8222-222222222222';
+    const supabase = buildMockSupabase({}, { quizAwardLookupError: true });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId: validAwardId,
+        condition: 'new',
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId,
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            condition: 'new',
+            product_id: productId,
+            price: 0,
+            voucher_token: token,
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(503);
+    expect(body.code).toBe('QUIZ_VOUCHER_LOOKUP_FAILED');
+    // Non-pruning: no rejectedVoucherToken so checkout keeps the prize line.
+    expect(body).not.toHaveProperty('rejectedVoucherToken');
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 

@@ -5,6 +5,12 @@ function isVoucherLine(item: CartItem): boolean {
   return Boolean(item.voucher_token || item.voucher_award_id);
 }
 
+/** True when the cart carries a quiz prize (voucher) line. After the mixed-cart
+ *  guard has run, a cart with a voucher line is voucher-ONLY. */
+export function cartHasVoucherLine(items: CartItem[]): boolean {
+  return items.some(isVoucherLine);
+}
+
 /**
  * A quiz prize (voucher) line redeems as its own pre-reserved order; the server
  * ignores the other submitted items and the success path clears the whole cart,

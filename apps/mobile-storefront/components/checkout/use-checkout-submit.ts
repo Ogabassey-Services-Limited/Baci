@@ -21,7 +21,10 @@ import {
 } from './checkout-order-builders';
 import { finalizeCheckoutPayment } from './checkout-payment-finalization';
 import { runCheckoutPostOrderSideEffects } from './checkout-post-order-side-effects';
-import { blockIfMixedPrizeCart } from './checkout-prize-cart-guard';
+import {
+  blockIfMixedPrizeCart,
+  cartHasVoucherLine,
+} from './checkout-prize-cart-guard';
 import { CHECKOUT_MERCHANT_ID } from './checkout-screen.constants';
 import { resolveCheckoutStoreCreditSelections } from './checkout-store-credit';
 import { handleCheckoutSubmitError } from './checkout-submit-error';
@@ -77,6 +80,11 @@ export function useCheckoutSubmit({
     if (blockIfMixedPrizeCart(itemsSnapshot)) {
       return;
     }
+    // A voucher-only cart (₦0 prize) must take the standard order path, which
+    // returns the pre-reserved order already paid and routes to success — never
+    // a BNPL/financing flow (those bypass the fully-paid route and would open a
+    // ₦0 loan while leaving the voucher in the cart).
+    const isVoucherOnlyCart = cartHasVoucherLine(itemsSnapshot);
 
     if (
       !validateCheckoutSubmission({
@@ -141,7 +149,7 @@ export function useCheckoutSubmit({
         selectedPayment === 'credit_direct' ||
         selectedPayment === 'klump';
 
-      if (isBNPL) {
+      if (isBNPL && !isVoucherOnlyCart) {
         await submitBnplCheckout({
           address,
           appliedDiscountCode,

@@ -13,6 +13,7 @@ const mockRepriceCartItems = jest.fn() as jest.MockedFunction<
   (items: CartItem[], merchantId: string) => Promise<RepriceResult>
 >;
 const mockCreateOrder = jest.fn();
+const mockSubmitBnplCheckout = jest.fn();
 const mockValidateCheckoutSubmission = jest.fn();
 const mockRepriceItems = jest.fn();
 const mockRestoreItems = jest.fn();
@@ -38,7 +39,13 @@ jest.mock('@/services/cart-reprice', () => ({
 }));
 
 jest.mock('@/services/orders', () => ({
-  createOrder: mockCreateOrder,
+  createOrder: (...args: unknown[]) => mockCreateOrder(...args),
+}));
+
+jest.mock('@/lib/wallet-payment-helpers', () => ({
+  buildSavingsOrderFields: jest.fn(() => ({})),
+  buildWalletOrderFields: jest.fn(() => ({})),
+  getFullyPaidStoreCreditPaymentMethod: jest.fn(() => undefined),
 }));
 
 jest.mock('@/services/analytics', () => ({
@@ -58,7 +65,7 @@ jest.mock('@/hooks/use-merchant', () => ({
 }));
 
 jest.mock('./checkout-bnpl-submit', () => ({
-  submitBnplCheckout: jest.fn(),
+  submitBnplCheckout: (...args: unknown[]) => mockSubmitBnplCheckout(...args),
 }));
 
 jest.mock('./checkout-order-builders', () => ({
@@ -238,6 +245,36 @@ describe('useCheckoutSubmit', () => {
     expect(mockRepriceCartItems).not.toHaveBeenCalled();
     expect(mockCreateOrder).not.toHaveBeenCalled();
     expect(params.isOrderInFlight.current).toBe(false);
+  });
+
+  it('routes a voucher-only cart through the standard order path even when BNPL is selected', async () => {
+    // A ₦0 prize must never take a BNPL/financing flow (which bypasses the
+    // fully-paid success route and would open a ₦0 loan). It goes through
+    // createOrder → finalize, which returns the pre-reserved paid order.
+    cartItems = [
+      {
+        id: 'line-prize',
+        name: 'iPhone 15 (Prize)',
+        price: 0,
+        product_id: 'product-prize',
+        quantity: 1,
+        slug: 'iphone-15',
+        voucher_token: 'qv1.aaa.bbb',
+        voucher_award_id: 'award-1',
+      },
+    ];
+    mockRepriceCartItems.mockResolvedValue({ changes: [], priceById: {} });
+    const params = createParams({ selectedPayment: 'credit_direct' });
+
+    const { result } = renderHook(() => useCheckoutSubmit(params));
+
+    await act(async () => {
+      await result.current(address);
+    });
+
+    // Standard path taken (createOrder called); BNPL flow NOT taken.
+    expect(mockCreateOrder).toHaveBeenCalled();
+    expect(mockSubmitBnplCheckout).not.toHaveBeenCalled();
   });
 
   it('updates stale cart prices and aborts checkout after validation passes', async () => {

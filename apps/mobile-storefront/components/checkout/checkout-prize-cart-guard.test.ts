@@ -1,6 +1,9 @@
 import { Alert } from 'react-native';
 import type { CartItem } from '@/stores/cart-store';
-import { blockIfMixedPrizeCart } from './checkout-prize-cart-guard';
+import {
+  blockIfMixedPrizeCart,
+  cartHasVoucherLine,
+} from './checkout-prize-cart-guard';
 
 const paidItem: CartItem = {
   id: 'line-1',
@@ -52,5 +55,17 @@ describe('blockIfMixedPrizeCart', () => {
   it('allows an empty cart', () => {
     expect(blockIfMixedPrizeCart([])).toBe(false);
     expect(Alert.alert).not.toHaveBeenCalled();
+  });
+});
+
+describe('cartHasVoucherLine', () => {
+  it('detects a voucher line', () => {
+    expect(cartHasVoucherLine([voucherItem])).toBe(true);
+    expect(cartHasVoucherLine([paidItem, voucherItem])).toBe(true);
+  });
+
+  it('returns false for paid-only and empty carts', () => {
+    expect(cartHasVoucherLine([paidItem])).toBe(false);
+    expect(cartHasVoucherLine([])).toBe(false);
   });
 });
