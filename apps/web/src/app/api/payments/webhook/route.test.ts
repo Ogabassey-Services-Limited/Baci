@@ -185,7 +185,20 @@ vi.mock('@/lib/zeptomail', () => ({
 }));
 
 vi.mock('@/lib/go54', () => ({
+  isGo54Configured: vi.fn(() => true),
   registerDomain: vi.fn(),
+}));
+
+// The domain repair/fulfillment success paths call these; the real
+// implementations touch Next.js revalidation APIs that throw outside a
+// request context.
+vi.mock('@/lib/cache-revalidation', () => ({
+  revalidateMerchantFeed: vi.fn(),
+}));
+
+vi.mock('@/lib/edge-config-sync', () => ({
+  // Must resolve: the next/server `after` mock chains .catch on the result.
+  triggerDomainEdgeConfigSync: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/trigger-purchase-conversion', () => ({
@@ -311,11 +324,15 @@ function setupSuccessfulTransactionMocks(
         }),
       };
 
-      // Second call: .update().eq().neq().select().maybeSingle() for transaction update
+      // Second call: .update().eq().neq().select().maybeSingle() for transaction
+      // update; the domain fulfillment claim additionally chains `.is(...)`
+      // and `.or(...)`.
       const updateChain = {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         neq: vi.fn().mockReturnThis(),
+        is: vi.fn().mockReturnThis(),
+        or: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({
           data:
@@ -678,6 +695,1477 @@ describe('POST /api/payments/webhook', () => {
       const response = await POST(request);
 
       expect(response.status).toBe(200);
+    });
+  });
+
+  describe('Domain purchase settlement', () => {
+    it('never records a merchant settlement for a domain purchase (review #2991 P1 regression test)', async () => {
+      // record_merchant_settlement credits the merchant wallet with
+      // gross - gateway_fee - platform_fee. A domain purchase is the merchant
+      // BUYING a service from Baci (platform_fee = markup only), so settling
+      // would refund the merchant roughly the registrar cost of the domain
+      // they just paid for.
+      const body = {
+        reference: 'DOM-REGRESSION1',
+        status: 'success',
+        event: 'charge.success',
+        amount: 19499,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 19499,
+          reference: 'DOM-REGRESSION1',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      setupSuccessfulTransactionMocks({
+        amount: '19499',
+        gateway_reference: 'DOM-REGRESSION1',
+        metadata: {
+          transaction_type: 'domain_purchase',
+          domain: 'junglee.com',
+          tld: '.com',
+          years: 1,
+          cost_price: 16000,
+          sell_price: 19499,
+        },
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockServiceClient.rpc).not.toHaveBeenCalledWith(
+        'record_merchant_settlement',
+        expect.anything()
+      );
+    });
+
+    it('defers to gateway retry (503, no registrar call) when another path holds the claim (review #2991 P1 regression test)', async () => {
+      // The dashboard callback (/api/domains/purchase) and this webhook can
+      // both observe the same completed, unused transaction. Whoever loses the
+      // atomic metadata claim must NOT call the registrar, or one payment
+      // would register (and pay the registrar for) the domain twice. The
+      // loser fails the delivery (503) so the gateway retries later — if the
+      // dashboard claimant died or released, the retry fulfills; once
+      // fulfilled, the retry no-ops.
+      const body = {
+        reference: 'DOM-REGRESSION2',
+        status: 'success',
+        event: 'charge.success',
+        amount: 19499,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 19499,
+          reference: 'DOM-REGRESSION2',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      const domainTransaction = {
+        id: 'txn-dom-2',
+        merchant_id: 'merchant-123',
+        amount: '19499',
+        currency: 'NGN',
+        gateway_reference: 'DOM-REGRESSION2',
+        status: 'pending',
+        order_id: null,
+        metadata: {
+          transaction_type: 'domain_purchase',
+          domain: 'junglee.com',
+          tld: '.com',
+          years: 1,
+        },
+      };
+
+      // The fulfillment claim is the only update chain that uses `.or(...)`:
+      // resolve it to null (another path already claimed); all other update
+      // chains keep succeeding.
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          const selectChain = {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: domainTransaction,
+              error: null,
+            }),
+          };
+          return {
+            select: vi.fn(() => selectChain),
+            update: vi.fn(() => {
+              let claimAttempt = false;
+              const chain = {
+                eq: vi.fn().mockReturnThis(),
+                neq: vi.fn().mockReturnThis(),
+                is: vi.fn().mockReturnThis(),
+                or: vi.fn(() => {
+                  claimAttempt = true;
+                  return chain;
+                }),
+                select: vi.fn().mockReturnThis(),
+                maybeSingle: vi.fn(() =>
+                  Promise.resolve({
+                    data: claimAttempt ? null : { id: 'txn-dom-2' },
+                    error: null,
+                  })
+                ),
+              };
+              return chain;
+            }),
+          } as never;
+        }
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                business_name: 'Test Store',
+                email: 'owner@example.com',
+                address: '1 Test Rd',
+                city: 'Lagos',
+                state: 'Lagos',
+                phone: '+2348000000000',
+                users: { first_name: 'Test', last_name: 'Owner' },
+              },
+              error: null,
+            }),
+          } as never;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const { registerDomain } = await import('@/lib/go54');
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(503);
+      expect(registerDomain).not.toHaveBeenCalled();
+      expect(mockServiceClient.rpc).not.toHaveBeenCalledWith(
+        'record_merchant_settlement',
+        expect.anything()
+      );
+    });
+
+    it('fails the webhook delivery (500) when the fulfillment claim write errors (review #2991 P2 regression test)', async () => {
+      // A transient claim-write failure must NOT be treated like a contested
+      // claim: the handler would report success and this paid purchase would
+      // silently never be fulfilled. Failing the delivery makes the gateway
+      // retry the webhook.
+      const body = {
+        reference: 'DOM-REGRESSION3',
+        status: 'success',
+        event: 'charge.success',
+        amount: 19499,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 19499,
+          reference: 'DOM-REGRESSION3',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      const domainTransaction = {
+        id: 'txn-dom-3',
+        merchant_id: 'merchant-123',
+        amount: '19499',
+        currency: 'NGN',
+        gateway_reference: 'DOM-REGRESSION3',
+        status: 'pending',
+        order_id: null,
+        metadata: {
+          transaction_type: 'domain_purchase',
+          domain: 'junglee.com',
+          tld: '.com',
+          years: 1,
+        },
+      };
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          const selectChain = {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: domainTransaction,
+              error: null,
+            }),
+          };
+          return {
+            select: vi.fn(() => selectChain),
+            update: vi.fn(() => {
+              let claimAttempt = false;
+              const chain = {
+                eq: vi.fn().mockReturnThis(),
+                neq: vi.fn().mockReturnThis(),
+                is: vi.fn().mockReturnThis(),
+                or: vi.fn(() => {
+                  claimAttempt = true;
+                  return chain;
+                }),
+                select: vi.fn().mockReturnThis(),
+                maybeSingle: vi.fn(() =>
+                  Promise.resolve(
+                    claimAttempt
+                      ? { data: null, error: { message: 'network blip' } }
+                      : { data: { id: 'txn-dom-3' }, error: null }
+                  )
+                ),
+              };
+              return chain;
+            }),
+          } as never;
+        }
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                business_name: 'Test Store',
+                email: 'owner@example.com',
+                address: '1 Test Rd',
+                city: 'Lagos',
+                state: 'Lagos',
+                phone: '+2348000000000',
+                users: { first_name: 'Test', last_name: 'Owner' },
+              },
+              error: null,
+            }),
+          } as never;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const { registerDomain } = await import('@/lib/go54');
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(500);
+      expect(registerDomain).not.toHaveBeenCalled();
+    });
+
+    it('re-enters fulfillment on retries for a completed-but-unfulfilled purchase (review #2991 P2 regression test)', async () => {
+      // The dashboard callback can complete the payment and then die before
+      // registration, and a claim-write error 500 makes the gateway retry.
+      // In both cases the retry arrives with status already "completed" — the
+      // already-processed path must still attempt domain fulfillment instead
+      // of returning early and stranding a paid domain.
+      const body = {
+        reference: 'DOM-REGRESSION4',
+        status: 'success',
+        event: 'charge.success',
+        amount: 19499,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 19499,
+          reference: 'DOM-REGRESSION4',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      const domainTransaction = {
+        id: 'txn-dom-4',
+        merchant_id: 'merchant-123',
+        amount: '19499',
+        currency: 'NGN',
+        gateway_reference: 'DOM-REGRESSION4',
+        status: 'completed',
+        order_id: null,
+        metadata: {
+          transaction_type: 'domain_purchase',
+          domain: 'junglee.com',
+          tld: '.com',
+          years: 1,
+        },
+      };
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          const selectChain = {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: domainTransaction,
+              error: null,
+            }),
+          };
+          return {
+            select: vi.fn(() => selectChain),
+            update: vi.fn(() => {
+              let statusIdempotencyUpdate = false;
+              const chain = {
+                eq: vi.fn().mockReturnThis(),
+                neq: vi.fn(() => {
+                  // Only the completion update chains .neq('status', ...):
+                  // report "no row updated" = already completed.
+                  statusIdempotencyUpdate = true;
+                  return chain;
+                }),
+                is: vi.fn().mockReturnThis(),
+                or: vi.fn().mockReturnThis(),
+                select: vi.fn().mockReturnThis(),
+                maybeSingle: vi.fn(() =>
+                  Promise.resolve({
+                    data: statusIdempotencyUpdate ? null : { id: 'txn-dom-4' },
+                    error: null,
+                  })
+                ),
+              };
+              return chain;
+            }),
+          } as never;
+        }
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                business_name: 'Test Store',
+                email: 'owner@example.com',
+                address: '1 Test Rd',
+                city: 'Lagos',
+                state: 'Lagos',
+                phone: '+2348000000000',
+                users: { first_name: 'Test', last_name: 'Owner' },
+              },
+              error: null,
+            }),
+          } as never;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const { registerDomain } = await import('@/lib/go54');
+      vi.mocked(registerDomain).mockResolvedValue({
+        success: false,
+        error: 'registrar unavailable',
+      } as never);
+
+      const response = await POST(request);
+
+      // Fulfillment was re-entered (claim won, registrar attempted) even
+      // though the transaction was already completed. The registrar failed
+      // definitively, so the delivery fails retryably (503) after releasing
+      // the claim — the next redelivery can attempt fulfillment again.
+      expect(registerDomain).toHaveBeenCalledTimes(1);
+      expect(response.status).toBe(503);
+    });
+
+    it('repairs a missing domains row for a fulfilled purchase without contacting the registrar (review #2991 P2 regression test)', async () => {
+      // Go54 succeeded but the domains write failed on the original attempt:
+      // the webhook retry must recreate the row from transaction metadata and
+      // must NEVER re-order at the registrar.
+      const body = {
+        reference: 'DOM-REGRESSION5',
+        status: 'success',
+        event: 'charge.success',
+        amount: 19499,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 19499,
+          reference: 'DOM-REGRESSION5',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      const domainTransaction = {
+        id: 'txn-dom-5',
+        merchant_id: 'merchant-123',
+        amount: '19499',
+        currency: 'NGN',
+        gateway_reference: 'DOM-REGRESSION5',
+        status: 'completed',
+        order_id: null,
+        metadata: {
+          transaction_type: 'domain_purchase',
+          domain: 'junglee.com',
+          tld: '.com',
+          years: 1,
+          domain_purchased: 'junglee.com',
+          purchased_at: '2026-07-08T00:00:00.000Z',
+          domain_registrar_order_id: 'go54-999',
+        },
+      };
+
+      const domainsInsert = vi.fn().mockReturnThis();
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          const selectChain = {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: domainTransaction,
+              error: null,
+            }),
+          };
+          return {
+            select: vi.fn(() => selectChain),
+            update: vi.fn(() => {
+              let statusIdempotencyUpdate = false;
+              const chain = {
+                eq: vi.fn().mockReturnThis(),
+                neq: vi.fn(() => {
+                  statusIdempotencyUpdate = true;
+                  return chain;
+                }),
+                is: vi.fn().mockReturnThis(),
+                or: vi.fn().mockReturnThis(),
+                select: vi.fn().mockReturnThis(),
+                maybeSingle: vi.fn(() =>
+                  Promise.resolve({
+                    data: statusIdempotencyUpdate ? null : { id: 'txn-dom-5' },
+                    error: null,
+                  })
+                ),
+              };
+              return chain;
+            }),
+          } as never;
+        }
+        if (table === 'domains') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            in: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: null, // the row is missing — repair should insert it
+              error: null,
+            }),
+            insert: domainsInsert,
+          } as never;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const { registerDomain } = await import('@/lib/go54');
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(registerDomain).not.toHaveBeenCalled();
+      expect(domainsInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          domain: 'junglee.com',
+          domain_type: 'purchased',
+          go54_order_id: 'go54-999',
+          merchant_id: 'merchant-123',
+        })
+      );
+    });
+
+    it('returns 200 without calling registerDomain when an active domain already exists for the merchant', async () => {
+      const body = {
+        reference: 'DOM-REGRESSION6',
+        status: 'success',
+        event: 'charge.success',
+        amount: 19499,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 19499,
+          reference: 'DOM-REGRESSION6',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      const domainTransaction = {
+        id: 'txn-dom-6',
+        merchant_id: 'merchant-123',
+        amount: '19499',
+        currency: 'NGN',
+        gateway_reference: 'DOM-REGRESSION6',
+        status: 'completed',
+        order_id: null,
+        metadata: {
+          transaction_type: 'domain_purchase',
+          domain: 'junglee.com',
+          tld: '.com',
+          years: 1,
+        },
+      };
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          const selectChain = {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: domainTransaction,
+              error: null,
+            }),
+          };
+          return {
+            select: vi.fn(() => selectChain),
+            update: vi.fn(() => {
+              let statusIdempotencyUpdate = false;
+              const chain = {
+                eq: vi.fn().mockReturnThis(),
+                neq: vi.fn(() => {
+                  statusIdempotencyUpdate = true;
+                  return chain;
+                }),
+                is: vi.fn().mockReturnThis(),
+                or: vi.fn().mockReturnThis(),
+                select: vi.fn().mockReturnThis(),
+                maybeSingle: vi.fn(() =>
+                  Promise.resolve({
+                    data: statusIdempotencyUpdate ? null : { id: 'txn-dom-6' },
+                    error: null,
+                  })
+                ),
+              };
+              return chain;
+            }),
+          } as never;
+        }
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                business_name: 'Test Store',
+                email: 'owner@example.com',
+                address: '1 Test Rd',
+                city: 'Lagos',
+                state: 'Lagos',
+                phone: '+2348000000000',
+                users: { first_name: 'Test', last_name: 'Owner' },
+              },
+              error: null,
+            }),
+          } as never;
+        }
+        if (table === 'domains') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                domain_type: 'purchased',
+                go54_order_id: null,
+                id: 'domain-existing',
+                merchant_id: 'merchant-123',
+                status: 'active',
+              },
+              error: null,
+            }),
+          } as never;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const { registerDomain } = await import('@/lib/go54');
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(registerDomain).not.toHaveBeenCalled();
+    });
+
+    it('continues to registrar fulfillment when a pre-existing domain row lacks registrar proof', async () => {
+      const body = {
+        reference: 'DOM-REGRESSION9',
+        status: 'success',
+        event: 'charge.success',
+        amount: 19499,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 19499,
+          reference: 'DOM-REGRESSION9',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      const domainTransaction = {
+        id: 'txn-dom-9',
+        merchant_id: 'merchant-123',
+        amount: '19499',
+        currency: 'NGN',
+        gateway_reference: 'DOM-REGRESSION9',
+        status: 'completed',
+        order_id: null,
+        metadata: {
+          transaction_type: 'domain_purchase',
+          domain: 'junglee.com',
+          tld: '.com',
+          years: 1,
+        },
+      };
+      const domainUpdate = vi.fn(() => ({
+        eq: vi.fn().mockReturnThis(),
+      }));
+      const domainInsert = vi.fn();
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          const selectChain = {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: domainTransaction,
+              error: null,
+            }),
+          };
+          return {
+            select: vi.fn(() => selectChain),
+            update: vi.fn(() => {
+              let statusIdempotencyUpdate = false;
+              const chain = {
+                eq: vi.fn().mockReturnThis(),
+                neq: vi.fn(() => {
+                  statusIdempotencyUpdate = true;
+                  return chain;
+                }),
+                is: vi.fn().mockReturnThis(),
+                or: vi.fn().mockReturnThis(),
+                select: vi.fn().mockReturnThis(),
+                maybeSingle: vi.fn(() =>
+                  Promise.resolve({
+                    data: statusIdempotencyUpdate ? null : { id: 'txn-dom-9' },
+                    error: null,
+                  })
+                ),
+              };
+              return chain;
+            }),
+          } as never;
+        }
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                business_name: 'Test Store',
+                email: 'owner@example.com',
+                address: '1 Test Rd',
+                city: 'Lagos',
+                state: 'Lagos',
+                phone: '+2348000000000',
+                users: { first_name: 'Test', last_name: 'Owner' },
+              },
+              error: null,
+            }),
+          } as never;
+        }
+        if (table === 'domains') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            in: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id: 'domain-pending',
+                merchant_id: 'merchant-123',
+                status: 'pending',
+              },
+              error: null,
+            }),
+            update: domainUpdate,
+            insert: domainInsert,
+          } as never;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const { registerDomain } = await import('@/lib/go54');
+      vi.mocked(registerDomain).mockResolvedValue({
+        success: true,
+        orderId: 'go54-777',
+      } as never);
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(registerDomain).toHaveBeenCalledTimes(1);
+      expect(domainUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          go54_order_id: 'go54-777',
+          status: 'active',
+        })
+      );
+      expect(domainInsert).not.toHaveBeenCalled();
+    });
+
+    it('releases and retries when fulfillment throws before the registrar attempt is stamped', async () => {
+      const body = {
+        reference: 'DOM-REGRESSION7',
+        status: 'success',
+        event: 'charge.success',
+        amount: 19499,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 19499,
+          reference: 'DOM-REGRESSION7',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      const domainTransaction = {
+        id: 'txn-dom-7',
+        merchant_id: 'merchant-123',
+        amount: '19499',
+        currency: 'NGN',
+        gateway_reference: 'DOM-REGRESSION7',
+        status: 'completed',
+        order_id: null,
+        metadata: {
+          transaction_type: 'domain_purchase',
+          domain: 'junglee.com',
+          tld: '.com',
+          years: 1,
+        },
+      };
+      let updateCall = 0;
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          const selectChain = {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: domainTransaction,
+              error: null,
+            }),
+          };
+          return {
+            select: vi.fn(() => selectChain),
+            update: vi.fn(() => {
+              updateCall += 1;
+              let statusIdempotencyUpdate = false;
+              const chain = {
+                eq: vi.fn().mockReturnThis(),
+                neq: vi.fn(() => {
+                  statusIdempotencyUpdate = true;
+                  return chain;
+                }),
+                is: vi.fn().mockReturnThis(),
+                or: vi.fn().mockReturnThis(),
+                select: vi.fn().mockReturnThis(),
+                maybeSingle: vi.fn(() => {
+                  if (updateCall === 3) {
+                    return Promise.reject(new Error('connection reset'));
+                  }
+                  return Promise.resolve({
+                    data: statusIdempotencyUpdate ? null : { id: 'txn-dom-7' },
+                    error: null,
+                  });
+                }),
+              };
+              return chain;
+            }),
+          } as never;
+        }
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                business_name: 'Test Store',
+                email: 'owner@example.com',
+                address: '1 Test Rd',
+                city: 'Lagos',
+                state: 'Lagos',
+                phone: '+2348000000000',
+                users: { first_name: 'Test', last_name: 'Owner' },
+              },
+              error: null,
+            }),
+          } as never;
+        }
+        if (table === 'domains') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: null,
+              error: null,
+            }),
+          } as never;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const { registerDomain } = await import('@/lib/go54');
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(500);
+      expect(registerDomain).not.toHaveBeenCalled();
+      expect(updateCall).toBe(4);
+    });
+
+    it('releases the domain fulfillment claim when Go54 throws a definitive registrar rejection', async () => {
+      const body = {
+        reference: 'DOM-REGRESSION9',
+        status: 'success',
+        event: 'charge.success',
+        amount: 19499,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 19499,
+          reference: 'DOM-REGRESSION9',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      const domainTransaction = {
+        id: 'txn-dom-9',
+        merchant_id: 'merchant-123',
+        amount: '19499',
+        currency: 'NGN',
+        gateway_reference: 'DOM-REGRESSION9',
+        status: 'completed',
+        order_id: null,
+        metadata: {
+          transaction_type: 'domain_purchase',
+          domain: 'junglee.com',
+          tld: '.com',
+          years: 1,
+        },
+      };
+      const transactionUpdatePayloads: Record<string, unknown>[] = [];
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          const selectChain = {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: domainTransaction,
+              error: null,
+            }),
+          };
+          return {
+            select: vi.fn(() => selectChain),
+            update: vi.fn((payload: Record<string, unknown>) => {
+              transactionUpdatePayloads.push(payload);
+              let statusIdempotencyUpdate = false;
+              const chain = {
+                eq: vi.fn().mockReturnThis(),
+                neq: vi.fn(() => {
+                  statusIdempotencyUpdate = true;
+                  return chain;
+                }),
+                is: vi.fn().mockReturnThis(),
+                or: vi.fn().mockReturnThis(),
+                select: vi.fn().mockReturnThis(),
+                maybeSingle: vi.fn(() =>
+                  Promise.resolve({
+                    data: statusIdempotencyUpdate ? null : { id: 'txn-dom-9' },
+                    error: null,
+                  })
+                ),
+              };
+              return chain;
+            }),
+          } as never;
+        }
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                business_name: 'Test Store',
+                email: 'owner@example.com',
+                address: '1 Test Rd',
+                city: 'Lagos',
+                state: 'Lagos',
+                phone: '+2348000000000',
+                users: { first_name: 'Test', last_name: 'Owner' },
+              },
+              error: null,
+            }),
+          } as never;
+        }
+        if (table === 'domains') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: null,
+              error: null,
+            }),
+          } as never;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const { registerDomain } = await import('@/lib/go54');
+      vi.mocked(registerDomain).mockRejectedValue(
+        new Error('Go54 API Error: {"message":"insufficient balance"}')
+      );
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(registerDomain).toHaveBeenCalledTimes(1);
+      expect(
+        transactionUpdatePayloads.some((payload) => {
+          const metadata = payload.metadata as
+            | Record<string, unknown>
+            | undefined;
+          return Boolean(metadata?.fulfillment_registrar_attempted_at);
+        })
+      ).toBe(true);
+      expect(
+        transactionUpdatePayloads.some((payload) => {
+          const metadata = payload.metadata as
+            | Record<string, unknown>
+            | undefined;
+          return (
+            metadata?.transaction_type === 'domain_purchase' &&
+            !('fulfillment_claimed_by' in metadata) &&
+            !('fulfillment_registrar_attempted_at' in metadata) &&
+            !('domain_purchased' in metadata)
+          );
+        })
+      ).toBe(true);
+    });
+
+    it('keeps failing retryably when an attempted domain fulfillment claim is still contested', async () => {
+      const body = {
+        reference: 'DOM-REGRESSION10',
+        status: 'success',
+        event: 'charge.success',
+        amount: 19499,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 19499,
+          reference: 'DOM-REGRESSION10',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      const domainTransaction = {
+        id: 'txn-dom-10',
+        merchant_id: 'merchant-123',
+        amount: '19499',
+        currency: 'NGN',
+        gateway_reference: 'DOM-REGRESSION10',
+        status: 'completed',
+        order_id: null,
+        metadata: {
+          transaction_type: 'domain_purchase',
+          domain: 'junglee.com',
+          tld: '.com',
+          years: 1,
+          fulfillment_claimed_by: 'webhook',
+          fulfillment_claimed_at: '2026-07-08T00:00:00.000Z',
+          fulfillment_registrar_attempted_at: '2026-07-08T00:00:01.000Z',
+        },
+      };
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          const selectChain = {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: domainTransaction,
+              error: null,
+            }),
+          };
+          return {
+            select: vi.fn(() => selectChain),
+            update: vi.fn(() => {
+              const chain = {
+                eq: vi.fn().mockReturnThis(),
+                neq: vi.fn().mockReturnThis(),
+                is: vi.fn().mockReturnThis(),
+                or: vi.fn().mockReturnThis(),
+                select: vi.fn().mockReturnThis(),
+                maybeSingle: vi.fn(() =>
+                  Promise.resolve({
+                    data: null,
+                    error: null,
+                  })
+                ),
+              };
+              return chain;
+            }),
+          } as never;
+        }
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                business_name: 'Test Store',
+                email: 'owner@example.com',
+                address: '1 Test Rd',
+                city: 'Lagos',
+                state: 'Lagos',
+                phone: '+2348000000000',
+                users: { first_name: 'Test', last_name: 'Owner' },
+              },
+              error: null,
+            }),
+          } as never;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const { registerDomain } = await import('@/lib/go54');
+
+      const response = await POST(request);
+      const json = await response.json();
+
+      expect(response.status).toBe(503);
+      expect(json.error).toBe(
+        'Domain fulfillment requires manual reconciliation before retry'
+      );
+      expect(registerDomain).not.toHaveBeenCalled();
+    });
+
+    it('fails retryably when post-registration domain lookup fails', async () => {
+      const body = {
+        reference: 'DOM-REGRESSION8',
+        status: 'success',
+        event: 'charge.success',
+        amount: 19499,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 19499,
+          reference: 'DOM-REGRESSION8',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      const domainTransaction = {
+        id: 'txn-dom-8',
+        merchant_id: 'merchant-123',
+        amount: '19499',
+        currency: 'NGN',
+        gateway_reference: 'DOM-REGRESSION8',
+        status: 'completed',
+        order_id: null,
+        metadata: {
+          transaction_type: 'domain_purchase',
+          domain: 'junglee.com',
+          tld: '.com',
+          years: 1,
+        },
+      };
+      let domainsLookupCall = 0;
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          const selectChain = {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: domainTransaction,
+              error: null,
+            }),
+          };
+          return {
+            select: vi.fn(() => selectChain),
+            update: vi.fn(() => {
+              let statusIdempotencyUpdate = false;
+              const chain = {
+                eq: vi.fn().mockReturnThis(),
+                neq: vi.fn(() => {
+                  statusIdempotencyUpdate = true;
+                  return chain;
+                }),
+                is: vi.fn().mockReturnThis(),
+                or: vi.fn().mockReturnThis(),
+                select: vi.fn().mockReturnThis(),
+                maybeSingle: vi.fn(() =>
+                  Promise.resolve({
+                    data: statusIdempotencyUpdate ? null : { id: 'txn-dom-8' },
+                    error: null,
+                  })
+                ),
+              };
+              return chain;
+            }),
+          } as never;
+        }
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                business_name: 'Test Store',
+                email: 'owner@example.com',
+                address: '1 Test Rd',
+                city: 'Lagos',
+                state: 'Lagos',
+                phone: '+2348000000000',
+                users: { first_name: 'Test', last_name: 'Owner' },
+              },
+              error: null,
+            }),
+          } as never;
+        }
+        if (table === 'domains') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            in: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn(() => {
+              domainsLookupCall += 1;
+              if (domainsLookupCall === 2) {
+                return Promise.resolve({
+                  data: null,
+                  error: { message: 'lookup failed' },
+                });
+              }
+              return Promise.resolve({
+                data: null,
+                error: null,
+              });
+            }),
+          } as never;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const { registerDomain } = await import('@/lib/go54');
+      vi.mocked(registerDomain).mockResolvedValue({
+        success: true,
+        orderId: 'go54-888',
+      } as never);
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(503);
+      expect(registerDomain).toHaveBeenCalledTimes(1);
     });
   });
 
