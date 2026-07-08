@@ -1,0 +1,65 @@
+# Repairs Catalog — Supabase Branch-Apply & Go-Live Runbook
+
+This feature ships **8 append-only migrations** and **4 SQL verification scripts** that were
+**never applied** anywhere (per the repo workflow: migrations are applied to a Supabase branch,
+not run locally). Follow this order exactly, verify each gate, then flip the flag.
+
+## 1. Apply migrations (strict order — later ones depend on earlier)
+
+| # | Migration | Purpose | Depends on |
+|---|-----------|---------|-----------|
+| 1 | `20260708090000_repairs_catalog_feature_flag.sql` | `merchant_feature_settings.repairs_catalog_enabled` (bool, default false) + private `repair_settings` jsonb | — |
+| 2 | `20260708090100_repair_catalog_tables.sql` | `repair_service_types`, `repair_devices`, `repair_quotes`; composite tenant FKs; `repairs_catalog_publicly_enabled()` helper; column-scoped anon+authenticated grants (excludes `internal_notes`) | 1 (helper reads the flag) |
+| 3 | `20260708090200_repairs_booking_catalog_link.sql` | adds `device_id/quote_id/quoted_price/repair_type_label/shipment_id` to `repairs`; status-lookup index | 2 |
+| 4 | `20260708090300_create_repair_booking_rpc.sql` | `private.create_repair_booking` (SECURITY DEFINER) + `public.create_repair_booking` (INVOKER wrapper); DB-side rate caps; server-side price snapshot | 2, 3 |
+| 5 | `20260708090400_repairs_anon_hardening.sql` | REVOKE anon on `repairs` + ticket seq; drop the old public INSERT policy (writes now only via the RPC) | 4 (**must come after** the RPC or booking breaks) |
+| 6 | `20260708090500_repairs_role_permissions.sql` | seeds `repairs` resource (view/edit/delete) into `role_permissions`; switches `repairs` table policies to `check_staff_permission` | 2 |
+| 7 | `20260708090600_repair_pickup_quotes.sql` | private `repair_pickup_quotes` (merchant-only RLS, **no anon**); **`shipments.order_id` → nullable** | 3 |
+| 8 | `20260708090700_repair_status_lookup_rpc.sql` | `get_repair_status()` enumeration-safe public lookup | 3, 7 |
+
+Use `mcp__supabase__apply_migration` (or the branch's SQL editor) file-by-file in this order.
+**Supabase branches fail baseline replay** — if the branch can't replay the full baseline,
+hand-build the prod-like precondition state first (the `merchants`, `merchant_feature_settings`,
+`role_permissions`, `shipments`, `products`, `product_key_specs` tables must exist).
+
+## 2. Run the SQL verification scripts (after all 8 apply)
+
+Run each against the branch (`psql -f` or SQL editor); every assertion must pass:
+
+- `supabase/tests/repair_catalog_rls.sql` — RLS enabled; public policies gate on `is_active` + helper; column grants exclude `repair_quotes.internal_notes` for **both** anon and authenticated; helper normalizes `electronics`+`gadgets`.
+- `supabase/tests/repair_booking_rpc.sql` — wrapper INVOKER + anon/authenticated EXECUTE; private fn DEFINER + empty search_path; anon has **no** direct DML on `repairs`; old public INSERT policy gone.
+- `supabase/tests/repairs_role_permissions.sql` — per-role seed present (admin full, accountant read-only, blog_manager none); baseline owner-only policies dropped; staff policies use the helper.
+- `supabase/tests/repair_pickup_quotes_rls.sql` — merchant-only RLS; no anon grants; `shipments.order_id` is nullable.
+
+### Manual smoke checks (do these on the branch too)
+- **Anon REST, flag OFF merchant:** `repair_devices`/`repair_quotes` return **zero rows** (feature gate lives in the RLS policy, not just app code).
+- **Anon REST, `internal_notes`:** selecting it errors / is absent for both anon and authenticated.
+- **Booking RPC:** call `public.create_repair_booking(...)` with the anon key — succeeds for a valid merchant; rejects an inactive/foreign `quote_id` (`quote_unavailable`); flood → `rate_limited`; the returned row's `quoted_price` equals the quote's price regardless of any client-supplied value.
+- **Status RPC:** `get_repair_status(merchant, ticket, wrong_email)` returns 0 rows; correct triple returns 1.
+- **`shipments.order_id` nullable:** existing rows unaffected (FK already permitted NULL); an insert with NULL `order_id` succeeds.
+
+## 3. Regenerate types
+The web Supabase clients are currently **untyped** (no generated `Database` type exists in the repo),
+so no regen is strictly required for the shipped code. If a typed client is later introduced,
+run `mcp__supabase__generate_typescript_types` after the branch merges to prod and wire it in.
+
+## 4. Merge the branch to prod, then deploy the app branch
+Standard flow. After the DB migrations are on prod, deploy `codex/repairs-catalog`.
+
+## 5. Enable for OgaBassey (the pilot merchant)
+1. `UPDATE merchant_feature_settings SET repairs_catalog_enabled = true WHERE merchant_id = <ogabassey>;`
+   (verify OgaBassey's `business_type` is `electronics`/`gadgets` first — the RLS helper requires it).
+2. Populate the private repair-center address so pickup quoting works, via the **dashboard → Repairs → Settings** card (writes `merchant_feature_settings.repair_settings`). Until set, the storefront shows drop-off-only with a "merchant will arrange pickup" message — no breakage.
+3. Seed the catalogue: dashboard → Repairs → Catalog → **AI Import**, paste the WhatsApp price list → review → commit. (Or add devices/quotes manually.)
+
+## 6. Post-go-live validation
+- Storefront: `ogabassey.com/repairs` shows the device picker; a device page lists quotes; booking returns a ticket # and fires the merchant push + customer email.
+- Dashboard: the booking appears; status advance / estimated_cost / admin_notes work; "Request courier pickup" either books Topship or offers the manual fallback.
+- Customer status page `/repair/status`: ticket + email returns status; wrong email returns "not found".
+- Mobile: storefront repairs screen shows the catalogue (falls back to WhatsApp only if flag off); mobile-admin shows the booking and the push deep-link opens it.
+
+## 7. Known follow-ups / external actions (NOT code)
+- **Meta feed policy:** services-as-products in Meta Commerce Manager is policy-gray. Ingest `/feeds/facebook-repairs.xml` into a **Meta test catalog** and confirm acceptance **before** pointing the live Facebook repairs page at it.
+- **Topship pickup** needs a **funded Topship wallet** and is reliable **Lagos/Abuja** only — do a staging dry-run; the manual-fallback path covers the rest.
+- **Branded fallback image (optional):** feed items with no linked-product image, no `repair_devices.image_url`, and no merchant `logo_url` are omitted from the FB feed. Provide a branded repair-service placeholder asset if full coverage is wanted, or ensure devices have images / linked products.
+- **Pre-existing, separate:** `shipping_quotes` has public SELECT `USING (true)` with PII in `quote_request` — untouched by this work (repairs uses the private `repair_pickup_quotes` instead). Track as its own security fix.
