@@ -4805,9 +4805,11 @@ describe('POST /api/payments/webhook', () => {
       });
       const selectArg = orderSelect.mock.calls[0]?.[0];
       expect(selectArg).toContain(
-        'order_items(id, product_id, name, price, quantity, variant_name)'
+        'order_items(id, product_id, condition, name, price, quantity, variant_name)'
       );
-      expect(selectArg).not.toContain('quantity, subtotal');
+      const orderItemsProjection =
+        selectArg?.match(/order_items\(([^)]*)\)/)?.[1] ?? '';
+      expect(orderItemsProjection).not.toContain('subtotal');
 
       // Review feedback: assert the shared side-effect runner receives the
       // BAC-* canonical key and the external gateway reference separately. The
