@@ -149,7 +149,7 @@ export async function releaseDomainFulfillmentClaim(
   delete released.fulfillment_claimed_at;
   delete released.fulfillment_registrar_attempted_at;
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('transactions')
     .update({ metadata: released })
     .eq('id', transactionId)
@@ -169,5 +169,8 @@ export async function releaseDomainFulfillmentClaim(
     return false;
   }
 
-  return true;
+  // Zero rows matched: the claim was NOT actually released (the row changed
+  // under us — different claim instance, or fulfilled concurrently). Report
+  // failure so callers escalate instead of assuming the row is claimable.
+  return Boolean(data);
 }

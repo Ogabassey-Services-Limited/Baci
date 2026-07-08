@@ -192,4 +192,29 @@ describe('releaseDomainFulfillmentClaim', () => {
 
     expect(released).toBe(false);
   });
+
+  it('returns false when the release matches zero rows (row changed under us)', async () => {
+    // maybeSingle resolves { data: null, error: null } when the conditional
+    // update matched nothing — the claim was NOT released; callers must
+    // escalate instead of assuming the row is claimable again.
+    const { supabase } = createSupabase({ data: null, error: null });
+
+    const released = await releaseDomainFulfillmentClaim(supabase, {
+      ...input,
+      claimedAt: '2026-07-08T00:00:00.000Z',
+    });
+
+    expect(released).toBe(false);
+  });
+
+  it('returns true when the release matched and cleared the claim row', async () => {
+    const { supabase } = createSupabase({ data: { id: 'txn-1' }, error: null });
+
+    const released = await releaseDomainFulfillmentClaim(supabase, {
+      ...input,
+      claimedAt: '2026-07-08T00:00:00.000Z',
+    });
+
+    expect(released).toBe(true);
+  });
 });

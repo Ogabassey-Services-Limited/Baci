@@ -247,20 +247,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify payment amount matches domain price
-    const expectedAmount = priceCalculation.sellPrice;
-    if (Number(payment.amount) < expectedAmount) {
-      return NextResponse.json(
-        {
-          error: 'Payment amount insufficient',
-          expected: expectedAmount,
-          received: payment.amount,
-        },
-        { status: 402 }
-      );
-    }
-
-    // Check if payment was already used for a domain purchase
+    // Check if payment was already used for a domain purchase. This guard
+    // runs BEFORE the current-pricing amount check: a fulfilled payment was
+    // already price-validated when it was initialized and charged, so a later
+    // price increase must not block verifying/repairing the registered domain.
     const paymentMetadata = payment.metadata as Record<string, unknown> | null;
     if (paymentMetadata?.domain_purchased) {
       const purchasedDomain = String(
@@ -370,6 +360,20 @@ export async function POST(request: NextRequest) {
         message: `Successfully restored ${purchasedDomain}`,
         nextSteps: ['Domain is active'],
       });
+    }
+
+    // Verify payment amount matches the CURRENT domain price (unfulfilled
+    // payments only — fulfilled ones were validated at purchase time above).
+    const expectedAmount = priceCalculation.sellPrice;
+    if (Number(payment.amount) < expectedAmount) {
+      return NextResponse.json(
+        {
+          error: 'Payment amount insufficient',
+          expected: expectedAmount,
+          received: payment.amount,
+        },
+        { status: 402 }
+      );
     }
 
     // Fulfillment writes to transactions (mark-purchased, claim) must use the

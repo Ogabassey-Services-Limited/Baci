@@ -1630,15 +1630,32 @@ export async function POST(request: NextRequest) {
                 domain: repairedDomain,
                 reference,
               });
-            } else {
-              logger.info({
-                message: 'Repaired missing domains row for fulfilled purchase',
-                domain: repairedDomain,
-                reference,
-              });
-              revalidateMerchantFeed(transaction.merchant_id);
-              after(() => triggerDomainEdgeConfigSync());
+              // Fail the delivery so the gateway redelivers: a transient
+              // DB error recovers on the retry instead of leaving the
+              // registered domain invisible behind a 200.
+              return NextResponse.json(
+                { error: 'Domain repair failed — will retry' },
+                { status: 503 }
+              );
             }
+            logger.info({
+              message: 'Repaired missing domains row for fulfilled purchase',
+              domain: repairedDomain,
+              reference,
+            });
+            revalidateMerchantFeed(transaction.merchant_id);
+            after(() => triggerDomainEdgeConfigSync());
+          } else if (fulfilledRowError) {
+            logger.error({
+              message: 'Failed checking domains row for fulfilled purchase',
+              error: fulfilledRowError,
+              domain: repairedDomain,
+              reference,
+            });
+            return NextResponse.json(
+              { error: 'Domain repair check failed — will retry' },
+              { status: 503 }
+            );
           }
         } catch (repairError) {
           logger.error({
@@ -1647,6 +1664,10 @@ export async function POST(request: NextRequest) {
             domain: repairedDomain,
             reference,
           });
+          return NextResponse.json(
+            { error: 'Domain repair failed — will retry' },
+            { status: 503 }
+          );
         }
         return null;
       }

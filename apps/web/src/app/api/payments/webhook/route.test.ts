@@ -188,6 +188,18 @@ vi.mock('@/lib/go54', () => ({
   registerDomain: vi.fn(),
 }));
 
+// The domain repair/fulfillment success paths call these; the real
+// implementations touch Next.js revalidation APIs that throw outside a
+// request context.
+vi.mock('@/lib/cache-revalidation', () => ({
+  revalidateMerchantFeed: vi.fn(),
+}));
+
+vi.mock('@/lib/edge-config-sync', () => ({
+  // Must resolve: the next/server `after` mock chains .catch on the result.
+  triggerDomainEdgeConfigSync: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('@/lib/trigger-purchase-conversion', () => ({
   triggerPurchaseConversion: vi.fn(),
 }));

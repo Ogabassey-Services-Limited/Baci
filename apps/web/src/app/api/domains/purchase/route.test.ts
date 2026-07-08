@@ -355,6 +355,29 @@ describe('POST /api/domains/purchase transaction scoping', () => {
     expect(registerDomain).not.toHaveBeenCalled();
   });
 
+  it('verifies a fulfilled payment even when current pricing has risen above the paid amount (review #2991 P2 regression test)', async () => {
+    // The payment was price-validated when initialized and charged; a later
+    // price increase must not 402-block verifying/repairing the registered
+    // domain. Current mocked price is 100; the old payment was 50.
+    supabase = createSupabase({
+      amount: 50,
+      gateway: 'paystack',
+      id: 'transaction-owned',
+      merchant_id: 'merchant-1',
+      metadata: { domain_purchased: 'shop.com', years: 1 },
+      status: 'completed',
+    });
+
+    const { registerDomain } = await import('@/lib/go54');
+
+    const response = await POST(createRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.message).toContain('Successfully verified');
+    expect(registerDomain).not.toHaveBeenCalled();
+  });
+
   it('returns 402 before registration when custom domains are locked', async () => {
     supabase = createSupabase(
       {
