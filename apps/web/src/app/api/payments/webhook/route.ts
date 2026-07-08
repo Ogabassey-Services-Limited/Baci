@@ -1708,6 +1708,22 @@ export async function POST(request: NextRequest) {
               { error: 'Domain repair check failed — will retry' },
               { status: 503 }
             );
+          } else if (
+            fulfilledRow &&
+            fulfilledRow.merchant_id !== transaction.merchant_id
+          ) {
+            // The domain is registered to a DIFFERENT merchant than the one
+            // this fulfilled transaction belongs to — a conflict a retry
+            // cannot resolve. Escalate loudly; do not retry.
+            logger.error({
+              message:
+                'CRITICAL: fulfilled domain registered to a different merchant — manual reconciliation required',
+              reference,
+              transactionId: transaction.id,
+              domain: repairedDomain,
+              transactionMerchantId: transaction.merchant_id,
+              existingRowMerchantId: fulfilledRow.merchant_id,
+            });
           }
         } catch (repairError) {
           logger.error({

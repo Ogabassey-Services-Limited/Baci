@@ -276,11 +276,15 @@ export async function POST(request: NextRequest) {
       // re-contacted. But if the post-registration domains-row write failed,
       // the retry lands here with a registered domain invisible to Baci:
       // verify the row, repairing it from the payment metadata if missing.
-      const { data: fulfilledRow, error: fulfilledRowError } = await supabase
-        .from('domains')
-        .select('id, domain, status, is_primary, merchant_id')
-        .eq('domain', purchasedDomain)
-        .maybeSingle();
+      // Admin client: domains_select_policy hides non-active rows from staff,
+      // so a cookie-scoped read would miss a pending fallback row and
+      // wrongly attempt a duplicate insert.
+      const { data: fulfilledRow, error: fulfilledRowError } =
+        await adminSupabase
+          .from('domains')
+          .select('id, domain, status, is_primary, merchant_id')
+          .eq('domain', purchasedDomain)
+          .maybeSingle();
 
       if (fulfilledRowError) {
         return NextResponse.json(
@@ -357,9 +361,10 @@ export async function POST(request: NextRequest) {
       repairExpiresAt.setFullYear(repairExpiresAt.getFullYear() + repairYears);
 
       // Preserve primary promotion, mirroring the normal insert path: a
-      // merchant's first custom/purchased domain becomes primary.
+      // merchant's first custom/purchased domain becomes primary. Admin
+      // client so staff see the merchant's full domain set.
       const { data: repairExistingPrimary, error: repairPrimaryError } =
-        await supabase
+        await adminSupabase
           .from('domains')
           .select('id')
           .eq('merchant_id', merchantId)
