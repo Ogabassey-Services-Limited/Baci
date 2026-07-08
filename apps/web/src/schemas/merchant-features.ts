@@ -7,6 +7,7 @@ import { z } from 'zod';
  */
 export const repairSettingsSchema = z
   .object({
+    pickup_enabled: z.boolean(),
     pickup_address: z.string().trim().max(500),
     contact_name: z.string().trim().max(120),
     contact_phone: z.string().trim().max(40),

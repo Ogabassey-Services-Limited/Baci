@@ -1,0 +1,142 @@
+import { deriveMerchantLocation } from '@/lib/shipping/order-shipment-booking-utils';
+import type { ShipmentItem, ShippingAddress } from '@/lib/shipping/types';
+
+/**
+ * Minimal repair fields needed to build a courier pickup shipment
+ * (customer = sender, merchant repair center = receiver).
+ */
+export interface RepairPickupSource {
+  customer_name: string | null;
+  customer_email: string | null;
+  customer_phone: string | null;
+  device_type: string | null;
+  device_model: string | null;
+  pickup_address: string | null;
+  quoted_price: number | string | null;
+}
+
+/** Why a courier pickup could not be booked automatically. */
+export type PickupFailureReason =
+  | 'not_found'
+  | 'already_booked'
+  | 'missing_pickup_address'
+  | 'repair_center_unconfigured'
+  | 'topship_unavailable'
+  | 'booking_failed'
+  | 'shipment_save_failed';
+
+export interface BookRepairPickupSuccess {
+  ok: true;
+  trackingNumber: string;
+  carrierName: string;
+  shipmentId: string;
+  pickupScheduledAt: string | null;
+}
+
+export interface BookRepairPickupFailure {
+  ok: false;
+  reason: PickupFailureReason;
+  message: string;
+  /** Whether the "mark pickup arranged manually" fallback should be offered. */
+  canRetryManually: boolean;
+}
+
+export type BookRepairPickupResult =
+  | BookRepairPickupSuccess
+  | BookRepairPickupFailure;
+
+const FAILURE_COPY: Record<
+  PickupFailureReason,
+  { message: string; canRetryManually: boolean }
+> = {
+  not_found: {
+    message: 'Repair booking not found.',
+    canRetryManually: false,
+  },
+  already_booked: {
+    message: 'A courier pickup has already been arranged for this booking.',
+    canRetryManually: false,
+  },
+  missing_pickup_address: {
+    message:
+      'This booking has no pickup address. Ask the customer for one or mark pickup arranged manually.',
+    canRetryManually: true,
+  },
+  repair_center_unconfigured: {
+    message:
+      'Add your repair-center pickup address in settings before arranging courier pickup.',
+    canRetryManually: true,
+  },
+  topship_unavailable: {
+    message:
+      "Courier pickup isn't available for this address right now (Topship covers Lagos & Abuja). You can mark pickup arranged manually.",
+    canRetryManually: true,
+  },
+  booking_failed: {
+    message:
+      'The courier booking failed (check your Topship wallet balance). You can mark pickup arranged manually.',
+    canRetryManually: true,
+  },
+  shipment_save_failed: {
+    message:
+      'The courier was booked but the shipment could not be saved. Please review before retrying.',
+    canRetryManually: false,
+  },
+};
+
+export function pickupFailure(
+  reason: PickupFailureReason
+): BookRepairPickupFailure {
+  const copy = FAILURE_COPY[reason];
+  return {
+    ok: false,
+    reason,
+    message: copy.message,
+    canRetryManually: copy.canRetryManually,
+  };
+}
+
+/**
+ * Builds the shipment sender from the customer's pickup address (free-text),
+ * deriving city/state with the shared address parser. Returns null when the
+ * booking has no pickup address to collect from.
+ */
+export function buildPickupSender(
+  repair: RepairPickupSource
+): ShippingAddress | null {
+  const pickupAddress = repair.pickup_address?.trim();
+  if (!pickupAddress) {
+    return null;
+  }
+
+  const location = deriveMerchantLocation(pickupAddress);
+  return {
+    name: repair.customer_name?.trim() || 'Customer',
+    phone: repair.customer_phone?.trim() || '',
+    email: repair.customer_email?.trim() || undefined,
+    address: location.address,
+    city: location.city,
+    state: location.state,
+    country: 'Nigeria',
+    countryCode: 'NG',
+  };
+}
+
+export function buildPickupItems(repair: RepairPickupSource): ShipmentItem[] {
+  const label =
+    `${repair.device_type ?? ''} ${repair.device_model ?? ''}`.trim();
+  const name = label || 'Device for repair';
+  const declaredValue = Number(repair.quoted_price);
+  return [
+    {
+      name,
+      description: name,
+      quantity: 1,
+      weight: 1,
+      value:
+        Number.isFinite(declaredValue) && declaredValue > 0
+          ? declaredValue
+          : 50_000,
+    },
+  ];
+}

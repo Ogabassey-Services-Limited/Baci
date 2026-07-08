@@ -6,6 +6,7 @@ import {
   type CreateRepairResult,
   createRepairBooking,
 } from '@/lib/repairs/create-repair-core';
+import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
 import { topshipProvider } from '@/lib/shipping/providers/topship';
 import type { RepairBookingInput } from '@/lib/validations/repair';
 import { repairPlaceDetailsSchema } from '@/schemas/repair-actions';
@@ -69,7 +70,8 @@ export async function createRepair(
 
 // eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: anonymous shipping quote; address completeness enforced by Zod + identity/IP rate limited
 export async function calculateRepairShipping(
-  place: PlaceDetails
+  place: PlaceDetails,
+  merchantId: string
 ): Promise<ShippingCalculationResult> {
   // Rate limit first — this fans out to the paid Topship quoting API and is
   // callable by anonymous storefront customers.
@@ -98,34 +100,39 @@ export async function calculateRepairShipping(
 
   const placeDetails = parsedPlace.data;
 
-  try {
-    // 1. Check if Lagos (Free Pickup)
-    const isLagos =
-      placeDetails.state.toLowerCase().includes('lagos') ||
-      placeDetails.city.toLowerCase().includes('lagos') ||
-      placeDetails.formattedAddress.toLowerCase().includes('lagos');
+  // The pickup destination is the merchant's PRIVATE repair-center address
+  // (server-side read; the raw address never reaches the client). When it is
+  // unset, pickup quoting is disabled and we degrade to drop-off only.
+  const repairCenter = await getRepairCenterAddress(merchantId);
+  if (!repairCenter) {
+    return {
+      isFree: false,
+      price: 0,
+      formattedPrice: 'Arranged after booking',
+      message: 'Drop-off only — the store will contact you to arrange pickup.',
+    };
+  }
 
-    if (isLagos) {
+  try {
+    // 1. Free local pickup when the customer is in the repair center's state.
+    const centerState = repairCenter.state.trim().toLowerCase();
+    const centerCity = repairCenter.city.trim().toLowerCase();
+    const isLocal =
+      placeDetails.state.trim().toLowerCase() === centerState ||
+      placeDetails.formattedAddress.toLowerCase().includes(centerState) ||
+      (centerCity.length > 0 &&
+        placeDetails.city.trim().toLowerCase() === centerCity);
+
+    if (isLocal) {
       return {
         isFree: true,
         price: 0,
         formattedPrice: 'Free',
-        message: 'Free pickup available in Lagos!',
+        message: 'Free local pickup available!',
       };
     }
 
-    // 2. Calculate via Topship for other locations
-    const ogabasseyLocation = {
-      name: 'Ogabassey Repair Center',
-      phone: '09070007000',
-      email: 'repairs@ogabassey.com',
-      address: '3, Olayeni Street, Computer Village',
-      city: 'Ikeja',
-      state: 'Lagos',
-      country: 'Nigeria',
-      countryCode: 'NG',
-    };
-
+    // 2. Calculate via Topship for other locations (customer -> repair center).
     const quotes = await topshipProvider.getQuotes({
       sessionId: `repair-${Date.now()}`,
       shipmentType: 'domestic',
@@ -138,7 +145,16 @@ export async function calculateRepairShipping(
           category: 'gadgets',
         },
       ],
-      receiver: ogabasseyLocation,
+      receiver: {
+        name: repairCenter.name,
+        phone: repairCenter.phone,
+        email: repairCenter.email,
+        address: repairCenter.address,
+        city: repairCenter.city,
+        state: repairCenter.state,
+        country: repairCenter.country,
+        countryCode: repairCenter.countryCode,
+      },
       sender: {
         name: 'Customer',
         phone: '0000000000',

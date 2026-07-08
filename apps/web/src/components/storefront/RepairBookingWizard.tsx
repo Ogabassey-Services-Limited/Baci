@@ -111,7 +111,7 @@ export function RepairBookingWizard({
     // cannot lower try statements with a finalizer inside component closures.
     setIsCalculatingShipping(true);
     setShippingQuote(null);
-    calculateRepairShipping(place)
+    calculateRepairShipping(place, merchantId)
       .then((result) => {
         setShippingQuote(result);
       })
