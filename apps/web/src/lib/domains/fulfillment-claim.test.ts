@@ -2,6 +2,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import {
   claimDomainFulfillment,
+  getDomainRegistrationFailureMessage,
+  hasDomainRegistrarProof,
+  isTerminalDomainRegistrationFailure,
   markRegistrarAttempted,
   releaseDomainFulfillmentClaim,
 } from './fulfillment-claim';
@@ -31,6 +34,109 @@ const input = {
   metadata: { transaction_type: 'domain_purchase', domain: 'shop.com' },
   claimant: 'webhook',
 };
+
+describe('hasDomainRegistrarProof', () => {
+  it('returns true when the domain has a registrar order id', () => {
+    expect(
+      hasDomainRegistrarProof({
+        domain_type: 'custom',
+        go54_order_id: 'go54-123',
+        status: 'pending',
+      })
+    ).toBe(true);
+  });
+
+  it('returns true for active purchased rows without an order id', () => {
+    expect(
+      hasDomainRegistrarProof({
+        domain_type: 'purchased',
+        go54_order_id: null,
+        status: 'active',
+      })
+    ).toBe(true);
+  });
+
+  it('returns false for pending rows without registrar proof', () => {
+    expect(
+      hasDomainRegistrarProof({
+        domain_type: 'purchased',
+        go54_order_id: null,
+        status: 'pending',
+      })
+    ).toBe(false);
+  });
+});
+
+describe('getDomainRegistrationFailureMessage', () => {
+  it('normalizes Error instances', () => {
+    expect(getDomainRegistrationFailureMessage(new Error('Go54 Timeout'))).toBe(
+      'go54 timeout'
+    );
+  });
+
+  it('normalizes string errors', () => {
+    expect(getDomainRegistrationFailureMessage('Network Timeout')).toBe(
+      'network timeout'
+    );
+  });
+
+  it('normalizes object errors as JSON', () => {
+    expect(
+      getDomainRegistrationFailureMessage({
+        code: 'DOMAIN_NOT_AVAILABLE',
+        message: 'Domain unavailable',
+      })
+    ).toBe('{"code":"domain_not_available","message":"domain unavailable"}');
+  });
+});
+
+describe('isTerminalDomainRegistrationFailure', () => {
+  it('returns true for definitive registrar rejections', () => {
+    expect(
+      isTerminalDomainRegistrationFailure(
+        new Error('Go54 API Error: {"message":"invalid contact data"}')
+      )
+    ).toBe(true);
+    expect(
+      isTerminalDomainRegistrationFailure(
+        'Go54 API Error: {"message":"insufficient balance"}'
+      )
+    ).toBe(true);
+    expect(
+      isTerminalDomainRegistrationFailure({
+        code: 'DOMAIN_NOT_AVAILABLE',
+        message: 'Domain not available',
+      })
+    ).toBe(true);
+  });
+
+  it('returns false for transient failures that use formerly broad words', () => {
+    expect(
+      isTerminalDomainRegistrationFailure(
+        new Error('connection missing response from registrar')
+      )
+    ).toBe(false);
+    expect(
+      isTerminalDomainRegistrationFailure(
+        new Error('temporary invalid gateway response')
+      )
+    ).toBe(false);
+    expect(
+      isTerminalDomainRegistrationFailure(
+        new Error('required upstream service timed out')
+      )
+    ).toBe(false);
+    expect(
+      isTerminalDomainRegistrationFailure(new Error('contact service timeout'))
+    ).toBe(false);
+    expect(
+      isTerminalDomainRegistrationFailure({
+        code: 'VALIDATION_ERROR',
+        message: 'temporary registrar validation service timeout',
+      })
+    ).toBe(false);
+  });
+});
 
 describe('claimDomainFulfillment', () => {
   it('returns the claim token and stamps the claimant when the row is won', async () => {

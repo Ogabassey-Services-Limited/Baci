@@ -10,6 +10,8 @@ import { revalidateMerchantFeed } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   claimDomainFulfillment,
+  hasDomainRegistrarProof,
+  isTerminalDomainRegistrationFailure,
   markRegistrarAttempted,
   releaseDomainFulfillmentClaim,
 } from '@/lib/domains/fulfillment-claim';
@@ -55,49 +57,6 @@ const PurchaseRequestSchema = z.object({
   contactInfo: ContactInfoInputSchema.optional(),
   paymentReference: z.string().trim().min(1).optional(),
 });
-
-function hasDomainRegistrarProof(domain: {
-  domain_type?: string | null;
-  go54_order_id?: string | null;
-  status?: string | null;
-}) {
-  const hasRegistrarOrderId =
-    typeof domain.go54_order_id === 'string' &&
-    domain.go54_order_id.trim().length > 0;
-
-  return (
-    hasRegistrarOrderId ||
-    (domain.status === 'active' && domain.domain_type === 'purchased')
-  );
-}
-
-function getDomainRegistrationFailureMessage(error: unknown) {
-  return error instanceof Error
-    ? error.message.toLowerCase()
-    : JSON.stringify(error ?? '').toLowerCase();
-}
-
-function isTerminalDomainRegistrationFailure(error: unknown) {
-  const message = getDomainRegistrationFailureMessage(error);
-  const terminalPatterns = [
-    'already registered',
-    'already taken',
-    'balance',
-    'contact',
-    'domain is unavailable',
-    'domain not available',
-    'domain unavailable',
-    'insufficient',
-    'invalid',
-    'missing',
-    'not available for registration',
-    'premium',
-    'required',
-    'unsupported',
-  ];
-
-  return terminalPatterns.some((pattern) => message.includes(pattern));
-}
 
 /**
  * POST /api/domains/purchase

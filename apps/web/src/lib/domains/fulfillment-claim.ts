@@ -26,6 +26,72 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const DOMAIN_FULFILLMENT_CLAIM_STALE_MS = 10 * 60 * 1000;
 
+export function hasDomainRegistrarProof(domain: {
+  domain_type?: string | null;
+  go54_order_id?: string | null;
+  status?: string | null;
+}) {
+  const hasRegistrarOrderId =
+    typeof domain.go54_order_id === 'string' &&
+    domain.go54_order_id.trim().length > 0;
+
+  return (
+    hasRegistrarOrderId ||
+    (domain.status === 'active' && domain.domain_type === 'purchased')
+  );
+}
+
+export function getDomainRegistrationFailureMessage(error: unknown) {
+  return error instanceof Error
+    ? error.message.toLowerCase()
+    : typeof error === 'string'
+      ? error.toLowerCase()
+      : JSON.stringify(error ?? '').toLowerCase();
+}
+
+export function isTerminalDomainRegistrationFailure(error: unknown) {
+  const message = getDomainRegistrationFailureMessage(error);
+  const terminalPatterns = [
+    'already registered',
+    'already taken',
+    'domain is unavailable',
+    'domain not available',
+    'domain unavailable',
+    'not available for registration',
+    'insufficient balance',
+    'insufficient funds',
+    'low balance',
+    'invalid admin contact',
+    'invalid billing contact',
+    'invalid contact',
+    'invalid domain',
+    'invalid email',
+    'invalid nameserver',
+    'invalid phone',
+    'invalid registrant',
+    'invalid technical contact',
+    'missing required',
+    'premium domain',
+    'required field',
+    'unsupported domain',
+    'unsupported tld',
+  ];
+  const terminalCodes = [
+    'already_registered',
+    'domain_not_available',
+    'domain_unavailable',
+    'insufficient_balance',
+    'invalid_contact',
+    'invalid_domain',
+    'premium_domain',
+    'unsupported_tld',
+  ];
+
+  return [...terminalPatterns, ...terminalCodes].some((pattern) =>
+    message.includes(pattern)
+  );
+}
+
 export interface DomainFulfillmentClaimInput {
   transactionId: string;
   /** Current transaction metadata (spread into the claim update). */

@@ -24,6 +24,9 @@ import {
 } from '@/lib/customer-wallet-top-up';
 import {
   claimDomainFulfillment,
+  getDomainRegistrationFailureMessage,
+  hasDomainRegistrarProof,
+  isTerminalDomainRegistrationFailure,
   markRegistrarAttempted,
   releaseDomainFulfillmentClaim,
 } from '@/lib/domains/fulfillment-claim';
@@ -82,51 +85,6 @@ interface PaymentTransactionRecord {
   id: string;
   merchant_id: string;
   metadata: Record<string, unknown> | null;
-}
-
-function hasDomainRegistrarProof(domain: {
-  domain_type?: string | null;
-  go54_order_id?: string | null;
-  status?: string | null;
-}) {
-  const hasRegistrarOrderId =
-    typeof domain.go54_order_id === 'string' &&
-    domain.go54_order_id.trim().length > 0;
-
-  return (
-    hasRegistrarOrderId ||
-    (domain.status === 'active' && domain.domain_type === 'purchased')
-  );
-}
-
-function getDomainRegistrationFailureMessage(error: unknown) {
-  return error instanceof Error
-    ? error.message.toLowerCase()
-    : typeof error === 'string'
-      ? error.toLowerCase()
-      : JSON.stringify(error ?? '').toLowerCase();
-}
-
-function isTerminalDomainRegistrationFailure(error: unknown) {
-  const message = getDomainRegistrationFailureMessage(error);
-  const terminalPatterns = [
-    'already registered',
-    'already taken',
-    'balance',
-    'contact',
-    'domain is unavailable',
-    'domain not available',
-    'domain unavailable',
-    'insufficient',
-    'invalid',
-    'missing',
-    'not available for registration',
-    'premium',
-    'required',
-    'unsupported',
-  ];
-
-  return terminalPatterns.some((pattern) => message.includes(pattern));
 }
 
 function isRetryableDomainRegistrationFailure(error: unknown) {
