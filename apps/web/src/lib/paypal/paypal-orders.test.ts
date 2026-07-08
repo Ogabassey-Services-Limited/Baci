@@ -149,7 +149,8 @@ describe('captureOrder', () => {
   });
 
   it('successfully captures an approved order', async () => {
-    vi.spyOn(global, 'fetch')
+    const mockFetch = vi
+      .spyOn(global, 'fetch')
       .mockResolvedValueOnce(OAUTH_RESPONSE)
       .mockResolvedValueOnce({
         ok: true,
@@ -183,7 +184,8 @@ describe('captureOrder', () => {
       'client123',
       'secret123',
       'PP_ORDER_999',
-      'sandbox'
+      'sandbox',
+      'capture-request-1'
     );
     expect(result.success).toBe(true);
     if (result.success) {
@@ -195,6 +197,14 @@ describe('captureOrder', () => {
         'api-m.sandbox.paypal.com'
       );
     }
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      'https://api-m.sandbox.paypal.com/v2/checkout/orders/PP_ORDER_999/capture',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'PayPal-Request-Id': 'capture-request-1',
+        }),
+      })
+    );
   });
 
   it('returns SCHEMA_MISMATCH when the capture body is missing purchase_units.payments', async () => {

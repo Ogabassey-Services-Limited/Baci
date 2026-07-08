@@ -1,9 +1,9 @@
 # HANDOVER — BYOK Payment Providers Implementation
 
-**Written:** 2026-07-08 · **Updated:** 2026-07-08 (Wave 2 workflow finished) · **For:** the next agent/engineer continuing this work
-**Status at handover:** Wave 1 complete & reviewed. Wave 2 (PayPal lane) **code-complete and committed (16 commits total), quality gate green** — BUT two gaps remain because 4 agents dropped (1 connection loss, 3 session-limit): (a) **Wave 2 was never adversarially reviewed**, and (b) the credentials API route is **missing its colocated `route.test.ts`**. These are the next agent's top two tasks. See §4.
+**Written:** 2026-07-08 · **Updated:** 2026-07-08 (Wave 2 closure pass) · **For:** the next agent/engineer continuing this work
+**Status at handover:** Wave 1 complete & reviewed. Wave 2 (PayPal lane) **code-complete, adversarially reviewed, and covered by the missing credentials route tests**. No PR has been opened and nothing has been pushed.
 
-> ⚠ **TOP OF QUEUE for the next agent:** 1) run an adversarial review over Wave 2 (`git diff 66b794a188..HEAD`), 2) write `apps/web/src/app/api/merchant/payment-credentials/route.test.ts` (401/403/CSRF/validate-on-save/rate-limit/no-secret-in-response). Everything below is context.
+> ✅ **Wave 2 closure pass completed:** the prior top-of-queue gaps are closed. `apps/web/src/app/api/merchant/payment-credentials/route.test.ts` now covers unauthenticated, permission-denied, CSRF, rate-limit, invalid provider credentials, save, write-only GET, DELETE, and no-secret-in-response behavior. The Wave 2 adversarial review over `git diff 66b794a188..HEAD` found and fixed four issues: unsupported non-NGN PayPal currencies now fail closed before order creation, capture mode detection rejects `unknown`, PayPal capture uses a stable `PayPal-Request-Id`, and direct-to-merchant verify reconciliation forces `p_platform_fee=0` even for stale prototype rows. It also scrubbed legacy PayPal credential keys from generic feature-settings responses/writes.
 
 ---
 
@@ -55,9 +55,9 @@ Branch `feat/payment-byok`, commits vs `origin/main` (oldest first):
 
 ---
 
-## 4. Wave 2 (PayPal lane) — FINISHED & COMMITTED, with 2 gaps
+## 4. Wave 2 (PayPal lane) — FINISHED, REVIEWED, AND TESTED
 
-Workflow `wdp9mamg6` (run `wf_ce809e80-821`) completed: **5 agents succeeded, 4 dropped** (`credentials-api` connection loss; `checkout-wiring`, `gate:quality`, `review:adversarial` all hit the session limit at 19:10 Africa/Lagos). All CODE is committed — I recovered the orphans by hand and ran the gate myself.
+Workflow `wdp9mamg6` (run `wf_ce809e80-821`) completed: **5 agents succeeded, 4 dropped** (`credentials-api` connection loss; `checkout-wiring`, `gate:quality`, `review:adversarial` all hit the session limit at 19:10 Africa/Lagos). The dropped work was closed in the follow-up pass: the credentials API route now has colocated route tests, and Wave 2 received a direct adversarial review with fixes.
 
 **Wave 2 commits (all LANDED, newest first):**
 - `b8d54110fc` feat(checkout): paypal payment option gated by vault-backed availability *(checkout-wiring — it committed before its report dropped; includes `lib/paypal-checkout-client.ts`, `checkout/hooks/use-paypal-return.ts`, PaymentStep/PaymentOptionsPanel/checkout-page/place-order wiring, storefront features exposure of the paypal availability boolean)*
@@ -73,9 +73,13 @@ Workflow `wdp9mamg6` (run `wf_ce809e80-821`) completed: **5 agents succeeded, 4 
 - `pnpm turbo typecheck --filter=@baci/web` → clean (56s, no stale cache).
 - `pnpm exec vitest run` across `lib/paypal lib/payments lib/checkout lib/crypto app/api/payments app/api/merchant/payment-credentials schemas/merchant-payment-credentials.test.ts checkout/*` → **1424 tests / 115 files passed.**
 
-**⚠ THE TWO REMAINING GAPS (do these first — see banner at top):**
-1. **Wave 2 was never adversarially reviewed** (the review agent was session-limited). Wave 1 got a full adversarial review; Wave 2 (7 commits, incl. the money routes + the authz-boundary route) did NOT. Run one over `git diff 66b794a188..HEAD` hunting: any charge path proceeding without a fresh FX rate; presentment anchoring vs `transactions.amount`; partial-capture acceptance; `fee != 0` anywhere; legacy `record_merchant_settlement` still called on the paypal path (should be `_v2`); double-capture idempotency; secret leakage in any response/log; the storefront features route leaking non-boolean `custom_settings` keys; `proxy.ts` untouched.
-2. **`apps/web/src/app/api/merchant/payment-credentials/route.test.ts` is MISSING** — the credentials-api agent dropped before writing it. The route (GET/POST/DELETE, 320 lines) typechecks and its Zod schema is tested, but the route's own tests are owed: 401 unauth, 403 wrong permission, CSRF failure, 400 invalid-provider-creds (mock PayPal 401), 200 save + write-only GET shape, DELETE clears, 429 rate limit, and an assertion that no serialized response ever contains the submitted `secretKey`. Repo hard-rule: every route needs a colocated test.
+**Wave 2 closure fixes from the adversarial review:**
+- `resolvePaypalPresentment()` now rejects unsupported non-NGN currencies instead of forwarding them to PayPal; the storefront availability gate and server create-order boundary now agree.
+- PayPal capture mode enforcement now rejects `unknown` response mode, not only positive sandbox/live mismatches.
+- PayPal capture requests now send a stable `PayPal-Request-Id` (`capture-${paypal_order_id}`) for idempotency.
+- `/api/payments/verify` now forces `p_platform_fee=0` for direct-to-merchant PayPal reconciliation, even if a stale/prototype transaction row contains a phantom fee.
+- Generic merchant feature-settings responses/writes scrub legacy PayPal credential keys (`paypal_client_id`, `paypal_secret_key`, etc.) so prototype-era plaintext keys cannot leak through the settings API.
+- The credentials API route was modularized below 300 lines and has colocated route/helper tests.
 
 ---
 
@@ -93,7 +97,7 @@ These are NOT code — they need human action / external steps. Track them:
 
 ## 6. Accepted / deferred items (don't re-litigate; these were decided)
 
-- **Vault RPCs do NO caller authorization** (they're `service_role`-only; `auth.uid()` is NULL there). Authorization lives ENTIRELY in the calling API route. The wrapper `lib/payments/merchant-credentials.ts` carries loud doc comments saying so. The `/api/merchant/payment-credentials` route IS the authorization boundary — it must gate on `hasPermission('settings','edit')` + CSRF. **Verify this holds when reviewing the (currently uncommitted) route.**
+- **Vault RPCs do NO caller authorization** (they're `service_role`-only; `auth.uid()` is NULL there). Authorization lives ENTIRELY in the calling API route. The wrapper `lib/payments/merchant-credentials.ts` carries loud doc comments saying so. The `/api/merchant/payment-credentials` route IS the authorization boundary — it gates on `hasPermission('settings','edit')` + CSRF for writes, and its route tests now cover the boundary.
 - **Korapay availability flipped opt-in→opt-out** (`=== false` gate) to match the DB default `korapay_enabled: true`. Intended, tested.
 - **Error-code casing split**: forced-path guard uses lowercase `gateway_unavailable`; auto-select downstream guard uses uppercase `GATEWAY_UNAVAILABLE`. Each matches its layer's local convention. Normalize only if a client starts string-matching.
 - **KE+NGN rejection surfaces a Paystack-flavored `GATEWAY_NOT_CONFIGURED`** (the NGN fallback chain terminates in paystack), not a Korapay-specific message. Fail-closed and correct; imperfect copy.

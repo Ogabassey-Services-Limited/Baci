@@ -95,6 +95,13 @@ describe('resolvePaypalPresentment', () => {
     expect(getNgnPerUsdt).not.toHaveBeenCalled();
   });
 
+  it('fails closed for a non-NGN currency PayPal cannot present', async () => {
+    expect(await resolvePaypalPresentment('KES', 4200)).toEqual({
+      ok: false,
+    });
+    expect(getNgnPerUsdt).not.toHaveBeenCalled();
+  });
+
   it('converts NGN to USD at the live rate', async () => {
     vi.mocked(getNgnPerUsdt).mockResolvedValue(1300);
 

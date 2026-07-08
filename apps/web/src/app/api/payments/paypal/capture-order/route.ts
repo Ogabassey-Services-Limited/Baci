@@ -13,7 +13,7 @@ import {
   markPaypalCredentialInvalid,
   readPaypalFeatureConfig,
 } from '@/lib/payments/paypal-checkout-credentials';
-import { captureOrder, isSandboxMismatch } from '@/lib/paypal';
+import { captureOrder, detectPayPalResponseMode } from '@/lib/paypal';
 import { createServiceClient } from '@/lib/supabase/service';
 import { paypalCaptureOrderSchema } from '@/schemas/paypal-checkout';
 
@@ -88,7 +88,8 @@ export async function POST(request: NextRequest) {
       credentials.clientId,
       credentials.secretKey,
       paypal_order_id,
-      mode
+      mode,
+      `capture-${paypal_order_id}`
     );
 
     if (!captureResult.success) {
@@ -127,10 +128,12 @@ export async function POST(request: NextRequest) {
     // Mode enforcement (Phase 2.3): PayPal's own response is authoritative.
     // Hard-reject when the response's environment disagrees with the stored
     // mode (a sandbox response for a live store, or vice versa).
-    if (isSandboxMismatch(captureData.links, mode)) {
+    const detectedMode = detectPayPalResponseMode(captureData.links);
+    if (detectedMode !== mode) {
       logger.error({
         message: 'PayPal capture: response mode mismatch',
         expectedMode: mode,
+        detectedMode,
         orderId: order_id,
         paypalOrderId: paypal_order_id,
       });

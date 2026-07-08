@@ -105,6 +105,13 @@ function paypalTransactionRow(status: string) {
   };
 }
 
+function paypalTransactionRowWithPlatformFee(
+  status: string,
+  platformFee: number
+) {
+  return { ...paypalTransactionRow(status), platform_fee: platformFee };
+}
+
 function buildSupabase({
   transactionRow,
   existingOrder,
@@ -228,6 +235,49 @@ describe('POST /api/payments/verify — paypal branch', () => {
     expect(supabase.rpc).not.toHaveBeenCalledWith(
       'record_merchant_settlement',
       expect.anything()
+    );
+  });
+
+  it('forces zero platform fee for direct-to-merchant PayPal reconciliation', async () => {
+    const supabase = buildSupabase({
+      transactionRow: paypalTransactionRowWithPlatformFee('completed', 125),
+      existingOrder: {
+        id: 'order-1',
+        order_number: 'ORD-PP1',
+        payment_status: 'unpaid',
+        shipping_status: 'pending',
+      },
+      orderUpdateData: {
+        id: 'order-1',
+        order_number: 'ORD-PP1',
+        customer_id: 'cust-1',
+        total: 25,
+        subtotal: 25,
+        shipping_fee: 0,
+        customer_name: 'Jane',
+        customer_email: 'jane@example.com',
+        customer_phone: '+1',
+        shipping_address: {},
+        currency: 'USD',
+        shipping_status: 'processing',
+        cancelled_at: null,
+        order_items: [],
+      },
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+
+    const response = await POST(createRequest(REFERENCE));
+
+    expect(response.status).toBe(200);
+    await vi.waitFor(() =>
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'record_merchant_settlement_v2',
+        expect.objectContaining({
+          p_gateway: 'paypal',
+          p_platform_fee: 0,
+          p_settlement_type: 'direct_to_merchant',
+        })
+      )
     );
   });
 

@@ -14,6 +14,17 @@ const ZOHO_CAMPAIGNS_SECRET_KEYS = [
   'refresh_token',
 ] as const;
 
+const LEGACY_PAYPAL_CREDENTIAL_KEYS = [
+  'paypal_client_id',
+  'paypal_client_secret',
+  'paypal_secret',
+  'paypal_secret_key',
+  'paypalClientId',
+  'paypalClientSecret',
+  'paypalSecret',
+  'paypalSecretKey',
+] as const;
+
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -26,12 +37,27 @@ function redactZohoCampaignSettingsRecord(settings: JsonRecord): JsonRecord {
   return redacted;
 }
 
+function scrubLegacyPaypalCredentialFields(settings: JsonRecord): {
+  settings: JsonRecord;
+  didScrub: boolean;
+} {
+  const scrubbed = { ...settings };
+  let didScrub = false;
+  for (const key of LEGACY_PAYPAL_CREDENTIAL_KEYS) {
+    if (key in scrubbed) {
+      delete scrubbed[key];
+      didScrub = true;
+    }
+  }
+  return { settings: scrubbed, didScrub };
+}
+
 export function redactMerchantFeatureSettingsResponse<T>(settings: T): T {
   if (!isRecord(settings) || !isRecord(settings.custom_settings)) {
     return settings;
   }
 
-  const redactedCustomSettings = { ...settings.custom_settings };
+  let redactedCustomSettings = { ...settings.custom_settings };
   let didRedact = false;
 
   for (const key of ZOHO_CAMPAIGNS_CUSTOM_SETTING_KEYS) {
@@ -42,6 +68,10 @@ export function redactMerchantFeatureSettingsResponse<T>(settings: T): T {
       redactZohoCampaignSettingsRecord(zohoSettings);
     didRedact = true;
   }
+
+  const paypalScrub = scrubLegacyPaypalCredentialFields(redactedCustomSettings);
+  redactedCustomSettings = paypalScrub.settings;
+  didRedact ||= paypalScrub.didScrub;
 
   if (!didRedact) return settings;
 
@@ -68,7 +98,9 @@ export function preserveZohoCampaignSecretCustomSettings(
   const incoming = isRecord(incomingCustomSettings)
     ? { ...incomingCustomSettings }
     : {};
-  if (!isRecord(existingCustomSettings)) return incoming;
+  if (!isRecord(existingCustomSettings)) {
+    return scrubLegacyPaypalCredentialFields(incoming).settings;
+  }
 
   for (const key of ZOHO_CAMPAIGNS_CUSTOM_SETTING_KEYS) {
     const existingZohoSettings = existingCustomSettings[key];
@@ -86,5 +118,5 @@ export function preserveZohoCampaignSecretCustomSettings(
     );
   }
 
-  return incoming;
+  return scrubLegacyPaypalCredentialFields(incoming).settings;
 }

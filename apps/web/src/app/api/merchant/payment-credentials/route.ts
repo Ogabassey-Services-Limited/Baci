@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { type NextRequest, NextResponse } from 'next/server';
+import type { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit } from '@/ai/provider';
 import {
   authenticateApiRequest,
@@ -15,100 +15,32 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import {
   deleteMerchantCredentials,
   getMerchantPaymentCredentialMeta,
-  type MerchantPaymentCredentialMetaRow,
-  type PaymentCredentialEnvironment,
   setMerchantPaymentCredential,
   touchMerchantCredentialValidated,
 } from '@/lib/payments/merchant-credentials';
-import { getAccessToken, type PayPalMode } from '@/lib/paypal';
+import { getAccessToken } from '@/lib/paypal';
 import {
   merchantPaymentCredentialsDeleteSchema,
   merchantPaymentCredentialsSaveSchema,
   paymentCredentialProviderSchema,
 } from '@/schemas/merchant-payment-credentials';
+import {
+  jsonNoStore,
+  toPayPalMode,
+  toStatusResponse,
+  withNoStore,
+} from './payment-credentials-route-utils';
 
-/**
- * Merchant Payment Credentials API — the authorization boundary for the BYOK
- * credential vault. The vault RPCs (see lib/payments/merchant-credentials.ts)
- * do NO caller authorization, so EVERY handler here must check merchant-staff
- * access before touching the vault. Secrets/ciphertext NEVER leave this route:
- * responses are write-only status views (configured / last4 / validation
- * metadata only).
- *
- * GET    ?provider=paypal  — status view (settings:view)
- * POST   { provider, environment, clientId, secretKey } — validate-on-save
- *                           (settings:edit, CSRF)
- * DELETE { provider }      — disconnect + disable the feature flag
- *                           (settings:edit, CSRF)
- */
+// Authorization boundary for the BYOK credential vault. The vault RPCs do no
+// caller authorization, so every handler must check merchant-staff access before
+// touching credentials. Responses are write-only status views only.
 
 const VALIDATION_RATE_LIMIT = { requests: 5, windowMs: 60_000 } as const;
-
-const PRIVATE_NO_STORE =
-  'private, no-store, no-cache, max-age=0, must-revalidate';
-
-interface PaymentCredentialRoleView {
-  role: MerchantPaymentCredentialMetaRow['credential_role'];
-  environment: MerchantPaymentCredentialMetaRow['environment'];
-  last4: string | null;
-  isActive: boolean;
-  lastValidatedAt: string | null;
-  lastValidationError: string | null;
-}
-
-interface PaymentCredentialStatusResponse {
-  configured: boolean;
-  roles: PaymentCredentialRoleView[];
-}
-
-function jsonNoStore<T>(body: T, init?: ResponseInit): NextResponse {
-  const headers = new Headers(init?.headers);
-  headers.set('Cache-Control', PRIVATE_NO_STORE);
-  return NextResponse.json(body, { ...init, headers });
-}
-
-function withNoStore(response: NextResponse): NextResponse {
-  response.headers.set('Cache-Control', PRIVATE_NO_STORE);
-  return response;
-}
-
-/**
- * Maps vault metadata rows to the write-only status view. NEVER includes a
- * secret or ciphertext — only the last four characters and validation state.
- */
-function toStatusResponse(
-  rows: MerchantPaymentCredentialMetaRow[]
-): PaymentCredentialStatusResponse {
-  const roles: PaymentCredentialRoleView[] = rows.map((row) => ({
-    role: row.credential_role,
-    environment: row.environment,
-    last4: row.key_last4,
-    isActive: row.is_active,
-    lastValidatedAt: row.last_validated_at,
-    lastValidationError: row.last_validation_error,
-  }));
-
-  // A lane counts as configured once an active secret_key is stored.
-  const configured = roles.some(
-    (role) => role.role === 'secret_key' && role.isActive
-  );
-
-  return { configured, roles };
-}
-
-function toPayPalMode(environment: PaymentCredentialEnvironment): PayPalMode {
-  return environment === 'live' ? 'live' : 'sandbox';
-}
 
 type GuardResult =
   | { ok: true; supabase: SupabaseClient; userId: string; access: UserAccess }
   | { ok: false; response: NextResponse };
 
-/**
- * Auth first, then CSRF (state-changing methods), then merchant access, then
- * the required `settings` permission. Returns the scoped (RLS-enforced) client
- * for the authenticated caller.
- */
 async function guard(
   request: NextRequest,
   action: 'view' | 'edit',
@@ -155,15 +87,8 @@ async function guard(
   return { ok: true, supabase: auth.supabase, userId: auth.user.id, access };
 }
 
-/**
- * Turns off `custom_settings.paypal_enabled` after a disconnect using the
- * caller's RLS-scoped client (not the admin client): authorization is already
- * enforced by `guard`, and merchant sessions can update their own
- * merchant_feature_settings row (same path as /api/merchant/features PATCH).
- * The full features PATCH handler is not extractable, so we merge the single
- * flag here rather than duplicate its plan/redaction logic. Absent row → the
- * flag was never set, nothing to disable.
- */
+// Disable the non-secret PayPal feature flag after disconnect, using the
+// caller's RLS-scoped client after guard() has enforced settings.edit.
 async function disablePaypalFeatureFlag(
   supabase: SupabaseClient,
   merchantId: string

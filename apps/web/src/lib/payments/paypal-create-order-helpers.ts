@@ -1,5 +1,6 @@
 import { getNgnPerUsdt } from '@/lib/juicyway/rates';
 import { logger } from '@/lib/logger';
+import { PAYPAL_SUPPORTED_CURRENCIES } from '@/lib/paypal/paypal-currency';
 
 /**
  * Pure/side-effecting helpers for the PayPal create-order route, split out to
@@ -80,8 +81,9 @@ export async function resolvePaypalPresentment(
   orderTotal: number
 ): Promise<PaypalPresentment> {
   let fxRate = 1;
+  const normalizedOrderCurrency = orderCurrency.trim().toUpperCase();
 
-  if (orderCurrency === 'NGN') {
+  if (normalizedOrderCurrency === 'NGN') {
     try {
       fxRate = await getNgnPerUsdt();
     } catch (error) {
@@ -95,11 +97,14 @@ export async function resolvePaypalPresentment(
     if (!Number.isFinite(fxRate) || fxRate <= 0) {
       return { ok: false };
     }
+  } else if (!PAYPAL_SUPPORTED_CURRENCIES.has(normalizedOrderCurrency)) {
+    return { ok: false };
   }
 
-  const presentmentCurrency = orderCurrency === 'NGN' ? 'USD' : orderCurrency;
+  const presentmentCurrency =
+    normalizedOrderCurrency === 'NGN' ? 'USD' : normalizedOrderCurrency;
   const presentmentAmount =
-    orderCurrency === 'NGN'
+    normalizedOrderCurrency === 'NGN'
       ? Number((orderTotal / fxRate).toFixed(2))
       : Number(orderTotal.toFixed(2));
 

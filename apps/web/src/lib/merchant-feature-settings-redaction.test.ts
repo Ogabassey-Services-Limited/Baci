@@ -36,6 +36,23 @@ describe('merchant feature settings redaction', () => {
     });
   });
 
+  it('redacts legacy PayPal credential fields from feature settings responses', () => {
+    const response = redactMerchantFeatureSettingsResponse({
+      id: 'settings-1',
+      custom_settings: {
+        paypal_enabled: true,
+        paypal_mode: 'live',
+        paypal_client_id: 'legacy-client-id',
+        paypal_secret_key: 'legacy-secret-key',
+      },
+    });
+
+    expect(response.custom_settings).toEqual({
+      paypal_enabled: true,
+      paypal_mode: 'live',
+    });
+  });
+
   it('preserves stored Zoho Campaigns secrets when unrelated custom settings are written', () => {
     expect(
       preserveZohoCampaignSecretCustomSettings(
@@ -53,6 +70,24 @@ describe('merchant feature settings redaction', () => {
         enabled: true,
         refreshToken: 'secret-refresh-token',
       },
+    });
+  });
+
+  it('scrubs legacy PayPal credentials instead of preserving them on writes', () => {
+    expect(
+      preserveZohoCampaignSecretCustomSettings(
+        {
+          paypal_enabled: true,
+          paypal_client_id: 'incoming-client-id',
+          paypal_secret_key: 'incoming-secret-key',
+        },
+        {
+          paypal_client_id: 'stored-client-id',
+          paypal_secret_key: 'stored-secret-key',
+        }
+      )
+    ).toEqual({
+      paypal_enabled: true,
     });
   });
 

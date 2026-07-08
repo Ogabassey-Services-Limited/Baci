@@ -7,7 +7,7 @@ import {
   markMerchantCredentialInvalid,
 } from '@/lib/payments/merchant-credentials';
 import { runPaypalCaptureSideEffects } from '@/lib/payments/paypal-capture-side-effects';
-import { captureOrder, isSandboxMismatch } from '@/lib/paypal';
+import { captureOrder, detectPayPalResponseMode } from '@/lib/paypal';
 import { createServiceClient } from '@/lib/supabase/service';
 import { POST } from './route';
 
@@ -23,7 +23,7 @@ vi.mock('@/lib/supabase/service', () => ({ createServiceClient: vi.fn() }));
 
 vi.mock('@/lib/paypal', () => ({
   captureOrder: vi.fn(),
-  isSandboxMismatch: vi.fn(),
+  detectPayPalResponseMode: vi.fn(),
 }));
 
 vi.mock('@/lib/payments/merchant-credentials', () => ({
@@ -206,7 +206,7 @@ describe('POST /api/payments/paypal/capture-order', () => {
       success: true,
       data: captureData(),
     });
-    vi.mocked(isSandboxMismatch).mockReturnValue(false);
+    vi.mocked(detectPayPalResponseMode).mockReturnValue('sandbox');
     mockVaultOk();
   });
 
@@ -266,7 +266,19 @@ describe('POST /api/payments/paypal/capture-order', () => {
   });
 
   it('hard-rejects a mode mismatch (sandbox response for a live store)', async () => {
-    vi.mocked(isSandboxMismatch).mockReturnValue(true);
+    vi.mocked(detectPayPalResponseMode).mockReturnValue('live');
+
+    const response = await POST(createRequest());
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('PAYPAL_MODE_MISMATCH');
+  });
+
+  it('fails closed when PayPal response mode cannot be determined', async () => {
+    vi.mocked(captureOrder).mockResolvedValue({
+      success: true,
+      data: { ...captureData(), links: undefined },
+    });
+    vi.mocked(detectPayPalResponseMode).mockReturnValue('unknown');
 
     const response = await POST(createRequest());
     expect(response.status).toBe(400);

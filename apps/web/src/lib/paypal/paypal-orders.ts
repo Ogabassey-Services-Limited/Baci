@@ -126,7 +126,8 @@ export async function captureOrder(
   clientId: string,
   secretKey: string,
   orderId: string,
-  mode: PayPalMode = 'sandbox'
+  mode: PayPalMode = 'sandbox',
+  requestId?: string
 ): Promise<PayPalResult<PayPalCaptureResponse>> {
   const tokenResult = await getAccessToken(clientId, secretKey, mode);
   if (!tokenResult.success) {
@@ -144,6 +145,7 @@ export async function captureOrder(
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
+          ...(requestId ? { 'PayPal-Request-Id': requestId } : {}),
         },
       }
     );
