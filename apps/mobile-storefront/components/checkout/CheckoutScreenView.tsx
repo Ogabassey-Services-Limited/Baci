@@ -84,6 +84,7 @@ export function CheckoutScreenView() {
     deliveryMethod,
     isLoadingQuotes,
     resolvedShippingQuoteContextKey,
+    requiresShippingQuote,
     selectedQuote,
   } = shipping;
   const formContentPaddingBottom = 116 + insets.bottom;
@@ -160,6 +161,7 @@ export function CheckoutScreenView() {
     paymentSettings,
     paymentTab,
     resolvedShippingQuoteContextKey,
+    requiresShippingQuote,
     saveAsDefaultAddress,
     saveDetails,
     selectedPayment,

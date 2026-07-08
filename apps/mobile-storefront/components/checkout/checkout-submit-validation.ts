@@ -15,6 +15,7 @@ interface ValidateCheckoutSubmissionParams {
   isOrderInFlight: MutableRefObject<boolean>;
   isProcessing: boolean;
   itemsLength: number;
+  requiresShippingQuote: boolean;
   resolvedShippingQuoteContextKey: string;
   selectedPayment: PaymentMethodType;
   selectedQuote: ShippingQuote | undefined;
@@ -24,11 +25,11 @@ interface ValidateCheckoutSubmissionParams {
 export function validateCheckoutSubmission({
   availablePaymentMethods,
   currentShippingQuoteContextKey,
-  deliveryMethod,
   isLoadingQuotes,
   isOrderInFlight,
   isProcessing,
   itemsLength,
+  requiresShippingQuote,
   resolvedShippingQuoteContextKey,
   selectedPayment,
   selectedQuote,
@@ -66,7 +67,7 @@ export function validateCheckoutSubmission({
   }
 
   const requiresFreshShippingQuote =
-    deliveryMethod === 'door' && Boolean(currentShippingQuoteContextKey);
+    requiresShippingQuote && Boolean(currentShippingQuoteContextKey);
   const hasFreshShippingQuoteSelection =
     resolvedShippingQuoteContextKey === currentShippingQuoteContextKey &&
     Boolean(selectedQuote);

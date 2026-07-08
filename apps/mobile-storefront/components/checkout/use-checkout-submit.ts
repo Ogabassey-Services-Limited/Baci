@@ -72,6 +72,7 @@ export interface UseCheckoutSubmitParams {
   paymentSettings: Parameters<typeof submitBnplCheckout>[0]['paymentSettings'];
   paymentTab: PaymentTab;
   resolvedShippingQuoteContextKey: string;
+  requiresShippingQuote: boolean;
   saveAsDefaultAddress: boolean;
   saveDetails: boolean;
   selectedPayment: PaymentMethodType;
@@ -107,6 +108,7 @@ export function useCheckoutSubmit({
   paymentSettings,
   paymentTab,
   resolvedShippingQuoteContextKey,
+  requiresShippingQuote,
   saveAsDefaultAddress,
   saveDetails,
   selectedPayment,
@@ -138,6 +140,7 @@ export function useCheckoutSubmit({
         isOrderInFlight,
         isProcessing,
         itemsLength: itemsSnapshot.length,
+        requiresShippingQuote,
         resolvedShippingQuoteContextKey,
         selectedPayment,
         selectedQuote,

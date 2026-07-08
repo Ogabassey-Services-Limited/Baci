@@ -3,7 +3,7 @@ import type { IoniconsIconName } from '@react-native-vector-icons/ionicons';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   getPickupStationAddressLines,
-  getPickupStationLabel,
+  isProviderStationPickupQuote,
 } from '@/components/checkout/checkout-station-pickup';
 import type {
   DeliveryMethod,
@@ -40,6 +40,7 @@ interface MethodOption {
   price: string;
   icon: IoniconsIconName;
   pickupStationQuote?: ShippingQuote;
+  isProviderPickup: boolean;
 }
 
 export function DeliveryMethodCard({
@@ -64,6 +65,7 @@ export function DeliveryMethodCard({
       subtitle: doorSubtitle,
       price: doorPrice,
       icon: 'home-outline',
+      isProviderPickup: false,
     },
   ];
   if (isAirportDeliveryEligible(deliveryState)) {
@@ -73,22 +75,32 @@ export function DeliveryMethodCard({
       subtitle: AIRPORT_DOORSTEP_NOTE,
       price: formatPrice(airportFee),
       icon: 'airplane-outline',
+      isProviderPickup: false,
     });
   }
   const usesMerchantPickup = isPickupEligible(deliveryState);
   const providerPickupQuote = usesMerchantPickup
     ? undefined
     : pickupStationQuote;
-  if (usesMerchantPickup || providerPickupQuote) {
+  const canRequestProviderPickup = Boolean(deliveryState?.trim());
+  if (usesMerchantPickup || providerPickupQuote || canRequestProviderPickup) {
+    const hasProviderQuote = isProviderStationPickupQuote(providerPickupQuote);
     options.push({
       id: 'pickup_station',
-      title: getPickupStationLabel(providerPickupQuote),
-      subtitle: getPickupStationAddressLines(providerPickupQuote).join(', '),
-      price: providerPickupQuote
+      title: usesMerchantPickup ? 'Pick Up Station' : 'Pickup Stations (GIGL)',
+      subtitle: hasProviderQuote
+        ? getPickupStationAddressLines(providerPickupQuote).join(', ')
+        : usesMerchantPickup
+          ? getPickupStationAddressLines().join(', ')
+          : 'Collect from a nearby GIG Logistics service centre',
+      price: hasProviderQuote
         ? formatPrice(providerPickupQuote.price)
-        : 'Free',
+        : usesMerchantPickup
+          ? 'Free'
+          : 'See rates',
       icon: 'storefront-outline',
       pickupStationQuote: providerPickupQuote,
+      isProviderPickup: !usesMerchantPickup,
     });
   }
 
@@ -105,7 +117,9 @@ export function DeliveryMethodCard({
           const isFree = option.price === 'Free';
           const pickupAddressLines =
             option.id === 'pickup_station'
-              ? getPickupStationAddressLines(option.pickupStationQuote)
+              ? option.pickupStationQuote || !option.isProviderPickup
+                ? getPickupStationAddressLines(option.pickupStationQuote)
+                : []
               : [];
           const [primaryPickupLine, ...secondaryPickupLines] =
             pickupAddressLines;
@@ -150,6 +164,18 @@ export function DeliveryMethodCard({
                   ]}
                 >
                   {primaryPickupLine}
+                </Text>
+              ) : null}
+              {option.id === 'pickup_station' &&
+              option.isProviderPickup &&
+              !option.pickupStationQuote ? (
+                <Text
+                  style={[
+                    styles.infoText,
+                    { color: colors.textSecondary, fontWeight: '500' },
+                  ]}
+                >
+                  Select to load available GIGL pickup stations for this area.
                 </Text>
               ) : null}
               {secondaryPickupLines.map((line) => (

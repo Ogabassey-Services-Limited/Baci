@@ -75,7 +75,7 @@ describe('useCheckoutShipping provider pickup stations', () => {
     mockFetchStates.mockResolvedValue(['Rivers']);
     mockFetchCities.mockResolvedValue(['Port Harcourt']);
     mockFetchShippingQuotes.mockImplementation((args) => {
-      args.setShippingQuotes([
+      const quotes = [
         {
           displayName: 'Topship Door Delivery',
           id: 'door-quote',
@@ -91,8 +91,15 @@ describe('useCheckoutShipping provider pickup stations', () => {
           stationAddress: 'GIGL Aba Road, Port Harcourt',
           stationName: 'PORT HARCOURT',
         },
-      ]);
-      args.setSelectedQuoteId('door-quote');
+      ];
+      args.setShippingQuotes(
+        args.deliveryPreference === 'pickup_station' ? [quotes[1]] : quotes
+      );
+      args.setSelectedQuoteId(
+        args.deliveryPreference === 'pickup_station'
+          ? 'station-quote'
+          : 'door-quote'
+      );
       args.setResolvedShippingQuoteContextKey(args.quoteContextKey);
       args.setIsLoadingQuotes(false);
       return Promise.resolve();
@@ -113,11 +120,69 @@ describe('useCheckoutShipping provider pickup stations', () => {
       result.current.handleSelectDeliveryMethod('pickup_station');
     });
 
-    expect(result.current.deliveryMethod).toBe('pickup_station');
-    expect(result.current.selectedQuoteId).toBe('station-quote');
+    await waitFor(() => {
+      expect(result.current.deliveryMethod).toBe('pickup_station');
+      expect(result.current.selectedQuoteId).toBe('station-quote');
+    });
     expect(result.current.selectedQuote?.provider).toBe('GIGL');
     expect(result.current.deliveryFee).toBe(9493);
-    expect(result.current.shippingQuotes).toHaveLength(2);
+    expect(result.current.shippingQuotes).toEqual([
+      expect.objectContaining({ id: 'station-quote' }),
+    ]);
+  });
+
+  it('requests station-pickup quotes after choosing pickup stations outside Lagos before a station quote exists', async () => {
+    mockFetchShippingQuotes.mockImplementation((args) => {
+      if (args.deliveryPreference === 'pickup_station') {
+        args.setShippingQuotes([
+          {
+            displayName: 'GIG Logistics - Pickup at PORT HARCOURT',
+            id: 'station-quote',
+            isStationPickup: true,
+            price: 9493,
+            provider: 'GIGL',
+            stationAddress: 'GIGL Aba Road, Port Harcourt',
+            stationName: 'PORT HARCOURT',
+          },
+        ]);
+        args.setSelectedQuoteId('station-quote');
+      } else {
+        args.setShippingQuotes([
+          {
+            displayName: 'GIG Logistics - Home Delivery',
+            id: 'door-quote',
+            price: 10_000,
+            provider: 'GIGL',
+          },
+        ]);
+        args.setSelectedQuoteId('door-quote');
+      }
+      args.setResolvedShippingQuoteContextKey(args.quoteContextKey);
+      args.setIsLoadingQuotes(false);
+      return Promise.resolve();
+    });
+
+    const { result } = renderHook(
+      (props: ShippingParams) => useCheckoutShipping(props),
+      { initialProps: createParams() }
+    );
+
+    await waitFor(() =>
+      expect(result.current.selectedQuoteId).toBe('door-quote')
+    );
+
+    act(() => {
+      result.current.handleSelectDeliveryMethod('pickup_station');
+    });
+
+    await waitFor(() =>
+      expect(mockFetchShippingQuotes).toHaveBeenLastCalledWith(
+        expect.objectContaining({ deliveryPreference: 'pickup_station' })
+      )
+    );
+    expect(result.current.deliveryMethod).toBe('pickup_station');
+    expect(result.current.selectedQuoteId).toBe('station-quote');
+    expect(result.current.selectedQuote?.isStationPickup).toBe(true);
   });
 
   it('never selects the paid provider station quote for free Lagos pickup', async () => {
@@ -188,7 +253,9 @@ describe('useCheckoutShipping provider pickup stations', () => {
       result.current.handleSelectDeliveryMethod('pickup_station');
     });
 
-    expect(result.current.selectedQuoteId).toBe('station-quote');
+    await waitFor(() =>
+      expect(result.current.selectedQuoteId).toBe('station-quote')
+    );
 
     act(() => {
       result.current.handleSelectDeliveryMethod('door');
@@ -200,62 +267,5 @@ describe('useCheckoutShipping provider pickup stations', () => {
     });
     expect(result.current.selectedQuote?.provider).toBe('Topship');
     expect(result.current.deliveryFee).toBe(10_000);
-  });
-
-  it('falls back to door delivery when a non-Lagos address has no station quote', async () => {
-    mockFetchShippingQuotes.mockImplementation((args) => {
-      args.setShippingQuotes([
-        {
-          displayName: 'Topship Door Delivery',
-          id: 'door-quote',
-          price: 10_000,
-          provider: 'Topship',
-        },
-      ]);
-      args.setSelectedQuoteId('door-quote');
-      args.setResolvedShippingQuoteContextKey(args.quoteContextKey);
-      args.setIsLoadingQuotes(false);
-      return Promise.resolve();
-    });
-
-    const { result } = renderHook(
-      (props: ShippingParams) => useCheckoutShipping(props),
-      { initialProps: createParams() }
-    );
-
-    await waitFor(() =>
-      expect(result.current.selectedQuoteId).toBe('door-quote')
-    );
-
-    act(() => {
-      result.current.handleSelectDeliveryMethod('pickup_station');
-    });
-
-    await waitFor(() => {
-      expect(result.current.deliveryMethod).toBe('door');
-      expect(result.current.selectedQuoteId).toBe('door-quote');
-    });
-    expect(result.current.selectedQuote?.provider).toBe('Topship');
-    expect(result.current.deliveryFee).toBe(10_000);
-  });
-
-  it('keeps pickup station unavailable when quote loading rejects', async () => {
-    mockFetchShippingQuotes.mockRejectedValue(new Error('quote failed'));
-
-    const { result } = renderHook(
-      (props: ShippingParams) => useCheckoutShipping(props),
-      { initialProps: createParams() }
-    );
-
-    await waitFor(() => expect(mockFetchShippingQuotes).toHaveBeenCalled());
-
-    act(() => {
-      result.current.handleSelectDeliveryMethod('pickup_station');
-    });
-
-    await waitFor(() => expect(result.current.deliveryMethod).toBe('door'));
-    expect(result.current.selectedQuoteId).toBe('');
-    expect(result.current.selectedQuote).toBeUndefined();
-    expect(result.current.deliveryFee).toBe(0);
   });
 });

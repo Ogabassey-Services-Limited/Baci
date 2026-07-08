@@ -90,6 +90,9 @@ export function ShippingQuotesCard({
                   ? `${quote.estimatedDays} days`
                   : 'ETA unavailable');
               const carrier = quote.carrierName || quote.provider || 'Delivery';
+              const isGiglQuote =
+                carrier.toLowerCase().includes('gig') ||
+                quote.provider?.toLowerCase() === 'gigl';
 
               return (
                 <Pressable
@@ -120,16 +123,18 @@ export function ShippingQuotesCard({
                       >
                         {quote.displayName}
                       </Text>
-                      {carrier.toLowerCase().includes('gig') && (
+                      {isGiglQuote && (
                         <View
                           style={[
-                            styles.badge,
+                            styles.logoBadge,
                             { backgroundColor: colors.foreground },
                           ]}
+                          accessibilityLabel="GIG Logistics logo"
+                          accessibilityRole="image"
                         >
                           <Text
                             style={[
-                              styles.badgeText,
+                              styles.logoBadgeText,
                               { color: colors.background },
                             ]}
                           >
@@ -266,10 +271,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
+  logoBadge: {
+    borderRadius: 4,
+    minHeight: 18,
+    minWidth: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
 
   badgeText: {
     fontSize: 9,
     fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  logoBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
     textTransform: 'uppercase',
   },
 });

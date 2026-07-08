@@ -32,12 +32,14 @@ describe('DeliveryMethodCard', () => {
     expect(screen.queryByText('Airport Delivery (Outside Lagos)')).toBeNull();
   });
 
-  it('offers door and airport (not pickup) for a non-Lagos airport state', () => {
+  it('offers door, airport, and GIGL pickup stations for a non-Lagos airport state', () => {
     render(<DeliveryMethodCard {...baseProps} deliveryState="Rivers" />);
     expect(screen.getByText('Door delivery')).toBeTruthy();
     expect(screen.getByText('Airport Delivery (Outside Lagos)')).toBeTruthy();
     expect(screen.getByText('Delivery to your doorstep')).toBeTruthy();
-    expect(screen.queryByText('Pick Up Station')).toBeNull();
+    expect(screen.getByText('Pickup Stations (GIGL)')).toBeTruthy();
+    expect(screen.getByText('See rates')).toBeTruthy();
+    expect(screen.queryByText('Taiyelolu Towers')).toBeNull();
   });
 
   it('offers paid GIGL pickup stations for non-Lagos addresses with station quotes', () => {
@@ -86,11 +88,11 @@ describe('DeliveryMethodCard', () => {
     expect(screen.getByText('Free')).toBeTruthy();
   });
 
-  it('offers only door for a non-Lagos state with no airport', () => {
+  it('offers GIGL pickup stations for a non-Lagos state with no airport', () => {
     render(<DeliveryMethodCard {...baseProps} deliveryState="Ekiti" />);
     expect(screen.getByText('Door delivery')).toBeTruthy();
     expect(screen.queryByText('Airport Delivery (Outside Lagos)')).toBeNull();
-    expect(screen.queryByText('Pick Up Station')).toBeNull();
+    expect(screen.getByText('Pickup Stations (GIGL)')).toBeTruthy();
   });
 
   it('calls onSelectMethod with "door" when door option is pressed', () => {
@@ -119,6 +121,14 @@ describe('DeliveryMethodCard', () => {
     render(<DeliveryMethodCard {...baseProps} deliveryState="Lagos" />);
     fireEvent.press(
       screen.getByRole('radio', { name: /select pick up station/i })
+    );
+    expect(baseProps.onSelectMethod).toHaveBeenCalledWith('pickup_station');
+  });
+
+  it('calls onSelectMethod with "pickup_station" when non-Lagos GIGL pickup is pressed', () => {
+    render(<DeliveryMethodCard {...baseProps} deliveryState="Rivers" />);
+    fireEvent.press(
+      screen.getByRole('radio', { name: /select pickup stations \(gigl\)/i })
     );
     expect(baseProps.onSelectMethod).toHaveBeenCalledWith('pickup_station');
   });

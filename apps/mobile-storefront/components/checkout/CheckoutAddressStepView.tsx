@@ -1,3 +1,4 @@
+import { isPickupEligible } from '@baci/shared';
 import type { Control, FieldErrors } from 'react-hook-form';
 import { ScrollView, Text, View } from 'react-native';
 import { CheckoutContactCard } from '@/components/checkout/CheckoutContactCard';
@@ -134,7 +135,14 @@ export function CheckoutAddressStepView({
   const doorShippingQuotes = shippingQuotes.filter(
     (quote) => !isProviderStationPickupQuote(quote)
   );
+  const providerPickupQuotes = shippingQuotes.filter(
+    isProviderStationPickupQuote
+  );
   const canChooseDeliveryMethod = Boolean(watchedState && watchedCity);
+  const usesMerchantPickup =
+    deliveryMethod === 'pickup_station' && isPickupEligible(watchedState);
+  const usesProviderPickup =
+    deliveryMethod === 'pickup_station' && !isPickupEligible(watchedState);
 
   return (
     <ScrollView
@@ -236,23 +244,28 @@ export function CheckoutAddressStepView({
       )}
 
       {canChooseDeliveryMethod &&
-        deliveryMethod === 'pickup_station' &&
+        usesMerchantPickup &&
         !isProviderStationPickupQuote(selectedQuote) && (
           <PickupStationCard colors={colors} isDark={isDark} />
         )}
 
-      {deliveryMethod === 'door' && Boolean(watchedState && watchedCity) && (
-        <ShippingQuotesCard
-          colors={colors}
-          isDark={isDark}
-          isLoadingQuotes={isLoadingQuotes}
-          shippingQuotes={doorShippingQuotes}
-          stationPickupQuote={stationPickupQuote}
-          selectedQuoteId={selectedQuoteId}
-          onSelectQuote={onSelectQuote}
-          onRetryQuotes={onRetryQuotes}
-        />
-      )}
+      {(deliveryMethod === 'door' || usesProviderPickup) &&
+        Boolean(watchedState && watchedCity) && (
+          <ShippingQuotesCard
+            colors={colors}
+            isDark={isDark}
+            isLoadingQuotes={isLoadingQuotes}
+            shippingQuotes={
+              usesProviderPickup ? providerPickupQuotes : doorShippingQuotes
+            }
+            stationPickupQuote={
+              usesProviderPickup ? undefined : stationPickupQuote
+            }
+            selectedQuoteId={selectedQuoteId}
+            onSelectQuote={onSelectQuote}
+            onRetryQuotes={onRetryQuotes}
+          />
+        )}
 
       <DeliveryNotesCard colors={colors} isDark={isDark}>
         <CheckoutFormField

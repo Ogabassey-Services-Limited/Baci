@@ -156,6 +156,7 @@ function createParams(
     paymentSettings: { klump_enabled: true },
     paymentTab: 'full',
     resolvedShippingQuoteContextKey: 'door:Lagos:Ikeja',
+    requiresShippingQuote: true,
     saveAsDefaultAddress: false,
     saveDetails: false,
     selectedPayment: 'paystack',

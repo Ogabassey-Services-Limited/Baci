@@ -3,6 +3,7 @@ import {
   getPickupStationAddressLines,
   getPickupStationAddressText,
   getPickupStationLabel,
+  getPickupStationMode,
   getStationPickupQuote,
   isProviderStationPickupQuote,
 } from './checkout-station-pickup';
@@ -81,5 +82,31 @@ describe('checkout station pickup helpers', () => {
     expect(getPickupStationAddressText(stationQuote, '\n')).toBe(
       'PORT HARCOURT\nGIGL Aba Road, Port Harcourt'
     );
+  });
+
+  it('keeps Lagos pickup and non-Lagos provider pickup modes separate', () => {
+    expect(
+      getPickupStationMode({
+        city: 'Ikeja',
+        deliveryMethod: 'pickup_station',
+        state: 'Lagos',
+      })
+    ).toMatchObject({
+      canUsePickupStation: true,
+      usesMerchantPickup: true,
+      usesProviderPickup: false,
+    });
+
+    expect(
+      getPickupStationMode({
+        city: 'Port Harcourt',
+        deliveryMethod: 'pickup_station',
+        state: 'Rivers',
+      })
+    ).toMatchObject({
+      canUsePickupStation: true,
+      usesMerchantPickup: false,
+      usesProviderPickup: true,
+    });
   });
 });

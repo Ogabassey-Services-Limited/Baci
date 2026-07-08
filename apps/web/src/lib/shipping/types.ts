@@ -60,6 +60,7 @@ export interface QuoteRequest {
   receiver: ShippingAddress;
   items: ShipmentItem[];
   shipmentType: 'domestic' | 'international';
+  deliveryPreference?: 'door' | 'pickup_station';
 }
 
 export interface ShippingQuote {

@@ -1,4 +1,5 @@
 export type DeliveryMethod = 'door' | 'airport' | 'pickup_station';
+export type ShippingQuoteDeliveryPreference = 'door' | 'pickup_station';
 
 export interface ShippingQuote {
   id: string | number;

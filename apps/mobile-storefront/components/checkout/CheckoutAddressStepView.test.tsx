@@ -228,6 +228,46 @@ describe('CheckoutAddressStepView station pickup quotes', () => {
     expect(quotesProps.shippingQuotes).toEqual([]);
   });
 
+  it('renders quote selection instead of the merchant pickup card for non-Lagos pickup stations', () => {
+    const screen = render(
+      <CheckoutAddressStepView
+        {...createProps({
+          deliveryMethod: 'pickup_station',
+          selectedQuote: undefined,
+          selectedQuoteId: '',
+          shippingQuotes: [],
+          watchedCity: 'Port Harcourt',
+          watchedState: 'Rivers',
+        })}
+      />
+    );
+
+    expect(screen.queryByText('pickup card')).toBeNull();
+    expect(screen.getByText('shipping quotes card')).toBeTruthy();
+    const quotesProps = mockShippingQuotesCard.mock.calls[0]?.[0] as {
+      shippingQuotes: ShippingQuote[];
+    };
+    expect(quotesProps.shippingQuotes).toEqual([]);
+  });
+
+  it('keeps the merchant pickup card for Lagos free pickup', () => {
+    const screen = render(
+      <CheckoutAddressStepView
+        {...createProps({
+          deliveryMethod: 'pickup_station',
+          selectedQuote: undefined,
+          selectedQuoteId: '',
+          shippingQuotes: [],
+          watchedCity: 'Ikeja',
+          watchedState: 'Lagos',
+        })}
+      />
+    );
+
+    expect(screen.getByText('pickup card')).toBeTruthy();
+    expect(mockShippingQuotesCard).not.toHaveBeenCalled();
+  });
+
   it('waits for a resolved delivery state and city before showing delivery methods', () => {
     const screen = render(
       <CheckoutAddressStepView

@@ -93,6 +93,7 @@ export const QuoteRequestSchema = z
       .optional(),
     sessionId: z.string().optional(),
     shipmentType: z.enum(['domestic', 'international']).default('domestic'),
+    deliveryPreference: z.enum(['door', 'pickup_station']).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.shipmentType !== 'international') return;
