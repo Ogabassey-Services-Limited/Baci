@@ -136,7 +136,7 @@ const enabledMerchant = {
   payout_currency: 'NGN',
   country: 'NG',
   logo_url: null,
-} as never;
+};
 
 describe('ProductPageRuntime — repair device link integration', () => {
   beforeEach(() => {
@@ -154,7 +154,7 @@ describe('ProductPageRuntime — repair device link integration', () => {
 
     render(
       await ProductPageRuntime({
-        merchant: enabledMerchant,
+        merchant: enabledMerchant as never,
         product,
         slug: 'teststore',
       })
@@ -172,7 +172,7 @@ describe('ProductPageRuntime — repair device link integration', () => {
 
     render(
       await ProductPageRuntime({
-        merchant: enabledMerchant,
+        merchant: enabledMerchant as never,
         product,
         slug: 'teststore',
       })
