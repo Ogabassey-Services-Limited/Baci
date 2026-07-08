@@ -98,6 +98,7 @@ function makeSupabase(responses: Responses): SupabaseClient {
         single() {
           return Promise.resolve(responses[`${table}.${op}`]);
         },
+        // biome-ignore lint/suspicious/noThenProperty: test double mimics a thenable query builder for awaited update chains
         then(onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) {
           return Promise.resolve(responses[`${table}.${op}`]).then(onF, onR);
         },
