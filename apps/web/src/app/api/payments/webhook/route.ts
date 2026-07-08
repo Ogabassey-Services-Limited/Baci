@@ -1587,6 +1587,19 @@ export async function POST(request: NextRequest) {
                 : `.${repairedDomain.split('.').slice(-1)[0]}`;
             const repairAmount = Number(transaction.amount) || 0;
 
+            // Preserve primary promotion, mirroring the normal insert path:
+            // a merchant's first custom/purchased domain becomes primary.
+            const { data: repairExistingPrimary, error: repairPrimaryError } =
+              await supabase
+                .from('domains')
+                .select('id')
+                .eq('merchant_id', transaction.merchant_id)
+                .in('domain_type', ['custom', 'purchased'])
+                .eq('status', 'active')
+                .eq('is_primary', true)
+                .limit(1)
+                .maybeSingle();
+
             const { error: repairError } = await supabase
               .from('domains')
               .insert({
@@ -1595,7 +1608,7 @@ export async function POST(request: NextRequest) {
                 tld: repairTld,
                 domain_type: 'purchased',
                 status: 'active',
-                is_primary: false,
+                is_primary: !repairPrimaryError && !repairExistingPrimary,
                 verified_at: new Date().toISOString(),
                 ssl_status: 'active',
                 go54_order_id:
@@ -1742,7 +1755,9 @@ export async function POST(request: NextRequest) {
                 transactionId: transaction.id,
                 domain: normalizedDomain,
               });
+              return false;
             }
+            return true;
           };
 
           // 3. Atomically claim fulfillment for this transaction. The
@@ -1839,12 +1854,29 @@ export async function POST(request: NextRequest) {
               // Mark the purchase fulfilled IMMEDIATELY: the registrar order
               // exists now, so even if the domains-row write below fails, no
               // later caller (stale-claim takeover included) may re-register
-              // and double-charge. A missing domains row is reconciled from
-              // the fulfillment-failure logs instead.
-              await markTransactionDomainPurchased(
-                undefined,
-                registration.orderId
-              );
+              // and double-charge. This stamp is also what lets the repair
+              // path recognize the registered domain — retry once and
+              // escalate loudly if it cannot be written (the attempt marker
+              // still prevents duplicate registrar orders).
+              const purchasedMarked =
+                (await markTransactionDomainPurchased(
+                  undefined,
+                  registration.orderId
+                )) ||
+                (await markTransactionDomainPurchased(
+                  undefined,
+                  registration.orderId
+                ));
+              if (!purchasedMarked) {
+                logger.error({
+                  message:
+                    'CRITICAL: fulfilled marker write failed after registrar success — manual reconciliation required',
+                  reference,
+                  transactionId: transaction.id,
+                  domain: normalizedDomain,
+                  registrarOrderId: registration.orderId,
+                });
+              }
 
               // 4. Persist to domains table (used by proxy + storefront resolution)
               const expiresAt = new Date();
@@ -1989,6 +2021,14 @@ export async function POST(request: NextRequest) {
                   domain: normalizedDomain,
                 });
               }
+              // Fail the delivery so the gateway redelivers: a transient
+              // registrar outage recovers automatically on retry (the release
+              // above made the row claimable again) instead of depending on
+              // the user manually retrying the dashboard callback.
+              return NextResponse.json(
+                { error: 'Domain registration failed — will retry' },
+                { status: 503 }
+              );
             }
           }
         }

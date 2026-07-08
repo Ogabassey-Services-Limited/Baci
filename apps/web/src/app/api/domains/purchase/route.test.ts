@@ -154,15 +154,17 @@ function createSupabase(
       }
 
       if (table === 'domains') {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: existingDomain,
-                error: null,
-              }),
-            })),
-          })),
+        // Fully chainable: covers the existing-domain lookup and the
+        // primary-promotion query (.select().eq().in().eq().eq().limit()).
+        const domainsChain = {
+          select: vi.fn(),
+          eq: vi.fn(),
+          in: vi.fn(),
+          limit: vi.fn(),
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: existingDomain,
+            error: null,
+          }),
           insert: vi.fn(() => ({
             select: vi.fn(() => ({
               single: vi.fn().mockResolvedValue({
@@ -177,6 +179,11 @@ function createSupabase(
             })),
           })),
         };
+        domainsChain.select.mockReturnValue(domainsChain);
+        domainsChain.eq.mockReturnValue(domainsChain);
+        domainsChain.in.mockReturnValue(domainsChain);
+        domainsChain.limit.mockReturnValue(domainsChain);
+        return domainsChain;
       }
 
       throw new Error(`Unexpected table: ${table}`);

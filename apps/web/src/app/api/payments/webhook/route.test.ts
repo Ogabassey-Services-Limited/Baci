@@ -1139,9 +1139,11 @@ describe('POST /api/payments/webhook', () => {
       const response = await POST(request);
 
       // Fulfillment was re-entered (claim won, registrar attempted) even
-      // though the transaction was already completed.
+      // though the transaction was already completed. The registrar failed
+      // definitively, so the delivery fails retryably (503) after releasing
+      // the claim — the next redelivery can attempt fulfillment again.
       expect(registerDomain).toHaveBeenCalledTimes(1);
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(503);
     });
 
     it('repairs a missing domains row for a fulfilled purchase without contacting the registrar (review #2991 P2 regression test)', async () => {
@@ -1233,6 +1235,8 @@ describe('POST /api/payments/webhook', () => {
           return {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
+            in: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockReturnThis(),
             maybeSingle: vi.fn().mockResolvedValue({
               data: null, // the row is missing — repair should insert it
               error: null,

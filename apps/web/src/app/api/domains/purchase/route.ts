@@ -313,6 +313,19 @@ export async function POST(request: NextRequest) {
       const repairExpiresAt = new Date(registeredAtIso);
       repairExpiresAt.setFullYear(repairExpiresAt.getFullYear() + repairYears);
 
+      // Preserve primary promotion, mirroring the normal insert path: a
+      // merchant's first custom/purchased domain becomes primary.
+      const { data: repairExistingPrimary, error: repairPrimaryError } =
+        await supabase
+          .from('domains')
+          .select('id')
+          .eq('merchant_id', merchantId)
+          .in('domain_type', ['custom', 'purchased'])
+          .eq('status', 'active')
+          .eq('is_primary', true)
+          .limit(1)
+          .maybeSingle();
+
       const { data: repairedRow, error: repairError } = await supabase
         .from('domains')
         .insert({
@@ -321,7 +334,7 @@ export async function POST(request: NextRequest) {
           tld,
           domain_type: 'purchased',
           status: 'active',
-          is_primary: false,
+          is_primary: !repairPrimaryError && !repairExistingPrimary,
           verified_at: new Date().toISOString(),
           ssl_status: 'active',
           go54_order_id:
@@ -394,7 +407,9 @@ export async function POST(request: NextRequest) {
           'Failed to mark payment as domain purchased:',
           paymentMetadataError
         );
+        return false;
       }
+      return true;
     };
 
     // Check if domain already exists
@@ -599,8 +614,28 @@ export async function POST(request: NextRequest) {
       // Mark the purchase fulfilled IMMEDIATELY: the registrar order exists
       // now, so even if the domains-row write below fails, no later caller
       // (stale-claim takeover included) may re-register and double-charge
-      // this payment.
-      await markPaymentDomainPurchased(undefined, registrationResult.orderId);
+      // this payment. This stamp is also what lets the repair path recognize
+      // the registered domain — retry once and escalate loudly if it cannot
+      // be written (the attempt marker still prevents duplicate orders).
+      const purchasedMarked =
+        (await markPaymentDomainPurchased(
+          undefined,
+          registrationResult.orderId
+        )) ||
+        (await markPaymentDomainPurchased(
+          undefined,
+          registrationResult.orderId
+        ));
+      if (!purchasedMarked) {
+        console.error(
+          'CRITICAL: fulfilled marker write failed after registrar success — manual reconciliation required:',
+          {
+            transactionId: payment.id,
+            domain,
+            registrarOrderId: registrationResult.orderId,
+          }
+        );
+      }
 
       // Calculate expiry date
       const expiresAt = new Date();
