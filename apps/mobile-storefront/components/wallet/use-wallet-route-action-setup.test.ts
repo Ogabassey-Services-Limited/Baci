@@ -144,4 +144,37 @@ describe('useWalletRouteActionSetup', () => {
 
     expect(createFundingAccount).toHaveBeenCalledTimes(2);
   });
+
+  it('does not disturb a fund route when the customer hydrates async (undefined→id)', () => {
+    // Auth init sets user with customer:null first, then hydrates the
+    // customer. A customerId transition on a NON-bank-transfer route must
+    // not re-apply the route action (which would re-seed the fund amount).
+    const fundParams = (customerId: string | undefined) => ({
+      bankTransfer: {
+        canCreateFundingAccount: true,
+        createFundingAccount: jest.fn(),
+        hasFundingAccount: false,
+        hasWalletData: true,
+        isCreating: false,
+      },
+      customerId,
+      routeAction: 'fund',
+      routeRequiredAmount: '5000',
+      walletReturnTo: undefined,
+      ...noopSetters,
+    });
+
+    const { rerender } = renderHook(
+      (props: ReturnType<typeof fundParams>) =>
+        useWalletRouteActionSetup(props),
+      { initialProps: fundParams(undefined) }
+    );
+
+    noopSetters.setFundAmount.mockClear();
+
+    // Customer hydrates on the same fund route.
+    rerender(fundParams('customer-1'));
+
+    expect(noopSetters.setFundAmount).not.toHaveBeenCalled();
+  });
 });

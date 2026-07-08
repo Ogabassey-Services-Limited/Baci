@@ -44,10 +44,10 @@ export function useWalletRouteActionSetup({
   const isBankTransferAction = routeAction === 'bank-transfer';
   const [pendingBankTransfer, setPendingBankTransfer] =
     useState(isBankTransferAction);
-  // customerId is part of the key so a customer switch on the SAME
-  // route re-arms the bank-transfer setup (their own DVA is auto-created)
-  // instead of staying consumed by the previous customer.
-  const routeActionKey = `${customerId ?? ''}|${routeAction ?? ''}|${routeRequiredAmount}|${walletReturnTo ?? ''}`;
+  // customerId is deliberately NOT in this key: async auth hydration flips it
+  // undefined→id right after mount, and re-running applyWalletRouteAction then
+  // would re-seed a fund URL's amount / reset panels mid-input.
+  const routeActionKey = `${routeAction ?? ''}|${routeRequiredAmount}|${walletReturnTo ?? ''}`;
   const [prevRouteActionKey, setPrevRouteActionKey] = useState(routeActionKey);
   if (prevRouteActionKey !== routeActionKey) {
     setPrevRouteActionKey(routeActionKey);
@@ -62,6 +62,19 @@ export function useWalletRouteActionSetup({
       setShowRedeemPanel,
       setShowSavingsProgressModal,
     });
+  }
+
+  // Re-arm the bank-transfer latch ONLY when the customer changes on a
+  // bank-transfer route, so a customer switch provisions the new customer's
+  // DVA — without re-running applyWalletRouteAction (which would disturb a
+  // fund/redeem/savings surface). Scoped so async customer hydration on a
+  // NON-bank-transfer route is a no-op.
+  const [prevCustomerId, setPrevCustomerId] = useState(customerId);
+  if (customerId !== prevCustomerId) {
+    setPrevCustomerId(customerId);
+    if (isBankTransferAction) {
+      setPendingBankTransfer(true);
+    }
   }
 
   const {
