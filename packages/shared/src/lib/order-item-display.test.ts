@@ -32,6 +32,31 @@ describe('order item display helpers', () => {
     ).toBe('Open Box / Blue / 128GB');
   });
 
+  it('dedupes condition labels from any comma segment', () => {
+    expect(
+      formatOrderItemOptionLabel({
+        condition: 'used',
+        variantName: 'Used, 512GB',
+      })
+    ).toBe('Used / 512GB');
+
+    expect(
+      formatOrderItemOptionLabel({
+        condition: 'used',
+        variantName: 'Blue, Used, 512GB',
+      })
+    ).toBe('Used / Blue, 512GB');
+  });
+
+  it('preserves commas inside variant values', () => {
+    expect(
+      formatOrderItemOptionLabel({
+        condition: 'open_box',
+        variantName: 'Blue / 5,000mAh',
+      })
+    ).toBe('Open Box / Blue / 5,000mAh');
+  });
+
   it('returns a display name with option metadata when present', () => {
     expect(
       formatOrderItemDisplayName({
@@ -40,5 +65,34 @@ describe('order item display helpers', () => {
         variantName: '512GB',
       })
     ).toBe('13" MacBook Air M2 (2022) (Open Box / 512GB)');
+  });
+
+  it('does not duplicate condition labels already present in the item name', () => {
+    expect(
+      formatOrderItemDisplayName({
+        baseName: 'Samsung Galaxy Fold 5 (Premium Used)',
+        condition: 'used',
+      })
+    ).toBe('Samsung Galaxy Fold 5 (Premium Used)');
+  });
+
+  it('still shows variant labels when the item name already has the condition', () => {
+    expect(
+      formatOrderItemDisplayName({
+        baseName: 'Samsung Galaxy Fold 5 (Premium Used)',
+        condition: 'used',
+        variantName: '512GB, Used',
+      })
+    ).toBe('Samsung Galaxy Fold 5 (Premium Used) (512GB)');
+  });
+
+  it('dedupes non-trailing variant condition labels when the item name already has the condition', () => {
+    expect(
+      formatOrderItemDisplayName({
+        baseName: 'Samsung Galaxy Fold 5 (Premium Used)',
+        condition: 'used',
+        variantName: 'Used, 512GB',
+      })
+    ).toBe('Samsung Galaxy Fold 5 (Premium Used) (512GB)');
   });
 });

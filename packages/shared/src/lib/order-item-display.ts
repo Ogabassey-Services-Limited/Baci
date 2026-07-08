@@ -10,7 +10,13 @@ export interface OrderItemDisplayNameInput extends OrderItemOptionInput {
 }
 
 function normalizeOptionToken(value: string) {
-  return value.trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function titleCaseOption(value: string) {
@@ -33,34 +39,81 @@ function getConditionDisplayLabel(condition: string | null | undefined) {
   return fallbackLabel ? fallbackLabel : null;
 }
 
-function splitVariantName(variantName: string | null | undefined) {
+function normalizedTextContainsOption(value: string, optionKey: string) {
+  if (!optionKey) {
+    return false;
+  }
+
+  return ` ${normalizeOptionToken(value)} `.includes(` ${optionKey} `);
+}
+
+function stripConditionCommaSegments(value: string, conditionKey: string | null) {
+  if (!conditionKey) {
+    return value.trim();
+  }
+
+  const commaParts = value.split(',');
+  if (commaParts.length < 2) {
+    return value.trim();
+  }
+
+  const trimmedParts = commaParts.map((part) => part.trim());
+  const filteredParts = trimmedParts.filter(
+    (part) => part.length > 0 && normalizeOptionToken(part) !== conditionKey
+  );
+
+  if (filteredParts.length < trimmedParts.filter(Boolean).length) {
+    return filteredParts.join(', ');
+  }
+
+  return value.trim();
+}
+
+function splitVariantName(
+  variantName: string | null | undefined,
+  conditionKey: string | null
+) {
   if (typeof variantName !== 'string') {
     return [];
   }
 
   return variantName
-    .split(/[\/,]/)
-    .map((part) => part.trim())
+    .split('/')
+    .map((part) => stripConditionCommaSegments(part, conditionKey))
     .filter((part) => part.length > 0);
 }
 
-export function formatOrderItemOptionLabel({
-  condition,
-  variantName,
-}: OrderItemOptionInput) {
+function buildOrderItemOptionLabel(
+  {
+    condition,
+    variantName,
+  }: OrderItemOptionInput,
+  includeConditionLabel: boolean
+) {
   const conditionLabel = getConditionDisplayLabel(condition);
   const conditionKey = conditionLabel
     ? normalizeOptionToken(conditionLabel)
     : null;
-  const variantParts = splitVariantName(variantName).filter((part) => {
-    if (!conditionKey) {
-      return true;
+  const variantParts = splitVariantName(variantName, conditionKey).filter(
+    (part) => {
+      if (!conditionKey) {
+        return true;
+      }
+
+      return normalizeOptionToken(part) !== conditionKey;
     }
+  );
 
-    return normalizeOptionToken(part) !== conditionKey;
-  });
+  return [
+    includeConditionLabel ? conditionLabel : null,
+    ...variantParts,
+  ]
+    .filter(Boolean)
+    .join(' / ');
+}
 
-  return [conditionLabel, ...variantParts].filter(Boolean).join(' / ');
+export function formatOrderItemOptionLabel(input: OrderItemOptionInput) {
+  return buildOrderItemOptionLabel(input, true);
 }
 
 export function formatOrderItemDisplayName({
@@ -72,7 +125,17 @@ export function formatOrderItemDisplayName({
     typeof baseName === 'string' && baseName.trim().length > 0
       ? baseName.trim()
       : 'Product';
-  const optionLabel = formatOrderItemOptionLabel({ condition, variantName });
+  const conditionLabel = getConditionDisplayLabel(condition);
+  const conditionKey = conditionLabel
+    ? normalizeOptionToken(conditionLabel)
+    : null;
+  const includeConditionLabel = conditionKey
+    ? !normalizedTextContainsOption(displayName, conditionKey)
+    : true;
+  const optionLabel = buildOrderItemOptionLabel(
+    { condition, variantName },
+    includeConditionLabel
+  );
 
   return optionLabel ? `${displayName} (${optionLabel})` : displayName;
 }
