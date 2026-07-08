@@ -3,6 +3,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { AppSheetModal } from '@/components/ui/AppSheetModal';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { formatVariantAttributesSummary } from '@/lib/format-variant-attributes';
+import { NewOrderEditItemActions } from './NewOrderEditItemActions';
 import { formatPriceInput, parseDecimalInput } from './new-order.shared';
 
 interface NewOrderEditItemSheetProps {
@@ -255,79 +256,15 @@ export function NewOrderEditItemSheet({
           />
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable
-            accessibilityLabel="Remove edited item"
-            accessibilityRole="button"
-            onPress={() => {
-              if (editingItem) {
-                setOrderItems((previous) =>
-                  previous.filter((item) => item.id !== editingItem.id)
-                );
-                setShowEditItemModal(false);
-              }
-            }}
-            style={{
-              alignItems: 'center',
-              borderColor: colors.error,
-              borderRadius: 12,
-              borderWidth: 1.5,
-              flex: 1,
-              paddingVertical: 16,
-            }}
-          >
-            <Text
-              style={{ color: colors.error, fontSize: 16, fontWeight: '800' }}
-            >
-              Remove
-            </Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityLabel="Save edited item"
-            accessibilityRole="button"
-            onPress={() => {
-              if (editingItem) {
-                const finalPrice =
-                  Number.parseFloat(editPriceValue.replace(/,/g, '')) || 0;
-                const finalQty = Math.max(
-                  1,
-                  Number.parseInt(editQtyValue, 10) || 1
-                );
-                setOrderItems((previous) =>
-                  previous.map((item) =>
-                    item.id === editingItem.id
-                      ? {
-                          ...item,
-                          details: editDetails,
-                          price: finalPrice,
-                          quantity: finalQty,
-                        }
-                      : item
-                  )
-                );
-              }
-              setShowEditItemModal(false);
-            }}
-            style={{
-              alignItems: 'center',
-              backgroundColor: colors.primary,
-              borderRadius: 12,
-              flex: 1,
-              paddingVertical: 16,
-            }}
-          >
-            <Text
-              style={{
-                color: colors.textOnPrimary,
-                fontSize: 16,
-                fontWeight: '800',
-              }}
-            >
-              Save
-            </Text>
-          </Pressable>
-        </View>
+        <NewOrderEditItemActions
+          colors={colors}
+          editDetails={editDetails}
+          editingItem={editingItem}
+          editPriceValue={editPriceValue}
+          editQtyValue={editQtyValue}
+          setOrderItems={setOrderItems}
+          setShowEditItemModal={setShowEditItemModal}
+        />
       </View>
     </AppSheetModal>
   );

@@ -67,7 +67,7 @@ export function ProductHasVariantsToggleCard({
           }))
         }
         trackColor={{ false: colors.border, true: colors.primary }}
-        thumbColor={formData.has_variants ? colors.card : colors.border}
+        thumbColor={formData.has_variants ? colors.card : colors.textMuted}
       />
     </View>
   );

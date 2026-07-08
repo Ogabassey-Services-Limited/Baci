@@ -101,6 +101,27 @@ describe('useCollapsibleSearchBar', () => {
     expect(result.current.isSearchActionsVisible).toBe(false);
   });
 
+  it('keeps the hidden baseline current while scrolling farther down', () => {
+    const { result } = renderHook(() => useCollapsibleSearchBar());
+
+    act(() => {
+      result.current.handleScroll(scrollEvent(0));
+    });
+    act(() => {
+      result.current.handleScroll(scrollEvent(100));
+    });
+    expect(result.current.isSearchActionsVisible).toBe(false);
+
+    act(() => {
+      result.current.handleScroll(scrollEvent(400));
+    });
+    act(() => {
+      result.current.handleScroll(scrollEvent(380));
+    });
+
+    expect(result.current.isSearchActionsVisible).toBe(true);
+  });
+
   it('returns a searchBarAnim value usable by an Animated component', () => {
     const { result } = renderHook(() => useCollapsibleSearchBar());
 

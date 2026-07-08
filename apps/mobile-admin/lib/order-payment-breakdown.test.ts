@@ -107,4 +107,26 @@ describe('buildOrderPaymentBreakdown', () => {
     expect(breakdown.giftWrappingFee).toBe(1500);
     expect(breakdown.walletAmountUsed).toBe(2000);
   });
+
+  it('keeps inclusive VAT lines balanced when gift wrapping was charged', () => {
+    const total = 238000;
+    const giftWrappingFee = 3000;
+    const taxAmount = total - total / 1.075;
+    const breakdown = buildOrderPaymentBreakdown({
+      currency: 'NGN',
+      giftWrappingFee,
+      merchant: registeredMerchant,
+      shippingFee: 25000,
+      subtotal: 210000,
+      taxAmount,
+      total,
+    });
+
+    expect(
+      breakdown.displaySubtotal +
+        25000 +
+        breakdown.giftWrappingFee +
+        breakdown.taxAmount
+    ).toBeCloseTo(total, 2);
+  });
 });

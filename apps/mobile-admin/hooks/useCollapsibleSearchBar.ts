@@ -51,6 +51,8 @@ export function useCollapsibleSearchBar() {
         useNativeDriver: true,
       }).start();
       lastScrollY.current = currentScrollY;
+    } else if (!isSearchVisible.current) {
+      lastScrollY.current = currentScrollY;
     }
   };
 

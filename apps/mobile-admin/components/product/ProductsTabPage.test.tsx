@@ -199,4 +199,21 @@ describe('ProductsTabPage', () => {
 
     expect(screen.getByText("Couldn't load products")).toBeTruthy();
   });
+
+  it('shows a loading indicator while products are loading', () => {
+    productHookMocks.useProducts.mockReturnValue({
+      data: undefined,
+      error: null,
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      isLoading: true,
+      refetch: vi.fn(),
+    });
+
+    renderPage('in_stock');
+
+    expect(screen.getByLabelText('Loading products')).toBeTruthy();
+    expect(screen.queryByText('Start managing stock')).toBeNull();
+  });
 });

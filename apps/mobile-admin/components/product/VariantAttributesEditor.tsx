@@ -7,14 +7,7 @@ import {
   partitionVariantAttributes,
 } from '@/lib/variant-attribute-display';
 import type { VariantAttributeFormValue } from '@/lib/product-variant-form';
-
-const ATTRIBUTE_KEY_SUGGESTIONS = [
-  'Color',
-  'Storage',
-  'RAM',
-  'Size',
-  'Material',
-] as const;
+import { VARIANT_OPTION_NAME_SUGGESTIONS } from './variant-builder.helpers';
 
 interface VariantAttributesEditorProps {
   attributes: VariantAttributeFormValue[];
@@ -136,7 +129,7 @@ export function VariantAttributesEditor({
 
             {attribute.key.trim() === '' ? (
               <View style={styles.suggestionRow}>
-                {ATTRIBUTE_KEY_SUGGESTIONS.map((suggestion) => (
+                {VARIANT_OPTION_NAME_SUGGESTIONS.map((suggestion) => (
                   <Pressable
                     accessibilityLabel={`Use ${suggestion} for variant ${variantIndex + 1} item ${index + 1}`}
                     accessibilityRole="button"

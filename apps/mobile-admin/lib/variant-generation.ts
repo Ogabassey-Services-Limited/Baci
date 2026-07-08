@@ -47,14 +47,27 @@ function dedupeStrings(values: string[]): string[] {
 }
 
 function cleanOptions(options: VariantOptionDraft[]): CleanOption[] {
-  return options
-    .map((option) => ({
-      name: option.name.trim(),
-      values: dedupeStrings(
-        option.values.map((value) => value.value.trim()).filter(Boolean)
-      ),
-    }))
-    .filter((option) => option.name.length > 0 && option.values.length > 0);
+  const merged = new Map<string, CleanOption>();
+
+  for (const option of options) {
+    const name = option.name.trim();
+    const values = dedupeStrings(
+      option.values.map((value) => value.value.trim()).filter(Boolean)
+    );
+    if (name.length === 0 || values.length === 0) {
+      continue;
+    }
+
+    const key = name.toLowerCase();
+    const existing = merged.get(key);
+    if (existing) {
+      existing.values = dedupeStrings([...existing.values, ...values]);
+    } else {
+      merged.set(key, { name, values });
+    }
+  }
+
+  return Array.from(merged.values());
 }
 
 /**

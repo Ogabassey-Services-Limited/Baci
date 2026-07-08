@@ -73,6 +73,19 @@ describe('countVariantCombinations', () => {
 
     expect(countVariantCombinations([duplicateColorOption], [])).toBe(1);
   });
+
+  it('merges duplicate option names case-insensitively before counting', () => {
+    const duplicateNameOptions: VariantOptionDraft[] = [
+      colorOption,
+      {
+        id: 'colour-copy',
+        name: 'color',
+        values: [{ id: 'c3', value: 'Green' }],
+      },
+    ];
+
+    expect(countVariantCombinations(duplicateNameOptions, [])).toBe(3);
+  });
 });
 
 describe('buildVariantsFromOptions', () => {
@@ -151,6 +164,27 @@ describe('buildVariantsFromOptions', () => {
     expect(
       buildVariantsFromOptions({ conditions: [], defaults, options: [] })
     ).toHaveLength(0);
+  });
+
+  it('does not generate duplicate attribute keys for duplicate option names', () => {
+    const variants = buildVariantsFromOptions({
+      conditions: [],
+      defaults,
+      options: [
+        colorOption,
+        {
+          id: 'colour-copy',
+          name: 'color',
+          values: [{ id: 'c3', value: 'Green' }],
+        },
+      ],
+    });
+
+    expect(variants).toHaveLength(3);
+    for (const variant of variants) {
+      expect(variant.attributes).toHaveLength(1);
+      expect(variant.attributes[0].key).toBe('Color');
+    }
   });
 });
 

@@ -226,7 +226,7 @@ export default function NotificationsScreen() {
                   thumbColor={
                     (preferences?.in_app_enabled ?? true)
                       ? colors.card
-                      : colors.border
+                      : colors.textMuted
                   }
                 />
               </View>
@@ -259,7 +259,7 @@ export default function NotificationsScreen() {
                   thumbColor={
                     (preferences?.banner_enabled ?? true)
                       ? colors.card
-                      : colors.border
+                      : colors.textMuted
                   }
                 />
               </View>

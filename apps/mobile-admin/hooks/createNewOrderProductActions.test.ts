@@ -226,6 +226,131 @@ describe('createNewOrderProductActions', () => {
     expect(setVariantReplacementItemId).toHaveBeenCalledWith(null);
   });
 
+  it('merges into an existing variant line when replacing another line with the same variant', () => {
+    let orderItems: OrderItem[] = [
+      {
+        id: 'line-1',
+        name: 'Samsung Galaxy S22',
+        price: 370000,
+        product_id: 'product-1',
+        quantity: 2,
+        variant_id: 'variant-old',
+        variant_name: 'Burgundy / 128GB',
+      },
+      {
+        id: 'line-2',
+        name: 'Samsung Galaxy S22',
+        price: 410000,
+        product_id: 'product-1',
+        quantity: 1,
+        variant_id: 'variant-new',
+        variant_name: 'Phantom Black / 256GB',
+      },
+    ];
+    const setOrderItems = vi.fn(
+      (updater: OrderItem[] | ((previous: OrderItem[]) => OrderItem[])) => {
+        orderItems =
+          typeof updater === 'function' ? updater(orderItems) : updater;
+      }
+    );
+
+    const actions = createNewOrderProductActions({
+      customItem: createEmptyCustomItemDraft(),
+      orderItems,
+      selectedParentProduct: {
+        has_variants: true,
+        id: 'product-1',
+        images: [],
+        name: 'Samsung Galaxy S22',
+        parent_product_id: null,
+        price: 370000,
+        sku: null,
+        variant_attributes: null,
+      },
+      setCustomItem: vi.fn(),
+      setOrderItems,
+      setProductSearch: vi.fn(),
+      setSelectedParentProduct: vi.fn(),
+      setShowCustomItemModal: vi.fn(),
+      setShowProductModal: vi.fn(),
+      setVariantReplacementItemId: vi.fn(),
+      variantReplacementItemId: 'line-1',
+    });
+
+    actions.handleAddProduct({
+      has_variants: false,
+      id: 'variant-new',
+      images: [],
+      name: 'Samsung Galaxy S22 Phantom Black / 256GB',
+      parent_product_id: 'product-1',
+      price: 410000,
+      sku: 'S22-BLK-256',
+      variant_attributes: { color: 'Phantom Black', storage: '256GB' },
+    });
+
+    expect(orderItems).toHaveLength(1);
+    expect(orderItems[0]).toMatchObject({
+      id: 'line-2',
+      product_id: 'product-1',
+      quantity: 3,
+      variant_id: 'variant-new',
+    });
+  });
+
+  it('treats quick-add matches as new items even if a replacement id is stale', () => {
+    let orderItems: OrderItem[] = [
+      {
+        id: 'line-1',
+        name: 'Samsung Galaxy S22',
+        price: 370000,
+        product_id: 'product-1',
+        quantity: 1,
+        variant_id: 'variant-old',
+        variant_name: 'Burgundy / 128GB',
+      },
+    ];
+    const setOrderItems = vi.fn(
+      (updater: OrderItem[] | ((previous: OrderItem[]) => OrderItem[])) => {
+        orderItems =
+          typeof updater === 'function' ? updater(orderItems) : updater;
+      }
+    );
+    const setVariantReplacementItemId = vi.fn();
+
+    const actions = createNewOrderProductActions({
+      customItem: { name: 'Xiaomi 13T', price: '360000' },
+      orderItems,
+      selectedParentProduct: null,
+      setCustomItem: vi.fn(),
+      setOrderItems,
+      setProductSearch: vi.fn(),
+      setSelectedParentProduct: vi.fn(),
+      setShowCustomItemModal: vi.fn(),
+      setShowProductModal: vi.fn(),
+      setVariantReplacementItemId,
+      variantReplacementItemId: 'line-1',
+    });
+
+    actions.handleUseQuickAddProductMatch({
+      has_variants: false,
+      id: 'product-2',
+      images: [],
+      name: 'Xiaomi 13T',
+      parent_product_id: null,
+      price: 360000,
+      sku: 'XIAOMI-13T',
+      variant_attributes: null,
+    });
+
+    expect(orderItems).toHaveLength(2);
+    expect(orderItems[0]).toMatchObject({ id: 'line-1', variant_id: 'variant-old' });
+    expect(orderItems[1]).toMatchObject({
+      product_id: 'product-2',
+      quantity: 1,
+    });
+    expect(setVariantReplacementItemId).toHaveBeenCalledWith(null);
+  });
+
   it('handleAddCustomItem adds a custom item when name and price are valid', () => {
     let orderItems: OrderItem[] = [];
     const setOrderItems = vi.fn(

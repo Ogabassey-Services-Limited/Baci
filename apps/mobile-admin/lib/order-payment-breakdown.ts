@@ -50,7 +50,7 @@ export function buildOrderPaymentBreakdown(
   const order = {
     currency,
     discount_amount: toAmount(input.discountAmount),
-    shipping_fee: toAmount(input.shippingFee),
+    shipping_fee: toAmount(input.shippingFee) + giftWrappingFee,
     subtotal,
     tax_amount: taxAmount,
     total: toAmount(input.total),

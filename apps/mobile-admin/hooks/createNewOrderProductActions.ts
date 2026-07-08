@@ -47,7 +47,10 @@ export function createNewOrderProductActions({
     setProductSearch('');
   };
 
-  const addProductToOrder = (product: SelectableOrderProduct) => {
+  const addProductToOrder = (
+    product: SelectableOrderProduct,
+    { replaceActiveVariant = true } = {}
+  ) => {
     const nextItem = buildManualOrderLineItem({
       fallbackImageUrl: selectedParentProduct?.images?.[0],
       parentProductName: selectedParentProduct?.name,
@@ -56,29 +59,49 @@ export function createNewOrderProductActions({
     const { condition, ...restNextItem } = nextItem;
     const normalizedNextItem =
       condition === undefined ? restNextItem : nextItem;
+    const activeReplacementItemId = replaceActiveVariant
+      ? variantReplacementItemId
+      : null;
 
     setOrderItems((previous) => {
-      if (!variantReplacementItemId) {
+      if (!activeReplacementItemId) {
         return mergeOrderItem(previous, normalizedNextItem);
       }
 
-      if (!previous.some((item) => item.id === variantReplacementItemId)) {
-        return mergeOrderItem(previous, normalizedNextItem);
-      }
-
-      return previous.map((item) =>
-        item.id === variantReplacementItemId
-          ? ({
-              ...normalizedNextItem,
-              ...(item.details !== undefined ? { details: item.details } : {}),
-              ...(item.product_match_status !== undefined
-                ? { product_match_status: item.product_match_status }
-                : {}),
-              id: item.id,
-              quantity: item.quantity,
-            } satisfies OrderItem)
-          : item
+      const replacementTarget = previous.find(
+        (item) => item.id === activeReplacementItemId
       );
+      if (!replacementTarget) {
+        return mergeOrderItem(previous, normalizedNextItem);
+      }
+
+      const replacementItem = {
+        ...normalizedNextItem,
+        ...(replacementTarget.details !== undefined
+          ? { details: replacementTarget.details }
+          : {}),
+        ...(replacementTarget.product_match_status !== undefined
+          ? { product_match_status: replacementTarget.product_match_status }
+          : {}),
+        id: replacementTarget.id,
+        quantity: replacementTarget.quantity,
+      } satisfies OrderItem;
+      const remainingItems = previous.filter(
+        (item) => item.id !== activeReplacementItemId
+      );
+      const matchingReplacementExists = remainingItems.some(
+        (item) =>
+          item.product_id !== null &&
+          replacementItem.product_id !== null &&
+          item.product_id === replacementItem.product_id &&
+          (item.variant_id ?? null) === (replacementItem.variant_id ?? null)
+      );
+
+      return matchingReplacementExists
+        ? mergeOrderItem(remainingItems, replacementItem)
+        : previous.map((item) =>
+            item.id === activeReplacementItemId ? replacementItem : item
+          );
     });
   };
 
@@ -97,7 +120,8 @@ export function createNewOrderProductActions({
   };
 
   const handleUseQuickAddProductMatch = (product: SelectableOrderProduct) => {
-    addProductToOrder(product);
+    setVariantReplacementItemId?.(null);
+    addProductToOrder(product, { replaceActiveVariant: false });
     setCustomItem(createEmptyCustomItemDraft());
     setShowCustomItemModal(false);
   };

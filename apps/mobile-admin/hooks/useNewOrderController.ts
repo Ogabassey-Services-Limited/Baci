@@ -13,7 +13,6 @@ import type {
   CustomerInfo,
   OrderItem,
   SelectableCustomer,
-  SelectableOrderProduct,
   SelectedParentProduct,
 } from '@/components/orders/new-order.types';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,10 +22,14 @@ import { useCreateCustomer } from '@/hooks/useCustomers';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { createNewOrderTotals } from '@/lib/new-order-totals';
-import { normalizeVariantAttributes } from '@/lib/product-picker-variant-rows';
 import { createNewOrderCustomerActions } from './createNewOrderCustomerActions';
 import { createNewOrderProductActions } from './createNewOrderProductActions';
 import { submitNewOrder } from './submitNewOrder';
+import {
+  createChangeEditingItemVariantHandler,
+  createResetOrderDraft,
+  getSelectableProductRows,
+} from './useNewOrderControllerActions';
 import type { UseNewOrderControllerOptions } from './useNewOrderControllerOptions';
 import { useNewOrderLookupData } from './useNewOrderLookupData';
 import { useNewOrderUiState } from './useNewOrderUiState';
@@ -46,38 +49,28 @@ export function useNewOrderController({
   const { scope } = useBranchScope();
   const queryClient = useQueryClient();
   const createCustomerMutation = useCreateCustomer();
-
   const [date, setDate] = useState(new Date());
-  const [selectedChannel, setSelectedChannel] = useState<OrderSource | null>(
-    initialSelectedChannel
-  );
+  const [selectedChannel, setSelectedChannel] =
+    useState<OrderSource | null>(initialSelectedChannel);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('unpaid');
-  const [customer, setCustomer] = useState<CustomerInfo>(
-    createEmptyCustomerInfo
-  );
+  const [customer, setCustomer] = useState<CustomerInfo>(createEmptyCustomerInfo);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   // Ref-based flag to prevent duplicate submissions (guards against race conditions)
   const isSubmittingRef = useRef(false);
-
   const uiState = useNewOrderUiState();
-
   const [discount, setDiscount] = useState(0);
   const [shippingFee, setShippingFee] = useState(0);
   const [taxes, setTaxes] = useState(0);
-
   const { isVatApplied, isVatRegistered, setIsVatApplied } =
     useNewOrderVatState(autoApplyVat, merchant?.vat_registration_status);
-
   const [productSearch, setProductSearch] = useState('');
   const [selectedParentProduct, setSelectedParentProduct] =
     useState<SelectedParentProduct>(null);
-  const [variantReplacementItemId, setVariantReplacementItemId] = useState<
-    string | null
-  >(null);
+  const [variantReplacementItemId, setVariantReplacementItemId] =
+    useState<string | null>(null);
   const [customerSearch, setCustomerSearch] = useState('');
   const {
     customersData,
@@ -118,13 +111,10 @@ export function useNewOrderController({
   });
   const [sameAsCustomer, setSameAsCustomer] = useState(true);
   const [deliveryInfo, setDeliveryInfo] = useState(createEmptyDeliveryInfo);
-
   const [customItem, setCustomItem] = useState(createEmptyCustomItemDraft);
   const quickAddProductMatchState = useQuickAddProductMatches(customItem);
-
   const [partialAmount, setPartialAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('transfer');
-
   const { calculatedVat, formatPrice, subtotal, taxesToUse, total, vatRate } =
     createNewOrderTotals({
       discount,
@@ -136,15 +126,11 @@ export function useNewOrderController({
       taxes,
     });
   const isPickingVariant = selectedParentProduct !== null;
-  const selectableProductRows: SelectableOrderProduct[] = isPickingVariant
-    ? (selectedParentProductVariantsData ?? [])
-    : filteredProducts.map((product) => ({
-        ...product,
-        variant_attributes: normalizeVariantAttributes(
-          product.variant_attributes
-        ),
-      }));
-
+  const selectableProductRows = getSelectableProductRows({
+    filteredProducts,
+    isPickingVariant,
+    selectedParentProductVariantsData,
+  });
   const productActions = createNewOrderProductActions({
     customItem,
     orderItems,
@@ -171,7 +157,6 @@ export function useNewOrderController({
     setSelectedCountryCode,
     setShowCustomerModal: uiState.setShowCustomerModal,
   });
-
   const handleSubmit = () =>
     submitNewOrder({
       customer,
@@ -199,49 +184,33 @@ export function useNewOrderController({
       total,
       userId: user?.id,
     });
-
-  const resetOrderDraft = () => {
-    setDate(new Date());
-    setSelectedChannel('physical');
-    setSelectedBranchId(defaultBranchId);
-    setPaymentStatus('unpaid');
-    setCustomer(createEmptyCustomerInfo());
-    setOrderItems([]);
-    setNotes('');
-    setDiscount(0);
-    setShippingFee(0);
-    setTaxes(0);
-    setIsVatApplied(isVatRegistered);
-    setSameAsCustomer(true);
-    setDeliveryInfo(createEmptyDeliveryInfo());
-    setPartialAmount('');
-    setPaymentMethod('transfer');
-    setVariantReplacementItemId(null);
-    uiState.setLastOrderId(null);
-  };
-
-  const handleChangeEditingItemVariant = () => {
-    const item = uiState.editingItem;
-    if (!item?.product_id || !item.variant_id || item.is_custom) {
-      return;
-    }
-
-    setVariantReplacementItemId(item.id);
-    setSelectedParentProduct({
-      condition: item.condition ?? null,
-      has_variants: true,
-      id: item.product_id,
-      images: item.image_url ? [item.image_url] : [],
-      name: item.name,
-      parent_product_id: null,
-      price: item.price,
-      sku: null,
-      variant_attributes: item.variant_attributes ?? null,
-    });
-    setProductSearch('');
-    uiState.setShowEditItemModal(false);
-    uiState.setShowProductModal(true);
-  };
+  const resetOrderDraft = createResetOrderDraft({
+    defaultBranchId,
+    isVatRegistered,
+    setCustomer,
+    setDate,
+    setDeliveryInfo,
+    setDiscount,
+    setIsVatApplied,
+    setNotes,
+    setOrderItems,
+    setPartialAmount,
+    setPaymentMethod,
+    setPaymentStatus,
+    setSameAsCustomer,
+    setSelectedBranchId,
+    setSelectedChannel,
+    setShippingFee,
+    setTaxes,
+    setVariantReplacementItemId,
+    uiState,
+  });
+  const handleChangeEditingItemVariant = createChangeEditingItemVariantHandler({
+    setProductSearch,
+    setSelectedParentProduct,
+    setVariantReplacementItemId,
+    uiState,
+  });
 
   return {
     colors,

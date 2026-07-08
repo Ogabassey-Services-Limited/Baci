@@ -90,9 +90,11 @@ export function ProductVariantsCard({
 
   const totalStock = getTotalVariantStock(variants);
   const axes = getVariantAxes(variants);
-  const hasActiveFilter = axes.some((axis) => filterSelection[axis.id]);
+  const canFilterVariants = variants.length >= FILTER_MIN_VARIANTS;
+  const activeFilterSelection = canFilterVariants ? filterSelection : {};
+  const hasActiveFilter = axes.some((axis) => activeFilterSelection[axis.id]);
   const visibleIndexes = hasActiveFilter
-    ? filterVariantIndexes(variants, axes, filterSelection)
+    ? filterVariantIndexes(variants, axes, activeFilterSelection)
     : variants.map((_, index) => index);
 
   const existingConditions = Array.from(
@@ -196,7 +198,7 @@ export function ProductVariantsCard({
         </Pressable>
       ) : null}
 
-      {variants.length >= FILTER_MIN_VARIANTS ? (
+      {canFilterVariants ? (
         <VariantFilterChips
           axes={axes}
           colors={colors}

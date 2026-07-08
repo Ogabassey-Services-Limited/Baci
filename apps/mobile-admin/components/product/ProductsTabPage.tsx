@@ -1,12 +1,10 @@
-import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
+import type { ListRenderItemInfo } from '@shopify/flash-list';
 import { router } from 'expo-router';
-import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
-  RefreshControl,
   StyleSheet,
   View,
 } from 'react-native';
@@ -18,6 +16,7 @@ import {
   ProductsSubTabs,
   type ProductsTab,
 } from '@/components/product/ProductsSubTabs';
+import { ProductsListShell } from '@/components/product/ProductsListShell';
 import { getProductsEmptyState } from '@/components/product/products-empty-state';
 import type { Category } from '@/components/product/product.shared';
 import { TopSellingProductItem } from '@/components/product/TopSellingProductItem';
@@ -50,56 +49,6 @@ interface ProductsTabPageProps {
   onSubTabChange: (subTab: ProductsTab) => void;
   searchQuery: string;
   variant: 'in_stock' | 'on_website';
-}
-
-interface ProductsListShellProps<T> {
-  colors: ReturnType<typeof useTheme>['colors'];
-  data?: T[] | null;
-  emptyComponent: ReactElement | null;
-  footerComponent?: ReactElement | null;
-  keyExtractor: (item: T) => string;
-  onEndReached?: () => void;
-  onRefresh: () => void;
-  onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
-  renderItem: (info: ListRenderItemInfo<T>) => ReactElement | null;
-  refreshing: boolean;
-}
-
-function ProductsListShell<T>({
-  colors,
-  data,
-  emptyComponent,
-  footerComponent = null,
-  keyExtractor,
-  onEndReached,
-  onRefresh,
-  onScroll,
-  renderItem,
-  refreshing,
-}: ProductsListShellProps<T>) {
-  return (
-    <FlashList
-      data={data}
-      renderItem={renderItem}
-      keyExtractor={keyExtractor}
-      contentContainerStyle={[styles.listContent, { paddingBottom: 100 }]}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={[colors.gold]}
-          tintColor={colors.gold}
-        />
-      }
-      ListEmptyComponent={emptyComponent}
-      ListFooterComponent={footerComponent}
-      onEndReached={onEndReached}
-      onEndReachedThreshold={0.5}
-      onScroll={onScroll}
-      scrollEventThrottle={16}
-      showsVerticalScrollIndicator={false}
-    />
-  );
 }
 
 export function ProductsTabPage({
@@ -270,6 +219,7 @@ export function ProductsTabPage({
               />
             ) : (
               <ActivityIndicator
+                accessibilityLabel="Loading top selling products"
                 size="large"
                 color={colors.gold}
                 style={{ marginTop: 20 }}
@@ -300,6 +250,7 @@ export function ProductsTabPage({
               <ProductsListEmpty {...productsEmptyProps} />
             ) : (
               <ActivityIndicator
+                accessibilityLabel="Loading products"
                 size="large"
                 color={colors.gold}
                 style={{ marginTop: 20 }}
@@ -316,11 +267,6 @@ const styles = StyleSheet.create({
   footerLoader: {
     alignItems: 'center',
     paddingVertical: SPACING.lg,
-  },
-  listContent: {
-    gap: SPACING.md,
-    padding: SPACING.lg,
-    paddingTop: 0,
   },
   page: {
     flex: 1,
