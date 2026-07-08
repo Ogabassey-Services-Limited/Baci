@@ -6,6 +6,17 @@
 // — all granted to service_role only. This module is the single place those
 // RPCs get called from; callers never touch ciphertext or the admin client
 // directly.
+//
+// AUTHORIZATION WARNING: every function below calls `createAdminClient()`
+// (service_role). The RPCs themselves perform NO caller authorization —
+// they trust their inputs completely, and `auth.uid()` is NULL under
+// service_role, so RLS-based ownership checks do not apply here. This
+// module never verifies that the caller is allowed to act on `merchantId`.
+// Every API route that calls into this module MUST first check
+// merchant-staff authorization for that merchant (e.g. `hasPermission(access,
+// 'settings', 'edit')` / the equivalent `check_staff_permission()` gate)
+// before invoking any function here. Skipping that check lets any
+// authenticated caller read or overwrite another merchant's credentials.
 import 'server-only';
 
 import { decryptSecret, encryptSecret } from '@/lib/crypto/secret-box';
@@ -60,6 +71,11 @@ function assertNoRpcError(error: RpcErrorLike | null, rpcName: string): void {
  * (merchant, provider, credential_role, environment) slot. Reactivates the
  * slot server-side if it had previously been disabled. Returns the vault
  * row id.
+ *
+ * AUTHORIZATION: calls the service_role-only RPC directly and performs no
+ * caller authorization itself. The calling API route MUST verify the
+ * caller has staff/owner access to `merchantId` (e.g.
+ * `hasPermission(access, 'settings', 'edit')`) before calling this.
  */
 export async function setMerchantPaymentCredential(
   merchantId: string,
@@ -200,7 +216,14 @@ export async function touchMerchantCredentialValidated(
   assertNoRpcError(error, 'touch_merchant_payment_credential_validated');
 }
 
-/** Deletes every stored credential role for a merchant + provider pair. */
+/**
+ * Deletes every stored credential role for a merchant + provider pair.
+ *
+ * AUTHORIZATION: calls the service_role-only RPC directly and performs no
+ * caller authorization itself. The calling API route MUST verify the
+ * caller has staff/owner access to `merchantId` (e.g.
+ * `hasPermission(access, 'settings', 'edit')`) before calling this.
+ */
 export async function deleteMerchantCredentials(
   merchantId: string,
   provider: PaymentProvider
