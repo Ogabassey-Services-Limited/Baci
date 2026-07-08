@@ -352,6 +352,36 @@ describe('POST /api/domains/purchase transaction scoping', () => {
     ).toBe(true);
   });
 
+  it('fails closed after fresh registration when the payment cannot be marked as used', async () => {
+    supabase = createSupabase(
+      {
+        amount: 100,
+        gateway: 'paystack',
+        id: 'transaction-owned',
+        merchant_id: 'merchant-1',
+        metadata: null,
+        status: 'completed',
+      },
+      undefined,
+      null
+    );
+    mocks.transactionMutationError = { message: 'metadata write failed' };
+
+    const { registerDomain } = await import('@/lib/go54');
+    vi.mocked(registerDomain).mockResolvedValue({
+      success: true,
+      orderId: 'go54-fresh-1',
+    } as never);
+
+    const response = await POST(createRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(json.error).toContain('payment usage could not be recorded');
+    expect(registerDomain).toHaveBeenCalledTimes(1);
+    expect(mocks.revalidateMerchantFeed).not.toHaveBeenCalled();
+  });
+
   it('fails closed when an existing domain payment cannot be marked as used', async () => {
     supabase = createSupabase({
       amount: 100,

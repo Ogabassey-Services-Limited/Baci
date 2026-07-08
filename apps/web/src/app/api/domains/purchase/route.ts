@@ -930,10 +930,28 @@ export async function POST(request: NextRequest) {
       }
 
       // Mark payment as used for this domain purchase (prevent reuse)
-      await markPaymentDomainPurchased(
+      const marked = await markPaymentDomainPurchased(
         newDomain.id,
         registrationResult.orderId
       );
+      if (!marked) {
+        console.error(
+          'Failed to mark payment as domain purchased after successful registration:',
+          {
+            transactionId: payment.id,
+            domain,
+            domainId: newDomain.id,
+            registrarOrderId: registrationResult.orderId,
+          }
+        );
+        return NextResponse.json(
+          {
+            error:
+              'Domain is active but payment usage could not be recorded. Please try again.',
+          },
+          { status: 500 }
+        );
+      }
 
       revalidateMerchantFeed(merchantId);
       after(() => triggerDomainEdgeConfigSync());
