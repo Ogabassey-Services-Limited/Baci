@@ -469,7 +469,7 @@ describe('POST /api/payments/initialize', () => {
   });
 
   describe('korapay gateway', () => {
-    it('returns GATEWAY_DISABLED when Korapay is explicitly disabled', async () => {
+    it('returns gateway_unavailable when a forced Korapay gateway is disabled', async () => {
       featureSettingsResult = {
         data: {
           korapay_enabled: false,
@@ -481,7 +481,7 @@ describe('POST /api/payments/initialize', () => {
       const json = await res.json();
 
       expect(res.status).toBe(400);
-      expect(json.code).toBe('GATEWAY_DISABLED');
+      expect(json.code).toBe('gateway_unavailable');
       expect(mockInitializeKorapay).not.toHaveBeenCalled();
     });
 
@@ -797,7 +797,7 @@ describe('POST /api/payments/initialize', () => {
       );
     });
 
-    it('returns GATEWAY_DISABLED when Paystack is explicitly disabled', async () => {
+    it('returns gateway_unavailable when a forced Paystack gateway is disabled', async () => {
       featureSettingsResult = {
         data: {
           paystack_enabled: false,
@@ -812,7 +812,7 @@ describe('POST /api/payments/initialize', () => {
       const json = await res.json();
 
       expect(res.status).toBe(400);
-      expect(json.code).toBe('GATEWAY_DISABLED');
+      expect(json.code).toBe('gateway_unavailable');
       expect(mockInitializePaystack).not.toHaveBeenCalled();
     });
 
@@ -837,7 +837,7 @@ describe('POST /api/payments/initialize', () => {
       expect(mockCreateDedicatedVirtualAccount).not.toHaveBeenCalled();
     });
 
-    it('returns 400 when paystack subaccount not configured', async () => {
+    it('returns gateway_unavailable when a forced Paystack gateway has no subaccount', async () => {
       merchantResult = {
         data: {
           id: MERCHANT_ID,
@@ -852,7 +852,8 @@ describe('POST /api/payments/initialize', () => {
       );
       const json = await res.json();
       expect(res.status).toBe(400);
-      expect(json.code).toBe('GATEWAY_NOT_CONFIGURED');
+      expect(json.code).toBe('gateway_unavailable');
+      expect(mockInitializePaystack).not.toHaveBeenCalled();
     });
 
     it('creates dedicated virtual accounts with the merchant subaccount', async () => {
@@ -1049,6 +1050,15 @@ describe('POST /api/payments/initialize', () => {
       'credit_direct',
       'credpal',
     ] as const)('uses the request origin for %s BNPL launcher URLs', async (gateway) => {
+      // A forced BNPL gateway is only accepted when the merchant enabled it.
+      featureSettingsResult = {
+        data: {
+          credit_direct_enabled: true,
+          credpal_enabled: true,
+        },
+        error: null,
+      };
+
       const res = await POST(makeRequest({ ...validBody, gateway }));
       const json = await res.json();
 
@@ -1065,7 +1075,7 @@ describe('POST /api/payments/initialize', () => {
       expect(json.authorization_url).toContain('trackingToken=track-token-123');
     });
 
-    it('returns GATEWAY_DISABLED when Klump is not enabled for the merchant', async () => {
+    it('returns gateway_unavailable when a forced Klump gateway is not enabled', async () => {
       rpcResult = {
         data: [
           {
@@ -1095,7 +1105,7 @@ describe('POST /api/payments/initialize', () => {
       const json = await res.json();
 
       expect(res.status).toBe(400);
-      expect(json.code).toBe('GATEWAY_DISABLED');
+      expect(json.code).toBe('gateway_unavailable');
       expect(
         rpcCalls.some((call) => call.name === 'create_payment_transaction')
       ).toBe(false);
@@ -1744,6 +1754,35 @@ describe('POST /api/payments/initialize', () => {
       const json = await res.json();
       expect(res.status).toBe(400);
       expect(json.code).toBe('GATEWAY_NOT_CONFIGURED');
+    });
+  });
+
+  describe('forced-gateway hardening', () => {
+    it('does not gate the server-selected gateway when no gateway is forced', async () => {
+      mockInitializePaystack.mockResolvedValue({
+        authorization_url: 'https://paystack.com/pay/selected',
+      });
+
+      const res = await POST(makeRequest(validBody));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.gateway).toBe('paystack');
+      expect(mockInitializePaystack).toHaveBeenCalled();
+    });
+
+    it('rejects a forced BNPL gateway the merchant has not enabled', async () => {
+      const res = await POST(
+        makeRequest({ ...validBody, gateway: 'credit_direct' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('gateway_unavailable');
+      expect(
+        rpcCalls.some((call) => call.name === 'create_payment_transaction')
+      ).toBe(false);
     });
   });
 

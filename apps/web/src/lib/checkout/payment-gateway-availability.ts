@@ -162,6 +162,64 @@ export function isBankTransferCheckoutAvailable(
   return readWalletPaystackDvaEnabled(merchant?.feature_settings) === true;
 }
 
+// Gateways a storefront checkout can force via the initialize route's `gateway`
+// field. MUST stay in sync with PAYMENT_GATEWAYS in
+// `app/api/payments/initialize/route.ts`.
+export type ForcedCheckoutGateway =
+  | 'paystack'
+  | 'korapay'
+  | 'juicyway'
+  | 'credit_direct'
+  | 'credpal'
+  | 'klump';
+
+function readCreditDirectEnabled(settings: unknown): boolean | undefined {
+  return readBooleanSetting(settings, 'credit_direct_enabled');
+}
+
+function readCredpalEnabled(settings: unknown): boolean | undefined {
+  return readBooleanSetting(settings, 'credpal_enabled');
+}
+
+function readKlumpEnabled(settings: unknown): boolean | undefined {
+  return readBooleanSetting(settings, 'klump_enabled');
+}
+
+// Validate a client-FORCED checkout gateway against the merchant's actual
+// availability (connected + enabled + currency) rather than mere membership in
+// the allowed-gateway list. The storefront may bypass server-side gateway
+// selection by passing an explicit `gateway`; without this guard any client
+// could force any listed gateway regardless of merchant configuration — a
+// money-path hole (e.g. forcing a BNPL gateway the merchant never enabled).
+// Centralizes the per-gateway checks that were otherwise scattered as ad-hoc
+// guards in the initialize route.
+//
+// `juicyway` has no per-merchant availability toggle — it is gated at the
+// platform level by the JUICYWAY_SECRET_KEY env inside the route — so it passes
+// this merchant-availability gate and is validated downstream.
+export function isForcedGatewayAvailable(
+  gateway: ForcedCheckoutGateway,
+  merchant: CheckoutPaymentMerchant | null | undefined,
+  currency: string | null | undefined
+): boolean {
+  switch (gateway) {
+    case 'paystack':
+      return isPaystackCheckoutAvailable(merchant);
+    case 'korapay':
+      return isKorapayCheckoutAvailable(merchant, merchant?.country, currency);
+    case 'credit_direct':
+      return readCreditDirectEnabled(merchant?.feature_settings) === true;
+    case 'credpal':
+      return readCredpalEnabled(merchant?.feature_settings) === true;
+    case 'klump':
+      return readKlumpEnabled(merchant?.feature_settings) === true;
+    case 'juicyway':
+      return true;
+    default:
+      return false;
+  }
+}
+
 function hasPaystackSettlementDetails(
   merchant: CheckoutPaymentMerchant | null | undefined
 ): boolean {

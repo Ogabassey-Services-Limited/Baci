@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   hasLaunchablePaymentMethod,
   isBankTransferCheckoutAvailable,
+  isForcedGatewayAvailable,
   isKorapayCheckoutAvailable,
   isKorapayCheckoutCurrencySupported,
   isPayOnDeliveryCheckoutAvailable,
@@ -295,5 +296,109 @@ describe('payment-gateway-availability', () => {
         },
       })
     ).toBe(false);
+  });
+});
+
+describe('isForcedGatewayAvailable', () => {
+  it('allows forced paystack when enabled with a subaccount in a supported country', () => {
+    const merchant = {
+      country: 'NG',
+      paystack_subaccount_code: 'ACCT_123',
+      feature_settings: { paystack_enabled: true },
+    };
+
+    expect(isForcedGatewayAvailable('paystack', merchant, 'NGN')).toBe(true);
+  });
+
+  it('rejects forced paystack when the merchant has no subaccount', () => {
+    const merchant = {
+      country: 'NG',
+      paystack_subaccount_code: null,
+      feature_settings: { paystack_enabled: true },
+    };
+
+    expect(isForcedGatewayAvailable('paystack', merchant, 'NGN')).toBe(false);
+  });
+
+  it('rejects forced paystack when paystack is explicitly disabled', () => {
+    const merchant = {
+      country: 'NG',
+      paystack_subaccount_code: 'ACCT_123',
+      feature_settings: { paystack_enabled: false },
+    };
+
+    expect(isForcedGatewayAvailable('paystack', merchant, 'NGN')).toBe(false);
+  });
+
+  it('allows forced korapay for a supported country/currency pair', () => {
+    const merchant = { feature_settings: { korapay_enabled: true } };
+
+    expect(
+      isForcedGatewayAvailable('korapay', { ...merchant, country: 'KE' }, 'KES')
+    ).toBe(true);
+  });
+
+  it('rejects forced korapay when the merchant has not enabled korapay', () => {
+    const merchant = {
+      country: 'NG',
+      feature_settings: { korapay_enabled: false },
+    };
+
+    expect(isForcedGatewayAvailable('korapay', merchant, 'NGN')).toBe(false);
+  });
+
+  it('rejects forced korapay when the order currency does not match the merchant country', () => {
+    const merchant = {
+      country: 'KE',
+      feature_settings: { korapay_enabled: true },
+    };
+
+    expect(isForcedGatewayAvailable('korapay', merchant, 'NGN')).toBe(false);
+  });
+
+  it('allows forced BNPL gateways only when their enable flag is set', () => {
+    expect(
+      isForcedGatewayAvailable(
+        'credit_direct',
+        { feature_settings: { credit_direct_enabled: true } },
+        'NGN'
+      )
+    ).toBe(true);
+    expect(
+      isForcedGatewayAvailable(
+        'credpal',
+        { feature_settings: { credpal_enabled: true } },
+        'NGN'
+      )
+    ).toBe(true);
+    expect(
+      isForcedGatewayAvailable(
+        'klump',
+        { feature_settings: { klump_enabled: true } },
+        'NGN'
+      )
+    ).toBe(true);
+  });
+
+  it('rejects forced BNPL gateways when the merchant has not enabled them', () => {
+    const merchant = { feature_settings: {} };
+
+    expect(isForcedGatewayAvailable('credit_direct', merchant, 'NGN')).toBe(
+      false
+    );
+    expect(isForcedGatewayAvailable('credpal', merchant, 'NGN')).toBe(false);
+    expect(isForcedGatewayAvailable('klump', merchant, 'NGN')).toBe(false);
+  });
+
+  it('rejects a forced BNPL gateway when merchant data is missing', () => {
+    expect(isForcedGatewayAvailable('credit_direct', null, 'NGN')).toBe(false);
+    expect(isForcedGatewayAvailable('credpal', undefined, 'NGN')).toBe(false);
+  });
+
+  it('defers juicyway to the platform-level env gate (always passes the merchant gate)', () => {
+    expect(
+      isForcedGatewayAvailable('juicyway', { feature_settings: {} }, 'NGN')
+    ).toBe(true);
+    expect(isForcedGatewayAvailable('juicyway', null, 'NGN')).toBe(true);
   });
 });

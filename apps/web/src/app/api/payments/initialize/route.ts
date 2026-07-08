@@ -13,6 +13,10 @@ import { customAlphabet } from 'nanoid';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import {
+  type CheckoutPaymentMerchant,
+  isForcedGatewayAvailable,
+} from '@/lib/checkout/payment-gateway-availability';
+import {
   capturePaymentWithCrypto,
   convertNgnKoboToUsdtCents,
   extractCryptoAddress,
@@ -1154,7 +1158,7 @@ export async function POST(request: NextRequest) {
     // Fetch merchant
     const { data: merchant, error: merchantError } = await adminSupabase
       .from('merchants')
-      .select('id, business_name, slug, paystack_subaccount_code')
+      .select('id, business_name, slug, paystack_subaccount_code, country')
       .eq('id', merchantId)
       .single();
 
@@ -1175,7 +1179,7 @@ export async function POST(request: NextRequest) {
     const { data: featureSettings } = await adminSupabase
       .from('merchant_feature_settings')
       .select(
-        'paystack_enabled, korapay_enabled, wallet_paystack_dva_enabled, klump_enabled, klump_min_amount, klump_max_amount, preferred_local_gateway, preferred_international_gateway'
+        'paystack_enabled, korapay_enabled, wallet_paystack_dva_enabled, klump_enabled, klump_min_amount, klump_max_amount, credit_direct_enabled, credpal_enabled, preferred_local_gateway, preferred_international_gateway'
       )
       .eq('merchant_id', merchantId)
       .single();
@@ -1210,6 +1214,11 @@ export async function POST(request: NextRequest) {
 
     // Select gateway
     const hasPaystackSubaccount = !!merchant.paystack_subaccount_code;
+    // A client-forced gateway is one the caller pinned via `data.gateway`. The
+    // DVA path pins 'paystack' via `payment_type`, not `data.gateway`, and has
+    // its own downstream guards, so it is excluded here.
+    const isClientForcedGateway =
+      data.payment_type !== 'dva' && data.gateway != null;
     const gateway: PaymentGateway =
       data.payment_type === 'dva'
         ? 'paystack'
@@ -1243,6 +1252,45 @@ export async function POST(request: NextRequest) {
 
     const chargeCurrency = currencyResolution.currency;
 
+    // Phase 0.6 — harden the client-forced gateway param (money path). When the
+    // client pins `data.gateway`, validate it against the merchant's actual
+    // availability (connected + enabled + currency) instead of mere membership
+    // in PAYMENT_GATEWAYS. Fail closed with a stable code — never silently fall
+    // back to selectGateway: a silent fallback both hides client bugs and would
+    // let a caller charge through a gateway the merchant never configured. The
+    // per-gateway ad-hoc guards further down stay in place as defense in depth
+    // (they also cover the non-forced selectGateway/DVA paths).
+    if (isClientForcedGateway) {
+      const forcedGatewayMerchant: CheckoutPaymentMerchant = {
+        country: merchant.country,
+        paystack_subaccount_code: merchant.paystack_subaccount_code,
+        // Reuse the already-normalized gateway flags so this gate stays
+        // consistent with the ad-hoc guards; BNPL flags are read straight from
+        // the feature-settings row (defaulting to off when absent).
+        feature_settings: {
+          paystack_enabled: gatewaySettings.paystack_enabled,
+          korapay_enabled: gatewaySettings.korapay_enabled,
+          klump_enabled: gatewaySettings.klump_enabled,
+          credit_direct_enabled:
+            featureSettings?.credit_direct_enabled === true,
+          credpal_enabled: featureSettings?.credpal_enabled === true,
+        },
+      };
+
+      if (
+        !isForcedGatewayAvailable(
+          gateway,
+          forcedGatewayMerchant,
+          chargeCurrency
+        )
+      ) {
+        return createErrorResponse(
+          `The selected payment method (${gateway}) is not available for this store`,
+          'gateway_unavailable',
+          400
+        );
+      }
+    }
     const payableAmount =
       gateway === 'klump'
         ? snapshotTotal
