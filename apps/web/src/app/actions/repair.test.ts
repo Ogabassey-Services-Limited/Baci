@@ -1,4 +1,3 @@
-import { revalidatePath } from 'next/cache';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RepairBookingInput } from '@/lib/validations/repair';
 import { calculateRepairShipping, createRepair } from './repair';
@@ -7,14 +6,15 @@ const mocks = vi.hoisted(() => ({
   createRepairBooking: vi.fn(),
   ensureActionRateLimit: vi.fn(),
   getQuotes: vi.fn(),
-}));
-
-vi.mock('next/cache', () => ({
-  revalidatePath: vi.fn(),
+  notifyRepairBooking: vi.fn(),
 }));
 
 vi.mock('@/lib/repairs/create-repair-core', () => ({
   createRepairBooking: mocks.createRepairBooking,
+}));
+
+vi.mock('@/lib/repair-notifications', () => ({
+  notifyRepairBooking: mocks.notifyRepairBooking,
 }));
 
 vi.mock('@/lib/ensure-action-rate-limit', () => ({
@@ -43,9 +43,10 @@ const validRepairInput: RepairBookingInput = {
 describe('createRepair', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.notifyRepairBooking.mockResolvedValue(undefined);
   });
 
-  it('delegates to the booking core and revalidates on success', async () => {
+  it('delegates to the booking core and notifies the merchant/customer on success', async () => {
     mocks.createRepairBooking.mockResolvedValueOnce({
       success: true,
       id: 'repair-1',
@@ -59,10 +60,40 @@ describe('createRepair', () => {
       validRepairInput,
       merchantId
     );
-    expect(revalidatePath).toHaveBeenCalledWith('/dashboard/repairs');
+    expect(mocks.notifyRepairBooking).toHaveBeenCalledWith({
+      customerEmail: validRepairInput.customerEmail,
+      customerName: validRepairInput.customerName,
+      deviceModel: validRepairInput.deviceModel,
+      deviceType: validRepairInput.deviceType,
+      merchantId,
+      pickupAddress: null,
+      quoteId: null,
+      repairId: 'repair-1',
+      serviceType: validRepairInput.serviceType,
+      ticketNumber: 42,
+    });
   });
 
-  it('returns the core failure without revalidating', async () => {
+  it('passes the catalogue quote id through to the notification when present', async () => {
+    mocks.createRepairBooking.mockResolvedValueOnce({
+      success: true,
+      id: 'repair-2',
+      ticketNumber: 43,
+    });
+
+    await createRepair(
+      { ...validRepairInput, quoteId: '223e4567-e89b-12d3-a456-426614174999' },
+      merchantId
+    );
+
+    expect(mocks.notifyRepairBooking).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quoteId: '223e4567-e89b-12d3-a456-426614174999',
+      })
+    );
+  });
+
+  it('returns the core failure without notifying', async () => {
     mocks.createRepairBooking.mockResolvedValueOnce({
       success: false,
       error: 'Store not found.',
@@ -71,7 +102,7 @@ describe('createRepair', () => {
     const result = await createRepair(validRepairInput, merchantId);
 
     expect(result).toEqual({ success: false, error: 'Store not found.' });
-    expect(revalidatePath).not.toHaveBeenCalled();
+    expect(mocks.notifyRepairBooking).not.toHaveBeenCalled();
   });
 });
 

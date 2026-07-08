@@ -1,7 +1,7 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
+import { notifyRepairBooking } from '@/lib/repair-notifications';
 import {
   type CreateRepairResult,
   createRepairBooking,
@@ -40,8 +40,28 @@ export async function createRepair(
   const result = await createRepairBooking(data, merchantId);
 
   if (result.success) {
-    // Revalidate the merchant bookings surface (built in a later phase).
-    revalidatePath('/dashboard/repairs');
+    // Notify the merchant (push) and email the customer a ticket
+    // confirmation. Internally fail-safe: a notification/email error is
+    // logged, never thrown, so it can't turn a successful booking into a
+    // failed response.
+    //
+    // No revalidatePath here: booking a repair doesn't change anything a
+    // storefront catalogue page (`/[slug]/repairs`, `/[slug]/repairs/[slug]`)
+    // renders, and the previous `revalidatePath('/dashboard/repairs')` call
+    // pointed at a dashboard bookings page that doesn't exist yet (Phase 4
+    // owns that surface and its own revalidation).
+    await notifyRepairBooking({
+      customerEmail: data.customerEmail,
+      customerName: data.customerName,
+      deviceModel: data.deviceModel,
+      deviceType: data.deviceType,
+      merchantId,
+      pickupAddress: data.pickupAddress ?? null,
+      quoteId: data.quoteId ?? null,
+      repairId: result.id,
+      serviceType: data.serviceType,
+      ticketNumber: result.ticketNumber,
+    });
   }
 
   return result;

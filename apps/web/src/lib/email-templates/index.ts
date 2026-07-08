@@ -5,5 +5,6 @@ export * from './order-shipped';
 export * from './order-updated';
 export * from './payment-receipt';
 export * from './payment-reminder';
+export * from './repair-confirmation';
 export * from './vtu-token-receipt';
 export * from './vtu-token-receipt-text';

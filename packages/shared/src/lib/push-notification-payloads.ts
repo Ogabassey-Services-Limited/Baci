@@ -8,6 +8,8 @@ export type AdminNotificationNavigationTarget =
   | { screen: 'notifications' }
   | { screen: 'negotiation'; params: { id: string } }
   | { screen: 'negotiations' }
+  | { screen: 'repair'; params: { id: string } }
+  | { screen: 'repairs' }
   | { screen: 'index' };
 
 export type StorefrontNotificationNavigationTarget =
@@ -94,6 +96,12 @@ export function getAdminNotificationNavigationTarget(
       return negotiationId
         ? { screen: 'negotiation', params: { id: negotiationId } }
         : { screen: 'negotiations' };
+    }
+    case 'repair': {
+      const repairId = readString(payload, 'repair_id', 'repairId');
+      return repairId
+        ? { screen: 'repair', params: { id: repairId } }
+        : { screen: 'repairs' };
     }
     default:
       return { screen: 'index' };

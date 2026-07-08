@@ -289,4 +289,32 @@ describe('getAdminNotificationNavigationTarget — edge cases', () => {
       getAdminNotificationNavigationTarget({ type: 'jumia_order' })
     ).toEqual({ screen: 'orders' });
   });
+
+  it('routes repair payloads to the booking detail using camelCase or snake_case ids', () => {
+    expect(
+      getAdminNotificationNavigationTarget({
+        type: 'repair',
+        repairId: 'repair-42',
+      })
+    ).toEqual({
+      screen: 'repair',
+      params: { id: 'repair-42' },
+    });
+
+    expect(
+      getAdminNotificationNavigationTarget({
+        type: 'repair',
+        repair_id: 'repair-99',
+      })
+    ).toEqual({
+      screen: 'repair',
+      params: { id: 'repair-99' },
+    });
+  });
+
+  it('falls back to the repairs list when a repair payload lacks a repair id', () => {
+    expect(
+      getAdminNotificationNavigationTarget({ type: 'repair' })
+    ).toEqual({ screen: 'repairs' });
+  });
 });
