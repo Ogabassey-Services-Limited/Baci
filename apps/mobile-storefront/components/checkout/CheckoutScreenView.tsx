@@ -1,4 +1,3 @@
-import { Stack } from 'expo-router';
 import React, { useRef } from 'react';
 import { Platform } from 'react-native';
 import {
@@ -187,12 +186,9 @@ export function CheckoutScreenView() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerShown: false,
-        }}
-      />
-
+      {/* headerShown: false lives in the stack REGISTRATION
+          (RootStackScreens.tsx) — setting it here applied a frame late and
+          made the screen mount low, then jump up on iOS. */}
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <PatternedBackground
           backgroundColor={colors.background}

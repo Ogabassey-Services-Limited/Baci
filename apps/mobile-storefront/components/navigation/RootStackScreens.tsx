@@ -58,6 +58,11 @@ export function renderRootStackScreens({
       name="checkout"
       options={{
         title: 'Checkout',
+        // Must be disabled at registration: the screen draws its own header.
+        // Toggling it later from an inline <Stack.Screen> mounted the first
+        // frames with the native header reserving space, then the content
+        // jumped up once the override applied (iOS "opens low, adjusts up").
+        headerShown: false,
         presentation: 'card',
         animation: 'slide_from_right',
       }}
