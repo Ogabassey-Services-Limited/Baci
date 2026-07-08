@@ -63,12 +63,16 @@ function generateDistinctId(): string {
   );
 }
 
-function seedSdkDistinctId(projectToken: string, distinctId: string): void {
+function seedSdkDistinctId(projectToken: string, distinctId: string): boolean {
   try {
+    const storage = globalThis.localStorage;
+    if (!storage) {
+      return false;
+    }
     const storageKey = getPostHogPersistenceKey(projectToken);
     const existingPersistence =
       readPostHogPersistenceRecord(projectToken) ?? {};
-    globalThis.localStorage?.setItem(
+    storage.setItem(
       storageKey,
       JSON.stringify({
         ...existingPersistence,
@@ -76,14 +80,22 @@ function seedSdkDistinctId(projectToken: string, distinctId: string): void {
         distinct_id: distinctId,
       })
     );
+    return true;
   } catch {
-    // Storage blocked: the generated id is used for this beacon only.
+    return false;
   }
 }
 
+// Storage-blocked fallback: remembers the generated id per token so repeated
+// hidden→restored→hidden flushes before boot keep ONE identity instead of
+// minting a fresh id per flush (mirrors the public-blog beacon's in-memory
+// map). Module-lifetime only — cleared on navigation like the block itself.
+const inMemoryDistinctIds = new Map<string, string>();
+
 /** Persisted SDK identity when present so a later boot on this origin adopts
  * the same id; otherwise generate and seed (mirrors the public-blog beacon,
- * minus its blog-specific legacy key). */
+ * minus its blog-specific legacy key), remembering the id in memory when
+ * storage is blocked so consecutive flushes share it. */
 function getOrCreateDistinctId(projectToken: string): string {
   const { distinctId, deviceId } = readPostHogPersistedIdentity(projectToken);
   if (distinctId) {
@@ -93,8 +105,17 @@ function getOrCreateDistinctId(projectToken: string): string {
     return deviceId;
   }
 
+  const remembered = inMemoryDistinctIds.get(projectToken);
+  if (remembered) {
+    return remembered;
+  }
+
   const generated = generateDistinctId();
-  seedSdkDistinctId(projectToken, generated);
+  if (seedSdkDistinctId(projectToken, generated)) {
+    inMemoryDistinctIds.delete(projectToken);
+  } else {
+    inMemoryDistinctIds.set(projectToken, generated);
+  }
   return generated;
 }
 
@@ -245,4 +266,5 @@ export function resetWebVitalsPageHideFlushForTesting(): void {
     target.removeEventListener(type, handler);
   }
   attachedListeners = [];
+  inMemoryDistinctIds.clear();
 }
