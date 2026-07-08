@@ -193,6 +193,7 @@ export interface CustomerOrder {
   created_at: string;
   order_number: string;
   total: number;
+  currency: string | null;
   shipping_status: string;
   payment_method: string;
   shipping_address: string;
@@ -253,6 +254,7 @@ export async function getCustomerOrders(
     created_at: order.created_at,
     order_number: order.order_number,
     total: Number(order.total),
+    currency: order.currency ?? null,
     shipping_status: order.shipping_status,
     payment_method: order.payment_method || 'N/A',
     shipping_address:

@@ -2053,8 +2053,22 @@ export async function POST(request: NextRequest) {
     const savingsAmountUsed = savingsRedemptionResult?.amountRedeemed || 0;
     const remainingAfterSavings = Math.max(orderTotal - savingsAmountUsed, 0);
 
+    // Customer wallets are an NGN-denominated ledger (customer_wallets has no
+    // currency column), so redeeming against a non-NGN order would subtract
+    // the naira balance at face value in the order currency. Wallet credit is
+    // NGN-orders-only until the wallet gains a currency dimension.
+    const walletCurrencySupported = orderCurrency === 'NGN';
+    if (use_wallet_credit && wallet_amount > 0 && !walletCurrencySupported) {
+      logger.warn({
+        message: 'Wallet redemption skipped: order currency is not NGN',
+        orderId: order.id,
+        orderCurrency,
+      });
+    }
+
     if (
       use_wallet_credit &&
+      walletCurrencySupported &&
       wallet_amount > 0 &&
       customer_id &&
       remainingAfterSavings > 0

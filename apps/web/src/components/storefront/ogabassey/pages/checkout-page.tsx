@@ -1400,8 +1400,14 @@ export const CheckoutPage: React.FC = () => {
       discountAmount
   );
 
-  // Wallet credit calculation (2025: can't redeem more than order total)
-  const walletAmountUsed = payWithWallet ? Math.min(walletBalance, total) : 0;
+  // Wallet credit calculation (2025: can't redeem more than order total).
+  // The customer wallet is an NGN-denominated ledger, so redemption is only
+  // offered on NGN orders — mirrors the server-side guard in /api/orders.
+  const walletCurrencySupported = currencyCode === 'NGN';
+  const walletAmountUsed =
+    payWithWallet && walletCurrencySupported
+      ? Math.min(walletBalance, total)
+      : 0;
   const remainingAmount = total - walletAmountUsed;
 
 
@@ -3826,8 +3832,8 @@ export const CheckoutPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Wallet Credit Section (2025: progressive disclosure - only show if balance > 0 or loading) */}
-                {(walletLoading || walletBalance > 0) && user && (
+                {/* Wallet Credit Section (2025: progressive disclosure - only show if balance > 0 or loading). NGN-ledger: hidden on non-NGN orders. */}
+                {walletCurrencySupported && (walletLoading || walletBalance > 0) && user && (
                   <div className="py-2 animate-in fade-in">
                     {walletLoading ? (
                       <div className="flex items-center gap-2 text-gray-500">

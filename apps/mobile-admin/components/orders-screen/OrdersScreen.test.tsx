@@ -20,6 +20,14 @@ const mocks = vi.hoisted(() => ({
   useOrdersCalls: [] as unknown[][],
 }));
 
+const merchantState = vi.hoisted(() => ({
+  payoutCurrency: 'NGN',
+}));
+
+const ordersListState = vi.hoisted(() => ({
+  orders: undefined as unknown[] | undefined,
+}));
+
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
 }));
@@ -45,7 +53,7 @@ vi.mock('@/hooks/useMerchant', () => ({
     merchant: {
       id: 'merchant-1',
       business_name: 'Baci',
-      payout_currency: 'NGN',
+      payout_currency: merchantState.payoutCurrency,
     },
     isLoading: false,
     error: null,
@@ -72,7 +80,11 @@ vi.mock('@/hooks/useOrders', () => ({
   useOrders: (...args: unknown[]) => {
     mocks.useOrdersCalls.push(args);
     return {
-      data: { pages: [{ orders: [mockOrder], nextCursor: null }] },
+      data: {
+        pages: [
+          { orders: ordersListState.orders ?? [mockOrder], nextCursor: null },
+        ],
+      },
       isLoading: false,
       isFetching: false,
       isFetchingNextPage: false,
@@ -123,7 +135,13 @@ vi.mock('./OrdersScrollSurface', () => ({
       <button onClick={() => onFilterSelect('processing')} type="button">
         Processing
       </button>
-      {renderItem({ item: { type: 'item', id: 'order-1', order: mockOrder } })}
+      {renderItem({
+        item: {
+          type: 'item',
+          id: 'order-1',
+          order: ordersListState.orders?.[0] ?? mockOrder,
+        },
+      })}
     </div>
   ),
 }));
@@ -132,6 +150,8 @@ describe('OrdersScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.useOrdersCalls.length = 0;
+    merchantState.payoutCurrency = 'NGN';
+    ordersListState.orders = undefined;
   });
 
   it('renders orders and opens create-order navigation', () => {
@@ -182,5 +202,26 @@ describe('OrdersScreen', () => {
       null,
       'all',
     ]);
+  });
+
+  it("formats a row's total using the order's own stamped currency, not the merchant's current payout currency", () => {
+    merchantState.payoutCurrency = 'INR';
+    ordersListState.orders = [{ ...mockOrder, currency: 'GHS', total: 15_000 }];
+
+    render(<OrdersScreen />);
+
+    expect(screen.getByText('GH₵15,000')).toBeInTheDocument();
+    expect(screen.queryByText(/₹/)).not.toBeInTheDocument();
+  });
+
+  it("falls back to the merchant's current payout currency when a row has no stamped currency", () => {
+    merchantState.payoutCurrency = 'INR';
+    ordersListState.orders = [
+      { ...mockOrder, currency: '', total: 15_000 },
+    ];
+
+    render(<OrdersScreen />);
+
+    expect(screen.getByText('₹15,000')).toBeInTheDocument();
   });
 });
