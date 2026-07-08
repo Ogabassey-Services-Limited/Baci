@@ -20,12 +20,15 @@ import {
 import { useQuizStore } from '@/stores/quiz-store';
 import { useShallow } from 'zustand/react/shallow';
 import { QuizEventsList } from './QuizEventsList';
+import { QuizQuestionCard } from './QuizQuestionCard';
 import { createQuizStyles } from './QuizScreen.styles';
 import {
   formatPointCount,
   getQuizErrorMessage,
   shouldShowEventList,
 } from './QuizScreen.utils';
+import { QuizUsernameGateModal } from './QuizUsernameGateModal';
+import { useQuizStartGate } from './useQuizStartGate';
 
 const log = createLogger('Quiz');
 
@@ -99,6 +102,11 @@ export function QuizScreen({
     }
   };
 
+  const { cancelGate, confirmGate, isGateVisible, requestStart } =
+    useQuizStartGate((eventId) => {
+      void handleStart(eventId);
+    });
+
   const handleSubmit = async () => {
     // Defensive guard: the submit button is disabled until these values exist.
     if (!attempt || !selectedOptionId) return;
@@ -118,15 +126,6 @@ export function QuizScreen({
     }
   };
 
-  const questionProgressPercent = attempt
-    ? Math.min(
-        100,
-        Math.max(
-          0,
-          (attempt.question.index / Math.max(1, attempt.question.total)) * 100
-        )
-      )
-    : 0;
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
       <View style={styles.header}>
@@ -190,82 +189,23 @@ export function QuizScreen({
           events={events}
           isStarting={status === 'starting'}
           locale={locale}
-          onStart={(eventId) => {
-            void handleStart(eventId);
-          }}
+          onStart={requestStart}
           styles={styles}
           timeNotSetLabel={QUIZ_COPY.timeNotSet}
         />
       ) : null}
 
       {(status === 'question' || status === 'submitting') && attempt ? (
-        <View style={styles.questionCard}>
-          <View
-            accessibilityRole="progressbar"
-            accessibilityLabel={`Question ${attempt.question.index} of ${attempt.question.total}`}
-            accessibilityValue={{
-              min: 1,
-              max: Math.max(1, attempt.question.total),
-              now: attempt.question.index,
-            }}
-            style={styles.progressTrack}
-          >
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${questionProgressPercent}%`,
-                },
-              ]}
-            />
-          </View>
-          <Text style={styles.timer}>
-            You have {attempt.question.timeLimitSeconds}s per question
-          </Text>
-          <Text style={styles.passReceipt}>
-            {formatPointCount(attempt.examPassPointsSpent)} exam pass used.{' '}
-            {formatPointCount(attempt.remainingLoyaltyPoints)} left.
-          </Text>
-          <Text accessibilityRole="header" style={styles.question}>
-            {attempt.question.prompt}
-          </Text>
-          {attempt.question.options.map((option) => (
-            <Pressable
-              key={option.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Answer ${option.label}`}
-              disabled={status === 'submitting'}
-              accessibilityState={{
-                disabled: status === 'submitting',
-                selected: selectedOptionId === option.id,
-              }}
-              onPress={() => {
-                selectAnswer(option.id);
-              }}
-              style={[
-                styles.answerButton,
-                selectedOptionId === option.id && styles.answerButtonSelected,
-                status === 'submitting' && styles.answerButtonDisabled,
-              ]}
-            >
-              <Text style={styles.answerText}>{option.label}</Text>
-            </Pressable>
-          ))}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Submit answer"
-            accessibilityState={{
-              disabled: !selectedOptionId || status === 'submitting',
-            }}
-            disabled={!selectedOptionId || status === 'submitting'}
-            onPress={() => {
-              void handleSubmit();
-            }}
-            style={styles.primaryButton}
-          >
-            <Text style={styles.primaryButtonText}>Submit answer</Text>
-          </Pressable>
-        </View>
+        <QuizQuestionCard
+          attempt={attempt}
+          isSubmitting={status === 'submitting'}
+          onSelectAnswer={selectAnswer}
+          onSubmit={() => {
+            void handleSubmit();
+          }}
+          selectedOptionId={selectedOptionId}
+          styles={styles}
+        />
       ) : null}
 
       {status === 'result' && result ? (
@@ -285,6 +225,14 @@ export function QuizScreen({
           </Text>
         </View>
       ) : null}
+
+      <QuizUsernameGateModal
+        onCancel={cancelGate}
+        onSuccess={() => {
+          confirmGate();
+        }}
+        visible={isGateVisible}
+      />
     </ScrollView>
   );
 }

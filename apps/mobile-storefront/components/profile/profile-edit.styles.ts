@@ -64,6 +64,9 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: SPACING.xs,
   },
+  usernamePromptSpacing: {
+    marginTop: SPACING.md,
+  },
   bottomAction: {
     padding: SPACING.md,
     borderTopWidth: 1,

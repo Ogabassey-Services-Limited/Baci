@@ -12,6 +12,12 @@ import type { Customer } from './auth-store';
 
 const log = createLogger('AuthHelpers');
 
+// Single source of truth for the customer columns hydrated into the auth store.
+// Reused by every customers select here and in auth-store-account so the shape
+// stays in sync with the Customer type / CustomerRowSchema.
+export const CUSTOMER_SELECT_COLUMNS =
+  'id, email, first_name, last_name, phone, loyalty_points, username';
+
 // ---------------------------------------------------------------------------
 // Timeout helper
 // ---------------------------------------------------------------------------
@@ -142,7 +148,7 @@ export async function hydrateCustomer({
   const { data: customerData, error: selectError } = await wrapQuery(
     supabase
       .from('customers')
-      .select('id, email, first_name, last_name, phone, loyalty_points')
+      .select(CUSTOMER_SELECT_COLUMNS)
       .eq('merchant_id', merchantId)
       .eq('user_id', user.id)
       .maybeSingle(),
@@ -181,7 +187,7 @@ export async function hydrateCustomer({
     const { data: newCustomer, error: reSelectError } = await wrapQuery(
       supabase
         .from('customers')
-        .select('id, email, first_name, last_name, phone, loyalty_points')
+        .select(CUSTOMER_SELECT_COLUMNS)
         .eq('merchant_id', merchantId)
         .eq('user_id', user.id)
         .maybeSingle(),
@@ -215,7 +221,7 @@ export async function hydrateCustomer({
           .update(updates)
           .eq('id', resolvedCustomer.id)
           .eq('merchant_id', merchantId)
-          .select('id, email, first_name, last_name, phone, loyalty_points')
+          .select(CUSTOMER_SELECT_COLUMNS)
           .single(),
         'customer profile backfill',
         useTimeout
@@ -242,6 +248,7 @@ export async function hydrateCustomer({
     last_name: validation.data.last_name ?? undefined,
     phone: validation.data.phone ?? undefined,
     loyalty_points: validation.data.loyalty_points ?? undefined,
+    username: validation.data.username ?? undefined,
   };
 }
 

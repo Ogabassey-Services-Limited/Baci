@@ -10,12 +10,16 @@ import {
 } from '@/lib/quiz-proof';
 import { createClient } from '@/lib/supabase/server';
 import type { ServerSupabaseClient } from './route-helpers-guards';
-import { QuizAgeGateError } from './route-helpers-guards';
+import {
+  QuizAgeGateError,
+  QuizUsernameRequiredError,
+} from './route-helpers-guards';
 
 export {
   enforceCashAwardPrizeGuard,
   enforceEventPrizeGuard,
   enforceQuizAgeGate,
+  enforceQuizUsernameGate,
 } from './route-helpers-guards';
 
 type RequireQuizUserResult =
@@ -298,6 +302,26 @@ export function quizAgeGateErrorResponse(error: unknown) {
       {
         code: error.code,
         error: 'Quiz participation requires an adult profile (18+)',
+      },
+      { status: error.status }
+    );
+  }
+
+  throw error;
+}
+
+export function isQuizUsernameRequiredError(
+  error: unknown
+): error is QuizUsernameRequiredError {
+  return error instanceof QuizUsernameRequiredError;
+}
+
+export function quizUsernameGateErrorResponse(error: unknown) {
+  if (isQuizUsernameRequiredError(error)) {
+    return NextResponse.json(
+      {
+        code: error.code,
+        error: 'Choose a username before starting the quiz',
       },
       { status: error.status }
     );

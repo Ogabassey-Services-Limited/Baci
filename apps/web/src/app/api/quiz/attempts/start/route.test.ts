@@ -1,9 +1,21 @@
 import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
+
+vi.mock('@/lib/api-auth', () => ({
+  authenticateApiRequest: vi.fn(),
+  // Faithful stub of the real case-insensitive, whitespace-tolerant detection
+  // so the route's bearer check matches the auth/CSRF paths in tests too.
+  getBearerTokenFromRequest: (request: Request) => {
+    const header = request.headers.get('Authorization') ?? '';
+    const match = header.match(/^\s*bearer\s+(.+?)\s*$/i);
+    return match?.[1]?.trim() || null;
+  },
+}));
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(),
@@ -33,6 +45,32 @@ function jsonRequest(body: unknown) {
   return new NextRequest('http://localhost/api/quiz/attempts/start', {
     body: JSON.stringify(body),
     headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+  });
+}
+
+// Mobile storefront requests carry a Bearer token (no cookie session). The
+// username gate only applies to these bearer-authenticated clients.
+function bearerRequest(body: unknown) {
+  return new NextRequest('http://localhost/api/quiz/attempts/start', {
+    body: JSON.stringify(body),
+    headers: {
+      Authorization: 'Bearer test-token',
+      'Content-Type': 'application/json',
+    },
+    method: 'POST',
+  });
+}
+
+// A valid-but-lowercase bearer scheme. getBearerTokenFromRequest and the CSRF
+// check accept this case-insensitively, so the username gate must too.
+function lowercaseBearerRequest(body: unknown) {
+  return new NextRequest('http://localhost/api/quiz/attempts/start', {
+    body: JSON.stringify(body),
+    headers: {
+      Authorization: 'bearer test-token',
+      'Content-Type': 'application/json',
+    },
     method: 'POST',
   });
 }
@@ -96,7 +134,13 @@ function mockAuthenticatedSupabase({
   };
 
   vi.mocked(createClient).mockResolvedValue(supabase as never);
-  return { customerAgeBuilder, eventGuardBuilder, from, rpc };
+  // Bearer (mobile) requests authenticate via authenticateApiRequest instead of
+  // the cookie client; return the same mock supabase so both paths share it.
+  vi.mocked(authenticateApiRequest).mockResolvedValue({
+    supabase,
+    user,
+  } as never);
+  return { customerAgeBuilder, eventGuardBuilder, from, rpc, supabase };
 }
 
 describe('start quiz attempt route', () => {
@@ -329,5 +373,104 @@ describe('start quiz attempt route', () => {
     );
     expect(customerAgeBuilder.eq).toHaveBeenCalledWith('user_id', USER_ID);
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('blocks a production mobile (bearer) quiz start when the customer has no username', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+    const { customerAgeBuilder, rpc } = mockAuthenticatedSupabase({
+      customerAgeResult: {
+        data: { date_of_birth: '1990-01-01', username: null },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      bearerRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      code: 'quiz_username_required',
+      error: 'Choose a username before starting the quiz',
+    });
+    expect(customerAgeBuilder.select).toHaveBeenCalledWith('username');
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('enforces the username gate for a lowercase bearer scheme (case-insensitive)', async () => {
+    // Regression: a stricter startsWith('Bearer ') check let a request that
+    // authenticated as bearer via the lowercase `bearer` scheme skip the gate
+    // and create a leaderboard attempt with no username.
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+    const { rpc } = mockAuthenticatedSupabase({
+      customerAgeResult: {
+        data: { date_of_birth: '1990-01-01', username: null },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      lowercaseBearerRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      code: 'quiz_username_required',
+      error: 'Choose a username before starting the quiz',
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('does not block a production web (cookie) start when the username is missing', async () => {
+    // Web has no username-collection UI yet, so the gate is scoped to mobile.
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+    const { rpc } = mockAuthenticatedSupabase({
+      customerAgeResult: {
+        data: { date_of_birth: '1990-01-01', username: null },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith(
+      'start_quiz_attempt',
+      expect.objectContaining({ p_event_id: EVENT_ID, p_user_id: USER_ID })
+    );
+  });
+
+  it('starts a production mobile quiz when age and username gates pass', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+    const { rpc } = mockAuthenticatedSupabase({
+      customerAgeResult: {
+        data: { date_of_birth: '1990-01-01', username: 'ogafan' },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      bearerRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith(
+      'start_quiz_attempt',
+      expect.objectContaining({
+        p_event_id: EVENT_ID,
+        p_integrity_tier: 'device',
+        p_user_id: USER_ID,
+      })
+    );
   });
 });

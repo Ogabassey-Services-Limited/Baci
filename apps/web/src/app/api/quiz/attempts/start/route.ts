@@ -4,19 +4,33 @@ import {
   createRouteProof,
   enforceEventPrizeGuard,
   enforceQuizAgeGate,
+  enforceQuizUsernameGate,
   invalidInputResponse,
   isQuizAgeGateError,
+  isQuizUsernameRequiredError,
   parseJsonBody,
   prizeGuardErrorResponse,
   quizAgeGateErrorResponse,
   quizRpcClientErrorResponse,
+  quizUsernameGateErrorResponse,
   requireQuizCsrf,
   requireQuizUser,
   rpcErrorResponse,
 } from '@/app/api/quiz/_shared/route-helpers';
 import { getQuizPhaseEnv } from '@/env';
+import { getBearerTokenFromRequest } from '@/lib/api-auth';
 import { logger } from '@/lib/logger';
 import { startQuizAttemptSchema } from '@/schemas/quiz';
+
+function isBearerAuthenticated(request: NextRequest): boolean {
+  // Use the SAME bearer detection as the auth (getBearerTokenFromRequest) and
+  // CSRF (checkCsrfProtection) paths — both accept the scheme case-insensitively
+  // and tolerate leading whitespace. A stricter `startsWith('Bearer ')` check
+  // here would let a request that authenticated as bearer (e.g. lowercase
+  // `authorization: bearer <token>`) slip past the username gate and create a
+  // leaderboard-bound attempt without a username, defeating the invariant.
+  return getBearerTokenFromRequest(request) !== null;
+}
 
 function isExamPassRequiredError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
@@ -56,9 +70,23 @@ export async function POST(request: NextRequest) {
         parsed.data.eventId
       );
       await enforceQuizAgeGate(auth.supabase, merchantId, auth.user.id);
+      // The username is required for the leaderboard, but only the mobile
+      // storefront (which authenticates with a Bearer token) has a
+      // username-collection UI today. Web storefront customers have no way to
+      // set one yet, so enforcing here would hard-block them with no
+      // remediation. Scope the gate to the clients that can actually satisfy
+      // it — bearer-authenticated mobile requests — until a web username flow
+      // exists. Mobile has no cookie session, so it cannot skip the gate by
+      // dropping the Bearer token (that path is unauthenticated → 401).
+      if (isBearerAuthenticated(request)) {
+        await enforceQuizUsernameGate(auth.supabase, merchantId, auth.user.id);
+      }
     } catch (error) {
       if (isQuizAgeGateError(error)) {
         return quizAgeGateErrorResponse(error);
+      }
+      if (isQuizUsernameRequiredError(error)) {
+        return quizUsernameGateErrorResponse(error);
       }
       return prizeGuardErrorResponse(error);
     }

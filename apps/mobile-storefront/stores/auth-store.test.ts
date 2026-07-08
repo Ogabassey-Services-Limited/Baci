@@ -1450,6 +1450,183 @@ describe('useAuthStore', () => {
   });
 
   // -------------------------------------------------------------------------
+  describe('setUsername()', () => {
+    beforeEach(() => {
+      (useAuthStore.setState as (state: object) => void)({
+        user: mockUser,
+        session: mockSession,
+        customer: mockCustomerRow,
+        merchantId: MERCHANT_ID,
+        isLoading: false,
+        isInitialized: true,
+      });
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+    });
+
+    it('updates customer.username in state when the RPC succeeds', async () => {
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: 'OgaFan',
+        error: null,
+      });
+
+      let result!: { success: boolean; error?: string; username?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setUsername('OgaFan');
+      });
+
+      expect(supabase.rpc).toHaveBeenCalledWith('set_customer_username', {
+        p_merchant_id: MERCHANT_ID,
+        p_username: 'OgaFan',
+      });
+      expect(result).toEqual({ success: true, username: 'OgaFan' });
+      expect(useAuthStore.getState().customer?.username).toBe('OgaFan');
+    });
+
+    it('returns the friendly taken-username message and leaves state unchanged when the RPC reports username_taken', async () => {
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { message: 'username_taken' },
+      });
+
+      let result!: { success: boolean; error?: string; username?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setUsername('taken');
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error: 'That username is already taken. Try another.',
+      });
+      expect(useAuthStore.getState().customer?.username).toBeUndefined();
+    });
+
+    it('preserves a concurrent customer update made while the RPC is in flight', async () => {
+      // A concurrent updateProfile lands after the top-of-function snapshot,
+      // while set_customer_username is awaiting. The final merge must build on
+      // the latest customer, not the stale snapshot.
+      (supabase.rpc as jest.Mock).mockImplementation(async () => {
+        (useAuthStore.setState as (state: object) => void)({
+          customer: { ...mockCustomerRow, phone: '+2348099999999' },
+        });
+        return { data: 'OgaFan', error: null };
+      });
+
+      let result!: { success: boolean; error?: string; username?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setUsername('OgaFan');
+      });
+
+      expect(result).toEqual({ success: true, username: 'OgaFan' });
+      const finalCustomer = useAuthStore.getState().customer;
+      expect(finalCustomer?.username).toBe('OgaFan');
+      // The concurrent phone change survives — not overwritten by the snapshot.
+      expect(finalCustomer?.phone).toBe('+2348099999999');
+    });
+
+    it('does not let a stale updateProfile response clobber a username set mid-flight', async () => {
+      // Mirror of the setUsername race: updateProfile's UPDATE..RETURNING row is
+      // read before a concurrent setUsername lands, so its response carries a
+      // stale NULL username. The final merge must keep the live store value.
+      const chain: Record<string, jest.Mock> = {};
+      for (const m of ['select', 'eq', 'update']) {
+        chain[m] = jest.fn(() => chain);
+      }
+      chain.single = jest.fn(async () => {
+        // A concurrent setUsername resolves while this update is in flight.
+        (useAuthStore.setState as (state: object) => void)({
+          customer: { ...mockCustomerRow, username: 'OgaFan' },
+        });
+        return {
+          data: {
+            ...mockCustomerRow,
+            phone: '+2348011111111',
+            username: null,
+          },
+          error: null,
+        };
+      });
+      (supabase.from as jest.Mock).mockImplementation(() => chain);
+
+      let result!: { success: boolean; error?: string };
+      await act(async () => {
+        result = await useAuthStore
+          .getState()
+          .updateProfile({ phone: '+2348011111111' });
+      });
+
+      expect(result).toEqual({ success: true });
+      const finalCustomer = useAuthStore.getState().customer;
+      expect(finalCustomer?.phone).toBe('+2348011111111');
+      // Live username preserved — not clobbered by the stale NULL.
+      expect(finalCustomer?.username).toBe('OgaFan');
+    });
+
+    it('returns an error without calling the RPC when not logged in', async () => {
+      (useAuthStore.setState as (state: object) => void)({
+        customer: null,
+        merchantId: null,
+      });
+
+      let result!: { success: boolean; error?: string; username?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setUsername('ogafan');
+      });
+
+      expect(result).toEqual({ success: false, error: 'Not logged in' });
+      expect(supabase.rpc).not.toHaveBeenCalled();
+    });
+
+    it('returns a session-expired error without calling the RPC when getUser fails', async () => {
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: null },
+        error: { message: 'jwt expired' },
+      });
+
+      let result!: { success: boolean; error?: string; username?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setUsername('OgaFan');
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error: 'Session expired. Please sign in again.',
+      });
+      expect(supabase.rpc).not.toHaveBeenCalled();
+      expect(useAuthStore.getState().customer?.username).toBeUndefined();
+    });
+
+    it.each([
+      ['reserved_username', 'That username is not available.'],
+      [
+        'invalid_username',
+        'Use 3-20 letters, numbers, or single . _ separators (start and end with a letter or number).',
+      ],
+      ['customer_not_found', 'No shopper account found for this store.'],
+      ['not_authenticated', 'Please sign in to choose a username.'],
+      ['some_unmapped_code', 'Could not set username'],
+    ])(
+      'maps RPC error %s to friendly copy and leaves state unchanged',
+      async (code, message) => {
+        (supabase.rpc as jest.Mock).mockResolvedValue({
+          data: null,
+          error: { message: code },
+        });
+
+        let result!: { success: boolean; error?: string; username?: string };
+        await act(async () => {
+          result = await useAuthStore.getState().setUsername('OgaFan');
+        });
+
+        expect(result).toEqual({ success: false, error: message });
+        expect(useAuthStore.getState().customer?.username).toBeUndefined();
+      }
+    );
+  });
+
+  // -------------------------------------------------------------------------
   describe('cleanup()', () => {
     it('unsubscribes the auth listener after initialize()', async () => {
       // Arrange
