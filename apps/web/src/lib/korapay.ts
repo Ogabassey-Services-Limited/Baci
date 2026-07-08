@@ -11,6 +11,7 @@
  */
 
 import z from 'zod';
+import { KORAPAY_SUPPORTED_COUNTRY_CURRENCIES } from './checkout/payment-gateway-availability';
 import { logger } from './logger';
 import { calculatePlatformFee as computePlatformFee } from './payments/platform-fee';
 
@@ -647,18 +648,11 @@ export function formatCurrency(amount: number, currency: Currency): string {
  * Detect currency from country code
  */
 export function getCurrencyFromCountry(countryCode: string): Currency {
-  const currencyMap: Record<string, Currency> = {
-    NG: 'NGN',
-    KE: 'KES',
-    GH: 'GHS',
-    ZA: 'ZAR',
-    CM: 'XAF',
-    CI: 'XOF',
-    SN: 'XOF',
-    BF: 'XOF',
-  };
-
-  return currencyMap[countryCode.toUpperCase()] || 'NGN';
+  return (
+    KORAPAY_SUPPORTED_COUNTRY_CURRENCIES[
+      countryCode.toUpperCase() as keyof typeof KORAPAY_SUPPORTED_COUNTRY_CURRENCIES
+    ] || 'NGN'
+  );
 }
 
 /**

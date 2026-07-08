@@ -19,14 +19,29 @@ export interface LaunchPaymentRequirement {
   completed: boolean;
 }
 
-const KORAPAY_CHECKOUT_CURRENCIES = new Set([
-  'NGN',
-  'KES',
-  'GHS',
-  'ZAR',
-  'XAF',
-  'XOF',
-]);
+// Single source of truth for the countries Baci's own Korapay account serves,
+// mapped to the currency Korapay settles for each. Mirrors (and is consumed by)
+// `getCurrencyFromCountry` in `@/lib/korapay` so the two never drift.
+export const KORAPAY_SUPPORTED_COUNTRY_CURRENCIES = {
+  NG: 'NGN',
+  KE: 'KES',
+  GH: 'GHS',
+  ZA: 'ZAR',
+  CM: 'XAF',
+  CI: 'XOF',
+  SN: 'XOF',
+  BF: 'XOF',
+} as const satisfies Record<string, string>;
+
+export type KorapaySupportedCountry =
+  keyof typeof KORAPAY_SUPPORTED_COUNTRY_CURRENCIES;
+
+export type KorapaySupportedCurrency =
+  (typeof KORAPAY_SUPPORTED_COUNTRY_CURRENCIES)[KorapaySupportedCountry];
+
+const KORAPAY_CHECKOUT_CURRENCIES = new Set<string>(
+  Object.values(KORAPAY_SUPPORTED_COUNTRY_CURRENCIES)
+);
 
 function readBooleanSetting(
   settings: unknown,
@@ -96,15 +111,39 @@ export function isKorapayCheckoutCurrencySupported(
   );
 }
 
+// Resolve the Korapay settlement currency for a merchant country. Country
+// null/undefined fails open toward NG (the same convention
+// `isBaciPaystackSettlementCountry` uses) so existing NG merchants with an unset
+// country keep working checkout. Countries Korapay does not serve resolve to
+// null and gate the provider off.
+export function getKorapaySettlementCurrency(
+  country: string | null | undefined
+): KorapaySupportedCurrency | null {
+  const normalizedCountry = normalizePaymentCountryCode(country) ?? 'NG';
+  return (
+    KORAPAY_SUPPORTED_COUNTRY_CURRENCIES[
+      normalizedCountry as KorapaySupportedCountry
+    ] ?? null
+  );
+}
+
 export function isKorapayCheckoutAvailable(
   merchant: CheckoutPaymentMerchant | null | undefined,
+  country?: string | null,
   currency?: string | null
 ): boolean {
   if (!merchant) return false;
-  if (currency != null && !isKorapayCheckoutCurrencySupported(currency)) {
-    return false;
+  if (readKorapayEnabled(merchant.feature_settings) === false) return false;
+
+  const settlementCurrency = getKorapaySettlementCurrency(country);
+  if (settlementCurrency === null) return false;
+
+  if (currency != null) {
+    const normalizedCurrency = currency.trim().toUpperCase();
+    if (normalizedCurrency !== settlementCurrency) return false;
   }
-  return readKorapayEnabled(merchant.feature_settings) === true;
+
+  return true;
 }
 
 export function isPayOnDeliveryCheckoutAvailable(

@@ -43,6 +43,7 @@ interface PaymentStepProps {
   setCurrentStep: (step: StepName) => void;
   merchant:
     | {
+        country?: string | null;
         paystack_subaccount_code?: string | null;
         paystack_subaccount_configured?: boolean | null;
         feature_settings?: FeatureSettings | null;
@@ -87,6 +88,7 @@ export function PaymentStep({
     ngnRailsAvailable && isPaystackCheckoutAvailable(merchant);
   const korapayCheckoutAvailable = isKorapayCheckoutAvailable(
     merchant,
+    merchant?.country,
     currency
   );
   const bankTransferCheckoutAvailable =

@@ -713,7 +713,11 @@ export function buildStorefrontAcceptedPaymentMethods(
 
   if (
     gatewayConfig.korapayConfigured &&
-    isKorapayCheckoutAvailable(merchant, gatewayConfig.currency)
+    isKorapayCheckoutAvailable(
+      merchant,
+      merchant?.country,
+      gatewayConfig.currency
+    )
   ) {
     methods.add('Debit and credit card');
   }

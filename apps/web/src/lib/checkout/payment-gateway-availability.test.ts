@@ -150,28 +150,78 @@ describe('payment-gateway-availability', () => {
     expect(isKorapayCheckoutAvailable(undefined)).toBe(false);
   });
 
-  it('returns false for Korapay when not explicitly enabled', () => {
+  it('defaults Korapay on for a supported country when the flag is unset', () => {
     expect(
-      isKorapayCheckoutAvailable({
-        feature_settings: {},
-      })
-    ).toBe(false);
-  });
-
-  it('returns true for Korapay when explicitly enabled', () => {
-    expect(
-      isKorapayCheckoutAvailable({
-        feature_settings: { korapay_enabled: true },
-      })
+      isKorapayCheckoutAvailable(
+        {
+          feature_settings: {},
+        },
+        'NG'
+      )
     ).toBe(true);
   });
 
-  it('returns false for Korapay when the checkout currency is unsupported', () => {
+  it('keeps Korapay available for an NG merchant when explicitly enabled', () => {
     expect(
       isKorapayCheckoutAvailable(
         {
           feature_settings: { korapay_enabled: true },
         },
+        'NG'
+      )
+    ).toBe(true);
+  });
+
+  it('treats a null or undefined country as NG so NG merchants keep working', () => {
+    const merchant = { feature_settings: { korapay_enabled: true } };
+
+    expect(isKorapayCheckoutAvailable(merchant, null)).toBe(true);
+    expect(isKorapayCheckoutAvailable(merchant, undefined)).toBe(true);
+    expect(isKorapayCheckoutAvailable(merchant)).toBe(true);
+  });
+
+  it('returns true for a KE merchant when the order currency is KES', () => {
+    expect(
+      isKorapayCheckoutAvailable(
+        {
+          feature_settings: { korapay_enabled: true },
+        },
+        'KE',
+        'KES'
+      )
+    ).toBe(true);
+  });
+
+  it('returns false for a KE merchant when the order currency is NGN', () => {
+    expect(
+      isKorapayCheckoutAvailable(
+        {
+          feature_settings: { korapay_enabled: true },
+        },
+        'KE',
+        'NGN'
+      )
+    ).toBe(false);
+  });
+
+  it('returns false for a merchant in an unsupported country (US)', () => {
+    expect(
+      isKorapayCheckoutAvailable(
+        {
+          feature_settings: { korapay_enabled: true },
+        },
+        'US'
+      )
+    ).toBe(false);
+  });
+
+  it('returns false for Korapay when the order currency does not match the country', () => {
+    expect(
+      isKorapayCheckoutAvailable(
+        {
+          feature_settings: { korapay_enabled: true },
+        },
+        'NG',
         'INR'
       )
     ).toBe(false);
@@ -183,11 +233,20 @@ describe('payment-gateway-availability', () => {
     expect(isKorapayCheckoutCurrencySupported(null)).toBe(false);
   });
 
-  it('returns false for Korapay when explicitly disabled', () => {
+  it('returns false for Korapay when explicitly disabled, even for a supported country', () => {
     expect(
       isKorapayCheckoutAvailable({
         feature_settings: { korapay_enabled: false },
       })
+    ).toBe(false);
+    expect(
+      isKorapayCheckoutAvailable(
+        {
+          feature_settings: { korapay_enabled: false },
+        },
+        'KE',
+        'KES'
+      )
     ).toBe(false);
   });
 

@@ -88,6 +88,9 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
         paystack_subaccount_code: 'ACCT_test',
         feature_settings: {
           paystack_enabled: false,
+          // Korapay defaults on for supported countries, so keep it explicitly
+          // disabled here to isolate Paystack gating.
+          korapay_enabled: false,
         },
       },
       {
@@ -126,7 +129,9 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
   it('omits Paystack-backed methods when Paystack is not configured', () => {
     const methods = buildStorefrontAcceptedPaymentMethods(
       {
-        country: 'NG',
+        // GH merchant so the GHS offer currency matches the country's Korapay
+        // settlement currency (NG would settle NGN and gate Korapay off).
+        country: 'GH',
         paystack_subaccount_code: 'ACCT_test',
         feature_settings: {
           korapay_enabled: true,

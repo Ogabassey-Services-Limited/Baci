@@ -243,8 +243,21 @@ describe('PaymentStep', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('hides Korapay when not explicitly enabled in feature settings', () => {
+    it('shows Korapay by default when the flag is unset for a supported country', () => {
       render(<PaymentStep {...defaultProps} />);
+
+      expect(screen.getByText('Korapay')).toBeInTheDocument();
+      expect(screen.getByTestId('korapay-logo')).toBeInTheDocument();
+    });
+
+    it('hides Korapay for a merchant in an unsupported country', () => {
+      const merchant = {
+        country: 'US',
+        paystack_subaccount_code: 'ACCT_123',
+        feature_settings: { korapay_enabled: true } as FeatureSettings,
+      };
+
+      render(<PaymentStep {...defaultProps} merchant={merchant} />);
 
       expect(screen.queryByText('Korapay')).not.toBeInTheDocument();
       expect(screen.queryByTestId('korapay-logo')).not.toBeInTheDocument();

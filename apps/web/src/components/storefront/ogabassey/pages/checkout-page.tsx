@@ -575,6 +575,7 @@ export const CheckoutPage: React.FC = () => {
     ngnRailsAvailable && isPaystackCheckoutAvailable(merchant);
   const korapayCheckoutAvailable = isKorapayCheckoutAvailable(
     merchant,
+    merchant?.country,
     currencyCode
   );
   const bankTransferCheckoutAvailable =
