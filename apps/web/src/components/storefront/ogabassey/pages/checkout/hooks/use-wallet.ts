@@ -65,8 +65,12 @@ export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWallet
         signal: abortController.signal,
       })
         .then(async (response) => {
-          if (!response.ok) return;
+          if (!response.ok || abortController.signal.aborted) return;
           const data = await response.json();
+          // Re-check after the await: an identity change fires the effect
+          // cleanup (abort) synchronously, so a superseded response that
+          // resolved just before the switch won't apply a stale account.
+          if (abortController.signal.aborted) return;
           const balance = Number(data.balance) || 0;
           setWalletBalance(balance);
           setFundingAccount(data.fundingAccount ?? null);

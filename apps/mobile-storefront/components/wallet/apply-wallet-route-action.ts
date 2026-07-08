@@ -39,6 +39,8 @@ export function applyWalletRouteAction({
     setShowFundPanel(false);
     setShowRedeemPanel(true);
     setShowSavingsProgressModal(false);
+    setFundAmount('');
+    setFundReturnTo(undefined);
     return;
   }
   if (routeAction === 'bank-transfer') {
@@ -48,11 +50,15 @@ export function applyWalletRouteAction({
     setShowFundPanel(false);
     setShowRedeemPanel(false);
     setShowSavingsProgressModal(false);
+    setFundAmount('');
+    setFundReturnTo(undefined);
     return;
   }
   if (routeAction === 'savings') {
     setShowFundPanel(false);
     setShowRedeemPanel(false);
     setShowSavingsProgressModal(true);
+    setFundAmount('');
+    setFundReturnTo(undefined);
   }
 }
