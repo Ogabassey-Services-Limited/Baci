@@ -88,7 +88,12 @@ export function extractWebVitalAttribution(
           out.loafLongestScriptSource = redactUrlQuery(entry.sourceURL);
         }
         if (typeof entry.invoker === 'string' && entry.invoker) {
-          out.loafLongestScriptInvoker = entry.invoker;
+          // Same redaction as sourceURL: for classic/module scripts the LoAF
+          // spec returns the script URL as `invoker`, and event-listener
+          // invokers can embed a target src — both can carry query tokens.
+          // Plain invoker names ("DOMWindow.onpointerdown") contain no ?/#
+          // and pass through unchanged.
+          out.loafLongestScriptInvoker = redactUrlQuery(entry.invoker);
         }
       }
     }

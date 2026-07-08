@@ -144,6 +144,26 @@ describe('extractWebVitalAttribution', () => {
     expect(out.loafLongestScriptInvoker).toBe('DOMWindow.onclick');
   });
 
+  it('strips query/hash from URL-valued LoAF invokers but keeps plain invoker names intact', () => {
+    const inpWithInvoker = (invoker: string) =>
+      extractWebVitalAttribution({
+        ...base,
+        name: 'INP',
+        attribution: { longestScript: { entry: { invoker } } },
+      });
+
+    // Classic/module-script entries return the script URL as `invoker`
+    // (LoAF spec) — the query can carry signed tokens and must be dropped.
+    expect(
+      inpWithInvoker('https://cdn.example.com/tag.js?sig=secret#f')
+        .loafLongestScriptInvoker
+    ).toBe('https://cdn.example.com/tag.js');
+    // Non-URL invoker names contain no ?/# and must pass through unchanged.
+    expect(
+      inpWithInvoker('DOMWindow.onpointerdown').loafLongestScriptInvoker
+    ).toBe('DOMWindow.onpointerdown');
+  });
+
   it('omits LoAF fields when the browser provides none (non-Chromium)', () => {
     const out = extractWebVitalAttribution({
       ...base,

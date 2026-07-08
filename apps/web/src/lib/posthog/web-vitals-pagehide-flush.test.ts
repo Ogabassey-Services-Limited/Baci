@@ -106,24 +106,9 @@ describe('flushWebVitalsBeacon', () => {
     expect(String(body.properties.$pathname)).not.toMatch(/[?#]/);
   });
 
-  it('trims surrounding whitespace from the project token before beaconing', async () => {
-    const { sendBeacon } = stubBrowserGlobals();
-    enqueuePostHogWebVital(
-      vital({ metric: 'TTFB', value: 250, id: 'v5-trim' })
-    );
-    flushWebVitalsBeacon({
-      ...ENV,
-      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: '  phc_test_token  ',
-    });
-    const body = await decodeBeaconBodyAsync(sendBeacon.mock.calls[0]);
-    expect(body.api_key).toBe('phc_test_token');
-    expect(body.properties.token).toBe('phc_test_token');
-    // Persistence key derives from the TRIMMED token (same key a later boot uses).
-    const persisted = JSON.parse(
-      globalThis.localStorage.getItem('ph_phc_test_token_posthog') ?? '{}'
-    );
-    expect(persisted.distinct_id).toBe(body.distinct_id);
-  });
+  // Identity/persistence behaviors (token trim, persisted distinct_id and
+  // deviceId reuse, generate+seed, storage-blocked in-memory fallback) are
+  // covered in web-vitals-pagehide-flush.identity.test.ts.
 
   it('resolves $host and tenant context from the metric URL, not the post-navigation location', async () => {
     const { sendBeacon } = stubBrowserGlobals();
@@ -161,47 +146,6 @@ describe('flushWebVitalsBeacon', () => {
     const debugTarget = String(body.properties.debugTarget);
     expect(debugTarget).not.toContain('shopper@example.com');
     expect(debugTarget).toContain('[Filtered]');
-  });
-
-  it('reuses the persisted SDK distinct_id when present', async () => {
-    const { sendBeacon } = stubBrowserGlobals();
-    globalThis.localStorage.setItem(
-      'ph_phc_test_token_posthog',
-      JSON.stringify({ distinct_id: 'persisted-user-1' })
-    );
-    enqueuePostHogWebVital(vital({ metric: 'TTFB', value: 300, id: 'v5-4' }));
-
-    flushWebVitalsBeacon(ENV);
-
-    const body = await decodeBeaconBodyAsync(sendBeacon.mock.calls[0]);
-    expect(body.distinct_id).toBe('persisted-user-1');
-  });
-
-  it('falls back to the persisted deviceId when no distinct_id exists', async () => {
-    const { sendBeacon } = stubBrowserGlobals();
-    globalThis.localStorage.setItem(
-      'ph_phc_test_token_posthog',
-      JSON.stringify({ $device_id: 'device-only-7' })
-    );
-    enqueuePostHogWebVital(vital({ metric: 'CLS', value: 0.02, id: 'v5-4b' }));
-
-    flushWebVitalsBeacon(ENV);
-
-    const body = await decodeBeaconBodyAsync(sendBeacon.mock.calls[0]);
-    expect(body.distinct_id).toBe('device-only-7');
-  });
-
-  it('generates and seeds a distinct_id when none is persisted (later boot adopts it)', async () => {
-    const { sendBeacon } = stubBrowserGlobals();
-    enqueuePostHogWebVital(vital({ metric: 'FCP', value: 800, id: 'v5-5' }));
-
-    flushWebVitalsBeacon(ENV);
-
-    const body = await decodeBeaconBodyAsync(sendBeacon.mock.calls[0]);
-    const persisted = JSON.parse(
-      globalThis.localStorage.getItem('ph_phc_test_token_posthog') ?? '{}'
-    );
-    expect(persisted.distinct_id).toBe(body.distinct_id);
   });
 
   it('drops queued vitals without beaconing for bot user agents', () => {
