@@ -1527,10 +1527,13 @@ export async function POST(request: NextRequest) {
     // ============================================
     // DOMAIN PURCHASE FULFILLMENT
     // ============================================
-    // Check metadata for valid domain purchase
+    // Check metadata for valid domain purchase. Never re-enter fulfillment
+    // for an already-fulfilled purchase: a replayed webhook for a row whose
+    // status update was dropped must not reach the registrar again.
     if (
       metadata?.transaction_type === 'domain_purchase' &&
-      typeof metadata.domain === 'string'
+      typeof metadata.domain === 'string' &&
+      !metadata.domain_purchased
     ) {
       logger.info({
         message: 'Processing domain purchase fulfillment',
@@ -1538,7 +1541,7 @@ export async function POST(request: NextRequest) {
         domain: metadata.domain,
       });
 
-      let fulfillmentClaimed = false;
+      let claimToken: string | null = null;
       try {
         // 1. Fetch Merchant Details for Registration
         const { data: merchantData } = await supabase
@@ -1636,13 +1639,29 @@ export async function POST(request: NextRequest) {
           // same completed payment concurrently — only the claim winner may
           // call the registrar, or one payment could be registered (and
           // charged at the registrar) twice.
-          fulfillmentClaimed = await claimDomainFulfillment(supabase, {
+          const claimOutcome = await claimDomainFulfillment(supabase, {
             transactionId: transaction.id,
             metadata,
             claimant: 'webhook',
           });
 
-          if (!fulfillmentClaimed) {
+          if (claimOutcome.status === 'error') {
+            // The claim WRITE failed — fulfillment state is unknown and this
+            // paid purchase would otherwise be silently dropped. Fail the
+            // webhook delivery so the gateway retries it.
+            logger.error({
+              message:
+                'Domain fulfillment claim write failed — failing webhook for retry',
+              reference,
+              domain: normalizedDomain,
+            });
+            return NextResponse.json(
+              { error: 'Domain fulfillment claim failed' },
+              { status: 500 }
+            );
+          }
+
+          if (claimOutcome.status === 'contested') {
             logger.info({
               message:
                 'Domain fulfillment already claimed by another path, skipping',
@@ -1650,6 +1669,7 @@ export async function POST(request: NextRequest) {
               domain: normalizedDomain,
             });
           } else {
+            claimToken = claimOutcome.claimedAt;
             // 4. Register Domain via Go54
             const registration = await registerDomain({
               domain: normalizedDomain,
@@ -1792,6 +1812,7 @@ export async function POST(request: NextRequest) {
                 transactionId: transaction.id,
                 metadata,
                 claimant: 'webhook',
+                claimedAt: claimOutcome.claimedAt,
               });
             }
           }
@@ -1811,13 +1832,14 @@ export async function POST(request: NextRequest) {
           error: err,
         });
 
-        if (fulfillmentClaimed) {
+        if (claimToken) {
           // Fulfillment died mid-flight: release the claim so the dashboard
           // callback (or a later retry) can attempt registration.
           await releaseDomainFulfillmentClaim(supabase, {
             transactionId: transaction.id,
             metadata,
             claimant: 'webhook',
+            claimedAt: claimToken,
           });
         }
 

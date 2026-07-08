@@ -7,16 +7,19 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // preventing duplicate (double-charged) registrations for one payment.
 //
 // The claim is a conditional UPDATE on transactions.metadata, atomic under
-// row locking: the WHERE clause only matches rows that are unclaimed or whose
-// claim has gone stale (claimant crashed mid-registration), so exactly one
-// concurrent caller gets the row back. Claims MUST be written with a
-// service-role client — transactions has no UPDATE policy for merchants, so a
-// user-scoped client would silently update zero rows and never win a claim.
+// row locking:
+// - only rows NOT already fulfilled (`domain_purchased` unset) are eligible,
+//   so a replayed webhook can never re-register a purchase whose row is still
+//   `pending` because a status update was dropped;
+// - only unclaimed rows, or rows whose claim went stale (claimant crashed
+//   mid-registration), can be (re)claimed;
+// - the returned `fulfillment_claimed_at` stamp is this claim instance's
+//   token: release matches claimant AND stamp, so a timed-out original
+//   attempt can never release a newer claim taken by the same path.
 //
-// A successful registration overwrites metadata (domain_purchased) via the
-// caller's existing mark step, which drops the claim fields; a failed attempt
-// should release the claim explicitly so the other path (or a retry) can
-// fulfill the payment.
+// Claims MUST be written with a service-role client — transactions has no
+// UPDATE policy for merchants, so a user-scoped client would silently update
+// zero rows and never win a claim.
 
 export const DOMAIN_FULFILLMENT_CLAIM_STALE_MS = 10 * 60 * 1000;
 
@@ -28,10 +31,19 @@ export interface DomainFulfillmentClaimInput {
   claimant: string;
 }
 
+export type DomainFulfillmentClaimOutcome =
+  /** This caller owns fulfillment; `claimedAt` is the release token. */
+  | { status: 'claimed'; claimedAt: string }
+  /** Another live claim (or an already-fulfilled row) — skip quietly. */
+  | { status: 'contested' }
+  /** The claim write itself failed — fulfillment state is UNKNOWN, surface it. */
+  | { status: 'error' };
+
 export async function claimDomainFulfillment(
   supabase: SupabaseClient,
   { transactionId, metadata, claimant }: DomainFulfillmentClaimInput
-): Promise<boolean> {
+): Promise<DomainFulfillmentClaimOutcome> {
+  const claimedAt = new Date().toISOString();
   const staleBefore = new Date(
     Date.now() - DOMAIN_FULFILLMENT_CLAIM_STALE_MS
   ).toISOString();
@@ -42,10 +54,11 @@ export async function claimDomainFulfillment(
       metadata: {
         ...metadata,
         fulfillment_claimed_by: claimant,
-        fulfillment_claimed_at: new Date().toISOString(),
+        fulfillment_claimed_at: claimedAt,
       },
     })
     .eq('id', transactionId)
+    .is('metadata->>domain_purchased', null)
     .or(
       `metadata->>fulfillment_claimed_by.is.null,metadata->>fulfillment_claimed_at.lt."${staleBefore}"`
     )
@@ -54,17 +67,23 @@ export async function claimDomainFulfillment(
 
   if (error) {
     console.error('Failed to claim domain fulfillment:', error);
-    // Fail closed: without a confirmed claim this caller must not touch the
-    // registrar, or a transient error could cause a duplicate registration.
-    return false;
+    // Fail closed for the registrar (caller must not register), but let the
+    // caller distinguish a transient failure from a genuine contest so it can
+    // surface/retry instead of silently dropping a paid purchase.
+    return { status: 'error' };
   }
 
-  return Boolean(data);
+  return data ? { status: 'claimed', claimedAt } : { status: 'contested' };
 }
 
 export async function releaseDomainFulfillmentClaim(
   supabase: SupabaseClient,
-  { transactionId, metadata, claimant }: DomainFulfillmentClaimInput
+  {
+    transactionId,
+    metadata,
+    claimant,
+    claimedAt,
+  }: DomainFulfillmentClaimInput & { claimedAt: string }
 ): Promise<void> {
   const released: Record<string, unknown> = { ...metadata };
   delete released.fulfillment_claimed_by;
@@ -75,6 +94,9 @@ export async function releaseDomainFulfillmentClaim(
     .update({ metadata: released })
     .eq('id', transactionId)
     .eq('metadata->>fulfillment_claimed_by', claimant)
+    // Match this exact claim instance: after a stale takeover by the same
+    // claimant, the original attempt must not release the newer claim.
+    .eq('metadata->>fulfillment_claimed_at', claimedAt)
     .select('id')
     .maybeSingle();
 

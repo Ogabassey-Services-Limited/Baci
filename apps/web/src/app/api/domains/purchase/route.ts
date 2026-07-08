@@ -210,7 +210,10 @@ export async function POST(request: NextRequest) {
       }
 
       // Paystack returns "success"; our transactions table stores "completed".
-      const { error: updateError } = await supabase
+      // Must use the service-role client: transactions has no merchant UPDATE
+      // policy, so the user-scoped client silently updates zero rows and the
+      // row would stay "pending" forever (inviting webhook replays).
+      const { error: updateError } = await createAdminClient()
         .from('transactions')
         .update({
           status: 'completed',
@@ -404,11 +407,19 @@ export async function POST(request: NextRequest) {
       metadata: paymentMetadata ?? {},
       claimant: 'purchase_route',
     };
-    const fulfillmentClaimed = await claimDomainFulfillment(
+    const claimOutcome = await claimDomainFulfillment(
       adminSupabase,
       claimInput
     );
-    if (!fulfillmentClaimed) {
+    if (claimOutcome.status === 'error') {
+      // The claim WRITE failed — fulfillment state is unknown; surface a
+      // retryable failure instead of misreporting "in progress".
+      return NextResponse.json(
+        { error: 'Could not start domain registration. Please try again.' },
+        { status: 500 }
+      );
+    }
+    if (claimOutcome.status === 'contested') {
       return NextResponse.json(
         {
           error:
@@ -417,6 +428,7 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
+    const claimRelease = { ...claimInput, claimedAt: claimOutcome.claimedAt };
 
     try {
       // Register domain via Go54
@@ -448,7 +460,7 @@ export async function POST(request: NextRequest) {
         );
         // Registration failed: release the claim so the webhook (or a retry)
         // can attempt fulfillment for this paid transaction.
-        await releaseDomainFulfillmentClaim(adminSupabase, claimInput);
+        await releaseDomainFulfillmentClaim(adminSupabase, claimRelease);
         return NextResponse.json(
           {
             error: 'Failed to register domain with Go54',
@@ -545,7 +557,7 @@ export async function POST(request: NextRequest) {
 
       // Registration died mid-flight: release the claim so the webhook (or a
       // retry) can attempt fulfillment for this paid transaction.
-      await releaseDomainFulfillmentClaim(adminSupabase, claimInput);
+      await releaseDomainFulfillmentClaim(adminSupabase, claimRelease);
 
       return NextResponse.json(
         {

@@ -93,7 +93,9 @@ function createMutationQuery(payload: Record<string, unknown>) {
         ? Promise.resolve({ error: null })
         : query;
     },
-    // Fulfillment-claim chain: .eq('id', ...).or(...).select('id').maybeSingle()
+    // Fulfillment-claim chain:
+    // .eq('id', ...).is(...).or(...).select('id').maybeSingle()
+    is: () => query,
     or: () => query,
     select: () => query,
     maybeSingle: () => Promise.resolve(mocks.claimResult),
