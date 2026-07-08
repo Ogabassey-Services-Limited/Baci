@@ -623,12 +623,14 @@ describe('cached-data merchant safety helpers', () => {
     });
 
     it('passes identifier to getMerchantSafe correctly', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: { merchant_id: 'merchant-123', domain: 'shop.example.com' },
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: mockMerchant,
+      harness.mockRpc.mockResolvedValueOnce({
+        data: [
+          {
+            custom_domain: 'shop.example.com',
+            feature_settings: null,
+            merchant_data: { ...mockMerchant },
+          },
+        ],
         error: null,
       });
 
@@ -640,7 +642,10 @@ describe('cached-data merchant safety helpers', () => {
           custom_domain: 'shop.example.com',
         })
       );
-      expect(harness.mockEq).toHaveBeenCalledWith('domain', 'shop.example.com');
+      expect(harness.mockRpc).toHaveBeenCalledWith(
+        'resolve_storefront_cached_merchant',
+        { p_identifier: 'shop.example.com' }
+      );
     });
   });
 });

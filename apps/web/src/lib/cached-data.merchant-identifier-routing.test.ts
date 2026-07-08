@@ -141,12 +141,14 @@ describe('cached-data getMerchantByIdentifier routing', () => {
 
   describe('domain lookup routing', () => {
     it('routes to domain lookup for domain-like identifier', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: { merchant_id: 'merchant-123', domain: 'store.com' },
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: mockMerchant,
+      harness.mockRpc.mockResolvedValueOnce({
+        data: [
+          {
+            custom_domain: 'store.com',
+            feature_settings: null,
+            merchant_data: { ...mockMerchant },
+          },
+        ],
         error: null,
       });
 
@@ -156,17 +158,22 @@ describe('cached-data getMerchantByIdentifier routing', () => {
           custom_domain: 'store.com',
         })
       );
-      expect(harness.mockFrom).toHaveBeenCalledWith('domains');
-      expect(harness.mockEq).toHaveBeenCalledWith('domain', 'store.com');
+      expect(harness.mockRpc).toHaveBeenCalledWith(
+        'resolve_storefront_cached_merchant',
+        { p_identifier: 'store.com' }
+      );
+      expect(harness.mockFrom).not.toHaveBeenCalledWith('domains');
     });
 
     it('lowercases domain identifier before lookup', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: { merchant_id: 'merchant-123', domain: 'store.com' },
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: mockMerchant,
+      harness.mockRpc.mockResolvedValueOnce({
+        data: [
+          {
+            custom_domain: 'store.com',
+            feature_settings: null,
+            merchant_data: { ...mockMerchant },
+          },
+        ],
         error: null,
       });
 
@@ -176,16 +183,21 @@ describe('cached-data getMerchantByIdentifier routing', () => {
           custom_domain: 'store.com',
         })
       );
-      expect(harness.mockEq).toHaveBeenCalledWith('domain', 'store.com');
+      expect(harness.mockRpc).toHaveBeenCalledWith(
+        'resolve_storefront_cached_merchant',
+        { p_identifier: 'store.com' }
+      );
     });
 
     it('accepts subdomains', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: { merchant_id: 'merchant-123', domain: 'shop.store.com' },
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: mockMerchant,
+      harness.mockRpc.mockResolvedValueOnce({
+        data: [
+          {
+            custom_domain: 'shop.store.com',
+            feature_settings: null,
+            merchant_data: { ...mockMerchant },
+          },
+        ],
         error: null,
       });
 
@@ -194,6 +206,10 @@ describe('cached-data getMerchantByIdentifier routing', () => {
           ...mockMerchant,
           custom_domain: 'shop.store.com',
         })
+      );
+      expect(harness.mockRpc).toHaveBeenCalledWith(
+        'resolve_storefront_cached_merchant',
+        { p_identifier: 'shop.store.com' }
       );
     });
 
