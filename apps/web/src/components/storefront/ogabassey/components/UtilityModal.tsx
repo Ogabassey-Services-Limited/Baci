@@ -200,12 +200,15 @@ export const UtilityModal = ({
     }
   }
 
-  // Collapse the funding panel if the signed-in customer changes while the
-  // modal stays mounted (same-tab sign-out/switch) — a previous customer's
-  // open bank-transfer panel must not carry over to the new session.
-  const [prevUserId, setPrevUserId] = useState(user?.id);
-  if (user?.id !== prevUserId) {
-    setPrevUserId(user?.id);
+  // Collapse the funding panel if the signed-in customer OR the storefront
+  // merchant changes while the modal stays mounted — a previous session's
+  // open bank-transfer panel (with its DVA account number) must not carry
+  // over to a different customer or merchant.
+  const fundingIdentity = `${user?.id ?? ''}:${merchant?.slug ?? ''}`;
+  const [prevFundingIdentity, setPrevFundingIdentity] =
+    useState(fundingIdentity);
+  if (fundingIdentity !== prevFundingIdentity) {
+    setPrevFundingIdentity(fundingIdentity);
     setShowFundingPanel(false);
   }
 

@@ -13,6 +13,7 @@ function buildParams(
   overrides: Partial<{
     canCreateFundingAccount: boolean;
     createFundingAccount: () => void;
+    customerId: string | undefined;
     hasFundingAccount: boolean;
     hasWalletData: boolean;
     isCreating: boolean;
@@ -22,6 +23,7 @@ function buildParams(
   const {
     canCreateFundingAccount = true,
     createFundingAccount = jest.fn(),
+    customerId = 'customer-1',
     hasFundingAccount = false,
     hasWalletData = true,
     isCreating = false,
@@ -36,6 +38,7 @@ function buildParams(
       hasWalletData,
       isCreating,
     },
+    customerId,
     routeAction,
     routeRequiredAmount: '',
     walletReturnTo: undefined,
@@ -116,5 +119,29 @@ describe('useWalletRouteActionSetup', () => {
     );
 
     expect(createFundingAccount).not.toHaveBeenCalled();
+  });
+
+  it('re-arms and creates for a new customer on the same bank-transfer route', () => {
+    const createFundingAccount = jest.fn();
+
+    const { rerender } = renderHook(
+      (props: ReturnType<typeof buildParams>) =>
+        useWalletRouteActionSetup(props),
+      {
+        initialProps: buildParams({
+          createFundingAccount,
+          customerId: 'customer-1',
+        }),
+      }
+    );
+
+    expect(createFundingAccount).toHaveBeenCalledTimes(1);
+
+    // Same route (action=bank-transfer), but a different customer is now
+    // signed in — their own account must be provisioned, not left consumed
+    // by the previous customer's latch.
+    rerender(buildParams({ createFundingAccount, customerId: 'customer-2' }));
+
+    expect(createFundingAccount).toHaveBeenCalledTimes(2);
   });
 });

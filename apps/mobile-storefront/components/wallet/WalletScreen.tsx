@@ -133,6 +133,7 @@ export function WalletScreen({
       hasWalletData: Boolean(data),
       isCreating: createFundingAccountMutation.isPending,
     },
+    customerId: customer?.id,
     routeAction,
     routeRequiredAmount,
     setFundAmount,

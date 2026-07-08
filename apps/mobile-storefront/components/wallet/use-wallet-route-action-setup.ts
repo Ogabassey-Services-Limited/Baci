@@ -10,6 +10,7 @@ interface UseWalletRouteActionSetupParams {
     hasWalletData: boolean;
     isCreating: boolean;
   };
+  customerId: string | undefined;
   routeAction: string | undefined;
   routeRequiredAmount: string;
   setFundAmount: (value: string) => void;
@@ -30,6 +31,7 @@ interface UseWalletRouteActionSetupParams {
  */
 export function useWalletRouteActionSetup({
   bankTransfer,
+  customerId,
   routeAction,
   routeRequiredAmount,
   setFundAmount,
@@ -42,7 +44,10 @@ export function useWalletRouteActionSetup({
   const isBankTransferAction = routeAction === 'bank-transfer';
   const [pendingBankTransfer, setPendingBankTransfer] =
     useState(isBankTransferAction);
-  const routeActionKey = `${routeAction ?? ''}|${routeRequiredAmount}|${walletReturnTo ?? ''}`;
+  // customerId is part of the key so a customer switch on the SAME
+  // route re-arms the bank-transfer setup (their own DVA is auto-created)
+  // instead of staying consumed by the previous customer.
+  const routeActionKey = `${customerId ?? ''}|${routeAction ?? ''}|${routeRequiredAmount}|${walletReturnTo ?? ''}`;
   const [prevRouteActionKey, setPrevRouteActionKey] = useState(routeActionKey);
   if (prevRouteActionKey !== routeActionKey) {
     setPrevRouteActionKey(routeActionKey);

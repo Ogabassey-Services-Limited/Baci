@@ -33,7 +33,7 @@ describe('applyWalletRouteAction', () => {
     expect(setters.setFundReturnTo).toHaveBeenCalledWith('/checkout');
   });
 
-  it('opens only the redeem panel for redeem actions', () => {
+  it('opens only the redeem panel and clears stale fund params for redeem actions', () => {
     applyWalletRouteAction({
       routeAction: 'redeem',
       routeRequiredAmount: '',
@@ -44,9 +44,11 @@ describe('applyWalletRouteAction', () => {
     expect(setters.setShowRedeemPanel).toHaveBeenCalledWith(true);
     expect(setters.setShowFundPanel).toHaveBeenCalledWith(false);
     expect(setters.setShowSavingsProgressModal).toHaveBeenCalledWith(false);
+    expect(setters.setFundAmount).toHaveBeenCalledWith('');
+    expect(setters.setFundReturnTo).toHaveBeenCalledWith(undefined);
   });
 
-  it('opens only the savings modal and closes other panels for savings actions', () => {
+  it('opens only the savings modal and clears stale fund params for savings actions', () => {
     applyWalletRouteAction({
       routeAction: 'savings',
       routeRequiredAmount: '',
@@ -57,9 +59,11 @@ describe('applyWalletRouteAction', () => {
     expect(setters.setShowSavingsProgressModal).toHaveBeenCalledWith(true);
     expect(setters.setShowFundPanel).toHaveBeenCalledWith(false);
     expect(setters.setShowRedeemPanel).toHaveBeenCalledWith(false);
+    expect(setters.setFundAmount).toHaveBeenCalledWith('');
+    expect(setters.setFundReturnTo).toHaveBeenCalledWith(undefined);
   });
 
-  it('closes every panel for bank-transfer actions (funding account lives in the hero)', () => {
+  it('closes every panel and clears stale fund params for bank-transfer actions', () => {
     applyWalletRouteAction({
       routeAction: 'bank-transfer',
       routeRequiredAmount: '',
@@ -70,7 +74,10 @@ describe('applyWalletRouteAction', () => {
     expect(setters.setShowFundPanel).toHaveBeenCalledWith(false);
     expect(setters.setShowRedeemPanel).toHaveBeenCalledWith(false);
     expect(setters.setShowSavingsProgressModal).toHaveBeenCalledWith(false);
-    expect(setters.setFundAmount).not.toHaveBeenCalled();
+    // A prior action=fund URL's requiredAmount/returnTo must not leak into a
+    // later manually-opened Add Money panel.
+    expect(setters.setFundAmount).toHaveBeenCalledWith('');
+    expect(setters.setFundReturnTo).toHaveBeenCalledWith(undefined);
   });
 
   it('does nothing for unrecognized route actions', () => {
