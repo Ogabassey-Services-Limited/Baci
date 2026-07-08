@@ -3,55 +3,20 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { styles } from '@/components/domains/buy-domain.styles';
 import type { DomainSearchResult } from '@/components/domains/domain-search-result';
 import { useTheme } from '@/hooks/useTheme';
+import { formatMerchantAmount } from '@/lib/format-merchant-currency';
 
-const DOMAIN_PRICE_LOCALE_BY_CURRENCY: Record<string, string> = {
-  GBP: 'en-GB',
-  NGN: 'en-NG',
-  USD: 'en-US',
-};
-
-const domainCurrencyFormatterCache = new Map<string, Intl.NumberFormat>();
-const domainNumberFormatterCache = new Map<string, Intl.NumberFormat>();
-
-function getDomainCurrencyFormatter(
-  locale: string,
-  currency: string
-): Intl.NumberFormat {
-  const key = `${locale}:${currency}`;
-  let formatter = domainCurrencyFormatterCache.get(key);
-  if (!formatter) {
-    formatter = new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    });
-    domainCurrencyFormatterCache.set(key, formatter);
-  }
-  return formatter;
-}
-
-function getDomainNumberFormatter(locale: string): Intl.NumberFormat {
-  let formatter = domainNumberFormatterCache.get(locale);
-  if (!formatter) {
-    formatter = new Intl.NumberFormat(locale, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    });
-    domainNumberFormatterCache.set(locale, formatter);
-  }
-  return formatter;
-}
-
-function formatDomainPrice(price: number, currency: string): string {
-  const locale = DOMAIN_PRICE_LOCALE_BY_CURRENCY[currency] ?? 'en-US';
-
-  try {
-    return getDomainCurrencyFormatter(locale, currency).format(price);
-  } catch {
-    const formattedNumber = getDomainNumberFormatter(locale).format(price);
-    return currency ? `${currency} ${formattedNumber}` : formattedNumber;
-  }
+// Domain prices are platform costs charged to the merchant's wallet in NGN —
+// never the merchant's own payout currency. Formatting them in a merchant's
+// local currency would imply an FX conversion that never happened, so this
+// is intentionally NGN for every merchant regardless of `payout_currency`/
+// `country` (mirrors the web dashboard's domain search panel). The API's
+// per-result `currency` field is intentionally ignored for display.
+function formatDomainPrice(price: number): string {
+  return formatMerchantAmount(
+    price,
+    { payout_currency: 'NGN' },
+    { minimumFractionDigits: 0, maximumFractionDigits: 0 }
+  );
 }
 
 interface DomainSearchResultCardProps {
@@ -66,7 +31,7 @@ export function DomainSearchResultCard({
   onBuy,
 }: DomainSearchResultCardProps) {
   const { colors, shadows } = useTheme();
-  const formattedPrice = formatDomainPrice(domain.price, domain.currency);
+  const formattedPrice = formatDomainPrice(domain.price);
 
   return (
     <View
@@ -110,6 +75,9 @@ export function DomainSearchResultCard({
       <View style={styles.priceColumn}>
         <Text style={[styles.price, { color: colors.text }]}>
           {formattedPrice}
+        </Text>
+        <Text style={[styles.currencyNote, { color: colors.textSecondary }]}>
+          Billed in NGN
         </Text>
         {domain.available ? (
           <Pressable

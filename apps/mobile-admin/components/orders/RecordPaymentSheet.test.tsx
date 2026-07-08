@@ -334,4 +334,29 @@ describe('RecordPaymentSheet', () => {
     // Non-digit, non-dot chars stripped → "1500abc" → "1500"
     expect(onAmountChange).toHaveBeenCalledWith('1500');
   });
+
+  it('groups the displayed amount using the merchant currency locale, not a hardcoded en-NG', () => {
+    render(
+      <RecordPaymentSheet
+        colors={colors}
+        currency="EUR"
+        currencySymbol="€"
+        isConfirmDisabled={false}
+        isSubmitting={false}
+        onAmountChange={vi.fn()}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onMethodChange={vi.fn()}
+        onNotesChange={vi.fn()}
+        paymentAmount="12500"
+        paymentMethod=""
+        paymentNotes=""
+        visible={true}
+      />
+    );
+
+    const input = screen.getByLabelText('Payment amount') as HTMLInputElement;
+    // EUR's home-market locale (de-DE) groups thousands with "." not ",".
+    expect(input.value).toBe((12500).toLocaleString('de-DE'));
+  });
 });

@@ -10,6 +10,14 @@ describe('order-details.formatters', () => {
     expect(formatOrderDetailsPrice(12500, 'NGN')).toContain('₦');
   });
 
+  it('formats prices in a non-NGN merchant currency using that currency', () => {
+    expect(formatOrderDetailsPrice(12500, 'USD')).toContain('$');
+  });
+
+  it('falls back to NGN for an unsupported currency code', () => {
+    expect(formatOrderDetailsPrice(12500, 'not-a-currency')).toContain('₦');
+  });
+
   it('preserves a single decimal point in currency input', () => {
     expect(parseOrderDetailsCurrencyInput('₦12,500.00')).toBe('12500.00');
     expect(parseOrderDetailsCurrencyInput('₦1.2.3')).toBe('1.23');

@@ -253,6 +253,7 @@ export function useOrderDetailsController() {
     isAuditEventsError: auditEventsQuery.isError,
     isInvalidRoute,
     isLoading,
+    merchantCurrency,
     order,
     orderId,
     paymentColor,
