@@ -470,6 +470,12 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Mark the purchase fulfilled IMMEDIATELY: the registrar order exists
+      // now, so even if the domains-row write below fails, no later caller
+      // (stale-claim takeover included) may re-register and double-charge
+      // this payment.
+      await markPaymentDomainPurchased();
+
       // Calculate expiry date
       const expiresAt = new Date();
       expiresAt.setFullYear(expiresAt.getFullYear() + years);

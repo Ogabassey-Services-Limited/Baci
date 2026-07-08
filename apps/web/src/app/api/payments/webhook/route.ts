@@ -1351,6 +1351,14 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // Domain purchases: payment completion and registrar fulfillment are
+      // separate steps — a retry for a completed-but-unfulfilled purchase must
+      // still fulfill (claim-serialized; no-op once domain_purchased is set).
+      const domainRetryResponse = await fulfillDomainPurchase();
+      if (domainRetryResponse) {
+        return domainRetryResponse;
+      }
+
       logger.info({ message: 'Transaction already processed', reference });
       if (transaction.order_id) {
         try {
@@ -1527,14 +1535,27 @@ export async function POST(request: NextRequest) {
     // ============================================
     // DOMAIN PURCHASE FULFILLMENT
     // ============================================
-    // Check metadata for valid domain purchase. Never re-enter fulfillment
-    // for an already-fulfilled purchase: a replayed webhook for a row whose
-    // status update was dropped must not reach the registrar again.
-    if (
-      metadata?.transaction_type === 'domain_purchase' &&
-      typeof metadata.domain === 'string' &&
-      !metadata.domain_purchased
-    ) {
+    // Hoisted local function so BOTH paths can fulfill: the fresh completion
+    // path below, and the already-completed path earlier — a completed-but-
+    // unfulfilled purchase (the dashboard callback completed the payment then
+    // died, or a prior delivery 500'd on a claim-write error) must still be
+    // fulfilled by webhook retries. Never re-enters for an already-fulfilled
+    // purchase (domain_purchased set), and the atomic claim serializes
+    // concurrent callers.
+    async function fulfillDomainPurchase(): Promise<NextResponse | null> {
+      // Re-assert the outer null-guard: closures do not inherit narrowing.
+      if (!transaction) {
+        return null;
+      }
+      if (
+        !(
+          metadata?.transaction_type === 'domain_purchase' &&
+          typeof metadata.domain === 'string' &&
+          !metadata.domain_purchased
+        )
+      ) {
+        return null;
+      }
       logger.info({
         message: 'Processing domain purchase fulfillment',
         reference,
@@ -1687,6 +1708,13 @@ export async function POST(request: NextRequest) {
                 message: 'Domain registered successfully',
                 domain: metadata.domain,
               });
+
+              // Mark the purchase fulfilled IMMEDIATELY: the registrar order
+              // exists now, so even if the domains-row write below fails, no
+              // later caller (stale-claim takeover included) may re-register
+              // and double-charge. A missing domains row is reconciled from
+              // the fulfillment-failure logs instead.
+              await markTransactionDomainPurchased();
 
               // 4. Persist to domains table (used by proxy + storefront resolution)
               const expiresAt = new Date();
@@ -1914,6 +1942,13 @@ export async function POST(request: NextRequest) {
           }
         }
       }
+
+      return null;
+    }
+
+    const domainFulfillmentResponse = await fulfillDomainPurchase();
+    if (domainFulfillmentResponse) {
+      return domainFulfillmentResponse;
     }
 
     // Update order status if order_id exists
