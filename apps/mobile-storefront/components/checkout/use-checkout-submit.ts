@@ -1,22 +1,10 @@
-import type { MutableRefObject } from 'react';
 import { Alert } from 'react-native';
-import type {
-  PaymentMethodType,
-  PaymentTab,
-} from '@/components/checkout/PaymentMethodSelector';
-import type {
-  DeliveryMethod,
-  ShippingQuote,
-} from '@/components/checkout/types';
 import { useMerchant } from '@/hooks/use-merchant';
-import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempotency';
 import type { ShippingAddressInput } from '@/lib/validation';
 import {
   buildSavingsOrderFields,
   buildWalletOrderFields,
   getFullyPaidStoreCreditPaymentMethod,
-  type SavingsSelection,
-  type WalletSelection,
 } from '@/lib/wallet-payment-helpers';
 import { trackCheckoutStep } from '@/services/analytics';
 import {
@@ -25,7 +13,7 @@ import {
 } from '@/services/cart-reprice';
 import { createOrder } from '@/services/orders';
 import { trackCheckoutRoutePurchaseCompleted } from '@/services/tiktok-checkout-route-tracking';
-import { type CartItem, useCartStore } from '@/stores/cart-store';
+import { useCartStore } from '@/stores/cart-store';
 import { submitBnplCheckout } from './checkout-bnpl-submit';
 import {
   buildCheckoutOrderRequest,
@@ -33,60 +21,14 @@ import {
 } from './checkout-order-builders';
 import { finalizeCheckoutPayment } from './checkout-payment-finalization';
 import { runCheckoutPostOrderSideEffects } from './checkout-post-order-side-effects';
-import type { PendingCryptoOrder } from './checkout-screen.constants';
+import { blockIfMixedPrizeCart } from './checkout-prize-cart-guard';
 import { CHECKOUT_MERCHANT_ID } from './checkout-screen.constants';
 import { resolveCheckoutStoreCreditSelections } from './checkout-store-credit';
 import { handleCheckoutSubmitError } from './checkout-submit-error';
 import { validateCheckoutSubmission } from './checkout-submit-validation';
+import type { UseCheckoutSubmitParams } from './use-checkout-submit.types';
 
-interface CheckoutCustomer {
-  email?: string | null;
-  id?: string;
-}
-
-interface CheckoutUser {
-  id?: string | null;
-}
-
-export interface UseCheckoutSubmitParams {
-  accountPassword: string;
-  appliedDiscountCode?: string | null;
-  availablePaymentMethods: PaymentMethodType[];
-  clearCart: () => void;
-  currentShippingQuoteContextKey: string;
-  customer: CheckoutCustomer | null | undefined;
-  deliveryFee: number;
-  deliveryMethod: DeliveryMethod;
-  getLiveSavingsSelection: (input: {
-    isStoreCreditCompatible: boolean;
-    items: CartItem[];
-    orderTotal: number;
-  }) => SavingsSelection | undefined;
-  getShippingProvider: () => string | undefined;
-  isAuthenticated: boolean;
-  isLoadingQuotes: boolean;
-  isOrderInFlight: MutableRefObject<boolean>;
-  isProcessing: boolean;
-  mobileCheckoutIdempotencyRef: MutableRefObject<MobileCheckoutIdempotencyState | null>;
-  orderTotals: { taxAmount: number } | null;
-  paymentSettings: Parameters<typeof submitBnplCheckout>[0]['paymentSettings'];
-  paymentTab: PaymentTab;
-  resolvedShippingQuoteContextKey: string;
-  requiresShippingQuote: boolean;
-  saveAsDefaultAddress: boolean;
-  saveDetails: boolean;
-  selectedPayment: PaymentMethodType;
-  selectedQuote: ShippingQuote | undefined;
-  selectedSavedAddressId: string | null;
-  setIsProcessing: (value: boolean) => void;
-  setPendingOrder: (value: PendingCryptoOrder | null) => void;
-  setShowCryptoSelection: (value: boolean) => void;
-  setStep: (step: 'address' | 'payment' | 'review') => void;
-  user: CheckoutUser | null | undefined;
-  walletBalance: number;
-  walletFundedBankTransferOptionEnabled: boolean;
-  walletSelection: WalletSelection | undefined;
-}
+export type { UseCheckoutSubmitParams };
 
 export function useCheckoutSubmit({
   accountPassword,
@@ -130,24 +72,9 @@ export function useCheckoutSubmit({
     const groupNegotiationSnapshot =
       useCartStore.getState().cartWideNegotiationActive;
 
-    // A quiz prize (voucher) line redeems as its own pre-reserved order; the
-    // server ignores the other submitted items and the success path clears the
-    // whole cart, so a mixed cart would silently lose the paid lines. Enforce
-    // the voucher-only invariant here as the checkout-time safety net behind the
-    // claim-time guard (a shopper can claim into an empty cart, then add a paid
-    // item before checkout).
-    const hasVoucherLine = itemsSnapshot.some(
-      (item) => item.voucher_token || item.voucher_award_id
-    );
-    const hasPaidLine = itemsSnapshot.some(
-      (item) => !(item.voucher_token || item.voucher_award_id)
-    );
-    if (hasVoucherLine && hasPaidLine) {
-      Alert.alert(
-        'Check out your prize separately',
-        'Your prize is redeemed on its own order. Remove your other items (or check them out first), then claim your prize so nothing is lost.',
-        [{ text: 'OK' }]
-      );
+    // Checkout-time safety net: never let a prize voucher check out alongside
+    // paid items (the prize redeems on its own order and the cart is cleared).
+    if (blockIfMixedPrizeCart(itemsSnapshot)) {
       return;
     }
 

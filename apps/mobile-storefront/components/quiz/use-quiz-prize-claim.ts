@@ -47,7 +47,17 @@ export function useQuizPrizeClaim(
   const { product, isLoading, error, refetch } = useProduct(
     prizeClaim.productId
   );
-  const [blockedReason, setBlockedReason] = useState<string | null>(null);
+  // Live cart state so the block below auto-clears the moment the cart stops
+  // holding paid items (e.g. after the shopper reviews the cart and removes or
+  // checks them out) — a now-eligible prize claim is never stranded behind the
+  // "Review cart" state.
+  const cartHasPaidItems = useCartStore((state) =>
+    state.items.some((item) => !isVoucherLine(item))
+  );
+  const [claimAttemptedWhileMixed, setClaimAttemptedWhileMixed] =
+    useState(false);
+  const blockedReason =
+    claimAttemptedWhileMixed && cartHasPaidItems ? MIXED_CART_MESSAGE : null;
 
   const claimPrize = () => {
     if (!product) return;
@@ -61,10 +71,10 @@ export function useQuizPrizeClaim(
       .getState()
       .items.some((item) => !isVoucherLine(item));
     if (hasOtherItems) {
-      setBlockedReason(MIXED_CART_MESSAGE);
+      setClaimAttemptedWhileMixed(true);
       return;
     }
-    setBlockedReason(null);
+    setClaimAttemptedWhileMixed(false);
 
     const conditionDisplay = prizeClaim.condition
       ? formatProductConditionDisplay(prizeClaim.condition)

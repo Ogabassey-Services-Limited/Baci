@@ -145,6 +145,33 @@ describe('useQuizPrizeClaim', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
+  it('auto-clears the block once the paid items leave the cart', () => {
+    // Regression: after a blocked claim + Review cart, removing the paid items
+    // must re-enable the claim (blockedReason cannot be sticky).
+    act(() => {
+      useCartStore.getState().addItem({
+        product_id: 'paid-1',
+        slug: 'airpods',
+        name: 'AirPods',
+        price: 120_000,
+        quantity: 1,
+      });
+    });
+
+    const { result } = renderHook(() => useQuizPrizeClaim(prizeClaim));
+
+    act(() => {
+      result.current.claimPrize();
+    });
+    expect(result.current.blockedReason).toMatch(/other items/i);
+
+    // Shopper clears the paid items; the block clears reactively.
+    act(() => {
+      useCartStore.getState().clearCart();
+    });
+    expect(result.current.blockedReason).toBeNull();
+  });
+
   it('claims once the mixed cart is cleared, and reviewCart opens the cart', () => {
     act(() => {
       useCartStore.getState().addItem({
