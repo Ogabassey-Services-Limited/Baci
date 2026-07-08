@@ -130,6 +130,27 @@ export function useCheckoutSubmit({
     const groupNegotiationSnapshot =
       useCartStore.getState().cartWideNegotiationActive;
 
+    // A quiz prize (voucher) line redeems as its own pre-reserved order; the
+    // server ignores the other submitted items and the success path clears the
+    // whole cart, so a mixed cart would silently lose the paid lines. Enforce
+    // the voucher-only invariant here as the checkout-time safety net behind the
+    // claim-time guard (a shopper can claim into an empty cart, then add a paid
+    // item before checkout).
+    const hasVoucherLine = itemsSnapshot.some(
+      (item) => item.voucher_token || item.voucher_award_id
+    );
+    const hasPaidLine = itemsSnapshot.some(
+      (item) => !(item.voucher_token || item.voucher_award_id)
+    );
+    if (hasVoucherLine && hasPaidLine) {
+      Alert.alert(
+        'Check out your prize separately',
+        'Your prize is redeemed on its own order. Remove your other items (or check them out first), then claim your prize so nothing is lost.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     if (
       !validateCheckoutSubmission({
         availablePaymentMethods,

@@ -85,6 +85,33 @@ export async function finalizeCheckoutPayment({
     return;
   }
 
+  // A quiz prize (voucher) order is pre-reserved and comes back already paid
+  // with nothing due to the gateway and no wallet/savings usage — so the
+  // store-credit check above returns undefined. Route straight to success:
+  // initializing an online gateway (Paystack/Korapay) or a bank transfer for a
+  // ₦0 order would fail or wrongly start a payment for a free prize.
+  if (
+    order?.payment_status === 'paid' &&
+    Number(orderResponse.amountDueToGateway ?? 0) <= 0
+  ) {
+    await clearAndPersistCheckoutCart(clearCart);
+    setIsProcessing(false);
+    isOrderInFlight.current = false;
+    router.replace({
+      pathname: '/order-success',
+      params: {
+        orderId: order.id,
+        orderNumber,
+        paymentMethod: selectedPayment,
+        ...(order.tracking_token && {
+          trackingToken: order.tracking_token,
+        }),
+      },
+    });
+    runPostOrderSideEffects();
+    return;
+  }
+
   const isOnlinePayment =
     selectedPayment === 'paystack' || selectedPayment === 'korapay';
   const isBankTransfer = selectedPayment === 'bank_transfer';

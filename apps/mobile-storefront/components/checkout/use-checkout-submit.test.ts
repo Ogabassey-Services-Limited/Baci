@@ -204,6 +204,42 @@ describe('useCheckoutSubmit', () => {
     jest.restoreAllMocks();
   });
 
+  it('blocks checkout of a mixed prize + paid cart before creating an order', async () => {
+    // A voucher (prize) line redeems as its own pre-reserved order; the server
+    // ignores the other items and the success path clears the cart, so a mixed
+    // cart would lose the paid line. Checkout must refuse before repricing or
+    // order creation.
+    cartItems = [
+      cartItem,
+      {
+        id: 'line-prize',
+        name: 'iPhone 15 (Prize)',
+        price: 0,
+        product_id: 'product-prize',
+        quantity: 1,
+        slug: 'iphone-15',
+        voucher_token: 'qv1.aaa.bbb',
+        voucher_award_id: 'award-1',
+      },
+    ];
+    const params = createParams();
+
+    const { result } = renderHook(() => useCheckoutSubmit(params));
+
+    await act(async () => {
+      await result.current(address);
+    });
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Check out your prize separately',
+      expect.stringContaining('redeemed on its own order'),
+      [{ text: 'OK' }]
+    );
+    expect(mockRepriceCartItems).not.toHaveBeenCalled();
+    expect(mockCreateOrder).not.toHaveBeenCalled();
+    expect(params.isOrderInFlight.current).toBe(false);
+  });
+
   it('updates stale cart prices and aborts checkout after validation passes', async () => {
     const changes: CartPriceChange[] = [
       {
