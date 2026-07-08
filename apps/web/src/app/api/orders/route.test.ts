@@ -18,6 +18,7 @@ const {
   mockResolveReceiptLogoDataUri,
   mockCreateAdminClient,
   mockRevalidateProducts,
+  mockRevalidateProductSlugs,
 } = vi.hoisted(() => ({
   MockQuizProductionNotApprovedError: class MockQuizProductionNotApprovedError extends Error {
     code = 'quiz_production_not_approved' as const;
@@ -54,10 +55,12 @@ const {
   ),
   mockCreateAdminClient: vi.fn(),
   mockRevalidateProducts: vi.fn(),
+  mockRevalidateProductSlugs: vi.fn(),
 }));
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: mockRevalidateProducts,
+  revalidateProductSlugs: mockRevalidateProductSlugs,
 }));
 
 vi.mock('@/lib/paystack', () => ({
@@ -185,6 +188,7 @@ function buildMockSupabase(
       id: string;
       name?: string | null;
       price: number;
+      slug?: string | null;
       vat_category_code?: string | null;
       vat_rate?: number | null;
       weight_unit?: string | null;
@@ -1625,6 +1629,77 @@ describe('POST /api/orders — product cache revalidation after order creation',
     expect(mockRevalidateProducts).toHaveBeenCalledExactlyOnceWith(MERCHANT_ID);
   });
 
+  it('resolves the touched product slugs and revalidates their per-slug PDP caches', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase(
+          {},
+          { productRows: [{ id: 'p-1', price: 1000, slug: 'test-widget' }] }
+        ) as unknown as never
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify(baseOrderPayload),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
+      MERCHANT_ID,
+      ['test-widget']
+    );
+  });
+
+  it('logs and still returns a successful order when the slug lookup fails', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(() => {
+      const supabase = buildMockSupabase();
+      const originalFrom = supabase.from;
+      supabase.from = vi.fn((table: string) => {
+        const original = originalFrom(table);
+        if (table !== 'products') {
+          return original;
+        }
+        // Only the slug-revalidation lookup selects exactly 'slug' — the
+        // pre-existing tax/negotiation product lookup selects other columns
+        // and must keep resolving via the default chain.
+        const select = vi.fn((columns: string) =>
+          columns === 'slug'
+            ? {
+                eq: vi.fn().mockReturnThis(),
+                in: vi.fn().mockReturnThis(),
+                returns: vi.fn().mockResolvedValue({
+                  data: null,
+                  error: { message: 'db down' },
+                }),
+              }
+            : original.select(columns)
+        );
+        return { ...original, select };
+      });
+      return supabase as unknown as never;
+    });
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify(baseOrderPayload),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(mockRevalidateProducts).toHaveBeenCalledExactlyOnceWith(MERCHANT_ID);
+    expect(mockRevalidateProductSlugs).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to resolve product slugs for PDP cache revalidation',
+      })
+    );
+  });
+
   it('does not revalidate when the order RPC returns an error', async () => {
     const supabaseMod = await import('@/lib/supabase/server');
     vi.mocked(supabaseMod.createClient).mockImplementation(
@@ -1646,6 +1721,7 @@ describe('POST /api/orders — product cache revalidation after order creation',
 
     expect(response.status).toBeGreaterThanOrEqual(400);
     expect(mockRevalidateProducts).not.toHaveBeenCalled();
+    expect(mockRevalidateProductSlugs).not.toHaveBeenCalled();
   });
 
   it('does not revalidate on an idempotent replay (no re-decrement occurred)', async () => {
@@ -1670,6 +1746,7 @@ describe('POST /api/orders — product cache revalidation after order creation',
 
     expect(response.status).toBe(200);
     expect(mockRevalidateProducts).not.toHaveBeenCalled();
+    expect(mockRevalidateProductSlugs).not.toHaveBeenCalled();
   });
 
   it('still returns a successful order when revalidateProducts throws', async () => {
@@ -1686,6 +1763,7 @@ describe('POST /api/orders — product cache revalidation after order creation',
 
     expect(response.status).toBe(201);
     expect(mockRevalidateProducts).toHaveBeenCalledExactlyOnceWith(MERCHANT_ID);
+    expect(mockRevalidateProductSlugs).not.toHaveBeenCalled();
   });
 });
 

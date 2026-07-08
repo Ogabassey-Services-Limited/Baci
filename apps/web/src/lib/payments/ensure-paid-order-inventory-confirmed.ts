@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { revalidateProducts } from '@/lib/cache-revalidation';
+import { logger } from '@/lib/logger';
 
 export class SerializedInventoryUnavailableError extends Error {
   constructor() {
@@ -62,10 +63,13 @@ export async function ensurePaidOrderInventoryConfirmed(
     try {
       revalidateProducts(merchantId);
     } catch (revalidateError) {
-      console.error(
-        'Failed to revalidate product caches after inventory confirmation',
-        { merchantId, orderId, error: revalidateError }
-      );
+      logger.error({
+        error: revalidateError,
+        message:
+          'Failed to revalidate product caches after inventory confirmation',
+        merchantId,
+        orderId,
+      });
     }
   }
 

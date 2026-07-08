@@ -27,7 +27,10 @@ import {
 } from '@/lib/agentic/checkout-order-finalization-claim';
 import type { AgenticMetadata } from '@/lib/agentic/checkout-storage';
 import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
-import { revalidateProducts } from '@/lib/cache-revalidation';
+import {
+  revalidateProductSlugs,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 
@@ -179,6 +182,44 @@ export async function finalizeAgenticCheckoutPayment({
     // storefront reflects it immediately. Only runs on the new-order branch.
     try {
       revalidateProducts(merchantId);
+
+      // revalidateProducts(merchantId) busts only the merchant-wide/listing
+      // tags — NOT the per-slug tag getCachedProduct() uses (the PDP's primary
+      // data source), so a just-sold-out product can keep rendering in-stock on
+      // its own PDP for the full 'products' cacheLife TTL. orderSessionCalc
+      // .lineItems carries only product_id (never slug), and item.product_id is
+      // always the PARENT product id (plain or variant line), so resolve slugs
+      // with one merchant-scoped, PK-indexed lookup and bust their PDP tags too.
+      const productIds = Array.from(
+        new Set(
+          orderSessionCalc.lineItems
+            .map((li) => li.item.product_id)
+            .filter(
+              (id): id is string => typeof id === 'string' && id.length > 0
+            )
+        )
+      );
+      if (productIds.length > 0) {
+        const { data: productsForRevalidate, error: slugLookupError } =
+          await supabase
+            .from('products')
+            .select('slug')
+            .in('id', productIds)
+            .eq('merchant_id', merchantId)
+            .returns<Array<{ slug: string }>>();
+        if (slugLookupError) {
+          logger.error({
+            error: sanitizeForLog(slugLookupError),
+            message: 'Failed to load product slugs for PDP cache revalidation',
+            sessionId: sanitizeForLog(sessionId),
+          });
+        } else {
+          revalidateProductSlugs(
+            merchantId,
+            (productsForRevalidate ?? []).map((p) => p.slug)
+          );
+        }
+      }
     } catch (revalidateError) {
       logger.error({
         error: sanitizeForLog(revalidateError),
