@@ -1,7 +1,7 @@
 'use client';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import BookingsPlaceholder from './bookings-placeholder';
+import BookingsManager from './bookings-manager';
 import CatalogManager from './catalog-manager';
 
 export default function RepairsCatalogClient() {
@@ -10,20 +10,20 @@ export default function RepairsCatalogClient() {
       <div>
         <h1 className="font-semibold text-2xl">Repairs</h1>
         <p className="text-muted-foreground text-sm">
-          Manage your device-first repair catalogue and (soon) bookings.
+          Manage your device-first repair catalogue and bookings.
         </p>
       </div>
 
-      <Tabs defaultValue="catalog">
+      <Tabs defaultValue="bookings">
         <TabsList>
-          <TabsTrigger value="catalog">Catalog</TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
+          <TabsTrigger value="catalog">Catalog</TabsTrigger>
         </TabsList>
+        <TabsContent value="bookings">
+          <BookingsManager />
+        </TabsContent>
         <TabsContent value="catalog">
           <CatalogManager />
-        </TabsContent>
-        <TabsContent value="bookings">
-          <BookingsPlaceholder />
         </TabsContent>
       </Tabs>
     </div>
