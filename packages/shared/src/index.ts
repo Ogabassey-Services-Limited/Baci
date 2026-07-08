@@ -6,6 +6,7 @@ export * from './imei';
 export * from './insurance';
 export * from './lib';
 export * from './receipt';
+export * from './repairs';
 export * from './schemas';
 export * from './storefront';
 export * from './types';
