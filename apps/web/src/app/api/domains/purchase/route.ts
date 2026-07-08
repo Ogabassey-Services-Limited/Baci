@@ -71,6 +71,34 @@ function hasDomainRegistrarProof(domain: {
   );
 }
 
+function getDomainRegistrationFailureMessage(error: unknown) {
+  return error instanceof Error
+    ? error.message.toLowerCase()
+    : JSON.stringify(error ?? '').toLowerCase();
+}
+
+function isTerminalDomainRegistrationFailure(error: unknown) {
+  const message = getDomainRegistrationFailureMessage(error);
+  const terminalPatterns = [
+    'already registered',
+    'already taken',
+    'balance',
+    'contact',
+    'domain is unavailable',
+    'domain not available',
+    'domain unavailable',
+    'insufficient',
+    'invalid',
+    'missing',
+    'not available for registration',
+    'premium',
+    'required',
+    'unsupported',
+  ];
+
+  return terminalPatterns.some((pattern) => message.includes(pattern));
+}
+
 /**
  * POST /api/domains/purchase
  * Purchase a domain through Go54
@@ -965,6 +993,41 @@ export async function POST(request: NextRequest) {
       console.error('Go54 registration error:', go54Error);
       const errorMessage =
         go54Error instanceof Error ? go54Error.message : 'Unknown error';
+
+      if (isTerminalDomainRegistrationFailure(go54Error)) {
+        const released = await releaseDomainFulfillmentClaim(
+          adminSupabase,
+          claimRelease
+        );
+        if (!released) {
+          console.error(
+            'Terminal Go54 registration error could not release domain fulfillment claim:',
+            { transactionId: payment.id, domain, error: errorMessage }
+          );
+          return NextResponse.json(
+            {
+              error:
+                'Failed to register domain with Go54 and release retry claim',
+              details: errorMessage,
+            },
+            { status: 500 }
+          );
+        }
+
+        console.error(
+          'Terminal Go54 registration error — claim released for manual retry:',
+          { transactionId: payment.id, domain, error: errorMessage }
+        );
+        return NextResponse.json(
+          {
+            error: 'Failed to register domain with Go54',
+            details: errorMessage,
+            suggestion:
+              'Please review the domain details or registrar account and try again',
+          },
+          { status: 502 }
+        );
+      }
 
       // Registration threw mid-flight — the registrar outcome is UNKNOWN
       // (e.g. a timeout after the order was accepted), so the claim is

@@ -399,6 +399,72 @@ describe('POST /api/domains/purchase transaction scoping', () => {
     expect(registerDomain).not.toHaveBeenCalled();
   });
 
+  it('releases the fulfillment claim when Go54 throws a definitive registrar rejection', async () => {
+    supabase = createSupabase(
+      {
+        amount: 100,
+        gateway: 'paystack',
+        id: 'transaction-owned',
+        merchant_id: 'merchant-1',
+        metadata: null,
+        status: 'completed',
+      },
+      undefined,
+      null
+    );
+
+    const { registerDomain } = await import('@/lib/go54');
+    vi.mocked(registerDomain).mockRejectedValue(
+      new Error('Go54 API Error: {"message":"invalid contact data"}')
+    );
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(502);
+    expect(registerDomain).toHaveBeenCalledTimes(1);
+    expect(
+      mocks.transactionMutations.some((mutation) => {
+        const metadata = mutation.payload.metadata as
+          | Record<string, unknown>
+          | undefined;
+        return metadata && Object.keys(metadata).length === 0;
+      })
+    ).toBe(true);
+  });
+
+  it('retains the fulfillment claim when Go54 throws an ambiguous transport error', async () => {
+    supabase = createSupabase(
+      {
+        amount: 100,
+        gateway: 'paystack',
+        id: 'transaction-owned',
+        merchant_id: 'merchant-1',
+        metadata: null,
+        status: 'completed',
+      },
+      undefined,
+      null
+    );
+
+    const { registerDomain } = await import('@/lib/go54');
+    vi.mocked(registerDomain).mockRejectedValue(
+      new Error('socket timeout after request write')
+    );
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(500);
+    expect(registerDomain).toHaveBeenCalledTimes(1);
+    expect(
+      mocks.transactionMutations.some((mutation) => {
+        const metadata = mutation.payload.metadata as
+          | Record<string, unknown>
+          | undefined;
+        return metadata && Object.keys(metadata).length === 0;
+      })
+    ).toBe(false);
+  });
+
   it('verifies (never re-registers) a fulfilled payment whose domains row exists (review #2991 P2 regression test)', async () => {
     supabase = createSupabase({
       amount: 100,

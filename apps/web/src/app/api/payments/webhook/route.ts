@@ -99,12 +99,16 @@ function hasDomainRegistrarProof(domain: {
   );
 }
 
-function isRetryableDomainRegistrationFailure(error: unknown) {
-  const message =
-    typeof error === 'string'
+function getDomainRegistrationFailureMessage(error: unknown) {
+  return error instanceof Error
+    ? error.message.toLowerCase()
+    : typeof error === 'string'
       ? error.toLowerCase()
       : JSON.stringify(error ?? '').toLowerCase();
+}
 
+function isTerminalDomainRegistrationFailure(error: unknown) {
+  const message = getDomainRegistrationFailureMessage(error);
   const terminalPatterns = [
     'already registered',
     'already taken',
@@ -121,7 +125,14 @@ function isRetryableDomainRegistrationFailure(error: unknown) {
     'required',
     'unsupported',
   ];
-  if (terminalPatterns.some((pattern) => message.includes(pattern))) {
+
+  return terminalPatterns.some((pattern) => message.includes(pattern));
+}
+
+function isRetryableDomainRegistrationFailure(error: unknown) {
+  const message = getDomainRegistrationFailureMessage(error);
+
+  if (isTerminalDomainRegistrationFailure(error)) {
     return false;
   }
 
@@ -2485,6 +2496,43 @@ export async function POST(request: NextRequest) {
             { error: 'Domain fulfillment failed before registrar attempt' },
             { status: 500 }
           );
+        }
+
+        if (
+          claimToken &&
+          registrarAttemptStamped &&
+          isTerminalDomainRegistrationFailure(err)
+        ) {
+          const released = await releaseDomainFulfillmentClaim(supabase, {
+            transactionId: transaction.id,
+            metadata,
+            claimant: 'webhook',
+            claimedAt: claimToken,
+          });
+          if (!released) {
+            logger.error({
+              message:
+                'Terminal thrown registrar failure could not release domain fulfillment claim',
+              reference,
+              transactionId: transaction.id,
+              domain: fallbackDomain,
+              error: err,
+            });
+            return NextResponse.json(
+              { error: 'Domain terminal failure release failed' },
+              { status: 503 }
+            );
+          }
+
+          logger.error({
+            message:
+              'Domain registration threw terminally — accepting webhook for manual review',
+            reference,
+            transactionId: transaction.id,
+            domain: fallbackDomain,
+            error: err,
+          });
+          return null;
         }
 
         if (claimToken) {
