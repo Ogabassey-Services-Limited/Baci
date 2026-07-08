@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getLaunchPaymentRequirement,
   hasLaunchablePaymentMethod,
   isBankTransferCheckoutAvailable,
   isForcedGatewayAvailable,
@@ -7,6 +8,8 @@ import {
   isKorapayCheckoutCurrencySupported,
   isKorapaySettlementCurrencyMatch,
   isPayOnDeliveryCheckoutAvailable,
+  isPaypalCheckoutAvailable,
+  isPaypalPresentableCurrency,
   isPaystackCheckoutAvailable,
 } from '@/lib/checkout/payment-gateway-availability';
 
@@ -298,6 +301,188 @@ describe('payment-gateway-availability', () => {
       })
     ).toBe(false);
   });
+
+  it('treats a non-NG merchant with a connected PayPal account as launchable', () => {
+    expect(
+      hasLaunchablePaymentMethod({
+        country: 'US',
+        bank_account_number: null,
+        bank_code: null,
+        paystack_subaccount_code: null,
+        feature_settings: { pay_on_delivery_enabled: false },
+        paypalConnected: true,
+      })
+    ).toBe(true);
+  });
+
+  it('does not let a connected PayPal account satisfy the requirement for an NG merchant', () => {
+    expect(
+      hasLaunchablePaymentMethod({
+        country: 'NG',
+        bank_account_number: null,
+        bank_code: null,
+        paystack_subaccount_code: null,
+        feature_settings: {},
+        paypalConnected: true,
+      })
+    ).toBe(false);
+  });
+});
+
+describe('isPaypalCheckoutAvailable', () => {
+  it('returns true only when the precomputed paypalConnected flag is true', () => {
+    expect(isPaypalCheckoutAvailable({ paypalConnected: true })).toBe(true);
+    expect(isPaypalCheckoutAvailable({ paypalConnected: false })).toBe(false);
+    expect(isPaypalCheckoutAvailable({})).toBe(false);
+    expect(isPaypalCheckoutAvailable(null)).toBe(false);
+    expect(isPaypalCheckoutAvailable(undefined)).toBe(false);
+  });
+});
+
+describe('isPaypalCheckoutAvailable — storefront currency-aware path', () => {
+  const enabledMerchant = {
+    country: 'GB',
+    feature_settings: { custom_settings: { paypal_enabled: true } },
+  };
+
+  it('returns true when paypal_enabled and the currency is PayPal-native (USD)', () => {
+    expect(isPaypalCheckoutAvailable(enabledMerchant, 'USD')).toBe(true);
+  });
+
+  it('returns true when paypal_enabled and the currency is NGN (live-FX path)', () => {
+    expect(isPaypalCheckoutAvailable(enabledMerchant, 'NGN')).toBe(true);
+  });
+
+  it('reads paypal_enabled from an array-wrapped feature_settings join', () => {
+    expect(
+      isPaypalCheckoutAvailable(
+        { feature_settings: [{ custom_settings: { paypal_enabled: true } }] },
+        'EUR'
+      )
+    ).toBe(true);
+  });
+
+  it('returns false when the order currency is not PayPal-presentable (KES)', () => {
+    expect(isPaypalCheckoutAvailable(enabledMerchant, 'KES')).toBe(false);
+  });
+
+  it('returns false when paypal_enabled is not set, even for a native currency', () => {
+    expect(
+      isPaypalCheckoutAvailable(
+        { feature_settings: { custom_settings: {} } },
+        'USD'
+      )
+    ).toBe(false);
+    expect(
+      isPaypalCheckoutAvailable(
+        { feature_settings: { custom_settings: { paypal_enabled: false } } },
+        'USD'
+      )
+    ).toBe(false);
+    expect(isPaypalCheckoutAvailable({ feature_settings: {} }, 'USD')).toBe(
+      false
+    );
+  });
+
+  it('ignores the paypalConnected flag on the currency-aware path (uses the toggle)', () => {
+    // paypalConnected is the readiness signal; the storefront path keys off the
+    // customer-facing enable toggle instead.
+    expect(
+      isPaypalCheckoutAvailable(
+        { paypalConnected: true, feature_settings: {} },
+        'USD'
+      )
+    ).toBe(false);
+  });
+
+  it('returns false for a missing merchant regardless of currency', () => {
+    expect(isPaypalCheckoutAvailable(null, 'USD')).toBe(false);
+    expect(isPaypalCheckoutAvailable(undefined, 'USD')).toBe(false);
+  });
+});
+
+describe('isPaypalPresentableCurrency', () => {
+  it('accepts PayPal-native currencies case-insensitively', () => {
+    expect(isPaypalPresentableCurrency('usd')).toBe(true);
+    expect(isPaypalPresentableCurrency(' EUR ')).toBe(true);
+    expect(isPaypalPresentableCurrency('GBP')).toBe(true);
+  });
+
+  it('accepts NGN via the live-FX conversion path', () => {
+    expect(isPaypalPresentableCurrency('NGN')).toBe(true);
+    expect(isPaypalPresentableCurrency('ngn')).toBe(true);
+  });
+
+  it('rejects currencies PayPal cannot present (KES) and blank input', () => {
+    expect(isPaypalPresentableCurrency('KES')).toBe(false);
+    expect(isPaypalPresentableCurrency('')).toBe(false);
+    expect(isPaypalPresentableCurrency(null)).toBe(false);
+    expect(isPaypalPresentableCurrency(undefined)).toBe(false);
+  });
+});
+
+describe('getLaunchPaymentRequirement — PayPal (Wave 2)', () => {
+  it('marks the requirement completed for a non-NG merchant with a connected PayPal account', () => {
+    const requirement = getLaunchPaymentRequirement({
+      country: 'GB',
+      paystack_subaccount_code: null,
+      feature_settings: { pay_on_delivery_enabled: false },
+      paypalConnected: true,
+    });
+
+    expect(requirement).toEqual({
+      id: 'payment_method',
+      label: 'Enable a payment method',
+      description: 'PayPal is connected for customer checkout',
+      completed: true,
+    });
+  });
+
+  it('prefers Pay on Delivery over PayPal when both are available (POD checked first)', () => {
+    const requirement = getLaunchPaymentRequirement({
+      country: 'GB',
+      feature_settings: { pay_on_delivery_enabled: true },
+      paypalConnected: true,
+    });
+
+    expect(requirement).toMatchObject({
+      id: 'payment_method',
+      description: 'Pay on Delivery is enabled for customer checkout',
+      completed: true,
+    });
+  });
+
+  it('does not let a connected PayPal account satisfy the requirement for an NG merchant', () => {
+    const requirement = getLaunchPaymentRequirement({
+      country: 'NG',
+      paystack_subaccount_code: null,
+      feature_settings: {},
+      paypalConnected: true,
+    });
+
+    expect(requirement).toEqual({
+      id: 'bank_account',
+      label: 'Add bank account',
+      description: 'Required to receive payments via Paystack',
+      completed: false,
+    });
+  });
+
+  it('mentions connecting a payment provider in the incomplete non-NG message', () => {
+    const requirement = getLaunchPaymentRequirement({
+      country: 'GB',
+      feature_settings: { pay_on_delivery_enabled: false },
+      paypalConnected: false,
+    });
+
+    expect(requirement).toEqual({
+      id: 'payment_method',
+      label: 'Enable a payment method',
+      description:
+        'Enable Pay on Delivery or connect a payment provider (e.g. PayPal) to accept online payments',
+      completed: false,
+    });
+  });
 });
 
 describe('isKorapaySettlementCurrencyMatch', () => {
@@ -430,5 +615,35 @@ describe('isForcedGatewayAvailable', () => {
       isForcedGatewayAvailable('juicyway', { feature_settings: {} }, 'NGN')
     ).toBe(true);
     expect(isForcedGatewayAvailable('juicyway', null, 'NGN')).toBe(true);
+  });
+
+  it('allows forced paypal when enabled with a PayPal-presentable currency', () => {
+    const merchant = {
+      country: 'GB',
+      feature_settings: { custom_settings: { paypal_enabled: true } },
+    };
+
+    expect(isForcedGatewayAvailable('paypal', merchant, 'USD')).toBe(true);
+    expect(isForcedGatewayAvailable('paypal', merchant, 'NGN')).toBe(true);
+  });
+
+  it('rejects forced paypal when the currency is not PayPal-presentable', () => {
+    const merchant = {
+      country: 'KE',
+      feature_settings: { custom_settings: { paypal_enabled: true } },
+    };
+
+    expect(isForcedGatewayAvailable('paypal', merchant, 'KES')).toBe(false);
+  });
+
+  it('rejects forced paypal when the merchant has not enabled paypal', () => {
+    expect(
+      isForcedGatewayAvailable(
+        'paypal',
+        { feature_settings: { custom_settings: {} } },
+        'USD'
+      )
+    ).toBe(false);
+    expect(isForcedGatewayAvailable('paypal', null, 'USD')).toBe(false);
   });
 });

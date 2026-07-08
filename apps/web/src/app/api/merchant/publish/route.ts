@@ -6,10 +6,12 @@ import {
 } from '@/lib/api-auth';
 import {
   getLaunchPaymentRequirement,
+  isBaciPaystackSettlementCountry,
   requiresNigerianKycForLaunch,
 } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getStorefrontPublicationCacheIdentity } from '@/lib/get-storefront-publication-cache-identity';
+import { isPaypalConnectionValidForLaunch } from '@/lib/payments/paypal-launch-connection';
 import { evictStorefrontPublicationCaches } from '@/lib/storefront-publication-cache-eviction';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -137,7 +139,9 @@ export async function POST(request: NextRequest) {
     const { data: featureSettings, error: featureSettingsError } =
       await supabase
         .from('merchant_feature_settings')
-        .select('paystack_enabled, korapay_enabled, pay_on_delivery_enabled')
+        .select(
+          'paystack_enabled, korapay_enabled, pay_on_delivery_enabled, custom_settings'
+        )
         .eq('merchant_id', merchant.id)
         .maybeSingle();
 
@@ -152,9 +156,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // BYOK (Wave 2): only non-NG merchants can satisfy the launch requirement
+    // via PayPal — skip the vault round-trip for NG merchants entirely.
+    const paypalConnected = isBaciPaystackSettlementCountry(merchant.country)
+      ? false
+      : await isPaypalConnectionValidForLaunch(
+          merchant.id,
+          (featureSettings?.custom_settings as Record<string, unknown>) ?? null
+        );
+
     const paymentMerchant = {
       ...merchant,
       feature_settings: featureSettings ?? undefined,
+      paypalConnected,
     };
 
     // Check for required setup items

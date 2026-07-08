@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   getMerchantForApiRequest: vi.fn(),
   hasPermission: vi.fn(),
+  isPaypalConnectionValidForLaunch: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -18,6 +19,10 @@ vi.mock('@/lib/api-auth', () => ({
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: mocks.getMerchantForApiRequest,
   toUserAccess: vi.fn((context) => context.staffAccess),
+}));
+
+vi.mock('@/lib/payments/paypal-launch-connection', () => ({
+  isPaypalConnectionValidForLaunch: mocks.isPaypalConnectionValidForLaunch,
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
@@ -181,6 +186,7 @@ describe('GET /api/merchant/readiness', () => {
       },
     });
     mocks.createAdminClient.mockReturnValue(createAdminSupabaseMock());
+    mocks.isPaypalConnectionValidForLaunch.mockResolvedValue(false);
   });
 
   it('returns 401 when no web session exists', async () => {
@@ -274,6 +280,92 @@ describe('GET /api/merchant/readiness', () => {
       ])
     );
     expect(body.isReady).toBe(true);
+  });
+
+  it('marks the launch payment requirement complete for a non-NG merchant with a validated PayPal connection', async () => {
+    mocks.isPaypalConnectionValidForLaunch.mockResolvedValue(true);
+    mocks.createClient.mockReturnValue(
+      createReadinessSupabaseMock({
+        merchant: {
+          ...merchantRow(),
+          country: 'GB',
+          bank_account_number: null,
+          bank_code: null,
+          paystack_subaccount_code: null,
+        },
+        featureSettings: {
+          korapay_enabled: false,
+          pay_on_delivery_enabled: false,
+          paystack_enabled: false,
+        },
+      })
+    );
+
+    const { GET } = await import('./route');
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.isPaypalConnectionValidForLaunch).toHaveBeenCalledWith(
+      'merchant-1',
+      null
+    );
+    expect(body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'payment_method',
+          completed: true,
+          description: 'PayPal is connected for customer checkout',
+        }),
+      ])
+    );
+    expect(body.isReady).toBe(true);
+  });
+
+  it('never checks the PayPal vault for an NG merchant', async () => {
+    mocks.createClient.mockReturnValue(createReadinessSupabaseMock());
+
+    const { GET } = await import('./route');
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    expect(mocks.isPaypalConnectionValidForLaunch).not.toHaveBeenCalled();
+  });
+
+  it('mentions connecting a payment provider for a non-NG merchant with no payment method configured', async () => {
+    mocks.createClient.mockReturnValue(
+      createReadinessSupabaseMock({
+        merchant: {
+          ...merchantRow(),
+          country: 'GB',
+          bank_account_number: null,
+          bank_code: null,
+          paystack_subaccount_code: null,
+        },
+        featureSettings: {
+          korapay_enabled: false,
+          pay_on_delivery_enabled: false,
+          paystack_enabled: false,
+        },
+      })
+    );
+
+    const { GET } = await import('./route');
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'payment_method',
+          completed: false,
+          description:
+            'Enable Pay on Delivery or connect a payment provider (e.g. PayPal) to accept online payments',
+        }),
+      ])
+    );
+    expect(body.isReady).toBe(false);
   });
 
   it('marks contact info complete when only the onboarding account email exists', async () => {

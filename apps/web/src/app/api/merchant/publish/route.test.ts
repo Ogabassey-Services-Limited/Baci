@@ -138,6 +138,12 @@ vi.mock('@/lib/csrf', () => ({
   ),
 }));
 
+const mockIsPaypalConnectionValidForLaunch = vi.fn();
+vi.mock('@/lib/payments/paypal-launch-connection', () => ({
+  isPaypalConnectionValidForLaunch: (...args: unknown[]) =>
+    mockIsPaypalConnectionValidForLaunch(...args),
+}));
+
 // ---- Import handlers AFTER mocks ----
 import { DELETE, POST } from './route';
 
@@ -291,6 +297,7 @@ describe('POST /api/merchant/publish', () => {
     setupVerification({ nin_verified: true });
     // Restore default admin mock implementation
     mockCreateAdminClient.mockImplementation(() => createMockAdminSupabase());
+    mockIsPaypalConnectionValidForLaunch.mockResolvedValue(false);
   });
 
   describe('authentication', () => {
@@ -436,6 +443,79 @@ describe('POST /api/merchant/publish', () => {
       expect(json.error).toBe('Failed to load payment settings');
       expect(mockGetStorefrontPublicationCacheIdentity).not.toHaveBeenCalled();
       expect(mockEvictStorefrontPublicationCaches).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('validation - BYOK PayPal (Wave 2)', () => {
+    it('publishes a non-NG merchant with a validated PayPal connection and no bank/POD details', async () => {
+      setupAuth(true, true);
+      setupMerchantData({
+        country: 'GB',
+        bank_code: null,
+        bank_account_number: null,
+        paystack_subaccount_code: null,
+      });
+      setupFeatureSettings({
+        pay_on_delivery_enabled: false,
+        paystack_enabled: false,
+      });
+      setupVerification({
+        nin_verified: false,
+        bvn_verified: false,
+        cac_verified: false,
+      });
+      mockIsPaypalConnectionValidForLaunch.mockResolvedValue(true);
+      setupProductCount(1, 1);
+      setupUpdateSuccess();
+
+      const res = await POST(makeRequest('POST'));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(mockIsPaypalConnectionValidForLaunch).toHaveBeenCalledWith(
+        MERCHANT_ID,
+        null
+      );
+    });
+
+    it('never checks the PayPal vault for an NG merchant', async () => {
+      setupAuth(true, true);
+      setupMerchantData({});
+      setupProductCount(1, 1);
+      setupUpdateSuccess();
+
+      const res = await POST(makeRequest('POST'));
+
+      expect(res.status).toBe(200);
+      expect(mockIsPaypalConnectionValidForLaunch).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 with the payment-method message for a non-NG merchant with no PayPal connection or POD', async () => {
+      setupAuth(true, true);
+      setupMerchantData({
+        country: 'GB',
+        bank_code: null,
+        bank_account_number: null,
+        paystack_subaccount_code: null,
+      });
+      setupFeatureSettings({
+        pay_on_delivery_enabled: false,
+        paystack_enabled: false,
+      });
+      setupVerification({
+        nin_verified: false,
+        bvn_verified: false,
+        cac_verified: false,
+      });
+      mockIsPaypalConnectionValidForLaunch.mockResolvedValue(false);
+      setupProductCount(1, 1);
+
+      const res = await POST(makeRequest('POST'));
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.missingItems).toContain('Payment method');
     });
   });
 

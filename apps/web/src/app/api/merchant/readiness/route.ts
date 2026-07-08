@@ -3,12 +3,14 @@ import { NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
 import {
   getLaunchPaymentRequirement,
+  isBaciPaystackSettlementCountry,
   requiresNigerianKycForLaunch,
 } from '@/lib/checkout/payment-gateway-availability';
 import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { isPaypalConnectionValidForLaunch } from '@/lib/payments/paypal-launch-connection';
 import {
   buildStoreBuildStatus,
   type StoreBuildStatus,
@@ -241,7 +243,9 @@ export async function GET() {
         .maybeSingle(),
       supabase
         .from('merchant_feature_settings')
-        .select('paystack_enabled, korapay_enabled, pay_on_delivery_enabled')
+        .select(
+          'paystack_enabled, korapay_enabled, pay_on_delivery_enabled, custom_settings'
+        )
         .eq('merchant_id', validMerchant.id)
         .maybeSingle(),
     ]);
@@ -294,9 +298,22 @@ export async function GET() {
       hasPermission(access, 'builder', 'edit')
     );
 
+    // BYOK (Wave 2): only non-NG merchants can satisfy the launch requirement
+    // via PayPal, so skip the vault round-trip entirely for NG merchants —
+    // they stay on the Paystack bank-account requirement regardless.
+    const paypalConnected = isBaciPaystackSettlementCountry(
+      validMerchant.country
+    )
+      ? false
+      : await isPaypalConnectionValidForLaunch(
+          validMerchant.id,
+          (featureSettings?.custom_settings as Record<string, unknown>) ?? null
+        );
+
     const paymentMerchant = {
       ...validMerchant,
       feature_settings: featureSettings ?? undefined,
+      paypalConnected,
     };
     const kycRequired = requiresNigerianKycForLaunch(paymentMerchant);
     const paymentRequirement = getLaunchPaymentRequirement(paymentMerchant);

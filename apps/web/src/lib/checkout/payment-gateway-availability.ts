@@ -1,3 +1,5 @@
+import { PAYPAL_SUPPORTED_CURRENCIES } from '@/lib/paypal/paypal-currency';
+
 export interface CheckoutPaymentMerchant {
   bank_account_number?: string | null;
   bank_code?: string | null;
@@ -10,6 +12,15 @@ export interface CheckoutPaymentMerchant {
    */
   paystack_subaccount_configured?: boolean | null;
   feature_settings?: unknown;
+  // Precomputed by the caller (Wave 2, see
+  // docs/payments/byok-payment-providers-plan.md Phase 2 item 10): whether
+  // the merchant has PayPal enabled with a validated *live* vault credential
+  // (`isPaypalConnectionValidForLaunch` in
+  // lib/payments/paypal-launch-connection.ts). This module stays synchronous
+  // and never talks to the credential vault itself — callers that need this
+  // field (readiness/publish routes) fetch it once and pass it in, the same
+  // way `feature_settings` is already threaded through.
+  paypalConnected?: boolean;
 }
 
 export interface LaunchPaymentRequirement {
@@ -74,6 +85,67 @@ function readPayOnDeliveryEnabled(settings: unknown): boolean | undefined {
 
 function readWalletPaystackDvaEnabled(settings: unknown): boolean | undefined {
   return readBooleanSetting(settings, 'wallet_paystack_dva_enabled');
+}
+
+// Reads a boolean from `feature_settings.custom_settings` (a nested JSONB blob),
+// where the non-secret PayPal toggle lives (`paypal_enabled`), rather than the
+// top-level feature-settings columns the other readers use. Handles the same
+// array-wrapped shape (edge SQL sometimes returns single joins as arrays).
+function readCustomSettingBoolean(
+  settings: unknown,
+  key: string
+): boolean | undefined {
+  const normalizedSettings = Array.isArray(settings) ? settings[0] : settings;
+  if (
+    !normalizedSettings ||
+    typeof normalizedSettings !== 'object' ||
+    Array.isArray(normalizedSettings)
+  ) {
+    return undefined;
+  }
+
+  const custom = (normalizedSettings as Record<string, unknown>)
+    .custom_settings;
+  const normalizedCustom = Array.isArray(custom) ? custom[0] : custom;
+  if (
+    !normalizedCustom ||
+    typeof normalizedCustom !== 'object' ||
+    Array.isArray(normalizedCustom)
+  ) {
+    return undefined;
+  }
+
+  const value = (normalizedCustom as Record<string, unknown>)[key];
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+// The customer-facing PayPal enable toggle. Lives in
+// `merchant_feature_settings.custom_settings.paypal_enabled` (non-secret config;
+// the credentials themselves are in the encrypted vault). Only the boolean is
+// ever read here — never any other `custom_settings` key.
+function readPaypalEnabled(settings: unknown): boolean | undefined {
+  return readCustomSettingBoolean(settings, 'paypal_enabled');
+}
+
+// The order currency Baci converts *from* when presenting a PayPal order in a
+// PayPal-native currency (NGN orders are converted to USD by the create-order
+// route's live-FX path — see paypal-create-order-helpers.ts).
+const PAYPAL_FX_SOURCE_CURRENCY = 'NGN';
+
+// Whether an order currency can be presented to PayPal: either a currency PayPal
+// natively accepts (USD/EUR/GBP/...) or NGN via the route's fail-closed live-FX
+// path. Kept consistent with what the create-order route actually accepts
+// (`PAYPAL_SUPPORTED_CURRENCIES` + the NGN branch of `resolvePaypalPresentment`)
+// so the storefront never offers PayPal for a currency the route would reject.
+export function isPaypalPresentableCurrency(
+  currency: string | null | undefined
+): boolean {
+  const normalized = currency?.trim().toUpperCase();
+  if (!normalized) return false;
+  return (
+    normalized === PAYPAL_FX_SOURCE_CURRENCY ||
+    PAYPAL_SUPPORTED_CURRENCIES.has(normalized)
+  );
 }
 
 function normalizePaymentCountryCode(
@@ -157,6 +229,48 @@ export function isKorapayCheckoutAvailable(
   return isKorapaySettlementCurrencyMatch(country, currency);
 }
 
+// Two surfaces gate PayPal differently, so this helper is intentionally
+// bimodal on whether an order `currency` is supplied:
+//
+//   • Launch-readiness / publish (server, vault-aware) call with NO currency →
+//     it requires the server-precomputed, vault-validated *live* credential
+//     (`paypalConnected`, see `CheckoutPaymentMerchant`). Merely toggling PayPal
+//     on must NOT mark a store launch-ready. This branch is unchanged from the
+//     original single-arg signature, so those call sites keep working.
+//
+//   • Storefront checkout (client, no vault access) calls WITH the order
+//     currency → it gates on the customer-facing enable toggle
+//     (`custom_settings.paypal_enabled`) plus a PayPal-presentable currency.
+//     The create-order/capture-order routes independently fail closed on a
+//     missing/invalid vault credential, so the client gate mirrors how
+//     paystack/korapay gate their options on the enable flag alone.
+export function isPaypalCheckoutAvailable(
+  merchant: CheckoutPaymentMerchant | null | undefined,
+  currency?: string | null
+): boolean {
+  if (!merchant) return false;
+
+  if (currency === undefined) {
+    return merchant.paypalConnected === true;
+  }
+
+  if (readPaypalEnabled(merchant.feature_settings) !== true) return false;
+  return isPaypalPresentableCurrency(currency);
+}
+
+// BYOK lanes are scoped to non-NG merchants for now (see the plan's Open
+// Questions §4): an NG merchant's orders are NGN, which is exactly the case
+// that needs an FX workstream this wave deliberately defers. NG merchants
+// stay on Paystack platform rails only, even if `paypalConnected` is
+// (unexpectedly) true for them.
+function canUsePaypalForLaunch(
+  merchant: CheckoutPaymentMerchant | null | undefined
+): boolean {
+  if (!merchant) return false;
+  if (isBaciPaystackSettlementCountry(merchant.country)) return false;
+  return isPaypalCheckoutAvailable(merchant);
+}
+
 export function isPayOnDeliveryCheckoutAvailable(
   merchant: CheckoutPaymentMerchant | null | undefined
 ): boolean {
@@ -173,16 +287,20 @@ export function isBankTransferCheckoutAvailable(
   return readWalletPaystackDvaEnabled(merchant?.feature_settings) === true;
 }
 
-// Gateways a storefront checkout can force via the initialize route's `gateway`
-// field. MUST stay in sync with PAYMENT_GATEWAYS in
-// `app/api/payments/initialize/route.ts`.
+// Gateways a storefront checkout can force. The first six MUST stay in sync
+// with PAYMENT_GATEWAYS in `app/api/payments/initialize/route.ts` (the route's
+// `gateway` field). `paypal` is NOT in that list — it settles through its own
+// dedicated create-order/capture-order routes, not the initialize route — but
+// it's included here so the storefront and any forced-gateway guard can gate a
+// forced PayPal selection through the same availability matrix.
 export type ForcedCheckoutGateway =
   | 'paystack'
   | 'korapay'
   | 'juicyway'
   | 'credit_direct'
   | 'credpal'
-  | 'klump';
+  | 'klump'
+  | 'paypal';
 
 function readCreditDirectEnabled(settings: unknown): boolean | undefined {
   return readBooleanSetting(settings, 'credit_direct_enabled');
@@ -224,6 +342,8 @@ export function isForcedGatewayAvailable(
       return readCredpalEnabled(merchant?.feature_settings) === true;
     case 'klump':
       return readKlumpEnabled(merchant?.feature_settings) === true;
+    case 'paypal':
+      return isPaypalCheckoutAvailable(merchant, currency);
     case 'juicyway':
       return true;
     default:
@@ -247,7 +367,8 @@ export function hasLaunchablePaymentMethod(
 ): boolean {
   return (
     hasPaystackSettlementDetails(merchant) ||
-    isPayOnDeliveryCheckoutAvailable(merchant)
+    isPayOnDeliveryCheckoutAvailable(merchant) ||
+    canUsePaypalForLaunch(merchant)
   );
 }
 
@@ -280,6 +401,19 @@ export function getLaunchPaymentRequirement(
     };
   }
 
+  // Wave 2 (BYOK Phase 2 item 10): a non-NG merchant can also satisfy this
+  // requirement with a connected, validated PayPal account — NG merchants
+  // stay on the Paystack bank-account requirement below regardless of
+  // `paypalConnected` (see `canUsePaypalForLaunch`).
+  if (canUsePaypalForLaunch(merchant)) {
+    return {
+      id: 'payment_method',
+      label: 'Enable a payment method',
+      description: 'PayPal is connected for customer checkout',
+      completed: true,
+    };
+  }
+
   if (!merchant || isBaciPaystackSettlementCountry(merchant.country)) {
     return {
       id: 'bank_account',
@@ -292,7 +426,8 @@ export function getLaunchPaymentRequirement(
   return {
     id: 'payment_method',
     label: 'Enable a payment method',
-    description: 'Enable Pay on Delivery or request an online payment provider',
+    description:
+      'Enable Pay on Delivery or connect a payment provider (e.g. PayPal) to accept online payments',
     completed: false,
   };
 }
