@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
     const { data: orders, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, merchant_id, total, payment_status, shipping_status, payment_method, customer_email, customer_name, order_number, notes'
+        'id, merchant_id, total, amount_paid, wallet_amount_used, payment_status, shipping_status, payment_method, customer_email, customer_name, order_number, notes'
       )
       .in('payment_method', ['credit_direct', 'klump'])
       .ilike('notes', `%${payload.checkoutTransactionId}%`);
@@ -175,6 +175,8 @@ export async function POST(request: NextRequest) {
       id: string;
       merchant_id: string;
       total: number;
+      amount_paid: number | string | null;
+      wallet_amount_used: number | string | null;
       payment_status: string;
       shipping_status: string | null;
       payment_method: string | null;
@@ -188,7 +190,7 @@ export async function POST(request: NextRequest) {
       const { data: orderById } = await supabase
         .from('orders')
         .select(
-          'id, merchant_id, total, payment_status, shipping_status, payment_method, customer_email, customer_name, order_number, notes'
+          'id, merchant_id, total, amount_paid, wallet_amount_used, payment_status, shipping_status, payment_method, customer_email, customer_name, order_number, notes'
         )
         .eq('id', payload.metaData)
         .single();
@@ -219,9 +221,46 @@ export async function POST(request: NextRequest) {
     const activeSessionId = readNoteString(parsedNotes.creditDirectSessionId);
     const activeReference = activeTransactionId ?? activeSessionId;
 
+    const matchesActiveReference =
+      activeReference === payload.checkoutTransactionId;
+    // The launcher persists the popup transaction id best-effort; if that
+    // write failed (e.g. the WebView navigated away mid-flight), notes still
+    // hold only the sign-time session id. Accept the payload for this order
+    // when no popup reference was ever persisted and the webhook's metaData
+    // names this order — but positively exclude references retained from
+    // superseded sessions (set_credit_direct_session keeps them in
+    // creditDirectSupersededReferences on every re-sign) and payloads whose
+    // event time predates the current session's signing, so a retried
+    // checkout cannot have a stale session's webhook clobber the live one.
+    const supersededReferences = Array.isArray(
+      parsedNotes.creditDirectSupersededReferences
+    )
+      ? parsedNotes.creditDirectSupersededReferences.filter(
+          (value): value is string => typeof value === 'string'
+        )
+      : [];
+    const isSupersededReference = supersededReferences.includes(
+      payload.checkoutTransactionId
+    );
+    const signedAtMs = Date.parse(
+      readNoteString(parsedNotes.creditDirectSignedAt) ?? ''
+    );
+    const payloadTimeMs = Date.parse(payload.timeStamp);
+    const CLOCK_SKEW_TOLERANCE_MS = 5 * 60_000;
+    const predatesCurrentSession =
+      Number.isFinite(signedAtMs) &&
+      Number.isFinite(payloadTimeMs) &&
+      payloadTimeMs < signedAtMs - CLOCK_SKEW_TOLERANCE_MS;
+    const acceptsUnpersistedPopupReference =
+      activeTransactionId === null &&
+      activeSessionId !== null &&
+      payload.metaData === order.id &&
+      !isSupersededReference &&
+      !predatesCurrentSession;
+
     if (
       order.payment_method !== 'credit_direct' ||
-      activeReference !== payload.checkoutTransactionId
+      (!matchesActiveReference && !acceptsUnpersistedPopupReference)
     ) {
       logger.warn({
         message: 'Ignoring stale Credit Direct webhook for inactive session',
@@ -233,6 +272,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         received: true,
         warning: 'Stale Credit Direct session',
+      });
+    }
+
+    if (!matchesActiveReference && acceptsUnpersistedPopupReference) {
+      logger.info({
+        message:
+          'Accepting Credit Direct webhook without a persisted popup reference',
+        orderId: order.id,
+        activeSessionId,
+        transactionId: payload.checkoutTransactionId,
       });
     }
 
@@ -355,7 +404,37 @@ export async function POST(request: NextRequest) {
         // Credit Direct has paid the merchant in full
         // Mark order as fully paid and create transaction record
         const webhookTotal = getWebhookProductsTotal(payload.products);
-        const expectedAmount = signedAmount ?? (Number(order.total) || 0);
+        // Anchor the payout validation to server-owned order columns. The
+        // signed amount in notes is written by an anon-callable RPC, so it
+        // must not decide how much money marks this order as paid. Wallet or
+        // savings redemptions settle before the gateway leg (recorded as
+        // amount_paid / wallet_amount_used at order creation), so Credit
+        // Direct legitimately collects the residual — not always the full
+        // order total.
+        const orderTotal = Number(order.total) || 0;
+        const preGatewayPaid = Math.max(
+          Number(order.amount_paid) || 0,
+          Number(order.wallet_amount_used) || 0
+        );
+        const expectedAmount =
+          Math.round((orderTotal - preGatewayPaid) * 100) / 100;
+        if (
+          signedAmount !== null &&
+          Math.abs(signedAmount - expectedAmount) > 0.01
+        ) {
+          logger.warn({
+            message:
+              'Credit Direct signed amount drifted from expected gateway amount',
+            orderId: order.id,
+            signedAmount,
+            expectedGatewayAmount: expectedAmount,
+            transactionId: payload.checkoutTransactionId,
+          });
+          return NextResponse.json(
+            { error: 'Payment amount mismatch' },
+            { status: 400 }
+          );
+        }
         if (webhookTotal === null) {
           logger.error({
             message: 'Invalid Credit Direct webhook product amount',
@@ -403,6 +482,10 @@ export async function POST(request: NextRequest) {
           .from('orders')
           .update({
             payment_status: 'paid',
+            // Fully settled: pre-gateway redemption + gateway residual =
+            // the order total. Keeps balance math (total - amount_paid)
+            // truthful for receipts and reminders.
+            amount_paid: orderTotal,
             notes: JSON.stringify({
               ...parsedNotes,
               merchantPaidAt: payload.timeStamp,
@@ -478,6 +561,22 @@ export async function POST(request: NextRequest) {
         // suppress the push + confirmation email and file a reconciliation row
         // linked to the recorded (disbursed) transaction. Ack Credit Direct 200.
         if (updatedOrder && isOrderClampedAsCancelled(updatedOrder)) {
+          // The reopen trigger clamps the status fields but not amount_paid;
+          // restore it so a duplicate webhook still resolves the expected
+          // residual instead of failing amount validation forever.
+          const { error: amountRestoreError } = await supabase
+            .from('orders')
+            .update({ amount_paid: order.amount_paid ?? 0 })
+            .eq('id', order.id);
+          if (amountRestoreError) {
+            logger.warn({
+              message:
+                'Failed to restore amount_paid on cancelled Credit Direct order',
+              orderId: order.id,
+              error: amountRestoreError,
+            });
+          }
+
           await handlePaymentForCancelledOrder({
             gatewayReference: payload.checkoutTransactionId,
             order: updatedOrder,
@@ -514,6 +613,10 @@ export async function POST(request: NextRequest) {
               {
                 payment_status: order.payment_status ?? null,
                 shipping_status: order.shipping_status ?? null,
+                // The paid update above set amount_paid to the order total;
+                // restore the pre-webhook value so a retried payout does not
+                // validate against a zero residual.
+                amount_paid: order.amount_paid ?? 0,
               }
             );
           } catch (rollbackError) {

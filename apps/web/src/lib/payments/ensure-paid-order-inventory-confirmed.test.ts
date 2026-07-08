@@ -177,6 +177,32 @@ describe('rollbackOrderStatusAfterInventoryConfirmationFailure', () => {
     expect(rollbackBuilder.single).toHaveBeenCalledOnce();
   });
 
+  it('restores amount_paid when the snapshot includes it', async () => {
+    const rollbackBuilder = createRollbackBuilder(null);
+    const updateMock = vi.fn(() => rollbackBuilder);
+
+    const mockSupabase: MockOrderRollbackClient = {
+      from: vi.fn(() => ({ update: updateMock })),
+    };
+
+    await rollbackOrderStatusAfterInventoryConfirmationFailure(
+      asSupabaseClient(mockSupabase),
+      'merchant-123',
+      'order-123',
+      {
+        payment_status: 'bnpl_pending',
+        shipping_status: 'pending',
+        amount_paid: 0,
+      }
+    );
+
+    expect(updateMock).toHaveBeenCalledWith({
+      payment_status: 'bnpl_pending',
+      shipping_status: 'pending',
+      amount_paid: 0,
+    });
+  });
+
   it('throws when the rollback update fails', async () => {
     const rollbackBuilder = createRollbackBuilder({
       message: 'rollback failed',

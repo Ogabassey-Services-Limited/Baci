@@ -62,6 +62,9 @@ export async function ensurePaidOrderInventoryConfirmed(
 export interface OrderStatusRollbackSnapshot {
   payment_status: string | null;
   shipping_status: string | null;
+  // Optional: webhooks that set amount_paid alongside payment_status must
+  // restore it too, or a retried payout validates against a zero residual.
+  amount_paid?: number | string | null;
 }
 
 export async function rollbackOrderStatusAfterInventoryConfirmationFailure(
@@ -75,6 +78,9 @@ export async function rollbackOrderStatusAfterInventoryConfirmationFailure(
     .update({
       payment_status: previousStatus.payment_status,
       shipping_status: previousStatus.shipping_status,
+      ...(previousStatus.amount_paid !== undefined && {
+        amount_paid: previousStatus.amount_paid,
+      }),
     })
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
