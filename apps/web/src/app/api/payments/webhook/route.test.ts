@@ -1432,7 +1432,7 @@ describe('POST /api/payments/webhook', () => {
       expect(registerDomain).not.toHaveBeenCalled();
     });
 
-    it('continues to registrar fulfillment when a pre-existing domain row is not active', async () => {
+    it('activates a pre-existing pending domain row without calling registerDomain', async () => {
       const body = {
         reference: 'DOM-REGRESSION9',
         status: 'success',
@@ -1579,11 +1579,10 @@ describe('POST /api/payments/webhook', () => {
       const response = await POST(request);
 
       expect(response.status).toBe(200);
-      expect(registerDomain).toHaveBeenCalledTimes(1);
+      expect(registerDomain).not.toHaveBeenCalled();
       expect(domainUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           status: 'active',
-          go54_order_id: 'go54-777',
         })
       );
       expect(domainInsert).not.toHaveBeenCalled();

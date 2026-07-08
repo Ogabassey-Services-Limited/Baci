@@ -1939,7 +1939,7 @@ export async function POST(request: NextRequest) {
             );
           }
 
-          if (preExistingDomain && preExistingDomain.status === 'active') {
+          if (preExistingDomain) {
             if (preExistingDomain.merchant_id !== transaction.merchant_id) {
               logger.error({
                 message:
@@ -1957,6 +1957,59 @@ export async function POST(request: NextRequest) {
               });
               claimToken = null;
               return null;
+            }
+
+            if (preExistingDomain.status !== 'active') {
+              const activateExpiresAt = new Date();
+              activateExpiresAt.setFullYear(
+                activateExpiresAt.getFullYear() + purchaseYears
+              );
+              const { data: activatePrimary, error: activatePrimaryError } =
+                await supabase
+                  .from('domains')
+                  .select('id')
+                  .eq('merchant_id', transaction.merchant_id)
+                  .in('domain_type', ['custom', 'purchased'])
+                  .eq('status', 'active')
+                  .eq('is_primary', true)
+                  .limit(1)
+                  .maybeSingle();
+              const domainPurchaseAmount = Number(transaction.amount) || 0;
+              const { error: activateError } = await supabase
+                .from('domains')
+                .update({
+                  status: 'active',
+                  ssl_status: 'active',
+                  verified_at: new Date().toISOString(),
+                  expires_at: activateExpiresAt.toISOString(),
+                  auto_renew: true,
+                  is_primary: !activatePrimaryError && !activatePrimary,
+                  purchase_price: domainPurchaseAmount,
+                  renewal_price: domainPurchaseAmount,
+                  nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
+                })
+                .eq('id', preExistingDomain.id);
+
+              if (activateError) {
+                logger.error({
+                  message:
+                    'Failed activating existing domain row before registrar attempt',
+                  error: activateError,
+                  domain: normalizedDomain,
+                  reference,
+                });
+                await releaseDomainFulfillmentClaim(supabase, {
+                  transactionId: transaction.id,
+                  metadata,
+                  claimant: 'webhook',
+                  claimedAt: claimOutcome.claimedAt,
+                });
+                claimToken = null;
+                return NextResponse.json(
+                  { error: 'Domain repair failed — will retry' },
+                  { status: 503 }
+                );
+              }
             }
 
             const marked = await markTransactionDomainPurchased(
