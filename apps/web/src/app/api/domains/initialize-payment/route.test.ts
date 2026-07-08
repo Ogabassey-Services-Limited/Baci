@@ -61,13 +61,15 @@ function createSupabase(planTier = 'pro') {
   };
 }
 
-function createRequest() {
+function createRequest(
+  body: Record<string, unknown> = {
+    domain: 'shop.com',
+    years: 1,
+  }
+) {
   return new NextRequest('http://localhost/api/domains/initialize-payment', {
     method: 'POST',
-    body: JSON.stringify({
-      domain: 'shop.com',
-      years: 1,
-    }),
+    body: JSON.stringify(body),
   });
 }
 
@@ -125,6 +127,32 @@ describe('POST /api/domains/initialize-payment', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Failed to create payment',
     });
+  });
+
+  it('returns 400 before creating a purchase transaction when years exceeds the registrar cap', async () => {
+    mocks.authenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: createSupabase(),
+      user: { email: 'owner@example.com', id: 'user-1' },
+    });
+
+    const response = await POST(
+      createRequest({
+        domain: 'shop.com',
+        years: 11,
+      })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Invalid input',
+      details: {
+        fieldErrors: {
+          years: expect.arrayContaining([expect.any(String)]),
+        },
+      },
+    });
+    expect(mocks.adminRpc).not.toHaveBeenCalled();
   });
 
   it('creates the pending transaction via the service-role RPC and returns the Paystack URL', async () => {

@@ -567,6 +567,45 @@ describe('POST /api/domains/purchase transaction scoping', () => {
     expect(registerDomain).not.toHaveBeenCalled();
   });
 
+  it('verifies an active custom domain owned by the merchant without contacting the registrar', async () => {
+    supabase = createSupabase(
+      {
+        amount: 100,
+        gateway: 'paystack',
+        id: 'transaction-owned',
+        merchant_id: 'merchant-1',
+        metadata: null,
+        status: 'completed',
+      },
+      undefined,
+      {
+        domain_type: 'custom',
+        go54_order_id: null,
+        id: 'domain-custom',
+        merchant_id: 'merchant-1',
+        status: 'active',
+      }
+    );
+
+    const { registerDomain } = await import('@/lib/go54');
+
+    const response = await POST(createRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.message).toContain('Successfully verified');
+    expect(json.domain.id).toBe('domain-custom');
+    expect(registerDomain).not.toHaveBeenCalled();
+    expect(
+      mocks.transactionMutations.some((mutation) => {
+        const metadata = mutation.payload.metadata as
+          | Record<string, unknown>
+          | undefined;
+        return metadata?.domain_purchased === 'shop.com';
+      })
+    ).toBe(true);
+  });
+
   it('returns 402 before registration when custom domains are locked', async () => {
     supabase = createSupabase(
       {

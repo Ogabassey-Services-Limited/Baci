@@ -1928,13 +1928,19 @@ export async function POST(request: NextRequest) {
             ) {
               logger.error({
                 message:
-                  'Domain fulfillment claim has an ambiguous registrar attempt — accepting webhook for manual reconciliation',
+                  'Domain fulfillment claim has an unresolved registrar attempt — failing webhook for manual reconciliation',
                 reference,
                 domain: normalizedDomain,
                 transactionId: transaction.id,
                 attemptedAt: metadata.fulfillment_registrar_attempted_at,
               });
-              return null;
+              return NextResponse.json(
+                {
+                  error:
+                    'Domain fulfillment requires manual reconciliation before retry',
+                },
+                { status: 503 }
+              );
             }
 
             // Another path (usually the dashboard callback) holds the claim.

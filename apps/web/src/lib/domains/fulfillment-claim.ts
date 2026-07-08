@@ -37,6 +37,9 @@ export function hasDomainRegistrarProof(domain: {
 
   return (
     hasRegistrarOrderId ||
+    // Active BYOD rows prove this merchant already controls the hostname; a
+    // paid retry must not contact the registrar again for that domain.
+    (domain.status === 'active' && domain.domain_type === 'custom') ||
     (domain.status === 'active' && domain.domain_type === 'purchased')
   );
 }

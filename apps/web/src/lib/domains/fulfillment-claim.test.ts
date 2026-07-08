@@ -56,6 +56,16 @@ describe('hasDomainRegistrarProof', () => {
     ).toBe(true);
   });
 
+  it('returns true for active custom rows controlled by the merchant', () => {
+    expect(
+      hasDomainRegistrarProof({
+        domain_type: 'custom',
+        go54_order_id: null,
+        status: 'active',
+      })
+    ).toBe(true);
+  });
+
   it('returns false for pending rows without registrar proof', () => {
     expect(
       hasDomainRegistrarProof({

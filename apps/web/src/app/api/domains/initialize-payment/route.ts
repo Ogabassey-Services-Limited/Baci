@@ -26,7 +26,7 @@ const initDomainPaymentSchema = z.object({
     .refine((value) => domainRegex.test(value), {
       error: 'Invalid domain format',
     }),
-  years: z.coerce.number().int().min(1).optional().prefault(1),
+  years: z.coerce.number().int().min(1).max(10).optional().prefault(1),
 });
 
 const nanoidUppercase = customAlphabet(
