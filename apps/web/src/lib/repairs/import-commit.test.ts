@@ -169,6 +169,38 @@ describe('commitImportRows', () => {
     expect(repo.quotes[0].deviceId).toBe('dev-existing');
   });
 
+  it('uses a provided existing service type id without creating one', async () => {
+    const repo = new FakeRepository();
+    repo.serviceTypes.push({
+      id: 'svc-existing',
+      name: 'Screen Replacement',
+      slug: 'screen-replacement',
+    });
+    const counts = await commitImportRows(
+      [row({ serviceTypeId: 'svc-existing' })],
+      repo
+    );
+    expect(counts.serviceTypesCreated).toBe(0);
+    expect(repo.quotes[0].serviceTypeId).toBe('svc-existing');
+  });
+
+  it('ignores a foreign service type id and resolves by name instead', async () => {
+    const repo = new FakeRepository();
+    repo.serviceTypes.push({
+      id: 'svc-mine',
+      name: 'Screen Replacement',
+      slug: 'screen-replacement',
+    });
+    // A tampered/foreign id that is NOT one of this merchant's service types
+    // must not be trusted; it falls through to a name match on the merchant's own row.
+    const counts = await commitImportRows(
+      [row({ serviceTypeId: 'svc-from-another-merchant' })],
+      repo
+    );
+    expect(counts.serviceTypesCreated).toBe(0);
+    expect(repo.quotes[0].serviceTypeId).toBe('svc-mine');
+  });
+
   it('distinguishes quotes by part quality', async () => {
     const repo = new FakeRepository();
     const counts = await commitImportRows(

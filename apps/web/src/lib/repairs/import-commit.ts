@@ -98,10 +98,13 @@ async function resolveServiceType(
   row: RepairImportCommitRow,
   repo: ImportCommitRepository,
   byName: Map<string, string>,
+  ids: Set<string>,
   slugs: Set<string>,
   counts: ImportCommitCounts
 ): Promise<string> {
-  if (row.serviceTypeId) {
+  // Only trust a client-supplied id when it belongs to this merchant (mirrors
+  // resolveDevice); a stale/foreign id falls through to match-by-name or create.
+  if (row.serviceTypeId && ids.has(row.serviceTypeId)) {
     return row.serviceTypeId;
   }
   const key = normalize(row.repairType);
@@ -200,9 +203,11 @@ export async function commitImportRows(
 
   const serviceTypes = await repo.listServiceTypes();
   const serviceTypeByName = new Map<string, string>();
+  const serviceTypeIds = new Set<string>();
   const serviceTypeSlugs = new Set<string>();
   for (const type of serviceTypes) {
     serviceTypeByName.set(normalize(type.name), type.id);
+    serviceTypeIds.add(type.id);
     serviceTypeSlugs.add(type.slug);
   }
 
@@ -213,6 +218,7 @@ export async function commitImportRows(
       row,
       repo,
       serviceTypeByName,
+      serviceTypeIds,
       serviceTypeSlugs,
       counts
     );
