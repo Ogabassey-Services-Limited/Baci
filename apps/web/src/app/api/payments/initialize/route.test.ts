@@ -1786,6 +1786,135 @@ describe('POST /api/payments/initialize', () => {
     });
   });
 
+  describe('auto-select gateway country gating', () => {
+    it('auto-selects Korapay for an NG merchant when Korapay is the preferred local gateway', async () => {
+      merchantResult = {
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Store',
+          slug: 'test-store',
+          paystack_subaccount_code: null,
+          country: 'NG',
+        },
+        error: null,
+      };
+      featureSettingsResult = {
+        data: {
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_local_gateway: 'korapay',
+        },
+        error: null,
+      };
+      mockInitializeKorapay.mockResolvedValue({
+        authorization_url: 'https://korapay.com/checkout/ng-auto',
+        checkout_url: 'https://korapay.com/checkout/ng-auto',
+      });
+
+      // No gateway forced → server auto-selects.
+      const res = await POST(makeRequest(validBody));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.gateway).toBe('korapay');
+      expect(mockInitializeKorapay).toHaveBeenCalled();
+    });
+
+    it('still auto-selects Korapay for a merchant with no country (fails open toward NG)', async () => {
+      // setupDefaults merchant has no country → treated as NG → settles NGN.
+      featureSettingsResult = {
+        data: {
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_local_gateway: 'korapay',
+        },
+        error: null,
+      };
+      mockInitializeKorapay.mockResolvedValue({
+        authorization_url: 'https://korapay.com/checkout/null-country',
+        checkout_url: 'https://korapay.com/checkout/null-country',
+      });
+
+      const res = await POST(makeRequest(validBody));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.gateway).toBe('korapay');
+      expect(mockInitializeKorapay).toHaveBeenCalled();
+    });
+
+    it('does not auto-select Korapay for a KE merchant paying in NGN', async () => {
+      merchantResult = {
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Store',
+          slug: 'test-store',
+          paystack_subaccount_code: null,
+          country: 'KE',
+        },
+        error: null,
+      };
+      featureSettingsResult = {
+        data: {
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_local_gateway: 'korapay',
+        },
+        error: null,
+      };
+
+      // KE settles KES, not NGN → Korapay is excluded on the auto-select path.
+      // With no Paystack subaccount the fallback is not configured either, so
+      // the route fails explicitly (400) instead of charging Korapay in a
+      // currency it cannot settle.
+      const res = await POST(makeRequest(validBody));
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('GATEWAY_NOT_CONFIGURED');
+      expect(mockInitializeKorapay).not.toHaveBeenCalled();
+      expect(
+        rpcCalls.some((call) => call.name === 'create_payment_transaction')
+      ).toBe(false);
+    });
+
+    it('rejects Korapay via the downstream guard when a KE merchant pays an unsettleable currency', async () => {
+      merchantResult = {
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Store',
+          slug: 'test-store',
+          paystack_subaccount_code: null,
+          country: 'KE',
+        },
+        error: null,
+      };
+      featureSettingsResult = {
+        data: {
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_international_gateway: 'korapay',
+        },
+        error: null,
+      };
+
+      // International (non-NGN) selection falls through to Korapay, but KE
+      // settles KES not USD, so the tightened downstream guard rejects rather
+      // than routing an unsettleable Korapay charge.
+      const res = await POST(makeRequest({ ...validBody, currency: 'USD' }));
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('GATEWAY_UNAVAILABLE');
+      expect(mockInitializeKorapay).not.toHaveBeenCalled();
+      expect(
+        rpcCalls.some((call) => call.name === 'create_payment_transaction')
+      ).toBe(false);
+    });
+  });
+
   describe('transaction record', () => {
     it('returns 500 when transaction RPC fails', async () => {
       rpcTransactionResult = {

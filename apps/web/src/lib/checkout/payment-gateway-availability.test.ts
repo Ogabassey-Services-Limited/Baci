@@ -5,6 +5,7 @@ import {
   isForcedGatewayAvailable,
   isKorapayCheckoutAvailable,
   isKorapayCheckoutCurrencySupported,
+  isKorapaySettlementCurrencyMatch,
   isPayOnDeliveryCheckoutAvailable,
   isPaystackCheckoutAvailable,
 } from '@/lib/checkout/payment-gateway-availability';
@@ -296,6 +297,35 @@ describe('payment-gateway-availability', () => {
         },
       })
     ).toBe(false);
+  });
+});
+
+describe('isKorapaySettlementCurrencyMatch', () => {
+  it('treats a null or undefined country as NG (NGN)', () => {
+    expect(isKorapaySettlementCurrencyMatch(null, 'NGN')).toBe(true);
+    expect(isKorapaySettlementCurrencyMatch(undefined, 'NGN')).toBe(true);
+    expect(isKorapaySettlementCurrencyMatch(null, null)).toBe(true);
+  });
+
+  it('matches a supported country against its settlement currency', () => {
+    expect(isKorapaySettlementCurrencyMatch('KE', 'KES')).toBe(true);
+    expect(isKorapaySettlementCurrencyMatch('ke', 'kes')).toBe(true);
+    expect(isKorapaySettlementCurrencyMatch('GH', 'GHS')).toBe(true);
+  });
+
+  it('rejects a supported country when the currency does not match', () => {
+    expect(isKorapaySettlementCurrencyMatch('KE', 'NGN')).toBe(false);
+    expect(isKorapaySettlementCurrencyMatch('NG', 'USD')).toBe(false);
+  });
+
+  it('rejects an unsupported country regardless of currency', () => {
+    expect(isKorapaySettlementCurrencyMatch('US', 'USD')).toBe(false);
+    expect(isKorapaySettlementCurrencyMatch('US', null)).toBe(false);
+  });
+
+  it('only asserts the country is served when currency is null/undefined', () => {
+    expect(isKorapaySettlementCurrencyMatch('KE', null)).toBe(true);
+    expect(isKorapaySettlementCurrencyMatch('KE', undefined)).toBe(true);
   });
 });
 

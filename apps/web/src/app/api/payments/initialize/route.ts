@@ -15,6 +15,7 @@ import z from 'zod';
 import {
   type CheckoutPaymentMerchant,
   isForcedGatewayAvailable,
+  isKorapaySettlementCurrencyMatch,
 } from '@/lib/checkout/payment-gateway-availability';
 import {
   capturePaymentWithCrypto,
@@ -261,9 +262,20 @@ function buildBnplLauncherUrl(
 function selectGateway(
   currency: string,
   settings: GatewaySettings,
-  hasPaystackSubaccount: boolean
+  hasPaystackSubaccount: boolean,
+  country: string | null | undefined
 ): PaymentGateway {
   const isLocalPayment = currency === 'NGN';
+
+  // Korapay is only a valid auto-selection when Baci's Korapay account can
+  // actually settle this order — the merchant's country must map to the order
+  // currency (country null/undefined fails open toward NG). Mirrors
+  // `isKorapayCheckoutAvailable` so the auto-select and client-forced paths
+  // agree; without it a non-NG merchant could be routed to Korapay in a
+  // currency it cannot settle (e.g. hardcoded NGN checkout).
+  const korapayAvailable =
+    settings.korapay_enabled &&
+    isKorapaySettlementCurrencyMatch(country, currency);
 
   if (isLocalPayment) {
     const preferred = settings.preferred_local_gateway;
@@ -275,13 +287,13 @@ function selectGateway(
     ) {
       return 'paystack';
     }
-    if (preferred === 'korapay' && settings.korapay_enabled) {
+    if (preferred === 'korapay' && korapayAvailable) {
       return 'korapay';
     }
     if (settings.paystack_enabled && hasPaystackSubaccount) {
       return 'paystack';
     }
-    if (settings.korapay_enabled) {
+    if (korapayAvailable) {
       return 'korapay';
     }
     return 'paystack';
@@ -291,7 +303,8 @@ function selectGateway(
   // the platform's Paystack integration settles NGN only, so routing a
   // non-NGN order to it would just fail the downstream charge-currency guard
   // with UNSUPPORTED_CURRENCY. Korapay is the only multi-currency rail
-  // (whether it is actually enabled is enforced by the route's korapay guard).
+  // and the downstream guard will reject explicitly when the merchant/currency
+  // pair is not settlement-matched.
   return 'korapay';
 }
 
@@ -1227,7 +1240,8 @@ export async function POST(request: NextRequest) {
           : selectGateway(
               orderCurrency,
               gatewaySettings,
-              hasPaystackSubaccount
+              hasPaystackSubaccount,
+              merchant.country
             );
 
     // Resolve the charge currency against the selected gateway. This replaces the
@@ -1314,6 +1328,22 @@ export async function POST(request: NextRequest) {
       return createErrorResponse(
         'Korapay is not enabled for this merchant',
         'GATEWAY_DISABLED',
+        400
+      );
+    }
+
+    // Defense in depth for the auto-select path: even when Korapay is enabled,
+    // reject if the merchant's country cannot settle the order currency
+    // (mirrors isForcedGatewayAvailable's Korapay check on the forced path).
+    // Prevents a non-NG merchant being charged via Korapay in a currency it
+    // cannot settle when no gateway was explicitly forced.
+    if (
+      gateway === 'korapay' &&
+      !isKorapaySettlementCurrencyMatch(merchant.country, validCurrency)
+    ) {
+      return createErrorResponse(
+        'Korapay is not available for this store in this currency',
+        'GATEWAY_UNAVAILABLE',
         400
       );
     }

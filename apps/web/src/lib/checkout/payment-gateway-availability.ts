@@ -127,6 +127,25 @@ export function getKorapaySettlementCurrency(
   );
 }
 
+// Whether a merchant country's Korapay settlement currency matches the order
+// currency, ignoring the per-merchant enable flag. Country null/undefined fails
+// open toward NG (→ NGN), matching `isBaciPaystackSettlementCountry`. A
+// null/undefined currency only asserts the country is served at all. Shared by
+// `isKorapayCheckoutAvailable` (the client-forced path) and the initialize
+// route's `selectGateway`/downstream guard (the auto-select path) so both agree
+// on when Korapay can actually settle an order.
+export function isKorapaySettlementCurrencyMatch(
+  country: string | null | undefined,
+  currency: string | null | undefined
+): boolean {
+  const settlementCurrency = getKorapaySettlementCurrency(country);
+  if (settlementCurrency === null) return false;
+
+  if (currency == null) return true;
+
+  return currency.trim().toUpperCase() === settlementCurrency;
+}
+
 export function isKorapayCheckoutAvailable(
   merchant: CheckoutPaymentMerchant | null | undefined,
   country?: string | null,
@@ -135,15 +154,7 @@ export function isKorapayCheckoutAvailable(
   if (!merchant) return false;
   if (readKorapayEnabled(merchant.feature_settings) === false) return false;
 
-  const settlementCurrency = getKorapaySettlementCurrency(country);
-  if (settlementCurrency === null) return false;
-
-  if (currency != null) {
-    const normalizedCurrency = currency.trim().toUpperCase();
-    if (normalizedCurrency !== settlementCurrency) return false;
-  }
-
-  return true;
+  return isKorapaySettlementCurrencyMatch(country, currency);
 }
 
 export function isPayOnDeliveryCheckoutAvailable(
