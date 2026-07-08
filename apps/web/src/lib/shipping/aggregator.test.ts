@@ -34,9 +34,42 @@ function createProvider(
   } as unknown as ShippingProvider;
 }
 
+const successfulQuote = {
+  id: 'gigl-quote-1',
+  provider: 'GIGL' as const,
+  serviceTier: 'Standard',
+  carrierName: 'GIG Logistics',
+  displayName: 'GIG Logistics',
+  estimatedDays: 3,
+  price: 5000,
+  currency: 'NGN',
+  pickupIncluded: true,
+  insuranceIncluded: true,
+  expiresAt: new Date(Date.now() + 60_000),
+};
+
 describe('QuoteAggregator', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('returns the provider quotes with no warnings on the happy path', async () => {
+    const registry = new ShippingProviderRegistry();
+    registry.register(
+      createProvider({
+        getQuotes: vi.fn(() => Promise.resolve([successfulQuote])),
+      })
+    );
+    const aggregator = new QuoteAggregator(registry);
+
+    const response = await aggregator.getQuotes(quoteRequest);
+
+    expect(response.quotes.all).toHaveLength(1);
+    expect(response.quotes.all[0].id).toBe('gigl-quote-1');
+    expect(response.quotes.featured).toContainEqual(
+      expect.objectContaining({ id: 'gigl-quote-1' })
+    );
+    expect(response.warnings).toBeUndefined();
   });
 
   it('returns an explicit warning when the registry has no quote providers', async () => {
