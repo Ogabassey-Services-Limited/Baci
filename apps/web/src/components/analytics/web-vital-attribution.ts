@@ -1,3 +1,5 @@
+import { redactUrlQuery } from '@/lib/posthog/boot-free-capture';
+
 interface WebVitalMetricLike {
   name: string;
   attribution?: unknown;
@@ -55,6 +57,41 @@ export function extractWebVitalAttribution(
     pick('inputDelay');
     pick('processingDuration');
     pick('presentationDelay');
+    // Long Animation Frames (LoAF) breakdown — identifies WHICH scripts own
+    // the long frame; prerequisite for the PR-WEIGHT diagnose-then-fix INP
+    // work (web-vitals v5 attribution build; LoAF stable since Chrome 123).
+    pick('totalScriptDuration', 'loafScriptDuration');
+    pick('totalStyleAndLayoutDuration', 'loafStyleLayoutDuration');
+    pick('totalPaintDuration', 'loafPaintDuration');
+    pick('totalUnattributedDuration', 'loafUnattributedDuration');
+    const longestScript = source.longestScript;
+    if (longestScript && typeof longestScript === 'object') {
+      const script = longestScript as {
+        subpart?: unknown;
+        intersectingDuration?: unknown;
+        entry?: { sourceURL?: unknown; invoker?: unknown };
+      };
+      if (typeof script.subpart === 'string') {
+        out.loafLongestScriptSubpart = script.subpart;
+      }
+      if (typeof script.intersectingDuration === 'number') {
+        out.loafLongestScriptDuration = script.intersectingDuration;
+      }
+      const entry = script.entry;
+      if (entry && typeof entry === 'object') {
+        if (typeof entry.sourceURL === 'string' && entry.sourceURL) {
+          // Strip the script URL's query/hash before capture: it can carry
+          // cache-bust hashes or signed tokens (leak risk) and its key does
+          // not match the sanitizer's URL_PROPERTY_PATTERN, so neither the
+          // booted before_send path nor the page-hide beacon would redact it.
+          // The path alone identifies which chunk owns the long frame.
+          out.loafLongestScriptSource = redactUrlQuery(entry.sourceURL);
+        }
+        if (typeof entry.invoker === 'string' && entry.invoker) {
+          out.loafLongestScriptInvoker = entry.invoker;
+        }
+      }
+    }
   }
 
   return out;

@@ -4,10 +4,12 @@ import { WebVitalsReporter } from './web-vitals-reporter';
 
 const mocks = vi.hoisted(() => ({
   reportPostHogWebVital: vi.fn(),
+  armWebVitalsPageHideFlush: vi.fn(),
   lcpMetric: {
     name: 'LCP',
     value: 2400,
     id: 'v1-lcp',
+    delta: 2400,
     rating: 'good',
     navigationType: 'navigate',
     attribution: {
@@ -23,6 +25,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/posthog/report-web-vital', () => ({
   reportPostHogWebVital: mocks.reportPostHogWebVital,
+}));
+
+vi.mock('@/lib/posthog/web-vitals-pagehide-flush', () => ({
+  armWebVitalsPageHideFlush: mocks.armWebVitalsPageHideFlush,
 }));
 
 vi.mock('web-vitals/attribution', () => ({
@@ -56,8 +62,13 @@ describe('WebVitalsReporter', () => {
         lcpUrl: 'https://cdn.example/hero.png',
         ttfb: 100,
         renderDelay: 80,
+        // Dedupe key + delta for hidden→visible re-emissions of CLS/INP.
+        id: 'v1-lcp',
+        delta: 2400,
       })
     );
+    // The page-hide beacon flush is armed alongside metric registration.
+    expect(mocks.armWebVitalsPageHideFlush).toHaveBeenCalledOnce();
   });
 
   it('still reports the metric to GA4 when gtag is present', async () => {

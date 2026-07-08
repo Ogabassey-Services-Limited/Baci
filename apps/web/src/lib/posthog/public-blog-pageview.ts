@@ -1,5 +1,11 @@
+import {
+  buildPostHogCaptureUrl,
+  isLikelyBotUserAgent,
+  redactUrlQuery,
+  sendBootFreeCaptureEvent,
+} from '@/lib/posthog/boot-free-capture';
 import { resolvePostHogWebTenantContext } from '@/lib/posthog/client-config';
-import { getPostHogProxyPath, type PostHogEnv } from '@/lib/posthog/config';
+import type { PostHogEnv } from '@/lib/posthog/config';
 import {
   getPostHogPersistenceKey,
   readPostHogPersistedIdentity,
@@ -8,10 +14,6 @@ import {
 
 const DEFAULT_PUBLIC_BLOG_URL_BASE = 'https://usebaci.com';
 const LEGACY_PUBLIC_BLOG_DISTINCT_ID_KEY = 'baci_public_blog_distinct_id';
-const POSTHOG_CAPTURE_ENDPOINT = '/i/v0/e/';
-const QUERY_OR_HASH_PATTERN = /[?#]/;
-const LIKELY_BOT_USER_AGENT_PATTERN =
-  /(?:bot|crawler|spider|chrome-lighthouse|pagespeed|headlesschrome|google-inspectiontool|googleother|siteauditbot|semrushbot|ahrefsbot|gptbot|oai-searchbot|chatgpt-user|perplexitybot|vercelbot|facebookexternal|twitterbot|linkedinbot|slackbot)/i;
 
 const DEFAULT_PUBLIC_BLOG_POSTHOG_ENV: PostHogEnv = {
   NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN:
@@ -22,11 +24,6 @@ const DEFAULT_PUBLIC_BLOG_POSTHOG_ENV: PostHogEnv = {
 
 let lastCapturedPublicBlogPageviewUrl: string | undefined;
 const inMemoryPublicBlogDistinctIds = new Map<string, string>();
-
-function redactUrlQuery(value: string): string {
-  const markerIndex = value.search(QUERY_OR_HASH_PATTERN);
-  return markerIndex === -1 ? value : value.slice(0, markerIndex);
-}
 
 function resolveCurrentUrl(currentUrl?: string): string | undefined {
   return (
@@ -137,47 +134,6 @@ function getOrCreatePublicBlogDistinctId(projectToken: string): string {
   return generated;
 }
 
-function buildPostHogCaptureUrl(env: PostHogEnv): string {
-  return `${getPostHogProxyPath(env)}${POSTHOG_CAPTURE_ENDPOINT}`;
-}
-
-function isLikelyBotUserAgent(): boolean {
-  try {
-    const userAgent = globalThis.navigator?.userAgent;
-    return (
-      typeof userAgent === 'string' &&
-      LIKELY_BOT_USER_AGENT_PATTERN.test(userAgent)
-    );
-  } catch {
-    return false;
-  }
-}
-
-function sendPublicBlogCapture(captureUrl: string, body: string): void {
-  const beacon = globalThis.navigator?.sendBeacon;
-
-  if (typeof beacon === 'function') {
-    try {
-      const payload = new Blob([body], { type: 'application/json' });
-
-      if (beacon.call(globalThis.navigator, captureUrl, payload)) {
-        return;
-      }
-    } catch {
-      // Fall back to keepalive fetch when the browser rejects beacon payloads.
-    }
-  }
-
-  void globalThis
-    .fetch?.(captureUrl, {
-      body,
-      headers: { 'Content-Type': 'application/json' },
-      keepalive: true,
-      method: 'POST',
-    })
-    ?.catch(() => undefined);
-}
-
 export function capturePublicBlogPageview(
   env: PostHogEnv = DEFAULT_PUBLIC_BLOG_POSTHOG_ENV,
   currentUrl = resolveCurrentUrl()
@@ -219,7 +175,7 @@ export function capturePublicBlogPageview(
     },
   });
 
-  sendPublicBlogCapture(captureUrl, body);
+  sendBootFreeCaptureEvent(captureUrl, body);
 }
 
 export function resetPublicBlogPageviewDedupe(): void {

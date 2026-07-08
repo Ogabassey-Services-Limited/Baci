@@ -78,6 +78,112 @@ describe('extractWebVitalAttribution', () => {
     });
   });
 
+  it('maps INP LoAF fields including the flattened longest script', () => {
+    expect(
+      extractWebVitalAttribution({
+        ...base,
+        name: 'INP',
+        attribution: {
+          interactionTarget: 'button.add-to-cart',
+          interactionType: 'pointer',
+          inputDelay: 40,
+          processingDuration: 120,
+          presentationDelay: 60,
+          totalScriptDuration: 180,
+          totalStyleAndLayoutDuration: 35,
+          totalPaintDuration: 12,
+          totalUnattributedDuration: 8,
+          longestScript: {
+            subpart: 'processing-duration',
+            intersectingDuration: 150,
+            entry: {
+              sourceURL: 'https://ogabassey.com/_next/static/chunks/rrweb.js',
+              invoker: 'DOMWindow.onpointerdown',
+            },
+          },
+        },
+      })
+    ).toEqual({
+      debugTarget: 'button.add-to-cart',
+      interactionType: 'pointer',
+      inputDelay: 40,
+      processingDuration: 120,
+      presentationDelay: 60,
+      loafScriptDuration: 180,
+      loafStyleLayoutDuration: 35,
+      loafPaintDuration: 12,
+      loafUnattributedDuration: 8,
+      loafLongestScriptSubpart: 'processing-duration',
+      loafLongestScriptDuration: 150,
+      loafLongestScriptSource:
+        'https://ogabassey.com/_next/static/chunks/rrweb.js',
+      loafLongestScriptInvoker: 'DOMWindow.onpointerdown',
+    });
+  });
+
+  it('strips query/hash from the LoAF longest-script source URL', () => {
+    const out = extractWebVitalAttribution({
+      ...base,
+      name: 'INP',
+      attribution: {
+        interactionTarget: 'button.buy',
+        longestScript: {
+          subpart: 'processing-duration',
+          intersectingDuration: 90,
+          entry: {
+            sourceURL: 'https://cdn.example.com/pixel.js?token=secret#frag',
+            invoker: 'DOMWindow.onclick',
+          },
+        },
+      },
+    });
+
+    expect(out.loafLongestScriptSource).toBe(
+      'https://cdn.example.com/pixel.js'
+    );
+    expect(out.loafLongestScriptInvoker).toBe('DOMWindow.onclick');
+  });
+
+  it('omits LoAF fields when the browser provides none (non-Chromium)', () => {
+    const out = extractWebVitalAttribution({
+      ...base,
+      name: 'INP',
+      attribution: {
+        interactionTarget: 'a.nav',
+        interactionType: 'keyboard',
+        inputDelay: 10,
+        processingDuration: 50,
+        presentationDelay: 20,
+      },
+    });
+
+    expect(out.loafScriptDuration).toBeUndefined();
+    expect(out.loafLongestScriptSource).toBeUndefined();
+  });
+
+  it('extracts longestScript subpart/duration without entry-level source or invoker', () => {
+    const out = extractWebVitalAttribution({
+      ...base,
+      name: 'INP',
+      attribution: {
+        interactionTarget: 'a.nav',
+        interactionType: 'keyboard',
+        inputDelay: 10,
+        processingDuration: 50,
+        presentationDelay: 20,
+        longestScript: {
+          subpart: 'presentation-delay',
+          intersectingDuration: 30,
+        },
+      },
+    });
+
+    expect(out.loafLongestScriptSubpart).toBe('presentation-delay');
+    expect(out.loafLongestScriptDuration).toBe(30);
+    expect(out.loafLongestScriptSource).toBeUndefined();
+    expect(out.loafLongestScriptInvoker).toBeUndefined();
+  });
+
   it('returns an empty object when attribution is absent', () => {
     expect(extractWebVitalAttribution({ ...base, name: 'FCP' })).toEqual({});
   });
