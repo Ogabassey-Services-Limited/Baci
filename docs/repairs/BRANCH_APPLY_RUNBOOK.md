@@ -8,7 +8,7 @@ not run locally). Follow this order exactly, verify each gate, then flip the fla
 
 | # | Migration | Purpose | Depends on |
 |---|-----------|---------|-----------|
-| 1 | `20260708090000_repairs_catalog_feature_flag.sql` | `merchant_feature_settings.repairs_catalog_enabled` (bool, default false) + private `repair_settings` jsonb | — |
+| 1 | `20260708090001_repairs_catalog_feature_flag.sql` | `merchant_feature_settings.repairs_catalog_enabled` (bool, default false) + private `repair_settings` jsonb | — |
 | 2 | `20260708090100_repair_catalog_tables.sql` | `repair_service_types`, `repair_devices`, `repair_quotes`; composite tenant FKs; `repairs_catalog_publicly_enabled()` helper; column-scoped anon+authenticated grants (excludes `internal_notes`) | 1 (helper reads the flag) |
 | 3 | `20260708090200_repairs_booking_catalog_link.sql` | adds `device_id/quote_id/quoted_price/repair_type_label/shipment_id` to `repairs`; status-lookup index | 2 |
 | 4 | `20260708090300_create_repair_booking_rpc.sql` | `private.create_repair_booking` (SECURITY DEFINER) + `public.create_repair_booking` (INVOKER wrapper); DB-side rate caps; server-side price snapshot | 2, 3 |
