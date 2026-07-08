@@ -1,6 +1,7 @@
 import { parseSantaActions, stripSantaActions } from '@baci/shared/lib';
 import type { FlashListRef } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import {
   type Dispatch,
   type SetStateAction,
@@ -16,6 +17,7 @@ import { API_BASE_URL, CHAT_REQUEST_TIMEOUT_MS } from './constants';
 import { readChatResponseText } from './read-chat-response';
 import { addSantaWishToCart } from './santa-cart';
 import type { ChatMessage } from './types';
+import { resolveSuggestionRoute, SUGGESTIONS } from './types';
 
 const log = createLogger('ChatWidget');
 
@@ -249,6 +251,15 @@ export function useChat(santaMode: boolean) {
   }, [chatInitialMessage, isChatOpen, isLoading, messages.length]);
 
   const handleSuggestionPress = (suggestion: string) => {
+    // Chips with a `route` (e.g. "Repair quote") deep-link to a storefront
+    // screen instead of sending the label as a chat message.
+    const match = SUGGESTIONS.find((entry) => entry.label === suggestion);
+    const route = match ? resolveSuggestionRoute(match) : null;
+    if (route) {
+      router.push(route);
+      return;
+    }
+
     handleSend(suggestion);
   };
 

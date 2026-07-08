@@ -1,10 +1,15 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 const mockAddSantaWishToCart = jest.fn();
+const mockRouterPush = jest.fn();
 
 jest.mock('./santa-cart', () => ({
   addSantaWishToCart: (action: unknown, signal?: AbortSignal) =>
     mockAddSantaWishToCart(action, signal),
+}));
+
+jest.mock('expo-router', () => ({
+  router: { push: (...args: unknown[]) => mockRouterPush(...args) },
 }));
 
 import { useChat } from './use-chat';
@@ -321,6 +326,32 @@ describe('useChat', () => {
       (m) => m.role === 'user' && m.text === 'Track my order'
     );
     expect(userMsg).toBeDefined();
+  });
+
+  it('handleSuggestionPress deep-links repair-quote chips instead of sending a message', async () => {
+    // Arrange
+    const mockFetch = jest.fn();
+    global.fetch = mockFetch;
+    mockIsChatOpen = true;
+    mockRouterPush.mockClear();
+    const { result } = renderHook(() => useChat(false));
+
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(1);
+    });
+
+    // Act
+    await act(async () => {
+      result.current.handleSuggestionPress('Repair quote');
+    });
+
+    // Assert: navigated to /repairs, no chat message sent
+    expect(mockRouterPush).toHaveBeenCalledWith('/repairs');
+    expect(mockFetch).not.toHaveBeenCalled();
+    const userMsg = result.current.messages.find(
+      (m) => m.role === 'user' && m.text === 'Repair quote'
+    );
+    expect(userMsg).toBeUndefined();
   });
 
   it('does not send empty or whitespace-only messages', async () => {
