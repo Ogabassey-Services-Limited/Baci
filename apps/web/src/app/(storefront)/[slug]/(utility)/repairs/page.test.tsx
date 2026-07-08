@@ -5,9 +5,16 @@ import {
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
 
-const { mockHeaders, mockOgabasseyV2Repairs } = vi.hoisted(() => ({
+const {
+  mockHeaders,
+  mockOgabasseyV2Repairs,
+  mockGenericRepairsPage,
+  mockGetRepairDevicesForMerchant,
+} = vi.hoisted(() => ({
   mockHeaders: vi.fn(() => Promise.resolve(new Headers())),
   mockOgabasseyV2Repairs: vi.fn(),
+  mockGenericRepairsPage: vi.fn(),
+  mockGetRepairDevicesForMerchant: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -21,12 +28,24 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/components/storefront/ogabassey/pages/repairs', () => ({
-  OgabasseyV2Repairs: (props: { basePath?: string }) => {
+  OgabasseyV2Repairs: (props: { basePath?: string; groups?: unknown }) => {
     mockOgabasseyV2Repairs(props);
     return (
       <section aria-label="Repairs page">basePath:{props.basePath}</section>
     );
   },
+}));
+
+vi.mock('@/components/storefront/repairs/GenericRepairsPage', () => ({
+  GenericRepairsPage: (props: Record<string, unknown>) => {
+    mockGenericRepairsPage(props);
+    return <section aria-label="Generic repairs page" />;
+  },
+}));
+
+vi.mock('@/lib/repairs/repairs-catalog-data', () => ({
+  getRepairDevicesForMerchant: (...args: unknown[]) =>
+    mockGetRepairDevicesForMerchant(...args),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -42,9 +61,11 @@ vi.mock('@/lib/validation', () => ({
 const merchant = {
   id: 'merchant-1',
   business_name: 'Ogabassey',
+  business_type: 'electronics',
   custom_domain: 'ogabassey.com',
   slug: 'ogabassey',
   template_id: 'ogabassey',
+  feature_settings: { repairs_catalog_enabled: false },
 } as unknown as NonNullable<Awaited<ReturnType<typeof getCachedMerchant>>>;
 
 const { default: RepairsPage, generateMetadata } = await import('./page');
@@ -56,6 +77,9 @@ describe('RepairsPage', () => {
     mockHeaders.mockReset();
     mockHeaders.mockResolvedValue(new Headers());
     mockOgabasseyV2Repairs.mockClear();
+    mockGenericRepairsPage.mockClear();
+    mockGetRepairDevicesForMerchant.mockReset();
+    mockGetRepairDevicesForMerchant.mockResolvedValue([]);
     vi.mocked(getCachedMerchant).mockResolvedValue(merchant);
     vi.mocked(getCachedMerchantByDomain).mockResolvedValue(merchant);
   });
@@ -74,7 +98,10 @@ describe('RepairsPage', () => {
     expect(
       screen.getByRole('region', { name: /repairs page/i })
     ).toHaveTextContent('basePath:');
-    expect(mockOgabasseyV2Repairs).toHaveBeenCalledWith({ basePath: '' });
+    expect(mockOgabasseyV2Repairs).toHaveBeenCalledWith({
+      basePath: '',
+      groups: undefined,
+    });
   });
 
   it('uses root-relative links when the proxy resolved the custom domain', async () => {
@@ -91,7 +118,10 @@ describe('RepairsPage', () => {
     expect(
       screen.getByRole('region', { name: /repairs page/i })
     ).toHaveTextContent('basePath:');
-    expect(mockOgabasseyV2Repairs).toHaveBeenCalledWith({ basePath: '' });
+    expect(mockOgabasseyV2Repairs).toHaveBeenCalledWith({
+      basePath: '',
+      groups: undefined,
+    });
   });
 
   it('keeps path-based routes under the merchant slug without trusted proxy headers', async () => {
@@ -106,6 +136,7 @@ describe('RepairsPage', () => {
     ).toHaveTextContent('basePath:/ogabassey');
     expect(mockOgabasseyV2Repairs).toHaveBeenCalledWith({
       basePath: '/ogabassey',
+      groups: undefined,
     });
 
     const jsonLd = JSON.parse(
@@ -131,7 +162,7 @@ describe('RepairsPage', () => {
     expect(mockOgabasseyV2Repairs).not.toHaveBeenCalled();
   });
 
-  it('throws notFound for non-Ogabassey merchants', async () => {
+  it('throws notFound for non-Ogabassey merchants when the catalogue flag is off', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValueOnce({
       ...merchant,
       template_id: 'default',
@@ -142,6 +173,48 @@ describe('RepairsPage', () => {
         params: Promise.resolve({ slug: 'other-store' }),
       })
     ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mockOgabasseyV2Repairs).not.toHaveBeenCalled();
+    expect(mockGenericRepairsPage).not.toHaveBeenCalled();
+  });
+
+  it('renders the catalogue-driven Ogabassey skin with fetched device groups when the flag is on', async () => {
+    const groups = [{ brand: 'Apple', devices: [] }];
+    mockGetRepairDevicesForMerchant.mockResolvedValueOnce(groups);
+    vi.mocked(getCachedMerchant).mockResolvedValueOnce({
+      ...merchant,
+      feature_settings: { repairs_catalog_enabled: true },
+    });
+
+    render(
+      await RepairsPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
+    );
+
+    expect(mockGetRepairDevicesForMerchant).toHaveBeenCalledWith('merchant-1');
+    expect(mockOgabasseyV2Repairs).toHaveBeenCalledWith({
+      basePath: '/ogabassey',
+      groups,
+    });
+  });
+
+  it('renders the generic themed repairs page for non-Ogabassey merchants when the catalogue flag is on', async () => {
+    const groups = [{ brand: 'Samsung', devices: [] }];
+    mockGetRepairDevicesForMerchant.mockResolvedValueOnce(groups);
+    vi.mocked(getCachedMerchant).mockResolvedValueOnce({
+      ...merchant,
+      template_id: 'default',
+      business_name: 'Acme Gadgets',
+      feature_settings: { repairs_catalog_enabled: true },
+    });
+
+    render(
+      await RepairsPage({ params: Promise.resolve({ slug: 'other-store' }) })
+    );
+
+    expect(mockGenericRepairsPage).toHaveBeenCalledWith({
+      basePath: '/ogabassey',
+      groups,
+      merchantName: 'Acme Gadgets',
+    });
     expect(mockOgabasseyV2Repairs).not.toHaveBeenCalled();
   });
 
@@ -155,7 +228,7 @@ describe('RepairsPage', () => {
     ).resolves.toEqual({ title: 'Repair Service Not Found' });
   });
 
-  it('returns fallback metadata for non-Ogabassey merchants', async () => {
+  it('returns fallback metadata for non-Ogabassey merchants with the flag off', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValueOnce({
       ...merchant,
       template_id: 'default',
@@ -166,6 +239,23 @@ describe('RepairsPage', () => {
         params: Promise.resolve({ slug: 'other-store' }),
       })
     ).resolves.toEqual({ title: 'Repair Service Not Found' });
+  });
+
+  it('generates real metadata for non-Ogabassey merchants with the flag on', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValueOnce({
+      ...merchant,
+      template_id: 'default',
+      business_name: 'Acme Gadgets',
+      feature_settings: { repairs_catalog_enabled: true },
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'other-store' }),
+    });
+
+    expect(metadata.title).toEqual({
+      absolute: 'Device Repairs - Acme Gadgets',
+    });
   });
 
   it('generates merchant-branded metadata distinct from the /repair booking page', async () => {
