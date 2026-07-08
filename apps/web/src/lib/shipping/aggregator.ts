@@ -160,7 +160,14 @@ export class QuoteAggregator {
         : this.registry.getDomestic();
 
     if (providers.length === 0) {
-      return this.createFallbackResponse(request.sessionId);
+      // Surface the empty registry instead of serving a silent empty list —
+      // indistinguishable from "no coverage" at the API boundary otherwise.
+      console.warn('[QuoteAggregator] No providers registered for quotes', {
+        shipmentType: request.shipmentType ?? 'domestic',
+      });
+      return this.createFallbackResponse(request.sessionId, [
+        'No shipping providers are currently enabled',
+      ]);
     }
 
     // Fetch from all providers in parallel
