@@ -681,6 +681,62 @@ describe('POST /api/payments/webhook', () => {
     });
   });
 
+  describe('Domain purchase settlement', () => {
+    it('never records a merchant settlement for a domain purchase (review #2991 P1 regression test)', async () => {
+      // record_merchant_settlement credits the merchant wallet with
+      // gross - gateway_fee - platform_fee. A domain purchase is the merchant
+      // BUYING a service from Baci (platform_fee = markup only), so settling
+      // would refund the merchant roughly the registrar cost of the domain
+      // they just paid for.
+      const body = {
+        reference: 'DOM-REGRESSION1',
+        status: 'success',
+        event: 'charge.success',
+        amount: 19499,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 19499,
+          reference: 'DOM-REGRESSION1',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      setupSuccessfulTransactionMocks({
+        amount: '19499',
+        gateway_reference: 'DOM-REGRESSION1',
+        metadata: {
+          transaction_type: 'domain_purchase',
+          domain: 'junglee.com',
+          tld: '.com',
+          years: 1,
+          cost_price: 16000,
+          sell_price: 19499,
+        },
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockServiceClient.rpc).not.toHaveBeenCalledWith(
+        'record_merchant_settlement',
+        expect.anything()
+      );
+    });
+  });
+
   describe('Reference Validation', () => {
     it('returns 400 when reference is invalid', async () => {
       const body = {

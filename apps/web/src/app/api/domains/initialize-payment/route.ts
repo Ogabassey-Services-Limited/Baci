@@ -15,6 +15,7 @@ import {
   merchantFeatureUpgradeResponse,
   merchantHasFeature,
 } from '@/lib/merchant-feature-gates';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
 
@@ -145,8 +146,15 @@ export async function POST(request: NextRequest) {
     // Generate unique payment reference for domain purchase (case-preserving entropy)
     const reference = `DOM-${nanoidUppercase()}`;
 
-    // Create pending transaction record (secure RPC)
-    const { error: transactionError } = await supabase.rpc(
+    // Create the pending transaction via the service-role-only RPC. The
+    // function is NOT callable from user-scoped clients: the payments webhook
+    // trusts this row's amount and metadata for fulfillment, so pricing must
+    // only ever be written by this route (which computed it server-side above,
+    // after the auth + settings/edit + custom_domain plan checks). The RPC
+    // still re-verifies check_staff_permission(p_user_id, p_merchant_id,
+    // 'settings', 'edit') as defense in depth.
+    const adminSupabase = createAdminClient();
+    const { error: transactionError } = await adminSupabase.rpc(
       'create_domain_purchase_transaction',
       {
         p_domain: domain,
@@ -159,10 +167,8 @@ export async function POST(request: NextRequest) {
         p_reference: reference,
         p_gateway: 'paystack',
         p_currency: 'NGN',
-        // Pin the acting merchant explicitly: the RPC can derive it for
-        // single-merchant users, but staff on several merchants would hit
-        // its ambiguity guard without this.
         p_merchant_id: access.merchantId,
+        p_user_id: auth.user.id,
       }
     );
 

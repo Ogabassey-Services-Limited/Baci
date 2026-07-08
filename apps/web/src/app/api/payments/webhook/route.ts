@@ -2141,62 +2141,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Record settlement for domain purchases (no order_id → outside the
-    // outbox, which is keyed on order_id). Order-bearing transactions
-    // record settlement via the `merchant_settlement` step in the outbox.
+    // Domain purchases must NOT record a merchant settlement: the merchant is
+    // BUYING a service from Baci, not receiving a customer payment.
+    // record_merchant_settlement credits the merchant wallet with
+    // gross - gateway_fee - platform_fee, and this transaction's platform_fee
+    // is only the markup — so settling here would refund the merchant roughly
+    // the registrar cost of the domain they just bought. Baci's revenue for
+    // these purchases is tracked on the transaction row itself
+    // (amount/platform_fee + metadata cost_price/sell_price).
     const isDomainPurchase =
       (transaction.metadata as Record<string, unknown>)?.transaction_type ===
       'domain_purchase';
     if (isDomainPurchase) {
-      try {
-        const grossAmount = Number(transaction.amount) || 0;
-        const gatewayFee = extractVerifiedGatewayFeeNgn(
-          gateway,
-          gatewayResponse
-        );
-        const platformFee =
-          Number(transaction.platform_fee) ||
-          calculatePlatformFee(grossAmount * 100).platformFee / 100;
-
-        const { error: settlementError } = await supabase.rpc(
-          'record_merchant_settlement',
-          {
-            p_merchant_id: transaction.merchant_id,
-            p_source_type: 'domain_purchase',
-            p_source_id: transaction.id,
-            p_gateway: gateway,
-            p_gateway_reference: transaction.gateway_reference ?? reference,
-            p_gross_amount: grossAmount,
-            p_gateway_fee: gatewayFee,
-            p_platform_fee: platformFee,
-            p_description: `Domain purchase via ${gateway}`,
-            p_metadata: {
-              [`${gateway}_reference`]: reference,
-              verified_gateway_fee: gatewayFee,
-            },
-          }
-        );
-
-        if (settlementError) {
-          logger.warn({
-            message: 'Failed to record domain-purchase settlement',
-            error: settlementError,
-            reference,
-          });
-        } else {
-          logger.info({
-            message: 'Domain-purchase settlement recorded',
-            reference,
-            gateway,
-            grossAmount,
-          });
-        }
-      } catch (settlementError) {
-        logger.warn({
-          message: 'Domain-purchase settlement error',
-          error: settlementError,
-        });
-      }
+      logger.info({
+        message: 'Domain purchase completed (no merchant settlement recorded)',
+        reference,
+        gateway,
+        amount: Number(transaction.amount) || 0,
+      });
     }
 
     if (gateway === 'paystack') {

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  adminRpc: vi.fn(),
   authenticateApiRequest: vi.fn(),
   checkCsrfProtection: vi.fn(),
   getUserAccess: vi.fn(),
@@ -18,6 +19,12 @@ vi.mock('@/lib/api-auth', () => ({
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) =>
     mocks.checkCsrfProtection(...args),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: () => ({
+    rpc: (...args: unknown[]) => mocks.adminRpc(...args),
+  }),
 }));
 
 function createMerchantQuery(planTier = 'pro') {
@@ -69,6 +76,7 @@ const { POST } = await import('./route');
 describe('POST /api/domains/initialize-payment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.adminRpc.mockResolvedValue({ error: null });
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
     mocks.getUserAccess.mockResolvedValue({
       isOwner: true,
@@ -95,20 +103,19 @@ describe('POST /api/domains/initialize-payment', () => {
       code: 'requires_upgrade',
       error: 'Custom domains require Baci Starter or higher',
     });
-    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(mocks.adminRpc).not.toHaveBeenCalled();
   });
 
   it('returns 500 "Failed to create payment" when the transaction RPC errors', async () => {
     // Regression: create_domain_purchase_transaction was missing in
     // production, so every purchase died here with this exact response
     // (Play "Broken Functionality" rejection R4).
-    const supabase = createSupabase();
-    supabase.rpc.mockResolvedValue({
+    mocks.adminRpc.mockResolvedValue({
       error: { message: 'function does not exist' },
     });
     mocks.authenticateApiRequest.mockResolvedValue({
       error: null,
-      supabase,
+      supabase: createSupabase(),
       user: { email: 'owner@example.com', id: 'user-1' },
     });
 
@@ -120,7 +127,7 @@ describe('POST /api/domains/initialize-payment', () => {
     });
   });
 
-  it('creates the pending transaction pinned to the acting merchant and returns the Paystack URL', async () => {
+  it('creates the pending transaction via the service-role RPC and returns the Paystack URL', async () => {
     const supabase = createSupabase();
     mocks.authenticateApiRequest.mockResolvedValue({
       error: null,
@@ -147,9 +154,11 @@ describe('POST /api/domains/initialize-payment', () => {
       expect(body.authorization_url).toBe('https://checkout.paystack.com/x');
       expect(body.reference).toMatch(/^DOM-[A-Z0-9]{12}$/);
 
-      // The RPC must receive the route-resolved merchant so multi-merchant
-      // staff never hit the RPC's ambiguity guard.
-      expect(supabase.rpc).toHaveBeenCalledWith(
+      // Pricing is server-computed and written ONLY via the admin client's
+      // service-role RPC (never the user-scoped client), pinned to the
+      // route-resolved merchant and acting user.
+      expect(supabase.rpc).not.toHaveBeenCalled();
+      expect(mocks.adminRpc).toHaveBeenCalledWith(
         'create_domain_purchase_transaction',
         expect.objectContaining({
           p_domain: 'shop.com',
@@ -158,6 +167,7 @@ describe('POST /api/domains/initialize-payment', () => {
           p_gateway: 'paystack',
           p_currency: 'NGN',
           p_merchant_id: 'merchant-1',
+          p_user_id: 'user-1',
         })
       );
     } finally {
