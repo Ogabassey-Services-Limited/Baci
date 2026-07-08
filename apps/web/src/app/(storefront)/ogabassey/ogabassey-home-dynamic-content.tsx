@@ -12,6 +12,7 @@ import {
   getCachedStorefrontHomeProducts,
   type getRequestScopedMerchant,
 } from '@/lib/cached-data';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { asRoute } from '@/lib/routes';
 import {
   generateCollectionPageSchema,
@@ -168,7 +169,7 @@ export async function OgabasseyHomeDynamicContent({
             };
           }),
           merchantName: merchant.business_name,
-          currency: merchant.payout_currency || 'NGN',
+          currency: resolveMerchantCurrencyConfig(merchant).code,
         })
       : null;
   const categoryDiscoveryLinks = Array.from(

@@ -198,7 +198,7 @@ export function trackMerchantSignupCompleted(
 export function trackMerchantFirstSale(
   merchantId: string,
   orderValue: number,
-  currency: string = 'NGN'
+  currency: string
 ) {
   if (typeof window === 'undefined') return;
 
@@ -272,7 +272,7 @@ export function trackStorePublished(
 export function trackPlatformPurchase(
   merchantId: string,
   orderValue: number,
-  currency: string = 'NGN',
+  currency: string,
   orderId?: string
 ) {
   if (typeof window === 'undefined') return;

@@ -7,6 +7,7 @@ import {
   getMerchantByIdentifier,
 } from '@/lib/cached-data';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildCommercialGuideLinks } from '@/lib/storefront-content/build-commercial-guide-links';
@@ -411,7 +412,7 @@ async function loadComparePageUncached(args: {
   const supportedClusterCategory = getSupportedClusterCategory(
     args.categorySlug
   );
-  const payoutCurrency = merchant.payout_currency || 'NGN';
+  const payoutCurrency = resolveMerchantCurrencyConfig(merchant).code;
   const priceFormatter = getComparePriceFormatter(
     getStorefrontLocale(merchant.country),
     payoutCurrency

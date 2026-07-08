@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  AlertCircle,
   Award,
   Gift,
   History,
@@ -12,12 +11,10 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
 import { LoyaltyEnrollmentForm } from '@/components/storefront/loyalty/loyalty-enrollment-form';
 import { LoyaltyStatusCard } from '@/components/storefront/loyalty/loyalty-status-card';
 import { RewardsCatalog } from '@/components/storefront/loyalty/rewards-catalog';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -31,115 +28,29 @@ import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useLoyalty } from '@/hooks/use-loyalty';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 
-interface MerchantInfoSetters {
-  setMerchantId: (id: string | null) => void;
-  setMerchantName: (name: string) => void;
-  setError: (error: string | null) => void;
-  setIsRetrying: (retrying: boolean) => void;
-}
-
-// Module-scope helper so the try/finally stays outside the component body
-// (React Compiler cannot lower try/finally in components) and the initial
-// fetch + retry share one implementation.
-async function loadMerchantInfo(
-  slug: string,
-  {
-    setMerchantId,
-    setMerchantName,
-    setError,
-    setIsRetrying,
-  }: MerchantInfoSetters
-): Promise<void> {
-  setIsRetrying(true);
-  setError(null); // Clear error at start of retry for better UX
-  try {
-    const response = await fetch(`/api/storefront/merchant?slug=${slug}`);
-    if (response.ok) {
-      const data = (await response.json()) as {
-        id: string;
-        business_name?: string | null;
-      };
-      setMerchantId(data.id);
-      setMerchantName(data.business_name || '');
-    } else {
-      setError('Failed to load merchant information');
-    }
-  } catch (err) {
-    console.error('Failed to fetch merchant:', err);
-    setError('Failed to load merchant information');
-  } finally {
-    setIsRetrying(false);
-  }
-}
-
 export default function RewardsPage() {
   const params = useParams();
   const slug = params.slug as string;
-
-  const [merchantId, setMerchantId] = useState<string | null>(null);
-  const [merchantName, setMerchantName] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
-  const [isRetrying, setIsRetrying] = useState(false);
 
   // Get customer from auth context (more secure than localStorage)
   const { customer } = useCustomerAuth();
   // Derive directly from the auth context instead of mirroring it into state
   const customerId = customer?.id ?? null;
 
-  // Merchant currency (country/payout_currency) for the rewards catalog's
-  // fixed-value discount labels. `useMerchantSafe` (not the throwing
-  // `useMerchant`) because this page renders under `StorefrontMerchantProvider`
-  // in production but has no provider ancestor in its unit tests.
+  // Merchant identity + currency (country/payout_currency) come from the
+  // merchant context instead of a dedicated fetch. `useMerchantSafe` (not the
+  // throwing `useMerchant`) because this page renders under
+  // `StorefrontMerchantProvider` in production but has no provider ancestor
+  // in its unit tests.
   const merchantCurrencyContext = useMerchantSafe();
+  const merchantId = merchantCurrencyContext?.merchant?.id ?? null;
+  const merchantName = merchantCurrencyContext?.merchant?.business_name ?? '';
   const merchantCountry = merchantCurrencyContext?.merchant?.country ?? null;
   const merchantPayoutCurrency =
     merchantCurrencyContext?.merchant?.payout_currency ?? null;
 
-  // Fetch merchant info on mount and when slug changes
-  useEffect(() => {
-    loadMerchantInfo(slug, {
-      setMerchantId,
-      setMerchantName,
-      setError,
-      setIsRetrying,
-    });
-  }, [slug]);
-
-  // Retry handler for error state
-  const handleRetry = () => {
-    void loadMerchantInfo(slug, {
-      setMerchantId,
-      setMerchantName,
-      setError,
-      setIsRetrying,
-    });
-  };
-
   const { enrolled, loading, recentTransactions, getTierInfo, tier } =
     useLoyalty(merchantId || undefined, customerId || undefined);
-
-  // Error state
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <h1 className="sr-only">Rewards</h1>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <AlertCircle className="size-12 mx-auto text-destructive mb-4" />
-              <h2 className="text-xl font-semibold mb-2">
-                Unable to Load Rewards
-              </h2>
-              <p className="text-muted-foreground mb-4">{error}</p>
-              <Button onClick={handleRetry} disabled={isRetrying}>
-                {isRetrying ? 'Retrying...' : 'Try Again'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   // Loading state
   if (!merchantId) {
