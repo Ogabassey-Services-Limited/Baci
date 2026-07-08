@@ -93,9 +93,10 @@ function seedSdkDistinctId(projectToken: string, distinctId: string): boolean {
 const inMemoryDistinctIds = new Map<string, string>();
 
 /** Persisted SDK identity when present so a later boot on this origin adopts
- * the same id; otherwise generate and seed (mirrors the public-blog beacon,
- * minus its blog-specific legacy key), remembering the id in memory when
- * storage is blocked so consecutive flushes share it. */
+ * the same id — backfilling `distinct_id` into persistence when only a bare
+ * `$device_id` exists; otherwise generate and seed (mirrors the public-blog
+ * beacon, minus its blog-specific legacy key), remembering the id in memory
+ * when storage is blocked so consecutive flushes share it. */
 function getOrCreateDistinctId(projectToken: string): string {
   const { distinctId, deviceId } = readPostHogPersistedIdentity(projectToken);
   if (distinctId) {
