@@ -34,6 +34,29 @@ describe('useQuizCountdown', () => {
     expect(result.current).toBe(25);
   });
 
+  it('anchors the countdown to the server-issued deadline when present', () => {
+    vi.setSystemTime(new Date('2026-07-08T12:00:00.000Z'));
+
+    const { result } = renderHook(() =>
+      useQuizCountdown({
+        active: true,
+        deadlineAt: '2026-07-08T12:00:08.000Z',
+        hasSelectedAnswer: true,
+        onExpire: vi.fn(),
+        questionId: 'q1',
+        timeLimitSeconds: 30,
+      })
+    );
+
+    expect(result.current).toBe(8);
+
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    expect(result.current).toBe(5);
+  });
+
   it('fires onExpire exactly once at the auto-submit lead before the deadline when an answer is selected', () => {
     const onExpire = vi.fn();
     renderHook(() =>

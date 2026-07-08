@@ -16,6 +16,7 @@ export interface QuizOption {
 }
 
 export interface QuizQuestion {
+  deadlineAt: string;
   id: string;
   prompt: string;
   options: QuizOption[];

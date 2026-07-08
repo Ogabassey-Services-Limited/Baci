@@ -8,6 +8,7 @@ import {
 } from '@/schemas/quiz';
 
 const question = {
+  deadlineAt: '2026-07-08T12:00:30.000Z',
   id: 'question-1',
   index: 1,
   options: [

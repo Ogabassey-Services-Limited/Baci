@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,6 +9,34 @@ const mockGetUserAccess = vi.fn();
 const mockHasPermission = vi.fn();
 
 const mockMerchantMaybeSingle = vi.fn();
+// Review lookup chain: select(settings + slots) → eq(id) → eq(merchant) → eq(status='draft') → maybeSingle
+const mockReviewLookupMaybeSingle = vi.fn();
+const mockReviewLookupEqThird = vi.fn(() => ({
+  maybeSingle: mockReviewLookupMaybeSingle,
+}));
+const mockReviewLookupEqSecond = vi.fn(() => ({ eq: mockReviewLookupEqThird }));
+const mockReviewLookupEqFirst = vi.fn(() => ({ eq: mockReviewLookupEqSecond }));
+// Review-marker update chain: update(settings) → eq(id) → eq(merchant) → eq(status='draft') → select → maybeSingle
+const mockReviewUpdateMaybeSingle = vi.fn();
+const mockReviewUpdateSelect = vi.fn(() => ({
+  maybeSingle: mockReviewUpdateMaybeSingle,
+}));
+const mockReviewUpdateEqThird = vi.fn(() => ({
+  select: mockReviewUpdateSelect,
+}));
+const mockReviewUpdateEqSecond = vi.fn(() => ({ eq: mockReviewUpdateEqThird }));
+const mockReviewUpdateEqFirst = vi.fn(() => ({ eq: mockReviewUpdateEqSecond }));
+// Activation preflight chain: select(settings) → eq(id) → eq(merchant) → eq(status='draft') → maybeSingle
+const mockActivationReviewMaybeSingle = vi.fn();
+const mockActivationReviewEqThird = vi.fn(() => ({
+  maybeSingle: mockActivationReviewMaybeSingle,
+}));
+const mockActivationReviewEqSecond = vi.fn(() => ({
+  eq: mockActivationReviewEqThird,
+}));
+const mockActivationReviewEqFirst = vi.fn(() => ({
+  eq: mockActivationReviewEqSecond,
+}));
 // Update chain: update → eq(id) → eq(merchant) → eq(status='draft') → select → maybeSingle
 const mockQuizEventUpdateSingle = vi.fn();
 const mockQuizEventSelect = vi.fn(() => ({
@@ -16,7 +45,15 @@ const mockQuizEventSelect = vi.fn(() => ({
 const mockQuizEventEqThird = vi.fn(() => ({ select: mockQuizEventSelect }));
 const mockQuizEventEqSecond = vi.fn(() => ({ eq: mockQuizEventEqThird }));
 const mockQuizEventEqFirst = vi.fn(() => ({ eq: mockQuizEventEqSecond }));
-const mockQuizEventUpdate = vi.fn(() => ({ eq: mockQuizEventEqFirst }));
+const mockQuizEventUpdate = vi.fn((_payload: Record<string, unknown>) => ({
+  eq: mockQuizEventEqFirst,
+}));
+const mockQuizEventUpdateDispatcher = vi.fn(
+  (payload: Record<string, unknown>) =>
+    'settings' in payload
+      ? { eq: mockReviewUpdateEqFirst }
+      : mockQuizEventUpdate(payload)
+);
 // Idempotent active-lookup chain: select → eq(id) → eq(merchant) → eq(status='active') → maybeSingle
 const mockActiveLookupMaybeSingle = vi.fn();
 const mockActiveEqThird = vi.fn(() => ({
@@ -24,7 +61,15 @@ const mockActiveEqThird = vi.fn(() => ({
 }));
 const mockActiveEqSecond = vi.fn(() => ({ eq: mockActiveEqThird }));
 const mockActiveEqFirst = vi.fn(() => ({ eq: mockActiveEqSecond }));
-const mockActiveSelect = vi.fn(() => ({ eq: mockActiveEqFirst }));
+const mockQuizEventSelectDispatcher = vi.fn((columns: string) => {
+  if (columns.includes('quiz_question_slots')) {
+    return { eq: mockReviewLookupEqFirst };
+  }
+  if (columns === 'settings') {
+    return { eq: mockActivationReviewEqFirst };
+  }
+  return { eq: mockActiveEqFirst };
+});
 const mockFrom = vi.fn((table: string) => {
   if (table === 'merchants') {
     return {
@@ -34,7 +79,10 @@ const mockFrom = vi.fn((table: string) => {
     };
   }
   if (table === 'quiz_events') {
-    return { select: mockActiveSelect, update: mockQuizEventUpdate };
+    return {
+      select: mockQuizEventSelectDispatcher,
+      update: mockQuizEventUpdateDispatcher,
+    };
   }
   return {};
 });
@@ -53,10 +101,24 @@ vi.mock('@/lib/api-auth', () => ({
 const { POST } = await import('./route');
 
 const EVENT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const ANSWER_KEY_REVIEW = {
+  questions: [{ correctOptionId: 'a', position: 1 }],
+};
+
+function hashAnswerKeyForTest(answer: string): string {
+  return crypto
+    .createHash('sha256')
+    .update(answer.trim().toLowerCase())
+    .digest('hex');
+}
 
 function createRequest(body: Record<string, unknown>): NextRequest {
   return new Request('http://localhost/api/merchant/quiz/activate', {
-    body: JSON.stringify({ confirmActivation: true, ...body }),
+    body: JSON.stringify({
+      answerKeyReview: ANSWER_KEY_REVIEW,
+      confirmActivation: true,
+      ...body,
+    }),
     headers: { 'Content-Type': 'application/json' },
     method: 'POST',
   }) as unknown as NextRequest;
@@ -83,6 +145,36 @@ describe('POST /api/merchant/quiz/activate', () => {
       data: { business_name: 'OgaBassey Gadgets', slug: 'ogabassey' },
       error: null,
     });
+    mockReviewLookupMaybeSingle.mockResolvedValue({
+      data: {
+        settings: { time_limit_seconds: 30 },
+        quiz_question_slots: [
+          {
+            slot_index: 1,
+            quiz_question_variants: [
+              {
+                active: true,
+                answer_key_hash: hashAnswerKeyForTest('a'),
+              },
+            ],
+          },
+        ],
+      },
+      error: null,
+    });
+    mockReviewUpdateMaybeSingle.mockResolvedValue({
+      data: { id: EVENT_ID },
+      error: null,
+    });
+    mockActivationReviewMaybeSingle.mockResolvedValue({
+      data: {
+        settings: {
+          answer_key_reviewed: true,
+          answer_key_reviewed_at: '2026-07-08T12:00:00.000Z',
+        },
+      },
+      error: null,
+    });
     mockQuizEventUpdateSingle.mockResolvedValue({
       data: {
         id: 'event-1',
@@ -102,6 +194,13 @@ describe('POST /api/merchant/quiz/activate', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(mockQuizEventUpdateDispatcher).toHaveBeenCalledWith({
+      settings: expect.objectContaining({
+        answer_key_reviewed: true,
+        answer_key_reviewed_at: expect.any(String),
+        answer_key_reviewed_count: 1,
+      }),
+    });
     expect(mockQuizEventUpdate).toHaveBeenCalledWith({
       ends_at: null,
       starts_at: expect.any(String),
@@ -115,6 +214,39 @@ describe('POST /api/merchant/quiz/activate', () => {
     // Only drafts can be activated.
     expect(mockQuizEventEqThird).toHaveBeenCalledWith('status', 'draft');
     expect(body.event.status).toBe('active');
+  });
+
+  it('rejects activation when the reviewed answer key does not match the stored draft', async () => {
+    mockReviewLookupMaybeSingle.mockResolvedValueOnce({
+      data: {
+        settings: { time_limit_seconds: 30 },
+        quiz_question_slots: [
+          {
+            slot_index: 1,
+            quiz_question_variants: [
+              {
+                active: true,
+                answer_key_hash: hashAnswerKeyForTest('b'),
+              },
+            ],
+          },
+        ],
+      },
+      error: null,
+    });
+    mockActivationReviewMaybeSingle.mockResolvedValueOnce({
+      data: { settings: { time_limit_seconds: 30 } },
+      error: null,
+    });
+
+    const response = await POST(createRequest({ eventId: EVENT_ID }));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({
+      code: 'QUIZ_ANSWER_KEY_REVIEW_REQUIRED',
+    });
+    expect(mockQuizEventUpdate).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the update errors', async () => {

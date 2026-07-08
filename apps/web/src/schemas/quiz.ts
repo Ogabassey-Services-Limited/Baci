@@ -66,6 +66,17 @@ export const merchantQuizGenerationRequestSchema = z.object({
 
 // Activation is a deliberate second step after a human reviews the answer key.
 export const merchantQuizActivationRequestSchema = z.object({
+  answerKeyReview: z.object({
+    questions: z
+      .array(
+        z.object({
+          correctOptionId: z.string().trim().min(1).max(20),
+          position: z.int().positive(),
+        })
+      )
+      .min(1)
+      .max(50),
+  }),
   confirmActivation: z.literal(true),
   eventId: quizUuidSchema,
 });
@@ -183,6 +194,7 @@ const quizOptionResponseSchema = z.object({
 });
 
 const quizQuestionResponseSchema = z.object({
+  deadlineAt: quizIsoDatetimeSchema,
   id: quizNonEmptyIdSchema,
   index: z.int().positive(),
   options: z.array(quizOptionResponseSchema).min(1),

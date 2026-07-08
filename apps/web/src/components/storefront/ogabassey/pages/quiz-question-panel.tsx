@@ -43,6 +43,7 @@ export function QuizQuestionPanel({
 }: QuizQuestionPanelProps) {
   const remainingSeconds = useQuizCountdown({
     active: !isSubmitting,
+    deadlineAt: attempt.question.deadlineAt,
     hasSelectedAnswer: selectedAnswer !== null,
     onExpire: onAutoSubmit,
     questionId: attempt.question.id,

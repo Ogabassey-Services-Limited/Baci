@@ -2,9 +2,13 @@
 
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
-import type { MerchantQuizGenerationResponse } from '@/schemas/quiz';
+import type {
+  MerchantQuizActivationInput,
+  MerchantQuizGenerationResponse,
+} from '@/schemas/quiz';
 
 type ResultQuestion = MerchantQuizGenerationResponse['questions'][number];
+type AnswerKeyReview = MerchantQuizActivationInput['answerKeyReview'];
 
 function createQuestionRenderItems(
   questions: MerchantQuizGenerationResponse['questions']
@@ -83,7 +87,7 @@ export function QuizAdminResult({
 }: {
   activationError?: string | null;
   isActivating?: boolean;
-  onActivate?: () => void;
+  onActivate?: (answerKeyReview: AnswerKeyReview) => void;
   result: MerchantQuizGenerationResponse;
 }) {
   const [hasReviewed, setHasReviewed] = useState(false);
@@ -150,7 +154,14 @@ export function QuizAdminResult({
           <button
             className="inline-flex h-11 w-fit items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
             disabled={!hasReviewed || isActivating || !onActivate}
-            onClick={() => onActivate?.()}
+            onClick={() =>
+              onActivate?.({
+                questions: resultQuestions.map(({ position, question }) => ({
+                  correctOptionId: question.correctOptionId,
+                  position,
+                })),
+              })
+            }
             type="button"
           >
             {isActivating ? (

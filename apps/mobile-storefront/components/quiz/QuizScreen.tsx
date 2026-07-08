@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 import coinsImage from '@/assets/quiz/png/Coins.png';
 import { useTheme } from '@/hooks/useTheme';
 import { createLogger } from '@/lib/logger';
@@ -18,7 +19,6 @@ import {
   submitQuizAnswer,
 } from '@/services/quiz';
 import { useQuizStore } from '@/stores/quiz-store';
-import { useShallow } from 'zustand/react/shallow';
 import { QuizEventsList } from './QuizEventsList';
 import { QuizQuestionCard } from './QuizQuestionCard';
 import { createQuizStyles } from './QuizScreen.styles';
@@ -165,6 +165,7 @@ export function QuizScreen({
   const { remainingSeconds } = useQuizQuestionTimer({
     questionId: attempt?.question.id ?? null,
     timeLimitSeconds: attempt?.question.timeLimitSeconds ?? 0,
+    deadlineAt: attempt?.question.deadlineAt,
     isActive: status === 'question',
     // A selected answer auto-submits early to beat latency; with no selection
     // the forfeit waits for the real deadline so the player keeps their final

@@ -61,6 +61,8 @@ vi.mock('next/link', () => ({
 
 const PRIZE_PRODUCT_ID = '55555555-5555-4555-8555-555555555555';
 const PRIZE_AWARD_ID = '44444444-4444-4444-8444-444444444444';
+const createFutureDeadline = (secondsFromNow: number) =>
+  new Date(Date.now() + secondsFromNow * 1000).toISOString();
 
 const eventResponse = {
   events: [
@@ -88,6 +90,9 @@ const attemptResponse = {
   eventId: 'event-1',
   examPassPointsSpent: 1,
   question: {
+    get deadlineAt() {
+      return createFutureDeadline(30);
+    },
     id: 'question-1',
     index: 1,
     options: [
@@ -228,6 +233,7 @@ describe('OgabasseyV2Quiz', () => {
         correctAnswers: 1,
         prizeEligible: false,
         question: {
+          deadlineAt: createFutureDeadline(30),
           id: 'question-2',
           index: 2,
           options: [

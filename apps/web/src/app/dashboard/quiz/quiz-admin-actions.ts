@@ -1,5 +1,6 @@
 import { apiPost } from '@/lib/api-client';
 import {
+  type MerchantQuizActivationInput,
   type MerchantQuizActivationResponse,
   type MerchantQuizGenerationResponse,
   merchantQuizActivationResponseSchema,
@@ -59,6 +60,20 @@ export interface GenerateQuizDraftInput {
   topics: string;
 }
 
+export type QuizAnswerKeyReview =
+  MerchantQuizActivationInput['answerKeyReview'];
+
+export function buildQuizAnswerKeyReview(
+  questions: MerchantQuizGenerationResponse['questions']
+): QuizAnswerKeyReview {
+  return {
+    questions: questions.map((question, index) => ({
+      correctOptionId: question.correctOptionId,
+      position: index + 1,
+    })),
+  };
+}
+
 export async function generateQuizDraft(
   input: GenerateQuizDraftInput
 ): Promise<MerchantQuizGenerationResponse> {
@@ -89,10 +104,12 @@ export async function generateQuizDraft(
 }
 
 export async function activateQuizEvent(
-  eventId: string
+  eventId: string,
+  answerKeyReview: QuizAnswerKeyReview
 ): Promise<MerchantQuizActivationResponse> {
   const parsed = merchantQuizActivationResponseSchema.safeParse(
     await apiPost(QUIZ_ACTIVATE_ENDPOINT, {
+      answerKeyReview,
       confirmActivation: true,
       eventId,
     })

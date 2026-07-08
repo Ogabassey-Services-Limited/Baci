@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   activateQuizEvent,
+  buildQuizAnswerKeyReview,
   clampNumber,
   clampNumberInput,
   generateQuizDraft,
@@ -27,7 +28,7 @@ function validGenerationResponse() {
     questions: [
       {
         correctOptionId: 'b',
-        difficulty: 'standard',
+        difficulty: 'standard' as const,
         explanation: 'USB-C arrived on iPhone 15.',
         options: [
           { id: 'a', label: 'iPhone 13' },
@@ -76,6 +77,14 @@ describe('quiz-admin-actions pure helpers', () => {
     expect(isQuizDifficulty('standard')).toBe(true);
     expect(isQuizDifficulty('hard')).toBe(true);
     expect(isQuizDifficulty('impossible')).toBe(false);
+  });
+
+  it('builds a reviewed answer-key payload from the generated draft order', () => {
+    expect(
+      buildQuizAnswerKeyReview(validGenerationResponse().questions)
+    ).toEqual({
+      questions: [{ correctOptionId: 'b', position: 1 }],
+    });
   });
 });
 
@@ -155,11 +164,16 @@ describe('activateQuizEvent', () => {
       },
     });
 
-    const result = await activateQuizEvent('event-1');
+    const answerKeyReview = {
+      questions: [{ correctOptionId: 'b', position: 1 }],
+    };
+
+    const result = await activateQuizEvent('event-1', answerKeyReview);
 
     // Activation posts to its OWN path so it is not throttled by the expensive
     // Gemma-generation rate-limit bucket.
     expect(mockApiPost).toHaveBeenCalledWith('/api/merchant/quiz/activate', {
+      answerKeyReview,
       confirmActivation: true,
       eventId: 'event-1',
     });
@@ -169,9 +183,11 @@ describe('activateQuizEvent', () => {
   it('propagates server errors from the activation call', async () => {
     mockApiPost.mockRejectedValue(new Error('Failed to open quiz event'));
 
-    await expect(activateQuizEvent('event-1')).rejects.toThrow(
-      'Failed to open quiz event'
-    );
+    await expect(
+      activateQuizEvent('event-1', {
+        questions: [{ correctOptionId: 'b', position: 1 }],
+      })
+    ).rejects.toThrow('Failed to open quiz event');
   });
 
   it('throws a validation error when the activation response is invalid', async () => {
@@ -180,9 +196,11 @@ describe('activateQuizEvent', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
 
-    await expect(activateQuizEvent('event-1')).rejects.toThrow(
-      /Invalid quiz activation response:/
-    );
+    await expect(
+      activateQuizEvent('event-1', {
+        questions: [{ correctOptionId: 'b', position: 1 }],
+      })
+    ).rejects.toThrow(/Invalid quiz activation response:/);
     expect(consoleError).toHaveBeenCalledWith(
       'Invalid quiz activation response',
       expect.any(Error)

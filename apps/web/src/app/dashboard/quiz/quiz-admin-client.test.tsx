@@ -125,6 +125,9 @@ describe('QuizAdminClient', () => {
     expect(mockApiPost).toHaveBeenLastCalledWith(
       '/api/merchant/quiz/activate',
       {
+        answerKeyReview: {
+          questions: [{ correctOptionId: 'b', position: 1 }],
+        },
         confirmActivation: true,
         eventId: 'event-1',
       }

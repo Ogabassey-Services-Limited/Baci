@@ -10,6 +10,7 @@ export const quizOptionSchema = z.object({
 });
 
 export const quizQuestionSchema = z.object({
+  deadlineAt: z.iso.datetime({ offset: true }),
   id: z.string().min(1),
   prompt: z.string().min(1),
   options: z.array(quizOptionSchema).min(1),

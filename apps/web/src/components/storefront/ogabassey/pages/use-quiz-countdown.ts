@@ -11,6 +11,8 @@ const QUIZ_COUNTDOWN_TICK_MS = 250;
 interface UseQuizCountdownArgs {
   /** When false the timer is paused/stopped (e.g. while submitting). */
   active: boolean;
+  /** Server-issued deadline for the current question window. */
+  deadlineAt?: string | null;
   /**
    * Whether the player has an option selected. Governs the auto-submit lead: a
    * SELECTED answer submits `QUIZ_AUTO_SUBMIT_LEAD_MS` early so it beats network
@@ -27,20 +29,37 @@ interface UseQuizCountdownArgs {
   timeLimitSeconds: number;
 }
 
+function resolveDeadlineMs(
+  deadlineAt: string | null | undefined,
+  timeLimitSeconds: number
+): number {
+  const parsedDeadline = deadlineAt ? Date.parse(deadlineAt) : Number.NaN;
+  return Number.isFinite(parsedDeadline)
+    ? parsedDeadline
+    : Date.now() + timeLimitSeconds * 1000;
+}
+
+function getRemainingSeconds(deadlineMs: number): number {
+  return Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000));
+}
+
 /**
  * Per-question countdown. Remaining time is derived from a fixed deadline
- * captured when the question is received (NOT by decrementing a counter), so a
- * backgrounded tab shows the correct remaining time on return. Returns the
- * whole seconds left for display.
+ * issued by the server (NOT by decrementing a counter), so a backgrounded tab
+ * shows the correct remaining time on return. Returns the whole seconds left
+ * for display.
  */
 export function useQuizCountdown({
   active,
+  deadlineAt,
   hasSelectedAnswer,
   onExpire,
   questionId,
   timeLimitSeconds,
 }: UseQuizCountdownArgs): number {
-  const [remainingSeconds, setRemainingSeconds] = useState(timeLimitSeconds);
+  const [remainingSeconds, setRemainingSeconds] = useState(() =>
+    getRemainingSeconds(resolveDeadlineMs(deadlineAt, timeLimitSeconds))
+  );
   const onExpireRef = useRef(onExpire);
   const hasSelectedAnswerRef = useRef(hasSelectedAnswer);
   const deadlineRef = useRef(0);
@@ -69,10 +88,10 @@ export function useQuizCountdown({
   // `active`): the server's issued_at is unchanged, so resetting here would let
   // the client auto-submit after the real server window and be scored late.
   useEffect(() => {
-    deadlineRef.current = Date.now() + timeLimitSeconds * 1000;
+    deadlineRef.current = resolveDeadlineMs(deadlineAt, timeLimitSeconds);
     firedRef.current = false;
-    setRemainingSeconds(timeLimitSeconds);
-  }, [questionId, timeLimitSeconds]);
+    setRemainingSeconds(getRemainingSeconds(deadlineRef.current));
+  }, [deadlineAt, questionId, timeLimitSeconds]);
 
   useEffect(() => {
     if (!active) return;
@@ -98,7 +117,7 @@ export function useQuizCountdown({
     tick();
 
     return stop;
-  }, [active, questionId, timeLimitSeconds]);
+  }, [active, deadlineAt, questionId, timeLimitSeconds]);
 
   return remainingSeconds;
 }

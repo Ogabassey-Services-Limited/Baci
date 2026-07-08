@@ -14,7 +14,6 @@ import {
   createVariantRows,
   isQuizDraftEvent,
   type MerchantAuthContext,
-  resolveMerchantQuizContext,
   resolvePrizeProduct,
   slugifyTitle,
 } from './quiz-generate-helpers';

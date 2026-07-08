@@ -268,23 +268,56 @@ describe('quiz route input schemas', () => {
   it('requires an explicit confirmation flag to activate a draft quiz', () => {
     expect(
       merchantQuizActivationRequestSchema.parse({
+        answerKeyReview: {
+          questions: [{ correctOptionId: 'a', position: 1 }],
+        },
         confirmActivation: true,
         eventId: EVENT_ID,
       })
-    ).toEqual({ confirmActivation: true, eventId: EVENT_ID });
+    ).toEqual({
+      answerKeyReview: {
+        questions: [{ correctOptionId: 'a', position: 1 }],
+      },
+      confirmActivation: true,
+      eventId: EVENT_ID,
+    });
 
     // Must not activate without the explicit confirmation flag.
     expect(() =>
-      merchantQuizActivationRequestSchema.parse({ eventId: EVENT_ID })
+      merchantQuizActivationRequestSchema.parse({
+        answerKeyReview: {
+          questions: [{ correctOptionId: 'a', position: 1 }],
+        },
+        eventId: EVENT_ID,
+      })
     ).toThrow();
     expect(() =>
       merchantQuizActivationRequestSchema.parse({
+        answerKeyReview: {
+          questions: [{ correctOptionId: 'a', position: 1 }],
+        },
         confirmActivation: false,
         eventId: EVENT_ID,
       })
     ).toThrow();
     expect(() =>
       merchantQuizActivationRequestSchema.parse({
+        confirmActivation: true,
+        eventId: EVENT_ID,
+      })
+    ).toThrow();
+    expect(() =>
+      merchantQuizActivationRequestSchema.parse({
+        answerKeyReview: { questions: [] },
+        confirmActivation: true,
+        eventId: EVENT_ID,
+      })
+    ).toThrow();
+    expect(() =>
+      merchantQuizActivationRequestSchema.parse({
+        answerKeyReview: {
+          questions: [{ correctOptionId: 'a', position: 1 }],
+        },
         confirmActivation: true,
         eventId: 'not-a-uuid',
       })

@@ -79,7 +79,9 @@ describe('QuizAdminResult', () => {
     expect(openButton).toBeEnabled();
 
     await user.click(openButton);
-    expect(onActivate).toHaveBeenCalledOnce();
+    expect(onActivate).toHaveBeenCalledWith({
+      questions: [{ correctOptionId: 'a', position: 1 }],
+    });
   });
 
   it('renders a live state without the open action once active', () => {

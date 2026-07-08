@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { attachQuizQuestionDeadline } from '@/app/api/quiz/_shared/quiz-question-deadline';
 import {
   createRouteProof,
   invalidInputResponse,
@@ -93,7 +94,14 @@ export async function POST(
   }
 
   try {
-    return NextResponse.json(addSignedPrizeClaim(data, auth.user.id));
+    const signedResult = addSignedPrizeClaim(data, auth.user.id);
+    const deadlineResult = await attachQuizQuestionDeadline(
+      auth.supabase,
+      signedResult
+    );
+    if (deadlineResult.response) return deadlineResult.response;
+
+    return NextResponse.json(deadlineResult.data);
   } catch (error) {
     if (error instanceof QuizVoucherTokenConfigError) {
       return voucherTokenConfigResponse();

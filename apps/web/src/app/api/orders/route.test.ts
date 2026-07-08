@@ -970,7 +970,7 @@ describe('POST /api/orders — quiz voucher guard', () => {
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
-  it('passes the verified voucher award id to the voucher-specific order RPC', async () => {
+  it('passes the verified voucher award id and paid status to the voucher-specific order RPC', async () => {
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
     vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
@@ -1031,6 +1031,7 @@ describe('POST /api/orders — quiz voucher guard', () => {
           subject_id: awardId,
           user_id: AUTH_USER_ID,
         }),
+        p_payment_status: 'paid',
         p_user_id: AUTH_USER_ID,
       })
     );

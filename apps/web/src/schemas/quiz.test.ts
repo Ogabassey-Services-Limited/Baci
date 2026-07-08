@@ -12,6 +12,9 @@ describe('merchantQuizActivationRequestSchema', () => {
 
   it('accepts an explicit activation confirmation', () => {
     const result = merchantQuizActivationRequestSchema.safeParse({
+      answerKeyReview: {
+        questions: [{ correctOptionId: 'a', position: 1 }],
+      },
       confirmActivation: true,
       eventId,
     });

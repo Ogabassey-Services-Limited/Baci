@@ -147,9 +147,19 @@ interface QuizEventsHarness {
 
 function buildQuizEventsHarness(
   update: { data: unknown; error: unknown },
-  active: { data: unknown; error: unknown } = { data: null, error: null }
+  active: { data: unknown; error: unknown } = { data: null, error: null },
+  draft: { data: unknown; error: unknown } = {
+    data: {
+      settings: {
+        answer_key_reviewed: true,
+        answer_key_reviewed_at: '2026-07-08T12:00:00.000Z',
+      },
+    },
+    error: null,
+  }
 ): QuizEventsHarness {
   const eqCalls: EqCall[] = [];
+  const draftEqCalls: EqCall[] = [];
   const activeEqCalls: EqCall[] = [];
   let updatePayload: Record<string, unknown> | undefined;
   let selectArg: string | undefined;
@@ -165,6 +175,15 @@ function buildQuizEventsHarness(
       return updateBuilder;
     }),
     maybeSingle: vi.fn(async () => update),
+  };
+
+  // Review preflight: select(settings) → eq → eq → eq → maybeSingle
+  const draftBuilder = {
+    eq: vi.fn((column: string, value: string) => {
+      draftEqCalls.push([column, value]);
+      return draftBuilder;
+    }),
+    maybeSingle: vi.fn(async () => draft),
   };
 
   // Idempotent fallback: select → eq → eq → eq → maybeSingle
@@ -185,7 +204,9 @@ function buildQuizEventsHarness(
         updatePayload = payload;
         return updateBuilder;
       }),
-      select: vi.fn(() => activeBuilder),
+      select: vi.fn((columns: string) =>
+        columns === 'settings' ? draftBuilder : activeBuilder
+      ),
     };
   });
 
@@ -264,7 +285,8 @@ describe('activateMerchantQuizDraft', () => {
           title: 'Daily Phone Quiz',
         },
         error: null,
-      }
+      },
+      { data: null, error: null }
     );
 
     const result = await activateMerchantQuizDraft(
@@ -284,6 +306,7 @@ describe('activateMerchantQuizDraft', () => {
 
   it('returns null when neither a draft nor an owned active event exists', async () => {
     const harness = buildQuizEventsHarness(
+      { data: null, error: null },
       { data: null, error: null },
       { data: null, error: null }
     );

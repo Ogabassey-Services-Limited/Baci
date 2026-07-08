@@ -7,6 +7,11 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import type { GeneratedQuizQuestion } from '@/schemas/quiz';
+import { hashAnswerKey } from './quiz-answer-key';
+import { hasPersistedAnswerKeyReview } from './quiz-answer-key-review';
+
+export { hashAnswerKey } from './quiz-answer-key';
+export { recordMerchantQuizAnswerKeyReview } from './quiz-answer-key-review';
 
 export type QuizSupabaseClient = NonNullable<
   Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
@@ -51,13 +56,6 @@ export function slugifyTitle(title: string): string {
     .replace(/^-+|-+$/g, '');
   const baseSlug = slug || 'quiz';
   return `${baseSlug}-${crypto.randomBytes(4).toString('hex')}`;
-}
-
-export function hashAnswerKey(answer: string): string {
-  return crypto
-    .createHash('sha256')
-    .update(answer.trim().toLowerCase())
-    .digest('hex');
 }
 
 export function createSlotRows(questions: GeneratedQuizQuestion[]): SlotRow[] {
@@ -176,6 +174,24 @@ export async function activateMerchantQuizDraft(
   eventId: string,
   merchantId: string
 ): Promise<QuizDraftEvent | null> {
+  const { data: draft, error: draftError } = await supabase
+    .from('quiz_events')
+    .select('settings')
+    .eq('id', eventId)
+    .eq('merchant_id', merchantId)
+    .eq('status', 'draft')
+    .maybeSingle();
+
+  if (draftError) {
+    return null;
+  }
+  if (
+    draft &&
+    !hasPersistedAnswerKeyReview((draft as { settings?: unknown }).settings)
+  ) {
+    return null;
+  }
+
   const { data: activated, error: updateError } = await supabase
     .from('quiz_events')
     .update({

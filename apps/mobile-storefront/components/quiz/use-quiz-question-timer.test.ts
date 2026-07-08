@@ -47,6 +47,27 @@ describe('useQuizQuestionTimer', () => {
     expect(result.current.remainingSeconds).toBe(20);
   });
 
+  it('anchors remaining time to the server-issued deadline when present', () => {
+    const { result } = renderHook(() =>
+      useQuizQuestionTimer({
+        questionId: 'q1',
+        timeLimitSeconds: 30,
+        deadlineAt: new Date(8000).toISOString(),
+        isActive: true,
+        hasSelection: false,
+        onExpire: jest.fn(),
+      })
+    );
+
+    expect(result.current.remainingSeconds).toBe(8);
+
+    act(() => {
+      jest.advanceTimersByTime(3000);
+    });
+
+    expect(result.current.remainingSeconds).toBe(5);
+  });
+
   it('auto-submits a SELECTED answer exactly once, at the early lead', () => {
     const onExpire = jest.fn();
     renderHook(() =>

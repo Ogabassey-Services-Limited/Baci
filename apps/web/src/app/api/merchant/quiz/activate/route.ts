@@ -3,6 +3,7 @@ import { merchantQuizActivationRequestSchema } from '@/schemas/quiz';
 import {
   activateMerchantQuizDraft,
   authorizeMerchantQuizRequest,
+  recordMerchantQuizAnswerKeyReview,
 } from '../generate/quiz-generate-helpers';
 
 /**
@@ -29,6 +30,34 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid input', code: 'INVALID_INPUT' },
+      { status: 400 }
+    );
+  }
+
+  const reviewRecorded = await recordMerchantQuizAnswerKeyReview(
+    context.supabase,
+    parsed.data.eventId,
+    context.merchantId,
+    parsed.data.answerKeyReview.questions
+  );
+  if (!reviewRecorded) {
+    const alreadyActivatedEvent = await activateMerchantQuizDraft(
+      context.supabase,
+      parsed.data.eventId,
+      context.merchantId
+    );
+    if (alreadyActivatedEvent) {
+      return NextResponse.json(
+        { event: alreadyActivatedEvent },
+        { status: 200 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: 'Review every correct answer before opening this quiz',
+        code: 'QUIZ_ANSWER_KEY_REVIEW_REQUIRED',
+      },
       { status: 400 }
     );
   }

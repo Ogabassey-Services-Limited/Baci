@@ -14,6 +14,8 @@ interface UseQuizQuestionTimerParams {
   /** Stable id of the current question; `null` when no question is active. */
   questionId: string | null;
   timeLimitSeconds: number;
+  /** Server-issued deadline for the current question window. */
+  deadlineAt?: string | null;
   /** True only while the player can still answer (status === 'question'). */
   isActive: boolean;
   /**
@@ -32,22 +34,39 @@ interface QuizQuestionTimerState {
   isExpiring: boolean;
 }
 
+function resolveDeadlineMs(
+  deadlineAt: string | null | undefined,
+  timeLimitSeconds: number
+): number {
+  const parsedDeadline = deadlineAt ? Date.parse(deadlineAt) : Number.NaN;
+  return Number.isFinite(parsedDeadline)
+    ? parsedDeadline
+    : Date.now() + timeLimitSeconds * 1000;
+}
+
+function getRemainingMs(deadlineMs: number): number {
+  return Math.max(0, deadlineMs - Date.now());
+}
+
 /**
- * Drives a per-question countdown from a timestamp captured when the question
- * is received, so backgrounding the app shows the correct remaining time on
- * return (recomputed on foreground via AppState) and the window auto-submits
- * once — cleaning up its interval on unmount and on every question change.
+ * Drives a per-question countdown from the server-issued deadline, so
+ * backgrounding the app shows the correct remaining time on return (recomputed
+ * on foreground via AppState) and the window auto-submits once — cleaning up its
+ * interval on unmount and on every question change.
  */
 export function useQuizQuestionTimer({
   questionId,
   timeLimitSeconds,
+  deadlineAt,
   isActive,
   hasSelection,
   onExpire,
 }: UseQuizQuestionTimerParams): QuizQuestionTimerState {
-  const startedAtRef = useRef(Date.now());
+  const deadlineRef = useRef(resolveDeadlineMs(deadlineAt, timeLimitSeconds));
   const firedRef = useRef(false);
-  const [remainingMs, setRemainingMs] = useState(timeLimitSeconds * 1000);
+  const [remainingMs, setRemainingMs] = useState(() =>
+    getRemainingMs(deadlineRef.current)
+  );
 
   // Latest onExpire/hasSelection without retriggering the interval effect on
   // every render — the tick reads the live values through refs.
@@ -58,21 +77,21 @@ export function useQuizQuestionTimer({
 
   // Reset the countdown the moment a new question arrives (render-time compare
   // avoids a stale first frame from an effect).
-  const [trackedQuestionId, setTrackedQuestionId] = useState(questionId);
-  if (questionId !== trackedQuestionId) {
-    setTrackedQuestionId(questionId);
-    startedAtRef.current = Date.now();
+  const questionTimerKey = `${questionId ?? 'none'}:${deadlineAt ?? ''}:${timeLimitSeconds}`;
+  const [trackedQuestionTimerKey, setTrackedQuestionTimerKey] =
+    useState(questionTimerKey);
+  if (questionTimerKey !== trackedQuestionTimerKey) {
+    setTrackedQuestionTimerKey(questionTimerKey);
+    deadlineRef.current = resolveDeadlineMs(deadlineAt, timeLimitSeconds);
     firedRef.current = false;
-    setRemainingMs(timeLimitSeconds * 1000);
+    setRemainingMs(getRemainingMs(deadlineRef.current));
   }
 
   useEffect(() => {
     if (!isActive || questionId === null) return;
 
     const evaluate = () => {
-      const totalMs = timeLimitSeconds * 1000;
-      const elapsed = Date.now() - startedAtRef.current;
-      const remaining = Math.max(0, totalMs - elapsed);
+      const remaining = getRemainingMs(deadlineRef.current);
       setRemainingMs(remaining);
 
       // Selected answer: fire early (lead) to beat network latency. No
@@ -99,7 +118,7 @@ export function useQuizQuestionTimer({
       clearInterval(intervalId);
       appStateSubscription?.remove?.();
     };
-  }, [isActive, questionId, timeLimitSeconds]);
+  }, [deadlineAt, isActive, questionId, timeLimitSeconds]);
 
   return {
     remainingSeconds: Math.ceil(remainingMs / 1000),

@@ -55,12 +55,16 @@ const quizEvent: QuizEvent = {
   title: 'Daily Prize Quiz',
 };
 
-const quizAttempt: QuizAttempt = {
+const createFutureDeadline = (secondsFromNow: number) =>
+  new Date(Date.now() + secondsFromNow * 1000).toISOString();
+
+const createQuizAttempt = (): QuizAttempt => ({
   attemptId: 'attempt-1',
   eventId: 'event-1',
   examPassPointsSpent: 1,
   remainingLoyaltyPoints: 4,
   question: {
+    deadlineAt: createFutureDeadline(30),
     id: 'question-1',
     index: 1,
     options: [
@@ -71,7 +75,7 @@ const quizAttempt: QuizAttempt = {
     timeLimitSeconds: 30,
     total: 3,
   },
-};
+});
 
 const quizResult: QuizResult = {
   attemptId: 'attempt-1',
@@ -103,7 +107,9 @@ describe('QuizScreen', () => {
     mockUsername = 'ogafan';
     mockSetUsername.mockReset();
     jest.mocked(fetchQuizEvents).mockResolvedValue([quizEvent]);
-    jest.mocked(startQuizAttempt).mockResolvedValue(quizAttempt);
+    jest
+      .mocked(startQuizAttempt)
+      .mockImplementation(async () => createQuizAttempt());
     jest.mocked(submitQuizAnswer).mockResolvedValue(quizResult);
   });
 
@@ -116,26 +122,22 @@ describe('QuizScreen', () => {
   // can exceed the default 5s per-test timeout even though the flow itself is
   // instant, so the first test gets extra headroom (see jest.setup.ts note on
   // the same accumulated-pressure effect widening asyncUtilTimeout).
-  it(
-    'renders a load error as an accessible alert',
-    async () => {
-      jest
-        .mocked(fetchQuizEvents)
-        .mockRejectedValueOnce(new Error('Events offline'));
+  it('renders a load error as an accessible alert', async () => {
+    jest
+      .mocked(fetchQuizEvents)
+      .mockRejectedValueOnce(new Error('Events offline'));
 
-      render(<QuizScreen integrityTier="device" locale="en-US" />);
+    render(<QuizScreen integrityTier="device" locale="en-US" />);
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(
-        'Events offline'
-      );
-      fireEvent.press(
-        screen.getByRole('button', { name: 'Retry loading quiz events' })
-      );
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Events offline'
+    );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Retry loading quiz events' })
+    );
 
-      expect(await screen.findByText('Daily Prize Quiz')).toBeTruthy();
-    },
-    15_000
-  );
+    expect(await screen.findByText('Daily Prize Quiz')).toBeTruthy();
+  }, 15_000);
 
   it('renders fetched quiz events', async () => {
     render(<QuizScreen integrityTier="device" locale="en-US" />);
@@ -193,7 +195,7 @@ describe('QuizScreen', () => {
     });
 
     await act(async () => {
-      startDeferred.resolve(quizAttempt);
+      startDeferred.resolve(createQuizAttempt());
       await startDeferred.promise;
     });
 

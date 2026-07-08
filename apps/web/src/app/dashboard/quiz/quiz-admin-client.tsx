@@ -12,6 +12,7 @@ import {
   clampNumberInput,
   generateQuizDraft,
   isQuizDifficulty,
+  type QuizAnswerKeyReview,
   topicsFromTextarea,
 } from './quiz-admin-actions';
 import { QuizAdminResult } from './quiz-admin-result';
@@ -105,7 +106,7 @@ export function QuizAdminClient({
       });
   };
 
-  const handleActivate = () => {
+  const handleActivate = (answerKeyReview: QuizAnswerKeyReview) => {
     if (!result) return;
     // Pin the event being activated so a late response only updates the draft it
     // actually opened — never a newer draft the admin generated in the meantime.
@@ -113,7 +114,7 @@ export function QuizAdminClient({
     setActivationError(null);
     setIsActivating(true);
 
-    activateQuizEvent(activatingEventId)
+    activateQuizEvent(activatingEventId, answerKeyReview)
       .then((data) => {
         setResult((current) =>
           current && current.event.id === activatingEventId

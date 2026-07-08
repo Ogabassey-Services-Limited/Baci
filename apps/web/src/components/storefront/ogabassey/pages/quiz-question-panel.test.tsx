@@ -23,6 +23,7 @@ function buildAttempt(): QuizAttemptResponse {
     eventId: 'event-1',
     examPassPointsSpent: 1,
     question: {
+      deadlineAt: '2026-07-08T12:00:30.000Z',
       id: 'question-1',
       index: 2,
       options: [

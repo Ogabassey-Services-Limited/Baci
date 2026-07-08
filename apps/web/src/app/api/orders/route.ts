@@ -1634,7 +1634,9 @@ export async function POST(request: NextRequest) {
     const payOnDelivery = isPayOnDelivery(payment_method);
 
     let effectivePaymentStatus = payment_status;
-    if (payOnDelivery) {
+    if (hasVoucherItem) {
+      effectivePaymentStatus = 'paid';
+    } else if (payOnDelivery) {
       effectivePaymentStatus = 'pending';
 
       if (merchant?.rider_phone_number) {
