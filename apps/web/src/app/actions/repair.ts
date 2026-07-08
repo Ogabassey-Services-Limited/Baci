@@ -1,18 +1,16 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { cookies } from 'next/headers';
 import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
+import {
+  type CreateRepairResult,
+  createRepairBooking,
+} from '@/lib/repairs/create-repair-core';
 import { topshipProvider } from '@/lib/shipping/providers/topship';
-import { createClient } from '@/lib/supabase/server';
-import {
-  type RepairBookingInput,
-  repairBookingSchema,
-} from '@/lib/validations/repair';
-import {
-  repairMerchantIdSchema,
-  repairPlaceDetailsSchema,
-} from '@/schemas/repair-actions';
+import type { RepairBookingInput } from '@/lib/validations/repair';
+import { repairPlaceDetailsSchema } from '@/schemas/repair-actions';
+
+export type { CreateRepairResult };
 
 interface PlaceDetails {
   streetNumber: string;
@@ -32,107 +30,21 @@ export type ShippingCalculationResult = {
   message?: string;
 };
 
-export type CreateRepairResult =
-  | { success: true; id: string }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
-
-// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: anonymous repair booking; Zod-validated + identity/IP rate limited
+// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: anonymous repair booking; Zod-validated + identity/IP rate limited, write goes through the SECURITY DEFINER booking RPC
 export async function createRepair(
   data: RepairBookingInput,
   merchantId: string
 ): Promise<CreateRepairResult> {
-  // 1. Rate limit first — anonymous customers book repairs, so this action
-  // cannot require a login; abuse control happens per user/IP instead.
-  const allowed = await ensureActionRateLimit('repair-create', {
-    requests: 5,
-    windowMs: 60_000,
-  });
-  if (!allowed) {
-    return {
-      success: false,
-      error: 'Too many repair requests. Please try again in a minute.',
-    };
-  }
+  // Shared core: app-layer rate limit + Zod validation + booking RPC (which
+  // re-validates the merchant/active quote and snapshots the price server-side).
+  const result = await createRepairBooking(data, merchantId);
 
-  // 2. Validate inputs
-  const parsedMerchantId = repairMerchantIdSchema.safeParse(merchantId);
-  if (!parsedMerchantId.success) {
-    return { success: false, error: 'Invalid store reference.' };
-  }
-
-  const validationResult = repairBookingSchema.safeParse(data);
-  if (!validationResult.success) {
-    return {
-      success: false,
-      error: 'Validation failed',
-      fieldErrors: validationResult.error.flatten().fieldErrors,
-    };
-  }
-
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-
-  const {
-    customerName,
-    customerEmail,
-    customerPhone,
-    deviceType,
-    deviceModel,
-    issueDescription,
-    preferredDate,
-    serviceType,
-    pickupAddress,
-  } = validationResult.data;
-
-  try {
-    // 3. Verify the target store exists so anonymous submissions stay
-    // scoped to a real merchant.
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('id', parsedMerchantId.data)
-      .maybeSingle();
-
-    if (merchantError || !merchant) {
-      return { success: false, error: 'Store not found.' };
-    }
-
-    const repairId = globalThis.crypto.randomUUID();
-
-    // 4. Insert into database
-    const { error } = await supabase.from('repairs').insert({
-      id: repairId,
-      merchant_id: merchant.id,
-      customer_name: customerName,
-      customer_email: customerEmail,
-      customer_phone: customerPhone,
-      device_type: deviceType,
-      device_model: deviceModel,
-      issue_description: issueDescription,
-      preferred_date: preferredDate
-        ? new Date(preferredDate).toISOString()
-        : null,
-      service_type: serviceType,
-      pickup_address: pickupAddress || null,
-      status: 'pending',
-    });
-
-    if (error) {
-      console.error('Error creating repair:', error);
-      return {
-        success: false,
-        error: 'Failed to submit repair request. Please try again.',
-      };
-    }
-
-    // 5. Revalidate paths (optional, if we show recent requests somewhere)
+  if (result.success) {
+    // Revalidate the merchant bookings surface (built in a later phase).
     revalidatePath('/dashboard/repairs');
-
-    return { success: true, id: repairId };
-  } catch (error) {
-    console.error('Unexpected error creating repair:', error);
-    return { success: false, error: 'An unexpected error occurred.' };
   }
+
+  return result;
 }
 
 // eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: anonymous shipping quote; address completeness enforced by Zod + identity/IP rate limited

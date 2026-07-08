@@ -78,6 +78,7 @@ export function RepairBookingWizard({
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [ticketNumber, setTicketNumber] = useState<number | null>(null);
   const [shippingQuote, setShippingQuote] =
     useState<ShippingCalculationResult | null>(null);
   const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
@@ -157,6 +158,7 @@ export function RepairBookingWizard({
     return createRepair(data, merchantId)
       .then((result) => {
         if (result.success) {
+          setTicketNumber(result.ticketNumber);
           setIsSuccess(true);
           toast({
             title: 'Request Submitted',
@@ -194,6 +196,9 @@ export function RepairBookingWizard({
           <CheckCircle className="size-10 text-green-600" />
         </div>
         <h2 className="text-2xl font-bold mb-2">Booking Confirmed!</h2>
+        {ticketNumber !== null && (
+          <p className="mb-2 font-semibold">Ticket #{ticketNumber}</p>
+        )}
         <p className="text-muted-foreground mb-8">
           Thanks for booking a repair with {merchantName}. Your ticket number
           will be sent to your email. We'll be in touch shortly to confirm the

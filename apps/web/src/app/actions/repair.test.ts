@@ -3,38 +3,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RepairBookingInput } from '@/lib/validations/repair';
 import { calculateRepairShipping, createRepair } from './repair';
 
-const mocks = vi.hoisted(() => {
-  const insert = vi.fn();
-  const maybeSingle = vi.fn();
-  const eq = vi.fn(() => ({ maybeSingle }));
-  const select = vi.fn(() => ({ eq }));
-  const from = vi.fn((table: string) =>
-    table === 'merchants' ? { select } : { insert }
-  );
-
-  return {
-    cookies: vi.fn(),
-    createClient: vi.fn(() => ({ from })),
-    ensureActionRateLimit: vi.fn(),
-    eq,
-    from,
-    getQuotes: vi.fn(),
-    insert,
-    maybeSingle,
-    select,
-  };
-});
+const mocks = vi.hoisted(() => ({
+  createRepairBooking: vi.fn(),
+  ensureActionRateLimit: vi.fn(),
+  getQuotes: vi.fn(),
+}));
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }));
 
-vi.mock('next/headers', () => ({
-  cookies: mocks.cookies,
-}));
-
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: mocks.createClient,
+vi.mock('@/lib/repairs/create-repair-core', () => ({
+  createRepairBooking: mocks.createRepairBooking,
 }));
 
 vi.mock('@/lib/ensure-action-rate-limit', () => ({
@@ -47,7 +27,6 @@ vi.mock('@/lib/shipping/providers/topship', () => ({
   },
 }));
 
-const preferredDate = '2026-06-03';
 const merchantId = '123e4567-e89b-12d3-a456-426614174000';
 
 const validRepairInput: RepairBookingInput = {
@@ -57,115 +36,41 @@ const validRepairInput: RepairBookingInput = {
   deviceType: 'Smartphone',
   deviceModel: 'iPhone 15',
   issueDescription: 'The screen is cracked and the battery drains quickly.',
-  preferredDate,
+  preferredDate: '2026-06-03',
   serviceType: 'dropoff',
 };
 
 describe('createRepair', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.ensureActionRateLimit.mockResolvedValue(true);
-    mocks.cookies.mockResolvedValue({ get: vi.fn() });
-    mocks.maybeSingle.mockResolvedValue({
-      data: { id: merchantId },
-      error: null,
-    });
-    mocks.insert.mockResolvedValue({ error: null });
   });
 
-  it('creates a repair with an app-generated id without requesting returned rows', async () => {
+  it('delegates to the booking core and revalidates on success', async () => {
+    mocks.createRepairBooking.mockResolvedValueOnce({
+      success: true,
+      id: 'repair-1',
+      ticketNumber: 42,
+    });
+
     const result = await createRepair(validRepairInput, merchantId);
 
-    expect(result.success).toBe(true);
-    if (!result.success) throw new Error('Expected repair creation to succeed');
-
-    expect(mocks.ensureActionRateLimit).toHaveBeenCalledWith('repair-create', {
-      requests: 5,
-      windowMs: 60_000,
-    });
-    expect(result.id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    expect(result).toEqual({ success: true, id: 'repair-1', ticketNumber: 42 });
+    expect(mocks.createRepairBooking).toHaveBeenCalledWith(
+      validRepairInput,
+      merchantId
     );
-    expect(mocks.from).toHaveBeenCalledWith('merchants');
-    expect(mocks.eq).toHaveBeenCalledWith('id', merchantId);
-    expect(mocks.from).toHaveBeenCalledWith('repairs');
-    expect(mocks.insert).toHaveBeenCalledWith({
-      id: result.id,
-      merchant_id: merchantId,
-      customer_name: validRepairInput.customerName,
-      customer_email: validRepairInput.customerEmail,
-      customer_phone: validRepairInput.customerPhone,
-      device_type: validRepairInput.deviceType,
-      device_model: validRepairInput.deviceModel,
-      issue_description: validRepairInput.issueDescription,
-      preferred_date: new Date(preferredDate).toISOString(),
-      service_type: validRepairInput.serviceType,
-      pickup_address: null,
-      status: 'pending',
-    });
     expect(revalidatePath).toHaveBeenCalledWith('/dashboard/repairs');
   });
 
-  it('returns a rate-limit error without touching the database when the budget is exhausted', async () => {
-    mocks.ensureActionRateLimit.mockResolvedValueOnce(false);
-
-    const result = await createRepair(validRepairInput, merchantId);
-
-    expect(result).toEqual({
+  it('returns the core failure without revalidating', async () => {
+    mocks.createRepairBooking.mockResolvedValueOnce({
       success: false,
-      error: 'Too many repair requests. Please try again in a minute.',
+      error: 'Store not found.',
     });
-    expect(mocks.createClient).not.toHaveBeenCalled();
-    expect(mocks.insert).not.toHaveBeenCalled();
-    expect(revalidatePath).not.toHaveBeenCalled();
-  });
-
-  it('rejects non-uuid merchant ids without inserting', async () => {
-    const result = await createRepair(validRepairInput, 'not-a-uuid');
-
-    expect(result).toEqual({
-      success: false,
-      error: 'Invalid store reference.',
-    });
-    expect(mocks.insert).not.toHaveBeenCalled();
-    expect(revalidatePath).not.toHaveBeenCalled();
-  });
-
-  it('returns a store-not-found error when the merchant does not exist', async () => {
-    mocks.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
 
     const result = await createRepair(validRepairInput, merchantId);
 
     expect(result).toEqual({ success: false, error: 'Store not found.' });
-    expect(mocks.insert).not.toHaveBeenCalled();
-    expect(revalidatePath).not.toHaveBeenCalled();
-  });
-
-  it('returns validation errors without inserting invalid repair data', async () => {
-    const result = await createRepair(
-      {
-        ...validRepairInput,
-        issueDescription: 'short',
-      },
-      merchantId
-    );
-
-    expect(result.success).toBe(false);
-    expect(mocks.insert).not.toHaveBeenCalled();
-    expect(revalidatePath).not.toHaveBeenCalled();
-  });
-
-  it('returns a friendly error when the repair insert fails', async () => {
-    mocks.insert.mockResolvedValueOnce({
-      error: { message: 'new row violates row-level security policy' },
-    });
-
-    const result = await createRepair(validRepairInput, merchantId);
-
-    expect(result).toEqual({
-      success: false,
-      error: 'Failed to submit repair request. Please try again.',
-    });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

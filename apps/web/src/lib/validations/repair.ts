@@ -35,6 +35,10 @@ export const repairBookingSchema = z
       })
       .default('dropoff'),
     pickupAddress: z.string().optional(), // Required if serviceType is 'pickup'
+    // Optional catalogue links. When present the booking RPC validates the
+    // active quote/device server-side and snapshots the price/label.
+    deviceId: z.uuid().optional(),
+    quoteId: z.uuid().optional(),
   })
   .refine(
     (data) => {
