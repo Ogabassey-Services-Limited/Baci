@@ -106,6 +106,63 @@ describe('flushWebVitalsBeacon', () => {
     expect(String(body.properties.$pathname)).not.toMatch(/[?#]/);
   });
 
+  it('trims surrounding whitespace from the project token before beaconing', async () => {
+    const { sendBeacon } = stubBrowserGlobals();
+    enqueuePostHogWebVital(
+      vital({ metric: 'TTFB', value: 250, id: 'v5-trim' })
+    );
+    flushWebVitalsBeacon({
+      ...ENV,
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: '  phc_test_token  ',
+    });
+    const body = await decodeBeaconBodyAsync(sendBeacon.mock.calls[0]);
+    expect(body.api_key).toBe('phc_test_token');
+    expect(body.properties.token).toBe('phc_test_token');
+    // Persistence key derives from the TRIMMED token (same key a later boot uses).
+    const persisted = JSON.parse(
+      globalThis.localStorage.getItem('ph_phc_test_token_posthog') ?? '{}'
+    );
+    expect(persisted.distinct_id).toBe(body.distinct_id);
+  });
+
+  it('resolves $host and tenant context from the metric URL, not the post-navigation location', async () => {
+    const { sendBeacon } = stubBrowserGlobals();
+    // LCP pinned on merchant A; user then navigates to merchant B before hide.
+    enqueuePostHogWebVital(
+      vital({
+        metric: 'LCP',
+        value: 1200,
+        $current_url: 'https://merchant-a.example/product/x?utm=1',
+      })
+    );
+    vi.stubGlobal('location', {
+      hostname: 'merchant-b.example',
+      href: 'https://merchant-b.example/',
+      pathname: '/',
+    });
+    flushWebVitalsBeacon(ENV);
+    const body = await decodeBeaconBodyAsync(sendBeacon.mock.calls[0]);
+    expect(body.properties.$host).toBe('merchant-a.example');
+    expect(body.properties.merchant_domain).toBe('merchant-a.example');
+  });
+
+  it('email-scrubs free-form attribution fields to match before_send parity', async () => {
+    const { sendBeacon } = stubBrowserGlobals();
+    enqueuePostHogWebVital(
+      vital({
+        metric: 'INP',
+        value: 300,
+        id: 'v5-pii',
+        debugTarget: 'a[href="mailto:shopper@example.com"]',
+      })
+    );
+    flushWebVitalsBeacon(ENV);
+    const body = await decodeBeaconBodyAsync(sendBeacon.mock.calls[0]);
+    const debugTarget = String(body.properties.debugTarget);
+    expect(debugTarget).not.toContain('shopper@example.com');
+    expect(debugTarget).toContain('[Filtered]');
+  });
+
   it('reuses the persisted SDK distinct_id when present', async () => {
     const { sendBeacon } = stubBrowserGlobals();
     globalThis.localStorage.setItem(

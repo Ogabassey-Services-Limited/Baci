@@ -1,10 +1,12 @@
 import {
   buildPostHogCaptureUrl,
   isLikelyBotUserAgent,
-  redactUrlQuery,
   sendBootFreeCaptureEvent,
 } from '@/lib/posthog/boot-free-capture';
-import { resolvePostHogWebTenantContext } from '@/lib/posthog/client-config';
+import {
+  resolvePostHogWebTenantContext,
+  sanitizePostHogProperties,
+} from '@/lib/posthog/client-config';
 import { getPostHogBrowserEnv, type PostHogEnv } from '@/lib/posthog/config';
 import {
   getPostHogPersistenceKey,
@@ -96,17 +98,50 @@ function getOrCreateDistinctId(projectToken: string): string {
   return generated;
 }
 
-function redactPayloadUrls(
+// Fallback base only for parsing a relative pinned URL; a real browser always
+// pins the absolute `location.href`, so this is just defensive.
+const BEACON_ORIGIN_URL_FALLBACK_BASE = 'https://usebaci.com';
+
+interface BeaconOriginContext {
+  host: string;
+  tenantContext: Record<string, unknown>;
+}
+
+/**
+ * Resolve the beacon's `$host` and merchant tenant fields from the metric's
+ * OWN pinned origin URL (`$current_url`), NOT the live `location`. A queued
+ * vital can flush after a client-side navigation to a different merchant/route
+ * (e.g. `usebaci.com/merchantA` → `/merchantB`); the metric URL is pinned at
+ * capture time, so tenant attribution must follow it or the beacon would stamp
+ * the later merchant onto page A's measurement, corrupting multi-tenant CWV
+ * attribution. Mirrors `capturePublicBlogPageview`. Falls back to the live
+ * location only for payloads enqueued without a pinned URL.
+ */
+function resolveBeaconOriginContext(
+  env: PostHogEnv,
   payload: PostHogWebVitalsPayload
-): PostHogWebVitalsPayload {
-  const next: PostHogWebVitalsPayload = { ...payload };
-  for (const key of ['$current_url', '$pathname', 'lcpUrl'] as const) {
-    const value = next[key];
-    if (typeof value === 'string') {
-      next[key] = redactUrlQuery(value);
+): BeaconOriginContext {
+  const currentUrl =
+    typeof payload.$current_url === 'string' ? payload.$current_url : undefined;
+  if (currentUrl) {
+    try {
+      const url = new URL(currentUrl, BEACON_ORIGIN_URL_FALLBACK_BASE);
+      return {
+        host: url.hostname,
+        tenantContext: resolvePostHogWebTenantContext(env, {
+          hostname: url.hostname,
+          pathname: url.pathname,
+        }),
+      };
+    } catch {
+      // Malformed pinned URL: fall back to the live location below.
     }
   }
-  return next;
+
+  return {
+    host: globalThis.location?.hostname ?? '',
+    tenantContext: resolvePostHogWebTenantContext(env),
+  };
 }
 
 export function flushWebVitalsBeacon(
@@ -121,7 +156,10 @@ export function flushWebVitalsBeacon(
     return 0;
   }
 
-  const projectToken = env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+  // Trim to match initializePostHogBrowser / capturePublicBlogPageview: an
+  // env value with stray whitespace must yield the SAME api_key and the SAME
+  // persistence key, or bounce-before-boot beacons get a divergent identity.
+  const projectToken = env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim();
   if (!projectToken) {
     return 0;
   }
@@ -133,15 +171,18 @@ export function flushWebVitalsBeacon(
 
   const url = buildPostHogCaptureUrl(env);
   const distinctId = getOrCreateDistinctId(projectToken);
-  const hostname = globalThis.location?.hostname ?? '';
-  const tenantContext = resolvePostHogWebTenantContext(env);
 
   let sent = 0;
   for (const payload of payloads) {
+    const { host, tenantContext } = resolveBeaconOriginContext(env, payload);
     const properties = {
-      ...redactPayloadUrls(payload),
+      // Full before_send parity: email-scrub on every string value plus
+      // URL-query redaction on URL-keyed fields, matching the booted path's
+      // sanitizePostHogCapture. The raw beacon bypasses before_send entirely,
+      // so without this the same event would carry weaker PII guarantees.
+      ...sanitizePostHogProperties(payload),
       ...tenantContext,
-      $host: hostname,
+      $host: host,
       // No person profile for boot-free captures (identified_only semantics).
       $process_person_profile: false,
       app_surface: 'web',

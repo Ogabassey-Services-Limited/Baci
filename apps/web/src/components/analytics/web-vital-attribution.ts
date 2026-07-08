@@ -1,3 +1,5 @@
+import { redactUrlQuery } from '@/lib/posthog/boot-free-capture';
+
 interface WebVitalMetricLike {
   name: string;
   attribution?: unknown;
@@ -78,7 +80,12 @@ export function extractWebVitalAttribution(
       const entry = script.entry;
       if (entry && typeof entry === 'object') {
         if (typeof entry.sourceURL === 'string' && entry.sourceURL) {
-          out.loafLongestScriptSource = entry.sourceURL;
+          // Strip the script URL's query/hash before capture: it can carry
+          // cache-bust hashes or signed tokens (leak risk) and its key does
+          // not match the sanitizer's URL_PROPERTY_PATTERN, so neither the
+          // booted before_send path nor the page-hide beacon would redact it.
+          // The path alone identifies which chunk owns the long frame.
+          out.loafLongestScriptSource = redactUrlQuery(entry.sourceURL);
         }
         if (typeof entry.invoker === 'string' && entry.invoker) {
           out.loafLongestScriptInvoker = entry.invoker;

@@ -121,6 +121,29 @@ describe('extractWebVitalAttribution', () => {
     });
   });
 
+  it('strips query/hash from the LoAF longest-script source URL', () => {
+    const out = extractWebVitalAttribution({
+      ...base,
+      name: 'INP',
+      attribution: {
+        interactionTarget: 'button.buy',
+        longestScript: {
+          subpart: 'processing-duration',
+          intersectingDuration: 90,
+          entry: {
+            sourceURL: 'https://cdn.example.com/pixel.js?token=secret#frag',
+            invoker: 'DOMWindow.onclick',
+          },
+        },
+      },
+    });
+
+    expect(out.loafLongestScriptSource).toBe(
+      'https://cdn.example.com/pixel.js'
+    );
+    expect(out.loafLongestScriptInvoker).toBe('DOMWindow.onclick');
+  });
+
   it('omits LoAF fields when the browser provides none (non-Chromium)', () => {
     const out = extractWebVitalAttribution({
       ...base,
