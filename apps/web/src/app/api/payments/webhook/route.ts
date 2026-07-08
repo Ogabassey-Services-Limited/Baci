@@ -1551,12 +1551,93 @@ export async function POST(request: NextRequest) {
       if (
         !(
           metadata?.transaction_type === 'domain_purchase' &&
-          typeof metadata.domain === 'string' &&
-          !metadata.domain_purchased
+          typeof metadata.domain === 'string'
         )
       ) {
         return null;
       }
+
+      if (metadata.domain_purchased) {
+        // Already fulfilled — the registrar is NEVER re-contacted. But if the
+        // post-registration domains-row write failed, retries land here with
+        // a registered domain that is invisible to Baci: repair the row from
+        // the transaction metadata instead of stranding it.
+        const repairedDomain = String(metadata.domain_purchased).toLowerCase();
+        try {
+          const { data: fulfilledRow, error: fulfilledRowError } =
+            await supabase
+              .from('domains')
+              .select('id, merchant_id')
+              .eq('domain', repairedDomain)
+              .maybeSingle();
+
+          if (!fulfilledRowError && !fulfilledRow) {
+            const repairYears = Number(metadata.years) || 1;
+            const registeredAtIso =
+              typeof metadata.purchased_at === 'string'
+                ? metadata.purchased_at
+                : new Date().toISOString();
+            const repairExpiresAt = new Date(registeredAtIso);
+            repairExpiresAt.setFullYear(
+              repairExpiresAt.getFullYear() + repairYears
+            );
+            const repairTld =
+              typeof metadata.tld === 'string' && metadata.tld.startsWith('.')
+                ? metadata.tld
+                : `.${repairedDomain.split('.').slice(-1)[0]}`;
+            const repairAmount = Number(transaction.amount) || 0;
+
+            const { error: repairError } = await supabase
+              .from('domains')
+              .insert({
+                merchant_id: transaction.merchant_id,
+                domain: repairedDomain,
+                tld: repairTld,
+                domain_type: 'purchased',
+                status: 'active',
+                is_primary: false,
+                verified_at: new Date().toISOString(),
+                ssl_status: 'active',
+                go54_order_id:
+                  typeof metadata.domain_registrar_order_id === 'string'
+                    ? metadata.domain_registrar_order_id
+                    : null,
+                purchase_price: repairAmount,
+                renewal_price: repairAmount,
+                registered_at: registeredAtIso,
+                expires_at: repairExpiresAt.toISOString(),
+                auto_renew: true,
+                nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
+              });
+
+            if (repairError) {
+              logger.error({
+                message: 'Failed to repair missing domains row',
+                error: repairError,
+                domain: repairedDomain,
+                reference,
+              });
+            } else {
+              logger.info({
+                message: 'Repaired missing domains row for fulfilled purchase',
+                domain: repairedDomain,
+                reference,
+              });
+              revalidateMerchantFeed(transaction.merchant_id);
+              after(() => triggerDomainEdgeConfigSync());
+            }
+          }
+        } catch (repairError) {
+          logger.error({
+            message: 'Domains-row repair threw unexpectedly',
+            error: repairError,
+            domain: repairedDomain,
+            reference,
+          });
+        }
+        return null;
+      }
+
       logger.info({
         message: 'Processing domain purchase fulfillment',
         reference,
@@ -1630,7 +1711,10 @@ export async function POST(request: NextRequest) {
                   return `.${normalizedDomain.split('.').slice(-1)[0]}`;
                 })();
 
-          const markTransactionDomainPurchased = async (domainId?: string) => {
+          const markTransactionDomainPurchased = async (
+            domainId?: string,
+            registrarOrderId?: string
+          ) => {
             const updatedMetadata: Record<string, unknown> = {
               ...metadata,
               domain_purchased: normalizedDomain,
@@ -1639,6 +1723,11 @@ export async function POST(request: NextRequest) {
 
             if (domainId) {
               updatedMetadata.domain_id = domainId;
+            }
+            if (registrarOrderId) {
+              // Preserved for the domains-row repair path: identifies the
+              // registrar order without ever re-contacting the registrar.
+              updatedMetadata.domain_registrar_order_id = registrarOrderId;
             }
 
             const { error: transactionMetadataError } = await supabase
@@ -1752,7 +1841,10 @@ export async function POST(request: NextRequest) {
               // later caller (stale-claim takeover included) may re-register
               // and double-charge. A missing domains row is reconciled from
               // the fulfillment-failure logs instead.
-              await markTransactionDomainPurchased();
+              await markTransactionDomainPurchased(
+                undefined,
+                registration.orderId
+              );
 
               // 4. Persist to domains table (used by proxy + storefront resolution)
               const expiresAt = new Date();
@@ -1802,7 +1894,10 @@ export async function POST(request: NextRequest) {
                       domain: normalizedDomain,
                     });
                   } else {
-                    await markTransactionDomainPurchased(existingDomain.id);
+                    await markTransactionDomainPurchased(
+                      existingDomain.id,
+                      registration.orderId
+                    );
                     revalidateMerchantFeed(transaction.merchant_id);
                     after(() => triggerDomainEdgeConfigSync());
                   }
@@ -1861,7 +1956,10 @@ export async function POST(request: NextRequest) {
                     domain: normalizedDomain,
                   });
                 } else {
-                  await markTransactionDomainPurchased(insertedDomain?.id);
+                  await markTransactionDomainPurchased(
+                    insertedDomain?.id,
+                    registration.orderId
+                  );
                   revalidateMerchantFeed(transaction.merchant_id);
                   after(() => triggerDomainEdgeConfigSync());
                 }

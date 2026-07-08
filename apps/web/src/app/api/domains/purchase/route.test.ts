@@ -163,6 +163,19 @@ function createSupabase(
               }),
             })),
           })),
+          insert: vi.fn(() => ({
+            select: vi.fn(() => ({
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'domain-repaired',
+                  domain: 'shop.com',
+                  status: 'active',
+                  is_primary: false,
+                },
+                error: null,
+              }),
+            })),
+          })),
         };
       }
 
@@ -280,6 +293,58 @@ describe('POST /api/domains/purchase transaction scoping', () => {
     expect(response.status).toBe(409);
     const json = await response.json();
     expect(json.error).toContain('already in progress');
+    expect(registerDomain).not.toHaveBeenCalled();
+  });
+
+  it('verifies (never re-registers) a fulfilled payment whose domains row exists (review #2991 P2 regression test)', async () => {
+    supabase = createSupabase({
+      amount: 100,
+      gateway: 'paystack',
+      id: 'transaction-owned',
+      merchant_id: 'merchant-1',
+      metadata: { domain_purchased: 'shop.com', years: 1 },
+      status: 'completed',
+    });
+
+    const { registerDomain } = await import('@/lib/go54');
+
+    const response = await POST(createRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.message).toContain('Successfully verified');
+    expect(registerDomain).not.toHaveBeenCalled();
+  });
+
+  it('restores a missing domains row for a fulfilled payment without contacting the registrar (review #2991 P2 regression test)', async () => {
+    // Go54 succeeded but the domains insert failed on the original attempt:
+    // the retry must repair the row from payment metadata — never re-order.
+    supabase = createSupabase(
+      {
+        amount: 100,
+        gateway: 'paystack',
+        id: 'transaction-owned',
+        merchant_id: 'merchant-1',
+        metadata: {
+          domain_purchased: 'shop.com',
+          years: 1,
+          purchased_at: '2026-07-08T00:00:00.000Z',
+          domain_registrar_order_id: 'go54-123',
+        },
+        status: 'completed',
+      },
+      undefined,
+      null // domains row missing
+    );
+
+    const { registerDomain } = await import('@/lib/go54');
+
+    const response = await POST(createRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.message).toContain('Successfully restored');
+    expect(json.domain.id).toBe('domain-repaired');
     expect(registerDomain).not.toHaveBeenCalled();
   });
 

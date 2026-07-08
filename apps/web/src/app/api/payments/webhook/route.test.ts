@@ -1143,6 +1143,139 @@ describe('POST /api/payments/webhook', () => {
       expect(registerDomain).toHaveBeenCalledTimes(1);
       expect(response.status).toBe(200);
     });
+
+    it('repairs a missing domains row for a fulfilled purchase without contacting the registrar (review #2991 P2 regression test)', async () => {
+      // Go54 succeeded but the domains write failed on the original attempt:
+      // the webhook retry must recreate the row from transaction metadata and
+      // must NEVER re-order at the registrar.
+      const body = {
+        reference: 'DOM-REGRESSION5',
+        status: 'success',
+        event: 'charge.success',
+        amount: 19499,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 19499,
+          reference: 'DOM-REGRESSION5',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      const domainTransaction = {
+        id: 'txn-dom-5',
+        merchant_id: 'merchant-123',
+        amount: '19499',
+        currency: 'NGN',
+        gateway_reference: 'DOM-REGRESSION5',
+        status: 'completed',
+        order_id: null,
+        metadata: {
+          transaction_type: 'domain_purchase',
+          domain: 'junglee.com',
+          tld: '.com',
+          years: 1,
+          domain_purchased: 'junglee.com',
+          purchased_at: '2026-07-08T00:00:00.000Z',
+          domain_registrar_order_id: 'go54-999',
+        },
+      };
+
+      const domainsInsert = vi.fn().mockReturnThis();
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          const selectChain = {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: domainTransaction,
+              error: null,
+            }),
+          };
+          return {
+            select: vi.fn(() => selectChain),
+            update: vi.fn(() => {
+              let statusIdempotencyUpdate = false;
+              const chain = {
+                eq: vi.fn().mockReturnThis(),
+                neq: vi.fn(() => {
+                  statusIdempotencyUpdate = true;
+                  return chain;
+                }),
+                is: vi.fn().mockReturnThis(),
+                or: vi.fn().mockReturnThis(),
+                select: vi.fn().mockReturnThis(),
+                maybeSingle: vi.fn(() =>
+                  Promise.resolve({
+                    data: statusIdempotencyUpdate ? null : { id: 'txn-dom-5' },
+                    error: null,
+                  })
+                ),
+              };
+              return chain;
+            }),
+          } as never;
+        }
+        if (table === 'domains') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: null, // the row is missing — repair should insert it
+              error: null,
+            }),
+            insert: domainsInsert,
+          } as never;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const { registerDomain } = await import('@/lib/go54');
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(registerDomain).not.toHaveBeenCalled();
+      expect(domainsInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          domain: 'junglee.com',
+          domain_type: 'purchased',
+          go54_order_id: 'go54-999',
+          merchant_id: 'merchant-123',
+        })
+      );
+    });
   });
 
   describe('Reference Validation', () => {

@@ -263,10 +263,100 @@ export async function POST(request: NextRequest) {
     // Check if payment was already used for a domain purchase
     const paymentMetadata = payment.metadata as Record<string, unknown> | null;
     if (paymentMetadata?.domain_purchased) {
-      return NextResponse.json(
-        { error: 'This payment has already been used for a domain purchase' },
-        { status: 409 }
-      );
+      const purchasedDomain = String(
+        paymentMetadata.domain_purchased
+      ).toLowerCase();
+      if (purchasedDomain !== domain) {
+        return NextResponse.json(
+          { error: 'This payment has already been used for a domain purchase' },
+          { status: 409 }
+        );
+      }
+
+      // Already fulfilled for THIS domain — the registrar is NEVER
+      // re-contacted. But if the post-registration domains-row write failed,
+      // the retry lands here with a registered domain invisible to Baci:
+      // verify the row, repairing it from the payment metadata if missing.
+      const { data: fulfilledRow, error: fulfilledRowError } = await supabase
+        .from('domains')
+        .select('id, domain, status, is_primary, merchant_id')
+        .eq('domain', purchasedDomain)
+        .maybeSingle();
+
+      if (fulfilledRowError) {
+        return NextResponse.json(
+          { error: 'Failed to check existing domain ownership' },
+          { status: 500 }
+        );
+      }
+
+      if (fulfilledRow) {
+        if (fulfilledRow.merchant_id !== merchantId) {
+          return NextResponse.json(
+            { error: 'This domain is already registered' },
+            { status: 409 }
+          );
+        }
+        return NextResponse.json({
+          success: true,
+          domain: fulfilledRow,
+          message: `Successfully verified ${purchasedDomain}`,
+          nextSteps: ['Domain is active'],
+        });
+      }
+
+      const repairYears = Number(paymentMetadata.years) || years;
+      const registeredAtIso =
+        typeof paymentMetadata.purchased_at === 'string'
+          ? paymentMetadata.purchased_at
+          : new Date().toISOString();
+      const repairExpiresAt = new Date(registeredAtIso);
+      repairExpiresAt.setFullYear(repairExpiresAt.getFullYear() + repairYears);
+
+      const { data: repairedRow, error: repairError } = await supabase
+        .from('domains')
+        .insert({
+          merchant_id: merchantId,
+          domain: purchasedDomain,
+          tld,
+          domain_type: 'purchased',
+          status: 'active',
+          is_primary: false,
+          verified_at: new Date().toISOString(),
+          ssl_status: 'active',
+          go54_order_id:
+            typeof paymentMetadata.domain_registrar_order_id === 'string'
+              ? paymentMetadata.domain_registrar_order_id
+              : null,
+          purchase_price: priceCalculation.sellPrice,
+          renewal_price: priceCalculation.sellPrice,
+          registered_at: registeredAtIso,
+          expires_at: repairExpiresAt.toISOString(),
+          auto_renew: true,
+          nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
+        })
+        .select('id, domain, status, is_primary')
+        .single();
+
+      if (repairError || !repairedRow) {
+        console.error('Failed to repair missing domains row:', repairError);
+        return NextResponse.json(
+          {
+            error:
+              'Domain is registered but could not be restored. Please contact support.',
+          },
+          { status: 500 }
+        );
+      }
+
+      revalidateMerchantFeed(merchantId);
+      after(() => triggerDomainEdgeConfigSync());
+      return NextResponse.json({
+        success: true,
+        domain: repairedRow,
+        message: `Successfully restored ${purchasedDomain}`,
+        nextSteps: ['Domain is active'],
+      });
     }
 
     // Fulfillment writes to transactions (mark-purchased, claim) must use the
@@ -274,7 +364,10 @@ export async function POST(request: NextRequest) {
     // user-scoped client silently updates zero rows.
     const adminSupabase = createAdminClient();
 
-    const markPaymentDomainPurchased = async (domainId?: string) => {
+    const markPaymentDomainPurchased = async (
+      domainId?: string,
+      registrarOrderId?: string
+    ) => {
       const updatedMetadata: Record<string, unknown> = {
         ...(paymentMetadata || {}),
         domain_purchased: domain,
@@ -283,6 +376,11 @@ export async function POST(request: NextRequest) {
 
       if (domainId) {
         updatedMetadata.domain_id = domainId;
+      }
+      if (registrarOrderId) {
+        // Preserved for the domains-row repair path: identifies the registrar
+        // order without ever re-contacting the registrar.
+        updatedMetadata.domain_registrar_order_id = registrarOrderId;
       }
 
       const { error: paymentMetadataError } = await adminSupabase
@@ -502,7 +600,7 @@ export async function POST(request: NextRequest) {
       // now, so even if the domains-row write below fails, no later caller
       // (stale-claim takeover included) may re-register and double-charge
       // this payment.
-      await markPaymentDomainPurchased();
+      await markPaymentDomainPurchased(undefined, registrationResult.orderId);
 
       // Calculate expiry date
       const expiresAt = new Date();
@@ -569,7 +667,10 @@ export async function POST(request: NextRequest) {
       }
 
       // Mark payment as used for this domain purchase (prevent reuse)
-      await markPaymentDomainPurchased(newDomain.id);
+      await markPaymentDomainPurchased(
+        newDomain.id,
+        registrationResult.orderId
+      );
 
       revalidateMerchantFeed(merchantId);
       after(() => triggerDomainEdgeConfigSync());
