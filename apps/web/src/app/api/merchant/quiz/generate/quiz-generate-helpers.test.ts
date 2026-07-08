@@ -141,27 +141,39 @@ interface QuizEventsHarness {
   supabase: QuizSupabaseClient;
   updatePayload: () => Record<string, unknown> | undefined;
   eqCalls: () => EqCall[];
+  activeEqCalls: () => EqCall[];
   selectArg: () => string | undefined;
 }
 
-function buildQuizEventsHarness(single: {
-  data: unknown;
-  error: unknown;
-}): QuizEventsHarness {
+function buildQuizEventsHarness(
+  update: { data: unknown; error: unknown },
+  active: { data: unknown; error: unknown } = { data: null, error: null }
+): QuizEventsHarness {
   const eqCalls: EqCall[] = [];
+  const activeEqCalls: EqCall[] = [];
   let updatePayload: Record<string, unknown> | undefined;
   let selectArg: string | undefined;
 
-  const builder = {
+  // update → eq → eq → eq → select → maybeSingle
+  const updateBuilder = {
     eq: vi.fn((column: string, value: string) => {
       eqCalls.push([column, value]);
-      return builder;
+      return updateBuilder;
     }),
     select: vi.fn((columns: string) => {
       selectArg = columns;
-      return builder;
+      return updateBuilder;
     }),
-    single: vi.fn(async () => single),
+    maybeSingle: vi.fn(async () => update),
+  };
+
+  // Idempotent fallback: select → eq → eq → eq → maybeSingle
+  const activeBuilder = {
+    eq: vi.fn((column: string, value: string) => {
+      activeEqCalls.push([column, value]);
+      return activeBuilder;
+    }),
+    maybeSingle: vi.fn(async () => active),
   };
 
   const from = vi.fn((table: string) => {
@@ -171,12 +183,14 @@ function buildQuizEventsHarness(single: {
     return {
       update: vi.fn((payload: Record<string, unknown>) => {
         updatePayload = payload;
-        return builder;
+        return updateBuilder;
       }),
+      select: vi.fn(() => activeBuilder),
     };
   });
 
   return {
+    activeEqCalls: () => activeEqCalls,
     eqCalls: () => eqCalls,
     selectArg: () => selectArg,
     supabase: { from } as unknown as QuizSupabaseClient,
@@ -221,10 +235,10 @@ describe('activateMerchantQuizDraft', () => {
     expect(harness.selectArg()).toBe('id, slug, status, title');
   });
 
-  it('returns null when no draft row matches (non-draft or non-owned event)', async () => {
+  it('returns null when the update errors', async () => {
     const harness = buildQuizEventsHarness({
       data: null,
-      error: { message: 'no rows updated' },
+      error: { message: 'db error' },
     });
 
     const result = await activateMerchantQuizDraft(
@@ -234,8 +248,53 @@ describe('activateMerchantQuizDraft', () => {
     );
 
     expect(result).toBeNull();
-    // The status='draft' filter is what prevents re-activating a live event.
     expect(harness.eqCalls()).toContainEqual(['status', 'draft']);
+  });
+
+  it('is idempotent: returns the already-active event when no draft row matches', async () => {
+    // No draft row (already active / lost response) + an owned active event
+    // with the same id ⇒ return it instead of failing.
+    const harness = buildQuizEventsHarness(
+      { data: null, error: null },
+      {
+        data: {
+          id: 'event-1',
+          slug: 'daily-phone-quiz',
+          status: 'active',
+          title: 'Daily Phone Quiz',
+        },
+        error: null,
+      }
+    );
+
+    const result = await activateMerchantQuizDraft(
+      harness.supabase,
+      'event-1',
+      'merchant-1'
+    );
+
+    expect(result).toMatchObject({ id: 'event-1', status: 'active' });
+    // The fallback lookup is scoped to the caller's own ACTIVE event.
+    expect(harness.activeEqCalls()).toEqual([
+      ['id', 'event-1'],
+      ['merchant_id', 'merchant-1'],
+      ['status', 'active'],
+    ]);
+  });
+
+  it('returns null when neither a draft nor an owned active event exists', async () => {
+    const harness = buildQuizEventsHarness(
+      { data: null, error: null },
+      { data: null, error: null }
+    );
+
+    const result = await activateMerchantQuizDraft(
+      harness.supabase,
+      'event-1',
+      'merchant-1'
+    );
+
+    expect(result).toBeNull();
   });
 
   it('returns null when the update returns a malformed row', async () => {

@@ -176,7 +176,7 @@ export async function activateMerchantQuizDraft(
   eventId: string,
   merchantId: string
 ): Promise<QuizDraftEvent | null> {
-  const { data, error } = await supabase
+  const { data: activated, error: updateError } = await supabase
     .from('quiz_events')
     .update({
       ends_at: null,
@@ -187,13 +187,33 @@ export async function activateMerchantQuizDraft(
     .eq('merchant_id', merchantId)
     .eq('status', 'draft')
     .select('id, slug, status, title')
-    .single();
+    .maybeSingle();
 
-  if (error || !isQuizDraftEvent(data)) {
+  if (updateError) {
+    return null;
+  }
+  if (isQuizDraftEvent(activated)) {
+    return activated;
+  }
+
+  // The `status = 'draft'` filter matched no row. Activation is idempotent: a
+  // lost response or an admin retry re-hits this after the event is already
+  // active, so return the merchant-owned active event for the same id instead
+  // of a spurious QUIZ_ACTIVATION_FAILED. Anything else (unknown id, or an
+  // event in another status the admin does not own) stays a genuine failure.
+  const { data: existing, error: selectError } = await supabase
+    .from('quiz_events')
+    .select('id, slug, status, title')
+    .eq('id', eventId)
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (selectError || !isQuizDraftEvent(existing)) {
     return null;
   }
 
-  return data;
+  return existing;
 }
 
 export type MerchantAuthContext = {

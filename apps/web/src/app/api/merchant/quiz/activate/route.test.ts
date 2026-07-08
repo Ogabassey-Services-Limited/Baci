@@ -8,14 +8,23 @@ const mockGetUserAccess = vi.fn();
 const mockHasPermission = vi.fn();
 
 const mockMerchantMaybeSingle = vi.fn();
+// Update chain: update → eq(id) → eq(merchant) → eq(status='draft') → select → maybeSingle
 const mockQuizEventUpdateSingle = vi.fn();
 const mockQuizEventSelect = vi.fn(() => ({
-  single: mockQuizEventUpdateSingle,
+  maybeSingle: mockQuizEventUpdateSingle,
 }));
 const mockQuizEventEqThird = vi.fn(() => ({ select: mockQuizEventSelect }));
 const mockQuizEventEqSecond = vi.fn(() => ({ eq: mockQuizEventEqThird }));
 const mockQuizEventEqFirst = vi.fn(() => ({ eq: mockQuizEventEqSecond }));
 const mockQuizEventUpdate = vi.fn(() => ({ eq: mockQuizEventEqFirst }));
+// Idempotent active-lookup chain: select → eq(id) → eq(merchant) → eq(status='active') → maybeSingle
+const mockActiveLookupMaybeSingle = vi.fn();
+const mockActiveEqThird = vi.fn(() => ({
+  maybeSingle: mockActiveLookupMaybeSingle,
+}));
+const mockActiveEqSecond = vi.fn(() => ({ eq: mockActiveEqThird }));
+const mockActiveEqFirst = vi.fn(() => ({ eq: mockActiveEqSecond }));
+const mockActiveSelect = vi.fn(() => ({ eq: mockActiveEqFirst }));
 const mockFrom = vi.fn((table: string) => {
   if (table === 'merchants') {
     return {
@@ -25,7 +34,7 @@ const mockFrom = vi.fn((table: string) => {
     };
   }
   if (table === 'quiz_events') {
-    return { update: mockQuizEventUpdate };
+    return { select: mockActiveSelect, update: mockQuizEventUpdate };
   }
   return {};
 });
@@ -83,6 +92,9 @@ describe('POST /api/merchant/quiz/activate', () => {
       },
       error: null,
     });
+    // Default: no already-active event (the idempotent fallback is only reached
+    // when the draft update matches no row).
+    mockActiveLookupMaybeSingle.mockResolvedValue({ data: null, error: null });
   });
 
   it('opens a reviewed draft into an active event', async () => {
@@ -105,10 +117,53 @@ describe('POST /api/merchant/quiz/activate', () => {
     expect(body.event.status).toBe('active');
   });
 
-  it('returns 400 when the draft to activate cannot be opened', async () => {
+  it('returns 400 when the update errors', async () => {
     mockQuizEventUpdateSingle.mockResolvedValueOnce({
       data: null,
-      error: { message: 'not found' },
+      error: { message: 'db error' },
+    });
+
+    const response = await POST(createRequest({ eventId: EVENT_ID }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: 'QUIZ_ACTIVATION_FAILED',
+    });
+  });
+
+  it('is idempotent: returns the already-active event when no draft matches', async () => {
+    // Lost response / admin retry: the draft update matches no row because the
+    // event is already active. Return it as success, not QUIZ_ACTIVATION_FAILED.
+    mockQuizEventUpdateSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+    mockActiveLookupMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: 'event-1',
+        slug: 'daily-phone-quiz',
+        status: 'active',
+        title: 'Daily Phone Quiz',
+      },
+      error: null,
+    });
+
+    const response = await POST(createRequest({ eventId: EVENT_ID }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockActiveEqThird).toHaveBeenCalledWith('status', 'active');
+    expect(body.event.status).toBe('active');
+  });
+
+  it('returns 400 when neither a draft nor an already-active event exists', async () => {
+    mockQuizEventUpdateSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+    mockActiveLookupMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
     });
 
     const response = await POST(createRequest({ eventId: EVENT_ID }));
