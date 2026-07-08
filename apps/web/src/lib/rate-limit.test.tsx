@@ -216,6 +216,19 @@ describe('Rate Limit — in-memory fallback', () => {
     const result = await checkRateLimit(req);
     expect(result.limit).toBe(10);
   });
+
+  it.each([
+    ['/api/merchant/quiz/generate', 5, '11.11.11.11'],
+    ['/api/quiz/awards/cash/claim', 10, '12.12.12.12'],
+    ['/api/quiz/prizes/grand/claim', 10, '13.13.13.13'],
+    ['/api/quiz/attempts/start', 20, '14.14.14.14'],
+  ])('applies the dedicated quiz limit to %s', async (path, limit, ip) => {
+    const req = new NextRequest(`http://localhost:3000${path}`);
+    req.headers.set('x-forwarded-for', ip);
+
+    const result = await checkRateLimit(req);
+    expect(result.limit).toBe(limit);
+  });
 });
 
 describe('Rate Limit — Upstash Redis', () => {

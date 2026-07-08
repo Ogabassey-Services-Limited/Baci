@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from 'react-native';
-import type { QuizAttempt } from '@/services/quiz';
+import type { QuizAttempt } from '@/services/quiz-types';
 import type { createQuizStyles } from './QuizScreen.styles';
 import { formatPointCount } from './QuizScreen.utils';
 
@@ -10,15 +10,22 @@ interface QuizQuestionCardProps {
   isSubmitting: boolean;
   onSelectAnswer: (optionId: string) => void;
   onSubmit: () => void;
+  remainingSeconds: number;
   selectedOptionId: string | null;
   styles: QuizStyles;
 }
 
+/**
+ * The active-question view: progress bar, countdown, answer options, and the
+ * submit button. Extracted from `QuizScreen` so each stays within the module
+ * size guard; the parent owns the timer/store wiring and passes state down.
+ */
 export function QuizQuestionCard({
   attempt,
   isSubmitting,
   onSelectAnswer,
   onSubmit,
+  remainingSeconds,
   selectedOptionId,
   styles,
 }: QuizQuestionCardProps) {
@@ -33,8 +40,8 @@ export function QuizQuestionCard({
   return (
     <View style={styles.questionCard}>
       <View
-        accessibilityLabel={`Question ${attempt.question.index} of ${attempt.question.total}`}
         accessibilityRole="progressbar"
+        accessibilityLabel={`Question ${attempt.question.index} of ${attempt.question.total}`}
         accessibilityValue={{
           min: 1,
           max: Math.max(1, attempt.question.total),
@@ -45,12 +52,18 @@ export function QuizQuestionCard({
         <View
           style={[
             styles.progressFill,
-            { width: `${questionProgressPercent}%` },
+            {
+              width: `${questionProgressPercent}%`,
+            },
           ]}
         />
       </View>
-      <Text style={styles.timer}>
-        You have {attempt.question.timeLimitSeconds}s per question
+      <Text
+        accessibilityLabel={`Time left: ${remainingSeconds} seconds`}
+        accessibilityLiveRegion="polite"
+        style={styles.timer}
+      >
+        Time left: {remainingSeconds}s
       </Text>
       <Text style={styles.passReceipt}>
         {formatPointCount(attempt.examPassPointsSpent)} exam pass used.{' '}
@@ -62,13 +75,13 @@ export function QuizQuestionCard({
       {attempt.question.options.map((option) => (
         <Pressable
           key={option.id}
-          accessibilityLabel={`Answer ${option.label}`}
           accessibilityRole="button"
+          accessibilityLabel={`Answer ${option.label}`}
+          disabled={isSubmitting}
           accessibilityState={{
             disabled: isSubmitting,
             selected: selectedOptionId === option.id,
           }}
-          disabled={isSubmitting}
           onPress={() => {
             onSelectAnswer(option.id);
           }}
@@ -82,8 +95,8 @@ export function QuizQuestionCard({
         </Pressable>
       ))}
       <Pressable
-        accessibilityLabel="Submit answer"
         accessibilityRole="button"
+        accessibilityLabel="Submit answer"
         accessibilityState={{
           disabled: !selectedOptionId || isSubmitting,
         }}

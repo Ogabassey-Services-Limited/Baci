@@ -76,6 +76,11 @@ export interface MobileCheckoutOrderItemPayload {
   variant_attributes?: Record<string, string>;
   has_assurance: boolean;
   assurance_fee: number;
+  /** Raw product condition enum — must survive to /api/orders for quiz voucher
+   * lines, where it is compared against the value signed into the token. */
+  condition?: string;
+  voucher_token?: string;
+  voucher_award_id?: string;
 }
 
 function normalizeString(value: string | null | undefined) {

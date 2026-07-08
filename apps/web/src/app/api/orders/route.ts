@@ -843,11 +843,14 @@ function buildImmediatePeppolInvoiceData(input: {
   };
 }
 
-function invalidQuizVoucherTokenResponse() {
+// `rejectedVoucherToken` (when known) lets checkout prune ONLY the failed
+// voucher line, so a multi-voucher cart never loses a still-valid prize.
+function invalidQuizVoucherTokenResponse(rejectedVoucherToken?: string) {
   return NextResponse.json(
     {
       code: 'QUIZ_VOUCHER_TOKEN_INVALID',
       error: 'Invalid quiz voucher token',
+      ...(rejectedVoucherToken ? { rejectedVoucherToken } : {}),
     },
     { status: 400 }
   );
@@ -858,6 +861,19 @@ function invalidQuizVoucherQuantityResponse() {
     {
       code: 'QUIZ_VOUCHER_QUANTITY_INVALID',
       error: 'Quiz voucher items must have quantity 1',
+    },
+    { status: 400 }
+  );
+}
+
+// Distinct from an invalid token: the cart holds two-plus individually valid
+// prize vouchers but only one can be redeemed per order. Callers show a
+// "redeem one at a time" message and must NOT prune the (valid) voucher lines.
+function tooManyQuizVouchersResponse() {
+  return NextResponse.json(
+    {
+      code: 'QUIZ_VOUCHER_MULTIPLE',
+      error: 'Only one quiz voucher can be redeemed per order',
     },
     { status: 400 }
   );
@@ -1039,6 +1055,10 @@ export async function POST(request: NextRequest) {
       ? null
       : getRequestIdempotencyKey(request);
     const verifiedQuizVoucherAwardIdsByIndex = new Map<number, string>();
+    // award id → the (first) still-valid signed token that produced it, so a
+    // later award-status rejection can name the exact line for checkout to
+    // prune instead of stranding the whole cart.
+    const verifiedQuizVoucherTokenByAwardId = new Map<string, string>();
 
     // Phase 1b voucher orders are user-bound. Keep the prize path behind the
     // production guard before any order mutation work.
@@ -1105,12 +1125,15 @@ export async function POST(request: NextRequest) {
               {
                 code: 'QUIZ_VOUCHER_TOKEN_EXPIRED',
                 error: 'Quiz voucher token has expired',
+                // Identify the exact failed line so checkout prunes only it,
+                // preserving other valid vouchers in a multi-prize cart.
+                rejectedVoucherToken: voucherToken,
               },
               { status: 400 }
             );
           }
 
-          return invalidQuizVoucherTokenResponse();
+          return invalidQuizVoucherTokenResponse(voucherToken);
         }
 
         const itemProductId = getOrderItemProductId(item);
@@ -1122,43 +1145,90 @@ export async function POST(request: NextRequest) {
           tokenVerification.payload.variantId !== itemVariantId ||
           tokenVerification.payload.condition !== itemCondition
         ) {
-          return invalidQuizVoucherTokenResponse();
+          return invalidQuizVoucherTokenResponse(voucherToken);
         }
 
         verifiedQuizVoucherAwardIdsByIndex.set(
           index,
           tokenVerification.payload.awardId
         );
+        if (
+          !verifiedQuizVoucherTokenByAwardId.has(
+            tokenVerification.payload.awardId
+          )
+        ) {
+          verifiedQuizVoucherTokenByAwardId.set(
+            tokenVerification.payload.awardId,
+            voucherToken
+          );
+        }
       }
 
       const voucherAwardIds = [
         ...new Set(verifiedQuizVoucherAwardIdsByIndex.values()),
       ];
-      if (voucherAwardIds.length !== 1) {
+      if (voucherAwardIds.length === 0) {
         return invalidQuizVoucherTokenResponse();
       }
 
-      const { data: voucherAward, error: voucherAwardError } = await supabase
-        .from('quiz_awards')
-        .select(
-          'event_id, quiz_events!inner(nlrc_permit_ref, compliance_verified)'
-        )
-        .eq('id', voucherAwardIds[0])
-        .maybeSingle();
+      // Load EVERY distinct award before deciding on a multi-voucher conflict.
+      // A token can carry a valid (unexpired) signature for an award that is
+      // already claimed/void, so signature checks alone are not enough. Awards
+      // are pruned line-by-line via `rejectedVoucherToken`; QUIZ_VOUCHER_MULTIPLE
+      // is checkout's do-NOT-prune signal, so emitting it for an unredeemable
+      // line would strand the shopper with a voucher they can never check out.
+      const { data: voucherAwardRows, error: voucherAwardError } =
+        await supabase
+          .from('quiz_awards')
+          .select(
+            'id, status, award_type, quiz_events!inner(nlrc_permit_ref, compliance_verified)'
+          )
+          .in('id', voucherAwardIds);
       if (voucherAwardError) {
         logger.error({
           message: 'Quiz voucher award lookup failed',
           error: voucherAwardError,
-          voucherAwardId: voucherAwardIds[0],
+          voucherAwardIds,
         });
         return invalidQuizVoucherTokenResponse();
       }
 
-      if (!voucherAward) {
-        return invalidQuizVoucherTokenResponse();
+      const voucherAwardRowById = new Map(
+        (voucherAwardRows ?? []).map((row) => [row.id, row] as const)
+      );
+      // A redeemable award is approved AND store-credit-typed — the same gate
+      // create_storefront_order_with_quiz_voucher enforces in the DB. Anything
+      // else (claimed, void, wrong type, or missing) is a bad line, not a
+      // "too many prizes" conflict.
+      const validVoucherAwardIds = voucherAwardIds.filter((awardId) => {
+        const row = voucherAwardRowById.get(awardId);
+        return row?.status === 'approved' && row.award_type === 'store_credit';
+      });
+
+      // Validate award status BEFORE reporting a multi-voucher conflict: prune
+      // any genuinely-bad line first so a stale/claimed voucher never masquerades
+      // as a redeem-one-at-a-time situation.
+      if (validVoucherAwardIds.length !== voucherAwardIds.length) {
+        const rejectedAwardId = voucherAwardIds.find(
+          (awardId) => !validVoucherAwardIds.includes(awardId)
+        );
+        return invalidQuizVoucherTokenResponse(
+          rejectedAwardId
+            ? verifiedQuizVoucherTokenByAwardId.get(rejectedAwardId)
+            : undefined
+        );
       }
 
-      const voucherEvent = getQuizVoucherAwardEvent(voucherAward);
+      if (validVoucherAwardIds.length > 1) {
+        // Every voucher line is individually valid — the shopper just won more
+        // than one prize. Surface a distinct code so checkout tells them to
+        // redeem one at a time instead of discarding both valid vouchers.
+        return tooManyQuizVouchersResponse();
+      }
+
+      const voucherEvent = getQuizVoucherAwardEvent(
+        voucherAwardRowById.get(validVoucherAwardIds[0])
+      );
       try {
         enforcePrizeProductionGuard(
           { nlrc_permit_ref: voucherEvent?.nlrcPermitRef ?? null },
@@ -1256,7 +1326,12 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const voucherAwardIds = [...verifiedQuizVoucherAwardIdsByIndex.values()];
+      const voucherAwardIds = [
+        ...new Set(verifiedQuizVoucherAwardIdsByIndex.values()),
+      ];
+      if (voucherAwardIds.length > 1) {
+        return tooManyQuizVouchersResponse();
+      }
       if (voucherAwardIds.length !== 1) {
         return invalidQuizVoucherTokenResponse();
       }

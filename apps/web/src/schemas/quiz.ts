@@ -4,7 +4,6 @@ const quizUuidSchema = z.uuid();
 const quizIsoDatetimeSchema = z.iso.datetime({ offset: true });
 const quizIntegrityTierSchema = z.enum(['basic', 'device', 'strong']);
 const quizDifficultySchema = z.enum(['easy', 'standard', 'hard']);
-const merchantQuizPublicationModeSchema = z.enum(['draft', 'active']);
 const quizNonEmptyIdSchema = z.string().min(1);
 const quizTopicSchema = z.string().trim().min(3).max(80);
 const quizPrizeConditionSchema = z
@@ -59,11 +58,16 @@ export const merchantQuizGenerationRequestSchema = z.object({
   difficulty: quizDifficultySchema.default('standard'),
   prizeProductId: quizUuidSchema,
   prizeVariantId: quizUuidSchema.optional(),
-  publicationMode: merchantQuizPublicationModeSchema.default('draft'),
   questionCountPerTopic: z.coerce.number().int().min(1).max(5).prefault(1),
   timeLimitSeconds: z.coerce.number().int().min(5).max(60).prefault(30),
   title: z.string().trim().min(3).max(120),
   topics: z.array(quizTopicSchema).min(1).max(10),
+});
+
+// Activation is a deliberate second step after a human reviews the answer key.
+export const merchantQuizActivationRequestSchema = z.object({
+  confirmActivation: z.literal(true),
+  eventId: quizUuidSchema,
 });
 
 const merchantQuizPrizeProductSchema = z.object({
@@ -108,19 +112,23 @@ export const generatedQuizQuestionsSchema = z.object({
   questions: z.array(generatedQuizQuestionSchema).min(1).max(50),
 });
 
+const merchantQuizEventSummarySchema = z.object({
+  id: quizNonEmptyIdSchema,
+  slug: z.string().min(1),
+  status: z.string().min(1),
+  title: z.string().min(1),
+});
+
+// Admin-only response (ogabassey + marketing/edit gate): includes the AI-marked
+// `correctOptionId`/`explanation` for answer-key review before opening the
+// event. Never reuse for the storefront player response, which keeps answers hashed.
 export const merchantQuizGenerationResponseSchema = z.object({
-  event: z.object({
-    id: quizNonEmptyIdSchema,
-    slug: z.string().min(1),
-    status: z.string().min(1),
-    title: z.string().min(1),
-  }),
-  questions: z.array(
-    generatedQuizQuestionBaseSchema.omit({
-      correctOptionId: true,
-      explanation: true,
-    })
-  ),
+  event: merchantQuizEventSummarySchema,
+  questions: z.array(generatedQuizQuestionBaseSchema),
+});
+
+export const merchantQuizActivationResponseSchema = z.object({
+  event: merchantQuizEventSummarySchema,
 });
 
 const quizEventSettingsSchema = z
@@ -270,9 +278,15 @@ export type ClaimQuizCashAwardInput = z.infer<typeof claimQuizCashAwardSchema>;
 export type MerchantQuizGenerationInput = z.infer<
   typeof merchantQuizGenerationRequestSchema
 >;
+export type MerchantQuizActivationInput = z.infer<
+  typeof merchantQuizActivationRequestSchema
+>;
 export type GeneratedQuizQuestion = z.infer<typeof generatedQuizQuestionSchema>;
 export type MerchantQuizGenerationResponse = z.infer<
   typeof merchantQuizGenerationResponseSchema
+>;
+export type MerchantQuizActivationResponse = z.infer<
+  typeof merchantQuizActivationResponseSchema
 >;
 export type MerchantQuizPrizeProduct = z.infer<
   typeof merchantQuizPrizeProductSchema

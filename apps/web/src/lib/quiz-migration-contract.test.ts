@@ -190,9 +190,19 @@ describe('quiz migration contracts', () => {
     expect(scoringRecordAnswerSql).toMatch(/quiz_question_not_issued/i);
     expect(scoringRecordAnswerSql).toMatch(/answer_too_fast/i);
     expect(scoringRecordAnswerSql).toMatch(/v_answered_in_ms\s*<\s*400/i);
-    expect(scoringRecordAnswerSql).toMatch(/answer_too_late/i);
+    // A too-late answer is no longer fatal: instead of RAISE 'answer_too_late'
+    // (which bricked the attempt), it is recorded as incorrect and the attempt
+    // advances. The elapsed comparison still gates the `v_late` flag, and the
+    // stored answered_in_ms is clamped to satisfy the column CHECK.
+    expect(scoringRecordAnswerSql).not.toMatch(
+      /RAISE\s+EXCEPTION\s+'answer_too_late'/i
+    );
+    expect(scoringRecordAnswerSql).toMatch(/v_late\s+boolean/i);
     expect(scoringRecordAnswerSql).toMatch(
       /v_answered_in_ms\s*>\s*COALESCE\(\s*v_time_limit_ms,\s*30000\s*\)\s*\+\s*1000/i
+    );
+    expect(scoringRecordAnswerSql).toMatch(
+      /LEAST\(\s*v_answered_in_ms,\s*60000\s*\)/i
     );
     expect(scoringRecordAnswerSql).toMatch(
       /INSERT\s+INTO\s+public\.quiz_attempt_answers[\s\S]*answered_in_ms[\s\S]*v_answered_in_ms/is

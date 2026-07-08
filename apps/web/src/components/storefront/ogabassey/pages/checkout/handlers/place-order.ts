@@ -1,5 +1,10 @@
 import { toast } from '@/hooks/use-toast';
 import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
+import {
+  getCheckoutOrderErrorMessage,
+  getOrderCreateErrorCode,
+  isQuizVoucherRejectionCode,
+} from '../checkout-order-error-message';
 import { openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { createClient } from '@/lib/supabase/client';
@@ -86,6 +91,12 @@ export interface PlaceOrderOptions {
   setCompletedSteps: (v: { contact: boolean; delivery: boolean }) => void;
   clearCheckoutSession: () => void;
   clearCart: () => void;
+  /**
+   * FIX E: remove quiz-prize voucher line(s) from the cart. Invoked when the
+   * orders RPC rejects the voucher (expired/already-used/not-approved) so the
+   * offending line does not re-fail every subsequent checkout attempt.
+   */
+  pruneVoucherLines?: () => void;
   routerPush: (url: string) => void;
   getHref: (path: string) => string;
   executeDirectPayment: () => Promise<void>;
@@ -257,6 +268,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
     setCompletedSteps,
     clearCheckoutSession,
     clearCart,
+    pruneVoucherLines,
     routerPush,
     getHref,
     executeDirectPayment,
@@ -432,9 +444,16 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
         details: errorData.details,
         fullResponse: errorData,
       });
-      throw new Error(
-        errorData.details || errorData.error || 'Failed to create order',
-      );
+      // FIX E (2): a rejected quiz-prize voucher (expired / already-used /
+      // not-approved) would otherwise re-fail every checkout. Drop the
+      // offending voucher line so the shopper can proceed with the rest of
+      // their cart. The friendly copy is surfaced by the throw below.
+      if (isQuizVoucherRejectionCode(getOrderCreateErrorCode(errorData))) {
+        pruneVoucherLines?.();
+      }
+      // FIX C: map raw RPC codes (e.g. quiz_voucher_award_not_approved) to
+      // actionable, shopper-facing copy instead of leaking the code to a toast.
+      throw new Error(getCheckoutOrderErrorMessage(errorData));
     }
 
     const orderData = await orderResponse.json();

@@ -126,6 +126,16 @@ export function mapCartItemsToOrderItems(
             effectivePrice * item.quantity * (item.assuranceRate ?? 0.05)
           )
         : 0,
+      // Quiz prize voucher lines: /api/orders verifies the signed token and
+      // compares `condition` against the value baked into it — dropping these
+      // here silently broke mobile prize redemption at checkout.
+      ...(item.condition !== undefined ? { condition: item.condition } : {}),
+      ...(item.voucher_token !== undefined
+        ? { voucher_token: item.voucher_token }
+        : {}),
+      ...(item.voucher_award_id !== undefined
+        ? { voucher_award_id: item.voucher_award_id }
+        : {}),
     };
   });
 }

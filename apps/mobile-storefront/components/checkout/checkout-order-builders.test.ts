@@ -312,4 +312,58 @@ describe('checkout order builders', () => {
     expect(request.shipping_address.city).toBe(PICKUP_STATION_CITY);
     expect(request.shipping_address.state).toBe(PICKUP_STATION_STATE);
   });
+
+  it('forwards quiz voucher fields end-to-end from the cart line to the API payload', () => {
+    // Regression: mapCartItemsToOrderItems dropped condition/voucher_token/
+    // voucher_award_id, silently breaking mobile prize redemption at checkout
+    // even though the downstream payload builder forwards them.
+    const voucherToken = `qv1.${'A'.repeat(220)}.${'B'.repeat(43)}`;
+    const itemsSnapshot = [
+      {
+        id: 'line-prize',
+        product_id: 'prod-prize',
+        slug: 'iphone-15',
+        name: 'iPhone 15 (Quiz Prize)',
+        price: 0,
+        quantity: 1,
+        condition: 'new',
+        voucher_token: voucherToken,
+        voucher_award_id: '11111111-1111-4111-8111-111111111111',
+      },
+    ];
+    const snapshot = createCheckoutSnapshot(itemsSnapshot, 0, 0);
+
+    const request = buildCheckoutOrderRequest({
+      address,
+      customerEmail: 'ada@example.com',
+      customerName: 'Ada Lovelace',
+      customerPhone: '08012345678',
+      deliveryMethod: 'door',
+      itemsSnapshot,
+      paymentMethodForOrder: 'card',
+      selectedQuote: undefined,
+      shippingProvider: undefined,
+      snapshot,
+    });
+
+    // Mapper must carry the voucher identity + raw condition enum.
+    expect(request.items[0].condition).toBe('new');
+    expect(request.items[0].voucher_token).toBe(voucherToken);
+    expect(request.items[0].voucher_award_id).toBe(
+      '11111111-1111-4111-8111-111111111111'
+    );
+    expect(request.items[0].price).toBe(0);
+
+    // And the full chain: request validates + the API payload forwards them.
+    const parsed = CreateOrderRequestSchema.parse(request);
+    const payload = buildOrderPayload({
+      merchantId: 'merchant-1',
+      request: parsed,
+    });
+    expect(payload.items[0].voucher_token).toBe(voucherToken);
+    expect(payload.items[0].voucher_award_id).toBe(
+      '11111111-1111-4111-8111-111111111111'
+    );
+    expect(payload.items[0].condition).toBe('new');
+  });
 });

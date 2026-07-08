@@ -210,6 +210,13 @@ function buildMockSupabase(
       weight_unit?: string | null;
       weight_value?: number | string | null;
     }>;
+    // Per-award-id status overrides for the quiz_awards status pre-check. Absent
+    // ids default to an approved store-credit award; `missing: true` omits the
+    // row entirely (award not found).
+    quizAwardOverrides?: Record<
+      string,
+      { award_type?: string; missing?: boolean; status?: string }
+    >;
     shippingQuote?: unknown;
   } = {}
 ) {
@@ -265,17 +272,25 @@ function buildMockSupabase(
     // biome-ignore lint/suspicious/noThenProperty: thenable mock
     then: (resolve: any) => Promise.resolve().then(resolve),
   };
+  const quizAwardOverrides = opts.quizAwardOverrides ?? {};
+  // The route loads all distinct awards via `.in('id', ids)` and gates on
+  // status === 'approved' && award_type === 'store_credit'. Return one row per
+  // queried id (approved store-credit by default) unless a test overrides it.
   const quizAwardChainable: any = {
     ...sharedChainable,
-    maybeSingle: vi.fn().mockResolvedValue({
-      data: {
-        event_id: '99999999-9999-4999-8999-999999999999',
-        quiz_events: {
-          compliance_verified: true,
-          nlrc_permit_ref: 'NLRC-1',
-        },
-      },
-      error: null,
+    in: vi.fn((_column: string, ids: string[]) => {
+      const rows = ids
+        .filter((id) => !quizAwardOverrides[id]?.missing)
+        .map((id) => ({
+          id,
+          status: quizAwardOverrides[id]?.status ?? 'approved',
+          award_type: quizAwardOverrides[id]?.award_type ?? 'store_credit',
+          quiz_events: {
+            compliance_verified: true,
+            nlrc_permit_ref: 'NLRC-1',
+          },
+        }));
+      return Promise.resolve({ data: rows, error: null });
     }),
   };
 
@@ -679,9 +694,12 @@ describe('POST /api/orders — quiz voucher guard', () => {
     const body = await readJson(response);
 
     expect(response.status).toBe(400);
+    // The response identifies the exact rejected token so checkout can prune
+    // only the failed line and keep other valid vouchers in a multi-prize cart.
     expect(body).toEqual({
       code: 'QUIZ_VOUCHER_TOKEN_INVALID',
       error: 'Invalid quiz voucher token',
+      rejectedVoucherToken: 'not-a-valid-voucher-token',
     });
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
@@ -735,6 +753,152 @@ describe('POST /api/orders — quiz voucher guard', () => {
     expect(body).toEqual({
       code: 'QUIZ_VOUCHER_QUANTITY_INVALID',
       error: 'Quiz voucher items must have quantity 1',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('rejects a cart with two distinct valid vouchers as a redeemable-one-at-a-time conflict, not an invalid token', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const supabase = buildMockSupabase();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const firstProductId = '22222222-2222-4222-8222-222222222222';
+    const secondProductId = '33333333-3333-4333-8333-333333333333';
+    const makeToken = (awardId: string, productId: string) =>
+      createQuizVoucherToken({
+        payload: {
+          awardId,
+          condition: 'new',
+          expiresAt: '2099-05-22T12:00:00.000Z',
+          productId,
+          userId: AUTH_USER_ID,
+          variantId: null,
+        },
+        secret: 'voucher-secret',
+      });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            condition: 'new',
+            product_id: firstProductId,
+            price: 0,
+            voucher_token: makeToken(
+              '11111111-1111-4111-8111-111111111111',
+              firstProductId
+            ),
+          },
+          {
+            ...baseOrderPayload.items[0],
+            condition: 'new',
+            product_id: secondProductId,
+            price: 0,
+            voucher_token: makeToken(
+              '44444444-4444-4444-8444-444444444444',
+              secondProductId
+            ),
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      code: 'QUIZ_VOUCHER_MULTIPLE',
+      error: 'Only one quiz voucher can be redeemed per order',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('prunes an unredeemable voucher line instead of reporting a multi-voucher conflict when one award is already claimed', async () => {
+    // Regression: a signed token can still be unexpired for an award that is
+    // already claimed/void. With 2+ tokens the route must validate award status
+    // BEFORE emitting QUIZ_VOUCHER_MULTIPLE (which checkout never prunes) — the
+    // bad line should surface a prunable QUIZ_VOUCHER_TOKEN_INVALID so checkout
+    // drops just it, not tell the shopper to "redeem one at a time".
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const validAwardId = '11111111-1111-4111-8111-111111111111';
+    const claimedAwardId = '44444444-4444-4444-8444-444444444444';
+    const supabase = buildMockSupabase(
+      {},
+      { quizAwardOverrides: { [claimedAwardId]: { status: 'claimed' } } }
+    );
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const firstProductId = '22222222-2222-4222-8222-222222222222';
+    const secondProductId = '33333333-3333-4333-8333-333333333333';
+    const makeToken = (awardId: string, productId: string) =>
+      createQuizVoucherToken({
+        payload: {
+          awardId,
+          condition: 'new',
+          expiresAt: '2099-05-22T12:00:00.000Z',
+          productId,
+          userId: AUTH_USER_ID,
+          variantId: null,
+        },
+        secret: 'voucher-secret',
+      });
+    const claimedToken = makeToken(claimedAwardId, secondProductId);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            condition: 'new',
+            product_id: firstProductId,
+            price: 0,
+            voucher_token: makeToken(validAwardId, firstProductId),
+          },
+          {
+            ...baseOrderPayload.items[0],
+            condition: 'new',
+            product_id: secondProductId,
+            price: 0,
+            voucher_token: claimedToken,
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      code: 'QUIZ_VOUCHER_TOKEN_INVALID',
+      error: 'Invalid quiz voucher token',
+      rejectedVoucherToken: claimedToken,
     });
     expect(supabase.rpc).not.toHaveBeenCalled();
   });

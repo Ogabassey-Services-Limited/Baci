@@ -141,6 +141,13 @@ jest.mock('./comparison-store', () => ({
   },
 }));
 
+const mockQuizReset = jest.fn();
+jest.mock('./quiz-store', () => ({
+  useQuizStore: {
+    getState: jest.fn(() => ({ reset: mockQuizReset })),
+  },
+}));
+
 jest.mock('expo-constants', () => ({
   __esModule: true,
   default: {
@@ -764,6 +771,8 @@ describe('useAuthStore', () => {
       expect(state.user?.id).toBe(USER_ID);
       expect(state.session).toBe(mockSession);
       expect(state.customer?.id).toBe('customer-uuid-1');
+      // A fresh sign-in (account switch) resets any prior quiz state.
+      expect(mockQuizReset).toHaveBeenCalled();
     });
 
     it('still updates user/session when merchant lookup failed during initialize', async () => {
@@ -893,6 +902,8 @@ describe('useAuthStore', () => {
       expect(mockClearCart).toHaveBeenCalled();
       expect(mockClearSaved).toHaveBeenCalled();
       expect(mockClearComparison).toHaveBeenCalled();
+      // Quiz attempt/result/prize must not survive a sign-out.
+      expect(mockQuizReset).toHaveBeenCalled();
     });
   });
 
@@ -1218,6 +1229,7 @@ describe('useAuthStore', () => {
       expect(mockClearCart).toHaveBeenCalled();
       expect(mockClearSaved).toHaveBeenCalled();
       expect(mockClearComparison).toHaveBeenCalled();
+      expect(mockQuizReset).toHaveBeenCalled();
       expect(result).toEqual({ success: true, usedApple: true });
 
       const state = useAuthStore.getState();

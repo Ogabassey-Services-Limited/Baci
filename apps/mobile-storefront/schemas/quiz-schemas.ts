@@ -49,6 +49,29 @@ export const quizAttemptSchema = z.object({
   question: quizQuestionSchema,
 });
 
+export const quizPrizeConditionSchema = z.enum([
+  'new',
+  'used',
+  'open_box',
+  'refurbished',
+]);
+
+/**
+ * Winning submissions carry a signed prize voucher the mobile client redeems by
+ * adding the prize product to the cart. Non-winning responses omit it, so the
+ * whole object is optional and inner nullable fields use `.nullish()` to accept
+ * either `null` (server default) or an absent key. Mirrors the authoritative web
+ * shape in `apps/web/src/schemas/quiz.ts` (`quizResultResponseSchema.prizeClaim`).
+ */
+export const quizPrizeClaimSchema = z.object({
+  awardId: z.string().min(1),
+  productId: z.string().min(1),
+  variantId: z.string().min(1).nullish(),
+  condition: quizPrizeConditionSchema.nullish(),
+  voucherToken: z.string().min(1),
+  cartPath: z.string().min(1),
+});
+
 export const quizResultSchema = z
   .object({
     attemptId: z.string().min(1),
@@ -56,6 +79,7 @@ export const quizResultSchema = z
     correctAnswers: z.number().int().nonnegative(),
     totalQuestions: z.number().int().positive(),
     prizeEligible: z.boolean(),
+    prizeClaim: quizPrizeClaimSchema.optional(),
     question: quizQuestionSchema.optional(),
   })
   .superRefine((value, context) => {

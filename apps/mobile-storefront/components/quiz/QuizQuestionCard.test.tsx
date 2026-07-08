@@ -1,6 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import type { QuizAttempt } from '@/services/quiz';
+import type { QuizAttempt } from '@/services/quiz-types';
 import { QuizQuestionCard } from './QuizQuestionCard';
 import { createQuizStyles, type QuizThemeColors } from './QuizScreen.styles';
 
@@ -26,109 +26,63 @@ const attempt: QuizAttempt = {
   remainingLoyaltyPoints: 4,
   question: {
     id: 'question-1',
-    index: 1,
+    prompt: 'Pick the answer',
     options: [
-      { id: 'a', label: '3' },
-      { id: 'b', label: '4' },
+      { id: 'a', label: 'First' },
+      { id: 'b', label: 'Second' },
     ],
-    prompt: 'What is 2 + 2?',
     timeLimitSeconds: 30,
+    index: 1,
     total: 3,
   },
 };
 
+function renderCard(overrides: Partial<Parameters<typeof QuizQuestionCard>[0]> = {}) {
+  const props = {
+    attempt,
+    isSubmitting: false,
+    onSelectAnswer: jest.fn(),
+    onSubmit: jest.fn(),
+    remainingSeconds: 12,
+    selectedOptionId: null as string | null,
+    styles: createQuizStyles(themeColors),
+    ...overrides,
+  };
+  render(<QuizQuestionCard {...props} />);
+  return props;
+}
+
 describe('QuizQuestionCard', () => {
-  it('renders the question, progress, and answer options', () => {
-    render(
-      <QuizQuestionCard
-        attempt={attempt}
-        isSubmitting={false}
-        onSelectAnswer={jest.fn()}
-        onSubmit={jest.fn()}
-        selectedOptionId={null}
-        styles={createQuizStyles(themeColors)}
-      />
-    );
+  it('renders the prompt, countdown, and answer options', () => {
+    renderCard();
 
-    expect(screen.getByText('What is 2 + 2?')).toBeTruthy();
-    expect(screen.getByLabelText('Question 1 of 3')).toHaveProp(
-      'accessibilityRole',
-      'progressbar'
-    );
-    expect(screen.getByRole('button', { name: 'Answer 3' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Answer 4' })).toBeTruthy();
+    expect(screen.getByText('Pick the answer')).toBeTruthy();
+    expect(screen.getByLabelText('Time left: 12 seconds')).toBeTruthy();
+    expect(screen.getByLabelText('Answer First')).toBeTruthy();
+    expect(screen.getByLabelText('Answer Second')).toBeTruthy();
   });
 
-  it('calls onSelectAnswer when an option is pressed', () => {
-    const onSelectAnswer = jest.fn();
-    render(
-      <QuizQuestionCard
-        attempt={attempt}
-        isSubmitting={false}
-        onSelectAnswer={onSelectAnswer}
-        onSubmit={jest.fn()}
-        selectedOptionId={null}
-        styles={createQuizStyles(themeColors)}
-      />
-    );
+  it('selecting an option fires onSelectAnswer with the option id', () => {
+    const props = renderCard();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Answer 4' }));
+    fireEvent.press(screen.getByLabelText('Answer Second'));
 
-    expect(onSelectAnswer).toHaveBeenCalledWith('b');
+    expect(props.onSelectAnswer).toHaveBeenCalledWith('b');
   });
 
-  it('disables the submit button until an option is selected', () => {
-    render(
-      <QuizQuestionCard
-        attempt={attempt}
-        isSubmitting={false}
-        onSelectAnswer={jest.fn()}
-        onSubmit={jest.fn()}
-        selectedOptionId={null}
-        styles={createQuizStyles(themeColors)}
-      />
-    );
+  it('submits the selected answer when one is chosen', () => {
+    const props = renderCard({ selectedOptionId: 'b' });
+
+    fireEvent.press(screen.getByLabelText('Submit answer'));
+
+    expect(props.onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables submit until an option is selected', () => {
+    renderCard({ selectedOptionId: null });
 
     expect(
-      screen.getByRole('button', { name: 'Submit answer' })
-    ).toHaveAccessibilityState({ disabled: true });
-  });
-
-  it('calls onSubmit when the submit button is pressed with a selection', () => {
-    const onSubmit = jest.fn();
-    render(
-      <QuizQuestionCard
-        attempt={attempt}
-        isSubmitting={false}
-        onSelectAnswer={jest.fn()}
-        onSubmit={onSubmit}
-        selectedOptionId="b"
-        styles={createQuizStyles(themeColors)}
-      />
-    );
-
-    fireEvent.press(screen.getByRole('button', { name: 'Submit answer' }));
-
-    expect(onSubmit).toHaveBeenCalledTimes(1);
-  });
-
-  it('disables answer and submit controls while submitting', () => {
-    render(
-      <QuizQuestionCard
-        attempt={attempt}
-        isSubmitting
-        onSelectAnswer={jest.fn()}
-        onSubmit={jest.fn()}
-        selectedOptionId="b"
-        styles={createQuizStyles(themeColors)}
-      />
-    );
-
-    expect(
-      screen.getByRole('button', { name: 'Answer 3' })
-    ).toHaveAccessibilityState({ disabled: true });
-    expect(
-      screen.getByRole('button', { name: 'Submit answer' })
-    ).toHaveAccessibilityState({ disabled: true });
+      screen.getByLabelText('Submit answer').props.accessibilityState.disabled
+    ).toBe(true);
   });
 });

@@ -46,7 +46,8 @@ const mockQuizEventUpdateSingle = vi.fn();
 const mockQuizEventSelect = vi.fn(() => ({
   single: mockQuizEventUpdateSingle,
 }));
-const mockQuizEventEqSecond = vi.fn(() => ({ select: mockQuizEventSelect }));
+const mockQuizEventEqThird = vi.fn(() => ({ select: mockQuizEventSelect }));
+const mockQuizEventEqSecond = vi.fn(() => ({ eq: mockQuizEventEqThird }));
 const mockQuizEventEqFirst = vi.fn(() => ({ eq: mockQuizEventEqSecond }));
 const mockQuizEventUpdate = vi.fn(() => ({ eq: mockQuizEventEqFirst }));
 const mockPrizeProductBuilder = {
@@ -257,11 +258,16 @@ describe('POST /api/merchant/quiz/generate', () => {
       },
       questions: [
         {
+          // The AI-marked answer key IS returned to the authenticated admin so
+          // they can review it before opening the quiz.
+          correctOptionId: 'b',
+          explanation: 'USB-C arrived on iPhone 15.',
           prompt: 'Which iPhone model introduced USB-C?',
           topic: 'iPhone buying advice',
         },
       ],
     });
+    // Generating a draft must never auto-open the event.
     expect(mockQuizEventUpdate).not.toHaveBeenCalled();
     expect(mockPrizeProductBuilder.select).toHaveBeenCalledWith(
       'id, name, images, default_variant_id'
@@ -277,33 +283,20 @@ describe('POST /api/merchant/quiz/generate', () => {
     expect(mockPrizeProductBuilder.eq).toHaveBeenCalledWith('status', 'active');
   });
 
-  it('opens the generated quiz when requested by the merchant', async () => {
+  it('does not activate from the generation route — an activation-shaped body is rejected', async () => {
+    // Activation moved to POST /api/merchant/quiz/activate (its own rate-limit
+    // bucket). The generation route must NOT open events; an activation-only
+    // body has no title/topics, so it fails generation validation.
     const response = await POST(
       createRequest({
-        difficulty: 'standard',
-        prizeProductId: PRIZE_PRODUCT_ID,
-        publicationMode: 'active',
-        questionCountPerTopic: 1,
-        timeLimitSeconds: 30,
-        title: 'Daily Phone Quiz',
-        topics: ['iPhone buying advice'],
+        confirmActivation: true,
+        eventId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       })
     );
-    const body = await response.json();
 
-    expect(response.status).toBe(201);
-    expect(mockQuizEventUpdate).toHaveBeenCalledWith({
-      ends_at: null,
-      starts_at: expect.any(String),
-      status: 'active',
-    });
-    expect(mockQuizEventEqFirst).toHaveBeenCalledWith('id', 'event-1');
-    expect(mockQuizEventEqSecond).toHaveBeenCalledWith(
-      'merchant_id',
-      'merchant-1'
-    );
-    expect(mockQuizEventSelect).toHaveBeenCalledWith('id, slug, status, title');
-    expect(body.event.status).toBe('active');
+    expect(response.status).toBe(400);
+    expect(mockQuizEventUpdate).not.toHaveBeenCalled();
+    expect(mockGenerateQuizQuestionsWithGemma).not.toHaveBeenCalled();
   });
 
   it('requires marketing edit permission', async () => {

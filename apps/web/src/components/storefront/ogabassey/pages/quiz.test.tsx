@@ -181,6 +181,38 @@ describe('OgabasseyV2Quiz', () => {
     expect(await screen.findByText('1 of 1')).toBeInTheDocument();
   });
 
+  it('shows the live per-question countdown once the exam starts (FIX A)', async () => {
+    vi.mocked(apiGet).mockResolvedValue(eventResponse);
+    vi.mocked(apiPost).mockResolvedValueOnce(attemptResponse);
+
+    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start exam for Daily Quiz' })
+    );
+
+    expect(await screen.findByText('30s remaining')).toBeInTheDocument();
+  });
+
+  it('guards against double-tapping Start firing two attempts (FIX D)', async () => {
+    vi.mocked(apiGet).mockResolvedValue(eventResponse);
+    vi.mocked(apiPost).mockResolvedValueOnce(attemptResponse);
+
+    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
+    const startButton = await screen.findByRole('button', {
+      name: 'Start exam for Daily Quiz',
+    });
+
+    // Two synchronous taps before the async start resolves.
+    fireEvent.click(startButton);
+    fireEvent.click(startButton);
+
+    expect(
+      await screen.findByText('Pick the winning answer')
+    ).toBeInTheDocument();
+    // The synchronous in-flight ref must have swallowed the second tap.
+    expect(apiPost).toHaveBeenCalledTimes(1);
+  });
+
   it('refreshes the sponsored question ad when the next question appears', async () => {
     vi.mocked(apiGet).mockResolvedValue({
       ...eventResponse,
