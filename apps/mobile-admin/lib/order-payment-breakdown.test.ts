@@ -70,6 +70,63 @@ describe('buildOrderPaymentBreakdown', () => {
     expect(breakdown.displaySubtotal).toBe(100);
   });
 
+  it('balances inclusive VAT lines when merchant settings are missing', () => {
+    const total = 235000;
+    const taxAmount = total - total / 1.075;
+    const breakdown = buildOrderPaymentBreakdown({
+      currency: 'NGN',
+      shippingFee: 25000,
+      subtotal: 210000,
+      taxAmount,
+      total,
+    });
+
+    expect(breakdown.showVat).toBe(true);
+    expect(breakdown.vatLabel).toBe('VAT');
+    expect(
+      breakdown.displaySubtotal + 25000 + breakdown.taxAmount
+    ).toBeCloseTo(total, 2);
+  });
+
+  it('balances inclusive VAT lines when the current merchant rate changed', () => {
+    const total = 235000;
+    const taxAmount = total - total / 1.075;
+    const breakdown = buildOrderPaymentBreakdown({
+      currency: 'NGN',
+      merchant: { vat_rate: 10, vat_registration_status: 'registered' },
+      shippingFee: 25000,
+      subtotal: 210000,
+      taxAmount,
+      total,
+    });
+
+    expect(breakdown.showVat).toBe(true);
+    expect(breakdown.vatLabel).toBe('VAT (10%)');
+    expect(
+      breakdown.displaySubtotal + 25000 + breakdown.taxAmount
+    ).toBeCloseTo(total, 2);
+  });
+
+  it('balances backfilled inclusive VAT lines with a discount and shipping', () => {
+    const total = 1005125;
+    const shippingFee = 1000;
+    const discountAmount = 500;
+    const taxAmount = 70125;
+    const breakdown = buildOrderPaymentBreakdown({
+      currency: 'NGN',
+      discountAmount,
+      shippingFee,
+      subtotal: total,
+      taxAmount,
+      total,
+    });
+
+    expect(breakdown.displaySubtotal).toBe(934500);
+    expect(
+      breakdown.displaySubtotal + shippingFee - discountAmount + taxAmount
+    ).toBe(total);
+  });
+
   it('defaults the NGN VAT rate when the merchant has none configured', () => {
     const breakdown = buildOrderPaymentBreakdown({
       currency: 'NGN',

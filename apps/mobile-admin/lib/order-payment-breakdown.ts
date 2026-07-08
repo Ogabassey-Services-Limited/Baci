@@ -5,9 +5,47 @@ import {
 } from '@baci/shared';
 
 const DEFAULT_CURRENCY = 'NGN';
+const MONEY_TOLERANCE = 0.01;
 
 function toAmount(value: number | null | undefined): number {
   return Number(value) || 0;
+}
+
+function almostEqual(left: number, right: number): boolean {
+  return Math.abs(left - right) <= MONEY_TOLERANCE;
+}
+
+type OrderMoneyFields = {
+  discount_amount: number;
+  shipping_fee: number;
+  subtotal: number;
+  tax_amount: number;
+  total: number;
+};
+
+function getTaxExclusiveTotal(
+  order: Pick<OrderMoneyFields, 'discount_amount' | 'shipping_fee' | 'subtotal'>
+): number {
+  return order.subtotal - order.discount_amount + order.shipping_fee;
+}
+
+function getStoredInclusiveDisplaySubtotal(
+  order: OrderMoneyFields
+): number | null {
+  if (order.tax_amount <= 0) {
+    return null;
+  }
+
+  const hasInclusiveShape =
+    almostEqual(order.total, getTaxExclusiveTotal(order)) ||
+    almostEqual(order.subtotal, order.total);
+  if (!hasInclusiveShape) {
+    return null;
+  }
+
+  const displaySubtotal =
+    order.total - order.tax_amount - order.shipping_fee + order.discount_amount;
+  return displaySubtotal >= 0 ? displaySubtotal : null;
 }
 
 interface OrderPaymentBreakdownInput {
@@ -47,7 +85,7 @@ export function buildOrderPaymentBreakdown(
   const currency = input.currency?.trim() || DEFAULT_CURRENCY;
   const subtotal = toAmount(input.subtotal);
 
-  const order = {
+  const order: OrderMoneyFields & { currency: string } = {
     currency,
     discount_amount: toAmount(input.discountAmount),
     shipping_fee: toAmount(input.shippingFee) + giftWrappingFee,
@@ -56,9 +94,11 @@ export function buildOrderPaymentBreakdown(
     total: toAmount(input.total),
   };
 
-  const displaySubtotal = input.merchant
+  const receiptDisplaySubtotal = input.merchant
     ? getReceiptDisplaySubtotal(order, input.merchant)
     : subtotal;
+  const displaySubtotal =
+    getStoredInclusiveDisplaySubtotal(order) ?? receiptDisplaySubtotal;
   const vatRate = input.merchant
     ? getReceiptVatRate(input.merchant, currency)
     : null;

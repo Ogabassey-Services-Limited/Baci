@@ -4,6 +4,7 @@ import { RADIUS, SPACING, type ThemeColors } from '@/constants/theme';
 import {
   getPairedMetaAttributeIndexes,
   getVariantSwatch,
+  isColorAttributeKey,
   partitionVariantAttributes,
 } from '@/lib/variant-attribute-display';
 import type { VariantAttributeFormValue } from '@/lib/product-variant-form';
@@ -20,6 +21,15 @@ interface VariantAttributesEditorProps {
     value: string
   ) => void;
   variantIndex: number;
+}
+
+function removeIndexesDescending(
+  indexes: number[],
+  onRemoveAttribute: (attributeIndex: number) => void
+) {
+  for (const target of [...indexes].sort((a, b) => b - a)) {
+    onRemoveAttribute(target);
+  }
 }
 
 export function VariantAttributesEditor({
@@ -64,14 +74,22 @@ export function VariantAttributesEditor({
       ) : null}
 
       {visible.map(({ attribute, index }) => {
-        const showSwatch = /colou?r/i.test(attribute.key) && Boolean(swatch);
+        const showSwatch = isColorAttributeKey(attribute.key) && Boolean(swatch);
+        const handleKeyChange = (text: string) => {
+          const pairedMetaIndexes =
+            isColorAttributeKey(attribute.key) && !isColorAttributeKey(text)
+              ? getPairedMetaAttributeIndexes(attributes, index)
+              : [];
+          onUpdateAttribute(index, 'key', text);
+          removeIndexesDescending(pairedMetaIndexes, onRemoveAttribute);
+        };
 
         return (
           <View key={attribute.id ?? index} style={styles.attributeBlock}>
             <View style={styles.attributeRow}>
               <TextInput
                 accessibilityLabel={`Attribute key for variant ${variantIndex + 1} item ${index + 1}`}
-                onChangeText={(text) => onUpdateAttribute(index, 'key', text)}
+                onChangeText={handleKeyChange}
                 placeholder="Type (e.g. Storage)"
                 placeholderTextColor={colors.textSecondary}
                 style={[...inputStyle, styles.keyInput]}
@@ -109,13 +127,13 @@ export function VariantAttributesEditor({
                 onPress={() => {
                   // Remove the colour and its paired color_hex together, in
                   // descending index order so each splice stays valid.
-                  const targets = [
-                    index,
-                    ...getPairedMetaAttributeIndexes(attributes, index),
-                  ].sort((a, b) => b - a);
-                  for (const target of targets) {
-                    onRemoveAttribute(target);
-                  }
+                  removeIndexesDescending(
+                    [
+                      index,
+                      ...getPairedMetaAttributeIndexes(attributes, index),
+                    ],
+                    onRemoveAttribute
+                  );
                 }}
                 style={styles.removeButton}
               >

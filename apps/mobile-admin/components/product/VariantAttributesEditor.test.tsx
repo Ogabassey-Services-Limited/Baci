@@ -154,6 +154,23 @@ describe('VariantAttributesEditor', () => {
     expect(handlers.onUpdateAttribute).toHaveBeenCalledWith(0, 'key', 'Color');
   });
 
+  it('removes stale color_hex metadata when a colour key is renamed away', () => {
+    const handlers = renderEditor([
+      { id: 'a1', key: 'color', value: 'Black' },
+      { id: 'a2', key: 'color_hex', value: '#000000' },
+      { id: 'a3', key: 'storage', value: '128GB' },
+    ]);
+
+    fireEvent.change(
+      screen.getByLabelText('Attribute key for variant 1 item 1'),
+      { target: { value: 'Finish' } }
+    );
+
+    expect(handlers.onUpdateAttribute).toHaveBeenCalledWith(0, 'key', 'Finish');
+    expect(handlers.onRemoveAttribute).toHaveBeenCalledTimes(1);
+    expect(handlers.onRemoveAttribute).toHaveBeenCalledWith(1);
+  });
+
   it('removes a visible attribute by its real index', () => {
     const handlers = renderEditor([
       { id: 'a1', key: 'storage', value: '128GB' },
