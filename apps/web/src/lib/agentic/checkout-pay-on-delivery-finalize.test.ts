@@ -3,6 +3,7 @@ import { finalizeAgenticPayOnDeliveryCheckout } from '@/lib/agentic/checkout-pay
 
 const mocks = vi.hoisted(() => ({
   buildOrderFinalizationClaim: vi.fn(() => 'claim-1'),
+  revalidateProducts: vi.fn(),
   buildPayOnDeliveryCheckoutResponse: vi.fn(() => ({ ok: true })),
   buildPayOnDeliveryCompletedSessionUpdate: vi.fn(() => ({
     metadata: {},
@@ -36,6 +37,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/agentic/checkout-order-dispatch', () => ({
   createAgenticCheckoutOrder: mocks.createAgenticCheckoutOrder,
   sendAgenticOrderCreatedWebhook: mocks.sendAgenticOrderCreatedWebhook,
+}));
+
+vi.mock('@/lib/cache-revalidation', () => ({
+  revalidateProducts: mocks.revalidateProducts,
 }));
 
 vi.mock('@/lib/agentic/checkout-order-finalization-claim', () => ({
@@ -168,6 +173,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
     expect(result).toEqual({ body: { error: 'Database error' }, status: 500 });
     expect(mocks.createAgenticCheckoutOrder).not.toHaveBeenCalled();
     expect(mocks.sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
+    expect(mocks.revalidateProducts).not.toHaveBeenCalled();
   });
 
   it('returns 409 when the claim is not granted (already in progress)', async () => {
@@ -190,6 +196,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       status: 409,
     });
     expect(mocks.createAgenticCheckoutOrder).not.toHaveBeenCalled();
+    expect(mocks.revalidateProducts).not.toHaveBeenCalled();
   });
 
   it('happy path: creates order, marks it, updates session, dispatches webhook', async () => {
@@ -208,6 +215,9 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       mocks.compensatePayOnDeliveryFinalizationFailure
     ).not.toHaveBeenCalled();
     expect(mocks.releasePayOnDeliveryClaimSafely).not.toHaveBeenCalled();
+    expect(mocks.revalidateProducts).toHaveBeenCalledExactlyOnceWith(
+      'merchant-1'
+    );
   });
 
   it('returns 500 and releases the claim when createAgenticCheckoutOrder throws', async () => {
@@ -225,6 +235,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
     });
     expect(mocks.releasePayOnDeliveryClaimSafely).toHaveBeenCalledTimes(1);
     expect(mocks.sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
+    expect(mocks.revalidateProducts).not.toHaveBeenCalled();
   });
 
   it('returns 500 and releases the claim when createAgenticCheckoutOrder returns ok=false', async () => {
@@ -246,6 +257,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
     });
     expect(mocks.releasePayOnDeliveryClaimSafely).toHaveBeenCalledTimes(1);
     expect(mocks.sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
+    expect(mocks.revalidateProducts).not.toHaveBeenCalled();
   });
 
   it('returns 500 and releases the claim when createAgenticCheckoutOrder is missing orderId', async () => {
@@ -266,6 +278,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
     });
     expect(mocks.releasePayOnDeliveryClaimSafely).toHaveBeenCalledTimes(1);
     expect(mocks.sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
+    expect(mocks.revalidateProducts).not.toHaveBeenCalled();
   });
 
   it('compensates and returns 500 when recordPayOnDeliveryOrderCreated reports recorded:false', async () => {
@@ -290,5 +303,25 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       expect.objectContaining({ orderError: { message: 'no row' } })
     );
     expect(mocks.sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
+    // The order was genuinely created (stock already decremented) before the
+    // marker write failed — revalidation already fired and stays fired.
+    expect(mocks.revalidateProducts).toHaveBeenCalledExactlyOnceWith(
+      'merchant-1'
+    );
+  });
+
+  it('completes checkout when revalidateProducts throws (guarded, best-effort)', async () => {
+    mocks.revalidateProducts.mockImplementationOnce(() => {
+      throw new Error('revalidate boom');
+    });
+    const mock = buildSessionUpdateMock({
+      data: { session_id: 'agentic_session_1' },
+      error: null,
+    });
+
+    const result = await callFinalize(mock.supabase);
+
+    expect(result).toMatchObject({ status: 200 });
+    expect(mocks.sendAgenticOrderCreatedWebhook).toHaveBeenCalledTimes(1);
   });
 });

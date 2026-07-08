@@ -17,6 +17,7 @@ const {
   mockGenerateReceiptBlob,
   mockResolveReceiptLogoDataUri,
   mockCreateAdminClient,
+  mockRevalidateProducts,
 } = vi.hoisted(() => ({
   MockQuizProductionNotApprovedError: class MockQuizProductionNotApprovedError extends Error {
     code = 'quiz_production_not_approved' as const;
@@ -52,6 +53,11 @@ const {
     (): Promise<string | null> => Promise.resolve(null)
   ),
   mockCreateAdminClient: vi.fn(),
+  mockRevalidateProducts: vi.fn(),
+}));
+
+vi.mock('@/lib/cache-revalidation', () => ({
+  revalidateProducts: mockRevalidateProducts,
 }));
 
 vi.mock('@/lib/paystack', () => ({
@@ -1590,6 +1596,96 @@ describe('POST /api/orders — checkout idempotency', () => {
       error:
         'This checkout order can no longer be reused. Refresh checkout and start a new order.',
     });
+  });
+});
+
+describe('POST /api/orders — product cache revalidation after order creation', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => buildMockSupabase() as unknown as never
+    );
+  });
+
+  it('revalidates the merchant product caches once after a successful order', async () => {
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify(baseOrderPayload),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(mockRevalidateProducts).toHaveBeenCalledExactlyOnceWith(MERCHANT_ID);
+  });
+
+  it('does not revalidate when the order RPC returns an error', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: null,
+            error: { message: 'insufficient_stock' },
+          },
+        }) as unknown as never
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify(baseOrderPayload),
+      })
+    );
+
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(mockRevalidateProducts).not.toHaveBeenCalled();
+  });
+
+  it('does not revalidate on an idempotent replay (no re-decrement occurred)', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: [{ ...baseOrderRow, idempotency_replayed: true }],
+            error: null,
+          },
+        }) as unknown as never
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'checkout-key-1' },
+        body: JSON.stringify(baseOrderPayload),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockRevalidateProducts).not.toHaveBeenCalled();
+  });
+
+  it('still returns a successful order when revalidateProducts throws', async () => {
+    mockRevalidateProducts.mockImplementationOnce(() => {
+      throw new Error('revalidate boom');
+    });
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify(baseOrderPayload),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(mockRevalidateProducts).toHaveBeenCalledExactlyOnceWith(MERCHANT_ID);
   });
 });
 

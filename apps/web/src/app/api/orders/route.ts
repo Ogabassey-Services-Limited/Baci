@@ -15,6 +15,7 @@ import {
   isTaxComputeUuidError,
 } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
+import { revalidateProducts } from '@/lib/cache-revalidation';
 import {
   CanonicalOrderSubtotalLoadError,
   computeCanonicalOrderSubtotal,
@@ -1890,6 +1891,27 @@ export async function POST(request: NextRequest) {
       order !== null &&
       'idempotency_replayed' in order &&
       order.idempotency_replayed === true;
+
+    // create_storefront_order* decremented product_variants/products stock inside
+    // the RPC above (for every order — paid, POD, or unpaid). Bust the merchant's
+    // storefront product caches so stock is fresh immediately instead of after the
+    // ~300s 'products' cacheLife. One call covers the whole cart (the RPC processes
+    // all p_items atomically — no per-line-item fan-out). Skip on idempotent replay
+    // (no re-decrement). Fire here — before wallet/savings/email side effects — so
+    // it is never gated on downstream success; guarded so it can't break checkout.
+    if (!idempotencyReplayed) {
+      try {
+        revalidateProducts(merchant_id);
+      } catch (revalidateError) {
+        logger.error({
+          message: 'Failed to revalidate product caches after order creation',
+          error: revalidateError,
+          orderId: order.id,
+          merchantId: merchant_id,
+        });
+      }
+    }
+
     const orderTotal = Number(order.total ?? 0);
     const orderSubtotal = Number(order.subtotal ?? 0);
     const orderShippingFee = Number(order.shipping_fee ?? shippingFeeValue);

@@ -27,6 +27,7 @@ import {
 } from '@/lib/agentic/checkout-order-finalization-claim';
 import type { AgenticMetadata } from '@/lib/agentic/checkout-storage';
 import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
+import { revalidateProducts } from '@/lib/cache-revalidation';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 
@@ -172,6 +173,20 @@ export async function finalizeAgenticCheckoutPayment({
       return respond({ error: 'Order creation failed' }, 500);
     }
     orderId = createdOrderId;
+
+    // Stock was decremented inside create_storefront_order (via
+    // createAgenticCheckoutOrder). Bust the merchant's product caches so the
+    // storefront reflects it immediately. Only runs on the new-order branch.
+    try {
+      revalidateProducts(merchantId);
+    } catch (revalidateError) {
+      logger.error({
+        error: sanitizeForLog(revalidateError),
+        message:
+          'Failed to revalidate product caches after agentic order creation',
+        sessionId: sanitizeForLog(sessionId),
+      });
+    }
 
     const marker = await recordAgenticOrderFinalizationOrderCreated({
       finalizationClaim,

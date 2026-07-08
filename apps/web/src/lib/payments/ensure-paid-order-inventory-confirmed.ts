@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { revalidateProducts } from '@/lib/cache-revalidation';
 
 export class SerializedInventoryUnavailableError extends Error {
   constructor() {
@@ -49,6 +50,24 @@ export async function ensurePaidOrderInventoryConfirmed(
     missingUnitCount?: number;
     exceptionCodes?: Array<{ itemId: string; code: string }>;
   } | null;
+
+  // The RPC only rewrites product/variant stock (via sync_serialized_stock) when
+  // it RE-CLAIMS a fresh serialized unit because the original reservation expired
+  // (reclaimedUnitCount > 0). Every other outcome — already-confirmed,
+  // confirm-in-place, or inventory_tracking_policy='off' — leaves stock unchanged.
+  // Gate on that single case so paid-order webhooks don't churn feed/dashboard/
+  // category tags on every hit. The re-claim already COMMITTED with the RPC, so
+  // revalidate even if the exceptionCodes throw below fires for a different item.
+  if ((result?.reclaimedUnitCount ?? 0) > 0) {
+    try {
+      revalidateProducts(merchantId);
+    } catch (revalidateError) {
+      console.error(
+        'Failed to revalidate product caches after inventory confirmation',
+        { merchantId, orderId, error: revalidateError }
+      );
+    }
+  }
 
   if (
     result?.exceptionCodes &&
