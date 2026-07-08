@@ -191,6 +191,11 @@ const serverSchema = z
     KORAPAY_SECRET_KEY: z.string().optional(),
     JUICYWAY_SECRET_KEY: z.string().optional(),
     PAYSTACK_SECRET_KEY: z.string().optional(),
+    // BYOK payment-credential vault KEK (base64-encoded 32 bytes). Read
+    // directly from process.env by apps/web/src/lib/crypto/secret-box.ts —
+    // registered here so it's validated/documented alongside other server
+    // secrets, not to expose a getter.
+    PAYMENT_CREDS_ENCRYPTION_KEY: z.string().optional(),
     BACI_CDN_ORIGIN_FETCH_SECRET: optionalTrimmedStringSchema,
     BACI_GOOGLE_PAY_ENABLED: z.string().optional(),
     BACI_GOOGLE_PAY_GATEWAY: z.string().optional(),
@@ -599,6 +604,7 @@ const getEnv = () => {
         KORAPAY_SECRET_KEY: process.env.KORAPAY_SECRET_KEY,
         JUICYWAY_SECRET_KEY: process.env.JUICYWAY_SECRET_KEY,
         PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
+        PAYMENT_CREDS_ENCRYPTION_KEY: process.env.PAYMENT_CREDS_ENCRYPTION_KEY,
         BACI_CDN_ORIGIN_FETCH_SECRET: process.env.BACI_CDN_ORIGIN_FETCH_SECRET,
         BACI_GOOGLE_PAY_ENABLED: process.env.BACI_GOOGLE_PAY_ENABLED,
         BACI_GOOGLE_PAY_GATEWAY: process.env.BACI_GOOGLE_PAY_GATEWAY,
