@@ -227,6 +227,18 @@ describe('MenuScreen', () => {
     expect(mocks.router.push).toHaveBeenCalledWith('/(admin)/negotiations');
   });
 
+  it('navigates to repair bookings from the menu', () => {
+    render(<MenuScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Repair Bookings. Manage repair service requests',
+      })
+    );
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/(admin)/repairs');
+  });
+
   it('opens the subscription screen from the free plan card', () => {
     mocks.hasFeature.mockReturnValue(false);
     mocks.isPro = false;
