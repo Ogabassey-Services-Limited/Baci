@@ -124,7 +124,6 @@ export function useCheckoutSubmit({
   walletSelection,
 }: UseCheckoutSubmitParams) {
   const { data: merchant } = useMerchant();
-  // `||` (not `??`) so a blank CONFIG.MERCHANT_ID placeholder falls back.
   const merchantId = merchant?.id || CHECKOUT_MERCHANT_ID;
   return async (address: ShippingAddressInput) => {
     const itemsSnapshot = [...useCartStore.getState().items];
@@ -154,7 +153,6 @@ export function useCheckoutSubmit({
     setIsProcessing(true);
 
     try {
-      // Freeze step: reprice vs live catalog; on drift update+alert+abort. Lock is engaged (no double-submit); finally releases it.
       if (itemsSnapshot.length > 0) {
         const reprice = await repriceCartItems(itemsSnapshot, merchantId);
         if (reprice.changes.length > 0) {
