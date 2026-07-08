@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
@@ -2388,6 +2388,27 @@ export async function POST(request: NextRequest) {
                 domain: metadata.domain,
               });
               if (!isRetryableDomainRegistrationFailure(registration.error)) {
+                const released = await releaseDomainFulfillmentClaim(supabase, {
+                  transactionId: transaction.id,
+                  metadata,
+                  claimant: 'webhook',
+                  claimedAt: claimOutcome.claimedAt,
+                });
+                if (!released) {
+                  logger.error({
+                    message:
+                      'Terminal registrar failure could not release domain fulfillment claim',
+                    error: registration.error,
+                    domain: metadata.domain,
+                    reference,
+                    transactionId: transaction.id,
+                  });
+                  return NextResponse.json(
+                    { error: 'Domain terminal failure release failed' },
+                    { status: 503 }
+                  );
+                }
+
                 logger.error({
                   message:
                     'Domain registration failed terminally — accepting webhook for manual review',
@@ -2512,6 +2533,9 @@ export async function POST(request: NextRequest) {
               });
             } else if (!existingDomain) {
               const domainPurchaseAmount = Number(transaction.amount) || 0;
+              const verificationTokenExpiresAt = new Date(
+                Date.now() + 24 * 60 * 60 * 1000
+              ).toISOString();
               const { error: fallbackInsertError } = await supabase
                 .from('domains')
                 .insert({
@@ -2522,6 +2546,8 @@ export async function POST(request: NextRequest) {
                   status: 'pending',
                   is_primary: false,
                   ssl_status: 'pending',
+                  verification_token: randomUUID(),
+                  verification_token_expires_at: verificationTokenExpiresAt,
                   purchase_price: domainPurchaseAmount,
                   renewal_price: domainPurchaseAmount,
                   registered_at: nowIso,
