@@ -93,15 +93,25 @@ function seedSdkDistinctId(projectToken: string, distinctId: string): boolean {
 const inMemoryDistinctIds = new Map<string, string>();
 
 /** Persisted SDK identity when present so a later boot on this origin adopts
- * the same id; otherwise generate and seed (mirrors the public-blog beacon,
- * minus its blog-specific legacy key), remembering the id in memory when
- * storage is blocked so consecutive flushes share it. */
+ * the same id — backfilling `distinct_id` into persistence when only a bare
+ * `$device_id` exists; otherwise generate and seed (mirrors the public-blog
+ * beacon, minus its blog-specific legacy key), remembering the id in memory
+ * when storage is blocked so consecutive flushes share it. */
 function getOrCreateDistinctId(projectToken: string): string {
   const { distinctId, deviceId } = readPostHogPersistedIdentity(projectToken);
   if (distinctId) {
     return distinctId;
   }
   if (deviceId) {
+    // Backfill: the SDK record has a $device_id but no distinct_id yet (e.g.
+    // posthog-js was loaded but never captured an event on this origin). Seed
+    // distinct_id = deviceId so a later boot adopts THIS id instead of
+    // minting a fresh distinct_id, mirroring capturePublicBlogPageview's
+    // getExistingSdkDistinctId. Best-effort: seedSdkDistinctId already
+    // swallows storage errors, and the deviceId itself remains readable from
+    // persistence on the next call either way, so no in-memory fallback is
+    // needed here (unlike the generated-id branch below).
+    seedSdkDistinctId(projectToken, deviceId);
     return deviceId;
   }
 

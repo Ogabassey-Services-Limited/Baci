@@ -111,6 +111,49 @@ describe('flushWebVitalsBeacon identity persistence', () => {
     expect(body.distinct_id).toBe('device-only-7');
   });
 
+  it('backfills a deviceId-only persistence record with distinct_id (later boot adopts the same identity)', async () => {
+    const { sendBeacon } = stubBrowserGlobals();
+    globalThis.localStorage.setItem(
+      'ph_phc_test_token_posthog',
+      JSON.stringify({ $device_id: 'device-only-backfill' })
+    );
+    enqueuePostHogWebVital(
+      vital({ metric: 'LCP', value: 1200, id: 'v5-backfill' })
+    );
+
+    flushWebVitalsBeacon(ENV);
+
+    const body = await decodeBeaconBodyAsync(sendBeacon.mock.calls[0]);
+    expect(body.distinct_id).toBe('device-only-backfill');
+
+    const persisted = JSON.parse(
+      globalThis.localStorage.getItem('ph_phc_test_token_posthog') ?? '{}'
+    );
+    expect(persisted.distinct_id).toBe('device-only-backfill');
+    expect(persisted.$device_id).toBe('device-only-backfill');
+  });
+
+  it('does not throw when backfilling the deviceId fails because storage writes are blocked', async () => {
+    const { sendBeacon } = stubBrowserGlobals();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) =>
+        key === 'ph_phc_test_token_posthog'
+          ? JSON.stringify({ $device_id: 'device-only-blocked-write' })
+          : null,
+      setItem: () => {
+        throw new Error('storage write blocked');
+      },
+    });
+    enqueuePostHogWebVital(
+      vital({ metric: 'INP', value: 150, id: 'v5-blocked-write' })
+    );
+
+    expect(() => flushWebVitalsBeacon(ENV)).not.toThrow();
+
+    const body = await decodeBeaconBodyAsync(sendBeacon.mock.calls[0]);
+    expect(body.distinct_id).toBe('device-only-blocked-write');
+  });
+
   it('generates and seeds a distinct_id when none is persisted (later boot adopts it)', async () => {
     const { sendBeacon } = stubBrowserGlobals();
     enqueuePostHogWebVital(vital({ metric: 'FCP', value: 800, id: 'v5-5' }));
