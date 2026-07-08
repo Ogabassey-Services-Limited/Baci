@@ -159,6 +159,10 @@ export async function POST(request: NextRequest) {
         p_reference: reference,
         p_gateway: 'paystack',
         p_currency: 'NGN',
+        // Pin the acting merchant explicitly: the RPC can derive it for
+        // single-merchant users, but staff on several merchants would hit
+        // its ambiguity guard without this.
+        p_merchant_id: access.merchantId,
       }
     );
 
