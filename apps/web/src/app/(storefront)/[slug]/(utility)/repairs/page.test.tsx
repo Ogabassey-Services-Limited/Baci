@@ -151,6 +151,55 @@ describe('RepairsPage', () => {
     ]);
   });
 
+  it('emits an additive ItemList JSON-LD of device repair pages when the catalogue is enabled', async () => {
+    const enabledMerchant = {
+      ...merchant,
+      template_id: 'generic',
+      feature_settings: { repairs_catalog_enabled: true },
+    } as typeof merchant;
+    vi.mocked(getCachedMerchant).mockResolvedValue(enabledMerchant);
+    vi.mocked(getCachedMerchantByDomain).mockResolvedValue(enabledMerchant);
+    mockGetRepairDevicesForMerchant.mockResolvedValue([
+      {
+        brand: 'Apple',
+        devices: [
+          {
+            id: 'd1',
+            brand: 'Apple',
+            model: 'iPhone 13',
+            slug: 'apple-iphone-13',
+            deviceType: 'Smartphone',
+            imageUrl: null,
+            productId: null,
+          },
+        ],
+      },
+    ]);
+
+    const { container } = render(
+      await RepairsPage({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+      })
+    );
+
+    const schemas = Array.from(
+      container.querySelectorAll('script[type="application/ld+json"]')
+    ).map((node) => JSON.parse(node.textContent ?? '{}'));
+    const itemList = schemas.find((schema) => schema['@type'] === 'ItemList') as
+      | { itemListElement: Array<{ item: string; name: string }> }
+      | undefined;
+
+    expect(itemList).toBeDefined();
+    expect(itemList?.itemListElement).toEqual([
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Apple iPhone 13',
+        item: 'https://ogabassey.com/repairs/apple-iphone-13',
+      },
+    ]);
+  });
+
   it('throws notFound when the merchant is missing', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValueOnce(null);
 

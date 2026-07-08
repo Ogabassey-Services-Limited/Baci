@@ -126,6 +126,45 @@ describe('RepairDeviceDetailPage', () => {
     );
   });
 
+  it('emits an additive OfferCatalog JSON-LD of repair Service nodes', async () => {
+    const { container } = render(
+      await RepairDeviceDetailPage({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          deviceSlug: 'apple-iphone-13-pro-max',
+        }),
+      })
+    );
+
+    const schemas = Array.from(
+      container.querySelectorAll('script[type="application/ld+json"]')
+    ).map((node) => JSON.parse(node.textContent ?? '{}'));
+    const offerCatalog = schemas.find(
+      (schema) => schema['@type'] === 'OfferCatalog'
+    ) as
+      | {
+          '@id': string;
+          itemListElement: Array<{
+            '@type': string;
+            serviceType: string;
+            offers: Record<string, unknown>;
+          }>;
+        }
+      | undefined;
+
+    expect(offerCatalog?.['@id']).toBe(
+      'https://ogabassey.com/repairs/apple-iphone-13-pro-max#repair-catalog'
+    );
+    expect(offerCatalog?.itemListElement[0]).toMatchObject({
+      '@type': 'Service',
+      serviceType: 'Screen Replacement',
+      offers: {
+        priceCurrency: 'NGN',
+        priceSpecification: { minPrice: 25000 },
+      },
+    });
+  });
+
   it('throws notFound when the merchant is missing', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValueOnce(null);
 

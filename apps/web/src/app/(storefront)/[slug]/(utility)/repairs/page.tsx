@@ -15,6 +15,7 @@ import { isRepairsCatalogEnabled } from '@/lib/repairs/repairs-feature';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
+import { buildRepairsIndexSchema } from '@/lib/storefront-repairs/repairs-schema';
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
@@ -129,10 +130,21 @@ export default async function RepairsPage({ params }: RepairsPageProps) {
         return [];
       })
     : undefined;
+  // Additive ItemList of device repair pages so crawlers/agents can discover
+  // every per-device page from the index. Null when the catalogue is empty.
+  const repairsIndexSchema = groups?.length
+    ? buildRepairsIndexSchema({
+        groups,
+        merchantName: merchant.business_name,
+        repairsUrl: canonicalUrl,
+        storeBaseUrl: baseUrl,
+      })
+    : null;
 
   return (
     <>
       <JsonLd data={breadcrumbSchema} />
+      {repairsIndexSchema && <JsonLd data={repairsIndexSchema} />}
       {isOgabasseyMerchant(merchant) ? (
         <OgabasseyV2Repairs basePath={basePath} groups={groups} />
       ) : (

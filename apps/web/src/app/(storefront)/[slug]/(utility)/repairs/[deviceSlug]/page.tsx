@@ -14,6 +14,7 @@ import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import { getStorefrontPathPrefix } from '@/lib/storefront-path-prefix';
+import { buildRepairsDeviceSchema } from '@/lib/storefront-repairs/repairs-schema';
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
@@ -138,11 +139,22 @@ export default async function RepairDeviceDetailPage({
     { name: 'Repairs', url: repairsUrl },
     { name: deviceLabel, url: deviceUrl },
   ]);
+  // Additive OfferCatalog of repair Service nodes linked (via isRelatedTo) to
+  // the device's Product page. Null when the device has no active quotes.
+  const deviceRepairSchema = buildRepairsDeviceSchema({
+    areaServed: merchant.country,
+    currency: merchant.payout_currency || 'NGN',
+    detail,
+    deviceUrl,
+    merchantName: merchant.business_name,
+    storeBaseUrl: baseUrl,
+  });
   const basePath = getStorefrontPathPrefix(await headers(), merchant);
 
   return (
     <>
       <JsonLd data={breadcrumbSchema} />
+      {deviceRepairSchema && <JsonLd data={deviceRepairSchema} />}
       <RepairDeviceDetailView
         basePath={basePath}
         currency={merchant.payout_currency || 'NGN'}
