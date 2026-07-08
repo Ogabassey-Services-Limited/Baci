@@ -3,11 +3,13 @@ import { useEffect } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import gigLogoSource from '@/assets/images/gig-logo.webp';
 import { ShippingPickupFallbackNotice } from '@/components/checkout/ShippingPickupFallbackNotice';
 import { ShippingQuotesRetryCard } from '@/components/checkout/ShippingQuotesRetryCard';
 import type { ShippingQuote } from '@/components/checkout/types';
@@ -127,19 +129,16 @@ export function ShippingQuotesCard({
                         <View
                           style={[
                             styles.logoBadge,
-                            { backgroundColor: colors.foreground },
+                            { backgroundColor: colors.background },
                           ]}
                           accessibilityLabel="GIG Logistics logo"
                           accessibilityRole="image"
                         >
-                          <Text
-                            style={[
-                              styles.logoBadgeText,
-                              { color: colors.background },
-                            ]}
-                          >
-                            GIGL
-                          </Text>
+                          <Image
+                            source={gigLogoSource}
+                            style={styles.gigLogo}
+                            resizeMode="contain"
+                          />
                         </View>
                       )}
                       {carrier.toLowerCase().includes('topship') && (
@@ -273,12 +272,13 @@ const styles = StyleSheet.create({
   },
   logoBadge: {
     borderRadius: 4,
-    minHeight: 18,
-    minWidth: 34,
+    minHeight: 24,
+    minWidth: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    overflow: 'hidden',
   },
 
   badgeText: {
@@ -286,9 +286,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
   },
-  logoBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    textTransform: 'uppercase',
+  gigLogo: {
+    width: 30,
+    height: 22,
   },
 });

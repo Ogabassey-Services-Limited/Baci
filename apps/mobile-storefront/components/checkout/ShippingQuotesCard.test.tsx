@@ -113,7 +113,7 @@ describe('ShippingQuotesCard', () => {
     ).toBeTruthy();
   });
 
-  it('renders an accessible GIG Logistics brand mark for GIGL quotes', () => {
+  it('renders an accessible GIG Logistics logo image for GIGL quotes', () => {
     render(
       <ShippingQuotesCard
         {...baseProps}
