@@ -8,12 +8,10 @@ const MISSING_MERCHANT_ID = '00000000-0000-4000-8000-000000000099';
 const mockSingle = vi.fn();
 const mockMerchantEq = vi.fn();
 const mockMerchantSelect = vi.fn();
-const mockSettingsEq = vi.fn();
-const mockSettingsSelect = vi.fn();
 const mockFrom = vi.fn();
 const mockCreateClient = vi.fn();
 const mockLoggerError = vi.fn();
-let settingsSelectColumns: string | null = null;
+const mockGetCachedFeatureSettings = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(() => Promise.resolve(new Map())),
@@ -23,75 +21,62 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
+vi.mock('@/lib/cached-data', () => ({
+  getCachedFeatureSettings: (...args: unknown[]) =>
+    mockGetCachedFeatureSettings(...args),
+}));
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: (...args: unknown[]) => mockLoggerError(...args),
   },
 }));
 
+function buildMerchantRequest(query: string): NextRequest {
+  return {
+    nextUrl: new URL(`https://example.com/api/storefront/features?${query}`),
+    get url() {
+      throw new Error('request.url should not be read');
+    },
+  } as unknown as NextRequest;
+}
+
 describe('GET /api/storefront/features', () => {
   beforeEach(() => {
     mockSingle.mockReset();
     mockMerchantEq.mockReset();
     mockMerchantSelect.mockReset();
-    mockSettingsEq.mockReset();
-    mockSettingsSelect.mockReset();
     mockFrom.mockReset();
     mockCreateClient.mockReset();
     mockLoggerError.mockReset();
-    settingsSelectColumns = null;
+    mockGetCachedFeatureSettings.mockReset();
 
     mockMerchantEq.mockReturnValue({ single: mockSingle });
     mockMerchantSelect.mockReturnValue({ eq: mockMerchantEq });
-    mockSettingsEq.mockReturnValue({ single: mockSingle });
-    mockSettingsSelect.mockImplementation((columns: string) => {
-      settingsSelectColumns = columns;
-      return {
-        eq: mockSettingsEq,
-        single: mockSingle,
-      };
-    });
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return { select: mockMerchantSelect };
       }
-
-      if (table === 'merchant_feature_settings') {
-        return { select: mockSettingsSelect };
-      }
-
       throw new Error(`Unexpected table: ${table}`);
     });
     mockCreateClient.mockReturnValue({ from: mockFrom });
+    mockGetCachedFeatureSettings.mockResolvedValue({});
   });
 
-  it('reads search params from nextUrl without touching request.url', async () => {
+  it('reads the projection via the service-role loader, not the anon table read', async () => {
     mockSingle.mockResolvedValueOnce({
-      data: {
-        id: 'merchant-1',
-        paystack_subaccount_code: null,
-      },
+      data: { id: 'merchant-1', paystack_subaccount_code: null },
       error: null,
     });
-    mockSingle.mockResolvedValueOnce({
-      data: {
-        paystack_enabled: true,
-        reviews_enabled: true,
-        wishlist_enabled: true,
-      },
-      error: null,
+    mockGetCachedFeatureSettings.mockResolvedValueOnce({
+      paystack_enabled: true,
+      reviews_enabled: true,
+      wishlist_enabled: true,
     });
 
-    const request = {
-      nextUrl: new URL(
-        `https://example.com/api/storefront/features?merchantId=${VALID_MERCHANT_ID}`
-      ),
-      get url() {
-        throw new Error('request.url should not be read');
-      },
-    } as unknown as NextRequest;
-
-    const response = await GET(request);
+    const response = await GET(
+      buildMerchantRequest(`merchantId=${VALID_MERCHANT_ID}`)
+    );
     const body = (await response.json()) as {
       paystackEnabled: boolean;
       klumpEnabled: boolean;
@@ -106,33 +91,20 @@ describe('GET /api/storefront/features', () => {
     expect(body.klumpMinAmount).toBe(10000);
     expect(body.klumpMaxAmount).toBe(1000000);
     expect(body.reviewsEnabled).toBe(true);
-    expect(settingsSelectColumns).toContain('klump_enabled');
-    expect(settingsSelectColumns).toContain('klump_min_amount');
-    expect(settingsSelectColumns).toContain('klump_max_amount');
-    expect(mockFrom).toHaveBeenCalledWith('merchants');
-    expect(mockFrom).toHaveBeenCalledWith('merchant_feature_settings');
+    expect(mockGetCachedFeatureSettings).toHaveBeenCalledWith('merchant-1');
+    expect(mockFrom).not.toHaveBeenCalledWith('merchant_feature_settings');
   });
 
   it('returns default features with paystack disabled when merchant has no subaccount', async () => {
     mockSingle.mockResolvedValueOnce({
-      data: {
-        id: 'merchant-1',
-        paystack_subaccount_code: null,
-      },
+      data: { id: 'merchant-1', paystack_subaccount_code: null },
       error: null,
     });
-    mockSingle.mockResolvedValueOnce({
-      data: null,
-      error: null,
-    });
+    mockGetCachedFeatureSettings.mockResolvedValueOnce({});
 
-    const request = {
-      nextUrl: new URL(
-        `https://example.com/api/storefront/features?merchantId=${VALID_MERCHANT_ID}`
-      ),
-    } as unknown as NextRequest;
-
-    const response = await GET(request);
+    const response = await GET(
+      buildMerchantRequest(`merchantId=${VALID_MERCHANT_ID}`)
+    );
     const body = (await response.json()) as {
       paystackEnabled: boolean;
       klumpEnabled: boolean;
@@ -140,6 +112,7 @@ describe('GET /api/storefront/features', () => {
       klumpMaxAmount: number;
       reviewsEnabled: boolean;
       wishlistEnabled: boolean;
+      repairsCatalogEnabled: boolean;
     };
 
     expect(response.status).toBe(200);
@@ -149,33 +122,24 @@ describe('GET /api/storefront/features', () => {
     expect(body.klumpMaxAmount).toBe(1000000);
     expect(body.reviewsEnabled).toBe(true);
     expect(body.wishlistEnabled).toBe(true);
+    expect(body.repairsCatalogEnabled).toBe(false);
   });
 
   it('returns merchant Klump installment settings in the public feature payload', async () => {
     mockSingle.mockResolvedValueOnce({
-      data: {
-        id: 'merchant-1',
-        paystack_subaccount_code: 'ACCT_123',
-      },
+      data: { id: 'merchant-1', paystack_subaccount_code: 'ACCT_123' },
       error: null,
     });
-    mockSingle.mockResolvedValueOnce({
-      data: {
-        paystack_enabled: true,
-        klump_enabled: true,
-        klump_min_amount: 2500,
-        klump_max_amount: 750000,
-      },
-      error: null,
+    mockGetCachedFeatureSettings.mockResolvedValueOnce({
+      paystack_enabled: true,
+      klump_enabled: true,
+      klump_min_amount: 2500,
+      klump_max_amount: 750000,
     });
 
-    const request = {
-      nextUrl: new URL(
-        `https://example.com/api/storefront/features?merchantId=${VALID_MERCHANT_ID}`
-      ),
-    } as unknown as NextRequest;
-
-    const response = await GET(request);
+    const response = await GET(
+      buildMerchantRequest(`merchantId=${VALID_MERCHANT_ID}`)
+    );
     const body = (await response.json()) as {
       klumpEnabled: boolean;
       klumpMinAmount: number;
@@ -186,6 +150,24 @@ describe('GET /api/storefront/features', () => {
     expect(body.klumpEnabled).toBe(true);
     expect(body.klumpMinAmount).toBe(2500);
     expect(body.klumpMaxAmount).toBe(750000);
+  });
+
+  it('surfaces the repairs catalogue flag when enabled', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'merchant-1', paystack_subaccount_code: 'ACCT_123' },
+      error: null,
+    });
+    mockGetCachedFeatureSettings.mockResolvedValueOnce({
+      repairs_catalog_enabled: true,
+    });
+
+    const response = await GET(
+      buildMerchantRequest(`merchantId=${VALID_MERCHANT_ID}`)
+    );
+    const body = (await response.json()) as { repairsCatalogEnabled: boolean };
+
+    expect(response.status).toBe(200);
+    expect(body.repairsCatalogEnabled).toBe(true);
   });
 
   it('returns 400 when neither merchantId nor slug is provided', async () => {
@@ -201,22 +183,16 @@ describe('GET /api/storefront/features', () => {
   });
 
   it('returns 404 when the merchant does not exist', async () => {
-    mockSingle.mockResolvedValueOnce({
-      data: null,
-      error: null,
-    });
+    mockSingle.mockResolvedValueOnce({ data: null, error: null });
 
-    const request = {
-      nextUrl: new URL(
-        `https://example.com/api/storefront/features?merchantId=${MISSING_MERCHANT_ID}`
-      ),
-    } as unknown as NextRequest;
-
-    const response = await GET(request);
+    const response = await GET(
+      buildMerchantRequest(`merchantId=${MISSING_MERCHANT_ID}`)
+    );
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(404);
     expect(body.error).toBe('Store not found');
+    expect(mockGetCachedFeatureSettings).not.toHaveBeenCalled();
   });
 
   it('returns 400 when merchantId is not a valid UUID', async () => {
@@ -236,19 +212,12 @@ describe('GET /api/storefront/features', () => {
   it('returns 500 when the merchant lookup fails', async () => {
     mockSingle.mockResolvedValueOnce({
       data: null,
-      error: {
-        code: '57014',
-        message: 'statement timeout',
-      },
+      error: { code: '57014', message: 'statement timeout' },
     });
 
-    const request = {
-      nextUrl: new URL(
-        `https://example.com/api/storefront/features?merchantId=${VALID_MERCHANT_ID}`
-      ),
-    } as unknown as NextRequest;
-
-    const response = await GET(request);
+    const response = await GET(
+      buildMerchantRequest(`merchantId=${VALID_MERCHANT_ID}`)
+    );
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(500);
@@ -260,36 +229,25 @@ describe('GET /api/storefront/features', () => {
     );
   });
 
-  it('returns 500 when the feature settings lookup fails', async () => {
+  it('returns 500 when the feature settings projection fails', async () => {
     mockSingle.mockResolvedValueOnce({
-      data: {
-        id: 'merchant-1',
-        paystack_subaccount_code: 'ACCT_123',
-      },
+      data: { id: 'merchant-1', paystack_subaccount_code: 'ACCT_123' },
       error: null,
     });
-    mockSingle.mockResolvedValueOnce({
-      data: null,
-      error: {
-        code: '57014',
-        message: 'statement timeout',
-      },
-    });
+    mockGetCachedFeatureSettings.mockRejectedValueOnce(
+      new Error('statement timeout')
+    );
 
-    const request = {
-      nextUrl: new URL(
-        `https://example.com/api/storefront/features?merchantId=${VALID_MERCHANT_ID}`
-      ),
-    } as unknown as NextRequest;
-
-    const response = await GET(request);
+    const response = await GET(
+      buildMerchantRequest(`merchantId=${VALID_MERCHANT_ID}`)
+    );
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(500);
     expect(body.error).toBe('Internal server error');
     expect(mockLoggerError).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: 'Storefront features settings lookup failed',
+        message: 'Storefront features GET error',
       })
     );
   });

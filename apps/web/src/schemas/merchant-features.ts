@@ -1,5 +1,24 @@
 import { z } from 'zod';
 
+/**
+ * Private repair-center configuration. Validated here so the merchant-features
+ * PATCH schema preserves the key (unknown keys are stripped by z.object).
+ * Deliberately kept OUT of every public feature projection.
+ */
+export const repairSettingsSchema = z
+  .object({
+    pickup_address: z.string().trim().max(500),
+    contact_name: z.string().trim().max(120),
+    contact_phone: z.string().trim().max(40),
+    contact_email: z.email(),
+    city: z.string().trim().max(120),
+    state: z.string().trim().max(120),
+    country: z.string().trim().max(120),
+  })
+  .partial();
+
+export type RepairSettingsInput = z.infer<typeof repairSettingsSchema>;
+
 const merchantFeatureSettingsFields = {
   loyalty_enabled: z.boolean(),
   reviews_enabled: z.boolean(),
@@ -74,6 +93,9 @@ const merchantFeatureSettingsFields = {
   vtu_betting_enabled: z.boolean(),
   vtu_customer_cashback_enabled: z.boolean(),
   vtu_customer_cashback_rate: z.number(),
+  // Repairs
+  repairs_catalog_enabled: z.boolean().optional(),
+  repair_settings: repairSettingsSchema.nullable().optional(),
   // Custom
   custom_settings: z.record(z.string(), z.unknown()),
 };

@@ -569,6 +569,7 @@ export interface MerchantFeatureSettings {
   blog_enabled?: boolean;
   blog_discover_image_validation_enabled?: boolean;
   facebook_pixel_id?: string | null;
+  repairs_catalog_enabled?: boolean;
   shipping_insurance_enabled?: boolean;
   shipping_insurance_min_order_value?: number;
   shipping_insurance_opt_in_default?: boolean;
@@ -611,6 +612,7 @@ const MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT: string = `
   preferred_international_gateway,
   preferred_local_gateway,
   privacy_page_enabled,
+  repairs_catalog_enabled,
   reviews_enabled,
   rewards_page_enabled,
   shipping_insurance_enabled,

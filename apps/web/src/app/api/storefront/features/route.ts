@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getCachedFeatureSettings } from '@/lib/cached-data';
 import { isPaystackCheckoutAvailable } from '@/lib/checkout/payment-gateway-availability';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
@@ -78,59 +79,42 @@ export interface StorefrontFeatures {
   // Blog
   blogEnabled: boolean;
   autoBlogEnabled: boolean;
+
+  // Repairs
+  repairsCatalogEnabled: boolean;
 }
 
-// Default public features
-const DEFAULT_FEATURES: StorefrontFeatures = {
-  loyaltyEnabled: false,
-  reviewsEnabled: true,
-  wishlistEnabled: true,
-  orderTrackingEnabled: true,
-  discountCodesEnabled: true,
-  guestCheckoutEnabled: true,
-  // Payment gateways
-  paystackEnabled: true,
-  korapayEnabled: true,
-  payOnDeliveryEnabled: false,
-  creditDirectEnabled: false,
-  credpalEnabled: false,
-  klumpEnabled: false,
-  creditDirectMinAmount: 10000,
-  creditDirectMaxAmount: 500000,
-  klumpMinAmount: 10000,
-  klumpMaxAmount: 1000000,
-  preferredLocalGateway: 'paystack',
-  preferredInternationalGateway: 'korapay',
-  shippingProviders: ['gigl', 'topship'],
-  freeShippingThreshold: null,
-  collectPhone: true,
-  requireAccount: false,
-  showOrderNotes: true,
-  pages: {
-    about: true,
-    contact: true,
-    faq: true,
-    privacy: true,
-    terms: true,
-    rewards: false,
-  },
-  showRecentPurchases: false,
-  showStockLevels: true,
-  lowStockThreshold: 10,
-  hasGoogleAnalytics: false,
-  hasFacebookPixel: false,
-  hasTiktokPixel: false,
-  // VTU defaults
-  vtuEnabled: false,
-  vtuAirtimeEnabled: true,
-  vtuDataEnabled: true,
-  vtuCheckoutAddonEnabled: false,
-  vtuCheckoutAddonAmounts: [100, 200, 500, 1000],
-  vtuLoyaltyRewardEnabled: false,
-  // Blog defaults
-  blogEnabled: false,
-  autoBlogEnabled: false,
-};
+function asBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function asNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function asNullableNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function asStringArray(value: unknown, fallback: string[]): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string')
+    : fallback;
+}
+
+function asNumberArray(value: unknown, fallback: number[]): number[] {
+  const parsed = Array.isArray(value)
+    ? value.filter((entry): entry is number => typeof entry === 'number')
+    : [];
+  return parsed.length > 0 ? parsed : fallback;
+}
+
+function asGateway(
+  value: unknown,
+  fallback: 'paystack' | 'korapay'
+): 'paystack' | 'korapay' {
+  return value === 'paystack' || value === 'korapay' ? value : fallback;
+}
 
 function normalizePreferredGateway(
   gateway: 'paystack' | 'korapay',
@@ -191,117 +175,92 @@ export async function GET(request: NextRequest) {
     }
     const resolvedMerchantId = merchant.id;
 
-    // Get feature settings
-    const { data: settings, error: settingsError } = await supabase
-      .from('merchant_feature_settings')
-      .select(
-        'loyalty_enabled, reviews_enabled, wishlist_enabled, order_tracking_enabled, discount_codes_enabled, guest_checkout_enabled, paystack_enabled, korapay_enabled, pay_on_delivery_enabled, credit_direct_enabled, credpal_enabled, credit_direct_min_amount, credit_direct_max_amount, klump_enabled, klump_min_amount, klump_max_amount, preferred_local_gateway, preferred_international_gateway, shipping_providers, free_shipping_threshold, checkout_collect_phone, checkout_require_account, checkout_show_order_notes, about_page_enabled, contact_page_enabled, faq_page_enabled, privacy_page_enabled, terms_page_enabled, rewards_page_enabled, show_recent_purchases, show_stock_levels, low_stock_threshold, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, vtu_enabled, vtu_airtime_enabled, vtu_data_enabled, vtu_checkout_addon_enabled, vtu_checkout_addon_amounts, vtu_loyalty_reward_enabled, blog_enabled, auto_blog_enabled'
-      )
-      .eq('merchant_id', resolvedMerchantId)
-      .single();
-
-    if (settingsError && settingsError.code !== 'PGRST116') {
-      logger.error({
-        message: 'Storefront features settings lookup failed',
-        error: settingsError,
-        merchantId: resolvedMerchantId,
-      });
-      return NextResponse.json(
-        { error: 'Internal server error' },
-        { status: 500 }
-      );
-    }
-
-    // If no settings, return defaults
-    if (!settings) {
-      const paystackEnabled = isPaystackCheckoutAvailable({
-        country: merchant.country,
-        paystack_subaccount_code: merchant.paystack_subaccount_code,
-        feature_settings: {
-          paystack_enabled: DEFAULT_FEATURES.paystackEnabled,
-        },
-      });
-
-      return NextResponse.json({
-        ...DEFAULT_FEATURES,
-        paystackEnabled,
-        preferredLocalGateway: normalizePreferredGateway(
-          DEFAULT_FEATURES.preferredLocalGateway,
-          paystackEnabled
-        ),
-        preferredInternationalGateway: normalizePreferredGateway(
-          DEFAULT_FEATURES.preferredInternationalGateway,
-          paystackEnabled
-        ),
-      });
-    }
+    // Read the public-safe feature projection via the service role so anonymous
+    // and signed-in customers see real values (the anon-key table read only
+    // returns rows to the owner/staff under the merchant_feature_settings RLS).
+    const settings = (await getCachedFeatureSettings(resolvedMerchantId)) ?? {};
 
     const paystackEnabled = isPaystackCheckoutAvailable({
       country: merchant.country,
       paystack_subaccount_code: merchant.paystack_subaccount_code,
       feature_settings: {
-        paystack_enabled: settings.paystack_enabled ?? true,
+        paystack_enabled: asBoolean(settings.paystack_enabled, true),
       },
     });
 
     // Transform to public format (hide sensitive data like pixel IDs)
     const publicFeatures: StorefrontFeatures = {
-      loyaltyEnabled: settings.loyalty_enabled ?? false,
-      reviewsEnabled: settings.reviews_enabled ?? true,
-      wishlistEnabled: settings.wishlist_enabled ?? true,
-      orderTrackingEnabled: settings.order_tracking_enabled ?? true,
-      discountCodesEnabled: settings.discount_codes_enabled ?? true,
-      guestCheckoutEnabled: settings.guest_checkout_enabled ?? true,
+      loyaltyEnabled: asBoolean(settings.loyalty_enabled, false),
+      reviewsEnabled: asBoolean(settings.reviews_enabled, true),
+      wishlistEnabled: asBoolean(settings.wishlist_enabled, true),
+      orderTrackingEnabled: asBoolean(settings.order_tracking_enabled, true),
+      discountCodesEnabled: asBoolean(settings.discount_codes_enabled, true),
+      guestCheckoutEnabled: asBoolean(settings.guest_checkout_enabled, true),
       // Payment gateways
       paystackEnabled,
-      korapayEnabled: settings.korapay_enabled ?? true,
-      payOnDeliveryEnabled: settings.pay_on_delivery_enabled ?? false,
-      creditDirectEnabled: settings.credit_direct_enabled ?? false,
-      credpalEnabled: settings.credpal_enabled ?? false,
-      klumpEnabled: settings.klump_enabled ?? false,
-      creditDirectMinAmount: settings.credit_direct_min_amount ?? 10000,
-      creditDirectMaxAmount: settings.credit_direct_max_amount ?? 500000,
-      klumpMinAmount: settings.klump_min_amount ?? 10000,
-      klumpMaxAmount: settings.klump_max_amount ?? 1000000,
+      korapayEnabled: asBoolean(settings.korapay_enabled, true),
+      payOnDeliveryEnabled: asBoolean(settings.pay_on_delivery_enabled, false),
+      creditDirectEnabled: asBoolean(settings.credit_direct_enabled, false),
+      credpalEnabled: asBoolean(settings.credpal_enabled, false),
+      klumpEnabled: asBoolean(settings.klump_enabled, false),
+      creditDirectMinAmount: asNumber(settings.credit_direct_min_amount, 10000),
+      creditDirectMaxAmount: asNumber(
+        settings.credit_direct_max_amount,
+        500000
+      ),
+      klumpMinAmount: asNumber(settings.klump_min_amount, 10000),
+      klumpMaxAmount: asNumber(settings.klump_max_amount, 1000000),
       preferredLocalGateway: normalizePreferredGateway(
-        settings.preferred_local_gateway || 'paystack',
+        asGateway(settings.preferred_local_gateway, 'paystack'),
         paystackEnabled
       ),
       preferredInternationalGateway: normalizePreferredGateway(
-        settings.preferred_international_gateway || 'korapay',
+        asGateway(settings.preferred_international_gateway, 'korapay'),
         paystackEnabled
       ),
-      shippingProviders: settings.shipping_providers ?? ['gigl', 'topship'],
-      freeShippingThreshold: settings.free_shipping_threshold,
-      collectPhone: settings.checkout_collect_phone ?? true,
-      requireAccount: settings.checkout_require_account ?? false,
-      showOrderNotes: settings.checkout_show_order_notes ?? true,
+      shippingProviders: asStringArray(settings.shipping_providers, [
+        'gigl',
+        'topship',
+      ]),
+      freeShippingThreshold: asNullableNumber(settings.free_shipping_threshold),
+      collectPhone: asBoolean(settings.checkout_collect_phone, true),
+      requireAccount: asBoolean(settings.checkout_require_account, false),
+      showOrderNotes: asBoolean(settings.checkout_show_order_notes, true),
       pages: {
-        about: settings.about_page_enabled ?? true,
-        contact: settings.contact_page_enabled ?? true,
-        faq: settings.faq_page_enabled ?? true,
-        privacy: settings.privacy_page_enabled ?? true,
-        terms: settings.terms_page_enabled ?? true,
-        rewards: settings.rewards_page_enabled ?? false,
+        about: asBoolean(settings.about_page_enabled, true),
+        contact: asBoolean(settings.contact_page_enabled, true),
+        faq: asBoolean(settings.faq_page_enabled, true),
+        privacy: asBoolean(settings.privacy_page_enabled, true),
+        terms: asBoolean(settings.terms_page_enabled, true),
+        rewards: asBoolean(settings.rewards_page_enabled, false),
       },
-      showRecentPurchases: settings.show_recent_purchases ?? false,
-      showStockLevels: settings.show_stock_levels ?? true,
-      lowStockThreshold: settings.low_stock_threshold ?? 10,
-      hasGoogleAnalytics: !!settings.google_analytics_id,
-      hasFacebookPixel: !!settings.facebook_pixel_id,
-      hasTiktokPixel: !!settings.tiktok_pixel_id,
+      showRecentPurchases: asBoolean(settings.show_recent_purchases, false),
+      showStockLevels: asBoolean(settings.show_stock_levels, true),
+      lowStockThreshold: asNumber(settings.low_stock_threshold, 10),
+      hasGoogleAnalytics: Boolean(settings.google_analytics_id),
+      hasFacebookPixel: Boolean(settings.facebook_pixel_id),
+      hasTiktokPixel: Boolean(settings.tiktok_pixel_id),
       // VTU
-      vtuEnabled: settings.vtu_enabled ?? false,
-      vtuAirtimeEnabled: settings.vtu_airtime_enabled ?? true,
-      vtuDataEnabled: settings.vtu_data_enabled ?? true,
-      vtuCheckoutAddonEnabled: settings.vtu_checkout_addon_enabled ?? false,
-      vtuCheckoutAddonAmounts: settings.vtu_checkout_addon_amounts || [
-        100, 200, 500, 1000,
-      ],
-      vtuLoyaltyRewardEnabled: settings.vtu_loyalty_reward_enabled ?? false,
+      vtuEnabled: asBoolean(settings.vtu_enabled, false),
+      vtuAirtimeEnabled: asBoolean(settings.vtu_airtime_enabled, true),
+      vtuDataEnabled: asBoolean(settings.vtu_data_enabled, true),
+      vtuCheckoutAddonEnabled: asBoolean(
+        settings.vtu_checkout_addon_enabled,
+        false
+      ),
+      vtuCheckoutAddonAmounts: asNumberArray(
+        settings.vtu_checkout_addon_amounts,
+        [100, 200, 500, 1000]
+      ),
+      vtuLoyaltyRewardEnabled: asBoolean(
+        settings.vtu_loyalty_reward_enabled,
+        false
+      ),
       // Blog
-      blogEnabled: settings.blog_enabled ?? false,
-      autoBlogEnabled: settings.auto_blog_enabled ?? false,
+      blogEnabled: asBoolean(settings.blog_enabled, false),
+      autoBlogEnabled: asBoolean(settings.auto_blog_enabled, false),
+      // Repairs
+      repairsCatalogEnabled: asBoolean(settings.repairs_catalog_enabled, false),
     };
 
     return NextResponse.json(publicFeatures);
