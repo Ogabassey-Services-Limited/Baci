@@ -339,7 +339,7 @@ BEGIN
   SELECT
     COALESCE(m.vat_registration_status, 'not_registered'),
     COALESCE(m.vat_rate, 7.5),
-    COALESCE(NULLIF(trim(m.payout_currency), ''), 'NGN')
+    COALESCE(upper(NULLIF(trim(m.payout_currency), '')), 'NGN')
     INTO v_merchant_vat_status, v_merchant_vat_rate, v_currency
   FROM public.merchants m
   WHERE m.id = p_merchant_id;
@@ -907,7 +907,7 @@ BEGIN
 
   -- Multi-country delta: read the merchant payout currency for the prize order,
   -- falling back to Naira when the payout currency is blank/unset.
-  SELECT COALESCE(NULLIF(trim(m.payout_currency), ''), 'NGN')
+  SELECT COALESCE(upper(NULLIF(trim(m.payout_currency), '')), 'NGN')
   INTO v_currency
   FROM public.merchants m
   WHERE m.id = v_merchant_id;

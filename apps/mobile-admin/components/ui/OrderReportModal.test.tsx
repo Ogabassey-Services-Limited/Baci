@@ -54,6 +54,15 @@ vi.mock('@/utils/format', () => ({
   formatCurrency: (amount: number) => `NGN ${amount}`,
 }));
 
+vi.mock('@/hooks/useCurrency', () => ({
+  useCurrency: () => ({
+    currency: 'NGN',
+    format: (amount: number) => `NGN ${amount}`,
+    formatCompact: (amount: number) => `NGN ${amount}`,
+    symbol: '₦',
+  }),
+}));
+
 vi.mock('react-native', () => ({
   StatusBar: () => null,
   ActivityIndicator: () => <output aria-label="loading" />,
