@@ -5,10 +5,10 @@ import { attrCaptureSchema } from '@/schemas/attr-capture';
 // This response MUST never be cached. Cloudflare strips `Set-Cookie` from any
 // cacheable response (the exact failure PR-ATTR fixes for storefront documents),
 // so a cached `/api/attr` would silently drop the attribution cookie again.
-// `force-dynamic` keeps it off Vercel's edge; the `no-store` header below keeps
-// it off Cloudflare's.
-export const dynamic = 'force-dynamic';
-
+// Under Cache Components mode GET route handlers are dynamic unless they opt
+// into `'use cache'` (`export const dynamic` is disallowed here), so the origin
+// never caches this; the `no-store` header keeps every CDN layer (Vercel +
+// Cloudflare) from caching/stripping it.
 const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' } as const;
 
 /**
