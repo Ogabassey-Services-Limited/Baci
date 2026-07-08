@@ -102,6 +102,7 @@ import { persistCreditDirectPopupReference } from './checkout/persist-credit-dir
 import { getCheckoutOrderErrorMessage } from './checkout/checkout-order-error-message';
 import { selectRejectedVoucherLines } from './checkout/select-rejected-voucher-lines';
 import { PaymentStep } from './checkout/components/PaymentStep';
+import { usePaypalReturn } from './checkout/hooks/use-paypal-return';
 import {
   invalidatePendingQuoteRequests,
   loadCheckoutShippingQuotes,
@@ -1412,6 +1413,18 @@ export const CheckoutPage: React.FC = () => {
   const [walletLoading, setWalletLoading] = useState(false);
   const [payWithWallet, setPayWithWallet] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // BYOK PayPal (Phase 2 item 8): finish the redirect flow when the browser
+  // returns from PayPal's approval page — capture, then route to success.
+  usePaypalReturn({
+    merchantId: merchant?.id,
+    getHref,
+    routerPush: (url: string) => router.push(url),
+    clearCart,
+    clearCheckoutSession,
+    setIsProcessing,
+  });
+
   const [orderTotals, setOrderTotals] = useState<{ total: number; taxAmount: number } | null>(null);
   const [appliedDiscount, setAppliedDiscount] =
     useState<DiscountResult | null>(null);

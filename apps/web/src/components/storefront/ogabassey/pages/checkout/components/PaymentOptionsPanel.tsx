@@ -5,6 +5,7 @@ import {
   CreditDirectLogo,
   JuicywayLogo,
   KorapayLogo,
+  PayPalLogo,
   PaystackLogo,
 } from '../../../components/PaymentLogos';
 import type { PaymentMethod, PaymentTab } from '../types';
@@ -22,6 +23,7 @@ interface PaymentOptionsPanelProps {
   paystackCheckoutAvailable: boolean;
   korapayCheckoutAvailable: boolean;
   bankTransferCheckoutAvailable: boolean;
+  paypalCheckoutAvailable: boolean;
   featureSettings?: FeatureSettings | null;
   klumpEligible: boolean;
   hasInstallmentOptions: boolean;
@@ -36,6 +38,7 @@ export function PaymentOptionsPanel({
   paystackCheckoutAvailable,
   korapayCheckoutAvailable,
   bankTransferCheckoutAvailable,
+  paypalCheckoutAvailable,
   featureSettings,
   klumpEligible,
   hasInstallmentOptions,
@@ -112,6 +115,20 @@ export function PaymentOptionsPanel({
                 title="Korapay"
                 description="Card payments across Africa"
                 icon={<KorapayLogo className="size-6" />}
+              />
+            )}
+            {paypalCheckoutAvailable && (
+              <PaymentOptionCard
+                method="paypal"
+                paymentMethod={paymentMethod}
+                setPaymentMethod={setPaymentMethod}
+                title="PayPal"
+                description="Pay with your PayPal balance or card"
+                badge={{
+                  label: 'International',
+                  className: 'bg-blue-100 text-blue-700',
+                }}
+                icon={<PayPalLogo className="size-6" />}
               />
             )}
             {featureSettings?.juicyway_enabled === true &&

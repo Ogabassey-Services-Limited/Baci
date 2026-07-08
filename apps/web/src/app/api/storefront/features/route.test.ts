@@ -281,6 +281,58 @@ describe('GET /api/storefront/features', () => {
     expect(body.repairsCatalogEnabled).toBe(false);
   });
 
+  it('exposes only the paypalEnabled boolean from custom_settings, never the raw blob', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'merchant-1',
+        business_type: 'fashion',
+      },
+      error: null,
+    });
+    mockGetCachedFeatureSettings.mockResolvedValueOnce({
+      paystack_enabled: true,
+      custom_settings: {
+        paypal_enabled: true,
+        paypal_mode: 'live',
+        // A secret-ish key that must never reach the client payload.
+        some_private_key: 'do-not-leak',
+      },
+    });
+
+    const response = await GET(
+      buildMerchantRequest(`merchantId=${VALID_MERCHANT_ID}`)
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(body.paypalEnabled).toBe(true);
+    // The raw custom_settings blob (and its private keys) must not leak.
+    expect(body.custom_settings).toBeUndefined();
+    expect(JSON.stringify(body)).not.toContain('do-not-leak');
+    expect(JSON.stringify(body)).not.toContain('paypal_mode');
+  });
+
+  it('defaults paypalEnabled to false when custom_settings is absent', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'merchant-1',
+        business_type: 'fashion',
+      },
+      error: null,
+    });
+    mockGetCachedFeatureSettings.mockResolvedValueOnce({
+      paystack_enabled: true,
+    });
+
+    const response = await GET(
+      buildMerchantRequest(`merchantId=${VALID_MERCHANT_ID}`)
+    );
+    const body = (await response.json()) as { paypalEnabled: boolean };
+
+    expect(response.status).toBe(200);
+    expect(body.paypalEnabled).toBe(false);
+  });
+
   it('returns 400 when neither merchantId nor slug is provided', async () => {
     const request = {
       nextUrl: new URL('https://example.com/api/storefront/features'),

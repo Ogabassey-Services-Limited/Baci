@@ -76,6 +76,7 @@ describe('payment-step availability helpers', () => {
         paystackCheckoutAvailable: false,
         korapayCheckoutAvailable: false,
         bankTransferCheckoutAvailable: false,
+        paypalCheckoutAvailable: false,
         featureSettings,
         currency: 'NGN',
         orderAmount: 50_000,
@@ -280,6 +281,7 @@ describe('payment-step availability helpers', () => {
         paystackCheckoutAvailable: false,
         korapayCheckoutAvailable: false,
         bankTransferCheckoutAvailable: false,
+        paypalCheckoutAvailable: false,
         featureSettings,
         currency: 'NGN',
         orderAmount: 300_000,
@@ -294,11 +296,32 @@ describe('payment-step availability helpers', () => {
         paystackCheckoutAvailable: false,
         korapayCheckoutAvailable: false,
         bankTransferCheckoutAvailable: false,
+        paypalCheckoutAvailable: false,
         featureSettings,
         currency: 'NGN',
         orderAmount: 6_237_523,
         payableAmount: 6_237_523,
       }),
+    ).toBe(false);
+  });
+
+  it('gates the paypal method on the paypalCheckoutAvailable flag', () => {
+    const base = {
+      paymentMethod: 'paypal' as const,
+      paystackCheckoutAvailable: false,
+      korapayCheckoutAvailable: false,
+      bankTransferCheckoutAvailable: false,
+      featureSettings: null,
+      currency: 'USD',
+      orderAmount: 50_000,
+      payableAmount: 50_000,
+    };
+
+    expect(
+      isPaymentMethodAvailable({ ...base, paypalCheckoutAvailable: true }),
+    ).toBe(true);
+    expect(
+      isPaymentMethodAvailable({ ...base, paypalCheckoutAvailable: false }),
     ).toBe(false);
   });
 });

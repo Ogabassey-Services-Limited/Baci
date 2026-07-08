@@ -15,6 +15,10 @@ vi.mock('@/lib/credit-direct-client', () => ({
   openCreditDirectCheckout: vi.fn(),
 }));
 
+vi.mock('@/lib/paypal-checkout-client', () => ({
+  startPaypalCheckout: vi.fn(),
+}));
+
 vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
     auth: {
@@ -561,6 +565,60 @@ describe('handlePlaceOrder', () => {
         opts.isOrderInFlightRef,
         opts.setIsProcessing,
       );
+    });
+  });
+
+  describe('PayPal', () => {
+    it('hands off to startPaypalCheckout after creating the order', async () => {
+      const { startPaypalCheckout } = await import(
+        '@/lib/paypal-checkout-client'
+      );
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          order: { id: 'order-pp', tracking_token: 'trk-pp' },
+          wallet: null,
+          amountDueToGateway: 12000,
+        }),
+      });
+
+      const opts = buildOpts({ paymentMethod: 'paypal' });
+      await handlePlaceOrder(opts);
+
+      expect(startPaypalCheckout).toHaveBeenCalledWith({
+        merchantId: 'merchant-1',
+        orderId: 'order-pp',
+        customerEmail: 'john@example.com',
+        trackingToken: 'trk-pp',
+      });
+      // The redirect handler owns navigation — no order-success push here.
+      expect(opts.routerPush).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a checkout error toast when startPaypalCheckout throws', async () => {
+      const { toast } = await import('@/hooks/use-toast');
+      const { startPaypalCheckout } = await import(
+        '@/lib/paypal-checkout-client'
+      );
+      vi.mocked(startPaypalCheckout).mockRejectedValueOnce(
+        new Error('Live exchange rate unavailable'),
+      );
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          order: { id: 'order-pp' },
+          wallet: null,
+          amountDueToGateway: 12000,
+        }),
+      });
+
+      const opts = buildOpts({ paymentMethod: 'paypal' });
+      await handlePlaceOrder(opts);
+
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Checkout Failed' }),
+      );
+      expect(opts.setIsProcessing).toHaveBeenCalledWith(false);
     });
   });
 

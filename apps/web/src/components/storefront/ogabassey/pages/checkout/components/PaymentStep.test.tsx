@@ -13,6 +13,7 @@ vi.mock('../../../components/PaymentLogos', () => ({
   CreditDirectLogo: vi.fn(({ className }) => <div data-testid="credit-direct-logo" className={className} />),
   JuicywayLogo: vi.fn(({ className }) => <div data-testid="juicyway-logo" className={className} />),
   BankTransferLogo: vi.fn(({ className }) => <div data-testid="bank-transfer-logo" className={className} />),
+  PayPalLogo: vi.fn(({ className }) => <div data-testid="paypal-logo" className={className} />),
 }));
 
 type StepName = 'contact' | 'delivery' | 'payment';
@@ -273,6 +274,56 @@ describe('PaymentStep', () => {
 
       expect(screen.getByText('Korapay')).toBeInTheDocument();
       expect(screen.getByTestId('korapay-logo')).toBeInTheDocument();
+    });
+
+    it('shows PayPal when enabled with a PayPal-presentable currency', () => {
+      const merchant = {
+        country: 'GB',
+        feature_settings: {
+          custom_settings: { paypal_enabled: true },
+        } as unknown as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep {...defaultProps} merchant={merchant} currency="USD" />
+      );
+
+      expect(screen.getByRole('radio', { name: /paypal/i })).toBeInTheDocument();
+      expect(screen.getByTestId('paypal-logo')).toBeInTheDocument();
+    });
+
+    it('hides PayPal when the merchant has not enabled it', () => {
+      const merchant = {
+        country: 'GB',
+        feature_settings: {
+          custom_settings: { paypal_enabled: false },
+        } as unknown as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep {...defaultProps} merchant={merchant} currency="USD" />
+      );
+
+      expect(
+        screen.queryByRole('radio', { name: /paypal/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it('hides PayPal when the order currency is not PayPal-presentable', () => {
+      const merchant = {
+        country: 'KE',
+        feature_settings: {
+          custom_settings: { paypal_enabled: true },
+        } as unknown as FeatureSettings,
+      };
+
+      render(
+        <PaymentStep {...defaultProps} merchant={merchant} currency="KES" />
+      );
+
+      expect(
+        screen.queryByRole('radio', { name: /paypal/i })
+      ).not.toBeInTheDocument();
     });
 
     it('hides Paystack when explicitly disabled in feature settings', () => {

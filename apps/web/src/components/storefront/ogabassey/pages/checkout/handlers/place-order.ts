@@ -7,6 +7,7 @@ import {
 } from '../checkout-order-error-message';
 import { openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
+import { startPaypalCheckout } from '@/lib/paypal-checkout-client';
 import { createClient } from '@/lib/supabase/client';
 import { normalizeOrderPaymentMethod } from '../pending-checkout-order';
 import { persistCreditDirectPopupReference } from '../persist-credit-direct-popup-reference';
@@ -552,6 +553,21 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
       crypto.setShowCryptoSelector(true);
       setIsProcessing(false);
       isOrderInFlightRef.current = false;
+      return;
+    }
+
+    if (paymentMethod === 'paypal') {
+      // BYOK PayPal (Phase 2 item 8): the order was created above with
+      // payment_method 'paypal'; hand off to PayPal via a top-level redirect.
+      // create-order recomputes the amount/currency server-side and fails
+      // closed on a missing vault credential, so nothing here trusts a
+      // client-supplied amount. A throw is caught below → "Checkout Failed".
+      await startPaypalCheckout({
+        merchantId: merchant.id,
+        orderId: order.id,
+        customerEmail,
+        trackingToken: order.tracking_token,
+      });
       return;
     }
 

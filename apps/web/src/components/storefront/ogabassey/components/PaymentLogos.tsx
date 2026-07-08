@@ -271,6 +271,28 @@ export function BankTransferLogo({ className = '' }: { className?: string }) {
     );
 }
 
+export function PayPalLogo({ className = '' }: { className?: string }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className={className}
+            role="img"
+            aria-label="PayPal payment gateway logo"
+        >
+            <title>PayPal</title>
+            <rect width="24" height="24" rx="4" fill="#FFFFFF" />
+            <path
+                d="M9.3 18.2H7.2l1.7-10.7h3.9c1.9 0 3.2 1 2.9 2.9-.3 2.1-2 3.2-4.1 3.2H10l-.7 4.6Z"
+                fill="#003087"
+            />
+            <path
+                d="M11.6 16.7H9.5l1.7-10.7h3.9c1.9 0 3.2 1 2.9 2.9-.3 2.1-2 3.2-4.1 3.2h-1.5l-.7 4.6Z"
+                fill="#0070E0"
+            />
+        </svg>
+    );
+}
+
 /**
  * Payment methods trust badges for checkout footer
  */

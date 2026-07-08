@@ -32,6 +32,7 @@ export interface StorefrontFeatures {
   // Payment gateways
   paystackEnabled: boolean;
   korapayEnabled: boolean;
+  paypalEnabled: boolean;
   payOnDeliveryEnabled: boolean;
   creditDirectEnabled: boolean;
   credpalEnabled: boolean;
@@ -129,6 +130,21 @@ function normalizePreferredGateway(
   paystackEnabled: boolean
 ): 'paystack' | 'korapay' {
   return !paystackEnabled && gateway === 'paystack' ? 'korapay' : gateway;
+}
+
+// The non-secret PayPal enable toggle lives in `custom_settings` (a JSONB blob
+// that also holds `paypal_mode` and other private keys). We surface ONLY the
+// boolean to the storefront — never the raw blob — so no other custom setting
+// leaks to the client.
+function readPaypalEnabledFromCustomSettings(customSettings: unknown): boolean {
+  if (
+    !customSettings ||
+    typeof customSettings !== 'object' ||
+    Array.isArray(customSettings)
+  ) {
+    return false;
+  }
+  return (customSettings as Record<string, unknown>).paypal_enabled === true;
 }
 
 export async function GET(request: NextRequest) {
@@ -234,6 +250,9 @@ export async function GET(request: NextRequest) {
       // Payment gateways
       paystackEnabled,
       korapayEnabled: asBoolean(settings.korapay_enabled, true),
+      paypalEnabled: readPaypalEnabledFromCustomSettings(
+        settings.custom_settings
+      ),
       payOnDeliveryEnabled: asBoolean(settings.pay_on_delivery_enabled, false),
       creditDirectEnabled: asBoolean(settings.credit_direct_enabled, false),
       credpalEnabled: asBoolean(settings.credpal_enabled, false),

@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import {
   isBankTransferCheckoutAvailable,
   isKorapayCheckoutAvailable,
+  isPaypalCheckoutAvailable,
   isPaystackCheckoutAvailable,
 } from '@/lib/checkout/payment-gateway-availability';
 import type { PaymentMethod, PaymentTab } from '../types';
@@ -93,11 +94,13 @@ export function PaymentStep({
   );
   const bankTransferCheckoutAvailable =
     ngnRailsAvailable && isBankTransferCheckoutAvailable(merchant);
+  const paypalCheckoutAvailable = isPaypalCheckoutAvailable(merchant, currency);
   const hasAvailableSelectedPaymentMethod = isPaymentMethodAvailable({
     paymentMethod,
     paystackCheckoutAvailable,
     korapayCheckoutAvailable,
     bankTransferCheckoutAvailable,
+    paypalCheckoutAvailable,
     featureSettings: merchant?.feature_settings,
     currency,
     orderAmount,
@@ -157,6 +160,7 @@ export function PaymentStep({
               paystackCheckoutAvailable={paystackCheckoutAvailable}
               korapayCheckoutAvailable={korapayCheckoutAvailable}
               bankTransferCheckoutAvailable={bankTransferCheckoutAvailable}
+              paypalCheckoutAvailable={paypalCheckoutAvailable}
               featureSettings={merchant?.feature_settings}
               klumpEligible={klumpEligible}
               hasInstallmentOptions={hasInstallmentOptions}

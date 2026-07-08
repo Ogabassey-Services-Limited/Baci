@@ -22,6 +22,9 @@ vi.mock('../../../components/PaymentLogos', () => ({
   BankTransferLogo: ({ className }: { className?: string }) => (
     <span data-testid="bank-transfer-logo" className={className} />
   ),
+  PayPalLogo: ({ className }: { className?: string }) => (
+    <span data-testid="paypal-logo" className={className} />
+  ),
 }));
 
 describe('PaymentOptionsPanel', () => {
@@ -39,6 +42,7 @@ describe('PaymentOptionsPanel', () => {
         paystackCheckoutAvailable={true}
         korapayCheckoutAvailable={false}
         bankTransferCheckoutAvailable={true}
+        paypalCheckoutAvailable={false}
         featureSettings={{ juicyway_enabled: true }}
         klumpEligible={false}
         hasInstallmentOptions={false}
@@ -49,6 +53,7 @@ describe('PaymentOptionsPanel', () => {
     expect(screen.getByRole('radio', { name: /paystack/i })).toBeInTheDocument();
     expect(screen.getByText('Bank Transfer')).toBeInTheDocument();
     expect(screen.getByText('Juicyway')).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /paypal/i })).toBeNull();
 
     await user.click(screen.getByRole('button', { name: /pay in installments/i }));
 
@@ -72,6 +77,7 @@ describe('PaymentOptionsPanel', () => {
         paystackCheckoutAvailable={false}
         korapayCheckoutAvailable={true}
         bankTransferCheckoutAvailable={false}
+        paypalCheckoutAvailable={false}
         featureSettings={featureSettings}
         klumpEligible={false}
         hasInstallmentOptions={false}
@@ -91,6 +97,7 @@ describe('PaymentOptionsPanel', () => {
         paystackCheckoutAvailable={false}
         korapayCheckoutAvailable={true}
         bankTransferCheckoutAvailable={false}
+        paypalCheckoutAvailable={false}
         featureSettings={featureSettings}
         klumpEligible={false}
         hasInstallmentOptions={false}
@@ -115,6 +122,7 @@ describe('PaymentOptionsPanel', () => {
         paystackCheckoutAvailable={false}
         korapayCheckoutAvailable={false}
         bankTransferCheckoutAvailable={false}
+        paypalCheckoutAvailable={false}
         featureSettings={{ klump_enabled: true }}
         klumpEligible={true}
         hasInstallmentOptions={true}
@@ -123,5 +131,32 @@ describe('PaymentOptionsPanel', () => {
 
     expect(screen.getByRole('radio', { name: /klump/i })).toBeChecked();
     expect(screen.getByText('How Klump works')).toBeInTheDocument();
+  });
+
+  it('renders the PayPal option only when paypalCheckoutAvailable is true', async () => {
+    const setPaymentMethod = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <PaymentOptionsPanel
+        paymentTab="full"
+        setPaymentTab={vi.fn()}
+        paymentMethod=""
+        setPaymentMethod={setPaymentMethod}
+        paystackCheckoutAvailable={false}
+        korapayCheckoutAvailable={false}
+        bankTransferCheckoutAvailable={false}
+        paypalCheckoutAvailable={true}
+        featureSettings={null}
+        klumpEligible={false}
+        hasInstallmentOptions={false}
+      />,
+    );
+
+    const paypalOption = screen.getByRole('radio', { name: /paypal/i });
+    expect(paypalOption).toBeInTheDocument();
+
+    await user.click(paypalOption);
+    expect(setPaymentMethod).toHaveBeenCalledWith('paypal');
   });
 });

@@ -133,6 +133,7 @@ export function isPaymentMethodAvailable({
   paystackCheckoutAvailable,
   korapayCheckoutAvailable,
   bankTransferCheckoutAvailable,
+  paypalCheckoutAvailable,
   featureSettings,
   currency,
   orderAmount,
@@ -142,6 +143,7 @@ export function isPaymentMethodAvailable({
   paystackCheckoutAvailable: boolean;
   korapayCheckoutAvailable: boolean;
   bankTransferCheckoutAvailable: boolean;
+  paypalCheckoutAvailable: boolean;
   featureSettings?: FeatureSettings | null;
   currency?: string | null;
   orderAmount: number;
@@ -154,6 +156,8 @@ export function isPaymentMethodAvailable({
       return bankTransferCheckoutAvailable;
     case 'korapay':
       return korapayCheckoutAvailable;
+    case 'paypal':
+      return paypalCheckoutAvailable;
     case 'juicyway':
       // NGN-only rail: the fiat leg converts from NGN kobo, so a non-NGN
       // order must never be offered Juicyway (see resolveChargeCurrency).
