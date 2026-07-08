@@ -8,6 +8,10 @@ import {
 import { hasPermission } from '@/lib/api-auth';
 import { revalidateMerchantFeed } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
+import {
+  claimDomainFulfillment,
+  releaseDomainFulfillmentClaim,
+} from '@/lib/domains/fulfillment-claim';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
   getMerchantForApiRequest,
@@ -19,6 +23,7 @@ import {
   merchantHasFeature,
 } from '@/lib/merchant-feature-gates';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 const DOMAIN_REGEX = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
@@ -260,6 +265,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fulfillment writes to transactions (mark-purchased, claim) must use the
+    // service-role client: transactions has no merchant UPDATE policy, so the
+    // user-scoped client silently updates zero rows.
+    const adminSupabase = createAdminClient();
+
     const markPaymentDomainPurchased = async (domainId?: string) => {
       const updatedMetadata: Record<string, unknown> = {
         ...(paymentMetadata || {}),
@@ -271,7 +281,7 @@ export async function POST(request: NextRequest) {
         updatedMetadata.domain_id = domainId;
       }
 
-      const { error: paymentMetadataError } = await supabase
+      const { error: paymentMetadataError } = await adminSupabase
         .from('transactions')
         .update({ metadata: updatedMetadata })
         .eq('id', payment.id)
@@ -385,6 +395,29 @@ export async function POST(request: NextRequest) {
       phonenumber: resolvedPhonenumber,
     };
 
+    // Atomically claim fulfillment for this payment. The Paystack webhook can
+    // be fulfilling the same completed transaction concurrently — only the
+    // claim winner may call the registrar, or one payment could be registered
+    // (and charged at the registrar) twice.
+    const claimInput = {
+      transactionId: payment.id,
+      metadata: paymentMetadata ?? {},
+      claimant: 'purchase_route',
+    };
+    const fulfillmentClaimed = await claimDomainFulfillment(
+      adminSupabase,
+      claimInput
+    );
+    if (!fulfillmentClaimed) {
+      return NextResponse.json(
+        {
+          error:
+            'Domain registration for this payment is already in progress. Please refresh in a moment.',
+        },
+        { status: 409 }
+      );
+    }
+
     try {
       // Register domain via Go54
       const registrationResult = await registerDomain({
@@ -413,6 +446,9 @@ export async function POST(request: NextRequest) {
           'Go54 registration API failed:',
           registrationResult.error
         );
+        // Registration failed: release the claim so the webhook (or a retry)
+        // can attempt fulfillment for this paid transaction.
+        await releaseDomainFulfillmentClaim(adminSupabase, claimInput);
         return NextResponse.json(
           {
             error: 'Failed to register domain with Go54',
@@ -506,6 +542,10 @@ export async function POST(request: NextRequest) {
       console.error('Go54 registration error:', go54Error);
       const errorMessage =
         go54Error instanceof Error ? go54Error.message : 'Unknown error';
+
+      // Registration died mid-flight: release the claim so the webhook (or a
+      // retry) can attempt fulfillment for this paid transaction.
+      await releaseDomainFulfillmentClaim(adminSupabase, claimInput);
 
       return NextResponse.json(
         {

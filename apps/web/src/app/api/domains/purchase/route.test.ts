@@ -25,6 +25,10 @@ type MerchantRecord = {
 
 const mocks = vi.hoisted(() => ({
   after: vi.fn(),
+  claimResult: { data: { id: 'claimed' }, error: null } as {
+    data: { id: string } | null;
+    error: { message: string } | null;
+  },
   getMerchantForApiRequest: vi.fn(),
   hasPermission: vi.fn(),
   revalidateMerchantFeed: vi.fn(),
@@ -89,6 +93,10 @@ function createMutationQuery(payload: Record<string, unknown>) {
         ? Promise.resolve({ error: null })
         : query;
     },
+    // Fulfillment-claim chain: .eq('id', ...).or(...).select('id').maybeSingle()
+    or: () => query,
+    select: () => query,
+    maybeSingle: () => Promise.resolve(mocks.claimResult),
   };
 
   return query;
@@ -101,6 +109,10 @@ function createSupabase(
     plan_expires_at: null,
     plan_tier: 'pro',
     premium_features: [],
+  },
+  existingDomain: { id: string; merchant_id: string } | null = {
+    id: 'domain-1',
+    merchant_id: 'merchant-1',
   }
 ) {
   return {
@@ -144,7 +156,7 @@ function createSupabase(
           select: vi.fn(() => ({
             eq: vi.fn(() => ({
               maybeSingle: vi.fn().mockResolvedValue({
-                data: { id: 'domain-1', merchant_id: 'merchant-1' },
+                data: existingDomain,
                 error: null,
               }),
             })),
@@ -163,6 +175,12 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => supabase),
 }));
 
+// Fulfillment writes (mark-purchased, claim) go through the admin client;
+// route the same mock so mutations are recorded identically.
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => supabase),
+}));
+
 function createRequest() {
   return new NextRequest('http://localhost/api/domains/purchase', {
     method: 'POST',
@@ -177,6 +195,7 @@ describe('POST /api/domains/purchase transaction scoping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.transactionMutations.length = 0;
+    mocks.claimResult = { data: { id: 'claimed' }, error: null };
     mocks.getMerchantForApiRequest.mockResolvedValue({
       merchantId: 'merchant-1',
     });
@@ -232,6 +251,34 @@ describe('POST /api/domains/purchase transaction scoping', () => {
       ['merchant_id', 'merchant-1'],
     ]);
     expect(mocks.revalidateMerchantFeed).toHaveBeenCalledWith('merchant-1');
+  });
+
+  it('returns 409 without calling the registrar when the fulfillment claim is contested (review #2991 P1 regression test)', async () => {
+    // The webhook can fulfill the same completed payment concurrently; the
+    // claim loser must never call the registrar or the payment would be
+    // registered (and charged at the registrar) twice.
+    supabase = createSupabase(
+      {
+        amount: 100,
+        gateway: 'paystack',
+        id: 'transaction-owned',
+        merchant_id: 'merchant-1',
+        metadata: null,
+        status: 'completed',
+      },
+      undefined,
+      null // no existing domain: the route proceeds toward registration
+    );
+    mocks.claimResult = { data: null, error: null }; // webhook holds the claim
+
+    const { registerDomain } = await import('@/lib/go54');
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(409);
+    const json = await response.json();
+    expect(json.error).toContain('already in progress');
+    expect(registerDomain).not.toHaveBeenCalled();
   });
 
   it('returns 402 before registration when custom domains are locked', async () => {

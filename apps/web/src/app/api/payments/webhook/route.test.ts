@@ -311,11 +311,13 @@ function setupSuccessfulTransactionMocks(
         }),
       };
 
-      // Second call: .update().eq().neq().select().maybeSingle() for transaction update
+      // Second call: .update().eq().neq().select().maybeSingle() for transaction
+      // update; the domain fulfillment claim additionally chains `.or(...)`.
       const updateChain = {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         neq: vi.fn().mockReturnThis(),
+        or: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({
           data:
@@ -730,6 +732,140 @@ describe('POST /api/payments/webhook', () => {
       const response = await POST(request);
 
       expect(response.status).toBe(200);
+      expect(mockServiceClient.rpc).not.toHaveBeenCalledWith(
+        'record_merchant_settlement',
+        expect.anything()
+      );
+    });
+
+    it('skips registrar fulfillment when another path holds the claim (review #2991 P1 regression test)', async () => {
+      // The dashboard callback (/api/domains/purchase) and this webhook can
+      // both observe the same completed, unused transaction. Whoever loses the
+      // atomic metadata claim must NOT call the registrar, or one payment
+      // would register (and pay the registrar for) the domain twice.
+      const body = {
+        reference: 'DOM-REGRESSION2',
+        status: 'success',
+        event: 'charge.success',
+        amount: 19499,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 19499,
+          reference: 'DOM-REGRESSION2',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      const domainTransaction = {
+        id: 'txn-dom-2',
+        merchant_id: 'merchant-123',
+        amount: '19499',
+        currency: 'NGN',
+        gateway_reference: 'DOM-REGRESSION2',
+        status: 'pending',
+        order_id: null,
+        metadata: {
+          transaction_type: 'domain_purchase',
+          domain: 'junglee.com',
+          tld: '.com',
+          years: 1,
+        },
+      };
+
+      // The fulfillment claim is the only update chain that uses `.or(...)`:
+      // resolve it to null (another path already claimed); all other update
+      // chains keep succeeding.
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          const selectChain = {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: domainTransaction,
+              error: null,
+            }),
+          };
+          return {
+            select: vi.fn(() => selectChain),
+            update: vi.fn(() => {
+              let claimAttempt = false;
+              const chain = {
+                eq: vi.fn().mockReturnThis(),
+                neq: vi.fn().mockReturnThis(),
+                or: vi.fn(() => {
+                  claimAttempt = true;
+                  return chain;
+                }),
+                select: vi.fn().mockReturnThis(),
+                maybeSingle: vi.fn(() =>
+                  Promise.resolve({
+                    data: claimAttempt ? null : { id: 'txn-dom-2' },
+                    error: null,
+                  })
+                ),
+              };
+              return chain;
+            }),
+          } as never;
+        }
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                business_name: 'Test Store',
+                email: 'owner@example.com',
+                address: '1 Test Rd',
+                city: 'Lagos',
+                state: 'Lagos',
+                phone: '+2348000000000',
+                users: { first_name: 'Test', last_name: 'Owner' },
+              },
+              error: null,
+            }),
+          } as never;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
+      });
+
+      const { registerDomain } = await import('@/lib/go54');
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(registerDomain).not.toHaveBeenCalled();
       expect(mockServiceClient.rpc).not.toHaveBeenCalledWith(
         'record_merchant_settlement',
         expect.anything()

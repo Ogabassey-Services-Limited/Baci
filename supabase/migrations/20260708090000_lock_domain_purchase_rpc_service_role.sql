@@ -11,11 +11,11 @@
 -- still re-verifies check_staff_permission(p_user_id, p_merchant_id,
 -- 'settings', 'edit') as defense in depth.
 --
--- The 11-arg authenticated variant is kept temporarily so the currently
--- deployed route keeps working; it is dropped in a follow-up migration once
--- the route change is live.
+-- The 11-arg authenticated variant is kept so the currently deployed route
+-- keeps working through the rollout; a follow-up migration (shipped in a
+-- separate PR once this route change is live everywhere) drops it.
 
-CREATE FUNCTION public.create_domain_purchase_transaction(
+CREATE OR REPLACE FUNCTION public.create_domain_purchase_transaction(
   p_domain text,
   p_tld text,
   p_years integer,

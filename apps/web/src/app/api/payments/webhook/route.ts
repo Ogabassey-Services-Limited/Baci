@@ -22,6 +22,10 @@ import {
   creditWalletTopUp,
   WALLET_TOP_UP_TRANSACTION_TYPE,
 } from '@/lib/customer-wallet-top-up';
+import {
+  claimDomainFulfillment,
+  releaseDomainFulfillmentClaim,
+} from '@/lib/domains/fulfillment-claim';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
   generateOrderConfirmationEmail,
@@ -1534,6 +1538,7 @@ export async function POST(request: NextRequest) {
         domain: metadata.domain,
       });
 
+      let fulfillmentClaimed = false;
       try {
         // 1. Fetch Merchant Details for Registration
         const { data: merchantData } = await supabase
@@ -1626,80 +1631,101 @@ export async function POST(request: NextRequest) {
             }
           };
 
-          // 3. Register Domain via Go54
-          const registration = await registerDomain({
-            domain: normalizedDomain,
-            regperiod: purchaseYears,
-            contacts: {
-              registrant: contactInfo,
-              admin: contactInfo,
-              tech: contactInfo,
-              billing: contactInfo,
-            },
+          // 3. Atomically claim fulfillment for this transaction. The
+          // dashboard callback (/api/domains/purchase) can be verifying the
+          // same completed payment concurrently — only the claim winner may
+          // call the registrar, or one payment could be registered (and
+          // charged at the registrar) twice.
+          fulfillmentClaimed = await claimDomainFulfillment(supabase, {
+            transactionId: transaction.id,
+            metadata,
+            claimant: 'webhook',
           });
 
-          if (registration.success) {
+          if (!fulfillmentClaimed) {
             logger.info({
-              message: 'Domain registered successfully',
-              domain: metadata.domain,
+              message:
+                'Domain fulfillment already claimed by another path, skipping',
+              reference,
+              domain: normalizedDomain,
+            });
+          } else {
+            // 4. Register Domain via Go54
+            const registration = await registerDomain({
+              domain: normalizedDomain,
+              regperiod: purchaseYears,
+              contacts: {
+                registrant: contactInfo,
+                admin: contactInfo,
+                tech: contactInfo,
+                billing: contactInfo,
+              },
             });
 
-            // 4. Persist to domains table (used by proxy + storefront resolution)
-            const expiresAt = new Date();
-            expiresAt.setFullYear(expiresAt.getFullYear() + purchaseYears);
-            const nowIso = new Date().toISOString();
-
-            const { data: existingDomain, error: existingDomainError } =
-              await supabase
-                .from('domains')
-                .select('id, merchant_id')
-                .eq('domain', normalizedDomain)
-                .maybeSingle();
-            const domainPurchaseAmount = Number(transaction.amount) || 0;
-
-            if (existingDomainError) {
-              logger.error({
-                message: 'Failed checking existing domain record',
-                error: existingDomainError,
+            if (registration.success) {
+              logger.info({
+                message: 'Domain registered successfully',
+                domain: metadata.domain,
               });
-            } else if (existingDomain) {
-              if (existingDomain.merchant_id !== transaction.merchant_id) {
-                logger.error({
-                  message:
-                    'Domain already belongs to a different merchant, skipping update',
-                  domain: normalizedDomain,
-                });
-              } else {
-                const { error: updateDomainError } = await supabase
-                  .from('domains')
-                  .update({
-                    status: 'active',
-                    ssl_status: 'active',
-                    verified_at: nowIso,
-                    expires_at: expiresAt.toISOString(),
-                    auto_renew: true,
-                    go54_order_id: registration.orderId || null,
-                    purchase_price: domainPurchaseAmount,
-                    renewal_price: domainPurchaseAmount,
-                    nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
-                  })
-                  .eq('id', existingDomain.id);
 
-                if (updateDomainError) {
+              // 4. Persist to domains table (used by proxy + storefront resolution)
+              const expiresAt = new Date();
+              expiresAt.setFullYear(expiresAt.getFullYear() + purchaseYears);
+              const nowIso = new Date().toISOString();
+
+              const { data: existingDomain, error: existingDomainError } =
+                await supabase
+                  .from('domains')
+                  .select('id, merchant_id')
+                  .eq('domain', normalizedDomain)
+                  .maybeSingle();
+              const domainPurchaseAmount = Number(transaction.amount) || 0;
+
+              if (existingDomainError) {
+                logger.error({
+                  message: 'Failed checking existing domain record',
+                  error: existingDomainError,
+                });
+              } else if (existingDomain) {
+                if (existingDomain.merchant_id !== transaction.merchant_id) {
                   logger.error({
-                    message: 'Failed to update existing domain record',
-                    error: updateDomainError,
+                    message:
+                      'Domain already belongs to a different merchant, skipping update',
                     domain: normalizedDomain,
                   });
                 } else {
-                  await markTransactionDomainPurchased(existingDomain.id);
-                  revalidateMerchantFeed(transaction.merchant_id);
-                  after(() => triggerDomainEdgeConfigSync());
+                  const { error: updateDomainError } = await supabase
+                    .from('domains')
+                    .update({
+                      status: 'active',
+                      ssl_status: 'active',
+                      verified_at: nowIso,
+                      expires_at: expiresAt.toISOString(),
+                      auto_renew: true,
+                      go54_order_id: registration.orderId || null,
+                      purchase_price: domainPurchaseAmount,
+                      renewal_price: domainPurchaseAmount,
+                      nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
+                    })
+                    .eq('id', existingDomain.id);
+
+                  if (updateDomainError) {
+                    logger.error({
+                      message: 'Failed to update existing domain record',
+                      error: updateDomainError,
+                      domain: normalizedDomain,
+                    });
+                  } else {
+                    await markTransactionDomainPurchased(existingDomain.id);
+                    revalidateMerchantFeed(transaction.merchant_id);
+                    after(() => triggerDomainEdgeConfigSync());
+                  }
                 }
-              }
-            } else {
-              const { data: existingPrimaryDomain, error: primaryDomainError } =
-                await supabase
+              } else {
+                const {
+                  data: existingPrimaryDomain,
+                  error: primaryDomainError,
+                } = await supabase
                   .from('domains')
                   .select('id')
                   .eq('merchant_id', transaction.merchant_id)
@@ -1709,58 +1735,65 @@ export async function POST(request: NextRequest) {
                   .limit(1)
                   .maybeSingle();
 
-              if (primaryDomainError) {
-                logger.error({
-                  message: 'Failed checking existing primary domain',
-                  error: primaryDomainError,
-                });
-              }
+                if (primaryDomainError) {
+                  logger.error({
+                    message: 'Failed checking existing primary domain',
+                    error: primaryDomainError,
+                  });
+                }
 
-              const shouldSetPrimary =
-                !primaryDomainError && !existingPrimaryDomain;
+                const shouldSetPrimary =
+                  !primaryDomainError && !existingPrimaryDomain;
 
-              const { data: insertedDomain, error: domainDbError } =
-                await supabase
-                  .from('domains')
-                  .insert({
-                    merchant_id: transaction.merchant_id,
+                const { data: insertedDomain, error: domainDbError } =
+                  await supabase
+                    .from('domains')
+                    .insert({
+                      merchant_id: transaction.merchant_id,
+                      domain: normalizedDomain,
+                      tld,
+                      domain_type: 'purchased',
+                      status: 'active',
+                      is_primary: shouldSetPrimary,
+                      verified_at: nowIso,
+                      ssl_status: 'active',
+                      go54_order_id: registration.orderId || null,
+                      purchase_price: domainPurchaseAmount,
+                      renewal_price: domainPurchaseAmount,
+                      registered_at: nowIso,
+                      expires_at: expiresAt.toISOString(),
+                      auto_renew: true,
+                      nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
+                    })
+                    .select('id')
+                    .single();
+
+                if (domainDbError) {
+                  logger.error({
+                    message: 'Failed to save domain record',
+                    error: domainDbError,
                     domain: normalizedDomain,
-                    tld,
-                    domain_type: 'purchased',
-                    status: 'active',
-                    is_primary: shouldSetPrimary,
-                    verified_at: nowIso,
-                    ssl_status: 'active',
-                    go54_order_id: registration.orderId || null,
-                    purchase_price: domainPurchaseAmount,
-                    renewal_price: domainPurchaseAmount,
-                    registered_at: nowIso,
-                    expires_at: expiresAt.toISOString(),
-                    auto_renew: true,
-                    nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
-                  })
-                  .select('id')
-                  .single();
-
-              if (domainDbError) {
-                logger.error({
-                  message: 'Failed to save domain record',
-                  error: domainDbError,
-                  domain: normalizedDomain,
-                });
-              } else {
-                await markTransactionDomainPurchased(insertedDomain?.id);
-                revalidateMerchantFeed(transaction.merchant_id);
-                after(() => triggerDomainEdgeConfigSync());
+                  });
+                } else {
+                  await markTransactionDomainPurchased(insertedDomain?.id);
+                  revalidateMerchantFeed(transaction.merchant_id);
+                  after(() => triggerDomainEdgeConfigSync());
+                }
               }
+            } else {
+              logger.error({
+                message: 'Domain registration API failed',
+                error: registration.error,
+                domain: metadata.domain,
+              });
+              // Payment succeeded but registration failed: release the claim
+              // so the dashboard callback (or a later retry) can fulfill.
+              await releaseDomainFulfillmentClaim(supabase, {
+                transactionId: transaction.id,
+                metadata,
+                claimant: 'webhook',
+              });
             }
-          } else {
-            logger.error({
-              message: 'Domain registration API failed',
-              error: registration.error,
-              domain: metadata.domain,
-            });
-            // Note: Payment succeeded but domain failed. Manual intervention required.
           }
         }
       } catch (err) {
@@ -1777,6 +1810,16 @@ export async function POST(request: NextRequest) {
           domain: fallbackDomain,
           error: err,
         });
+
+        if (fulfillmentClaimed) {
+          // Fulfillment died mid-flight: release the claim so the dashboard
+          // callback (or a later retry) can attempt registration.
+          await releaseDomainFulfillmentClaim(supabase, {
+            transactionId: transaction.id,
+            metadata,
+            claimant: 'webhook',
+          });
+        }
 
         if (fallbackDomain) {
           const fallbackTld = fallbackDomain.endsWith('.com.ng')
