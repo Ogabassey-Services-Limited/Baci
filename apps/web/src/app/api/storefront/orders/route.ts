@@ -131,8 +131,6 @@ export async function GET(request: NextRequest) {
           condition,
           variant_name,
           image_url,
-          condition,
-          variant_name,
           quantity,
           price,
           has_assurance,
