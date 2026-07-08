@@ -37,12 +37,6 @@ vi.mock('@/lib/supabase/middleware', () => ({
   }),
 }));
 
-vi.mock('@/lib/ad-tracking-cookies', () => ({
-  CLICK_ID_PARAMS: {},
-  extractClickIdsFromUrl: vi.fn().mockReturnValue({}),
-  generateClickIdCookies: vi.fn().mockReturnValue([]),
-}));
-
 vi.mock('@/lib/domain-cache-simple', () => ({
   getCustomDomainForSlug: vi.fn().mockResolvedValue(null),
   getSlugForCustomDomain: vi.fn().mockResolvedValue('ogabassey'),
