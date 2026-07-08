@@ -21,6 +21,8 @@ import { ProductVariantOptionSelector } from './ProductVariantOptionSelector';
 
 const PRODUCT_PICKER_FOOTER_BOTTOM_INSET = 18;
 const PRODUCT_PICKER_LIST_BOTTOM_PADDING = 128;
+const PRODUCT_PICKER_ROW_HEIGHT = 64;
+const PRODUCT_PICKER_VARIANT_ROW_HEIGHT = 72;
 export const PRODUCT_SEARCH_FOCUS_DELAY_MS = 250;
 
 export type NewOrderProductSheetController = Pick<
@@ -104,6 +106,9 @@ export function NewOrderProductSheet({
       selectedParentProduct &&
       variantOptionGroups.some((group) => group.values.length > 1)
   );
+  const productPickerRowHeight = isPickingVariant
+    ? PRODUCT_PICKER_VARIANT_ROW_HEIGHT
+    : PRODUCT_PICKER_ROW_HEIGHT;
 
   useEffect(() => {
     if (showProductModal && !isPickingVariant) {
@@ -198,8 +203,8 @@ export function NewOrderProductSheet({
             <BottomSheetFlatList
               getItemLayout={(_data, index) => ({
                 index,
-                length: 72,
-                offset: 72 * index,
+                length: productPickerRowHeight,
+                offset: productPickerRowHeight * index,
               })}
               {...MODAL_FLATLIST_PROPS}
               contentContainerStyle={{
@@ -237,6 +242,8 @@ export function NewOrderProductSheet({
                   selectedParentProduct?.name
                 );
                 const pickerSubtitle = getProductPickerRowSubtitle(item);
+                const showPickerSubtitle =
+                  isPickingVariant && pickerSubtitle !== 'N/A';
 
                 return (
                   <Pressable
@@ -263,7 +270,10 @@ export function NewOrderProductSheet({
                     }
                     style={[
                       styles.productItem,
-                      { borderBottomColor: colors.border, height: 72 },
+                      {
+                        borderBottomColor: colors.border,
+                        height: productPickerRowHeight,
+                      },
                     ]}
                   >
                     <View style={{ flex: 1, marginRight: 8 }}>
@@ -273,12 +283,14 @@ export function NewOrderProductSheet({
                       >
                         {pickerTitle}
                       </Text>
-                      <Text
-                        numberOfLines={1}
-                        style={{ color: colors.textSecondary, fontSize: 12 }}
-                      >
-                        {pickerSubtitle}
-                      </Text>
+                      {showPickerSubtitle ? (
+                        <Text
+                          numberOfLines={1}
+                          style={{ color: colors.textSecondary, fontSize: 12 }}
+                        >
+                          {pickerSubtitle}
+                        </Text>
+                      ) : null}
                     </View>
                     <Text style={{ color: colors.text, fontWeight: '500' }}>
                       {formatPrice(item.price)}

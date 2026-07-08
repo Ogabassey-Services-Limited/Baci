@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createInitialProductEditFormData } from '@/components/product/product-edit.defaults';
+import {
+  createEmptyEditableVariant,
+  createEmptyVariantAttribute,
+} from '@/lib/product-variant-form';
 import { createProductEditVariantActions } from './createProductEditVariantActions';
 
 const cryptoState = vi.hoisted(() => ({
@@ -134,6 +138,167 @@ describe('createProductEditVariantActions', () => {
 
     expect(store.formData.has_variants).toBe(true);
     expect(store.formData.variants).toHaveLength(2);
+  });
+
+  it('returns the created client id so callers can auto-expand the new row', () => {
+    const store = createStore({
+      ...createInitialProductEditFormData(),
+      price: 1000,
+    });
+    const actions = createProductEditVariantActions({
+      formData: store.formData,
+      setFormData: store.setFormData,
+    });
+
+    const clientId = actions.addVariant();
+
+    expect(typeof clientId).toBe('string');
+    expect(clientId.length).toBeGreaterThan(0);
+    expect(store.formData.variants[0].client_id).toBe(clientId);
+  });
+
+  it('adds a variant from the latest queued form state', () => {
+    const store = createStore({
+      ...createInitialProductEditFormData(),
+      cost_price: 100,
+      images: ['old.png'],
+      price: 200,
+      variants: [
+        {
+          ...createEmptyEditableVariant(),
+          attributes: [createEmptyVariantAttribute('Color', 'Black')],
+        },
+      ],
+    });
+    const actions = createProductEditVariantActions({
+      formData: store.formData,
+      setFormData: store.setFormData,
+    });
+
+    store.setFormData((previous) => ({
+      ...previous,
+      cost_price: 900,
+      images: ['new.png'],
+      price: 1200,
+      variants: [
+        {
+          ...createEmptyEditableVariant(),
+          attributes: [createEmptyVariantAttribute('Storage', '128GB')],
+          condition: 'used',
+        },
+      ],
+    }));
+
+    const clientId = actions.addVariant();
+    const created = store.formData.variants.at(-1);
+
+    expect(created).toMatchObject({
+      client_id: clientId,
+      condition: 'used',
+      cost_price: 900,
+      images: ['new.png'],
+      price: 1200,
+      primary_image: 'new.png',
+    });
+    expect(created?.attributes.map((attribute) => attribute.key)).toEqual([
+      'Storage',
+    ]);
+  });
+
+  it('generateVariants inherits parent images and drops placeholder rows', () => {
+    const store = createStore({
+      ...createInitialProductEditFormData(),
+      has_variants: true,
+      images: ['parent.png'],
+      variants: [createEmptyEditableVariant()],
+    });
+    const actions = createProductEditVariantActions({
+      formData: store.formData,
+      setFormData: store.setFormData,
+    });
+
+    actions.generateVariants([
+      {
+        ...createEmptyEditableVariant(),
+        attributes: [createEmptyVariantAttribute('Color', 'Black')],
+      },
+      {
+        ...createEmptyEditableVariant(),
+        attributes: [createEmptyVariantAttribute('Color', 'Blue')],
+      },
+    ]);
+
+    // The untouched placeholder row is replaced by the two generated variants.
+    expect(store.formData.variants).toHaveLength(2);
+    for (const variant of store.formData.variants) {
+      expect(variant.images).toEqual(['parent.png']);
+      expect(variant.primary_image).toBe('parent.png');
+    }
+  });
+
+  it('generateVariants skips duplicates already present in the form', () => {
+    const existing = {
+      ...createEmptyEditableVariant(),
+      attributes: [createEmptyVariantAttribute('Color', 'Black')],
+      sku: 'KEEP-1',
+    };
+    const store = createStore({
+      ...createInitialProductEditFormData(),
+      has_variants: true,
+      variants: [existing],
+    });
+    const actions = createProductEditVariantActions({
+      formData: store.formData,
+      setFormData: store.setFormData,
+    });
+
+    actions.generateVariants([
+      {
+        ...createEmptyEditableVariant(),
+        attributes: [createEmptyVariantAttribute('Color', 'Black')],
+      },
+      {
+        ...createEmptyEditableVariant(),
+        attributes: [createEmptyVariantAttribute('Color', 'Blue')],
+      },
+    ]);
+
+    expect(store.formData.variants).toHaveLength(2);
+    expect(store.formData.variants[0].sku).toBe('KEEP-1');
+  });
+
+  it('applyVariantPricing fans price and cost onto the targeted variants only', () => {
+    const variants = [
+      createEmptyEditableVariant({ costPrice: 100, price: 400 }),
+      createEmptyEditableVariant({ costPrice: 100, price: 400 }),
+      createEmptyEditableVariant({ costPrice: 100, price: 450 }),
+    ];
+    const store = createStore({
+      ...createInitialProductEditFormData(),
+      has_variants: true,
+      variants,
+    });
+    const actions = createProductEditVariantActions({
+      formData: store.formData,
+      setFormData: store.setFormData,
+    });
+
+    actions.applyVariantPricing([
+      { cost_price: 250, indexes: [0, 1], price: 500 },
+    ]);
+
+    expect(store.formData.variants[0]).toMatchObject({
+      cost_price: 250,
+      price: 500,
+    });
+    expect(store.formData.variants[1]).toMatchObject({
+      cost_price: 250,
+      price: 500,
+    });
+    expect(store.formData.variants[2]).toMatchObject({
+      cost_price: 100,
+      price: 450,
+    });
   });
 
   it('creates a variant with price zero when the base price is zero', () => {

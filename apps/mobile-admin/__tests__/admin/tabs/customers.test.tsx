@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -142,6 +143,15 @@ describe('CustomersScreen UI rendering', () => {
   it('renders customers screen successfully', () => {
     const { getByText } = render(<CustomersScreen />);
     expect(getByText('Customers')).toBeTruthy();
+  });
+
+  it('keeps the customer tab rail constrained to chip height', () => {
+    render(<CustomersScreen />);
+
+    expect(screen.getByRole('tablist')).toHaveStyle({
+      flexGrow: '0',
+      maxHeight: '44px',
+    });
   });
 
   it('opens customer tabs and passes the selected customer type filter', () => {

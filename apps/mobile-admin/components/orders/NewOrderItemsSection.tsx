@@ -29,6 +29,11 @@ export function NewOrderItemsSection({
     setShowProductModal,
   } = controller;
   const quickAddAccentColor = colors.warning;
+  const openProductPicker = () => {
+    resetProductPickerState();
+    setProductSearch('');
+    setShowProductModal(true);
+  };
 
   return (
     <View style={styles.section}>
@@ -73,11 +78,7 @@ export function NewOrderItemsSection({
           accessibilityLabel="Search catalog"
           accessibilityRole="button"
           accessible
-          onPress={() => {
-            resetProductPickerState();
-            setProductSearch('');
-            setShowProductModal(true);
-          }}
+          onPress={openProductPicker}
           style={[
             styles.actionBtn,
             {
@@ -96,9 +97,16 @@ export function NewOrderItemsSection({
 
       <View style={{ gap: 8, marginTop: 12 }}>
         {orderItems.length === 0 ? (
-          <View style={[styles.emptyState, { borderColor: colors.border }]}>
+          <Pressable
+            accessibilityHint="Opens catalog search to add a product"
+            accessibilityLabel="Add item from catalog"
+            accessibilityRole="button"
+            accessible
+            onPress={openProductPicker}
+            style={[styles.emptyState, { borderColor: colors.border }]}
+          >
             <Text style={{ color: colors.textMuted }}>No items added yet</Text>
-          </View>
+          </Pressable>
         ) : (
           orderItems.map((item) => (
             <View

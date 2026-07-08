@@ -96,6 +96,136 @@ describe('createNewOrderProductActions', () => {
     );
   });
 
+  it('replaces the active edited line when a variant is selected in replacement mode', () => {
+    let orderItems: OrderItem[] = [
+      {
+        details: 'Gift wrap',
+        id: 'line-1',
+        image_url: 'old.jpg',
+        name: 'Samsung Galaxy S22',
+        price: 370000,
+        product_id: 'product-1',
+        quantity: 2,
+        variant_attributes: { color: 'Burgundy', storage: '128GB' },
+        variant_id: 'variant-old',
+        variant_name: 'Burgundy / 128GB',
+      },
+    ];
+    const setOrderItems = vi.fn(
+      (updater: OrderItem[] | ((previous: OrderItem[]) => OrderItem[])) => {
+        orderItems =
+          typeof updater === 'function' ? updater(orderItems) : updater;
+      }
+    );
+    const setVariantReplacementItemId = vi.fn();
+
+    const actions = createNewOrderProductActions({
+      customItem: createEmptyCustomItemDraft(),
+      orderItems,
+      selectedParentProduct: {
+        has_variants: true,
+        id: 'product-1',
+        images: ['parent.jpg'],
+        name: 'Samsung Galaxy S22',
+        parent_product_id: null,
+        price: 370000,
+        sku: null,
+        variant_attributes: null,
+      },
+      setCustomItem: vi.fn(),
+      setOrderItems,
+      setProductSearch: vi.fn(),
+      setSelectedParentProduct: vi.fn(),
+      setShowCustomItemModal: vi.fn(),
+      setShowProductModal: vi.fn(),
+      setVariantReplacementItemId,
+      variantReplacementItemId: 'line-1',
+    });
+
+    actions.handleAddProduct({
+      has_variants: false,
+      id: 'variant-new',
+      images: ['new.jpg'],
+      name: 'Samsung Galaxy S22 Phantom Black / 256GB',
+      parent_product_id: 'product-1',
+      price: 410000,
+      sku: 'S22-BLK-256',
+      variant_attributes: { color: 'Phantom Black', storage: '256GB' },
+    });
+
+    expect(orderItems).toEqual([
+      {
+        details: 'Gift wrap',
+        id: 'line-1',
+        image_url: 'new.jpg',
+        name: 'Samsung Galaxy S22',
+        price: 410000,
+        product_id: 'product-1',
+        quantity: 2,
+        variant_attributes: { color: 'Phantom Black', storage: '256GB' },
+        variant_id: 'variant-new',
+        variant_name: 'Phantom Black / 256GB',
+      },
+    ]);
+    expect(setVariantReplacementItemId).toHaveBeenCalledWith(null);
+  });
+
+  it('adds the product normally when the replacement target is stale', () => {
+    let orderItems: OrderItem[] = [
+      {
+        id: 'line-1',
+        is_custom: false,
+        name: 'Samsung Galaxy S22',
+        price: 370000,
+        product_id: 'product-1',
+        quantity: 1,
+        variant_id: 'variant-old',
+        variant_name: 'Burgundy / 128GB',
+      },
+    ];
+    const setOrderItems = vi.fn(
+      (updater: OrderItem[] | ((previous: OrderItem[]) => OrderItem[])) => {
+        orderItems =
+          typeof updater === 'function' ? updater(orderItems) : updater;
+      }
+    );
+    const setVariantReplacementItemId = vi.fn();
+
+    const actions = createNewOrderProductActions({
+      customItem: createEmptyCustomItemDraft(),
+      orderItems,
+      selectedParentProduct: null,
+      setCustomItem: vi.fn(),
+      setOrderItems,
+      setProductSearch: vi.fn(),
+      setSelectedParentProduct: vi.fn(),
+      setShowCustomItemModal: vi.fn(),
+      setShowProductModal: vi.fn(),
+      setVariantReplacementItemId,
+      variantReplacementItemId: 'missing-line',
+    });
+
+    actions.handleAddProduct({
+      has_variants: false,
+      id: 'product-2',
+      images: [],
+      name: 'Xiaomi 13T',
+      parent_product_id: null,
+      price: 360000,
+      sku: 'XIAOMI-13T',
+      variant_attributes: null,
+    });
+
+    expect(orderItems).toHaveLength(2);
+    expect(orderItems[1]).toMatchObject({
+      name: 'Xiaomi 13T',
+      price: 360000,
+      product_id: 'product-2',
+      quantity: 1,
+    });
+    expect(setVariantReplacementItemId).toHaveBeenCalledWith(null);
+  });
+
   it('handleAddCustomItem adds a custom item when name and price are valid', () => {
     let orderItems: OrderItem[] = [];
     const setOrderItems = vi.fn(

@@ -28,6 +28,8 @@ const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   branchesError: null as Error | null,
   branchesLoading: false,
+  branchId: null as string | null,
+  isAllLocations: true,
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', async () => {
@@ -62,6 +64,33 @@ vi.mock('@/components/ui/KeyboardAwareModalContainer', async () => {
   };
 });
 
+vi.mock('@/components/ui/AppSheetModal', async () => {
+  const React = await import('react');
+  return {
+    AppSheetModal: ({
+      children,
+      onClose,
+      visible,
+    }: {
+      children?: React.ReactNode;
+      onClose?: () => void;
+      visible?: boolean;
+    }) =>
+      visible
+        ? React.createElement(
+            'div',
+            null,
+            React.createElement(
+              'button',
+              { onClick: onClose, type: 'button' },
+              'Close'
+            ),
+            children
+          )
+        : null,
+  };
+});
+
 vi.mock('react-native', async () => {
   const React = await import('react');
   return {
@@ -85,7 +114,7 @@ vi.mock('react-native', async () => {
     }: {
       accessibilityLabel?: string;
       accessibilityRole?: string;
-      accessibilityState?: { selected?: boolean };
+      accessibilityState?: { checked?: boolean; selected?: boolean };
       children?: React.ReactNode;
       disabled?: boolean;
       onPress?: () => void;
@@ -93,6 +122,7 @@ vi.mock('react-native', async () => {
       React.createElement(
         'button',
         {
+          'aria-checked': accessibilityState?.checked,
           'aria-label': accessibilityLabel,
           'aria-pressed': accessibilityState?.selected,
           disabled,
@@ -149,8 +179,8 @@ vi.mock('@/hooks/useBranches', () => ({
 vi.mock('@/hooks/useBranchScope', () => ({
   useBranchScope: () => ({
     scope: { type: 'all' },
-    branchId: null,
-    isAllLocations: true,
+    branchId: mocks.branchId,
+    isAllLocations: mocks.isAllLocations,
     setAllLocations: mocks.setAllLocations,
     setBranchId: mocks.setBranchId,
   }),
@@ -194,6 +224,8 @@ describe('BranchSwitcher', () => {
     ];
     mocks.branchesError = null;
     mocks.branchesLoading = false;
+    mocks.branchId = null;
+    mocks.isAllLocations = true;
   });
 
   it('shows only add branch when no active branches exist', () => {
@@ -201,7 +233,9 @@ describe('BranchSwitcher', () => {
 
     render(<BranchSwitcher />);
 
-    expect(screen.queryByText('All locations')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^Location: / })
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Add new branch' })
     ).toBeInTheDocument();
@@ -212,12 +246,14 @@ describe('BranchSwitcher', () => {
 
     render(<BranchSwitcher />);
 
-    expect(screen.queryByText('All locations')).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Show all branch locations' })
+      screen.queryByRole('button', { name: /^Location: / })
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Switch to Lagos main branch' })
+      screen.queryByRole('radio', { name: 'Show all branch locations' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('radio', { name: 'Switch to Lagos main branch' })
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Manage Lagos main branch' })
@@ -225,6 +261,17 @@ describe('BranchSwitcher', () => {
     expect(
       screen.getByRole('button', { name: 'Add new branch' })
     ).toBeInTheDocument();
+  });
+
+  it('resets to all locations when the selected branch is no longer active', async () => {
+    mocks.branchId = '123e4567-e89b-42d3-a456-426614174003';
+    mocks.isAllLocations = false;
+
+    render(<BranchSwitcher />);
+
+    await waitFor(() => {
+      expect(mocks.setAllLocations).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('renders a loading state while branches load', () => {
@@ -245,7 +292,7 @@ describe('BranchSwitcher', () => {
 
     expect(screen.getByText('Could not load branches')).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Switch to Lagos main branch' })
+      screen.queryByRole('radio', { name: 'Switch to Lagos main branch' })
     ).not.toBeInTheDocument();
   });
 
@@ -253,18 +300,30 @@ describe('BranchSwitcher', () => {
     render(<BranchSwitcher />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Show all branch locations' })
+      screen.getByRole('button', { name: 'Location: All locations' })
     );
 
-    expect(screen.getByText('All locations')).toBeInTheDocument();
+    const allLocationsOption = screen.getByRole('radio', {
+      name: 'Show all branch locations',
+    });
+    expect(allLocationsOption).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(allLocationsOption);
+
     expect(mocks.setAllLocations).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole('button', { name: 'Location: All locations' })
+    ).toBeInTheDocument();
   });
 
   it('selects concrete branch scopes through useBranchScope', () => {
     render(<BranchSwitcher />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Switch to Lagos main branch' })
+      screen.getByRole('button', { name: 'Location: All locations' })
+    );
+    fireEvent.click(
+      screen.getByRole('radio', { name: 'Switch to Lagos main branch' })
     );
 
     expect(mocks.setBranchId).toHaveBeenCalledWith(
@@ -275,6 +334,9 @@ describe('BranchSwitcher', () => {
   it('opens a visible edit flow from each branch manage button', async () => {
     render(<BranchSwitcher />);
 
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Location: All locations' })
+    );
     fireEvent.click(
       screen.getByRole('button', { name: 'Manage Lagos main branch' })
     );
@@ -298,6 +360,9 @@ describe('BranchSwitcher', () => {
     render(<BranchSwitcher />);
 
     fireEvent.click(
+      screen.getByRole('button', { name: 'Location: All locations' })
+    );
+    fireEvent.click(
       screen.getByRole('button', { name: 'Manage Lagos main branch' })
     );
     fireEvent.change(screen.getByLabelText('Branch address input'), {
@@ -319,6 +384,9 @@ describe('BranchSwitcher', () => {
   it('deactivates a branch from the edit flow when another active branch exists', async () => {
     render(<BranchSwitcher />);
 
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Location: All locations' })
+    );
     fireEvent.click(
       screen.getByRole('button', { name: 'Manage Abuja branch' })
     );

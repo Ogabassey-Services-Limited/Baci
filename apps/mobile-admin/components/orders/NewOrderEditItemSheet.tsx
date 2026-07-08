@@ -2,6 +2,7 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { AppSheetModal } from '@/components/ui/AppSheetModal';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import { formatVariantAttributesSummary } from '@/lib/format-variant-attributes';
 import { formatPriceInput, parseDecimalInput } from './new-order.shared';
 
 interface NewOrderEditItemSheetProps {
@@ -19,6 +20,7 @@ export function NewOrderEditItemSheet({
     editingItem,
     editPriceValue,
     editQtyValue,
+    handleChangeEditingItemVariant,
     setEditDetails,
     setOrderItems,
     setShowEditItemModal,
@@ -26,6 +28,15 @@ export function NewOrderEditItemSheet({
     setEditQtyValue,
     showEditItemModal,
   } = controller;
+  const variantSummary =
+    editingItem?.variant_name?.trim() ||
+    formatVariantAttributesSummary(editingItem?.variant_attributes);
+  const canChangeVariant = Boolean(
+    editingItem?.product_id &&
+      editingItem.variant_id &&
+      !editingItem.is_custom &&
+      handleChangeEditingItemVariant
+  );
 
   return (
     <AppSheetModal
@@ -86,6 +97,66 @@ export function NewOrderEditItemSheet({
         </View>
 
         <View style={{ gap: 20, marginBottom: 32 }}>
+          {variantSummary ? (
+            <View
+              style={{
+                backgroundColor: colors.backgroundLight,
+                borderColor: colors.border,
+                borderRadius: 12,
+                borderWidth: 1,
+                gap: 8,
+                padding: 14,
+              }}
+            >
+              <View
+                style={{
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.textMuted,
+                    fontSize: 12,
+                    fontWeight: '600',
+                  }}
+                >
+                  Variant
+                </Text>
+                {canChangeVariant ? (
+                  <Pressable
+                    accessibilityLabel="Change variant"
+                    accessibilityRole="button"
+                    onPress={handleChangeEditingItemVariant}
+                    style={{ paddingHorizontal: 4, paddingVertical: 2 }}
+                  >
+                    <Text
+                      style={{
+                        color: colors.primary,
+                        fontSize: 13,
+                        fontWeight: '800',
+                      }}
+                    >
+                      Change
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              <Text
+                numberOfLines={2}
+                style={{
+                  color: colors.text,
+                  fontSize: 15,
+                  fontWeight: '700',
+                  lineHeight: 20,
+                }}
+              >
+                {variantSummary}
+              </Text>
+            </View>
+          ) : null}
+
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <View style={{ flex: 1.5 }}>
               <Text

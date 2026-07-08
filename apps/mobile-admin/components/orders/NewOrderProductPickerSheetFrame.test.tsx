@@ -39,6 +39,7 @@ vi.mock('@gorhom/bottom-sheet', async () => {
       (
         {
           index,
+          android_keyboardInputMode,
           backdropComponent: BackdropComponent,
           children,
           enableContentPanningGesture,
@@ -50,6 +51,7 @@ vi.mock('@gorhom/bottom-sheet', async () => {
           snapPoints,
         }: {
           index?: number;
+          android_keyboardInputMode?: string;
           backdropComponent?: (props: Record<string, unknown>) => ReactNode;
           children?: ReactNode;
           enableContentPanningGesture?: boolean;
@@ -71,6 +73,7 @@ vi.mock('@gorhom/bottom-sheet', async () => {
         return (
           <section
             aria-label="gorhom-bottom-sheet"
+            data-android-keyboard-input-mode={android_keyboardInputMode}
             data-keyboard-behavior={keyboardBehavior}
             data-keyboard-blur-behavior={keyboardBlurBehavior}
             data-content-panning={String(enableContentPanningGesture)}
@@ -209,6 +212,10 @@ describe('NewOrderProductPickerSheetFrame', () => {
       'data-keyboard-behavior',
       'interactive'
     );
+    expect(screen.getByLabelText('gorhom-bottom-sheet')).toHaveAttribute(
+      'data-android-keyboard-input-mode',
+      'adjustPan'
+    );
     expect(screen.getByTestId('gorhom-sheet-footer')).toHaveTextContent(
       'Search products'
     );
@@ -238,6 +245,28 @@ describe('NewOrderProductPickerSheetFrame', () => {
       'data-bottom-inset',
       '30'
     );
+  });
+
+  it('does not issue an imperative snap during the initial sheet presentation', () => {
+    render(
+      <NewOrderProductPickerSheetFrame
+        activeIndex={0}
+        closeLabel="Close product sheet"
+        colors={colors}
+        footer={<span>Search products</span>}
+        onClose={vi.fn()}
+        title="Select Item"
+        visible={true}
+      >
+        <span>Product rows</span>
+      </NewOrderProductPickerSheetFrame>
+    );
+
+    expect(screen.getByLabelText('gorhom-bottom-sheet')).toHaveAttribute(
+      'data-index',
+      '0'
+    );
+    expect(bottomSheetState.snapToIndex).not.toHaveBeenCalled();
   });
 
   it('snaps the mounted sheet when callers move to a higher snap point', () => {

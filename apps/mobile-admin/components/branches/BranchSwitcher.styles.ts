@@ -5,14 +5,25 @@ export const styles = StyleSheet.create({
   container: {
     marginBottom: SPACING.md,
   },
-  scrollContent: {
+  triggerRow: {
+    flexDirection: 'row',
     paddingHorizontal: SPACING.lg,
-    gap: SPACING.sm,
   },
-  branchItem: {
+  trigger: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
     gap: SPACING.xs,
+    maxWidth: 240,
+    minHeight: 44,
+  },
+  triggerLabel: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    flexShrink: 1,
   },
   statusContainer: {
     minHeight: 44,
@@ -22,14 +33,6 @@ export const styles = StyleSheet.create({
   statusText: {
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
-  manageButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 44,
-    height: 44,
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
   },
   addButton: {
     flexDirection: 'row',

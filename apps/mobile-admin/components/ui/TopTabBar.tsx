@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import Animated, {
+  type SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -25,6 +26,12 @@ type TopTabBarProps = {
   inStockCount?: number;
   onWebsiteCount?: number;
   onTabChange: (tab: 'in_stock' | 'on_website') => void;
+  /**
+   * Live pager progress (page index + drag offset, 0..1). When provided the
+   * indicator tracks the finger 1:1 during swipes; otherwise it springs on
+   * discrete tab changes.
+   */
+  pagerPosition?: SharedValue<number>;
 };
 
 export function TopTabBar({
@@ -32,6 +39,7 @@ export function TopTabBar({
   inStockCount = 0,
   onTabChange,
   onWebsiteCount = 0,
+  pagerPosition,
 }: TopTabBarProps) {
   const { colors } = useTheme();
   const [containerWidth, setContainerWidth] = useState(0);
@@ -49,8 +57,11 @@ export function TopTabBar({
   const tabWidth = containerWidth / 2;
 
   const indicatorStyle = useAnimatedStyle(() => {
+    const position = pagerPosition
+      ? pagerPosition.value
+      : activeIndex.value;
     return {
-      transform: [{ translateX: activeIndex.value * tabWidth }],
+      transform: [{ translateX: position * tabWidth }],
     };
   });
 

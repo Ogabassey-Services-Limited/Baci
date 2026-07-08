@@ -99,6 +99,7 @@ type EditItemController = Pick<
   | 'editingItem'
   | 'editPriceValue'
   | 'editQtyValue'
+  | 'handleChangeEditingItemVariant'
   | 'setEditDetails'
   | 'setEditPriceValue'
   | 'setEditQtyValue'
@@ -135,6 +136,7 @@ function makeController(
     },
     editPriceValue: '1,500',
     editQtyValue: '2',
+    handleChangeEditingItemVariant: vi.fn(),
     setEditDetails: vi.fn(),
     setEditPriceValue: vi.fn(),
     setEditQtyValue: vi.fn(),
@@ -146,6 +148,54 @@ function makeController(
 }
 
 describe('NewOrderEditItemSheet', () => {
+  it('shows the current variant and exposes a change action for variant items', () => {
+    const controller = makeController({
+      editingItem: {
+        details: '',
+        id: 'item-1',
+        image_url: undefined,
+        name: 'Samsung Galaxy S22',
+        price: 1500,
+        product_id: 'product-1',
+        quantity: 2,
+        variant_attributes: { color: 'Burgundy', storage: '128GB' },
+        variant_id: 'variant-1',
+        variant_name: 'Burgundy / 128GB',
+      },
+    });
+
+    render(<NewOrderEditItemSheet controller={controller} />);
+
+    expect(screen.getByText('Variant')).toBeInTheDocument();
+    expect(screen.getByText('Burgundy / 128GB')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change variant' }));
+
+    expect(controller.handleChangeEditingItemVariant).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not expose the change action for custom variant-like items', () => {
+    const controller = makeController({
+      editingItem: {
+        details: '',
+        id: 'item-1',
+        is_custom: true,
+        name: 'Custom bundle',
+        price: 1500,
+        product_id: 'product-1',
+        quantity: 1,
+        variant_id: 'variant-1',
+        variant_name: 'Burgundy / 128GB',
+      },
+    });
+
+    render(<NewOrderEditItemSheet controller={controller} />);
+
+    expect(
+      screen.queryByRole('button', { name: 'Change variant' })
+    ).not.toBeInTheDocument();
+  });
+
   it('forwards price, quantity, and detail edits with sanitized values', () => {
     const controller = makeController();
 

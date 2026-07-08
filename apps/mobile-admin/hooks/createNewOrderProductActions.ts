@@ -20,6 +20,8 @@ interface CreateNewOrderProductActionsParams {
   setSelectedParentProduct: Dispatch<SetStateAction<SelectedParentProduct>>;
   setShowCustomItemModal: Dispatch<SetStateAction<boolean>>;
   setShowProductModal: Dispatch<SetStateAction<boolean>>;
+  setVariantReplacementItemId?: Dispatch<SetStateAction<string | null>>;
+  variantReplacementItemId?: string | null;
 }
 
 export function createNewOrderProductActions({
@@ -31,9 +33,12 @@ export function createNewOrderProductActions({
   setSelectedParentProduct,
   setShowCustomItemModal,
   setShowProductModal,
+  setVariantReplacementItemId,
+  variantReplacementItemId = null,
 }: CreateNewOrderProductActionsParams) {
   const resetProductPickerState = () => {
     setSelectedParentProduct(null);
+    setVariantReplacementItemId?.(null);
   };
 
   const closeProductModal = () => {
@@ -43,16 +48,38 @@ export function createNewOrderProductActions({
   };
 
   const addProductToOrder = (product: SelectableOrderProduct) => {
-    setOrderItems((previous) =>
-      mergeOrderItem(
-        previous,
-        buildManualOrderLineItem({
-          fallbackImageUrl: selectedParentProduct?.images?.[0],
-          parentProductName: selectedParentProduct?.name,
-          product,
-        })
-      )
-    );
+    const nextItem = buildManualOrderLineItem({
+      fallbackImageUrl: selectedParentProduct?.images?.[0],
+      parentProductName: selectedParentProduct?.name,
+      product,
+    });
+    const { condition, ...restNextItem } = nextItem;
+    const normalizedNextItem =
+      condition === undefined ? restNextItem : nextItem;
+
+    setOrderItems((previous) => {
+      if (!variantReplacementItemId) {
+        return mergeOrderItem(previous, normalizedNextItem);
+      }
+
+      if (!previous.some((item) => item.id === variantReplacementItemId)) {
+        return mergeOrderItem(previous, normalizedNextItem);
+      }
+
+      return previous.map((item) =>
+        item.id === variantReplacementItemId
+          ? ({
+              ...normalizedNextItem,
+              ...(item.details !== undefined ? { details: item.details } : {}),
+              ...(item.product_match_status !== undefined
+                ? { product_match_status: item.product_match_status }
+                : {}),
+              id: item.id,
+              quantity: item.quantity,
+            } satisfies OrderItem)
+          : item
+      );
+    });
   };
 
   const handleAddProduct = (product: SelectableOrderProduct) => {

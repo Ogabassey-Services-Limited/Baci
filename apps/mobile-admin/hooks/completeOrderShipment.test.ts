@@ -176,7 +176,7 @@ describe('completeOrderShipment', () => {
     expect(result.actionLabel).toBe('Send Order Details to Rider');
   });
 
-  it('self-fulfills without a rider phone (rider number is optional)', async () => {
+  it('self-fulfills without rider details when the rider phone is omitted', async () => {
     const handleSaveRider = vi.fn();
 
     const result = await completeOrderShipment({
@@ -205,17 +205,62 @@ describe('completeOrderShipment', () => {
       queryClient: {
         invalidateQueries: mocks.invalidateQueries,
       } as unknown as QueryClient,
-      riderPhone: '   ',
+      riderPhone: '+234',
       saveDetails: true,
       updateStatus: vi.fn(),
     });
 
+    const selfFulfillmentCall = mocks.fetch.mock.calls.find(([url]) =>
+      String(url).includes('/api/shipping/self-fulfill')
+    );
+    const selfFulfillmentBody = JSON.parse(
+      String(selfFulfillmentCall?.[1]?.body)
+    ) as Record<string, unknown>;
+
     // Empty rider phone does not block shipment; fulfillment details still save.
+    expect(selfFulfillmentBody).not.toHaveProperty('dispatchPhone');
     expect(result.title).toBe('Order Shipped');
     expect(mocks.update).toHaveBeenCalled();
-    expect(handleSaveRider).toHaveBeenCalledWith('');
+    expect(handleSaveRider).not.toHaveBeenCalled();
     // Without a rider phone, the success modal hides the "Send to Rider" action.
     expect(result.showAction).toBe(false);
     expect(result.actionLabel).toBe('');
+  });
+
+  it('validates a partial rider phone before persisting fulfillment details', async () => {
+    await expect(
+      completeOrderShipment({
+        fulfillmentDetails: { imei: '123', items: [], serialNumber: '' },
+        handleSaveRider: vi.fn(),
+        mode: 'self_fulfillment',
+        merchantId: 'merchant-1',
+        order: {
+          id: 'order-1',
+          amount_paid: 0,
+          balance: 0,
+          created_at: '',
+          customer_email: 'customer@example.com',
+          customer_name: 'Ada',
+          customer_phone: '08030000000',
+          discount_amount: 0,
+          order_number: 'ORD-1',
+          payment_status: 'pending',
+          shipping_address: null,
+          shipping_status: 'processing',
+          total: 10000,
+          updated_at: '',
+        },
+        providerBookingAvailable: true,
+        providerLabel: 'GIGL',
+        queryClient: {
+          invalidateQueries: mocks.invalidateQueries,
+        } as unknown as QueryClient,
+        riderPhone: '0803',
+        saveDetails: true,
+        updateStatus: vi.fn(),
+      })
+    ).rejects.toThrow('Rider phone number is not valid for WhatsApp.');
+
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 });

@@ -8,7 +8,9 @@ import { ShipmentFlowSheet } from '@/components/orders/ShipmentFlowSheet';
 import { ShipOnCreditDialog } from '@/components/orders/ShipOnCreditDialog';
 import { ReceiptPreviewModal } from '@/components/ui/ReceiptPreviewModal';
 import { SuccessModal } from '@/components/ui/SuccessModal';
+import { useMerchant } from '@/hooks/useMerchant';
 import type { useOrderDetailsController } from '@/hooks/useOrderDetailsController';
+import { buildOrderPaymentBreakdown } from '@/lib/order-payment-breakdown';
 import { OrderAuditTrailCard } from './OrderAuditTrailCard';
 import { OrderDetailsFooterBar } from './OrderDetailsFooterBar';
 import { OrderDetailsHeaderActions } from './OrderDetailsHeaderActions';
@@ -24,6 +26,7 @@ interface OrderDetailsScreenContentProps {
 export function OrderDetailsScreenContent({
   controller,
 }: OrderDetailsScreenContentProps) {
+  const { merchant } = useMerchant();
   const order = controller.order;
 
   if (!order) {
@@ -34,6 +37,17 @@ export function OrderDetailsScreenContent({
   );
   const hideMainContentFromAccessibility =
     shouldHideOrderDetailsContentFromAccessibility(controller);
+  const paymentBreakdown = buildOrderPaymentBreakdown({
+    currency: order.currency,
+    discountAmount: order.discount_amount,
+    giftWrappingFee: order.gift_wrapping_fee,
+    merchant,
+    shippingFee: order.shipping_fee,
+    subtotal: order.subtotal,
+    taxAmount: order.tax_amount,
+    total: order.total,
+    walletAmountUsed: order.wallet_amount_used,
+  });
 
   return (
     <View style={{ backgroundColor: controller.colors.background, flex: 1 }}>
@@ -98,6 +112,7 @@ export function OrderDetailsScreenContent({
             colors={controller.colors}
             discountAmount={order.discount_amount}
             formatPrice={controller.formatPrice}
+            giftWrappingFee={paymentBreakdown.giftWrappingFee}
             items={order.items || []}
             onRecordPayment={() => {
               const amount = Math.round(order.balance ?? order.total);
@@ -118,8 +133,12 @@ export function OrderDetailsScreenContent({
             paymentMethod={order.payment_method}
             paymentStatus={order.payment_status}
             shippingFee={order.shipping_fee}
-            subtotal={order.subtotal}
+            showVat={paymentBreakdown.showVat}
+            subtotal={paymentBreakdown.displaySubtotal ?? order.subtotal}
+            taxAmount={paymentBreakdown.taxAmount}
             total={order.total}
+            vatLabel={paymentBreakdown.vatLabel}
+            walletAmountUsed={paymentBreakdown.walletAmountUsed}
           />
           <OrderDetailsShippingSection
             address={controller.formatAddress(order.shipping_address)}

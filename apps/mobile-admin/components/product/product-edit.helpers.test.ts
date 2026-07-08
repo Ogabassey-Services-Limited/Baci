@@ -5,6 +5,7 @@ import {
   calculateProfitMargin,
   getCurrencySymbol,
   getVariantSummaryLabel,
+  getVariantSummaryMeta,
 } from './product-edit.helpers';
 
 describe('product-edit.helpers', () => {
@@ -38,6 +39,51 @@ describe('product-edit.helpers', () => {
     } satisfies EditableProductVariant;
 
     expect(getVariantSummaryLabel(variant, 0)).toBe('Used • 256GB / Black');
+  });
+
+  it('omits machine attributes like color_hex from the summary label', () => {
+    const variant = {
+      attributes: [
+        { key: 'Color', value: 'Black' },
+        { key: 'color_hex', value: '#000000' },
+        { key: 'Storage', value: '128GB' },
+      ],
+      client_id: 'variant-1',
+      condition: 'new',
+      cost_price: 500,
+      images: [],
+      price: 1000,
+      primary_image: null,
+      sku: '',
+      stock_quantity: 0,
+    } satisfies EditableProductVariant;
+
+    expect(getVariantSummaryLabel(variant, 0)).toBe('New • Black / 128GB');
+  });
+
+  it('builds variant summary meta from price and stock', () => {
+    const pricedVariant = {
+      attributes: [],
+      client_id: 'variant-1',
+      cost_price: 500,
+      images: [],
+      price: 120000,
+      primary_image: null,
+      sku: '',
+      stock_quantity: 3,
+    } satisfies EditableProductVariant;
+    const unpricedVariant = {
+      ...pricedVariant,
+      price: 0,
+      stock_quantity: 0,
+    };
+
+    expect(getVariantSummaryMeta(pricedVariant, '₦')).toBe(
+      '₦120,000 • 3 in stock'
+    );
+    expect(getVariantSummaryMeta(unpricedVariant, '₦')).toBe(
+      'No price set • 0 in stock'
+    );
   });
 
   it('calculates an active profit margin with the correct color', () => {

@@ -75,6 +75,9 @@ export function useNewOrderController({
   const [productSearch, setProductSearch] = useState('');
   const [selectedParentProduct, setSelectedParentProduct] =
     useState<SelectedParentProduct>(null);
+  const [variantReplacementItemId, setVariantReplacementItemId] = useState<
+    string | null
+  >(null);
   const [customerSearch, setCustomerSearch] = useState('');
   const {
     customersData,
@@ -152,6 +155,8 @@ export function useNewOrderController({
     setSelectedParentProduct,
     setShowCustomItemModal: uiState.setShowCustomItemModal,
     setShowProductModal: uiState.setShowProductModal,
+    setVariantReplacementItemId,
+    variantReplacementItemId,
   });
 
   const customerActions = createNewOrderCustomerActions({
@@ -211,7 +216,31 @@ export function useNewOrderController({
     setDeliveryInfo(createEmptyDeliveryInfo());
     setPartialAmount('');
     setPaymentMethod('transfer');
+    setVariantReplacementItemId(null);
     uiState.setLastOrderId(null);
+  };
+
+  const handleChangeEditingItemVariant = () => {
+    const item = uiState.editingItem;
+    if (!item?.product_id || !item.variant_id || item.is_custom) {
+      return;
+    }
+
+    setVariantReplacementItemId(item.id);
+    setSelectedParentProduct({
+      condition: item.condition ?? null,
+      has_variants: true,
+      id: item.product_id,
+      images: item.image_url ? [item.image_url] : [],
+      name: item.name,
+      parent_product_id: null,
+      price: item.price,
+      sku: null,
+      variant_attributes: item.variant_attributes ?? null,
+    });
+    setProductSearch('');
+    uiState.setShowEditItemModal(false);
+    uiState.setShowProductModal(true);
   };
 
   return {
@@ -291,6 +320,7 @@ export function useNewOrderController({
     calculatedVat,
     formatPrice,
     handleSubmit,
+    handleChangeEditingItemVariant,
     resetOrderDraft,
     ...customerActions,
     ...productActions,

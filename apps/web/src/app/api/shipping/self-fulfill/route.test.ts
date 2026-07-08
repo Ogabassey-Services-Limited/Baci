@@ -71,6 +71,7 @@ function createSupabaseMock() {
   const updateBuilder = {
     eq: vi.fn(() => updateBuilder),
   };
+  const updateOrder = vi.fn(() => updateBuilder);
   updateBuilder.eq
     .mockImplementationOnce(() => updateBuilder)
     .mockImplementationOnce(updateEq);
@@ -86,7 +87,7 @@ function createSupabaseMock() {
               })),
             })),
           })),
-          update: vi.fn(() => updateBuilder),
+          update: updateOrder,
         };
       }
 
@@ -106,6 +107,7 @@ function createSupabaseMock() {
 
   return {
     supabase: supabase as unknown as SupabaseClient,
+    updateOrder,
     updateEq,
   };
 }
@@ -153,6 +155,66 @@ describe('Self-fulfill API routes', () => {
       success: true,
       message: 'Order marked as self-fulfilled',
     });
+  });
+
+  it('marks an order self-fulfilled when dispatch phone is omitted', async () => {
+    const { supabase, updateOrder } = createSupabaseMock();
+
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(
+      createRequest({
+        orderId: '11111111-1111-4111-8111-111111111111',
+        carrierName: 'Dispatch Rider',
+      })
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(updateOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fulfillment_type: 'self',
+        self_fulfillment_data: expect.objectContaining({
+          carrierName: 'Dispatch Rider',
+          dispatchPhone: null,
+        }),
+        shipping_status: 'shipped',
+      })
+    );
+    expect(payload.fulfillment.dispatchPhone).toBeNull();
+  });
+
+  it('marks an order self-fulfilled when dispatch phone is null', async () => {
+    const { supabase, updateOrder } = createSupabaseMock();
+
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(
+      createRequest({
+        orderId: '11111111-1111-4111-8111-111111111111',
+        carrierName: 'Dispatch Rider',
+        dispatchPhone: null,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(updateOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fulfillment_type: 'self',
+        self_fulfillment_data: expect.objectContaining({
+          dispatchPhone: null,
+        }),
+        shipping_status: 'shipped',
+      })
+    );
   });
 
   it('returns 401 when api auth fails', async () => {

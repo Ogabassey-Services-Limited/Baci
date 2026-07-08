@@ -1,22 +1,42 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import type { EditableProductCondition } from '@/lib/product-condition';
-import type {
-  EditableProductVariant,
-  VariantAttributeFormValue,
+import {
+  type EditableProductVariant,
+  getTotalVariantStock,
+  type VariantAttributeFormValue,
 } from '@/lib/product-variant-form';
+import { isPlaceholderVariant } from '@/lib/variant-generation';
+import {
+  filterVariantIndexes,
+  getVariantAxes,
+  type VariantFilterSelection,
+  type VariantPricingUpdate,
+} from '@/lib/variant-group-pricing';
 import { PriceInput } from './PriceInput';
-import { ProductVariantRow } from './ProductVariantRow';
+import { productVariantsCardStyles as styles } from './product-variants-card.styles';
+import { ProductVariantsCardHeader } from './ProductVariantsCardHeader';
+import { VariantAccordionList } from './VariantAccordionList';
+import { VariantCardActions } from './VariantCardActions';
+import { VariantBuilderSheet } from './VariantBuilderSheet';
+import { VariantFilterChips } from './VariantFilterChips';
+import { VariantGroupPricingSheet } from './VariantGroupPricingSheet';
+
+const BULK_PRICING_MIN_VARIANTS = 4;
+const FILTER_MIN_VARIANTS = 5;
 
 interface ProductVariantsCardProps {
   colors: ThemeColors;
   currencySymbol: string;
   hasVariantConditionAxis: boolean;
-  onAddVariant: () => void;
+  onAddVariant: () => string;
   onAddVariantAttribute: (variantIndex: number) => void;
+  onApplyVariantPricing: (updates: VariantPricingUpdate[]) => void;
   onDefaultCostPriceChange: (value: number) => void;
   onDefaultPriceChange: (value: number) => void;
+  onGenerateVariants: (variants: EditableProductVariant[]) => void;
   onRemoveVariant: (variantIndex: number) => void;
   onRemoveVariantAttribute: (
     variantIndex: number,
@@ -49,8 +69,10 @@ export function ProductVariantsCard({
   hasVariantConditionAxis,
   onAddVariant,
   onAddVariantAttribute,
+  onApplyVariantPricing,
   onDefaultCostPriceChange,
   onDefaultPriceChange,
+  onGenerateVariants,
   onRemoveVariant,
   onRemoveVariantAttribute,
   onUpdateVariant,
@@ -59,6 +81,55 @@ export function ProductVariantsCard({
   value,
   variants,
 }: ProductVariantsCardProps) {
+  const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
+  const [isBuilderVisible, setIsBuilderVisible] = useState(false);
+  const [isPricingVisible, setIsPricingVisible] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [filterSelection, setFilterSelection] =
+    useState<VariantFilterSelection>({});
+
+  const totalStock = getTotalVariantStock(variants);
+  const axes = getVariantAxes(variants);
+  const hasActiveFilter = axes.some((axis) => filterSelection[axis.id]);
+  const visibleIndexes = hasActiveFilter
+    ? filterVariantIndexes(variants, axes, filterSelection)
+    : variants.map((_, index) => index);
+
+  const existingConditions = Array.from(
+    new Set(
+      variants
+        .map((variant) => variant.condition)
+        .filter((condition): condition is EditableProductCondition =>
+          Boolean(condition)
+        )
+    )
+  );
+
+  // Keep the builder's condition choice consistent with the all-or-nothing
+  // save rule: if real variants already exist, the builder must match whether
+  // they use conditions (required) or not (blocked); otherwise it is free.
+  const realVariants = variants.filter(
+    (variant) => !isPlaceholderVariant(variant)
+  );
+  const conditionMode: 'blocked' | 'free' | 'required' =
+    realVariants.length === 0
+      ? 'free'
+      : realVariants.some((variant) => variant.condition)
+        ? 'required'
+        : 'blocked';
+
+  const handleAddVariant = () => {
+    const newClientId = onAddVariant();
+    if (newClientId) {
+      setExpandedClientId(newClientId);
+    }
+  };
+
+  const handleGenerate = (generated: EditableProductVariant[]) => {
+    onGenerateVariants(generated);
+    setExpandedClientId(null);
+  };
+
   return (
     <View
       style={[
@@ -66,141 +137,150 @@ export function ProductVariantsCard({
         { backgroundColor: colors.card, borderColor: colors.border },
       ]}
     >
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Variants</Text>
-        <Pressable
-          accessibilityLabel="Add product variant"
-          accessibilityRole="button"
-          onPress={onAddVariant}
-          style={styles.addButton}
-        >
-          <Ionicons name="add" size={20} color={colors.primary} />
-          <Text style={[styles.addLabel, { color: colors.primary }]}>
-            Add Variant
-          </Text>
-        </Pressable>
-      </View>
+      <ProductVariantsCardHeader
+        colors={colors}
+        onToggleHelp={() => setShowHelp((previous) => !previous)}
+        showHelp={showHelp}
+        totalStock={totalStock}
+        variantCount={variants.length}
+      />
 
-      <Text style={[styles.description, { color: colors.textSecondary }]}>
-        Parent search results stay fast, but pricing and stock now come from the
-        structured variants below. The parent price is used as the default when
-        adding new variants.
+      <Text style={[styles.groupLabel, { color: colors.textSecondary }]}>
+        Default prices
       </Text>
-      {hasVariantConditionAxis ? (
-        <Text style={[styles.description, { color: colors.textSecondary }]}>
-          Condition is now part of the variant identity. Every variant row needs
-          a condition when you price by new, used, or open box.
-        </Text>
-      ) : null}
-
-      <View style={styles.row}>
+      <View style={styles.priceRow}>
         <View style={styles.halfInput}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Default Selling Price
+          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+            Selling
           </Text>
           <PriceInput
             accessibilityLabel="Default selling price"
-            value={value.price}
-            onChange={onDefaultPriceChange}
-            placeholder="0.00"
             colors={colors}
             currencySymbol={currencySymbol}
+            onChange={onDefaultPriceChange}
+            placeholder="0.00"
+            value={value.price}
           />
         </View>
         <View style={styles.halfInput}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Default Cost Price
+          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+            Cost
           </Text>
           <PriceInput
             accessibilityLabel="Default cost price"
-            value={value.cost_price}
-            onChange={onDefaultCostPriceChange}
-            placeholder="0.00"
             colors={colors}
             currencySymbol={currencySymbol}
+            onChange={onDefaultCostPriceChange}
+            placeholder="0.00"
+            value={value.cost_price}
           />
         </View>
       </View>
 
-      {variants.length === 0 ? (
-        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-          Add at least one variant before saving this parent product.
+      {variants.length >= BULK_PRICING_MIN_VARIANTS ? (
+        <Pressable
+          accessibilityHint="Set prices for groups of variants at once, e.g. all 128GB Used"
+          accessibilityLabel="Set prices in bulk"
+          accessibilityRole="button"
+          onPress={() => setIsPricingVisible(true)}
+          style={[styles.bulkButton, { borderColor: colors.primary }]}
+        >
+          <Ionicons
+            color={colors.primary}
+            name="pricetags-outline"
+            size={16}
+          />
+          <Text style={[styles.bulkButtonText, { color: colors.primary }]}>
+            Set prices in bulk
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {variants.length >= FILTER_MIN_VARIANTS ? (
+        <VariantFilterChips
+          axes={axes}
+          colors={colors}
+          onChange={setFilterSelection}
+          selection={filterSelection}
+        />
+      ) : null}
+
+      {hasActiveFilter ? (
+        <Text style={[styles.showingText, { color: colors.textSecondary }]}>
+          Showing {visibleIndexes.length} of {variants.length} variants
         </Text>
       ) : null}
 
-      {variants.map((variant, variantIndex) => (
-        <ProductVariantRow
-          key={variant.client_id}
+      {variants.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            No variants yet
+          </Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            Build them from options like Colour or Storage, or add one at a
+            time.
+          </Text>
+        </View>
+      ) : (
+        <VariantAccordionList
           colors={colors}
           currencySymbol={currencySymbol}
-          onAddAttribute={() => onAddVariantAttribute(variantIndex)}
-          onRemove={() => onRemoveVariant(variantIndex)}
-          onRemoveAttribute={(attributeIndex) =>
-            onRemoveVariantAttribute(variantIndex, attributeIndex)
-          }
-          onUpdate={(updates) => onUpdateVariant(variantIndex, updates)}
-          onUpdateAttribute={(attributeIndex, field, nextValue) =>
-            onUpdateVariantAttribute(
-              variantIndex,
-              attributeIndex,
-              field,
-              nextValue
+          expandedClientId={expandedClientId}
+          onAddVariantAttribute={onAddVariantAttribute}
+          onApplyVariantPricing={onApplyVariantPricing}
+          onRemoveVariant={onRemoveVariant}
+          onRemoveVariantAttribute={onRemoveVariantAttribute}
+          onToggleExpand={(clientId) =>
+            setExpandedClientId((previous) =>
+              previous === clientId ? null : clientId
             )
           }
-          onUpdateCondition={(condition) =>
-            onUpdateVariantCondition(variantIndex, condition)
-          }
-          variant={variant}
-          variantIndex={variantIndex}
+          onUpdateVariant={onUpdateVariant}
+          onUpdateVariantAttribute={onUpdateVariantAttribute}
+          onUpdateVariantCondition={onUpdateVariantCondition}
+          variants={variants}
+          visibleIndexes={visibleIndexes}
         />
-      ))}
+      )}
+
+      <VariantCardActions
+        colors={colors}
+        onAddOne={handleAddVariant}
+        onOpenBuilder={() => setIsBuilderVisible(true)}
+      />
+
+      {hasVariantConditionAxis ? (
+        <Text style={[styles.conditionNote, { color: colors.textMuted }]}>
+          Every variant needs a condition while condition-based pricing is on.
+        </Text>
+      ) : null}
+
+      {isBuilderVisible ? (
+        <VariantBuilderSheet
+          colors={colors}
+          conditionMode={conditionMode}
+          defaults={{
+            costPrice: value.cost_price,
+            images: [],
+            price: value.price,
+          }}
+          initialConditions={existingConditions}
+          onClose={() => setIsBuilderVisible(false)}
+          onGenerate={handleGenerate}
+          visible={isBuilderVisible}
+        />
+      ) : null}
+
+      {isPricingVisible ? (
+        <VariantGroupPricingSheet
+          colors={colors}
+          currencySymbol={currencySymbol}
+          onApply={onApplyVariantPricing}
+          onClose={() => setIsPricingVisible(false)}
+          variants={variants}
+          visible={isPricingVisible}
+        />
+      ) : null}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  addButton: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6,
-  },
-  addLabel: {
-    fontWeight: '600',
-  },
-  card: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 16,
-  },
-  description: {
-    fontSize: 13,
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontSize: 13,
-    fontStyle: 'italic',
-    marginTop: 16,
-  },
-  halfInput: {
-    flex: 1,
-  },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-});

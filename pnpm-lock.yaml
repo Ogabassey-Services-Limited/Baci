@@ -402,6 +402,9 @@ importers:
       react-native-nitro-modules:
         specifier: 0.35.9
         version: 0.35.9(patch_hash=4389d08533b644ae94941500e6ef507bc1bcdf985e85a341b3b7cc193cb9f242)(react-native@0.86.0(@babel/core@7.29.6)(@react-native/jest-preset@0.86.0(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
+      react-native-pager-view:
+        specifier: 8.0.2
+        version: 8.0.2(react-native@0.86.0(@babel/core@7.29.6)(@react-native/jest-preset@0.86.0(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
       react-native-phone-number-input:
         specifier: 2.1.0
         version: 2.1.0(patch_hash=71a74490981d221fea39af4c70a4475f1771909ebc246e8af30487833c2fe51e)(@types/react@19.2.17)(react-art@16.13.1(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native@0.86.0(@babel/core@7.29.6)(@react-native/jest-preset@0.86.0(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)

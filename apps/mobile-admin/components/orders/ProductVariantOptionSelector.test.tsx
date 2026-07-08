@@ -219,12 +219,7 @@ describe('ProductVariantOptionSelector', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Add selected variant' })
-    ).not.toBeDisabled();
-    expect(onAddProduct).not.toHaveBeenCalled();
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Add selected variant' })
-    );
+    ).toBeDisabled();
     expect(onAddProduct).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'variant-2',
@@ -261,7 +256,7 @@ describe('ProductVariantOptionSelector', () => {
     expect(addButton).toBeDisabled();
   });
 
-  it('waits for explicit confirmation after the final selectable option is chosen', () => {
+  it('auto-adds the variant after the final selectable option is chosen', () => {
     const onAddProduct = vi.fn();
 
     renderSelector({
@@ -300,18 +295,13 @@ describe('ProductVariantOptionSelector', () => {
       })
     );
 
-    expect(onAddProduct).not.toHaveBeenCalled();
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Add selected variant' })
-    );
-
     expect(onAddProduct).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'variant-i7',
         images: ['https://example.test/parent.jpg'],
       })
     );
+    expect(onAddProduct).toHaveBeenCalledTimes(1);
   });
 
   it('uses an empty image array when selected and parent products have no images', () => {

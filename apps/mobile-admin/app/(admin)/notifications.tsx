@@ -225,8 +225,8 @@ export default function NotificationsScreen() {
                   }}
                   thumbColor={
                     (preferences?.in_app_enabled ?? true)
-                      ? colors.primary
-                      : colors.textMuted
+                      ? colors.card
+                      : colors.border
                   }
                 />
               </View>
@@ -258,8 +258,8 @@ export default function NotificationsScreen() {
                   }}
                   thumbColor={
                     (preferences?.banner_enabled ?? true)
-                      ? colors.primary
-                      : colors.textMuted
+                      ? colors.card
+                      : colors.border
                   }
                 />
               </View>
