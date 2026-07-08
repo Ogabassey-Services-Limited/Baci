@@ -213,11 +213,14 @@ export async function POST(request: NextRequest) {
       // Paystack returns "success"; our transactions table stores "completed".
       // Must use the service-role client: transactions has no merchant UPDATE
       // policy, so the user-scoped client silently updates zero rows and the
-      // row would stay "pending" forever (inviting webhook replays).
+      // row would stay "pending" forever (inviting webhook replays). Persist
+      // the verified gateway payload too — when this update wins the race the
+      // webhook's completion update no-ops and would never store it.
       const { error: updateError } = await createAdminClient()
         .from('transactions')
         .update({
           status: 'completed',
+          gateway_response: verificationResult.data,
           updated_at: new Date().toISOString(),
         })
         .eq('id', transactionRecord.id)
@@ -246,6 +249,12 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
+
+    // Fulfillment writes (transactions mark-purchased/claim, domains repair
+    // inserts/updates) must use the service-role client: staff users pass the
+    // route's permission checks but lack owner RLS on these tables, so the
+    // cookie-scoped client would silently fail for them.
+    const adminSupabase = createAdminClient();
 
     // Check if payment was already used for a domain purchase. This guard
     // runs BEFORE the current-pricing amount check: a fulfilled payment was
@@ -300,7 +309,7 @@ export async function POST(request: NextRequest) {
             activateExpiresAt.getFullYear() +
               (Number(paymentMetadata.years) || years)
           );
-          const { error: activateError } = await supabase
+          const { error: activateError } = await adminSupabase
             .from('domains')
             .update({
               status: 'active',
@@ -360,7 +369,7 @@ export async function POST(request: NextRequest) {
           .limit(1)
           .maybeSingle();
 
-      const { data: repairedRow, error: repairError } = await supabase
+      const { data: repairedRow, error: repairError } = await adminSupabase
         .from('domains')
         .insert({
           merchant_id: merchantId,
@@ -421,11 +430,6 @@ export async function POST(request: NextRequest) {
         { status: 402 }
       );
     }
-
-    // Fulfillment writes to transactions (mark-purchased, claim) must use the
-    // service-role client: transactions has no merchant UPDATE policy, so the
-    // user-scoped client silently updates zero rows.
-    const adminSupabase = createAdminClient();
 
     const markPaymentDomainPurchased = async (
       domainId?: string,
@@ -732,7 +736,7 @@ export async function POST(request: NextRequest) {
       const nowIso = new Date().toISOString();
 
       // Store domain in database
-      const { data: newDomain, error: insertError } = await supabase
+      const { data: newDomain, error: insertError } = await adminSupabase
         .from('domains')
         .insert({
           merchant_id: merchantId,
