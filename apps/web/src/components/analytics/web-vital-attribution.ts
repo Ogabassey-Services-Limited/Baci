@@ -1,5 +1,28 @@
 import { redactUrlQuery } from '@/lib/posthog/boot-free-capture';
 
+// Classic/module-script LoAF entries serialize the script URL as `invoker`.
+const ABSOLUTE_URL_INVOKER_PATTERN = /^[a-z][a-z0-9+.-]*:\/\//i;
+// Event-listener invokers can embed the element source: `IMG[src=...].onload`.
+const INVOKER_SRC_SEGMENT_PATTERN = /\[src=([^\]]*)\]/g;
+
+/**
+ * Redact query/hash from URL content inside a LoAF invoker WITHOUT mangling
+ * non-URL invokers. Per the LoAF spec, event-listener invokers use `#` for
+ * the element id (`BUTTON#checkout.onclick`), so a blanket query/hash strip
+ * would collapse them to the bare tag and destroy the INP attribution. Only
+ * a whole-string script URL or a URL embedded in a `[src=...]` segment can
+ * carry query tokens — redact exactly those.
+ */
+function redactInvokerUrls(invoker: string): string {
+  if (ABSOLUTE_URL_INVOKER_PATTERN.test(invoker)) {
+    return redactUrlQuery(invoker);
+  }
+  return invoker.replace(
+    INVOKER_SRC_SEGMENT_PATTERN,
+    (_segment, src: string) => `[src=${redactUrlQuery(src)}]`
+  );
+}
+
 interface WebVitalMetricLike {
   name: string;
   attribution?: unknown;
@@ -88,12 +111,7 @@ export function extractWebVitalAttribution(
           out.loafLongestScriptSource = redactUrlQuery(entry.sourceURL);
         }
         if (typeof entry.invoker === 'string' && entry.invoker) {
-          // Same redaction as sourceURL: for classic/module scripts the LoAF
-          // spec returns the script URL as `invoker`, and event-listener
-          // invokers can embed a target src — both can carry query tokens.
-          // Plain invoker names ("DOMWindow.onpointerdown") contain no ?/#
-          // and pass through unchanged.
-          out.loafLongestScriptInvoker = redactUrlQuery(entry.invoker);
+          out.loafLongestScriptInvoker = redactInvokerUrls(entry.invoker);
         }
       }
     }

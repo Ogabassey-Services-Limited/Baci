@@ -144,4 +144,17 @@ describe('flushWebVitalsBeacon identity persistence', () => {
     const second = await decodeBeaconBodyAsync(sendBeacon.mock.calls[1]);
     expect(first.distinct_id).toBe(second.distinct_id);
   });
+
+  it('keeps one generated distinct_id across flushes when localStorage is absent', async () => {
+    const { sendBeacon } = stubBrowserGlobals();
+    vi.stubGlobal('localStorage', undefined);
+    enqueuePostHogWebVital(vital({ metric: 'LCP', value: 900, id: 'v5-n1' }));
+    flushWebVitalsBeacon(ENV);
+    enqueuePostHogWebVital(vital({ metric: 'CLS', value: 0.1, id: 'v5-n2' }));
+    flushWebVitalsBeacon(ENV);
+
+    const first = await decodeBeaconBodyAsync(sendBeacon.mock.calls[0]);
+    const second = await decodeBeaconBodyAsync(sendBeacon.mock.calls[1]);
+    expect(first.distinct_id).toBe(second.distinct_id);
+  });
 });

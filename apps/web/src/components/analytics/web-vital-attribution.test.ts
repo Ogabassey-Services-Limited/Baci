@@ -144,24 +144,31 @@ describe('extractWebVitalAttribution', () => {
     expect(out.loafLongestScriptInvoker).toBe('DOMWindow.onclick');
   });
 
-  it('strips query/hash from URL-valued LoAF invokers but keeps plain invoker names intact', () => {
-    const inpWithInvoker = (invoker: string) =>
+  it('redacts URL content in LoAF invokers without mangling element-id invokers', () => {
+    const invokerOut = (invoker: string) =>
       extractWebVitalAttribution({
         ...base,
         name: 'INP',
         attribution: { longestScript: { entry: { invoker } } },
-      });
+      }).loafLongestScriptInvoker;
 
     // Classic/module-script entries return the script URL as `invoker`
     // (LoAF spec) — the query can carry signed tokens and must be dropped.
+    expect(invokerOut('https://cdn.example.com/tag.js?sig=secret#f')).toBe(
+      'https://cdn.example.com/tag.js'
+    );
+    // Event-listener invokers can embed the element source URL.
     expect(
-      inpWithInvoker('https://cdn.example.com/tag.js?sig=secret#f')
-        .loafLongestScriptInvoker
-    ).toBe('https://cdn.example.com/tag.js');
-    // Non-URL invoker names contain no ?/# and must pass through unchanged.
-    expect(
-      inpWithInvoker('DOMWindow.onpointerdown').loafLongestScriptInvoker
-    ).toBe('DOMWindow.onpointerdown');
+      invokerOut('IMG[src=https://cdn.example.com/a.png?tok=x].onload')
+    ).toBe('IMG[src=https://cdn.example.com/a.png].onload');
+    // Element-id invokers use # for the id, NOT a URL hash — must survive.
+    expect(invokerOut('BUTTON#checkout.onclick')).toBe(
+      'BUTTON#checkout.onclick'
+    );
+    // Plain invoker names pass through unchanged.
+    expect(invokerOut('DOMWindow.onpointerdown')).toBe(
+      'DOMWindow.onpointerdown'
+    );
   });
 
   it('omits LoAF fields when the browser provides none (non-Chromium)', () => {
