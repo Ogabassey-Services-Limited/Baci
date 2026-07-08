@@ -204,6 +204,24 @@ describe('shippingService', () => {
     expect(response.quotes.all[0].provider).toBe('GIGL');
   });
 
+  it('returns an explicit warning when no quote providers are registered', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('GIGL_ENABLED', 'false');
+    vi.stubEnv('TOPSHIP_ENABLED', 'false');
+    mockShippingProviders();
+
+    const { shippingService } = await importShippingService();
+
+    expect(shippingService.getEnabledProviders()).toEqual([]);
+
+    const response = await shippingService.getQuotes(quoteRequest);
+
+    expect(response.quotes.all).toHaveLength(0);
+    expect(response.warnings).toEqual([
+      'No shipping providers are currently enabled',
+    ]);
+  });
+
   it('blocks new Topship bookings when Topship is disabled', async () => {
     stubGiglRuntimeEnv();
     vi.stubEnv('TOPSHIP_API_KEY', 'topship-secret');

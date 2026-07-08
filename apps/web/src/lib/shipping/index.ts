@@ -12,6 +12,10 @@ import {
 } from './providers/base';
 import { GiglProvider } from './providers/gigl';
 import {
+  GIGL_BASE_URL,
+  GIGL_EMAIL,
+  GIGL_ENABLED,
+  GIGL_PASSWORD,
   isExplicitlyDisabledEnv,
   isGiglRuntimeConfigured,
 } from './providers/gigl.constants';
@@ -58,6 +62,22 @@ if (isGiglRuntimeConfigured()) {
 
 registerProvider(new TopshipProvider(), {
   enabledForNewShipments: isTopshipEnabledForNewShipments(),
+});
+
+// One-line startup fingerprint: which providers can quote, and — when GIGL is
+// out — which of its config inputs is missing (presence booleans only, never
+// values). An empty registry silently serves zero quotes to every checkout,
+// so make the cause readable from runtime logs.
+console.info('[Shipping] Provider registry initialized', {
+  quoteProviders: registry.getAll().map((provider) => provider.code),
+  giglRuntimeConfigured: isGiglRuntimeConfigured(),
+  giglConfigPresence: {
+    enabled: GIGL_ENABLED,
+    baseUrl: Boolean(GIGL_BASE_URL),
+    email: Boolean(GIGL_EMAIL),
+    password: Boolean(GIGL_PASSWORD),
+  },
+  topshipEnabledForNewShipments: isTopshipEnabledForNewShipments(),
 });
 
 // Create aggregator
