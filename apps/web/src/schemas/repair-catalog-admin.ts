@@ -45,7 +45,9 @@ export const updateRepairServiceTypeSchema = z
   })
   .partial();
 
-export type CreateRepairServiceTypeInput = z.infer<
+// z.input (not z.infer/output): defaulted fields (isActive, etc.) stay optional
+// for callers — the client payload and the insert builders apply the defaults.
+export type CreateRepairServiceTypeInput = z.input<
   typeof createRepairServiceTypeSchema
 >;
 export type UpdateRepairServiceTypeInput = z.infer<
@@ -86,7 +88,7 @@ export const updateRepairDeviceSchema = z
   })
   .partial();
 
-export type CreateRepairDeviceInput = z.infer<typeof createRepairDeviceSchema>;
+export type CreateRepairDeviceInput = z.input<typeof createRepairDeviceSchema>;
 export type UpdateRepairDeviceInput = z.infer<typeof updateRepairDeviceSchema>;
 
 // ---------------------------------------------------------------------------
@@ -123,7 +125,7 @@ export const updateRepairQuoteSchema = z
   })
   .partial();
 
-export type CreateRepairQuoteInput = z.infer<typeof createRepairQuoteSchema>;
+export type CreateRepairQuoteInput = z.input<typeof createRepairQuoteSchema>;
 export type UpdateRepairQuoteInput = z.infer<typeof updateRepairQuoteSchema>;
 
 // ---------------------------------------------------------------------------
@@ -155,7 +157,7 @@ export const repairImportCommitRowSchema = z.object({
   productId: z.uuid().nullable().optional(),
 });
 
-export type RepairImportCommitRow = z.infer<typeof repairImportCommitRowSchema>;
+export type RepairImportCommitRow = z.input<typeof repairImportCommitRowSchema>;
 
 export const repairImportCommitSchema = z.object({
   rows: z
