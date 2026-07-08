@@ -1588,6 +1588,19 @@ export async function POST(request: NextRequest) {
             activateExpiresAt.setFullYear(
               activateExpiresAt.getFullYear() + (Number(metadata.years) || 1)
             );
+            // Promote to primary if the merchant has no active primary yet —
+            // an inactive fallback row was inserted is_primary=false, but once
+            // active it may be the merchant's first domain.
+            const { data: activatePrimary, error: activatePrimaryError } =
+              await supabase
+                .from('domains')
+                .select('id')
+                .eq('merchant_id', transaction.merchant_id)
+                .in('domain_type', ['custom', 'purchased'])
+                .eq('status', 'active')
+                .eq('is_primary', true)
+                .limit(1)
+                .maybeSingle();
             const { error: activateError } = await supabase
               .from('domains')
               .update({
@@ -1596,6 +1609,7 @@ export async function POST(request: NextRequest) {
                 verified_at: new Date().toISOString(),
                 expires_at: activateExpiresAt.toISOString(),
                 auto_renew: true,
+                is_primary: !activatePrimaryError && !activatePrimary,
                 go54_order_id:
                   typeof metadata.domain_registrar_order_id === 'string'
                     ? metadata.domain_registrar_order_id

@@ -313,6 +313,19 @@ export async function POST(request: NextRequest) {
             activateExpiresAt.getFullYear() +
               (Number(paymentMetadata.years) || years)
           );
+          // Promote to primary if the merchant has no active primary yet —
+          // an inactive fallback row was inserted is_primary=false, but once
+          // active it may be the merchant's first domain.
+          const { data: activatePrimary, error: activatePrimaryError } =
+            await adminSupabase
+              .from('domains')
+              .select('id')
+              .eq('merchant_id', merchantId)
+              .in('domain_type', ['custom', 'purchased'])
+              .eq('status', 'active')
+              .eq('is_primary', true)
+              .limit(1)
+              .maybeSingle();
           const { error: activateError } = await adminSupabase
             .from('domains')
             .update({
@@ -321,6 +334,7 @@ export async function POST(request: NextRequest) {
               verified_at: new Date().toISOString(),
               expires_at: activateExpiresAt.toISOString(),
               auto_renew: true,
+              is_primary: !activatePrimaryError && !activatePrimary,
               go54_order_id:
                 typeof paymentMetadata.domain_registrar_order_id === 'string'
                   ? paymentMetadata.domain_registrar_order_id
@@ -471,12 +485,15 @@ export async function POST(request: NextRequest) {
       return true;
     };
 
-    // Check if domain already exists
-    const { data: existingDomain, error: existingDomainError } = await supabase
-      .from('domains')
-      .select('id, merchant_id')
-      .eq('domain', domain)
-      .maybeSingle();
+    // Check if domain already exists. Admin client: domains_select_policy
+    // hides non-active rows from staff, so a cookie-scoped read could miss an
+    // existing row and wrongly proceed to a duplicate registration.
+    const { data: existingDomain, error: existingDomainError } =
+      await adminSupabase
+        .from('domains')
+        .select('id, merchant_id')
+        .eq('domain', domain)
+        .maybeSingle();
 
     if (existingDomainError) {
       console.error('Error checking existing domain:', existingDomainError);
@@ -718,9 +735,10 @@ export async function POST(request: NextRequest) {
       expiresAt.setFullYear(expiresAt.getFullYear() + years);
 
       // Promote purchased domain to primary only when merchant has no active
-      // primary custom/purchased domain yet.
+      // primary custom/purchased domain yet. Admin client so staff see the
+      // merchant's full domain set.
       const { data: existingPrimaryDomain, error: primaryDomainError } =
-        await supabase
+        await adminSupabase
           .from('domains')
           .select('id')
           .eq('merchant_id', merchantId)
