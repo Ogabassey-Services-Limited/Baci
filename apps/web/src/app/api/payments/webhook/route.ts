@@ -1761,6 +1761,7 @@ export async function POST(request: NextRequest) {
       });
 
       let claimToken: string | null = null;
+      let registrarAttemptStamped = false;
       try {
         // 1. Fetch Merchant Details for Registration
         const { data: merchantData } = await supabase
@@ -1910,6 +1911,82 @@ export async function POST(request: NextRequest) {
 
           claimToken = claimOutcome.claimedAt;
 
+          const { data: preExistingDomain, error: preExistingDomainError } =
+            await supabase
+              .from('domains')
+              .select('id, merchant_id, status')
+              .eq('domain', normalizedDomain)
+              .maybeSingle();
+
+          if (preExistingDomainError) {
+            logger.error({
+              message:
+                'Failed checking existing domain before registrar attempt',
+              error: preExistingDomainError,
+              domain: normalizedDomain,
+              reference,
+            });
+            await releaseDomainFulfillmentClaim(supabase, {
+              transactionId: transaction.id,
+              metadata,
+              claimant: 'webhook',
+              claimedAt: claimOutcome.claimedAt,
+            });
+            claimToken = null;
+            return NextResponse.json(
+              { error: 'Domain ownership check failed — will retry' },
+              { status: 503 }
+            );
+          }
+
+          if (preExistingDomain && preExistingDomain.status === 'active') {
+            if (preExistingDomain.merchant_id !== transaction.merchant_id) {
+              logger.error({
+                message:
+                  'Domain already belongs to a different merchant before registrar attempt',
+                domain: normalizedDomain,
+                reference,
+                transactionMerchantId: transaction.merchant_id,
+                existingRowMerchantId: preExistingDomain.merchant_id,
+              });
+              await releaseDomainFulfillmentClaim(supabase, {
+                transactionId: transaction.id,
+                metadata,
+                claimant: 'webhook',
+                claimedAt: claimOutcome.claimedAt,
+              });
+              claimToken = null;
+              return null;
+            }
+
+            const marked = await markTransactionDomainPurchased(
+              preExistingDomain.id
+            );
+            if (!marked) {
+              await releaseDomainFulfillmentClaim(supabase, {
+                transactionId: transaction.id,
+                metadata,
+                claimant: 'webhook',
+                claimedAt: claimOutcome.claimedAt,
+              });
+              claimToken = null;
+              return NextResponse.json(
+                { error: 'Domain purchase marker failed — will retry' },
+                { status: 503 }
+              );
+            }
+
+            logger.info({
+              message:
+                'Existing domain row found before registrar attempt; marked transaction fulfilled without re-ordering',
+              domain: normalizedDomain,
+              reference,
+            });
+            revalidateMerchantFeed(transaction.merchant_id);
+            after(() => triggerDomainEdgeConfigSync());
+            return null;
+          }
+
           // Preflight registrar credentials BEFORE stamping the attempt: a
           // missing-config failure happens before any registrar request, so
           // releasing is definitively safe (unlike a mid-request failure).
@@ -1957,6 +2034,7 @@ export async function POST(request: NextRequest) {
               { status: 500 }
             );
           }
+          registrarAttemptStamped = true;
 
           {
             // 4. Register Domain via Go54
@@ -2022,6 +2100,10 @@ export async function POST(request: NextRequest) {
                   message: 'Failed checking existing domain record',
                   error: existingDomainError,
                 });
+                return NextResponse.json(
+                  { error: 'Domain persistence check failed — will retry' },
+                  { status: 503 }
+                );
               } else if (existingDomain) {
                 if (existingDomain.merchant_id !== transaction.merchant_id) {
                   logger.error({
@@ -2184,6 +2266,28 @@ export async function POST(request: NextRequest) {
           domain: fallbackDomain,
           error: err,
         });
+
+        if (claimToken && !registrarAttemptStamped) {
+          const released = await releaseDomainFulfillmentClaim(supabase, {
+            transactionId: transaction.id,
+            metadata,
+            claimant: 'webhook',
+            claimedAt: claimToken,
+          });
+          if (!released) {
+            logger.error({
+              message:
+                'Domain fulfillment claim release failed before registrar attempt — retry will wait for stale-claim takeover',
+              reference,
+              transactionId: transaction.id,
+              domain: fallbackDomain,
+            });
+          }
+          return NextResponse.json(
+            { error: 'Domain fulfillment failed before registrar attempt' },
+            { status: 500 }
+          );
+        }
 
         if (claimToken) {
           // Fulfillment died AFTER the registrar attempt was stamped — the

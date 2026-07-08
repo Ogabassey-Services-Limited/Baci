@@ -506,7 +506,16 @@ export async function POST(request: NextRequest) {
     if (existingDomain) {
       if (existingDomain.merchant_id === merchantId) {
         // Domain already registered to this merchant - likely handled by webhook
-        await markPaymentDomainPurchased(existingDomain.id);
+        const marked = await markPaymentDomainPurchased(existingDomain.id);
+        if (!marked) {
+          return NextResponse.json(
+            {
+              error:
+                'Domain is active but payment usage could not be recorded. Please try again.',
+            },
+            { status: 500 }
+          );
+        }
         revalidateMerchantFeed(merchantId);
         after(() => triggerDomainEdgeConfigSync());
         return NextResponse.json({

@@ -11,9 +11,8 @@
 -- still re-verifies check_staff_permission(p_user_id, p_merchant_id,
 -- 'settings', 'edit') as defense in depth.
 --
--- The 11-arg authenticated variant is kept so the currently deployed route
--- keeps working through the rollout; a follow-up migration (shipped in a
--- separate PR once this route change is live everywhere) drops it.
+-- The legacy 11-arg variant must no longer be callable by authenticated users:
+-- only the new 12-arg service-role overload is part of the purchase route.
 
 CREATE OR REPLACE FUNCTION public.create_domain_purchase_transaction(
   p_domain text,
@@ -116,6 +115,19 @@ BEGIN
   RETURN v_transaction_id;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.create_domain_purchase_transaction(
+  text, text, integer, numeric, numeric, numeric, text, text, text, text, uuid
+) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.create_domain_purchase_transaction(
+  text, text, integer, numeric, numeric, numeric, text, text, text, text, uuid
+) FROM anon;
+REVOKE ALL ON FUNCTION public.create_domain_purchase_transaction(
+  text, text, integer, numeric, numeric, numeric, text, text, text, text, uuid
+) FROM authenticated;
+REVOKE ALL ON FUNCTION public.create_domain_purchase_transaction(
+  text, text, integer, numeric, numeric, numeric, text, text, text, text, uuid
+) FROM service_role;
 
 REVOKE ALL ON FUNCTION public.create_domain_purchase_transaction(
   text, text, integer, numeric, numeric, numeric, text, text, text, text, uuid, uuid

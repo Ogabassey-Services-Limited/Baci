@@ -32,6 +32,7 @@ const mocks = vi.hoisted(() => ({
   getMerchantForApiRequest: vi.fn(),
   hasPermission: vi.fn(),
   revalidateMerchantFeed: vi.fn(),
+  transactionMutationError: null as { message: string } | null,
   transactionMutations: [] as MutationRecord[],
   verifyPaystackPayment: vi.fn(),
 }));
@@ -91,7 +92,7 @@ function createMutationQuery(payload: Record<string, unknown>) {
     eq(column: string, value: unknown) {
       mutation.filters.push([column, value]);
       return mutation.filters.length === 2
-        ? Promise.resolve({ error: null })
+        ? Promise.resolve({ error: mocks.transactionMutationError })
         : query;
     },
     // Fulfillment-claim chain:
@@ -225,6 +226,7 @@ describe('POST /api/domains/purchase transaction scoping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.transactionMutations.length = 0;
+    mocks.transactionMutationError = null;
     mocks.claimResult = { data: { id: 'claimed' }, error: null };
     mocks.getMerchantForApiRequest.mockResolvedValue({
       merchantId: 'merchant-1',
@@ -281,6 +283,25 @@ describe('POST /api/domains/purchase transaction scoping', () => {
       ['merchant_id', 'merchant-1'],
     ]);
     expect(mocks.revalidateMerchantFeed).toHaveBeenCalledWith('merchant-1');
+  });
+
+  it('fails closed when an existing domain payment cannot be marked as used', async () => {
+    supabase = createSupabase({
+      amount: 100,
+      gateway: 'paystack',
+      id: 'transaction-owned',
+      merchant_id: 'merchant-1',
+      metadata: null,
+      status: 'completed',
+    });
+    mocks.transactionMutationError = { message: 'metadata write failed' };
+
+    const response = await POST(createRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(json.error).toContain('payment usage could not be recorded');
+    expect(mocks.revalidateMerchantFeed).not.toHaveBeenCalled();
   });
 
   it('returns 409 without calling the registrar when the fulfillment claim is contested (review #2991 P1 regression test)', async () => {
