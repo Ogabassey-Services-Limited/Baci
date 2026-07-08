@@ -57,7 +57,6 @@ export function AddressSearchOverlay({
   const [isLoading, setIsLoading] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
-  const searchInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -127,10 +126,6 @@ export function AddressSearchOverlay({
       transparent
       animationType="slide"
       onRequestClose={onClose}
-      // Focus after the slide-in completes: auto-focusing during the Modal
-      // animation makes the sheet land at the bottom and then get shoved up by
-      // the keyboard mid-flight — two visible motions instead of one.
-      onShow={() => searchInputRef.current?.focus()}
     >
       <AppKeyboardContainer style={styles.sheetOverlay}>
         <Pressable
@@ -170,12 +165,12 @@ export function AddressSearchOverlay({
               color={colors.textSecondary}
             />
             <TextInput
-              ref={searchInputRef}
               style={[styles.sheetSearchInput, { color: colors.text }]}
               value={query}
               onChangeText={handleQueryChange}
               placeholder="Start typing your address..."
               placeholderTextColor={colors.placeholder}
+              autoFocus
               autoComplete="street-address"
               textContentType="fullStreetAddress"
               autoCorrect={false}
