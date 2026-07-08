@@ -56,7 +56,7 @@ describe('AdAttributionCapture (runtime behaviour)', () => {
   }
 
   beforeEach(() => {
-    fetchMock = vi.fn(() => Promise.resolve());
+    fetchMock = vi.fn(() => Promise.resolve({ ok: true }));
     vi.stubGlobal('fetch', fetchMock);
     setPrerendering(false);
     // Reset cookies.
@@ -107,12 +107,12 @@ describe('AdAttributionCapture (runtime behaviour)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('dedupes: skips a click ID whose baci_* cookie already exists', () => {
+  it('dedupes on VALUE: skips a click ID whose baci_* cookie already holds the same value', () => {
     setSearch('?gclid=abc123');
     Object.defineProperty(document, 'cookie', {
       configurable: true,
       writable: true,
-      value: 'foo=bar; baci_gclid=already; baz=qux',
+      value: 'foo=bar; baci_gclid=abc123; baz=qux',
     });
 
     runScript();
@@ -120,7 +120,21 @@ describe('AdAttributionCapture (runtime behaviour)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('still fires for a new click ID when a different one is already cookied', () => {
+  it('refreshes when the same param carries a DIFFERENT click ID (last-click-wins)', () => {
+    setSearch('?gclid=fresh999');
+    Object.defineProperty(document, 'cookie', {
+      configurable: true,
+      writable: true,
+      value: 'baci_gclid=stale111',
+    });
+
+    runScript();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr?gclid=fresh999');
+  });
+
+  it('forwards a changed value AND a brand-new param together', () => {
     setSearch('?gclid=new&fbclid=fresh');
     Object.defineProperty(document, 'cookie', {
       configurable: true,
@@ -131,7 +145,22 @@ describe('AdAttributionCapture (runtime behaviour)', () => {
     runScript();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr?fbclid=fresh');
+    // gclid changed (already→new) and fbclid is new — both refresh.
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr?fbclid=fresh&gclid=new');
+  });
+
+  it('skips only the unchanged param, forwarding the changed one', () => {
+    setSearch('?gclid=same&fbclid=changed');
+    Object.defineProperty(document, 'cookie', {
+      configurable: true,
+      writable: true,
+      value: 'baci_gclid=same; baci_fbclid=old',
+    });
+
+    runScript();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr?fbclid=changed');
   });
 
   it('does not fire while prerendering, then fires on activation', () => {
@@ -147,5 +176,33 @@ describe('AdAttributionCapture (runtime behaviour)', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe('/api/attr?gclid=abc123');
+  });
+
+  it('dispatches baci:ad-attribution-updated after /api/attr succeeds', async () => {
+    setSearch('?gclid=abc123');
+    const onUpdate = vi.fn();
+    window.addEventListener('baci:ad-attribution-updated', onUpdate);
+
+    runScript();
+    // The dispatch runs in the fetch().then() microtask.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    window.removeEventListener('baci:ad-attribution-updated', onUpdate);
+  });
+
+  it('does not dispatch when /api/attr responds non-ok', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false });
+    setSearch('?gclid=abc123');
+    const onUpdate = vi.fn();
+    window.addEventListener('baci:ad-attribution-updated', onUpdate);
+
+    runScript();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(onUpdate).not.toHaveBeenCalled();
+    window.removeEventListener('baci:ad-attribution-updated', onUpdate);
   });
 });

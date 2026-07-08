@@ -30,6 +30,13 @@ export const AD_TRACKING_COOKIES = {
 } as const;
 
 // URL parameter names to capture
+// Dispatched on `window` by the inline attribution-capture script after
+// /api/attr has (asynchronously) set the baci_* cookie, so client hooks that
+// snapshot cookies at mount (useAdTracking) can re-read once the cookie lands —
+// covers direct-to-checkout ad landings where the hook mounts before the fetch
+// resolves.
+export const AD_ATTRIBUTION_UPDATED_EVENT = 'baci:ad-attribution-updated';
+
 export const CLICK_ID_PARAMS = {
   fbclid: AD_TRACKING_COOKIES.FACEBOOK_CLICK_ID,
   ttclid: AD_TRACKING_COOKIES.TIKTOK_CLICK_ID,
