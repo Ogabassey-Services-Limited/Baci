@@ -42,6 +42,24 @@ describe('DeliveryMethodCard', () => {
     expect(screen.queryByText('Taiyelolu Towers')).toBeNull();
   });
 
+  it('shows a load prompt for selected non-Lagos GIGL pickup without a quote', () => {
+    render(
+      <DeliveryMethodCard
+        {...baseProps}
+        selectedMethod="pickup_station"
+        deliveryState="Rivers"
+      />
+    );
+
+    expect(screen.getByText('Pickup Stations (GIGL)')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Select to load available GIGL pickup stations for this area.'
+      )
+    ).toBeTruthy();
+    expect(screen.queryByText('Taiyelolu Towers')).toBeNull();
+  });
+
   it('offers paid GIGL pickup stations for non-Lagos addresses with station quotes', () => {
     render(
       <DeliveryMethodCard

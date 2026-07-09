@@ -7,7 +7,7 @@ jest.mock('expo-router', () => ({
   router: { replace: jest.fn() },
 }));
 
-const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 
 function baseParams(
   overrides: Partial<Parameters<typeof validateCheckoutSubmission>[0]> = {}
@@ -55,6 +55,25 @@ describe('validateCheckoutSubmission shipping quote requirement', () => {
       'Please confirm a delivery option before placing your order.',
       [{ text: 'OK', onPress: expect.any(Function) }]
     );
+  });
+
+  it('allows provider pickup with a selected station quote', () => {
+    expect(
+      validateCheckoutSubmission(
+        baseParams({
+          deliveryMethod: 'pickup_station',
+          selectedQuote: {
+            displayName: 'GIG Logistics - Pickup at PORT HARCOURT',
+            id: 'station-quote',
+            isStationPickup: true,
+            price: 9493,
+            provider: 'GIGL',
+            stationAddress: 'GIGL Aba Road, Port Harcourt',
+            stationName: 'PORT HARCOURT',
+          },
+        })
+      )
+    ).toBe(true);
   });
 
   it('allows Lagos merchant pickup without a provider quote', () => {

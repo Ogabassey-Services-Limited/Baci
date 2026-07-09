@@ -174,4 +174,19 @@ describe('QuoteRequestSchema delivery preference', () => {
     if (!result.success) return;
     expect(result.data.deliveryPreference).toBe('pickup_station');
   });
+
+  it('rejects unsupported quote delivery preferences', () => {
+    const result = QuoteRequestSchema.safeParse({
+      deliveryPreference: 'express',
+      receiver: {
+        name: 'Jane Receiver',
+        address: '5 Customer Street',
+        city: 'Port Harcourt',
+        state: 'Rivers',
+      },
+      items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+    });
+
+    expect(result.success).toBe(false);
+  });
 });
