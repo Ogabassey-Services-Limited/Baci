@@ -5,9 +5,12 @@ import {
 } from './record-payment';
 
 describe('recordPaymentBodySchema', () => {
+  const idempotencyKey = '11111111-1111-4111-8111-111111111111';
+
   it('accepts a valid record-payment payload', () => {
     const result = recordPaymentBodySchema.safeParse({
       amount: '5000',
+      idempotency_key: idempotencyKey,
       payment_method: 'bank_transfer',
       reference: 'REF-123',
       notes: 'Manual payment',
@@ -25,6 +28,7 @@ describe('recordPaymentBodySchema', () => {
   it('trims optional string fields', () => {
     const result = recordPaymentBodySchema.safeParse({
       amount: 5000,
+      idempotency_key: idempotencyKey,
       payment_method: ' bank_transfer ',
       reference: ' REF-123 ',
       notes: ' Manual payment ',
@@ -41,6 +45,7 @@ describe('recordPaymentBodySchema', () => {
   it('accepts a payload without reference (reference is optional)', () => {
     const result = recordPaymentBodySchema.safeParse({
       amount: 5000,
+      idempotency_key: idempotencyKey,
       payment_method: 'bank_transfer',
     });
 
@@ -54,6 +59,7 @@ describe('recordPaymentBodySchema', () => {
   it('normalizes blank notes to undefined', () => {
     const result = recordPaymentBodySchema.safeParse({
       amount: 5000,
+      idempotency_key: idempotencyKey,
       payment_method: 'cash',
       notes: '',
     });
@@ -64,6 +70,7 @@ describe('recordPaymentBodySchema', () => {
   it('normalizes whitespace-only notes to undefined', () => {
     const result = recordPaymentBodySchema.safeParse({
       amount: 5000,
+      idempotency_key: idempotencyKey,
       payment_method: 'cash',
       notes: '   ',
     });
@@ -74,6 +81,7 @@ describe('recordPaymentBodySchema', () => {
   it('normalizes blank reference to undefined', () => {
     const result = recordPaymentBodySchema.safeParse({
       amount: 5000,
+      idempotency_key: idempotencyKey,
       payment_method: 'cash',
       reference: '',
     });
@@ -84,6 +92,7 @@ describe('recordPaymentBodySchema', () => {
   it('normalizes whitespace-only reference to undefined', () => {
     const result = recordPaymentBodySchema.safeParse({
       amount: 5000,
+      idempotency_key: idempotencyKey,
       payment_method: 'cash',
       reference: '   ',
     });
@@ -94,6 +103,7 @@ describe('recordPaymentBodySchema', () => {
   it('preserves non-blank notes after trimming', () => {
     const result = recordPaymentBodySchema.safeParse({
       amount: 5000,
+      idempotency_key: idempotencyKey,
       payment_method: 'cash',
       notes: '  Partial payment from staff till  ',
     });
@@ -103,7 +113,29 @@ describe('recordPaymentBodySchema', () => {
   });
 
   // Shared base so amount-focused tests only vary the amount field
-  const basePayload = { payment_method: 'cash' };
+  const basePayload = {
+    idempotency_key: idempotencyKey,
+    payment_method: 'cash',
+  };
+
+  it('rejects a missing idempotency key', () => {
+    const result = recordPaymentBodySchema.safeParse({
+      amount: 5000,
+      payment_method: 'cash',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a malformed idempotency key', () => {
+    const result = recordPaymentBodySchema.safeParse({
+      amount: 5000,
+      idempotency_key: 'not-a-uuid',
+      payment_method: 'cash',
+    });
+
+    expect(result.success).toBe(false);
+  });
 
   it('coerces string amount to number', () => {
     const result = recordPaymentBodySchema.safeParse({

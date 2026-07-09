@@ -12,6 +12,18 @@ vi.mock('@/lib/api-client', () => ({
   BASE_URL: 'https://example.test',
 }));
 
+vi.mock('@/utils/uuid', () => ({
+  generateUUID: vi.fn(() => '11111111-1111-4111-8111-111111111111'),
+}));
+
+vi.mock('react', async () => {
+  const actual = await vi.importActual<typeof import('react')>('react');
+  return {
+    ...actual,
+    useRef: <T>(initialValue: T) => ({ current: initialValue }),
+  };
+});
+
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
@@ -38,11 +50,15 @@ vi.mock('@tanstack/react-query', async () => {
   };
 });
 
+import { generateUUID } from '@/utils/uuid';
 import { useRecordPayment } from './useRecordPayment';
 
 describe('useRecordPayment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(generateUUID).mockReturnValue(
+      '11111111-1111-4111-8111-111111111111'
+    );
     mocks.getSession.mockResolvedValue({ data: { session: null } });
   });
 
@@ -125,6 +141,7 @@ describe('useRecordPayment', () => {
       expect.objectContaining({
         body: JSON.stringify({
           amount: 5000,
+          idempotency_key: '11111111-1111-4111-8111-111111111111',
           notes: 'counter payment',
           payment_method: 'cash',
           reference: 'ref-1',
@@ -175,6 +192,46 @@ describe('useRecordPayment', () => {
     ).rejects.toThrow(
       'Request timed out. Please check your connection and try again.'
     );
+  });
+
+  it('reuses the same idempotency key after a timed-out attempt', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    const abortError = new Error('aborted');
+    abortError.name = 'AbortError';
+    mocks.fetch.mockRejectedValueOnce(abortError).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ recorded: true }),
+    });
+
+    const mutation = useRecordPayment() as unknown as {
+      mutationFn: (vars: {
+        amount: number;
+        orderId: string;
+        paymentMethod: string;
+      }) => Promise<unknown>;
+    };
+    const input = {
+      amount: 5000,
+      orderId: 'order-1',
+      paymentMethod: 'cash',
+    };
+
+    await expect(mutation.mutationFn(input)).rejects.toThrow(
+      'Request timed out. Please check your connection and try again.'
+    );
+    await expect(mutation.mutationFn(input)).resolves.toEqual({
+      recorded: true,
+    });
+
+    const requestBodies = mocks.fetch.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body))
+    );
+    expect(requestBodies[0].idempotency_key).toBe(
+      requestBodies[1].idempotency_key
+    );
+    expect(generateUUID).toHaveBeenCalledTimes(1);
   });
 
   it('uses structured API error messages when manual payment fails', async () => {

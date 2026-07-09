@@ -134,6 +134,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
   const mockOrderId = '11111111-1111-4111-8111-111111111111';
   const mockMerchantId = '22222222-2222-4222-8222-222222222222';
   const mockUserId = '33333333-3333-4333-8333-333333333333';
+  const mockIdempotencyKey = '44444444-4444-4444-8444-444444444444';
 
   // Preload the route's email/payment dependency graph once so the first
   // validation case measures handler behavior instead of module startup.
@@ -174,7 +175,11 @@ describe('POST /api/orders/[id]/record-payment', () => {
   const createRequest = (body: unknown) => {
     const normalizedBody =
       body && typeof body === 'object' && !Array.isArray(body)
-        ? { reference: 'REF-DEFAULT', ...body }
+        ? {
+            idempotency_key: mockIdempotencyKey,
+            reference: 'REF-DEFAULT',
+            ...body,
+          }
         : body;
 
     return new NextRequest(
@@ -310,6 +315,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       0
     );
     const walletAmount = Number(orderRecord.wallet_amount_used) || 0;
+    const storedAmountPaid = Number(orderRecord.amount_paid) || 0;
     const orderTotal = Number(orderRecord.total) || 0;
     const defaultTransactionId =
       isRecord(insertTransaction) && typeof insertTransaction.id === 'string'
@@ -327,7 +333,26 @@ describe('POST /api/orders/[id]/record-payment', () => {
       }
       if (name === 'record_manual_order_payment') {
         const amount = Number(params?.p_amount) || 0;
-        const computedNewPaid = completedAmount + walletAmount + amount;
+        const totalPaidBefore = Math.max(
+          storedAmountPaid,
+          completedAmount + walletAmount
+        );
+        const remainingBefore = orderTotal - totalPaidBefore;
+        const duplicateReference = completedTransactions.some(
+          (transaction) =>
+            transaction.gateway_reference === params?.p_gateway_reference
+        );
+        const computedErrorCode =
+          fixture.recordManualPaymentErrorCode !== undefined
+            ? fixture.recordManualPaymentErrorCode
+            : duplicateReference
+              ? 'DUPLICATE_REFERENCE'
+              : remainingBefore <= 0
+                ? 'ORDER_ALREADY_PAID'
+                : amount > remainingBefore
+                  ? 'AMOUNT_EXCEEDS_REMAINING_BALANCE'
+                  : null;
+        const computedNewPaid = totalPaidBefore + amount;
         const computedRemainingBalance = Math.max(
           0,
           orderTotal - computedNewPaid
@@ -345,7 +370,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         return Promise.resolve({
           data: {
             current_paid: completedAmount,
-            error_code: fixture.recordManualPaymentErrorCode ?? null,
+            error_code: computedErrorCode,
             new_paid: computedNewPaid,
             order_total: orderTotal,
             payment_status: computedPaymentStatus,
@@ -365,7 +390,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
               typeof updateOrderRecord.cancelled_at === 'string'
                 ? updateOrderRecord.cancelled_at
                 : null,
-            total_paid_before: completedAmount + walletAmount,
+            total_paid_before: totalPaidBefore,
             transaction_id: defaultTransactionId,
             ...manualPaymentOverride,
           },
@@ -383,7 +408,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
   const setupRecordPaymentTransactionRpc = (
     transactions: unknown[],
-    error: unknown = null
+    error: unknown = null,
+    manualPaymentErrorCode: string | null = null
   ) => {
     const rpc = vi.fn((name: string, params?: Record<string, unknown>) => {
       if (name === 'get_record_payment_order_transactions') {
@@ -392,7 +418,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       if (name === 'record_manual_order_payment') {
         return Promise.resolve({
           data: {
-            error_code: null,
+            error_code: manualPaymentErrorCode,
             new_paid: Number(params?.p_amount) || null,
             payment_status: 'paid',
             remaining_balance: 0,
@@ -423,6 +449,23 @@ describe('POST /api/orders/[id]/record-payment', () => {
     // Assert
     expect(response.status).toBe(400);
     expect(data).toEqual({ error: 'Invalid request body' });
+  });
+
+  it('returns 400 when the idempotency key is missing', async () => {
+    const request = createRequest({
+      amount: 5000,
+      idempotency_key: undefined,
+      payment_method: 'cash',
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid request body',
+    });
   });
 
   it('returns 400 when amount is zero', async () => {
@@ -1593,14 +1636,18 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
       throw new Error(`Unexpected table ${table}`);
     });
-    setupRecordPaymentTransactionRpc([
-      {
-        amount: 5000,
-        gateway_reference: 'REF-DUPE-409',
-        gateway: 'manual',
-        status: 'completed',
-      },
-    ]);
+    setupRecordPaymentTransactionRpc(
+      [
+        {
+          amount: 5000,
+          gateway_reference: 'REF-DUPE-409',
+          gateway: 'manual',
+          status: 'completed',
+        },
+      ],
+      null,
+      'DUPLICATE_REFERENCE'
+    );
 
     const request = createRequest({
       amount: 5000,
@@ -1910,14 +1957,18 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
       throw new Error(`Unexpected table ${table}`);
     });
-    setupRecordPaymentTransactionRpc([
-      {
-        amount: 8000,
-        gateway_reference: 'REF-PREV',
-        gateway: 'manual',
-        status: 'completed',
-      },
-    ]);
+    setupRecordPaymentTransactionRpc(
+      [
+        {
+          amount: 8000,
+          gateway_reference: 'REF-PREV',
+          gateway: 'manual',
+          status: 'completed',
+        },
+      ],
+      null,
+      'AMOUNT_EXCEEDS_REMAINING_BALANCE'
+    );
 
     const request = createRequest({
       amount: 5000, // Trying to pay 5000 when only 2000 remains
@@ -2185,13 +2236,44 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const response = await POST(request, params);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data).toMatchObject({
-      status_update_failed: true,
-      updated_status: {},
-    });
+    expect(response.status).toBe(500);
+    expect(data).toEqual({ error: 'Failed to record payment' });
     expect(mockSendEmail).not.toHaveBeenCalled();
     expect(mockReconciliationInsert).not.toHaveBeenCalled();
+  });
+
+  it('returns an idempotent replay without repeating paid-order side effects', async () => {
+    setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-existing' },
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        idempotency_replayed: true,
+        new_paid: 10000,
+        order_total: 10000,
+        payment_status: 'paid',
+        remaining_balance: 0,
+        shipping_status: 'processing',
+        transaction_id: 'txn-existing',
+      },
+    });
+
+    const request = createRequest({
+      amount: 10000,
+      payment_method: 'cash',
+    });
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      idempotency_replayed: true,
+      success: true,
+    });
+    expect(ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
   it('suppresses confirmation emails and files reconciliation when the order was clamped as cancelled', async () => {
@@ -2385,14 +2467,18 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
       throw new Error(`Unexpected table ${table}`);
     });
-    setupRecordPaymentTransactionRpc([
-      {
-        amount: 10000,
-        gateway_reference: 'REF-FULL',
-        gateway: 'manual',
-        status: 'completed',
-      },
-    ]);
+    setupRecordPaymentTransactionRpc(
+      [
+        {
+          amount: 10000,
+          gateway_reference: 'REF-FULL',
+          gateway: 'manual',
+          status: 'completed',
+        },
+      ],
+      null,
+      'ORDER_ALREADY_PAID'
+    );
 
     const request = createRequest({
       amount: 1000,
@@ -2411,7 +2497,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(data).toEqual({ error: 'Order is already fully paid' });
   });
 
-  it('returns the existing result when the same payment reference is retried', async () => {
+  it('rejects a reused payment reference when the idempotency key differs', async () => {
     const mockMerchant = {
       id: mockMerchantId,
       business_name: 'Test Store',
@@ -2500,14 +2586,18 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
 
     mockSupabaseClient.from = mockFrom;
-    setupRecordPaymentTransactionRpc([
-      {
-        amount: 5000,
-        gateway_reference: 'REF-DUPE-1',
-        gateway: 'manual',
-        status: 'completed',
-      },
-    ]);
+    setupRecordPaymentTransactionRpc(
+      [
+        {
+          amount: 5000,
+          gateway_reference: 'REF-DUPE-1',
+          gateway: 'manual',
+          status: 'completed',
+        },
+      ],
+      null,
+      'DUPLICATE_REFERENCE'
+    );
 
     const request = createRequest({
       amount: 5000,

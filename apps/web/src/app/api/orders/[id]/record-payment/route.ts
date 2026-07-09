@@ -50,6 +50,7 @@ interface RecordManualPaymentResult {
   cancelled_at?: string | null;
   current_paid?: number | string | null;
   error_code?: string | null;
+  idempotency_replayed?: boolean | null;
   new_paid?: number | string | null;
   order_total?: number | string | null;
   payment_status?: PaymentStatus | null;
@@ -128,7 +129,8 @@ export async function POST(
     }
 
     const parsedAmount = Number(parsedBody.data.amount);
-    const { payment_method, reference, notes } = parsedBody.data;
+    const { idempotency_key, payment_method, reference, notes } =
+      parsedBody.data;
     logger.info({
       message: 'RecordPayment body parsed',
       amount: parsedAmount,
@@ -330,90 +332,9 @@ export async function POST(
       );
     }
 
-    // Filter to completed-only for the duplicate-reference and paid-amount
-    // calculations below (pre-A3 semantics).
-    const transactions = relevantTxns?.filter((t) => t.status === 'completed');
-
-    // Application-level duplicate guard (pre-insert). Only applies when the
-    // caller provides a reference — reference-less payments skip this check.
-    // NOTE: A concurrent request can still slip through this check. The DB-level
-    // partial unique index on (order_id, gateway_reference) WHERE gateway_reference
-    // IS NOT NULL (migration 20260504120000) is the authoritative safeguard.
-    if (reference) {
-      const existingTransaction = transactions?.find(
-        (t) => t.gateway_reference === reference
-      );
-      if (existingTransaction) {
-        logger.warn({
-          message: 'RecordPayment duplicate reference rejected',
-          orderId,
-          merchantId: merchant.id,
-          reference,
-        });
-        return NextResponse.json(
-          { error: 'Duplicate payment reference', code: 'DUPLICATE_REFERENCE' },
-          { status: 409 }
-        );
-      }
-    }
-
-    // 3. Calculate Totals
-    const currentPaid =
-      transactions?.reduce((sum, t) => sum + (Number(t.amount) || 0), 0) || 0;
-    const walletUsed = Number(order.wallet_amount_used) || 0;
-    const totalPaidBefore = currentPaid + walletUsed;
-    const orderTotal = Number(order.total) || 0;
-    const remainingBeforePayment = orderTotal - totalPaidBefore;
-
-    // Reject payments on fully-paid orders
-    if (remainingBeforePayment <= 0) {
-      logger.warn({
-        message: 'RecordPayment rejected: order already fully paid',
-        orderId,
-        merchantId: merchant.id,
-        orderTotal,
-        totalPaidBefore,
-      });
-      return NextResponse.json(
-        { error: 'Order is already fully paid' },
-        { status: 409 }
-      );
-    }
-
-    // Reject overpayments
-    if (parsedAmount > remainingBeforePayment) {
-      logger.warn({
-        message: 'RecordPayment rejected: amount exceeds remaining balance',
-        orderId,
-        amount: parsedAmount,
-        remainingBeforePayment,
-      });
-      return NextResponse.json(
-        { error: 'Amount exceeds remaining balance' },
-        { status: 409 }
-      );
-    }
-
-    const estimatedNewPaid = totalPaidBefore + parsedAmount;
-    const estimatedRemainingBalance = Math.max(
-      0,
-      orderTotal - estimatedNewPaid
-    );
-
-    logger.info({
-      message: 'RecordPayment totals calculated',
-      orderId,
-      currentPaid,
-      newPaid: estimatedNewPaid,
-      orderTotal,
-      remainingBalance: estimatedRemainingBalance,
-    });
-
-    // 4. Create Transaction
-    // The pre-insert checks above provide fast feedback, but concurrent manual
-    // requests can still read the same balance. The RPC is authoritative: it
-    // locks the verified order row, recomputes completed payments, rejects stale
-    // overpayments/duplicates, and inserts the manual transaction atomically.
+    // The RPC is the authoritative balance and idempotency boundary. Keeping
+    // those checks there allows a timed-out request to replay even after its
+    // first attempt moved the order to paid.
     const paymentDescription =
       notes ||
       (payment_method
@@ -425,6 +346,7 @@ export async function POST(
         p_currency: order.currency || 'NGN',
         p_description: paymentDescription,
         p_gateway_reference: reference ?? null,
+        p_idempotency_key: idempotency_key,
         p_merchant_id: merchant.id,
         p_metadata: {
           payment_method: payment_method || 'manual',
@@ -469,6 +391,46 @@ export async function POST(
         orderId,
       });
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
+    }
+
+    if (manualPaymentResult?.error_code === 'INVALID_IDEMPOTENCY_KEY') {
+      logger.warn({
+        message:
+          'RecordPayment rejected by atomic insert: invalid idempotency key',
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        { error: 'Invalid idempotency key' },
+        { status: 400 }
+      );
+    }
+
+    if (manualPaymentResult?.error_code === 'INVALID_METADATA') {
+      logger.error({
+        message: 'RecordPayment rejected by atomic insert: invalid metadata',
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        { error: 'Failed to record payment' },
+        { status: 500 }
+      );
+    }
+
+    if (manualPaymentResult?.error_code === 'IDEMPOTENCY_KEY_CONFLICT') {
+      logger.warn({
+        message: 'RecordPayment idempotency key reused for different payment',
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        {
+          error: 'Payment request conflicts with an earlier attempt',
+          code: 'IDEMPOTENCY_KEY_CONFLICT',
+        },
+        { status: 409 }
+      );
     }
 
     if (manualPaymentResult?.error_code === 'PENDING_GATEWAY_PAYMENT') {
@@ -561,16 +523,9 @@ export async function POST(
     const createdTransaction = manualPaymentResult.transaction_id
       ? { id: manualPaymentResult.transaction_id }
       : null;
-    const newPaid = Number(manualPaymentResult.new_paid ?? estimatedNewPaid);
-    const remainingBalance = Number(
-      manualPaymentResult.remaining_balance ?? estimatedRemainingBalance
-    );
-    const lockedOrderTotal = Number(
-      manualPaymentResult.order_total ?? newPaid + remainingBalance
-    );
-    const authoritativeOrderTotal = Number.isFinite(lockedOrderTotal)
-      ? lockedOrderTotal
-      : Number(orderTotal);
+    const newPaid = Number(manualPaymentResult.new_paid);
+    const remainingBalance = Number(manualPaymentResult.remaining_balance);
+    const authoritativeOrderTotal = Number(manualPaymentResult.order_total);
 
     // 5. Consume the authoritative order status written by the RPC.
     // Keeping status mutation inside the same DB transaction as the manual
@@ -579,7 +534,13 @@ export async function POST(
     const rpcPaymentStatus = manualPaymentResult.payment_status ?? null;
     const rpcShippingStatus = manualPaymentResult.shipping_status ?? null;
 
-    if (!rpcPaymentStatus || !rpcShippingStatus) {
+    if (
+      !rpcPaymentStatus ||
+      !rpcShippingStatus ||
+      !Number.isFinite(newPaid) ||
+      !Number.isFinite(remainingBalance) ||
+      !Number.isFinite(authoritativeOrderTotal)
+    ) {
       logger.error({
         message:
           'CRITICAL: RecordPayment RPC inserted a transaction without returning updated order status',
@@ -587,13 +548,10 @@ export async function POST(
         orderId,
         inconsistentState: true,
       });
-      return NextResponse.json({
-        success: true,
-        amount_paid: parsedAmount,
-        new_balance: remainingBalance,
-        updated_status: {},
-        status_update_failed: true,
-      });
+      return NextResponse.json(
+        { error: 'Failed to record payment' },
+        { status: 500 }
+      );
     }
 
     const isFullyPaid = rpcPaymentStatus === 'paid';
@@ -611,6 +569,21 @@ export async function POST(
       id: orderId,
       shipping_status: rpcShippingStatus,
     };
+
+    if (manualPaymentResult.idempotency_replayed) {
+      logger.info({
+        message: 'RecordPayment idempotent replay',
+        orderId,
+        transactionId: createdTransaction?.id,
+      });
+      return NextResponse.json({
+        success: true,
+        amount_paid: parsedAmount,
+        idempotency_replayed: true,
+        new_balance: remainingBalance,
+        updated_status: updates,
+      });
+    }
 
     let orderCancelledByClamp = false;
     if (!createdTransaction?.id && !isOrderClampedAsCancelled(updatedOrder)) {
