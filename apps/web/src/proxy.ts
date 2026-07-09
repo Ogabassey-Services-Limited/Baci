@@ -1191,6 +1191,22 @@ function normalizeHostname(hostname: string): string {
   return hostname.split(':')[0].toLowerCase();
 }
 
+async function getSlugForOriginCustomDomain(
+  hostname: string
+): Promise<string | null> {
+  const normalizedHostname = normalizeHostname(hostname);
+
+  if (normalizedHostname.startsWith('www.')) {
+    const apexHostname = normalizedHostname.slice('www.'.length);
+    const apexSlug = await getSlugForCustomDomain(apexHostname);
+    if (apexSlug) {
+      return apexSlug;
+    }
+  }
+
+  return getSlugForCustomDomain(normalizedHostname);
+}
+
 /**
  * Validate subdomain follows DNS standards
  * - Only lowercase alphanumeric and hyphens
@@ -2533,8 +2549,11 @@ export async function proxy(request: NextRequest) {
 
           if (!isAllowed) {
             // Check custom domains: look up whether this origin is a
-            // registered merchant custom domain.
-            const customSlug = await getSlugForCustomDomain(originHostname);
+            // registered merchant custom domain. Match storefront routing:
+            // www.example.com is allowed when example.com is the registered
+            // domain, with a raw www fallback for merchants that registered it.
+            const customSlug =
+              await getSlugForOriginCustomDomain(originHostname);
             if (!customSlug) {
               return NextResponse.json(
                 { error: 'Cross-origin request blocked' },

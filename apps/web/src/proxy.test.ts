@@ -1894,6 +1894,43 @@ describe('Middleware Proxy', () => {
     });
   });
 
+  it('allows attribution POSTs from www custom domains registered at the apex', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('ogabassey');
+    const req = new NextRequest('https://www.example.com/api/attr', {
+      body: 'gclid=test-click-id',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Origin: 'https://www.example.com',
+      },
+      method: 'POST',
+    });
+    req.headers.set('host', 'www.example.com');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('example.com');
+    expect(res.status).not.toBe(403);
+  });
+
+  it('does not promote apex API origins via a www-only custom-domain registration', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce(null);
+    const req = new NextRequest('https://example.com/api/attr', {
+      body: 'gclid=test-click-id',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Origin: 'https://example.com',
+      },
+      method: 'POST',
+    });
+    req.headers.set('host', 'example.com');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('example.com');
+    expect(getSlugForCustomDomain).not.toHaveBeenCalledWith('www.example.com');
+    expect(res.status).toBe(403);
+  });
+
   it.each([
     '/wc-api/klp_wc_payment_webhook',
     '/wc-api/klp_wc_payment_webhook/',
