@@ -44,7 +44,11 @@ const PROBE_QUALITY = 75;
 // Bound the total work a single invocation can do — a bulk operation
 // touching many products must never turn this best-effort optimization into
 // an unbounded fan-out of outbound requests.
-const MAX_PREWARM_URLS_PER_INVOCATION = 40;
+// The live transform matrix now has three cache keys per width×quality pair:
+// fallback, AVIF, and legacy `format=auto`. Keep the previous effective
+// coverage of roughly three images per invocation without making the
+// fire-and-forget prewarm fan-out unbounded.
+const MAX_PREWARM_URLS_PER_INVOCATION = 120;
 const DEFAULT_PREWARM_CONCURRENCY = 4;
 const DEFAULT_PREWARM_TIMEOUT_MS = 5000;
 

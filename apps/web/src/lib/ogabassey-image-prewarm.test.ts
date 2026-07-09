@@ -179,7 +179,25 @@ describe('prewarmOgabasseyImageTransforms', () => {
     }
   });
 
-  it('caps total prewarmed URLs at 40 across many images', async () => {
+  it('keeps complete transform matrices for multiple images within the URL budget', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(okResponse());
+    const images = [
+      'https://cdn.ogabassey.com/core-assets/products/phone-0.avif',
+      'https://cdn.ogabassey.com/core-assets/products/phone-1.avif',
+    ];
+    const expectedUrls = new Set(
+      images.flatMap((image) => buildOgabasseyPrewarmTransformUrls(image))
+    );
+
+    await prewarmOgabasseyImageTransforms(images, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const requestedUrls = fetchImpl.mock.calls.map(([url]) => url as string);
+    expect(new Set(requestedUrls)).toEqual(expectedUrls);
+  });
+
+  it('caps total prewarmed URLs at 120 across many images', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(okResponse());
     const manyImages = Array.from(
       { length: 20 },
@@ -191,8 +209,8 @@ describe('prewarmOgabasseyImageTransforms', () => {
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });
 
-    expect(fetchImpl.mock.calls.length).toBeLessThanOrEqual(40);
-    expect(fetchImpl.mock.calls.length).toBe(40);
+    expect(fetchImpl.mock.calls.length).toBeLessThanOrEqual(120);
+    expect(fetchImpl.mock.calls.length).toBe(120);
   });
 
   it('never runs more than the configured concurrency at once', async () => {
