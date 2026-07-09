@@ -52,6 +52,11 @@ function asNullableNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function asNumber(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function asStatus(value: unknown): RepairStatus {
   return isRepairStatus(value) ? value : 'pending';
 }
@@ -69,7 +74,7 @@ export function mapBookingRow(row: Row): RepairBookingSummary {
   const deviceModel = asString(row.device_model);
   return {
     id: asString(row.id),
-    ticketNumber: Number(row.ticket_number),
+    ticketNumber: asNumber(row.ticket_number),
     status: asStatus(row.status),
     deviceLabel: deviceLabel(deviceType, deviceModel),
     deviceType,

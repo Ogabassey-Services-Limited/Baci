@@ -50,6 +50,18 @@ describe('mapBookingRow', () => {
     expect(mapped.serviceType).toBe('dropoff');
     expect(mapped.deviceLabel).toBe('Device');
   });
+
+  it('falls back to 0 (never NaN) for a missing or non-numeric ticket number', () => {
+    expect(
+      mapBookingRow({ ...listRow, ticket_number: null }).ticketNumber
+    ).toBe(0);
+    expect(
+      mapBookingRow({ ...listRow, ticket_number: 'not-a-number' }).ticketNumber
+    ).toBe(0);
+    expect(
+      mapBookingRow({ ...listRow, ticket_number: undefined }).ticketNumber
+    ).toBe(0);
+  });
 });
 
 describe('mapBookingDetail', () => {
