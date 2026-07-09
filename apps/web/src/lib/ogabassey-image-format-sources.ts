@@ -1,6 +1,10 @@
 import { getImageProps } from 'next/image';
 import imageLoader from '@/lib/image-loader';
-import { rewriteOgabasseyTransformUrlFormat } from '@/lib/ogabassey-cdn-image-url';
+import {
+  buildOgabasseyCdnFallbackImageLoaderUrl,
+  isOgabasseyCdnImageUrl,
+  rewriteOgabasseyTransformUrlFormat,
+} from '@/lib/ogabassey-cdn-image-url';
 
 /**
  * Per-format `<picture>` source builder for OgaBassey CDN images.
@@ -15,8 +19,9 @@ import { rewriteOgabasseyTransformUrlFormat } from '@/lib/ogabassey-cdn-image-ur
  *
  * This helper computes both tiers from ONE `getImageProps()` pass so their
  * candidate lists stay byte-identical apart from the format token:
- *   - `imgProps`: the exact props `next/image` would render, with the loader
- *     emitting explicit fallback-format transform URLs.
+ *   - `imgProps`: the exact props `next/image` would render, with the paired
+ *     loader emitting explicit fallback-format transform URLs for OgaBassey CDN
+ *     images.
  *   - `avifSource`: the same srcset rewritten to `format=avif`, or `null`
  *     when the source is not an OgaBassey CDN transform (external/placeholder
  *     images have no AVIF tier — callers render a plain `<img>`).
@@ -77,12 +82,28 @@ export function buildOgabasseyAvifSrcSet(
  * pinned so test environments and call sites can never diverge from what
  * production renders).
  */
+function ogabasseyImageFormatLoader({
+  quality,
+  src,
+  width,
+}: {
+  quality?: number;
+  src: string;
+  width: number;
+}): string {
+  if (isOgabasseyCdnImageUrl(src)) {
+    return buildOgabasseyCdnFallbackImageLoaderUrl(src, width, quality ?? 75);
+  }
+
+  return imageLoader({ quality, src, width });
+}
+
 export function getOgabasseyImageFormatProps(
   input: OgabasseyImageFormatPropsInput
 ): OgabasseyImageFormatProps {
   const { props: imgProps } = getImageProps({
     ...input,
-    loader: imageLoader,
+    loader: ogabasseyImageFormatLoader,
   } as GetImagePropsInput);
 
   const avifSrcSet = buildOgabasseyAvifSrcSet(imgProps.srcSet);

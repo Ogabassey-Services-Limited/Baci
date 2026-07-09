@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildOgabasseyCdnFallbackImageLoaderUrl,
   buildOgabasseyCdnImageLoaderUrl,
   isOgabasseyCdnImageUrl,
   normalizeOgabasseyCdnImageUrl,
@@ -42,8 +43,20 @@ describe('resolveOgabasseyCdnFallbackFormat', () => {
 });
 
 describe('buildOgabasseyCdnImageLoaderUrl', () => {
-  it('defaults to format=jpeg for a jpg source when no format is given', () => {
+  it('defaults to format=auto so unmigrated next/image callers retain AVIF negotiation', () => {
     const url = buildOgabasseyCdnImageLoaderUrl(
+      `${CDN}/core-assets/products/phone.jpg`,
+      750,
+      75
+    );
+
+    expect(url).toBe(
+      `${CDN}/image/width=750,quality=75,format=auto/core-assets/products/phone.jpg`
+    );
+  });
+
+  it('builds a jpeg fallback URL for a jpg source when requested explicitly', () => {
+    const url = buildOgabasseyCdnFallbackImageLoaderUrl(
       `${CDN}/core-assets/products/phone.jpg`,
       750,
       75
@@ -55,8 +68,8 @@ describe('buildOgabasseyCdnImageLoaderUrl', () => {
     expect(url).not.toContain('format=auto');
   });
 
-  it('defaults to format=png for a png source when no format is given', () => {
-    const url = buildOgabasseyCdnImageLoaderUrl(
+  it('builds a png fallback URL for a png source when requested explicitly', () => {
+    const url = buildOgabasseyCdnFallbackImageLoaderUrl(
       `${CDN}/core-assets/products/phone.png`,
       750,
       75

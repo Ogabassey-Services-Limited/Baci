@@ -1,5 +1,9 @@
 import { getImageProps } from 'next/image';
 import imageLoader from '@/lib/image-loader';
+import {
+  buildOgabasseyCdnFallbackImageLoaderUrl,
+  isOgabasseyCdnImageUrl,
+} from '@/lib/ogabassey-cdn-image-url';
 import { buildOgabasseyAvifSrcSet } from '@/lib/ogabassey-image-format-sources';
 import {
   MOBILE_HERO_IMAGE_HEIGHT,
@@ -29,6 +33,10 @@ function ogabasseyHeroImageLoader({
   src: string;
   width: number;
 }) {
+  if (isOgabasseyCdnImageUrl(src)) {
+    return buildOgabasseyCdnFallbackImageLoaderUrl(src, width, quality);
+  }
+
   return imageLoader({ quality, src, width });
 }
 

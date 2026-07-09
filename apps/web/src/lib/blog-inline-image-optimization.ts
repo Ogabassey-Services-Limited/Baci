@@ -135,11 +135,7 @@ function buildTransformSegment(
 ): string {
   const pinnedQuality = params.get('quality') || params.get('q');
   const quality = pinnedQuality || String(INLINE_IMAGE_QUALITY);
-  const pinnedFormat = params.get('format') || params.get('f');
-  const format =
-    !pinnedFormat || pinnedFormat === 'auto'
-      ? resolveInlineTransformFormat(assetPath)
-      : pinnedFormat;
+  const format = resolveInlineTransformFormat(assetPath);
   const extras = Array.from(params.entries())
     .filter(([key]) => !TRANSFORM_RESERVED_KEYS.has(key))
     .map(([key, value]) => `${key}=${value}`);

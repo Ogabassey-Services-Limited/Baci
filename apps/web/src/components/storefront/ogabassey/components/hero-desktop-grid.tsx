@@ -1,6 +1,10 @@
 import { getImageProps } from 'next/image';
 import Link from 'next/link';
 import imageLoader from '@/lib/image-loader';
+import {
+  buildOgabasseyCdnFallbackImageLoaderUrl,
+  isOgabasseyCdnImageUrl,
+} from '@/lib/ogabassey-cdn-image-url';
 import { buildOgabasseyAvifSrcSet } from '@/lib/ogabassey-image-format-sources';
 import { asRoute } from '@/lib/routes';
 import { TRANSPARENT_PIXEL_SRC } from './hero-mobile-image-config';
@@ -39,6 +43,10 @@ function ogabasseyHeroImageLoader({
   src: string;
   width: number;
 }) {
+  if (isOgabasseyCdnImageUrl(src)) {
+    return buildOgabasseyCdnFallbackImageLoaderUrl(src, width, quality);
+  }
+
   return imageLoader({ quality, src, width });
 }
 

@@ -217,6 +217,21 @@ describe('buildInlineImageSiblings', () => {
     );
   });
 
+  it('overrides pinned CDN formats for generated avif/webp sibling files while preserving quality', () => {
+    const pinnedFormatSrc = `${CDN}/image/quality=35,format=png/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png`;
+    const siblings = buildInlineImageSiblings(pinnedFormatSrc);
+
+    expect(siblings.fallback).toContain('width=828,quality=35,format=png');
+    expect(siblings.avifSrcSet).toContain(
+      'width=640,quality=35,format=avif/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png.avif 640w'
+    );
+    expect(siblings.webpSrcSet).toContain(
+      'width=640,quality=35,format=webp/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png.webp 640w'
+    );
+    expect(siblings.avifSrcSet).not.toContain('format=png');
+    expect(siblings.webpSrcSet).not.toContain('format=png');
+  });
+
   it('rebuilds pinned CDN dimensions for each responsive srcset width', () => {
     const pinnedWidthSrc = `${CDN}/image/width=1600,height=900,quality=50,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png`;
     const siblings = buildInlineImageSiblings(pinnedWidthSrc);

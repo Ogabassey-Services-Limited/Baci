@@ -12,13 +12,18 @@ const CDN_PRODUCT_IMAGE =
 const CDN_BLOG_IMAGE = 'https://cdn.ogabassey.com/core-assets/blog/hero.avif';
 
 const PRODUCT_VARIANT_URLS = Array.from(
-  new Set(buildOgabasseyPrewarmTransformUrls(CDN_PRODUCT_IMAGE))
+  new Set(
+    buildOgabasseyPrewarmTransformUrls(CDN_PRODUCT_IMAGE, undefined, {
+      format: 'auto',
+    })
+  )
 );
 const BLOG_VARIANT_URLS = Array.from(
   new Set(
     buildOgabasseyPrewarmTransformUrls(
       CDN_BLOG_IMAGE,
-      BLOG_IMAGE_WIDTH_QUALITY_PAIRS
+      BLOG_IMAGE_WIDTH_QUALITY_PAIRS,
+      { format: 'auto' }
     )
   )
 );

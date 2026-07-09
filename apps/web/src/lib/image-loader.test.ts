@@ -64,6 +64,18 @@ describe('imageLoader', () => {
     );
   });
 
+  it('keeps OgaBassey CDN callers on format=auto until the surface opts into picture fallbacks', () => {
+    const result = imageLoader({
+      src: 'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+      width: 750,
+      quality: 75,
+    });
+
+    expect(result).toBe(
+      'https://cdn.ogabassey.com/image/width=750,quality=75,format=auto/core-assets/products/phone.avif'
+    );
+  });
+
   it('preserves hash fragments when adding loader params', () => {
     expect(imageLoader({ src: '/hero.png#main', width: 200 })).toBe(
       '/hero.png?w=200&q=75#main'

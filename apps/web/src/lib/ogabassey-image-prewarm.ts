@@ -1,6 +1,8 @@
 import {
+  buildOgabasseyCdnFallbackImageLoaderUrl,
   buildOgabasseyCdnImageLoaderUrl,
   isOgabasseyCdnImageUrl,
+  type OgabasseyCdnImageFormat,
 } from '@/lib/ogabassey-cdn-image-url';
 import {
   ALL_WIDTH_QUALITY_PAIRS,
@@ -74,7 +76,7 @@ function isCdnTransformableUrl(imagePath: string): boolean {
     return false;
   }
 
-  const probeUrl = buildOgabasseyCdnImageLoaderUrl(
+  const probeUrl = buildOgabasseyCdnFallbackImageLoaderUrl(
     imagePath,
     PROBE_WIDTH,
     PROBE_QUALITY
@@ -89,16 +91,29 @@ function isCdnTransformableUrl(imagePath: string): boolean {
  * the SAME variants this lib warms — a second hand-maintained matrix would
  * silently drift.
  */
+interface BuildOgabasseyPrewarmTransformUrlOptions {
+  /** Explicit transform format for legacy/backfill probes. Defaults to fallback. */
+  format?: OgabasseyCdnImageFormat;
+}
+
 export function buildOgabasseyPrewarmTransformUrls(
   imagePath: string,
-  pairs: readonly PrewarmWidthQualityPair[] = ALL_WIDTH_QUALITY_PAIRS
+  pairs: readonly PrewarmWidthQualityPair[] = ALL_WIDTH_QUALITY_PAIRS,
+  options: BuildOgabasseyPrewarmTransformUrlOptions = {}
 ): string[] {
   if (!isCdnTransformableUrl(imagePath)) {
     return [];
   }
 
   return pairs.map(({ width, quality }) =>
-    buildOgabasseyCdnImageLoaderUrl(imagePath, width, quality)
+    options.format
+      ? buildOgabasseyCdnImageLoaderUrl(
+          imagePath,
+          width,
+          quality,
+          options.format
+        )
+      : buildOgabasseyCdnFallbackImageLoaderUrl(imagePath, width, quality)
   );
 }
 

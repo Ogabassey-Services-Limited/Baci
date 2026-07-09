@@ -13,13 +13,10 @@ const TRANSFORM_FORMAT_TOKEN_REPLACE_PATTERN =
 /**
  * Formats the CDN transformer accepts in the URL options segment
  * (infra/cdn-transformer/request-parser.mjs). `auto` negotiates on the Accept
- * header server-side and MUST NOT appear in newly rendered browser URLs:
- * Cloudflare Free stores ONE body per URL and ignores `Vary: Accept`, so a
- * warm `format=auto` entry serves whichever format its first requester
- * negotiated to EVERY later client — AVIF bytes to browsers that cannot
- * decode them. Browser-facing markup ships explicit per-format URLs instead
- * (an `image/avif` `<picture>` source plus a universally decodable fallback),
- * giving each format its own cache key.
+ * header and is intentionally kept only for legacy/unmigrated `next/image`
+ * callers and the one-time poisoned-cache backfill. Surfaces migrated to
+ * `<picture>` pass explicit format tiers so Cloudflare Free never has to vary a
+ * single URL by `Accept`.
  */
 export type OgabasseyCdnImageFormat = 'auto' | 'avif' | 'jpeg' | 'png' | 'webp';
 
@@ -54,14 +51,11 @@ export function normalizeOgabasseyCdnImageUrl(src: string): string {
 }
 
 /**
- * Build the CDN transform URL a browser should request for a managed asset.
- *
- * `format` defaults to the source's universally decodable fallback tier
- * (see `resolveOgabasseyCdnFallbackFormat`) — NEVER `format=auto`: on the
- * Cloudflare Free plan an Accept-negotiated URL is a single shared cache body,
- * which served immutable AVIF bytes to non-AVIF browsers (probe-verified
- * 2026-07-08). Callers building the modern tier pass `'avif'` explicitly;
- * `'auto'` remains accepted for server-side legacy needs only.
+ * Build the CDN transform URL production has historically emitted for managed
+ * assets. The default remains `format=auto` so existing, unmigrated `next/image`
+ * callers keep receiving AVIF-capable negotiated bytes instead of regressing to
+ * JPEG/PNG. New `<picture>` call sites must pass an explicit format or use
+ * `buildOgabasseyCdnFallbackImageLoaderUrl` for the non-AVIF fallback tier.
  */
 export function buildOgabasseyCdnImageLoaderUrl(
   src: string,
@@ -85,10 +79,43 @@ export function buildOgabasseyCdnImageLoaderUrl(
     return normalizedSrc;
   }
 
-  const resolvedFormat =
-    format ?? resolveOgabasseyCdnFallbackFormat(url.pathname);
+  const resolvedFormat = format ?? 'auto';
 
   return `${url.origin}${OGABASSEY_IMAGE_TRANSFORM_PREFIX}width=${width},quality=${quality},format=${resolvedFormat}${url.pathname}${url.search}${url.hash}`;
+}
+
+/**
+ * Build the universally decodable `<img>` fallback tier for explicit
+ * per-format `<picture>` rendering. PNG sources stay PNG to preserve
+ * transparency; all other managed images fall back to JPEG.
+ */
+export function buildOgabasseyCdnFallbackImageLoaderUrl(
+  src: string,
+  width: number,
+  quality: number
+): string {
+  const normalizedSrc = normalizeOgabasseyCdnImageUrl(src);
+  let url: URL;
+
+  try {
+    url = new URL(normalizedSrc);
+  } catch {
+    return normalizedSrc;
+  }
+
+  if (
+    url.hostname !== OGABASSEY_CDN_HOSTNAME ||
+    !isTransformableOgabasseyAssetPath(url.pathname)
+  ) {
+    return normalizedSrc;
+  }
+
+  return buildOgabasseyCdnImageLoaderUrl(
+    normalizedSrc,
+    width,
+    quality,
+    resolveOgabasseyCdnFallbackFormat(url.pathname)
+  );
 }
 
 /**
