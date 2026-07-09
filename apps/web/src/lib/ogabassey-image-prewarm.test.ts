@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  buildOgabasseyPrewarmTransformUrls,
   PREWARM_ACCEPT_HEADER,
   prewarmOgabasseyImageTransforms,
 } from './ogabassey-image-prewarm';
@@ -26,7 +27,7 @@ describe('prewarmOgabasseyImageTransforms', () => {
     vi.restoreAllMocks();
   });
 
-  it('HEAD-requests the width x quality transform variants for a CDN product image', async () => {
+  it('HEAD-requests fallback, AVIF, and auto transform variants for a CDN product image', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(okResponse());
 
     await prewarmOgabasseyImageTransforms([CDN_PRODUCT_IMAGE], {
@@ -39,7 +40,7 @@ describe('prewarmOgabasseyImageTransforms', () => {
       RequestInit,
     ];
     expect(firstUrl).toMatch(
-      /^https:\/\/cdn\.ogabassey\.com\/image\/width=\d+,quality=\d+,format=auto\/core-assets\/products\/phone\.avif$/
+      /^https:\/\/cdn\.ogabassey\.com\/image\/width=\d+,quality=\d+,format=(auto|avif|jpeg)\/core-assets\/products\/phone\.avif$/
     );
     expect(firstInit.method).toBe('HEAD');
 
@@ -51,25 +52,39 @@ describe('prewarmOgabasseyImageTransforms', () => {
       expect(url).toContain('/image/width=');
       expect(url).toContain('/core-assets/products/phone.avif');
     }
+    expect(requestedUrls.some((url) => url.includes('format=jpeg'))).toBe(true);
+    expect(requestedUrls.some((url) => url.includes('format=avif'))).toBe(true);
+    expect(requestedUrls.some((url) => url.includes('format=auto'))).toBe(true);
   });
 
-  it('sends an AVIF-first Accept header on HEAD requests (warm-first locks the smallest format)', async () => {
+  it('keeps the AVIF-first Accept header on HEAD requests for legacy auto probes', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(okResponse());
 
     await prewarmOgabasseyImageTransforms([CDN_PRODUCT_IMAGE], {
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });
 
-    // Cloudflare Free cannot vary the transform cache by Accept, so the
-    // format the prewarm negotiates is the format EVERY visitor gets until
-    // the variant expires. An Accept-less fetch negotiates */* and locks the
-    // original (often JPEG) format — the header must always be present.
+    // Current browser-facing prewarm URLs are explicit per-format keys. Keep
+    // the header AVIF-first for the one-time format backfill and any explicit
+    // legacy `format=auto` probes where Accept still controls negotiation.
     for (const [, init] of fetchImpl.mock.calls as [string, RequestInit][]) {
       expect((init.headers as Record<string, string>).Accept).toBe(
         PREWARM_ACCEPT_HEADER
       );
     }
     expect(PREWARM_ACCEPT_HEADER.startsWith('image/avif')).toBe(true);
+  });
+
+  it('honors an explicit prewarm format for one-time probes', () => {
+    expect(
+      buildOgabasseyPrewarmTransformUrls(
+        CDN_PRODUCT_IMAGE,
+        [{ quality: 75, width: 640 }],
+        { format: 'auto' }
+      )
+    ).toEqual([
+      'https://cdn.ogabassey.com/image/width=640,quality=75,format=auto/core-assets/products/phone.avif',
+    ]);
   });
 
   it('sends the AVIF-first Accept header on the ranged-GET fallback too', async () => {
@@ -164,7 +179,25 @@ describe('prewarmOgabasseyImageTransforms', () => {
     }
   });
 
-  it('caps total prewarmed URLs at 40 across many images', async () => {
+  it('keeps complete transform matrices for multiple images within the URL budget', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(okResponse());
+    const images = [
+      'https://cdn.ogabassey.com/core-assets/products/phone-0.avif',
+      'https://cdn.ogabassey.com/core-assets/products/phone-1.avif',
+    ];
+    const expectedUrls = new Set(
+      images.flatMap((image) => buildOgabasseyPrewarmTransformUrls(image))
+    );
+
+    await prewarmOgabasseyImageTransforms(images, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const requestedUrls = fetchImpl.mock.calls.map(([url]) => url as string);
+    expect(new Set(requestedUrls)).toEqual(expectedUrls);
+  });
+
+  it('caps total prewarmed URLs at 120 across many images', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(okResponse());
     const manyImages = Array.from(
       { length: 20 },
@@ -176,8 +209,8 @@ describe('prewarmOgabasseyImageTransforms', () => {
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });
 
-    expect(fetchImpl.mock.calls.length).toBeLessThanOrEqual(40);
-    expect(fetchImpl.mock.calls.length).toBe(40);
+    expect(fetchImpl.mock.calls.length).toBeLessThanOrEqual(120);
+    expect(fetchImpl.mock.calls.length).toBe(120);
   });
 
   it('never runs more than the configured concurrency at once', async () => {

@@ -115,6 +115,7 @@ describe('OgabasseyPdpProductResourceHints', () => {
     );
     expect(options.imageSrcSet).toContain('/image/width=');
     expect(options.imageSrcSet).toContain('quality=35');
+    expect(options.imageSrcSet).toContain('format=auto');
     expect(options.imageSrcSet).not.toContain('quality=30');
   });
 

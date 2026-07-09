@@ -82,7 +82,7 @@ describe('GET /api/ogabassey/pdp-lcp-image/[productSlug]', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
+      'https://cdn.ogabassey.com/image/width=750,quality=30,format=jpeg/core-assets/products/dell-alienware-17-r4.avif'
     );
     expect(mockFetch).not.toHaveBeenCalled();
     expect(response.headers.get('cache-control')).toContain('s-maxage=86400');

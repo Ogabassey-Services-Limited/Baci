@@ -992,17 +992,17 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
 
     expect(out).toContain('<picture>');
     expect(out).toContain(
-      'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.avif 384w'
+      'width=384,quality=70,format=avif/core-assets/blog/x/inline-1-b9244d7a754d.png.avif 384w'
     );
     expect(out).toContain(
-      'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.webp 384w'
+      'width=384,quality=70,format=webp/core-assets/blog/x/inline-1-b9244d7a754d.png.webp 384w'
     );
     expect(out).toContain(
       'sizes="(max-width: 768px) calc(100vw - 3rem), 800px"'
     );
     // The original asset stays as fallback but gets responsive width candidates.
     expect(out).toContain(
-      'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png 384w'
+      'width=384,quality=70,format=png/core-assets/blog/x/inline-1-b9244d7a754d.png 384w'
     );
     expect(out).not.toContain('width="1200"');
     expect(out).not.toContain('height="675"');
@@ -1124,11 +1124,11 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
 
     expect(out).toContain('<picture>');
     expect(out).toContain(
-      'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.avif'
+      'width=384,quality=70,format=avif/core-assets/blog/x/inline-1-b9244d7a754d.png.avif'
     );
     expect(out).toContain('alt="value a > b"');
     expect(out).toContain(
-      'width=828,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png'
+      'width=828,quality=70,format=png/core-assets/blog/x/inline-1-b9244d7a754d.png'
     );
   });
 
@@ -1167,7 +1167,7 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     );
 
     expect(out).toContain(
-      'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.avif?v=1&amp;x=2'
+      'width=384,quality=70,format=avif/core-assets/blog/x/inline-1-b9244d7a754d.png.avif?v=1&amp;x=2'
     );
     expect(out).not.toContain('&amp;amp;');
   });

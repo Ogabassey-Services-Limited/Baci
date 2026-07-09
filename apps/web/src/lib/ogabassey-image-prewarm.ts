@@ -1,6 +1,8 @@
 import {
+  buildOgabasseyCdnFallbackImageLoaderUrl,
   buildOgabasseyCdnImageLoaderUrl,
   isOgabasseyCdnImageUrl,
+  type OgabasseyCdnImageFormat,
 } from '@/lib/ogabassey-cdn-image-url';
 import {
   ALL_WIDTH_QUALITY_PAIRS,
@@ -42,17 +44,19 @@ const PROBE_QUALITY = 75;
 // Bound the total work a single invocation can do — a bulk operation
 // touching many products must never turn this best-effort optimization into
 // an unbounded fan-out of outbound requests.
-const MAX_PREWARM_URLS_PER_INVOCATION = 40;
+// The live transform matrix now has three cache keys per width×quality pair:
+// fallback, AVIF, and legacy `format=auto`. Keep the previous effective
+// coverage of roughly three images per invocation without making the
+// fire-and-forget prewarm fan-out unbounded.
+const MAX_PREWARM_URLS_PER_INVOCATION = 120;
 const DEFAULT_PREWARM_CONCURRENCY = 4;
 const DEFAULT_PREWARM_TIMEOUT_MS = 5000;
 
-// `format=auto` negotiates on the Accept header, but Cloudflare Free cannot
-// vary its cache by Accept — whichever format the FIRST requester negotiates
-// is locked in for every later visitor until the variant expires. Without an
-// explicit header this prewarm negotiates `*/*` (server-side fetch default)
-// and locks the ORIGINAL format (often JPEG at 1.4–2.8× AVIF bytes), actively
-// poisoning the cache it is meant to warm. Sending a browser-like AVIF-first
-// Accept makes the prewarmed (and therefore locked) variant the smallest one.
+// Browser-facing transform URLs now carry explicit per-format cache keys
+// instead of `format=auto`, so this header is harmless for ordinary fallback
+// prewarms. Keep it AVIF-first for the one-time format backfill and any
+// explicit legacy `auto` probes, where Accept still controls the negotiated
+// body.
 export const PREWARM_ACCEPT_HEADER =
   'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8';
 
@@ -76,7 +80,7 @@ function isCdnTransformableUrl(imagePath: string): boolean {
     return false;
   }
 
-  const probeUrl = buildOgabasseyCdnImageLoaderUrl(
+  const probeUrl = buildOgabasseyCdnFallbackImageLoaderUrl(
     imagePath,
     PROBE_WIDTH,
     PROBE_QUALITY
@@ -91,17 +95,45 @@ function isCdnTransformableUrl(imagePath: string): boolean {
  * the SAME variants this lib warms — a second hand-maintained matrix would
  * silently drift.
  */
+interface BuildOgabasseyPrewarmTransformUrlOptions {
+  /** Explicit transform format for legacy/backfill probes. Defaults to live keys. */
+  format?: OgabasseyCdnImageFormat;
+}
+
+function buildDefaultPrewarmTransformUrls(
+  imagePath: string,
+  { quality, width }: PrewarmWidthQualityPair
+): string[] {
+  return Array.from(
+    new Set([
+      buildOgabasseyCdnFallbackImageLoaderUrl(imagePath, width, quality),
+      buildOgabasseyCdnImageLoaderUrl(imagePath, width, quality, 'avif'),
+      buildOgabasseyCdnImageLoaderUrl(imagePath, width, quality, 'auto'),
+    ])
+  );
+}
+
 export function buildOgabasseyPrewarmTransformUrls(
   imagePath: string,
-  pairs: readonly PrewarmWidthQualityPair[] = ALL_WIDTH_QUALITY_PAIRS
+  pairs: readonly PrewarmWidthQualityPair[] = ALL_WIDTH_QUALITY_PAIRS,
+  options: BuildOgabasseyPrewarmTransformUrlOptions = {}
 ): string[] {
   if (!isCdnTransformableUrl(imagePath)) {
     return [];
   }
 
-  return pairs.map(({ width, quality }) =>
-    buildOgabasseyCdnImageLoaderUrl(imagePath, width, quality)
-  );
+  return pairs.flatMap((pair) => {
+    if (!options.format) {
+      return buildDefaultPrewarmTransformUrls(imagePath, pair);
+    }
+
+    return buildOgabasseyCdnImageLoaderUrl(
+      imagePath,
+      pair.width,
+      pair.quality,
+      options.format
+    );
+  });
 }
 
 function buildPrewarmUrls(

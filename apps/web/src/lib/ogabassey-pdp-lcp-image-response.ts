@@ -7,7 +7,7 @@ import {
 import { getCachedProductLcpHintPrimaryImage } from '@/lib/cached-product-lcp-hint-primary-image';
 import imageLoader from '@/lib/image-loader';
 import {
-  buildOgabasseyCdnImageLoaderUrl,
+  buildOgabasseyCdnFallbackImageLoaderUrl,
   isOgabasseyCdnImageUrl,
 } from '@/lib/ogabassey-cdn-image-url';
 import { ogabasseyPdpLcpImageRequestSchema } from '@/schemas/ogabassey-pdp-lcp-image';
@@ -83,7 +83,7 @@ export async function buildOgabasseyPdpLcpImageResponse({
   }
 
   const preloadUrl = isOgabasseyCdnImageUrl(primaryImage)
-    ? buildOgabasseyCdnImageLoaderUrl(
+    ? buildOgabasseyCdnFallbackImageLoaderUrl(
         primaryImage,
         parsed.data.width,
         parsed.data.quality

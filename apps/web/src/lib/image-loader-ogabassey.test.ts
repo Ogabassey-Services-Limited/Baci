@@ -6,9 +6,10 @@ const OGABASSEY_CDN_ORIGIN = 'https://cdn.ogabassey.com';
 function ogabasseyTransform(
   assetPath: string,
   width: number,
-  quality = 75
+  quality = 75,
+  format: 'auto' | 'jpeg' | 'png' = 'auto'
 ): string {
-  return `${OGABASSEY_CDN_ORIGIN}/image/width=${width},quality=${quality},format=auto${assetPath}`;
+  return `${OGABASSEY_CDN_ORIGIN}/image/width=${width},quality=${quality},format=${format}${assetPath}`;
 }
 
 describe('imageLoader OgaBassey CDN handling', () => {

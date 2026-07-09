@@ -151,7 +151,9 @@ function addProductVariantUrls(
         continue;
       }
       // Default pairs = the product surfaces' matrix (PDP hero + listing card).
-      for (const url of buildOgabasseyPrewarmTransformUrls(source)) {
+      for (const url of buildOgabasseyPrewarmTransformUrls(source, undefined, {
+        format: 'auto',
+      })) {
         urls.add(url);
       }
     }
@@ -172,7 +174,8 @@ function addBlogVariantUrls(
     }
     for (const url of buildOgabasseyPrewarmTransformUrls(
       featuredImage,
-      BLOG_IMAGE_WIDTH_QUALITY_PAIRS
+      BLOG_IMAGE_WIDTH_QUALITY_PAIRS,
+      { format: 'auto' }
     )) {
       urls.add(url);
     }

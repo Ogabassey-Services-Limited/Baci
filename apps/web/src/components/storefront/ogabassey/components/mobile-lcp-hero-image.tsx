@@ -1,6 +1,11 @@
 import { getImageProps } from 'next/image';
 import imageLoader from '@/lib/image-loader';
 import {
+  buildOgabasseyCdnFallbackImageLoaderUrl,
+  isOgabasseyCdnImageUrl,
+} from '@/lib/ogabassey-cdn-image-url';
+import { buildOgabasseyAvifSrcSet } from '@/lib/ogabassey-image-format-sources';
+import {
   MOBILE_HERO_IMAGE_HEIGHT,
   MOBILE_HERO_IMAGE_SIZES,
   MOBILE_HERO_IMAGE_WIDTH,
@@ -28,6 +33,10 @@ function ogabasseyHeroImageLoader({
   src: string;
   width: number;
 }) {
+  if (isOgabasseyCdnImageUrl(src)) {
+    return buildOgabasseyCdnFallbackImageLoaderUrl(src, width, quality);
+  }
+
   return imageLoader({ quality, src, width });
 }
 
@@ -61,9 +70,23 @@ export function MobileLcpHeroImage({
     productSrcSet,
     sizes ?? MOBILE_HERO_IMAGE_SIZES
   );
+  // Explicit `format=avif` twin of the fallback srcSet. Cloudflare Free ignores
+  // `Vary: Accept`, so per-format URLs (not one `format=auto` body) are the only
+  // way AVIF-capable browsers get AVIF while others get the decodable fallback.
+  // `null` when the source is not an OgaBassey transform URL (external image) —
+  // the plain `<source>` then serves everyone.
+  const avifSrcSet = buildOgabasseyAvifSrcSet(productSrcSet);
 
   return (
     <picture className="block h-full w-full">
+      {avifSrcSet ? (
+        <source
+          media={MOBILE_HERO_SOURCE_MEDIA}
+          sizes={productSizes}
+          srcSet={avifSrcSet}
+          type="image/avif"
+        />
+      ) : null}
       <source
         media={MOBILE_HERO_SOURCE_MEDIA}
         sizes={productSizes}
