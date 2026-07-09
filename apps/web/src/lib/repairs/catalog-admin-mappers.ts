@@ -1,4 +1,7 @@
-import type { RepairDeviceType } from '@baci/shared/repairs';
+import {
+  REPAIR_DEVICE_TYPES,
+  type RepairDeviceType,
+} from '@baci/shared/repairs';
 import type {
   CreateRepairDeviceInput,
   CreateRepairQuoteInput,
@@ -22,15 +25,6 @@ export const DEVICE_COLUMNS =
 // Dashboard quote reads include internal_notes (service-role client only).
 export const QUOTE_ADMIN_COLUMNS =
   'id, merchant_id, device_id, service_type_id, price, is_from_price, part_quality, turnaround, warranty_days, description, internal_notes, is_active, created_at, updated_at';
-
-const DEVICE_TYPE_VALUES: readonly string[] = [
-  'Smartphone',
-  'Laptop',
-  'Tablet',
-  'Console',
-  'Smartwatch',
-  'Other',
-];
 
 type Row = Record<string, unknown>;
 
@@ -63,7 +57,8 @@ function asBoolean(value: unknown): boolean {
 }
 
 function asDeviceType(value: unknown): RepairDeviceType | null {
-  return typeof value === 'string' && DEVICE_TYPE_VALUES.includes(value)
+  return typeof value === 'string' &&
+    (REPAIR_DEVICE_TYPES as readonly string[]).includes(value)
     ? (value as RepairDeviceType)
     : null;
 }

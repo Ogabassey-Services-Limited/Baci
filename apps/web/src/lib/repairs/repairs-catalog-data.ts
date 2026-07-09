@@ -1,11 +1,12 @@
-import type {
-  RepairDeviceBrandGroup,
-  RepairDeviceDetail,
-  RepairDeviceSummary,
-  RepairDeviceType,
-  RepairLinkedProductSummary,
-  RepairProductKeySpec,
-  RepairQuoteSummary,
+import {
+  REPAIR_DEVICE_TYPES,
+  type RepairDeviceBrandGroup,
+  type RepairDeviceDetail,
+  type RepairDeviceSummary,
+  type RepairDeviceType,
+  type RepairLinkedProductSummary,
+  type RepairProductKeySpec,
+  type RepairQuoteSummary,
 } from '@baci/shared/repairs';
 import { getPublicSupabaseClient } from '@/lib/cached-data';
 
@@ -13,14 +14,6 @@ const DEVICE_COLUMNS =
   'id, brand, model, slug, device_type, product_id, image_url, aliases, sort_order';
 const QUOTE_COLUMNS =
   'id, service_type_id, price, is_from_price, part_quality, turnaround, warranty_days, description';
-const DEVICE_TYPE_VALUES: readonly string[] = [
-  'Smartphone',
-  'Laptop',
-  'Tablet',
-  'Console',
-  'Smartwatch',
-  'Other',
-];
 
 type Row = Record<string, unknown>;
 
@@ -51,7 +44,8 @@ function asNullableNumber(value: unknown): number | null {
 }
 
 function asDeviceType(value: unknown): RepairDeviceType | null {
-  return typeof value === 'string' && DEVICE_TYPE_VALUES.includes(value)
+  return typeof value === 'string' &&
+    (REPAIR_DEVICE_TYPES as readonly string[]).includes(value)
     ? (value as RepairDeviceType)
     : null;
 }

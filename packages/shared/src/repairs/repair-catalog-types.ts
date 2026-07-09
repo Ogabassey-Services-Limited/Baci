@@ -5,13 +5,21 @@
  * storefront/admin apps in later phases. Pure types, no runtime logic.
  */
 
-export type RepairDeviceType =
-  | 'Smartphone'
-  | 'Laptop'
-  | 'Tablet'
-  | 'Console'
-  | 'Smartwatch'
-  | 'Other';
+/**
+ * Canonical repair device categories. Single source of truth: consumers that
+ * need the runtime list (row coercion, validation) import this array so they
+ * cannot drift from the `RepairDeviceType` union derived from it.
+ */
+export const REPAIR_DEVICE_TYPES = [
+  'Smartphone',
+  'Laptop',
+  'Tablet',
+  'Console',
+  'Smartwatch',
+  'Other',
+] as const;
+
+export type RepairDeviceType = (typeof REPAIR_DEVICE_TYPES)[number];
 
 export interface RepairDeviceSummary {
   id: string;
