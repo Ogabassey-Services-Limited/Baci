@@ -5,6 +5,7 @@ import {
   type CachedDataTestHarness,
   mockMerchant,
   resetMockCreateClient,
+  resolvedStorefrontMerchantRpcResult,
   withDefaultFeatureSettings,
 } from '@/lib/cached-data.test-utils';
 
@@ -15,6 +16,9 @@ vi.mock('@/env', () => ({
 }));
 
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
+vi.mock('@/lib/merchant-lookup-backoff', () => ({
+  waitForMerchantLookupRetryBackoff: vi.fn(() => Promise.resolve()),
+}));
 vi.mock('react', () => ({ cache: vi.fn((fn) => fn) }));
 vi.mock('@supabase/supabase-js', async () => {
   const { getMockCreateClient } = await import('@/lib/cached-data.test-utils');
@@ -54,9 +58,9 @@ afterEach(() => {
 describe('cached-data getMerchantByIdentifier behavior', () => {
   describe('error handling', () => {
     it('throws error when merchant lookup fails', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
+      harness.mockRpc.mockResolvedValueOnce({
         data: null,
-        error: { message: 'Database error' },
+        error: { code: 'XX000', message: 'Database error' },
       });
 
       await expect(getMerchantByIdentifier('test-store')).rejects.toThrow(
@@ -75,37 +79,39 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
       );
     });
 
-    it('logs warning for transient domain lookup timeouts before throwing', async () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, 'warn')
+    it('logs an error after a transient domain lookup exhausts its retry', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
         .mockImplementation(() => undefined);
       const resolveError = {
         message: 'TimeoutError: The operation was aborted due to timeout',
         details:
           'TimeoutError: The operation was aborted due to timeout at undici',
       };
-      harness.mockRpc.mockResolvedValueOnce({
-        data: null,
-        error: resolveError,
-      });
+      harness.mockRpc
+        .mockResolvedValueOnce({ data: null, error: resolveError })
+        .mockResolvedValueOnce({ data: null, error: resolveError });
 
       await expect(getMerchantByIdentifier('store.com')).rejects.toThrow(
         'Database error resolving merchant for domain: store.com'
       );
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
         'Error resolving merchant for domain',
-        {
+        expect.objectContaining({
           domain: 'store.com',
-          error: resolveError,
-        }
+          cause: expect.objectContaining({
+            message: resolveError.message,
+            transient: true,
+          }),
+          error: expect.objectContaining({
+            transient: true,
+          }),
+        })
       );
     });
 
     it('returns null when merchant not found by slug', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: null,
-        error: null,
-      });
+      harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
 
       await expect(
         getMerchantByIdentifier('nonexistent-store')
@@ -127,14 +133,9 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
   describe('security - contact info redaction for unpublished stores', () => {
     it('redacts contact info when store is not published (slug lookup)', async () => {
       const unpublishedMerchant = { ...mockMerchant, is_published: false };
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: unpublishedMerchant,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+      harness.mockRpc.mockResolvedValueOnce(
+        resolvedStorefrontMerchantRpcResult(unpublishedMerchant)
+      );
 
       await expect(
         getMerchantByIdentifier('test-store')
@@ -183,14 +184,12 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
     });
 
     it('does not redact contact info when store is published', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: { ...mockMerchant, is_published: true },
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+      harness.mockRpc.mockResolvedValueOnce(
+        resolvedStorefrontMerchantRpcResult({
+          ...mockMerchant,
+          is_published: true,
+        })
+      );
 
       const result = await getMerchantByIdentifier('test-store');
 
@@ -202,42 +201,30 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
 
   describe('paystack_subaccount_code projection', () => {
     it('preserves paystack_subaccount_code for slug lookups', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: {
+      harness.mockRpc.mockResolvedValueOnce(
+        resolvedStorefrontMerchantRpcResult({
           ...mockMerchant,
           paystack_subaccount_code: 'ACCT_test_123',
-        },
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+        })
+      );
 
       const result = await getMerchantByIdentifier('test-store');
 
       expect(result?.paystack_subaccount_code).toBe('ACCT_test_123');
     });
 
-    it('selects paystack_subaccount_code for slug lookups', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: mockMerchant,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+    it('routes slug projection through the public-safe resolver RPC', async () => {
+      harness.mockRpc.mockResolvedValueOnce(
+        resolvedStorefrontMerchantRpcResult(mockMerchant)
+      );
 
       await getMerchantByIdentifier('test-store');
 
-      expect(
-        harness.mockSelect.mock.calls.some(
-          ([projection]) =>
-            typeof projection === 'string' &&
-            projection.includes('paystack_subaccount_code')
-        )
-      ).toBe(true);
+      expect(harness.mockRpc).toHaveBeenCalledWith(
+        'resolve_storefront_cached_merchant',
+        { p_identifier: 'test-store' }
+      );
+      expect(harness.mockSelect).not.toHaveBeenCalled();
     });
 
     it('preserves paystack_subaccount_code for domain lookups', async () => {
@@ -288,25 +275,17 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
       expect(result?.paystack_subaccount_code).toBe('ACCT_domain_456');
     });
 
-    it('selects published_config for slug lookups', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: mockMerchant,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+    it('preserves published_config for slug lookups', async () => {
+      harness.mockRpc.mockResolvedValueOnce(
+        resolvedStorefrontMerchantRpcResult({
+          ...mockMerchant,
+          published_config: { theme: 'dark' },
+        })
+      );
 
-      await getMerchantByIdentifier('test-store');
+      const result = await getMerchantByIdentifier('test-store');
 
-      expect(
-        harness.mockSelect.mock.calls.some(
-          ([projection]) =>
-            typeof projection === 'string' &&
-            projection.includes('published_config')
-        )
-      ).toBe(true);
+      expect(result?.published_config).toEqual({ theme: 'dark' });
     });
 
     // published_config is projected server-side by the
@@ -338,39 +317,22 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
     });
 
     it('uses an allowlisted public-safe feature-settings projection for merchant lookups', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: mockMerchant,
-        error: null,
+      harness.mockRpc.mockResolvedValueOnce(
+        resolvedStorefrontMerchantRpcResult(mockMerchant, {
+          featureSettings: {
+            blog_enabled: true,
+            shipping_insurance_enabled: true,
+          },
+        })
+      );
+
+      const result = await getMerchantByIdentifier('test-store');
+
+      expect(result?.feature_settings).toMatchObject({
+        blog_enabled: true,
+        shipping_insurance_enabled: true,
       });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
-
-      await getMerchantByIdentifier('test-store');
-
-      const merchantProjection = harness.mockSelect.mock.calls
-        .map(([projection]) => String(projection))
-        .find(
-          (projection) =>
-            projection.includes('business_name') &&
-            projection.includes('published_config')
-        );
-      const featureSettingsProjection = harness.mockSelect.mock.calls
-        .map(([projection]) => String(projection))
-        .find((projection) => projection.includes('blog_enabled'));
-
-      expect(merchantProjection).toBeDefined();
-      expect(merchantProjection).not.toContain('merchant_feature_settings');
-      expect(featureSettingsProjection).toBeDefined();
-      expect(featureSettingsProjection).toContain('blog_enabled');
-      expect(featureSettingsProjection).toContain('shipping_insurance_enabled');
-      expect(featureSettingsProjection).toContain('custom_settings');
-      expect(merchantProjection).not.toContain('merchant_feature_settings(*)');
-      expect(featureSettingsProjection).not.toContain('facebook_capi_token');
-      expect(featureSettingsProjection).not.toContain('tiktok_access_token');
-      expect(featureSettingsProjection).not.toContain('ga4_api_secret');
-      expect(featureSettingsProjection).not.toContain('snapchat_capi_token');
+      expect(harness.mockSelect).not.toHaveBeenCalled();
     });
   });
 
@@ -384,14 +346,9 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
     });
 
     it('handles minimum length valid identifier (2 chars)', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: mockMerchant,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+      harness.mockRpc.mockResolvedValueOnce(
+        resolvedStorefrontMerchantRpcResult(mockMerchant)
+      );
 
       await expect(getMerchantByIdentifier('ab')).resolves.toEqual(
         withDefaultFeatureSettings(mockMerchant)
@@ -399,14 +356,9 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
     });
 
     it('handles maximum length valid identifier (254 chars)', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: mockMerchant,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+      harness.mockRpc.mockResolvedValueOnce(
+        resolvedStorefrontMerchantRpcResult(mockMerchant)
+      );
 
       await expect(
         getMerchantByIdentifier(`a${'b'.repeat(252)}c`)
@@ -414,18 +366,16 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
     });
 
     it('handles identifier with mixed case correctly', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: mockMerchant,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+      harness.mockRpc.mockResolvedValueOnce(
+        resolvedStorefrontMerchantRpcResult(mockMerchant)
+      );
 
       await getMerchantByIdentifier('TeSt-StOrE');
 
-      expect(harness.mockEq).toHaveBeenCalledWith('slug', 'test-store');
+      expect(harness.mockRpc).toHaveBeenCalledWith(
+        'resolve_storefront_cached_merchant',
+        { p_identifier: 'test-store' }
+      );
     });
 
     it('handles null-like identifier gracefully', async () => {
@@ -438,14 +388,9 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
     });
 
     it('handles numeric identifier', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: mockMerchant,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+      harness.mockRpc.mockResolvedValueOnce(
+        resolvedStorefrontMerchantRpcResult(mockMerchant)
+      );
 
       await expect(getMerchantByIdentifier('123')).resolves.toEqual(
         withDefaultFeatureSettings(mockMerchant)

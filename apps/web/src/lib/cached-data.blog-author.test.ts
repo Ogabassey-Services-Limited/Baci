@@ -110,6 +110,16 @@ function setupBlogAuthorFetch({
       error: postsError,
     },
   });
+  const merchantRpc = vi.fn().mockResolvedValue({
+    data: [
+      {
+        custom_domain: null,
+        feature_settings: { blog_enabled: true },
+        merchant_data: buildMerchantRow(),
+      },
+    ],
+    error: null,
+  });
 
   const serviceFrom = vi.fn((table: string) => {
     if (table === 'merchants') {
@@ -138,7 +148,7 @@ function setupBlogAuthorFetch({
   mockCreateClient.mockImplementation(
     (_url: string, key: string, _options?: unknown) => {
       if (key === 'test-service-role-key') {
-        return { from: serviceFrom };
+        return { from: serviceFrom, rpc: merchantRpc };
       }
 
       if (key === 'test-anon-key') {

@@ -4,6 +4,7 @@ import {
   buildCachedDataTestHarness,
   type CachedDataTestHarness,
   mockMerchant,
+  resolvedStorefrontMerchantRpcResult,
 } from '@/lib/cached-data.test-utils';
 
 const mockCreateClient = vi.fn();
@@ -15,6 +16,9 @@ vi.mock('@/env', () => ({
 }));
 
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
+vi.mock('@/lib/merchant-lookup-backoff', () => ({
+  waitForMerchantLookupRetryBackoff: vi.fn(() => Promise.resolve()),
+}));
 vi.mock('react', () => ({ cache: vi.fn((fn: unknown) => fn) }));
 
 vi.mock('@supabase/supabase-js', () => ({
@@ -149,21 +153,16 @@ describe('cached merchant entity normalization', () => {
   });
 
   it('normalizes the OgaBassey slug merchant away from stale fashion business type', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce({
-      data: {
-        ...mockMerchant,
-        business_type: 'fashion',
-        feature_settings: [],
-        slug: 'ogabassey',
-      },
-      error: null,
-      count: null,
-    });
-    harness.mockSingle.mockResolvedValueOnce({
-      data: { domain: 'ogabassey.com' },
-      error: null,
-      count: null,
-    });
+    harness.mockRpc.mockResolvedValueOnce(
+      resolvedStorefrontMerchantRpcResult(
+        {
+          ...mockMerchant,
+          business_type: 'fashion',
+          slug: 'ogabassey',
+        },
+        { customDomain: 'ogabassey.com' }
+      )
+    );
 
     const merchant = await getCachedMerchant('ogabassey');
 
@@ -174,6 +173,23 @@ describe('cached merchant entity normalization', () => {
         slug: 'ogabassey',
       })
     );
+  });
+
+  it('owns one bounded retry inside the cached slug resolver for every caller', async () => {
+    harness.mockRpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: '23',
+          message: 'TimeoutError: The operation was aborted due to timeout',
+        },
+      })
+      .mockResolvedValueOnce(resolvedStorefrontMerchantRpcResult(mockMerchant));
+
+    await expect(getCachedMerchant('test-store')).resolves.toEqual(
+      expect.objectContaining({ id: mockMerchant.id })
+    );
+    expect(harness.mockRpc).toHaveBeenCalledTimes(2);
   });
 
   it('normalizes the OgaBassey domain merchant away from stale fashion business type', async () => {
@@ -253,13 +269,16 @@ describe('cached merchant entity normalization', () => {
     expect(merchant).toBeNull();
   });
 
-  it('throws transient lookup errors from the storefront merchant resolver', async () => {
-    harness.mockRpc.mockResolvedValueOnce({
+  it('throws when transient domain lookup errors exhaust the resolver retry', async () => {
+    const timeoutResult = {
       data: null,
       error: {
         message: 'TimeoutError: The operation was aborted due to timeout',
       },
-    });
+    };
+    harness.mockRpc
+      .mockResolvedValueOnce(timeoutResult)
+      .mockResolvedValueOnce(timeoutResult);
 
     await expect(getCachedMerchantByDomain('ogabassey.com')).rejects.toThrow(
       'Database error resolving merchant for domain: ogabassey.com'
@@ -288,21 +307,16 @@ describe('cached merchant entity normalization', () => {
   });
 
   it('preserves business type for non-OgaBassey slug merchants', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce({
-      data: {
-        ...mockMerchant,
-        business_type: 'fashion',
-        feature_settings: [],
-        slug: 'fashionstore',
-      },
-      error: null,
-      count: null,
-    });
-    harness.mockSingle.mockResolvedValueOnce({
-      data: { domain: 'fashion.example' },
-      error: null,
-      count: null,
-    });
+    harness.mockRpc.mockResolvedValueOnce(
+      resolvedStorefrontMerchantRpcResult(
+        {
+          ...mockMerchant,
+          business_type: 'fashion',
+          slug: 'fashionstore',
+        },
+        { customDomain: 'fashion.example' }
+      )
+    );
 
     const merchant = await getCachedMerchant('fashionstore');
 

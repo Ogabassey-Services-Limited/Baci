@@ -75,6 +75,25 @@ export function withDefaultFeatureSettings<T extends { id: string }>(
   };
 }
 
+export function resolvedStorefrontMerchantRpcResult(
+  merchant: Partial<CachedMerchant> = mockMerchant,
+  options: {
+    customDomain?: string | null;
+    featureSettings?: Record<string, unknown> | null;
+  } = {}
+) {
+  return {
+    data: [
+      {
+        custom_domain: options.customDomain ?? null,
+        feature_settings: options.featureSettings ?? null,
+        merchant_data: merchant,
+      },
+    ],
+    error: null,
+  };
+}
+
 let mockCreateClient: ((...args: unknown[]) => unknown) | null = null;
 
 export function getMockCreateClient() {

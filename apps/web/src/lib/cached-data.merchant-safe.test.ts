@@ -4,12 +4,6 @@ import {
   getMerchantStrict,
   getRequestScopedMerchant,
 } from '@/lib/cached-data';
-
-const mockUnstableRethrow = vi.hoisted(() => vi.fn());
-const mockWaitForMerchantLookupRetryBackoff = vi.hoisted(() =>
-  vi.fn(() => Promise.resolve())
-);
-
 import {
   buildCachedDataTestHarness,
   type CachedDataTestHarness,
@@ -18,6 +12,10 @@ import {
   withDefaultFeatureSettings,
 } from '@/lib/cached-data.test-utils';
 
+const mockWaitForMerchantLookupRetryBackoff = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve())
+);
+
 vi.mock('@/env', () => ({
   getSupabaseUrl: vi.fn(() => 'https://test.supabase.co'),
   getSupabaseAnonKey: vi.fn(() => 'test-anon-key'),
@@ -25,9 +23,6 @@ vi.mock('@/env', () => ({
 }));
 
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
-vi.mock('next/navigation', () => ({
-  unstable_rethrow: (error: unknown) => mockUnstableRethrow(error),
-}));
 vi.mock('@/lib/merchant-lookup-backoff', () => ({
   waitForMerchantLookupRetryBackoff: () =>
     mockWaitForMerchantLookupRetryBackoff(),
@@ -40,15 +35,7 @@ vi.mock('@supabase/supabase-js', async () => {
       const createClient = getMockCreateClient();
       if (!createClient) {
         return {
-          from: () => ({
-            select: () => ({
-              eq: () => ({
-                maybeSingle: vi.fn(),
-                single: vi.fn(),
-                eq: vi.fn(),
-              }),
-            }),
-          }),
+          rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
           auth: { getUser: vi.fn() },
         };
       }
@@ -57,11 +44,42 @@ vi.mock('@supabase/supabase-js', async () => {
   };
 });
 
+const FLIGHT_MASKED_ERROR_MESSAGE =
+  'An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details.';
+
+function resolverSuccess(
+  merchant: typeof mockMerchant = mockMerchant,
+  options: {
+    customDomain?: string | null;
+    featureSettings?: Record<string, unknown> | null;
+  } = {}
+) {
+  return {
+    data: [
+      {
+        custom_domain: options.customDomain ?? null,
+        feature_settings: options.featureSettings ?? null,
+        merchant_data: merchant,
+      },
+    ],
+    error: null,
+  };
+}
+
+function transientResolvedError() {
+  return {
+    data: null,
+    error: {
+      code: '23',
+      details: 'TimeoutError: request aborted at undici',
+      message: 'TimeoutError: The operation was aborted due to timeout',
+    },
+  };
+}
+
 let harness: CachedDataTestHarness;
 
 beforeEach(() => {
-  mockUnstableRethrow.mockReset();
-  mockUnstableRethrow.mockImplementation(() => undefined);
   mockWaitForMerchantLookupRetryBackoff.mockClear();
   harness = buildCachedDataTestHarness();
 });
@@ -73,685 +91,342 @@ afterEach(() => {
 
 describe('cached-data merchant safety helpers', () => {
   describe('getMerchantSafe', () => {
-    it('returns merchant data on successful lookup', async () => {
-      const merchantWithTrustFields = {
-        ...mockMerchant,
-        support_email: 'support@ogabassey.com',
-        support_phone: '+2348000000000',
-        legal_entity_name: 'Ogabassey Gadgets Ltd',
-        registered_address: {
-          street: '12 Allen Avenue',
-          city: 'Ikeja',
-          state: 'Lagos',
-          country: 'Nigeria',
-        },
-        tax_identification_number: 'TIN-123',
-        trust_profile: {
-          founded_year: 2018,
-        },
-      };
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: merchantWithTrustFields,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+    it('returns the one-round-trip resolver merchant with public defaults', async () => {
+      harness.mockRpc.mockResolvedValueOnce(resolverSuccess());
 
       await expect(getMerchantSafe('test-store')).resolves.toEqual(
-        withDefaultFeatureSettings(merchantWithTrustFields)
+        withDefaultFeatureSettings(mockMerchant)
       );
-      expect(harness.mockSelect).toHaveBeenCalledWith(
-        expect.stringContaining('mobile_hero_slides')
+      expect(harness.mockRpc).toHaveBeenCalledOnce();
+      expect(harness.mockRpc).toHaveBeenCalledWith(
+        'resolve_storefront_cached_merchant',
+        { p_identifier: 'test-store' }
       );
+      expect(harness.mockFrom).not.toHaveBeenCalled();
     });
 
-    it('canonicalizes OgaBassey public media URLs to CDN URLs before rendering', async () => {
+    it('uses feature settings and the canonical domain returned by the resolver', async () => {
+      harness.mockRpc.mockResolvedValueOnce(
+        resolverSuccess(mockMerchant, {
+          customDomain: 'shop.example.com',
+          featureSettings: { blog_enabled: true },
+        })
+      );
+
+      await expect(getMerchantSafe('test-store')).resolves.toMatchObject({
+        custom_domain: 'shop.example.com',
+        feature_settings: { blog_enabled: true },
+      });
+    });
+
+    it('canonicalizes OgaBassey public media URLs returned by the resolver', async () => {
       const merchantWithSupabaseMedia = {
         ...mockMerchant,
         id: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
         slug: 'ogabassey',
-        custom_domain: 'ogabassey.com',
         template_id: 'ogabassey',
         logo_url:
-          'https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/6b5cb8a4-5575-456c-b936-8cdfae30db74/ogabassey_logo_2026_v1.svg',
-        favicon_png_32_url:
-          'https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/merchants/6b5cb8a4-5575-456c-b936-8cdfae30db74/favicon/favicon-32.png',
-        favicon_apple_touch_url:
-          'https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/merchants/6b5cb8a4-5575-456c-b936-8cdfae30db74/favicon/apple-touch-icon.png',
+          'https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/6b5cb8a4-5575-456c-b936-8cdfae30db74/logo.svg',
       };
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: merchantWithSupabaseMedia,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: { domain: 'ogabassey.com' },
-        error: null,
-      });
+      harness.mockRpc.mockResolvedValueOnce(
+        resolverSuccess(merchantWithSupabaseMedia)
+      );
 
       await expect(getMerchantSafe('ogabassey')).resolves.toMatchObject({
         logo_url:
-          'https://cdn.ogabassey.com/media/6b5cb8a4-5575-456c-b936-8cdfae30db74/ogabassey_logo_2026_v1.svg',
-        favicon_png_32_url:
-          'https://cdn.ogabassey.com/media/merchants/6b5cb8a4-5575-456c-b936-8cdfae30db74/favicon/favicon-32.png',
-        favicon_apple_touch_url:
-          'https://cdn.ogabassey.com/media/merchants/6b5cb8a4-5575-456c-b936-8cdfae30db74/favicon/apple-touch-icon.png',
+          'https://cdn.ogabassey.com/media/6b5cb8a4-5575-456c-b936-8cdfae30db74/logo.svg',
       });
     });
 
-    it('does not rewrite non-OgaBassey merchant media onto the OgaBassey CDN', async () => {
-      const merchantMediaUrl =
-        'https://project.supabase.co/storage/v1/object/public/media/merchant-1/logo.svg';
-      const merchantWithSupabaseMedia = {
-        ...mockMerchant,
-        id: 'merchant-1',
-        slug: 'test-store',
-        custom_domain: 'test-store.example.com',
-        template_id: 'ogabassey',
-        logo_url: merchantMediaUrl,
-      };
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: merchantWithSupabaseMedia,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: { domain: 'test-store.example.com' },
-        error: null,
-      });
-
-      await expect(getMerchantSafe('test-store')).resolves.toMatchObject({
-        logo_url: merchantMediaUrl,
-      });
-    });
-
-    it('retries once on first failure and returns data on retry success', async () => {
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(new Error('Transient network error'))
-        .mockResolvedValueOnce({ data: mockMerchant, error: null });
-      harness.mockSingle
-        .mockResolvedValueOnce({ data: null, error: { code: 'PGRST116' } })
-        .mockResolvedValueOnce({ data: null, error: { code: 'PGRST116' } });
-
-      await expect(getMerchantSafe('test-store')).resolves.toEqual(
-        withDefaultFeatureSettings(mockMerchant)
-      );
-      const merchantTableLookups = harness.mockFrom.mock.calls.filter(
-        ([table]) => table === 'merchants'
-      );
-      expect(merchantTableLookups).toHaveLength(2);
-    });
-
-    it('rethrows Next PPR control-flow errors instead of logging them as merchant failures', async () => {
-      const pprError = Object.assign(
-        new Error(
-          'During prerendering, dynamic "use cache" rejects when the prerender is complete'
-        ),
-        { digest: 'HANGING_PROMISE_REJECTION' }
-      );
-      mockUnstableRethrow.mockImplementation((error: unknown) => {
-        if (error === pprError) throw error;
-      });
-      harness.mockMaybeSingle.mockRejectedValueOnce(pprError);
-
-      await expect(getMerchantSafe('test-store')).rejects.toBe(pprError);
-      expect(mockUnstableRethrow).toHaveBeenCalledWith(pprError);
-      expect(harness.mockMaybeSingle).toHaveBeenCalledTimes(1);
-    });
-    it('returns null after both attempts fail', async () => {
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(new Error('First failure'))
-        .mockRejectedValueOnce(new Error('Second failure'));
-
-      await expect(getMerchantSafe('test-store')).resolves.toBeNull();
-      expect(harness.mockMaybeSingle).toHaveBeenCalledTimes(2);
-    });
-
-    it('logs error after retry failure', async () => {
-      const consoleErrorSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => undefined);
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(new Error('First failure'))
-        .mockRejectedValueOnce(new Error('Second failure'));
-
-      await getMerchantSafe('test-store');
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Non-transient merchant lookup failed after retry:',
-        'test-store',
-        expect.objectContaining({
-          firstError: expect.objectContaining({ transient: false }),
-          retryError: expect.objectContaining({ transient: false }),
-        })
-      );
-    });
-
-    it('logs warning after retry failure for transient timeout errors', async () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, 'warn')
-        .mockImplementation(() => undefined);
-      const timeoutError = new Error(
-        'TimeoutError: The operation was aborted due to timeout'
-      );
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(timeoutError)
-        .mockRejectedValueOnce(timeoutError);
-
-      await getMerchantSafe('test-store');
-
-      expect(consoleWarnSpy).toHaveBeenLastCalledWith(
-        'Merchant lookup direct fallback returned no merchant:',
-        'test-store',
-        expect.objectContaining({
-          firstError: expect.objectContaining({ transient: true }),
-          retryError: expect.objectContaining({ transient: true }),
-        })
-      );
-    });
-
-    it('logs warning after wrapped transient lookup failures', async () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, 'warn')
-        .mockImplementation(() => undefined);
-      const timeoutLookupResult = {
-        data: null,
-        error: {
-          message: 'TimeoutError: The operation was aborted due to timeout',
-          details:
-            'TimeoutError: The operation was aborted due to timeout at undici',
-        },
-      };
-      harness.mockMaybeSingle
-        .mockResolvedValueOnce(timeoutLookupResult)
-        .mockResolvedValueOnce(timeoutLookupResult)
-        .mockResolvedValueOnce({ data: null, error: null });
-
-      await getMerchantSafe('test-store');
-
-      expect(consoleWarnSpy).toHaveBeenLastCalledWith(
-        'Merchant lookup direct fallback returned no merchant:',
-        'test-store',
-        expect.objectContaining({
-          firstError: expect.objectContaining({ transient: true }),
-          retryError: expect.objectContaining({ transient: true }),
-        })
-      );
-    });
-
-    it('falls back to a direct merchant lookup after remote cache handler failures', async () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, 'warn')
-        .mockImplementation(() => undefined);
-      const consoleErrorSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => undefined);
-      const remoteCacheError = new Error(
-        'RemoteCacheHandler: <html><body>502 Bad Gateway</body></html>'
-      );
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(remoteCacheError)
-        .mockRejectedValueOnce(remoteCacheError)
-        .mockResolvedValueOnce({ data: mockMerchant, error: null });
-      harness.mockSingle.mockResolvedValue({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
-
-      await expect(getMerchantSafe('test-store')).resolves.toEqual(
-        withDefaultFeatureSettings(mockMerchant)
-      );
-
-      const merchantTableLookups = harness.mockFrom.mock.calls.filter(
-        ([table]) => table === 'merchants'
-      );
-      expect(merchantTableLookups).toHaveLength(3);
-      expect(consoleWarnSpy).toHaveBeenLastCalledWith(
-        'Merchant fetch failed after retry; direct fallback succeeded:',
-        'test-store',
-        expect.objectContaining({
-          firstError: expect.objectContaining({ transient: true }),
-          retryError: expect.objectContaining({ transient: true }),
-        })
-      );
-      expect(consoleErrorSpy).not.toHaveBeenCalledWith(
-        'Merchant fetch failed after retry:',
-        'test-store'
-      );
-    });
-
-    it('treats production digest-masked Server Components render errors as transient and falls back to a direct lookup', async () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, 'warn')
-        .mockImplementation(() => undefined);
-      // In production, errors thrown inside a 'use cache' function cross the
-      // React Flight boundary, which replaces the real message with this
-      // generic digest-masked string — every diagnostic substring is gone.
-      const digestMaskedError = new Error(
-        'An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details. A digest property is included on this error instance which may provide additional details about the nature of the error.'
-      );
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(digestMaskedError)
-        .mockRejectedValueOnce(digestMaskedError)
-        .mockResolvedValueOnce({ data: mockMerchant, error: null });
-      harness.mockSingle.mockResolvedValue({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
-
-      await expect(getMerchantSafe('test-store')).resolves.toEqual(
-        withDefaultFeatureSettings(mockMerchant)
-      );
-
-      const merchantTableLookups = harness.mockFrom.mock.calls.filter(
-        ([table]) => table === 'merchants'
-      );
-      expect(merchantTableLookups).toHaveLength(3);
-      expect(consoleWarnSpy).toHaveBeenLastCalledWith(
-        'Merchant fetch failed after retry; direct fallback succeeded:',
-        'test-store',
-        expect.objectContaining({
-          firstError: expect.objectContaining({ transient: true }),
-          retryError: expect.objectContaining({ transient: true }),
-        })
-      );
-    });
-
-    it('returns null and logs when the digest-masked failure persists through the direct fallback', async () => {
-      const consoleErrorSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => undefined);
-      const digestMaskedError = new Error(
-        'An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details. A digest property is included on this error instance which may provide additional details about the nature of the error.'
-      );
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(digestMaskedError)
-        .mockRejectedValueOnce(digestMaskedError)
-        .mockRejectedValueOnce(new Error('direct lookup failed'));
-
-      await expect(getMerchantSafe('test-store')).resolves.toBeNull();
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Direct merchant lookup failed after retry:',
-        'test-store',
-        expect.objectContaining({
-          firstError: expect.objectContaining({ transient: true }),
-          retryError: expect.objectContaining({ transient: true }),
-        })
-      );
-    });
-
-    it('does not treat the digest-masked error as router control flow', async () => {
-      const digestMaskedError = new Error(
-        'An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details. A digest property is included on this error instance which may provide additional details about the nature of the error.'
-      );
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(digestMaskedError)
-        .mockRejectedValueOnce(digestMaskedError)
-        .mockResolvedValueOnce({ data: null, error: null });
-
-      await expect(getMerchantSafe('test-store')).resolves.toBeNull();
-
-      // unstable_rethrow saw the error and let it fall through to
-      // classification instead of rethrowing it as navigation control flow.
-      expect(mockUnstableRethrow).toHaveBeenCalledWith(digestMaskedError);
-    });
-
-    it('waits for the jittered backoff between the first attempt and the retry', async () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, 'warn')
-        .mockImplementation(() => undefined);
-      const timeoutError = new Error(
-        'TimeoutError: The operation was aborted due to timeout'
-      );
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(timeoutError)
-        .mockRejectedValueOnce(timeoutError)
-        .mockResolvedValueOnce({ data: mockMerchant, error: null });
-      harness.mockSingle.mockResolvedValue({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
-
-      await expect(getMerchantSafe('test-store')).resolves.toEqual(
-        withDefaultFeatureSettings(mockMerchant)
-      );
-
-      expect(mockWaitForMerchantLookupRetryBackoff).toHaveBeenCalledTimes(1);
-      consoleWarnSpy.mockRestore();
-    });
-
-    it('keeps transient direct fallback on the public client when RLS hides unpublished merchants', async () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, 'warn')
-        .mockImplementation(() => undefined);
-      const remoteCacheError = new Error(
-        'RemoteCacheHandler: <html><body>502 Bad Gateway</body></html>'
-      );
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(remoteCacheError)
-        .mockRejectedValueOnce(remoteCacheError)
-        .mockResolvedValueOnce({ data: null, error: null });
-
-      await expect(getMerchantSafe('test-store')).resolves.toBeNull();
-
-      expect(consoleWarnSpy).toHaveBeenLastCalledWith(
-        'Merchant lookup direct fallback returned no merchant:',
-        'test-store',
-        expect.objectContaining({
-          firstError: expect.objectContaining({ transient: true }),
-          retryError: expect.objectContaining({ transient: true }),
-        })
-      );
-    });
-
-    it('treats low-level fetch failures as transient and falls back to a direct merchant lookup', async () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, 'warn')
-        .mockImplementation(() => undefined);
-      const consoleErrorSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => undefined);
-      const fetchFailure = new TypeError('fetch failed');
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(fetchFailure)
-        .mockRejectedValueOnce(fetchFailure)
-        .mockResolvedValueOnce({ data: mockMerchant, error: null });
-      harness.mockSingle.mockResolvedValue({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
-
-      await expect(getMerchantSafe('test-store')).resolves.toEqual(
-        withDefaultFeatureSettings(mockMerchant)
-      );
-
-      const merchantTableLookups = harness.mockFrom.mock.calls.filter(
-        ([table]) => table === 'merchants'
-      );
-      expect(merchantTableLookups).toHaveLength(3);
-      expect(consoleWarnSpy).toHaveBeenLastCalledWith(
-        'Merchant fetch failed after retry; direct fallback succeeded:',
-        'test-store',
-        expect.objectContaining({
-          firstError: expect.objectContaining({
-            message: 'fetch failed',
-            transient: true,
-          }),
-          retryError: expect.objectContaining({
-            message: 'fetch failed',
-            transient: true,
-          }),
-        })
-      );
-      expect(consoleErrorSpy).not.toHaveBeenCalledWith(
-        'Merchant fetch failed after retry:',
-        'test-store',
-        expect.any(Object)
-      );
-    });
-
-    it('does not classify unrelated messages containing 408 digits as transient', async () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, 'warn')
-        .mockImplementation(() => undefined);
-      const consoleErrorSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => undefined);
-      const nonTransientError = new Error('catalog row id 4089 failed');
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(nonTransientError)
-        .mockRejectedValueOnce(nonTransientError);
-
-      await expect(getMerchantSafe('test-store')).resolves.toBeNull();
-
-      const merchantTableLookups = harness.mockFrom.mock.calls.filter(
-        ([table]) => table === 'merchants'
-      );
-      expect(merchantTableLookups).toHaveLength(2);
-      expect(consoleWarnSpy).not.toHaveBeenCalled();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Non-transient merchant lookup failed after retry:',
-        'test-store',
-        expect.objectContaining({
-          firstError: expect.objectContaining({ transient: false }),
-          retryError: expect.objectContaining({ transient: false }),
-        })
-      );
-    });
-
-    it('returns null and logs an error when cached and direct merchant lookups fail', async () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, 'warn')
-        .mockImplementation(() => undefined);
-      const consoleErrorSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => undefined);
-      const remoteCacheError = new Error(
-        'RemoteCacheHandler: <html><body>502 Bad Gateway</body></html>'
-      );
-      const directLookupError = new Error('direct lookup failed');
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(remoteCacheError)
-        .mockRejectedValueOnce(remoteCacheError)
-        .mockRejectedValueOnce(directLookupError);
-      harness.mockSingle.mockResolvedValue({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
-
-      await expect(getMerchantSafe('test-store')).resolves.toBeNull();
-
-      const merchantTableLookups = harness.mockFrom.mock.calls.filter(
-        ([table]) => table === 'merchants'
-      );
-      expect(merchantTableLookups).toHaveLength(3);
-      expect(consoleWarnSpy).not.toHaveBeenCalled();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Direct merchant lookup failed after retry:',
-        'test-store',
-        expect.objectContaining({
-          directError: expect.objectContaining({
-            message: 'direct lookup failed',
-            transient: false,
-          }),
-          firstError: expect.objectContaining({ transient: true }),
-          retryError: expect.objectContaining({ transient: true }),
-        })
-      );
-    });
-
-    it('does not throw errors even when lookup fails twice', async () => {
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(new Error('Database timeout'))
-        .mockRejectedValueOnce(new Error('Database timeout'));
-
-      await expect(getMerchantSafe('test-store')).resolves.toBeNull();
-    });
-
-    it('redacts trust and legal fields for unpublished merchants', async () => {
-      const merchantWithTrustFields = {
+    it('redacts public contact and trust fields for unpublished merchants', async () => {
+      const unpublishedMerchant = {
         ...mockMerchant,
         is_published: false,
-        support_email: 'support@ogabassey.com',
+        support_email: 'support@example.com',
         support_phone: '+2348000000000',
-        business_address: '12 Allen Avenue, Ikeja, Lagos',
-        legal_entity_name: 'Ogabassey Gadgets Ltd',
-        registered_address: {
-          street: '12 Allen Avenue',
-          city: 'Ikeja',
-          state: 'Lagos',
-          country: 'Nigeria',
-        },
+        legal_entity_name: 'Merchant Ltd',
+        registered_address: { city: 'Lagos' },
         tax_identification_number: 'TIN-123',
-        trust_profile: {
-          founded_year: 2018,
-        },
+        trust_profile: { founded_year: 2018 },
       };
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: merchantWithTrustFields,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+      harness.mockRpc.mockResolvedValueOnce(
+        resolverSuccess(unpublishedMerchant)
+      );
 
       await expect(getMerchantSafe('test-store')).resolves.toMatchObject({
         business_address: '',
+        email: '',
+        legal_entity_name: null,
+        phone: '',
+        registered_address: null,
         support_email: '',
         support_phone: '',
-        legal_entity_name: null,
-        registered_address: null,
         tax_identification_number: null,
         trust_profile: null,
       });
     });
 
-    it('sanitizes and truncates error identifiers', async () => {
+    it('returns null only when the resolver successfully confirms no merchant', async () => {
+      harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+
+      await expect(getMerchantSafe('missing-store')).resolves.toBeNull();
+      expect(mockWaitForMerchantLookupRetryBackoff).not.toHaveBeenCalled();
+    });
+
+    it('propagates Next control-flow errors without retrying', async () => {
+      const pprError = Object.assign(new Error('prerender interrupted'), {
+        digest: 'HANGING_PROMISE_REJECTION',
+      });
+      harness.mockRpc.mockRejectedValueOnce(pprError);
+
+      await expect(getMerchantSafe('test-store')).rejects.toBe(pprError);
+      expect(harness.mockRpc).toHaveBeenCalledOnce();
+      expect(mockWaitForMerchantLookupRetryBackoff).not.toHaveBeenCalled();
+    });
+
+    it('does not retry or downgrade an unrelated application error to a 404', async () => {
+      const applicationError = new Error(
+        'merchant normalizer invariant failed'
+      );
+      harness.mockRpc.mockRejectedValueOnce(applicationError);
+
+      await expect(getMerchantSafe('test-store')).rejects.toBe(
+        applicationError
+      );
+      expect(harness.mockRpc).toHaveBeenCalledOnce();
+      expect(mockWaitForMerchantLookupRetryBackoff).not.toHaveBeenCalled();
+    });
+
+    it('does not retry a coded database error whose message contains aborted', async () => {
+      harness.mockRpc.mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: '25P02',
+          message: 'current transaction is aborted, commands ignored',
+        },
+      });
+
+      await expect(getMerchantSafe('test-store')).rejects.toThrow(
+        'Failed to fetch merchant for slug: test-store'
+      );
+      expect(harness.mockRpc).toHaveBeenCalledOnce();
+      expect(mockWaitForMerchantLookupRetryBackoff).not.toHaveBeenCalled();
+    });
+
+    it('runs one uncached resolver retry after a flattened transport timeout', async () => {
+      harness.mockRpc
+        .mockResolvedValueOnce(transientResolvedError())
+        .mockResolvedValueOnce(resolverSuccess());
+
+      await expect(getMerchantSafe('test-store')).resolves.toEqual(
+        withDefaultFeatureSettings(mockMerchant)
+      );
+      expect(harness.mockRpc).toHaveBeenCalledTimes(2);
+      expect(mockWaitForMerchantLookupRetryBackoff).toHaveBeenCalledOnce();
+    });
+
+    it('does not classify a digest-masked Server Components error as a transport failure', async () => {
+      const unrelatedServerError = Object.assign(
+        new Error(FLIGHT_MASKED_ERROR_MESSAGE),
+        { digest: 'unrelated-application-error' }
+      );
+      harness.mockRpc.mockRejectedValueOnce(unrelatedServerError);
+
+      await expect(getMerchantSafe('test-store')).rejects.toBe(
+        unrelatedServerError
+      );
+      expect(harness.mockRpc).toHaveBeenCalledOnce();
+      expect(mockWaitForMerchantLookupRetryBackoff).not.toHaveBeenCalled();
+    });
+
+    it('returns null when the second resolver attempt confirms no merchant', async () => {
+      harness.mockRpc
+        .mockResolvedValueOnce(transientResolvedError())
+        .mockResolvedValueOnce({ data: [], error: null });
+
+      await expect(getMerchantSafe('test-store')).resolves.toBeNull();
+      expect(harness.mockRpc).toHaveBeenCalledTimes(2);
+    });
+
+    it('throws instead of producing a false 404 when the second attempt fails', async () => {
       const consoleErrorSpy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => undefined);
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(new Error('First failure'))
-        .mockRejectedValueOnce(new Error('Second failure'))
-        .mockRejectedValueOnce(new Error('Third failure'))
-        .mockRejectedValueOnce(new Error('Fourth failure'));
-      harness.mockSingle.mockResolvedValue({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+      harness.mockRpc
+        .mockResolvedValueOnce(transientResolvedError())
+        .mockResolvedValueOnce({
+          data: null,
+          error: { code: '', message: 'fetch failed' },
+        });
 
-      await getMerchantSafe('test-store-123');
-      await getMerchantSafe('a'.repeat(200));
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Non-transient merchant lookup failed after retry:',
-        'test-store-123',
-        expect.any(Object)
+      await expect(getMerchantSafe('test-store')).rejects.toThrow(
+        'Failed to fetch merchant for slug: test-store'
       );
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Non-transient merchant lookup failed after retry:',
-        'a'.repeat(100),
+        'Error fetching merchant for slug:',
+        'test-store',
+        expect.objectContaining({
+          cause: expect.objectContaining({ transient: true }),
+          error: expect.objectContaining({ transient: true }),
+        })
+      );
+    });
+
+    it('treats a low-level fetch rejection as transient', async () => {
+      harness.mockRpc
+        .mockRejectedValueOnce(new TypeError('fetch failed'))
+        .mockResolvedValueOnce(resolverSuccess());
+
+      await expect(getMerchantSafe('test-store')).resolves.toEqual(
+        withDefaultFeatureSettings(mockMerchant)
+      );
+      expect(harness.mockRpc).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      'HTTP 408 Request Timeout',
+      'HTTP 503 Service Unavailable',
+      'HTTP 520 Web Server Returned an Unknown Error',
+    ])('owns the retry for transient upstream status: %s', async (message) => {
+      harness.mockRpc
+        .mockResolvedValueOnce({
+          data: null,
+          error: { code: '', message },
+        })
+        .mockResolvedValueOnce(resolverSuccess());
+
+      await expect(getMerchantSafe('test-store')).resolves.toEqual(
+        withDefaultFeatureSettings(mockMerchant)
+      );
+      expect(harness.mockRpc).toHaveBeenCalledTimes(2);
+      expect(mockWaitForMerchantLookupRetryBackoff).toHaveBeenCalledOnce();
+    });
+
+    it('retries the Postgres statement-timeout SQLSTATE', async () => {
+      harness.mockRpc
+        .mockResolvedValueOnce({
+          data: null,
+          error: { code: '57014', message: 'canceling statement' },
+        })
+        .mockResolvedValueOnce(resolverSuccess());
+
+      await expect(getMerchantSafe('test-store')).resolves.toEqual(
+        withDefaultFeatureSettings(mockMerchant)
+      );
+      expect(harness.mockRpc).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not classify unrelated messages containing 408 digits as transient', async () => {
+      const unrelatedError = new Error('catalog row id 4089 failed');
+      harness.mockRpc.mockRejectedValueOnce(unrelatedError);
+
+      await expect(getMerchantSafe('test-store')).rejects.toBe(unrelatedError);
+      expect(harness.mockRpc).toHaveBeenCalledOnce();
+      expect(mockWaitForMerchantLookupRetryBackoff).not.toHaveBeenCalled();
+    });
+
+    it('disables PostgREST retries because the outer resolver owns retry', async () => {
+      const retry = vi.fn().mockReturnValue(Promise.resolve(resolverSuccess()));
+      harness.mockRpc.mockReturnValueOnce({ retry } as never);
+
+      await expect(getMerchantSafe('test-store')).resolves.toEqual(
+        withDefaultFeatureSettings(mockMerchant)
+      );
+      expect(retry).toHaveBeenCalledWith(false);
+    });
+
+    it('sanitizes and truncates identifiers in error logs', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      const identifier = `test-store-${'a'.repeat(120)}`;
+      harness.mockRpc.mockRejectedValueOnce(new Error('application failure'));
+
+      await expect(getMerchantSafe(identifier)).rejects.toThrow(
+        'application failure'
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Error fetching merchant for slug:',
+        `test-store-${'a'.repeat(89)}`,
         expect.any(Object)
       );
     });
 
-    it('returns null for invalid identifiers without retry', async () => {
-      const consoleErrorSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => undefined);
-
+    it('returns null for invalid identifiers without touching Supabase', async () => {
       await expect(getMerchantSafe('<script>')).resolves.toBeNull();
-      expect(harness.mockMaybeSingle).not.toHaveBeenCalled();
-      expect(consoleErrorSpy).not.toHaveBeenCalled();
+      expect(harness.mockRpc).not.toHaveBeenCalled();
     });
   });
 
   describe('getMerchantStrict', () => {
-    it('throws the retry error when both non-PPR attempts fail', async () => {
-      const firstError = new Error('First failure');
-      const retryError = new Error('Second failure');
-      const consoleErrorSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => undefined);
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(firstError)
-        .mockRejectedValueOnce(retryError);
+    it('does not retry non-transient failures', async () => {
+      const applicationError = new Error('application failure');
+      harness.mockRpc.mockRejectedValueOnce(applicationError);
 
-      await expect(getMerchantStrict('test-store')).rejects.toBe(retryError);
-      expect(mockUnstableRethrow).toHaveBeenCalledWith(firstError);
-      expect(mockUnstableRethrow).toHaveBeenCalledWith(retryError);
-      expect(harness.mockMaybeSingle).toHaveBeenCalledTimes(2);
-      expect(mockWaitForMerchantLookupRetryBackoff).toHaveBeenCalledTimes(1);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Strict merchant lookup failed after retry:',
-        'test-store'
+      await expect(getMerchantStrict('test-store')).rejects.toBe(
+        applicationError
+      );
+      expect(harness.mockRpc).toHaveBeenCalledOnce();
+      expect(mockWaitForMerchantLookupRetryBackoff).not.toHaveBeenCalled();
+    });
+
+    it('uses one bounded retry for transient failures', async () => {
+      harness.mockRpc
+        .mockResolvedValueOnce(transientResolvedError())
+        .mockResolvedValueOnce(resolverSuccess());
+
+      await expect(getMerchantStrict('test-store')).resolves.toEqual(
+        withDefaultFeatureSettings(mockMerchant)
+      );
+      expect(harness.mockRpc).toHaveBeenCalledTimes(2);
+      expect(mockWaitForMerchantLookupRetryBackoff).toHaveBeenCalledOnce();
+    });
+
+    it('throws when the second attempt also fails', async () => {
+      harness.mockRpc
+        .mockResolvedValueOnce(transientResolvedError())
+        .mockResolvedValueOnce({
+          data: null,
+          error: { code: '', message: 'fetch failed' },
+        });
+
+      await expect(getMerchantStrict('test-store')).rejects.toThrow(
+        'Failed to fetch merchant for slug: test-store'
       );
     });
 
-    it('rethrows Next PPR control-flow errors without retrying', async () => {
-      const pprError = Object.assign(
-        new Error(
-          'During prerendering, dynamic "use cache" rejects when the prerender is complete'
-        ),
-        { digest: 'HANGING_PROMISE_REJECTION' }
-      );
-      mockUnstableRethrow.mockImplementation((error: unknown) => {
-        if (error === pprError) throw error;
+    it('propagates Next control-flow errors without retrying', async () => {
+      const pprError = Object.assign(new Error('prerender interrupted'), {
+        digest: 'HANGING_PROMISE_REJECTION',
       });
-      harness.mockMaybeSingle.mockRejectedValueOnce(pprError);
+      harness.mockRpc.mockRejectedValueOnce(pprError);
 
       await expect(getMerchantStrict('test-store')).rejects.toBe(pprError);
-      expect(mockUnstableRethrow).toHaveBeenCalledWith(pprError);
-      expect(harness.mockMaybeSingle).toHaveBeenCalledTimes(1);
+      expect(harness.mockRpc).toHaveBeenCalledOnce();
     });
   });
 
   describe('getRequestScopedMerchant', () => {
-    it('delegates to getMerchantSafe', async () => {
-      const merchantWithTrustFields = {
-        ...mockMerchant,
-        support_email: 'support@ogabassey.com',
-        support_phone: '+2348000000000',
-        legal_entity_name: 'Ogabassey Gadgets Ltd',
-        registered_address: {
-          street: '12 Allen Avenue',
-          city: 'Ikeja',
-          state: 'Lagos',
-          country: 'Nigeria',
-        },
-        tax_identification_number: 'TIN-123',
-        trust_profile: {
-          founded_year: 2018,
-        },
-      };
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: merchantWithTrustFields,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+    it('delegates a slug to the resilient resolver', async () => {
+      harness.mockRpc.mockResolvedValueOnce(resolverSuccess());
 
       await expect(getRequestScopedMerchant('test-store')).resolves.toEqual(
-        withDefaultFeatureSettings(merchantWithTrustFields)
+        withDefaultFeatureSettings(mockMerchant)
+      );
+      expect(harness.mockRpc).toHaveBeenCalledWith(
+        'resolve_storefront_cached_merchant',
+        { p_identifier: 'test-store' }
       );
     });
 
-    it('returns null when getMerchantSafe returns null', async () => {
-      harness.mockMaybeSingle
-        .mockRejectedValueOnce(new Error('First failure'))
-        .mockRejectedValueOnce(new Error('Second failure'));
-
-      await expect(getRequestScopedMerchant('test-store')).resolves.toBeNull();
-    });
-
-    it('handles invalid identifiers', async () => {
-      await expect(getRequestScopedMerchant('')).resolves.toBeNull();
-    });
-
-    it('passes identifier to getMerchantSafe correctly', async () => {
-      harness.mockRpc.mockResolvedValueOnce({
-        data: [
-          {
-            custom_domain: 'shop.example.com',
-            feature_settings: null,
-            merchant_data: { ...mockMerchant },
-          },
-        ],
-        error: null,
-      });
+    it('normalizes a custom domain before resolving it', async () => {
+      harness.mockRpc.mockResolvedValueOnce(
+        resolverSuccess(mockMerchant, { customDomain: 'shop.example.com' })
+      );
 
       await expect(
-        getRequestScopedMerchant('shop.example.com')
-      ).resolves.toEqual(
-        withDefaultFeatureSettings({
-          ...mockMerchant,
-          custom_domain: 'shop.example.com',
-        })
-      );
+        getRequestScopedMerchant('SHOP.EXAMPLE.COM')
+      ).resolves.toMatchObject({ custom_domain: 'shop.example.com' });
       expect(harness.mockRpc).toHaveBeenCalledWith(
         'resolve_storefront_cached_merchant',
         { p_identifier: 'shop.example.com' }
