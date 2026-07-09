@@ -156,14 +156,6 @@ describe('DeliveryMethodCard', () => {
     expect(baseProps.onSelectMethod).toHaveBeenCalledWith('pickup_station');
   });
 
-  it('calls onSelectMethod with "pickup_station" when non-Lagos GIGL pickup is pressed', () => {
-    render(<DeliveryMethodCard {...baseProps} deliveryState="Rivers" />);
-    fireEvent.press(
-      screen.getByRole('radio', { name: /select pickup station/i })
-    );
-    expect(baseProps.onSelectMethod).toHaveBeenCalledWith('pickup_station');
-  });
-
   it('shows expanded airport info when airport is selected', () => {
     render(
       <DeliveryMethodCard

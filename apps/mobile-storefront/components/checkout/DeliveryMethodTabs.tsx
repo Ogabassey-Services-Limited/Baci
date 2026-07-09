@@ -110,9 +110,10 @@ export function DeliveryMethodTabs({
                 accessibilityRole="radio"
                 accessibilityLabel={`Select ${option.title}`}
                 accessibilityState={{ checked: isSelected }}
-                style={[
+                style={({ pressed }) => [
                   styles.segmentPressable,
                   useStackedLayout && styles.segmentPressableStacked,
+                  pressed && styles.segmentPressed,
                 ]}
               >
                 <View
@@ -171,6 +172,7 @@ const styles = StyleSheet.create({
   segmentStacked: { minHeight: 88 },
   segmentPressable: { flex: 1, justifyContent: 'center', padding: 9 },
   segmentPressableStacked: { paddingHorizontal: 6, paddingVertical: 9 },
+  segmentPressed: { opacity: 0.72 },
   segmentContent: {
     alignItems: 'center',
     flexDirection: 'row',

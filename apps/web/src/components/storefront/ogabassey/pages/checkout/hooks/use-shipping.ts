@@ -102,6 +102,7 @@ export function useShipping({
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>('');
   const [resolvedQuoteRequestKey, setResolvedQuoteRequestKey] = useState('');
   const quoteRequestSequence = useRef(0);
+  const quoteAbortController = useRef<AbortController | null>(null);
   const [prevAddressState, setPrevAddressState] = useState(newAddressState);
 
   // Clear stale cities during render when the selected state is cleared,
@@ -155,6 +156,7 @@ export function useShipping({
       receiver,
       cart,
       {
+        activeAbortController: quoteAbortController,
         currentRequestKey: resolvedQuoteRequestKey,
         force,
         requestSequence: quoteRequestSequence,
@@ -230,7 +232,10 @@ export function useShipping({
   const updateShippingQuotes = (quotes: ShippingQuote[]) => {
     setShippingQuotes(quotes);
     if (quotes.length === 0) {
-      invalidatePendingQuoteRequests(quoteRequestSequence);
+      invalidatePendingQuoteRequests(
+        quoteRequestSequence,
+        quoteAbortController,
+      );
       setIsLoadingQuotes(false);
       setResolvedQuoteRequestKey('');
       setSelectedQuoteId('');

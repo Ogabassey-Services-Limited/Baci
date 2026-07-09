@@ -1003,6 +1003,7 @@ export const CheckoutPage: React.FC = () => {
     longitude: number;
   } | null>(null);
   const quoteRequestSequence = useRef(0);
+  const quoteAbortController = useRef<AbortController | null>(null);
   const stationPickupQuote = getStationPickupQuote(shippingQuotes);
   const doorDeliveryQuotes = getDoorDeliveryQuotes(shippingQuotes);
   const selectedQuote = shippingQuotes.find(
@@ -1021,7 +1022,10 @@ export const CheckoutPage: React.FC = () => {
     shippingQuotes,
   });
   const resetQuotesForAddressChange = () => {
-    invalidatePendingQuoteRequests(quoteRequestSequence);
+    invalidatePendingQuoteRequests(
+      quoteRequestSequence,
+      quoteAbortController,
+    );
     setIsLoadingQuotes(false);
     setDeliveryCoordinates(null);
     setResolvedQuoteRequestKey('');
@@ -1167,6 +1171,7 @@ export const CheckoutPage: React.FC = () => {
           },
           checkoutCart,
           {
+            activeAbortController: quoteAbortController,
             currentRequestKey: resolvedQuoteRequestKey,
             force,
             requestSequence: quoteRequestSequence,

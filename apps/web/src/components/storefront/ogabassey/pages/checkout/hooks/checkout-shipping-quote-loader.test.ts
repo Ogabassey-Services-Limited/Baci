@@ -46,6 +46,7 @@ function quoteResponse(id = 'road-quote') {
 
 function createState() {
   return {
+    activeAbortController: { current: null as AbortController | null },
     currentRequestKey: '',
     force: false,
     requestSequence: { current: 0 },
@@ -157,6 +158,9 @@ describe('loadCheckoutShippingQuotes', () => {
       cart,
       state
     );
+    const firstSignal = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]
+      ?.signal as AbortSignal;
+    expect(firstSignal.aborted).toBe(true);
 
     resolveSecond(quoteResponse('new-quote'));
     await secondRequest;
@@ -177,7 +181,10 @@ describe('loadCheckoutShippingQuotes', () => {
     const state = createState();
     const pendingRequest = loadCheckoutShippingQuotes(receiver, cart, state);
 
-    invalidatePendingQuoteRequests(state.requestSequence);
+    invalidatePendingQuoteRequests(
+      state.requestSequence,
+      state.activeAbortController,
+    );
     resolveRequest(quoteResponse('stale-quote'));
     await pendingRequest;
 

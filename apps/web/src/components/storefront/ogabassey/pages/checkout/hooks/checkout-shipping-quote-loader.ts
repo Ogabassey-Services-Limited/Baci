@@ -26,6 +26,7 @@ interface QuoteReceiver {
 }
 
 interface QuoteState {
+  activeAbortController: { current: AbortController | null };
   currentRequestKey: string;
   force: boolean;
   requestSequence: { current: number };
@@ -35,9 +36,12 @@ interface QuoteState {
   setShippingQuotes: (quotes: ShippingQuote[]) => void;
 }
 
-export function invalidatePendingQuoteRequests(requestSequence: {
-  current: number;
-}) {
+export function invalidatePendingQuoteRequests(
+  requestSequence: { current: number },
+  activeAbortController?: { current: AbortController | null },
+) {
+  activeAbortController?.current?.abort();
+  if (activeAbortController) activeAbortController.current = null;
   requestSequence.current += 1;
   return requestSequence.current;
 }
@@ -67,14 +71,22 @@ export async function loadCheckoutShippingQuotes(
   if (!receiver.state || !receiver.city || !receiver.address) return;
   const requestKey = buildQuoteRequestKey(receiver, cart);
   if (!state.force && requestKey === state.currentRequestKey) return;
-  const requestSequence = invalidatePendingQuoteRequests(state.requestSequence);
+  const requestSequence = invalidatePendingQuoteRequests(
+    state.requestSequence,
+    state.activeAbortController,
+  );
   const isLatestRequest = () => state.requestSequence.current === requestSequence;
+  const abortController = new AbortController();
+  state.activeAbortController.current = abortController;
 
   state.setIsLoadingQuotes(true);
   state.setSelectedQuoteId('');
 
   try {
-    const signal = AbortSignal.timeout(CHECKOUT_QUOTE_TIMEOUT_MS);
+    const signal = AbortSignal.any([
+      abortController.signal,
+      AbortSignal.timeout(CHECKOUT_QUOTE_TIMEOUT_MS),
+    ]);
     const response = await fetch('/api/shipping/quotes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -124,6 +136,8 @@ export async function loadCheckoutShippingQuotes(
       if (isLatestRequest()) clearQuotes(state);
     }
   } catch (error) {
+    const isAbortError = error instanceof DOMException && error.name === 'AbortError';
+    if (isAbortError && !isLatestRequest()) return;
     if (error instanceof DOMException && error.name === 'TimeoutError') {
       console.warn('Shipping quote request timed out');
     } else {
@@ -131,6 +145,9 @@ export async function loadCheckoutShippingQuotes(
     }
     if (isLatestRequest()) clearQuotes(state);
   } finally {
+    if (state.activeAbortController.current === abortController) {
+      state.activeAbortController.current = null;
+    }
     if (isLatestRequest()) state.setIsLoadingQuotes(false);
   }
 }
