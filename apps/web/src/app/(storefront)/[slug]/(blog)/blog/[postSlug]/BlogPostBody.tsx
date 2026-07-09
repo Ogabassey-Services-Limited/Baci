@@ -7,6 +7,7 @@ import { TableOfContents } from '@/components/blog/table-of-contents';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { HoverPrefetchLink } from '@/components/ui/hover-prefetch-link';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { removeDuplicateLegacyFeaturedImage } from '@/lib/blog-legacy-featured-image-dedupe';
 import { rewriteStorefrontContentHref } from '@/lib/storefront-content-link-rewriting';
@@ -285,12 +286,12 @@ export async function BlogPostBody({
 
               return (
                 <li key={product.id}>
-                  <Link
+                  <HoverPrefetchLink
                     href={href}
                     className="block rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
                   >
                     {product.name}
-                  </Link>
+                  </HoverPrefetchLink>
                 </li>
               );
             })}
