@@ -44,7 +44,15 @@ export async function getCachedProductSemanticInventory(
   categorySlug: string
 ): Promise<ProductSemanticCandidate[]> {
   'use cache: remote';
-  cacheLife('products');
+  // 'categories' (revalidate 3600) instead of 'products' (revalidate 300):
+  // freshness is tag-driven — every product mutation and order-path stock
+  // change fires revalidateTag(`products-${merchantId}`) — so the short
+  // window only forced this ~0.5MB remote entry (300 rows × the key-specs
+  // relation) to be re-written every 5 minutes per category, a dominant
+  // source of Vercel data-cache write failures (502s) on compare routes.
+  // ('categories' and 'blog' have identical values; 'categories' reads
+  // truer for a per-category-keyed entry.)
+  cacheLife('categories');
   cacheTag(
     'products',
     `products-${merchantId}`,

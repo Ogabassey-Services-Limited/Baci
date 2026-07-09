@@ -8,11 +8,18 @@ const mockNot = vi.fn();
 const mockOrder = vi.fn();
 const mockFrom = vi.fn();
 const mockGetPublicSupabaseClient = vi.fn();
+const mockCacheLife = vi.fn();
+const mockCacheTag = vi.fn();
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedFeatureSettings: (...args: unknown[]) =>
     mockGetCachedFeatureSettings(...args),
   getPublicSupabaseClient: () => mockGetPublicSupabaseClient(),
+}));
+
+vi.mock('next/cache', () => ({
+  cacheLife: (...args: string[]) => mockCacheLife(...args),
+  cacheTag: (...args: string[]) => mockCacheTag(...args),
 }));
 
 describe('getPublishedClusterPosts', () => {
@@ -60,6 +67,17 @@ describe('getPublishedClusterPosts', () => {
         category: 'Smartphones',
       }),
     ]);
+    // Pin the long tag-invalidated profile: the short 'merchant' window
+    // caused this ~400KB remote entry to be re-written every 60s (the
+    // dominant data-cache 502 source on compare/PDP routes).
+    expect(mockCacheLife).toHaveBeenCalledExactlyOnceWith('blog');
+    // The features tag must stay on the entry: the blog_enabled gate below
+    // the cacheTag call means a feature toggle has to bust it.
+    expect(mockCacheTag).toHaveBeenCalledExactlyOnceWith(
+      'blog-posts',
+      'published-cluster-posts-merchant-1',
+      'features-merchant-1'
+    );
   });
 
   it('returns an empty list when the blog feature is disabled', async () => {

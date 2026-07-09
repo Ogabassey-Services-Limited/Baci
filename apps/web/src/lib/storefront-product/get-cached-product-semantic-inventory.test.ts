@@ -92,6 +92,10 @@ describe('getCachedProductSemanticInventory', () => {
       'products-merchant-1',
       'seo-inventory-merchant-1-laptops'
     );
+    // Pin the long tag-invalidated profile: the short 'products' window
+    // caused ~0.5MB remote cache re-writes every 5min per category (the
+    // dominant data-cache 502 source on compare routes).
+    expect(mockCacheLife).toHaveBeenCalledExactlyOnceWith('categories');
   });
 
   it('throws query errors so a stale-good cache entry is preserved', async () => {

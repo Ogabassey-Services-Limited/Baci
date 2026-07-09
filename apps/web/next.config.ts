@@ -142,16 +142,22 @@ const nextConfig: NextConfig = {
     products: { stale: 300, revalidate: 300, expire: 86400 },
     // Storefront pages (terms, FAQ, about): revalidate every 5min, stale 1min, expire 1hr
     'storefront-page': { stale: 60, revalidate: 300, expire: 3600 },
-    // Categories: rarely change, revalidate every 1hr, expire after 24hr
+    // Categories: rarely change, revalidate every 1hr, expire after 24hr.
+    // Also used by large tag-invalidated remote entries keyed per category
+    // (e.g. getCachedProductSemanticInventory) where the hourly window only
+    // bounds staleness if tag revalidation fails to fire.
     categories: { stale: 300, revalidate: 3600, expire: 86400 },
     // Blog posts: near-static content invalidated on edit via cacheTag (see
-    // lib/cache-revalidation.ts). These use the LOCAL Cache Components handler
-    // (`'use cache'`, not remote), so cross-instance tag eviction isn't
+    // lib/cache-revalidation.ts). For LOCAL Cache Components entries
+    // (`'use cache'`, not remote), cross-instance tag eviction isn't
     // guaranteed — the revalidate window therefore also bounds how long an
     // edited/deleted post (or a cached missing-slug lookup) can be served on a
-    // warm instance. Hourly revalidation kills the 60s re-render storm under
-    // crawler load (~60x fewer renders) while keeping that staleness bounded to
-    // an hour; `stale` stays short since the cost win is `revalidate`, not
+    // warm instance. REMOTE entries on this profile (`'use cache: remote'`,
+    // e.g. getPublishedClusterPosts) do get cross-instance tag eviction, so
+    // for them the hourly window purely reduces re-render/cache-write churn.
+    // Hourly revalidation kills the 60s re-render storm under crawler load
+    // (~60x fewer renders) while keeping worst-case staleness bounded to an
+    // hour; `stale` stays short since the cost win is `revalidate`, not
     // `stale`.
     blog: { stale: 300, revalidate: 3600, expire: 86400 },
   },
