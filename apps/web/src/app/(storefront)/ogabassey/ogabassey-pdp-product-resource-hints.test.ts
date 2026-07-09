@@ -113,8 +113,10 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(desktopPreloadHref).toBe(
       'https://cdn.ogabassey.com/image/width=750,quality=35,format=jpeg/core-assets/products/lenovo-legion.avif'
     );
+    expect(desktopPreloadHref).not.toContain('format=auto');
     expect(options.imageSrcSet).toContain('/image/width=');
     expect(options.imageSrcSet).toContain('quality=35');
+    expect(options.imageSrcSet).not.toContain('format=auto');
     expect(options.imageSrcSet).not.toContain('quality=30');
   });
 

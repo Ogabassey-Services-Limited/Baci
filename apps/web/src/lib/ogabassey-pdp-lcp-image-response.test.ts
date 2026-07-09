@@ -77,6 +77,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
     expect(response.headers.get('location')).toBe(
       'https://cdn.ogabassey.com/image/width=750,quality=30,format=jpeg/core-assets/products/dell-alienware-17-r4.avif'
     );
+    expect(response.headers.get('location')).not.toContain('format=auto');
     expect(response.headers.get('cache-control')).toBe(
       'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400'
     );
