@@ -394,6 +394,10 @@ export async function getRepairsSitemapEntries({
   merchant,
   storeUrl,
 }: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
+  if (!isRepairsCatalogEnabledForMerchant(merchant)) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('repair_devices')
     .select('slug')

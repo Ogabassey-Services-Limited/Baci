@@ -106,8 +106,9 @@ async function claimRepairPickupBooking(
  *
  * Direction: customer pickup address = sender, private repair-center address =
  * receiver. The fresh quote + provider metadata are persisted to the PRIVATE
- * repair_pickup_quotes table before booking, then a shipments row is inserted
- * and linked via repairs.shipment_id.
+ * repair_pickup_quotes table before booking. A pending shipment is then
+ * persisted and linked to the repair before contacting Topship, so an
+ * ambiguous provider or database failure cannot permit a second charge.
  */
 export async function bookRepairPickup(
   supabase: SupabaseClient,
@@ -230,39 +231,31 @@ export async function bookRepairPickup(
     return pickupFailure('booking_failed');
   }
 
-  let booking: ShipmentBookingResult;
-  try {
-    booking = await shippingService.bookShipment(
-      PICKUP_PROVIDER,
-      bookingRequest
-    );
-  } catch (error) {
-    console.error('Repair pickup booking failed:', error);
-    return pickupFailure('booking_failed');
-  }
-
+  // Reserve a local shipment before calling the provider. Once this is linked
+  // to the repair, retries are blocked even if the provider call or later
+  // database update has an ambiguous outcome.
   const { data: shipmentData, error: shipmentError } = await supabase
     .from('shipments')
     .insert({
       order_id: null,
       merchant_id: merchantId,
-      provider: booking.provider,
-      provider_shipment_id: booking.providerShipmentId,
-      tracking_number: booking.trackingNumber,
-      carrier_name: booking.carrierName,
-      status: booking.status,
+      provider: PICKUP_PROVIDER,
+      provider_shipment_id: null,
+      tracking_number: null,
+      carrier_name: quote.carrierName,
+      status: 'pending',
       sender_address: sender,
       receiver_address: quoteRequest.receiver,
       items,
       price: quote.price,
       currency: quote.currency,
       estimated_delivery_days: quote.estimatedDays,
-      is_station_pickup: booking.isStationPickup ?? false,
-      station_name: booking.pickupStationName ?? null,
-      station_address: booking.pickupStationAddress ?? null,
-      pickup_scheduled_at: booking.pickupScheduledAt?.toISOString() ?? null,
-      label_url: booking.labelUrl ?? null,
-      provider_response: booking.rawResponse ?? null,
+      is_station_pickup: false,
+      station_name: null,
+      station_address: null,
+      pickup_scheduled_at: null,
+      label_url: null,
+      provider_response: quote.rawResponse ?? null,
     })
     .select('id')
     .single();
@@ -277,8 +270,6 @@ export async function bookRepairPickup(
     .from('repairs')
     .update({
       shipment_id: shipment.id,
-      pickup_booking_lock_token: null,
-      pickup_booking_started_at: null,
     })
     .eq('id', repairId)
     .eq('merchant_id', merchantId)
@@ -296,9 +287,71 @@ export async function bookRepairPickup(
     : null;
   if (!linkedRepair) {
     console.error(
-      'Repair pickup booked but another shipment is already linked'
+      'Repair pickup reservation could not be linked to the claimed repair'
     );
     return pickupFailure('shipment_save_failed');
+  }
+
+  let booking: ShipmentBookingResult;
+  try {
+    booking = await shippingService.bookShipment(
+      PICKUP_PROVIDER,
+      bookingRequest
+    );
+  } catch (error) {
+    // A transport error can occur after Topship accepted the booking. The
+    // linked pending shipment prevents a retry from creating a duplicate.
+    console.error('Repair pickup booking could not be confirmed:', error);
+    return pickupFailure('shipment_save_failed');
+  }
+
+  const { data: bookedShipmentData, error: bookedShipmentError } =
+    await supabase
+      .from('shipments')
+      .update({
+        provider: booking.provider,
+        provider_shipment_id: booking.providerShipmentId,
+        tracking_number: booking.trackingNumber,
+        carrier_name: booking.carrierName,
+        status: booking.status,
+        is_station_pickup: booking.isStationPickup ?? false,
+        station_name: booking.pickupStationName ?? null,
+        station_address: booking.pickupStationAddress ?? null,
+        pickup_scheduled_at: booking.pickupScheduledAt?.toISOString() ?? null,
+        label_url: booking.labelUrl ?? null,
+        provider_response: booking.rawResponse ?? null,
+      })
+      .eq('id', shipment.id)
+      .eq('merchant_id', merchantId)
+      .select('id')
+      .single();
+
+  if (bookedShipmentError || !bookedShipmentData) {
+    console.error(
+      'Repair pickup was booked but the pending shipment could not be finalized:',
+      bookedShipmentError
+    );
+    return pickupFailure('shipment_save_failed');
+  }
+
+  const { error: clearLockError } = await supabase
+    .from('repairs')
+    .update({
+      pickup_booking_lock_token: null,
+      pickup_booking_started_at: null,
+    })
+    .eq('id', repairId)
+    .eq('merchant_id', merchantId)
+    .eq('shipment_id', shipment.id)
+    .eq('pickup_booking_lock_token', claim.lockToken);
+
+  if (clearLockError) {
+    // The shipment is safely linked. A stale lock cannot re-open booking while
+    // shipment_id remains set, so do not turn a successful booking into a failure.
+    console.error(
+      'Failed to clear repair pickup booking lock:',
+      clearLockError
+    );
   }
 
   const { error: quoteUsedError } = await supabase

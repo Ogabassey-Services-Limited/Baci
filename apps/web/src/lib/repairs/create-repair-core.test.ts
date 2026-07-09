@@ -122,6 +122,19 @@ describe('createRepairBooking', () => {
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
+  it('treats a cleared optional preferred date as omitted', async () => {
+    const result = await createRepairBooking(
+      { ...validInput, preferredDate: '' },
+      merchantId
+    );
+
+    expect(result).toEqual({ success: true, id: 'repair-1', ticketNumber: 42 });
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'create_repair_booking',
+      expect.objectContaining({ p_preferred_date: null })
+    );
+  });
+
   it('accepts datetime-local preferred dates from the booking picker', async () => {
     const result = await createRepairBooking(
       { ...validInput, preferredDate: '2026-06-03T14:30' },

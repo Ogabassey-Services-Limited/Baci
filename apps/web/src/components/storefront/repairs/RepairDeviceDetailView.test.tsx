@@ -121,6 +121,31 @@ describe('RepairDeviceDetailView', () => {
     );
   });
 
+  it('falls back to the linked product id when its slug is blank', () => {
+    render(
+      <RepairDeviceDetailView
+        basePath="/ogabassey"
+        currency="NGN"
+        detail={{
+          device: { ...device, productId: 'product-1' },
+          quotes,
+          product: {
+            id: 'product-1',
+            slug: '   ',
+            name: 'iPhone 13 Pro Max 256GB',
+            imageUrl: null,
+            keySpecs: [],
+          },
+        }}
+      />
+    );
+
+    expect(screen.getByRole('link', { name: /view device/i })).toHaveAttribute(
+      'href',
+      '/ogabassey/products/product-1'
+    );
+  });
+
   it('omits the product section entirely when no product is linked', () => {
     render(
       <RepairDeviceDetailView

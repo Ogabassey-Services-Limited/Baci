@@ -130,6 +130,7 @@ function happyResponses(overrides: Partial<Responses> = {}): Responses {
     'repair_pickup_quotes.insert': { data: { id: 'pq-1' }, error: null },
     'repair_pickup_quotes.update': { data: null, error: null },
     'shipments.insert': { data: { id: 'ship-1' }, error: null },
+    'shipments.update': { data: { id: 'ship-1' }, error: null },
     ...overrides,
   };
 }
@@ -235,7 +236,7 @@ describe('bookRepairPickup', () => {
     expect(mocks.bookShipment).not.toHaveBeenCalled();
   });
 
-  it('returns booking_failed when Topship booking throws (e.g. unfunded wallet)', async () => {
+  it('keeps the reservation locked when Topship booking cannot be confirmed', async () => {
     const consoleSpy = vi
       .spyOn(console, 'error')
       // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
@@ -247,8 +248,8 @@ describe('bookRepairPickup', () => {
       const result = await bookRepairPickup(supabase, merchantId, repairId);
       expect(result).toMatchObject({
         ok: false,
-        reason: 'booking_failed',
-        canRetryManually: true,
+        reason: 'shipment_save_failed',
+        canRetryManually: false,
       });
     } finally {
       consoleSpy.mockRestore();
@@ -335,6 +336,7 @@ describe('bookRepairPickup', () => {
         ok: false,
         reason: 'shipment_save_failed',
       });
+      expect(mocks.bookShipment).not.toHaveBeenCalled();
     } finally {
       consoleSpy.mockRestore();
     }
@@ -358,6 +360,7 @@ describe('bookRepairPickup', () => {
         reason: 'shipment_save_failed',
         canRetryManually: false,
       });
+      expect(mocks.bookShipment).not.toHaveBeenCalled();
     } finally {
       consoleSpy.mockRestore();
     }
@@ -380,6 +383,32 @@ describe('bookRepairPickup', () => {
         ok: false,
         reason: 'shipment_save_failed',
       });
+      expect(mocks.bookShipment).not.toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
+  it('preserves the linked reservation when finalizing a paid shipment fails', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
+      .mockImplementation(() => {});
+    const supabase = makeSupabase(
+      happyResponses({
+        'shipments.update': { data: null, error: { message: 'finalize boom' } },
+      })
+    );
+
+    try {
+      const result = await bookRepairPickup(supabase, merchantId, repairId);
+
+      expect(result).toMatchObject({
+        ok: false,
+        reason: 'shipment_save_failed',
+        canRetryManually: false,
+      });
+      expect(mocks.bookShipment).toHaveBeenCalledTimes(1);
     } finally {
       consoleSpy.mockRestore();
     }

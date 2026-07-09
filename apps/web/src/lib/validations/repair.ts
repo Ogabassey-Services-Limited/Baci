@@ -72,7 +72,11 @@ export const repairBookingSchema = z
     preferredDate: z
       .string()
       .trim()
-      .refine(isValidPreferredDate, 'Please enter a valid preferred date')
+      .refine(
+        (value) => value.length === 0 || isValidPreferredDate(value),
+        'Please enter a valid preferred date'
+      )
+      .transform((value) => value || undefined)
       .optional(),
     serviceType: z
       .enum(['dropoff', 'pickup'] as const, {

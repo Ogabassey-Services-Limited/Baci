@@ -574,7 +574,12 @@ describe('sitemap-data', () => {
     const { getRepairsSitemapEntries } = sitemapData;
 
     const entries = await getRepairsSitemapEntries({
-      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      merchant: {
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        business_type: 'electronics',
+        feature_settings: { repairs_catalog_enabled: true },
+      },
       storeUrl: 'https://ogabassey.com',
       supabase: {
         from: () => ({
@@ -607,12 +612,37 @@ describe('sitemap-data', () => {
     expect(entries[0]?.lastModified).toBeUndefined();
   });
 
+  it('returns no direct repairs sitemap entries when the catalogue is disabled', async () => {
+    const { getRepairsSitemapEntries } = sitemapData;
+    const from = vi.fn();
+
+    await expect(
+      getRepairsSitemapEntries({
+        merchant: {
+          id: 'merchant-1',
+          slug: 'ogabassey',
+          business_type: 'electronics',
+          feature_settings: { repairs_catalog_enabled: false },
+        },
+        storeUrl: 'https://ogabassey.com',
+        supabase: { from },
+      } as unknown as StorefrontSitemapContext)
+    ).resolves.toEqual([]);
+
+    expect(from).not.toHaveBeenCalled();
+  });
+
   it('throws when the repairs device query errors so the route can 503', async () => {
     const { getRepairsSitemapEntries } = sitemapData;
 
     await expect(
       getRepairsSitemapEntries({
-        merchant: { id: 'merchant-1', slug: 'ogabassey' },
+        merchant: {
+          id: 'merchant-1',
+          slug: 'ogabassey',
+          business_type: 'electronics',
+          feature_settings: { repairs_catalog_enabled: true },
+        },
         storeUrl: 'https://ogabassey.com',
         supabase: {
           from: () => ({

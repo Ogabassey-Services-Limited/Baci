@@ -4,6 +4,7 @@ import type { Route } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { asRoute, joinRouteBasePath } from '@/lib/routes';
+import { getProductUrl } from '@/lib/seo-utils';
 import { RepairQuoteCard } from './RepairQuoteCard';
 import {
   REPAIR_DEVICE_FALLBACK_ICON,
@@ -35,6 +36,18 @@ export function RepairDeviceDetailView({
   const describeIssueHref = asRoute(
     `${joinRouteBasePath(basePath, '/repair')}?device=${device.slug}`
   );
+  const productHref = product?.id
+    ? asRoute(
+        joinRouteBasePath(
+          basePath,
+          getProductUrl({
+            id: product.id,
+            name: product.name?.trim() || product.id,
+            slug: product.slug?.trim() || product.id,
+          })
+        )
+      )
+    : null;
 
   return (
     <div className="min-h-screen bg-store-secondary pb-24 pt-8 text-store-background-text md:pb-12">
@@ -70,12 +83,10 @@ export function RepairDeviceDetailView({
                 {device.deviceType}
               </p>
             )}
-            {product && (
+            {product && productHref && (
               <Link
                 className="mt-3 inline-flex items-center text-sm font-semibold text-store-primary underline-offset-2 hover:underline"
-                href={asRoute(
-                  `${joinRouteBasePath(basePath, '/products')}/${product.slug}`
-                )}
+                href={productHref}
               >
                 View device
               </Link>
