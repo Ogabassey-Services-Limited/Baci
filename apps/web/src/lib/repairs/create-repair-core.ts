@@ -52,6 +52,9 @@ function mapRpcError(message: string | undefined): {
   ) {
     return { error: 'Store not found.', code: 'not_found' };
   }
+  if (message.includes('invalid_')) {
+    return { error: 'Validation failed', code: 'validation_failed' };
+  }
   if (
     message.includes('quote_unavailable') ||
     message.includes('device_unavailable') ||

@@ -92,4 +92,77 @@ BEGIN
   END IF;
 END $$;
 
+-- Direct RPC callers bypass app-layer Zod, so the function must reject malformed
+-- payloads and normalize accepted values itself.
+INSERT INTO public.merchants (id, email, business_name, slug, business_type)
+VALUES (
+  '00000000-0000-0000-0000-000000003006',
+  'repair-rpc-validation@example.com',
+  'Repair RPC Validation',
+  'repair-rpc-validation',
+  'electronics'
+)
+ON CONFLICT (id) DO NOTHING;
+
+DO $$
+BEGIN
+  PERFORM *
+  FROM public.create_repair_booking(
+    '00000000-0000-0000-0000-000000003006',
+    'Ada Lovelace',
+    'not-an-email',
+    '08012345678',
+    'Smartphone',
+    'iPhone 15',
+    'The screen is cracked and the battery drains quickly.',
+    NULL,
+    'dropoff',
+    NULL,
+    NULL,
+    NULL
+  );
+
+  RAISE EXCEPTION 'direct RPC must reject invalid customer email';
+EXCEPTION
+  WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE '%invalid_customer_email%' THEN
+      RAISE;
+    END IF;
+END $$;
+
+DO $$
+DECLARE
+  created record;
+BEGIN
+  SELECT *
+  INTO created
+  FROM public.create_repair_booking(
+    '00000000-0000-0000-0000-000000003006',
+    '  Ada Lovelace  ',
+    '  ADA@EXAMPLE.COM  ',
+    ' 08012345678 ',
+    'Smartphone',
+    '  iPhone 15  ',
+    '  The screen is cracked and the battery drains quickly.  ',
+    NULL,
+    'dropoff',
+    NULL,
+    NULL,
+    NULL
+  );
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.repairs AS r
+    WHERE r.id = created.id
+      AND r.customer_name = 'Ada Lovelace'
+      AND r.customer_email = 'ada@example.com'
+      AND r.customer_phone = '08012345678'
+      AND r.device_model = 'iPhone 15'
+      AND r.issue_description = 'The screen is cracked and the battery drains quickly.'
+  ) THEN
+    RAISE EXCEPTION 'direct RPC must store normalized booking values';
+  END IF;
+END $$;
+
 ROLLBACK;

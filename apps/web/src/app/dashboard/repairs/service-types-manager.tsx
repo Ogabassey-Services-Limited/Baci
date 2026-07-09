@@ -1,7 +1,7 @@
 'use client';
 
 import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { type FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,18 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Switch } from '@/components/ui/switch';
 import {
   Table,
   TableBody,
@@ -34,38 +23,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import type { RepairServiceTypeAdmin } from '@/lib/repairs/catalog-admin-mappers';
-import {
-  createServiceType,
-  deleteServiceType,
-  listServiceTypes,
-  updateServiceType,
-} from './catalog-api';
-
-interface FormState {
-  name: string;
-  description: string;
-  sortOrder: string;
-  isActive: boolean;
-}
-
-const EMPTY_FORM: FormState = {
-  name: '',
-  description: '',
-  sortOrder: '',
-  isActive: true,
-};
-
-function toFormState(serviceType: RepairServiceTypeAdmin): FormState {
-  return {
-    name: serviceType.name,
-    description: serviceType.description ?? '',
-    sortOrder: String(serviceType.sortOrder),
-    isActive: serviceType.isActive,
-  };
-}
+import { deleteServiceType, listServiceTypes } from './catalog-api';
+import ServiceTypeFormDialog from './service-type-form-dialog';
 
 export default function ServiceTypesManager() {
   const { toast } = useToast();
@@ -75,9 +36,8 @@ export default function ServiceTypesManager() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [submitting, setSubmitting] = useState(false);
+  const [editingServiceType, setEditingServiceType] =
+    useState<RepairServiceTypeAdmin | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadServiceTypes = () => {
@@ -101,59 +61,22 @@ export default function ServiceTypesManager() {
     loadServiceTypes();
   }, []);
 
-  const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
-    setForm((current) => ({ ...current, [key]: value }));
-
   const openCreateDialog = () => {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
+    setEditingServiceType(null);
     setDialogOpen(true);
   };
 
   const openEditDialog = (serviceType: RepairServiceTypeAdmin) => {
-    setEditingId(serviceType.id);
-    setForm(toFormState(serviceType));
+    setEditingServiceType(serviceType);
     setDialogOpen(true);
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const name = form.name.trim();
-    if (!name) {
-      return;
-    }
-    const payload = {
-      name,
-      description: form.description.trim() || null,
-      sortOrder: form.sortOrder.trim() ? Number(form.sortOrder) : undefined,
-      isActive: form.isActive,
-    };
-
-    setSubmitting(true);
-    try {
-      if (editingId) {
-        const updated = await updateServiceType(editingId, payload);
-        setServiceTypes((current) =>
-          current.map((item) => (item.id === editingId ? updated : item))
-        );
-        toast({ title: 'Service type updated' });
-      } else {
-        const created = await createServiceType(payload);
-        setServiceTypes((current) => [created, ...current]);
-        toast({ title: 'Service type added' });
-      }
-      setDialogOpen(false);
-    } catch (error) {
-      toast({
-        title: editingId
-          ? 'Could not update service type'
-          : 'Could not add service type',
-        description: error instanceof Error ? error.message : undefined,
-        variant: 'destructive',
-      });
-    } finally {
-      setSubmitting(false);
-    }
+  const handleSaved = (saved: RepairServiceTypeAdmin) => {
+    setServiceTypes((current) =>
+      editingServiceType
+        ? current.map((item) => (item.id === saved.id ? saved : item))
+        : [saved, ...current]
+    );
   };
 
   const handleDelete = async (id: string) => {
@@ -178,66 +101,16 @@ export default function ServiceTypesManager() {
     <div className="mt-4 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Service types</h2>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" onClick={openCreateDialog}>
-              <Plus className="size-4" />
-              Add service type
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editingId ? 'Edit service type' : 'Add service type'}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="service-type-name">Name</Label>
-                <Input
-                  id="service-type-name"
-                  required
-                  value={form.name}
-                  onChange={(event) => setField('name', event.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="service-type-description">Description</Label>
-                <Textarea
-                  id="service-type-description"
-                  value={form.description}
-                  onChange={(event) =>
-                    setField('description', event.target.value)
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="service-type-sort-order">Sort order</Label>
-                <Input
-                  id="service-type-sort-order"
-                  type="number"
-                  value={form.sortOrder}
-                  onChange={(event) =>
-                    setField('sortOrder', event.target.value)
-                  }
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="service-type-active"
-                  checked={form.isActive}
-                  onCheckedChange={(checked) => setField('isActive', checked)}
-                />
-                <Label htmlFor="service-type-active">Active</Label>
-              </div>
-              <DialogFooter>
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? 'Saving…' : 'Save'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button size="sm" onClick={openCreateDialog}>
+          <Plus className="size-4" />
+          Add service type
+        </Button>
+        <ServiceTypeFormDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          initial={editingServiceType}
+          onSaved={handleSaved}
+        />
       </div>
 
       {loading ? (

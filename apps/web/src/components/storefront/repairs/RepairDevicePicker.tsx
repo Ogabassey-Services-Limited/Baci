@@ -6,7 +6,7 @@ import type {
 } from '@baci/shared/repairs';
 import { Search } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { asRoute, normalizeRouteBasePath } from '@/lib/routes';
 import { RepairDeviceCard } from './RepairDeviceCard';
 
@@ -46,22 +46,15 @@ export function RepairDevicePicker({
   const [selectedBrand, setSelectedBrand] = useState<string>(ALL_BRANDS);
   const [search, setSearch] = useState('');
 
-  const brands = useMemo(
-    () => [ALL_BRANDS, ...groups.map((group) => group.brand)],
-    [groups]
-  );
-
+  const brands = [ALL_BRANDS, ...groups.map((group) => group.brand)];
   const normalizedBasePath = normalizeRouteBasePath(basePath);
   const normalizedQuery = search.trim().toLowerCase();
-
-  const filteredDevices = useMemo(() => {
-    const allDevices = flattenDevices(groups);
-    return allDevices.filter(
-      (device) =>
-        (selectedBrand === ALL_BRANDS || device.brand === selectedBrand) &&
-        matchesSearch(device, normalizedQuery)
-    );
-  }, [groups, selectedBrand, normalizedQuery]);
+  const allDevices = flattenDevices(groups);
+  const filteredDevices = allDevices.filter(
+    (device) =>
+      (selectedBrand === ALL_BRANDS || device.brand === selectedBrand) &&
+      matchesSearch(device, normalizedQuery)
+  );
 
   const notListedLink = (
     <Link

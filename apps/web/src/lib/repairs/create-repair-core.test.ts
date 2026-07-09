@@ -171,6 +171,21 @@ describe('createRepairBooking', () => {
     });
   });
 
+  it('maps RPC input validation errors to the validation_failed code', async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'invalid_customer_email' },
+    });
+
+    const result = await createRepairBooking(validInput, merchantId);
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Validation failed',
+      code: 'validation_failed',
+    });
+  });
+
   it('falls back to the unknown code when the RPC error has no message', async () => {
     mocks.rpc.mockResolvedValueOnce({ data: null, error: {} });
 
