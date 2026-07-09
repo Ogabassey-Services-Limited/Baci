@@ -141,7 +141,7 @@ describe('next.config OgaBassey resource headers', () => {
     ).toBe('streaming');
   });
 
-  it('keeps CDN connection hints out of generic OgaBassey Link headers', async () => {
+  it('advertises a media-CDN preconnect on generic OgaBassey Link headers (Ops-2 Early Hints)', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
 
@@ -154,7 +154,9 @@ describe('next.config OgaBassey resource headers', () => {
       )
       ?.headers.find((header) => header.key === 'Link')?.value;
 
-    expect(ogabasseyLinkHeader).not.toContain(
+    // preconnect (safe, no wasteful fetch) is emitted so Cloudflare can replay it
+    // as a 103 Early Hint; the responsive image PRELOAD stays excluded (below).
+    expect(ogabasseyLinkHeader).toContain(
       '<https://cdn.ogabassey.com>; rel=preconnect'
     );
     expect(ogabasseyLinkHeader).toContain(
@@ -229,7 +231,7 @@ describe('next.config OgaBassey resource headers', () => {
     expect(linkHeader).not.toContain('/api/ogabassey/pdp-lcp-image/');
   });
 
-  it('keeps PDP image preloading out of HTTP Link headers', async () => {
+  it('emits the media-CDN preconnect but keeps PDP image PRELOADS out of HTTP Link headers', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
     expect(headers).toBeDefined();
@@ -249,9 +251,8 @@ describe('next.config OgaBassey resource headers', () => {
     expect(linkHeader).toContain(
       '</.well-known/api-catalog>; rel="api-catalog"'
     );
-    expect(linkHeader).not.toContain(
-      '<https://cdn.ogabassey.com>; rel=preconnect'
-    );
+    // preconnect IS present (Ops-2); a responsive image preload is NOT.
+    expect(linkHeader).toContain('<https://cdn.ogabassey.com>; rel=preconnect');
     expect(linkHeader).not.toContain('/api/ogabassey/pdp-lcp-image/');
     expect(linkHeader).not.toContain('/profile/mobile-header/');
     expect(linkHeader).not.toContain('/profile/mobile/');

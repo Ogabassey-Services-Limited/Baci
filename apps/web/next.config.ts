@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { withPostHogConfig } from '@posthog/nextjs-config';
 import type { NextConfig } from 'next';
-import { OGABASSEY_AGENT_DISCOVERY_LINK_HEADER } from './src/config/agent-discovery-link-header';
+import { OGABASSEY_DOCUMENT_LINK_HEADER_VALUE } from './src/config/early-hints-link-header';
 import { applyNextDeploymentIdEnv } from './src/config/next-deployment-id';
 import {
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
@@ -66,11 +66,13 @@ const OGABASSEY_NON_PDP_FIRST_SEGMENT_PATTERN = [
 ].join('|');
 const OGABASSEY_PDP_DOCUMENT_ROUTE_SOURCE = `/:category((?!(?:${OGABASSEY_NON_PDP_FIRST_SEGMENT_PATTERN})(?:/|$))[^/]+)/:productSlug([a-zA-Z0-9-]+)`;
 const OGABASSEY_GENERIC_DOCUMENT_ROUTE_SOURCE = `/:path((?!(?:(?!(?:${OGABASSEY_NON_PDP_FIRST_SEGMENT_PATTERN})(?:/|$))[^/]+/[^/]+/?$)).*)`;
-// PDP LCP image preloading is emitted from the page with React/Next imageSrcSet
-// and imageSizes so the browser selects the exact rendered candidate. HTTP Link
-// header preloads cannot carry responsive image selection safely and previously
-// triggered an unused mobile-header image fetch that competed with the real LCP.
-const OGABASSEY_PDP_LINK_HEADER_VALUE = OGABASSEY_AGENT_DISCOVERY_LINK_HEADER;
+// The OgaBassey document `Link` header carries a media-CDN `preconnect` (Ops-2 /
+// 103 Early Hints) alongside the agent-discovery links — see
+// src/config/early-hints-link-header.ts. PDP LCP image PRELOADS stay OUT: an HTTP
+// Link header cannot carry responsive `imagesrcset` selection, and a fixed
+// preload previously triggered a wasteful mobile-header image fetch that competed
+// with the real LCP (the page emits imageSrcSet/imageSizes preloads instead).
+const OGABASSEY_PDP_LINK_HEADER_VALUE = OGABASSEY_DOCUMENT_LINK_HEADER_VALUE;
 const POSTHOG_SOURCE_MAP_API_KEY = process.env.POSTHOG_API_KEY?.trim();
 const POSTHOG_SOURCE_MAP_PROJECT_ID = process.env.POSTHOG_PROJECT_ID?.trim();
 const POSTHOG_SOURCE_MAP_UPLOAD_ENABLED = isPostHogSourceMapUploadEnabled();
@@ -660,7 +662,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Link',
-            value: OGABASSEY_AGENT_DISCOVERY_LINK_HEADER,
+            value: OGABASSEY_DOCUMENT_LINK_HEADER_VALUE,
           },
         ],
       },
