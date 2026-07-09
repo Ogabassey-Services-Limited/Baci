@@ -27,16 +27,18 @@ export function useRepairDeviceDetail(
   const requestIdRef = useRef(0);
 
   useEffect(() => {
+    const requestId = ++requestIdRef.current;
+    setDetail(null);
+    setError(null);
+    setIsNotFound(false);
+
     if (!deviceSlug) {
       setIsLoading(false);
       return;
     }
 
-    const requestId = ++requestIdRef.current;
     const controller = new AbortController();
     setIsLoading(true);
-    setError(null);
-    setIsNotFound(false);
 
     fetchRepairDeviceDetail(deviceSlug, controller.signal)
       .then((result) => {
@@ -50,9 +52,7 @@ export function useRepairDeviceDetail(
           setDetail(null);
           return;
         }
-        setError(
-          err instanceof Error ? err.message : 'Failed to load device'
-        );
+        setError(err instanceof Error ? err.message : 'Failed to load device');
       })
       .finally(() => {
         if (requestIdRef.current === requestId) {

@@ -122,6 +122,23 @@ describe('createRepairBooking', () => {
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
+  it('accepts datetime-local preferred dates from the booking picker', async () => {
+    const result = await createRepairBooking(
+      { ...validInput, preferredDate: '2026-06-03T14:30' },
+      merchantId
+    );
+
+    expect(result).toEqual({ success: true, id: 'repair-1', ticketNumber: 42 });
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'create_repair_booking',
+      expect.objectContaining({
+        p_preferred_date: expect.stringMatching(
+          /^2026-06-03T\d{2}:30:00\.000Z$/
+        ),
+      })
+    );
+  });
+
   it('maps a DB rate_limited error to the friendly rate-limit message', async () => {
     mocks.rpc.mockResolvedValueOnce({
       data: null,

@@ -95,7 +95,11 @@ export type UpdateRepairDeviceInput = z.infer<typeof updateRepairDeviceSchema>;
 // Quotes
 // ---------------------------------------------------------------------------
 
-const priceSchema = z.number().min(0, 'Price must be zero or more').max(1e12);
+const REPAIR_PRICE_MAX = 9_999_999_999.99;
+const priceSchema = z
+  .number()
+  .min(0, 'Price must be zero or more')
+  .max(REPAIR_PRICE_MAX);
 const warrantyDaysSchema = z.number().int().min(0).max(3650).nullable();
 
 export const createRepairQuoteSchema = z.object({

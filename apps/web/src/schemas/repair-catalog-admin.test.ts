@@ -96,6 +96,14 @@ describe('createRepairQuoteSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects prices beyond the numeric column limit', () => {
+    const result = createRepairQuoteSchema.safeParse({
+      ...base,
+      price: 10_000_000_000,
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejects a missing device id', () => {
     const { deviceId: _omit, ...rest } = base;
     const result = createRepairQuoteSchema.safeParse(rest);

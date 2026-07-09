@@ -14,6 +14,7 @@ import type {
 } from '@/lib/shipping/types';
 
 const PICKUP_PROVIDER = 'TOPSHIP' as const;
+const PICKUP_LOCK_TIMEOUT_SECONDS = 15 * 60;
 
 interface RepairPickupRow {
   id: string;
@@ -28,11 +29,69 @@ interface RepairPickupRow {
   quoted_price: number | string | null;
 }
 
+interface RepairPickupClaimRow {
+  claimed: boolean;
+  shipment_id: string | null;
+}
+
+type RepairPickupClaimResult =
+  | { status: 'claimed'; lockToken: string }
+  | { status: 'already_booked' }
+  | { status: 'booking_in_progress' }
+  | { status: 'not_found' }
+  | { status: 'failed' };
+
 function cheapestQuote(quotes: ShippingQuote[]): ShippingQuote | null {
   const priced = quotes
     .filter((quote) => quote.price > 0)
     .sort((a, b) => a.price - b.price);
   return priced[0] ?? quotes[0] ?? null;
+}
+
+function getClaimRow(
+  value: RepairPickupClaimRow[] | RepairPickupClaimRow | null
+): RepairPickupClaimRow | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value;
+}
+
+async function claimRepairPickupBooking(
+  supabase: SupabaseClient,
+  merchantId: string,
+  repairId: string
+): Promise<RepairPickupClaimResult> {
+  const lockToken = crypto.randomUUID();
+  const { data, error } = await supabase.rpc('claim_repair_pickup_booking', {
+    p_repair_id: repairId,
+    p_merchant_id: merchantId,
+    p_lock_token: lockToken,
+    p_lock_timeout_seconds: PICKUP_LOCK_TIMEOUT_SECONDS,
+  });
+
+  if (error) {
+    console.error('Failed to claim repair pickup booking:', error);
+    return { status: 'failed' };
+  }
+
+  const row = getClaimRow(
+    data as RepairPickupClaimRow[] | RepairPickupClaimRow | null
+  );
+  if (!row) {
+    return { status: 'not_found' };
+  }
+
+  if (row.claimed) {
+    return { status: 'claimed', lockToken };
+  }
+
+  if (row.shipment_id) {
+    return { status: 'already_booked' };
+  }
+
+  return { status: 'booking_in_progress' };
 }
 
 /**
@@ -157,6 +216,20 @@ export async function bookRepairPickup(
     pickupType: 'pickup',
   };
 
+  const claim = await claimRepairPickupBooking(supabase, merchantId, repairId);
+  if (claim.status === 'not_found') {
+    return pickupFailure('not_found');
+  }
+  if (claim.status === 'already_booked') {
+    return pickupFailure('already_booked');
+  }
+  if (claim.status === 'booking_in_progress') {
+    return pickupFailure('booking_in_progress');
+  }
+  if (claim.status === 'failed') {
+    return pickupFailure('booking_failed');
+  }
+
   let booking: ShipmentBookingResult;
   try {
     booking = await shippingService.bookShipment(
@@ -202,9 +275,14 @@ export async function bookRepairPickup(
 
   const { data: linkedRepairData, error: linkError } = await supabase
     .from('repairs')
-    .update({ shipment_id: shipment.id })
+    .update({
+      shipment_id: shipment.id,
+      pickup_booking_lock_token: null,
+      pickup_booking_started_at: null,
+    })
     .eq('id', repairId)
     .eq('merchant_id', merchantId)
+    .eq('pickup_booking_lock_token', claim.lockToken)
     .is('shipment_id', null)
     .select('id');
 
@@ -220,7 +298,7 @@ export async function bookRepairPickup(
     console.error(
       'Repair pickup booked but another shipment is already linked'
     );
-    return pickupFailure('already_booked');
+    return pickupFailure('shipment_save_failed');
   }
 
   const { error: quoteUsedError } = await supabase

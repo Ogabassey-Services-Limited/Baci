@@ -75,6 +75,14 @@ type Responses = Record<string, { data: unknown; error: unknown }>;
 
 function makeSupabase(responses: Responses): SupabaseClient {
   return {
+    rpc(name: string) {
+      return Promise.resolve(
+        responses[`rpc.${name}`] ?? {
+          data: null,
+          error: { message: `missing rpc mock: ${name}` },
+        }
+      );
+    },
     from(table: string) {
       let op = 'select';
       const builder = {
@@ -115,6 +123,10 @@ function happyResponses(overrides: Partial<Responses> = {}): Responses {
   return {
     'repairs.select': { data: repairRow, error: null },
     'repairs.update': { data: [{ id: repairId }], error: null },
+    'rpc.claim_repair_pickup_booking': {
+      data: [{ claimed: true, shipment_id: null }],
+      error: null,
+    },
     'repair_pickup_quotes.insert': { data: { id: 'pq-1' }, error: null },
     'repair_pickup_quotes.update': { data: null, error: null },
     'shipments.insert': { data: { id: 'ship-1' }, error: null },
@@ -243,6 +255,46 @@ describe('bookRepairPickup', () => {
     }
   });
 
+  it('returns booking_in_progress without booking when another request owns the claim', async () => {
+    const supabase = makeSupabase(
+      happyResponses({
+        'rpc.claim_repair_pickup_booking': {
+          data: [{ claimed: false, shipment_id: null }],
+          error: null,
+        },
+      })
+    );
+
+    const result = await bookRepairPickup(supabase, merchantId, repairId);
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'booking_in_progress',
+      canRetryManually: false,
+    });
+    expect(mocks.bookShipment).not.toHaveBeenCalled();
+  });
+
+  it('returns already_booked without booking when the claim sees a shipment', async () => {
+    const supabase = makeSupabase(
+      happyResponses({
+        'rpc.claim_repair_pickup_booking': {
+          data: [{ claimed: false, shipment_id: 'ship-existing' }],
+          error: null,
+        },
+      })
+    );
+
+    const result = await bookRepairPickup(supabase, merchantId, repairId);
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'already_booked',
+      canRetryManually: false,
+    });
+    expect(mocks.bookShipment).not.toHaveBeenCalled();
+  });
+
   it('returns booking_failed (without booking) when the quote cannot be persisted', async () => {
     const consoleSpy = vi
       .spyOn(console, 'error')
@@ -288,7 +340,7 @@ describe('bookRepairPickup', () => {
     }
   });
 
-  it('returns already_booked when a concurrent request links a shipment first', async () => {
+  it('returns shipment_save_failed when the claimed booking cannot be linked', async () => {
     const consoleSpy = vi
       .spyOn(console, 'error')
       // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
@@ -303,7 +355,7 @@ describe('bookRepairPickup', () => {
       const result = await bookRepairPickup(supabase, merchantId, repairId);
       expect(result).toMatchObject({
         ok: false,
-        reason: 'already_booked',
+        reason: 'shipment_save_failed',
         canRetryManually: false,
       });
     } finally {

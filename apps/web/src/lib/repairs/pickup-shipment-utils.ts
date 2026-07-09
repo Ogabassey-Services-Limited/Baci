@@ -19,6 +19,7 @@ export interface RepairPickupSource {
 export type PickupFailureReason =
   | 'not_found'
   | 'already_booked'
+  | 'booking_in_progress'
   | 'missing_pickup_address'
   | 'repair_center_unconfigured'
   | 'topship_unavailable'
@@ -55,6 +56,11 @@ const FAILURE_COPY: Record<
   },
   already_booked: {
     message: 'A courier pickup has already been arranged for this booking.',
+    canRetryManually: false,
+  },
+  booking_in_progress: {
+    message:
+      'A courier pickup is already being arranged for this booking. Please wait a moment before retrying.',
     canRetryManually: false,
   },
   missing_pickup_address: {

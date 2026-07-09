@@ -1,13 +1,11 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 const mocks = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 
 jest.mock('@/lib/repair-catalog-client', () => ({
   fetchRepairDeviceDetail: (...args: unknown[]) => mocks(...args),
-  RepairCatalogUnavailableError: class RepairCatalogUnavailableError extends (
-    Error
-  ) {},
+  RepairCatalogUnavailableError: class RepairCatalogUnavailableError extends Error {},
 }));
 
 import { useRepairDeviceDetail } from './use-repair-device-detail';
@@ -25,6 +23,14 @@ const detail = {
   quotes: [],
   product: null,
 };
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((innerResolve) => {
+    resolve = innerResolve;
+  });
+  return { promise, resolve };
+}
 
 describe('useRepairDeviceDetail', () => {
   beforeEach(() => {
@@ -69,6 +75,41 @@ describe('useRepairDeviceDetail', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.error).toBe('network down');
+  });
+
+  it('clears stale detail while loading a new device slug', async () => {
+    mocks.mockResolvedValueOnce(detail);
+    const secondRequest = deferred<typeof detail>();
+    mocks.mockReturnValueOnce(secondRequest.promise);
+
+    const { result, rerender } = renderHook(
+      ({ slug }: { slug: string }) => useRepairDeviceDetail(slug),
+      { initialProps: { slug: 'apple-iphone-13' } }
+    );
+
+    await waitFor(() => expect(result.current.detail).toEqual(detail));
+
+    rerender({ slug: 'samsung-galaxy-s24' });
+
+    expect(result.current.detail).toBeNull();
+    expect(result.current.isLoading).toBe(true);
+
+    await act(async () => {
+      secondRequest.resolve({
+        ...detail,
+        device: {
+          ...detail.device,
+          id: 'd2',
+          brand: 'Samsung',
+          model: 'Galaxy S24',
+          slug: 'samsung-galaxy-s24',
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(result.current.detail?.device.slug).toBe('samsung-galaxy-s24')
+    );
   });
 
   it('does not fetch when the device slug is empty', () => {

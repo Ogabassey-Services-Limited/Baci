@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,8 @@ import { BookingList } from './booking-list';
 import { listBookings } from './bookings-api';
 import { RepairSettingsCard } from './repair-settings-card';
 
+const BOOKINGS_PAGE_SIZE = 25;
+
 interface BookingsManagerProps {
   canEdit?: boolean;
 }
@@ -22,6 +25,8 @@ export default function BookingsManager({
 }: BookingsManagerProps) {
   const [bookings, setBookings] = useState<RepairBookingSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [totalBookings, setTotalBookings] = useState(0);
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -30,15 +35,22 @@ export default function BookingsManager({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    listBookings({ status: statusFilter || undefined })
-      .then(({ bookings: rows }) => {
+    setLoadingMore(false);
+    listBookings({
+      status: statusFilter || undefined,
+      limit: BOOKINGS_PAGE_SIZE,
+      offset: 0,
+    })
+      .then(({ bookings: rows, total }) => {
         if (!cancelled) {
           setBookings(rows);
+          setTotalBookings(total);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setBookings([]);
+          setTotalBookings(0);
         }
       })
       .finally(() => {
@@ -52,6 +64,26 @@ export default function BookingsManager({
   }, [statusFilter, refreshKey]);
 
   const refresh = () => setRefreshKey((key) => key + 1);
+  const canLoadMore = bookings.length < totalBookings;
+
+  const loadMore = () => {
+    setLoadingMore(true);
+    listBookings({
+      status: statusFilter || undefined,
+      limit: BOOKINGS_PAGE_SIZE,
+      offset: bookings.length,
+    })
+      .then(({ bookings: rows, total }) => {
+        setBookings((current) => [...current, ...rows]);
+        setTotalBookings(total);
+      })
+      .catch(() => {
+        setTotalBookings(bookings.length);
+      })
+      .finally(() => {
+        setLoadingMore(false);
+      });
+  };
 
   return (
     <div className="mt-4 space-y-6">
@@ -64,6 +96,14 @@ export default function BookingsManager({
         onStatusFilterChange={setStatusFilter}
         statusFilter={statusFilter}
       />
+
+      {!loading && canLoadMore ? (
+        <div className="flex justify-center">
+          <Button disabled={loadingMore} onClick={loadMore} type="button">
+            {loadingMore ? 'Loading...' : 'Load more'}
+          </Button>
+        </div>
+      ) : null}
 
       <Dialog
         onOpenChange={(open) => {

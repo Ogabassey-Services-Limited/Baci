@@ -30,6 +30,16 @@ function supabaseReturning(enabled: boolean | null) {
   return { from };
 }
 
+function permissionResult(businessType: string) {
+  return {
+    merchant: { id: 'm-1', business_type: businessType },
+    staffAccess: {
+      isOwner: true,
+      permissions: {},
+    },
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   cookies.mockResolvedValue({});
@@ -43,26 +53,20 @@ describe('RepairsPage gating', () => {
   });
 
   it('shows the business-type empty state for a non-electronics store', async () => {
-    ensurePermission.mockResolvedValue({
-      merchant: { id: 'm-1', business_type: 'fashion' },
-    });
+    ensurePermission.mockResolvedValue(permissionResult('fashion'));
     render(await RepairsPage());
     expect(screen.getByText('unavailable:business-type')).toBeInTheDocument();
   });
 
   it('shows the disabled empty state when the flag is off', async () => {
-    ensurePermission.mockResolvedValue({
-      merchant: { id: 'm-1', business_type: 'electronics' },
-    });
+    ensurePermission.mockResolvedValue(permissionResult('electronics'));
     createClient.mockReturnValue(supabaseReturning(false));
     render(await RepairsPage());
     expect(screen.getByText('unavailable:disabled')).toBeInTheDocument();
   });
 
   it('renders the catalogue when enabled for an electronics store', async () => {
-    ensurePermission.mockResolvedValue({
-      merchant: { id: 'm-1', business_type: 'electronics' },
-    });
+    ensurePermission.mockResolvedValue(permissionResult('electronics'));
     createClient.mockReturnValue(supabaseReturning(true));
     render(await RepairsPage());
     expect(screen.getByText('catalog-client')).toBeInTheDocument();
