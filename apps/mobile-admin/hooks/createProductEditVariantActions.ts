@@ -180,10 +180,7 @@ export function createProductEditVariantActions({
       return {
         ...previous,
         has_variants: true,
-        variants: mergeGeneratedVariants(previous.variants, withImages, {
-          costPrice: previous.cost_price,
-          price: previous.price,
-        }),
+        variants: mergeGeneratedVariants(previous.variants, withImages),
       };
     });
   };

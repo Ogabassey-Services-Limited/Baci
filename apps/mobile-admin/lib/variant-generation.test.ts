@@ -43,9 +43,7 @@ describe('countVariantCombinations', () => {
   });
 
   it('multiplies by the number of selected conditions', () => {
-    expect(
-      countVariantCombinations([colorOption], ['new', 'used'])
-    ).toBe(4);
+    expect(countVariantCombinations([colorOption], ['new', 'used'])).toBe(4);
   });
 
   it('counts condition-only generation', () => {
@@ -127,9 +125,9 @@ describe('buildVariantsFromOptions', () => {
     });
 
     expect(variants).toHaveLength(4);
-    expect(variants.filter((variant) => variant.condition === 'new')).toHaveLength(
-      2
-    );
+    expect(
+      variants.filter((variant) => variant.condition === 'new')
+    ).toHaveLength(2);
     expect(
       variants.filter((variant) => variant.condition === 'used')
     ).toHaveLength(2);
@@ -263,9 +261,9 @@ describe('isPlaceholderVariant', () => {
     // Structurally (no defaults) it still looks blank...
     expect(isPlaceholderVariant(variant)).toBe(true);
     // ...but against the parent defaults the custom price marks it as touched.
-    expect(
-      isPlaceholderVariant(variant, { costPrice: 500, price: 1000 })
-    ).toBe(false);
+    expect(isPlaceholderVariant(variant, { costPrice: 500, price: 1000 })).toBe(
+      false
+    );
   });
 });
 
@@ -282,6 +280,23 @@ describe('mergeGeneratedVariants', () => {
 
     expect(merged).toHaveLength(2);
     expect(merged).not.toContain(placeholder);
+  });
+
+  it('drops blank placeholders even when parent default prices changed later', () => {
+    const stalePlaceholder = createEmptyEditableVariant({
+      costPrice: 500,
+      price: 1000,
+    });
+    const generated = buildVariantsFromOptions({
+      conditions: [],
+      defaults: { costPrice: 600, images: [], price: 1200 },
+      options: [colorOption],
+    });
+
+    const merged = mergeGeneratedVariants([stalePlaceholder], generated);
+
+    expect(merged).toHaveLength(2);
+    expect(merged).not.toContain(stalePlaceholder);
   });
 
   it('keeps a filled existing variant and skips duplicate generated rows', () => {

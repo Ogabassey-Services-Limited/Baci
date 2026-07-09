@@ -192,17 +192,13 @@ export function isPlaceholderVariant(
 /**
  * Merge freshly generated variants into the existing set: drop untouched
  * placeholder rows, then append only the generated variants whose identity is
- * not already present. `defaults` protects a hand-priced blank row from being
- * dropped as a placeholder.
+ * not already present.
  */
 export function mergeGeneratedVariants(
   existing: EditableProductVariant[],
-  generated: EditableProductVariant[],
-  defaults?: { costPrice: number; price: number }
+  generated: EditableProductVariant[]
 ): EditableProductVariant[] {
-  const kept = existing.filter(
-    (variant) => !isPlaceholderVariant(variant, defaults)
-  );
+  const kept = existing.filter((variant) => !isPlaceholderVariant(variant));
   const seen = new Set(kept.map(getVariantSignature));
 
   const additions: EditableProductVariant[] = [];

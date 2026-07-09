@@ -304,6 +304,38 @@ describe('ProductVariantOptionSelector', () => {
     expect(onAddProduct).toHaveBeenCalledTimes(1);
   });
 
+  it('includes condition as a selectable axis for duplicate attribute combinations', () => {
+    const onAddProduct = vi.fn();
+
+    renderSelector({
+      onAddProduct,
+      variants: [
+        variant(
+          'variant-new',
+          { storage: '128GB' },
+          { condition: 'new', name: 'Samsung S26 New 128GB' }
+        ),
+        variant(
+          'variant-used',
+          { storage: '128GB' },
+          { condition: 'used', name: 'Samsung S26 Used 128GB' }
+        ),
+      ],
+    });
+
+    expect(
+      screen.getByRole('button', { name: 'Select Condition used' })
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select Condition used' })
+    );
+
+    expect(onAddProduct).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'variant-used' })
+    );
+  });
+
   it('uses an empty image array when selected and parent products have no images', () => {
     const onAddProduct = vi.fn();
 
