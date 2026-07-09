@@ -189,7 +189,7 @@ function createController(
 }
 
 describe('OrderDetailsScreenModals', () => {
-  it('opens the record-payment sheet for the outstanding balance', () => {
+  it('wires the balance payment helper to controller modal state', () => {
     const controller = createController();
 
     render(
@@ -203,13 +203,15 @@ describe('OrderDetailsScreenModals', () => {
     expect(controller.setShowRecordPaymentModal).toHaveBeenCalledWith(true);
   });
 
-  it('does not open the record-payment sheet when no balance remains', () => {
+  it.each([
+    0, -100,
+  ])('does not open the record-payment sheet when balance is %s', (balance) => {
     const controller = createController();
 
     render(
       <OrderDetailsScreenModals
         controller={controller}
-        order={createOrder({ balance: 0 })}
+        order={createOrder({ balance })}
       />
     );
 

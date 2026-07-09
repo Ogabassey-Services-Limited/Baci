@@ -15,19 +15,22 @@ interface OrderDetailsScreenModalsProps {
   order: NonNullable<OrderDetailsController['order']>;
 }
 
+function openRecordPaymentForBalance(
+  controller: OrderDetailsController,
+  order: NonNullable<OrderDetailsController['order']>
+) {
+  controller.setShowPaymentOptionModal(false);
+  const amount = Math.round(order.balance ?? order.total);
+  if (amount > 0) {
+    controller.setPaymentAmount(String(amount));
+    controller.setShowRecordPaymentModal(true);
+  }
+}
+
 export function OrderDetailsScreenModals({
   controller,
   order,
 }: OrderDetailsScreenModalsProps) {
-  const recordBalancePayment = () => {
-    controller.setShowPaymentOptionModal(false);
-    const amount = Math.round(order.balance ?? order.total);
-    if (amount > 0) {
-      controller.setPaymentAmount(String(amount));
-      controller.setShowRecordPaymentModal(true);
-    }
-  };
-
   return (
     <>
       <OrderStatusSheet
@@ -85,7 +88,7 @@ export function OrderDetailsScreenModals({
         balanceLabel={controller.formatPrice(order.balance ?? order.total)}
         colors={controller.colors}
         onClose={() => controller.setShowPaymentOptionModal(false)}
-        onRecordPayment={recordBalancePayment}
+        onRecordPayment={() => openRecordPaymentForBalance(controller, order)}
         onShipOnCredit={() => {
           controller.setShowPaymentOptionModal(false);
           controller.setShowCreditModal(true);

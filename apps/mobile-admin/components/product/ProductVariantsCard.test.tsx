@@ -167,11 +167,16 @@ function renderCard(
     onUpdateVariant: vi.fn(),
   };
 
-  render(
+  const makeCard = (
+    nextOverrides: Partial<{
+      variants: EditableProductVariant[];
+      hasVariantConditionAxis: boolean;
+    }> = overrides
+  ) => (
     <ProductVariantsCard
       colors={colors}
       currencySymbol="₦"
-      hasVariantConditionAxis={overrides.hasVariantConditionAxis ?? true}
+      hasVariantConditionAxis={nextOverrides.hasVariantConditionAxis ?? true}
       onAddVariant={handlers.onAddVariant}
       onAddVariantAttribute={vi.fn()}
       onApplyVariantPricing={handlers.onApplyVariantPricing}
@@ -184,18 +189,25 @@ function renderCard(
       onUpdateVariantAttribute={vi.fn()}
       onUpdateVariantCondition={vi.fn()}
       value={{ cost_price: 300, price: 900 }}
-      variants={overrides.variants ?? variants}
+      variants={nextOverrides.variants ?? variants}
     />
   );
+  const result = render(makeCard());
 
-  return handlers;
+  return {
+    ...handlers,
+    rerenderCard: (nextOverrides: Parameters<typeof makeCard>[0]) =>
+      result.rerender(makeCard(nextOverrides)),
+  };
 }
 
 describe('ProductVariantsCard', () => {
   it('wires default price edits and per-row updates through the variant index', () => {
     const handlers = renderCard();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add product variant' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add product variant' })
+    );
     fireEvent.change(screen.getByLabelText('Default selling price'), {
       target: { value: '1200' },
     });
@@ -297,42 +309,16 @@ describe('ProductVariantsCard', () => {
   });
 
   it('ignores stale filters when variant count falls below the filter threshold', () => {
-    const handlers = {
-      onAddVariant: vi.fn(() => 'variant-2'),
-      onApplyVariantPricing: vi.fn(),
-      onDefaultCostPriceChange: vi.fn(),
-      onDefaultPriceChange: vi.fn(),
-      onGenerateVariants: vi.fn(),
-      onUpdateVariant: vi.fn(),
-    };
-    const makeCard = (nextVariants: EditableProductVariant[]) => (
-      <ProductVariantsCard
-        colors={colors}
-        currencySymbol="₦"
-        hasVariantConditionAxis
-        onAddVariant={handlers.onAddVariant}
-        onAddVariantAttribute={vi.fn()}
-        onApplyVariantPricing={handlers.onApplyVariantPricing}
-        onDefaultCostPriceChange={handlers.onDefaultCostPriceChange}
-        onDefaultPriceChange={handlers.onDefaultPriceChange}
-        onGenerateVariants={handlers.onGenerateVariants}
-        onRemoveVariant={vi.fn()}
-        onRemoveVariantAttribute={vi.fn()}
-        onUpdateVariant={handlers.onUpdateVariant}
-        onUpdateVariantAttribute={vi.fn()}
-        onUpdateVariantCondition={vi.fn()}
-        value={{ cost_price: 300, price: 900 }}
-        variants={nextVariants}
-      />
-    );
-    const { rerender } = render(makeCard(makeStorageVariants(5)));
+    const { rerenderCard } = renderCard({
+      variants: makeStorageVariants(5),
+    });
 
     fireEvent.click(
       screen.getByRole('button', { name: 'Filter by Storage 128GB' })
     );
     expect(screen.getByText('Showing 2 of 5 variants')).toBeInTheDocument();
 
-    rerender(makeCard(makeStorageVariants(4)));
+    rerenderCard({ variants: makeStorageVariants(4) });
 
     expect(screen.queryByText(/Showing .* variants/)).not.toBeInTheDocument();
     expect(
@@ -376,7 +362,9 @@ describe('ProductVariantsCard', () => {
     ];
     const handlers = renderCard({ variants: twins });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Toggle variant row 1' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Toggle variant row 1' })
+    );
     fireEvent.click(
       screen.getByRole('button', { name: 'Apply similar for row 1' })
     );

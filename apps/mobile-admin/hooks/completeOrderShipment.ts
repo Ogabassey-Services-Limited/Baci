@@ -35,7 +35,7 @@ interface CompleteOrderShipmentParams {
   }) => Promise<unknown>;
 }
 
-function normalizeDispatchPhone(phone: string) {
+function validateDispatchPhoneForWhatsapp(phone: string) {
   const trimmedPhone = phone.trim();
   const nationalNumber = getNationalPhoneNumber(trimmedPhone);
   const digits = trimmedPhone.replace(/\D/g, '');
@@ -67,7 +67,9 @@ export async function completeOrderShipment({
   // Rider phone is optional for self-fulfillment — the merchant can add it
   // later via the post-shipment "Send to Rider" WhatsApp action.
   const dispatchPhone =
-    mode === 'self_fulfillment' ? normalizeDispatchPhone(riderPhone) : '';
+    mode === 'self_fulfillment'
+      ? validateDispatchPhoneForWhatsapp(riderPhone)
+      : '';
 
   if (mode !== 'self_fulfillment' && !providerBookingAvailable) {
     throw new Error(
@@ -161,8 +163,7 @@ export async function completeOrderShipment({
 
   // Only offer the "Send Order Details to Rider" WhatsApp action when a rider
   // number was actually provided — otherwise the action would dead-end.
-  const canSendToRider =
-    mode === 'self_fulfillment' && Boolean(dispatchPhone);
+  const canSendToRider = mode === 'self_fulfillment' && Boolean(dispatchPhone);
 
   return {
     actionLabel: canSendToRider ? 'Send Order Details to Rider' : '',
