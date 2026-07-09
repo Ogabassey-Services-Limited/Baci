@@ -90,7 +90,7 @@ export function ShippingQuoteRow({
           >
             {quote.displayName}
           </Text>
-          {normalizedCarrier.includes('topship') && (
+          {normalizedCarrier === 'topship' && (
             <View style={[styles.badge, { backgroundColor: colors.muted }]}>
               <Text style={[styles.badgeText, { color: colors.text }]}>
                 Topship

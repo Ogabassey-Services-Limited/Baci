@@ -77,6 +77,7 @@ describe('useCheckoutPaymentController selection', () => {
 
     act(() => result.current.setSelectedPayment('paystack'));
     expect(result.current.selectedPayment).toBe('paystack');
+    expect(result.current.paymentTab).toBe('full');
 
     act(() => result.current.resetPaymentSelection());
     expect(result.current.paymentTab).toBeNull();

@@ -1,6 +1,15 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const addressAutocompleteMock = vi.hoisted(() => ({
+  selectedPlace: null as null | {
+    city: string;
+    formattedAddress: string;
+    location: { latitude: number; longitude: number };
+    state: string;
+  },
+}));
+
 // Mock all heavy dependencies before importing the component
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() })),
@@ -94,17 +103,30 @@ vi.mock('@/components/storefront/checkout-auth-modal', () => ({
 }));
 
 vi.mock('@/components/address-autocomplete', () => ({
-  AddressAutocomplete: vi.fn(({ value, onChange, onChangeText, ...props }) => (
-    <input
-      data-testid="address-input"
-      value={value || ''}
-      onChange={(e) => {
-        onChange?.(e);
-        onChangeText?.(e.target.value);
-      }}
-      {...props}
-    />
-  )),
+  AddressAutocomplete: vi.fn(
+    ({ value, onChange, onChangeText, onSelect, ...props }) => (
+      <>
+        <input
+          data-testid="address-input"
+          value={value || ''}
+          onChange={(e) => {
+            onChange?.(e);
+            onChangeText?.(e.target.value);
+          }}
+          {...props}
+        />
+        {addressAutocompleteMock.selectedPlace && (
+          <button
+            data-testid="select-address-place"
+            type="button"
+            onClick={() => onSelect?.(addressAutocompleteMock.selectedPlace)}
+          >
+            Select address place
+          </button>
+        )}
+      </>
+    ),
+  ),
 }));
 
 vi.mock('@/lib/credpal', () => ({
@@ -220,6 +242,7 @@ async function submitPickupPayOnDeliveryOrder() {
 describe('CheckoutPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    addressAutocompleteMock.selectedPlace = null;
     vi.mocked(useCart).mockReturnValue({
       cart: [],
       cartTotal: 0,
@@ -1120,6 +1143,93 @@ describe('CheckoutPage', () => {
     );
     expect(JSON.parse(String(quoteCall?.[1]?.body))).toEqual(
       expect.objectContaining({ merchantId: 'merchant-1' })
+    );
+
+    fetchMock.mockRestore();
+  });
+
+  it('refetches quotes with new coordinates when the selected place stays in the same city', async () => {
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: 'Old address, Ikeja',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'delivery',
+        completedSteps: { contact: true, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+    addressAutocompleteMock.selectedPlace = {
+      city: 'Ikeja',
+      formattedAddress: 'New address, Ikeja',
+      location: { latitude: 6.6018, longitude: 3.3515 },
+      state: 'Lagos',
+    };
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        if (String(input).startsWith('/api/shipping/quotes')) {
+          return {
+            ok: true,
+            json: async () => ({ quotes: { all: [] } }),
+            text: async () => '',
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).startsWith('/api/shipping/quotes'),
+        ),
+      ).toBe(true);
+    });
+    fetchMock.mockClear();
+
+    fireEvent.click(screen.getByTestId('select-address-place'));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).startsWith('/api/shipping/quotes'),
+        ),
+      ).toBe(true);
+    });
+    const quoteCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).startsWith('/api/shipping/quotes'),
+    );
+    expect(JSON.parse(String(quoteCall?.[1]?.body)).receiver).toEqual(
+      expect.objectContaining({ latitude: 6.6018, longitude: 3.3515 }),
     );
 
     fetchMock.mockRestore();

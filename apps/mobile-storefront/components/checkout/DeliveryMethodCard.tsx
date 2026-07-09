@@ -93,12 +93,13 @@ export function DeliveryMethodCard({
   }
   const selectedOption =
     options.find((option) => option.id === selectedMethod) ?? options[0];
-  const pickupAddressLines =
-    selectedOption?.id === 'pickup_station'
-      ? selectedOption.pickupStationQuote || !selectedOption.isProviderPickup
-        ? getPickupStationAddressLines(selectedOption.pickupStationQuote)
-        : []
-      : [];
+  const shouldShowPickupAddress =
+    selectedOption?.id === 'pickup_station' &&
+    (Boolean(selectedOption.pickupStationQuote) ||
+      !selectedOption.isProviderPickup);
+  const pickupAddressLines = shouldShowPickupAddress
+    ? getPickupStationAddressLines(selectedOption?.pickupStationQuote)
+    : [];
   const [primaryPickupLine, ...secondaryPickupLines] = pickupAddressLines;
   const stationCode = selectedOption?.pickupStationQuote
     ? (selectedOption.pickupStationQuote.stationCode ??

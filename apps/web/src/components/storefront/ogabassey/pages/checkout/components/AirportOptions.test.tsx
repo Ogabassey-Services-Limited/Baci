@@ -81,4 +81,17 @@ describe('AirportOptions', () => {
       screen.getByRole('radio', { name: /airport delivery/i }),
     ).not.toBeChecked();
   });
+
+  it('uses generic airport labels when the destination city is blank', () => {
+    render(
+      <AirportOptions
+        airportType="delivery"
+        destinationCity="   "
+        setAirportType={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Airport Delivery')).toBeInTheDocument();
+    expect(screen.getByText('Airport Pickup')).toBeInTheDocument();
+  });
 });

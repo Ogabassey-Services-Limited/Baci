@@ -1251,6 +1251,8 @@ export const CheckoutPage: React.FC = () => {
     merchant?.id,
     quoteItemsFingerprint,
     resolvedQuoteRequestKey,
+    deliveryCoordinates?.latitude,
+    deliveryCoordinates?.longitude,
   ]);
 
 
@@ -3259,7 +3261,7 @@ export const CheckoutPage: React.FC = () => {
                         : deliveryMethod === 'pickup_station'
                           ? 'Pickup Station'
                         : deliveryMethod === 'pickup'
-                          ? 'Store pickup'
+                          ? 'Store Pickup'
                             : 'By Air'}
                       {deliveryMethod === 'door' && newAddressCity ? ` · ${newAddressCity}` : ''}
                     </p>
