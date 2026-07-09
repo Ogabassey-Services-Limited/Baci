@@ -63,6 +63,103 @@ describe('createImportCommitRepository', () => {
     );
   });
 
+  it('creates a service type and returns its id', async () => {
+    const single = vi
+      .fn()
+      .mockResolvedValue({ data: { id: 'svc-9' }, error: null });
+    const selectAfterInsert = vi.fn().mockReturnValue({ single });
+    const insert = vi.fn().mockReturnValue({ select: selectAfterInsert });
+    const from = vi.fn().mockReturnValue({ insert });
+    const repo = createImportCommitRepository(asClient(from), 'm-1');
+
+    const result = await repo.createServiceType({
+      name: 'Screen Replacement',
+      slug: 'screen-replacement',
+    });
+
+    expect(from).toHaveBeenCalledWith('repair_service_types');
+    expect(insert).toHaveBeenCalledWith({
+      merchant_id: 'm-1',
+      name: 'Screen Replacement',
+      slug: 'screen-replacement',
+    });
+    expect(result.id).toBe('svc-9');
+  });
+
+  it('updates a quote price scoped to the id and merchant', async () => {
+    const eqMerchant = vi.fn().mockResolvedValue({ error: null });
+    const eqId = vi.fn().mockReturnValue({ eq: eqMerchant });
+    const update = vi.fn().mockReturnValue({ eq: eqId });
+    const from = vi.fn().mockReturnValue({ update });
+    const repo = createImportCommitRepository(asClient(from), 'm-1');
+
+    await repo.updateQuotePrice('q-1', 30_000, false);
+
+    expect(from).toHaveBeenCalledWith('repair_quotes');
+    expect(update).toHaveBeenCalledWith({
+      price: 30_000,
+      is_from_price: false,
+    });
+    expect(eqId).toHaveBeenCalledWith('id', 'q-1');
+    expect(eqMerchant).toHaveBeenCalledWith('merchant_id', 'm-1');
+  });
+
+  it('throws when updating a quote price errors', async () => {
+    const eqMerchant = vi
+      .fn()
+      .mockResolvedValue({ error: { message: 'update boom' } });
+    const eqId = vi.fn().mockReturnValue({ eq: eqMerchant });
+    const update = vi.fn().mockReturnValue({ eq: eqId });
+    const from = vi.fn().mockReturnValue({ update });
+    const repo = createImportCommitRepository(asClient(from), 'm-1');
+
+    await expect(repo.updateQuotePrice('q-1', 1, true)).rejects.toThrow(
+      'update boom'
+    );
+  });
+
+  it('creates a quote with the merchant-scoped payload', async () => {
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    const from = vi.fn().mockReturnValue({ insert });
+    const repo = createImportCommitRepository(asClient(from), 'm-1');
+
+    await repo.createQuote({
+      deviceId: 'd-1',
+      serviceTypeId: 's-1',
+      partQuality: 'OEM',
+      price: 25_000,
+      isFromPrice: true,
+    });
+
+    expect(from).toHaveBeenCalledWith('repair_quotes');
+    expect(insert).toHaveBeenCalledWith({
+      merchant_id: 'm-1',
+      device_id: 'd-1',
+      service_type_id: 's-1',
+      part_quality: 'OEM',
+      price: 25_000,
+      is_from_price: true,
+    });
+  });
+
+  it('finds a quote using eq for a non-null part quality', async () => {
+    const maybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: { id: 'q-2' }, error: null });
+    const eqPart = vi.fn().mockReturnValue({ maybeSingle });
+    const eqService = vi.fn().mockReturnValue({ eq: eqPart });
+    const eqDevice = vi.fn().mockReturnValue({ eq: eqService });
+    const eqMerchant = vi.fn().mockReturnValue({ eq: eqDevice });
+    const select = vi.fn().mockReturnValue({ eq: eqMerchant });
+    const from = vi.fn().mockReturnValue({ select });
+    const repo = createImportCommitRepository(asClient(from), 'm-1');
+
+    const found = await repo.findQuote('d-1', 's-1', 'OEM');
+
+    expect(eqPart).toHaveBeenCalledWith('part_quality', 'OEM');
+    expect(found).toEqual({ id: 'q-2' });
+  });
+
   it('finds a quote using is-null for a null part quality', async () => {
     const maybeSingle = vi
       .fn()

@@ -224,3 +224,91 @@ describe('getRepairDeviceDetailBySlug', () => {
     });
   });
 });
+
+describe('getRepairDeviceDetailBySlug error paths', () => {
+  const deviceRow = {
+    id: 'd1',
+    brand: 'Apple',
+    model: 'iPhone 13',
+    slug: 'iphone-13',
+    product_id: null as string | null,
+  };
+  const boom = { message: 'boom' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('rejects when the repair_devices query errors', async () => {
+    mocks.getPublicSupabaseClient.mockReturnValue(
+      makeClient({ repair_devices: { data: null, error: boom } })
+    );
+    await expect(
+      getRepairDeviceDetailBySlug('merchant-1', 'iphone-13')
+    ).rejects.toEqual(boom);
+  });
+
+  it('rejects when the repair_quotes query errors', async () => {
+    mocks.getPublicSupabaseClient.mockReturnValue(
+      makeClient({
+        repair_devices: { data: deviceRow, error: null },
+        repair_quotes: { data: null, error: boom },
+        repair_service_types: { data: [], error: null },
+      })
+    );
+    await expect(
+      getRepairDeviceDetailBySlug('merchant-1', 'iphone-13')
+    ).rejects.toEqual(boom);
+  });
+
+  it('rejects when the repair_service_types query errors', async () => {
+    mocks.getPublicSupabaseClient.mockReturnValue(
+      makeClient({
+        repair_devices: { data: deviceRow, error: null },
+        repair_quotes: { data: [], error: null },
+        repair_service_types: { data: null, error: boom },
+      })
+    );
+    await expect(
+      getRepairDeviceDetailBySlug('merchant-1', 'iphone-13')
+    ).rejects.toEqual(boom);
+  });
+
+  it('rejects when the linked products query errors', async () => {
+    mocks.getPublicSupabaseClient.mockReturnValue(
+      makeClient({
+        repair_devices: {
+          data: { ...deviceRow, product_id: 'p1' },
+          error: null,
+        },
+        repair_quotes: { data: [], error: null },
+        repair_service_types: { data: [], error: null },
+        products: { data: null, error: boom },
+      })
+    );
+    await expect(
+      getRepairDeviceDetailBySlug('merchant-1', 'iphone-13')
+    ).rejects.toEqual(boom);
+  });
+
+  it('rejects when the product_key_specs query errors', async () => {
+    mocks.getPublicSupabaseClient.mockReturnValue(
+      makeClient({
+        repair_devices: {
+          data: { ...deviceRow, product_id: 'p1' },
+          error: null,
+        },
+        repair_quotes: { data: [], error: null },
+        repair_service_types: { data: [], error: null },
+        products: {
+          data: { id: 'p1', slug: 's', name: 'n', images: [] },
+          error: null,
+        },
+        product_key_specs: { data: null, error: boom },
+      })
+    );
+    await expect(
+      getRepairDeviceDetailBySlug('merchant-1', 'iphone-13')
+    ).rejects.toEqual(boom);
+  });
+});

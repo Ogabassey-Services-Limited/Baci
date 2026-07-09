@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildPickupItems,
   buildPickupSender,
+  type PickupFailureReason,
   pickupFailure,
   type RepairPickupSource,
 } from './pickup-shipment-utils';
@@ -42,6 +43,16 @@ describe('buildPickupSender', () => {
     const sender = buildPickupSender({ ...baseRepair, customer_name: null });
     expect(sender?.name).toBe('Customer');
   });
+
+  it('uses an empty phone and undefined email when both are null', () => {
+    const sender = buildPickupSender({
+      ...baseRepair,
+      customer_phone: null,
+      customer_email: null,
+    });
+    expect(sender?.phone).toBe('');
+    expect(sender?.email).toBeUndefined();
+  });
 });
 
 describe('buildPickupItems', () => {
@@ -68,15 +79,21 @@ describe('buildPickupItems', () => {
 });
 
 describe('pickupFailure', () => {
-  it('offers manual retry for recoverable reasons', () => {
-    expect(pickupFailure('topship_unavailable')).toMatchObject({
-      ok: false,
-      reason: 'topship_unavailable',
-      canRetryManually: true,
-    });
-  });
+  const cases: readonly [PickupFailureReason, boolean][] = [
+    ['not_found', false],
+    ['already_booked', false],
+    ['missing_pickup_address', true],
+    ['repair_center_unconfigured', true],
+    ['topship_unavailable', true],
+    ['booking_failed', true],
+    ['shipment_save_failed', false],
+  ];
 
-  it('does not offer manual retry when the booking is missing', () => {
-    expect(pickupFailure('not_found').canRetryManually).toBe(false);
+  it.each(
+    cases
+  )('reason %s exposes canRetryManually=%s with a non-empty message', (reason, canRetryManually) => {
+    const result = pickupFailure(reason);
+    expect(result).toMatchObject({ ok: false, reason, canRetryManually });
+    expect(result.message.length).toBeGreaterThan(0);
   });
 });

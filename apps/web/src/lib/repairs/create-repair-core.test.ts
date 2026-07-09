@@ -141,6 +141,48 @@ describe('createRepairBooking', () => {
     expect(result.code).toBe('unavailable');
   });
 
+  it('maps a merchant_not_found RPC error to the not_found code', async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'merchant_not_found' },
+    });
+
+    const result = await createRepairBooking(validInput, merchantId);
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Store not found.',
+      code: 'not_found',
+    });
+  });
+
+  it('maps a merchant_required RPC error to the not_found code', async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'merchant_required' },
+    });
+
+    const result = await createRepairBooking(validInput, merchantId);
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Store not found.',
+      code: 'not_found',
+    });
+  });
+
+  it('falls back to the unknown code when the RPC error has no message', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: {} });
+
+    const result = await createRepairBooking(validInput, merchantId);
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Failed to submit repair request. Please try again.',
+      code: 'unknown',
+    });
+  });
+
   it('returns a generic failure when the RPC returns no row', async () => {
     mocks.rpc.mockResolvedValueOnce({ data: [], error: null });
 

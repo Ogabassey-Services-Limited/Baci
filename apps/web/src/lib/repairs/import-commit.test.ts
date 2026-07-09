@@ -201,6 +201,27 @@ describe('commitImportRows', () => {
     expect(repo.quotes[0].serviceTypeId).toBe('svc-mine');
   });
 
+  it('ignores a foreign device id and resolves by brand/model instead', async () => {
+    const repo = new FakeRepository();
+    repo.devices.push({
+      id: 'dev-mine',
+      brand: 'Apple',
+      model: 'iPhone 12',
+      slug: 'apple-iphone-12',
+      aliases: [],
+      productId: null,
+    });
+    // A tampered/foreign device id that is NOT one of this merchant's devices
+    // must not be trusted; it falls through to a brand/model match on the
+    // merchant's own row rather than creating or linking a foreign device.
+    const counts = await commitImportRows(
+      [row({ deviceId: 'dev-from-another-merchant' })],
+      repo
+    );
+    expect(counts.devicesCreated).toBe(0);
+    expect(repo.quotes[0].deviceId).toBe('dev-mine');
+  });
+
   it('distinguishes quotes by part quality', async () => {
     const repo = new FakeRepository();
     const counts = await commitImportRows(

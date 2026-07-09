@@ -72,6 +72,26 @@ describe('lookupRepairStatus', () => {
     }
   });
 
+  it('returns not found when the RPC row is not an object', async () => {
+    const { supabase } = makeSupabase({
+      data: ['unexpected-scalar'],
+      error: null,
+    });
+    expect(
+      await lookupRepairStatus(supabase, 'm-1', 1042, 'ada@x.com')
+    ).toEqual({ found: false });
+  });
+
+  it('returns not found when the row status is not a valid repair status', async () => {
+    const { supabase } = makeSupabase({
+      data: [{ ...row, status: 'shipped' }],
+      error: null,
+    });
+    expect(
+      await lookupRepairStatus(supabase, 'm-1', 1042, 'ada@x.com')
+    ).toEqual({ found: false });
+  });
+
   it('falls back to a generic device label when device fields are empty', async () => {
     const { supabase } = makeSupabase({
       data: [{ ...row, device_type: null, device_model: null }],

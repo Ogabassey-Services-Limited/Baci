@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canTransitionRepairStatus,
   getAllowedNextRepairStatuses,
   getRepairStatusColorClasses,
+  getRepairStatusLabel,
   isRepairStatus,
   isTerminalRepairStatus,
   REPAIR_STATUS_LABELS,
@@ -80,6 +82,45 @@ describe('labels + timeline', () => {
       'in_progress',
       'completed',
     ]);
+  });
+});
+
+describe('canTransitionRepairStatus', () => {
+  it('allows valid forward transitions', () => {
+    expect(canTransitionRepairStatus('pending', 'confirmed')).toBe(true);
+    expect(canTransitionRepairStatus('confirmed', 'in_progress')).toBe(true);
+    expect(canTransitionRepairStatus('in_progress', 'completed')).toBe(true);
+  });
+
+  it('allows cancelling/rejecting an in-flight booking', () => {
+    expect(canTransitionRepairStatus('pending', 'rejected')).toBe(true);
+    expect(canTransitionRepairStatus('in_progress', 'cancelled')).toBe(true);
+  });
+
+  it('rejects transitions out of a terminal state', () => {
+    expect(canTransitionRepairStatus('completed', 'pending')).toBe(false);
+    expect(canTransitionRepairStatus('cancelled', 'in_progress')).toBe(false);
+    expect(canTransitionRepairStatus('rejected', 'confirmed')).toBe(false);
+  });
+
+  it('rejects invalid or skip-ahead transitions', () => {
+    expect(canTransitionRepairStatus('pending', 'completed')).toBe(false);
+    expect(canTransitionRepairStatus('confirmed', 'rejected')).toBe(false);
+    expect(canTransitionRepairStatus('pending', 'pending')).toBe(false);
+  });
+});
+
+describe('getRepairStatusLabel', () => {
+  it('returns the human label for every known status', () => {
+    expect(getRepairStatusLabel('pending')).toBe('Pending');
+    expect(getRepairStatusLabel('in_progress')).toBe('In progress');
+    expect(getRepairStatusLabel('completed')).toBe('Completed');
+    expect(getRepairStatusLabel('rejected')).toBe('Rejected');
+  });
+
+  it('echoes back an unknown value unchanged', () => {
+    expect(getRepairStatusLabel('mystery')).toBe('mystery');
+    expect(getRepairStatusLabel('')).toBe('');
   });
 });
 
