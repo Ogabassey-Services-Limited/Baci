@@ -17,19 +17,23 @@ interface DeliveryMethodSelectorProps {
 
 function getDeliveryMethodCopy(method: DeliveryMethod) {
   if (method === 'door') {
-    return { Icon: Truck, label: 'Door Delivery', subtitle: 'To your address' };
+    return { Icon: Truck, label: 'By Road', subtitle: 'To your address' };
   }
   if (method === 'pickup_station') {
     return {
       Icon: Building2,
-      label: 'Pickup Stations (GIGL)',
-      subtitle: 'Collect at service centre',
+      label: 'Pickup Station',
+      subtitle: 'GIGL service centre',
     };
   }
   if (method === 'pickup') {
-    return { Icon: Building2, label: 'Pickup', subtitle: 'Collect at store' };
+    return {
+      Icon: Building2,
+      label: 'Store Pickup',
+      subtitle: 'Collect at store',
+    };
   }
-  return { Icon: Plane, label: 'Airport', subtitle: 'Via air cargo' };
+  return { Icon: Plane, label: 'By Air', subtitle: 'Via airport' };
 }
 
 export function DeliveryMethodSelector({
@@ -40,7 +44,6 @@ export function DeliveryMethodSelector({
   selectedAddressId,
   deliveryMethod,
   setDeliveryMethod,
-  stationPickupQuote,
 }: DeliveryMethodSelectorProps) {
   const canChooseDeliveryMethod =
     isHydrated &&
@@ -56,8 +59,11 @@ export function DeliveryMethodSelector({
           How would you like to receive your order?
         </p>
         <div className="flex gap-3 overflow-x-auto pb-1">
-          {(['door', 'pickup_station', 'pickup', 'airport'] as const).map((method) => {
-            if (method === 'pickup_station' && !stationPickupQuote) {
+          {(['door', 'airport', 'pickup_station', 'pickup'] as const).map((method) => {
+            if (
+              method === 'pickup_station' &&
+              isPickupEligible(newAddressState)
+            ) {
               return null;
             }
             if (method === 'pickup' && !isPickupEligible(newAddressState)) {

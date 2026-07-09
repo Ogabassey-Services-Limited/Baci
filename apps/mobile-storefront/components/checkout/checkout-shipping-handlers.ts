@@ -8,20 +8,21 @@ import type {
 } from '@/components/checkout/types';
 import type { PlaceDetails } from '@/components/ui/AddressAutocomplete';
 import type { ShippingAddressInput } from '@/lib/validation';
+import type { SavedDoorAddress } from './use-checkout-shipping.types';
 
 interface CreateCheckoutShippingHandlersParams {
   committedAddress: string;
   currentShippingQuoteContextKey: string;
+  deliveryCoordinates: { latitude: number; longitude: number } | null;
   deliveryMethod: DeliveryMethod;
   requestShippingQuotes: (shouldResetSelection: boolean) => void;
   resolvedShippingQuoteContextKey: string;
-  savedDoorAddressRef: RefObject<{
-    address: string;
-    city: string;
-    state: string;
-  } | null>;
+  savedDoorAddressRef: RefObject<SavedDoorAddress | null>;
   setCitySearch: (value: string) => void;
   setCommittedAddress: (value: string) => void;
+  setDeliveryCoordinates: (
+    value: { latitude: number; longitude: number } | null
+  ) => void;
   setDeliveryMethod: (value: DeliveryMethod) => void;
   setResolvedShippingQuoteContextKey: (value: string) => void;
   setSelectedQuoteId: (value: string) => void;
@@ -40,6 +41,7 @@ interface CreateCheckoutShippingHandlersParams {
 export function createCheckoutShippingHandlers({
   committedAddress,
   currentShippingQuoteContextKey,
+  deliveryCoordinates,
   deliveryMethod,
   googleSuggestedCityRef,
   requestShippingQuotes,
@@ -47,6 +49,7 @@ export function createCheckoutShippingHandlers({
   savedDoorAddressRef,
   setCitySearch,
   setCommittedAddress,
+  setDeliveryCoordinates,
   setDeliveryMethod,
   setResolvedShippingQuoteContextKey,
   setSelectedQuoteId,
@@ -68,6 +71,14 @@ export function createCheckoutShippingHandlers({
       const selectedAddress = place.formattedAddress || '';
       updateAddress(selectedAddress);
       setCommittedAddress(selectedAddress);
+      setDeliveryCoordinates(
+        Number.isFinite(place.latitude) && Number.isFinite(place.longitude)
+          ? {
+              latitude: place.latitude as number,
+              longitude: place.longitude as number,
+            }
+          : null
+      );
       const normalizedState = place.state
         ? normalizeStateName(place.state, shippingStates)
         : '';
@@ -92,6 +103,7 @@ export function createCheckoutShippingHandlers({
       updateAddress(text);
       if (committedAddress) setResolvedShippingQuoteContextKey('');
       setCommittedAddress('');
+      setDeliveryCoordinates(null);
     },
     handleRetryShippingQuotes: () => {
       if (!watchedState || !watchedCity) return;
@@ -101,6 +113,7 @@ export function createCheckoutShippingHandlers({
       );
     },
     handleSelectCity: (city: string) => {
+      setDeliveryCoordinates(null);
       setValue('city', city, { shouldValidate: true });
       setShowCityPicker(false);
       setCitySearch('');
@@ -110,6 +123,7 @@ export function createCheckoutShippingHandlers({
         savedDoorAddressRef.current = {
           address: watchedAddress,
           city: watchedCity,
+          coordinates: deliveryCoordinates,
           state: watchedState,
         };
       } else if (
@@ -122,6 +136,7 @@ export function createCheckoutShippingHandlers({
           setValue('city', saved.city, { shouldValidate: false });
           setValue('state', saved.state, { shouldValidate: false });
           setCommittedAddress(saved.address);
+          setDeliveryCoordinates(saved.coordinates);
           savedDoorAddressRef.current = null;
         }
         setSelectedQuoteId('');
@@ -140,6 +155,7 @@ export function createCheckoutShippingHandlers({
       setDeliveryMethod(method);
     },
     handleSelectState: (state: string) => {
+      setDeliveryCoordinates(null);
       setValue('state', state, { shouldValidate: true });
       setValue('city', '', { shouldValidate: true });
       setShowStatePicker(false);

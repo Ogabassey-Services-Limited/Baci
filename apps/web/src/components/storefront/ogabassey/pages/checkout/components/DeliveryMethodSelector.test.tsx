@@ -26,8 +26,10 @@ describe('DeliveryMethodSelector', () => {
         name: /how would you like to receive your order/i,
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /door delivery/i })).toBeChecked();
-    expect(screen.getByRole('radio', { name: /pickup/i })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /by road/i })).toBeChecked();
+    expect(
+      screen.getByRole('radio', { name: /store pickup/i }),
+    ).toBeInTheDocument();
   });
 
   it('does not render before a usable location is available', () => {
@@ -47,7 +49,7 @@ describe('DeliveryMethodSelector', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('renders airport for eligible non-Lagos states and hides pickup', () => {
+  it('renders air and provider pickup for eligible non-Lagos states', () => {
     render(
       <DeliveryMethodSelector
         {...defaultProps}
@@ -56,16 +58,30 @@ describe('DeliveryMethodSelector', () => {
       />,
     );
 
-    expect(screen.getByRole('radio', { name: /airport/i })).toBeInTheDocument();
-    expect(screen.queryByRole('radio', { name: /pickup/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /by air/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('radio', { name: /pickup station/i }),
+    ).toBeInTheDocument();
   });
 
-  it('renders GIGL pickup stations when a station quote is available', () => {
+  it('renders GIGL pickup stations before a station quote is available', () => {
     render(
       <DeliveryMethodSelector
         {...defaultProps}
         newAddressState="Rivers"
         newAddressCity="Port Harcourt"
+      />,
+    );
+
+    expect(
+      screen.getByRole('radio', { name: /pickup station/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps Lagos merchant pickup instead of showing paid GIGL pickup', () => {
+    render(
+      <DeliveryMethodSelector
+        {...defaultProps}
         stationPickupQuote={{
           id: 'station-quote',
           provider: 'GIGL',
@@ -82,15 +98,15 @@ describe('DeliveryMethodSelector', () => {
       />,
     );
 
-    expect(
-      screen.getByRole('radio', { name: /pickup stations \(gigl\)/i }),
-    ).toBeInTheDocument();
+    expect(screen.getAllByRole('radio', { name: /store pickup/i })).toHaveLength(
+      1,
+    );
   });
 
   it('calls setDeliveryMethod when a delivery option is selected', () => {
     render(<DeliveryMethodSelector {...defaultProps} />);
 
-    fireEvent.click(screen.getByRole('radio', { name: /pickup/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /store pickup/i }));
 
     expect(defaultProps.setDeliveryMethod).toHaveBeenCalledWith('pickup');
   });

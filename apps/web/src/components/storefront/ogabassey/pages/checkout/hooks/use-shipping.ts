@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { normalizeShippingQuoteResponse } from '@/lib/shipping/quote-response';
+import { useEffect, useRef, useState } from 'react';
 import type {
   DeliveryMethod,
   SavedAddress,
   ShippingLocation,
   ShippingQuote,
 } from '../types';
-import { getPreferredDoorQuoteId } from '../utils';
+import {
+  invalidatePendingQuoteRequests,
+  loadCheckoutShippingQuotes,
+} from './checkout-shipping-quote-loader';
 
 interface CartItem {
   name: string;
@@ -24,6 +26,8 @@ interface UseShippingOptions {
   newAddressState: string;
   newAddressCity: string;
   newAddressStreet: string;
+  newAddressLatitude?: number;
+  newAddressLongitude?: number;
   customerPhone: string;
   firstName: string;
   lastName: string;
@@ -31,23 +35,6 @@ interface UseShippingOptions {
   selectedAddressId: number;
   addresses: SavedAddress[];
   cart: CartItem[];
-}
-
-interface QuoteReceiver {
-  address: string;
-  state: string;
-  city: string;
-  phone: string;
-  fName: string;
-  lName: string;
-  email: string;
-  merchantId?: string;
-}
-
-interface ShippingQuoteSetters {
-  setIsLoadingQuotes: (loading: boolean) => void;
-  setSelectedQuoteId: (id: string) => void;
-  setShippingQuotes: (quotes: ShippingQuote[]) => void;
 }
 
 // Module-scope helpers keep try/finally and loading-flag updates out of the
@@ -90,60 +77,6 @@ async function loadShippingCities(
   }
 }
 
-async function loadShippingQuotes(
-  receiver: QuoteReceiver,
-  cart: CartItem[],
-  { setIsLoadingQuotes, setSelectedQuoteId, setShippingQuotes }: ShippingQuoteSetters,
-) {
-  const { address, state, city, phone, fName, lName, email } = receiver;
-  if (!state || !city || !address) return;
-
-  setIsLoadingQuotes(true);
-  setSelectedQuoteId('');
-
-  try {
-    const res = await fetch('/api/shipping/quotes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        merchantId: receiver.merchantId || undefined,
-        receiver: {
-          name: `${fName} ${lName}`.trim() || 'Valued Customer',
-          email: email || 'guest@example.com',
-          phone: phone || '',
-          address,
-          city,
-          state,
-          country: 'Nigeria',
-        },
-        items: cart.map((item) => ({
-          name: item.name,
-          quantity: item.quantity,
-          weight: 1,
-          value: item.negotiatedPrice || item.price,
-        })),
-      }),
-    });
-
-    if (res.ok) {
-      const data: unknown = await res.json();
-      const { quotes } = normalizeShippingQuoteResponse(data);
-      setShippingQuotes(quotes);
-
-      const preferredDoorQuoteId = getPreferredDoorQuoteId(quotes);
-      if (preferredDoorQuoteId) {
-        setSelectedQuoteId(preferredDoorQuoteId);
-      }
-    } else {
-      console.warn('Failed to fetch quotes:', await res.text());
-    }
-  } catch (error) {
-    console.error('Error fetching shipping quotes:', error);
-  } finally {
-    setIsLoadingQuotes(false);
-  }
-}
-
 export function useShipping({
   deliveryMethod,
   merchantId,
@@ -151,6 +84,8 @@ export function useShipping({
   newAddressState,
   newAddressCity,
   newAddressStreet,
+  newAddressLatitude,
+  newAddressLongitude,
   customerPhone,
   firstName,
   lastName,
@@ -165,6 +100,8 @@ export function useShipping({
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuote[]>([]);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>('');
+  const [resolvedQuoteRequestKey, setResolvedQuoteRequestKey] = useState('');
+  const quoteRequestSequence = useRef(0);
   const [prevAddressState, setPrevAddressState] = useState(newAddressState);
 
   // Clear stale cities during render when the selected state is cleared,
@@ -189,6 +126,45 @@ export function useShipping({
   }, [newAddressState]);
 
   // Function to fetch quotes
+  const requestShippingQuotes = (
+    address: string,
+    state: string,
+    city: string,
+    phone: string,
+    fName: string,
+    lName: string,
+    email: string,
+    force: boolean,
+  ) => {
+    const deliveryPreference: 'door' | 'pickup_station' =
+      deliveryMethod === 'pickup_station' ? 'pickup_station' : 'door';
+    const receiver = {
+      address,
+      state,
+      city,
+      phone,
+      fName,
+      lName,
+      email,
+      merchantId,
+      deliveryPreference,
+      latitude: newAddressLatitude,
+      longitude: newAddressLongitude,
+    };
+    return loadCheckoutShippingQuotes(
+      receiver,
+      cart,
+      {
+        currentRequestKey: resolvedQuoteRequestKey,
+        force,
+        requestSequence: quoteRequestSequence,
+        setIsLoadingQuotes,
+        setResolvedQuoteRequestKey,
+        setSelectedQuoteId,
+        setShippingQuotes,
+      },
+    );
+  };
   const fetchShippingQuotes = (
     address: string,
     state: string,
@@ -197,23 +173,14 @@ export function useShipping({
     fName: string,
     lName: string,
     email: string,
-  ) =>
-    loadShippingQuotes(
-      { address, state, city, phone, fName, lName, email, merchantId },
-      cart,
-      {
-        setIsLoadingQuotes,
-        setSelectedQuoteId,
-        setShippingQuotes,
-      }
-    );
+  ) => requestShippingQuotes(address, state, city, phone, fName, lName, email, true);
 
   // Trigger quote fetch when Door Delivery is selected and we have BOTH state AND city
   useEffect(() => {
-    if (deliveryMethod === 'door') {
+    if (deliveryMethod === 'door' || deliveryMethod === 'pickup_station') {
       if (isNewAddressMode) {
         if (newAddressState && newAddressCity) {
-          fetchShippingQuotes(
+          requestShippingQuotes(
             newAddressStreet || `${newAddressCity}, ${newAddressState}`,
             newAddressState,
             newAddressCity,
@@ -221,6 +188,7 @@ export function useShipping({
             firstName,
             lastName,
             customerEmail,
+            false,
           );
         }
       } else {
@@ -233,7 +201,7 @@ export function useShipping({
             const cityCandidate = parts[parts.length - 2];
 
             if (stateCandidate && cityCandidate) {
-              fetchShippingQuotes(
+              requestShippingQuotes(
                 saved.address,
                 stateCandidate,
                 cityCandidate,
@@ -241,6 +209,7 @@ export function useShipping({
                 firstName,
                 lastName,
                 customerEmail,
+                false,
               );
             }
           }
@@ -254,14 +223,26 @@ export function useShipping({
     newAddressState,
     newAddressCity,
     addresses,
+    cart,
+    resolvedQuoteRequestKey,
   ]);
+
+  const updateShippingQuotes = (quotes: ShippingQuote[]) => {
+    setShippingQuotes(quotes);
+    if (quotes.length === 0) {
+      invalidatePendingQuoteRequests(quoteRequestSequence);
+      setIsLoadingQuotes(false);
+      setResolvedQuoteRequestKey('');
+      setSelectedQuoteId('');
+    }
+  };
 
   return {
     shippingStates,
     shippingCities,
     isLoadingLocations,
     shippingQuotes,
-    setShippingQuotes,
+    setShippingQuotes: updateShippingQuotes,
     isLoadingQuotes,
     selectedQuoteId,
     setSelectedQuoteId,

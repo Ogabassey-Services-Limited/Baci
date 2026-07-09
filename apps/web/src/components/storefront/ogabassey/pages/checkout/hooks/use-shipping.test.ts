@@ -299,6 +299,7 @@ describe('useShipping', () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            deliveryPreference: 'door',
             merchantId: 'merchant-1',
             receiver: {
               name: 'John Doe',
@@ -525,6 +526,7 @@ describe('useShipping', () => {
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({
+            deliveryPreference: 'door',
             receiver: {
               name: 'Jane Smith',
               email: 'jane@example.com',

@@ -57,7 +57,7 @@ type CheckoutReviewStepProps = {
   items: CartItem[];
   onEditAddress: () => void;
   onEditPayment: () => void;
-  selectedPayment: PaymentMethodType;
+  selectedPayment: PaymentMethodType | null;
   selectedQuote?: ShippingQuote;
   subtotal: number;
   taxAmount: number | null;
@@ -174,7 +174,9 @@ export function CheckoutReviewStep({
           </Pressable>
         </View>
         <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-          {PAYMENT_METHOD_LABELS[selectedPayment]}
+          {selectedPayment
+            ? PAYMENT_METHOD_LABELS[selectedPayment]
+            : 'Payment method not selected'}
         </Text>
       </View>
 

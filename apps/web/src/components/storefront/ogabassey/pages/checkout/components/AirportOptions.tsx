@@ -6,10 +6,16 @@ import { AirportOption } from './AirportOption';
 
 interface AirportOptionsProps {
   airportType: 'delivery' | 'pickup';
+  destinationCity: string;
   setAirportType: (value: 'delivery' | 'pickup') => void;
 }
 
-export function AirportOptions({ airportType, setAirportType }: AirportOptionsProps) {
+export function AirportOptions({
+  airportType,
+  destinationCity,
+  setAirportType,
+}: AirportOptionsProps) {
+  const location = destinationCity.trim();
   return (
     <div className="mt-4 space-y-3 animate-in fade-in">
       <div className="flex items-start gap-3">
@@ -23,7 +29,7 @@ export function AirportOptions({ airportType, setAirportType }: AirportOptionsPr
         <legend className="sr-only">Airport delivery preference</legend>
         <AirportOption
           type="delivery"
-          label="Airport Delivery"
+          label={location ? `${location} Airport Delivery` : 'Airport Delivery'}
           description="Delivery to your doorstep"
           price={AIRPORT_DELIVERY_CONFIG.delivery.priceLabel}
           airportType={airportType}
@@ -31,7 +37,7 @@ export function AirportOptions({ airportType, setAirportType }: AirportOptionsPr
         />
         <AirportOption
           type="pickup"
-          label="Airport Pickup"
+          label={location ? `${location} Airport Pickup` : 'Airport Pickup'}
           description="Collect at the airport"
           price={AIRPORT_DELIVERY_CONFIG.pickup.priceLabel}
           airportType={airportType}

@@ -122,7 +122,8 @@ export function DeliveryStep({
 
     const isMethodEligible =
       deliveryMethod === 'door' ||
-      (deliveryMethod === 'pickup_station' && Boolean(stationPickupQuote)) ||
+      (deliveryMethod === 'pickup_station' &&
+        !isPickupEligible(newAddressState)) ||
       (deliveryMethod === 'pickup' && isPickupEligible(newAddressState)) ||
       (deliveryMethod === 'airport' &&
         isAirportDeliveryEligible(newAddressState));

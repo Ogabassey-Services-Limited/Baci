@@ -6,10 +6,24 @@ describe('GIGL provider constants', () => {
     const { PickupOptions, VehicleType, parseGiglProviderRateId } =
       await import('./gigl.constants');
 
+    expect(parseGiglProviderRateId('GIGL_30_1_2_575')).toEqual({
+      receiverStationId: 30,
+      pickupOption: PickupOptions.ServiceCentre,
+      vehicleType: VehicleType.Van,
+      serviceCentreId: 575,
+    });
+  });
+
+  it('parses legacy rate ids without a service-centre segment', async () => {
+    vi.resetModules();
+    const { PickupOptions, VehicleType, parseGiglProviderRateId } =
+      await import('./gigl.constants');
+
     expect(parseGiglProviderRateId('GIGL_30_1_2')).toEqual({
       receiverStationId: 30,
       pickupOption: PickupOptions.ServiceCentre,
       vehicleType: VehicleType.Van,
+      serviceCentreId: undefined,
     });
   });
 

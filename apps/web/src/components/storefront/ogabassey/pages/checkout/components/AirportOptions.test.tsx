@@ -8,7 +8,11 @@ describe('AirportOptions', () => {
     const setAirportType = vi.fn();
 
     render(
-      <AirportOptions airportType="delivery" setAirportType={setAirportType} />,
+      <AirportOptions
+        airportType="delivery"
+        destinationCity="Port Harcourt"
+        setAirportType={setAirportType}
+      />,
     );
 
     expect(
@@ -21,6 +25,7 @@ describe('AirportOptions', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('Delivery to your doorstep')).toBeInTheDocument();
+    expect(screen.getByText('Port Harcourt Airport Delivery')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('radio', { name: /airport pickup/i }));
 
@@ -31,7 +36,11 @@ describe('AirportOptions', () => {
     const setAirportType = vi.fn();
 
     render(
-      <AirportOptions airportType="pickup" setAirportType={setAirportType} />,
+      <AirportOptions
+        airportType="pickup"
+        destinationCity="Port Harcourt"
+        setAirportType={setAirportType}
+      />,
     );
 
     fireEvent.click(screen.getByRole('radio', { name: /airport delivery/i }));
@@ -44,7 +53,11 @@ describe('AirportOptions', () => {
     const setAirportType = vi.fn();
 
     render(
-      <AirportOptions airportType="delivery" setAirportType={setAirportType} />,
+      <AirportOptions
+        airportType="delivery"
+        destinationCity="Port Harcourt"
+        setAirportType={setAirportType}
+      />,
     );
 
     const pickup = screen.getByRole('radio', { name: /airport pickup/i });
@@ -55,7 +68,13 @@ describe('AirportOptions', () => {
   });
 
   it('reflects the selected airport option with native radio state', () => {
-    render(<AirportOptions airportType="pickup" setAirportType={vi.fn()} />);
+    render(
+      <AirportOptions
+        airportType="pickup"
+        destinationCity="Port Harcourt"
+        setAirportType={vi.fn()}
+      />,
+    );
 
     expect(screen.getByRole('radio', { name: /airport pickup/i })).toBeChecked();
     expect(

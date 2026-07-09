@@ -7,6 +7,7 @@ import {
   getDeliveryMethodLabel,
   getDeliveryMethodSummary,
   getPaymentTabForMethod,
+  getQuotePreference,
   getShippingProviderForMethod,
 } from './checkout-step-helpers';
 
@@ -130,5 +131,11 @@ describe('checkout-step-helpers', () => {
       })
     ).toBeUndefined();
     expect(getShippingProviderForMethod('door', undefined)).toBeUndefined();
+  });
+
+  it('maps checkout methods to provider quote preferences', () => {
+    expect(getQuotePreference('pickup_station')).toBe('pickup_station');
+    expect(getQuotePreference('door')).toBe('door');
+    expect(getQuotePreference('airport')).toBe('door');
   });
 });

@@ -207,7 +207,7 @@ function mockCheckoutSubmissionState() {
 async function submitPickupPayOnDeliveryOrder() {
   render(<CheckoutPage />);
 
-  fireEvent.click(screen.getByText('Pickup'));
+  fireEvent.click(screen.getByRole('button', { name: /store pickup/i }));
   fireEvent.click(screen.getByRole('button', { name: /continue to payment/i }));
   fireEvent.click(await screen.findByText(/pay on delivery/i));
   const placeOrderButton = screen
@@ -1590,7 +1590,7 @@ describe('CheckoutPage', () => {
     });
 
     // Let's submit the order
-    fireEvent.click(screen.getByText('Pickup'));
+    fireEvent.click(screen.getByRole('button', { name: /store pickup/i }));
     fireEvent.click(screen.getByRole('button', { name: /continue to payment/i }));
     fireEvent.click(await screen.findByText(/pay on delivery/i));
     const placeOrderButton = screen
@@ -1692,7 +1692,7 @@ describe('CheckoutPage', () => {
     });
 
     // Let's submit the order
-    fireEvent.click(screen.getByText('Pickup'));
+    fireEvent.click(screen.getByRole('button', { name: /store pickup/i }));
     fireEvent.click(screen.getByRole('button', { name: /continue to payment/i }));
     fireEvent.click(await screen.findByText(/pay on delivery/i));
     const placeOrderButton = screen

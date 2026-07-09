@@ -11,8 +11,12 @@ export interface ShippingQuote {
   deliveryRange?: string;
   serviceTier?: string;
   isStationPickup?: boolean;
+  /** Station metadata normalized for checkout display. */
   stationName?: string;
   stationAddress?: string;
+  stationCode?: string;
+  /** Provider booking metadata retained for shipment creation. */
   pickupStationName?: string;
   pickupStationAddress?: string;
+  pickupStationCode?: string;
 }

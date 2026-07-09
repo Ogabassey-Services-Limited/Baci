@@ -11,6 +11,7 @@ import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/pickup-stati
 import type {
   DeliveryMethod,
   ShippingQuote,
+  ShippingQuoteDeliveryPreference,
 } from '@/components/checkout/types';
 
 export const AIRPORT_DELIVERY_FEE = 25000;
@@ -47,6 +48,12 @@ export function getDeliveryMethodFee(
   return selectedQuote != null && !isProviderStationPickupQuote(selectedQuote)
     ? selectedQuote.price
     : 0;
+}
+
+export function getQuotePreference(
+  deliveryMethod: DeliveryMethod
+): ShippingQuoteDeliveryPreference {
+  return deliveryMethod === 'pickup_station' ? 'pickup_station' : 'door';
 }
 
 export function getDeliveryMethodLabel(

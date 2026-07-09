@@ -87,6 +87,23 @@ export async function bookGiglShipment(
       throw new Error('No GIGL station found for delivery location');
     }
 
+    const selectedServiceCentre =
+      isStationPickup && selectedRate.serviceCentreId !== undefined
+        ? await stationsService.findServiceCentreById(
+            receiverStation.StationId,
+            selectedRate.serviceCentreId,
+            GIGL_BOOKING_TIMEOUT_MS,
+            signal
+          )
+        : null;
+    if (
+      isStationPickup &&
+      selectedRate.serviceCentreId !== undefined &&
+      !selectedServiceCentre
+    ) {
+      throw new Error('Selected GIGL service centre was not found');
+    }
+
     const bookingTokenData = apiClient.currentToken ?? tokenData;
     const { envelope, response } =
       await apiClient.safeFetchEnvelopeWithAccessToken(
@@ -115,19 +132,29 @@ export async function bookGiglShipment(
             ReceiverDetails: {
               ReceiverLocation: {
                 Latitude:
+                  selectedServiceCentre?.Latitude ??
                   request.receiver.latitude ??
                   receiverStation.Latitude ??
                   6.5244,
                 Longitude:
+                  selectedServiceCentre?.Longitude ??
                   request.receiver.longitude ??
                   receiverStation.Longitude ??
                   3.3792,
               },
               ReceiverStationId: receiverStation.StationId,
+              ...(selectedServiceCentre
+                ? {
+                    DestinationServiceCenterId:
+                      selectedServiceCentre.ServiceCentreId,
+                  }
+                : {}),
               ReceiverName: request.receiver.name,
               ReceiverPhoneNumber: request.receiver.phone,
-              ReceiverAddress: request.receiver.address,
-              InputtedReceiverAddress: request.receiver.address,
+              ReceiverAddress:
+                selectedServiceCentre?.Address ?? request.receiver.address,
+              InputtedReceiverAddress:
+                selectedServiceCentre?.Address ?? request.receiver.address,
             },
             ShipmentDetails: {
               VehicleType: vehicleType,
@@ -182,10 +209,11 @@ export async function bookGiglShipment(
       status: 'booked',
       isStationPickup,
       pickupStationName: isStationPickup
-        ? receiverStation.StationName
+        ? (selectedServiceCentre?.ServiceCentreName ??
+          receiverStation.StationName)
         : undefined,
       pickupStationAddress: isStationPickup
-        ? receiverStation.Address
+        ? (selectedServiceCentre?.Address ?? receiverStation.Address)
         : undefined,
       rawResponse: bookingData,
     };

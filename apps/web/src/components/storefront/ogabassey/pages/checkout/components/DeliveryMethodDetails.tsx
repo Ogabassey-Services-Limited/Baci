@@ -90,6 +90,7 @@ export function DeliveryMethodDetails(props: DeliveryMethodDetailsProps) {
     return (
       <AirportOptions
         airportType={props.airportType}
+        destinationCity={props.newAddressCity}
         setAirportType={props.setAirportType}
       />
     );

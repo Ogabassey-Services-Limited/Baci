@@ -1,4 +1,3 @@
-import { isPickupEligible } from '@baci/shared';
 import type { Control, FieldErrors } from 'react-hook-form';
 import { ScrollView, Text, View } from 'react-native';
 import { CheckoutContactCard } from '@/components/checkout/CheckoutContactCard';
@@ -6,6 +5,7 @@ import { CheckoutDeliveryCard } from '@/components/checkout/CheckoutDeliveryCard
 import type { CheckoutDeliveryCardProps } from '@/components/checkout/CheckoutDeliveryCard.types';
 import { CheckoutFormField } from '@/components/checkout/CheckoutFormField';
 import {
+  getPickupStationMode,
   getStationPickupQuote,
   isProviderStationPickupQuote,
 } from '@/components/checkout/checkout-station-pickup';
@@ -15,12 +15,10 @@ import {
 } from '@/components/checkout/checkout-step-helpers';
 import { DeliveryMethodCard } from '@/components/checkout/DeliveryMethodCard';
 import { DeliveryNotesCard } from '@/components/checkout/DeliveryNotesCard';
-import { PickupStationCard } from '@/components/checkout/PickupStationCard';
 import { ShippingQuotesCard } from '@/components/checkout/ShippingQuotesCard';
 import type Colors from '@/constants/Colors';
 import type { SavedAddress } from '@/lib/checkout-saved-address';
 import type { ShippingAddressInput } from '@/lib/validation';
-import { formatPrice } from '@/stores/cart-store';
 import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
 import type { DeliveryMethod, ShippingQuote } from './types';
 
@@ -139,10 +137,15 @@ export function CheckoutAddressStepView({
     isProviderStationPickupQuote
   );
   const canChooseDeliveryMethod = Boolean(watchedState && watchedCity);
-  const usesMerchantPickup =
-    deliveryMethod === 'pickup_station' && isPickupEligible(watchedState);
-  const usesProviderPickup =
-    deliveryMethod === 'pickup_station' && !isPickupEligible(watchedState);
+  const { usesProviderPickup } = getPickupStationMode({
+    city: watchedCity,
+    deliveryMethod,
+    state: watchedState,
+    stationPickupQuote,
+  });
+  const shouldShowShippingQuotes =
+    (deliveryMethod === 'door' || usesProviderPickup) &&
+    Boolean(watchedState && watchedCity);
 
   return (
     <ScrollView
@@ -227,45 +230,35 @@ export function CheckoutAddressStepView({
           isDark={isDark}
           selectedMethod={deliveryMethod}
           onSelectMethod={onSelectDeliveryMethod}
+          deliveryCity={watchedCity}
           deliveryState={watchedState}
           doorSubtitle={
             doorSelectedQuote != null
               ? getDeliveryMethodSummary('door', doorSelectedQuote)
               : 'Rates loaded after you enter your address'
           }
-          doorPrice={
-            doorSelectedQuote != null
-              ? formatPrice(doorSelectedQuote.price)
-              : '—'
-          }
           airportFee={AIRPORT_DELIVERY_FEE}
           pickupStationQuote={stationPickupQuote}
-        />
+        >
+          {shouldShowShippingQuotes ? (
+            <ShippingQuotesCard
+              embedded
+              colors={colors}
+              isDark={isDark}
+              isLoadingQuotes={isLoadingQuotes}
+              shippingQuotes={
+                usesProviderPickup ? providerPickupQuotes : doorShippingQuotes
+              }
+              stationPickupQuote={
+                usesProviderPickup ? undefined : stationPickupQuote
+              }
+              selectedQuoteId={selectedQuoteId}
+              onSelectQuote={onSelectQuote}
+              onRetryQuotes={onRetryQuotes}
+            />
+          ) : undefined}
+        </DeliveryMethodCard>
       )}
-
-      {canChooseDeliveryMethod &&
-        usesMerchantPickup &&
-        !isProviderStationPickupQuote(selectedQuote) && (
-          <PickupStationCard colors={colors} isDark={isDark} />
-        )}
-
-      {(deliveryMethod === 'door' || usesProviderPickup) &&
-        Boolean(watchedState && watchedCity) && (
-          <ShippingQuotesCard
-            colors={colors}
-            isDark={isDark}
-            isLoadingQuotes={isLoadingQuotes}
-            shippingQuotes={
-              usesProviderPickup ? providerPickupQuotes : doorShippingQuotes
-            }
-            stationPickupQuote={
-              usesProviderPickup ? undefined : stationPickupQuote
-            }
-            selectedQuoteId={selectedQuoteId}
-            onSelectQuote={onSelectQuote}
-            onRetryQuotes={onRetryQuotes}
-          />
-        )}
 
       <DeliveryNotesCard colors={colors} isDark={isDark}>
         <CheckoutFormField

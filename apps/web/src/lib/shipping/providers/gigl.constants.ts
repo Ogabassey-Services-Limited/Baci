@@ -189,13 +189,19 @@ export function parseGiglProviderRateId(providerRateId?: string): {
   receiverStationId?: number;
   pickupOption: PickupOptions;
   vehicleType?: VehicleType;
+  serviceCentreId?: number;
 } {
   if (!providerRateId) {
     return { pickupOption: PickupOptions.HomeDelivery };
   }
 
-  const [providerCode, stationIdValue, pickupOptionValue, vehicleTypeValue] =
-    providerRateId.split('_');
+  const [
+    providerCode,
+    stationIdValue,
+    pickupOptionValue,
+    vehicleTypeValue,
+    serviceCentreIdValue,
+  ] = providerRateId.split('_');
   if (providerCode !== 'GIGL') {
     return { pickupOption: PickupOptions.HomeDelivery };
   }
@@ -203,6 +209,7 @@ export function parseGiglProviderRateId(providerRateId?: string): {
   const receiverStationId = Number(stationIdValue);
   const pickupOption = Number(pickupOptionValue);
   const vehicleType = Number(vehicleTypeValue);
+  const serviceCentreId = Number(serviceCentreIdValue);
 
   return {
     receiverStationId: Number.isFinite(receiverStationId)
@@ -215,5 +222,9 @@ export function parseGiglProviderRateId(providerRateId?: string): {
     vehicleType: Object.values(VehicleType).includes(vehicleType)
       ? (vehicleType as VehicleType)
       : undefined,
+    serviceCentreId:
+      Number.isInteger(serviceCentreId) && serviceCentreId > 0
+        ? serviceCentreId
+        : undefined,
   };
 }

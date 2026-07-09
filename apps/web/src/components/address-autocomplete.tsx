@@ -22,6 +22,7 @@ export interface PlaceDetails {
   zip: string;
   country: string;
   formattedAddress: string;
+  location?: { latitude: number; longitude: number } | null;
 }
 
 interface AddressAutocompleteProps
@@ -102,6 +103,7 @@ async function loadPlaceDetails(
         zip: details.postalCode || '',
         country: details.country || '',
         formattedAddress: details.formattedAddress,
+        location: details.location,
       });
     }
 

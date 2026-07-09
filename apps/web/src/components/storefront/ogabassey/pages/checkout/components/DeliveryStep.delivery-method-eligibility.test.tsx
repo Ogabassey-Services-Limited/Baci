@@ -125,4 +125,30 @@ describe('DeliveryStep delivery method eligibility', () => {
 
     expect(defaultProps.setDeliveryMethod).not.toHaveBeenCalled();
   });
+
+  it('retains provider pickup before its quote resolves outside Lagos', () => {
+    render(
+      <DeliveryStep
+        {...defaultProps}
+        deliveryMethod="pickup_station"
+        newAddressState="Rivers"
+        newAddressCity="Port Harcourt"
+      />,
+    );
+
+    expect(defaultProps.setDeliveryMethod).not.toHaveBeenCalled();
+  });
+
+  it('resets provider pickup when Lagos merchant pickup should be used', () => {
+    render(
+      <DeliveryStep
+        {...defaultProps}
+        deliveryMethod="pickup_station"
+        newAddressState="Lagos"
+        newAddressCity="Ikeja"
+      />,
+    );
+
+    expect(defaultProps.setDeliveryMethod).toHaveBeenCalledWith('door');
+  });
 });

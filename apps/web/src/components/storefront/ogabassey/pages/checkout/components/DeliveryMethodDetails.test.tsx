@@ -44,6 +44,7 @@ describe('DeliveryMethodDetails', () => {
     expect(
       screen.getByRole('group', { name: /airport delivery preference/i }),
     ).toBeInTheDocument();
+    expect(screen.getByText('Ikeja Airport Delivery')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('radio', { name: /airport pickup/i }));
 

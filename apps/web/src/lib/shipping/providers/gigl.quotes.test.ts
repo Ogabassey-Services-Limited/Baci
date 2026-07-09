@@ -18,6 +18,7 @@ import {
   loginResponseWithoutCustomerType,
   priceResponse,
   quoteRequest,
+  serviceCentresResponse,
   stationsResponse,
 } from './gigl.test-helpers';
 
@@ -43,7 +44,7 @@ function mockGiglFetchSequence(
   return fetchMock;
 }
 
-function buildQuoteHarness() {
+function buildQuoteHarness(generateQuoteId?: () => string) {
   const log = vi.fn();
   const safeFetch = (
     url: string,
@@ -51,6 +52,7 @@ function buildQuoteHarness() {
   ) => fetch(url, options);
   const apiClient = new GiglApiClient({ safeFetch, log });
   const stationsService = new GiglStationsService(apiClient);
+  const quoteIds = ['quote-1', 'quote-2', 'quote-3', 'quote-4'];
 
   return {
     getQuotes: (request: typeof quoteRequest) =>
@@ -60,7 +62,8 @@ function buildQuoteHarness() {
         {
           safeFetch,
           log,
-          generateQuoteId: () => 'quote-1',
+          generateQuoteId:
+            generateQuoteId ?? (() => quoteIds.shift() ?? 'quote-fallback'),
           getQuoteExpiry: (hours = 1) =>
             new Date(Date.now() + hours * 60 * 60 * 1000),
         },
@@ -144,22 +147,71 @@ describe('GiglProvider quote requests', () => {
         success: true,
         data: { message: 'Home delivery unavailable', status: 503, data: null },
       }),
-      jsonResponse(priceResponse)
+      jsonResponse(priceResponse),
+      jsonResponse(serviceCentresResponse)
     );
 
     const provider = buildQuoteHarness();
     const quotes = await provider.getQuotes(quoteRequest);
 
-    expect(quotes).toHaveLength(1);
+    expect(quotes).toHaveLength(3);
     expect(quotes[0]).toMatchObject({
       provider: 'GIGL',
       serviceTier: 'Station Pickup',
-      displayName:
-        'GIG Logistics - Pickup at PORT HARCOURT (Port Harcourt station)',
-      providerRateId: 'GIGL_30_1_1',
+      displayName: 'GIG Logistics - Pickup at PHC RUMUOLUMENI IWOFE',
+      providerRateId: 'GIGL_30_1_1_575',
       isStationPickup: true,
       stationId: 30,
-      stationName: 'PORT HARCOURT',
+      stationName: 'PHC RUMUOLUMENI IWOFE',
+      stationCode: 'RUM',
+      pickupStationCode: 'RUM',
+      deliveryRange: '1-3 working days',
+      minDays: 1,
+      maxDays: 3,
+    });
+  });
+
+  it('preserves home delivery when the service-centre request throws', async () => {
+    mockGiglFetchSequence(
+      jsonResponse(loginResponse),
+      jsonResponse(stationsResponse),
+      jsonResponse(priceResponse),
+      () => Promise.reject(new Error('service-centre pricing unavailable'))
+    );
+
+    const quotes = await buildQuoteHarness().getQuotes(quoteRequest);
+
+    expect(quotes).toHaveLength(1);
+    expect(quotes[0]).toMatchObject({
+      isStationPickup: false,
+      providerRateId: 'GIGL_30_0_1',
+    });
+  });
+
+  it('preserves a pickup quote when service-centre expansion throws', async () => {
+    mockGiglFetchSequence(
+      jsonResponse(loginResponse),
+      jsonResponse(stationsResponse),
+      jsonResponse(priceResponse),
+      jsonResponse(serviceCentresResponse)
+    );
+    const generateQuoteId = vi
+      .fn<() => string>()
+      .mockReturnValueOnce('base-station-quote')
+      .mockImplementation(() => {
+        throw new Error('quote id unavailable');
+      });
+
+    const quotes = await buildQuoteHarness(generateQuoteId).getQuotes({
+      ...quoteRequest,
+      deliveryPreference: 'pickup_station',
+    });
+
+    expect(quotes).toHaveLength(1);
+    expect(quotes[0]).toMatchObject({
+      id: 'base-station-quote',
+      isStationPickup: true,
+      providerRateId: 'GIGL_30_1_1',
     });
   });
 

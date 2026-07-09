@@ -271,7 +271,7 @@ describe('DeliveryStep', () => {
         }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole('radio', { name: /door delivery/i }),
+        screen.getByRole('radio', { name: /by road/i }),
       ).toBeInTheDocument();
     });
 
@@ -313,7 +313,7 @@ describe('DeliveryStep', () => {
       expect(screen.getByRole('radio', { name: /pickup/i })).toBeInTheDocument();
     });
 
-    it('hides pickup option when state is not Lagos', () => {
+    it('shows provider pickup stations when state is not Lagos', () => {
       render(
         <DeliveryStep
           {...defaultProps}
@@ -322,8 +322,8 @@ describe('DeliveryStep', () => {
         />,
       );
       expect(
-        screen.queryByRole('radio', { name: /pickup/i }),
-      ).not.toBeInTheDocument();
+        screen.getByRole('radio', { name: /pickup station/i }),
+      ).toBeInTheDocument();
     });
 
     it('shows airport option for eligible non-Lagos states', () => {
