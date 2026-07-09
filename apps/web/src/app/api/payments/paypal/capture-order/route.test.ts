@@ -273,6 +273,25 @@ describe('POST /api/payments/paypal/capture-order', () => {
     expect((await response.json()).code).toBe('PAYPAL_MODE_MISMATCH');
   });
 
+  it('files a reconciliation review when rejecting a captured-but-mismatched payment', async () => {
+    // The mismatch is only detectable after PayPal captured funds, so the
+    // captured payment must be queued for reconciliation, never dropped.
+    vi.mocked(detectPayPalResponseMode).mockReturnValue('live');
+
+    const response = await POST(createRequest());
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('PAYPAL_MODE_MISMATCH');
+    expect(filePaypalCapturePersistFailureReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gatewayReference: PAYPAL_ORDER_ID,
+        merchantId: MERCHANT_ID,
+        orderId: ORDER_ID,
+        transactionId: 'txn-1',
+        metadata: expect.objectContaining({ stage: 'mode_mismatch' }),
+      })
+    );
+  });
+
   it('fails closed when PayPal response mode cannot be determined', async () => {
     vi.mocked(captureOrder).mockResolvedValue({
       success: true,

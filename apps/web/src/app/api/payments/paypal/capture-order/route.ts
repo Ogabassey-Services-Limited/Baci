@@ -137,6 +137,19 @@ export async function POST(request: NextRequest) {
         orderId: order_id,
         paypalOrderId: paypal_order_id,
       });
+      // The mismatch is detected AFTER PayPal already captured funds, so this
+      // is a captured-but-rejected payment — never drop it silently. File the
+      // same reconciliation row the persist-failure branches use so ops can
+      // reconcile/refund by hand (Phase 2.4).
+      await filePaypalCapturePersistFailureReview({
+        gatewayReference: paypal_order_id,
+        merchantId: merchant_id,
+        orderId: order_id,
+        reason:
+          'PayPal capture completed but the response environment did not match the store mode',
+        transactionId: transaction.id,
+        metadata: { stage: 'mode_mismatch', detectedMode, expectedMode: mode },
+      });
       return NextResponse.json(
         { error: 'PayPal environment mismatch', code: 'PAYPAL_MODE_MISMATCH' },
         { status: 400 }

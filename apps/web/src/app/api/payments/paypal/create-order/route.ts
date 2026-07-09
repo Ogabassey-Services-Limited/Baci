@@ -146,6 +146,19 @@ export async function POST(request: NextRequest) {
       orderTotal
     );
     if (!presentment.ok) {
+      // An unsupported settlement currency is a deterministic client error (the
+      // store's currency will never be presentable), so it must NOT masquerade
+      // as the transient FX outage (503) — surface it as a 400 the caller can
+      // act on. A missing/invalid live NGN→USD rate stays a 503 retry.
+      if (presentment.reason === 'unsupported_currency') {
+        return NextResponse.json(
+          {
+            error: 'This order currency is not supported by PayPal',
+            code: 'PAYPAL_UNSUPPORTED_CURRENCY',
+          },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
         {
           error: 'Live exchange rate unavailable, please try again',

@@ -15,10 +15,7 @@ export {
   PAYPAL_LIVE_API_URL,
   PAYPAL_SANDBOX_API_URL,
 } from './paypal-endpoints';
-export {
-  detectPayPalResponseMode,
-  isSandboxMismatch,
-} from './paypal-mode-guard';
+export { detectPayPalResponseMode } from './paypal-mode-guard';
 export { captureOrder, createOrder, getOrder } from './paypal-orders';
 export { refund } from './paypal-refunds';
 export type {

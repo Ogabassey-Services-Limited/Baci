@@ -279,6 +279,26 @@ describe('POST /api/payments/paypal/create-order', () => {
     );
   });
 
+  it('returns 400 paypal_unsupported_currency for a currency PayPal cannot present', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      buildSupabaseMock({
+        snapshot: {
+          merchant_id: MERCHANT_ID,
+          total: 4200,
+          currency: 'KES',
+          tracking_token: 'track-123',
+        },
+      }) as never
+    );
+    mockVaultOk();
+
+    const response = await POST(createRequest());
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('PAYPAL_UNSUPPORTED_CURRENCY');
+    expect(getNgnPerUsdt).not.toHaveBeenCalled();
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
   it('returns 503 fx_rate_unavailable when the live rate cannot be fetched', async () => {
     vi.mocked(createAdminClient).mockReturnValue(buildSupabaseMock() as never);
     mockVaultOk();

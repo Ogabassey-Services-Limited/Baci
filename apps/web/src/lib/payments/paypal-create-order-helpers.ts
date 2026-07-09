@@ -66,15 +66,19 @@ export type PaypalPresentment =
       presentmentCurrency: string;
       fxRate: number;
     }
-  | { ok: false };
+  | { ok: false; reason: 'unsupported_currency' | 'fx_unavailable' };
 
 /**
  * Computes the PayPal presentment amount/currency for an order (Phase 2.5).
  * Non-NGN order currencies are presented as-is (fxRate 1). NGN orders are
- * converted to USD using the LIVE rate only — there is NO hardcoded fallback:
- * if the live rate fetch fails or returns a non-finite/non-positive value, this
- * returns `{ ok: false }` and the route fails closed with a 503 so nothing is
- * initialized at an arbitrary rate.
+ * converted to USD using the LIVE rate only — there is NO hardcoded fallback.
+ *
+ * Failures are distinguished so the route can map them to the right status:
+ * - `'unsupported_currency'`: a non-NGN currency PayPal cannot present (a
+ *   deterministic client error → 400), and
+ * - `'fx_unavailable'`: the NGN→USD live rate fetch failed or returned a
+ *   non-finite/non-positive value (a transient outage → 503), so nothing is
+ *   initialized at an arbitrary rate.
  */
 export async function resolvePaypalPresentment(
   orderCurrency: string,
@@ -91,14 +95,14 @@ export async function resolvePaypalPresentment(
         message: 'PayPal create-order: live FX rate unavailable',
         error: error instanceof Error ? error.message : String(error),
       });
-      return { ok: false };
+      return { ok: false, reason: 'fx_unavailable' };
     }
 
     if (!Number.isFinite(fxRate) || fxRate <= 0) {
-      return { ok: false };
+      return { ok: false, reason: 'fx_unavailable' };
     }
   } else if (!PAYPAL_SUPPORTED_CURRENCIES.has(normalizedOrderCurrency)) {
-    return { ok: false };
+    return { ok: false, reason: 'unsupported_currency' };
   }
 
   const presentmentCurrency =

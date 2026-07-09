@@ -39,22 +39,3 @@ export function detectPayPalResponseMode(
     return 'unknown';
   }
 }
-
-/**
- * Klump-style provider-response-authoritative mode check: returns `true`
- * only when the response's own links positively identify an environment
- * that disagrees with `expectedMode` (the mode the merchant's stored
- * credential/mode toggle says should be in effect). Never trust the mode we
- * *asked* for — trust what PayPal's response says it gave us.
- *
- * Returns `false` when the environment can't be determined; see
- * `detectPayPalResponseMode` doc comment for why callers may still want to
- * fail closed on `'unknown'`.
- */
-export function isSandboxMismatch(
-  links: readonly Pick<PayPalLink, 'href' | 'rel'>[] | null | undefined,
-  expectedMode: PayPalMode
-): boolean {
-  const detectedMode = detectPayPalResponseMode(links);
-  return detectedMode !== 'unknown' && detectedMode !== expectedMode;
-}

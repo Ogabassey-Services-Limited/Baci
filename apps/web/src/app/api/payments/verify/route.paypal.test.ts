@@ -112,6 +112,25 @@ function paypalTransactionRowWithPlatformFee(
   return { ...paypalTransactionRow(status), platform_fee: platformFee };
 }
 
+// A non-paypal (platform-rail) gateway: settlement must keep the real
+// transaction.platform_fee — the direct-to-merchant zeroing is paypal-only.
+function korapayTransactionRowWithPlatformFee(
+  status: string,
+  platformFee: number
+) {
+  return {
+    id: 'txn-korapay-1',
+    order_id: 'order-1',
+    merchant_id: 'merchant-1',
+    amount: 130000,
+    currency: 'NGN',
+    status,
+    gateway: 'korapay',
+    gateway_reference: REFERENCE,
+    platform_fee: platformFee,
+  };
+}
+
 function buildSupabase({
   transactionRow,
   existingOrder,
@@ -316,5 +335,58 @@ describe('POST /api/payments/verify — paypal branch', () => {
 
     expect(response.status).toBe(404);
     expect(data).toEqual({ error: 'Transaction not found' });
+  });
+
+  it('passes a non-paypal gateway real platform fee through settlement (zeroing is paypal-only)', async () => {
+    const supabase = buildSupabase({
+      transactionRow: korapayTransactionRowWithPlatformFee('pending', 125),
+      existingOrder: {
+        id: 'order-1',
+        order_number: 'ORD-KP1',
+        payment_status: 'unpaid',
+        shipping_status: 'pending',
+      },
+      orderUpdateData: {
+        id: 'order-1',
+        order_number: 'ORD-KP1',
+        customer_id: 'cust-1',
+        total: 130000,
+        subtotal: 130000,
+        shipping_fee: 0,
+        customer_name: 'Jane',
+        customer_email: 'jane@example.com',
+        customer_phone: '+1',
+        shipping_address: {},
+        currency: 'NGN',
+        shipping_status: 'processing',
+        cancelled_at: null,
+        order_items: [],
+      },
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+    mockVerifyKorapay.mockResolvedValue({
+      success: true,
+      data: { status: 'success', reference: REFERENCE },
+    });
+
+    const response = await POST(createRequest(REFERENCE));
+
+    expect(response.status).toBe(200);
+    expect(mockVerifyKorapay).toHaveBeenCalled();
+    // The real platform fee (125) reaches the platform-rail settlement RPC —
+    // it is NOT zeroed, and the paypal-only direct-to-merchant fork never runs.
+    await vi.waitFor(() =>
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'record_merchant_settlement',
+        expect.objectContaining({
+          p_gateway: 'korapay',
+          p_platform_fee: 125,
+        })
+      )
+    );
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'record_merchant_settlement_v2',
+      expect.anything()
+    );
   });
 });

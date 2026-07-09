@@ -98,6 +98,7 @@ describe('resolvePaypalPresentment', () => {
   it('fails closed for a non-NGN currency PayPal cannot present', async () => {
     expect(await resolvePaypalPresentment('KES', 4200)).toEqual({
       ok: false,
+      reason: 'unsupported_currency',
     });
     expect(getNgnPerUsdt).not.toHaveBeenCalled();
   });
@@ -120,6 +121,7 @@ describe('resolvePaypalPresentment', () => {
 
     expect(await resolvePaypalPresentment('NGN', 130000)).toEqual({
       ok: false,
+      reason: 'fx_unavailable',
     });
   });
 
@@ -128,6 +130,7 @@ describe('resolvePaypalPresentment', () => {
 
     expect(await resolvePaypalPresentment('NGN', 130000)).toEqual({
       ok: false,
+      reason: 'fx_unavailable',
     });
   });
 });
