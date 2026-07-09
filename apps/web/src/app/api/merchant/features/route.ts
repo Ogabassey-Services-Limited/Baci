@@ -7,6 +7,7 @@ import {
 import {
   revalidateFeatures,
   revalidateMerchant,
+  revalidateRepairsCatalog,
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
@@ -278,6 +279,18 @@ function hasNonEmptyGrowthIntegrationSetting(updates: Record<string, unknown>) {
   });
 }
 
+function revalidateMerchantFeatureCaches(
+  merchantId: string,
+  updates: Record<string, unknown>
+) {
+  revalidateFeatures(merchantId);
+  revalidateMerchant(merchantId);
+
+  if ('repairs_catalog_enabled' in updates) {
+    revalidateRepairsCatalog(merchantId);
+  }
+}
+
 type MerchantFeatureDefaultField = Exclude<
   keyof MerchantFeatureSettings,
   'id' | 'merchant_id' | 'created_at' | 'updated_at'
@@ -517,9 +530,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Invalidate cache
-    revalidateFeatures(access.merchantId);
-    revalidateMerchant(access.merchantId);
+    revalidateMerchantFeatureCaches(access.merchantId, sanitizedUpdates);
 
     return jsonNoStore(redactMerchantFeatureSettingsResponse(settings));
   } catch (error) {
@@ -643,9 +654,7 @@ export async function PUT(request: NextRequest) {
       return jsonNoStore({ error: 'Failed to save settings' }, { status: 500 });
     }
 
-    // Invalidate cache
-    revalidateFeatures(access.merchantId);
-    revalidateMerchant(access.merchantId);
+    revalidateMerchantFeatureCaches(access.merchantId, sanitizedSettings);
 
     return jsonNoStore(redactMerchantFeatureSettingsResponse(settings));
   } catch (error) {

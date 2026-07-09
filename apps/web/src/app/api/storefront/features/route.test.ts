@@ -127,7 +127,11 @@ describe('GET /api/storefront/features', () => {
 
   it('returns merchant Klump installment settings in the public feature payload', async () => {
     mockSingle.mockResolvedValueOnce({
-      data: { id: 'merchant-1', paystack_subaccount_code: 'ACCT_123' },
+      data: {
+        id: 'merchant-1',
+        business_type: 'electronics',
+        paystack_subaccount_code: 'ACCT_123',
+      },
       error: null,
     });
     mockGetCachedFeatureSettings.mockResolvedValueOnce({
@@ -154,7 +158,11 @@ describe('GET /api/storefront/features', () => {
 
   it('surfaces the repairs catalogue flag when enabled', async () => {
     mockSingle.mockResolvedValueOnce({
-      data: { id: 'merchant-1', paystack_subaccount_code: 'ACCT_123' },
+      data: {
+        id: 'merchant-1',
+        business_type: 'electronics',
+        paystack_subaccount_code: 'ACCT_123',
+      },
       error: null,
     });
     mockGetCachedFeatureSettings.mockResolvedValueOnce({
@@ -168,6 +176,28 @@ describe('GET /api/storefront/features', () => {
 
     expect(response.status).toBe(200);
     expect(body.repairsCatalogEnabled).toBe(true);
+  });
+
+  it('hides the repairs catalogue flag for non-repairs business types', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'merchant-1',
+        business_type: 'fashion',
+        paystack_subaccount_code: 'ACCT_123',
+      },
+      error: null,
+    });
+    mockGetCachedFeatureSettings.mockResolvedValueOnce({
+      repairs_catalog_enabled: true,
+    });
+
+    const response = await GET(
+      buildMerchantRequest(`merchantId=${VALID_MERCHANT_ID}`)
+    );
+    const body = (await response.json()) as { repairsCatalogEnabled: boolean };
+
+    expect(response.status).toBe(200);
+    expect(body.repairsCatalogEnabled).toBe(false);
   });
 
   it('returns 400 when neither merchantId nor slug is provided', async () => {

@@ -109,6 +109,19 @@ describe('createRepairBooking', () => {
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
+  it('returns validation_failed for malformed preferred dates before RPC conversion', async () => {
+    const result = await createRepairBooking(
+      { ...validInput, preferredDate: 'not-a-date' },
+      merchantId
+    );
+
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error('expected failure');
+    expect(result.code).toBe('validation_failed');
+    expect(result.fieldErrors?.preferredDate).toBeDefined();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
   it('maps a DB rate_limited error to the friendly rate-limit message', async () => {
     mocks.rpc.mockResolvedValueOnce({
       data: null,

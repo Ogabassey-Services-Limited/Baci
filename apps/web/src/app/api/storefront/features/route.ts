@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getCachedFeatureSettings } from '@/lib/cached-data';
 import { isPaystackCheckoutAvailable } from '@/lib/checkout/payment-gateway-availability';
 import { logger } from '@/lib/logger';
+import { isRepairsCatalogEnabled } from '@/lib/repairs/repairs-feature';
 import { createClient } from '@/lib/supabase/server';
 import { storefrontFeaturesQuerySchema } from '@/schemas/storefront-features';
 
@@ -147,7 +148,7 @@ export async function GET(request: NextRequest) {
 
     const merchantLookupQuery = supabase
       .from('merchants')
-      .select('id, country, paystack_subaccount_code');
+      .select('id, country, paystack_subaccount_code, business_type');
     const merchantLookup = slug
       ? await merchantLookupQuery.eq('slug', slug).single()
       : await merchantLookupQuery.eq('id', merchantId).single();
@@ -260,7 +261,13 @@ export async function GET(request: NextRequest) {
       blogEnabled: asBoolean(settings.blog_enabled, false),
       autoBlogEnabled: asBoolean(settings.auto_blog_enabled, false),
       // Repairs
-      repairsCatalogEnabled: asBoolean(settings.repairs_catalog_enabled, false),
+      repairsCatalogEnabled: isRepairsCatalogEnabled({
+        businessType: merchant.business_type,
+        repairsCatalogEnabled: asBoolean(
+          settings.repairs_catalog_enabled,
+          false
+        ),
+      }),
     };
 
     return NextResponse.json(publicFeatures);

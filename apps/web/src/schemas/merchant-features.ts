@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+const optionalEmailSchema = z.preprocess(
+  (value) => (value === '' ? undefined : value),
+  z.email().optional().nullable()
+);
+
 /**
  * Private repair-center configuration. Validated here so the merchant-features
  * PATCH schema preserves the key (unknown keys are stripped by z.object).
@@ -11,7 +16,7 @@ export const repairSettingsSchema = z
     pickup_address: z.string().trim().max(500),
     contact_name: z.string().trim().max(120),
     contact_phone: z.string().trim().max(40),
-    contact_email: z.email(),
+    contact_email: optionalEmailSchema,
     city: z.string().trim().max(120),
     state: z.string().trim().max(120),
     country: z.string().trim().max(120),

@@ -92,6 +92,9 @@ function makeSupabase(responses: Responses): SupabaseClient {
         eq() {
           return builder;
         },
+        is() {
+          return builder;
+        },
         maybeSingle() {
           return Promise.resolve(responses[`${table}.select`]);
         },
@@ -111,7 +114,7 @@ function makeSupabase(responses: Responses): SupabaseClient {
 function happyResponses(overrides: Partial<Responses> = {}): Responses {
   return {
     'repairs.select': { data: repairRow, error: null },
-    'repairs.update': { data: null, error: null },
+    'repairs.update': { data: [{ id: repairId }], error: null },
     'repair_pickup_quotes.insert': { data: { id: 'pq-1' }, error: null },
     'repair_pickup_quotes.update': { data: null, error: null },
     'shipments.insert': { data: { id: 'ship-1' }, error: null },
@@ -263,7 +266,7 @@ describe('bookRepairPickup', () => {
     }
   });
 
-  it('still returns ok when linking the shipment to the repair fails', async () => {
+  it('returns shipment_save_failed when linking the shipment to the repair errors', async () => {
     const consoleSpy = vi
       .spyOn(console, 'error')
       // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
@@ -276,7 +279,33 @@ describe('bookRepairPickup', () => {
 
     try {
       const result = await bookRepairPickup(supabase, merchantId, repairId);
-      expect(result).toMatchObject({ ok: true, shipmentId: 'ship-1' });
+      expect(result).toMatchObject({
+        ok: false,
+        reason: 'shipment_save_failed',
+      });
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
+  it('returns already_booked when a concurrent request links a shipment first', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
+      .mockImplementation(() => {});
+    const supabase = makeSupabase(
+      happyResponses({
+        'repairs.update': { data: [], error: null },
+      })
+    );
+
+    try {
+      const result = await bookRepairPickup(supabase, merchantId, repairId);
+      expect(result).toMatchObject({
+        ok: false,
+        reason: 'already_booked',
+        canRetryManually: false,
+      });
     } finally {
       consoleSpy.mockRestore();
     }

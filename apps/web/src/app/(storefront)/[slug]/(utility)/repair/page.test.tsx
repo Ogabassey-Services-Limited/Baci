@@ -143,6 +143,22 @@ describe('RepairPage', () => {
     );
   });
 
+  it('renders the booking wizard for generic repairs-catalog merchants', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue({
+      ...enabledMerchant,
+      business_name: 'Generic Gadgets',
+      template_id: 'default',
+    });
+
+    render(await callRepairPage('generic-gadgets'));
+
+    expect(screen.getByText('Repair booking wizard')).toHaveAttribute(
+      'data-merchant-name',
+      'Generic Gadgets'
+    );
+    expect(notFound).not.toHaveBeenCalled();
+  });
+
   it('preselects the device only when the quote id does not match any active quote', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValue(enabledMerchant);
 

@@ -93,15 +93,29 @@ async function resolveBookingPreselection(
   };
 }
 
+function canUseRepairBooking(
+  merchant: CachedMerchant | null
+): merchant is CachedMerchant {
+  if (!merchant) {
+    return false;
+  }
+
+  return (
+    merchant.template_id === OGABASSEY_TEMPLATE_ID ||
+    isRepairsCatalogEnabled({
+      businessType: merchant.business_type,
+      repairsCatalogEnabled: merchant.feature_settings?.repairs_catalog_enabled,
+    })
+  );
+}
+
 export async function generateMetadata({
   params,
 }: RepairPageProps): Promise<Metadata> {
   const { slug } = await params;
   const merchant = await getRepairMerchant(slug);
 
-  // Repair booking is an Ogabassey-template merchant feature, mirroring the
-  // /repairs landing page gate.
-  if (merchant?.template_id !== OGABASSEY_TEMPLATE_ID) {
+  if (!canUseRepairBooking(merchant)) {
     return {
       title: 'Store Not Found',
     };
@@ -130,8 +144,7 @@ export default async function RepairPage({
   const { slug } = await params;
   const merchant = await getRepairMerchant(slug);
 
-  // Only show for Ogabassey template (merchant-specific feature)
-  if (merchant?.template_id !== OGABASSEY_TEMPLATE_ID) {
+  if (!canUseRepairBooking(merchant)) {
     notFound();
   }
 

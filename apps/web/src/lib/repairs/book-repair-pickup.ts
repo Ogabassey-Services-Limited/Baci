@@ -200,14 +200,27 @@ export async function bookRepairPickup(
     return pickupFailure('shipment_save_failed');
   }
 
-  const { error: linkError } = await supabase
+  const { data: linkedRepairData, error: linkError } = await supabase
     .from('repairs')
     .update({ shipment_id: shipment.id })
     .eq('id', repairId)
-    .eq('merchant_id', merchantId);
+    .eq('merchant_id', merchantId)
+    .is('shipment_id', null)
+    .select('id');
 
   if (linkError) {
     console.error('Repair pickup booked but link failed:', linkError);
+    return pickupFailure('shipment_save_failed');
+  }
+
+  const linkedRepair = Array.isArray(linkedRepairData)
+    ? linkedRepairData[0]
+    : null;
+  if (!linkedRepair) {
+    console.error(
+      'Repair pickup booked but another shipment is already linked'
+    );
+    return pickupFailure('already_booked');
   }
 
   const { error: quoteUsedError } = await supabase

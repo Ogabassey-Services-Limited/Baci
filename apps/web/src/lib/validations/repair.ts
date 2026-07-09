@@ -28,7 +28,7 @@ export const repairBookingSchema = z
     issueDescription: z
       .string()
       .min(10, 'Please describe the issue in at least 10 characters'),
-    preferredDate: z.string().optional(), // ISO date string
+    preferredDate: z.iso.date().optional(), // YYYY-MM-DD from date inputs
     serviceType: z
       .enum(['dropoff', 'pickup'] as const, {
         message: 'Please select how you want to proceed',

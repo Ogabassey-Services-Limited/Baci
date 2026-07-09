@@ -59,4 +59,20 @@ describe('merchantFeatureSettingsPatchSchema', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('allows blank and null repair_settings contact emails', () => {
+    const blankResult = merchantFeatureSettingsPatchSchema.parse({
+      repair_settings: { contact_email: '' },
+    });
+    const nullResult = merchantFeatureSettingsPatchSchema.parse({
+      repair_settings: { contact_email: null },
+    });
+
+    expect(blankResult).toEqual({
+      repair_settings: { contact_email: undefined },
+    });
+    expect(nullResult).toEqual({
+      repair_settings: { contact_email: null },
+    });
+  });
 });

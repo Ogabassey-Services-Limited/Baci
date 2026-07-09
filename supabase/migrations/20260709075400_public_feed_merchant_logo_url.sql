@@ -25,7 +25,7 @@ AS $$
     SELECT
       lower(p_identifier) AS normalized_slug,
       CASE
-        WHEN p_identifier ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        WHEN p_identifier ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
           THEN p_identifier::uuid
         ELSE NULL::uuid
       END AS normalized_id
