@@ -27,7 +27,10 @@ BEGIN
     o.id,
     o.customer_id,
     o.merchant_id,
-    o.total
+    o.total,
+    o.payment_status,
+    o.payment_method,
+    o.amount_paid
   INTO v_order
   FROM public.orders o
   WHERE o.id = p_order_id
@@ -78,6 +81,19 @@ BEGIN
 
   IF COALESCE(v_order.total, 0) <> 0 THEN
     RAISE EXCEPTION 'quiz_voucher_order_total_must_be_zero'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF
+    v_order.payment_status = 'paid'
+    AND v_order.payment_method = 'quiz_voucher'
+    AND COALESCE(v_order.amount_paid, 0) = 0
+  THEN
+    RETURN true;
+  END IF;
+
+  IF v_order.payment_status NOT IN ('unpaid', 'pending') THEN
+    RAISE EXCEPTION 'quiz_voucher_order_payment_status_invalid'
       USING ERRCODE = '22023';
   END IF;
 

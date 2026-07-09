@@ -96,7 +96,7 @@ export interface PlaceOrderOptions {
    * orders RPC rejects the voucher (expired/already-used/not-approved) so the
    * offending line does not re-fail every subsequent checkout attempt.
    */
-  pruneVoucherLines?: () => void;
+  pruneVoucherLines?: (rejectedVoucherToken?: string) => void;
   routerPush: (url: string) => void;
   getHref: (path: string) => string;
   executeDirectPayment: () => Promise<void>;
@@ -449,7 +449,11 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
       // offending voucher line so the shopper can proceed with the rest of
       // their cart. The friendly copy is surfaced by the throw below.
       if (isQuizVoucherRejectionCode(getOrderCreateErrorCode(errorData))) {
-        pruneVoucherLines?.();
+        pruneVoucherLines?.(
+          typeof errorData.rejectedVoucherToken === 'string'
+            ? errorData.rejectedVoucherToken
+            : undefined,
+        );
       }
       // FIX C: map raw RPC codes (e.g. quiz_voucher_award_not_approved) to
       // actionable, shopper-facing copy instead of leaking the code to a toast.

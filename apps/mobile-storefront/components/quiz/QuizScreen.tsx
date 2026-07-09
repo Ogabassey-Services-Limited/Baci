@@ -1,5 +1,5 @@
 import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
-import { lazy, Suspense, useEffect } from 'react';
+import { useEffect } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -20,6 +20,7 @@ import {
 } from '@/services/quiz';
 import { useQuizStore } from '@/stores/quiz-store';
 import { QuizEventsList } from './QuizEventsList';
+import { QuizPrizeClaimPanel } from './QuizPrizeClaimPanel';
 import { QuizQuestionCard } from './QuizQuestionCard';
 import { createQuizStyles } from './QuizScreen.styles';
 import {
@@ -30,14 +31,6 @@ import {
 import { QuizUsernameGateModal } from './QuizUsernameGateModal';
 import { useQuizQuestionTimer } from './use-quiz-question-timer';
 import { useQuizStartGate } from './useQuizStartGate';
-
-// Lazy-loaded so the winning-prize path's product/cart dependency graph is only
-// required when a shopper actually wins — keeping the common quiz screen light.
-const QuizPrizeClaimPanel = lazy(() =>
-  import('./QuizPrizeClaimPanel').then((module) => ({
-    default: module.QuizPrizeClaimPanel,
-  }))
-);
 
 const log = createLogger('Quiz');
 
@@ -268,16 +261,10 @@ export function QuizScreen({
             {result.correctAnswers} of {result.totalQuestions} correct
           </Text>
           {result.prizeClaim ? (
-            <Suspense
-              fallback={
-                <ActivityIndicator accessibilityLabel="Preparing your prize" />
-              }
-            >
-              <QuizPrizeClaimPanel
-                prizeClaim={result.prizeClaim}
-                styles={styles}
-              />
-            </Suspense>
+            <QuizPrizeClaimPanel
+              prizeClaim={result.prizeClaim}
+              styles={styles}
+            />
           ) : (
             <Text style={styles.eventMeta}>
               {result.prizeEligible

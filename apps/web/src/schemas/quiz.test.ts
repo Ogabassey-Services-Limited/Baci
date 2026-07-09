@@ -70,4 +70,13 @@ describe('merchantQuizGenerationResponseSchema', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('rejects a generated draft with no questions', () => {
+    const result = merchantQuizGenerationResponseSchema.safeParse({
+      event: { id: 'evt_1', slug: 'q', status: 'draft', title: 'Quiz' },
+      questions: [],
+    });
+
+    expect(result.success).toBe(false);
+  });
 });

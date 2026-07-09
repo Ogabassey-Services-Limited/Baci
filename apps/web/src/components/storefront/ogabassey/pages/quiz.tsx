@@ -161,6 +161,12 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
       }
     } catch (error) {
       setError(getQuizErrorMessage(error));
+      // Keep a failed timeout submission retryable. Without the sentinel in
+      // state, the question returns with no selected answer and the player
+      // has no way to retry the request after the timer has already fired.
+      if (answer === QUIZ_FORFEIT_ANSWER) {
+        setSelectedAnswer(QUIZ_FORFEIT_ANSWER);
+      }
       setStatus('question');
     } finally {
       submitInFlightRef.current = false;

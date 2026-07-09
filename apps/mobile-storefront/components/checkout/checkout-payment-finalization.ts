@@ -69,6 +69,7 @@ export async function finalizeCheckoutPayment({
       setIsProcessing,
       trackingToken: order.tracking_token,
     });
+    isOrderInFlight.current = false;
     runPostOrderSideEffects();
     return;
   }

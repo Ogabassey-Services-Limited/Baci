@@ -1,4 +1,4 @@
-import type { MutableRefObject } from 'react';
+import type { RefObject } from 'react';
 import type {
   PaymentMethodType,
   PaymentTab,
@@ -42,9 +42,9 @@ export interface UseCheckoutSubmitParams {
   getShippingProvider: () => string | undefined;
   isAuthenticated: boolean;
   isLoadingQuotes: boolean;
-  isOrderInFlight: MutableRefObject<boolean>;
+  isOrderInFlight: RefObject<boolean>;
   isProcessing: boolean;
-  mobileCheckoutIdempotencyRef: MutableRefObject<MobileCheckoutIdempotencyState | null>;
+  mobileCheckoutIdempotencyRef: RefObject<MobileCheckoutIdempotencyState | null>;
   orderTotals: { taxAmount: number } | null;
   paymentSettings: Parameters<typeof submitBnplCheckout>[0]['paymentSettings'];
   paymentTab: PaymentTab;

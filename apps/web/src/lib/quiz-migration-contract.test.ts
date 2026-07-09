@@ -20,6 +20,13 @@ const voucherOrderRpcSql = readFileSync(
   resolve(migrationsDirectory, '20260522002607_quiz_voucher_order_rpc.sql'),
   'utf8'
 );
+const voucherOrderFinalizerSql = readFileSync(
+  resolve(
+    migrationsDirectory,
+    '20260709163000_finalize_quiz_voucher_order_payment.sql'
+  ),
+  'utf8'
+);
 const regressionSql = readFileSync(
   resolve(migrationsDirectory, 'tests/quiz_phase1a_foundation.sql'),
   'utf8'
@@ -187,6 +194,7 @@ describe('quiz migration contracts', () => {
 
     expect(scoringRecordAnswerSql).toBeDefined();
     expect(scoringRecordAnswerSql).toMatch(/v_answered_in_ms/i);
+    expect(scoringRecordAnswerSql).toMatch(/v_answered_in_ms\s+bigint/i);
     expect(scoringRecordAnswerSql).toMatch(/quiz_question_not_issued/i);
     expect(scoringRecordAnswerSql).toMatch(/answer_too_fast/i);
     expect(scoringRecordAnswerSql).toMatch(/v_answered_in_ms\s*<\s*400/i);
@@ -202,8 +210,9 @@ describe('quiz migration contracts', () => {
       /v_answered_in_ms\s*>\s*COALESCE\(\s*v_time_limit_ms,\s*30000\s*\)\s*\+\s*1000/i
     );
     expect(scoringRecordAnswerSql).toMatch(
-      /LEAST\(\s*v_answered_in_ms,\s*60000\s*\)/i
+      /LEAST\(\s*v_answered_in_ms,\s*60000\s*\)::integer/i
     );
+    expect(scoringRecordAnswerSql).toMatch(/\*\s*1000\s*\)\s*::bigint/i);
     expect(scoringRecordAnswerSql).toMatch(
       /INSERT\s+INTO\s+public\.quiz_attempt_answers[\s\S]*answered_in_ms[\s\S]*v_answered_in_ms/is
     );
@@ -212,6 +221,18 @@ describe('quiz migration contracts', () => {
     );
     expect(scoringRecordAnswerSql).not.toMatch(
       /pg_catalog\.extract\(\s*epoch\s+FROM/i
+    );
+  });
+
+  it('keeps quiz voucher payment finalization idempotent without overwriting terminal orders', () => {
+    expect(voucherOrderFinalizerSql).toMatch(/o\.payment_status/i);
+    expect(voucherOrderFinalizerSql).toMatch(/o\.payment_method/i);
+    expect(voucherOrderFinalizerSql).toMatch(/o\.amount_paid/i);
+    expect(voucherOrderFinalizerSql).toMatch(
+      /payment_status\s*=\s*'paid'[\s\S]*payment_method\s*=\s*'quiz_voucher'[\s\S]*RETURN\s+true/i
+    );
+    expect(voucherOrderFinalizerSql).toMatch(
+      /payment_status\s+NOT\s+IN\s*\(\s*'unpaid'\s*,\s*'pending'\s*\)[\s\S]*quiz_voucher_order_payment_status_invalid/i
     );
   });
 

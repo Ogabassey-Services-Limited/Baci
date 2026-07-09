@@ -110,7 +110,7 @@ export function QuizQuestionPanel({
             className={
               selectedAnswer === option.id
                 ? 'rounded-lg border border-store-primary bg-store-primary/10 px-4 py-3 text-left text-sm font-semibold text-store-primary'
-                : 'rounded-lg border border-store-border bg-white px-4 py-3 text-left text-sm font-semibold hover:border-store-primary/50'
+                : 'rounded-lg border border-store-border bg-store-background px-4 py-3 text-left text-sm font-semibold hover:border-store-primary/50'
             }
           >
             {option.label}

@@ -35,7 +35,7 @@ AS $$
 DECLARE
   v_answer_id uuid;
   v_answer_key_hash text;
-  v_answered_in_ms integer;
+  v_answered_in_ms bigint;
   v_attempt_question_id uuid;
   v_issued_at timestamptz;
   v_inserted_rows integer := 0;
@@ -95,7 +95,7 @@ BEGIN
 
   v_answered_in_ms := pg_catalog.floor(
     pg_catalog.extract('epoch', pg_catalog.now() - v_issued_at) * 1000
-  )::integer;
+  )::bigint;
 
   IF v_answered_in_ms < 400 THEN
     -- Soft reject: nothing recorded, issued_at unchanged, question stays open.
@@ -131,7 +131,7 @@ BEGIN
       'answered_in_ms_raw',
       v_answered_in_ms
     ),
-    LEAST(v_answered_in_ms, 60000),
+    LEAST(v_answered_in_ms, 60000)::integer,
     v_score_delta
   )
   ON CONFLICT (attempt_question_id) DO NOTHING

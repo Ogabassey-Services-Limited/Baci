@@ -130,13 +130,14 @@ describe('finalizeCheckoutPayment', () => {
     const clearCart = jest.fn();
     const setIsProcessing = jest.fn();
     const runPostOrderSideEffects = jest.fn();
+    const isOrderInFlight = { current: true };
 
     await finalizeCheckoutPayment({
       clearCart,
       customerEmail: 'ada@example.com',
       customerName: 'Ada Customer',
       customerPhone: '08012345678',
-      isOrderInFlight: { current: true },
+      isOrderInFlight,
       orderNumber: 'BAC-001',
       orderResponse: createOrderResponse({
         amountDueToGateway: 0,
@@ -157,6 +158,7 @@ describe('finalizeCheckoutPayment', () => {
 
     expect(clearCart).toHaveBeenCalled();
     expect(setIsProcessing).toHaveBeenCalledWith(false);
+    expect(isOrderInFlight.current).toBe(false);
     expect(mockRouterReplace).toHaveBeenCalledWith({
       pathname: '/order-success',
       params: expect.objectContaining({

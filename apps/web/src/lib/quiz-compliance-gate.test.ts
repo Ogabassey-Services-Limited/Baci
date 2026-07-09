@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { logger } from '@/lib/logger';
 
 describe('quiz compliance gate', () => {
   afterEach(() => {
@@ -99,7 +100,7 @@ describe('quiz deployment phase assertion', () => {
 
   it('fails loud and closed when a production deployment runs an unset (1a) phase', async () => {
     const errorSpy = vi
-      .spyOn(console, 'error')
+      .spyOn(logger, 'error')
       .mockImplementation(() => undefined);
     const { assertQuizPhaseMatchesDeployment } = await import(
       '@/lib/quiz-compliance-gate'
@@ -110,7 +111,13 @@ describe('quiz deployment phase assertion', () => {
     ).toThrow(
       'QUIZ_PHASE must be set to "production" in a production deployment that awards prizes.'
     );
-    expect(errorSpy).toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining('QUIZ_PHASE is not "production"'),
+        quizPhase: '1a',
+        vercelEnv: 'production',
+      })
+    );
   });
 
   it('passes when a production deployment is correctly set to the production phase', async () => {

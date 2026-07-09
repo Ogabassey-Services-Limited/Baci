@@ -40,6 +40,13 @@ Object.defineProperty(window, 'localStorage', {
 
 global.fetch = vi.fn();
 
+function buildVoucherToken(expiresAt: string): string {
+  const body = Buffer.from(JSON.stringify({ expiresAt }), 'utf8').toString(
+    'base64url'
+  );
+  return `qv1.${body}.fake-signature`;
+}
+
 describe('StorefrontCartProvider', () => {
   const mockProduct = {
     id: 'prod-1',
@@ -94,6 +101,99 @@ describe('StorefrontCartProvider', () => {
 
     expect(result.current.totalItems).toBe(2);
     expect(result.current.cart[0]?.id).toBe('prod-1');
+  });
+
+  it('prunes expired voucher lines during mount hydration and persists the result', async () => {
+    localStorageMock.setItem(
+      'baci-cart-ogabassey-guest',
+      JSON.stringify([
+        { ...mockProduct, id: 'plain', quantity: 1, cartItemId: 'plain' },
+        {
+          ...mockProduct,
+          id: 'expired',
+          quantity: 1,
+          cartItemId: 'expired',
+          quizAwardId: 'award-expired',
+          quizVoucherToken: buildVoucherToken('2000-01-01T00:00:00.000Z'),
+        },
+        {
+          ...mockProduct,
+          id: 'live',
+          quantity: 1,
+          cartItemId: 'live',
+          quizAwardId: 'award-live',
+          quizVoucherToken: buildVoucherToken('2099-01-01T00:00:00.000Z'),
+        },
+      ])
+    );
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StorefrontCartProvider merchantSlug="ogabassey">
+        {children}
+      </StorefrontCartProvider>
+    );
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+    expect(result.current.cart.map((item) => item.id)).toEqual([
+      'plain',
+      'live',
+    ]);
+    await waitFor(() => {
+      const persisted = JSON.parse(
+        localStorageMock.getItem('baci-cart-ogabassey-guest') ?? '[]'
+      ) as Array<{ id: string }>;
+      expect(persisted.map((item) => item.id)).toEqual(['plain', 'live']);
+    });
+  });
+
+  it('prunes and persists expired vouchers when the merchant slug changes', async () => {
+    localStorageMock.setItem(
+      'baci-cart-first-guest',
+      JSON.stringify([{ ...mockProduct, quantity: 1, cartItemId: 'first' }])
+    );
+    localStorageMock.setItem(
+      'baci-cart-second-guest',
+      JSON.stringify([
+        {
+          ...mockProduct,
+          id: 'expired',
+          quantity: 1,
+          cartItemId: 'expired',
+          quizAwardId: 'award-expired',
+          quizVoucherToken: buildVoucherToken('2000-01-01T00:00:00.000Z'),
+        },
+        {
+          ...mockProduct,
+          id: 'live',
+          quantity: 1,
+          cartItemId: 'live',
+          quizAwardId: 'award-live',
+          quizVoucherToken: buildVoucherToken('2099-01-01T00:00:00.000Z'),
+        },
+      ])
+    );
+
+    let merchantSlug = 'first';
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StorefrontCartProvider merchantSlug={merchantSlug}>
+        {children}
+      </StorefrontCartProvider>
+    );
+    const { result, rerender } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    merchantSlug = 'second';
+    rerender();
+
+    await waitFor(() => expect(result.current.merchantSlug).toBe('second'));
+    expect(result.current.cart.map((item) => item.id)).toEqual(['live']);
+    await waitFor(() => {
+      const persisted = JSON.parse(
+        localStorageMock.getItem('baci-cart-second-guest') ?? '[]'
+      ) as Array<{ id: string }>;
+      expect(persisted.map((item) => item.id)).toEqual(['live']);
+    });
   });
 
   it('resets a cart-wide negotiation when a line is removed', async () => {

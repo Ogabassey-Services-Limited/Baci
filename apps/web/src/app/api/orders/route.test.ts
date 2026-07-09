@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authenticateApiRequest } from '@/lib/api-auth';
+import { generateOrderConfirmationEmail } from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
 import { createQuizVoucherToken } from '@/lib/quiz-voucher-token';
 import { POST } from './route';
@@ -840,6 +841,60 @@ describe('POST /api/orders — quiz voucher guard', () => {
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
+  it('rejects duplicated lines backed by the same valid voucher token', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const supabase = buildMockSupabase();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const awardId = '11111111-1111-4111-8111-111111111111';
+    const productId = '22222222-2222-4222-8222-222222222222';
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId,
+        condition: 'new',
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId,
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+    const voucherLine = {
+      ...baseOrderPayload.items[0],
+      condition: 'new',
+      product_id: productId,
+      price: 0,
+      voucher_token: token,
+    };
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          items: [voucherLine, voucherLine],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      code: 'QUIZ_VOUCHER_MULTIPLE',
+      error: 'Only one quiz voucher can be redeemed per order',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
   it('prunes an unredeemable voucher line instead of reporting a multi-voucher conflict when one award is already claimed', async () => {
     // Regression: a signed token can still be unexpired for an award that is
     // already claimed/void. With 2+ tokens the route must validate award status
@@ -1012,6 +1067,7 @@ describe('POST /api/orders — quiz voucher guard', () => {
       method: 'POST',
       body: JSON.stringify({
         ...baseOrderPayload,
+        payment_method: 'invoice',
         items: [
           {
             ...baseOrderPayload.items[0],
@@ -1064,6 +1120,11 @@ describe('POST /api/orders — quiz voucher guard', () => {
       'create_storefront_order',
       expect.any(Object)
     );
+    expect(generateOrderConfirmationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentMethod: 'quiz_voucher' })
+    );
+    expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
+    expect(mockCreateAdminClient).not.toHaveBeenCalled();
   });
 
   it('excludes voucher-covered VAT from residual due checks and voucher RPC payloads', async () => {

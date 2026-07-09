@@ -135,7 +135,7 @@ const merchantQuizEventSummarySchema = z.object({
 // event. Never reuse for the storefront player response, which keeps answers hashed.
 export const merchantQuizGenerationResponseSchema = z.object({
   event: merchantQuizEventSummarySchema,
-  questions: z.array(generatedQuizQuestionBaseSchema),
+  questions: z.array(generatedQuizQuestionBaseSchema).min(1),
 });
 
 export const merchantQuizActivationResponseSchema = z.object({

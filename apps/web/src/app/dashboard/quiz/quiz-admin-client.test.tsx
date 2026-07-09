@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuizAdminClient } from './quiz-admin-client';
@@ -84,12 +84,17 @@ describe('QuizAdminClient', () => {
       title: 'Daily Phone Quiz',
       topics: ['iPhone buying advice'],
     });
-    expect(
-      await screen.findByText('Which iPhone model introduced USB-C?')
-    ).toBeInTheDocument();
+    const questionHeading = await screen.findByRole('heading', {
+      name: 'Which iPhone model introduced USB-C?',
+    });
+    expect(questionHeading).toBeInTheDocument();
     expect(screen.getByText('Draft saved')).toBeInTheDocument();
     // The AI-marked correct answer is shown to the admin before activation.
-    expect(screen.getAllByText(/correct/i).length).toBeGreaterThan(0);
+    expect(
+      within(questionHeading.closest('article') as HTMLElement).getByText(
+        /^correct$/i
+      )
+    ).toBeInTheDocument();
   });
 
   it('opens the quiz only after the admin reviews and confirms the answers', async () => {

@@ -458,13 +458,16 @@ describe('handlePlaceOrder', () => {
         json: async () => ({
           error: 'Failed to create order',
           details: 'quiz_voucher_award_not_approved',
+          rejectedVoucherToken: 'qv1.rejected.signature',
         }),
       });
 
       const opts = buildOpts({ pruneVoucherLines });
       await handlePlaceOrder(opts);
 
-      expect(pruneVoucherLines).toHaveBeenCalledTimes(1);
+      expect(pruneVoucherLines).toHaveBeenCalledWith(
+        'qv1.rejected.signature',
+      );
       expect(toast).toHaveBeenCalledWith(
         expect.objectContaining({
           title: 'Checkout Failed',

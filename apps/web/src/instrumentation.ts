@@ -71,9 +71,18 @@ export async function register() {
           import('@/lib/quiz-compliance-gate'),
         ]);
       assertQuizPhaseMatchesDeployment(getQuizPhaseEnv());
-    } catch {
-      // assertQuizPhaseMatchesDeployment already logged the misconfiguration
-      // via logger.error before throwing; swallow so boot continues.
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        error.name !== 'QuizPhaseMisconfiguredError'
+      ) {
+        console.error(
+          'Quiz deployment phase validation failed during boot',
+          error
+        );
+      }
+      // QuizPhaseMisconfiguredError is already logged by the assertion. Other
+      // boot failures are logged above; all remain non-fatal to the storefront.
     }
   }
 }

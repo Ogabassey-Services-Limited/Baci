@@ -1205,6 +1205,7 @@ export async function POST(request: NextRequest) {
       const voucherAwardIds = [
         ...new Set(verifiedQuizVoucherAwardIdsByIndex.values()),
       ];
+      const voucherLineCount = verifiedQuizVoucherAwardIdsByIndex.size;
       if (voucherAwardIds.length === 0) {
         return invalidQuizVoucherTokenResponse();
       }
@@ -1268,7 +1269,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (validVoucherAwardIds.length > 1) {
+      if (voucherLineCount > 1 || validVoucherAwardIds.length > 1) {
         // Every voucher line is individually valid — the shopper just won more
         // than one prize. Surface a distinct code so checkout tells them to
         // redeem one at a time instead of discarding both valid vouchers.
@@ -2502,8 +2503,8 @@ export async function POST(request: NextRequest) {
       (quizVoucherFinalized || order.payment_status === 'paid');
     const shouldSendImmediateOrderNotifications =
       !idempotencyReplayed &&
-      (payOnDelivery ||
-        payment_method === 'invoice' ||
+      (isPayOnDelivery(effectivePaymentMethod) ||
+        effectivePaymentMethod === 'invoice' ||
         isWalletFullyPaid ||
         isQuizVoucherFullyPaid);
     if (shouldSendImmediateOrderNotifications) {
@@ -2537,7 +2538,7 @@ export async function POST(request: NextRequest) {
           merchantUrl,
           merchantTin: merchant.tax_identification_number ?? undefined,
           merchantRcNumber: merchant.cac_rc_number ?? undefined,
-          paymentMethod: payment_method,
+          paymentMethod: effectivePaymentMethod,
           paymentLink,
         };
 
@@ -2565,7 +2566,7 @@ export async function POST(request: NextRequest) {
               typeof createAdminClient
             > | null = null;
 
-            if (payment_method === 'invoice') {
+            if (effectivePaymentMethod === 'invoice') {
               try {
                 // Auto-generate Dedicated Virtual Account (DVA) for automatic confirmation
                 const nameParts = (customer_name || 'Customer')
@@ -2694,7 +2695,7 @@ export async function POST(request: NextRequest) {
                   amount_paid: amountPaid,
                   balance: Math.max(orderTotal - amountPaid, 0),
                   payment_status: order.payment_status || payment_status,
-                  payment_method,
+                  payment_method: effectivePaymentMethod,
                   is_credit_order: Boolean(
                     (order as Record<string, unknown>).is_credit_order
                   ),
@@ -2870,7 +2871,7 @@ export async function POST(request: NextRequest) {
               to: customer_email,
               toName: customer_name,
               subject:
-                payment_method === 'invoice'
+                effectivePaymentMethod === 'invoice'
                   ? `Invoice Generated - #${emailData.orderNumber}`
                   : `Order Confirmation - #${emailData.orderNumber}`,
               htmlContent,
@@ -2885,7 +2886,7 @@ export async function POST(request: NextRequest) {
                 customerId: customer_id,
                 metadata: {
                   trigger: 'order_create_immediate_confirmation',
-                  paymentMethod: payment_method,
+                  paymentMethod: effectivePaymentMethod,
                 },
               },
             });
@@ -2894,7 +2895,7 @@ export async function POST(request: NextRequest) {
               logger.error({
                 message: 'Failed to send order confirmation email',
                 orderId: order.id,
-                paymentMethod: payment_method,
+                paymentMethod: effectivePaymentMethod,
                 emailError: emailResult.error,
                 emailErrorCode: emailResult.errorCode,
                 emailErrorDetails: emailResult.errorDetails,
@@ -2903,7 +2904,7 @@ export async function POST(request: NextRequest) {
               logger.info({
                 message: 'Order confirmation email sent',
                 orderId: order.id,
-                paymentMethod: payment_method,
+                paymentMethod: effectivePaymentMethod,
                 messageId: emailResult.messageId,
               });
             }
