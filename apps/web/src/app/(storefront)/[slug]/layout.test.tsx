@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AD_ATTRIBUTION_CAPTURE_SCRIPT } from '@/components/storefront/ad-attribution-capture';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import {
   getStorefrontShellSnapshot,
@@ -417,6 +418,34 @@ describe('storefront layout', () => {
     expect(
       screen.getByRole('status', { name: /loading storefront chrome/i })
     ).toBeInTheDocument();
+
+    unmount();
+  });
+
+  it('renders the ad attribution capture script in the static shell before tenant data resolves', async () => {
+    vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
+      createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
+    );
+
+    let unmount: () => void = () => undefined;
+    let container: HTMLElement | undefined;
+
+    const ui = StorefrontLayout({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      children: <main>Storefront content</main>,
+    });
+
+    await act(async () => {
+      ({ container, unmount } = render(ui));
+      await Promise.resolve();
+    });
+
+    // The inline capture script must ship with the static shell (outside the
+    // dynamic Suspense leg) so fast-bounce ad landings never lose attribution.
+    const script = container?.querySelector('script');
+    expect(script?.textContent).toBe(AD_ATTRIBUTION_CAPTURE_SCRIPT);
+    expect(script?.textContent).toContain('/api/attr');
+    expect(script?.textContent).toContain('method:"POST"');
 
     unmount();
   });

@@ -5,6 +5,7 @@ import { connection } from 'next/server';
 import type React from 'react';
 import { Suspense, use } from 'react';
 import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
+import { AdAttributionCapture } from '@/components/storefront/ad-attribution-capture';
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
@@ -403,8 +404,19 @@ export default function StorefrontLayout(props: {
   params: Promise<{ slug: string }>;
 }) {
   return (
-    <Suspense fallback={null}>
-      <StorefrontLayoutShell {...props} />
-    </Suspense>
+    <>
+      {/*
+        Early ad-click attribution capture (PR-ATTR). Kept OUTSIDE the Suspense
+        boundary so it lands in the PPR static shell / first-flush HTML for every
+        storefront route and runs before hydration — independent of the dynamic
+        `connection()` leg below. Cloudflare strips the middleware Set-Cookie on
+        cached ad landings, so this client-side capture posts click IDs to
+        `/api/attr`, which re-sets the cookie via HTTP.
+      */}
+      <AdAttributionCapture />
+      <Suspense fallback={null}>
+        <StorefrontLayoutShell {...props} />
+      </Suspense>
+    </>
   );
 }

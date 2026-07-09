@@ -27,11 +27,6 @@ import {
   STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
 } from '@/config/storefront-metadata-cache-bots';
 import { getInternalApiSecret } from '@/env';
-import {
-  CLICK_ID_PARAMS,
-  extractClickIdsFromUrl,
-  generateClickIdCookies,
-} from '@/lib/ad-tracking-cookies';
 import type { BlogListingStatusIntent } from '@/lib/cached-storefront-blog-listing-status';
 import {
   getCustomDomainForSlug,
@@ -1194,6 +1189,22 @@ function getNoTrailingSlashRedirectPath(pathname: string): string | null {
  */
 function normalizeHostname(hostname: string): string {
   return hostname.split(':')[0].toLowerCase();
+}
+
+async function getSlugForOriginCustomDomain(
+  hostname: string
+): Promise<string | null> {
+  const normalizedHostname = normalizeHostname(hostname);
+
+  if (normalizedHostname.startsWith('www.')) {
+    const apexHostname = normalizedHostname.slice('www.'.length);
+    const apexSlug = await getSlugForCustomDomain(apexHostname);
+    if (apexSlug) {
+      return apexSlug;
+    }
+  }
+
+  return getSlugForCustomDomain(normalizedHostname);
 }
 
 /**
@@ -2538,8 +2549,11 @@ export async function proxy(request: NextRequest) {
 
           if (!isAllowed) {
             // Check custom domains: look up whether this origin is a
-            // registered merchant custom domain.
-            const customSlug = await getSlugForCustomDomain(originHostname);
+            // registered merchant custom domain. Match storefront routing:
+            // www.example.com is allowed when example.com is the registered
+            // domain, with a raw www fallback for merchants that registered it.
+            const customSlug =
+              await getSlugForOriginCustomDomain(originHostname);
             if (!customSlug) {
               return NextResponse.json(
                 { error: 'Cross-origin request blocked' },
@@ -4231,35 +4245,9 @@ export async function proxy(request: NextRequest) {
     routeType,
     isLocal,
     undefined,
-    request, // Pass request for click ID capture on storefront
+    request, // request drives storefront cache-control (query/auth-hint) checks
     hostname
   );
-}
-
-/**
- * Capture ad click IDs from URL params and set cookies
- * This enables better conversion attribution when sending offline conversions
- */
-function captureAdClickIds(request: NextRequest, response: NextResponse): void {
-  const searchParams = request.nextUrl.searchParams;
-
-  // Check if any click ID params exist
-  const hasClickIds = Object.keys(CLICK_ID_PARAMS).some((param) =>
-    searchParams.has(param)
-  );
-
-  if (!hasClickIds) return;
-
-  // Extract click IDs from URL
-  const clickIds = extractClickIdsFromUrl(searchParams);
-
-  // Generate cookies
-  const cookies = generateClickIdCookies(clickIds);
-
-  // Set cookies on response
-  for (const cookie of cookies) {
-    response.headers.append('Set-Cookie', cookie);
-  }
 }
 
 function applySecurityHeaders(
@@ -4272,11 +4260,6 @@ function applySecurityHeaders(
   request?: NextRequest,
   hostname?: string
 ): NextResponse {
-  // Capture ad click IDs from URL params (if request provided)
-  if (request && routeType === 'storefront') {
-    captureAdClickIds(request, response);
-  }
-
   // Apply Content Security Policy
   const csp = generateCSP(routeType, isLocal, nonce);
   response.headers.set('Content-Security-Policy', csp);
