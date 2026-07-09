@@ -35,6 +35,7 @@ export function VariantGroupPricingSheet({
   visible,
 }: VariantGroupPricingSheetProps) {
   const axes = getVariantAxes(variants);
+  const toggleableAxes = axes.filter((axis) => axis.values.length > 1);
   const defaultAxisIds = getDefaultPricingAxisIds(axes);
   const [selectedAxisIds, setSelectedAxisIds] = useState<string[]>(
     () => defaultAxisIds
@@ -54,9 +55,7 @@ export function VariantGroupPricingSheet({
     }
   }, [axisSignature, defaultAxisSignature, visible]);
 
-  const selectedAxes = axes.filter((axis) =>
-    selectedAxisIds.includes(axis.id)
-  );
+  const selectedAxes = axes.filter((axis) => selectedAxisIds.includes(axis.id));
   const groups = buildVariantPricingGroups(variants, selectedAxes);
 
   const toggleAxis = (axisId: string) => {
@@ -78,7 +77,10 @@ export function VariantGroupPricingSheet({
 
   const updates: VariantPricingUpdate[] = groups.flatMap((group) => {
     const draft = drafts[group.key];
-    if (!draft || (draft.price === undefined && draft.cost_price === undefined)) {
+    if (
+      !draft ||
+      (draft.price === undefined && draft.cost_price === undefined)
+    ) {
       return [];
     }
     return [
@@ -143,7 +145,7 @@ export function VariantGroupPricingSheet({
         Price varies by
       </Text>
       <View style={styles.axisRow}>
-        {axes.map((axis) => {
+        {toggleableAxes.map((axis) => {
           const isSelected = selectedAxisIds.includes(axis.id);
           return (
             <Pressable

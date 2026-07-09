@@ -253,6 +253,7 @@ describe('createNewOrderProductActions', () => {
           typeof updater === 'function' ? updater(orderItems) : updater;
       }
     );
+    const setVariantReplacementItemId = vi.fn();
 
     const actions = createNewOrderProductActions({
       customItem: createEmptyCustomItemDraft(),
@@ -273,7 +274,7 @@ describe('createNewOrderProductActions', () => {
       setSelectedParentProduct: vi.fn(),
       setShowCustomItemModal: vi.fn(),
       setShowProductModal: vi.fn(),
-      setVariantReplacementItemId: vi.fn(),
+      setVariantReplacementItemId,
       variantReplacementItemId: 'line-1',
     });
 
@@ -295,6 +296,7 @@ describe('createNewOrderProductActions', () => {
       quantity: 3,
       variant_id: 'variant-new',
     });
+    expect(setVariantReplacementItemId).toHaveBeenCalledWith(null);
   });
 
   it('treats quick-add matches as new items even if a replacement id is stale', () => {
@@ -343,7 +345,10 @@ describe('createNewOrderProductActions', () => {
     });
 
     expect(orderItems).toHaveLength(2);
-    expect(orderItems[0]).toMatchObject({ id: 'line-1', variant_id: 'variant-old' });
+    expect(orderItems[0]).toMatchObject({
+      id: 'line-1',
+      variant_id: 'variant-old',
+    });
     expect(orderItems[1]).toMatchObject({
       product_id: 'product-2',
       quantity: 1,

@@ -88,6 +88,8 @@ export function buildOrderPaymentBreakdown(
   const order: OrderMoneyFields & { currency: string } = {
     currency,
     discount_amount: toAmount(input.discountAmount),
+    // Fold gift wrapping into shipping only for the inclusive-total balance
+    // checks below; the UI still renders both fees as separate rows.
     shipping_fee: toAmount(input.shippingFee) + giftWrappingFee,
     subtotal,
     tax_amount: taxAmount,

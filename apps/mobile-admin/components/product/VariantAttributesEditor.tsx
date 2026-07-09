@@ -74,13 +74,22 @@ export function VariantAttributesEditor({
       ) : null}
 
       {visible.map(({ attribute, index }) => {
-        const showSwatch = isColorAttributeKey(attribute.key) && Boolean(swatch);
+        const showSwatch =
+          isColorAttributeKey(attribute.key) && Boolean(swatch);
         const handleKeyChange = (text: string) => {
           const pairedMetaIndexes =
             isColorAttributeKey(attribute.key) && !isColorAttributeKey(text)
               ? getPairedMetaAttributeIndexes(attributes, index)
               : [];
           onUpdateAttribute(index, 'key', text);
+          removeIndexesDescending(pairedMetaIndexes, onRemoveAttribute);
+        };
+        const handleValueChange = (text: string) => {
+          const pairedMetaIndexes =
+            isColorAttributeKey(attribute.key) && text !== attribute.value
+              ? getPairedMetaAttributeIndexes(attributes, index)
+              : [];
+          onUpdateAttribute(index, 'value', text);
           removeIndexesDescending(pairedMetaIndexes, onRemoveAttribute);
         };
 
@@ -107,9 +116,7 @@ export function VariantAttributesEditor({
                 ) : null}
                 <TextInput
                   accessibilityLabel={`Attribute value for variant ${variantIndex + 1} item ${index + 1}`}
-                  onChangeText={(text) =>
-                    onUpdateAttribute(index, 'value', text)
-                  }
+                  onChangeText={handleValueChange}
                   placeholder="Value (e.g. 256GB)"
                   placeholderTextColor={colors.textSecondary}
                   style={[
@@ -137,11 +144,7 @@ export function VariantAttributesEditor({
                 }}
                 style={styles.removeButton}
               >
-                <Ionicons
-                  name="trash-outline"
-                  size={18}
-                  color={colors.error}
-                />
+                <Ionicons name="trash-outline" size={18} color={colors.error} />
               </Pressable>
             </View>
 

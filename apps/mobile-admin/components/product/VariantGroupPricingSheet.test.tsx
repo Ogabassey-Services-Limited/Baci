@@ -125,7 +125,7 @@ describe('VariantGroupPricingSheet', () => {
     buildVariant('v4', 'Blue', '128GB', 450_000), // index 3
   ];
 
-  it('varies price by condition and storage by default, excluding colour', () => {
+  it('varies price by condition and storage by default, excluding no-op condition controls', () => {
     render(
       <VariantGroupPricingSheet
         colors={colors}
@@ -138,8 +138,8 @@ describe('VariantGroupPricingSheet', () => {
     );
 
     expect(
-      screen.getByRole('checkbox', { name: 'Price varies by Condition' })
-    ).toBeChecked();
+      screen.queryByRole('checkbox', { name: 'Price varies by Condition' })
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('checkbox', { name: 'Price varies by Storage' })
     ).toBeChecked();
@@ -182,9 +182,7 @@ describe('VariantGroupPricingSheet', () => {
     );
 
     expect(screen.getByText('Edit a price to apply')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Apply prices' })
-    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Apply prices' })).toBeDisabled();
   });
 
   it('applies an edited price to every variant in the group and closes the sheet', () => {
@@ -202,10 +200,9 @@ describe('VariantGroupPricingSheet', () => {
       />
     );
 
-    fireEvent.change(
-      screen.getByLabelText('Selling price for Used · 128GB'),
-      { target: { value: '500000' } }
-    );
+    fireEvent.change(screen.getByLabelText('Selling price for Used · 128GB'), {
+      target: { value: '500000' },
+    });
 
     expect(screen.getByText('Apply to 2 variants')).toBeInTheDocument();
     const applyButton = screen.getByRole('button', {

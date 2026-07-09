@@ -127,7 +127,11 @@ describe('VariantAttributesEditor', () => {
       { target: { value: '256GB' } }
     );
 
-    expect(handlers.onUpdateAttribute).toHaveBeenCalledWith(2, 'value', '256GB');
+    expect(handlers.onUpdateAttribute).toHaveBeenCalledWith(
+      2,
+      'value',
+      '256GB'
+    );
   });
 
   it('shows an empty prompt and adds a detail row on request', () => {
@@ -167,6 +171,23 @@ describe('VariantAttributesEditor', () => {
     );
 
     expect(handlers.onUpdateAttribute).toHaveBeenCalledWith(0, 'key', 'Finish');
+    expect(handlers.onRemoveAttribute).toHaveBeenCalledTimes(1);
+    expect(handlers.onRemoveAttribute).toHaveBeenCalledWith(1);
+  });
+
+  it('removes stale color_hex metadata when a colour value changes', () => {
+    const handlers = renderEditor([
+      { id: 'a1', key: 'color', value: 'Black' },
+      { id: 'a2', key: 'color_hex', value: '#000000' },
+      { id: 'a3', key: 'storage', value: '128GB' },
+    ]);
+
+    fireEvent.change(
+      screen.getByLabelText('Attribute value for variant 1 item 1'),
+      { target: { value: 'Blue' } }
+    );
+
+    expect(handlers.onUpdateAttribute).toHaveBeenCalledWith(0, 'value', 'Blue');
     expect(handlers.onRemoveAttribute).toHaveBeenCalledTimes(1);
     expect(handlers.onRemoveAttribute).toHaveBeenCalledWith(1);
   });

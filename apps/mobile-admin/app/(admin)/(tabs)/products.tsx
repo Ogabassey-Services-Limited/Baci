@@ -17,6 +17,7 @@ import ReAnimated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CreateCategoryModal } from '@/components/product/CreateCategoryModal';
+import { getCurrencySymbol } from '@/components/product/product.shared';
 import { ProductsSearchActions } from '@/components/product/ProductsSearchActions';
 import type { ProductsTab } from '@/components/product/ProductsSubTabs';
 import { ProductsTabPage } from '@/components/product/ProductsTabPage';
@@ -25,10 +26,7 @@ import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCollapsibleSearchBar } from '@/hooks/useCollapsibleSearchBar';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useMerchant } from '@/hooks/useMerchant';
-import {
-  useCreateCategory,
-  useInventoryStats,
-} from '@/hooks/useProducts';
+import { useCreateCategory, useInventoryStats } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
 
 const AnimatedPagerView = ReAnimated.createAnimatedComponent(PagerView);
@@ -40,17 +38,6 @@ const TOP_TAB_INDEXES: Record<TopTab, number> = {
   on_website: 1,
 };
 const INDEX_TO_TOP_TAB: TopTab[] = ['in_stock', 'on_website'];
-
-// Helper to get currency symbol from merchant's payout_currency
-const getCurrencySymbol = (currencyCode: string | null | undefined) => {
-  const symbols: Record<string, string> = {
-    NGN: '₦',
-    USD: '$',
-    GBP: '£',
-    EUR: '€',
-  };
-  return symbols[currencyCode || 'NGN'] || '₦';
-};
 
 export default function ProductsScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -113,9 +100,7 @@ export default function ProductsScreen() {
     ['onPageScroll']
   );
 
-  const handlePageSelected = (event: {
-    nativeEvent: { position: number };
-  }) => {
+  const handlePageSelected = (event: { nativeEvent: { position: number } }) => {
     const nextTab = INDEX_TO_TOP_TAB[event.nativeEvent.position];
     if (nextTab && nextTab !== topTab) {
       setTopTab(nextTab);
