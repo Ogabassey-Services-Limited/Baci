@@ -41,6 +41,7 @@ export interface MerchantFeatureSettings {
   discount_codes_enabled: boolean;
   guest_checkout_enabled: boolean;
   agentic_checkout_enabled: boolean;
+  repairs_catalog_enabled: boolean;
 
   // Payment gateways
   paystack_enabled: boolean;
@@ -170,6 +171,7 @@ const MERCHANT_FEATURE_SELECT_FIELDS: readonly (keyof MerchantFeatureSettings)[]
     'discount_codes_enabled',
     'guest_checkout_enabled',
     'agentic_checkout_enabled',
+    'repairs_catalog_enabled',
     'paystack_enabled',
     'korapay_enabled',
     'pay_on_delivery_enabled',

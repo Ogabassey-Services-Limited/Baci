@@ -15,6 +15,7 @@ export type AdminNotificationNavigationTarget =
 export type StorefrontNotificationNavigationTarget =
   | { screen: 'order-details'; params: { id: string } }
   | { screen: 'orders' }
+  | { screen: 'repairs'; params?: { id: string } }
   | { screen: 'product'; params: { slug: string } }
   | { screen: 'category'; params: { slug: string } }
   | { screen: 'utility-history'; params: { type: StorefrontUtilityType } }
@@ -163,6 +164,12 @@ export function getStorefrontNotificationNavigationTarget(
             params: { type: utilityType },
           }
         : { screen: 'home' };
+    }
+    case 'repair': {
+      const repairId = readString(payload, 'repair_id', 'repairId');
+      return repairId
+        ? { screen: 'repairs', params: { id: repairId } }
+        : { screen: 'repairs' };
     }
     default:
       return { screen: 'home' };

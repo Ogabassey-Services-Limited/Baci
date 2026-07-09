@@ -249,6 +249,23 @@ describe('getStorefrontNotificationNavigationTarget', () => {
       })
     ).toEqual({ screen: 'home' });
   });
+
+  it('routes repair payloads to storefront repairs with the repair id', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'repair',
+        repair_id: 'repair-123',
+      })
+    ).toEqual({ screen: 'repairs', params: { id: 'repair-123' } });
+  });
+
+  it('routes repair payloads without ids to storefront repairs', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'repair',
+      })
+    ).toEqual({ screen: 'repairs' });
+  });
 });
 
 describe('getAdminNotificationNavigationTarget — edge cases', () => {

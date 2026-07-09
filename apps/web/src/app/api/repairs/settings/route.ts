@@ -11,6 +11,18 @@ import { repairSettingsSchema } from '@/schemas/merchant-features';
 // service-role client AFTER the permission check — the column is deliberately
 // excluded from every public feature projection so the address stays server-only.
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function removeUndefinedFields(
+  value: Record<string, unknown>
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, fieldValue]) => fieldValue !== undefined)
+  );
+}
+
 export async function GET(request: NextRequest) {
   const authz = await authorizeRepairsRequest(request, 'view');
   if (!authz.ok) {
@@ -68,7 +80,7 @@ export async function PATCH(request: NextRequest) {
 
   const { data: existing, error: lookupError } = await admin
     .from('merchant_feature_settings')
-    .select('merchant_id')
+    .select('merchant_id, repair_settings')
     .eq('merchant_id', merchantId)
     .maybeSingle();
 
@@ -79,12 +91,23 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
+  const existingRow = existing as { repair_settings?: unknown } | null;
+  const previousSettings = isRecord(existingRow?.repair_settings)
+    ? existingRow.repair_settings
+    : {};
+  const nextRepairSettings = existing
+    ? {
+        ...previousSettings,
+        ...removeUndefinedFields(parsed.data),
+      }
+    : removeUndefinedFields(parsed.data);
+
   const writeError = existing
     ? (
         await admin
           .from('merchant_feature_settings')
           .update({
-            repair_settings: parsed.data,
+            repair_settings: nextRepairSettings,
             updated_at: new Date().toISOString(),
           })
           .eq('merchant_id', merchantId)
@@ -93,7 +116,7 @@ export async function PATCH(request: NextRequest) {
         await admin.from('merchant_feature_settings').insert({
           ...merchantFeatureSettingsDefaults.buildFields(),
           merchant_id: merchantId,
-          repair_settings: parsed.data,
+          repair_settings: nextRepairSettings,
         })
       ).error;
 
@@ -105,5 +128,5 @@ export async function PATCH(request: NextRequest) {
   }
 
   revalidatePath('/dashboard/repairs');
-  return NextResponse.json({ repairSettings: parsed.data });
+  return NextResponse.json({ repairSettings: nextRepairSettings });
 }

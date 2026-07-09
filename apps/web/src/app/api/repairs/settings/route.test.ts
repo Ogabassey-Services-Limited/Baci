@@ -176,6 +176,50 @@ describe('PATCH /api/repairs/settings', () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith('/dashboard/repairs');
   });
 
+  it('merges partial settings into the existing private settings JSON', async () => {
+    const admin = makeAdmin({
+      select: {
+        data: {
+          merchant_id: 'm-1',
+          repair_settings: {
+            pickup_address: '3 Olayeni Street',
+            city: 'Ikeja',
+            state: 'Lagos',
+            country: 'Nigeria',
+            contact_name: 'Repair Center',
+          },
+        },
+        error: null,
+      },
+    });
+    mocks.createClient.mockReturnValue(admin);
+
+    const res = await PATCH(
+      req({ pickup_enabled: true, contact_phone: '09070007000' })
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(admin.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        repair_settings: {
+          pickup_address: '3 Olayeni Street',
+          city: 'Ikeja',
+          state: 'Lagos',
+          country: 'Nigeria',
+          contact_name: 'Repair Center',
+          pickup_enabled: true,
+          contact_phone: '09070007000',
+        },
+      })
+    );
+    expect(body.repairSettings).toMatchObject({
+      pickup_address: '3 Olayeni Street',
+      pickup_enabled: true,
+      contact_phone: '09070007000',
+    });
+  });
+
   it('inserts defaults when no settings row exists yet', async () => {
     const admin = makeAdmin({ select: { data: null, error: null } });
     mocks.createClient.mockReturnValue(admin);

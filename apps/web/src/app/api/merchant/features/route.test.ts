@@ -255,6 +255,7 @@ describe('GET /api/merchant/features', () => {
 
     expect(response.status).toBe(200);
     expect(selectColumns).toContain('agentic_checkout_enabled');
+    expect(selectColumns).toContain('repairs_catalog_enabled');
     expect(selectColumns).toContain('klump_enabled');
     expect(selectColumns).toContain('klump_min_amount');
     expect(selectColumns).toContain('klump_max_amount');
@@ -280,6 +281,7 @@ describe('GET /api/merchant/features', () => {
       id: null,
       merchant_id: MERCHANT_ID,
       agentic_checkout_enabled: true,
+      repairs_catalog_enabled: false,
       klump_enabled: false,
       klump_min_amount: 10000,
       klump_max_amount: 1000000,
@@ -517,12 +519,19 @@ describe('PATCH /api/merchant/features', () => {
 
   it('revalidates repairs feeds when PATCH toggles the repairs catalogue', async () => {
     const { PATCH } = await import('./route');
+    updateData = {
+      id: 'settings-1',
+      merchant_id: MERCHANT_ID,
+      repairs_catalog_enabled: false,
+    };
 
     const res = await PATCH(
       makeRequest('PATCH', { repairs_catalog_enabled: false })
     );
+    const json = await res.json();
 
     expect(res.status).toBe(200);
+    expect(json.repairs_catalog_enabled).toBe(false);
     expect(updatePayload).toMatchObject({
       repairs_catalog_enabled: false,
     });
