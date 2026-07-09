@@ -1,7 +1,7 @@
 # HANDOVER — BYOK Payment Providers Implementation
 
 **Written:** 2026-07-08 · **Updated:** 2026-07-08 (Wave 2 closure pass) · **For:** the next agent/engineer continuing this work
-**Status at handover:** Wave 1 complete & reviewed. Wave 2 (PayPal lane) **code-complete, adversarially reviewed, and covered by the missing credentials route tests**. No PR has been opened and nothing has been pushed.
+**Status at handover:** Wave 1 + Wave 2 (PayPal lane) **code-complete, twice adversarially reviewed (incl. an independent verification of the gap-closure commit), low-severity polish applied (`232c721e66`: 400 PAYPAL_UNSUPPORTED_CURRENCY vs 503 FX outage, mode-mismatch captures now file reconciliation reviews, dead isSandboxMismatch removed, non-paypal fee-passthrough regression test). 19 commits, gate green. No PR opened, nothing pushed — only the §5 launch gates remain.**
 
 > ✅ **Wave 2 closure pass completed:** the prior top-of-queue gaps are closed. `apps/web/src/app/api/merchant/payment-credentials/route.test.ts` now covers unauthenticated, permission-denied, CSRF, rate-limit, invalid provider credentials, save, write-only GET, DELETE, and no-secret-in-response behavior. The Wave 2 adversarial review over `git diff 66b794a188..HEAD` found and fixed four issues: unsupported non-NGN PayPal currencies now fail closed before order creation, capture mode detection rejects `unknown`, PayPal capture uses a stable `PayPal-Request-Id`, and direct-to-merchant verify reconciliation forces `p_platform_fee=0` even for stale prototype rows. It also scrubbed legacy PayPal credential keys from generic feature-settings responses/writes.
 
