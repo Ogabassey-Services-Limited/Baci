@@ -255,15 +255,10 @@ describe('isPlaceholderVariant', () => {
     ).toBe(false);
   });
 
-  it('keeps a row whose price was customised away from the defaults', () => {
+  it('still treats an otherwise blank row with edited pricing as a placeholder', () => {
     const variant = createEmptyEditableVariant({ costPrice: 500, price: 5000 });
 
-    // Structurally (no defaults) it still looks blank...
     expect(isPlaceholderVariant(variant)).toBe(true);
-    // ...but against the parent defaults the custom price marks it as touched.
-    expect(isPlaceholderVariant(variant, { costPrice: 500, price: 1000 })).toBe(
-      false
-    );
   });
 });
 

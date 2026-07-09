@@ -166,26 +166,16 @@ export function getVariantSignature(variant: {
 /**
  * A variant the user has not meaningfully filled in yet — e.g. the blank row
  * created by toggling "has variants" on. These are replaced when generating.
- * When `defaults` is provided, a price/cost the merchant changed away from the
- * defaults also counts as "touched", so a hand-priced row is never discarded.
  */
-export function isPlaceholderVariant(
-  variant: EditableProductVariant,
-  defaults?: { costPrice: number; price: number }
-): boolean {
+export function isPlaceholderVariant(variant: EditableProductVariant): boolean {
   const hasAttributes =
     Object.keys(buildVariantAttributeRecord(variant.attributes)).length > 0;
-  const priceCustomized = defaults
-    ? variant.price !== defaults.price ||
-      variant.cost_price !== defaults.costPrice
-    : false;
 
   return (
     !hasAttributes &&
     !variant.condition &&
     variant.sku.trim() === '' &&
-    variant.stock_quantity === 0 &&
-    !priceCustomized
+    variant.stock_quantity === 0
   );
 }
 
