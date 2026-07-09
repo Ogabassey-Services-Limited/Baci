@@ -4,6 +4,7 @@ import type { ServerSupabaseClient } from './route-helpers-guards';
 type QuizResponseQuestion = {
   deadlineAt?: unknown;
   id?: unknown;
+  timeLimitSeconds?: unknown;
 };
 
 type QuizResponseWithQuestion = {
@@ -40,9 +41,13 @@ function getFallbackQuizQuestionDeadlineAt(
     return question.deadlineAt;
   }
 
-  return new Date(
-    Date.now() + FALLBACK_QUIZ_QUESTION_TIME_LIMIT_MS
-  ).toISOString();
+  const questionTimeLimitSeconds = Number(question.timeLimitSeconds);
+  const fallbackTimeLimitMs =
+    Number.isFinite(questionTimeLimitSeconds) && questionTimeLimitSeconds > 0
+      ? questionTimeLimitSeconds * 1000
+      : FALLBACK_QUIZ_QUESTION_TIME_LIMIT_MS;
+
+  return new Date(Date.now() + fallbackTimeLimitMs).toISOString();
 }
 
 function attachDeadlineToPayload<T>(payload: T, deadlineAt: string): T {

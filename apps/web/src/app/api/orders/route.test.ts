@@ -1036,6 +1036,7 @@ describe('POST /api/orders — quiz voucher guard', () => {
           subject_id: awardId,
           user_id: AUTH_USER_ID,
         }),
+        p_payment_method: 'paystack',
         p_payment_status: 'paid',
         p_user_id: AUTH_USER_ID,
       })
@@ -1046,16 +1047,73 @@ describe('POST /api/orders — quiz voucher guard', () => {
     );
   });
 
-  it('keeps voucher orders unpaid when a residual gateway balance remains', async () => {
+  it('normalizes zero-due voucher POD orders away from pay-on-delivery before the voucher RPC', async () => {
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
     vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
     const supabase = buildMockSupabase({
       create_storefront_order_with_quiz_voucher: {
-        data: [{ ...baseOrderRow, subtotal: 1500, total: 1500 }],
+        data: [{ ...baseOrderRow, subtotal: 0, total: 0 }],
         error: null,
       },
     });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+    const awardId = '11111111-1111-4111-8111-111111111111';
+    const productId = '22222222-2222-4222-8222-222222222222';
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId,
+        condition: 'new',
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId,
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          payment_method: 'pod',
+          items: [
+            {
+              ...baseOrderPayload.items[0],
+              condition: 'new',
+              product_id: productId,
+              price: 0,
+              voucher_token: token,
+            },
+          ],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order_with_quiz_voucher',
+      expect.objectContaining({
+        p_payment_method: 'quiz_voucher',
+        p_payment_status: 'paid',
+      })
+    );
+  });
+
+  it('rejects mixed voucher carts before voucher RPC work', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const supabase = buildMockSupabase();
     const supabaseMod = await import('@/lib/supabase/server');
     vi.mocked(supabaseMod.createClient).mockImplementation(
       () => supabase as unknown as never
@@ -1105,36 +1163,74 @@ describe('POST /api/orders — quiz voucher guard', () => {
     );
     const body = await readJson(response);
 
-    expect(response.status).toBe(201);
-    expect(body.amountDueToGateway).toBe(1500);
-    const quizRpcCall = vi
-      .mocked(supabase.rpc)
-      .mock.calls.find(
-        ([name]) => name === 'create_storefront_order_with_quiz_voucher'
-      ) as
-      | [
-          string,
-          {
-            p_items: Record<string, unknown>[];
-            p_payment_status?: unknown;
-          },
-        ]
-      | undefined;
-    if (!quizRpcCall) {
-      throw new Error('Expected quiz voucher RPC to be called');
-    }
-    const [, quizRpcParams] = quizRpcCall;
-    expect(quizRpcParams.p_payment_status).toBe('unpaid');
-    expect(quizRpcParams.p_items[0]).toEqual(
-      expect.objectContaining({
-        product_id: voucherProductId,
-        voucher_award_id: awardId,
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      code: 'QUIZ_VOUCHER_MIXED_CART_UNSUPPORTED',
+      error: 'Quiz prize vouchers must be checked out separately',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order_with_quiz_voucher',
+      expect.any(Object)
+    );
+  });
+
+  it('rejects voucher-only carts with residual delivery charges before voucher RPC work', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const supabase = buildMockSupabase();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+    const awardId = '11111111-1111-4111-8111-111111111111';
+    const productId = '22222222-2222-4222-8222-222222222222';
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId,
+        condition: 'new',
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId,
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          shipping_fee: 1500,
+          items: [
+            {
+              ...baseOrderPayload.items[0],
+              condition: 'new',
+              price: 0,
+              product_id: productId,
+              voucher_token: token,
+            },
+          ],
+        }),
       })
     );
-    expect(quizRpcParams.p_items[1]).toEqual(
-      expect.objectContaining({ product_id: paidProductId })
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      code: 'QUIZ_VOUCHER_RESIDUAL_PAYMENT_UNSUPPORTED',
+      error: 'Quiz prize vouchers cannot be combined with paid charges',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order_with_quiz_voucher',
+      expect.any(Object)
     );
-    expect(quizRpcParams.p_items[1]).not.toHaveProperty('voucher_award_id');
   });
 
   it('maps voucher RPC client errors to a checkout-correctable 400', async () => {

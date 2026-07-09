@@ -223,6 +223,10 @@ function hasQuizVoucherItem(items: QuizVoucherItemCandidate[]): boolean {
   return items.some((item) => hasQuizVoucherIdentifier(item));
 }
 
+function hasNonQuizVoucherItem(items: QuizVoucherItemCandidate[]): boolean {
+  return items.some((item) => !hasQuizVoucherIdentifier(item));
+}
+
 function getQuizVoucherToken(item: QuizVoucherItemCandidate): string | null {
   if (hasNonEmptyVoucherIdentifier(item.voucher_token)) {
     return item.voucher_token.trim();
@@ -1271,6 +1275,16 @@ export async function POST(request: NextRequest) {
         return tooManyQuizVouchersResponse();
       }
 
+      if (hasNonQuizVoucherItem(items)) {
+        return NextResponse.json(
+          {
+            code: 'QUIZ_VOUCHER_MIXED_CART_UNSUPPORTED',
+            error: 'Quiz prize vouchers must be checked out separately',
+          },
+          { status: 400 }
+        );
+      }
+
       const voucherEvent = getQuizVoucherAwardEvent(
         voucherAwardRowById.get(validVoucherAwardIds[0])
       );
@@ -1677,6 +1691,21 @@ export async function POST(request: NextRequest) {
         })
       : null;
 
+    if (
+      hasVoucherItem &&
+      voucherOrderAmountDueBeforeGateway !== null &&
+      voucherOrderAmountDueBeforeGateway > 0
+    ) {
+      return NextResponse.json(
+        {
+          code: 'QUIZ_VOUCHER_RESIDUAL_PAYMENT_UNSUPPORTED',
+          error: 'Quiz prize vouchers cannot be combined with paid charges',
+        },
+        { status: 400 }
+      );
+    }
+
+    let effectivePaymentMethod = payment_method;
     let effectivePaymentStatus = payment_status;
     if (
       hasVoucherItem &&
@@ -1684,6 +1713,9 @@ export async function POST(request: NextRequest) {
       voucherOrderAmountDueBeforeGateway <= 0
     ) {
       effectivePaymentStatus = 'paid';
+      if (payOnDelivery) {
+        effectivePaymentMethod = 'quiz_voucher';
+      }
     } else if (payOnDelivery) {
       effectivePaymentStatus = 'pending';
 
@@ -1888,7 +1920,7 @@ export async function POST(request: NextRequest) {
         ? discountCodeAmount
         : serverDerivedDiscountAmount,
       p_tax_amount: serverComputedTaxAmount,
-      p_payment_method: payment_method,
+      p_payment_method: effectivePaymentMethod,
       p_payment_status: effectivePaymentStatus,
       p_shipping_status: shipping_status,
       p_shipping_address: shippingAddressForOrder || null,

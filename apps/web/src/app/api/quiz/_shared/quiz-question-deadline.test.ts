@@ -82,15 +82,16 @@ describe('attachQuizQuestionDeadline', () => {
 
     const result = await attachQuizQuestionDeadline(supabase as never, {
       attemptId: 'attempt-1',
-      question: { id: 'slot-1' },
+      question: { id: 'slot-1', timeLimitSeconds: 5 },
     });
 
     expect(result.response).toBeNull();
     expect(result.data).toEqual({
       attemptId: 'attempt-1',
       question: {
-        deadlineAt: '2026-07-08T12:00:30.000Z',
+        deadlineAt: '2026-07-08T12:00:05.000Z',
         id: 'slot-1',
+        timeLimitSeconds: 5,
       },
     });
     expect(logger.error).toHaveBeenCalledWith({
