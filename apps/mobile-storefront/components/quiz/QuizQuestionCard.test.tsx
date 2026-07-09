@@ -88,4 +88,15 @@ describe('QuizQuestionCard', () => {
       screen.getByLabelText('Submit answer').props.accessibilityState.disabled
     ).toBe(true);
   });
+
+  it('disables answer options and submit while submitting', () => {
+    renderCard({ isSubmitting: true, selectedOptionId: 'b' });
+
+    expect(
+      screen.getByLabelText('Answer First').props.accessibilityState.disabled
+    ).toBe(true);
+    expect(
+      screen.getByLabelText('Submit answer').props.accessibilityState.disabled
+    ).toBe(true);
+  });
 });
