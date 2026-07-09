@@ -166,6 +166,28 @@ describe('DeviceQuotesPanel', () => {
     );
   });
 
+  it('disables quote mutation controls for view-only staff', async () => {
+    mockListQuotes.mockResolvedValue([QUOTE]);
+
+    render(
+      <DeviceQuotesPanel
+        deviceId="device-1"
+        canEdit={false}
+        canDelete={false}
+        serviceTypes={SERVICE_TYPES}
+      />
+    );
+
+    await screen.findByText('Screen replacement');
+    expect(screen.getByRole('button', { name: 'Add quote' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Edit Screen replacement quote' })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Delete Screen replacement quote' })
+    ).toBeDisabled();
+  });
+
   it('shows a retry option when loading fails', async () => {
     mockListQuotes.mockRejectedValue(new Error('boom'));
 

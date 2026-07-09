@@ -93,17 +93,22 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Invalid device id' }, { status: 400 });
   }
 
-  const { error } = await authz.supabase
+  const { data, error } = await authz.supabase
     .from('repair_devices')
     .delete()
     .eq('id', params.data.id)
-    .eq('merchant_id', authz.access.merchantId);
+    .eq('merchant_id', authz.access.merchantId)
+    .select('id');
 
   if (error) {
     return NextResponse.json(
       { error: 'Failed to delete device' },
       { status: 500 }
     );
+  }
+
+  if (!data || data.length === 0) {
+    return NextResponse.json({ error: 'Device not found' }, { status: 404 });
   }
 
   revalidatePath('/dashboard/repairs');

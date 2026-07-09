@@ -89,6 +89,21 @@ describe('BookingDetail', () => {
     );
   });
 
+  it('disables booking mutation controls for view-only staff', async () => {
+    render(
+      <BookingDetail bookingId="r-1" canEdit={false} onUpdated={vi.fn()} />
+    );
+    await screen.findByText('Ticket #1042');
+
+    expect(screen.getByLabelText('Advance status')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Update' })).toBeDisabled();
+    expect(screen.getByLabelText('Estimated cost (₦)')).toHaveAttribute(
+      'readonly'
+    );
+    expect(screen.getByLabelText('Internal notes')).toHaveAttribute('readonly');
+    expect(screen.getByRole('button', { name: 'Save details' })).toBeDisabled();
+  });
+
   it('shows an error when loading fails', async () => {
     mocks.getBooking.mockRejectedValueOnce(new Error('boom'));
     render(<BookingDetail bookingId="r-1" onUpdated={vi.fn()} />);

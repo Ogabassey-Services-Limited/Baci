@@ -58,6 +58,21 @@ describe('RepairSettingsCard', () => {
     ).toBeInTheDocument();
   });
 
+  it('disables settings mutations for view-only staff', async () => {
+    mocks.getRepairSettings.mockResolvedValueOnce({
+      repairSettings: null,
+      repairsCatalogEnabled: true,
+    });
+
+    render(<RepairSettingsCard canEdit={false} />);
+
+    expect(await screen.findByLabelText('City')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Offer courier pickup')).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Save settings' })
+    ).toBeDisabled();
+  });
+
   it('surfaces a save error', async () => {
     mocks.getRepairSettings.mockResolvedValueOnce({
       repairSettings: null,

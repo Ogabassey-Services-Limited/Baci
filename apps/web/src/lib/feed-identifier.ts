@@ -7,9 +7,14 @@ export interface FeedMerchantRecord {
   business_name: string;
   country: string;
   gmc_variants_enabled?: boolean;
+  logo_url?: string;
   payout_currency: string;
   slug: string;
 }
+
+type FeedMerchantRpcRecord = Omit<FeedMerchantRecord, 'logo_url'> & {
+  logo_url?: string | null;
+};
 
 /** Thrown when a merchant lookup returns no rows. */
 export class MerchantNotFoundError extends Error {
@@ -50,7 +55,16 @@ export async function resolveFeedMerchant(
     if (error) {
       throw new Error('Failed to resolve merchant', { cause: error });
     }
-    return (data as FeedMerchantRecord[] | null)?.[0];
+
+    const merchant = (data as FeedMerchantRpcRecord[] | null)?.[0];
+    if (!merchant) {
+      return undefined;
+    }
+
+    return {
+      ...merchant,
+      logo_url: merchant.logo_url ?? undefined,
+    };
   };
 
   let merchant = await lookup(identifier);

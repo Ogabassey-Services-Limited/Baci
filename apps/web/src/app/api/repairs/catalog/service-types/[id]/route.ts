@@ -96,11 +96,12 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const { error } = await authz.supabase
+  const { data, error } = await authz.supabase
     .from('repair_service_types')
     .delete()
     .eq('id', params.data.id)
-    .eq('merchant_id', authz.access.merchantId);
+    .eq('merchant_id', authz.access.merchantId)
+    .select('id');
 
   if (error) {
     if (error.code === '23503') {
@@ -112,6 +113,13 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     return NextResponse.json(
       { error: 'Failed to delete service type' },
       { status: 500 }
+    );
+  }
+
+  if (!data || data.length === 0) {
+    return NextResponse.json(
+      { error: 'Service type not found' },
+      { status: 404 }
     );
   }
 

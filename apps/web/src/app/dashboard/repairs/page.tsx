@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import type { StaffAccess } from '@/hooks/merchant';
 import { ensurePermission } from '@/lib/merchant-server';
 import { isRepairsBusinessType } from '@/lib/repairs/repairs-feature';
 import { createClient } from '@/lib/supabase/server';
@@ -9,13 +10,26 @@ export const metadata = {
   title: 'Repairs - Baci',
 };
 
+function hasRepairsPermission(staffAccess: StaffAccess, action: string) {
+  return (
+    staffAccess.isOwner ||
+    staffAccess.permissions?.full_access?.all === true ||
+    staffAccess.permissions?.repairs?.all === true ||
+    staffAccess.permissions?.repairs?.[action] === true
+  );
+}
+
 export default async function RepairsPage() {
   let merchantId: string;
   let businessType: string;
+  let canEdit = false;
+  let canDelete = false;
   try {
-    const { merchant } = await ensurePermission('repairs', 'view');
+    const { merchant, staffAccess } = await ensurePermission('repairs', 'view');
     merchantId = merchant.id;
     businessType = merchant.business_type;
+    canEdit = hasRepairsPermission(staffAccess, 'edit');
+    canDelete = hasRepairsPermission(staffAccess, 'delete');
   } catch {
     return <RepairsUnavailable reason="permission" />;
   }
@@ -36,5 +50,5 @@ export default async function RepairsPage() {
     return <RepairsUnavailable reason="disabled" />;
   }
 
-  return <RepairsCatalogClient />;
+  return <RepairsCatalogClient canEdit={canEdit} canDelete={canDelete} />;
 }

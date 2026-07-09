@@ -161,4 +161,11 @@ describe('ImportManager', () => {
       expect.objectContaining({ title: 'Import committed' })
     );
   });
+
+  it('disables import mutations for view-only staff', () => {
+    render(<ImportManager canEdit={false} />);
+
+    expect(screen.getByLabelText('Price list')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Parse list' })).toBeDisabled();
+  });
 });

@@ -54,7 +54,13 @@ const TEXT_FIELDS: { key: keyof Values; label: string; type?: string }[] = [
   { key: 'contact_email', label: 'Contact email', type: 'email' },
 ];
 
-export function RepairSettingsCard() {
+interface RepairSettingsCardProps {
+  canEdit?: boolean;
+}
+
+export function RepairSettingsCard({
+  canEdit = true,
+}: RepairSettingsCardProps) {
   const [values, setValues] = useState<Values>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -118,6 +124,7 @@ export function RepairSettingsCard() {
             <label className="flex items-center gap-2 text-sm">
               <input
                 checked={values.pickup_enabled}
+                disabled={!canEdit}
                 onChange={(event) =>
                   setField('pickup_enabled', event.target.checked)
                 }
@@ -137,6 +144,7 @@ export function RepairSettingsCard() {
                     onChange={(event) =>
                       setField(field.key, event.target.value)
                     }
+                    readOnly={!canEdit}
                     type={field.type ?? 'text'}
                     value={String(values[field.key] ?? '')}
                   />
@@ -145,7 +153,11 @@ export function RepairSettingsCard() {
             </div>
 
             <div className="flex items-center gap-3">
-              <Button disabled={saving} onClick={handleSave} type="button">
+              <Button
+                disabled={!canEdit || saving}
+                onClick={handleSave}
+                type="button"
+              >
                 Save settings
               </Button>
               {message ? (

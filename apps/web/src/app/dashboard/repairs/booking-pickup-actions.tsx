@@ -8,12 +8,14 @@ import { requestPickup } from './bookings-api';
 
 interface BookingPickupActionsProps {
   bookingId: string;
+  canEdit?: boolean;
   trackingNumber: string | null;
   onChanged: () => void;
 }
 
 export function BookingPickupActions({
   bookingId,
+  canEdit = true,
   trackingNumber,
   onChanged,
 }: BookingPickupActionsProps) {
@@ -71,6 +73,10 @@ export function BookingPickupActions({
         </Link>
       </div>
     );
+  }
+
+  if (!canEdit) {
+    return null;
   }
 
   return (

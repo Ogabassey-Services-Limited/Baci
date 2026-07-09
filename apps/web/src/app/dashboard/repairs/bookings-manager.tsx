@@ -13,7 +13,13 @@ import { BookingList } from './booking-list';
 import { listBookings } from './bookings-api';
 import { RepairSettingsCard } from './repair-settings-card';
 
-export default function BookingsManager() {
+interface BookingsManagerProps {
+  canEdit?: boolean;
+}
+
+export default function BookingsManager({
+  canEdit = true,
+}: BookingsManagerProps) {
   const [bookings, setBookings] = useState<RepairBookingSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
@@ -49,7 +55,7 @@ export default function BookingsManager() {
 
   return (
     <div className="mt-4 space-y-6">
-      <RepairSettingsCard />
+      <RepairSettingsCard canEdit={canEdit} />
 
       <BookingList
         bookings={bookings}
@@ -72,7 +78,11 @@ export default function BookingsManager() {
             <DialogTitle>Repair booking</DialogTitle>
           </DialogHeader>
           {selectedId ? (
-            <BookingDetail bookingId={selectedId} onUpdated={refresh} />
+            <BookingDetail
+              bookingId={selectedId}
+              canEdit={canEdit}
+              onUpdated={refresh}
+            />
           ) : null}
         </DialogContent>
       </Dialog>

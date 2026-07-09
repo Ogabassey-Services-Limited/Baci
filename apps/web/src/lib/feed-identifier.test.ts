@@ -21,6 +21,7 @@ const merchantFixture = {
   id: '11111111-1111-4111-8111-111111111111',
   business_name: 'Ogabassey',
   country: 'NG',
+  logo_url: 'https://cdn.example.com/logo.png',
   payout_currency: 'NGN',
   slug: 'ogabassey',
 };

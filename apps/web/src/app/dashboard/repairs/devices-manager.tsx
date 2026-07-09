@@ -33,12 +33,15 @@ import { deleteDevice, listDevices, listServiceTypes } from './catalog-api';
 import DeviceFormDialog from './device-form-dialog';
 import DeviceQuotesPanel from './device-quotes-panel';
 
-/**
- * Devices sub-tab of the repairs catalogue dashboard: search + CRUD table,
- * with an expandable row revealing DeviceQuotesPanel per device.
- */
+interface DevicesManagerProps {
+  canEdit?: boolean;
+  canDelete?: boolean;
+}
 
-export default function DevicesManager() {
+export default function DevicesManager({
+  canEdit = true,
+  canDelete = true,
+}: DevicesManagerProps) {
   const { toast } = useToast();
   const [devices, setDevices] = useState<RepairDeviceAdmin[]>([]);
   const [serviceTypes, setServiceTypes] = useState<RepairServiceTypeAdmin[]>(
@@ -47,7 +50,6 @@ export default function DevicesManager() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<RepairDeviceAdmin | null>(
     null
@@ -147,7 +149,7 @@ export default function DevicesManager() {
             Search
           </Button>
         </form>
-        <Button size="sm" onClick={openCreateDialog}>
+        <Button size="sm" disabled={!canEdit} onClick={openCreateDialog}>
           <Plus className="size-4" />
           Add device
         </Button>
@@ -229,6 +231,7 @@ export default function DevicesManager() {
                       <Button
                         size="icon"
                         variant="outline"
+                        disabled={!canEdit}
                         onClick={() => openEditDialog(device)}
                       >
                         <Pencil className="size-4" />
@@ -238,7 +241,11 @@ export default function DevicesManager() {
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button size="icon" variant="outline">
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            disabled={!canDelete}
+                          >
                             <Trash2 className="size-4" />
                             <span className="sr-only">
                               Delete {device.brand} {device.model}
@@ -270,6 +277,8 @@ export default function DevicesManager() {
                     <TableCell colSpan={6}>
                       <DeviceQuotesPanel
                         deviceId={device.id}
+                        canDelete={canDelete}
+                        canEdit={canEdit}
                         serviceTypes={serviceTypes}
                       />
                     </TableCell>
@@ -280,7 +289,6 @@ export default function DevicesManager() {
           </TableBody>
         </Table>
       )}
-
       <DeviceFormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}

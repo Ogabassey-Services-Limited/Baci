@@ -50,7 +50,11 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Something went wrong';
 }
 
-export default function ImportManager() {
+interface ImportManagerProps {
+  canEdit?: boolean;
+}
+
+export default function ImportManager({ canEdit = true }: ImportManagerProps) {
   const { toast } = useToast();
   const [text, setText] = useState('');
   const [rows, setRows] = useState<EditableImportRow[]>([]);
@@ -141,14 +145,14 @@ export default function ImportManager() {
               'e.g.\niPhone 12 screen replacement - 25000\niPhone 12 battery - 12000'
             }
             rows={6}
-            disabled={parsing}
+            disabled={parsing || !canEdit}
             value={text}
             onChange={(event) => setText(event.target.value)}
           />
           <Button
             type="button"
             onClick={handleParse}
-            disabled={parsing || !text.trim()}
+            disabled={!canEdit || parsing || !text.trim()}
           >
             {parsing ? 'Parsing…' : 'Parse list'}
           </Button>
@@ -172,6 +176,7 @@ export default function ImportManager() {
           <div className="space-y-3">
             <ImportReviewTable
               rows={rows}
+              readOnly={!canEdit}
               onChange={handleRowChange}
               onToggleReject={handleToggleReject}
             />
@@ -183,7 +188,7 @@ export default function ImportManager() {
               <Button
                 type="button"
                 onClick={handleCommit}
-                disabled={committing || includedCount === 0}
+                disabled={!canEdit || committing || includedCount === 0}
               >
                 {committing
                   ? 'Committing…'

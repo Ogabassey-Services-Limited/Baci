@@ -35,11 +35,15 @@ const CURRENCY_FORMATTER = new Intl.NumberFormat('en-NG', {
 
 interface DeviceQuotesPanelProps {
   deviceId: string;
+  canEdit?: boolean;
+  canDelete?: boolean;
   serviceTypes: RepairServiceTypeAdmin[];
 }
 
 export default function DeviceQuotesPanel({
   deviceId,
+  canEdit = true,
+  canDelete = true,
   serviceTypes,
 }: DeviceQuotesPanelProps) {
   const { toast } = useToast();
@@ -118,7 +122,12 @@ export default function DeviceQuotesPanel({
     <div className="space-y-3 rounded-md border bg-muted/30 p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Quotes</h3>
-        <Button size="sm" variant="outline" onClick={openCreateDialog}>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!canEdit}
+          onClick={openCreateDialog}
+        >
           <Plus className="size-4" />
           Add quote
         </Button>
@@ -175,6 +184,7 @@ export default function DeviceQuotesPanel({
                 <Button
                   size="icon"
                   variant="outline"
+                  disabled={!canEdit}
                   onClick={() => openEditDialog(quote)}
                 >
                   <Pencil className="size-4" />
@@ -184,7 +194,7 @@ export default function DeviceQuotesPanel({
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button size="icon" variant="outline">
+                    <Button size="icon" variant="outline" disabled={!canDelete}>
                       <Trash2 className="size-4" />
                       <span className="sr-only">
                         Delete {serviceTypeName(quote.serviceTypeId)} quote
@@ -198,7 +208,7 @@ export default function DeviceQuotesPanel({
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction
-                        disabled={deletingId === quote.id}
+                        disabled={!canDelete || deletingId === quote.id}
                         onClick={() => handleDelete(quote.id)}
                       >
                         Delete

@@ -4,7 +4,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import BookingsManager from './bookings-manager';
 import CatalogManager from './catalog-manager';
 
-export default function RepairsCatalogClient() {
+interface RepairsCatalogClientProps {
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
+export default function RepairsCatalogClient({
+  canEdit,
+  canDelete,
+}: RepairsCatalogClientProps) {
   return (
     <div className="space-y-6 p-6">
       <div>
@@ -20,10 +28,10 @@ export default function RepairsCatalogClient() {
           <TabsTrigger value="catalog">Catalog</TabsTrigger>
         </TabsList>
         <TabsContent value="bookings">
-          <BookingsManager />
+          <BookingsManager canEdit={canEdit} />
         </TabsContent>
         <TabsContent value="catalog">
-          <CatalogManager />
+          <CatalogManager canEdit={canEdit} canDelete={canDelete} />
         </TabsContent>
       </Tabs>
     </div>

@@ -5,23 +5,33 @@ import DevicesManager from './devices-manager';
 import ImportManager from './import-manager';
 import ServiceTypesManager from './service-types-manager';
 
-export default function CatalogManager() {
+interface CatalogManagerProps {
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
+export default function CatalogManager({
+  canEdit,
+  canDelete,
+}: CatalogManagerProps) {
   return (
     <Tabs defaultValue="devices" className="mt-4">
       <TabsList>
         <TabsTrigger value="devices">Devices</TabsTrigger>
         <TabsTrigger value="service-types">Service types</TabsTrigger>
-        <TabsTrigger value="import">AI import</TabsTrigger>
+        {canEdit ? <TabsTrigger value="import">AI import</TabsTrigger> : null}
       </TabsList>
       <TabsContent value="devices">
-        <DevicesManager />
+        <DevicesManager canEdit={canEdit} canDelete={canDelete} />
       </TabsContent>
       <TabsContent value="service-types">
-        <ServiceTypesManager />
+        <ServiceTypesManager canEdit={canEdit} canDelete={canDelete} />
       </TabsContent>
-      <TabsContent value="import">
-        <ImportManager />
-      </TabsContent>
+      {canEdit ? (
+        <TabsContent value="import">
+          <ImportManager canEdit={canEdit} />
+        </TabsContent>
+      ) : null}
     </Tabs>
   );
 }

@@ -45,7 +45,7 @@ function deviceRow(over: Record<string, unknown> = {}) {
 
 function makeSupabase(opts: {
   update?: { data: unknown; error: unknown };
-  del?: { error: unknown };
+  del?: { data: unknown; error: unknown };
 }) {
   const update = vi
     .fn()
@@ -57,7 +57,12 @@ function makeSupabase(opts: {
     );
   const del = vi
     .fn()
-    .mockReturnValue(resolvingChain(['eq', 'eq'], opts.del ?? { error: null }));
+    .mockReturnValue(
+      resolvingChain(
+        ['eq', 'eq', 'select'],
+        opts.del ?? { data: [{ id: VALID_ID }], error: null }
+      )
+    );
   const from = vi.fn().mockReturnValue({ update, delete: del });
   return { from, update, delete: del };
 }
@@ -149,5 +154,12 @@ describe('DELETE device [id]', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.success).toBe(true);
+  });
+
+  it('returns 404 when no matching device was deleted', async () => {
+    const supabase = makeSupabase({ del: { data: [], error: null } });
+    authorizeRepairsRequest.mockResolvedValue(okAuthz(supabase));
+    const res = await DELETE(reqOf('DELETE') as never, ctx(VALID_ID));
+    expect(res.status).toBe(404);
   });
 });

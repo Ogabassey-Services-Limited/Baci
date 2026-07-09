@@ -130,4 +130,24 @@ describe('ImportReviewTable', () => {
 
     expect(onToggleReject).toHaveBeenCalledWith(0);
   });
+
+  it('renders row controls read-only when requested', () => {
+    const rows = [makeRow()];
+
+    render(
+      <ImportReviewTable
+        rows={rows}
+        readOnly
+        onChange={vi.fn()}
+        onToggleReject={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByRole('textbox', { name: 'Brand — row 1' })
+    ).toHaveAttribute('readonly');
+    expect(
+      screen.getByRole('switch', { name: 'Include row 1' })
+    ).toBeDisabled();
+  });
 });

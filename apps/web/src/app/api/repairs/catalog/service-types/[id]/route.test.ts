@@ -26,21 +26,26 @@ function updateChain(result: { data: unknown; error: unknown }) {
   return chain;
 }
 
-function deleteChain(result: { error: unknown }) {
-  // Route: .delete().eq('id').eq('merchant_id')
-  const eqMerchant = vi.fn().mockResolvedValue(result);
+function deleteChain(result: { data: unknown; error: unknown }) {
+  // Route: .delete().eq('id').eq('merchant_id').select('id')
+  const select = vi.fn().mockResolvedValue(result);
+  const eqMerchant = vi.fn().mockReturnValue({ select });
   const eqId = vi.fn().mockReturnValue({ eq: eqMerchant });
   return { eq: eqId };
 }
 
 function makeSupabase(opts: {
   update?: { data: unknown; error: unknown };
-  del?: { error: unknown };
+  del?: { data: unknown; error: unknown };
 }) {
   const update = vi
     .fn()
     .mockReturnValue(updateChain(opts.update ?? { data: null, error: null }));
-  const del = vi.fn().mockReturnValue(deleteChain(opts.del ?? { error: null }));
+  const del = vi
+    .fn()
+    .mockReturnValue(
+      deleteChain(opts.del ?? { data: [{ id: VALID_ID }], error: null })
+    );
   const from = vi.fn().mockReturnValue({ update, delete: del });
   return { from, update, delete: del };
 }
@@ -167,9 +172,16 @@ describe('DELETE service-type [id]', () => {
     expect(json.success).toBe(true);
   });
 
+  it('returns 404 when no matching service type was deleted', async () => {
+    const supabase = makeSupabase({ del: { data: [], error: null } });
+    authorizeRepairsRequest.mockResolvedValue(okAuthz(supabase));
+    const res = await DELETE(req('DELETE') as never, ctx(VALID_ID));
+    expect(res.status).toBe(404);
+  });
+
   it('returns 409 when the service type is still referenced by quotes', async () => {
     const supabase = makeSupabase({
-      del: { error: { code: '23503', message: 'fk' } },
+      del: { data: null, error: { code: '23503', message: 'fk' } },
     });
     authorizeRepairsRequest.mockResolvedValue(okAuthz(supabase));
     const res = await DELETE(req('DELETE') as never, ctx(VALID_ID));
@@ -178,7 +190,7 @@ describe('DELETE service-type [id]', () => {
 
   it('returns 500 on a generic delete failure', async () => {
     const supabase = makeSupabase({
-      del: { error: { code: '500', message: 'db down' } },
+      del: { data: null, error: { code: '500', message: 'db down' } },
     });
     authorizeRepairsRequest.mockResolvedValue(okAuthz(supabase));
     const res = await DELETE(req('DELETE') as never, ctx(VALID_ID));

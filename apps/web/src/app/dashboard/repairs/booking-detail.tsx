@@ -17,10 +17,15 @@ import { getBooking, updateBooking } from './bookings-api';
 
 interface BookingDetailProps {
   bookingId: string;
+  canEdit?: boolean;
   onUpdated: () => void;
 }
 
-export function BookingDetail({ bookingId, onUpdated }: BookingDetailProps) {
+export function BookingDetail({
+  bookingId,
+  canEdit = true,
+  onUpdated,
+}: BookingDetailProps) {
   const [booking, setBooking] = useState<RepairBookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -148,7 +153,7 @@ export function BookingDetail({ bookingId, onUpdated }: BookingDetailProps) {
         <div className="flex gap-2">
           <select
             className="flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-sm"
-            disabled={allowedNext.length === 0}
+            disabled={!canEdit || allowedNext.length === 0}
             id="booking-next-status"
             onChange={(event) => setNextStatus(event.target.value)}
             value={nextStatus}
@@ -163,7 +168,7 @@ export function BookingDetail({ bookingId, onUpdated }: BookingDetailProps) {
             ))}
           </select>
           <Button
-            disabled={saving || !nextStatus}
+            disabled={!canEdit || saving || !nextStatus}
             onClick={handleStatus}
             type="button"
           >
@@ -180,6 +185,7 @@ export function BookingDetail({ bookingId, onUpdated }: BookingDetailProps) {
             inputMode="decimal"
             onChange={(event) => setEstimatedCost(event.target.value)}
             placeholder="e.g. 25000"
+            readOnly={!canEdit}
             value={estimatedCost}
           />
         </div>
@@ -188,20 +194,27 @@ export function BookingDetail({ bookingId, onUpdated }: BookingDetailProps) {
           <Textarea
             id="booking-admin-notes"
             onChange={(event) => setAdminNotes(event.target.value)}
+            readOnly={!canEdit}
             rows={3}
             value={adminNotes}
           />
         </div>
-        <Button disabled={saving} onClick={handleSaveDetails} type="button">
+        <Button
+          disabled={!canEdit || saving}
+          onClick={handleSaveDetails}
+          type="button"
+        >
           Save details
         </Button>
       </section>
 
-      {booking.serviceType === 'pickup' ? (
+      {booking.serviceType === 'pickup' &&
+      (canEdit || booking.trackingNumber) ? (
         <section className="space-y-2">
           <h4 className="font-medium text-sm">Courier pickup</h4>
           <BookingPickupActions
             bookingId={booking.id}
+            canEdit={canEdit}
             onChanged={onUpdated}
             trackingNumber={booking.trackingNumber}
           />

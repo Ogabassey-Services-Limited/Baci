@@ -12,7 +12,7 @@ import RepairsCatalogClient from './repairs-catalog-client';
 
 describe('RepairsCatalogClient', () => {
   it('renders the Bookings and Catalog tabs with Bookings active', () => {
-    render(<RepairsCatalogClient />);
+    render(<RepairsCatalogClient canEdit canDelete />);
     expect(screen.getByRole('tab', { name: 'Bookings' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Catalog' })).toBeInTheDocument();
     expect(screen.getByText('bookings-manager')).toBeInTheDocument();

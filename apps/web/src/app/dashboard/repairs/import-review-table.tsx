@@ -31,6 +31,7 @@ export interface EditableImportRow {
 
 interface ImportReviewTableProps {
   rows: EditableImportRow[];
+  readOnly?: boolean;
   onChange: (index: number, patch: Partial<EditableImportRow>) => void;
   onToggleReject: (index: number) => void;
 }
@@ -62,6 +63,7 @@ const STATUS_BADGE: Record<
 
 export default function ImportReviewTable({
   rows,
+  readOnly = false,
   onChange,
   onToggleReject,
 }: ImportReviewTableProps) {
@@ -103,6 +105,7 @@ export default function ImportReviewTable({
               <TableCell>
                 <Input
                   aria-label={`Brand — row ${rowNumber}`}
+                  readOnly={readOnly}
                   value={row.brand}
                   onChange={(event) =>
                     onChange(index, { brand: event.target.value })
@@ -112,6 +115,7 @@ export default function ImportReviewTable({
               <TableCell>
                 <Input
                   aria-label={`Model — row ${rowNumber}`}
+                  readOnly={readOnly}
                   value={row.model}
                   onChange={(event) =>
                     onChange(index, { model: event.target.value })
@@ -121,6 +125,7 @@ export default function ImportReviewTable({
               <TableCell>
                 <Input
                   aria-label={`Repair type — row ${rowNumber}`}
+                  readOnly={readOnly}
                   value={row.repairType}
                   onChange={(event) =>
                     onChange(index, { repairType: event.target.value })
@@ -132,6 +137,7 @@ export default function ImportReviewTable({
                   aria-label={`Price — row ${rowNumber}`}
                   type="number"
                   min={0}
+                  readOnly={readOnly}
                   value={row.price}
                   onChange={(event) =>
                     onChange(index, { price: Number(event.target.value) })
@@ -142,6 +148,7 @@ export default function ImportReviewTable({
                 <Input
                   aria-label={`Part quality — row ${rowNumber}`}
                   placeholder="e.g. OEM"
+                  readOnly={readOnly}
                   value={row.partQuality}
                   onChange={(event) =>
                     onChange(index, { partQuality: event.target.value })
@@ -152,6 +159,7 @@ export default function ImportReviewTable({
                 <Switch
                   aria-label={`Include row ${rowNumber}`}
                   checked={!row.rejected}
+                  disabled={readOnly}
                   onCheckedChange={() => onToggleReject(index)}
                 />
               </TableCell>

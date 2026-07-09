@@ -245,6 +245,23 @@ describe('ServiceTypesManager', () => {
     });
   });
 
+  it('disables mutation controls for view-only staff', async () => {
+    mockListServiceTypes.mockResolvedValue([buildServiceType()]);
+
+    render(<ServiceTypesManager canEdit={false} canDelete={false} />);
+
+    await screen.findByText('Screen Repair');
+    expect(
+      screen.getByRole('button', { name: 'Add service type' })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Edit Screen Repair' })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Delete Screen Repair' })
+    ).toBeDisabled();
+  });
+
   it('shows the server error message and keeps the row when deletion fails', async () => {
     mockListServiceTypes.mockResolvedValue([buildServiceType()]);
     mockDeleteServiceType.mockRejectedValue(

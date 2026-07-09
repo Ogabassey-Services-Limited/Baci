@@ -28,7 +28,15 @@ import type { RepairServiceTypeAdmin } from '@/lib/repairs/catalog-admin-mappers
 import { deleteServiceType, listServiceTypes } from './catalog-api';
 import ServiceTypeFormDialog from './service-type-form-dialog';
 
-export default function ServiceTypesManager() {
+interface ServiceTypesManagerProps {
+  canEdit?: boolean;
+  canDelete?: boolean;
+}
+
+export default function ServiceTypesManager({
+  canEdit = true,
+  canDelete = true,
+}: ServiceTypesManagerProps) {
   const { toast } = useToast();
   const [serviceTypes, setServiceTypes] = useState<RepairServiceTypeAdmin[]>(
     []
@@ -101,7 +109,7 @@ export default function ServiceTypesManager() {
     <div className="mt-4 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Service types</h2>
-        <Button size="sm" onClick={openCreateDialog}>
+        <Button size="sm" disabled={!canEdit} onClick={openCreateDialog}>
           <Plus className="size-4" />
           Add service type
         </Button>
@@ -157,6 +165,7 @@ export default function ServiceTypesManager() {
                     <Button
                       size="icon"
                       variant="outline"
+                      disabled={!canEdit}
                       onClick={() => openEditDialog(serviceType)}
                     >
                       <Pencil className="size-4" />
@@ -164,7 +173,11 @@ export default function ServiceTypesManager() {
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button size="icon" variant="outline">
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          disabled={!canDelete}
+                        >
                           <Trash2 className="size-4" />
                           <span className="sr-only">
                             Delete {serviceType.name}

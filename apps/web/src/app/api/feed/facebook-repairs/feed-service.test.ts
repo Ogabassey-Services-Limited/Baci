@@ -59,6 +59,7 @@ beforeEach(() => {
     id: 'merchant-1',
     business_name: 'Ogabassey',
     country: 'NG',
+    logo_url: 'https://cdn.example.com/logo.png',
     payout_currency: 'NGN',
     slug: 'ogabassey',
   });
@@ -88,7 +89,10 @@ describe('generateRepairsFacebookFeedForIdentifier', () => {
     });
     expect(mockGenerateRepairsFacebookFeed).toHaveBeenCalledWith(
       [],
-      expect.objectContaining({ business_name: 'Ogabassey' }),
+      expect.objectContaining({
+        business_name: 'Ogabassey',
+        logo_url: 'https://cdn.example.com/logo.png',
+      }),
       'https://ogabassey.com'
     );
   });

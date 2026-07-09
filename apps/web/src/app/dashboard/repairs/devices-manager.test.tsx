@@ -180,6 +180,21 @@ describe('DevicesManager', () => {
     );
   });
 
+  it('disables mutation controls for view-only staff', async () => {
+    mockListDevices.mockResolvedValue([LINKED_DEVICE]);
+
+    render(<DevicesManager canEdit={false} canDelete={false} />);
+
+    await screen.findByText('Apple');
+    expect(screen.getByRole('button', { name: 'Add device' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Edit Apple iPhone 14' })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Delete Apple iPhone 14' })
+    ).toBeDisabled();
+  });
+
   it('shows an error state with a working retry action', async () => {
     mockListDevices.mockRejectedValueOnce(new Error('boom'));
 
