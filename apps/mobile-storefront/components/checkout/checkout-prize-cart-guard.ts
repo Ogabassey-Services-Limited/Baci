@@ -1,14 +1,11 @@
 import { Alert } from 'react-native';
 import type { CartItem } from '@/stores/cart-store';
-
-function isVoucherLine(item: CartItem): boolean {
-  return Boolean(item.voucher_token || item.voucher_award_id);
-}
+import { isQuizVoucherLine } from '@/lib/cart/quiz-voucher-line';
 
 /** True when the cart carries a quiz prize (voucher) line. After the mixed-cart
  *  guard has run, a cart with a voucher line is voucher-ONLY. */
 export function cartHasVoucherLine(items: CartItem[]): boolean {
-  return items.some(isVoucherLine);
+  return items.some(isQuizVoucherLine);
 }
 
 /**
@@ -22,8 +19,8 @@ export function cartHasVoucherLine(items: CartItem[]): boolean {
  * Returns `true` (and alerts the shopper) when checkout must be blocked.
  */
 export function blockIfMixedPrizeCart(items: CartItem[]): boolean {
-  const hasVoucherLine = items.some(isVoucherLine);
-  const hasPaidLine = items.some((item) => !isVoucherLine(item));
+  const hasVoucherLine = items.some(isQuizVoucherLine);
+  const hasPaidLine = items.some((item) => !isQuizVoucherLine(item));
   if (!(hasVoucherLine && hasPaidLine)) {
     return false;
   }

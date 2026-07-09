@@ -1,18 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useProduct } from '@/hooks/use-product';
+import { isQuizVoucherLine } from '@/lib/cart/quiz-voucher-line';
 import type { QuizPrizeClaim } from '@/services/quiz';
-import { type CartItem, useCartStore } from '@/stores/cart-store';
+import { useCartStore } from '@/stores/cart-store';
 import { formatProductConditionDisplay } from '@/types/product';
 
 const MIXED_CART_MESSAGE =
   'Your cart has other items. Check out or empty your cart first, then claim your prize so nothing is lost.';
-
-/** A voucher/prize cart line carries a voucher identifier; anything else is a
- *  normal paid item that a prize-only checkout would not order. */
-function isVoucherLine(item: CartItem): boolean {
-  return Boolean(item.voucher_token || item.voucher_award_id);
-}
 
 interface UseQuizPrizeClaimResult {
   /** Add the won prize to the cart (as a voucher line) and open the cart. */
@@ -52,7 +47,7 @@ export function useQuizPrizeClaim(
   // checks them out) — a now-eligible prize claim is never stranded behind the
   // "Review cart" state.
   const cartHasPaidItems = useCartStore((state) =>
-    state.items.some((item) => !isVoucherLine(item))
+    state.items.some((item) => !isQuizVoucherLine(item))
   );
   const [claimAttemptedWhileMixed, setClaimAttemptedWhileMixed] =
     useState(false);
@@ -69,7 +64,7 @@ export function useQuizPrizeClaim(
     // Refuse to mix: the shopper must clear/checkout their cart first.
     const hasOtherItems = useCartStore
       .getState()
-      .items.some((item) => !isVoucherLine(item));
+      .items.some((item) => !isQuizVoucherLine(item));
     if (hasOtherItems) {
       setClaimAttemptedWhileMixed(true);
       return;

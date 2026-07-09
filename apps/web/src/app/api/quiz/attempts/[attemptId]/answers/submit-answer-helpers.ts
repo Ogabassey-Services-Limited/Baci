@@ -196,9 +196,16 @@ export async function recoverReplayedAttemptResponse(
   // days, so replaying a days-old attempt cannot extend the redemption window.
   // If the original window has already passed, the token mints expired and the
   // orders route rejects it — the intended deadline still holds.
-  const originalExpiresAt = award.createdAt
-    ? new Date(Date.parse(award.createdAt) + QUIZ_VOUCHER_TTL_MS).toISOString()
-    : undefined;
+  if (!award.createdAt) return rpcErrorResponse();
+  const awardCreatedAtMs = Date.parse(award.createdAt);
+  if (!Number.isFinite(awardCreatedAtMs)) return rpcErrorResponse();
+  const originalExpiresAtDate = new Date(
+    awardCreatedAtMs + QUIZ_VOUCHER_TTL_MS
+  );
+  if (!Number.isFinite(originalExpiresAtDate.getTime())) {
+    return rpcErrorResponse();
+  }
+  const originalExpiresAt = originalExpiresAtDate.toISOString();
 
   try {
     return NextResponse.json(

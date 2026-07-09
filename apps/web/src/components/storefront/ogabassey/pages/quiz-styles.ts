@@ -5,4 +5,4 @@ export const quizPrimaryButton =
 export const quizSecondaryButton =
   'h-11 rounded-lg border border-store-primary px-5 text-sm font-semibold text-store-primary hover:bg-store-primary/10';
 export const quizPanel =
-  'rounded-lg border border-store-border bg-white p-5 shadow-sm';
+  'rounded-lg border border-store-border bg-store-background p-5 shadow-sm';

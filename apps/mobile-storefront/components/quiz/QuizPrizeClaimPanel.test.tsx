@@ -5,18 +5,23 @@ import { createQuizStyles, type QuizThemeColors } from './QuizScreen.styles';
 
 const mockClaimPrize = jest.fn();
 const mockRetry = jest.fn();
+const mockReviewCart = jest.fn();
 const mockHookState: {
   claimPrize: () => void;
   retry: () => void;
+  reviewCart: () => void;
   isPreparing: boolean;
   isReady: boolean;
   error: string | null;
+  blockedReason: string | null;
 } = {
   claimPrize: mockClaimPrize,
   retry: mockRetry,
+  reviewCart: mockReviewCart,
   isPreparing: false,
   isReady: true,
   error: null,
+  blockedReason: null,
 };
 
 jest.mock('./use-quiz-prize-claim', () => ({
@@ -40,8 +45,10 @@ const colors: QuizThemeColors = {
 const styles = createQuizStyles(colors);
 
 const prizeClaim: QuizPrizeClaim = {
-  awardId: 'award-1',
-  productId: 'prod-1',
+  awardId: '11111111-1111-4111-8111-111111111111',
+  productId: '22222222-2222-4222-8222-222222222222',
+  variantId: null,
+  condition: null,
   voucherToken: 'token-abc',
   cartPath: '/ogabassey/cart',
 };
@@ -50,9 +57,11 @@ describe('QuizPrizeClaimPanel', () => {
   beforeEach(() => {
     mockClaimPrize.mockClear();
     mockRetry.mockClear();
+    mockReviewCart.mockClear();
     mockHookState.isPreparing = false;
     mockHookState.isReady = true;
     mockHookState.error = null;
+    mockHookState.blockedReason = null;
   });
 
   it('claims the prize when the product is ready', () => {
@@ -86,5 +95,19 @@ describe('QuizPrizeClaimPanel', () => {
       screen.getByRole('button', { name: 'Try loading your prize again' })
     );
     expect(mockRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders a blocked cart alert with a review-cart action', () => {
+    mockHookState.blockedReason =
+      'Your cart has other items. Review it before claiming your prize.';
+
+    render(<QuizPrizeClaimPanel prizeClaim={prizeClaim} styles={styles} />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Your cart has other items. Review it before claiming your prize.'
+    );
+    expect(screen.getByText('Review cart')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Review your cart' }));
+    expect(mockReviewCart).toHaveBeenCalledTimes(1);
   });
 });

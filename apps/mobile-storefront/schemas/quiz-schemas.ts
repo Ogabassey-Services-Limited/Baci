@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 /** Supabase timestamptz values are ISO strings with a timezone offset. */
 const quizEventDateTimeSchema = z.iso.datetime({ offset: true }).nullable();
+const quizUuidSchema = z.uuid();
 
 export const quizOptionSchema = z.object({
   id: z.string().min(1),
@@ -60,17 +61,17 @@ export const quizPrizeConditionSchema = z.enum([
 /**
  * Winning submissions carry a signed prize voucher the mobile client redeems by
  * adding the prize product to the cart. Non-winning responses omit it, so the
- * whole object is optional and inner nullable fields use `.nullish()` to accept
- * either `null` (server default) or an absent key. Mirrors the authoritative web
+ * whole object is optional while nullable fields stay present as `null` when
+ * unset. Mirrors the authoritative web
  * shape in `apps/web/src/schemas/quiz.ts` (`quizResultResponseSchema.prizeClaim`).
  */
 export const quizPrizeClaimSchema = z.object({
-  awardId: z.string().min(1),
-  productId: z.string().min(1),
-  variantId: z.string().min(1).nullish(),
-  condition: quizPrizeConditionSchema.nullish(),
-  voucherToken: z.string().min(1),
-  cartPath: z.string().min(1),
+  awardId: quizUuidSchema,
+  productId: quizUuidSchema,
+  variantId: quizUuidSchema.nullable(),
+  condition: quizPrizeConditionSchema.nullable(),
+  voucherToken: z.string().trim().min(1).max(512),
+  cartPath: z.string().trim().min(1).max(1024),
 });
 
 export const quizResultSchema = z

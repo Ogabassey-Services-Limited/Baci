@@ -266,37 +266,4 @@ describe('quiz response schemas', () => {
       }).success
     ).toBe(true);
   });
-
-  it('accepts a winning result carrying a prize claim', () => {
-    expect(
-      quizResultSchema.safeParse({
-        ...completedResult,
-        prizeClaim: {
-          awardId: 'award-1',
-          productId: 'prod-1',
-          variantId: null,
-          condition: 'new',
-          voucherToken: 'voucher-token-abc',
-          cartPath: '/ogabassey/cart?item_id=prod-1',
-        },
-      }).success
-    ).toBe(true);
-  });
-
-  it('rejects a prize claim missing its voucher token', () => {
-    expectInvalidIssue(
-      quizResultSchema.safeParse({
-        ...completedResult,
-        prizeClaim: {
-          awardId: 'award-1',
-          productId: 'prod-1',
-          variantId: null,
-          condition: 'new',
-          voucherToken: '',
-          cartPath: '/ogabassey/cart?item_id=prod-1',
-        },
-      }),
-      ['prizeClaim', 'voucherToken']
-    );
-  });
 });

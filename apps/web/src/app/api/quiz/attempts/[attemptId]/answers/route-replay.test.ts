@@ -21,6 +21,7 @@ vi.mock('@/lib/logger', () => ({
 const ATTEMPT_ID = '22222222-2222-4222-8222-222222222222';
 const QUESTION_ID = '33333333-3333-4333-8333-333333333333';
 const AWARD_ID = '44444444-4444-4444-8444-444444444444';
+const AWARD_CREATED_AT = '2026-07-08T10:00:00.000Z';
 const PRODUCT_ID = '55555555-5555-4555-8555-555555555555';
 // A real auth UUID is required because a winning replay signs a voucher token,
 // whose payload schema validates `userId` as a UUID.
@@ -244,6 +245,7 @@ describe('submit quiz answer replay recovery', () => {
       },
       awardResult: {
         data: {
+          created_at: AWARD_CREATED_AT,
           id: AWARD_ID,
           product_id: PRODUCT_ID,
           variant_id: null,

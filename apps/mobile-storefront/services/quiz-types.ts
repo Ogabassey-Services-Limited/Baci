@@ -44,8 +44,8 @@ export type QuizPrizeCondition = 'new' | 'used' | 'open_box' | 'refurbished';
 export interface QuizPrizeClaim {
   awardId: string;
   productId: string;
-  variantId?: string | null;
-  condition?: QuizPrizeCondition | null;
+  variantId: string | null;
+  condition: QuizPrizeCondition | null;
   voucherToken: string;
   cartPath: string;
 }
