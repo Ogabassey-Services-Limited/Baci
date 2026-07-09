@@ -13,11 +13,13 @@ export async function loadTakenSlugs(
   merchantId: string,
   base: string
 ): Promise<Set<string>> {
+  // Slugs are always lowercase, so a case-sensitive prefix scan is correct and
+  // avoids the wider match `ilike` would perform.
   const { data, error } = await supabase
     .from(table)
     .select('slug')
     .eq('merchant_id', merchantId)
-    .ilike('slug', `${base}%`);
+    .like('slug', `${base}%`);
 
   if (error) {
     throw new Error(error.message ?? 'Failed to load existing slugs');
