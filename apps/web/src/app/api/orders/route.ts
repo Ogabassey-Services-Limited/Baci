@@ -1215,7 +1215,7 @@ export async function POST(request: NextRequest) {
         condition: item.condition,
         image_url: item.imageUrl ?? item.image_url ?? null,
         variant_id: item.variantId || item.variant_id,
-        variant_name: variantName,
+        variant_name: variantName ?? undefined,
         variant_attributes:
           item.variantAttributes || item.variant_attributes || {},
         quantity: item.quantity,

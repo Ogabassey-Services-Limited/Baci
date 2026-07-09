@@ -48,6 +48,32 @@ describe('order item display helpers', () => {
     ).toBe('Used / Blue, 512GB');
   });
 
+  it('dedupes condition labels embedded as standalone variant words', () => {
+    expect(
+      formatOrderItemOptionLabel({
+        condition: 'used',
+        variantName: '128GB WiFi Used',
+      })
+    ).toBe('Used / 128GB WiFi');
+
+    expect(
+      formatOrderItemDisplayName({
+        baseName: 'iPad Pro',
+        condition: 'used',
+        variantName: '128GB WiFi Used',
+      })
+    ).toBe('iPad Pro (Used / 128GB WiFi)');
+  });
+
+  it('does not strip condition text from unrelated variant words', () => {
+    expect(
+      formatOrderItemOptionLabel({
+        condition: 'new',
+        variantName: 'Renewed Blue',
+      })
+    ).toBe('New / Renewed Blue');
+  });
+
   it('preserves commas inside variant values', () => {
     expect(
       formatOrderItemOptionLabel({

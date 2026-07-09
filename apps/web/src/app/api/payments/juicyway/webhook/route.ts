@@ -1,3 +1,4 @@
+import { formatOrderItemDisplayName } from '@baci/shared/lib';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import {
@@ -478,13 +479,15 @@ export async function POST(request: NextRequest) {
               process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
             const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
 
-            const emailItems = (order.order_items || []).map(
-              (item: Record<string, unknown>) => ({
-                name: (item.name as string) || 'Product',
-                quantity: (item.quantity as number) || 1,
-                price: (item.price as number) || 0,
-              })
-            );
+            const emailItems = (order.order_items || []).map((item) => ({
+              name: formatOrderItemDisplayName({
+                baseName: item.name || 'Product',
+                condition: item.condition,
+                variantName: item.variant_name,
+              }),
+              quantity: item.quantity || 1,
+              price: item.price || 0,
+            }));
 
             const emailData = {
               orderNumber:

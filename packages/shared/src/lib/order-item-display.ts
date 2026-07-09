@@ -94,6 +94,49 @@ function stripConditionCommaSegments(value: string, conditionKey: string | null)
   return value.trim();
 }
 
+function stripConditionWordsFromVariantPart(
+  value: string,
+  conditionKey: string | null
+) {
+  const trimmedValue = value.trim();
+  if (!conditionKey) {
+    return trimmedValue;
+  }
+
+  const conditionWords = conditionKey.trim().split(/\s+/).filter(Boolean);
+  if (conditionWords.length === 0) {
+    return trimmedValue;
+  }
+
+  const sourceWords = trimmedValue.split(/\s+/).filter(Boolean);
+  if (sourceWords.length === 0) {
+    return '';
+  }
+
+  const strippedWords: string[] = [];
+  for (let index = 0; index < sourceWords.length; ) {
+    const windowWords = sourceWords.slice(
+      index,
+      index + conditionWords.length
+    );
+    const isConditionWindow =
+      windowWords.length === conditionWords.length &&
+      windowWords.every(
+        (word, wordIndex) =>
+          normalizeOptionToken(word) === conditionWords[wordIndex]
+      );
+
+    if (isConditionWindow) {
+      index += conditionWords.length;
+    } else {
+      strippedWords.push(sourceWords[index]);
+      index += 1;
+    }
+  }
+
+  return strippedWords.join(' ').trim();
+}
+
 function splitVariantName(
   variantName: string | null | undefined,
   conditionKey: string | null
@@ -104,7 +147,12 @@ function splitVariantName(
 
   return variantName
     .split('/')
-    .map((part) => stripConditionCommaSegments(part, conditionKey))
+    .map((part) =>
+      stripConditionWordsFromVariantPart(
+        stripConditionCommaSegments(part, conditionKey),
+        conditionKey
+      )
+    )
     .filter((part) => part.length > 0);
 }
 
