@@ -72,6 +72,20 @@ describe('order item display helpers', () => {
         variantName: 'Renewed Blue',
       })
     ).toBe('New / Renewed Blue');
+
+    expect(
+      formatOrderItemOptionLabel({
+        condition: 'new',
+        variantName: 'New York',
+      })
+    ).toBe('New / New York');
+
+    expect(
+      formatOrderItemOptionLabel({
+        condition: 'used',
+        variantName: 'Used Cars',
+      })
+    ).toBe('Used / Used Cars');
   });
 
   it('preserves commas inside variant values', () => {

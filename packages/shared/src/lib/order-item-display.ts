@@ -94,7 +94,7 @@ function stripConditionCommaSegments(value: string, conditionKey: string | null)
   return value.trim();
 }
 
-function stripConditionWordsFromVariantPart(
+function stripTrailingConditionWordsFromVariantPart(
   value: string,
   conditionKey: string | null
 ) {
@@ -113,28 +113,21 @@ function stripConditionWordsFromVariantPart(
     return '';
   }
 
-  const strippedWords: string[] = [];
-  for (let index = 0; index < sourceWords.length; ) {
-    const windowWords = sourceWords.slice(
-      index,
-      index + conditionWords.length
+  const trailingWords = sourceWords.slice(-conditionWords.length);
+  const hasTrailingCondition =
+    trailingWords.length === conditionWords.length &&
+    trailingWords.every(
+      (word, wordIndex) =>
+        normalizeOptionToken(word) === conditionWords[wordIndex]
     );
-    const isConditionWindow =
-      windowWords.length === conditionWords.length &&
-      windowWords.every(
-        (word, wordIndex) =>
-          normalizeOptionToken(word) === conditionWords[wordIndex]
-      );
 
-    if (isConditionWindow) {
-      index += conditionWords.length;
-    } else {
-      strippedWords.push(sourceWords[index]);
-      index += 1;
-    }
-  }
-
-  return strippedWords.join(' ').trim();
+  return (
+    hasTrailingCondition
+      ? sourceWords.slice(0, -conditionWords.length)
+      : sourceWords
+  )
+    .join(' ')
+    .trim();
 }
 
 function splitVariantName(
@@ -148,7 +141,7 @@ function splitVariantName(
   return variantName
     .split('/')
     .map((part) =>
-      stripConditionWordsFromVariantPart(
+      stripTrailingConditionWordsFromVariantPart(
         stripConditionCommaSegments(part, conditionKey),
         conditionKey
       )

@@ -2712,7 +2712,7 @@ describe('POST /api/orders — B3.5 client/server total parity', () => {
     );
   });
 
-  it('forwards selected condition as the receipt variant label for normal orders', async () => {
+  it('does not persist condition fallback as a raw variant label for normal orders', async () => {
     const rpcSpy = vi.fn().mockResolvedValue({
       data: [
         {
@@ -2757,7 +2757,60 @@ describe('POST /api/orders — B3.5 client/server total parity', () => {
         p_items: [
           expect.objectContaining({
             condition: 'used',
-            variant_name: 'Used',
+            variant_name: undefined,
+          }),
+        ],
+      })
+    );
+  });
+
+  it('prefers explicit variant labels over derived variant attributes for normal orders', async () => {
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'order-id',
+          order_number: 'ORD-123',
+          total: 1000,
+          subtotal: 1000,
+          shipping_fee: 0,
+          customer_id: CUSTOMER_ID,
+        },
+      ],
+      error: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            variantName: 'Grade A / 512GB',
+            variantAttributes: { storage: '512GB' },
+          },
+        ],
+      }),
+    });
+    await POST(request);
+
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_items: [
+          expect.objectContaining({
+            variant_attributes: { storage: '512GB' },
+            variant_name: 'Grade A / 512GB',
           }),
         ],
       })
@@ -4530,7 +4583,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     );
   });
 
-  it('renders persisted item condition as the receipt variant label when variant_name is empty', async () => {
+  it('passes persisted item condition without fabricating a raw variant label when variant_name is empty', async () => {
     const supabase = buildMockSupabase();
     const { backgroundSupabase } = createBackgroundSupabaseMock({
       orderItems: [
@@ -4594,8 +4647,9 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       expect.objectContaining({
         items: [
           expect.objectContaining({
+            condition: 'used',
             product_name: 'Samsung Galaxy S22 Ultra',
-            variant_name: 'Used',
+            variant_name: undefined,
           }),
         ],
       }),

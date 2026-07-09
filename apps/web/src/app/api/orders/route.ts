@@ -260,17 +260,17 @@ function getOrderItemVariantLabel(
   },
   options: { includeConditionFallback?: boolean } = {}
 ): string | null {
+  const variantName = item.variantName || item.variant_name;
+  if (typeof variantName === 'string' && variantName.trim().length > 0) {
+    return variantName.trim();
+  }
+
   const label = formatVariantAttributesLabel(
     item.variantAttributes || item.variant_attributes
   );
 
   if (label) {
     return label;
-  }
-
-  const variantName = item.variantName || item.variant_name;
-  if (typeof variantName === 'string' && variantName.trim().length > 0) {
-    return variantName.trim();
   }
 
   return options.includeConditionFallback === false
@@ -1203,7 +1203,9 @@ export async function POST(request: NextRequest) {
     const orderItemsPayload = items.map((item, index) => {
       const hasAssurance = item.has_assurance || false;
       const itemPrice = item.negotiatedPrice ?? item.price;
-      const variantName = getOrderItemVariantLabel(item);
+      const variantName = getOrderItemVariantLabel(item, {
+        includeConditionFallback: false,
+      });
       // SECURITY: Recompute assurance_fee server-side — never trust client values (quantity-aware)
       const assuranceFee = hasAssurance
         ? roundCurrency(itemPrice * item.quantity * SERVER_ASSURANCE_RATE)
@@ -2408,7 +2410,9 @@ export async function POST(request: NextRequest) {
                   virtual_account: invoiceVirtualAccount,
                   fulfillment_details: fulfillment,
                   items: invoiceItems.map((item, index) => {
-                    const variantName = getOrderItemVariantLabel(item);
+                    const variantName = getOrderItemVariantLabel(item, {
+                      includeConditionFallback: false,
+                    });
 
                     return {
                       line_id: index + 1,
