@@ -26,6 +26,10 @@ function normalizePrice(value: unknown): number | null {
   if (typeof value !== 'string') {
     return null;
   }
+  // Reject negatives before PRICE_STRIP removes the sign (e.g. "-25,000").
+  if (value.trim().startsWith('-')) {
+    return null;
+  }
   const cleaned = value.replace(PRICE_STRIP, '');
   if (cleaned === '' || cleaned === '.') {
     return null;
@@ -68,9 +72,16 @@ export function parseRepairImportResponse(content: unknown): ParsedRepairRow[] {
     throw new Error('Empty repair import response');
   }
 
-  const parsed = rawResponseSchema.safeParse(
-    JSON.parse(stripJsonFence(content)) as unknown
-  );
+  let json: unknown;
+  try {
+    json = JSON.parse(stripJsonFence(content));
+  } catch {
+    // Normalize a raw SyntaxError so callers always see the same clean error
+    // for both syntactically invalid and schema-invalid JSON.
+    throw new Error('Invalid repair import JSON');
+  }
+
+  const parsed = rawResponseSchema.safeParse(json);
   if (!parsed.success) {
     throw new Error('Invalid repair import JSON');
   }

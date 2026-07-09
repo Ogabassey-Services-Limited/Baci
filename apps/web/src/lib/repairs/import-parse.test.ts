@@ -96,11 +96,47 @@ describe('parseRepairImportResponse', () => {
     expect(rows[0]?.model).toBe('Y');
   });
 
-  it('throws on non-JSON content', () => {
-    expect(() => parseRepairImportResponse('not json at all')).toThrow();
+  it('drops a negative price string instead of treating it as positive', () => {
+    const rows = parseRepairImportResponse(
+      JSON.stringify({
+        rows: [
+          {
+            brand: 'Apple',
+            model: 'X',
+            repair_type: 'Screen',
+            price: '-25000',
+          },
+          { brand: 'Apple', model: 'Y', repair_type: 'Screen', price: 9000 },
+        ],
+      })
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.model).toBe('Y');
+  });
+
+  it('drops a negative numeric price', () => {
+    const rows = parseRepairImportResponse(
+      JSON.stringify({
+        rows: [
+          { brand: 'Apple', model: 'X', repair_type: 'Screen', price: -9000 },
+        ],
+      })
+    );
+    expect(rows).toHaveLength(0);
+  });
+
+  it('normalizes malformed JSON to the clean import error', () => {
+    expect(() => parseRepairImportResponse('not json at all')).toThrow(
+      'Invalid repair import JSON'
+    );
+    expect(() =>
+      parseRepairImportResponse('```json\n{"rows": [ }\n```')
+    ).toThrow('Invalid repair import JSON');
   });
 
   it('throws on empty content', () => {
-    expect(() => parseRepairImportResponse('')).toThrow();
+    expect(() => parseRepairImportResponse('')).toThrow(
+      'Empty repair import response'
+    );
   });
 });
