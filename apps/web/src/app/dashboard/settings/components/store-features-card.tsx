@@ -11,11 +11,10 @@ import {
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { apiPatch } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
-import { createClient } from '@/lib/supabase/client';
 
 interface StoreFeaturesCardProps {
-  merchantId: string;
   initialBlogEnabled: boolean;
 }
 
@@ -24,28 +23,18 @@ type ToastFn = ReturnType<typeof useToast>['toast'];
 // Module-scope helper keeps the try/finally out of the component body
 // (React Compiler cannot lower try/finally inside components yet).
 async function persistBlogEnabled({
-  merchantId,
   enabled,
   toast,
   setBlogEnabled,
   setFeaturesLoading,
 }: {
-  merchantId: string;
   enabled: boolean;
   toast: ToastFn;
   setBlogEnabled: (enabled: boolean) => void;
   setFeaturesLoading: (loading: boolean) => void;
 }): Promise<void> {
   try {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('merchant_feature_settings')
-      .upsert(
-        { merchant_id: merchantId, blog_enabled: enabled },
-        { onConflict: 'merchant_id' }
-      );
-
-    if (error) throw error;
+    await apiPatch('/api/merchant/features', { blog_enabled: enabled });
 
     toast({
       title: enabled ? 'Blog Enabled' : 'Blog Disabled',
@@ -70,7 +59,6 @@ async function persistBlogEnabled({
 }
 
 export function StoreFeaturesCard({
-  merchantId,
   initialBlogEnabled,
 }: StoreFeaturesCardProps) {
   const { toast } = useToast();
@@ -78,13 +66,10 @@ export function StoreFeaturesCard({
   const [featuresLoading, setFeaturesLoading] = useState(false);
 
   const handleBlogToggle = (enabled: boolean) => {
-    if (!merchantId) return;
-
     setBlogEnabled(enabled);
     setFeaturesLoading(true);
 
     return persistBlogEnabled({
-      merchantId,
       enabled,
       toast,
       setBlogEnabled,

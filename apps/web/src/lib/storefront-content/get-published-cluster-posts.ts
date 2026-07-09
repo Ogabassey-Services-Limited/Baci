@@ -50,7 +50,12 @@ export async function getPublishedClusterPosts(
       merchantId,
       error,
     });
-    return [];
+    // Throw so Cache Components skips caching this failure — returning []
+    // would cache an EMPTY guide-post list for the full 'blog' window and
+    // strip guide links from compare/PDP/category pages after one transient
+    // DB error. Callers go through loadPublishedClusterPostsSafely, which
+    // degrades the single failing request to [] without poisoning the cache.
+    throw error;
   }
 
   return (data ?? []) as PublishedClusterPost[];

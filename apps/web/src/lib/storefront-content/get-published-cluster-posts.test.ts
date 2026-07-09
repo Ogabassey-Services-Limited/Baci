@@ -89,14 +89,18 @@ describe('getPublishedClusterPosts', () => {
     expect(mockGetPublicSupabaseClient).not.toHaveBeenCalled();
   });
 
-  it('returns an empty list when the query fails', async () => {
+  it('throws when the query fails so a stale-good cache entry is preserved', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     mockOrder.mockResolvedValueOnce({
       data: null,
       error: { message: 'boom' },
     });
 
-    const result = await getPublishedClusterPosts('merchant-1');
-
-    expect(result).toEqual([]);
+    await expect(getPublishedClusterPosts('merchant-1')).rejects.toMatchObject({
+      message: 'boom',
+    });
+    expect(consoleErrorSpy).toHaveBeenCalled();
   });
 });
