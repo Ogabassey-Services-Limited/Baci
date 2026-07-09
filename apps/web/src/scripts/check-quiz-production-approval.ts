@@ -16,11 +16,12 @@ const QUIZ_RPC_SECRET_HEALTH_PROOF_ID =
   '00000000-0000-0000-0000-000000000000';
 
 export type QuizProductionApprovalEvent = {
+  compliance_verified: boolean | null;
+  compliance_flags?: unknown;
   id: string;
   status: string | null;
   nlrc_permit_ref: string | null;
   published_odds: unknown;
-  compliance_flags?: unknown;
 };
 
 export type QuizComplianceTrackerRow = {
@@ -104,6 +105,10 @@ function pushEventErrors(
 
   if (!hasPublishedOdds(event.published_odds)) {
     errors.push(`Quiz event ${label} is missing published_odds`);
+  }
+
+  if (event.compliance_verified !== true) {
+    errors.push(`Quiz event ${label} is not compliance_verified`);
   }
 
   if (
@@ -234,12 +239,16 @@ function asRecordArray(value: unknown): Record<string, unknown>[] {
 
 function toEvent(row: Record<string, unknown>): QuizProductionApprovalEvent {
   return {
+    compliance_verified:
+      typeof row.compliance_verified === 'boolean'
+        ? row.compliance_verified
+        : null,
+    compliance_flags: row.compliance_flags,
     id: typeof row.id === 'string' ? row.id : '',
     status: typeof row.status === 'string' ? row.status : null,
     nlrc_permit_ref:
       typeof row.nlrc_permit_ref === 'string' ? row.nlrc_permit_ref : null,
     published_odds: row.published_odds,
-    compliance_flags: row.compliance_flags,
   };
 }
 
@@ -260,7 +269,8 @@ function toTrackerRow(row: Record<string, unknown>): QuizComplianceTrackerRow {
 async function loadProductionRows() {
   const { createServiceClient } = await import('@/lib/supabase/service');
   const supabase = createServiceClient();
-  const eventSelect = 'id,status,nlrc_permit_ref,published_odds,compliance_flags';
+  const eventSelect =
+    'id,status,nlrc_permit_ref,published_odds,compliance_verified,compliance_flags';
   const eventsResult = await supabase
     .from('quiz_events')
     .select(eventSelect)

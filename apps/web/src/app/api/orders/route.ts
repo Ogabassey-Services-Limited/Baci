@@ -1374,6 +1374,13 @@ export async function POST(request: NextRequest) {
     let quizVoucherRouteProof: ReturnType<
       typeof createQuizRpcServerProof
     > | null = null;
+    const quizVoucherAwardIdsForOrder = hasVoucherItem
+      ? [...new Set(verifiedQuizVoucherAwardIdsByIndex.values())]
+      : [];
+    const quizVoucherAwardIdForOrder =
+      quizVoucherAwardIdsForOrder.length === 1
+        ? (quizVoucherAwardIdsForOrder[0] ?? null)
+        : null;
     if (hasVoucherItem) {
       if (!resolvedUserId) {
         return NextResponse.json(
@@ -1385,13 +1392,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const voucherAwardIds = [
-        ...new Set(verifiedQuizVoucherAwardIdsByIndex.values()),
-      ];
-      if (voucherAwardIds.length > 1) {
+      if (quizVoucherAwardIdsForOrder.length > 1) {
         return tooManyQuizVouchersResponse();
       }
-      if (voucherAwardIds.length !== 1) {
+      if (quizVoucherAwardIdsForOrder.length !== 1) {
+        return invalidQuizVoucherTokenResponse();
+      }
+      if (!quizVoucherAwardIdForOrder) {
         return invalidQuizVoucherTokenResponse();
       }
 
@@ -1408,7 +1415,7 @@ export async function POST(request: NextRequest) {
           merchant_id,
           user_id: resolvedUserId,
         },
-        subjectId: voucherAwardIds[0],
+        subjectId: quizVoucherAwardIdForOrder,
         userId: resolvedUserId,
       });
     }
@@ -1705,17 +1712,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let effectivePaymentMethod = payment_method;
-    let effectivePaymentStatus = payment_status;
-    if (
+    const voucherOrderFullyCovered =
       hasVoucherItem &&
       voucherOrderAmountDueBeforeGateway !== null &&
-      voucherOrderAmountDueBeforeGateway <= 0
-    ) {
-      effectivePaymentStatus = 'paid';
-      if (payOnDelivery) {
-        effectivePaymentMethod = 'quiz_voucher';
-      }
+      voucherOrderAmountDueBeforeGateway <= 0;
+
+    let effectivePaymentMethod = payment_method;
+    let effectivePaymentStatus = payment_status;
+    if (voucherOrderFullyCovered) {
+      effectivePaymentMethod = 'quiz_voucher';
+      effectivePaymentStatus = 'unpaid';
     } else if (payOnDelivery) {
       effectivePaymentStatus = 'pending';
 
@@ -2348,6 +2354,50 @@ export async function POST(request: NextRequest) {
       orderTotal - savingsAmountUsed - walletAmountUsed;
     let walletFinalized = false;
     let storeCreditFinalized = false;
+    let quizVoucherFinalized = false;
+
+    if (
+      voucherOrderFullyCovered &&
+      quizVoucherAwardIdForOrder &&
+      amountDueToGateway <= 0 &&
+      order.payment_status !== 'paid'
+    ) {
+      const { error: quizVoucherFinalizeError } = await supabase.rpc(
+        'finalize_quiz_voucher_order_payment',
+        {
+          p_award_id: quizVoucherAwardIdForOrder,
+          p_order_id: order.id,
+        }
+      );
+
+      if (quizVoucherFinalizeError) {
+        const message =
+          typeof quizVoucherFinalizeError.message === 'string'
+            ? quizVoucherFinalizeError.message
+            : 'Quiz voucher payment finalization failed';
+        logger.error({
+          message: 'Failed to finalize quiz voucher payment',
+          error: quizVoucherFinalizeError,
+          orderId: order.id,
+          quizVoucherAwardId: quizVoucherAwardIdForOrder,
+        });
+        return NextResponse.json(
+          {
+            code: 'QUIZ_VOUCHER_FINALIZE_FAILED',
+            error: message,
+            orderId: order.id,
+          },
+          { status: 409 }
+        );
+      }
+
+      quizVoucherFinalized = true;
+      logger.info({
+        message: 'Order fully paid with quiz voucher',
+        orderId: order.id,
+        quizVoucherAwardId: quizVoucherAwardIdForOrder,
+      });
+    }
 
     // Persist the redemption onto the order row so payment webhooks can
     // validate residual gateway payouts against server-owned columns. Only
@@ -2445,9 +2495,16 @@ export async function POST(request: NextRequest) {
     //
     // after() runs after the response is sent — email/push never block the response.
     const isWalletFullyPaid = walletFinalized || storeCreditFinalized;
+    const isQuizVoucherFullyPaid =
+      voucherOrderFullyCovered &&
+      amountDueToGateway <= 0 &&
+      (quizVoucherFinalized || order.payment_status === 'paid');
     const shouldSendImmediateOrderNotifications =
       !idempotencyReplayed &&
-      (payOnDelivery || payment_method === 'invoice' || isWalletFullyPaid);
+      (payOnDelivery ||
+        payment_method === 'invoice' ||
+        isWalletFullyPaid ||
+        isQuizVoucherFullyPaid);
     if (shouldSendImmediateOrderNotifications) {
       if (merchant.business_name && merchant.slug) {
         const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
@@ -2936,7 +2993,14 @@ export async function POST(request: NextRequest) {
               : 'savings'
             : 'wallet',
         }
-      : { ...order, currency: orderCurrency };
+      : isQuizVoucherFullyPaid
+        ? {
+            ...order,
+            currency: orderCurrency,
+            payment_status: 'paid',
+            payment_method: 'quiz_voucher',
+          }
+        : { ...order, currency: orderCurrency };
 
     const responseBody = {
       order: responseOrder,

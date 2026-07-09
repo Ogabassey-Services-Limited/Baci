@@ -153,6 +153,7 @@ describe('evaluateQuizProductionApproval', () => {
       quizRpcServerSecretMatches: true,
       events: [
         {
+          compliance_verified: true,
           id: 'event-1',
           status: 'active',
           nlrc_permit_ref: '',
@@ -172,6 +173,31 @@ describe('evaluateQuizProductionApproval', () => {
     );
   });
 
+  it('fails production mode when active prize events are not compliance verified', () => {
+    const result = evaluateQuizProductionApproval({
+      quizPhase: 'production',
+      quizProductionApproved: true,
+      quizRpcServerSecretConfigured: true,
+      quizRpcServerSecretMatches: true,
+      events: [
+        {
+          compliance_verified: false,
+          id: 'event-1',
+          status: 'active',
+          nlrc_permit_ref: 'NLRC-123',
+          published_odds: { tiers: [{ rank: 1, odds: '1/1000' }] },
+          compliance_flags: {},
+        },
+      ],
+      trackerRows: [],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toEqual([
+      'Quiz event event-1 is not compliance_verified',
+    ]);
+  });
+
   it('ignores non-active events when checking production prize evidence', () => {
     const result = evaluateQuizProductionApproval({
       quizPhase: 'production',
@@ -180,6 +206,7 @@ describe('evaluateQuizProductionApproval', () => {
       quizRpcServerSecretMatches: true,
       events: [
         {
+          compliance_verified: false,
           id: 'event-draft',
           status: 'draft',
           nlrc_permit_ref: null,
@@ -233,6 +260,7 @@ describe('evaluateQuizProductionApproval', () => {
       quizRpcServerSecretMatches: true,
       events: [
         {
+          compliance_verified: true,
           id: 'event-2',
           status: 'active',
           nlrc_permit_ref: 'NLRC-123',
@@ -270,6 +298,7 @@ describe('evaluateQuizProductionApproval', () => {
       quizRpcServerSecretMatches: true,
       events: [
         {
+          compliance_verified: true,
           id: 'event-circular',
           status: 'active',
           nlrc_permit_ref: 'NLRC-123',
@@ -313,6 +342,7 @@ describe('evaluateQuizProductionApproval', () => {
       quizRpcServerSecretMatches: true,
       events: [
         {
+          compliance_verified: true,
           id: 'event-3',
           status: 'active',
           nlrc_permit_ref: 'NLRC-123',

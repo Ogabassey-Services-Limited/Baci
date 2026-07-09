@@ -141,7 +141,36 @@ describe('useQuizPrizeClaim', () => {
     const { items } = useCartStore.getState();
     expect(items).toHaveLength(1);
     expect(items[0].product_id).toBe('paid-1');
-    expect(result.current.blockedReason).toMatch(/other items/i);
+    expect(result.current.blockedReason).toMatch(/already has items/i);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('refuses to add a second voucher prize before checkout', () => {
+    act(() => {
+      useCartStore.getState().addItem({
+        product_id: 'old-prize',
+        slug: 'old-prize',
+        name: 'Old Prize',
+        price: 0,
+        quantity: 1,
+        voucher_award_id: 'old-award',
+        voucher_token: 'old-token',
+      });
+    });
+
+    const { result } = renderHook(() => useQuizPrizeClaim(prizeClaim));
+
+    act(() => {
+      result.current.claimPrize();
+    });
+
+    const { items } = useCartStore.getState();
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      product_id: 'old-prize',
+      voucher_award_id: 'old-award',
+    });
+    expect(result.current.blockedReason).toMatch(/already has items/i);
     expect(mockPush).not.toHaveBeenCalled();
   });
 
@@ -163,7 +192,7 @@ describe('useQuizPrizeClaim', () => {
     act(() => {
       result.current.claimPrize();
     });
-    expect(result.current.blockedReason).toMatch(/other items/i);
+    expect(result.current.blockedReason).toMatch(/already has items/i);
 
     // Shopper clears the paid items; the block clears reactively.
     act(() => {
@@ -198,7 +227,10 @@ describe('useQuizPrizeClaim', () => {
 
     const { items } = useCartStore.getState();
     expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ product_id: 'prod-1', voucher_award_id: 'award-1' });
+    expect(items[0]).toMatchObject({
+      product_id: 'prod-1',
+      voucher_award_id: 'award-1',
+    });
     expect(result.current.blockedReason).toBeNull();
   });
 });

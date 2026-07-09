@@ -1,13 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useProduct } from '@/hooks/use-product';
-import { isQuizVoucherLine } from '@/lib/cart/quiz-voucher-line';
 import type { QuizPrizeClaim } from '@/services/quiz';
 import { useCartStore } from '@/stores/cart-store';
 import { formatProductConditionDisplay } from '@/types/product';
 
 const MIXED_CART_MESSAGE =
-  'Your cart has other items. Check out or empty your cart first, then claim your prize so nothing is lost.';
+  'Your cart already has items. Check out or empty your cart first, then claim your prize so nothing is lost.';
 
 interface UseQuizPrizeClaimResult {
   /** Add the won prize to the cart (as a voucher line) and open the cart. */
@@ -22,8 +21,8 @@ interface UseQuizPrizeClaimResult {
   isReady: boolean;
   /** Product-fetch error message, if any. */
   error: string | null;
-  /** Set when the cart holds non-prize items that a prize-only checkout would
-   *  drop; the claim is refused until the shopper clears them. */
+  /** Set when any cart item would block a prize-only checkout; the claim is
+   *  refused until the shopper clears them. */
   blockedReason: string | null;
 }
 
@@ -42,30 +41,24 @@ export function useQuizPrizeClaim(
   const { product, isLoading, error, refetch } = useProduct(
     prizeClaim.productId
   );
-  // Live cart state so the block below auto-clears the moment the cart stops
-  // holding paid items (e.g. after the shopper reviews the cart and removes or
-  // checks them out) — a now-eligible prize claim is never stranded behind the
+  // Live cart state so the block below auto-clears the moment the cart is empty
+  // (e.g. after the shopper reviews the cart and removes or checks out the
+  // existing items) — a now-eligible prize claim is never stranded behind the
   // "Review cart" state.
-  const cartHasPaidItems = useCartStore((state) =>
-    state.items.some((item) => !isQuizVoucherLine(item))
-  );
+  const cartHasItems = useCartStore((state) => state.items.length > 0);
   const [claimAttemptedWhileMixed, setClaimAttemptedWhileMixed] =
     useState(false);
   const blockedReason =
-    claimAttemptedWhileMixed && cartHasPaidItems ? MIXED_CART_MESSAGE : null;
+    claimAttemptedWhileMixed && cartHasItems ? MIXED_CART_MESSAGE : null;
 
   const claimPrize = () => {
     if (!product) return;
 
-    // A prize is redeemed as its OWN order. For a serialized prize the server
-    // returns the pre-reserved prize order and never creates lines for the
-    // other submitted items, yet mobile checkout clears the whole cart on
-    // success — so any paid items sitting alongside the prize would be lost.
-    // Refuse to mix: the shopper must clear/checkout their cart first.
-    const hasOtherItems = useCartStore
-      .getState()
-      .items.some((item) => !isQuizVoucherLine(item));
-    if (hasOtherItems) {
+    // A prize is redeemed as its OWN order. The orders API accepts exactly one
+    // voucher line, and serialized prizes may return a pre-reserved order. Keep
+    // the claim path one prize at a time so checkout never receives a cart it
+    // must reject or partially ignore.
+    if (useCartStore.getState().items.length > 0) {
       setClaimAttemptedWhileMixed(true);
       return;
     }

@@ -192,6 +192,7 @@ interface RpcOverrides {
   redeem_savings_for_order?: { data: unknown; error: unknown };
   finalize_wallet_order_payment?: { data: unknown; error: unknown };
   finalize_store_credit_order_payment?: { data: unknown; error: unknown };
+  finalize_quiz_voucher_order_payment?: { data: unknown; error: unknown };
   get_checkout_shipping_quote?: { data: unknown; error: unknown };
 }
 
@@ -335,6 +336,7 @@ function buildMockSupabase(
       create_storefront_order_with_savings: { data: null, error: null },
       finalize_wallet_order_payment: { data: null, error: null },
       finalize_store_credit_order_payment: { data: null, error: null },
+      finalize_quiz_voucher_order_payment: { data: true, error: null },
       // B3.5 round 7 (CodeRabbit High): the helper's variant lookup
       // now routes through this SECURITY DEFINER RPC.
       get_order_variant_overrides: { data: [], error: null },
@@ -1036,11 +1038,25 @@ describe('POST /api/orders — quiz voucher guard', () => {
           subject_id: awardId,
           user_id: AUTH_USER_ID,
         }),
-        p_payment_method: 'paystack',
-        p_payment_status: 'paid',
+        p_payment_method: 'quiz_voucher',
+        p_payment_status: 'unpaid',
         p_user_id: AUTH_USER_ID,
       })
     );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'finalize_quiz_voucher_order_payment',
+      {
+        p_award_id: awardId,
+        p_order_id: 'order-id',
+      }
+    );
+    await expect(response.json()).resolves.toMatchObject({
+      order: {
+        payment_method: 'quiz_voucher',
+        payment_status: 'paid',
+      },
+      amountDueToGateway: 0,
+    });
     expect(supabase.rpc).not.toHaveBeenCalledWith(
       'create_storefront_order',
       expect.any(Object)
@@ -1104,8 +1120,15 @@ describe('POST /api/orders — quiz voucher guard', () => {
       'create_storefront_order_with_quiz_voucher',
       expect.objectContaining({
         p_payment_method: 'quiz_voucher',
-        p_payment_status: 'paid',
+        p_payment_status: 'unpaid',
       })
+    );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'finalize_quiz_voucher_order_payment',
+      {
+        p_award_id: awardId,
+        p_order_id: 'order-id',
+      }
     );
   });
 
