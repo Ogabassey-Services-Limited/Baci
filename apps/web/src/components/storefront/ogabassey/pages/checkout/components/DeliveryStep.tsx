@@ -7,10 +7,7 @@ import { DeliveryAddressSection } from './DeliveryAddressSection';
 import { DeliveryMethodDetails } from './DeliveryMethodDetails';
 import { DeliveryMethodSelector } from './DeliveryMethodSelector';
 import type { DeliveryMethod, SavedAddress, ShippingQuote } from '../types';
-import {
-  createSelectDeliveryMethod,
-  getStationPickupQuote,
-} from '../utils';
+import { createSelectDeliveryMethod } from '../utils';
 
 type StepName = 'contact' | 'delivery' | 'payment';
 
@@ -109,7 +106,6 @@ export function DeliveryStep({
       ((newAddressState && newAddressCity) ||
         (!isNewAddressMode && selectedAddressId)),
   );
-  const stationPickupQuote = getStationPickupQuote(shippingQuotes);
   const selectDeliveryMethod = createSelectDeliveryMethod({
     selectedQuoteId,
     setDeliveryMethod,
@@ -136,7 +132,6 @@ export function DeliveryStep({
     deliveryMethod,
     newAddressState,
     setDeliveryMethod,
-    stationPickupQuote,
   ]);
 
   return (
@@ -217,7 +212,6 @@ export function DeliveryStep({
               selectedAddressId={selectedAddressId}
               deliveryMethod={deliveryMethod}
               setDeliveryMethod={selectDeliveryMethod}
-              stationPickupQuote={stationPickupQuote}
             />
 
             {canChooseDeliveryMethod && (

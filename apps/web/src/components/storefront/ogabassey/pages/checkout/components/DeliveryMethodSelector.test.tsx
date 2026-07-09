@@ -80,22 +80,7 @@ describe('DeliveryMethodSelector', () => {
 
   it('keeps Lagos merchant pickup instead of showing paid GIGL pickup', () => {
     render(
-      <DeliveryMethodSelector
-        {...defaultProps}
-        stationPickupQuote={{
-          id: 'station-quote',
-          provider: 'GIGL',
-          serviceTier: 'station',
-          carrierName: 'GIG Logistics',
-          displayName: 'Pickup Stations (GIGL)',
-          price: 4200,
-          estimatedDays: 3,
-          currency: 'NGN',
-          pickupIncluded: true,
-          insuranceIncluded: true,
-          isStationPickup: true,
-        }}
-      />,
+      <DeliveryMethodSelector {...defaultProps} />,
     );
 
     expect(screen.getAllByRole('radio', { name: /store pickup/i })).toHaveLength(

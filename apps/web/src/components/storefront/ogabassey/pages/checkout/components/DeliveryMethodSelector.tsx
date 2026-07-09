@@ -2,7 +2,7 @@
 
 import { Building2, Plane, Truck } from 'lucide-react';
 import { isAirportDeliveryEligible, isPickupEligible } from '@baci/shared';
-import type { DeliveryMethod, ShippingQuote } from '../types';
+import type { DeliveryMethod } from '../types';
 
 interface DeliveryMethodSelectorProps {
   isHydrated: boolean;
@@ -12,7 +12,6 @@ interface DeliveryMethodSelectorProps {
   selectedAddressId: number;
   deliveryMethod: DeliveryMethod;
   setDeliveryMethod: (value: DeliveryMethod) => void;
-  stationPickupQuote?: ShippingQuote;
 }
 
 function getDeliveryMethodCopy(method: DeliveryMethod) {
