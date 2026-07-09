@@ -6,6 +6,9 @@ import {
 } from '@/lib/cached-data';
 
 const mockUnstableRethrow = vi.hoisted(() => vi.fn());
+const mockWaitForMerchantLookupRetryBackoff = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve())
+);
 
 import {
   buildCachedDataTestHarness,
@@ -24,6 +27,10 @@ vi.mock('@/env', () => ({
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
 vi.mock('next/navigation', () => ({
   unstable_rethrow: (error: unknown) => mockUnstableRethrow(error),
+}));
+vi.mock('@/lib/merchant-lookup-backoff', () => ({
+  waitForMerchantLookupRetryBackoff: () =>
+    mockWaitForMerchantLookupRetryBackoff(),
 }));
 vi.mock('react', () => ({ cache: vi.fn((fn) => fn) }));
 vi.mock('@supabase/supabase-js', async () => {
@@ -55,6 +62,7 @@ let harness: CachedDataTestHarness;
 beforeEach(() => {
   mockUnstableRethrow.mockReset();
   mockUnstableRethrow.mockImplementation(() => undefined);
+  mockWaitForMerchantLookupRetryBackoff.mockClear();
   harness = buildCachedDataTestHarness();
 });
 
@@ -312,6 +320,107 @@ describe('cached-data merchant safety helpers', () => {
       );
     });
 
+    it('treats production digest-masked Server Components render errors as transient and falls back to a direct lookup', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      // In production, errors thrown inside a 'use cache' function cross the
+      // React Flight boundary, which replaces the real message with this
+      // generic digest-masked string — every diagnostic substring is gone.
+      const digestMaskedError = new Error(
+        'An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details. A digest property is included on this error instance which may provide additional details about the nature of the error.'
+      );
+      harness.mockMaybeSingle
+        .mockRejectedValueOnce(digestMaskedError)
+        .mockRejectedValueOnce(digestMaskedError)
+        .mockResolvedValueOnce({ data: mockMerchant, error: null });
+      harness.mockSingle.mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST116' },
+      });
+
+      await expect(getMerchantSafe('test-store')).resolves.toEqual(
+        withDefaultFeatureSettings(mockMerchant)
+      );
+
+      const merchantTableLookups = harness.mockFrom.mock.calls.filter(
+        ([table]) => table === 'merchants'
+      );
+      expect(merchantTableLookups).toHaveLength(3);
+      expect(consoleWarnSpy).toHaveBeenLastCalledWith(
+        'Merchant fetch failed after retry; direct fallback succeeded:',
+        'test-store',
+        expect.objectContaining({
+          firstError: expect.objectContaining({ transient: true }),
+          retryError: expect.objectContaining({ transient: true }),
+        })
+      );
+    });
+
+    it('returns null and logs when the digest-masked failure persists through the direct fallback', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      const digestMaskedError = new Error(
+        'An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details. A digest property is included on this error instance which may provide additional details about the nature of the error.'
+      );
+      harness.mockMaybeSingle
+        .mockRejectedValueOnce(digestMaskedError)
+        .mockRejectedValueOnce(digestMaskedError)
+        .mockRejectedValueOnce(new Error('direct lookup failed'));
+
+      await expect(getMerchantSafe('test-store')).resolves.toBeNull();
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Direct merchant lookup failed after retry:',
+        'test-store',
+        expect.objectContaining({
+          firstError: expect.objectContaining({ transient: true }),
+          retryError: expect.objectContaining({ transient: true }),
+        })
+      );
+    });
+
+    it('does not treat the digest-masked error as router control flow', async () => {
+      const digestMaskedError = new Error(
+        'An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details. A digest property is included on this error instance which may provide additional details about the nature of the error.'
+      );
+      harness.mockMaybeSingle
+        .mockRejectedValueOnce(digestMaskedError)
+        .mockRejectedValueOnce(digestMaskedError)
+        .mockResolvedValueOnce({ data: null, error: null });
+
+      await expect(getMerchantSafe('test-store')).resolves.toBeNull();
+
+      // unstable_rethrow saw the error and let it fall through to
+      // classification instead of rethrowing it as navigation control flow.
+      expect(mockUnstableRethrow).toHaveBeenCalledWith(digestMaskedError);
+    });
+
+    it('waits for the jittered backoff between the first attempt and the retry', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      const timeoutError = new Error(
+        'TimeoutError: The operation was aborted due to timeout'
+      );
+      harness.mockMaybeSingle
+        .mockRejectedValueOnce(timeoutError)
+        .mockRejectedValueOnce(timeoutError)
+        .mockResolvedValueOnce({ data: mockMerchant, error: null });
+      harness.mockSingle.mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST116' },
+      });
+
+      await expect(getMerchantSafe('test-store')).resolves.toEqual(
+        withDefaultFeatureSettings(mockMerchant)
+      );
+
+      expect(mockWaitForMerchantLookupRetryBackoff).toHaveBeenCalledTimes(1);
+      consoleWarnSpy.mockRestore();
+    });
+
     it('keeps transient direct fallback on the public client when RLS hides unpublished merchants', async () => {
       const consoleWarnSpy = vi
         .spyOn(console, 'warn')
@@ -554,6 +663,7 @@ describe('cached-data merchant safety helpers', () => {
       expect(mockUnstableRethrow).toHaveBeenCalledWith(firstError);
       expect(mockUnstableRethrow).toHaveBeenCalledWith(retryError);
       expect(harness.mockMaybeSingle).toHaveBeenCalledTimes(2);
+      expect(mockWaitForMerchantLookupRetryBackoff).toHaveBeenCalledTimes(1);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         'Strict merchant lookup failed after retry:',
         'test-store'

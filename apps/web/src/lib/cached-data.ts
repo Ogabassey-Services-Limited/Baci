@@ -14,8 +14,8 @@ import {
 } from '@/env';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
-
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
+import { waitForMerchantLookupRetryBackoff } from '@/lib/merchant-lookup-backoff';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
@@ -36,6 +36,7 @@ import { generateSlug } from '@/lib/seo-utils';
 import { normalizeOgabasseyBusinessType } from '@/lib/storefront/ogabassey-entity';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import { canonicalizeStorefrontMediaUrl } from '@/lib/storefront-media-cdn-url';
+import { createTimeoutComposedFetch } from '@/lib/supabase/compose-fetch-signal';
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
@@ -187,12 +188,25 @@ function combineUniqueRelatedBlogPosts<T extends RelatedBlogPostIdentity>(
   return uniquePosts;
 }
 
+/** Default transport bound for cached-data Supabase clients. */
+const CACHED_CLIENT_DEFAULT_TIMEOUT_MS = 10_000;
+/**
+ * Merchant shell lookups run on EVERY storefront request (layout + page) and
+ * the queries execute in ~20ms server-side — the observed failures are
+ * client-transport tail events (cold TLS, event-loop contention). A tight
+ * bound lets retry + direct fallback complete in a few seconds instead of
+ * stacking multiple 10s aborts on the hot path.
+ */
+const MERCHANT_LOOKUP_TIMEOUT_MS = 3_000;
+/** The uncached direct-fallback path gets a little more headroom. */
+const MERCHANT_DIRECT_LOOKUP_TIMEOUT_MS = 5_000;
+
 /**
  * Create a Supabase client for cached queries.
  * This client doesn't use cookies, so it's suitable for caching.
  * Only use for public/read-only data that doesn't require authentication.
  */
-export function getPublicSupabaseClient() {
+export function getPublicSupabaseClient(options?: { timeoutMs?: number }) {
   const url = getSupabaseUrl();
   const key = getSupabaseAnonKey();
 
@@ -209,12 +223,9 @@ export function getPublicSupabaseClient() {
       headers: {
         'X-Client-Info': 'baci-web-cached',
       },
-      fetch: (url, options = {}) => {
-        return fetch(url, {
-          ...options,
-          signal: AbortSignal.timeout(10000), // 10 second timeout
-        });
-      },
+      fetch: createTimeoutComposedFetch(
+        options?.timeoutMs ?? CACHED_CLIENT_DEFAULT_TIMEOUT_MS
+      ),
     },
   });
 }
@@ -223,7 +234,7 @@ export function getPublicSupabaseClient() {
  * Create a Supabase client with Service Role for privileged cached queries.
  * Bypasses RLS to ensure we can fetch unpublished merchants for "Coming Soon" pages.
  */
-function getServiceRoleSupabaseClient() {
+function getServiceRoleSupabaseClient(options?: { timeoutMs?: number }) {
   const url = getSupabaseUrl();
   const key = getSupabaseServiceRoleKey();
 
@@ -240,12 +251,9 @@ function getServiceRoleSupabaseClient() {
       headers: {
         'X-Client-Info': 'baci-web-cached-service',
       },
-      fetch: (url, options = {}) => {
-        return fetch(url, {
-          ...options,
-          signal: AbortSignal.timeout(10000), // 10 second timeout
-        });
-      },
+      fetch: createTimeoutComposedFetch(
+        options?.timeoutMs ?? CACHED_CLIENT_DEFAULT_TIMEOUT_MS
+      ),
     },
   });
 }
@@ -870,7 +878,9 @@ export async function getCachedMerchant(
   cacheLife('merchant');
   cacheTag('merchants', `merchant-${slug}`);
 
-  const supabase = getServiceRoleSupabaseClient();
+  const supabase = getServiceRoleSupabaseClient({
+    timeoutMs: MERCHANT_LOOKUP_TIMEOUT_MS,
+  });
 
   const { data, error } = await supabase
     .from('merchants')
@@ -960,7 +970,9 @@ export async function getCachedMerchantByDomain(
 
   const normalizedDomain = domain.toLowerCase();
   // Use Service Role to allow lookup of unpublished merchants (for "Coming Soon" page).
-  const supabase = getServiceRoleSupabaseClient();
+  const supabase = getServiceRoleSupabaseClient({
+    timeoutMs: MERCHANT_LOOKUP_TIMEOUT_MS,
+  });
 
   const { data: resolvedData, error: resolveError } = await supabase.rpc(
     'resolve_storefront_cached_merchant',
@@ -1049,6 +1061,14 @@ function isTransientMerchantLookupError(error: unknown): boolean {
   return (
     combined.includes('remotecachehandler') ||
     combined.includes('invalid response from cache') ||
+    // Production digest-masking: errors thrown inside a 'use cache' function
+    // cross the React Flight boundary, which replaces the message (and every
+    // diagnostic substring above/below) with this generic string. The real
+    // failures behind it on this path are overwhelmingly transport-tail
+    // events, and misclassifying them as non-transient made the retry +
+    // direct-fallback path dead code in prod — serving 404s on live
+    // storefronts during Supabase blips.
+    combined.includes('an error occurred in the server components render') ||
     combined.includes('timeouterror') ||
     combined.includes('request timeout') ||
     combined.includes('aborted due to timeout') ||
@@ -1090,7 +1110,9 @@ function summarizeMerchantLookupError(error: unknown) {
 async function getDirectFeatureSettings(
   merchantId: string
 ): Promise<MerchantFeatureSettings | null> {
-  const supabase = getPublicSupabaseClient();
+  const supabase = getPublicSupabaseClient({
+    timeoutMs: MERCHANT_DIRECT_LOOKUP_TIMEOUT_MS,
+  });
   const { data, error } = await supabase
     .from('merchant_feature_settings')
     .select(MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT)
@@ -1123,7 +1145,9 @@ async function attachDirectFeatureSettings<T extends { id: string }>(
 async function getDirectMerchantBySlug(
   slug: string
 ): Promise<CachedMerchant | null> {
-  const supabase = getPublicSupabaseClient();
+  const supabase = getPublicSupabaseClient({
+    timeoutMs: MERCHANT_DIRECT_LOOKUP_TIMEOUT_MS,
+  });
   const { data, error } = await supabase
     .from('merchants')
     .select(MERCHANT_PUBLIC_SELECT)
@@ -1161,7 +1185,9 @@ async function getDirectMerchantByDomain(
   domain: string
 ): Promise<CachedMerchant | null> {
   const normalizedDomain = domain.toLowerCase();
-  const supabase = getPublicSupabaseClient();
+  const supabase = getPublicSupabaseClient({
+    timeoutMs: MERCHANT_DIRECT_LOOKUP_TIMEOUT_MS,
+  });
   const { data: domainData, error: domainError } = await supabase
     .from('domains')
     .select('merchant_id, domain')
@@ -1240,7 +1266,10 @@ export async function getMerchantSafe(
     return await getMerchantByIdentifier(identifier);
   } catch (firstError) {
     unstable_rethrow(firstError);
-    // Retry once on transient failure (e.g., Supabase timeout during cache revalidation)
+    // Retry once on transient failure (e.g., Supabase timeout during cache
+    // revalidation). The short jittered pause matters: an immediate retry
+    // tends to hit the same event-loop/connection stall and fail identically.
+    await waitForMerchantLookupRetryBackoff();
     try {
       return await getMerchantByIdentifier(identifier);
     } catch (retryError) {
@@ -1303,6 +1332,7 @@ export async function getMerchantStrict(
     return await getMerchantByIdentifier(identifier);
   } catch (firstError) {
     unstable_rethrow(firstError);
+    await waitForMerchantLookupRetryBackoff();
     try {
       return await getMerchantByIdentifier(identifier);
     } catch (retryError) {
@@ -2950,7 +2980,13 @@ function getServiceSupabaseClient() {
   const url = getSupabaseUrl();
   const key = getSupabaseServiceRoleKey(); // Throws if on client or missing
 
-  return createSupabaseClient(url, key);
+  return createSupabaseClient(url, key, {
+    global: {
+      // This client previously had NO transport bound at all — and it sits
+      // inside the hot merchant shell path via getCachedFeatureSettings.
+      fetch: createTimeoutComposedFetch(CACHED_CLIENT_DEFAULT_TIMEOUT_MS),
+    },
+  });
 }
 
 /**
