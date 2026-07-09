@@ -88,10 +88,15 @@ function buildMerchantRow() {
 function setupBlogListingFetch({
   categories = [],
   count,
+  featureSettingsResults = [
+    { data: { blog_enabled: true }, error: null },
+    { data: { blog_enabled: true }, error: null },
+  ],
   posts = [],
 }: {
   categories?: Array<{ category: string | null }>;
   count?: number | null;
+  featureSettingsResults?: Array<{ data: unknown; error: unknown }>;
   posts?: Array<{
     featured?: boolean | null;
     id: string;
@@ -106,9 +111,12 @@ function setupBlogListingFetch({
   const primaryDomainBuilder = createQueryBuilder({
     singleResult: { data: null, error: null },
   });
-  const featureSettingsBuilder = createQueryBuilder({
-    singleResult: { data: { blog_enabled: true }, error: null },
-  });
+  const featureSettingsBuilders = featureSettingsResults.map((result) =>
+    createQueryBuilder({
+      singleResult: result,
+    })
+  );
+  const featureSettingsSelects: string[] = [];
   const postsBuilder = createQueryBuilder({
     queryResult: { data: posts, count: count ?? posts.length, error: null },
   });
@@ -126,7 +134,16 @@ function setupBlogListingFetch({
     }
 
     if (table === 'merchant_feature_settings') {
-      return { select: vi.fn(() => featureSettingsBuilder) };
+      return {
+        select: vi.fn((columns: string) => {
+          featureSettingsSelects.push(columns);
+          const builder = featureSettingsBuilders.shift();
+          if (!builder) {
+            throw new Error('Unexpected extra merchant_feature_settings query');
+          }
+          return builder;
+        }),
+      };
     }
 
     throw new Error(`Unexpected service table: ${table}`);
@@ -164,7 +181,12 @@ function setupBlogListingFetch({
     }
   );
 
-  return { blogSelects, categoriesBuilder, postsBuilder };
+  return {
+    blogSelects,
+    categoriesBuilder,
+    featureSettingsSelects,
+    postsBuilder,
+  };
 }
 
 describe('getCachedBlogListing', () => {
@@ -225,6 +247,32 @@ describe('getCachedBlogListing', () => {
       expect.stringContaining('featured_image_url'),
       { count: 'estimated' }
     );
+  });
+
+  it('falls back to the legacy feature settings projection while the repairs flag migration is pending', async () => {
+    const { featureSettingsSelects } = setupBlogListingFetch({
+      featureSettingsResults: [
+        {
+          data: null,
+          error: {
+            code: '42703',
+            message:
+              'column merchant_feature_settings.repairs_catalog_enabled does not exist',
+          },
+        },
+        { data: { blog_enabled: true }, error: null },
+        { data: { blog_enabled: true }, error: null },
+      ],
+      posts: [{ id: 'post-1', slug: 'best-phones', title: 'Best Phones' }],
+    });
+
+    const result = await getCachedBlogListing('ogabassey');
+
+    expect(result).not.toBeNull();
+    expect(result?.posts.map((post) => post.id)).toEqual(['post-1']);
+    expect(featureSettingsSelects).toHaveLength(3);
+    expect(featureSettingsSelects[0]).toContain('repairs_catalog_enabled');
+    expect(featureSettingsSelects[1]).not.toContain('repairs_catalog_enabled');
   });
 
   it('uses estimated counts for author pagination to avoid full COUNT scans', async () => {
