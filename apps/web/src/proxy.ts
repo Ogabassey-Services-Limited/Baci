@@ -20,6 +20,7 @@ import {
   STOREFRONT_PUBLIC_CACHE_POLICIES,
   type StorefrontPublicCachePolicy,
 } from '@/config/storefront-cache';
+import { buildStorefrontDocumentCacheHeaders } from '@/config/storefront-cdn-cache-control';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import {
   getStorefrontMetadataCacheBucket,
@@ -317,25 +318,38 @@ function isAuthenticatedInternalRequest(request: NextRequest): boolean {
   }
   return hasValidInternalAuth(request, secret);
 }
-// PDP documents are now safe to CDN-cache (see PR #2436 Next resume patch), so
-// the prerendered PPR shell can be served from the edge for the LCP win.
-// Freshness stays SHORT (5m) but stale-while-revalidate is extended to 24h: the
-// long SWR window keeps the edge MISS rate and user-facing TTFB low (the edge
-// keeps serving a cached copy while it revalidates in the background), while the
-// short s-maxage bounds how long a mutated/removed PDP can be served before the
-// edge revalidates. Only blog URLs are ACTIVELY purged from Cloudflare
+// Cacheable public storefront documents (home, PDP, category, blog, static
+// content) emit the LAYERED Ops-2 header set from
+// config/storefront-cdn-cache-control.ts: a bfcache-safe browser Cache-Control,
+// a short-fresh/long-SWR `Vercel-CDN-Cache-Control` for Vercel's CDN, and a
+// 3600s `CDN-Cache-Control` forwarded to Cloudflare. The CF value matches the
+// zone cache rule's existing Edge TTL (Ops-1), so freshness on custom domains
+// is unchanged until the dashboard rule is flipped to "respect origin" — after
+// which this header becomes the single source of truth. Purge caveat still
+// applies: only blog URLs are ACTIVELY purged from Cloudflare
 // (lib/storefront-purge-urls.ts via revalidateBlogPosts); product/category/home
-// mutations have NO active purge path (revalidateProducts only does Next
-// revalidateTag, which does not evict Cloudflare/edge document caches), so the
-// fresh window MUST stay short until a product purge is wired — otherwise a
-// deleted/unpublished product would be served as a live 200 for the whole window.
-// NOTE ON LAYERING: Cloudflare (the outer edge on custom domains) does NOT honor
-// `stale-while-revalidate`, and its edge TTL is governed by the zone's cache rule
-// (override_origin, 300s), NOT by this header. The `s-maxage`+SWR combo here
-// targets VERCEL's CDN layer, which DOES honor both — so the 24h SWR is not dead
-// config; it drives Vercel's edge, while Cloudflare freshness is the zone rule.
-const STOREFRONT_DOCUMENT_CACHE_CONTROL =
-  's-maxage=300, stale-while-revalidate=86400';
+// mutations rely on the bounded fresh window — do NOT raise these TTLs past
+// what the purge design covers (see the config module's correctness rules).
+function applyStorefrontDocumentCacheHeaders(
+  response: NextResponse,
+  kind: 'cacheable' | 'non-cacheable'
+): void {
+  const cacheHeaders = buildStorefrontDocumentCacheHeaders(kind);
+  response.headers.set('Cache-Control', cacheHeaders.cacheControl);
+  if (cacheHeaders.vercelCdnCacheControl) {
+    response.headers.set(
+      'Vercel-CDN-Cache-Control',
+      cacheHeaders.vercelCdnCacheControl
+    );
+  } else {
+    response.headers.delete('Vercel-CDN-Cache-Control');
+  }
+  if (cacheHeaders.cdnCacheControl) {
+    response.headers.set('CDN-Cache-Control', cacheHeaders.cdnCacheControl);
+  } else {
+    response.headers.delete('CDN-Cache-Control');
+  }
+}
 const STOREFRONT_METADATA_CACHE_NON_HTML_EXTENSIONS_REGEX =
   /\.(?:json|jsonl|md|txt|webmanifest|xml)$/i;
 const STOREFRONT_METADATA_CACHE_NON_HTML_SEGMENTS = new Set(['_next', 'api']);
@@ -4409,11 +4423,9 @@ function applySecurityHeaders(
         routeType,
         hasQuery
       );
-    response.headers.set(
-      'Cache-Control',
-      hasAuthSessionHint || !cacheable
-        ? NON_CACHEABLE_STOREFRONT_HTML_CACHE_CONTROL
-        : STOREFRONT_DOCUMENT_CACHE_CONTROL
+    applyStorefrontDocumentCacheHeaders(
+      response,
+      hasAuthSessionHint || !cacheable ? 'non-cacheable' : 'cacheable'
     );
     if (hasAuthSessionHint) {
       appendVaryHeader(response, 'Cookie');
