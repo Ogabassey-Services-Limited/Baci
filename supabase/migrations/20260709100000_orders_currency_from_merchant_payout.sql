@@ -1,19 +1,68 @@
 -- Derive order currency from the merchant payout currency (multi-country rollout).
 --
--- Before this change every storefront and quiz-prize order silently inherited the
--- 'NGN' column default because neither writer supplied a currency. This redefines
--- the two order-writing routines so each order records the merchant payout currency
--- (falling back to 'NGN' when unset). The redefinitions are transcribed from the
--- live production definitions; the only behavioural delta is the currency plumbing
--- described inline below. The Naira-only chat-order converter is intentionally left
--- untouched (it keeps its explicit currency guard).
+-- Re-based 2026-07-09 on the create_storefront_order definition shipped by
+-- 20260708213000 (variant-name fix), which post-dates the original version of
+-- this change and would otherwise have overwritten the currency plumbing when
+-- replayed after it. The storefront-order body below is byte-identical to the
+-- 20260708213000 definition plus ONLY the currency delta: declare v_currency,
+-- read the payout currency in the existing merchant VAT lookup, and include
+-- currency in the orders INSERT. The quiz-prize routine is transcribed from
+-- the live production definition (verified unchanged) plus the same delta.
+-- The Naira-only chat-order converter keeps its explicit currency guard and
+-- is intentionally untouched.
 
-CREATE OR REPLACE FUNCTION private.create_storefront_order(p_merchant_id uuid, p_customer_email text, p_customer_name text, p_items jsonb, p_customer_phone text DEFAULT NULL::text, p_shipping_fee numeric DEFAULT 0, p_discount_amount numeric DEFAULT 0, p_tax_amount numeric DEFAULT 0, p_payment_method text DEFAULT 'card'::text, p_payment_status text DEFAULT 'unpaid'::text, p_shipping_status text DEFAULT 'pending'::text, p_shipping_address jsonb DEFAULT NULL::jsonb, p_source text DEFAULT 'online_store'::text, p_notes text DEFAULT NULL::text, p_ad_tracking jsonb DEFAULT NULL::jsonb, p_selected_quote_id uuid DEFAULT NULL::uuid, p_shipping_provider text DEFAULT NULL::text, p_tracking_number text DEFAULT NULL::text, p_user_id uuid DEFAULT NULL::uuid, p_tax_basis text DEFAULT 'exclusive'::text, p_gift_wrapping_fee numeric DEFAULT 0, p_expected_total numeric DEFAULT NULL::numeric, p_checkout_idempotency_key text DEFAULT NULL::text, p_checkout_request_hash text DEFAULT NULL::text)
- RETURNS TABLE(id uuid, order_number text, tracking_token text, subtotal numeric, shipping_fee numeric, discount_amount numeric, tax_amount numeric, total numeric, customer_id uuid, customer_email text, customer_name text, customer_phone text, payment_status text, shipping_status text, payment_method text, shipping_address jsonb, merchant_id uuid, tax_basis text, gift_wrapping_fee numeric, idempotency_replayed boolean)
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
+CREATE OR REPLACE FUNCTION private.create_storefront_order(
+  p_merchant_id UUID,
+  p_customer_email TEXT,
+  p_customer_name TEXT,
+  p_items JSONB,
+  p_customer_phone TEXT DEFAULT NULL,
+  p_shipping_fee NUMERIC DEFAULT 0,
+  p_discount_amount NUMERIC DEFAULT 0,
+  p_tax_amount NUMERIC DEFAULT 0,
+  p_payment_method TEXT DEFAULT 'card',
+  p_payment_status TEXT DEFAULT 'unpaid',
+  p_shipping_status TEXT DEFAULT 'pending',
+  p_shipping_address JSONB DEFAULT NULL,
+  p_source TEXT DEFAULT 'online_store',
+  p_notes TEXT DEFAULT NULL,
+  p_ad_tracking JSONB DEFAULT NULL,
+  p_selected_quote_id UUID DEFAULT NULL,
+  p_shipping_provider TEXT DEFAULT NULL,
+  p_tracking_number TEXT DEFAULT NULL,
+  p_user_id UUID DEFAULT NULL,
+  p_tax_basis TEXT DEFAULT 'exclusive',
+  p_gift_wrapping_fee NUMERIC DEFAULT 0,
+  p_expected_total NUMERIC DEFAULT NULL,
+  p_checkout_idempotency_key TEXT DEFAULT NULL,
+  p_checkout_request_hash TEXT DEFAULT NULL
+)
+RETURNS TABLE (
+  id UUID,
+  order_number TEXT,
+  tracking_token TEXT,
+  subtotal NUMERIC,
+  shipping_fee NUMERIC,
+  discount_amount NUMERIC,
+  tax_amount NUMERIC,
+  total NUMERIC,
+  customer_id UUID,
+  customer_email TEXT,
+  customer_name TEXT,
+  customer_phone TEXT,
+  payment_status TEXT,
+  shipping_status TEXT,
+  payment_method TEXT,
+  shipping_address JSONB,
+  merchant_id UUID,
+  tax_basis TEXT,
+  gift_wrapping_fee NUMERIC,
+  idempotency_replayed BOOLEAN
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
 DECLARE
   v_order_id UUID;
   v_order_number TEXT;
@@ -272,6 +321,7 @@ BEGIN
     r.variant_attributes,
     COALESCE(
       public.format_order_item_variant_name(v.attributes),
+      NULLIF(trim(r.variant_name), ''),
       public.format_order_item_variant_name(r.variant_attributes)
     ),
     r.quantity,
@@ -293,6 +343,7 @@ BEGIN
       NULLIF(trim(COALESCE(item->>'image_url', item->>'imageUrl')), '') AS image_url,
       NULLIF(item->>'variant_id','')::uuid AS variant_id,
       COALESCE(item->'variant_attributes', item->'variantAttributes') AS variant_attributes,
+      NULLIF(trim(COALESCE(item->>'variant_name', item->>'variantName')), '') AS variant_name,
       (item->>'quantity')::int AS quantity,
       COALESCE((item->>'has_assurance')::boolean, false) AS has_assurance,
       GREATEST(COALESCE((item->>'assurance_fee')::numeric, 0), 0) AS assurance_fee
@@ -784,7 +835,7 @@ BEGIN
     v_gift_wrapping_fee,
     v_idempotency_replayed;
 END;
-$function$;
+$$;
 
 CREATE OR REPLACE FUNCTION private.create_quiz_product_prize_award_with_inventory(p_attempt_id uuid, p_event_id uuid, p_customer_id uuid, p_product_id uuid, p_variant_id uuid DEFAULT NULL::uuid, p_condition text DEFAULT NULL::text, p_route_proof jsonb DEFAULT '{}'::jsonb, p_user_id uuid DEFAULT NULL::uuid)
  RETURNS jsonb
