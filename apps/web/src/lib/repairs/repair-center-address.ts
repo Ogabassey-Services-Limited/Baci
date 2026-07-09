@@ -1,3 +1,4 @@
+import 'server-only';
 import { createClient } from '@/lib/supabase/admin';
 import { repairSettingsSchema } from '@/schemas/merchant-features';
 
@@ -42,10 +43,15 @@ export async function getRepairCenterAddress(
     .maybeSingle();
 
   if (error || !data) {
+    // Distinguish a genuine query failure (log for observability) from the
+    // expected "pickup not configured" case (no row) — both fall back to null.
+    if (error) {
+      console.error('getRepairCenterAddress: query failed', error);
+    }
     return null;
   }
 
-  const raw = (data as { repair_settings: unknown }).repair_settings;
+  const raw: unknown = data.repair_settings;
   if (!raw || typeof raw !== 'object') {
     return null;
   }

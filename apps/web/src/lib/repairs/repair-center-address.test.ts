@@ -53,6 +53,28 @@ describe('getRepairCenterAddress', () => {
     expect(await getRepairCenterAddress(merchantId)).toBeNull();
   });
 
+  it('returns null when repair_settings is a non-object value', async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: { repair_settings: 'not-an-object' },
+      error: null,
+    });
+    expect(await getRepairCenterAddress(merchantId)).toBeNull();
+  });
+
+  it('returns null when repair_settings fails schema validation', async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: {
+        repair_settings: {
+          pickup_address: 123,
+          city: {},
+          state: [],
+        },
+      },
+      error: null,
+    });
+    expect(await getRepairCenterAddress(merchantId)).toBeNull();
+  });
+
   it('returns null when the address is incomplete (no city/state)', async () => {
     mocks.maybeSingle.mockResolvedValueOnce({
       data: {
@@ -93,11 +115,23 @@ describe('getRepairCenterAddress', () => {
     });
   });
 
-  it('returns null when the query errors', async () => {
+  it('returns null and logs when the query errors', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
+      .mockImplementation(() => {});
     mocks.maybeSingle.mockResolvedValueOnce({
       data: null,
       error: { message: 'boom' },
     });
-    expect(await getRepairCenterAddress(merchantId)).toBeNull();
+    try {
+      expect(await getRepairCenterAddress(merchantId)).toBeNull();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'getRepairCenterAddress: query failed',
+        { message: 'boom' }
+      );
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 });
