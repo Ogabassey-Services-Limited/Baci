@@ -240,6 +240,48 @@ describe('bookRepairPickup', () => {
     }
   });
 
+  it('returns booking_failed (without booking) when the quote cannot be persisted', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
+      .mockImplementation(() => {});
+    const supabase = makeSupabase(
+      happyResponses({
+        'repair_pickup_quotes.insert': {
+          data: null,
+          error: { message: 'insert boom' },
+        },
+      })
+    );
+
+    try {
+      const result = await bookRepairPickup(supabase, merchantId, repairId);
+      expect(result).toMatchObject({ ok: false, reason: 'booking_failed' });
+      expect(mocks.bookShipment).not.toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
+  it('still returns ok when linking the shipment to the repair fails', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
+      .mockImplementation(() => {});
+    const supabase = makeSupabase(
+      happyResponses({
+        'repairs.update': { data: null, error: { message: 'link boom' } },
+      })
+    );
+
+    try {
+      const result = await bookRepairPickup(supabase, merchantId, repairId);
+      expect(result).toMatchObject({ ok: true, shipmentId: 'ship-1' });
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
   it('returns shipment_save_failed when the shipment row cannot be saved', async () => {
     const consoleSpy = vi
       .spyOn(console, 'error')

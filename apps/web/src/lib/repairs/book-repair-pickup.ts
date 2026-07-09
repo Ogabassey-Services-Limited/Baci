@@ -210,11 +210,17 @@ export async function bookRepairPickup(
     console.error('Repair pickup booked but link failed:', linkError);
   }
 
-  await supabase
+  const { error: quoteUsedError } = await supabase
     .from('repair_pickup_quotes')
     .update({ used: true })
     .eq('id', quoteRow.id)
     .eq('merchant_id', merchantId);
+
+  if (quoteUsedError) {
+    // Non-fatal: the shipment is already booked and linked; a stale `used`
+    // flag only affects bookkeeping, so log rather than fail the booking.
+    console.error('Failed to mark repair pickup quote used:', quoteUsedError);
+  }
 
   return {
     ok: true,
