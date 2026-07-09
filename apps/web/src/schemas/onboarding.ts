@@ -81,12 +81,20 @@ const step1BaseSchema = z.object({
       .string()
       .trim()
       .min(3, { message: 'Store link must be at least 3 characters.' })
+      // NOTE: the 63-char DNS-label cap is enforced ONLY for EXPLICIT slugs (see
+      // refineSlugLength). An auto-derived slug must NOT hard-fail here — the server
+      // caps + de-dupes it via generate_slug(), so rejecting it would block a valid
+      // signup for an untouched value the user never chose.
       .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/, {
         message:
           'Store link must contain only lowercase letters, numbers, and hyphens.',
       })
       .optional()
   ),
+  // true only when the user manually EDITED the Store Link (vs. the auto-derived
+  // value the UI prefills). Auto slugs are treated as a de-dupable preference
+  // (run through generate_slug); an explicit slug is honored verbatim (409 if taken).
+  slugIsCustom: z.boolean().optional(),
 });
 
 const step2BaseSchema = z.object({
@@ -133,6 +141,32 @@ const refineStep1Other = (
       message:
         "If you select 'Other', please specify your business type with at least 2 characters.",
       path: ['otherBusinessType'],
+    });
+  }
+};
+
+/**
+ * Hard-reject an EXPLICIT Store Link that exceeds the 63-char DNS label limit, so it
+ * fails validation BEFORE signup rather than orphaning an auth user on the DB
+ * trigger's 23505. "Explicit" mirrors the mobile route: slugIsCustom === true (new
+ * clients) OR omitted (legacy clients that had an editable Store Link). ONLY an
+ * explicit slugIsCustom === false (a new client's AUTO-derived preference) is exempt
+ * — the server caps + de-dupes that via generate_slug(), so rejecting it here would
+ * block a valid signup for a value the user never chose.
+ */
+const refineSlugLength = (
+  data: { slug?: string; slugIsCustom?: boolean },
+  ctx: z.RefinementCtx
+) => {
+  if (
+    data.slugIsCustom !== false &&
+    typeof data.slug === 'string' &&
+    data.slug.length > 63
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['slug'],
+      message: 'Store link must be at most 63 characters.',
     });
   }
 };
@@ -237,6 +271,7 @@ const createWebOnboardingSchema = (options?: {
     })
     .superRefine((data, ctx) => {
       refineStep1Other(data, ctx);
+      refineSlugLength(data, ctx);
       refineStep3Password(data, ctx, options);
     });
 
@@ -264,6 +299,13 @@ export const onboardingFormSchema = createWebOnboardingSchema({
  * Mobile Onboarding Schema: FLEXIBLE
  * Allows logoUrl to be optional for quick registration.
  */
+// NOTE: refineSlugLength is intentionally NOT applied here. This single endpoint
+// serves BOTH new-merchant signup AND authenticated profile completion, and legacy
+// clients omit slugIsCustom, so Zod can't tell an explicit choice from an untouched
+// auto slug without the auth context. Rejecting >63 here would block completion for
+// long auto-derived names. The mobile route enforces the 63-char cap ONLY on the
+// signup path (where an orphaned auth user is the risk); completion de-dupes via
+// generate_slug, which caps length itself.
 export const mobileOnboardingSchema = step1BaseSchema
   .merge(step2BaseSchema)
   .merge(step3BaseSchema)
@@ -276,7 +318,10 @@ export const mobileOnboardingSchema = step1BaseSchema
  * --- STEP-WISE SCHEMAS (For UI Form Progress) ---
  */
 
-export const step1Schema = step1BaseSchema.superRefine(refineStep1Other);
+export const step1Schema = step1BaseSchema.superRefine((data, ctx) => {
+  refineStep1Other(data, ctx);
+  refineSlugLength(data, ctx);
+});
 
 export const step2Schema = step2BaseSchema.extend({
   logoUrl: createRequiredLogoUrl(

@@ -156,6 +156,12 @@ vi.mock('@supabase/supabase-js', () => ({
   })),
 }));
 
+const mockGetCurrentSlugForAlias = vi.fn();
+vi.mock('@/lib/slug-alias-cache', () => ({
+  getCurrentSlugForAlias: (...args: unknown[]) =>
+    mockGetCurrentSlugForAlias(...args),
+}));
+
 vi.mock('feed', () => ({
   Feed: class MockFeed {
     constructor(options: unknown) {
@@ -197,6 +203,8 @@ describe('GET /api/blog/feed/[merchantSlug]', () => {
     mockFeedConstructor.mockClear();
     mockFrom.mockReset();
     tableQueues.clear();
+    // Default: the identifier is not a retired alias.
+    mockGetCurrentSlugForAlias.mockReset().mockResolvedValue(null);
     mockFrom.mockImplementation((table: string) => {
       const builder = tableQueues.get(table)?.shift();
       if (!builder) {
@@ -368,6 +376,31 @@ describe('GET /api/blog/feed/[merchantSlug]', () => {
     });
 
     expect(response.status).toBe(404);
+  });
+
+  it('resolves a RETIRED slug in the feed PATH via the alias table', async () => {
+    // /api/blog/feed/<oldSlug> after a rename: the slug lives in the path (the proxy
+    // can't rewrite it), so slug + custom-domain both miss, the alias resolves the
+    // current slug, and the retry lookup returns the merchant instead of 404ing.
+    enqueueTable('merchants', createMerchantQuery({ data: null, error: null })); // slug miss
+    enqueueTable('domains', createDomainQuery({ data: null, error: null })); // domain miss
+    mockGetCurrentSlugForAlias.mockResolvedValue('ogabassey'); // alias -> current
+    enqueueTable(
+      'merchants',
+      createMerchantQuery({ data: merchant, error: null })
+    ); // alias slug hit
+    enqueueTable(
+      'merchants',
+      createMerchantQuery({ data: merchant, error: null })
+    ); // cached by-id lookup
+    enqueueTable('blog_posts', createPostQuery({ data: [], error: null }));
+
+    const response = await GET(new NextRequest('https://usebaci.com/feed'), {
+      params: Promise.resolve({ merchantSlug: 'oldslug' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockGetCurrentSlugForAlias).toHaveBeenCalledWith('oldslug');
   });
 
   it('returns 500 when loading published feed posts fails', async () => {

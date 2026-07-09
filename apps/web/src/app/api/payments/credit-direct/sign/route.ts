@@ -9,6 +9,7 @@ import {
   isLiveMode,
   signTransaction,
 } from '@/lib/credit-direct';
+import { getCurrentSlugForAlias } from '@/lib/slug-alias-cache';
 import { createClient } from '@/lib/supabase/server';
 import { creditDirectSignSchema } from '@/schemas/credit-direct';
 
@@ -54,7 +55,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { customerEmail, totalAmount, merchantSlug, orderId } = parsed.data;
+    const {
+      customerEmail,
+      totalAmount,
+      merchantSlug: rawMerchantSlug,
+      orderId,
+    } = parsed.data;
+
+    // Resolve a retired slug to the current one: a checkout tab open on the store
+    // BEFORE a rename submits the old slug in the body (which the proxy can't
+    // rewrite), and the settings RPC filters `WHERE m.slug = p_merchant_slug`, so
+    // without this it would 404. getCurrentSlugForAlias returns null for a live
+    // slug, so a normal checkout is unaffected.
+    const currentSlug = await getCurrentSlugForAlias(
+      rawMerchantSlug.trim().toLowerCase()
+    );
+    const merchantSlug = currentSlug ?? rawMerchantSlug;
 
     // This is an unauthenticated endpoint for storefront checkout
     // It uses RLS-protected RPCs to fetch public merchant settings

@@ -8,8 +8,10 @@ import { env, getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { getCountryByCode } from '@/lib/countries';
 import { normalizeBusinessName } from '@/lib/normalize-business-name';
 import { checkPasswordBreach } from '@/lib/password-breach';
+import { resolveMerchantIdBySlugOrAlias } from '@/lib/resolve-merchant-by-slug';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { isReservedMerchantSlug } from '@/lib/validation';
 import { mobileOnboardingSchema } from '@/schemas/onboarding';
 import type { BrandColors } from '@/types';
 
@@ -82,11 +84,29 @@ export async function POST(req: NextRequest) {
       country,
       logoUrl,
       slug: providedSlug,
+      slugIsCustom,
       brandColors: brandColorsString,
       firstName,
       lastName,
       phone,
     } = validationResult.data;
+    const hasProvidedSlug =
+      typeof providedSlug === 'string' && providedSlug.trim().length > 0;
+    // NEW-MERCHANT (signup) path: a provided slug is EXPLICIT unless flagged
+    // auto-derived (slugIsCustom === false). Newer clients send false for the UI's
+    // prefilled value (a de-dupable PREFERENCE run through generate_slug) and true
+    // when edited. LEGACY clients (pre-flag) had an editable Store Link and send only
+    // `slug` with the flag OMITTED — so an omitted flag defaults to explicit here to
+    // avoid signing up an auth user and then silently provisioning `chosen-1` on a
+    // collision (which would strand that user on a URL they never chose).
+    const isExplicitSlug = slugIsCustom !== false && hasProvidedSlug;
+    // EXISTING-MERCHANT (profile completion) path: no signup happens, so there's no
+    // auth user to orphan. Preserve the ORIGINAL auto-de-dup behavior for LEGACY
+    // (omitted-flag) requests — those clients also auto-filled `slug` on completion —
+    // by honoring ONLY an explicit slugIsCustom === true verbatim. An omitted flag
+    // de-dupes via generate_slug as it did before slugIsCustom existed.
+    const isExplicitSlugForCompletion =
+      slugIsCustom === true && hasProvidedSlug;
     // Normalize once at entry so the name baked into page_configs matches what the
     // aa_normalize_merchant_business_name trigger stores in merchants.business_name.
     const businessName = normalizeBusinessName(rawBusinessName);
@@ -144,6 +164,72 @@ export async function POST(req: NextRequest) {
           'Password breach check failed, proceeding with signup:',
           breachCheckError
         );
+      }
+
+      // Preflight an EXPLICITLY-chosen Store Link BEFORE creating the auth user.
+      // A collision would otherwise orphan the just-created signup: the merchant
+      // 409 is returned after signUp, the client doesn't persist that session, and
+      // the retry then hits the generic "account exists" path. Auto-generated
+      // slugs skip this — generate_slug avoids collisions. (Rare TOCTOU races are
+      // still caught by the post-insert 409.)
+      if (isExplicitSlug && typeof providedSlug === 'string') {
+        const normalizedSlug = providedSlug.trim().toLowerCase();
+        // 63 = DNS label limit; a longer subdomain is unroutable and the DB trigger
+        // rejects it (23505). Reject an EXPLICIT over-length slug HERE, before signUp,
+        // so it fails validation instead of orphaning a just-created auth user. Only
+        // the signup path enforces this — completion de-dupes/caps via generate_slug,
+        // and the shared Zod schema can't tell signup from completion.
+        if (normalizedSlug.length > 63) {
+          return NextResponse.json(
+            {
+              error: 'That store URL is too long. Please choose a shorter one.',
+              code: 'slug_unavailable',
+            },
+            { status: 409 }
+          );
+        }
+        // Reserved storefront-route words (e.g. 'staff', 'wallet') AND infra
+        // subdomains (e.g. 'www', 'app', 'mail') can be inserted but never resolve —
+        // the proxy and merchant resolvers treat them as platform routes/hosts and
+        // serve "Store Not Found". The DB reserved guard (is_reserved_merchant_slug)
+        // also raises 23505 on insert; reject an EXPLICIT reserved choice here,
+        // BEFORE signUp, so it doesn't orphan a just-created auth user. Mirrors the
+        // full DB list, not just RESERVED_PATHS.
+        if (isReservedMerchantSlug(normalizedSlug)) {
+          return NextResponse.json(
+            {
+              error: 'That store URL is unavailable. Please choose another.',
+              code: 'slug_unavailable',
+            },
+            { status: 409 }
+          );
+        }
+        const preflight = await resolveMerchantIdBySlugOrAlias(
+          supabase,
+          normalizedSlug
+        );
+        // Fail CLOSED on a transient lookup error: proceeding would create the
+        // auth user, then a taken slug would 409 after signup — the exact orphan
+        // this preflight prevents.
+        if (preflight.error) {
+          console.error('Slug preflight lookup failed:', preflight.error);
+          return NextResponse.json(
+            {
+              error:
+                'Could not verify store URL availability. Please try again.',
+            },
+            { status: 503 }
+          );
+        }
+        if (preflight.merchantId) {
+          return NextResponse.json(
+            {
+              error: 'That store URL is unavailable. Please choose another.',
+              code: 'slug_unavailable',
+            },
+            { status: 409 }
+          );
+        }
       }
 
       const { data: signUpData, error: signUpError } =
@@ -259,9 +345,17 @@ export async function POST(req: NextRequest) {
     let merchantSlug: string;
 
     if (existingMerchant) {
+      // Established slug: never re-slug on profile completion (that's the rename
+      // flow's job). Otherwise fill the slug: an EXPLICIT choice (isExplicitSlugFor-
+      // Completion — only slugIsCustom === true, so legacy omitted-flag auto slugs
+      // keep the original de-dup behavior) is honored VERBATIM (a collision then
+      // 23505s -> 409 slug_unavailable below); an AUTO slug is run through the
+      // reserved/alias-aware generate_slug so it lands on a resolvable address.
       const resolvedSlug = hasEstablishedMerchantSlug(existingMerchant.slug)
         ? null
-        : await resolveMerchantSlug(scopedSupabase, slug, slug);
+        : isExplicitSlugForCompletion
+          ? slug
+          : await resolveMerchantSlug(scopedSupabase, slug, slug);
 
       const merchantUpdate = {
         email,
@@ -286,32 +380,85 @@ export async function POST(req: NextRequest) {
         .eq('id', existingMerchant.id)
         .select('id, slug')
         .single();
-      if (updateError) throw updateError;
+      if (updateError) {
+        // 23505 = slug already taken by a live merchant OR retired by another
+        // merchant (prevent_merchant_slug_alias_collision). Surface a clean 409
+        // instead of a generic 500.
+        if (updateError.code === '23505') {
+          return NextResponse.json(
+            {
+              error: 'That store URL is unavailable. Please choose another.',
+              // Distinct from the "account already exists" 409 so the mobile
+              // client shows a "choose another URL" action, not "go to login".
+              code: 'slug_unavailable',
+            },
+            { status: 409 }
+          );
+        }
+        throw updateError;
+      }
       merchantId = updatedMerchant.id;
       merchantSlug = updatedMerchant.slug;
     } else {
-      // Create new
-      const { data: newMerchant, error: createError } = await scopedSupabase
-        .from('merchants')
-        .insert({
-          user_id: user.id,
-          email,
-          business_name: businessName,
-          business_type: finalBusinessType,
-          country,
-          payout_currency: payoutCurrency,
-          logo_url: logoUrl,
-          favicon_png_192_url: logoUrl,
-          brand_colors: brandColors,
-          slug,
-          template_id: 'puck',
-          signup_source: signupSource,
-        })
-        .select('id, slug')
-        .single();
-      if (createError) throw createError;
-      merchantId = newMerchant.id;
-      merchantSlug = newMerchant.slug;
+      // Create new. When the slug was AUTO-derived (the user didn't edit the Store
+      // Link — the UI's prefilled value is sent as a preference), a 23505 (slug
+      // taken by a live merchant OR retired as another merchant's alias) must NOT
+      // dead-end at a 409 for a URL the user never chose: retry ONCE with an
+      // alias-aware generate_slug()-resolved slug. The first insert still uses the
+      // provided (displayed) slug, so what the user SAW is provisioned when free.
+      // An EXPLICITLY chosen slug (slugIsCustom) is respected exactly and 409s on
+      // collision — never silently provisioned as a different address.
+      const insertNewMerchant = (merchantSlugValue: string) =>
+        scopedSupabase
+          .from('merchants')
+          .insert({
+            user_id: user.id,
+            email,
+            business_name: businessName,
+            business_type: finalBusinessType,
+            country,
+            payout_currency: payoutCurrency,
+            logo_url: logoUrl,
+            favicon_png_192_url: logoUrl,
+            brand_colors: brandColors,
+            slug: merchantSlugValue,
+            template_id: 'puck',
+            signup_source: signupSource,
+          })
+          .select('id, slug')
+          .single();
+
+      const created = await (async () => {
+        const first = await insertNewMerchant(slug);
+        // Explicit user choice, or a non-collision error: don't retry.
+        if (first.error?.code !== '23505' || isExplicitSlug) {
+          return first;
+        }
+        const retrySlug = await resolveMerchantSlug(scopedSupabase, slug, slug);
+        // If generate_slug couldn't produce a different slug (RPC error fell back
+        // to the same value), don't re-insert the same colliding slug.
+        return retrySlug === slug ? first : insertNewMerchant(retrySlug);
+      })();
+
+      if (created.error) {
+        if (created.error.code === '23505') {
+          return NextResponse.json(
+            {
+              error: 'That store URL is unavailable. Please choose another.',
+              // Distinct from the "account already exists" 409 so the mobile
+              // client shows a "choose another URL" action, not "go to login".
+              code: 'slug_unavailable',
+            },
+            { status: 409 }
+          );
+        }
+        throw created.error;
+      }
+      if (!created.data) {
+        throw new Error('Merchant creation returned no row');
+      }
+      merchantId = created.data.id;
+      merchantSlug = created.data.slug;
     }
 
     // Create Domain

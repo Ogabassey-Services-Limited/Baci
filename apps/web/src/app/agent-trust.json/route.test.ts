@@ -18,6 +18,11 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetMerchantByIdentifier(...args),
 }));
 
+vi.mock('@/lib/get-merchant-by-identifier-or-alias', () => ({
+  getMerchantByIdentifierOrAlias: (...args: unknown[]) =>
+    mockGetMerchantByIdentifier(...args),
+}));
+
 vi.mock('@/app/api/feed/google-merchant/feed-data', () => ({
   getCachedGoogleMerchantFeedData: (...args: unknown[]) =>
     mockGetCachedGoogleMerchantFeedData(...args),

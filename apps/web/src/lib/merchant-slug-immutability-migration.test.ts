@@ -47,11 +47,22 @@ describe('merchant slug immutability migration', () => {
       )
       .at(-1);
 
-    expect(effectiveDefinition?.fileName).toBe(migrationFileName);
+    // The sanctioned rename flow (20260707074000) legitimately AMENDS the guard so
+    // a slug change is allowed ONLY inside a rename_merchant_slug() transaction
+    // (which sets the app.slug_rename_allowed GUC). It must remain fail-closed for
+    // every other UPDATE. Pinned to that file so any FUTURE re-definition forces a
+    // deliberate review that it does not silently reopen direct slug edits.
+    expect(effectiveDefinition?.fileName).toBe(
+      '20260707074000_merchant_slug_rename_flow.sql'
+    );
     expect(effectiveDefinition?.sql).toContain(
       'NEW.slug IS DISTINCT FROM OLD.slug'
     );
     expect(effectiveDefinition?.sql).toContain('merchant_slug_immutable');
+    // Fail-closed by default: the ONLY escape hatch is the sanctioned rename GUC.
+    expect(effectiveDefinition?.sql).toContain(
+      "current_setting('app.slug_rename_allowed', true)"
+    );
   });
 
   it('ships an executable SQL regression test for real database resets', () => {

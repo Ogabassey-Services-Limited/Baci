@@ -11,6 +11,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { ChangeStoreUrl } from '@/app/dashboard/settings/components/change-store-url';
 import { SettingsForm } from '@/app/dashboard/settings/components/settings-form';
 import { Button } from '@/components/ui/button';
 import {
@@ -68,6 +69,9 @@ export default async function SettingsPage() {
         initialMerchant={merchant as unknown as CachedMerchant}
         initialBlogEnabled={blogEnabled}
       />
+
+      {/* Store URL (storefront slug) rename */}
+      <ChangeStoreUrl />
 
       {/* Navigation Cards for Sub-Settings */}
       <div className="grid gap-6">

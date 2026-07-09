@@ -22,9 +22,11 @@ vi.mock('./supabase/admin', () => ({
   createAdminClient: () => ({ from: mockFrom }),
 }));
 
-const { getCustomDomainForSlug, getSlugForCustomDomain } = await import(
-  './domain-cache-simple'
-);
+const {
+  getCustomDomainForSlug,
+  getSlugForCustomDomain,
+  invalidateForwardDomainCacheForSlug,
+} = await import('./domain-cache-simple');
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -218,6 +220,32 @@ describe('getCustomDomainForSlug', () => {
       const second = await getCustomDomainForSlug('cached-merchant');
       expect(second).toBe('cached.com');
       expect(mockFrom).toHaveBeenCalledTimes(callCount);
+    });
+
+    it('re-queries the DB after invalidateForwardDomainCacheForSlug', async () => {
+      mockMaybeSingle.mockResolvedValue({
+        data: {
+          id: '123',
+          domains: [
+            {
+              domain: 'inv.com',
+              is_primary: true,
+              status: 'active',
+              domain_type: 'custom',
+            },
+          ],
+        },
+      });
+
+      await getCustomDomainForSlug('invalidate-me');
+      const callCount = mockFrom.mock.calls.length;
+
+      // On rename, the forward cache entry (a positive OR negative result) must be
+      // dropped so the next lookup re-reads the DB instead of serving stale.
+      invalidateForwardDomainCacheForSlug('invalidate-me');
+
+      await getCustomDomainForSlug('invalidate-me');
+      expect(mockFrom.mock.calls.length).toBeGreaterThan(callCount);
     });
 
     it('refreshes cache after TTL expires', async () => {

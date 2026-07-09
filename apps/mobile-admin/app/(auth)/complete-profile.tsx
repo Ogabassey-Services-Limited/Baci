@@ -166,7 +166,12 @@ export default function CompleteProfileScreen() {
         businessType: formData.businessType,
         country: formData.country,
         otherBusinessType: formData.otherBusinessType,
+        // Send the DISPLAYED Store Link (so the URL the user sees is provisioned
+        // when free) plus whether they edited it: an edited slug is honored
+        // verbatim (409 if taken); an untouched auto-slug is a preference the
+        // server de-dupes via generate_slug (never a surprising 409 or mismatch).
         slug: formData.slug || undefined,
+        slugIsCustom: isSlugEdited,
         logoUrl: formData.logoUrl || undefined,
         brandColors: JSON.stringify({
           primary: '#000000',

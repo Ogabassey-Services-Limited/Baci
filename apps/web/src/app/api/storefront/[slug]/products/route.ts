@@ -13,6 +13,7 @@ import {
   STOREFRONT_PRODUCTS_COMPACT_SELECT,
   STOREFRONT_PRODUCTS_SELECT,
 } from '@/lib/storefront-products-select';
+import { withMerchantSlugAliasFallback } from '@/lib/with-merchant-slug-alias-fallback';
 import { storefrontProductsQuerySchema } from '@/schemas/storefront-products-query';
 import { storefrontProductsRouteParamsSchema } from '@/schemas/storefront-products-route-params';
 
@@ -149,16 +150,18 @@ const getMerchantIdBySlug = unstable_cache(
   async (slug: string) => {
     const supabase = createStaticClient(getSupabaseUrl(), getSupabaseAnonKey());
 
-    const { data, error } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('slug', slug)
-      .single();
+    // Alias-aware: after a "Change store URL" rename, stale clients still call
+    // /api/storefront/{oldSlug}/products with the retired slug in the PATH — which
+    // the proxy can't rewrite the way it corrects a query param — so resolve it
+    // through merchant_slug_aliases instead of 404ing. A live slug always wins.
+    const { data, error } = await withMerchantSlugAliasFallback(slug, (s) =>
+      supabase.from('merchants').select('id').eq('slug', s).maybeSingle()
+    );
 
     if (error) {
       return null;
     }
-    return data?.id;
+    return data?.id ?? null;
   },
   ['merchant-slug-id-lookup'], // Changed key to force cache invalidation
   { revalidate: 60, tags: ['merchant-slug'] }

@@ -62,4 +62,39 @@ describe('resolveTrustedStorefrontRedirectUrl', () => {
       )
     ).toBeNull();
   });
+
+  it('re-points a retired-subdomain redirect to the canonical custom domain', () => {
+    // Customer tab still open on old.usebaci.com after the store renamed old -> ogabassey.
+    // The request presents the retired slug ('old'); the redirect must survive by
+    // moving onto the merchant's canonical origin, preserving path + query.
+    expect(
+      resolveTrustedStorefrontRedirectUrl(
+        'https://old.usebaci.com/account/callback?next=%2Forders',
+        merchant,
+        'old'
+      )
+    ).toBe('https://ogabassey.com/account/callback?next=%2Forders');
+  });
+
+  it('re-points a retired-subdomain redirect to the canonical subdomain when no custom domain', () => {
+    expect(
+      resolveTrustedStorefrontRedirectUrl(
+        'https://old.usebaci.com/account/callback',
+        { custom_domain: null, slug: 'ogabassey' },
+        'old'
+      )
+    ).toBe('https://ogabassey.usebaci.com/account/callback');
+  });
+
+  it('still rejects an unrelated origin even with a requested identifier', () => {
+    // The retired-alias rewrite only applies to the retired slug's OWN subdomain
+    // origin — an arbitrary origin is never trusted just because an identifier is present.
+    expect(
+      resolveTrustedStorefrontRedirectUrl(
+        'https://evil.example/account/callback',
+        merchant,
+        'old'
+      )
+    ).toBeNull();
+  });
 });

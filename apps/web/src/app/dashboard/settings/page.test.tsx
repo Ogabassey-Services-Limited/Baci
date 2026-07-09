@@ -26,6 +26,13 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
 
+vi.mock('@/hooks/use-merchant-client', () => ({
+  useMerchant: () => ({
+    merchant: { id: 'merchant-1', slug: 'ogabassey' },
+    reloadMerchant: vi.fn(),
+  }),
+}));
+
 vi.mock('@/app/dashboard/settings/components/settings-form', () => ({
   SettingsForm: () => <div data-testid="settings-form" />,
 }));

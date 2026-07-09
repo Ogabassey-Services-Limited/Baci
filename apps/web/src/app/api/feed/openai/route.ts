@@ -2,11 +2,11 @@ import { gzipSync } from 'node:zlib';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getRootDomain } from '@/env';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
-import { getMerchantByIdentifier } from '@/lib/cached-data';
 import {
   MerchantNotFoundError,
   resolveFeedMerchant,
 } from '@/lib/feed-identifier';
+import { getMerchantByIdentifierOrAlias } from '@/lib/get-merchant-by-identifier-or-alias';
 import { buildStoreUrl } from '@/lib/store-url';
 import {
   buildRequestBaseUrl,
@@ -71,15 +71,28 @@ async function resolveStorefrontScopedMerchant(
   // The candidate set is bounded to one or two identifiers, so sequential
   // lookup keeps the priority contract explicit without adding a bulk API.
   for (const routeIdentifier of parsedRouteIdentifiers) {
-    const storefrontMerchant = await getMerchantByIdentifier(routeIdentifier);
+    const storefrontMerchant =
+      await getMerchantByIdentifierOrAlias(routeIdentifier);
 
     if (!storefrontMerchant) {
       continue;
     }
 
+    // When the host matched via a RETIRED alias (the request is on old.usebaci.com
+    // after a rename), the request host is stale — embedding it in the feed would
+    // publish absolute product URLs on a retired host that consumers cache. Use the
+    // merchant's CANONICAL store URL in that case; a direct (live) host match keeps
+    // the request-scoped URL so multi-domain merchants aren't forced onto one host.
+    const identifier = routeIdentifier.toLowerCase();
+    const matchedLiveHost =
+      identifier === storefrontMerchant.slug.toLowerCase() ||
+      storefrontMerchant.custom_domain?.toLowerCase() === identifier;
+
     return {
       kind: 'success',
-      baseUrl: buildRequestBaseUrl(request),
+      baseUrl: matchedLiveHost
+        ? buildRequestBaseUrl(request)
+        : buildStoreUrl(storefrontMerchant),
       merchant: storefrontMerchant,
     };
   }

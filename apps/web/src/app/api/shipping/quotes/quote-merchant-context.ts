@@ -119,6 +119,28 @@ async function resolveStorefrontMerchantId(
 
     const merchant = data as { id?: string } | null;
     if (merchant?.id) return merchant.id;
+
+    // Retired-slug fallback: the store was renamed via the "Change store URL"
+    // flow, so `slug` is now a retired alias. A stale client still on the old
+    // `<slug>.usebaci.com` host (e.g. a POST /api/shipping/quotes mid-checkout)
+    // must still resolve to the CURRENT merchant. host still equals the presented
+    // slug, so isTrustedStorefrontHeader held above; and because a live merchant
+    // is looked up FIRST, a slug reclaimed by a new store wins over the alias.
+    const { data: aliasData, error: aliasError } = await supabase
+      .from('merchant_slug_aliases')
+      .select('merchant_id')
+      .eq('old_slug', slug)
+      .maybeSingle();
+    if (aliasError) {
+      console.error('Error resolving storefront merchant alias:', aliasError);
+      return {
+        error: 'Failed to resolve storefront merchant',
+        ok: false,
+        status: 500,
+      };
+    }
+    const aliasRow = aliasData as { merchant_id?: string } | null;
+    if (aliasRow?.merchant_id) return aliasRow.merchant_id;
   }
 
   const domain = normalizeHeader(request.headers.get('x-merchant-domain'));
