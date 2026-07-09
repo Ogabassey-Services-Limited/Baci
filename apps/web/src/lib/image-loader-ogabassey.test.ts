@@ -7,7 +7,7 @@ function ogabasseyTransform(
   assetPath: string,
   width: number,
   quality = 75,
-  format: 'jpeg' | 'png' = assetPath.includes('.png') ? 'png' : 'jpeg'
+  format: 'auto' | 'jpeg' | 'png' = 'auto'
 ): string {
   return `${OGABASSEY_CDN_ORIGIN}/image/width=${width},quality=${quality},format=${format}${assetPath}`;
 }

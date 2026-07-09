@@ -142,7 +142,7 @@ PR-IMG-2a, this branch, ships the correctness fix first:
 - home mobile and desktop hero pictures include AVIF `<source>` candidates and the home hero preload follows the AVIF tier when a full AVIF twin exists;
 - shared `CdnFormatImage` and `ogabassey-image-format-sources` helpers are introduced and tested, but broad product-card/PDP wiring is deferred.
 
-PR-IMG-2b restores AVIF on PDP main gallery images and product cards/rails after validating the client `getImageProps` path or refactoring the critical main image to a server component. Until then those surfaces are cache-safe explicit jpeg/png fallbacks rather than possibly broken `format=auto` responses.
+PR-IMG-2b restores AVIF on PDP gallery images and product cards/rails after validating the client `getImageProps` path. Until then, only the PR-IMG-2a migrated surfaces (home hero, blog inline images, and PDP main/LCP image paths) are cache-safe explicit-format fallbacks; product-card, rail, gallery-thumbnail, and remaining global-loader surfaces still use `format=auto` and must not be treated as safe until PR-IMG-2b lands.
 
 Post-merge requirement: purge poisoned browser-facing `format=auto` entries and re-warm the explicit-format URLs.
 
