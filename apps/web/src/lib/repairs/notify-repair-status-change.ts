@@ -21,6 +21,10 @@ export interface NotifyRepairStatusChangeParams {
   status: RepairStatus;
 }
 
+/** LIKE special characters that must be escaped so an email cannot act as a
+ * wildcard pattern (a `%`/`_` in the value would match the wrong customer). */
+const LIKE_PATTERN_ESCAPE_REGEX = /[%_\\]/g;
+
 /**
  * Best-effort resolution of a storefront customer's auth user id from their
  * booking email, so we can push to a logged-in customer. Repairs store only the
@@ -32,15 +36,22 @@ async function resolveCustomerUserId(
 ): Promise<string | null> {
   try {
     const admin = createClient();
-    const { data } = await admin
+    // Case-insensitive EXACT match: escape LIKE wildcards so a user-supplied
+    // email can never widen the match to another customer.
+    const emailPattern = email.replace(LIKE_PATTERN_ESCAPE_REGEX, '\\$&');
+    const { data, error } = await admin
       .from('customers')
       .select('user_id')
       .eq('merchant_id', merchantId)
-      .ilike('email', email)
+      .ilike('email', emailPattern)
       .not('user_id', 'is', null)
       .limit(1)
       .maybeSingle();
-    const userId = (data as { user_id?: unknown } | null)?.user_id;
+    if (error) {
+      console.error('Error resolving repair customer for push:', error);
+      return null;
+    }
+    const userId: unknown = data?.user_id;
     return typeof userId === 'string' ? userId : null;
   } catch (error) {
     console.error('Error resolving repair customer for push:', error);

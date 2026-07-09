@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   notifyCustomer: vi.fn(),
   sendEmail: vi.fn(),
   maybeSingle: vi.fn(),
+  ilike: vi.fn(),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -25,11 +26,14 @@ vi.mock('@/lib/supabase/admin', () => ({
     from: () => ({
       select: () => ({
         eq: () => ({
-          ilike: () => ({
-            not: () => ({
-              limit: () => ({ maybeSingle: mocks.maybeSingle }),
-            }),
-          }),
+          ilike: (column: string, pattern: string) => {
+            mocks.ilike(column, pattern);
+            return {
+              not: () => ({
+                limit: () => ({ maybeSingle: mocks.maybeSingle }),
+              }),
+            };
+          },
         }),
       }),
     }),
@@ -83,6 +87,39 @@ describe('notifyRepairStatusChange', () => {
 
     expect(mocks.notifyCustomer).not.toHaveBeenCalled();
     expect(mocks.sendEmail).toHaveBeenCalled();
+  });
+
+  it('escapes LIKE wildcards so an email cannot match another customer', async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+    await notifyRepairStatusChange({
+      ...params,
+      customerEmail: 'a%_\\b@example.com',
+    });
+
+    expect(mocks.ilike).toHaveBeenCalledWith(
+      'email',
+      'a\\%\\_\\\\b@example.com'
+    );
+  });
+
+  it('does not push (but still emails) when the customer lookup errors', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
+      .mockImplementation(() => {});
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'db down' },
+    });
+
+    try {
+      await notifyRepairStatusChange(params);
+      expect(mocks.notifyCustomer).not.toHaveBeenCalled();
+      expect(mocks.sendEmail).toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 
   it('never throws when the email send fails', async () => {
