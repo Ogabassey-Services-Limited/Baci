@@ -1530,6 +1530,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+    const orderTaxAmount = hasVoucherItem ? 0 : serverComputedTaxAmount;
 
     const merchantCanAutoNegotiate = hasPriceNegotiationEntitlement(
       merchant.plan_tier,
@@ -1694,7 +1695,7 @@ export async function POST(request: NextRequest) {
           giftWrappingFee: giftWrappingFeeValue,
           items: orderItemsPayload,
           shippingFee: shippingFeeValue,
-          taxAmount: serverComputedTaxAmount,
+          taxAmount: orderTaxAmount,
         })
       : null;
 
@@ -1885,7 +1886,7 @@ export async function POST(request: NextRequest) {
             gift_wrapping_fee: giftWrappingFeeValue,
             items: orderItemsPayload,
             shipping_fee: shippingFeeValue,
-            tax_amount: serverComputedTaxAmount,
+            tax_amount: orderTaxAmount,
           })
         )
       : null;
@@ -1925,7 +1926,7 @@ export async function POST(request: NextRequest) {
       p_discount_amount: discountCodeId
         ? discountCodeAmount
         : serverDerivedDiscountAmount,
-      p_tax_amount: serverComputedTaxAmount,
+      p_tax_amount: orderTaxAmount,
       p_payment_method: effectivePaymentMethod,
       p_payment_status: effectivePaymentStatus,
       p_shipping_status: shipping_status,

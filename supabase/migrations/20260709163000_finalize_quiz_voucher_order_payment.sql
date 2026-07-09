@@ -23,7 +23,11 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  SELECT o.id, o.customer_id, o.merchant_id
+  SELECT
+    o.id,
+    o.customer_id,
+    o.merchant_id,
+    o.total
   INTO v_order
   FROM public.orders o
   WHERE o.id = p_order_id
@@ -62,11 +66,26 @@ BEGIN
       USING ERRCODE = 'P0001';
   END IF;
 
+  IF EXISTS (
+    SELECT 1
+    FROM public.order_items oi
+    WHERE oi.order_id = p_order_id
+      AND oi.quiz_award_id IS DISTINCT FROM p_award_id
+  ) THEN
+    RAISE EXCEPTION 'quiz_voucher_order_contains_non_voucher_items'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF COALESCE(v_order.total, 0) <> 0 THEN
+    RAISE EXCEPTION 'quiz_voucher_order_total_must_be_zero'
+      USING ERRCODE = '22023';
+  END IF;
+
   UPDATE public.orders
   SET
     payment_status = 'paid',
     payment_method = 'quiz_voucher',
-    amount_paid = GREATEST(COALESCE(total, 0), 0),
+    amount_paid = 0,
     updated_at = now()
   WHERE id = p_order_id;
 
