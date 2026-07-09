@@ -8,6 +8,7 @@ import {
   type RepairStatus,
 } from '@/lib/repairs/repair-status';
 import type { RepairStatusResult } from '@/lib/repairs/status-lookup';
+import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 import { getRepairStatusIcon } from './repair-status-icon';
 
@@ -125,7 +126,7 @@ export function RepairStatusTimeline({
       {result.trackingNumber && trackHref ? (
         <Link
           className="mt-4 inline-flex items-center gap-1.5 font-medium text-sm text-store-primary underline"
-          href={trackHref}
+          href={asRoute(trackHref)}
         >
           Track courier pickup ({result.trackingNumber})
           <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
