@@ -12,7 +12,8 @@ describe('AdAttributionCapture (SSR markup)', () => {
     const markup = renderToStaticMarkup(<AdAttributionCapture />);
 
     expect(markup).toContain('<script>');
-    expect(markup).toContain('/api/attr?');
+    expect(markup).toContain('/api/attr');
+    expect(markup).toContain('method:"POST"');
   });
 
   it('emits the script verbatim (no HTML-escaping of the JS body)', () => {
@@ -71,15 +72,23 @@ describe('AdAttributionCapture (runtime behaviour)', () => {
     vi.unstubAllGlobals();
   });
 
-  it('fires a keepalive GET to /api/attr when a click ID is present', () => {
+  it('fires a keepalive POST to /api/attr when a click ID is present', () => {
     setSearch('?gclid=abc123');
 
     runScript();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('/api/attr?gclid=abc123');
-    expect(init).toMatchObject({ keepalive: true, credentials: 'same-origin' });
+    expect(url).toBe('/api/attr');
+    expect(init).toMatchObject({
+      method: 'POST',
+      keepalive: true,
+      credentials: 'same-origin',
+      body: 'gclid=abc123',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      },
+    });
   });
 
   it('forwards only the click-ID params, dropping utm/other query keys', () => {
@@ -88,7 +97,8 @@ describe('AdAttributionCapture (runtime behaviour)', () => {
     runScript();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr?gclid=abc123');
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr');
+    expect(fetchMock.mock.calls[0][1]?.body).toBe('gclid=abc123');
   });
 
   it('URL-encodes forwarded values', () => {
@@ -96,7 +106,8 @@ describe('AdAttributionCapture (runtime behaviour)', () => {
 
     runScript();
 
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr?gclid=a%20b');
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr');
+    expect(fetchMock.mock.calls[0][1]?.body).toBe('gclid=a%20b');
   });
 
   it('does not fire when no click IDs are present', () => {
@@ -131,7 +142,8 @@ describe('AdAttributionCapture (runtime behaviour)', () => {
     runScript();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr?gclid=fresh999');
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr');
+    expect(fetchMock.mock.calls[0][1]?.body).toBe('gclid=fresh999');
   });
 
   it('forwards a changed value AND a brand-new param together', () => {
@@ -146,7 +158,8 @@ describe('AdAttributionCapture (runtime behaviour)', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     // gclid changed (already→new) and fbclid is new — both refresh.
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr?fbclid=fresh&gclid=new');
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr');
+    expect(fetchMock.mock.calls[0][1]?.body).toBe('fbclid=fresh&gclid=new');
   });
 
   it('skips only the unchanged param, forwarding the changed one', () => {
@@ -160,7 +173,8 @@ describe('AdAttributionCapture (runtime behaviour)', () => {
     runScript();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr?fbclid=changed');
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr');
+    expect(fetchMock.mock.calls[0][1]?.body).toBe('fbclid=changed');
   });
 
   it('does not fire while prerendering, then fires on activation', () => {
@@ -175,7 +189,8 @@ describe('AdAttributionCapture (runtime behaviour)', () => {
     document.dispatchEvent(new Event('prerenderingchange'));
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr?gclid=abc123');
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/attr');
+    expect(fetchMock.mock.calls[0][1]?.body).toBe('gclid=abc123');
   });
 
   it('dispatches baci:ad-attribution-updated after /api/attr succeeds', async () => {

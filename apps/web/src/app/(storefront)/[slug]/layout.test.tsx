@@ -444,7 +444,8 @@ describe('storefront layout', () => {
     // dynamic Suspense leg) so fast-bounce ad landings never lose attribution.
     const script = container?.querySelector('script');
     expect(script?.textContent).toBe(AD_ATTRIBUTION_CAPTURE_SCRIPT);
-    expect(script?.textContent).toContain('/api/attr?');
+    expect(script?.textContent).toContain('/api/attr');
+    expect(script?.textContent).toContain('method:"POST"');
 
     unmount();
   });

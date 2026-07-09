@@ -5,14 +5,13 @@ import { attrCaptureSchema } from '@/schemas/attr-capture';
 // This response MUST never be cached. Cloudflare strips `Set-Cookie` from any
 // cacheable response (the exact failure PR-ATTR fixes for storefront documents),
 // so a cached `/api/attr` would silently drop the attribution cookie again.
-// Under Cache Components mode GET route handlers are dynamic unless they opt
-// into `'use cache'` (`export const dynamic` is disallowed here), so the origin
-// never caches this; the `no-store` header keeps every CDN layer (Vercel +
-// Cloudflare) from caching/stripping it.
+// The browser uses POST for this endpoint so Cloudflare cache-everything
+// document rules cannot cache the Set-Cookie response. The `no-store` header is
+// still emitted for intermediary and browser caches that do honor origin policy.
 const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' } as const;
 
 /**
- * GET /api/attr?gclid=…&fbclid=…&ttclid=…&sccid=…
+ * POST /api/attr with an x-www-form-urlencoded body: gclid=…&fbclid=…
  *
  * Client-side ad-click capture (PR-ATTR). The early inline head script on
  * storefront pages forwards the click IDs found in `location.search` here, and
@@ -25,14 +24,15 @@ const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' } as const;
  *
  * Public + idempotent by design: anonymous ad-landing visitors, no auth, no DB
  * access, no server-state mutation — it only echoes validated click IDs back as
- * cookies. GET is intentional: `navigator.sendBeacon` is POST-only and would
- * trip the proxy's CSRF/Origin gate on non-GET `/api` requests, whereas an
- * idempotent cookie set is acceptable GET semantics. Inputs are validated hard
- * (known params only, length-capped, URL-safe charset) and never reflected in
- * the response body (204, empty).
+ * cookies. POST is intentional: Cloudflare cache rules apply to cacheable
+ * GET/HEAD responses, so a same-origin POST keeps Set-Cookie off the document
+ * cache path entirely while still passing the proxy Origin gate. Inputs are
+ * validated hard (known params only, length-capped, URL-safe charset) and never
+ * reflected in the response body (204, empty).
  */
-export function GET(request: NextRequest): NextResponse {
-  const params = Object.fromEntries(request.nextUrl.searchParams.entries());
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const body = await request.text();
+  const params = Object.fromEntries(new URLSearchParams(body).entries());
   const parsed = attrCaptureSchema.safeParse(params);
 
   if (!parsed.success) {

@@ -87,6 +87,14 @@ describe('Rate Limit — in-memory fallback', () => {
     expect(result.limit).toBe(240);
   });
 
+  it('uses the elevated attribution limit for ad-click capture', async () => {
+    const req = new NextRequest('http://localhost:3000/api/attr');
+    req.headers.set('x-forwarded-for', '3.3.3.31');
+
+    const result = await checkRateLimit(req);
+    expect(result.limit).toBe(1000);
+  });
+
   it('enforces stricter limit for newsletter unsubscribe', async () => {
     const req = new NextRequest(
       'http://localhost:3000/api/newsletter/unsubscribe'

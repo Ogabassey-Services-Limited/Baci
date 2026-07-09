@@ -32,6 +32,10 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   // Keep this prefix above the default ceiling so the UI can stream progress
   // without tripping middleware rate limiting during normal use.
   '/api/import-jobs': { maxRequests: 240, windowMs: 60_000 },
+  // Anonymous ad landings can arrive through carrier NAT bursts; the endpoint is
+  // cheap and only returns validated Set-Cookie headers, so keep it above the
+  // generic API ceiling to avoid losing paid-click attribution.
+  '/api/attr': { maxRequests: 1000, windowMs: 60_000 },
   '/api/orders': { maxRequests: 10, windowMs: 60_000 },
   '/api/products': { maxRequests: 30, windowMs: 60_000 },
   '/api/storefront': { maxRequests: 100, windowMs: 60_000 },

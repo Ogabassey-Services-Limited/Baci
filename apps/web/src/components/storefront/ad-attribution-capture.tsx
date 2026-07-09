@@ -26,7 +26,8 @@ const AD_ATTRIBUTION_UPDATED_EVENT_JSON = JSON.stringify(
  *     holds the same click ID, so a returning visitor landing from a NEW ad
  *     still refreshes attribution (last-click-wins, matching the removed
  *     middleware which set cookies on every request);
- *  4. `fetch(..., { keepalive: true })` GETs `/api/attr`, whose HTTP response
+ *  4. `fetch(..., { method: 'POST', keepalive: true })` posts to
+ *     `/api/attr`, whose HTTP response
  *     sets the 90-day cookie. HTTP-set (not `document.cookie`) sidesteps Safari
  *     ITP's 24h cap on script-written cookies on link-decorated landings;
  *  5. on a successful response, dispatches `baci:ad-attribution-updated` so a
@@ -37,7 +38,7 @@ const AD_ATTRIBUTION_UPDATED_EVENT_JSON = JSON.stringify(
  * throw on the storefront critical path. No `<`/`>` characters are used, keeping
  * it safe as raw text inside the `<script>` element.
  */
-export const AD_ATTRIBUTION_CAPTURE_SCRIPT = `(function(){try{var M=${CLICK_ID_COOKIE_MAP_JSON};var E=${AD_ATTRIBUTION_UPDATED_EVENT_JSON};var run=function(){try{if(document.prerendering){return}var p=new URLSearchParams(location.search);var ck="; "+document.cookie;var q=[];Object.keys(M).forEach(function(k){var v=p.get(k);if(!v){return}var c=M[k];var ev=encodeURIComponent(v);var i=ck.indexOf("; "+c+"=");if(i!==-1){var rest=ck.slice(i+c.length+3);var end=rest.indexOf(";");var cur=end===-1?rest:rest.slice(0,end);if(cur===ev){return}}q.push(encodeURIComponent(k)+"="+ev)});if(!q.length){return}fetch("/api/attr?"+q.join("&"),{keepalive:true,credentials:"same-origin"}).then(function(r){if(r&&r.ok){try{window.dispatchEvent(new Event(E))}catch(e){}}}).catch(function(){})}catch(e){}};if(document.prerendering){document.addEventListener("prerenderingchange",run,{once:true})}else{run()}}catch(e){}})();`;
+export const AD_ATTRIBUTION_CAPTURE_SCRIPT = `(function(){try{var M=${CLICK_ID_COOKIE_MAP_JSON};var E=${AD_ATTRIBUTION_UPDATED_EVENT_JSON};var run=function(){try{if(document.prerendering){return}var p=new URLSearchParams(location.search);var ck="; "+document.cookie;var q=[];Object.keys(M).forEach(function(k){var v=p.get(k);if(!v){return}var c=M[k];var ev=encodeURIComponent(v);var i=ck.indexOf("; "+c+"=");if(i!==-1){var rest=ck.slice(i+c.length+3);var end=rest.indexOf(";");var cur=end===-1?rest:rest.slice(0,end);if(cur===ev){return}}q.push(encodeURIComponent(k)+"="+ev)});if(!q.length){return}fetch("/api/attr",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},body:q.join("&"),keepalive:true,credentials:"same-origin"}).then(function(r){if(r&&r.ok){try{window.dispatchEvent(new Event(E))}catch(e){}}}).catch(function(){})}catch(e){}};if(document.prerendering){document.addEventListener("prerenderingchange",run,{once:true})}else{run()}}catch(e){}})();`;
 
 /**
  * Server Component that emits the capture script into the storefront static
