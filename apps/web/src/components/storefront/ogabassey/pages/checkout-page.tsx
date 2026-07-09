@@ -3584,6 +3584,11 @@ export const CheckoutPage: React.FC = () => {
                               Select Delivery Option
                             </label>
 
+                            {/* Reserve the async delivery-options area so the
+                                SmartQuoteLoader (~190px) -> loaded quotes /
+                                station-pickup / retry swap keeps a stable height
+                                and does not reflow #main-content on /checkout. */}
+                            <div className="min-h-[190px]">
                             {isLoadingQuotes ? (
                               <SmartQuoteLoader />
                             ) : doorDeliveryQuotes.length > 0 ? (
@@ -3688,6 +3693,7 @@ export const CheckoutPage: React.FC = () => {
                                 </span>
                               </button>
                             )}
+                            </div>
                           </div>
                         )}
                       </>
@@ -3749,8 +3755,12 @@ export const CheckoutPage: React.FC = () => {
                 Order Summary
               </h2>
 
-              {/* Items List (Collapsed View) */}
-              <div className="space-y-4 mb-6 max-h-[200px] overflow-y-auto pr-1">
+              {/* Items List (Collapsed View). min-h reserves one item row so the
+                  hydration empty -> populated transition (useCart rehydrates
+                  after first paint) doesn't collapse the summary height; a
+                  checkout always has at least one item, so the row is always
+                  filled — no empty space. */}
+              <div className="space-y-4 mb-6 min-h-[64px] max-h-[200px] overflow-y-auto pr-1">
                 {displayItems.map((item) => {
                   // Legacy persisted carts can lack `cartItemId` until the
                   // provider's upgrade path (storefront-cart-provider.tsx

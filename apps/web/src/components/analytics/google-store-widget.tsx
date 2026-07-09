@@ -45,6 +45,16 @@ const WIDGET_DEFER_TIMEOUT_MS = 20000;
 export const MERCHANT_WIDGET_IFRAME_TITLE =
   'Google Store badge and merchant quality widget';
 
+// The gstatic merchantwidget script appends `#google-merchantwidget-iframe-wrapper`
+// into normal document flow during activation and only pins it bottom-left a
+// frame later — that in-flow-then-fixed hop was a recorded layout shift on the
+// wrapper. Shipping this rule with the widget makes the wrapper `position: fixed`
+// from the moment it exists (CSS matches on insertion, before first paint), so it
+// never occupies flow. `!important` beats the script's non-important inline
+// styles; the corner offsets mirror the LEFT_BOTTOM start() margins (mobile
+// 16/104, desktop 24/24) so it also never jumps once the script sets its own.
+const MERCHANT_WIDGET_WRAPPER_STYLE = `#google-merchantwidget-iframe-wrapper{position:fixed!important;bottom:104px;left:16px;contain:layout}@media (min-width:768px){#google-merchantwidget-iframe-wrapper{bottom:24px;left:24px}}`;
+
 function titleMerchantWidgetFrame() {
   const frame = resolveMerchantWidgetFrame();
 
@@ -225,13 +235,20 @@ export function GoogleStoreWidget({
   }
 
   return (
-    <Script
-      id="google-store-widget-script"
-      src={WIDGET_SCRIPT_SRC}
-      strategy="afterInteractive"
-      onLoad={() => {
-        setScriptLoaded(true);
-      }}
-    />
+    <>
+      {/* Ship the out-of-flow rule alongside the script so it is already parsed
+          when the wrapper is injected — no MutationObserver race. The CSS string
+          has no HTML-special characters, so a plain text child renders it
+          verbatim (no dangerouslySetInnerHTML needed). */}
+      <style>{MERCHANT_WIDGET_WRAPPER_STYLE}</style>
+      <Script
+        id="google-store-widget-script"
+        src={WIDGET_SCRIPT_SRC}
+        strategy="afterInteractive"
+        onLoad={() => {
+          setScriptLoaded(true);
+        }}
+      />
+    </>
   );
 }

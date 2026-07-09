@@ -49,4 +49,22 @@ describe('StorefrontDeferredFooterChrome', () => {
       })
     ).toBeInTheDocument();
   });
+
+  it('reserves the footer ad slot per breakpoint (100px mobile, 250px desktop) so content-visibility never over-reserves', async () => {
+    render(<StorefrontDeferredFooterChrome basePath="/ogabassey" />);
+
+    const adUnitWrapper = (
+      await screen.findByRole('complementary', { name: /footer ad unit/i })
+    ).parentElement;
+
+    // Mobile reservation matches the 320x100 FOOTER_BANNER slot...
+    expect(adUnitWrapper).toHaveClass('min-h-[100px]');
+    expect(adUnitWrapper).toHaveClass('[contain-intrinsic-size:1400px_100px]');
+    // ...and the desktop override matches the 970x250 slot.
+    expect(adUnitWrapper).toHaveClass('md:min-h-[250px]');
+    expect(adUnitWrapper).toHaveClass(
+      'md:[contain-intrinsic-size:1400px_250px]'
+    );
+    expect(adUnitWrapper).toHaveClass('content-auto');
+  });
 });

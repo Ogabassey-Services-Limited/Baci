@@ -1721,4 +1721,52 @@ describe('CheckoutPage', () => {
 
     fetchMock.mockRestore();
   });
+
+  it('reserves a stable min-height for the order-summary items list so cart hydration does not reflow #main-content', async () => {
+    mockCheckoutSubmissionState();
+
+    render(<CheckoutPage />);
+
+    await screen.findAllByText(/secure checkout/i);
+
+    const orderSummary = screen
+      .getByRole('heading', { name: /order summary/i })
+      .closest('section,aside,div');
+
+    expect(
+      orderSummary?.querySelector('[class*="min-h-[64px]"]')
+    ).toBeInTheDocument();
+  });
+
+  it('reserves a stable min-height for the delivery-options area so the quote-loader swap does not reflow #main-content', async () => {
+    mockCheckoutSubmissionState();
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/shipping/quotes')) {
+          return {
+            ok: true,
+            json: async () => ({ quotes: { all: [] } }),
+            text: async () => '',
+          } as Response;
+        }
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    const { container } = render(<CheckoutPage />);
+
+    await screen.findByText(/select delivery option/i);
+
+    expect(
+      container.querySelector('[class*="min-h-[190px]"]')
+    ).toBeInTheDocument();
+
+    fetchMock.mockRestore();
+  });
 });

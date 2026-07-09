@@ -19,8 +19,12 @@ export function StorefrontDeferredFooterChrome({
     <>
       <Footer merchant={merchant} storeSlug={basePath} />
 
-      {/* Intrinsic size mirrors the max-width storefront grid and reserves the 970x250 desktop footer banner while content-visibility skips the offscreen footer work. */}
-      <div className="flex min-h-[100px] justify-center border-store-border border-t bg-store-background py-4 content-auto md:min-h-[250px] [contain-intrinsic-size:1400px_250px]">
+      {/* Intrinsic size mirrors the max-width storefront grid and matches the
+          FOOTER_BANNER slot per breakpoint (320x100 mobile, 970x250 desktop) so
+          content-visibility never over-reserves. Reserving 250px on mobile —
+          where the real ad box is only 100px — made the wrapper shrink 250→100
+          the moment it scrolled into view, a recorded layout shift. */}
+      <div className="flex min-h-[100px] justify-center border-store-border border-t bg-store-background py-4 content-auto md:min-h-[250px] [contain-intrinsic-size:1400px_100px] md:[contain-intrinsic-size:1400px_250px]">
         <AdUnit placementKey="FOOTER_BANNER" />
       </div>
 

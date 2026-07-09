@@ -166,6 +166,19 @@ describe('OgabasseyLayoutChrome', () => {
     ).toHaveAttribute('data-defer-interaction-until-next-paint', 'true');
   });
 
+  it('reserves the real footer height on the deferred fallback so the fallback -> full-footer swap does not shift', () => {
+    render(<OgabasseyLayoutChrome basePath="/ogabassey" section="footer" />);
+
+    const fallbackFooter = screen.getByRole('contentinfo', {
+      name: /semantic storefront footer/i,
+    });
+
+    // Heights mirror the real footer's grid: 1-col mobile, 2-col md, 4-col lg.
+    expect(fallbackFooter).toHaveClass('min-h-[900px]');
+    expect(fallbackFooter).toHaveClass('md:min-h-[560px]');
+    expect(fallbackFooter).toHaveClass('lg:min-h-[420px]');
+  });
+
   it('keeps immediate footer links root-relative for domain-routed storefronts', () => {
     render(<OgabasseyLayoutChrome basePath="" section="footer" />);
 
