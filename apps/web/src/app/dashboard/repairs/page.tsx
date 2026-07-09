@@ -46,9 +46,11 @@ export default async function RepairsPage() {
     .eq('merchant_id', merchantId)
     .maybeSingle();
 
-  if (data?.repairs_catalog_enabled !== true) {
-    return <RepairsUnavailable reason="disabled" />;
-  }
-
-  return <RepairsCatalogClient canEdit={canEdit} canDelete={canDelete} />;
+  return (
+    <RepairsCatalogClient
+      canEdit={canEdit}
+      canDelete={canDelete}
+      catalogEnabled={data?.repairs_catalog_enabled === true}
+    />
+  );
 }

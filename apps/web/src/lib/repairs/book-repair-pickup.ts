@@ -12,6 +12,7 @@ import type {
   ShipmentBookingResult,
   ShippingQuote,
 } from '@/lib/shipping/types';
+import { ShippingBookingRejectedError } from '@/lib/shipping/types';
 
 const PICKUP_PROVIDER = 'TOPSHIP' as const;
 const PICKUP_LOCK_TIMEOUT_SECONDS = 15 * 60;
@@ -92,6 +93,51 @@ async function claimRepairPickupBooking(
   }
 
   return { status: 'booking_in_progress' };
+}
+
+async function releaseRejectedPickupReservation(
+  supabase: SupabaseClient,
+  merchantId: string,
+  repairId: string,
+  shipmentId: string,
+  lockToken: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('repairs')
+    .update({
+      shipment_id: null,
+      pickup_booking_lock_token: null,
+      pickup_booking_started_at: null,
+    })
+    .eq('id', repairId)
+    .eq('merchant_id', merchantId)
+    .eq('shipment_id', shipmentId)
+    .eq('pickup_booking_lock_token', lockToken)
+    .select('id');
+
+  const releasedRepair = Array.isArray(data) ? data[0] : null;
+  if (error || !releasedRepair) {
+    console.error(
+      'Failed to release rejected repair pickup reservation:',
+      error
+    );
+    return false;
+  }
+
+  const { error: deleteError } = await supabase
+    .from('shipments')
+    .delete()
+    .eq('id', shipmentId)
+    .eq('merchant_id', merchantId);
+
+  if (deleteError) {
+    console.error(
+      'Failed to remove rejected repair pickup shipment reservation:',
+      deleteError
+    );
+  }
+
+  return true;
 }
 
 /**
@@ -299,6 +345,19 @@ export async function bookRepairPickup(
       bookingRequest
     );
   } catch (error) {
+    if (error instanceof ShippingBookingRejectedError) {
+      const released = await releaseRejectedPickupReservation(
+        supabase,
+        merchantId,
+        repairId,
+        shipment.id,
+        claim.lockToken
+      );
+      if (released) {
+        return pickupFailure('booking_failed');
+      }
+    }
+
     // A transport error can occur after Topship accepted the booking. The
     // linked pending shipment prevents a retry from creating a duplicate.
     console.error('Repair pickup booking could not be confirmed:', error);

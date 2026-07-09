@@ -17,6 +17,27 @@ interface RepairDeviceDetailViewProps {
   currency: string;
 }
 
+function buildProductHref(
+  basePath: string,
+  product: RepairDeviceDetail['product']
+): Route | null {
+  if (!product) {
+    return null;
+  }
+
+  const productId: string = product.id;
+  const productName: string = product.name?.trim() || productId;
+  const productSlug: string = product.slug?.trim() || productId;
+  const productPath: string = getProductUrl({
+    id: productId,
+    name: productName,
+    slug: productSlug,
+  });
+  const scopedProductPath: string = joinRouteBasePath(basePath, productPath);
+
+  return asRoute(scopedProductPath);
+}
+
 /**
  * Per-device repairs page content: device header (+ linked product specs
  * when available) and the list of active repair quotes, each linking into
@@ -36,18 +57,7 @@ export function RepairDeviceDetailView({
   const describeIssueHref = asRoute(
     `${joinRouteBasePath(basePath, '/repair')}?device=${device.slug}`
   );
-  const productHref = product?.id
-    ? asRoute(
-        joinRouteBasePath(
-          basePath,
-          getProductUrl({
-            id: product.id,
-            name: product.name?.trim() || product.id,
-            slug: product.slug?.trim() || product.id,
-          })
-        )
-      )
-    : null;
+  const productHref = buildProductHref(basePath, product);
 
   return (
     <div className="min-h-screen bg-store-secondary pb-24 pt-8 text-store-background-text md:pb-12">

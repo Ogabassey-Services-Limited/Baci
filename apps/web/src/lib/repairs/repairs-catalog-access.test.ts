@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolveRepairsCatalogMerchant } from './repairs-catalog-access';
 
 const mocks = vi.hoisted(() => ({
-  getCachedMerchant: vi.fn(),
+  getMerchantByIdentifier: vi.fn(),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedMerchant: mocks.getCachedMerchant,
+  getMerchantByIdentifier: mocks.getMerchantByIdentifier,
 }));
 
 describe('resolveRepairsCatalogMerchant', () => {
@@ -15,7 +15,7 @@ describe('resolveRepairsCatalogMerchant', () => {
   });
 
   it('returns null when the merchant does not exist', async () => {
-    mocks.getCachedMerchant.mockResolvedValueOnce(null);
+    mocks.getMerchantByIdentifier.mockResolvedValueOnce(null);
 
     const result = await resolveRepairsCatalogMerchant('missing');
 
@@ -23,7 +23,7 @@ describe('resolveRepairsCatalogMerchant', () => {
   });
 
   it('reports enabled for an electronics merchant with the flag on', async () => {
-    mocks.getCachedMerchant.mockResolvedValueOnce({
+    mocks.getMerchantByIdentifier.mockResolvedValueOnce({
       id: 'merchant-1',
       business_type: 'electronics',
       feature_settings: { repairs_catalog_enabled: true },
@@ -35,7 +35,7 @@ describe('resolveRepairsCatalogMerchant', () => {
   });
 
   it('reports disabled for an electronics merchant with the flag off', async () => {
-    mocks.getCachedMerchant.mockResolvedValueOnce({
+    mocks.getMerchantByIdentifier.mockResolvedValueOnce({
       id: 'merchant-1',
       business_type: 'electronics',
       feature_settings: { repairs_catalog_enabled: false },
@@ -47,7 +47,7 @@ describe('resolveRepairsCatalogMerchant', () => {
   });
 
   it('reports disabled for a non-electronics merchant even with the flag on', async () => {
-    mocks.getCachedMerchant.mockResolvedValueOnce({
+    mocks.getMerchantByIdentifier.mockResolvedValueOnce({
       id: 'merchant-2',
       business_type: 'fashion',
       feature_settings: { repairs_catalog_enabled: true },
@@ -56,5 +56,20 @@ describe('resolveRepairsCatalogMerchant', () => {
     const result = await resolveRepairsCatalogMerchant('fashion-store');
 
     expect(result).toEqual({ merchantId: 'merchant-2', enabled: false });
+  });
+
+  it('resolves a custom storefront domain through the identifier lookup', async () => {
+    mocks.getMerchantByIdentifier.mockResolvedValueOnce({
+      id: 'merchant-1',
+      business_type: 'electronics',
+      feature_settings: { repairs_catalog_enabled: true },
+    });
+
+    const result = await resolveRepairsCatalogMerchant('repairs.example.com');
+
+    expect(result).toEqual({ merchantId: 'merchant-1', enabled: true });
+    expect(mocks.getMerchantByIdentifier).toHaveBeenCalledWith(
+      'repairs.example.com'
+    );
   });
 });

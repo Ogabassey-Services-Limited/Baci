@@ -126,6 +126,20 @@ describe('RepairDeviceDetailPage', () => {
     );
   });
 
+  it('resolves the device detail through the custom-domain merchant lookup', async () => {
+    render(
+      await RepairDeviceDetailPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          deviceSlug: 'apple-iphone-13-pro-max',
+        }),
+      })
+    );
+
+    expect(getCachedMerchantByDomain).toHaveBeenCalledWith('ogabassey.com');
+    expect(getCachedMerchant).not.toHaveBeenCalled();
+  });
+
   it('emits an additive OfferCatalog JSON-LD of repair Service nodes', async () => {
     const { container } = render(
       await RepairDeviceDetailPage({

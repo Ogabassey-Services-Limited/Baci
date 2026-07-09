@@ -125,6 +125,26 @@ describe('GET /api/storefront/features', () => {
     expect(body.repairsCatalogEnabled).toBe(false);
   });
 
+  it('preserves an explicit empty checkout add-on amount list', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'merchant-1', paystack_subaccount_code: null },
+      error: null,
+    });
+    mockGetCachedFeatureSettings.mockResolvedValueOnce({
+      vtu_checkout_addon_amounts: [],
+    });
+
+    const response = await GET(
+      buildMerchantRequest(`merchantId=${VALID_MERCHANT_ID}`)
+    );
+    const body = (await response.json()) as {
+      vtuCheckoutAddonAmounts: number[];
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.vtuCheckoutAddonAmounts).toEqual([]);
+  });
+
   it('returns merchant Klump installment settings in the public feature payload', async () => {
     mockSingle.mockResolvedValueOnce({
       data: {

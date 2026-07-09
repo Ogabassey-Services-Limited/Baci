@@ -89,6 +89,21 @@ describe('BookingDetail', () => {
     );
   });
 
+  it('rejects an invalid estimated cost instead of submitting NaN', async () => {
+    render(<BookingDetail bookingId="r-1" onUpdated={vi.fn()} />);
+    await screen.findByText('Ticket #1042');
+
+    fireEvent.change(screen.getByLabelText('Estimated cost (₦)'), {
+      target: { value: 'not-a-number' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save details' }));
+
+    expect(
+      screen.getByText('Enter a valid estimated cost.')
+    ).toBeInTheDocument();
+    expect(mocks.updateBooking).not.toHaveBeenCalled();
+  });
+
   it('disables booking mutation controls for view-only staff', async () => {
     render(
       <BookingDetail bookingId="r-1" canEdit={false} onUpdated={vi.fn()} />

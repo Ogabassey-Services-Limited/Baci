@@ -11,7 +11,9 @@ vi.mock('@/lib/merchant-server', () => ({ ensurePermission }));
 vi.mock('@/lib/supabase/server', () => ({ createClient }));
 vi.mock('next/headers', () => ({ cookies }));
 vi.mock('./repairs-catalog-client', () => ({
-  default: () => <div>catalog-client</div>,
+  default: ({ catalogEnabled }: { catalogEnabled: boolean }) => (
+    <div>catalog-client:{String(catalogEnabled)}</div>
+  ),
 }));
 vi.mock('./repairs-unavailable', () => ({
   default: ({ reason }: { reason: string }) => <div>unavailable:{reason}</div>,
@@ -58,17 +60,17 @@ describe('RepairsPage gating', () => {
     expect(screen.getByText('unavailable:business-type')).toBeInTheDocument();
   });
 
-  it('shows the disabled empty state when the flag is off', async () => {
+  it('keeps bookings available when the catalogue flag is off', async () => {
     ensurePermission.mockResolvedValue(permissionResult('electronics'));
     createClient.mockReturnValue(supabaseReturning(false));
     render(await RepairsPage());
-    expect(screen.getByText('unavailable:disabled')).toBeInTheDocument();
+    expect(screen.getByText('catalog-client:false')).toBeInTheDocument();
   });
 
   it('renders the catalogue when enabled for an electronics store', async () => {
     ensurePermission.mockResolvedValue(permissionResult('electronics'));
     createClient.mockReturnValue(supabaseReturning(true));
     render(await RepairsPage());
-    expect(screen.getByText('catalog-client')).toBeInTheDocument();
+    expect(screen.getByText('catalog-client:true')).toBeInTheDocument();
   });
 });

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ShippingBookingRejectedError } from '@/lib/shipping/types';
 import { bookRepairPickup } from './book-repair-pickup';
 
 const mocks = vi.hoisted(() => ({
@@ -73,7 +74,10 @@ const bookingResult = {
 
 type Responses = Record<string, { data: unknown; error: unknown }>;
 
-function makeSupabase(responses: Responses): SupabaseClient {
+function makeSupabase(
+  responses: Responses,
+  operations: string[] = []
+): SupabaseClient {
   return {
     rpc(name: string) {
       return Promise.resolve(
@@ -95,6 +99,12 @@ function makeSupabase(responses: Responses): SupabaseClient {
         },
         update() {
           op = 'update';
+          operations.push(`${table}.update`);
+          return builder;
+        },
+        delete() {
+          op = 'delete';
+          operations.push(`${table}.delete`);
           return builder;
         },
         eq() {
@@ -131,6 +141,7 @@ function happyResponses(overrides: Partial<Responses> = {}): Responses {
     'repair_pickup_quotes.update': { data: null, error: null },
     'shipments.insert': { data: { id: 'ship-1' }, error: null },
     'shipments.update': { data: { id: 'ship-1' }, error: null },
+    'shipments.delete': { data: null, error: null },
     ...overrides,
   };
 }
@@ -251,6 +262,33 @@ describe('bookRepairPickup', () => {
         reason: 'shipment_save_failed',
         canRetryManually: false,
       });
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
+  it('releases the reservation after a confirmed Topship payment rejection', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
+      .mockImplementation(() => {});
+    const operations: string[] = [];
+    mocks.bookShipment.mockRejectedValueOnce(
+      new ShippingBookingRejectedError('wallet empty')
+    );
+    const supabase = makeSupabase(happyResponses(), operations);
+
+    try {
+      const result = await bookRepairPickup(supabase, merchantId, repairId);
+      expect(result).toMatchObject({
+        ok: false,
+        reason: 'booking_failed',
+        canRetryManually: true,
+      });
+      expect(
+        operations.filter((operation) => operation === 'repairs.update')
+      ).toHaveLength(2);
+      expect(operations).toContain('shipments.delete');
     } finally {
       consoleSpy.mockRestore();
     }

@@ -14,6 +14,14 @@ describe('repairsDevicesRouteParamsSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts a custom storefront domain', () => {
+    const result = repairsDevicesRouteParamsSchema.safeParse({
+      slug: 'repairs.example.com',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it('rejects a slug with uppercase or invalid characters', () => {
     const result = repairsDevicesRouteParamsSchema.safeParse({
       slug: 'Ogabassey Store!',
@@ -33,6 +41,15 @@ describe('repairsDeviceDetailRouteParamsSchema', () => {
   it('accepts a valid slug and device slug', () => {
     const result = repairsDeviceDetailRouteParamsSchema.safeParse({
       slug: 'ogabassey',
+      deviceSlug: 'iphone-13',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a custom storefront domain and device slug', () => {
+    const result = repairsDeviceDetailRouteParamsSchema.safeParse({
+      slug: 'repairs.example.com',
       deviceSlug: 'iphone-13',
     });
 

@@ -17,4 +17,14 @@ describe('RepairsCatalogClient', () => {
     expect(screen.getByRole('tab', { name: 'Catalog' })).toBeInTheDocument();
     expect(screen.getByText('bookings-manager')).toBeInTheDocument();
   });
+
+  it('keeps bookings available when catalogue management is disabled', () => {
+    render(<RepairsCatalogClient canEdit canDelete catalogEnabled={false} />);
+
+    expect(screen.getByRole('tab', { name: 'Bookings' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('tab', { name: 'Catalog' })
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('bookings-manager')).toBeInTheDocument();
+  });
 });

@@ -69,7 +69,7 @@ describe('merchantFeatureSettingsPatchSchema', () => {
     });
 
     expect(blankResult).toEqual({
-      repair_settings: { contact_email: undefined },
+      repair_settings: { contact_email: null },
     });
     expect(nullResult).toEqual({
       repair_settings: { contact_email: null },

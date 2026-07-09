@@ -21,6 +21,16 @@ interface BookingDetailProps {
   onUpdated: () => void;
 }
 
+function parseEstimatedCost(value: string): number | null | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
 export function BookingDetail({
   bookingId,
   canEdit = true,
@@ -84,9 +94,16 @@ export function BookingDetail({
   };
 
   const handleSaveDetails = () => {
+    const nextEstimatedCost = parseEstimatedCost(estimatedCost);
+    if (nextEstimatedCost === undefined) {
+      setError('Enter a valid estimated cost.');
+      return;
+    }
+
+    setError(null);
     setSaving(true);
     updateBooking(bookingId, {
-      estimated_cost: estimatedCost === '' ? null : Number(estimatedCost),
+      estimated_cost: nextEstimatedCost,
       admin_notes: adminNotes.trim() === '' ? null : adminNotes.trim(),
     })
       .then(({ booking: updated }) => {

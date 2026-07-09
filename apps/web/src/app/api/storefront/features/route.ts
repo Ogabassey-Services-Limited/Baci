@@ -104,10 +104,14 @@ function asStringArray(value: unknown, fallback: string[]): string[] {
 }
 
 function asNumberArray(value: unknown, fallback: number[]): number[] {
-  const parsed = Array.isArray(value)
-    ? value.filter((entry): entry is number => typeof entry === 'number')
-    : [];
-  return parsed.length > 0 ? parsed : fallback;
+  if (
+    !Array.isArray(value) ||
+    value.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry))
+  ) {
+    return fallback;
+  }
+
+  return value;
 }
 
 function asGateway(

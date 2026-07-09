@@ -88,7 +88,29 @@ export default function ImportManager({ canEdit = true }: ImportManagerProps) {
 
   function handleRowChange(index: number, patch: Partial<EditableImportRow>) {
     setRows((prev) =>
-      prev.map((row, i) => (i === index ? { ...row, ...patch } : row))
+      prev.map((row, i) => {
+        if (i !== index) {
+          return row;
+        }
+
+        const deviceChanged =
+          (patch.brand !== undefined && patch.brand !== row.brand) ||
+          (patch.model !== undefined && patch.model !== row.model);
+        const repairTypeChanged =
+          patch.repairType !== undefined && patch.repairType !== row.repairType;
+
+        return {
+          ...row,
+          ...patch,
+          draft: {
+            ...row.draft,
+            ...(deviceChanged
+              ? { deviceId: null, suggestedProductId: null }
+              : {}),
+            ...(repairTypeChanged ? { serviceTypeId: null } : {}),
+          },
+        };
+      })
     );
   }
 

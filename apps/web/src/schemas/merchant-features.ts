@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const optionalEmailSchema = z.preprocess(
-  (value) => (value === '' ? undefined : value),
+  (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
   z.email().optional().nullable()
 );
 

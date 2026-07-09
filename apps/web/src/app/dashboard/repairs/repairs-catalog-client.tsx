@@ -7,11 +7,13 @@ import CatalogManager from './catalog-manager';
 interface RepairsCatalogClientProps {
   canEdit: boolean;
   canDelete: boolean;
+  catalogEnabled?: boolean;
 }
 
 export default function RepairsCatalogClient({
   canEdit,
   canDelete,
+  catalogEnabled = true,
 }: RepairsCatalogClientProps) {
   return (
     <div className="space-y-6 p-6">
@@ -25,14 +27,18 @@ export default function RepairsCatalogClient({
       <Tabs defaultValue="bookings">
         <TabsList>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
-          <TabsTrigger value="catalog">Catalog</TabsTrigger>
+          {catalogEnabled ? (
+            <TabsTrigger value="catalog">Catalog</TabsTrigger>
+          ) : null}
         </TabsList>
         <TabsContent value="bookings">
           <BookingsManager canEdit={canEdit} />
         </TabsContent>
-        <TabsContent value="catalog">
-          <CatalogManager canEdit={canEdit} canDelete={canDelete} />
-        </TabsContent>
+        {catalogEnabled ? (
+          <TabsContent value="catalog">
+            <CatalogManager canEdit={canEdit} canDelete={canDelete} />
+          </TabsContent>
+        ) : null}
       </Tabs>
     </div>
   );

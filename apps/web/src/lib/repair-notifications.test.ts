@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   sendEmail: vi.fn().mockResolvedValue({ success: true, messageId: 'email-1' }),
   getCachedMerchantById: vi.fn(),
   from: vi.fn(),
+  repairFrom: vi.fn(),
 }));
 
 vi.mock('@/lib/expo-push', () => ({
@@ -21,6 +22,10 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedMerchantById: (...args: unknown[]) =>
     mocks.getCachedMerchantById(...args),
   getPublicSupabaseClient: () => ({ from: mocks.from }),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createClient: () => ({ from: mocks.repairFrom }),
 }));
 
 const { notifyRepairBooking } = await import('./repair-notifications');
@@ -55,6 +60,15 @@ describe('notifyRepairBooking', () => {
       business_name: 'Ogabassey',
       payout_currency: 'NGN',
     });
+    mocks.repairFrom.mockReturnValue(
+      buildQueryChain({
+        data: {
+          device_type: 'Smartphone',
+          device_model: 'iPhone 13 Pro Max',
+        },
+        error: null,
+      })
+    );
   });
 
   it('sends a merchant push notification with the repair payload type', async () => {
@@ -81,6 +95,32 @@ describe('notifyRepairBooking', () => {
     expect(params.emailType).toBe('orders');
     expect(params.subject).toContain('42');
     expect(params.htmlContent).toContain('iPhone 13 Pro Max');
+  });
+
+  it('uses the saved repair device values instead of caller-controlled values', async () => {
+    mocks.repairFrom.mockReturnValueOnce(
+      buildQueryChain({
+        data: {
+          device_type: 'Laptop',
+          device_model: 'MacBook Pro 14',
+        },
+        error: null,
+      })
+    );
+
+    await notifyRepairBooking({
+      ...baseParams,
+      deviceType: 'Tampered device type',
+      deviceModel: 'Tampered device model',
+    });
+
+    const [, , pushBody] = mocks.notifyMerchant.mock.calls[0];
+    expect(pushBody).toContain('MacBook Pro 14');
+    expect(pushBody).not.toContain('Tampered device model');
+
+    const [emailParams] = mocks.sendEmail.mock.calls[0];
+    expect(emailParams.htmlContent).toContain('MacBook Pro 14');
+    expect(emailParams.htmlContent).not.toContain('Tampered device model');
   });
 
   it('enriches the notification with the quote price and service name when quoteId is present', async () => {

@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { asRoute } from '@/lib/routes';
 import { RepairDeviceCard } from './RepairDeviceCard';
 
 vi.mock('next/link', () => ({
@@ -28,7 +29,7 @@ describe('RepairDeviceCard', () => {
           imageUrl: null,
           productId: null,
         }}
-        href="/ogabassey/repairs/apple-iphone-13-pro-max"
+        href={asRoute('/ogabassey/repairs/apple-iphone-13-pro-max')}
       />
     );
 
@@ -54,7 +55,7 @@ describe('RepairDeviceCard', () => {
           imageUrl: 'https://cdn.example.com/galaxy-s23.jpg',
           productId: 'product-1',
         }}
-        href="/ogabassey/repairs/samsung-galaxy-s23"
+        href={asRoute('/ogabassey/repairs/samsung-galaxy-s23')}
       />
     );
 
@@ -77,7 +78,7 @@ describe('RepairDeviceCard', () => {
           imageUrl: null,
           productId: null,
         }}
-        href="/ogabassey/repairs/generic-gadget"
+        href={asRoute('/ogabassey/repairs/generic-gadget')}
       />
     );
 

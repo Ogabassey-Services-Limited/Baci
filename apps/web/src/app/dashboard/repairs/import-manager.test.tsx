@@ -162,6 +162,49 @@ describe('ImportManager', () => {
     );
   });
 
+  it('clears stale catalogue matches after identity fields are edited', async () => {
+    vi.mocked(parseImport).mockResolvedValue([
+      makeDraft({
+        deviceId: 'device-1',
+        serviceTypeId: 'service-1',
+        suggestedProductId: 'product-1',
+      }),
+    ]);
+    vi.mocked(commitImport).mockResolvedValue({
+      serviceTypesCreated: 1,
+      devicesCreated: 1,
+      quotesCreated: 1,
+      quotesUpdated: 0,
+    });
+
+    render(<ImportManager />);
+    fireEvent.change(screen.getByLabelText('Price list'), {
+      target: { value: 'iPhone 12 screen 25000' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Parse list' }));
+
+    await screen.findByRole('switch', { name: 'Include row 1' });
+    fireEvent.change(screen.getByLabelText('Model — row 1'), {
+      target: { value: 'iPhone 13' },
+    });
+    fireEvent.change(screen.getByLabelText('Repair type — row 1'), {
+      target: { value: 'Battery replacement' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Commit 1 row' }));
+
+    await waitFor(() => {
+      expect(commitImport).toHaveBeenCalledWith([
+        expect.objectContaining({
+          model: 'iPhone 13',
+          repairType: 'Battery replacement',
+          deviceId: null,
+          serviceTypeId: null,
+          productId: null,
+        }),
+      ]);
+    });
+  });
+
   it('disables import mutations for view-only staff', () => {
     render(<ImportManager canEdit={false} />);
 

@@ -16,6 +16,7 @@ import {
   generateRepairConfirmationText,
 } from '@/lib/email-templates';
 import { notifyMerchant } from '@/lib/expo-push';
+import { createClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/zeptomail';
 
 export interface NotifyRepairBookingParams {
@@ -36,6 +37,41 @@ interface QuoteDisplaySnapshot {
   price: number;
   isFromPrice: boolean;
   serviceTypeName: string | null;
+}
+
+interface RepairDeviceSnapshot {
+  deviceType: string;
+  deviceModel: string;
+}
+
+async function resolveRepairDeviceSnapshot(
+  merchantId: string,
+  repairId: string
+): Promise<RepairDeviceSnapshot | null> {
+  try {
+    const supabase = createClient();
+    const { data: repair, error } = await supabase
+      .from('repairs')
+      .select('device_type, device_model')
+      .eq('id', repairId)
+      .eq('merchant_id', merchantId)
+      .maybeSingle();
+
+    if (error || !repair) {
+      return null;
+    }
+
+    const row = repair as { device_type: unknown; device_model: unknown };
+    const deviceType =
+      typeof row.device_type === 'string' ? row.device_type.trim() : '';
+    const deviceModel =
+      typeof row.device_model === 'string' ? row.device_model.trim() : '';
+
+    return deviceType && deviceModel ? { deviceType, deviceModel } : null;
+  } catch (error) {
+    console.error('Error resolving repair device snapshot:', error);
+    return null;
+  }
 }
 
 /**
@@ -110,13 +146,18 @@ function buildDeviceLabel(deviceType: string, deviceModel: string): string {
 export async function notifyRepairBooking(
   params: NotifyRepairBookingParams
 ): Promise<void> {
-  const quoteSnapshot = params.quoteId
-    ? await resolveQuoteSnapshot(params.merchantId, params.quoteId)
-    : null;
-  const deviceLabel = buildDeviceLabel(params.deviceType, params.deviceModel);
+  const [quoteSnapshot, deviceSnapshot] = await Promise.all([
+    params.quoteId
+      ? resolveQuoteSnapshot(params.merchantId, params.quoteId)
+      : Promise.resolve(null),
+    resolveRepairDeviceSnapshot(params.merchantId, params.repairId),
+  ]);
+  const deviceType = deviceSnapshot?.deviceType ?? params.deviceType;
+  const deviceModel = deviceSnapshot?.deviceModel ?? params.deviceModel;
+  const deviceLabel = buildDeviceLabel(deviceType, deviceModel);
 
   const pushBody = quoteSnapshot?.serviceTypeName
-    ? `${params.deviceModel} — ${quoteSnapshot.serviceTypeName} (Ticket #${params.ticketNumber})`
+    ? `${deviceModel} — ${quoteSnapshot.serviceTypeName} (Ticket #${params.ticketNumber})`
     : `${deviceLabel} (Ticket #${params.ticketNumber})`;
 
   try {

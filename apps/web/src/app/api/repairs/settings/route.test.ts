@@ -220,6 +220,30 @@ describe('PATCH /api/repairs/settings', () => {
     });
   });
 
+  it('clears a stored contact email when the merchant submits a blank value', async () => {
+    const admin = makeAdmin({
+      select: {
+        data: {
+          merchant_id: 'm-1',
+          repair_settings: { contact_email: 'repairs@ogabassey.com' },
+        },
+        error: null,
+      },
+    });
+    mocks.createClient.mockReturnValue(admin);
+
+    const res = await PATCH(req({ contact_email: '' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(admin.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        repair_settings: { contact_email: null },
+      })
+    );
+    expect(body.repairSettings).toEqual({ contact_email: null });
+  });
+
   it('inserts defaults when no settings row exists yet', async () => {
     const admin = makeAdmin({ select: { data: null, error: null } });
     mocks.createClient.mockReturnValue(admin);
