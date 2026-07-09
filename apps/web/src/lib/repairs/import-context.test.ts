@@ -7,14 +7,9 @@ function tableClient(
 ) {
   const from = vi.fn().mockImplementation((table: string) => {
     const result = results[table] ?? { data: [], error: null };
-    if (table === 'products') {
-      // products uses .select().eq().limit()
-      const limit = vi.fn().mockResolvedValue(result);
-      const eq = vi.fn().mockReturnValue({ limit });
-      return { select: vi.fn().mockReturnValue({ eq }) };
-    }
-    // repair_devices / repair_service_types terminate on .eq()
-    const eq = vi.fn().mockResolvedValue(result);
+    // All three loaders now cap rows: .select().eq().limit()
+    const limit = vi.fn().mockResolvedValue(result);
+    const eq = vi.fn().mockReturnValue({ limit });
     return { select: vi.fn().mockReturnValue({ eq }) };
   });
   return { client: { from } as unknown as SupabaseClient, from };

@@ -35,7 +35,8 @@ async function loadDevices(
   const { data, error } = await supabase
     .from('repair_devices')
     .select('id, brand, model, slug, aliases, product_id')
-    .eq('merchant_id', merchantId);
+    .eq('merchant_id', merchantId)
+    .limit(2000);
   if (error) {
     throw new Error(error.message);
   }
@@ -75,7 +76,8 @@ async function loadServiceTypes(
   const { data, error } = await supabase
     .from('repair_service_types')
     .select('id, name')
-    .eq('merchant_id', merchantId);
+    .eq('merchant_id', merchantId)
+    .limit(2000);
   if (error) {
     throw new Error(error.message);
   }

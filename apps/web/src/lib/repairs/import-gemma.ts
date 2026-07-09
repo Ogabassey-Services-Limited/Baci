@@ -32,8 +32,12 @@ export class RepairsImportUnavailableError extends Error {
   }
 }
 
-const IMPORT_CHUNK_CHARS = 1200;
-const IMPORT_MAX_TOKENS = 1536;
+// Gemma runs with num_ctx 2048 (shared gemma-completion), which must hold the
+// system prompt + JSON-wrapped chunk (input) AND the completion (output). Keep
+// input (~900 chars ≈ 300 tokens + ~300 tokens of wrapper/system) and output
+// well under 2048 so the model never silently truncates context mid-list.
+const IMPORT_CHUNK_CHARS = 900;
+const IMPORT_MAX_TOKENS = 1024;
 const IMPORT_TEMPERATURE = 0.1;
 const IMPORT_TIMEOUT_MS = 100_000;
 
