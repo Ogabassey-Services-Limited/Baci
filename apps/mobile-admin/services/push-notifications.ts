@@ -88,6 +88,13 @@ export async function registerForPushNotifications(): Promise<string | null> {
     return null;
   }
 
+  if (__DEV__ && process.env.EXPO_PUBLIC_ENABLE_REMOTE_PUSH_IN_DEV !== '1') {
+    console.log(
+      '[Push] Remote token registration skipped for local development build'
+    );
+    return null;
+  }
+
   // Check and request permissions
   const permissionStatus = await requestPermissions();
 

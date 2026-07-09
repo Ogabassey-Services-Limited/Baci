@@ -7,8 +7,11 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { resolveWebsitePerformanceGemmaConfig } from './gemma-config';
+import { aggregateWebsitePerformance } from './website-performance-aggregation';
 
 export const maxDuration = 30;
+
+const MAX_FALLBACK_EVENT_ROWS = 100_000;
 
 const querySchema = z.object({
   startDate: z.string().datetime().optional(),
@@ -123,85 +126,62 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const bestSeller =
-    topProducts && topProducts.length > 0 ? topProducts[0] : null;
+  // 2. Aggregate event metrics in PostgreSQL so PostgREST row caps cannot bias
+  // search and conversion rankings on high-traffic stores.
+  const { data: databaseEventSummary, error: eventsError } = await supabase.rpc(
+    'get_website_performance_event_summary',
+    {
+      p_merchant_id: merchantContext.merchantId,
+      p_start_date: finalStartDate,
+      p_end_date: finalEndDate,
+    }
+  );
 
-  // 2. Fetch Most Searched and Top Converting (query analytics_events)
-  const { data: events, error: eventsError } = await supabase
-    .from('analytics_events')
-    .select('event_type, event_data')
-    .eq('merchant_id', merchantContext.merchantId)
-    .gte('event_timestamp', finalStartDate)
-    .lte('event_timestamp', finalEndDate)
-    .in('event_type', ['search', 'product_view', 'purchase', 'add_to_cart']);
+  let eventSummary: unknown = databaseEventSummary;
+  if (eventsError?.code === 'PGRST202') {
+    const eventRows: Array<{ event_data: unknown; event_type: string }> = [];
+    const pageSize = 1000;
+    for (let from = 0; from < MAX_FALLBACK_EVENT_ROWS; from += pageSize) {
+      const pageEnd = Math.min(
+        from + pageSize - 1,
+        MAX_FALLBACK_EVENT_ROWS - 1
+      );
+      const { data: page, error: pageError } = await supabase
+        .from('analytics_events')
+        .select('event_type, event_data')
+        .eq('merchant_id', merchantContext.merchantId)
+        .gte('event_timestamp', finalStartDate)
+        .lte('event_timestamp', finalEndDate)
+        .in('event_type', ['search', 'product_view', 'purchase'])
+        .order('event_timestamp', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, pageEnd);
 
-  if (eventsError) {
+      if (pageError) {
+        return NextResponse.json(
+          { error: 'Failed to aggregate events' },
+          { status: 500 }
+        );
+      }
+      eventRows.push(...(page ?? []).slice(0, MAX_FALLBACK_EVENT_ROWS - from));
+      if (!page || page.length < pageSize) break;
+    }
+    if (eventRows.length === MAX_FALLBACK_EVENT_ROWS) {
+      console.warn('[website-performance] Fallback event scan reached limit', {
+        maxRows: MAX_FALLBACK_EVENT_ROWS,
+        merchantId: merchantContext.merchantId,
+      });
+    }
+    eventSummary = eventRows;
+  } else if (eventsError) {
     return NextResponse.json(
       { error: 'Failed to aggregate events' },
       { status: 500 }
     );
   }
 
-  // Aggregate Most Searched
-  const searchCounts: Record<string, number> = {};
-  for (const event of events || []) {
-    if (event.event_type === 'search' && event.event_data?.query) {
-      const query = String(event.event_data.query).toLowerCase().trim();
-      if (!query) continue;
-      searchCounts[query] = (searchCounts[query] || 0) + 1;
-    }
-  }
-
-  let mostSearched = null;
-  let maxSearchCount = 0;
-  for (const [query, count] of Object.entries(searchCounts)) {
-    if (count > maxSearchCount) {
-      maxSearchCount = count;
-      mostSearched = { query, count };
-    }
-  }
-
-  // Aggregate Top Converting
-  const productViews: Record<
-    string,
-    { id: string; name: string; views: number; actions: number }
-  > = {};
-
-  for (const event of events || []) {
-    const { product_id, product_name } = event.event_data || {};
-    if (!product_id) continue;
-
-    if (!productViews[product_id]) {
-      productViews[product_id] = {
-        id: product_id,
-        name: product_name || 'Unknown Product',
-        views: 0,
-        actions: 0,
-      };
-    }
-
-    if (event.event_type === 'product_view') {
-      productViews[product_id].views += 1;
-    } else if (
-      event.event_type === 'purchase' ||
-      event.event_type === 'add_to_cart'
-    ) {
-      productViews[product_id].actions += 1;
-    }
-  }
-
-  let topConverting = null;
-  let maxConversionRate = -1;
-
-  for (const product of Object.values(productViews)) {
-    if (product.views > 0) {
-      const conversionRate = (product.actions / product.views) * 100;
-      if (conversionRate > maxConversionRate) {
-        maxConversionRate = conversionRate;
-        topConverting = { id: product.id, name: product.name, conversionRate };
-      }
-    }
-  }
+  const { bestSeller, mostSearched, topConverting } =
+    aggregateWebsitePerformance(topProducts, eventSummary);
 
   // Generate AI Insights with Gemma
   const gemmaPrompt = `Analyze the following website performance metrics for an e-commerce store and provide 2 brief, actionable insights (max 1 sentence each) for the merchant:

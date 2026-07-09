@@ -8,6 +8,7 @@ const mockPurchases = vi.hoisted(() => ({
   getOfferings: vi.fn(),
   purchasePackage: vi.fn(),
   restorePurchases: vi.fn(),
+  setLogHandler: vi.fn(),
 }));
 
 function mockNativeRuntime({ isDevice }: { isDevice: boolean }) {
@@ -69,6 +70,7 @@ describe('useRevenueCatStore', () => {
     expect(mockPurchases.configure).toHaveBeenCalledWith({
       apiKey: 'android-key',
     });
+    expect(mockPurchases.setLogHandler).toHaveBeenCalledTimes(1);
     expect(mockPurchases.getCustomerInfo).toHaveBeenCalledTimes(1);
     expect(mockPurchases.getOfferings).toHaveBeenCalledTimes(1);
     expect(useRevenueCatStore.getState().isInitialized).toBe(true);
