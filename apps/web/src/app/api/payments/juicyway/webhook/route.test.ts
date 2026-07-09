@@ -155,6 +155,98 @@ describe('POST /api/payments/juicyway/webhook', () => {
     expect(data).toEqual({ message: 'Already processed' });
   });
 
+  it('includes selected condition and variant labels in the confirmation email', async () => {
+    mockVerifyWebhookSignature.mockResolvedValue(true);
+    const { generateOrderConfirmationEmail } = await import(
+      '@/lib/email-templates'
+    );
+
+    const transaction = webhookTest.pendingCryptoTxn({
+      juicyway_expected_amount: 10000,
+      juicyway_expected_currency: 'USDT',
+    });
+    const state = webhookTest.wireProcessingMocks(transaction, {
+      orderItems: [
+        {
+          condition: 'used',
+          id: 'item-123',
+          name: 'iPad Pro',
+          price: 9500,
+          product_id: 'product-123',
+          quantity: 1,
+          subtotal: 9500,
+          variant_name: '128GB WiFi Used',
+        },
+      ],
+    });
+
+    const payload = webhookTest.createSuccessPayload();
+    payload.data.amount = 10000;
+    payload.data.currency = 'USDT';
+
+    const response = await webhookTest.postJuicywayWebhook(
+      webhookTest.createWebhookRequest(payload)
+    );
+
+    expect(response.status).toBe(200);
+    expect(state.orderUpdated).toBe(true);
+    expect(generateOrderConfirmationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            name: 'iPad Pro (Used / 128GB WiFi)',
+          }),
+        ],
+      })
+    );
+  });
+
+  it('keeps the plain product name when no condition or variant is selected', async () => {
+    mockVerifyWebhookSignature.mockResolvedValue(true);
+    const { generateOrderConfirmationEmail } = await import(
+      '@/lib/email-templates'
+    );
+
+    const transaction = webhookTest.pendingCryptoTxn({
+      juicyway_expected_amount: 10000,
+      juicyway_expected_currency: 'USDT',
+    });
+    const state = webhookTest.wireProcessingMocks(transaction, {
+      orderItems: [
+        {
+          condition: null,
+          id: 'item-123',
+          name: 'iPad Pro',
+          price: 9500,
+          product_id: 'product-123',
+          quantity: 1,
+          subtotal: 9500,
+          variant_name: null,
+        },
+      ],
+    });
+
+    const payload = webhookTest.createSuccessPayload();
+    payload.data.amount = 10000;
+    payload.data.currency = 'USDT';
+
+    const response = await webhookTest.postJuicywayWebhook(
+      webhookTest.createWebhookRequest(payload)
+    );
+
+    expect(response.status).toBe(200);
+    expect(state.orderUpdated).toBe(true);
+    expect(generateOrderConfirmationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            name: 'iPad Pro',
+          }),
+        ],
+      })
+    );
+  });
+
   it('files reconciliation before acknowledging an already-completed transaction for a cancelled order', async () => {
     mockVerifyWebhookSignature.mockResolvedValue(true);
 

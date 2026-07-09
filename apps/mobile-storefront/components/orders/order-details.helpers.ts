@@ -46,6 +46,8 @@ export function mapOrderDetails(data: RawOrderDetails): OrderDetails {
         product_slug: product?.slug ?? '',
         quantity: item.quantity,
         price: item.price,
+        condition: item.condition,
+        variant_name: item.variant_name,
         image_url: product?.images?.[0],
         has_assurance: item.has_assurance,
         assurance_fee: item.assurance_fee,

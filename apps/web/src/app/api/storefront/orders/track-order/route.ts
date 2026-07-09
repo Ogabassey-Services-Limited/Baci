@@ -37,9 +37,10 @@ interface ShippingAddress {
 interface OrderItemRow {
   id: string;
   product_id: string;
+  condition?: string | null;
   image_url?: string | null;
   name: string;
-  variant_name?: string;
+  variant_name?: string | null;
   quantity: number;
   price: number;
   product_images?: unknown;
@@ -284,6 +285,7 @@ export async function GET(request: NextRequest) {
           id: item.id,
           product_id: item.product_id,
           product_name: item.name,
+          condition: item.condition || null,
           variant_name: item.variant_name,
           quantity: item.quantity,
           unit_price: item.price,

@@ -53,6 +53,8 @@ export async function fetchOrderRecord(
         name,
         quantity,
         price,
+        condition,
+        variant_name,
         has_assurance,
         assurance_fee,
         products (

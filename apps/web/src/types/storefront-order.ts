@@ -8,9 +8,9 @@ export interface StorefrontOrderItem {
   category?: string;
   category_slug?: string;
   categories?: { name?: string; slug?: string } | null;
-  variant_id?: string;
   condition?: string | null;
-  variant_name?: string;
+  variant_id?: string;
+  variant_name?: string | null;
   name: string;
   product_name?: string;
   quantity: number;

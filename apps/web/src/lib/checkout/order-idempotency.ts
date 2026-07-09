@@ -12,6 +12,8 @@ type IdempotencyItem = {
   variantId?: string;
   variant_attributes?: Record<string, string>;
   variantAttributes?: Record<string, string>;
+  variant_name?: string;
+  variantName?: string;
 };
 
 export type OrderIdempotencyPayloadInput = {
@@ -90,6 +92,7 @@ function normalizeItems(items: readonly IdempotencyItem[]) {
         item.variant_attributes ?? item.variantAttributes
       ),
       variant_id: normalizeText(item.variant_id ?? item.variantId),
+      variant_name: normalizeText(item.variant_name ?? item.variantName),
     }))
     .sort((left, right) => {
       const productComparison = left.product_id.localeCompare(right.product_id);
@@ -100,6 +103,13 @@ function normalizeItems(items: readonly IdempotencyItem[]) {
       const variantComparison = left.variant_id.localeCompare(right.variant_id);
       if (variantComparison !== 0) {
         return variantComparison;
+      }
+
+      const variantNameComparison = left.variant_name.localeCompare(
+        right.variant_name
+      );
+      if (variantNameComparison !== 0) {
+        return variantNameComparison;
       }
 
       const conditionComparison = left.condition.localeCompare(right.condition);

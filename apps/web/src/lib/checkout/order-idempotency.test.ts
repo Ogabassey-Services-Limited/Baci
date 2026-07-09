@@ -123,6 +123,64 @@ describe('order idempotency hashing', () => {
     );
   });
 
+  it('changes the hash when only an item variant label changes', () => {
+    const original = buildOrderIdempotencyPayload({
+      ...baseOrder,
+      items: [
+        {
+          ...baseOrder.items[0],
+          variant_attributes: undefined,
+          variant_id: undefined,
+          variant_name: '512GB',
+        },
+      ],
+    });
+    const changed = buildOrderIdempotencyPayload({
+      ...baseOrder,
+      items: [
+        {
+          ...baseOrder.items[0],
+          variant_attributes: undefined,
+          variant_id: undefined,
+          variant_name: '1TB',
+        },
+      ],
+    });
+
+    expect(hashOrderIdempotencyPayload(original)).not.toBe(
+      hashOrderIdempotencyPayload(changed)
+    );
+  });
+
+  it('hashes equivalent variant label aliases identically', () => {
+    const snakeCase = buildOrderIdempotencyPayload({
+      ...baseOrder,
+      items: [
+        {
+          ...baseOrder.items[0],
+          variant_attributes: undefined,
+          variant_id: undefined,
+          variant_name: '  Matte   Black ',
+        },
+      ],
+    });
+    const camelCase = buildOrderIdempotencyPayload({
+      ...baseOrder,
+      items: [
+        {
+          ...baseOrder.items[0],
+          variant_attributes: undefined,
+          variant_id: undefined,
+          variantName: 'matte black',
+        },
+      ],
+    });
+
+    expect(hashOrderIdempotencyPayload(snakeCase)).toBe(
+      hashOrderIdempotencyPayload(camelCase)
+    );
+  });
+
   it('does not change the hash when the customer switches payment provider', () => {
     const creditDirect = buildOrderIdempotencyPayload({
       ...baseOrder,

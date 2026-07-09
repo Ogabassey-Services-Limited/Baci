@@ -692,6 +692,42 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
       /GRANT\s+(?:ALL|EXECUTE)\s+ON\s+FUNCTION\s+public\.create_storefront_order[\s\S]*?\)\s*TO\s+[^;]*?\bservice_role\b/i
     );
   });
+
+  it('preserves payload variant_name before deriving order item labels', () => {
+    const sql = readFileSync(
+      resolve(
+        migrationsDirectory,
+        '20260708213000_fix_create_storefront_order_variant_name.sql'
+      ),
+      'utf8'
+    );
+
+    expect(sql).toMatch(
+      /NULLIF\s*\(\s*trim\s*\(\s*COALESCE\s*\(\s*item->>'variant_name'\s*,\s*item->>'variantName'\s*\)\s*\)\s*,\s*''\s*\)\s+AS\s+variant_name/i
+    );
+
+    const productVariantAttributesIndex = sql.indexOf(
+      'public.format_order_item_variant_name(v.attributes)'
+    );
+    const payloadVariantNameIndex = sql.indexOf(
+      "NULLIF(trim(r.variant_name), '')",
+      productVariantAttributesIndex
+    );
+    const payloadVariantAttributesIndex = sql.indexOf(
+      'public.format_order_item_variant_name(r.variant_attributes)',
+      payloadVariantNameIndex
+    );
+
+    expect(productVariantAttributesIndex).toBeGreaterThan(-1);
+    expect(payloadVariantNameIndex).toBeGreaterThan(
+      productVariantAttributesIndex
+    );
+    expect(payloadVariantAttributesIndex).toBeGreaterThan(
+      payloadVariantNameIndex
+    );
+    expect(sql).toContain('WHERE products.id = stock_rec.product_id');
+    expect(sql).toContain('WHERE product_variants.id = v_variant_id');
+  });
 });
 
 // B3.5 trigger contract: `update_order_tax_totals` MUST recompute

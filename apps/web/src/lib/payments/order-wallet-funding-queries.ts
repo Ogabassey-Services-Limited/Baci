@@ -24,7 +24,7 @@ const RICH_ORDER_SELECT = [
   'shipping_status',
   'updated_at',
   'ad_tracking',
-  'order_items(id, product_id, name, price, quantity, subtotal, variant_name)',
+  'order_items(id, product_id, condition, name, price, quantity, subtotal, variant_name)',
 ].join(', ');
 const ORDER_TRANSACTION_SELECT = [
   'id',

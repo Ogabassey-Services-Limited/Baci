@@ -199,7 +199,23 @@ export async function setupJuicywayWebhookTest(): Promise<
   return vi.mocked(juicyway.verifyWebhookSignature);
 }
 
-export function wireProcessingMocks(transaction: Record<string, unknown>) {
+type WireProcessingMocksOptions = {
+  orderItems?: Array<{
+    condition: string | null;
+    id: string;
+    name: string;
+    price: number;
+    product_id: string;
+    quantity: number;
+    subtotal: number;
+    variant_name: string | null;
+  }>;
+};
+
+export function wireProcessingMocks(
+  transaction: Record<string, unknown>,
+  options: WireProcessingMocksOptions = {}
+) {
   const order = {
     id: 'order-123',
     order_number: 'ORD-001',
@@ -216,7 +232,7 @@ export function wireProcessingMocks(transaction: Record<string, unknown>) {
       city: 'Lagos',
       state: 'Lagos',
     },
-    order_items: [],
+    order_items: options.orderItems ?? [],
     ad_tracking: null,
   };
   const merchant = {

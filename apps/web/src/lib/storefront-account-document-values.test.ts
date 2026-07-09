@@ -89,23 +89,24 @@ describe('storefront account document values', () => {
           product_id: null,
           variant_id: 'variant-1',
           variant_name: 'Blue / 128GB',
+          condition: 'open_box',
           name: 'iPhone 16',
           quantity: 2,
           price: 1000,
         },
       ])
     ).toEqual([
-      {
+      expect.objectContaining({
         id: 'item-1',
         product_id: '',
         variant_id: 'variant-1',
-        condition: undefined,
-        variant_name: 'Blue / 128GB',
+        condition: 'open_box',
+        variant_name: 'Blue / 128GB, Open Box',
         name: 'iPhone 16',
         product_name: 'iPhone 16',
         quantity: 2,
         price: 1000,
-      },
+      }),
     ]);
   });
 

@@ -357,6 +357,35 @@ describe('generateReceiptBlob', () => {
     expect(pdfText).toContain('Blue / 128GB');
   });
 
+  it('formats condition and variant metadata in receipt line items', () => {
+    const order = {
+      ...baseOrder,
+      items: [
+        {
+          condition: 'open_box',
+          product_name: '13" MacBook Air M2',
+          quantity: 1,
+          price: 150000,
+          variant_name: 'Open Box / 512GB',
+        },
+        {
+          condition: 'used',
+          product_name: '',
+          quantity: 1,
+          price: 0,
+          variant_name: null,
+        },
+      ],
+      transactions: [],
+    };
+
+    const pdfText = getPdfText(order, baseMerchant);
+
+    expect(pdfText).toContain('13" MacBook Air M2');
+    expect(pdfText).toContain('Open Box / 512GB');
+    expect(pdfText).toContain('Item \\(Used\\)');
+  });
+
   it('ignores whitespace-only variant labels', () => {
     const order = {
       ...baseOrder,

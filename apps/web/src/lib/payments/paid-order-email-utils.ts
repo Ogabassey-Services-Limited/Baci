@@ -1,3 +1,4 @@
+import { formatOrderItemDisplayName } from '@baci/shared/lib';
 import type {
   MerchantDetails,
   RichPaidOrder,
@@ -118,7 +119,11 @@ export function mapOrderItemToEmailItem(
   const displayName = itemName && itemName.length > 0 ? itemName : 'Product';
 
   return {
-    name: variantName ? `${displayName} (${variantName})` : displayName,
+    name: formatOrderItemDisplayName({
+      baseName: displayName,
+      condition: item.condition,
+      variantName,
+    }),
     price: toNumber(item.price ?? 0, 'order item price'),
     quantity: item.quantity ?? 1,
   };

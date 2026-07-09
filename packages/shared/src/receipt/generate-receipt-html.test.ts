@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { generateReceiptHtml } from './generate-receipt-html';
 import { receiptTestFactory } from './receipt-test-factory';
+import type { ReceiptOrder } from './types';
 
 const { createReceiptMerchant, createReceiptOrder } = receiptTestFactory;
 
@@ -12,6 +13,41 @@ describe('generateReceiptHtml', () => {
     );
 
     expect(html).toContain('Samsung Galaxy S22 Ultra (Black / 256GB)');
+  });
+
+  it('includes the selected condition alongside variant labels in receipt item rows', () => {
+    const receiptItem = {
+      product_name: '13" MacBook Air M2 (2022)',
+      condition: 'open_box',
+      variant_name: '512GB',
+      quantity: 1,
+      price: 690000,
+    } as ReceiptOrder['items'][number];
+
+    const html = generateReceiptHtml(
+      createReceiptOrder({ items: [receiptItem] }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('13&quot; MacBook Air M2 (2022) (Open Box / 512GB)');
+  });
+
+  it('does not duplicate the condition when the variant label already contains it', () => {
+    const receiptItem = {
+      product_name: '13" MacBook Air M2 (2022)',
+      condition: 'open_box',
+      variant_name: 'Open Box / 512GB',
+      quantity: 1,
+      price: 690000,
+    } as ReceiptOrder['items'][number];
+
+    const html = generateReceiptHtml(
+      createReceiptOrder({ items: [receiptItem] }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('13&quot; MacBook Air M2 (2022) (Open Box / 512GB)');
+    expect(html).not.toContain('Open Box / Open Box / 512GB');
   });
 
   it('does not double-escape merchant names in the logo fallback', () => {

@@ -90,6 +90,7 @@ export function toRichPaidOrderItems(
   return value.map((item) => {
     if (!isRecord(item)) {
       return {
+        condition: null,
         name: null,
         price: null,
         quantity: null,
@@ -97,6 +98,7 @@ export function toRichPaidOrderItems(
       };
     }
     return {
+      condition: optionalString(item, 'condition'),
       name: optionalString(item, 'name'),
       price: optionalMoney(item, 'price'),
       quantity: optionalNumber(item, 'quantity'),

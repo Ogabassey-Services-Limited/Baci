@@ -84,6 +84,9 @@ export const orderDetailsScreenStyles = StyleSheet.create({
   itemQuantity: {
     fontSize: 13,
   },
+  itemOptionLabel: {
+    fontSize: 13,
+  },
   itemPrice: {
     fontSize: 15,
     fontWeight: '600',

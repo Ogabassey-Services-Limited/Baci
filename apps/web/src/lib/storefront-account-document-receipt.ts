@@ -97,6 +97,7 @@ export function buildReceiptOrder(input: BuildReceiptOrderInput): ReceiptOrder {
       line_id: index + 1,
       product_id: item.product_id || null,
       product_name: item.product_name || item.name,
+      condition: item.condition || null,
       variant_id: item.variant_id || null,
       variant_name: item.variant_name,
       quantity: item.quantity,

@@ -63,6 +63,8 @@ export function useReceipts(userId: string | undefined) {
               order_items (
                 id,
                 name,
+                condition,
+                variant_name,
                 quantity,
                 price,
                 image_url
@@ -137,6 +139,8 @@ async function fetchReceiptDetail(
           order_items (
             id,
             name,
+            condition,
+            variant_name,
             quantity,
             price,
             image_url

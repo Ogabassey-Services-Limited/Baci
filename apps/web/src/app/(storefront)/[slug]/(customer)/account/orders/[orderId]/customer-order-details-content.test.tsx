@@ -104,6 +104,49 @@ describe('CustomerOrderDetailsContent', () => {
     expect(screen.getByText('Blue / 128GB')).toBeInTheDocument();
   });
 
+  it('renders condition and variant metadata for order items', () => {
+    render(
+      <CustomerOrderDetailsContent
+        order={{
+          ...baseOrder,
+          items: [
+            {
+              ...baseOrder.items[0],
+              condition: 'open_box',
+              variant_name: 'Blue / 128GB',
+            },
+          ],
+        }}
+        basePath="/ogabassey"
+        merchantSlug="ogabassey"
+      />
+    );
+
+    expect(screen.getByText('Open Box / Blue / 128GB')).toBeInTheDocument();
+  });
+
+  it('omits item metadata when condition and variant are absent', () => {
+    render(
+      <CustomerOrderDetailsContent
+        order={{
+          ...baseOrder,
+          items: [
+            {
+              ...baseOrder.items[0],
+              condition: null,
+              variant_name: null,
+            },
+          ],
+        }}
+        basePath="/ogabassey"
+        merchantSlug="ogabassey"
+      />
+    );
+
+    expect(screen.queryByText('Open Box')).not.toBeInTheDocument();
+    expect(screen.queryByText('Blue / 128GB')).not.toBeInTheDocument();
+  });
+
   it('shows the cancel order CTA when the order is server-cancellable', () => {
     render(
       <CustomerOrderDetailsContent

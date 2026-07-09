@@ -14,6 +14,8 @@ import { z } from 'zod';
 const OrderItemSchema = z.object({
   id: z.string(),
   product_name: z.string(),
+  condition: z.string().nullable().optional(),
+  variant_name: z.string().nullable().optional(),
   quantity: z.number(),
   price: z.number(),
   image_url: z.string().nullable().optional(),
