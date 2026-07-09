@@ -82,7 +82,7 @@ describe('OgabasseyPdpProductResourceHints', () => {
     const productImage =
       'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif';
     const desktopPreloadHref =
-      'https://cdn.ogabassey.com/image/width=750,quality=35,format=jpeg/core-assets/products/lenovo-legion.avif';
+      'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/lenovo-legion.avif';
     const html = renderToStaticMarkup(
       createElement(OgabasseyPdpProductResourceHints, { src: productImage })
     );
@@ -104,19 +104,18 @@ describe('OgabasseyPdpProductResourceHints', () => {
         fetchPriority: 'high',
         imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
         imageSrcSet: expect.stringContaining(
-          'https://cdn.ogabassey.com/image/width=750,quality=35,format=jpeg/core-assets/products/lenovo-legion.avif 750w'
+          'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/lenovo-legion.avif 750w'
         ),
       })
     );
     const { options } = getPreloadCall(0);
     expect(options).not.toHaveProperty('media');
     expect(desktopPreloadHref).toBe(
-      'https://cdn.ogabassey.com/image/width=750,quality=35,format=jpeg/core-assets/products/lenovo-legion.avif'
+      'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/lenovo-legion.avif'
     );
-    expect(desktopPreloadHref).not.toContain('format=auto');
     expect(options.imageSrcSet).toContain('/image/width=');
     expect(options.imageSrcSet).toContain('quality=35');
-    expect(options.imageSrcSet).not.toContain('format=auto');
+    expect(options.imageSrcSet).toContain('format=auto');
     expect(options.imageSrcSet).not.toContain('quality=30');
   });
 
@@ -134,12 +133,12 @@ describe('OgabasseyPdpProductResourceHints', () => {
       expect.objectContaining({
         imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
         imageSrcSet: expect.stringContaining(
-          'https://cdn.ogabassey.com/image/width=750,quality=35,format=jpeg/core-assets/products/z-fold-7-jet-black.avif 750w'
+          'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/z-fold-7-jet-black.avif 750w'
         ),
       })
     );
     expect(options.imageSrcSet).toContain(
-      'https://cdn.ogabassey.com/image/width=750,quality=35,format=jpeg/core-assets/products/z-fold-7-jet-black.avif 750w'
+      'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/z-fold-7-jet-black.avif 750w'
     );
     expect(options).not.toHaveProperty('media');
   });

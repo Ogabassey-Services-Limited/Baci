@@ -92,8 +92,21 @@ function isCdnTransformableUrl(imagePath: string): boolean {
  * silently drift.
  */
 interface BuildOgabasseyPrewarmTransformUrlOptions {
-  /** Explicit transform format for legacy/backfill probes. Defaults to fallback. */
+  /** Explicit transform format for legacy/backfill probes. Defaults to live keys. */
   format?: OgabasseyCdnImageFormat;
+}
+
+function buildDefaultPrewarmTransformUrls(
+  imagePath: string,
+  { quality, width }: PrewarmWidthQualityPair
+): string[] {
+  return Array.from(
+    new Set([
+      buildOgabasseyCdnFallbackImageLoaderUrl(imagePath, width, quality),
+      buildOgabasseyCdnImageLoaderUrl(imagePath, width, quality, 'avif'),
+      buildOgabasseyCdnImageLoaderUrl(imagePath, width, quality, 'auto'),
+    ])
+  );
 }
 
 export function buildOgabasseyPrewarmTransformUrls(
@@ -105,16 +118,18 @@ export function buildOgabasseyPrewarmTransformUrls(
     return [];
   }
 
-  return pairs.map(({ width, quality }) =>
-    options.format
-      ? buildOgabasseyCdnImageLoaderUrl(
-          imagePath,
-          width,
-          quality,
-          options.format
-        )
-      : buildOgabasseyCdnFallbackImageLoaderUrl(imagePath, width, quality)
-  );
+  return pairs.flatMap((pair) => {
+    if (!options.format) {
+      return buildDefaultPrewarmTransformUrls(imagePath, pair);
+    }
+
+    return buildOgabasseyCdnImageLoaderUrl(
+      imagePath,
+      pair.width,
+      pair.quality,
+      options.format
+    );
+  });
 }
 
 function buildPrewarmUrls(

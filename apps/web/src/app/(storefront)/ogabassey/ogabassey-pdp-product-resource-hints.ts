@@ -10,7 +10,7 @@ import {
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 import imageLoader from '@/lib/image-loader';
 import {
-  buildOgabasseyCdnFallbackImageLoaderUrl,
+  buildOgabasseyCdnImageLoaderUrl,
   isOgabasseyCdnImageUrl,
 } from '@/lib/ogabassey-cdn-image-url';
 import { getOgabasseyImagePreloadType } from './ogabassey-image-preload-type';
@@ -41,7 +41,7 @@ function ogabasseyPdpImageLoader({
   width,
 }: ImageLoaderParams): string {
   if (isOgabasseyCdnImageUrl(src)) {
-    return buildOgabasseyCdnFallbackImageLoaderUrl(src, width, quality);
+    return buildOgabasseyCdnImageLoaderUrl(src, width, quality);
   }
 
   return imageLoader({ quality, src, width });

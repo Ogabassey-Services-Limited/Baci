@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  buildOgabasseyPrewarmTransformUrls,
   PREWARM_ACCEPT_HEADER,
   prewarmOgabasseyImageTransforms,
 } from './ogabassey-image-prewarm';
@@ -26,7 +27,7 @@ describe('prewarmOgabasseyImageTransforms', () => {
     vi.restoreAllMocks();
   });
 
-  it('HEAD-requests the width x quality transform variants for a CDN product image', async () => {
+  it('HEAD-requests fallback, AVIF, and auto transform variants for a CDN product image', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(okResponse());
 
     await prewarmOgabasseyImageTransforms([CDN_PRODUCT_IMAGE], {
@@ -39,7 +40,7 @@ describe('prewarmOgabasseyImageTransforms', () => {
       RequestInit,
     ];
     expect(firstUrl).toMatch(
-      /^https:\/\/cdn\.ogabassey\.com\/image\/width=\d+,quality=\d+,format=jpeg\/core-assets\/products\/phone\.avif$/
+      /^https:\/\/cdn\.ogabassey\.com\/image\/width=\d+,quality=\d+,format=(auto|avif|jpeg)\/core-assets\/products\/phone\.avif$/
     );
     expect(firstInit.method).toBe('HEAD');
 
@@ -49,10 +50,11 @@ describe('prewarmOgabasseyImageTransforms', () => {
     expect(new Set(requestedUrls).size).toBe(requestedUrls.length);
     for (const url of requestedUrls) {
       expect(url).toContain('/image/width=');
-      expect(url).toContain('format=jpeg');
-      expect(url).not.toContain('format=auto');
       expect(url).toContain('/core-assets/products/phone.avif');
     }
+    expect(requestedUrls.some((url) => url.includes('format=jpeg'))).toBe(true);
+    expect(requestedUrls.some((url) => url.includes('format=avif'))).toBe(true);
+    expect(requestedUrls.some((url) => url.includes('format=auto'))).toBe(true);
   });
 
   it('keeps the AVIF-first Accept header on HEAD requests for legacy auto probes', async () => {
@@ -71,6 +73,18 @@ describe('prewarmOgabasseyImageTransforms', () => {
       );
     }
     expect(PREWARM_ACCEPT_HEADER.startsWith('image/avif')).toBe(true);
+  });
+
+  it('honors an explicit prewarm format for one-time probes', () => {
+    expect(
+      buildOgabasseyPrewarmTransformUrls(
+        CDN_PRODUCT_IMAGE,
+        [{ quality: 75, width: 640 }],
+        { format: 'auto' }
+      )
+    ).toEqual([
+      'https://cdn.ogabassey.com/image/width=640,quality=75,format=auto/core-assets/products/phone.avif',
+    ]);
   });
 
   it('sends the AVIF-first Accept header on the ranged-GET fallback too', async () => {
