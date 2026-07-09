@@ -148,8 +148,12 @@ export function ProductsTabPage({
         : null;
   const productsEmptyProps = productsError
     ? {
+        buttonHint: 'Retries loading products',
+        buttonLabel: 'Try Again',
         description: 'Refresh the page or try again in a moment.',
         icon: 'alert-circle-outline' as const,
+        onButtonPress: () => void refetchProducts(),
+        showButtonIcon: false,
         title: "Couldn't load products",
       }
     : {

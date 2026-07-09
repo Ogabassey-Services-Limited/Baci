@@ -185,6 +185,7 @@ describe('ProductsTabPage', () => {
   });
 
   it('shows an error empty state when products fail to load', () => {
+    const refetch = vi.fn();
     productHookMocks.useProducts.mockReturnValue({
       data: undefined,
       error: new Error('Network error'),
@@ -192,12 +193,14 @@ describe('ProductsTabPage', () => {
       hasNextPage: false,
       isFetchingNextPage: false,
       isLoading: false,
-      refetch: vi.fn(),
+      refetch,
     });
 
     renderPage('in_stock');
 
     expect(screen.getByText("Couldn't load products")).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 
   it('shows a loading indicator while products are loading', () => {
