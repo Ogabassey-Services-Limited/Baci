@@ -94,6 +94,7 @@ export async function POST(request: NextRequest) {
       items: data.items,
       sessionId: data.sessionId || crypto.randomUUID(),
       shipmentType: data.shipmentType,
+      deliveryPreference: data.deliveryPreference,
     };
 
     // Get quotes from all providers

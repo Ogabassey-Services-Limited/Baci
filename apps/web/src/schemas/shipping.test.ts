@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BookingRequestSchema,
+  QuoteRequestSchema,
   SelfFulfillmentSchema,
   SelfFulfillmentUpdateSchema,
 } from './shipping';
@@ -150,6 +151,40 @@ describe('BookingRequestSchema international item metadata', () => {
           width: 8,
         },
       ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('QuoteRequestSchema delivery preference', () => {
+  it('accepts pickup-station quote preferences for domestic quotes', () => {
+    const result = QuoteRequestSchema.safeParse({
+      deliveryPreference: 'pickup_station',
+      receiver: {
+        name: 'Jane Receiver',
+        address: '5 Customer Street',
+        city: 'Port Harcourt',
+        state: 'Rivers',
+      },
+      items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.deliveryPreference).toBe('pickup_station');
+  });
+
+  it('rejects unsupported quote delivery preferences', () => {
+    const result = QuoteRequestSchema.safeParse({
+      deliveryPreference: 'express',
+      receiver: {
+        name: 'Jane Receiver',
+        address: '5 Customer Street',
+        city: 'Port Harcourt',
+        state: 'Rivers',
+      },
+      items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
     });
 
     expect(result.success).toBe(false);

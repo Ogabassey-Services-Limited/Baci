@@ -3,11 +3,13 @@ import { useEffect } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import gigLogoSource from '@/assets/images/gig-logo.webp';
 import { ShippingPickupFallbackNotice } from '@/components/checkout/ShippingPickupFallbackNotice';
 import { ShippingQuotesRetryCard } from '@/components/checkout/ShippingQuotesRetryCard';
 import type { ShippingQuote } from '@/components/checkout/types';
@@ -90,6 +92,9 @@ export function ShippingQuotesCard({
                   ? `${quote.estimatedDays} days`
                   : 'ETA unavailable');
               const carrier = quote.carrierName || quote.provider || 'Delivery';
+              const isGiglQuote =
+                carrier.toLowerCase().includes('gig') ||
+                quote.provider?.toLowerCase() === 'gigl';
 
               return (
                 <Pressable
@@ -120,21 +125,20 @@ export function ShippingQuotesCard({
                       >
                         {quote.displayName}
                       </Text>
-                      {carrier.toLowerCase().includes('gig') && (
+                      {isGiglQuote && (
                         <View
                           style={[
-                            styles.badge,
-                            { backgroundColor: colors.foreground },
+                            styles.logoBadge,
+                            { backgroundColor: colors.background },
                           ]}
+                          accessibilityLabel="GIG Logistics logo"
+                          accessibilityRole="image"
                         >
-                          <Text
-                            style={[
-                              styles.badgeText,
-                              { color: colors.background },
-                            ]}
-                          >
-                            GIGL
-                          </Text>
+                          <Image
+                            source={gigLogoSource}
+                            style={styles.gigLogo}
+                            resizeMode="contain"
+                          />
                         </View>
                       )}
                       {carrier.toLowerCase().includes('topship') && (
@@ -266,10 +270,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
+  logoBadge: {
+    borderRadius: 4,
+    minHeight: 24,
+    minWidth: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    overflow: 'hidden',
+  },
 
   badgeText: {
     fontSize: 9,
     fontWeight: '700',
     textTransform: 'uppercase',
+  },
+  gigLogo: {
+    width: 30,
+    height: 22,
   },
 });

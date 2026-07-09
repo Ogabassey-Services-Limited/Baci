@@ -1,5 +1,6 @@
+import { isPickupEligible } from '@baci/shared';
 import { PICKUP_STATION_ADDRESS_LINES } from './pickup-station.constants';
-import type { ShippingQuote } from './types';
+import type { DeliveryMethod, ShippingQuote } from './types';
 
 export type ProviderStationPickupQuote = ShippingQuote & {
   isStationPickup: true;
@@ -45,4 +46,35 @@ export function getPickupStationAddressText(
   separator = ', '
 ): string {
   return getPickupStationAddressLines(quote).join(separator);
+}
+
+export function getPickupStationMode({
+  city,
+  deliveryMethod,
+  state,
+  stationPickupQuote,
+}: {
+  city: string;
+  deliveryMethod: DeliveryMethod;
+  state: string;
+  stationPickupQuote?: ShippingQuote;
+}) {
+  const hasResolvedDeliveryLocation = Boolean(state && city);
+  const usesMerchantPickup =
+    deliveryMethod === 'pickup_station' && isPickupEligible(state);
+  const usesProviderPickup =
+    deliveryMethod === 'pickup_station' &&
+    hasResolvedDeliveryLocation &&
+    !isPickupEligible(state);
+  const canUsePickupStation =
+    isPickupEligible(state) ||
+    stationPickupQuote !== undefined ||
+    (hasResolvedDeliveryLocation && !isPickupEligible(state));
+
+  return {
+    canUsePickupStation,
+    hasResolvedDeliveryLocation,
+    usesMerchantPickup,
+    usesProviderPickup,
+  };
 }

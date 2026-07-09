@@ -3,6 +3,7 @@ import {
   getPickupStationAddressLines,
   getPickupStationAddressText,
   getPickupStationLabel,
+  getPickupStationMode,
   getStationPickupQuote,
   isProviderStationPickupQuote,
 } from './checkout-station-pickup';
@@ -81,5 +82,76 @@ describe('checkout station pickup helpers', () => {
     expect(getPickupStationAddressText(stationQuote, '\n')).toBe(
       'PORT HARCOURT\nGIGL Aba Road, Port Harcourt'
     );
+  });
+
+  it('keeps Lagos pickup and non-Lagos provider pickup modes separate', () => {
+    expect(
+      getPickupStationMode({
+        city: 'Ikeja',
+        deliveryMethod: 'pickup_station',
+        state: 'Lagos',
+      })
+    ).toMatchObject({
+      canUsePickupStation: true,
+      usesMerchantPickup: true,
+      usesProviderPickup: false,
+    });
+
+    expect(
+      getPickupStationMode({
+        city: 'Port Harcourt',
+        deliveryMethod: 'pickup_station',
+        state: 'Rivers',
+      })
+    ).toMatchObject({
+      canUsePickupStation: true,
+      usesMerchantPickup: false,
+      usesProviderPickup: true,
+    });
+  });
+
+  it('keeps pickup availability separate from selected delivery methods', () => {
+    expect(
+      getPickupStationMode({
+        city: 'Port Harcourt',
+        deliveryMethod: 'door',
+        state: 'Rivers',
+      })
+    ).toMatchObject({
+      canUsePickupStation: true,
+      usesMerchantPickup: false,
+      usesProviderPickup: false,
+    });
+  });
+
+  it('does not offer pickup station mode without a resolved location', () => {
+    expect(
+      getPickupStationMode({
+        city: '',
+        deliveryMethod: 'pickup_station',
+        state: '',
+      })
+    ).toMatchObject({
+      canUsePickupStation: false,
+      hasResolvedDeliveryLocation: false,
+      usesMerchantPickup: false,
+      usesProviderPickup: false,
+    });
+  });
+
+  it('keeps station quote availability from implying provider pickup use', () => {
+    expect(
+      getPickupStationMode({
+        city: '',
+        deliveryMethod: 'pickup_station',
+        state: '',
+        stationPickupQuote: stationQuote,
+      })
+    ).toMatchObject({
+      canUsePickupStation: true,
+      hasResolvedDeliveryLocation: false,
+      usesMerchantPickup: false,
+      usesProviderPickup: false,
+    });
   });
 });

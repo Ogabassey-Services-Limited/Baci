@@ -113,6 +113,25 @@ describe('ShippingQuotesCard', () => {
     ).toBeTruthy();
   });
 
+  it('renders an accessible GIG Logistics logo image for GIGL quotes', () => {
+    render(
+      <ShippingQuotesCard
+        {...baseProps}
+        shippingQuotes={[
+          {
+            id: 'gigl-quote',
+            displayName: 'GIG Logistics - Home Delivery',
+            price: 81309,
+            carrierName: 'GIG Logistics',
+            provider: 'GIGL',
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByLabelText('GIG Logistics logo')).toBeTruthy();
+  });
+
   it('calls onSelectQuote with the quote id when a quote is pressed', () => {
     const quotes = [
       { id: 'q1', displayName: 'Standard Delivery', price: 3500 },

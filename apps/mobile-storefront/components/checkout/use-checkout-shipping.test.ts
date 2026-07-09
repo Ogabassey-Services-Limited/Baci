@@ -323,7 +323,7 @@ describe('useCheckoutShipping', () => {
     expect(result.current.deliveryMethod).toBe('door');
   });
 
-  it('falls back to door when the address state no longer supports pickup', () => {
+  it('keeps provider pickup selected when the address moves outside Lagos', () => {
     const { rerender, result } = renderHook(
       (props: ShippingParams) => useCheckoutShipping(props),
       { initialProps: createLocatedParams('Lagos', 'Ikeja') }
@@ -334,8 +334,10 @@ describe('useCheckoutShipping', () => {
     });
     expect(result.current.deliveryMethod).toBe('pickup_station');
 
-    // Pickup is Lagos-only; moving to another state must reset the method.
+    // Outside Lagos now uses provider pickup stations instead of the free
+    // merchant pickup counter, so the selection remains but needs a quote.
     rerender(createLocatedParams('Oyo', 'Ibadan'));
-    expect(result.current.deliveryMethod).toBe('door');
+    expect(result.current.deliveryMethod).toBe('pickup_station');
+    expect(result.current.requiresShippingQuote).toBe(true);
   });
 });

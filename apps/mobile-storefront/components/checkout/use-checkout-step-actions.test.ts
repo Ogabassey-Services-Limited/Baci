@@ -1,5 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { renderHook } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import {
   PICKUP_STATION_CITY,
   PICKUP_STATION_STATE,
@@ -19,9 +20,10 @@ type Params = Parameters<typeof useCheckoutStepActions>[0];
 
 function renderStepActions(overrides: Partial<Params>) {
   const setValue = jest.fn();
+  const submitHandler = jest.fn();
   // handleSubmit returns the actual submit handler; the address branch invokes
   // it but the returned handler is a no-op here (validation isn't under test).
-  const handleSubmit = jest.fn(() => jest.fn());
+  const handleSubmit = jest.fn(() => submitHandler);
   const params = {
     handleSubmit,
     setValue,
@@ -31,12 +33,13 @@ function renderStepActions(overrides: Partial<Params>) {
     selectedPayment: 'paystack',
     step: 'address',
     deliveryMethod: 'pickup_station',
+    requiresShippingQuote: false,
     selectedQuote: undefined,
     ...overrides,
   } as unknown as Params;
 
   const { result } = renderHook(() => useCheckoutStepActions(params));
-  return { result, setValue };
+  return { result, setValue, submitHandler };
 }
 
 describe('useCheckoutStepActions — address continue', () => {
@@ -85,5 +88,31 @@ describe('useCheckoutStepActions — address continue', () => {
     expect(setValue).toHaveBeenCalledWith('state', PICKUP_STATION_STATE, {
       shouldValidate: true,
     });
+  });
+
+  it('blocks non-Lagos provider pickup until a station quote is selected', () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { result, setValue, submitHandler } = renderStepActions({
+      requiresShippingQuote: true,
+      selectedQuote: undefined,
+    });
+
+    result.current.handleContinue();
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Shipping Required',
+      'Please select an available GIGL pickup station before continuing.'
+    );
+    expect(setValue).not.toHaveBeenCalledWith(
+      'city',
+      PICKUP_STATION_CITY,
+      expect.anything()
+    );
+    expect(setValue).not.toHaveBeenCalledWith(
+      'state',
+      PICKUP_STATION_STATE,
+      expect.anything()
+    );
+    expect(submitHandler).not.toHaveBeenCalled();
   });
 });

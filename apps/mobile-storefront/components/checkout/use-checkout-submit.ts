@@ -72,6 +72,7 @@ export interface UseCheckoutSubmitParams {
   paymentSettings: Parameters<typeof submitBnplCheckout>[0]['paymentSettings'];
   paymentTab: PaymentTab;
   resolvedShippingQuoteContextKey: string;
+  requiresShippingQuote: boolean;
   saveAsDefaultAddress: boolean;
   saveDetails: boolean;
   selectedPayment: PaymentMethodType;
@@ -107,6 +108,7 @@ export function useCheckoutSubmit({
   paymentSettings,
   paymentTab,
   resolvedShippingQuoteContextKey,
+  requiresShippingQuote,
   saveAsDefaultAddress,
   saveDetails,
   selectedPayment,
@@ -122,7 +124,6 @@ export function useCheckoutSubmit({
   walletSelection,
 }: UseCheckoutSubmitParams) {
   const { data: merchant } = useMerchant();
-  // `||` (not `??`) so a blank CONFIG.MERCHANT_ID placeholder falls back.
   const merchantId = merchant?.id || CHECKOUT_MERCHANT_ID;
   return async (address: ShippingAddressInput) => {
     const itemsSnapshot = [...useCartStore.getState().items];
@@ -138,6 +139,7 @@ export function useCheckoutSubmit({
         isOrderInFlight,
         isProcessing,
         itemsLength: itemsSnapshot.length,
+        requiresShippingQuote,
         resolvedShippingQuoteContextKey,
         selectedPayment,
         selectedQuote,
@@ -151,7 +153,6 @@ export function useCheckoutSubmit({
     setIsProcessing(true);
 
     try {
-      // Freeze step: reprice vs live catalog; on drift update+alert+abort. Lock is engaged (no double-submit); finally releases it.
       if (itemsSnapshot.length > 0) {
         const reprice = await repriceCartItems(itemsSnapshot, merchantId);
         if (reprice.changes.length > 0) {
