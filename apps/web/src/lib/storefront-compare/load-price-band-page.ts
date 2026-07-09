@@ -9,6 +9,7 @@ import {
   type ProductKeySpecsRecord,
   type RawDbProduct,
 } from '@/lib/normalize-product';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildCommercialGuideLinks } from '@/lib/storefront-content/build-commercial-guide-links';
 import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
@@ -187,7 +188,7 @@ export async function loadPriceBandPage(
   const guidePosts = await getPublishedClusterPosts(merchant.id);
   const categoryName = categoryData.fallbackName || args.categorySlug;
   const canonicalUrl = `${storeUrl}/${args.categorySlug}/best-under/${band.slug}`;
-  const payoutCurrency = merchant.payout_currency || 'NGN';
+  const payoutCurrency = resolveMerchantCurrencyConfig(merchant).code;
   const priceFormatter = getPriceBandFormatter(
     getStorefrontLocale(merchant.country),
     payoutCurrency

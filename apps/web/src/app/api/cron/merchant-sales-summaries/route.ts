@@ -6,6 +6,7 @@ import {
   type MerchantSalesSummaryPeriod,
   type MerchantSalesSummaryRow,
 } from '@/lib/merchant-sales-summary-email';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
 import { merchantSalesSummaryCronQuerySchema } from '@/schemas/merchant-sales-summary-cron-query';
@@ -34,6 +35,7 @@ type SalesSummaryRow = MerchantSalesSummaryRow & {
 
 type MerchantRow = {
   business_name: string | null;
+  country: string | null;
   email: string;
   email_sender_name: string | null;
   id: string;
@@ -90,7 +92,9 @@ export async function GET(request: Request) {
 
   const { data: merchants, error: merchantError } = await supabase
     .from('merchants')
-    .select('id, email, business_name, email_sender_name, payout_currency')
+    .select(
+      'id, email, business_name, country, email_sender_name, payout_currency'
+    )
     .in('id', merchantIds);
 
   if (merchantError) {
@@ -122,7 +126,7 @@ export async function GET(request: Request) {
         merchant.business_name || merchant.email_sender_name || 'Your store';
       const email = buildMerchantSalesSummaryEmail({
         businessName,
-        currency: merchant.payout_currency || 'NGN',
+        currency: resolveMerchantCurrencyConfig(merchant).code,
         period: parsedQuery.data.period,
         rows: merchantRows,
       });

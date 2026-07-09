@@ -44,12 +44,16 @@ function createSupabase({
   retiredSlug = null,
   retiredMerchantId = 'merchant-renamed',
   aliasLookupError = null,
+  merchantCountry,
+  merchantPayoutCurrency,
 }: {
   domainLookupError?: Error | null;
   slugLookupError?: Error | null;
   retiredSlug?: string | null;
   retiredMerchantId?: string;
   aliasLookupError?: Error | null;
+  merchantCountry?: string | null;
+  merchantPayoutCurrency?: string | null;
 } = {}) {
   const from = vi.fn((table: string) => {
     const filters: Record<string, string> = {};
@@ -104,6 +108,12 @@ function createSupabase({
               business_address: '1 Merchant Road, Ikeja, Lagos',
               business_name: 'Merchant Store',
               phone: '08012345678',
+              ...(merchantCountry !== undefined
+                ? { country: merchantCountry }
+                : {}),
+              ...(merchantPayoutCurrency !== undefined
+                ? { payout_currency: merchantPayoutCurrency }
+                : {}),
             },
             error: null,
           });
@@ -359,6 +369,60 @@ describe('resolveQuoteMerchantContext', () => {
         phone: '08012345678',
         city: 'Ikeja',
       }),
+    });
+  });
+
+  it('passes through the resolved merchant country on a trusted storefront subdomain', async () => {
+    const supabase = createSupabase({ merchantCountry: 'IN' });
+
+    const result = await resolveQuoteMerchantContext({
+      data: { shipmentType: 'international' },
+      request: createRequest({
+        host: 'ogabassey.usebaci.com',
+        'x-merchant-slug': 'ogabassey',
+      }),
+      supabase: supabase as never,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      merchantId: 'merchant-1',
+      senderInfo: expect.objectContaining({
+        name: 'Merchant Store',
+        phone: '08012345678',
+        city: 'Ikeja',
+        countryCode: 'NG',
+      }),
+      merchantCountry: 'IN',
+    });
+  });
+
+  it('passes through the merchant payout currency on a trusted storefront subdomain', async () => {
+    const supabase = createSupabase({
+      merchantCountry: 'NG',
+      merchantPayoutCurrency: 'GHS',
+    });
+
+    const result = await resolveQuoteMerchantContext({
+      data: { shipmentType: 'international' },
+      request: createRequest({
+        host: 'ogabassey.usebaci.com',
+        'x-merchant-slug': 'ogabassey',
+      }),
+      supabase: supabase as never,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      merchantId: 'merchant-1',
+      senderInfo: expect.objectContaining({
+        name: 'Merchant Store',
+        phone: '08012345678',
+        city: 'Ikeja',
+        countryCode: 'NG',
+      }),
+      merchantCountry: 'NG',
+      merchantPayoutCurrency: 'GHS',
     });
   });
 

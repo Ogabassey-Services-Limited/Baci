@@ -1,8 +1,15 @@
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/navigation', () => ({
   useParams: vi.fn(() => ({ slug: 'test-store' })),
+}));
+
+vi.mock('next/link', () => ({
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
 }));
 
 vi.mock('@/contexts/customer-auth-context', () => ({
@@ -31,47 +38,51 @@ vi.mock('@/components/storefront/loyalty/rewards-catalog', () => ({
   RewardsCatalog: vi.fn(() => null),
 }));
 
+const useMerchantSafeMock = vi.fn();
+vi.mock('@/hooks/use-merchant-client', () => ({
+  useMerchantSafe: () => useMerchantSafeMock(),
+}));
+
 const { default: RewardsPage } = await import('./page');
 
 describe('RewardsPage', () => {
-  it('renders sr-only H1 in loading state (merchantId null on mount)', () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: null, business_name: '' }),
-    });
+  it('renders sr-only H1 in loading state when no merchant is in context yet', () => {
+    useMerchantSafeMock.mockReturnValue(null);
 
     render(<RewardsPage />);
 
-    // merchantId starts null before fetch resolves -> loading branch renders sr-only H1
+    // merchantId derives from context; null context -> loading branch renders sr-only H1
     const h1 = screen.queryByRole('heading', { level: 1, hidden: true });
     expect(h1).not.toBeNull();
     expect(h1?.textContent).toBe('Rewards');
     expect(h1?.className).toContain('sr-only');
   });
 
-  it('renders sr-only H1 in error state when merchant fetch fails', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
+  it('renders the sign-in prompt once merchant context resolves and no customer is signed in', () => {
+    useMerchantSafeMock.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        business_name: 'Test Store',
+        country: 'NG',
+        payout_currency: 'NGN',
+      },
+      loading: false,
     });
 
     render(<RewardsPage />);
 
-    // Wait for the error state to appear after the failed fetch
-    const errorHeading = await screen.findByRole('heading', {
-      level: 2,
-      name: /unable to load rewards/i,
+    const heading = screen.getByRole('heading', {
+      level: 1,
+      name: /rewards program/i,
     });
-    expect(errorHeading).toBeDefined();
+    expect(heading).toBeDefined();
 
-    // Verify sr-only H1 is present in the error branch
-    const h1 = screen.queryByRole('heading', { level: 1, hidden: true });
-    expect(h1).not.toBeNull();
-    expect(h1?.textContent).toBe('Rewards');
-    expect(h1?.className).toContain('sr-only');
-
-    // Verify retry button is available
-    const retryButton = screen.getByRole('button', { name: /try again/i });
-    expect(retryButton).toBeDefined();
+    const signInLink = screen.getByRole('link', {
+      name: /sign in to continue/i,
+    });
+    expect(signInLink).toHaveAttribute(
+      'href',
+      '/test-store/account/login?redirect=/test-store/pages/rewards'
+    );
   });
 });

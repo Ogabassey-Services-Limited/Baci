@@ -2,6 +2,7 @@ import {
   resolveGmcAdditionalImages,
   resolveGmcPrimaryImage,
 } from '@/lib/gmc-feed-images';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import {
   coerceStorefrontManageStock,
@@ -144,7 +145,7 @@ export function generateCurrentOpenAIProductFeed(
   baseUrl: string,
   imageManifest: ImageManifestMap = {}
 ): string[] {
-  const currency = merchant.payout_currency || 'NGN';
+  const currency = resolveMerchantCurrencyConfig(merchant).code;
 
   return products
     .filter((product) => {

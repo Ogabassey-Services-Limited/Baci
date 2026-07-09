@@ -1,5 +1,6 @@
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import type { Product } from '@/lib/products';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import {
   buildCompareLinkGraph,
   MAX_PRODUCT_COMPARE_LINKS,
@@ -104,7 +105,7 @@ export async function OgabasseyPdpSemanticSections({
     product,
     merchantDisplayName: merchant.business_name || 'Baci Store',
     categoryName,
-    currency: merchant.payout_currency || 'NGN',
+    currency: resolveMerchantCurrencyConfig(merchant).code,
     country: merchant.country,
   });
 

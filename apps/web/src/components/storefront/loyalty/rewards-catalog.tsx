@@ -30,10 +30,16 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLoyalty } from '@/hooks/use-loyalty';
 import { useToast } from '@/hooks/use-toast';
+import { formatMerchantCurrency } from '@/lib/resolve-merchant-currency';
 
 interface RewardsCatalogProps {
   merchantId: string;
   customerId: string;
+  /** Merchant's country/payout currency, used to render fixed-value reward
+   * labels (e.g. "₦2,000 Off") in the merchant's own currency instead of a
+   * hardcoded ₦. */
+  merchantCountry?: string | null;
+  merchantPayoutCurrency?: string | null;
 }
 
 interface Reward {
@@ -61,6 +67,8 @@ const rewardIcons = {
 export function RewardsCatalog({
   merchantId,
   customerId,
+  merchantCountry,
+  merchantPayoutCurrency,
 }: RewardsCatalogProps) {
   const { toast } = useToast();
   const {
@@ -135,7 +143,12 @@ export function RewardsCatalog({
       if (reward.discount_type === 'percentage') {
         return `${reward.discount_value}% Off`;
       }
-      return `₦${reward.discount_value?.toLocaleString()} Off`;
+      const formattedValue = formatMerchantCurrency(
+        reward.discount_value ?? 0,
+        { country: merchantCountry, payout_currency: merchantPayoutCurrency },
+        { maximumFractionDigits: 0 }
+      );
+      return `${formattedValue} Off`;
     }
     if (reward.reward_type === 'free_shipping') {
       return 'Free Shipping';

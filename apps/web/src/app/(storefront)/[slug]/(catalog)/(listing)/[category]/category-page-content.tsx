@@ -11,6 +11,7 @@ import {
 } from '@/lib/cached-data';
 import type { RawDbProduct } from '@/lib/normalize-product';
 import type { Product as SeoProduct } from '@/lib/products';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import {
   generateBreadcrumbSchema,
   generateCollectionPageSchema,
@@ -220,7 +221,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     products: collectionSchemaProducts,
     merchantName: merchant.business_name,
     country: merchant.country || 'NG',
-    currency: merchant.payout_currency || 'NGN',
+    currency: resolveMerchantCurrencyConfig(merchant).code,
   }) as unknown as JsonLdData<CollectionPage>;
 
   const breadcrumbItems = [{ name: merchant.business_name, url: baseUrl }];

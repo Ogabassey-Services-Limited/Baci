@@ -14,6 +14,7 @@ import {
   type ThemeColors,
   TYPOGRAPHY,
 } from '@/constants/theme';
+import { MERCHANT_CURRENCY_LOCALES } from '@/lib/currency-meta';
 
 interface RecordPaymentSheetProps {
   colors: Pick<
@@ -26,6 +27,8 @@ interface RecordPaymentSheetProps {
     | 'textOnPrimary'
     | 'textSecondary'
   >;
+  /** ISO-4217 currency code used to pick the digit-grouping locale for the amount input. */
+  currency?: string;
   currencySymbol: string;
   isConfirmDisabled: boolean;
   isSubmitting: boolean;
@@ -44,6 +47,7 @@ const PAYMENT_METHODS = ['transfer', 'pos', 'cash'] as const;
 
 export function RecordPaymentSheet({
   colors,
+  currency = 'NGN',
   currencySymbol,
   isConfirmDisabled,
   isSubmitting,
@@ -70,12 +74,15 @@ export function RecordPaymentSheet({
   }
 
   // Show raw digits while editing so toLocaleString commas don't cause NaN.
-  // Display the formatted value only when blurred.
+  // Display the formatted value only when blurred. The grouping locale
+  // follows the merchant's own currency (not a hardcoded 'en-NG') so e.g.
+  // EUR-priced merchants see their own market's digit grouping.
+  const groupingLocale = MERCHANT_CURRENCY_LOCALES[currency];
   const raw = paymentAmount?.replace(/,/g, '') || '';
   const displayedAmount = isAmountFocused
     ? paymentAmount
     : raw !== '' && !Number.isNaN(Number(raw)) && Number.isFinite(Number(raw))
-      ? Number(raw).toLocaleString('en-NG')
+      ? Number(raw).toLocaleString(groupingLocale)
       : '';
 
   return (

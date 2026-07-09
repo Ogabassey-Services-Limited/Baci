@@ -1386,3 +1386,32 @@ describe('generateGoogleMerchantFeed — conditioned variants', () => {
     expect(xml).toContain('<g:id>offer-used</g:id>');
   });
 });
+
+describe('generateGoogleMerchantFeed — currency resolution', () => {
+  const currencyTestManifest: Record<string, FeedImageManifestEntry[]> = {
+    'prod-1': [manifestEntry()],
+  };
+
+  it('emits the merchant payout currency (not a hardcoded USD default)', () => {
+    const xml = generateGoogleMerchantFeed(
+      [product({ price: 45 })],
+      merchant({ payout_currency: 'GHS', country: 'GH' }),
+      BASE_URL,
+      currencyTestManifest
+    );
+
+    expect(xml).toContain('<g:price>45.00 GHS</g:price>');
+    expect(xml).not.toContain('USD');
+  });
+
+  it('falls back to the platform default (NGN) when payout currency is missing', () => {
+    const xml = generateGoogleMerchantFeed(
+      [product({ price: 45 })],
+      merchant({ payout_currency: undefined, country: undefined }),
+      BASE_URL,
+      currencyTestManifest
+    );
+
+    expect(xml).toContain('<g:price>45.00 NGN</g:price>');
+  });
+});

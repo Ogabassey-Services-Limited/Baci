@@ -497,6 +497,7 @@ export async function POST(request: NextRequest) {
               subtotal: Number.parseFloat(order.subtotal || '0'),
               shippingFee: Number.parseFloat(order.shipping_fee || '0'),
               total: Number.parseFloat(order.total || '0'),
+              currency: order.currency || 'NGN',
               shippingAddress: {
                 address: order.shipping_address?.address || '',
                 city: order.shipping_address?.city || '',

@@ -5,6 +5,7 @@ import Image from 'next/image';
 import type React from 'react';
 import { useId, useState } from 'react';
 import type { CartItem } from '@/hooks/cart';
+import { useCurrency } from '@/hooks/use-currency';
 import type { DeliveryMethod } from '../pages/checkout/types';
 
 // --- Types ---
@@ -48,6 +49,7 @@ export const MobileOrderSummary: React.FC<MobileOrderSummaryProps> = ({
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const orderSummaryId = useId();
+    const { formatCurrencyAuto, currencyCode } = useCurrency();
 
     return (
         <div className="lg:hidden bg-gray-50 border-b border-gray-200">
@@ -66,7 +68,7 @@ export const MobileOrderSummary: React.FC<MobileOrderSummaryProps> = ({
                         {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </div>
                     <span className="font-bold text-gray-900 text-lg">
-                        ₦{remainingAmount.toLocaleString()}
+                        {formatCurrencyAuto(remainingAmount)}
                     </span>
                 </button>
 
@@ -98,7 +100,7 @@ export const MobileOrderSummary: React.FC<MobileOrderSummaryProps> = ({
                                         {item.name}
                                     </p>
                                     <p className="text-sm text-gray-500 mt-1">
-                                        ₦{(item.negotiatedPrice || item.price).toLocaleString()}
+                                        {formatCurrencyAuto(item.negotiatedPrice || item.price)}
                                     </p>
                                 </div>
                             </div>
@@ -111,26 +113,26 @@ export const MobileOrderSummary: React.FC<MobileOrderSummaryProps> = ({
                     <div className="space-y-2 text-sm">
                         <div className="flex justify-between text-gray-600">
                             <span>Subtotal</span>
-                            <span>₦{cartTotal.toLocaleString()}</span>
+                            <span>{formatCurrencyAuto(cartTotal)}</span>
                         </div>
                         <div className="flex justify-between text-gray-600">
                             <span>Delivery</span>
                             <span className={deliveryCost === 0 ? 'text-green-600 font-medium' : 'text-gray-900'}>
                                 {deliveryMethod === 'door' && deliveryCost === 0
                                     ? 'Calculated at next step'
-                                    : deliveryCost === 0 ? 'Free' : `₦${deliveryCost.toLocaleString()}`}
+                                    : deliveryCost === 0 ? 'Free' : formatCurrencyAuto(deliveryCost)}
                             </span>
                         </div>
                         {giftWrappingCost > 0 && (
                             <div className="flex justify-between text-gray-600">
                                 <span>Gift Wrapping</span>
-                                <span>₦{giftWrappingCost.toLocaleString()}</span>
+                                <span>{formatCurrencyAuto(giftWrappingCost)}</span>
                             </div>
                         )}
                         {payWithWallet && walletAmountUsed > 0 && (
                             <div className="flex justify-between text-green-600 font-medium">
                                 <span>Wallet Credit</span>
-                                <span>-₦{walletAmountUsed.toLocaleString()}</span>
+                                <span>-{formatCurrencyAuto(walletAmountUsed)}</span>
                             </div>
                         )}
                     </div>
@@ -140,8 +142,8 @@ export const MobileOrderSummary: React.FC<MobileOrderSummaryProps> = ({
                     <div className="flex justify-between text-base font-bold text-gray-900 items-baseline">
                         <span>Total</span>
                         <div className="text-right">
-                            <span className="text-xs text-gray-400 font-normal mr-2">NGN</span>
-                            <span className="text-xl">₦{remainingAmount.toLocaleString()}</span>
+                            <span className="text-xs text-gray-400 font-normal mr-2">{currencyCode}</span>
+                            <span className="text-xl">{formatCurrencyAuto(remainingAmount)}</span>
                         </div>
                     </div>
                 </div>
@@ -159,6 +161,7 @@ export const MobileCheckoutActions: React.FC<MobileCheckoutActionsProps> = ({
     paymentMethod,
     isPayForMeValid,
 }) => {
+    const { formatCurrencyAuto } = useCurrency();
     // Determine button text and disabled state based on step
     let buttonText = 'Continue';
     let isDisabled = false;
@@ -187,7 +190,7 @@ export const MobileCheckoutActions: React.FC<MobileCheckoutActionsProps> = ({
                 <div className="shrink-0">
                     <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Total</p>
                     <p className="text-lg font-bold text-gray-900 leading-tight">
-                        ₦{totalDisplay.toLocaleString()}
+                        {formatCurrencyAuto(totalDisplay)}
                     </p>
                 </div>
 

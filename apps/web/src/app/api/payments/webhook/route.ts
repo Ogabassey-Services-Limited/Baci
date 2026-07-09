@@ -1072,6 +1072,9 @@ export async function POST(request: NextRequest) {
               total:
                 Number(chatOrder.subtotal) +
                 Number(chatOrder.shipping_fee || 0),
+              // Chat orders are an NGN-only rail: the conversion RPC rejects
+              // any non-NGN payment, so the email currency is fixed.
+              currency: 'NGN',
               shippingAddress: {
                 address: shippingAddr?.address || '',
                 city: shippingAddr?.city || '',

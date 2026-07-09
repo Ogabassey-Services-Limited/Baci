@@ -9,7 +9,10 @@ import {
 } from '../../../components/PaymentLogos';
 import type { PaymentMethod, PaymentTab } from '../types';
 import { InstallmentInfo, PaymentOptionCard } from './PaymentOptionCard';
-import type { FeatureSettings } from './payment-step-availability';
+import {
+  type FeatureSettings,
+  isNgnChargeCurrency,
+} from './payment-step-availability';
 
 interface PaymentOptionsPanelProps {
   paymentTab: PaymentTab;
@@ -22,6 +25,7 @@ interface PaymentOptionsPanelProps {
   featureSettings?: FeatureSettings | null;
   klumpEligible: boolean;
   hasInstallmentOptions: boolean;
+  currency?: string | null;
 }
 
 export function PaymentOptionsPanel({
@@ -35,11 +39,17 @@ export function PaymentOptionsPanel({
   featureSettings,
   klumpEligible,
   hasInstallmentOptions,
+  currency,
 }: PaymentOptionsPanelProps) {
   const selectPaymentTab = (nextTab: PaymentTab) => {
     setPaymentTab(nextTab);
     setPaymentMethod('');
   };
+  // Juicyway, CredPal, and Credit Direct can only ever charge NGN (see
+  // resolveChargeCurrency), so their feature flags alone must not surface
+  // them on a non-NGN checkout. Klump is already currency-gated upstream
+  // via `klumpEligible` (isKlumpEligible).
+  const ngnOnlyRailsAvailable = isNgnChargeCurrency(currency);
 
   return (
     <>
@@ -104,7 +114,8 @@ export function PaymentOptionsPanel({
                 icon={<KorapayLogo className="size-6" />}
               />
             )}
-            {featureSettings?.juicyway_enabled === true && (
+            {featureSettings?.juicyway_enabled === true &&
+              ngnOnlyRailsAvailable && (
               <PaymentOptionCard
                 method="juicyway"
                 paymentMethod={paymentMethod}
@@ -137,7 +148,8 @@ export function PaymentOptionsPanel({
         <div className="space-y-3 animate-in fade-in">
           <p className="text-xs text-gray-500">Buy Now, Pay Later options:</p>
           <div className="grid grid-cols-1 gap-3">
-            {featureSettings?.credpal_enabled === true && (
+            {featureSettings?.credpal_enabled === true &&
+              ngnOnlyRailsAvailable && (
               <PaymentOptionCard
                 method="credpal"
                 paymentMethod={paymentMethod}
@@ -151,7 +163,8 @@ export function PaymentOptionsPanel({
                 icon={<CredPalLogo className="size-6" />}
               />
             )}
-            {featureSettings?.credit_direct_enabled === true && (
+            {featureSettings?.credit_direct_enabled === true &&
+              ngnOnlyRailsAvailable && (
               <PaymentOptionCard
                 method="credit_direct"
                 paymentMethod={paymentMethod}

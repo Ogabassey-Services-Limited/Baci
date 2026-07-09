@@ -13,8 +13,9 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { shippingService } from '@/lib/shipping';
-import type { QuoteRequest } from '@/lib/shipping/types';
+import type { QuoteRequest, QuoteResponse } from '@/lib/shipping/types';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { QuoteRequestSchema } from '@/schemas/shipping';
 import { resolveQuoteMerchantContext } from './quote-merchant-context';
@@ -59,6 +60,35 @@ export async function POST(request: NextRequest) {
         { status: merchantContext.status }
       );
     }
+    // Every registered carrier (Topship/GIGL) is Nigerian and quotes are
+    // NGN-denominated with a Nigeria origin. Both a merchant whose canonical
+    // currency (payout_currency -> country -> NGN) is not NGN and a merchant
+    // whose country is not Nigeria must not receive these quotes: the rates
+    // would be wrong in origin and/or currency (and would be summed into a
+    // non-NGN order total with no conversion), so return an empty quote set
+    // instead.
+    const merchantCountry = merchantContext.merchantCountry
+      ?.trim()
+      .toUpperCase();
+    const merchantCurrency = resolveMerchantCurrencyConfig({
+      country: merchantCountry,
+      payout_currency: merchantContext.merchantPayoutCurrency,
+    }).code;
+    if (
+      merchantCurrency !== 'NGN' ||
+      (merchantCountry && merchantCountry !== 'NG')
+    ) {
+      const emptyResponse: QuoteResponse = {
+        quotes: { featured: [], all: [] },
+        sessionId: data.sessionId || crypto.randomUUID(),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+        warnings: [
+          'Carrier shipping rates are currently available for Nigerian merchants only.',
+        ],
+      };
+      return NextResponse.json(emptyResponse);
+    }
+
     let senderInfo = merchantContext.senderInfo;
 
     if (!senderInfo && data.shipmentType === 'international') {

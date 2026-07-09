@@ -279,6 +279,68 @@ describe('ComparePageContent', () => {
     expect(schemaScripts[1]?.textContent).not.toContain('"@type":"FAQPage"');
   });
 
+  it('uses the resolved merchant currency in product ItemList JSON-LD offers', async () => {
+    mockLoadComparePage.mockResolvedValueOnce({
+      ...comparePageModel,
+      merchant: {
+        ...comparePageModel.merchant,
+        payout_currency: 'KES',
+        country: 'KE',
+      },
+    });
+    const { ComparePageContent } = await import('./compare-page-content');
+
+    const { container } = render(
+      (await ComparePageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          category: 'smartphones',
+          comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+        }),
+      })) as ReactElement
+    );
+
+    const schemaScripts = container.querySelectorAll(
+      'script[type="application/ld+json"]'
+    );
+    const itemListSchema = JSON.parse(schemaScripts[1]?.textContent ?? '{}');
+
+    expect(itemListSchema.itemListElement[0].item.offers.priceCurrency).toBe(
+      'KES'
+    );
+  });
+
+  it('falls back to NGN in product ItemList JSON-LD when the merchant has no payout currency', async () => {
+    mockLoadComparePage.mockResolvedValueOnce({
+      ...comparePageModel,
+      merchant: {
+        ...comparePageModel.merchant,
+        payout_currency: null,
+        country: null,
+      },
+    });
+    const { ComparePageContent } = await import('./compare-page-content');
+
+    const { container } = render(
+      (await ComparePageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          category: 'smartphones',
+          comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+        }),
+      })) as ReactElement
+    );
+
+    const schemaScripts = container.querySelectorAll(
+      'script[type="application/ld+json"]'
+    );
+    const itemListSchema = JSON.parse(schemaScripts[1]?.textContent ?? '{}');
+
+    expect(itemListSchema.itemListElement[0].item.offers.priceCurrency).toBe(
+      'NGN'
+    );
+  });
+
   it('keeps string-encoded prices in product ItemList JSON-LD', async () => {
     mockLoadComparePage.mockResolvedValueOnce({
       ...comparePageModel,

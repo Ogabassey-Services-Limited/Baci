@@ -79,6 +79,10 @@ export const styles = StyleSheet.create({
   price: {
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     fontSize: TYPOGRAPHY.size.lg,
+  },
+  currencyNote: {
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontSize: TYPOGRAPHY.size.xs,
     marginBottom: SPACING.sm,
   },
   buyButton: {

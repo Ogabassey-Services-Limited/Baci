@@ -104,4 +104,37 @@ describe('GET /api/cron/merchant-sales-summaries', () => {
       })
     );
   });
+
+  it('formats the summary in the resolved merchant currency (not a hardcoded default)', async () => {
+    mockMerchantQuery.in.mockResolvedValue({
+      data: [
+        {
+          business_name: 'Accra Store',
+          country: 'GH',
+          email: 'merchant@example.com',
+          email_sender_name: null,
+          id: 'merchant-1',
+          payout_currency: 'GHS',
+        },
+      ],
+      error: null,
+    });
+
+    await GET(
+      makeRequest(
+        '/api/cron/merchant-sales-summaries?period=daily&date=2026-06-07'
+      )
+    );
+
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        textContent: expect.stringContaining('GHS'),
+      })
+    );
+    expect(mockSendEmail).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        textContent: expect.stringContaining('NGN'),
+      })
+    );
+  });
 });

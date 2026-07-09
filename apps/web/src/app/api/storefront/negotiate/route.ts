@@ -11,6 +11,7 @@ import {
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { ZodError } from 'zod';
+import { formatMerchantCurrency } from '@/lib/resolve-merchant-currency';
 import { createClient } from '@/lib/supabase/server';
 import { storefrontNegotiationSchema } from '@/schemas/storefront-negotiation';
 
@@ -54,6 +55,29 @@ export async function POST(request: NextRequest) {
     if (productError || !product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
+
+    // Customer-facing negotiation messages must render in the merchant's own
+    // display currency (not a hardcoded ₦) — a lightweight second select
+    // instead of an embedded join to avoid Supabase relationship-name
+    // ambiguity between products and merchants.
+    const { data: merchantCurrency, error: merchantCurrencyError } =
+      await supabase
+        .from('merchants')
+        .select('payout_currency, country')
+        .eq('id', product.merchant_id)
+        .maybeSingle();
+
+    if (merchantCurrencyError) {
+      console.error(
+        'Negotiation merchant currency lookup error:',
+        merchantCurrencyError
+      );
+    }
+
+    const formatOfferPrice = (amount: number) =>
+      formatMerchantCurrency(amount, merchantCurrency ?? {}, {
+        maximumFractionDigits: 0,
+      });
 
     const originalPrice = product.price;
     const costPrice = product.cost_price || originalPrice * 0.6; // Estimate 40% margin if no cost
@@ -101,7 +125,7 @@ export async function POST(request: NextRequest) {
         status: 'accepted',
         originalPrice,
         offeredPrice,
-        message: `Great news! We can accept your offer of ₦${offeredPrice.toLocaleString()}.`,
+        message: `Great news! We can accept your offer of ${formatOfferPrice(offeredPrice)}.`,
         attemptNumber,
         canContinue: false,
       };
@@ -127,7 +151,7 @@ export async function POST(request: NextRequest) {
           counterOffer: Math.round(finalPrice),
           originalPrice,
           offeredPrice,
-          message: `This is our best price: ₦${Math.round(finalPrice).toLocaleString()}. We cannot go lower.`,
+          message: `This is our best price: ${formatOfferPrice(Math.round(finalPrice))}. We cannot go lower.`,
           attemptNumber,
           canContinue: false,
         };
@@ -147,8 +171,8 @@ export async function POST(request: NextRequest) {
         offeredPrice,
         message:
           attemptNumber === 1
-            ? `We appreciate your offer! How about ₦${Math.round(counterOffer).toLocaleString()}?`
-            : `We've reduced our price further to ₦${Math.round(counterOffer).toLocaleString()}.`,
+            ? `We appreciate your offer! How about ${formatOfferPrice(Math.round(counterOffer))}?`
+            : `We've reduced our price further to ${formatOfferPrice(Math.round(counterOffer))}.`,
         attemptNumber,
         canContinue: attemptNumber < 3,
       };

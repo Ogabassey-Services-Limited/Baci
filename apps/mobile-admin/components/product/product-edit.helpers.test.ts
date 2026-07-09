@@ -15,11 +15,16 @@ describe('product-edit.helpers', () => {
     textSecondary: '#64748b',
   } as unknown as ThemeColors;
 
-  it('returns supported currency symbols and falls back to naira', () => {
+  it('returns supported currency symbols and falls back to naira for a missing code', () => {
     expect(getCurrencySymbol('USD')).toBe('$');
     expect(getCurrencySymbol('EUR')).toBe('€');
-    expect(getCurrencySymbol('UNKNOWN')).toBe('₦');
+    expect(getCurrencySymbol('INR')).toBe('₹');
+    expect(getCurrencySymbol('AED')).toBe('د.إ');
     expect(getCurrencySymbol(undefined)).toBe('₦');
+  });
+
+  it('falls back to the currency code itself for an unrecognized code', () => {
+    expect(getCurrencySymbol('UNKNOWN')).toBe('UNKNOWN');
   });
 
   it('builds the variant summary from the condition and concrete attributes', () => {

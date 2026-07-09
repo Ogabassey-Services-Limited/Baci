@@ -75,8 +75,23 @@ describe('getOrderCurrencySymbol', () => {
     expect(getOrderCurrencySymbol(null)).toBe('₦');
   });
 
-  it('returns ₦ for an unknown currency code', () => {
-    expect(getOrderCurrencySymbol('XYZ')).toBe('₦');
+  it('returns the code itself for an unknown currency code', () => {
+    expect(getOrderCurrencySymbol('XYZ')).toBe('XYZ');
+  });
+
+  it('returns symbols for the multi-country currencies Baci supports', () => {
+    expect(getOrderCurrencySymbol('INR')).toBe('₹');
+    expect(getOrderCurrencySymbol('AED')).toBe('د.إ');
+    expect(getOrderCurrencySymbol('KES')).toBe('KSh');
+    expect(getOrderCurrencySymbol('GHS')).toBe('GH₵');
+    expect(getOrderCurrencySymbol('ZAR')).toBe('R');
+    expect(getOrderCurrencySymbol('EGP')).toBe('E£');
+    expect(getOrderCurrencySymbol('XAF')).toBe('FCFA');
+    expect(getOrderCurrencySymbol('XOF')).toBe('CFA');
+    expect(getOrderCurrencySymbol('CAD')).toBe('$');
+    expect(getOrderCurrencySymbol('AUD')).toBe('$');
+    expect(getOrderCurrencySymbol('JPY')).toBe('¥');
+    expect(getOrderCurrencySymbol('BRL')).toBe('R$');
   });
 });
 

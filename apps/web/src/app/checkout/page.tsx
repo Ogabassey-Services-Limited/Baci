@@ -65,11 +65,6 @@ const DEFAULT_SHIPPING_FEE = Number.parseFloat(
 const PAYMENT_REFERENCE_UPDATE_ATTEMPTS = 3;
 const PAYMENT_REFERENCE_UPDATE_RETRY_DELAY_MS = 400;
 
-const NGN_CURRENCY_FORMATTER = new Intl.NumberFormat('en-NG', {
-  style: 'currency',
-  currency: 'NGN',
-});
-
 const shippingSchema = z.object({
   firstName: z
     .string()
@@ -1110,7 +1105,7 @@ function CheckoutPageContent() {
   const { toast } = useToast();
   const { clearCart, cart, cartCount, cartTotal, merchantSlug } = useCart();
   const { merchant, basePath } = useMerchant();
-  const { currencyCode } = useCurrency();
+  const { currencyCode, formatCurrency } = useCurrency();
   const [step, setStep] = useState(0); // 0: Auth, 1: Shipping, 2: Payment
   const [pageLoading, setPageLoading] = useState(true);
   const [formIsLoading, setFormIsLoading] = useState(false);
@@ -1421,14 +1416,14 @@ function CheckoutPageContent() {
         trackEvent.beginCheckout(
           merchant.id,
           cart.map((item) => ({ product: item, quantity: item.quantity })),
-          'NGN' // Default currency for Nigeria
+          currencyCode // Merchant-resolved currency (payout_currency → country → NGN)
         );
 
         // Server-side tracking for GA4, Facebook, TikTok, Snapchat
         trackServerSideBeginCheckout(
           merchant.id,
           cartTotal,
-          'NGN',
+          currencyCode,
           cart.map((item) => {
             const itemCategory =
               item.categories?.name || item.category || 'General';
@@ -1786,7 +1781,7 @@ function CheckoutPageContent() {
                               )}
                               {selectedGateway === 'pod'
                                 ? 'Place Order'
-                                : `Pay ${NGN_CURRENCY_FORMATTER.format(
+                                : `Pay ${formatCurrency(
                                     cartTotal +
                                       (shippingFee || 0) -
                                       discountAmount

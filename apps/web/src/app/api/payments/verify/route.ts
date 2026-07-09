@@ -472,6 +472,7 @@ async function verifyPaymentReference(reference: string) {
             subtotal: Number(order.subtotal || 0),
             shippingFee: Number(order.shipping_fee || 0),
             total: Number(order.total || 0),
+            currency: order.currency || 'NGN',
             shippingAddress: {
               address: shippingAddress.address || '',
               city: shippingAddress.city || '',
@@ -492,6 +493,7 @@ async function verifyPaymentReference(reference: string) {
             subtotal: Number(order.subtotal || 0),
             shippingFee: Number(order.shipping_fee || 0),
             total: Number(order.total || 0),
+            currency: order.currency || 'NGN',
             shippingAddress: {
               address: shippingAddress.address || '',
               city: shippingAddress.city || '',

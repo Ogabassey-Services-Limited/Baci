@@ -180,6 +180,10 @@ export function toTemplateMerchantData(merchant: CachedMerchant): MerchantData {
     logo_url: merchant.logo_url,
     brand_colors: merchant.brand_colors,
     country: merchant.country,
+    // Thread payout_currency so storefront currency resolution (useCurrency →
+    // resolveMerchantCurrencyConfig) respects the merchant's selling currency,
+    // not just their country. cached-data already selects it.
+    payout_currency: merchant.payout_currency,
     pages: merchant.pages,
     paystack_subaccount_code: merchant.paystack_subaccount_code,
     slug: merchant.slug,

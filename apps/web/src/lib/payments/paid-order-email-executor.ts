@@ -33,6 +33,7 @@ const merchantDetailsSchema = z.strictObject({
 });
 
 const richOrderEmailSchema = z.looseObject({
+  currency: z.string().nullish(),
   customer_email: z.email().nullish(),
   customer_id: z.string().nullish(),
   customer_name: z.string().nullish(),
@@ -112,6 +113,7 @@ export function buildEmailExecutor({
     );
     const shippingAddress = validatedOrder.shipping_address ?? {};
     const emailData = {
+      currency: validatedOrder.currency || 'NGN',
       customerName: validatedOrder.customer_name ?? '',
       items: emailItems,
       merchantName: validatedMerchantDetails.business_name ?? '',

@@ -241,4 +241,38 @@ describe('generateOpenAIFeed', () => {
       )
     ).toEqual([]);
   });
+
+  it('emits the merchant payout currency for non-NGN merchants', () => {
+    const ghMerchant: Merchant = {
+      id: 'merchant-2',
+      business_name: 'Accra Store',
+      country: 'GH',
+      payout_currency: 'GHS',
+      slug: 'accra-store',
+    };
+    const [line] = generateOpenAIFeed(
+      [product()],
+      ghMerchant,
+      'https://accra-store.com'
+    );
+    const parsed = parseLine(line);
+
+    expect(parsed).toMatchObject({ price: '50000.00 GHS' });
+  });
+
+  it('falls back to the platform default (NGN) when payout currency is missing', () => {
+    const merchantWithoutCurrency: Merchant = {
+      id: 'merchant-1',
+      business_name: 'Ogabassey',
+      slug: 'ogabassey',
+    };
+    const [line] = generateOpenAIFeed(
+      [product()],
+      merchantWithoutCurrency,
+      'https://ogabassey.com'
+    );
+    const parsed = parseLine(line);
+
+    expect(parsed).toMatchObject({ price: '50000.00 NGN' });
+  });
 });

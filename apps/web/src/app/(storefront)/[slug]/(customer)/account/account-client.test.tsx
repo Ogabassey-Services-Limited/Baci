@@ -99,6 +99,7 @@ describe('AccountPageClient', () => {
       currencySymbol: 'NGN',
       formatCurrency: (amount) => `NGN ${amount.toLocaleString()}`,
       formatCurrencyCompact: (amount) => `NGN ${amount.toLocaleString()}`,
+      formatCurrencyAuto: (amount) => `NGN ${amount.toLocaleString()}`,
     } as ReturnType<typeof useCurrency>);
   });
 

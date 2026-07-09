@@ -95,6 +95,7 @@ describe('buildEmailExecutor', () => {
     expect(result).toEqual({ messageId: 'msg-1' });
     expect(mocks.generateOrderConfirmationEmail).toHaveBeenCalledWith(
       expect.objectContaining({
+        currency: 'NGN',
         items: [
           { name: 'iPhone (Open Box / Black)', price: 20_000, quantity: 1 },
         ],
@@ -109,6 +110,35 @@ describe('buildEmailExecutor', () => {
         replyTo: 'support@example.com',
         to: 'jane@example.com',
       })
+    );
+  });
+
+  it('threads a non-NGN order currency through to the confirmation email', async () => {
+    await buildEmailExecutor({
+      actor: 'webhook:paystack',
+      merchantDetails,
+      merchantFetchError: null,
+      order: { ...richOrder, currency: 'INR' },
+    })(stepContext);
+
+    expect(mocks.generateOrderConfirmationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: 'INR' })
+    );
+    expect(mocks.generateOrderConfirmationText).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: 'INR' })
+    );
+  });
+
+  it('falls back to NGN when the order currency is missing', async () => {
+    await buildEmailExecutor({
+      actor: 'webhook:paystack',
+      merchantDetails,
+      merchantFetchError: null,
+      order: { ...richOrder, currency: null },
+    })(stepContext);
+
+    expect(mocks.generateOrderConfirmationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: 'NGN' })
     );
   });
 

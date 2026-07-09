@@ -8,29 +8,53 @@ vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
 const PRODUCT_ID = '11111111-1111-4111-8111-111111111111';
 const MERCHANT_ID = '22222222-2222-4222-8222-222222222222';
 
-// Generic chainable mock: select/eq return self, single resolves the product,
-// insert resolves a thenable for the negotiation_logs write.
-function supabaseFor(product: Record<string, unknown> | null) {
+// Per-table chainable mock: products/merchants select/eq return self and
+// resolve their own fixture, insert resolves a thenable for the
+// negotiation_logs write. Defaults the merchant fixture to an NGN merchant so
+// existing callers (that don't care about currency) keep working unchanged.
+function supabaseFor(
+  product: Record<string, unknown> | null,
+  merchant: Record<string, unknown> | null = {
+    payout_currency: 'NGN',
+    country: 'NG',
+  }
+) {
   const insert = vi.fn(() => Promise.resolve({ error: null }));
-  const chain: Record<string, unknown> = {};
-  chain.select = () => chain;
-  chain.eq = () => chain;
-  chain.single = () =>
+
+  const productChain: Record<string, unknown> = {};
+  productChain.select = () => productChain;
+  productChain.eq = () => productChain;
+  productChain.single = () =>
     Promise.resolve({
       data: product,
       error: product ? null : { message: 'not found' },
     });
-  chain.insert = insert;
-  return { supabase: { from: () => chain }, insert };
+
+  const merchantChain: Record<string, unknown> = {};
+  merchantChain.select = () => merchantChain;
+  merchantChain.eq = () => merchantChain;
+  merchantChain.maybeSingle = () =>
+    Promise.resolve({ data: merchant, error: null });
+
+  const logsChain: Record<string, unknown> = { insert };
+
+  const from = (table: string) => {
+    if (table === 'products') return productChain;
+    if (table === 'merchants') return merchantChain;
+    return logsChain;
+  };
+
+  return { supabase: { from }, insert };
 }
 
 async function callNegotiate(
   product: Record<string, unknown> | null,
   offeredPrice: number,
-  attemptNumber = 1
+  attemptNumber = 1,
+  merchant?: Record<string, unknown> | null
 ) {
   const { createClient } = await import('@/lib/supabase/server');
-  const { supabase, insert } = supabaseFor(product);
+  const { supabase, insert } = supabaseFor(product, merchant);
   vi.mocked(createClient).mockReturnValue(supabase as never);
   const request = new NextRequest('http://localhost/api/storefront/negotiate', {
     method: 'POST',
@@ -227,5 +251,62 @@ describe('POST /api/storefront/negotiate', () => {
     const body = await response.json();
     expect(response.status).toBe(400);
     expect(body.error).toBe('Invalid request');
+  });
+});
+
+describe('currency-aware negotiation messages', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const APPLE_PRODUCT = {
+    id: PRODUCT_ID,
+    name: 'MacBook Air M1',
+    brand: 'Apple',
+    price: 1000,
+    cost_price: 600,
+    merchant_id: MERCHANT_ID,
+  };
+
+  it('formats the accepted-offer message in NGN for an NGN merchant (unchanged baseline)', async () => {
+    const { body } = await callNegotiate(APPLE_PRODUCT, 985, 1, {
+      payout_currency: 'NGN',
+      country: 'NG',
+    });
+    expect(body.status).toBe('accepted');
+    expect(body.message).toBe('Great news! We can accept your offer of ₦985.');
+  });
+
+  it('formats the accepted-offer message in the merchant payout currency for an INR merchant', async () => {
+    const { body } = await callNegotiate(APPLE_PRODUCT, 985, 1, {
+      payout_currency: 'INR',
+      country: 'IN',
+    });
+    expect(body.status).toBe('accepted');
+    expect(body.message).toBe('Great news! We can accept your offer of ₹985.');
+  });
+
+  it('formats the counter-offer message in the merchant payout currency', async () => {
+    const { body } = await callNegotiate(APPLE_PRODUCT, 850, 1, {
+      payout_currency: 'INR',
+      country: 'IN',
+    });
+    expect(body.status).toBe('counter');
+    expect(body.message).toBe('We appreciate your offer! How about ₹990?');
+  });
+
+  it('formats the final best-price message in the merchant payout currency', async () => {
+    const { body } = await callNegotiate(APPLE_PRODUCT, 850, 3, {
+      payout_currency: 'INR',
+      country: 'IN',
+    });
+    expect(body.status).toBe('final');
+    expect(body.message).toBe(
+      'This is our best price: ₹980. We cannot go lower.'
+    );
+  });
+
+  it('falls back to NGN when the merchant row cannot be resolved', async () => {
+    const { body } = await callNegotiate(APPLE_PRODUCT, 985, 1, null);
+    expect(body.status).toBe('accepted');
+    expect(body.message).toBe('Great news! We can accept your offer of ₦985.');
   });
 });

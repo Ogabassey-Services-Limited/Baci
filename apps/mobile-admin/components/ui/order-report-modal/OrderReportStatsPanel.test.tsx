@@ -1,8 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrderReportStatsPanel } from '@/components/ui/order-report-modal/OrderReportStatsPanel';
+
+const mocks = vi.hoisted(() => ({
+  format: vi.fn((amount: number) => `NGN ${amount}`),
+}));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
@@ -25,8 +29,13 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-vi.mock('@/utils/format', () => ({
-  formatCurrency: (amount: number) => `NGN ${amount}`,
+vi.mock('@/hooks/useCurrency', () => ({
+  useCurrency: () => ({
+    currency: 'NGN',
+    format: mocks.format,
+    formatCompact: mocks.format,
+    symbol: '₦',
+  }),
 }));
 
 vi.mock('react-native', () => ({
@@ -39,6 +48,11 @@ vi.mock('react-native', () => ({
 }));
 
 describe('OrderReportStatsPanel', () => {
+  beforeEach(() => {
+    mocks.format.mockClear();
+    mocks.format.mockImplementation((amount: number) => `NGN ${amount}`);
+  });
+
   it('renders the report summary stats and export scope note', () => {
     render(
       <OrderReportStatsPanel
@@ -60,5 +74,41 @@ describe('OrderReportStatsPanel', () => {
     expect(
       screen.getByText('Exporting will capture all 3 currently loaded orders.')
     ).toBeInTheDocument();
+  });
+
+  it('formats total revenue through the merchant-currency-aware hook with no decimals', () => {
+    render(
+      <OrderReportStatsPanel
+        stats={{
+          completedCount: 0,
+          pendingCount: 0,
+          totalOrders: 0,
+          totalRevenue: 54000,
+        }}
+      />
+    );
+
+    expect(mocks.format).toHaveBeenCalledWith(54000, {
+      maximumFractionDigits: 0,
+      minimumFractionDigits: 0,
+    });
+  });
+
+  it('renders whatever currency the merchant-aware hook resolves, not a hardcoded NGN string', () => {
+    mocks.format.mockImplementation((amount: number) => `₹ ${amount}`);
+
+    render(
+      <OrderReportStatsPanel
+        stats={{
+          completedCount: 0,
+          pendingCount: 0,
+          totalOrders: 0,
+          totalRevenue: 12000,
+        }}
+      />
+    );
+
+    expect(screen.getByText('₹ 12000')).toBeInTheDocument();
+    expect(screen.queryByText('NGN 12000')).not.toBeInTheDocument();
   });
 });

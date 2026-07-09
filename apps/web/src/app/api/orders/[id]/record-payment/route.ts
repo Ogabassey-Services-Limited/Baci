@@ -816,6 +816,7 @@ export async function POST(
           subtotal: Number(order.subtotal),
           shippingFee: Number(order.shipping_fee),
           total: Number(authoritativeOrderTotal),
+          currency: order.currency || 'NGN',
           shippingAddress: {
             address: order.shipping_address?.address || '',
             city: order.shipping_address?.city || '',
@@ -920,6 +921,7 @@ export async function POST(
           amountPaidNow: parsedAmount,
           totalPaidSoFar: Number(newPaid),
           balanceDue: Number(remainingBalance),
+          currency: order.currency || 'NGN',
           merchantName: merchant.business_name,
           supportEmail: merchant.support_email,
           merchantTin: merchant.tax_identification_number ?? undefined,

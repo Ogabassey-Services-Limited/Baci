@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import type { BreadcrumbList, CollectionPage, WithContext } from 'schema-dts';
 import { JsonLd } from '@/components/seo/json-ld';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { asRoute } from '@/lib/routes';
 import { sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { generateBreadcrumbSchema, getProductUrl } from '@/lib/seo-utils';
@@ -106,7 +107,8 @@ export async function SearchPageContent({
   const pageUrl = searchQuery
     ? `${storeUrl}/search?q=${encodeURIComponent(searchQuery)}`
     : `${storeUrl}/search`;
-  const priceFormatter = getPriceFormatter(merchant.payout_currency || 'NGN');
+  const merchantCurrency = resolveMerchantCurrencyConfig(merchant).code;
+  const priceFormatter = getPriceFormatter(merchantCurrency);
   const visibleCount = searchResult.products.length;
   const breadcrumbSchema = generateBreadcrumbSchema([
     { name: merchant.business_name, url: storeUrl },
@@ -135,7 +137,7 @@ export async function SearchPageContent({
             offers: {
               '@type': 'Offer',
               price: product.price,
-              priceCurrency: merchant.payout_currency || 'NGN',
+              priceCurrency: merchantCurrency,
               url: productUrl || undefined,
             },
           },

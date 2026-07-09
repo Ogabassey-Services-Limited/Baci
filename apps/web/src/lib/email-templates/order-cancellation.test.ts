@@ -14,6 +14,7 @@ const basePayload = {
   cancelledBy: 'merchant' as const,
   merchantName: 'TestShop',
   merchantUrl: 'https://testshop.usebaci.com',
+  currency: 'NGN',
 };
 
 describe('Order cancellation email', () => {
@@ -31,7 +32,7 @@ describe('Order cancellation email', () => {
   });
 
   describe('currency formatting', () => {
-    it('defaults to NGN when no currency is provided', () => {
+    it('renders NGN orders identically to the pre-multi-country baseline', () => {
       const output = [
         generateOrderCancellationEmail(basePayload),
         generateOrderCancellationText(basePayload),
@@ -69,6 +70,7 @@ describe('Order cancellation email', () => {
         supportEmail: XSS,
         merchantName: XSS,
         merchantUrl: 'javascript:alert(1)',
+        currency: 'NGN',
       });
 
       expect(html).not.toContain('<script>alert(1)</script>');

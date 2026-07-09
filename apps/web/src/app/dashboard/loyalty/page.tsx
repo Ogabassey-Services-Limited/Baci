@@ -16,9 +16,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
-import { formatCurrency } from '@/lib/currency';
+import { formatMerchantCurrency } from '@/lib/resolve-merchant-currency';
 
 interface LoyaltySettings {
   enabled: boolean;
@@ -62,6 +63,7 @@ async function fetchLoyaltySettings(): Promise<LoyaltySettings | null> {
 
 export default function LoyaltyProgramPage() {
   const { toast } = useToast();
+  const { merchant } = useMerchant();
   const [settings, setSettings] = useState<LoyaltySettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -250,7 +252,10 @@ export default function LoyaltyProgramPage() {
                     <div className="space-y-2">
                       <Label htmlFor="points_per_currency">
                         Points per{' '}
-                        {formatCurrency(settings.points_currency_unit)}
+                        {formatMerchantCurrency(
+                          settings.points_currency_unit,
+                          merchant ?? {}
+                        )}
                       </Label>
                       <Input
                         id="points_per_currency"
@@ -268,7 +273,8 @@ export default function LoyaltyProgramPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="currency_unit">
-                        Currency Unit ({formatCurrency(1)})
+                        Currency Unit (
+                        {formatMerchantCurrency(1, merchant ?? {})})
                       </Label>
                       <Input
                         id="currency_unit"
@@ -375,7 +381,10 @@ export default function LoyaltyProgramPage() {
                       />
                       <p className="text-xs text-muted-foreground">
                         1 point ={' '}
-                        {formatCurrency(settings.points_to_currency_ratio)}
+                        {formatMerchantCurrency(
+                          settings.points_to_currency_ratio,
+                          merchant ?? {}
+                        )}
                       </p>
                     </div>
                     <div className="space-y-2">

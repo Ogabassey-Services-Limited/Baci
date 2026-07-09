@@ -112,7 +112,10 @@ describe('ProductsPage', () => {
     );
   });
 
-  it('falls back to USD when country and payout currency are missing', () => {
+  it('falls back to NGN when country and payout currency are missing', () => {
+    // Platform fallback is NGN (canonical resolver), not USD: every merchant
+    // row carries a NOT NULL payout_currency defaulting to NGN, so a missing
+    // value can only mean an incompletely-loaded record on the home market.
     mocks.useMerchant.mockReturnValue({
       merchant: {
         country: null,
@@ -126,7 +129,7 @@ describe('ProductsPage', () => {
     render(<ProductsPage initialData={{} as ProductsResult} />);
 
     expect(screen.getByLabelText(/inventory value/i)).toHaveTextContent(
-      '$1,000.00'
+      '₦1,000.00'
     );
   });
 });

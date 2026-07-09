@@ -1,11 +1,30 @@
 import { escapeHtml } from '@baci/shared';
 import { format } from 'date-fns';
-import { formatCurrency } from '@/utils/format';
+import { formatMerchantAmount } from '@/lib/format-merchant-currency';
 import { orderReportStyles } from './orderReportStyles';
 import type { OrderReportHtmlInput } from './orderReportTypes';
 
+// Whole-number report formatting (original behavior), threaded through the
+// merchant/order currency instead of a hardcoded NGN default.
+const REPORT_AMOUNT_OPTIONS: Partial<Intl.NumberFormatOptions> = {
+  maximumFractionDigits: 0,
+  minimumFractionDigits: 0,
+};
+
+function formatReportAmount(
+  amount: number,
+  currency: string | undefined
+): string {
+  return formatMerchantAmount(
+    amount,
+    { payout_currency: currency },
+    REPORT_AMOUNT_OPTIONS
+  );
+}
+
 function renderBreakdown(
-  entries: OrderReportHtmlInput['summary']['salesByOrigin']
+  entries: OrderReportHtmlInput['summary']['salesByOrigin'],
+  currency: string | undefined
 ): string {
   return entries
     .map(([name, data]) => {
@@ -15,14 +34,17 @@ function renderBreakdown(
             <span class="item-name">${escapeHtml(name)}</span>
             <span class="item-count">${data.count} orders</span>
           </div>
-          <div class="item-val">${formatCurrency(data.total)}</div>
+          <div class="item-val">${formatReportAmount(data.total, currency)}</div>
         </div>
       `;
     })
     .join('');
 }
 
-function renderTopProduct(input: OrderReportHtmlInput): string {
+function renderTopProduct(
+  input: OrderReportHtmlInput,
+  currency: string | undefined
+): string {
   const { summary } = input;
 
   if (!summary.topProduct) {
@@ -44,7 +66,7 @@ function renderTopProduct(input: OrderReportHtmlInput): string {
           </div>
           <div class="insight-stat">
             <div class="insight-stat-label">Revenue</div>
-            <div class="insight-stat-value">${formatCurrency(summary.topProduct.revenue)}</div>
+            <div class="insight-stat-value">${formatReportAmount(summary.topProduct.revenue, currency)}</div>
           </div>
         </div>
       </div>
@@ -108,7 +130,7 @@ function renderTransactions(input: OrderReportHtmlInput): string {
               ${escapeHtml(order.payment_status?.toUpperCase() ?? 'UNKNOWN')}
             </span>
           </td>
-          <td style="font-weight: 800;">${formatCurrency(Number(order.total) || 0)}</td>
+          <td style="font-weight: 800;">${formatReportAmount(Number(order.total) || 0, order.currency)}</td>
         </tr>
       `;
     })
@@ -116,15 +138,33 @@ function renderTransactions(input: OrderReportHtmlInput): string {
 }
 
 export function buildOrderReportHtml(input: OrderReportHtmlInput): string {
+  // Orders in a report normally share one currency (stamped from the merchant
+  // payout currency at order time), but a payout-currency change or imported
+  // orders can mix denominations. Aggregates are labeled with the most
+  // frequent currency, and a visible warning is added when currencies mix so
+  // the combined totals are never silently presented as a single denomination.
+  const currencyCounts = new Map<string, number>();
+  for (const order of input.orders) {
+    const code = order.currency?.trim().toUpperCase() || 'NGN';
+    currencyCounts.set(code, (currencyCounts.get(code) ?? 0) + 1);
+  }
+  const currency =
+    [...currencyCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ??
+    input.orders[0]?.currency;
+  const mixedCurrencyWarning =
+    currencyCounts.size > 1
+      ? `<div style="margin: 12px 0; padding: 10px 14px; border: 1px solid #F59E0B; border-radius: 8px; background: #FFFBEB; color: #92400E; font-size: 12px;">⚠️ This report contains orders in multiple currencies (${escapeHtml([...currencyCounts.keys()].join(', '))}). Aggregate figures are labeled in ${escapeHtml(currency ?? 'NGN')} but combine amounts across currencies; per-order rows show each order's own currency.</div>`
+      : '';
   const initial = escapeHtml(
     input.storeName.trim().charAt(0).toUpperCase() || 'B'
   );
   const averageOrderValue =
     input.summary.totalOrders > 0
-      ? formatCurrency(
-          Math.round(input.summary.totalRevenue / input.summary.totalOrders)
+      ? formatReportAmount(
+          Math.round(input.summary.totalRevenue / input.summary.totalOrders),
+          currency
         )
-      : formatCurrency(0);
+      : formatReportAmount(0, currency);
 
   return `
     <!DOCTYPE html>
@@ -156,11 +196,11 @@ export function buildOrderReportHtml(input: OrderReportHtmlInput): string {
         </div>
 
         <div class="section-label">Executive Summary</div>
-
+        ${mixedCurrencyWarning}
         <div class="hero-grid">
           <div class="hero-card" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%);">
             <div class="label">💰 Total Revenue</div>
-            <div class="value">${formatCurrency(input.summary.totalRevenue)}</div>
+            <div class="value">${formatReportAmount(input.summary.totalRevenue, currency)}</div>
             <div class="sub">${input.summary.totalOrders} orders completed</div>
             <div class="hero-trend">📈 vs previous period</div>
           </div>
@@ -197,28 +237,28 @@ export function buildOrderReportHtml(input: OrderReportHtmlInput): string {
           </div>
         </div>
 
-        ${renderTopProduct(input)}
+        ${renderTopProduct(input, currency)}
 
         <div class="section-label">Strategic Breakdowns</div>
         <div class="split-grid">
           <div class="board">
             <div class="board-title">Sales by Origin</div>
-            ${renderBreakdown(input.summary.salesByOrigin)}
+            ${renderBreakdown(input.summary.salesByOrigin, currency)}
           </div>
           <div class="board">
             <div class="board-title">Payment Method</div>
-            ${renderBreakdown(input.summary.salesByPaymentMethod)}
+            ${renderBreakdown(input.summary.salesByPaymentMethod, currency)}
           </div>
         </div>
 
         <div class="section-label">Financial Position</div>
         <div class="fin-board">
           <div class="fin-title">Financial Summary</div>
-          <div class="fin-row"><span class="fin-label">Items Subtotal</span><span class="fin-val">${formatCurrency(input.summary.totalSubtotal)}</span></div>
-          <div class="fin-row"><span class="fin-label">Shipping Revenue</span><span class="fin-val positive">+ ${formatCurrency(input.summary.totalShipping)}</span></div>
-          <div class="fin-row"><span class="fin-label">Tax (VAT)</span><span class="fin-val positive">+ ${formatCurrency(input.summary.totalTax)}</span></div>
-          <div class="fin-row"><span class="fin-label">Total Discounts</span><span class="fin-val negative">- ${formatCurrency(input.summary.totalDiscounts)}</span></div>
-          <div class="fin-row total"><span class="fin-label">Net Sales Total</span><span class="fin-val">${formatCurrency(input.summary.totalRevenue)}</span></div>
+          <div class="fin-row"><span class="fin-label">Items Subtotal</span><span class="fin-val">${formatReportAmount(input.summary.totalSubtotal, currency)}</span></div>
+          <div class="fin-row"><span class="fin-label">Shipping Revenue</span><span class="fin-val positive">+ ${formatReportAmount(input.summary.totalShipping, currency)}</span></div>
+          <div class="fin-row"><span class="fin-label">Tax (VAT)</span><span class="fin-val positive">+ ${formatReportAmount(input.summary.totalTax, currency)}</span></div>
+          <div class="fin-row"><span class="fin-label">Total Discounts</span><span class="fin-val negative">- ${formatReportAmount(input.summary.totalDiscounts, currency)}</span></div>
+          <div class="fin-row total"><span class="fin-label">Net Sales Total</span><span class="fin-val">${formatReportAmount(input.summary.totalRevenue, currency)}</span></div>
         </div>
 
         <div class="table-section">

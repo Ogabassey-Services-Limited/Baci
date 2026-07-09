@@ -8,6 +8,7 @@ import {
 } from '@/lib/cached-data';
 import { isKorapayConfigured } from '@/lib/korapay';
 import { isPaystackConfigured } from '@/lib/paystack';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import {
   buildStorefrontAcceptedPaymentMethods,
   generateAggregateRating,
@@ -64,7 +65,7 @@ export async function ProductPageRuntime({
       : product;
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
-  const currency = merchant.payout_currency || 'NGN';
+  const currency = resolveMerchantCurrencyConfig(merchant).code;
   const productUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
   const productSchema = generateProductSchema(
     productWithReviews,

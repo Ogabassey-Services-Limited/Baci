@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { CachedMerchant } from '@/lib/cached-data';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
 import { ConnectDomainForm } from './components/connect-domain-form';
@@ -132,9 +131,7 @@ export default async function DomainsPage({
         {/* Search Tab */}
         <TabsContent value="search" className="pt-4">
           <div className="max-w-3xl mx-auto">
-            <DomainSearchPanel
-              merchant={merchant as unknown as CachedMerchant}
-            />
+            <DomainSearchPanel />
           </div>
         </TabsContent>
 

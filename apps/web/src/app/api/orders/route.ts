@@ -69,6 +69,7 @@ import {
   generateReceiptBlob,
   resolveReceiptLogoDataUri,
 } from '@/lib/receipt-pdf-generator';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { toInternationalQuoteValidationItemsFromOrder } from '@/lib/shipping/international-shipment-items';
 import {
@@ -1184,7 +1185,7 @@ export async function POST(request: NextRequest) {
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
       .select(
-        'id, phone, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, plan_tier, vat_registration_status, vat_rate, registered_address, support_phone, logo_url, legal_entity_name, brand_colors, bank_code, bank_account_number, bank_name, bank_account_name, social_media, pages'
+        'id, phone, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, plan_tier, vat_registration_status, vat_rate, registered_address, support_phone, logo_url, legal_entity_name, brand_colors, bank_code, bank_account_number, bank_name, bank_account_name, social_media, pages, payout_currency, country'
       )
       .eq('id', merchant_id)
       .single();
@@ -1199,6 +1200,12 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    // Canonical merchant currency (payout_currency -> country -> NGN). The
+    // order-create RPC stamps orders.currency the same way, so this is the
+    // currency any FRESH order created below will carry.
+    const merchantResolvedCurrency =
+      resolveMerchantCurrencyConfig(merchant).code;
 
     const orderItemsPayload = items.map((item, index) => {
       const hasAssurance = item.has_assurance || false;
@@ -1561,11 +1568,26 @@ export async function POST(request: NextRequest) {
 
     // Hoisted above the idempotency hash so both the discount-code combination
     // guard and the hash can reference it.
-    const requestedSavingsRedemption =
+    const savingsRedemptionRequested =
       use_savings_credit &&
       savings_goal_id &&
       typeof savings_amount === 'number' &&
       savings_amount > 0;
+    // Customer savings are funded through NGN rails and carry no currency
+    // column, so a ₦-denominated savings balance must never offset a non-NGN
+    // order total at face value. Drop the redemption and fall back to the
+    // plain (non-savings) order RPC instead of failing the checkout.
+    const savingsCurrencySupported = merchantResolvedCurrency === 'NGN';
+    if (savingsRedemptionRequested && !savingsCurrencySupported) {
+      logger.warn({
+        message: 'Savings redemption skipped: order currency is not NGN',
+        merchantId: merchant_id,
+        orderCurrency: merchantResolvedCurrency,
+        savingsGoalId: savings_goal_id,
+      });
+    }
+    const requestedSavingsRedemption =
+      savingsRedemptionRequested && savingsCurrencySupported;
 
     // Resolve + validate the discount code server-side, then compute the amount
     // from the CANONICAL subtotal (never the client cart total). Eligibility /
@@ -1925,6 +1947,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // The order-create RPC's RETURNS TABLE carries no currency column, and an
+    // idempotency replay can return an order that was stamped BEFORE a
+    // payout-currency change — so read the stamped orders.currency back from
+    // the row instead of re-deriving it from the CURRENT merchant record.
+    // Fall back to the merchant-derived code (exactly what the RPC stamps on
+    // a fresh order) when the read-back errors or returns no currency.
+    const { data: orderCurrencyRow, error: orderCurrencyError } = await supabase
+      .from('orders')
+      .select('currency')
+      .eq('id', order.id)
+      .maybeSingle();
+    if (orderCurrencyError) {
+      logger.warn({
+        message:
+          'Order currency read-back failed; falling back to merchant-resolved currency',
+        orderId: order.id,
+        error: orderCurrencyError,
+      });
+    }
+    const stampedOrderCurrency =
+      typeof orderCurrencyRow?.currency === 'string'
+        ? orderCurrencyRow.currency.trim().toUpperCase()
+        : '';
+    const orderCurrency = stampedOrderCurrency || merchantResolvedCurrency;
+
     const idempotencyReplayed =
       typeof order === 'object' &&
       order !== null &&
@@ -2047,8 +2094,22 @@ export async function POST(request: NextRequest) {
     const savingsAmountUsed = savingsRedemptionResult?.amountRedeemed || 0;
     const remainingAfterSavings = Math.max(orderTotal - savingsAmountUsed, 0);
 
+    // Customer wallets are an NGN-denominated ledger (customer_wallets has no
+    // currency column), so redeeming against a non-NGN order would subtract
+    // the naira balance at face value in the order currency. Wallet credit is
+    // NGN-orders-only until the wallet gains a currency dimension.
+    const walletCurrencySupported = orderCurrency === 'NGN';
+    if (use_wallet_credit && wallet_amount > 0 && !walletCurrencySupported) {
+      logger.warn({
+        message: 'Wallet redemption skipped: order currency is not NGN',
+        orderId: order.id,
+        orderCurrency,
+      });
+    }
+
     if (
       use_wallet_credit &&
+      walletCurrencySupported &&
       wallet_amount > 0 &&
       customer_id &&
       remainingAfterSavings > 0
@@ -2234,6 +2295,7 @@ export async function POST(request: NextRequest) {
           subtotal: orderSubtotal,
           shippingFee: orderShippingFee,
           total: orderTotal,
+          currency: orderCurrency,
           shippingAddress: {
             address: shippingAddressForOrder?.address || '',
             city: shippingAddressForOrder?.city || '',
@@ -2388,7 +2450,7 @@ export async function POST(request: NextRequest) {
                   created_at: String(
                     order.created_at || new Date().toISOString()
                   ),
-                  currency: order.currency || 'NGN',
+                  currency: orderCurrency,
                   total: orderTotal,
                   subtotal: orderSubtotal,
                   shipping_fee: orderShippingFee,
@@ -2634,7 +2696,7 @@ export async function POST(request: NextRequest) {
             orderNum,
             customer_name,
             orderTotal,
-            order.currency || 'NGN'
+            orderCurrency
           );
           if (pushResult.failed > 0 || pushResult.errors.length > 0) {
             logger.warn({
@@ -2655,7 +2717,7 @@ export async function POST(request: NextRequest) {
             const paymentPushResult = await notifyPaymentReceived(
               merchant_id,
               orderTotal,
-              order.currency || 'NGN',
+              orderCurrency,
               orderNum,
               order.id
             );

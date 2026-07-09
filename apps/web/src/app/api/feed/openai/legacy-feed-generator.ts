@@ -3,6 +3,7 @@ import {
   resolveGmcPrimaryImage,
 } from '@/lib/gmc-feed-images';
 import { getEffectiveStock } from '@/lib/product-stock';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import {
   buildAgentPolicyUrls,
@@ -250,7 +251,7 @@ export function generateOpenAIFeed(
   baseUrl: string,
   imageManifest: ImageManifestMap = {}
 ): string[] {
-  const currency = merchant.payout_currency || 'NGN';
+  const currency = resolveMerchantCurrencyConfig(merchant).code;
   const merchantUrl = trimTrailingSlash(baseUrl);
   const feedItems: string[] = [];
   const validProducts = products.filter(

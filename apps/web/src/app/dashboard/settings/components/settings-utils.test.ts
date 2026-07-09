@@ -33,6 +33,37 @@ describe('settingsSchema', () => {
         .success
     ).toBe(false);
   });
+
+  it('accepts an INR-market country code (IN) unchanged', () => {
+    const result = settingsSchema.safeParse({
+      business_name: 'My Store',
+      country: 'IN',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.country).toBe('IN');
+    }
+  });
+
+  it('normalizes a full country name to its ISO-2 code instead of writing it verbatim', () => {
+    const result = settingsSchema.safeParse({
+      business_name: 'My Store',
+      country: 'Nigeria',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.country).toBe('NG');
+    }
+  });
+
+  it('rejects an unrecognizable country instead of persisting garbage', () => {
+    expect(
+      settingsSchema.safeParse({
+        business_name: 'My Store',
+        country: 'Wakanda',
+      }).success
+    ).toBe(false);
+  });
 });
 
 describe('sanitizeSocialMedia', () => {

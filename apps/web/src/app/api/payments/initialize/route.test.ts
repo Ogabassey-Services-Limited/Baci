@@ -69,7 +69,10 @@ vi.mock('@/lib/korapay', () => ({
     platformFee: amount * 0.015,
     merchantAmount: amount * 0.985,
   }),
-  SUPPORTED_CURRENCIES: ['NGN', 'USD', 'GBP', 'EUR'],
+  // Mirror the real korapay multi-currency support list so the
+  // resolve-charge-currency helper (imported by the route) sees the same
+  // gateway-support surface as production.
+  SUPPORTED_CURRENCIES: ['NGN', 'KES', 'GHS', 'ZAR', 'XAF', 'XOF'],
 }));
 
 // Paystack mocks
@@ -1760,6 +1763,170 @@ describe('POST /api/payments/initialize', () => {
       const json = await res.json();
       expect(res.status).toBe(500);
       expect(json.code).toBe('TRANSACTION_CREATE_FAILED');
+    });
+  });
+
+  describe('multi-country currency handling', () => {
+    function snapshotWithCurrency(
+      currency: string,
+      extra: Record<string, unknown> = {}
+    ) {
+      rpcResult = {
+        data: [
+          {
+            merchant_id: MERCHANT_ID,
+            total: 5000,
+            currency,
+            tracking_token: 'track-token-123',
+            ...extra,
+          },
+        ],
+        error: null,
+      };
+    }
+
+    it('(a) charges the order currency for the unchanged NGN happy path', async () => {
+      enableKorapayForTest();
+      snapshotWithCurrency('NGN');
+      mockInitializeKorapay.mockResolvedValue({
+        authorization_url: 'https://korapay.com/checkout/ngn',
+        checkout_url: 'https://korapay.com/checkout/ngn',
+      });
+
+      const res = await POST(
+        makeRequest({ ...validBody, currency: 'NGN', gateway: 'korapay' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(mockInitializeKorapay).toHaveBeenCalledWith(
+        expect.objectContaining({ currency: 'NGN', amount: 5000 })
+      );
+      const transactionCall = rpcCalls.find(
+        (call) => call.name === 'create_payment_transaction'
+      );
+      expect(transactionCall?.args).toMatchObject({ p_currency: 'NGN' });
+    });
+
+    it('(b) returns 400 CURRENCY_MISMATCH when the client sends a currency that differs from the order', async () => {
+      enableKorapayForTest();
+      snapshotWithCurrency('NGN');
+
+      const res = await POST(
+        makeRequest({ ...validBody, currency: 'USD', gateway: 'korapay' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('CURRENCY_MISMATCH');
+      expect(mockInitializeKorapay).not.toHaveBeenCalled();
+      expect(
+        rpcCalls.some((call) => call.name === 'create_payment_transaction')
+      ).toBe(false);
+    });
+
+    it('(c) charges GHS (no coercion) for a GHS order routed to korapay', async () => {
+      enableKorapayForTest();
+      snapshotWithCurrency('GHS');
+      mockInitializeKorapay.mockResolvedValue({
+        authorization_url: 'https://korapay.com/checkout/ghs',
+        checkout_url: 'https://korapay.com/checkout/ghs',
+      });
+
+      const res = await POST(
+        makeRequest({ ...validBody, currency: 'GHS', gateway: 'korapay' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.gateway).toBe('korapay');
+      expect(mockInitializeKorapay).toHaveBeenCalledWith(
+        expect.objectContaining({ currency: 'GHS', amount: 5000 })
+      );
+      const transactionCall = rpcCalls.find(
+        (call) => call.name === 'create_payment_transaction'
+      );
+      expect(transactionCall?.args).toMatchObject({ p_currency: 'GHS' });
+    });
+
+    it('(d) returns 400 UNSUPPORTED_CURRENCY for a gateway-ineligible currency instead of charging NGN', async () => {
+      enableKorapayForTest();
+      snapshotWithCurrency('INR');
+
+      const res = await POST(
+        makeRequest({ ...validBody, currency: 'INR', gateway: 'korapay' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('UNSUPPORTED_CURRENCY');
+      expect(mockInitializeKorapay).not.toHaveBeenCalled();
+      expect(
+        rpcCalls.some((call) => call.name === 'create_payment_transaction')
+      ).toBe(false);
+    });
+
+    it('(e) returns 400 UNSUPPORTED_CURRENCY for a GHS order routed to paystack (NGN-only)', async () => {
+      snapshotWithCurrency('GHS');
+
+      const res = await POST(
+        makeRequest({ ...validBody, currency: 'GHS', gateway: 'paystack' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('UNSUPPORTED_CURRENCY');
+      expect(mockInitializePaystack).not.toHaveBeenCalled();
+      expect(
+        rpcCalls.some((call) => call.name === 'create_payment_transaction')
+      ).toBe(false);
+    });
+
+    it('(f) returns 400 UNSUPPORTED_CURRENCY for a non-NGN order routed to juicyway', async () => {
+      snapshotWithCurrency('GHS');
+
+      const res = await POST(
+        makeRequest({ ...validBody, currency: 'GHS', gateway: 'juicyway' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('UNSUPPORTED_CURRENCY');
+      expect(mockInitializeJuicyway).not.toHaveBeenCalled();
+      expect(
+        rpcCalls.some((call) => call.name === 'create_payment_transaction')
+      ).toBe(false);
+    });
+
+    it('(g) never auto-selects paystack for a non-NGN order even when preferred_international_gateway is paystack', async () => {
+      // Paystack settles NGN only, so international auto-selection must
+      // always route to korapay regardless of the merchant's preference.
+      featureSettingsResult = {
+        data: {
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_international_gateway: 'paystack',
+        },
+        error: null,
+      };
+      snapshotWithCurrency('GHS');
+      mockInitializeKorapay.mockResolvedValue({
+        authorization_url: 'https://korapay.com/checkout/ghs-auto',
+        checkout_url: 'https://korapay.com/checkout/ghs-auto',
+      });
+
+      const res = await POST(makeRequest({ ...validBody, currency: 'GHS' }));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.gateway).toBe('korapay');
+      expect(mockInitializeKorapay).toHaveBeenCalledWith(
+        expect.objectContaining({ currency: 'GHS' })
+      );
+      expect(mockInitializePaystack).not.toHaveBeenCalled();
     });
   });
 });

@@ -334,7 +334,31 @@ describe('resendOrderConfirmation', () => {
         customerName: 'John Doe',
         merchantName: 'TestShop',
         total: 11500,
+        currency: 'NGN',
       })
+    );
+  });
+
+  it('threads a non-NGN order currency through to the resend email', async () => {
+    setupMocks({ order: { ...mockOrder, currency: 'INR' } });
+
+    await resendOrderConfirmation(ORDER_ID);
+
+    expect(mockGenerateOrderConfirmationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: 'INR' })
+    );
+    expect(mockGenerateOrderConfirmationText).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: 'INR' })
+    );
+  });
+
+  it('falls back to NGN when the order has no currency recorded (legacy rows)', async () => {
+    setupMocks({ order: { ...mockOrder, currency: null } });
+
+    await resendOrderConfirmation(ORDER_ID);
+
+    expect(mockGenerateOrderConfirmationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: 'NGN' })
     );
   });
 

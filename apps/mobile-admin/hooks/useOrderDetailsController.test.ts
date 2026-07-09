@@ -17,6 +17,10 @@ const auditEventsState = vi.hoisted(() => ({
   },
 }));
 
+const merchantState = vi.hoisted(() => ({
+  current: null as unknown,
+}));
+
 vi.mock('expo-router', () => ({
   useLocalSearchParams: () => routeParamsState.current,
 }));
@@ -26,7 +30,7 @@ vi.mock('@/hooks/useTheme', () => ({
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({
-  useMerchant: () => ({ merchant: null }),
+  useMerchant: () => ({ merchant: merchantState.current }),
 }));
 
 vi.mock('@tanstack/react-query', () => ({
@@ -171,6 +175,7 @@ describe('useOrderDetailsController', () => {
   beforeEach(() => {
     auditEventsState.current = { data: [], isError: false, isLoading: false };
     orderState.current = undefined;
+    merchantState.current = null;
     routeParamsState.current = { id: '123e4567-e89b-42d3-a456-426614174000' };
   });
 
@@ -220,6 +225,70 @@ describe('useOrderDetailsController', () => {
     const { result } = renderHook(() => useOrderDetailsController());
 
     expect(result.current.shippingConfig.label).toBe('Delivered');
+  });
+
+  it("formats using the order's own stamped currency even when the merchant's current payout currency differs", () => {
+    merchantState.current = { id: 'merchant-1', payout_currency: 'INR' };
+    orderState.current = {
+      amount_paid: 0,
+      created_at: '2026-04-21T00:00:00.000Z',
+      currency: 'GHS',
+      customer_email: 'ada@example.com',
+      customer_name: 'Ada',
+      customer_phone: '08000000000',
+      discount_amount: 0,
+      id: 'order-1',
+      merchant_id: 'merchant-1',
+      notes: null,
+      order_number: 'ORD-1',
+      payment_method: null,
+      payment_status: 'pending',
+      shipping_fee: 0,
+      shipping_status: 'processing',
+      source: 'website',
+      subtotal: 1000,
+      tax_amount: 0,
+      total: 1000,
+      updated_at: '2026-04-21T00:00:00.000Z',
+    };
+
+    const { result } = renderHook(() => useOrderDetailsController());
+
+    expect(result.current.orderCurrency).toBe('GHS');
+    expect(result.current.currencySymbol).toBe('GH₵');
+    expect(result.current.formatPrice(1000)).toContain('GH₵');
+    expect(result.current.formatPrice(1000)).not.toContain('₹');
+  });
+
+  it("falls back to the merchant's payout currency when the order has no stamped currency", () => {
+    merchantState.current = { id: 'merchant-1', payout_currency: 'INR' };
+    orderState.current = {
+      amount_paid: 0,
+      created_at: '2026-04-21T00:00:00.000Z',
+      currency: null,
+      customer_email: 'ada@example.com',
+      customer_name: 'Ada',
+      customer_phone: '08000000000',
+      discount_amount: 0,
+      id: 'order-1',
+      merchant_id: 'merchant-1',
+      notes: null,
+      order_number: 'ORD-1',
+      payment_method: null,
+      payment_status: 'pending',
+      shipping_fee: 0,
+      shipping_status: 'processing',
+      source: 'website',
+      subtotal: 1000,
+      tax_amount: 0,
+      total: 1000,
+      updated_at: '2026-04-21T00:00:00.000Z',
+    };
+
+    const { result } = renderHook(() => useOrderDetailsController());
+
+    expect(result.current.orderCurrency).toBe('INR');
+    expect(result.current.formatPrice(1000)).toContain('₹');
   });
 
   it('returns audit events and loading state from the audit query', () => {

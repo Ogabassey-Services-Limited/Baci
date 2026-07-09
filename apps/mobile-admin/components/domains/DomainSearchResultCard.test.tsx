@@ -109,7 +109,11 @@ describe('DomainSearchResultCard', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('formats the displayed price using the domain currency', () => {
+  it('always formats the price in NGN, ignoring the domain result currency field', () => {
+    // Domain prices are platform costs billed in NGN regardless of what the
+    // API reports for a given result — mirrors the web dashboard's domain
+    // search panel, which hardcodes NGN rather than trusting a per-result
+    // currency.
     render(
       <DomainSearchResultCard
         domain={{
@@ -123,10 +127,10 @@ describe('DomainSearchResultCard', () => {
       />
     );
 
-    expect(screen.getByText('$25,000')).toBeInTheDocument();
+    expect(screen.getByText('₦25,000')).toBeInTheDocument();
   });
 
-  it('formats NGN prices with the expected currency symbol', () => {
+  it('labels the price as billed in NGN', () => {
     render(
       <DomainSearchResultCard
         domain={{
@@ -141,23 +145,7 @@ describe('DomainSearchResultCard', () => {
     );
 
     expect(screen.getByText('₦25,000')).toBeInTheDocument();
-  });
-
-  it('falls back safely when the currency code is invalid', () => {
-    render(
-      <DomainSearchResultCard
-        domain={{
-          available: true,
-          currency: 'INVALID',
-          domain: 'baci.com',
-          price: 25000,
-        }}
-        isPurchasing={false}
-        onBuy={vi.fn()}
-      />
-    );
-
-    expect(screen.getByText('INVALID 25,000')).toBeInTheDocument();
+    expect(screen.getByText('Billed in NGN')).toBeInTheDocument();
   });
 
   it('shows the loading state and disables the buy button while purchasing', () => {

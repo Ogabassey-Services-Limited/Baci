@@ -96,7 +96,7 @@ export async function POST(
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, order_number, total, amount_paid, customer_id, customer_name, customer_email, customer_phone, payment_status'
+        'id, order_number, total, amount_paid, customer_id, customer_name, customer_email, customer_phone, payment_status, currency'
       )
       .eq('id', orderId)
       .eq('merchant_id', merchant.id)
@@ -152,6 +152,7 @@ export async function POST(
       paymentLink,
       merchantName: merchant.business_name,
       merchantUrl,
+      currency: order.currency || 'NGN',
       supportEmail: merchant.support_email || undefined,
       merchantTin: merchant.tax_identification_number ?? undefined,
       merchantRcNumber: merchant.cac_rc_number ?? undefined,

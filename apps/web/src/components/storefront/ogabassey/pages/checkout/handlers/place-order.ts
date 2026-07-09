@@ -39,6 +39,12 @@ export interface CheckoutCartItem {
 
 export interface PlaceOrderOptions {
   merchant: { id: string; slug: string } | null | undefined;
+  /**
+   * Merchant-resolved order currency code (e.g. 'NGN', 'KES'). Sent to
+   * /api/payments/initialize instead of a hardcoded 'NGN'; the server derives
+   * the authoritative charge currency from the order and rejects a mismatch.
+   */
+  currency: string;
   customerEmail: string;
   firstName: string;
   lastName: string;
@@ -216,6 +222,7 @@ function getShippingProvider(
 export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
   const {
     merchant,
+    currency,
     customerEmail,
     firstName,
     lastName,
@@ -533,6 +540,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
       const result = await initializeCardPayment(
         merchant.id,
         order.id,
+        currency,
         customerEmail,
         `${firstName} ${lastName}`.trim(),
         customerPhone,
@@ -736,6 +744,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
 async function initializeCardPayment(
   merchantId: string,
   orderId: string,
+  currency: string,
   email: string,
   name: string,
   phone: string,
@@ -754,7 +763,7 @@ async function initializeCardPayment(
     body: JSON.stringify({
       merchant_id: merchantId,
       order_id: orderId,
-      currency: 'NGN',
+      currency,
       customer_email: email,
       customer_name: name,
       customer_phone: phone,

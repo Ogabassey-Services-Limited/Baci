@@ -14,6 +14,7 @@ const basePayload = {
   paymentLink: 'https://pay.test/link',
   merchantName: 'TestShop',
   merchantUrl: 'https://testshop.usebaci.com',
+  currency: 'NGN',
 };
 
 describe('Payment reminder email', () => {
@@ -33,7 +34,7 @@ describe('Payment reminder email', () => {
   });
 
   describe('currency formatting', () => {
-    it('defaults to NGN when no currency is provided', () => {
+    it('renders NGN orders identically to the pre-multi-country baseline', () => {
       const output = [
         generatePaymentReminderEmail(basePayload),
         generatePaymentReminderText(basePayload),
@@ -71,6 +72,7 @@ describe('Payment reminder email', () => {
         merchantName: XSS,
         merchantUrl: 'javascript:alert(1)',
         supportEmail: XSS,
+        currency: 'NGN',
         // Bank-transfer block: only renders when virtualAccount is present.
         virtualAccount: {
           bankName: XSS,
@@ -97,6 +99,7 @@ describe('Payment reminder email', () => {
         paymentLink: 'https://pay.test/link',
         merchantName: 'TestShop',
         merchantUrl: 'http://shop.example.com/store?ref=1',
+        currency: 'NGN',
       });
 
       expect(html).toContain('mailto:support@shop.example.com"');

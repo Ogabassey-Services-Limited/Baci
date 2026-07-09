@@ -98,6 +98,7 @@ export function OrderDetailsScreenModals({
 
       <RecordPaymentSheet
         colors={controller.colors}
+        currency={controller.orderCurrency}
         currencySymbol={controller.currencySymbol}
         isConfirmDisabled={
           !controller.paymentMethod || !controller.paymentAmount

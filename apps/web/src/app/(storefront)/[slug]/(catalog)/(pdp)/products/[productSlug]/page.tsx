@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import { ProductDetailRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { getCachedLegacyProductRedirectTarget } from '@/lib/cached-data';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import {
   generateMetaDescription,
   getIndexableRobotsMetadata,
@@ -87,7 +88,7 @@ export async function generateMetadata(
     product.category ||
     DEFAULT_STOREFRONT_SEO_CATEGORY;
   const merchantDisplayName = merchant.business_name || DEFAULT_STORE_NAME;
-  const currency = merchant.payout_currency || 'NGN';
+  const currency = resolveMerchantCurrencyConfig(merchant).code;
   const priceSeoCopy = buildProductPriceSeoCopy({
     product,
     merchantDisplayName,

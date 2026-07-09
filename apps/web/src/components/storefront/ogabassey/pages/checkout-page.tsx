@@ -36,6 +36,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useCart } from '@/hooks/cart';
 import type { CartItem } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { useCurrency } from '@/hooks/use-currency';
 import type {
   CryptoChain,
   CryptoCurrency,
@@ -57,6 +58,8 @@ import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { getCredPalKey, openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { asRoute } from '@/lib/routes';
+import { AUTO_FRACTION_OPTIONS } from '@/lib/currency';
+import { formatAmountInCurrency } from '@/lib/resolve-merchant-currency';
 import type { ShippingQuote } from '@/types/shipping-quote';
 import { normalizeShippingQuoteResponse } from '@/lib/shipping/quote-response';
 import { toast } from '@/hooks/use-toast';
@@ -407,6 +410,8 @@ interface RequestCryptoPaymentInitializationParams {
   pendingOrder: PendingCryptoOrder;
   chain: CryptoChain;
   currency: CryptoCurrency;
+  /** Merchant-resolved fiat order currency (server derives from order). */
+  orderCurrency: string;
 }
 
 async function requestCryptoPaymentInitialization({
@@ -414,6 +419,7 @@ async function requestCryptoPaymentInitialization({
   pendingOrder,
   chain,
   currency,
+  orderCurrency,
 }: RequestCryptoPaymentInitializationParams): Promise<CryptoPaymentData> {
   const paymentResponse = await fetch('/api/payments/initialize', {
     method: 'POST',
@@ -421,7 +427,7 @@ async function requestCryptoPaymentInitialization({
     body: JSON.stringify({
       merchant_id: merchantId,
       order_id: pendingOrder.orderId,
-      currency: 'NGN',
+      currency: orderCurrency,
       customer_email: pendingOrder.customerEmail,
       customer_name: pendingOrder.customerName,
       customer_phone: pendingOrder.customerPhone,
@@ -466,6 +472,8 @@ interface RequestDvaInitializationParams {
   customerName: string;
   customerPhone: string;
   billingAddress: DvaBillingAddress;
+  /** Merchant-resolved fiat order currency (server derives from order). */
+  orderCurrency: string;
 }
 
 interface DvaBillingAddress {
@@ -483,6 +491,7 @@ async function requestDvaInitialization({
   customerName,
   customerPhone,
   billingAddress,
+  orderCurrency,
 }: RequestDvaInitializationParams): Promise<{
   dva: Omit<DvaData, 'amount' | 'reference'>;
   reference: string;
@@ -493,7 +502,7 @@ async function requestDvaInitialization({
     body: JSON.stringify({
       merchant_id: merchantId,
       order_id: orderId,
-      currency: 'NGN',
+      currency: orderCurrency,
       customer_email: customerEmail,
       customer_name: customerName,
       customer_phone: customerPhone,
@@ -520,6 +529,11 @@ export const CheckoutPage: React.FC = () => {
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
 
+  // Merchant-resolved currency (payout_currency first, country second, NGN
+  // fallback). `currencyCode` is sent to /api/payments/initialize instead of a
+  // hardcoded 'NGN'; the compact formatter renders order amounts.
+  const { formatCurrencyAuto, currencySymbol, currencyCode } = useCurrency();
+
   const hasPriceNegotiation = hasPriceNegotiationEntitlement(merchant?.plan_tier, merchant?.slug);
 
   const checkoutCart = sanitizeCartItems(cart, hasPriceNegotiation);
@@ -541,7 +555,10 @@ export const CheckoutPage: React.FC = () => {
   );
 
   const paystackCheckoutAvailable = isPaystackCheckoutAvailable(merchant);
-  const korapayCheckoutAvailable = isKorapayCheckoutAvailable(merchant);
+  const korapayCheckoutAvailable = isKorapayCheckoutAvailable(
+    merchant,
+    currencyCode
+  );
   const bankTransferCheckoutAvailable =
     isBankTransferCheckoutAvailable(merchant);
   const basePath = merchantContext?.basePath;
@@ -853,6 +870,7 @@ export const CheckoutPage: React.FC = () => {
       pendingOrder: pendingCryptoOrder,
       chain: selectedCryptoChain,
       currency: selectedCryptoCurrency,
+      orderCurrency: currencyCode,
     })
       .then((cryptoPayment) => {
         setShowCryptoSelector(false);
@@ -1382,8 +1400,14 @@ export const CheckoutPage: React.FC = () => {
       discountAmount
   );
 
-  // Wallet credit calculation (2025: can't redeem more than order total)
-  const walletAmountUsed = payWithWallet ? Math.min(walletBalance, total) : 0;
+  // Wallet credit calculation (2025: can't redeem more than order total).
+  // The customer wallet is an NGN-denominated ledger, so redemption is only
+  // offered on NGN orders — mirrors the server-side guard in /api/orders.
+  const walletCurrencySupported = currencyCode === 'NGN';
+  const walletAmountUsed =
+    payWithWallet && walletCurrencySupported
+      ? Math.min(walletBalance, total)
+      : 0;
   const remainingAmount = total - walletAmountUsed;
 
 
@@ -2089,7 +2113,7 @@ export const CheckoutPage: React.FC = () => {
           body: JSON.stringify({
             merchant_id: merchant.id,
             order_id: order.id,
-            currency: 'NGN',
+            currency: currencyCode,
             customer_email: customerEmail,
             customer_name: `${firstName} ${lastName}`.trim(),
             customer_phone: customerPhone,
@@ -2340,6 +2364,7 @@ export const CheckoutPage: React.FC = () => {
       customerName: `${firstName} ${lastName}`.trim(),
       customerPhone,
       billingAddress,
+      orderCurrency: currencyCode,
     })
       .then((result) => {
         setDvaData({
@@ -2859,7 +2884,7 @@ export const CheckoutPage: React.FC = () => {
               <div className="text-center p-4 bg-gray-50 rounded-2xl border border-gray-100">
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Send Exactly</p>
                 <p className="text-3xl font-black text-gray-900">
-                  ₦{dvaData.amount.toLocaleString()}
+                  {formatCurrencyAuto(dvaData.amount)}
                 </p>
               </div>
 
@@ -3480,7 +3505,7 @@ export const CheckoutPage: React.FC = () => {
                                   'Collect from the selected GIGL service centre.'}
                               </p>
                               <div className="mt-2 text-xs font-bold bg-store-background inline-block px-2 py-1 rounded border border-store-background-text/10 text-store-background-text">
-                                ₦{stationPickupQuote.price.toLocaleString()}
+                                {formatAmountInCurrency(stationPickupQuote.price, stationPickupQuote.currency, AUTO_FRACTION_OPTIONS)}
                               </div>
                             </div>
                           </div>
@@ -3591,7 +3616,7 @@ export const CheckoutPage: React.FC = () => {
                                       </div>
                                     </div>
                                     <span className="font-bold text-sm text-gray-900">
-                                      ₦{quote.price.toLocaleString()}
+                                      {formatAmountInCurrency(quote.price, quote.currency, AUTO_FRACTION_OPTIONS)}
                                     </span>
                                   </label>
                                 ))}
@@ -3615,7 +3640,7 @@ export const CheckoutPage: React.FC = () => {
                                     </p>
                                     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                       <span className="text-sm font-bold text-store-background-text">
-                                        ₦{stationPickupQuote.price.toLocaleString()}
+                                        {formatAmountInCurrency(stationPickupQuote.price, stationPickupQuote.currency, AUTO_FRACTION_OPTIONS)}
                                       </span>
                                       <button
                                         type="button"
@@ -3709,7 +3734,7 @@ export const CheckoutPage: React.FC = () => {
               user={user}
               remainingAmount={remainingAmount}
               orderAmount={total}
-              currency="NGN"
+              currency={currencyCode}
             />
 
           </div>
@@ -3764,7 +3789,7 @@ export const CheckoutPage: React.FC = () => {
                           <span>
                             {isQuizGift
                               ? 'Free gift'
-                              : `₦${itemPrice.toLocaleString()}`}
+                              : formatCurrencyAuto(itemPrice)}
                           </span>
                         </div>
                       </div>
@@ -3778,12 +3803,12 @@ export const CheckoutPage: React.FC = () => {
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-gray-600 text-sm">
                   <span>Subtotal</span>
-                  <span>₦{effectiveCheckoutCartTotal.toLocaleString()}</span>
+                  <span>{formatCurrencyAuto(effectiveCheckoutCartTotal)}</span>
                 </div>
                 {orderTotals && (
                   <div className="flex justify-between text-gray-600 text-sm">
                     <span>VAT (7.5%)</span>
-                    <span>₦{orderTotals.taxAmount.toLocaleString()}</span>
+                    <span>{formatCurrencyAuto(orderTotals.taxAmount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-gray-600 text-sm">
@@ -3797,18 +3822,18 @@ export const CheckoutPage: React.FC = () => {
                   >
                     {deliveryMethod === 'door' && !selectedQuoteId && deliveryCost === 0
                       ? <span className="text-gray-500 font-normal italic">Calculated…</span>
-                      : deliveryCost === 0 ? 'Free' : `₦${deliveryCost.toLocaleString()}`}
+                      : deliveryCost === 0 ? 'Free' : formatCurrencyAuto(deliveryCost)}
                   </span>
                 </div>
                 {giftWrappingCost > 0 && (
                   <div className="flex justify-between text-gray-600 text-sm">
                     <span>Gift Wrapping</span>
-                    <span>₦{giftWrappingCost.toLocaleString()}</span>
+                    <span>{formatCurrencyAuto(giftWrappingCost)}</span>
                   </div>
                 )}
 
-                {/* Wallet Credit Section (2025: progressive disclosure - only show if balance > 0 or loading) */}
-                {(walletLoading || walletBalance > 0) && user && (
+                {/* Wallet Credit Section (2025: progressive disclosure - only show if balance > 0 or loading). NGN-ledger: hidden on non-NGN orders. */}
+                {walletCurrencySupported && (walletLoading || walletBalance > 0) && user && (
                   <div className="py-2 animate-in fade-in">
                     {walletLoading ? (
                       <div className="flex items-center gap-2 text-gray-500">
@@ -3820,11 +3845,11 @@ export const CheckoutPage: React.FC = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="size-6 rounded-full bg-green-100 flex items-center justify-center">
-                              <span className="text-green-600 text-xs font-bold">₦</span>
+                              <span className="text-green-600 text-xs font-bold">{currencySymbol}</span>
                             </div>
                             <div>
                               <span className="text-sm font-medium text-gray-700">Wallet Credit</span>
-                              <span className="text-xs text-gray-500 ml-1">(₦{walletBalance.toLocaleString()} available)</span>
+                              <span className="text-xs text-gray-500 ml-1">({formatCurrencyAuto(walletBalance)} available)</span>
                             </div>
                           </div>
                           <button
@@ -3842,7 +3867,7 @@ export const CheckoutPage: React.FC = () => {
                         {payWithWallet && walletAmountUsed > 0 && (
                           <div className="flex justify-between text-green-700 text-sm font-medium mt-2 pl-8">
                             <span>Applied Credit</span>
-                            <span>-₦{walletAmountUsed.toLocaleString()}</span>
+                            <span>-{formatCurrencyAuto(walletAmountUsed)}</span>
                           </div>
                         )}
                       </>
@@ -3859,7 +3884,7 @@ export const CheckoutPage: React.FC = () => {
                       ? 'Amount Due'
                       : 'Total'}
                   </span>
-                  <span>₦{remainingAmount.toLocaleString()}</span>
+                  <span>{formatCurrencyAuto(remainingAmount)}</span>
                 </div>
               </div>
 
