@@ -206,8 +206,8 @@ export interface CancellationResult {
 // =============================================================================
 
 export interface SelfFulfillmentData {
-  trackingNumber: string;
-  dispatchPhone: string;
+  trackingNumber?: string | null;
+  dispatchPhone?: string | null;
   carrierName?: string;
 }
 

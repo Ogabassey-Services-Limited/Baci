@@ -55,6 +55,27 @@ const ShippingItemSchema = z
     }
   });
 
+const DispatchPhoneStringSchema = z
+  .string()
+  .trim()
+  .min(10, 'Phone number must be at least 10 digits');
+
+const normalizeBlankDispatchPhone =
+  (emptyValue: null | undefined) => (value: unknown) =>
+    value === null || (typeof value === 'string' && value.trim() === '')
+      ? emptyValue
+      : value;
+
+const OptionalDispatchPhoneSchema = z.preprocess(
+  normalizeBlankDispatchPhone(undefined),
+  DispatchPhoneStringSchema.optional()
+);
+
+const OptionalDispatchPhoneUpdateSchema = z.preprocess(
+  normalizeBlankDispatchPhone(null),
+  DispatchPhoneStringSchema.nullable().optional()
+);
+
 // Quote-time requests are allowed to be lighter than booking requests because
 // domestic quote calls can be completed with merchant defaults before checkout.
 const BaseQuoteAddressSchema = z.object({
@@ -166,12 +187,7 @@ export const SelfFulfillmentSchema = z
     // Tracking number (optional but recommended)
     trackingNumber: z.string().min(1).optional(),
     // Dispatch phone number (optional; if provided, must be a full number)
-    dispatchPhone: z
-      .union([
-        z.literal(''),
-        z.string().min(10, 'Phone number must be at least 10 digits'),
-      ])
-      .optional(),
+    dispatchPhone: OptionalDispatchPhoneSchema,
     // Carrier name (optional)
     carrierName: z.string().optional(),
     // Notes for dispatch/rider
@@ -184,12 +200,7 @@ export const SelfFulfillmentUpdateSchema = z
     orderId: z.string().refine(isValidUuid, { message: 'Invalid order ID' }),
     carrierName: z.string().optional(),
     dispatchNotes: z.string().optional(),
-    dispatchPhone: z
-      .union([
-        z.literal(''),
-        z.string().min(10, 'Phone number must be at least 10 digits'),
-      ])
-      .optional(),
+    dispatchPhone: OptionalDispatchPhoneUpdateSchema,
     trackingNumber: z.string().min(1).optional(),
   })
   .strict();

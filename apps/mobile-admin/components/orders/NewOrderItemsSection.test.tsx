@@ -140,6 +140,20 @@ describe('NewOrderItemsSection', () => {
     expect(controller.setShowProductModal).toHaveBeenCalledWith(true);
   });
 
+  it('opens catalog search when the empty item placeholder is pressed', () => {
+    const controller = makeController();
+
+    render(<NewOrderItemsSection controller={controller} />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add item from catalog' })
+    );
+
+    expect(controller.resetProductPickerState).toHaveBeenCalledTimes(1);
+    expect(controller.setProductSearch).toHaveBeenCalledWith('');
+    expect(controller.setShowProductModal).toHaveBeenCalledWith(true);
+  });
+
   it('renders order items and wires edit and quantity actions', () => {
     const item = {
       details: 'Black / 128GB',

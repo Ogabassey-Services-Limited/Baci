@@ -341,6 +341,17 @@ describe('NewOrderProductSheet', () => {
     expect(controller.fetchMoreProducts).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps main catalog rows focused on product name and price', () => {
+    const controller = makeController();
+
+    render(<NewOrderProductSheet controller={controller} />);
+
+    expect(screen.getByText('Baci Phone')).toBeInTheDocument();
+    expect(screen.getByText('₦2500')).toBeInTheDocument();
+    expect(screen.queryByText(/brand new/i)).toBeNull();
+    expect(screen.queryByText(/SKU-1/)).toBeNull();
+  });
+
   it('anchors product search in the Gorhom sheet footer so keyboard avoidance can move it', () => {
     const controller = makeController();
 

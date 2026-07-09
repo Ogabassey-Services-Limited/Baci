@@ -10,6 +10,23 @@ type ProductVariantQueryResult = {
   error: { message: string } | null;
 };
 
+type ProductPriceQueryResult = {
+  data: Record<string, unknown> | null;
+  error: { message: string } | null;
+};
+
+function createProductPriceQuery(result: ProductPriceQueryResult) {
+  const query = {
+    eq: vi.fn(),
+    maybeSingle: vi.fn(),
+    select: vi.fn(),
+  };
+  query.select.mockReturnValue(query);
+  query.eq.mockReturnValue(query);
+  query.maybeSingle.mockResolvedValue(result);
+  return query;
+}
+
 function createProductVariantQuery(result: ProductVariantQueryResult) {
   let eqCalls = 0;
   const query = {
@@ -57,8 +74,12 @@ describe('fetchAdminProductVariants', () => {
         sku: 'SKU-1',
       },
     ];
+    const productQuery = createProductPriceQuery({
+      data: { price: 95 },
+      error: null,
+    });
     const query = createProductVariantQuery({ data: rows, error: null });
-    mocks.from.mockReturnValueOnce(query);
+    mocks.from.mockReturnValueOnce(productQuery).mockReturnValueOnce(query);
 
     const result = await fetchAdminProductVariants({
       merchantId: 'merchant-1',
@@ -70,7 +91,12 @@ describe('fetchAdminProductVariants', () => {
     });
 
     expect(result).toEqual([{ id: 'variant-1' }]);
-    expect(mocks.from).toHaveBeenCalledWith('product_variants');
+    expect(mocks.from).toHaveBeenNthCalledWith(1, 'products');
+    expect(productQuery.select).toHaveBeenCalledWith('price');
+    expect(productQuery.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(productQuery.eq).toHaveBeenCalledWith('id', 'product-1');
+    expect(productQuery.maybeSingle).toHaveBeenCalledTimes(1);
+    expect(mocks.from).toHaveBeenNthCalledWith(2, 'product_variants');
     expect(query.select).toHaveBeenCalledWith(
       'id, attributes, condition, cost_price, images, price_override, primary_image, sku, stock_quantity'
     );
@@ -81,19 +107,54 @@ describe('fetchAdminProductVariants', () => {
       parentProduct: {
         id: 'product-1',
         name: 'Phone',
-        price: 100,
+        price: 95,
       },
       parentProductId: 'product-1',
       variants: rows,
     });
   });
 
+  it('uses the parent product base price instead of the current line price fallback', async () => {
+    const productQuery = createProductPriceQuery({
+      data: { price: 700 },
+      error: null,
+    });
+    const query = createProductVariantQuery({
+      data: [{ id: 'variant-2', price_override: null }],
+      error: null,
+    });
+    mocks.from.mockReturnValueOnce(productQuery).mockReturnValueOnce(query);
+
+    await fetchAdminProductVariants({
+      merchantId: 'merchant-1',
+      parentProduct: {
+        id: 'product-1',
+        name: 'Phone',
+        price: 1200,
+      },
+    });
+
+    expect(mocks.buildStructuredVariantPickerItems).toHaveBeenCalledWith({
+      parentProduct: {
+        id: 'product-1',
+        name: 'Phone',
+        price: 700,
+      },
+      parentProductId: 'product-1',
+      variants: [{ id: 'variant-2', price_override: null }],
+    });
+  });
+
   it('throws the Supabase error message when variant loading fails', async () => {
+    const productQuery = createProductPriceQuery({
+      data: { price: 100 },
+      error: null,
+    });
     const query = createProductVariantQuery({
       data: null,
       error: { message: 'query failed' },
     });
-    mocks.from.mockReturnValueOnce(query);
+    mocks.from.mockReturnValueOnce(productQuery).mockReturnValueOnce(query);
 
     await expect(
       fetchAdminProductVariants({
@@ -105,5 +166,24 @@ describe('fetchAdminProductVariants', () => {
         },
       })
     ).rejects.toThrow('query failed');
+  });
+
+  it('throws the Supabase error message when parent price loading fails', async () => {
+    const productQuery = createProductPriceQuery({
+      data: null,
+      error: { message: 'product query failed' },
+    });
+    mocks.from.mockReturnValueOnce(productQuery);
+
+    await expect(
+      fetchAdminProductVariants({
+        merchantId: 'merchant-1',
+        parentProduct: {
+          id: 'product-1',
+          name: 'Phone',
+          price: 100,
+        },
+      })
+    ).rejects.toThrow('product query failed');
   });
 });

@@ -2,6 +2,8 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { AppSheetModal } from '@/components/ui/AppSheetModal';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import { NewOrderEditItemActions } from './NewOrderEditItemActions';
+import { getOrderItemVariantSummary } from './new-order-item-variant-summary';
 import { formatPriceInput, parseDecimalInput } from './new-order.shared';
 
 interface NewOrderEditItemSheetProps {
@@ -19,6 +21,7 @@ export function NewOrderEditItemSheet({
     editingItem,
     editPriceValue,
     editQtyValue,
+    handleChangeEditingItemVariant,
     setEditDetails,
     setOrderItems,
     setShowEditItemModal,
@@ -26,6 +29,14 @@ export function NewOrderEditItemSheet({
     setEditQtyValue,
     showEditItemModal,
   } = controller;
+  const variantSummary = getOrderItemVariantSummary(editingItem);
+  const canChangeVariant = Boolean(
+    editingItem?.product_id &&
+      editingItem.variant_id &&
+      !editingItem.is_custom &&
+      handleChangeEditingItemVariant
+  );
+  const shouldShowVariantCard = Boolean(variantSummary || canChangeVariant);
 
   return (
     <AppSheetModal
@@ -86,6 +97,66 @@ export function NewOrderEditItemSheet({
         </View>
 
         <View style={{ gap: 20, marginBottom: 32 }}>
+          {shouldShowVariantCard ? (
+            <View
+              style={{
+                backgroundColor: colors.backgroundLight,
+                borderColor: colors.border,
+                borderRadius: 12,
+                borderWidth: 1,
+                gap: 8,
+                padding: 14,
+              }}
+            >
+              <View
+                style={{
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.textMuted,
+                    fontSize: 12,
+                    fontWeight: '600',
+                  }}
+                >
+                  Variant
+                </Text>
+                {canChangeVariant ? (
+                  <Pressable
+                    accessibilityLabel="Change variant"
+                    accessibilityRole="button"
+                    onPress={handleChangeEditingItemVariant}
+                    style={{ paddingHorizontal: 4, paddingVertical: 2 }}
+                  >
+                    <Text
+                      style={{
+                        color: colors.primary,
+                        fontSize: 13,
+                        fontWeight: '800',
+                      }}
+                    >
+                      Change
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              <Text
+                numberOfLines={2}
+                style={{
+                  color: colors.text,
+                  fontSize: 15,
+                  fontWeight: '700',
+                  lineHeight: 20,
+                }}
+              >
+                {variantSummary || 'Variant options'}
+              </Text>
+            </View>
+          ) : null}
+
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <View style={{ flex: 1.5 }}>
               <Text
@@ -184,79 +255,15 @@ export function NewOrderEditItemSheet({
           />
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable
-            accessibilityLabel="Remove edited item"
-            accessibilityRole="button"
-            onPress={() => {
-              if (editingItem) {
-                setOrderItems((previous) =>
-                  previous.filter((item) => item.id !== editingItem.id)
-                );
-                setShowEditItemModal(false);
-              }
-            }}
-            style={{
-              alignItems: 'center',
-              borderColor: colors.error,
-              borderRadius: 12,
-              borderWidth: 1.5,
-              flex: 1,
-              paddingVertical: 16,
-            }}
-          >
-            <Text
-              style={{ color: colors.error, fontSize: 16, fontWeight: '800' }}
-            >
-              Remove
-            </Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityLabel="Save edited item"
-            accessibilityRole="button"
-            onPress={() => {
-              if (editingItem) {
-                const finalPrice =
-                  Number.parseFloat(editPriceValue.replace(/,/g, '')) || 0;
-                const finalQty = Math.max(
-                  1,
-                  Number.parseInt(editQtyValue, 10) || 1
-                );
-                setOrderItems((previous) =>
-                  previous.map((item) =>
-                    item.id === editingItem.id
-                      ? {
-                          ...item,
-                          details: editDetails,
-                          price: finalPrice,
-                          quantity: finalQty,
-                        }
-                      : item
-                  )
-                );
-              }
-              setShowEditItemModal(false);
-            }}
-            style={{
-              alignItems: 'center',
-              backgroundColor: colors.primary,
-              borderRadius: 12,
-              flex: 1,
-              paddingVertical: 16,
-            }}
-          >
-            <Text
-              style={{
-                color: colors.textOnPrimary,
-                fontSize: 16,
-                fontWeight: '800',
-              }}
-            >
-              Save
-            </Text>
-          </Pressable>
-        </View>
+        <NewOrderEditItemActions
+          colors={colors}
+          editDetails={editDetails}
+          editingItem={editingItem}
+          editPriceValue={editPriceValue}
+          editQtyValue={editQtyValue}
+          setOrderItems={setOrderItems}
+          setShowEditItemModal={setShowEditItemModal}
+        />
       </View>
     </AppSheetModal>
   );

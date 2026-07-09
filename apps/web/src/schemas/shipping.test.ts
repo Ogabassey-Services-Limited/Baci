@@ -46,6 +46,18 @@ describe('SelfFulfillmentUpdateSchema dispatchPhone (optional rider number)', ()
       dispatchPhone: '',
     });
     expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.dispatchPhone).toBeNull();
+  });
+
+  it('preserves null dispatchPhone as an explicit clear', () => {
+    const result = SelfFulfillmentUpdateSchema.safeParse({
+      orderId: ORDER_ID,
+      dispatchPhone: null,
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.dispatchPhone).toBeNull();
   });
 
   it('rejects a partial dispatchPhone (provided but too short)', () => {

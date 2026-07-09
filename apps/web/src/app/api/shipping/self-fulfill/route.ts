@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
     // Build self-fulfillment data
     const selfFulfillmentData = {
       trackingNumber: data.trackingNumber || null,
-      dispatchPhone: data.dispatchPhone,
+      dispatchPhone: data.dispatchPhone ?? null,
       carrierName: data.carrierName || 'Self-Delivery',
       dispatchNotes: data.dispatchNotes,
       fulfilledAt: new Date().toISOString(),
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
         fulfillment: {
           orderId: data.orderId,
           trackingNumber: data.trackingNumber,
-          dispatchPhone: data.dispatchPhone,
+          dispatchPhone: data.dispatchPhone ?? null,
           carrierName: data.carrierName || 'Self-Delivery',
           customer: {
             name: order.customer_name,

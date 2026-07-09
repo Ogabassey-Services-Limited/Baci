@@ -1,5 +1,22 @@
 import type { ReceiptMerchant, ReceiptOrder } from './types';
 
+// Narrow views of the receipt types so VAT presentation logic can be reused
+// by callers (e.g. the mobile admin order screen) that don't hold a full
+// receipt payload. Full Receipt* objects satisfy these automatically.
+export type VatBreakdownOrder = Pick<
+  ReceiptOrder,
+  | 'currency'
+  | 'discount_amount'
+  | 'shipping_fee'
+  | 'subtotal'
+  | 'tax_amount'
+  | 'total'
+>;
+export type VatBreakdownMerchant = Pick<
+  ReceiptMerchant,
+  'vat_rate' | 'vat_registration_status'
+>;
+
 const CURRENCY_LOCALE_MAP: Record<string, string> = {
   NGN: 'en-NG',
   GHS: 'en-GH',
@@ -77,7 +94,7 @@ function almostEqual(left: number, right: number): boolean {
   return Math.abs(left - right) <= MONEY_TOLERANCE;
 }
 
-function getTaxExclusiveTotal(order: ReceiptOrder): number {
+function getTaxExclusiveTotal(order: VatBreakdownOrder): number {
   return order.subtotal - order.discount_amount + order.shipping_fee;
 }
 
@@ -91,7 +108,7 @@ function getDefaultVatRateForCurrency(currencyCode: string): number | null {
 }
 
 export function getReceiptVatRate(
-  merchant: ReceiptMerchant,
+  merchant: VatBreakdownMerchant,
   currencyCode: string
 ): number | null {
   const vatRate = merchant.vat_rate;
@@ -110,14 +127,14 @@ export function getReceiptVatRate(
   return vatRate;
 }
 
-function isTaxExclusiveTotal(order: ReceiptOrder): boolean {
+function isTaxExclusiveTotal(order: VatBreakdownOrder): boolean {
   return almostEqual(
     order.total,
     getTaxExclusiveTotal(order) + order.tax_amount
   );
 }
 
-function hasTaxInclusiveTotalShape(order: ReceiptOrder): boolean {
+function hasTaxInclusiveTotalShape(order: VatBreakdownOrder): boolean {
   return (
     almostEqual(order.total, getTaxExclusiveTotal(order)) ||
     // Admin fallbacks can backfill a missing subtotal with the inclusive total.
@@ -126,8 +143,8 @@ function hasTaxInclusiveTotalShape(order: ReceiptOrder): boolean {
 }
 
 function isTaxInclusiveTotal(
-  order: ReceiptOrder,
-  merchant: ReceiptMerchant
+  order: VatBreakdownOrder,
+  merchant: VatBreakdownMerchant
 ): boolean {
   const vatRate = getReceiptVatRate(merchant, order.currency);
   if (vatRate === null) {
@@ -144,8 +161,8 @@ function isTaxInclusiveTotal(
 }
 
 export function shouldShowVatLine(
-  order: ReceiptOrder,
-  merchant: ReceiptMerchant
+  order: VatBreakdownOrder,
+  merchant: VatBreakdownMerchant
 ): boolean {
   if (
     merchant.vat_registration_status !== 'registered' ||
@@ -158,8 +175,8 @@ export function shouldShowVatLine(
 }
 
 export function getReceiptDisplaySubtotal(
-  order: ReceiptOrder,
-  merchant: ReceiptMerchant
+  order: VatBreakdownOrder,
+  merchant: VatBreakdownMerchant
 ): number {
   if (
     !shouldShowVatLine(order, merchant) ||

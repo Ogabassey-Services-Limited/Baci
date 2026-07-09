@@ -1,19 +1,14 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import * as Haptics from 'expo-haptics';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useBranches } from '@/hooks/useBranches';
 import { useBranchScope } from '@/hooks/useBranchScope';
 import { useTheme } from '@/hooks/useTheme';
 import type { Branch } from '@/schemas/branch';
 import { BranchCreateModal } from './BranchCreateModal';
 import { BranchEditModal } from './BranchEditModal';
-import { BranchPill } from './BranchPill';
+import { BranchSelectorSheet } from './BranchSelectorSheet';
 import { styles } from './BranchSwitcher.styles';
 import { useBranchSwitcherManagement } from './useBranchSwitcherManagement';
 
@@ -31,18 +26,58 @@ export function BranchSwitcher() {
     branches,
     setAllLocations,
   });
-  const shouldShowBranchFilters = branchManagement.activeBranches.length > 1;
-  const handleAllLocationsPress = () => {
+  const [isSheetVisible, setIsSheetVisible] = useState(false);
+
+  const { activeBranches } = branchManagement;
+  const hasMultipleBranches = activeBranches.length > 1;
+
+  useEffect(() => {
+    if (
+      !branchesLoading &&
+      !isAllLocations &&
+      branchId &&
+      !activeBranches.some((branch) => branch.id === branchId)
+    ) {
+      setAllLocations();
+    }
+  }, [
+    activeBranches,
+    branchId,
+    branchesLoading,
+    isAllLocations,
+    setAllLocations,
+  ]);
+
+  const currentLabel = isAllLocations
+    ? 'All locations'
+    : (activeBranches.find((branch) => branch.id === branchId)?.name ??
+      'All locations');
+
+  const handleSelectAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setAllLocations();
+    setIsSheetVisible(false);
   };
-  const handleBranchPress = (branch: Branch) => {
+
+  const handleSelectBranch = (branch: Branch) => {
     if (!branch.active) {
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setBranchId(branch.id);
+    setIsSheetVisible(false);
   };
+
+  const handleManageBranch = (branch: Branch) => {
+    setIsSheetVisible(false);
+    branchManagement.handleManageBranchPress(branch);
+  };
+
+  const handleAddBranch = () => {
+    setIsSheetVisible(false);
+    branchManagement.handleCreatePress();
+  };
+
   return (
     <View style={styles.container}>
       {branchesLoading ? (
@@ -56,83 +91,70 @@ export function BranchSwitcher() {
           </Text>
         </View>
       ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {shouldShowBranchFilters && (
-            <>
-              <BranchPill
-                icon="business"
-                label="All locations"
-                selected={isAllLocations}
-                colors={colors}
-                shadowStyle={shadows.sm}
-                onPress={handleAllLocationsPress}
-                accessibilityLabel="Show all branch locations"
-                accessibilityHint="Double tap to show all branch locations"
+        <View style={styles.triggerRow}>
+          {hasMultipleBranches ? (
+            <Pressable
+              accessibilityLabel={`Location: ${currentLabel}`}
+              accessibilityRole="button"
+              accessibilityHint="Opens the location picker"
+              onPress={() => setIsSheetVisible(true)}
+              style={({ pressed }) => [
+                styles.trigger,
+                { backgroundColor: colors.card, borderColor: colors.border },
+                shadows.sm,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Ionicons
+                name={isAllLocations ? 'business' : 'location'}
+                size={14}
+                color={colors.primary}
               />
-              {branchManagement.activeBranches.map((branch) => {
-                const isActive = branch.id === branchId;
-                return (
-                  <View key={branch.id} style={styles.branchItem}>
-                    <BranchPill
-                      icon="location"
-                      label={branch.name}
-                      selected={isActive}
-                      colors={colors}
-                      shadowStyle={shadows.sm}
-                      onPress={() => handleBranchPress(branch)}
-                      accessibilityLabel={`Switch to ${branch.name} branch`}
-                      accessibilityHint="Double tap to set as active branch"
-                    />
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.manageButton,
-                        {
-                          backgroundColor: colors.card,
-                          borderColor: colors.border,
-                        },
-                        shadows.sm,
-                        pressed && { opacity: 0.7 },
-                      ]}
-                      onPress={() =>
-                        branchManagement.handleManageBranchPress(branch)
-                      }
-                      accessibilityRole="button"
-                      accessibilityLabel={`Manage ${branch.name} branch`}
-                      accessibilityHint="Double tap to edit or deactivate this branch"
-                    >
-                      <Ionicons
-                        name="ellipsis-horizontal"
-                        size={16}
-                        color={colors.textSecondary}
-                      />
-                    </Pressable>
-                  </View>
-                );
-              })}
-            </>
+              <Text
+                numberOfLines={1}
+                style={[styles.triggerLabel, { color: colors.text }]}
+              >
+                {currentLabel}
+              </Text>
+              <Ionicons
+                name="chevron-down"
+                size={14}
+                color={colors.textSecondary}
+              />
+            </Pressable>
+          ) : (
+            <Pressable
+              style={({ pressed }) => [
+                styles.addButton,
+                { backgroundColor: colors.card, borderColor: colors.border },
+                shadows.sm,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={branchManagement.handleCreatePress}
+              accessibilityRole="button"
+              accessibilityLabel="Add new branch"
+            >
+              <Ionicons name="add" size={18} color={colors.primary} />
+              <Text style={[styles.addButtonText, { color: colors.primary }]}>
+                Add
+              </Text>
+            </Pressable>
           )}
-          <Pressable
-            style={({ pressed }) => [
-              styles.addButton,
-              { backgroundColor: colors.card, borderColor: colors.border },
-              shadows.sm,
-              pressed && { opacity: 0.7 },
-            ]}
-            onPress={branchManagement.handleCreatePress}
-            accessibilityRole="button"
-            accessibilityLabel="Add new branch"
-          >
-            <Ionicons name="add" size={18} color={colors.primary} />
-            <Text style={[styles.addButtonText, { color: colors.primary }]}>
-              Add
-            </Text>
-          </Pressable>
-        </ScrollView>
+        </View>
       )}
+
+      <BranchSelectorSheet
+        branchId={branchId}
+        branches={activeBranches}
+        isAllLocations={isAllLocations}
+        onAddBranch={handleAddBranch}
+        onClose={() => setIsSheetVisible(false)}
+        onManageBranch={handleManageBranch}
+        onSelectAll={handleSelectAll}
+        onSelectBranch={handleSelectBranch}
+        visible={isSheetVisible}
+      />
+
       <BranchCreateModal
         visible={branchManagement.isModalVisible}
         onClose={branchManagement.handleCloseModal}

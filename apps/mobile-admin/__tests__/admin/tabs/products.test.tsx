@@ -77,6 +77,8 @@ vi.mock('react-native-reanimated', async () => {
   const React = await import('react');
   return {
     default: {
+      // The pager is animated via createAnimatedComponent — identity in tests.
+      createAnimatedComponent: (Component: unknown) => Component,
       View: ({
         children,
         style,
@@ -98,10 +100,31 @@ vi.mock('react-native-reanimated', async () => {
           children
         ),
     },
+    runOnJS: vi.fn((fn) => fn),
+    useEvent: vi.fn(() => vi.fn()),
     useSharedValue: vi.fn(() => ({ value: 0 })),
     useAnimatedStyle: vi.fn(() => ({})),
     withSpring: vi.fn((val) => val),
     withTiming: vi.fn((val) => val),
+  };
+});
+// react-native-pager-view is a native component — replace with a passthrough
+// that renders every page and exposes setPage via ref.
+const pagerMocks = vi.hoisted(() => ({ setPage: vi.fn() }));
+vi.mock('react-native-pager-view', async () => {
+  const React = await import('react');
+  return {
+    default: React.forwardRef(function PagerViewMock(
+      { children }: { children?: React.ReactNode },
+      ref: React.Ref<unknown>
+    ) {
+      React.useImperativeHandle(ref, () => ({ setPage: pagerMocks.setPage }));
+      return React.createElement(
+        'div',
+        { 'data-testid': 'products-pager' },
+        children
+      );
+    }),
   };
 });
 vi.mock('@/components/ui/KeyboardAwareModalContainer', async () => {
@@ -238,5 +261,20 @@ describe('ProductsScreen', () => {
     });
 
     expect(screen.getByText('iPhone 15 Pro')).toBeTruthy();
+  });
+
+  it('lazily mounts the website page and pages the native pager on tab tap', () => {
+    render(<ProductsScreen />);
+
+    // The website page is not mounted until visited.
+    expect(screen.queryByText('No items on website')).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'On Website tab not selected' })
+    );
+
+    // Tab tap drives the native pager and mounts the website page.
+    expect(pagerMocks.setPage).toHaveBeenCalledWith(1);
+    expect(screen.getByText('No items on website')).toBeTruthy();
   });
 });

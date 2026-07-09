@@ -166,12 +166,14 @@ export default function ProductEditScreen() {
             hasVariantConditionAxis={controller.hasVariantConditionAxis}
             onAddVariant={controller.addVariant}
             onAddVariantAttribute={controller.addVariantAttribute}
+            onApplyVariantPricing={controller.applyVariantPricing}
             onDefaultCostPriceChange={(cost_price) =>
               controller.updatePricing({ cost_price })
             }
             onDefaultPriceChange={(price) =>
               controller.updatePricing({ price })
             }
+            onGenerateVariants={controller.generateVariants}
             onRemoveVariant={controller.removeVariant}
             onRemoveVariantAttribute={controller.removeVariantAttribute}
             onUpdateVariant={controller.updateVariant}

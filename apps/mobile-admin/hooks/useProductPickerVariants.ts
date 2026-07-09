@@ -9,10 +9,59 @@ import {
 } from '@/lib/product-picker-variant-rows';
 import { supabase } from '@/lib/supabase';
 
+interface ParentProductPriceRow {
+  price: number | string | null;
+}
+
+function normalizeParentProductPrice(
+  value: number | string | null | undefined,
+  fallback: number
+): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return fallback;
+}
+
+async function fetchParentProductPrice(args: {
+  fallbackPrice: number;
+  merchantId: string;
+  productId: string;
+}): Promise<number> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('price')
+    .eq('merchant_id', args.merchantId)
+    .eq('id', args.productId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return normalizeParentProductPrice(
+    (data as ParentProductPriceRow | null)?.price,
+    args.fallbackPrice
+  );
+}
+
 async function fetchAdminProductVariants(args: {
   merchantId: string;
   parentProduct: ProductPickerVariantParent & { id: string };
 }): Promise<AdminProductVariant[]> {
+  const parentProductPrice = await fetchParentProductPrice({
+    fallbackPrice: args.parentProduct.price,
+    merchantId: args.merchantId,
+    productId: args.parentProduct.id,
+  });
   const { data: structuredVariants, error: structuredVariantsError } =
     await supabase
       .from('product_variants')
@@ -28,7 +77,10 @@ async function fetchAdminProductVariants(args: {
   }
 
   return buildStructuredVariantPickerItems({
-    parentProduct: args.parentProduct,
+    parentProduct: {
+      ...args.parentProduct,
+      price: parentProductPrice,
+    },
     parentProductId: args.parentProduct.id,
     variants: (structuredVariants as ProductPickerVariantRow[] | null) ?? [],
   });

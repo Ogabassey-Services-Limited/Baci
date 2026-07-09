@@ -64,7 +64,7 @@ export function ProductStatusCard({
           disabled={isPending}
           onValueChange={onValueChange}
           trackColor={{ false: colors.border, true: colors.primary }}
-          thumbColor={status === 'active' ? colors.primary : undefined}
+          thumbColor={status === 'active' ? colors.card : colors.textMuted}
         />
       </View>
     </View>

@@ -179,6 +179,98 @@ describe('OrderDetailsPaymentCard', () => {
     expect(screen.queryByText('Balance Due')).not.toBeInTheDocument();
   });
 
+  it('renders VAT, gift wrapping, and wallet credit rows when present', () => {
+    render(
+      <OrderDetailsPaymentCard
+        amountPaid={50000}
+        balance={200750}
+        colors={colors}
+        discountAmount={0}
+        formatPrice={(amount) => `₦${amount}`}
+        giftWrappingFee={1500}
+        onRecordPayment={vi.fn()}
+        onRequestPayment={vi.fn()}
+        paymentColor="#ca8a04"
+        paymentLabel="Awaiting Payment"
+        paymentMethod="invoice"
+        paymentStatus="pending"
+        shippingFee={25000}
+        showVat={true}
+        subtotal={210000}
+        taxAmount={15750}
+        total={250750}
+        vatLabel="VAT (7.5%)"
+        walletAmountUsed={20000}
+      />
+    );
+
+    expect(screen.getByText('VAT (7.5%)')).toBeInTheDocument();
+    expect(screen.getByText('₦15750')).toBeInTheDocument();
+    expect(screen.getByText('Gift Wrapping')).toBeInTheDocument();
+    expect(screen.getByText('₦1500')).toBeInTheDocument();
+    expect(screen.getByText('Includes wallet credit')).toBeInTheDocument();
+    expect(screen.getByText('₦20000')).toBeInTheDocument();
+  });
+
+  it('omits VAT, gift wrapping, and wallet rows by default', () => {
+    render(
+      <OrderDetailsPaymentCard
+        amountPaid={10000}
+        balance={0}
+        colors={colors}
+        discountAmount={0}
+        formatPrice={(amount) => `₦${amount}`}
+        onRecordPayment={vi.fn()}
+        onRequestPayment={vi.fn()}
+        paymentColor="#16a34a"
+        paymentLabel="Paid"
+        paymentMethod="card"
+        paymentStatus="paid"
+        shippingFee={1000}
+        subtotal={9000}
+        total={10000}
+      />
+    );
+
+    expect(screen.queryByText(/VAT/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Gift Wrapping')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Includes wallet credit')
+    ).not.toBeInTheDocument();
+  });
+
+  it('handles explicit null optional payment values', () => {
+    render(
+      <OrderDetailsPaymentCard
+        amountPaid={0}
+        balance={10000}
+        colors={colors}
+        discountAmount={0}
+        formatPrice={(amount) => `₦${amount}`}
+        giftWrappingFee={null}
+        onRecordPayment={vi.fn()}
+        onRequestPayment={vi.fn()}
+        paymentColor="#ca8a04"
+        paymentLabel="Awaiting Payment"
+        paymentMethod="invoice"
+        paymentStatus="pending"
+        shippingFee={0}
+        showVat={true}
+        subtotal={10000}
+        taxAmount={null}
+        total={10000}
+        walletAmountUsed={null}
+      />
+    );
+
+    expect(screen.getByText('VAT')).toBeInTheDocument();
+    expect(screen.getAllByText('₦0').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Gift Wrapping')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Includes wallet credit')
+    ).not.toBeInTheDocument();
+  });
+
   it.each([
     ['bank_transfer', 'Bank Transfer'],
     ['bank-transfer', 'Bank Transfer'],

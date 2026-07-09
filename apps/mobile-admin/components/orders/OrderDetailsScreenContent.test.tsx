@@ -28,6 +28,12 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
+// OrderDetailsScreenContent reads the merchant for VAT-breakdown display.
+// Mock it so the real hook's native import graph never loads under vitest.
+vi.mock('@/hooks/useMerchant', () => ({
+  useMerchant: () => ({ merchant: null }),
+}));
+
 vi.mock('react-native', async () => {
   const React = await import('react');
 
