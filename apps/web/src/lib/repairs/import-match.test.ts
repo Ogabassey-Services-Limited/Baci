@@ -101,4 +101,37 @@ describe('matchImportRows', () => {
     expect(draft?.status).toBe('new_device');
     expect(draft?.suggestedProductId).toBeNull();
   });
+
+  it('does not false-positive a partial token (iPhone 1 vs iPhone 12)', () => {
+    const [draft] = matchImportRows([row({ model: 'iPhone 1' })], {
+      devices: [],
+      products: [{ id: 'p-12', name: 'Apple iPhone 12', brand: 'Apple' }],
+      serviceTypes: context.serviceTypes,
+    });
+    expect(draft?.suggestedProductId).toBeNull();
+  });
+
+  it('suggests no product when two products both plausibly match', () => {
+    const [draft] = matchImportRows([row({ model: 'iPhone 11' })], {
+      devices: [],
+      products: [
+        { id: 'p-11', name: 'Apple iPhone 11', brand: 'Apple' },
+        { id: 'p-11-pro', name: 'Apple iPhone 11 Pro', brand: 'Apple' },
+      ],
+      serviceTypes: context.serviceTypes,
+    });
+    expect(draft?.suggestedProductId).toBeNull();
+  });
+
+  it('leaves an ambiguous service type unresolved without proposing a new one', () => {
+    const [draft] = matchImportRows([row({ repairType: 'Screen' })], {
+      ...context,
+      serviceTypes: [
+        { id: 'svc-a', name: 'Screen Replacement' },
+        { id: 'svc-b', name: 'Screen Repair' },
+      ],
+    });
+    expect(draft?.serviceTypeId).toBeNull();
+    expect(draft?.newServiceTypeName).toBeNull();
+  });
 });

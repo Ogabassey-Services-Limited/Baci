@@ -89,12 +89,16 @@ function findProductSuggestion(
   const normModel = normalize(row.model);
   const normCombined = normalize(`${row.brand} ${row.model}`);
 
+  // Word-boundary aware matching (not raw substring) so a partial token like
+  // "iPhone 1" cannot false-positive against "iPhone 12" / "iPhone 13".
   const candidates = products.filter((product) => {
     const normName = normalize(product.name);
+    const nameWords = new Set(normName.split(' '));
+    const modelWords = normModel.split(' ');
     const brandOk =
-      normName.includes(normBrand) ||
+      nameWords.has(normBrand) ||
       (product.brand ? normalize(product.brand) === normBrand : false);
-    const modelOk = normName.includes(normModel);
+    const modelOk = modelWords.every((word) => nameWords.has(word));
     return normName === normCombined || (brandOk && modelOk);
   });
 
@@ -102,20 +106,37 @@ function findProductSuggestion(
   return ids.size === 1 ? candidates[0].id : null;
 }
 
+/**
+ * Service-type match outcome. `ambiguous` (multiple partial matches) is kept
+ * distinct from `none` (no match at all): only a true `none` should propose
+ * minting a new service type; an ambiguous result is left for the merchant to
+ * disambiguate rather than silently creating a near-duplicate.
+ */
+type ServiceTypeMatch =
+  | { kind: 'matched'; id: string }
+  | { kind: 'ambiguous' }
+  | { kind: 'none' };
+
 function findServiceType(
   repairType: string,
   serviceTypes: ImportMatchServiceType[]
-): string | null {
+): ServiceTypeMatch {
   const norm = normalize(repairType);
   const exact = serviceTypes.find((type) => normalize(type.name) === norm);
   if (exact) {
-    return exact.id;
+    return { kind: 'matched', id: exact.id };
   }
   const partial = serviceTypes.filter((type) => {
     const normName = normalize(type.name);
     return normName.includes(norm) || norm.includes(normName);
   });
-  return partial.length === 1 ? partial[0].id : null;
+  if (partial.length === 1) {
+    return { kind: 'matched', id: partial[0].id };
+  }
+  if (partial.length > 1) {
+    return { kind: 'ambiguous' };
+  }
+  return { kind: 'none' };
 }
 
 function matchRow(
@@ -124,7 +145,9 @@ function matchRow(
 ): RepairImportDraftRow {
   const candidates = findDeviceCandidates(row, context.devices);
   const productSuggestion = findProductSuggestion(row, context.products);
-  const serviceTypeId = findServiceType(row.repairType, context.serviceTypes);
+  const serviceMatch = findServiceType(row.repairType, context.serviceTypes);
+  const serviceTypeId =
+    serviceMatch.kind === 'matched' ? serviceMatch.id : null;
 
   let status: ImportDeviceStatus = 'new_device';
   let deviceId: string | null = null;
@@ -148,7 +171,10 @@ function matchRow(
     deviceId,
     suggestedProductId,
     serviceTypeId,
-    newServiceTypeName: serviceTypeId ? null : row.repairType.trim(),
+    // Only propose a new service type on a genuine no-match; leave an ambiguous
+    // partial match for the merchant to resolve.
+    newServiceTypeName:
+      serviceMatch.kind === 'none' ? row.repairType.trim() : null,
   };
 }
 
