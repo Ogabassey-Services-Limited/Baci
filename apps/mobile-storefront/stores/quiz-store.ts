@@ -36,7 +36,10 @@ interface QuizStore {
   ) => Promise<void>;
   selectAnswer: (optionId: string) => void;
   submitSelectedAnswer: (submitter: () => Promise<QuizResult>) => Promise<void>;
-  forfeitAnswer: (submitter: () => Promise<QuizResult>) => Promise<void>;
+  forfeitAnswer: (
+    submitter: () => Promise<QuizResult>,
+    retryOptionId?: string
+  ) => Promise<void>;
   setError: (actionError: string) => void;
   reset: () => void;
 }
@@ -197,8 +200,13 @@ export const useQuizStore = create<QuizStore>((set, get) => {
     // Timer-driven submit when the question window expires. Unlike the manual
     // path it does not require a selected option: the caller submits either the
     // current selection or a forfeit sentinel so the attempt still advances.
-    forfeitAnswer: async (submitter) => {
+    forfeitAnswer: async (submitter, retryOptionId) => {
       if (!get().attempt) return;
+      if (retryOptionId && !get().selectedOptionId) {
+        // Preserve a timeout sentinel (or selected answer) so a failed
+        // deadline submission can be retried after the timer has fired.
+        set({ selectedOptionId: retryOptionId });
+      }
       await performSubmit(submitter);
     },
     setError: (actionError) => {

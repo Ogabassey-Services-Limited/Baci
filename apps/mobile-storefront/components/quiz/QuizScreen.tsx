@@ -133,7 +133,7 @@ export function QuizScreen({
 
     try {
       await (viaForfeit
-        ? forfeitAnswer(submitter)
+        ? forfeitAnswer(submitter, answer)
         : submitSelectedAnswer(submitter));
     } catch (error) {
       log.warn('Failed to submit quiz answer', error);

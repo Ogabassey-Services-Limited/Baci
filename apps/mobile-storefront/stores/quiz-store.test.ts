@@ -302,6 +302,40 @@ describe('useQuizStore', () => {
     expect(useQuizStore.getState()).toMatchObject({ status: 'result', result });
   });
 
+  it('keeps a failed timeout forfeit retryable', async () => {
+    await act(async () => {
+      await useQuizStore
+        .getState()
+        .startEvent('event-1', 'basic', async () => attempt);
+    });
+
+    const submitter = jest
+      .fn(async (): Promise<QuizResult> => result)
+      .mockRejectedValueOnce(new Error('Temporary network failure'))
+      .mockResolvedValueOnce(result);
+
+    await act(async () => {
+      await useQuizStore
+        .getState()
+        .forfeitAnswer(submitter, '__timeout_no_answer__');
+    });
+
+    expect(useQuizStore.getState()).toMatchObject({
+      status: 'question',
+      selectedOptionId: '__timeout_no_answer__',
+      error: 'Temporary network failure',
+    });
+
+    await act(async () => {
+      await useQuizStore
+        .getState()
+        .forfeitAnswer(submitter, '__timeout_no_answer__');
+    });
+
+    expect(submitter).toHaveBeenCalledTimes(2);
+    expect(useQuizStore.getState()).toMatchObject({ status: 'result', result });
+  });
+
   it('advances to the next question when a forfeit returns in_progress', async () => {
     const nextQuestion = {
       ...attempt.question,
