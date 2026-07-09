@@ -21,6 +21,7 @@ type HoverPrefetchLinkProps = Omit<ComponentProps<typeof Link>, 'prefetch'>;
  * @see https://nextjs.org/docs/app/guides/prefetching
  */
 export function HoverPrefetchLink({
+  onFocus,
   onPointerEnter,
   ...props
 }: HoverPrefetchLinkProps) {
@@ -33,6 +34,13 @@ export function HoverPrefetchLink({
       onPointerEnter={(event) => {
         setPrefetchEnabled(true);
         onPointerEnter?.(event);
+      }}
+      // Keyboard parity: tabbing onto the link signals the same navigation
+      // intent as hovering it — without this, keyboard users always pay the
+      // cold click.
+      onFocus={(event) => {
+        setPrefetchEnabled(true);
+        onFocus?.(event);
       }}
     />
   );

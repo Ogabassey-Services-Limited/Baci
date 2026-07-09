@@ -47,6 +47,25 @@ describe('HoverPrefetchLink', () => {
     expect(link).toHaveAttribute('data-prefetch', 'null');
   });
 
+  it('enables the default (auto) prefetch on keyboard focus', () => {
+    // Arrange: keyboard users signal the same navigation intent by tabbing
+    // onto the link — they must not be stuck with the cold-click path.
+    const onFocus = vi.fn();
+    render(
+      <HoverPrefetchLink href="/gaming-laptops/foo" onFocus={onFocus}>
+        Foo
+      </HoverPrefetchLink>
+    );
+    const link = screen.getByRole('link', { name: 'Foo' });
+
+    // Act
+    fireEvent.focus(link);
+
+    // Assert: prefetch armed + caller handler still invoked
+    expect(link).toHaveAttribute('data-prefetch', 'null');
+    expect(onFocus).toHaveBeenCalledTimes(1);
+  });
+
   it('still invokes a caller-provided onPointerEnter handler', () => {
     // Arrange
     const onPointerEnter = vi.fn();
