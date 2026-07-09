@@ -55,16 +55,25 @@ const ShippingItemSchema = z
     }
   });
 
-const OptionalDispatchPhoneSchema = z.preprocess(
-  (value) =>
+const DispatchPhoneStringSchema = z
+  .string()
+  .trim()
+  .min(10, 'Phone number must be at least 10 digits');
+
+const normalizeBlankDispatchPhone =
+  (emptyValue: null | undefined) => (value: unknown) =>
     value === null || (typeof value === 'string' && value.trim() === '')
-      ? undefined
-      : value,
-  z
-    .string()
-    .trim()
-    .min(10, 'Phone number must be at least 10 digits')
-    .optional()
+      ? emptyValue
+      : value;
+
+const OptionalDispatchPhoneSchema = z.preprocess(
+  normalizeBlankDispatchPhone(undefined),
+  DispatchPhoneStringSchema.optional()
+);
+
+const OptionalDispatchPhoneUpdateSchema = z.preprocess(
+  normalizeBlankDispatchPhone(null),
+  DispatchPhoneStringSchema.nullable().optional()
 );
 
 // Quote-time requests are allowed to be lighter than booking requests because
@@ -191,7 +200,7 @@ export const SelfFulfillmentUpdateSchema = z
     orderId: z.string().refine(isValidUuid, { message: 'Invalid order ID' }),
     carrierName: z.string().optional(),
     dispatchNotes: z.string().optional(),
-    dispatchPhone: OptionalDispatchPhoneSchema,
+    dispatchPhone: OptionalDispatchPhoneUpdateSchema,
     trackingNumber: z.string().min(1).optional(),
   })
   .strict();

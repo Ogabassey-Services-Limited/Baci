@@ -95,7 +95,7 @@ describe('useCollapsibleSearchBar', () => {
     expect(result.current.isSearchActionsVisible).toBe(true);
 
     act(() => {
-      result.current.handleScroll(scrollEvent(55));
+      result.current.handleScroll(scrollEvent(60));
     });
 
     expect(result.current.isSearchActionsVisible).toBe(false);
@@ -120,6 +120,35 @@ describe('useCollapsibleSearchBar', () => {
     });
 
     expect(result.current.isSearchActionsVisible).toBe(true);
+  });
+
+  it('keeps the visible baseline current before hiding again', () => {
+    const { result } = renderHook(() => useCollapsibleSearchBar());
+
+    act(() => {
+      result.current.handleScroll(scrollEvent(0));
+    });
+    act(() => {
+      result.current.handleScroll(scrollEvent(100));
+    });
+    expect(result.current.isSearchActionsVisible).toBe(false);
+
+    act(() => {
+      result.current.handleScroll(scrollEvent(200));
+    });
+    act(() => {
+      result.current.handleScroll(scrollEvent(180));
+    });
+    expect(result.current.isSearchActionsVisible).toBe(true);
+
+    act(() => {
+      result.current.handleScroll(scrollEvent(100));
+    });
+    act(() => {
+      result.current.handleScroll(scrollEvent(120));
+    });
+
+    expect(result.current.isSearchActionsVisible).toBe(false);
   });
 
   it('returns a searchBarAnim value usable by an Animated component', () => {

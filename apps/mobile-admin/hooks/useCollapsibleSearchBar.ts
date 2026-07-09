@@ -41,7 +41,6 @@ export function useCollapsibleSearchBar() {
         duration: TOGGLE_DURATION_MS,
         useNativeDriver: true,
       }).start();
-      lastScrollY.current = currentScrollY;
     } else if (diff < 0 && !isSearchVisible.current) {
       isSearchVisible.current = true;
       setIsSearchActionsVisible(true);
@@ -50,10 +49,8 @@ export function useCollapsibleSearchBar() {
         duration: TOGGLE_DURATION_MS,
         useNativeDriver: true,
       }).start();
-      lastScrollY.current = currentScrollY;
-    } else if (!isSearchVisible.current) {
-      lastScrollY.current = currentScrollY;
     }
+    lastScrollY.current = currentScrollY;
   };
 
   return { handleScroll, isSearchActionsVisible, searchBarAnim };

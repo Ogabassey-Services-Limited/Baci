@@ -10,7 +10,7 @@ import {
 } from './useNewOrderControllerActions';
 
 describe('createChangeEditingItemVariantHandler', () => {
-  it('opens the variant picker for the current editable variant line', () => {
+  it('opens the variant picker for the current editable variant line without using the old variant image as a fallback', () => {
     const editingItem: OrderItem = {
       condition: 'open_box',
       id: 'line-1',
@@ -48,7 +48,7 @@ describe('createChangeEditingItemVariantHandler', () => {
       condition: 'open_box',
       has_variants: true,
       id: 'product-1',
-      images: ['image.jpg'],
+      images: [],
       name: 'Samsung Galaxy S22',
       parent_product_id: null,
       price: 370_000,

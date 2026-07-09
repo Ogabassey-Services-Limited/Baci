@@ -109,7 +109,7 @@ export function createChangeEditingItemVariantHandler({
       condition: item.condition ?? null,
       has_variants: true,
       id: item.product_id,
-      images: item.image_url ? [item.image_url] : [],
+      images: [],
       name: item.name,
       parent_product_id: null,
       price: item.price,

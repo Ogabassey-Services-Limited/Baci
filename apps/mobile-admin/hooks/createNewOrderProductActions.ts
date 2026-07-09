@@ -83,7 +83,6 @@ export function createNewOrderProductActions({
         ...(replacementTarget.product_match_status !== undefined
           ? { product_match_status: replacementTarget.product_match_status }
           : {}),
-        id: replacementTarget.id,
         quantity: replacementTarget.quantity,
       } satisfies OrderItem;
       const remainingItems = previous.filter(

@@ -287,4 +287,35 @@ describe('Self-fulfill API routes', () => {
     expect(payload.details.formErrors.join(' ')).toMatch(/unknownField/);
     expect(payload.details.formErrors.join(' ')).toMatch(/unrecognized key/i);
   });
+
+  it.each([
+    null,
+    '',
+  ])('clears dispatch phone on PATCH when dispatchPhone is %s', async (dispatchPhone) => {
+    const { supabase, updateOrder } = createSupabaseMock();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await PATCH(
+      createRequest(
+        {
+          orderId: '11111111-1111-4111-8111-111111111111',
+          dispatchPhone,
+        },
+        'PATCH'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(updateOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        self_fulfillment_data: expect.objectContaining({
+          dispatchPhone: null,
+        }),
+      })
+    );
+  });
 });
