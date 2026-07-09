@@ -1,3 +1,4 @@
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -60,11 +61,11 @@ function okAuthz(supabase: unknown) {
   return { ok: true, access: { merchantId: 'm-1' }, supabase };
 }
 
-function request(body?: unknown) {
+function request(body?: unknown): NextRequest {
   return new Request('https://s.example/api/repairs/catalog/service-types', {
     method: body ? 'POST' : 'GET',
     body: body ? JSON.stringify(body) : undefined,
-  });
+  }) as unknown as NextRequest;
 }
 
 beforeEach(() => {
@@ -78,7 +79,7 @@ describe('GET /api/repairs/catalog/service-types', () => {
       ok: false,
       response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
     });
-    const res = await GET(request() as never);
+    const res = await GET(request());
     expect(res.status).toBe(401);
   });
 
@@ -101,7 +102,7 @@ describe('GET /api/repairs/catalog/service-types', () => {
       },
     });
     authorizeRepairsRequest.mockResolvedValue(okAuthz(supabase));
-    const res = await GET(request() as never);
+    const res = await GET(request());
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.serviceTypes).toHaveLength(1);
@@ -113,7 +114,7 @@ describe('GET /api/repairs/catalog/service-types', () => {
       listResult: { data: null, error: { message: 'boom' } },
     });
     authorizeRepairsRequest.mockResolvedValue(okAuthz(supabase));
-    const res = await GET(request() as never);
+    const res = await GET(request());
     expect(res.status).toBe(500);
   });
 });
@@ -136,7 +137,7 @@ describe('POST /api/repairs/catalog/service-types', () => {
       },
     });
     authorizeRepairsRequest.mockResolvedValue(okAuthz(supabase));
-    const res = await POST(request({ name: 'Battery' }) as never);
+    const res = await POST(request({ name: 'Battery' }));
     expect(res.status).toBe(201);
     const json = await res.json();
     expect(json.serviceType.slug).toBe('battery');
@@ -145,7 +146,7 @@ describe('POST /api/repairs/catalog/service-types', () => {
   it('returns 400 for invalid input', async () => {
     const supabase = makeSupabase({});
     authorizeRepairsRequest.mockResolvedValue(okAuthz(supabase));
-    const res = await POST(request({ name: '' }) as never);
+    const res = await POST(request({ name: '' }));
     expect(res.status).toBe(400);
   });
 
@@ -154,7 +155,7 @@ describe('POST /api/repairs/catalog/service-types', () => {
       insertResult: { data: null, error: { code: '23505', message: 'dup' } },
     });
     authorizeRepairsRequest.mockResolvedValue(okAuthz(supabase));
-    const res = await POST(request({ name: 'Screen' }) as never);
+    const res = await POST(request({ name: 'Screen' }));
     expect(res.status).toBe(409);
   });
 
@@ -166,7 +167,24 @@ describe('POST /api/repairs/catalog/service-types', () => {
         { status: 403 }
       ),
     });
-    const res = await POST(request({ name: 'Screen' }) as never);
+    const res = await POST(request({ name: 'Screen' }));
     expect(res.status).toBe(403);
+  });
+
+  it('returns 500 when the insert fails for a non-conflict reason', async () => {
+    const supabase = makeSupabase({
+      insertResult: { data: null, error: { code: '500', message: 'db down' } },
+    });
+    authorizeRepairsRequest.mockResolvedValue(okAuthz(supabase));
+    const res = await POST(request({ name: 'Screen' }));
+    expect(res.status).toBe(500);
+  });
+
+  it('returns 500 when the slug lookup fails', async () => {
+    const supabase = makeSupabase({});
+    authorizeRepairsRequest.mockResolvedValue(okAuthz(supabase));
+    loadTakenSlugs.mockRejectedValue(new Error('db down'));
+    const res = await POST(request({ name: 'Screen' }));
+    expect(res.status).toBe(500);
   });
 });

@@ -1,3 +1,4 @@
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET } from './route';
@@ -26,11 +27,11 @@ function makeAdmin(result: { data: unknown; error: unknown; count?: number }) {
     builder[method] = vi.fn(() => builder);
   }
   builder.range = range;
-  return { from: () => builder, range };
+  return { from: () => builder, range, builder };
 }
 
-function buildRequest(url: string): Request {
-  return new Request(url, { method: 'GET' });
+function buildRequest(url: string): NextRequest {
+  return new Request(url, { method: 'GET' }) as unknown as NextRequest;
 }
 
 describe('GET /api/repairs/bookings', () => {
@@ -45,16 +46,14 @@ describe('GET /api/repairs/bookings', () => {
       response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
     });
 
-    const res = await GET(
-      buildRequest('https://x/api/repairs/bookings') as never
-    );
+    const res = await GET(buildRequest('https://x/api/repairs/bookings'));
     expect(res.status).toBe(401);
     expect(mocks.createClient).not.toHaveBeenCalled();
   });
 
   it('returns 400 for an invalid status filter', async () => {
     const res = await GET(
-      buildRequest('https://x/api/repairs/bookings?status=shipped') as never
+      buildRequest('https://x/api/repairs/bookings?status=shipped')
     );
     expect(res.status).toBe(400);
   });
@@ -83,7 +82,7 @@ describe('GET /api/repairs/bookings', () => {
     );
 
     const res = await GET(
-      buildRequest('https://x/api/repairs/bookings?status=pending') as never
+      buildRequest('https://x/api/repairs/bookings?status=pending')
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -99,9 +98,33 @@ describe('GET /api/repairs/bookings', () => {
       makeAdmin({ data: null, error: { message: 'boom' } })
     );
 
-    const res = await GET(
-      buildRequest('https://x/api/repairs/bookings') as never
-    );
+    const res = await GET(buildRequest('https://x/api/repairs/bookings'));
     expect(res.status).toBe(500);
+  });
+
+  it('matches a numeric q against the ticket number', async () => {
+    const admin = makeAdmin({ data: [], error: null, count: 0 });
+    mocks.createClient.mockReturnValue(admin);
+
+    const res = await GET(
+      buildRequest('https://x/api/repairs/bookings?q=1042')
+    );
+    expect(res.status).toBe(200);
+    expect(admin.builder.eq).toHaveBeenCalledWith('ticket_number', 1042);
+    expect(admin.builder.ilike).not.toHaveBeenCalled();
+  });
+
+  it('matches a text q against the device model', async () => {
+    const admin = makeAdmin({ data: [], error: null, count: 0 });
+    mocks.createClient.mockReturnValue(admin);
+
+    const res = await GET(
+      buildRequest('https://x/api/repairs/bookings?q=iPhone')
+    );
+    expect(res.status).toBe(200);
+    expect(admin.builder.ilike).toHaveBeenCalledWith(
+      'device_model',
+      '%iPhone%'
+    );
   });
 });

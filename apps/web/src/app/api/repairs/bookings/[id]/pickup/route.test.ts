@@ -63,6 +63,43 @@ function manualAdmin(exists: boolean) {
   };
 }
 
+/**
+ * Manual-pickup admin double whose lookup or note-write fails, exercising the
+ * server-error path in recordManualPickup.
+ */
+function manualAdminFailure(stage: 'lookup' | 'update') {
+  const failure = { data: null, error: { message: 'db down' } };
+  return {
+    from() {
+      const builder = {
+        select() {
+          return builder;
+        },
+        update() {
+          return builder;
+        },
+        eq() {
+          return builder;
+        },
+        maybeSingle() {
+          return Promise.resolve(
+            stage === 'lookup'
+              ? failure
+              : { data: { admin_notes: 'prior' }, error: null }
+          );
+        },
+        // biome-ignore lint/suspicious/noThenProperty: test double mimics a thenable query builder for awaited update chains
+        then(f: (v: unknown) => unknown) {
+          return Promise.resolve(
+            stage === 'update' ? failure : { data: null, error: null }
+          ).then(f);
+        },
+      };
+      return builder;
+    },
+  };
+}
+
 describe('POST /api/repairs/bookings/[id]/pickup', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -129,5 +166,31 @@ describe('POST /api/repairs/bookings/[id]/pickup', () => {
     mocks.createClient.mockReturnValueOnce(manualAdmin(false));
     const res = await POST(req({ mode: 'manual' }) as never, { params });
     expect(res.status).toBe(404);
+  });
+
+  it('returns 400 for a non-uuid booking id', async () => {
+    const res = await POST(req({ mode: 'auto' }) as never, {
+      params: Promise.resolve({ id: 'not-a-uuid' }),
+    });
+    expect(res.status).toBe(400);
+    expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for an invalid pickup mode', async () => {
+    const res = await POST(req({ mode: 'teleport' }) as never, { params });
+    expect(res.status).toBe(400);
+    expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when the manual booking lookup fails', async () => {
+    mocks.createClient.mockReturnValueOnce(manualAdminFailure('lookup'));
+    const res = await POST(req({ mode: 'manual' }) as never, { params });
+    expect(res.status).toBe(500);
+  });
+
+  it('returns 500 when the manual note write fails', async () => {
+    mocks.createClient.mockReturnValueOnce(manualAdminFailure('update'));
+    const res = await POST(req({ mode: 'manual' }) as never, { params });
+    expect(res.status).toBe(500);
   });
 });

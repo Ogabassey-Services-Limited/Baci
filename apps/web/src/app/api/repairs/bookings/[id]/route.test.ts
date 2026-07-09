@@ -134,6 +134,24 @@ describe('GET /api/repairs/bookings/[id]', () => {
       trackingNumber: 'TRK-1',
     });
   });
+
+  it('returns 400 for a non-uuid booking id', async () => {
+    const res = await GET(req() as never, {
+      params: Promise.resolve({ id: 'not-a-uuid' }),
+    });
+    expect(res.status).toBe(400);
+    expect(mocks.createClient).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when the booking query fails', async () => {
+    mocks.createClient.mockReturnValue(
+      makeAdmin({
+        'repairs.select': { data: null, error: { message: 'boom' } },
+      })
+    );
+    const res = await GET(req() as never, { params });
+    expect(res.status).toBe(500);
+  });
 });
 
 describe('PATCH /api/repairs/bookings/[id]', () => {
@@ -143,9 +161,58 @@ describe('PATCH /api/repairs/bookings/[id]', () => {
     mocks.notifyRepairStatusChange.mockResolvedValue(undefined);
   });
 
+  it('returns 401 when unauthorized', async () => {
+    mocks.authorizeRepairsRequest.mockResolvedValueOnce({
+      ok: false,
+      response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+    });
+    const res = await PATCH(req({ status: 'confirmed' }) as never, { params });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 400 for a non-uuid booking id', async () => {
+    const res = await PATCH(req({ status: 'confirmed' }) as never, {
+      params: Promise.resolve({ id: 'not-a-uuid' }),
+    });
+    expect(res.status).toBe(400);
+  });
+
   it('returns 400 for an empty update', async () => {
     const res = await PATCH(req({}) as never, { params });
     expect(res.status).toBe(400);
+  });
+
+  it('returns 404 when the booking to update is missing', async () => {
+    mocks.createClient.mockReturnValue(
+      makeAdmin({ 'repairs.select': { data: null, error: null } })
+    );
+    const res = await PATCH(req({ status: 'confirmed' }) as never, { params });
+    expect(res.status).toBe(404);
+    expect(mocks.notifyRepairStatusChange).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when the booking lookup fails', async () => {
+    mocks.createClient.mockReturnValue(
+      makeAdmin({
+        'repairs.select': { data: null, error: { message: 'boom' } },
+      })
+    );
+    const res = await PATCH(req({ status: 'confirmed' }) as never, { params });
+    expect(res.status).toBe(500);
+  });
+
+  it('returns 500 when the update write fails', async () => {
+    mocks.createClient.mockReturnValue(
+      makeAdmin({
+        'repairs.select': {
+          data: { ...detailRow, status: 'pending' },
+          error: null,
+        },
+        'repairs.update': { data: null, error: { message: 'boom' } },
+      })
+    );
+    const res = await PATCH(req({ status: 'confirmed' }) as never, { params });
+    expect(res.status).toBe(500);
   });
 
   it('rejects an invalid status transition with 409', async () => {

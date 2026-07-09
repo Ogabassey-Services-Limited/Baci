@@ -96,17 +96,24 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   }
 
   const admin = createClient();
-  const { error } = await admin
+  const { data, error } = await admin
     .from('repair_quotes')
     .delete()
     .eq('id', params.data.id)
-    .eq('merchant_id', authz.access.merchantId);
+    .eq('merchant_id', authz.access.merchantId)
+    .select('id');
 
   if (error) {
     return NextResponse.json(
       { error: 'Failed to delete quote' },
       { status: 500 }
     );
+  }
+
+  // A no-op delete (foreign/nonexistent id, or a row owned by another tenant)
+  // returns no rows — report not-found rather than a false success.
+  if (!data || data.length === 0) {
+    return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
   }
 
   revalidatePath('/dashboard/repairs');

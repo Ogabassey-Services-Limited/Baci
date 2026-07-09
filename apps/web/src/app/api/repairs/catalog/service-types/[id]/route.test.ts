@@ -117,6 +117,33 @@ describe('PATCH service-type [id]', () => {
     );
     expect(res.status).toBe(404);
   });
+
+  it('returns 403 without edit permission', async () => {
+    authorizeRepairsRequest.mockResolvedValue({
+      ok: false,
+      response: NextResponse.json(
+        { error: 'Permission denied' },
+        { status: 403 }
+      ),
+    });
+    const res = await PATCH(
+      req('PATCH', { isActive: false }) as never,
+      ctx(VALID_ID)
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 500 on a generic update failure', async () => {
+    const supabase = makeSupabase({
+      update: { data: null, error: { code: '500', message: 'db down' } },
+    });
+    authorizeRepairsRequest.mockResolvedValue(okAuthz(supabase));
+    const res = await PATCH(
+      req('PATCH', { isActive: false }) as never,
+      ctx(VALID_ID)
+    );
+    expect(res.status).toBe(500);
+  });
 });
 
 describe('DELETE service-type [id]', () => {
@@ -147,5 +174,14 @@ describe('DELETE service-type [id]', () => {
     authorizeRepairsRequest.mockResolvedValue(okAuthz(supabase));
     const res = await DELETE(req('DELETE') as never, ctx(VALID_ID));
     expect(res.status).toBe(409);
+  });
+
+  it('returns 500 on a generic delete failure', async () => {
+    const supabase = makeSupabase({
+      del: { error: { code: '500', message: 'db down' } },
+    });
+    authorizeRepairsRequest.mockResolvedValue(okAuthz(supabase));
+    const res = await DELETE(req('DELETE') as never, ctx(VALID_ID));
+    expect(res.status).toBe(500);
   });
 });

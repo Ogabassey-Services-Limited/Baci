@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 import { bookRepairPickup } from '@/lib/repairs/book-repair-pickup';
 import { authorizeRepairsRequest } from '@/lib/repairs/catalog-admin-auth';
 import { createClient } from '@/lib/supabase/admin';
@@ -9,25 +10,41 @@ const idSchema = z.uuid();
 
 type RouteContext = { params: Promise<{ id: string }> };
 
+type ManualPickupOutcome = 'recorded' | 'not_found' | 'error';
+
 /**
  * Records a manual pickup arrangement (the merchant handles logistics offline)
  * by appending an admin note. Used as the fallback when courier booking is
- * unavailable. Returns whether the booking exists.
+ * unavailable.
+ *
+ * Distinguishes a genuinely absent booking (`not_found`) from a database/RLS
+ * failure (`error`) so a real fault is surfaced as a server error rather than
+ * masquerading as a missing booking, and only reports `recorded` once the note
+ * write has actually persisted.
  */
 async function recordManualPickup(
   admin: ReturnType<typeof createClient>,
   merchantId: string,
   repairId: string
-): Promise<boolean> {
-  const { data } = await admin
+): Promise<ManualPickupOutcome> {
+  const { data, error } = await admin
     .from('repairs')
     .select('admin_notes')
     .eq('id', repairId)
     .eq('merchant_id', merchantId)
     .maybeSingle();
 
+  if (error) {
+    logger.error({
+      message: 'recordManualPickup: booking lookup failed',
+      repairId,
+      merchantId,
+      error,
+    });
+    return 'error';
+  }
   if (!data) {
-    return false;
+    return 'not_found';
   }
 
   const existing =
@@ -36,13 +53,23 @@ async function recordManualPickup(
       : '';
   const note = `${existing ? `${existing}\n` : ''}[${new Date().toISOString()}] Pickup arranged manually.`;
 
-  await admin
+  const { error: updateError } = await admin
     .from('repairs')
     .update({ admin_notes: note, updated_at: new Date().toISOString() })
     .eq('id', repairId)
     .eq('merchant_id', merchantId);
 
-  return true;
+  if (updateError) {
+    logger.error({
+      message: 'recordManualPickup: note write failed',
+      repairId,
+      merchantId,
+      error: updateError,
+    });
+    return 'error';
+  }
+
+  return 'recorded';
 }
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
@@ -70,9 +97,19 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   const admin = createClient();
 
   if (parsed.data.mode === 'manual') {
-    const found = await recordManualPickup(admin, authz.access.merchantId, id);
-    if (!found) {
+    const outcome = await recordManualPickup(
+      admin,
+      authz.access.merchantId,
+      id
+    );
+    if (outcome === 'not_found') {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    }
+    if (outcome === 'error') {
+      return NextResponse.json(
+        { error: 'Failed to record manual pickup' },
+        { status: 500 }
+      );
     }
     return NextResponse.json({ ok: true, manual: true });
   }

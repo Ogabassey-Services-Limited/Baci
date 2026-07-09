@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
+import { logger } from '@/lib/logger';
 import { authorizeRepairsRequest } from '@/lib/repairs/catalog-admin-auth';
 import { loadImportMatchContext } from '@/lib/repairs/import-context';
 import {
@@ -18,6 +20,19 @@ export async function POST(request: NextRequest) {
   const authz = await authorizeRepairsRequest(request, 'edit');
   if (!authz.ok) {
     return authz.response;
+  }
+
+  // This endpoint runs a long AI-adjacent parse (Gemma) + catalogue match, so
+  // throttle it per identity in line with the other AI routes (image gen = 5/min).
+  const allowed = await ensureActionRateLimit('repairs-import-parse', {
+    requests: 5,
+    windowMs: 60_000,
+  });
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Too many import attempts. Please try again shortly.' },
+      { status: 429 }
+    );
   }
 
   let body: unknown;
@@ -45,6 +60,11 @@ export async function POST(request: NextRequest) {
         { status: 503 }
       );
     }
+    logger.error({
+      message: 'repairs import parse: price list read failed',
+      merchantId: authz.access.merchantId,
+      error,
+    });
     return NextResponse.json(
       { error: 'Failed to read the price list' },
       { status: 502 }
@@ -57,7 +77,12 @@ export async function POST(request: NextRequest) {
       authz.supabase,
       authz.access.merchantId
     );
-  } catch {
+  } catch (error) {
+    logger.error({
+      message: 'repairs import parse: catalogue match-context load failed',
+      merchantId: authz.access.merchantId,
+      error,
+    });
     return NextResponse.json(
       { error: 'Failed to match against your catalogue' },
       { status: 500 }

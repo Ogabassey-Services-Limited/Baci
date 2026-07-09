@@ -1,3 +1,4 @@
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET, PATCH } from './route';
@@ -65,11 +66,22 @@ const validSettings = {
   country: 'Nigeria',
 };
 
-function req(body: unknown): Request {
+function req(body: unknown): NextRequest {
   return new Request('https://x/api/repairs/settings', {
     method: 'PATCH',
     body: JSON.stringify(body),
-  });
+  }) as unknown as NextRequest;
+}
+
+function getReq(): NextRequest {
+  return new Request('https://x') as unknown as NextRequest;
+}
+
+function malformedReq(): NextRequest {
+  return new Request('https://x/api/repairs/settings', {
+    method: 'PATCH',
+    body: '{ not valid json',
+  }) as unknown as NextRequest;
 }
 
 describe('GET /api/repairs/settings', () => {
@@ -83,7 +95,7 @@ describe('GET /api/repairs/settings', () => {
       ok: false,
       response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
     });
-    const res = await GET(new Request('https://x') as never);
+    const res = await GET(getReq());
     expect(res.status).toBe(401);
   });
 
@@ -99,11 +111,19 @@ describe('GET /api/repairs/settings', () => {
         },
       })
     );
-    const res = await GET(new Request('https://x') as never);
+    const res = await GET(getReq());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.repairSettings).toEqual(validSettings);
     expect(body.repairsCatalogEnabled).toBe(true);
+  });
+
+  it('returns 500 when the settings query fails', async () => {
+    mocks.createClient.mockReturnValue(
+      makeAdmin({ select: { data: null, error: { message: 'boom' } } })
+    );
+    const res = await GET(getReq());
+    expect(res.status).toBe(500);
   });
 });
 
@@ -121,15 +141,27 @@ describe('PATCH /api/repairs/settings', () => {
         { status: 403 }
       ),
     });
-    const res = await PATCH(req(validSettings) as never);
+    const res = await PATCH(req(validSettings));
     expect(res.status).toBe(403);
   });
 
   it('rejects an invalid email', async () => {
-    const res = await PATCH(
-      req({ ...validSettings, contact_email: 'nope' }) as never
-    );
+    const res = await PATCH(req({ ...validSettings, contact_email: 'nope' }));
     expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for a malformed request body', async () => {
+    const res = await PATCH(malformedReq());
+    expect(res.status).toBe(400);
+    expect(mocks.createClient).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when the settings lookup fails', async () => {
+    mocks.createClient.mockReturnValue(
+      makeAdmin({ select: { data: null, error: { message: 'boom' } } })
+    );
+    const res = await PATCH(req(validSettings));
+    expect(res.status).toBe(500);
   });
 
   it('updates an existing settings row', async () => {
@@ -137,7 +169,7 @@ describe('PATCH /api/repairs/settings', () => {
       select: { data: { merchant_id: 'm-1' }, error: null },
     });
     mocks.createClient.mockReturnValue(admin);
-    const res = await PATCH(req(validSettings) as never);
+    const res = await PATCH(req(validSettings));
     expect(res.status).toBe(200);
     expect(admin.update).toHaveBeenCalled();
     expect(admin.insert).not.toHaveBeenCalled();
@@ -147,7 +179,7 @@ describe('PATCH /api/repairs/settings', () => {
   it('inserts defaults when no settings row exists yet', async () => {
     const admin = makeAdmin({ select: { data: null, error: null } });
     mocks.createClient.mockReturnValue(admin);
-    const res = await PATCH(req(validSettings) as never);
+    const res = await PATCH(req(validSettings));
     expect(res.status).toBe(200);
     expect(admin.insert).toHaveBeenCalled();
   });
@@ -159,7 +191,7 @@ describe('PATCH /api/repairs/settings', () => {
         write: { error: { message: 'boom' } },
       })
     );
-    const res = await PATCH(req(validSettings) as never);
+    const res = await PATCH(req(validSettings));
     expect(res.status).toBe(500);
   });
 });

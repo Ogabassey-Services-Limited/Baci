@@ -1,3 +1,4 @@
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -40,7 +41,7 @@ function req(body?: unknown) {
   return new Request('https://s.example/api/repairs/catalog/import/commit', {
     method: 'POST',
     body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  }) as unknown as NextRequest;
 }
 
 beforeEach(() => {
@@ -54,13 +55,13 @@ describe('POST /api/repairs/catalog/import/commit', () => {
       ok: false,
       response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
     });
-    const res = await POST(req({ rows: [validRow] }) as never);
+    const res = await POST(req({ rows: [validRow] }));
     expect(res.status).toBe(401);
   });
 
   it('returns 400 for an empty batch', async () => {
     authorizeRepairsRequest.mockResolvedValue(okAuthz());
-    const res = await POST(req({ rows: [] }) as never);
+    const res = await POST(req({ rows: [] }));
     expect(res.status).toBe(400);
   });
 
@@ -72,7 +73,7 @@ describe('POST /api/repairs/catalog/import/commit', () => {
       quotesCreated: 1,
       quotesUpdated: 0,
     });
-    const res = await POST(req({ rows: [validRow] }) as never);
+    const res = await POST(req({ rows: [validRow] }));
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.counts.quotesCreated).toBe(1);
@@ -82,11 +83,14 @@ describe('POST /api/repairs/catalog/import/commit', () => {
     );
   });
 
-  it('returns 500 when the commit fails', async () => {
+  it('returns a structured 500 when the commit fails on a partial write', async () => {
     authorizeRepairsRequest.mockResolvedValue(okAuthz());
     commitImportRows.mockRejectedValue(new Error('db down'));
-    const res = await POST(req({ rows: [validRow] }) as never);
+    const res = await POST(req({ rows: [validRow] }));
     expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.code).toBe('import_commit_failed');
+    expect(json.error).toMatch(/not have been saved/i);
   });
 
   it('returns 403 without edit permission', async () => {
@@ -97,7 +101,7 @@ describe('POST /api/repairs/catalog/import/commit', () => {
         { status: 403 }
       ),
     });
-    const res = await POST(req({ rows: [validRow] }) as never);
+    const res = await POST(req({ rows: [validRow] }));
     expect(res.status).toBe(403);
   });
 });

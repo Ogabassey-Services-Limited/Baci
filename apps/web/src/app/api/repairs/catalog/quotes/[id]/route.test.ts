@@ -48,7 +48,7 @@ function quoteRow(over: Record<string, unknown> = {}) {
 
 function makeAdmin(opts: {
   update?: { data: unknown; error: unknown };
-  del?: { error: unknown };
+  del?: { data: unknown; error: unknown };
 }) {
   const update = vi
     .fn()
@@ -58,9 +58,16 @@ function makeAdmin(opts: {
         opts.update ?? { data: null, error: null }
       )
     );
+  // Route: .delete().eq('id').eq('merchant_id').select('id') — the select
+  // returns the rows removed so a no-op delete can be detected.
   const del = vi
     .fn()
-    .mockReturnValue(resolvingChain(['eq', 'eq'], opts.del ?? { error: null }));
+    .mockReturnValue(
+      resolvingChain(
+        ['eq', 'eq', 'select'],
+        opts.del ?? { data: [{ id: VALID_ID }], error: null }
+      )
+    );
   const from = vi.fn().mockReturnValue({ update, delete: del });
   return { from, update, delete: del };
 }
@@ -151,5 +158,23 @@ describe('DELETE quote [id]', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.success).toBe(true);
+  });
+
+  it('returns 404 when no matching quote is removed', async () => {
+    createAdminClient.mockReturnValue(
+      makeAdmin({ del: { data: [], error: null } })
+    );
+    authorizeRepairsRequest.mockResolvedValue(okAuthz());
+    const res = await DELETE(reqOf('DELETE') as never, ctx(VALID_ID));
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 500 when the delete fails', async () => {
+    createAdminClient.mockReturnValue(
+      makeAdmin({ del: { data: null, error: { message: 'boom' } } })
+    );
+    authorizeRepairsRequest.mockResolvedValue(okAuthz());
+    const res = await DELETE(reqOf('DELETE') as never, ctx(VALID_ID));
+    expect(res.status).toBe(500);
   });
 });
