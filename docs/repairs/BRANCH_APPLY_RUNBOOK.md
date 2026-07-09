@@ -16,6 +16,7 @@ not run locally). Follow this order exactly, verify each gate, then flip the fla
 | 6 | `20260708090500_repairs_role_permissions.sql` | seeds `repairs` resource (view/edit/delete) into `role_permissions`; switches `repairs` table policies to `check_staff_permission` | 2 |
 | 7 | `20260708090600_repair_pickup_quotes.sql` | private `repair_pickup_quotes` (merchant-only RLS, **no anon**); **`shipments.order_id` → nullable** | 3 |
 | 8 | `20260708090700_repair_status_lookup_rpc.sql` | `get_repair_status()` enumeration-safe public lookup | 3, 7 |
+| 9 | `20260708090800_repairs_rpc_hardening.sql` | CREATE OR REPLACE of the booking RPC: normalizes the per-email rate-cap count (whitespace-variant bypass) + pins the public wrapper's `search_path` | 4 |
 
 Use `mcp__supabase__apply_migration` (or the branch's SQL editor) file-by-file in this order.
 **Supabase branches fail baseline replay** — if the branch can't replay the full baseline,
@@ -58,7 +59,11 @@ Standard flow. After the DB migrations are on prod, deploy `codex/repairs-catalo
 - Customer status page `/repair/status`: ticket + email returns status; wrong email returns "not found".
 - Mobile: storefront repairs screen shows the catalogue (falls back to WhatsApp only if flag off); mobile-admin shows the booking and the push deep-link opens it.
 
-## 7. Known follow-ups / external actions (NOT code)
+## 7. Accepted residuals (reviewed, deliberately not changed)
+- **`get_repair_status` direct-RPC brute-force:** the public status page route is rate-limited (`repair-status-lookup`, 10/min) and the RPC is enumeration-safe (a row returns only on an exact merchant+ticket+email match). The RPC is also anon-`EXECUTE`, so a direct `/rest/v1/rpc` call bypasses the route limiter. This was left as-is: the exposed data is low-sensitivity (status + device the requester already named) and the only clean closure — revoking anon `EXECUTE` and calling via the service-role client — would violate the repo's "no service-role for user-facing operations" rule. **If you want it closed,** the options are (a) route it through service-role and revoke anon `EXECUTE`, or (b) add a DB-side per-identifier throttle. Flagging for your call.
+- **Non-concurrent index creation** on `public.repairs` (migration `090200`): `CREATE INDEX` (not `CONCURRENTLY`) briefly locks writes during apply. `CONCURRENTLY` is incompatible with transactional Supabase migrations; `repairs` has modest volume, so the lock is short. Left as-is; apply during a low-traffic window if `repairs` is large on the target.
+
+## 8. Known follow-ups / external actions (NOT code)
 - **Meta feed policy:** services-as-products in Meta Commerce Manager is policy-gray. Ingest `/feeds/facebook-repairs.xml` into a **Meta test catalog** and confirm acceptance **before** pointing the live Facebook repairs page at it.
 - **Topship pickup** needs a **funded Topship wallet** and is reliable **Lagos/Abuja** only — do a staging dry-run; the manual-fallback path covers the rest.
 - **Branded fallback image (optional):** feed items with no linked-product image, no `repair_devices.image_url`, and no merchant `logo_url` are omitted from the FB feed. Provide a branded repair-service placeholder asset if full coverage is wanted, or ensure devices have images / linked products.

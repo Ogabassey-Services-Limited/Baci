@@ -8,17 +8,27 @@
 
 BEGIN;
 
--- Public wrapper: SECURITY INVOKER, anon + authenticated can EXECUTE.
+-- Public wrapper: SECURITY INVOKER, pinned search_path, anon + authenticated can EXECUTE.
 DO $$
 DECLARE
   is_definer boolean;
+  config text[];
 BEGIN
-  SELECT prosecdef INTO is_definer
+  SELECT prosecdef, proconfig INTO is_definer, config
   FROM pg_proc
   WHERE oid = 'public.create_repair_booking(uuid, text, text, text, text, text, text, timestamptz, text, text, uuid, uuid)'::regprocedure;
 
   IF is_definer IS NOT FALSE THEN
     RAISE EXCEPTION 'public.create_repair_booking must be SECURITY INVOKER';
+  END IF;
+
+  -- Wrapper must pin search_path = '' (hardening migration 20260708090800).
+  IF config IS NULL OR NOT EXISTS (
+    SELECT 1 FROM unnest(config) AS entry
+    WHERE entry LIKE 'search_path=%'
+      AND trim(both '"' from split_part(entry, '=', 2)) = ''
+  ) THEN
+    RAISE EXCEPTION 'public.create_repair_booking must SET search_path = ''''';
   END IF;
 
   IF NOT has_function_privilege('anon',
