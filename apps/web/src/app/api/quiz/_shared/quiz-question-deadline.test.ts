@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { logger } from '@/lib/logger';
 import { attachQuizQuestionDeadline } from './quiz-question-deadline';
 
@@ -7,6 +7,11 @@ vi.mock('@/lib/logger', () => ({
     error: vi.fn(),
   },
 }));
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.clearAllMocks();
+});
 
 function mockSupabase({
   selectResult = { data: null, error: null },
@@ -68,7 +73,9 @@ describe('attachQuizQuestionDeadline', () => {
     expect(supabase.from).not.toHaveBeenCalled();
   });
 
-  it('fails closed when the deadline row cannot be resolved', async () => {
+  it('keeps the successful mutation payload and attaches a fallback deadline when lookup fails', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-08T12:00:00.000Z'));
     const { supabase } = mockSupabase({
       selectResult: { data: null, error: { message: 'missing' } },
     });
@@ -78,12 +85,49 @@ describe('attachQuizQuestionDeadline', () => {
       question: { id: 'slot-1' },
     });
 
-    expect(result.data).toBeNull();
-    expect(result.response?.status).toBe(500);
+    expect(result.response).toBeNull();
+    expect(result.data).toEqual({
+      attemptId: 'attempt-1',
+      question: {
+        deadlineAt: '2026-07-08T12:00:30.000Z',
+        id: 'slot-1',
+      },
+    });
     expect(logger.error).toHaveBeenCalledWith({
       attemptId: 'attempt-1',
       error: { message: 'missing' },
       message: 'Quiz question deadline lookup failed',
+      questionId: 'slot-1',
+    });
+  });
+
+  it('preserves an existing RPC deadline when the follow-up row is invalid', async () => {
+    const { supabase } = mockSupabase({
+      selectResult: {
+        data: { issued_at: null, time_limit_ms: null },
+        error: null,
+      },
+    });
+
+    const result = await attachQuizQuestionDeadline(supabase as never, {
+      attemptId: 'attempt-1',
+      question: {
+        deadlineAt: '2026-07-08T12:01:00.000Z',
+        id: 'slot-1',
+      },
+    });
+
+    expect(result.response).toBeNull();
+    expect(result.data).toEqual({
+      attemptId: 'attempt-1',
+      question: {
+        deadlineAt: '2026-07-08T12:01:00.000Z',
+        id: 'slot-1',
+      },
+    });
+    expect(logger.error).toHaveBeenCalledWith({
+      attemptId: 'attempt-1',
+      message: 'Quiz question deadline row was invalid',
       questionId: 'slot-1',
     });
   });

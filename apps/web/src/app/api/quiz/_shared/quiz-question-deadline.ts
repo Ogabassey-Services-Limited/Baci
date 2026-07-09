@@ -1,11 +1,8 @@
-import {
-  NextResponse as NextJsonResponse,
-  type NextResponse,
-} from 'next/server';
 import { logger } from '@/lib/logger';
 import type { ServerSupabaseClient } from './route-helpers-guards';
 
 type QuizResponseQuestion = {
+  deadlineAt?: unknown;
   id?: unknown;
 };
 
@@ -19,12 +16,7 @@ type QuizAttemptQuestionDeadlineRow = {
   time_limit_ms?: number | string | null;
 };
 
-function quizDeadlineLookupErrorResponse() {
-  return NextJsonResponse.json(
-    { error: 'Quiz request failed' },
-    { status: 500 }
-  );
-}
+const FALLBACK_QUIZ_QUESTION_TIME_LIMIT_MS = 30_000;
 
 function getQuizQuestionDeadlineAt(
   row: QuizAttemptQuestionDeadlineRow
@@ -38,12 +30,37 @@ function getQuizQuestionDeadlineAt(
   return new Date(issuedAtMs + timeLimitMs).toISOString();
 }
 
+function getFallbackQuizQuestionDeadlineAt(
+  question: QuizResponseQuestion
+): string {
+  if (
+    typeof question.deadlineAt === 'string' &&
+    Number.isFinite(Date.parse(question.deadlineAt))
+  ) {
+    return question.deadlineAt;
+  }
+
+  return new Date(
+    Date.now() + FALLBACK_QUIZ_QUESTION_TIME_LIMIT_MS
+  ).toISOString();
+}
+
+function attachDeadlineToPayload<T>(payload: T, deadlineAt: string): T {
+  const responsePayload = payload as QuizResponseWithQuestion;
+
+  return {
+    ...(payload as Record<string, unknown>),
+    question: {
+      ...responsePayload.question,
+      deadlineAt,
+    },
+  } as T;
+}
+
 export async function attachQuizQuestionDeadline<T>(
   supabase: ServerSupabaseClient,
   payload: T
-): Promise<
-  { data: T; response: null } | { data: null; response: NextResponse }
-> {
+): Promise<{ data: T; response: null }> {
   if (!payload || typeof payload !== 'object') {
     return { data: payload, response: null };
   }
@@ -72,7 +89,13 @@ export async function attachQuizQuestionDeadline<T>(
       message: 'Quiz question deadline lookup failed',
       questionId: responsePayload.question.id,
     });
-    return { data: null, response: quizDeadlineLookupErrorResponse() };
+    return {
+      data: attachDeadlineToPayload(
+        payload,
+        getFallbackQuizQuestionDeadlineAt(responsePayload.question)
+      ),
+      response: null,
+    };
   }
 
   const deadlineAt = getQuizQuestionDeadlineAt(
@@ -84,17 +107,17 @@ export async function attachQuizQuestionDeadline<T>(
       message: 'Quiz question deadline row was invalid',
       questionId: responsePayload.question.id,
     });
-    return { data: null, response: quizDeadlineLookupErrorResponse() };
+    return {
+      data: attachDeadlineToPayload(
+        payload,
+        getFallbackQuizQuestionDeadlineAt(responsePayload.question)
+      ),
+      response: null,
+    };
   }
 
   return {
-    data: {
-      ...(payload as Record<string, unknown>),
-      question: {
-        ...responsePayload.question,
-        deadlineAt,
-      },
-    } as T,
+    data: attachDeadlineToPayload(payload, deadlineAt),
     response: null,
   };
 }

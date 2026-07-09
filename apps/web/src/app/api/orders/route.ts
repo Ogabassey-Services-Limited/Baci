@@ -165,6 +165,11 @@ type OrderQuoteValidationProductRow = {
   weight_unit?: string | null;
   weight_value?: number | string | null;
 };
+type VoucherPaymentStatusItem = {
+  assurance_fee?: number | string | null;
+  price: number | string;
+  quantity: number | string;
+};
 type ImmediateInvoiceOrderItem = Omit<OrderCreateItem, 'assurance_fee'> & {
   assurance_fee?: number;
   item_description?: string | null;
@@ -399,6 +404,35 @@ function toFiniteNumber(value: unknown): number | null {
   const numericValue = Number(value);
 
   return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function getVoucherOrderAmountDueBeforeGateway({
+  discountAmount,
+  giftWrappingFee,
+  items,
+  shippingFee,
+  taxAmount,
+}: {
+  discountAmount: number;
+  giftWrappingFee: number;
+  items: VoucherPaymentStatusItem[];
+  shippingFee: number;
+  taxAmount: number;
+}) {
+  const itemsTotal = items.reduce((total, item) => {
+    const price = toFiniteNumber(item.price) ?? 0;
+    const quantity = toFiniteNumber(item.quantity) ?? 0;
+    const assuranceFee = toFiniteNumber(item.assurance_fee) ?? 0;
+
+    return total + price * quantity + assuranceFee;
+  }, 0);
+
+  return Math.max(
+    roundCurrency(
+      itemsTotal + shippingFee + taxAmount + giftWrappingFee - discountAmount
+    ),
+    0
+  );
 }
 
 function getOptionalString(value: unknown): string | undefined {
@@ -1633,8 +1667,22 @@ export async function POST(request: NextRequest) {
 
     const payOnDelivery = isPayOnDelivery(payment_method);
 
+    const voucherOrderAmountDueBeforeGateway = hasVoucherItem
+      ? getVoucherOrderAmountDueBeforeGateway({
+          discountAmount: serverDerivedDiscountAmount,
+          giftWrappingFee: giftWrappingFeeValue,
+          items: orderItemsPayload,
+          shippingFee: shippingFeeValue,
+          taxAmount: serverComputedTaxAmount,
+        })
+      : null;
+
     let effectivePaymentStatus = payment_status;
-    if (hasVoucherItem) {
+    if (
+      hasVoucherItem &&
+      voucherOrderAmountDueBeforeGateway !== null &&
+      voucherOrderAmountDueBeforeGateway <= 0
+    ) {
       effectivePaymentStatus = 'paid';
     } else if (payOnDelivery) {
       effectivePaymentStatus = 'pending';

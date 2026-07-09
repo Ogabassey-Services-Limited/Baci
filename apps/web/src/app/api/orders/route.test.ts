@@ -970,11 +970,16 @@ describe('POST /api/orders — quiz voucher guard', () => {
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
-  it('passes the verified voucher award id and paid status to the voucher-specific order RPC', async () => {
+  it('passes the verified voucher award id and paid status for zero-due voucher orders', async () => {
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
     vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
-    const supabase = buildMockSupabase();
+    const supabase = buildMockSupabase({
+      create_storefront_order_with_quiz_voucher: {
+        data: [{ ...baseOrderRow, subtotal: 0, total: 0 }],
+        error: null,
+      },
+    });
     const supabaseMod = await import('@/lib/supabase/server');
     vi.mocked(supabaseMod.createClient).mockImplementation(
       () => supabase as unknown as never
@@ -1039,6 +1044,97 @@ describe('POST /api/orders — quiz voucher guard', () => {
       'create_storefront_order',
       expect.any(Object)
     );
+  });
+
+  it('keeps voucher orders unpaid when a residual gateway balance remains', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const supabase = buildMockSupabase({
+      create_storefront_order_with_quiz_voucher: {
+        data: [{ ...baseOrderRow, subtotal: 1500, total: 1500 }],
+        error: null,
+      },
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+    const awardId = '11111111-1111-4111-8111-111111111111';
+    const voucherProductId = '22222222-2222-4222-8222-222222222222';
+    const paidProductId = '33333333-3333-4333-8333-333333333333';
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId,
+        condition: 'new',
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId: voucherProductId,
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          items: [
+            {
+              ...baseOrderPayload.items[0],
+              condition: 'new',
+              price: 0,
+              product_id: voucherProductId,
+              voucher_token: token,
+            },
+            {
+              ...baseOrderPayload.items[0],
+              name: 'Residual item',
+              price: 1500,
+              product_id: paidProductId,
+            },
+          ],
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(201);
+    expect(body.amountDueToGateway).toBe(1500);
+    const quizRpcCall = vi
+      .mocked(supabase.rpc)
+      .mock.calls.find(
+        ([name]) => name === 'create_storefront_order_with_quiz_voucher'
+      ) as
+      | [
+          string,
+          {
+            p_items: Record<string, unknown>[];
+            p_payment_status?: unknown;
+          },
+        ]
+      | undefined;
+    if (!quizRpcCall) {
+      throw new Error('Expected quiz voucher RPC to be called');
+    }
+    const [, quizRpcParams] = quizRpcCall;
+    expect(quizRpcParams.p_payment_status).toBe('unpaid');
+    expect(quizRpcParams.p_items[0]).toEqual(
+      expect.objectContaining({
+        product_id: voucherProductId,
+        voucher_award_id: awardId,
+      })
+    );
+    expect(quizRpcParams.p_items[1]).toEqual(
+      expect.objectContaining({ product_id: paidProductId })
+    );
+    expect(quizRpcParams.p_items[1]).not.toHaveProperty('voucher_award_id');
   });
 
   it('maps voucher RPC client errors to a checkout-correctable 400', async () => {
