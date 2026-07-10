@@ -1298,6 +1298,36 @@ export async function POST(request: NextRequest) {
                   .eq('customer_id', soleRow.customer_id)
                   .maybeSingle();
               if (!claimedOrderError && claimedOrder) {
+                // The claim may have created the order but died before
+                // `finalize_quiz_voucher_order_payment` marked it paid. NEVER
+                // fabricate a paid status for a still-unpaid row — retry the
+                // finalizer first, and if that fails surface a non-pruning error
+                // so the shopper keeps the voucher and can retry.
+                if (claimedOrder.payment_status !== 'paid') {
+                  const { error: replayFinalizeError } = await supabase.rpc(
+                    'finalize_quiz_voucher_order_payment',
+                    {
+                      p_award_id: soleAwardId,
+                      p_order_id: claimedOrder.id,
+                    }
+                  );
+                  if (replayFinalizeError) {
+                    logger.error({
+                      message: 'Quiz voucher replay finalize failed',
+                      error: replayFinalizeError,
+                      orderId: claimedOrder.id,
+                      awardId: soleAwardId,
+                    });
+                    return NextResponse.json(
+                      {
+                        code: 'QUIZ_VOUCHER_LOOKUP_FAILED',
+                        error:
+                          'Could not verify your quiz prize right now. Please try again.',
+                      },
+                      { status: 503 }
+                    );
+                  }
+                }
                 return NextResponse.json(
                   {
                     order: {

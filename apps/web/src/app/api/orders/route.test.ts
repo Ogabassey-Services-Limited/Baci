@@ -1067,11 +1067,11 @@ describe('POST /api/orders — quiz voucher guard', () => {
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
-  it('replays the already-created order when a single claimed voucher is retried', async () => {
+  it('replays an already-paid claimed voucher order without re-finalizing', async () => {
     // A voucher checkout that succeeded but lost its HTTP response leaves the
-    // award claimed with a reserved (paid) order. Retrying must NOT prune the
-    // prize as an "invalid voucher" — return the existing order as a replayed
-    // success so the shopper reaches their order screen.
+    // award claimed with a reserved (already paid) order. Retrying must NOT prune
+    // the prize as an "invalid voucher" — return the existing order as a replayed
+    // success so the shopper reaches their order screen, and NOT touch any RPC.
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
     vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
@@ -1092,7 +1092,7 @@ describe('POST /api/orders — quiz voucher guard', () => {
           order_number: 'ORD-PRIZE-1',
           tracking_token: 'track-prize-1',
           customer_id: CUSTOMER_ID,
-          payment_status: 'pending',
+          payment_status: 'paid',
           shipping_status: 'pending',
           total: 0,
         },
@@ -1231,6 +1231,157 @@ describe('POST /api/orders — quiz voucher guard', () => {
       payment_method: 'quiz_voucher',
     });
     expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('retries the finalizer when the replayed claimed order is not yet paid', async () => {
+    // The claim created the order but died before finalize marked it paid. The
+    // replay must retry the finalizer (never fabricate a paid status) and only
+    // then return success.
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const awardId = '11111111-1111-4111-8111-111111111111';
+    const productId = '22222222-2222-4222-8222-222222222222';
+    const orderId = '99999999-9999-4999-8999-999999999999';
+    const supabase = buildMockSupabase(
+      {},
+      {
+        quizAwardOverrides: {
+          [awardId]: { status: 'claimed', reserved_order_id: orderId },
+        },
+        claimedReservedOrder: {
+          id: orderId,
+          order_number: 'ORD-PRIZE-3',
+          customer_id: CUSTOMER_ID,
+          payment_status: 'unpaid',
+          shipping_status: 'pending',
+          total: 0,
+        },
+      }
+    );
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId,
+        condition: 'new',
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId,
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          items: [
+            {
+              ...baseOrderPayload.items[0],
+              condition: 'new',
+              product_id: productId,
+              price: 0,
+              voucher_token: token,
+            },
+          ],
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.order).toMatchObject({ payment_status: 'paid' });
+    // The finalizer was retried for the still-unpaid order.
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'finalize_quiz_voucher_order_payment',
+      { p_award_id: awardId, p_order_id: orderId }
+    );
+  });
+
+  it('returns a non-pruning 503 when the replay finalizer fails', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const awardId = '11111111-1111-4111-8111-111111111111';
+    const productId = '22222222-2222-4222-8222-222222222222';
+    const orderId = '99999999-9999-4999-8999-999999999999';
+    const supabase = buildMockSupabase(
+      {
+        finalize_quiz_voucher_order_payment: {
+          data: null,
+          error: { message: 'finalize failed' },
+        },
+      },
+      {
+        quizAwardOverrides: {
+          [awardId]: { status: 'claimed', reserved_order_id: orderId },
+        },
+        claimedReservedOrder: {
+          id: orderId,
+          order_number: 'ORD-PRIZE-4',
+          customer_id: CUSTOMER_ID,
+          payment_status: 'unpaid',
+          shipping_status: 'pending',
+          total: 0,
+        },
+      }
+    );
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId,
+        condition: 'new',
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId,
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          items: [
+            {
+              ...baseOrderPayload.items[0],
+              condition: 'new',
+              product_id: productId,
+              price: 0,
+              voucher_token: token,
+            },
+          ],
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    // Non-pruning: the prize is NOT falsely reported paid or dropped.
+    expect(response.status).toBe(503);
+    expect(body.code).toBe('QUIZ_VOUCHER_LOOKUP_FAILED');
+    expect(body).not.toHaveProperty('rejectedVoucherToken');
   });
 
   it('passes the verified voucher award id and paid status for zero-due voucher orders', async () => {
