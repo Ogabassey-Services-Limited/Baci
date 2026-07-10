@@ -47,6 +47,21 @@ async function fetchAndAddCartItems({
   setIsLoading,
 }: FetchAndAddCartItemsOptions): Promise<void> {
   const hasQuizPrizeVoucher = Boolean(quizAwardId && quizVoucherToken);
+
+  // A prize is redeemed as its OWN order; the server rejects a cart that mixes
+  // the voucher with paid items (QUIZ_VOUCHER_MIXED_CART_UNSUPPORTED). Block the
+  // claim here — mirror of the mobile claim guard — so the shopper isn't sent
+  // through checkout only to hit a 400 and have to unwind the cart by hand.
+  if (hasQuizPrizeVoucher && cart.some((item) => !item.quizAwardId)) {
+    toast({
+      title: 'Check out your prize separately',
+      description:
+        'Your cart has other items. Check out or empty your cart first, then claim your prize.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
   setIsLoading(true);
 
   try {

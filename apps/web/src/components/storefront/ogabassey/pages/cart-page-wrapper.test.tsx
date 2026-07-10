@@ -99,6 +99,40 @@ function setupProductsQuery(result: {
     });
   });
 
+  it('blocks a prize claim into a cart that already holds paid items', async () => {
+    const addToCart = vi.fn();
+    vi.mocked(useCart).mockReturnValue({
+      addToCart,
+      // A normal paid line (no quizAwardId) already in the cart.
+      cart: [{ id: 'paid-1', quantity: 1 }],
+    } as unknown as ReturnType<typeof useCart>);
+    setupProductsQuery({
+      data: [
+        {
+          id: '55555555-5555-4555-8555-555555555555',
+          images: [{ url: 'https://cdn.example.com/iphone.png' }],
+          name: 'iPhone 15 Pro Max',
+          price: 2100000,
+          status: 'active',
+        },
+      ],
+      error: null,
+    });
+
+    render(<CartPageWrapper merchantId="merchant-1" />);
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Check out your prize separately',
+          variant: 'destructive',
+        })
+      );
+    });
+    // The prize is NOT added to the mixed cart.
+    expect(addToCart).not.toHaveBeenCalled();
+  });
+
   it('does not fetch products when item_id is missing', async () => {
     const addToCart = vi.fn();
     vi.mocked(useCart).mockReturnValue({

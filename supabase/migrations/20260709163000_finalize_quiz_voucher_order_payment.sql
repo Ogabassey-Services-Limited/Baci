@@ -28,6 +28,7 @@ BEGIN
     o.customer_id,
     o.merchant_id,
     o.total,
+    o.tax_amount,
     o.payment_status,
     o.payment_method,
     o.amount_paid
@@ -79,8 +80,13 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  IF COALESCE(v_order.total, 0) <> 0 THEN
-    RAISE EXCEPTION 'quiz_voucher_order_total_must_be_zero'
+  -- A fully-covered prize order owes nothing beyond the VAT the merchant
+  -- absorbs: the award discount cancels the product (and any shipping), so the
+  -- only remaining `total` is the recorded tax. For a VAT-registered merchant
+  -- that is a nonzero VAT amount; for a non-registered merchant tax is 0 and so
+  -- is the total. Reject anything else (a real, uncovered residual charge).
+  IF COALESCE(v_order.total, 0) <> COALESCE(v_order.tax_amount, 0) THEN
+    RAISE EXCEPTION 'quiz_voucher_order_residual_not_covered'
       USING ERRCODE = '22023';
   END IF;
 
