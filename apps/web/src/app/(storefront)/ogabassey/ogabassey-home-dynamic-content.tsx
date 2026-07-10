@@ -115,7 +115,10 @@ export async function OgabasseyHomeDynamicContent({
     // boundary so LCP discovery is not gated on product-grid/category queries.
     // loadOgabasseyLaunchProducts is best-effort (never rejects), so a launch
     // feed failure degrades to empty schema coverage instead of failing the page.
-    loadOgabasseyLaunchProducts(merchant.id),
+    loadOgabasseyLaunchProducts(
+      merchant.id,
+      resolveMerchantCurrencyConfig(merchant)
+    ),
   ]);
   const merchantProducts = mapHomeProductsToTemplateProducts(products || []);
   // Inventory (manage_stock/stock) lives only on the template rows; the display
