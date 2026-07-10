@@ -6,6 +6,7 @@ import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
 import { V2ComparisonScope } from '@/components/storefront/ogabassey/providers/v2-comparison-scope';
 import { CategoryHubSections } from '@/components/storefront/ogabassey/seo/category-hub-sections';
+import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import {
   getCachedCategoryPageData,
   getMerchantByIdentifier,
@@ -19,6 +20,7 @@ import {
   generateFAQSchema,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
+import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
 import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
 import {
   parseStorefrontPageParam,
@@ -123,6 +125,10 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
   }
 
   const productOffset = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
+  const supportedClusterCategory =
+    category in CONTENT_CLUSTER_SUPPORT
+      ? (category as SupportedClusterCategory)
+      : null;
   const [data, guidePosts] = await Promise.all([
     getCachedCategoryPageData(
       merchant.id,
@@ -131,10 +137,12 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
       productOffset,
       STOREFRONT_PRODUCTS_PER_PAGE
     ),
-    loadPublishedClusterPostsSafely(
-      merchant.id,
-      'Failed to load guide posts for category page'
-    ),
+    supportedClusterCategory
+      ? loadPublishedClusterPostsSafely(merchant.id, {
+          pageKind: 'category',
+          categorySlug: supportedClusterCategory,
+        })
+      : Promise.resolve([]),
   ]);
 
   if (!data.isCollection && data.isInactiveCategory) {
