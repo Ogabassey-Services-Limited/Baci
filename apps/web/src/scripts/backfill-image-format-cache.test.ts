@@ -46,17 +46,24 @@ describe('runBackfillImageFormatCacheCli', () => {
     mockGetCloudflareZoneId.mockReturnValue('cf-zone');
   });
 
-  it('parses --dry-run, --limit, and --concurrency into backfill options', async () => {
+  it('parses dry-run limits and concurrency into backfill options', async () => {
     await runBackfillImageFormatCacheCli([
       '--dry-run',
       '--limit',
       '50',
+      '--blog-limit',
+      '25',
       '--concurrency',
       '8',
     ]);
 
     expect(mockRunImageFormatBackfill).toHaveBeenCalledWith(
-      expect.objectContaining({ dryRun: true, limit: 50, concurrency: 8 })
+      expect.objectContaining({
+        dryRun: true,
+        limit: 50,
+        blogLimit: 25,
+        concurrency: 8,
+      })
     );
   });
 
@@ -67,6 +74,7 @@ describe('runBackfillImageFormatCacheCli', () => {
       expect.objectContaining({
         dryRun: false,
         limit: undefined,
+        blogLimit: undefined,
         concurrency: undefined,
       })
     );
@@ -83,6 +91,8 @@ describe('runBackfillImageFormatCacheCli', () => {
     ['--limit', ['--limit']],
     ['--limit', ['--limit', '0']],
     ['--limit', ['--limit', 'abc']],
+    ['--blog-limit', ['--blog-limit']],
+    ['--blog-limit', ['--blog-limit', '0']],
     ['--concurrency', ['--concurrency', '-2']],
   ])('rejects %s without a positive integer value', async (flag, argv) => {
     await expect(runBackfillImageFormatCacheCli(argv)).rejects.toThrow(
