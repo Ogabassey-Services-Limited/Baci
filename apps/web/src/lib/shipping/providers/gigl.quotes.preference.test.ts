@@ -16,6 +16,7 @@ import {
   loginResponse,
   priceResponse,
   quoteRequest,
+  serviceCentresResponse,
   stationsResponse,
 } from './gigl.test-helpers';
 
@@ -76,23 +77,25 @@ describe('GiglProvider quote delivery preference', () => {
     const fetchMock = mockGiglFetchSequence(
       jsonResponse(loginResponse),
       jsonResponse(stationsResponse),
-      jsonResponse(priceResponse)
+      jsonResponse(priceResponse),
+      jsonResponse(serviceCentresResponse)
     );
 
     const quotes = await buildQuoteHarness().getQuotes();
 
-    expect(quotes).toHaveLength(1);
+    expect(quotes).toHaveLength(3);
     expect(quotes[0]).toMatchObject({
       provider: 'GIGL',
       serviceTier: 'Station Pickup',
-      providerRateId: 'GIGL_30_1_1',
+      providerRateId: 'GIGL_30_1_1_575',
       isStationPickup: true,
-      stationName: 'PORT HARCOURT',
+      stationName: 'PHC RUMUOLUMENI IWOFE',
     });
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
       `${baseUrl}/login`,
       `${baseUrl}/localstations/get`,
       `${baseUrl}/price`,
+      `${baseUrl}/serviceCentresByStation?StationId=30`,
     ]);
     const pricePayload = JSON.parse(
       String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')

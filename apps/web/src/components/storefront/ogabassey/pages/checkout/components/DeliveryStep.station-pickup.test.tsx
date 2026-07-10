@@ -101,7 +101,7 @@ describe('DeliveryStep station pickup', () => {
     );
 
     fireEvent.click(
-      screen.getByRole('radio', { name: /pickup stations \(gigl\)/i }),
+      screen.getByRole('radio', { name: /pickup station.*gigl service centre/i }),
     );
 
     expect(setDeliveryMethod).toHaveBeenCalledWith('pickup_station');
