@@ -11,11 +11,16 @@ vi.mock('../components/ProductCard', () => ({
   ProductCard: ({
     product,
     onAddToCart,
+    contentVisibilityClassName,
   }: {
     product: { name: string };
     onAddToCart?: (event: React.MouseEvent, product: unknown) => void;
+    contentVisibilityClassName?: string;
   }) => (
-    <article aria-label={product.name}>
+    <article
+      aria-label={product.name}
+      className={contentVisibilityClassName || undefined}
+    >
       <button type="button" onClick={(event) => onAddToCart?.(event, product)}>
         Add {product.name}
       </button>
@@ -137,5 +142,42 @@ describe('CategoryPageResults', () => {
     expect(
       screen.getByText('Showing 1-1 of 1 products')
     ).toBeInTheDocument();
+  });
+
+  // Part 1 — content-visibility is applied to product cards ONLY in filtered
+  // mode (the unbounded single-page render), with responsive reservations
+  // derived per view mode. Paginated (bounded, above-the-fold) cards get none.
+  it('reserves responsive content-visibility on grid cards in filtered mode', () => {
+    renderResults({ hasActiveFilters: true, viewMode: 'grid' });
+
+    const card = screen.getByRole('article', { name: 'Phone A' });
+    expect(card).toHaveClass('content-auto');
+    expect(card).toHaveClass('[contain-intrinsic-size:auto_300px]');
+    expect(card).toHaveClass('md:[contain-intrinsic-size:auto_460px]');
+  });
+
+  it('reserves responsive content-visibility on list cards in filtered mode', () => {
+    renderResults({ hasActiveFilters: true, viewMode: 'list' });
+
+    const card = screen.getByRole('article', { name: 'Phone A' });
+    expect(card).toHaveClass('content-auto');
+    expect(card).toHaveClass('[contain-intrinsic-size:auto_190px]');
+    expect(card).toHaveClass('md:[contain-intrinsic-size:auto_240px]');
+  });
+
+  it('does not apply content-visibility to grid cards in paginated mode', () => {
+    renderResults({ hasActiveFilters: false, viewMode: 'grid' });
+
+    const card = screen.getByRole('article', { name: 'Phone A' });
+    expect(card).not.toHaveClass('content-auto');
+    expect(card.className).toBe('');
+  });
+
+  it('does not apply content-visibility to list cards in paginated mode', () => {
+    renderResults({ hasActiveFilters: false, viewMode: 'list' });
+
+    const card = screen.getByRole('article', { name: 'Phone A' });
+    expect(card).not.toHaveClass('content-auto');
+    expect(card.className).toBe('');
   });
 });
