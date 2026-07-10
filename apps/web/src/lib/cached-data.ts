@@ -3105,7 +3105,12 @@ export async function getCachedBlogListing(
     .not('slug', 'is', null)
     .neq('title', '')
     .neq('slug', '')
-    .order('published_at', { ascending: false });
+    .order('published_at', { ascending: false })
+    // Unique tiebreaker: scheduled/bulk-published posts share an identical
+    // published_at, and without a total order the same post can appear on two
+    // listing pages (or neither) when the prerender walk pages through this
+    // query. `id` makes pagination deterministic (mirrors the product index).
+    .order('id', { ascending: true });
 
   query = applyPublicBlogSqlFilters(query);
 
