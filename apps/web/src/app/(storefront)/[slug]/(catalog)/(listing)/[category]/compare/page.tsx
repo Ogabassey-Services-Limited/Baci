@@ -191,6 +191,10 @@ export async function generateMetadata({
     robots:
       isCanonicalCategoryPath &&
       data.compareLinks.length > 0 &&
+      // Degraded hubs stay noindex,follow until the inventory cache self-heals
+      // so a transient partial failure never publishes an incomplete hub as
+      // indexable.
+      !data.inventoryDegraded &&
       !hasCompareHubSearchParams(resolvedSearchParams)
         ? getIndexableRobotsMetadata()
         : { index: false, follow: true },
