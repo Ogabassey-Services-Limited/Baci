@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
 import type { BreadcrumbList, FAQPage, ItemList } from 'schema-dts';
 import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
@@ -256,14 +255,10 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
           )}
 
           {page.relatedCompareLinks.length > 0 ? (
-            <Suspense fallback={null}>
-              <CompareRelatedLinks
-                links={page.relatedCompareLinks}
-                merchantCustomDomain={page.merchant.custom_domain}
-                merchantSlug={page.merchant.slug}
-                storeUrl={page.breadcrumbItems[0]?.url ?? page.canonicalUrl}
-              />
-            </Suspense>
+            <CompareRelatedLinks
+              links={page.relatedCompareLinks}
+              storeUrl={page.breadcrumbItems[0]?.url ?? page.canonicalUrl}
+            />
           ) : null}
         </div>
       </div>
