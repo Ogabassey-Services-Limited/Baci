@@ -5,6 +5,7 @@ import type { BreadcrumbList, CollectionPage, FAQPage } from 'schema-dts';
 import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
 import { V2ComparisonScope } from '@/components/storefront/ogabassey/providers/v2-comparison-scope';
+import { CategoryHubSections } from '@/components/storefront/ogabassey/seo/category-hub-sections';
 import {
   getCachedCategoryPageData,
   getMerchantByIdentifier,
@@ -264,11 +265,10 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
 
       <V2ComparisonScope storageNamespace={merchant.id}>
         <OgabasseyCategoryPage
-          seoHeading={hubContent.intro.heading}
-          seoDescription={hubContent.intro.description}
-          seoFeatures={hubContent.trustFeatures}
-          seoFaqs={hubContent.faqItems}
-          hubContent={hubContent}
+          // Hub sections are composed here in the RSC boundary so `SafeHtml`
+          // (sanitize-html, 254 KB) renders on the server and never enters the
+          // CategoryPage client bundle. Injected as a ReactNode slot.
+          hubSections={<CategoryHubSections hub={hubContent} />}
           currentPage={categoryPageCurrentPage}
           productsArePrePaginated={productsArePrePaginated}
           categoryImage={
