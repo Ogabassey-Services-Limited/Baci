@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product as CartProduct } from '@/lib/products';
 import {
   OgabasseyPdpCriticalCommerceClient,
+  OgabasseyPdpCriticalCommerceProvider,
+  OgabasseyPdpCriticalCommerceSummary,
 } from './critical-commerce.client';
 
 const cartMocks = vi.hoisted(() => ({
@@ -259,6 +261,34 @@ describe('OgabasseyPdpCriticalCommerceClient', () => {
       condition: 'used',
     });
     expect(cartMocks.setIsCartOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('renders the live summary price in NGN by default', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={cartProduct}
+        variantCount={1}
+      >
+        <OgabasseyPdpCriticalCommerceSummary />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('₦7,098,000')).toBeInTheDocument();
+  });
+
+  it('renders the live summary price in the merchant-resolved currency', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={cartProduct}
+        currency={{ code: 'GHS', symbol: 'GH₵', locale: 'en-GH' }}
+        variantCount={1}
+      >
+        <OgabasseyPdpCriticalCommerceSummary />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('GH₵7,098,000')).toBeInTheDocument();
+    expect(screen.queryByText(/₦/)).not.toBeInTheDocument();
   });
 
   it('keeps add to cart disabled until all required variant axes are selected', () => {

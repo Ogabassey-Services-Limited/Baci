@@ -2,33 +2,33 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { Suspense, type ReactNode } from 'react';
 import {
+  COMPACT_OPTIONS,
+  type CurrencyConfig,
+  formatCurrencyWithConfig,
+} from '@/lib/currency';
+import {
   OgabasseyPdpCriticalConditionBadge,
   OgabasseyPdpCriticalProductImage,
 } from './critical-commerce.client';
+import { DEFAULT_CRITICAL_PRICE_CURRENCY } from './critical-commerce-selection';
 import type { OgabasseyPdpCriticalProduct } from './critical-product';
 
 interface OgabasseyPdpCriticalShellProps {
   basePath?: string;
   basePathPromise?: Promise<string>;
   children?: ReactNode;
+  currency?: CurrencyConfig;
   fallbackImage?: string | null;
   product: OgabasseyPdpCriticalProduct;
   summaryCommerce?: ReactNode;
 }
 
-const PRICE_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat('en-NG', {
-  currency: 'NGN',
-  maximumFractionDigits: 0,
-  minimumFractionDigits: 0,
-  style: 'currency',
-});
-
 const RATING_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat('en-NG', {
   maximumFractionDigits: 1,
 });
 
-function formatPrice(price: number) {
-  return PRICE_FORMATTER.format(price);
+function formatPrice(price: number, currency: CurrencyConfig) {
+  return formatCurrencyWithConfig(price, currency, COMPACT_OPTIONS);
 }
 
 function formatRating(rating: number) {
@@ -101,6 +101,7 @@ export function OgabasseyPdpCriticalShell({
   basePath = '',
   basePathPromise,
   children,
+  currency = DEFAULT_CRITICAL_PRICE_CURRENCY,
   fallbackImage,
   product,
   summaryCommerce,
@@ -171,7 +172,7 @@ export function OgabasseyPdpCriticalShell({
             {summaryCommerce || (
               <div data-ogabassey-pdp-price>
                 <span data-ogabassey-pdp-price-static>
-                  {formatPrice(product.price)}
+                  {formatPrice(product.price, currency)}
                 </span>
               </div>
             )}

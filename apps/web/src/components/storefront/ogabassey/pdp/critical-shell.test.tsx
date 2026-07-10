@@ -166,6 +166,26 @@ describe('OgabasseyPdpCriticalShell', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('formats the static price in NGN by default', () => {
+    renderCriticalShell({ price: 999_900 });
+    expect(screen.getByText('₦999,900')).toBeInTheDocument();
+  });
+
+  it('formats the static price in the merchant-resolved currency when supplied', () => {
+    const { container } = render(
+      <OgabasseyPdpCriticalShell
+        basePath=""
+        currency={{ code: 'INR', symbol: '₹', locale: 'en-IN' }}
+        product={{ ...defaultProduct, price: 999_900 }}
+      />
+    );
+
+    expect(screen.getByText('₹9,99,900')).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-ogabassey-pdp-price-static]')
+    ).toHaveTextContent('₹9,99,900');
+  });
+
   it('renders summary commerce content natively in the product summary', () => {
     const { container } = render(
       <OgabasseyPdpCriticalShell

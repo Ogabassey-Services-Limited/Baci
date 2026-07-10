@@ -2444,6 +2444,10 @@ export async function POST(request: NextRequest) {
                 const invoiceOrder = {
                   ...invoiceTimingOrder,
                   amount_paid: amountPaid,
+                  // The RPC return row carries no currency; without this the
+                  // Peppol XML falls back to NGN while the PDF/email use the
+                  // stamped order currency.
+                  currency: orderCurrency,
                 };
                 const receiptOrder: ReceiptOrder = {
                   order_number: orderNum,

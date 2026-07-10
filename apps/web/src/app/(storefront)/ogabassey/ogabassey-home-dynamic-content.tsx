@@ -134,6 +134,7 @@ export async function OgabasseyHomeDynamicContent({
     { limit: OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT }
   );
   const baseUrl = buildStoreUrl(merchant);
+  const merchantCurrency = resolveMerchantCurrencyConfig(merchant);
   const homeDescription = generateMetaDescription(
     merchant.site_description ||
       merchant.site_tagline ||
@@ -169,7 +170,7 @@ export async function OgabasseyHomeDynamicContent({
             };
           }),
           merchantName: merchant.business_name,
-          currency: resolveMerchantCurrencyConfig(merchant).code,
+          currency: merchantCurrency.code,
         })
       : null;
   const categoryDiscoveryLinks = Array.from(
@@ -228,7 +229,10 @@ export async function OgabasseyHomeDynamicContent({
         categories={categories || []}
         launchProducts={launchProducts}
         renderHero={false}
-        products={createOgabasseyHomeProductFeed(merchantProducts)}
+        products={createOgabasseyHomeProductFeed(
+          merchantProducts,
+          merchantCurrency
+        )}
         storeSlug={merchant.slug}
       />
       <section
