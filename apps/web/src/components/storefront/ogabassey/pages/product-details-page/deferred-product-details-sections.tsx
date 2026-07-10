@@ -2,7 +2,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import type { Product as RelatedProduct } from '@/lib/products';
 import type { OgabasseyPdpDeferredTabProduct } from '@/components/storefront/ogabassey/pdp/deferred-product-payload';
 import { ProductVideo } from '../../components/ProductVideo';
@@ -21,6 +21,11 @@ const InlineProductRails = dynamic(
 
 export interface DeferredProductDetailsSectionsProps {
   activeTab: ProductDetailsActiveTab;
+  /**
+   * Server-rendered product description slot (`<SafeHtml>`), threaded to
+   * `ProductDetailsTabs` so `sanitize-html` stays in the server graph.
+   */
+  descriptionSlot?: ReactNode;
   normalizedReviewRatingWidth: string;
   onSelectTab: (tab: ProductDetailsActiveTab) => void;
   productData: OgabasseyPdpDeferredTabProduct;
@@ -37,6 +42,7 @@ export interface DeferredProductDetailsSectionsProps {
 
 export function DeferredProductDetailsSections({
   activeTab,
+  descriptionSlot,
   normalizedReviewRatingWidth,
   onSelectTab,
   productData,
@@ -53,6 +59,7 @@ export function DeferredProductDetailsSections({
     <div className="[content-visibility:auto] [contain-intrinsic-size:1400px_2200px]">
       <ProductDetailsTabs
         activeTab={activeTab}
+        descriptionSlot={descriptionSlot}
         normalizedReviewRatingWidth={normalizedReviewRatingWidth}
         onSelectTab={onSelectTab}
         productData={productData}

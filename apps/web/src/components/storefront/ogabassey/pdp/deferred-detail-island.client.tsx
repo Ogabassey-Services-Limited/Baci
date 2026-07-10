@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { DeferredDetailsSkeleton } from '@/components/storefront/ogabassey/pages/product-details-page/deferred-details-skeleton';
 import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
 import type { OgabasseyPdpDeferredTabProduct } from './deferred-product-payload';
@@ -29,12 +29,14 @@ function loadDeferredTabs() {
 }
 
 interface OgabasseyPdpDeferredDetailClientProps {
+  descriptionSlot?: ReactNode;
   productData: OgabasseyPdpDeferredTabProduct;
   loadDetailsComponent?: DeferredTabsLoader;
   storeSlug: string;
 }
 
 export function OgabasseyPdpDeferredDetailClient({
+  descriptionSlot,
   productData,
   loadDetailsComponent = loadDeferredTabs,
   storeSlug,
@@ -79,7 +81,11 @@ export function OgabasseyPdpDeferredDetailClient({
           Product details could not be loaded. Refresh to try again.
         </div>
       ) : isActive && DetailComponent ? (
-        <DetailComponent productData={productData} storeSlug={storeSlug} />
+        <DetailComponent
+          descriptionSlot={descriptionSlot}
+          productData={productData}
+          storeSlug={storeSlug}
+        />
       ) : (
         <DeferredDetailsSkeleton />
       )}

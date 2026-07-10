@@ -1,7 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CategoryHubModel } from '@/lib/storefront-category/category-hub-types';
 
 const originalMatchMedia = window.matchMedia;
 const mockAddToCart = vi.fn();
@@ -50,24 +49,6 @@ vi.mock('@/hooks/use-merchant-client', () => ({
   })),
 }));
 vi.mock('@/lib/routes', () => ({ asRoute: vi.fn((p: string) => p) }));
-vi.mock('@/lib/sanitize', () => ({ sanitizeHtml: vi.fn((s: string) => s) }));
-vi.mock('@/components/ui/accordion', () => ({
-  Accordion: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  AccordionContent: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AccordionItem: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AccordionTrigger: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-}));
-vi.mock('@/components/ui/safe-html', () => ({
-  SafeHtml: ({ html }: { html: string }) => (
-    <div>{html.replace(/<[^>]+>/g, '')}</div>
-  ),
-}));
 vi.mock('../components/AdUnit', () => ({ AdUnit: () => null }));
 vi.mock('../components/CategoryRecentCarousel', () => ({
   CategoryRecentCarousel: () => (
@@ -317,87 +298,36 @@ describe('CategoryPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders the extracted category hub sections when a hub model is provided', () => {
-    mockMatchMedia(true);
-
-    const categoryHubModel: CategoryHubModel = {
-      intro: {
-        heading: 'Buy Smartphones in Nigeria',
-        description: 'Compare current picks by battery, camera, and price.',
-        source: 'curated',
-      },
-      trustFeatures: ['Warranty-backed picks', 'Fast nationwide delivery'],
-      bestForCards: [],
-      brandCards: [],
-      priceBandCards: [],
-      comparisonLinks: [
-        {
-          href: '/test-store/electronics/compare/apple-vs-samsung',
-          label: 'Apple vs Samsung',
-        },
-      ],
-      guideLinks: [
-        {
-          href: '/test-store/blog/best-phones-in-nigeria',
-          title: 'Best Phones in Nigeria',
-          description: 'Budget and flagship picks.',
-          kind: 'best-in-nigeria',
-        },
-      ],
-      faqItems: [
-        {
-          question: 'What matters most?',
-          answer: '<p>Battery, camera, and storage.</p>',
-        },
-      ],
-    };
-
-    render(<CategoryPage hubContent={categoryHubModel} products={[]} />);
-
-    expect(
-      screen.getByRole('heading', { name: 'Buy Smartphones in Nigeria' })
-    ).toBeInTheDocument();
-    expect(screen.getByText('Warranty-backed picks')).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: 'Apple vs Samsung' })
-    ).toHaveAttribute(
-      'href',
-      '/test-store/electronics/compare/apple-vs-samsung'
-    );
-    expect(
-      screen.getByText('Battery, camera, and storage.')
-    ).toBeInTheDocument();
-  });
-
-  it('builds hub content from legacy seo props when hubContent is absent', () => {
+  it('renders the server-composed hub sections slot below the product grid', () => {
     mockMatchMedia(true);
 
     render(
       <CategoryPage
-        seoHeading="Shop Smartphones in Nigeria"
-        seoDescription="Compare curated picks by battery and camera."
-        seoFeatures={['Trusted warranty', 'Fast delivery']}
-        seoFaqs={[
-          {
-            question: 'Which phone lasts longer?',
-            answer: '<p>Battery size and charging speed both matter.</p>',
-          },
-        ]}
+        hubSections={
+          <section aria-label="Category hub sections">
+            Server-rendered hub content
+          </section>
+        }
         products={[]}
       />
     );
 
+    // The slot is a pre-rendered server node (CategoryHubSections) injected by
+    // the RSC boundary; the client CategoryPage only places it, so SafeHtml /
+    // sanitize-html never enters this component's bundle.
     expect(
-      screen.getByRole('heading', { name: 'Shop Smartphones in Nigeria' })
-    ).toBeInTheDocument();
+      screen.getByRole('region', { name: 'Category hub sections' })
+    ).toHaveTextContent('Server-rendered hub content');
+  });
+
+  it('omits the hub sections region when no slot is provided', () => {
+    mockMatchMedia(true);
+
+    render(<CategoryPage products={[]} />);
+
     expect(
-      screen.getByText('Compare curated picks by battery and camera.')
-    ).toBeInTheDocument();
-    expect(screen.getByText('Trusted warranty')).toBeInTheDocument();
-    expect(screen.getByText('Fast delivery')).toBeInTheDocument();
-    expect(
-      screen.getByText('Battery size and charging speed both matter.')
-    ).toBeInTheDocument();
+      screen.queryByRole('region', { name: 'Category hub sections' })
+    ).not.toBeInTheDocument();
   });
 
   it('passes a numeric cart price when adding a category product', () => {
