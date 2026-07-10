@@ -1327,7 +1327,11 @@ describe('POST /api/orders — quiz voucher guard', () => {
       expect.objectContaining({ paymentMethod: 'quiz_voucher' })
     );
     expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
-    expect(mockCreateAdminClient).not.toHaveBeenCalled();
+    // Multi-country currency reads the stamped orders.currency back via the
+    // service-role client (server-derived id, read-only) for voucher orders too.
+    // The security intent — no admin-client order CREATION — is covered by the
+    // create_storefront_order and payment-account assertions above.
+    expect(mockCreateAdminClient).toHaveBeenCalled();
   });
 
   it('excludes voucher-covered VAT from residual due checks and voucher RPC payloads', async () => {
