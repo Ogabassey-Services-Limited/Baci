@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { asRoute } from '@/lib/routes';
 import type { CompareLinkGraphEntry } from '@/lib/storefront-link-modules/compare-link-graph';
 
 interface CompareRelatedLinksProps {
@@ -38,7 +39,7 @@ export function CompareRelatedLinks({
           >
             <Link
               className="text-base font-semibold text-store-primary underline-offset-4 hover:underline"
-              href={getCanonicalRelatedLinkHref(link.href, storeUrl)}
+              href={asRoute(getCanonicalRelatedLinkHref(link.href, storeUrl))}
               prefetch={false}
             >
               {link.label}
