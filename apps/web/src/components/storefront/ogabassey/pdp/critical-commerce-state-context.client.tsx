@@ -7,12 +7,14 @@ import {
   type SetStateAction,
   useContext,
 } from 'react';
+import type { CurrencyConfig } from '@/lib/currency';
 import type { Product as CartProduct } from '@/lib/products';
 import type { InitialCriticalVariantSelection } from './critical-commerce-selection';
 
 export interface OgabasseyPdpCriticalCommerceProviderProps {
   cartProduct: CartProduct;
   children: ReactNode;
+  currency?: CurrencyConfig;
   initialVariantSelection?: InitialCriticalVariantSelection;
   variantAxes?: string[];
   variantAxisOptions?: Record<string, string[]>;
@@ -21,6 +23,7 @@ export interface OgabasseyPdpCriticalCommerceProviderProps {
 
 export interface OgabasseyPdpCriticalCommerceState {
   canAddToCart: boolean;
+  currency: CurrencyConfig;
   explicitSelectedAxes: string[];
   handleAddToCart: () => void;
   handleAttributeSelection: (axis: string, value: string) => void;

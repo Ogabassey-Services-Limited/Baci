@@ -79,6 +79,7 @@ import {
   isKorapayCheckoutAvailable,
   isPaystackCheckoutAvailable,
 } from '@/lib/checkout/payment-gateway-availability';
+import { isNgnChargeCurrency } from './checkout/components/payment-step-availability';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 import {
   buildPendingCheckoutFingerprint,
@@ -554,13 +555,18 @@ export const CheckoutPage: React.FC = () => {
     hasPriceNegotiation
   );
 
-  const paystackCheckoutAvailable = isPaystackCheckoutAvailable(merchant);
+  // Paystack (and its DVA-backed bank transfer) settle NGN only — mirror the
+  // PaymentStep gating so a non-NGN checkout never renders rails the
+  // initialize API would reject with UNSUPPORTED_CURRENCY.
+  const ngnRailsAvailable = isNgnChargeCurrency(currencyCode);
+  const paystackCheckoutAvailable =
+    ngnRailsAvailable && isPaystackCheckoutAvailable(merchant);
   const korapayCheckoutAvailable = isKorapayCheckoutAvailable(
     merchant,
     currencyCode
   );
   const bankTransferCheckoutAvailable =
-    isBankTransferCheckoutAvailable(merchant);
+    ngnRailsAvailable && isBankTransferCheckoutAvailable(merchant);
   const basePath = merchantContext?.basePath;
   const router = useRouter();
 
@@ -732,6 +738,8 @@ export const CheckoutPage: React.FC = () => {
     orderId: string;
     trackingToken?: string;
     amount: number;
+    /** Stamped order currency (authoritative for payment initialization). */
+    orderCurrency: string;
     customerEmail: string;
     customerName: string;
     customerPhone: string;
@@ -870,7 +878,7 @@ export const CheckoutPage: React.FC = () => {
       pendingOrder: pendingCryptoOrder,
       chain: selectedCryptoChain,
       currency: selectedCryptoCurrency,
-      orderCurrency: currencyCode,
+      orderCurrency: pendingCryptoOrder.orderCurrency,
     })
       .then((cryptoPayment) => {
         setShowCryptoSelector(false);
@@ -1845,6 +1853,8 @@ export const CheckoutPage: React.FC = () => {
         id: string;
         order_number?: string;
         tracking_token?: string;
+        /** Stamped orders.currency (returned by /api/orders and /api/orders/reuse). */
+        currency?: string | null;
       };
       let walletResult: {
         amountUsed: number;
@@ -1994,6 +2004,17 @@ export const CheckoutPage: React.FC = () => {
         amountDueToGateway = orderData.amountDueToGateway ?? total;
       }
 
+      // The ORDER row's stamped currency is authoritative for payment
+      // initialization: a reused/idempotent order keeps its original currency
+      // even if the merchant's payout currency changed after it was created,
+      // and the initialize API rejects an explicit client/order mismatch.
+      // Both order sources return it (/api/orders and /api/orders/reuse);
+      // fall back to the merchant-resolved code only if it is ever absent.
+      const orderChargeCurrency =
+        typeof order.currency === 'string' && order.currency.trim()
+          ? order.currency.trim().toUpperCase()
+          : currencyCode;
+
       // 1b. Create account if requested (Awaited to ensure session is set before moving to next page)
       if (createAccount && !user && accountPassword.length >= 6) {
         try {
@@ -2090,6 +2111,7 @@ export const CheckoutPage: React.FC = () => {
             orderId: order.id,
             trackingToken: order.tracking_token,
             amount: paymentAmount,
+            orderCurrency: orderChargeCurrency,
             customerEmail,
             customerName: `${firstName} ${lastName}`.trim(),
             customerPhone,
@@ -2113,7 +2135,7 @@ export const CheckoutPage: React.FC = () => {
           body: JSON.stringify({
             merchant_id: merchant.id,
             order_id: order.id,
-            currency: currencyCode,
+            currency: orderChargeCurrency,
             customer_email: customerEmail,
             customer_name: `${firstName} ${lastName}`.trim(),
             customer_phone: customerPhone,
@@ -2347,7 +2369,7 @@ export const CheckoutPage: React.FC = () => {
   // module-scope `requestDvaInitialization`; the promise chain replaces
   // try/catch/finally, which would bail React Compiler.
   const handleBankTransfer = async (
-    order: { id: string },
+    order: { id: string; currency?: string | null },
     paymentAmount: number,
     billingAddress: DvaBillingAddress
   ) => {
@@ -2364,7 +2386,12 @@ export const CheckoutPage: React.FC = () => {
       customerName: `${firstName} ${lastName}`.trim(),
       customerPhone,
       billingAddress,
-      orderCurrency: currencyCode,
+      // Stamped order currency is authoritative; fall back to the
+      // merchant-resolved code only if the row value is ever absent.
+      orderCurrency:
+        typeof order.currency === 'string' && order.currency.trim()
+          ? order.currency.trim().toUpperCase()
+          : currencyCode,
     })
       .then((result) => {
         setDvaData({

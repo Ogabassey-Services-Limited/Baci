@@ -315,6 +315,27 @@ describe('enumerateImageFormatBackfillTargets', () => {
     ]);
   });
 
+  it('honors an independent blog limit for bounded sample runs', async () => {
+    const { calls, client } = createBackfillSupabaseStub({
+      blogPostPages: [
+        [
+          { featured_image_url: CDN_BLOG_IMAGE },
+          { featured_image_url: CDN_PRODUCT_IMAGE_A },
+        ],
+      ],
+    });
+
+    const targets = await enumerateImageFormatBackfillTargets(client, {
+      blogLimit: 1,
+    });
+
+    expect(targets.blogPostCount).toBe(1);
+    expect(targets.urls).toEqual(blogVariantUrls(CDN_BLOG_IMAGE));
+    expect(calls.find((call) => call.table === 'blog_posts')?.range).toEqual([
+      0, 0,
+    ]);
+  });
+
   it('throws when the products query fails', async () => {
     const { client } = createBackfillSupabaseStub({
       productsError: { message: 'connection refused' },

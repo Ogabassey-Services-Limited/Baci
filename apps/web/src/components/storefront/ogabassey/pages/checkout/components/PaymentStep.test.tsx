@@ -212,6 +212,37 @@ describe('PaymentStep', () => {
       ).toBeInTheDocument();
     });
 
+    it('hides Paystack on a non-NGN checkout even with a subaccount', () => {
+      // Arrange & Act — Paystack settles NGN only; the initialize API rejects
+      // it for non-NGN orders with UNSUPPORTED_CURRENCY, so the UI must not
+      // offer it.
+      render(<PaymentStep {...defaultProps} currency="GHS" />);
+
+      // Assert
+      expect(screen.queryByText('Paystack')).not.toBeInTheDocument();
+    });
+
+    it('hides Bank Transfer on a non-NGN checkout even when DVA is enabled', () => {
+      // Arrange
+      const merchant = {
+        paystack_subaccount_code: 'ACCT_123',
+        feature_settings: {
+          paystack_enabled: true,
+          wallet_paystack_dva_enabled: true,
+        } as FeatureSettings,
+      };
+
+      // Act
+      render(
+        <PaymentStep {...defaultProps} merchant={merchant} currency="GHS" />
+      );
+
+      // Assert
+      expect(
+        screen.queryByRole('radio', { name: /^bank transfer/i })
+      ).not.toBeInTheDocument();
+    });
+
     it('hides Korapay when not explicitly enabled in feature settings', () => {
       render(<PaymentStep {...defaultProps} />);
 

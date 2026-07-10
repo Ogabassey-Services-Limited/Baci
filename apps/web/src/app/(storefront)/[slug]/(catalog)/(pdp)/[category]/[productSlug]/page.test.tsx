@@ -2351,6 +2351,32 @@ describe('[category]/[productSlug] page render', () => {
     ).toHaveLength(1);
   });
 
+  it('threads the merchant-resolved currency into the critical commerce provider and shell', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValueOnce({
+      ...baseMerchant,
+      country: 'GH',
+      payout_currency: 'GHS',
+      template_id: OGABASSEY_TEMPLATE_ID,
+    });
+
+    await resolveRsc(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currency: expect.objectContaining({ code: 'GHS' }),
+      })
+    );
+  });
+
   it('renders first-viewport OgaBassey commerce selectors for variant products', async () => {
     const variantRows = [
       {

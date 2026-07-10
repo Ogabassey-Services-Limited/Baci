@@ -60,6 +60,7 @@ function CriticalCommerceStateProbe() {
   return (
     <>
       <p>{commerce.productForCart.price}</p>
+      <p>currency:{commerce.currency.code}</p>
       <p>{commerce.canAddToCart ? 'ready' : 'blocked'}</p>
       <p>axes:{commerce.renderableVariantAxes.join(',')}</p>
       <p>explicit axes:{commerce.explicitSelectedAxes.join(',')}</p>
@@ -123,6 +124,7 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
     );
 
     expect(screen.getByText('237674.42')).toBeInTheDocument();
+    expect(screen.getByText('currency:NGN')).toBeInTheDocument();
     expect(screen.getByText('ready')).toBeInTheDocument();
 
     fireEvent.click(
@@ -150,6 +152,21 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
       })
     );
     expect(cartMocks.setIsCartOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('exposes the merchant-resolved currency supplied to the provider', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={variantCartProduct}
+        currency={{ code: 'INR', symbol: '₹', locale: 'en-IN' }}
+        variantAxes={['storage', 'ram']}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('currency:INR')).toBeInTheDocument();
   });
 
   it('allows the default SKU when no variant options require selection', () => {

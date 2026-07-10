@@ -1,17 +1,19 @@
 'use client';
 
 import '@/app/(storefront)/storefront-ogabassey-pdp-deferred.css';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { DeferredProductDetailsSections } from '@/components/storefront/ogabassey/pages/product-details-page/deferred-product-details-sections';
 import type { ProductDetailsActiveTab } from '@/components/storefront/ogabassey/pages/product-details-page/use-product-details-state';
 import type { OgabasseyPdpDeferredTabProduct } from './deferred-product-payload';
 
 interface OgabasseyPdpDeferredTabsClientProps {
+  descriptionSlot?: ReactNode;
   productData: OgabasseyPdpDeferredTabProduct;
   storeSlug: string;
 }
 
 export function OgabasseyPdpDeferredTabsClient({
+  descriptionSlot,
   productData,
   storeSlug,
 }: OgabasseyPdpDeferredTabsClientProps) {
@@ -31,6 +33,7 @@ export function OgabasseyPdpDeferredTabsClient({
     <div className="ogabassey-pdp-deferred-tabs-container">
       <DeferredProductDetailsSections
         activeTab={activeTab}
+        descriptionSlot={descriptionSlot}
         normalizedReviewRatingWidth={normalizedReviewRatingWidth}
         onSelectTab={setActiveTab}
         productData={normalizedProductData}
