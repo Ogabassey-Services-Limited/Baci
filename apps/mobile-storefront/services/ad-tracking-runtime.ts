@@ -99,14 +99,17 @@ async function initializeAuthorizedAdTracking(): Promise<void> {
     modules.TikTokBusiness &&
     !getIsTikTokInitialized()
   ) {
-    setIsTikTokInitialized(
-      Boolean(
-        modules.TikTokBusiness.initialize?.() ||
-          modules.TikTokBusiness.isInitialized?.()
-      )
-    );
-    if (getIsTikTokInitialized()) {
-      log.info('TikTok SDK initialized (backup)');
+    try {
+      const initialized = await modules.TikTokBusiness.initialize?.();
+      setIsTikTokInitialized(
+        Boolean(initialized || modules.TikTokBusiness.isInitialized?.())
+      );
+      if (getIsTikTokInitialized()) {
+        log.info('TikTok SDK initialized (backup)');
+      }
+    } catch (error) {
+      setIsTikTokInitialized(false);
+      log.warn('TikTok SDK initialization failed:', error);
     }
   }
 }
@@ -115,24 +118,30 @@ export async function initAdTracking(): Promise<void> {
   if (getIsInitialized()) return;
 
   try {
-    if (Platform.OS === 'ios') {
-      const { status } = await getTrackingPermissionStatus();
-      setIsTrackingAllowed(status === 'granted');
-    } else {
-      setIsTrackingAllowed(true);
+    try {
+      if (Platform.OS === 'ios') {
+        const { status } = await getTrackingPermissionStatus();
+        setIsTrackingAllowed(status === 'granted');
+      } else {
+        setIsTrackingAllowed(true);
+      }
+    } catch (error) {
+      setIsTrackingAllowed(false);
+      log.error('ATT status initialization error:', error);
     }
 
     if (getIsTrackingAllowed()) {
-      await initializeAuthorizedAdTracking();
+      try {
+        await initializeAuthorizedAdTracking();
+      } catch (error) {
+        log.error('Authorized ad SDK initialization error:', error);
+      }
     }
 
     log.info(
       'Initialized. Advertising tracking enabled:',
       getIsTrackingAllowed()
     );
-  } catch (error) {
-    setIsTrackingAllowed(false);
-    log.error('Initialization error:', error);
   } finally {
     setIsInitialized(true);
   }

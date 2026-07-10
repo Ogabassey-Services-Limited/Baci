@@ -1,4 +1,5 @@
 import ExpoModulesCore
+import Foundation
 import TikTokBusinessSDK
 import UIKit
 
@@ -35,11 +36,48 @@ private struct BaciTikTokBusinessSettings {
 }
 
 private enum BaciTikTokBusinessInitializer {
-  private static var didStartInitialization = false
+  private enum InitializationAction {
+    case completeImmediately
+    case start(Int)
+    case wait
+  }
 
-  static func initializeFromBundle() -> Bool {
-    if TikTokBusiness.isInitialized() || didStartInitialization {
-      return true
+  private static let initializationTimeout: DispatchTimeInterval = .seconds(5)
+  private static let stateQueue = DispatchQueue(
+    label: "com.baci.tiktok-business.initialization"
+  )
+  private static var activeInitializationAttempt = 0
+  private static var didStartInitialization = false
+  private static var pendingCompletions: [(Bool) -> Void] = []
+
+  static func initializeFromBundle(completion: ((Bool) -> Void)? = nil) {
+    let action = stateQueue.sync {
+      if TikTokBusiness.isInitialized() {
+        return InitializationAction.completeImmediately
+      }
+
+      if let completion {
+        pendingCompletions.append(completion)
+      }
+
+      if didStartInitialization {
+        return InitializationAction.wait
+      }
+
+      didStartInitialization = true
+      activeInitializationAttempt += 1
+      return InitializationAction.start(activeInitializationAttempt)
+    }
+
+    let attempt: Int
+    switch action {
+    case .completeImmediately:
+      completion?(true)
+      return
+    case .wait:
+      return
+    case let .start(value):
+      attempt = value
     }
 
     let settings = readSettings()
@@ -47,7 +85,8 @@ private enum BaciTikTokBusinessInitializer {
       if settings.debugMode {
         print("[BaciTikTokBusiness] Initialization skipped: missing TikTok app credentials")
       }
-      return false
+      finishInitialization(false, attempt: attempt)
+      return
     }
 
     guard let config = TikTokConfig(
@@ -58,7 +97,8 @@ private enum BaciTikTokBusinessInitializer {
       if settings.debugMode {
         print("[BaciTikTokBusiness] Initialization skipped: TikTokConfig was nil")
       }
-      return false
+      finishInitialization(false, attempt: attempt)
+      return
     }
 
     if settings.disablePaymentTracking {
@@ -74,16 +114,28 @@ private enum BaciTikTokBusinessInitializer {
       config.setLogLevel(TikTokLogLevelVerbose)
     }
 
-    didStartInitialization = true
+    let timeout = DispatchWorkItem {
+      let completions = finishInitializationLocked(attempt: attempt)
+      DispatchQueue.main.async {
+        completions.forEach { $0(false) }
+      }
+    }
+    stateQueue.asyncAfter(
+      deadline: .now() + initializationTimeout,
+      execute: timeout
+    )
 
     TikTokBusiness.initializeSdk(config) { success, error in
+      timeout.cancel()
       if !success, settings.debugMode {
         let message = error?.localizedDescription ?? "Unknown initialization error"
         print("[BaciTikTokBusiness] Initialization failed: \(message)")
       }
+      finishInitialization(
+        success && TikTokBusiness.isInitialized(),
+        attempt: attempt
+      )
     }
-
-    return true
   }
 
   static func shouldAutoInitializeFromBundle() -> Bool {
@@ -130,14 +182,39 @@ private enum BaciTikTokBusinessInitializer {
     }
     return defaultValue
   }
+
+  private static func finishInitialization(
+    _ initialized: Bool,
+    attempt: Int
+  ) {
+    let completions = stateQueue.sync {
+      finishInitializationLocked(attempt: attempt)
+    }
+    completions.forEach { $0(initialized) }
+  }
+
+  private static func finishInitializationLocked(
+    attempt: Int
+  ) -> [(Bool) -> Void] {
+    guard didStartInitialization, activeInitializationAttempt == attempt else {
+      return []
+    }
+
+    didStartInitialization = false
+    let completions = pendingCompletions
+    pendingCompletions.removeAll()
+    return completions
+  }
 }
 
 public class BaciTikTokBusinessModule: Module {
   public func definition() -> ModuleDefinition {
     Name("BaciTikTokBusiness")
 
-    Function("initialize") {
-      BaciTikTokBusinessInitializer.initializeFromBundle()
+    AsyncFunction("initialize") { (promise: Promise) in
+      BaciTikTokBusinessInitializer.initializeFromBundle { initialized in
+        promise.resolve(initialized)
+      }
     }
 
     Function("isInitialized") {
@@ -200,7 +277,7 @@ public class BaciTikTokBusinessAppDelegateSubscriber: ExpoAppDelegateSubscriber 
     guard BaciTikTokBusinessInitializer.shouldAutoInitializeFromBundle() else {
       return true
     }
-    _ = BaciTikTokBusinessInitializer.initializeFromBundle()
+    BaciTikTokBusinessInitializer.initializeFromBundle()
     return true
   }
 }

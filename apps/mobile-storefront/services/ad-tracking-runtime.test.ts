@@ -144,4 +144,74 @@ describe('ad-tracking runtime initialization', () => {
 
     expect(initializeTikTok).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps ATT authorization when TikTok initialization fails', async () => {
+    const nativeBridgeError = new Error('TikTok bridge failed');
+    mockGetTrackingPermissionStatus.mockResolvedValue({ status: 'granted' });
+    setMockExpoConfigExtra({
+      apiUrl: 'https://api.test',
+      tiktokBusiness: { isConfigured: true },
+    });
+    mockLoadAdTrackingNativeModules.mockResolvedValue(
+      createNativeModules({
+        TikTokBusiness: {
+          initialize: jest.fn(() => Promise.reject(nativeBridgeError)),
+        },
+      })
+    );
+
+    const { initAdTracking, isTrackingEnabled } = await import(
+      './ad-tracking-runtime'
+    );
+
+    await initAdTracking();
+
+    expect(isTrackingEnabled()).toBe(true);
+    expect(mockWarn).toHaveBeenCalledWith(
+      'TikTok SDK initialization failed:',
+      nativeBridgeError
+    );
+  });
+
+  it('waits for TikTok SDK readiness before completing initialization', async () => {
+    let resolveTikTok: (initialized: boolean) => void = () => {};
+    let signalInitializeStarted: () => void = () => {};
+    const initializeStarted = new Promise<void>((resolve) => {
+      signalInitializeStarted = resolve;
+    });
+    const initializeTikTok = jest.fn(
+      () => {
+        signalInitializeStarted();
+        return new Promise<boolean>((resolve) => {
+          resolveTikTok = resolve;
+        });
+      }
+    );
+    mockGetTrackingPermissionStatus.mockResolvedValue({ status: 'granted' });
+    setMockExpoConfigExtra({
+      apiUrl: 'https://api.test',
+      tiktokBusiness: { isConfigured: true },
+    });
+    mockLoadAdTrackingNativeModules.mockResolvedValue(
+      createNativeModules({
+        TikTokBusiness: { initialize: initializeTikTok },
+      })
+    );
+
+    const { initAdTracking } = await import('./ad-tracking-runtime');
+    let didFinish = false;
+    const initialization = initAdTracking().then(() => {
+      didFinish = true;
+    });
+
+    await initializeStarted;
+
+    expect(initializeTikTok).toHaveBeenCalledTimes(1);
+    expect(didFinish).toBe(false);
+
+    resolveTikTok(true);
+    await initialization;
+
+    expect(didFinish).toBe(true);
+  });
 });

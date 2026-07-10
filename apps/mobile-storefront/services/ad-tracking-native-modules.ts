@@ -30,7 +30,7 @@ export interface AEMReporterIOSLike {
 }
 
 export interface TikTokBusinessLike {
-  initialize?: () => boolean;
+  initialize?: () => boolean | Promise<boolean>;
   isInitialized?: () => boolean;
   identify?: (
     externalID: string,
