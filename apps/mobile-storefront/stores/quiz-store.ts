@@ -154,7 +154,11 @@ export const useQuizStore = create<QuizStore>((set, get) => {
     startEvent: async (eventId, integrityTier, starter) => {
       // Synchronous in-flight guard against a double-tapped start button firing
       // two attempts (double point charge) before React disables the button.
-      if (get().status === 'starting') return;
+      // Also block while a submit is in flight: `startEvent` does not bump
+      // `stateGeneration`, so a submit that resolves after we clear `attempt`
+      // would pass its own generation guard and write the stale result/question
+      // back over the freshly started attempt.
+      if (get().status === 'starting' || get().status === 'submitting') return;
       // Capture the generation before awaiting: if `reset()` fires mid-flight
       // (sign-out / account switch), the awaited attempt must NOT be written
       // back into the freshly reset store — otherwise the next session briefly

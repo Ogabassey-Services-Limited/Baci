@@ -286,4 +286,20 @@ describe('POST /api/merchant/quiz/activate', () => {
     expect(response.status).toBe(403);
     expect(mockQuizEventUpdate).not.toHaveBeenCalled();
   });
+
+  it('returns 401 when the request is not authenticated', async () => {
+    // authorizeMerchantQuizRequest short-circuits to 401 before any CSRF,
+    // permission, or DB work when the session is missing/invalid.
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: { message: 'No session' },
+      supabase: null,
+      user: null,
+    });
+
+    const response = await POST(createRequest({ eventId: EVENT_ID }));
+
+    expect(response.status).toBe(401);
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockQuizEventUpdate).not.toHaveBeenCalled();
+  });
 });

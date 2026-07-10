@@ -94,6 +94,35 @@ describe('useQuizStore', () => {
     });
   });
 
+  it('ignores a start while a submit is in flight so the stale result cannot overwrite it', async () => {
+    // A submit is in flight (status 'submitting'). Because startEvent does not
+    // bump stateGeneration, a start that clears `attempt` here would let the
+    // in-flight submit's continuation write its stale result back over the new
+    // attempt — so startEvent must no-op until the submit settles.
+    act(() => {
+      useQuizStore.setState({
+        status: 'submitting',
+        attempt,
+        selectedEventId: 'event-1',
+      });
+    });
+
+    let starterCalled = false;
+    await act(async () => {
+      await useQuizStore.getState().startEvent('event-2', 'strong', async () => {
+        starterCalled = true;
+        return { ...attempt, attemptId: 'attempt-2', eventId: 'event-2' };
+      });
+    });
+
+    expect(starterCalled).toBe(false);
+    expect(useQuizStore.getState()).toMatchObject({
+      status: 'submitting',
+      attempt,
+      selectedEventId: 'event-1',
+    });
+  });
+
   it('returns to the event list after a start attempt failure', async () => {
     await act(async () => {
       await useQuizStore.getState().loadEvents(async () => events);

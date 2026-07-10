@@ -91,7 +91,11 @@ BEGIN
   -- Default to 3 attempts unless the event configures a positive integer override.
   SELECT
     CASE
-      WHEN e.settings->>'max_attempts' ~ '^[0-9]+$' AND (e.settings->>'max_attempts')::integer > 0
+      -- Cast via numeric first: a digit-only string above 2147483647 passes the
+      -- regex but overflows ::integer and would abort the whole start RPC. Bound
+      -- it to int range, then cast, so an absurd override falls back to 3.
+      WHEN e.settings->>'max_attempts' ~ '^[0-9]+$'
+        AND (e.settings->>'max_attempts')::numeric BETWEEN 1 AND 2147483647
         THEN (e.settings->>'max_attempts')::integer
       ELSE 3
     END
@@ -186,7 +190,9 @@ BEGIN
   UPDATE public.quiz_attempt_questions aq
   SET time_limit_ms = CASE
         WHEN e.settings->>'time_limit_seconds' ~ '^[0-9]+$' THEN
-          LEAST(GREATEST((e.settings->>'time_limit_seconds')::integer, 1), 60) * 1000
+          -- numeric first: clamp to [1,60] before ::integer so a digit-only
+          -- value above int range can't overflow and abort the start.
+          LEAST(GREATEST((e.settings->>'time_limit_seconds')::numeric, 1), 60)::integer * 1000
         ELSE 30000
       END
   FROM public.quiz_attempts a
@@ -206,7 +212,8 @@ BEGIN
     'options', CASE WHEN pg_catalog.jsonb_typeof(qv.options) = 'array' THEN qv.options ELSE '[]'::jsonb END,
     'timeLimitSeconds', CASE
       WHEN e.settings->>'time_limit_seconds' ~ '^[0-9]+$' THEN
-        LEAST(GREATEST((e.settings->>'time_limit_seconds')::integer, 1), 60)
+        -- numeric first: clamp to [1,60] before ::integer (overflow-safe).
+        LEAST(GREATEST((e.settings->>'time_limit_seconds')::numeric, 1), 60)::integer
       ELSE 30
     END,
     'index', aq.position,

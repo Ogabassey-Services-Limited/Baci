@@ -1280,11 +1280,32 @@ export async function POST(request: NextRequest) {
             // idempotent replay covers every prize type.
             let claimedOrderId = soleRow.reserved_order_id ?? null;
             if (!claimedOrderId) {
-              const { data: claimedItem } = await supabase
-                .from('order_items')
-                .select('order_id')
-                .eq('quiz_award_id', soleAwardId)
-                .maybeSingle();
+              const { data: claimedItem, error: claimedItemError } =
+                await supabase
+                  .from('order_items')
+                  .select('order_id')
+                  .eq('quiz_award_id', soleAwardId)
+                  .maybeSingle();
+              // A transient lookup failure must NOT fall through to the
+              // invalid-token response — that tells checkout to prune the only
+              // prize line for an award the shopper has already claimed. Surface
+              // a non-pruning 503 so the retry can find the order once the blip
+              // clears.
+              if (claimedItemError) {
+                logger.error({
+                  message: 'Quiz voucher replay order_items lookup failed',
+                  error: claimedItemError,
+                  awardId: soleAwardId,
+                });
+                return NextResponse.json(
+                  {
+                    code: 'QUIZ_VOUCHER_LOOKUP_FAILED',
+                    error:
+                      'Could not verify your quiz prize right now. Please try again.',
+                  },
+                  { status: 503 }
+                );
+              }
               claimedOrderId = claimedItem?.order_id ?? null;
             }
             if (claimedOrderId) {
@@ -1297,7 +1318,25 @@ export async function POST(request: NextRequest) {
                   .eq('id', claimedOrderId)
                   .eq('customer_id', soleRow.customer_id)
                   .maybeSingle();
-              if (!claimedOrderError && claimedOrder) {
+              // Same fail-closed rule: an errored order lookup is transient, not
+              // proof the voucher is invalid — return 503, never prune.
+              if (claimedOrderError) {
+                logger.error({
+                  message: 'Quiz voucher replay order lookup failed',
+                  error: claimedOrderError,
+                  orderId: claimedOrderId,
+                  awardId: soleAwardId,
+                });
+                return NextResponse.json(
+                  {
+                    code: 'QUIZ_VOUCHER_LOOKUP_FAILED',
+                    error:
+                      'Could not verify your quiz prize right now. Please try again.',
+                  },
+                  { status: 503 }
+                );
+              }
+              if (claimedOrder) {
                 // The claim may have created the order but died before
                 // `finalize_quiz_voucher_order_payment` marked it paid. NEVER
                 // fabricate a paid status for a still-unpaid row — retry the
