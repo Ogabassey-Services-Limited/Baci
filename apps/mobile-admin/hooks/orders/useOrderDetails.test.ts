@@ -269,6 +269,38 @@ describe('fetchOrderById', () => {
     );
   });
 
+  it('treats a stale partially-paid order as paid when its ledger covers the total', async () => {
+    supabaseMock.setOrderDetailResult({
+      data: {
+        amount_paid: 900_000,
+        id: 'order-1',
+        payment_status: 'partially_paid',
+        recorded_by_user_id: null,
+        total: 982_000,
+        wallet_amount_used: 0,
+      },
+      error: null,
+    });
+    supabaseMock.setTableResult('transactions', {
+      data: [
+        { amount: 654_000 },
+        { amount: 82_000 },
+        { amount: 82_000 },
+        { amount: 82_000 },
+        { amount: 82_000 },
+      ],
+      error: null,
+    });
+
+    await expect(fetchOrderById('order-1', 'merchant-1')).resolves.toEqual(
+      expect.objectContaining({
+        amount_paid: 982_000,
+        balance: 0,
+        payment_status: 'paid',
+      })
+    );
+  });
+
   it('throws order query errors before running child queries', async () => {
     supabaseMock.setOrderDetailResult({
       data: null,

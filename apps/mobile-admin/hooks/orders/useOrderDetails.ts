@@ -227,8 +227,15 @@ export async function fetchOrderById(
     storedAmountPaid,
     order.payment_status === 'paid' ? orderTotal : 0
   );
+  const effectivePaymentStatus =
+    order.payment_status === 'paid' ||
+    (orderTotal > 0 && amountPaid >= orderTotal)
+      ? 'paid'
+      : order.payment_status;
   const balance =
-    order.payment_status === 'paid' ? 0 : Math.max(0, orderTotal - amountPaid);
+    effectivePaymentStatus === 'paid'
+      ? 0
+      : Math.max(0, orderTotal - amountPaid);
   const orderWithMeta = order as {
     fulfillment_details?: OrderFulfillmentDetails | null;
   };
@@ -237,6 +244,7 @@ export async function fetchOrderById(
     ...order,
     amount_paid: amountPaid,
     balance,
+    payment_status: effectivePaymentStatus,
     fulfillment_details: orderWithMeta.fulfillment_details ?? null,
     items: ((items as OrderItemRow[] | null) ?? []).map((item) => {
       const product = getJoinedRecord(item.products);
