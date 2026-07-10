@@ -49,7 +49,7 @@ function normalizeBestSeller(
   const product = topProducts[0];
   const id = getString(product, ['id']);
   const name = getString(product, ['name']);
-  if (!id || !name) return null;
+  if (!name) return null;
 
   return {
     id,
@@ -83,7 +83,6 @@ function normalizeTopConverting(
     name &&
     views >= MIN_VIEWS_FOR_CONVERSION &&
     actions > 0 &&
-    actions <= views &&
     conversionRate > 0 &&
     conversionRate <= 100
     ? { id, name, conversionRate }
@@ -173,13 +172,12 @@ function aggregateEventRows(
   const topConvertingProduct = [...productActivity.values()]
     .filter(
       (product) =>
-        product.views >= MIN_VIEWS_FOR_CONVERSION &&
-        product.actions > 0 &&
-        product.actions <= product.views
+        product.views >= MIN_VIEWS_FOR_CONVERSION && product.actions > 0
     )
     .map((product) => ({
       ...product,
-      conversionRate: (product.actions / product.views) * 100,
+      conversionRate:
+        (Math.min(product.actions, product.views) / product.views) * 100,
     }))
     .sort(
       (left, right) =>

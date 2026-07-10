@@ -24,6 +24,27 @@ describe('aggregateWebsitePerformance', () => {
     });
   });
 
+  it('preserves best sellers that are not linked to a catalog product', () => {
+    const summary = aggregateWebsitePerformance(
+      [
+        {
+          id: null,
+          name: 'Imported Service',
+          total_revenue: 5000,
+          total_sold: 3,
+        },
+      ],
+      null
+    );
+
+    expect(summary.bestSeller).toEqual({
+      id: null,
+      name: 'Imported Service',
+      revenue: 5000,
+      units_sold: 3,
+    });
+  });
+
   it('normalizes database-aggregated search and conversion metrics', () => {
     const summary = aggregateWebsitePerformance(null, {
       mostSearched: { query: 'iphone', count: 12 },
@@ -85,6 +106,24 @@ describe('aggregateWebsitePerformance', () => {
     expect(summary.topConverting).toBeNull();
   });
 
+  it('accepts capped RPC metrics when actions exceed product views', () => {
+    const summary = aggregateWebsitePerformance(null, {
+      topConverting: {
+        actions: 10,
+        conversionRate: 100,
+        id: 'product-1',
+        name: 'Phone',
+        views: 10,
+      },
+    });
+
+    expect(summary.topConverting).toEqual({
+      conversionRate: 100,
+      id: 'product-1',
+      name: 'Phone',
+    });
+  });
+
   it('aggregates every paginated fallback row using canonical event shapes', () => {
     const views = Array.from({ length: 10 }, () => ({
       event_type: 'product_view',
@@ -135,6 +174,33 @@ describe('aggregateWebsitePerformance', () => {
       id: 'product-1',
       name: 'Phone',
       conversionRate: 50,
+    });
+  });
+
+  it('caps conversion rates when cart and purchase actions exceed views', () => {
+    const views = Array.from({ length: 10 }, () => ({
+      event_data: { product_id: 'product-1', product_name: 'Phone' },
+      event_type: 'product_view',
+    }));
+    const cartActions = Array.from({ length: 10 }, () => ({
+      event_data: { product_id: 'product-1', product_name: 'Phone' },
+      event_type: 'add_to_cart',
+    }));
+    const purchases = Array.from({ length: 5 }, () => ({
+      event_data: { product_id: 'product-1', product_name: 'Phone' },
+      event_type: 'purchase',
+    }));
+
+    const summary = aggregateWebsitePerformance(null, [
+      ...views,
+      ...cartActions,
+      ...purchases,
+    ]);
+
+    expect(summary.topConverting).toEqual({
+      conversionRate: 100,
+      id: 'product-1',
+      name: 'Phone',
     });
   });
 });

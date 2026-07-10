@@ -30,14 +30,28 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  IF v_caller_role <> 'service_role'
-    AND NOT public.check_staff_permission(
-      (SELECT auth.uid()),
-      p_merchant_id,
-      'analytics',
-      'view'
+  IF v_caller_role <> 'service_role' THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.merchants AS merchant
+      WHERE merchant.id = p_merchant_id
+        AND merchant.user_id = (SELECT auth.uid())
+    ) AND NOT EXISTS (
+      SELECT 1
+      FROM public.staff_members AS staff
+      LEFT JOIN public.role_permissions AS role_permissions
+        ON role_permissions.role = staff.role
+      WHERE staff.merchant_id = p_merchant_id
+        AND staff.user_id = (SELECT auth.uid())
+        AND staff.status = 'active'
+        AND COALESCE(
+          (staff.permissions -> 'analytics' ->> 'view')::boolean,
+          (role_permissions.permissions -> 'analytics' ->> 'view')::boolean,
+          false
+        )
     ) THEN
-    RAISE EXCEPTION 'insufficient_privilege' USING ERRCODE = '42501';
+      RAISE EXCEPTION 'insufficient_privilege' USING ERRCODE = '42501';
+    END IF;
   END IF;
 
   RETURN (
@@ -135,13 +149,15 @@ BEGIN
         views.product_id,
         COALESCE(views.product_name, actions.product_name, 'Unknown Product') AS product_name,
         views.view_count,
-        actions.action_count,
-        (actions.action_count::numeric / views.view_count::numeric) * 100 AS conversion_rate
+        least(actions.action_count, views.view_count) AS action_count,
+        (
+          least(actions.action_count, views.view_count)::numeric
+          / views.view_count::numeric
+        ) * 100 AS conversion_rate
       FROM product_views AS views
       INNER JOIN product_actions AS actions USING (product_id)
       WHERE views.view_count >= 10
         AND actions.action_count > 0
-        AND actions.action_count <= views.view_count
       ORDER BY conversion_rate DESC, actions.action_count DESC, product_name ASC
       LIMIT 1
     )

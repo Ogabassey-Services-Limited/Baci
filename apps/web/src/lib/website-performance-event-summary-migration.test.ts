@@ -20,13 +20,16 @@ describe('website performance event summary migration', () => {
     expect(migration).toContain("event.event_data -> 'items'");
     expect(migration).toContain('count(distinct event_id)');
     expect(migration).toContain('views.view_count >= 10');
-    expect(migration).toContain('actions.action_count <= views.view_count');
+    expect(migration).toContain(
+      'least(actions.action_count, views.view_count) as action_count'
+    );
   });
 
   it('keeps the rpc merchant scoped and unavailable to anonymous callers', () => {
-    expect(migration).toContain('public.check_staff_permission(');
-    expect(migration).toContain("'analytics',");
-    expect(migration).toContain("'view'");
+    expect(migration).toContain("staff.permissions -> 'analytics' ->> 'view'");
+    expect(migration).toContain(
+      "role_permissions.permissions -> 'analytics' ->> 'view'"
+    );
     expect(migration).toContain('security definer');
     expect(migration).toContain('from public, anon');
     expect(migration).toContain('to authenticated, service_role');
