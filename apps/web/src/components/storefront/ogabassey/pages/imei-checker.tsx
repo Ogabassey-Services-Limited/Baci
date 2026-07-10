@@ -81,6 +81,7 @@ interface ImeiCheckOutcome {
   result: ImeiResult | null;
   error: string | null;
   keepRequestIdentity: boolean;
+  needsWalletFunding: boolean;
 }
 
 /**
@@ -117,16 +118,24 @@ async function performImeiCheck(
         result: null,
         error: data.error || 'Unable to check IMEI. Please try again.',
         keepRequestIdentity,
+        needsWalletFunding:
+          response.status === 402 && data.code === 'WALLET_INSUFFICIENT',
       };
     }
 
-    return { result: data.data ?? null, error: null, keepRequestIdentity };
+    return {
+      result: data.data ?? null,
+      error: null,
+      keepRequestIdentity,
+      needsWalletFunding: false,
+    };
   } catch (err) {
     console.error('IMEI check failed:', err);
     return {
       result: null,
       error: 'Network error. Please check your connection and try again.',
       keepRequestIdentity: true,
+      needsWalletFunding: false,
     };
   }
 }
@@ -136,6 +145,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
   const [selectedTier, setSelectedTier] = useState<ServiceTier>('full');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsWalletFunding, setNeedsWalletFunding] = useState(false);
   const [result, setResult] = useState<ImeiResult | null>(null);
   const [showTierPicker, setShowTierPicker] = useState(false);
   const [requestIdentity, setRequestIdentity] =
@@ -180,6 +190,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
     setIsLoading(true);
     setResult(null);
     setError(null);
+    setNeedsWalletFunding(false);
 
     const normalizedImei = imei.trim();
     const existingIdentityMatches =
@@ -194,6 +205,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
     } catch (err) {
       console.error('IMEI check failed:', err);
       setError('Network error. Please check your connection and try again.');
+      setNeedsWalletFunding(false);
       setIsLoading(false);
       return;
     }
@@ -221,6 +233,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
     } else {
       setResult(outcome.result);
     }
+    setNeedsWalletFunding(outcome.needsWalletFunding);
     setIsLoading(false);
   };
 
@@ -236,6 +249,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
             error={error}
             imei={imei}
             isLoading={isLoading}
+            needsWalletFunding={needsWalletFunding}
             onCheck={handleCheck}
             onDeviceQueryChange={(value) => {
               setDeviceQuery(value);
@@ -263,6 +277,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
           onReset={() => {
             setResult(null);
             setError(null);
+            setNeedsWalletFunding(false);
             setImei('');
           }}
         />

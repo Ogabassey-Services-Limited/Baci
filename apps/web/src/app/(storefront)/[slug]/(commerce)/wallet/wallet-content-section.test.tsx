@@ -2,7 +2,15 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/components/storefront/ogabassey/pages/wallet', () => ({
-  OgabasseyV2Wallet: () => <div>Wallet UI</div>,
+  OgabasseyV2Wallet: ({
+    initialShowFunding,
+  }: {
+    initialShowFunding?: boolean;
+  }) => (
+    <div data-initial-show-funding={String(initialShowFunding ?? false)}>
+      Wallet UI
+    </div>
+  ),
 }));
 
 import { WalletContentSection } from './wallet-content-section';
@@ -20,5 +28,14 @@ describe('WalletContentSection', () => {
     expect(heading).toHaveClass('sr-only');
     expect(section).toHaveAttribute('aria-labelledby', 'wallet-page-title');
     expect(screen.getByText('Wallet UI')).toBeInTheDocument();
+  });
+
+  it('forwards the funding deep-link state to the wallet UI', () => {
+    render(<WalletContentSection initialShowFunding />);
+
+    expect(screen.getByText('Wallet UI')).toHaveAttribute(
+      'data-initial-show-funding',
+      'true'
+    );
   });
 });

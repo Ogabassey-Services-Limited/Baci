@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  AlertTriangle,
   Check,
   ChevronRight,
   Loader2,
@@ -13,6 +12,7 @@ import {
 } from 'lucide-react';
 import type React from 'react';
 import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
+import { ImeiCheckerError } from './imei-checker-error';
 import { ImeiCheckerFindImei } from './imei-checker-find-imei';
 import { IMEI_CHECKER_PROOF_ITEMS } from './imei-checker-proof-items';
 import { SERVICE_TIERS, type ServiceTier } from './imei-checker-tiers';
@@ -24,6 +24,7 @@ interface OgabasseyImeiEntryProps {
   error: string | null;
   imei: string;
   isLoading: boolean;
+  needsWalletFunding: boolean;
   onCheck: (event: React.FormEvent) => void;
   onDeviceQueryChange: (value: string) => void;
   onDeviceSearchFocus: () => void;
@@ -45,6 +46,7 @@ export const OgabasseyImeiEntry = ({
   error,
   imei,
   isLoading,
+  needsWalletFunding,
   onCheck,
   onDeviceQueryChange,
   onDeviceSearchFocus,
@@ -264,15 +266,12 @@ export const OgabasseyImeiEntry = ({
           </button>
         </form>
       </div>
-      {error && (
-        <div className="mt-4 p-4 bg-[var(--store-danger-bg,#fef2f2)] border border-[var(--store-danger-border,#fecaca)] rounded-2xl flex items-center gap-3 text-left">
-          <AlertTriangle
-            className="text-[var(--store-danger-text,#dc2626)] shrink-0"
-            size={20}
-          />
-          <p className="text-sm text-[var(--store-danger-text,#b91c1c)]">{error}</p>
-        </div>
-      )}
+      {error ? (
+        <ImeiCheckerError
+          error={error}
+          needsWalletFunding={needsWalletFunding}
+        />
+      ) : null}
       <ImeiCheckerFindImei />
     </div>
 

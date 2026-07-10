@@ -17,7 +17,13 @@ const NGN_CURRENCY_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat(
   }
 );
 
-export function OgabasseyV2Wallet() {
+interface OgabasseyV2WalletProps {
+  initialShowFunding?: boolean;
+}
+
+export function OgabasseyV2Wallet({
+  initialShowFunding = false,
+}: OgabasseyV2WalletProps) {
   const {
     customer,
     isAuthenticated,
@@ -28,7 +34,7 @@ export function OgabasseyV2Wallet() {
 
   const [wallet, setWallet] = useState<StorefrontWallet | null>(null);
   const [hasFetchSettled, setHasFetchSettled] = useState(false);
-  const [showFunding, setShowFunding] = useState(false);
+  const [showFunding, setShowFunding] = useState(initialShowFunding);
   const [refreshToken, setRefreshToken] = useState(0);
 
   // Signing out (or switching customer/storefront) must drop the previous
@@ -40,7 +46,7 @@ export function OgabasseyV2Wallet() {
   if (identity !== fetchedIdentity) {
     setFetchedIdentity(identity);
     setWallet(null);
-    setShowFunding(false);
+    setShowFunding(identity ? initialShowFunding : false);
     setHasFetchSettled(false);
   }
 

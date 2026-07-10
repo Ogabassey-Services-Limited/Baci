@@ -10,6 +10,7 @@ import {
   isValidMerchantIdentifier,
 } from '@/lib/validation';
 import { WalletContentSection } from './wallet-content-section';
+import { isWalletFundingDeepLink } from './wallet-funding-deep-link';
 
 export const metadata: Metadata = {
   title: 'Wallet Balance',
@@ -17,20 +18,22 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function WalletPage({
-  params,
-}: {
+type WalletSearchParams = Record<string, string | string[] | undefined>;
+
+interface WalletPageProps {
   params: Promise<{ slug: string }>;
-}) {
-  return <WalletContent params={params} />;
+  searchParams?: Promise<WalletSearchParams>;
 }
 
-async function WalletContent({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
+export default function WalletPage({ params, searchParams }: WalletPageProps) {
+  return <WalletContent params={params} searchParams={searchParams} />;
+}
+
+async function WalletContent({ params, searchParams }: WalletPageProps) {
+  const [{ slug }, resolvedSearchParams] = await Promise.all([
+    params,
+    searchParams ?? Promise.resolve({}),
+  ]);
 
   // Validate identifier
   if (!isValidMerchantIdentifier(slug)) {
@@ -52,5 +55,9 @@ async function WalletContent({
     notFound();
   }
 
-  return <WalletContentSection />;
+  return (
+    <WalletContentSection
+      initialShowFunding={isWalletFundingDeepLink(resolvedSearchParams.fund)}
+    />
+  );
 }

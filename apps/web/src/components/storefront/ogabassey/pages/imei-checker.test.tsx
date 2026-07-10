@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { AnchorHTMLAttributes } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OgabasseyImeiChecker } from './imei-checker';
 import { SERVICE_TIERS, type ServiceTier } from './imei-checker-tiers';
@@ -10,6 +11,18 @@ vi.stubGlobal('fetch', fetchMock);
 vi.mock('next/image', () => ({
   default: (props: Record<string, unknown>) => (
     <img {...props} alt={String(props.alt ?? '')} />
+  ),
+}));
+
+vi.mock('next/link', () => ({
+  default: ({
+    children,
+    href,
+    ...props
+  }: AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a href={String(href)} {...props}>
+      {children}
+    </a>
   ),
 }));
 
@@ -224,6 +237,30 @@ describe('OgabasseyImeiChecker', () => {
     expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
   });
 
+  it('links to the wallet funding flow when the wallet balance is insufficient', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 402,
+      json: vi.fn().mockResolvedValue({
+        success: false,
+        code: 'WALLET_INSUFFICIENT',
+        error: 'Wallet balance is too low.',
+      }),
+    });
+
+    render(<OgabasseyImeiChecker />);
+
+    enterValidImei();
+    fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
+
+    expect(
+      await screen.findByText('Wallet balance is too low.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /fund wallet/i })
+    ).toHaveAttribute('href', '/wallet?fund=1');
+  });
+
   it('preserves the idempotency key while a refund is pending', async () => {
     fetchMock
       .mockResolvedValueOnce({
@@ -370,6 +407,9 @@ describe('OgabasseyImeiChecker', () => {
     expect(
       await screen.findByText('Wallet balance is too low.')
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /fund wallet/i })
+    ).not.toBeInTheDocument();
   });
 
   it('shows a network error when the IMEI request rejects', async () => {

@@ -110,6 +110,30 @@ describe('OgabasseyV2Wallet', () => {
     });
   });
 
+  it('opens the existing funding panel when reached from a funding deep link', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      json: async () => ({
+        balance: 0,
+        fundingAccount: null,
+        requiresFundingAccountConsent: true,
+        totalEarned: 0,
+        totalRedeemed: 0,
+        transactions: [],
+        walletDvaEnabled: true,
+      }),
+    } as Response);
+
+    render(<OgabasseyV2Wallet initialShowFunding />);
+
+    await screen.findByText('₦0.00');
+
+    expect(screen.getByTestId('wallet-funding-panel')).toBeInTheDocument();
+    expect(fundingPanelProps.current).toMatchObject({
+      account: null,
+      requiresConsent: true,
+    });
+  });
+
   it('does not offer consent when the merchant has wallet DVAs disabled', async () => {
     const user = userEvent.setup();
     vi.mocked(fetch).mockResolvedValue({
