@@ -53,7 +53,12 @@ export function selectOgabasseyLaunchProducts({
     { pinned: launchPins, limit: LAUNCH_CAROUSEL_LIMIT }
   );
 
-  return mapStorefrontProductsToOgabasseyProducts(launchSubset);
+  // Launch items feed the server-built hero slides and home JSON-LD only —
+  // they never cross the client boundary, and the schema builder needs the
+  // untruncated description.
+  return mapStorefrontProductsToOgabasseyProducts(launchSubset, {
+    descriptionMode: 'full',
+  });
 }
 
 /**

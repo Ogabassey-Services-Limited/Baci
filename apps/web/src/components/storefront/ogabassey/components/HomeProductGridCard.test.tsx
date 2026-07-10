@@ -236,7 +236,7 @@ describe('HomeProductGridCard', () => {
     expect(screen.getByText('(4.8)')).toBeInTheDocument();
   });
 
-  it('normalizes missing ratings before interactive card enhancement', () => {
+  it('omits the rating row when a product has no real rating', () => {
     const productWithoutRating = {
       ...baseProduct,
       rating: undefined,
@@ -248,8 +248,8 @@ describe('HomeProductGridCard', () => {
       screen.getByRole('link', { name: /iPhone 17 Pro Max/i })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('img', { name: 'Rated 0 out of 5' })
-    ).toBeInTheDocument();
+      screen.queryByRole('img', { name: /Rated .* out of 5/ })
+    ).not.toBeInTheDocument();
   });
 
   it('renders blank-image home placeholders as decorative images', () => {

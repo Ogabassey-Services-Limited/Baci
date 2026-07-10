@@ -160,6 +160,59 @@ describe('ProductCard', () => {
     expect(image).toHaveAttribute('alt', '');
   });
 
+  it.each(['grid', 'list'] as const)(
+    'shows the star rating in %s view when a product has real review data',
+    (viewMode) => {
+      render(
+        <ProductCard
+          product={mockProduct}
+          onAddToCart={vi.fn()}
+          isAdded={false}
+          viewMode={viewMode}
+        />
+      );
+
+      expect(screen.getByText('(4.5)')).toBeInTheDocument();
+    }
+  );
+
+  it.each([
+    { label: 'missing', rating: undefined },
+    { label: 'zero', rating: 0 },
+    { label: 'negative', rating: -2 },
+    { label: 'NaN', rating: Number.NaN },
+    { label: 'Infinity', rating: Number.POSITIVE_INFINITY },
+  ])('hides the star rating in grid view for a $label rating', ({ rating }) => {
+    render(
+      <ProductCard
+        product={{ ...mockProduct, rating }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+      />
+    );
+
+    expect(screen.queryByText(/^\(/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { label: 'missing', rating: undefined },
+    { label: 'zero', rating: 0 },
+    { label: 'negative', rating: -2 },
+    { label: 'NaN', rating: Number.NaN },
+    { label: 'Infinity', rating: Number.POSITIVE_INFINITY },
+  ])('hides the star rating in list view for a $label rating', ({ rating }) => {
+    render(
+      <ProductCard
+        product={{ ...mockProduct, rating }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        viewMode="list"
+      />
+    );
+
+    expect(screen.queryByText(/^\(/)).not.toBeInTheDocument();
+  });
+
   it('renders with isAdded state', () => {
     const { container } = render(
       <ProductCard

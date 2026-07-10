@@ -34,6 +34,14 @@ function stripHtml(html: string): string {
   return result;
 }
 
+// Mirrors ProductRatingRow's normalization: only real, finite, positive
+// ratings earn a star row — never fabricated or degenerate values.
+function hasVisibleRating(rating: number | undefined): rating is number {
+  return (
+    typeof rating === 'number' && Number.isFinite(rating) && rating > 0
+  );
+}
+
 interface ProductCardProps {
   product: Product;
   onAddToCart: (e: React.MouseEvent, product: Product) => void;
@@ -241,19 +249,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {/* Content */}
         <div className="flex flex-col flex-1 pointer-events-none px-1 pt-1">
 
-          {/* Ratings */}
-          <div className="flex items-center gap-1 mb-1.5">
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                size={12}
-                className={`${i < Math.floor(product.rating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`}
-              />
-            ))}
-            <span className="text-[10px] text-gray-400 ml-1">
-              ({product.rating ?? 0})
-            </span>
-          </div>
+          {/* Ratings — only for products with real review data */}
+          {hasVisibleRating(product.rating) && (
+            <div className="flex items-center gap-1 mb-1.5">
+              {[...Array(5)].map((_, i) => (
+                <Star
+                  key={i}
+                  size={12}
+                  className={`${i < Math.floor(product.rating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`}
+                />
+              ))}
+              <span className="text-[10px] text-gray-400 ml-1">
+                ({product.rating})
+              </span>
+            </div>
+          )}
 
           {/* Title - Red to match screenshot */}
           <h3 className="font-bold text-base text-gray-900 mb-1 leading-tight line-clamp-2 md:group-hover:text-primary transition-colors">
@@ -341,21 +351,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <h3 className="font-bold text-lg text-gray-900 md:group-hover:text-primary transition-colors line-clamp-1">
             {product.name}
           </h3>
-          <div
-            className="hidden md:flex items-center gap-0.5"
-            title={`${product.rating} out of 5 stars`}
-          >
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                size={12}
-                className={`${i < Math.floor(product.rating ?? 0) ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-100 text-gray-300'}`}
-              />
-            ))}
-            <span className="text-xs text-gray-500 ml-1">
-              ({product.rating ?? 0})
-            </span>
-          </div>
+          {hasVisibleRating(product.rating) && (
+            <div
+              className="hidden md:flex items-center gap-0.5"
+              title={`${product.rating} out of 5 stars`}
+            >
+              {[...Array(5)].map((_, i) => (
+                <Star
+                  key={i}
+                  size={12}
+                  className={`${i < Math.floor(product.rating ?? 0) ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-100 text-gray-300'}`}
+                />
+              ))}
+              <span className="text-xs text-gray-500 ml-1">
+                ({product.rating})
+              </span>
+            </div>
+          )}
         </div>
 
         <p className="text-gray-500 text-sm mb-3 line-clamp-3">
