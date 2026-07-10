@@ -219,6 +219,31 @@ describe('getCachedBlogListing', () => {
     );
   });
 
+  it('falls back to the legacy feature settings projection while the repairs flag migration is pending', async () => {
+    const { featureSettingsSelects } = setupBlogListingFetch({
+      featureSettingsResults: [
+        {
+          data: null,
+          error: {
+            code: '42703',
+            message:
+              'column merchant_feature_settings.repairs_catalog_enabled does not exist',
+          },
+        },
+        { data: { blog_enabled: true }, error: null },
+      ],
+      posts: [{ id: 'post-1', slug: 'best-phones', title: 'Best Phones' }],
+    });
+
+    const result = await getCachedBlogListing('ogabassey');
+
+    expect(result).not.toBeNull();
+    expect(result?.posts.map((post) => post.id)).toEqual(['post-1']);
+    expect(featureSettingsSelects).toHaveLength(2);
+    expect(featureSettingsSelects[0]).toContain('repairs_catalog_enabled');
+    expect(featureSettingsSelects[1]).not.toContain('repairs_catalog_enabled');
+  });
+
   it('uses estimated counts for author pagination to avoid full COUNT scans', async () => {
     const { blogSelects } = setupBlogListingFetch({
       posts: [
