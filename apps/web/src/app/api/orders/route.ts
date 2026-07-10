@@ -2063,12 +2063,20 @@ export async function POST(request: NextRequest) {
       // without relying on PostgREST RLS / RPC behavior.
       p_tax_basis: 'exclusive',
       p_gift_wrapping_fee: giftWrappingFeeValue,
-      // Voucher orders now carry the real recomputed VAT, so the RPC's parity
-      // check computes `subtotal + tax - award` = the VAT — which never matches
-      // the client's expected_total derived from a zero-priced voucher cart.
-      // Let the RPC own the total for prizes (mobile already omits it).
+      // Voucher orders: the shopper owes nothing, but the merchant absorbs the
+      // recorded VAT + delivery, so the canonical order total must land at
+      // exactly `tax + shipping + gift`. Passing that server-computed figure
+      // (never the client's zero-priced-cart expected_total) arms the RPC's
+      // parity gate: if the award + any negotiation discount don't fully cover
+      // the CURRENT catalog price — e.g. the merchant raised the price during
+      // the voucher window — `create_storefront_order` raises
+      // `order_total_mismatch` and the whole wrapper tx rolls back BEFORE the
+      // award is claimed, so the shopper keeps their prize instead of burning
+      // it on a residual order. (Gift is always 0 here — a non-zero gift fee is
+      // a shopper residual, rejected upstream as
+      // QUIZ_VOUCHER_RESIDUAL_PAYMENT_UNSUPPORTED.)
       p_expected_total: hasVoucherItem
-        ? null
+        ? orderTaxAmount + shippingFeeValue + giftWrappingFeeValue
         : typeof body.expected_total === 'number'
           ? body.expected_total
           : null,
@@ -2402,7 +2410,15 @@ export async function POST(request: NextRequest) {
       walletCurrencySupported &&
       wallet_amount > 0 &&
       customer_id &&
-      remainingAfterSavings > 0
+      remainingAfterSavings > 0 &&
+      // A quiz-voucher order is settled entirely by the voucher (with the
+      // merchant absorbing the recorded VAT + delivery), so nothing is due —
+      // `remainingAfterSavings` here is only that absorbed VAT/delivery, which
+      // must never be charged to the shopper's wallet. Savings is already
+      // rejected upstream (SAVINGS_VOUCHER_COMBINATION_UNSUPPORTED); skip wallet
+      // redemption the same way so a shopper who also toggled wallet credit
+      // isn't debited for costs the voucher path treats as covered.
+      !hasVoucherItem
     ) {
       try {
         // Call atomic wallet redemption function (handles idempotency via order_id)

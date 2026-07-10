@@ -28,6 +28,24 @@ vi.mock('./cart-page', () => ({
 
 const { useSearchParams } = await import('next/navigation');
 
+// The wrapper defers all work until the persisted cart has hydrated, so tests
+// default `isHydrated` to true and opt out only when exercising the gate.
+function mockUseCart(
+  overrides: {
+    cart?: Array<Record<string, unknown>>;
+    addToCart?: ReturnType<typeof vi.fn>;
+    isHydrated?: boolean;
+  } = {}
+): ReturnType<typeof vi.fn> {
+  const addToCart = overrides.addToCart ?? vi.fn();
+  vi.mocked(useCart).mockReturnValue({
+    addToCart,
+    cart: overrides.cart ?? [],
+    isHydrated: overrides.isHydrated ?? true,
+  } as unknown as ReturnType<typeof useCart>);
+  return addToCart;
+}
+
 function setupProductsQuery(result: {
   data: Array<Record<string, unknown>> | null;
   error: unknown;
@@ -50,11 +68,11 @@ function setupProductsQuery(result: {
   return productsQuery;
 }
 
-	describe('CartPageWrapper', () => {
-	  beforeEach(() => {
-	    vi.clearAllMocks();
-	    window.history.pushState({}, '', '/ogabassey/cart');
-	    vi.mocked(useSearchParams).mockReturnValue(
+describe('CartPageWrapper', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.history.pushState({}, '', '/ogabassey/cart');
+    vi.mocked(useSearchParams).mockReturnValue(
       new URLSearchParams(
         'item_id=55555555-5555-4555-8555-555555555555&quiz_award_id=44444444-4444-4444-8444-444444444444&quiz_voucher_token=signed-token'
       ) as ReturnType<typeof useSearchParams>
@@ -62,11 +80,7 @@ function setupProductsQuery(result: {
   });
 
   it('adds quiz prize products to cart with voucher metadata from the URL', async () => {
-    const addToCart = vi.fn();
-    vi.mocked(useCart).mockReturnValue({
-      addToCart,
-      cart: [],
-    } as unknown as ReturnType<typeof useCart>);
+    const addToCart = mockUseCart({ cart: [] });
     setupProductsQuery({
       data: [
         {
@@ -100,12 +114,8 @@ function setupProductsQuery(result: {
   });
 
   it('blocks a prize claim into a cart that already holds paid items', async () => {
-    const addToCart = vi.fn();
-    vi.mocked(useCart).mockReturnValue({
-      addToCart,
-      // A normal paid line (no quizAwardId) already in the cart.
-      cart: [{ id: 'paid-1', quantity: 1 }],
-    } as unknown as ReturnType<typeof useCart>);
+    // A normal paid line (no quizAwardId) already in the cart.
+    const addToCart = mockUseCart({ cart: [{ id: 'paid-1', quantity: 1 }] });
     setupProductsQuery({
       data: [
         {
@@ -133,12 +143,52 @@ function setupProductsQuery(result: {
     expect(addToCart).not.toHaveBeenCalled();
   });
 
+  it('waits for cart hydration before running the mixed-cart guard', async () => {
+    // Cold load: the persisted paid item is not visible yet because the cart
+    // provider has not hydrated. The wrapper must NOT process — otherwise it
+    // would read an empty cart, skip the mixed-cart guard, and add the prize
+    // beside the shopper's paid items.
+    const addToCart = mockUseCart({
+      cart: [{ id: 'paid-1', quantity: 1 }],
+      isHydrated: false,
+    });
+    setupProductsQuery({
+      data: [
+        {
+          id: '55555555-5555-4555-8555-555555555555',
+          images: [],
+          name: 'iPhone 15 Pro Max',
+          price: 2100000,
+          status: 'active',
+        },
+      ],
+      error: null,
+    });
+
+    const { rerender } = render(<CartPageWrapper merchantId="merchant-1" />);
+
+    // Nothing happens while unhydrated: no product lookup, no add, no toast.
+    expect(createClient).not.toHaveBeenCalled();
+    expect(addToCart).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
+
+    // Cart hydrates with the paid item present; now the guard runs and blocks.
+    mockUseCart({ addToCart, cart: [{ id: 'paid-1', quantity: 1 }] });
+    rerender(<CartPageWrapper merchantId="merchant-1" />);
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Check out your prize separately',
+          variant: 'destructive',
+        })
+      );
+    });
+    expect(addToCart).not.toHaveBeenCalled();
+  });
+
   it('does not fetch products when item_id is missing', async () => {
-    const addToCart = vi.fn();
-    vi.mocked(useCart).mockReturnValue({
-      addToCart,
-      cart: [],
-    } as unknown as ReturnType<typeof useCart>);
+    const addToCart = mockUseCart({ cart: [] });
     vi.mocked(useSearchParams).mockReturnValue(
       new URLSearchParams(
         'quiz_award_id=44444444-4444-4444-8444-444444444444&quiz_voucher_token=signed-token'
@@ -152,11 +202,7 @@ function setupProductsQuery(result: {
   });
 
   it('shows a destructive toast when the product cannot be found', async () => {
-    const addToCart = vi.fn();
-    vi.mocked(useCart).mockReturnValue({
-      addToCart,
-      cart: [],
-    } as unknown as ReturnType<typeof useCart>);
+    const addToCart = mockUseCart({ cart: [] });
     setupProductsQuery({ data: [], error: null });
 
     render(<CartPageWrapper merchantId="merchant-1" />);
@@ -173,11 +219,7 @@ function setupProductsQuery(result: {
   });
 
   it('shows a destructive toast when product lookup fails', async () => {
-    const addToCart = vi.fn();
-    vi.mocked(useCart).mockReturnValue({
-      addToCart,
-      cart: [],
-    } as unknown as ReturnType<typeof useCart>);
+    const addToCart = mockUseCart({ cart: [] });
     setupProductsQuery({
       data: null,
       error: { message: 'database unavailable' },
@@ -197,11 +239,7 @@ function setupProductsQuery(result: {
   });
 
   it('does not add inactive products returned by the lookup', async () => {
-    const addToCart = vi.fn();
-    vi.mocked(useCart).mockReturnValue({
-      addToCart,
-      cart: [],
-    } as unknown as ReturnType<typeof useCart>);
+    const addToCart = mockUseCart({ cart: [] });
     setupProductsQuery({
       data: [
         {
@@ -228,17 +266,15 @@ function setupProductsQuery(result: {
     expect(addToCart).not.toHaveBeenCalled();
   });
 
-	  it('does not add the same quiz award twice', async () => {
-	    const addToCart = vi.fn();
-	    vi.mocked(useCart).mockReturnValue({
-	      addToCart,
+  it('does not add the same quiz award twice', async () => {
+    const addToCart = mockUseCart({
       cart: [
         {
           id: '55555555-5555-4555-8555-555555555555',
           quizAwardId: '44444444-4444-4444-8444-444444444444',
         },
       ],
-    } as unknown as ReturnType<typeof useCart>);
+    });
     const productsQuery = setupProductsQuery({
       data: [
         {
@@ -256,41 +292,37 @@ function setupProductsQuery(result: {
 
     await waitFor(() => {
       expect(productsQuery.then).toHaveBeenCalled();
-	    });
-	    expect(addToCart).not.toHaveBeenCalled();
-	  });
+    });
+    expect(addToCart).not.toHaveBeenCalled();
+  });
 
-	  it('preserves unrelated query parameters when cleaning up quiz prize cart params', async () => {
-	    const addToCart = vi.fn();
-	    vi.mocked(useCart).mockReturnValue({
-	      addToCart,
-	      cart: [],
-	    } as unknown as ReturnType<typeof useCart>);
-	    setupProductsQuery({
-	      data: [
-	        {
-	          id: '55555555-5555-4555-8555-555555555555',
-	          images: [],
-	          name: 'iPhone 15 Pro Max',
-	          price: 2100000,
-	          status: 'active',
-	        },
-	      ],
-	      error: null,
-	    });
-	    window.history.pushState(
-	      {},
-	      '',
-	      '/ogabassey/cart?item_id=55555555-5555-4555-8555-555555555555&quiz_award_id=44444444-4444-4444-8444-444444444444&quiz_voucher_token=signed-token&ref=share#summary'
-	    );
+  it('preserves unrelated query parameters when cleaning up quiz prize cart params', async () => {
+    const addToCart = mockUseCart({ cart: [] });
+    setupProductsQuery({
+      data: [
+        {
+          id: '55555555-5555-4555-8555-555555555555',
+          images: [],
+          name: 'iPhone 15 Pro Max',
+          price: 2100000,
+          status: 'active',
+        },
+      ],
+      error: null,
+    });
+    window.history.pushState(
+      {},
+      '',
+      '/ogabassey/cart?item_id=55555555-5555-4555-8555-555555555555&quiz_award_id=44444444-4444-4444-8444-444444444444&quiz_voucher_token=signed-token&ref=share#summary'
+    );
 
-	    render(<CartPageWrapper merchantId="merchant-1" />);
+    render(<CartPageWrapper merchantId="merchant-1" />);
 
-	    await waitFor(() => {
-	      expect(addToCart).toHaveBeenCalledOnce();
-	    });
-	    expect(window.location.pathname).toBe('/ogabassey/cart');
-	    expect(window.location.search).toBe('?ref=share');
-	    expect(window.location.hash).toBe('#summary');
-	  });
-	});
+    await waitFor(() => {
+      expect(addToCart).toHaveBeenCalledOnce();
+    });
+    expect(window.location.pathname).toBe('/ogabassey/cart');
+    expect(window.location.search).toBe('?ref=share');
+    expect(window.location.hash).toBe('#summary');
+  });
+});

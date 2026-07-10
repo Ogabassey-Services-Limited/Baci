@@ -190,7 +190,7 @@ async function fetchAndAddCartItems({
  */
 export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 }: CartPageWrapperProps) {
   const searchParams = useSearchParams();
-  const { addToCart, cart } = useCart();
+  const { addToCart, cart, isHydrated } = useCart();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const processedRef = useRef(false);
@@ -203,8 +203,14 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
     const variantId = searchParams.get('variant_id')?.trim() || undefined;
     const condition = searchParams.get('condition')?.trim() || undefined;
 
-    // Only process once and only if item_id is present
-    if (!itemIds || processedRef.current) return;
+    // Wait for the persisted cart to hydrate before processing. On a cold load
+    // from a prize link the cart is empty until StorefrontCartProvider restores
+    // localStorage in its own effect; running now would let the mixed-cart
+    // guard read an empty cart and add the prize alongside a shopper's
+    // already-persisted paid items (which the server then rejects). Gating on
+    // `isHydrated` (and keeping it in the dep list) defers the single run until
+    // the real cart is present. Only process once, and only if item_id exists.
+    if (!isHydrated || !itemIds || processedRef.current) return;
     processedRef.current = true;
 
     void fetchAndAddCartItems({
@@ -219,7 +225,7 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
       toast,
       setIsLoading,
     });
-  }, [searchParams, merchantId, addToCart, cart, toast]);
+  }, [searchParams, merchantId, addToCart, cart, toast, isHydrated]);
 
   // Show loading state while adding items
   if (isLoading) {

@@ -1567,6 +1567,11 @@ describe('POST /api/orders — quiz voucher guard', () => {
         // The REAL recomputed VAT (1000 * 7.5% = 75), not 0 — otherwise the RPC
         // raises tax_amount_mismatch for a VAT-registered merchant.
         p_tax_amount: 75,
+        // Server-computed expected total = absorbed VAT + shipping + gift (75 +
+        // 0 + 0). This arms the RPC's parity gate so a mid-window catalog price
+        // change (award no longer covers the product) rolls back atomically
+        // instead of burning the award on a residual order.
+        p_expected_total: 75,
       })
     );
     expect(supabase.rpc).toHaveBeenCalledWith(
@@ -1779,12 +1784,98 @@ describe('POST /api/orders — quiz voucher guard', () => {
     const body = await readJson(response);
 
     expect(response.status).toBe(201);
-    // The voucher RPC runs and records the real shipping fee.
+    // The voucher RPC runs and records the real shipping fee, and the
+    // server-computed expected total is the absorbed VAT + shipping + gift
+    // (0 + 1500 + 0) so the RPC's parity gate still fires on a residual.
     expect(supabase.rpc).toHaveBeenCalledWith(
       'create_storefront_order_with_quiz_voucher',
-      expect.objectContaining({ p_shipping_fee: 1500 })
+      expect.objectContaining({ p_shipping_fee: 1500, p_expected_total: 1500 })
     );
     // The shopper owes nothing — the merchant absorbs the delivery.
+    expect(body.amountDueToGateway).toBe(0);
+  });
+
+  it('never debits the wallet on a voucher order, even when wallet credit is toggled', async () => {
+    // A voucher order's `orderTotal` is only the merchant-absorbed VAT/delivery,
+    // never a shopper charge. If a shopper also toggled wallet credit, the
+    // wallet redemption block must be skipped (like savings) so the absorbed
+    // cost is not charged against their wallet balance.
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const supabase = buildMockSupabase({
+      create_storefront_order_with_quiz_voucher: {
+        // Award covers the product; the absorbed delivery is the only total.
+        data: [
+          { ...baseOrderRow, subtotal: 1000, shipping_fee: 1500, total: 1500 },
+        ],
+        error: null,
+      },
+      // If the (buggy) path ran, this would redeem 1500 against the wallet.
+      redeem_wallet_for_order: {
+        data: [
+          {
+            success: true,
+            redeemed_amount: 1500,
+            new_balance: 0,
+            transaction_id: '99999999-aaaa-bbbb-cccc-dddddddddddd',
+          },
+        ],
+        error: null,
+      },
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+    const awardId = '11111111-1111-4111-8111-111111111111';
+    const productId = '22222222-2222-4222-8222-222222222222';
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId,
+        condition: 'new',
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId,
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          shipping_fee: 1500,
+          use_wallet_credit: true,
+          wallet_amount: 1500,
+          items: [
+            {
+              ...baseOrderPayload.items[0],
+              condition: 'new',
+              price: 0,
+              product_id: productId,
+              voucher_token: token,
+            },
+          ],
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(201);
+    // The wallet is never touched for a voucher order.
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'redeem_wallet_for_order',
+      expect.anything()
+    );
+    expect(body.wallet ?? null).toBeNull();
     expect(body.amountDueToGateway).toBe(0);
   });
 
