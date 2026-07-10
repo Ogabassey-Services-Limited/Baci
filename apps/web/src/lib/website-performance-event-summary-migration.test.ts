@@ -13,20 +13,29 @@ const migration = readFileSync(
 describe('website performance event summary migration', () => {
   it('aggregates canonical event shapes without returning raw event rows', () => {
     expect(migration).toContain(
-      "event_type in ('search', 'product_view', 'purchase')"
+      "event_type in ('search', 'product_view', 'purchase', 'add_to_cart')"
     );
     expect(migration).toContain("event_data ->> 'search_term'");
     expect(migration).toContain('jsonb_array_elements(');
     expect(migration).toContain("event.event_data -> 'items'");
     expect(migration).toContain('count(distinct event_id)');
     expect(migration).toContain('views.view_count >= 10');
-    expect(migration).toContain('purchases.purchase_count <= views.view_count');
+    expect(migration).toContain('actions.action_count <= views.view_count');
   });
 
   it('keeps the rpc merchant scoped and unavailable to anonymous callers', () => {
-    expect(migration).toContain('public.has_merchant_access(p_merchant_id)');
+    expect(migration).toContain('public.check_staff_permission(');
+    expect(migration).toContain("'analytics',");
+    expect(migration).toContain("'view'");
     expect(migration).toContain('security definer');
     expect(migration).toContain('from public, anon');
     expect(migration).toContain('to authenticated, service_role');
+  });
+
+  it('enforces the API date-range limit for direct RPC callers', () => {
+    expect(migration).toContain(
+      "p_end_date - p_start_date > interval '30 days'"
+    );
+    expect(migration).toContain('website_performance_date_range_too_large');
   });
 });

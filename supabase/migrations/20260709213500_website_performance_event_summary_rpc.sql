@@ -25,8 +25,18 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  IF p_end_date - p_start_date > interval '30 days' THEN
+    RAISE EXCEPTION 'website_performance_date_range_too_large'
+      USING ERRCODE = '22023';
+  END IF;
+
   IF v_caller_role <> 'service_role'
-    AND NOT public.has_merchant_access(p_merchant_id) THEN
+    AND NOT public.check_staff_permission(
+      (SELECT auth.uid()),
+      p_merchant_id,
+      'analytics',
+      'view'
+    ) THEN
     RAISE EXCEPTION 'insufficient_privilege' USING ERRCODE = '42501';
   END IF;
 
@@ -37,7 +47,7 @@ BEGIN
       WHERE merchant_id = p_merchant_id
         AND event_timestamp >= p_start_date
         AND event_timestamp <= p_end_date
-        AND event_type IN ('search', 'product_view', 'purchase')
+        AND event_type IN ('search', 'product_view', 'purchase', 'add_to_cart')
     ),
     search_counts AS (
       SELECT
@@ -87,13 +97,13 @@ BEGIN
       WHERE trim(COALESCE(product_id, '')) <> ''
       GROUP BY product_id
     ),
-    purchase_candidates AS (
+    conversion_candidates AS (
       SELECT
         id AS event_id,
         COALESCE(event_data ->> 'product_id', event_data ->> 'id') AS product_id,
         COALESCE(event_data ->> 'product_name', event_data ->> 'name') AS product_name
       FROM scoped_events
-      WHERE event_type = 'purchase'
+      WHERE event_type IN ('purchase', 'add_to_cart')
 
       UNION ALL
 
@@ -109,30 +119,30 @@ BEGIN
           ELSE '[]'::jsonb
         END
       ) AS item
-      WHERE event.event_type = 'purchase'
+      WHERE event.event_type IN ('purchase', 'add_to_cart')
     ),
-    product_purchases AS (
+    product_actions AS (
       SELECT
         product_id,
         max(product_name) FILTER (WHERE trim(COALESCE(product_name, '')) <> '') AS product_name,
-        count(DISTINCT event_id) AS purchase_count
-      FROM purchase_candidates
+        count(DISTINCT event_id) AS action_count
+      FROM conversion_candidates
       WHERE trim(COALESCE(product_id, '')) <> ''
       GROUP BY product_id
     ),
     top_conversion AS (
       SELECT
         views.product_id,
-        COALESCE(views.product_name, purchases.product_name, 'Unknown Product') AS product_name,
+        COALESCE(views.product_name, actions.product_name, 'Unknown Product') AS product_name,
         views.view_count,
-        purchases.purchase_count,
-        (purchases.purchase_count::numeric / views.view_count::numeric) * 100 AS conversion_rate
+        actions.action_count,
+        (actions.action_count::numeric / views.view_count::numeric) * 100 AS conversion_rate
       FROM product_views AS views
-      INNER JOIN product_purchases AS purchases USING (product_id)
+      INNER JOIN product_actions AS actions USING (product_id)
       WHERE views.view_count >= 10
-        AND purchases.purchase_count > 0
-        AND purchases.purchase_count <= views.view_count
-      ORDER BY conversion_rate DESC, purchases.purchase_count DESC, product_name ASC
+        AND actions.action_count > 0
+        AND actions.action_count <= views.view_count
+      ORDER BY conversion_rate DESC, actions.action_count DESC, product_name ASC
       LIMIT 1
     )
     SELECT jsonb_build_object(
@@ -146,7 +156,7 @@ BEGIN
           'name', product_name,
           'conversionRate', conversion_rate,
           'views', view_count,
-          'purchases', purchase_count
+          'actions', action_count
         )
         FROM top_conversion
       )

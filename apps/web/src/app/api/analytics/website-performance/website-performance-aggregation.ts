@@ -6,9 +6,9 @@ type AnalyticsEvent = {
 };
 
 type ProductActivity = {
+  actions: number;
   id: string;
   name: string;
-  purchases: number;
   views: number;
 };
 
@@ -78,12 +78,12 @@ function normalizeTopConverting(
   const name = getString(value, ['name']);
   const conversionRate = getNumber(value, ['conversionRate']);
   const views = getNumber(value, ['views']);
-  const purchases = getNumber(value, ['purchases']);
+  const actions = getNumber(value, ['actions']);
   return id &&
     name &&
     views >= MIN_VIEWS_FOR_CONVERSION &&
-    purchases > 0 &&
-    purchases <= views &&
+    actions > 0 &&
+    actions <= views &&
     conversionRate > 0 &&
     conversionRate <= 100
     ? { id, name, conversionRate }
@@ -137,7 +137,8 @@ function aggregateEventRows(
 
     if (
       event.event_type !== 'product_view' &&
-      event.event_type !== 'purchase'
+      event.event_type !== 'purchase' &&
+      event.event_type !== 'add_to_cart'
     ) {
       continue;
     }
@@ -145,7 +146,7 @@ function aggregateEventRows(
     for (const product of getEventProducts(event.event_data)) {
       const activity = productActivity.get(product.id) ?? {
         ...product,
-        purchases: 0,
+        actions: 0,
         views: 0,
       };
       if (
@@ -155,7 +156,12 @@ function aggregateEventRows(
         activity.name = product.name;
       }
       if (event.event_type === 'product_view') activity.views += 1;
-      if (event.event_type === 'purchase') activity.purchases += 1;
+      if (
+        event.event_type === 'purchase' ||
+        event.event_type === 'add_to_cart'
+      ) {
+        activity.actions += 1;
+      }
       productActivity.set(product.id, activity);
     }
   }
@@ -168,17 +174,17 @@ function aggregateEventRows(
     .filter(
       (product) =>
         product.views >= MIN_VIEWS_FOR_CONVERSION &&
-        product.purchases > 0 &&
-        product.purchases <= product.views
+        product.actions > 0 &&
+        product.actions <= product.views
     )
     .map((product) => ({
       ...product,
-      conversionRate: (product.purchases / product.views) * 100,
+      conversionRate: (product.actions / product.views) * 100,
     }))
     .sort(
       (left, right) =>
         right.conversionRate - left.conversionRate ||
-        right.purchases - left.purchases ||
+        right.actions - left.actions ||
         left.name.localeCompare(right.name)
     )[0];
 

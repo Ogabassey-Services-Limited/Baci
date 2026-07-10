@@ -15,6 +15,7 @@ describe('configureRevenueCatDevelopmentLogging', () => {
   });
 
   it('keeps development errors visible without opening LogBox', () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const setLogHandler = vi.fn();
 
@@ -22,11 +23,14 @@ describe('configureRevenueCatDevelopmentLogging', () => {
     const handler = setLogHandler.mock.calls[0]?.[0];
     handler?.(logLevel.ERROR, 'Temporary backend failure');
 
-    expect(warn).toHaveBeenCalledWith('[RevenueCat] Temporary backend failure');
+    expect(info).toHaveBeenCalledWith(
+      '[RevenueCat][ERROR] Temporary backend failure'
+    );
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it.each([
-    [logLevel.WARN, 'warn'],
+    [logLevel.WARN, 'info'],
     [logLevel.INFO, 'info'],
     [logLevel.DEBUG, 'debug'],
   ] as const)('routes %s messages to console.%s', (level, consoleMethod) => {
@@ -40,7 +44,7 @@ describe('configureRevenueCatDevelopmentLogging', () => {
     handler?.(level, 'SDK message');
 
     expect(setLogHandler).toHaveBeenCalledOnce();
-    expect(logger).toHaveBeenCalledWith('[RevenueCat] SDK message');
+    expect(logger).toHaveBeenCalledWith(`[RevenueCat][${level}] SDK message`);
   });
 
   it('preserves the native default logger in production', () => {

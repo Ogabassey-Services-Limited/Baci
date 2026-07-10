@@ -30,7 +30,7 @@ describe('aggregateWebsitePerformance', () => {
       topConverting: {
         id: 'product-1',
         name: 'Phone',
-        purchases: 3,
+        actions: 3,
         conversionRate: 25,
         views: 12,
       },
@@ -50,7 +50,7 @@ describe('aggregateWebsitePerformance', () => {
       topConverting: {
         id: 'product-1',
         name: 'Phone',
-        purchases: 0,
+        actions: 0,
         conversionRate: 0,
         views: 12,
       },
@@ -63,7 +63,7 @@ describe('aggregateWebsitePerformance', () => {
       topConverting: {
         id: 'product-1',
         name: 'Phone',
-        purchases: 3,
+        actions: 3,
         conversionRate: 300,
         views: 1,
       },
@@ -76,7 +76,7 @@ describe('aggregateWebsitePerformance', () => {
       topConverting: {
         id: 'product-1',
         name: 'Phone',
-        purchases: 1,
+        actions: 1,
         conversionRate: 100,
         views: 1,
       },
@@ -90,15 +90,15 @@ describe('aggregateWebsitePerformance', () => {
       event_type: 'product_view',
       event_data: { items: [{ id: 'product-1', name: 'Phone' }] },
     }));
-    const purchases = Array.from({ length: 5 }, () => ({
-      event_type: 'purchase',
+    const actions = Array.from({ length: 5 }, () => ({
+      event_type: 'add_to_cart',
       event_data: { items: [{ id: 'product-1', name: 'Phone' }] },
     }));
     const summary = aggregateWebsitePerformance(null, [
       { event_type: 'search', event_data: { search_term: 'iphone' } },
       { event_type: 'search', event_data: { query: 'IPHONE' } },
       ...views,
-      ...purchases,
+      ...actions,
     ]);
 
     expect(summary.mostSearched).toEqual({ query: 'iphone', count: 2 });
@@ -118,7 +118,7 @@ describe('aggregateWebsitePerformance', () => {
         items: [{ id: 'product-1' }],
       },
     }));
-    const purchases = Array.from({ length: 5 }, () => ({
+    const actions = Array.from({ length: 5 }, () => ({
       event_type: 'purchase',
       event_data: { items: [{ id: 'product-1', name: 'Phone' }] },
     }));
@@ -128,7 +128,7 @@ describe('aggregateWebsitePerformance', () => {
       'malformed',
       { event_data: {} },
       ...views,
-      ...purchases,
+      ...actions,
     ]);
 
     expect(summary.topConverting).toEqual({

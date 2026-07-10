@@ -11,12 +11,8 @@ export function configureRevenueCatDevelopmentLogging(
   if (!isDevelopment) return;
 
   purchases.setLogHandler((level, message) => {
-    const formattedMessage = `[RevenueCat] ${message}`;
-    if (level === 'ERROR' || level === 'WARN') {
-      console.warn(formattedMessage);
-      return;
-    }
-    if (level === 'INFO') {
+    const formattedMessage = `[RevenueCat][${level}] ${message}`;
+    if (level === 'ERROR' || level === 'WARN' || level === 'INFO') {
       console.info(formattedMessage);
       return;
     }

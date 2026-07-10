@@ -269,6 +269,12 @@ describe('GET /api/analytics/website-performance', () => {
     });
     expect(range).toHaveBeenCalledWith(0, 999);
     expect(range).toHaveBeenCalledWith(1000, 1999);
+    expect(eventQuery.in).toHaveBeenCalledWith('event_type', [
+      'search',
+      'product_view',
+      'purchase',
+      'add_to_cart',
+    ]);
   });
 
   it('returns 400 when branchId is provided', async () => {
@@ -308,7 +314,7 @@ describe('GET /api/analytics/website-performance', () => {
               topConverting: {
                 id: 'prod-1',
                 name: 'Product A',
-                purchases: 10,
+                actions: 10,
                 conversionRate: 100,
                 views: 10,
               },

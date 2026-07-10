@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
         .eq('merchant_id', merchantContext.merchantId)
         .gte('event_timestamp', finalStartDate)
         .lte('event_timestamp', finalEndDate)
-        .in('event_type', ['search', 'product_view', 'purchase'])
+        .in('event_type', ['search', 'product_view', 'purchase', 'add_to_cart'])
         .order('event_timestamp', { ascending: false })
         .order('id', { ascending: false })
         .range(from, pageEnd);
