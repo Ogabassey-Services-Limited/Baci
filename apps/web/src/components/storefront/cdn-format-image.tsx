@@ -59,13 +59,24 @@ export function CdnFormatImage({
   const { avifSource, imgProps } = getOgabasseyImageFormatProps(input);
 
   const handleError: ReactEventHandler<HTMLImageElement> = (event) => {
-    const picture = event.currentTarget.parentElement;
+    const img = event.currentTarget;
+    const picture = img.parentElement;
     const formatSources =
       picture?.tagName === 'PICTURE'
         ? picture.querySelectorAll('source[type="image/avif"]')
         : [];
 
-    if (formatSources.length > 0) {
+    // Only the AVIF tier's own failure warrants the strip-and-retry dance.
+    // Browsers without AVIF support skip the <source> and load the <img>
+    // fallback directly, leaving the unused AVIF <source> in the DOM; a
+    // fallback failure there (or after we've already stripped AVIF) must reach
+    // the caller's onError instead of being swallowed. `currentSrc` names the
+    // tier the browser actually selected, and AVIF candidate URLs are the only
+    // ones carrying `format=avif`.
+    const avifTierFailed =
+      formatSources.length > 0 && img.currentSrc.includes('format=avif');
+
+    if (avifTierFailed) {
       // A <picture> keeps selecting its matching <source> even when callers
       // mutate only img.src in onError. Remove the failed AVIF tier first so
       // the browser retries the already-rendered jpeg/png fallback. Invoke the

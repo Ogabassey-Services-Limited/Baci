@@ -138,12 +138,68 @@ describe('CdnFormatImage (branch logic, mocked format-source)', () => {
     const image = container.querySelector('img');
 
     expect(image).not.toBeNull();
+
+    // An AVIF-capable browser selected the AVIF <source>, so currentSrc names
+    // the AVIF tier when it fails first.
+    Object.defineProperty(image as HTMLImageElement, 'currentSrc', {
+      configurable: true,
+      value: `${CDN}/image/format=avif/core-assets/products/phone-640.jpg`,
+    });
     fireEvent.error(image as HTMLImageElement);
 
     expect(container.querySelector('source[type="image/avif"]')).toBeNull();
     expect(onError).not.toHaveBeenCalled();
 
+    // The browser now falls back to the jpeg <img>; its failure must reach the
+    // caller.
+    Object.defineProperty(image as HTMLImageElement, 'currentSrc', {
+      configurable: true,
+      value: `${CDN}/image/format=jpeg/core-assets/products/phone-640.jpg`,
+    });
     fireEvent.error(image as HTMLImageElement);
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards a fallback failure to the caller when the AVIF source was never selected (non-AVIF browser)', async () => {
+    const onError = vi.fn();
+    vi.doMock('@/lib/ogabassey-image-format-sources', () => ({
+      getOgabasseyImageFormatProps: vi.fn(() => ({
+        avifSource: {
+          sizes: '100vw',
+          srcSet: `${CDN}/image/format=avif/core-assets/products/phone-640.jpg 640w`,
+        },
+        imgProps: {
+          alt: 'Phone',
+          sizes: '100vw',
+          src: `${CDN}/image/format=jpeg/core-assets/products/phone-640.jpg`,
+          srcSet: `${CDN}/image/format=jpeg/core-assets/products/phone-640.jpg 640w`,
+        },
+      })),
+    }));
+    const { CdnFormatImage: Component } = await import('./cdn-format-image');
+    const { container } = render(
+      <Component
+        alt="Phone"
+        height={600}
+        onError={onError}
+        src="unused-because-mocked"
+        width={800}
+      />
+    );
+    const image = container.querySelector('img');
+
+    expect(image).not.toBeNull();
+
+    // A browser without AVIF support skips <source type="image/avif"> and loads
+    // the jpeg fallback directly, so currentSrc is the jpeg tier even though the
+    // unused AVIF <source> is still in the DOM. A genuine fallback 404 here must
+    // not be swallowed by the AVIF strip-and-retry branch.
+    Object.defineProperty(image as HTMLImageElement, 'currentSrc', {
+      configurable: true,
+      value: `${CDN}/image/format=jpeg/core-assets/products/phone-640.jpg`,
+    });
+    fireEvent.error(image as HTMLImageElement);
+
     expect(onError).toHaveBeenCalledTimes(1);
   });
 
