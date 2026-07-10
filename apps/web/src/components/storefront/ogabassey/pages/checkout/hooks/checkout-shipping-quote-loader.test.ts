@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  CHECKOUT_QUOTE_TIMEOUT_MS,
   invalidatePendingQuoteRequests,
   loadCheckoutShippingQuotes,
 } from './checkout-shipping-quote-loader';
@@ -60,6 +61,49 @@ function createState() {
 describe('loadCheckoutShippingQuotes', () => {
   beforeEach(() => {
     global.fetch = vi.fn().mockResolvedValue(quoteResponse());
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('loads quotes when AbortSignal static timeout helpers are unavailable', async () => {
+    const nativeAbortSignal = AbortSignal;
+    vi.stubGlobal('AbortSignal', {});
+    const state = createState();
+
+    await loadCheckoutShippingQuotes(receiver, cart, state);
+
+    const signal = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]
+      ?.signal;
+    expect(signal).toBeInstanceOf(nativeAbortSignal);
+    expect(state.setShippingQuotes).toHaveBeenCalledWith([
+      expect.objectContaining({ id: 'road-quote' }),
+    ]);
+  });
+
+  it('aborts and clears quotes when the request timeout expires', async () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    global.fetch = vi.fn((_url, init) => {
+      const signal = init?.signal;
+      return new Promise<Response>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => {
+          reject(new DOMException('The operation was aborted', 'AbortError'));
+        });
+      });
+    });
+    const state = createState();
+
+    const request = loadCheckoutShippingQuotes(receiver, cart, state);
+    await vi.advanceTimersByTimeAsync(CHECKOUT_QUOTE_TIMEOUT_MS);
+    await request;
+
+    expect(warn).toHaveBeenCalledWith('Shipping quote request timed out');
+    expect(state.setShippingQuotes).toHaveBeenCalledWith([]);
+    expect(state.setIsLoadingQuotes).toHaveBeenLastCalledWith(false);
   });
 
   it('skips a resolved request unless the caller explicitly retries', async () => {

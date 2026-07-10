@@ -2,7 +2,7 @@ import { normalizeShippingQuoteResponse } from '@/lib/shipping/quote-response';
 import type { ShippingQuote } from '../types';
 import { getPreferredDoorQuoteId } from '../utils';
 
-const CHECKOUT_QUOTE_TIMEOUT_MS = 15_000;
+export const CHECKOUT_QUOTE_TIMEOUT_MS = 15_000;
 
 interface QuoteCartItem {
   name: string;
@@ -78,15 +78,16 @@ export async function loadCheckoutShippingQuotes(
   const isLatestRequest = () => state.requestSequence.current === requestSequence;
   const abortController = new AbortController();
   state.activeAbortController.current = abortController;
+  let didTimeout = false;
+  const timeoutId = setTimeout(() => {
+    didTimeout = true;
+    abortController.abort();
+  }, CHECKOUT_QUOTE_TIMEOUT_MS);
 
   state.setIsLoadingQuotes(true);
   state.setSelectedQuoteId('');
 
   try {
-    const signal = AbortSignal.any([
-      abortController.signal,
-      AbortSignal.timeout(CHECKOUT_QUOTE_TIMEOUT_MS),
-    ]);
     const response = await fetch('/api/shipping/quotes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -117,7 +118,7 @@ export async function loadCheckoutShippingQuotes(
           value: item.negotiatedPrice ?? item.price,
         })),
       }),
-      signal,
+      signal: abortController.signal,
     });
 
     if (response.ok) {
@@ -137,14 +138,17 @@ export async function loadCheckoutShippingQuotes(
     }
   } catch (error) {
     const isAbortError = error instanceof DOMException && error.name === 'AbortError';
-    if (isAbortError && !isLatestRequest()) return;
-    if (error instanceof DOMException && error.name === 'TimeoutError') {
+    if (abortController.signal.aborted && !isLatestRequest()) return;
+    if (didTimeout) {
       console.warn('Shipping quote request timed out');
+    } else if (isAbortError) {
+      return;
     } else {
       console.error('Error fetching shipping quotes:', error);
     }
     if (isLatestRequest()) clearQuotes(state);
   } finally {
+    clearTimeout(timeoutId);
     if (state.activeAbortController.current === abortController) {
       state.activeAbortController.current = null;
     }
