@@ -10,8 +10,14 @@ import { PLATFORM_CONFIG } from '@/config/platform';
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-sans',
-  display: 'swap', // Prevents FOIT (Flash of Invisible Text)
-  preload: true, // Preloads font for faster initial render
+  // display: swap renders immediately in the metric-compatible fallback (next/font's
+  // adjustFontFallback is on by default for Inter) and swaps to Inter once loaded —
+  // FOUT, not FOIT, with negligible CLS. We intentionally do NOT preload Inter: a body
+  // font preload competes with the LCP hero image for the cold-mobile network window
+  // (the render-blocking headroom this targets). The naira subset below stays preloaded
+  // because it is display:optional and CLS-critical for every price glyph.
+  display: 'swap',
+  preload: false,
 });
 
 // Tiny (~1.2KB) Inter subset containing ONLY the naira sign (U+20A6), served
