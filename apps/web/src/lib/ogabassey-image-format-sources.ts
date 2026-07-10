@@ -1,10 +1,6 @@
 import { getImageProps } from 'next/image';
-import imageLoader from '@/lib/image-loader';
-import {
-  buildOgabasseyCdnFallbackImageLoaderUrl,
-  isOgabasseyCdnImageUrl,
-  rewriteOgabasseyTransformUrlFormat,
-} from '@/lib/ogabassey-cdn-image-url';
+import { rewriteOgabasseyTransformUrlFormat } from '@/lib/ogabassey-cdn-image-url';
+import { ogabasseyFallbackImageLoader } from '@/lib/ogabassey-image-fallback-loader';
 
 /**
  * Per-format `<picture>` source builder for OgaBassey CDN images.
@@ -79,31 +75,15 @@ export function buildOgabasseyAvifSrcSet(
 /**
  * Compute paired AVIF + fallback rendering props for one image. Accepts the
  * same input as `getImageProps` (minus `loader` — the app's CDN loader is
- * pinned so test environments and call sites can never diverge from what
- * production renders).
+ * pinned via the shared `ogabasseyFallbackImageLoader` so test environments and
+ * call sites can never diverge from what production renders).
  */
-function ogabasseyImageFormatLoader({
-  quality,
-  src,
-  width,
-}: {
-  quality?: number;
-  src: string;
-  width: number;
-}): string {
-  if (isOgabasseyCdnImageUrl(src)) {
-    return buildOgabasseyCdnFallbackImageLoaderUrl(src, width, quality ?? 75);
-  }
-
-  return imageLoader({ quality, src, width });
-}
-
 export function getOgabasseyImageFormatProps(
   input: OgabasseyImageFormatPropsInput
 ): OgabasseyImageFormatProps {
   const { props: imgProps } = getImageProps({
     ...input,
-    loader: ogabasseyImageFormatLoader,
+    loader: ogabasseyFallbackImageLoader,
   } as GetImagePropsInput);
 
   const avifSrcSet = buildOgabasseyAvifSrcSet(imgProps.srcSet);

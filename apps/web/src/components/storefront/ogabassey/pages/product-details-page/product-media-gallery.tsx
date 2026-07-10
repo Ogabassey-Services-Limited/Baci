@@ -5,6 +5,7 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { DeferredShellFeature } from '@/components/storefront/ogabassey/components/deferred-shell-feature';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
@@ -96,7 +97,12 @@ export function ProductMediaGallery({
     <div className="space-y-6 lg:col-span-5">
       <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-gray-100 bg-gray-50">
         {mainImageSrc ? (
-          <Image
+          // Explicit per-format `<picture>` (AVIF `<source>` + jpeg/png `<img>`
+          // fallback) matching the PDP hero preload — `preload` fires the AVIF
+          // hint that dedupes against the rendered `<source>`. Cloudflare Free
+          // ignores `Vary: Accept`, so a single `format=auto` URL could hand
+          // non-AVIF browsers undecodable bytes.
+          <CdnFormatImage
             key={mainImageSrc}
             src={mainImageSrc}
             alt={productData.name}

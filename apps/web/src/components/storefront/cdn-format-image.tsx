@@ -1,4 +1,4 @@
-import type { ReactEventHandler } from 'react';
+import type { ReactEventHandler, Ref } from 'react';
 import { preload } from 'react-dom';
 import { rewriteOgabasseyTransformUrlFormat } from '@/lib/ogabassey-cdn-image-url';
 import {
@@ -44,11 +44,16 @@ export type CdnFormatImageProps = Omit<
 > & {
   onError?: ReactEventHandler<HTMLImageElement>;
   onLoad?: ReactEventHandler<HTMLImageElement>;
+  // Forwarded to the underlying <img>. Callers that gate visibility on load
+  // state need it to detect images that were already `complete` before
+  // hydration attached onLoad (SSR'd native <img> + warm browser cache).
+  ref?: Ref<HTMLImageElement>;
 };
 
 export function CdnFormatImage({
   onError,
   onLoad,
+  ref,
   ...input
 }: CdnFormatImageProps) {
   const { avifSource, imgProps } = getOgabasseyImageFormatProps(input);
@@ -77,7 +82,13 @@ export function CdnFormatImage({
 
   const img = (
     // biome-ignore lint/performance/noImgElement: intentional — per-format <picture> tiers require a raw <img>; props come from getImageProps so this stays next/image-equivalent.
-    <img {...imgProps} alt={imgProps.alt} onError={onError} onLoad={onLoad} />
+    <img
+      {...imgProps}
+      alt={imgProps.alt}
+      onError={onError}
+      onLoad={onLoad}
+      ref={ref}
+    />
   );
 
   if (!avifSource) {

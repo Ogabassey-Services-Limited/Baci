@@ -4,7 +4,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { OgabasseyPdpCriticalShell } from './critical-shell';
 import type { OgabasseyPdpCriticalProduct } from './critical-product';
 
-vi.mock('next/image', () => ({
+vi.mock('next/image', async (importOriginal) => ({
+  // Keep the REAL getImageProps for the migrated <picture>/AVIF path while the
+  // default export stays this suite's attribute-exposing test double.
+  ...(await importOriginal<typeof import('next/image')>()),
   default: ({
     alt,
     fetchPriority,
@@ -53,7 +56,6 @@ vi.mock('next/image', () => ({
       />
     );
   },
-  getImageProps: vi.fn(),
 }));
 
 vi.mock('next/link', () => ({
@@ -130,15 +132,22 @@ describe('OgabasseyPdpCriticalShell', () => {
       name: 'Lenovo Legion Pro 9',
     });
 
-    expect(productImage).toHaveAttribute('data-fetch-priority', 'high');
-    expect(productImage).toHaveAttribute('data-loading', 'eager');
-    expect(productImage).toHaveAttribute('data-preload', 'false');
-    expect(productImage).toHaveAttribute('data-fill', 'true');
+    // The critical image renders through the real per-format <picture> path
+    // (CdnFormatImage + getImageProps), so assert REAL DOM attributes — not the
+    // next/image test-double's data-* markers.
+    expect(productImage).toHaveAttribute('fetchpriority', 'high');
+    expect(productImage).toHaveAttribute('loading', 'eager');
+    const picture = productImage.closest('picture');
+    expect(picture).not.toBeNull();
+    expect(
+      picture?.querySelector('source[type="image/avif"]')
+    ).not.toBeNull();
     expect(productImage).not.toHaveAttribute('loader');
     expect(productImage).not.toHaveAttribute('priority');
     expect(productImage).not.toHaveAttribute('quality');
     expect(productImage).not.toHaveAttribute('fill');
-    expect(document.querySelector('source')).not.toBeInTheDocument();
+    // Exactly ONE <source>: the AVIF tier asserted above — no stray extras.
+    expect(document.querySelectorAll('source')).toHaveLength(1);
     expect(productImage).toHaveAttribute(
       'sizes',
       '(max-width: 767.98px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 48px), (max-width: 1439px) 40vw, 560px'

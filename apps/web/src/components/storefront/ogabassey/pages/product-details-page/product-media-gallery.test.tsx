@@ -18,6 +18,24 @@ vi.mock('next/image', () => ({
   ),
 }));
 
+// The main gallery image now renders through CdnFormatImage (explicit per-format
+// <picture>). Its real pipeline calls next/image's `getImageProps`, which the
+// default-only next/image mock above does not expose — surface it as a plain
+// <img> so these tests keep asserting gallery behavior, not image internals.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => (
+    <img
+      {...Object.fromEntries(
+        Object.entries(props).filter(
+          ([key]) => key !== 'fill' && key !== 'preload'
+        )
+      )}
+      alt={String(props.alt ?? '')}
+      data-preload={props.preload ? 'true' : undefined}
+    />
+  ),
+}));
+
 function buildProductData(
   overrides: Partial<NormalizedProductDetails> = {},
 ): NormalizedProductDetails {

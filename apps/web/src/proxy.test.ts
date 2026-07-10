@@ -1213,6 +1213,113 @@ describe('Middleware Proxy', () => {
       expect(resolutionMock).not.toHaveBeenCalled();
     });
 
+    it('does not hard-404 the 2-segment /{category}/compare hub (real listing route, not a PDP)', async () => {
+      mockMissing(true);
+      const req = new NextRequest('https://ogabassey.com/smartphones/compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/ogabassey.com/smartphones/compare'
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('does not hard-404 the /{category}/compare hub on a merchant subdomain', async () => {
+      mockMissing(true);
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/smartphones/compare`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/ogabassey/smartphones/compare'
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('does not hard-404 the /{category}/compare hub on a root-domain slug path', async () => {
+      // Third serving mode: usebaci.com/{slug}/... strips the merchant slug
+      // before segment classification, so the hub guard must fire there too.
+      mockMissing(true);
+      const req = new NextRequest(
+        `https://${ROOT_DOMAIN}/ogabassey/smartphones/compare`
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.status).not.toBe(308);
+      expect(resolutionMock).not.toHaveBeenCalled();
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('case-normalizes the hub segment: /{category}/Compare also skips the PDP preflights', async () => {
+      // Pins the guard's .toLowerCase(): mixed-case variants fall through to
+      // the App Router (fail-open) instead of resolving as a product slug.
+      mockMissing(true);
+      const req = new NextRequest('https://ogabassey.com/smartphones/Compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(resolutionMock).not.toHaveBeenCalled();
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('never 308s the compare hub away even if an archived alias is slugged "compare"', async () => {
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/some-old-product',
+      });
+      mockMissing(true);
+      const req = new NextRequest('https://ogabassey.com/smartphones/compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(308);
+      expect(res.status).not.toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/ogabassey.com/smartphones/compare'
+      );
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('still hard-404s a confirmed-missing categoryless /products/compare (fallback PDP, not a hub)', async () => {
+      mockMissing(true);
+      const req = new NextRequest('https://ogabassey.com/products/compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(resolutionMock).toHaveBeenCalledWith(
+        expect.objectContaining({ productSlug: 'compare' })
+      );
+    });
+
+    it('still hard-404s a bare /{category}/best-under path (no 2-segment route exists there)', async () => {
+      mockMissing(true);
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/best-under'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+    });
+
     it('does not hard-404 the /my-account/[...path] catch-all (non-PDP first segment)', async () => {
       mockMissing(true);
       const req = new NextRequest('https://ogabassey.com/my-account/orders');
