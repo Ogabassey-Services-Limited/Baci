@@ -153,11 +153,11 @@ describe('mapStorefrontProductsToOgabasseyProducts', () => {
       expect.objectContaining({
         category: 'General',
         condition: 'New & Used',
+        has_condition_offers: true,
         image: '/galaxy.jpg',
         image_alt: 'Galaxy',
       })
     );
-    expect(result[0]).not.toHaveProperty('has_condition_offers');
   });
 
   it('does not assign alt text from a different image payload', () => {

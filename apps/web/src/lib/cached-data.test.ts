@@ -726,6 +726,7 @@ describe('getCachedStorefrontLaunchProducts', () => {
     const selectedColumns = String(harness.mockSelect.mock.calls[0]?.[0] ?? '');
     expect(selectedColumns).toContain('created_at');
     expect(selectedColumns).toContain('updated_at');
+    expect(selectedColumns).toContain('has_condition_offers');
     expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(harness.mockEq).toHaveBeenCalledWith('status', 'active');
     expect(harness.mockOrder).toHaveBeenCalledTimes(2);
@@ -768,6 +769,7 @@ describe('getCachedStorefrontHomeProducts', () => {
 
     const selectedColumns = String(harness.mockSelect.mock.calls[0]?.[0] ?? '');
     expect(selectedColumns).toContain('created_at');
+    expect(selectedColumns).toContain('has_condition_offers');
     expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(harness.mockEq).toHaveBeenCalledWith('status', 'active');
     expect(harness.mockOrder).toHaveBeenCalledTimes(1);
@@ -786,6 +788,10 @@ describe('getCachedStorefrontHomeProducts', () => {
     harness.mockListResult.error = null;
 
     await getCachedStorefrontHomeProducts('merchant-1', 'recent');
+
+    for (const [selectedColumns] of harness.mockSelect.mock.calls) {
+      expect(String(selectedColumns)).toContain('has_condition_offers');
+    }
 
     expect(harness.mockOr).toHaveBeenNthCalledWith(
       1,
