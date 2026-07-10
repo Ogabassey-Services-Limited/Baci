@@ -59,10 +59,11 @@ describe('manual payment RPC migration', () => {
     expect(replayBlock).toContain("WHEN o.payment_status = 'refunded'");
   });
 
-  it('bounds legacy fingerprint replay matching to five minutes', () => {
-    expect(migration).toContain("'legacy_manual_payment_fingerprint'");
-    expect(migration).toContain("v_legacy_fingerprint !~ '^[0-9a-f]{64}$'");
-    expect(migration).toContain("t.created_at >= now() - interval '5 minutes'");
+  it('matches retries only by the caller-provided idempotency key', () => {
+    expect(migration).toContain(
+      "NULLIF(trim(t.metadata ->> 'manual_payment_idempotency_key'), '') ="
+    );
+    expect(migration).not.toContain('legacy_manual_payment_fingerprint');
   });
 
   it('persists resumable manual-payment side-effect claims', () => {
@@ -70,10 +71,9 @@ describe('manual payment RPC migration', () => {
       'CREATE TABLE IF NOT EXISTS public.manual_payment_side_effects'
     );
     expect(migration).toContain('PRIMARY KEY (dedupe_id, step)');
-    expect(migration).toContain(
-      "WHEN p_step = 'partial_receipt' THEN p_transaction_id"
-    );
-    expect(migration).toContain('ELSE p_order_id');
+    expect(migration).toContain('v_dedupe_id := p_transaction_id');
+    expect(migration).toContain("p_step <> 'partial_receipt'");
+    expect(migration).not.toContain("'paid_email', 'partial_receipt'");
     expect(migration).toContain('ON CONFLICT (dedupe_id, step) DO UPDATE');
     expect(migration).toContain(
       'CREATE OR REPLACE FUNCTION public.claim_manual_payment_side_effect'

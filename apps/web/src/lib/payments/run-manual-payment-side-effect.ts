@@ -1,10 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 
-export type ManualPaymentSideEffectStep =
-  | 'ad_tracking_conversion'
-  | 'paid_email'
-  | 'partial_receipt';
+export type ManualPaymentSideEffectStep = 'partial_receipt';
 
 interface ManualPaymentSideEffectClaim {
   current_status: string;

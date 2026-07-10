@@ -1,14 +1,12 @@
 import type { PaymentStatus, ShippingStatus } from '@baci/shared';
 import type { PostgrestError } from '@supabase/supabase-js';
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
-  generateOrderConfirmationEmail,
-  generateOrderConfirmationText,
   generatePaymentReceiptEmail,
   generatePaymentReceiptText,
 } from '@/lib/email-templates';
@@ -24,9 +22,8 @@ import {
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
-import { createLegacyManualPaymentFingerprint } from '@/lib/payments/manual-payment-idempotency';
 import { runManualPaymentSideEffect } from '@/lib/payments/run-manual-payment-side-effect';
-import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
+import { scheduleManualPaidOrderSideEffects } from '@/lib/payments/schedule-manual-paid-order-side-effects';
 import { sendEmail } from '@/lib/zeptomail';
 import {
   recordPaymentBodySchema,
@@ -229,30 +226,15 @@ export async function POST(
       (payment_method
         ? `Manual payment (${payment_method})`
         : 'Manual payment');
-    const legacyPaymentFingerprint = idempotency_key
-      ? null
-      : createLegacyManualPaymentFingerprint({
-          amount: parsedAmount,
-          merchantId: merchant.id,
-          notes,
-          orderId,
-          paymentMethod: payment_method,
-          reference,
-          userId: user.id,
-        });
-    const effectiveIdempotencyKey = idempotency_key ?? crypto.randomUUID();
     const { data: manualPaymentResult, error: transactionError } =
       (await supabase.rpc('record_manual_order_payment', {
         p_amount: parsedAmount,
         p_currency: order.currency || 'NGN',
         p_description: paymentDescription,
         p_gateway_reference: reference ?? null,
-        p_idempotency_key: effectiveIdempotencyKey,
+        p_idempotency_key: idempotency_key,
         p_merchant_id: merchant.id,
         p_metadata: {
-          ...(legacyPaymentFingerprint && {
-            legacy_manual_payment_fingerprint: legacyPaymentFingerprint,
-          }),
           payment_method: payment_method || 'manual',
           recorded_by: user.email,
         },
@@ -701,112 +683,14 @@ export async function POST(
       }
 
       logger.info({ message: 'RecordPayment order fully paid', orderId });
-
-      // SEND CONFIRMATION EMAIL (If fully paid)
-      try {
-        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-        const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
-
-        const emailItems =
-          order.order_items?.map((item: EmailOrderItem) => ({
-            name: item.name || 'Product',
-            quantity: item.quantity || 1,
-            price: item.price || 0,
-          })) || [];
-
-        const emailData = {
-          orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
-          customerName: order.customer_name,
-          items: emailItems,
-          subtotal: Number(order.subtotal),
-          shippingFee: Number(order.shipping_fee),
-          total: Number(authoritativeOrderTotal),
-          currency: order.currency || 'NGN',
-          shippingAddress: {
-            address: order.shipping_address?.address || '',
-            city: order.shipping_address?.city || '',
-            state: order.shipping_address?.state || '',
-            phone: order.customer_phone || '',
-          },
-          merchantName: merchant.business_name,
-          merchantUrl,
-          merchantTin: merchant.tax_identification_number ?? undefined,
-          merchantRcNumber: merchant.cac_rc_number ?? undefined,
-        };
-
-        const htmlContent = generateOrderConfirmationEmail(emailData);
-        const textContent = generateOrderConfirmationText(emailData);
-
-        const replyToEmail =
-          merchant.support_email ||
-          merchant.email ||
-          `support@${merchant.slug}.${rootDomain}`;
-        const senderName = merchant.email_sender_name
-          ? `${merchant.email_sender_name} Orders`
-          : `${merchant.business_name} Orders`;
-
-        logger.info({
-          message: 'RecordPayment sending confirmation email',
-          orderId,
-        });
-        await runManualPaymentSideEffect({
-          actor: `record-payment:${user.id}`,
-          execute: async () => {
-            const emailResult = await sendEmail({
-              to: order.customer_email,
-              toName: order.customer_name,
-              subject: `Order Payment Confirmed - #${emailData.orderNumber}`,
-              htmlContent,
-              textContent,
-              replyTo: replyToEmail,
-              emailType: 'orders',
-              fromName: senderName,
-              clientReference: `manual-payment:${transactionId}:paid-email`,
-              auditContext: {
-                merchantId: merchant.id,
-                orderId: order.id,
-                customerId: order.customer_id,
-                metadata: {
-                  trigger: 'manual_payment_confirmation',
-                },
-              },
-            });
-            if (!emailResult.success) {
-              throw new Error(emailResult.error || 'confirmation_email_failed');
-            }
-          },
-          orderId,
-          step: 'paid_email',
-          supabase,
-          transactionId,
-        });
-      } catch (emailErr) {
-        logger.error({
-          message: 'Error preparing email payload',
-          error: emailErr,
-        });
-      }
-
-      // --------------------------------------------------------
-      // TRIGGER OFFLINE CONVERSION EVENT (Server-Side)
-      // --------------------------------------------------------
-      try {
-        await runManualPaymentSideEffect({
-          actor: `record-payment:${user.id}`,
-          execute: () =>
-            triggerPurchaseConversion(supabase, merchant.id, order),
-          orderId,
-          step: 'ad_tracking_conversion',
-          supabase,
-          transactionId,
-        });
-      } catch (conversionError) {
-        logger.error({
-          error: conversionError,
-          message: 'RecordPayment conversion tracking failed',
-          orderId,
-        });
-      }
+      scheduleManualPaidOrderSideEffects({
+        actor: `record-payment:${user.id}`,
+        amount: parsedAmount,
+        gatewayReference: reference,
+        merchantId: merchant.id,
+        order,
+        transactionId,
+      });
     } else {
       logger.info({
         message: 'RecordPayment order partially paid',
@@ -853,38 +737,40 @@ export async function POST(
           message: 'RecordPayment sending receipt email',
           orderId,
         });
-        await runManualPaymentSideEffect({
-          actor: `record-payment:${user.id}`,
-          execute: async () => {
-            const emailResult = await sendEmail({
-              to: order.customer_email,
-              toName: order.customer_name,
-              subject: `Payment Receipt - Order #${receiptData.orderNumber}`,
-              htmlContent,
-              textContent,
-              replyTo: replyToEmail,
-              emailType: 'orders',
-              fromName: senderName,
-              clientReference: `manual-payment:${transactionId}:partial-receipt`,
-              auditContext: {
-                merchantId: merchant.id,
-                orderId: order.id,
-                customerId: order.customer_id,
-                metadata: {
-                  trigger: 'manual_payment_receipt',
+        after(async () => {
+          await runManualPaymentSideEffect({
+            actor: `record-payment:${user.id}`,
+            execute: async () => {
+              const emailResult = await sendEmail({
+                to: order.customer_email,
+                toName: order.customer_name,
+                subject: `Payment Receipt - Order #${receiptData.orderNumber}`,
+                htmlContent,
+                textContent,
+                replyTo: replyToEmail,
+                emailType: 'orders',
+                fromName: senderName,
+                clientReference: `manual-payment:${transactionId}:partial-receipt`,
+                auditContext: {
+                  merchantId: merchant.id,
+                  orderId: order.id,
+                  customerId: order.customer_id,
+                  metadata: {
+                    trigger: 'manual_payment_receipt',
+                  },
                 },
-              },
-            });
-            if (!emailResult.success) {
-              throw new Error(
-                emailResult.error || 'payment_receipt_email_failed'
-              );
-            }
-          },
-          orderId,
-          step: 'partial_receipt',
-          supabase,
-          transactionId,
+              });
+              if (!emailResult.success) {
+                throw new Error(
+                  emailResult.error || 'payment_receipt_email_failed'
+                );
+              }
+            },
+            orderId,
+            step: 'partial_receipt',
+            supabase,
+            transactionId,
+          });
         });
       } catch (emailErr) {
         logger.error({

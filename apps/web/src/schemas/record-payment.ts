@@ -34,7 +34,7 @@ export const recordPaymentBodySchema = z.object({
     z.string().min(1).optional()
   ),
   notes: z.preprocess(normalizeOptionalString, z.string().min(1).optional()),
-  idempotency_key: z.uuid('Invalid idempotency key').optional(),
+  idempotency_key: z.uuid('Invalid idempotency key'),
 });
 
 export type RecordPaymentBodyInput = z.infer<typeof recordPaymentBodySchema>;

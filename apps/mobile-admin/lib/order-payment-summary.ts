@@ -12,6 +12,7 @@ interface OrderPaymentSummaryInput {
   storedAmountPaid: number;
   transactionTotal: number;
   walletAmountUsed: number;
+  walletTransactionTotal: number;
 }
 
 export function getEffectiveOrderPaymentSummary({
@@ -20,8 +21,10 @@ export function getEffectiveOrderPaymentSummary({
   storedAmountPaid,
   transactionTotal,
   walletAmountUsed,
+  walletTransactionTotal,
 }: OrderPaymentSummaryInput) {
-  const ledgerAmountPaid = transactionTotal + walletAmountUsed;
+  const ledgerAmountPaid =
+    transactionTotal + Math.max(0, walletAmountUsed - walletTransactionTotal);
   const amountPaid = Math.max(
     ledgerAmountPaid,
     storedAmountPaid,

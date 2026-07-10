@@ -103,7 +103,7 @@ export async function fetchOrderById(
       .eq('order_id', orderId),
     supabase
       .from('transactions')
-      .select('amount')
+      .select('amount, gateway')
       .eq('order_id', orderId)
       .eq('transaction_type', 'payment')
       .in('status', ['success', 'completed']),
@@ -221,6 +221,13 @@ export async function fetchOrderById(
     transactions?.reduce((sum, transaction) => {
       return sum + (Number(transaction.amount) || 0);
     }, 0) || 0;
+  const walletTransactionTotal =
+    transactions?.reduce((sum, transaction) => {
+      const gateway = transaction.gateway?.trim().toLowerCase();
+      return gateway === 'wallet' || gateway === 'store_credit'
+        ? sum + (Number(transaction.amount) || 0)
+        : sum;
+    }, 0) || 0;
   const { amountPaid, balance, paymentStatus } =
     getEffectiveOrderPaymentSummary({
       orderTotal,
@@ -228,6 +235,7 @@ export async function fetchOrderById(
       storedAmountPaid: Number(order.amount_paid) || 0,
       transactionTotal,
       walletAmountUsed: Number(order.wallet_amount_used) || 0,
+      walletTransactionTotal,
     });
   const orderWithMeta = order as {
     fulfillment_details?: OrderFulfillmentDetails | null;

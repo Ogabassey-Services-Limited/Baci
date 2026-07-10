@@ -47,7 +47,6 @@ DECLARE
   v_cancelled_at timestamptz;
   v_gateway_reference text := NULLIF(trim(p_gateway_reference), '');
   v_idempotency_key text := NULLIF(trim(p_idempotency_key), '');
-  v_legacy_fingerprint text;
 BEGIN
   IF p_amount IS NULL OR p_amount <= 0 OR p_amount = 'NaN'::numeric THEN
     RETURN jsonb_build_object('error_code', 'INVALID_AMOUNT');
@@ -62,15 +61,6 @@ BEGIN
   END IF;
 
   IF p_metadata IS NULL OR jsonb_typeof(p_metadata) <> 'object' THEN
-    RETURN jsonb_build_object('error_code', 'INVALID_METADATA');
-  END IF;
-
-  v_legacy_fingerprint := NULLIF(
-    trim(p_metadata ->> 'legacy_manual_payment_fingerprint'),
-    ''
-  );
-  IF v_legacy_fingerprint IS NOT NULL
-    AND v_legacy_fingerprint !~ '^[0-9a-f]{64}$' THEN
     RETURN jsonb_build_object('error_code', 'INVALID_METADATA');
   END IF;
 
@@ -125,27 +115,8 @@ BEGIN
     AND t.merchant_id = p_merchant_id
     AND t.gateway = 'manual'
     AND t.transaction_type = 'payment'
-    AND (
-      NULLIF(trim(t.metadata ->> 'manual_payment_idempotency_key'), '') =
-        v_idempotency_key
-      OR (
-        v_legacy_fingerprint IS NOT NULL
-        AND NULLIF(
-          trim(t.metadata ->> 'legacy_manual_payment_fingerprint'),
-          ''
-        ) = v_legacy_fingerprint
-        AND t.created_at >= now() - interval '5 minutes'
-      )
-    )
-  ORDER BY
-    CASE
-      WHEN NULLIF(
-        trim(t.metadata ->> 'manual_payment_idempotency_key'),
-        ''
-      ) = v_idempotency_key THEN 0
-      ELSE 1
-    END,
-    t.created_at DESC
+    AND NULLIF(trim(t.metadata ->> 'manual_payment_idempotency_key'), '') =
+      v_idempotency_key
   LIMIT 1;
 
   IF FOUND THEN
@@ -332,7 +303,7 @@ CREATE TABLE IF NOT EXISTS public.manual_payment_side_effects (
   order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
   merchant_id uuid NOT NULL REFERENCES public.merchants(id) ON DELETE CASCADE,
   step text NOT NULL CHECK (step IN (
-    'paid_email', 'partial_receipt', 'ad_tracking_conversion'
+    'partial_receipt'
   )),
   status text NOT NULL CHECK (status IN ('claimed', 'completed', 'failed')),
   claim_token uuid NOT NULL,
@@ -385,7 +356,7 @@ DECLARE
   v_dedupe_id uuid;
   v_merchant_id uuid;
 BEGIN
-  IF p_step NOT IN ('paid_email', 'partial_receipt', 'ad_tracking_conversion')
+  IF p_step <> 'partial_receipt'
     OR p_claimed_by IS NULL OR btrim(p_claimed_by) = '' THEN
     RAISE EXCEPTION 'invalid manual payment side effect claim';
   END IF;
@@ -406,10 +377,7 @@ BEGIN
     RAISE EXCEPTION 'manual payment side effect is not accessible';
   END IF;
 
-  v_dedupe_id := CASE
-    WHEN p_step = 'partial_receipt' THEN p_transaction_id
-    ELSE p_order_id
-  END;
+  v_dedupe_id := p_transaction_id;
 
   INSERT INTO public.manual_payment_side_effects AS side_effect (
     dedupe_id, transaction_id, order_id, merchant_id, step, status,

@@ -23,6 +23,15 @@ const mockRunManualPaymentSideEffect = vi.hoisted(() =>
     return 'completed' as const;
   })
 );
+const mockScheduleManualPaidOrderSideEffects = vi.hoisted(() => vi.fn());
+const afterCallbacks = vi.hoisted(
+  () => [] as Array<() => Promise<void> | void>
+);
+const mockAfter = vi.hoisted(() =>
+  vi.fn((callback: () => Promise<void> | void) => {
+    afterCallbacks.push(callback);
+  })
+);
 
 vi.mock('@/lib/payments/file-inventory-confirmation-review', () => ({
   fileInventoryConfirmationFailureReview:
@@ -31,6 +40,9 @@ vi.mock('@/lib/payments/file-inventory-confirmation-review', () => ({
 
 vi.mock('@/lib/payments/run-manual-payment-side-effect', () => ({
   runManualPaymentSideEffect: mockRunManualPaymentSideEffect,
+}));
+vi.mock('@/lib/payments/schedule-manual-paid-order-side-effects', () => ({
+  scheduleManualPaidOrderSideEffects: mockScheduleManualPaidOrderSideEffects,
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -70,7 +82,7 @@ vi.mock('next/server', async () => {
   const actual = await vi.importActual('next/server');
   return {
     ...actual,
-    after: vi.fn(),
+    after: mockAfter,
   };
 });
 
@@ -162,6 +174,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    afterCallbacks.length = 0;
     mockSendEmail.mockResolvedValue({ success: true });
     vi.mocked(ensurePaidOrderInventoryConfirmed).mockResolvedValue(undefined);
     vi.mocked(
@@ -210,6 +223,12 @@ describe('POST /api/orders/[id]/record-payment', () => {
         body: JSON.stringify(normalizedBody),
       }
     );
+  };
+
+  const flushAfterCallbacks = async () => {
+    while (afterCallbacks.length > 0) {
+      await afterCallbacks.shift()?.();
+    }
   };
 
   const createRecordPaymentMerchant = () => ({
@@ -494,53 +513,22 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(data).toEqual({ error: 'Invalid request body' });
   });
 
-  it('sends a stable fingerprint for identical legacy client retries', async () => {
-    const { rpc } = setupRecordPaymentSupabase({
-      merchant: createRecordPaymentMerchant(),
-      order: createRecordPaymentOrder(),
-    });
+  it('requires callers to provide an idempotency key', async () => {
     const params = { params: Promise.resolve({ id: mockOrderId }) };
-
     const { POST } = await import('./route');
-    const createLegacyRequest = () =>
+    const response = await POST(
       createRequest({
         amount: 5000,
         idempotency_key: undefined,
         payment_method: 'cash',
-      });
-    const firstResponse = await POST(createLegacyRequest(), params);
-    const retryResponse = await POST(createLegacyRequest(), params);
-    const paymentCalls = rpc.mock.calls.filter(
-      ([name]) => name === 'record_manual_order_payment'
-    );
-    const firstKey = paymentCalls[0]?.[1]?.p_idempotency_key;
-    const retryKey = paymentCalls[1]?.[1]?.p_idempotency_key;
-    const getLegacyFingerprint = (value: unknown) => {
-      if (
-        !value ||
-        typeof value !== 'object' ||
-        Array.isArray(value) ||
-        !('legacy_manual_payment_fingerprint' in value)
-      ) {
-        return undefined;
-      }
-      return value.legacy_manual_payment_fingerprint;
-    };
-    const firstFingerprint = getLegacyFingerprint(
-      paymentCalls[0]?.[1]?.p_metadata
-    );
-    const retryFingerprint = getLegacyFingerprint(
-      paymentCalls[1]?.[1]?.p_metadata
+      }),
+      params
     );
 
-    expect(firstResponse.status).toBe(200);
-    expect(retryResponse.status).toBe(200);
-    expect(firstKey).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-    );
-    expect(retryKey).not.toBe(firstKey);
-    expect(firstFingerprint).toMatch(/^[0-9a-f]{64}$/);
-    expect(retryFingerprint).toBe(firstFingerprint);
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid request body',
+    });
   });
 
   it('returns 400 when amount is zero', async () => {
@@ -1042,7 +1030,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(orderQuery.update).not.toHaveBeenCalled();
   });
 
-  it('threads the order currency through to the full-payment confirmation email', async () => {
+  it('threads the order currency through to deferred paid side effects', async () => {
     const mockMerchant = createRecordPaymentMerchant();
     const mockOrder = { ...createRecordPaymentOrder(), currency: 'INR' };
 
@@ -1061,11 +1049,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const { POST } = await import('./route');
     await POST(request, { params: Promise.resolve({ id: mockOrderId }) });
 
-    const { generateOrderConfirmationEmail } = await import(
-      '@/lib/email-templates'
-    );
-    expect(generateOrderConfirmationEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ currency: 'INR' })
+    expect(mockScheduleManualPaidOrderSideEffects).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order: expect.objectContaining({ currency: 'INR' }),
+      })
     );
   });
 
@@ -1118,6 +1105,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         totalPaidSoFar: 10000,
       })
     );
+    await flushAfterCallbacks();
     expect(mockSendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         subject: expect.stringContaining('Payment Receipt'),
@@ -2357,19 +2345,12 @@ describe('POST /api/orders/[id]/record-payment', () => {
       mockMerchantId,
       mockOrderId
     );
-    expect(mockRunManualPaymentSideEffect).toHaveBeenCalledWith(
+    expect(mockScheduleManualPaidOrderSideEffects).toHaveBeenCalledWith(
       expect.objectContaining({
-        step: 'paid_email',
+        merchantId: mockMerchantId,
         transactionId: 'txn-existing',
       })
     );
-    expect(mockRunManualPaymentSideEffect).toHaveBeenCalledWith(
-      expect.objectContaining({
-        step: 'ad_tracking_conversion',
-        transactionId: 'txn-existing',
-      })
-    );
-    expect(mockSendEmail).toHaveBeenCalledOnce();
   });
 
   it('lets the atomic RPC replay before applying pending-processor guards', async () => {
@@ -2414,23 +2395,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     );
   });
 
-  it('waits for a durable side effect before completing the payment request', async () => {
-    let releaseSideEffect: (() => void) | undefined;
-    let reachedSideEffect: (() => void) | undefined;
-    const sideEffectGate = new Promise<void>((resolve) => {
-      releaseSideEffect = resolve;
-    });
-    const sideEffectReached = new Promise<void>((resolve) => {
-      reachedSideEffect = resolve;
-    });
-    mockRunManualPaymentSideEffect.mockImplementationOnce(
-      async ({ execute }: { execute: () => Promise<void> }) => {
-        reachedSideEffect?.();
-        await sideEffectGate;
-        await execute();
-        return 'completed';
-      }
-    );
+  it('does not wait for durable paid side effects before responding', async () => {
     setupRecordPaymentSupabase({
       insertTransaction: { id: 'txn-new' },
       merchant: createRecordPaymentMerchant(),
@@ -2445,20 +2410,14 @@ describe('POST /api/orders/[id]/record-payment', () => {
       },
     });
     const { POST } = await import('./route');
-    let settled = false;
-
-    const responsePromise = POST(
+    const response = await POST(
       createRequest({ amount: 10000, payment_method: 'cash' }),
       { params: Promise.resolve({ id: mockOrderId }) }
-    ).then((response) => {
-      settled = true;
-      return response;
-    });
-    await sideEffectReached;
+    );
 
-    expect(settled).toBe(false);
-    releaseSideEffect?.();
-    await expect(responsePromise).resolves.toMatchObject({ status: 200 });
+    expect(response.status).toBe(200);
+    expect(mockScheduleManualPaidOrderSideEffects).toHaveBeenCalledOnce();
+    expect(mockRunManualPaymentSideEffect).not.toHaveBeenCalled();
   });
 
   it('resumes a durable receipt side effect on a partial-payment replay', async () => {
@@ -2488,6 +2447,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       idempotency_replayed: true,
       success: true,
     });
+    await flushAfterCallbacks();
     expect(mockRunManualPaymentSideEffect).toHaveBeenCalledWith(
       expect.objectContaining({
         step: 'partial_receipt',

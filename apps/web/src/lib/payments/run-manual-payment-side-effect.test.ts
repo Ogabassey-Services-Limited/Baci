@@ -30,7 +30,7 @@ describe('runManualPaymentSideEffect', () => {
         actor: 'user-1',
         execute,
         orderId: 'order-1',
-        step: 'paid_email',
+        step: 'partial_receipt',
         supabase,
         transactionId: 'transaction-1',
       })
@@ -73,7 +73,7 @@ describe('runManualPaymentSideEffect', () => {
         actor: 'user-1',
         execute,
         orderId: 'order-1',
-        step: 'paid_email',
+        step: 'partial_receipt',
         supabase,
         transactionId: 'transaction-1',
       })
@@ -93,7 +93,7 @@ describe('runManualPaymentSideEffect', () => {
         actor: 'user-1',
         execute,
         orderId: 'order-1',
-        step: 'paid_email',
+        step: 'partial_receipt',
         supabase,
         transactionId: 'transaction-1',
       })
@@ -140,7 +140,7 @@ describe('runManualPaymentSideEffect', () => {
         actor: 'user-1',
         execute,
         orderId: 'order-1',
-        step: 'ad_tracking_conversion',
+        step: 'partial_receipt',
         supabase,
         transactionId: 'transaction-1',
       })
