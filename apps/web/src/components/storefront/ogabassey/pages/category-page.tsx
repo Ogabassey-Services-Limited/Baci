@@ -1,35 +1,34 @@
 'use client';
 // Migrated from temp-source/components/CategoryPage.tsx
-import { ChevronRight, Filter, LayoutGrid, List, X } from 'lucide-react';
-import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import React, { useEffect, useState } from 'react';
+import React, { type ReactNode, useEffect, useState } from 'react';
 import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
-import { asRoute } from '@/lib/routes';
-import type { CategoryHubModel } from '@/lib/storefront-category/category-hub-types';
-import {
-  STOREFRONT_CRAWL_DISCOVERY_CATEGORY_PAGE_LIMIT,
-  STOREFRONT_PRODUCTS_PER_PAGE,
-} from '@/lib/storefront-pagination';
-import { AdUnit } from '../components/AdUnit';
-import {
-  CategoryFiltersSidebar,
-  type FilterState,
-} from '../components/CategoryFiltersSidebar';
+import { STOREFRONT_PRODUCTS_PER_PAGE } from '@/lib/storefront-pagination';
+import { yieldToScheduler } from '@/lib/yield-to-scheduler';
+import type { FilterState } from '../components/CategoryFiltersSidebar';
 import { CategoryRecentCarousel } from '../components/CategoryRecentCarousel';
-import { ProductCard } from '../components/ProductCard';
-import { StorefrontPagination } from '../components/StorefrontPagination';
-import { CategoryHubSections } from '../seo/category-hub-sections';
 import type { Product } from '../types';
+import {
+  buildAvailableFilterOptions,
+  filterCategoryProducts,
+  hasActiveFilterSelection,
+  INITIAL_CATEGORY_FILTER_STATE,
+  NON_RECENCY_COLLECTION_SLUGS,
+} from './category-page-derivations';
+import { CategoryPageMobileFilterDrawer } from './category-page-mobile-filter-drawer';
+import { CategoryPageResults } from './category-page-results';
+import { CategoryPageToolbar } from './category-page-toolbar';
 import { toRelatedProductsProduct } from './product-details-page/related-product';
 
 export interface CategorySEOProps {
-  seoHeading?: string;
-  seoDescription?: string;
-  seoFeatures?: string[];
-  seoFaqs?: { question: string; answer: string }[];
-  hubContent?: CategoryHubModel;
+  /**
+   * Server-rendered category hub sections (intro, trust, cards, FAQ). Composed
+   * in the RSC boundary (`category-page-content.tsx`) so `SafeHtml` — and thus
+   * `sanitize-html` — stays out of this client component's bundle. Injected as
+   * a ReactNode slot rather than imported here.
+   */
+  hubSections?: ReactNode;
   /** Products fetched from Supabase by the server page */
   products?: Product[];
   /** Optional category image URL from database */
@@ -40,59 +39,8 @@ export interface CategorySEOProps {
   totalProductCount?: number;
 }
 
-type CategoryPageColor =
-  | string
-  | {
-      name?: string | null;
-    };
-
-function getColorName(color: CategoryPageColor): string | null {
-  return typeof color === 'string' ? color : color.name || null;
-}
-
-// Special collection routes whose products are NOT ordered by created_at
-// (best-sellers → rating, on-sale → price, featured → updated_at), so the
-// recently-added "Just in" carousel would mislabel them. (new-arrivals IS
-// created_at-ordered, so it keeps the carousel.)
-const NON_RECENCY_COLLECTION_SLUGS = new Set([
-  'best-sellers',
-  'on-sale',
-  'featured',
-]);
-
-const INITIAL_FILTER_STATE: FilterState = {
-  brand: [],
-  condition: [],
-  storage: [],
-  ram: [],
-  colors: [],
-  simType: [],
-  displayType: [],
-  displaySize: [],
-  minPrice: 0,
-  maxPrice: 3000000,
-};
-
-const EMPTY_AVAILABLE_FILTER_OPTIONS: Record<
-  keyof Omit<FilterState, 'minPrice' | 'maxPrice'>,
-  string[]
-> = {
-  brand: [],
-  condition: [],
-  storage: [],
-  ram: [],
-  colors: [],
-  simType: [],
-  displayType: [],
-  displaySize: [],
-};
-
 export const CategoryPage: React.FC<CategorySEOProps> = ({
-  seoHeading,
-  seoDescription,
-  seoFeatures = [],
-  seoFaqs = [],
-  hubContent,
+  hubSections,
   products = [],
   categoryImage,
   currentPage = 1,
@@ -100,7 +48,6 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   productsArePrePaginated = false,
   totalProductCount,
 }) => {
-  const [_showMobileIntro, _setShowMobileIntro] = useState(false);
   const params = useParams();
   const categoryName = (params?.category || 'All') as string;
   // The raw URL slug (kebab-case, e.g. "best-sellers") — distinct from the
@@ -120,13 +67,15 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     Number.isInteger(itemsPerPage) && itemsPerPage > 0
       ? itemsPerPage
       : STOREFRONT_PRODUCTS_PER_PAGE;
-  const [filters, setFilters] = useState<FilterState>(INITIAL_FILTER_STATE);
+  const [filters, setFilters] = useState<FilterState>(
+    INITIAL_CATEGORY_FILTER_STATE
+  );
 
   // Reset filters inline during render when the category changes
   const [prevCategoryName, setPrevCategoryName] = useState(categoryName);
   if (categoryName !== prevCategoryName) {
     setPrevCategoryName(categoryName);
-    setFilters(INITIAL_FILTER_STATE);
+    setFilters(INITIAL_CATEGORY_FILTER_STATE);
   }
 
   // Scroll to top when category changes
@@ -145,150 +94,28 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isMobileFilterOpen]);
 
-  // Derived Data: Products in the current Category (from props)
-  const categoryProducts = (() => {
-    // Use server-provided products directly - no additional filtering needed
-    // since server already filters by category_id or category TEXT field
-    return products;
-  })();
+  // When the server pre-paginated only the current slice, a client-side filter
+  // index would be misleading, so disable client filtering in that case.
   const hasPartialPrePaginatedProducts =
     productsArePrePaginated &&
     typeof totalProductCount === 'number' &&
     Number.isInteger(totalProductCount) &&
-    totalProductCount > categoryProducts.length;
+    totalProductCount > products.length;
   const canUseClientFilters = !hasPartialPrePaginatedProducts;
 
-  // Derived Data: Available Options based on products in category
-  const availableOptions = (() => {
-    if (!canUseClientFilters) {
-      return EMPTY_AVAILABLE_FILTER_OPTIONS;
-    }
-
-    const options = {
-      brand: new Set<string>(),
-      condition: new Set<string>(),
-      storage: new Set<string>(),
-      ram: new Set<string>(),
-      colors: new Set<string>(),
-      simType: new Set<string>(),
-      displayType: new Set<string>(),
-      displaySize: new Set<string>(),
-    };
-
-    categoryProducts.forEach((p) => {
-      if (p.brand) options.brand.add(p.brand);
-      if (p.condition) options.condition.add(p.condition);
-      if (p.storage) {
-        if (Array.isArray(p.storage)) {
-          p.storage.forEach((s) => {
-            options.storage.add(s);
-          });
-        } else {
-          options.storage.add(p.storage);
-        }
-      }
-      if (p.ram) options.ram.add(p.ram);
-      if (p.colors) {
-        p.colors.forEach((color: CategoryPageColor) => {
-          const colorName = getColorName(color);
-          if (colorName) {
-            options.colors.add(colorName);
-          }
-        });
-      }
-      if (p.simType) options.simType.add(p.simType);
-      if (p.displayType) options.displayType.add(p.displayType);
-      if (p.displaySize) options.displaySize.add(p.displaySize);
-    });
-
-    return {
-      brand: Array.from(options.brand).sort(),
-      condition: Array.from(options.condition).sort(),
-      storage: Array.from(options.storage).sort(),
-      ram: Array.from(options.ram).sort(),
-      colors: Array.from(options.colors).sort(),
-      simType: Array.from(options.simType).sort(),
-      displayType: Array.from(options.displayType).sort(),
-      displaySize: Array.from(options.displaySize).sort(),
-    };
-  })();
-
-  // Derived Data: Filtered Products based on user selection
-  const filteredProducts = (() => {
-    if (!canUseClientFilters) {
-      return categoryProducts;
-    }
-
-    return categoryProducts.filter((p) => {
-      // Price
-      if (
-        p.rawPrice &&
-        (p.rawPrice < filters.minPrice || p.rawPrice > filters.maxPrice)
-      )
-        return false;
-
-      // Checkbox Filters (OR logic within category, AND logic between categories)
-      if (
-        filters.brand.length > 0 &&
-        (!p.brand || !filters.brand.includes(p.brand))
-      )
-        return false;
-      if (
-        filters.condition.length > 0 &&
-        (!p.condition || !filters.condition.includes(p.condition))
-      )
-        return false;
-      if (filters.storage.length > 0) {
-        const productStorage = (
-          Array.isArray(p.storage) ? p.storage : [p.storage]
-        ).filter((s): s is string => !!s);
-        if (!productStorage.some((s) => filters.storage.includes(s)))
-          return false;
-      }
-      if (filters.ram.length > 0 && (!p.ram || !filters.ram.includes(p.ram)))
-        return false;
-      if (
-        filters.simType.length > 0 &&
-        (!p.simType || !filters.simType.includes(p.simType))
-      )
-        return false;
-      if (
-        filters.displayType.length > 0 &&
-        (!p.displayType || !filters.displayType.includes(p.displayType))
-      )
-        return false;
-      if (
-        filters.displaySize.length > 0 &&
-        (!p.displaySize || !filters.displaySize.includes(p.displaySize))
-      )
-        return false;
-
-      // Colors: If product has ANY of the selected colors
-      if (filters.colors.length > 0) {
-        if (
-          !p.colors?.some((color: CategoryPageColor) => {
-            const colorName = getColorName(color);
-            return colorName ? filters.colors.includes(colorName) : false;
-          })
-        )
-          return false;
-      }
-
-      return true;
-    });
-  })();
-  const hasActiveFilters =
-    canUseClientFilters &&
-    (filters.brand.length > 0 ||
-      filters.condition.length > 0 ||
-      filters.storage.length > 0 ||
-      filters.ram.length > 0 ||
-      filters.colors.length > 0 ||
-      filters.simType.length > 0 ||
-      filters.displayType.length > 0 ||
-      filters.displaySize.length > 0 ||
-      filters.minPrice !== INITIAL_FILTER_STATE.minPrice ||
-      filters.maxPrice !== INITIAL_FILTER_STATE.maxPrice);
+  const availableOptions = buildAvailableFilterOptions(
+    products,
+    canUseClientFilters
+  );
+  const filteredProducts = filterCategoryProducts(
+    products,
+    filters,
+    canUseClientFilters
+  );
+  const hasActiveFilters = hasActiveFilterSelection(
+    filters,
+    canUseClientFilters
+  );
 
   const explicitTotalProductCount =
     productsArePrePaginated &&
@@ -322,11 +149,16 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     ? Math.min(pageStartIndex + visibleProducts.length, paginationProductCount)
     : Math.min(pageEndIndex, paginationProductCount);
 
-  const handleFilterChange = (
+  const handleFilterChange = async (
     section: keyof FilterState,
     value: string | number
   ) => {
     if (!canUseClientFilters) return;
+
+    // Yield the main thread before committing the state update: the click/tap
+    // gets a paint before the synchronous filter pass + full grid re-render
+    // run (INP presentation-delay fix; no-op where scheduler.yield is absent).
+    await yieldToScheduler();
 
     if (section === 'minPrice' || section === 'maxPrice') {
       setFilters((prev) => ({ ...prev, [section]: value }));
@@ -345,9 +177,6 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   };
 
   const handleAddToCart = (_e: React.MouseEvent, product: Product) => {
-    // e.preventDefault(); // handled in ProductCard
-    // e.stopPropagation();
-
     addToCart(toRelatedProductsProduct(product), 1);
 
     const productId = String(product.id);
@@ -366,25 +195,16 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       .replace(/\b\w/g, (l) => l.toUpperCase());
   })();
 
-  // SEO heading is only for the SEO content block at the bottom, not the H1
   const pageTitle = displayTitle;
-  const categoryPath = asRoute(`${basePath}/${categoryName}`);
-  const legacyHubModel: CategoryHubModel = {
-    intro: {
-      heading:
-        seoHeading || (seoDescription ? `Buy ${pageTitle} in Nigeria` : ''),
-      description: seoDescription || '',
-      source: seoHeading || seoDescription ? 'merchant' : 'fallback',
-    },
-    trustFeatures: seoFeatures,
-    bestForCards: [],
-    brandCards: [],
-    priceBandCards: [],
-    comparisonLinks: [],
-    guideLinks: [],
-    faqItems: seoFaqs,
+  const categoryPath = `${basePath}/${categoryName}`;
+  const clearFilters = () => setFilters(INITIAL_CATEGORY_FILTER_STATE);
+
+  // Switching grid/list re-renders every ProductCard with a new layout — the
+  // heaviest toggle on the page. Yield first so the click paints before it.
+  const handleViewModeChange = async (mode: 'grid' | 'list') => {
+    await yieldToScheduler();
+    setViewMode(mode);
   };
-  const hubModel = hubContent ?? legacyHubModel;
 
   return (
     <div className="min-h-screen bg-[color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-4">
@@ -406,251 +226,50 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
           />
         )}
 
-      {/* Breadcrumb & Header */}
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6 mb-6">
-        <nav className="flex items-center overflow-x-auto whitespace-nowrap pb-2 text-sm text-store-background-text/65">
-          <Link
-            href={asRoute(basePath || '')}
-            className="transition-colors hover:text-store-primary"
-          >
-            Home
-          </Link>
-          <ChevronRight size={16} className="mx-2" />
-          <span className="font-medium text-store-background-text">
-            {displayTitle}
-          </span>
-        </nav>
+      <CategoryPageToolbar
+        basePath={basePath}
+        displayTitle={displayTitle}
+        paginationProductCount={paginationProductCount}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+        canUseClientFilters={canUseClientFilters}
+        onOpenMobileFilter={() => setIsMobileFilterOpen(true)}
+      />
 
-        <div className="mt-4 flex items-end justify-between">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-store-background-text">
-              {displayTitle}
-            </h1>
-            <p className="text-store-background-text/50 text-sm mt-1">
-              {paginationProductCount} results found
-            </p>
-          </div>
+      <CategoryPageResults
+        canUseClientFilters={canUseClientFilters}
+        filters={filters}
+        availableOptions={availableOptions}
+        onFilterChange={handleFilterChange}
+        onClearFilters={clearFilters}
+        viewMode={viewMode}
+        visibleProducts={visibleProducts}
+        addedItems={addedItems}
+        onAddToCart={handleAddToCart}
+        hasKnownProducts={hasKnownProducts}
+        hasVisibleProducts={hasVisibleProducts}
+        hasActiveFilters={hasActiveFilters}
+        filteredProductCount={filteredProducts.length}
+        pageStartIndex={pageStartIndex}
+        visibleProductEndIndex={visibleProductEndIndex}
+        paginationProductCount={paginationProductCount}
+        currentPageNumber={currentPageNumber}
+        totalPages={totalPages}
+        pageTitle={pageTitle}
+        categoryPath={categoryPath}
+      />
 
-          {/* View Mode & Mobile Filter Toggle */}
-          <div className="flex items-center gap-2">
-            <div className="hidden md:flex items-center bg-store-background rounded-lg p-1 border border-store-background-text/15">
-              <button
-                type="button"
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-store-background-text/10 text-store-background-text shadow-sm' : 'text-store-background-text/40 hover:text-store-background-text/70'}`}
-              >
-                <LayoutGrid size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-store-background-text/10 text-store-background-text shadow-sm' : 'text-store-background-text/40 hover:text-store-background-text/70'}`}
-              >
-                <List size={18} />
-              </button>
-            </div>
+      {hubSections}
 
-            {canUseClientFilters && (
-              <button
-                type="button"
-                onClick={() => setIsMobileFilterOpen(true)}
-                className="flex items-center gap-2 rounded-xl bg-store-primary px-4 py-2.5 text-sm font-bold text-store-primary-text shadow-md active:scale-95 md:hidden"
-              >
-                <Filter size={16} /> Filters
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar Filters (Desktop) */}
-          {canUseClientFilters && (
-            <div className="hidden lg:block lg:col-span-1">
-              <div className="sticky top-24">
-                <CategoryFiltersSidebar
-                  filters={filters}
-                  availableOptions={availableOptions}
-                  onFilterChange={handleFilterChange}
-                  onClearFilters={() => setFilters(INITIAL_FILTER_STATE)}
-                />
-                <div className="mt-6">
-                  <AdUnit placementKey="PRODUCT_SIDEBAR" />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Product Grid */}
-          <div
-            className={
-              canUseClientFilters ? 'lg:col-span-3' : 'lg:col-span-4'
-            }
-          >
-            {!hasKnownProducts ? (
-              <div className="text-center py-20 bg-store-background rounded-2xl border border-store-background-text/10 shadow-sm">
-                <div className="size-16 bg-store-background-text/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Filter
-                    className="text-store-background-text/40"
-                    size={32}
-                  />
-                </div>
-                <h3 className="text-lg font-bold text-store-background-text mb-1">
-                  No products found
-                </h3>
-                <p className="text-store-background-text/50 text-sm mb-6">
-                  Try adjusting your filters to find what you're looking for.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setFilters(INITIAL_FILTER_STATE)}
-                  className="font-bold text-store-primary hover:underline"
-                >
-                  Clear all filters
-                </button>
-              </div>
-            ) : hasVisibleProducts ? (
-              <div
-                className={
-                  viewMode === 'grid'
-                    ? 'grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6'
-                    : 'flex flex-col gap-4'
-                }
-              >
-                {visibleProducts.map((product, index) => {
-                  const isAdded = addedItems.includes(String(product.id));
-                  return (
-                    <React.Fragment key={product.id}>
-                      <ProductCard
-                        product={product}
-                        onAddToCart={handleAddToCart}
-                        isAdded={isAdded}
-                        viewMode={viewMode}
-                      />
-                      {/* Ad insertion logic */}
-                      {viewMode === 'grid' && (index === 5 || index === 11) && (
-                        <div className="col-span-2 md:col-span-3 my-4">
-                          <AdUnit placementKey="PRODUCT_GRID_IN_FEED" />
-                        </div>
-                      )}
-                      {viewMode === 'list' && (index === 3 || index === 7) && (
-                        <div className="w-full my-4">
-                          <AdUnit placementKey="PRODUCT_GRID_IN_FEED" />
-                        </div>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-20 bg-store-background rounded-2xl border border-store-background-text/10 shadow-sm">
-                <div className="size-16 bg-store-background-text/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Filter
-                    className="text-store-background-text/40"
-                    size={32}
-                  />
-                </div>
-                <h3 className="text-lg font-bold text-store-background-text mb-1">
-                  Products on this page are temporarily unavailable.
-                </h3>
-                <p className="text-store-background-text/50 text-sm">
-                  Use the pagination links below to keep browsing available
-                  pages.
-                </p>
-              </div>
-            )}
-
-            {hasKnownProducts && (
-              <div className="mt-8 space-y-3">
-                {!hasActiveFilters && (
-                  <p className="text-center text-sm text-store-background-text/50">
-                    {hasVisibleProducts
-                      ? `Showing ${pageStartIndex + 1}-${visibleProductEndIndex} of ${paginationProductCount} products`
-                      : `Page ${currentPageNumber} of ${totalPages}`}
-                  </p>
-                )}
-
-                {hasActiveFilters ? (
-                  <p className="text-center text-sm text-store-background-text/50">
-                    Filtered results show all {filteredProducts.length} matching
-                    products on one page.
-                  </p>
-                ) : (
-                  <StorefrontPagination
-                    ariaLabel={`${pageTitle} pagination`}
-                    basePath={categoryPath}
-                    crawlDiscoveryAllPagesThreshold={
-                      STOREFRONT_CRAWL_DISCOVERY_CATEGORY_PAGE_LIMIT
-                    }
-                    crawlDiscoveryLabel={`Browse more ${pageTitle} pages`}
-                    crawlDiscoveryPageLabel={`${pageTitle} page`}
-                    currentPage={currentPageNumber}
-                    totalPages={totalPages}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <CategoryHubSections hub={hubModel} />
-
-      {/* Mobile Filter Drawer */}
       {isMobileFilterOpen && canUseClientFilters && (
-        <div className="fixed inset-0 z-60 flex justify-end">
-          <button
-            type="button"
-            aria-label="Close filters"
-            className="absolute inset-0 bg-black/50 backdrop-blur-xs"
-            onClick={() => setIsMobileFilterOpen(false)}
-          />
-          <div
-            className="relative w-full max-w-xs bg-store-background h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="mobile-filter-heading"
-          >
-            <div className="sticky top-0 bg-store-background z-10 px-5 py-4 border-b border-store-background-text/10 flex items-center justify-between">
-              <h3
-                id="mobile-filter-heading"
-                className="font-bold text-lg text-store-background-text"
-              >
-                Filters
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsMobileFilterOpen(false)}
-                className="p-1 hover:bg-store-background-text/10 rounded-full"
-                aria-label="Close filters"
-              >
-                <X
-                  size={24}
-                  className="text-store-background-text/50"
-                />
-              </button>
-            </div>
-            <div className="p-5 pb-24">
-              <CategoryFiltersSidebar
-                filters={filters}
-                availableOptions={availableOptions}
-                onFilterChange={handleFilterChange}
-                onClearFilters={() => setFilters(INITIAL_FILTER_STATE)}
-                className="border-none shadow-none p-0"
-              />
-            </div>
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-store-background border-t border-store-background-text/10">
-              <button
-                type="button"
-                onClick={() => setIsMobileFilterOpen(false)}
-                className="w-full rounded-xl bg-store-primary py-3 font-bold text-store-primary-text shadow-lg active:scale-95"
-              >
-                Show {paginationProductCount} Results
-              </button>
-            </div>
-          </div>
-        </div>
+        <CategoryPageMobileFilterDrawer
+          filters={filters}
+          availableOptions={availableOptions}
+          onFilterChange={handleFilterChange}
+          onClearFilters={clearFilters}
+          onClose={() => setIsMobileFilterOpen(false)}
+          paginationProductCount={paginationProductCount}
+        />
       )}
     </div>
   );

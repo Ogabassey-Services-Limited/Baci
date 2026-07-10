@@ -1463,6 +1463,12 @@ export default async function CategoryProductPage({
     merchant.template_id === OGABASSEY_TEMPLATE_ID
       ? buildOgabasseyPdpCriticalProduct(product)
       : null;
+  // Resolved once and threaded into both the LCP critical shell's static
+  // price fallback and the client commerce provider (whose live price reads
+  // it back out of context) so the two price surfaces never diverge.
+  const criticalCurrency = criticalProduct
+    ? resolveMerchantCurrencyConfig(merchant)
+    : null;
   const resolvedSearchParams = await searchParams;
   const commerceProduct = buildCriticalCommerceRouteProduct(product);
   const criticalInitialVariantSelection = criticalProduct
@@ -1545,6 +1551,7 @@ export default async function CategoryProductPage({
       {criticalCommerceContext ? (
         <OgabasseyPdpCriticalCommerceProvider
           cartProduct={criticalCommerceContext.cartProduct}
+          currency={criticalCurrency ?? undefined}
           initialVariantSelection={
             criticalCommerceContext.initialVariantSelection
           }
@@ -1555,6 +1562,7 @@ export default async function CategoryProductPage({
           <OgabasseyPdpCriticalShell
             basePath={getCategoryProductBasePath(slug)}
             basePathPromise={criticalBasePathPromise}
+            currency={criticalCurrency ?? undefined}
             fallbackImage={criticalFallbackProductImage}
             product={criticalCommerceContext.product}
             summaryCommerce={<OgabasseyPdpCriticalCommerceSummary />}

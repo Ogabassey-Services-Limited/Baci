@@ -1,3 +1,4 @@
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import 'server-only';
 import { unstable_rethrow } from 'next/navigation';
 import { buildLaunchSlides } from '@/components/storefront/ogabassey/components/build-launch-slides';
@@ -35,7 +36,10 @@ async function resolveShellSlides(
   // empty arrays, so a single failing feed cannot throw here. The streamed
   // interactive hero resolves the SAME cached loader, so the fallback and the
   // hero render identical (possibly degraded) data — the swap stays a no-op.
-  const products = await loadOgabasseyLaunchProducts(merchant.id);
+  const products = await loadOgabasseyLaunchProducts(
+    merchant.id,
+    resolveMerchantCurrencyConfig(merchant)
+  );
   const slides = buildLaunchSlides(products, pathPrefix);
   if (slides.length === 0) {
     return null;

@@ -49,4 +49,22 @@ describe('StorefrontDeferredFooterChrome', () => {
       })
     ).toBeInTheDocument();
   });
+
+  it('reserves the complete footer ad wrapper per breakpoint so content-visibility does not shift', async () => {
+    render(<StorefrontDeferredFooterChrome basePath="/ogabassey" />);
+
+    const adUnitWrapper = (
+      await screen.findByRole('complementary', { name: /footer ad unit/i })
+    ).parentElement;
+
+    // Includes the creative, Sponsored label, AdSlotShell margins, and wrapper
+    // padding at each breakpoint.
+    expect(adUnitWrapper).toHaveClass('min-h-[200px]');
+    expect(adUnitWrapper).toHaveClass('[contain-intrinsic-size:1400px_200px]');
+    expect(adUnitWrapper).toHaveClass('md:min-h-[350px]');
+    expect(adUnitWrapper).toHaveClass(
+      'md:[contain-intrinsic-size:1400px_350px]'
+    );
+    expect(adUnitWrapper).toHaveClass('content-auto');
+  });
 });

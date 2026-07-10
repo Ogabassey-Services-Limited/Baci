@@ -1,6 +1,11 @@
 import { deriveProductImageData } from '@baci/shared/lib';
 import { prioritizeSmartphoneProducts } from '@baci/shared/storefront';
 import type { Product as StorefrontProduct } from '@/lib/products';
+import {
+  COMPACT_OPTIONS,
+  type CurrencyConfig,
+  formatCurrencyWithConfig,
+} from '@/lib/currency';
 import { OGABASSEY_HOME_PRODUCT_FEED_LIMIT } from './config/products';
 import type { Product as OgabasseyProduct } from './types';
 
@@ -12,19 +17,26 @@ const CONDITION_LABELS: Record<string, ConditionLabel> = {
   used: 'Used',
 };
 
-const NGN_PRICE_FORMATTER = new Intl.NumberFormat('en-NG', {
-  style: 'currency',
-  currency: 'NGN',
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
+/**
+ * Platform-default currency for the home product feed — Baci's home market
+ * (NGN) — used whenever a caller doesn't have a merchant-resolved currency to
+ * hand (e.g. template preview mocks). Multi-tenant callers should pass the
+ * merchant's resolved `CurrencyConfig` from `resolveMerchantCurrencyConfig`
+ * instead of relying on this fallback.
+ */
+const DEFAULT_HOME_FEED_CURRENCY: CurrencyConfig = {
+  code: 'NGN',
+  symbol: '₦',
+  locale: 'en-NG',
+};
 
 const mapCondition = (condition?: string): ConditionLabel => {
   return CONDITION_LABELS[condition || ''] || 'New';
 };
 
 export function mapStorefrontProductsToOgabasseyProducts(
-  storefrontProducts: StorefrontProduct[]
+  storefrontProducts: StorefrontProduct[],
+  currency: CurrencyConfig = DEFAULT_HOME_FEED_CURRENCY
 ): OgabasseyProduct[] {
   return storefrontProducts.map((product) => {
     const {
@@ -47,7 +59,7 @@ export function mapStorefrontProductsToOgabasseyProducts(
       id: product.id,
       slug: product.slug,
       name: product.name,
-      price: NGN_PRICE_FORMATTER.format(product.price),
+      price: formatCurrencyWithConfig(product.price, currency, COMPACT_OPTIONS),
       rawPrice: product.price,
       image,
       ...(imageAlt ? { image_alt: imageAlt } : {}),
@@ -76,12 +88,14 @@ export function mapStorefrontProductsToOgabasseyProducts(
 }
 
 export function createOgabasseyHomeProductFeed(
-  storefrontProducts: StorefrontProduct[]
+  storefrontProducts: StorefrontProduct[],
+  currency: CurrencyConfig = DEFAULT_HOME_FEED_CURRENCY
 ): OgabasseyProduct[] {
   return mapStorefrontProductsToOgabasseyProducts(
     prioritizeSmartphoneProducts(storefrontProducts).slice(
       0,
       OGABASSEY_HOME_PRODUCT_FEED_LIMIT
-    )
+    ),
+    currency
   );
 }

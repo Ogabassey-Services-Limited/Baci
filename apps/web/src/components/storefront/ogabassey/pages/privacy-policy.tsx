@@ -1,5 +1,9 @@
-'use client';
-import type { MerchantData } from "@/hooks/merchant/types";
+// Server Component (no 'use client'): this page is purely presentational — no hooks,
+// state, or event handlers — so it renders on the server. That keeps the SafeHtml /
+// sanitize-html sanitizer out of the route's client bundle (render-weight reduction)
+// and lets the sanitized policy HTML paint in the SSR document instead of hydrating.
+// Do not add 'use client' here without introducing real interactivity.
+import type { MerchantData } from '@/hooks/merchant/types';
 
 import {
   Cookie,

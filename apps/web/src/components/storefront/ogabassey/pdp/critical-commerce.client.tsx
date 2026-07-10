@@ -159,6 +159,7 @@ export function OgabasseyPdpCriticalProductImage({
 
 export function OgabasseyPdpCriticalCommerceSummary() {
   const {
+    currency,
     explicitSelectedAxes,
     handleAttributeSelection,
     productForCart,
@@ -173,7 +174,7 @@ export function OgabasseyPdpCriticalCommerceSummary() {
     <>
       <div data-ogabassey-pdp-price>
         <span data-ogabassey-pdp-price-live>
-          {formatCriticalPrice(productForCart.price)}
+          {formatCriticalPrice(productForCart.price, currency)}
         </span>
       </div>
       <div data-ogabassey-pdp-summary-variant-slot>
