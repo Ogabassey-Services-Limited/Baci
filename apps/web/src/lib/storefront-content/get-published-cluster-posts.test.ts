@@ -3,9 +3,16 @@ import { getPublishedClusterPosts } from './get-published-cluster-posts';
 
 const mockRpc = vi.fn();
 const mockGetPublicSupabaseClient = vi.fn();
+const mockCacheLife = vi.fn();
+const mockCacheTag = vi.fn();
 
 vi.mock('@/lib/cached-data', () => ({
   getPublicSupabaseClient: () => mockGetPublicSupabaseClient(),
+}));
+
+vi.mock('next/cache', () => ({
+  cacheLife: (...args: unknown[]) => mockCacheLife(...args),
+  cacheTag: (...args: unknown[]) => mockCacheTag(...args),
 }));
 
 const context = {
@@ -35,6 +42,17 @@ describe('getPublishedClusterPosts', () => {
       error: null,
     });
     mockGetPublicSupabaseClient.mockReturnValue({ rpc: mockRpc });
+  });
+
+  it('caches locally with the blog profile and merchant-scoped invalidation tags', async () => {
+    await getPublishedClusterPosts('merchant-1', context);
+
+    expect(mockCacheLife).toHaveBeenCalledWith('blog');
+    expect(mockCacheTag).toHaveBeenCalledWith(
+      'blog-posts',
+      'products-merchant-1',
+      'features-merchant-1'
+    );
   });
 
   it('loads a bounded, context-ranked candidate set through the public RPC', async () => {
