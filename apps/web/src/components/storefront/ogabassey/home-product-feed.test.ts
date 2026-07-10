@@ -124,6 +124,26 @@ describe('mapStorefrontProductsToOgabasseyProducts', () => {
     );
     expect(result[0]).not.toHaveProperty('image_alt');
   });
+
+  it('formats the card price in a non-NGN merchant currency when supplied', () => {
+    const result = mapStorefrontProductsToOgabasseyProducts(
+      [
+        createStorefrontProduct({
+          id: 'india-1',
+          name: 'Redmi Note',
+          price: 999900,
+        }),
+      ],
+      { code: 'INR', symbol: '₹', locale: 'en-IN' }
+    );
+
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        price: '₹9,99,900',
+        rawPrice: 999900,
+      })
+    );
+  });
 });
 
 describe('createOgabasseyHomeProductFeed', () => {
@@ -268,5 +288,29 @@ describe('createOgabasseyHomeProductFeed', () => {
     );
     expect(result[1]).not.toHaveProperty('imageLarge');
     expect(result[1]).not.toHaveProperty('product_categories');
+  });
+
+  it('formats the homepage feed price in a non-NGN merchant currency when supplied', () => {
+    const products = [
+      createStorefrontProduct({
+        id: 'product-1',
+        name: 'Product 1',
+        price: 999900,
+        image: '/product-1.jpg',
+      }),
+    ];
+
+    const result = createOgabasseyHomeProductFeed(products, {
+      code: 'INR',
+      symbol: '₹',
+      locale: 'en-IN',
+    });
+
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        id: 'product-1',
+        price: '₹9,99,900',
+      })
+    );
   });
 });

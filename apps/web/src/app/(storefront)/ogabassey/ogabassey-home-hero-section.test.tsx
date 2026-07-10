@@ -43,11 +43,17 @@ describe('OgabasseyHomeHeroSection', () => {
     const result = await OgabasseyHomeHeroSection({
       merchantId: 'merchant-1',
       pathPrefix: '/ogabassey',
+      currency: { code: 'NGN', symbol: '₦', locale: 'en-NG' },
     });
 
     render(result as ReactElement);
 
-    expect(loadOgabasseyLaunchProducts).toHaveBeenCalledWith('merchant-1');
+    // The resolved merchant currency is threaded to the loader so streamed
+    // hero prices match the shell/grid formatting.
+    expect(loadOgabasseyLaunchProducts).toHaveBeenCalledWith(
+      'merchant-1',
+      expect.objectContaining({ code: 'NGN' })
+    );
     expect(
       screen.getByRole('link', { name: 'Samsung Galaxy A27 5G' })
     ).toHaveAttribute('href', '/ogabassey/smartphones/samsung-galaxy-a27-5g');
