@@ -293,8 +293,23 @@ jobs:
         if: needs.changes.outputs.web == 'true'
         run: node --test .github/scripts/resolve-ci-test-plan.test.mjs .github/scripts/resolve-ci-test-plan-config.test.mjs
       - name: Verify Quiz Assets
-        if: needs.changes.outputs.web == 'true'
+        if: needs.changes.outputs.web == 'true' || needs.changes.outputs.quiz_db == 'true'
         run: pnpm --filter @baci/web verify:quiz-assets
+      # A migration-only (quiz_db) PR would otherwise satisfy this required gate
+      # with no real work, because every other step is web/mobile/production-only.
+      # Run the quiz + orders suites (which exercise the RPC-dependent route
+      # logic) so a DB-only change is actually validated here. True SQL-level
+      # migration testing runs out of band (prod txn+rollback verification and
+      # the deploy pipeline) — a from-scratch apply in CI is blocked by
+      # Supabase-specific schema/roles.
+      - name: Run Quiz Suite for DB-only Changes
+        if: needs.changes.outputs.quiz_db == 'true' && needs.changes.outputs.web != 'true'
+        run: >-
+          pnpm --filter @baci/web exec vitest run
+          src/app/api/quiz
+          src/app/api/orders
+          src/app/api/merchant/quiz
+          src/app/dashboard/quiz
       # Hard pre-launch gate: only enforced when the repo is configured for the
       # production quiz phase (QUIZ_PHASE repo variable = "production"). It
       # validates NLRC permits, published odds, compliance tracker rows, and the
