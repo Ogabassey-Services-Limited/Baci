@@ -12,22 +12,27 @@ describe('ProductRatingRow', () => {
     expect(screen.getByText('(4.8)')).toBeInTheDocument();
   });
 
-  it('normalizes missing ratings to zero without unstable text', () => {
-    render(<ProductRatingRow />);
+  it('renders nothing when the rating is missing', () => {
+    const { container } = render(<ProductRatingRow />);
 
-    expect(
-      screen.getByRole('img', { name: 'Rated 0 out of 5' })
-    ).toBeInTheDocument();
-    expect(screen.getByText('(0)')).toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
   });
 
   it.each([
-    { expected: '0', rating: -1 },
-    { expected: '0', rating: 0 },
-    { expected: '0', rating: Number.NaN },
-    { expected: '0', rating: Number.POSITIVE_INFINITY },
+    { label: 'zero', rating: 0 },
+    { label: 'negative', rating: -1 },
+    { label: 'NaN', rating: Number.NaN },
+    { label: 'Infinity', rating: Number.POSITIVE_INFINITY },
+  ])('renders nothing for a $label rating', ({ rating }) => {
+    const { container } = render(<ProductRatingRow rating={rating} />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it.each([
     { expected: '5', rating: 5 },
     { expected: '5', rating: 6 },
+    { expected: '3.5', rating: 3.5 },
   ])('formats $rating as $expected', ({ expected, rating }) => {
     render(<ProductRatingRow rating={rating} />);
 
