@@ -163,6 +163,16 @@ vi.mock('../components/MobileCheckoutComponents', () => ({
   MobileOrderSummary: vi.fn(() => null),
 }));
 
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: ({
+    alt,
+    src,
+  }: {
+    alt: string;
+    src: string;
+  }) => <img alt={alt} src={src} />,
+}));
+
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
 import { CheckoutPage } from './checkout-page';
 import { useSearchParams } from 'next/navigation';
@@ -371,7 +381,7 @@ describe('CheckoutPage', () => {
     expect(match).toBeTruthy();
   });
 
-  it('marks desktop order-summary thumbnails as neutral image surfaces', async () => {
+  it('renders desktop order-summary thumbnails on the neutral image surface', async () => {
     mockCheckoutSubmissionState();
 
     render(<CheckoutPage />);
@@ -384,6 +394,9 @@ describe('CheckoutPage', () => {
 
     expect(
       orderSummary?.querySelector('.ogabassey-product-card-image-surface')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Test Product' })
     ).toBeInTheDocument();
   });
 
