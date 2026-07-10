@@ -1,6 +1,6 @@
 # Repairs Catalog — Supabase Branch-Apply & Go-Live Runbook
 
-This feature ships **8 append-only migrations** and **4 SQL verification scripts** that were
+This feature ships **10 append-only migrations** and **4 SQL verification scripts** that were
 **never applied** anywhere (per the repo workflow: migrations are applied to a Supabase branch,
 not run locally). Follow this order exactly, verify each gate, then flip the flag.
 
@@ -17,13 +17,14 @@ not run locally). Follow this order exactly, verify each gate, then flip the fla
 | 7 | `20260708090600_repair_pickup_quotes.sql` | private `repair_pickup_quotes` (merchant-only RLS, **no anon**); **`shipments.order_id` → nullable** | 3 |
 | 8 | `20260708090700_repair_status_lookup_rpc.sql` | `get_repair_status()` enumeration-safe public lookup | 3, 7 |
 | 9 | `20260708090800_repairs_rpc_hardening.sql` | CREATE OR REPLACE of the booking RPC: normalizes the per-email rate-cap count (whitespace-variant bypass) + pins the public wrapper's `search_path` | 4 |
+| 10 | `20260708090900_add_repairs_catalog_enabled_to_cached_merchant_rpc.sql` | CREATE OR REPLACE of `resolve_storefront_cached_merchant`: adds the `'repairs_catalog_enabled'` pair to the public `feature_settings` jsonb so the storefront merchant-shell path (`getCachedMerchant`/`getCachedMerchantByDomain`) surfaces the flag; re-asserts the service_role-only grant | 1 (the column) **and** main's `20260707211507` (the base RPC it replaces — this migration must apply after `main` is merged) |
 
 Use `mcp__supabase__apply_migration` (or the branch's SQL editor) file-by-file in this order.
 **Supabase branches fail baseline replay** — if the branch can't replay the full baseline,
 hand-build the prod-like precondition state first (the `merchants`, `merchant_feature_settings`,
 `role_permissions`, `shipments`, `products`, `product_key_specs` tables must exist).
 
-## 2. Run the SQL verification scripts (after all 8 apply)
+## 2. Run the SQL verification scripts (after all 10 apply)
 
 Run each against the branch (`psql -f` or SQL editor); every assertion must pass:
 
@@ -38,6 +39,7 @@ Run each against the branch (`psql -f` or SQL editor); every assertion must pass
 - **Booking RPC:** call `public.create_repair_booking(...)` with the anon key — succeeds for a valid merchant; rejects an inactive/foreign `quote_id` (`quote_unavailable`); flood → `rate_limited`; the returned row's `quoted_price` equals the quote's price regardless of any client-supplied value.
 - **Status RPC:** `get_repair_status(merchant, ticket, wrong_email)` returns 0 rows; correct triple returns 1.
 - **`shipments.order_id` nullable:** existing rows unaffected (FK already permitted NULL); an insert with NULL `order_id` succeeds.
+- **Cached-merchant RPC surfaces the flag (migration `090900`):** `SELECT (feature_settings ? 'repairs_catalog_enabled') FROM public.resolve_storefront_cached_merchant('<ogabassey-slug>');` returns `true` (there is no `supabase/tests/*.sql` for `resolve_storefront_cached_merchant`, so verify this manually). With the flag on, the value should be `true`; the storefront merchant shell reads it from this jsonb.
 
 ## 3. Regenerate types
 The web Supabase clients are currently **untyped** (no generated `Database` type exists in the repo),
