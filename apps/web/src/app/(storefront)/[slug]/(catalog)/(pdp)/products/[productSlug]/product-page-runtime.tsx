@@ -3,7 +3,6 @@ import { JsonLd } from '@/components/seo/json-ld';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import {
-  getCachedCategoryPageData,
   getCachedProductRatingStats,
   getCachedProductReviews,
 } from '@/lib/cached-data';
@@ -24,22 +23,12 @@ import type { SupportedClusterCategory } from '@/lib/storefront-content/content-
 import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
 import { buildProductContextParagraphs } from '@/lib/storefront-product/build-product-context-paragraphs';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
+import { loadCategoryScopedSemanticInventorySafely } from '@/lib/storefront-product/load-category-scoped-semantic-inventory-safely';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import type { FAQItem } from '@/types/faq';
 import ProductDetailClient from './product-detail-client';
 import type { ProductPageRuntimeProps } from './product-page-types';
-
-interface SemanticInventoryCandidateProduct {
-  slug: string;
-  name: string;
-  brand?: string | null;
-  price: number;
-  condition?: string | null;
-  stock?: number | null;
-  category_slug?: string | null;
-  product_key_specs?: Record<string, unknown> | null;
-}
 
 export async function ProductPageRuntime({
   merchant,
@@ -59,11 +48,16 @@ export async function ProductPageRuntime({
     categorySlug in CONTENT_CLUSTER_SUPPORT
       ? (categorySlug as SupportedClusterCategory)
       : null;
-  const [reviewStats, recentReviews, categoryPageData, guidePosts] =
+  const [reviewStats, recentReviews, scopedInventory, guidePosts] =
     await Promise.all([
       getCachedProductRatingStats(product.id),
       getCachedProductReviews(product.id, { limit: 10 }),
-      getCachedCategoryPageData(merchant.id, categorySlug, slug),
+      loadCategoryScopedSemanticInventorySafely({
+        merchantId: merchant.id,
+        categorySlug,
+        storeSlug: slug,
+        warningMessage: 'Failed to load PDP semantic inventory',
+      }),
       supportedClusterCategory
         ? loadPublishedClusterPostsSafely(merchant.id, {
             pageKind: 'product',
@@ -120,22 +114,12 @@ export async function ProductPageRuntime({
 
   const categoryName =
     product.categories?.name || product.category || 'All Products';
-  const inventoryCandidates = (
-    categoryPageData?.isCollection ? [] : (categoryPageData?.products ?? [])
-  ).map((candidate) => {
-    const productCandidate = candidate as SemanticInventoryCandidateProduct;
-
-    return {
-      slug: productCandidate.slug,
-      name: productCandidate.name,
-      brand: productCandidate.brand,
-      condition: productCandidate.condition,
-      price: productCandidate.price,
-      stock: productCandidate.stock,
-      category_slug: productCandidate.category_slug,
-      product_key_specs: productCandidate.product_key_specs,
-    };
-  });
+  // The scoped semantic inventory already returns exactly the candidate shape
+  // buildProductSemanticModel consumes (slug/name/price/brand/condition/stock/
+  // category_slug/key-specs), so no per-row remap is needed.
+  const inventoryCandidates = scopedInventory.isCollection
+    ? []
+    : scopedInventory.products;
   const currentProduct = {
     slug: product.slug || String(product.id),
     name: product.name,

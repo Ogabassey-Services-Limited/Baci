@@ -32,6 +32,7 @@ const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedProductRatingStats = vi.fn();
 const mockGetCachedProductReviews = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
+const mockLoadCategoryScopedSemanticInventory = vi.fn();
 const mockBuildProductSemanticModel = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
 
@@ -74,6 +75,14 @@ vi.mock('@/lib/cached-data', () => ({
       .replace(/[\r\n\t]/g, '')
       .substring(0, 100),
 }));
+
+vi.mock(
+  '@/lib/storefront-product/load-category-scoped-semantic-inventory-safely',
+  () => ({
+    loadCategoryScopedSemanticInventorySafely: (...args: unknown[]) =>
+      mockLoadCategoryScopedSemanticInventory(...args),
+  })
+);
 
 vi.mock('@/lib/storefront-product/build-product-semantic-model', () => ({
   buildProductSemanticModel: (...args: unknown[]) =>
@@ -336,6 +345,12 @@ describe('products/[productSlug] page', () => {
     mockGetCachedProductReviews.mockResolvedValue([]);
     mockGetCachedCategoryPageData.mockReset();
     mockGetCachedCategoryPageData.mockResolvedValue(null);
+    mockLoadCategoryScopedSemanticInventory.mockReset();
+    mockLoadCategoryScopedSemanticInventory.mockResolvedValue({
+      isCollection: false,
+      categoryName: 'Products',
+      products: [],
+    });
     mockGetPublishedClusterPosts.mockReset();
     mockGetPublishedClusterPosts.mockResolvedValue([]);
     mockBuildProductSemanticModel.mockReset();
@@ -1236,9 +1251,9 @@ describe('products/[productSlug] page', () => {
       slug: 'iphone-17-pro-max',
       name: 'iPhone 17 Pro Max',
     });
-    mockGetCachedCategoryPageData.mockResolvedValue({
+    mockLoadCategoryScopedSemanticInventory.mockResolvedValue({
       isCollection: false,
-      fallbackName: 'Products',
+      categoryName: 'Products',
       products: [
         {
           slug: 'iphone-17-pro-max',

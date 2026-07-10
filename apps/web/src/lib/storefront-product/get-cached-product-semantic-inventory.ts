@@ -2,16 +2,34 @@ import { getPublicSupabaseClient } from '@/lib/cached-data';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
 import type { ProductSemanticCandidate } from '@/lib/storefront-product/product-semantic-types';
 
-const PRODUCT_SEMANTIC_INVENTORY_LIMIT = 300;
+/**
+ * Upper bound on rows pulled for a single category's semantic-link inventory.
+ *
+ * Raised from 300 to 700 when the category+children scoped variant
+ * (getCachedCategoryScopedSemanticInventory) began feeding the PDP and blog SEO
+ * link pools that previously came from getCachedCategoryPageData — which is
+ * UNCAPPED over the category+direct-children scope. A naive swap onto the old
+ * 300 bound would have silently truncated the largest scoped pools.
+ *
+ * Measured worst case across the ogabassey catalog (merchant
+ * 6b5cb8a4-5575-456c-b936-8cdfae30db74) on 2026-07-10:
+ *   - category+children scope: `gaming` = 530 active products (14 direct + 516
+ *     across 9 child categories) — the true worst case, not `laptops` (330).
+ *   - exact-slug scope (this function's default consumers): `laptops` = 293.
+ * 700 clears the 530 worst case with ~32% headroom, and stays below the point
+ * (~1.15K rows at ~1.7KB/row) where the key-specs payload would approach a
+ * remote data-cache per-item byte ceiling, so a future cached variant is safe.
+ */
+export const PRODUCT_SEMANTIC_INVENTORY_LIMIT = 700;
 
-interface ProductSemanticInventoryCategoryJoin {
+export interface ProductSemanticInventoryCategoryJoin {
   categories?:
     | { slug?: string | null }
     | Array<{ slug?: string | null }>
     | null;
 }
 
-interface ProductSemanticInventoryRow {
+export interface ProductSemanticInventoryRow {
   brand?: string | null;
   condition?: string | null;
   name?: string | null;
@@ -26,7 +44,13 @@ interface ProductSemanticInventoryRow {
   stock_quantity?: number | null;
 }
 
-const PRODUCT_SEMANTIC_INVENTORY_SELECT = `
+/**
+ * Product-column projection shared by the exact-slug inventory (this file) and
+ * the category+children scoped variant. The `product_categories` embed differs
+ * between the two (exact-slug filters on categories.slug; the scoped variant
+ * filters on category_id), so each composes its own join clause onto this base.
+ */
+export const PRODUCT_SEMANTIC_INVENTORY_BASE_SELECT = `
   slug,
   name,
   price,
@@ -34,8 +58,12 @@ const PRODUCT_SEMANTIC_INVENTORY_SELECT = `
   condition,
   stock,
   stock_quantity,
-  product_categories!inner(categories!inner(slug)),
   ${PRODUCT_KEY_SPECS_RELATION_SELECT}
+`;
+
+const PRODUCT_SEMANTIC_INVENTORY_SELECT = `
+  ${PRODUCT_SEMANTIC_INVENTORY_BASE_SELECT},
+  product_categories!inner(categories!inner(slug))
 `;
 
 /**
@@ -76,7 +104,7 @@ export async function getCachedProductSemanticInventory(
     );
 }
 
-function parseSemanticProductPrice(value: unknown): number | null {
+export function parseSemanticProductPrice(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
   }
@@ -94,7 +122,7 @@ function parseSemanticProductPrice(value: unknown): number | null {
   return null;
 }
 
-function normalizeProductKeySpecs(
+export function normalizeProductKeySpecs(
   value: ProductSemanticInventoryRow['product_key_specs']
 ): Record<string, unknown> | null {
   if (Array.isArray(value)) {
