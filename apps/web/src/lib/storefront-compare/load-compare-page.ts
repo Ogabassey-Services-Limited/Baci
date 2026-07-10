@@ -6,6 +6,7 @@ import {
   getCachedProductWithDetails,
   getMerchantByIdentifier,
 } from '@/lib/cached-data';
+import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -653,7 +654,16 @@ async function getCachedComparePageModel(
     cacheTag(
       `products-${merchant.id}`,
       `categories-${merchant.id}`,
-      `features-${merchant.id}`
+      `features-${merchant.id}`,
+      // Nested `use cache` entries have INDEPENDENT tags — an inner entry's tag
+      // does not bubble up to this outer model. This model EMBEDS merchant
+      // profile / branding / currency copy and precomputed storeUrl + titles,
+      // so it must carry the merchant tags revalidateMerchant() fires or a
+      // settings / slug / branding change serves stale compare pages until the
+      // 'categories' window: `merchants`, `merchant-id-${id}`, `merchant-${slug}`.
+      'merchants',
+      `merchant-id-${merchant.id}`,
+      `merchant-${merchant.slug}`
     );
   } catch {
     // Unit tests do not run with Next cacheComponents enabled.
@@ -734,6 +744,32 @@ async function getCachedComparePageModel(
       throw new Error(
         `Compare product details unavailable for ${!leftDetails ? parsed.leftKey : parsed.rightKey}`
       );
+    }
+
+    // Both detail payloads (comparison table + structured-data offers /
+    // availability) are embedded in this model. Per-product invalidation —
+    // e.g. checkout stock updates call revalidateProductSlugs(), which purges
+    // ONLY getProductScopedCacheTag('product', merchantId, slug) and NOT the
+    // merchant-wide products-${id} tag this model already carries — would not
+    // reach this outer entry without an explicit product-scoped tag (nested
+    // `use cache` tags don't bubble up). Tag both the parsed URL keys AND the
+    // resolved detail slugs (they can differ for alias / uuid input).
+    try {
+      const productTagSlugs = new Set<string>([
+        parsed.leftKey,
+        parsed.rightKey,
+      ]);
+      if (leftDetails.slug) {
+        productTagSlugs.add(leftDetails.slug);
+      }
+      if (rightDetails.slug) {
+        productTagSlugs.add(rightDetails.slug);
+      }
+      for (const productSlug of productTagSlugs) {
+        cacheTag(getProductScopedCacheTag('product', merchant.id, productSlug));
+      }
+    } catch {
+      // Unit tests do not run with Next cacheComponents enabled.
     }
 
     const comparisonMatrix = buildProductComparisonMatrix({

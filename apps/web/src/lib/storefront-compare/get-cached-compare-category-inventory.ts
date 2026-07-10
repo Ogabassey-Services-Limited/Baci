@@ -230,7 +230,22 @@ export async function getCachedCompareCategoryInventory(
     throw error;
   }
 
-  const products = ((data ?? []) as CompareCategoryInventoryRow[])
+  const rows = (data ?? []) as CompareCategoryInventoryRow[];
+
+  if (rows.length === COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT) {
+    // Truncation is unreachable today (largest live category ≈ 330 active
+    // products) but would silently bias brand candidate selection and the
+    // brand active-model counts, which read from this same bounded set. Emit a
+    // signal so we upgrade to an uncapped brand aggregate BEFORE any category
+    // approaches the cap, instead of discovering it from wrong brand pages.
+    console.warn('COMPARE_INVENTORY_CAP_HIT', {
+      merchantId,
+      categorySlug,
+      limit: COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT,
+    });
+  }
+
+  const products = rows
     .map((row) => toInventoryProduct(row, categorySlug))
     .filter(
       (product): product is CompareCategoryInventoryProduct => product !== null
