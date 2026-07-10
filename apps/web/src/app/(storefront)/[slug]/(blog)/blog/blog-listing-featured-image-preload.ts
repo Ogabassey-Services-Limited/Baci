@@ -1,15 +1,10 @@
 import 'server-only';
-import { getImageProps } from 'next/image';
-import { preload } from 'react-dom';
-import { getOgabasseyImagePreloadType } from '@/app/(storefront)/ogabassey/ogabassey-image-preload-type';
+import { emitOgabasseyImagePreload } from '@/app/(storefront)/ogabassey/emit-ogabassey-image-preload';
 import {
   BLOG_HERO_IMAGE_QUALITY,
   BLOG_LISTING_FEATURED_IMAGE_PRELOAD_WIDTH,
   BLOG_LISTING_FEATURED_IMAGE_SIZES,
 } from '@/components/storefront/ogabassey/config/blog-media';
-import { rewriteOgabasseyTransformUrlFormat } from '@/lib/ogabassey-cdn-image-url';
-import { ogabasseyFallbackImageLoader } from '@/lib/ogabassey-image-fallback-loader';
-import { buildOgabasseyAvifSrcSet } from '@/lib/ogabassey-image-format-sources';
 
 // Must stay in lockstep with the featured-story <Image> quality so the preload
 // URL and the rendered image resolve to the same CDN transform (one fetch).
@@ -55,50 +50,10 @@ export function preloadBlogListingFeaturedImage(
   const preloadSrc = resolvePreloadableBlogImage(src);
   if (!preloadSrc) return;
 
-  const {
-    props: { sizes, srcSet },
-  } = getImageProps({
-    alt: '',
-    fill: true,
-    // Explicit shared loader for candidate parity with the rendered
-    // `<picture>` — relying on the global loaderFile leaves room for the
-    // preload srcset to diverge from what the picture actually requests.
-    loader: ogabasseyFallbackImageLoader,
+  emitOgabasseyImagePreload({
+    preloadWidth: BLOG_LISTING_FEATURED_IMAGE_PRELOAD_WIDTH,
     quality: BLOG_LISTING_FEATURED_IMAGE_QUALITY,
     sizes: BLOG_LISTING_FEATURED_IMAGE_SIZES,
     src: preloadSrc,
-  });
-  const fallbackHref = ogabasseyFallbackImageLoader({
-    quality: BLOG_LISTING_FEATURED_IMAGE_QUALITY,
-    src: preloadSrc,
-    width: BLOG_LISTING_FEATURED_IMAGE_PRELOAD_WIDTH,
-  });
-  const imageSizes = sizes ?? BLOG_LISTING_FEATURED_IMAGE_SIZES;
-  const fallbackSrcSet =
-    srcSet ?? `${fallbackHref} ${BLOG_LISTING_FEATURED_IMAGE_PRELOAD_WIDTH}w`;
-
-  // Preload the exact tier the picture renders. AVIF-capable browsers get the
-  // `image/avif` source, so the hint must too. `null` twins mean a non-CDN
-  // image with no AVIF tier: preload the decodable fallback for everyone.
-  const avifHref = rewriteOgabasseyTransformUrlFormat(fallbackHref, 'avif');
-  const avifSrcSet = buildOgabasseyAvifSrcSet(fallbackSrcSet);
-
-  if (avifHref && avifSrcSet) {
-    preload(avifHref, {
-      as: 'image',
-      fetchPriority: 'high',
-      imageSizes,
-      imageSrcSet: avifSrcSet,
-      type: 'image/avif',
-    });
-    return;
-  }
-
-  preload(fallbackHref, {
-    as: 'image',
-    fetchPriority: 'high',
-    imageSizes,
-    imageSrcSet: fallbackSrcSet,
-    type: getOgabasseyImagePreloadType(fallbackHref),
   });
 }
