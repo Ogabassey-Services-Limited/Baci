@@ -65,6 +65,16 @@ BEGIN
             (role_permissions.permissions -> 'analytics' ->> 'view')::boolean,
             false
           )
+          OR COALESCE(
+            (staff.permissions -> 'analytics' ->> 'all')::boolean,
+            (role_permissions.permissions -> 'analytics' ->> 'all')::boolean,
+            false
+          )
+          OR COALESCE(
+            (staff.permissions -> 'full_access' ->> 'all')::boolean,
+            (role_permissions.permissions -> 'full_access' ->> 'all')::boolean,
+            false
+          )
         )
     ) THEN
       RAISE EXCEPTION 'insufficient_privilege' USING ERRCODE = '42501';

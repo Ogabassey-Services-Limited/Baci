@@ -31,6 +31,8 @@ describe('website performance event summary migration', () => {
       "'*' ->> 'view'",
       "'analytics' ->> '*'",
       "'analytics' ->> 'view'",
+      "'analytics' ->> 'all'",
+      "'full_access' ->> 'all'",
     ]) {
       expect(migration).toContain(`staff.permissions -> ${permissionPath}`);
       expect(migration).toContain(
