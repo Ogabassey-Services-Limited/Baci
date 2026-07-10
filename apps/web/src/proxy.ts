@@ -271,6 +271,14 @@ const BOT_USER_AGENT_REGEX =
   /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i;
 const PROTOCOL_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
 const NESTED_PRODUCT_SUBROUTE_EXCLUSIONS = new Set(['best-under', 'compare']);
+// Second segments of 2-segment storefront paths that are real listing routes,
+// not PDPs: `/{category}/compare` is the per-category compare hub served by
+// `(storefront)/[slug]/(catalog)/(listing)/[category]/compare/page.tsx`, so its
+// second segment must never be resolved against the product slug set — the PDP
+// preflights would hard-404 (or falsely 308) the live hub. Deliberately
+// narrower than NESTED_PRODUCT_SUBROUTE_EXCLUSIONS: `/{category}/best-under`
+// has no 2-segment route, so a bare best-under path must keep hard-404ing.
+const CATEGORY_LISTING_HUB_SEGMENTS = new Set(['compare']);
 const PDP_HTML_CACHE_CONTROL = 'no-cache, no-store, max-age=0, must-revalidate';
 const NON_CACHEABLE_STOREFRONT_HTML_CACHE_CONTROL =
   'private, no-store, max-age=0, must-revalidate';
@@ -1862,6 +1870,18 @@ async function resolveStorefrontPdpHardNotFound(
   ) {
     return null;
   }
+  // `/{category}/compare` is the category compare hub route, not a PDP — it
+  // must fall through to the App Router instead of being resolved (and
+  // hard-404ed) as a product slug. The categoryless `/products/{slug}` fallback
+  // stays checked: `products` beats the dynamic `[category]` segment in route
+  // precedence, so `/products/compare` has no hub route and `compare` there can
+  // only be a genuine product slug.
+  if (
+    !isProductsFallbackPdp &&
+    CATEGORY_LISTING_HUB_SEGMENTS.has(productSlug.toLowerCase())
+  ) {
+    return null;
+  }
   // UUID product URLs (`/{category}/{productId}`) resolve through the page's
   // id-based lookup + canonical 308; the slug set only holds slugs, so a
   // UUID-shaped segment must never be hard-404ed.
@@ -1961,6 +1981,16 @@ async function resolveStorefrontPdpCanonicalRedirect(
   if (
     !productSlug ||
     RESERVED_STOREFRONT_SEGMENTS.has(productSlug.toLowerCase())
+  ) {
+    return { response: null, skipHardNotFound: false };
+  }
+  // `/{category}/compare` is the category compare hub route, not a PDP — never
+  // spend a canonical-alias lookup on it (a stale alias literally slugged
+  // "compare" must not 308 the live hub away either). The categoryless
+  // `/products/{slug}` fallback stays checked, mirroring the hard-404 gate.
+  if (
+    !isProductsFallbackPdp &&
+    CATEGORY_LISTING_HUB_SEGMENTS.has(productSlug.toLowerCase())
   ) {
     return { response: null, skipHardNotFound: false };
   }
