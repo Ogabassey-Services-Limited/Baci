@@ -19,8 +19,10 @@ export function StorefrontDeferredFooterChrome({
     <>
       <Footer merchant={merchant} storeSlug={basePath} />
 
-      {/* Intrinsic size mirrors the max-width storefront grid and reserves the 970x250 desktop footer banner while content-visibility skips the offscreen footer work. */}
-      <div className="flex min-h-[100px] justify-center border-store-border border-t bg-store-background py-4 content-auto md:min-h-[250px] [contain-intrinsic-size:1400px_250px]">
+      {/* Reserve the complete wrapper, not only the creative: AdSlotShell adds
+          its Sponsored label + vertical margins, while this container adds
+          py-4. The resulting border-box is ~200px mobile / ~350px desktop. */}
+      <div className="flex min-h-[200px] justify-center border-store-border border-t bg-store-background py-4 content-auto md:min-h-[350px] [contain-intrinsic-size:1400px_200px] md:[contain-intrinsic-size:1400px_350px]">
         <AdUnit placementKey="FOOTER_BANNER" />
       </div>
 

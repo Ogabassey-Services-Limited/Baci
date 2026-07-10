@@ -65,7 +65,12 @@ function StorefrontSemanticFooterFallback({ basePath }: { basePath: string }) {
   return (
     <footer
       aria-label="Semantic storefront footer"
-      className="border-store-border border-t bg-store-background px-4 py-8 text-store-background-text"
+      // Reserve the real Ogabassey footer's stacked height per breakpoint so the
+      // deferred fallback -> full subtree swap (footer + FOOTER_BANNER wrapper)
+      // has no height delta. Without this, the short link-list fallback was
+      // replaced by the stacked footer and ad wrapper once deferred chrome
+      // activated, shifting the footer pattern and content below it.
+      className="min-h-[1100px] border-store-border border-t bg-store-background px-4 py-8 text-store-background-text md:min-h-[910px] lg:min-h-[770px]"
     >
       <nav
         aria-label="Footer navigation"
