@@ -596,12 +596,14 @@ describe('loadComparePage', () => {
     warnSpy.mockRestore();
   });
 
-  it('degrades the single request to null instead of caching a degraded model when bounded graph inventory fails', async () => {
+  it('degrades a bounded-graph-inventory failure to the curated-slug fallback per request without 404ing or caching it', async () => {
+    // The graph inventory (related links + graph-based approval) is auxiliary:
+    // it is loaded per-request OUTSIDE the remote-cached model, so a transient
+    // failure degrades this one request (curated-slug fallback indexability,
+    // empty related links) instead of caching a degraded model for the window
+    // or 404ing an otherwise-valid compare page.
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
       // Suppress expected bounded-inventory warning.
-    });
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
-      // Suppress expected degraded-request error.
     });
     mockGetCachedProductSemanticInventory.mockRejectedValueOnce(
       new Error('inventory timeout')
@@ -625,10 +627,10 @@ describe('loadComparePage', () => {
       comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
     });
 
-    // The cached builder THROWS on a failed graph fill so Cache Components
-    // never stores a degraded noindex model; the per-request wrapper catches
-    // and degrades only this request to a 404.
-    expect(result).toBeNull();
+    expect(result?.kind).toBe('product');
+    expect(result?.isIndexable).toBe(true);
+    expect(result?.isLegacyFallback).toBe(false);
+    expect(result?.relatedCompareLinks).toEqual([]);
     expect(warnSpy).toHaveBeenCalledWith(
       'Failed to load bounded compare graph inventory',
       expect.objectContaining({
@@ -636,17 +638,49 @@ describe('loadComparePage', () => {
         merchantId: 'merchant-1',
       })
     );
-    expect(errorSpy).toHaveBeenCalledWith(
-      'Failed to load compare page model',
-      expect.objectContaining({
-        merchantSlug: 'ogabassey',
-        categorySlug: 'smartphones',
-        comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
-      })
+
+    warnSpy.mockRestore();
+  });
+
+  it('degrades a guide-post load failure to empty guide links per request without 404ing the page', async () => {
+    // Buyer-guide links are auxiliary and loaded per-request outside the cache
+    // (loadPublishedClusterPostsSafely degrades to [] by contract). A transient
+    // guide-RPC failure must not cache empty guideLinks for the window, nor
+    // 404 the compare page — it renders with guideLinks: [].
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      // Suppress expected guide-load warning.
+    });
+    mockGetPublishedClusterPosts.mockRejectedValueOnce(
+      new Error('guide rpc timeout')
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categoryPageData.products[0],
+      product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
+    });
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categoryPageData.products[1],
+      product_key_specs: {
+        chipset: 'Snapdragon 8 Elite',
+        ram_gb: 16,
+        storage_gb: 512,
+      },
+    });
+
+    const result = await loadComparePage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+    });
+
+    expect(result?.kind).toBe('product');
+    expect(result?.guideLinks).toEqual([]);
+    expect(result?.isIndexable).toBe(true);
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Failed to load bounded storefront guide candidates',
+      expect.objectContaining({ merchantId: 'merchant-1' })
     );
 
     warnSpy.mockRestore();
-    errorSpy.mockRestore();
   });
 
   it('returns null when the identifier resolves to a different merchant inside the cached model than for the caller', async () => {

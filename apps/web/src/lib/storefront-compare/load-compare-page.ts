@@ -47,7 +47,10 @@ import {
   loadCompareGraphProducts,
 } from './compare-page-link-helpers';
 import { parseCompareSlug } from './compare-slugs';
-import { getCachedCompareCategoryInventory } from './get-cached-compare-category-inventory';
+import {
+  type CompareCategoryInventoryProduct,
+  getCachedCompareCategoryInventory,
+} from './get-cached-compare-category-inventory';
 
 interface CompareBreadcrumbItem {
   name: string;
@@ -284,6 +287,50 @@ type CachedComparePageModel =
   | (Omit<BrandComparePageModel, 'isIndexable' | 'isLegacyFallback'> &
       CanonicalCompareIndexability);
 
+// Request-degradable auxiliary data — buyer-guide links and the semantic-graph
+// related links / graph-based indexability — is loaded PER REQUEST by
+// applyComparePageOverlay, NOT inside the remote-cached model. Both loaders
+// degrade to empty on transient failure by contract (loadPublishedClusterPosts
+// Safely / loadCompareGraphProducts). Baking them into the model's `categories`
+// (1h) cache would freeze a seconds-long upstream blip for the whole window;
+// throwing instead (to avoid caching the degraded output) would 404 otherwise-
+// valid compare pages via the route's notFound(). Computing them outside the
+// cache degrades only the failing request — no caching, no 404. The cached core
+// carries the inputs the overlay needs; only load-bearing data (inventory,
+// product details) stays inside the cache and still throws on transient failure.
+interface ProductCompareOverlayContext {
+  kind: 'product';
+  storeUrl: string;
+  categorySlug: string;
+  categoryName: string;
+  canonicalSlug: string;
+  leftProduct: CompareCategoryInventoryProduct;
+  rightProduct: CompareCategoryInventoryProduct;
+  leftProductSlug: string;
+  rightProductSlug: string;
+  candidateIsIndexable: boolean;
+  isCuratedCanonicalSlug: boolean;
+  guideLoadContext: BuildCommercialGuideLinksContext | null;
+  guideBuildContext: BuildCommercialGuideLinksContext | null;
+}
+
+interface BrandCompareOverlayContext {
+  kind: 'brand';
+  storeUrl: string;
+  guideContext: BuildCommercialGuideLinksContext | null;
+}
+
+type CachedComparePageCore =
+  | (Omit<
+      ProductComparePageModel,
+      'isIndexable' | 'isLegacyFallback' | 'guideLinks' | 'relatedCompareLinks'
+    > & { overlay: ProductCompareOverlayContext })
+  | (Omit<
+      BrandComparePageModel,
+      'isIndexable' | 'isLegacyFallback' | 'guideLinks' | 'relatedCompareLinks'
+    > &
+      CanonicalCompareIndexability & { overlay: BrandCompareOverlayContext });
+
 export async function loadComparePage(args: {
   merchantSlug: string;
   categorySlug: string;
@@ -411,10 +458,10 @@ async function loadComparePageForRequest(args: {
     return null;
   }
 
-  let model: CachedComparePageModel | null;
+  let core: CachedComparePageCore | null;
 
   try {
-    model = await getCachedComparePageModel(
+    core = await getCachedComparePageModel(
       args.merchantId,
       args.merchantSlug,
       args.categorySlug,
@@ -422,8 +469,9 @@ async function loadComparePageForRequest(args: {
     );
   } catch (error) {
     // Degrade the single failing request instead of poisoning the cache (the
-    // cached builder throws on transient upstream failures so they are never
-    // stored). Compare pages keep today's 404-on-transient-failure semantics.
+    // cached builder throws on transient LOAD-BEARING failures — inventory /
+    // product details — so they are never stored). Compare pages keep today's
+    // 404-on-transient-failure semantics for data the page genuinely needs.
     console.error('Failed to load compare page model', {
       merchantSlug: args.merchantSlug,
       categorySlug: args.categorySlug.slice(0, 120),
@@ -433,9 +481,14 @@ async function loadComparePageForRequest(args: {
     return null;
   }
 
-  if (!model) {
+  if (!core) {
     return null;
   }
+
+  // Overlay the request-degradable auxiliary data (guide + graph) OUTSIDE the
+  // remote cache: a transient failure here yields empty links / curated-slug
+  // fallback indexability for this one request without caching it or 404ing.
+  const model = await applyComparePageOverlay(core, args.merchantId);
 
   const isCanonicalSlugRequest = args.comparisonSlug === parsed.canonicalSlug;
 
@@ -449,6 +502,95 @@ async function loadComparePageForRequest(args: {
   }
 
   return finalizeComparePageModel(model, isCanonicalSlugRequest);
+}
+
+/**
+ * Loads the request-degradable auxiliary data (buyer-guide links and the
+ * semantic-graph related links + graph-based product indexability) on top of
+ * the cached core, PER REQUEST. Runs outside the remote cache so a transient
+ * guide-RPC or semantic-inventory failure degrades only the current request
+ * (empty links, curated-slug fallback indexability) — it is never cached for
+ * the model's `categories` window, and it never turns an auxiliary-data outage
+ * into a 404 for an otherwise-valid compare page.
+ */
+async function applyComparePageOverlay(
+  core: CachedComparePageCore,
+  merchantId: string
+): Promise<CachedComparePageModel> {
+  // Discriminate on core.kind (not the destructured overlay) so `pageModel`
+  // narrows to the matching model variant.
+  if (core.kind === 'brand') {
+    const { overlay, ...pageModel } = core;
+    const guidePosts = await loadSupportedGuidePosts(
+      merchantId,
+      overlay.guideContext
+    );
+    return {
+      ...pageModel,
+      guideLinks: overlay.guideContext
+        ? buildCommercialGuideLinks({
+            storeUrl: overlay.storeUrl,
+            posts: guidePosts,
+            context: overlay.guideContext,
+          })
+        : [],
+      relatedCompareLinks: [],
+    };
+  }
+
+  const { overlay, ...pageModel } = core;
+  const [guidePosts, compareGraphProducts] = await Promise.all([
+    loadSupportedGuidePosts(merchantId, overlay.guideLoadContext),
+    loadCompareGraphProducts({
+      categorySlug: overlay.categorySlug,
+      merchantId,
+    }),
+  ]);
+  const semanticCompareProducts = compareGraphProducts.products.map(
+    (product) => ({ ...product, status: 'active' })
+  );
+  const routeApprovalProducts = compareGraphProducts.failed
+    ? semanticCompareProducts
+    : includeClickedCompareProducts({
+        products: semanticCompareProducts,
+        clickedProducts: [overlay.leftProduct, overlay.rightProduct],
+      });
+  // On a transient graph failure fall back to the curated-slug decision — the
+  // same behavior as before this was cached, just no longer frozen for the
+  // cache window.
+  const isMaintainedGraphCanonicalSlug = compareGraphProducts.failed
+    ? overlay.isCuratedCanonicalSlug
+    : isMaintainedCompareGraphSlug({
+        storeUrl: overlay.storeUrl,
+        categorySlug: overlay.categorySlug,
+        categoryName: overlay.categoryName,
+        products: routeApprovalProducts,
+        productsAreKnownActive: false,
+        comparisonSlug: overlay.canonicalSlug,
+      });
+  const relatedCompareLinks = buildRelatedCompareLinks({
+    storeUrl: overlay.storeUrl,
+    categorySlug: overlay.categorySlug,
+    categoryName: overlay.categoryName,
+    products: routeApprovalProducts,
+    leftProductSlug: overlay.leftProductSlug,
+    rightProductSlug: overlay.rightProductSlug,
+    currentComparisonSlug: overlay.canonicalSlug,
+  });
+  return {
+    ...pageModel,
+    guideLinks: overlay.guideBuildContext
+      ? buildCommercialGuideLinks({
+          storeUrl: overlay.storeUrl,
+          posts: guidePosts,
+          context: overlay.guideBuildContext,
+        })
+      : [],
+    relatedCompareLinks,
+    isCanonicalSlugIndexable:
+      overlay.candidateIsIndexable && isMaintainedGraphCanonicalSlug,
+    isCanonicalSlugCurated: isMaintainedGraphCanonicalSlug,
+  };
 }
 
 /**
@@ -467,13 +609,19 @@ async function loadComparePageForRequest(args: {
  *
  * Callers MUST slug-safety-gate every segment before calling (see
  * loadComparePageForRequest) so unbounded bot input never becomes a cache key.
+ *
+ * Only load-bearing data is fetched here (category inventory, product details)
+ * and it THROWS on transient failure so the failure is never cached. Request-
+ * degradable auxiliary data (guide + semantic-graph links) is deliberately NOT
+ * fetched here — the returned `overlay` carries the inputs for
+ * applyComparePageOverlay to load it per-request outside the cache.
  */
 async function getCachedComparePageModel(
   merchantId: string,
   merchantSlug: string,
   categorySlug: string,
   canonicalSlug: string
-): Promise<CachedComparePageModel | null> {
+): Promise<CachedComparePageCore | null> {
   'use cache: remote';
   try {
     // 'categories' (revalidate 3600): freshness is tag-driven — product and
@@ -567,33 +715,14 @@ async function getCachedComparePageModel(
   );
 
   if (leftProduct && rightProduct) {
-    const [leftDetails, rightDetails, guidePosts, compareGraphProducts] =
-      await Promise.all([
-        getCachedProductWithDetails(merchant.id, parsed.leftKey),
-        getCachedProductWithDetails(merchant.id, parsed.rightKey),
-        loadSupportedGuidePosts(
-          merchant.id,
-          supportedClusterCategory
-            ? {
-                pageKind: 'compare',
-                categorySlug: supportedClusterCategory,
-                productSlugs: [parsed.leftKey, parsed.rightKey],
-              }
-            : null
-        ),
-        loadCompareGraphProducts({
-          categorySlug: args.categorySlug,
-          merchantId: merchant.id,
-        }),
-      ]);
-
-    if (compareGraphProducts.failed) {
-      // Fills that throw are never stored by Cache Components: a transient
-      // semantic-inventory failure must degrade this single request (the
-      // per-request wrapper catches → null) instead of caching a degraded
-      // noindex / empty-related-links model for the whole revalidate window.
-      throw new Error('Compare graph inventory unavailable');
-    }
+    // Only the load-bearing product details are fetched inside the cache. The
+    // guide + semantic-graph loads moved to applyComparePageOverlay (outside
+    // the cache) so their transient failures degrade one request instead of
+    // being frozen for the cache window or 404ing valid pages.
+    const [leftDetails, rightDetails] = await Promise.all([
+      getCachedProductWithDetails(merchant.id, parsed.leftKey),
+      getCachedProductWithDetails(merchant.id, parsed.rightKey),
+    ]);
 
     if (!leftDetails || !rightDetails) {
       // The cached inventory just said both products exist and are active, so
@@ -650,24 +779,6 @@ async function getCachedComparePageModel(
         product_key_specs: rightComparableKeySpecs,
       },
     });
-    const semanticCompareProducts = compareGraphProducts.products.map(
-      (product) => ({
-        ...product,
-        status: 'active',
-      })
-    );
-    const routeApprovalProducts = includeClickedCompareProducts({
-      products: semanticCompareProducts,
-      clickedProducts: [leftProduct, rightProduct],
-    });
-    const isMaintainedGraphCanonicalSlug = isMaintainedCompareGraphSlug({
-      storeUrl,
-      categorySlug: args.categorySlug,
-      categoryName,
-      products: routeApprovalProducts,
-      productsAreKnownActive: false,
-      comparisonSlug: parsed.canonicalSlug,
-    });
     const differenceLabels = summarizeDifferenceLabels(keyDifferences);
     const breadcrumbItems = [
       { name: merchant.business_name, url: storeUrl },
@@ -682,16 +793,6 @@ async function getCachedComparePageModel(
       `${leftDetails.name} vs ${rightDetails.name}`,
       countryContext
     );
-    const relatedCompareLinks = buildRelatedCompareLinks({
-      storeUrl,
-      categorySlug: args.categorySlug,
-      categoryName,
-      products: routeApprovalProducts,
-      leftProductSlug: leftDetails.slug || parsed.leftKey,
-      rightProductSlug: rightDetails.slug || parsed.rightKey,
-      currentComparisonSlug: parsed.canonicalSlug,
-    });
-
     return {
       kind: 'product',
       canonicalSlug: parsed.canonicalSlug,
@@ -721,27 +822,43 @@ async function getCachedComparePageModel(
         },
       ],
       breadcrumbItems,
-      guideLinks: supportedClusterCategory
-        ? buildCommercialGuideLinks({
-            storeUrl,
-            posts: guidePosts,
-            context: {
+      merchant,
+      leftProduct: leftDetails,
+      rightProduct: rightDetails,
+      // guideLinks, relatedCompareLinks and the graph-based indexability are
+      // filled per-request by applyComparePageOverlay (outside the cache).
+      overlay: {
+        kind: 'product',
+        storeUrl,
+        categorySlug: args.categorySlug,
+        categoryName,
+        canonicalSlug: parsed.canonicalSlug,
+        leftProduct,
+        rightProduct,
+        leftProductSlug: leftDetails.slug || parsed.leftKey,
+        rightProductSlug: rightDetails.slug || parsed.rightKey,
+        candidateIsIndexable: candidate.isIndexable,
+        isCuratedCanonicalSlug,
+        // Faithful to the pre-overlay contexts: the guide LOAD used the raw
+        // parsed URL keys, the guide BUILD used the resolved detail slugs.
+        guideLoadContext: supportedClusterCategory
+          ? {
+              pageKind: 'compare',
+              categorySlug: supportedClusterCategory,
+              productSlugs: [parsed.leftKey, parsed.rightKey],
+            }
+          : null,
+        guideBuildContext: supportedClusterCategory
+          ? {
               pageKind: 'compare',
               categorySlug: supportedClusterCategory,
               productSlugs: [
                 leftDetails.slug || parsed.leftKey,
                 rightDetails.slug || parsed.rightKey,
               ],
-            },
-          })
-        : [],
-      relatedCompareLinks,
-      merchant,
-      isCanonicalSlugIndexable:
-        candidate.isIndexable && isMaintainedGraphCanonicalSlug,
-      isCanonicalSlugCurated: isMaintainedGraphCanonicalSlug,
-      leftProduct: leftDetails,
-      rightProduct: rightDetails,
+            }
+          : null,
+      },
     };
   }
 
@@ -766,16 +883,6 @@ async function getCachedComparePageModel(
     return null;
   }
 
-  const guidePosts = await loadSupportedGuidePosts(
-    merchant.id,
-    supportedClusterCategory
-      ? {
-          pageKind: 'compare',
-          categorySlug: supportedClusterCategory,
-          brands: [brandCandidate.leftBrand, brandCandidate.rightBrand],
-        }
-      : null
-  );
   const leftBrandKey = generateSlug(brandCandidate.leftBrand);
   const rightBrandKey = generateSlug(brandCandidate.rightBrand);
   const leftBrandProducts = normalizedProducts.filter(
@@ -852,23 +959,24 @@ async function getCachedComparePageModel(
       },
     ],
     breadcrumbItems,
-    guideLinks: supportedClusterCategory
-      ? buildCommercialGuideLinks({
-          storeUrl,
-          posts: guidePosts,
-          context: {
-            pageKind: 'compare',
-            categorySlug: supportedClusterCategory,
-            brands: [brandCandidate.leftBrand, brandCandidate.rightBrand],
-          },
-        })
-      : [],
-    relatedCompareLinks: [],
     merchant,
+    // Brand indexability is not graph-derived (curated-slug based), so it stays
+    // in the cached core; only the guide links degrade per-request.
     isCanonicalSlugIndexable:
       brandCandidate.isIndexable && isCuratedCanonicalSlug,
     isCanonicalSlugCurated: isCuratedCanonicalSlug,
     leftBrand: brandCandidate.leftBrand,
     rightBrand: brandCandidate.rightBrand,
+    overlay: {
+      kind: 'brand',
+      storeUrl,
+      guideContext: supportedClusterCategory
+        ? {
+            pageKind: 'compare',
+            categorySlug: supportedClusterCategory,
+            brands: [brandCandidate.leftBrand, brandCandidate.rightBrand],
+          }
+        : null,
+    },
   };
 }
