@@ -166,6 +166,19 @@ describe('OgabasseyLayoutChrome', () => {
     ).toHaveAttribute('data-defer-interaction-until-next-paint', 'true');
   });
 
+  it('reserves the full footer and ad subtree on the deferred fallback so activation does not shift', () => {
+    render(<OgabasseyLayoutChrome basePath="/ogabassey" section="footer" />);
+
+    const fallbackFooter = screen.getByRole('contentinfo', {
+      name: /semantic storefront footer/i,
+    });
+
+    // Footer estimates plus the complete footer-ad wrapper reservation.
+    expect(fallbackFooter).toHaveClass('min-h-[1100px]');
+    expect(fallbackFooter).toHaveClass('md:min-h-[910px]');
+    expect(fallbackFooter).toHaveClass('lg:min-h-[770px]');
+  });
+
   it('keeps immediate footer links root-relative for domain-routed storefronts', () => {
     render(<OgabasseyLayoutChrome basePath="" section="footer" />);
 

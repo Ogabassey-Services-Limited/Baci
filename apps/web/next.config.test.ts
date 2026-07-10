@@ -24,6 +24,7 @@ const { compileNonPath } =
   require('next/dist/shared/lib/router/utils/prepare-destination') as {
     compileNonPath: (value: string, params: Record<string, string>) => string;
   };
+const OGABASSEY_DOCUMENT_HOST_MATCHER = '(?:www\\.)?ogabassey\\.com';
 
 type NextConfigFunction = (
   phase: string,
@@ -141,7 +142,7 @@ describe('next.config OgaBassey resource headers', () => {
     ).toBe('streaming');
   });
 
-  it('keeps CDN connection hints out of generic OgaBassey Link headers', async () => {
+  it('advertises a media-CDN preconnect on generic OgaBassey Link headers (Ops-2 Early Hints)', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
 
@@ -150,16 +151,24 @@ describe('next.config OgaBassey resource headers', () => {
         (entry) =>
           !entry.source.includes(':productSlug') &&
           JSON.stringify(entry.has) ===
-            JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+            JSON.stringify([
+              { type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER },
+            ])
       )
       ?.headers.find((header) => header.key === 'Link')?.value;
 
-    expect(ogabasseyLinkHeader).not.toContain(
+    // preconnect (safe, no wasteful fetch) is emitted so Cloudflare can replay it
+    // as a 103 Early Hint; the responsive image PRELOAD stays excluded (below).
+    expect(ogabasseyLinkHeader).toContain(
       '<https://cdn.ogabassey.com>; rel=preconnect'
     );
     expect(ogabasseyLinkHeader).toContain(
       '</.well-known/api-catalog>; rel="api-catalog"'
     );
+    const hostMatcher = new RegExp(`^${OGABASSEY_DOCUMENT_HOST_MATCHER}$`);
+    expect(hostMatcher.test('ogabassey.com')).toBe(true);
+    expect(hostMatcher.test('www.ogabassey.com')).toBe(true);
+    expect(hostMatcher.test('shop.ogabassey.com')).toBe(false);
   });
 
   it('advertises agent discovery resources in OgaBassey Link headers', async () => {
@@ -171,7 +180,9 @@ describe('next.config OgaBassey resource headers', () => {
         (entry) =>
           !entry.source.includes(':productSlug') &&
           JSON.stringify(entry.has) ===
-            JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+            JSON.stringify([
+              { type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER },
+            ])
       )
       ?.headers.find((header) => header.key === 'Link')?.value;
 
@@ -216,7 +227,9 @@ describe('next.config OgaBassey resource headers', () => {
       (entry) =>
         !entry.source.includes(':productSlug') &&
         JSON.stringify(entry.has) ===
-          JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+          JSON.stringify([
+            { type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER },
+          ])
     );
     expect(ogabasseyGenericHeaderRule).toBeDefined();
     const linkHeader = ogabasseyGenericHeaderRule?.headers.find(
@@ -229,7 +242,7 @@ describe('next.config OgaBassey resource headers', () => {
     expect(linkHeader).not.toContain('/api/ogabassey/pdp-lcp-image/');
   });
 
-  it('keeps PDP image preloading out of HTTP Link headers', async () => {
+  it('emits the media-CDN preconnect but keeps PDP image PRELOADS out of HTTP Link headers', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
     expect(headers).toBeDefined();
@@ -238,7 +251,9 @@ describe('next.config OgaBassey resource headers', () => {
       (entry) =>
         entry.source.includes(':productSlug') &&
         JSON.stringify(entry.has) ===
-          JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+          JSON.stringify([
+            { type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER },
+          ])
     );
 
     expect(ogabasseyPdpHeaderRule).toBeDefined();
@@ -249,9 +264,8 @@ describe('next.config OgaBassey resource headers', () => {
     expect(linkHeader).toContain(
       '</.well-known/api-catalog>; rel="api-catalog"'
     );
-    expect(linkHeader).not.toContain(
-      '<https://cdn.ogabassey.com>; rel=preconnect'
-    );
+    // preconnect IS present (Ops-2); a responsive image preload is NOT.
+    expect(linkHeader).toContain('<https://cdn.ogabassey.com>; rel=preconnect');
     expect(linkHeader).not.toContain('/api/ogabassey/pdp-lcp-image/');
     expect(linkHeader).not.toContain('/profile/mobile-header/');
     expect(linkHeader).not.toContain('/profile/mobile/');
@@ -266,7 +280,9 @@ describe('next.config OgaBassey resource headers', () => {
       (entry) =>
         entry.source.includes(':productSlug') &&
         JSON.stringify(entry.has) ===
-          JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+          JSON.stringify([
+            { type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER },
+          ])
     );
     const linkHeader = ogabasseyPdpHeaderRule?.headers.find(
       (header) => header.key === 'Link'
@@ -291,7 +307,7 @@ describe('next.config OgaBassey resource headers', () => {
     expect(headers).toBeDefined();
 
     const ogabasseyHostMatcher = JSON.stringify([
-      { type: 'host', value: 'ogabassey.com' },
+      { type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER },
     ]);
     const pdpRuleIndex = headers.findIndex(
       (entry) =>
@@ -346,7 +362,9 @@ describe('next.config OgaBassey resource headers', () => {
       (entry) =>
         entry.source.includes(':productSlug') &&
         JSON.stringify(entry.has) ===
-          JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+          JSON.stringify([
+            { type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER },
+          ])
     );
 
     expect(ogabasseyPdpHeaderRule).toBeDefined();

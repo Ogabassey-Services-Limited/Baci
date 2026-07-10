@@ -3584,6 +3584,10 @@ export const CheckoutPage: React.FC = () => {
                               Select Delivery Option
                             </label>
 
+                            {/* Keep the async delivery-options area at a stable
+                                height. Multiple quotes scroll inside the box
+                                instead of growing it after the loader swap. */}
+                            <div className="h-[320px] overflow-y-auto overscroll-contain pr-1">
                             {isLoadingQuotes ? (
                               <SmartQuoteLoader />
                             ) : doorDeliveryQuotes.length > 0 ? (
@@ -3688,6 +3692,7 @@ export const CheckoutPage: React.FC = () => {
                                 </span>
                               </button>
                             )}
+                            </div>
                           </div>
                         )}
                       </>
@@ -3749,8 +3754,10 @@ export const CheckoutPage: React.FC = () => {
                 Order Summary
               </h2>
 
-              {/* Items List (Collapsed View) */}
-              <div className="space-y-4 mb-6 max-h-[200px] overflow-y-auto pr-1">
+              {/* Items List (Collapsed View). Keep the full scroll region
+                  reserved so hydration of a multi-item persisted cart cannot
+                  grow the summary and shift the payment controls. */}
+              <div className="mb-6 h-[200px] space-y-4 overflow-y-auto pr-1">
                 {displayItems.map((item) => {
                   // Legacy persisted carts can lack `cartItemId` until the
                   // provider's upgrade path (storefront-cart-provider.tsx
