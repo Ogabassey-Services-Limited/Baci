@@ -12,21 +12,18 @@ function normalizeRating(rating?: number) {
   return Math.min(rating, 5);
 }
 
-function formatRating(rating?: number) {
-  const normalizedRating = normalizeRating(rating);
-
-  if (normalizedRating === 0) {
-    return '0';
-  }
-
-  return Number.isInteger(normalizedRating)
-    ? String(normalizedRating)
-    : normalizedRating.toFixed(1);
-}
-
 export function ProductRatingRow({ rating }: ProductRatingRowProps) {
   const normalizedRating = normalizeRating(rating);
-  const displayRating = formatRating(rating);
+
+  // Products without real review data get no rating row — rendering five
+  // empty stars (or a fabricated score) misleads shoppers.
+  if (normalizedRating === 0) {
+    return null;
+  }
+
+  const displayRating = Number.isInteger(normalizedRating)
+    ? String(normalizedRating)
+    : normalizedRating.toFixed(1);
   const roundedRating = Math.floor(normalizedRating);
 
   return (
