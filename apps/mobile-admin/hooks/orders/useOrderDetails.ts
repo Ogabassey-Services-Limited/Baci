@@ -5,6 +5,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { getBranchScopeKey } from '@/lib/branch-scope-query';
 import { getEffectiveOrderPaymentSummary } from '@/lib/order-payment-summary';
+import { getOrderPaymentTransactionTotals } from '@/lib/order-payment-transaction-totals';
 import { ORDER_COLUMNS } from '@/lib/orders';
 import { normalizeVariantAttributes } from '@/lib/product-picker-variant-rows';
 import { supabase } from '@/lib/supabase';
@@ -217,17 +218,8 @@ export async function fetchOrderById(
   }
 
   const orderTotal = Number(order.total) || 0;
-  const transactionTotal =
-    transactions?.reduce((sum, transaction) => {
-      return sum + (Number(transaction.amount) || 0);
-    }, 0) || 0;
-  const walletTransactionTotal =
-    transactions?.reduce((sum, transaction) => {
-      const gateway = transaction.gateway?.trim().toLowerCase();
-      return gateway === 'wallet' || gateway === 'store_credit'
-        ? sum + (Number(transaction.amount) || 0)
-        : sum;
-    }, 0) || 0;
+  const { transactionTotal, walletTransactionTotal } =
+    getOrderPaymentTransactionTotals(transactions);
   const { amountPaid, balance, paymentStatus } =
     getEffectiveOrderPaymentSummary({
       orderTotal,
