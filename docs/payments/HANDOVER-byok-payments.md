@@ -1,7 +1,7 @@
 # HANDOVER — BYOK Payment Providers Implementation
 
 **Written:** 2026-07-08 · **Updated:** 2026-07-08 (Wave 2 closure pass) · **For:** the next agent/engineer continuing this work
-**Status at handover:** Wave 1 + Wave 2 (PayPal lane) **code-complete, twice adversarially reviewed (incl. an independent verification of the gap-closure commit), low-severity polish applied (`232c721e66`: 400 PAYPAL_UNSUPPORTED_CURRENCY vs 503 FX outage, mode-mismatch captures now file reconciliation reviews, dead isSandboxMismatch removed, non-paypal fee-passthrough regression test). 19 commits, gate green. No PR opened, nothing pushed — only the §5 launch gates remain.**
+**Status at handover:** Wave 1 + Wave 2 (PayPal lane) **code-complete, twice adversarially reviewed (incl. an independent verification of the gap-closure commit), low-severity polish applied (`232c721e66`: 400 PAYPAL_UNSUPPORTED_CURRENCY vs 503 FX outage, mode-mismatch captures now file reconciliation reviews, dead isSandboxMismatch removed, non-paypal fee-passthrough regression test). 19 commits, gate green. PUSHED as PR #3024 (https://github.com/ogabasseyy/Baci/pull/3024) on 2026-07-10 after merging origin/main twice (incl. #2993 multi-country currency — guard composition documented in the PR body). CSP applied to proxy.ts (own commit); Vercel PAYMENT_CREDS_ENCRYPTION_KEY set per environment. Remaining: PR review loop + merge-time migration apply/type regen + PayPal pilot.**
 
 > ✅ **Wave 2 closure pass completed:** the prior top-of-queue gaps are closed. `apps/web/src/app/api/merchant/payment-credentials/route.test.ts` now covers unauthenticated, permission-denied, CSRF, rate-limit, invalid provider credentials, save, write-only GET, DELETE, and no-secret-in-response behavior. The Wave 2 adversarial review over `git diff 66b794a188..HEAD` found and fixed four issues: unsupported non-NGN PayPal currencies now fail closed before order creation, capture mode detection rejects `unknown`, PayPal capture uses a stable `PayPal-Request-Id`, and direct-to-merchant verify reconciliation forces `p_platform_fee=0` even for stale prototype rows. It also scrubbed legacy PayPal credential keys from generic feature-settings responses/writes.
 
@@ -29,7 +29,7 @@ The plan is the source of truth. It contains: the 3-lanes decision (Lane 0 Afric
 | `/Users/mac/Baci-app/.worktrees/paypal-integration` | `feature/paypal-integration` | **READ-ONLY reference.** The original PayPal prototype (5 commits, ~6 weeks stale). Wave 2 ports from it. NEVER commit or edit here. |
 | `/Users/mac/Baci-app` (main checkout) | `codex/posthog-observability` | Unrelated session branch. The plan doc + AI-keys doc live here too, but no BYOK payment code. Leave alone. |
 
-**Never push, no PR opened yet.** Per the user's "batch full scope before review loop" preference, the branch stays local until the lane is assembled + verified + user-reviewed.
+**PR #3024 is OPEN** (pushed 2026-07-10 after user approval). Watch the review gates (CodeRabbit/Codex/Jules) there.
 
 ---
 
