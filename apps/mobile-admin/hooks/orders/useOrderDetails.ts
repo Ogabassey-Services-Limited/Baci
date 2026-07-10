@@ -104,6 +104,7 @@ export async function fetchOrderById(
       .from('transactions')
       .select('amount')
       .eq('order_id', orderId)
+      .eq('transaction_type', 'payment')
       .in('status', ['success', 'completed']),
     supabase
       .from('order_payment_accounts')

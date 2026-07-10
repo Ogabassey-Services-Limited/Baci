@@ -24,6 +24,30 @@ const supabaseMock = vi.hoisted(() => {
     return tableResults.get(table) ?? { data: [], error: null };
   }
 
+  function getFilteredTableResult(
+    table: string,
+    calls: Array<{ args: unknown[]; method: string }>
+  ): QueryResult {
+    const result = getTableResult(table);
+    if (table !== 'transactions' || !Array.isArray(result.data)) return result;
+
+    const transactionType = calls.find(
+      (call) => call.method === 'eq' && call.args[0] === 'transaction_type'
+    )?.args[1];
+    if (typeof transactionType !== 'string') return result;
+
+    return {
+      ...result,
+      data: result.data.filter(
+        (row) =>
+          typeof row === 'object' &&
+          row !== null &&
+          'transaction_type' in row &&
+          row.transaction_type === transactionType
+      ),
+    };
+  }
+
   function makeChain(table: string) {
     const chain: Record<string, (...args: unknown[]) => unknown> & {
       maybeSingle?: () => Promise<QueryResult>;
@@ -61,7 +85,7 @@ const supabaseMock = vi.hoisted(() => {
       Promise.resolve(tableResults.get(table) ?? { data: null, error: null });
     // biome-ignore lint/suspicious/noThenProperty: Mocking a promise chain
     chain.then = (resolve) =>
-      Promise.resolve(getTableResult(table)).then(resolve);
+      Promise.resolve(getFilteredTableResult(table, calls)).then(resolve);
 
     return chain;
   }
@@ -202,7 +226,7 @@ describe('fetchOrderById', () => {
       error: null,
     });
     supabaseMock.setTableResult('transactions', {
-      data: [{ amount: 15 }],
+      data: [{ amount: 15, transaction_type: 'payment' }],
       error: null,
     });
     supabaseMock.setTableResult('order_payment_accounts', {
@@ -283,11 +307,11 @@ describe('fetchOrderById', () => {
     });
     supabaseMock.setTableResult('transactions', {
       data: [
-        { amount: 654_000 },
-        { amount: 82_000 },
-        { amount: 82_000 },
-        { amount: 82_000 },
-        { amount: 82_000 },
+        { amount: 654_000, transaction_type: 'payment' },
+        { amount: 82_000, transaction_type: 'payment' },
+        { amount: 82_000, transaction_type: 'payment' },
+        { amount: 82_000, transaction_type: 'payment' },
+        { amount: 82_000, transaction_type: 'payment' },
       ],
       error: null,
     });
@@ -297,6 +321,35 @@ describe('fetchOrderById', () => {
         amount_paid: 982_000,
         balance: 0,
         payment_status: 'paid',
+      })
+    );
+  });
+
+  it('excludes refund rows when deriving effective payment status', async () => {
+    supabaseMock.setOrderDetailResult({
+      data: {
+        amount_paid: 400,
+        id: 'order-1',
+        payment_status: 'partially_paid',
+        recorded_by_user_id: null,
+        total: 800,
+        wallet_amount_used: 0,
+      },
+      error: null,
+    });
+    supabaseMock.setTableResult('transactions', {
+      data: [
+        { amount: 400, transaction_type: 'payment' },
+        { amount: 400, transaction_type: 'refund' },
+      ],
+      error: null,
+    });
+
+    await expect(fetchOrderById('order-1', 'merchant-1')).resolves.toEqual(
+      expect.objectContaining({
+        amount_paid: 400,
+        balance: 400,
+        payment_status: 'partially_paid',
       })
     );
   });
