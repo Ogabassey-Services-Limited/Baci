@@ -1,6 +1,11 @@
 import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import type { Product as CartProduct, ProductVariant } from '@/lib/products';
 import { canonicalizeVariantAxis } from '@/components/storefront/ogabassey/variant-attributes';
+import {
+  COMPACT_OPTIONS,
+  type CurrencyConfig,
+  formatCurrencyWithConfig,
+} from '@/lib/currency';
 
 export interface InitialCriticalVariantSelection {
   attributes?: Record<string, string>;
@@ -18,12 +23,18 @@ export interface ResolvedCriticalVariantSelection {
   variant: ProductVariant;
 }
 
-const PRICE_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat('en-NG', {
-  currency: 'NGN',
-  maximumFractionDigits: 0,
-  minimumFractionDigits: 0,
-  style: 'currency',
-});
+/**
+ * Platform-default currency for the PDP critical commerce price display —
+ * Baci's home market (NGN) — used whenever a caller doesn't have a
+ * merchant-resolved currency to hand. Live PDP renders should pass the
+ * merchant's resolved `CurrencyConfig` from `resolveMerchantCurrencyConfig`
+ * instead of relying on this fallback.
+ */
+export const DEFAULT_CRITICAL_PRICE_CURRENCY: CurrencyConfig = {
+  code: 'NGN',
+  symbol: '₦',
+  locale: 'en-NG',
+};
 
 function normalizeCriticalVariantAxis(axis: string) {
   const normalizedAxis = canonicalizeVariantAxis(axis);
@@ -37,8 +48,11 @@ function normalizeCriticalVariantAxis(axis: string) {
   return normalizedAxis;
 }
 
-export function formatCriticalPrice(price: number) {
-  return PRICE_FORMATTER.format(price);
+export function formatCriticalPrice(
+  price: number,
+  currency: CurrencyConfig = DEFAULT_CRITICAL_PRICE_CURRENCY
+) {
+  return formatCurrencyWithConfig(price, currency, COMPACT_OPTIONS);
 }
 
 function getVariantStock(

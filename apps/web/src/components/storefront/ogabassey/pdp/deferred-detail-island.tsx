@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { SafeHtml } from '@/components/ui/safe-html';
 import type { Product } from '@/components/storefront/ogabassey/types';
 import { OgabasseyPdpDeferredDetailClient } from './deferred-detail-island.client';
 import { OgabasseyPdpDeferredRailsIsland } from './deferred-rails-island.client';
@@ -19,6 +20,17 @@ export function OgabasseyPdpDeferredDetailIsland({
 }: OgabasseyPdpDeferredDetailIslandProps) {
   const { relatedProduct, tabProduct } =
     buildOgabasseyPdpDeferredProductPayload(product);
+  // Sanitize the product description HERE (server) and pass the rendered node
+  // into the client tabs island as a slot. This keeps `sanitize-html` (254 KB)
+  // and its main-thread parse off the client — the tabs chunk only receives the
+  // already-sanitized markup, never the sanitizer.
+  const descriptionSlot = (
+    <SafeHtml
+      html={tabProduct.description || ''}
+      headingLevelOffset={1}
+      className="ogabassey-pdp-tabs__rich-text prose max-w-none prose-headings:text-inherit prose-strong:text-inherit prose-table:text-sm"
+    />
+  );
 
   return (
     <section
@@ -29,6 +41,7 @@ export function OgabasseyPdpDeferredDetailIsland({
       {serverPrimaryDetails}
       {/* Deferred client island #1: tabs / ad / video (rails excluded). */}
       <OgabasseyPdpDeferredDetailClient
+        descriptionSlot={descriptionSlot}
         productData={tabProduct}
         storeSlug={storeSlug}
       />

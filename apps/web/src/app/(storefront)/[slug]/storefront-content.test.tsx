@@ -251,13 +251,42 @@ describe('StorefrontContent', () => {
           categories: expect.objectContaining({ slug: 'smartphones' }),
           id: 'ogabassey-product-1',
         }),
-      ])
+      ]),
+      expect.objectContaining({ code: 'NGN' })
     );
     expect(
       screen.getByRole('main', { name: 'OgaBassey home' })
     ).toHaveTextContent('ogabassey:/ogabassey:1');
     expect(mockOgabasseyHomePage).toHaveBeenCalledWith(
       expect.objectContaining({ basePath: '/ogabassey' })
+    );
+  });
+
+  it('passes the resolved merchant currency to the OgaBassey home product feed', async () => {
+    const { resolveStorefrontTemplateId } = await import(
+      './resolve-storefront-template'
+    );
+    const { createOgabasseyHomeProductFeed } = await import(
+      '@/components/storefront/ogabassey/home-product-feed'
+    );
+
+    vi.mocked(resolveStorefrontTemplateId).mockReturnValue('ogabassey');
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      createMockHomeProduct({ id: 'india-product', name: 'India Product' }),
+    ]);
+
+    const result = await StorefrontContent({
+      merchant: {
+        ...mockOgabasseyMerchant,
+        payout_currency: 'INR',
+        country: 'IN',
+      },
+    });
+    render(result as React.ReactElement);
+
+    expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ code: 'INR', symbol: '₹' })
     );
   });
 

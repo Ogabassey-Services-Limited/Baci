@@ -5,6 +5,7 @@ import { Suspense } from 'react';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { resolveMerchantContextIdentifier } from '@/lib/storefront-route-identifier';
 import { OgabasseyHomeDynamicContent } from './ogabassey-home-dynamic-content';
 import { OgabasseyHomeHeroSection } from './ogabassey-home-hero-section';
@@ -60,6 +61,7 @@ export async function OgabasseyHomePageContent({
       <OgabasseyHomeHeroSection
         merchantId={merchant.id}
         pathPrefix={resolvedPathPrefix}
+        currency={resolveMerchantCurrencyConfig(merchant)}
       />
       <Suspense fallback={null}>
         <OgabasseyHomeDynamicContent

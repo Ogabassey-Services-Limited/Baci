@@ -1,15 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ReactNode } from 'react';
+import { describe, expect, it, vi } from 'vitest';
 import type { NormalizedProductDetails } from './product-details-helpers';
 import type { ProductDetailsActiveTab } from './use-product-details-state';
-
-// SafeHtml relies on sanitizeHtml; pass-through so we can assert rendered text
-const mockSanitizeHtml = vi.fn((s: string, _options?: unknown) => s);
-
-vi.mock('@/lib/sanitize', () => ({
-  sanitizeHtml: (html: string, options?: unknown) =>
-    mockSanitizeHtml(html, options),
-}));
 
 // ProductComparisonTable has its own hooks/network calls — stub it out
 vi.mock('../../components/ProductComparisonTable', () => ({
@@ -27,13 +20,20 @@ vi.mock('../../components/ProductComparisonTable', () => ({
 // Import after mocks are registered
 import { ProductDetailsTabs } from './product-details-tabs';
 
-beforeEach(() => {
-  mockSanitizeHtml.mockClear();
-});
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+// The description is now sanitized on the server and injected as a slot. In the
+// unit test we mimic that with a plain node so we can assert the tab renders
+// whatever server-composed content it is handed.
+function buildDescriptionSlot(html: string): ReactNode {
+  return (
+    <div className="ogabassey-pdp-tabs__rich-text">
+      {html.replace(/<[^>]+>/g, '')}
+    </div>
+  );
+}
 
 function buildProductData(
   overrides: Partial<NormalizedProductDetails> = {}
@@ -76,14 +76,17 @@ function buildProductData(
 
 function renderTabs(
   activeTab: ProductDetailsActiveTab = 'description',
-  overrides: Partial<NormalizedProductDetails> = {}
+  overrides: Partial<NormalizedProductDetails> = {},
+  descriptionSlot?: ReactNode
 ) {
   const onSelectTab = vi.fn();
   const productData = buildProductData(overrides);
+  const slot = descriptionSlot ?? buildDescriptionSlot(productData.description);
 
   render(
     <ProductDetailsTabs
       activeTab={activeTab}
+      descriptionSlot={slot}
       normalizedReviewRatingWidth="80%"
       onSelectTab={onSelectTab}
       productData={productData}
@@ -158,25 +161,28 @@ describe('ProductDetailsTabs — description tab panel', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders the HTML description content via SafeHtml', () => {
-    renderTabs('description', {
-      description: '<p>Great product with long battery life.</p>',
-    });
+  it('renders the server-composed description slot inside the description panel', () => {
+    renderTabs(
+      'description',
+      {},
+      <p>Great product with long battery life.</p>
+    );
 
     expect(
       screen.getByText('Great product with long battery life.')
     ).toBeInTheDocument();
   });
 
-  it('demotes imported description headings to avoid multiple page h1 tags', () => {
-    renderTabs('description', {
-      description: '<h1>Imported Title</h1><p>Body copy</p>',
-    });
-
-    expect(mockSanitizeHtml).toHaveBeenCalledWith(
-      '<h1>Imported Title</h1><p>Body copy</p>',
-      { headingLevelOffset: 1 }
+  it('does not render the description slot when a different tab is active', () => {
+    renderTabs(
+      'specs',
+      {},
+      <p>Slot content that should stay hidden.</p>
     );
+
+    expect(
+      screen.queryByText('Slot content that should stay hidden.')
+    ).not.toBeInTheDocument();
   });
 
   it('renders Key Highlights section with specs when specs are provided', () => {

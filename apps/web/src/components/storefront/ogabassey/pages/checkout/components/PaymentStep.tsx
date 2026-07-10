@@ -13,6 +13,7 @@ import {
   type FeatureSettings,
   hasAnyInstallmentOption,
   isKlumpEligible,
+  isNgnChargeCurrency,
   isPaymentMethodAvailable,
 } from './payment-step-availability';
 
@@ -76,13 +77,19 @@ export function PaymentStep({
   orderAmount,
   currency = 'NGN',
 }: PaymentStepProps) {
-  const paystackCheckoutAvailable = isPaystackCheckoutAvailable(merchant);
+  // Paystack (and its DVA-backed bank transfer) settle NGN only — the
+  // initialize API rejects them for non-NGN orders with UNSUPPORTED_CURRENCY,
+  // so their country/subaccount availability alone must not surface them on a
+  // non-NGN checkout.
+  const ngnRailsAvailable = isNgnChargeCurrency(currency);
+  const paystackCheckoutAvailable =
+    ngnRailsAvailable && isPaystackCheckoutAvailable(merchant);
   const korapayCheckoutAvailable = isKorapayCheckoutAvailable(
     merchant,
     currency
   );
   const bankTransferCheckoutAvailable =
-    isBankTransferCheckoutAvailable(merchant);
+    ngnRailsAvailable && isBankTransferCheckoutAvailable(merchant);
   const hasAvailableSelectedPaymentMethod = isPaymentMethodAvailable({
     paymentMethod,
     paystackCheckoutAvailable,

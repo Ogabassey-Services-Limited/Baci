@@ -12,15 +12,16 @@ import { createServiceClient } from '@/lib/supabase/service';
  * lib/image-format-backfill.ts — this file is argv/env wiring only.
  *
  * Usage (ops ladder — run each rung before the next):
- *   pnpm --filter web backfill:image-format-cache -- --dry-run
- *   pnpm --filter web backfill:image-format-cache -- --limit 50
- *   pnpm --filter web backfill:image-format-cache
+ *   pnpm --filter @baci/web backfill:image-format-cache --dry-run
+ *   pnpm --filter @baci/web backfill:image-format-cache --limit 50 --blog-limit 50
+ *   pnpm --filter @baci/web backfill:image-format-cache
  *
  * Requires SUPABASE_* service env; CLOUDFLARE_API_TOKEN + CLOUDFLARE_ZONE_ID
  * for the purge step (the purge no-ops with a warning when missing).
  */
 
 interface BackfillImageFormatCacheCliArgs {
+  blogLimit?: number;
   concurrency?: number;
   dryRun: boolean;
   limit?: number;
@@ -43,6 +44,9 @@ function parseArgs(argv: string[]): BackfillImageFormatCacheCliArgs {
     } else if (flag === '--limit') {
       index += 1;
       args.limit = parsePositiveInteger(argv[index], '--limit');
+    } else if (flag === '--blog-limit') {
+      index += 1;
+      args.blogLimit = parsePositiveInteger(argv[index], '--blog-limit');
     } else if (flag === '--concurrency') {
       index += 1;
       args.concurrency = parsePositiveInteger(argv[index], '--concurrency');
@@ -70,6 +74,7 @@ export async function runBackfillImageFormatCacheCli(
   }
   const summary = await runImageFormatBackfill({
     supabase: createServiceClient(),
+    blogLimit: args.blogLimit,
     concurrency: args.concurrency,
     dryRun: args.dryRun,
     limit: args.limit,

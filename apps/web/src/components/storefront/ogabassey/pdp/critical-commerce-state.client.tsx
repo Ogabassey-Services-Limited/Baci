@@ -16,6 +16,7 @@ import { useCart } from '@/hooks/cart';
 import {
   buildVariantCartProduct,
   compactVariantOptions,
+  DEFAULT_CRITICAL_PRICE_CURRENCY,
   getVariantAxesWithMultipleOptions,
   normalizeCriticalVariantAttributes,
   normalizeCriticalVariantProduct,
@@ -35,6 +36,7 @@ export {
 export function OgabasseyPdpCriticalCommerceProvider({
   cartProduct,
   children,
+  currency = DEFAULT_CRITICAL_PRICE_CURRENCY,
   initialVariantSelection,
   variantAxes = [],
   variantAxisOptions = {},
@@ -281,6 +283,7 @@ export function OgabasseyPdpCriticalCommerceProvider({
     <OgabasseyPdpCriticalCommerceContext.Provider
       value={{
         canAddToCart,
+        currency,
         explicitSelectedAxes,
         handleAddToCart,
         handleAttributeSelection,
