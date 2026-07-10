@@ -3,9 +3,9 @@
 import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
 // Migrated from temp-source/components/ProductCard.tsx
 import Link from 'next/link';
-import Image from 'next/image';
 import React, { useState } from 'react';
 import { getProductImageAlt, trimString } from '@baci/shared/lib';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { PLACEHOLDER_IMAGE } from '@/lib/image-utils';
 import { asRoute } from '@/lib/routes';
@@ -162,7 +162,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {/* NOTE: explicit width/height required for remote images without fill, but here we want fill + object-cover */}
           {/* We use fill={true} with sizes prop for best performance */}
           {/* biome-ignore lint/a11y/useAltText: intentional img usage */}
-          <Image
+          <CdnFormatImage
             src={productImageSrc}
             alt={productImageAlt}
             fill
@@ -292,7 +292,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
       {/* Image (Left Side) */}
       <div className="ogabassey-product-card-image-surface w-28 md:w-48 aspect-square bg-gray-50 rounded-xl shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
-        <Image
+        <CdnFormatImage
           src={productImageSrc}
           alt={productImageAlt}
           fill

@@ -39,6 +39,8 @@ type PurgeImpl = (
 
 export interface RunImageFormatBackfillOptions {
   supabase: ImageFormatBackfillSupabaseClient;
+  /** Cap on published blog posts scanned for a bounded sample run. */
+  blogLimit?: number;
   /** Injectable for tests. Defaults to the global `fetch`. */
   fetchImpl?: typeof fetch;
   /** Injectable purge. Defaults to `purgeCloudflareUrls` (fail-open, ≤30/batch). */
@@ -159,6 +161,7 @@ export async function runImageFormatBackfill(
 ): Promise<ImageFormatBackfillSummary> {
   const {
     supabase,
+    blogLimit,
     fetchImpl = fetch,
     purgeImpl = purgeCloudflareUrls,
     dryRun = false,
@@ -170,6 +173,7 @@ export async function runImageFormatBackfill(
 
   // Enumerate FIRST; any query error throws here, before anything is purged.
   const targets = await enumerateImageFormatBackfillTargets(supabase, {
+    blogLimit,
     limit,
   });
   const { urls } = targets;

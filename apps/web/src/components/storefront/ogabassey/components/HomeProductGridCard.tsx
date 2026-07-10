@@ -1,8 +1,8 @@
 'use client';
 
 import { getProductImageAlt } from '@baci/shared/lib';
-import Image from 'next/image';
 import Link from 'next/link';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
 import { PLACEHOLDER_IMAGE } from '@/lib/image-utils';
 import { getProductUrl } from '@/lib/seo-utils';
@@ -94,7 +94,7 @@ export function HomeProductGridCard({
         )}
 
         {shouldRenderImage ? (
-          <Image
+          <CdnFormatImage
             src={productImage.src}
             alt={productImageAlt}
             fill
