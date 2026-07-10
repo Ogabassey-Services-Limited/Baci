@@ -76,11 +76,13 @@ describe('GiglProvider booking requests', () => {
         ReceiverLocation: { Latitude: 0, Longitude: 0 },
       },
       ShipmentDetails: {
-        PickUpOptions: 1,
-        DeliveryOptionIds: [11],
+        PickupOptions: 1,
+        DeliveryType: 0,
+        IsPriorityShipment: false,
+        PricingStrategy: 3,
+        IsCashOnDelivery: 0,
+        CashOnDeliveryAmount: 0,
         VehicleType: 1,
-        CustomerCode: 'ECO038082',
-        CustomerType: 2,
       },
     });
     expect(bookingPayload.ShipmentItems[0]).toMatchObject({
@@ -97,6 +99,31 @@ describe('GiglProvider booking requests', () => {
       isStationPickup: true,
       pickupStationName: 'PORT HARCOURT',
       pickupStationAddress: 'Port Harcourt station',
+    });
+  });
+
+  it('preserves GoFaster when booking a priority quote', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
+      .mockResolvedValueOnce(jsonResponse(stationsResponse))
+      .mockResolvedValueOnce(jsonResponse(bookingResponse));
+
+    const provider = buildBookingHarness();
+
+    await provider.bookShipment({
+      ...bookingRequest,
+      providerRateId: 'GIGL_30_1_1_0_1',
+    });
+
+    const bookingPayload = JSON.parse(
+      String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')
+    );
+    expect(bookingPayload.ShipmentDetails).toMatchObject({
+      DeliveryType: 1,
+      IsPriorityShipment: true,
+      PricingStrategy: 3,
     });
   });
 

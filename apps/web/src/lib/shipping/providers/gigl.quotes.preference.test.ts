@@ -78,23 +78,25 @@ describe('GiglProvider quote delivery preference', () => {
       jsonResponse(loginResponse),
       jsonResponse(stationsResponse),
       jsonResponse(priceResponse),
+      jsonResponse(priceResponse),
       jsonResponse(serviceCentresResponse)
     );
 
     const quotes = await buildQuoteHarness().getQuotes();
 
-    expect(quotes).toHaveLength(3);
+    expect(quotes).toHaveLength(6);
     expect(quotes[0]).toMatchObject({
       provider: 'GIGL',
-      serviceTier: 'Station Pickup',
-      providerRateId: 'GIGL_30_1_1_575',
+      serviceTier: 'Station Pickup - GoStandard',
+      providerRateId: 'GIGL_30_1_1_575_0',
       isStationPickup: true,
       stationName: 'PHC RUMUOLUMENI IWOFE',
     });
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
       `${baseUrl}/login`,
       `${baseUrl}/localstations/get`,
-      `${baseUrl}/price`,
+      `${baseUrl}/price/v3`,
+      `${baseUrl}/price/v3`,
       `${baseUrl}/serviceCentresByStation?StationId=30`,
     ]);
     const pricePayload = JSON.parse(

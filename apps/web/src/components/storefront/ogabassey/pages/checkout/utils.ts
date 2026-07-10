@@ -160,6 +160,12 @@ export function calculateDeliveryCost(
   }
 
   // Airport
+  const selectedAirQuote = shippingQuotes.find(
+    (quote) => String(quote.id) === String(selectedQuoteId),
+  );
+  if (selectedAirQuote && isGiglGoFasterQuote(selectedAirQuote)) {
+    return selectedAirQuote.price;
+  }
   return airportType === 'delivery' ? 25000 : 20000;
 }
 
@@ -170,7 +176,25 @@ export function isStationPickupQuote(quote: ShippingQuote): boolean {
 export function getDoorDeliveryQuotes(
   quotes: ShippingQuote[],
 ): ShippingQuote[] {
-  return quotes.filter((quote) => !isStationPickupQuote(quote));
+  return quotes.filter(
+    (quote) =>
+      !isStationPickupQuote(quote) && !isGiglGoFasterQuote(quote),
+  );
+}
+
+export function getAirDeliveryQuotes(
+  quotes: ShippingQuote[],
+): ShippingQuote[] {
+  return quotes.filter(isGiglGoFasterQuote);
+}
+
+export function isGiglGoFasterQuote(
+  quote: ShippingQuote | undefined,
+): boolean {
+  return (
+    quote?.provider.toUpperCase() === 'GIGL' &&
+    quote.serviceTier.toLowerCase().includes('gofaster')
+  );
 }
 
 export function getStationPickupQuote(
@@ -207,9 +231,18 @@ export function getSelectedQuoteIdForDeliveryMethod(
     const selectedQuote = shippingQuotes.find(
       (quote) => String(quote.id) === String(selectedQuoteId),
     );
-    return selectedQuote && !isStationPickupQuote(selectedQuote)
+    return selectedQuote &&
+      !isStationPickupQuote(selectedQuote) &&
+      !isGiglGoFasterQuote(selectedQuote)
       ? selectedQuoteId
       : getPreferredDoorQuoteId(shippingQuotes);
+  }
+
+  if (deliveryMethod === 'airport') {
+    const selectedQuote = shippingQuotes.find(
+      (quote) => String(quote.id) === String(selectedQuoteId),
+    );
+    return isGiglGoFasterQuote(selectedQuote) ? selectedQuoteId : '';
   }
 
   return selectedQuoteId;

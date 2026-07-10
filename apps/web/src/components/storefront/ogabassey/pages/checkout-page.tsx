@@ -101,13 +101,16 @@ import {
   loadCheckoutShippingQuotes,
 } from './checkout/hooks/checkout-shipping-quote-loader';
 import {
+  calculateDeliveryCost,
   KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST,
   createSelectDeliveryMethod,
+  getAirDeliveryQuotes,
   getDoorDeliveryQuotes,
   getStationPickupAddressText,
   getStationPickupQuote,
   getStationPickupQuotes,
   inferAddressLocationFromInput,
+  isGiglGoFasterQuote,
   isStationPickupQuote,
   isKlumpUnavailableForGatewayAmount,
   resetDeliveryQuotesForAddressChange,
@@ -1008,12 +1011,15 @@ export const CheckoutPage: React.FC = () => {
   const stationPickupQuote = getStationPickupQuote(shippingQuotes);
   const stationPickupQuotes = getStationPickupQuotes(shippingQuotes);
   const doorDeliveryQuotes = getDoorDeliveryQuotes(shippingQuotes);
+  const airDeliveryQuotes = getAirDeliveryQuotes(shippingQuotes);
   const selectedQuote = shippingQuotes.find(
     (quote) => String(quote.id) === String(selectedQuoteId),
   );
   const selectedQuoteMatchesDeliveryMethod = Boolean(
     selectedQuote &&
       ((deliveryMethod === 'door' && !isStationPickupQuote(selectedQuote)) ||
+        (deliveryMethod === 'airport' &&
+          isGiglGoFasterQuote(selectedQuote)) ||
         (deliveryMethod === 'pickup_station' &&
           isStationPickupQuote(selectedQuote))),
   );
@@ -1340,14 +1346,12 @@ export const CheckoutPage: React.FC = () => {
     return `${start.toLocaleDateString('en-GB', options)} to ${end.toLocaleDateString('en-GB', options)}`;
   };
 
-  const deliveryCost =
-    deliveryMethod === 'pickup'
-      ? 0
-      : deliveryMethod === 'door' || deliveryMethod === 'pickup_station'
-        ? selectedQuoteId && selectedQuote && selectedQuoteMatchesDeliveryMethod
-          ? selectedQuote.price
-          : 0 // Fallback: 0 if loading or no quote selected
-        : airportType === 'delivery' ? 25000 : 20000; // Airport Delivery: ₦25,000, Airport Pickup: ₦20,000
+  const deliveryCost = calculateDeliveryCost(
+    deliveryMethod,
+    selectedQuoteId,
+    shippingQuotes,
+    airportType,
+  );
 
   // Server-computed discount amount (the route re-validates against the
   // canonical subtotal); fall back to a local estimate only if it's missing.
@@ -1760,7 +1764,9 @@ export const CheckoutPage: React.FC = () => {
     }
 
     if (
-      (deliveryMethod === 'door' || deliveryMethod === 'pickup_station') &&
+      (deliveryMethod === 'door' ||
+        deliveryMethod === 'pickup_station' ||
+        (deliveryMethod === 'airport' && selectedQuoteMatchesDeliveryMethod)) &&
       selectedQuoteId
     ) {
       if (selectedQuote && selectedQuoteMatchesDeliveryMethod) {
@@ -1793,7 +1799,9 @@ export const CheckoutPage: React.FC = () => {
       shippingFee: deliveryCost,
       shippingProvider,
       selectedQuoteId:
-        deliveryMethod === 'door' || deliveryMethod === 'pickup_station'
+        deliveryMethod === 'door' ||
+        deliveryMethod === 'pickup_station' ||
+        (deliveryMethod === 'airport' && selectedQuoteMatchesDeliveryMethod)
           ? selectedQuoteId || undefined
           : undefined,
       shippingAddress: shippingAddressData,
@@ -1833,7 +1841,9 @@ export const CheckoutPage: React.FC = () => {
         paymentMethod: normalizedPaymentMethod,
         shippingProvider,
         selectedQuoteId:
-          deliveryMethod === 'door' || deliveryMethod === 'pickup_station'
+          deliveryMethod === 'door' ||
+          deliveryMethod === 'pickup_station' ||
+          (deliveryMethod === 'airport' && selectedQuoteMatchesDeliveryMethod)
             ? selectedQuoteId || undefined
             : undefined,
       });
@@ -1927,7 +1937,10 @@ export const CheckoutPage: React.FC = () => {
             // empty string AND undefined defensively. The RPC schema
             // is `.nullable().optional()` so null is canonical.
             selected_quote_id:
-              deliveryMethod === 'door' || deliveryMethod === 'pickup_station'
+              deliveryMethod === 'door' ||
+              deliveryMethod === 'pickup_station' ||
+              (deliveryMethod === 'airport' &&
+                selectedQuoteMatchesDeliveryMethod)
                 ? selectedQuoteId || null
                 : null,
             // Wallet redemption (2025: auto-apply at checkout)
@@ -3552,7 +3565,7 @@ export const CheckoutPage: React.FC = () => {
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <label
-                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'delivery'
+                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'delivery' && !selectedQuoteMatchesDeliveryMethod
                                   ? 'border-store-primary bg-store-primary/5'
                                   : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                                   }`}
@@ -3561,13 +3574,19 @@ export const CheckoutPage: React.FC = () => {
                                   type="radio"
                                   name="airportType"
                                   value="delivery"
-                                  checked={airportType === 'delivery'}
-                                  onChange={() => setAirportType('delivery')}
+                                  checked={
+                                    airportType === 'delivery' &&
+                                    !selectedQuoteMatchesDeliveryMethod
+                                  }
+                                  onChange={() => {
+                                    setAirportType('delivery');
+                                    setSelectedQuoteId('');
+                                  }}
                                   className="sr-only"
                                 />
-                                <div className={`size-5 rounded-full border-2 flex items-center justify-center ${airportType === 'delivery' ? 'border-store-primary' : 'border-gray-400'
+                                <div className={`size-5 rounded-full border-2 flex items-center justify-center ${airportType === 'delivery' && !selectedQuoteMatchesDeliveryMethod ? 'border-store-primary' : 'border-gray-400'
                                   }`}>
-                                  {airportType === 'delivery' && (
+                                  {airportType === 'delivery' && !selectedQuoteMatchesDeliveryMethod && (
                                     <div className="size-2.5 rounded-full bg-store-primary" />
                                   )}
                                 </div>
@@ -3582,7 +3601,7 @@ export const CheckoutPage: React.FC = () => {
                                 <span className="font-bold text-store-background-text">₦25,000</span>
                               </label>
                               <label
-                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'pickup'
+                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'pickup' && !selectedQuoteMatchesDeliveryMethod
                                   ? 'border-store-primary bg-store-primary/5'
                                   : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                                   }`}
@@ -3591,13 +3610,19 @@ export const CheckoutPage: React.FC = () => {
                                   type="radio"
                                   name="airportType"
                                   value="pickup"
-                                  checked={airportType === 'pickup'}
-                                  onChange={() => setAirportType('pickup')}
+                                  checked={
+                                    airportType === 'pickup' &&
+                                    !selectedQuoteMatchesDeliveryMethod
+                                  }
+                                  onChange={() => {
+                                    setAirportType('pickup');
+                                    setSelectedQuoteId('');
+                                  }}
                                   className="sr-only"
                                 />
-                                <div className={`size-5 rounded-full border-2 flex items-center justify-center ${airportType === 'pickup' ? 'border-store-primary' : 'border-gray-400'
+                                <div className={`size-5 rounded-full border-2 flex items-center justify-center ${airportType === 'pickup' && !selectedQuoteMatchesDeliveryMethod ? 'border-store-primary' : 'border-gray-400'
                                   }`}>
-                                  {airportType === 'pickup' && (
+                                  {airportType === 'pickup' && !selectedQuoteMatchesDeliveryMethod && (
                                     <div className="size-2.5 rounded-full bg-store-primary" />
                                   )}
                                 </div>
@@ -3608,6 +3633,34 @@ export const CheckoutPage: React.FC = () => {
                                 <span className="font-bold text-store-background-text">₦20,000</span>
                               </label>
                             </div>
+                            {airDeliveryQuotes.map((quote) => (
+                              <label
+                                key={quote.id}
+                                className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border-2 p-4 transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${selectedQuoteId === quote.id
+                                  ? 'border-store-primary bg-store-primary/5'
+                                  : 'border-store-background-text/10 bg-store-background hover:border-store-primary/40'
+                                  }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="airportType"
+                                  checked={selectedQuoteId === quote.id}
+                                  onChange={() => setSelectedQuoteId(quote.id)}
+                                  className="size-4 border-store-background-text/25 text-store-primary focus:ring-store-primary"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-bold text-store-background-text">
+                                    {quote.displayName}
+                                  </p>
+                                  <p className="mt-0.5 text-xs text-store-background-text/55">
+                                    GIG Logistics GoFaster (Air/Cargo)
+                                  </p>
+                                </div>
+                                <span className="shrink-0 text-sm font-bold text-store-background-text">
+                                  {formatAmountInCurrency(quote.price, quote.currency, AUTO_FRACTION_OPTIONS)}
+                                </span>
+                              </label>
+                            ))}
                           </div>
                         )}
 

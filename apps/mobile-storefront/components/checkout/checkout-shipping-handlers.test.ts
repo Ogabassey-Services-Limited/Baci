@@ -16,6 +16,7 @@ function createParams(overrides: Partial<HandlerParams> = {}): HandlerParams {
     deliveryCoordinates: { latitude: 4.8156, longitude: 7.0498 },
     deliveryMethod: 'door',
     googleSuggestedCityRef: { current: null },
+    quoteSelection: { selectedQuoteId: '', shippingQuotes: [] },
     requestShippingQuotes: jest.fn(),
     resolvedShippingQuoteContextKey: 'quote-context',
     savedDoorAddressRef: { current: null },

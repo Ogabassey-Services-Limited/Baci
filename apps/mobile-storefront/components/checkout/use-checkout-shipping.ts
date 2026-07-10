@@ -9,9 +9,11 @@ import {
   getStationPickupQuote,
 } from '@/components/checkout/checkout-station-pickup';
 import {
+  findSelectedQuote,
   getDeliveryMethodFee,
+  getShippingProviderForMethod as getProvider,
   getQuotePreference,
-  getShippingProviderForMethod,
+  requiresQuote,
 } from '@/components/checkout/checkout-step-helpers';
 import type {
   DeliveryMethod,
@@ -237,13 +239,11 @@ export function useCheckoutShipping({
     watchedCity,
     watchedState,
   ]);
-  const selectedQuote = shippingQuotes.find(
-    (quote) => String(quote.id) === String(selectedQuoteId)
-  );
+  const selectedQuote = findSelectedQuote(shippingQuotes, selectedQuoteId);
   const deliveryFee = getDeliveryMethodFee(deliveryMethod, selectedQuote);
   const requiresShippingQuote =
     Boolean(currentShippingQuoteContextKey) &&
-    (deliveryMethod === 'door' || usesProviderPickup);
+    requiresQuote(deliveryMethod, selectedQuote, usesProviderPickup);
   const handlers = createCheckoutShippingHandlers({
     committedAddress,
     currentShippingQuoteContextKey,
@@ -262,6 +262,7 @@ export function useCheckoutShipping({
     setShowCityPicker,
     setShowStatePicker,
     setValue,
+    quoteSelection: { selectedQuoteId, shippingQuotes },
     shippingQuoteAbortRef,
     shippingStates,
     stationPickupQuote,
@@ -275,8 +276,7 @@ export function useCheckoutShipping({
     currentShippingQuoteContextKey,
     deliveryFee,
     deliveryMethod,
-    getShippingProvider: () =>
-      getShippingProviderForMethod(deliveryMethod, selectedQuote),
+    getShippingProvider: () => getProvider(deliveryMethod, selectedQuote),
     ...handlers,
     isLoadingCities,
     isLoadingLocations,

@@ -5,6 +5,7 @@ import {
   getPickupStationAddressLines,
   isProviderStationPickupQuote,
 } from '@/components/checkout/checkout-station-pickup';
+import { AIRPORT_QUOTE_ID } from '@/components/checkout/checkout-step-helpers';
 import { ShippingQuoteRow } from '@/components/checkout/ShippingQuoteRow';
 import type {
   DeliveryMethod,
@@ -20,7 +21,6 @@ import { CheckoutSectionCard } from './selection/CheckoutSectionCard';
 
 const AIRPORT_DOORSTEP_NOTE = 'Delivery to your doorstep';
 const PICKUP_HELPER_TEXT = 'Pick from a centre close to you';
-const AIRPORT_QUOTE_ID = 'airport-delivery';
 const ignoreAirportQuotePress = () => undefined;
 
 type ColorsScheme = (typeof Colors)['light'];

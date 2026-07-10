@@ -1,5 +1,9 @@
 import type { ShippingAddress, ShippingQuote } from '../types';
-import type { GiglQuoteIo } from './gigl.constants';
+import {
+  buildGiglProviderRateId,
+  type GiglQuoteIo,
+  parseGiglProviderRateId,
+} from './gigl.constants';
 import type { GiglServiceCentre, GiglStation } from './gigl.schemas';
 
 const MAX_PICKUP_CENTRES = 3;
@@ -91,13 +95,21 @@ export async function expandGiglServiceCentreQuotes({
     const availableCentres = serviceCentres ?? (await fetchServiceCentres?.());
     if (!availableCentres?.length) return [baseQuote];
 
+    const selectedRate = parseGiglProviderRateId(baseQuote.providerRateId);
     return selectServiceCentres(availableCentres, receiver).map((centre) => ({
       ...baseQuote,
       id: generateQuoteId(),
-      displayName: `GIG Logistics - Pickup at ${centre.ServiceCentreName}`,
-      providerRateId: baseQuote.providerRateId
-        ? `${baseQuote.providerRateId}_${centre.ServiceCentreId}`
-        : undefined,
+      displayName: `${baseQuote.displayName.split(' at ')[0]} at ${centre.ServiceCentreName}`,
+      providerRateId:
+        selectedRate.receiverStationId !== undefined &&
+        selectedRate.vehicleType !== undefined
+          ? buildGiglProviderRateId({
+              ...selectedRate,
+              receiverStationId: selectedRate.receiverStationId,
+              vehicleType: selectedRate.vehicleType,
+              serviceCentreId: centre.ServiceCentreId,
+            })
+          : baseQuote.providerRateId,
       stationId: receiverStation.StationId,
       stationName: centre.ServiceCentreName,
       stationAddress: centre.Address,

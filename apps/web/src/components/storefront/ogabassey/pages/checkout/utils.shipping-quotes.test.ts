@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ShippingQuote } from './types';
 import {
+  calculateDeliveryCost,
   createSelectDeliveryMethod,
+  getAirDeliveryQuotes,
   getDoorDeliveryQuotes,
   getPreferredDoorQuoteId,
   getSelectedQuoteIdForDeliveryMethod,
@@ -25,6 +27,12 @@ const doorQuote: ShippingQuote = {
   serviceTier: 'Standard',
 };
 
+const goFasterQuote: ShippingQuote = {
+  ...doorQuote,
+  id: 'air-1',
+  serviceTier: 'GoFaster',
+};
+
 const stationQuote: ShippingQuote = {
   ...doorQuote,
   displayName: 'Pickup Stations (GIGL)',
@@ -44,10 +52,16 @@ const secondStationQuote: ShippingQuote = {
 
 describe('checkout shipping quote helpers', () => {
   it('separates door and provider pickup station quotes', () => {
-    const quotes = [stationQuote, doorQuote, secondStationQuote];
+    const quotes = [
+      stationQuote,
+      doorQuote,
+      goFasterQuote,
+      secondStationQuote,
+    ];
 
     expect(isStationPickupQuote(stationQuote)).toBe(true);
     expect(getDoorDeliveryQuotes(quotes)).toEqual([doorQuote]);
+    expect(getAirDeliveryQuotes(quotes)).toEqual([goFasterQuote]);
     expect(getStationPickupQuote(quotes)).toBe(stationQuote);
     expect(getStationPickupQuotes(quotes)).toEqual([
       stationQuote,
@@ -57,7 +71,7 @@ describe('checkout shipping quote helpers', () => {
   });
 
   it('selects a matching quote when switching delivery methods', () => {
-    const quotes = [doorQuote, stationQuote];
+    const quotes = [doorQuote, goFasterQuote, stationQuote];
 
     expect(getSelectedQuoteIdForDeliveryMethod('pickup_station', 'door-1', quotes)).toBe(
       'station-1'
@@ -67,6 +81,18 @@ describe('checkout shipping quote helpers', () => {
     );
     expect(getSelectedQuoteIdForDeliveryMethod('pickup', 'station-1', quotes)).toBe(
       'station-1'
+    );
+    expect(
+      getSelectedQuoteIdForDeliveryMethod('airport', 'air-1', quotes),
+    ).toBe('air-1');
+    expect(
+      getSelectedQuoteIdForDeliveryMethod('airport', 'door-1', quotes),
+    ).toBe('');
+    expect(calculateDeliveryCost('airport', 'air-1', quotes, 'delivery')).toBe(
+      goFasterQuote.price,
+    );
+    expect(calculateDeliveryCost('airport', 'door-1', quotes, 'pickup')).toBe(
+      20000,
     );
   });
 

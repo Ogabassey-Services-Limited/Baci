@@ -11,7 +11,9 @@ import {
 } from '@/components/checkout/checkout-station-pickup';
 import {
   AIRPORT_DELIVERY_FEE,
+  AIRPORT_QUOTE_ID,
   getDeliveryMethodSummary,
+  isGiglGoFasterQuote,
 } from '@/components/checkout/checkout-step-helpers';
 import { DeliveryMethodCard } from '@/components/checkout/DeliveryMethodCard';
 import { DeliveryNotesCard } from '@/components/checkout/DeliveryNotesCard';
@@ -131,8 +133,10 @@ export function CheckoutAddressStepView({
       ? selectedQuote
       : undefined;
   const doorShippingQuotes = shippingQuotes.filter(
-    (quote) => !isProviderStationPickupQuote(quote)
+    (quote) =>
+      !isProviderStationPickupQuote(quote) && !isGiglGoFasterQuote(quote)
   );
+  const airShippingQuotes = shippingQuotes.filter(isGiglGoFasterQuote);
   const providerPickupQuotes = shippingQuotes.filter(
     isProviderStationPickupQuote
   );
@@ -144,8 +148,22 @@ export function CheckoutAddressStepView({
     stationPickupQuote,
   });
   const shouldShowShippingQuotes =
-    (deliveryMethod === 'door' || usesProviderPickup) &&
+    (deliveryMethod === 'door' ||
+      deliveryMethod === 'airport' ||
+      usesProviderPickup) &&
     Boolean(watchedState && watchedCity);
+  const airportLocation = watchedCity.trim() || watchedState.trim();
+  const localAirportQuote: ShippingQuote = {
+    carrierName: 'By Air',
+    deliveryRange: '24-48 working hours',
+    displayName: `${airportLocation ? `${airportLocation} ` : ''}Airport Delivery`,
+    id: AIRPORT_QUOTE_ID,
+    price: AIRPORT_DELIVERY_FEE,
+  };
+  const effectiveSelectedQuoteId =
+    deliveryMethod === 'airport' && !isGiglGoFasterQuote(selectedQuote)
+      ? AIRPORT_QUOTE_ID
+      : selectedQuoteId;
 
   return (
     <ScrollView
@@ -247,12 +265,16 @@ export function CheckoutAddressStepView({
               isDark={isDark}
               isLoadingQuotes={isLoadingQuotes}
               shippingQuotes={
-                usesProviderPickup ? providerPickupQuotes : doorShippingQuotes
+                usesProviderPickup
+                  ? providerPickupQuotes
+                  : deliveryMethod === 'airport'
+                    ? [localAirportQuote, ...airShippingQuotes]
+                    : doorShippingQuotes
               }
               stationPickupQuote={
                 usesProviderPickup ? undefined : stationPickupQuote
               }
-              selectedQuoteId={selectedQuoteId}
+              selectedQuoteId={effectiveSelectedQuoteId}
               onSelectQuote={onSelectQuote}
               onRetryQuotes={onRetryQuotes}
             />

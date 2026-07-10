@@ -41,9 +41,9 @@ describe('expandGiglServiceCentreQuotes', () => {
 
     expect(quotes).toHaveLength(3);
     expect(quotes.map((quote) => quote.providerRateId)).toEqual([
-      'GIGL_30_1_1_575',
-      'GIGL_30_1_1_407',
-      'GIGL_30_1_1_524',
+      'GIGL_30_1_1_575_0',
+      'GIGL_30_1_1_407_0',
+      'GIGL_30_1_1_524_0',
     ]);
     expect(quotes[0]).toMatchObject({
       stationName: 'PHC RUMUOLUMENI IWOFE',

@@ -3,12 +3,14 @@ import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/pickup-stati
 import type { ShippingQuote } from '@/components/checkout/types';
 import {
   AIRPORT_DELIVERY_FEE,
+  findSelectedQuote,
   getDeliveryMethodFee,
   getDeliveryMethodLabel,
   getDeliveryMethodSummary,
   getPaymentTabForMethod,
   getQuotePreference,
   getShippingProviderForMethod,
+  requiresQuote,
 } from './checkout-step-helpers';
 
 const baseQuote: ShippingQuote = {
@@ -30,6 +32,13 @@ const stationPickupQuote: ShippingQuote = {
   stationAddress: 'GIGL Aba Road, Port Harcourt',
   stationName: 'PORT HARCOURT',
 };
+const goFasterQuote: ShippingQuote = {
+  ...baseQuote,
+  id: 'gofaster-quote',
+  provider: 'GIGL',
+  serviceTier: 'GoFaster',
+  price: 18500,
+};
 
 describe('checkout-step-helpers', () => {
   it('maps payment methods to the right tabs', () => {
@@ -45,6 +54,7 @@ describe('checkout-step-helpers', () => {
     expect(getDeliveryMethodFee('airport', baseQuote)).toBe(
       AIRPORT_DELIVERY_FEE
     );
+    expect(getDeliveryMethodFee('airport', goFasterQuote)).toBe(18500);
     expect(getDeliveryMethodFee('pickup_station', baseQuote)).toBe(0);
     expect(getDeliveryMethodFee('pickup_station', stationPickupQuote)).toBe(
       9493
@@ -106,6 +116,7 @@ describe('checkout-step-helpers', () => {
 
   it('returns the shipping provider for each delivery method', () => {
     expect(getShippingProviderForMethod('airport', baseQuote)).toBeUndefined();
+    expect(getShippingProviderForMethod('airport', goFasterQuote)).toBe('GIGL');
     expect(
       getShippingProviderForMethod('pickup_station', baseQuote)
     ).toBeUndefined();
@@ -137,5 +148,14 @@ describe('checkout-step-helpers', () => {
     expect(getQuotePreference('pickup_station')).toBe('pickup_station');
     expect(getQuotePreference('door')).toBe('door');
     expect(getQuotePreference('airport')).toBe('door');
+  });
+
+  it('resolves quote state requirements for local and provider air options', () => {
+    expect(
+      findSelectedQuote([baseQuote, goFasterQuote], 'gofaster-quote')
+    ).toBe(goFasterQuote);
+    expect(requiresQuote('airport', goFasterQuote, false)).toBe(true);
+    expect(requiresQuote('airport', undefined, false)).toBe(false);
+    expect(requiresQuote('door', undefined, false)).toBe(true);
   });
 });

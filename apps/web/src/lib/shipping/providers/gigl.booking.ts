@@ -3,6 +3,8 @@ import type { GiglApiClient } from './gigl.auth';
 import {
   GIGL_BOOKING_TIMEOUT_MS,
   GIGL_DEFAULT_SPECIAL_PACKAGE_ID,
+  GIGL_PRICING_STRATEGY,
+  GiglDeliveryType,
   type GiglProviderIo,
   getVehicleTypeForWeight,
   isGiglAbortError,
@@ -158,10 +160,13 @@ export async function bookGiglShipment(
             },
             ShipmentDetails: {
               VehicleType: vehicleType,
-              PickUpOptions: selectedRate.pickupOption,
-              DeliveryOptionIds: isStationPickup ? [11] : [2],
-              CustomerCode: bookingTokenData.userChannelCode,
-              CustomerType: bookingTokenData.customerType,
+              DeliveryType: selectedRate.deliveryType,
+              PickupOptions: selectedRate.pickupOption,
+              IsPriorityShipment:
+                selectedRate.deliveryType === GiglDeliveryType.GoFaster,
+              IsCashOnDelivery: 0,
+              CashOnDeliveryAmount: 0,
+              PricingStrategy: GIGL_PRICING_STRATEGY,
               IsFromAgility: 0,
               IsBatchPickUp: 0,
             },

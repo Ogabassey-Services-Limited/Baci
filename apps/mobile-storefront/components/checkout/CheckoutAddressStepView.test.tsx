@@ -98,6 +98,13 @@ const stationQuote: ShippingQuote = {
   stationAddress: 'GIGL Aba Road, Port Harcourt',
   stationName: 'PORT HARCOURT',
 };
+const goFasterQuote: ShippingQuote = {
+  displayName: 'GIG Logistics - GoFaster',
+  id: 'gofaster-quote',
+  price: 18_500,
+  provider: 'GIGL',
+  serviceTier: 'GoFaster',
+};
 
 function createProps(
   overrides: Partial<AddressStepProps> = {}
@@ -207,6 +214,38 @@ describe('CheckoutAddressStepView station pickup quotes', () => {
     expect(deliveryProps.deliveryCity).toBe('Port Harcourt');
     expect(deliveryProps.pickupStationQuote).toBeUndefined();
     expect(quotesProps.shippingQuotes).toEqual([doorQuote]);
+  });
+
+  it('shows GoStandard under Road and GoFaster beside the local Air option', () => {
+    const { rerender } = render(
+      <CheckoutAddressStepView
+        {...createProps({ shippingQuotes: [doorQuote, goFasterQuote] })}
+      />
+    );
+
+    let quotesProps = mockShippingQuotesCard.mock.calls.at(-1)?.[0] as {
+      shippingQuotes: ShippingQuote[];
+    };
+    expect(quotesProps.shippingQuotes).toEqual([doorQuote]);
+
+    rerender(
+      <CheckoutAddressStepView
+        {...createProps({
+          deliveryMethod: 'airport',
+          selectedQuote: goFasterQuote,
+          selectedQuoteId: 'gofaster-quote',
+          shippingQuotes: [doorQuote, goFasterQuote],
+        })}
+      />
+    );
+
+    quotesProps = mockShippingQuotesCard.mock.calls.at(-1)?.[0] as {
+      shippingQuotes: ShippingQuote[];
+    };
+    expect(quotesProps.shippingQuotes.map((quote) => quote.id)).toEqual([
+      'airport-delivery',
+      'gofaster-quote',
+    ]);
   });
 
   it('handles empty quotes and an undefined selected quote safely', () => {
