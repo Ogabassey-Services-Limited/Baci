@@ -214,4 +214,41 @@ describe('ad-tracking runtime initialization', () => {
 
     expect(didFinish).toBe(true);
   });
+
+  it('keeps TikTok gated until native becomes ready after a timeout', async () => {
+    const isTikTokInitialized = jest.fn(() => false);
+    const trackEvent = jest.fn();
+    mockGetTrackingPermissionStatus.mockResolvedValue({ status: 'granted' });
+    setMockExpoConfigExtra({
+      apiUrl: 'https://api.test',
+      tiktokBusiness: { isConfigured: true },
+    });
+    mockLoadAdTrackingNativeModules.mockResolvedValue(
+      createNativeModules({
+        TikTokBusiness: {
+          initialize: jest.fn(() => Promise.resolve(false)),
+          isInitialized: isTikTokInitialized,
+          trackEvent,
+        },
+      })
+    );
+
+    const { initAdTracking, trackTikTokEvent } = await import(
+      './ad-tracking-runtime'
+    );
+
+    await initAdTracking();
+    trackTikTokEvent('Purchase', 'event-before-readiness');
+
+    expect(trackEvent).not.toHaveBeenCalled();
+
+    isTikTokInitialized.mockReturnValue(true);
+    trackTikTokEvent('Purchase', 'event-after-timeout');
+
+    expect(trackEvent).toHaveBeenCalledWith(
+      'Purchase',
+      'event-after-timeout',
+      []
+    );
+  });
 });

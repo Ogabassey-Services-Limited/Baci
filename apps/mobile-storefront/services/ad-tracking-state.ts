@@ -92,6 +92,13 @@ export function setIsInitialized(value: boolean): void {
 }
 
 export function getIsTikTokInitialized(): boolean {
+  if (!isTikTokInitialized) {
+    try {
+      isTikTokInitialized = Boolean(TikTokBusiness?.isInitialized?.());
+    } catch (error) {
+      adTrackingLog.warn('TikTok SDK readiness check failed:', error);
+    }
+  }
   return isTikTokInitialized;
 }
 
