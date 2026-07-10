@@ -47,7 +47,6 @@ import {
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
 import { getCachedProductLcpHintPrimaryImage } from '@/lib/cached-product-lcp-hint-primary-image';
-import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import { isKorapayConfigured } from '@/lib/korapay';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getKnownOgaBasseyMerchantId } from '@/lib/ogabassey-route-identity';
@@ -92,6 +91,10 @@ import {
   shouldRedirectVariantSelectionParams,
 } from './critical-variant-selection';
 import { OgabasseyPdpRequestScopedSemanticSections } from './ogabassey-pdp-request-scoped-semantic-sections';
+import {
+  PRERENDER_PLACEHOLDER_PRODUCT_SLUG,
+  resolveProductStaticParams,
+} from './product-static-params';
 
 const CANONICAL_PRODUCT_REDIRECT_METADATA: Metadata = {
   // Replace root metadata alternates so noindex fallback pages do not inherit a canonical.
@@ -1105,84 +1108,10 @@ function buildCategoryProductMetadata({
   };
 }
 
-// Prerender OgaBassey's most recent active PDPs at build so the above-fold
-// hero ships inside the static PPR shell (LCP). Without concrete params the
-// product slug is request-time, which keeps the hero in the dynamic resume.
-// Params not listed here keep rendering on demand (the default PPR behavior
-// under cacheComponents — `dynamicParams` cannot be set with cacheComponents).
-const OGABASSEY_PRERENDER_LIMIT = 200;
-const PRERENDER_PLACEHOLDER_STORE_SLUG = '__prerender_placeholder_store__';
-const PRERENDER_PLACEHOLDER_PRODUCT_SLUG = '__prerender_placeholder__';
-// Keep the actively monitored, revenue-critical PDP in the prerender set even
-// when it is older than the newest-products window. This gives the route a
-// static shell and earlier LCP image discovery without expanding build scope.
-const OGABASSEY_PRIORITY_PRERENDER_PRODUCTS = [
-  {
-    category: 'gaming-laptops',
-    productSlug: 'dell-alienware-m18-r3-rtx-5080',
-  },
-] as const;
-
-export async function generateStaticParams(): Promise<
+export function generateStaticParams(): Promise<
   Array<{ slug: string; category: string; productSlug: string }>
 > {
-  // cacheComponents requires generateStaticParams to return >= 1 param; this
-  // placeholder keeps the build valid (and renders notFound) if the index is
-  // empty/unavailable. Real, non-listed products still render on demand.
-  const placeholder = [
-    {
-      slug: PRERENDER_PLACEHOLDER_STORE_SLUG,
-      category: 'smartphones',
-      productSlug: PRERENDER_PLACEHOLDER_PRODUCT_SLUG,
-    },
-  ];
-
-  let products: Awaited<
-    ReturnType<typeof getCachedStorefrontProductIndex>
-  >['products'] = [];
-  try {
-    const result = await getCachedStorefrontProductIndex(
-      OGABASSEY_MERCHANT_ID,
-      {
-        page: 1,
-        limit: OGABASSEY_PRERENDER_LIMIT,
-      }
-    );
-    if (result.hasError) {
-      return placeholder;
-    }
-    products = result.products;
-  } catch {
-    // A rejected index lookup at build/prerender time must fall back to the
-    // placeholder, not throw and fail the whole prerender step.
-    return placeholder;
-  }
-
-  const seen = new Set<string>();
-  const params: Array<{ slug: string; category: string; productSlug: string }> =
-    [];
-
-  for (const product of OGABASSEY_PRIORITY_PRERENDER_PRODUCTS) {
-    const key = `${product.category}/${product.productSlug}`;
-    seen.add(key);
-    params.push({ slug: OGABASSEY_DOMAIN, ...product });
-  }
-
-  for (const product of products) {
-    const category = product.category_slug?.trim();
-    const productSlug = product.slug?.trim();
-    if (!category || !productSlug) {
-      continue;
-    }
-    const key = `${category}/${productSlug}`;
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    params.push({ slug: OGABASSEY_DOMAIN, category, productSlug });
-  }
-
-  return params.length > 0 ? params : placeholder;
+  return resolveProductStaticParams();
 }
 
 export async function generateMetadata({
