@@ -6,7 +6,15 @@ import {
 } from '@/components/storefront/ogabassey/pages/product-details-page/product-details-helpers';
 import { toRelatedProductsProduct } from '@/components/storefront/ogabassey/pages/product-details-page/related-product';
 
-export type OgabasseyPdpDeferredTabProduct = Product &
+// `description` is deliberately OMITTED from the client tab payload. Long PDP
+// descriptions are multi-KB of sanitized HTML; the tabs island renders the
+// description server-side as a `descriptionSlot` (see deferred-detail-island.tsx)
+// and no client consumer reads `.description` off this type anymore. The only
+// indirect touch — ProductComparisonTable's `buildProductSpecData(mainProduct)`
+// — is redundant here because the description-derived key specs are already
+// baked into the server-computed `detailedSpecs`. Keeping it off the type shrinks
+// the RSC/flight payload serialized into the island props on every PDP.
+export type OgabasseyPdpDeferredTabProduct = Omit<Product, 'description'> &
   Pick<
     NormalizedProductDetails,
     | 'colorImages'
@@ -22,6 +30,12 @@ export type OgabasseyPdpDeferredTabProduct = Product &
   >;
 
 export interface OgabasseyPdpDeferredProductPayload {
+  /**
+   * The normalized product description, returned OUT-OF-BAND from `tabProduct`
+   * so the server can render it into the `descriptionSlot` (`<SafeHtml>`)
+   * without serializing the multi-KB HTML into the client island props.
+   */
+  description: string;
   relatedProduct: RelatedProduct;
   tabProduct: OgabasseyPdpDeferredTabProduct;
 }
@@ -39,7 +53,6 @@ export function buildOgabasseyPdpDeferredProductPayload(
     colorImages: normalized.colorImages,
     colors: normalized.colors,
     condition: normalized.condition,
-    description: normalized.description,
     detailedSpecs: normalized.detailedSpecs,
     displaySize: normalized.displaySize,
     displayType: normalized.displayType,
@@ -77,6 +90,7 @@ export function buildOgabasseyPdpDeferredProductPayload(
   }
 
   return {
+    description: normalized.description,
     relatedProduct: toRelatedProductsProduct(product),
     tabProduct,
   };

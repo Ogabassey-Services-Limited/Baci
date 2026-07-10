@@ -18,15 +18,17 @@ export function OgabasseyPdpDeferredDetailIsland({
   serverPrimaryDetails = null,
   storeSlug,
 }: OgabasseyPdpDeferredDetailIslandProps) {
-  const { relatedProduct, tabProduct } =
+  const { description, relatedProduct, tabProduct } =
     buildOgabasseyPdpDeferredProductPayload(product);
   // Sanitize the product description HERE (server) and pass the rendered node
   // into the client tabs island as a slot. This keeps `sanitize-html` (254 KB)
   // and its main-thread parse off the client — the tabs chunk only receives the
-  // already-sanitized markup, never the sanitizer.
+  // already-sanitized markup, never the sanitizer. `description` is returned
+  // out-of-band (not on `tabProduct`) so the raw HTML is never serialized into
+  // the client island props.
   const descriptionSlot = (
     <SafeHtml
-      html={tabProduct.description || ''}
+      html={description || ''}
       headingLevelOffset={1}
       className="ogabassey-pdp-tabs__rich-text prose max-w-none prose-headings:text-inherit prose-strong:text-inherit prose-table:text-sm"
     />
