@@ -12,6 +12,7 @@ import { generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildCommercialGuideLinks } from '@/lib/storefront-content/build-commercial-guide-links';
 import type {
+  BuildCommercialGuideLinksContext,
   InformationalGuideLink,
   SupportedClusterCategory,
 } from '@/lib/storefront-content/content-cluster-types';
@@ -289,13 +290,10 @@ function logNonCuratedCompareFallback(details: {
 
 function loadSupportedGuidePosts(
   merchantId: string,
-  supportedClusterCategory: SupportedClusterCategory | null
+  context: BuildCommercialGuideLinksContext | null
 ) {
-  return supportedClusterCategory
-    ? loadPublishedClusterPostsSafely(
-        merchantId,
-        'Failed to load guide posts for compare page'
-      )
+  return context
+    ? loadPublishedClusterPostsSafely(merchantId, context)
     : Promise.resolve([]);
 }
 
@@ -445,7 +443,16 @@ async function loadComparePageUncached(args: {
       await Promise.all([
         getCachedProductWithDetails(merchant.id, parsed.leftKey),
         getCachedProductWithDetails(merchant.id, parsed.rightKey),
-        loadSupportedGuidePosts(merchant.id, supportedClusterCategory),
+        loadSupportedGuidePosts(
+          merchant.id,
+          supportedClusterCategory
+            ? {
+                pageKind: 'compare',
+                categorySlug: supportedClusterCategory,
+                productSlugs: [parsed.leftKey, parsed.rightKey],
+              }
+            : null
+        ),
         loadCompareGraphProducts({
           categorySlug: args.categorySlug,
           merchantId: merchant.id,
@@ -632,6 +639,12 @@ async function loadComparePageUncached(args: {
   const guidePosts = await loadSupportedGuidePosts(
     merchant.id,
     supportedClusterCategory
+      ? {
+          pageKind: 'compare',
+          categorySlug: supportedClusterCategory,
+          brands: [brandCandidate.leftBrand, brandCandidate.rightBrand],
+        }
+      : null
   );
   const leftBrandKey = generateSlug(brandCandidate.leftBrand);
   const rightBrandKey = generateSlug(brandCandidate.rightBrand);

@@ -5,6 +5,7 @@ import {
   type CachedDataTestHarness,
   mockMerchant,
   resetMockCreateClient,
+  resolvedStorefrontMerchantRpcResult,
   withDefaultFeatureSettings,
 } from '@/lib/cached-data.test-utils';
 
@@ -92,46 +93,37 @@ describe('cached-data getMerchantByIdentifier routing', () => {
 
   describe('slug lookup routing', () => {
     it('routes to slug lookup for simple identifier', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: mockMerchant,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+      harness.mockRpc.mockResolvedValueOnce(
+        resolvedStorefrontMerchantRpcResult(mockMerchant)
+      );
 
       await expect(getMerchantByIdentifier('my-store')).resolves.toEqual(
         withDefaultFeatureSettings(mockMerchant)
       );
-      expect(harness.mockFrom).toHaveBeenCalledWith('merchants');
-      expect(harness.mockEq).toHaveBeenCalledWith('slug', 'my-store');
+      expect(harness.mockRpc).toHaveBeenCalledWith(
+        'resolve_storefront_cached_merchant',
+        { p_identifier: 'my-store' }
+      );
+      expect(harness.mockFrom).not.toHaveBeenCalled();
     });
 
     it('lowercases slug identifier before lookup', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: mockMerchant,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+      harness.mockRpc.mockResolvedValueOnce(
+        resolvedStorefrontMerchantRpcResult(mockMerchant)
+      );
 
       await getMerchantByIdentifier('MY-STORE');
 
-      expect(harness.mockEq).toHaveBeenCalledWith('slug', 'my-store');
+      expect(harness.mockRpc).toHaveBeenCalledWith(
+        'resolve_storefront_cached_merchant',
+        { p_identifier: 'my-store' }
+      );
     });
 
     it('accepts alphanumeric slugs with hyphens', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: mockMerchant,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+      harness.mockRpc.mockResolvedValueOnce(
+        resolvedStorefrontMerchantRpcResult(mockMerchant)
+      );
 
       await expect(getMerchantByIdentifier('store-123-abc')).resolves.toEqual(
         withDefaultFeatureSettings(mockMerchant)
@@ -214,19 +206,17 @@ describe('cached-data getMerchantByIdentifier routing', () => {
     });
 
     it('does not route hyphenated identifiers to domain lookup', async () => {
-      harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: mockMerchant,
-        error: null,
-      });
-      harness.mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116' },
-      });
+      harness.mockRpc.mockResolvedValueOnce(
+        resolvedStorefrontMerchantRpcResult(mockMerchant)
+      );
 
       await getMerchantByIdentifier('my-store-123');
 
-      expect(harness.mockFrom).toHaveBeenCalledWith('merchants');
-      expect(harness.mockEq).toHaveBeenCalledWith('slug', 'my-store-123');
+      expect(harness.mockRpc).toHaveBeenCalledWith(
+        'resolve_storefront_cached_merchant',
+        { p_identifier: 'my-store-123' }
+      );
+      expect(harness.mockFrom).not.toHaveBeenCalled();
     });
   });
 });

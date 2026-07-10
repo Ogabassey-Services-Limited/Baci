@@ -7,7 +7,6 @@ import {
   jest,
 } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react-native';
-import { Platform } from 'react-native';
 
 const mockNotificationsModuleLoad = jest.fn();
 const mockGetPermissionsAsync = jest
@@ -16,15 +15,7 @@ const mockGetPermissionsAsync = jest
 const mockRequestPermissionsAsync = jest
   .fn<() => Promise<{ status: string }>>()
   .mockResolvedValue({ status: 'granted' });
-const mockGetTrackingPermissionsAsync = jest
-  .fn<() => Promise<{ status: string }>>()
-  .mockResolvedValue({ status: 'undetermined' });
-const mockRequestTrackingPermissionsAsync = jest
-  .fn<() => Promise<{ status: string }>>()
-  .mockResolvedValue({ status: 'granted' });
 let mockRejectNextNotificationsModuleLoad = false;
-const originalPlatformOS = Platform.OS;
-let mockPlatformOS = originalPlatformOS;
 
 jest.mock('expo-notifications', () => {
   mockNotificationsModuleLoad();
@@ -38,38 +29,16 @@ jest.mock('expo-notifications', () => {
   };
 });
 
-jest.mock('@/lib/tracking-transparency', () => ({
-  canRequestTrackingTransparency: () => mockPlatformOS === 'ios',
-  getTrackingPermissionStatus: () => mockGetTrackingPermissionsAsync(),
-  requestTrackingPermissionStatus: () => mockRequestTrackingPermissionsAsync(),
-}));
-
-function setPlatformOS(value: typeof Platform.OS) {
-  mockPlatformOS = value;
-  Object.defineProperty(Platform, 'OS', {
-    configurable: true,
-    value,
-  });
-}
-
 beforeEach(() => {
   jest.clearAllMocks();
   mockRejectNextNotificationsModuleLoad = false;
   mockGetPermissionsAsync.mockResolvedValue({ status: 'granted' });
   mockRequestPermissionsAsync.mockResolvedValue({ status: 'granted' });
-  mockGetTrackingPermissionsAsync.mockResolvedValue({
-    status: 'undetermined',
-  });
-  mockRequestTrackingPermissionsAsync.mockResolvedValue({
-    status: 'granted',
-  });
   jest.useRealTimers();
-  setPlatformOS(originalPlatformOS);
 });
 
 afterEach(() => {
   jest.useRealTimers();
-  setPlatformOS(originalPlatformOS);
 });
 
 describe('usePermissionBooster native module loading', () => {
@@ -175,145 +144,5 @@ describe('usePermissionBooster native module loading', () => {
       'requestPermissionsAsync',
       permissionError
     );
-  });
-});
-
-describe('usePermissionBooster tracking permissions', () => {
-  it('does not trigger the iOS tracking system prompt during soft-ask status checks', async () => {
-    setPlatformOS('ios');
-    const { usePermissionBooster } = await import('./use-permission-booster');
-    const { result } = renderHook(() => usePermissionBooster());
-
-    let permissionResult: 'granted' | 'denied' | 'soft-ask-needed' | undefined;
-    await act(async () => {
-      permissionResult = await result.current.requestPermission('tracking');
-    });
-
-    expect(permissionResult).toBe('soft-ask-needed');
-    expect(mockGetTrackingPermissionsAsync).toHaveBeenCalledTimes(1);
-    expect(mockRequestTrackingPermissionsAsync).not.toHaveBeenCalled();
-  });
-
-  it('returns granted when iOS tracking permission is already granted', async () => {
-    setPlatformOS('ios');
-    mockGetTrackingPermissionsAsync.mockResolvedValueOnce({
-      status: 'granted',
-    });
-    const { usePermissionBooster } = await import('./use-permission-booster');
-    const { result } = renderHook(() => usePermissionBooster());
-
-    let permissionResult: 'granted' | 'denied' | 'soft-ask-needed' | undefined;
-    await act(async () => {
-      permissionResult = await result.current.requestPermission('tracking');
-    });
-
-    expect(permissionResult).toBe('granted');
-    expect(mockGetTrackingPermissionsAsync).toHaveBeenCalledTimes(1);
-    expect(mockRequestTrackingPermissionsAsync).not.toHaveBeenCalled();
-  });
-
-  it('returns denied during the tracking soft-ask cool-down without showing the system prompt', async () => {
-    setPlatformOS('ios');
-    mockGetTrackingPermissionsAsync.mockResolvedValueOnce({
-      status: 'denied',
-    });
-    const { usePermissionBooster } = await import('./use-permission-booster');
-    const { result } = renderHook(() => usePermissionBooster());
-
-    act(() => {
-      result.current.reset();
-      result.current.markDenied('tracking');
-    });
-
-    let permissionResult: 'granted' | 'denied' | 'soft-ask-needed' | undefined;
-    await act(async () => {
-      permissionResult = await result.current.requestPermission('tracking');
-    });
-
-    expect(permissionResult).toBe('denied');
-    expect(mockGetTrackingPermissionsAsync).toHaveBeenCalledTimes(1);
-    expect(mockRequestTrackingPermissionsAsync).not.toHaveBeenCalled();
-  });
-
-  it('returns soft-ask-needed after the tracking soft-ask cool-down elapses without showing the system prompt', async () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
-    setPlatformOS('ios');
-    mockGetTrackingPermissionsAsync.mockResolvedValueOnce({
-      status: 'denied',
-    });
-    const { PERMISSION_SOFT_ASK_COOLDOWN_MS, usePermissionBooster } =
-      await import('./use-permission-booster');
-    const { result } = renderHook(() => usePermissionBooster());
-
-    act(() => {
-      result.current.reset();
-      result.current.markDenied('tracking');
-    });
-    jest.setSystemTime(Date.now() + PERMISSION_SOFT_ASK_COOLDOWN_MS + 1);
-
-    let permissionResult: 'granted' | 'denied' | 'soft-ask-needed' | undefined;
-    await act(async () => {
-      permissionResult = await result.current.requestPermission('tracking');
-    });
-
-    expect(permissionResult).toBe('soft-ask-needed');
-    expect(mockGetTrackingPermissionsAsync).toHaveBeenCalledTimes(1);
-    expect(mockRequestTrackingPermissionsAsync).not.toHaveBeenCalled();
-  });
-
-  it('returns granted outside iOS without loading the tracking transparency module', async () => {
-    setPlatformOS('android');
-    const { usePermissionBooster } = await import('./use-permission-booster');
-    const { result } = renderHook(() => usePermissionBooster());
-
-    let permissionResult: 'granted' | 'denied' | 'soft-ask-needed' | undefined;
-    await act(async () => {
-      permissionResult = await result.current.requestPermission('tracking');
-    });
-
-    expect(permissionResult).toBe('granted');
-    expect(mockGetTrackingPermissionsAsync).not.toHaveBeenCalled();
-    expect(mockRequestTrackingPermissionsAsync).not.toHaveBeenCalled();
-  });
-
-  it('returns denied when the iOS tracking status check fails', async () => {
-    setPlatformOS('ios');
-    mockGetTrackingPermissionsAsync.mockRejectedValueOnce(
-      new Error('tracking status unavailable')
-    );
-    const { usePermissionBooster } = await import('./use-permission-booster');
-    const { result } = renderHook(() => usePermissionBooster());
-
-    let permissionResult: 'granted' | 'denied' | 'soft-ask-needed' | undefined;
-    await act(async () => {
-      permissionResult = await result.current.requestPermission('tracking');
-    });
-
-    expect(permissionResult).toBe('denied');
-    expect(mockGetTrackingPermissionsAsync).toHaveBeenCalledTimes(1);
-    expect(mockRequestTrackingPermissionsAsync).not.toHaveBeenCalled();
-  });
-
-  it('handles unexpected iOS tracking statuses as soft-ask candidates', async () => {
-    setPlatformOS('ios');
-    mockGetTrackingPermissionsAsync.mockResolvedValueOnce({
-      status: 'restricted',
-    });
-    const { usePermissionBooster } = await import('./use-permission-booster');
-    const { result } = renderHook(() => usePermissionBooster());
-
-    act(() => {
-      result.current.reset();
-    });
-
-    let permissionResult: 'granted' | 'denied' | 'soft-ask-needed' | undefined;
-    await act(async () => {
-      permissionResult = await result.current.requestPermission('tracking');
-    });
-
-    expect(permissionResult).toBe('soft-ask-needed');
-    expect(mockGetTrackingPermissionsAsync).toHaveBeenCalledTimes(1);
-    expect(mockRequestTrackingPermissionsAsync).not.toHaveBeenCalled();
   });
 });

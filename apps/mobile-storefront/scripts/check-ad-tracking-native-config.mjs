@@ -47,6 +47,11 @@ function extractQuotedPropertyValues(source, propertyName) {
   return [...source.matchAll(pattern)].map((match) => match[2]);
 }
 
+function extractBooleanPropertyValues(source, propertyName) {
+  const pattern = new RegExp(`${propertyName}:\\s*(true|false)`, 'g');
+  return [...source.matchAll(pattern)].map((match) => match[1] === 'true');
+}
+
 function extractAppConfigAdDeclarations(appConfigSource) {
   const usageDescription = extractQuotedPropertyValues(
     appConfigSource,
@@ -68,8 +73,19 @@ function extractAppConfigAdDeclarations(appConfigSource) {
     );
   }
 
+  const tiktokAutoInitialize = extractBooleanPropertyValues(
+    appConfigSource,
+    'autoInitialize'
+  )[0];
+  if (tiktokAutoInitialize !== false) {
+    throw new Error(
+      'TikTok autoInitialize must be explicitly false in app.config.ts'
+    );
+  }
+
   return {
     skAdNetworkIds,
+    tiktokAutoInitialize,
     usageDescription,
   };
 }
@@ -117,6 +133,12 @@ function validateInfoPlist(infoPlist, appConfigDeclarations) {
     'NSUserTrackingUsageDescription',
     infoPlist.NSUserTrackingUsageDescription,
     appConfigDeclarations.usageDescription
+  );
+  pushMissingValue(
+    failures,
+    'BaciTikTokBusinessAutoInitialize',
+    infoPlist.BaciTikTokBusinessAutoInitialize,
+    appConfigDeclarations.tiktokAutoInitialize
   );
   pushMissingValue(
     failures,

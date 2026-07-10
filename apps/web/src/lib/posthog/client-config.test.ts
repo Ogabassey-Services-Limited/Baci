@@ -22,8 +22,10 @@ describe('PostHog client config', () => {
       person_profiles: 'identified_only',
       capture_pageview: false,
       capture_pageleave: false,
-      capture_dead_clicks: true,
-      capture_heatmaps: true,
+      // WEIGHT-B P1: dead-clicks + heatmaps are OFF on the storefront (LoAF
+      // click-processing cost + dead-clicks bundle duplication).
+      capture_dead_clicks: false,
+      capture_heatmaps: false,
       capture_exceptions: {
         capture_unhandled_errors: true,
         capture_unhandled_rejections: true,
@@ -41,7 +43,7 @@ describe('PostHog client config', () => {
         maskAllInputs: true,
         maskTextFn: expect.any(Function),
         maskTextSelector: 'body',
-        sampleRate: 0.2,
+        sampleRate: 0.05,
       }),
     });
     expect(config.property_blacklist).not.toContain('token');
@@ -50,19 +52,23 @@ describe('PostHog client config', () => {
     );
   });
 
-  it('samples session recording at the configured rate on full surfaces', () => {
+  it('samples session recording at the trimmed 5% rate on full surfaces', () => {
     const config = buildPostHogClientConfig({ NODE_ENV: 'production' });
 
     expect(config.disable_session_recording).toBe(false);
-    expect(config.session_recording?.sampleRate).toBe(0.2);
+    expect(config.session_recording?.sampleRate).toBe(0.05);
+    // Privacy masking must survive the sampling trim.
+    expect(config.session_recording?.maskAllInputs).toBe(true);
   });
 
-  it('keeps the full instrumentation config by default', () => {
+  it('keeps autocapture and rageclick while dropping heatmaps/dead-clicks', () => {
     const config = buildPostHogClientConfig({ NODE_ENV: 'production' });
 
     expect(config.autocapture).toBe(true);
+    expect(config.rageclick).toBe(true);
     expect(config.disable_session_recording).toBe(false);
-    expect(config.capture_heatmaps).toBe(true);
+    expect(config.capture_heatmaps).toBe(false);
+    expect(config.capture_dead_clicks).toBe(false);
     expect(config.advanced_disable_flags).toBe(false);
   });
 

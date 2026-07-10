@@ -35,6 +35,13 @@ describe('critical commerce selection helpers', () => {
     expect(formatCriticalPrice(1_000_000_000)).toContain('1,000,000,000');
   });
 
+  it('formats the selected price in a non-NGN merchant currency when supplied', () => {
+    const inrCurrency = { code: 'INR', symbol: '₹', locale: 'en-IN' };
+
+    expect(formatCriticalPrice(999_900, inrCurrency)).toBe('₹9,99,900');
+    expect(formatCriticalPrice(999_900, inrCurrency)).not.toContain('₦');
+  });
+
   it('builds a variant cart product from resolved SKU state', () => {
     expect(
       buildVariantCartProduct(cartProduct, {

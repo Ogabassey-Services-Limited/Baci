@@ -1035,6 +1035,8 @@ describe('Middleware Proxy', () => {
       expect(res.status).toBe(404);
       expect(res.headers.get('x-middleware-rewrite')).toBeNull();
       expect(res.headers.get('Cache-Control')).toContain('no-store');
+      expect(res.headers.get('Vercel-CDN-Cache-Control')).toBeNull();
+      expect(res.headers.get('CDN-Cache-Control')).toBeNull();
       expect(res.headers.get('Content-Type')).toContain('text/html');
       // Header-level noindex so HEAD / non-HTML-parsing crawlers still see it.
       expect(res.headers.get('X-Robots-Tag')).toContain('noindex');
@@ -1061,6 +1063,8 @@ describe('Middleware Proxy', () => {
       expect(await res.text()).toBe('');
       expect(res.headers.get('X-Robots-Tag')).toContain('noindex');
       expect(res.headers.get('Cache-Control')).toContain('no-store');
+      expect(res.headers.get('Vercel-CDN-Cache-Control')).toBeNull();
+      expect(res.headers.get('CDN-Cache-Control')).toBeNull();
     });
 
     it('returns a real 308 for a redirectable archived product slug before the PDP route streams', async () => {
@@ -1207,6 +1211,113 @@ describe('Middleware Proxy', () => {
 
       expect(res.status).not.toBe(404);
       expect(resolutionMock).not.toHaveBeenCalled();
+    });
+
+    it('does not hard-404 the 2-segment /{category}/compare hub (real listing route, not a PDP)', async () => {
+      mockMissing(true);
+      const req = new NextRequest('https://ogabassey.com/smartphones/compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/ogabassey.com/smartphones/compare'
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('does not hard-404 the /{category}/compare hub on a merchant subdomain', async () => {
+      mockMissing(true);
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/smartphones/compare`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/ogabassey/smartphones/compare'
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('does not hard-404 the /{category}/compare hub on a root-domain slug path', async () => {
+      // Third serving mode: usebaci.com/{slug}/... strips the merchant slug
+      // before segment classification, so the hub guard must fire there too.
+      mockMissing(true);
+      const req = new NextRequest(
+        `https://${ROOT_DOMAIN}/ogabassey/smartphones/compare`
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.status).not.toBe(308);
+      expect(resolutionMock).not.toHaveBeenCalled();
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('case-normalizes the hub segment: /{category}/Compare also skips the PDP preflights', async () => {
+      // Pins the guard's .toLowerCase(): mixed-case variants fall through to
+      // the App Router (fail-open) instead of resolving as a product slug.
+      mockMissing(true);
+      const req = new NextRequest('https://ogabassey.com/smartphones/Compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(resolutionMock).not.toHaveBeenCalled();
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('never 308s the compare hub away even if an archived alias is slugged "compare"', async () => {
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/some-old-product',
+      });
+      mockMissing(true);
+      const req = new NextRequest('https://ogabassey.com/smartphones/compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(308);
+      expect(res.status).not.toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/ogabassey.com/smartphones/compare'
+      );
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('still hard-404s a confirmed-missing categoryless /products/compare (fallback PDP, not a hub)', async () => {
+      mockMissing(true);
+      const req = new NextRequest('https://ogabassey.com/products/compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(resolutionMock).toHaveBeenCalledWith(
+        expect.objectContaining({ productSlug: 'compare' })
+      );
+    });
+
+    it('still hard-404s a bare /{category}/best-under path (no 2-segment route exists there)', async () => {
+      mockMissing(true);
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/best-under'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
     });
 
     it('does not hard-404 the /my-account/[...path] catch-all (non-PDP first segment)', async () => {
@@ -2576,6 +2687,8 @@ describe('Middleware Proxy', () => {
 
   it.each([
     'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
+    'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
+    'https://ogabassey.com/new-category/new-product',
     `https://ogabassey.${ROOT_DOMAIN}/smartphones/samsung-galaxy-z-fold-4`,
     `https://${ROOT_DOMAIN}/ogabassey/smartphones/samsung-galaxy-z-fold-4`,
   ])('CDN-caches the canonical public PDP shell for %s', async (url) => {
@@ -2586,9 +2699,17 @@ describe('Middleware Proxy', () => {
 
     // The Next resume-mismatch that previously required no-store on PDP HTML is
     // fixed via patches/next@16.2.9.patch (PR #2436), so the prerendered PDP
-    // shell is safe to cache/replay at the edge for the LCP win.
+    // shell is safe to cache/replay at the edge for the LCP win. Ops-2 layers
+    // the freshness per tier: bfcache-safe browser value + split CDN headers
+    // (config/storefront-cdn-cache-control.ts).
     expect(res.headers.get('Cache-Control')).toBe(
-      's-maxage=300, stale-while-revalidate=86400'
+      'public, max-age=0, must-revalidate'
+    );
+    expect(res.headers.get('Vercel-CDN-Cache-Control')).toBe(
+      'max-age=300, stale-while-revalidate=86400'
+    );
+    expect(res.headers.get('CDN-Cache-Control')).toBe(
+      'max-age=300, stale-while-revalidate=86400, stale-if-error=86400'
     );
     expect(res.headers.get('Vary') ?? '').not.toContain('Cookie');
   });
@@ -2599,15 +2720,9 @@ describe('Middleware Proxy', () => {
     `https://${ROOT_DOMAIN}/ogabassey`,
     'https://ogabassey.com/products',
     'https://ogabassey.com/smartphones',
-    'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
     'https://ogabassey.com/blog',
     'https://ogabassey.com/blog/the-ultimate-checklist-for-buying-a-used-iphone-in-2025',
     'https://ogabassey.com/blog/author/bassey-john',
-    'https://ogabassey.com/shipping',
-    'https://ogabassey.com/contact',
-    'https://ogabassey.com/faq',
-    'https://ogabassey.com/terms',
-    'https://ogabassey.com/privacy',
   ])('CDN-caches anonymous public storefront documents for %s', async (url) => {
     const req = new NextRequest(url);
     req.headers.set('host', new URL(url).host);
@@ -2615,8 +2730,55 @@ describe('Middleware Proxy', () => {
     const res = await proxy(req);
 
     expect(res.headers.get('Cache-Control')).toBe(
-      's-maxage=300, stale-while-revalidate=86400'
+      'public, max-age=0, must-revalidate'
     );
+    expect(res.headers.get('Vercel-CDN-Cache-Control')).toBe(
+      'max-age=300, stale-while-revalidate=86400'
+    );
+    expect(res.headers.get('CDN-Cache-Control')).toBe(
+      'max-age=3600, stale-while-revalidate=86400, stale-if-error=86400'
+    );
+  });
+
+  it.each([
+    'https://ogabassey.com/about',
+    'https://ogabassey.com/contact',
+    'https://ogabassey.com/faq',
+    'https://ogabassey.com/privacy',
+    'https://ogabassey.com/returns',
+    'https://ogabassey.com/shipping',
+    'https://ogabassey.com/terms',
+    'https://ogabassey.com/warranty',
+  ])('keeps mutable storefront trust content on the five-minute downstream TTL for %s', async (url) => {
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Cache-Control')).toBe(
+      'public, max-age=0, must-revalidate'
+    );
+    expect(res.headers.get('Vercel-CDN-Cache-Control')).toBe(
+      'max-age=300, stale-while-revalidate=86400'
+    );
+    expect(res.headers.get('CDN-Cache-Control')).toBe(
+      'max-age=300, stale-while-revalidate=86400, stale-if-error=86400'
+    );
+  });
+
+  it('keeps a storefront without a public purge policy on Vercel-only caching', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/merchant-demo`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Cache-Control')).toBe(
+      'public, max-age=0, must-revalidate'
+    );
+    expect(res.headers.get('Vercel-CDN-Cache-Control')).toBe(
+      'max-age=300, stale-while-revalidate=86400'
+    );
+    expect(res.headers.get('CDN-Cache-Control')).toBeNull();
   });
 
   it.each([
@@ -2659,19 +2821,45 @@ describe('Middleware Proxy', () => {
   });
 
   it.each([
-    'https://ogabassey.com/smartphones',
-    'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
-    'https://ogabassey.com/smartphones/best-under/under-500k',
-    `https://ogabassey.${ROOT_DOMAIN}/smartphones/compare/iphone-15-vs-samsung-s24`,
-  ])('keeps anonymous storefront documents publicly cacheable for %s', async (url) => {
+    // Main storefront-document branch → Ops-2 layered split headers.
+    { edgeCached: true, url: 'https://ogabassey.com/smartphones' },
+    {
+      downstreamCacheControl:
+        'max-age=300, stale-while-revalidate=86400, stale-if-error=86400',
+      edgeCached: true,
+      url: 'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
+    },
+    // Nested SEO listing subroutes keep their own (legacy) cacheable header.
+    {
+      edgeCached: false,
+      url: 'https://ogabassey.com/smartphones/best-under/under-500k',
+    },
+    {
+      edgeCached: false,
+      url: `https://ogabassey.${ROOT_DOMAIN}/smartphones/compare/iphone-15-vs-samsung-s24`,
+    },
+  ])('keeps anonymous storefront documents publicly cacheable for $url', async ({
+    downstreamCacheControl = 'max-age=3600, stale-while-revalidate=86400, stale-if-error=86400',
+    edgeCached,
+    url,
+  }) => {
     const req = new NextRequest(url);
     req.headers.set('host', new URL(url).host);
 
     const res = await proxy(req);
 
-    expect(res.headers.get('Cache-Control')).toBe(
-      's-maxage=300, stale-while-revalidate=86400'
-    );
+    const cacheControl = res.headers.get('Cache-Control') ?? '';
+    expect(cacheControl).not.toContain('no-store');
+    expect(cacheControl).not.toContain('private');
+    if (edgeCached) {
+      expect(cacheControl).toBe('public, max-age=0, must-revalidate');
+      expect(res.headers.get('Vercel-CDN-Cache-Control')).toBe(
+        'max-age=300, stale-while-revalidate=86400'
+      );
+      expect(res.headers.get('CDN-Cache-Control')).toBe(downstreamCacheControl);
+    } else {
+      expect(cacheControl).toBe('s-maxage=300, stale-while-revalidate=86400');
+    }
   });
 
   it.each([
@@ -2702,6 +2890,10 @@ describe('Middleware Proxy', () => {
       'private, no-store, max-age=0, must-revalidate'
     );
     expect(res.headers.get('Cache-Control')).not.toContain('s-maxage');
+    // The Ops-2 split headers must never leak onto non-cacheable documents —
+    // a stray CDN-Cache-Control here would edge-cache private content.
+    expect(res.headers.get('Vercel-CDN-Cache-Control')).toBeNull();
+    expect(res.headers.get('CDN-Cache-Control')).toBeNull();
   });
 
   it('does not vary anonymous query-string nested listings by Cookie', async () => {

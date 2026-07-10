@@ -20,8 +20,8 @@ import {
 import { offlineQueue } from '@/lib/offline-queue';
 import { prefetchStartupStorefrontData } from '@/lib/startup-storefront-prefetch';
 import { DEFAULT_SYNC_STORAGE_KEYS, initializeStorage } from '@/lib/storage';
-import { initAdTracking } from '@/services/ad-tracking';
 import { initAnalytics } from '@/services/analytics';
+import { initializeAdTrackingForStartup } from '@/services/initialize-ad-tracking-for-startup';
 import { type CreateOrderRequest, createOrder } from '@/services/orders';
 import { activateDueSavingsReminderNotification } from '@/services/savings-reminder-notifications';
 import { useAuthStore } from '@/stores/auth-store';
@@ -140,6 +140,7 @@ export default function RootLayout() {
       recordCrashBreadcrumb('root_layout:startup_prefetch_scheduled');
 
       await initializeStorage(DEFAULT_SYNC_STORAGE_KEYS);
+      await initializeAdTrackingForStartup();
       markStorageReady();
       recordCrashBreadcrumb('root_layout:storage_ready', {
         storageKeyCount: DEFAULT_SYNC_STORAGE_KEYS.length,
@@ -153,8 +154,6 @@ export default function RootLayout() {
       });
       await initAnalytics();
       recordCrashBreadcrumb('root_layout:analytics_initialized');
-      await initAdTracking();
-      recordCrashBreadcrumb('root_layout:ad_tracking_initialized');
       await offlineQueue.initialize();
       recordCrashBreadcrumb('root_layout:offline_queue_initialized');
       offlineQueue.registerHandler('create_order', async (orderData) => {

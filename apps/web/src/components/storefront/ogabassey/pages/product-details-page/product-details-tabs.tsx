@@ -1,12 +1,18 @@
 import { ArrowRightLeft, Star, User } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { formatCanonicalProductConditionLabel } from '@baci/shared/lib';
-import { SafeHtml } from '@/components/ui/safe-html';
 import type { OgabasseyPdpDeferredTabProduct } from '@/components/storefront/ogabassey/pdp/deferred-product-payload';
 import { ProductComparisonTable } from '../../components/ProductComparisonTable';
 import type { ProductDetailsActiveTab } from './use-product-details-state';
 
 interface ProductDetailsTabsProps {
   activeTab: ProductDetailsActiveTab;
+  /**
+   * Server-rendered product description (a `<SafeHtml>` element). Composed in
+   * the RSC boundary (`deferred-detail-island.tsx`) and injected as a slot so
+   * `sanitize-html` (254 KB) never ships in this client tabs chunk.
+   */
+  descriptionSlot?: ReactNode;
   normalizedReviewRatingWidth: string;
   onSelectTab: (tab: ProductDetailsActiveTab) => void;
   productData: OgabasseyPdpDeferredTabProduct;
@@ -15,6 +21,7 @@ interface ProductDetailsTabsProps {
 
 export function ProductDetailsTabs({
   activeTab,
+  descriptionSlot,
   normalizedReviewRatingWidth,
   onSelectTab,
   productData,
@@ -59,11 +66,7 @@ export function ProductDetailsTabs({
             aria-labelledby="tab-btn-description"
             className="ogabassey-pdp-tabs__panel"
           >
-            <SafeHtml
-              html={productData.description || ''}
-              headingLevelOffset={1}
-              className="ogabassey-pdp-tabs__rich-text prose max-w-none prose-headings:text-inherit prose-strong:text-inherit prose-table:text-sm"
-            />
+            {descriptionSlot}
             <div className="ogabassey-pdp-tabs__summary-card">
               <h2 className="ogabassey-pdp-tabs__summary-title">
                 Key Highlights
@@ -220,8 +223,17 @@ export function ProductDetailsTabs({
             aria-labelledby="tab-btn-compare"
             className="ogabassey-pdp-tabs__panel"
           >
+            {/*
+              The deferred tab payload omits `description` (rendered server-side
+              as a slot). ProductComparisonTable types `mainProduct` as a full
+              Product but only reads specs — its `buildProductSpecData` call is a
+              no-op for description because the key specs are already baked into
+              `detailedSpecs`. Supply an empty description client-side (no wire
+              cost — we're already inside the hydrated tab island) to satisfy the
+              type without re-serializing the multi-KB HTML.
+            */}
             <ProductComparisonTable
-              mainProduct={productData}
+              mainProduct={{ ...productData, description: '' }}
               storeSlug={storeSlug}
             />
           </div>

@@ -185,10 +185,16 @@ export async function loadPriceBandPage(
     }));
 
   const storeUrl = buildStoreUrl(merchant);
-  const guidePosts = await loadPublishedClusterPostsSafely(
-    merchant.id,
-    'Failed to load guide posts for price band page'
+  const supportedClusterCategory = getSupportedClusterCategory(
+    args.categorySlug
   );
+  const guidePosts = supportedClusterCategory
+    ? await loadPublishedClusterPostsSafely(merchant.id, {
+        pageKind: 'price-band',
+        categorySlug: supportedClusterCategory,
+        priceBandSlug: band.slug,
+      })
+    : [];
   const categoryName = categoryData.fallbackName || args.categorySlug;
   const canonicalUrl = `${storeUrl}/${args.categorySlug}/best-under/${band.slug}`;
   const payoutCurrency = resolveMerchantCurrencyConfig(merchant).code;
@@ -200,10 +206,6 @@ export async function loadPriceBandPage(
   const countryContext = getCountryShoppingContext(merchant.country);
   const countrySuffix = countryContext ? ` ${countryContext}` : '';
   const heading = `Best ${categoryName} Under ${ceilingText}${countrySuffix}`;
-  const supportedClusterCategory = getSupportedClusterCategory(
-    args.categorySlug
-  );
-
   return {
     merchant,
     canonicalUrl,

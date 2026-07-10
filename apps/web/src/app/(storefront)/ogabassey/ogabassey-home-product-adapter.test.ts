@@ -53,6 +53,14 @@ describe('mapHomeProductsToTemplateProducts', () => {
     );
   });
 
+  it('preserves mixed-condition selection capability for home cards', () => {
+    const [product] = mapHomeProductsToTemplateProducts([
+      createHomeProduct({ has_condition_offers: true }),
+    ]);
+
+    expect(product.has_condition_offers).toBe(true);
+  });
+
   it('normalizes loose image and category relation shapes', () => {
     const [product] = mapHomeProductsToTemplateProducts([
       createHomeProduct({

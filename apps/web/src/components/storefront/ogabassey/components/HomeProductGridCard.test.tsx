@@ -20,6 +20,16 @@ vi.mock('next/image', () => ({
     <img {...props} alt={String(props.alt ?? '')} />
   ),
 }));
+// Product images now render through CdnFormatImage (explicit per-format
+// <picture>). Its real pipeline calls next/image's `getImageProps`; surface it
+// as a plain <img> so these tests keep asserting home-card behavior.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => {
+    const { fill: _fill, preload: _preload, ...imageProps } = props;
+
+    return <img {...imageProps} alt={String(props.alt ?? '')} />;
+  },
+}));
 
 import { HomeProductGridCard } from './HomeProductGridCard';
 
@@ -236,7 +246,7 @@ describe('HomeProductGridCard', () => {
     expect(screen.getByText('(4.8)')).toBeInTheDocument();
   });
 
-  it('normalizes missing ratings before interactive card enhancement', () => {
+  it('omits the rating row when a product has no real rating', () => {
     const productWithoutRating = {
       ...baseProduct,
       rating: undefined,
@@ -248,8 +258,8 @@ describe('HomeProductGridCard', () => {
       screen.getByRole('link', { name: /iPhone 17 Pro Max/i })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('img', { name: 'Rated 0 out of 5' })
-    ).toBeInTheDocument();
+      screen.queryByRole('img', { name: /Rated .* out of 5/ })
+    ).not.toBeInTheDocument();
   });
 
   it('renders blank-image home placeholders as decorative images', () => {

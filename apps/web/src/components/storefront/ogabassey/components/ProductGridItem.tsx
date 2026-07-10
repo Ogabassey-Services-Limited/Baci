@@ -3,10 +3,10 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import Image from 'next/image';
 import type React from 'react';
 import { useState } from 'react';
 import { getProductImageAlt } from '@baci/shared/lib';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import type { Product } from '../types';
 import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
 import { getProductUrl } from '@/lib/seo-utils';
@@ -174,13 +174,21 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         )}
 
         {shouldRenderImage && (
-          <Image
+          <CdnFormatImage
             src={currentImage.src}
             alt={currentImageAlt}
             fill
             sizes="(max-width: 480px) 40vw, (max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
             loading="lazy"
             fetchPriority="low"
+            // A cached image on an SSR'd native <img> can be `complete` before
+            // hydration attaches onLoad — without this mount-time check the
+            // card would keep its skeleton and hold the image at opacity-0.
+            ref={(img) => {
+              if (img?.complete && img.naturalWidth > 0) {
+                setIsImageLoaded(true);
+              }
+            }}
             onLoad={() => setIsImageLoaded(true)}
             onError={() => {
               // Note: `next/image` handles fallbacks differently, usually via `blurDataURL` or state.

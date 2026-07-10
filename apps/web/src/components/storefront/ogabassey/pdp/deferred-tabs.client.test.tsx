@@ -22,7 +22,6 @@ const productData = {
   colorImages: {},
   colors: [],
   condition: 'new',
-  description: '20W USB-C Power Delivery adapter for supported devices.',
   detailedSpecs: [
     {
       category: 'Charging',

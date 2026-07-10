@@ -52,7 +52,12 @@ describe('resolveOgabasseyHomeHeroShell', () => {
     const shell = await resolveOgabasseyHomeHeroShell('/ogabassey');
 
     expect(mockGetCachedMerchant).toHaveBeenCalledWith('ogabassey');
-    expect(mockLoadLaunchProducts).toHaveBeenCalledWith('merchant-1');
+    // Hero prices format in the merchant's resolved currency (NGN for the
+    // ogabassey merchant), keeping them consistent with the grid feed.
+    expect(mockLoadLaunchProducts).toHaveBeenCalledWith(
+      'merchant-1',
+      expect.objectContaining({ code: 'NGN' })
+    );
     expect(mockBuildLaunchSlides).toHaveBeenCalledWith(
       [{ id: 'p1' }],
       '/ogabassey'

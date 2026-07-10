@@ -1,15 +1,8 @@
-'use client';
-
 import { CheckCircle } from 'lucide-react';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import { SafeHtml } from '@/components/ui/safe-html';
 import type { CategoryHubModel } from '@/lib/storefront-category/category-hub-types';
 import { CategoryHubCardGrid } from './category-hub-card-grid';
+import { CategoryHubFaqAccordion } from './category-hub-faq-accordion';
 
 interface CategoryHubSectionsProps {
   comparisonHeading?: string;
@@ -194,22 +187,18 @@ export function CategoryHubSections({
             >
               Frequently Asked Questions
             </h2>
-            <Accordion type="single" collapsible className="w-full">
-              {hub.faqItems.map((faq, index) => (
-                <AccordionItem
-                  key={`${faq.question}-${faq.answer}`}
-                  value={`faq-${index}`}
-                  className="border-b border-store-background-text/10"
-                >
-                  <AccordionTrigger className="py-3 text-left text-sm font-semibold text-store-background-text/80 hover:text-store-primary hover:no-underline">
-                    {faq.question}
-                  </AccordionTrigger>
-                  <AccordionContent className="text-sm leading-7 text-store-background-text/70">
-                    <SafeHtml html={faq.answer} />
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
+            <CategoryHubFaqAccordion
+              items={hub.faqItems.map((faq, index) => ({
+                // Content-derived key (not index) so reordering duplicate-question
+                // items does not reuse a Radix item's open/closed state.
+                reactKey: `${faq.question}-${faq.answer}`,
+                value: `faq-${index}`,
+                question: faq.question,
+                // Sanitized on the server; only the sanitized element crosses
+                // into the client accordion, never `sanitize-html` itself.
+                answer: <SafeHtml html={faq.answer} />,
+              }))}
+            />
           </section>
         ) : null}
       </div>

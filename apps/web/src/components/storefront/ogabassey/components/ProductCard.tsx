@@ -3,9 +3,9 @@
 import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
 // Migrated from temp-source/components/ProductCard.tsx
 import Link from 'next/link';
-import Image from 'next/image';
 import React, { useState } from 'react';
 import { getProductImageAlt, trimString } from '@baci/shared/lib';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { PLACEHOLDER_IMAGE } from '@/lib/image-utils';
 import { asRoute } from '@/lib/routes';
@@ -34,11 +34,27 @@ function stripHtml(html: string): string {
   return result;
 }
 
+// Mirrors ProductRatingRow's normalization: only real, finite, positive
+// ratings earn a star row — never fabricated or degenerate values.
+function hasVisibleRating(rating: number | undefined): rating is number {
+  return (
+    typeof rating === 'number' && Number.isFinite(rating) && rating > 0
+  );
+}
+
 interface ProductCardProps {
   product: Product;
   onAddToCart: (e: React.MouseEvent, product: Product) => void;
   isAdded: boolean;
   viewMode?: 'grid' | 'list';
+  /**
+   * Overrides the card's built-in `content-visibility` reservation. The
+   * category grid passes computed, responsive `contain-intrinsic-size`
+   * reservations in FILTERED (unbounded, single-page) mode and an empty string
+   * in PAGINATED (bounded, above-the-fold) mode so first-screen cards are never
+   * deferred. Left undefined elsewhere, the card keeps its default reservation.
+   */
+  contentVisibilityClassName?: string;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
@@ -46,7 +62,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onAddToCart,
   isAdded,
   viewMode = 'grid',
+  contentVisibilityClassName,
 }) => {
+  // Preserve the pre-existing unconditional reservation for every other card
+  // surface (home category grids, blog embeds, interactive grids). Only the
+  // category page overrides it — with computed responsive values in filtered
+  // mode, or an empty string to opt paginated above-the-fold cards out entirely.
+  const contentVisibilityClasses =
+    contentVisibilityClassName ??
+    (viewMode === 'grid'
+      ? 'content-auto [contain-intrinsic-size:auto_350px]'
+      : 'content-auto [contain-intrinsic-size:auto_200px]');
   const { toggleSaved, isSaved } = useV2Saved();
   const { addToCompare, removeFromCompare, isInCompare } = useV2Comparison();
   const [showPlusOne, setShowPlusOne] = useState(false);
@@ -107,7 +133,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   if (viewMode === 'grid') {
     return (
-      <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl transition-[box-shadow,transform] duration-300 group flex flex-col h-full relative active:scale-[0.98] md:active:scale-100 touch-manipulation content-auto [contain-intrinsic-size:auto_350px]">
+      <div
+        className={`bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl transition-[box-shadow,transform] duration-300 group flex flex-col h-full relative active:scale-[0.98] md:active:scale-100 touch-manipulation ${contentVisibilityClasses}`}
+      >
         <Link
           href={productHref}
           title={linkTitle}
@@ -162,7 +190,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {/* NOTE: explicit width/height required for remote images without fill, but here we want fill + object-cover */}
           {/* We use fill={true} with sizes prop for best performance */}
           {/* biome-ignore lint/a11y/useAltText: intentional img usage */}
-          <Image
+          <CdnFormatImage
             src={productImageSrc}
             alt={productImageAlt}
             fill
@@ -241,19 +269,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {/* Content */}
         <div className="flex flex-col flex-1 pointer-events-none px-1 pt-1">
 
-          {/* Ratings */}
-          <div className="flex items-center gap-1 mb-1.5">
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                size={12}
-                className={`${i < Math.floor(product.rating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`}
-              />
-            ))}
-            <span className="text-[10px] text-gray-400 ml-1">
-              ({product.rating ?? 0})
-            </span>
-          </div>
+          {/* Ratings — only for products with real review data */}
+          {hasVisibleRating(product.rating) && (
+            <div className="flex items-center gap-1 mb-1.5">
+              {[...Array(5)].map((_, i) => (
+                <Star
+                  key={i}
+                  size={12}
+                  className={`${i < Math.floor(product.rating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`}
+                />
+              ))}
+              <span className="text-[10px] text-gray-400 ml-1">
+                ({product.rating})
+              </span>
+            </div>
+          )}
 
           {/* Title - Red to match screenshot */}
           <h3 className="font-bold text-base text-gray-900 mb-1 leading-tight line-clamp-2 md:group-hover:text-primary transition-colors">
@@ -278,7 +308,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   // --- LIST VIEW ---
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 transition-[box-shadow,border-color,transform] duration-300 group flex flex-row gap-4 md:gap-6 relative active:scale-[0.99] md:active:scale-100 touch-manipulation content-auto [contain-intrinsic-size:auto_200px]">
+    <div
+      className={`bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 transition-[box-shadow,border-color,transform] duration-300 group flex flex-row gap-4 md:gap-6 relative active:scale-[0.99] md:active:scale-100 touch-manipulation ${contentVisibilityClasses}`}
+    >
       <Link
         href={productHref}
         title={linkTitle}
@@ -292,7 +324,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
       {/* Image (Left Side) */}
       <div className="ogabassey-product-card-image-surface w-28 md:w-48 aspect-square bg-gray-50 rounded-xl shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
-        <Image
+        <CdnFormatImage
           src={productImageSrc}
           alt={productImageAlt}
           fill
@@ -341,21 +373,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <h3 className="font-bold text-lg text-gray-900 md:group-hover:text-primary transition-colors line-clamp-1">
             {product.name}
           </h3>
-          <div
-            className="hidden md:flex items-center gap-0.5"
-            title={`${product.rating} out of 5 stars`}
-          >
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                size={12}
-                className={`${i < Math.floor(product.rating ?? 0) ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-100 text-gray-300'}`}
-              />
-            ))}
-            <span className="text-xs text-gray-500 ml-1">
-              ({product.rating ?? 0})
-            </span>
-          </div>
+          {hasVisibleRating(product.rating) && (
+            <div
+              className="hidden md:flex items-center gap-0.5"
+              title={`${product.rating} out of 5 stars`}
+            >
+              {[...Array(5)].map((_, i) => (
+                <Star
+                  key={i}
+                  size={12}
+                  className={`${i < Math.floor(product.rating ?? 0) ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-100 text-gray-300'}`}
+                />
+              ))}
+              <span className="text-xs text-gray-500 ml-1">
+                ({product.rating})
+              </span>
+            </div>
+          )}
         </div>
 
         <p className="text-gray-500 text-sm mb-3 line-clamp-3">

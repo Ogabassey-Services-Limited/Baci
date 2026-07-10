@@ -1,9 +1,5 @@
 import { getImageProps } from 'next/image';
-import imageLoader from '@/lib/image-loader';
-import {
-  buildOgabasseyCdnFallbackImageLoaderUrl,
-  isOgabasseyCdnImageUrl,
-} from '@/lib/ogabassey-cdn-image-url';
+import { ogabasseyFallbackImageLoader } from '@/lib/ogabassey-image-fallback-loader';
 import { buildOgabasseyAvifSrcSet } from '@/lib/ogabassey-image-format-sources';
 import {
   MOBILE_HERO_IMAGE_HEIGHT,
@@ -24,22 +20,6 @@ interface MobileLcpHeroImageProps {
 
 const WIDTH_DESCRIPTOR_PATTERN = /\s\d+w(?:,|$)/;
 
-function ogabasseyHeroImageLoader({
-  quality = MOBILE_HERO_IMAGE_QUALITY,
-  src,
-  width,
-}: {
-  quality?: number;
-  src: string;
-  width: number;
-}) {
-  if (isOgabasseyCdnImageUrl(src)) {
-    return buildOgabasseyCdnFallbackImageLoaderUrl(src, width, quality);
-  }
-
-  return imageLoader({ quality, src, width });
-}
-
 function getResponsiveSizes(srcSetValue: string, sizesValue?: string) {
   return WIDTH_DESCRIPTOR_PATTERN.test(srcSetValue) ? sizesValue : undefined;
 }
@@ -58,7 +38,7 @@ export function MobileLcpHeroImage({
     decoding: 'sync',
     fetchPriority: 'high',
     height: MOBILE_HERO_IMAGE_HEIGHT,
-    loader: ogabasseyHeroImageLoader,
+    loader: ogabasseyFallbackImageLoader,
     loading: 'eager',
     quality: MOBILE_HERO_IMAGE_QUALITY,
     sizes: MOBILE_HERO_IMAGE_SIZES,

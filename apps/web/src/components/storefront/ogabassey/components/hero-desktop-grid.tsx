@@ -1,10 +1,6 @@
 import { getImageProps } from 'next/image';
 import Link from 'next/link';
-import imageLoader from '@/lib/image-loader';
-import {
-  buildOgabasseyCdnFallbackImageLoaderUrl,
-  isOgabasseyCdnImageUrl,
-} from '@/lib/ogabassey-cdn-image-url';
+import { ogabasseyFallbackImageLoader } from '@/lib/ogabassey-image-fallback-loader';
 import { buildOgabasseyAvifSrcSet } from '@/lib/ogabassey-image-format-sources';
 import { asRoute } from '@/lib/routes';
 import { TRANSPARENT_PIXEL_SRC } from './hero-mobile-image-config';
@@ -34,22 +30,6 @@ const SIDE_IMAGE_SOURCE_MEDIA = '(min-width: 768px)';
 const SIDE_IMAGE_SIZES = '(min-width: 1024px) 160px, (min-width: 768px) 25vw, 1px';
 const HERO_IMAGE_QUALITY = 70;
 
-function ogabasseyHeroImageLoader({
-  quality = HERO_IMAGE_QUALITY,
-  src,
-  width,
-}: {
-  quality?: number;
-  src: string;
-  width: number;
-}) {
-  if (isOgabasseyCdnImageUrl(src)) {
-    return buildOgabasseyCdnFallbackImageLoaderUrl(src, width, quality);
-  }
-
-  return imageLoader({ quality, src, width });
-}
-
 /** Media-scoped, eager, high-priority desktop LCP image. On mobile no `<source>`
  *  matches, so the `<img>` falls back to a transparent pixel (zero network). */
 function HeroBigImage({ alt, src }: { alt: string; src: string }) {
@@ -60,7 +40,7 @@ function HeroBigImage({ alt, src }: { alt: string; src: string }) {
     decoding: 'sync',
     fetchPriority: 'high',
     height: BIG_IMAGE_HEIGHT,
-    loader: ogabasseyHeroImageLoader,
+    loader: ogabasseyFallbackImageLoader,
     loading: 'eager',
     quality: HERO_IMAGE_QUALITY,
     sizes: BIG_IMAGE_SIZES,
@@ -144,7 +124,7 @@ function HeroSideImage({ alt, src }: { alt: string; src: string }) {
   } = getImageProps({
     alt,
     height: SIDE_IMAGE_HEIGHT,
-    loader: ogabasseyHeroImageLoader,
+    loader: ogabasseyFallbackImageLoader,
     loading: 'lazy',
     quality: HERO_IMAGE_QUALITY,
     sizes: SIDE_IMAGE_SIZES,

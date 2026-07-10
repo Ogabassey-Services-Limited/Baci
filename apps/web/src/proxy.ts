@@ -20,6 +20,10 @@ import {
   STOREFRONT_PUBLIC_CACHE_POLICIES,
   type StorefrontPublicCachePolicy,
 } from '@/config/storefront-cache';
+import {
+  buildStorefrontDocumentCacheHeaders,
+  type StorefrontDocumentCacheKind,
+} from '@/config/storefront-cdn-cache-control';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import {
   getStorefrontMetadataCacheBucket,
@@ -271,6 +275,14 @@ const BOT_USER_AGENT_REGEX =
   /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i;
 const PROTOCOL_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
 const NESTED_PRODUCT_SUBROUTE_EXCLUSIONS = new Set(['best-under', 'compare']);
+// Second segments of 2-segment storefront paths that are real listing routes,
+// not PDPs: `/{category}/compare` is the per-category compare hub served by
+// `(storefront)/[slug]/(catalog)/(listing)/[category]/compare/page.tsx`, so its
+// second segment must never be resolved against the product slug set — the PDP
+// preflights would hard-404 (or falsely 308) the live hub. Deliberately
+// narrower than NESTED_PRODUCT_SUBROUTE_EXCLUSIONS: `/{category}/best-under`
+// has no 2-segment route, so a bare best-under path must keep hard-404ing.
+const CATEGORY_LISTING_HUB_SEGMENTS = new Set(['compare']);
 const PDP_HTML_CACHE_CONTROL = 'no-cache, no-store, max-age=0, must-revalidate';
 const NON_CACHEABLE_STOREFRONT_HTML_CACHE_CONTROL =
   'private, no-store, max-age=0, must-revalidate';
@@ -317,25 +329,38 @@ function isAuthenticatedInternalRequest(request: NextRequest): boolean {
   }
   return hasValidInternalAuth(request, secret);
 }
-// PDP documents are now safe to CDN-cache (see PR #2436 Next resume patch), so
-// the prerendered PPR shell can be served from the edge for the LCP win.
-// Freshness stays SHORT (5m) but stale-while-revalidate is extended to 24h: the
-// long SWR window keeps the edge MISS rate and user-facing TTFB low (the edge
-// keeps serving a cached copy while it revalidates in the background), while the
-// short s-maxage bounds how long a mutated/removed PDP can be served before the
-// edge revalidates. Only blog URLs are ACTIVELY purged from Cloudflare
-// (lib/storefront-purge-urls.ts via revalidateBlogPosts); product/category/home
-// mutations have NO active purge path (revalidateProducts only does Next
-// revalidateTag, which does not evict Cloudflare/edge document caches), so the
-// fresh window MUST stay short until a product purge is wired — otherwise a
-// deleted/unpublished product would be served as a live 200 for the whole window.
-// NOTE ON LAYERING: Cloudflare (the outer edge on custom domains) does NOT honor
-// `stale-while-revalidate`, and its edge TTL is governed by the zone's cache rule
-// (override_origin, 300s), NOT by this header. The `s-maxage`+SWR combo here
-// targets VERCEL's CDN layer, which DOES honor both — so the 24h SWR is not dead
-// config; it drives Vercel's edge, while Cloudflare freshness is the zone rule.
-const STOREFRONT_DOCUMENT_CACHE_CONTROL =
-  's-maxage=300, stale-while-revalidate=86400';
+// Cacheable public storefront documents (home, PDP, category, blog, static
+// content) emit the LAYERED Ops-2 header set from
+// config/storefront-cdn-cache-control.ts: a bfcache-safe browser Cache-Control,
+// a short-fresh/long-SWR `Vercel-CDN-Cache-Control` for Vercel's CDN, and a
+// route-aware `CDN-Cache-Control` forwarded to Cloudflare. The long CF value
+// matches the
+// zone cache rule's existing Edge TTL (Ops-1), so freshness on custom domains
+// is unchanged until the dashboard rule is flipped to "respect origin" — after
+// which this header becomes the single source of truth. PDPs retain the 300s
+// self-healing window because high-cardinality product operations intentionally
+// purge listings only; non-policy storefronts stay Vercel-only because they
+// have no Cloudflare purge target.
+function applyStorefrontDocumentCacheHeaders(
+  response: NextResponse,
+  kind: StorefrontDocumentCacheKind
+): void {
+  const cacheHeaders = buildStorefrontDocumentCacheHeaders(kind);
+  response.headers.set('Cache-Control', cacheHeaders.cacheControl);
+  if (cacheHeaders.vercelCdnCacheControl) {
+    response.headers.set(
+      'Vercel-CDN-Cache-Control',
+      cacheHeaders.vercelCdnCacheControl
+    );
+  } else {
+    response.headers.delete('Vercel-CDN-Cache-Control');
+  }
+  if (cacheHeaders.cdnCacheControl) {
+    response.headers.set('CDN-Cache-Control', cacheHeaders.cdnCacheControl);
+  } else {
+    response.headers.delete('CDN-Cache-Control');
+  }
+}
 const STOREFRONT_METADATA_CACHE_NON_HTML_EXTENSIONS_REGEX =
   /\.(?:json|jsonl|md|txt|webmanifest|xml)$/i;
 const STOREFRONT_METADATA_CACHE_NON_HTML_SEGMENTS = new Set(['_next', 'api']);
@@ -899,6 +924,65 @@ function isCacheableSingleSegmentStorefrontDocument(
     firstSegment !== undefined &&
     isCacheablePublicStorefrontFirstSegment(pathname, hostname, firstSegment)
   );
+}
+
+function isStorefrontPdpDocument(
+  pathname: string,
+  hostname: string | undefined,
+  routeType: 'admin' | 'auth' | 'storefront' | 'api'
+): boolean {
+  const contentSegments = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  );
+  if (contentSegments.length !== 2) {
+    return false;
+  }
+
+  const firstSegment = contentSegments[0]?.toLowerCase();
+  if (firstSegment === 'products') {
+    return true;
+  }
+
+  return (
+    firstSegment !== undefined &&
+    !NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(firstSegment)
+  );
+}
+
+function canUseLongDownstreamStorefrontCache(
+  pathname: string,
+  hostname: string | undefined,
+  routeType: 'admin' | 'auth' | 'storefront' | 'api'
+): boolean {
+  if (isStorefrontHomeDocument(pathname, hostname, routeType)) {
+    return true;
+  }
+
+  const contentSegments = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  );
+  const firstSegment = contentSegments[0]?.toLowerCase();
+  if (firstSegment === 'blog') {
+    return true;
+  }
+  if (contentSegments.length !== 1 || firstSegment === undefined) {
+    return false;
+  }
+  if (firstSegment === 'products') {
+    return true;
+  }
+
+  const cachePolicy = getStorefrontPublicCachePolicy(pathname, hostname);
+  const categorySegments = cachePolicy
+    ? CACHEABLE_PUBLIC_STOREFRONT_CATEGORY_SEGMENTS_BY_SLUG.get(
+        cachePolicy.slug.toLowerCase()
+      )
+    : undefined;
+  return categorySegments?.has(firstSegment) === true;
 }
 
 // A storefront document is safe to CDN-cache only when it is anonymous public
@@ -1776,8 +1860,10 @@ function buildHardStatusStorefrontResponse(
   // Header-level noindex (belt-and-suspenders with the body <meta>): crawlers
   // that only HEAD, or don't parse the body, still get the directive.
   response.headers.set('X-Robots-Tag', 'noindex, follow');
-  // no-store LAST: the cache section runs inside applySecurityHeaders and would
-  // otherwise mark a product-shaped path cacheable, edge-caching a false 404.
+  // Clear every split CDN header LAST: the cache section runs inside
+  // applySecurityHeaders and would otherwise mark a product-shaped path
+  // cacheable, edge-caching a false 404/410 at the highest-precedence layer.
+  applyStorefrontDocumentCacheHeaders(response, 'non-cacheable');
   response.headers.set('Cache-Control', PDP_HTML_CACHE_CONTROL);
   return response;
 }
@@ -1859,6 +1945,18 @@ async function resolveStorefrontPdpHardNotFound(
   if (
     !productSlug ||
     RESERVED_STOREFRONT_SEGMENTS.has(productSlug.toLowerCase())
+  ) {
+    return null;
+  }
+  // `/{category}/compare` is the category compare hub route, not a PDP — it
+  // must fall through to the App Router instead of being resolved (and
+  // hard-404ed) as a product slug. The categoryless `/products/{slug}` fallback
+  // stays checked: `products` beats the dynamic `[category]` segment in route
+  // precedence, so `/products/compare` has no hub route and `compare` there can
+  // only be a genuine product slug.
+  if (
+    !isProductsFallbackPdp &&
+    CATEGORY_LISTING_HUB_SEGMENTS.has(productSlug.toLowerCase())
   ) {
     return null;
   }
@@ -1961,6 +2059,16 @@ async function resolveStorefrontPdpCanonicalRedirect(
   if (
     !productSlug ||
     RESERVED_STOREFRONT_SEGMENTS.has(productSlug.toLowerCase())
+  ) {
+    return { response: null, skipHardNotFound: false };
+  }
+  // `/{category}/compare` is the category compare hub route, not a PDP — never
+  // spend a canonical-alias lookup on it (a stale alias literally slugged
+  // "compare" must not 308 the live hub away either). The categoryless
+  // `/products/{slug}` fallback stays checked, mirroring the hard-404 gate.
+  if (
+    !isProductsFallbackPdp &&
+    CATEGORY_LISTING_HUB_SEGMENTS.has(productSlug.toLowerCase())
   ) {
     return { response: null, skipHardNotFound: false };
   }
@@ -4409,12 +4517,17 @@ function applySecurityHeaders(
         routeType,
         hasQuery
       );
-    response.headers.set(
-      'Cache-Control',
-      hasAuthSessionHint || !cacheable
-        ? NON_CACHEABLE_STOREFRONT_HTML_CACHE_CONTROL
-        : STOREFRONT_DOCUMENT_CACHE_CONTROL
-    );
+    let cacheKind: StorefrontDocumentCacheKind = 'non-cacheable';
+    if (!hasAuthSessionHint && cacheable) {
+      const cachePolicy = getStorefrontPublicCachePolicy(pathname, hostname);
+      cacheKind = cachePolicy
+        ? isStorefrontPdpDocument(pathname, hostname, routeType) ||
+          !canUseLongDownstreamStorefrontCache(pathname, hostname, routeType)
+          ? 'cacheable-self-healing'
+          : 'cacheable'
+        : 'cacheable-vercel-only';
+    }
+    applyStorefrontDocumentCacheHeaders(response, cacheKind);
     if (hasAuthSessionHint) {
       appendVaryHeader(response, 'Cookie');
     }

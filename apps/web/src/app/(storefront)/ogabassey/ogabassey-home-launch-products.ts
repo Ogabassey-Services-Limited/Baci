@@ -13,6 +13,7 @@ import {
   type StorefrontHomeProduct,
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductsBySlugs } from '@/lib/cached-storefront-products-by-slugs';
+import type { CurrencyConfig } from '@/lib/currency';
 
 /** Newest-created first. ISO timestamps compare lexically by time; missing
  * timestamps sort last. Used only for the launch carousel so its order is
@@ -31,9 +32,12 @@ export function sortByNewestCreated<T>(rows: readonly T[]): T[] {
 export function selectOgabasseyLaunchProducts({
   launchCandidateRows,
   pinnedProductRows,
+  currency,
 }: {
   launchCandidateRows: readonly StorefrontHomeProduct[];
   pinnedProductRows: readonly StorefrontHomeProduct[];
+  /** Merchant display currency; defaults to NGN inside the price mapper. */
+  currency?: CurrencyConfig;
 }): Product[] {
   const pinnedProducts = mapHomeProductsToTemplateProducts([
     ...pinnedProductRows,
@@ -53,7 +57,14 @@ export function selectOgabasseyLaunchProducts({
     { pinned: launchPins, limit: LAUNCH_CAROUSEL_LIMIT }
   );
 
-  return mapStorefrontProductsToOgabasseyProducts(launchSubset);
+  // Launch items feed the server-built hero slides and home JSON-LD only —
+  // they never cross the client boundary, and the schema builder needs the
+  // untruncated description. Currency is threaded through so non-NGN merchants
+  // format launch prices correctly, while descriptionMode stays 'full' to keep
+  // the CollectionPage JSON-LD byte-identical.
+  return mapStorefrontProductsToOgabasseyProducts(launchSubset, currency, {
+    descriptionMode: 'full',
+  });
 }
 
 /**
@@ -63,7 +74,8 @@ export function selectOgabasseyLaunchProducts({
  * section or homepage. Both legs are caught so this function never rejects.
  */
 export async function loadOgabasseyLaunchProducts(
-  merchantId: string
+  merchantId: string,
+  currency?: CurrencyConfig
 ): Promise<Product[]> {
   const [launchCandidateRows, pinnedProductRows] = await Promise.all([
     getCachedStorefrontLaunchProducts(merchantId).catch((error) => {
@@ -82,5 +94,6 @@ export async function loadOgabasseyLaunchProducts(
   return selectOgabasseyLaunchProducts({
     launchCandidateRows: launchCandidateRows || [],
     pinnedProductRows: pinnedProductRows || [],
+    currency,
   });
 }

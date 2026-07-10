@@ -4,7 +4,7 @@ const mockPlatform = vi.hoisted(() => ({ OS: 'ios' }));
 const mockNativeModule = vi.hoisted(() => ({
   flush: vi.fn(),
   identify: vi.fn(),
-  initialize: vi.fn(() => true),
+  initialize: vi.fn(async () => true),
   isDebugMode: vi.fn(() => false),
   isInitialized: vi.fn(() => true),
   logout: vi.fn(),
@@ -34,9 +34,19 @@ describe('@baci/tiktok-business', () => {
   it('initializes the native iOS module lazily', async () => {
     const TikTokBusiness = await import('./index');
 
-    expect(TikTokBusiness.initialize()).toBe(true);
+    await expect(TikTokBusiness.initialize()).resolves.toBe(true);
     expect(mockRequireNativeModule).toHaveBeenCalledWith('BaciTikTokBusiness');
     expect(mockNativeModule.initialize).toHaveBeenCalledTimes(1);
+  });
+
+  it('propagates native initialization failures', async () => {
+    const initializationError = new Error('TikTok initialization failed');
+    mockNativeModule.initialize.mockRejectedValueOnce(initializationError);
+    const TikTokBusiness = await import('./index');
+
+    await expect(TikTokBusiness.initialize()).rejects.toBe(
+      initializationError
+    );
   });
 
   it('normalizes event data before passing events to native iOS', async () => {
@@ -63,7 +73,7 @@ describe('@baci/tiktok-business', () => {
     mockPlatform.OS = 'android';
     const TikTokBusiness = await import('./index');
 
-    expect(TikTokBusiness.initialize()).toBe(false);
+    await expect(TikTokBusiness.initialize()).resolves.toBe(false);
     expect(TikTokBusiness.trackEvent('LaunchApp')).toBe(false);
     await expect(
       TikTokBusiness.requestTrackingAuthorization()

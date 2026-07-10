@@ -1,10 +1,13 @@
 import { buildLaunchSlides } from '@/components/storefront/ogabassey/components/build-launch-slides';
 import { Hero } from '@/components/storefront/ogabassey/components/Hero';
+import type { CurrencyConfig } from '@/lib/currency';
 import { loadOgabasseyLaunchProducts } from './ogabassey-home-launch-products';
 
 interface OgabasseyHomeHeroSectionProps {
   merchantId: string;
   pathPrefix: string;
+  /** Resolved merchant display currency for the streamed hero price labels. */
+  currency?: CurrencyConfig;
 }
 
 /**
@@ -17,8 +20,12 @@ interface OgabasseyHomeHeroSectionProps {
 export async function OgabasseyHomeHeroSection({
   merchantId,
   pathPrefix,
+  currency,
 }: OgabasseyHomeHeroSectionProps) {
-  const launchProducts = await loadOgabasseyLaunchProducts(merchantId);
+  const launchProducts = await loadOgabasseyLaunchProducts(
+    merchantId,
+    currency
+  );
   const launchSlides = buildLaunchSlides(launchProducts, pathPrefix);
 
   return <Hero slides={launchSlides} />;
