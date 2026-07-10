@@ -33,6 +33,9 @@ describe('manual payment RPC migration', () => {
     );
     expect(migration).toContain('v_total_paid_before := greatest(');
     expect(migration).toContain('amount_paid = v_new_paid');
+    expect(
+      migration.match(/'previous_amount_paid', v_previous_amount_paid/g)?.length
+    ).toBe(2);
   });
 
   it('keeps the transaction insert and order update inside the locked RPC', () => {

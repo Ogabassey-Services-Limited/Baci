@@ -54,6 +54,7 @@ interface RecordManualPaymentResult {
   new_paid?: number | string | null;
   order_total?: number | string | null;
   payment_status?: PaymentStatus | null;
+  previous_amount_paid?: number | string | null;
   previous_payment_status?: PaymentStatus | null;
   previous_shipping_status?: ShippingStatus | null;
   remaining_balance?: number | string | null;
@@ -570,21 +571,6 @@ export async function POST(
       shipping_status: rpcShippingStatus,
     };
 
-    if (manualPaymentResult.idempotency_replayed) {
-      logger.info({
-        message: 'RecordPayment idempotent replay',
-        orderId,
-        transactionId: createdTransaction?.id,
-      });
-      return NextResponse.json({
-        success: true,
-        amount_paid: parsedAmount,
-        idempotency_replayed: true,
-        new_balance: remainingBalance,
-        updated_status: updates,
-      });
-    }
-
     let orderCancelledByClamp = false;
     if (!createdTransaction?.id && !isOrderClampedAsCancelled(updatedOrder)) {
       logger.error({
@@ -647,6 +633,8 @@ export async function POST(
       return NextResponse.json({
         success: true,
         amount_paid: parsedAmount,
+        idempotency_replayed:
+          manualPaymentResult.idempotency_replayed || undefined,
         new_balance: remainingBalance,
         updated_status: {},
         order_cancelled: true,
@@ -658,6 +646,31 @@ export async function POST(
       try {
         await ensurePaidOrderInventoryConfirmed(supabase, merchantId, orderId);
       } catch (inventoryError) {
+        if (manualPaymentResult.idempotency_replayed) {
+          await fileInventoryConfirmationFailureReview({
+            gatewayReference: reference ?? null,
+            merchantId,
+            metadata: {
+              inventoryError:
+                inventoryError instanceof Error
+                  ? inventoryError.message
+                  : inventoryError,
+              source: 'record_payment_idempotent_replay_inventory_confirmation',
+            },
+            orderId,
+            reason:
+              'A replayed manual payment is paid, but serialized inventory confirmation still failed.',
+            transactionId: createdTransaction?.id ?? null,
+          });
+
+          const payload =
+            buildInventoryConfirmationFailurePayload(inventoryError);
+          return NextResponse.json(payload, {
+            status:
+              payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+          });
+        }
+
         let cleanupFailed = false;
         let rollbackFailed = false;
 
@@ -670,6 +683,10 @@ export async function POST(
               payment_status:
                 manualPaymentResult.previous_payment_status ??
                 order.payment_status ??
+                null,
+              amount_paid:
+                manualPaymentResult.previous_amount_paid ??
+                order.amount_paid ??
                 null,
               shipping_status:
                 manualPaymentResult.previous_shipping_status ??
@@ -768,6 +785,21 @@ export async function POST(
         });
       }
 
+      if (manualPaymentResult.idempotency_replayed) {
+        logger.info({
+          message: 'RecordPayment paid replay completed inventory confirmation',
+          orderId,
+          transactionId: createdTransaction?.id,
+        });
+        return NextResponse.json({
+          success: true,
+          amount_paid: parsedAmount,
+          idempotency_replayed: true,
+          new_balance: remainingBalance,
+          updated_status: updates,
+        });
+      }
+
       logger.info({ message: 'RecordPayment order fully paid', orderId });
 
       // SEND CONFIRMATION EMAIL (If fully paid)
@@ -862,6 +894,21 @@ export async function POST(
         }
       });
     } else {
+      if (manualPaymentResult.idempotency_replayed) {
+        logger.info({
+          message: 'RecordPayment partial-payment idempotent replay',
+          orderId,
+          transactionId: createdTransaction?.id,
+        });
+        return NextResponse.json({
+          success: true,
+          amount_paid: parsedAmount,
+          idempotency_replayed: true,
+          new_balance: remainingBalance,
+          updated_status: updates,
+        });
+      }
+
       logger.info({
         message: 'RecordPayment order partially paid',
         orderId,

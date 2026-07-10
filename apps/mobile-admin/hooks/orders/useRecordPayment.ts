@@ -1,12 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { BASE_URL } from '@/lib/api-client';
+import { asyncStorage as AsyncStorage } from '@/lib/storage';
+import { safeParseJSON } from '@/lib/validators/storage';
+import { manualPaymentRetrySchema } from '@/schemas/manual-payment-retry';
 import { generateUUID } from '@/utils/uuid';
 import { useMerchant } from '../useMerchant';
 import { createAuthenticatedFetch } from './authenticated-fetch';
 import { parseResponsePayload } from './response-utils';
 
 const RECORD_PAYMENT_TIMEOUT_MS = 15_000;
+const RECORD_PAYMENT_RETRY_KEY_PREFIX = 'manual-payment-retry:';
 
 export function useRecordPayment() {
   const queryClient = useQueryClient();
@@ -34,10 +38,25 @@ export function useRecordPayment() {
         paymentMethod,
         reference: reference?.trim() || null,
       });
+      const storageKey = `${RECORD_PAYMENT_RETRY_KEY_PREFIX}${orderId}`;
+      const storedRetry = safeParseJSON(
+        await AsyncStorage.getItem(storageKey),
+        manualPaymentRetrySchema.nullable(),
+        null
+      );
       const idempotencyKey =
         pendingIdempotencyKeys.current.get(requestFingerprint) ??
-        generateUUID();
+        (storedRetry?.fingerprint === requestFingerprint
+          ? storedRetry.idempotencyKey
+          : generateUUID());
       pendingIdempotencyKeys.current.set(requestFingerprint, idempotencyKey);
+      await AsyncStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          fingerprint: requestFingerprint,
+          idempotencyKey,
+        })
+      );
 
       const response = await createAuthenticatedFetch(
         `${BASE_URL}/api/orders/${orderId}/record-payment`,
@@ -72,6 +91,11 @@ export function useRecordPayment() {
 
       const result = await response.json();
       pendingIdempotencyKeys.current.delete(requestFingerprint);
+      try {
+        await AsyncStorage.removeItem(storageKey);
+      } catch (error) {
+        console.error('Failed to clear manual payment retry key', error);
+      }
       return result;
     },
     mutationKey: ['recordPayment'],

@@ -14,6 +14,14 @@ vi.mock('server-only', () => ({}));
 const mockReconciliationInsert = vi.hoisted(() =>
   vi.fn().mockResolvedValue({ data: null, error: null })
 );
+const mockFileInventoryConfirmationFailureReview = vi.hoisted(() =>
+  vi.fn().mockResolvedValue(undefined)
+);
+
+vi.mock('@/lib/payments/file-inventory-confirmation-review', () => ({
+  fileInventoryConfirmationFailureReview:
+    mockFileInventoryConfirmationFailureReview,
+}));
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
@@ -374,6 +382,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
             new_paid: computedNewPaid,
             order_total: orderTotal,
             payment_status: computedPaymentStatus,
+            previous_amount_paid: storedAmountPaid,
             previous_payment_status:
               typeof orderRecord.payment_status === 'string'
                 ? orderRecord.payment_status
@@ -1147,6 +1156,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(
       rollbackOrderStatusAfterInventoryConfirmationFailure
     ).toHaveBeenCalledWith(mockSupabaseClient, mockMerchantId, mockOrderId, {
+      amount_paid: 0,
       payment_status: 'partially_paid',
       shipping_status: 'processing',
     });
@@ -2242,7 +2252,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(mockReconciliationInsert).not.toHaveBeenCalled();
   });
 
-  it('returns an idempotent replay without repeating paid-order side effects', async () => {
+  it('confirms inventory on a paid replay without repeating notifications', async () => {
     setupRecordPaymentSupabase({
       insertTransaction: { id: 'txn-existing' },
       merchant: createRecordPaymentMerchant(),
@@ -2272,8 +2282,88 @@ describe('POST /api/orders/[id]/record-payment', () => {
       idempotency_replayed: true,
       success: true,
     });
-    expect(ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
+    expect(ensurePaidOrderInventoryConfirmed).toHaveBeenCalledWith(
+      mockSupabaseClient,
+      mockMerchantId,
+      mockOrderId
+    );
     expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it('preserves a replayed payment and files review when inventory confirmation fails', async () => {
+    vi.mocked(ensurePaidOrderInventoryConfirmed).mockRejectedValueOnce(
+      new SerializedInventoryUnavailableError()
+    );
+    const { transactionQuery } = setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-existing' },
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        idempotency_replayed: true,
+        new_paid: 10000,
+        order_total: 10000,
+        payment_status: 'paid',
+        remaining_balance: 0,
+        shipping_status: 'processing',
+        transaction_id: 'txn-existing',
+      },
+    });
+
+    const request = createRequest({ amount: 10000, payment_method: 'cash' });
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+
+    expect(response.status).toBe(409);
+    expect(transactionQuery.delete).not.toHaveBeenCalled();
+    expect(
+      rollbackOrderStatusAfterInventoryConfirmationFailure
+    ).not.toHaveBeenCalled();
+    expect(mockFileInventoryConfirmationFailureReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: mockOrderId,
+        transactionId: 'txn-existing',
+      })
+    );
+  });
+
+  it('files cancelled-order reconciliation on an idempotent replay', async () => {
+    setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-existing' },
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        cancelled_at: '2026-06-15T00:00:00Z',
+        idempotency_replayed: true,
+        new_paid: 10000,
+        order_total: 10000,
+        payment_status: 'paid',
+        remaining_balance: 0,
+        shipping_status: 'cancelled',
+        transaction_id: 'txn-existing',
+      },
+    });
+
+    const request = createRequest({ amount: 10000, payment_method: 'cash' });
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      idempotency_replayed: true,
+      order_cancelled: true,
+    });
+    expect(mockReconciliationInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'payment_received_after_cancellation',
+        order_id: mockOrderId,
+        txn_id: 'txn-existing',
+      })
+    );
+    expect(ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
   });
 
   it('suppresses confirmation emails and files reconciliation when the order was clamped as cancelled', async () => {

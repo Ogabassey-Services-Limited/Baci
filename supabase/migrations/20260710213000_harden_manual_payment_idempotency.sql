@@ -40,6 +40,7 @@ DECLARE
   v_remaining_before numeric := 0;
   v_new_paid numeric := 0;
   v_remaining_balance numeric := 0;
+  v_previous_amount_paid numeric := 0;
   v_transaction_id uuid;
   v_payment_status text;
   v_shipping_status text;
@@ -88,6 +89,8 @@ BEGIN
     RETURN jsonb_build_object('error_code', 'ORDER_NOT_FOUND');
   END IF;
 
+  v_previous_amount_paid := COALESCE(v_order.amount_paid, 0);
+
   SELECT t.id, t.amount, t.gateway_reference
   INTO v_existing_transaction
   FROM public.transactions AS t
@@ -114,6 +117,7 @@ BEGIN
       'new_paid', v_new_paid,
       'remaining_balance', v_remaining_balance,
       'order_total', v_order_total,
+      'previous_amount_paid', v_previous_amount_paid,
       'payment_status', v_order.payment_status,
       'shipping_status', v_order.shipping_status,
       'cancelled_at', v_order.cancelled_at,
@@ -243,6 +247,7 @@ BEGIN
     'new_paid', v_new_paid,
     'remaining_balance', v_remaining_balance,
     'order_total', v_order_total,
+    'previous_amount_paid', v_previous_amount_paid,
     'previous_payment_status', v_order.payment_status,
     'previous_shipping_status', v_order.shipping_status,
     'payment_status', v_payment_status,

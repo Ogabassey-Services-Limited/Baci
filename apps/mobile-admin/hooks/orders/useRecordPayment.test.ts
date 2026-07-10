@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
   getSession: vi.fn(),
   invalidateQueries: vi.fn(),
+  storageValues: new Map<string, string>(),
 }));
 
 vi.stubGlobal('fetch', mocks.fetch);
@@ -14,6 +15,22 @@ vi.mock('@/lib/api-client', () => ({
 
 vi.mock('@/utils/uuid', () => ({
   generateUUID: vi.fn(() => '11111111-1111-4111-8111-111111111111'),
+}));
+
+vi.mock('@/lib/storage', () => ({
+  asyncStorage: {
+    getItem: vi.fn((key: string) =>
+      Promise.resolve(mocks.storageValues.get(key) ?? null)
+    ),
+    removeItem: vi.fn((key: string) => {
+      mocks.storageValues.delete(key);
+      return Promise.resolve();
+    }),
+    setItem: vi.fn((key: string, value: string) => {
+      mocks.storageValues.set(key, value);
+      return Promise.resolve();
+    }),
+  },
 }));
 
 vi.mock('react', async () => {
@@ -50,12 +67,14 @@ vi.mock('@tanstack/react-query', async () => {
   };
 });
 
+import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import { generateUUID } from '@/utils/uuid';
 import { useRecordPayment } from './useRecordPayment';
 
 describe('useRecordPayment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.storageValues.clear();
     vi.mocked(generateUUID).mockReturnValue(
       '11111111-1111-4111-8111-111111111111'
     );
@@ -232,6 +251,48 @@ describe('useRecordPayment', () => {
       requestBodies[1].idempotency_key
     );
     expect(generateUUID).toHaveBeenCalledTimes(1);
+  });
+
+  it('reuses a persisted idempotency key after the hook remounts', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    const abortError = new Error('aborted');
+    abortError.name = 'AbortError';
+    mocks.fetch.mockRejectedValueOnce(abortError).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ recorded: true }),
+    });
+    const input = {
+      amount: 5000,
+      orderId: 'order-1',
+      paymentMethod: 'cash',
+    };
+    const firstMount = useRecordPayment() as unknown as {
+      mutationFn: (vars: typeof input) => Promise<unknown>;
+    };
+
+    await expect(firstMount.mutationFn(input)).rejects.toThrow(
+      'Request timed out. Please check your connection and try again.'
+    );
+
+    const secondMount = useRecordPayment() as unknown as {
+      mutationFn: (vars: typeof input) => Promise<unknown>;
+    };
+    await expect(secondMount.mutationFn(input)).resolves.toEqual({
+      recorded: true,
+    });
+
+    const requestBodies = mocks.fetch.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body))
+    );
+    expect(requestBodies[0].idempotency_key).toBe(
+      requestBodies[1].idempotency_key
+    );
+    expect(generateUUID).toHaveBeenCalledTimes(1);
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
+      'manual-payment-retry:order-1'
+    );
   });
 
   it('uses structured API error messages when manual payment fails', async () => {
