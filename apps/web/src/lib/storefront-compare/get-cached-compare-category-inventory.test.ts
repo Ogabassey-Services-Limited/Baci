@@ -260,4 +260,45 @@ describe('getCachedCompareCategoryInventory', () => {
 
     consoleError.mockRestore();
   });
+
+  it('throws on a transient category-row failure (legacy fallback scope) instead of caching a degraded inventory', async () => {
+    // A transient category-row lookup failure sets categoryQueryFailed and
+    // makes the shell fall back to a legacy scope. Because the shell recovers
+    // on its 300s window but this entry caches for 3600s, the degraded
+    // inventory must never be stored — it would 404/noindex compare pages for
+    // up to ~1h after the shell healed.
+    mockGetCachedCategoryPageShellData.mockResolvedValue({
+      isCollection: false,
+      fallbackName: 'Laptops',
+      categoryQueryFailed: true,
+      productScope: { kind: 'legacy', categoryName: 'Laptops' },
+    });
+    const from = vi.fn();
+    mockGetPublicSupabaseClient.mockReturnValue({ from });
+
+    await expect(
+      getCachedCompareCategoryInventory('merchant-1', 'laptops', 'ogabassey')
+    ).rejects.toThrow('Compare category scope unavailable for laptops');
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it('throws when the category child-scope lookup transiently failed (scopeQueryFailed)', async () => {
+    mockGetCachedCategoryPageShellData.mockResolvedValue({
+      isCollection: false,
+      fallbackName: 'Laptops',
+      productScope: {
+        kind: 'category',
+        categoryId: 'cat-1',
+        categoryIds: ['cat-1'],
+        scopeQueryFailed: true,
+      },
+    });
+    const from = vi.fn();
+    mockGetPublicSupabaseClient.mockReturnValue({ from });
+
+    await expect(
+      getCachedCompareCategoryInventory('merchant-1', 'laptops', 'ogabassey')
+    ).rejects.toThrow('Compare category scope unavailable for laptops');
+    expect(from).not.toHaveBeenCalled();
+  });
 });

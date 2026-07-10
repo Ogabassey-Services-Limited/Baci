@@ -159,12 +159,27 @@ export async function getCachedCompareCategoryInventory(
     return { isCollection: true, fallbackName, products: [] };
   }
 
-  // shell.categoryQueryFailed / scope.scopeQueryFailed are deliberately NOT
-  // rethrown here: those failure states are computed and cached inside the
-  // shell entry itself, so a throw would not enable a per-request retry — it
-  // would only turn the listing page's degraded-render behavior into hard
-  // compare-page 404s for the rest of the shell's cache window.
   const scope = shell.productScope;
+
+  // Throw on genuine transient shell failures so Cache Components never stores
+  // a degraded/empty inventory. The two entries have MISMATCHED windows: the
+  // shell (`storefront-page`, revalidate 300s) recovers far sooner than this
+  // entry (`categories`, revalidate 3600s), so caching a failure here would
+  // outlive its source and 404/noindex compare pages for up to ~1h after the
+  // shell has already healed. This MUST run before the scope branches below,
+  // because a transient category-row failure yields scope.kind === 'legacy'.
+  //
+  // categoryQueryFailed excludes PGRST116 no-rows via isPostgrestNoRowsError
+  // (see cached-data.ts), so legitimate legacy/WordPress-era category URLs —
+  // no categories row, categoryQueryFailed === false, scope.kind === 'legacy'
+  // — do NOT throw and keep resolving. Same throw-on-transient-failure pattern
+  // as getCachedProductSemanticInventory / getPublishedClusterPosts.
+  if (
+    shell.categoryQueryFailed ||
+    (scope.kind === 'category' && scope.scopeQueryFailed)
+  ) {
+    throw new Error(`Compare category scope unavailable for ${categorySlug}`);
+  }
 
   if (scope.kind === 'none' || scope.kind === 'collection') {
     return { isCollection: false, fallbackName, products: [] };
