@@ -105,6 +105,11 @@ const goFasterQuote: ShippingQuote = {
   provider: 'GIGL',
   serviceTier: 'GoFaster',
 };
+const stationGoFasterQuote: ShippingQuote = {
+  ...goFasterQuote,
+  id: 'station-gofaster-quote',
+  isStationPickup: true,
+};
 
 function createProps(
   overrides: Partial<AddressStepProps> = {}
@@ -234,7 +239,7 @@ describe('CheckoutAddressStepView station pickup quotes', () => {
           deliveryMethod: 'airport',
           selectedQuote: goFasterQuote,
           selectedQuoteId: 'gofaster-quote',
-          shippingQuotes: [doorQuote, goFasterQuote],
+          shippingQuotes: [doorQuote, goFasterQuote, stationGoFasterQuote],
         })}
       />
     );

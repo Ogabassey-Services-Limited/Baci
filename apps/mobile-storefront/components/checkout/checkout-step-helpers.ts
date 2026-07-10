@@ -50,9 +50,7 @@ export function getDeliveryMethodFee(
       ? selectedQuote.price
       : 0;
   }
-  return selectedQuote != null && !isProviderStationPickupQuote(selectedQuote)
-    ? selectedQuote.price
-    : 0;
+  return isRoadDeliveryQuote(selectedQuote) ? selectedQuote.price : 0;
 }
 
 export function getQuotePreference(
@@ -89,10 +87,9 @@ export function getDeliveryMethodSummary(
       : PICKUP_STATION_ADDRESS_LINES.join(', ');
   }
 
-  const doorQuote =
-    selectedQuote != null && !isProviderStationPickupQuote(selectedQuote)
-      ? selectedQuote
-      : undefined;
+  const doorQuote = isRoadDeliveryQuote(selectedQuote)
+    ? selectedQuote
+    : undefined;
   const carrier =
     doorQuote?.carrierName || doorQuote?.provider || DEFAULT_CARRIER;
   const eta =
@@ -119,15 +116,27 @@ export function getShippingProviderForMethod(
       : undefined;
   }
   if (deliveryMethod !== 'door') return undefined;
-  return selectedQuote != null && !isProviderStationPickupQuote(selectedQuote)
+  return isRoadDeliveryQuote(selectedQuote)
     ? selectedQuote.provider || selectedQuote.carrierName
     : undefined;
 }
 
 export function isGiglGoFasterQuote(quote: ShippingQuote | undefined): boolean {
   return (
-    quote?.provider?.toUpperCase() === 'GIGL' &&
+    quote !== undefined &&
+    !isProviderStationPickupQuote(quote) &&
+    quote.provider?.toUpperCase() === 'GIGL' &&
     quote.serviceTier?.toLowerCase().includes('gofaster') === true
+  );
+}
+
+export function isRoadDeliveryQuote(
+  quote: ShippingQuote | undefined
+): quote is ShippingQuote {
+  return (
+    quote !== undefined &&
+    !isProviderStationPickupQuote(quote) &&
+    !isGiglGoFasterQuote(quote)
   );
 }
 

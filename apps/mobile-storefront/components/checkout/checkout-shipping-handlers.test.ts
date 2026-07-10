@@ -3,6 +3,7 @@ import type { MutableRefObject } from 'react';
 import type { UseFormSetValue } from 'react-hook-form';
 import type { ShippingAddressInput } from '@/lib/validation';
 import { createCheckoutShippingHandlers } from './checkout-shipping-handlers';
+import { AIRPORT_QUOTE_ID } from './checkout-step-helpers';
 
 type HandlerParams = Parameters<typeof createCheckoutShippingHandlers>[0];
 type SavedDoorAddress = NonNullable<
@@ -88,5 +89,30 @@ describe('createCheckoutShippingHandlers', () => {
 
     expect(setDeliveryCoordinates).toHaveBeenCalledWith(null);
     expect(requestShippingQuotes).not.toHaveBeenCalled();
+  });
+
+  it('does not preserve a station GoFaster quote when switching to airport', () => {
+    const setSelectedQuoteId = jest.fn();
+    createCheckoutShippingHandlers(
+      createParams({
+        deliveryMethod: 'pickup_station',
+        quoteSelection: {
+          selectedQuoteId: 'station-gofaster',
+          shippingQuotes: [
+            {
+              id: 'station-gofaster',
+              displayName: 'Pickup at PHC - GoFaster',
+              isStationPickup: true,
+              price: 10000,
+              provider: 'GIGL',
+              serviceTier: 'Station Pickup - GoFaster',
+            },
+          ],
+        },
+        setSelectedQuoteId,
+      })
+    ).handleSelectDeliveryMethod('airport');
+
+    expect(setSelectedQuoteId).toHaveBeenLastCalledWith(AIRPORT_QUOTE_ID);
   });
 });

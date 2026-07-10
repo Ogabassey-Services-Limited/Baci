@@ -33,6 +33,12 @@ const goFasterQuote: ShippingQuote = {
   serviceTier: 'GoFaster',
 };
 
+const stationGoFasterQuote: ShippingQuote = {
+  ...goFasterQuote,
+  id: 'station-air-1',
+  isStationPickup: true,
+};
+
 const stationQuote: ShippingQuote = {
   ...doorQuote,
   displayName: 'Pickup Stations (GIGL)',
@@ -57,6 +63,7 @@ describe('checkout shipping quote helpers', () => {
       doorQuote,
       goFasterQuote,
       secondStationQuote,
+      stationGoFasterQuote,
     ];
 
     expect(isStationPickupQuote(stationQuote)).toBe(true);
@@ -66,6 +73,7 @@ describe('checkout shipping quote helpers', () => {
     expect(getStationPickupQuotes(quotes)).toEqual([
       stationQuote,
       secondStationQuote,
+      stationGoFasterQuote,
     ]);
     expect(getPreferredDoorQuoteId(quotes)).toBe('door-1');
   });
@@ -87,6 +95,13 @@ describe('checkout shipping quote helpers', () => {
     ).toBe('air-1');
     expect(
       getSelectedQuoteIdForDeliveryMethod('airport', 'door-1', quotes),
+    ).toBe('');
+    expect(
+      getSelectedQuoteIdForDeliveryMethod(
+        'airport',
+        'station-air-1',
+        [...quotes, stationGoFasterQuote],
+      ),
     ).toBe('');
     expect(calculateDeliveryCost('airport', 'air-1', quotes, 'delivery')).toBe(
       goFasterQuote.price,

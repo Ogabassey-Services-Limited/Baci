@@ -39,6 +39,11 @@ const goFasterQuote: ShippingQuote = {
   serviceTier: 'GoFaster',
   price: 18500,
 };
+const stationGoFasterQuote: ShippingQuote = {
+  ...goFasterQuote,
+  id: 'station-gofaster-quote',
+  isStationPickup: true,
+};
 
 describe('checkout-step-helpers', () => {
   it('maps payment methods to the right tabs', () => {
@@ -55,6 +60,9 @@ describe('checkout-step-helpers', () => {
       AIRPORT_DELIVERY_FEE
     );
     expect(getDeliveryMethodFee('airport', goFasterQuote)).toBe(18500);
+    expect(getDeliveryMethodFee('airport', stationGoFasterQuote)).toBe(
+      AIRPORT_DELIVERY_FEE
+    );
     expect(getDeliveryMethodFee('pickup_station', baseQuote)).toBe(0);
     expect(getDeliveryMethodFee('pickup_station', stationPickupQuote)).toBe(
       9493
@@ -117,6 +125,9 @@ describe('checkout-step-helpers', () => {
   it('returns the shipping provider for each delivery method', () => {
     expect(getShippingProviderForMethod('airport', baseQuote)).toBeUndefined();
     expect(getShippingProviderForMethod('airport', goFasterQuote)).toBe('GIGL');
+    expect(
+      getShippingProviderForMethod('airport', stationGoFasterQuote)
+    ).toBeUndefined();
     expect(
       getShippingProviderForMethod('pickup_station', baseQuote)
     ).toBeUndefined();
