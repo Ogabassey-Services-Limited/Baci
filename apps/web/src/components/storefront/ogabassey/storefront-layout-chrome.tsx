@@ -66,13 +66,11 @@ function StorefrontSemanticFooterFallback({ basePath }: { basePath: string }) {
     <footer
       aria-label="Semantic storefront footer"
       // Reserve the real Ogabassey footer's stacked height per breakpoint so the
-      // deferred fallback -> full-footer swap (DeferredShellFeature/Suspense) has
-      // no height delta. Without this, the short link-list fallback (~150px) was
-      // replaced by the ~900px mobile footer once deferred chrome activated,
-      // pushing the footer's absolute inset-0 pattern by ~1 viewport (a large
-      // recorded CLS on div.ogabassey-footer__pattern). Heights: 1-col mobile,
-      // 2-col md, 4-col lg mirror the footer's own grid breakpoints.
-      className="min-h-[900px] border-store-border border-t bg-store-background px-4 py-8 text-store-background-text md:min-h-[560px] lg:min-h-[420px]"
+      // deferred fallback -> full subtree swap (footer + FOOTER_BANNER wrapper)
+      // has no height delta. Without this, the short link-list fallback was
+      // replaced by the stacked footer and ad wrapper once deferred chrome
+      // activated, shifting the footer pattern and content below it.
+      className="min-h-[1100px] border-store-border border-t bg-store-background px-4 py-8 text-store-background-text md:min-h-[910px] lg:min-h-[770px]"
     >
       <nav
         aria-label="Footer navigation"

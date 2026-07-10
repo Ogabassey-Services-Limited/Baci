@@ -1722,7 +1722,7 @@ describe('CheckoutPage', () => {
     fetchMock.mockRestore();
   });
 
-  it('reserves a stable min-height for the order-summary items list so cart hydration does not reflow #main-content', async () => {
+  it('reserves the full order-summary scroll region so multi-item cart hydration does not reflow #main-content', async () => {
     mockCheckoutSubmissionState();
 
     render(<CheckoutPage />);
@@ -1734,11 +1734,11 @@ describe('CheckoutPage', () => {
       .closest('section,aside,div');
 
     expect(
-      orderSummary?.querySelector('[class*="min-h-[64px]"]')
+      orderSummary?.querySelector('[class*="h-[200px]"]')
     ).toBeInTheDocument();
   });
 
-  it('reserves a stable min-height for the delivery-options area so the quote-loader swap does not reflow #main-content', async () => {
+  it('keeps delivery quotes in a fixed scroll region so multi-quote loading does not reflow #main-content', async () => {
     mockCheckoutSubmissionState();
 
     const fetchMock = vi
@@ -1764,7 +1764,7 @@ describe('CheckoutPage', () => {
     await screen.findByText(/select delivery option/i);
 
     expect(
-      container.querySelector('[class*="min-h-[190px]"]')
+      container.querySelector('[class*="h-[320px]"]')
     ).toBeInTheDocument();
 
     fetchMock.mockRestore();
