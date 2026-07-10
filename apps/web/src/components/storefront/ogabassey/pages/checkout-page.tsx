@@ -3532,7 +3532,7 @@ export const CheckoutPage: React.FC = () => {
                                       />
                                       <div className="min-w-0">
                                         <span className="text-sm font-bold text-store-background-text">
-                                          {quote.stationName || quote.displayName}
+                                          {quote.displayName}
                                         </span>
                                         <p className="mt-0.5 text-xs text-store-background-text/65">
                                           {quote.stationAddress ||

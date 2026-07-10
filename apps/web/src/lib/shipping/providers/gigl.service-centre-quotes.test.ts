@@ -46,11 +46,31 @@ describe('expandGiglServiceCentreQuotes', () => {
       'GIGL_30_1_1_524_0',
     ]);
     expect(quotes[0]).toMatchObject({
+      displayName:
+        'GIG Logistics - Pickup at PHC RUMUOLUMENI IWOFE - GoStandard',
       stationName: 'PHC RUMUOLUMENI IWOFE',
       stationAddress: 'Eagle Cement Junction, Rumuolumeni, Port Harcourt',
       stationCode: 'RUM',
       pickupStationId: 575,
     });
+  });
+
+  it('keeps GoFaster visible after expanding a service-centre quote', async () => {
+    const [quote] = await expandGiglServiceCentreQuotes({
+      baseQuote: {
+        ...baseQuote,
+        displayName: 'GIG Logistics - Pickup at PORT HARCOURT - GoFaster',
+        serviceTier: 'Station Pickup - GoFaster',
+      },
+      generateQuoteId: () => 'gofaster-centre',
+      receiver: { latitude: 4.8156, longitude: 7.0498 },
+      receiverStation: stationsResponse.data.data[1],
+      serviceCentres: serviceCentresResponse.data.data,
+    });
+
+    expect(quote?.displayName).toBe(
+      'GIG Logistics - Pickup at PHC RUMUOLUMENI IWOFE - GoFaster'
+    );
   });
 
   it('uses a deterministic three-centre fallback without coordinates', async () => {

@@ -9,6 +9,10 @@ import type { GiglServiceCentre, GiglStation } from './gigl.schemas';
 const MAX_PICKUP_CENTRES = 3;
 const EARTH_RADIUS_KM = 6371;
 
+function getGiglServiceName(serviceTier: string): 'GoStandard' | 'GoFaster' {
+  return serviceTier.includes('GoFaster') ? 'GoFaster' : 'GoStandard';
+}
+
 interface ServiceCentreQuoteParams {
   baseQuote: ShippingQuote;
   generateQuoteId: () => string;
@@ -99,7 +103,7 @@ export async function expandGiglServiceCentreQuotes({
     return selectServiceCentres(availableCentres, receiver).map((centre) => ({
       ...baseQuote,
       id: generateQuoteId(),
-      displayName: `${baseQuote.displayName.split(' at ')[0]} at ${centre.ServiceCentreName}`,
+      displayName: `GIG Logistics - Pickup at ${centre.ServiceCentreName} - ${getGiglServiceName(baseQuote.serviceTier)}`,
       providerRateId:
         selectedRate.receiverStationId !== undefined &&
         selectedRate.vehicleType !== undefined
