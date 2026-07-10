@@ -1485,7 +1485,13 @@ describe('POST /api/orders — quiz voucher guard', () => {
     expect(mockCreateAdminClient).toHaveBeenCalled();
   });
 
-  it('excludes voucher-covered VAT from residual due checks and voucher RPC payloads', async () => {
+  it('records the real VAT on a voucher order (merchant absorbs it) and leaves nothing due', async () => {
+    // For a VAT-registered merchant the voucher RPC delegates to
+    // create_storefront_order, which recomputes VAT from the catalog price and
+    // raises tax_amount_mismatch if we send 0. So the order must carry the REAL
+    // recomputed VAT (prod-verified: p_tax_amount must equal v_expected_tax).
+    // The voucher covers the product and the merchant absorbs the VAT, so the
+    // shopper still owes nothing (amountDueToGateway 0).
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
     vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
@@ -1494,7 +1500,8 @@ describe('POST /api/orders — quiz voucher guard', () => {
     const supabase = buildMockSupabase(
       {
         create_storefront_order_with_quiz_voucher: {
-          data: [{ ...baseOrderRow, subtotal: 0, total: 0 }],
+          // Merchant absorbs the VAT: subtotal = catalog, total = VAT.
+          data: [{ ...baseOrderRow, subtotal: 1000, total: 75 }],
           error: null,
         },
       },
@@ -1557,7 +1564,9 @@ describe('POST /api/orders — quiz voucher guard', () => {
       expect.objectContaining({
         p_payment_method: 'quiz_voucher',
         p_payment_status: 'unpaid',
-        p_tax_amount: 0,
+        // The REAL recomputed VAT (1000 * 7.5% = 75), not 0 — otherwise the RPC
+        // raises tax_amount_mismatch for a VAT-registered merchant.
+        p_tax_amount: 75,
       })
     );
     expect(supabase.rpc).toHaveBeenCalledWith(

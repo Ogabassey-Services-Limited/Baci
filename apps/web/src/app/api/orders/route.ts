@@ -1622,7 +1622,14 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    const orderTaxAmount = hasVoucherItem ? 0 : serverComputedTaxAmount;
+    // Record the REAL recomputed VAT on every order, including quiz-voucher
+    // prizes. For a VAT-registered merchant the voucher RPC delegates to
+    // create_storefront_order, which recomputes VAT from the catalog price and
+    // raises tax_amount_mismatch if we send 0 — so a taxable prize would never
+    // redeem. The merchant absorbs the prize VAT: the order carries it (correct
+    // for FIRS e-invoicing) and the voucher covers it (residual + gateway due
+    // treat it as paid, below).
+    const orderTaxAmount = serverComputedTaxAmount;
 
     const merchantCanAutoNegotiate = hasPriceNegotiationEntitlement(
       merchant.plan_tier,
@@ -1787,7 +1794,10 @@ export async function POST(request: NextRequest) {
           giftWrappingFee: giftWrappingFeeValue,
           items: orderItemsPayload,
           shippingFee: shippingFeeValue,
-          taxAmount: orderTaxAmount,
+          // The prize VAT is absorbed by the merchant and covered by the
+          // voucher, so it is NOT a shopper residual — exclude it here (it is
+          // still recorded on the order via orderTaxAmount).
+          taxAmount: 0,
         })
       : null;
 
@@ -2443,8 +2453,13 @@ export async function POST(request: NextRequest) {
 
     // Calculate amount due to payment gateway (total - wallet credit used)
     const walletAmountUsed = walletRedemptionResult?.amountRedeemed || 0;
-    const amountDueToGateway =
-      orderTotal - savingsAmountUsed - walletAmountUsed;
+    // A fully-covered quiz-voucher order is settled entirely by the voucher —
+    // the merchant absorbs the recorded VAT, so nothing is due to the gateway
+    // even though orderTotal now carries that VAT. Non-voucher orders keep the
+    // standard residual math.
+    const amountDueToGateway = voucherOrderFullyCovered
+      ? 0
+      : orderTotal - savingsAmountUsed - walletAmountUsed;
     let walletFinalized = false;
     let storeCreditFinalized = false;
     let quizVoucherFinalized = false;
