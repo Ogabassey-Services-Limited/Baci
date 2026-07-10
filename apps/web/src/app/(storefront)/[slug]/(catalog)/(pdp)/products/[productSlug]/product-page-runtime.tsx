@@ -19,7 +19,7 @@ import {
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
-import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
 import { buildProductContextParagraphs } from '@/lib/storefront-product/build-product-context-paragraphs';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
@@ -103,7 +103,10 @@ export async function ProductPageRuntime({
     categorySlug,
     slug
   );
-  const guidePosts = await getPublishedClusterPosts(merchant.id);
+  const guidePosts = await loadPublishedClusterPostsSafely(
+    merchant.id,
+    'Failed to load guide posts for product page'
+  );
   const inventoryCandidates = (
     categoryPageData?.isCollection ? [] : (categoryPageData?.products ?? [])
   ).map((candidate) => {

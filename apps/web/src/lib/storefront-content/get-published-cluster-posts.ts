@@ -10,8 +10,20 @@ export async function getPublishedClusterPosts(
 ): Promise<PublishedClusterPost[]> {
   'use cache: remote';
   try {
-    cacheLife('merchant');
-    cacheTag('blog-posts', `published-cluster-posts-${merchantId}`);
+    // 'blog' (revalidate 3600) instead of 'merchant' (revalidate 60):
+    // freshness is tag-driven — every blog mutation fires
+    // revalidateTag('blog-posts') and blog_enabled toggles fire
+    // revalidateFeatures — so the short window only forced this ~400KB
+    // remote entry to be re-written every 60s, the dominant source of
+    // Vercel data-cache write failures (502s) on compare/PDP routes.
+    cacheLife('blog');
+    cacheTag(
+      'blog-posts',
+      `published-cluster-posts-${merchantId}`,
+      // Explicit, though the nested getCachedFeatureSettings call already
+      // propagates it: the blog_enabled gate below must bust this entry.
+      `features-${merchantId}`
+    );
   } catch {
     // Unit tests do not run with Next cacheComponents enabled.
   }
@@ -38,7 +50,12 @@ export async function getPublishedClusterPosts(
       merchantId,
       error,
     });
-    return [];
+    // Throw so Cache Components skips caching this failure — returning []
+    // would cache an EMPTY guide-post list for the full 'blog' window and
+    // strip guide links from compare/PDP/category pages after one transient
+    // DB error. Callers go through loadPublishedClusterPostsSafely, which
+    // degrades the single failing request to [] without poisoning the cache.
+    throw error;
   }
 
   return (data ?? []) as PublishedClusterPost[];

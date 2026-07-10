@@ -13,7 +13,7 @@ import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildCommercialGuideLinks } from '@/lib/storefront-content/build-commercial-guide-links';
 import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
-import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
 import {
   getCountryShoppingContext,
   getStorefrontLocale,
@@ -185,7 +185,10 @@ export async function loadPriceBandPage(
     }));
 
   const storeUrl = buildStoreUrl(merchant);
-  const guidePosts = await getPublishedClusterPosts(merchant.id);
+  const guidePosts = await loadPublishedClusterPostsSafely(
+    merchant.id,
+    'Failed to load guide posts for price band page'
+  );
   const categoryName = categoryData.fallbackName || args.categorySlug;
   const canonicalUrl = `${storeUrl}/${args.categorySlug}/best-under/${band.slug}`;
   const payoutCurrency = resolveMerchantCurrencyConfig(merchant).code;

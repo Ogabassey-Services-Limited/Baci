@@ -15,7 +15,7 @@ import type {
   InformationalGuideLink,
   SupportedClusterCategory,
 } from '@/lib/storefront-content/content-cluster-types';
-import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
 import {
   type CompareLinkGraphEntry,
   isMaintainedCompareGraphSlug,
@@ -292,7 +292,10 @@ function loadSupportedGuidePosts(
   supportedClusterCategory: SupportedClusterCategory | null
 ) {
   return supportedClusterCategory
-    ? getPublishedClusterPosts(merchantId)
+    ? loadPublishedClusterPostsSafely(
+        merchantId,
+        'Failed to load guide posts for compare page'
+      )
     : Promise.resolve([]);
 }
 

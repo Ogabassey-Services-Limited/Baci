@@ -380,10 +380,7 @@ export function SettingsForm({
           onShuffleColors={handleShuffleColors}
         />
 
-        <StoreFeaturesCard
-          merchantId={merchantState.id}
-          initialBlogEnabled={initialBlogEnabled}
-        />
+        <StoreFeaturesCard initialBlogEnabled={initialBlogEnabled} />
 
         <Card className="glass">
           <CardHeader>

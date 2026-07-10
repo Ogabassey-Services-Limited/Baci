@@ -184,10 +184,13 @@ describe('next.config cacheLife profiles', () => {
 
     const [, stale, revalidate, expire] = match as RegExpMatchArray;
     // Server `revalidate` must be far less frequent than the hot merchant
-    // profile (60s) to stop the re-render storm — but bounded (not days),
-    // because blog posts use the LOCAL Cache Components handler where
-    // cross-instance tag eviction isn't guaranteed, so this window also caps
-    // edit/delete staleness and missing-slug negative caching (Codex review).
+    // profile (60s) to stop the re-render storm — but bounded (not days):
+    // LOCAL Cache Components entries on this profile (e.g. getCachedBlogPost)
+    // don't get guaranteed cross-instance tag eviction, so this window also
+    // caps edit/delete staleness and missing-slug negative caching (Codex
+    // review). Remote entries on the profile (getPublishedClusterPosts) DO
+    // get cross-instance tag eviction; for them the window is purely a
+    // write-churn bound.
     expect(Number(revalidate)).toBeGreaterThanOrEqual(1800); // >= 30 min
     expect(Number(revalidate)).toBeLessThanOrEqual(14400); // <= 4 hr
     // Keep client-side staleness short so edited posts surface quickly for

@@ -18,7 +18,7 @@ import {
   generateFAQSchema,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
-import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
 import {
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
@@ -130,7 +130,10 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
       productOffset,
       STOREFRONT_PRODUCTS_PER_PAGE
     ),
-    getPublishedClusterPosts(merchant.id),
+    loadPublishedClusterPostsSafely(
+      merchant.id,
+      'Failed to load guide posts for category page'
+    ),
   ]);
 
   if (!data.isCollection && data.isInactiveCategory) {
