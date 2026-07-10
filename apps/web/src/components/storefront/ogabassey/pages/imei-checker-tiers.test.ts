@@ -1,33 +1,25 @@
-import {
-  IMEI_SERVICE_TIERS,
-  PRIMARY_IMEI_SERVICE_TIERS,
-} from '@baci/shared/imei';
 import { describe, expect, it } from 'vitest';
-import { SERVICE_TIERS } from './imei-checker-tiers';
+import { PUBLIC_IMEI_SERVICE_TIERS } from '@baci/shared/imei';
+import { getDisplayTier } from './imei-checker-tiers';
 
-describe('SERVICE_TIERS', () => {
-  it('uses the public shared IMEI tiers as its source of truth', () => {
-    expect(Object.keys(SERVICE_TIERS)).toEqual([...PRIMARY_IMEI_SERVICE_TIERS]);
+describe('getDisplayTier', () => {
+  it('formats the price as Nigerian naira', () => {
+    const tier = getDisplayTier('full');
+    expect(tier.priceDisplay).toBe('₦1,500');
+  });
 
-    for (const tierKey of PRIMARY_IMEI_SERVICE_TIERS) {
-      const sourceTier = IMEI_SERVICE_TIERS[tierKey];
+  it('marks the recommended tier and omits it otherwise', () => {
+    expect(getDisplayTier('full').recommended).toBe(true);
+    expect(getDisplayTier('activation').recommended).toBeUndefined();
+  });
 
-      expect(SERVICE_TIERS[tierKey]).toMatchObject({
-        features: sourceTier.features,
-        id: tierKey,
-        name: sourceTier.name,
-        price: sourceTier.price,
-        priceDisplay: expect.stringContaining(
-          sourceTier.price.toLocaleString('en-NG')
-        ),
-        tagline: sourceTier.tagline,
-      });
-
-      if ('recommended' in sourceTier) {
-        expect(SERVICE_TIERS[tierKey].recommended).toBe(sourceTier.recommended);
-      } else {
-        expect(SERVICE_TIERS[tierKey].recommended).toBeUndefined();
-      }
+  it('resolves a display tier for every publicly purchasable catalog key', () => {
+    for (const tierKey of PUBLIC_IMEI_SERVICE_TIERS) {
+      const tier = getDisplayTier(tierKey);
+      expect(tier.id).toBe(tierKey);
+      expect(tier.name).toBeTruthy();
+      expect(tier.icon).toBeTruthy();
+      expect(tier.priceDisplay).toMatch(/^₦/);
     }
   });
 });

@@ -1,23 +1,17 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { IMEI_SERVICE_TIERS } from '@baci/shared/imei';
 import { OgabasseyImeiResults } from './imei-results';
 import type { ImeiResult } from './imei-checker-types';
 
-vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => (
-    <img {...props} alt={String(props.alt ?? '')} />
-  ),
-}));
-
-// Device images now render through CdnFormatImage (explicit per-format
-// <picture>); surface it as a plain <img> so these tests keep asserting
-// results behavior, not image internals.
 vi.mock('@/components/storefront/cdn-format-image', () => ({
   CdnFormatImage: (props: Record<string, unknown>) => {
     const { fill: _fill, preload: _preload, ...rest } = props;
     return <img {...rest} alt={String(props.alt ?? '')} />;
   },
 }));
+
+const fullTier = IMEI_SERVICE_TIERS.full;
 
 const baseResult: ImeiResult = {
   blacklistStatus: 'Clean',
@@ -40,7 +34,7 @@ describe('OgabasseyImeiResults', () => {
   it('renders nothing without a result', () => {
     const { container } = render(
       <OgabasseyImeiResults
-        currentTierName="Full Report"
+        currentTier={fullTier}
         onReset={vi.fn()}
         result={null}
       />
@@ -49,10 +43,62 @@ describe('OgabasseyImeiResults', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('renders clean and non-clean status tones', () => {
+  it('renders the core status cards gated on checksIncluded', () => {
+    render(
+      <OgabasseyImeiResults
+        currentTier={fullTier}
+        onReset={vi.fn()}
+        result={baseResult}
+      />
+    );
+
+    expect(screen.getByText('Blacklist Status')).toBeTruthy();
+    expect(screen.getByText('iCloud Status')).toBeTruthy();
+    expect(screen.getByText('Find My iPhone')).toBeTruthy();
+    expect(screen.getByText('SIM Lock')).toBeTruthy();
+    expect(screen.getByText('Carrier')).toBeTruthy();
+  });
+
+  it('renders the widened optional fields when the provider returns them', () => {
+    render(
+      <OgabasseyImeiResults
+        currentTier={fullTier}
+        onReset={vi.fn()}
+        result={{
+          ...baseResult,
+          gsxCoverage: 'Expired',
+          knoxGuardStatus: 'Inactive',
+          repairHistory: 'No Repairs',
+        }}
+      />
+    );
+
+    expect(screen.getByText('Coverage')).toBeTruthy();
+    expect(screen.getByText('Expired')).toBeTruthy();
+    expect(screen.getByText('Knox Guard')).toBeTruthy();
+    expect(screen.getByText('Repair History')).toBeTruthy();
+  });
+
+  it('omits the core cards for a tier that never checked them', () => {
+    // 'macIcloud' only checks icloud + serialNumber-shaped fields, not
+    // blacklist/SIM/carrier.
+    render(
+      <OgabasseyImeiResults
+        currentTier={IMEI_SERVICE_TIERS.macIcloud}
+        onReset={vi.fn()}
+        result={baseResult}
+      />
+    );
+
+    expect(screen.queryByText('Blacklist Status')).toBeNull();
+    expect(screen.queryByText('SIM Lock')).toBeNull();
+    expect(screen.queryByText('Carrier')).toBeNull();
+  });
+
+  it('renders clean and non-clean trust-score tones', () => {
     const { rerender } = render(
       <OgabasseyImeiResults
-        currentTierName="Full Report"
+        currentTier={fullTier}
         onReset={vi.fn()}
         result={baseResult}
       />
@@ -61,13 +107,10 @@ describe('OgabasseyImeiResults', () => {
     expect(screen.getByText('98%')).toHaveClass(
       'text-[var(--store-success-text,#166534)]'
     );
-    expect(screen.getByText('Clean')).toHaveClass(
-      'text-[var(--store-success-text,#166534)]'
-    );
 
     rerender(
       <OgabasseyImeiResults
-        currentTierName="Full Report"
+        currentTier={fullTier}
         onReset={vi.fn()}
         result={{
           ...baseResult,
@@ -81,19 +124,20 @@ describe('OgabasseyImeiResults', () => {
     expect(screen.getByText('12%')).toHaveClass(
       'text-[var(--store-danger-text,#dc2626)]'
     );
-    expect(screen.getByText('Blacklisted')).toHaveClass(
-      'text-[var(--store-danger-text,#dc2626)]'
-    );
   });
 
   it.each([
     ['safe', 'Safe to buy', 'text-[var(--store-success-text,#166534)]'],
     ['danger', 'Do not buy', 'text-[var(--store-danger-text,#dc2626)]'],
-    ['caution', 'Verify with seller', 'text-[var(--store-warning-text,#854d0e)]'],
+    [
+      'caution',
+      'Verify with seller',
+      'text-[var(--store-warning-text,#854d0e)]',
+    ],
   ] as const)('renders %s verdict tone', (verdictType, verdict, textClass) => {
     render(
       <OgabasseyImeiResults
-        currentTierName="Full Report"
+        currentTier={fullTier}
         onReset={vi.fn()}
         result={{ ...baseResult, verdict, verdictType }}
       />
@@ -106,13 +150,15 @@ describe('OgabasseyImeiResults', () => {
     const onReset = vi.fn();
     render(
       <OgabasseyImeiResults
-        currentTierName="Full Report"
+        currentTier={fullTier}
         onReset={onReset}
         result={baseResult}
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /check another device/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /check another device/i })
+    );
 
     expect(onReset).toHaveBeenCalledOnce();
   });

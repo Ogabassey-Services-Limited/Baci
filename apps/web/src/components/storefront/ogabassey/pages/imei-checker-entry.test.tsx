@@ -2,17 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { OgabasseyImeiEntry } from './imei-checker-entry';
-import { SERVICE_TIERS } from './imei-checker-tiers';
 
-vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => (
-    <img {...props} alt={String(props.alt ?? '')} />
-  ),
-}));
-
-// Product images now render through CdnFormatImage (explicit per-format
-// <picture>); surface it as a plain <img> so these tests keep asserting entry
-// behavior, not image internals.
 vi.mock('@/components/storefront/cdn-format-image', () => ({
   CdnFormatImage: (props: Record<string, unknown>) => {
     const { fill: _fill, preload: _preload, ...rest } = props;
@@ -20,25 +10,31 @@ vi.mock('@/components/storefront/cdn-format-image', () => ({
   },
 }));
 
-function renderEntry(overrides = {}) {
+function renderEntry(overrides: Record<string, unknown> = {}) {
   const props = {
-    currentTier: SERVICE_TIERS.full,
+    brand: 'apple' as const,
+    canToggleServices: true,
+    device: 'smartphone' as const,
     deviceQuery: '',
+    displayedTierKeys: ['full', 'activation', 'blacklist', 'carrier'] as const,
     error: null,
+    identifier: 'imei' as const,
     imei: '354442067957452',
     isLoading: false,
     onCheck: vi.fn((event: React.FormEvent) => event.preventDefault()),
     onDeviceQueryChange: vi.fn(),
     onDeviceSearchFocus: vi.fn(),
     onImeiChange: vi.fn(),
+    onSelectBrand: vi.fn(),
     onSelectDevice: vi.fn(),
-    onSelectedTierChange: vi.fn(),
-    onShowTierPickerChange: vi.fn(),
+    onSelectDeviceSuggestion: vi.fn(),
+    onSelectTier: vi.fn(),
+    onToggleServices: vi.fn(),
     searchLoading: false,
-    selectedDevice: null,
+    selectedDeviceSuggestion: null,
     selectedTier: 'full' as const,
+    showAllServices: false,
     showSuggestions: true,
-    showTierPicker: false,
     suggestions: [
       {
         category: 'Phones',
@@ -60,28 +56,48 @@ describe('OgabasseyImeiEntry', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /iphone 15 pro/i }));
 
-    expect(props.onSelectDevice).toHaveBeenCalledWith(
+    expect(props.onSelectDeviceSuggestion).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'p1', name: 'iPhone 15 Pro' })
     );
+  });
+
+  it('switches device category tabs', () => {
+    const props = renderEntry();
+
+    fireEvent.click(screen.getByRole('tab', { name: /ipad checks/i }));
+
+    expect(props.onSelectDevice).toHaveBeenCalledWith('tablet');
+  });
+
+  it('shows brand chips on the smartphone tab', () => {
+    renderEntry({ device: 'smartphone' });
+    expect(screen.getByRole('radiogroup', { name: /brand/i })).toBeTruthy();
+  });
+
+  it('hides brand chips on non-smartphone tabs', () => {
+    renderEntry({ device: 'tablet' });
+    expect(
+      screen.queryByRole('radiogroup', { name: /brand/i })
+    ).not.toBeInTheDocument();
   });
 
   it('selects service tiers', () => {
     const props = renderEntry();
 
     fireEvent.click(
-      screen.getByRole('button', {
+      screen.getByRole('radio', {
         name: /network check, will my sim work\?, ₦1,000/i,
       })
     );
 
-    expect(props.onSelectedTierChange).toHaveBeenCalledWith('carrier');
+    expect(props.onSelectTier).toHaveBeenCalledWith('carrier');
   });
 
-  it('sanitizes IMEI input before emitting changes', () => {
+  it('emits raw IMEI input changes', () => {
     const props = renderEntry({ imei: '' });
 
-    fireEvent.change(screen.getByLabelText(/15-digit imei number/i), {
-      target: { value: 'abc354442067957452999' },
+    fireEvent.change(screen.getByLabelText(/imei number/i), {
+      target: { value: '354442067957452' },
     });
 
     expect(props.onImeiChange).toHaveBeenCalledWith('354442067957452');
@@ -90,7 +106,7 @@ describe('OgabasseyImeiEntry', () => {
   it('submits valid IMEI checks', () => {
     const props = renderEntry();
 
-    fireEvent.submit(screen.getByLabelText(/15-digit imei number/i));
+    fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
 
     expect(props.onCheck).toHaveBeenCalledOnce();
   });
@@ -108,9 +124,7 @@ describe('OgabasseyImeiEntry', () => {
     });
 
     expect(screen.getByText('Wallet balance is too low.')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /verifying imei/i })
-    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: /verifying/i })).toBeDisabled();
   });
 
   it('labels text inputs for assistive technology', () => {
@@ -120,18 +134,24 @@ describe('OgabasseyImeiEntry', () => {
       screen.getByRole('textbox', { name: /search for a device name/i })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('textbox', { name: /15-digit imei number/i })
+      screen.getByRole('textbox', { name: /imei number/i })
     ).toBeInTheDocument();
   });
 
-  it('uses a numeric mobile keyboard hint for IMEI entry', () => {
+  it('uses a numeric mobile keyboard hint for IMEI-only tiers', () => {
     renderEntry();
 
-    const imeiInput = screen.getByRole('textbox', {
-      name: /15-digit imei number/i,
-    });
+    expect(screen.getByRole('textbox', { name: /imei number/i })).toHaveAttribute(
+      'inputmode',
+      'numeric'
+    );
+  });
 
-    expect(imeiInput).toHaveAttribute('inputmode', 'numeric');
-    expect(imeiInput).toHaveAttribute('pattern', '[0-9]*');
+  it('uses a text keyboard hint for serial-only tiers', () => {
+    renderEntry({ identifier: 'serial', imei: '' });
+
+    expect(
+      screen.getByRole('textbox', { name: /serial number/i })
+    ).toHaveAttribute('inputmode', 'text');
   });
 });
