@@ -1035,6 +1035,8 @@ describe('Middleware Proxy', () => {
       expect(res.status).toBe(404);
       expect(res.headers.get('x-middleware-rewrite')).toBeNull();
       expect(res.headers.get('Cache-Control')).toContain('no-store');
+      expect(res.headers.get('Vercel-CDN-Cache-Control')).toBeNull();
+      expect(res.headers.get('CDN-Cache-Control')).toBeNull();
       expect(res.headers.get('Content-Type')).toContain('text/html');
       // Header-level noindex so HEAD / non-HTML-parsing crawlers still see it.
       expect(res.headers.get('X-Robots-Tag')).toContain('noindex');
@@ -1061,6 +1063,8 @@ describe('Middleware Proxy', () => {
       expect(await res.text()).toBe('');
       expect(res.headers.get('X-Robots-Tag')).toContain('noindex');
       expect(res.headers.get('Cache-Control')).toContain('no-store');
+      expect(res.headers.get('Vercel-CDN-Cache-Control')).toBeNull();
+      expect(res.headers.get('CDN-Cache-Control')).toBeNull();
     });
 
     it('returns a real 308 for a redirectable archived product slug before the PDP route streams', async () => {
@@ -2576,6 +2580,7 @@ describe('Middleware Proxy', () => {
 
   it.each([
     'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
+    'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
     `https://ogabassey.${ROOT_DOMAIN}/smartphones/samsung-galaxy-z-fold-4`,
     `https://${ROOT_DOMAIN}/ogabassey/smartphones/samsung-galaxy-z-fold-4`,
   ])('CDN-caches the canonical public PDP shell for %s', async (url) => {
@@ -2596,7 +2601,7 @@ describe('Middleware Proxy', () => {
       'max-age=300, stale-while-revalidate=86400'
     );
     expect(res.headers.get('CDN-Cache-Control')).toBe(
-      'max-age=3600, stale-while-revalidate=86400, stale-if-error=86400'
+      'max-age=300, stale-while-revalidate=86400, stale-if-error=86400'
     );
     expect(res.headers.get('Vary') ?? '').not.toContain('Cookie');
   });
@@ -2607,7 +2612,6 @@ describe('Middleware Proxy', () => {
     `https://${ROOT_DOMAIN}/ogabassey`,
     'https://ogabassey.com/products',
     'https://ogabassey.com/smartphones',
-    'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
     'https://ogabassey.com/blog',
     'https://ogabassey.com/blog/the-ultimate-checklist-for-buying-a-used-iphone-in-2025',
     'https://ogabassey.com/blog/author/bassey-john',
@@ -2631,6 +2635,21 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('CDN-Cache-Control')).toBe(
       'max-age=3600, stale-while-revalidate=86400, stale-if-error=86400'
     );
+  });
+
+  it('keeps a storefront without a public purge policy on Vercel-only caching', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/merchant-demo`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Cache-Control')).toBe(
+      'public, max-age=0, must-revalidate'
+    );
+    expect(res.headers.get('Vercel-CDN-Cache-Control')).toBe(
+      'max-age=300, stale-while-revalidate=86400'
+    );
+    expect(res.headers.get('CDN-Cache-Control')).toBeNull();
   });
 
   it.each([
@@ -2676,6 +2695,8 @@ describe('Middleware Proxy', () => {
     // Main storefront-document branch → Ops-2 layered split headers.
     { edgeCached: true, url: 'https://ogabassey.com/smartphones' },
     {
+      downstreamCacheControl:
+        'max-age=300, stale-while-revalidate=86400, stale-if-error=86400',
       edgeCached: true,
       url: 'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
     },
@@ -2689,6 +2710,7 @@ describe('Middleware Proxy', () => {
       url: `https://ogabassey.${ROOT_DOMAIN}/smartphones/compare/iphone-15-vs-samsung-s24`,
     },
   ])('keeps anonymous storefront documents publicly cacheable for $url', async ({
+    downstreamCacheControl = 'max-age=3600, stale-while-revalidate=86400, stale-if-error=86400',
     edgeCached,
     url,
   }) => {
@@ -2705,9 +2727,7 @@ describe('Middleware Proxy', () => {
       expect(res.headers.get('Vercel-CDN-Cache-Control')).toBe(
         'max-age=300, stale-while-revalidate=86400'
       );
-      expect(res.headers.get('CDN-Cache-Control')).toBe(
-        'max-age=3600, stale-while-revalidate=86400, stale-if-error=86400'
-      );
+      expect(res.headers.get('CDN-Cache-Control')).toBe(downstreamCacheControl);
     } else {
       expect(cacheControl).toBe('s-maxage=300, stale-while-revalidate=86400');
     }

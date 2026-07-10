@@ -20,7 +20,10 @@ import {
   STOREFRONT_PUBLIC_CACHE_POLICIES,
   type StorefrontPublicCachePolicy,
 } from '@/config/storefront-cache';
-import { buildStorefrontDocumentCacheHeaders } from '@/config/storefront-cdn-cache-control';
+import {
+  buildStorefrontDocumentCacheHeaders,
+  type StorefrontDocumentCacheKind,
+} from '@/config/storefront-cdn-cache-control';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import {
   getStorefrontMetadataCacheBucket,
@@ -322,17 +325,17 @@ function isAuthenticatedInternalRequest(request: NextRequest): boolean {
 // content) emit the LAYERED Ops-2 header set from
 // config/storefront-cdn-cache-control.ts: a bfcache-safe browser Cache-Control,
 // a short-fresh/long-SWR `Vercel-CDN-Cache-Control` for Vercel's CDN, and a
-// 3600s `CDN-Cache-Control` forwarded to Cloudflare. The CF value matches the
+// route-aware `CDN-Cache-Control` forwarded to Cloudflare. The long CF value
+// matches the
 // zone cache rule's existing Edge TTL (Ops-1), so freshness on custom domains
 // is unchanged until the dashboard rule is flipped to "respect origin" — after
-// which this header becomes the single source of truth. Purge caveat still
-// applies: only blog URLs are ACTIVELY purged from Cloudflare
-// (lib/storefront-purge-urls.ts via revalidateBlogPosts); product/category/home
-// mutations rely on the bounded fresh window — do NOT raise these TTLs past
-// what the purge design covers (see the config module's correctness rules).
+// which this header becomes the single source of truth. PDPs retain the 300s
+// self-healing window because high-cardinality product operations intentionally
+// purge listings only; non-policy storefronts stay Vercel-only because they
+// have no Cloudflare purge target.
 function applyStorefrontDocumentCacheHeaders(
   response: NextResponse,
-  kind: 'cacheable' | 'non-cacheable'
+  kind: StorefrontDocumentCacheKind
 ): void {
   const cacheHeaders = buildStorefrontDocumentCacheHeaders(kind);
   response.headers.set('Cache-Control', cacheHeaders.cacheControl);
@@ -912,6 +915,34 @@ function isCacheableSingleSegmentStorefrontDocument(
     contentSegments.length === 1 &&
     firstSegment !== undefined &&
     isCacheablePublicStorefrontFirstSegment(pathname, hostname, firstSegment)
+  );
+}
+
+function isStorefrontPdpDocument(
+  pathname: string,
+  hostname: string | undefined,
+  routeType: 'admin' | 'auth' | 'storefront' | 'api'
+): boolean {
+  const contentSegments = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  );
+  if (contentSegments.length !== 2) {
+    return false;
+  }
+
+  const firstSegment = contentSegments[0]?.toLowerCase();
+  if (firstSegment === 'products') {
+    return true;
+  }
+
+  const cachePolicy = getStorefrontPublicCachePolicy(pathname, hostname);
+  return (
+    firstSegment !== undefined &&
+    cachePolicy?.cacheableCategorySegments.some(
+      (segment) => segment.toLowerCase() === firstSegment
+    ) === true
   );
 }
 
@@ -1790,8 +1821,10 @@ function buildHardStatusStorefrontResponse(
   // Header-level noindex (belt-and-suspenders with the body <meta>): crawlers
   // that only HEAD, or don't parse the body, still get the directive.
   response.headers.set('X-Robots-Tag', 'noindex, follow');
-  // no-store LAST: the cache section runs inside applySecurityHeaders and would
-  // otherwise mark a product-shaped path cacheable, edge-caching a false 404.
+  // Clear every split CDN header LAST: the cache section runs inside
+  // applySecurityHeaders and would otherwise mark a product-shaped path
+  // cacheable, edge-caching a false 404/410 at the highest-precedence layer.
+  applyStorefrontDocumentCacheHeaders(response, 'non-cacheable');
   response.headers.set('Cache-Control', PDP_HTML_CACHE_CONTROL);
   return response;
 }
@@ -4423,10 +4456,16 @@ function applySecurityHeaders(
         routeType,
         hasQuery
       );
-    applyStorefrontDocumentCacheHeaders(
-      response,
-      hasAuthSessionHint || !cacheable ? 'non-cacheable' : 'cacheable'
-    );
+    let cacheKind: StorefrontDocumentCacheKind = 'non-cacheable';
+    if (!hasAuthSessionHint && cacheable) {
+      const cachePolicy = getStorefrontPublicCachePolicy(pathname, hostname);
+      cacheKind = cachePolicy
+        ? isStorefrontPdpDocument(pathname, hostname, routeType)
+          ? 'cacheable-self-healing'
+          : 'cacheable'
+        : 'cacheable-vercel-only';
+    }
+    applyStorefrontDocumentCacheHeaders(response, cacheKind);
     if (hasAuthSessionHint) {
       appendVaryHeader(response, 'Cookie');
     }

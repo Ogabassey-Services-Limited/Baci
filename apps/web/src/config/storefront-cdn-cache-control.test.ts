@@ -30,6 +30,28 @@ describe('buildStorefrontDocumentCacheHeaders', () => {
     });
   });
 
+  it('keeps self-healing PDPs on the five-minute downstream fresh window', () => {
+    const headers = buildStorefrontDocumentCacheHeaders(
+      'cacheable-self-healing'
+    );
+
+    expect(headers.cdnCacheControl).toBe(
+      'max-age=300, stale-while-revalidate=86400, stale-if-error=86400'
+    );
+  });
+
+  it('keeps storefronts without a purge policy on Vercel-only caching', () => {
+    const headers = buildStorefrontDocumentCacheHeaders(
+      'cacheable-vercel-only'
+    );
+
+    expect(headers.cacheControl).toBe('public, max-age=0, must-revalidate');
+    expect(headers.vercelCdnCacheControl).toBe(
+      'max-age=300, stale-while-revalidate=86400'
+    );
+    expect(headers.cdnCacheControl).toBeNull();
+  });
+
   describe('non-cacheable storefront document (never-cache exclusions)', () => {
     const headers = buildStorefrontDocumentCacheHeaders('non-cacheable');
 

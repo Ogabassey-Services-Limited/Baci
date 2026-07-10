@@ -40,10 +40,16 @@ const CACHEABLE_VERCEL_CDN_CACHE_CONTROL =
   'max-age=300, stale-while-revalidate=86400';
 const CACHEABLE_CDN_CACHE_CONTROL =
   'max-age=3600, stale-while-revalidate=86400, stale-if-error=86400';
+const CACHEABLE_SELF_HEALING_CDN_CACHE_CONTROL =
+  'max-age=300, stale-while-revalidate=86400, stale-if-error=86400';
 const NON_CACHEABLE_BROWSER_CACHE_CONTROL =
   'private, no-store, max-age=0, must-revalidate';
 
-export type StorefrontDocumentCacheKind = 'cacheable' | 'non-cacheable';
+export type StorefrontDocumentCacheKind =
+  | 'cacheable'
+  | 'cacheable-self-healing'
+  | 'cacheable-vercel-only'
+  | 'non-cacheable';
 
 export type StorefrontDocumentCacheHeaders = {
   /** Browser-facing `Cache-Control`. */
@@ -69,6 +75,22 @@ export function buildStorefrontDocumentCacheHeaders(
       cacheControl: CACHEABLE_BROWSER_CACHE_CONTROL,
       vercelCdnCacheControl: CACHEABLE_VERCEL_CDN_CACHE_CONTROL,
       cdnCacheControl: CACHEABLE_CDN_CACHE_CONTROL,
+    };
+  }
+
+  if (kind === 'cacheable-self-healing') {
+    return {
+      cacheControl: CACHEABLE_BROWSER_CACHE_CONTROL,
+      vercelCdnCacheControl: CACHEABLE_VERCEL_CDN_CACHE_CONTROL,
+      cdnCacheControl: CACHEABLE_SELF_HEALING_CDN_CACHE_CONTROL,
+    };
+  }
+
+  if (kind === 'cacheable-vercel-only') {
+    return {
+      cacheControl: CACHEABLE_BROWSER_CACHE_CONTROL,
+      vercelCdnCacheControl: CACHEABLE_VERCEL_CDN_CACHE_CONTROL,
+      cdnCacheControl: null,
     };
   }
 
