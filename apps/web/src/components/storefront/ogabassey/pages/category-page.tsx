@@ -155,25 +155,31 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   ) => {
     if (!canUseClientFilters) return;
 
-    // Yield the main thread before committing the state update: the click/tap
-    // gets a paint before the synchronous filter pass + full grid re-render
-    // run (INP presentation-delay fix; no-op where scheduler.yield is absent).
-    await yieldToScheduler();
-
+    // The min/max price fields are controlled <input>s (value={filters.minPrice}
+    // in CategoryFiltersSidebar). Deferring their state update across a
+    // scheduler.yield() task boundary lets React restore the stale controlled
+    // value between keystrokes, dropping/flickering typed characters — so commit
+    // price edits synchronously.
     if (section === 'minPrice' || section === 'maxPrice') {
       setFilters((prev) => ({ ...prev, [section]: value }));
-    } else {
-      // Checkbox logic
-      setFilters((prev) => {
-        const list = prev[section] as string[];
-        const valStr = value as string;
-        if (list.includes(valStr)) {
-          return { ...prev, [section]: list.filter((item) => item !== valStr) };
-        } else {
-          return { ...prev, [section]: [...list, valStr] };
-        }
-      });
+      return;
     }
+
+    // Checkbox/grid filters re-render the whole product grid. Yield the main
+    // thread first so the click/tap gets a paint before the synchronous filter
+    // pass + grid re-render (INP presentation-delay fix; no-op where
+    // scheduler.yield is absent).
+    await yieldToScheduler();
+
+    // Checkbox logic
+    setFilters((prev) => {
+      const list = prev[section] as string[];
+      const valStr = value as string;
+      if (list.includes(valStr)) {
+        return { ...prev, [section]: list.filter((item) => item !== valStr) };
+      }
+      return { ...prev, [section]: [...list, valStr] };
+    });
   };
 
   const handleAddToCart = (_e: React.MouseEvent, product: Product) => {
