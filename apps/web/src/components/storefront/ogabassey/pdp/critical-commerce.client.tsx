@@ -4,10 +4,10 @@ import {
   formatCanonicalProductConditionLabel,
   sortCanonicalProductConditionsByPreference,
 } from '@baci/shared/lib';
-import Image from 'next/image';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { useState } from 'react';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import type { Product as CartProduct } from '@/lib/products';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
@@ -136,7 +136,11 @@ export function OgabasseyPdpCriticalProductImage({
   }
 
   return (
-    <Image
+    // Explicit per-format `<picture>` (AVIF `<source>` + jpeg/png `<img>`
+    // fallback) so the LCP hero paints the same AVIF bytes the PDP resource
+    // hint preloads — Cloudflare Free ignores `Vary: Accept`, so a single
+    // `format=auto` URL could serve non-AVIF browsers undecodable bytes.
+    <CdnFormatImage
       alt={alt}
       data-ogabassey-pdp-image="true"
       fetchPriority="high"

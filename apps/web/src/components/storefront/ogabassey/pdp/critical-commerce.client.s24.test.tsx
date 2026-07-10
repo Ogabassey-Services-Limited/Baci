@@ -44,6 +44,32 @@ vi.mock('next/image', () => ({
   ),
 }));
 
+// The critical LCP image now renders through CdnFormatImage (explicit
+// per-format <picture>). Its real pipeline calls next/image's `getImageProps`,
+// absent from the default-only next/image mock — surface it as a plain <img>
+// that preserves the raw src so these variant-routing assertions stay focused
+// on which image URL the commerce state selects.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: ({
+    alt,
+    fetchPriority,
+    loading,
+    src,
+  }: {
+    alt: string;
+    fetchPriority?: string;
+    loading?: string;
+    src: string;
+  }) => (
+    <img
+      alt={alt}
+      data-fetch-priority={fetchPriority}
+      data-loading={loading}
+      src={src}
+    />
+  ),
+}));
+
 vi.mock('next/link', () => ({
   default: ({
     children,
