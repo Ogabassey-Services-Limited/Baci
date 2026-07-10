@@ -6,7 +6,7 @@ import {
   mockDraftMode,
   mockGetBlogPostRedirect,
   mockGetBlogPostTextPreview,
-  mockGetCachedBlogPost,
+  mockGetRequestScopedBlogPost,
   mockNotFound,
   mockPermanentRedirect,
   resetBlogPostPageMocks,
@@ -30,13 +30,13 @@ describe('storefront blog post metadata', () => {
 
   it('resolves public metadata from the cached lookup without request APIs', async () => {
     mockDraftMode.mockResolvedValue({ isEnabled: true });
-    mockGetCachedBlogPost.mockResolvedValue(liveBlogPost);
+    mockGetRequestScopedBlogPost.mockResolvedValue(liveBlogPost);
 
     const metadata = await generateBlogPostMetadata(
       'apple-studio-display-review'
     );
 
-    expect(mockGetCachedBlogPost).toHaveBeenCalledWith(
+    expect(mockGetRequestScopedBlogPost).toHaveBeenCalledWith(
       'ogabassey.com',
       'apple-studio-display-review',
       false
@@ -60,7 +60,7 @@ describe('storefront blog post metadata', () => {
   });
 
   it('bounds long blog post title and description metadata', async () => {
-    mockGetCachedBlogPost.mockResolvedValue({
+    mockGetRequestScopedBlogPost.mockResolvedValue({
       ...liveBlogPost,
       post: {
         ...liveBlogPost.post,
@@ -85,7 +85,7 @@ describe('storefront blog post metadata', () => {
 
   it('uses fallback blog description metadata when source text is empty', async () => {
     mockGetBlogPostTextPreview.mockReturnValueOnce('');
-    mockGetCachedBlogPost.mockResolvedValue({
+    mockGetRequestScopedBlogPost.mockResolvedValue({
       ...liveBlogPost,
       post: {
         ...liveBlogPost.post,
@@ -110,7 +110,7 @@ describe('storefront blog post metadata', () => {
   it('preserves short blog metadata that is already within bounds', async () => {
     const boundedDescription =
       'A practical buying guide for Nigerian shoppers comparing display quality, delivery confidence, warranty support, and upgrade timing.';
-    mockGetCachedBlogPost.mockResolvedValue({
+    mockGetRequestScopedBlogPost.mockResolvedValue({
       ...liveBlogPost,
       post: {
         ...liveBlogPost.post,
@@ -132,7 +132,7 @@ describe('storefront blog post metadata', () => {
       'Compare phone options by camera quality, battery life, warranty confidence, delivery timing, payment flexibility, and everyday value.';
     expect(descriptiveSummary.length).toBeGreaterThanOrEqual(110);
     expect(descriptiveSummary.length).toBeLessThanOrEqual(160);
-    mockGetCachedBlogPost.mockResolvedValue({
+    mockGetRequestScopedBlogPost.mockResolvedValue({
       ...liveBlogPost,
       post: {
         ...liveBlogPost.post,
@@ -150,7 +150,9 @@ describe('storefront blog post metadata', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
 
-    mockGetCachedBlogPost.mockRejectedValue(new Error('Cache lookup failed'));
+    mockGetRequestScopedBlogPost.mockRejectedValue(
+      new Error('Cache lookup failed')
+    );
 
     const metadata = await generateBlogPostMetadata(
       'apple-studio-display-review'
@@ -171,7 +173,7 @@ describe('storefront blog post metadata', () => {
   it('rethrows framework control-flow errors from the cached lookup unswallowed', async () => {
     // Swallowed prerender-interrupt errors are how the route previously logged
     // 'unable to determine a reason' — unstable_rethrow must let them escape.
-    mockGetCachedBlogPost.mockRejectedValue(new Error('NEXT_NOT_FOUND'));
+    mockGetRequestScopedBlogPost.mockRejectedValue(new Error('NEXT_NOT_FOUND'));
 
     await expect(generateBlogPostMetadata('interrupted-post')).rejects.toThrow(
       'NEXT_NOT_FOUND'
@@ -180,7 +182,7 @@ describe('storefront blog post metadata', () => {
 
   it('returns noindex fallback metadata for draft-only slugs without draft gating', async () => {
     mockDraftMode.mockResolvedValue({ isEnabled: true });
-    mockGetCachedBlogPost.mockResolvedValue(null);
+    mockGetRequestScopedBlogPost.mockResolvedValue(null);
 
     const metadata = await generateBlogPostMetadata('draft-only-post');
 
@@ -193,7 +195,7 @@ describe('storefront blog post metadata', () => {
   it('returns cacheable noindex metadata for retired slugs instead of redirecting', async () => {
     // The hard 308 for retired slugs is owned by the proxy blog-post
     // preflight; metadata must stay cacheable and side-effect free.
-    mockGetCachedBlogPost.mockResolvedValue(null);
+    mockGetRequestScopedBlogPost.mockResolvedValue(null);
     mockGetBlogPostRedirect.mockResolvedValue({
       merchant: {
         id: 'merchant-1',
@@ -215,7 +217,7 @@ describe('storefront blog post metadata', () => {
   it('returns cacheable noindex metadata for missing slugs instead of notFound', async () => {
     // The hard 404 for missing slugs is owned by the proxy blog-post
     // preflight; a notFound() here would force the route dynamic again.
-    mockGetCachedBlogPost.mockResolvedValue(null);
+    mockGetRequestScopedBlogPost.mockResolvedValue(null);
     mockGetBlogPostRedirect.mockResolvedValue(null);
 
     const metadata = await generateBlogPostMetadata('missing-post');
@@ -235,7 +237,7 @@ describe('storefront blog post metadata', () => {
 
     expect(metadata.title).toBe('Blog Post');
     expect(metadata.robots).toMatchObject({ index: false, follow: false });
-    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+    expect(mockGetRequestScopedBlogPost).not.toHaveBeenCalled();
   });
 
   it('returns cacheable noindex metadata for extremely long post slugs without the cached lookup', async () => {
@@ -243,11 +245,11 @@ describe('storefront blog post metadata', () => {
 
     expect(metadata.title).toBe('Blog Post');
     expect(metadata.robots).toMatchObject({ index: false, follow: false });
-    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+    expect(mockGetRequestScopedBlogPost).not.toHaveBeenCalled();
   });
 
   it('uses canonical URL from buildCanonicalBlogPostUrl for custom domains', async () => {
-    mockGetCachedBlogPost.mockResolvedValue({
+    mockGetRequestScopedBlogPost.mockResolvedValue({
       ...liveBlogPost,
       merchant: {
         ...liveBlogPost.merchant,
@@ -266,7 +268,7 @@ describe('storefront blog post metadata', () => {
 
   it('uses the explicit social image route for OpenGraph and Twitter metadata', async () => {
     mockBuildStoreUrl.mockReturnValue('http://localhost:3000/ogabassey');
-    mockGetCachedBlogPost.mockResolvedValue({
+    mockGetRequestScopedBlogPost.mockResolvedValue({
       ...liveBlogPost,
       merchant: {
         ...liveBlogPost.merchant,

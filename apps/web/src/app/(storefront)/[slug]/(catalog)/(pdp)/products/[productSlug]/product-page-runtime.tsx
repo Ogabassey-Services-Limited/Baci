@@ -46,10 +46,33 @@ export async function ProductPageRuntime({
   product,
   slug,
 }: ProductPageRuntimeProps) {
-  const [reviewStats, recentReviews] = await Promise.all([
-    getCachedProductRatingStats(product.id),
-    getCachedProductReviews(product.id, { limit: 10 }),
-  ]);
+  // categorySlug/supportedClusterCategory only depend on `product` (already
+  // resolved), so they're computed up front to fold the category-page-data +
+  // guide-posts fetch into the same Promise.all as the review fetch below —
+  // neither pair depends on the other's result, and merging them removes a
+  // sequential await hop (the category fetch previously waited for the
+  // unrelated review fetch to settle first).
+  const categorySlug =
+    product.category_slug ||
+    (product.category ? generateSlug(product.category) : 'products');
+  const supportedClusterCategory =
+    categorySlug in CONTENT_CLUSTER_SUPPORT
+      ? (categorySlug as SupportedClusterCategory)
+      : null;
+  const [reviewStats, recentReviews, categoryPageData, guidePosts] =
+    await Promise.all([
+      getCachedProductRatingStats(product.id),
+      getCachedProductReviews(product.id, { limit: 10 }),
+      getCachedCategoryPageData(merchant.id, categorySlug, slug),
+      supportedClusterCategory
+        ? loadPublishedClusterPostsSafely(merchant.id, {
+            pageKind: 'product',
+            categorySlug: supportedClusterCategory,
+            brands: product.brand ? [product.brand] : undefined,
+            productSlugs: product.slug ? [product.slug] : undefined,
+          })
+        : Promise.resolve([]),
+    ]);
   // `product` comes from the request-scoped product cache. Mutating it in place
   // would pollute the shared reference for subsequent renders in the same
   // request or across requests that replay the same cache entry.
@@ -95,26 +118,8 @@ export async function ProductPageRuntime({
     }
   }
 
-  const categorySlug =
-    product.category_slug ||
-    (product.category ? generateSlug(product.category) : 'products');
   const categoryName =
     product.categories?.name || product.category || 'All Products';
-  const supportedClusterCategory =
-    categorySlug in CONTENT_CLUSTER_SUPPORT
-      ? (categorySlug as SupportedClusterCategory)
-      : null;
-  const [categoryPageData, guidePosts] = await Promise.all([
-    getCachedCategoryPageData(merchant.id, categorySlug, slug),
-    supportedClusterCategory
-      ? loadPublishedClusterPostsSafely(merchant.id, {
-          pageKind: 'product',
-          categorySlug: supportedClusterCategory,
-          brands: product.brand ? [product.brand] : undefined,
-          productSlugs: product.slug ? [product.slug] : undefined,
-        })
-      : Promise.resolve([]),
-  ]);
   const inventoryCandidates = (
     categoryPageData?.isCollection ? [] : (categoryPageData?.products ?? [])
   ).map((candidate) => {
