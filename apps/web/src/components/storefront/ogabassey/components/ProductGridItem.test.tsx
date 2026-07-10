@@ -46,6 +46,17 @@ vi.mock('next/image', () => ({
     <img {...props} alt={String(props.alt ?? '')} />
   ),
 }));
+// Product images now render through CdnFormatImage (explicit per-format
+// <picture>). Its real pipeline calls next/image's `getImageProps`; surface it
+// as a plain <img> so these tests keep asserting grid-item behavior (including
+// the onLoad/onError skeleton transitions).
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => {
+    const { fill: _fill, preload: _preload, ...imageProps } = props;
+
+    return <img {...imageProps} alt={String(props.alt ?? '')} />;
+  },
+}));
 
 import { ProductGridItem } from './ProductGridItem';
 

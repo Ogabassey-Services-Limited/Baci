@@ -9,6 +9,16 @@ vi.mock('next/image', () => ({
     return <img {...imageProps} alt={String(alt ?? '')} />;
   },
 }));
+// Product images now render through CdnFormatImage (explicit per-format
+// <picture>). Its real pipeline calls next/image's `getImageProps`; surface it
+// as a plain <img> so these tests keep asserting card behavior.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => {
+    const { alt, fill: _fill, preload: _preload, ...imageProps } = props;
+
+    return <img {...imageProps} alt={String(alt ?? '')} />;
+  },
+}));
 vi.mock('next/link', () => ({
   default: (
     props: { children: React.ReactNode; href: string } & Record<string, unknown>
