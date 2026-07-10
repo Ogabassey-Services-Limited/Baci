@@ -101,4 +101,26 @@ describe('authorizeRepairsRequest', () => {
     }
     expect(hasPermission).toHaveBeenCalledWith(access, 'repairs', 'delete');
   });
+
+  it('allows full_access.all staff even when hasPermission is false', async () => {
+    hasPermission.mockReturnValue(false);
+    getUserAccess.mockResolvedValue({
+      merchantId: 'm-1',
+      isOwner: false,
+      permissions: { full_access: { all: true } },
+    });
+    const result = await authorizeRepairsRequest(request, 'delete');
+    expect(result.ok).toBe(true);
+  });
+
+  it('allows repairs.all staff even when hasPermission is false', async () => {
+    hasPermission.mockReturnValue(false);
+    getUserAccess.mockResolvedValue({
+      merchantId: 'm-1',
+      isOwner: false,
+      permissions: { repairs: { all: true } },
+    });
+    const result = await authorizeRepairsRequest(request, 'edit');
+    expect(result.ok).toBe(true);
+  });
 });

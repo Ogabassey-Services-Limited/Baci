@@ -18,6 +18,7 @@ not run locally). Follow this order exactly, verify each gate, then flip the fla
 | 8 | `20260708090700_repair_status_lookup_rpc.sql` | `get_repair_status()` enumeration-safe public lookup | 3, 7 |
 | 9 | `20260708090800_repairs_rpc_hardening.sql` | CREATE OR REPLACE of the booking RPC: normalizes the per-email rate-cap count (whitespace-variant bypass) + pins the public wrapper's `search_path` | 4 |
 | 10 | `20260708090900_add_repairs_catalog_enabled_to_cached_merchant_rpc.sql` | CREATE OR REPLACE of `resolve_storefront_cached_merchant`: adds the `'repairs_catalog_enabled'` pair to the public `feature_settings` jsonb so the storefront merchant-shell path (`getCachedMerchant`/`getCachedMerchantByDomain`) surfaces the flag; re-asserts the service_role-only grant | 1 (the column) **and** main's `20260707211507` (the base RPC it replaces — this migration must apply after `main` is merged) |
+| 11 | `20260708091000_require_published_store_in_repairs_gate.sql` | CREATE OR REPLACE `repairs_catalog_publicly_enabled` to also require `m.is_published` — draft (unpublished) stores' repair catalogue was anon-readable pre-publish (Codex P2) | 2 |
 
 Use `mcp__supabase__apply_migration` (or the branch's SQL editor) file-by-file in this order.
 **Supabase branches fail baseline replay** — if the branch can't replay the full baseline,

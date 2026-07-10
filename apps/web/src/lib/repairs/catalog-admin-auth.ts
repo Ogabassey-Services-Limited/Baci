@@ -56,7 +56,15 @@ export async function authorizeRepairsRequest(
     };
   }
 
-  if (!hasPermission(access, 'repairs', action)) {
+  // Honor the same permission shapes the repairs dashboard page and the DB RLS
+  // helper accept (full_access.all / repairs.all), not just the `*` wildcards
+  // hasPermission recognizes — otherwise all-style staff reach the UI but 403
+  // on every repairs API call.
+  const allowed =
+    hasPermission(access, 'repairs', action) ||
+    access.permissions.full_access?.all === true ||
+    access.permissions.repairs?.all === true;
+  if (!allowed) {
     return {
       ok: false,
       response: NextResponse.json(

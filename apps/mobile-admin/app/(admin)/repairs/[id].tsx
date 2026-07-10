@@ -121,9 +121,13 @@ export default function RepairBookingDetailScreen() {
 
   const handleSaveDetails = () => {
     const trimmedCost = estimatedCostInput.trim();
-    const parsedCost = trimmedCost
-      ? Number(parseOrderDetailsCurrencyInput(trimmedCost))
-      : null;
+    // parseOrderDetailsCurrencyInput() strips non-digits and returns '' for
+    // input with no digits (e.g. 'abc' or just '₦'); Number('') is 0, which
+    // would silently overwrite a real estimate. Guard the cleaned string first.
+    const cleanedCost = trimmedCost
+      ? parseOrderDetailsCurrencyInput(trimmedCost)
+      : '';
+    const parsedCost = cleanedCost ? Number(cleanedCost) : null;
     const trimmedNotes = adminNotesInput.trim();
 
     updateMutation.mutate({

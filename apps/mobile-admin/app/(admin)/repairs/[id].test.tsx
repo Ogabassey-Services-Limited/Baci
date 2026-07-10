@@ -311,6 +311,19 @@ describe('RepairBookingDetailScreen', () => {
     });
   });
 
+  it('saves null (not 0) when the estimated cost has no digits', () => {
+    render(<RepairBookingDetailScreen />);
+
+    fireEvent.change(screen.getByLabelText('Estimated cost'), {
+      target: { value: 'abc' },
+    });
+    fireEvent.click(screen.getByText('Save changes'));
+
+    expect(mocks.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ estimated_cost: null })
+    );
+  });
+
   it('disables Save until a field has actually changed', () => {
     render(<RepairBookingDetailScreen />);
 
