@@ -2,7 +2,11 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('next/image', () => ({
+vi.mock('next/image', async (importOriginal) => ({
+  // Keep the REAL getImageProps: the migrated <picture> path builds its AVIF
+  // srcSet through it (via CdnFormatImage); stubbing it would hide the URL
+  // regressions this suite exists to catch.
+  ...(await importOriginal<typeof import('next/image')>()),
   default: (props: Record<string, unknown>) => (
     <img
       {...Object.fromEntries(
