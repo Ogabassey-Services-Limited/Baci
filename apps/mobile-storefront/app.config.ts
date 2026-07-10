@@ -96,6 +96,7 @@ const tiktokBusinessPlugin: TikTokBusinessPlugin | null =
             appId: tiktokIosAppStoreId,
             tiktokAppId: tiktokIosAppId,
             appSecret: tiktokIosAppSecret,
+            autoInitialize: false,
             debugMode: process.env.TIKTOK_SDK_DEBUG === '1',
             disableSKAdNetworkSupport:
               process.env.STOREFRONT_TIKTOK_DISABLE_SKAN === '1',
@@ -204,7 +205,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       NSUserTrackingUsageDescription:
-        'Your data will be used to provide personalized product recommendations and improve your shopping experience.',
+        'We use your activity to measure advertising performance and show more relevant offers across apps and websites.',
       SKAdNetworkItems: [
         {
           SKAdNetworkIdentifier: 'ce2y4j37ch.skadnetwork',

@@ -94,7 +94,6 @@ describe('OgabasseyPdpDeferredDetailIsland', () => {
     expect(mockDeferredDetailClient).toHaveBeenCalledWith(
       expect.objectContaining({
         productData: expect.objectContaining({
-          description: 'Creator laptop with RTX graphics.',
           name: 'Lenovo Legion Pro 9',
         }),
         storeSlug: 'ogabassey',
@@ -103,6 +102,12 @@ describe('OgabasseyPdpDeferredDetailIsland', () => {
     expect(mockDeferredDetailClient.mock.calls[0]?.[0]).not.toHaveProperty(
       'product'
     );
+    // The multi-KB description HTML is rendered server-side as a slot and must
+    // NOT be serialized into the client island's `productData` props.
+    expect(
+      (mockDeferredDetailClient.mock.calls[0]?.[0] as { productData?: unknown })
+        ?.productData
+    ).not.toHaveProperty('description');
     // The description is sanitized on the server here (SafeHtml element) and
     // passed down as a slot, so `sanitize-html` never enters the client tabs
     // chunk. `headingLevelOffset: 1` is the SEO heading demotion that used to
@@ -140,6 +145,9 @@ describe('OgabasseyPdpDeferredDetailIsland', () => {
     );
     expect(clientPayload).not.toContain('verbose offer notes');
     expect(clientPayload).not.toContain('verbose generated alt payload');
+    // The description HTML lives only in the server-rendered slot, never in the
+    // serialized client payload.
+    expect(clientPayload).not.toContain('Creator laptop with RTX graphics.');
   });
 
   it('renders without semantic sections', () => {

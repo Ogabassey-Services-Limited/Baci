@@ -16,7 +16,6 @@ import { OfflineNotice } from '@/components/OfflineNotice';
 import { GadgetPattern } from '@/components/storefront/GadgetPattern';
 import { Header } from '@/components/storefront/Header';
 import { SearchDropdown } from '@/components/storefront/SearchDropdown';
-import { PermissionModal } from '@/components/ui/PermissionModal';
 import { HeroSkeleton, ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SnowEffect } from '@/components/ui/SnowEffect';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -41,8 +40,6 @@ interface HomeScreenViewProps {
   onCategorySelect: (id: string | null) => void;
   onHeaderLayout: (event: LayoutChangeEvent) => void;
   onListScroll: ScrollHandlerProcessed<Record<string, unknown>>;
-  onPermissionDeny: () => void;
-  onPermissionGrant: () => void;
   onRefresh: () => void;
   onSearch: () => void;
   onSearchCancel: () => void;
@@ -56,7 +53,6 @@ interface HomeScreenViewProps {
   searchVisible: boolean;
   selectedCategoryId: string | null;
   shouldRenderDecorations: boolean;
-  showPermissionModal: boolean;
 }
 
 export function HomeScreenView({
@@ -74,8 +70,6 @@ export function HomeScreenView({
   onCategorySelect,
   onHeaderLayout,
   onListScroll,
-  onPermissionDeny,
-  onPermissionGrant,
   onRefresh,
   onSearch,
   onSearchCancel,
@@ -89,7 +83,6 @@ export function HomeScreenView({
   searchVisible,
   selectedCategoryId,
   shouldRenderDecorations,
-  showPermissionModal,
 }: HomeScreenViewProps) {
   const colorScheme = useColorScheme();
   useHomeNavigationBarStyle(colorScheme, !isConfigLoading);
@@ -206,12 +199,6 @@ export function HomeScreenView({
         resolvedHeaderHeight={resolvedHeaderHeight}
         contentBottomPadding={contentBottomPadding}
         blockWrapperStyle={styles.blockWrapper}
-      />
-      <PermissionModal
-        visible={showPermissionModal}
-        type="tracking"
-        onGrant={onPermissionGrant}
-        onDeny={onPermissionDeny}
       />
       <SearchDropdown
         isVisible={searchVisible}

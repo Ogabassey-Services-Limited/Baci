@@ -88,6 +88,7 @@ describe('ad-tracking runtime client backup events', () => {
   it('keeps client backup tracking non-fatal when native event logging fails', async () => {
     const facebookEventError = new TypeError('undefined is not a function');
     const aemEventError = new TypeError('undefined is not a function');
+    mockGetTrackingPermissionStatus.mockResolvedValue({ status: 'granted' });
     mockLoadAdTrackingNativeModules.mockResolvedValue(
       createNativeModules({
         AEMReporterIOS: {
@@ -122,5 +123,38 @@ describe('ad-tracking runtime client backup events', () => {
       'Facebook AEM event log failed:',
       aemEventError
     );
+  });
+
+  it('drops client backup events when ATT is not authorized', async () => {
+    const logEvent = jest.fn();
+    const logAEMEvent = jest.fn();
+    const trackEvent = jest.fn();
+    mockGetTrackingPermissionStatus.mockResolvedValue({ status: 'denied' });
+    mockLoadAdTrackingNativeModules.mockResolvedValue(
+      createNativeModules({
+        AEMReporterIOS: { logAEMEvent },
+        AppEventsLogger: { logEvent },
+        TikTokBusiness: { initialize: jest.fn(() => true), trackEvent },
+      })
+    );
+
+    const { initAdTracking, sendClientBackup } = await import(
+      './ad-tracking-runtime'
+    );
+
+    await initAdTracking();
+    sendClientBackup(
+      'evt-denied',
+      'fb_mobile_purchase',
+      'Purchase',
+      1,
+      'NGN',
+      {}
+    );
+
+    expect(mockLoadAdTrackingNativeModules).not.toHaveBeenCalled();
+    expect(logEvent).not.toHaveBeenCalled();
+    expect(logAEMEvent).not.toHaveBeenCalled();
+    expect(trackEvent).not.toHaveBeenCalled();
   });
 });

@@ -14,6 +14,36 @@ import { StorefrontPagination } from '../components/StorefrontPagination';
 import type { Product } from '../types';
 import type { AvailableFilterOptions } from './category-page-derivations';
 
+// content-visibility reservations applied to product cards ONLY in FILTERED mode
+// — the one unbounded render (ALL matching products on a single page, the
+// long-task/INP tail). Paginated mode is bounded AND above-the-fold, so it
+// passes '' (no content-visibility): first-screen cards must render eagerly and
+// never be deferred.
+//
+// Values use the `auto` keyword form (`contain-intrinsic-size: auto <h>`) so the
+// browser remembers each card's REAL height after first paint and only uses the
+// fallback for never-yet-rendered cards (initial scrollbar estimate + first
+// reveal). Contrast PR #3012, where a NON-auto over-reservation (250px vs 100px
+// real) shrank on reveal and shifted (CLS up to 0.6); with `auto`, first-reveal
+// deltas self-correct and slight over-reservation stays safe.
+//
+// Heights derived from the actual ProductCard layout (ProductCard.tsx):
+//   GRID card = 1px border + p-3/md:p-4 + aspect-square image (width-driven)
+//     + mb-3/md:mb-4 + title (2×20px, line-clamp-2) + [md only] description
+//     (2×~19.5px) + price (~28px).
+//     • mobile grid-cols-2 (~360–430px viewports → ~156–191px columns): image
+//       ~130–165px → card ~250–290px  ⇒ reserve auto_300px.
+//     • md+ grid-cols-3 (768px full-width → 1440px lg col-span-3 w/ sidebar):
+//       image ~190–285px → card ~371–466px  ⇒ reserve auto_460px.
+const FILTERED_GRID_CARD_CONTENT_VISIBILITY =
+  'content-auto [contain-intrinsic-size:auto_300px] md:[contain-intrinsic-size:auto_460px]';
+//   LIST row = 1px border + p-4 + max(aspect-square image, content stack).
+//     • mobile: w-28 (112px) image; content (title + 3-line desc + button row)
+//       drives ~180px  ⇒ reserve auto_190px.
+//     • md+: w-48 (192px) image drives ~226px  ⇒ reserve auto_240px.
+const FILTERED_LIST_CARD_CONTENT_VISIBILITY =
+  'content-auto [contain-intrinsic-size:auto_190px] md:[contain-intrinsic-size:auto_240px]';
+
 interface CategoryPageResultsProps {
   canUseClientFilters: boolean;
   filters: FilterState;
@@ -64,6 +94,15 @@ export function CategoryPageResults({
   pageTitle,
   categoryPath,
 }: CategoryPageResultsProps) {
+  // Filtered mode renders every matching product in one page (unbounded) — defer
+  // offscreen card work with a correctly-sized reservation per view mode.
+  // Paginated mode is bounded + above-the-fold, so cards get no reservation.
+  const cardContentVisibilityClassName = hasActiveFilters
+    ? viewMode === 'grid'
+      ? FILTERED_GRID_CARD_CONTENT_VISIBILITY
+      : FILTERED_LIST_CARD_CONTENT_VISIBILITY
+    : '';
+
   return (
     <div className="max-w-[1400px] mx-auto px-4 md:px-6">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -122,6 +161,7 @@ export function CategoryPageResults({
                       onAddToCart={onAddToCart}
                       isAdded={isAdded}
                       viewMode={viewMode}
+                      contentVisibilityClassName={cardContentVisibilityClassName}
                     />
                     {/* Ad insertion logic */}
                     {viewMode === 'grid' && (index === 5 || index === 11) && (

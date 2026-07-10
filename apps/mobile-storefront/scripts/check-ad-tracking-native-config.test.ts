@@ -76,4 +76,38 @@ describe('check-ad-tracking-native-config', () => {
       rmSync(tempRoot, { force: true, recursive: true });
     }
   });
+
+  it('rejects a committed plist that omits the TikTok auto-init opt-out', () => {
+    const tempRoot = mkdtempSync(
+      path.join(os.tmpdir(), 'baci-ad-tracking-config-')
+    );
+    try {
+      mkdirSync(path.join(tempRoot, 'ios', 'Ogabassey.xcodeproj'), {
+        recursive: true,
+      });
+      mkdirSync(path.join(tempRoot, 'ios', 'Ogabassey'), { recursive: true });
+      copyFileSync(APP_CONFIG_PATH, path.join(tempRoot, 'app.config.ts'));
+      copyFileSync(
+        XCODE_PROJECT_PATH,
+        path.join(tempRoot, 'ios', 'Ogabassey.xcodeproj', 'project.pbxproj')
+      );
+      const infoPlist = readFileSync(INFO_PLIST_PATH, 'utf8').replace(
+        /\s*<key>BaciTikTokBusinessAutoInitialize<\/key>\s*<false\/>/,
+        ''
+      );
+      writeFileSync(
+        path.join(tempRoot, 'ios', 'Ogabassey', 'Info.plist'),
+        infoPlist
+      );
+
+      const result = runNativeAdConfigCheck(tempRoot);
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        'BaciTikTokBusinessAutoInitialize: expected false, got undefined'
+      );
+    } finally {
+      rmSync(tempRoot, { force: true, recursive: true });
+    }
+  });
 });

@@ -143,31 +143,6 @@ jest.mock('@/components/storefront/SearchDropdown', () => {
   };
 });
 
-jest.mock('@/components/ui/PermissionModal', () => {
-  const { Text, View } = jest.requireActual(
-    'react-native'
-  ) as typeof import('react-native');
-
-  return {
-    PermissionModal: ({
-      onDeny,
-      onGrant,
-      visible,
-    }: {
-      onDeny: () => void;
-      onGrant: () => void;
-      visible: boolean;
-    }) =>
-      visible ? (
-        <View>
-          <Text>Permission request</Text>
-          <Text onPress={onGrant}>Allow</Text>
-          <Text onPress={onDeny}>Deny</Text>
-        </View>
-      ) : null,
-  };
-});
-
 jest.mock('@/components/ui/Skeleton', () => {
   const { Text } = jest.requireActual(
     'react-native'
@@ -213,8 +188,6 @@ function createProps() {
     onCategorySelect: jest.fn(),
     onHeaderLayout: jest.fn(),
     onListScroll: jest.fn(),
-    onPermissionDeny: jest.fn(),
-    onPermissionGrant: jest.fn(),
     onRefresh: jest.fn(async () => undefined),
     onSearch: jest.fn(),
     onSearchCancel: jest.fn(),
@@ -228,7 +201,6 @@ function createProps() {
     searchVisible: false,
     selectedCategoryId: null,
     shouldRenderDecorations: true,
-    showPermissionModal: false,
   };
 }
 
@@ -349,28 +321,19 @@ describe('HomeScreenView', () => {
     expect(screen.queryByText('Snow effect')).toBeNull();
   });
 
-  it('delegates permission choices and closing the visible search overlay', () => {
-    const onPermissionDeny = jest.fn();
-    const onPermissionGrant = jest.fn();
+  it('delegates closing the visible search overlay', () => {
     const onSearchCancel = jest.fn();
 
     render(
       <HomeScreenView
         {...createProps()}
-        onPermissionDeny={onPermissionDeny}
-        onPermissionGrant={onPermissionGrant}
         onSearchCancel={onSearchCancel}
         searchVisible={true}
-        showPermissionModal={true}
       />
     );
 
-    fireEvent.press(screen.getByText('Allow'));
-    fireEvent.press(screen.getByText('Deny'));
     fireEvent.press(screen.getByText('Search results'));
 
-    expect(onPermissionGrant).toHaveBeenCalledTimes(1);
-    expect(onPermissionDeny).toHaveBeenCalledTimes(1);
     expect(onSearchCancel).toHaveBeenCalledTimes(1);
   });
 
