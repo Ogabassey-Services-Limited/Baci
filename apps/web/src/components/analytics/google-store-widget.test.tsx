@@ -99,6 +99,32 @@ describe('GoogleStoreWidget', () => {
     });
   });
 
+  it('ships an out-of-flow rule that pins the injected widget wrapper from first paint', () => {
+    const start = vi.fn();
+    window.merchantwidget = { start };
+
+    render(
+      <GoogleStoreWidget merchant={baseMerchant} hostname="www.ogabassey.com" />
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(20000);
+    });
+
+    // The gstatic script injects `#google-merchantwidget-iframe-wrapper` in
+    // normal flow before pinning it; the shipped rule makes it fixed on
+    // insertion so it never occupies flow (no recorded layout shift).
+    const wrapperRule = Array.from(document.querySelectorAll('style')).find(
+      (style) =>
+        style.textContent?.includes('#google-merchantwidget-iframe-wrapper')
+    );
+
+    expect(wrapperRule).toBeDefined();
+    expect(wrapperRule?.textContent).toContain('position:fixed!important');
+    // Desktop corner offsets mirror the LEFT_BOTTOM start() margins.
+    expect(wrapperRule?.textContent).toContain('@media (min-width:768px)');
+  });
+
   it('renders when the merchant has no custom domain configured', () => {
     const start = vi.fn();
     window.merchantwidget = { start };

@@ -1721,4 +1721,52 @@ describe('CheckoutPage', () => {
 
     fetchMock.mockRestore();
   });
+
+  it('reserves the full order-summary scroll region so multi-item cart hydration does not reflow #main-content', async () => {
+    mockCheckoutSubmissionState();
+
+    render(<CheckoutPage />);
+
+    await screen.findAllByText(/secure checkout/i);
+
+    const orderSummary = screen
+      .getByRole('heading', { name: /order summary/i })
+      .closest('section,aside,div');
+
+    expect(
+      orderSummary?.querySelector('[class*="h-[200px]"]')
+    ).toBeInTheDocument();
+  });
+
+  it('keeps delivery quotes in a fixed scroll region so multi-quote loading does not reflow #main-content', async () => {
+    mockCheckoutSubmissionState();
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/shipping/quotes')) {
+          return {
+            ok: true,
+            json: async () => ({ quotes: { all: [] } }),
+            text: async () => '',
+          } as Response;
+        }
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    const { container } = render(<CheckoutPage />);
+
+    await screen.findByText(/select delivery option/i);
+
+    expect(
+      container.querySelector('[class*="h-[320px]"]')
+    ).toBeInTheDocument();
+
+    fetchMock.mockRestore();
+  });
 });
