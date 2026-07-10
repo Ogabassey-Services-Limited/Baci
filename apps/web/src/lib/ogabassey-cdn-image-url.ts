@@ -13,10 +13,13 @@ const TRANSFORM_FORMAT_TOKEN_REPLACE_PATTERN =
 /**
  * Formats the CDN transformer accepts in the URL options segment
  * (infra/cdn-transformer/request-parser.mjs). `auto` negotiates on the Accept
- * header and is intentionally kept only for legacy/unmigrated `next/image`
- * callers and the one-time poisoned-cache backfill. Surfaces migrated to
- * `<picture>` pass explicit format tiers so Cloudflare Free never has to vary a
- * single URL by `Accept`.
+ * header, but Cloudflare Free stores one body per URL and ignores
+ * `Vary: Accept`, so a warm `format=auto` entry can hand non-AVIF browsers
+ * undecodable AVIF bytes. As of PR-IMG-2c NO browser-facing URL emits `auto`:
+ * the loader default is the universally decodable jpeg/png fallback and every
+ * `<picture>` surface passes explicit tiers. `auto` now survives ONLY in the
+ * prewarm/backfill transition, which purges/re-warms the legacy `auto` keys
+ * still referenced by cached HTML and browser caches.
  */
 export type OgabasseyCdnImageFormat = 'auto' | 'avif' | 'jpeg' | 'png' | 'webp';
 
@@ -51,11 +54,17 @@ export function normalizeOgabasseyCdnImageUrl(src: string): string {
 }
 
 /**
- * Build the CDN transform URL production has historically emitted for managed
- * assets. The default remains `format=auto` so existing, unmigrated `next/image`
- * callers keep receiving AVIF-capable negotiated bytes instead of regressing to
- * JPEG/PNG. New `<picture>` call sites must pass an explicit format or use
- * `buildOgabasseyCdnFallbackImageLoaderUrl` for the non-AVIF fallback tier.
+ * Build the CDN transform URL production emits for managed assets. When no
+ * explicit `format` is passed the default is now the universally decodable
+ * jpeg/png fallback tier (`resolveOgabasseyCdnFallbackFormat`) — NOT
+ * `format=auto`. Cloudflare Free ignores `Vary: Accept`, so a browser-facing
+ * `auto` URL can serve AVIF bytes to non-AVIF clients; defaulting to the
+ * fallback guarantees any unmigrated `next/image` caller reaching this builder
+ * emits bytes every browser can decode. AVIF-capable surfaces opt back into
+ * AVIF explicitly via `<picture>` (`format=avif` `<source>` +
+ * `buildOgabasseyCdnFallbackImageLoaderUrl` `<img>`). Prewarm/backfill pass
+ * `format: 'auto'` explicitly to keep purging/re-warming the legacy keys during
+ * the transition.
  */
 export function buildOgabasseyCdnImageLoaderUrl(
   src: string,
@@ -79,7 +88,8 @@ export function buildOgabasseyCdnImageLoaderUrl(
     return normalizedSrc;
   }
 
-  const resolvedFormat = format ?? 'auto';
+  const resolvedFormat =
+    format ?? resolveOgabasseyCdnFallbackFormat(url.pathname);
 
   return `${url.origin}${OGABASSEY_IMAGE_TRANSFORM_PREFIX}width=${width},quality=${quality},format=${resolvedFormat}${url.pathname}${url.search}${url.hash}`;
 }
