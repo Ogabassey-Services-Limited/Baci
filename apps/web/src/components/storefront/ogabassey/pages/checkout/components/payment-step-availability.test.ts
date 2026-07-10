@@ -98,6 +98,7 @@ describe('payment-step availability helpers', () => {
     const base = {
       paystackCheckoutAvailable: false,
       korapayCheckoutAvailable: false,
+      paypalCheckoutAvailable: false,
       bankTransferCheckoutAvailable: false,
       featureSettings,
       orderAmount: 50_000,
