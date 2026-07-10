@@ -19,6 +19,7 @@ interface OgabasseyPdpSemanticMerchant {
   custom_domain?: string | null;
   id: string;
   payout_currency?: string | null;
+  feature_settings?: { blog_enabled?: boolean } | null;
 }
 
 export interface OgabasseyPdpSemanticSectionsProps {
@@ -37,7 +38,6 @@ export async function OgabasseyPdpSemanticSections({
   merchant,
   product,
   productComparePathPrefix,
-  storeSlug,
   storeUrl,
 }: OgabasseyPdpSemanticSectionsProps) {
   // Strict, cache-isolated fetch: throws on a transient inventory failure so a
@@ -52,8 +52,10 @@ export async function OgabasseyPdpSemanticSections({
     seoLinkData = await getCachedProductSeoLinkData(
       merchant.id,
       categorySlug,
-      storeSlug,
-      String(product.id || '')
+      String(product.id || ''),
+      product.slug || String(product.id || ''),
+      product.brand,
+      Boolean(merchant.feature_settings?.blog_enabled)
     );
   } catch (error) {
     console.warn('Failed to load Ogabassey PDP semantic links', {

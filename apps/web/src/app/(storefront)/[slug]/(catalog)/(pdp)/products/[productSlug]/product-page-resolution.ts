@@ -4,7 +4,6 @@ import { cache } from 'react';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import {
   getCachedLegacyProductRedirectTarget,
-  getCachedProduct,
   getCachedProductWithDetails,
   getRequestScopedMerchant,
   sanitizeLookupLogValue,
@@ -16,7 +15,6 @@ import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { buildProductRedirectPath } from './build-product-redirect-path';
 import { mapDetailedCachedProductToProduct } from './detailed-product-mapper';
-import { mapLegacyCachedProductToProduct } from './legacy-product-mapper';
 import type {
   PageProps,
   ProductPageResolution,
@@ -137,13 +135,6 @@ export async function getProductCached(
       safeStoreSlug
     );
     return null;
-  }
-  const cachedProduct = await getCachedProduct(merchant.id, productSlug);
-  if (cachedProduct) {
-    return {
-      merchant,
-      product: mapLegacyCachedProductToProduct(cachedProduct, merchant.id),
-    };
   }
   const detailedProduct = await getCachedProductWithDetails(
     merchant.id,

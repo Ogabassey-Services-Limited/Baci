@@ -1,4 +1,4 @@
-import { cacheTag } from 'next/cache';
+import { cacheLife, cacheTag } from 'next/cache';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildCachedDataTestHarness,
@@ -118,16 +118,16 @@ describe('getCachedCategories', () => {
     expect(harness.mockOrder).toHaveBeenCalledWith('name', { ascending: true });
   });
 
-  it('returns empty array on error', async () => {
+  it('throws on error so a transient category failure cannot be cached as empty', async () => {
     const consoleSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
     harness.mockListResult.data = null;
     harness.mockListResult.error = { message: 'DB timeout' };
 
-    const result = await getCachedCategories('merchant-1');
-
-    expect(result).toEqual([]);
+    await expect(getCachedCategories('merchant-1')).rejects.toEqual({
+      message: 'DB timeout',
+    });
     expect(consoleSpy).toHaveBeenCalled();
   });
 
@@ -176,27 +176,24 @@ describe('cached merchant entity normalization', () => {
     );
   });
 
-  it('owns one bounded retry inside the cached slug resolver for every caller', async () => {
-    harness.mockRpc
-      .mockResolvedValueOnce({
-        data: null,
-        error: {
-          code: '23',
-          message: 'TimeoutError: The operation was aborted due to timeout',
-        },
-      })
-      .mockResolvedValueOnce(resolvedStorefrontMerchantRpcResult(mockMerchant));
+  it('lets the SDK-owned GET retry policy operate under one total deadline', async () => {
+    harness.mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: '23',
+        message: 'TimeoutError: The operation was aborted due to timeout',
+      },
+    });
 
-    await expect(getCachedMerchant('test-store')).resolves.toEqual(
-      expect.objectContaining({ id: mockMerchant.id })
-    );
-    expect(harness.mockRpc).toHaveBeenCalledTimes(2);
+    await expect(getCachedMerchant('test-store')).rejects.toBeInstanceOf(Error);
+    expect(harness.mockRpc).toHaveBeenCalledTimes(1);
   });
 
   it('normalizes the OgaBassey domain merchant away from stale fashion business type', async () => {
     harness.mockRpc.mockResolvedValueOnce({
       data: [
         {
+          resolution_status: 'found',
           custom_domain: 'ogabassey.com',
           feature_settings: null,
           merchant_data: {
@@ -212,10 +209,11 @@ describe('cached merchant entity normalization', () => {
     const merchant = await getCachedMerchantByDomain('ogabassey.com');
 
     expect(harness.mockRpc).toHaveBeenCalledWith(
-      'resolve_storefront_cached_merchant',
+      'resolve_storefront_public_snapshot_v2',
       {
         p_identifier: 'ogabassey.com',
-      }
+      },
+      { get: true }
     );
     expect(harness.mockFrom).not.toHaveBeenCalledWith('domains');
     expect(merchant).toEqual(
@@ -231,6 +229,7 @@ describe('cached merchant entity normalization', () => {
     harness.mockRpc.mockResolvedValueOnce({
       data: [
         {
+          resolution_status: 'found',
           custom_domain: 'fashion.example',
           feature_settings: { blog_enabled: true },
           merchant_data: {
@@ -247,10 +246,11 @@ describe('cached merchant entity normalization', () => {
 
     expect(cacheTag).toHaveBeenCalledWith(`features-${mockMerchant.id}`);
     expect(harness.mockRpc).toHaveBeenCalledWith(
-      'resolve_storefront_cached_merchant',
+      'resolve_storefront_public_snapshot_v2',
       {
         p_identifier: 'fashion.example',
-      }
+      },
+      { get: true }
     );
     expect(harness.mockFrom).not.toHaveBeenCalledWith('domains');
     expect(merchant).toEqual(
@@ -264,7 +264,18 @@ describe('cached merchant entity normalization', () => {
   });
 
   it('returns null when the storefront merchant resolver has no domain match', async () => {
-    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+    harness.mockRpc.mockResolvedValueOnce({
+      data: [
+        {
+          resolution_status: 'not_found',
+          merchant_data: null,
+          custom_domain: null,
+          feature_settings: null,
+        },
+      ],
+      error: null,
+      status: 200,
+    });
 
     const merchant = await getCachedMerchantByDomain('missing.example');
 
@@ -287,20 +298,18 @@ describe('cached merchant entity normalization', () => {
     );
   });
 
-  it('throws when transient domain lookup errors exhaust the resolver retry', async () => {
+  it('throws without converting transient domain lookup errors to absence', async () => {
     const timeoutResult = {
       data: null,
       error: {
         message: 'TimeoutError: The operation was aborted due to timeout',
       },
     };
-    harness.mockRpc
-      .mockResolvedValueOnce(timeoutResult)
-      .mockResolvedValueOnce(timeoutResult);
+    harness.mockRpc.mockResolvedValueOnce(timeoutResult);
 
-    await expect(getCachedMerchantByDomain('ogabassey.com')).rejects.toThrow(
-      'Database error resolving merchant for domain: ogabassey.com'
-    );
+    await expect(
+      getCachedMerchantByDomain('ogabassey.com')
+    ).rejects.toBeInstanceOf(Error);
   });
 
   it('normalizes OgaBassey merchant lookup by id when the slug is available', async () => {
@@ -351,6 +360,7 @@ describe('cached merchant entity normalization', () => {
     harness.mockRpc.mockResolvedValueOnce({
       data: [
         {
+          resolution_status: 'found',
           custom_domain: 'fashion.example',
           feature_settings: null,
           merchant_data: {
@@ -541,18 +551,27 @@ describe('getCachedProductReviews', () => {
     expect(harness.mockLimit).toHaveBeenCalledWith(10);
   });
 
-  it('returns an empty array when the review query fails', async () => {
+  it('keeps a review failure request-local and retries the cached read later', async () => {
     const consoleSpy = vi
-      .spyOn(console, 'error')
+      .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
     const error = { message: 'query failed' };
     harness.mockListResult.data = null;
     harness.mockListResult.error = error;
 
-    const result = await getCachedProductReviews('product-1');
+    await expect(getCachedProductReviews('product-1')).resolves.toEqual([]);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Optional PDP reviews unavailable',
+      { productId: 'product-1', error }
+    );
 
-    expect(result).toEqual([]);
-    expect(consoleSpy).toHaveBeenCalledWith('Error fetching reviews:', error);
+    const recoveredReview = { id: 'review-2', rating: 5 };
+    harness.mockListResult.data = [recoveredReview];
+    harness.mockListResult.error = null;
+    await expect(getCachedProductReviews('product-1')).resolves.toEqual([
+      recoveredReview,
+    ]);
+    expect(cacheLife).toHaveBeenCalledWith('products');
   });
 });
 
@@ -601,14 +620,32 @@ describe('getCachedProductRatingStats', () => {
     expect(result.distribution).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
   });
 
-  it('returns zeros on error', async () => {
+  it('keeps a rating failure request-local and retries the cached read later', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
     harness.mockListResult.data = null;
-    harness.mockListResult.error = { message: 'Connection error' };
+    const error = { message: 'Connection error' };
+    harness.mockListResult.error = error;
 
-    const result = await getCachedProductRatingStats('product-1');
+    await expect(getCachedProductRatingStats('product-1')).resolves.toEqual({
+      averageRating: 0,
+      totalReviews: 0,
+      distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+    });
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Optional PDP rating stats unavailable',
+      { productId: 'product-1', error }
+    );
 
-    expect(result.averageRating).toBe(0);
-    expect(result.totalReviews).toBe(0);
+    harness.mockListResult.data = [{ rating: 5 }];
+    harness.mockListResult.error = null;
+    await expect(getCachedProductRatingStats('product-1')).resolves.toEqual({
+      averageRating: 5,
+      totalReviews: 1,
+      distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 1 },
+    });
+    expect(cacheLife).toHaveBeenCalledWith('products');
   });
 
   it('returns zeros when data is null', async () => {
@@ -648,7 +685,7 @@ describe('getCachedProducts', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns empty array on error', async () => {
+  it('throws on error so a transient product failure cannot be cached as empty', async () => {
     const consoleSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
@@ -656,9 +693,9 @@ describe('getCachedProducts', () => {
     harness.mockListResult.error = { message: 'Connection error' };
     harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
 
-    const result = await getCachedProducts('merchant-1');
-
-    expect(result).toEqual([]);
+    await expect(getCachedProducts('merchant-1')).rejects.toEqual({
+      message: 'Connection error',
+    });
     expect(consoleSpy).toHaveBeenCalledWith(
       'Error fetching products:',
       expect.objectContaining({ message: 'Connection error' })

@@ -14,10 +14,10 @@ import {
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
-import { waitForMerchantLookupRetryBackoff } from '@/lib/merchant-lookup-backoff';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
+import type { Product } from '@/lib/products';
 import {
   filterPublicBlogCategories,
   filterPublicBlogPosts,
@@ -35,12 +35,23 @@ import { generateSlug } from '@/lib/seo-utils';
 import { normalizeOgabasseyBusinessType } from '@/lib/storefront/ogabassey-entity';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import { canonicalizeStorefrontMediaUrl } from '@/lib/storefront-media-cdn-url';
+import { readStorefrontMerchantSnapshot } from '@/lib/storefront-merchant-snapshot';
+import { readStorefrontPdpCoreSnapshot } from '@/lib/storefront-pdp-core-snapshot';
+import {
+  StorefrontReadUnavailableError,
+  unwrapStorefrontReadResultForCache,
+} from '@/lib/storefront-read-result';
+import type { VariantAttributeSource } from '@/lib/storefront-specs/variant-attributes';
 import { createTimeoutComposedFetch } from '@/lib/supabase/compose-fetch-signal';
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
 } from '@/lib/validation';
 import type { MerchantAboutPage } from '@/types/about-page';
+import type {
+  StorefrontDatabase,
+  StorefrontMerchantSnapshotRow,
+} from '@/types/storefront-database';
 import type { MerchantTrustProfileDraft } from '../../../../packages/shared/src/contracts/merchant-trust-profile';
 import { sanitizePublicProduct } from './public-fulfillment-sanitizer';
 import {
@@ -147,16 +158,6 @@ function combineUniqueRelatedBlogPosts<T extends RelatedBlogPostIdentity>(
 
 /** Default transport bound for cached-data Supabase clients. */
 const CACHED_CLIENT_DEFAULT_TIMEOUT_MS = 10_000;
-/**
- * Merchant shell lookups run on EVERY storefront request (layout + page) and
- * the queries execute in ~20ms server-side — the observed failures are
- * client-transport tail events (cold TLS, event-loop contention). A tight
- * bound lets retry + direct fallback complete in a few seconds instead of
- * stacking multiple 10s aborts on the hot path.
- */
-const MERCHANT_LOOKUP_TIMEOUT_MS = 3_000;
-/** The single retry gets a little more headroom than the initial cache fill. */
-const MERCHANT_LOOKUP_RETRY_TIMEOUT_MS = 5_000;
 
 /**
  * Create a Supabase client for cached queries.
@@ -187,32 +188,11 @@ export function getPublicSupabaseClient(options?: { timeoutMs?: number }) {
   });
 }
 
-/**
- * Create a Supabase client with Service Role for privileged cached queries.
- * Bypasses RLS to ensure we can fetch unpublished merchants for "Coming Soon" pages.
- */
-function getServiceRoleSupabaseClient(options?: { timeoutMs?: number }) {
-  const url = getSupabaseUrl();
-  const key = getSupabaseServiceRoleKey();
-
-  if (!url || !key) {
-    throw new Error('Supabase configuration is missing');
-  }
-
-  return createSupabaseClient(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-    global: {
-      headers: {
-        'X-Client-Info': 'baci-web-cached-service',
-      },
-      fetch: createTimeoutComposedFetch(
-        options?.timeoutMs ?? CACHED_CLIENT_DEFAULT_TIMEOUT_MS
-      ),
-    },
-  });
+function getStorefrontSnapshotSupabaseClient(): SupabaseClient<StorefrontDatabase> {
+  // The runtime client is the same anonymous public client used by the rest of
+  // cached-data. This narrow generated-schema cast makes only the snapshot RPC
+  // boundary aware of migrations that are not live when types are generated.
+  return getPublicSupabaseClient() as unknown as SupabaseClient<StorefrontDatabase>;
 }
 
 /**
@@ -226,17 +206,11 @@ export async function hydrateAndSanitizeProducts<T extends { id: string }>(
   if (!products || products.length === 0) return [];
 
   const productIds = products.map((p) => p.id);
-  let summaries: PublicSerializedVariantSummary[] = [];
-  try {
-    summaries = await getPublicSerializedVariantSummariesByProductId(
-      supabase,
-      merchantId,
-      productIds
-    );
-  } catch (err) {
-    console.error('Error fetching serialized variant summaries:', err);
-    return products.map(sanitizePublicProduct);
-  }
+  const summaries = await getPublicSerializedVariantSummariesByProductId(
+    supabase,
+    merchantId,
+    productIds
+  );
 
   const summariesByProduct = new Map<
     string,
@@ -789,34 +763,28 @@ function redactUnpublishedMerchantContactFields<
   return merchant;
 }
 
-interface ResolvedStorefrontCachedMerchantRow {
-  custom_domain?: string | null;
-  feature_settings?: MerchantFeatureSettings | null;
-  merchant_data?: Partial<CachedMerchant> | null;
-}
-
-function firstResolvedStorefrontCachedMerchantRow(
-  data: unknown
-): ResolvedStorefrontCachedMerchantRow | null {
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row || typeof row !== 'object') return null;
-
-  return row as ResolvedStorefrontCachedMerchantRow;
-}
-
 function normalizeResolvedStorefrontCachedMerchantRow(
-  row: ResolvedStorefrontCachedMerchantRow
+  row: StorefrontMerchantSnapshotRow
 ): CachedMerchant | null {
-  if (!row.merchant_data || typeof row.merchant_data !== 'object') {
+  if (
+    !row.merchant_data ||
+    typeof row.merchant_data !== 'object' ||
+    Array.isArray(row.merchant_data)
+  ) {
     return null;
   }
 
-  const merchant = row.merchant_data as CachedMerchant;
+  const merchant = row.merchant_data as unknown as CachedMerchant;
+  if (typeof merchant.id !== 'string' || typeof merchant.slug !== 'string') {
+    return null;
+  }
   redactUnpublishedMerchantContactFields(merchant);
 
   const featureSettings =
-    row.feature_settings && typeof row.feature_settings === 'object'
-      ? row.feature_settings
+    row.feature_settings &&
+    typeof row.feature_settings === 'object' &&
+    !Array.isArray(row.feature_settings)
+      ? (row.feature_settings as MerchantFeatureSettings)
       : (merchantFeatureSettingsDefaults.buildPublicDefault(
           merchant.id
         ) as MerchantFeatureSettings);
@@ -830,66 +798,56 @@ function normalizeResolvedStorefrontCachedMerchantRow(
   };
 }
 
-async function resolveStorefrontMerchantOnce({
-  errorMessage,
-  identifier,
-  timeoutMs,
-}: {
-  errorMessage: string;
-  identifier: string;
-  timeoutMs: number;
-}): Promise<CachedMerchant | null> {
-  const supabase = getServiceRoleSupabaseClient({ timeoutMs });
-  const query = supabase.rpc('resolve_storefront_cached_merchant', {
-    p_identifier: identifier,
-  });
+async function getCachedStorefrontMerchantSnapshot(
+  identifier: string
+): Promise<CachedMerchant | null> {
+  'use cache';
+  cacheLife('merchant');
+  cacheTag(
+    'merchants',
+    'domains',
+    `merchant-${identifier}`,
+    `domain-${identifier}`
+  );
 
-  // The outer merchant resolver owns the one bounded retry. Disable the
-  // PostgREST builder's automatic retries so a single 3s attempt cannot expand
-  // into several fetch attempts plus exponential backoff. The optional check
-  // keeps compatible test doubles awaitable. In the installed
-  // supabase-js/postgrest-js 2.108.2, SupabaseClient does not plumb the
-  // documented db.retry option into PostgrestClient; retry(false) is the
-  // supported builder method that directly sets this request's retryEnabled
-  // flag.
-  const singleAttemptQuery =
-    typeof query.retry === 'function' ? query.retry(false) : query;
-  const { data, error, status } = await singleAttemptQuery;
+  const row = unwrapStorefrontReadResultForCache(
+    await readStorefrontMerchantSnapshot(
+      getStorefrontSnapshotSupabaseClient(),
+      identifier
+    )
+  );
+  if (!row) return null;
 
-  if (error) {
-    throw createMerchantLookupError(errorMessage, { ...error, status });
+  const merchant = normalizeResolvedStorefrontCachedMerchantRow(row);
+  if (!merchant) {
+    throw new StorefrontReadUnavailableError({
+      kind: 'integrity',
+      operation: 'merchant_snapshot',
+      retryable: false,
+    });
   }
 
-  return normalizeResolvedStorefrontCachedMerchantRow(
-    firstResolvedStorefrontCachedMerchantRow(data) ?? {}
+  cacheTag(
+    `features-${merchant.id}`,
+    `merchant-${merchant.slug}`,
+    ...(merchant.custom_domain
+      ? [`domain-${merchant.custom_domain.toLowerCase()}`]
+      : [])
   );
+  return merchant;
 }
 
-async function resolveStorefrontMerchantWithRetry({
-  errorMessage,
-  identifier,
-}: {
-  errorMessage: string;
-  identifier: string;
-}): Promise<CachedMerchant | null> {
-  try {
-    return await resolveStorefrontMerchantOnce({
-      errorMessage,
-      identifier,
-      timeoutMs: MERCHANT_LOOKUP_TIMEOUT_MS,
-    });
-  } catch (firstError) {
-    if (!isTransientMerchantLookupError(firstError)) {
-      throw firstError;
-    }
-
-    await waitForMerchantLookupRetryBackoff();
-    return await resolveStorefrontMerchantOnce({
-      errorMessage,
-      identifier,
-      timeoutMs: MERCHANT_LOOKUP_RETRY_TIMEOUT_MS,
-    });
+function summarizeStorefrontSnapshotError(error: unknown) {
+  if (error instanceof StorefrontReadUnavailableError) {
+    return error.failure;
   }
+  return {
+    kind: 'unexpected',
+    name:
+      error instanceof Error
+        ? sanitizeLookupLogValue(error.name)
+        : 'UnknownError',
+  };
 }
 
 /**
@@ -903,20 +861,16 @@ export async function getCachedMerchant(
 ): Promise<CachedMerchant | null> {
   'use cache';
   cacheLife('merchant');
-  cacheTag('merchants', `merchant-${slug}`);
+  const normalizedSlug = slug.toLowerCase();
+  cacheTag('merchants', `merchant-${normalizedSlug}`);
 
   let merchant: CachedMerchant | null;
   try {
-    merchant = await resolveStorefrontMerchantWithRetry({
-      errorMessage: `Failed to fetch merchant for slug: ${sanitizeLookupLogValue(slug)}`,
-      identifier: slug,
-    });
+    merchant = await getCachedStorefrontMerchantSnapshot(normalizedSlug);
   } catch (error) {
     const safeSlug = sanitizeLookupLogValue(slug);
-    const cause = (error as { cause?: unknown })?.cause;
     console.error('Error fetching merchant for slug:', safeSlug, {
-      error: summarizeMerchantLookupError(error),
-      ...(cause ? { cause: summarizeMerchantLookupError(cause) } : undefined),
+      error: summarizeStorefrontSnapshotError(error),
     });
     throw error;
   }
@@ -953,16 +907,12 @@ export async function getCachedMerchantByDomain(
 
   let resolvedMerchant: CachedMerchant | null;
   try {
-    resolvedMerchant = await resolveStorefrontMerchantWithRetry({
-      errorMessage: `Database error resolving merchant for domain: ${safeDomain}`,
-      identifier: normalizedDomain,
-    });
+    resolvedMerchant =
+      await getCachedStorefrontMerchantSnapshot(normalizedDomain);
   } catch (error) {
-    const cause = (error as { cause?: unknown })?.cause;
     console.error('Error resolving merchant for domain', {
       domain: safeDomain,
-      error: summarizeMerchantLookupError(error),
-      ...(cause ? { cause: summarizeMerchantLookupError(cause) } : undefined),
+      error: summarizeStorefrontSnapshotError(error),
     });
     throw error;
   }
@@ -982,131 +932,10 @@ export async function getCachedMerchantByDomain(
   return resolvedMerchant;
 }
 
-const TRANSIENT_MERCHANT_LOOKUP_ERROR = Symbol('transient-merchant-lookup');
-const DATABASE_ERROR_CODE_PATTERN = /^(?:[0-9A-Z]{5}|PGRST\d+)$/;
-const TRANSIENT_MERCHANT_LOOKUP_HTTP_STATUSES = new Set([
-  408, 409, 502, 503, 504, 520,
-]);
-
-type MerchantLookupError = Error & {
-  [TRANSIENT_MERCHANT_LOOKUP_ERROR]?: true;
-};
-
-function createMerchantLookupError(message: string, cause: unknown): Error {
-  const error = new Error(message, { cause }) as MerchantLookupError;
-  if (isTransientMerchantLookupError(cause)) {
-    error[TRANSIENT_MERCHANT_LOOKUP_ERROR] = true;
-  }
-  return error;
-}
-
 export function sanitizeLookupLogValue(value: unknown): string {
   return String(value || '')
     .replace(/[\r\n\t]/g, '')
     .substring(0, 100);
-}
-
-function isTransientMerchantLookupError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-
-  if (
-    TRANSIENT_MERCHANT_LOOKUP_ERROR in error &&
-    (error as MerchantLookupError)[TRANSIENT_MERCHANT_LOOKUP_ERROR]
-  ) {
-    return true;
-  }
-
-  const maybeError = error as {
-    code?: unknown;
-    details?: unknown;
-    message?: unknown;
-    name?: unknown;
-    stack?: unknown;
-    status?: unknown;
-  };
-  const code =
-    typeof maybeError.code === 'string' ? maybeError.code.trim() : '';
-  if (code === '57014' || code === '20' || code === '23') {
-    return true;
-  }
-  // A real Postgres/PostgREST code is authoritative. Do not turn errors such
-  // as SQLSTATE 25P02 (whose message says "transaction is aborted") into
-  // transport retries.
-  if (DATABASE_ERROR_CODE_PATTERN.test(code)) {
-    return false;
-  }
-  if (
-    typeof maybeError.status === 'number' &&
-    TRANSIENT_MERCHANT_LOOKUP_HTTP_STATUSES.has(maybeError.status)
-  ) {
-    return true;
-  }
-
-  const details =
-    typeof maybeError.details === 'string' ? maybeError.details : '';
-  const message =
-    typeof maybeError.message === 'string' ? maybeError.message : '';
-  const name = typeof maybeError.name === 'string' ? maybeError.name : '';
-  const stack = typeof maybeError.stack === 'string' ? maybeError.stack : '';
-  const combined =
-    `${name}\n${message}\n${details}\n${stack}\n${String(error)}`.toLowerCase();
-
-  return (
-    combined.includes('remotecachehandler') ||
-    combined.includes('invalid response from cache') ||
-    combined.includes('timeouterror') ||
-    combined.includes('request timeout') ||
-    combined.includes('aborted due to timeout') ||
-    combined.includes('fetch failed') ||
-    combined.includes('network timeout') ||
-    combined.includes('network error') ||
-    combined.includes('socket hang up') ||
-    combined.includes('eai_again') ||
-    combined.includes('und_err') ||
-    combined.includes('502 bad gateway') ||
-    /\b(408 request timeout|http 408|status(?: code)? 408)\b/.test(combined) ||
-    /\b(503 service unavailable|http 503|status(?: code)? 503)\b/.test(
-      combined
-    ) ||
-    /\b(520 web server returned an unknown error|http 520|status(?: code)? 520)\b/.test(
-      combined
-    ) ||
-    combined.includes('504 gateway timeout') ||
-    combined.includes('bad gateway') ||
-    combined.includes('econnreset') ||
-    combined.includes('etimedout')
-  );
-}
-
-function summarizeMerchantLookupError(error: unknown) {
-  const maybeError = error as {
-    code?: unknown;
-    details?: unknown;
-    message?: unknown;
-    name?: unknown;
-    status?: unknown;
-  };
-  return {
-    code:
-      typeof maybeError?.code === 'string'
-        ? sanitizeLookupLogValue(maybeError.code)
-        : undefined,
-    name:
-      typeof maybeError?.name === 'string'
-        ? sanitizeLookupLogValue(maybeError.name)
-        : undefined,
-    message:
-      typeof maybeError?.message === 'string'
-        ? sanitizeLookupLogValue(maybeError.message)
-        : sanitizeLookupLogValue(error),
-    details:
-      typeof maybeError?.details === 'string'
-        ? sanitizeLookupLogValue(maybeError.details)
-        : undefined,
-    status:
-      typeof maybeError?.status === 'number' ? maybeError.status : undefined,
-    transient: isTransientMerchantLookupError(error),
-  };
 }
 
 /**
@@ -1125,9 +954,9 @@ export async function getMerchantByIdentifier(
 }
 
 /**
- * Merchant-shell lookup. The cached resolver itself owns one bounded retry for
- * transient transport failures, so every direct cached caller gets identical
- * resilience. Only a successful no-row response becomes null; failures throw
+ * Merchant-shell lookup. The public snapshot runs as an idempotent GET under
+ * one total deadline, leaving retry ownership to the Supabase/PostgREST client.
+ * Only an explicit database not-found status becomes null; failures throw
  * instead of becoming crawlable storefront 404s.
  */
 export async function getMerchantSafe(
@@ -1137,7 +966,7 @@ export async function getMerchantSafe(
 }
 
 /**
- * Strict merchant lookup with retry — throws on transient failures.
+ * Strict merchant lookup — throws on transient failures.
  * Use inside cached functions where returning null on a transient error would
  * cache the failure instead of letting the caller retry on a later render.
  * A genuine "merchant not found" still returns null (safe to cache).
@@ -1312,7 +1141,7 @@ export async function getCachedProducts(
 
   if (error) {
     console.error('Error fetching products:', error);
-    return [];
+    throw error;
   }
 
   const products = (data || []).map(withLegacyPriceFields);
@@ -1403,10 +1232,202 @@ interface CachedProductLcpHintOptions {
   includeVariants?: boolean;
 }
 
+interface CachedStorefrontProductOffer {
+  condition: NonNullable<Product['condition']>;
+  id: string;
+  images?: string[];
+  price: number | string | null;
+  status: string;
+  stock_quantity?: number | string | null;
+}
+
+type CachedStorefrontProductImage =
+  | string
+  | { alt?: string; order?: number; url: string };
+
+type CachedStorefrontPdpCore = Omit<
+  CachedProductLcpHint,
+  | 'brand'
+  | 'category'
+  | 'compare_at_price'
+  | 'condition'
+  | 'images'
+  | 'max_variant_price'
+  | 'merchant_id'
+  | 'min_variant_price'
+  | 'price'
+  | 'product_categories'
+  | 'product_variants'
+  | 'schema_markup'
+  | 'slug'
+  | 'variant_attributes'
+> & {
+  brand?: string;
+  category?: string;
+  compare_at_price?: number;
+  condition?: string;
+  has_condition_offers?: boolean;
+  images?: CachedStorefrontProductImage[];
+  max_variant_price?: number;
+  merchant_id?: string;
+  min_variant_price?: number;
+  offers: CachedStorefrontProductOffer[];
+  price: number;
+  product_key_specs?: unknown;
+  product_categories?: Array<{
+    categories: { id: string; name: string; slug: string } | null;
+  }>;
+  product_offers: CachedStorefrontProductOffer[];
+  product_variants: PublicStorefrontProductVariant[];
+  schema_markup?: Product['schema_markup'];
+  slug: string;
+  specifications?: Product['specifications'];
+  status?: string;
+  variant_attributes?: VariantAttributeSource;
+  variant_model?: 'legacy' | 'sku_matrix' | null;
+  [key: string]: unknown;
+};
+type CachedStorefrontPdpSnapshot =
+  | { kind: 'product'; product: CachedStorefrontPdpCore }
+  | { kind: 'redirect'; target: CachedLegacyProductRedirectTarget };
+
+function normalizeCachedStorefrontPdpCore(
+  product: Record<string, unknown>
+): CachedStorefrontPdpCore | null {
+  const id = typeof product.id === 'string' ? product.id : null;
+  const name = typeof product.name === 'string' ? product.name : null;
+  const storedSlug = typeof product.slug === 'string' ? product.slug : null;
+  const price =
+    typeof product.price === 'number' && Number.isFinite(product.price)
+      ? product.price
+      : null;
+  if (!id || !name || price === null) return null;
+  const slug = storedSlug || id;
+
+  const productOffers = Array.isArray(product.product_offers)
+    ? (product.product_offers as CachedStorefrontProductOffer[])
+    : [];
+  const images = Array.isArray(product.images)
+    ? product.images.flatMap((image): CachedStorefrontProductImage[] => {
+        if (typeof image === 'string') return [image];
+        if (!image || typeof image !== 'object') return [];
+        const url = Reflect.get(image, 'url');
+        if (typeof url !== 'string') return [];
+        const alt = Reflect.get(image, 'alt');
+        const order = Reflect.get(image, 'order');
+        return [
+          {
+            url,
+            ...(typeof alt === 'string' ? { alt } : null),
+            ...(typeof order === 'number' ? { order } : null),
+          },
+        ];
+      })
+    : undefined;
+
+  return {
+    ...product,
+    id,
+    name,
+    slug,
+    price,
+    brand: typeof product.brand === 'string' ? product.brand : undefined,
+    category:
+      typeof product.category === 'string' ? product.category : undefined,
+    compare_at_price:
+      typeof product.compare_at_price === 'number'
+        ? product.compare_at_price
+        : undefined,
+    condition:
+      typeof product.condition === 'string' ? product.condition : undefined,
+    has_condition_offers:
+      typeof product.has_condition_offers === 'boolean'
+        ? product.has_condition_offers
+        : undefined,
+    images,
+    max_variant_price:
+      typeof product.max_variant_price === 'number'
+        ? product.max_variant_price
+        : undefined,
+    merchant_id:
+      typeof product.merchant_id === 'string' ? product.merchant_id : undefined,
+    min_variant_price:
+      typeof product.min_variant_price === 'number'
+        ? product.min_variant_price
+        : undefined,
+    offers: productOffers,
+    product_categories: undefined,
+    product_offers: productOffers,
+    product_variants: Array.isArray(product.product_variants)
+      ? (product.product_variants as PublicStorefrontProductVariant[])
+      : [],
+    schema_markup:
+      product.schema_markup && typeof product.schema_markup === 'object'
+        ? (product.schema_markup as Product['schema_markup'])
+        : undefined,
+    specifications: Array.isArray(product.specifications)
+      ? (product.specifications as Product['specifications'])
+      : undefined,
+    status: typeof product.status === 'string' ? product.status : undefined,
+    variant_attributes:
+      product.variant_attributes === null ||
+      Array.isArray(product.variant_attributes) ||
+      (product.variant_attributes !== null &&
+        typeof product.variant_attributes === 'object')
+        ? (product.variant_attributes as VariantAttributeSource)
+        : undefined,
+  };
+}
+
+async function getCachedStorefrontPdpCore(
+  merchantId: string,
+  productSlug: string
+): Promise<CachedStorefrontPdpSnapshot | null> {
+  'use cache';
+  cacheLife('products');
+  cacheTag(
+    'product',
+    'product-details',
+    'product-lcp-hint',
+    `products-${merchantId}`,
+    `categories-${merchantId}`,
+    getProductScopedCacheTag('product', merchantId, productSlug)
+  );
+
+  const snapshot = unwrapStorefrontReadResultForCache(
+    await readStorefrontPdpCoreSnapshot(getStorefrontSnapshotSupabaseClient(), {
+      merchantId,
+      productSlug,
+    })
+  );
+
+  if (!snapshot) return null;
+  if (snapshot.kind === 'redirect') {
+    return {
+      kind: 'redirect',
+      target: snapshot.target as unknown as CachedLegacyProductRedirectTarget,
+    };
+  }
+  const product = normalizeCachedStorefrontPdpCore(
+    snapshot.product as Record<string, unknown>
+  );
+  if (!product) {
+    throw new StorefrontReadUnavailableError({
+      kind: 'integrity',
+      operation: 'pdp_core_snapshot',
+      retryable: false,
+    });
+  }
+  return {
+    kind: 'product',
+    product: sanitizePublicProduct(product),
+  };
+}
+
 /**
- * Cached product route and image hint by slug.
- * Avoids the full product projection; callers that only need an image can skip
- * storefront variant hydration.
+ * Cached product route and image hint by slug. The shared bounded PDP snapshot
+ * keeps metadata, LCP, and full product rendering on one database result;
+ * image-only callers omit variants from their returned projection.
  */
 export async function getCachedProductLcpHint(
   merchantId: string,
@@ -1422,271 +1443,22 @@ export async function getCachedProductLcpHint(
     getProductScopedCacheTag('product', merchantId, productSlug)
   );
 
-  const supabase = getPublicSupabaseClient();
-  const isUuid =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      productSlug
-    );
+  const snapshot = await getCachedStorefrontPdpCore(merchantId, productSlug);
+  if (snapshot?.kind !== 'product') return null;
 
-  let query = supabase
-    .from('products')
-    .select(`
-        id,
-        merchant_id,
-        brand,
-        name,
-        slug,
-        price,
-        compare_at_price,
-        has_variants,
-        min_variant_price,
-        max_variant_price,
-        default_variant_id,
-        condition,
-        color,
-        manage_stock,
-        stock_quantity,
-        category,
-        meta_title,
-        meta_description,
-        keywords,
-        canonical_url,
-        schema_markup,
-        images,
-        stock,
-        updated_at,
-        variant_attributes,
-        categories:category_id (
-          id,
-          name,
-          slug
-        ),
-        product_categories (
-          category_id,
-          categories (
-            id,
-            name,
-            slug
-          )
-        )
-      `)
-    .eq('merchant_id', merchantId)
-    .eq('status', 'active');
-
-  if (isUuid) {
-    query = query.or(
-      `slug.eq.${productSlug.toLowerCase()},id.eq.${productSlug}`
-    );
-  } else {
-    query = query.eq('slug', productSlug.toLowerCase());
-  }
-
-  const { data, error } = await query.maybeSingle();
-
-  if (error) {
-    console.error('Error fetching product LCP hint:', error);
-    return null;
-  }
-
-  if (!data) {
-    return null;
-  }
-
-  const product = withLegacyPriceFields(data as CachedProductLcpHint);
-
+  const product = withLegacyPriceFields(snapshot.product);
   if (options.includeVariants === false) {
-    return product;
+    const { product_variants: _variants, ...withoutVariants } = product;
+    return withoutVariants;
   }
 
-  const variantsByProductId = await getPublicProductVariantsByProductIds(
-    merchantId,
-    [product.id]
-  );
-  const rawProduct = {
-    ...product,
-    product_variants: variantsByProductId[product.id] || [],
-  };
-  const hydrated = await hydrateAndSanitizeProducts(supabase, merchantId, [
-    rawProduct,
-  ]);
-
-  return hydrated[0] || rawProduct;
+  return product;
 }
-
-/**
- * Cached single product by slug.
- * Uses 'products' cacheLife profile (stale 5min, revalidate 5min, expire 24hr)
- */
-export async function getCachedProduct(
-  merchantId: string,
-  productSlug: string
-) {
-  'use cache';
-  cacheLife('products');
-  cacheTag(
-    'product',
-    getProductScopedCacheTag('product', merchantId, productSlug)
-  );
-
-  const supabase = getPublicSupabaseClient();
-
-  // Check if the input LOOKS like a UUID (simple regex)
-  const isUuid =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      productSlug
-    );
-
-  let query = supabase
-    .from('products')
-    .select(`
-        id,
-        name,
-        description,
-        slug,
-        canonical_url,
-        price,
-        compare_at_price,
-        min_variant_price,
-        max_variant_price,
-        status,
-        quantity:stock_quantity,
-        track_quantity:manage_stock,
-        images,
-        color_images,
-        created_at,
-        ${PRODUCT_KEY_SPECS_RELATION_SELECT},
-        specifications,
-        condition,
-        variant_model,
-        available_conditions,
-        has_condition_offers,
-        meta_title,
-        meta_description,
-        keywords,
-        offers:product_offers (
-          id,
-          condition,
-          price,
-          stock_quantity,
-          images,
-          status
-        ),
-        categories:category_id (
-          id,
-          name,
-          slug
-        ),
-        product_categories (
-          category_id,
-          categories (
-            id,
-            name,
-            slug
-          )
-        )
-      `)
-    .eq('merchant_id', merchantId)
-    .eq('status', 'active');
-
-  if (isUuid) {
-    query = query.eq('id', productSlug);
-  } else {
-    query = query.eq('slug', productSlug.toLowerCase());
-  }
-
-  const { data, error } = await query.maybeSingle();
-
-  if (error) {
-    console.error('Error fetching product:', error);
-    return null;
-  }
-
-  if (!data) {
-    return null;
-  }
-
-  const product = withLegacyPriceFields(data);
-  const variantsByProductId = await getPublicProductVariantsByProductIds(
-    merchantId,
-    [product.id]
-  );
-
-  const rawProduct = {
-    ...product,
-    product_variants: variantsByProductId[product.id] || [],
-  };
-
-  const hydrated = await hydrateAndSanitizeProducts(supabase, merchantId, [
-    rawProduct,
-  ]);
-  return hydrated[0] || null;
-}
-
-const STOREFRONT_PRODUCT_DETAIL_COLUMNS = `
-  id,
-  merchant_id,
-  category_id,
-  created_at,
-  updated_at,
-  name,
-  description,
-  status,
-  price,
-  compare_at_price,
-  stock,
-  stock_quantity,
-  manage_stock,
-  low_stock_threshold,
-  sku,
-  slug,
-  condition,
-  condition_detail,
-  variant_model,
-  default_variant_id,
-  available_conditions,
-  min_variant_price,
-  max_variant_price,
-  brand,
-  category,
-  color,
-  has_variants,
-  has_condition_offers,
-  variant_attributes,
-  images,
-  imageHint:image_hint,
-  specifications,
-  weight_value,
-  weight_unit,
-  dimensions,
-  taxable,
-  tax_code,
-  meta_title,
-  meta_description,
-  keywords,
-  canonical_url,
-  schema_markup,
-  gtin,
-  mpn,
-  google_product_category,
-  fulfillmentFields:fulfillment_fields
-`;
-
-const STOREFRONT_PRODUCT_DETAIL_OFFERS_COLUMNS = `
-  id,
-  condition,
-  price,
-  compare_at_price,
-  stock_quantity,
-  images,
-  condition_notes,
-  grade,
-  status
-`;
 
 /**
  * Comprehensive cached product data with all relations for product pages.
- * Fetches product + key_specs + offers + category in the main query.
- * Storefront-safe variants are hydrated separately through the public RPC.
+ * The bounded core snapshot returns product, category, key specs, offers,
+ * variants, and serialized availability in one database round trip.
  * Uses 'products' cacheLife profile (stale 5min, revalidate 5min, expire 24hr)
  */
 export async function getCachedProductWithDetails(
@@ -1701,55 +1473,8 @@ export async function getCachedProductWithDetails(
     getProductScopedCacheTag('product', merchantId, productSlug)
   );
 
-  const supabase = getPublicSupabaseClient();
-
-  // Check if the input looks like a UUID
-  const isUuid =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      productSlug
-    );
-
-  let query = supabase
-    .from('products')
-    .select(`
-        ${STOREFRONT_PRODUCT_DETAIL_COLUMNS},
-        categories:category_id(id, name, slug, parent_id),
-        ${PRODUCT_KEY_SPECS_RELATION_SELECT},
-        product_offers (${STOREFRONT_PRODUCT_DETAIL_OFFERS_COLUMNS})
-      `)
-    .eq('merchant_id', merchantId);
-
-  if (isUuid) {
-    query = query.or(`slug.eq.${productSlug},id.eq.${productSlug}`);
-  } else {
-    query = query.eq('slug', productSlug.toLowerCase());
-  }
-
-  const { data, error } = await query.maybeSingle();
-
-  if (error) {
-    console.error('Error fetching product with details:', error);
-    return null;
-  }
-
-  if (!data) {
-    return null;
-  }
-
-  const variantsByProductId = await getPublicProductVariantsByProductIds(
-    merchantId,
-    [data.id]
-  );
-
-  const rawProduct = {
-    ...data,
-    product_variants: variantsByProductId[data.id] || [],
-  };
-
-  const hydrated = await hydrateAndSanitizeProducts(supabase, merchantId, [
-    rawProduct,
-  ]);
-  return hydrated[0] || null;
+  const snapshot = await getCachedStorefrontPdpCore(merchantId, productSlug);
+  return snapshot?.kind === 'product' ? snapshot.product : null;
 }
 
 interface CachedProductCanonicalCategory {
@@ -1846,7 +1571,7 @@ export async function getCachedLegacyProductRedirectTarget(
   merchantId: string,
   productSlug: string
 ): Promise<CachedLegacyProductRedirectTarget | null> {
-  'use cache: remote';
+  'use cache';
   cacheLife('products');
   cacheTag(
     'product',
@@ -1854,80 +1579,8 @@ export async function getCachedLegacyProductRedirectTarget(
     getProductScopedCacheTag('product-legacy-redirect', merchantId, productSlug)
   );
 
-  const supabase = getServiceRoleSupabaseClient();
-  const isUuid =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      productSlug
-    );
-
-  let query = supabase
-    .from('products')
-    .select(`
-        parent:parent_product_id (
-          id,
-          name,
-          slug,
-          status,
-          category,
-          categories:category_id(id, name, slug, parent_id)
-        )
-      `)
-    .eq('merchant_id', merchantId)
-    .eq('status', 'archived');
-
-  if (isUuid) {
-    query = query.eq('id', productSlug);
-  } else {
-    query = query.eq('slug', productSlug.toLowerCase());
-  }
-
-  const { data, error } = await query.maybeSingle();
-
-  if (error) {
-    console.error('Error fetching legacy product redirect target:', error);
-    throw error;
-  }
-
-  const parent = data?.parent as
-    | {
-        id: string;
-        name: string;
-        slug: string | null;
-        status: string | null;
-        category?: string | null;
-        categories?:
-          | {
-              id: string;
-              name: string;
-              slug: string;
-              parent_id?: string | null;
-            }
-          | {
-              id: string;
-              name: string;
-              slug: string;
-              parent_id?: string | null;
-            }[]
-          | null;
-      }
-    | null
-    | undefined;
-
-  if (parent?.status !== 'active' || !parent.slug) {
-    return null;
-  }
-
-  const normalizedCategory = Array.isArray(parent.categories)
-    ? (parent.categories[0] ?? null)
-    : (parent.categories ?? null);
-
-  return {
-    id: parent.id,
-    name: parent.name,
-    slug: parent.slug,
-    category: parent.category ?? null,
-    categories: normalizedCategory,
-  };
+  const snapshot = await getCachedStorefrontPdpCore(merchantId, productSlug);
+  return snapshot?.kind === 'redirect' ? snapshot.target : null;
 }
 
 /**
@@ -1957,7 +1610,7 @@ export async function getCachedCategories(merchantId: string) {
 
   if (error) {
     console.error('Error fetching categories:', error);
-    return [];
+    throw error;
   }
 
   return data || [];
@@ -2045,7 +1698,6 @@ type CachedCategoryPageProductScope =
       categoryId: string;
       categoryIds: string[];
       kind: 'category';
-      scopeQueryFailed?: boolean;
     }
   | { kind: 'collection'; collectionSlug: SpecialCollectionSlug }
   | { categoryName: string; kind: 'legacy' }
@@ -2150,6 +1802,20 @@ function getSpecialCollectionCopy(collectionSlug: SpecialCollectionSlug) {
   }
 }
 
+function getCategoryFallbackName(categorySlug: string): string {
+  let decodedSlug = categorySlug;
+  try {
+    decodedSlug = decodeURIComponent(categorySlug);
+  } catch {
+    // Malformed public paths are rejected earlier; keep this total so an
+    // unexpected caller cannot turn fallback rendering into another error.
+  }
+
+  return decodedSlug
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 /**
  * Remote-cached category shell/status data. This output stays intentionally
  * small so it remains suitable for Vercel's shared remote cache and keeps
@@ -2207,8 +1873,9 @@ export async function getCachedCategoryPageShellData(
   // is the EXPECTED path for legacy category/brand URLs with no `categories`
   // row, so it must NOT count as a failure (else the doorway trap never fires).
   // Any OTHER error is transient (connection/timeout) → fail open downstream.
-  const categoryQueryFailed =
-    Boolean(categoryError) && !isPostgrestNoRowsError(categoryError);
+  if (categoryError && !isPostgrestNoRowsError(categoryError)) {
+    throw categoryError;
+  }
   let hiddenCategoryState: StorefrontCategorySlugState | null = null;
 
   if (!categoryRow) {
@@ -2219,7 +1886,7 @@ export async function getCachedCategoryPageShellData(
       });
 
     if (categoryStateError) {
-      console.error('Category state query error:', categoryStateError);
+      throw categoryStateError;
     }
 
     const stateArray = categoryStateData as
@@ -2242,10 +1909,7 @@ export async function getCachedCategoryPageShellData(
 
   // Fallback: decode the slug to get category name and Title Case it.
   const categoryName =
-    categoryRow?.name ||
-    decodeURIComponent(categorySlug)
-      .replace(/-/g, ' ')
-      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    categoryRow?.name || getCategoryFallbackName(categorySlug);
 
   const categoryDescription =
     categoryRow?.description ||
@@ -2264,7 +1928,7 @@ export async function getCachedCategoryPageShellData(
       .or(`id.eq.${category.id},parent_id.eq.${category.id}`);
 
     if (categoryScopeError) {
-      console.error('Category scope query error:', categoryScopeError);
+      throw categoryScopeError;
     }
 
     const categoryIds = Array.from(
@@ -2282,7 +1946,6 @@ export async function getCachedCategoryPageShellData(
       kind: 'category',
       categoryId: category.id,
       categoryIds,
-      scopeQueryFailed: Boolean(categoryScopeError),
     };
   }
 
@@ -2292,9 +1955,35 @@ export async function getCachedCategoryPageShellData(
     fallbackName: categoryName,
     fallbackDescription: categoryDescription,
     isInactiveCategory,
-    categoryQueryFailed,
+    categoryQueryFailed: false,
     productScope,
   };
+}
+
+async function getCategoryPageShellData(
+  merchantId: string,
+  categorySlug: string,
+  storeSlug: string
+): Promise<CachedCategoryPageShellData> {
+  try {
+    return await getCachedCategoryPageShellData(
+      merchantId,
+      categorySlug,
+      storeSlug
+    );
+  } catch (error) {
+    console.error('Category shell query error:', error);
+    const fallbackName = getCategoryFallbackName(categorySlug);
+    return {
+      isCollection: false,
+      category: null,
+      fallbackName,
+      fallbackDescription: `Browse our collection of ${fallbackName} products.`,
+      isInactiveCategory: false,
+      categoryQueryFailed: true,
+      productScope: { kind: 'legacy', categoryName: fallbackName },
+    };
+  }
 }
 
 /**
@@ -2379,7 +2068,7 @@ async function getCachedCategoryPageProductIds({
     productIds = ((data || []) as Array<{ id?: string | null }>)
       .map((product) => product.id)
       .filter((id): id is string => Boolean(id));
-    productsError = error || (scope.scopeQueryFailed ? true : null);
+    productsError = error;
   }
 
   if (scope.kind === 'legacy') {
@@ -2403,13 +2092,28 @@ async function getCachedCategoryPageProductIds({
   }
 
   if (productsError) {
-    console.error('Product ID query error:', productsError);
+    throw productsError;
   }
 
   return {
     productIds,
     productsQueryFailed: Boolean(productsError),
   };
+}
+
+async function getCategoryPageProductIds({
+  merchantId,
+  scope,
+}: {
+  merchantId: string;
+  scope: CachedCategoryPageProductScope;
+}): Promise<CachedCategoryPageProductIdsResult> {
+  try {
+    return await getCachedCategoryPageProductIds({ merchantId, scope });
+  } catch (error) {
+    console.error('Product ID query failed outside cache:', error);
+    return { productIds: [], productsQueryFailed: true };
+  }
 }
 
 /**
@@ -2546,7 +2250,7 @@ async function getCachedCategoryPageProductsUncached({
   productOffset?: number;
   scope: CachedCategoryPageProductScope;
 }): Promise<CachedCategoryPageProductsResult> {
-  const idResult = await getCachedCategoryPageProductIds({
+  const idResult = await getCategoryPageProductIds({
     merchantId,
     scope,
   });
@@ -2641,7 +2345,7 @@ export async function getCachedCategoryPageData(
   productOffset?: number,
   productLimit?: number
 ): Promise<CachedCategoryPageData> {
-  const shell = await getCachedCategoryPageShellData(
+  const shell = await getCategoryPageShellData(
     merchantId,
     categorySlug,
     storeSlug
@@ -2702,7 +2406,7 @@ export async function getCachedCategoryPageData(
  * Cached product reviews.
  * Uses 'products' cacheLife profile (stale 5min, revalidate 5min, expire 24hr)
  */
-export async function getCachedProductReviews(
+async function getCachedProductReviewsRead(
   productId: string,
   options?: {
     limit?: number;
@@ -2747,18 +2451,32 @@ export async function getCachedProductReviews(
   const { data, error } = await query;
 
   if (error) {
-    console.error('Error fetching reviews:', error);
-    return [];
+    throw error;
   }
 
   return data || [];
+}
+
+export async function getCachedProductReviews(
+  productId: string,
+  options?: {
+    limit?: number;
+    offset?: number;
+  }
+) {
+  try {
+    return await getCachedProductReviewsRead(productId, options);
+  } catch (error) {
+    console.warn('Optional PDP reviews unavailable', { productId, error });
+    return [];
+  }
 }
 
 /**
  * Cached product rating stats.
  * Uses 'products' cacheLife profile (stale 5min, revalidate 5min, expire 24hr)
  */
-export async function getCachedProductRatingStats(productId: string) {
+async function getCachedProductRatingStatsRead(productId: string) {
   'use cache';
   cacheLife('products');
   cacheTag('reviews', `rating-stats-${productId}`);
@@ -2771,7 +2489,11 @@ export async function getCachedProductRatingStats(productId: string) {
     .eq('product_id', productId)
     .eq('status', 'approved');
 
-  if (error || !data || data.length === 0) {
+  if (error) {
+    throw error;
+  }
+
+  if (!data || data.length === 0) {
     return {
       averageRating: 0,
       totalReviews: 0,
@@ -2796,6 +2518,23 @@ export async function getCachedProductRatingStats(productId: string) {
     totalReviews,
     distribution,
   };
+}
+
+function getEmptyProductRatingStats() {
+  return {
+    averageRating: 0,
+    totalReviews: 0,
+    distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+  };
+}
+
+export async function getCachedProductRatingStats(productId: string) {
+  try {
+    return await getCachedProductRatingStatsRead(productId);
+  } catch (error) {
+    console.warn('Optional PDP rating stats unavailable', { productId, error });
+    return getEmptyProductRatingStats();
+  }
 }
 
 /**
@@ -2980,13 +2719,10 @@ export async function getCachedFeatureSettings(
 }
 
 /**
- * Cached blog post with related posts.
- * Keep public blog metadata/content in the local Cache Components cache.
- * Live Vercel logs showed RemoteCacheHandler errors for post-specific keys,
- * and official Next guidance reserves remote cache for cases where the
- * network lookup/infrastructure cost is justified.
+ * Cache only the route-critical blog post read. Transient failures throw so a
+ * cache entry can never turn a temporarily unavailable post into a 404.
  */
-export async function getCachedBlogPost(
+async function getCachedBlogPostCore(
   identifier: string,
   postSlug: string,
   includeDrafts: boolean = false
@@ -3000,11 +2736,7 @@ export async function getCachedBlogPost(
 
   if (!merchant) return null;
 
-  cacheTag('products', `products-${merchant.id}`);
-
-  // Check if blog is enabled
-  const features = await getCachedFeatureSettings(merchant.id);
-  if (!features?.blog_enabled) return null;
+  if (!merchant.feature_settings?.blog_enabled) return null;
 
   const supabase = getPublicSupabaseClient();
 
@@ -3021,15 +2753,46 @@ export async function getCachedBlogPost(
 
   const { data: post, error: postError } = await query.single();
 
-  if (postError || !post) {
-    if (postError && postError.code !== 'PGRST116') {
-      console.error('Error fetching blog post:', postError);
-    }
-    return null;
+  if (postError) {
+    if (postError.code === 'PGRST116') return null;
+    console.error('Error fetching blog post:', postError);
+    throw postError;
   }
+  if (!post) return null;
   if (!includeDrafts && !isPublicBlogPost(post)) {
     return null;
   }
+
+  return {
+    merchant: {
+      id: merchant.id,
+      business_name: merchant.business_name,
+      slug: merchant.slug,
+      logo_url: merchant.logo_url,
+      custom_domain: merchant.custom_domain,
+      country: merchant.country,
+      social_media: merchant.social_media,
+    },
+    post,
+  };
+}
+
+type CachedBlogPostCore = NonNullable<
+  Awaited<ReturnType<typeof getCachedBlogPostCore>>
+>;
+
+/**
+ * Cache successful optional enrichment independently from the core post.
+ * Every query error escapes this cache scope; the public wrapper applies a
+ * request-local empty fallback so a transient failure is never persisted.
+ */
+async function getCachedBlogPostEnrichment(core: CachedBlogPostCore) {
+  'use cache';
+  cacheLife('blog');
+  cacheTag('blog-posts', 'products', `products-${core.merchant.id}`);
+
+  const { merchant, post } = core;
+  const supabase = getPublicSupabaseClient();
 
   // Fetch Related Posts. Over-fetch bounded public candidate sets and rank
   // server-side by semantic overlap instead of category-only filtering.
@@ -3079,28 +2842,25 @@ export async function getCachedBlogPost(
   ]);
 
   if (relatedPostsError) {
-    console.error('Error fetching related blog posts:', relatedPostsError);
+    throw relatedPostsError;
   }
 
   if (categoryRelatedPostsError) {
-    console.error(
-      'Error fetching category related blog posts:',
-      categoryRelatedPostsError
-    );
+    throw categoryRelatedPostsError;
   }
 
   const relatedPostCandidates = combineUniqueRelatedBlogPosts(
-    relatedPostsError ? [] : recentRelatedPosts,
-    categoryRelatedPostsError ? [] : categoryRelatedPosts
+    recentRelatedPosts,
+    categoryRelatedPosts
   );
 
   if (linkedProductsError) {
-    console.error('Error fetching linked blog products:', linkedProductsError);
+    throw linkedProductsError;
   }
 
-  let normalizedRelatedProducts = linkedProductsError
-    ? []
-    : normalizeRelatedBlogProductLinks(linkedProducts).slice(0, 8);
+  let normalizedRelatedProducts = normalizeRelatedBlogProductLinks(
+    linkedProducts
+  ).slice(0, 8);
 
   const normalizedCategorySlug = normalizeStorefrontCategoryValue(
     post.category
@@ -3118,28 +2878,13 @@ export async function getCachedBlogPost(
         .limit(6);
 
     if (relatedProductsError) {
-      console.error(
-        'Error fetching related blog products:',
-        relatedProductsError
-      );
+      throw relatedProductsError;
     }
 
-    normalizedRelatedProducts = relatedProductsError
-      ? []
-      : normalizeRelatedBlogProducts(relatedProducts);
+    normalizedRelatedProducts = normalizeRelatedBlogProducts(relatedProducts);
   }
 
   return {
-    merchant: {
-      id: merchant.id,
-      business_name: merchant.business_name,
-      slug: merchant.slug,
-      logo_url: merchant.logo_url,
-      custom_domain: merchant.custom_domain,
-      country: merchant.country,
-      social_media: merchant.social_media,
-    },
-    post,
     relatedPosts: selectSemanticRelatedBlogPosts(
       post,
       filterPublicBlogPosts(relatedPostCandidates),
@@ -3150,23 +2895,40 @@ export async function getCachedBlogPost(
 }
 
 /**
- * Cached blog listing data for storefront markdown mirrors and list pages.
- * Keep public blog listing data in the local Cache Components cache; the key
- * cardinality is storefront/category/page/search-specific, and remote cache
- * lookups have produced production handler errors on adjacent blog routes.
+ * Public blog post contract. Core content and route identity are cached
+ * independently from optional links. Optional failures degrade only the
+ * current request and remain retryable on the next request.
  */
-export async function getCachedBlogListing(
+export async function getCachedBlogPost(
   identifier: string,
-  options?: {
-    category?: string;
-    page?: number;
-    searchQuery?: string;
+  postSlug: string,
+  includeDrafts: boolean = false
+) {
+  const core = await getCachedBlogPostCore(identifier, postSlug, includeDrafts);
+
+  if (!core) return null;
+
+  try {
+    const enrichment = await getCachedBlogPostEnrichment(core);
+    return { ...core, ...enrichment };
+  } catch (error) {
+    console.warn('Optional blog post enrichment unavailable', {
+      merchantId: core.merchant.id,
+      postId: core.post.id,
+      error,
+    });
+    return { ...core, relatedPosts: [], relatedProducts: [] };
   }
+}
+
+/** Cache the route-critical paginated post list, but not optional categories. */
+async function getCachedBlogListingCore(
+  identifier: string,
+  category: string | undefined,
+  page: number,
+  searchQuery: string | undefined
 ) {
   'use cache';
-  const category = options?.category;
-  const page = options?.page || 1;
-  const searchQuery = options?.searchQuery;
   // A `'use cache'` function takes a single static cache profile, so the
   // listing stays on the short `merchant` profile: it takes user-supplied
   // search/category args, and keeping it short avoids retaining unbounded
@@ -3185,8 +2947,7 @@ export async function getCachedBlogListing(
 
   if (!merchant) return null;
 
-  const features = await getCachedFeatureSettings(merchant.id);
-  if (!features?.blog_enabled) return null;
+  if (!merchant.feature_settings?.blog_enabled) return null;
 
   const supabase = getPublicSupabaseClient();
 
@@ -3238,36 +2999,7 @@ export async function getCachedBlogListing(
     throw postsError;
   }
 
-  let categoriesQuery = supabase
-    .from('blog_posts')
-    .select('category')
-    .eq('merchant_id', merchant.id)
-    .eq('status', 'published')
-    .not('published_at', 'is', null)
-    .not('title', 'is', null)
-    .not('slug', 'is', null)
-    .neq('title', '')
-    .neq('slug', '')
-    .not('category', 'is', null);
-
-  categoriesQuery = applyPublicBlogSqlFilters(categoriesQuery, {
-    includeCategoryFilters: true,
-  });
-
-  const { data: categories, error: categoriesError } = await categoriesQuery;
-  if (categoriesError) {
-    console.warn('Failed to load blog categories', {
-      merchantId: merchant.id,
-      error: categoriesError,
-    });
-  }
-
-  const uniqueCategories = categoriesError
-    ? []
-    : [...new Set(categories?.map((entry) => entry.category).filter(Boolean))];
   const publicPosts = filterPublicBlogPosts(posts || []);
-  const publicCategories = filterPublicBlogCategories(uniqueCategories);
-
   const totalPosts = getEstimatedPaginationCountFloor({
     count,
     itemCount: publicPosts.length,
@@ -3288,10 +3020,84 @@ export async function getCachedBlogListing(
     },
     posts: publicPosts,
     totalPosts,
-    categories: publicCategories,
     currentPage: page,
     totalPages: Math.ceil(totalPosts / limit),
     searchQuery,
+  };
+}
+
+async function getCachedBlogListingCategories(merchantId: string) {
+  'use cache';
+  cacheLife('merchant');
+  cacheTag('blog-posts', `blog-categories-${merchantId}`);
+
+  const supabase = getPublicSupabaseClient();
+  let categoriesQuery = supabase
+    .from('blog_posts')
+    .select('category')
+    .eq('merchant_id', merchantId)
+    .eq('status', 'published')
+    .not('published_at', 'is', null)
+    .not('title', 'is', null)
+    .not('slug', 'is', null)
+    .neq('title', '')
+    .neq('slug', '')
+    .not('category', 'is', null);
+
+  categoriesQuery = applyPublicBlogSqlFilters(categoriesQuery, {
+    includeCategoryFilters: true,
+  });
+
+  const { data: categories, error: categoriesError } = await categoriesQuery;
+  if (categoriesError) {
+    throw categoriesError;
+  }
+
+  const uniqueCategories = [
+    ...new Set(categories?.map((entry) => entry.category).filter(Boolean)),
+  ];
+  return filterPublicBlogCategories(uniqueCategories);
+}
+
+/**
+ * Public blog listing contract. Optional category navigation is isolated from
+ * the cached post list so a failed category query cannot persist as an empty
+ * navigation taxonomy.
+ */
+export async function getCachedBlogListing(
+  identifier: string,
+  options?: {
+    category?: string;
+    page?: number;
+    searchQuery?: string;
+  }
+) {
+  const category = options?.category;
+  const page = options?.page || 1;
+  const normalizedSearchQuery =
+    options?.searchQuery?.trim().slice(0, 100) || undefined;
+  const core = await getCachedBlogListingCore(
+    identifier,
+    category,
+    page,
+    normalizedSearchQuery
+  );
+
+  if (!core) return null;
+
+  let categories: string[] = [];
+  try {
+    categories = await getCachedBlogListingCategories(core.merchant.id);
+  } catch (error) {
+    console.warn('Optional blog categories unavailable', {
+      merchantId: core.merchant.id,
+      error,
+    });
+  }
+
+  return {
+    ...core,
+    categories,
   };
 }
 
@@ -3324,8 +3130,7 @@ export async function getCachedBlogAuthor(
   const merchant = await getMerchantStrict(identifier.toLowerCase());
   if (!merchant) return null;
 
-  const features = await getCachedFeatureSettings(merchant.id);
-  if (!features?.blog_enabled) return null;
+  if (!merchant.feature_settings?.blog_enabled) return null;
 
   const supabase = getPublicSupabaseClient();
 

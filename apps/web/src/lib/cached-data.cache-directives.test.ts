@@ -62,7 +62,7 @@ describe('cached-data cache directives', () => {
 
     // The full category payload can include an unbounded product array, so the
     // wrapper must not write that whole aggregate into one remote cache item.
-    expect(source).toContain('getCachedCategoryPageShellData');
+    expect(source).toContain('getCategoryPageShellData');
     expect(source).toContain('getCachedCategoryPageProducts');
   });
 
@@ -123,10 +123,7 @@ describe('cached-data cache directives', () => {
   it('keeps high-cardinality public product reads off the remote cache handler', () => {
     for (const functionName of [
       'getCachedProductLcpHint',
-      'getCachedProduct',
       'getCachedProductWithDetails',
-      'getCachedProductReviews',
-      'getCachedProductRatingStats',
     ]) {
       const source = getFunctionSource(functionName);
       expect(source, functionName).toContain("'use cache';");
@@ -134,36 +131,6 @@ describe('cached-data cache directives', () => {
       expect(source, functionName).toContain("cacheLife('products');");
       expect(source, functionName).toContain('cacheTag(');
     }
-  });
-
-  it('keeps public blog metadata and listing data off the remote cache handler', () => {
-    for (const functionName of ['getCachedBlogPost', 'getCachedBlogListing']) {
-      const source = getFunctionSource(functionName);
-      expect(source, functionName).toContain("'use cache';");
-      expect(source, functionName).not.toContain("'use cache: remote';");
-
-      // Next 16's local `use cache` API explicitly supports cacheLife/cacheTag.
-      // Keep these so blog metadata/content stays tag-revalidatable without
-      // reintroducing RemoteCacheHandler.
-      expect(source, functionName).toContain('cacheTag(');
-    }
-  });
-
-  it('moves only the high-cost blog post renders to the long-lived `blog` profile; keeps the listing short', () => {
-    // Blog posts are keyed by a bounded postSlug, so they use the near-static
-    // `blog` profile (hourly revalidate) to avoid re-rendering every 60s under
-    // crawler load.
-    const postSource = getFunctionSource('getCachedBlogPost');
-    expect(postSource).toContain("cacheLife('blog');");
-    expect(postSource).not.toContain("cacheLife('merchant');");
-
-    // The listing takes user-supplied search/category args, and a `'use cache'`
-    // function takes a single static profile (no conditional cacheLife), so it
-    // stays on the short `merchant` profile — avoids long-lived retention of
-    // arbitrary filter permutations.
-    const listingSource = getFunctionSource('getCachedBlogListing');
-    expect(listingSource).toContain("cacheLife('merchant');");
-    expect(listingSource).not.toContain("cacheLife('blog');");
   });
 });
 

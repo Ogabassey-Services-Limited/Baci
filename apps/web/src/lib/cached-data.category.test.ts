@@ -1,6 +1,9 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCachedCategoryPageData } from '@/lib/cached-data';
+import {
+  getCachedCategoryPageData,
+  getCachedCategoryPageShellData,
+} from '@/lib/cached-data';
 import {
   buildCachedDataTestHarness,
   type CachedDataTestHarness,
@@ -197,6 +200,45 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
       'products-merchant-123',
       'categories-merchant-123'
     );
+  });
+
+  it('degrades an ID query failure outside the remote cache without treating it as an empty catalog', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-active-123',
+        name: 'Active Category',
+        slug: 'active-category',
+        description: 'Standard active category',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null },
+      {
+        data: null,
+        error: { code: '57014', message: 'statement timeout' },
+      }
+    );
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'active-category',
+      'test-store'
+    );
+
+    expect(result).toMatchObject({
+      categoryQueryFailed: false,
+      productIdsQueryFailed: true,
+      products: [],
+      productsQueryFailed: true,
+    });
   });
 
   it('preserves ID slots when an early detail chunk fails and a later chunk succeeds', async () => {
@@ -429,5 +471,55 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
         productsQueryFailed: false,
       })
     );
+  });
+
+  it('keeps transient category-row errors outside the cached shell result', async () => {
+    const categoryError = {
+      code: '57014',
+      message: 'canceling statement due to timeout',
+    };
+    harness.mockSingle.mockResolvedValueOnce({
+      data: null,
+      error: categoryError,
+    });
+
+    await expect(
+      getCachedCategoryPageShellData('merchant-123', 'maybe-real', 'test-store')
+    ).rejects.toBe(categoryError);
+  });
+
+  it('keeps transient child-scope errors outside the cached shell result', async () => {
+    const scopeError = {
+      code: '57014',
+      message: 'category scope timed out',
+    };
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-active-123',
+        name: 'Active Category',
+        slug: 'active-category',
+        description: 'Standard active category',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+    harness.mockQueryExecution.mockReturnValueOnce({
+      data: null,
+      error: scopeError,
+    });
+
+    await expect(
+      getCachedCategoryPageShellData(
+        'merchant-123',
+        'active-category',
+        'test-store'
+      )
+    ).rejects.toBe(scopeError);
   });
 });

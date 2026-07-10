@@ -177,8 +177,8 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
     try {
       revalidateProducts(merchantId);
 
-      // revalidateProducts(merchantId) does NOT bust the per-slug PDP tag
-      // getCachedProduct() reads (getProductScopedCacheTag('product',
+      // revalidateProducts(merchantId) does NOT bust the per-slug PDP snapshot
+      // tag (getProductScopedCacheTag('product',
       // merchantId, slug)). orderSessionCalc.lineItems carries only product_id
       // (GPTLineItem never exposes slug), and item.product_id is always the
       // PARENT product id, so resolve slugs with one merchant-scoped, PK-indexed
