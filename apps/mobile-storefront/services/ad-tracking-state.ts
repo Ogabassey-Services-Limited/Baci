@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import { createLogger } from '@/lib/logger';
+import type { AdTrackingUserProperties } from './ad-tracking.types';
 import {
   type AEMReporterIOSLike,
   type AppEventsLoggerLike,
@@ -7,7 +8,6 @@ import {
   loadAdTrackingNativeModules,
   type TikTokBusinessLike,
 } from './ad-tracking-native-modules';
-import type { AdTrackingUserProperties } from './ad-tracking.types';
 
 export const adTrackingLog = createLogger('AdTracking');
 
@@ -41,8 +41,6 @@ export async function loadNativeModules(): Promise<void> {
   AEMReporterIOS = modules.AEMReporterIOS;
   TikTokBusiness = modules.TikTokBusiness;
 }
-
-void loadNativeModules();
 
 export function getAdTrackingModules() {
   return { FBSettings, AppEventsLogger, AEMReporterIOS, TikTokBusiness };

@@ -277,7 +277,6 @@ export function OrderSuccessView({
       </SafeAreaView>
       <PermissionModal
         visible={showPermissionModal}
-        type="notifications"
         onGrant={onPermissionGrant}
         onDeny={onPermissionDeny}
       />

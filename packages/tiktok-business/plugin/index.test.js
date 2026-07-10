@@ -6,6 +6,7 @@ describe('createTikTokBusinessInfoPlistEntries', () => {
       createTikTokBusinessInfoPlistEntries({
         appId: '6472735367',
         appSecret: 'secret',
+        autoInitialize: false,
         debugMode: true,
         disablePaymentTracking: false,
         disableSKAdNetworkSupport: true,
@@ -14,6 +15,7 @@ describe('createTikTokBusinessInfoPlistEntries', () => {
     ).toEqual({
       BaciTikTokBusinessAppId: '6472735367',
       BaciTikTokBusinessAppSecret: 'secret',
+      BaciTikTokBusinessAutoInitialize: false,
       BaciTikTokBusinessDebugMode: true,
       BaciTikTokBusinessDisablePaymentTracking: false,
       BaciTikTokBusinessDisableSKAdNetworkSupport: true,
@@ -30,6 +32,7 @@ describe('createTikTokBusinessInfoPlistEntries', () => {
       })
     ).toMatchObject({
       BaciTikTokBusinessDebugMode: false,
+      BaciTikTokBusinessAutoInitialize: true,
       BaciTikTokBusinessDisablePaymentTracking: false,
       BaciTikTokBusinessDisableSKAdNetworkSupport: false,
     });

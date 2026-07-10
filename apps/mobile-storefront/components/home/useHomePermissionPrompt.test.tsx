@@ -1,19 +1,34 @@
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import { act, renderHook } from '@testing-library/react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 import { useHomePermissionPrompt } from './useHomePermissionPrompt';
 
-const mockRequestPermission = jest.fn();
-const mockTriggerSystemPrompt = jest.fn();
-const mockMarkDenied = jest.fn();
+const mockCanRequestTrackingTransparency = jest.fn<() => boolean>(() => true);
+const mockGetTrackingPermissionStatus = jest.fn<
+  () => Promise<{ status: string }>
+>();
+const mockRequestTrackingPermission = jest.fn<() => Promise<string>>();
+const mockRemoveAppStateListener = jest.fn();
+let mockAppState: AppStateStatus = 'active';
+let mockAppStateListener: ((state: AppStateStatus) => void) | null = null;
 
-jest.mock('@/hooks/use-permission-booster', () => ({
-  usePermissionBooster: () => ({
-    markDenied: mockMarkDenied,
-    requestPermission: mockRequestPermission,
-    triggerSystemPrompt: mockTriggerSystemPrompt,
-  }),
+jest.mock('@/lib/tracking-transparency', () => ({
+  canRequestTrackingTransparency: () => mockCanRequestTrackingTransparency(),
+  getTrackingPermissionStatus: () => mockGetTrackingPermissionStatus(),
 }));
 
-async function advanceHomeSoftAskTimer() {
+jest.mock('@/services/ad-tracking', () => ({
+  requestTrackingPermission: () => mockRequestTrackingPermission(),
+}));
+
+async function advanceHomePromptTimer() {
   await act(async () => {
     jest.advanceTimersByTime(3000);
     await Promise.resolve();
@@ -24,64 +39,84 @@ describe('useHomePermissionPrompt', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-    mockRequestPermission.mockResolvedValue('granted');
-    mockTriggerSystemPrompt.mockResolvedValue(true);
+    mockAppState = 'active';
+    mockAppStateListener = null;
+    mockCanRequestTrackingTransparency.mockReturnValue(true);
+    mockGetTrackingPermissionStatus.mockResolvedValue({
+      status: 'undetermined',
+    });
+    mockRequestTrackingPermission.mockResolvedValue('granted');
+    Object.defineProperty(AppState, 'currentState', {
+      configurable: true,
+      get: () => mockAppState,
+    });
+    jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_type, listener) => {
+        mockAppStateListener = listener;
+        return { remove: mockRemoveAppStateListener };
+      });
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.useRealTimers();
   });
 
-  it('shows the tracking soft ask after the home discovery delay', async () => {
-    mockRequestPermission.mockResolvedValueOnce('soft-ask-needed');
+  it('requests the Apple ATT prompt directly when status is undetermined', async () => {
+    renderHook(() => useHomePermissionPrompt());
 
-    const { result } = renderHook(() => useHomePermissionPrompt());
+    await advanceHomePromptTimer();
 
-    expect(result.current.showPermissionModal).toBe(false);
-
-    await advanceHomeSoftAskTimer();
-
-    expect(mockRequestPermission).toHaveBeenCalledWith('tracking');
-    expect(result.current.showPermissionModal).toBe(true);
+    expect(mockGetTrackingPermissionStatus).toHaveBeenCalledTimes(1);
+    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(1);
   });
 
-  it('does not show the soft ask when permission is already resolved', async () => {
-    const { result } = renderHook(() => useHomePermissionPrompt());
+  it('does not request ATT again after the system status is resolved', async () => {
+    mockGetTrackingPermissionStatus.mockResolvedValueOnce({ status: 'denied' });
+    renderHook(() => useHomePermissionPrompt());
 
-    await advanceHomeSoftAskTimer();
+    await advanceHomePromptTimer();
 
-    expect(mockRequestPermission).toHaveBeenCalledWith('tracking');
-    expect(result.current.showPermissionModal).toBe(false);
+    expect(mockGetTrackingPermissionStatus).toHaveBeenCalledTimes(1);
+    expect(mockRequestTrackingPermission).not.toHaveBeenCalled();
   });
 
-  it('runs the tracking system prompt when the shopper accepts', async () => {
-    const { result } = renderHook(() => useHomePermissionPrompt());
+  it('waits until the app is active before requesting ATT', async () => {
+    mockAppState = 'background';
+    renderHook(() => useHomePermissionPrompt());
 
+    await advanceHomePromptTimer();
+
+    expect(mockGetTrackingPermissionStatus).not.toHaveBeenCalled();
+    expect(mockAppStateListener).not.toBeNull();
+
+    mockAppState = 'active';
     await act(async () => {
-      await result.current.handlePermissionGrant();
+      mockAppStateListener?.('active');
+      await Promise.resolve();
     });
 
-    expect(mockTriggerSystemPrompt).toHaveBeenCalledWith('tracking');
-    expect(result.current.showPermissionModal).toBe(false);
+    expect(mockRemoveAppStateListener).toHaveBeenCalledTimes(1);
+    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(1);
   });
 
-  it('records a tracking denial when the shopper declines', () => {
-    const { result } = renderHook(() => useHomePermissionPrompt());
+  it('does nothing on platforms without App Tracking Transparency', async () => {
+    mockCanRequestTrackingTransparency.mockReturnValue(false);
+    renderHook(() => useHomePermissionPrompt());
 
-    act(() => {
-      result.current.handlePermissionDeny();
-    });
+    await advanceHomePromptTimer();
 
-    expect(mockMarkDenied).toHaveBeenCalledWith('tracking');
-    expect(result.current.showPermissionModal).toBe(false);
+    expect(mockGetTrackingPermissionStatus).not.toHaveBeenCalled();
+    expect(mockRequestTrackingPermission).not.toHaveBeenCalled();
   });
 
-  it('clears the pending soft ask timer on unmount', async () => {
+  it('clears the pending native prompt timer on unmount', async () => {
     const { unmount } = renderHook(() => useHomePermissionPrompt());
 
     unmount();
-    await advanceHomeSoftAskTimer();
+    await advanceHomePromptTimer();
 
-    expect(mockRequestPermission).not.toHaveBeenCalled();
+    expect(mockGetTrackingPermissionStatus).not.toHaveBeenCalled();
   });
 });

@@ -16,6 +16,7 @@ export interface TikTokBusinessPluginConfig {
     appId: string;
     tiktokAppId: string;
     appSecret: string;
+    autoInitialize?: boolean;
     debugMode?: boolean;
     disablePaymentTracking?: boolean;
     disableSKAdNetworkSupport?: boolean;

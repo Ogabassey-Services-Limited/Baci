@@ -13,7 +13,7 @@ import {
 installAdTrackingRuntimeTestReset();
 
 describe('ad-tracking runtime initialization', () => {
-  it('does not fail initialization when the Facebook native bridge is partial', async () => {
+  it('does not load or initialize ad SDKs before ATT authorization', async () => {
     const nativeBridgeError = new TypeError('undefined is not a function');
     const setAdvertiserTrackingEnabled = jest.fn(() => {
       throw nativeBridgeError;
@@ -34,22 +34,16 @@ describe('ad-tracking runtime initialization', () => {
 
     await initAdTracking();
 
-    expect(setAdvertiserTrackingEnabled).toHaveBeenCalledWith(false);
-    expect(initializeSDK).toHaveBeenCalledTimes(1);
-    expect(mockWarn).toHaveBeenCalledWith(
-      'Facebook advertiser tracking update failed:',
-      nativeBridgeError
-    );
-    expect(mockWarn).toHaveBeenCalledWith(
-      'Facebook SDK initialization failed:',
-      nativeBridgeError
-    );
+    expect(mockLoadAdTrackingNativeModules).not.toHaveBeenCalled();
+    expect(setAdvertiserTrackingEnabled).not.toHaveBeenCalled();
+    expect(initializeSDK).not.toHaveBeenCalled();
+    expect(mockWarn).not.toHaveBeenCalled();
     expect(mockError).not.toHaveBeenCalledWith(
       'Initialization error:',
       expect.anything()
     );
     expect(mockInfo).toHaveBeenCalledWith(
-      'Initialized. Server-side tracking enabled. ATT:',
+      'Initialized. Advertising tracking enabled:',
       false
     );
   });
@@ -59,6 +53,7 @@ describe('ad-tracking runtime initialization', () => {
     const setAdvertiserTrackingEnabled = jest.fn(() =>
       Promise.reject(nativeBridgeError)
     );
+    mockGetTrackingPermissionStatus.mockResolvedValue({ status: 'granted' });
     mockLoadAdTrackingNativeModules.mockResolvedValue(
       createNativeModules({
         FBSettings: {
@@ -73,7 +68,7 @@ describe('ad-tracking runtime initialization', () => {
     await initAdTracking();
     await Promise.resolve();
 
-    expect(setAdvertiserTrackingEnabled).toHaveBeenCalledWith(false);
+    expect(setAdvertiserTrackingEnabled).toHaveBeenCalledWith(true);
     expect(mockWarn).toHaveBeenCalledWith(
       'Facebook advertiser tracking update failed:',
       nativeBridgeError

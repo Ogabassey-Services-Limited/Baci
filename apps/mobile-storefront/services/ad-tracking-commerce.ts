@@ -1,15 +1,12 @@
-import { buildTikTokCommerceEventParams } from './tiktok-commerce-event-data';
-import { posthogAddToCart, posthogProductViewed } from './ad-tracking-identity';
-import {
-  generateEventIdSync,
-  sendClientBackup,
-  sendServerConversion,
-} from './ad-tracking-runtime';
 import type {
   TrackedCartProduct,
   TrackedCheckout,
   TrackedProduct,
 } from './ad-tracking.types';
+import { posthogAddToCart, posthogProductViewed } from './ad-tracking-identity';
+import { generateEventIdSync, sendClientBackup } from './ad-tracking-runtime';
+import { sendServerConversion } from './ad-tracking-server-conversion';
+import { buildTikTokCommerceEventParams } from './tiktok-commerce-event-data';
 
 export async function trackProductViewed(
   product: TrackedProduct

@@ -49,8 +49,7 @@ export default function HomeScreen() {
   const { data: merchant } = useMerchant();
   const merchantId = merchant?.id || CONSTANT_MERCHANT_ID;
 
-  const { handlePermissionDeny, handlePermissionGrant, showPermissionModal } =
-    useHomePermissionPrompt();
+  useHomePermissionPrompt();
   const shouldRenderDecorations = useDeferredFocusRender(isFocused);
 
   const {
@@ -242,8 +241,6 @@ export default function HomeScreen() {
       onCategorySelect={handleCategorySelect}
       onHeaderLayout={handleHeaderLayout}
       onListScroll={handleListScroll}
-      onPermissionDeny={handlePermissionDeny}
-      onPermissionGrant={handlePermissionGrant}
       onRefresh={handleRefresh}
       onSearch={handleSearch}
       onSearchCancel={handleSearchCancel}
@@ -257,7 +254,6 @@ export default function HomeScreen() {
       searchVisible={searchVisible}
       selectedCategoryId={selectedCategoryId}
       shouldRenderDecorations={shouldRenderDecorations}
-      showPermissionModal={showPermissionModal}
     />
   );
 }

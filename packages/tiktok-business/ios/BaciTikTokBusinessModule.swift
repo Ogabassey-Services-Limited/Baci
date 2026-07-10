@@ -14,6 +14,7 @@ private enum BaciTikTokBusinessConfig {
   static let appIdKey = "BaciTikTokBusinessAppId"
   static let tiktokAppIdKey = "BaciTikTokBusinessTikTokAppId"
   static let appSecretKey = "BaciTikTokBusinessAppSecret"
+  static let autoInitializeKey = "BaciTikTokBusinessAutoInitialize"
   static let debugModeKey = "BaciTikTokBusinessDebugMode"
   static let disablePaymentTrackingKey = "BaciTikTokBusinessDisablePaymentTracking"
   static let disableSKAdNetworkSupportKey = "BaciTikTokBusinessDisableSKAdNetworkSupport"
@@ -23,6 +24,7 @@ private struct BaciTikTokBusinessSettings {
   let appId: String
   let tiktokAppId: String
   let appSecret: String
+  let autoInitialize: Bool
   let debugMode: Bool
   let disablePaymentTracking: Bool
   let disableSKAdNetworkSupport: Bool
@@ -84,6 +86,10 @@ private enum BaciTikTokBusinessInitializer {
     return true
   }
 
+  static func shouldAutoInitializeFromBundle() -> Bool {
+    readSettings().autoInitialize
+  }
+
   private static func readSettings() -> BaciTikTokBusinessSettings {
     let infoPlist = Bundle.main.infoDictionary ?? [:]
 
@@ -91,6 +97,10 @@ private enum BaciTikTokBusinessInitializer {
       appId: stringValue(infoPlist[BaciTikTokBusinessConfig.appIdKey]),
       tiktokAppId: stringValue(infoPlist[BaciTikTokBusinessConfig.tiktokAppIdKey]),
       appSecret: stringValue(infoPlist[BaciTikTokBusinessConfig.appSecretKey]),
+      autoInitialize: boolValue(
+        infoPlist[BaciTikTokBusinessConfig.autoInitializeKey],
+        defaultValue: true
+      ),
       debugMode: boolValue(infoPlist[BaciTikTokBusinessConfig.debugModeKey]),
       disablePaymentTracking: boolValue(infoPlist[BaciTikTokBusinessConfig.disablePaymentTrackingKey]),
       disableSKAdNetworkSupport: boolValue(infoPlist[BaciTikTokBusinessConfig.disableSKAdNetworkSupportKey])
@@ -104,14 +114,21 @@ private enum BaciTikTokBusinessInitializer {
     return string.trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
-  private static func boolValue(_ value: Any?) -> Bool {
+  private static func boolValue(_ value: Any?, defaultValue: Bool = false) -> Bool {
     if let bool = value as? Bool {
       return bool
     }
     if let string = value as? String {
-      return ["1", "true", "yes"].contains(string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+      let normalized = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+      if ["1", "true", "yes"].contains(normalized) {
+        return true
+      }
+      if ["0", "false", "no"].contains(normalized) {
+        return false
+      }
+      return defaultValue
     }
-    return false
+    return defaultValue
   }
 }
 
@@ -180,6 +197,9 @@ public class BaciTikTokBusinessAppDelegateSubscriber: ExpoAppDelegateSubscriber 
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    guard BaciTikTokBusinessInitializer.shouldAutoInitializeFromBundle() else {
+      return true
+    }
     _ = BaciTikTokBusinessInitializer.initializeFromBundle()
     return true
   }
