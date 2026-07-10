@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { BlogPostData } from '@/templates/registry';
 import { BlogFeaturedStory } from './blog-featured-story';
 
-interface MockNextImageProps {
+interface MockCdnFormatImageProps {
   alt: string;
   fetchPriority?: 'high' | 'low' | 'auto';
   fill?: boolean;
@@ -16,8 +16,12 @@ interface MockNextImageProps {
   src: string;
 }
 
-vi.mock('next/image', () => ({
-  default: ({
+// The featured story now renders through CdnFormatImage (explicit per-format
+// <picture>). Its real pipeline calls next/image's `getImageProps`; surface it
+// as a plain <img> so these tests keep asserting the LCP image contract
+// (decorative, eager, high-priority, q50) — not image internals.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: ({
     alt,
     fetchPriority,
     fill,
@@ -27,7 +31,7 @@ vi.mock('next/image', () => ({
     quality,
     sizes,
     src,
-  }: MockNextImageProps) => (
+  }: MockCdnFormatImageProps) => (
     <img
       alt={alt}
       data-fetchpriority={fetchPriority}

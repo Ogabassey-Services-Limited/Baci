@@ -1,6 +1,6 @@
 import { ArrowRight } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { BLOG_HERO_IMAGE_QUALITY } from '@/components/storefront/ogabassey/config/blog-media';
 import { asRoute, joinRouteBasePath } from '@/lib/routes';
 import type { BlogPostData } from '@/templates/registry';
@@ -28,7 +28,14 @@ export function BlogFeaturedStory({
       className="group relative mb-12 block h-[400px] overflow-hidden rounded-4xl shadow-2xl transition-all hover:shadow-[0_20px_50px_rgba(0,0,0,0.15)] md:h-[500px]"
     >
       <div className="ogabassey-blog-featured-story__media absolute inset-0">
-        <Image
+        {/* Explicit per-format `<picture>` (AVIF `<source>` + jpeg/png `<img>`
+            fallback) for the blog listing LCP hero. Cloudflare Free ignores
+            `Vary: Accept`, so a single `format=auto` URL would hand non-AVIF
+            browsers undecodable bytes. The paired preload
+            (`preloadBlogListingFeaturedImage`) owns the byte-identical AVIF
+            hint, so this render does NOT fire its own. Non-CDN merchant heroes
+            have no AVIF twin and render as a plain `<img>`. */}
+        <CdnFormatImage
           src={imageSrc}
           alt=""
           className="object-cover opacity-90 transition-transform duration-1000 group-hover:scale-105"

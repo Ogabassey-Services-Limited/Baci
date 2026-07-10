@@ -1,7 +1,7 @@
 import { ArrowLeft } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import {
   BLOG_HERO_IMAGE_QUALITY,
   BLOG_POST_HERO_IMAGE_SIZES,
@@ -62,7 +62,16 @@ export function BlogPostShell({
           <article className="max-w-6xl mx-auto bg-white rounded-3xl p-6 md:p-10 md:px-12 shadow-sm border border-gray-100 overflow-hidden">
             {hero && (
               <div className="aspect-video rounded-2xl overflow-hidden mb-8 relative bg-gray-100">
-                <Image
+                {/* Explicit per-format `<picture>` (AVIF `<source>` + jpeg/png
+                    `<img>` fallback) for the blog post LCP hero. Cloudflare Free
+                    ignores `Vary: Accept`, so a single `format=auto` URL would
+                    serve non-AVIF browsers undecodable bytes. `preload` keeps the
+                    repo LCP convention: for CDN heroes it fires the AVIF hint
+                    (byte-identical to `preloadOgabasseyBlogPostHeroResources`, so
+                    they dedupe); for non-CDN heroes — which the resource-hints
+                    module skips — it fires the plain fallback hint next/image's
+                    `preload` prop used to emit. */}
+                <CdnFormatImage
                   src={hero.src}
                   alt={hero.alt}
                   fill
