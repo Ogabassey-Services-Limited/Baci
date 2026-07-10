@@ -175,7 +175,8 @@ describe('GiglProvider quote requests', () => {
     expect(quotes[0]).toMatchObject({
       provider: 'GIGL',
       serviceTier: 'Station Pickup - GoStandard',
-      displayName: 'GIG Logistics - Pickup at PHC RUMUOLUMENI IWOFE',
+      displayName:
+        'GIG Logistics - Pickup at PHC RUMUOLUMENI IWOFE - GoStandard',
       providerRateId: 'GIGL_30_1_1_575_0',
       isStationPickup: true,
       stationId: 30,
