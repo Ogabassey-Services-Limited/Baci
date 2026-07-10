@@ -95,11 +95,16 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => (
-    <img {...props} alt={String(props.alt || '')} />
-  ),
-}));
+vi.mock('next/image', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('next/image')>();
+
+  return {
+    ...actual,
+    default: (props: Record<string, unknown>) => (
+      <img {...props} alt={String(props.alt || '')} />
+    ),
+  };
+});
 
 vi.mock('../components/AdUnit', () => ({
   AdUnit: () => <div data-testid="ad-unit" />,
