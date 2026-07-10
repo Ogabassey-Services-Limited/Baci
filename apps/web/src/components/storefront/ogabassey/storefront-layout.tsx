@@ -3,6 +3,7 @@ import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/s
 import { StorefrontChromeRuntime } from '@/components/storefront/ogabassey/storefront-chrome-runtime';
 import { ShellChromeLoading } from '@/components/storefront/ogabassey/storefront-loading-ui';
 import { StorefrontShellLayout } from '@/components/storefront/ogabassey/storefront-shell-layout';
+import { StorefrontSpeculationRules } from '@/components/storefront/ogabassey/storefront-speculation-rules';
 import type { MerchantData } from '@/hooks/merchant/types';
 import type React from 'react';
 import * as ReactDOM from 'react-dom';
@@ -46,6 +47,14 @@ export function OgabasseyStorefrontLayout({
 
   return (
     <>
+      {/*
+        Speculation Rules (SPEC-RULES): prerender the highest-value next
+        navigation (listing/home -> PDP) at moderate eagerness and prefetch the
+        broader category set. Emitted layout-wide so the rules cover links on
+        every storefront page; cart/checkout/account and other per-user routes
+        are excluded as targets. Analytics side effects are prerender-gated.
+      */}
+      <StorefrontSpeculationRules basePath={basePath} />
       {merchant && (
         <DeferredGoogleStoreWidget
           merchant={merchant}

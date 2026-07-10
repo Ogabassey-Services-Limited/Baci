@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { runWhenPageActivated } from '@/lib/dom/run-when-page-activated';
 import { logger } from '@/lib/logger';
 import type { Product } from '@/lib/products';
 import { resolveDefaultVariantSelection } from '../../../../../packages/shared/src/lib/product-default-variant';
@@ -106,10 +107,25 @@ export function StorefrontCartProvider({
     let cancelled = false;
     let idleCallbackId: number | undefined;
     let loadListenerAttached = false;
+    let cancelActivationGate: (() => void) | undefined;
     const activateValidation = () => {
-      if (!cancelled) {
-        setIdleValidationActivated(true);
+      if (cancelled) {
+        return;
       }
+      // A speculatively prerendered PDP (Speculation Rules `prerender`) runs
+      // this provider's JS in a hidden tab. Committing validation there would
+      // POST /api/cart/validate and persist the result to the shared cart
+      // storage for a page the shopper may never open — mutating their real
+      // cart or clearing negotiations. Defer the commit until the page is
+      // actually presented; a discarded prerender never activates, so it never
+      // runs. Outside prerender this invokes the callback synchronously, so
+      // behaviour is unchanged.
+      cancelActivationGate?.();
+      cancelActivationGate = runWhenPageActivated(() => {
+        if (!cancelled) {
+          setIdleValidationActivated(true);
+        }
+      });
     };
 
     const scheduleIdleActivation = () => {
@@ -155,6 +171,7 @@ export function StorefrontCartProvider({
 
     return () => {
       cancelled = true;
+      cancelActivationGate?.();
       if (timeoutId !== undefined) window.clearTimeout(timeoutId);
 
       if (idleCallbackId !== undefined) {
