@@ -143,6 +143,49 @@ describe('CartPageWrapper', () => {
     expect(addToCart).not.toHaveBeenCalled();
   });
 
+  it('re-allows the prize claim after the shopper clears the blocking items', async () => {
+    // Blocked first (other items present). The link must NOT be consumed —
+    // otherwise emptying the cart could never let the prize through.
+    const addToCart = mockUseCart({ cart: [{ id: 'paid-1', quantity: 1 }] });
+    setupProductsQuery({
+      data: [
+        {
+          id: '55555555-5555-4555-8555-555555555555',
+          images: [],
+          name: 'iPhone 15 Pro Max',
+          price: 2100000,
+          status: 'active',
+        },
+      ],
+      error: null,
+    });
+
+    const { rerender } = render(<CartPageWrapper merchantId="merchant-1" />);
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Check out your prize separately' })
+      );
+    });
+    expect(addToCart).not.toHaveBeenCalled();
+
+    // Shopper empties the cart; the effect reruns and the prize is now claimed.
+    mockUseCart({ addToCart, cart: [] });
+    rerender(<CartPageWrapper merchantId="merchant-1" />);
+
+    await waitFor(() => {
+      expect(addToCart).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: '55555555-5555-4555-8555-555555555555',
+        }),
+        1,
+        expect.objectContaining({
+          quizAwardId: '44444444-4444-4444-8444-444444444444',
+        })
+      );
+    });
+  });
+
   it('waits for cart hydration before running the mixed-cart guard', async () => {
     // Cold load: the persisted paid item is not visible yet because the cart
     // provider has not hydrated. The wrapper must NOT process — otherwise it

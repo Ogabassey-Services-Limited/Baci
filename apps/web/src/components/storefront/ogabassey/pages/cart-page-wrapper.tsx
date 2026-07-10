@@ -48,24 +48,10 @@ async function fetchAndAddCartItems({
 }: FetchAndAddCartItemsOptions): Promise<void> {
   const hasQuizPrizeVoucher = Boolean(quizAwardId && quizVoucherToken);
 
-  // A prize is redeemed as its OWN order; the server rejects a cart that mixes
-  // the voucher with paid items (QUIZ_VOUCHER_MIXED_CART_UNSUPPORTED) or holds a
-  // second distinct voucher (QUIZ_VOUCHER_MULTIPLE). Block the claim here —
-  // mirror of the mobile claim guard — so the shopper isn't sent through
-  // checkout only to hit a 400 and have to unwind the cart by hand. Re-claiming
-  // the SAME award is fine (deduped below).
-  if (
-    hasQuizPrizeVoucher &&
-    cart.some((item) => item.quizAwardId !== quizAwardId)
-  ) {
-    toast({
-      title: 'Check out your prize separately',
-      description:
-        'Your cart has other items. Check out or empty your cart first, then claim your prize.',
-      variant: 'destructive',
-    });
-    return;
-  }
+  // The mixed-cart guard runs in the caller BEFORE the prize link is marked
+  // processed (see CartPageWrapper), so a blocked claim can still be redeemed
+  // once the shopper empties/checks out their other items. By the time we get
+  // here the cart is safe to add the prize to.
 
   setIsLoading(true);
 
@@ -194,6 +180,7 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const processedRef = useRef(false);
+  const blockedNoticeRef = useRef(false);
 
   useEffect(() => {
     const itemIds = searchParams.get('item_id');
@@ -211,6 +198,31 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
     // `isHydrated` (and keeping it in the dep list) defers the single run until
     // the real cart is present. Only process once, and only if item_id exists.
     if (!isHydrated || !itemIds || processedRef.current) return;
+
+    // Mixed-cart guard, BEFORE the link is marked processed: a prize is redeemed
+    // as its OWN order (the server rejects a cart mixing the voucher with paid
+    // items). If other items are present, notify once and return WITHOUT
+    // consuming the link — once the shopper empties/checks out those items the
+    // effect reruns (cart is a dep) and the prize can still be claimed, instead
+    // of being permanently stuck behind `processedRef`. Re-claiming the SAME
+    // award is fine (deduped in fetchAndAddCartItems).
+    const hasQuizPrizeVoucher = Boolean(quizAwardId && quizVoucherToken);
+    if (
+      hasQuizPrizeVoucher &&
+      cart.some((item) => item.quizAwardId !== quizAwardId)
+    ) {
+      if (!blockedNoticeRef.current) {
+        blockedNoticeRef.current = true;
+        toast({
+          title: 'Check out your prize separately',
+          description:
+            'Your cart has other items. Check out or empty your cart first, then claim your prize.',
+          variant: 'destructive',
+        });
+      }
+      return;
+    }
+    blockedNoticeRef.current = false;
     processedRef.current = true;
 
     void fetchAndAddCartItems({

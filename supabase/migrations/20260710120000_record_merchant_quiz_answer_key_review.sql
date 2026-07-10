@@ -53,9 +53,12 @@ BEGIN
     RETURN false;
   END IF;
 
-  -- Count the event's slots and how many have an active variant whose stored
-  -- answer_key_hash matches the reviewed hash the admin submitted for that
-  -- slot_index.
+  -- Count the event's slots and how many are fully reviewed. A slot only counts
+  -- as matched when EVERY active variant the start-attempt RPC could serve for
+  -- it carries the reviewed answer hash — not just one of them. The start RPC
+  -- picks one active variant per slot at random, so a slot with a second active
+  -- variant whose answer was never reviewed must block activation; otherwise
+  -- that variant's answer key ships live without merchant review.
   SELECT
     pg_catalog.count(*)::integer,
     pg_catalog.count(*) FILTER (
@@ -63,7 +66,12 @@ BEGIN
         SELECT 1 FROM public.quiz_question_variants v
         WHERE v.slot_id = s.id
           AND v.active IS NOT FALSE
-          AND v.answer_key_hash = (p_reviewed ->> s.slot_index::text)
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM public.quiz_question_variants v
+        WHERE v.slot_id = s.id
+          AND v.active IS NOT FALSE
+          AND v.answer_key_hash IS DISTINCT FROM (p_reviewed ->> s.slot_index::text)
       )
     )::integer
   INTO v_slot_count, v_matched_count
