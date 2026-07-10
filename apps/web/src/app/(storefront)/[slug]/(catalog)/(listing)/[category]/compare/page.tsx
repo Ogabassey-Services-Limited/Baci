@@ -156,6 +156,18 @@ export async function generateMetadata({
     return buildNoindexMetadata({});
   }
 
+  // Empty hubs must 404 (anti-thin-page guard). Throwing HERE — not only in
+  // the page body — is load-bearing: the streamed page can commit a 200 shell
+  // before the body's notFound() runs, while blocking metadata (the bot path)
+  // resolves before headers flush, so crawlers see a real 404 status.
+  // Degraded inventory (a group's load threw, fail-open []) must NOT 404: the
+  // proxy stamps cacheable CDN headers without inspecting status, so a
+  // transient failure on a live hub could edge-cache a 404 — serve the
+  // noindexed thin hub instead and let the cache self-heal.
+  if (data.compareLinks.length === 0 && !data.inventoryDegraded) {
+    notFound();
+  }
+
   const isCanonicalCategoryPath = isCanonicalCategoryCompareRequest(
     category,
     data.categorySlug
@@ -204,6 +216,15 @@ export default async function CategoryCompareIndexPage({
   const data = await loadCategoryCompareHubViewData(slug, category);
 
   if (!data) {
+    notFound();
+  }
+
+  // Anti-thin-page guard (curated-indexability parity): a category with zero
+  // eligible comparisons must 404, not serve an empty hub. Category pages only
+  // link the hub when the same inventory yields links, so nothing internal
+  // points at a 404ing hub. Degraded loads fail open to the thin noindexed
+  // hub — see the generateMetadata guard for why.
+  if (data.compareLinks.length === 0 && !data.inventoryDegraded) {
     notFound();
   }
 
