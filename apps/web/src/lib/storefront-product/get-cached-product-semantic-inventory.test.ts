@@ -1,14 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedProductSemanticInventory } from './get-cached-product-semantic-inventory';
 
-const mockCacheLife = vi.fn();
-const mockCacheTag = vi.fn();
 const mockGetPublicSupabaseClient = vi.fn();
-
-vi.mock('next/cache', () => ({
-  cacheLife: (...args: string[]) => mockCacheLife(...args),
-  cacheTag: (...args: string[]) => mockCacheTag(...args),
-}));
 
 vi.mock('@/lib/cached-data', () => ({
   getPublicSupabaseClient: () => mockGetPublicSupabaseClient(),
@@ -87,29 +80,41 @@ describe('getCachedProductSemanticInventory', () => {
         product_key_specs: { ram_gb: 16, storage_gb: 512 },
       },
     ]);
-    expect(mockCacheTag).toHaveBeenCalledWith(
-      'products',
-      'products-merchant-1',
-      'seo-inventory-merchant-1-laptops'
-    );
-    // Pin the long tag-invalidated profile: the short 'products' window
-    // caused ~0.5MB remote cache re-writes every 5min per category (the
-    // dominant data-cache 502 source on compare routes).
-    expect(mockCacheLife).toHaveBeenCalledExactlyOnceWith('categories');
   });
 
-  it('throws query errors so a stale-good cache entry is preserved', async () => {
-    const productsQuery = createProductsQuery({
+  it('reaches the database again after a transient query failure', async () => {
+    const failedQuery = createProductsQuery({
       data: null,
       error: { message: 'timeout' },
     });
+    const recoveredQuery = createProductsQuery({
+      data: [
+        {
+          slug: 'recovered-product',
+          name: 'Recovered Product',
+          price: 100,
+          product_categories: [{ categories: { slug: 'laptops' } }],
+        },
+      ],
+      error: null,
+    });
+    const from = vi
+      .fn()
+      .mockReturnValueOnce(failedQuery)
+      .mockReturnValueOnce(recoveredQuery);
     mockGetPublicSupabaseClient.mockReturnValue({
-      from: vi.fn(() => productsQuery),
+      from,
     });
 
     await expect(
       getCachedProductSemanticInventory('merchant-1', 'laptops')
     ).rejects.toMatchObject({ message: 'timeout' });
+    await expect(
+      getCachedProductSemanticInventory('merchant-1', 'laptops')
+    ).resolves.toEqual([
+      expect.objectContaining({ slug: 'recovered-product' }),
+    ]);
+    expect(from).toHaveBeenCalledTimes(2);
   });
 
   it.each([

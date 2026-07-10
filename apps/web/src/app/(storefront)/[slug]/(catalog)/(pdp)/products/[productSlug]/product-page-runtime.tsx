@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { JsonLd } from '@/components/seo/json-ld';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
+import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import {
   getCachedCategoryPageData,
   getCachedProductRatingStats,
@@ -19,6 +20,7 @@ import {
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
 import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
 import { buildProductContextParagraphs } from '@/lib/storefront-product/build-product-context-paragraphs';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
@@ -98,15 +100,21 @@ export async function ProductPageRuntime({
     (product.category ? generateSlug(product.category) : 'products');
   const categoryName =
     product.categories?.name || product.category || 'All Products';
-  const categoryPageData = await getCachedCategoryPageData(
-    merchant.id,
-    categorySlug,
-    slug
-  );
-  const guidePosts = await loadPublishedClusterPostsSafely(
-    merchant.id,
-    'Failed to load guide posts for product page'
-  );
+  const supportedClusterCategory =
+    categorySlug in CONTENT_CLUSTER_SUPPORT
+      ? (categorySlug as SupportedClusterCategory)
+      : null;
+  const [categoryPageData, guidePosts] = await Promise.all([
+    getCachedCategoryPageData(merchant.id, categorySlug, slug),
+    supportedClusterCategory
+      ? loadPublishedClusterPostsSafely(merchant.id, {
+          pageKind: 'product',
+          categorySlug: supportedClusterCategory,
+          brands: product.brand ? [product.brand] : undefined,
+          productSlugs: product.slug ? [product.slug] : undefined,
+        })
+      : Promise.resolve([]),
+  ]);
   const inventoryCandidates = (
     categoryPageData?.isCollection ? [] : (categoryPageData?.products ?? [])
   ).map((candidate) => {

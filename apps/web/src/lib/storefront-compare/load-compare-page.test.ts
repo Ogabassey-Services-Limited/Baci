@@ -376,6 +376,11 @@ describe('loadComparePage', () => {
     });
 
     expect(resolveGuidePosts).toBeDefined();
+    expect(mockGetPublishedClusterPosts).toHaveBeenCalledWith('merchant-1', {
+      pageKind: 'compare',
+      categorySlug: 'smartphones',
+      productSlugs: ['iphone-17-pro-max', 'samsung-galaxy-z-trifold'],
+    });
     resolveGuidePosts?.([]);
 
     await expect(resultPromise).resolves.toMatchObject({
