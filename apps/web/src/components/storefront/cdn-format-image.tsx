@@ -58,6 +58,27 @@ export function CdnFormatImage({
 }: CdnFormatImageProps) {
   const { avifSource, imgProps } = getOgabasseyImageFormatProps(input);
 
+  const handleError: ReactEventHandler<HTMLImageElement> = (event) => {
+    const picture = event.currentTarget.parentElement;
+    const formatSources =
+      picture?.tagName === 'PICTURE'
+        ? picture.querySelectorAll('source[type="image/avif"]')
+        : [];
+
+    if (formatSources.length > 0) {
+      // A <picture> keeps selecting its matching <source> even when callers
+      // mutate only img.src in onError. Remove the failed AVIF tier first so
+      // the browser retries the already-rendered jpeg/png fallback. Invoke the
+      // caller only if that fallback subsequently fails as well.
+      for (const source of formatSources) {
+        source.remove();
+      }
+      return;
+    }
+
+    onError?.(event);
+  };
+
   if (input.preload) {
     const avifHref = avifSource
       ? rewriteOgabasseyTransformUrlFormat(imgProps.src, 'avif')
@@ -85,7 +106,7 @@ export function CdnFormatImage({
     <img
       {...imgProps}
       alt={imgProps.alt}
-      onError={onError}
+      onError={handleError}
       onLoad={onLoad}
       ref={ref}
     />

@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+
+import { fireEvent, render } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -105,6 +107,44 @@ describe('CdnFormatImage (branch logic, mocked format-source)', () => {
     expect(markup).not.toContain('<picture');
     expect(markup).not.toContain('<source');
     expect(markup).toContain('<img');
+  });
+
+  it('retries the fallback tier before forwarding an image error', async () => {
+    const onError = vi.fn();
+    vi.doMock('@/lib/ogabassey-image-format-sources', () => ({
+      getOgabasseyImageFormatProps: vi.fn(() => ({
+        avifSource: {
+          sizes: '100vw',
+          srcSet: `${CDN}/image/format=avif/core-assets/products/phone-640.jpg 640w`,
+        },
+        imgProps: {
+          alt: 'Phone',
+          sizes: '100vw',
+          src: `${CDN}/image/format=jpeg/core-assets/products/phone-640.jpg`,
+          srcSet: `${CDN}/image/format=jpeg/core-assets/products/phone-640.jpg 640w`,
+        },
+      })),
+    }));
+    const { CdnFormatImage: Component } = await import('./cdn-format-image');
+    const { container } = render(
+      <Component
+        alt="Phone"
+        height={600}
+        onError={onError}
+        src="unused-because-mocked"
+        width={800}
+      />
+    );
+    const image = container.querySelector('img');
+
+    expect(image).not.toBeNull();
+    fireEvent.error(image as HTMLImageElement);
+
+    expect(container.querySelector('source[type="image/avif"]')).toBeNull();
+    expect(onError).not.toHaveBeenCalled();
+
+    fireEvent.error(image as HTMLImageElement);
+    expect(onError).toHaveBeenCalledTimes(1);
   });
 
   it('carries the alt text through onto the rendered <img>', async () => {
