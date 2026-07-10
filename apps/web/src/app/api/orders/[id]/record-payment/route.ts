@@ -40,14 +40,6 @@ interface EmailOrderItem {
   price: number;
 }
 
-interface RecordPaymentTransactionRow {
-  amount: number | string | null;
-  error_code?: string | null;
-  gateway: string | null;
-  gateway_reference: string | null;
-  status: string | null;
-}
-
 interface RecordManualPaymentResult {
   cancelled_at?: string | null;
   current_paid?: number | string | null;
@@ -229,115 +221,9 @@ export async function POST(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Δ-36 (A3): widen the existing completed-only fetch to also cover
-    // pending/processing rows so we can guard against shadowing a real
-    // non-manual gateway payment (Paystack DVA, Korapay, Kuda, Credit
-    // Direct, Juicyway) with a parallel manual transaction. The order was
-    // tenant-scoped above, so read through an order-scoped RPC instead of
-    // the denormalized transactions.merchant_id RLS predicate, which can
-    // drift independently of the verified order row.
-    const { data: relevantTxns, error: txError } = (await supabase.rpc(
-      'get_record_payment_order_transactions',
-      {
-        p_merchant_id: merchantId,
-        p_order_id: orderId,
-      }
-    )) as {
-      data: RecordPaymentTransactionRow[] | null;
-      error: PostgrestError | null;
-    };
-
-    if (txError) {
-      logger.error({
-        message: 'RecordPayment transactions fetch error',
-        error: txError,
-        orderId,
-      });
-      return NextResponse.json(
-        { error: 'Failed to fetch transactions' },
-        { status: 500 }
-      );
-    }
-
-    const transactionReadError = relevantTxns?.find((t) => t.error_code);
-    if (
-      transactionReadError?.error_code ===
-      'ORDER_PAYMENT_RECONCILIATION_REQUIRED'
-    ) {
-      logger.warn({
-        message:
-          'RecordPayment rejected: order transaction merchant drift requires reconciliation',
-        merchantId: merchant.id,
-        orderId,
-      });
-      return NextResponse.json(
-        {
-          error:
-            'This order has payments that require reconciliation before recording a manual payment.',
-          code: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
-        },
-        { status: 409 }
-      );
-    }
-
-    if (transactionReadError?.error_code) {
-      logger.error({
-        message: 'RecordPayment transaction RPC returned unknown error code',
-        errorCode: transactionReadError.error_code,
-        merchantId: merchant.id,
-        orderId,
-      });
-      return NextResponse.json(
-        { error: 'Failed to fetch order transactions' },
-        { status: 500 }
-      );
-    }
-
-    // Δ-36 (A3): pending-gateway guard. Block manual record-payment
-    // while a non-manual processor transaction (Paystack DVA, Korapay,
-    // Kuda, Credit Direct, CredPal, Juicyway) is still pending or processing —
-    // recording a parallel manual transaction would shadow the real
-    // gateway payment (the failure mode that nearly bit us with Efosa).
-    // Failed / cancelled gateway attempts do NOT block (they're not in
-    // the SELECT's `IN ('completed','pending','processing')` window).
-    const PENDING_PROCESSOR_GATEWAYS = new Set([
-      'paystack',
-      'korapay',
-      'kuda',
-      'credit_direct',
-      'credpal',
-      'klump',
-      'juicyway',
-    ]);
-    const pendingProcessorTxn = relevantTxns?.find(
-      (t) =>
-        t.gateway !== null &&
-        PENDING_PROCESSOR_GATEWAYS.has(t.gateway.toLowerCase()) &&
-        (t.status === 'pending' || t.status === 'processing')
-    );
-    if (pendingProcessorTxn) {
-      // Log the gateway name internally; client message stays generic
-      // (no extra processor data leakage per the plan).
-      logger.warn({
-        message: 'RecordPayment rejected: pending processor transaction',
-        orderId,
-        merchantId: merchant.id,
-        pendingGateway: pendingProcessorTxn.gateway,
-        pendingStatus: pendingProcessorTxn.status,
-      });
-      return NextResponse.json(
-        {
-          error:
-            'This order has a pending processor payment. Use payment reconciliation instead.',
-          code: 'PENDING_GATEWAY_PAYMENT',
-        },
-        { status: 409 }
-      );
-    }
-
     // The RPC is the authoritative balance and idempotency boundary. Keeping
-    // those checks there allows a timed-out request to replay even after its
-    // first attempt moved the order to paid.
+    // replay detection ahead of mutable payment guards inside the same lock
+    // allows a timed-out request to succeed even if order state changed later.
     const paymentDescription =
       notes ||
       (payment_method

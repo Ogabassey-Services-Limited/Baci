@@ -54,7 +54,8 @@ export function useRecordPayment() {
       }
       const idempotencyKey =
         pendingIdempotencyKeys.current.get(requestFingerprint) ??
-        (storedRetry?.fingerprint === requestFingerprint
+        (storedRetry?.fingerprint === requestFingerprint &&
+        storedRetry.status === 'pending'
           ? storedRetry.idempotencyKey
           : generateUUID());
       pendingIdempotencyKeys.current.set(requestFingerprint, idempotencyKey);
@@ -64,6 +65,7 @@ export function useRecordPayment() {
           JSON.stringify({
             fingerprint: requestFingerprint,
             idempotencyKey,
+            status: 'pending',
           })
         );
       } catch (error) {
@@ -103,6 +105,21 @@ export function useRecordPayment() {
 
       const result = await response.json();
       pendingIdempotencyKeys.current.delete(requestFingerprint);
+      try {
+        await AsyncStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            fingerprint: requestFingerprint,
+            idempotencyKey,
+            status: 'completed',
+          })
+        );
+      } catch (error) {
+        console.error(
+          'Failed to mark manual payment retry key completed',
+          error
+        );
+      }
       try {
         await AsyncStorage.removeItem(storageKey);
       } catch (error) {

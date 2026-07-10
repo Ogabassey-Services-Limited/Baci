@@ -327,6 +327,7 @@ COMMENT ON FUNCTION public.record_manual_order_payment(
   'Atomically records an idempotent manual order payment, reconciles the legacy amount_paid baseline with completed payment transactions, and updates amount_paid plus order statuses under one per-order lock.';
 
 CREATE TABLE IF NOT EXISTS public.manual_payment_side_effects (
+  dedupe_id uuid NOT NULL,
   transaction_id uuid NOT NULL REFERENCES public.transactions(id) ON DELETE CASCADE,
   order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
   merchant_id uuid NOT NULL REFERENCES public.merchants(id) ON DELETE CASCADE,
@@ -340,7 +341,7 @@ CREATE TABLE IF NOT EXISTS public.manual_payment_side_effects (
   completed_at timestamptz,
   error text,
   attempts integer NOT NULL DEFAULT 1,
-  PRIMARY KEY (transaction_id, step)
+  PRIMARY KEY (dedupe_id, step)
 );
 
 CREATE INDEX IF NOT EXISTS manual_payment_side_effects_open_idx
@@ -349,6 +350,9 @@ CREATE INDEX IF NOT EXISTS manual_payment_side_effects_open_idx
 
 CREATE INDEX IF NOT EXISTS manual_payment_side_effects_order_id_idx
   ON public.manual_payment_side_effects (order_id);
+
+CREATE INDEX IF NOT EXISTS manual_payment_side_effects_transaction_id_idx
+  ON public.manual_payment_side_effects (transaction_id);
 
 CREATE INDEX IF NOT EXISTS manual_payment_side_effects_merchant_id_idx
   ON public.manual_payment_side_effects (merchant_id);
@@ -378,6 +382,7 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
+  v_dedupe_id uuid;
   v_merchant_id uuid;
 BEGIN
   IF p_step NOT IN ('paid_email', 'partial_receipt', 'ad_tracking_conversion')
@@ -401,15 +406,21 @@ BEGIN
     RAISE EXCEPTION 'manual payment side effect is not accessible';
   END IF;
 
+  v_dedupe_id := CASE
+    WHEN p_step = 'partial_receipt' THEN p_transaction_id
+    ELSE p_order_id
+  END;
+
   INSERT INTO public.manual_payment_side_effects AS side_effect (
-    transaction_id, order_id, merchant_id, step, status,
+    dedupe_id, transaction_id, order_id, merchant_id, step, status,
     claim_token, claimed_by
   ) VALUES (
-    p_transaction_id, p_order_id, v_merchant_id, p_step, 'claimed',
+    v_dedupe_id, p_transaction_id, p_order_id, v_merchant_id, p_step, 'claimed',
     p_claim_token, p_claimed_by
   )
-  ON CONFLICT (transaction_id, step) DO UPDATE
+  ON CONFLICT (dedupe_id, step) DO UPDATE
   SET
+    transaction_id = EXCLUDED.transaction_id,
     claim_token = EXCLUDED.claim_token,
     claimed_by = EXCLUDED.claimed_by,
     claimed_at = now(),
@@ -428,7 +439,7 @@ BEGIN
     side_effect.claim_token = p_claim_token,
     side_effect.status
   FROM public.manual_payment_side_effects AS side_effect
-  WHERE side_effect.transaction_id = p_transaction_id
+  WHERE side_effect.dedupe_id = v_dedupe_id
     AND side_effect.step = p_step;
 END;
 $$;

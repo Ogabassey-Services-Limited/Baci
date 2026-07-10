@@ -295,6 +295,55 @@ describe('useRecordPayment', () => {
     );
   });
 
+  it('does not reuse a completed key when retry cleanup fails', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    vi.mocked(generateUUID)
+      .mockReturnValueOnce('11111111-1111-4111-8111-111111111111')
+      .mockReturnValueOnce('22222222-2222-4222-8222-222222222222');
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ recorded: true }),
+    });
+    vi.mocked(AsyncStorage.removeItem).mockRejectedValueOnce(
+      new Error('storage cleanup failed')
+    );
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const input = {
+      amount: 5000,
+      orderId: 'order-1',
+      paymentMethod: 'cash',
+    };
+
+    const firstMount = useRecordPayment() as unknown as {
+      mutationFn: (vars: typeof input) => Promise<unknown>;
+    };
+    await expect(firstMount.mutationFn(input)).resolves.toEqual({
+      recorded: true,
+    });
+    const secondMount = useRecordPayment() as unknown as {
+      mutationFn: (vars: typeof input) => Promise<unknown>;
+    };
+    await expect(secondMount.mutationFn(input)).resolves.toEqual({
+      recorded: true,
+    });
+
+    const requestBodies = mocks.fetch.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body))
+    );
+    expect(requestBodies[0].idempotency_key).not.toBe(
+      requestBodies[1].idempotency_key
+    );
+    expect(consoleError).toHaveBeenCalledWith(
+      'Failed to clear manual payment retry key',
+      expect.any(Error)
+    );
+    consoleError.mockRestore();
+  });
+
   it('keeps retry keys for different payments on the same order separate', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },

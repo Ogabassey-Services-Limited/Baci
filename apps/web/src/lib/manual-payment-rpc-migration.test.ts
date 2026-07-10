@@ -69,7 +69,12 @@ describe('manual payment RPC migration', () => {
     expect(migration).toContain(
       'CREATE TABLE IF NOT EXISTS public.manual_payment_side_effects'
     );
-    expect(migration).toContain('PRIMARY KEY (transaction_id, step)');
+    expect(migration).toContain('PRIMARY KEY (dedupe_id, step)');
+    expect(migration).toContain(
+      "WHEN p_step = 'partial_receipt' THEN p_transaction_id"
+    );
+    expect(migration).toContain('ELSE p_order_id');
+    expect(migration).toContain('ON CONFLICT (dedupe_id, step) DO UPDATE');
     expect(migration).toContain(
       'CREATE OR REPLACE FUNCTION public.claim_manual_payment_side_effect'
     );

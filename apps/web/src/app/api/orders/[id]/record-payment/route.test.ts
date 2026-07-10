@@ -342,6 +342,25 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const manualPaymentOverride = isRecord(fixture.recordManualPayment)
       ? fixture.recordManualPayment
       : {};
+    const transactionErrorCode = (fixture.transactions ?? []).find(
+      (transaction) => isRecord(transaction) && transaction.error_code
+    );
+    const hasPendingProcessor = (fixture.transactions ?? []).some(
+      (transaction) =>
+        isRecord(transaction) &&
+        typeof transaction.gateway === 'string' &&
+        [
+          'paystack',
+          'korapay',
+          'kuda',
+          'credit_direct',
+          'credpal',
+          'klump',
+          'juicyway',
+        ].includes(transaction.gateway.toLowerCase()) &&
+        (transaction.status === 'pending' ||
+          transaction.status === 'processing')
+    );
     const rpc = vi.fn((name: string, params?: Record<string, unknown>) => {
       if (name === 'get_record_payment_order_transactions') {
         return Promise.resolve({
@@ -363,13 +382,18 @@ describe('POST /api/orders/[id]/record-payment', () => {
         const computedErrorCode =
           fixture.recordManualPaymentErrorCode !== undefined
             ? fixture.recordManualPaymentErrorCode
-            : duplicateReference
-              ? 'DUPLICATE_REFERENCE'
-              : remainingBefore <= 0
-                ? 'ORDER_ALREADY_PAID'
-                : amount > remainingBefore
-                  ? 'AMOUNT_EXCEEDS_REMAINING_BALANCE'
-                  : null;
+            : isRecord(transactionErrorCode) &&
+                typeof transactionErrorCode.error_code === 'string'
+              ? transactionErrorCode.error_code
+              : hasPendingProcessor
+                ? 'PENDING_GATEWAY_PAYMENT'
+                : duplicateReference
+                  ? 'DUPLICATE_REFERENCE'
+                  : remainingBefore <= 0
+                    ? 'ORDER_ALREADY_PAID'
+                    : amount > remainingBefore
+                      ? 'AMOUNT_EXCEEDS_REMAINING_BALANCE'
+                      : null;
         const computedNewPaid = totalPaidBefore + amount;
         const computedRemainingBalance = Math.max(
           0,
@@ -1419,10 +1443,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     expect(orderQuery.eq).toHaveBeenCalledWith('id', mockOrderId);
     expect(orderQuery.eq).toHaveBeenCalledWith('merchant_id', mockMerchantId);
-    expect(rpc).toHaveBeenCalledWith('get_record_payment_order_transactions', {
-      p_merchant_id: mockMerchantId,
-      p_order_id: mockOrderId,
-    });
+    expect(rpc).toHaveBeenCalledWith(
+      'record_manual_order_payment',
+      expect.objectContaining({ p_order_id: mockOrderId })
+    );
   });
 
   it('does not update shipping_status if already shipped', async () => {
@@ -1819,7 +1843,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(orderQuery.update).not.toHaveBeenCalled();
   });
 
-  it('returns 409 when the transaction read RPC detects merchant drift', async () => {
+  it('returns 409 when the atomic RPC detects merchant drift', async () => {
     const { orderQuery, rpc } = setupRecordPaymentSupabase({
       merchant: createRecordPaymentMerchant(),
       order: createRecordPaymentOrder(),
@@ -1852,10 +1876,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
         'This order has payments that require reconciliation before recording a manual payment.',
       code: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
     });
-    expect(rpc).toHaveBeenCalledWith('get_record_payment_order_transactions', {
-      p_merchant_id: mockMerchantId,
-      p_order_id: mockOrderId,
-    });
+    expect(rpc).toHaveBeenCalledWith(
+      'record_manual_order_payment',
+      expect.objectContaining({ p_order_id: mockOrderId })
+    );
     expect(orderQuery.update).not.toHaveBeenCalled();
   });
 
@@ -2103,14 +2127,18 @@ describe('POST /api/orders/[id]/record-payment', () => {
       }
       throw new Error(`Unexpected table ${table}`);
     });
-    setupRecordPaymentTransactionRpc([
-      {
-        amount: 0,
-        gateway: 'paystack',
-        gateway_reference: 'paystack-pending-ref',
-        status: 'pending',
-      },
-    ]);
+    setupRecordPaymentTransactionRpc(
+      [
+        {
+          amount: 0,
+          gateway: 'paystack',
+          gateway_reference: 'paystack-pending-ref',
+          status: 'pending',
+        },
+      ],
+      null,
+      'PENDING_GATEWAY_PAYMENT'
+    );
 
     const request = createRequest({
       amount: 10000,
@@ -2342,6 +2370,48 @@ describe('POST /api/orders/[id]/record-payment', () => {
       })
     );
     expect(mockSendEmail).toHaveBeenCalledOnce();
+  });
+
+  it('lets the atomic RPC replay before applying pending-processor guards', async () => {
+    const { rpc } = setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-existing' },
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPaymentErrorCode: null,
+      recordManualPayment: {
+        idempotency_replayed: true,
+        new_paid: 10000,
+        order_total: 10000,
+        payment_status: 'paid',
+        remaining_balance: 0,
+        shipping_status: 'processing',
+        transaction_id: 'txn-existing',
+      },
+      transactions: [
+        {
+          amount: 0,
+          gateway: 'paystack',
+          gateway_reference: 'processor-started-after-manual-payment',
+          status: 'pending',
+        },
+      ],
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest({ amount: 10000, payment_method: 'cash' }),
+      { params: Promise.resolve({ id: mockOrderId }) }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      idempotency_replayed: true,
+      success: true,
+    });
+    expect(rpc).not.toHaveBeenCalledWith(
+      'get_record_payment_order_transactions',
+      expect.anything()
+    );
   });
 
   it('waits for a durable side effect before completing the payment request', async () => {
@@ -2873,11 +2943,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
       code: 'DUPLICATE_REFERENCE',
     });
     expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
-      'get_record_payment_order_transactions',
-      {
-        p_merchant_id: mockMerchantId,
-        p_order_id: mockOrderId,
-      }
+      'record_manual_order_payment',
+      expect.objectContaining({ p_order_id: mockOrderId })
     );
     expect(mockFrom).toHaveBeenCalledTimes(2);
   });
