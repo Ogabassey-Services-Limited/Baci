@@ -1951,13 +1951,18 @@ export async function POST(request: NextRequest) {
     // idempotency replay can return an order that was stamped BEFORE a
     // payout-currency change — so read the stamped orders.currency back from
     // the row instead of re-deriving it from the CURRENT merchant record.
-    // Fall back to the merchant-derived code (exactly what the RPC stamps on
-    // a fresh order) when the read-back errors or returns no currency.
-    const { data: orderCurrencyRow, error: orderCurrencyError } = await supabase
-      .from('orders')
-      .select('currency')
-      .eq('id', order.id)
-      .maybeSingle();
+    // Service-role read: guest checkouts are not authorized by
+    // orders_select_policy, and the replay case is exactly where the fallback
+    // would be wrong, so the read-back must not silently miss for them. The
+    // id is server-derived (returned by the SECURITY DEFINER create RPC), not
+    // caller input. Fall back to the merchant-derived code (exactly what the
+    // RPC stamps on a fresh order) only when the read errors.
+    const { data: orderCurrencyRow, error: orderCurrencyError } =
+      await createAdminClient()
+        .from('orders')
+        .select('currency')
+        .eq('id', order.id)
+        .maybeSingle();
     if (orderCurrencyError) {
       logger.warn({
         message:

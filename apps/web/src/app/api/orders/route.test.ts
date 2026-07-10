@@ -76,6 +76,22 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: mockCreateAdminClient,
 }));
 
+// The route's stamped-currency read-back uses the service-role client (guest
+// checkouts cannot read orders under RLS), so every suite primes the admin
+// mock with a default NGN row; currency-aware fixtures override it.
+function primeAdminOrderCurrencyRead(currency: string | null = 'NGN') {
+  mockCreateAdminClient.mockReturnValue({
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: currency ? { currency } : null,
+        error: null,
+      }),
+    })),
+  } as never);
+}
+
 vi.mock('@/env', () => ({
   getSupabaseUrl: () => 'https://mock.supabase.co',
   getSupabaseAnonKey: () => 'mock-key',
@@ -447,6 +463,7 @@ afterEach(() => {
 describe('POST /api/orders — quiz voucher guard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    primeAdminOrderCurrencyRead();
     mockEnforcePrizeProductionGuard.mockImplementation(
       (_event, complianceVerified) => {
         if (!complianceVerified) {
@@ -854,6 +871,7 @@ describe('POST /api/orders — quiz voucher guard', () => {
 describe('POST /api/orders — wallet response shape', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    primeAdminOrderCurrencyRead();
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: null,
       error: 'Not authenticated',
@@ -1326,6 +1344,9 @@ describe('POST /api/orders — non-NGN currency guards', () => {
       if (table === 'orders') return ordersChainable;
       return originalFrom(table);
     }) as typeof sb.from;
+    // The stamped-currency read-back now goes through the service-role
+    // client, so the stamped row must be served from the admin mock.
+    primeAdminOrderCurrencyRead(orderRowCurrency ?? null);
     if (rpcSpy) {
       const originalRpc = sb.rpc;
       sb.rpc = vi.fn((name: string, params?: unknown) => {
@@ -1338,6 +1359,7 @@ describe('POST /api/orders — non-NGN currency guards', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    primeAdminOrderCurrencyRead();
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: null,
       error: 'Not authenticated',
@@ -1488,6 +1510,7 @@ describe('POST /api/orders — non-NGN currency guards', () => {
 describe('POST /api/orders — checkout idempotency', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    primeAdminOrderCurrencyRead();
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: null,
       error: 'Not authenticated',
@@ -1819,6 +1842,7 @@ describe('POST /api/orders — checkout idempotency', () => {
 describe('POST /api/orders — product cache revalidation after order creation', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    primeAdminOrderCurrencyRead();
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: null,
       error: 'Not authenticated',
@@ -1983,6 +2007,7 @@ describe('POST /api/orders — product cache revalidation after order creation',
 describe('POST /api/orders — discount guard', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    primeAdminOrderCurrencyRead();
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: null,
       error: 'Not authenticated',
@@ -2017,6 +2042,7 @@ describe('POST /api/orders — discount guard', () => {
 describe('POST /api/orders — selected shipping quote validation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    primeAdminOrderCurrencyRead();
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: null,
       error: 'Not authenticated',
@@ -2356,6 +2382,7 @@ describe('POST /api/orders — per-line eligible discount enforcement', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    primeAdminOrderCurrencyRead();
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: null,
       error: 'Not authenticated',
@@ -2744,6 +2771,7 @@ describe('POST /api/orders — B3.5 client/server total parity', () => {
   // forward `p_expected_total` and map the RAISE to a 400.
   beforeEach(async () => {
     vi.clearAllMocks();
+    primeAdminOrderCurrencyRead();
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: null,
       error: 'Not authenticated',
@@ -3034,6 +3062,7 @@ describe('POST /api/orders — B3.5 client/server total parity', () => {
 describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    primeAdminOrderCurrencyRead();
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: null,
       error: 'Not authenticated',
@@ -4328,6 +4357,17 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     };
     const backgroundSupabase = {
       from: vi.fn((table: string) => {
+        // Serves the route's stamped-currency read-back (service-role client).
+        if (table === 'orders') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi
+              .fn()
+              .mockResolvedValue({ data: { currency: 'NGN' }, error: null }),
+          };
+        }
+
         if (table === 'order_items') {
           return orderItemsQuery;
         }
@@ -4357,6 +4397,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    primeAdminOrderCurrencyRead();
     mockGeneratePaymentAccount.mockResolvedValue({
       success: true,
       data: {
@@ -5221,6 +5262,7 @@ describe('POST /api/orders — discount code', () => {
     opts: { productRows?: Array<{ id: string; price: number }> } = {}
   ) {
     vi.clearAllMocks();
+    primeAdminOrderCurrencyRead();
     const supabase = buildMockSupabase(overrides, opts);
     const supabaseMod = await import('@/lib/supabase/server');
     vi.mocked(supabaseMod.createClient).mockImplementation(
