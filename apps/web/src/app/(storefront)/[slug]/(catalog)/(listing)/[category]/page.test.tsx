@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import { Suspense } from 'react';
+import { type ReactElement, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CATEGORY_HUB_DEFAULTS } from '@/config/category-hub-defaults';
 import {
@@ -80,10 +80,18 @@ const mockGenerateFAQSchema = vi.fn((faqItems) => ({
 }));
 
 vi.mock('@/components/storefront/ogabassey/pages/category-page', () => ({
+  // The route now composes hub content as a server-rendered `hubSections`
+  // ReactNode slot (`<CategoryHubSections hub={…} />`) instead of a raw
+  // `hubContent` prop. Unwrap the element's `hub` prop back into `hubContent`
+  // so the spy-based assertions keep validating what the route composed.
   CategoryPage: (props: {
     currentPage?: number;
-    hubContent?: CategoryHubModel;
-  }) => categoryPageSpy(props),
+    hubSections?: ReactElement<{ hub?: CategoryHubModel }>;
+  }) =>
+    categoryPageSpy({
+      ...props,
+      hubContent: props.hubSections?.props?.hub,
+    }),
 }));
 
 vi.mock('./category-page-deferred-compare-links', () => ({
