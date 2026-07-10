@@ -2744,9 +2744,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // The create RPC's RETURNS TABLE carries no currency column, so surface
+    // the stamped order currency explicitly — payment initialization must use
+    // the ORDER's currency (a reused order keeps its original stamp even if
+    // the merchant's payout currency later changes).
     const responseOrder = isWalletFullyPaid
       ? {
           ...order,
+          currency: orderCurrency,
           payment_status: 'paid',
           payment_method: storeCreditFinalized
             ? walletAmountUsed > 0
@@ -2754,7 +2759,7 @@ export async function POST(request: NextRequest) {
               : 'savings'
             : 'wallet',
         }
-      : order;
+      : { ...order, currency: orderCurrency };
 
     const responseBody = {
       order: responseOrder,

@@ -883,6 +883,10 @@ describe('POST /api/orders — wallet response shape', () => {
       expect.objectContaining({
         id: 'order-id',
         order_number: 'ORD-123',
+        // The stamped order currency must be surfaced so checkout can send
+        // the ORDER's currency (not the merchant's current one) to payment
+        // initialization — reused orders keep their original stamp.
+        currency: 'NGN',
       })
     );
   });
