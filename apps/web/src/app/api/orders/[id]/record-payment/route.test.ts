@@ -17,10 +17,20 @@ const mockReconciliationInsert = vi.hoisted(() =>
 const mockFileInventoryConfirmationFailureReview = vi.hoisted(() =>
   vi.fn().mockResolvedValue(undefined)
 );
+const mockRunManualPaymentSideEffect = vi.hoisted(() =>
+  vi.fn(async ({ execute }: { execute: () => Promise<void> }) => {
+    await execute();
+    return 'completed' as const;
+  })
+);
 
 vi.mock('@/lib/payments/file-inventory-confirmation-review', () => ({
   fileInventoryConfirmationFailureReview:
     mockFileInventoryConfirmationFailureReview,
+}));
+
+vi.mock('@/lib/payments/run-manual-payment-side-effect', () => ({
+  runManualPaymentSideEffect: mockRunManualPaymentSideEffect,
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -152,7 +162,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSendEmail.mockResolvedValue(undefined);
+    mockSendEmail.mockResolvedValue({ success: true });
     vi.mocked(ensurePaidOrderInventoryConfirmed).mockResolvedValue(undefined);
     vi.mocked(
       rollbackOrderStatusAfterInventoryConfirmationFailure
@@ -460,7 +470,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(data).toEqual({ error: 'Invalid request body' });
   });
 
-  it('reuses a stable idempotency key for identical legacy client retries', async () => {
+  it('sends a stable fingerprint for identical legacy client retries', async () => {
     const { rpc } = setupRecordPaymentSupabase({
       merchant: createRecordPaymentMerchant(),
       order: createRecordPaymentOrder(),
@@ -481,11 +491,32 @@ describe('POST /api/orders/[id]/record-payment', () => {
     );
     const firstKey = paymentCalls[0]?.[1]?.p_idempotency_key;
     const retryKey = paymentCalls[1]?.[1]?.p_idempotency_key;
+    const getLegacyFingerprint = (value: unknown) => {
+      if (
+        !value ||
+        typeof value !== 'object' ||
+        Array.isArray(value) ||
+        !('legacy_manual_payment_fingerprint' in value)
+      ) {
+        return undefined;
+      }
+      return value.legacy_manual_payment_fingerprint;
+    };
+    const firstFingerprint = getLegacyFingerprint(
+      paymentCalls[0]?.[1]?.p_metadata
+    );
+    const retryFingerprint = getLegacyFingerprint(
+      paymentCalls[1]?.[1]?.p_metadata
+    );
 
     expect(firstResponse.status).toBe(200);
     expect(retryResponse.status).toBe(200);
-    expect(firstKey).toMatch(/^legacy:[0-9a-f]{64}$/);
-    expect(retryKey).toBe(firstKey);
+    expect(firstKey).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    );
+    expect(retryKey).not.toBe(firstKey);
+    expect(firstFingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(retryFingerprint).toBe(firstFingerprint);
   });
 
   it('returns 400 when amount is zero', async () => {
@@ -2263,7 +2294,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(mockReconciliationInsert).not.toHaveBeenCalled();
   });
 
-  it('confirms inventory on a paid replay without repeating notifications', async () => {
+  it('confirms inventory and resumes durable side effects on a paid replay', async () => {
     setupRecordPaymentSupabase({
       insertTransaction: { id: 'txn-existing' },
       merchant: createRecordPaymentMerchant(),
@@ -2298,6 +2329,131 @@ describe('POST /api/orders/[id]/record-payment', () => {
       mockMerchantId,
       mockOrderId
     );
+    expect(mockRunManualPaymentSideEffect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        step: 'paid_email',
+        transactionId: 'txn-existing',
+      })
+    );
+    expect(mockRunManualPaymentSideEffect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        step: 'ad_tracking_conversion',
+        transactionId: 'txn-existing',
+      })
+    );
+    expect(mockSendEmail).toHaveBeenCalledOnce();
+  });
+
+  it('waits for a durable side effect before completing the payment request', async () => {
+    let releaseSideEffect: (() => void) | undefined;
+    let reachedSideEffect: (() => void) | undefined;
+    const sideEffectGate = new Promise<void>((resolve) => {
+      releaseSideEffect = resolve;
+    });
+    const sideEffectReached = new Promise<void>((resolve) => {
+      reachedSideEffect = resolve;
+    });
+    mockRunManualPaymentSideEffect.mockImplementationOnce(
+      async ({ execute }: { execute: () => Promise<void> }) => {
+        reachedSideEffect?.();
+        await sideEffectGate;
+        await execute();
+        return 'completed';
+      }
+    );
+    setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-new' },
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        new_paid: 10000,
+        order_total: 10000,
+        payment_status: 'paid',
+        remaining_balance: 0,
+        shipping_status: 'processing',
+        transaction_id: 'txn-new',
+      },
+    });
+    const { POST } = await import('./route');
+    let settled = false;
+
+    const responsePromise = POST(
+      createRequest({ amount: 10000, payment_method: 'cash' }),
+      { params: Promise.resolve({ id: mockOrderId }) }
+    ).then((response) => {
+      settled = true;
+      return response;
+    });
+    await sideEffectReached;
+
+    expect(settled).toBe(false);
+    releaseSideEffect?.();
+    await expect(responsePromise).resolves.toMatchObject({ status: 200 });
+  });
+
+  it('resumes a durable receipt side effect on a partial-payment replay', async () => {
+    setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-existing' },
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        idempotency_replayed: true,
+        new_paid: 5000,
+        order_total: 10000,
+        payment_status: 'partially_paid',
+        remaining_balance: 5000,
+        shipping_status: 'processing',
+        transaction_id: 'txn-existing',
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest({ amount: 5000, payment_method: 'cash' }),
+      { params: Promise.resolve({ id: mockOrderId }) }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      idempotency_replayed: true,
+      success: true,
+    });
+    expect(mockRunManualPaymentSideEffect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        step: 'partial_receipt',
+        transactionId: 'txn-existing',
+      })
+    );
+    expect(mockSendEmail).toHaveBeenCalledOnce();
+  });
+
+  it('rejects a partial-payment replay without its transaction id', async () => {
+    setupRecordPaymentSupabase({
+      insertTransaction: null,
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        idempotency_replayed: true,
+        new_paid: 5000,
+        order_total: 10000,
+        payment_status: 'partially_paid',
+        remaining_balance: 5000,
+        shipping_status: 'processing',
+        transaction_id: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest({ amount: 5000, payment_method: 'cash' }),
+      { params: Promise.resolve({ id: mockOrderId }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to record payment',
+    });
+    expect(mockRunManualPaymentSideEffect).not.toHaveBeenCalled();
     expect(mockSendEmail).not.toHaveBeenCalled();
   });
 

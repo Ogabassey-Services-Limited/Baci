@@ -291,8 +291,48 @@ describe('useRecordPayment', () => {
     );
     expect(generateUUID).toHaveBeenCalledTimes(1);
     expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
-      'manual-payment-retry:order-1'
+      expect.stringMatching(/^manual-payment-retry:order-1:/)
     );
+  });
+
+  it('keeps retry keys for different payments on the same order separate', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    vi.mocked(generateUUID)
+      .mockReturnValueOnce('11111111-1111-4111-8111-111111111111')
+      .mockReturnValueOnce('22222222-2222-4222-8222-222222222222');
+    const abortError = new Error('aborted');
+    abortError.name = 'AbortError';
+    mocks.fetch.mockRejectedValue(abortError);
+    const mutation = useRecordPayment() as unknown as {
+      mutationFn: (vars: {
+        amount: number;
+        orderId: string;
+        paymentMethod: string;
+      }) => Promise<unknown>;
+    };
+
+    await expect(
+      mutation.mutationFn({
+        amount: 5000,
+        orderId: 'order-1',
+        paymentMethod: 'cash',
+      })
+    ).rejects.toThrow('Request timed out');
+    await expect(
+      mutation.mutationFn({
+        amount: 6000,
+        orderId: 'order-1',
+        paymentMethod: 'cash',
+      })
+    ).rejects.toThrow('Request timed out');
+
+    const retryKeys = [...mocks.storageValues.keys()].filter((key) =>
+      key.startsWith('manual-payment-retry:order-1:')
+    );
+    expect(retryKeys).toHaveLength(2);
+    expect(new Set(mocks.storageValues.values()).size).toBe(2);
   });
 
   it('continues recording when persisted retry state cannot be read', async () => {

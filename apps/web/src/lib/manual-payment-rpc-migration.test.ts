@@ -58,4 +58,32 @@ describe('manual payment RPC migration', () => {
     expect(replayBlock).toContain('amount_paid = v_new_paid');
     expect(replayBlock).toContain("WHEN o.payment_status = 'refunded'");
   });
+
+  it('bounds legacy fingerprint replay matching to five minutes', () => {
+    expect(migration).toContain("'legacy_manual_payment_fingerprint'");
+    expect(migration).toContain("v_legacy_fingerprint !~ '^[0-9a-f]{64}$'");
+    expect(migration).toContain("t.created_at >= now() - interval '5 minutes'");
+  });
+
+  it('persists resumable manual-payment side-effect claims', () => {
+    expect(migration).toContain(
+      'CREATE TABLE IF NOT EXISTS public.manual_payment_side_effects'
+    );
+    expect(migration).toContain('PRIMARY KEY (transaction_id, step)');
+    expect(migration).toContain(
+      'CREATE OR REPLACE FUNCTION public.claim_manual_payment_side_effect'
+    );
+    expect(migration).toContain(
+      "side_effect.claimed_at < now() - interval '60 seconds'"
+    );
+    expect(migration).toContain(
+      'AND public.has_merchant_access(t.merchant_id)'
+    );
+    expect(migration).toContain(
+      'AND public.has_merchant_access(side_effect.merchant_id)'
+    );
+    expect(migration).toContain(
+      'GRANT EXECUTE ON FUNCTION public.finish_manual_payment_side_effect'
+    );
+  });
 });

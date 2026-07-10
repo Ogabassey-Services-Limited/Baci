@@ -41,7 +41,7 @@ export function useRecordPayment() {
         paymentMethod,
         reference: reference?.trim() || null,
       });
-      const storageKey = `${RECORD_PAYMENT_RETRY_KEY_PREFIX}${orderId}`;
+      const storageKey = `${RECORD_PAYMENT_RETRY_KEY_PREFIX}${orderId}:${encodeURIComponent(requestFingerprint)}`;
       let storedRetry: ManualPaymentRetry | null = null;
       try {
         storedRetry = safeParseJSON(

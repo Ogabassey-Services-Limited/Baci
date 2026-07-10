@@ -47,6 +47,7 @@ DECLARE
   v_cancelled_at timestamptz;
   v_gateway_reference text := NULLIF(trim(p_gateway_reference), '');
   v_idempotency_key text := NULLIF(trim(p_idempotency_key), '');
+  v_legacy_fingerprint text;
 BEGIN
   IF p_amount IS NULL OR p_amount <= 0 OR p_amount = 'NaN'::numeric THEN
     RETURN jsonb_build_object('error_code', 'INVALID_AMOUNT');
@@ -61,6 +62,15 @@ BEGIN
   END IF;
 
   IF p_metadata IS NULL OR jsonb_typeof(p_metadata) <> 'object' THEN
+    RETURN jsonb_build_object('error_code', 'INVALID_METADATA');
+  END IF;
+
+  v_legacy_fingerprint := NULLIF(
+    trim(p_metadata ->> 'legacy_manual_payment_fingerprint'),
+    ''
+  );
+  IF v_legacy_fingerprint IS NOT NULL
+    AND v_legacy_fingerprint !~ '^[0-9a-f]{64}$' THEN
     RETURN jsonb_build_object('error_code', 'INVALID_METADATA');
   END IF;
 
@@ -115,8 +125,27 @@ BEGIN
     AND t.merchant_id = p_merchant_id
     AND t.gateway = 'manual'
     AND t.transaction_type = 'payment'
-    AND NULLIF(trim(t.metadata ->> 'manual_payment_idempotency_key'), '') =
-      v_idempotency_key
+    AND (
+      NULLIF(trim(t.metadata ->> 'manual_payment_idempotency_key'), '') =
+        v_idempotency_key
+      OR (
+        v_legacy_fingerprint IS NOT NULL
+        AND NULLIF(
+          trim(t.metadata ->> 'legacy_manual_payment_fingerprint'),
+          ''
+        ) = v_legacy_fingerprint
+        AND t.created_at >= now() - interval '5 minutes'
+      )
+    )
+  ORDER BY
+    CASE
+      WHEN NULLIF(
+        trim(t.metadata ->> 'manual_payment_idempotency_key'),
+        ''
+      ) = v_idempotency_key THEN 0
+      ELSE 1
+    END,
+    t.created_at DESC
   LIMIT 1;
 
   IF FOUND THEN
@@ -296,3 +325,158 @@ COMMENT ON FUNCTION public.record_manual_order_payment(
   uuid, uuid, numeric, text, text, text, jsonb, text
 ) IS
   'Atomically records an idempotent manual order payment, reconciles the legacy amount_paid baseline with completed payment transactions, and updates amount_paid plus order statuses under one per-order lock.';
+
+CREATE TABLE IF NOT EXISTS public.manual_payment_side_effects (
+  transaction_id uuid NOT NULL REFERENCES public.transactions(id) ON DELETE CASCADE,
+  order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  merchant_id uuid NOT NULL REFERENCES public.merchants(id) ON DELETE CASCADE,
+  step text NOT NULL CHECK (step IN (
+    'paid_email', 'partial_receipt', 'ad_tracking_conversion'
+  )),
+  status text NOT NULL CHECK (status IN ('claimed', 'completed', 'failed')),
+  claim_token uuid NOT NULL,
+  claimed_by text NOT NULL,
+  claimed_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz,
+  error text,
+  attempts integer NOT NULL DEFAULT 1,
+  PRIMARY KEY (transaction_id, step)
+);
+
+CREATE INDEX IF NOT EXISTS manual_payment_side_effects_open_idx
+  ON public.manual_payment_side_effects (status, claimed_at)
+  WHERE status <> 'completed';
+
+CREATE INDEX IF NOT EXISTS manual_payment_side_effects_order_id_idx
+  ON public.manual_payment_side_effects (order_id);
+
+CREATE INDEX IF NOT EXISTS manual_payment_side_effects_merchant_id_idx
+  ON public.manual_payment_side_effects (merchant_id);
+
+ALTER TABLE public.manual_payment_side_effects ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.manual_payment_side_effects
+  FROM PUBLIC, anon, authenticated;
+GRANT ALL ON TABLE public.manual_payment_side_effects TO service_role;
+
+DROP POLICY IF EXISTS service_role_all ON public.manual_payment_side_effects;
+CREATE POLICY service_role_all
+  ON public.manual_payment_side_effects
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+CREATE OR REPLACE FUNCTION public.claim_manual_payment_side_effect(
+  p_order_id uuid,
+  p_transaction_id uuid,
+  p_step text,
+  p_claim_token uuid,
+  p_claimed_by text
+)
+RETURNS TABLE (we_won boolean, current_status text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_merchant_id uuid;
+BEGIN
+  IF p_step NOT IN ('paid_email', 'partial_receipt', 'ad_tracking_conversion')
+    OR p_claimed_by IS NULL OR btrim(p_claimed_by) = '' THEN
+    RAISE EXCEPTION 'invalid manual payment side effect claim';
+  END IF;
+
+  SELECT t.merchant_id
+  INTO v_merchant_id
+  FROM public.transactions AS t
+  INNER JOIN public.orders AS o
+    ON o.id = t.order_id AND o.merchant_id = t.merchant_id
+  WHERE t.id = p_transaction_id
+    AND t.order_id = p_order_id
+    AND t.gateway = 'manual'
+    AND t.transaction_type = 'payment'
+    AND t.status = 'completed'
+    AND public.has_merchant_access(t.merchant_id);
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'manual payment side effect is not accessible';
+  END IF;
+
+  INSERT INTO public.manual_payment_side_effects AS side_effect (
+    transaction_id, order_id, merchant_id, step, status,
+    claim_token, claimed_by
+  ) VALUES (
+    p_transaction_id, p_order_id, v_merchant_id, p_step, 'claimed',
+    p_claim_token, p_claimed_by
+  )
+  ON CONFLICT (transaction_id, step) DO UPDATE
+  SET
+    claim_token = EXCLUDED.claim_token,
+    claimed_by = EXCLUDED.claimed_by,
+    claimed_at = now(),
+    completed_at = NULL,
+    error = NULL,
+    status = 'claimed',
+    attempts = side_effect.attempts + 1
+  WHERE side_effect.status = 'failed'
+    OR (
+      side_effect.status = 'claimed'
+      AND side_effect.claimed_at < now() - interval '60 seconds'
+    );
+
+  RETURN QUERY
+  SELECT
+    side_effect.claim_token = p_claim_token,
+    side_effect.status
+  FROM public.manual_payment_side_effects AS side_effect
+  WHERE side_effect.transaction_id = p_transaction_id
+    AND side_effect.step = p_step;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.finish_manual_payment_side_effect(
+  p_transaction_id uuid,
+  p_step text,
+  p_claim_token uuid,
+  p_status text,
+  p_error text
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_updated boolean := false;
+BEGIN
+  IF p_status NOT IN ('completed', 'failed') THEN
+    RAISE EXCEPTION 'invalid manual payment side effect status';
+  END IF;
+
+  UPDATE public.manual_payment_side_effects AS side_effect
+  SET
+    status = p_status,
+    completed_at = now(),
+    error = CASE WHEN p_status = 'failed' THEN p_error ELSE NULL END
+  WHERE side_effect.transaction_id = p_transaction_id
+    AND side_effect.step = p_step
+    AND side_effect.claim_token = p_claim_token
+    AND public.has_merchant_access(side_effect.merchant_id)
+  RETURNING true INTO v_updated;
+
+  RETURN COALESCE(v_updated, false);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.claim_manual_payment_side_effect(
+  uuid, uuid, text, uuid, text
+) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.claim_manual_payment_side_effect(
+  uuid, uuid, text, uuid, text
+) TO authenticated;
+
+REVOKE ALL ON FUNCTION public.finish_manual_payment_side_effect(
+  uuid, text, uuid, text, text
+) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.finish_manual_payment_side_effect(
+  uuid, text, uuid, text, text
+) TO authenticated;

@@ -10,7 +10,7 @@ interface LegacyManualPaymentIdentity {
   userId: string;
 }
 
-export function createLegacyManualPaymentIdempotencyKey(
+export function createLegacyManualPaymentFingerprint(
   identity: LegacyManualPaymentIdentity
 ): string {
   const fingerprint = JSON.stringify([
@@ -23,5 +23,5 @@ export function createLegacyManualPaymentIdempotencyKey(
     identity.notes ?? null,
   ]);
 
-  return `legacy:${createHash('sha256').update(fingerprint).digest('hex')}`;
+  return createHash('sha256').update(fingerprint).digest('hex');
 }

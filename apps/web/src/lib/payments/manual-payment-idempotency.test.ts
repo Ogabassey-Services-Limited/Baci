@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createLegacyManualPaymentIdempotencyKey } from './manual-payment-idempotency';
+import { createLegacyManualPaymentFingerprint } from './manual-payment-idempotency';
 
 const payment = {
   amount: 5000,
@@ -11,25 +11,30 @@ const payment = {
   userId: 'user-1',
 };
 
-describe('createLegacyManualPaymentIdempotencyKey', () => {
-  it('returns the same bounded key for the same logical payment', () => {
-    const first = createLegacyManualPaymentIdempotencyKey(payment);
-    const retry = createLegacyManualPaymentIdempotencyKey({ ...payment });
+describe('createLegacyManualPaymentFingerprint', () => {
+  it('returns the same bounded fingerprint for the same logical payment', () => {
+    const first = createLegacyManualPaymentFingerprint(payment);
+    const retry = createLegacyManualPaymentFingerprint({ ...payment });
 
     expect(retry).toBe(first);
-    expect(first).toMatch(/^legacy:[0-9a-f]{64}$/);
-    expect(first.length).toBeLessThanOrEqual(128);
+    expect(first).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('changes when payment identity changes', () => {
-    expect(
-      createLegacyManualPaymentIdempotencyKey({ ...payment, amount: 6000 })
-    ).not.toBe(createLegacyManualPaymentIdempotencyKey(payment));
-    expect(
-      createLegacyManualPaymentIdempotencyKey({
-        ...payment,
-        reference: 'REF-2',
-      })
-    ).not.toBe(createLegacyManualPaymentIdempotencyKey(payment));
+    const changes = [
+      { amount: 6000 },
+      { merchantId: 'merchant-2' },
+      { notes: 'Different note' },
+      { orderId: 'order-2' },
+      { paymentMethod: 'bank_transfer' },
+      { reference: 'REF-2' },
+      { userId: 'user-2' },
+    ];
+
+    for (const change of changes) {
+      expect(
+        createLegacyManualPaymentFingerprint({ ...payment, ...change })
+      ).not.toBe(createLegacyManualPaymentFingerprint(payment));
+    }
   });
 });
