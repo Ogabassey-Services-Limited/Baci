@@ -1,13 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import {
-  canRequestTrackingTransparency,
-  getTrackingPermissionStatus,
-  requestTrackingPermissionStatus,
-} from '@/lib/tracking-transparency';
 
-type PermissionType = 'notifications' | 'tracking';
+type PermissionType = 'notifications';
 type NotificationsPermissionModule = Partial<
   Pick<
     typeof import('expo-notifications'),
@@ -113,11 +108,9 @@ export const usePermissionStore = create<PermissionState>()(
     (set, get) => ({
       lastRequestTime: {
         notifications: null,
-        tracking: null,
       },
       denialCounts: {
         notifications: 0,
-        tracking: 0,
       },
       shouldShowModal: (type) => {
         const { lastRequestTime, denialCounts } = get();
@@ -158,8 +151,8 @@ export const usePermissionStore = create<PermissionState>()(
       },
       reset: () => {
         set({
-          lastRequestTime: { notifications: null, tracking: null },
-          denialCounts: { notifications: 0, tracking: 0 },
+          lastRequestTime: { notifications: null },
+          denialCounts: { notifications: 0 },
         });
       },
     }),
@@ -182,23 +175,10 @@ export const usePermissionBooster = () => {
     type: PermissionType
   ): Promise<'granted' | 'denied' | 'soft-ask-needed'> => {
     // 1. Check current system status
-    let status: string | null;
-    if (type === 'notifications') {
-      const notifications = await loadNotifications();
-      status = await getNotificationPermissionStatus(notifications);
-      if (!status) {
-        return 'denied';
-      }
-    } else {
-      if (!canRequestTrackingTransparency()) {
-        return 'granted';
-      }
-      try {
-        const trackingPermission = await getTrackingPermissionStatus();
-        status = trackingPermission.status;
-      } catch {
-        return 'denied';
-      }
+    const notifications = await loadNotifications();
+    const status = await getNotificationPermissionStatus(notifications);
+    if (!status) {
+      return 'denied';
     }
 
     // If already granted, nothing to do
@@ -217,13 +197,8 @@ export const usePermissionBooster = () => {
   ): Promise<boolean> => {
     store.markRequested(type);
 
-    if (type === 'notifications') {
-      const notifications = await loadNotifications();
-      return await requestNotificationPermissionStatus(notifications);
-    } else {
-      const { status } = await requestTrackingPermissionStatus();
-      return status === 'granted';
-    }
+    const notifications = await loadNotifications();
+    return await requestNotificationPermissionStatus(notifications);
   };
 
   return {
