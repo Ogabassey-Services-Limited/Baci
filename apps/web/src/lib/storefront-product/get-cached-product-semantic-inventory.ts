@@ -1,4 +1,3 @@
-import { cacheLife, cacheTag } from 'next/cache';
 import { getPublicSupabaseClient } from '@/lib/cached-data';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
 import type { ProductSemanticCandidate } from '@/lib/storefront-product/product-semantic-types';
@@ -39,26 +38,17 @@ const PRODUCT_SEMANTIC_INVENTORY_SELECT = `
   ${PRODUCT_KEY_SPECS_RELATION_SELECT}
 `;
 
+/**
+ * Loads the bounded semantic-link inventory directly from the public data API.
+ * The legacy name is retained for call-site compatibility, but this function
+ * deliberately has no Cache Components directive: transient query failures
+ * must not become large shared empty/stale entries, and callers own the
+ * optional-content fallback.
+ */
 export async function getCachedProductSemanticInventory(
   merchantId: string,
   categorySlug: string
 ): Promise<ProductSemanticCandidate[]> {
-  'use cache: remote';
-  // 'categories' (revalidate 3600) instead of 'products' (revalidate 300):
-  // freshness is tag-driven — every product mutation and order-path stock
-  // change fires revalidateTag(`products-${merchantId}`) — so the short
-  // window only forced this ~0.5MB remote entry (300 rows × the key-specs
-  // relation) to be re-written every 5 minutes per category, a dominant
-  // source of Vercel data-cache write failures (502s) on compare routes.
-  // ('categories' and 'blog' have identical values; 'categories' reads
-  // truer for a per-category-keyed entry.)
-  cacheLife('categories');
-  cacheTag(
-    'products',
-    `products-${merchantId}`,
-    `seo-inventory-${merchantId}-${categorySlug}`
-  );
-
   const supabase = getPublicSupabaseClient();
   const { data, error } = await supabase
     .from('products')

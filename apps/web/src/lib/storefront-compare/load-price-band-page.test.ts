@@ -4,6 +4,7 @@ import { loadPriceBandPage } from './load-price-band-page';
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
 const mockGetCachedFeatureSettings = vi.fn();
+const mockGetPublishedClusterPosts = vi.fn();
 const mockHeaders = vi.fn();
 
 vi.mock('next/headers', () => ({
@@ -17,6 +18,11 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetCachedCategoryPageData(...args),
   getCachedFeatureSettings: (...args: unknown[]) =>
     mockGetCachedFeatureSettings(...args),
+}));
+
+vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
+  getPublishedClusterPosts: (...args: unknown[]) =>
+    mockGetPublishedClusterPosts(...args),
 }));
 
 const merchant = {
@@ -104,10 +110,12 @@ describe('loadPriceBandPage', () => {
     mockGetMerchantByIdentifier.mockReset();
     mockGetCachedCategoryPageData.mockReset();
     mockGetCachedFeatureSettings.mockReset();
+    mockGetPublishedClusterPosts.mockReset();
     mockHeaders.mockReset();
     mockGetMerchantByIdentifier.mockResolvedValue(merchant);
     mockGetCachedCategoryPageData.mockResolvedValue(categoryPageData);
     mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
+    mockGetPublishedClusterPosts.mockResolvedValue([]);
     mockHeaders.mockResolvedValue(new Headers());
   });
 
@@ -155,6 +163,11 @@ describe('loadPriceBandPage', () => {
         }),
       ])
     );
+    expect(mockGetPublishedClusterPosts).toHaveBeenCalledWith('merchant-1', {
+      pageKind: 'price-band',
+      categorySlug: 'smartphones',
+      priceBandSlug: 'under-1m',
+    });
   });
 
   it('uses localized ceiling text in the heading and metadata title', async () => {

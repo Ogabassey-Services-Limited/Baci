@@ -277,6 +277,29 @@ describe('CategoryPageContent', () => {
     );
   });
 
+  it('loads bounded guide candidates with the supported category context', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Demo Store',
+      slug: 'demo-store',
+      country: 'NG',
+      payout_currency: 'NGN',
+    });
+
+    await CategoryPageContent({
+      params: Promise.resolve({
+        slug: 'demo-store',
+        category: 'smartphones',
+      }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    expect(mockGetPublishedClusterPosts).toHaveBeenCalledWith('merchant-1', {
+      pageKind: 'category',
+      categorySlug: 'smartphones',
+    });
+  });
+
   it('keeps category support fallback links when maintained compare graph is empty', async () => {
     mockGetCachedCategoryPageData.mockResolvedValueOnce({
       isCollection: false,

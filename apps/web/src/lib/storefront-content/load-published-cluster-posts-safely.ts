@@ -1,27 +1,28 @@
-import type { PublishedClusterPost } from './content-cluster-types';
+import type {
+  BuildCommercialGuideLinksContext,
+  PublishedClusterPost,
+} from './content-cluster-types';
 import { getPublishedClusterPosts } from './get-published-cluster-posts';
 
 /**
- * Failure-tolerant wrapper around getPublishedClusterPosts.
- *
- * The cached loader THROWS on query errors so Cache Components never caches
- * an empty guide-post list (stale-good entries keep serving). Page-level
- * callers must not let that throw take down the render — guide links are
- * enhancement content — so this wrapper degrades the failing request to []
- * while leaving the cache untouched. Mirrors loadSemanticInventorySafely.
+ * Keeps optional semantic guide links from taking down a storefront render.
+ * The direct bounded loader throws on database/transport failures; this outer
+ * request boundary degrades only that request to no guide links and never
+ * stores the failure in a cache.
  */
 export async function loadPublishedClusterPostsSafely(
   merchantId: string,
-  warningMessage: string
+  context: BuildCommercialGuideLinksContext
 ): Promise<PublishedClusterPost[]> {
   try {
-    return await getPublishedClusterPosts(merchantId);
+    return await getPublishedClusterPosts(merchantId, context);
   } catch (error) {
-    console.warn(warningMessage, {
+    console.warn('Failed to load bounded storefront guide candidates', {
       merchantId,
+      categorySlug: context.categorySlug,
+      pageKind: context.pageKind,
       error,
     });
-
     return [];
   }
 }

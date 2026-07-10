@@ -3324,6 +3324,7 @@ export interface StorefrontHomeProduct {
   category?: string | null;
   brand?: string | null;
   condition?: string | null;
+  has_condition_offers?: boolean | null;
   stock?: number | null;
   stock_quantity?: number | null;
   manage_stock?: boolean | null;
@@ -3483,27 +3484,27 @@ const STOREFRONT_HOME_PRODUCT_LIMIT = 50;
 const STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT = 24;
 const STOREFRONT_HOME_PRODUCT_SELECT = `
     id, name, slug, description, price, compare_at_price, created_at,
-    images, category, brand, condition, stock, stock_quantity,
+    images, category, brand, condition, has_condition_offers, stock, stock_quantity,
     manage_stock, low_stock_threshold,
     product_categories(categories(name, slug))
   `;
 const STOREFRONT_HOME_PRODUCT_RECENT_SELECT = `
     id, name, slug, description, price, compare_at_price, created_at, updated_at,
-    images, category, brand, condition, stock, stock_quantity,
+    images, category, brand, condition, has_condition_offers, stock, stock_quantity,
     manage_stock, low_stock_threshold,
     categories:category_id(id, name, slug, parent_id),
     product_categories(categories(name, slug))
   `;
 const STOREFRONT_HOME_PRODUCT_DIRECT_CATEGORY_SELECT = `
     id, name, slug, description, price, compare_at_price, created_at, updated_at,
-    images, category, brand, condition, stock, stock_quantity,
+    images, category, brand, condition, has_condition_offers, stock, stock_quantity,
     manage_stock, low_stock_threshold,
     categories:category_id!inner(id, name, slug, parent_id),
     product_categories(categories(name, slug))
   `;
 const STOREFRONT_HOME_PRODUCT_RELATION_CATEGORY_SELECT = `
     id, name, slug, description, price, compare_at_price, created_at, updated_at,
-    images, category, brand, condition, stock, stock_quantity,
+    images, category, brand, condition, has_condition_offers, stock, stock_quantity,
     manage_stock, low_stock_threshold,
     categories:category_id(id, name, slug, parent_id),
     product_categories!inner(categories!inner(name, slug))

@@ -125,6 +125,11 @@ export function mapStorefrontProductsToOgabasseyProducts(
       category_id: product.category_id,
       categorySlug: category?.slug || product.category_slug,
       condition,
+      // The deferred home-card chrome uses this flag to route mixed-condition
+      // products to PDP option selection instead of ambiguous quick-add.
+      ...(product.has_condition_offers
+        ? { has_condition_offers: true }
+        : {}),
       brand: product.brand,
       colors: product.colors,
       storage: product.storage_options?.[0],
