@@ -17,6 +17,7 @@ export type StorefrontInternalPreflightFailOpenReason =
 export type StorefrontInternalPreflightSurface =
   | 'blog-listing-status'
   | 'blog-post-status'
+  | 'compare-hub-status'
   | 'product-canonical'
   | 'product-slug';
 
