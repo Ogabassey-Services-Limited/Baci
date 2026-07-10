@@ -17,7 +17,6 @@ const {
   mockBuildInformationalClusterModel,
   mockGenerateBlogPostSchema,
   mockSafeJsonLdStringify,
-  mockNextImage,
   mockBlogPostHeader,
   mockBlogPostBody,
   mockHasBlogAuthorPage,
@@ -38,7 +37,6 @@ const {
   mockSafeJsonLdStringify: vi.fn<(_schema: unknown) => string>((schema) =>
     JSON.stringify(schema)
   ),
-  mockNextImage: vi.fn((_props: Record<string, unknown>) => null),
   mockBlogPostHeader: vi.fn(({ title }: { title: string; locale?: string }) => (
     <h1>{title}</h1>
   )),
@@ -59,7 +57,15 @@ vi.mock('next/headers', () => ({
 }));
 
 vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => mockNextImage(props),
+  default: () => null,
+  getImageProps: ({
+    fill: _fill,
+    loader: _loader,
+    preload: _preload,
+    priority: _priority,
+    quality: _quality,
+    ...props
+  }: Record<string, unknown>) => ({ props }),
 }));
 
 vi.mock('next/link', () => ({
@@ -256,7 +262,6 @@ describe('BlogPostPageContent', () => {
     vi.clearAllMocks();
     mockBlogPostBody.mockReset();
     mockBlogPostBodyFallback.mockReset();
-    mockNextImage.mockReset();
     mockGenerateBlogPostSchema.mockReset();
     mockSafeJsonLdStringify.mockReset();
     mockHasBlogAuthorPage.mockReset();
@@ -643,22 +648,20 @@ describe('BlogPostPageContent', () => {
       })
     );
 
-    expect(mockNextImage).toHaveBeenCalled();
+    const image = screen.getByRole('img', {
+      name: 'Best phones in Nigeria cover',
+    });
 
-    const imageProps = mockNextImage.mock.calls[0]?.[0];
-
-    expect(imageProps).toEqual(
-      expect.objectContaining({
-        src: 'https://cdn.ogabassey.com/media/blog/best-phones-cover.webp',
-        preload: true,
-        quality: 50,
-      })
+    expect(image).toHaveAttribute(
+      'src',
+      'https://cdn.ogabassey.com/media/blog/best-phones-cover.webp'
     );
     // Repo LCP convention: preload XOR the loading/fetchPriority pair — never
-    // the redundant trio the hero shipped with before.
-    expect(imageProps).not.toHaveProperty('priority');
-    expect(imageProps).not.toHaveProperty('fetchPriority');
-    expect(imageProps).not.toHaveProperty('loading');
+    // the redundant trio the hero shipped with before. The focused shell and
+    // preload-parity suites cover the non-DOM preload/quality inputs.
+    expect(image).not.toHaveAttribute('priority');
+    expect(image).not.toHaveAttribute('fetchpriority');
+    expect(image).not.toHaveAttribute('loading');
   });
 
   it('permanently redirects retired direct blog slugs before rendering notFound', async () => {
