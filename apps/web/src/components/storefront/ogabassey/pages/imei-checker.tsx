@@ -7,12 +7,8 @@ import {
   type ImeiServiceTierDefinition,
   type ImeiServiceTierKey,
 } from '@baci/shared/imei';
-import { fetchWithCsrf } from '@/lib/api-client';
 import { OgabasseyImeiEntry } from './imei-checker-entry';
-import {
-  DEFAULT_IMEI_CHECK_ERROR_MESSAGE,
-  resolveImeiCheckFailure,
-} from './imei-checker-resolve-failure';
+import { performImeiCheck } from './imei-checker-request';
 import type {
   ImeiRequestIdentity,
   ImeiResult,
@@ -20,12 +16,6 @@ import type {
 } from './imei-checker-types';
 import { OgabasseyImeiResults } from './imei-results';
 import { useImeiTierSelection } from './use-imei-tier-selection';
-
-const currencyFormatter = new Intl.NumberFormat('en-NG', {
-  currency: 'NGN',
-  maximumFractionDigits: 0,
-  style: 'currency',
-});
 
 const createFallbackUuid = () => {
   const bytes = new Uint8Array(16);
@@ -79,98 +69,6 @@ async function fetchDeviceSuggestions(
   } catch {
     console.warn('Failed to fetch device suggestions');
     return null;
-  }
-}
-
-interface ImeiCheckOutcome {
-  result: ImeiResult | null;
-  error: string | null;
-  keepRequestIdentity: boolean;
-  needsWalletFunding: boolean;
-}
-
-/**
- * The 401/402 branches leave errorMessage null for dedicated UI. Resolve the
- * inline copy here while the 402 funding CTA is rendered separately.
- */
-function describeCheckFailure(
-  outcome: ReturnType<typeof resolveImeiCheckFailure>
-): string {
-  if (outcome.errorMessage !== null) {
-    return outcome.errorMessage;
-  }
-
-  if (outcome.shouldRedirectToLogin) {
-    return 'Please sign in to check this device.';
-  }
-
-  if (outcome.topUpAmount !== null) {
-    return `Insufficient wallet balance. You need ${currencyFormatter.format(outcome.topUpAmount)} more to run this check.`;
-  }
-
-  return DEFAULT_IMEI_CHECK_ERROR_MESSAGE;
-}
-
-/**
- * Module-scope request keeps the try/finally clause out of the component body
- * so React Compiler can memoize the checker.
- */
-async function performImeiCheck(
-  imei: string,
-  tier: ImeiServiceTierKey,
-  tierPrice: number,
-  idempotencyKey: string
-): Promise<ImeiCheckOutcome> {
-  try {
-    const response = await fetchWithCsrf('/api/storefront/imei-check', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Idempotency-Key': idempotencyKey,
-      },
-      body: JSON.stringify({ imei, tier }),
-    });
-
-    const data: {
-      success?: boolean;
-      error?: string;
-      code?: string;
-      data?: ImeiResult;
-      balance?: number;
-      required?: number;
-    } = await response.json();
-
-    if (!response.ok || !data.success) {
-      const outcome = resolveImeiCheckFailure({
-        currentTierPrice: tierPrice,
-        payload: data,
-        responseStatus: response.status,
-        walletBalance: 0,
-      });
-
-      return {
-        result: null,
-        error: describeCheckFailure(outcome),
-        keepRequestIdentity: outcome.shouldPreserveIdempotencyKey,
-        needsWalletFunding:
-          response.status === 402 && data.code === 'WALLET_INSUFFICIENT',
-      };
-    }
-
-    return {
-      result: data.data ?? null,
-      error: null,
-      keepRequestIdentity: false,
-      needsWalletFunding: false,
-    };
-  } catch (err) {
-    console.error('IMEI check failed:', err);
-    return {
-      result: null,
-      error: 'Network error. Please check your connection and try again.',
-      keepRequestIdentity: true,
-      needsWalletFunding: false,
-    };
   }
 }
 
