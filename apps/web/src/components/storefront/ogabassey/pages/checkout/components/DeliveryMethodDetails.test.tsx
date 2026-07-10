@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ShippingQuote } from '../types';
 import { DeliveryMethodDetails } from './DeliveryMethodDetails';
 
 vi.mock('../../../components/SmartQuoteLoader', () => ({
@@ -109,6 +110,63 @@ describe('DeliveryMethodDetails', () => {
     expect(
       screen.getByText(/gigl aba road, port harcourt/i),
     ).toBeInTheDocument();
+  });
+
+  it('renders every GIGL pickup station quote and selects a different station', () => {
+    const stationQuotes: ShippingQuote[] = [
+      {
+        id: 'station-1',
+        provider: 'GIGL',
+        serviceTier: 'station',
+        carrierName: 'GIG Logistics',
+        displayName: 'GIG Logistics - Pickup at Ikeja',
+        price: 4200,
+        estimatedDays: 3,
+        currency: 'NGN',
+        pickupIncluded: true,
+        insuranceIncluded: true,
+        isStationPickup: true,
+        stationName: 'Ikeja Service Centre',
+        stationAddress: '1 Service Centre Road, Ikeja',
+      },
+      {
+        id: 'station-2',
+        provider: 'GIGL',
+        serviceTier: 'station',
+        carrierName: 'GIG Logistics',
+        displayName: 'GIG Logistics - Pickup at Allen',
+        price: 4200,
+        estimatedDays: 3,
+        currency: 'NGN',
+        pickupIncluded: true,
+        insuranceIncluded: true,
+        isStationPickup: true,
+        stationName: 'Allen Service Centre',
+        stationAddress: '5 Allen Avenue, Ikeja',
+      },
+    ];
+
+    render(
+      <DeliveryMethodDetails
+        {...defaultProps}
+        deliveryMethod="pickup_station"
+        selectedQuoteId="station-1"
+        shippingQuotes={stationQuotes}
+      />,
+    );
+
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    expect(screen.getByText('Ikeja Service Centre')).toBeInTheDocument();
+    expect(screen.getByText('Allen Service Centre')).toBeInTheDocument();
+    expect(
+      screen.getByRole('radio', { name: /ikeja service centre/i }),
+    ).toBeChecked();
+
+    fireEvent.click(
+      screen.getByRole('radio', { name: /allen service centre/i }),
+    );
+
+    expect(defaultProps.setSelectedQuoteId).toHaveBeenCalledWith('station-2');
   });
 
   it('refreshes shipping quotes using the current address', () => {

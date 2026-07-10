@@ -179,6 +179,12 @@ export function getStationPickupQuote(
   return quotes.find(isStationPickupQuote);
 }
 
+export function getStationPickupQuotes(
+  quotes: ShippingQuote[],
+): ShippingQuote[] {
+  return quotes.filter(isStationPickupQuote);
+}
+
 export function getPreferredDoorQuoteId(quotes: ShippingQuote[]): string {
   return getDoorDeliveryQuotes(quotes)[0]?.id ?? '';
 }
@@ -189,7 +195,12 @@ export function getSelectedQuoteIdForDeliveryMethod(
   shippingQuotes: ShippingQuote[],
 ): string {
   if (deliveryMethod === 'pickup_station') {
-    return getStationPickupQuote(shippingQuotes)?.id ?? selectedQuoteId;
+    const selectedQuote = shippingQuotes.find(
+      (quote) => String(quote.id) === String(selectedQuoteId),
+    );
+    return selectedQuote && isStationPickupQuote(selectedQuote)
+      ? selectedQuoteId
+      : (getStationPickupQuote(shippingQuotes)?.id ?? selectedQuoteId);
   }
 
   if (deliveryMethod === 'door') {

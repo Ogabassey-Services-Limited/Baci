@@ -106,6 +106,7 @@ import {
   getDoorDeliveryQuotes,
   getStationPickupAddressText,
   getStationPickupQuote,
+  getStationPickupQuotes,
   inferAddressLocationFromInput,
   isStationPickupQuote,
   isKlumpUnavailableForGatewayAmount,
@@ -1005,6 +1006,7 @@ export const CheckoutPage: React.FC = () => {
   const quoteRequestSequence = useRef(0);
   const quoteAbortController = useRef<AbortController | null>(null);
   const stationPickupQuote = getStationPickupQuote(shippingQuotes);
+  const stationPickupQuotes = getStationPickupQuotes(shippingQuotes);
   const doorDeliveryQuotes = getDoorDeliveryQuotes(shippingQuotes);
   const selectedQuote = shippingQuotes.find(
     (quote) => String(quote.id) === String(selectedQuoteId),
@@ -3493,24 +3495,45 @@ export const CheckoutPage: React.FC = () => {
                         {deliveryMethod === 'pickup_station' && (
                           isLoadingQuotes ? (
                             <SmartQuoteLoader />
-                          ) : stationPickupQuote ? (
-                            <div className="mt-4 bg-store-primary/5 p-4 rounded-xl border border-store-primary/20 flex items-start gap-4 animate-in fade-in">
-                            <div className="bg-store-background p-2 rounded-lg border border-store-background-text/10">
-                              <Building2 size={24} className="text-store-primary" />
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-store-background-text text-sm">
-                                Pickup Stations (GIGL)
-                              </h4>
-                              <p className="text-sm text-store-background-text/65 mt-1">
-                                {getStationPickupAddressText(stationPickupQuote) ||
-                                  'Collect from the selected GIGL service centre.'}
-                              </p>
-                              <div className="mt-2 text-xs font-bold bg-store-background inline-block px-2 py-1 rounded border border-store-background-text/10 text-store-background-text">
-                                {formatAmountInCurrency(stationPickupQuote.price, stationPickupQuote.currency, AUTO_FRACTION_OPTIONS)}
+                          ) : stationPickupQuotes.length > 0 ? (
+                            <fieldset className="m-0 mt-4 min-w-0 border-0 p-0 animate-in fade-in">
+                              <legend className="mb-3 text-xs font-bold uppercase tracking-wide text-store-background-text/70">
+                                Select Pickup Station (GIGL)
+                              </legend>
+                              <div className="space-y-3">
+                                {stationPickupQuotes.map((quote) => (
+                                  <label
+                                    key={quote.id}
+                                    className={`flex items-start justify-between gap-3 p-4 rounded-xl border cursor-pointer hover:border-store-primary/60 transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${selectedQuoteId === quote.id
+                                      ? 'border-store-primary bg-store-primary/5 ring-1 ring-store-primary'
+                                      : 'border-store-background-text/10 bg-store-background'
+                                      }`}
+                                  >
+                                    <div className="flex min-w-0 items-start gap-3">
+                                      <input
+                                        type="radio"
+                                        name="station_pickup_quote"
+                                        checked={selectedQuoteId === quote.id}
+                                        onChange={() => setSelectedQuoteId(quote.id)}
+                                        className="mt-0.5 size-4 border-store-background-text/25 text-store-primary focus:ring-store-primary"
+                                      />
+                                      <div className="min-w-0">
+                                        <span className="text-sm font-bold text-store-background-text">
+                                          {quote.stationName || quote.displayName}
+                                        </span>
+                                        <p className="mt-0.5 text-xs text-store-background-text/65">
+                                          {quote.stationAddress ||
+                                            'Collect from this GIGL service centre.'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <span className="shrink-0 text-sm font-bold text-store-background-text">
+                                      {formatAmountInCurrency(quote.price, quote.currency, AUTO_FRACTION_OPTIONS)}
+                                    </span>
+                                  </label>
+                                ))}
                               </div>
-                            </div>
-                            </div>
+                            </fieldset>
                           ) : (
                             <div className="mt-4 rounded-xl border border-store-background-text/10 bg-store-background p-4 text-sm text-store-background-text/65">
                               No nearby GIG Logistics pickup station is available for this address yet.
