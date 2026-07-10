@@ -1,4 +1,6 @@
-import type { ReactEventHandler, Ref } from 'react';
+'use client';
+
+import { type ReactEventHandler, type Ref, useState } from 'react';
 import { preload } from 'react-dom';
 import { rewriteOgabasseyTransformUrlFormat } from '@/lib/ogabassey-cdn-image-url';
 import {
@@ -57,6 +59,9 @@ export function CdnFormatImage({
   ...input
 }: CdnFormatImageProps) {
   const { avifSource, imgProps } = getOgabasseyImageFormatProps(input);
+  const [failedAvifSrcSet, setFailedAvifSrcSet] = useState<string | null>(null);
+  const isAvifDisabled =
+    avifSource !== null && failedAvifSrcSet === avifSource.srcSet;
 
   const handleError: ReactEventHandler<HTMLImageElement> = (event) => {
     const img = event.currentTarget;
@@ -83,6 +88,9 @@ export function CdnFormatImage({
       // caller only if that fallback subsequently fails as well.
       for (const source of formatSources) {
         source.remove();
+      }
+      if (avifSource) {
+        setFailedAvifSrcSet(avifSource.srcSet);
       }
       return;
     }
@@ -123,7 +131,7 @@ export function CdnFormatImage({
     />
   );
 
-  if (!avifSource) {
+  if (!avifSource || isAvifDisabled) {
     return img;
   }
 

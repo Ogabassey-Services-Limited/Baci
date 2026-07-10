@@ -152,11 +152,13 @@ describe('CdnFormatImage (branch logic, mocked format-source)', () => {
 
     // The browser now falls back to the jpeg <img>; its failure must reach the
     // caller.
-    Object.defineProperty(image as HTMLImageElement, 'currentSrc', {
+    const fallbackImage = container.querySelector('img');
+    expect(fallbackImage).not.toBeNull();
+    Object.defineProperty(fallbackImage as HTMLImageElement, 'currentSrc', {
       configurable: true,
       value: `${CDN}/image/format=jpeg/core-assets/products/phone-640.jpg`,
     });
-    fireEvent.error(image as HTMLImageElement);
+    fireEvent.error(fallbackImage as HTMLImageElement);
     expect(onError).toHaveBeenCalledTimes(1);
   });
 
@@ -201,6 +203,44 @@ describe('CdnFormatImage (branch logic, mocked format-source)', () => {
     fireEvent.error(image as HTMLImageElement);
 
     expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the failed AVIF source removed across a parent rerender', async () => {
+    vi.doMock('@/lib/ogabassey-image-format-sources', () => ({
+      getOgabasseyImageFormatProps: vi.fn(() => ({
+        avifSource: {
+          sizes: '100vw',
+          srcSet: `${CDN}/image/format=avif/core-assets/products/phone-640.jpg 640w`,
+        },
+        imgProps: {
+          alt: 'Phone',
+          sizes: '100vw',
+          src: `${CDN}/image/format=jpeg/core-assets/products/phone-640.jpg`,
+          srcSet: `${CDN}/image/format=jpeg/core-assets/products/phone-640.jpg 640w`,
+        },
+      })),
+    }));
+    const { CdnFormatImage: Component } = await import('./cdn-format-image');
+    const props = {
+      alt: 'Phone',
+      height: 600,
+      src: 'unused-because-mocked',
+      width: 800,
+    } as const;
+    const { container, rerender } = render(<Component {...props} />);
+    const image = container.querySelector('img');
+
+    expect(image).not.toBeNull();
+    Object.defineProperty(image as HTMLImageElement, 'currentSrc', {
+      configurable: true,
+      value: `${CDN}/image/format=avif/core-assets/products/phone-640.jpg`,
+    });
+    fireEvent.error(image as HTMLImageElement);
+    expect(container.querySelector('source[type="image/avif"]')).toBeNull();
+
+    rerender(<Component {...props} />);
+
+    expect(container.querySelector('source[type="image/avif"]')).toBeNull();
   });
 
   it('carries the alt text through onto the rendered <img>', async () => {
