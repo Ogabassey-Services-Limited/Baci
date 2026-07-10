@@ -1719,11 +1719,22 @@ describe('POST /api/orders — quiz voucher guard', () => {
     );
   });
 
-  it('rejects voucher-only carts with residual delivery charges before voucher RPC work', async () => {
+  it('absorbs the delivery fee on a voucher-only cart (merchant covers it) and leaves nothing due', async () => {
+    // Physical prizes ship: the merchant absorbs the delivery fee (like VAT), so
+    // a nonzero shipping quote is NOT a shopper residual. The order records the
+    // shipping (total = shipping here, no VAT) and redeems with nothing due.
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
     vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
-    const supabase = buildMockSupabase();
+    const supabase = buildMockSupabase({
+      create_storefront_order_with_quiz_voucher: {
+        // Award covers the product; only the absorbed shipping remains as total.
+        data: [
+          { ...baseOrderRow, subtotal: 1000, shipping_fee: 1500, total: 1500 },
+        ],
+        error: null,
+      },
+    });
     const supabaseMod = await import('@/lib/supabase/server');
     vi.mocked(supabaseMod.createClient).mockImplementation(
       () => supabase as unknown as never
@@ -1767,15 +1778,14 @@ describe('POST /api/orders — quiz voucher guard', () => {
     );
     const body = await readJson(response);
 
-    expect(response.status).toBe(400);
-    expect(body).toEqual({
-      code: 'QUIZ_VOUCHER_RESIDUAL_PAYMENT_UNSUPPORTED',
-      error: 'Quiz prize vouchers cannot be combined with paid charges',
-    });
-    expect(supabase.rpc).not.toHaveBeenCalledWith(
+    expect(response.status).toBe(201);
+    // The voucher RPC runs and records the real shipping fee.
+    expect(supabase.rpc).toHaveBeenCalledWith(
       'create_storefront_order_with_quiz_voucher',
-      expect.any(Object)
+      expect.objectContaining({ p_shipping_fee: 1500 })
     );
+    // The shopper owes nothing — the merchant absorbs the delivery.
+    expect(body.amountDueToGateway).toBe(0);
   });
 
   it('maps voucher RPC client errors to a checkout-correctable 400', async () => {

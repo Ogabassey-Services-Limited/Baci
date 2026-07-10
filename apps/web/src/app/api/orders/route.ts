@@ -1793,10 +1793,11 @@ export async function POST(request: NextRequest) {
           discountAmount: serverDerivedDiscountAmount,
           giftWrappingFee: giftWrappingFeeValue,
           items: orderItemsPayload,
-          shippingFee: shippingFeeValue,
-          // The prize VAT is absorbed by the merchant and covered by the
-          // voucher, so it is NOT a shopper residual — exclude it here (it is
-          // still recorded on the order via orderTaxAmount).
+          // The prize's VAT and delivery are absorbed by the merchant and
+          // covered by the voucher, so neither is a shopper residual — exclude
+          // both here. Both are still recorded on the order (via orderTaxAmount
+          // and p_shipping_fee) for the merchant's books and fulfilment.
+          shippingFee: 0,
           taxAmount: 0,
         })
       : null;
