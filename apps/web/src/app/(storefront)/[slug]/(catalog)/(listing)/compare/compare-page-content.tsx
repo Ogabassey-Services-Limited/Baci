@@ -4,9 +4,9 @@ import { notFound } from 'next/navigation';
 import type { BreadcrumbList } from 'schema-dts';
 import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import {
-  getCachedCategories,
   getCachedCategoryPageData,
   getRequestScopedMerchant,
+  getStorefrontCategories,
 } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
@@ -39,7 +39,9 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
   }
 
   const headersList = await headers();
-  const categories = await getCachedCategories(merchant.id);
+  const { categories, queryFailed } = await getStorefrontCategories(
+    merchant.id
+  );
   const storeUrl = buildStoreUrl(merchant);
   const pathPrefix = getStorefrontPathPrefix(headersList, merchant);
   const storefrontName = merchant.business_name?.trim();
@@ -100,11 +102,14 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
           {sections.length === 0 ? (
             <section className="mt-10 rounded-3xl border border-store-background-text/10 bg-store-background px-6 py-16 text-center shadow-sm">
               <h2 className="text-xl font-semibold text-store-background-text">
-                No product comparisons available
+                {queryFailed
+                  ? 'Product comparisons temporarily unavailable'
+                  : 'No product comparisons available'}
               </h2>
               <p className="mt-2 text-sm text-store-background-text/55">
-                Comparison pages will appear here once enough product details
-                are available.
+                {queryFailed
+                  ? 'Please try again shortly while category navigation recovers.'
+                  : 'Comparison pages will appear here once enough product details are available.'}
               </p>
             </section>
           ) : (

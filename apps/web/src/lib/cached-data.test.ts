@@ -38,6 +38,7 @@ import {
   getCachedStorefrontHomeProducts,
   getCachedStorefrontLaunchProducts,
   getPublicSupabaseClient,
+  getStorefrontCategories,
 } from '@/lib/cached-data';
 
 let harness: CachedDataTestHarness;
@@ -139,6 +140,34 @@ describe('getCachedCategories', () => {
 
     expect(result).toEqual([]);
   });
+
+  it('degrades a transient optional-navigation failure outside the cached fill', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    harness.mockListResult.data = null;
+    harness.mockListResult.error = { message: 'DB timeout' };
+
+    await expect(getStorefrontCategories('merchant-1')).resolves.toEqual({
+      categories: [],
+      queryFailed: true,
+    });
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Category navigation query failed outside cache:',
+      expect.objectContaining({ merchantId: 'merchant-1' })
+    );
+  });
+
+  it('reports a successful optional-navigation read without changing its rows', async () => {
+    const categories = [{ id: 'c1', name: 'Electronics', slug: 'electronics' }];
+    harness.mockListResult.data = categories;
+    harness.mockListResult.error = null;
+
+    await expect(getStorefrontCategories('merchant-1')).resolves.toEqual({
+      categories,
+      queryFailed: false,
+    });
+  });
 });
 
 describe('cached merchant entity normalization', () => {
@@ -174,6 +203,34 @@ describe('cached merchant entity normalization', () => {
         slug: 'ogabassey',
       })
     );
+  });
+
+  it('accepts the minimized unpublished snapshot used by the coming-soon shell', async () => {
+    harness.mockRpc.mockResolvedValueOnce(
+      resolvedStorefrontMerchantRpcResult({
+        id: 'merchant-unpublished',
+        business_name: 'Coming Soon Store',
+        slug: 'coming-soon-store',
+        is_published: false,
+      })
+    );
+
+    const merchant = await getCachedMerchant('coming-soon-store');
+
+    expect(merchant).toEqual(
+      expect.objectContaining({
+        id: 'merchant-unpublished',
+        business_name: 'Coming Soon Store',
+        business_type: 'general',
+        slug: 'coming-soon-store',
+        is_published: false,
+        email: '',
+        phone: '',
+      })
+    );
+    expect(merchant?.feature_settings).toBeDefined();
+    expect(merchant).not.toHaveProperty('published_config');
+    expect(merchant).not.toHaveProperty('paystack_subaccount_code');
   });
 
   it('lets the SDK-owned GET retry policy operate under one total deadline', async () => {

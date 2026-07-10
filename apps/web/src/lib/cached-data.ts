@@ -1616,6 +1616,34 @@ export async function getCachedCategories(merchantId: string) {
   return data || [];
 }
 
+export interface StorefrontCategoriesResult {
+  categories: Awaited<ReturnType<typeof getCachedCategories>>;
+  queryFailed: boolean;
+}
+
+/**
+ * Request-local fallback for category lists that only enrich an otherwise
+ * renderable page. The remote cached fill stays fail-loud so a transient
+ * database error is never stored as an empty category list; this uncached
+ * boundary records the degraded state and lets callers omit optional links.
+ */
+export const getStorefrontCategories = cache(
+  async (merchantId: string): Promise<StorefrontCategoriesResult> => {
+    try {
+      return {
+        categories: await getCachedCategories(merchantId),
+        queryFailed: false,
+      };
+    } catch (error) {
+      console.error('Category navigation query failed outside cache:', {
+        merchantId,
+        error,
+      });
+      return { categories: [], queryFailed: true };
+    }
+  }
+);
+
 /**
  * Cached category by slug.
  * Uses 'categories' cacheLife profile (stale 5min, revalidate 1hr, expire 24hr)
@@ -1981,7 +2009,7 @@ async function getCategoryPageShellData(
       fallbackDescription: `Browse our collection of ${fallbackName} products.`,
       isInactiveCategory: false,
       categoryQueryFailed: true,
-      productScope: { kind: 'legacy', categoryName: fallbackName },
+      productScope: { kind: 'none' },
     };
   }
 }
@@ -2387,7 +2415,7 @@ export async function getCachedCategoryPageData(
     fallbackDescription: shell.fallbackDescription,
     isInactiveCategory: shell.isInactiveCategory,
     categoryQueryFailed: shell.categoryQueryFailed,
-    ...(productResult.productIdsQueryFailed
+    ...(shell.categoryQueryFailed || productResult.productIdsQueryFailed
       ? { productIdsQueryFailed: true }
       : {}),
     productCount: productResult.productCount,
@@ -2398,7 +2426,8 @@ export async function getCachedCategoryPageData(
     ...(productResult.productSlots.length !== productResult.products.length
       ? { productSlots: productResult.productSlots }
       : {}),
-    productsQueryFailed: productResult.productsQueryFailed,
+    productsQueryFailed:
+      Boolean(shell.categoryQueryFailed) || productResult.productsQueryFailed,
   };
 }
 
