@@ -25,10 +25,14 @@ interface StorefrontSpeculationRulesProps {
  * plus a validated slug, so there is no user input, but the escaping keeps the
  * output robust regardless.
  *
- * Prerendered pages execute JS; the storefront's analytics side effects
- * (PostHog idle boot, web-vitals flush, ad-attribution capture, merchant
- * page-view tracker) are each gated on `document.prerendering`, so speculating
- * a PDP/listing never mints junk pageviews or attribution.
+ * Prerendered pages execute JS; the storefront's side effects that would
+ * corrupt state or mint junk data for a page the shopper may never open —
+ * PostHog idle boot, web-vitals flush, ad-attribution capture, merchant
+ * page-view tracker, deferred cart validation/persistence, v2 saved-list
+ * hydration/persistence, and the Google merchant widget — are each gated on
+ * `document.prerendering` (see `runWhenPageActivated`), so speculating a
+ * PDP/listing never mutates the cart or saved list, loads third-party widgets,
+ * or mints junk pageviews/attribution.
  */
 export function StorefrontSpeculationRules({
   basePath,

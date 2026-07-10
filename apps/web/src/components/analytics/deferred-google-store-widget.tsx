@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { useEffect, useState } from 'react';
 import type { MerchantData } from '@/hooks/merchant/types';
+import { runWhenPageActivated } from '@/lib/dom/run-when-page-activated';
 import { setMerchantWidgetFrameHidden } from './google-store-widget-utils';
 
 interface DeferredGoogleStoreWidgetProps {
@@ -59,6 +60,7 @@ export function DeferredGoogleStoreWidget(
     let loading = false;
     let deferredLoadRetryCount = 0;
     let timeoutId: number | undefined;
+    let cancelActivationGate: (() => void) | undefined;
 
     function clearLoadTimeout() {
       if (timeoutId !== undefined) {
@@ -69,7 +71,17 @@ export function DeferredGoogleStoreWidget(
 
     function scheduleDeferredLoad() {
       clearLoadTimeout();
-      timeoutId = window.setTimeout(loadWidget, GOOGLE_STORE_WIDGET_DELAY_MS);
+      timeoutId = window.setTimeout(() => {
+        // A speculatively prerendered PDP runs this component in a hidden tab;
+        // firing the deferred load there would import and start the Google
+        // merchant widget (third-party gstatic script + badge iframe) for a
+        // page the shopper may never open. Defer the load until the page is
+        // actually presented — a discarded prerender never activates. The
+        // interaction listeners below are ungated because they cannot fire in a
+        // hidden prerender.
+        cancelActivationGate?.();
+        cancelActivationGate = runWhenPageActivated(loadWidget);
+      }, GOOGLE_STORE_WIDGET_DELAY_MS);
     }
 
     function removeDeferredWidgetListeners() {
@@ -120,6 +132,7 @@ export function DeferredGoogleStoreWidget(
 
     return () => {
       cancelled = true;
+      cancelActivationGate?.();
       clearLoadTimeout();
       removeDeferredWidgetListeners();
     };
