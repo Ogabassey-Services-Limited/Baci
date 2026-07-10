@@ -218,10 +218,22 @@ function buildMockSupabase(
     // row entirely (award not found).
     quizAwardOverrides?: Record<
       string,
-      { award_type?: string; missing?: boolean; status?: string }
+      {
+        award_type?: string;
+        customer_id?: string;
+        missing?: boolean;
+        reserved_order_id?: string;
+        status?: string;
+      }
     >;
     // Simulate a transient failure of the quiz_awards status lookup itself.
     quizAwardLookupError?: boolean;
+    // The order row returned by the claimed-award reserved-order idempotency
+    // lookup (`orders` where id = reserved_order_id / order_items.order_id).
+    claimedReservedOrder?: Record<string, unknown> | null;
+    // The order_id returned by the standard-path fallback lookup
+    // (`order_items` where quiz_award_id = award id).
+    claimedOrderItemOrderId?: string | null;
     shippingQuote?: unknown;
   } = {}
 ) {
@@ -298,6 +310,8 @@ function buildMockSupabase(
           id,
           status: quizAwardOverrides[id]?.status ?? 'approved',
           award_type: quizAwardOverrides[id]?.award_type ?? 'store_credit',
+          customer_id: quizAwardOverrides[id]?.customer_id ?? CUSTOMER_ID,
+          reserved_order_id: quizAwardOverrides[id]?.reserved_order_id ?? null,
           quiz_events: {
             compliance_verified: true,
             nlrc_permit_ref: 'NLRC-1',
@@ -395,6 +409,29 @@ function buildMockSupabase(
     auth: { getUser: vi.fn() },
     from: vi.fn((table: string) => {
       if (table === 'quiz_awards') return quizAwardChainable;
+      if (table === 'orders' && opts.claimedReservedOrder !== undefined) {
+        return {
+          ...sharedChainable,
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: opts.claimedReservedOrder,
+            error: null,
+          }),
+        };
+      }
+      if (
+        table === 'order_items' &&
+        opts.claimedOrderItemOrderId !== undefined
+      ) {
+        return {
+          ...sharedChainable,
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: opts.claimedOrderItemOrderId
+              ? { order_id: opts.claimedOrderItemOrderId }
+              : null,
+            error: null,
+          }),
+        };
+      }
       if (table === 'shipping_quotes') {
         return {
           ...sharedChainable,
@@ -1027,6 +1064,172 @@ describe('POST /api/orders — quiz voucher guard', () => {
     expect(body.code).toBe('QUIZ_VOUCHER_LOOKUP_FAILED');
     // Non-pruning: no rejectedVoucherToken so checkout keeps the prize line.
     expect(body).not.toHaveProperty('rejectedVoucherToken');
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('replays the already-created order when a single claimed voucher is retried', async () => {
+    // A voucher checkout that succeeded but lost its HTTP response leaves the
+    // award claimed with a reserved (paid) order. Retrying must NOT prune the
+    // prize as an "invalid voucher" — return the existing order as a replayed
+    // success so the shopper reaches their order screen.
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const awardId = '11111111-1111-4111-8111-111111111111';
+    const productId = '22222222-2222-4222-8222-222222222222';
+    const reservedOrderId = '99999999-9999-4999-8999-999999999999';
+    const supabase = buildMockSupabase(
+      {},
+      {
+        quizAwardOverrides: {
+          [awardId]: {
+            status: 'claimed',
+            reserved_order_id: reservedOrderId,
+          },
+        },
+        claimedReservedOrder: {
+          id: reservedOrderId,
+          order_number: 'ORD-PRIZE-1',
+          tracking_token: 'track-prize-1',
+          customer_id: CUSTOMER_ID,
+          payment_status: 'pending',
+          shipping_status: 'pending',
+          total: 0,
+        },
+      }
+    );
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId,
+        condition: 'new',
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId,
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            condition: 'new',
+            product_id: productId,
+            price: 0,
+            voucher_token: token,
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-idempotency-replayed')).toBe('true');
+    expect(body.idempotency).toEqual({ replayed: true });
+    expect(body.order).toMatchObject({
+      id: reservedOrderId,
+      order_number: 'ORD-PRIZE-1',
+      // Normalized to the settled prize contract regardless of the stored row.
+      payment_status: 'paid',
+      payment_method: 'quiz_voucher',
+    });
+    expect(body.amountDueToGateway).toBe(0);
+    // No new order is created on the retry.
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('replays a claimed voucher for a standard-path prize via order_items.quiz_award_id', async () => {
+    // Non-serialized prizes have no reserved_order_id; the claim tags the
+    // created order_item with quiz_award_id instead. The retry must still resolve
+    // and replay that order rather than prune the prize.
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const awardId = '11111111-1111-4111-8111-111111111111';
+    const productId = '22222222-2222-4222-8222-222222222222';
+    const orderId = '88888888-8888-4888-8888-888888888888';
+    const supabase = buildMockSupabase(
+      {},
+      {
+        quizAwardOverrides: {
+          // claimed, but no reserved_order_id (standard path).
+          [awardId]: { status: 'claimed' },
+        },
+        claimedOrderItemOrderId: orderId,
+        claimedReservedOrder: {
+          id: orderId,
+          order_number: 'ORD-PRIZE-2',
+          customer_id: CUSTOMER_ID,
+          payment_status: 'paid',
+          shipping_status: 'pending',
+          total: 0,
+        },
+      }
+    );
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId,
+        condition: 'new',
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId,
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            condition: 'new',
+            product_id: productId,
+            price: 0,
+            voucher_token: token,
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.idempotency).toEqual({ replayed: true });
+    expect(body.order).toMatchObject({
+      id: orderId,
+      order_number: 'ORD-PRIZE-2',
+      payment_method: 'quiz_voucher',
+    });
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 

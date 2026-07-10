@@ -1220,7 +1220,7 @@ export async function POST(request: NextRequest) {
         await supabase
           .from('quiz_awards')
           .select(
-            'id, status, award_type, quiz_events!inner(nlrc_permit_ref, compliance_verified)'
+            'id, status, award_type, customer_id, reserved_order_id, quiz_events!inner(nlrc_permit_ref, compliance_verified)'
           )
           .in('id', voucherAwardIds);
       if (voucherAwardError) {
@@ -1259,6 +1259,67 @@ export async function POST(request: NextRequest) {
       // any genuinely-bad line first so a stale/claimed voucher never masquerades
       // as a redeem-one-at-a-time situation.
       if (validVoucherAwardIds.length !== voucherAwardIds.length) {
+        // Idempotent retry: a single-voucher checkout that succeeded but lost or
+        // timed out its HTTP response already moved the award approved→claimed
+        // and created its (paid) prize order. Retrying then fails this
+        // approved-only filter and checkout prunes the only prize line, so the
+        // shopper never reaches the success screen for an order they already own.
+        // The token was verified against this user (userId === resolvedUserId),
+        // so a claimed store-credit award with a reserved order is that same
+        // user's completed prize — return it as a replayed success instead.
+        if (voucherAwardIds.length === 1) {
+          const soleAwardId = voucherAwardIds[0];
+          const soleRow = voucherAwardRowById.get(soleAwardId);
+          if (
+            soleRow?.status === 'claimed' &&
+            soleRow.award_type === 'store_credit'
+          ) {
+            // Resolve the order the claim created. The serialized-prize path
+            // stamps `reserved_order_id` on the award; the standard path instead
+            // tags the created order_item with `quiz_award_id`. Try both so the
+            // idempotent replay covers every prize type.
+            let claimedOrderId = soleRow.reserved_order_id ?? null;
+            if (!claimedOrderId) {
+              const { data: claimedItem } = await supabase
+                .from('order_items')
+                .select('order_id')
+                .eq('quiz_award_id', soleAwardId)
+                .maybeSingle();
+              claimedOrderId = claimedItem?.order_id ?? null;
+            }
+            if (claimedOrderId) {
+              const { data: claimedOrder, error: claimedOrderError } =
+                await supabase
+                  .from('orders')
+                  .select(
+                    'id, order_number, tracking_token, subtotal, shipping_fee, discount_amount, tax_amount, total, customer_id, customer_email, customer_name, customer_phone, payment_status, shipping_status, payment_method, shipping_address, merchant_id'
+                  )
+                  .eq('id', claimedOrderId)
+                  .eq('customer_id', soleRow.customer_id)
+                  .maybeSingle();
+              if (!claimedOrderError && claimedOrder) {
+                return NextResponse.json(
+                  {
+                    order: {
+                      ...claimedOrder,
+                      payment_status: 'paid',
+                      payment_method: 'quiz_voucher',
+                    },
+                    wallet: null,
+                    savings: null,
+                    amountDueToGateway: 0,
+                    idempotency: { replayed: true },
+                  },
+                  {
+                    status: 200,
+                    headers: { 'x-idempotency-replayed': 'true' },
+                  }
+                );
+              }
+            }
+          }
+        }
+
         const rejectedAwardId = voucherAwardIds.find(
           (awardId) => !validVoucherAwardIds.includes(awardId)
         );
