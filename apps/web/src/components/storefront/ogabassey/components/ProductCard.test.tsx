@@ -9,6 +9,16 @@ vi.mock('next/image', () => ({
     return <img {...imageProps} alt={String(alt ?? '')} />;
   },
 }));
+// Product images now render through CdnFormatImage (explicit per-format
+// <picture>). Its real pipeline calls next/image's `getImageProps`; surface it
+// as a plain <img> so these tests keep asserting card behavior.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => {
+    const { alt, fill: _fill, preload: _preload, ...imageProps } = props;
+
+    return <img {...imageProps} alt={String(alt ?? '')} />;
+  },
+}));
 vi.mock('next/link', () => ({
   default: (
     props: { children: React.ReactNode; href: string } & Record<string, unknown>
@@ -158,6 +168,59 @@ describe('ProductCard', () => {
 
     expect(image).toHaveAttribute('src', expect.stringContaining('placeholder.svg'));
     expect(image).toHaveAttribute('alt', '');
+  });
+
+  it.each(['grid', 'list'] as const)(
+    'shows the star rating in %s view when a product has real review data',
+    (viewMode) => {
+      render(
+        <ProductCard
+          product={mockProduct}
+          onAddToCart={vi.fn()}
+          isAdded={false}
+          viewMode={viewMode}
+        />
+      );
+
+      expect(screen.getByText('(4.5)')).toBeInTheDocument();
+    }
+  );
+
+  it.each([
+    { label: 'missing', rating: undefined },
+    { label: 'zero', rating: 0 },
+    { label: 'negative', rating: -2 },
+    { label: 'NaN', rating: Number.NaN },
+    { label: 'Infinity', rating: Number.POSITIVE_INFINITY },
+  ])('hides the star rating in grid view for a $label rating', ({ rating }) => {
+    render(
+      <ProductCard
+        product={{ ...mockProduct, rating }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+      />
+    );
+
+    expect(screen.queryByText(/^\(/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { label: 'missing', rating: undefined },
+    { label: 'zero', rating: 0 },
+    { label: 'negative', rating: -2 },
+    { label: 'NaN', rating: Number.NaN },
+    { label: 'Infinity', rating: Number.POSITIVE_INFINITY },
+  ])('hides the star rating in list view for a $label rating', ({ rating }) => {
+    render(
+      <ProductCard
+        product={{ ...mockProduct, rating }}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        viewMode="list"
+      />
+    );
+
+    expect(screen.queryByText(/^\(/)).not.toBeInTheDocument();
   });
 
   it('renders with isAdded state', () => {

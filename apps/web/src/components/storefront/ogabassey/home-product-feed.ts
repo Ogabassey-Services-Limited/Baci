@@ -1,4 +1,8 @@
-import { deriveProductImageData } from '@baci/shared/lib';
+import {
+  deriveProductImageData,
+  getImagePayloadAlt,
+  getImagePayloadUrl,
+} from '@baci/shared/lib';
 import { prioritizeSmartphoneProducts } from '@baci/shared/storefront';
 import type { Product as StorefrontProduct } from '@/lib/products';
 import {
@@ -6,7 +10,11 @@ import {
   type CurrencyConfig,
   formatCurrencyWithConfig,
 } from '@/lib/currency';
-import { OGABASSEY_HOME_PRODUCT_FEED_LIMIT } from './config/products';
+import { stripHtmlTags } from '@/lib/sanitize-core';
+import {
+  OGABASSEY_HOME_PRODUCT_DESCRIPTION_TEASER_LIMIT,
+  OGABASSEY_HOME_PRODUCT_FEED_LIMIT,
+} from './config/products';
 import type { Product as OgabasseyProduct } from './types';
 
 type ConditionLabel = 'New' | 'Used' | 'Open Box' | 'New & Used';
@@ -30,13 +38,50 @@ const DEFAULT_HOME_FEED_CURRENCY: CurrencyConfig = {
   locale: 'en-NG',
 };
 
+const PRICE_QUESTION_PATTERN = /What is the .*? Price in Nigeria\??/i;
+
 const mapCondition = (condition?: string): ConditionLabel => {
   return CONDITION_LABELS[condition || ''] || 'New';
 };
 
+// Home cards render at most a 60-char teaser (ProductGridItemChrome), so the
+// full PDP description must not cross the server->client boundary — it is the
+// single largest contributor to the home RSC flight payload.
+const buildDescriptionTeaser = (description?: string | null): string => {
+  return stripHtmlTags(description ?? '')
+    .replace(PRICE_QUESTION_PATTERN, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, OGABASSEY_HOME_PRODUCT_DESCRIPTION_TEASER_LIMIT);
+};
+
+// getMatchingImagePayloadAlt only ever reads url+alt pairs with a non-blank
+// alt, so alt-less entries and extra payload fields are dead weight in the
+// serialized feed.
+const slimImagePayloads = (
+  imagePayloads: readonly unknown[]
+): { url: string; alt: string }[] => {
+  return imagePayloads
+    .map((payload) => ({
+      url: getImagePayloadUrl(payload),
+      alt: getImagePayloadAlt(payload),
+    }))
+    .filter((payload) => payload.url !== '' && payload.alt !== '');
+};
+
+interface MapOgabasseyProductsOptions {
+  /**
+   * 'teaser' (default) truncates descriptions for feeds that cross the
+   * server->client boundary. Use 'full' for server-only consumers (launch
+   * carousel/JSON-LD) where truncation would alter schema markup.
+   */
+  descriptionMode?: 'teaser' | 'full';
+}
+
 export function mapStorefrontProductsToOgabasseyProducts(
   storefrontProducts: StorefrontProduct[],
-  currency: CurrencyConfig = DEFAULT_HOME_FEED_CURRENCY
+  currency: CurrencyConfig = DEFAULT_HOME_FEED_CURRENCY,
+  { descriptionMode = 'teaser' }: MapOgabasseyProductsOptions = {}
 ): OgabasseyProduct[] {
   return storefrontProducts.map((product) => {
     const {
@@ -54,6 +99,7 @@ export function mapStorefrontProductsToOgabasseyProducts(
     const condition: ConditionLabel = product.has_condition_offers
       ? 'New & Used'
       : mapCondition(product.condition);
+    const altImagePayloads = slimImagePayloads(imagePayloads);
 
     return {
       id: product.id,
@@ -63,26 +109,26 @@ export function mapStorefrontProductsToOgabasseyProducts(
       rawPrice: product.price,
       image,
       ...(imageAlt ? { image_alt: imageAlt } : {}),
-      ...(imagePayloads.length > 0 ? { image_payloads: imagePayloads } : {}),
-      description: product.description,
-      rating: product.rating ?? 4.5,
+      ...(altImagePayloads.length > 0
+        ? { image_payloads: altImagePayloads }
+        : {}),
+      description:
+        descriptionMode === 'full'
+          ? product.description
+          : buildDescriptionTeaser(product.description),
+      ...(typeof product.rating === 'number' &&
+      Number.isFinite(product.rating) &&
+      product.rating > 0
+        ? { rating: product.rating }
+        : {}),
       category: category?.name || product.category || 'General',
       category_id: product.category_id,
-      categories: category
-        ? {
-            id: category.id || product.category_id || `${product.id}-category`,
-            name: category.name || product.category || 'General',
-            slug: category.slug || product.category_slug,
-            parent_id: category.parent_id,
-          }
-        : undefined,
       categorySlug: category?.slug || product.category_slug,
       condition,
       brand: product.brand,
       colors: product.colors,
       storage: product.storage_options?.[0],
       images,
-      has_condition_offers: product.has_condition_offers,
     };
   });
 }

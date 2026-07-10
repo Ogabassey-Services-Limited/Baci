@@ -7,13 +7,18 @@ import {
 } from '@/components/storefront/ogabassey/config/product-media';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import type { CachedMerchant } from '@/lib/cached-data';
-import imageLoader from '@/lib/image-loader';
+import { ogabasseyFallbackImageLoader } from '@/lib/ogabassey-image-fallback-loader';
+import { buildOgabasseyAvifSrcSet } from '@/lib/ogabassey-image-format-sources';
 
 interface LcpSkeletonProps {
   merchant: CachedMerchant | null;
   primaryProductImage: string | null;
   productName?: string | null;
 }
+
+// `<picture display:contents>` generates no box, so the absolutely-positioned
+// `<img>` still resolves its containing block against the relative image frame.
+const PICTURE_STYLE: CSSProperties = { display: 'contents' };
 
 type NativeImagePropsWithNextInternals = ComponentProps<'img'> & {
   fill?: unknown;
@@ -53,7 +58,10 @@ export function OgabasseyPdpProductLcpSkeleton({
   const { props: imgProps } = getImageProps({
     alt: productImageAlt,
     fill: true,
-    loader: imageLoader,
+    // Shared fallback loader → jpeg/png `<img>` tier; the AVIF `<source>` is
+    // derived from its srcSet so both tiers differ ONLY in the format token and
+    // stay byte-identical to the PDP resource-hint preload.
+    loader: ogabasseyFallbackImageLoader,
     priority: true,
     quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
     sizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
@@ -66,6 +74,9 @@ export function OgabasseyPdpProductLcpSkeleton({
     quality: _quality,
     ...nativeImgProps
   } = imgProps as NativeImagePropsWithNextInternals;
+  // AVIF twin of the fallback srcSet. `null` for non-CDN sources (external
+  // merchants have no AVIF tier) — the skeleton then paints the bare `<img>`.
+  const avifSrcSet = buildOgabasseyAvifSrcSet(nativeImgProps.srcSet);
   const imageFrameStyle: CSSProperties = {
     alignItems: 'center',
     aspectRatio: '1 / 1',
@@ -111,15 +122,25 @@ export function OgabasseyPdpProductLcpSkeleton({
             className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-border/40 bg-muted/5"
             style={imageFrameStyle}
           >
-            {/* biome-ignore lint/performance/noImgElement: Native HTML img used synchronously inside server-rendered skeleton to ensure instant painting */}
-            <img
-              {...nativeImgProps}
-              alt={productImageAlt}
-              className="object-cover w-full h-full absolute inset-0"
-              style={imageStyle}
-              fetchPriority="high"
-              decoding="sync"
-            />
+            <picture style={PICTURE_STYLE}>
+              {avifSrcSet ? (
+                <source
+                  sizes={nativeImgProps.sizes}
+                  srcSet={avifSrcSet}
+                  type="image/avif"
+                />
+              ) : null}
+              {/* Native <img> inside <picture> for synchronous instant paint of
+                  the server-rendered LCP skeleton. */}
+              <img
+                {...nativeImgProps}
+                alt={productImageAlt}
+                className="object-cover w-full h-full absolute inset-0"
+                style={imageStyle}
+                fetchPriority="high"
+                decoding="sync"
+              />
+            </picture>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-2 animate-pulse">
             {[1, 2, 3, 4].map((i) => (

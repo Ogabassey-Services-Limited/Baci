@@ -57,7 +57,14 @@ export function selectOgabasseyLaunchProducts({
     { pinned: launchPins, limit: LAUNCH_CAROUSEL_LIMIT }
   );
 
-  return mapStorefrontProductsToOgabasseyProducts(launchSubset, currency);
+  // Launch items feed the server-built hero slides and home JSON-LD only —
+  // they never cross the client boundary, and the schema builder needs the
+  // untruncated description. Currency is threaded through so non-NGN merchants
+  // format launch prices correctly, while descriptionMode stays 'full' to keep
+  // the CollectionPage JSON-LD byte-identical.
+  return mapStorefrontProductsToOgabasseyProducts(launchSubset, currency, {
+    descriptionMode: 'full',
+  });
 }
 
 /**

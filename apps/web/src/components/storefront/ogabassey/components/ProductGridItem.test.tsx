@@ -46,6 +46,17 @@ vi.mock('next/image', () => ({
     <img {...props} alt={String(props.alt ?? '')} />
   ),
 }));
+// Product images now render through CdnFormatImage (explicit per-format
+// <picture>). Its real pipeline calls next/image's `getImageProps`; surface it
+// as a plain <img> so these tests keep asserting grid-item behavior (including
+// the onLoad/onError skeleton transitions).
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => {
+    const { fill: _fill, preload: _preload, ...imageProps } = props;
+
+    return <img {...imageProps} alt={String(props.alt ?? '')} />;
+  },
+}));
 
 import { ProductGridItem } from './ProductGridItem';
 
@@ -328,4 +339,34 @@ describe('ProductGridItem', () => {
     expect(image?.getAttribute('src')).toContain('data:image/svg+xml');
   });
 
+  it('reveals an image that was already complete before hydration attached onLoad', () => {
+    // Arrange: jsdom images are never `complete`, so simulate a warm-cache
+    // SSR'd <img> by patching the prototype BEFORE render — the mount-time
+    // ref callback must flip the loaded state without any onLoad event.
+    const completeSpy = vi
+      .spyOn(window.HTMLImageElement.prototype, 'complete', 'get')
+      .mockReturnValue(true);
+    const naturalWidthSpy = vi
+      .spyOn(window.HTMLImageElement.prototype, 'naturalWidth', 'get')
+      .mockReturnValue(640);
+
+    // Act
+    const { container } = render(
+      <ProductGridItem
+        product={baseProduct}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    // Assert: no skeleton pulse, image visible — without firing a load event.
+    const image = container.querySelector('img');
+    expect(image?.className).toContain('opacity-100');
+    expect(container.querySelector('.animate-pulse')).toBeNull();
+
+    completeSpy.mockRestore();
+    naturalWidthSpy.mockRestore();
+  });
 });
