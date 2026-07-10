@@ -1900,10 +1900,24 @@ describe('POST /api/payments/initialize', () => {
         error: null,
       };
 
-      // International (non-NGN) selection falls through to Korapay, but KE
-      // settles KES not USD, so the tightened downstream guard rejects rather
-      // than routing an unsettleable Korapay charge.
-      const res = await POST(makeRequest({ ...validBody, currency: 'USD' }));
+      // Post-#2993 the order carries its own stamped currency, so express
+      // "KE merchant with a foreign-currency order" as a GHS order (a currency
+      // Korapay CAN charge, isolating the settlement guard from the
+      // charge-currency resolver). International selection falls through to
+      // Korapay, but KE settles KES not GHS, so the tightened downstream
+      // guard rejects rather than routing an unsettleable Korapay charge.
+      rpcResult = {
+        data: [
+          {
+            merchant_id: MERCHANT_ID,
+            total: 5000,
+            currency: 'GHS',
+            tracking_token: 'track-token-123',
+          },
+        ],
+        error: null,
+      };
+      const res = await POST(makeRequest({ ...validBody, currency: 'GHS' }));
       const json = await res.json();
 
       expect(res.status).toBe(400);
@@ -1995,6 +2009,19 @@ describe('POST /api/payments/initialize', () => {
     });
 
     it('(c) charges GHS (no coercion) for a GHS order routed to korapay', async () => {
+      // The merchant must settle GHS (GH country) — the Lane-0 settlement
+      // guard rejects a Korapay charge in a currency the merchant's country
+      // cannot settle, regardless of what Korapay itself can charge.
+      merchantResult = {
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Store',
+          slug: 'test-store',
+          paystack_subaccount_code: null,
+          country: 'GH',
+        },
+        error: null,
+      };
       enableKorapayForTest();
       snapshotWithCurrency('GHS');
       mockInitializeKorapay.mockResolvedValue({
@@ -2071,6 +2098,17 @@ describe('POST /api/payments/initialize', () => {
     it('(g) never auto-selects paystack for a non-NGN order even when preferred_international_gateway is paystack', async () => {
       // Paystack settles NGN only, so international auto-selection must
       // always route to korapay regardless of the merchant's preference.
+      // GH merchant so the Lane-0 settlement guard admits the GHS charge.
+      merchantResult = {
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Store',
+          slug: 'test-store',
+          paystack_subaccount_code: null,
+          country: 'GH',
+        },
+        error: null,
+      };
       featureSettingsResult = {
         data: {
           korapay_enabled: true,

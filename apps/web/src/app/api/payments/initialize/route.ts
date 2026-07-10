@@ -1249,7 +1249,9 @@ export async function POST(request: NextRequest) {
     // now fails closed (UNSUPPORTED_CURRENCY) instead of being charged in NGN, and
     // a client that explicitly disagrees with the order fails closed
     // (CURRENCY_MISMATCH). NGN orders are supported by every gateway, so the
-    // entire existing Nigerian flow is unchanged.
+    // entire existing Nigerian flow is unchanged. This runs BEFORE the
+    // forced-gateway availability gate so currency problems surface with their
+    // precise codes rather than the generic gateway_unavailable.
     const currencyResolution = resolveChargeCurrency({
       orderCurrency,
       clientCurrency: clientRequestedCurrency,
@@ -1268,12 +1270,13 @@ export async function POST(request: NextRequest) {
 
     // Phase 0.6 — harden the client-forced gateway param (money path). When the
     // client pins `data.gateway`, validate it against the merchant's actual
-    // availability (connected + enabled + currency) instead of mere membership
-    // in PAYMENT_GATEWAYS. Fail closed with a stable code — never silently fall
-    // back to selectGateway: a silent fallback both hides client bugs and would
-    // let a caller charge through a gateway the merchant never configured. The
-    // per-gateway ad-hoc guards further down stay in place as defense in depth
-    // (they also cover the non-forced selectGateway/DVA paths).
+    // availability (connected + enabled + settlement-matched currency) instead
+    // of mere membership in PAYMENT_GATEWAYS. Fail closed with a stable code —
+    // never silently fall back to selectGateway: a silent fallback both hides
+    // client bugs and would let a caller charge through a gateway the merchant
+    // never configured. The per-gateway ad-hoc guards further down stay in
+    // place as defense in depth (they also cover the non-forced
+    // selectGateway/DVA paths).
     if (isClientForcedGateway) {
       const forcedGatewayMerchant: CheckoutPaymentMerchant = {
         country: merchant.country,
