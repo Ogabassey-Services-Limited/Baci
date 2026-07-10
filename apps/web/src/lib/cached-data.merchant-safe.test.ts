@@ -302,6 +302,24 @@ describe('cached-data merchant safety helpers', () => {
       expect(mockWaitForMerchantLookupRetryBackoff).toHaveBeenCalledOnce();
     });
 
+    it.each([
+      408, 502, 503, 504, 520,
+    ])('uses the PostgREST response status for transient HTTP %s errors', async (status) => {
+      harness.mockRpc
+        .mockResolvedValueOnce({
+          data: null,
+          error: { code: '', message: 'upstream temporarily unavailable' },
+          status,
+        })
+        .mockResolvedValueOnce(resolverSuccess());
+
+      await expect(getMerchantSafe('test-store')).resolves.toEqual(
+        withDefaultFeatureSettings(mockMerchant)
+      );
+      expect(harness.mockRpc).toHaveBeenCalledTimes(2);
+      expect(mockWaitForMerchantLookupRetryBackoff).toHaveBeenCalledOnce();
+    });
+
     it('retries the Postgres statement-timeout SQLSTATE', async () => {
       harness.mockRpc
         .mockResolvedValueOnce({

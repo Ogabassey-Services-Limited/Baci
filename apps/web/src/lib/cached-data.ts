@@ -843,10 +843,10 @@ async function resolveStorefrontMerchantOnce({
   // retry(false) on the real PostgREST builder.
   const singleAttemptQuery =
     typeof query.retry === 'function' ? query.retry(false) : query;
-  const { data, error } = await singleAttemptQuery;
+  const { data, error, status } = await singleAttemptQuery;
 
   if (error) {
-    throw createMerchantLookupError(errorMessage, error);
+    throw createMerchantLookupError(errorMessage, { ...error, status });
   }
 
   return normalizeResolvedStorefrontCachedMerchantRow(
@@ -970,6 +970,9 @@ export async function getCachedMerchantByDomain(
 
 const TRANSIENT_MERCHANT_LOOKUP_ERROR = Symbol('transient-merchant-lookup');
 const DATABASE_ERROR_CODE_PATTERN = /^(?:[0-9A-Z]{5}|PGRST\d+)$/;
+const TRANSIENT_MERCHANT_LOOKUP_HTTP_STATUSES = new Set([
+  408, 502, 503, 504, 520,
+]);
 
 type MerchantLookupError = Error & {
   [TRANSIENT_MERCHANT_LOOKUP_ERROR]?: true;
@@ -1005,7 +1008,15 @@ function isTransientMerchantLookupError(error: unknown): boolean {
     message?: unknown;
     name?: unknown;
     stack?: unknown;
+    status?: unknown;
   };
+  if (
+    typeof maybeError.status === 'number' &&
+    TRANSIENT_MERCHANT_LOOKUP_HTTP_STATUSES.has(maybeError.status)
+  ) {
+    return true;
+  }
+
   const code =
     typeof maybeError.code === 'string' ? maybeError.code.trim() : '';
   if (code === '57014' || code === '20' || code === '23') {
@@ -1060,6 +1071,7 @@ function summarizeMerchantLookupError(error: unknown) {
     details?: unknown;
     message?: unknown;
     name?: unknown;
+    status?: unknown;
   };
   return {
     code:
@@ -1078,6 +1090,8 @@ function summarizeMerchantLookupError(error: unknown) {
       typeof maybeError?.details === 'string'
         ? sanitizeLookupLogValue(maybeError.details)
         : undefined,
+    status:
+      typeof maybeError?.status === 'number' ? maybeError.status : undefined,
     transient: isTransientMerchantLookupError(error),
   };
 }
