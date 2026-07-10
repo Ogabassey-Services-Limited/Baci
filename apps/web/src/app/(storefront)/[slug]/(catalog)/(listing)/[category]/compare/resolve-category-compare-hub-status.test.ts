@@ -75,24 +75,24 @@ describe('resolveCategoryCompareHubStatus', () => {
     expect(loadCategoryCompareHubData).not.toHaveBeenCalled();
   });
 
-  it('fails open (renderable) for a draft/unpublished store — the layout serves coming-soon 200', async () => {
+  it('fails open (unknown, uncached) for a draft/unpublished store — the layout serves coming-soon 200', async () => {
     vi.mocked(getMerchantByIdentifier).mockResolvedValue(
       merchant({ is_published: false })
     );
 
     await expect(resolveCategoryCompareHubStatus(input)).resolves.toEqual({
-      kind: 'renderable',
+      kind: 'unknown',
     });
     expect(loadCategoryCompareHubData).not.toHaveBeenCalled();
   });
 
-  it('fails open (renderable) when the categories load is degraded/empty (transient outage)', async () => {
+  it('fails open (unknown, uncached) when the categories load is degraded/empty (transient outage)', async () => {
     // getCachedCategories swallows query errors and returns [] — a store-wide
     // categories outage must never hard-404 every live hub.
     vi.mocked(getCachedCategories).mockResolvedValue([]);
 
     await expect(resolveCategoryCompareHubStatus(input)).resolves.toEqual({
-      kind: 'renderable',
+      kind: 'unknown',
     });
     expect(loadCategoryCompareHubData).not.toHaveBeenCalled();
   });
@@ -115,7 +115,7 @@ describe('resolveCategoryCompareHubStatus', () => {
     });
   });
 
-  it('resolves renderable when the hub has at least one compare link', async () => {
+  it('resolves renderable with merchantId (for cache tagging) when the hub has a compare link', async () => {
     vi.mocked(buildCategoryCompareHubLinks).mockReturnValue([
       {
         href: '/printers/compare/a-vs-b',
@@ -126,16 +126,17 @@ describe('resolveCategoryCompareHubStatus', () => {
 
     await expect(resolveCategoryCompareHubStatus(input)).resolves.toEqual({
       kind: 'renderable',
+      merchantId: 'merchant-1',
     });
   });
 
-  it('resolves renderable (fail-open) when inventory is degraded even with zero links', async () => {
+  it('resolves unknown (fail-open, uncached) when inventory is degraded even with zero links', async () => {
     vi.mocked(loadCategoryCompareHubData).mockResolvedValue(
       hubData({ inventoryDegraded: true })
     );
 
     await expect(resolveCategoryCompareHubStatus(input)).resolves.toEqual({
-      kind: 'renderable',
+      kind: 'unknown',
     });
     expect(buildCategoryCompareHubLinks).not.toHaveBeenCalled();
   });

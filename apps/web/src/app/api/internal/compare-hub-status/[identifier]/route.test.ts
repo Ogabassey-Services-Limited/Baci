@@ -43,6 +43,7 @@ describe('GET /api/internal/compare-hub-status/[identifier]', () => {
     mockGetInternalApiSecret.mockReturnValue('test-internal-secret');
     vi.mocked(resolveCategoryCompareHubStatus).mockResolvedValue({
       kind: 'renderable',
+      merchantId: 'merchant-1',
     });
   });
 
@@ -84,7 +85,7 @@ describe('GET /api/internal/compare-hub-status/[identifier]', () => {
     expect(resolveCategoryCompareHubStatus).not.toHaveBeenCalled();
   });
 
-  it('resolves a renderable hub and edge-caches the safe verdict under custom-header auth', async () => {
+  it('edge-caches a CONFIRMED-renderable verdict with a product/category purge tag under custom-header auth', async () => {
     const response = await GET(buildRequest('category=smartphones'), context());
 
     expect(response.status).toBe(200);
@@ -94,6 +95,11 @@ describe('GET /api/internal/compare-hub-status/[identifier]', () => {
     });
     expect(response.headers.get('Cache-Control')).toContain('s-maxage=300');
     expect(response.headers.get('Vary')).toBe('x-baci-internal-auth');
+    // Purge tag keyed to the merchant's product slug set + categories, so the
+    // mutations that flip a hub empty/renderable purge this CDN entry.
+    expect(response.headers.get('Vercel-Cache-Tag')).toBe(
+      'product-slug-set-merchant-1,categories-merchant-1'
+    );
     expect(resolveCategoryCompareHubStatus).toHaveBeenCalledWith({
       merchantSlug: 'ogabassey',
       categorySlug: 'smartphones',
@@ -110,6 +116,7 @@ describe('GET /api/internal/compare-hub-status/[identifier]', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Vercel-Cache-Tag')).toBeNull();
   });
 
   it('keeps the EMPTY verdict no-store so a hub that gains products is never sticky-404ed', async () => {
@@ -125,6 +132,25 @@ describe('GET /api/internal/compare-hub-status/[identifier]', () => {
       hasError: false,
     });
     expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Vercel-Cache-Tag')).toBeNull();
+  });
+
+  it('never caches a fail-open UNKNOWN verdict (draft store / degraded load)', async () => {
+    // A cached fail-open verdict would keep the proxy from emitting the hard 404
+    // once the ambiguity resolves (draft publishes empty, outage recovers).
+    vi.mocked(resolveCategoryCompareHubStatus).mockResolvedValue({
+      kind: 'unknown',
+    });
+
+    const response = await GET(buildRequest('category=printers'), context());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      empty: false,
+      hasError: true,
+    });
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Vercel-Cache-Tag')).toBeNull();
   });
 
   it('fails open (empty=false, hasError=true) when the resolver throws', async () => {

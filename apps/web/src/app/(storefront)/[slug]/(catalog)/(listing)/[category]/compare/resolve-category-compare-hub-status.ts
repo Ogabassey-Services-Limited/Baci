@@ -7,8 +7,17 @@ import { buildCategoryCompareHubLinks } from './category-compare-hub-links';
 import { loadCategoryCompareHubData } from './load-category-compare-hub-data';
 
 export type CategoryCompareHubStatus =
+  // Positively-confirmed empty hub on a live, published store → hard 404.
   | { kind: 'empty' }
-  | { kind: 'renderable' };
+  // Positively-confirmed renderable hub (published, healthy, >=1 link). Carries
+  // merchantId so the route can tag its cache entry for product/category purge.
+  | { kind: 'renderable'; merchantId: string }
+  // Fail-open: draft store, degraded categories, or degraded inventory. The
+  // proxy treats this as renderable, but the route must NEVER cache it — a
+  // cached fail-open verdict would keep the proxy from emitting the hard 404
+  // once the ambiguity resolves (e.g. a draft store publishes with an empty
+  // hub, or a categories outage recovers).
+  | { kind: 'unknown' };
 
 /**
  * Resolves whether a category compare hub would 404 (anti-thin-page guard) or
@@ -50,9 +59,9 @@ export async function resolveCategoryCompareHubStatus(input: {
   }
 
   // Draft store: mirror the storefront layout, which serves StoreNotPublished
-  // (200) for unpublished merchants outside development.
+  // (200) for unpublished merchants outside development. Fail open, uncached.
   if (!merchant.is_published && process.env.NODE_ENV !== 'development') {
-    return { kind: 'renderable' };
+    return { kind: 'unknown' };
   }
 
   const requestedCategorySlug = canonicalizeCategorySlug(input.categorySlug);
@@ -62,9 +71,10 @@ export async function resolveCategoryCompareHubStatus(input: {
 
   const categories = await getCachedCategories(merchant.id);
   // Empty list is ambiguous: a transient (swallowed) categories-load failure or
-  // a genuinely category-less store. Fail open — never hard-404 on this signal.
+  // a genuinely category-less store. Fail open, uncached — never hard-404 nor
+  // cache a verdict on this signal.
   if (categories.length === 0) {
-    return { kind: 'renderable' };
+    return { kind: 'unknown' };
   }
 
   const data = await loadCategoryCompareHubData(input);
@@ -74,10 +84,14 @@ export async function resolveCategoryCompareHubStatus(input: {
     return { kind: 'empty' };
   }
 
+  // Degraded inventory (a group's load threw, fail-open []): fail open, uncached
+  // — a transient failure must never become a hard 404 or a cached verdict.
   if (data.inventoryDegraded) {
-    return { kind: 'renderable' };
+    return { kind: 'unknown' };
   }
 
   const compareLinks = buildCategoryCompareHubLinks(data);
-  return compareLinks.length === 0 ? { kind: 'empty' } : { kind: 'renderable' };
+  return compareLinks.length === 0
+    ? { kind: 'empty' }
+    : { kind: 'renderable', merchantId: merchant.id };
 }

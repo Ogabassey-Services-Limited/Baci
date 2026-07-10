@@ -5,6 +5,7 @@ import {
   getValidatedInternalAuthMethod,
   INTERNAL_AUTH_HEADER,
 } from '@/lib/internal-auth-header';
+import { getProductSlugSetCacheTag } from '@/lib/product-cache-tags';
 import {
   type InternalCompareHubStatusBody,
   internalCompareHubStatusQuerySchema,
@@ -12,18 +13,26 @@ import {
 } from '@/schemas/internal-slug-set-route';
 
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
-// Only the safe RENDERABLE verdict is edge-cacheable (custom-header auth only,
-// same RFC 9111 §3.5 reasoning as the blog-status preflights): a stale
-// "renderable" self-heals because the hub page still runs its own thin-hub 404
-// guard. The EMPTY verdict stays no-store so a category that gains eligible
-// products serves 200 on the very next crawl — an edge-cached "empty" would
-// keep hard-404ing a live hub for the TTL window. No Vercel-Cache-Tag: the
-// underlying inventory reads are deliberately uncached, so a short TTL is the
-// only staleness bound this entry needs.
-const PREFLIGHT_CACHE = {
-  'Cache-Control': 's-maxage=300, stale-while-revalidate=3600',
-  Vary: INTERNAL_AUTH_HEADER,
-} as const;
+// Only a CONFIRMED-renderable verdict (published store, healthy load, >=1 link)
+// is edge-cacheable (custom-header auth only, same RFC 9111 §3.5 reasoning as
+// the blog-status preflights). The EMPTY verdict is always no-store so a
+// category that gains products serves 200 on the very next crawl, and the
+// fail-open UNKNOWN verdict (draft store, degraded categories/inventory) is
+// never cached so a resolved ambiguity emits the hard 404 immediately.
+//
+// The cached entry carries a Vercel-Cache-Tag keyed to the merchant's product
+// slug set and categories, so the SAME mutations that flip a hub between
+// renderable and empty (revalidateProducts / revalidateMerchantCategories)
+// purge this CDN entry — a renderable hub whose last eligible product is
+// deleted stops returning a stale `empty:false` within the mutation, not after
+// the TTL.
+function buildRenderableCacheHeaders(merchantId: string) {
+  return {
+    'Cache-Control': 's-maxage=300, stale-while-revalidate=3600',
+    Vary: INTERNAL_AUTH_HEADER,
+    'Vercel-Cache-Tag': `${getProductSlugSetCacheTag(merchantId)},categories-${merchantId}`,
+  } as const;
+}
 // Typed against the shared contract so a shape change fails at compile time.
 const FAIL_OPEN: InternalCompareHubStatusBody = {
   empty: false,
@@ -68,14 +77,28 @@ export async function GET(
       merchantSlug: params.data.identifier,
       categorySlug: query.data.category,
     });
+
+    // Confirmed renderable → cacheable (tagged for product/category purge).
+    if (status.kind === 'renderable') {
+      const body: InternalCompareHubStatusBody = {
+        empty: false,
+        hasError: false,
+      };
+      return NextResponse.json(body, {
+        status: 200,
+        headers: allowEdgeCache
+          ? buildRenderableCacheHeaders(status.merchantId)
+          : NO_STORE,
+      });
+    }
+
+    // Confirmed empty → hard-404 verdict; fail-open UNKNOWN → hasError. Both
+    // stay no-store so a resolved transition is never masked by a stale cache.
     const body: InternalCompareHubStatusBody = {
       empty: status.kind === 'empty',
-      hasError: false,
+      hasError: status.kind === 'unknown',
     };
-    return NextResponse.json(body, {
-      status: 200,
-      headers: allowEdgeCache && !body.empty ? PREFLIGHT_CACHE : NO_STORE,
-    });
+    return NextResponse.json(body, { status: 200, headers: NO_STORE });
   } catch (error) {
     console.error('Internal compare hub status resolution failed', { error });
     return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
