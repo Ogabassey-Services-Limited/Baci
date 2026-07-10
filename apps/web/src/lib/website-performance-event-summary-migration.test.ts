@@ -26,10 +26,17 @@ describe('website performance event summary migration', () => {
   });
 
   it('keeps the rpc merchant scoped and unavailable to anonymous callers', () => {
-    expect(migration).toContain("staff.permissions -> 'analytics' ->> 'view'");
-    expect(migration).toContain(
-      "role_permissions.permissions -> 'analytics' ->> 'view'"
-    );
+    for (const permissionPath of [
+      "'*' ->> '*'",
+      "'*' ->> 'view'",
+      "'analytics' ->> '*'",
+      "'analytics' ->> 'view'",
+    ]) {
+      expect(migration).toContain(`staff.permissions -> ${permissionPath}`);
+      expect(migration).toContain(
+        `role_permissions.permissions -> ${permissionPath}`
+      );
+    }
     expect(migration).toContain('security definer');
     expect(migration).toContain('from public, anon');
     expect(migration).toContain('to authenticated, service_role');

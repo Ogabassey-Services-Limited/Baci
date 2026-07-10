@@ -44,10 +44,27 @@ BEGIN
       WHERE staff.merchant_id = p_merchant_id
         AND staff.user_id = (SELECT auth.uid())
         AND staff.status = 'active'
-        AND COALESCE(
-          (staff.permissions -> 'analytics' ->> 'view')::boolean,
-          (role_permissions.permissions -> 'analytics' ->> 'view')::boolean,
-          false
+        AND (
+          COALESCE(
+            (staff.permissions -> '*' ->> '*')::boolean,
+            (role_permissions.permissions -> '*' ->> '*')::boolean,
+            false
+          )
+          OR COALESCE(
+            (staff.permissions -> '*' ->> 'view')::boolean,
+            (role_permissions.permissions -> '*' ->> 'view')::boolean,
+            false
+          )
+          OR COALESCE(
+            (staff.permissions -> 'analytics' ->> '*')::boolean,
+            (role_permissions.permissions -> 'analytics' ->> '*')::boolean,
+            false
+          )
+          OR COALESCE(
+            (staff.permissions -> 'analytics' ->> 'view')::boolean,
+            (role_permissions.permissions -> 'analytics' ->> 'view')::boolean,
+            false
+          )
         )
     ) THEN
       RAISE EXCEPTION 'insufficient_privilege' USING ERRCODE = '42501';
