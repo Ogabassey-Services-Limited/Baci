@@ -119,4 +119,28 @@ describe('useHomePermissionPrompt', () => {
 
     expect(mockGetTrackingPermissionStatus).not.toHaveBeenCalled();
   });
+
+  it('fails closed when reading the ATT status throws', async () => {
+    mockGetTrackingPermissionStatus.mockRejectedValueOnce(
+      new Error('ATT unavailable')
+    );
+    renderHook(() => useHomePermissionPrompt());
+
+    await advanceHomePromptTimer();
+
+    expect(mockGetTrackingPermissionStatus).toHaveBeenCalledTimes(1);
+    expect(mockRequestTrackingPermission).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when requesting ATT throws', async () => {
+    mockRequestTrackingPermission.mockRejectedValueOnce(
+      new Error('ATT request failed')
+    );
+    renderHook(() => useHomePermissionPrompt());
+
+    await advanceHomePromptTimer();
+
+    expect(mockGetTrackingPermissionStatus).toHaveBeenCalledTimes(1);
+    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(1);
+  });
 });

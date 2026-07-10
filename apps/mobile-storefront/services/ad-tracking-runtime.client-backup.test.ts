@@ -129,6 +129,7 @@ describe('ad-tracking runtime client backup events', () => {
     const logEvent = jest.fn();
     const logAEMEvent = jest.fn();
     const trackEvent = jest.fn();
+    mockGetTrackingPermissionStatus.mockResolvedValue({ status: 'denied' });
     mockLoadAdTrackingNativeModules.mockResolvedValue(
       createNativeModules({
         AEMReporterIOS: { logAEMEvent },

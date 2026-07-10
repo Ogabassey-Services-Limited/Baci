@@ -58,11 +58,20 @@ export async function sendServerConversion(
       }),
     });
 
+    const responseBody = __DEV__
+      ? await response.json()
+      : await response.text();
+
+    if (!response.ok) {
+      log.warn(
+        `Server conversion for ${eventName} returned status ${response.status}`,
+        responseBody
+      );
+      return;
+    }
+
     if (__DEV__) {
-      const result = await response.json();
-      log.debug(`[Server] ${eventName} sent:`, result);
-    } else {
-      await response.text();
+      log.debug(`[Server] ${eventName} sent:`, responseBody);
     }
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
