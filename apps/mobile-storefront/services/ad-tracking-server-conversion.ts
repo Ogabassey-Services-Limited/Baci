@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import type { ConversionData } from './ad-tracking.types';
 import {
   AD_API_URL,
@@ -7,6 +6,7 @@ import {
   getIsTrackingAllowed,
   adTrackingLog as log,
 } from './ad-tracking-state';
+import { AD_TRACKING_PLATFORM } from './ad-tracking-runtime';
 
 const SERVER_CONVERSION_TIMEOUT_MS = 5000;
 
@@ -34,7 +34,7 @@ export async function sendServerConversion(
         event_id: eventId,
         event_time: Math.floor(Date.now() / 1000),
         event_source: 'mobile_app',
-        platform: Platform.OS,
+        platform: AD_TRACKING_PLATFORM,
         ...(getCachedMerchantId() && { merchant_id: getCachedMerchantId() }),
         user_data: {
           em: data.email || userData.email,

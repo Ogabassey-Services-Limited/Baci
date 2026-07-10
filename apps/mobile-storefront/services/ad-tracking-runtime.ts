@@ -20,6 +20,8 @@ import {
 } from './ad-tracking-state';
 import { toTikTokEventData } from './tiktok-event-data';
 
+export const AD_TRACKING_PLATFORM = Platform.OS;
+
 function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
   return (
     value !== null &&

@@ -13,10 +13,6 @@ jest.mock('expo-constants', () => ({
   default: { expoConfig: { extra: { apiUrl: 'https://api.test' } } },
 }));
 
-jest.mock('react-native', () => ({
-  Platform: { OS: 'ios' },
-}));
-
 jest.mock('@/lib/logger', () => ({
   createLogger: () => ({
     debug: mockDebug,
@@ -37,6 +33,10 @@ jest.mock('./ad-tracking-state', () => ({
   getCachedMerchantId: () => 'merchant-1',
   getCachedUserData: () => ({ email: 'shopper@example.com' }),
   getIsTrackingAllowed: () => mockGetIsTrackingAllowed(),
+}));
+
+jest.mock('./ad-tracking-runtime', () => ({
+  AD_TRACKING_PLATFORM: 'ios',
 }));
 
 describe('sendServerConversion', () => {
