@@ -284,12 +284,26 @@ type CachedComparePageModel =
   | (Omit<BrandComparePageModel, 'isIndexable' | 'isLegacyFallback'> &
       CanonicalCompareIndexability);
 
-export function loadComparePage(args: {
+export async function loadComparePage(args: {
   merchantSlug: string;
   categorySlug: string;
   comparisonSlug: string;
 }): Promise<ProductComparePageModel | BrandComparePageModel | null> {
+  // Resolve the merchant BEFORE any compare cache key is formed: unknown or
+  // over-long identifiers exit here (bounded inside getMerchantByIdentifier),
+  // so they never become `'use cache'` cache keys — and the resolved tenant id
+  // becomes part of both the per-request memo key and the remote cache key.
+  // A storefront identifier is NOT tenant-stable across time (slugs can be
+  // renamed and reused; custom domains can be detached and reassigned), so the
+  // identifier alone must never key merchant-specific cached content.
+  const merchant = await getMerchantByIdentifier(args.merchantSlug);
+
+  if (!merchant) {
+    return null;
+  }
+
   return loadComparePageForRoute(
+    merchant.id,
     args.merchantSlug,
     args.categorySlug,
     args.comparisonSlug
@@ -297,8 +311,18 @@ export function loadComparePage(args: {
 }
 
 const loadComparePageForRoute = cache(
-  (merchantSlug: string, categorySlug: string, comparisonSlug: string) =>
-    loadComparePageForRequest({ merchantSlug, categorySlug, comparisonSlug })
+  (
+    merchantId: string,
+    merchantSlug: string,
+    categorySlug: string,
+    comparisonSlug: string
+  ) =>
+    loadComparePageForRequest({
+      merchantId,
+      merchantSlug,
+      categorySlug,
+      comparisonSlug,
+    })
 );
 
 function finalizeComparePageModel(
@@ -335,19 +359,11 @@ function finalizeComparePageModel(
 }
 
 async function loadComparePageForRequest(args: {
+  merchantId: string;
   merchantSlug: string;
   categorySlug: string;
   comparisonSlug: string;
 }): Promise<ProductComparePageModel | BrandComparePageModel | null> {
-  // Resolve the merchant BEFORE any compare cache key is formed: unknown or
-  // over-long identifiers exit here (bounded inside getMerchantByIdentifier),
-  // so they never become `'use cache'` cache keys.
-  const merchant = await getMerchantByIdentifier(args.merchantSlug);
-
-  if (!merchant) {
-    return null;
-  }
-
   // Over-long / repeatedly-encoded bot categories can never match; bail before
   // getCachedComparePageModel -> getCachedCompareCategoryInventory
   // (`'use cache: remote'`, keyed on categorySlug) runs with an unbounded key.
@@ -399,6 +415,7 @@ async function loadComparePageForRequest(args: {
 
   try {
     model = await getCachedComparePageModel(
+      args.merchantId,
       args.merchantSlug,
       args.categorySlug,
       parsed.canonicalSlug
@@ -443,10 +460,16 @@ async function loadComparePageForRequest(args: {
  * by the canonical slug, and request-dependent indexability flags are derived
  * outside by the per-request wrapper.
  *
+ * The key includes the caller-resolved tenant id (`merchantId`), NOT just the
+ * storefront identifier: slugs can be renamed and reused and custom domains
+ * reassigned, so an identifier-only key could replay the previous tenant's
+ * cached model to the new tenant until an unrelated tag invalidation.
+ *
  * Callers MUST slug-safety-gate every segment before calling (see
  * loadComparePageForRequest) so unbounded bot input never becomes a cache key.
  */
 async function getCachedComparePageModel(
+  merchantId: string,
   merchantSlug: string,
   categorySlug: string,
   canonicalSlug: string
@@ -466,6 +489,15 @@ async function getCachedComparePageModel(
   const merchant = await getMerchantByIdentifier(merchantSlug);
 
   if (!merchant) {
+    return null;
+  }
+
+  // The cache key already includes the caller-resolved tenant id. If the
+  // identifier now maps to a DIFFERENT merchant (slug renamed and reused,
+  // custom domain reassigned), this fill was raced by the mapping change —
+  // return null rather than build a model for the wrong tenant; the wrapper's
+  // fresher resolution supplies the matching id on the next request.
+  if (merchant.id !== merchantId) {
     return null;
   }
 
@@ -555,6 +587,14 @@ async function getCachedComparePageModel(
         }),
       ]);
 
+    if (compareGraphProducts.failed) {
+      // Fills that throw are never stored by Cache Components: a transient
+      // semantic-inventory failure must degrade this single request (the
+      // per-request wrapper catches → null) instead of caching a degraded
+      // noindex / empty-related-links model for the whole revalidate window.
+      throw new Error('Compare graph inventory unavailable');
+    }
+
     if (!leftDetails || !rightDetails) {
       // The cached inventory just said both products exist and are active, so
       // a missing detail payload here is almost always a transient fetch
@@ -616,22 +656,18 @@ async function getCachedComparePageModel(
         status: 'active',
       })
     );
-    const routeApprovalProducts = compareGraphProducts.failed
-      ? semanticCompareProducts
-      : includeClickedCompareProducts({
-          products: semanticCompareProducts,
-          clickedProducts: [leftProduct, rightProduct],
-        });
-    const isMaintainedGraphCanonicalSlug = compareGraphProducts.failed
-      ? isCuratedCanonicalSlug
-      : isMaintainedCompareGraphSlug({
-          storeUrl,
-          categorySlug: args.categorySlug,
-          categoryName,
-          products: routeApprovalProducts,
-          productsAreKnownActive: false,
-          comparisonSlug: parsed.canonicalSlug,
-        });
+    const routeApprovalProducts = includeClickedCompareProducts({
+      products: semanticCompareProducts,
+      clickedProducts: [leftProduct, rightProduct],
+    });
+    const isMaintainedGraphCanonicalSlug = isMaintainedCompareGraphSlug({
+      storeUrl,
+      categorySlug: args.categorySlug,
+      categoryName,
+      products: routeApprovalProducts,
+      productsAreKnownActive: false,
+      comparisonSlug: parsed.canonicalSlug,
+    });
     const differenceLabels = summarizeDifferenceLabels(keyDifferences);
     const breadcrumbItems = [
       { name: merchant.business_name, url: storeUrl },

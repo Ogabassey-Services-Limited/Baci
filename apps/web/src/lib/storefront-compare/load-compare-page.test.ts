@@ -596,9 +596,12 @@ describe('loadComparePage', () => {
     warnSpy.mockRestore();
   });
 
-  it('preserves curated product compare indexability when bounded graph inventory fails', async () => {
+  it('degrades the single request to null instead of caching a degraded model when bounded graph inventory fails', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
       // Suppress expected bounded-inventory warning.
+    });
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
+      // Suppress expected degraded-request error.
     });
     mockGetCachedProductSemanticInventory.mockRejectedValueOnce(
       new Error('inventory timeout')
@@ -622,9 +625,10 @@ describe('loadComparePage', () => {
       comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
     });
 
-    expect(result?.kind).toBe('product');
-    expect(result?.isIndexable).toBe(true);
-    expect(result?.isLegacyFallback).toBe(false);
+    // The cached builder THROWS on a failed graph fill so Cache Components
+    // never stores a degraded noindex model; the per-request wrapper catches
+    // and degrades only this request to a 404.
+    expect(result).toBeNull();
     expect(warnSpy).toHaveBeenCalledWith(
       'Failed to load bounded compare graph inventory',
       expect.objectContaining({
@@ -632,8 +636,40 @@ describe('loadComparePage', () => {
         merchantId: 'merchant-1',
       })
     );
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Failed to load compare page model',
+      expect.objectContaining({
+        merchantSlug: 'ogabassey',
+        categorySlug: 'smartphones',
+        comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+      })
+    );
 
     warnSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
+  it('returns null when the identifier resolves to a different merchant inside the cached model than for the caller', async () => {
+    // Outer per-request resolution (which forms the cache key) sees
+    // merchant-1 …
+    mockGetMerchantByIdentifier.mockResolvedValueOnce(merchant);
+    // … but by the time the cached fill re-resolves the identifier, the slug
+    // has been reassigned to another tenant (slug rename + reuse, or custom
+    // domain reassignment). The cached builder must refuse to build a model
+    // for the mismatched tenant instead of serving cross-tenant content.
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      ...merchant,
+      id: 'merchant-2',
+    });
+
+    const result = await loadComparePage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+    });
+
+    expect(result).toBeNull();
+    expect(mockGetCachedCompareCategoryInventory).not.toHaveBeenCalled();
   });
 
   describe('slug safety gate', () => {
