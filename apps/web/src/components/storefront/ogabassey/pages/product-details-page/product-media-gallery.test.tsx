@@ -162,6 +162,28 @@ describe('ProductMediaGallery', () => {
     expect(onSelectImage).toHaveBeenCalledWith(2);
   });
 
+  it('renders thumbnails through the per-format image path at the q50/96px tier', async () => {
+    render(
+      <ProductMediaGallery
+        onSelectImage={vi.fn()}
+        productData={buildProductData()}
+        selectedCondition="new"
+        selectedImage={0}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.pointerDown(window);
+    });
+
+    // Thumbnails now render through CdnFormatImage (mocked to a plain <img>),
+    // so their explicit quality/sizes tier flows straight onto the element.
+    const thumbnail = screen.getByAltText('View 2');
+    expect(thumbnail).toHaveAttribute('src', 'https://example.com/img-2.jpg');
+    expect(thumbnail).toHaveAttribute('sizes', '96px');
+    expect(thumbnail).toHaveAttribute('quality', '50');
+  });
+
   it('does not activate thumbnail controls on passive scroll or wheel events', async () => {
     // Mock readyState as loading so scheduleIdleActivation() cannot fall back to setTimeout(activate, 0) in jsdom.
     vi.spyOn(document, 'readyState', 'get').mockReturnValue('loading');

@@ -91,6 +91,16 @@ vi.mock('next/image', () => ({
   ),
 }));
 
+// Cart line-item images now render through CdnFormatImage (explicit per-format
+// <picture>); surface it as a plain <img> so these tests keep asserting cart
+// behavior, not image internals.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => {
+    const { fill: _fill, preload: _preload, ...rest } = props;
+    return <img {...rest} alt={String(props.alt || '')} />;
+  },
+}));
+
 vi.mock('../components/AdUnit', () => ({
   AdUnit: () => <div data-testid="ad-unit" />,
 }));

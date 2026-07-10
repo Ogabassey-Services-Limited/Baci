@@ -14,6 +14,15 @@ vi.mock('next/image', () => ({
     return <img {...rest} alt={String(props.alt ?? '')} />;
   },
 }));
+// The category banner now renders through CdnFormatImage (explicit per-format
+// <picture>); surface it as a plain <img> so the banner-fallback assertions keep
+// reading the raw src, not the transformed per-format URL.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => {
+    const { fill: _fill, preload: _preload, ...rest } = props;
+    return <img {...rest} alt={String(props.alt ?? '')} />;
+  },
+}));
 vi.mock('./AdUnit', () => ({
   AdUnit: ({ placementKey }: { placementKey: string }) => (
     <span data-placement={placementKey} data-testid="ad-unit" />

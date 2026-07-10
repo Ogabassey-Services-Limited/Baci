@@ -1,10 +1,10 @@
 'use client';
 
 import { Heart, ShoppingCart } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useState } from 'react';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
@@ -105,7 +105,7 @@ export const OgabasseyV2SavedItems: React.FC = () => {
                 />
 
                 <div className="ogabassey-product-card-image-surface relative aspect-square mb-3 bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden z-10 pointer-events-none">
-                  <Image
+                  <CdnFormatImage
                     src={product.image}
                     alt={product.name}
                     fill sizes="(max-width: 1024px) 50vw, 25vw"
