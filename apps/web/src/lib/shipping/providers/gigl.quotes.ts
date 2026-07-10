@@ -17,7 +17,6 @@ import type { GiglStation } from './gigl.schemas';
 import { giglSchemas } from './gigl.schemas';
 import { expandGiglServiceCentreQuotes } from './gigl.service-centre-quotes';
 import type { GiglStationsService } from './gigl.stations';
-
 export function getGiglQuotes(
   apiClient: GiglApiClient,
   stationsService: GiglStationsService,
@@ -36,7 +35,6 @@ export function getGiglQuotes(
     signal
   );
 }
-
 async function getQuotesWithinTimeout(
   apiClient: GiglApiClient,
   stationsService: GiglStationsService,
@@ -143,18 +141,20 @@ async function getQuotesWithinTimeout(
       );
       return (await Promise.all(stationQuotes.map(expandStationQuote))).flat();
     }
-    const homeDeliveryQuotes = quoteResults
+    const homeQuotes = quoteResults
       .slice(0, 2)
       .filter((quote): quote is ShippingQuote => quote !== null);
-    if (homeDeliveryQuotes.length > 0) {
-      return homeDeliveryQuotes;
-    }
+    const hasRoadHome = homeQuotes.some(
+      (quote) => quote.serviceTier === 'GoStandard'
+    );
+    if (hasRoadHome) return homeQuotes;
     const stationPickupQuotes = quoteResults
       .slice(2)
       .filter((quote): quote is ShippingQuote => quote !== null);
-    return (
+    const expandedStationQuotes = (
       await Promise.all(stationPickupQuotes.map(expandStationQuote))
     ).flat();
+    return [...homeQuotes, ...expandedStationQuotes];
   } catch (error) {
     if (signal.aborted || isGiglAbortError(error)) {
       io.log('warn', 'GIGL quote timed out', {

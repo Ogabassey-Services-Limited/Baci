@@ -115,6 +115,7 @@ import {
   isKlumpUnavailableForGatewayAmount,
   resetDeliveryQuotesForAddressChange,
 } from './checkout/utils';
+import { resolveAirportShippingAddress } from './checkout/resolve-airport-shipping-address';
 
 /**
  * Discriminated union for checkout item rendering. The `kind` tag is set at
@@ -1713,10 +1714,17 @@ export const CheckoutPage: React.FC = () => {
       finalCity = 'Lagos';
       finalState = 'Lagos';
     } else if (deliveryMethod === 'airport') {
-      // For airport, use the city/state from address if available, otherwise use defaults
-      finalAddress = newAddressStreet || `Airport ${airportType === 'pickup' ? 'Pickup' : 'Delivery'}`;
-      finalCity = newAddressCity || 'Airport';
-      finalState = newAddressState || 'Nigeria';
+      const airportAddress = resolveAirportShippingAddress({
+        airportType,
+        isProviderBacked: selectedQuoteMatchesDeliveryMethod,
+        manualAddress: newAddressStreet,
+        manualCity: newAddressCity,
+        manualState: newAddressState,
+        savedAddress: selectedAddress?.address,
+      });
+      finalAddress = airportAddress.address;
+      finalCity = airportAddress.city;
+      finalState = airportAddress.state;
     }
 
     const shippingAddressData = {

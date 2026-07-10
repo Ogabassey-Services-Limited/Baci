@@ -179,7 +179,12 @@ describe('GiglProvider quote token handling', () => {
     await Promise.resolve();
     await vi.advanceTimersByTimeAsync(GIGL_QUOTE_TIMEOUT_MS);
 
-    await expect(quotePromise).resolves.toHaveLength(1);
+    await expect(quotePromise).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ serviceTier: 'GoFaster' }),
+        expect.objectContaining({ isStationPickup: true }),
+      ])
+    );
     expect(fetchMock).toHaveBeenCalledTimes(7);
   });
 });

@@ -86,6 +86,7 @@ export function useCheckoutShipping({
   const currentQuotePreference = usesProviderPickup
     ? getQuotePreference(deliveryMethod)
     : 'door';
+  const usesDoorQuotes = ['door', 'airport'].includes(deliveryMethod);
   const isCurrentQuoteContext =
     currentShippingQuoteContextKey !== '' &&
     resolvedQuoteKey === currentShippingQuoteContextKey &&
@@ -175,8 +176,7 @@ export function useCheckoutShipping({
     if (!watchedState) resetQuotes();
   }
   const quotesSuspendReason =
-    deliveryMethod === 'airport' ||
-    (deliveryMethod === 'pickup_station' && !usesProviderPickup)
+    deliveryMethod === 'pickup_station' && !usesProviderPickup
       ? 'method'
       : watchedState && watchedCity
         ? null
@@ -214,7 +214,7 @@ export function useCheckoutShipping({
   useEffect(() => {
     if (shippingQuoteAbortRef.current) shippingQuoteAbortRef.current.abort();
     if (
-      (deliveryMethod !== 'door' && !usesProviderPickup) ||
+      (!usesDoorQuotes && !usesProviderPickup) ||
       !watchedState ||
       !watchedCity ||
       isCurrentQuoteContext
@@ -230,11 +230,11 @@ export function useCheckoutShipping({
   }, [
     currentShippingQuoteContextKey,
     currentQuotePreference,
-    deliveryMethod,
     isCurrentQuoteContext,
     items,
     resolvedQuoteKey,
     resolvedPreference,
+    usesDoorQuotes,
     usesProviderPickup,
     watchedCity,
     watchedState,

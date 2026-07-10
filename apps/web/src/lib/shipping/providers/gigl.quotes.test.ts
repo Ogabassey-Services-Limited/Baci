@@ -189,6 +189,33 @@ describe('GiglProvider quote requests', () => {
     });
   });
 
+  it('keeps station-pickup fallback when only GoFaster home delivery succeeds', async () => {
+    mockGiglFetchSequence(
+      jsonResponse(loginResponse),
+      jsonResponse(stationsResponse),
+      jsonResponse({
+        success: true,
+        data: { message: 'GoStandard unavailable', status: 503, data: null },
+      }),
+      jsonResponse(priceResponse),
+      jsonResponse(priceResponse),
+      jsonResponse({
+        success: true,
+        data: {
+          message: 'GoFaster pickup unavailable',
+          status: 503,
+          data: null,
+        },
+      }),
+      jsonResponse(serviceCentresResponse)
+    );
+
+    const quotes = await buildQuoteHarness().getQuotes(quoteRequest);
+
+    expect(quotes.some((quote) => quote.serviceTier === 'GoFaster')).toBe(true);
+    expect(quotes.some((quote) => quote.isStationPickup)).toBe(true);
+  });
+
   it('preserves home delivery when the service-centre request throws', async () => {
     mockGiglFetchSequence(
       jsonResponse(loginResponse),
