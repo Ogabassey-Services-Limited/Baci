@@ -339,4 +339,34 @@ describe('ProductGridItem', () => {
     expect(image?.getAttribute('src')).toContain('data:image/svg+xml');
   });
 
+  it('reveals an image that was already complete before hydration attached onLoad', () => {
+    // Arrange: jsdom images are never `complete`, so simulate a warm-cache
+    // SSR'd <img> by patching the prototype BEFORE render — the mount-time
+    // ref callback must flip the loaded state without any onLoad event.
+    const completeSpy = vi
+      .spyOn(window.HTMLImageElement.prototype, 'complete', 'get')
+      .mockReturnValue(true);
+    const naturalWidthSpy = vi
+      .spyOn(window.HTMLImageElement.prototype, 'naturalWidth', 'get')
+      .mockReturnValue(640);
+
+    // Act
+    const { container } = render(
+      <ProductGridItem
+        product={baseProduct}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    // Assert: no skeleton pulse, image visible — without firing a load event.
+    const image = container.querySelector('img');
+    expect(image?.className).toContain('opacity-100');
+    expect(container.querySelector('.animate-pulse')).toBeNull();
+
+    completeSpy.mockRestore();
+    naturalWidthSpy.mockRestore();
+  });
 });

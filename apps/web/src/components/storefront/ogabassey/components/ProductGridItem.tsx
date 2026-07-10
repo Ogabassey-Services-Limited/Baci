@@ -181,6 +181,14 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
             sizes="(max-width: 480px) 40vw, (max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
             loading="lazy"
             fetchPriority="low"
+            // A cached image on an SSR'd native <img> can be `complete` before
+            // hydration attaches onLoad — without this mount-time check the
+            // card would keep its skeleton and hold the image at opacity-0.
+            ref={(img) => {
+              if (img?.complete && img.naturalWidth > 0) {
+                setIsImageLoaded(true);
+              }
+            }}
             onLoad={() => setIsImageLoaded(true)}
             onError={() => {
               // Note: `next/image` handles fallbacks differently, usually via `blurDataURL` or state.
