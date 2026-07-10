@@ -1,12 +1,11 @@
+import { cacheLife, cacheTag } from 'next/cache';
 import { cache } from 'react';
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import {
   type CachedMerchant,
-  getCachedCategoryPageData,
   getCachedProductWithDetails,
   getMerchantByIdentifier,
 } from '@/lib/cached-data';
-import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -33,6 +32,7 @@ import {
   type ProductComparisonMatrix,
 } from '@/lib/storefront-specs/spec-matrix';
 import type { ComparableProductKeySpecs } from '@/lib/storefront-specs/spec-taxonomy';
+import { extractComparableKeySpecs } from './comparable-key-specs';
 import {
   buildBrandCompareCandidate,
   buildProductCompareCandidate,
@@ -47,6 +47,7 @@ import {
   loadCompareGraphProducts,
 } from './compare-page-link-helpers';
 import { parseCompareSlug } from './compare-slugs';
+import { getCachedCompareCategoryInventory } from './get-cached-compare-category-inventory';
 
 interface CompareBreadcrumbItem {
   name: string;
@@ -144,31 +145,6 @@ function getComparePriceFormatter(
     _comparePriceFormatterCache.set(key, formatter);
   }
   return formatter;
-}
-
-function isRawDbProduct(value: unknown): value is RawDbProduct {
-  return Boolean(
-    value &&
-      typeof value === 'object' &&
-      'id' in value &&
-      'name' in value &&
-      'price' in value
-  );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
-
-function extractComparableKeySpecs(
-  value: unknown
-): ComparableProductKeySpecs | null {
-  if (Array.isArray(value)) {
-    const firstRecord = value.find(isRecord);
-    return firstRecord ?? null;
-  }
-
-  return isRecord(value) ? value : null;
 }
 
 function buildComparisonRowsFromMatrix(
@@ -297,6 +273,17 @@ function loadSupportedGuidePosts(
     : Promise.resolve([]);
 }
 
+interface CanonicalCompareIndexability {
+  isCanonicalSlugIndexable: boolean;
+  isCanonicalSlugCurated: boolean;
+}
+
+type CachedComparePageModel =
+  | (Omit<ProductComparePageModel, 'isIndexable' | 'isLegacyFallback'> &
+      CanonicalCompareIndexability)
+  | (Omit<BrandComparePageModel, 'isIndexable' | 'isLegacyFallback'> &
+      CanonicalCompareIndexability);
+
 export function loadComparePage(args: {
   merchantSlug: string;
   categorySlug: string;
@@ -311,14 +298,50 @@ export function loadComparePage(args: {
 
 const loadComparePageForRoute = cache(
   (merchantSlug: string, categorySlug: string, comparisonSlug: string) =>
-    loadComparePageUncached({ merchantSlug, categorySlug, comparisonSlug })
+    loadComparePageForRequest({ merchantSlug, categorySlug, comparisonSlug })
 );
 
-async function loadComparePageUncached(args: {
+function finalizeComparePageModel(
+  model: CachedComparePageModel,
+  isCanonicalSlugRequest: boolean
+): ProductComparePageModel | BrandComparePageModel {
+  const isCuratedIndexableRequest =
+    isCanonicalSlugRequest && model.isCanonicalSlugCurated;
+  const isIndexable = isCanonicalSlugRequest && model.isCanonicalSlugIndexable;
+
+  if (model.kind === 'product') {
+    const {
+      isCanonicalSlugCurated: _curated,
+      isCanonicalSlugIndexable: _indexable,
+      ...pageModel
+    } = model;
+    return {
+      ...pageModel,
+      isIndexable,
+      isLegacyFallback: !isCuratedIndexableRequest,
+    };
+  }
+
+  const {
+    isCanonicalSlugCurated: _curated,
+    isCanonicalSlugIndexable: _indexable,
+    ...pageModel
+  } = model;
+  return {
+    ...pageModel,
+    isIndexable,
+    isLegacyFallback: !isCuratedIndexableRequest,
+  };
+}
+
+async function loadComparePageForRequest(args: {
   merchantSlug: string;
   categorySlug: string;
   comparisonSlug: string;
 }): Promise<ProductComparePageModel | BrandComparePageModel | null> {
+  // Resolve the merchant BEFORE any compare cache key is formed: unknown or
+  // over-long identifiers exit here (bounded inside getMerchantByIdentifier),
+  // so they never become `'use cache'` cache keys.
   const merchant = await getMerchantByIdentifier(args.merchantSlug);
 
   if (!merchant) {
@@ -326,12 +349,12 @@ async function loadComparePageUncached(args: {
   }
 
   // Over-long / repeatedly-encoded bot categories can never match; bail before
-  // getCachedCategoryPageData -> getCachedCategoryPageShellData
+  // getCachedComparePageModel -> getCachedCompareCategoryInventory
   // (`'use cache: remote'`, keyed on categorySlug) runs with an unbounded key.
   // comparisonSlug is NOT gated here: it's a composite `${left}-vs-${right}` of
   // two product slugs (each up to 200 chars), so the single-slug bound would
   // wrongly 404 legitimate long compare URLs. The parsed halves are gated after
-  // parsing instead. (merchantSlug is already bounded by getMerchantByIdentifier.)
+  // parsing instead.
   if (!evaluateStorefrontSlugSafety(args.categorySlug).safe) {
     // Bound the logged slugs — an unsafe segment can be multi-KB and must not
     // bloat the log line (the other misses log post-gate, already-bounded slugs).
@@ -355,9 +378,10 @@ async function loadComparePageUncached(args: {
   }
 
   // Gate the parsed halves (each a single product slug) before either reaches
-  // getCachedProductWithDetails (`'use cache'`). A valid product slug (<=200)
-  // passes; an over-long / repeatedly-encoded half from a bot `-vs-` blob does
-  // not, so the unbounded value never enters the cache key.
+  // getCachedProductWithDetails (`'use cache'`) or becomes part of the cached
+  // compare model key. A valid product slug (<=200) passes; an over-long /
+  // repeatedly-encoded half from a bot `-vs-` blob does not, so the unbounded
+  // value never enters a cache key.
   if (
     !evaluateStorefrontSlugSafety(parsed.leftKey).safe ||
     !evaluateStorefrontSlugSafety(parsed.rightKey).safe
@@ -371,54 +395,126 @@ async function loadComparePageUncached(args: {
     return null;
   }
 
-  const categoryData = await getCachedCategoryPageData(
-    merchant.id,
-    args.categorySlug,
-    args.merchantSlug
-  );
+  let model: CachedComparePageModel | null;
 
-  if (!categoryData || categoryData.isCollection) {
-    logCompareRouteMiss({
-      ...args,
-      canonicalSlug: parsed.canonicalSlug,
-      reason: categoryData ? 'collection_category' : 'category_not_found',
+  try {
+    model = await getCachedComparePageModel(
+      args.merchantSlug,
+      args.categorySlug,
+      parsed.canonicalSlug
+    );
+  } catch (error) {
+    // Degrade the single failing request instead of poisoning the cache (the
+    // cached builder throws on transient upstream failures so they are never
+    // stored). Compare pages keep today's 404-on-transient-failure semantics.
+    console.error('Failed to load compare page model', {
+      merchantSlug: args.merchantSlug,
+      categorySlug: args.categorySlug.slice(0, 120),
+      comparisonSlug: args.comparisonSlug.slice(0, 120),
+      error,
     });
     return null;
   }
 
-  const rawProducts = ((categoryData.products ?? []) as unknown[]).filter(
-    isRawDbProduct
-  );
-  const normalizedProducts = rawProducts.map((product) => {
-    const normalizedProduct = normalizeProduct(product, {
-      preferredCategorySlug: args.categorySlug,
+  if (!model) {
+    return null;
+  }
+
+  const isCanonicalSlugRequest = args.comparisonSlug === parsed.canonicalSlug;
+
+  if (!(isCanonicalSlugRequest && model.isCanonicalSlugCurated)) {
+    logNonCuratedCompareFallback({
+      merchantSlug: args.merchantSlug,
+      categorySlug: args.categorySlug,
+      comparisonSlug: args.comparisonSlug,
+      canonicalSlug: parsed.canonicalSlug,
     });
+  }
 
-    return {
-      slug: normalizedProduct.slug,
-      name: normalizedProduct.name,
-      brand: normalizedProduct.brand,
-      price: normalizedProduct.price,
-      category_slug: normalizedProduct.category_slug,
-      status: normalizedProduct.status ?? 'active',
-      product_key_specs: extractComparableKeySpecs(
-        (product as { product_key_specs?: unknown }).product_key_specs
-      ),
-    };
-  });
+  return finalizeComparePageModel(model, isCanonicalSlugRequest);
+}
 
-  const storeUrl = buildStoreUrl(merchant);
-  const categoryName = categoryData.fallbackName || args.categorySlug;
-  const canonicalUrl = `${storeUrl}/${args.categorySlug}/compare/${parsed.canonicalSlug}`;
-  const supportedClusterCategory = getSupportedClusterCategory(
-    args.categorySlug
+/**
+ * Canonical compare page model, cached as ONE small remote entry per compare
+ * URL. Compare-page resumes previously ran the whole data pipeline (category
+ * payload, product details, link graph, guide posts) on every request; under
+ * crawler load the accumulated cache traffic stalled large-category compare
+ * pages for ~30s per request. The model is request-form-agnostic: it is keyed
+ * by the canonical slug, and request-dependent indexability flags are derived
+ * outside by the per-request wrapper.
+ *
+ * Callers MUST slug-safety-gate every segment before calling (see
+ * loadComparePageForRequest) so unbounded bot input never becomes a cache key.
+ */
+async function getCachedComparePageModel(
+  merchantSlug: string,
+  categorySlug: string,
+  canonicalSlug: string
+): Promise<CachedComparePageModel | null> {
+  'use cache: remote';
+  try {
+    // 'categories' (revalidate 3600): freshness is tag-driven — product and
+    // category mutations fire revalidateTag(`products-${merchantId}`) /
+    // `categories-${merchantId}`, and blog mutations fire 'blog-posts' — so a
+    // short window would only force needless re-writes of this entry.
+    cacheLife('categories');
+    cacheTag('category-page-data', 'products', 'categories', 'blog-posts');
+  } catch {
+    // Unit tests do not run with Next cacheComponents enabled.
+  }
+
+  const merchant = await getMerchantByIdentifier(merchantSlug);
+
+  if (!merchant) {
+    return null;
+  }
+
+  try {
+    cacheTag(
+      `products-${merchant.id}`,
+      `categories-${merchant.id}`,
+      `features-${merchant.id}`
+    );
+  } catch {
+    // Unit tests do not run with Next cacheComponents enabled.
+  }
+
+  const args = { merchantSlug, categorySlug, comparisonSlug: canonicalSlug };
+  const parsed = parseCompareSlug(canonicalSlug);
+
+  if (!parsed) {
+    logCompareRouteMiss({
+      ...args,
+      reason: 'invalid_compare_slug',
+    });
+    return null;
+  }
+
+  const inventory = await getCachedCompareCategoryInventory(
+    merchant.id,
+    categorySlug,
+    merchantSlug
   );
+
+  if (inventory.isCollection) {
+    logCompareRouteMiss({
+      ...args,
+      canonicalSlug: parsed.canonicalSlug,
+      reason: 'collection_category',
+    });
+    return null;
+  }
+
+  const normalizedProducts = inventory.products;
+  const storeUrl = buildStoreUrl(merchant);
+  const categoryName = inventory.fallbackName || categorySlug;
+  const canonicalUrl = `${storeUrl}/${categorySlug}/compare/${parsed.canonicalSlug}`;
+  const supportedClusterCategory = getSupportedClusterCategory(categorySlug);
   const payoutCurrency = resolveMerchantCurrencyConfig(merchant).code;
   const priceFormatter = getComparePriceFormatter(
     getStorefrontLocale(merchant.country),
     payoutCurrency
   );
-  const isCanonicalSlugRequest = args.comparisonSlug === parsed.canonicalSlug;
   const countryContext = getCountryShoppingContext(merchant.country);
   const countrySuffix = countryContext ? ` ${countryContext}` : '';
   const leftProduct = normalizedProducts.find(
@@ -460,7 +556,15 @@ async function loadComparePageUncached(args: {
       ]);
 
     if (!leftDetails || !rightDetails) {
-      return null;
+      // The cached inventory just said both products exist and are active, so
+      // a missing detail payload here is almost always a transient fetch
+      // failure (getCachedProductWithDetails returns null on query errors
+      // instead of throwing). Throw so Cache Components never stores this as
+      // a cached 404 for the whole revalidate window — the per-request
+      // wrapper degrades this single request to null instead.
+      throw new Error(
+        `Compare product details unavailable for ${!leftDetails ? parsed.leftKey : parsed.rightKey}`
+      );
     }
 
     const comparisonMatrix = buildProductComparisonMatrix({
@@ -528,8 +632,6 @@ async function loadComparePageUncached(args: {
           productsAreKnownActive: false,
           comparisonSlug: parsed.canonicalSlug,
         });
-    const isMaintainedIndexableSlug =
-      isCanonicalSlugRequest && isMaintainedGraphCanonicalSlug;
     const differenceLabels = summarizeDifferenceLabels(keyDifferences);
     const breadcrumbItems = [
       { name: merchant.business_name, url: storeUrl },
@@ -553,15 +655,6 @@ async function loadComparePageUncached(args: {
       rightProductSlug: rightDetails.slug || parsed.rightKey,
       currentComparisonSlug: parsed.canonicalSlug,
     });
-
-    if (!isMaintainedIndexableSlug) {
-      logNonCuratedCompareFallback({
-        merchantSlug: args.merchantSlug,
-        categorySlug: args.categorySlug,
-        comparisonSlug: args.comparisonSlug,
-        canonicalSlug: parsed.canonicalSlug,
-      });
-    }
 
     return {
       kind: 'product',
@@ -608,8 +701,9 @@ async function loadComparePageUncached(args: {
         : [],
       relatedCompareLinks,
       merchant,
-      isIndexable: candidate.isIndexable && isMaintainedIndexableSlug,
-      isLegacyFallback: !isMaintainedIndexableSlug,
+      isCanonicalSlugIndexable:
+        candidate.isIndexable && isMaintainedGraphCanonicalSlug,
+      isCanonicalSlugCurated: isMaintainedGraphCanonicalSlug,
       leftProduct: leftDetails,
       rightProduct: rightDetails,
     };
@@ -691,18 +785,6 @@ async function loadComparePageUncached(args: {
     { name: heading, url: canonicalUrl },
   ];
 
-  const isCuratedIndexableSlug =
-    isCanonicalSlugRequest && isCuratedCanonicalSlug;
-
-  if (!isCuratedIndexableSlug) {
-    logNonCuratedCompareFallback({
-      merchantSlug: args.merchantSlug,
-      categorySlug: args.categorySlug,
-      comparisonSlug: args.comparisonSlug,
-      canonicalSlug: parsed.canonicalSlug,
-    });
-  }
-
   return {
     kind: 'brand',
     canonicalSlug: parsed.canonicalSlug,
@@ -747,8 +829,9 @@ async function loadComparePageUncached(args: {
       : [],
     relatedCompareLinks: [],
     merchant,
-    isIndexable: brandCandidate.isIndexable && isCuratedIndexableSlug,
-    isLegacyFallback: !isCuratedIndexableSlug,
+    isCanonicalSlugIndexable:
+      brandCandidate.isIndexable && isCuratedCanonicalSlug,
+    isCanonicalSlugCurated: isCuratedCanonicalSlug,
     leftBrand: brandCandidate.leftBrand,
     rightBrand: brandCandidate.rightBrand,
   };

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadComparePage } from './load-compare-page';
 
 const mockGetMerchantByIdentifier = vi.fn();
-const mockGetCachedCategoryPageData = vi.fn();
+const mockGetCachedCompareCategoryInventory = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedFeatureSettings = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
@@ -10,12 +10,15 @@ const mockGetCachedProductSemanticInventory = vi.fn();
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
     mockGetMerchantByIdentifier(...args),
-  getCachedCategoryPageData: (...args: unknown[]) =>
-    mockGetCachedCategoryPageData(...args),
   getCachedProductWithDetails: (...args: unknown[]) =>
     mockGetCachedProductWithDetails(...args),
   getCachedFeatureSettings: (...args: unknown[]) =>
     mockGetCachedFeatureSettings(...args),
+}));
+
+vi.mock('./get-cached-compare-category-inventory', () => ({
+  getCachedCompareCategoryInventory: (...args: unknown[]) =>
+    mockGetCachedCompareCategoryInventory(...args),
 }));
 
 vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
@@ -38,6 +41,7 @@ const merchant = {
   payout_currency: 'NGN',
 };
 
+// Detail-shaped fixtures; the inventory projection derives from these below.
 const categoryPageData = {
   isCollection: false,
   fallbackName: 'Smartphones',
@@ -137,17 +141,35 @@ const categoryPageData = {
   ],
 };
 
+function toCompareInventory(data: typeof categoryPageData) {
+  return {
+    isCollection: data.isCollection,
+    fallbackName: data.fallbackName,
+    products: data.products.map((product) => ({
+      slug: product.slug,
+      name: product.name,
+      brand: product.brand,
+      price: product.price,
+      category_slug: product.category_slug,
+      status: 'active',
+      product_key_specs: product.product_key_specs,
+    })),
+  };
+}
+
 describe('loadComparePage', () => {
   beforeEach(() => {
     vi.stubEnv('NODE_ENV', 'development');
     mockGetMerchantByIdentifier.mockReset();
-    mockGetCachedCategoryPageData.mockReset();
+    mockGetCachedCompareCategoryInventory.mockReset();
     mockGetCachedProductWithDetails.mockReset();
     mockGetCachedFeatureSettings.mockReset();
     mockGetPublishedClusterPosts.mockReset();
     mockGetCachedProductSemanticInventory.mockReset();
     mockGetMerchantByIdentifier.mockResolvedValue(merchant);
-    mockGetCachedCategoryPageData.mockResolvedValue(categoryPageData);
+    mockGetCachedCompareCategoryInventory.mockResolvedValue(
+      toCompareInventory(categoryPageData)
+    );
     mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
     mockGetPublishedClusterPosts.mockResolvedValue([]);
     mockGetCachedProductSemanticInventory.mockResolvedValue(
@@ -225,10 +247,12 @@ describe('loadComparePage', () => {
       ...categoryPageData.products[1],
       name: 'Samsung Galaxy S26 Ultra 5G Titanium Gray 16GB RAM 1TB Dual SIM',
     };
-    mockGetCachedCategoryPageData.mockResolvedValue({
-      ...categoryPageData,
-      products: [longLeft, longRight, ...categoryPageData.products.slice(2)],
-    });
+    mockGetCachedCompareCategoryInventory.mockResolvedValue(
+      toCompareInventory({
+        ...categoryPageData,
+        products: [longLeft, longRight, ...categoryPageData.products.slice(2)],
+      })
+    );
     mockGetCachedProductWithDetails.mockResolvedValueOnce(longLeft);
     mockGetCachedProductWithDetails.mockResolvedValueOnce(longRight);
 
@@ -275,10 +299,12 @@ describe('loadComparePage', () => {
     // past the 60-char SERP display cap; without the higher compare cap the
     // tail is sliced off and distinct brand pages collapse into duplicate
     // titles.
-    mockGetCachedCategoryPageData.mockResolvedValue({
-      ...categoryPageData,
-      fallbackName: 'Premium Flagship Android and iOS Smartphones',
-    });
+    mockGetCachedCompareCategoryInventory.mockResolvedValue(
+      toCompareInventory({
+        ...categoryPageData,
+        fallbackName: 'Premium Flagship Android and iOS Smartphones',
+      })
+    );
 
     const result = await loadComparePage({
       merchantSlug: 'ogabassey',
@@ -516,10 +542,14 @@ describe('loadComparePage', () => {
       ...categoryPageData.products[1],
       status: 'active',
     };
-    mockGetCachedCategoryPageData.mockResolvedValueOnce({
+    // A product can go draft after the inventory entry was cached; the graph
+    // approval path must still reject it via the clicked product's status.
+    const staleInventory = toCompareInventory({
       ...categoryPageData,
       products: [inactiveLeft, activeRight],
     });
+    staleInventory.products[0].status = 'draft';
+    mockGetCachedCompareCategoryInventory.mockResolvedValueOnce(staleInventory);
     mockGetCachedProductSemanticInventory.mockResolvedValueOnce([
       {
         slug: 'samsung-galaxy-z-trifold',
@@ -624,7 +654,7 @@ describe('loadComparePage', () => {
       });
 
       expect(result).toBeNull();
-      expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
+      expect(mockGetCachedCompareCategoryInventory).not.toHaveBeenCalled();
       expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
     });
 
@@ -636,7 +666,7 @@ describe('loadComparePage', () => {
       });
 
       expect(result).toBeNull();
-      expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
+      expect(mockGetCachedCompareCategoryInventory).not.toHaveBeenCalled();
     });
 
     it('returns null when a parsed compare half is over-long, before the cached lookups', async () => {
@@ -647,7 +677,7 @@ describe('loadComparePage', () => {
       });
 
       expect(result).toBeNull();
-      expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
+      expect(mockGetCachedCompareCategoryInventory).not.toHaveBeenCalled();
       expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
     });
 
@@ -665,7 +695,7 @@ describe('loadComparePage', () => {
         comparisonSlug: `${longLeft}-vs-${longRight}`,
       });
 
-      expect(mockGetCachedCategoryPageData).toHaveBeenCalledWith(
+      expect(mockGetCachedCompareCategoryInventory).toHaveBeenCalledWith(
         'merchant-1',
         'smartphones',
         'ogabassey'
@@ -679,13 +709,45 @@ describe('loadComparePage', () => {
         comparisonSlug: 'apple-vs-samsung',
       });
 
-      expect(mockGetCachedCategoryPageData).toHaveBeenCalledWith(
+      expect(mockGetCachedCompareCategoryInventory).toHaveBeenCalledWith(
         'merchant-1',
         'smartphones',
         'ogabassey'
       );
       expect(result?.kind).toBe('brand');
     });
+  });
+
+  it('degrades a transient product-detail failure to a per-request null without caching it', async () => {
+    // getCachedProductWithDetails returns null on transient query errors; the
+    // cached model builder must THROW (so Cache Components never stores a
+    // cached 404 for the revalidate window) and the per-request wrapper must
+    // degrade that single request to null.
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
+      // Suppress expected model-failure log.
+    });
+    mockGetCachedProductWithDetails.mockResolvedValue(null);
+
+    const result = await loadComparePage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+    });
+
+    expect(result).toBeNull();
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Failed to load compare page model',
+      expect.objectContaining({
+        comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+        error: expect.objectContaining({
+          message: expect.stringContaining(
+            'Compare product details unavailable'
+          ),
+        }),
+      })
+    );
+
+    errorSpy.mockRestore();
   });
 
   it('resolves compare pages from custom-domain storefront identifiers', async () => {
@@ -701,7 +763,7 @@ describe('loadComparePage', () => {
     });
 
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
-    expect(mockGetCachedCategoryPageData).toHaveBeenCalledWith(
+    expect(mockGetCachedCompareCategoryInventory).toHaveBeenCalledWith(
       merchant.id,
       'smartphones',
       'ogabassey.com'
