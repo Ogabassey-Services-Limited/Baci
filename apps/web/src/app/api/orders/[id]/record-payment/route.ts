@@ -24,6 +24,7 @@ import {
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
+import { createLegacyManualPaymentIdempotencyKey } from '@/lib/payments/manual-payment-idempotency';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
 import {
@@ -132,7 +133,6 @@ export async function POST(
     const parsedAmount = Number(parsedBody.data.amount);
     const { idempotency_key, payment_method, reference, notes } =
       parsedBody.data;
-    const effectiveIdempotencyKey = idempotency_key ?? crypto.randomUUID();
     logger.info({
       message: 'RecordPayment body parsed',
       amount: parsedAmount,
@@ -342,6 +342,17 @@ export async function POST(
       (payment_method
         ? `Manual payment (${payment_method})`
         : 'Manual payment');
+    const effectiveIdempotencyKey =
+      idempotency_key ??
+      createLegacyManualPaymentIdempotencyKey({
+        amount: parsedAmount,
+        merchantId: merchant.id,
+        notes,
+        orderId,
+        paymentMethod: payment_method,
+        reference,
+        userId: user.id,
+      });
     const { data: manualPaymentResult, error: transactionError } =
       (await supabase.rpc('record_manual_order_payment', {
         p_amount: parsedAmount,
