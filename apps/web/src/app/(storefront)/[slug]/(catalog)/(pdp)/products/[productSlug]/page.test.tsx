@@ -1272,7 +1272,10 @@ describe('products/[productSlug] page', () => {
           name: 'Samsung Galaxy Z TriFold',
           brand: 'Samsung',
           price: 480000,
-          category_slug: 'products',
+          // Child-category slug: the PDP must pin it to the requested parent
+          // category ('products') so buildProductSemanticModel's
+          // `category_slug === categorySlug` filter still includes it.
+          category_slug: 'foldables',
           product_key_specs: {
             chipset: 'Snapdragon 8 Elite',
             ram_gb: 16,

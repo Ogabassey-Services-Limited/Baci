@@ -2,6 +2,7 @@ import {
   getCachedCategoryPageShellData,
   getPublicSupabaseClient,
 } from '@/lib/cached-data';
+import { getEffectiveProductStock } from '@/lib/product-stock';
 import {
   normalizeProductKeySpecs,
   PRODUCT_SEMANTIC_INVENTORY_BASE_SELECT,
@@ -17,11 +18,20 @@ export interface CategoryScopedSemanticInventory {
   products: ProductSemanticCandidate[];
 }
 
+// `id` is selected so a slug-less row can fall back to `slug || id` exactly like
+// the old getCachedCategoryPageData -> normalizeProduct path (id-based product
+// URLs). Measured null/blank-slug active products for ogabassey = 0, so this is
+// defensive parity for other merchants, not a live divergence.
+type ScopedSemanticInventoryRow = ProductSemanticInventoryRow & {
+  id?: string | null;
+};
+
 // category+children scope carries the embedded membership rows so per-product
 // category_slug resolution can prefer the REQUESTED slug when the product is a
 // direct member (matching normalizeProduct's preferredCategorySlug on the old
 // getCachedCategoryPageData path). Filtered by category_id via `!inner` + `.in`.
 const SCOPED_SEMANTIC_CATEGORY_SELECT = `
+  id,
   ${PRODUCT_SEMANTIC_INVENTORY_BASE_SELECT},
   product_categories!inner(category_id, categories(slug))
 `;
@@ -30,6 +40,7 @@ const SCOPED_SEMANTIC_CATEGORY_SELECT = `
 // mirroring getCachedCategoryPageProductIds' legacy branch so this pool can
 // never drift from what the category listing itself resolves.
 const SCOPED_SEMANTIC_LEGACY_SELECT = `
+  id,
   ${PRODUCT_SEMANTIC_INVENTORY_BASE_SELECT},
   product_categories(categories(slug))
 `;
@@ -57,10 +68,12 @@ function resolveScopedCategorySlug(
 }
 
 function toScopedSemanticCandidate(
-  row: ProductSemanticInventoryRow,
+  row: ScopedSemanticInventoryRow,
   requestedCategorySlug: string
 ): ProductSemanticCandidate | null {
-  const slug = row.slug?.trim();
+  // `slug || id`: mirror normalizeProduct so slug-less rows keep an id-based
+  // product URL instead of being dropped from the pool.
+  const slug = row.slug?.trim() || (row.id ? String(row.id).trim() : '');
   const name = row.name?.trim();
   const price = parseSemanticProductPrice(row.price);
 
@@ -74,7 +87,15 @@ function toScopedSemanticCandidate(
     price,
     brand: row.brand,
     condition: row.condition,
-    stock: row.stock_quantity ?? row.stock,
+    // Effective stock, matching the old normalizeProduct path
+    // (getStorefrontAgentAvailability -> getEffectiveProductStock): a product
+    // with stock_quantity=0 but a positive legacy `stock` stays in stock, so it
+    // is not demoted/filtered out of the SEO link pool. A naive
+    // `stock_quantity ?? stock` would zero out those rows (9 live for ogabassey).
+    stock: getEffectiveProductStock({
+      stock: row.stock,
+      stock_quantity: row.stock_quantity,
+    }),
     category_slug: resolveScopedCategorySlug(row, requestedCategorySlug),
     product_key_specs: normalizeProductKeySpecs(row.product_key_specs),
   };
@@ -178,7 +199,7 @@ export async function getCachedCategoryScopedSemanticInventory(
     throw error;
   }
 
-  const rows = (data ?? []) as ProductSemanticInventoryRow[];
+  const rows = (data ?? []) as ScopedSemanticInventoryRow[];
 
   if (rows.length === PRODUCT_SEMANTIC_INVENTORY_LIMIT) {
     // Truncation would silently shrink the SEO link pool for the exact merchant

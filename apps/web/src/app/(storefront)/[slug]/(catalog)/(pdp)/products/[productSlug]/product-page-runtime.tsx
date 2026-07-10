@@ -114,12 +114,23 @@ export async function ProductPageRuntime({
 
   const categoryName =
     product.categories?.name || product.category || 'All Products';
-  // The scoped semantic inventory already returns exactly the candidate shape
-  // buildProductSemanticModel consumes (slug/name/price/brand/condition/stock/
-  // category_slug/key-specs), so no per-row remap is needed.
+  // buildProductSemanticModel normalizes each candidate via
+  // `category_slug ?? categorySlug`, then keeps only candidates whose
+  // category_slug === categorySlug. The old getCachedCategoryPageData rows
+  // carried NO category_slug (there is no such column and the PDP never
+  // normalized them), so every product — including child-category products in a
+  // parent-category scope — normalized to the current category and survived that
+  // filter. Pin category_slug to the requested category here to preserve that
+  // exact pool; without it, child products keep their real (child) slug and get
+  // dropped from the PDP link graph (verified regression, e.g. a `laptops` PDP
+  // would drop its `gaming-laptops` alternatives). The blog consumer keeps the
+  // real per-product category_slug (it uses it for hrefs, not a filter).
   const inventoryCandidates = scopedInventory.isCollection
     ? []
-    : scopedInventory.products;
+    : scopedInventory.products.map((candidate) => ({
+        ...candidate,
+        category_slug: categorySlug,
+      }));
   const currentProduct = {
     slug: product.slug || String(product.id),
     name: product.name,
