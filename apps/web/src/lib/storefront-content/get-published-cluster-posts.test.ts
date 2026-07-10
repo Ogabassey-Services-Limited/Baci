@@ -43,11 +43,28 @@ describe('getPublishedClusterPosts', () => {
     expect(mockRpc).toHaveBeenCalledWith(
       'get_storefront_cluster_guide_candidates_v1',
       expect.objectContaining({
+        p_category_slug: 'smartphones',
+        p_cluster_rules: expect.arrayContaining([
+          expect.objectContaining({
+            category_slug: 'smartphones',
+            category_names: expect.arrayContaining(['smartphones', 'phones']),
+            article_tokens: expect.arrayContaining(['phone', 'battery']),
+          }),
+        ]),
         p_merchant_id: 'merchant-1',
         p_limit: 64,
         p_search_query: expect.stringContaining('"smartphones"'),
       })
     );
+    const rpcArgs = mockRpc.mock.calls[0]?.[1];
+    expect(rpcArgs.p_cluster_rules).toHaveLength(26);
+    expect(
+      Buffer.byteLength(JSON.stringify(rpcArgs.p_cluster_rules), 'utf8')
+    ).toBeLessThanOrEqual(8192);
+    expect(rpcArgs.p_cluster_rules[0]).toMatchObject({
+      rule_order: 0,
+      category_slug: 'smartphones',
+    });
     expect(result).toEqual([
       expect.objectContaining({
         slug: 'iphone-15-pro-vs-galaxy-s25',

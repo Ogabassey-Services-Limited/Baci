@@ -21,7 +21,7 @@ BEGIN
     SELECT 1
     FROM pg_catalog.pg_proc AS proc
     WHERE proc.oid = (
-      'public.get_storefront_cluster_guide_candidates_v1(uuid,text,integer)'
+      'public.get_storefront_cluster_guide_candidates_v1(uuid,text,jsonb,text,integer)'
     )::pg_catalog.regprocedure
       AND proc.prosecdef
       AND proc.provolatile = 's'
@@ -48,7 +48,7 @@ BEGIN
       )
     ) AS acl
     WHERE proc.oid = (
-      'public.get_storefront_cluster_guide_candidates_v1(uuid,text,integer)'
+      'public.get_storefront_cluster_guide_candidates_v1(uuid,text,jsonb,text,integer)'
     )::pg_catalog.regprocedure
       AND acl.grantee = 0
       AND acl.privilege_type = 'EXECUTE'
@@ -58,17 +58,17 @@ BEGIN
 
   IF NOT pg_catalog.has_function_privilege(
     'anon',
-    'public.get_storefront_cluster_guide_candidates_v1(uuid,text,integer)',
+    'public.get_storefront_cluster_guide_candidates_v1(uuid,text,jsonb,text,integer)',
     'EXECUTE'
   )
     OR NOT pg_catalog.has_function_privilege(
       'authenticated',
-      'public.get_storefront_cluster_guide_candidates_v1(uuid,text,integer)',
+      'public.get_storefront_cluster_guide_candidates_v1(uuid,text,jsonb,text,integer)',
       'EXECUTE'
     )
     OR NOT pg_catalog.has_function_privilege(
       'service_role',
-      'public.get_storefront_cluster_guide_candidates_v1(uuid,text,integer)',
+      'public.get_storefront_cluster_guide_candidates_v1(uuid,text,jsonb,text,integer)',
       'EXECUTE'
     )
   THEN
@@ -230,7 +230,7 @@ BEGIN
       'A generic public buying article whose cluster is supplied by metadata.',
       'Metadata-backed guide excerpt',
       NULL,
-      'Metadataonlyterm',
+      'Smartphones',
       ARRAY['metadataonlyterm-tag']::text[],
       ARRAY['metadataonlyterm-keyword']::text[],
       'Baci Test Author',
@@ -276,15 +276,20 @@ BEGIN
     title,
     slug,
     content,
+    category,
     author_name,
     status,
     published_at
   )
   SELECT
     v_enabled_merchant_id,
-    pg_catalog.format('Newer unrelated article %s', series_number),
+    pg_catalog.format('Newer laptop battery article %s', series_number),
     pg_catalog.format('newer-unrelated-article-%s', series_number),
-    pg_catalog.format('General merchandising notes number %s.', series_number),
+    pg_catalog.format(
+      'Laptop battery battery battery buying notes number %s.',
+      series_number
+    ),
+    'Laptops',
     'Baci Test Author',
     'published',
     '2026-02-01 00:00:00+00'::timestamp with time zone
@@ -298,6 +303,7 @@ BEGIN
     title,
     slug,
     content,
+    category,
     author_name,
     status,
     published_at
@@ -307,6 +313,7 @@ BEGIN
     pg_catalog.format('Capterm guide %s', series_number),
     pg_catalog.format('capterm-guide-%s', series_number),
     pg_catalog.format('A public capterm guide number %s.', series_number),
+    'Smartphones',
     'Baci Test Author',
     'published',
     '2026-03-01 00:00:00+00'::timestamp with time zone
@@ -323,6 +330,51 @@ DECLARE
   v_enabled_merchant_id uuid := '7f9d0e11-0000-4000-8000-000000000001';
   v_disabled_merchant_id uuid := '7f9d0e11-0000-4000-8000-000000000002';
   v_missing_settings_merchant_id uuid := '7f9d0e11-0000-4000-8000-000000000003';
+  v_cluster_rules jsonb := pg_catalog.jsonb_build_array(
+    pg_catalog.jsonb_build_object(
+      'rule_order', 0,
+      'category_slug', 'smartphones',
+      'category_names', pg_catalog.jsonb_build_array(
+        'smartphones',
+        'phones',
+        'mobile phones'
+      ),
+      'article_tokens', pg_catalog.jsonb_build_array(
+        'smartphone',
+        'phone',
+        'iphone',
+        'android',
+        'samsung',
+        'galaxy',
+        'battery',
+        'camera',
+        '5g',
+        'sim'
+      )
+    ),
+    pg_catalog.jsonb_build_object(
+      'rule_order', 1,
+      'category_slug', 'laptops',
+      'category_names', pg_catalog.jsonb_build_array(
+        'laptops',
+        'computers',
+        'notebooks'
+      ),
+      'article_tokens', pg_catalog.jsonb_build_array(
+        'laptop',
+        'notebook',
+        'macbook',
+        'windows',
+        'ssd',
+        'ram',
+        'gaming',
+        'battery',
+        'intel',
+        'amd',
+        'ryzen'
+      )
+    )
+  );
   v_count integer;
   v_result record;
 BEGIN
@@ -340,6 +392,8 @@ BEGIN
   INTO v_count
   FROM public.get_storefront_cluster_guide_candidates_v1(
     v_disabled_merchant_id,
+    'smartphones',
+    v_cluster_rules,
     'zephyrbattery'
   );
 
@@ -351,6 +405,8 @@ BEGIN
   INTO v_count
   FROM public.get_storefront_cluster_guide_candidates_v1(
     v_missing_settings_merchant_id,
+    'smartphones',
+    v_cluster_rules,
     'zephyrbattery'
   );
 
@@ -364,6 +420,8 @@ BEGIN
   INTO v_result
   FROM public.get_storefront_cluster_guide_candidates_v1(
     v_enabled_merchant_id,
+    'smartphones',
+    v_cluster_rules,
     'zephyrbattery'
   );
 
@@ -375,6 +433,8 @@ BEGIN
   INTO v_count
   FROM public.get_storefront_cluster_guide_candidates_v1(
     v_enabled_merchant_id,
+    'smartphones',
+    v_cluster_rules,
     'zephyrbattery'
   );
 
@@ -401,6 +461,8 @@ BEGIN
   INTO v_result
   FROM public.get_storefront_cluster_guide_candidates_v1(
     v_enabled_merchant_id,
+    'smartphones',
+    v_cluster_rules,
     'metadataonlyterm'
   );
 
@@ -417,6 +479,8 @@ BEGIN
   INTO v_result
   FROM public.get_storefront_cluster_guide_candidates_v1(
     v_enabled_merchant_id,
+    'smartphones',
+    v_cluster_rules,
     'zephyrbattery',
     1
   );
@@ -426,10 +490,29 @@ BEGIN
       pg_catalog.row_to_json(v_result);
   END IF;
 
+  -- Cluster classification happens before LIMIT. Seventy newer, higher-ranked
+  -- laptop battery posts must not displace the older smartphone battery guide.
+  SELECT *
+  INTO v_result
+  FROM public.get_storefront_cluster_guide_candidates_v1(
+    v_enabled_merchant_id,
+    'smartphones',
+    v_cluster_rules,
+    'battery',
+    1
+  );
+
+  IF v_result.slug IS DISTINCT FROM 'valid-old-zephyrbattery-guide' THEN
+    RAISE EXCEPTION 'pre-cap cluster filtering returned unexpected guide: %',
+      pg_catalog.row_to_json(v_result);
+  END IF;
+
   SELECT count(*)::integer
   INTO v_count
   FROM public.get_storefront_cluster_guide_candidates_v1(
     v_enabled_merchant_id,
+    'smartphones',
+    v_cluster_rules,
     'capterm',
     999
   );
@@ -442,6 +525,8 @@ BEGIN
   INTO v_count
   FROM public.get_storefront_cluster_guide_candidates_v1(
     v_enabled_merchant_id,
+    'smartphones',
+    v_cluster_rules,
     'capterm',
     0
   );
@@ -454,6 +539,8 @@ BEGIN
   INTO v_count
   FROM public.get_storefront_cluster_guide_candidates_v1(
     v_enabled_merchant_id,
+    'smartphones',
+    v_cluster_rules,
     '   '
   );
 
@@ -465,6 +552,8 @@ BEGIN
   INTO v_count
   FROM public.get_storefront_cluster_guide_candidates_v1(
     v_enabled_merchant_id,
+    'smartphones',
+    v_cluster_rules,
     'the and or'
   );
 
@@ -476,6 +565,52 @@ BEGIN
   INTO v_count
   FROM public.get_storefront_cluster_guide_candidates_v1(
     v_enabled_merchant_id,
+    'smartphones',
+    v_cluster_rules,
+    '-iphone'
+  );
+
+  IF v_count <> 0 THEN
+    RAISE EXCEPTION 'negative-only query returned % rows', v_count;
+  END IF;
+
+  SELECT count(*)::integer
+  INTO v_count
+  FROM public.get_storefront_cluster_guide_candidates_v1(
+    v_enabled_merchant_id,
+    'smartphones',
+    '[]'::jsonb,
+    'zephyrbattery'
+  );
+
+  IF v_count <> 0 THEN
+    RAISE EXCEPTION 'empty cluster rules returned % rows', v_count;
+  END IF;
+
+  SELECT count(*)::integer
+  INTO v_count
+  FROM public.get_storefront_cluster_guide_candidates_v1(
+    v_enabled_merchant_id,
+    'smartphones',
+    pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object(
+        'rule_order', 0,
+        'category_slug', 'smartphones'
+      )
+    ),
+    'zephyrbattery'
+  );
+
+  IF v_count <> 0 THEN
+    RAISE EXCEPTION 'malformed cluster rules returned % rows', v_count;
+  END IF;
+
+  SELECT count(*)::integer
+  INTO v_count
+  FROM public.get_storefront_cluster_guide_candidates_v1(
+    v_enabled_merchant_id,
+    'smartphones',
+    v_cluster_rules,
     pg_catalog.repeat('x', 513)
   );
 

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import { getPublicSupabaseClient } from '@/lib/cached-data';
 import { buildClusterGuideSearchQuery } from './build-cluster-guide-search-query';
 import type {
@@ -8,6 +9,25 @@ import type {
 
 const CLUSTER_GUIDE_CANDIDATE_LIMIT = 64;
 
+type StorefrontClusterRule = {
+  rule_order: number;
+  category_slug: string;
+  category_names: string[];
+  article_tokens: string[];
+};
+
+// Keep the database pre-cap classifier aligned with the semantic classifier
+// that performs the final guide scoring. The RPC validates and bounds this
+// public rule payload before using it.
+const STOREFRONT_CLUSTER_RULES: StorefrontClusterRule[] = Object.entries(
+  CONTENT_CLUSTER_SUPPORT
+).map(([categorySlug, support], ruleOrder) => ({
+  rule_order: ruleOrder,
+  category_slug: categorySlug,
+  category_names: [...support.categoryNames],
+  article_tokens: [...support.articleTokens],
+}));
+
 type StorefrontClusterGuideDatabase = {
   public: {
     Tables: Record<string, never>;
@@ -15,6 +35,8 @@ type StorefrontClusterGuideDatabase = {
     Functions: {
       get_storefront_cluster_guide_candidates_v1: {
         Args: {
+          p_category_slug: string;
+          p_cluster_rules: StorefrontClusterRule[];
           p_merchant_id: string;
           p_search_query: string;
           p_limit?: number;
@@ -49,6 +71,8 @@ export async function getPublishedClusterPosts(
   const { data, error } = await supabase.rpc(
     'get_storefront_cluster_guide_candidates_v1',
     {
+      p_category_slug: context.categorySlug,
+      p_cluster_rules: STOREFRONT_CLUSTER_RULES,
       p_merchant_id: merchantId,
       p_search_query: buildClusterGuideSearchQuery(context),
       p_limit: CLUSTER_GUIDE_CANDIDATE_LIMIT,
