@@ -2487,6 +2487,54 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
   });
 
+  it('forwards an HTML-limited annotated user-agent for blocking bots Next would render as humans', async () => {
+    // Regression: Semrush audit 2026-07-07 — compare pages served the raw
+    // application/x-nextjs-pre-render postponed state to SemrushBot/AhrefsBot
+    // because Next's hardcoded getBotType() does not know them. The proxy must
+    // forward an annotated UA so the origin does a full blocking HTML render.
+    const userAgent =
+      'Mozilla/5.0 (compatible; SemrushBot/7~bl; +http://www.semrush.com/bot.html)';
+    const req = new NextRequest(
+      'https://ogabassey.com/laptops/compare/macbook-air-m2-vs-macbook-pro-14'
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', userAgent);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-request-user-agent')).toBe(
+      `${userAgent} googleweblight`
+    );
+    expect(
+      res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
+    ).toBe('metadata-blocking');
+  });
+
+  it.each([
+    [
+      'Googlebot (Next DOM bot)',
+      'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+    ],
+    [
+      'bingbot (Next HTML-limited bot)',
+      'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
+    ],
+    [
+      'a normal browser',
+      'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36',
+    ],
+  ])('forwards the original user-agent unchanged for %s', async (_label, userAgent) => {
+    const req = new NextRequest(
+      'https://ogabassey.com/laptops/compare/macbook-air-m2-vs-macbook-pro-14'
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', userAgent);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-request-user-agent')).toBe(userAgent);
+  });
+
   it.each([
     ['Googlebot', 'Googlebot/2.1'],
     ['SemrushBot', 'SemrushBot/7~bl'],

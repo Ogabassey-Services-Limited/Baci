@@ -262,6 +262,73 @@ describe('StorefrontCartProvider', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
+  it('does not validate/persist the cart while the document is prerendering, then does on activation', async () => {
+    vi.useFakeTimers();
+
+    Object.defineProperty(document, 'prerendering', {
+      configurable: true,
+      value: true,
+    });
+
+    localStorageMock.setItem(
+      'baci-cart-ogabassey-guest',
+      JSON.stringify([{ ...mockProduct, quantity: 1, cartItemId: 'prod-1' }])
+    );
+
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        invalidProductIds: [],
+        priceChanges: [],
+      }),
+    } as Response);
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StorefrontCartProvider
+        merchantSlug="ogabassey"
+        deferValidationUntilIdle
+        validationActivationTimeoutMs={5_000}
+      >
+        {children}
+      </StorefrontCartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.isHydrated).toBe(true);
+
+    // Idle/timeout activation fires inside the (hidden) prerender: validation
+    // must NOT run, or a discarded prerender would mutate the real cart.
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+      await Promise.resolve();
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    // The page is presented to the user: prerendering clears and validation now
+    // runs exactly once.
+    Object.defineProperty(document, 'prerendering', {
+      configurable: true,
+      value: false,
+    });
+    await act(async () => {
+      document.dispatchEvent(new Event('prerenderingchange'));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+      await Promise.resolve();
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    Reflect.deleteProperty(document, 'prerendering');
+  });
+
   it('stores the default SKU-matrix variant identity, attributes, and condition for quick add flows', async () => {
     const skuMatrixProduct = {
       ...mockProduct,

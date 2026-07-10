@@ -26,6 +26,7 @@ import {
 } from '@/config/storefront-cdn-cache-control';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import {
+  getStorefrontForwardedBotUserAgent,
   getStorefrontMetadataCacheBucket,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
   STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
@@ -152,10 +153,20 @@ function buildProxyRequestHeaders(request: NextRequest): Headers {
   for (const header of MERCHANT_CONTEXT_HEADERS) {
     headers.delete(header);
   }
+  const userAgent = request.headers.get('user-agent') ?? '';
   headers.set(
     STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
-    getStorefrontMetadataCacheBucket(request.headers.get('user-agent') ?? '')
+    getStorefrontMetadataCacheBucket(userAgent)
   );
+  // Blocking-bucket bots that Next's hardcoded getBotType() would treat as
+  // humans (SemrushBot, AhrefsBot, GPTBot, …) would otherwise receive the raw
+  // application/x-nextjs-pre-render postponed state on PPR routes. Forward an
+  // annotated UA so the origin performs a full blocking HTML render for them
+  // (see storefront-metadata-cache-bots.ts).
+  const forwardedUserAgent = getStorefrontForwardedBotUserAgent(userAgent);
+  if (forwardedUserAgent !== userAgent) {
+    headers.set('user-agent', forwardedUserAgent);
+  }
   return headers;
 }
 

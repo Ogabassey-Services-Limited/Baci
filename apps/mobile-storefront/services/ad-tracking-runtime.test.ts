@@ -13,7 +13,7 @@ import {
 installAdTrackingRuntimeTestReset();
 
 describe('ad-tracking runtime initialization', () => {
-  it('does not fail initialization when the Facebook native bridge is partial', async () => {
+  it('does not load or initialize ad SDKs before ATT authorization', async () => {
     const nativeBridgeError = new TypeError('undefined is not a function');
     const setAdvertiserTrackingEnabled = jest.fn(() => {
       throw nativeBridgeError;
@@ -34,22 +34,16 @@ describe('ad-tracking runtime initialization', () => {
 
     await initAdTracking();
 
-    expect(setAdvertiserTrackingEnabled).toHaveBeenCalledWith(false);
-    expect(initializeSDK).toHaveBeenCalledTimes(1);
-    expect(mockWarn).toHaveBeenCalledWith(
-      'Facebook advertiser tracking update failed:',
-      nativeBridgeError
-    );
-    expect(mockWarn).toHaveBeenCalledWith(
-      'Facebook SDK initialization failed:',
-      nativeBridgeError
-    );
+    expect(mockLoadAdTrackingNativeModules).not.toHaveBeenCalled();
+    expect(setAdvertiserTrackingEnabled).not.toHaveBeenCalled();
+    expect(initializeSDK).not.toHaveBeenCalled();
+    expect(mockWarn).not.toHaveBeenCalled();
     expect(mockError).not.toHaveBeenCalledWith(
       'Initialization error:',
       expect.anything()
     );
     expect(mockInfo).toHaveBeenCalledWith(
-      'Initialized. Server-side tracking enabled. ATT:',
+      'Initialized. Advertising tracking enabled:',
       false
     );
   });
@@ -59,6 +53,7 @@ describe('ad-tracking runtime initialization', () => {
     const setAdvertiserTrackingEnabled = jest.fn(() =>
       Promise.reject(nativeBridgeError)
     );
+    mockGetTrackingPermissionStatus.mockResolvedValue({ status: 'granted' });
     mockLoadAdTrackingNativeModules.mockResolvedValue(
       createNativeModules({
         FBSettings: {
@@ -73,7 +68,7 @@ describe('ad-tracking runtime initialization', () => {
     await initAdTracking();
     await Promise.resolve();
 
-    expect(setAdvertiserTrackingEnabled).toHaveBeenCalledWith(false);
+    expect(setAdvertiserTrackingEnabled).toHaveBeenCalledWith(true);
     expect(mockWarn).toHaveBeenCalledWith(
       'Facebook advertiser tracking update failed:',
       nativeBridgeError
@@ -148,5 +143,112 @@ describe('ad-tracking runtime initialization', () => {
     await initAdTracking();
 
     expect(initializeTikTok).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps ATT authorization when TikTok initialization fails', async () => {
+    const nativeBridgeError = new Error('TikTok bridge failed');
+    mockGetTrackingPermissionStatus.mockResolvedValue({ status: 'granted' });
+    setMockExpoConfigExtra({
+      apiUrl: 'https://api.test',
+      tiktokBusiness: { isConfigured: true },
+    });
+    mockLoadAdTrackingNativeModules.mockResolvedValue(
+      createNativeModules({
+        TikTokBusiness: {
+          initialize: jest.fn(() => Promise.reject(nativeBridgeError)),
+        },
+      })
+    );
+
+    const { initAdTracking, isTrackingEnabled } = await import(
+      './ad-tracking-runtime'
+    );
+
+    await initAdTracking();
+
+    expect(isTrackingEnabled()).toBe(true);
+    expect(mockWarn).toHaveBeenCalledWith(
+      'TikTok SDK initialization failed:',
+      nativeBridgeError
+    );
+  });
+
+  it('waits for TikTok SDK readiness before completing initialization', async () => {
+    let resolveTikTok: (initialized: boolean) => void = () => {};
+    let signalInitializeStarted: () => void = () => {};
+    const initializeStarted = new Promise<void>((resolve) => {
+      signalInitializeStarted = resolve;
+    });
+    const initializeTikTok = jest.fn(
+      () => {
+        signalInitializeStarted();
+        return new Promise<boolean>((resolve) => {
+          resolveTikTok = resolve;
+        });
+      }
+    );
+    mockGetTrackingPermissionStatus.mockResolvedValue({ status: 'granted' });
+    setMockExpoConfigExtra({
+      apiUrl: 'https://api.test',
+      tiktokBusiness: { isConfigured: true },
+    });
+    mockLoadAdTrackingNativeModules.mockResolvedValue(
+      createNativeModules({
+        TikTokBusiness: { initialize: initializeTikTok },
+      })
+    );
+
+    const { initAdTracking } = await import('./ad-tracking-runtime');
+    let didFinish = false;
+    const initialization = initAdTracking().then(() => {
+      didFinish = true;
+    });
+
+    await initializeStarted;
+
+    expect(initializeTikTok).toHaveBeenCalledTimes(1);
+    expect(didFinish).toBe(false);
+
+    resolveTikTok(true);
+    await initialization;
+
+    expect(didFinish).toBe(true);
+  });
+
+  it('keeps TikTok gated until native becomes ready after a timeout', async () => {
+    const isTikTokInitialized = jest.fn(() => false);
+    const trackEvent = jest.fn();
+    mockGetTrackingPermissionStatus.mockResolvedValue({ status: 'granted' });
+    setMockExpoConfigExtra({
+      apiUrl: 'https://api.test',
+      tiktokBusiness: { isConfigured: true },
+    });
+    mockLoadAdTrackingNativeModules.mockResolvedValue(
+      createNativeModules({
+        TikTokBusiness: {
+          initialize: jest.fn(() => Promise.resolve(false)),
+          isInitialized: isTikTokInitialized,
+          trackEvent,
+        },
+      })
+    );
+
+    const { initAdTracking, trackTikTokEvent } = await import(
+      './ad-tracking-runtime'
+    );
+
+    await initAdTracking();
+    trackTikTokEvent('Purchase', 'event-before-readiness');
+
+    expect(trackEvent).not.toHaveBeenCalled();
+
+    isTikTokInitialized.mockReturnValue(true);
+    trackTikTokEvent('Purchase', 'event-after-timeout');
+
+    expect(trackEvent).toHaveBeenCalledWith(
+      'Purchase',
+      'event-after-timeout',
+      []
+    );
   });
 });

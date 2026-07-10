@@ -2,6 +2,7 @@
 
 import type React from 'react';
 import { createContext, use, useEffect, useRef, useState } from 'react';
+import { runWhenPageActivated } from '@/lib/dom/run-when-page-activated';
 import type { Product } from '../types';
 
 interface ToastState {
@@ -163,9 +164,18 @@ export const V2SavedProvider: React.FC<{ children: React.ReactNode }> = ({
       return undefined;
     }
 
+    let cancelActivationGate: (() => void) | undefined;
     const activate = () => {
       detach();
-      hydrateSavedItems();
+      // A speculatively prerendered PDP runs this provider in a hidden tab;
+      // hydrating here reads and then writes back `ogabassey_v2_saved` in the
+      // shared localStorage, so a discarded prerender holding a stale snapshot
+      // could clobber the real saved-list. Defer the storage read/write until
+      // the page is actually presented (synchronous outside prerender).
+      cancelActivationGate?.();
+      cancelActivationGate = runWhenPageActivated(() => {
+        hydrateSavedItems();
+      });
     };
 
     const detach = () => {
@@ -194,6 +204,7 @@ export const V2SavedProvider: React.FC<{ children: React.ReactNode }> = ({
 
     return () => {
       detach();
+      cancelActivationGate?.();
       window.clearTimeout(timeoutId);
       if (idleCallbackId !== undefined) {
         window.cancelIdleCallback?.(idleCallbackId);

@@ -21,6 +21,7 @@ const mockCleanup = jest.fn();
 const mockRegisterPushNotifications = jest.fn();
 const mockPrefetchStartupStorefrontData = jest.fn<() => Promise<void>>();
 const mockActivateDueSavingsReminderNotification = jest.fn();
+const mockInitializeAdTrackingForStartup = jest.fn<() => Promise<void>>();
 const mockRootLayoutNavMount = jest.fn();
 const mockRootLayoutNavUnmount = jest.fn();
 const mockAuthState = {
@@ -84,7 +85,11 @@ jest.mock('@/components/navigation/RootLayoutNav', () => ({
     }, []);
 
     return (
-      <Text testID="root-layout-nav">
+      <Text
+        accessibilityLabel="Store navigation"
+        accessibilityRole="text"
+        testID="root-layout-nav"
+      >
         persistence:{String(persistenceEnabled)};resume:
         {String(shouldResumeNavigation)}
       </Text>
@@ -126,8 +131,9 @@ jest.mock('@/services/analytics', () => ({
   initAnalytics: jest.fn(() => Promise.resolve()),
 }));
 
-jest.mock('@/services/ad-tracking', () => ({
-  initAdTracking: jest.fn(() => Promise.resolve()),
+jest.mock('@/services/initialize-ad-tracking-for-startup', () => ({
+  initializeAdTrackingForStartup: () =>
+    mockInitializeAdTrackingForStartup(),
 }));
 
 jest.mock('@/services/orders', () => ({
@@ -157,6 +163,7 @@ describe('RootLayout storage boot gate', () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     mockInitializeAuth.mockResolvedValue(undefined);
+    mockInitializeAdTrackingForStartup.mockResolvedValue(undefined);
     mockPrefetchStartupStorefrontData.mockResolvedValue(undefined);
   });
 
@@ -193,6 +200,35 @@ describe('RootLayout storage boot gate', () => {
     unmount();
 
     expect(mockCleanup).not.toHaveBeenCalled();
+  });
+
+  it('waits for ATT initialization before mounting navigation', async () => {
+    let resolveAdTracking: () => void = () => {};
+    mockInitializeStorage.mockResolvedValue(undefined);
+    mockInitializeAdTrackingForStartup.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveAdTracking = resolve;
+      })
+    );
+
+    render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(mockInitializeAdTrackingForStartup).toHaveBeenCalledTimes(1);
+    });
+    expect(
+      screen.queryByRole('text', { name: 'Store navigation' })
+    ).toBeNull();
+
+    await act(async () => {
+      resolveAdTracking();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('text', { name: 'Store navigation' })
+      ).toBeOnTheScreen();
+    });
   });
 
   it('keeps the navigator mounted when the startup splash finishes', async () => {
