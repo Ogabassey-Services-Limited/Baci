@@ -81,12 +81,13 @@ export async function finalizeCheckoutPayment({
     order?.payment_status === 'paid' &&
     Number(orderResponse.amountDueToGateway ?? 0) <= 0
   ) {
+    // routeFullyPaidPrizeSuccess reports the actual voucher method (not the
+    // stale UI selection), so the success screen shows paid/completed copy.
     await routeFullyPaidPrizeSuccess({
       clearCart,
       isOrderInFlight,
       orderId: order.id,
       orderNumber,
-      paymentMethod: selectedPayment,
       setIsProcessing,
       trackingToken: order.tracking_token,
     });

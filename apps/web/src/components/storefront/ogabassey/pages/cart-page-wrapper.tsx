@@ -49,10 +49,15 @@ async function fetchAndAddCartItems({
   const hasQuizPrizeVoucher = Boolean(quizAwardId && quizVoucherToken);
 
   // A prize is redeemed as its OWN order; the server rejects a cart that mixes
-  // the voucher with paid items (QUIZ_VOUCHER_MIXED_CART_UNSUPPORTED). Block the
-  // claim here — mirror of the mobile claim guard — so the shopper isn't sent
-  // through checkout only to hit a 400 and have to unwind the cart by hand.
-  if (hasQuizPrizeVoucher && cart.some((item) => !item.quizAwardId)) {
+  // the voucher with paid items (QUIZ_VOUCHER_MIXED_CART_UNSUPPORTED) or holds a
+  // second distinct voucher (QUIZ_VOUCHER_MULTIPLE). Block the claim here —
+  // mirror of the mobile claim guard — so the shopper isn't sent through
+  // checkout only to hit a 400 and have to unwind the cart by hand. Re-claiming
+  // the SAME award is fine (deduped below).
+  if (
+    hasQuizPrizeVoucher &&
+    cart.some((item) => item.quizAwardId !== quizAwardId)
+  ) {
     toast({
       title: 'Check out your prize separately',
       description:

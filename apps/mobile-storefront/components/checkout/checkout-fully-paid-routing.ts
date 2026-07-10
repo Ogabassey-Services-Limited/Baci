@@ -1,6 +1,5 @@
 import { router } from 'expo-router';
 import type { MutableRefObject } from 'react';
-import type { PaymentMethodType } from '@/components/checkout/PaymentMethodSelector';
 import type { StoreCreditPaymentMethod } from '@/lib/wallet-payment-helpers';
 import type { OrderResponse } from '@/services/orders';
 import { clearAndPersistCheckoutCart } from './checkout-cart-persistence';
@@ -54,7 +53,6 @@ export async function routeFullyPaidPrizeSuccess({
   isOrderInFlight,
   orderId,
   orderNumber,
-  paymentMethod,
   setIsProcessing,
   trackingToken,
 }: {
@@ -62,7 +60,6 @@ export async function routeFullyPaidPrizeSuccess({
   isOrderInFlight: MutableRefObject<boolean>;
   orderId: string;
   orderNumber: string;
-  paymentMethod: PaymentMethodType;
   setIsProcessing: (value: boolean) => void;
   trackingToken?: string | null;
 }) {
@@ -74,7 +71,10 @@ export async function routeFullyPaidPrizeSuccess({
     params: {
       orderId,
       orderNumber,
-      paymentMethod,
+      // The prize is settled by the voucher — always report the actual method so
+      // the success screen shows paid/completed copy, not the stale UI selection
+      // (e.g. invoice/payforme, which render pending payment-request copy).
+      paymentMethod: 'quiz_voucher',
       ...(trackingToken && {
         trackingToken,
       }),

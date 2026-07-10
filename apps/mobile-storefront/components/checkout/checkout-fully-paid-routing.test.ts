@@ -76,7 +76,6 @@ describe('routeFullyPaidPrizeSuccess', () => {
       isOrderInFlight,
       orderId: 'order-9',
       orderNumber: 'BAC-009',
-      paymentMethod: 'paystack',
       setIsProcessing,
       trackingToken: null,
     });
@@ -89,7 +88,8 @@ describe('routeFullyPaidPrizeSuccess', () => {
       params: expect.objectContaining({
         orderId: 'order-9',
         orderNumber: 'BAC-009',
-        paymentMethod: 'paystack',
+        // Prize success always reports the voucher method.
+        paymentMethod: 'quiz_voucher',
       }),
     });
     // No trackingToken key when null.

@@ -5,31 +5,9 @@ import {
   recordMerchantQuizAnswerKeyReview,
 } from './quiz-answer-key-review';
 
-function mockSupabase({
-  lookupResult,
-  updateResult = { data: { id: 'event-1' }, error: null },
-}: {
-  lookupResult: { data: unknown; error: unknown };
-  updateResult?: { data: unknown; error: unknown };
-}) {
-  const lookupBuilder = {
-    eq: vi.fn(() => lookupBuilder),
-    maybeSingle: vi.fn().mockResolvedValue(lookupResult),
-    select: vi.fn(() => lookupBuilder),
-  };
-  const updateBuilder = {
-    eq: vi.fn(() => updateBuilder),
-    maybeSingle: vi.fn().mockResolvedValue(updateResult),
-    select: vi.fn(() => updateBuilder),
-    update: vi.fn(() => updateBuilder),
-  };
-  const supabase = {
-    from: vi
-      .fn()
-      .mockReturnValueOnce(lookupBuilder)
-      .mockReturnValueOnce(updateBuilder),
-  };
-  return { lookupBuilder, supabase, updateBuilder };
+function mockRpcSupabase(rpcResult: { data: unknown; error: unknown }) {
+  const rpc = vi.fn().mockResolvedValue(rpcResult);
+  return { rpc, supabase: { rpc } };
 }
 
 describe('hasPersistedAnswerKeyReview', () => {
@@ -53,53 +31,38 @@ describe('hasPersistedAnswerKeyReview', () => {
 });
 
 describe('recordMerchantQuizAnswerKeyReview', () => {
-  it('persists the reviewed marker when every submitted answer matches a slot', async () => {
-    const { supabase, updateBuilder } = mockSupabase({
-      lookupResult: {
-        data: {
-          quiz_question_slots: [
-            {
-              quiz_question_variants: [
-                { active: true, answer_key_hash: hashAnswerKey('a') },
-              ],
-              slot_index: 1,
-            },
-          ],
-          settings: { existing: true },
-        },
-        error: null,
-      },
+  it('sends reviewed answer hashes (keyed by slot_index) to the definer RPC and returns its verdict', async () => {
+    const { rpc, supabase } = mockRpcSupabase({ data: true, error: null });
+
+    await expect(
+      recordMerchantQuizAnswerKeyReview(supabase as never, 'event-1', 'm-1', [
+        { correctOptionId: 'a', position: 1 },
+        { correctOptionId: 'b', position: 2 },
+      ])
+    ).resolves.toBe(true);
+    // Only hashes are sent — never the answer key itself. The user client can't
+    // read answer_key_hash, so the RPC compares with definer rights.
+    expect(rpc).toHaveBeenCalledWith('record_merchant_quiz_answer_key_review', {
+      p_event_id: 'event-1',
+      p_merchant_id: 'm-1',
+      p_reviewed: { '1': hashAnswerKey('a'), '2': hashAnswerKey('b') },
     });
+  });
+
+  it('returns false when the RPC rejects the review', async () => {
+    const { supabase } = mockRpcSupabase({ data: false, error: null });
 
     await expect(
       recordMerchantQuizAnswerKeyReview(supabase as never, 'event-1', 'm-1', [
         { correctOptionId: 'a', position: 1 },
       ])
-    ).resolves.toBe(true);
-    expect(updateBuilder.update).toHaveBeenCalledWith({
-      settings: expect.objectContaining({
-        answer_key_reviewed: true,
-        answer_key_reviewed_count: 1,
-        existing: true,
-      }),
-    });
+    ).resolves.toBe(false);
   });
 
-  it('rejects mismatched reviewed answers without updating the event', async () => {
-    const { supabase, updateBuilder } = mockSupabase({
-      lookupResult: {
-        data: {
-          quiz_question_slots: [
-            {
-              quiz_question_variants: [
-                { active: true, answer_key_hash: hashAnswerKey('b') },
-              ],
-              slot_index: 1,
-            },
-          ],
-        },
-        error: null,
-      },
+  it('returns false when the RPC errors', async () => {
+    const { supabase } = mockRpcSupabase({
+      data: null,
+      error: { message: 'boom' },
     });
 
     await expect(
@@ -107,6 +70,17 @@ describe('recordMerchantQuizAnswerKeyReview', () => {
         { correctOptionId: 'a', position: 1 },
       ])
     ).resolves.toBe(false);
-    expect(updateBuilder.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects duplicate reviewed positions without calling the RPC', async () => {
+    const { rpc, supabase } = mockRpcSupabase({ data: true, error: null });
+
+    await expect(
+      recordMerchantQuizAnswerKeyReview(supabase as never, 'event-1', 'm-1', [
+        { correctOptionId: 'a', position: 1 },
+        { correctOptionId: 'b', position: 1 },
+      ])
+    ).resolves.toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

@@ -2062,8 +2062,15 @@ export async function POST(request: NextRequest) {
       // without relying on PostgREST RLS / RPC behavior.
       p_tax_basis: 'exclusive',
       p_gift_wrapping_fee: giftWrappingFeeValue,
-      p_expected_total:
-        typeof body.expected_total === 'number' ? body.expected_total : null,
+      // Voucher orders now carry the real recomputed VAT, so the RPC's parity
+      // check computes `subtotal + tax - award` = the VAT — which never matches
+      // the client's expected_total derived from a zero-priced voucher cart.
+      // Let the RPC own the total for prizes (mobile already omits it).
+      p_expected_total: hasVoucherItem
+        ? null
+        : typeof body.expected_total === 'number'
+          ? body.expected_total
+          : null,
       ...(quizVoucherRouteProof
         ? { p_route_proof: quizVoucherRouteProof }
         : {}),

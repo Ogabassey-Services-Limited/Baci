@@ -212,7 +212,9 @@ describe('finalizeCheckoutPayment', () => {
       params: expect.objectContaining({
         orderId: 'order-1',
         orderNumber: 'BAC-001',
-        paymentMethod: 'paystack',
+        // The prize is settled by the voucher — success uses the actual method,
+        // not the stale UI selection (here 'paystack').
+        paymentMethod: 'quiz_voucher',
         trackingToken: 'tracking-token',
       }),
     });

@@ -6,21 +6,6 @@ type AnswerKeyReviewQuestion = {
   position: number;
 };
 
-type QuizAnswerKeyReviewVariantRow = {
-  active?: boolean | null;
-  answer_key_hash?: string | null;
-};
-
-type QuizAnswerKeyReviewSlotRow = {
-  quiz_question_variants?: QuizAnswerKeyReviewVariantRow[] | null;
-  slot_index?: number | null;
-};
-
-type QuizAnswerKeyReviewEventRow = {
-  quiz_question_slots?: QuizAnswerKeyReviewSlotRow[] | null;
-  settings?: unknown;
-};
-
 function isSettingsRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -47,21 +32,6 @@ function createReviewedAnswerMap(
   return reviewedAnswers;
 }
 
-function slotHasReviewedAnswer(
-  slot: QuizAnswerKeyReviewSlotRow,
-  reviewedAnswers: Map<number, string>
-): boolean {
-  if (!slot.slot_index) return false;
-  const reviewedAnswer = reviewedAnswers.get(slot.slot_index);
-  if (!reviewedAnswer) return false;
-
-  const reviewedHash = hashAnswerKey(reviewedAnswer);
-  return (slot.quiz_question_variants ?? []).some(
-    (variant) =>
-      variant.active !== false && variant.answer_key_hash === reviewedHash
-  );
-}
-
 export async function recordMerchantQuizAnswerKeyReview(
   supabase: QuizSupabaseClient,
   eventId: string,
@@ -73,50 +43,23 @@ export async function recordMerchantQuizAnswerKeyReview(
     return false;
   }
 
-  const { data, error } = await supabase
-    .from('quiz_events')
-    .select(
-      'settings, quiz_question_slots(slot_index, quiz_question_variants(active, answer_key_hash))'
-    )
-    .eq('id', eventId)
-    .eq('merchant_id', merchantId)
-    .eq('status', 'draft')
-    .maybeSingle();
-
-  if (error || !data) {
-    return false;
+  // The stored answer_key_hash is NOT readable by authenticated users (it would
+  // leak the answer key), so the comparison + settings write live in a
+  // SECURITY DEFINER RPC. We only send hashes we compute here from the reviewed
+  // answers, keyed by slot_index — never the answer key itself.
+  const reviewedHashes: Record<string, string> = {};
+  for (const [slotIndex, correctOptionId] of reviewedAnswers) {
+    reviewedHashes[String(slotIndex)] = hashAnswerKey(correctOptionId);
   }
 
-  const event = data as QuizAnswerKeyReviewEventRow;
-  const slots = (event.quiz_question_slots ?? [])
-    .filter((slot) => typeof slot.slot_index === 'number')
-    .sort((left, right) => (left.slot_index ?? 0) - (right.slot_index ?? 0));
+  const { data, error } = await supabase.rpc(
+    'record_merchant_quiz_answer_key_review',
+    {
+      p_event_id: eventId,
+      p_merchant_id: merchantId,
+      p_reviewed: reviewedHashes,
+    }
+  );
 
-  if (slots.length === 0 || reviewedAnswers.size !== slots.length) {
-    return false;
-  }
-
-  if (!slots.every((slot) => slotHasReviewedAnswer(slot, reviewedAnswers))) {
-    return false;
-  }
-
-  const settings = isSettingsRecord(event.settings) ? event.settings : {};
-  const reviewedAt = new Date().toISOString();
-  const { data: updated, error: updateError } = await supabase
-    .from('quiz_events')
-    .update({
-      settings: {
-        ...settings,
-        answer_key_reviewed: true,
-        answer_key_reviewed_at: reviewedAt,
-        answer_key_reviewed_count: slots.length,
-      },
-    })
-    .eq('id', eventId)
-    .eq('merchant_id', merchantId)
-    .eq('status', 'draft')
-    .select('id')
-    .maybeSingle();
-
-  return !updateError && Boolean(updated);
+  return !error && data === true;
 }

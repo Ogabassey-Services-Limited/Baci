@@ -9,24 +9,13 @@ const mockGetUserAccess = vi.fn();
 const mockHasPermission = vi.fn();
 
 const mockMerchantMaybeSingle = vi.fn();
-// Review lookup chain: select(settings + slots) → eq(id) → eq(merchant) → eq(status='draft') → maybeSingle
-const mockReviewLookupMaybeSingle = vi.fn();
-const mockReviewLookupEqThird = vi.fn(() => ({
-  maybeSingle: mockReviewLookupMaybeSingle,
-}));
-const mockReviewLookupEqSecond = vi.fn(() => ({ eq: mockReviewLookupEqThird }));
-const mockReviewLookupEqFirst = vi.fn(() => ({ eq: mockReviewLookupEqSecond }));
-// Review-marker update chain: update(settings) → eq(id) → eq(merchant) → eq(status='draft') → select → maybeSingle
-const mockReviewUpdateMaybeSingle = vi.fn();
-const mockReviewUpdateSelect = vi.fn(() => ({
-  maybeSingle: mockReviewUpdateMaybeSingle,
-}));
-const mockReviewUpdateEqThird = vi.fn(() => ({
-  select: mockReviewUpdateSelect,
-}));
-const mockReviewUpdateEqSecond = vi.fn(() => ({ eq: mockReviewUpdateEqThird }));
-const mockReviewUpdateEqFirst = vi.fn(() => ({ eq: mockReviewUpdateEqSecond }));
-// Activation preflight chain: select(settings) → eq(id) → eq(merchant) → eq(status='draft') → maybeSingle
+// The answer-key review comparison + settings write now live in a SECURITY
+// DEFINER RPC (authenticated users can't read answer_key_hash), so the route
+// calls supabase.rpc('record_merchant_quiz_answer_key_review', …).
+const mockRpc = vi.fn();
+// activateMerchantQuizDraft's review preflight: select('settings') → eq(id) →
+// eq(merchant) → eq(status='draft') → maybeSingle. Returns null (no activation)
+// unless the draft carries a persisted answer_key_reviewed marker.
 const mockActivationReviewMaybeSingle = vi.fn();
 const mockActivationReviewEqThird = vi.fn(() => ({
   maybeSingle: mockActivationReviewMaybeSingle,
@@ -37,7 +26,7 @@ const mockActivationReviewEqSecond = vi.fn(() => ({
 const mockActivationReviewEqFirst = vi.fn(() => ({
   eq: mockActivationReviewEqSecond,
 }));
-// Update chain: update → eq(id) → eq(merchant) → eq(status='draft') → select → maybeSingle
+// Activation update chain: update → eq(id) → eq(merchant) → eq(status='draft') → select → maybeSingle
 const mockQuizEventUpdateSingle = vi.fn();
 const mockQuizEventSelect = vi.fn(() => ({
   maybeSingle: mockQuizEventUpdateSingle,
@@ -48,12 +37,6 @@ const mockQuizEventEqFirst = vi.fn(() => ({ eq: mockQuizEventEqSecond }));
 const mockQuizEventUpdate = vi.fn((_payload: Record<string, unknown>) => ({
   eq: mockQuizEventEqFirst,
 }));
-const mockQuizEventUpdateDispatcher = vi.fn(
-  (payload: Record<string, unknown>) =>
-    'settings' in payload
-      ? { eq: mockReviewUpdateEqFirst }
-      : mockQuizEventUpdate(payload)
-);
 // Idempotent active-lookup chain: select → eq(id) → eq(merchant) → eq(status='active') → maybeSingle
 const mockActiveLookupMaybeSingle = vi.fn();
 const mockActiveEqThird = vi.fn(() => ({
@@ -62,9 +45,6 @@ const mockActiveEqThird = vi.fn(() => ({
 const mockActiveEqSecond = vi.fn(() => ({ eq: mockActiveEqThird }));
 const mockActiveEqFirst = vi.fn(() => ({ eq: mockActiveEqSecond }));
 const mockQuizEventSelectDispatcher = vi.fn((columns: string) => {
-  if (columns.includes('quiz_question_slots')) {
-    return { eq: mockReviewLookupEqFirst };
-  }
   if (columns === 'settings') {
     return { eq: mockActivationReviewEqFirst };
   }
@@ -81,7 +61,7 @@ const mockFrom = vi.fn((table: string) => {
   if (table === 'quiz_events') {
     return {
       select: mockQuizEventSelectDispatcher,
-      update: mockQuizEventUpdateDispatcher,
+      update: mockQuizEventUpdate,
     };
   }
   return {};
@@ -130,9 +110,11 @@ describe('POST /api/merchant/quiz/activate', () => {
     mockCheckCsrfProtection.mockResolvedValue({ valid: true, response: null });
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
-      supabase: { from: mockFrom },
+      supabase: { from: mockFrom, rpc: mockRpc },
       user: { id: 'user-1' },
     });
+    // Default: the review RPC records the review successfully.
+    mockRpc.mockResolvedValue({ data: true, error: null });
     mockGetUserAccess.mockResolvedValue({
       isOwner: true,
       isStaff: false,
@@ -143,27 +125,6 @@ describe('POST /api/merchant/quiz/activate', () => {
     mockHasPermission.mockReturnValue(true);
     mockMerchantMaybeSingle.mockResolvedValue({
       data: { business_name: 'OgaBassey Gadgets', slug: 'ogabassey' },
-      error: null,
-    });
-    mockReviewLookupMaybeSingle.mockResolvedValue({
-      data: {
-        settings: { time_limit_seconds: 30 },
-        quiz_question_slots: [
-          {
-            slot_index: 1,
-            quiz_question_variants: [
-              {
-                active: true,
-                answer_key_hash: hashAnswerKeyForTest('a'),
-              },
-            ],
-          },
-        ],
-      },
-      error: null,
-    });
-    mockReviewUpdateMaybeSingle.mockResolvedValue({
-      data: { id: EVENT_ID },
       error: null,
     });
     mockActivationReviewMaybeSingle.mockResolvedValue({
@@ -194,13 +155,15 @@ describe('POST /api/merchant/quiz/activate', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(mockQuizEventUpdateDispatcher).toHaveBeenCalledWith({
-      settings: expect.objectContaining({
-        answer_key_reviewed: true,
-        answer_key_reviewed_at: expect.any(String),
-        answer_key_reviewed_count: 1,
-      }),
-    });
+    // The review is recorded through the SECURITY DEFINER RPC (only hashes sent).
+    expect(mockRpc).toHaveBeenCalledWith(
+      'record_merchant_quiz_answer_key_review',
+      expect.objectContaining({
+        p_event_id: EVENT_ID,
+        p_merchant_id: 'merchant-1',
+        p_reviewed: { '1': hashAnswerKeyForTest('a') },
+      })
+    );
     expect(mockQuizEventUpdate).toHaveBeenCalledWith({
       ends_at: null,
       starts_at: expect.any(String),
@@ -217,23 +180,10 @@ describe('POST /api/merchant/quiz/activate', () => {
   });
 
   it('rejects activation when the reviewed answer key does not match the stored draft', async () => {
-    mockReviewLookupMaybeSingle.mockResolvedValueOnce({
-      data: {
-        settings: { time_limit_seconds: 30 },
-        quiz_question_slots: [
-          {
-            slot_index: 1,
-            quiz_question_variants: [
-              {
-                active: true,
-                answer_key_hash: hashAnswerKeyForTest('b'),
-              },
-            ],
-          },
-        ],
-      },
-      error: null,
-    });
+    // The RPC reports the review was not recorded (a mismatch), and the draft
+    // still carries no reviewed marker, so activateMerchantQuizDraft's preflight
+    // refuses to open it.
+    mockRpc.mockResolvedValueOnce({ data: false, error: null });
     mockActivationReviewMaybeSingle.mockResolvedValueOnce({
       data: { settings: { time_limit_seconds: 30 } },
       error: null,
