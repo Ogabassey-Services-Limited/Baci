@@ -2581,6 +2581,7 @@ describe('Middleware Proxy', () => {
   it.each([
     'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
     'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
+    'https://ogabassey.com/new-category/new-product',
     `https://ogabassey.${ROOT_DOMAIN}/smartphones/samsung-galaxy-z-fold-4`,
     `https://${ROOT_DOMAIN}/ogabassey/smartphones/samsung-galaxy-z-fold-4`,
   ])('CDN-caches the canonical public PDP shell for %s', async (url) => {
@@ -2615,11 +2616,6 @@ describe('Middleware Proxy', () => {
     'https://ogabassey.com/blog',
     'https://ogabassey.com/blog/the-ultimate-checklist-for-buying-a-used-iphone-in-2025',
     'https://ogabassey.com/blog/author/bassey-john',
-    'https://ogabassey.com/shipping',
-    'https://ogabassey.com/contact',
-    'https://ogabassey.com/faq',
-    'https://ogabassey.com/terms',
-    'https://ogabassey.com/privacy',
   ])('CDN-caches anonymous public storefront documents for %s', async (url) => {
     const req = new NextRequest(url);
     req.headers.set('host', new URL(url).host);
@@ -2634,6 +2630,32 @@ describe('Middleware Proxy', () => {
     );
     expect(res.headers.get('CDN-Cache-Control')).toBe(
       'max-age=3600, stale-while-revalidate=86400, stale-if-error=86400'
+    );
+  });
+
+  it.each([
+    'https://ogabassey.com/about',
+    'https://ogabassey.com/contact',
+    'https://ogabassey.com/faq',
+    'https://ogabassey.com/privacy',
+    'https://ogabassey.com/returns',
+    'https://ogabassey.com/shipping',
+    'https://ogabassey.com/terms',
+    'https://ogabassey.com/warranty',
+  ])('keeps mutable storefront trust content on the five-minute downstream TTL for %s', async (url) => {
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Cache-Control')).toBe(
+      'public, max-age=0, must-revalidate'
+    );
+    expect(res.headers.get('Vercel-CDN-Cache-Control')).toBe(
+      'max-age=300, stale-while-revalidate=86400'
+    );
+    expect(res.headers.get('CDN-Cache-Control')).toBe(
+      'max-age=300, stale-while-revalidate=86400, stale-if-error=86400'
     );
   });
 

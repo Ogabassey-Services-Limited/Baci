@@ -31,6 +31,10 @@ const STOREFRONT_METADATA_VARY_HEADER_VALUE = [
 ].join(', ');
 const OGABASSEY_DOMAIN = 'ogabassey.com';
 const OGABASSEY_WWW_DOMAIN = `www.${OGABASSEY_DOMAIN}`;
+const OGABASSEY_DOCUMENT_HOST_MATCHER = `(?:www\\.)?${OGABASSEY_DOMAIN.replaceAll(
+  '.',
+  '\\.'
+)}`;
 const OGABASSEY_REDIRECT_HOST_MATCHERS = [
   OGABASSEY_DOMAIN.replaceAll('.', '\\.'),
   OGABASSEY_WWW_DOMAIN.replaceAll('.', '\\.'),
@@ -658,7 +662,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: OGABASSEY_GENERIC_DOCUMENT_ROUTE_SOURCE,
-        has: [{ type: 'host', value: OGABASSEY_DOMAIN }],
+        has: [{ type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER }],
         headers: [
           {
             key: 'Link',
@@ -668,7 +672,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: OGABASSEY_PDP_DOCUMENT_ROUTE_SOURCE,
-        has: [{ type: 'host', value: OGABASSEY_DOMAIN }],
+        has: [{ type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER }],
         headers: [
           {
             key: 'Link',

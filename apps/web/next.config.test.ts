@@ -24,6 +24,7 @@ const { compileNonPath } =
   require('next/dist/shared/lib/router/utils/prepare-destination') as {
     compileNonPath: (value: string, params: Record<string, string>) => string;
   };
+const OGABASSEY_DOCUMENT_HOST_MATCHER = '(?:www\\.)?ogabassey\\.com';
 
 type NextConfigFunction = (
   phase: string,
@@ -150,7 +151,9 @@ describe('next.config OgaBassey resource headers', () => {
         (entry) =>
           !entry.source.includes(':productSlug') &&
           JSON.stringify(entry.has) ===
-            JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+            JSON.stringify([
+              { type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER },
+            ])
       )
       ?.headers.find((header) => header.key === 'Link')?.value;
 
@@ -162,6 +165,10 @@ describe('next.config OgaBassey resource headers', () => {
     expect(ogabasseyLinkHeader).toContain(
       '</.well-known/api-catalog>; rel="api-catalog"'
     );
+    const hostMatcher = new RegExp(`^${OGABASSEY_DOCUMENT_HOST_MATCHER}$`);
+    expect(hostMatcher.test('ogabassey.com')).toBe(true);
+    expect(hostMatcher.test('www.ogabassey.com')).toBe(true);
+    expect(hostMatcher.test('shop.ogabassey.com')).toBe(false);
   });
 
   it('advertises agent discovery resources in OgaBassey Link headers', async () => {
@@ -173,7 +180,9 @@ describe('next.config OgaBassey resource headers', () => {
         (entry) =>
           !entry.source.includes(':productSlug') &&
           JSON.stringify(entry.has) ===
-            JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+            JSON.stringify([
+              { type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER },
+            ])
       )
       ?.headers.find((header) => header.key === 'Link')?.value;
 
@@ -218,7 +227,9 @@ describe('next.config OgaBassey resource headers', () => {
       (entry) =>
         !entry.source.includes(':productSlug') &&
         JSON.stringify(entry.has) ===
-          JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+          JSON.stringify([
+            { type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER },
+          ])
     );
     expect(ogabasseyGenericHeaderRule).toBeDefined();
     const linkHeader = ogabasseyGenericHeaderRule?.headers.find(
@@ -240,7 +251,9 @@ describe('next.config OgaBassey resource headers', () => {
       (entry) =>
         entry.source.includes(':productSlug') &&
         JSON.stringify(entry.has) ===
-          JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+          JSON.stringify([
+            { type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER },
+          ])
     );
 
     expect(ogabasseyPdpHeaderRule).toBeDefined();
@@ -267,7 +280,9 @@ describe('next.config OgaBassey resource headers', () => {
       (entry) =>
         entry.source.includes(':productSlug') &&
         JSON.stringify(entry.has) ===
-          JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+          JSON.stringify([
+            { type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER },
+          ])
     );
     const linkHeader = ogabasseyPdpHeaderRule?.headers.find(
       (header) => header.key === 'Link'
@@ -292,7 +307,7 @@ describe('next.config OgaBassey resource headers', () => {
     expect(headers).toBeDefined();
 
     const ogabasseyHostMatcher = JSON.stringify([
-      { type: 'host', value: 'ogabassey.com' },
+      { type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER },
     ]);
     const pdpRuleIndex = headers.findIndex(
       (entry) =>
@@ -347,7 +362,9 @@ describe('next.config OgaBassey resource headers', () => {
       (entry) =>
         entry.source.includes(':productSlug') &&
         JSON.stringify(entry.has) ===
-          JSON.stringify([{ type: 'host', value: 'ogabassey.com' }])
+          JSON.stringify([
+            { type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER },
+          ])
     );
 
     expect(ogabasseyPdpHeaderRule).toBeDefined();

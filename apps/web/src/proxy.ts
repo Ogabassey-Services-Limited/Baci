@@ -937,13 +937,44 @@ function isStorefrontPdpDocument(
     return true;
   }
 
-  const cachePolicy = getStorefrontPublicCachePolicy(pathname, hostname);
   return (
     firstSegment !== undefined &&
-    cachePolicy?.cacheableCategorySegments.some(
-      (segment) => segment.toLowerCase() === firstSegment
-    ) === true
+    !NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(firstSegment)
   );
+}
+
+function canUseLongDownstreamStorefrontCache(
+  pathname: string,
+  hostname: string | undefined,
+  routeType: 'admin' | 'auth' | 'storefront' | 'api'
+): boolean {
+  if (isStorefrontHomeDocument(pathname, hostname, routeType)) {
+    return true;
+  }
+
+  const contentSegments = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  );
+  const firstSegment = contentSegments[0]?.toLowerCase();
+  if (firstSegment === 'blog') {
+    return true;
+  }
+  if (contentSegments.length !== 1 || firstSegment === undefined) {
+    return false;
+  }
+  if (firstSegment === 'products') {
+    return true;
+  }
+
+  const cachePolicy = getStorefrontPublicCachePolicy(pathname, hostname);
+  const categorySegments = cachePolicy
+    ? CACHEABLE_PUBLIC_STOREFRONT_CATEGORY_SEGMENTS_BY_SLUG.get(
+        cachePolicy.slug.toLowerCase()
+      )
+    : undefined;
+  return categorySegments?.has(firstSegment) === true;
 }
 
 // A storefront document is safe to CDN-cache only when it is anonymous public
@@ -4460,7 +4491,8 @@ function applySecurityHeaders(
     if (!hasAuthSessionHint && cacheable) {
       const cachePolicy = getStorefrontPublicCachePolicy(pathname, hostname);
       cacheKind = cachePolicy
-        ? isStorefrontPdpDocument(pathname, hostname, routeType)
+        ? isStorefrontPdpDocument(pathname, hostname, routeType) ||
+          !canUseLongDownstreamStorefrontCache(pathname, hostname, routeType)
           ? 'cacheable-self-healing'
           : 'cacheable'
         : 'cacheable-vercel-only';
