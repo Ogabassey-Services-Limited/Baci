@@ -2125,7 +2125,7 @@ function getSpecialCollectionCopy(collectionSlug: SpecialCollectionSlug) {
  * small so it remains suitable for Vercel's shared remote cache and keeps
  * category/product mutation tag invalidation cross-instance.
  */
-async function getCachedCategoryPageShellData(
+export async function getCachedCategoryPageShellData(
   merchantId: string,
   categorySlug: string,
   _storeSlug: string
