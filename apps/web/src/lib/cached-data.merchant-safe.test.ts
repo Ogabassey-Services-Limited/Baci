@@ -204,6 +204,7 @@ describe('cached-data merchant safety helpers', () => {
           code: '25P02',
           message: 'current transaction is aborted, commands ignored',
         },
+        status: 503,
       });
 
       await expect(getMerchantSafe('test-store')).rejects.toThrow(
@@ -303,7 +304,7 @@ describe('cached-data merchant safety helpers', () => {
     });
 
     it.each([
-      408, 502, 503, 504, 520,
+      408, 409, 502, 503, 504, 520,
     ])('uses the PostgREST response status for transient HTTP %s errors', async (status) => {
       harness.mockRpc
         .mockResolvedValueOnce({

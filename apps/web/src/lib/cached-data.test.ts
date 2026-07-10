@@ -166,6 +166,7 @@ describe('cached merchant entity normalization', () => {
 
     const merchant = await getCachedMerchant('ogabassey');
 
+    expect(cacheTag).toHaveBeenCalledWith(`features-${mockMerchant.id}`);
     expect(merchant).toEqual(
       expect.objectContaining({
         business_type: 'electronics',
@@ -244,6 +245,7 @@ describe('cached merchant entity normalization', () => {
 
     const merchant = await getCachedMerchantByDomain('fashion.example');
 
+    expect(cacheTag).toHaveBeenCalledWith(`features-${mockMerchant.id}`);
     expect(harness.mockRpc).toHaveBeenCalledWith(
       'resolve_storefront_cached_merchant',
       {
@@ -267,6 +269,22 @@ describe('cached merchant entity normalization', () => {
     const merchant = await getCachedMerchantByDomain('missing.example');
 
     expect(merchant).toBeNull();
+  });
+
+  it('sanitizes the host-derived domain in merchant lookup logs', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    harness.mockRpc.mockRejectedValueOnce(new Error('application failure'));
+
+    await expect(
+      getCachedMerchantByDomain('EXAMPLE.COM\r\nforged-entry')
+    ).rejects.toThrow('application failure');
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error resolving merchant for domain',
+      expect.objectContaining({ domain: 'example.comforged-entry' })
+    );
   });
 
   it('throws when transient domain lookup errors exhaust the resolver retry', async () => {

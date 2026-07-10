@@ -94,6 +94,54 @@ export function resolvedStorefrontMerchantRpcResult(
   };
 }
 
+export function buildBlogMerchantRow() {
+  return {
+    id: 'merchant-1',
+    business_name: 'Ogabassey',
+    site_title: 'Ogabassey',
+    site_tagline: 'Phones and tablets',
+    site_description: 'Phones and tablets',
+    business_type: 'electronics',
+    logo_url: 'https://cdn.example.com/logo.png',
+    phone: '+234800000000',
+    email: 'hello@ogabassey.com',
+    social_media: null,
+    brand_colors: null,
+    slug: 'ogabassey',
+    business_address: 'Lagos',
+    payout_currency: 'NGN',
+    is_published: true,
+    template_id: 'default',
+    plan_tier: 'pro',
+    premium_features: null,
+    country: 'NG',
+    hero_slides: null,
+    favicon_svg_url: null,
+    favicon_png_32_url: null,
+    favicon_apple_touch_url: null,
+    vat_registration_status: null,
+    vat_rate: null,
+    feature_settings: { blog_enabled: true },
+    pages: null,
+    about_page: null,
+    faq_items: null,
+    updated_at: '2026-03-28T00:00:00.000Z',
+  };
+}
+
+export function createBlogMerchantRpcMock() {
+  return vi.fn().mockResolvedValue({
+    data: [
+      {
+        custom_domain: null,
+        feature_settings: { blog_enabled: true },
+        merchant_data: buildBlogMerchantRow(),
+      },
+    ],
+    error: null,
+  });
+}
+
 let mockCreateClient: ((...args: unknown[]) => unknown) | null = null;
 
 export function getMockCreateClient() {

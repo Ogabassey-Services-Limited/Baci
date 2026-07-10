@@ -839,8 +839,11 @@ async function resolveStorefrontMerchantOnce({
   // The outer merchant resolver owns the one bounded retry. Disable the
   // PostgREST builder's automatic retries so a single 3s attempt cannot expand
   // into several fetch attempts plus exponential backoff. The optional check
-  // keeps compatible test doubles awaitable; supabase-js 2.108.2 exposes
-  // retry(false) on the real PostgREST builder.
+  // keeps compatible test doubles awaitable. In the installed
+  // supabase-js/postgrest-js 2.108.2, SupabaseClient does not plumb the
+  // documented db.retry option into PostgrestClient; retry(false) is the
+  // supported builder method that directly sets this request's retryEnabled
+  // flag.
   const singleAttemptQuery =
     typeof query.retry === 'function' ? query.retry(false) : query;
   const { data, error, status } = await singleAttemptQuery;
@@ -921,6 +924,7 @@ export async function getCachedMerchant(
     sanitizeLookupLogValue(slug),
     merchant.id
   );
+  cacheTag(`features-${merchant.id}`);
   return merchant;
 }
 
@@ -935,19 +939,20 @@ export async function getCachedMerchantByDomain(
 ): Promise<CachedMerchant | null> {
   'use cache';
   cacheLife('merchant');
-  cacheTag('merchants', 'domains', `domain-${domain.toLowerCase()}`);
-
   const normalizedDomain = domain.toLowerCase();
+  const safeDomain = sanitizeLookupLogValue(normalizedDomain);
+  cacheTag('merchants', 'domains', `domain-${normalizedDomain}`);
+
   let resolvedMerchant: CachedMerchant | null;
   try {
     resolvedMerchant = await resolveStorefrontMerchantWithRetry({
-      errorMessage: `Database error resolving merchant for domain: ${normalizedDomain}`,
+      errorMessage: `Database error resolving merchant for domain: ${safeDomain}`,
       identifier: normalizedDomain,
     });
   } catch (error) {
     const cause = (error as { cause?: unknown })?.cause;
     console.error('Error resolving merchant for domain', {
-      domain: normalizedDomain,
+      domain: safeDomain,
       error: summarizeMerchantLookupError(error),
       ...(cause ? { cause: summarizeMerchantLookupError(cause) } : undefined),
     });
@@ -955,23 +960,24 @@ export async function getCachedMerchantByDomain(
   }
 
   if (!resolvedMerchant) {
-    console.warn('No domain mapping found for:', normalizedDomain);
+    console.warn('No domain mapping found for:', safeDomain);
     return null;
   }
 
   console.log('Successfully fetched merchant by domain', {
-    domain: normalizedDomain,
+    domain: safeDomain,
     slug: resolvedMerchant.slug,
     merchantId: resolvedMerchant.id,
   });
 
+  cacheTag(`features-${resolvedMerchant.id}`);
   return resolvedMerchant;
 }
 
 const TRANSIENT_MERCHANT_LOOKUP_ERROR = Symbol('transient-merchant-lookup');
 const DATABASE_ERROR_CODE_PATTERN = /^(?:[0-9A-Z]{5}|PGRST\d+)$/;
 const TRANSIENT_MERCHANT_LOOKUP_HTTP_STATUSES = new Set([
-  408, 502, 503, 504, 520,
+  408, 409, 502, 503, 504, 520,
 ]);
 
 type MerchantLookupError = Error & {
@@ -1010,13 +1016,6 @@ function isTransientMerchantLookupError(error: unknown): boolean {
     stack?: unknown;
     status?: unknown;
   };
-  if (
-    typeof maybeError.status === 'number' &&
-    TRANSIENT_MERCHANT_LOOKUP_HTTP_STATUSES.has(maybeError.status)
-  ) {
-    return true;
-  }
-
   const code =
     typeof maybeError.code === 'string' ? maybeError.code.trim() : '';
   if (code === '57014' || code === '20' || code === '23') {
@@ -1027,6 +1026,12 @@ function isTransientMerchantLookupError(error: unknown): boolean {
   // transport retries.
   if (DATABASE_ERROR_CODE_PATTERN.test(code)) {
     return false;
+  }
+  if (
+    typeof maybeError.status === 'number' &&
+    TRANSIENT_MERCHANT_LOOKUP_HTTP_STATUSES.has(maybeError.status)
+  ) {
+    return true;
   }
 
   const details =
