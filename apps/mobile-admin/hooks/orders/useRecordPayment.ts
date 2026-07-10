@@ -3,7 +3,10 @@ import { useRef } from 'react';
 import { BASE_URL } from '@/lib/api-client';
 import { asyncStorage as AsyncStorage } from '@/lib/storage';
 import { safeParseJSON } from '@/lib/validators/storage';
-import { manualPaymentRetrySchema } from '@/schemas/manual-payment-retry';
+import {
+  type ManualPaymentRetry,
+  manualPaymentRetrySchema,
+} from '@/schemas/manual-payment-retry';
 import { generateUUID } from '@/utils/uuid';
 import { useMerchant } from '../useMerchant';
 import { createAuthenticatedFetch } from './authenticated-fetch';
@@ -39,24 +42,33 @@ export function useRecordPayment() {
         reference: reference?.trim() || null,
       });
       const storageKey = `${RECORD_PAYMENT_RETRY_KEY_PREFIX}${orderId}`;
-      const storedRetry = safeParseJSON(
-        await AsyncStorage.getItem(storageKey),
-        manualPaymentRetrySchema.nullable(),
-        null
-      );
+      let storedRetry: ManualPaymentRetry | null = null;
+      try {
+        storedRetry = safeParseJSON(
+          await AsyncStorage.getItem(storageKey),
+          manualPaymentRetrySchema.nullable(),
+          null
+        );
+      } catch (error) {
+        console.error('Failed to read manual payment retry key', error);
+      }
       const idempotencyKey =
         pendingIdempotencyKeys.current.get(requestFingerprint) ??
         (storedRetry?.fingerprint === requestFingerprint
           ? storedRetry.idempotencyKey
           : generateUUID());
       pendingIdempotencyKeys.current.set(requestFingerprint, idempotencyKey);
-      await AsyncStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          fingerprint: requestFingerprint,
-          idempotencyKey,
-        })
-      );
+      try {
+        await AsyncStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            fingerprint: requestFingerprint,
+            idempotencyKey,
+          })
+        );
+      } catch (error) {
+        console.error('Failed to persist manual payment retry key', error);
+      }
 
       const response = await createAuthenticatedFetch(
         `${BASE_URL}/api/orders/${orderId}/record-payment`,

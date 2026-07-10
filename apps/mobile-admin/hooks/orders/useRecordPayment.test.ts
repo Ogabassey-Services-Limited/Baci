@@ -295,6 +295,82 @@ describe('useRecordPayment', () => {
     );
   });
 
+  it('continues recording when persisted retry state cannot be read', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    vi.mocked(AsyncStorage.getItem).mockRejectedValueOnce(
+      new Error('storage unavailable')
+    );
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ recorded: true }),
+    });
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const mutation = useRecordPayment() as unknown as {
+      mutationFn: (vars: {
+        amount: number;
+        orderId: string;
+        paymentMethod: string;
+      }) => Promise<unknown>;
+    };
+
+    await expect(
+      mutation.mutationFn({
+        amount: 5000,
+        orderId: 'order-1',
+        paymentMethod: 'cash',
+      })
+    ).resolves.toEqual({ recorded: true });
+
+    expect(mocks.fetch).toHaveBeenCalledOnce();
+    expect(consoleError).toHaveBeenCalledWith(
+      'Failed to read manual payment retry key',
+      expect.any(Error)
+    );
+    consoleError.mockRestore();
+  });
+
+  it('continues recording when the retry key cannot be persisted', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    vi.mocked(AsyncStorage.setItem).mockRejectedValueOnce(
+      new Error('storage full')
+    );
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ recorded: true }),
+    });
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const mutation = useRecordPayment() as unknown as {
+      mutationFn: (vars: {
+        amount: number;
+        orderId: string;
+        paymentMethod: string;
+      }) => Promise<unknown>;
+    };
+
+    await expect(
+      mutation.mutationFn({
+        amount: 5000,
+        orderId: 'order-1',
+        paymentMethod: 'cash',
+      })
+    ).resolves.toEqual({ recorded: true });
+
+    expect(mocks.fetch).toHaveBeenCalledOnce();
+    expect(consoleError).toHaveBeenCalledWith(
+      'Failed to persist manual payment retry key',
+      expect.any(Error)
+    );
+    consoleError.mockRestore();
+  });
+
   it('uses structured API error messages when manual payment fails', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },

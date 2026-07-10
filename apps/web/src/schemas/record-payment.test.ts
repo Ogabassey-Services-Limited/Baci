@@ -118,13 +118,14 @@ describe('recordPaymentBodySchema', () => {
     payment_method: 'cash',
   };
 
-  it('rejects a missing idempotency key', () => {
+  it('accepts a missing idempotency key from legacy mobile clients', () => {
     const result = recordPaymentBodySchema.safeParse({
       amount: 5000,
       payment_method: 'cash',
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.idempotency_key).toBeUndefined();
   });
 
   it('rejects a malformed idempotency key', () => {

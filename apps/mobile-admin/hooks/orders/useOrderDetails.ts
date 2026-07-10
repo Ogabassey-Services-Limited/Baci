@@ -4,6 +4,7 @@ import {
 } from '@baci/shared';
 import { useQuery } from '@tanstack/react-query';
 import { getBranchScopeKey } from '@/lib/branch-scope-query';
+import { getEffectiveOrderPaymentSummary } from '@/lib/order-payment-summary';
 import { ORDER_COLUMNS } from '@/lib/orders';
 import { normalizeVariantAttributes } from '@/lib/product-picker-variant-rows';
 import { supabase } from '@/lib/supabase';
@@ -220,23 +221,14 @@ export async function fetchOrderById(
     transactions?.reduce((sum, transaction) => {
       return sum + (Number(transaction.amount) || 0);
     }, 0) || 0;
-  const ledgerAmountPaid =
-    transactionTotal + (Number(order.wallet_amount_used) || 0);
-  const storedAmountPaid = Number(order.amount_paid) || 0;
-  const amountPaid = Math.max(
-    ledgerAmountPaid,
-    storedAmountPaid,
-    order.payment_status === 'paid' ? orderTotal : 0
-  );
-  const effectivePaymentStatus =
-    order.payment_status === 'paid' ||
-    (orderTotal > 0 && amountPaid >= orderTotal)
-      ? 'paid'
-      : order.payment_status;
-  const balance =
-    effectivePaymentStatus === 'paid'
-      ? 0
-      : Math.max(0, orderTotal - amountPaid);
+  const { amountPaid, balance, paymentStatus } =
+    getEffectiveOrderPaymentSummary({
+      orderTotal,
+      paymentStatus: order.payment_status,
+      storedAmountPaid: Number(order.amount_paid) || 0,
+      transactionTotal,
+      walletAmountUsed: Number(order.wallet_amount_used) || 0,
+    });
   const orderWithMeta = order as {
     fulfillment_details?: OrderFulfillmentDetails | null;
   };
@@ -245,7 +237,7 @@ export async function fetchOrderById(
     ...order,
     amount_paid: amountPaid,
     balance,
-    payment_status: effectivePaymentStatus,
+    payment_status: paymentStatus,
     fulfillment_details: orderWithMeta.fulfillment_details ?? null,
     items: ((items as OrderItemRow[] | null) ?? []).map((item) => {
       const product = getJoinedRecord(item.products);

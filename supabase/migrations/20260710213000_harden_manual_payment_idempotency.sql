@@ -91,6 +91,23 @@ BEGIN
 
   v_previous_amount_paid := COALESCE(v_order.amount_paid, 0);
 
+  SELECT
+    COALESCE(sum(COALESCE(t.amount, 0)), 0)::numeric,
+    COALESCE(sum(COALESCE(t.amount, 0)) FILTER (
+      WHERE lower(COALESCE(t.gateway, '')) IN ('wallet', 'store_credit')
+    ), 0)::numeric
+  INTO v_transaction_paid, v_wallet_transaction_paid
+  FROM public.transactions AS t
+  WHERE t.order_id = p_order_id
+    AND t.merchant_id = p_merchant_id
+    AND t.transaction_type = 'payment'
+    AND t.status = 'completed';
+
+  v_wallet_used := COALESCE(v_order.wallet_amount_used, 0);
+  v_ledger_paid := v_transaction_paid
+    + greatest(0, v_wallet_used - v_wallet_transaction_paid);
+  v_order_total := COALESCE(v_order.total, 0);
+
   SELECT t.id, t.amount, t.gateway_reference
   INTO v_existing_transaction
   FROM public.transactions AS t
@@ -108,9 +125,31 @@ BEGIN
       RETURN jsonb_build_object('error_code', 'IDEMPOTENCY_KEY_CONFLICT');
     END IF;
 
-    v_order_total := COALESCE(v_order.total, 0);
-    v_new_paid := COALESCE(v_order.amount_paid, 0);
+    v_new_paid := greatest(
+      COALESCE(v_order.amount_paid, 0),
+      v_ledger_paid
+    );
     v_remaining_balance := greatest(0, v_order_total - v_new_paid);
+
+    UPDATE public.orders AS o
+    SET
+      amount_paid = v_new_paid,
+      payment_status = CASE
+        WHEN o.payment_status = 'refunded' THEN 'refunded'
+        WHEN v_order_total > 0 AND v_new_paid >= v_order_total THEN 'paid'
+        WHEN v_new_paid > 0 THEN 'partially_paid'
+        ELSE o.payment_status
+      END,
+      shipping_status = CASE
+        WHEN o.payment_status <> 'refunded' AND o.shipping_status = 'pending'
+          THEN 'processing'
+        ELSE o.shipping_status
+      END,
+      updated_at = now()
+    WHERE o.id = p_order_id
+      AND o.merchant_id = p_merchant_id
+    RETURNING o.payment_status::text, o.shipping_status::text, o.cancelled_at
+    INTO v_payment_status, v_shipping_status, v_cancelled_at;
 
     RETURN jsonb_build_object(
       'transaction_id', v_existing_transaction.id,
@@ -118,9 +157,9 @@ BEGIN
       'remaining_balance', v_remaining_balance,
       'order_total', v_order_total,
       'previous_amount_paid', v_previous_amount_paid,
-      'payment_status', v_order.payment_status,
-      'shipping_status', v_order.shipping_status,
-      'cancelled_at', v_order.cancelled_at,
+      'payment_status', v_payment_status,
+      'shipping_status', v_shipping_status,
+      'cancelled_at', v_cancelled_at,
       'idempotency_replayed', true,
       'error_code', null
     );
@@ -150,22 +189,6 @@ BEGIN
     RETURN jsonb_build_object('error_code', 'PENDING_GATEWAY_PAYMENT');
   END IF;
 
-  SELECT
-    COALESCE(sum(COALESCE(t.amount, 0)), 0)::numeric,
-    COALESCE(sum(COALESCE(t.amount, 0)) FILTER (
-      WHERE lower(COALESCE(t.gateway, '')) IN ('wallet', 'store_credit')
-    ), 0)::numeric
-  INTO v_transaction_paid, v_wallet_transaction_paid
-  FROM public.transactions AS t
-  WHERE t.order_id = p_order_id
-    AND t.merchant_id = p_merchant_id
-    AND t.transaction_type = 'payment'
-    AND t.status = 'completed';
-
-  v_wallet_used := COALESCE(v_order.wallet_amount_used, 0);
-  v_ledger_paid := v_transaction_paid
-    + greatest(0, v_wallet_used - v_wallet_transaction_paid);
-  v_order_total := COALESCE(v_order.total, 0);
   -- amount_paid is the baseline for imported and legacy payments that may not
   -- have a matching transaction row. GREATEST avoids double-counting rows that
   -- are already represented in both sources.

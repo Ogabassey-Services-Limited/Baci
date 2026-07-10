@@ -132,6 +132,7 @@ export async function POST(
     const parsedAmount = Number(parsedBody.data.amount);
     const { idempotency_key, payment_method, reference, notes } =
       parsedBody.data;
+    const effectiveIdempotencyKey = idempotency_key ?? crypto.randomUUID();
     logger.info({
       message: 'RecordPayment body parsed',
       amount: parsedAmount,
@@ -347,7 +348,7 @@ export async function POST(
         p_currency: order.currency || 'NGN',
         p_description: paymentDescription,
         p_gateway_reference: reference ?? null,
-        p_idempotency_key: idempotency_key,
+        p_idempotency_key: effectiveIdempotencyKey,
         p_merchant_id: merchant.id,
         p_metadata: {
           payment_method: payment_method || 'manual',

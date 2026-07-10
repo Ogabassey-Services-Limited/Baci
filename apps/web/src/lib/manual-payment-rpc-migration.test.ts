@@ -43,4 +43,19 @@ describe('manual payment RPC migration', () => {
     expect(migration).toContain('INSERT INTO public.transactions');
     expect(migration).toContain('UPDATE public.orders AS o');
   });
+
+  it('reconciles idempotent replays from completed payment ledger rows', () => {
+    const ledgerReadIndex = migration.indexOf(
+      "AND t.transaction_type = 'payment'\n    AND t.status = 'completed';"
+    );
+    const replayIndex = migration.indexOf('IF FOUND THEN');
+    const replayEndIndex = migration.indexOf('\n  IF EXISTS (', replayIndex);
+    const replayBlock = migration.slice(replayIndex, replayEndIndex);
+
+    expect(ledgerReadIndex).toBeGreaterThan(-1);
+    expect(ledgerReadIndex).toBeLessThan(replayIndex);
+    expect(replayBlock).toContain('v_ledger_paid');
+    expect(replayBlock).toContain('amount_paid = v_new_paid');
+    expect(replayBlock).toContain("WHEN o.payment_status = 'refunded'");
+  });
 });

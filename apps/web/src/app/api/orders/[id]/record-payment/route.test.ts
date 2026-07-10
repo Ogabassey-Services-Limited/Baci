@@ -460,7 +460,11 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(data).toEqual({ error: 'Invalid request body' });
   });
 
-  it('returns 400 when the idempotency key is missing', async () => {
+  it('generates an idempotency key for legacy clients that omit it', async () => {
+    const { rpc } = setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+    });
     const request = createRequest({
       amount: 5000,
       idempotency_key: undefined,
@@ -471,10 +475,15 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const { POST } = await import('./route');
     const response = await POST(request, params);
 
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Invalid request body',
-    });
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith(
+      'record_manual_order_payment',
+      expect.objectContaining({
+        p_idempotency_key: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        ),
+      })
+    );
   });
 
   it('returns 400 when amount is zero', async () => {

@@ -354,6 +354,32 @@ describe('fetchOrderById', () => {
     );
   });
 
+  it('preserves refunded status when historical payments cover the total', async () => {
+    supabaseMock.setOrderDetailResult({
+      data: {
+        amount_paid: 800,
+        id: 'order-1',
+        payment_status: 'refunded',
+        recorded_by_user_id: null,
+        total: 800,
+        wallet_amount_used: 0,
+      },
+      error: null,
+    });
+    supabaseMock.setTableResult('transactions', {
+      data: [{ amount: 800, transaction_type: 'payment' }],
+      error: null,
+    });
+
+    await expect(fetchOrderById('order-1', 'merchant-1')).resolves.toEqual(
+      expect.objectContaining({
+        amount_paid: 800,
+        balance: 0,
+        payment_status: 'refunded',
+      })
+    );
+  });
+
   it('throws order query errors before running child queries', async () => {
     supabaseMock.setOrderDetailResult({
       data: null,
