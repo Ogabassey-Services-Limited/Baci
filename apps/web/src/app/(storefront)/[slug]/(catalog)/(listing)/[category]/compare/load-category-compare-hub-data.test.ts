@@ -67,6 +67,7 @@ describe('loadCategoryCompareHubData', () => {
       categoryName: 'Smartphones',
       categorySlug: 'smartphones',
       products: [{ slug: 'xiaomi-13t' }],
+      inventoryDegraded: false,
       storeUrl: 'https://ogabassey.com',
     });
     expect(mockGetCachedProductSemanticInventory).toHaveBeenCalledWith(
@@ -179,6 +180,7 @@ describe('loadCategoryCompareHubData', () => {
       categoryName: 'Smartphones',
       categorySlug: 'smartphones',
       products: [],
+      inventoryDegraded: true,
     });
     expect(warnSpy).toHaveBeenCalledWith(
       'Failed to load category compare hub inventory',
