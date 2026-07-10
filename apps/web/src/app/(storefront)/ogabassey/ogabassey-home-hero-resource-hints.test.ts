@@ -74,7 +74,7 @@ describe('preloadOgabasseyHomeHeroResources', () => {
     expect(options.imageSrcSet).toContain('format=avif');
     expect(options.imageSrcSet).toContain('750w');
     expect(options.imageSrcSet).not.toContain('format=auto');
-    expect(options.imageSizes).toContain('100vw');
+    expect(options.imageSizes).toContain('40vw');
   });
 
   it('emits nothing for non-CDN sources (loader would not transform them)', () => {
