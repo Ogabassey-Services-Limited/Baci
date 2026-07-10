@@ -47,6 +47,14 @@ interface ProductCardProps {
   onAddToCart: (e: React.MouseEvent, product: Product) => void;
   isAdded: boolean;
   viewMode?: 'grid' | 'list';
+  /**
+   * Overrides the card's built-in `content-visibility` reservation. The
+   * category grid passes computed, responsive `contain-intrinsic-size`
+   * reservations in FILTERED (unbounded, single-page) mode and an empty string
+   * in PAGINATED (bounded, above-the-fold) mode so first-screen cards are never
+   * deferred. Left undefined elsewhere, the card keeps its default reservation.
+   */
+  contentVisibilityClassName?: string;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
@@ -54,7 +62,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onAddToCart,
   isAdded,
   viewMode = 'grid',
+  contentVisibilityClassName,
 }) => {
+  // Preserve the pre-existing unconditional reservation for every other card
+  // surface (home category grids, blog embeds, interactive grids). Only the
+  // category page overrides it — with computed responsive values in filtered
+  // mode, or an empty string to opt paginated above-the-fold cards out entirely.
+  const contentVisibilityClasses =
+    contentVisibilityClassName ??
+    (viewMode === 'grid'
+      ? 'content-auto [contain-intrinsic-size:auto_350px]'
+      : 'content-auto [contain-intrinsic-size:auto_200px]');
   const { toggleSaved, isSaved } = useV2Saved();
   const { addToCompare, removeFromCompare, isInCompare } = useV2Comparison();
   const [showPlusOne, setShowPlusOne] = useState(false);
@@ -115,7 +133,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   if (viewMode === 'grid') {
     return (
-      <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl transition-[box-shadow,transform] duration-300 group flex flex-col h-full relative active:scale-[0.98] md:active:scale-100 touch-manipulation content-auto [contain-intrinsic-size:auto_350px]">
+      <div
+        className={`bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl transition-[box-shadow,transform] duration-300 group flex flex-col h-full relative active:scale-[0.98] md:active:scale-100 touch-manipulation ${contentVisibilityClasses}`}
+      >
         <Link
           href={productHref}
           title={linkTitle}
@@ -288,7 +308,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   // --- LIST VIEW ---
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 transition-[box-shadow,border-color,transform] duration-300 group flex flex-row gap-4 md:gap-6 relative active:scale-[0.99] md:active:scale-100 touch-manipulation content-auto [contain-intrinsic-size:auto_200px]">
+    <div
+      className={`bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 transition-[box-shadow,border-color,transform] duration-300 group flex flex-row gap-4 md:gap-6 relative active:scale-[0.99] md:active:scale-100 touch-manipulation ${contentVisibilityClasses}`}
+    >
       <Link
         href={productHref}
         title={linkTitle}
