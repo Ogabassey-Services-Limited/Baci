@@ -275,6 +275,14 @@ const BOT_USER_AGENT_REGEX =
   /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i;
 const PROTOCOL_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
 const NESTED_PRODUCT_SUBROUTE_EXCLUSIONS = new Set(['best-under', 'compare']);
+// Nested listing subroutes that ALSO serve a bare 2-segment index route:
+// `/{category}/compare` is the category compare-hub page
+// ((catalog)/(listing)/[category]/compare/page.tsx). The PDP preflights must
+// not treat that literal segment as a `/{category}/{productSlug}` product
+// slug — no product is slugged "compare", so the membership lookup would
+// hard-404 a live route. `best-under` stays out on purpose: it has no bare
+// index page, so the PDP-shape 404 remains correct for it.
+const NESTED_LISTING_INDEX_SEGMENTS = new Set(['compare']);
 const PDP_HTML_CACHE_CONTROL = 'no-cache, no-store, max-age=0, must-revalidate';
 const NON_CACHEABLE_STOREFRONT_HTML_CACHE_CONTROL =
   'private, no-store, max-age=0, must-revalidate';
@@ -1940,6 +1948,14 @@ async function resolveStorefrontPdpHardNotFound(
   ) {
     return null;
   }
+  // Bare `/{category}/compare` is the compare-hub index route, not a PDP —
+  // its literal segment must never reach the slug-membership 404.
+  if (
+    !isProductsFallbackPdp &&
+    NESTED_LISTING_INDEX_SEGMENTS.has(productSlug.toLowerCase())
+  ) {
+    return null;
+  }
   // UUID product URLs (`/{category}/{productId}`) resolve through the page's
   // id-based lookup + canonical 308; the slug set only holds slugs, so a
   // UUID-shaped segment must never be hard-404ed.
@@ -2039,6 +2055,14 @@ async function resolveStorefrontPdpCanonicalRedirect(
   if (
     !productSlug ||
     RESERVED_STOREFRONT_SEGMENTS.has(productSlug.toLowerCase())
+  ) {
+    return { response: null, skipHardNotFound: false };
+  }
+  // Bare `/{category}/compare` is the compare-hub index route, not a PDP —
+  // never run the product canonical-redirect lookup for its literal segment.
+  if (
+    !isProductsFallbackPdp &&
+    NESTED_LISTING_INDEX_SEGMENTS.has(productSlug.toLowerCase())
   ) {
     return { response: null, skipHardNotFound: false };
   }

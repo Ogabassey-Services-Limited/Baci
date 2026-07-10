@@ -1048,6 +1048,104 @@ describe('Middleware Proxy', () => {
       );
     });
 
+    it('does not hard-404 the bare /{category}/compare hub route on a custom domain', async () => {
+      // Both PDP preflight lookups would 404/redirect this path if consulted —
+      // the bare compare-hub shape must skip them entirely.
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/laptops/some-product',
+      });
+      mockMissing(true);
+      const req = new NextRequest('https://ogabassey.com/laptops/compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.status).not.toBe(308);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/laptops/compare'
+      );
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+      expect(resolutionMock).not.toHaveBeenCalled();
+    });
+
+    it('does not hard-404 the bare compare hub on a merchant subdomain', async () => {
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/some-product',
+      });
+      mockMissing(true);
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/smartphones/compare`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.status).not.toBe(308);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/smartphones/compare'
+      );
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+      expect(resolutionMock).not.toHaveBeenCalled();
+    });
+
+    it('does not hard-404 the bare compare hub on a root-domain slug path', async () => {
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/laptops/some-product',
+      });
+      mockMissing(true);
+      const req = new NextRequest(
+        `https://${ROOT_DOMAIN}/ogabassey/laptops/compare`
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.status).not.toBe(308);
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+      expect(resolutionMock).not.toHaveBeenCalled();
+    });
+
+    it('still hard-404s a bare /{category}/best-under path (no bare index page exists for it)', async () => {
+      // Pins the deliberate asymmetry with NESTED_PRODUCT_SUBROUTE_EXCLUSIONS:
+      // only `compare` has a bare 2-segment index route. Adding `best-under`
+      // to NESTED_LISTING_INDEX_SEGMENTS would silently drop this fast 404.
+      mockMissing(true);
+      const req = new NextRequest('https://ogabassey.com/laptops/best-under');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(resolutionMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          productSlug: 'best-under',
+        })
+      );
+    });
+
+    it('still hard-404s a confirmed-missing /products/compare PDP (products fallback shape)', async () => {
+      mockMissing(true);
+      const req = new NextRequest('https://ogabassey.com/products/compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(resolutionMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          productSlug: 'compare',
+        })
+      );
+    });
+
     it('returns a header-only hard 404 (no body) for HEAD requests to confirmed-missing products', async () => {
       mockMissing(true);
       const req = new NextRequest(
