@@ -15,6 +15,10 @@ vi.mock('@supabase/supabase-js', () => ({
 }));
 
 import { getCachedBlogAuthor, getCachedBlogListing } from '@/lib/cached-data';
+import {
+  buildBlogMerchantRow,
+  createBlogMerchantRpcMock,
+} from '@/lib/cached-data.test-utils';
 
 function createQueryBuilder({
   queryResult = { data: [], count: 0, error: null },
@@ -50,41 +54,6 @@ function createQueryBuilder({
   return builder;
 }
 
-function buildMerchantRow() {
-  return {
-    id: 'merchant-1',
-    business_name: 'Ogabassey',
-    site_title: 'Ogabassey',
-    site_tagline: 'Phones and tablets',
-    site_description: 'Phones and tablets',
-    business_type: 'electronics',
-    logo_url: 'https://cdn.example.com/logo.png',
-    phone: '+234800000000',
-    email: 'hello@ogabassey.com',
-    social_media: null,
-    brand_colors: null,
-    slug: 'ogabassey',
-    business_address: 'Lagos',
-    payout_currency: 'NGN',
-    is_published: true,
-    template_id: 'default',
-    plan_tier: 'pro',
-    premium_features: null,
-    country: 'NG',
-    hero_slides: null,
-    favicon_svg_url: null,
-    favicon_png_32_url: null,
-    favicon_apple_touch_url: null,
-    vat_registration_status: null,
-    vat_rate: null,
-    feature_settings: { blog_enabled: true },
-    pages: null,
-    about_page: null,
-    faq_items: null,
-    updated_at: '2026-03-28T00:00:00.000Z',
-  };
-}
-
 function setupBlogListingFetch({
   categories = [],
   count,
@@ -101,7 +70,7 @@ function setupBlogListingFetch({
   }>;
 } = {}) {
   const merchantBuilder = createQueryBuilder({
-    singleResult: { data: buildMerchantRow(), error: null },
+    singleResult: { data: buildBlogMerchantRow(), error: null },
   });
   const primaryDomainBuilder = createQueryBuilder({
     singleResult: { data: null, error: null },
@@ -115,6 +84,7 @@ function setupBlogListingFetch({
   const categoriesBuilder = createQueryBuilder({
     queryResult: { data: categories, error: null },
   });
+  const merchantRpc = createBlogMerchantRpcMock();
 
   const serviceFrom = vi.fn((table: string) => {
     if (table === 'merchants') {
@@ -153,7 +123,7 @@ function setupBlogListingFetch({
   mockCreateClient.mockImplementation(
     (_url: string, key: string, _options?: unknown) => {
       if (key === 'test-service-role-key') {
-        return { from: serviceFrom };
+        return { from: serviceFrom, rpc: merchantRpc };
       }
 
       if (key === 'test-anon-key') {
