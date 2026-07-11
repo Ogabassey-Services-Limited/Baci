@@ -50,3 +50,24 @@ export function findRole(
     ) ?? null
   );
 }
+
+/**
+ * Whether a given PayPal mode is fully connected: both the client ID and secret
+ * are active and the secret carries no outstanding validation error. This is
+ * the same gate the storefront must satisfy before offering PayPal, so the
+ * settings card uses it to avoid persisting `paypal_enabled` for a mode whose
+ * credentials are missing or rejected.
+ */
+export function isModeConnected(
+  status: PaymentCredentialStatusResponse | null,
+  mode: PaypalMode
+): boolean {
+  const environment = toVaultEnvironment(mode);
+  const secretRole = findRole(status, 'secret_key', environment);
+  const clientRole = findRole(status, 'client_id', environment);
+  return Boolean(
+    secretRole?.isActive &&
+      clientRole?.isActive &&
+      !secretRole?.lastValidationError
+  );
+}

@@ -69,6 +69,30 @@ describe('paypal-checkout-client', () => {
       expect(cancelUrl).toContain('paypal_cancel=1');
       expect(cancelUrl).not.toContain('paypal_return');
     });
+
+    it('strips a stale token, PayerID and markers from a retry href', () => {
+      // Arrange: a href left behind by a cancelled/failed prior attempt.
+      const staleHref =
+        'https://store.example.com/checkout?step=payment&paypal_cancel=1&token=PP-STALE&PayerID=OLD-PAYER';
+
+      // Act
+      const { returnUrl, cancelUrl } = buildPaypalReturnUrls(staleHref);
+
+      // Assert: no PayPal-owned param from the prior attempt survives, and the
+      // preserved app param (step) is untouched so PayPal appends a clean token.
+      const ret = new URL(returnUrl);
+      expect(ret.searchParams.getAll('token')).toEqual([]);
+      expect(ret.searchParams.get('PayerID')).toBeNull();
+      expect(ret.searchParams.get('paypal_return')).toBe('1');
+      expect(ret.searchParams.has('paypal_cancel')).toBe(false);
+      expect(ret.searchParams.get('step')).toBe('payment');
+
+      const cancel = new URL(cancelUrl);
+      expect(cancel.searchParams.getAll('token')).toEqual([]);
+      expect(cancel.searchParams.get('PayerID')).toBeNull();
+      expect(cancel.searchParams.get('paypal_cancel')).toBe('1');
+      expect(cancel.searchParams.has('paypal_return')).toBe(false);
+    });
   });
 
   describe('startPaypalCheckout', () => {
@@ -96,6 +120,39 @@ describe('paypal-checkout-client', () => {
       expect(body.return_url).toContain('paypal_return=1');
       expect(window.location.href).toBe('https://paypal.test/x');
       expect(readPaypalPendingContext()?.orderId).toBe('order-1');
+    });
+
+    it('does not carry a stale token/PayerID into retry return and cancel urls', async () => {
+      // Arrange: buyer is retrying from a URL that still has the previous
+      // attempt's cancel marker + PayPal token/PayerID.
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: {
+          href: 'https://store.example.com/checkout?step=payment&paypal_cancel=1&token=PP-STALE&PayerID=OLD-PAYER',
+          search: '',
+        },
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'PP-2', approveUrl: 'https://paypal.test/y' }),
+      });
+
+      // Act
+      await startPaypalCheckout({
+        merchantId: 'merchant-1',
+        orderId: 'order-2',
+        customerEmail: 'buyer@example.com',
+      });
+
+      // Assert: the URLs handed to PayPal are free of the stale values.
+      const [, init] = mockFetch.mock.calls[0];
+      const body = JSON.parse(init.body);
+      expect(body.return_url).not.toContain('PP-STALE');
+      expect(body.return_url).not.toContain('PayerID');
+      expect(body.return_url).toContain('paypal_return=1');
+      expect(body.cancel_url).not.toContain('PP-STALE');
+      expect(body.cancel_url).not.toContain('PayerID');
+      expect(body.cancel_url).toContain('paypal_cancel=1');
     });
 
     it('clears context and throws when create-order fails', async () => {

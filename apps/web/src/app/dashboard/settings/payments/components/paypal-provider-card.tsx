@@ -31,6 +31,7 @@ import {
 } from './paypal-provider-requests';
 import {
   findRole,
+  isModeConnected,
   type PaymentCredentialStatusResponse,
   type PaypalMode,
   toVaultEnvironment,
@@ -112,17 +113,26 @@ export function PaypalProviderCard() {
   }
 
   async function handleModeChange(nextMode: PaypalMode) {
-    const previous = mode;
+    const previousMode = mode;
+    const previousEnabled = enabled;
     setMode(nextMode);
     setModePending(true);
+    // Switching to a mode without validated credentials must also clear
+    // paypal_enabled: the storefront gate reads only paypal_enabled + mode, so
+    // leaving it on would advertise an unconnected PayPal and 500 at checkout.
+    const patch: Partial<{ paypal_enabled: boolean; paypal_mode: PaypalMode }> =
+      { paypal_mode: nextMode };
+    if (!isModeConnected(status, nextMode)) {
+      patch.paypal_enabled = false;
+      setEnabled(false);
+    }
+
     try {
-      const updated = await persistPaypalFeatureConfig(
-        { paypal_mode: nextMode },
-        customSettings
-      );
+      const updated = await persistPaypalFeatureConfig(patch, customSettings);
       setCustomSettings(updated);
     } catch {
-      setMode(previous);
+      setMode(previousMode);
+      setEnabled(previousEnabled);
       toast({
         variant: 'destructive',
         title: 'Failed to update',

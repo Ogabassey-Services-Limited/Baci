@@ -73,22 +73,45 @@ export function clearPaypalPendingContext(): void {
 }
 
 /**
+ * Query params PayPal owns on the return trip (`token` + `PayerID`) plus our
+ * own flow markers. A retry builds the next return/cancel URL from
+ * `window.location.href`, which — after a cancel or a failed capture — still
+ * carries the *previous* attempt's `token`. If left in place, PayPal appends
+ * the fresh order token as a second `token=` and `URLSearchParams.get('token')`
+ * would read the STALE first value, capturing the wrong order. Strip them all
+ * before we hand a clean URL back to PayPal.
+ */
+const PAYPAL_OWNED_QUERY_PARAMS = [
+  'token',
+  'PayerID',
+  'paypal_return',
+  'paypal_cancel',
+] as const;
+
+function stripPaypalOwnedParams(url: URL): void {
+  for (const param of PAYPAL_OWNED_QUERY_PARAMS) {
+    url.searchParams.delete(param);
+  }
+}
+
+/**
  * Builds the same-origin return/cancel URLs PayPal redirects back to. Both are
  * derived from the current checkout URL (the create-order route rejects any
- * cross-origin URL) with a single disambiguating marker so the return handler
- * knows whether the buyer approved or cancelled.
+ * cross-origin URL), stripped of any stale PayPal-owned params from a prior
+ * attempt, then tagged with a single disambiguating marker so the return
+ * handler knows whether the buyer approved or cancelled.
  */
 export function buildPaypalReturnUrls(currentHref: string): {
   returnUrl: string;
   cancelUrl: string;
 } {
   const returnUrl = new URL(currentHref);
+  stripPaypalOwnedParams(returnUrl);
   returnUrl.searchParams.set('paypal_return', '1');
-  returnUrl.searchParams.delete('paypal_cancel');
 
   const cancelUrl = new URL(currentHref);
+  stripPaypalOwnedParams(cancelUrl);
   cancelUrl.searchParams.set('paypal_cancel', '1');
-  cancelUrl.searchParams.delete('paypal_return');
 
   return { returnUrl: returnUrl.toString(), cancelUrl: cancelUrl.toString() };
 }

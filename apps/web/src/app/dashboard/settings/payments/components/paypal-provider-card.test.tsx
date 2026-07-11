@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PaymentCredentialStatusResponse } from './paypal-provider-status';
 
 const toastMock = vi.hoisted(() => vi.fn());
@@ -48,6 +48,57 @@ const connectedStatus: PaymentCredentialStatusResponse = {
     },
   ],
 };
+
+// Both environments fully connected — switching between them must never
+// force paypal_enabled off.
+const bothEnvironmentsConnectedStatus: PaymentCredentialStatusResponse = {
+  configured: true,
+  roles: [
+    ...connectedStatus.roles,
+    {
+      role: 'client_id',
+      environment: 'live',
+      last4: '4321',
+      isActive: true,
+      lastValidatedAt: '2026-07-08T00:00:00.000Z',
+      lastValidationError: null,
+    },
+    {
+      role: 'secret_key',
+      environment: 'live',
+      last4: '8765',
+      isActive: true,
+      lastValidatedAt: '2026-07-08T00:00:00.000Z',
+      lastValidationError: null,
+    },
+  ],
+};
+
+/**
+ * mockInitialLoad always starts the card on `sandbox`; this variant lets a test
+ * begin on a connected mode with the enable toggle already on.
+ */
+function mockInitialLoadEnabled(status: PaymentCredentialStatusResponse) {
+  loadPaypalCardDataMock.mockImplementation(
+    (options: {
+      setStatus: (value: PaymentCredentialStatusResponse | null) => void;
+      setEnabled: (value: boolean) => void;
+      setMode: (value: 'sandbox' | 'live') => void;
+      setCustomSettings: (value: Record<string, unknown>) => void;
+      setLoading: (value: boolean) => void;
+    }) => {
+      options.setStatus(status);
+      options.setEnabled(true);
+      options.setMode('sandbox');
+      options.setCustomSettings({
+        paypal_enabled: true,
+        paypal_mode: 'sandbox',
+      });
+      options.setLoading(false);
+      return Promise.resolve();
+    }
+  );
+}
 
 function mockInitialLoad(status: PaymentCredentialStatusResponse) {
   loadPaypalCardDataMock.mockImplementation(
@@ -177,5 +228,72 @@ describe('PaypalProviderCard', () => {
     expect(toastMock).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'PayPal disconnected' })
     );
+  });
+
+  describe('environment switch', () => {
+    // Radix Select relies on pointer-capture + scroll APIs jsdom omits.
+    beforeAll(() => {
+      Element.prototype.scrollIntoView = vi.fn();
+      Element.prototype.hasPointerCapture = vi.fn(() => false);
+      Element.prototype.setPointerCapture = vi.fn();
+      Element.prototype.releasePointerCapture = vi.fn();
+    });
+
+    async function switchToLive(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(screen.getByRole('combobox'));
+      await user.click(
+        await screen.findByRole('option', { name: /live \(production\)/i })
+      );
+    }
+
+    it('disables PayPal when switching to a mode with no connected credentials', async () => {
+      // Arrange: sandbox is connected + enabled, live has no credentials.
+      const user = userEvent.setup();
+      mockInitialLoadEnabled(connectedStatus);
+      persistPaypalFeatureConfigMock.mockResolvedValue({
+        paypal_enabled: false,
+        paypal_mode: 'live',
+      });
+      render(<PaypalProviderCard />);
+      await screen.findByRole('combobox');
+
+      // Act
+      await switchToLive(user);
+
+      // Assert: the persisted patch clears paypal_enabled alongside the mode.
+      await waitFor(() => {
+        expect(persistPaypalFeatureConfigMock).toHaveBeenCalledWith(
+          { paypal_mode: 'live', paypal_enabled: false },
+          expect.anything()
+        );
+      });
+    });
+
+    it('preserves the enable toggle when switching to a connected mode', async () => {
+      // Arrange: both environments are connected + enabled.
+      const user = userEvent.setup();
+      mockInitialLoadEnabled(bothEnvironmentsConnectedStatus);
+      persistPaypalFeatureConfigMock.mockResolvedValue({
+        paypal_enabled: true,
+        paypal_mode: 'live',
+      });
+      render(<PaypalProviderCard />);
+      await screen.findByRole('combobox');
+
+      // Act
+      await switchToLive(user);
+
+      // Assert: only the mode is patched; paypal_enabled is left untouched.
+      await waitFor(() => {
+        expect(persistPaypalFeatureConfigMock).toHaveBeenCalledWith(
+          { paypal_mode: 'live' },
+          expect.anything()
+        );
+      });
+      expect(persistPaypalFeatureConfigMock).not.toHaveBeenCalledWith(
+        expect.objectContaining({ paypal_enabled: false }),
+        expect.anything()
+      );
+    });
   });
 });
