@@ -167,6 +167,7 @@ describe('useRecordPayment', () => {
         }),
         headers: expect.objectContaining({
           Authorization: 'Bearer token-1',
+          'x-baci-idempotency-required': '1',
         }),
         method: 'POST',
       })
@@ -660,5 +661,164 @@ describe('useRecordPayment', () => {
         paymentMethod: 'cash',
       })
     ).rejects.toThrow('Amount is invalid');
+  });
+
+  it('uses corrected details and a new key after a definite API rejection', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    vi.mocked(generateUUID)
+      .mockReturnValueOnce('11111111-1111-4111-8111-111111111111')
+      .mockReturnValueOnce('22222222-2222-4222-8222-222222222222');
+    mocks.fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        statusText: 'Conflict',
+        text: async () => JSON.stringify({ error: 'Duplicate reference' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ recorded: true }),
+      });
+    const mutation = useRecordPayment() as unknown as {
+      mutationFn: (vars: {
+        amount: number;
+        orderId: string;
+        paymentMethod: string;
+        reference: string;
+      }) => Promise<unknown>;
+    };
+
+    await expect(
+      mutation.mutationFn({
+        amount: 5000,
+        orderId: 'order-1',
+        paymentMethod: 'pos',
+        reference: 'BAD-REF',
+      })
+    ).rejects.toThrow('Duplicate reference');
+    await expect(
+      mutation.mutationFn({
+        amount: 5000,
+        orderId: 'order-1',
+        paymentMethod: 'bank_transfer',
+        reference: 'GOOD-REF',
+      })
+    ).resolves.toEqual({ recorded: true });
+
+    const requestBodies = mocks.fetch.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body))
+    );
+    expect(requestBodies[1]).toMatchObject({
+      idempotency_key: '22222222-2222-4222-8222-222222222222',
+      payment_method: 'bank_transfer',
+      reference: 'GOOD-REF',
+    });
+  });
+
+  it('retains the original key and details after an ambiguous server error', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    mocks.fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: async () => JSON.stringify({ error: 'Payment status unknown' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ idempotency_replayed: true }),
+      });
+    const mutation = useRecordPayment() as unknown as {
+      mutationFn: (vars: {
+        amount: number;
+        orderId: string;
+        paymentMethod: string;
+        reference: string;
+      }) => Promise<unknown>;
+    };
+
+    await expect(
+      mutation.mutationFn({
+        amount: 5000,
+        orderId: 'order-1',
+        paymentMethod: 'pos',
+        reference: 'ORIGINAL-REF',
+      })
+    ).rejects.toThrow('Payment status unknown');
+    await mutation.mutationFn({
+      amount: 5000,
+      orderId: 'order-1',
+      paymentMethod: 'bank_transfer',
+      reference: 'CHANGED-REF',
+    });
+
+    const requestBodies = mocks.fetch.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body))
+    );
+    expect(requestBodies[1]).toMatchObject({
+      idempotency_key: requestBodies[0].idempotency_key,
+      payment_method: 'pos',
+      reference: 'ORIGINAL-REF',
+    });
+    expect(generateUUID).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not rehydrate a rejected key when storage deletion fails', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    vi.mocked(generateUUID)
+      .mockReturnValueOnce('11111111-1111-4111-8111-111111111111')
+      .mockReturnValueOnce('22222222-2222-4222-8222-222222222222');
+    vi.mocked(AsyncStorage.removeItem).mockRejectedValueOnce(
+      new Error('storage unavailable')
+    );
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mocks.fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        statusText: 'Conflict',
+        text: async () => JSON.stringify({ error: 'Duplicate reference' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ recorded: true }),
+      });
+    const input = {
+      amount: 5000,
+      orderId: 'order-1',
+      paymentMethod: 'cash',
+      reference: 'REF-1',
+    };
+
+    const firstMount = useRecordPayment() as unknown as {
+      mutationFn: (vars: typeof input) => Promise<unknown>;
+    };
+    await expect(firstMount.mutationFn(input)).rejects.toThrow(
+      'Duplicate reference'
+    );
+    const secondMount = useRecordPayment() as unknown as {
+      mutationFn: (vars: typeof input) => Promise<unknown>;
+    };
+    await secondMount.mutationFn(input);
+
+    const requestBodies = mocks.fetch.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body))
+    );
+    expect(requestBodies[1].idempotency_key).toBe(
+      '22222222-2222-4222-8222-222222222222'
+    );
+    expect(consoleError).toHaveBeenCalledWith(
+      'Failed to clear rejected manual payment retry key',
+      expect.any(Error)
+    );
+    consoleError.mockRestore();
   });
 });

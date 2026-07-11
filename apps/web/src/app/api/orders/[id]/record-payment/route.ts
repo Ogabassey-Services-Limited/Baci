@@ -124,7 +124,15 @@ export async function POST(
     const parsedAmount = Number(parsedBody.data.amount);
     const { idempotency_key, payment_method, reference, notes } =
       parsedBody.data;
-    const idempotencyKey = idempotency_key;
+    const requiresIdempotencyKey =
+      request.headers.get('x-baci-idempotency-required') === '1';
+    if (requiresIdempotencyKey && !idempotency_key) {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+    const idempotencyKey = idempotency_key ?? crypto.randomUUID();
     logger.info({
       message: 'RecordPayment body parsed',
       amount: parsedAmount,

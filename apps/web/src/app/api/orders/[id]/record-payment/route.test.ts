@@ -207,7 +207,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
   });
 
-  const createRequest = (body: unknown) => {
+  const createRequest = (
+    body: unknown,
+    headers: Record<string, string> = {}
+  ) => {
     const normalizedBody =
       body && typeof body === 'object' && !Array.isArray(body)
         ? {
@@ -223,6 +226,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...headers,
         },
         body: JSON.stringify(normalizedBody),
       }
@@ -525,6 +529,41 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const params = { params: Promise.resolve({ id: mockOrderId }) };
     const { POST } = await import('./route');
     const response = await POST(
+      createRequest(
+        {
+          amount: 5000,
+          idempotency_key: undefined,
+          payment_method: 'cash',
+        },
+        {
+          'x-baci-idempotency-required': '1',
+        }
+      ),
+      params
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid request body',
+    });
+  });
+
+  it('generates a compatibility key for deployed legacy clients', async () => {
+    const { rpc } = setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        new_paid: 5000,
+        order_total: 10_000,
+        payment_status: 'partially_paid',
+        remaining_balance: 5000,
+        shipping_status: 'processing',
+        transaction_id: 'txn-new',
+      },
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+    const { POST } = await import('./route');
+    const response = await POST(
       createRequest({
         amount: 5000,
         idempotency_key: undefined,
@@ -533,10 +572,15 @@ describe('POST /api/orders/[id]/record-payment', () => {
       params
     );
 
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Invalid request body',
-    });
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith(
+      'record_manual_order_payment',
+      expect.objectContaining({
+        p_idempotency_key: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        ),
+      })
+    );
   });
 
   it('returns 400 when amount is zero', async () => {

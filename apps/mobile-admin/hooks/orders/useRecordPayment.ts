@@ -106,6 +106,7 @@ export function useRecordPayment() {
           }),
           headers: {
             'Content-Type': 'application/json',
+            'x-baci-idempotency-required': '1',
           },
           method: 'POST',
         },
@@ -115,6 +116,39 @@ export function useRecordPayment() {
       if (!response.ok) {
         const responseText = await response.text();
         const payload = parseResponsePayload(responseText);
+        const isDefinitiveClientError =
+          response.status >= 400 &&
+          response.status < 500 &&
+          ![408, 425, 429].includes(response.status);
+        if (isDefinitiveClientError) {
+          pendingIdempotencyKeys.current.delete(requestFingerprint);
+          try {
+            await AsyncStorage.removeItem(storageKey);
+          } catch (error) {
+            console.error(
+              'Failed to clear rejected manual payment retry key',
+              error
+            );
+            try {
+              await AsyncStorage.setItem(
+                storageKey,
+                JSON.stringify({
+                  createdAt,
+                  fingerprint: requestFingerprint,
+                  idempotencyKey,
+                  paymentMethod: retryPaymentMethod,
+                  reference: retryReference ?? null,
+                  status: 'completed',
+                })
+              );
+            } catch (tombstoneError) {
+              console.error(
+                'Failed to tombstone rejected manual payment retry key',
+                tombstoneError
+              );
+            }
+          }
+        }
         const errorMessage =
           payload &&
           typeof payload === 'object' &&

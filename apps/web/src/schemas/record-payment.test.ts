@@ -19,13 +19,13 @@ describe('recordPaymentBodySchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects payloads without an idempotency key', () => {
+  it('accepts legacy payloads without an idempotency key', () => {
     expect(
       recordPaymentBodySchema.safeParse({
         amount: 5000,
         payment_method: 'cash',
       }).success
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('rejects non-object payloads', () => {
