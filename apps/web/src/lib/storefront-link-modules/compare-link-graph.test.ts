@@ -304,4 +304,27 @@ describe('buildCompareLinkGraph', () => {
       })
     ).toBe(false);
   });
+
+  it('still approves an anchored-reachable slug missing from the precomputed set', () => {
+    const input = {
+      storeUrl: 'https://ogabassey.com',
+      categorySlug: 'smartphones',
+      categoryName: 'Smartphones',
+      products,
+    };
+
+    // The canonical pair is a real, anchored-reachable comparison for these two
+    // active products, but is deliberately absent from the precomputed category
+    // set (mirroring a clicked product outside the bounded inventory the cached
+    // set was built from). The cheap per-URL anchored fallback (leftKey/rightKey,
+    // maxLinks:8 over `products`) must still approve it — the O(1) set membership
+    // is an additive fast-path, not a replacement for the anchored check.
+    expect(
+      isMaintainedCompareGraphSlug({
+        ...input,
+        comparisonSlug: 'google-pixel-8-vs-xiaomi-13t',
+        categoryGraphSlugs: new Set<string>(),
+      })
+    ).toBe(true);
+  });
 });

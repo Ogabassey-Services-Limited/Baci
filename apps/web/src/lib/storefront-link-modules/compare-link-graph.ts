@@ -280,6 +280,7 @@ export function isMaintainedCompareGraphSlug(
     : isInGraph(
         buildCompareLinkGraph({
           ...input,
+          anchorProductSlug: undefined,
           currentComparisonSlug: undefined,
           maxLinks: COMPARE_GRAPH_INDEXABLE_CATEGORY_LINK_LIMIT,
         })
