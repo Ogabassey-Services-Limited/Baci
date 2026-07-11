@@ -68,4 +68,23 @@ describe('ogabassey image prewarm pair matrices', () => {
 
     expect(new Set(keys).size).toBe(keys.length);
   });
+  it('warms the home-hero q70 tier at the widths the post-#3044 sizes emit', () => {
+    // The home hero renders at MOBILE_HERO_IMAGE_QUALITY (70) — a tier this
+    // matrix never covered, so hero variants were cold after every purge
+    // (measured ~5s first-fetch in the 2026-07-11 DebugBear waterfall).
+    const heroPairs = ALL_WIDTH_QUALITY_PAIRS.filter(
+      (pair) => pair.quality === 70
+    );
+
+    expect(heroPairs.map((pair) => pair.width).sort((a, b) => a - b)).toEqual([
+      384, 640, 1200,
+    ]);
+  });
+
+  it('keeps the per-image prewarm URL count within one invocation budget', () => {
+    // Each pair expands into 3 format tiers (fallback + avif + auto). A single
+    // image's full matrix must fit the 120-URL invocation budget with room
+    // for a second image in multi-image product updates.
+    expect(ALL_WIDTH_QUALITY_PAIRS.length * 3).toBeLessThanOrEqual(60);
+  });
 });

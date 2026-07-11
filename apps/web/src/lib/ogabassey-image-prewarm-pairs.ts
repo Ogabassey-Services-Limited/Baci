@@ -1,3 +1,4 @@
+import { MOBILE_HERO_IMAGE_QUALITY } from '@/components/storefront/ogabassey/components/hero-mobile-image-config';
 import { BLOG_HERO_IMAGE_QUALITY } from '@/components/storefront/ogabassey/config/blog-media';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_DESKTOP_PRELOAD_WIDTH,
@@ -85,7 +86,21 @@ export const BLOG_IMAGE_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] 
     })),
   ];
 
+// Home hero (MobileLcpHeroImage / hero-desktop-grid) renders at
+// MOBILE_HERO_IMAGE_QUALITY (70) — a tier this matrix never covered, so every
+// hero variant was COLD after a purge/image change: the post-#3044 DebugBear
+// waterfall measured the first `width=640,quality=70` fetch at ~5s (cold
+// fill) while already-warm variants served in ~400ms. Widths are the picks
+// the post-#3044 `sizes` ('(max-width: 767px) 40vw, 50vw') actually emits:
+// 384/640 = mobile 40vw at DPR 2–3, 1200 = desktop 50vw at DPR 2. Kept to
+// three widths (9 URLs/image with the 3 format tiers) so the per-invocation
+// URL budget (120) still covers a multi-image product update.
+const HOME_HERO_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] = [
+  384, 640, 1200,
+].map((width) => ({ width, quality: MOBILE_HERO_IMAGE_QUALITY }));
+
 export const ALL_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] = [
   ...PDP_HERO_WIDTH_QUALITY_PAIRS,
   ...LISTING_CARD_WIDTH_QUALITY_PAIRS,
+  ...HOME_HERO_WIDTH_QUALITY_PAIRS,
 ];
