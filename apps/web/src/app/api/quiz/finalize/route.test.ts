@@ -19,7 +19,9 @@ vi.mock('@/env', () => ({
   getQuizProductionApprovedEnv: () => mockGetQuizProductionApprovedEnv(),
 }));
 
-const mockRpc = vi.fn().mockResolvedValue({ data: 0, error: null });
+const { mockRpc } = vi.hoisted(() => ({
+  mockRpc: vi.fn().mockResolvedValue({ data: 0, error: null }),
+}));
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({

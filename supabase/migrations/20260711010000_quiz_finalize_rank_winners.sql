@@ -45,6 +45,8 @@ AS $$
 DECLARE
   v_settings jsonb;
   v_compliance_verified boolean;
+  v_status text;
+  v_ends_at timestamptz;
   v_currency text := 'NGN';
   v_ranked_count integer;
   v_ranked_prizes jsonb;
@@ -55,12 +57,22 @@ BEGIN
   -- Fail-closed on compliance even when this minter is invoked DIRECTLY (not
   -- only via the finalize wrappers): never mint an award row for an event whose
   -- compliance has not been verified.
-  SELECT e.settings, e.compliance_verified
-    INTO v_settings, v_compliance_verified
+  SELECT e.settings, e.compliance_verified, e.status, e.ends_at
+    INTO v_settings, v_compliance_verified, v_status, v_ends_at
   FROM public.quiz_events e
   WHERE e.id = p_event_id;
 
   IF v_settings IS NULL OR v_compliance_verified IS NOT TRUE THEN
+    RETURN 0;
+  END IF;
+
+  -- Only mint for a CLOSED event (mirrors the finalize wrappers). A direct
+  -- service-role call must never mint winners while the event is still open —
+  -- the leaderboard isn't final until it ends.
+  IF NOT (
+    v_status = 'completed'
+    OR (v_ends_at IS NOT NULL AND v_ends_at <= pg_catalog.now())
+  ) THEN
     RETURN 0;
   END IF;
 
@@ -112,7 +124,12 @@ BEGIN
     SELECT
       -- guard casts: a malformed rank/amount skips that entry (NULL rank never
       -- joins a winner) instead of aborting the finalize.
-      CASE WHEN elem->>'rank' ~ '^[0-9]+$' THEN (elem->>'rank')::integer ELSE NULL END AS rank,
+      CASE
+        WHEN elem->>'rank' ~ '^[0-9]+$'
+          AND (elem->>'rank')::numeric BETWEEN 1 AND 1000
+          THEN (elem->>'rank')::integer
+        ELSE NULL
+      END AS rank,
       elem->>'award_type' AS award_type,
       CASE
         WHEN pg_catalog.btrim(elem->>'amount') ~ '^-?[0-9]+(\.[0-9]+)?$'
@@ -189,8 +206,15 @@ BEGIN
       r.customer_id,
       pp.award_type,
       'approved',
-      -- unset -> NULL (not 0); negative config -> NULL to satisfy amount>=0 CHECK.
-      CASE WHEN pp.amount IS NOT NULL AND pp.amount >= 0 THEN pp.amount ELSE NULL END,
+      -- unset/negative -> NULL (satisfies the amount>=0 CHECK). Also NULL out an
+      -- amount beyond quiz_awards.amount's numeric(12,2) range so an absurd
+      -- configured value can't overflow the column and abort the whole insert;
+      -- the payout figure is finalized downstream anyway.
+      CASE
+        WHEN pp.amount IS NOT NULL AND pp.amount >= 0 AND pp.amount <= 9999999999.99
+          THEN pp.amount
+        ELSE NULL
+      END,
       v_currency,
       pg_catalog.now()
     FROM ranked r
