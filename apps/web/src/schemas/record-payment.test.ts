@@ -19,6 +19,15 @@ describe('recordPaymentBodySchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts legacy payloads without an idempotency key', () => {
+    expect(
+      recordPaymentBodySchema.safeParse({
+        amount: 5000,
+        payment_method: 'cash',
+      }).success
+    ).toBe(true);
+  });
+
   it('rejects non-object payloads', () => {
     const result = recordPaymentBodySchema.safeParse(null);
 
@@ -117,15 +126,6 @@ describe('recordPaymentBodySchema', () => {
     idempotency_key: idempotencyKey,
     payment_method: 'cash',
   };
-
-  it('rejects a missing idempotency key', () => {
-    const result = recordPaymentBodySchema.safeParse({
-      amount: 5000,
-      payment_method: 'cash',
-    });
-
-    expect(result.success).toBe(false);
-  });
 
   it('rejects a malformed idempotency key', () => {
     const result = recordPaymentBodySchema.safeParse({

@@ -36,6 +36,14 @@ describe('manual payment RPC migration', () => {
     expect(migration).toContain("'idempotency_replayed', true");
   });
 
+  it('retains the seven-argument compatibility overload', () => {
+    expect(migration).toContain('LANGUAGE sql\nSECURITY INVOKER');
+    expect(migration).toContain('gen_random_uuid()::text');
+    expect(migration).toContain(
+      'uuid, uuid, numeric, text, text, text, jsonb\n) TO authenticated;'
+    );
+  });
+
   it('rejects non-object metadata before the indexed key is merged', () => {
     expect(migration).toContain(
       "p_metadata IS NULL OR jsonb_typeof(p_metadata) <> 'object'"

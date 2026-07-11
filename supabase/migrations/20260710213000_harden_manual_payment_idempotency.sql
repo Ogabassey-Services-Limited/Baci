@@ -288,6 +288,39 @@ COMMENT ON FUNCTION public.record_manual_order_payment(
 ) IS
   'Atomically records an idempotent manual order payment, reconciles the legacy amount_paid baseline with completed payment transactions, and updates amount_paid plus order statuses under one per-order lock.';
 
+CREATE OR REPLACE FUNCTION public.record_manual_order_payment(
+  p_merchant_id uuid,
+  p_order_id uuid,
+  p_amount numeric,
+  p_currency text,
+  p_gateway_reference text,
+  p_description text,
+  p_metadata jsonb
+)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+  SELECT public.record_manual_order_payment(
+    p_merchant_id,
+    p_order_id,
+    p_amount,
+    p_currency,
+    p_gateway_reference,
+    p_description,
+    p_metadata,
+    gen_random_uuid()::text
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.record_manual_order_payment(
+  uuid, uuid, numeric, text, text, text, jsonb
+) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.record_manual_order_payment(
+  uuid, uuid, numeric, text, text, text, jsonb
+) TO authenticated;
+
 CREATE TABLE IF NOT EXISTS public.manual_payment_side_effects (
   dedupe_id uuid NOT NULL,
   transaction_id uuid NOT NULL REFERENCES public.transactions(id) ON DELETE CASCADE,
