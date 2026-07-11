@@ -16,7 +16,10 @@ interface CreateOrderDetailsPaymentActionsParams {
     notes: string;
     orderId: string;
     paymentMethod: string;
-  }) => Promise<{ new_balance: number }>;
+  }) => Promise<{
+    new_balance: number;
+    reconciled_previous_payment?: boolean;
+  }>;
   sendReminder: (input: { orderId: string }) => Promise<unknown>;
   setCreditNotes: (value: string) => void;
   setPaymentAmount: (value: string) => void;
@@ -104,6 +107,14 @@ export function createOrderDetailsPaymentActions({
           orderId: order.id,
           paymentMethod,
         });
+
+        if (result.reconciled_previous_payment) {
+          Alert.alert(
+            'Previous Payment Confirmed',
+            'The earlier payment was already recorded. Review the refreshed balance, then submit again if this is a new installment.'
+          );
+          return;
+        }
 
         setShowRecordPaymentModal(false);
         setPaymentAmount('');

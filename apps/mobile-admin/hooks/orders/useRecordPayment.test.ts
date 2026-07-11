@@ -436,9 +436,14 @@ describe('useRecordPayment', () => {
     });
     const abortError = new Error('aborted');
     abortError.name = 'AbortError';
+    const now = 1_700_000_000_000;
+    const dateNow = vi
+      .spyOn(Date, 'now')
+      .mockReturnValueOnce(now)
+      .mockReturnValue(now + 300_001);
     mocks.fetch.mockRejectedValueOnce(abortError).mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ recorded: true }),
+      json: async () => ({ idempotency_replayed: true, recorded: true }),
     });
     const input = {
       amount: 5000,
@@ -455,7 +460,10 @@ describe('useRecordPayment', () => {
     const secondMount = useRecordPayment() as unknown as {
       mutationFn: (vars: typeof input) => Promise<unknown>;
     };
-    await secondMount.mutationFn(input);
+    await expect(secondMount.mutationFn(input)).resolves.toMatchObject({
+      idempotency_replayed: true,
+      reconciled_previous_payment: true,
+    });
 
     const requestBodies = mocks.fetch.mock.calls.map(([, init]) =>
       JSON.parse(String(init?.body))
@@ -464,6 +472,7 @@ describe('useRecordPayment', () => {
       requestBodies[1].idempotency_key
     );
     expect(generateUUID).toHaveBeenCalledTimes(1);
+    dateNow.mockRestore();
   });
 
   it('does not reuse a completed key when retry cleanup fails', async () => {

@@ -9,7 +9,10 @@ describe('manualPaymentRetrySchema', () => {
     });
 
     expect(result.success).toBe(true);
-    if (result.success) expect(result.data.status).toBe('pending');
+    if (result.success) {
+      expect(result.data.createdAt).toBe(0);
+      expect(result.data.status).toBe('pending');
+    }
   });
 
   it('accepts a completed retry marker', () => {

@@ -89,6 +89,9 @@ describe('manual payment RPC migration', () => {
       "NULLIF(trim(t.metadata ->> 'manual_payment_idempotency_key'), '') ="
     );
     expect(migration).not.toContain('legacy_manual_payment_fingerprint');
+    expect(migration).not.toContain(
+      'v_existing_transaction.gateway_reference IS DISTINCT FROM v_gateway_reference'
+    );
   });
 
   it('persists resumable manual-payment side-effect claims', () => {

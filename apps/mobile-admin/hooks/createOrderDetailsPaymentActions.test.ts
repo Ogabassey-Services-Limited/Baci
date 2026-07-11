@@ -83,6 +83,53 @@ describe('createOrderDetailsPaymentActions', () => {
     expect(setShowCreditModal).toHaveBeenCalledWith(true);
   });
 
+  it('asks staff to resubmit after reconciling an older payment', async () => {
+    const setShowRecordPaymentModal = vi.fn();
+    const actions = createOrderDetailsPaymentActions({
+      creditNotes: '',
+      formatPrice: (amount) => `₦${amount}`,
+      order: {
+        id: 'order-1',
+        amount_paid: 5000,
+        balance: 5000,
+        created_at: '',
+        customer_email: 'customer@example.com',
+        customer_name: 'Ada',
+        customer_phone: null,
+        discount_amount: 0,
+        order_number: 'ORD-1',
+        payment_status: 'partially_paid',
+        shipping_address: null,
+        shipping_status: 'pending',
+        total: 10000,
+        updated_at: '',
+      },
+      paymentAmount: '5000',
+      paymentMethod: 'cash',
+      paymentNotes: '',
+      recordPayment: vi.fn().mockResolvedValue({
+        new_balance: 5000,
+        reconciled_previous_payment: true,
+      }),
+      sendReminder: vi.fn(),
+      setCreditNotes: vi.fn(),
+      setPaymentAmount: vi.fn(),
+      setPaymentMethod: vi.fn(),
+      setPaymentNotes: vi.fn(),
+      setShowCreditModal: vi.fn(),
+      setShowRecordPaymentModal,
+      shipOnCredit: vi.fn(),
+    });
+
+    await actions.handleRecordPayment();
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Previous Payment Confirmed',
+      expect.stringContaining('submit again')
+    );
+    expect(setShowRecordPaymentModal).not.toHaveBeenCalled();
+  });
+
   it('alerts when ship-on-credit is requested before the order loads', async () => {
     const actions = createOrderDetailsPaymentActions({
       creditNotes: '',

@@ -111,8 +111,7 @@ BEGIN
   LIMIT 1;
 
   IF FOUND THEN
-    IF v_existing_transaction.amount IS DISTINCT FROM p_amount
-      OR v_existing_transaction.gateway_reference IS DISTINCT FROM v_gateway_reference THEN
+    IF v_existing_transaction.amount IS DISTINCT FROM p_amount THEN
       RETURN jsonb_build_object('error_code', 'IDEMPOTENCY_KEY_CONFLICT');
     END IF;
 

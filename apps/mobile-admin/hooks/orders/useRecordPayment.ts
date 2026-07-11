@@ -14,11 +14,19 @@ import { parseResponsePayload } from './response-utils';
 
 const RECORD_PAYMENT_TIMEOUT_MS = 15_000;
 const RECORD_PAYMENT_RETRY_KEY_PREFIX = 'manual-payment-retry:';
+const STALE_RETRY_NOTICE_MS = 5 * 60 * 1000;
+
+interface PendingIdempotencyKey {
+  createdAt: number;
+  idempotencyKey: string;
+}
 
 export function useRecordPayment() {
   const queryClient = useQueryClient();
   const { merchant } = useMerchant();
-  const pendingIdempotencyKeys = useRef(new Map<string, string>());
+  const pendingIdempotencyKeys = useRef(
+    new Map<string, PendingIdempotencyKey>()
+  );
 
   return useMutation({
     mutationFn: async ({
@@ -49,17 +57,25 @@ export function useRecordPayment() {
       } catch (error) {
         console.error('Failed to read manual payment retry key', error);
       }
-      const idempotencyKey =
-        pendingIdempotencyKeys.current.get(requestFingerprint) ??
+      const memoryRetry = pendingIdempotencyKeys.current.get(requestFingerprint);
+      const reusableRetry =
+        memoryRetry ??
         (storedRetry?.fingerprint === requestFingerprint &&
         storedRetry.status === 'pending'
-          ? storedRetry.idempotencyKey
-          : generateUUID());
-      pendingIdempotencyKeys.current.set(requestFingerprint, idempotencyKey);
+          ? storedRetry
+          : null);
+      const createdAt = reusableRetry?.createdAt || Date.now();
+      const idempotencyKey =
+        reusableRetry?.idempotencyKey ?? generateUUID();
+      pendingIdempotencyKeys.current.set(requestFingerprint, {
+        createdAt,
+        idempotencyKey,
+      });
       try {
         await AsyncStorage.setItem(
           storageKey,
           JSON.stringify({
+            createdAt,
             fingerprint: requestFingerprint,
             idempotencyKey,
             status: 'pending',
@@ -101,11 +117,15 @@ export function useRecordPayment() {
       }
 
       const result = await response.json();
+      const reconciledPreviousPayment =
+        result?.idempotency_replayed === true &&
+        Date.now() - createdAt >= STALE_RETRY_NOTICE_MS;
       pendingIdempotencyKeys.current.delete(requestFingerprint);
       try {
         await AsyncStorage.setItem(
           storageKey,
           JSON.stringify({
+            createdAt,
             fingerprint: requestFingerprint,
             idempotencyKey,
             status: 'completed',
@@ -122,7 +142,9 @@ export function useRecordPayment() {
       } catch (error) {
         console.error('Failed to clear manual payment retry key', error);
       }
-      return result;
+      return reconciledPreviousPayment
+        ? { ...result, reconciled_previous_payment: true }
+        : result;
     },
     mutationKey: ['recordPayment'],
     onSuccess: (_data, { orderId }) => {
