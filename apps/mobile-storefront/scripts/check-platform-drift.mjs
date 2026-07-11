@@ -1,7 +1,10 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import typescript from 'typescript';
+// The classic compiler API used below is gone from typescript@7 (native
+// compiler), so this script pins Microsoft's @typescript/typescript6 compat
+// package instead of the workspace `typescript` version.
+import typescript from '@typescript/typescript6';
 
 const SCAN_DIRECTORIES = ['app', 'components', 'hooks', 'lib', 'services', 'stores', 'utils'];
 const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
