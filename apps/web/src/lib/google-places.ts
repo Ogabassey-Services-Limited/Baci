@@ -21,6 +21,7 @@ export interface GooglePlaceDetails {
   state?: string;
   country?: string;
   postalCode?: string;
+  location?: { latitude: number; longitude: number } | null;
 }
 
 /**

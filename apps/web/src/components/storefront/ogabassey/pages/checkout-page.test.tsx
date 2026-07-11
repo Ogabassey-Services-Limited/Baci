@@ -1,6 +1,15 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const addressAutocompleteMock = vi.hoisted(() => ({
+  selectedPlace: null as null | {
+    city: string;
+    formattedAddress: string;
+    location: { latitude: number; longitude: number };
+    state: string;
+  },
+}));
+
 // Mock all heavy dependencies before importing the component
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() })),
@@ -94,17 +103,30 @@ vi.mock('@/components/storefront/checkout-auth-modal', () => ({
 }));
 
 vi.mock('@/components/address-autocomplete', () => ({
-  AddressAutocomplete: vi.fn(({ value, onChange, onChangeText, ...props }) => (
-    <input
-      data-testid="address-input"
-      value={value || ''}
-      onChange={(e) => {
-        onChange?.(e);
-        onChangeText?.(e.target.value);
-      }}
-      {...props}
-    />
-  )),
+  AddressAutocomplete: vi.fn(
+    ({ value, onChange, onChangeText, onSelect, ...props }) => (
+      <>
+        <input
+          data-testid="address-input"
+          value={value || ''}
+          onChange={(e) => {
+            onChange?.(e);
+            onChangeText?.(e.target.value);
+          }}
+          {...props}
+        />
+        {addressAutocompleteMock.selectedPlace && (
+          <button
+            data-testid="select-address-place"
+            type="button"
+            onClick={() => onSelect?.(addressAutocompleteMock.selectedPlace)}
+          >
+            Select address place
+          </button>
+        )}
+      </>
+    ),
+  ),
 }));
 
 vi.mock('@/lib/credpal', () => ({
@@ -207,7 +229,7 @@ function mockCheckoutSubmissionState() {
 async function submitPickupPayOnDeliveryOrder() {
   render(<CheckoutPage />);
 
-  fireEvent.click(screen.getByText('Pickup'));
+  fireEvent.click(screen.getByRole('button', { name: /store pickup/i }));
   fireEvent.click(screen.getByRole('button', { name: /continue to payment/i }));
   fireEvent.click(await screen.findByText(/pay on delivery/i));
   const placeOrderButton = screen
@@ -220,6 +242,7 @@ async function submitPickupPayOnDeliveryOrder() {
 describe('CheckoutPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    addressAutocompleteMock.selectedPlace = null;
     vi.mocked(useCart).mockReturnValue({
       cart: [],
       cartTotal: 0,
@@ -1125,6 +1148,236 @@ describe('CheckoutPage', () => {
     fetchMock.mockRestore();
   });
 
+  it('refetches quotes with new coordinates when the selected place stays in the same city', async () => {
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: 'Old address, Ikeja',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'delivery',
+        completedSteps: { contact: true, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+    addressAutocompleteMock.selectedPlace = {
+      city: 'Ikeja',
+      formattedAddress: 'New address, Ikeja',
+      location: { latitude: 6.6018, longitude: 3.3515 },
+      state: 'Lagos',
+    };
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        if (String(input).startsWith('/api/shipping/quotes')) {
+          return {
+            ok: true,
+            json: async () => ({ quotes: { all: [] } }),
+            text: async () => '',
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).startsWith('/api/shipping/quotes'),
+        ),
+      ).toBe(true);
+    });
+    fetchMock.mockClear();
+
+    fireEvent.click(screen.getByTestId('select-address-place'));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).startsWith('/api/shipping/quotes'),
+        ),
+      ).toBe(true);
+    });
+    const quoteCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).startsWith('/api/shipping/quotes'),
+    );
+    expect(JSON.parse(String(quoteCall?.[1]?.body)).receiver).toEqual(
+      expect.objectContaining({ latitude: 6.6018, longitude: 3.3515 }),
+    );
+
+    fetchMock.mockRestore();
+  });
+
+  it('renders every GIGL pickup station quote and lets the shopper choose one', async () => {
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: 'GRA Phase 2',
+        newAddressState: 'Rivers',
+        newAddressCity: 'Port Harcourt',
+        currentStep: 'delivery',
+        completedSteps: { contact: true, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+
+    const stationQuote = (
+      id: string,
+      stationName: string,
+      stationAddress: string,
+    ) => ({
+      carrierName: 'GIG Logistics',
+      currency: 'NGN',
+      displayName: `GIG Logistics - Pickup at ${stationName}`,
+      estimatedDays: 3,
+      id,
+      insuranceIncluded: true,
+      isStationPickup: true,
+      pickupIncluded: true,
+      price: 4200,
+      provider: 'GIGL',
+      serviceTier: 'station',
+      stationAddress,
+      stationName,
+    });
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input, init) => {
+        if (String(input).startsWith('/api/shipping/quotes')) {
+          const { deliveryPreference } = JSON.parse(String(init?.body));
+          return {
+            ok: true,
+            json: async () => ({
+              quotes: {
+                all:
+                  deliveryPreference === 'pickup_station'
+                    ? [
+                        stationQuote(
+                          'station-1',
+                          'Aba Road Service Centre',
+                          '10 Aba Road, Port Harcourt',
+                        ),
+                        stationQuote(
+                          'station-2',
+                          'Trans Amadi Service Centre',
+                          '5 Trans Amadi Road, Port Harcourt',
+                        ),
+                      ]
+                    : [
+                        {
+                          carrierName: 'GIG Logistics',
+                          currency: 'NGN',
+                          displayName: 'Door Delivery',
+                          estimatedDays: 2,
+                          id: 'door-1',
+                          insuranceIncluded: true,
+                          pickupIncluded: true,
+                          price: 6200,
+                          provider: 'GIGL',
+                          serviceTier: 'standard',
+                        },
+                      ],
+              },
+            }),
+            text: async () => '',
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: ['Rivers'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    try {
+      render(<CheckoutPage />);
+
+      // Door quotes resolve first for the default delivery method.
+      await screen.findByText('Door Delivery');
+
+      fireEvent.click(screen.getByRole('button', { name: /pickup station/i }));
+
+      // Switching methods refetches quotes with the pickup_station preference.
+      await waitFor(() => {
+        expect(
+          fetchMock.mock.calls.some(
+            ([url, init]) =>
+              String(url).startsWith('/api/shipping/quotes') &&
+              JSON.parse(String(init?.body)).deliveryPreference ===
+                'pickup_station',
+          ),
+        ).toBe(true);
+      });
+
+      // Every returned GIGL service centre renders as a selectable option,
+      // with the first one auto-selected after the pickup_station refetch.
+      const firstStation = await screen.findByRole('radio', {
+        name: /aba road service centre/i,
+      });
+      const secondStation = screen.getByRole('radio', {
+        name: /trans amadi service centre/i,
+      });
+      await waitFor(() => expect(firstStation).toBeChecked());
+      expect(secondStation).not.toBeChecked();
+
+      fireEvent.click(secondStation);
+
+      expect(secondStation).toBeChecked();
+      expect(firstStation).not.toBeChecked();
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+
   it('sends a stable idempotency key when creating an order', async () => {
     const scrollSpy = vi
       .spyOn(window, 'scrollTo')
@@ -1590,7 +1843,7 @@ describe('CheckoutPage', () => {
     });
 
     // Let's submit the order
-    fireEvent.click(screen.getByText('Pickup'));
+    fireEvent.click(screen.getByRole('button', { name: /store pickup/i }));
     fireEvent.click(screen.getByRole('button', { name: /continue to payment/i }));
     fireEvent.click(await screen.findByText(/pay on delivery/i));
     const placeOrderButton = screen
@@ -1692,7 +1945,7 @@ describe('CheckoutPage', () => {
     });
 
     // Let's submit the order
-    fireEvent.click(screen.getByText('Pickup'));
+    fireEvent.click(screen.getByRole('button', { name: /store pickup/i }));
     fireEvent.click(screen.getByRole('button', { name: /continue to payment/i }));
     fireEvent.click(await screen.findByText(/pay on delivery/i));
     const placeOrderButton = screen

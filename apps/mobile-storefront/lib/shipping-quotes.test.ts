@@ -112,6 +112,25 @@ describe('shipping quote helpers', () => {
     ).toBe('door');
   });
 
+  it('keeps GoFaster quotes out of automatic road selection', () => {
+    expect(
+      getPreferredShippingQuoteId([
+        {
+          id: 'gofaster',
+          price: 2000,
+          provider: 'GIGL',
+          serviceTier: 'GoFaster',
+        },
+        {
+          id: 'road',
+          price: 5000,
+          provider: 'GIGL',
+          serviceTier: 'GoStandard',
+        },
+      ])
+    ).toBe('road');
+  });
+
   it('ignores a previous station-pickup selection when door quotes exist', () => {
     expect(
       getPreferredShippingQuoteId(

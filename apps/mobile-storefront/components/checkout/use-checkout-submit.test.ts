@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react-native';
 import type { MutableRefObject } from 'react';
 import { Alert } from 'react-native';
@@ -12,8 +13,12 @@ import {
 const mockRepriceCartItems = jest.fn() as jest.MockedFunction<
   (items: CartItem[], merchantId: string) => Promise<RepriceResult>
 >;
-const mockCreateOrder = jest.fn();
-const mockValidateCheckoutSubmission = jest.fn();
+const mockCreateOrder =
+  jest.fn<typeof import('@/services/orders').createOrder>();
+const mockValidateCheckoutSubmission =
+  jest.fn<
+    typeof import('./checkout-submit-validation').validateCheckoutSubmission
+  >();
 const mockRepriceItems = jest.fn();
 const mockRestoreItems = jest.fn();
 const mockUseMerchant = jest.fn() as jest.MockedFunction<
@@ -145,7 +150,8 @@ function createParams(
     customer: null,
     deliveryFee: 1500,
     deliveryMethod: 'door',
-    getLiveSavingsSelection: jest.fn(),
+    getLiveSavingsSelection:
+      jest.fn<UseCheckoutSubmitParams['getLiveSavingsSelection']>(),
     getShippingProvider: () => 'gigl',
     isAuthenticated: false,
     isLoadingQuotes: false,
@@ -189,11 +195,16 @@ describe('useCheckoutSubmit', () => {
     // validation, is reached.
     mockValidateCheckoutSubmission.mockReturnValue(true);
     mockCreateOrder.mockResolvedValue({
+      amountDueToGateway: 1201500,
       order: {
+        created_at: '2026-07-09T12:00:00.000Z',
         id: 'order-1',
         order_number: 'ORD-1',
+        payment_status: 'pending',
+        shipping_status: 'pending',
         total: 1201500,
       },
+      wallet: null,
     });
     jest.spyOn(Alert, 'alert').mockImplementation(() => {
       // Suppress native alerts in tests.

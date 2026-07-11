@@ -65,8 +65,8 @@ export const PAYMENT_INTENTS: readonly PaymentIntent[] = [
 /** Whether an intent is the one currently selected, given the (tab, method) state. */
 export function isIntentSelected(
   intent: PaymentIntent,
-  selectedTab: PaymentTab,
-  selectedMethod: PaymentMethodType
+  selectedTab: PaymentTab | null,
+  selectedMethod: PaymentMethodType | null
 ): boolean {
   if (intent.method) {
     return selectedTab === intent.tab && selectedMethod === intent.method;

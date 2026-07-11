@@ -1,3 +1,11 @@
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Dimensions, Keyboard, View } from 'react-native';
 import { AddressAutocomplete } from './AddressAutocomplete';
@@ -15,13 +23,14 @@ const TEST_PREDICTION = {
   secondaryText: 'Lagos, Nigeria',
   description: '123 Main Street, Lagos, Nigeria',
 };
+const fetchMock = jest.fn<typeof fetch>();
 
 function mockFetchSuccess() {
-  (global.fetch as jest.Mock).mockResolvedValueOnce({
+  fetchMock.mockResolvedValueOnce({
     ok: true,
     json: async () => ({ predictions: [TEST_PREDICTION] }),
     text: async () => '',
-  });
+  } as Response);
 }
 
 async function typeAndWaitForPredictions(text = 'Lagos') {
@@ -38,7 +47,8 @@ async function typeAndWaitForPredictions(text = 'Lagos') {
 describe('AddressAutocomplete', () => {
   beforeEach(() => {
     jest.useFakeTimers();
-    global.fetch = jest.fn();
+    fetchMock.mockReset();
+    global.fetch = fetchMock;
   });
 
   afterEach(() => {
@@ -146,7 +156,12 @@ describe('AddressAutocomplete', () => {
       expect(scrollRef.current.scrollTo).toHaveBeenCalledWith(
         expect.objectContaining({ y: expect.any(Number), animated: true })
       );
-      expect(scrollRef.current.scrollTo.mock.calls[0][0].y).toBeGreaterThan(0);
+      expect(scrollRef.current.scrollTo.mock.calls.length).toBeGreaterThan(0);
+      const firstScrollOptions = scrollRef.current.scrollTo.mock
+        .calls[0][0] as {
+        y: number;
+      };
+      expect(firstScrollOptions.y).toBeGreaterThan(0);
 
       measureSpy.mockRestore();
     });

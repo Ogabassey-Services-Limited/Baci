@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import {
   getPaymentInitializeCalls,
@@ -51,6 +52,10 @@ function fillAddressAndContinueToPayment() {
   fillCheckoutContact();
   fillLagosDeliveryAddress();
   selectPickupAndContinueToPayment();
+}
+
+function selectPaystackPayment() {
+  fireEvent.press(screen.getByRole('button', { name: 'Mock select Paystack' }));
 }
 
 function enableAuthenticatedWalletFundedCheckout() {
@@ -147,6 +152,7 @@ describe('CheckoutScreen', () => {
       );
     });
 
+    selectPaystackPayment();
     fireEvent.press(screen.getByLabelText('Continue to review'));
 
     await waitFor(() => {
@@ -376,6 +382,7 @@ describe('CheckoutScreen', () => {
     fireEvent.press(
       screen.getByRole('button', { name: 'Mock use checkout savings' })
     );
+    selectPaystackPayment();
     fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
 
     await waitFor(() => {
@@ -455,6 +462,7 @@ describe('CheckoutScreen', () => {
         name: 'Mock remove checkout savings',
       })
     );
+    selectPaystackPayment();
     fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
 
     await waitFor(() => {
@@ -550,6 +558,7 @@ describe('CheckoutScreen', () => {
         name: 'Mock use checkout savings',
       })
     );
+    selectPaystackPayment();
     fireEvent.press(screen.getByRole('button', { name: 'Continue to review' }));
 
     await waitFor(() => {

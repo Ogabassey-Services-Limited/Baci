@@ -3,25 +3,23 @@ import { useEffect } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
-  Image,
-  Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import gigLogoSource from '@/assets/images/gig-logo.webp';
 import { ShippingPickupFallbackNotice } from '@/components/checkout/ShippingPickupFallbackNotice';
+import { ShippingQuoteRow } from '@/components/checkout/ShippingQuoteRow';
 import { ShippingQuotesRetryCard } from '@/components/checkout/ShippingQuotesRetryCard';
 import type { ShippingQuote } from '@/components/checkout/types';
 import type Colors from '@/constants/Colors';
-import { RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
-import { formatPrice } from '@/stores/cart-store';
+import { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 
 type ColorsScheme = (typeof Colors)['light'];
 
 interface ShippingQuotesCardProps {
   colors: ColorsScheme;
   isDark: boolean;
+  embedded?: boolean;
   isLoadingQuotes: boolean;
   shippingQuotes: ShippingQuote[];
   stationPickupQuote?: ShippingQuote;
@@ -33,6 +31,7 @@ interface ShippingQuotesCardProps {
 export function ShippingQuotesCard({
   colors,
   isDark,
+  embedded = false,
   isLoadingQuotes,
   shippingQuotes,
   stationPickupQuote,
@@ -40,6 +39,11 @@ export function ShippingQuotesCard({
   onSelectQuote,
   onRetryQuotes,
 }: ShippingQuotesCardProps) {
+  const selectedAccentColor = embedded ? BRAND.primary : colors.primary;
+  const selectedBackgroundColor = embedded
+    ? colors.card
+    : colors.primaryLowOpacity;
+
   useEffect(() => {
     if (isLoadingQuotes) {
       AccessibilityInfo.announceForAccessibility('Fetching delivery options…');
@@ -48,25 +52,33 @@ export function ShippingQuotesCard({
 
   return (
     <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: colors.card,
-          borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-        },
-      ]}
+      style={
+        embedded
+          ? undefined
+          : [
+              styles.card,
+              {
+                backgroundColor: colors.card,
+                borderColor: isDark
+                  ? 'rgba(255, 255, 255, 0.05)'
+                  : 'transparent',
+              },
+            ]
+      }
     >
-      <View style={styles.cardHeader}>
-        <Ionicons name="car-outline" size={16} color={colors.primary} />
-        <Text style={[styles.cardTitle, { color: colors.text }]}>
-          Select Delivery Option
-        </Text>
-      </View>
+      {!embedded && (
+        <View style={styles.cardHeader}>
+          <Ionicons name="car-outline" size={16} color={colors.primary} />
+          <Text style={[styles.cardTitle, { color: colors.text }]}>
+            Select Delivery Option
+          </Text>
+        </View>
+      )}
 
       <View style={styles.cardBody}>
         {isLoadingQuotes ? (
           <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={colors.primary} />
+            <ActivityIndicator size="small" color={selectedAccentColor} />
             <Text style={[styles.helperText, { color: colors.textSecondary }]}>
               Fetching delivery options…
             </Text>
@@ -84,111 +96,17 @@ export function ShippingQuotesCard({
           />
         ) : (
           <View style={styles.quoteList}>
-            {shippingQuotes.map((quote) => {
-              const isSelected = String(quote.id) === String(selectedQuoteId);
-              const eta =
-                quote.deliveryRange ||
-                (quote.estimatedDays
-                  ? `${quote.estimatedDays} days`
-                  : 'ETA unavailable');
-              const carrier = quote.carrierName || quote.provider || 'Delivery';
-              const isGiglQuote =
-                carrier.toLowerCase().includes('gig') ||
-                quote.provider?.toLowerCase() === 'gigl';
-
-              return (
-                <Pressable
-                  key={String(quote.id)}
-                  onPress={() => onSelectQuote(String(quote.id))}
-                  style={[
-                    styles.quoteRow,
-                    {
-                      borderColor: isSelected ? colors.primary : colors.border,
-                      backgroundColor: isSelected
-                        ? colors.primaryLowOpacity
-                        : colors.card,
-                    },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Select ${quote.displayName} for ${formatPrice(quote.price)}`}
-                  accessibilityState={{ selected: isSelected }}
-                >
-                  <View style={styles.quoteInfo}>
-                    <View style={styles.quoteHeader}>
-                      <Text
-                        style={[
-                          styles.quoteTitle,
-                          {
-                            color: isSelected ? colors.primary : colors.text,
-                          },
-                        ]}
-                      >
-                        {quote.displayName}
-                      </Text>
-                      {isGiglQuote && (
-                        <View
-                          style={[
-                            styles.logoBadge,
-                            { backgroundColor: colors.background },
-                          ]}
-                          accessibilityLabel="GIG Logistics logo"
-                          accessibilityRole="image"
-                        >
-                          <Image
-                            source={gigLogoSource}
-                            style={styles.gigLogo}
-                            resizeMode="contain"
-                          />
-                        </View>
-                      )}
-                      {carrier.toLowerCase().includes('topship') && (
-                        <View
-                          style={[
-                            styles.badge,
-                            { backgroundColor: colors.muted },
-                          ]}
-                        >
-                          <Text
-                            style={[styles.badgeText, { color: colors.text }]}
-                          >
-                            Topship
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text
-                      style={[
-                        styles.quoteMeta,
-                        {
-                          color: isSelected
-                            ? colors.primary
-                            : colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {carrier} • Est. {eta}
-                    </Text>
-                  </View>
-                  <View style={styles.quoteRight}>
-                    <Text
-                      style={[
-                        styles.quotePrice,
-                        {
-                          color: isSelected ? colors.primary : colors.text,
-                        },
-                      ]}
-                    >
-                      {formatPrice(quote.price)}
-                    </Text>
-                    <Ionicons
-                      name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={20}
-                      color={isSelected ? colors.primary : colors.textSecondary}
-                    />
-                  </View>
-                </Pressable>
-              );
-            })}
+            {shippingQuotes.map((quote) => (
+              <ShippingQuoteRow
+                key={String(quote.id)}
+                colors={colors}
+                isSelected={String(quote.id) === String(selectedQuoteId)}
+                onSelect={onSelectQuote}
+                quote={quote}
+                selectedAccentColor={selectedAccentColor}
+                selectedBackgroundColor={selectedBackgroundColor}
+              />
+            ))}
           </View>
         )}
       </View>
@@ -213,81 +131,13 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: SPACING.md,
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-  },
-  cardBody: {
-    gap: SPACING.sm,
-  },
-  helperText: {
-    fontSize: 12,
-  },
+  cardTitle: { fontSize: 16, fontWeight: '700', letterSpacing: -0.3 },
+  cardBody: { gap: SPACING.sm },
+  helperText: { fontSize: 12 },
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  quoteList: {
-    gap: 10,
-  },
-  quoteRow: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  quoteInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  quoteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  quoteTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  quoteMeta: {
-    fontSize: 12,
-  },
-  quoteRight: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  quotePrice: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  badge: {
-    borderRadius: RADIUS.full,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  logoBadge: {
-    borderRadius: 4,
-    minHeight: 24,
-    minWidth: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    overflow: 'hidden',
-  },
-
-  badgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  gigLogo: {
-    width: 30,
-    height: 22,
-  },
+  quoteList: { gap: 10 },
 });

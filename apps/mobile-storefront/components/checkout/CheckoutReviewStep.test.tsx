@@ -86,6 +86,12 @@ describe('CheckoutReviewStep', () => {
     expect(screen.queryByText(/VAT/)).toBeNull();
   });
 
+  it('shows a clear fallback when no payment method is selected', () => {
+    render(<CheckoutReviewStep {...baseProps} selectedPayment={null} />);
+
+    expect(screen.getByText('Payment method not selected')).toBeOnTheScreen();
+  });
+
   it('renders GIGL pickup station quote and station address on review', () => {
     render(
       <CheckoutReviewStep
