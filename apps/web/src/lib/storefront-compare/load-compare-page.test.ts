@@ -654,6 +654,67 @@ describe('loadComparePage', () => {
     warnSpy.mockRestore();
   });
 
+  it('keeps a graph-maintained non-curated compare route indexable when only the cached slug-set read fails', async () => {
+    // Regression guard (Codex P2): when the per-category slug-set read fails but
+    // the bounded inventory read succeeded, indexability must be decided by the
+    // UNCACHED graph rebuild over routeApprovalProducts — NOT demoted to the
+    // curated-only decision. iphone-15-vs-iphone-se is graph-maintained but is
+    // absent from the curated discovery set, so a curated-only fallback would
+    // wrongly mark this valid page legacy/noindex.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      // Suppress the expected slug-set load-failure warning.
+    });
+    const fullSemanticInventory = categoryPageData.products.map((product) => ({
+      slug: product.slug,
+      name: product.name,
+      brand: product.brand,
+      price: product.price,
+      category_slug: product.category_slug,
+      product_key_specs: product.product_key_specs,
+    }));
+    // 1st read (loadCompareGraphProducts) succeeds; 2nd read
+    // (getCachedCategoryCompareGraphSlugs) fails -> loadCategoryCompareGraphSlugs
+    // returns null while routeApprovalProducts is fully populated.
+    mockGetCachedProductSemanticInventory
+      .mockResolvedValueOnce(fullSemanticInventory)
+      .mockRejectedValueOnce(new Error('slug-set cache timeout'));
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categoryPageData.products[4],
+      product_key_specs: { chipset: 'A17', ram_gb: 8, storage_gb: 128 },
+    });
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categoryPageData.products[5],
+      product_key_specs: { chipset: 'A13', ram_gb: 4, storage_gb: 64 },
+    });
+
+    const result = await loadComparePage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      comparisonSlug: 'iphone-15-vs-iphone-se',
+    });
+
+    expect(result?.kind).toBe('product');
+    expect(result?.isIndexable).toBe(true);
+    expect(result?.isLegacyFallback).toBe(false);
+    // Proves the decision came from the graph, not the curated set: a curated
+    // fallback would have emitted the non-curated warning and de-indexed it.
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      'COMPARE_NON_CURATED_FALLBACK',
+      expect.anything()
+    );
+    // The bounded inventory itself did NOT fail — only the slug-set read did.
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      'Failed to load bounded compare graph inventory',
+      expect.anything()
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Failed to load category compare graph slugs',
+      expect.objectContaining({ categorySlug: 'smartphones' })
+    );
+
+    warnSpy.mockRestore();
+  });
+
   it('degrades a guide-post load failure to empty guide links per request without 404ing the page', async () => {
     // Buyer-guide links are auxiliary and loaded per-request outside the cache
     // (loadPublishedClusterPostsSafely degrades to [] by contract). A transient

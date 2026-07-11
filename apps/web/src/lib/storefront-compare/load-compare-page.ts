@@ -591,21 +591,23 @@ async function applyComparePageOverlay(
         products: semanticCompareProducts,
         clickedProducts: [overlay.leftProduct, overlay.rightProduct],
       });
-  // On a transient graph failure fall back to the curated-slug decision — the
-  // same behavior as before this was cached, just no longer frozen for the
-  // cache window.
-  const isMaintainedGraphCanonicalSlug =
-    compareGraphProducts.failed || categoryGraphSlugs === null
-      ? overlay.isCuratedCanonicalSlug
-      : isMaintainedCompareGraphSlug({
-          storeUrl: overlay.storeUrl,
-          categorySlug: overlay.categorySlug,
-          categoryName: overlay.categoryName,
-          products: routeApprovalProducts,
-          productsAreKnownActive: false,
-          comparisonSlug: overlay.canonicalSlug,
-          categoryGraphSlugs,
-        });
+  // Only fall back to the curated-slug decision when the INVENTORY read failed —
+  // without products the graph can't be built at all. When only the cached
+  // slug-set read failed (categoryGraphSlugs === null) but inventory loaded,
+  // pass undefined so isMaintainedCompareGraphSlug rebuilds the graph uncached
+  // (the pre-cache behavior, slower for this one request) rather than demoting
+  // graph-emitted non-curated compare URLs to legacy/noindex.
+  const isMaintainedGraphCanonicalSlug = compareGraphProducts.failed
+    ? overlay.isCuratedCanonicalSlug
+    : isMaintainedCompareGraphSlug({
+        storeUrl: overlay.storeUrl,
+        categorySlug: overlay.categorySlug,
+        categoryName: overlay.categoryName,
+        products: routeApprovalProducts,
+        productsAreKnownActive: false,
+        comparisonSlug: overlay.canonicalSlug,
+        categoryGraphSlugs: categoryGraphSlugs ?? undefined,
+      });
   const relatedCompareLinks = buildRelatedCompareLinks({
     storeUrl: overlay.storeUrl,
     categorySlug: overlay.categorySlug,
