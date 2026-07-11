@@ -1,7 +1,14 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { parseOrderDetailsCurrencyInput } from '@/components/orders/order-details.formatters';
 import { RepairBookingDetailContent } from '@/components/repairs/RepairBookingDetailContent';
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
@@ -122,11 +129,20 @@ export default function RepairBookingDetailScreen() {
   const handleSaveDetails = () => {
     const trimmedCost = estimatedCostInput.trim();
     // parseOrderDetailsCurrencyInput() strips non-digits and returns '' for
-    // input with no digits (e.g. 'abc' or just '₦'); Number('') is 0, which
-    // would silently overwrite a real estimate. Guard the cleaned string first.
+    // input with no digits (e.g. 'abc' or just '₦').
     const cleanedCost = trimmedCost
       ? parseOrderDetailsCurrencyInput(trimmedCost)
       : '';
+    // Non-empty but non-numeric input is a mistake, not an intent to clear the
+    // estimate — reject it so a stray keystroke can't wipe a real value. An
+    // empty field still clears (null) as intended.
+    if (trimmedCost && !cleanedCost) {
+      Alert.alert(
+        'Invalid estimated cost',
+        'Enter a numeric amount, or clear the field to remove the estimate.'
+      );
+      return;
+    }
     const parsedCost = cleanedCost ? Number(cleanedCost) : null;
     const trimmedNotes = adminNotesInput.trim();
 

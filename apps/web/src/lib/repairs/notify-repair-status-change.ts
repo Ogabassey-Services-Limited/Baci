@@ -8,6 +8,7 @@ import {
   REPAIR_STATUS_LABELS,
   type RepairStatus,
 } from '@/lib/repairs/repair-status';
+import { buildStoreUrl } from '@/lib/store-url';
 import { createClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/zeptomail';
 
@@ -19,6 +20,9 @@ export interface NotifyRepairStatusChangeParams {
   customerEmail: string;
   deviceLabel: string;
   status: RepairStatus;
+  /** Courier tracking number when a pickup shipment exists — drives the
+   * tracking CTA in the status email. */
+  trackingNumber?: string | null;
 }
 
 /** LIKE special characters that must be escaped so an email cannot act as a
@@ -91,12 +95,17 @@ export async function notifyRepairStatusChange(
       () => null
     );
     const merchantName = merchant?.business_name || 'the store';
+    const trackingUrl =
+      params.trackingNumber && merchant
+        ? `${buildStoreUrl(merchant)}/track/${params.trackingNumber}`
+        : null;
     const emailData = {
       ticketNumber: params.ticketNumber,
       customerName: params.customerName,
       merchantName,
       deviceLabel: params.deviceLabel,
       status: params.status,
+      trackingUrl,
     };
 
     const result = await sendEmail({

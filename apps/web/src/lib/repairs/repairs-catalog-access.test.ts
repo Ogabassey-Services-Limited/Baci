@@ -22,9 +22,10 @@ describe('resolveRepairsCatalogMerchant', () => {
     expect(result).toBeNull();
   });
 
-  it('reports enabled for an electronics merchant with the flag on', async () => {
+  it('reports enabled for a published electronics merchant with the flag on', async () => {
     mocks.getMerchantByIdentifier.mockResolvedValueOnce({
       id: 'merchant-1',
+      is_published: true,
       business_type: 'electronics',
       feature_settings: { repairs_catalog_enabled: true },
     });
@@ -34,9 +35,23 @@ describe('resolveRepairsCatalogMerchant', () => {
     expect(result).toEqual({ merchantId: 'merchant-1', enabled: true });
   });
 
+  it('reports disabled for an UNPUBLISHED merchant even with the flag on (matches the SQL gate)', async () => {
+    mocks.getMerchantByIdentifier.mockResolvedValueOnce({
+      id: 'merchant-1',
+      is_published: false,
+      business_type: 'electronics',
+      feature_settings: { repairs_catalog_enabled: true },
+    });
+
+    const result = await resolveRepairsCatalogMerchant('ogabassey');
+
+    expect(result).toEqual({ merchantId: 'merchant-1', enabled: false });
+  });
+
   it('reports disabled for an electronics merchant with the flag off', async () => {
     mocks.getMerchantByIdentifier.mockResolvedValueOnce({
       id: 'merchant-1',
+      is_published: true,
       business_type: 'electronics',
       feature_settings: { repairs_catalog_enabled: false },
     });
@@ -49,6 +64,7 @@ describe('resolveRepairsCatalogMerchant', () => {
   it('reports disabled for a non-electronics merchant even with the flag on', async () => {
     mocks.getMerchantByIdentifier.mockResolvedValueOnce({
       id: 'merchant-2',
+      is_published: true,
       business_type: 'fashion',
       feature_settings: { repairs_catalog_enabled: true },
     });
@@ -61,6 +77,7 @@ describe('resolveRepairsCatalogMerchant', () => {
   it('resolves a custom storefront domain through the identifier lookup', async () => {
     mocks.getMerchantByIdentifier.mockResolvedValueOnce({
       id: 'merchant-1',
+      is_published: true,
       business_type: 'electronics',
       feature_settings: { repairs_catalog_enabled: true },
     });

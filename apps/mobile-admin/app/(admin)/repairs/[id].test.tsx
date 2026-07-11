@@ -20,6 +20,7 @@ vi.mock('@/lib/api-client', () => {
 });
 
 const mocks = vi.hoisted(() => ({
+  alert: vi.fn(),
   detail: vi.fn(),
   mutate: vi.fn(),
   params: { id: '550e8400-e29b-41d4-a716-446655440000' } as {
@@ -116,6 +117,7 @@ vi.mock('react-native', () => {
   );
 
   return {
+    Alert: { alert: mocks.alert },
     ActivityIndicator: () => <MockText>loading</MockText>,
     Pressable: ({
       accessibilityLabel,
@@ -311,11 +313,25 @@ describe('RepairBookingDetailScreen', () => {
     });
   });
 
-  it('saves null (not 0) when the estimated cost has no digits', () => {
+  it('rejects a non-numeric estimated cost instead of clearing the stored value', () => {
     render(<RepairBookingDetailScreen />);
 
     fireEvent.change(screen.getByLabelText('Estimated cost'), {
       target: { value: 'abc' },
+    });
+    fireEvent.click(screen.getByText('Save changes'));
+
+    // No mutation (would send estimated_cost: null and wipe a real estimate);
+    // the merchant is alerted instead.
+    expect(mocks.mutate).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalled();
+  });
+
+  it('clears the estimate when the field is emptied', () => {
+    render(<RepairBookingDetailScreen />);
+
+    fireEvent.change(screen.getByLabelText('Admin notes'), {
+      target: { value: 'note' },
     });
     fireEvent.click(screen.getByText('Save changes'));
 

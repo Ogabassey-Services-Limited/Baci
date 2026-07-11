@@ -151,6 +151,16 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     );
   }
 
+  const updatedRow = updated as Record<string, unknown>;
+  // Load the courier tracking number BEFORE notifying so the status email can
+  // include the pickup tracking CTA (the shipment id is unchanged by a status
+  // edit, so this is the same value returned to the client below).
+  const tracking = await loadTrackingNumber(
+    admin,
+    authz.access.merchantId,
+    updatedRow.shipment_id
+  );
+
   if (statusChanged) {
     // Best-effort; notify* never throws, so it cannot fail the update.
     await notifyRepairStatusChange({
@@ -169,15 +179,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
         `${currentRow.device_type ?? ''} ${currentRow.device_model ?? ''}`.trim() ||
         'Device',
       status: nextStatus,
+      trackingNumber: tracking,
     });
   }
-
-  const updatedRow = updated as Record<string, unknown>;
-  const tracking = await loadTrackingNumber(
-    admin,
-    authz.access.merchantId,
-    updatedRow.shipment_id
-  );
 
   return NextResponse.json({ booking: mapBookingDetail(updatedRow, tracking) });
 }

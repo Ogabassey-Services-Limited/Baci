@@ -80,6 +80,22 @@ describe('notifyRepairStatusChange', () => {
     );
   });
 
+  it('includes the courier tracking link in the email for a pickup shipment', async () => {
+    mocks.getCachedMerchantById.mockResolvedValueOnce({
+      business_name: 'Ogabassey',
+      slug: 'ogabassey',
+      custom_domain: null,
+    });
+    mocks.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+    await notifyRepairStatusChange({ ...params, trackingNumber: 'TRK-9' });
+
+    const emailCall = mocks.sendEmail.mock.calls[0]?.[0] as {
+      htmlContent: string;
+    };
+    expect(emailCall.htmlContent).toContain('/track/TRK-9');
+  });
+
   it('still emails when there is no linked customer account', async () => {
     mocks.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
 
