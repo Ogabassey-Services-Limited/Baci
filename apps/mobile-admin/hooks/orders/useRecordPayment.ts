@@ -9,7 +9,10 @@ import {
 } from '@/schemas/manual-payment-retry';
 import { generateUUID } from '@/utils/uuid';
 import { useMerchant } from '../useMerchant';
-import { createAuthenticatedFetch } from './authenticated-fetch';
+import {
+  AuthenticatedFetchPreflightError,
+  createAuthenticatedFetch,
+} from './authenticated-fetch';
 import { parseResponsePayload } from './response-utils';
 
 const RECORD_PAYMENT_TIMEOUT_MS = 15_000;
@@ -94,24 +97,62 @@ export function useRecordPayment() {
         console.error('Failed to persist manual payment retry key', error);
       }
 
-      const response = await createAuthenticatedFetch(
-        `${BASE_URL}/api/orders/${orderId}/record-payment`,
-        {
-          body: JSON.stringify({
-            amount,
-            idempotency_key: idempotencyKey,
-            notes: notes?.trim() || undefined,
-            payment_method: retryPaymentMethod,
-            reference: retryReference,
-          }),
-          headers: {
-            'Content-Type': 'application/json',
-            'x-baci-idempotency-required': '1',
+      const clearRejectedRetry = async () => {
+        pendingIdempotencyKeys.current.delete(requestFingerprint);
+        try {
+          await AsyncStorage.removeItem(storageKey);
+        } catch (error) {
+          console.error(
+            'Failed to clear rejected manual payment retry key',
+            error
+          );
+          try {
+            await AsyncStorage.setItem(
+              storageKey,
+              JSON.stringify({
+                createdAt,
+                fingerprint: requestFingerprint,
+                idempotencyKey,
+                paymentMethod: retryPaymentMethod,
+                reference: retryReference ?? null,
+                status: 'completed',
+              })
+            );
+          } catch (tombstoneError) {
+            console.error(
+              'Failed to tombstone rejected manual payment retry key',
+              tombstoneError
+            );
+          }
+        }
+      };
+
+      let response: Response;
+      try {
+        response = await createAuthenticatedFetch(
+          `${BASE_URL}/api/orders/${orderId}/record-payment`,
+          {
+            body: JSON.stringify({
+              amount,
+              idempotency_key: idempotencyKey,
+              notes: notes?.trim() || undefined,
+              payment_method: retryPaymentMethod,
+              reference: retryReference,
+            }),
+            headers: {
+              'Content-Type': 'application/json',
+              'x-baci-idempotency-required': '1',
+            },
+            method: 'POST',
           },
-          method: 'POST',
-        },
-        RECORD_PAYMENT_TIMEOUT_MS
-      );
+          RECORD_PAYMENT_TIMEOUT_MS
+        );
+      } catch (error) {
+        if (error instanceof AuthenticatedFetchPreflightError) {
+          await clearRejectedRetry();
+        }
+        throw error;
+      }
 
       if (!response.ok) {
         const responseText = await response.text();
@@ -121,33 +162,7 @@ export function useRecordPayment() {
           response.status < 500 &&
           ![408, 425, 429].includes(response.status);
         if (isDefinitiveClientError) {
-          pendingIdempotencyKeys.current.delete(requestFingerprint);
-          try {
-            await AsyncStorage.removeItem(storageKey);
-          } catch (error) {
-            console.error(
-              'Failed to clear rejected manual payment retry key',
-              error
-            );
-            try {
-              await AsyncStorage.setItem(
-                storageKey,
-                JSON.stringify({
-                  createdAt,
-                  fingerprint: requestFingerprint,
-                  idempotencyKey,
-                  paymentMethod: retryPaymentMethod,
-                  reference: retryReference ?? null,
-                  status: 'completed',
-                })
-              );
-            } catch (tombstoneError) {
-              console.error(
-                'Failed to tombstone rejected manual payment retry key',
-                tombstoneError
-              );
-            }
-          }
+          await clearRejectedRetry();
         }
         const errorMessage =
           payload &&

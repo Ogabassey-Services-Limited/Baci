@@ -3,6 +3,13 @@ import { supabase } from '@/lib/supabase';
 const TIMEOUT_ERROR_MESSAGE =
   'Request timed out. Please check your connection and try again.';
 
+export class AuthenticatedFetchPreflightError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthenticatedFetchPreflightError';
+  }
+}
+
 function mergeAuthorizationHeader(
   headers: HeadersInit | undefined,
   accessToken: string
@@ -34,11 +41,11 @@ export async function createAuthenticatedFetch(
   } = await supabase.auth.getSession();
 
   if (sessionError) {
-    throw new Error(sessionError.message);
+    throw new AuthenticatedFetchPreflightError(sessionError.message);
   }
 
   if (!session?.access_token) {
-    throw new Error('Not authenticated');
+    throw new AuthenticatedFetchPreflightError('Not authenticated');
   }
 
   const controller = new AbortController();

@@ -583,6 +583,24 @@ describe('POST /api/orders/[id]/record-payment', () => {
     );
   });
 
+  it('rejects manual payments on refunded orders', async () => {
+    setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: { error_code: 'ORDER_REFUNDED' },
+    });
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest({ amount: 5000, payment_method: 'cash' }),
+      { params: Promise.resolve({ id: mockOrderId }) }
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Cannot record a payment on a refunded order',
+    });
+  });
+
   it('returns 400 when amount is zero', async () => {
     // Arrange
     const request = createRequest({

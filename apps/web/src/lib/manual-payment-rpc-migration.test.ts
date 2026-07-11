@@ -67,6 +67,11 @@ describe('manual payment RPC migration', () => {
     expect(migration).toContain('UPDATE public.orders AS o');
   });
 
+  it('rejects fresh manual payments on refunded orders', () => {
+    expect(migration).toContain("v_order.payment_status = 'refunded'");
+    expect(migration).toContain("'error_code', 'ORDER_REFUNDED'");
+  });
+
   it('reconciles idempotent replays from completed payment ledger rows', () => {
     const ledgerReadIndex = migration.indexOf(
       "AND t.transaction_type = 'payment'\n    AND t.status = 'completed';"

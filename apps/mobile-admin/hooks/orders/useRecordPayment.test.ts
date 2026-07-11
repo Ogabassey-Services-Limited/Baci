@@ -124,6 +124,50 @@ describe('useRecordPayment', () => {
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
+  it('uses a new key and corrected details after a local auth failure', async () => {
+    vi.mocked(generateUUID)
+      .mockReturnValueOnce('11111111-1111-4111-8111-111111111111')
+      .mockReturnValueOnce('22222222-2222-4222-8222-222222222222');
+    const mutation = useRecordPayment() as unknown as {
+      mutationFn: (vars: {
+        amount: number;
+        orderId: string;
+        paymentMethod: string;
+        reference: string;
+      }) => Promise<unknown>;
+    };
+
+    await expect(
+      mutation.mutationFn({
+        amount: 5000,
+        orderId: 'order-1',
+        paymentMethod: 'pos',
+        reference: 'OLD-REF',
+      })
+    ).rejects.toThrow('Not authenticated');
+
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ recorded: true }),
+    });
+    await mutation.mutationFn({
+      amount: 5000,
+      orderId: 'order-1',
+      paymentMethod: 'bank_transfer',
+      reference: 'NEW-REF',
+    });
+
+    const requestBody = JSON.parse(String(mocks.fetch.mock.calls[0][1]?.body));
+    expect(requestBody).toMatchObject({
+      idempotency_key: '22222222-2222-4222-8222-222222222222',
+      payment_method: 'bank_transfer',
+      reference: 'NEW-REF',
+    });
+  });
+
   it('posts manual payment details and invalidates dependent caches', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },

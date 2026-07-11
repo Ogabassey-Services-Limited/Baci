@@ -195,6 +195,10 @@ BEGIN
     );
   END IF;
 
+  IF v_order.payment_status = 'refunded' THEN
+    RETURN jsonb_build_object('error_code', 'ORDER_REFUNDED');
+  END IF;
+
   IF EXISTS (
     SELECT 1
     FROM public.transactions AS t

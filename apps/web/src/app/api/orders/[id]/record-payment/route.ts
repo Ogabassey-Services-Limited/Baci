@@ -379,6 +379,18 @@ export async function POST(
       );
     }
 
+    if (manualPaymentResult?.error_code === 'ORDER_REFUNDED') {
+      logger.warn({
+        message: 'RecordPayment rejected by atomic insert: order refunded',
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        { error: 'Cannot record a payment on a refunded order' },
+        { status: 409 }
+      );
+    }
+
     if (
       manualPaymentResult?.error_code === 'AMOUNT_EXCEEDS_REMAINING_BALANCE'
     ) {
