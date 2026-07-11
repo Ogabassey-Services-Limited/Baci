@@ -298,7 +298,7 @@ describe('useRecordPayment', () => {
     expect(generateUUID).toHaveBeenCalledTimes(1);
   });
 
-  it('reuses the pending idempotency key when only payment method changes', async () => {
+  it('resends the original payment method with a pending idempotency key', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },
     });
@@ -335,14 +335,14 @@ describe('useRecordPayment', () => {
       JSON.parse(String(init?.body))
     );
     expect(requestBodies[0].payment_method).toBe('cash');
-    expect(requestBodies[1].payment_method).toBe('bank_transfer');
+    expect(requestBodies[1].payment_method).toBe('cash');
     expect(requestBodies[0].idempotency_key).toBe(
       requestBodies[1].idempotency_key
     );
     expect(generateUUID).toHaveBeenCalledTimes(1);
   });
 
-  it('reuses the pending idempotency key when a reference is added', async () => {
+  it('resends the original missing reference with a pending idempotency key', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },
     });
@@ -381,7 +381,7 @@ describe('useRecordPayment', () => {
       JSON.parse(String(init?.body))
     );
     expect(requestBodies[0].reference).toBeUndefined();
-    expect(requestBodies[1].reference).toBe('POS-123');
+    expect(requestBodies[1].reference).toBeUndefined();
     expect(requestBodies[0].idempotency_key).toBe(
       requestBodies[1].idempotency_key
     );

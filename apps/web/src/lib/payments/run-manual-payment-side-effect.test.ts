@@ -1,9 +1,10 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runManualPaymentSideEffect } from './run-manual-payment-side-effect';
 
 const mockSingle = vi.fn();
 const mockRpc = vi.fn();
-const supabase = { rpc: mockRpc } as never;
+const supabase: Pick<SupabaseClient, 'rpc'> = { rpc: mockRpc };
 
 describe('runManualPaymentSideEffect', () => {
   beforeEach(() => {

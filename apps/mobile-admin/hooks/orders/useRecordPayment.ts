@@ -18,6 +18,8 @@ const RECORD_PAYMENT_RETRY_KEY_PREFIX = 'manual-payment-retry:';
 interface PendingIdempotencyKey {
   createdAt: number;
   idempotencyKey: string;
+  paymentMethod: string;
+  reference: string | null;
 }
 
 export function useRecordPayment() {
@@ -66,9 +68,15 @@ export function useRecordPayment() {
       const createdAt = reusableRetry?.createdAt || Date.now();
       const idempotencyKey =
         reusableRetry?.idempotencyKey ?? generateUUID();
+      const retryPaymentMethod = reusableRetry?.paymentMethod ?? paymentMethod;
+      const retryReference = reusableRetry
+        ? reusableRetry.reference ?? undefined
+        : reference?.trim() || undefined;
       pendingIdempotencyKeys.current.set(requestFingerprint, {
         createdAt,
         idempotencyKey,
+        paymentMethod: retryPaymentMethod,
+        reference: retryReference ?? null,
       });
       try {
         await AsyncStorage.setItem(
@@ -77,6 +85,8 @@ export function useRecordPayment() {
             createdAt,
             fingerprint: requestFingerprint,
             idempotencyKey,
+            paymentMethod: retryPaymentMethod,
+            reference: retryReference ?? null,
             status: 'pending',
           })
         );
@@ -91,8 +101,8 @@ export function useRecordPayment() {
             amount,
             idempotency_key: idempotencyKey,
             notes: notes?.trim() || undefined,
-            payment_method: paymentMethod,
-            reference: reference?.trim() || undefined,
+            payment_method: retryPaymentMethod,
+            reference: retryReference,
           }),
           headers: {
             'Content-Type': 'application/json',
@@ -125,6 +135,8 @@ export function useRecordPayment() {
             createdAt,
             fingerprint: requestFingerprint,
             idempotencyKey,
+            paymentMethod: retryPaymentMethod,
+            reference: retryReference ?? null,
             status: 'completed',
           })
         );

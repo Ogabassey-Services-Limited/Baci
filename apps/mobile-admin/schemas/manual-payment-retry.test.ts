@@ -6,11 +6,15 @@ describe('manualPaymentRetrySchema', () => {
     const result = manualPaymentRetrySchema.safeParse({
       fingerprint: '{"orderId":"order-1"}',
       idempotencyKey: '11111111-1111-4111-8111-111111111111',
+      paymentMethod: 'cash',
+      reference: null,
     });
 
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.createdAt).toBe(0);
+      expect(result.data.paymentMethod).toBe('cash');
+      expect(result.data.reference).toBeNull();
       expect(result.data.status).toBe('pending');
     }
   });

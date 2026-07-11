@@ -20,7 +20,7 @@ async function finishClaim({
   error: string | null;
   status: 'completed' | 'failed';
   step: ManualPaymentSideEffectStep;
-  supabase: SupabaseClient;
+  supabase: Pick<SupabaseClient, 'rpc'>;
   transactionId: string;
 }): Promise<boolean> {
   try {
@@ -56,7 +56,7 @@ export async function runManualPaymentSideEffect({
   execute: () => Promise<void>;
   orderId: string;
   step: ManualPaymentSideEffectStep;
-  supabase: SupabaseClient;
+  supabase: Pick<SupabaseClient, 'rpc'>;
   transactionId: string;
 }): Promise<'completed' | 'deferred' | 'failed'> {
   const claimToken = crypto.randomUUID();
