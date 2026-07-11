@@ -623,13 +623,25 @@ async function getCachedComparePageModel(
   categorySlug: string,
   canonicalSlug: string
 ): Promise<CachedComparePageCore | null> {
-  'use cache: remote';
+  // LOCAL 'use cache' (not remote): this entry embeds both full product-detail
+  // payloads, so its Vercel remote-cache SET (RemoteCacheHandler K.set) hangs to
+  // an internal timeout and NEVER persists — every request re-does the ~30s cold
+  // fill (verified in prod: constant ~34s, scales with category size, never
+  // serves warm, zero query/timeout/retry errors logged). Local cache has no
+  // write round-trip, so a cold fill costs only the (<3s) data work. Mirrors the
+  // getCachedMerchant / getCachedProductWithDetails precedent kept local for the
+  // same RemoteCacheHandler failures.
+  'use cache';
   try {
-    // 'categories' (revalidate 3600): freshness is tag-driven — product and
-    // category mutations fire revalidateTag(`products-${merchantId}`) /
-    // `categories-${merchantId}`, and blog mutations fire 'blog-posts' — so a
-    // short window would only force needless re-writes of this entry.
-    cacheLife('categories');
+    // 'products' (revalidate 300), NOT 'categories' (3600): now that this is a
+    // LOCAL entry, tag revalidation only evicts the instance that handled the
+    // mutation — other instances serve the prior snapshot until their window
+    // lapses. This model embeds mutable product price/stock (via
+    // getCachedProductWithDetails, itself local 'use cache' on the same
+    // 'products' window), so match that window to bound cross-instance staleness
+    // of the embedded data to ~5min and cap how long each per-slug entry
+    // lingers in a lambda's local cache.
+    cacheLife('products');
     cacheTag('category-page-data', 'products', 'categories', 'blog-posts');
   } catch {
     // Unit tests do not run with Next cacheComponents enabled.
