@@ -44,8 +44,10 @@ const richOrderEmailSchema = z.looseObject({
     .array(
       z.strictObject({
         condition: nullableStringSchema.optional(),
+        id: nullableStringSchema.optional(),
         name: nullableStringSchema,
         price: z.union([z.number(), z.string(), z.null()]),
+        product_id: nullableStringSchema.optional(),
         quantity: z.number().nullable(),
         variant_name: nullableStringSchema,
       })

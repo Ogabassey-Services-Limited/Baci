@@ -384,18 +384,10 @@ describe('useRecordPayment', () => {
     );
   });
 
-  it('does not reuse an expired persisted retry key', async () => {
+  it('reuses an unresolved persisted retry key after a long delay', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },
     });
-    vi.mocked(generateUUID)
-      .mockReturnValueOnce('11111111-1111-4111-8111-111111111111')
-      .mockReturnValueOnce('22222222-2222-4222-8222-222222222222');
-    const now = 1_700_000_000_000;
-    const dateNow = vi
-      .spyOn(Date, 'now')
-      .mockReturnValueOnce(now)
-      .mockReturnValue(now + 300_001);
     const abortError = new Error('aborted');
     abortError.name = 'AbortError';
     mocks.fetch.mockRejectedValueOnce(abortError).mockResolvedValueOnce({
@@ -422,10 +414,10 @@ describe('useRecordPayment', () => {
     const requestBodies = mocks.fetch.mock.calls.map(([, init]) =>
       JSON.parse(String(init?.body))
     );
-    expect(requestBodies[0].idempotency_key).not.toBe(
+    expect(requestBodies[0].idempotency_key).toBe(
       requestBodies[1].idempotency_key
     );
-    dateNow.mockRestore();
+    expect(generateUUID).toHaveBeenCalledTimes(1);
   });
 
   it('does not reuse a completed key when retry cleanup fails', async () => {

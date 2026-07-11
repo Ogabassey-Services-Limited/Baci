@@ -14,19 +14,11 @@ import { parseResponsePayload } from './response-utils';
 
 const RECORD_PAYMENT_TIMEOUT_MS = 15_000;
 const RECORD_PAYMENT_RETRY_KEY_PREFIX = 'manual-payment-retry:';
-const RECORD_PAYMENT_RETRY_LEASE_MS = 5 * 60 * 1000;
-
-interface PendingIdempotencyKey {
-  createdAt: number;
-  idempotencyKey: string;
-}
 
 export function useRecordPayment() {
   const queryClient = useQueryClient();
   const { merchant } = useMerchant();
-  const pendingIdempotencyKeys = useRef(
-    new Map<string, PendingIdempotencyKey>()
-  );
+  const pendingIdempotencyKeys = useRef(new Map<string, string>());
 
   return useMutation({
     mutationFn: async ({
@@ -58,31 +50,17 @@ export function useRecordPayment() {
       } catch (error) {
         console.error('Failed to read manual payment retry key', error);
       }
-      const now = Date.now();
-      const memoryRetry = pendingIdempotencyKeys.current.get(requestFingerprint);
-      const isFresh = (createdAt: number) => {
-        const age = now - createdAt;
-        return createdAt > 0 && age >= 0 && age < RECORD_PAYMENT_RETRY_LEASE_MS;
-      };
-      const reusableRetry =
-        memoryRetry && isFresh(memoryRetry.createdAt)
-          ? memoryRetry
-          : storedRetry?.fingerprint === requestFingerprint &&
-              storedRetry.status === 'pending' &&
-              isFresh(storedRetry.createdAt)
-            ? storedRetry
-            : null;
-      const idempotencyKey = reusableRetry?.idempotencyKey ?? generateUUID();
-      const createdAt = reusableRetry?.createdAt ?? now;
-      pendingIdempotencyKeys.current.set(requestFingerprint, {
-        createdAt,
-        idempotencyKey,
-      });
+      const idempotencyKey =
+        pendingIdempotencyKeys.current.get(requestFingerprint) ??
+        (storedRetry?.fingerprint === requestFingerprint &&
+        storedRetry.status === 'pending'
+          ? storedRetry.idempotencyKey
+          : generateUUID());
+      pendingIdempotencyKeys.current.set(requestFingerprint, idempotencyKey);
       try {
         await AsyncStorage.setItem(
           storageKey,
           JSON.stringify({
-            createdAt,
             fingerprint: requestFingerprint,
             idempotencyKey,
             status: 'pending',
@@ -129,7 +107,6 @@ export function useRecordPayment() {
         await AsyncStorage.setItem(
           storageKey,
           JSON.stringify({
-            createdAt,
             fingerprint: requestFingerprint,
             idempotencyKey,
             status: 'completed',

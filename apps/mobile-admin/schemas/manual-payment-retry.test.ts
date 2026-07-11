@@ -9,10 +9,7 @@ describe('manualPaymentRetrySchema', () => {
     });
 
     expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.createdAt).toBe(0);
-      expect(result.data.status).toBe('pending');
-    }
+    if (result.success) expect(result.data.status).toBe('pending');
   });
 
   it('accepts a completed retry marker', () => {
@@ -43,23 +40,4 @@ describe('manualPaymentRetrySchema', () => {
     ).toBe(false);
   });
 
-  it('accepts a persisted retry lease timestamp', () => {
-    expect(
-      manualPaymentRetrySchema.safeParse({
-        createdAt: 1_700_000_000_000,
-        fingerprint: '{"orderId":"order-1"}',
-        idempotencyKey: '11111111-1111-4111-8111-111111111111',
-      }).success
-    ).toBe(true);
-  });
-
-  it.each([-1, 1.5])('rejects invalid createdAt value %s', (createdAt) => {
-    expect(
-      manualPaymentRetrySchema.safeParse({
-        createdAt,
-        fingerprint: '{"orderId":"order-1"}',
-        idempotencyKey: '11111111-1111-4111-8111-111111111111',
-      }).success
-    ).toBe(false);
-  });
 });
