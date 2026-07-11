@@ -4689,6 +4689,7 @@ describe('POST /api/payments/webhook', () => {
       let transactionCallCount = 0;
       let _merchantCallCount = 0;
       let _orderCallCount = 0;
+      const orderSelect = vi.fn().mockReturnThis();
 
       vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
         if (table === 'transactions') {
@@ -4734,7 +4735,7 @@ describe('POST /api/payments/webhook', () => {
           return {
             update: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
-            select: vi.fn().mockReturnThis(),
+            select: orderSelect,
             single: vi.fn().mockResolvedValue({
               data: {
                 id: 'order-123',
@@ -4802,6 +4803,13 @@ describe('POST /api/payments/webhook', () => {
         success: true,
         message: 'Payment processed successfully',
       });
+      const selectArg = orderSelect.mock.calls[0]?.[0];
+      expect(selectArg).toContain(
+        'order_items(id, product_id, condition, name, price, quantity, variant_name)'
+      );
+      const orderItemsProjection =
+        selectArg?.match(/order_items\(([^)]*)\)/)?.[1] ?? '';
+      expect(orderItemsProjection).not.toContain('subtotal');
 
       // Review feedback: assert the shared side-effect runner receives the
       // BAC-* canonical key and the external gateway reference separately. The
