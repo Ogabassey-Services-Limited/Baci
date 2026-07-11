@@ -19,13 +19,10 @@ vi.mock('next/headers', () => ({
 }));
 
 const mockGetMerchantByIdentifier = vi.fn();
-const mockGetCachedFeatureSettings = vi.fn();
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
     mockGetMerchantByIdentifier(...args),
-  getCachedFeatureSettings: (...args: unknown[]) =>
-    mockGetCachedFeatureSettings(...args),
 }));
 
 const mockLimit = vi.fn(() => ({
@@ -73,8 +70,8 @@ describe('GET /blog/news-sitemap.xml', () => {
       custom_domain: 'ogabassey.com',
       id: 'merchant-1',
       slug: 'ogabassey',
+      feature_settings: { blog_enabled: true },
     });
-    mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: true });
   });
 
   it('returns a Google News sitemap for recent public blog posts', async () => {
@@ -128,7 +125,13 @@ describe('GET /blog/news-sitemap.xml', () => {
   });
 
   it('returns an empty sitemap when the blog feature is disabled', async () => {
-    mockGetCachedFeatureSettings.mockResolvedValueOnce({ blog_enabled: false });
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      business_name: 'Ogabassey Easybuy Gadgets',
+      custom_domain: 'ogabassey.com',
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      feature_settings: { blog_enabled: false },
+    });
 
     const { GET } = await import('./route');
     const response = await GET(
@@ -149,6 +152,7 @@ describe('GET /blog/news-sitemap.xml', () => {
       custom_domain: 'ogabassey.com',
       id: 'merchant-1',
       slug: 'ogabassey',
+      feature_settings: { blog_enabled: true },
     });
     mockBlogPosts = [
       {

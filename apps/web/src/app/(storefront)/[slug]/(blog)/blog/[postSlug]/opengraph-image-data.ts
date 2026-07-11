@@ -6,7 +6,6 @@ import {
 } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-loader';
 import { withTimeout } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-security';
 import {
-  getCachedFeatureSettings,
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
@@ -15,7 +14,6 @@ import { createPublicClient } from '@/lib/supabase/public';
 import { isDomainIdentifier } from '@/lib/validation';
 
 const MERCHANT_LOOKUP_TIMEOUT_MS = 4000;
-const FEATURE_SETTINGS_TIMEOUT_MS = 4000;
 
 export type {
   RemoteImageLoadResult,
@@ -122,22 +120,7 @@ async function resolveMerchantForBlogOg(
   const merchantBusinessName = merchant.business_name?.trim();
   if (!merchantBusinessName) return null;
 
-  try {
-    const features = await withTimeout(
-      getCachedFeatureSettings(merchant.id),
-      FEATURE_SETTINGS_TIMEOUT_MS,
-      'blog feature settings lookup'
-    );
-    if (!features?.blog_enabled) return null;
-  } catch (error) {
-    console.error('Failed to fetch blog feature settings for OG image', {
-      merchantId: merchant.id,
-      routeIdentifier: slug,
-      postSlug,
-      error,
-    });
-    return null;
-  }
+  if (!merchant.feature_settings?.blog_enabled) return null;
 
   return {
     merchant,

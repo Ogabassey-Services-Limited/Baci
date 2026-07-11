@@ -2,7 +2,6 @@ import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
 import { getBlogAuthorBySlug, getBlogAuthorSlugs } from '@/lib/blog-authors';
 import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
-import { getCachedFeatureSettings } from '@/lib/cached-data';
 import {
   filterPublicBlogPosts,
   isPublicBlogCategory,
@@ -98,8 +97,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Mirror the blog feature flag guard used in getCachedBlogListing /
   // getCachedBlogPost so disabled storefronts don't expose a sitemap
   // pointing at routes that return 404.
-  const features = await getCachedFeatureSettings(merchant.id);
-  if (!features?.blog_enabled) {
+  if (!merchant.feature_settings?.blog_enabled) {
     return [];
   }
 
