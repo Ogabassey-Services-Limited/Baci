@@ -9,8 +9,25 @@ const migration = readFileSync(
   ),
   'utf8'
 );
+const indexMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260710212900_add_manual_payment_idempotency_index.sql'
+  ),
+  'utf8'
+);
 
 describe('manual payment RPC migration', () => {
+  it('builds the retry-key index concurrently outside a transaction', () => {
+    expect(indexMigration).toContain('-- disable-transaction');
+    expect(indexMigration).toContain(
+      'CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS'
+    );
+    expect(indexMigration).toContain(
+      'transactions_manual_payment_idempotency_key_uidx'
+    );
+  });
+
   it('requires an idempotency key and stores it in transaction metadata', () => {
     expect(migration).toContain('p_idempotency_key text');
     expect(migration).toContain(

@@ -4,15 +4,6 @@ DROP FUNCTION IF EXISTS public.record_manual_order_payment(
   uuid, uuid, numeric, text, text, text, jsonb
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS transactions_manual_payment_idempotency_key_uidx
-  ON public.transactions (
-    order_id,
-    (NULLIF(btrim(metadata ->> 'manual_payment_idempotency_key'), ''))
-  )
-  WHERE gateway = 'manual'
-    AND transaction_type = 'payment'
-    AND NULLIF(btrim(metadata ->> 'manual_payment_idempotency_key'), '') IS NOT NULL;
-
 CREATE OR REPLACE FUNCTION public.record_manual_order_payment(
   p_merchant_id uuid,
   p_order_id uuid,
