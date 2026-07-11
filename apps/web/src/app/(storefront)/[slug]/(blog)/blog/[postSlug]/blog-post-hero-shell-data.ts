@@ -1,6 +1,6 @@
 import { unstable_rethrow } from 'next/navigation';
 import { hasBlogAuthorPage } from '@/lib/blog-authors';
-import { getCachedBlogPost } from '@/lib/cached-data';
+import { getRequestScopedBlogPost } from '@/lib/cached-data';
 import { generateSlug } from '@/lib/seo-utils';
 import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { isDomainIdentifier } from '@/lib/validation';
@@ -17,9 +17,11 @@ export interface BlogPostHeroShell {
  * Resolve the cached, published blog post into the props needed to render the
  * hero + header in the static shell (the page root's hero-hoist path).
  *
- * Cached-only (`getCachedBlogPost`), so it is safe to await at the page root
- * without forcing the route dynamic — the exact same lookup `generateMetadata`
- * uses. Returns `null` for missing / draft-only / retired posts and for
+ * Cached-only (`getRequestScopedBlogPost`), so it is safe to await at the page
+ * root without forcing the route dynamic — the exact same request-scoped
+ * lookup `generateMetadata` uses (deduped via React cache(), so this reuses
+ * that Promise instead of a second Supabase round-trip). Returns `null` for
+ * missing / draft-only / retired posts and for
  * published posts without a featured image, so the caller falls back to the
  * full-Suspense render (unchanged proxy-404 and draft-preview contracts).
  *
@@ -56,9 +58,9 @@ export async function resolveBlogPostHeroShell(
     return null;
   }
 
-  let data: Awaited<ReturnType<typeof getCachedBlogPost>> = null;
+  let data: Awaited<ReturnType<typeof getRequestScopedBlogPost>> = null;
   try {
-    data = await getCachedBlogPost(slug, postSlug, false);
+    data = await getRequestScopedBlogPost(slug, postSlug, false);
   } catch (error) {
     unstable_rethrow(error);
     console.error('Error fetching cached blog hero shell', {

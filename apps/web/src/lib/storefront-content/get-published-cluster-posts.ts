@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { cacheLife, cacheTag } from 'next/cache';
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import { getPublicSupabaseClient } from '@/lib/cached-data';
 import { buildClusterGuideSearchQuery } from './build-cluster-guide-search-query';
@@ -52,16 +53,44 @@ type StorefrontClusterGuideDatabase = {
 /**
  * Loads only context-relevant public guide candidates from the database.
  *
- * This read is intentionally not wrapped in a Cache Components remote entry:
- * the RPC already bounds the payload and uses the blog full-text index, while
- * the previous high-cardinality remote value was itself a recurring runtime
- * failure source. Errors escape so the page-level optional-content boundary
- * can fail open without persisting an empty result.
+ * Cached LOCALLY — deliberately `'use cache'`, not `'use cache: remote'`. The
+ * prior rejection (see git history on this file / PR #3017) targeted an
+ * UNBOUNDED ~400KB `'use cache: remote'` entry that cached a merchant's
+ * entire published blog corpus and was re-written to Vercel's managed data
+ * cache every 60s; that remote-write path (RemoteCacheHandler 502/503 ->
+ * unhandled rejection -> process exit) was the dominant source of storefront
+ * cache failures, independent of this function's argument shape. The RPC
+ * below already bounds every response to <=64 relevance-ranked rows via
+ * SQL LIMIT, so the unbounded-payload condition no longer holds, and a local
+ * entry never takes the remote write path at all. Cache Components keys each
+ * entry on the full argument tuple (merchantId + context), so a product/
+ * compare/category/price-band request can never be served another request's
+ * cached rows.
+ *
+ * Errors escape so the page-level optional-content boundary can fail open
+ * without persisting an empty result.
  */
 export async function getPublishedClusterPosts(
   merchantId: string,
   context: BuildCommercialGuideLinksContext
 ): Promise<PublishedClusterPost[]> {
+  'use cache';
+  try {
+    // 'blog' (revalidate 3600, expire 86400): matches getCachedBlogPost — this
+    // read is bounded and index-backed, so the merchant-wide unbounded-payload
+    // condition that forced the old cache off a long revalidate window no
+    // longer applies. Tag parity with getCachedBlogPost/revalidateBlogPosts
+    // (`blog-posts`), revalidateProducts (`products-${merchantId}`), and
+    // revalidateFeatures (`features-${merchantId}`, since the blog_enabled
+    // gate now lives inside the RPC instead of a nested cached call) so a
+    // post publish/edit or a blog_enabled toggle busts every cached context
+    // for this merchant instead of waiting out the TTL.
+    cacheLife('blog');
+    cacheTag('blog-posts', `products-${merchantId}`, `features-${merchantId}`);
+  } catch {
+    // Unit tests do not run with Next cacheComponents enabled.
+  }
+
   // The repository has not generated a global Database type yet. Keep the
   // assertion at this RPC adapter boundary so Supabase can type the set-return
   // contract correctly; overrideTypes() cannot turn the default scalar Json
