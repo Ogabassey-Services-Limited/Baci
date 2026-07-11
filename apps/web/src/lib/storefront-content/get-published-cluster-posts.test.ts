@@ -3,10 +3,33 @@ import { getPublishedClusterPosts } from './get-published-cluster-posts';
 
 const mockRpc = vi.fn();
 const mockGetPublicSupabaseClient = vi.fn();
+const mockCacheLife = vi.fn();
+const mockCacheTag = vi.fn();
 
 vi.mock('@/lib/cached-data', () => ({
   getPublicSupabaseClient: () => mockGetPublicSupabaseClient(),
 }));
+
+vi.mock('next/cache', () => ({
+  cacheLife: (...args: unknown[]) => mockCacheLife(...args),
+  cacheTag: (...args: unknown[]) => mockCacheTag(...args),
+}));
+
+// The RPC result is chained through `.abortSignal().retry(false)` (the fix that
+// bounds this optional read and disables the PostgREST TimeoutError retry
+// storm) before being awaited, so the mock returns a chainable thenable.
+function createRpcQuery(result: { data?: unknown; error?: unknown }) {
+  const query = {
+    abortSignal: vi.fn(() => query),
+    retry: vi.fn(() => query),
+    // biome-ignore lint/suspicious/noThenProperty: mock intentionally mimics postgrest-js's thenable query builder
+    then: (
+      resolve: (value: typeof result) => unknown,
+      reject?: (reason: unknown) => unknown
+    ) => Promise.resolve(result).then(resolve, reject),
+  };
+  return query;
+}
 
 const context = {
   pageKind: 'compare' as const,
@@ -18,23 +41,36 @@ const context = {
 describe('getPublishedClusterPosts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRpc.mockResolvedValue({
-      data: [
-        {
-          slug: 'iphone-15-pro-vs-galaxy-s25',
-          title: 'iPhone 15 Pro vs Galaxy S25',
-          excerpt: 'Compare both phones.',
-          category: 'Smartphones',
-          tags: ['comparison'],
-          keywords: ['iphone', 'galaxy'],
-          featured_image_url: null,
-          published_at: '2026-04-10T09:00:00.000Z',
-          reading_time_minutes: 6,
-        },
-      ],
-      error: null,
-    });
+    mockRpc.mockReturnValue(
+      createRpcQuery({
+        data: [
+          {
+            slug: 'iphone-15-pro-vs-galaxy-s25',
+            title: 'iPhone 15 Pro vs Galaxy S25',
+            excerpt: 'Compare both phones.',
+            category: 'Smartphones',
+            tags: ['comparison'],
+            keywords: ['iphone', 'galaxy'],
+            featured_image_url: null,
+            published_at: '2026-04-10T09:00:00.000Z',
+            reading_time_minutes: 6,
+          },
+        ],
+        error: null,
+      })
+    );
     mockGetPublicSupabaseClient.mockReturnValue({ rpc: mockRpc });
+  });
+
+  it('caches locally with the blog profile and merchant-scoped invalidation tags', async () => {
+    await getPublishedClusterPosts('merchant-1', context);
+
+    expect(mockCacheLife).toHaveBeenCalledWith('blog');
+    expect(mockCacheTag).toHaveBeenCalledWith(
+      'blog-posts',
+      'products-merchant-1',
+      'features-merchant-1'
+    );
   });
 
   it('loads a bounded, context-ranked candidate set through the public RPC', async () => {
@@ -74,7 +110,7 @@ describe('getPublishedClusterPosts', () => {
   });
 
   it('returns an empty candidate set when the RPC succeeds without rows', async () => {
-    mockRpc.mockResolvedValueOnce({ data: null, error: null });
+    mockRpc.mockReturnValueOnce(createRpcQuery({ data: null, error: null }));
 
     await expect(
       getPublishedClusterPosts('merchant-1', context)
@@ -82,10 +118,12 @@ describe('getPublishedClusterPosts', () => {
   });
 
   it('throws RPC failures so callers can degrade without caching the failure', async () => {
-    mockRpc.mockResolvedValueOnce({
-      data: null,
-      error: { code: '57014', message: 'statement timeout' },
-    });
+    mockRpc.mockReturnValueOnce(
+      createRpcQuery({
+        data: null,
+        error: { code: '57014', message: 'statement timeout' },
+      })
+    );
 
     await expect(
       getPublishedClusterPosts('merchant-1', context)

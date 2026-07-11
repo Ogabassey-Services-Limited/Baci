@@ -22,7 +22,7 @@ const pageMockState = vi.hoisted(() => ({
   mockNotFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
   }),
-  mockGetCachedBlogPost: vi.fn(),
+  mockGetRequestScopedBlogPost: vi.fn(),
   // Regression guard: the page module must never touch next/server's
   // connection() again — that is exactly what forced the route dynamic and
   // logged NEXT_STATIC_GEN_BAILOUT on every production request (PR #2882).
@@ -56,7 +56,8 @@ export const mockPermanentRedirect = pageMockState.mockPermanentRedirect;
 export const mockDraftMode = pageMockState.mockDraftMode;
 export const mockHeaders = pageMockState.mockHeaders;
 export const mockNotFound = pageMockState.mockNotFound;
-export const mockGetCachedBlogPost = pageMockState.mockGetCachedBlogPost;
+export const mockGetRequestScopedBlogPost =
+  pageMockState.mockGetRequestScopedBlogPost;
 export const mockConnection = pageMockState.mockConnection;
 export const mockResolveBlogPostHeroShell =
   pageMockState.mockResolveBlogPostHeroShell;
@@ -90,8 +91,8 @@ vi.mock('next/server', () => ({
 }));
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedBlogPost: (...args: unknown[]) =>
-    pageMockState.mockGetCachedBlogPost(...args),
+  getRequestScopedBlogPost: (...args: unknown[]) =>
+    pageMockState.mockGetRequestScopedBlogPost(...args),
 }));
 
 vi.mock('@/lib/blog-post-redirects', () => ({
@@ -188,8 +189,8 @@ export function resetBlogPostPageMocks() {
   vi.clearAllMocks();
   mockDraftMode.mockReset();
   mockDraftMode.mockResolvedValue({ isEnabled: false });
-  mockGetCachedBlogPost.mockReset();
-  mockGetCachedBlogPost.mockResolvedValue(liveBlogPost);
+  mockGetRequestScopedBlogPost.mockReset();
+  mockGetRequestScopedBlogPost.mockResolvedValue(liveBlogPost);
   mockHeaders.mockResolvedValue(new Headers());
   mockBlogPostPageContent.mockReset();
   mockBlogPostPageContent.mockImplementation(() => (

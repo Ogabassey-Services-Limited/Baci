@@ -1,12 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetCachedBlogPost, mockHasBlogAuthorPage } = vi.hoisted(() => ({
-  mockGetCachedBlogPost: vi.fn(),
-  mockHasBlogAuthorPage: vi.fn(),
-}));
+const { mockGetRequestScopedBlogPost, mockHasBlogAuthorPage } = vi.hoisted(
+  () => ({
+    mockGetRequestScopedBlogPost: vi.fn(),
+    mockHasBlogAuthorPage: vi.fn(),
+  })
+);
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedBlogPost: (...args: unknown[]) => mockGetCachedBlogPost(...args),
+  getRequestScopedBlogPost: (...args: unknown[]) =>
+    mockGetRequestScopedBlogPost(...args),
 }));
 
 vi.mock('@/lib/blog-authors', () => ({
@@ -53,14 +56,14 @@ describe('resolveBlogPostHeroShell', () => {
   });
 
   it('builds domain-scoped hero + header props for a published post with a hero image', async () => {
-    mockGetCachedBlogPost.mockResolvedValue(publishedPost);
+    mockGetRequestScopedBlogPost.mockResolvedValue(publishedPost);
 
     const shell = await resolveBlogPostHeroShell(
       'ogabassey.com',
       'the-great-5k-stall'
     );
 
-    expect(mockGetCachedBlogPost).toHaveBeenCalledWith(
+    expect(mockGetRequestScopedBlogPost).toHaveBeenCalledWith(
       'ogabassey.com',
       'the-great-5k-stall',
       false
@@ -85,7 +88,7 @@ describe('resolveBlogPostHeroShell', () => {
   });
 
   it('returns null for non-domain tenants without fetching (subdomain vs path mode is header-ambiguous in the static shell)', async () => {
-    mockGetCachedBlogPost.mockResolvedValue(publishedPost);
+    mockGetRequestScopedBlogPost.mockResolvedValue(publishedPost);
 
     const shell = await resolveBlogPostHeroShell(
       'my-store',
@@ -96,11 +99,11 @@ describe('resolveBlogPostHeroShell', () => {
     // static shell can't read headers to tell the modes apart, so the hero-hoist
     // fast path is skipped entirely (page falls back to the full-Suspense path).
     expect(shell).toBeNull();
-    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+    expect(mockGetRequestScopedBlogPost).not.toHaveBeenCalled();
   });
 
   it('returns null for unsafe bot slugs without fetching (unbounded cache key, #2923)', async () => {
-    mockGetCachedBlogPost.mockResolvedValue(publishedPost);
+    mockGetRequestScopedBlogPost.mockResolvedValue(publishedPost);
 
     const shell = await resolveBlogPostHeroShell(
       'ogabassey.com',
@@ -108,11 +111,11 @@ describe('resolveBlogPostHeroShell', () => {
     );
 
     expect(shell).toBeNull();
-    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+    expect(mockGetRequestScopedBlogPost).not.toHaveBeenCalled();
   });
 
   it('omits the author href when the author has no hub page', async () => {
-    mockGetCachedBlogPost.mockResolvedValue(publishedPost);
+    mockGetRequestScopedBlogPost.mockResolvedValue(publishedPost);
     mockHasBlogAuthorPage.mockReturnValue(false);
 
     const shell = await resolveBlogPostHeroShell('ogabassey.com', 'slug');
@@ -121,7 +124,7 @@ describe('resolveBlogPostHeroShell', () => {
   });
 
   it('returns null for a published post without a featured image', async () => {
-    mockGetCachedBlogPost.mockResolvedValue({
+    mockGetRequestScopedBlogPost.mockResolvedValue({
       ...publishedPost,
       post: { ...publishedPost.post, featured_image_url: null },
     });
@@ -130,19 +133,21 @@ describe('resolveBlogPostHeroShell', () => {
   });
 
   it('returns null when the cached lookup finds no post', async () => {
-    mockGetCachedBlogPost.mockResolvedValue(null);
+    mockGetRequestScopedBlogPost.mockResolvedValue(null);
 
     expect(await resolveBlogPostHeroShell('ogabassey.com', 'slug')).toBeNull();
   });
 
   it('swallows non-control-flow lookup errors and returns null', async () => {
-    mockGetCachedBlogPost.mockRejectedValue(new Error('cache miss'));
+    mockGetRequestScopedBlogPost.mockRejectedValue(new Error('cache miss'));
 
     expect(await resolveBlogPostHeroShell('ogabassey.com', 'slug')).toBeNull();
   });
 
   it('rethrows framework control-flow errors', async () => {
-    mockGetCachedBlogPost.mockRejectedValue(new Error('NEXT_CONTROL_FLOW'));
+    mockGetRequestScopedBlogPost.mockRejectedValue(
+      new Error('NEXT_CONTROL_FLOW')
+    );
 
     await expect(
       resolveBlogPostHeroShell('ogabassey.com', 'slug')

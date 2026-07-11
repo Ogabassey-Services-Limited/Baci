@@ -66,10 +66,12 @@ export function getPickupStationMode({
     deliveryMethod === 'pickup_station' &&
     hasResolvedDeliveryLocation &&
     !isPickupEligible(state);
+  // Availability is broader than active usage so customers can select pickup
+  // before the provider quote has been fetched.
   const canUsePickupStation =
     isPickupEligible(state) ||
     stationPickupQuote !== undefined ||
-    (hasResolvedDeliveryLocation && !isPickupEligible(state));
+    hasResolvedDeliveryLocation;
 
   return {
     canUsePickupStation,

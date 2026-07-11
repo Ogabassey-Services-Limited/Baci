@@ -25,7 +25,7 @@ import { mergeStorefrontSmartAppBannerOther } from '@/lib/storefront-smart-app-b
 import {
   getCategorizedRedirectTarget,
   getInvalidVariantSelectionRedirectTarget,
-  getProductCached,
+  getRequestScopedProduct,
   resolveProductPage,
 } from './product-page-resolution';
 import { ProductPageRuntime } from './product-page-runtime';
@@ -43,7 +43,10 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { slug, productSlug } = await params;
   const resolvedSearchParams = await searchParams;
-  const productResult = await getProductCached(slug, productSlug);
+  // Request-scoped (React cache()) — reuses the same Promise resolveProductPage
+  // awaits below for this (slug, productSlug) pair instead of a second
+  // Supabase round-trip.
+  const productResult = await getRequestScopedProduct(slug, productSlug);
   if (!productResult) {
     notFound();
   }

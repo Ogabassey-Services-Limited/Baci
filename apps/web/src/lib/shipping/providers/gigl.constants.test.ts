@@ -6,10 +6,54 @@ describe('GIGL provider constants', () => {
     const { PickupOptions, VehicleType, parseGiglProviderRateId } =
       await import('./gigl.constants');
 
+    expect(parseGiglProviderRateId('GIGL_30_1_2_575')).toEqual({
+      receiverStationId: 30,
+      pickupOption: PickupOptions.ServiceCentre,
+      vehicleType: VehicleType.Van,
+      serviceCentreId: 575,
+      deliveryType: 0,
+    });
+  });
+
+  it('parses legacy rate ids without a service-centre segment', async () => {
+    vi.resetModules();
+    const { PickupOptions, VehicleType, parseGiglProviderRateId } =
+      await import('./gigl.constants');
+
     expect(parseGiglProviderRateId('GIGL_30_1_2')).toEqual({
       receiverStationId: 30,
       pickupOption: PickupOptions.ServiceCentre,
       vehicleType: VehicleType.Van,
+      serviceCentreId: undefined,
+      deliveryType: 0,
+    });
+  });
+
+  it('round-trips priority rate ids without confusing the service centre', async () => {
+    vi.resetModules();
+    const {
+      GiglDeliveryType,
+      PickupOptions,
+      VehicleType,
+      buildGiglProviderRateId,
+      parseGiglProviderRateId,
+    } = await import('./gigl.constants');
+
+    const providerRateId = buildGiglProviderRateId({
+      receiverStationId: 30,
+      pickupOption: PickupOptions.ServiceCentre,
+      vehicleType: VehicleType.Bike,
+      serviceCentreId: 575,
+      deliveryType: GiglDeliveryType.GoFaster,
+    });
+
+    expect(providerRateId).toBe('GIGL_30_1_1_575_1');
+    expect(parseGiglProviderRateId(providerRateId)).toEqual({
+      receiverStationId: 30,
+      pickupOption: PickupOptions.ServiceCentre,
+      vehicleType: VehicleType.Bike,
+      serviceCentreId: 575,
+      deliveryType: GiglDeliveryType.GoFaster,
     });
   });
 

@@ -8,7 +8,7 @@ type ThemeColors = (typeof Colors)['light'];
 interface InstrumentRowsProps {
   colors: ThemeColors;
   methods: PaymentMethod[];
-  selectedMethod: PaymentMethodType;
+  selectedMethod: PaymentMethodType | null;
   /** Wallet fully covers the order and is active — gateway rows go informational. */
   walletSuppressesGateway: boolean;
   /** Device savings fully covers the order and is active. */
@@ -40,7 +40,9 @@ export function InstrumentRows({
   return (
     <>
       {methods.map((method) => {
-        const selectionSuppressed = suppressedSelectedMethods.includes(method.id);
+        const selectionSuppressed = suppressedSelectedMethods.includes(
+          method.id
+        );
         const isSelected =
           selectedMethod === method.id &&
           !walletSuppressesGateway &&

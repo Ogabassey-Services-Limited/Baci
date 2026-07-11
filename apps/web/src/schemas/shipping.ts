@@ -3,24 +3,52 @@
  * Centralized schemas for shipping-related API routes
  */
 
-import z from 'zod';
+import z, { type RefinementCtx } from 'zod';
 import { isValidUuid } from '@/lib/sanitize-core';
+
+const LatitudeSchema = z.number().finite().min(-90).max(90).optional();
+const LongitudeSchema = z.number().finite().min(-180).max(180).optional();
+
+interface CoordinateFields {
+  latitude?: number;
+  longitude?: number;
+}
+
+function requireCoordinatePair(
+  address: CoordinateFields,
+  ctx: RefinementCtx,
+  path: (string | number)[] = []
+) {
+  const hasLatitude = address.latitude !== undefined;
+  const hasLongitude = address.longitude !== undefined;
+  if (hasLatitude === hasLongitude) return;
+
+  ctx.addIssue({
+    code: 'custom',
+    message: 'Latitude and longitude must be provided together',
+    path: [...path, hasLatitude ? 'longitude' : 'latitude'],
+  });
+}
 
 /**
  * Address schema for shipping sender/receiver
  */
-const AddressSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.email().optional(),
-  phone: z.string().min(10, 'Phone must be at least 10 digits'),
-  address: z.string().min(5, 'Address must be at least 5 characters'),
-  city: z.string().min(2, 'City must be at least 2 characters'),
-  state: z.string().min(2, 'State must be at least 2 characters'),
-  country: z.string().default('Nigeria'),
-  countryCode: z.string().default('NG'),
-  postalCode: z.string().optional(),
-  stationId: z.number().optional(),
-});
+const AddressSchema = z
+  .object({
+    name: z.string().min(2, 'Name must be at least 2 characters'),
+    email: z.email().optional(),
+    phone: z.string().min(10, 'Phone must be at least 10 digits'),
+    address: z.string().min(5, 'Address must be at least 5 characters'),
+    city: z.string().min(2, 'City must be at least 2 characters'),
+    state: z.string().min(2, 'State must be at least 2 characters'),
+    country: z.string().default('Nigeria'),
+    countryCode: z.string().default('NG'),
+    postalCode: z.string().optional(),
+    latitude: LatitudeSchema,
+    longitude: LongitudeSchema,
+    stationId: z.number().optional(),
+  })
+  .superRefine((address, ctx) => requireCoordinatePair(address, ctx));
 
 /**
  * Shipping item schema
@@ -87,6 +115,8 @@ const BaseQuoteAddressSchema = z.object({
   country: z.string().optional(),
   countryCode: z.string().optional(),
   postalCode: z.string().optional(),
+  latitude: LatitudeSchema,
+  longitude: LongitudeSchema,
   stationId: z.number().optional(),
 });
 
@@ -117,6 +147,8 @@ export const QuoteRequestSchema = z
     deliveryPreference: z.enum(['door', 'pickup_station']).optional(),
   })
   .superRefine((data, ctx) => {
+    requireCoordinatePair(data.receiver, ctx, ['receiver']);
+    if (data.sender) requireCoordinatePair(data.sender, ctx, ['sender']);
     if (data.shipmentType !== 'international') return;
     if (!data.receiver.country?.trim()) {
       ctx.addIssue({

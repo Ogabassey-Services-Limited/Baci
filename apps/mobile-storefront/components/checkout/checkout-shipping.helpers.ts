@@ -29,6 +29,8 @@ export type FetchQuotesArgs = {
   apiUrl: string;
   state: string;
   city: string;
+  latitude?: number;
+  longitude?: number;
   items: CartItem[];
   customer: { email?: string } | null;
   watchedFirstName: string;
@@ -110,6 +112,8 @@ export const fetchShippingQuotes = async ({
   apiUrl,
   state,
   city,
+  latitude,
+  longitude,
   items,
   customer,
   watchedFirstName,
@@ -154,6 +158,9 @@ export const fetchShippingQuotes = async ({
           city,
           state,
           country: 'Nigeria',
+          ...(Number.isFinite(latitude) && Number.isFinite(longitude)
+            ? { latitude, longitude }
+            : {}),
         },
         items: items.map((item) => ({
           name: item.name,

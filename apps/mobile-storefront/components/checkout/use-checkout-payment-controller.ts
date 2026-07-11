@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { CheckoutStep } from '@/components/checkout/CheckoutStepper';
 import { getPaymentTabForMethod } from '@/components/checkout/checkout-step-helpers';
-import {
-  type PaymentMethodType,
-  type PaymentTab,
+import type {
+  PaymentMethodType,
+  PaymentTab,
 } from '@/components/checkout/PaymentMethodSelector';
 import { useCheckoutSavings } from '@/hooks/use-checkout-savings';
 import { useWallet } from '@/hooks/use-wallet';
@@ -62,9 +62,9 @@ export function useCheckoutPaymentController({
       'payforme',
     ])
   );
-  const [selectedPayment, setSelectedPayment] =
-    useState<PaymentMethodType>('paystack');
-  const [paymentTab, setPaymentTab] = useState<PaymentTab>('full');
+  const [selectedPayment, setSelectedPaymentState] =
+    useState<PaymentMethodType | null>(null);
+  const [paymentTab, setPaymentTab] = useState<PaymentTab | null>(null);
   const [walletSelection, setWalletSelection] = useState<
     WalletSelection | undefined
   >(undefined);
@@ -84,10 +84,19 @@ export function useCheckoutPaymentController({
 
   const handleSelectPaymentTab = (tab: PaymentTab) => {
     setPaymentTab(tab);
-    const tabMethods = availablePaymentMethods.filter(
-      (method) => getPaymentTabForMethod(method) === tab
-    );
-    if (tabMethods.length > 0) setSelectedPayment(tabMethods[0]);
+    if (selectedPayment && getPaymentTabForMethod(selectedPayment) !== tab) {
+      setSelectedPaymentState(null);
+    }
+  };
+
+  const handleSelectPaymentMethod = (method: PaymentMethodType) => {
+    setSelectedPaymentState(method);
+    setPaymentTab(getPaymentTabForMethod(method));
+  };
+
+  const resetPaymentSelection = () => {
+    setSelectedPaymentState(null);
+    setPaymentTab(null);
   };
 
   // Render-phase adjustment (react.dev "adjusting state when a prop
@@ -95,30 +104,17 @@ export function useCheckoutPaymentController({
   // payment selection before commit instead of flashing a stale frame
   // through an effect.
   const currentTabMethods = availablePaymentMethods.filter(
-    (method) => getPaymentTabForMethod(method) === paymentTab
+    (method) => paymentTab && getPaymentTabForMethod(method) === paymentTab
   );
-  if (!availablePaymentMethods.includes(selectedPayment)) {
-    const fallbackMethod =
-      currentTabMethods[0] ?? availablePaymentMethods[0] ?? 'paystack';
-    setSelectedPayment(fallbackMethod);
-    setPaymentTab(getPaymentTabForMethod(fallbackMethod));
-  } else if (!currentTabMethods.includes(selectedPayment)) {
-    const fallbackMethod = currentTabMethods[0];
-    if (fallbackMethod) {
-      setSelectedPayment(fallbackMethod);
-    } else {
-      const fallbackTab =
-        (['full', 'installments', 'pay_later'] as const).find((tab) =>
-          availablePaymentMethods.some(
-            (method) => getPaymentTabForMethod(method) === tab
-          )
-        ) ?? 'full';
-      setPaymentTab(fallbackTab);
-      const nextMethod = availablePaymentMethods.find(
-        (method) => getPaymentTabForMethod(method) === fallbackTab
-      );
-      if (nextMethod) setSelectedPayment(nextMethod);
-    }
+  if (selectedPayment && !availablePaymentMethods.includes(selectedPayment)) {
+    setSelectedPaymentState(null);
+  } else if (
+    selectedPayment &&
+    paymentTab !== getPaymentTabForMethod(selectedPayment)
+  ) {
+    setPaymentTab(getPaymentTabForMethod(selectedPayment));
+  } else if (paymentTab && currentTabMethods.length === 0) {
+    setPaymentTab(null);
   }
 
   useEffect(() => {
@@ -217,10 +213,10 @@ export function useCheckoutPaymentController({
     orderTotals,
     paymentSettings,
     paymentTab,
+    resetPaymentSelection,
     savings,
     selectedPayment,
-    setPaymentTab,
-    setSelectedPayment,
+    setSelectedPayment: handleSelectPaymentMethod,
     setWalletSelection,
     total,
     walletBalance,

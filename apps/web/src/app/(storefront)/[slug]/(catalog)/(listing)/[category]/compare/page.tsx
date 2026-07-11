@@ -11,11 +11,11 @@ import {
   generateMetaDescription,
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
-import { buildCompareLinkGraph } from '@/lib/storefront-link-modules/compare-link-graph';
 import {
   getStorefrontPathPrefix,
   resolveStorefrontPathHref,
 } from '@/lib/storefront-path-prefix';
+import { buildCategoryCompareHubLinks } from './category-compare-hub-links';
 import { CompareIndexPageContent } from './compare-index-page-content';
 import { loadCategoryCompareHubData } from './load-category-compare-hub-data';
 
@@ -27,8 +27,6 @@ interface CategoryCompareIndexPageProps {
 const COMPARE_HUB_IGNORED_SEARCH_PARAM_KEYS = new Set([
   STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
 ]);
-const CATEGORY_COMPARE_HUB_LINK_LIMIT = 48;
-const CATEGORY_COMPARE_HUB_MIN_LINKS_PER_GROUP = 6;
 
 function hasCompareHubSearchParams(searchParams: Record<string, unknown>) {
   return Object.keys(searchParams).some(
@@ -45,7 +43,7 @@ function isCanonicalCategoryCompareRequest(
 
 function buildCompareHubItemListSchema(input: {
   canonicalUrl: string;
-  compareLinks: ReturnType<typeof buildCompareLinkGraph>;
+  compareLinks: ReturnType<typeof buildCategoryCompareHubLinks>;
   storeUrl: string;
 }): JsonLdData<ItemList> {
   return {
@@ -87,40 +85,6 @@ function buildNoindexMetadata(input: {
       : null,
     robots: { index: false, follow: true },
   };
-}
-
-type CategoryCompareHubData = NonNullable<
-  Awaited<ReturnType<typeof loadCategoryCompareHubData>>
->;
-
-function buildCategoryCompareHubLinks(data: CategoryCompareHubData) {
-  const productGroups =
-    data.productGroups?.length > 0
-      ? data.productGroups
-      : [
-          {
-            categoryName: data.categoryName,
-            categorySlug: data.categorySlug,
-            products: data.products,
-          },
-        ];
-  const linksPerGroup = Math.max(
-    CATEGORY_COMPARE_HUB_MIN_LINKS_PER_GROUP,
-    Math.ceil(CATEGORY_COMPARE_HUB_LINK_LIMIT / productGroups.length)
-  );
-
-  return productGroups
-    .flatMap((group) =>
-      buildCompareLinkGraph({
-        storeUrl: data.storeUrl,
-        categorySlug: group.categorySlug,
-        categoryName: group.categoryName,
-        products: group.products,
-        productsAreKnownActive: true,
-        maxLinks: linksPerGroup,
-      })
-    )
-    .slice(0, CATEGORY_COMPARE_HUB_LINK_LIMIT);
 }
 
 const loadCategoryCompareHubViewData = cache(

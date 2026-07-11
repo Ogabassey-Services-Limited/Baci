@@ -1,5 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadCategoryScopedSemanticInventorySafely } from '@/lib/storefront-product/load-category-scoped-semantic-inventory-safely';
 import { buildInformationalClusterModel } from './build-informational-cluster-model';
+
+vi.mock(
+  '@/lib/storefront-product/load-category-scoped-semantic-inventory-safely',
+  () => ({ loadCategoryScopedSemanticInventorySafely: vi.fn() })
+);
+
+const mockLoadScopedInventory = vi.mocked(
+  loadCategoryScopedSemanticInventorySafely
+);
 
 const smartphoneGuidePost = {
   slug: 'best-phones-in-nigeria',
@@ -77,6 +87,10 @@ const smartphoneCategoryData = {
 };
 
 describe('buildInformationalClusterModel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('builds category, compare, price-band, and PDP links for a smartphone guide', async () => {
     const model = await buildInformationalClusterModel({
       merchantId: 'merchant-1',
@@ -155,6 +169,106 @@ describe('buildInformationalClusterModel', () => {
         reading_time_minutes: 2,
       },
       categoryDataOverride: smartphoneCategoryData,
+    });
+
+    expect(model).toBeNull();
+  });
+
+  it('builds the model from the scoped semantic inventory when no override is supplied', async () => {
+    mockLoadScopedInventory.mockResolvedValue({
+      isCollection: false,
+      categoryName: 'Smartphones',
+      products: [
+        {
+          slug: 'iphone-17-pro-max',
+          name: 'iPhone 17 Pro Max',
+          brand: 'Apple',
+          price: 495_000,
+          category_slug: 'smartphones',
+          product_key_specs: { ram_gb: 8, storage_gb: 256 },
+          condition: 'new',
+          stock: 5,
+        },
+        {
+          slug: 'galaxy-a56',
+          name: 'Galaxy A56',
+          brand: 'Samsung',
+          price: 410_000,
+          category_slug: 'smartphones',
+          product_key_specs: { ram_gb: 8, storage_gb: 128 },
+          condition: 'new',
+          stock: 3,
+        },
+      ],
+    });
+
+    const model = await buildInformationalClusterModel({
+      merchantId: 'merchant-1',
+      merchantSlug: 'ogabassey',
+      storeUrl: 'https://ogabassey.com',
+      post: smartphoneGuidePost,
+    });
+
+    expect(mockLoadScopedInventory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        categorySlug: 'smartphones',
+        merchantId: 'merchant-1',
+        storeSlug: 'ogabassey',
+      })
+    );
+    expect(model?.primaryCategoryLink?.href).toBe(
+      'https://ogabassey.com/smartphones'
+    );
+    // cheapest in-stock product surfaces first
+    expect(model?.featuredProducts[0]?.href).toBe(
+      'https://ogabassey.com/smartphones/galaxy-a56'
+    );
+  });
+
+  it('applies toCategoryInventoryProduct fallbacks for missing fields on the scoped path', async () => {
+    mockLoadScopedInventory.mockResolvedValue({
+      isCollection: false,
+      categoryName: 'Smartphones',
+      products: [
+        {
+          // category_slug, product_key_specs, condition and stock all absent
+          slug: 'mystery-phone',
+          name: 'Mystery Phone',
+          brand: 'NoName',
+          price: 100_000,
+        },
+      ],
+    });
+
+    const model = await buildInformationalClusterModel({
+      merchantId: 'merchant-1',
+      merchantSlug: 'ogabassey',
+      storeUrl: 'https://ogabassey.com',
+      post: smartphoneGuidePost,
+    });
+
+    // category_slug falls back to the inferred category slug (not the
+    // slugless /products/ href), and null stock is treated as in-stock so the
+    // product is still featured — matching the old getCachedCategoryPageData
+    // normalization the swap must preserve.
+    expect(model?.featuredProducts).toHaveLength(1);
+    expect(model?.featuredProducts[0]?.href).toBe(
+      'https://ogabassey.com/smartphones/mystery-phone'
+    );
+  });
+
+  it('returns null when the scoped inventory resolves to a collection', async () => {
+    mockLoadScopedInventory.mockResolvedValue({
+      isCollection: true,
+      categoryName: 'Smartphones',
+      products: [],
+    });
+
+    const model = await buildInformationalClusterModel({
+      merchantId: 'merchant-1',
+      merchantSlug: 'ogabassey',
+      storeUrl: 'https://ogabassey.com',
+      post: smartphoneGuidePost,
     });
 
     expect(model).toBeNull();

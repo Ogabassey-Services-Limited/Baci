@@ -142,6 +142,16 @@ jest.mock('@/components/checkout/PaymentMethodSelector', () => ({
         <Text>Selected tab: {props.selectedTab}</Text>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Mock select Paystack"
+          onPress={() => {
+            props.onSelectTab?.('full');
+            props.onSelectMethod?.('paystack');
+          }}
+        >
+          <Text>Paystack</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Mock select Credit Direct"
           onPress={() => {
             props.onSelectTab?.('installments');
@@ -163,7 +173,10 @@ jest.mock('@/components/checkout/PaymentMethodSelector', () => ({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Mock select ${bankTransferLabel}`}
-          onPress={() => props.onSelectMethod?.('bank_transfer')}
+          onPress={() => {
+            props.onSelectTab?.('full');
+            props.onSelectMethod?.('bank_transfer');
+          }}
         >
           <Text>{bankTransferLabel}</Text>
           <Text>{bankTransferDescription}</Text>

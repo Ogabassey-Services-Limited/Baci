@@ -11,6 +11,7 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import { getCurrentSlugForAlias } from '@/lib/slug-alias-cache';
 import { resolveStorefrontBlogListingStatus } from '@/lib/storefront-blog-listing-status';
 import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
+import { resolveStorefrontCompareHubStatus } from '@/lib/storefront-compare-hub-status';
 import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
@@ -75,6 +76,14 @@ vi.mock('@/lib/storefront-blog-post-status', () => ({
   resolveStorefrontBlogPostStatus: vi
     .fn()
     .mockResolvedValue({ kind: 'present-or-unknown' }),
+}));
+
+// Mock the empty-compare-hub preflight. Defaults to renderable-or-unknown so
+// it is a no-op for existing tests; empty-hub tests override it.
+vi.mock('@/lib/storefront-compare-hub-status', () => ({
+  resolveStorefrontCompareHubStatus: vi
+    .fn()
+    .mockResolvedValue({ kind: 'renderable-or-unknown' }),
 }));
 
 vi.mock('@/lib/storefront-blog-listing-status', () => ({
@@ -143,6 +152,9 @@ describe('Middleware Proxy', () => {
     });
     vi.mocked(resolveStorefrontBlogPostStatus).mockResolvedValue({
       kind: 'present-or-unknown',
+    });
+    vi.mocked(resolveStorefrontCompareHubStatus).mockResolvedValue({
+      kind: 'renderable-or-unknown',
     });
     // Default: not a retired alias, so a per-test override cannot leak a spurious
     // 301 into unrelated subdomain/custom-domain tests.
@@ -857,6 +869,7 @@ describe('Middleware Proxy', () => {
     const canonicalRedirectMock = vi.mocked(
       getStorefrontProductCanonicalRedirectResult
     );
+    const compareHubStatusMock = vi.mocked(resolveStorefrontCompareHubStatus);
 
     it('308-redirects stale custom-domain category aliases before the App Router streams a 200 shell', async () => {
       canonicalRedirectMock.mockResolvedValue({
@@ -1295,6 +1308,90 @@ describe('Middleware Proxy', () => {
       expect(canonicalRedirectMock).not.toHaveBeenCalled();
     });
 
+    it('hard-404s a confirmed-empty /{category}/compare hub on a custom domain', async () => {
+      compareHubStatusMock.mockResolvedValue({ kind: 'empty' });
+      const req = new NextRequest('https://ogabassey.com/printers/compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+      expect(res.headers.get('X-Robots-Tag')).toBe('noindex, follow');
+      expect(compareHubStatusMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          categorySlug: 'printers',
+          secret: 'test-internal-secret',
+        })
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
+    });
+
+    it('hard-404s a confirmed-empty compare hub on a merchant subdomain', async () => {
+      compareHubStatusMock.mockResolvedValue({ kind: 'empty' });
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/printers/compare`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(compareHubStatusMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          categorySlug: 'printers',
+        })
+      );
+    });
+
+    it('hard-404s a confirmed-empty compare hub on a root-domain slug path', async () => {
+      compareHubStatusMock.mockResolvedValue({ kind: 'empty' });
+      const req = new NextRequest(
+        `https://${ROOT_DOMAIN}/ogabassey/printers/compare`
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(compareHubStatusMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          categorySlug: 'printers',
+        })
+      );
+    });
+
+    it('does not hard-404 an empty hub on param URLs and skips the status lookup entirely', async () => {
+      compareHubStatusMock.mockResolvedValue({ kind: 'empty' });
+      const req = new NextRequest(
+        'https://ogabassey.com/printers/compare?utm_source=email'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(compareHubStatusMock).not.toHaveBeenCalled();
+    });
+
+    it('falls through when the hub status is renderable-or-unknown (fail-open default)', async () => {
+      const req = new NextRequest('https://ogabassey.com/smartphones/compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(compareHubStatusMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          categorySlug: 'smartphones',
+        })
+      );
+    });
+
     it('still hard-404s a confirmed-missing categoryless /products/compare (fallback PDP, not a hub)', async () => {
       mockMissing(true);
       const req = new NextRequest('https://ogabassey.com/products/compare');
@@ -1306,6 +1403,7 @@ describe('Middleware Proxy', () => {
       expect(resolutionMock).toHaveBeenCalledWith(
         expect.objectContaining({ productSlug: 'compare' })
       );
+      expect(compareHubStatusMock).not.toHaveBeenCalled();
     });
 
     it('still hard-404s a bare /{category}/best-under path (no 2-segment route exists there)', async () => {
