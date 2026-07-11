@@ -21,6 +21,12 @@ import type { ProductSemanticCandidate } from '@/lib/storefront-product/product-
  */
 export const PRODUCT_SEMANTIC_INVENTORY_LIMIT = 300;
 
+// This is an OPTIONAL overlay read (related compare links + a maintained-slug
+// indexability signal). Bound it tightly and degrade gracefully: the compare
+// page renders fully without it. See the retry note on the query below for why
+// an unbounded read here cost ~34s per compare render.
+export const PRODUCT_SEMANTIC_INVENTORY_TIMEOUT_MS = 3_000;
+
 export interface ProductSemanticInventoryCategoryJoin {
   categories?:
     | { slug?: string | null }
@@ -77,7 +83,7 @@ export async function getCachedProductSemanticInventory(
   categorySlug: string
 ): Promise<ProductSemanticCandidate[]> {
   const supabase = getPublicSupabaseClient();
-  const { data, error } = await supabase
+  const inventoryQuery = supabase
     .from('products')
     .select(PRODUCT_SEMANTIC_INVENTORY_SELECT)
     .eq('merchant_id', merchantId)
@@ -85,7 +91,24 @@ export async function getCachedProductSemanticInventory(
     .eq('product_categories.categories.slug', categorySlug)
     .order('created_at', { ascending: false })
     .order('id', { ascending: true })
-    .limit(PRODUCT_SEMANTIC_INVENTORY_LIMIT);
+    .limit(PRODUCT_SEMANTIC_INVENTORY_LIMIT)
+    .abortSignal(AbortSignal.timeout(PRODUCT_SEMANTIC_INVENTORY_TIMEOUT_MS));
+
+  // Disable PostgREST's automatic GET retry. The shared cached Supabase client
+  // bounds each fetch with AbortSignal.timeout(), which rejects with a NATIVE
+  // `TimeoutError` — NOT `AbortError`. postgrest-js 2.108.2 only suppresses
+  // retries for AbortError/ABORT_ERR (PostgrestBuilder shouldRetry), so a
+  // TimeoutError on this large (~0.5MB for big categories) read otherwise fans
+  // out into 4 attempts with 1/2/4s backoff ≈ 34s PER compare render (the
+  // overlay is uncached, so every request paid it). One bounded attempt, then
+  // the caller degrades to no related links. Mirrors the merchant-lookup
+  // `retry(false)` precedent; the `typeof` guard keeps test doubles awaitable.
+  const boundedQuery =
+    typeof inventoryQuery.retry === 'function'
+      ? inventoryQuery.retry(false)
+      : inventoryQuery;
+
+  const { data, error } = await boundedQuery;
 
   if (error) {
     console.error('Error fetching product semantic inventory:', {
