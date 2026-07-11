@@ -40,7 +40,10 @@ export async function GET(request: NextRequest) {
   // per-event permit gate — this is the global launch switch. Skip (not error)
   // so the cron stays green while prizes are still 1a/unapproved.
   if (getQuizPhaseEnv() !== 'production' || !getQuizProductionApprovedEnv()) {
-    return NextResponse.json({ finalized: 0, skipped: 'production_not_approved' });
+    return NextResponse.json({
+      finalized: 0,
+      skipped: 'production_not_approved',
+    });
   }
 
   const supabase = createAdminClient();
