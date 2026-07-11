@@ -54,4 +54,31 @@ describe('GadgetPattern', () => {
     expect(pattern).toHaveClass('absolute', 'inset-0');
     expect(pattern).toHaveStyle({ opacity: '0.1' });
   });
+
+  it('defaults the tile stroke color to white', () => {
+    const { container } = render(<GadgetPattern />);
+
+    const strokeGroup = container.querySelector('pattern > g');
+    expect(strokeGroup).toHaveAttribute('stroke', '#ffffff');
+  });
+
+  it('recolors the tile via the stroke prop, for callers with their own tile variant', () => {
+    const { container } = render(<GadgetPattern stroke="#000000" />);
+
+    const strokeGroup = container.querySelector('pattern > g');
+    expect(strokeGroup).toHaveAttribute('stroke', '#000000');
+  });
+
+  it('swaps in custom children as the tile shape content instead of the default gadget shapes', () => {
+    const { container } = render(
+      <GadgetPattern>
+        <circle cx="5" cy="5" r="1" data-testid="custom-shape" />
+      </GadgetPattern>
+    );
+
+    expect(screen.getByTestId('custom-shape')).toBeInTheDocument();
+    // The default gadget doodle (a rotated 12x20 rect) must not leak through
+    // when a custom tile is provided.
+    expect(container.querySelector('rect[width="12"][height="20"]')).toBeNull();
+  });
 });
