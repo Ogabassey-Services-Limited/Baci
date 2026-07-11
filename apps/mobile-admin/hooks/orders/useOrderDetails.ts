@@ -106,6 +106,7 @@ export async function fetchOrderById(
       .from('transactions')
       .select('amount, gateway')
       .eq('order_id', orderId)
+      .eq('merchant_id', merchantId)
       .eq('transaction_type', 'payment')
       .in('status', ['success', 'completed']),
     supabase

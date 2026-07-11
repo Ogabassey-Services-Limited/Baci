@@ -45,7 +45,6 @@ export function useRecordPayment() {
       const requestFingerprint = JSON.stringify({
         amount,
         orderId,
-        paymentMethod,
         reference: reference?.trim() || null,
       });
       const storageKey = `${RECORD_PAYMENT_RETRY_KEY_PREFIX}${orderId}:${encodeURIComponent(requestFingerprint)}`;

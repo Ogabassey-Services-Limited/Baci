@@ -266,6 +266,16 @@ describe('fetchOrderById', () => {
         ],
       })
     );
+
+    const transactionQuery = supabaseMock.chains.find(
+      (chain) => chain.table === 'transactions'
+    );
+    expect(transactionQuery?.calls).toEqual(
+      expect.arrayContaining([
+        { method: 'eq', args: ['order_id', 'order-1'] },
+        { method: 'eq', args: ['merchant_id', 'merchant-1'] },
+      ])
+    );
   });
 
   it('treats paid orders without ledger rows as fully paid', async () => {

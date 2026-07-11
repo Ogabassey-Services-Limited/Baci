@@ -298,6 +298,50 @@ describe('useRecordPayment', () => {
     expect(generateUUID).toHaveBeenCalledTimes(1);
   });
 
+  it('reuses the pending idempotency key when only payment method changes', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    const abortError = new Error('aborted');
+    abortError.name = 'AbortError';
+    mocks.fetch.mockRejectedValueOnce(abortError).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ recorded: true }),
+    });
+    const mutation = useRecordPayment() as unknown as {
+      mutationFn: (vars: {
+        amount: number;
+        orderId: string;
+        paymentMethod: string;
+      }) => Promise<unknown>;
+    };
+
+    await expect(
+      mutation.mutationFn({
+        amount: 5000,
+        orderId: 'order-1',
+        paymentMethod: 'cash',
+      })
+    ).rejects.toThrow(
+      'Request timed out. Please check your connection and try again.'
+    );
+    await mutation.mutationFn({
+      amount: 5000,
+      orderId: 'order-1',
+      paymentMethod: 'bank_transfer',
+    });
+
+    const requestBodies = mocks.fetch.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body))
+    );
+    expect(requestBodies[0].payment_method).toBe('cash');
+    expect(requestBodies[1].payment_method).toBe('bank_transfer');
+    expect(requestBodies[0].idempotency_key).toBe(
+      requestBodies[1].idempotency_key
+    );
+    expect(generateUUID).toHaveBeenCalledTimes(1);
+  });
+
   it('reuses a persisted idempotency key after the hook remounts', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },
