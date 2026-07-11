@@ -22,7 +22,7 @@ BEGIN
     RAISE EXCEPTION 'public.create_repair_booking must be SECURITY INVOKER';
   END IF;
 
-  -- Wrapper must pin search_path = '' (hardening migration 20260708090800).
+  -- Wrapper must pin search_path = '' (hardening migration 20260711100009).
   IF config IS NULL OR NOT EXISTS (
     SELECT 1 FROM unnest(config) AS entry
     WHERE entry LIKE 'search_path=%'

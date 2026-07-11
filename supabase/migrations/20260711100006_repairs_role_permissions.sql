@@ -9,7 +9,7 @@
 --      owner-only EXISTS(merchants) checks to check_staff_permission('repairs',...)
 --      — SELECT->view, UPDATE->edit, DELETE->delete — mirroring the catalogue
 --      tables. (Anon INSERT was already dropped in
---      20260708090400_repairs_anon_hardening.sql; bookings write only via the RPC.)
+--      20260711100005_repairs_anon_hardening.sql; bookings write only via the RPC.)
 --
 -- Distribution rationale: the `repairs` matrix mirrors the existing `orders`
 -- resource. view is granted wherever orders.view is; edit wherever the role

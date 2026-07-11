@@ -11,7 +11,7 @@
 -- the single pair 'repairs_catalog_enabled', fs.repairs_catalog_enabled in the
 -- alphabetically-correct slot (between privacy_page_enabled and reviews_enabled),
 -- bringing the public projection to 62 fields. The column is added earlier in the
--- stack by 20260708090001_repairs_catalog_feature_flag.sql, so it exists when this
+-- stack by 20260711100001_repairs_catalog_feature_flag.sql, so it exists when this
 -- RPC references it. CREATE OR REPLACE preserves privileges; the locked-down
 -- service_role grant is re-asserted below for clarity and idempotency.
 --

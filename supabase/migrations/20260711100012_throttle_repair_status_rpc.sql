@@ -1,4 +1,4 @@
--- Throttle direct calls to the public repair-status lookup (fix for 20260708090700).
+-- Throttle direct calls to the public repair-status lookup (fix for 20260711100008).
 --
 -- get_repair_status is anon-EXECUTE, so it is callable straight through
 -- /rest/v1/rpc, bypassing the storefront route's 10/min limiter. Unlike the

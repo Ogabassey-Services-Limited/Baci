@@ -1,4 +1,4 @@
--- Follow-up hardening for repairs_catalog_publicly_enabled (from 20260708090100).
+-- Follow-up hardening for repairs_catalog_publicly_enabled (from 20260711100002).
 --
 -- The public gate returned true as soon as a merchant flipped
 -- repairs_catalog_enabled, even before the storefront was published. The public

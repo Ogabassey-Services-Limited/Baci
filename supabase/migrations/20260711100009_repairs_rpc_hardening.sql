@@ -1,4 +1,4 @@
--- Follow-up hardening for the repair booking RPC (fixes for 20260708090300),
+-- Follow-up hardening for the repair booking RPC (fixes for 20260711100004),
 -- applied as CREATE OR REPLACE per the repo's follow-up-migration idiom.
 --
 -- 1. Per-email rate cap bypass: the cap counted matches with lower(customer_email)
