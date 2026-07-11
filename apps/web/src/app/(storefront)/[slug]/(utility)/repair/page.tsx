@@ -193,6 +193,7 @@ export default async function RepairPage({
         <div className="bg-store-background-text/5 border border-store-border rounded-xl shadow-sm overflow-hidden">
           <RepairBookingWizard
             merchantId={merchant.id}
+            merchantSlug={slug}
             merchantName={merchant.business_name}
             preselection={preselection}
           />

@@ -34,6 +34,12 @@ export type { RepairBookingPreselection };
 
 interface RepairBookingWizardProps {
   merchantId: string;
+  /**
+   * Public storefront identifier (slug or custom domain). Shipping estimates
+   * resolve the merchant server-side from this instead of trusting a raw
+   * merchant UUID from the client.
+   */
+  merchantSlug: string;
   merchantName: string;
   /** Device/quote preselected via `/[slug]/repair?device=&quote=`. */
   preselection?: RepairBookingPreselection;
@@ -41,6 +47,7 @@ interface RepairBookingWizardProps {
 
 export function RepairBookingWizard({
   merchantId,
+  merchantSlug,
   merchantName,
   preselection,
 }: RepairBookingWizardProps) {
@@ -116,7 +123,7 @@ export function RepairBookingWizard({
     // cannot lower try statements with a finalizer inside component closures.
     setIsCalculatingShipping(true);
     setShippingQuote(null);
-    calculateRepairShipping(place, merchantId)
+    calculateRepairShipping(place, merchantSlug)
       .then((result) => {
         setShippingQuote(result);
       })

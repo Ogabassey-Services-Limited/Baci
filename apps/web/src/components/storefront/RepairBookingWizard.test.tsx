@@ -105,7 +105,11 @@ describe('RepairBookingWizard', () => {
 
   it('renders the free-text device form by default (no preselection)', () => {
     render(
-      <RepairBookingWizard merchantId="merchant-1" merchantName="Ogabassey" />
+      <RepairBookingWizard
+        merchantId="merchant-1"
+        merchantSlug="ogabassey"
+        merchantName="Ogabassey"
+      />
     );
 
     expect(screen.getByText(/what device needs repair/i)).toBeInTheDocument();
@@ -116,6 +120,7 @@ describe('RepairBookingWizard', () => {
     render(
       <RepairBookingWizard
         merchantId="merchant-1"
+        merchantSlug="ogabassey"
         merchantName="Ogabassey"
         preselection={{
           deviceId: DEVICE_ID,
@@ -141,6 +146,7 @@ describe('RepairBookingWizard', () => {
     render(
       <RepairBookingWizard
         merchantId="merchant-1"
+        merchantSlug="ogabassey"
         merchantName="Ogabassey"
         preselection={{
           deviceId: DEVICE_ID,
@@ -169,6 +175,7 @@ describe('RepairBookingWizard', () => {
     render(
       <RepairBookingWizard
         merchantId="merchant-1"
+        merchantSlug="ogabassey"
         merchantName="Ogabassey"
         preselection={{
           deviceId: DEVICE_ID,
@@ -208,7 +215,11 @@ describe('RepairBookingWizard', () => {
     });
     const user = userEvent.setup();
     render(
-      <RepairBookingWizard merchantId="merchant-1" merchantName="Ogabassey" />
+      <RepairBookingWizard
+        merchantId="merchant-1"
+        merchantSlug="ogabassey"
+        merchantName="Ogabassey"
+      />
     );
 
     await user.type(screen.getByLabelText('Device Model'), 'iPhone 13 Pro Max');
@@ -236,6 +247,7 @@ describe('RepairBookingWizard', () => {
     render(
       <RepairBookingWizard
         merchantId="merchant-1"
+        merchantSlug="ogabassey"
         merchantName="Ogabassey"
         preselection={{
           deviceId: DEVICE_ID,

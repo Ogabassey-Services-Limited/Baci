@@ -5,9 +5,14 @@ import { calculateRepairShipping, createRepair } from './repair';
 const mocks = vi.hoisted(() => ({
   createRepairBooking: vi.fn(),
   ensureActionRateLimit: vi.fn(),
+  getMerchantByIdentifier: vi.fn(),
   getQuotes: vi.fn(),
   notifyRepairBooking: vi.fn(),
   getRepairCenterAddress: vi.fn(),
+}));
+
+vi.mock('@/lib/cached-data', () => ({
+  getMerchantByIdentifier: mocks.getMerchantByIdentifier,
 }));
 
 vi.mock('@/lib/repairs/create-repair-core', () => ({
@@ -33,6 +38,8 @@ vi.mock('@/lib/shipping/providers/topship', () => ({
 }));
 
 const merchantId = '123e4567-e89b-12d3-a456-426614174000';
+// Shipping estimates take the PUBLIC storefront identifier, not the raw UUID.
+const merchantSlug = 'ogabassey';
 
 const validRepairInput: RepairBookingInput = {
   customerName: 'Ada Lovelace',
@@ -136,13 +143,17 @@ describe('calculateRepairShipping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.ensureActionRateLimit.mockResolvedValue(true);
+    mocks.getMerchantByIdentifier.mockResolvedValue({
+      id: merchantId,
+      is_published: true,
+    });
     mocks.getRepairCenterAddress.mockResolvedValue(lagosRepairCenter);
   });
 
   it('returns a rate-limit error without requesting Topship quotes', async () => {
     mocks.ensureActionRateLimit.mockResolvedValueOnce(false);
 
-    const result = await calculateRepairShipping(validPlace, merchantId);
+    const result = await calculateRepairShipping(validPlace, merchantSlug);
 
     expect(mocks.ensureActionRateLimit).toHaveBeenCalledWith(
       'repair-shipping',
@@ -160,7 +171,7 @@ describe('calculateRepairShipping', () => {
   it('rejects invalid place details without requesting Topship quotes', async () => {
     const result = await calculateRepairShipping(
       { ...validPlace, formattedAddress: 'a'.repeat(501) },
-      merchantId
+      merchantSlug
     );
 
     expect(result).toEqual({
@@ -175,7 +186,7 @@ describe('calculateRepairShipping', () => {
   it('rejects incomplete place details without requesting Topship quotes', async () => {
     const result = await calculateRepairShipping(
       { ...validPlace, city: '', state: '' },
-      merchantId
+      merchantSlug
     );
 
     expect(result).toEqual({
@@ -187,10 +198,42 @@ describe('calculateRepairShipping', () => {
     expect(mocks.getQuotes).not.toHaveBeenCalled();
   });
 
+  it('degrades to drop-off without reading private settings for an unknown storefront', async () => {
+    mocks.getMerchantByIdentifier.mockResolvedValueOnce(null);
+
+    const result = await calculateRepairShipping(validPlace, merchantSlug);
+
+    expect(result).toEqual({
+      isFree: false,
+      price: 0,
+      formattedPrice: 'Arranged after booking',
+      message: 'Drop-off only — the store will contact you to arrange pickup.',
+    });
+    expect(mocks.getRepairCenterAddress).not.toHaveBeenCalled();
+    expect(mocks.getQuotes).not.toHaveBeenCalled();
+  });
+
+  it('degrades to drop-off identically for an unpublished storefront', async () => {
+    mocks.getMerchantByIdentifier.mockResolvedValueOnce({
+      id: merchantId,
+      is_published: false,
+    });
+
+    const result = await calculateRepairShipping(validPlace, merchantSlug);
+
+    expect(result).toEqual({
+      isFree: false,
+      price: 0,
+      formattedPrice: 'Arranged after booking',
+      message: 'Drop-off only — the store will contact you to arrange pickup.',
+    });
+    expect(mocks.getRepairCenterAddress).not.toHaveBeenCalled();
+  });
+
   it('falls back to drop-off only when the repair center is not configured', async () => {
     mocks.getRepairCenterAddress.mockResolvedValueOnce(null);
 
-    const result = await calculateRepairShipping(validPlace, merchantId);
+    const result = await calculateRepairShipping(validPlace, merchantSlug);
 
     expect(result).toEqual({
       isFree: false,
@@ -209,7 +252,7 @@ describe('calculateRepairShipping', () => {
         state: 'Lagos',
         formattedAddress: '3 Olayeni Street, Ikeja, Lagos, Nigeria',
       },
-      merchantId
+      merchantSlug
     );
 
     expect(result).toEqual({
@@ -228,7 +271,7 @@ describe('calculateRepairShipping', () => {
       { price: 0 },
     ]);
 
-    const result = await calculateRepairShipping(validPlace, merchantId);
+    const result = await calculateRepairShipping(validPlace, merchantSlug);
 
     expect(result.isFree).toBe(false);
     expect(result.price).toBe(3000);
@@ -249,7 +292,7 @@ describe('calculateRepairShipping', () => {
     mocks.getQuotes.mockRejectedValueOnce(new Error('topship down'));
 
     try {
-      const result = await calculateRepairShipping(validPlace, merchantId);
+      const result = await calculateRepairShipping(validPlace, merchantSlug);
 
       expect(result).toEqual({
         isFree: false,

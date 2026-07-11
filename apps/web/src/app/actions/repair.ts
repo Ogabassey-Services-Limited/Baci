@@ -1,5 +1,6 @@
 'use server';
 
+import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
 import { notifyRepairBooking } from '@/lib/repair-notifications';
 import {
@@ -8,6 +9,7 @@ import {
 } from '@/lib/repairs/create-repair-core';
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
 import { topshipProvider } from '@/lib/shipping/providers/topship';
+import { isValidMerchantIdentifier } from '@/lib/validation';
 import type { RepairBookingInput } from '@/lib/validations/repair';
 import { repairPlaceDetailsSchema } from '@/schemas/repair-actions';
 
@@ -71,7 +73,7 @@ export async function createRepair(
 // eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: anonymous shipping quote; address completeness enforced by Zod + identity/IP rate limited
 export async function calculateRepairShipping(
   place: PlaceDetails,
-  merchantId: string
+  merchantIdentifier: string
 ): Promise<ShippingCalculationResult> {
   // Rate limit first — this fans out to the paid Topship quoting API and is
   // callable by anonymous storefront customers.
@@ -100,17 +102,31 @@ export async function calculateRepairShipping(
 
   const placeDetails = parsedPlace.data;
 
+  // Server actions are public entry points, so the merchant is bound to the
+  // storefront's PUBLIC identifier (slug/custom domain — what the page itself
+  // resolves) instead of a caller-supplied raw merchant UUID. Unresolvable and
+  // unpublished stores degrade IDENTICALLY to "no repair center configured",
+  // so probing identifiers yields no signal about private repair settings.
+  const dropOffOnly: ShippingCalculationResult = {
+    isFree: false,
+    price: 0,
+    formattedPrice: 'Arranged after booking',
+    message: 'Drop-off only — the store will contact you to arrange pickup.',
+  };
+
+  const merchant = isValidMerchantIdentifier(merchantIdentifier)
+    ? await getMerchantByIdentifier(merchantIdentifier.toLowerCase())
+    : null;
+  if (!merchant?.is_published) {
+    return dropOffOnly;
+  }
+
   // The pickup destination is the merchant's PRIVATE repair-center address
   // (server-side read; the raw address never reaches the client). When it is
   // unset, pickup quoting is disabled and we degrade to drop-off only.
-  const repairCenter = await getRepairCenterAddress(merchantId);
+  const repairCenter = await getRepairCenterAddress(merchant.id);
   if (!repairCenter) {
-    return {
-      isFree: false,
-      price: 0,
-      formattedPrice: 'Arranged after booking',
-      message: 'Drop-off only — the store will contact you to arrange pickup.',
-    };
+    return dropOffOnly;
   }
 
   try {
