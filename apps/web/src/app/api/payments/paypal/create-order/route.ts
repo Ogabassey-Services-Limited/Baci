@@ -15,6 +15,17 @@ import { createAndPersistPaypalOrder } from '@/lib/payments/paypal-create-order-
 import { createAdminClient } from '@/lib/supabase/admin';
 import { paypalCreateOrderSchema } from '@/schemas/paypal-checkout';
 
+// Payment statuses that mean an order has already been settled (fully or in
+// part) or is otherwise no longer chargeable. Starting a fresh PayPal checkout
+// for any of these would let a second approval+capture run against money that is
+// already accounted for (F11).
+const NON_PAYABLE_PAYMENT_STATUSES = new Set([
+  'paid',
+  'partially_paid',
+  'bnpl_approved',
+  'refunded',
+]);
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -87,6 +98,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // An already-settled order must not start another PayPal checkout — without
+    // this a second approval+capture could run against an order that is already
+    // paid/partially paid/refunded (F11). Reject before minting any PayPal order
+    // or writing a transaction. Complements the cancelled-order guard above.
+    if (
+      NON_PAYABLE_PAYMENT_STATUSES.has(String(orderSnapshot.payment_status))
+    ) {
+      return NextResponse.json(
+        {
+          error: 'This order can no longer be paid',
+          code: 'ORDER_NOT_PAYABLE',
+        },
+        { status: 409 }
+      );
+    }
+
     const orderTotal = Number(orderSnapshot.total);
     if (orderSnapshot.total == null || !(orderTotal > 0)) {
       return NextResponse.json(
@@ -121,6 +148,20 @@ export async function POST(request: NextRequest) {
         {
           error: 'PayPal is not enabled for this store',
           code: 'PAYPAL_NOT_CONFIGURED',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Sandbox is reserved for the settings-page validate-on-save connection test
+    // ONLY. A customer checkout must run against live PayPal, or a merchant left
+    // on paypal_mode='sandbox' would take real orders marked paid with no funds
+    // moved (F10). Fail closed before minting any PayPal order.
+    if (environment !== 'live') {
+      return NextResponse.json(
+        {
+          error: 'PayPal sandbox mode is not allowed for customer checkout',
+          code: 'PAYPAL_SANDBOX_NOT_ALLOWED',
         },
         { status: 400 }
       );

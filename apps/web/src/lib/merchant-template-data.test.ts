@@ -216,6 +216,39 @@ describe('toTemplateMerchantData', () => {
     expect(JSON.stringify(result)).not.toContain('client-id-still-not-needed');
   });
 
+  it('exposes non-secret PayPal toggles (paypal_enabled/paypal_mode) but strips PayPal secrets (F4/F10)', () => {
+    const result = toTemplateMerchantData({
+      ...BASE_MERCHANT,
+      feature_settings: {
+        blog_enabled: true,
+        custom_settings: {
+          google_merchant_id: '112524323',
+          // Non-secret checkout toggles — MUST survive so the storefront can
+          // render PayPal and hide it on sandbox mode.
+          paypal_enabled: true,
+          paypal_mode: 'live',
+          // Credentials live in the vault, never in custom_settings — MUST be
+          // stripped even if they somehow appear here.
+          paypal_client_id: 'server-only-paypal-client-id',
+          paypal_secret_key: 'server-only-paypal-secret-key',
+          paypal_secret: 'server-only-paypal-secret',
+        },
+      },
+    });
+
+    expect(result.feature_settings).toEqual({
+      blog_enabled: true,
+      custom_settings: {
+        google_merchant_id: '112524323',
+        paypal_enabled: true,
+        paypal_mode: 'live',
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain('server-only');
+    expect(JSON.stringify(result)).not.toContain('paypal_client_id');
+    expect(JSON.stringify(result)).not.toContain('paypal_secret');
+  });
+
   it('does not create public settings objects for empty or missing allowlisted keys', () => {
     const result = toTemplateMerchantData({
       ...BASE_MERCHANT,

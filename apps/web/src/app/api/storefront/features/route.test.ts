@@ -333,6 +333,64 @@ describe('GET /api/storefront/features', () => {
     expect(body.paypalEnabled).toBe(false);
   });
 
+  it('reports paypalEnabled false when the merchant is on sandbox mode (F10)', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'merchant-1',
+        paystack_subaccount_code: 'ACCT_123',
+      },
+      error: null,
+    });
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        paystack_enabled: true,
+        custom_settings: { paypal_enabled: true, paypal_mode: 'sandbox' },
+      },
+      error: null,
+    });
+
+    const request = {
+      nextUrl: new URL(
+        `https://example.com/api/storefront/features?merchantId=${VALID_MERCHANT_ID}`
+      ),
+    } as unknown as NextRequest;
+
+    const response = await GET(request);
+    const body = (await response.json()) as { paypalEnabled: boolean };
+
+    expect(response.status).toBe(200);
+    expect(body.paypalEnabled).toBe(false);
+  });
+
+  it('reports paypalEnabled false when paypal_mode is missing, even when enabled (F10)', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'merchant-1',
+        paystack_subaccount_code: 'ACCT_123',
+      },
+      error: null,
+    });
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        paystack_enabled: true,
+        custom_settings: { paypal_enabled: true },
+      },
+      error: null,
+    });
+
+    const request = {
+      nextUrl: new URL(
+        `https://example.com/api/storefront/features?merchantId=${VALID_MERCHANT_ID}`
+      ),
+    } as unknown as NextRequest;
+
+    const response = await GET(request);
+    const body = (await response.json()) as { paypalEnabled: boolean };
+
+    expect(response.status).toBe(200);
+    expect(body.paypalEnabled).toBe(false);
+  });
+
   it('returns 400 when neither merchantId nor slug is provided', async () => {
     const request = {
       nextUrl: new URL('https://example.com/api/storefront/features'),

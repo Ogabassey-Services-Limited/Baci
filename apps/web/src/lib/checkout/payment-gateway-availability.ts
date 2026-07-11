@@ -87,14 +87,12 @@ function readWalletPaystackDvaEnabled(settings: unknown): boolean | undefined {
   return readBooleanSetting(settings, 'wallet_paystack_dva_enabled');
 }
 
-// Reads a boolean from `feature_settings.custom_settings` (a nested JSONB blob),
-// where the non-secret PayPal toggle lives (`paypal_enabled`), rather than the
-// top-level feature-settings columns the other readers use. Handles the same
-// array-wrapped shape (edge SQL sometimes returns single joins as arrays).
-function readCustomSettingBoolean(
-  settings: unknown,
-  key: string
-): boolean | undefined {
+// Reads a single value from `feature_settings.custom_settings` (a nested JSONB
+// blob), where the non-secret PayPal toggles live (`paypal_enabled`,
+// `paypal_mode`), rather than the top-level feature-settings columns the other
+// readers use. Handles the same array-wrapped shape (edge SQL sometimes returns
+// single joins as arrays).
+function readCustomSetting(settings: unknown, key: string): unknown {
   const normalizedSettings = Array.isArray(settings) ? settings[0] : settings;
   if (
     !normalizedSettings ||
@@ -115,8 +113,7 @@ function readCustomSettingBoolean(
     return undefined;
   }
 
-  const value = (normalizedCustom as Record<string, unknown>)[key];
-  return typeof value === 'boolean' ? value : undefined;
+  return (normalizedCustom as Record<string, unknown>)[key];
 }
 
 // The customer-facing PayPal enable toggle. Lives in
@@ -124,7 +121,16 @@ function readCustomSettingBoolean(
 // the credentials themselves are in the encrypted vault). Only the boolean is
 // ever read here — never any other `custom_settings` key.
 function readPaypalEnabled(settings: unknown): boolean | undefined {
-  return readCustomSettingBoolean(settings, 'paypal_enabled');
+  const value = readCustomSetting(settings, 'paypal_enabled');
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+// The customer-facing PayPal environment toggle
+// (`custom_settings.paypal_mode`). Customer checkout is live-only — sandbox is
+// reserved for the settings-page validate-on-save connection test — so the
+// storefront gate treats anything but 'live' (including a missing mode) as off.
+function isPaypalLiveMode(settings: unknown): boolean {
+  return readCustomSetting(settings, 'paypal_mode') === 'live';
 }
 
 // The order currency Baci converts *from* when presenting a PayPal order in a
@@ -240,10 +246,12 @@ export function isKorapayCheckoutAvailable(
 //
 //   • Storefront checkout (client, no vault access) calls WITH the order
 //     currency → it gates on the customer-facing enable toggle
-//     (`custom_settings.paypal_enabled`) plus a PayPal-presentable currency.
-//     The create-order/capture-order routes independently fail closed on a
-//     missing/invalid vault credential, so the client gate mirrors how
-//     paystack/korapay gate their options on the enable flag alone.
+//     (`custom_settings.paypal_enabled`), a *live* PayPal mode
+//     (`custom_settings.paypal_mode === 'live'`), plus a PayPal-presentable
+//     currency. Sandbox stores never render PayPal to customers (F10). The
+//     create-order/capture-order routes independently fail closed on a
+//     missing/invalid vault credential and on sandbox mode, so the client gate
+//     mirrors how paystack/korapay gate their options on the enable flag alone.
 export function isPaypalCheckoutAvailable(
   merchant: CheckoutPaymentMerchant | null | undefined,
   currency?: string | null
@@ -255,6 +263,7 @@ export function isPaypalCheckoutAvailable(
   }
 
   if (readPaypalEnabled(merchant.feature_settings) !== true) return false;
+  if (!isPaypalLiveMode(merchant.feature_settings)) return false;
   return isPaypalPresentableCurrency(currency);
 }
 

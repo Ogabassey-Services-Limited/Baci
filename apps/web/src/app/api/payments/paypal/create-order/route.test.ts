@@ -66,7 +66,7 @@ function buildSupabaseMock({
     tracking_token: 'track-123',
     shipping_status: 'pending',
   } as Record<string, unknown>,
-  custom = { paypal_enabled: true, paypal_mode: 'sandbox' } as Record<
+  custom = { paypal_enabled: true, paypal_mode: 'live' } as Record<
     string,
     unknown
   >,
@@ -192,6 +192,49 @@ describe('POST /api/payments/paypal/create-order', () => {
     expect(createOrder).not.toHaveBeenCalled();
   });
 
+  it.each([
+    'paid',
+    'partially_paid',
+    'refunded',
+  ])('returns 409 ORDER_NOT_PAYABLE for a %s order and never mints a PayPal order', async (paymentStatus) => {
+    const supabase = buildSupabaseMock({
+      snapshot: {
+        merchant_id: MERCHANT_ID,
+        total: 130000,
+        currency: 'NGN',
+        tracking_token: 'track-123',
+        shipping_status: 'pending',
+        payment_status: paymentStatus,
+      },
+    });
+    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
+    mockVaultOk();
+
+    const response = await POST(createRequest());
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe('ORDER_NOT_PAYABLE');
+    expect(createOrder).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_payment_transaction',
+      expect.anything()
+    );
+  });
+
+  it('returns 400 PAYPAL_SANDBOX_NOT_ALLOWED for a sandbox-mode store and never touches PayPal', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      buildSupabaseMock({
+        custom: { paypal_enabled: true, paypal_mode: 'sandbox' },
+      }) as never
+    );
+    mockVaultOk();
+
+    const response = await POST(createRequest());
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('PAYPAL_SANDBOX_NOT_ALLOWED');
+    expect(getDecryptedMerchantCredential).not.toHaveBeenCalled();
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
   it('reuses a still-approvable PayPal order and returns its approval link', async () => {
     vi.mocked(createAdminClient).mockReturnValue(
       buildSupabaseMock({
@@ -217,7 +260,7 @@ describe('POST /api/payments/paypal/create-order', () => {
       'mock-client-id',
       'mock-secret-key',
       'PP-EXISTING',
-      'sandbox'
+      'live'
     );
     expect(createOrder).not.toHaveBeenCalled();
   });
@@ -279,7 +322,7 @@ describe('POST /api/payments/paypal/create-order', () => {
       100,
       'USD',
       'track-123',
-      'sandbox',
+      'live',
       { returnUrl: undefined, cancelUrl: undefined }
     );
 
@@ -325,7 +368,7 @@ describe('POST /api/payments/paypal/create-order', () => {
       50,
       'USD',
       'track-123',
-      'sandbox',
+      'live',
       { returnUrl: undefined, cancelUrl: undefined }
     );
     expect(supabase.rpc).toHaveBeenCalledWith(
@@ -388,7 +431,7 @@ describe('POST /api/payments/paypal/create-order', () => {
       100,
       'USD',
       'track-123',
-      'sandbox',
+      'live',
       {
         returnUrl: 'https://example.com/store/checkout?paypal_return=1',
         cancelUrl: 'https://example.com/store/checkout?paypal_cancel=1',
@@ -436,7 +479,7 @@ describe('POST /api/payments/paypal/create-order', () => {
       MERCHANT_ID,
       'paypal',
       'secret_key',
-      'test',
+      'live',
       'invalid_client'
     );
   });

@@ -64,6 +64,9 @@ const META = {
   customer_email: 'customer@example.com',
   paypal_presentment_amount: 100,
   paypal_presentment_currency: 'USD',
+  // Customer checkout is live-only (F10); the capture route reads the order's
+  // original mode from transaction metadata, so the happy-path fixture is live.
+  paypal_mode: 'live',
 };
 
 const DEFAULT_ORDER = {
@@ -137,7 +140,7 @@ function captureData(
 }
 
 function buildServiceMock({
-  custom = { paypal_enabled: true, paypal_mode: 'sandbox' } as Record<
+  custom = { paypal_enabled: true, paypal_mode: 'live' } as Record<
     string,
     unknown
   >,
@@ -216,7 +219,7 @@ describe('POST /api/payments/paypal/capture-order', () => {
       success: true,
       data: captureData(),
     });
-    vi.mocked(detectPayPalResponseMode).mockReturnValue('sandbox');
+    vi.mocked(detectPayPalResponseMode).mockReturnValue('live');
     mockVaultOk();
   });
 
@@ -245,6 +248,27 @@ describe('POST /api/payments/paypal/capture-order', () => {
     );
   });
 
+  it('rejects a sandbox-environment order with 400 PAYPAL_SANDBOX_NOT_ALLOWED before capturing', async () => {
+    // The order's stored mode is sandbox (or missing) — a sandbox capture could
+    // mark the order paid with no real funds, so refuse before hitting PayPal or
+    // the credential vault (F10).
+    const base = proceedContext();
+    vi.mocked(loadPaypalCaptureContext).mockResolvedValue({
+      ...base,
+      metadata: { ...META, paypal_mode: 'sandbox' },
+      transaction: {
+        ...base.transaction,
+        metadata: { ...META, paypal_mode: 'sandbox' },
+      },
+    } as never);
+
+    const response = await POST(createRequest());
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('PAYPAL_SANDBOX_NOT_ALLOWED');
+    expect(getDecryptedMerchantCredential).not.toHaveBeenCalled();
+    expect(captureOrder).not.toHaveBeenCalled();
+  });
+
   it('returns 400 paypal_not_configured when the vault has no credentials', async () => {
     vi.mocked(getDecryptedMerchantCredential).mockRejectedValue(
       new Error('missing')
@@ -270,13 +294,13 @@ describe('POST /api/payments/paypal/capture-order', () => {
       MERCHANT_ID,
       'paypal',
       'secret_key',
-      'test',
+      'live',
       'invalid_client'
     );
   });
 
   it('hard-rejects a mode mismatch (sandbox response for a live store)', async () => {
-    vi.mocked(detectPayPalResponseMode).mockReturnValue('live');
+    vi.mocked(detectPayPalResponseMode).mockReturnValue('sandbox');
 
     const response = await POST(createRequest());
     expect(response.status).toBe(400);
@@ -286,7 +310,7 @@ describe('POST /api/payments/paypal/capture-order', () => {
   it('files a reconciliation review when rejecting a captured-but-mismatched payment', async () => {
     // The mismatch is only detectable after PayPal captured funds, so the
     // captured payment must be queued for reconciliation, never dropped.
-    vi.mocked(detectPayPalResponseMode).mockReturnValue('live');
+    vi.mocked(detectPayPalResponseMode).mockReturnValue('sandbox');
 
     const response = await POST(createRequest());
     expect(response.status).toBe(400);

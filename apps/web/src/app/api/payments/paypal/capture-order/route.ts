@@ -72,6 +72,21 @@ export async function POST(request: NextRequest) {
     const mode = metadata?.paypal_mode === 'live' ? 'live' : 'sandbox';
     const environment = mode === 'live' ? 'live' : 'test';
 
+    // Sandbox is reserved for the settings-page validate-on-save connection test
+    // ONLY. Refuse to capture a sandbox order so a sandbox capture can never mark
+    // an order paid with no real funds (F10). create-order already rejects
+    // sandbox before minting, so this only fires on stale/forged sandbox state —
+    // fail closed before hitting PayPal.
+    if (environment !== 'live') {
+      return NextResponse.json(
+        {
+          error: 'PayPal sandbox mode is not allowed for customer checkout',
+          code: 'PAYPAL_SANDBOX_NOT_ALLOWED',
+        },
+        { status: 400 }
+      );
+    }
+
     // Credentials come only from the encrypted vault (Phase 2.2).
     const credentials = await getPaypalCheckoutCredentials(
       merchant_id,

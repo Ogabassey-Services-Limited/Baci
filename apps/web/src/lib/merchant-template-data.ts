@@ -85,6 +85,13 @@ const PUBLIC_FEATURE_SETTING_KEYS = [
 const PUBLIC_CUSTOM_SETTING_KEYS = [
   'google_merchant_id',
   'google_store_widget_enabled',
+  // Non-secret PayPal checkout config. `paypal_enabled` (boolean) drives whether
+  // the storefront renders PayPal; `paypal_mode` ('live'/'sandbox', string) lets
+  // the storefront gate hide PayPal unless the merchant is on live. The PayPal
+  // *credentials* live in the encrypted vault and are NEVER in custom_settings,
+  // so exposing these two toggles leaks nothing sensitive.
+  'paypal_enabled',
+  'paypal_mode',
 ] as const;
 
 function isPublicFeatureSettingValue(value: unknown) {

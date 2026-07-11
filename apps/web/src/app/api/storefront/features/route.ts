@@ -134,8 +134,11 @@ function normalizePreferredGateway(
 
 // The non-secret PayPal enable toggle lives in `custom_settings` (a JSONB blob
 // that also holds `paypal_mode` and other private keys). We surface ONLY the
-// boolean to the storefront — never the raw blob — so no other custom setting
-// leaks to the client.
+// resulting boolean to the storefront — never the raw blob — so no other custom
+// setting leaks to the client. Customer checkout is live-only (sandbox is
+// reserved for the settings-page validate-on-save connection test), so PayPal is
+// reported enabled only when the merchant is both toggled on AND on live mode
+// (F10).
 function readPaypalEnabledFromCustomSettings(customSettings: unknown): boolean {
   if (
     !customSettings ||
@@ -144,7 +147,8 @@ function readPaypalEnabledFromCustomSettings(customSettings: unknown): boolean {
   ) {
     return false;
   }
-  return (customSettings as Record<string, unknown>).paypal_enabled === true;
+  const settings = customSettings as Record<string, unknown>;
+  return settings.paypal_enabled === true && settings.paypal_mode === 'live';
 }
 
 export async function GET(request: NextRequest) {

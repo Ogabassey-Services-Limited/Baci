@@ -342,21 +342,27 @@ describe('isPaypalCheckoutAvailable', () => {
 describe('isPaypalCheckoutAvailable — storefront currency-aware path', () => {
   const enabledMerchant = {
     country: 'GB',
-    feature_settings: { custom_settings: { paypal_enabled: true } },
+    feature_settings: {
+      custom_settings: { paypal_enabled: true, paypal_mode: 'live' },
+    },
   };
 
-  it('returns true when paypal_enabled and the currency is PayPal-native (USD)', () => {
+  it('returns true when paypal_enabled+live and the currency is PayPal-native (USD)', () => {
     expect(isPaypalCheckoutAvailable(enabledMerchant, 'USD')).toBe(true);
   });
 
-  it('returns true when paypal_enabled and the currency is NGN (live-FX path)', () => {
+  it('returns true when paypal_enabled+live and the currency is NGN (live-FX path)', () => {
     expect(isPaypalCheckoutAvailable(enabledMerchant, 'NGN')).toBe(true);
   });
 
-  it('reads paypal_enabled from an array-wrapped feature_settings join', () => {
+  it('reads paypal_enabled+mode from an array-wrapped feature_settings join', () => {
     expect(
       isPaypalCheckoutAvailable(
-        { feature_settings: [{ custom_settings: { paypal_enabled: true } }] },
+        {
+          feature_settings: [
+            { custom_settings: { paypal_enabled: true, paypal_mode: 'live' } },
+          ],
+        },
         'EUR'
       )
     ).toBe(true);
@@ -364,6 +370,28 @@ describe('isPaypalCheckoutAvailable — storefront currency-aware path', () => {
 
   it('returns false when the order currency is not PayPal-presentable (KES)', () => {
     expect(isPaypalCheckoutAvailable(enabledMerchant, 'KES')).toBe(false);
+  });
+
+  it('returns false when paypal_mode is sandbox, even for a native currency (F10)', () => {
+    expect(
+      isPaypalCheckoutAvailable(
+        {
+          feature_settings: {
+            custom_settings: { paypal_enabled: true, paypal_mode: 'sandbox' },
+          },
+        },
+        'USD'
+      )
+    ).toBe(false);
+  });
+
+  it('returns false when paypal_mode is missing, even when enabled (F10)', () => {
+    expect(
+      isPaypalCheckoutAvailable(
+        { feature_settings: { custom_settings: { paypal_enabled: true } } },
+        'USD'
+      )
+    ).toBe(false);
   });
 
   it('returns false when paypal_enabled is not set, even for a native currency', () => {
@@ -375,7 +403,11 @@ describe('isPaypalCheckoutAvailable — storefront currency-aware path', () => {
     ).toBe(false);
     expect(
       isPaypalCheckoutAvailable(
-        { feature_settings: { custom_settings: { paypal_enabled: false } } },
+        {
+          feature_settings: {
+            custom_settings: { paypal_enabled: false, paypal_mode: 'live' },
+          },
+        },
         'USD'
       )
     ).toBe(false);
@@ -617,10 +649,12 @@ describe('isForcedGatewayAvailable', () => {
     expect(isForcedGatewayAvailable('juicyway', null, 'NGN')).toBe(true);
   });
 
-  it('allows forced paypal when enabled with a PayPal-presentable currency', () => {
+  it('allows forced paypal when enabled+live with a PayPal-presentable currency', () => {
     const merchant = {
       country: 'GB',
-      feature_settings: { custom_settings: { paypal_enabled: true } },
+      feature_settings: {
+        custom_settings: { paypal_enabled: true, paypal_mode: 'live' },
+      },
     };
 
     expect(isForcedGatewayAvailable('paypal', merchant, 'USD')).toBe(true);
@@ -630,10 +664,23 @@ describe('isForcedGatewayAvailable', () => {
   it('rejects forced paypal when the currency is not PayPal-presentable', () => {
     const merchant = {
       country: 'KE',
-      feature_settings: { custom_settings: { paypal_enabled: true } },
+      feature_settings: {
+        custom_settings: { paypal_enabled: true, paypal_mode: 'live' },
+      },
     };
 
     expect(isForcedGatewayAvailable('paypal', merchant, 'KES')).toBe(false);
+  });
+
+  it('rejects forced paypal when the merchant is on sandbox mode (F10)', () => {
+    const merchant = {
+      country: 'GB',
+      feature_settings: {
+        custom_settings: { paypal_enabled: true, paypal_mode: 'sandbox' },
+      },
+    };
+
+    expect(isForcedGatewayAvailable('paypal', merchant, 'USD')).toBe(false);
   });
 
   it('rejects forced paypal when the merchant has not enabled paypal', () => {
