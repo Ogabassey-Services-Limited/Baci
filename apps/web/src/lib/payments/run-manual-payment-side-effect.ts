@@ -60,15 +60,23 @@ export async function runManualPaymentSideEffect({
   transactionId: string;
 }): Promise<'completed' | 'deferred' | 'failed'> {
   const claimToken = crypto.randomUUID();
-  const { data: claim, error: claimError } = await supabase
-    .rpc('claim_manual_payment_side_effect', {
-      p_claim_token: claimToken,
-      p_claimed_by: actor,
-      p_order_id: orderId,
-      p_step: step,
-      p_transaction_id: transactionId,
-    })
-    .single<ManualPaymentSideEffectClaim>();
+  let claim: ManualPaymentSideEffectClaim | null = null;
+  let claimError: unknown = null;
+  try {
+    const result = await supabase
+      .rpc('claim_manual_payment_side_effect', {
+        p_claim_token: claimToken,
+        p_claimed_by: actor,
+        p_order_id: orderId,
+        p_step: step,
+        p_transaction_id: transactionId,
+      })
+      .single<ManualPaymentSideEffectClaim>();
+    claim = result.data;
+    claimError = result.error;
+  } catch (error) {
+    claimError = error;
+  }
 
   if (claimError || !claim) {
     logger.error({

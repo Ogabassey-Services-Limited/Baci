@@ -81,10 +81,8 @@ describe('manual payment RPC migration', () => {
     expect(migration).toContain(
       "side_effect.claimed_at < now() - interval '60 seconds'"
     );
-    expect(migration).toContain(
-      'AND public.has_merchant_access(t.merchant_id)'
-    );
-    expect(migration).toContain(
+    expect(migration).toContain('TO service_role;');
+    expect(migration).not.toContain(
       'AND public.has_merchant_access(side_effect.merchant_id)'
     );
     expect(migration).toContain(

@@ -101,6 +101,23 @@ describe('runManualPaymentSideEffect', () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  it('returns failed without executing when the claim RPC throws', async () => {
+    mockSingle.mockRejectedValueOnce(new Error('connection closed'));
+    const execute = vi.fn();
+
+    await expect(
+      runManualPaymentSideEffect({
+        actor: 'user-1',
+        execute,
+        orderId: 'order-1',
+        step: 'partial_receipt',
+        supabase,
+        transactionId: 'transaction-1',
+      })
+    ).resolves.toBe('failed');
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it('marks a failed executor for a later replay', async () => {
     mockSingle.mockResolvedValue({ data: { we_won: true }, error: null });
     mockRpc
