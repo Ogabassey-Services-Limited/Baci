@@ -152,6 +152,11 @@ function buildServiceMock({
     data: unknown;
     error: unknown;
   },
+  // Result of the race-loser re-read of `orders` via maybeSingle (G4).
+  reReadOrder = { data: null, error: null } as {
+    data: unknown;
+    error: unknown;
+  },
 } = {}) {
   let lastTable = '';
   const mock = {
@@ -177,6 +182,9 @@ function buildServiceMock({
     maybeSingle: vi.fn(() => {
       if (lastTable === 'transactions') {
         return Promise.resolve(updatedTxn);
+      }
+      if (lastTable === 'orders') {
+        return Promise.resolve(reReadOrder);
       }
       return Promise.resolve({ data: null, error: null });
     }),
@@ -514,6 +522,57 @@ describe('POST /api/payments/paypal/capture-order', () => {
       PAYPAL_ORDER_ID,
       'live',
       expect.stringContaining('capture-')
+    );
+  });
+
+  it('race-loser returns idempotent success when the winner already marked the order paid', async () => {
+    // The pending-row update matched nothing (a concurrent request won). The
+    // winner already finalized the order to paid, so this loser must return
+    // idempotent success WITHOUT re-running finalization/side effects.
+    vi.mocked(createServiceClient).mockReturnValue(
+      buildServiceMock({
+        updatedTxn: { data: null, error: null },
+        reReadOrder: {
+          data: { payment_status: 'paid', order_number: 'BACI-1002' },
+          error: null,
+        },
+      }) as never
+    );
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      status: 'success',
+      orderNumber: 'BACI-1002',
+    });
+    expect(runPaypalCaptureSideEffects).not.toHaveBeenCalled();
+  });
+
+  it('race-loser reconciles the order when the winner captured but never finalized', async () => {
+    // The pending-row update matched nothing, but the order is still unpaid —
+    // the winner captured funds then failed to finalize. The loser must run the
+    // reconcile path (mark paid + side effects), not blindly claim success.
+    vi.mocked(createServiceClient).mockReturnValue(
+      buildServiceMock({
+        updatedTxn: { data: null, error: null },
+        reReadOrder: {
+          data: { payment_status: 'unpaid', order_number: 'BACI-1002' },
+          error: null,
+        },
+      }) as never
+    );
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).success).toBe(true);
+    expect(runPaypalCaptureSideEffects).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: MERCHANT_ID,
+        paypalOrderId: PAYPAL_ORDER_ID,
+      })
     );
   });
 

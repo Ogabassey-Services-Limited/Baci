@@ -126,12 +126,25 @@ export async function createAndPersistPaypalOrder(
     } | null;
   }
 ): Promise<CreateAndPersistPaypalResult> {
+  // G1: the stable `trackingToken` is the PayPal-Request-Id (idempotency key)
+  // ONLY for a first create — that legitimately de-dupes a double-submit of the
+  // SAME order state. But this function also runs for a REPLACEMENT create after
+  // the stored PayPal order became non-reusable (VOIDED/COMPLETED, or the
+  // presentment amount moved). Reusing the stable token there makes PayPal's
+  // idempotency return the OLD (dead) order for the new expected amount, leaving
+  // checkout stuck on a dead order. Derive a distinct key from the superseded
+  // order reference so every replacement mints a genuinely fresh PayPal order,
+  // while concurrent retries of the same replacement stay idempotent.
+  const requestId = params.existingTransaction?.gateway_reference
+    ? `${params.trackingToken}-${params.existingTransaction.gateway_reference}`
+    : params.trackingToken;
+
   const created = await createOrder(
     params.credentials.clientId,
     params.credentials.secretKey,
     params.presentmentAmount,
     params.presentmentCurrency,
-    params.trackingToken,
+    requestId,
     params.mode,
     { returnUrl: params.returnUrl, cancelUrl: params.cancelUrl }
   );

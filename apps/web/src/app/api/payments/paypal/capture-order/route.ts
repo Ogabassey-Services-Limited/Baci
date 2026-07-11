@@ -250,13 +250,28 @@ export async function POST(request: NextRequest) {
     }
 
     if (!updatedTransaction) {
-      // No error but no pending row: a concurrent request already completed it.
-      // The payment is recorded — respond idempotently.
-      return NextResponse.json({
-        success: true,
-        status: 'success',
-        orderNumber:
-          orderSnapshot.order_number || orderNumberFallback(order_id),
+      // Lost the race: another request flipped the transaction to 'completed'
+      // but may have failed to finalize. Reconcile unless already paid (F2/G4).
+      const { data: raceOrder } = await supabase
+        .from('orders')
+        .select('payment_status, order_number')
+        .eq('id', order_id)
+        .eq('merchant_id', merchant_id)
+        .maybeSingle();
+      if (raceOrder?.payment_status === 'paid') {
+        return NextResponse.json({
+          success: true,
+          status: 'success',
+          orderNumber: raceOrder.order_number || orderNumberFallback(order_id),
+        });
+      }
+      return finalizePaypalCaptureOrder({
+        supabase,
+        merchantId: merchant_id,
+        orderId: order_id,
+        paypalOrderId: paypal_order_id,
+        transaction,
+        orderSnapshot,
       });
     }
 

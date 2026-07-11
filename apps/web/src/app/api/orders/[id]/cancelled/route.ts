@@ -10,7 +10,7 @@ import {
 } from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
-import { initiateRefund as initiatePaystackRefund } from '@/lib/paystack';
+import { processOrderCancellationRefund } from '@/lib/payments/order-cancellation-refund';
 import { sendEmail } from '@/lib/zeptomail';
 
 /** Order item interface for email templates (2026 best practice) */
@@ -111,103 +111,16 @@ export async function POST(
       );
     }
 
-    // Calculate refund amount
+    // Full refund of the amount paid. The gateway dispatch, refund call, and
+    // audit-row write live in processOrderCancellationRefund so this route stays
+    // thin and the money path is unit-tested (paystack/paypal/korapay branches).
     const amountPaid = Number(order.amount_paid) || 0;
-    // For now, assume full refund of amount paid
-    const refundAmount = amountPaid;
-
-    // Process actual refund if payment was made
-    let refundResult: {
-      success: boolean;
-      refundId?: number;
-      error?: string;
-      auditRecordFailed?: boolean;
-    } = { success: false };
-    if (amountPaid > 0 && order.payment_status === 'paid') {
-      // Look up the transaction for this order
-      const { data: transaction } = await supabase
-        .from('transactions')
-        .select('gateway, gateway_reference')
-        .eq('order_id', id)
-        .eq('transaction_type', 'payment')
-        .eq('status', 'completed')
-        .single();
-
-      if (transaction?.gateway_reference) {
-        // Initiate refund based on payment gateway
-        if (transaction.gateway === 'paystack') {
-          const paystackRefund = await initiatePaystackRefund(
-            transaction.gateway_reference,
-            refundAmount * 100, // Convert to kobo
-            cancellationReason || 'Order cancelled'
-          );
-          refundResult = paystackRefund.success
-            ? { success: true, refundId: paystackRefund.data.id }
-            : { success: false, error: paystackRefund.error };
-        } else if (transaction.gateway === 'korapay') {
-          // TODO: Implement Korapay refund
-          logger.warn({
-            message: 'Korapay refund not yet implemented',
-            orderId: id,
-            transactionRef: transaction.gateway_reference,
-          });
-          refundResult = {
-            success: false,
-            error: 'Korapay refund not yet implemented',
-          };
-        } else {
-          logger.warn({
-            message: 'Unsupported payment gateway for refund',
-            gateway: transaction.gateway,
-            orderId: id,
-          });
-          refundResult = {
-            success: false,
-            error: `Unsupported gateway: ${transaction.gateway}`,
-          };
-        }
-
-        // Create refund transaction record
-        if (refundResult.success) {
-          const { error: insertTxError } = await supabase
-            .from('transactions')
-            .insert({
-              merchant_id: order.merchant_id,
-              order_id: id,
-              transaction_type: 'refund',
-              amount: refundAmount,
-              currency: order.currency || 'NGN',
-              status: 'completed',
-              gateway: transaction.gateway,
-              gateway_reference: String(refundResult.refundId),
-              description: `Refund for cancelled order #${order.order_number || id.slice(0, 8)}`,
-            });
-          if (insertTxError) {
-            // Refund already succeeded with the gateway. A 500 here would
-            // make a retried request re-issue the refund (double-refund
-            // risk) since the gateway is the authoritative ledger. Log the
-            // audit failure and continue to return the success response;
-            // monitoring picks up the audit-record gap from logs.
-            logger.error({
-              message:
-                'Refund processed but failed to create transaction audit record',
-              error: insertTxError,
-              orderId: id,
-              refundId: refundResult.refundId,
-            });
-            refundResult = {
-              ...refundResult,
-              auditRecordFailed: true,
-            };
-          }
-        }
-      } else {
-        logger.warn({
-          message: 'No transaction found for refund',
-          orderId: id,
-        });
-      }
-    }
+    const refundResult = await processOrderCancellationRefund(
+      supabase,
+      order,
+      cancellationReason
+    );
+    const refundAmount = refundResult.amount;
 
     // Prepare email data
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
@@ -286,19 +199,18 @@ export async function POST(
       success: true,
       message: 'Cancellation notification sent',
       messageId: emailResult.messageId,
-      refund:
-        amountPaid > 0
-          ? {
-              attempted: true,
-              success: refundResult.success,
-              amount: refundAmount,
-              refundId: refundResult.refundId,
-              error: refundResult.error,
-            }
-          : {
-              attempted: false,
-              reason: 'No payment to refund',
-            },
+      refund: refundResult.attempted
+        ? {
+            attempted: true,
+            success: refundResult.success,
+            amount: refundAmount,
+            refundId: refundResult.refundId,
+            error: refundResult.error,
+          }
+        : {
+            attempted: false,
+            reason: 'No payment to refund',
+          },
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal Error';

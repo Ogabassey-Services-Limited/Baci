@@ -170,6 +170,50 @@ describe('createAndPersistPaypalOrder', () => {
     );
   });
 
+  it('uses the stable tracking token as the PayPal-Request-Id on a first create', async () => {
+    // No prior pending order → the token de-dupes an honest double-submit.
+    await createAndPersistPaypalOrder(
+      buildInsertSupabase() as unknown as SupabaseClient,
+      { ...createParams, existingTransaction: null }
+    );
+
+    expect(createOrder).toHaveBeenCalledWith(
+      'cid',
+      'sk',
+      50,
+      'USD',
+      'track-1',
+      'sandbox',
+      { returnUrl: undefined, cancelUrl: undefined }
+    );
+  });
+
+  it('uses a fresh PayPal-Request-Id for a replacement create after a dead order', async () => {
+    // A prior pending PayPal order exists but is no longer reusable (voided /
+    // amount changed). Reusing the stable token would make PayPal return the
+    // OLD dead order via idempotency — the request id must be distinct.
+    const supabase = buildUpdateSupabase();
+
+    const result = await createAndPersistPaypalOrder(
+      supabase as unknown as SupabaseClient,
+      {
+        ...createParams,
+        existingTransaction: { gateway_reference: 'PP-OLD', metadata: {} },
+      }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(createOrder).toHaveBeenCalledWith(
+      'cid',
+      'sk',
+      50,
+      'USD',
+      'track-1-PP-OLD',
+      'sandbox',
+      { returnUrl: undefined, cancelUrl: undefined }
+    );
+  });
+
   it('disables the credential and returns 400 on a PayPal 401', async () => {
     vi.mocked(createOrder).mockResolvedValue({
       success: false,
