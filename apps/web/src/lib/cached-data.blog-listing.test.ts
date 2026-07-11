@@ -15,7 +15,11 @@ vi.mock('@supabase/supabase-js', () => ({
 }));
 
 import { cacheLife } from 'next/cache';
-import { getCachedBlogAuthor, getCachedBlogListing } from '@/lib/cached-data';
+import {
+  getCachedBlogAuthor,
+  getCachedBlogListing,
+  getCachedFeatureSettings,
+} from '@/lib/cached-data';
 import {
   buildBlogMerchantRow,
   createBlogMerchantRpcMock,
@@ -226,19 +230,12 @@ describe('getCachedBlogListing', () => {
     );
   });
 
-  it('falls back to the legacy feature settings projection while the repairs flag migration is pending', async () => {
+  it('resolves blog gating from the merchant snapshot without querying feature settings', async () => {
+    // Blog gating rides the merchant snapshot's feature_settings, so a pending
+    // repairs-flag migration on merchant_feature_settings cannot affect the
+    // public blog listing at all — the table is never queried on this path.
     const { featureSettingsSelects } = setupBlogListingFetch({
-      featureSettingsResults: [
-        {
-          data: null,
-          error: {
-            code: '42703',
-            message:
-              'column merchant_feature_settings.repairs_catalog_enabled does not exist',
-          },
-        },
-        { data: { blog_enabled: true }, error: null },
-      ],
+      featureSettingsResults: [],
       posts: [{ id: 'post-1', slug: 'best-phones', title: 'Best Phones' }],
     });
 
@@ -246,9 +243,7 @@ describe('getCachedBlogListing', () => {
 
     expect(result).not.toBeNull();
     expect(result?.posts.map((post) => post.id)).toEqual(['post-1']);
-    expect(featureSettingsSelects).toHaveLength(2);
-    expect(featureSettingsSelects[0]).toContain('repairs_catalog_enabled');
-    expect(featureSettingsSelects[1]).not.toContain('repairs_catalog_enabled');
+    expect(featureSettingsSelects).toHaveLength(0);
   });
 
   it('uses estimated counts for author pagination to avoid full COUNT scans', async () => {
@@ -378,5 +373,38 @@ describe('getCachedBlogListing', () => {
     expect(result?.posts.map((post) => post.id)).toEqual(['page-3-post']);
     expect(result?.currentPage).toBe(3);
     expect(result?.totalPages).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('getCachedFeatureSettings', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('falls back to the legacy feature settings projection while the repairs flag migration is pending', async () => {
+    const { featureSettingsSelects } = setupBlogListingFetch({
+      featureSettingsResults: [
+        {
+          data: null,
+          error: {
+            code: '42703',
+            message:
+              'column merchant_feature_settings.repairs_catalog_enabled does not exist',
+          },
+        },
+        { data: { blog_enabled: true }, error: null },
+      ],
+    });
+
+    const settings = await getCachedFeatureSettings('merchant-1');
+
+    expect(settings).toMatchObject({
+      blog_enabled: true,
+      // Normalized default while the column is missing.
+      repairs_catalog_enabled: false,
+    });
+    expect(featureSettingsSelects).toHaveLength(2);
+    expect(featureSettingsSelects[0]).toContain('repairs_catalog_enabled');
+    expect(featureSettingsSelects[1]).not.toContain('repairs_catalog_enabled');
   });
 });
