@@ -44,6 +44,7 @@ SET search_path = ''
 AS $$
 DECLARE
   v_settings jsonb;
+  v_compliance_verified boolean;
   v_currency text := 'NGN';
   v_ranked_count integer;
   v_ranked_prizes jsonb;
@@ -51,11 +52,15 @@ DECLARE
   v_cash_amount numeric;
   v_minted integer := 0;
 BEGIN
-  SELECT e.settings INTO v_settings
+  -- Fail-closed on compliance even when this minter is invoked DIRECTLY (not
+  -- only via the finalize wrappers): never mint an award row for an event whose
+  -- compliance has not been verified.
+  SELECT e.settings, e.compliance_verified
+    INTO v_settings, v_compliance_verified
   FROM public.quiz_events e
   WHERE e.id = p_event_id;
 
-  IF v_settings IS NULL THEN
+  IF v_settings IS NULL OR v_compliance_verified IS NOT TRUE THEN
     RETURN 0;
   END IF;
 
@@ -74,10 +79,14 @@ BEGIN
   END IF;
 
   -- ranked_winner_count controls how many ranks receive a prize (default 3).
-  v_ranked_count := COALESCE(
-    NULLIF(pg_catalog.btrim(v_settings->>'ranked_winner_count'), '')::integer,
-    3
-  );
+  -- Only a digit-only value is honored, cast via numeric first and clamped to a
+  -- sane max, so a malformed value can't abort the finalize (invalid ::integer)
+  -- and an absurd one can't materialize a giant generate_series below. A
+  -- non-digit value falls back to the default rather than raising.
+  v_ranked_count := 3;
+  IF v_settings->>'ranked_winner_count' ~ '^[0-9]+$' THEN
+    v_ranked_count := LEAST((v_settings->>'ranked_winner_count')::numeric, 1000)::integer;
+  END IF;
   IF v_ranked_count < 1 THEN
     RETURN 0;
   END IF;
@@ -204,9 +213,12 @@ BEGIN
   END IF;
 
   -- Fail-closed: only compliance-verified, due/completed events finalize (and
-  -- award_finalized_at IS NULL keeps this idempotent — runs exactly once).
+  -- award_finalized_at IS NULL keeps this idempotent — runs exactly once). A
+  -- due active event is also flipped to 'completed' so the storefront stops
+  -- surfacing it as live once its winners are minted.
   UPDATE public.quiz_events
   SET award_finalized_at = pg_catalog.now(),
+      status = CASE WHEN status = 'active' THEN 'completed' ELSE status END,
       updated_at = pg_catalog.now()
   WHERE id = p_event_id
     AND award_finalized_at IS NULL
@@ -253,7 +265,11 @@ BEGIN
     SELECT e.id
     FROM public.quiz_events e
     WHERE e.ends_at IS NOT NULL
-      AND e.ends_at <= pg_catalog.now()
+      -- Grace window after ends_at: a player who started just before the
+      -- deadline can still be mid-attempt (per-question timers run past
+      -- ends_at). Waiting 10 min before auto-finalizing lets those in-flight
+      -- attempts submit and compete for a rank instead of being dropped.
+      AND e.ends_at <= pg_catalog.now() - interval '10 minutes'
       AND e.award_finalized_at IS NULL
       AND e.compliance_verified = true            -- fail-closed money gate
       AND e.status IN ('active', 'scheduled', 'completed')
@@ -271,6 +287,7 @@ BEGIN
   LOOP
     UPDATE public.quiz_events
     SET award_finalized_at = pg_catalog.now(),
+        status = CASE WHEN status = 'active' THEN 'completed' ELSE status END,
         updated_at = pg_catalog.now()
     WHERE id = v_event_id
       AND award_finalized_at IS NULL;
