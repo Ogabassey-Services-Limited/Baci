@@ -11,7 +11,7 @@ const {
   mockDraftMode,
   mockHeaders,
   mockNotFound,
-  mockGetCachedBlogPost,
+  mockGetRequestScopedBlogPost,
   mockGetLiveBlogPost,
   mockGetBlogPostRedirect,
   mockBuildInformationalClusterModel,
@@ -28,7 +28,7 @@ const {
   mockNotFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
   }),
-  mockGetCachedBlogPost: vi.fn(),
+  mockGetRequestScopedBlogPost: vi.fn(),
   mockGetLiveBlogPost: vi.fn(),
   mockGetBlogPostRedirect: vi.fn(),
   mockBuildInformationalClusterModel: vi.fn(),
@@ -108,7 +108,8 @@ vi.mock('@/components/ui/button', () => ({
 }));
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedBlogPost: (...args: unknown[]) => mockGetCachedBlogPost(...args),
+  getRequestScopedBlogPost: (...args: unknown[]) =>
+    mockGetRequestScopedBlogPost(...args),
 }));
 
 vi.mock('@/lib/live-blog-post', () => ({
@@ -272,7 +273,7 @@ describe('BlogPostPageContent', () => {
         'accept-language': 'en-us,en;q=0.8',
       })
     );
-    mockGetCachedBlogPost.mockResolvedValue(smartphoneGuideBlogPost);
+    mockGetRequestScopedBlogPost.mockResolvedValue(smartphoneGuideBlogPost);
     mockGetLiveBlogPost.mockResolvedValue(null);
     mockGetBlogPostRedirect.mockResolvedValue(null);
     mockBuildInformationalClusterModel.mockResolvedValue({
@@ -324,7 +325,7 @@ describe('BlogPostPageContent', () => {
   });
 
   it('passes related products through to the blog post body', async () => {
-    mockGetCachedBlogPost.mockResolvedValue({
+    mockGetRequestScopedBlogPost.mockResolvedValue({
       ...smartphoneGuideBlogPost,
       relatedProducts: [
         {
@@ -358,7 +359,7 @@ describe('BlogPostPageContent', () => {
   });
 
   it('resolves content links against the live catalog outside draft mode', async () => {
-    mockGetCachedBlogPost.mockResolvedValue(smartphoneGuideBlogPost);
+    mockGetRequestScopedBlogPost.mockResolvedValue(smartphoneGuideBlogPost);
 
     render(
       await BlogPostPageContent({
@@ -376,7 +377,7 @@ describe('BlogPostPageContent', () => {
 
   it('skips dead-link resolution in draft preview so draft-to-draft links survive', async () => {
     mockDraftMode.mockResolvedValue({ isEnabled: true });
-    mockGetCachedBlogPost.mockResolvedValue(smartphoneGuideBlogPost);
+    mockGetRequestScopedBlogPost.mockResolvedValue(smartphoneGuideBlogPost);
 
     render(
       await BlogPostPageContent({
@@ -424,7 +425,7 @@ describe('BlogPostPageContent', () => {
   });
 
   it('passes persisted Discover image variants to structured data', async () => {
-    mockGetCachedBlogPost.mockResolvedValue({
+    mockGetRequestScopedBlogPost.mockResolvedValue({
       ...smartphoneGuideBlogPost,
       post: {
         ...smartphoneGuideBlogPost.post,
@@ -484,7 +485,7 @@ describe('BlogPostPageContent', () => {
   });
 
   it('emits VideoObject structured data when the actual video upload date is available', async () => {
-    mockGetCachedBlogPost.mockResolvedValue({
+    mockGetRequestScopedBlogPost.mockResolvedValue({
       ...smartphoneGuideBlogPost,
       post: {
         ...smartphoneGuideBlogPost.post,
@@ -521,7 +522,7 @@ describe('BlogPostPageContent', () => {
   });
 
   it('does not emit VideoObject structured data without the actual video upload date', async () => {
-    mockGetCachedBlogPost.mockResolvedValue({
+    mockGetRequestScopedBlogPost.mockResolvedValue({
       ...smartphoneGuideBlogPost,
       post: {
         ...smartphoneGuideBlogPost.post,
@@ -570,7 +571,7 @@ describe('BlogPostPageContent', () => {
   });
 
   it('ignores non-string publisher social JSON values before structured data', async () => {
-    mockGetCachedBlogPost.mockResolvedValue({
+    mockGetRequestScopedBlogPost.mockResolvedValue({
       ...smartphoneGuideBlogPost,
       merchant: {
         ...smartphoneGuideBlogPost.merchant,
@@ -623,7 +624,7 @@ describe('BlogPostPageContent', () => {
   });
 
   it('renders the featured article hero as a preload-only LCP image at the shared low quality', async () => {
-    mockGetCachedBlogPost.mockResolvedValue({
+    mockGetRequestScopedBlogPost.mockResolvedValue({
       ...smartphoneGuideBlogPost,
       post: {
         ...smartphoneGuideBlogPost.post,
@@ -661,7 +662,7 @@ describe('BlogPostPageContent', () => {
   });
 
   it('permanently redirects retired direct blog slugs before rendering notFound', async () => {
-    mockGetCachedBlogPost.mockResolvedValue(null);
+    mockGetRequestScopedBlogPost.mockResolvedValue(null);
     mockGetLiveBlogPost.mockResolvedValue(null);
     mockGetBlogPostRedirect.mockResolvedValueOnce({
       merchant: {
@@ -692,7 +693,7 @@ describe('BlogPostPageContent', () => {
   });
 
   it('renders stable noindex soft-not-found content for missing direct blog slugs without redirects', async () => {
-    mockGetCachedBlogPost.mockResolvedValue(null);
+    mockGetRequestScopedBlogPost.mockResolvedValue(null);
     mockGetLiveBlogPost.mockResolvedValue(null);
     mockGetBlogPostRedirect.mockResolvedValueOnce(null);
 
@@ -737,7 +738,7 @@ describe('BlogPostPageContent', () => {
     expect(
       screen.getByRole('heading', { name: 'Blog post not found' })
     ).toBeInTheDocument();
-    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+    expect(mockGetRequestScopedBlogPost).not.toHaveBeenCalled();
     expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
     expect(mockGetBlogPostRedirect).not.toHaveBeenCalled();
   });
@@ -755,13 +756,13 @@ describe('BlogPostPageContent', () => {
     expect(
       screen.getByRole('heading', { name: 'Blog post not found' })
     ).toBeInTheDocument();
-    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+    expect(mockGetRequestScopedBlogPost).not.toHaveBeenCalled();
     expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
     expect(mockGetBlogPostRedirect).not.toHaveBeenCalled();
   });
 
   it('links missing merchant-slug blog posts back to the slug-scoped blog index', async () => {
-    mockGetCachedBlogPost.mockResolvedValue(null);
+    mockGetRequestScopedBlogPost.mockResolvedValue(null);
     mockGetLiveBlogPost.mockResolvedValue(null);
     mockGetBlogPostRedirect.mockResolvedValueOnce(null);
 
@@ -854,7 +855,7 @@ describe('BlogPostPageContent', () => {
   });
 
   it('renders blog posts without an author name without trying to build an author slug', async () => {
-    mockGetCachedBlogPost.mockResolvedValue({
+    mockGetRequestScopedBlogPost.mockResolvedValue({
       ...smartphoneGuideBlogPost,
       post: {
         ...smartphoneGuideBlogPost.post,
