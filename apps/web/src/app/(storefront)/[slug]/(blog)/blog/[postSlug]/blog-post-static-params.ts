@@ -3,13 +3,18 @@ import { getCachedBlogListing } from '@/lib/cached-data';
 import { OGABASSEY_BLOG_STATIC_TENANTS } from '../blog-category-routing';
 
 /**
- * Number of newest published posts prerendered per static blog tenant so their
- * above-the-fold hero ships inside the PPR static shell (LCP). Mirrors the PDP
- * `OGABASSEY_PRERENDER_LIMIT`. Posts outside this window keep rendering on
- * demand (the default PPR behavior — `dynamicParams` cannot be set under
- * cacheComponents).
+ * Ceiling on published posts prerendered per static blog tenant. This is a
+ * safety cap, not a target: the pager stops at the last listing page, so every
+ * published post gets a prerendered PPR shell as long as the tenant stays
+ * under this ceiling. Full coverage is load-bearing for SEO, not just LCP —
+ * on Vercel, only params enumerated here get a shell with the resolved
+ * `<title>` baked into `<head>`; non-enumerated params render with streamed
+ * metadata forever (the PPR resume forces streaming regardless of
+ * `htmlLimitedBots`), which raw-HTML crawlers read as a missing/wrong title
+ * (Semrush 2026-07-10: 64 pages reported as duplicate bare-"Ogabassey"
+ * titles). Mirrors the PDP `OGABASSEY_PRERENDER_LIMIT` rationale.
  */
-export const BLOG_POST_PRERENDER_LIMIT = 48;
+export const BLOG_POST_PRERENDER_LIMIT = 1200;
 
 // cacheComponents requires generateStaticParams to return >= 1 param. When the
 // listing is empty/unavailable at build, this placeholder keeps the build valid
