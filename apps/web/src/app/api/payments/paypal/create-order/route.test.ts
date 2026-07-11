@@ -305,7 +305,9 @@ describe('POST /api/payments/paypal/create-order', () => {
     mockVaultOk();
     // getFreshNgnPerUsdt throws when it cannot obtain a rate within the
     // freshness window (stale cache is NOT served on the PayPal lane).
-    vi.mocked(getFreshNgnPerUsdt).mockRejectedValue(new Error('coingecko down'));
+    vi.mocked(getFreshNgnPerUsdt).mockRejectedValue(
+      new Error('coingecko down')
+    );
 
     const response = await POST(createRequest());
     expect(response.status).toBe(503);
