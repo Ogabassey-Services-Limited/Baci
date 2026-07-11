@@ -25,6 +25,7 @@ interface SelectApprovedCompareGraphEntriesInput<
   categoryName: string;
   policyProducts: CompareGraphApprovalProduct[];
   candidateEntries: TEntry[];
+  candidateEntriesAreIndexable?: boolean;
   requiredProductSlugs?: string[];
   maxLinks: number;
 }
@@ -46,6 +47,7 @@ export function selectApprovedCompareGraphEntries<
   categoryName,
   policyProducts,
   candidateEntries,
+  candidateEntriesAreIndexable = false,
   requiredProductSlugs,
   maxLinks,
 }: SelectApprovedCompareGraphEntriesInput<TEntry>) {
@@ -75,6 +77,15 @@ export function selectApprovedCompareGraphEntries<
 
     if (index >= supplementalApprovalCandidateLimit) {
       return false;
+    }
+
+    // buildCompareLinkGraph only passes candidates that already satisfied the
+    // product-pair indexability policy. Rebuilding the full discovery graph for
+    // each of those candidates is redundant: putting the candidate's two
+    // products first in the supplemental window necessarily emits that same
+    // pair. Avoid turning the bounded category graph into nested graph builds.
+    if (candidateEntriesAreIndexable) {
+      return true;
     }
 
     const supplementalCuratedCompareSlugs =

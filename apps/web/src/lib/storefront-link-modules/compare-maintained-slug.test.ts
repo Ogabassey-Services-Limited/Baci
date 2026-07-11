@@ -146,7 +146,7 @@ describe('isMaintainedCompareGraphSlug', () => {
     };
     const memberSlug = buildCategoryCompareGraphSlugSet(input)[0];
 
-    // A member of the cached set is maintained WITHOUT rebuilding the graph...
+    // A member of the precomputed set is maintained without rebuilding it.
     expect(
       isMaintainedCompareGraphSlug({
         ...input,
@@ -164,7 +164,7 @@ describe('isMaintainedCompareGraphSlug', () => {
     ).toBe(false);
   });
 
-  it('rejects a cached slug whose product is no longer active in the route products', () => {
+  it('rejects a precomputed slug whose product is no longer active in the route products', () => {
     const input = {
       storeUrl: 'https://ogabassey.com',
       categorySlug: 'smartphones',
@@ -173,7 +173,7 @@ describe('isMaintainedCompareGraphSlug', () => {
     };
     const staleSlug = 'google-pixel-8-vs-xiaomi-13t';
 
-    // The cached set is warm and still contains the slug, but xiaomi-13t has
+    // The precomputed set still contains the slug, but xiaomi-13t has
     // since been unpublished (draft) — the set outlived the inventory refresh.
     // The warm hit must NOT keep the page maintained: the pair's product is no
     // longer active in the current route products, and the anchored fallback

@@ -11,11 +11,11 @@ import {
 /**
  * The set of canonical comparison slugs in the UNANCHORED maintained category
  * compare-graph. This is O(activeProducts^2) — it scores + indexability-tests
- * every product pair (buildProductCompareCandidate) — and is IDENTICAL for
- * every compare URL in the category. Building it per compare render cost ~14s
- * on prod-shape data / ~28s on Vercel (the compare-page stall). Compute it ONCE
- * per category (see getCachedCategoryCompareGraphSlugs) and pass the resulting
- * set to isMaintainedCompareGraphSlug so the per-URL check is O(1).
+ * every product pair (buildProductCompareCandidate). The approval selector must
+ * not rebuild the complete discovery graph for each already-indexable pair;
+ * doing so nested this graph inside up to 150 more graph builds and cost ~14s
+ * locally / ~28s on Vercel. Build one request-scoped set from the already-loaded
+ * inventory and pass it to isMaintainedCompareGraphSlug for O(1) membership.
  */
 export function buildCategoryCompareGraphSlugSet(
   input: BuildCompareLinkGraphInput
@@ -55,7 +55,7 @@ function comparePairProductsAreActive(
 export function isMaintainedCompareGraphSlug(
   input: BuildCompareLinkGraphInput & {
     comparisonSlug: string;
-    // Precomputed unanchored category-graph slugs (cached per category). When
+    // Precomputed unanchored category-graph slugs. When
     // provided, the expensive O(n^2) unanchored build is skipped in favour of
     // an O(1) membership check; the cheap anchored checks still run per URL.
     categoryGraphSlugs?: ReadonlySet<string>;

@@ -230,6 +230,7 @@ export function buildCompareLinkGraph({
     requiredProductSlugs: anchorProductSlug ? [anchorProductSlug] : undefined,
     policyProducts,
     candidateEntries: sortedCandidateEntries,
+    candidateEntriesAreIndexable: true,
     maxLinks,
   });
 }

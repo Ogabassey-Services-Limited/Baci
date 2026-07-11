@@ -1,27 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCachedProductSemanticInventory } from '@/lib/storefront-product/get-cached-product-semantic-inventory';
 import {
   buildRelatedCompareLinks,
+  COMPARE_GRAPH_PRODUCT_LIMIT,
   dedupeCompareLinks,
-  getCachedCategoryCompareGraphSlugs,
   includeClickedCompareProducts,
-  loadCategoryCompareGraphSlugs,
   loadCompareGraphProducts,
 } from './compare-page-link-helpers';
+import { getCachedCompareCategoryInventory } from './get-cached-compare-category-inventory';
 
-vi.mock('next/cache', () => ({
-  cacheLife: vi.fn(),
-  cacheTag: vi.fn(),
+vi.mock('./get-cached-compare-category-inventory', () => ({
+  COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT: 600,
+  getCachedCompareCategoryInventory: vi.fn(),
 }));
 
-vi.mock(
-  '@/lib/storefront-product/get-cached-product-semantic-inventory',
-  () => ({
-    getCachedProductSemanticInventory: vi.fn(),
-  })
-);
-
-const mockedInventory = vi.mocked(getCachedProductSemanticInventory);
+const mockedInventory = vi.mocked(getCachedCompareCategoryInventory);
 
 const products = [
   {
@@ -67,16 +59,70 @@ describe('compare page link helpers', () => {
     mockedInventory.mockReset();
   });
 
-  it('loads compare graph products from bounded semantic inventory', async () => {
-    mockedInventory.mockResolvedValueOnce(products);
+  it('reuses the bounded compare category inventory for graph products', async () => {
+    mockedInventory.mockResolvedValueOnce({
+      isCollection: false,
+      fallbackName: 'Smartphones',
+      products: products.map((product) => ({
+        ...product,
+        status: 'active',
+      })),
+    });
 
     await expect(
       loadCompareGraphProducts({
         categorySlug: 'smartphones',
         merchantId: 'merchant-1',
+        storeSlug: 'ogabassey',
       })
-    ).resolves.toEqual({ failed: false, products });
-    expect(mockedInventory).toHaveBeenCalledWith('merchant-1', 'smartphones');
+    ).resolves.toEqual({
+      failed: false,
+      products: products.map((product) => ({
+        ...product,
+        status: 'active',
+      })),
+    });
+    expect(mockedInventory).toHaveBeenCalledWith(
+      'merchant-1',
+      'smartphones',
+      'ogabassey'
+    );
+  });
+
+  it('keeps graph products exact-category scoped and bounded', async () => {
+    mockedInventory.mockResolvedValueOnce({
+      isCollection: false,
+      fallbackName: 'Computers',
+      products: [
+        ...Array.from(
+          { length: COMPARE_GRAPH_PRODUCT_LIMIT + 1 },
+          (_, index) => ({
+            ...products[index % products.length],
+            slug: `laptop-${index}`,
+            category_slug: 'laptops',
+            status: 'active',
+          })
+        ),
+        {
+          ...products[0],
+          slug: 'child-product',
+          category_slug: 'gaming-laptops',
+          status: 'active',
+        },
+      ],
+    });
+
+    const result = await loadCompareGraphProducts({
+      categorySlug: 'laptops',
+      merchantId: 'merchant-1',
+      storeSlug: 'ogabassey',
+    });
+
+    expect(result.failed).toBe(false);
+    expect(result.products).toHaveLength(COMPARE_GRAPH_PRODUCT_LIMIT);
+    expect(
+      result.products.every((product) => product.category_slug === 'laptops')
+    ).toBe(true);
   });
 
   it('falls back to an empty failed inventory when compare graph loading fails', async () => {
@@ -89,6 +135,7 @@ describe('compare page link helpers', () => {
       loadCompareGraphProducts({
         categorySlug: 'smartphones',
         merchantId: 'merchant-1',
+        storeSlug: 'ogabassey',
       })
     ).resolves.toEqual({ failed: true, products: [] });
     expect(consoleSpy).toHaveBeenCalled();
@@ -116,55 +163,6 @@ describe('compare page link helpers', () => {
         currentComparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
       }).map((link) => link.comparisonSlug)
     ).toContain('google-pixel-8-vs-iphone-17-pro-max');
-  });
-
-  it('builds the per-category maintained-graph slug set from the bounded inventory', async () => {
-    mockedInventory.mockResolvedValueOnce(products);
-
-    const slugs = await getCachedCategoryCompareGraphSlugs({
-      merchantId: 'merchant-1',
-      categorySlug: 'smartphones',
-      storeUrl: 'https://ogabassey.com',
-      categoryName: 'Smartphones',
-    });
-
-    expect(mockedInventory).toHaveBeenCalledWith('merchant-1', 'smartphones');
-    // The unanchored category graph pairs the active products into canonical
-    // comparison slugs.
-    expect(slugs).toContain('google-pixel-8-vs-iphone-17-pro-max');
-    expect(slugs.length).toBeGreaterThan(0);
-  });
-
-  it('loadCategoryCompareGraphSlugs returns a Set on success', async () => {
-    mockedInventory.mockResolvedValueOnce(products);
-
-    const set = await loadCategoryCompareGraphSlugs({
-      merchantId: 'merchant-1',
-      categorySlug: 'smartphones',
-      storeUrl: 'https://ogabassey.com',
-      categoryName: 'Smartphones',
-    });
-
-    expect(set).toBeInstanceOf(Set);
-    expect(set?.has('google-pixel-8-vs-iphone-17-pro-max')).toBe(true);
-  });
-
-  it('loadCategoryCompareGraphSlugs fails open to null on a transient inventory error', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
-    mockedInventory.mockRejectedValueOnce(new Error('inventory failed'));
-
-    await expect(
-      loadCategoryCompareGraphSlugs({
-        merchantId: 'merchant-1',
-        categorySlug: 'smartphones',
-        storeUrl: 'https://ogabassey.com',
-        categoryName: 'Smartphones',
-      })
-    ).resolves.toBeNull();
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
   });
 
   it('dedupes compare links by href while keeping the first copy', () => {

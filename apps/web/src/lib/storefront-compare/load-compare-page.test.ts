@@ -6,7 +6,6 @@ const mockGetCachedCompareCategoryInventory = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedFeatureSettings = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
-const mockGetCachedProductSemanticInventory = vi.fn();
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
     mockGetMerchantByIdentifier(...args),
@@ -17,6 +16,7 @@ vi.mock('@/lib/cached-data', () => ({
 }));
 
 vi.mock('./get-cached-compare-category-inventory', () => ({
+  COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT: 600,
   getCachedCompareCategoryInventory: (...args: unknown[]) =>
     mockGetCachedCompareCategoryInventory(...args),
 }));
@@ -25,14 +25,6 @@ vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
   getPublishedClusterPosts: (...args: unknown[]) =>
     mockGetPublishedClusterPosts(...args),
 }));
-
-vi.mock(
-  '@/lib/storefront-product/get-cached-product-semantic-inventory',
-  () => ({
-    getCachedProductSemanticInventory: (...args: unknown[]) =>
-      mockGetCachedProductSemanticInventory(...args),
-  })
-);
 
 const merchant = {
   id: 'merchant-1',
@@ -165,23 +157,12 @@ describe('loadComparePage', () => {
     mockGetCachedProductWithDetails.mockReset();
     mockGetCachedFeatureSettings.mockReset();
     mockGetPublishedClusterPosts.mockReset();
-    mockGetCachedProductSemanticInventory.mockReset();
     mockGetMerchantByIdentifier.mockResolvedValue(merchant);
     mockGetCachedCompareCategoryInventory.mockResolvedValue(
       toCompareInventory(categoryPageData)
     );
     mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
     mockGetPublishedClusterPosts.mockResolvedValue([]);
-    mockGetCachedProductSemanticInventory.mockResolvedValue(
-      categoryPageData.products.map((product) => ({
-        slug: product.slug,
-        name: product.name,
-        brand: product.brand,
-        price: product.price,
-        category_slug: product.category_slug,
-        product_key_specs: product.product_key_specs,
-      }))
-    );
   });
 
   afterEach(() => {
@@ -291,7 +272,6 @@ describe('loadComparePage', () => {
         expect.objectContaining({ label: 'Active models' }),
       ])
     );
-    expect(mockGetCachedProductSemanticInventory).not.toHaveBeenCalled();
   });
 
   it('keeps the full brand-vs-brand metaTitle when a long category name exceeds the SERP display cap', async () => {
@@ -486,29 +466,31 @@ describe('loadComparePage', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
       // No fallback warning should be emitted for a valid clicked pair.
     });
-    // Persistent (not ...Once) so BOTH bounded-inventory reads — loadCompareGraphProducts
-    // AND getCachedCategoryCompareGraphSlugs — see only samsung. iphone-17-pro-max is thus
-    // an OVERFLOW clicked product (resolved from the larger compare inventory but absent from
-    // the bounded semantic inventory), so routeApprovalProducts outgrows semanticCompareProducts
-    // and the overflow guard forces the uncached graph rebuild over routeApprovalProducts
-    // (bounded inventory + the clicked iphone-17-pro-max) rather than trusting the bounded
-    // cached set, which cannot attest to the overflow pair. This is the branch the test exists
-    // to protect; without the overflow/uncached path it would fall to the narrower anchored
-    // check (or a stale cached set) and could de-index a valid clicked pair.
-    mockGetCachedProductSemanticInventory.mockResolvedValue([
-      {
-        slug: 'samsung-galaxy-z-trifold',
-        name: 'Samsung Galaxy Z TriFold',
-        brand: 'Samsung',
-        price: 2_300_000,
-        category_slug: 'smartphones',
-        product_key_specs: {
-          chipset: 'Snapdragon 8 Elite',
-          ram_gb: 16,
-          storage_gb: 512,
-        },
+    // iphone-17-pro-max resolves from the 600-row compare snapshot but sits
+    // outside the 300-row graph window. The overflow guard must append the
+    // clicked product and rebuild over that request set rather than trusting a
+    // category set which never received the clicked product.
+    const graphFillerProducts = Array.from({ length: 299 }, (_, index) => ({
+      ...categoryPageData.products[2],
+      id: `graph-filler-${index}`,
+      slug: `graph-filler-${index}`,
+      name: `Graph Filler ${index}`,
+      product_key_specs: {
+        chipset: 'A19 Pro',
+        ram_gb: 16,
+        storage_gb: 256,
       },
-    ]);
+    }));
+    mockGetCachedCompareCategoryInventory.mockResolvedValue(
+      toCompareInventory({
+        ...categoryPageData,
+        products: [
+          categoryPageData.products[1],
+          ...graphFillerProducts,
+          categoryPageData.products[0],
+        ],
+      })
+    );
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
       ...categoryPageData.products[0],
       product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
@@ -551,33 +533,14 @@ describe('loadComparePage', () => {
       ...categoryPageData.products[1],
       status: 'active',
     };
-    // A product can go draft after the inventory entry was cached; the graph
-    // approval path must still reject it via the clicked product's status.
+    // A draft product must not be approved when the category snapshot carries
+    // its current status into both the core and graph overlay.
     const staleInventory = toCompareInventory({
       ...categoryPageData,
       products: [inactiveLeft, activeRight],
     });
     staleInventory.products[0].status = 'draft';
-    mockGetCachedCompareCategoryInventory.mockResolvedValueOnce(staleInventory);
-    // Persistent (not Once): getCachedProductSemanticInventory is now read twice
-    // per render — by loadCompareGraphProducts (anchored checks) AND by the
-    // per-category cached graph-slug set. In prod both hit the same
-    // status='active'-filtered query, so the draft left product is absent from
-    // both; the mock mirrors that so the clicked-inactive rejection still holds.
-    mockGetCachedProductSemanticInventory.mockResolvedValue([
-      {
-        slug: 'samsung-galaxy-z-trifold',
-        name: 'Samsung Galaxy Z TriFold',
-        brand: 'Samsung',
-        price: 2_300_000,
-        category_slug: 'smartphones',
-        product_key_specs: {
-          chipset: 'Snapdragon 8 Elite',
-          ram_gb: 16,
-          storage_gb: 512,
-        },
-      },
-    ]);
+    mockGetCachedCompareCategoryInventory.mockResolvedValue(staleInventory);
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
       ...inactiveLeft,
       product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
@@ -619,9 +582,9 @@ describe('loadComparePage', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
       // Suppress expected bounded-inventory warning.
     });
-    mockGetCachedProductSemanticInventory.mockRejectedValueOnce(
-      new Error('inventory timeout')
-    );
+    mockGetCachedCompareCategoryInventory
+      .mockResolvedValueOnce(toCompareInventory(categoryPageData))
+      .mockRejectedValueOnce(new Error('inventory timeout'));
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
       ...categoryPageData.products[0],
       product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
@@ -656,30 +619,13 @@ describe('loadComparePage', () => {
     warnSpy.mockRestore();
   });
 
-  it('keeps a graph-maintained non-curated compare route indexable when only the cached slug-set read fails', async () => {
-    // Regression guard (Codex P2): when the per-category slug-set read fails but
-    // the bounded inventory read succeeded, indexability must be decided by the
-    // UNCACHED graph rebuild over routeApprovalProducts — NOT demoted to the
-    // curated-only decision. iphone-15-vs-iphone-se is graph-maintained but is
-    // absent from the curated discovery set, so a curated-only fallback would
-    // wrongly mark this valid page legacy/noindex.
+  it('builds graph approval from the compare snapshot for a maintained non-curated route', async () => {
+    // Regression guard: graph membership and related links derive from the same
+    // Cache Components category snapshot as the compare core. The previous
+    // independent semantic query doubled the large Supabase response.
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
-      // Suppress the expected slug-set load-failure warning.
+      // Suppress unrelated non-curated diagnostics if the contract regresses.
     });
-    const fullSemanticInventory = categoryPageData.products.map((product) => ({
-      slug: product.slug,
-      name: product.name,
-      brand: product.brand,
-      price: product.price,
-      category_slug: product.category_slug,
-      product_key_specs: product.product_key_specs,
-    }));
-    // 1st read (loadCompareGraphProducts) succeeds; 2nd read
-    // (getCachedCategoryCompareGraphSlugs) fails -> loadCategoryCompareGraphSlugs
-    // returns null while routeApprovalProducts is fully populated.
-    mockGetCachedProductSemanticInventory
-      .mockResolvedValueOnce(fullSemanticInventory)
-      .mockRejectedValueOnce(new Error('slug-set cache timeout'));
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
       ...categoryPageData.products[4],
       product_key_specs: { chipset: 'A17', ram_gb: 8, storage_gb: 128 },
@@ -698,20 +644,14 @@ describe('loadComparePage', () => {
     expect(result?.kind).toBe('product');
     expect(result?.isIndexable).toBe(true);
     expect(result?.isLegacyFallback).toBe(false);
-    // Proves the decision came from the graph, not the curated set: a curated
-    // fallback would have emitted the non-curated warning and de-indexed it.
+    // Proves the decision came from the graph, not the curated fallback.
     expect(warnSpy).not.toHaveBeenCalledWith(
       'COMPARE_NON_CURATED_FALLBACK',
       expect.anything()
     );
-    // The bounded inventory itself did NOT fail — only the slug-set read did.
     expect(warnSpy).not.toHaveBeenCalledWith(
       'Failed to load bounded compare graph inventory',
       expect.anything()
-    );
-    expect(warnSpy).toHaveBeenCalledWith(
-      'Failed to load category compare graph slugs',
-      expect.objectContaining({ categorySlug: 'smartphones' })
     );
 
     warnSpy.mockRestore();
