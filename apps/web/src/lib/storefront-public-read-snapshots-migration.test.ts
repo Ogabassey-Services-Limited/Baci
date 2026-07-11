@@ -63,9 +63,40 @@ describe('storefront public read snapshots migration', () => {
     );
   });
 
+  it('aligns the PDP slug input bound with the existing route contract', () => {
+    // The storefront safety gate admits decoded slugs up to 255 chars and the
+    // existing PDP preflight RPC accepts product slugs up to 512 bytes, while
+    // products.slug is unbounded TEXT with uncapped generation. A tighter
+    // snapshot bound would turn currently routable long-slug PDPs into 404s.
+    expect(MIGRATION_SOURCE).toContain(
+      'pg_catalog.octet_length(p_product_slug) <= 512'
+    );
+    expect(MIGRATION_SOURCE).not.toContain(
+      'pg_catalog.octet_length(p_product_slug) <= 200'
+    );
+  });
+
+  it('preserves the missing-feature-settings signal for app public defaults', () => {
+    // The storefront normalizer applies buildPublicDefault() only when
+    // feature_settings is null. The anon wrapper must not flatten a missing
+    // merchant_feature_settings row into a non-null partial object, or
+    // defaults like korapay_enabled/guest_checkout_enabled would be skipped.
+    expect(MIGRATION_SOURCE).toMatch(
+      /CASE\s+WHEN merchant_row\.feature_settings IS NULL THEN NULL::jsonb/
+    );
+    // Derived capability hints live on the published merchant projection so
+    // they stay available even when the merchant has no settings row.
+    expect(MIGRATION_SOURCE).toContain(
+      "'paystack_subaccount_configured',\n            resolved.paystack_subaccount_configured"
+    );
+    expect(MIGRATION_SOURCE).toContain(
+      "'price_negotiation_enabled',\n            resolved.price_negotiation_enabled"
+    );
+  });
+
   it('keeps the PDP snapshot bounded and public-column allowlisted', () => {
     expect(MIGRATION_SOURCE).toContain(
-      'pg_catalog.octet_length(p_product_slug) <= 200'
+      'pg_catalog.octet_length(p_product_slug) <= 512'
     );
     expect(MIGRATION_SOURCE).toContain('LIMIT 128');
     expect(MIGRATION_SOURCE).toContain("'variant_count'");

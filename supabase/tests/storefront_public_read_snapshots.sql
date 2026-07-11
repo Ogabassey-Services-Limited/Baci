@@ -31,6 +31,8 @@ DECLARE
   v_blank_legacy_id uuid := '4d19ab10-0000-4000-8000-000000000016';
   v_large_variant_product_id uuid := '4d19ab10-0000-4000-8000-000000000017';
   v_large_default_variant_id uuid := '4d19ab10-0000-4001-8000-000000000130';
+  v_no_settings_merchant_id uuid := '4d19ab10-0000-4000-8000-000000000018';
+  v_long_slug_product_id uuid := '4d19ab10-0000-4000-8000-000000000019';
 BEGIN
   IF pg_catalog.to_regclass(
     'public.idx_domains_active_lower_domain'
@@ -258,6 +260,28 @@ BEGIN
     blog_enabled = EXCLUDED.blog_enabled,
     custom_settings = EXCLUDED.custom_settings;
 
+  -- Published merchant WITHOUT a merchant_feature_settings row: the public
+  -- snapshot must return NULL feature_settings so the app normalizer applies
+  -- its public defaults, while derived capability hints stay on merchant_data.
+  INSERT INTO public.merchants (
+    id,
+    email,
+    business_name,
+    slug,
+    is_published
+  ) VALUES (
+    v_no_settings_merchant_id,
+    'storefront-nosettings-snapshot-test@example.com',
+    'No Settings Snapshot Test',
+    'storefront-nosettings-snapshot-test',
+    true
+  );
+
+  -- trigger_create_merchant_feature_settings auto-creates a settings row on
+  -- merchant insert; remove it to model a legacy merchant without one.
+  DELETE FROM public.merchant_feature_settings
+  WHERE merchant_id = v_no_settings_merchant_id;
+
   INSERT INTO public.domains (
     merchant_id,
     domain,
@@ -452,6 +476,23 @@ BEGIN
       130,
       'off',
       '["https://example.com/large-variant.jpg"]'::jsonb
+    ),
+    (
+      v_long_slug_product_id,
+      v_merchant_id,
+      v_category_id,
+      'Long Slug Snapshot Phone',
+      -- 220 bytes: above the old 200-byte snapshot bound, within the
+      -- 255-decoded-char safety gate and 512-byte preflight route contract.
+      'long-slug-' || pg_catalog.repeat('x', 210),
+      120000,
+      'active',
+      false,
+      false,
+      5,
+      5,
+      'off',
+      '["https://example.com/long-slug.jpg"]'::jsonb
     );
 
   INSERT INTO public.products (
@@ -663,6 +704,8 @@ DO $assertions$
 DECLARE
   v_merchant record;
   v_unpublished_merchant record;
+  v_no_settings_merchant record;
+  v_long_slug_product record;
   v_simple record;
   v_variant record;
   v_redirect record;
@@ -709,10 +752,8 @@ DECLARE
     'order_tracking_enabled',
     'pay_on_delivery_enabled',
     'paystack_enabled',
-    'paystack_subaccount_configured',
     'preferred_international_gateway',
     'preferred_local_gateway',
-    'price_negotiation_enabled',
     'privacy_page_enabled',
     'reviews_enabled',
     'rewards_page_enabled',
@@ -760,10 +801,12 @@ BEGIN
     OR v_merchant.merchant_data ? 'plan_tier'
     OR v_merchant.merchant_data ? 'plan_expires_at'
     OR v_merchant.merchant_data ? 'premium_features'
-    OR (v_merchant.feature_settings->>'paystack_subaccount_configured')::boolean
+    OR (v_merchant.merchant_data->>'paystack_subaccount_configured')::boolean
       IS DISTINCT FROM true
-    OR (v_merchant.feature_settings->>'price_negotiation_enabled')::boolean
+    OR (v_merchant.merchant_data->>'price_negotiation_enabled')::boolean
       IS DISTINCT FROM true
+    OR v_merchant.feature_settings ? 'paystack_subaccount_configured'
+    OR v_merchant.feature_settings ? 'price_negotiation_enabled'
   THEN
     RAISE EXCEPTION 'public merchant snapshot did not resolve normalized domain';
   END IF;
@@ -815,6 +858,48 @@ BEGIN
   THEN
     RAISE EXCEPTION
       'unpublished merchant snapshot exposed draft, payment, plan, or feature data';
+  END IF;
+
+  SELECT
+    snapshot.resolution_status,
+    snapshot.merchant_data,
+    snapshot.feature_settings
+  INTO v_no_settings_merchant
+  FROM public.resolve_storefront_public_snapshot_v2(
+    'storefront-nosettings-snapshot-test'
+  ) AS snapshot;
+
+  IF v_no_settings_merchant.resolution_status IS DISTINCT FROM 'found'
+    OR v_no_settings_merchant.merchant_data->>'id' IS DISTINCT FROM
+      '4d19ab10-0000-4000-8000-000000000018'
+    -- No merchant_feature_settings row: feature_settings must stay NULL so
+    -- the app normalizer applies its public defaults instead of treating a
+    -- partial object as authoritative.
+    OR v_no_settings_merchant.feature_settings IS NOT NULL
+    -- Derived capability hints must still be present on merchant_data.
+    OR (v_no_settings_merchant.merchant_data->>'paystack_subaccount_configured')::boolean
+      IS DISTINCT FROM false
+    OR (v_no_settings_merchant.merchant_data->>'price_negotiation_enabled')::boolean
+      IS DISTINCT FROM false
+  THEN
+    RAISE EXCEPTION
+      'missing feature-settings row was not preserved as NULL with derived hints';
+  END IF;
+
+  SELECT snapshot.resolution_status, snapshot.product_data
+  INTO v_long_slug_product
+  FROM public.get_storefront_pdp_core_v2(
+    '4d19ab10-0000-4000-8000-000000000001',
+    'long-slug-' || pg_catalog.repeat('x', 210),
+    NULL
+  ) AS snapshot;
+
+  IF v_long_slug_product.resolution_status IS DISTINCT FROM 'found'
+    OR v_long_slug_product.product_data->>'id' IS DISTINCT FROM
+      '4d19ab10-0000-4000-8000-000000000019'
+  THEN
+    RAISE EXCEPTION
+      'long-slug PDP within the 512-byte route contract did not resolve';
   END IF;
 
   SELECT snapshot.resolution_status, snapshot.product_data

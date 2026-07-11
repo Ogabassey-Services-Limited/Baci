@@ -112,7 +112,13 @@ AS $$
     SELECT
       merchant_row.merchant_data,
       merchant_row.custom_domain,
-      (
+      -- Preserve the broad resolver's NULL when the merchant has no
+      -- merchant_feature_settings row. The storefront normalizer applies its
+      -- public defaults only when feature_settings is null, so a non-null
+      -- partial object here would silently skip defaults such as
+      -- korapay_enabled and guest_checkout_enabled.
+      CASE WHEN merchant_row.feature_settings IS NULL THEN NULL::jsonb
+      ELSE (
         COALESCE(
           (
             SELECT pg_catalog.jsonb_object_agg(
@@ -120,7 +126,7 @@ AS $$
               public_feature_setting.value
             )
             FROM pg_catalog.jsonb_each(
-              COALESCE(merchant_row.feature_settings, '{}'::jsonb)
+              merchant_row.feature_settings
             ) AS public_feature_setting(key, value)
             -- This second allowlist is intentional defense in depth. The
             -- service-role resolver is allowlisted today, but its future
@@ -190,43 +196,43 @@ AS $$
           ),
           '{}'::jsonb
         )
-        || CASE
-          WHEN merchant_row.feature_settings IS NULL THEN '{}'::jsonb
-          ELSE pg_catalog.jsonb_build_object(
-            'custom_settings',
-            pg_catalog.jsonb_strip_nulls(
-              pg_catalog.jsonb_build_object(
-                'google_merchant_id',
-                  merchant_row.feature_settings->'custom_settings'->'google_merchant_id',
-                'google_store_widget_enabled',
-                  merchant_row.feature_settings->'custom_settings'->'google_store_widget_enabled'
-              )
+        || pg_catalog.jsonb_build_object(
+          'custom_settings',
+          pg_catalog.jsonb_strip_nulls(
+            pg_catalog.jsonb_build_object(
+              'google_merchant_id',
+                merchant_row.feature_settings->'custom_settings'->'google_merchant_id',
+              'google_store_widget_enabled',
+                merchant_row.feature_settings->'custom_settings'->'google_store_widget_enabled'
             )
           )
-        END
-        || pg_catalog.jsonb_build_object(
-          'paystack_subaccount_configured',
-            NULLIF(
-              pg_catalog.btrim(
-                merchant_row.merchant_data->>'paystack_subaccount_code'
-              ),
-              ''
-            ) IS NOT NULL,
-          'price_negotiation_enabled',
-            CASE
-              WHEN merchant_row.merchant_data->>'plan_tier' IN (
-                'pro',
-                'business',
-                'enterprise'
-              ) THEN true
-              WHEN merchant_row.merchant_data->>'plan_tier' IS NOT NULL
-                THEN false
-              ELSE pg_catalog.lower(
-                merchant_row.merchant_data->>'slug'
-              ) IN ('ogabassey', 'demo-premium')
-            END
         )
-      ) AS feature_settings,
+      ) END AS feature_settings,
+      -- Derived public capability hints ride on the published merchant
+      -- projection (not feature_settings) so they stay available when the
+      -- merchant has no settings row. Raw payment/plan fields never cross
+      -- the anonymous boundary.
+      NULLIF(
+        pg_catalog.btrim(
+          merchant_row.merchant_data->>'paystack_subaccount_code'
+        ),
+        ''
+      ) IS NOT NULL AS paystack_subaccount_configured,
+      -- Mirrors hasPriceNegotiationEntitlement() in
+      -- apps/web/src/lib/feature-flags.ts, including its legacy NULL-plan
+      -- slug fallback, until merchants are backfilled with plan_tier.
+      CASE
+        WHEN merchant_row.merchant_data->>'plan_tier' IN (
+          'pro',
+          'business',
+          'enterprise'
+        ) THEN true
+        WHEN merchant_row.merchant_data->>'plan_tier' IS NOT NULL
+          THEN false
+        ELSE pg_catalog.lower(
+          merchant_row.merchant_data->>'slug'
+        ) IN ('ogabassey', 'demo-premium')
+      END AS price_negotiation_enabled,
       COALESCE(
         (merchant_row.merchant_data->>'is_published')::boolean,
         false
@@ -276,7 +282,11 @@ AS $$
           'pages', resolved.merchant_data->'pages',
           'about_page', resolved.merchant_data->'about_page',
           'faq_items', resolved.merchant_data->'faq_items',
-          'updated_at', resolved.merchant_data->'updated_at'
+          'updated_at', resolved.merchant_data->'updated_at',
+          'paystack_subaccount_configured',
+            resolved.paystack_subaccount_configured,
+          'price_negotiation_enabled',
+            resolved.price_negotiation_enabled
         )
         ELSE pg_catalog.jsonb_build_object(
           'id', resolved.merchant_data->'id',
@@ -348,7 +358,10 @@ AS $$
       END AS product_id
     WHERE p_merchant_id IS NOT NULL
       AND p_product_slug IS NOT NULL
-      AND pg_catalog.octet_length(p_product_slug) <= 200
+      -- 512 matches the existing PDP preflight RPC input bound. The storefront
+      -- safety gate admits decoded slugs up to 255 chars and products.slug is
+      -- unbounded TEXT, so a tighter bound here would 404 routable PDPs.
+      AND pg_catalog.octet_length(p_product_slug) <= 512
       AND pg_catalog.btrim(p_product_slug) <> ''
   ),
   selected_product AS MATERIALIZED (
