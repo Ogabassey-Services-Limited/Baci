@@ -108,23 +108,50 @@ AS $$
     SELECT
       merchant_row.merchant_data,
       merchant_row.custom_domain,
-      CASE
-        WHEN merchant_row.feature_settings IS NULL THEN NULL::jsonb
-        ELSE (
-          merchant_row.feature_settings - 'custom_settings'
-          || pg_catalog.jsonb_build_object(
-            'custom_settings',
-            pg_catalog.jsonb_strip_nulls(
-              pg_catalog.jsonb_build_object(
-                'google_merchant_id',
-                  merchant_row.feature_settings->'custom_settings'->'google_merchant_id',
-                'google_store_widget_enabled',
-                  merchant_row.feature_settings->'custom_settings'->'google_store_widget_enabled'
+      (
+        COALESCE(
+          CASE
+            WHEN merchant_row.feature_settings IS NULL THEN NULL::jsonb
+            ELSE (
+              merchant_row.feature_settings - 'custom_settings'
+              || pg_catalog.jsonb_build_object(
+                'custom_settings',
+                pg_catalog.jsonb_strip_nulls(
+                  pg_catalog.jsonb_build_object(
+                    'google_merchant_id',
+                      merchant_row.feature_settings->'custom_settings'->'google_merchant_id',
+                    'google_store_widget_enabled',
+                      merchant_row.feature_settings->'custom_settings'->'google_store_widget_enabled'
+                  )
+                )
               )
             )
-          )
+          END,
+          '{}'::jsonb
         )
-      END AS feature_settings,
+        || pg_catalog.jsonb_build_object(
+          'paystack_subaccount_configured',
+            NULLIF(
+              pg_catalog.btrim(
+                merchant_row.merchant_data->>'paystack_subaccount_code'
+              ),
+              ''
+            ) IS NOT NULL,
+          'price_negotiation_enabled',
+            CASE
+              WHEN merchant_row.merchant_data->>'plan_tier' IN (
+                'pro',
+                'business',
+                'enterprise'
+              ) THEN true
+              WHEN merchant_row.merchant_data->>'plan_tier' IS NOT NULL
+                THEN false
+              ELSE pg_catalog.lower(
+                merchant_row.merchant_data->>'slug'
+              ) IN ('ogabassey', 'demo-premium')
+            END
+        )
+      ) AS feature_settings,
       COALESCE(
         (merchant_row.merchant_data->>'is_published')::boolean,
         false
@@ -136,7 +163,46 @@ AS $$
   public_projection AS MATERIALIZED (
     SELECT
       CASE
-        WHEN resolved.is_published THEN resolved.merchant_data
+        WHEN resolved.is_published THEN pg_catalog.jsonb_build_object(
+          'id', resolved.merchant_data->'id',
+          'business_name', resolved.merchant_data->'business_name',
+          'site_title', resolved.merchant_data->'site_title',
+          'site_tagline', resolved.merchant_data->'site_tagline',
+          'site_description', resolved.merchant_data->'site_description',
+          'business_type', resolved.merchant_data->'business_type',
+          'logo_url', resolved.merchant_data->'logo_url',
+          'phone', resolved.merchant_data->'phone',
+          'email', resolved.merchant_data->'email',
+          'support_email', resolved.merchant_data->'support_email',
+          'support_phone', resolved.merchant_data->'support_phone',
+          'social_media', resolved.merchant_data->'social_media',
+          'brand_colors', resolved.merchant_data->'brand_colors',
+          'slug', resolved.merchant_data->'slug',
+          'business_address', resolved.merchant_data->'business_address',
+          'legal_entity_name', resolved.merchant_data->'legal_entity_name',
+          'registered_address', resolved.merchant_data->'registered_address',
+          'tax_identification_number',
+            resolved.merchant_data->'tax_identification_number',
+          'trust_profile', resolved.merchant_data->'trust_profile',
+          'payout_currency', resolved.merchant_data->'payout_currency',
+          'is_published', resolved.merchant_data->'is_published',
+          'template_id', resolved.merchant_data->'template_id',
+          'country', resolved.merchant_data->'country',
+          'hero_slides', resolved.merchant_data->'hero_slides',
+          'mobile_hero_slides', resolved.merchant_data->'mobile_hero_slides',
+          'favicon_svg_url', resolved.merchant_data->'favicon_svg_url',
+          'favicon_png_32_url', resolved.merchant_data->'favicon_png_32_url',
+          'favicon_apple_touch_url',
+            resolved.merchant_data->'favicon_apple_touch_url',
+          'vat_registration_status',
+            resolved.merchant_data->'vat_registration_status',
+          'vat_rate', resolved.merchant_data->'vat_rate',
+          'published_config', resolved.merchant_data->'published_config',
+          'pages', resolved.merchant_data->'pages',
+          'about_page', resolved.merchant_data->'about_page',
+          'faq_items', resolved.merchant_data->'faq_items',
+          'updated_at', resolved.merchant_data->'updated_at'
+        )
         ELSE pg_catalog.jsonb_build_object(
           'id', resolved.merchant_data->'id',
           'business_name', resolved.merchant_data->'business_name',
@@ -301,6 +367,10 @@ AS $$
       ON parent_product.id = legacy_product.parent_product_id
       AND parent_product.merchant_id = legacy_product.merchant_id
       AND parent_product.status = 'active'
+      AND NULLIF(
+        pg_catalog.btrim(parent_product.slug),
+        ''
+      ) IS NOT NULL
     JOIN public.merchants AS merchant_row
       ON merchant_row.id = parent_product.merchant_id
       AND (
@@ -322,6 +392,7 @@ AS $$
           0 AS category_rank
         FROM public.categories AS direct_category
         WHERE direct_category.id = parent_product.category_id
+          AND direct_category.is_active IS TRUE
 
         UNION ALL
 
@@ -334,6 +405,7 @@ AS $$
         FROM public.product_categories AS membership
         JOIN public.categories AS joined_category
           ON joined_category.id = membership.category_id
+          AND joined_category.is_active IS TRUE
         WHERE membership.product_id = parent_product.id
       ) AS category_candidate
       ORDER BY category_candidate.category_rank, category_candidate.id
@@ -406,6 +478,14 @@ AS $$
       ON availability.product_id = product_row.id
       AND availability.variant_id IS NULL
   ),
+  variant_population AS MATERIALIZED (
+    SELECT pg_catalog.count(variant_row.id)::integer AS total_count
+    FROM selected_product AS product_row
+    JOIN public.product_variants AS variant_row
+      ON variant_row.product_id = product_row.id
+      AND variant_row.merchant_id = product_row.merchant_id
+      AND variant_row.is_inventory_anchor IS NOT TRUE
+  ),
   variant_source AS MATERIALIZED (
     SELECT
       variant_row.id,
@@ -440,7 +520,15 @@ AS $$
     LEFT JOIN availability_counts AS availability
       ON availability.product_id = variant_row.product_id
       AND availability.variant_id = variant_row.id
-    ORDER BY variant_row.created_at, variant_row.id
+    -- The critical snapshot stays bounded, but always retains the configured
+    -- default and then the lowest-priced choices. `variants_truncated` below
+    -- tells the application to use the existing full variant RPC for rare
+    -- catalogs whose selected option falls outside this critical subset.
+    ORDER BY
+      (variant_row.id = product_row.default_variant_id) DESC,
+      COALESCE(variant_row.price_override, product_row.price),
+      variant_row.created_at,
+      variant_row.id
     LIMIT 128
   ),
   variant_json AS (
@@ -680,7 +768,11 @@ AS $$
           END,
         'product_key_specs', key_specs.data,
         'product_offers', offers.data,
-        'product_variants', variants.data
+        'product_variants', variants.data,
+        'variant_count', variant_population.total_count,
+        'variants_truncated',
+          variant_population.total_count >
+            pg_catalog.jsonb_array_length(variants.data)
       )
     ) AS product_data
   FROM selected_product AS product_row
@@ -701,6 +793,7 @@ AS $$
         0 AS category_rank
       FROM public.categories AS direct_category
       WHERE direct_category.id = product_row.category_id
+        AND direct_category.is_active IS TRUE
 
       UNION ALL
 
@@ -713,6 +806,7 @@ AS $$
       FROM public.product_categories AS membership
       JOIN public.categories AS joined_category
         ON joined_category.id = membership.category_id
+        AND joined_category.is_active IS TRUE
       WHERE membership.product_id = product_row.id
     ) AS category_candidate
     ORDER BY category_candidate.category_rank, category_candidate.id
@@ -722,6 +816,7 @@ AS $$
     ON key_specs.product_id = product_row.id
   CROSS JOIN offer_json AS offers
   CROSS JOIN variant_json AS variants
+  CROSS JOIN variant_population
 
   UNION ALL
 
@@ -820,22 +915,9 @@ SECURITY DEFINER
 SET search_path TO ''
 ROWS 1
 AS $$
-  WITH input AS MATERIALIZED (
+  WITH raw_input AS MATERIALIZED (
     SELECT
-      pg_catalog.lower(pg_catalog.btrim(COALESCE(p_category_slug, ''))) AS category_slug,
-      pg_catalog.btrim(
-        pg_catalog.regexp_replace(
-          pg_catalog.regexp_replace(
-            pg_catalog.lower(COALESCE(p_category_slug, '')),
-            '[-_]+',
-            ' ',
-            'g'
-          ),
-          '[^[:alnum:] ]+',
-          '',
-          'g'
-        )
-      ) AS legacy_category_name,
+      COALESCE(p_category_slug, '') AS category_slug,
       COALESCE(p_include_guides, false) AS include_guides,
       LEAST(
         GREATEST(COALESCE(p_inventory_limit, 48), 1),
@@ -848,12 +930,47 @@ AS $$
       LEAST(
         GREATEST(COALESCE(p_product_guide_limit, 8), 1),
         8
-      ) AS product_guide_limit,
+      ) AS product_guide_limit
+  ),
+  validated_input AS MATERIALIZED (
+    SELECT
+      raw_input.*,
       p_merchant_id IS NOT NULL
         AND p_product_id IS NOT NULL
-        AND p_category_slug IS NOT NULL
-        AND pg_catalog.btrim(p_category_slug) <> ''
-        AND pg_catalog.octet_length(p_category_slug) <= 64 AS valid
+        AND pg_catalog.btrim(raw_input.category_slug) <> ''
+        AND pg_catalog.octet_length(raw_input.category_slug) <= 64 AS valid
+    FROM raw_input
+  ),
+  input AS MATERIALIZED (
+    SELECT
+      CASE
+        WHEN validated_input.valid THEN pg_catalog.lower(
+          pg_catalog.btrim(validated_input.category_slug)
+        )
+        ELSE ''::text
+      END AS category_slug,
+      CASE
+        WHEN validated_input.valid THEN pg_catalog.btrim(
+          pg_catalog.regexp_replace(
+            pg_catalog.regexp_replace(
+              pg_catalog.lower(validated_input.category_slug),
+              '[-_]+',
+              ' ',
+              'g'
+            ),
+            '[^[:alnum:] ]+',
+            '',
+            'g'
+          )
+        )
+        ELSE ''::text
+      END AS legacy_category_name,
+      validated_input.include_guides,
+      validated_input.inventory_limit,
+      validated_input.cluster_guide_limit,
+      validated_input.product_guide_limit,
+      validated_input.valid
+    FROM validated_input
   ),
   current_product AS MATERIALIZED (
     SELECT
@@ -1096,6 +1213,7 @@ AS $$
           direct_category.id
         FROM public.categories AS direct_category
         WHERE direct_category.id = candidate.category_id
+          AND direct_category.is_active IS TRUE
 
         UNION ALL
 

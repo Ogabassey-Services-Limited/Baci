@@ -25,6 +25,12 @@ DECLARE
   v_cluster_post_id uuid := '4d19ab10-0000-4000-8000-000000000010';
   v_linked_post_id uuid := '4d19ab10-0000-4000-8000-000000000011';
   v_unpublished_merchant_id uuid := '4d19ab10-0000-4000-8000-000000000012';
+  v_inactive_category_id uuid := '4d19ab10-0000-4000-8000-000000000013';
+  v_inactive_product_id uuid := '4d19ab10-0000-4000-8000-000000000014';
+  v_blank_parent_id uuid := '4d19ab10-0000-4000-8000-000000000015';
+  v_blank_legacy_id uuid := '4d19ab10-0000-4000-8000-000000000016';
+  v_large_variant_product_id uuid := '4d19ab10-0000-4000-8000-000000000017';
+  v_large_default_variant_id uuid := '4d19ab10-0000-4001-8000-000000000130';
 BEGIN
   IF pg_catalog.to_regclass(
     'public.idx_domains_active_lower_domain'
@@ -181,28 +187,37 @@ BEGIN
     email,
     business_name,
     slug,
-    is_published
+    is_published,
+    paystack_subaccount_code,
+    plan_tier,
+    premium_features
   ) VALUES (
     v_merchant_id,
     'storefront-snapshot-test@example.com',
     'Storefront Snapshot Test',
     'storefront-snapshot-test',
-    true
+    true,
+    'ACCT_PUBLIC_TEST',
+    'business',
+    '["private-feature"]'::jsonb
   );
 
   INSERT INTO public.merchant_feature_settings (
     merchant_id,
     blog_enabled,
+    paystack_enabled,
     custom_settings
   )
   VALUES (
     v_merchant_id,
+    true,
     true,
     '{"google_merchant_id":"public-merchant-id","draft_secret":"must-not-cross-public-rpc"}'::jsonb
   )
   ON CONFLICT (merchant_id) DO UPDATE
   SET
     blog_enabled = EXCLUDED.blog_enabled,
+    paystack_enabled = EXCLUDED.paystack_enabled,
     custom_settings = EXCLUDED.custom_settings;
 
   INSERT INTO public.merchants (
@@ -323,6 +338,14 @@ BEGIN
       'snapshot-android-phones',
       v_category_id,
       true
+    ),
+    (
+      v_inactive_category_id,
+      v_merchant_id,
+      'Hidden Snapshot Phones',
+      'hidden-snapshot-phones',
+      NULL,
+      false
     );
 
   INSERT INTO public.products (
@@ -384,6 +407,51 @@ BEGIN
       5,
       'off',
       '["https://example.com/child.jpg"]'::jsonb
+    ),
+    (
+      v_inactive_product_id,
+      v_merchant_id,
+      v_inactive_category_id,
+      'Hidden Category Snapshot Phone',
+      'hidden-category-snapshot-phone',
+      175000,
+      'active',
+      false,
+      false,
+      5,
+      5,
+      'off',
+      '["https://example.com/hidden.jpg"]'::jsonb
+    ),
+    (
+      v_blank_parent_id,
+      v_merchant_id,
+      v_category_id,
+      'Blank Slug Snapshot Parent',
+      '   ',
+      225000,
+      'active',
+      false,
+      false,
+      5,
+      5,
+      'off',
+      '["https://example.com/blank-parent.jpg"]'::jsonb
+    ),
+    (
+      v_large_variant_product_id,
+      v_merchant_id,
+      v_category_id,
+      'Large Variant Snapshot Phone',
+      'large-variant-snapshot-phone',
+      250000,
+      'active',
+      true,
+      true,
+      130,
+      130,
+      'off',
+      '["https://example.com/large-variant.jpg"]'::jsonb
     );
 
   INSERT INTO public.products (
@@ -401,22 +469,39 @@ BEGIN
     stock_quantity,
     inventory_tracking_policy,
     images
-  ) VALUES (
-    v_legacy_product_id,
-    v_merchant_id,
-    v_category_id,
-    v_variant_product_id,
-    'Legacy Variant Snapshot Phone',
-    'legacy-variant-snapshot-phone',
-    200000,
-    'archived',
-    false,
-    false,
-    0,
-    0,
-    'off',
-    '[]'::jsonb
-  );
+  ) VALUES
+    (
+      v_legacy_product_id,
+      v_merchant_id,
+      v_category_id,
+      v_variant_product_id,
+      'Legacy Variant Snapshot Phone',
+      'legacy-variant-snapshot-phone',
+      200000,
+      'archived',
+      false,
+      false,
+      0,
+      0,
+      'off',
+      '[]'::jsonb
+    ),
+    (
+      v_blank_legacy_id,
+      v_merchant_id,
+      v_category_id,
+      v_blank_parent_id,
+      'Legacy Blank Slug Snapshot Phone',
+      'legacy-blank-slug-snapshot-phone',
+      225000,
+      'archived',
+      false,
+      false,
+      0,
+      0,
+      'off',
+      '[]'::jsonb
+    );
 
   INSERT INTO public.product_variants (
     id,
@@ -448,6 +533,39 @@ BEGIN
       false,
       'inherit'
     );
+
+  INSERT INTO public.product_variants (
+    id,
+    merchant_id,
+    product_id,
+    sku,
+    attributes,
+    price_override,
+    stock_quantity,
+    is_inventory_anchor,
+    inventory_tracking_policy,
+    created_at
+  )
+  SELECT
+    (
+      '4d19ab10-0000-4001-8000-'
+      || pg_catalog.lpad(series.variant_number::text, 12, '0')
+    )::uuid,
+    v_merchant_id,
+    v_large_variant_product_id,
+    'SNAPSHOT-LARGE-' || series.variant_number::text,
+    pg_catalog.jsonb_build_object('storage', series.variant_number::text || 'GB'),
+    250000 + series.variant_number,
+    1,
+    false,
+    'inherit',
+    pg_catalog.clock_timestamp()
+      + pg_catalog.make_interval(secs => series.variant_number)
+  FROM pg_catalog.generate_series(1, 130) AS series(variant_number);
+
+  UPDATE public.products
+  SET default_variant_id = v_large_default_variant_id
+  WHERE id = v_large_variant_product_id;
 
   INSERT INTO public.variant_inventory (
     merchant_id,
@@ -548,9 +666,13 @@ DECLARE
   v_simple record;
   v_variant record;
   v_redirect record;
+  v_blank_redirect record;
+  v_hidden_category record;
+  v_large_variant record;
   v_missing record;
   v_enrichment record;
   v_missing_enrichment record;
+  v_oversized_enrichment record;
 BEGIN
   SELECT
     snapshot.resolution_status,
@@ -569,6 +691,14 @@ BEGIN
     OR v_merchant.feature_settings->'custom_settings'->>'google_merchant_id'
       IS DISTINCT FROM 'public-merchant-id'
     OR v_merchant.feature_settings->'custom_settings' ? 'draft_secret'
+    OR v_merchant.merchant_data ? 'paystack_subaccount_code'
+    OR v_merchant.merchant_data ? 'plan_tier'
+    OR v_merchant.merchant_data ? 'plan_expires_at'
+    OR v_merchant.merchant_data ? 'premium_features'
+    OR (v_merchant.feature_settings->>'paystack_subaccount_configured')::boolean
+      IS DISTINCT FROM true
+    OR (v_merchant.feature_settings->>'price_negotiation_enabled')::boolean
+      IS DISTINCT FROM true
   THEN
     RAISE EXCEPTION 'public merchant snapshot did not resolve normalized domain';
   END IF;
@@ -667,6 +797,58 @@ BEGIN
   END IF;
 
   SELECT snapshot.resolution_status, snapshot.product_data
+  INTO v_blank_redirect
+  FROM public.get_storefront_pdp_core_v2(
+    '4d19ab10-0000-4000-8000-000000000001',
+    'legacy-blank-slug-snapshot-phone',
+    NULL
+  ) AS snapshot;
+
+  IF v_blank_redirect.resolution_status IS DISTINCT FROM 'not_found'
+    OR v_blank_redirect.product_data IS NOT NULL
+  THEN
+    RAISE EXCEPTION 'legacy PDP snapshot returned an unusable blank redirect';
+  END IF;
+
+  SELECT snapshot.resolution_status, snapshot.product_data
+  INTO v_hidden_category
+  FROM public.get_storefront_pdp_core_v2(
+    '4d19ab10-0000-4000-8000-000000000001',
+    'hidden-category-snapshot-phone',
+    NULL
+  ) AS snapshot;
+
+  IF v_hidden_category.resolution_status IS DISTINCT FROM 'found'
+    OR v_hidden_category.product_data->'categories' IS DISTINCT FROM
+      'null'::jsonb
+  THEN
+    RAISE EXCEPTION 'public PDP snapshot exposed an inactive category';
+  END IF;
+
+  SELECT snapshot.resolution_status, snapshot.product_data
+  INTO v_large_variant
+  FROM public.get_storefront_pdp_core_v2(
+    '4d19ab10-0000-4000-8000-000000000001',
+    'large-variant-snapshot-phone',
+    NULL
+  ) AS snapshot;
+
+  IF v_large_variant.resolution_status IS DISTINCT FROM 'found'
+    OR (v_large_variant.product_data->>'variant_count')::integer
+      IS DISTINCT FROM 130
+    OR (v_large_variant.product_data->>'variants_truncated')::boolean
+      IS DISTINCT FROM true
+    OR pg_catalog.jsonb_array_length(
+      v_large_variant.product_data->'product_variants'
+    ) IS DISTINCT FROM 128
+    OR NOT v_large_variant.product_data->'product_variants' @>
+      '[{"id":"4d19ab10-0000-4001-8000-000000000130"}]'::jsonb
+  THEN
+    RAISE EXCEPTION
+      'bounded PDP snapshot omitted its default variant or overflow signal';
+  END IF;
+
+  SELECT snapshot.resolution_status, snapshot.product_data
   INTO v_missing
   FROM public.get_storefront_pdp_core_v2(
     '4d19ab10-0000-4000-8000-000000000001',
@@ -734,6 +916,25 @@ BEGIN
   THEN
     RAISE EXCEPTION
       'missing PDP semantic enrichment did not return explicit not_found';
+  END IF;
+
+  SELECT enrichment.resolution_status
+  INTO v_oversized_enrichment
+  FROM public.get_storefront_pdp_semantic_enrichment_v1(
+    '4d19ab10-0000-4000-8000-000000000001',
+    '4d19ab10-0000-4000-8000-000000000003',
+    pg_catalog.repeat('oversized-', 1000),
+    '[]'::jsonb,
+    '',
+    false,
+    48,
+    48,
+    8
+  ) AS enrichment;
+
+  IF v_oversized_enrichment.resolution_status IS DISTINCT FROM 'not_found'
+  THEN
+    RAISE EXCEPTION 'oversized semantic category input was not rejected';
   END IF;
 END;
 $assertions$;

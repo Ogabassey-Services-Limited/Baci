@@ -58,6 +58,9 @@ describe('storefront public read snapshots migration', () => {
       'pg_catalog.octet_length(p_product_slug) <= 200'
     );
     expect(MIGRATION_SOURCE).toContain('LIMIT 128');
+    expect(MIGRATION_SOURCE).toContain("'variant_count'");
+    expect(MIGRATION_SOURCE).toContain("'variants_truncated'");
+    expect(MIGRATION_SOURCE).toContain('product_row.default_variant_id');
     expect(MIGRATION_SOURCE).toContain('LIMIT 16');
     expect(MIGRATION_SOURCE).toContain("'product_variants', variants.data");
     expect(MIGRATION_SOURCE).toContain("'product_offers', offers.data");
@@ -75,6 +78,43 @@ describe('storefront public read snapshots migration', () => {
     expect(MIGRATION_SOURCE).toContain('inventory_rows.is_current DESC');
     expect(MIGRATION_SOURCE).not.toMatch(/SELECT\s+\*/i);
     expect(MIGRATION_SOURCE).not.toContain("'cost_price'");
+  });
+
+  it('keeps published merchant snapshots on an explicit public projection', () => {
+    expect(MIGRATION_SOURCE).toContain("'paystack_subaccount_configured'");
+    expect(MIGRATION_SOURCE).toContain("'price_negotiation_enabled'");
+    expect(MIGRATION_SOURCE).toContain("'site_title'");
+    expect(MIGRATION_SOURCE).toContain("'published_config'");
+    expect(MIGRATION_SOURCE).not.toMatch(
+      /WHEN resolved\.is_published THEN resolved\.merchant_data/
+    );
+  });
+
+  it('applies definer-only safety predicates before returning public PDP data', () => {
+    expect(MIGRATION_SOURCE).toMatch(
+      /direct_category\.id = product_row\.category_id[\s\S]*direct_category\.is_active/
+    );
+    expect(MIGRATION_SOURCE).toMatch(
+      /joined_category\.id = membership\.category_id[\s\S]*joined_category\.is_active/
+    );
+    expect(MIGRATION_SOURCE).toContain(
+      "NULLIF(\n        pg_catalog.btrim(parent_product.slug),\n        ''\n      ) IS NOT NULL"
+    );
+
+    const rawInputOffset = MIGRATION_SOURCE.indexOf(
+      'WITH raw_input AS MATERIALIZED'
+    );
+    const enrichmentRegexOffset = MIGRATION_SOURCE.indexOf(
+      'pg_catalog.regexp_replace(',
+      rawInputOffset
+    );
+    const enrichmentBoundOffset = MIGRATION_SOURCE.indexOf(
+      'pg_catalog.octet_length(raw_input.category_slug) <= 64',
+      rawInputOffset
+    );
+    expect(rawInputOffset).toBeGreaterThan(-1);
+    expect(enrichmentBoundOffset).toBeGreaterThan(rawInputOffset);
+    expect(enrichmentRegexOffset).toBeGreaterThan(enrichmentBoundOffset);
   });
 
   it('pins every new function search path and isolates privileged PDP reads', () => {
