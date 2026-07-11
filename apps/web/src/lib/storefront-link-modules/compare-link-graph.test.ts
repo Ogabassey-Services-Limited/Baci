@@ -305,6 +305,34 @@ describe('buildCompareLinkGraph', () => {
     ).toBe(false);
   });
 
+  it('rejects a cached slug whose product is no longer active in the route products', () => {
+    const input = {
+      storeUrl: 'https://ogabassey.com',
+      categorySlug: 'smartphones',
+      categoryName: 'Smartphones',
+      products,
+    };
+    const staleSlug = 'google-pixel-8-vs-xiaomi-13t';
+
+    // The cached set is warm and still contains the slug, but xiaomi-13t has
+    // since been unpublished (draft) — the set outlived the inventory refresh.
+    // The warm hit must NOT keep the page maintained: the pair's product is no
+    // longer active in the current route products, and the anchored fallback
+    // (status-filtered) can't approve it either.
+    const staleRouteProducts = products.map((product) =>
+      product.slug === 'xiaomi-13t' ? { ...product, status: 'draft' } : product
+    );
+
+    expect(
+      isMaintainedCompareGraphSlug({
+        ...input,
+        products: staleRouteProducts,
+        comparisonSlug: staleSlug,
+        categoryGraphSlugs: new Set([staleSlug]),
+      })
+    ).toBe(false);
+  });
+
   it('still approves an anchored-reachable slug missing from the precomputed set', () => {
     const input = {
       storeUrl: 'https://ogabassey.com',

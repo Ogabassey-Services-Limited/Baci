@@ -257,6 +257,30 @@ export function buildCategoryCompareGraphSlugSet(
   }).map((entry) => entry.comparisonSlug);
 }
 
+/**
+ * Both products of a canonical compare pair are present AND active in the given
+ * route products. Used to gate the cached-set fast path: the per-category slug
+ * set can outlive a refreshed product inventory (a product unpublished within
+ * the cache window), so a warm-but-stale set hit must still be confirmed against
+ * the currently-active route products before treating the page as maintained.
+ * O(products) — never rebuilds the O(n^2) graph.
+ */
+function comparePairProductsAreActive(
+  leftKey: string,
+  rightKey: string,
+  products: CompareLinkGraphProduct[],
+  productsAreKnownActive: boolean
+) {
+  const activeSlugs = new Set<string>();
+  for (const product of products) {
+    if (isActiveCompareProduct(product, productsAreKnownActive)) {
+      activeSlugs.add((product.slug as string).trim());
+    }
+  }
+
+  return activeSlugs.has(leftKey) && activeSlugs.has(rightKey);
+}
+
 export function isMaintainedCompareGraphSlug(
   input: BuildCompareLinkGraphInput & {
     comparisonSlug: string;
@@ -276,7 +300,16 @@ export function isMaintainedCompareGraphSlug(
     links.some((entry) => entry.comparisonSlug === parsed.canonicalSlug);
 
   const inCategoryGraph = input.categoryGraphSlugs
-    ? input.categoryGraphSlugs.has(parsed.canonicalSlug)
+    ? // Confirm the warm cached hit against the current route products: the set
+      // can be staler than the inventory, so a slug for a since-unpublished
+      // product must not stay maintained until the set cache expires.
+      input.categoryGraphSlugs.has(parsed.canonicalSlug) &&
+      comparePairProductsAreActive(
+        parsed.leftKey,
+        parsed.rightKey,
+        input.products,
+        input.productsAreKnownActive ?? false
+      )
     : isInGraph(
         buildCompareLinkGraph({
           ...input,
