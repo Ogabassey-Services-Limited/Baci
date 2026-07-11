@@ -16,6 +16,7 @@ import {
   touchMerchantCredentialValidated,
 } from '@/lib/payments/merchant-credentials';
 import { getAccessToken } from '@/lib/paypal';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { DELETE, GET, POST } from './route';
 
 vi.mock('server-only', () => ({}));
@@ -48,6 +49,10 @@ vi.mock('@/lib/payments/merchant-credentials', () => ({
 
 vi.mock('@/lib/paypal', () => ({
   getAccessToken: vi.fn(),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(),
 }));
 
 const MERCHANT_ID = 'merchant-1';
@@ -108,7 +113,12 @@ function saveRequest(
   });
 }
 
-function makeFeatureSettingsSupabase() {
+function makeFeatureSettingsSupabase(
+  customSettings: Record<string, unknown> = {
+    paypal_enabled: true,
+    paypal_mode: 'live',
+  }
+) {
   let mode: 'read' | 'update' = 'read';
   let updatePayload: Record<string, unknown> | null = null;
   const query = {
@@ -126,9 +136,7 @@ function makeFeatureSettingsSupabase() {
     ),
     maybeSingle: vi.fn(() =>
       Promise.resolve({
-        data: {
-          custom_settings: { paypal_enabled: true, paypal_mode: 'live' },
-        },
+        data: { custom_settings: customSettings },
         error: null,
       })
     ),
@@ -173,6 +181,9 @@ describe('/api/merchant/payment-credentials', () => {
       credentialRow('client_id'),
       credentialRow('secret_key'),
     ]);
+    vi.mocked(createAdminClient).mockReturnValue(
+      makeFeatureSettingsSupabase() as never
+    );
   });
 
   it('returns 401 before CSRF, rate limiting, or vault access when unauthenticated', async () => {
@@ -307,13 +318,9 @@ describe('/api/merchant/payment-credentials', () => {
     expect(JSON.stringify(body)).not.toContain(SECRET_KEY);
   });
 
-  it('disconnects PayPal, disables the feature flag, and returns empty status', async () => {
-    const supabase = makeFeatureSettingsSupabase();
-    vi.mocked(authenticateApiRequest).mockResolvedValue({
-      user: { id: USER_ID },
-      error: null,
-      supabase,
-    } as never);
+  it('disconnects PayPal, disables the feature flag via the service-role client, and returns empty status', async () => {
+    const adminClient = makeFeatureSettingsSupabase();
+    vi.mocked(createAdminClient).mockReturnValue(adminClient as never);
     vi.mocked(getMerchantPaymentCredentialMeta).mockResolvedValue([]);
 
     const response = await DELETE(
@@ -326,9 +333,75 @@ describe('/api/merchant/payment-credentials', () => {
       MERCHANT_ID,
       'paypal'
     );
-    expect(supabase.getUpdatePayload()).toMatchObject({
+    expect(adminClient.getUpdatePayload()).toMatchObject({
       custom_settings: { paypal_enabled: false, paypal_mode: 'live' },
     });
     expect(body).toEqual({ configured: false, roles: [] });
+  });
+
+  it('clears paypal_enabled for a staff caller through the service-role client instead of the RLS-owner-scoped client', async () => {
+    // Staff passes the settings.edit gate, but the merchant_feature_settings
+    // UPDATE policy is owner-only: on the caller-scoped RLS client the update
+    // would match zero rows and leave paypal_enabled=true with no vault creds.
+    const staffAccess: UserAccess = {
+      merchantId: MERCHANT_ID,
+      role: 'staff',
+      isOwner: false,
+      isStaff: true,
+      permissions: { settings: { edit: true } },
+    };
+    vi.mocked(getUserAccess).mockResolvedValue(staffAccess);
+
+    const callerClient = makeFeatureSettingsSupabase();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: { id: USER_ID },
+      error: null,
+      supabase: callerClient,
+    } as never);
+
+    const adminClient = makeFeatureSettingsSupabase();
+    vi.mocked(createAdminClient).mockReturnValue(adminClient as never);
+    vi.mocked(getMerchantPaymentCredentialMeta).mockResolvedValue([]);
+
+    const response = await DELETE(
+      createRequest('DELETE', { provider: 'paypal' })
+    );
+    const body = await responseJson(response);
+
+    expect(response.status).toBe(200);
+    expect(createAdminClient).toHaveBeenCalled();
+    // The RLS-owner-scoped caller client must never perform the flag update.
+    expect(callerClient.getUpdatePayload()).toBeNull();
+    expect(adminClient.getUpdatePayload()).toMatchObject({
+      custom_settings: { paypal_enabled: false },
+    });
+    expect(body).toEqual({ configured: false, roles: [] });
+  });
+
+  it('scrubs legacy plaintext PayPal secrets from custom_settings on disconnect', async () => {
+    const adminClient = makeFeatureSettingsSupabase({
+      paypal_enabled: true,
+      paypal_mode: 'live',
+      paypal_client_id: 'legacy-client-id',
+      paypal_secret_key: 'legacy-secret-key',
+      paypalClientSecret: 'legacy-camel-secret',
+      other_setting: 'keep-me',
+    });
+    vi.mocked(createAdminClient).mockReturnValue(adminClient as never);
+    vi.mocked(getMerchantPaymentCredentialMeta).mockResolvedValue([]);
+
+    const response = await DELETE(
+      createRequest('DELETE', { provider: 'paypal' })
+    );
+
+    expect(response.status).toBe(200);
+    const payload = adminClient.getUpdatePayload();
+    const customSettings = payload?.custom_settings as Record<string, unknown>;
+    expect(customSettings.paypal_enabled).toBe(false);
+    expect(customSettings.paypal_mode).toBe('live');
+    expect(customSettings.other_setting).toBe('keep-me');
+    expect(customSettings).not.toHaveProperty('paypal_client_id');
+    expect(customSettings).not.toHaveProperty('paypal_secret_key');
+    expect(customSettings).not.toHaveProperty('paypalClientSecret');
   });
 });

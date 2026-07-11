@@ -12,6 +12,7 @@ import {
   revalidateMerchant,
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { scrubLegacyPaypalCredentialFields } from '@/lib/merchant-feature-settings-redaction';
 import {
   deleteMerchantCredentials,
   getMerchantPaymentCredentialMeta,
@@ -19,6 +20,7 @@ import {
   touchMerchantCredentialValidated,
 } from '@/lib/payments/merchant-credentials';
 import { getAccessToken } from '@/lib/paypal';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   merchantPaymentCredentialsDeleteSchema,
   merchantPaymentCredentialsSaveSchema,
@@ -87,12 +89,18 @@ async function guard(
   return { ok: true, supabase: auth.supabase, userId: auth.user.id, access };
 }
 
-// Disable the non-secret PayPal feature flag after disconnect, using the
-// caller's RLS-scoped client after guard() has enforced settings.edit.
-async function disablePaypalFeatureFlag(
-  supabase: SupabaseClient,
-  merchantId: string
-): Promise<void> {
+// Clear the non-secret PayPal feature flag and scrub any legacy plaintext
+// PayPal credentials after disconnect. This runs through the service-role
+// admin client — NOT the caller's RLS-scoped client — because the
+// `merchant_feature_settings` UPDATE policy only covers owner rows. A staff
+// caller who legitimately passed the settings.edit gate in guard() would
+// otherwise no-op that update (RLS matches zero rows), leaving
+// paypal_enabled=true with the vault credentials already deleted — checkout
+// keeps advertising PayPal and customers hit PAYPAL_NOT_CONFIGURED.
+// Authorization is already enforced in guard() before we reach here, exactly
+// as the vault delete relies on the same service-role trust boundary.
+async function disablePaypalFeatureFlag(merchantId: string): Promise<void> {
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('merchant_feature_settings')
     .select('custom_settings')
@@ -114,10 +122,15 @@ async function disablePaypalFeatureFlag(
       ? (data.custom_settings as Record<string, unknown>)
       : {};
 
+  // Drop legacy plaintext PayPal secrets so disconnect fully removes stored
+  // credentials, not just the vault rows. Reuses the feature-settings scrubber
+  // rather than duplicating the credential key list.
+  const scrubbed = scrubLegacyPaypalCredentialFields(existing).settings;
+
   const { error: updateError } = await supabase
     .from('merchant_feature_settings')
     .update({
-      custom_settings: { ...existing, paypal_enabled: false },
+      custom_settings: { ...scrubbed, paypal_enabled: false },
       updated_at: new Date().toISOString(),
     })
     .eq('merchant_id', merchantId);
@@ -269,7 +282,7 @@ export async function DELETE(request: NextRequest) {
 
     await deleteMerchantCredentials(merchantId, provider);
     if (provider === 'paypal') {
-      await disablePaypalFeatureFlag(guarded.supabase, merchantId);
+      await disablePaypalFeatureFlag(merchantId);
     }
 
     revalidateFeatures(merchantId);

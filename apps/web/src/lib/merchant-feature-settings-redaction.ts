@@ -37,7 +37,7 @@ function redactZohoCampaignSettingsRecord(settings: JsonRecord): JsonRecord {
   return redacted;
 }
 
-function scrubLegacyPaypalCredentialFields(settings: JsonRecord): {
+export function scrubLegacyPaypalCredentialFields(settings: JsonRecord): {
   settings: JsonRecord;
   didScrub: boolean;
 } {
