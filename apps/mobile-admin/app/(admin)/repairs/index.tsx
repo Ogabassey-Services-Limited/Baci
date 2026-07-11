@@ -24,13 +24,27 @@ export default function RepairBookingsScreen() {
     useState<RepairBookingsStatusFilter>('all');
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data, error, isLoading, refetch } = useRepairBookings(statusFilter);
-  const bookings = data?.bookings ?? [];
+  const {
+    data,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    refetch,
+  } = useRepairBookings(statusFilter);
+  const bookings = data?.pages.flatMap((page) => page.bookings) ?? [];
 
   const onRefresh = async () => {
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
+  };
+
+  const onEndReached = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
   };
 
   const openBooking = (id: string) => {
@@ -96,6 +110,15 @@ export default function RepairBookingsScreen() {
               </Text>
             </View>
           }
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : null
+          }
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
           refreshControl={
             <RefreshControl onRefresh={onRefresh} refreshing={refreshing} />
           }
@@ -134,6 +157,10 @@ const styles = StyleSheet.create({
   },
   filterRow: {
     paddingVertical: SPACING.sm,
+  },
+  footerLoader: {
+    alignItems: 'center',
+    paddingVertical: SPACING.lg,
   },
   listContent: {
     padding: SPACING.md,

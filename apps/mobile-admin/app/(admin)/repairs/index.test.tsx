@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RepairBookingSummary } from '@/types/repair-booking';
 
 const mocks = vi.hoisted(() => ({
+  fetchNextPage: vi.fn(),
   push: vi.fn(),
   refetch: vi.fn(),
   useRepairBookings: vi.fn(),
@@ -23,6 +24,12 @@ const booking: RepairBookingSummary = {
   serviceType: 'pickup',
   status: 'pending',
   ticketNumber: 1024,
+};
+
+const secondBooking: RepairBookingSummary = {
+  ...booking,
+  id: 'booking-2',
+  ticketNumber: 1025,
 };
 
 vi.mock('expo-router', () => ({
@@ -64,24 +71,35 @@ vi.mock('@shopify/flash-list', () => ({
     data = [],
     keyExtractor,
     ListEmptyComponent,
+    ListFooterComponent,
+    onEndReached,
     renderItem,
   }: {
     data?: unknown[];
     keyExtractor?: (item: unknown, index: number) => string;
     ListEmptyComponent?: ReactNode;
+    ListFooterComponent?: ReactNode;
+    onEndReached?: () => void;
     renderItem: (input: { index: number; item: unknown }) => ReactNode;
-  }) =>
-    data.length === 0 ? (
-      <>{ListEmptyComponent}</>
-    ) : (
-      <ul aria-label="repair-bookings-list">
-        {data.map((item, index) => (
-          <li key={keyExtractor?.(item, index) ?? index}>
-            {renderItem({ item, index })}
-          </li>
-        ))}
-      </ul>
-    ),
+  }) => (
+    <div>
+      {data.length === 0 ? (
+        ListEmptyComponent
+      ) : (
+        <ul aria-label="repair-bookings-list">
+          {data.map((item, index) => (
+            <li key={keyExtractor?.(item, index) ?? index}>
+              {renderItem({ item, index })}
+            </li>
+          ))}
+        </ul>
+      )}
+      <button onClick={() => onEndReached?.()} type="button">
+        load-more
+      </button>
+      {ListFooterComponent}
+    </div>
+  ),
 }));
 
 vi.mock('react-native', () => {
@@ -128,8 +146,11 @@ describe('RepairBookingsScreen', () => {
     vi.clearAllMocks();
     mocks.refetch.mockResolvedValue(undefined);
     mocks.useRepairBookings.mockReturnValue({
-      data: { bookings: [booking], total: 1 },
+      data: { pages: [{ bookings: [booking], total: 1 }] },
       error: null,
+      fetchNextPage: mocks.fetchNextPage,
+      hasNextPage: false,
+      isFetchingNextPage: false,
       isLoading: false,
       refetch: mocks.refetch,
     });
@@ -157,8 +178,11 @@ describe('RepairBookingsScreen', () => {
 
   it('shows an empty state when there are no bookings', async () => {
     mocks.useRepairBookings.mockReturnValue({
-      data: { bookings: [], total: 0 },
+      data: { pages: [{ bookings: [], total: 0 }] },
       error: null,
+      fetchNextPage: mocks.fetchNextPage,
+      hasNextPage: false,
+      isFetchingNextPage: false,
       isLoading: false,
       refetch: mocks.refetch,
     });
@@ -172,6 +196,9 @@ describe('RepairBookingsScreen', () => {
     mocks.useRepairBookings.mockReturnValue({
       data: undefined,
       error: null,
+      fetchNextPage: mocks.fetchNextPage,
+      hasNextPage: false,
+      isFetchingNextPage: false,
       isLoading: true,
       refetch: mocks.refetch,
     });
@@ -185,6 +212,9 @@ describe('RepairBookingsScreen', () => {
     mocks.useRepairBookings.mockReturnValue({
       data: undefined,
       error: new Error('Network down'),
+      fetchNextPage: mocks.fetchNextPage,
+      hasNextPage: false,
+      isFetchingNextPage: false,
       isLoading: false,
       refetch: mocks.refetch,
     });
@@ -206,5 +236,97 @@ describe('RepairBookingsScreen', () => {
     await waitFor(() => {
       expect(mocks.useRepairBookings).toHaveBeenLastCalledWith('confirmed');
     });
+  });
+
+  it('renders bookings accumulated across multiple loaded pages', async () => {
+    mocks.useRepairBookings.mockReturnValue({
+      data: {
+        pages: [
+          { bookings: [booking], total: 2 },
+          { bookings: [secondBooking], total: 2 },
+        ],
+      },
+      error: null,
+      fetchNextPage: mocks.fetchNextPage,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      isLoading: false,
+      refetch: mocks.refetch,
+    });
+
+    render(<RepairBookingsScreen />);
+
+    expect(await screen.findByText('#1024')).toBeInTheDocument();
+    expect(screen.getByText('#1025')).toBeInTheDocument();
+  });
+
+  it('fetches the next page when the list end is reached and more pages exist', async () => {
+    mocks.useRepairBookings.mockReturnValue({
+      data: { pages: [{ bookings: [booking], total: 2 }] },
+      error: null,
+      fetchNextPage: mocks.fetchNextPage,
+      hasNextPage: true,
+      isFetchingNextPage: false,
+      isLoading: false,
+      refetch: mocks.refetch,
+    });
+
+    render(<RepairBookingsScreen />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'load-more' }));
+
+    expect(mocks.fetchNextPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fetch another page while one is already in flight', async () => {
+    mocks.useRepairBookings.mockReturnValue({
+      data: { pages: [{ bookings: [booking], total: 2 }] },
+      error: null,
+      fetchNextPage: mocks.fetchNextPage,
+      hasNextPage: true,
+      isFetchingNextPage: true,
+      isLoading: false,
+      refetch: mocks.refetch,
+    });
+
+    render(<RepairBookingsScreen />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'load-more' }));
+
+    expect(mocks.fetchNextPage).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch another page once every booking has been loaded', async () => {
+    mocks.useRepairBookings.mockReturnValue({
+      data: { pages: [{ bookings: [booking], total: 1 }] },
+      error: null,
+      fetchNextPage: mocks.fetchNextPage,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      isLoading: false,
+      refetch: mocks.refetch,
+    });
+
+    render(<RepairBookingsScreen />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'load-more' }));
+
+    expect(mocks.fetchNextPage).not.toHaveBeenCalled();
+  });
+
+  it('shows a footer loading indicator while fetching the next page', async () => {
+    mocks.useRepairBookings.mockReturnValue({
+      data: { pages: [{ bookings: [booking], total: 2 }] },
+      error: null,
+      fetchNextPage: mocks.fetchNextPage,
+      hasNextPage: true,
+      isFetchingNextPage: true,
+      isLoading: false,
+      refetch: mocks.refetch,
+    });
+
+    render(<RepairBookingsScreen />);
+
+    expect(await screen.findByText('loading')).toBeInTheDocument();
   });
 });
