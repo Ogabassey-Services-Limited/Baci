@@ -10,12 +10,17 @@ import {
   markPaypalCredentialInvalid,
   readPaypalFeatureConfig,
 } from './paypal-checkout-credentials';
+import { disablePaypalFeatureFlag } from './paypal-feature-flag';
 
 vi.mock('server-only', () => ({}));
 
 vi.mock('./merchant-credentials', () => ({
   getDecryptedMerchantCredential: vi.fn(),
   markMerchantCredentialInvalid: vi.fn(),
+}));
+
+vi.mock('./paypal-feature-flag', () => ({
+  disablePaypalFeatureFlag: vi.fn(),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -100,11 +105,11 @@ describe('isPaypalAuthFailure', () => {
 describe('markPaypalCredentialInvalid', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(markMerchantCredentialInvalid).mockResolvedValue();
+    vi.mocked(disablePaypalFeatureFlag).mockResolvedValue();
   });
 
   it('disables the secret_key role for the environment', async () => {
-    vi.mocked(markMerchantCredentialInvalid).mockResolvedValue();
-
     await markPaypalCredentialInvalid(MERCHANT_ID, 'live', 'unauthorized');
 
     expect(markMerchantCredentialInvalid).toHaveBeenCalledWith(
@@ -116,9 +121,35 @@ describe('markPaypalCredentialInvalid', () => {
     );
   });
 
+  it('also clears paypal_enabled so checkout stops advertising PayPal (C-143)', async () => {
+    await markPaypalCredentialInvalid(MERCHANT_ID, 'live', 'unauthorized');
+
+    expect(disablePaypalFeatureFlag).toHaveBeenCalledWith(MERCHANT_ID);
+  });
+
+  it('still clears paypal_enabled even if marking the credential invalid fails', async () => {
+    vi.mocked(markMerchantCredentialInvalid).mockRejectedValue(
+      new Error('rpc down')
+    );
+
+    await markPaypalCredentialInvalid(MERCHANT_ID, 'live', 'unauthorized');
+
+    expect(disablePaypalFeatureFlag).toHaveBeenCalledWith(MERCHANT_ID);
+  });
+
   it('never throws when the RPC fails', async () => {
     vi.mocked(markMerchantCredentialInvalid).mockRejectedValue(
       new Error('rpc down')
+    );
+
+    await expect(
+      markPaypalCredentialInvalid(MERCHANT_ID, 'live', 'unauthorized')
+    ).resolves.toBeUndefined();
+  });
+
+  it('never throws when clearing paypal_enabled fails', async () => {
+    vi.mocked(disablePaypalFeatureFlag).mockRejectedValue(
+      new Error('flag update down')
     );
 
     await expect(

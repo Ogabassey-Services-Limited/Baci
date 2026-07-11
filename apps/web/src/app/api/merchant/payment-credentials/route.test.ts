@@ -404,4 +404,34 @@ describe('/api/merchant/payment-credentials', () => {
     expect(customSettings).not.toHaveProperty('paypal_secret_key');
     expect(customSettings).not.toHaveProperty('paypalClientSecret');
   });
+
+  it('rolls back the first credential role and errors when the second write fails (S-245)', async () => {
+    // client_id write lands, secret_key write fails → we must never persist a
+    // half-saved pair, so the whole provider's credentials are deleted.
+    vi.mocked(setMerchantPaymentCredential)
+      .mockResolvedValueOnce('client-id-credential')
+      .mockRejectedValueOnce(new Error('vault write failed'));
+
+    const response = await POST(saveRequest());
+
+    expect(response.status).toBe(500);
+    expect(deleteMerchantCredentials).toHaveBeenCalledWith(
+      MERCHANT_ID,
+      'paypal'
+    );
+    // A half-pair must never be marked validated.
+    expect(touchMerchantCredentialValidated).not.toHaveBeenCalled();
+  });
+
+  it('does not roll back or error when both credential writes succeed', async () => {
+    const response = await POST(saveRequest());
+
+    expect(response.status).toBe(200);
+    expect(setMerchantPaymentCredential).toHaveBeenCalledTimes(2);
+    expect(deleteMerchantCredentials).not.toHaveBeenCalled();
+    expect(touchMerchantCredentialValidated).toHaveBeenCalledWith(
+      MERCHANT_ID,
+      'paypal'
+    );
+  });
 });

@@ -7,6 +7,7 @@ import {
   markMerchantCredentialInvalid,
   type PaymentCredentialEnvironment,
 } from './merchant-credentials';
+import { disablePaypalFeatureFlag } from './paypal-feature-flag';
 
 /**
  * Credential-sourcing helpers for the PayPal BYOK checkout routes (Wave 2, see
@@ -124,9 +125,16 @@ export function isPaypalAuthFailure(code: string | undefined): boolean {
 }
 
 /**
- * Disables the merchant's PayPal secret_key credential after PayPal rejects it
- * mid-checkout (Phase 2 item 1). Best-effort: marking the credential invalid
- * must never itself throw and mask the 400 the route is about to return.
+ * Handles a PayPal credential rejection (401/invalid) discovered mid-checkout
+ * (Phase 2 item 1, C-143). Two best-effort side effects, each isolated so one
+ * failure never masks the other or the 400 the route is about to return:
+ *   1. mark the stored secret_key credential invalid, and
+ *   2. clear the non-secret `paypal_enabled` flag so checkout stops advertising
+ *      PayPal to customers — otherwise they keep hitting the same failure until a
+ *      merchant manually reconnects.
+ * Clearing the flag reuses the service-role feature-settings path the disconnect
+ * route uses (`disablePaypalFeatureFlag`); under checkout there is no
+ * `auth.uid()`, so an RLS-scoped update would match zero rows.
  */
 export async function markPaypalCredentialInvalid(
   merchantId: string,
@@ -144,6 +152,17 @@ export async function markPaypalCredentialInvalid(
   } catch (error) {
     logger.error({
       message: 'Failed to mark PayPal credential invalid after 401',
+      merchantId,
+      environment,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  try {
+    await disablePaypalFeatureFlag(merchantId);
+  } catch (error) {
+    logger.error({
+      message: 'Failed to clear paypal_enabled after credential rejection',
       merchantId,
       environment,
       error: error instanceof Error ? error.message : String(error),

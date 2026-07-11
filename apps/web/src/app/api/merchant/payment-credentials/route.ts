@@ -12,15 +12,14 @@ import {
   revalidateMerchant,
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { scrubLegacyPaypalCredentialFields } from '@/lib/merchant-feature-settings-redaction';
 import {
   deleteMerchantCredentials,
   getMerchantPaymentCredentialMeta,
   setMerchantPaymentCredential,
   touchMerchantCredentialValidated,
 } from '@/lib/payments/merchant-credentials';
+import { disablePaypalFeatureFlag } from '@/lib/payments/paypal-feature-flag';
 import { getAccessToken } from '@/lib/paypal';
-import { createAdminClient } from '@/lib/supabase/admin';
 import {
   merchantPaymentCredentialsDeleteSchema,
   merchantPaymentCredentialsSaveSchema,
@@ -87,59 +86,6 @@ async function guard(
   }
 
   return { ok: true, supabase: auth.supabase, userId: auth.user.id, access };
-}
-
-// Clear the non-secret PayPal feature flag and scrub any legacy plaintext
-// PayPal credentials after disconnect. This runs through the service-role
-// admin client — NOT the caller's RLS-scoped client — because the
-// `merchant_feature_settings` UPDATE policy only covers owner rows. A staff
-// caller who legitimately passed the settings.edit gate in guard() would
-// otherwise no-op that update (RLS matches zero rows), leaving
-// paypal_enabled=true with the vault credentials already deleted — checkout
-// keeps advertising PayPal and customers hit PAYPAL_NOT_CONFIGURED.
-// Authorization is already enforced in guard() before we reach here, exactly
-// as the vault delete relies on the same service-role trust boundary.
-async function disablePaypalFeatureFlag(merchantId: string): Promise<void> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from('merchant_feature_settings')
-    .select('custom_settings')
-    .eq('merchant_id', merchantId)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(
-      `payment-credentials: failed to load feature settings: ${error.message}`
-    );
-  }
-
-  if (!data) {
-    return;
-  }
-
-  const existing =
-    data.custom_settings && typeof data.custom_settings === 'object'
-      ? (data.custom_settings as Record<string, unknown>)
-      : {};
-
-  // Drop legacy plaintext PayPal secrets so disconnect fully removes stored
-  // credentials, not just the vault rows. Reuses the feature-settings scrubber
-  // rather than duplicating the credential key list.
-  const scrubbed = scrubLegacyPaypalCredentialFields(existing).settings;
-
-  const { error: updateError } = await supabase
-    .from('merchant_feature_settings')
-    .update({
-      custom_settings: { ...scrubbed, paypal_enabled: false },
-      updated_at: new Date().toISOString(),
-    })
-    .eq('merchant_id', merchantId);
-
-  if (updateError) {
-    throw new Error(
-      `payment-credentials: failed to disable paypal flag: ${updateError.message}`
-    );
-  }
 }
 
 export async function GET(request: NextRequest) {
@@ -231,6 +177,12 @@ export async function POST(request: NextRequest) {
     }
 
     const { merchantId } = guarded.access;
+    // Persist the pair atomically-in-effect (S-245): write client_id, then
+    // secret_key. If the secret_key write fails, the client_id write already
+    // landed, so roll the WHOLE pair back — checkout otherwise resolves one role
+    // and 401s on the missing/rotated other, silently failing every payment.
+    // Fail-closed: no credentials beats a mismatched half-pair. The rollback
+    // delete is best-effort so the original write error surfaces as the 500.
     await setMerchantPaymentCredential(
       merchantId,
       provider,
@@ -238,13 +190,25 @@ export async function POST(request: NextRequest) {
       environment,
       clientId
     );
-    await setMerchantPaymentCredential(
-      merchantId,
-      provider,
-      'secret_key',
-      environment,
-      secretKey
-    );
+    try {
+      await setMerchantPaymentCredential(
+        merchantId,
+        provider,
+        'secret_key',
+        environment,
+        secretKey
+      );
+    } catch (writeError) {
+      try {
+        await deleteMerchantCredentials(merchantId, provider);
+      } catch (rollbackError) {
+        console.error(
+          'payment-credentials: failed to roll back half-saved credential pair:',
+          rollbackError
+        );
+      }
+      throw writeError;
+    }
     await touchMerchantCredentialValidated(merchantId, provider);
 
     const rows = await getMerchantPaymentCredentialMeta(merchantId, provider);
