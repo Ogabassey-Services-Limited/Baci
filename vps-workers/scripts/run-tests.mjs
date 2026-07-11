@@ -26,7 +26,7 @@ function collectTestFiles(directory) {
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const workerRoot = join(scriptDir, '..');
-const testFiles = ['jobs', 'lib']
+const testFiles = ['bin', 'jobs', 'lib']
   .flatMap((directory) => collectTestFiles(join(workerRoot, directory)))
   .sort();
 
