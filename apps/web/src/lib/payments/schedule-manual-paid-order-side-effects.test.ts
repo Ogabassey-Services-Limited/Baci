@@ -129,6 +129,30 @@ describe('scheduleManualPaidOrderSideEffects', () => {
     );
   });
 
+  it('normalizes a nullable legacy subtotal before scheduling side effects', async () => {
+    scheduleManualPaidOrderSideEffects({
+      actor: 'record-payment:user-1',
+      amount: 500,
+      merchantId: 'merchant-1',
+      order: {
+        id: 'order-1',
+        merchant_id: 'merchant-1',
+        subtotal: null,
+        total: 500,
+      },
+      transactionId: 'transaction-1',
+    });
+
+    await mocks.after.mock.calls[0]?.[0]?.();
+
+    expect(mocks.applyPaidOrderSideEffects).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order: expect.objectContaining({ subtotal: 0 }),
+      })
+    );
+    expect(mocks.loggerError).not.toHaveBeenCalled();
+  });
+
   it('logs retryable failed steps returned by the shared runner', async () => {
     mocks.applyPaidOrderSideEffects.mockResolvedValueOnce({
       concurrentTakeoverSteps: [],

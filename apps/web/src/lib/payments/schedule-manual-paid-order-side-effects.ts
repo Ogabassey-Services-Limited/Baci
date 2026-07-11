@@ -27,7 +27,11 @@ export function scheduleManualPaidOrderSideEffects({
   after(async () => {
     try {
       const supabase = createServiceClient();
-      const richOrder = toRichPaidOrder(order, { merchantId });
+      const normalizedOrder =
+        typeof order === 'object' && order && 'subtotal' in order
+          ? { ...order, subtotal: order.subtotal ?? 0 }
+          : order;
+      const richOrder = toRichPaidOrder(normalizedOrder, { merchantId });
       const { data: merchantDetails, error: merchantFetchError } =
         await supabase
           .from('merchants')

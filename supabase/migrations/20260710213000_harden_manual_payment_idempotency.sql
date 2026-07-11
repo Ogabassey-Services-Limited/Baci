@@ -370,8 +370,7 @@ BEGIN
     AND t.order_id = p_order_id
     AND t.gateway = 'manual'
     AND t.transaction_type = 'payment'
-    AND t.status = 'completed'
-    AND public.has_merchant_access(t.merchant_id);
+    AND t.status = 'completed';
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'manual payment side effect is not accessible';
@@ -439,7 +438,6 @@ BEGIN
   WHERE side_effect.transaction_id = p_transaction_id
     AND side_effect.step = p_step
     AND side_effect.claim_token = p_claim_token
-    AND public.has_merchant_access(side_effect.merchant_id)
   RETURNING true INTO v_updated;
 
   RETURN COALESCE(v_updated, false);
