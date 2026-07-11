@@ -38,12 +38,14 @@ interface RepairPickupRow {
 interface RepairPickupClaimRow {
   claimed: boolean;
   shipment_id: string | null;
+  terminal?: boolean | null;
 }
 
 type RepairPickupClaimResult =
   | { status: 'claimed'; lockToken: string }
   | { status: 'already_booked' }
   | { status: 'booking_in_progress' }
+  | { status: 'terminal' }
   | { status: 'not_found' }
   | { status: 'failed' };
 
@@ -91,6 +93,13 @@ async function claimRepairPickupBooking(
 
   if (row.claimed) {
     return { status: 'claimed', lockToken };
+  }
+
+  // A concurrent cancel/complete after the up-front status check now fails the
+  // claim closed (see migration 20260711171500). Mirror the up-front ordering:
+  // terminal before already-booked.
+  if (row.terminal) {
+    return { status: 'terminal' };
   }
 
   if (row.shipment_id) {
@@ -277,6 +286,11 @@ export async function bookRepairPickup(
   if (claim.status === 'not_found') {
     return pickupFailure('not_found');
   }
+  if (claim.status === 'terminal') {
+    // The repair reached a terminal status between the up-front check and the
+    // atomic claim — never book a paid pickup for it.
+    return pickupFailure('terminal_status');
+  }
   if (claim.status === 'already_booked') {
     return pickupFailure('already_booked');
   }
@@ -331,6 +345,11 @@ export async function bookRepairPickup(
     .eq('merchant_id', merchantId)
     .eq('pickup_booking_lock_token', claim.lockToken)
     .is('shipment_id', null)
+    // Belt-and-braces: also refuse to link (and therefore refuse the paid
+    // bookShipment below) if the repair reached a terminal status in the tiny
+    // window after the claim. The claim guard fails closed too; this covers the
+    // claim -> link -> bookShipment gap.
+    .not('status', 'in', '(completed,cancelled,rejected)')
     .select('id');
 
   if (linkError) {

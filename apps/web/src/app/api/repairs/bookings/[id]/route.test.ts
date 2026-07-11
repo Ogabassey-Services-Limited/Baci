@@ -22,7 +22,7 @@ vi.mock('@/lib/repairs/notify-repair-status-change', () => ({
 
 type Responses = Record<string, { data: unknown; error: unknown }>;
 
-function makeAdmin(responses: Responses) {
+function makeAdmin(responses: Responses, eqCalls: [string, unknown][] = []) {
   return {
     from(table: string) {
       let op = 'select';
@@ -34,11 +34,15 @@ function makeAdmin(responses: Responses) {
           op = 'update';
           return builder;
         },
-        eq() {
+        eq(column: string, value: unknown) {
+          eqCalls.push([column, value]);
           return builder;
         },
         maybeSingle() {
-          return Promise.resolve(responses[`${table}.select`]);
+          // Op-aware: reads keep op='select'; a `.update().…maybeSingle()` chain
+          // resolves the update response (the route uses maybeSingle for the
+          // status-guarded write so a 0-row result surfaces as null).
+          return Promise.resolve(responses[`${table}.${op}`]);
         },
         single() {
           return Promise.resolve(responses[`${table}.${op}`]);
@@ -250,6 +254,60 @@ describe('PATCH /api/repairs/bookings/[id]', () => {
     expect(mocks.notifyRepairStatusChange).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'confirmed', ticketNumber: 1042 })
     );
+  });
+
+  it('returns 409 when a concurrent request already changed the status', async () => {
+    // The transition (pending -> confirmed) is valid against the loaded row, but
+    // the status-guarded UPDATE matches no row because another request already
+    // moved the booking out of 'pending'. The stale write must not revive it or
+    // fire a misleading notification.
+    const eqCalls: [string, unknown][] = [];
+    mocks.createClient.mockReturnValue(
+      makeAdmin(
+        {
+          'repairs.select': {
+            data: { ...detailRow, status: 'pending', ticket_number: 1042 },
+            error: null,
+          },
+          'repairs.update': { data: null, error: null },
+        },
+        eqCalls
+      )
+    );
+    const res = await PATCH(req({ status: 'confirmed' }) as never, { params });
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe('status_conflict');
+    expect(mocks.notifyRepairStatusChange).not.toHaveBeenCalled();
+    // The optimistic CAS guard must have been applied against the read status;
+    // without it this write would clobber the concurrent transition.
+    expect(eqCalls).toContainEqual(['status', 'pending']);
+  });
+
+  it('guards an equal-status resend so it cannot revert a concurrent transition', async () => {
+    // Client re-sends status='pending' (no change) as part of a whole-form save.
+    // If a concurrent request already moved the row to a terminal state, the
+    // guarded write matches no row -> 409, never reverting it.
+    const eqCalls: [string, unknown][] = [];
+    mocks.createClient.mockReturnValue(
+      makeAdmin(
+        {
+          'repairs.select': {
+            data: { ...detailRow, status: 'pending' },
+            error: null,
+          },
+          'repairs.update': { data: null, error: null },
+        },
+        eqCalls
+      )
+    );
+    const res = await PATCH(
+      req({ status: 'pending', admin_notes: 'touch' }) as never,
+      { params }
+    );
+    expect(res.status).toBe(409);
+    expect(eqCalls).toContainEqual(['status', 'pending']);
+    expect(mocks.notifyRepairStatusChange).not.toHaveBeenCalled();
   });
 
   it('updates cost/notes without notifying when status is unchanged', async () => {

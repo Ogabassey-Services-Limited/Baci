@@ -136,18 +136,41 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     );
   }
 
-  const { data: updated, error: updateError } = await admin
+  let updateQuery = admin
     .from('repairs')
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', id)
-    .eq('merchant_id', authz.access.merchantId)
-    .select(BOOKING_DETAIL_COLUMNS)
-    .single();
+    .eq('merchant_id', authz.access.merchantId);
 
-  if (updateError || !updated) {
+  // Optimistic concurrency: whenever the request carries a status (even one
+  // equal to the current value), only write if the row is still in the status we
+  // read. This blocks both the transition case (read `pending`, write
+  // `confirmed` over a concurrent cancel) AND the equal-status resend case (a
+  // whole-form save that re-sends `pending` and would otherwise revert a
+  // concurrent terminal transition). Pure cost/notes edits stay unguarded.
+  if (nextStatus !== undefined) {
+    updateQuery = updateQuery.eq('status', currentStatus);
+  }
+
+  const { data: updated, error: updateError } = await updateQuery
+    .select(BOOKING_DETAIL_COLUMNS)
+    .maybeSingle();
+
+  if (updateError) {
     return NextResponse.json(
       { error: 'Failed to update booking' },
       { status: 500 }
+    );
+  }
+  if (!updated) {
+    // The booking exists (loaded above) but no row matched the status guard —
+    // another request changed its status first. Ask the client to reload.
+    return NextResponse.json(
+      {
+        error: 'Booking was updated by another request. Reload and try again.',
+        code: 'status_conflict',
+      },
+      { status: 409 }
     );
   }
 

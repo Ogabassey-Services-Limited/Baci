@@ -50,7 +50,7 @@ export default async function RepairsPage() {
     <RepairsCatalogClient
       canEdit={canEdit}
       canDelete={canDelete}
-      catalogEnabled={data?.repairs_catalog_enabled === true}
+      catalogPubliclyEnabled={data?.repairs_catalog_enabled === true}
     />
   );
 }
