@@ -130,13 +130,18 @@ export async function getCachedCompareCategoryInventory(
   categorySlug: string,
   storeSlug: string
 ): Promise<CompareCategoryInventory> {
-  'use cache: remote';
+  // LOCAL 'use cache' (not remote): this ~1MB entry is filled inside the
+  // compare page model, whose large Vercel remote-cache SET (RemoteCacheHandler
+  // K.set) hangs and never persists — the root of the ~30-34s compare stall.
+  // Local cache has no write round-trip. See getCachedComparePageModel /
+  // getCachedMerchant for the same remote→local rationale.
+  'use cache';
   try {
-    // 'categories' (revalidate 3600) matches getCachedProductSemanticInventory:
-    // freshness is tag-driven (product mutations fire
-    // revalidateTag(`products-${merchantId}`)), so a short window would only
-    // force needless re-writes of this per-category entry.
-    cacheLife('categories');
+    // 'products' (revalidate 300), NOT 'categories' (3600): as a LOCAL entry
+    // (see the directive note above), tag revalidation only evicts the mutating
+    // instance, so bound cross-instance staleness of the embedded price to
+    // ~5min. This query is <1s, so more frequent refills are cheap.
+    cacheLife('products');
     cacheTag(
       'category-page-data',
       'products',
