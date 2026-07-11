@@ -66,10 +66,14 @@ USING ranked_active_domains AS ranked
 WHERE domain_row.id = ranked.id
   AND ranked.duplicate_rank > 1;
 
+-- A whitespace-only legacy row would normalize to '' and trip the blank-domain
+-- trigger installed above, aborting the whole migration. Leave such rows
+-- untouched so the apply cannot fail on pre-existing malformed data.
 UPDATE public.domains AS domain_row
 SET domain = pg_catalog.lower(pg_catalog.btrim(domain_row.domain))
 WHERE domain_row.domain IS DISTINCT FROM
-  pg_catalog.lower(pg_catalog.btrim(domain_row.domain));
+  pg_catalog.lower(pg_catalog.btrim(domain_row.domain))
+  AND pg_catalog.btrim(domain_row.domain) <> '';
 
 CREATE UNIQUE INDEX IF NOT EXISTS domains_active_normalized_domain_uidx
 ON public.domains (

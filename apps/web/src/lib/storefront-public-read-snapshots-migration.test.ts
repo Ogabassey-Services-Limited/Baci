@@ -32,6 +32,16 @@ describe('storefront public read snapshots migration', () => {
     expect(MIGRATION_SOURCE).toContain('normalize_storefront_domain_row');
   });
 
+  it('skips blank-after-trim rows when backfilling normalized domains', () => {
+    // The normalization backfill runs after the blank-domain trigger is
+    // installed. A whitespace-only legacy row would normalize to '' and trip
+    // the trigger, aborting the whole migration. Guard the UPDATE so such rows
+    // are left untouched instead of failing the apply.
+    expect(MIGRATION_SOURCE).toMatch(
+      /UPDATE public\.domains AS domain_row\s+SET domain = pg_catalog\.lower\(pg_catalog\.btrim\(domain_row\.domain\)\)\s+WHERE domain_row\.domain IS DISTINCT FROM\s+pg_catalog\.lower\(pg_catalog\.btrim\(domain_row\.domain\)\)\s+AND pg_catalog\.btrim\(domain_row\.domain\) <> ''/
+    );
+  });
+
   it('exposes explicit merchant and PDP resolution statuses to public API roles', () => {
     expect(MIGRATION_SOURCE).toContain(
       'public.resolve_storefront_public_snapshot_v2'
