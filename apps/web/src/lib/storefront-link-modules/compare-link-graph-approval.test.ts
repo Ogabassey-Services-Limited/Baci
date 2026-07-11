@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import * as compareIndexabilityPolicy from '@/lib/storefront-compare/compare-indexability-policy';
+import { buildCanonicalProductCompareSlug } from '@/lib/storefront-compare/compare-slugs';
 import {
   getSupplementalApprovalCandidateLimit,
   selectApprovedCompareGraphEntries,
@@ -40,6 +42,53 @@ describe('compare link graph approval', () => {
         maxLinks: 1,
       })
     ).toEqual([candidate]);
+  });
+
+  it('does not rebuild discovery for every prevalidated graph candidate', () => {
+    const globallyCurated =
+      compareIndexabilityPolicy.buildCuratedCompareSlugSet({
+        storeUrl: 'https://ogabassey.com',
+        categorySlug: 'smartphones',
+        categoryName: 'Smartphones',
+        products: deepProducts,
+      });
+    const candidates = deepProducts
+      .flatMap((left, leftIndex) =>
+        deepProducts.slice(leftIndex + 1).map((right) => {
+          const comparisonSlug = buildCanonicalProductCompareSlug(
+            left.slug,
+            right.slug
+          );
+          return {
+            comparisonSlug,
+            productSlugs: [left.slug, right.slug] as [string, string],
+            href: `/smartphones/compare/${comparisonSlug}`,
+          };
+        })
+      )
+      .filter((candidate) => !globallyCurated.has(candidate.comparisonSlug))
+      .slice(0, 20);
+    const policySpy = vi.spyOn(
+      compareIndexabilityPolicy,
+      'buildCuratedCompareSlugSet'
+    );
+
+    const result = selectApprovedCompareGraphEntries({
+      storeUrl: 'https://ogabassey.com',
+      categorySlug: 'smartphones',
+      categoryName: 'Smartphones',
+      policyProducts: deepProducts,
+      candidateEntries: candidates,
+      candidateEntriesAreIndexable: true,
+      maxLinks: 20,
+    });
+
+    expect(candidates).toHaveLength(20);
+    expect(result).toEqual(candidates);
+    // One category-level policy build is still required. The prior algorithm
+    // additionally rebuilt the complete discovery graph once per candidate.
+    expect(policySpy).toHaveBeenCalledTimes(1);
+    policySpy.mockRestore();
   });
 
   it('does not approve entries when maxLinks is zero', () => {
