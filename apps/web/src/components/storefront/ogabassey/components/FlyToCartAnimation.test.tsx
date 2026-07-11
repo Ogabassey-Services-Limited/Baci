@@ -11,6 +11,7 @@ vi.mock('@/components/storefront/cdn-format-image', () => ({
 describe('FlyToCartAnimation', () => {
   afterEach(() => {
     document.body.replaceChildren();
+    vi.restoreAllMocks();
   });
 
   it('renders the animated product through the CDN format image path', async () => {
@@ -36,6 +37,28 @@ describe('FlyToCartAnimation', () => {
         )
       ).toBeInTheDocument();
     });
+
+    unmount();
+  });
+
+  it('completes immediately when the cart target is missing', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const onComplete = vi.fn();
+
+    const { unmount } = render(
+      <FlyToCartAnimation
+        imageSrc="https://cdn.ogabassey.com/core-assets/products/phone.jpg"
+        onComplete={onComplete}
+        startRect={new DOMRect(20, 40, 40, 40)}
+      />
+    );
+
+    await waitFor(() => {
+      expect(onComplete).toHaveBeenCalledTimes(1);
+    });
+    expect(warnSpy).toHaveBeenCalledWith(
+      'FlyToCartAnimation: Target #mobile-footer-cart-icon not found.'
+    );
 
     unmount();
   });

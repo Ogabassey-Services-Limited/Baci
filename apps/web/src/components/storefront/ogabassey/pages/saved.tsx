@@ -101,6 +101,7 @@ export const OgabasseyV2SavedItems: React.FC = () => {
               >
                 <Link
                   href={asRoute(getStorefrontProductHref(product, basePath))}
+                  aria-label={`View ${product.name}`}
                   className="absolute inset-0 z-0"
                 />
 
@@ -138,6 +139,7 @@ export const OgabasseyV2SavedItems: React.FC = () => {
                   </button>
                   <button
                     type="button"
+                    aria-label={`Remove ${product.name} from saved items`}
                     onClick={() => removeFromSaved(product.id)}
                     className="p-2 border border-gray-200 rounded-lg hover:border-red-200 hover:bg-red-50 text-red-600 transition-colors flex items-center justify-center"
                   >
