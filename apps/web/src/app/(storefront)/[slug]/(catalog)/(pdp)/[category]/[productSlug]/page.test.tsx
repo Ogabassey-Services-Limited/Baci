@@ -168,6 +168,7 @@ const mockGetCachedProduct = vi.fn();
 const mockGetCachedProductLcpHint = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
+const mockLoadCategoryScopedSemanticInventory = vi.fn();
 const mockBuildProductSemanticModel = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
 const mockGenerateBreadcrumbSchema = vi.fn((_items: unknown) => ({}));
@@ -505,6 +506,14 @@ vi.mock('@/lib/cached-storefront-product-index', () => ({
     mockGetCachedStorefrontProductIndex(...args),
 }));
 
+vi.mock(
+  '@/lib/storefront-product/load-category-scoped-semantic-inventory-safely',
+  () => ({
+    loadCategoryScopedSemanticInventorySafely: (...args: unknown[]) =>
+      mockLoadCategoryScopedSemanticInventory(...args),
+  })
+);
+
 vi.mock('@/lib/storefront-product/build-product-semantic-model', () => ({
   buildProductSemanticModel: (...args: unknown[]) =>
     mockBuildProductSemanticModel(...args),
@@ -670,10 +679,7 @@ vi.mock(
   })
 );
 
-import CategoryProductPage, {
-  generateMetadata,
-  generateStaticParams,
-} from './page';
+import CategoryProductPage, { generateMetadata } from './page';
 
 type ResolveRscOptions = {
   pruneSkippedContent?: boolean;
@@ -2065,6 +2071,12 @@ describe('[category]/[productSlug] page render', () => {
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockGetCachedCategoryPageData.mockReset();
     mockGetCachedCategoryPageData.mockResolvedValue(null);
+    mockLoadCategoryScopedSemanticInventory.mockReset();
+    mockLoadCategoryScopedSemanticInventory.mockResolvedValue({
+      isCollection: false,
+      categoryName: 'Products',
+      products: [],
+    });
     mockGetPublishedClusterPosts.mockReset();
     mockGetPublishedClusterPosts.mockResolvedValue([]);
     mockBuildProductSemanticModel.mockReset();
@@ -4197,10 +4209,12 @@ describe('[category]/[productSlug] page render', () => {
   it('renders the OgaBassey product shell before supplemental PDP data resolves', async () => {
     let resolveCategoryPageData:
       | ((
-          value: Awaited<ReturnType<typeof mockGetCachedCategoryPageData>>
+          value: Awaited<
+            ReturnType<typeof mockLoadCategoryScopedSemanticInventory>
+          >
         ) => void)
       | undefined;
-    mockGetCachedCategoryPageData.mockReturnValueOnce(
+    mockLoadCategoryScopedSemanticInventory.mockReturnValueOnce(
       new Promise((resolve) => {
         resolveCategoryPageData = resolve;
       })
@@ -4248,7 +4262,11 @@ describe('[category]/[productSlug] page render', () => {
       })
     );
 
-    resolveCategoryPageData?.(null);
+    resolveCategoryPageData?.({
+      isCollection: false,
+      categoryName: 'Products',
+      products: [],
+    });
   });
 
   it('does not mount OgaBassey PDP preload hints for generic template product pages', async () => {
@@ -4601,9 +4619,9 @@ describe('[category]/[productSlug] page render', () => {
         parent_id: null,
       },
     });
-    mockGetCachedCategoryPageData.mockResolvedValue({
+    mockLoadCategoryScopedSemanticInventory.mockResolvedValue({
       isCollection: false,
-      fallbackName: 'Smartphones',
+      categoryName: 'Smartphones',
       products: [
         {
           slug: 'samsung-galaxy-z-trifold',
@@ -4870,136 +4888,5 @@ describe('[category]/[productSlug] page render', () => {
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/laptops/hp-laptop-14-ep0063nia'
     );
-  });
-});
-
-describe('[category]/[productSlug] generateStaticParams', () => {
-  const PRERENDER_PLACEHOLDER = {
-    slug: PRERENDER_PLACEHOLDER_STORE_SLUG,
-    category: 'smartphones',
-    productSlug: PRERENDER_PLACEHOLDER_PRODUCT_SLUG,
-  };
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockGetCachedStorefrontProductIndex.mockReset();
-  });
-
-  it('maps the newest OgaBassey products to prerender params', async () => {
-    mockGetCachedStorefrontProductIndex.mockResolvedValue({
-      hasError: false,
-      products: [
-        { slug: 'galaxy-z-trifold', category_slug: 'smartphones' },
-        { slug: 'macbook-pro-m3-max', category_slug: 'laptops' },
-      ],
-    });
-
-    const params = await generateStaticParams();
-
-    expect(mockGetCachedStorefrontProductIndex).toHaveBeenCalledWith(
-      OGABASSEY_MERCHANT_ID,
-      { page: 1, limit: 200 }
-    );
-    expect(params).toEqual([
-      {
-        slug: OGABASSEY_DOMAIN,
-        category: 'gaming-laptops',
-        productSlug: 'dell-alienware-m18-r3-rtx-5080',
-      },
-      {
-        slug: OGABASSEY_DOMAIN,
-        category: 'smartphones',
-        productSlug: 'galaxy-z-trifold',
-      },
-      {
-        slug: OGABASSEY_DOMAIN,
-        category: 'laptops',
-        productSlug: 'macbook-pro-m3-max',
-      },
-    ]);
-  });
-
-  it('deduplicates repeated category/slug pairs and skips incomplete rows', async () => {
-    mockGetCachedStorefrontProductIndex.mockResolvedValue({
-      hasError: false,
-      products: [
-        { slug: 'galaxy-z-trifold', category_slug: 'smartphones' },
-        { slug: 'galaxy-z-trifold', category_slug: 'smartphones' },
-        { slug: '  ', category_slug: 'laptops' },
-        { slug: 'orphan', category_slug: undefined },
-      ],
-    });
-
-    const params = await generateStaticParams();
-
-    expect(params).toEqual([
-      {
-        slug: OGABASSEY_DOMAIN,
-        category: 'gaming-laptops',
-        productSlug: 'dell-alienware-m18-r3-rtx-5080',
-      },
-      {
-        slug: OGABASSEY_DOMAIN,
-        category: 'smartphones',
-        productSlug: 'galaxy-z-trifold',
-      },
-    ]);
-  });
-
-  it('keeps monitored high-value OgaBassey PDPs in the prerender set when they are outside the newest-products window', async () => {
-    mockGetCachedStorefrontProductIndex.mockResolvedValue({
-      hasError: false,
-      products: [{ slug: 'galaxy-z-trifold', category_slug: 'smartphones' }],
-    });
-
-    const params = await generateStaticParams();
-
-    expect(params).toEqual(
-      expect.arrayContaining([
-        {
-          slug: OGABASSEY_DOMAIN,
-          category: 'gaming-laptops',
-          productSlug: 'dell-alienware-m18-r3-rtx-5080',
-        },
-      ])
-    );
-  });
-
-  it('falls back to an invalid-store prerender placeholder when the index reports an error', async () => {
-    mockGetCachedStorefrontProductIndex.mockResolvedValue({
-      hasError: true,
-      products: [],
-    });
-
-    const params = await generateStaticParams();
-
-    expect(params).toEqual([PRERENDER_PLACEHOLDER]);
-  });
-
-  it('keeps monitored high-value PDPs when the index lookup is empty', async () => {
-    mockGetCachedStorefrontProductIndex.mockResolvedValue({
-      hasError: false,
-      products: [],
-    });
-
-    const params = await generateStaticParams();
-
-    expect(params).toEqual([
-      {
-        slug: OGABASSEY_DOMAIN,
-        category: 'gaming-laptops',
-        productSlug: 'dell-alienware-m18-r3-rtx-5080',
-      },
-    ]);
-  });
-
-  it('falls back to the prerender placeholder when the index lookup rejects', async () => {
-    mockGetCachedStorefrontProductIndex.mockRejectedValue(
-      new Error('supabase unavailable during prerender')
-    );
-
-    const params = await generateStaticParams();
-
-    expect(params).toEqual([PRERENDER_PLACEHOLDER]);
   });
 });

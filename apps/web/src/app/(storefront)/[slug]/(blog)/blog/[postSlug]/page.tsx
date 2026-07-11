@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { unstable_rethrow } from 'next/navigation';
 import { Suspense } from 'react';
-import { getCachedBlogPost } from '@/lib/cached-data';
+import { getRequestScopedBlogPost } from '@/lib/cached-data';
 import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
@@ -54,9 +54,12 @@ export async function generateMetadata({
   // outside every Suspense boundary, and with htmlLimitedBots configured a
   // dynamic API here forces the whole document to request time — the exact
   // static-shell bailout this route shipped with connection() at the top.
-  let data: Awaited<ReturnType<typeof getCachedBlogPost>> = null;
+  // Request-scoped (React cache()) so the identical lookup the hero-shell and
+  // streamed body resolvers make below reuses this Promise instead of issuing
+  // a second Supabase round-trip.
+  let data: Awaited<ReturnType<typeof getRequestScopedBlogPost>> = null;
   try {
-    data = await getCachedBlogPost(slug, postSlug, false);
+    data = await getRequestScopedBlogPost(slug, postSlug, false);
   } catch (error) {
     unstable_rethrow(error);
     console.error('Error fetching cached public blog metadata', {
@@ -153,10 +156,12 @@ export function generateStaticParams(): Promise<
 export default async function BlogPostPage({ params }: PageProps) {
   const { slug, postSlug } = await params;
 
-  // Cached-only hero lookup — the same getCachedBlogPost() generateMetadata
-  // awaits, and static-shell-safe for exactly that reason: it has no request
-  // APIs. Hoisting the hero + header into the static shell here (outside the
-  // data Suspense) puts the LCP image in the prerendered shell.
+  // Cached-only hero lookup — the same getRequestScopedBlogPost() lookup
+  // generateMetadata awaits (deduped via React cache(), so this reuses that
+  // Promise instead of a second Supabase round-trip), and static-shell-safe
+  // for exactly that reason: it has no request APIs. Hoisting the hero +
+  // header into the static shell here (outside the data Suspense) puts the
+  // LCP image in the prerendered shell.
   //
   // The forbidden regression is a *request* API at this root (connection(),
   // draftMode(), cookies(), headers(), searchParams) — that forces the route

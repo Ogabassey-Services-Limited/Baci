@@ -13,9 +13,16 @@ function createProductsQuery(result: {
 }) {
   const query = {
     eq: vi.fn(() => query),
-    limit: vi.fn(() => Promise.resolve(result)),
+    limit: vi.fn(() => query),
     order: vi.fn(() => query),
     select: vi.fn(() => query),
+    abortSignal: vi.fn(() => query),
+    retry: vi.fn(() => query),
+    // biome-ignore lint/suspicious/noThenProperty: mock intentionally mimics postgrest-js's thenable query builder
+    then: (
+      resolve: (value: typeof result) => unknown,
+      reject?: (reason: unknown) => unknown
+    ) => Promise.resolve(result).then(resolve, reject),
   };
   return query;
 }
@@ -68,6 +75,13 @@ describe('getCachedProductSemanticInventory', () => {
       'laptops'
     );
     expect(productsQuery.limit).toHaveBeenCalledWith(300);
+    // The fix for the ~34s compare stall: bound this optional read and disable
+    // PostgREST auto-retry so an AbortSignal.timeout TimeoutError cannot fan out
+    // into 4 attempts. Removing either re-introduces the stall.
+    expect(productsQuery.abortSignal).toHaveBeenCalledWith(
+      expect.any(AbortSignal)
+    );
+    expect(productsQuery.retry).toHaveBeenCalledWith(false);
     expect(result).toEqual([
       {
         slug: 'macbook-pro',

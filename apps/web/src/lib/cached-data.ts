@@ -1153,6 +1153,28 @@ export const getRequestScopedMerchant = cache(
 );
 
 /**
+ * Request-scoped blog post lookup via React cache().
+ * Deduplicates getCachedBlogPost() calls within a single request — the blog
+ * post route's generateMetadata, hero-shell static-shell lookup, and streamed
+ * body resolver all resolve the same post; only one lookup runs per unique
+ * (identifier, postSlug, includeDrafts) argument tuple.
+ *
+ * `includeDrafts` has no default here on purpose: React's cache() keys on
+ * `arguments.length` as well as argument values, so a caller that omits it
+ * would silently miss every other call site's cache entry instead of sharing
+ * it. Every call site must pass it explicitly.
+ */
+export const getRequestScopedBlogPost = cache(
+  (
+    identifier: string,
+    postSlug: string,
+    includeDrafts: boolean
+  ): ReturnType<typeof getCachedBlogPost> => {
+    return getCachedBlogPost(identifier, postSlug, includeDrafts);
+  }
+);
+
+/**
  * Cached merchant data by ID
  */
 export async function getCachedMerchantById(
@@ -3105,7 +3127,12 @@ export async function getCachedBlogListing(
     .not('slug', 'is', null)
     .neq('title', '')
     .neq('slug', '')
-    .order('published_at', { ascending: false });
+    .order('published_at', { ascending: false })
+    // Unique tiebreaker: scheduled/bulk-published posts share an identical
+    // published_at, and without a total order the same post can appear on two
+    // listing pages (or neither) when the prerender walk pages through this
+    // query. `id` makes pagination deterministic (mirrors the product index).
+    .order('id', { ascending: true });
 
   query = applyPublicBlogSqlFilters(query);
 

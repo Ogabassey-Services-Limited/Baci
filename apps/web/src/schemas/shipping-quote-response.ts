@@ -46,6 +46,7 @@ const shippingQuoteSchema = z
     isStationPickup: nullableOptionalBooleanSchema,
     stationName: nullableOptionalStringSchema,
     stationAddress: nullableOptionalStringSchema,
+    stationCode: nullableOptionalStringSchema,
     providerRateId: nullableOptionalStringSchema,
   })
   .transform((quote): ShippingQuote => {
@@ -79,6 +80,9 @@ const shippingQuoteSchema = z
     }
     if (quote.stationAddress !== undefined) {
       normalized.stationAddress = quote.stationAddress;
+    }
+    if (quote.stationCode !== undefined) {
+      normalized.stationCode = quote.stationCode;
     }
     if (quote.providerRateId !== undefined) {
       normalized.providerRateId = quote.providerRateId;

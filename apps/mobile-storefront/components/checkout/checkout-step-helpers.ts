@@ -11,9 +11,11 @@ import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/pickup-stati
 import type {
   DeliveryMethod,
   ShippingQuote,
+  ShippingQuoteDeliveryPreference,
 } from '@/components/checkout/types';
 
 export const AIRPORT_DELIVERY_FEE = 25000;
+export const AIRPORT_QUOTE_ID = 'airport-delivery';
 const DEFAULT_CARRIER = 'Topship';
 const AIRPORT_DELIVERY_ESTIMATE =
   'Delivery to your doorstep • Est Delivery within 24-48 working hours';
@@ -38,15 +40,23 @@ export function getDeliveryMethodFee(
   deliveryMethod: DeliveryMethod,
   selectedQuote: ShippingQuote | undefined
 ): number {
-  if (deliveryMethod === 'airport') return AIRPORT_DELIVERY_FEE;
+  if (deliveryMethod === 'airport') {
+    return selectedQuote && isGiglGoFasterQuote(selectedQuote)
+      ? selectedQuote.price
+      : AIRPORT_DELIVERY_FEE;
+  }
   if (deliveryMethod === 'pickup_station') {
     return isProviderStationPickupQuote(selectedQuote)
       ? selectedQuote.price
       : 0;
   }
-  return selectedQuote != null && !isProviderStationPickupQuote(selectedQuote)
-    ? selectedQuote.price
-    : 0;
+  return isRoadDeliveryQuote(selectedQuote) ? selectedQuote.price : 0;
+}
+
+export function getQuotePreference(
+  deliveryMethod: DeliveryMethod
+): ShippingQuoteDeliveryPreference {
+  return deliveryMethod === 'pickup_station' ? 'pickup_station' : 'door';
 }
 
 export function getDeliveryMethodLabel(
@@ -77,10 +87,9 @@ export function getDeliveryMethodSummary(
       : PICKUP_STATION_ADDRESS_LINES.join(', ');
   }
 
-  const doorQuote =
-    selectedQuote != null && !isProviderStationPickupQuote(selectedQuote)
-      ? selectedQuote
-      : undefined;
+  const doorQuote = isRoadDeliveryQuote(selectedQuote)
+    ? selectedQuote
+    : undefined;
   const carrier =
     doorQuote?.carrierName || doorQuote?.provider || DEFAULT_CARRIER;
   const eta =
@@ -101,8 +110,53 @@ export function getShippingProviderForMethod(
       ? selectedQuote.provider || selectedQuote.carrierName
       : undefined;
   }
+  if (deliveryMethod === 'airport') {
+    return selectedQuote && isGiglGoFasterQuote(selectedQuote)
+      ? selectedQuote.provider || selectedQuote.carrierName
+      : undefined;
+  }
   if (deliveryMethod !== 'door') return undefined;
-  return selectedQuote != null && !isProviderStationPickupQuote(selectedQuote)
+  return isRoadDeliveryQuote(selectedQuote)
     ? selectedQuote.provider || selectedQuote.carrierName
     : undefined;
+}
+
+export function isGiglGoFasterQuote(quote: ShippingQuote | undefined): boolean {
+  return (
+    quote !== undefined &&
+    !isProviderStationPickupQuote(quote) &&
+    quote.provider?.toUpperCase() === 'GIGL' &&
+    quote.serviceTier?.toLowerCase().includes('gofaster') === true
+  );
+}
+
+export function isRoadDeliveryQuote(
+  quote: ShippingQuote | undefined
+): quote is ShippingQuote {
+  return (
+    quote !== undefined &&
+    !isProviderStationPickupQuote(quote) &&
+    !isGiglGoFasterQuote(quote)
+  );
+}
+
+export function findSelectedQuote(
+  shippingQuotes: ShippingQuote[],
+  selectedQuoteId: string
+): ShippingQuote | undefined {
+  return shippingQuotes.find(
+    (quote) => String(quote.id) === String(selectedQuoteId)
+  );
+}
+
+export function requiresQuote(
+  deliveryMethod: DeliveryMethod,
+  selectedQuote: ShippingQuote | undefined,
+  usesProviderPickup: boolean
+): boolean {
+  return (
+    deliveryMethod === 'door' ||
+    usesProviderPickup ||
+    (deliveryMethod === 'airport' && isGiglGoFasterQuote(selectedQuote))
+  );
 }

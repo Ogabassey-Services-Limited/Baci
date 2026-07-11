@@ -36,9 +36,9 @@ export interface PaymentMethod {
 export type WalletMode = 'orders' | 'vtu' | 'off';
 
 export interface PaymentMethodSelectorProps {
-  selectedMethod: PaymentMethodType;
+  selectedMethod: PaymentMethodType | null;
   onSelectMethod: (method: PaymentMethodType) => void;
-  selectedTab: PaymentTab;
+  selectedTab: PaymentTab | null;
   onSelectTab: (tab: PaymentTab) => void;
   orderTotal: number;
   showInstallmentCalculator?: boolean;

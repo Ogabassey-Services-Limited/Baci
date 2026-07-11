@@ -1,12 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ShippingQuote } from './types';
 import {
+  calculateDeliveryCost,
   createSelectDeliveryMethod,
+  getAirDeliveryQuotes,
   getDoorDeliveryQuotes,
   getPreferredDoorQuoteId,
   getSelectedQuoteIdForDeliveryMethod,
   getStationPickupAddressText,
   getStationPickupQuote,
+  getStationPickupQuotes,
   isStationPickupQuote,
   resetDeliveryQuotesForAddressChange,
 } from './utils';
@@ -24,6 +27,18 @@ const doorQuote: ShippingQuote = {
   serviceTier: 'Standard',
 };
 
+const goFasterQuote: ShippingQuote = {
+  ...doorQuote,
+  id: 'air-1',
+  serviceTier: 'GoFaster',
+};
+
+const stationGoFasterQuote: ShippingQuote = {
+  ...goFasterQuote,
+  id: 'station-air-1',
+  isStationPickup: true,
+};
+
 const stationQuote: ShippingQuote = {
   ...doorQuote,
   displayName: 'Pickup Stations (GIGL)',
@@ -34,18 +49,37 @@ const stationQuote: ShippingQuote = {
   stationName: 'Ikeja Service Centre',
 };
 
+const secondStationQuote: ShippingQuote = {
+  ...stationQuote,
+  id: 'station-2',
+  stationAddress: '5 Allen Avenue',
+  stationName: 'Allen Service Centre',
+};
+
 describe('checkout shipping quote helpers', () => {
   it('separates door and provider pickup station quotes', () => {
-    const quotes = [stationQuote, doorQuote];
+    const quotes = [
+      stationQuote,
+      doorQuote,
+      goFasterQuote,
+      secondStationQuote,
+      stationGoFasterQuote,
+    ];
 
     expect(isStationPickupQuote(stationQuote)).toBe(true);
     expect(getDoorDeliveryQuotes(quotes)).toEqual([doorQuote]);
+    expect(getAirDeliveryQuotes(quotes)).toEqual([goFasterQuote]);
     expect(getStationPickupQuote(quotes)).toBe(stationQuote);
+    expect(getStationPickupQuotes(quotes)).toEqual([
+      stationQuote,
+      secondStationQuote,
+      stationGoFasterQuote,
+    ]);
     expect(getPreferredDoorQuoteId(quotes)).toBe('door-1');
   });
 
   it('selects a matching quote when switching delivery methods', () => {
-    const quotes = [doorQuote, stationQuote];
+    const quotes = [doorQuote, goFasterQuote, stationQuote];
 
     expect(getSelectedQuoteIdForDeliveryMethod('pickup_station', 'door-1', quotes)).toBe(
       'station-1'
@@ -56,6 +90,39 @@ describe('checkout shipping quote helpers', () => {
     expect(getSelectedQuoteIdForDeliveryMethod('pickup', 'station-1', quotes)).toBe(
       'station-1'
     );
+    expect(
+      getSelectedQuoteIdForDeliveryMethod('airport', 'air-1', quotes),
+    ).toBe('air-1');
+    expect(
+      getSelectedQuoteIdForDeliveryMethod('airport', 'door-1', quotes),
+    ).toBe('');
+    expect(
+      getSelectedQuoteIdForDeliveryMethod(
+        'airport',
+        'station-air-1',
+        [...quotes, stationGoFasterQuote],
+      ),
+    ).toBe('');
+    expect(calculateDeliveryCost('airport', 'air-1', quotes, 'delivery')).toBe(
+      goFasterQuote.price,
+    );
+    expect(calculateDeliveryCost('airport', 'door-1', quotes, 'pickup')).toBe(
+      20000,
+    );
+  });
+
+  it('keeps a previously chosen pickup station when re-entering pickup_station', () => {
+    const quotes = [doorQuote, stationQuote, secondStationQuote];
+
+    expect(
+      getSelectedQuoteIdForDeliveryMethod('pickup_station', 'station-2', quotes)
+    ).toBe('station-2');
+    expect(
+      getSelectedQuoteIdForDeliveryMethod('pickup_station', 'door-1', quotes)
+    ).toBe('station-1');
+    expect(
+      getSelectedQuoteIdForDeliveryMethod('pickup_station', '', quotes)
+    ).toBe('station-1');
   });
 
   it('binds delivery method selection to quote and method setters', () => {

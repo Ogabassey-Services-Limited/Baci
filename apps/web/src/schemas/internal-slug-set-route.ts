@@ -58,3 +58,23 @@ export const internalBlogListingStatusQuerySchema = z.discriminatedUnion(
     }),
   ]
 );
+
+/** Query params for category compare-hub emptiness resolution. */
+export const internalCompareHubStatusQuerySchema = z.object({
+  category: z.string().trim().min(1).max(255),
+});
+
+/**
+ * Response body contract for `GET /api/internal/compare-hub-status/[identifier]`
+ * — shared by the route and the proxy's empty-hub preflight so a shape change
+ * fails at compile time on both sides. `hasError: true` marks a fail-open
+ * verdict the proxy must treat as renderable.
+ */
+export const internalCompareHubStatusBodySchema = z.object({
+  empty: z.boolean(),
+  hasError: z.boolean(),
+});
+
+export type InternalCompareHubStatusBody = z.infer<
+  typeof internalCompareHubStatusBodySchema
+>;

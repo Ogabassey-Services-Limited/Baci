@@ -5,9 +5,9 @@ import Animated from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
+import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
 import type { CheckoutStep } from './CheckoutStepper';
 import type { PaymentMethodType } from './PaymentMethodSelector';
-import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
 
 type ColorsScheme = (typeof Colors)['light'];
 
@@ -20,7 +20,7 @@ interface CheckoutBottomActionProps {
   itemCount: number;
   onContinue: () => void;
   onPlaceOrder: () => void;
-  selectedPayment: PaymentMethodType;
+  selectedPayment: PaymentMethodType | null;
   step: CheckoutStep;
   total: number;
 }
@@ -39,6 +39,7 @@ export function CheckoutBottomAction({
   total,
 }: CheckoutBottomActionProps) {
   const isReview = step === 'review';
+  const isReviewDisabled = isProcessing || !selectedPayment;
   const reviewLabel =
     selectedPayment === 'invoice'
       ? 'Generate Invoice'
@@ -73,7 +74,7 @@ export function CheckoutBottomAction({
         <Pressable
           style={[styles.actionButton, { backgroundColor: BRAND.primary }]}
           onPress={isReview ? onPlaceOrder : onContinue}
-          disabled={isReview ? isProcessing : false}
+          disabled={isReview ? isReviewDisabled : false}
           accessibilityRole="button"
           accessibilityLabel={
             isReview
@@ -82,7 +83,7 @@ export function CheckoutBottomAction({
           }
           accessibilityState={
             isReview
-              ? { disabled: isProcessing, busy: isProcessing }
+              ? { disabled: isReviewDisabled, busy: isProcessing }
               : undefined
           }
         >

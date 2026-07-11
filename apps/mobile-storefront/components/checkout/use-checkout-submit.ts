@@ -70,12 +70,12 @@ export interface UseCheckoutSubmitParams {
   mobileCheckoutIdempotencyRef: MutableRefObject<MobileCheckoutIdempotencyState | null>;
   orderTotals: { taxAmount: number } | null;
   paymentSettings: Parameters<typeof submitBnplCheckout>[0]['paymentSettings'];
-  paymentTab: PaymentTab;
+  paymentTab: PaymentTab | null;
   resolvedShippingQuoteContextKey: string;
   requiresShippingQuote: boolean;
   saveAsDefaultAddress: boolean;
   saveDetails: boolean;
-  selectedPayment: PaymentMethodType;
+  selectedPayment: PaymentMethodType | null;
   selectedQuote: ShippingQuote | undefined;
   selectedSavedAddressId: string | null;
   setIsProcessing: (value: boolean) => void;
@@ -144,7 +144,9 @@ export function useCheckoutSubmit({
         selectedPayment,
         selectedQuote,
         setStep,
-      })
+      }) ||
+      !selectedPayment ||
+      !paymentTab
     ) {
       return;
     }
@@ -231,8 +233,6 @@ export function useCheckoutSubmit({
           shippingProvider: getShippingProvider(),
           snapshot,
         }),
-        // Discount codes and savings credit are mutually exclusive (the route
-        // dispatches a single wrapper RPC). Wallet credit still stacks.
         ...(appliedDiscountCode
           ? {}
           : buildSavingsOrderFields(liveSavingsSelection)),

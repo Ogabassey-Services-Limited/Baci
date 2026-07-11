@@ -17,5 +17,6 @@ export interface ShippingQuote {
   isStationPickup?: boolean;
   stationName?: string;
   stationAddress?: string;
+  stationCode?: string;
   providerRateId?: string;
 }

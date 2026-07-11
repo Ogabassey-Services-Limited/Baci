@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { GadgetPattern } from '../components/GadgetPattern';
 
 const NavbarCategoryDropdown = lazy(async () => {
   const module = await import('./navbar-category-dropdown');
@@ -53,12 +54,77 @@ export function NavbarSecondaryNav({
 
   return (
     <div className="ogabassey-navbar-secondary">
-      <div
+      {/*
+        Denser BLACK-stroke variant of GadgetPattern's tile — rendered as an
+        inline <svg><pattern> (not a `background-image: url(data:svg)` div)
+        because url() backgrounds ARE LCP candidates; this is the same fix
+        #3044 applied to GadgetPattern's default variant. opacity=0.03
+        preserves the previous `.ogabassey-navbar-secondary__pattern` CSS
+        opacity now that the inline <svg> style takes precedence over that
+        class.
+      */}
+      <GadgetPattern
         className="ogabassey-navbar-secondary__pattern"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='150' height='150' viewBox='0 0 150 150' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23000000' stroke-width='1.5'%3E%3Cg transform='translate(20, 20) rotate(-15 6 10)'%3E%3Crect x='0' y='0' width='12' height='20' rx='2'/%3E%3Cline x1='4' y1='17' x2='8' y2='17' stroke-width='1'/%3E%3C/g%3E%3Cg transform='translate(90, 15) rotate(10 10 7)'%3E%3Cpath d='M2 0 h16 v10 h-16 z M0 10 h20 v2 h-20 z'/%3E%3C/g%3E%3Cg transform='translate(25, 80) rotate(20 8 8)'%3E%3Cpath d='M0 10 v5 h4 v-5 a6 6 0 1 1 12 0 v5 h4 v-5'/%3E%3C/g%3E%3Cg transform='translate(75, 100) rotate(-10 6 6)'%3E%3Crect x='0' y='0' width='12' height='12' rx='3'/%3E%3Cpath d='M3 -3 v3 M9 -3 v3 M3 12 v3 M9 12 v3'/%3E%3C/g%3E%3Cg transform='translate(120, 90) rotate(5 9 6)'%3E%3Crect x='0' y='3' width='18' height='12' rx='2'/%3E%3Ccircle cx='9' cy='9' r='3'/%3E%3Crect x='2' y='0' width='4' height='3' rx='1'/%3E%3C/g%3E%3Cg transform='translate(70, 50) rotate(-25 10 6)'%3E%3Crect x='0' y='0' width='20' height='12' rx='6'/%3E%3Ccircle cx='6' cy='6' r='2'/%3E%3Ccircle cx='14' cy='6' r='2'/%3E%3C/g%3E%3Cg transform='translate(120, 40) rotate(35 8 10)'%3E%3Crect x='0' y='0' width='16' height='20' rx='2'/%3E%3C/g%3E%3Cg transform='translate(50, 15) rotate(45 5 5)'%3E%3Crect x='2' y='-2' width='6' height='14' rx='1'/%3E%3Crect x='0' y='2' width='10' height='6' rx='2'/%3E%3C/g%3E%3Cg transform='translate(10, 55) rotate(15 5 8)'%3E%3Crect x='0' y='0' width='10' height='16' rx='5'/%3E%3Cline x1='5' y1='0' x2='5' y2='6'/%3E%3C/g%3E%3Cg transform='translate(45, 115) rotate(-10 6 8)'%3E%3Crect x='0' y='0' width='12' height='16' rx='1'/%3E%3Ccircle cx='6' cy='4' r='2'/%3E%3Ccircle cx='6' cy='11' r='3'/%3E%3C/g%3E%3Cg transform='translate(100, 75) rotate(30 6 6)'%3E%3Crect x='0' y='4' width='12' height='8' rx='2'/%3E%3Cpath d='M2 4 v-4 M10 4 v-4'/%3E%3C/g%3E%3Cg transform='translate(135, 125) rotate(-45 5 9)'%3E%3Crect x='0' y='0' width='10' height='18' rx='2'/%3E%3C/g%3E%3Cg transform='translate(10, 120) rotate(0)'%3E%3Cpath d='M0 5 q5 -10 10 0 t10 0' stroke-linecap='round'/%3E%3C/g%3E%3Ccircle cx='60' cy='60' r='1.5' fill='%23000000'/%3E%3Cpath d='M90 130 l4 4 m-4 0 l4 -4' stroke-width='1'/%3E%3Ccircle cx='140' cy='20' r='2' stroke='none' fill='%23000000'/%3E%3Cpath d='M30 5 l3 3 m-3 0 l3 -3' stroke-width='1'/%3E%3Ccircle cx='80' cy='30' r='1'/%3E%3Ccircle cx='110' cy='110' r='1.5'/%3E%3C/g%3E%3C/svg%3E")`,
-        }}
-      />
+        opacity={0.03}
+        stroke="#000000"
+      >
+        <g transform="translate(20, 20) rotate(-15 6 10)">
+          <rect height="20" rx="2" width="12" x="0" y="0" />
+          <line strokeWidth="1" x1="4" x2="8" y1="17" y2="17" />
+        </g>
+        <g transform="translate(90, 15) rotate(10 10 7)">
+          <path d="M2 0 h16 v10 h-16 z M0 10 h20 v2 h-20 z" />
+        </g>
+        <g transform="translate(25, 80) rotate(20 8 8)">
+          <path d="M0 10 v5 h4 v-5 a6 6 0 1 1 12 0 v5 h4 v-5" />
+        </g>
+        <g transform="translate(75, 100) rotate(-10 6 6)">
+          <rect height="12" rx="3" width="12" x="0" y="0" />
+          <path d="M3 -3 v3 M9 -3 v3 M3 12 v3 M9 12 v3" />
+        </g>
+        <g transform="translate(120, 90) rotate(5 9 6)">
+          <rect height="12" rx="2" width="18" x="0" y="3" />
+          <circle cx="9" cy="9" r="3" />
+          <rect height="3" rx="1" width="4" x="2" y="0" />
+        </g>
+        <g transform="translate(70, 50) rotate(-25 10 6)">
+          <rect height="12" rx="6" width="20" x="0" y="0" />
+          <circle cx="6" cy="6" r="2" />
+          <circle cx="14" cy="6" r="2" />
+        </g>
+        <g transform="translate(120, 40) rotate(35 8 10)">
+          <rect height="20" rx="2" width="16" x="0" y="0" />
+        </g>
+        <g transform="translate(50, 15) rotate(45 5 5)">
+          <rect height="14" rx="1" width="6" x="2" y="-2" />
+          <rect height="6" rx="2" width="10" x="0" y="2" />
+        </g>
+        <g transform="translate(10, 55) rotate(15 5 8)">
+          <rect height="16" rx="5" width="10" x="0" y="0" />
+          <line x1="5" x2="5" y1="0" y2="6" />
+        </g>
+        <g transform="translate(45, 115) rotate(-10 6 8)">
+          <rect height="16" rx="1" width="12" x="0" y="0" />
+          <circle cx="6" cy="4" r="2" />
+          <circle cx="6" cy="11" r="3" />
+        </g>
+        <g transform="translate(100, 75) rotate(30 6 6)">
+          <rect height="8" rx="2" width="12" x="0" y="4" />
+          <path d="M2 4 v-4 M10 4 v-4" />
+        </g>
+        <g transform="translate(135, 125) rotate(-45 5 9)">
+          <rect height="18" rx="2" width="10" x="0" y="0" />
+        </g>
+        <g transform="translate(10, 120) rotate(0)">
+          <path d="M0 5 q5 -10 10 0 t10 0" strokeLinecap="round" />
+        </g>
+        <circle cx="60" cy="60" fill="#000000" r="1.5" />
+        <path d="M90 130 l4 4 m-4 0 l4 -4" strokeWidth="1" />
+        <circle cx="140" cy="20" fill="#000000" r="2" stroke="none" />
+        <path d="M30 5 l3 3 m-3 0 l3 -3" strokeWidth="1" />
+        <circle cx="80" cy="30" r="1" />
+        <circle cx="110" cy="110" r="1.5" />
+      </GadgetPattern>
 
       <div className="ogabassey-navbar-secondary__inner">
         <div className="ogabassey-navbar-secondary__list">
