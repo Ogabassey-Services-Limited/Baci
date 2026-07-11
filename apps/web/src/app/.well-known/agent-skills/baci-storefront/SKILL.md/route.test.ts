@@ -25,5 +25,8 @@ describe('GET /.well-known/agent-skills/baci-storefront/SKILL.md', () => {
     expect(body).toContain('name: baci-storefront');
     expect(body).toContain('https://merchant.example.com/.well-known/ucp');
     expect(body).toContain('https://mcp.ogabassey.com/mcp');
+    expect(body).toContain(
+      'https://merchant.example.com/feeds/agent-repairs.jsonl'
+    );
   });
 });

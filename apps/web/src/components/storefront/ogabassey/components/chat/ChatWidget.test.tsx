@@ -2,9 +2,16 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockRouterPush = vi.fn();
+
 // Mock heavy dependencies before any imports
 vi.mock('next/navigation', () => ({
   usePathname: vi.fn(() => '/ogabassey'),
+  useRouter: vi.fn(() => ({ push: mockRouterPush })),
+}));
+
+vi.mock('@/hooks/merchant', () => ({
+  useMerchantSafe: vi.fn(() => ({ basePath: '/ogabassey' })),
 }));
 
 vi.mock('@/hooks/cart', () => ({
@@ -193,6 +200,60 @@ describe('ChatWidget - chat window when open', () => {
       setTheme: vi.fn(),
       toggleTheme: vi.fn(),
     });
+  });
+
+  it('deep-links to the storefront /repairs page when the repair-quote chip is clicked', async () => {
+    const handleSend = vi.fn();
+    const setIsOpen = vi.fn();
+    vi.mocked(useOgabasseyChat).mockReturnValue({
+      isOpen: true,
+      setIsOpen,
+      messages: [],
+      input: '',
+      setInput: vi.fn(),
+      isLoading: false,
+      proactiveMsg: null,
+      setProactiveMsg: vi.fn(),
+      messagesEndRef: { current: null },
+      handleSend,
+      handleSubmit: vi.fn(),
+      handleAddSantaWishToCart: vi.fn(),
+    });
+
+    const user = userEvent.setup();
+    render(<ChatWidget />);
+
+    await user.click(screen.getByRole('button', { name: 'Repair quote' }));
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/ogabassey/repairs');
+    expect(setIsOpen).toHaveBeenCalledWith(false);
+    expect(handleSend).not.toHaveBeenCalled();
+  });
+
+  it('sends the label as a chat message for non-navigation chips', async () => {
+    const handleSend = vi.fn();
+    vi.mocked(useOgabasseyChat).mockReturnValue({
+      isOpen: true,
+      setIsOpen: vi.fn(),
+      messages: [],
+      input: '',
+      setInput: vi.fn(),
+      isLoading: false,
+      proactiveMsg: null,
+      setProactiveMsg: vi.fn(),
+      messagesEndRef: { current: null },
+      handleSend,
+      handleSubmit: vi.fn(),
+      handleAddSantaWishToCart: vi.fn(),
+    });
+
+    const user = userEvent.setup();
+    render(<ChatWidget />);
+
+    await user.click(screen.getByRole('button', { name: 'Track my order' }));
+
+    expect(handleSend).toHaveBeenCalledWith('Track my order');
+    expect(mockRouterPush).not.toHaveBeenCalled();
   });
 
   it('renders "Ogabassey AI" header when chat is open in standard mode', () => {

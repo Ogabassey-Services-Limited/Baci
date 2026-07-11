@@ -7,6 +7,7 @@ import {
 } from '@/lib/cached-data';
 import { normalizeProductKeySpecs } from '@/lib/product-key-specs-normalize';
 import { isRawDbProductRecord, type RawDbProduct } from '@/lib/raw-db-product';
+import { isRepairsCatalogEnabled } from '@/lib/repairs/repairs-feature';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
@@ -364,6 +365,73 @@ export async function getCategorySitemapEntries({
   }));
 }
 
+/**
+ * Whether the repairs catalogue is publicly enabled for this merchant. The
+ * `/repairs` index and per-device pages only render (and should only be
+ * listed) when the electronics/gadgets business type + feature flag are on.
+ */
+function isRepairsCatalogEnabledForMerchant(
+  merchant: StorefrontSitemapContext['merchant']
+): boolean {
+  const merchantWithFlags = merchant as {
+    business_type?: string | null;
+    feature_settings?: { repairs_catalog_enabled?: boolean } | null;
+  };
+  return isRepairsCatalogEnabled({
+    businessType: merchantWithFlags.business_type,
+    repairsCatalogEnabled:
+      merchantWithFlags.feature_settings?.repairs_catalog_enabled,
+  });
+}
+
+/**
+ * Repairs child sitemap: the `/repairs` device picker plus one URL per active
+ * repair device page. Only invoked when the repairs catalogue is enabled, so
+ * every listed URL resolves. `slug` is the sole public-granted column read.
+ */
+export async function getRepairsSitemapEntries({
+  supabase,
+  merchant,
+  storeUrl,
+}: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
+  if (!isRepairsCatalogEnabledForMerchant(merchant)) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('repair_devices')
+    .select('slug')
+    .eq('merchant_id', merchant.id)
+    .eq('is_active', true)
+    .order('slug', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  const entries: MetadataRoute.Sitemap = [
+    {
+      url: `${storeUrl}/repairs`,
+      changeFrequency: 'weekly',
+      priority: 0.6,
+    },
+  ];
+
+  for (const device of (data ?? []) as Array<{ slug: string | null }>) {
+    const slug = device.slug?.trim();
+    if (!slug) {
+      continue;
+    }
+    entries.push({
+      url: `${storeUrl}/repairs/${slug}`,
+      changeFrequency: 'weekly',
+      priority: 0.6,
+    });
+  }
+
+  return entries;
+}
+
 function isCategoryWithSlug(category: unknown): category is { slug: string } {
   return (
     typeof category === 'object' &&
@@ -502,6 +570,10 @@ export async function getSitemapIndexLinks(
     `${storeUrl}/sitemap/commercial-support.xml`,
   ];
 
+  if (isRepairsCatalogEnabledForMerchant(merchant)) {
+    links.push(`${storeUrl}/sitemap/repairs.xml`);
+  }
+
   let blogEnabled = false;
   try {
     const features = await getCachedFeatureSettings(merchant.id);
@@ -536,6 +608,8 @@ export function getNamedSitemapEntries(
       return getCategorySitemapEntries(context);
     case 'commercial-support':
       return getCommercialSupportSitemapEntries(context);
+    case 'repairs':
+      return getRepairsSitemapEntries(context);
     default:
       return [];
   }

@@ -443,6 +443,31 @@ export function revalidateMerchantFeed(merchantId: string) {
 }
 
 /**
+ * Revalidate the repairs catalog feeds (Facebook repairs XML + agent-repairs
+ * JSONL) for a merchant. Call after any repairs catalog mutation — device,
+ * quote, or service-type CRUD, and AI import commit — so the machine-readable
+ * feeds never serve a stale quote/device/service-type.
+ *
+ * The tags mirror `getCachedRepairsFeedData`'s
+ * (`REPAIRS_FEED_CACHE_TAG`, `getRepairsFeedMerchantCacheTag(merchantId)`).
+ *
+ * @param merchantId - Canonical merchant UUID (not slug).
+ */
+export function revalidateRepairsCatalog(merchantId: string) {
+  const normalizedMerchantId = normalizeMerchantIdForRevalidation(merchantId);
+  if (!normalizedMerchantId) {
+    console.warn(
+      'Skipped repairs catalog cache revalidation for invalid merchant ID',
+      { merchantId }
+    );
+    return;
+  }
+
+  revalidateTag('repairs-catalog-feed', 'products');
+  revalidateTag(`repairs-feed-${normalizedMerchantId}`, 'products');
+}
+
+/**
  * Revalidate domain-related caches.
  * Call after custom domain add/remove/verify.
  */

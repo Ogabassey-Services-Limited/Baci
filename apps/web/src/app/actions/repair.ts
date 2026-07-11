@@ -1,18 +1,19 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
-import { cookies } from 'next/headers';
+import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
+import { notifyRepairBooking } from '@/lib/repair-notifications';
+import {
+  type CreateRepairResult,
+  createRepairBooking,
+} from '@/lib/repairs/create-repair-core';
+import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
 import { topshipProvider } from '@/lib/shipping/providers/topship';
-import { createClient } from '@/lib/supabase/server';
-import {
-  type RepairBookingInput,
-  repairBookingSchema,
-} from '@/lib/validations/repair';
-import {
-  repairMerchantIdSchema,
-  repairPlaceDetailsSchema,
-} from '@/schemas/repair-actions';
+import { isValidMerchantIdentifier } from '@/lib/validation';
+import type { RepairBookingInput } from '@/lib/validations/repair';
+import { repairPlaceDetailsSchema } from '@/schemas/repair-actions';
+
+export type { CreateRepairResult };
 
 interface PlaceDetails {
   streetNumber: string;
@@ -32,112 +33,47 @@ export type ShippingCalculationResult = {
   message?: string;
 };
 
-export type CreateRepairResult =
-  | { success: true; id: string }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
-
-// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: anonymous repair booking; Zod-validated + identity/IP rate limited
+// eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: anonymous repair booking; Zod-validated + identity/IP rate limited, write goes through the SECURITY DEFINER booking RPC
 export async function createRepair(
   data: RepairBookingInput,
   merchantId: string
 ): Promise<CreateRepairResult> {
-  // 1. Rate limit first — anonymous customers book repairs, so this action
-  // cannot require a login; abuse control happens per user/IP instead.
-  const allowed = await ensureActionRateLimit('repair-create', {
-    requests: 5,
-    windowMs: 60_000,
-  });
-  if (!allowed) {
-    return {
-      success: false,
-      error: 'Too many repair requests. Please try again in a minute.',
-    };
-  }
+  // Shared core: app-layer rate limit + Zod validation + booking RPC (which
+  // re-validates the merchant/active quote and snapshots the price server-side).
+  const result = await createRepairBooking(data, merchantId);
 
-  // 2. Validate inputs
-  const parsedMerchantId = repairMerchantIdSchema.safeParse(merchantId);
-  if (!parsedMerchantId.success) {
-    return { success: false, error: 'Invalid store reference.' };
-  }
-
-  const validationResult = repairBookingSchema.safeParse(data);
-  if (!validationResult.success) {
-    return {
-      success: false,
-      error: 'Validation failed',
-      fieldErrors: validationResult.error.flatten().fieldErrors,
-    };
-  }
-
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-
-  const {
-    customerName,
-    customerEmail,
-    customerPhone,
-    deviceType,
-    deviceModel,
-    issueDescription,
-    preferredDate,
-    serviceType,
-    pickupAddress,
-  } = validationResult.data;
-
-  try {
-    // 3. Verify the target store exists so anonymous submissions stay
-    // scoped to a real merchant.
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('id', parsedMerchantId.data)
-      .maybeSingle();
-
-    if (merchantError || !merchant) {
-      return { success: false, error: 'Store not found.' };
-    }
-
-    const repairId = globalThis.crypto.randomUUID();
-
-    // 4. Insert into database
-    const { error } = await supabase.from('repairs').insert({
-      id: repairId,
-      merchant_id: merchant.id,
-      customer_name: customerName,
-      customer_email: customerEmail,
-      customer_phone: customerPhone,
-      device_type: deviceType,
-      device_model: deviceModel,
-      issue_description: issueDescription,
-      preferred_date: preferredDate
-        ? new Date(preferredDate).toISOString()
-        : null,
-      service_type: serviceType,
-      pickup_address: pickupAddress || null,
-      status: 'pending',
+  if (result.success) {
+    // Notify the merchant (push) and email the customer a ticket
+    // confirmation. Internally fail-safe: a notification/email error is
+    // logged, never thrown, so it can't turn a successful booking into a
+    // failed response.
+    //
+    // No revalidatePath here: booking a repair doesn't change anything a
+    // storefront catalogue page (`/[slug]/repairs`, `/[slug]/repairs/[slug]`)
+    // renders, and the previous `revalidatePath('/dashboard/repairs')` call
+    // pointed at a dashboard bookings page that doesn't exist yet (Phase 4
+    // owns that surface and its own revalidation).
+    await notifyRepairBooking({
+      customerEmail: data.customerEmail,
+      customerName: data.customerName,
+      deviceModel: data.deviceModel,
+      deviceType: data.deviceType,
+      merchantId,
+      pickupAddress: data.pickupAddress ?? null,
+      quoteId: data.quoteId ?? null,
+      repairId: result.id,
+      serviceType: data.serviceType,
+      ticketNumber: result.ticketNumber,
     });
-
-    if (error) {
-      console.error('Error creating repair:', error);
-      return {
-        success: false,
-        error: 'Failed to submit repair request. Please try again.',
-      };
-    }
-
-    // 5. Revalidate paths (optional, if we show recent requests somewhere)
-    revalidatePath('/dashboard/repairs');
-
-    return { success: true, id: repairId };
-  } catch (error) {
-    console.error('Unexpected error creating repair:', error);
-    return { success: false, error: 'An unexpected error occurred.' };
   }
+
+  return result;
 }
 
 // eslint-disable-next-line react-doctor/server-auth-actions -- public-by-design: anonymous shipping quote; address completeness enforced by Zod + identity/IP rate limited
 export async function calculateRepairShipping(
-  place: PlaceDetails
+  place: PlaceDetails,
+  merchantIdentifier: string
 ): Promise<ShippingCalculationResult> {
   // Rate limit first — this fans out to the paid Topship quoting API and is
   // callable by anonymous storefront customers.
@@ -166,34 +102,53 @@ export async function calculateRepairShipping(
 
   const placeDetails = parsedPlace.data;
 
-  try {
-    // 1. Check if Lagos (Free Pickup)
-    const isLagos =
-      placeDetails.state.toLowerCase().includes('lagos') ||
-      placeDetails.city.toLowerCase().includes('lagos') ||
-      placeDetails.formattedAddress.toLowerCase().includes('lagos');
+  // Server actions are public entry points, so the merchant is bound to the
+  // storefront's PUBLIC identifier (slug/custom domain — what the page itself
+  // resolves) instead of a caller-supplied raw merchant UUID. Unresolvable and
+  // unpublished stores degrade IDENTICALLY to "no repair center configured",
+  // so probing identifiers yields no signal about private repair settings.
+  const dropOffOnly: ShippingCalculationResult = {
+    isFree: false,
+    price: 0,
+    formattedPrice: 'Arranged after booking',
+    message: 'Drop-off only — the store will contact you to arrange pickup.',
+  };
 
-    if (isLagos) {
+  const merchant = isValidMerchantIdentifier(merchantIdentifier)
+    ? await getMerchantByIdentifier(merchantIdentifier.toLowerCase())
+    : null;
+  if (!merchant?.is_published) {
+    return dropOffOnly;
+  }
+
+  // The pickup destination is the merchant's PRIVATE repair-center address
+  // (server-side read; the raw address never reaches the client). When it is
+  // unset, pickup quoting is disabled and we degrade to drop-off only.
+  const repairCenter = await getRepairCenterAddress(merchant.id);
+  if (!repairCenter) {
+    return dropOffOnly;
+  }
+
+  try {
+    // 1. Free local pickup when the customer is in the repair center's state.
+    const centerState = repairCenter.state.trim().toLowerCase();
+    const centerCity = repairCenter.city.trim().toLowerCase();
+    const isLocal =
+      placeDetails.state.trim().toLowerCase() === centerState ||
+      placeDetails.formattedAddress.toLowerCase().includes(centerState) ||
+      (centerCity.length > 0 &&
+        placeDetails.city.trim().toLowerCase() === centerCity);
+
+    if (isLocal) {
       return {
         isFree: true,
         price: 0,
         formattedPrice: 'Free',
-        message: 'Free pickup available in Lagos!',
+        message: 'Free local pickup available!',
       };
     }
 
-    // 2. Calculate via Topship for other locations
-    const ogabasseyLocation = {
-      name: 'Ogabassey Repair Center',
-      phone: '09070007000',
-      email: 'repairs@ogabassey.com',
-      address: '3, Olayeni Street, Computer Village',
-      city: 'Ikeja',
-      state: 'Lagos',
-      country: 'Nigeria',
-      countryCode: 'NG',
-    };
-
+    // 2. Calculate via Topship for other locations (customer -> repair center).
     const quotes = await topshipProvider.getQuotes({
       sessionId: `repair-${Date.now()}`,
       shipmentType: 'domestic',
@@ -206,7 +161,16 @@ export async function calculateRepairShipping(
           category: 'gadgets',
         },
       ],
-      receiver: ogabasseyLocation,
+      receiver: {
+        name: repairCenter.name,
+        phone: repairCenter.phone,
+        email: repairCenter.email,
+        address: repairCenter.address,
+        city: repairCenter.city,
+        state: repairCenter.state,
+        country: repairCenter.country,
+        countryCode: repairCenter.countryCode,
+      },
       sender: {
         name: 'Customer',
         phone: '0000000000',

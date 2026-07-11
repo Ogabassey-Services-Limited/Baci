@@ -1,5 +1,46 @@
 import z from 'zod';
 
+const preferredDatePattern =
+  /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?$/;
+
+function isValidPreferredDate(value: string): boolean {
+  const match = preferredDatePattern.exec(value);
+  if (!match) {
+    return false;
+  }
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText] =
+    match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const validDate =
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day;
+
+  if (!validDate) {
+    return false;
+  }
+
+  if (hourText === undefined) {
+    return true;
+  }
+
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = secondText === undefined ? 0 : Number(secondText);
+  return (
+    hour >= 0 &&
+    hour <= 23 &&
+    minute >= 0 &&
+    minute <= 59 &&
+    second >= 0 &&
+    second <= 59
+  );
+}
+
 export const repairBookingSchema = z
   .object({
     customerName: z
@@ -28,13 +69,25 @@ export const repairBookingSchema = z
     issueDescription: z
       .string()
       .min(10, 'Please describe the issue in at least 10 characters'),
-    preferredDate: z.string().optional(), // ISO date string
+    preferredDate: z
+      .string()
+      .trim()
+      .refine(
+        (value) => value.length === 0 || isValidPreferredDate(value),
+        'Please enter a valid preferred date'
+      )
+      .transform((value) => value || undefined)
+      .optional(),
     serviceType: z
       .enum(['dropoff', 'pickup'] as const, {
         message: 'Please select how you want to proceed',
       })
       .default('dropoff'),
     pickupAddress: z.string().optional(), // Required if serviceType is 'pickup'
+    // Optional catalogue links. When present the booking RPC validates the
+    // active quote/device server-side and snapshots the price/label.
+    deviceId: z.uuid().optional(),
+    quoteId: z.uuid().optional(),
   })
   .refine(
     (data) => {

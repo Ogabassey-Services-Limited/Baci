@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { JsonLd } from '@/components/seo/json-ld';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
+import { PdpRepairDeviceLink } from '@/components/storefront/repairs/PdpRepairDeviceLink';
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import {
   getCachedProductRatingStats,
@@ -21,6 +22,7 @@ import {
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
 import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
+import { getStorefrontPathPrefix } from '@/lib/storefront-path-prefix';
 import { buildProductContextParagraphs } from '@/lib/storefront-product/build-product-context-paragraphs';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import { loadCategoryScopedSemanticInventorySafely } from '@/lib/storefront-product/load-category-scoped-semantic-inventory-safely';
@@ -82,7 +84,8 @@ export async function ProductPageRuntime({
           })),
         }
       : product;
-  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const headersList = await headers();
+  const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
   const currency = resolveMerchantCurrencyConfig(merchant).code;
   const productUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
@@ -170,6 +173,16 @@ export async function ProductPageRuntime({
     productFaqs && productFaqs.length > 0
       ? generateFAQSchema(productFaqs)
       : null;
+  // Awaited directly (not rendered as `<PdpRepairDeviceLink />`) because this
+  // is an async component: React's client renderer (used by
+  // @testing-library/react in tests) cannot invoke async components as JSX,
+  // only the RSC server renderer can — matching how this function itself is
+  // pre-awaited by its caller instead of rendered as JSX.
+  const repairDeviceLink = await PdpRepairDeviceLink({
+    basePath: getStorefrontPathPrefix(headersList, merchant),
+    merchant,
+    productId: product.id,
+  });
   return (
     <>
       <JsonLd data={productSchema} />
@@ -189,6 +202,7 @@ export async function ProductPageRuntime({
           }),
         }}
       />
+      {repairDeviceLink}
     </>
   );
 }

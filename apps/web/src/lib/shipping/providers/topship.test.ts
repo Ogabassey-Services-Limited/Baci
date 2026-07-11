@@ -174,6 +174,74 @@ describe('TopshipProvider', () => {
     });
   });
 
+  it('marks a confirmed payment rejection so callers can safely retry', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
+            {
+              id: 'shipment-1',
+              trackingId: 'T123456789',
+              shipmentStatus: 'Draft',
+              pricingTier: 'Premium',
+            },
+          ]),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ message: 'Insufficient wallet balance' }),
+          {
+            status: 402,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      );
+
+    const { TopshipProvider } = await import('./topship');
+    const { ShippingBookingRejectedError } = await import('../types');
+    const provider = new TopshipProvider();
+    const request: BookingRequest = {
+      orderId: 'order-1',
+      quoteId: 'quote-1',
+      providerRateId: 'Premium_Express Plus Shipping',
+      quoteMetadata: {
+        pricingTier: 'Premium',
+        serviceType: 'Express Plus Shipping',
+        cost: 700000,
+      },
+      sender: {
+        name: 'Test Sender',
+        phone: '08012345678',
+        address: '12 Adeola Odeku Street',
+        city: 'Lagos',
+        state: 'Lagos',
+        country: 'Nigeria',
+        countryCode: 'NG',
+      },
+      receiver: {
+        name: 'Test Receiver',
+        phone: '08087654321',
+        address: '1 Aminu Kano Crescent',
+        city: 'Abuja',
+        state: 'FCT',
+        country: 'Nigeria',
+        countryCode: 'NG',
+      },
+      items: [{ name: 'Test parcel', quantity: 1, weight: 1, value: 5000 }],
+    };
+
+    await expect(provider.bookShipment(request)).rejects.toBeInstanceOf(
+      ShippingBookingRejectedError
+    );
+  });
+
   it('logs non-PII diagnostics when Topship returns no quote rates', async () => {
     vi.stubGlobal(
       'fetch',
