@@ -280,7 +280,7 @@ describe('PaymentStep', () => {
       const merchant = {
         country: 'GB',
         feature_settings: {
-          custom_settings: { paypal_enabled: true },
+          custom_settings: { paypal_enabled: true, paypal_mode: 'live' },
         } as unknown as FeatureSettings,
       };
 
@@ -313,7 +313,9 @@ describe('PaymentStep', () => {
       const merchant = {
         country: 'KE',
         feature_settings: {
-          custom_settings: { paypal_enabled: true },
+          // Live mode set so the ONLY reason PayPal hides here is the
+          // non-presentable currency (not the live-mode gate).
+          custom_settings: { paypal_enabled: true, paypal_mode: 'live' },
         } as unknown as FeatureSettings,
       };
 
