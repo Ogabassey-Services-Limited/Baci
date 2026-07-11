@@ -721,6 +721,35 @@ describe('loadComparePage', () => {
     expect(mockGetCachedCompareCategoryInventory).not.toHaveBeenCalled();
   });
 
+  it('cannot resolve a compare page for a product outside the bounded ~600-row resolver universe', async () => {
+    // getCachedCompareCategoryInventory hard-caps the category to the newest
+    // COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT (600) products, ordered
+    // created_at DESC, id ASC. A product beyond that cap is simply absent from
+    // the resolver's `products` array, so load-compare-page's leftProduct/
+    // rightProduct `.find()` on that bounded array can never match it — the
+    // request falls through to the brand path, misses, and returns null (a real
+    // 404 at the route). This models "candidate 601": present in the catalog but
+    // truncated out of the bounded universe, therefore unable to mint/resolve a
+    // compare URL even if the slug is typed or crawled directly.
+    mockGetCachedCompareCategoryInventory.mockResolvedValue(
+      toCompareInventory(categoryPageData)
+    );
+
+    const result = await loadComparePage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      // 'iphone-17-pro-max' IS in the bounded universe; 'legacy-product-601' was
+      // truncated by the 600-row cap and is absent from it.
+      comparisonSlug: 'iphone-17-pro-max-vs-legacy-product-601',
+    });
+
+    expect(result).toBeNull();
+    // Resolution stops before hydrating either product's detail payload: the
+    // out-of-universe half is never a `leftProduct`/`rightProduct`, so the
+    // product-detail branch is never entered.
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+  });
+
   describe('slug safety gate', () => {
     const overEncodedSlug = (() => {
       let value = 'x y';
