@@ -29,7 +29,7 @@ export interface CompareCategoryInventory {
 // 600 rows ≈ 1MB). Compare URLs for products beyond the newest 600 in a
 // category degrade to the not-found path instead of breaking the cache entry
 // for the whole category.
-const COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT = 600;
+export const COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT = 600;
 
 const COMPARE_CATEGORY_INVENTORY_SELECT = `
   id,

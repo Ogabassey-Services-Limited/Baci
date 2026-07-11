@@ -67,7 +67,7 @@ describe('getCachedProductSemanticInventory', () => {
       'product_categories.categories.slug',
       'laptops'
     );
-    expect(productsQuery.limit).toHaveBeenCalledWith(700);
+    expect(productsQuery.limit).toHaveBeenCalledWith(300);
     expect(result).toEqual([
       {
         slug: 'macbook-pro',

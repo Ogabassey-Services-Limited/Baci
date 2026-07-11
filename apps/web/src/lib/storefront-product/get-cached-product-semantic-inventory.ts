@@ -3,24 +3,23 @@ import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-selec
 import type { ProductSemanticCandidate } from '@/lib/storefront-product/product-semantic-types';
 
 /**
- * Upper bound on rows pulled for a single category's semantic-link inventory.
+ * Upper bound for the EXACT-category semantic-link inventory below.
  *
- * Raised from 300 to 700 when the category+children scoped variant
- * (getCachedCategoryScopedSemanticInventory) began feeding the PDP and blog SEO
- * link pools that previously came from getCachedCategoryPageData — which is
- * UNCAPPED over the category+direct-children scope. A naive swap onto the old
- * 300 bound would have silently truncated the largest scoped pools.
+ * This exact-slug function feeds the compare-GRAPH consumers (related-compare
+ * links, category compare links). Compare PAGES resolve via
+ * getCachedCompareCategoryInventory, capped at
+ * COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT (600). A graph link is only useful
+ * if the compare page it points at can resolve both products, so this bound
+ * MUST stay <= that cap — otherwise, in a category with more active products
+ * than the cap, graph links for the overflow rows would point at compare URLs
+ * whose products are not in the compare-page inventory (404/noindex).
  *
- * Measured worst case across the ogabassey catalog (merchant
- * 6b5cb8a4-5575-456c-b936-8cdfae30db74) on 2026-07-10:
- *   - category+children scope: `gaming` = 530 active products (14 direct + 516
- *     across 9 child categories) — the true worst case, not `laptops` (330).
- *   - exact-slug scope (this function's default consumers): `laptops` = 293.
- * 700 clears the 530 worst case with ~32% headroom, and stays below the point
- * (~1.15K rows at ~1.7KB/row) where the key-specs payload would approach a
- * remote data-cache per-item byte ceiling, so a future cached variant is safe.
+ * Kept at 300 (largest exact-slug category for ogabassey is `laptops` = 293),
+ * comfortably under the 600 compare-page cap. The category+children scoped
+ * variant (getCachedCategoryScopedSemanticInventory) uses its OWN, separately
+ * aligned bound — see CATEGORY_SCOPED_SEMANTIC_INVENTORY_LIMIT there.
  */
-export const PRODUCT_SEMANTIC_INVENTORY_LIMIT = 700;
+export const PRODUCT_SEMANTIC_INVENTORY_LIMIT = 300;
 
 export interface ProductSemanticInventoryCategoryJoin {
   categories?:

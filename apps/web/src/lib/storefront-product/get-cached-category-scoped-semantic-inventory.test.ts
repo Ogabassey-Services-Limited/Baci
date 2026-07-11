@@ -120,7 +120,7 @@ describe('getCachedCategoryScopedSemanticInventory', () => {
     ]);
   });
 
-  it('bounds the query with the raised inventory limit', async () => {
+  it('bounds the query with the compare-page-aligned inventory limit', async () => {
     const productsQuery = createProductsQuery({ data: [], error: null });
     mockGetCachedCategoryPageShellData.mockResolvedValue(categoryScopeShell);
     mockGetPublicSupabaseClient.mockReturnValue({
@@ -133,7 +133,9 @@ describe('getCachedCategoryScopedSemanticInventory', () => {
       'ogabassey'
     );
 
-    expect(productsQuery.limit).toHaveBeenCalledWith(700);
+    // Aligned to COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT (600) so the SEO pool
+    // never exceeds what compare pages can resolve.
+    expect(productsQuery.limit).toHaveBeenCalledWith(600);
   });
 
   it('returns an empty collection pool without querying products', async () => {
@@ -179,13 +181,17 @@ describe('getCachedCategoryScopedSemanticInventory', () => {
     ).rejects.toThrow(/unavailable/);
   });
 
-  it('falls back to an ilike membership filter for legacy category URLs', async () => {
+  it('falls back to an ilike membership filter for legacy category URLs and resolves the slug from the category column', async () => {
     const productsQuery = createProductsQuery({
       data: [
         {
           slug: 'legacy-phone',
           name: 'Legacy Phone',
           price: 90_000,
+          // No category join, but a denormalized `category` value: category_slug
+          // must resolve to generateSlug(category) ('retro-tech'), matching
+          // normalizeProduct, NOT the requested URL slug ('vintage').
+          category: 'Retro Tech',
           product_categories: [],
         },
       ],
@@ -221,10 +227,52 @@ describe('getCachedCategoryScopedSemanticInventory', () => {
         condition: undefined,
         // effective stock: no stock/stock_quantity -> 0
         stock: 0,
-        category_slug: 'vintage',
+        category_slug: 'retro-tech',
         product_key_specs: null,
       },
     ]);
+  });
+
+  it('strips null/array/object spec values to match normalizeProduct compare eligibility', async () => {
+    const productsQuery = createProductsQuery({
+      data: [
+        {
+          slug: 'spec-heavy',
+          name: 'Spec Heavy',
+          price: 700_000,
+          stock_quantity: 2,
+          product_categories: [
+            { category_id: 'cat-laptops', categories: { slug: 'laptops' } },
+          ],
+          product_key_specs: [
+            {
+              ram_gb: 16,
+              has_5g: true,
+              chipset: null,
+              available_colors: ['black', 'silver'],
+              recommended_for: { gaming: true },
+            },
+          ],
+        },
+      ],
+      error: null,
+    });
+    mockGetCachedCategoryPageShellData.mockResolvedValue(categoryScopeShell);
+    mockGetPublicSupabaseClient.mockReturnValue({
+      from: vi.fn(() => productsQuery),
+    });
+
+    const result = await getCachedCategoryScopedSemanticInventory(
+      'merchant-1',
+      'laptops',
+      'ogabassey'
+    );
+
+    // Only scalar spec values survive; null and array/object values are dropped.
+    expect(result.products[0]?.product_key_specs).toEqual({
+      ram_gb: 16,
+      has_5g: true,
+    });
   });
 
   it('keeps effective stock for a zero stock_quantity with positive legacy stock', async () => {

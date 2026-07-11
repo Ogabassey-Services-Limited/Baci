@@ -2,11 +2,18 @@ import {
   getCachedCategoryPageShellData,
   getPublicSupabaseClient,
 } from '@/lib/cached-data';
+// Reuse the EXACT normalizer the old getCachedCategoryPageData -> normalizeProduct
+// path used (strips null / array / object spec values), not the semantic loader's
+// preserve-everything variant. buildProductCompareCandidate counts spec
+// differences with `!==`, so preserving array-valued specs (available_colors,
+// recommended_for, ...) would make identical arrays read as differentiators and
+// change which compare links are publishable from the blog support links.
+import { normalizeProductKeySpecs } from '@/lib/product-key-specs-normalize';
 import { getEffectiveProductStock } from '@/lib/product-stock';
+import { generateSlug } from '@/lib/seo-utils';
+import { COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT } from '@/lib/storefront-compare/get-cached-compare-category-inventory';
 import {
-  normalizeProductKeySpecs,
   PRODUCT_SEMANTIC_INVENTORY_BASE_SELECT,
-  PRODUCT_SEMANTIC_INVENTORY_LIMIT,
   type ProductSemanticInventoryRow,
   parseSemanticProductPrice,
 } from '@/lib/storefront-product/get-cached-product-semantic-inventory';
@@ -18,12 +25,29 @@ export interface CategoryScopedSemanticInventory {
   products: ProductSemanticCandidate[];
 }
 
-// `id` is selected so a slug-less row can fall back to `slug || id` exactly like
-// the old getCachedCategoryPageData -> normalizeProduct path (id-based product
-// URLs). Measured null/blank-slug active products for ogabassey = 0, so this is
-// defensive parity for other merchants, not a live divergence.
+/**
+ * Row bound for the category+children scoped pool.
+ *
+ * This pool feeds the PDP alternatives and blog support links, which GENERATE
+ * compare links. A compare link only resolves if the compare PAGE
+ * (getCachedCompareCategoryInventory) carries both products, and that inventory
+ * is capped at COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT over the same
+ * category+children scope and ordering. Reusing that exact constant guarantees
+ * the SEO pool is a subset of what compare pages can resolve — products beyond
+ * the cap can never mint a compare link that 404s. Measured worst case across
+ * ogabassey (merchant 6b5cb8a4-…) on 2026-07-10 is `gaming` = 530 < 600, so no
+ * live truncation; a cap hit fires the warning below as a catalog-growth signal.
+ */
+const CATEGORY_SCOPED_SEMANTIC_INVENTORY_LIMIT =
+  COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT;
+
+// `id` is selected so a slug-less row can fall back to `slug || id`, and
+// `category` (the denormalized text column) is selected so legacy rows with no
+// category join resolve their slug the same way normalizeProduct does
+// (generateSlug(category)) instead of collapsing to the requested URL slug.
 type ScopedSemanticInventoryRow = ProductSemanticInventoryRow & {
   id?: string | null;
+  category?: string | null;
 };
 
 // category+children scope carries the embedded membership rows so per-product
@@ -32,6 +56,7 @@ type ScopedSemanticInventoryRow = ProductSemanticInventoryRow & {
 // getCachedCategoryPageData path). Filtered by category_id via `!inner` + `.in`.
 const SCOPED_SEMANTIC_CATEGORY_SELECT = `
   id,
+  category,
   ${PRODUCT_SEMANTIC_INVENTORY_BASE_SELECT},
   product_categories!inner(category_id, categories(slug))
 `;
@@ -41,12 +66,13 @@ const SCOPED_SEMANTIC_CATEGORY_SELECT = `
 // never drift from what the category listing itself resolves.
 const SCOPED_SEMANTIC_LEGACY_SELECT = `
   id,
+  category,
   ${PRODUCT_SEMANTIC_INVENTORY_BASE_SELECT},
   product_categories(categories(slug))
 `;
 
 function resolveScopedCategorySlug(
-  row: ProductSemanticInventoryRow,
+  row: ScopedSemanticInventoryRow,
   requestedCategorySlug: string
 ): string {
   const joinedSlugs = (row.product_categories ?? [])
@@ -60,9 +86,18 @@ function resolveScopedCategorySlug(
     .map((category) => category?.slug?.trim())
     .filter((slug): slug is string => Boolean(slug));
 
+  // Mirror normalizeProduct's category_slug chain: preferred join -> first join
+  // -> generateSlug(raw.category). Only the legacy (no-join) scope reaches the
+  // `category` fallback; the requested slug stays as the ultimate default when a
+  // row has neither a join nor a `category` value.
+  const categoryColumnSlug = row.category?.trim()
+    ? generateSlug(row.category)
+    : '';
+
   return (
     joinedSlugs.find((slug) => slug === requestedCategorySlug) ||
     joinedSlugs[0] ||
+    categoryColumnSlug ||
     requestedCategorySlug
   );
 }
@@ -188,7 +223,7 @@ export async function getCachedCategoryScopedSemanticInventory(
   const { data, error } = await query
     .order('created_at', { ascending: false })
     .order('id', { ascending: true })
-    .limit(PRODUCT_SEMANTIC_INVENTORY_LIMIT);
+    .limit(CATEGORY_SCOPED_SEMANTIC_INVENTORY_LIMIT);
 
   if (error) {
     console.error('Error fetching category scoped semantic inventory:', {
@@ -201,14 +236,15 @@ export async function getCachedCategoryScopedSemanticInventory(
 
   const rows = (data ?? []) as ScopedSemanticInventoryRow[];
 
-  if (rows.length === PRODUCT_SEMANTIC_INVENTORY_LIMIT) {
-    // Truncation would silently shrink the SEO link pool for the exact merchant
-    // that matters most. Measured worst case is 530 (< 700), so this is a
-    // catalog-growth early-warning, not a live condition.
+  if (rows.length === CATEGORY_SCOPED_SEMANTIC_INVENTORY_LIMIT) {
+    // At the cap, the SEO pool and the compare-page inventory truncate the same
+    // overflow rows together (shared cap + scope + ordering), so no compare link
+    // can leak. Measured worst case is 530 (< 600), so this is a catalog-growth
+    // early-warning, not a live condition.
     console.warn('CATEGORY_SEMANTIC_INVENTORY_CAP_HIT', {
       merchantId,
       categorySlug,
-      limit: PRODUCT_SEMANTIC_INVENTORY_LIMIT,
+      limit: CATEGORY_SCOPED_SEMANTIC_INVENTORY_LIMIT,
     });
   }
 
