@@ -18,6 +18,12 @@ export type { Customer } from './customers-data';
 
 const DUPLICATE_CUSTOMER_MESSAGE =
   'Customer with this email or phone already exists';
+const DUPLICATE_CUSTOMER_CONSTRAINTS = [
+  'customers_merchant_id_email_key',
+  'customers_merchant_email_unique',
+  'idx_customers_merchant_email',
+  'customers_merchant_phone_unique',
+] as const;
 
 function escapeIlikePattern(value: string): string {
   return value.replace(/[\\%_]/g, (character) => `\\${character}`);
@@ -28,9 +34,8 @@ function isDuplicateCustomerConstraintError(
 ): boolean {
   const message = error?.message ?? '';
 
-  return (
-    message.includes('customers_merchant_email_unique') ||
-    message.includes('customers_merchant_phone_unique')
+  return DUPLICATE_CUSTOMER_CONSTRAINTS.some((constraint) =>
+    message.includes(constraint)
   );
 }
 
@@ -134,7 +139,6 @@ export function useCreateCustomer() {
         ? sanitizePhone(newCustomer.phone)
         : '';
 
-      // Check if customer already exists by email or phone
       if (normalizedPhone) {
         const { data: existingPhoneCustomer, error: phoneLookupError } =
           await supabase

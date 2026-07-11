@@ -239,7 +239,12 @@ describe('useCreateCustomer', () => {
     expect(mocks.insertRows).toEqual([]);
   });
 
-  it('maps customer unique constraint errors to the duplicate customer message', async () => {
+  it.each([
+    'customers_merchant_id_email_key',
+    'customers_merchant_email_unique',
+    'idx_customers_merchant_email',
+    'customers_merchant_phone_unique',
+  ])('maps %s errors to the duplicate customer message', async (constraintName) => {
     const { Wrapper } = createWrapper();
     const { result } = renderHook(() => useCreateCustomer(), {
       wrapper: Wrapper,
@@ -249,8 +254,7 @@ describe('useCreateCustomer', () => {
       data: null,
       error: {
         code: '23505',
-        message:
-          'duplicate key value violates unique constraint "customers_merchant_email_unique"',
+        message: `duplicate key value violates unique constraint "${constraintName}"`,
       },
     };
 
