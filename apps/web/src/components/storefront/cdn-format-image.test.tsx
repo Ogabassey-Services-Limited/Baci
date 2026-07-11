@@ -64,6 +64,7 @@ describe('CdnFormatImage (branch logic, mocked format-source)', () => {
 
   afterEach(() => {
     vi.doUnmock('@/lib/ogabassey-image-format-sources');
+    vi.restoreAllMocks();
     vi.resetModules();
   });
 
@@ -111,6 +112,7 @@ describe('CdnFormatImage (branch logic, mocked format-source)', () => {
 
   it('retries the fallback tier before forwarding an image error', async () => {
     const onError = vi.fn();
+    const removeSpy = vi.spyOn(Element.prototype, 'remove');
     vi.doMock('@/lib/ogabassey-image-format-sources', () => ({
       getOgabasseyImageFormatProps: vi.fn(() => ({
         avifSource: {
@@ -147,6 +149,7 @@ describe('CdnFormatImage (branch logic, mocked format-source)', () => {
     });
     fireEvent.error(image as HTMLImageElement);
 
+    expect(removeSpy).not.toHaveBeenCalled();
     expect(container.querySelector('source[type="image/avif"]')).toBeNull();
     expect(onError).not.toHaveBeenCalled();
 

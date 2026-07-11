@@ -95,16 +95,18 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('next/image', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('next/image')>();
-
-  return {
-    ...actual,
-    default: (props: Record<string, unknown>) => (
-      <img {...props} alt={String(props.alt || '')} />
-    ),
-  };
-});
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => (
+    <img
+      {...Object.fromEntries(
+        Object.entries(props).filter(
+          ([key]) => key !== 'fill' && key !== 'preload',
+        ),
+      )}
+      alt={String(props.alt || '')}
+    />
+  ),
+}));
 
 vi.mock('../components/AdUnit', () => ({
   AdUnit: () => <div data-testid="ad-unit" />,
