@@ -144,6 +144,7 @@ export function mapHomeProductsToTemplateProducts(
       condition: isProductCondition(product.condition)
         ? product.condition
         : undefined,
+      ...(product.has_condition_offers ? { has_condition_offers: true } : {}),
       images,
       low_stock_threshold: getNullableNumber(product.low_stock_threshold),
     };

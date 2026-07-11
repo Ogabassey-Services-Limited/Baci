@@ -1,48 +1,34 @@
-import { isAirportDeliveryEligible, isPickupEligible } from '@baci/shared';
+import { isAirportDeliveryEligible } from '@baci/shared';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import type { UseFormSetValue } from 'react-hook-form';
-import { fetchShippingQuotes } from '@/components/checkout/checkout-shipping.helpers';
-import { getStationPickupQuote } from '@/components/checkout/checkout-station-pickup';
 import {
+  fetchShippingQuotes,
+  resolveGoogleCitySuggestionAction,
+} from '@/components/checkout/checkout-shipping.helpers';
+import {
+  getPickupStationMode,
+  getStationPickupQuote,
+} from '@/components/checkout/checkout-station-pickup';
+import {
+  findSelectedQuote,
   getDeliveryMethodFee,
-  getShippingProviderForMethod,
+  getShippingProviderForMethod as getProvider,
+  getQuotePreference,
+  requiresQuote,
 } from '@/components/checkout/checkout-step-helpers';
 import type {
   DeliveryMethod,
   ShippingQuote,
 } from '@/components/checkout/types';
 import { buildShippingQuoteContextKey } from '@/lib/shipping-quotes';
-import type { ShippingAddressInput } from '@/lib/validation';
-import type { useCartStore } from '@/stores/cart-store';
 import { createCheckoutShippingHandlers } from './checkout-shipping-handlers';
 import {
   loadShippingCities,
   loadShippingStates,
 } from './checkout-shipping-loaders';
-
-type CartItems = ReturnType<typeof useCartStore.getState>['items'];
-type QuoteCustomer = Parameters<typeof fetchShippingQuotes>[0]['customer'];
-
-interface UseCheckoutShippingParams {
-  apiBaseUrl: string;
-  customer: QuoteCustomer;
-  items: CartItems;
-  setValue: UseFormSetValue<ShippingAddressInput>;
-  watchedAddress: string;
-  watchedCity: string;
-  watchedEmail: string;
-  watchedFirstName: string;
-  watchedLastName: string;
-  watchedPhone: string;
-  watchedState: string;
-}
-
-function useCheckoutShippingHandlers(
-  params: Parameters<typeof createCheckoutShippingHandlers>[0]
-) {
-  return createCheckoutShippingHandlers(params);
-}
-
+import type {
+  SavedDoorAddress,
+  UseCheckoutShippingParams,
+} from './use-checkout-shipping.types';
 export function useCheckoutShipping({
   apiBaseUrl,
   customer,
@@ -61,23 +47,21 @@ export function useCheckoutShipping({
   const [shippingCities, setShippingCities] = useState<string[]>([]);
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuote[]>([]);
   const [selectedQuoteId, setSelectedQuoteId] = useState('');
-  const [resolvedShippingQuoteContextKey, setResolvedShippingQuoteContextKey] =
-    useState('');
+  const [resolvedQuoteKey, setResolvedQuoteKey] = useState('');
+  const [resolvedPreference, setResolvedPreference] = useState<
+    '' | 'door' | 'pickup_station'
+  >('');
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
-  const [isLoadingCities, setIsLoadingCities] = useState(() =>
-    Boolean(watchedState)
-  );
+  const [isLoadingCities, setIsLoadingCities] = useState(Boolean(watchedState));
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [showStatePicker, setShowStatePicker] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
   const [citySearch, setCitySearch] = useState('');
   const [citySearchFocused, setCitySearchFocused] = useState(false);
   const [committedAddress, setCommittedAddress] = useState('');
-  const savedDoorAddressRef = useRef<{
-    address: string;
-    city: string;
-    state: string;
-  } | null>(null);
+  const [deliveryCoordinates, setDeliveryCoordinates] =
+    useState<SavedDoorAddress['coordinates']>(null);
+  const savedDoorAddressRef = useRef<SavedDoorAddress | null>(null);
   const googleSuggestedCityRef = useRef<string | null>(null);
   const shippingQuoteAbortRef = useRef<AbortController | null>(null);
   const currentShippingQuoteContextKey = buildShippingQuoteContextKey(
@@ -86,16 +70,30 @@ export function useCheckoutShipping({
     items,
     committedAddress
   );
+  const activeDeliveryCoordinates =
+    watchedAddress === committedAddress ? deliveryCoordinates : null;
+  const availableStationPickupQuote = getStationPickupQuote(shippingQuotes);
+  const {
+    canUsePickupStation,
+    hasResolvedDeliveryLocation,
+    usesProviderPickup,
+  } = getPickupStationMode({
+    city: watchedCity,
+    deliveryMethod,
+    state: watchedState,
+    stationPickupQuote: availableStationPickupQuote,
+  });
+  const currentQuotePreference = usesProviderPickup
+    ? getQuotePreference(deliveryMethod)
+    : 'door';
+  const usesDoorQuotes = ['door', 'airport'].includes(deliveryMethod);
   const isCurrentQuoteContext =
     currentShippingQuoteContextKey !== '' &&
-    resolvedShippingQuoteContextKey === currentShippingQuoteContextKey;
+    resolvedQuoteKey === currentShippingQuoteContextKey &&
+    resolvedPreference === currentQuotePreference;
   const stationPickupQuote = isCurrentQuoteContext
-    ? getStationPickupQuote(shippingQuotes)
+    ? availableStationPickupQuote
     : undefined;
-  const hasResolvedDeliveryLocation = Boolean(watchedState && watchedCity);
-  const canUsePickupStation =
-    isPickupEligible(watchedState) || stationPickupQuote !== undefined;
-
   if (
     (deliveryMethod !== 'door' && !hasResolvedDeliveryLocation) ||
     (deliveryMethod === 'airport' &&
@@ -104,20 +102,22 @@ export function useCheckoutShipping({
   ) {
     setDeliveryMethod('door');
   }
-
   const resetQuotes = () => {
     setShippingQuotes([]);
     setSelectedQuoteId('');
-    setResolvedShippingQuoteContextKey('');
+    setResolvedQuoteKey('');
+    setResolvedPreference('');
   };
-
   const requestShippingQuotes = (shouldResetSelection: boolean) => {
+    const deliveryPreference = getQuotePreference(deliveryMethod);
     const controller = new AbortController();
     shippingQuoteAbortRef.current = controller;
     void fetchShippingQuotes({
       apiUrl: apiBaseUrl,
       state: watchedState,
       city: watchedCity,
+      latitude: activeDeliveryCoordinates?.latitude,
+      longitude: activeDeliveryCoordinates?.longitude,
       items,
       customer,
       watchedFirstName,
@@ -125,9 +125,13 @@ export function useCheckoutShipping({
       watchedPhone,
       watchedAddress,
       watchedEmail,
+      deliveryPreference,
       setIsLoadingQuotes,
       setSelectedQuoteId,
-      setResolvedShippingQuoteContextKey,
+      setResolvedShippingQuoteContextKey: (key) => {
+        setResolvedQuoteKey(key);
+        setResolvedPreference(key ? deliveryPreference : '');
+      },
       setShippingQuotes,
       previousSelectedQuoteId: shouldResetSelection ? null : selectedQuoteId,
       quoteContextKey: currentShippingQuoteContextKey,
@@ -135,37 +139,29 @@ export function useCheckoutShipping({
       signal: controller.signal,
     }).catch(() => setIsLoadingQuotes(false));
   };
-
   const requestShippingQuotesFromEffect = useEffectEvent(
     (shouldResetSelection: boolean) => {
       requestShippingQuotes(shouldResetSelection);
     }
   );
-
   const applyGoogleSuggestedCity = useEffectEvent((cities: string[]) => {
-    if (cities.length === 0) return;
-    const suggestedCity = googleSuggestedCityRef.current;
-    if (suggestedCity === null) return;
+    const action = resolveGoogleCitySuggestionAction(
+      cities,
+      googleSuggestedCityRef.current
+    );
+    if (action.type === 'none') return;
     googleSuggestedCityRef.current = null;
-
-    if (suggestedCity === '') {
+    if (action.type === 'openPicker') {
       setShowCityPicker(true);
       return;
     }
-
-    const match = cities.find(
-      (city) => city.toLowerCase() === suggestedCity.toLowerCase()
-    );
-    if (match) {
-      setValue('city', match, { shouldValidate: true });
+    if (action.type === 'selectCity') {
+      setValue('city', action.city, { shouldValidate: true });
     } else {
-      setCitySearch(suggestedCity);
+      setCitySearch(action.city);
       setShowCityPicker(true);
     }
   });
-
-  // Adjust dependent state inline during render (guarded prev-compare) so the
-  // reset commits with the change that caused it instead of one frame later.
   const [prevCityRequest, setPrevCityRequest] = useState(() => ({
     apiBaseUrl,
     watchedState,
@@ -179,10 +175,8 @@ export function useCheckoutShipping({
     setIsLoadingCities(Boolean(watchedState));
     if (!watchedState) resetQuotes();
   }
-
   const quotesSuspendReason =
-    deliveryMethod === 'airport' ||
-    (deliveryMethod === 'pickup_station' && stationPickupQuote === undefined)
+    deliveryMethod === 'pickup_station' && !usesProviderPickup
       ? 'method'
       : watchedState && watchedCity
         ? null
@@ -192,9 +186,10 @@ export function useCheckoutShipping({
   if (prevQuotesSuspendReason !== quotesSuspendReason) {
     setPrevQuotesSuspendReason(quotesSuspendReason);
     if (quotesSuspendReason === 'method') setIsLoadingQuotes(false);
-    if (quotesSuspendReason !== null) resetQuotes();
+    if (quotesSuspendReason !== null && deliveryMethod !== 'airport') {
+      resetQuotes();
+    }
   }
-
   useEffect(() => {
     loadShippingStates({
       apiBaseUrl,
@@ -202,7 +197,6 @@ export function useCheckoutShipping({
       setShippingStates,
     });
   }, [apiBaseUrl]);
-
   useEffect(() => {
     if (!watchedState) return;
     const controller = new AbortController();
@@ -216,52 +210,59 @@ export function useCheckoutShipping({
     });
     return () => controller.abort();
   }, [apiBaseUrl, watchedState]);
-
   // biome-ignore lint/correctness/useExhaustiveDependencies(items): cart item identity changes must re-request quotes (pre-refactor behavior).
   useEffect(() => {
     if (shippingQuoteAbortRef.current) shippingQuoteAbortRef.current.abort();
-    if (deliveryMethod !== 'door' || !watchedState || !watchedCity) {
+    if (
+      (!usesDoorQuotes && !usesProviderPickup) ||
+      !watchedState ||
+      !watchedCity ||
+      isCurrentQuoteContext
+    ) {
       shippingQuoteAbortRef.current = null;
       return;
     }
-
     requestShippingQuotesFromEffect(
-      resolvedShippingQuoteContextKey !== currentShippingQuoteContextKey
+      resolvedQuoteKey !== currentShippingQuoteContextKey ||
+        resolvedPreference !== currentQuotePreference
     );
-
-    return () => {
-      if (shippingQuoteAbortRef.current) shippingQuoteAbortRef.current.abort();
-    };
+    return () => shippingQuoteAbortRef.current?.abort();
   }, [
     currentShippingQuoteContextKey,
-    deliveryMethod,
+    currentQuotePreference,
+    isCurrentQuoteContext,
     items,
-    resolvedShippingQuoteContextKey,
+    resolvedQuoteKey,
+    resolvedPreference,
+    usesDoorQuotes,
+    usesProviderPickup,
     watchedCity,
     watchedState,
   ]);
-
-  const selectedQuote = shippingQuotes.find(
-    (quote) => String(quote.id) === String(selectedQuoteId)
-  );
+  const selectedQuote = findSelectedQuote(shippingQuotes, selectedQuoteId);
   const deliveryFee = getDeliveryMethodFee(deliveryMethod, selectedQuote);
-
-  const handlers = useCheckoutShippingHandlers({
+  const requiresShippingQuote =
+    Boolean(currentShippingQuoteContextKey) &&
+    requiresQuote(deliveryMethod, selectedQuote, usesProviderPickup);
+  const handlers = createCheckoutShippingHandlers({
     committedAddress,
     currentShippingQuoteContextKey,
+    deliveryCoordinates,
     deliveryMethod,
     googleSuggestedCityRef,
     requestShippingQuotes,
-    resolvedShippingQuoteContextKey,
+    resolvedShippingQuoteContextKey: resolvedQuoteKey,
     savedDoorAddressRef,
     setCitySearch,
     setCommittedAddress,
+    setDeliveryCoordinates,
     setDeliveryMethod,
-    setResolvedShippingQuoteContextKey,
+    setResolvedShippingQuoteContextKey: setResolvedQuoteKey,
     setSelectedQuoteId,
     setShowCityPicker,
     setShowStatePicker,
     setValue,
+    quoteSelection: { selectedQuoteId, shippingQuotes },
     shippingQuoteAbortRef,
     shippingStates,
     stationPickupQuote,
@@ -269,20 +270,19 @@ export function useCheckoutShipping({
     watchedCity,
     watchedState,
   });
-
   return {
     citySearch,
     citySearchFocused,
     currentShippingQuoteContextKey,
     deliveryFee,
     deliveryMethod,
-    getShippingProvider: () =>
-      getShippingProviderForMethod(deliveryMethod, selectedQuote),
+    getShippingProvider: () => getProvider(deliveryMethod, selectedQuote),
     ...handlers,
     isLoadingCities,
     isLoadingLocations,
     isLoadingQuotes,
-    resolvedShippingQuoteContextKey,
+    resolvedShippingQuoteContextKey: resolvedQuoteKey,
+    requiresShippingQuote,
     selectedQuote,
     selectedQuoteId,
     setCitySearch,

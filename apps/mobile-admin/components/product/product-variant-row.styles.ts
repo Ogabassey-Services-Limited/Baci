@@ -1,91 +1,100 @@
 import { StyleSheet } from 'react-native';
+import { RADIUS, SPACING } from '@/constants/theme';
 
 export const productVariantRowStyles = StyleSheet.create({
-  addAttributeButton: {
+  container: {
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    marginTop: SPACING.md,
+    overflow: 'hidden',
+  },
+  // Collapsed summary header (always visible)
+  summaryRow: {
     alignItems: 'center',
     flexDirection: 'row',
+    gap: SPACING.md,
+    padding: SPACING.lg,
   },
-  addAttributeLabel: {
-    fontWeight: '600',
-    marginLeft: 4,
+  swatch: {
+    borderRadius: RADIUS.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    height: 26,
+    width: 26,
   },
-  attributeHeader: {
+  swatchFallback: {
     alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    marginTop: 4,
-  },
-  attributeInput: {
-    flex: 1,
-  },
-  attributeRemoveButton: {
+    borderRadius: RADIUS.full,
+    height: 26,
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    width: 26,
   },
-  attributeRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  attributeTitle: {
-    fontSize: 16,
+  swatchFallbackText: {
+    fontSize: 12,
     fontWeight: '700',
   },
-  container: {
-    borderRadius: 12,
-    borderWidth: 1,
-    marginTop: 12,
-    padding: 16,
-  },
-  emptyText: {
-    fontSize: 13,
-    fontStyle: 'italic',
-    marginBottom: 12,
-  },
-  halfInput: {
+  summaryContent: {
     flex: 1,
   },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  headerContent: {
-    flex: 1,
-    marginRight: 12,
-  },
-  input: {
-    borderRadius: 8,
-    borderWidth: 1,
+  summaryTitle: {
     fontSize: 15,
-    padding: 12,
+    fontWeight: '600',
+  },
+  summarySubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  // Expanded editor body
+  editorBody: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingBottom: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.xs,
   },
   label: {
     fontSize: 13,
     fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 12,
+    marginBottom: SPACING.sm,
+    marginTop: SPACING.md,
   },
-  removeButton: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 4,
-  },
-  removeLabel: {
-    fontWeight: '600',
+  input: {
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+    fontSize: 15,
+    padding: SPACING.md,
   },
   row: {
     flexDirection: 'row',
-    gap: 12,
+    gap: SPACING.md,
   },
-  subtitle: {
-    fontSize: 12,
-    marginTop: 2,
+  halfInput: {
+    flex: 1,
   },
-  title: {
-    fontSize: 15,
+  similarChip: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: RADIUS.full,
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    marginTop: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  similarChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  removeVariantButton: {
+    alignItems: 'center',
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    justifyContent: 'center',
+    marginTop: SPACING.xl,
+    paddingVertical: SPACING.md,
+  },
+  removeVariantLabel: {
+    fontSize: 14,
     fontWeight: '600',
   },
 });

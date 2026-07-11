@@ -3,6 +3,12 @@
 import { usePathname } from 'next/navigation';
 import { lazy, Suspense } from 'react';
 import type { MerchantData } from '@/hooks/merchant/types';
+import {
+  buildMerchantTrustProfile,
+  hasPublishableReturnsPolicy,
+  hasPublishableShippingPolicy,
+  hasPublishableWarrantyPolicy,
+} from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { DeferredShellFeature } from './components/deferred-shell-feature';
 import { GoogleAdManager } from './components/GoogleAdManager';
 import { MobileFooter } from './components/MobileFooter';
@@ -50,22 +56,58 @@ function buildFooterHref(basePath: string, path: string): string {
   return `${normalizedBasePath}${path}`;
 }
 
-function StorefrontSemanticFooterFallback({ basePath }: { basePath: string }) {
-  const links = [
+type SemanticFooterLink = [label: string, path: string];
+
+function buildSemanticFooterFallbackLinks(
+  basePath: string,
+  merchant: MerchantData | undefined
+): SemanticFooterLink[] {
+  const trustProfile = merchant
+    ? buildMerchantTrustProfile(merchant, normalizeFooterBasePath(basePath))
+    : null;
+  const policyLinks: SemanticFooterLink[] = [
+    trustProfile && hasPublishableReturnsPolicy(trustProfile)
+      ? ['Returns', '/returns']
+      : null,
+    trustProfile && hasPublishableShippingPolicy(trustProfile)
+      ? ['Shipping', '/shipping']
+      : null,
+    trustProfile && hasPublishableWarrantyPolicy(trustProfile)
+      ? ['Warranty', '/warranty']
+      : null,
+  ].filter((link): link is SemanticFooterLink => link !== null);
+
+  return [
     ['About Us', '/about'],
     ['All Products', '/products'],
     ['Blog', '/blog'],
     ['Track Order', '/track-order'],
     ['Contact Us', '/contact'],
     ['FAQ', '/faq'],
+    ...policyLinks,
     ['Terms of Service', '/terms'],
     ['Privacy Policy', '/privacy'],
-  ] as const;
+  ];
+}
+
+function StorefrontSemanticFooterFallback({
+  basePath,
+  merchant,
+}: {
+  basePath: string;
+  merchant?: MerchantData;
+}) {
+  const links = buildSemanticFooterFallbackLinks(basePath, merchant);
 
   return (
     <footer
       aria-label="Semantic storefront footer"
-      className="border-store-border border-t bg-store-background px-4 py-8 text-store-background-text"
+      // Reserve the real Ogabassey footer's stacked height per breakpoint so the
+      // deferred fallback -> full subtree swap (footer + FOOTER_BANNER wrapper)
+      // has no height delta. Without this, the short link-list fallback was
+      // replaced by the stacked footer and ad wrapper once deferred chrome
+      // activated, shifting the footer pattern and content below it.
+      className="min-h-[1100px] border-store-border border-t bg-store-background px-4 py-8 text-store-background-text md:min-h-[910px] lg:min-h-[770px]"
     >
       <nav
         aria-label="Footer navigation"
@@ -120,13 +162,23 @@ export function OgabasseyLayoutChrome({
         {!resolvedHideMobileFooter && <MobileFooter storeSlug={basePath} />}
 
         <DeferredShellFeature
-          fallback={<StorefrontSemanticFooterFallback basePath={basePath} />}
+          fallback={
+            <StorefrontSemanticFooterFallback
+              basePath={basePath}
+              merchant={merchant}
+            />
+          }
           timeoutMs={1600}
           activateOnInteraction
           deferInteractionActivationUntilNextPaint
         >
           <Suspense
-            fallback={<StorefrontSemanticFooterFallback basePath={basePath} />}
+            fallback={
+              <StorefrontSemanticFooterFallback
+                basePath={basePath}
+                merchant={merchant}
+              />
+            }
           >
             <StorefrontDeferredFooterChrome
               basePath={basePath}

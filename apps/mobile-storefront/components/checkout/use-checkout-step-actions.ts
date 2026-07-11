@@ -26,6 +26,7 @@ import {
 
 interface UseCheckoutStepActionsParams extends UseCheckoutSubmitParams {
   handleSubmit: UseFormHandleSubmit<ShippingAddressInput>;
+  resetPaymentSelection: () => void;
   setIsContactCollapsed: Dispatch<SetStateAction<boolean>>;
   setIsDeliveryCollapsed: Dispatch<SetStateAction<boolean>>;
   setValue: UseFormSetValue<ShippingAddressInput>;
@@ -34,6 +35,7 @@ interface UseCheckoutStepActionsParams extends UseCheckoutSubmitParams {
 
 export function useCheckoutStepActions({
   handleSubmit,
+  resetPaymentSelection,
   selectedPayment,
   setIsContactCollapsed,
   setIsDeliveryCollapsed,
@@ -52,6 +54,7 @@ export function useCheckoutStepActions({
       state: data.state,
       city: data.city,
     });
+    resetPaymentSelection();
     setStep('payment');
   };
   const handleAddressValidationError = (
@@ -100,6 +103,12 @@ export function useCheckoutStepActions({
           if (stationAddress) {
             setValue('address', stationAddress, { shouldValidate: true });
           }
+        } else if (submitParams.requiresShippingQuote) {
+          Alert.alert(
+            'Shipping Required',
+            'Please select an available GIGL pickup station before continuing.'
+          );
+          return;
         } else {
           // Merchant's own free Lagos pickup counter.
           setValue('address', PICKUP_STATION_ADDRESS_LINES.join(', '), {

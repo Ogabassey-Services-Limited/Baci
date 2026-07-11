@@ -32,11 +32,18 @@ jest.mock('@/components/checkout/CheckoutFormField', () => ({
 }));
 
 jest.mock('@/components/checkout/DeliveryMethodCard', () => ({
-  DeliveryMethodCard: (props: Record<string, unknown>) => {
-    const { Text } =
+  DeliveryMethodCard: (
+    props: Record<string, unknown> & { children?: ReactNode }
+  ) => {
+    const { Text, View } =
       jest.requireActual<typeof import('react-native')>('react-native');
     mockDeliveryMethodCard(props);
-    return <Text>delivery method card</Text>;
+    return (
+      <View>
+        <Text>delivery method card</Text>
+        {props.children}
+      </View>
+    );
   },
 }));
 
@@ -90,6 +97,18 @@ const stationQuote: ShippingQuote = {
   provider: 'GIGL',
   stationAddress: 'GIGL Aba Road, Port Harcourt',
   stationName: 'PORT HARCOURT',
+};
+const goFasterQuote: ShippingQuote = {
+  displayName: 'GIG Logistics - GoFaster',
+  id: 'gofaster-quote',
+  price: 18_500,
+  provider: 'GIGL',
+  serviceTier: 'GoFaster',
+};
+const stationGoFasterQuote: ShippingQuote = {
+  ...goFasterQuote,
+  id: 'station-gofaster-quote',
+  isStationPickup: true,
 };
 
 function createProps(
@@ -166,7 +185,6 @@ describe('CheckoutAddressStepView station pickup quotes', () => {
     );
 
     const deliveryProps = mockDeliveryMethodCard.mock.calls[0]?.[0] as {
-      doorPrice: string;
       doorSubtitle: string;
       pickupStationQuote?: ShippingQuote;
     };
@@ -175,7 +193,6 @@ describe('CheckoutAddressStepView station pickup quotes', () => {
       stationPickupQuote?: ShippingQuote;
     };
 
-    expect(deliveryProps.doorPrice).toBe('—');
     expect(deliveryProps.doorSubtitle).toBe(
       'Rates loaded after you enter your address'
     );
@@ -188,7 +205,7 @@ describe('CheckoutAddressStepView station pickup quotes', () => {
     render(<CheckoutAddressStepView {...createProps()} />);
 
     const deliveryProps = mockDeliveryMethodCard.mock.calls[0]?.[0] as {
-      doorPrice: string;
+      deliveryCity: string;
       doorSubtitle: string;
       pickupStationQuote?: ShippingQuote;
     };
@@ -196,12 +213,44 @@ describe('CheckoutAddressStepView station pickup quotes', () => {
       shippingQuotes: ShippingQuote[];
     };
 
-    expect(deliveryProps.doorPrice).toBe('₦10,000');
     expect(deliveryProps.doorSubtitle).toBe(
       'Topship • Delivery estimate shown after selection'
     );
+    expect(deliveryProps.deliveryCity).toBe('Port Harcourt');
     expect(deliveryProps.pickupStationQuote).toBeUndefined();
     expect(quotesProps.shippingQuotes).toEqual([doorQuote]);
+  });
+
+  it('shows GoStandard under Road and GoFaster beside the local Air option', () => {
+    const { rerender } = render(
+      <CheckoutAddressStepView
+        {...createProps({ shippingQuotes: [doorQuote, goFasterQuote] })}
+      />
+    );
+
+    let quotesProps = mockShippingQuotesCard.mock.calls.at(-1)?.[0] as {
+      shippingQuotes: ShippingQuote[];
+    };
+    expect(quotesProps.shippingQuotes).toEqual([doorQuote]);
+
+    rerender(
+      <CheckoutAddressStepView
+        {...createProps({
+          deliveryMethod: 'airport',
+          selectedQuote: goFasterQuote,
+          selectedQuoteId: 'gofaster-quote',
+          shippingQuotes: [doorQuote, goFasterQuote, stationGoFasterQuote],
+        })}
+      />
+    );
+
+    quotesProps = mockShippingQuotesCard.mock.calls.at(-1)?.[0] as {
+      shippingQuotes: ShippingQuote[];
+    };
+    expect(quotesProps.shippingQuotes.map((quote) => quote.id)).toEqual([
+      'airport-delivery',
+      'gofaster-quote',
+    ]);
   });
 
   it('handles empty quotes and an undefined selected quote safely', () => {
@@ -216,16 +265,53 @@ describe('CheckoutAddressStepView station pickup quotes', () => {
     );
 
     const deliveryProps = mockDeliveryMethodCard.mock.calls[0]?.[0] as {
-      doorPrice: string;
       pickupStationQuote?: ShippingQuote;
     };
     const quotesProps = mockShippingQuotesCard.mock.calls[0]?.[0] as {
       shippingQuotes: ShippingQuote[];
     };
 
-    expect(deliveryProps.doorPrice).toBe('—');
     expect(deliveryProps.pickupStationQuote).toBeUndefined();
     expect(quotesProps.shippingQuotes).toEqual([]);
+  });
+
+  it('renders quote selection instead of the merchant pickup card for non-Lagos pickup stations', () => {
+    const screen = render(
+      <CheckoutAddressStepView
+        {...createProps({
+          deliveryMethod: 'pickup_station',
+          selectedQuote: undefined,
+          selectedQuoteId: '',
+          shippingQuotes: [],
+          watchedCity: 'Port Harcourt',
+          watchedState: 'Rivers',
+        })}
+      />
+    );
+
+    expect(screen.getByText('shipping quotes card')).toBeTruthy();
+    const quotesProps = mockShippingQuotesCard.mock.calls[0]?.[0] as {
+      shippingQuotes: ShippingQuote[];
+    };
+    expect(quotesProps.shippingQuotes).toEqual([]);
+  });
+
+  it('keeps Lagos free pickup inside the delivery methods card', () => {
+    const screen = render(
+      <CheckoutAddressStepView
+        {...createProps({
+          deliveryMethod: 'pickup_station',
+          selectedQuote: undefined,
+          selectedQuoteId: '',
+          shippingQuotes: [],
+          watchedCity: 'Ikeja',
+          watchedState: 'Lagos',
+        })}
+      />
+    );
+
+    expect(screen.getByText('delivery method card')).toBeTruthy();
+    expect(mockShippingQuotesCard).not.toHaveBeenCalled();
   });
 
   it('waits for a resolved delivery state and city before showing delivery methods', () => {

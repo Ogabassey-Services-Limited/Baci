@@ -38,8 +38,11 @@ describe('resolveBlogPostStaticParams', () => {
     vi.clearAllMocks();
   });
 
-  it('pins the prerender limit to a whole number of listing pages', () => {
-    expect(BLOG_POST_PRERENDER_LIMIT).toBe(48);
+  it('pins the prerender ceiling to a whole number of listing pages', () => {
+    // The ceiling must comfortably exceed the published-post count (526 as of
+    // 2026-07-10) so EVERY published post gets a prerendered shell — shell
+    // coverage is what bakes the real <title> into <head> for crawlers.
+    expect(BLOG_POST_PRERENDER_LIMIT).toBe(1200);
     expect(BLOG_POST_PRERENDER_LIMIT % 12).toBe(0);
   });
 
@@ -61,7 +64,7 @@ describe('resolveBlogPostStaticParams', () => {
     expect(mockGetCachedBlogListing).toHaveBeenCalledTimes(2);
   });
 
-  it('caps each tenant at the prerender limit and stops paging there', async () => {
+  it('caps each tenant at the prerender ceiling and stops paging there', async () => {
     mockGetCachedBlogListing.mockImplementation(
       async (_tenant: string, options: { page: number }) =>
         listingForPage(options.page, 12)
@@ -69,13 +72,15 @@ describe('resolveBlogPostStaticParams', () => {
 
     const params = await resolveBlogPostStaticParams();
 
-    // 48 posts per tenant × 2 tenants, never fetching a 5th page.
+    // Ceiling posts per tenant × 2 tenants, never fetching a page past the
+    // ceiling (pages-per-tenant derived from the constant, not re-pinned).
+    const pagesPerTenant = BLOG_POST_PRERENDER_LIMIT / 12;
     expect(params).toHaveLength(BLOG_POST_PRERENDER_LIMIT * 2);
-    expect(mockGetCachedBlogListing).toHaveBeenCalledTimes(8);
+    expect(mockGetCachedBlogListing).toHaveBeenCalledTimes(pagesPerTenant * 2);
     const requestedPages = mockGetCachedBlogListing.mock.calls.map(
       (call) => (call[1] as { page: number }).page
     );
-    expect(Math.max(...requestedPages)).toBe(4);
+    expect(Math.max(...requestedPages)).toBe(pagesPerTenant);
   });
 
   it('excludes posts whose slug is empty or whitespace-only', async () => {

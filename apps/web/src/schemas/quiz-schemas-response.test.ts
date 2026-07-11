@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  merchantQuizActivationResponseSchema,
+  merchantQuizGenerationResponseSchema,
   quizAttemptResponseSchema,
   quizEventsResponseSchema,
   quizResultResponseSchema,
 } from '@/schemas/quiz';
 
 const question = {
+  deadlineAt: '2026-07-08T12:00:30.000Z',
   id: 'question-1',
   index: 1,
   options: [
@@ -126,6 +129,68 @@ describe('quiz client response schemas', () => {
         status: 'completed',
         totalQuestions: 2,
       })
+    ).toThrow();
+  });
+
+  it('keeps the AI answer key in the admin generation response', () => {
+    const generationResponse = {
+      event: {
+        id: 'event-1',
+        slug: 'daily-phone-quiz',
+        status: 'draft',
+        title: 'Daily Phone Quiz',
+      },
+      questions: [
+        {
+          correctOptionId: 'b',
+          difficulty: 'standard',
+          explanation: 'USB-C arrived on iPhone 15.',
+          options: [
+            { id: 'a', label: 'iPhone 13' },
+            { id: 'b', label: 'iPhone 15' },
+          ],
+          prompt: 'Which iPhone introduced USB-C?',
+          topic: 'iPhone buying advice',
+        },
+      ],
+    };
+
+    expect(
+      merchantQuizGenerationResponseSchema.parse(generationResponse)
+    ).toMatchObject({
+      questions: [{ correctOptionId: 'b', explanation: expect.any(String) }],
+    });
+
+    // The admin answer key is mandatory so it can be reviewed pre-activation.
+    expect(() =>
+      merchantQuizGenerationResponseSchema.parse({
+        ...generationResponse,
+        questions: [
+          {
+            difficulty: 'standard',
+            options: generationResponse.questions[0].options,
+            prompt: 'Which iPhone introduced USB-C?',
+            topic: 'iPhone buying advice',
+          },
+        ],
+      })
+    ).toThrow();
+  });
+
+  it('validates the activation response contract', () => {
+    expect(
+      merchantQuizActivationResponseSchema.parse({
+        event: {
+          id: 'event-1',
+          slug: 'daily-phone-quiz',
+          status: 'active',
+          title: 'Daily Phone Quiz',
+        },
+      })
+    ).toMatchObject({ event: { status: 'active' } });
+
+    expect(() =>
+      merchantQuizActivationResponseSchema.parse({ event: { id: 'event-1' } })
     ).toThrow();
   });
 });

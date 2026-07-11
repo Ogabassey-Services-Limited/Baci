@@ -12,13 +12,18 @@ const CDN_PRODUCT_IMAGE =
 const CDN_BLOG_IMAGE = 'https://cdn.ogabassey.com/core-assets/blog/hero.avif';
 
 const PRODUCT_VARIANT_URLS = Array.from(
-  new Set(buildOgabasseyPrewarmTransformUrls(CDN_PRODUCT_IMAGE))
+  new Set(
+    buildOgabasseyPrewarmTransformUrls(CDN_PRODUCT_IMAGE, undefined, {
+      format: 'auto',
+    })
+  )
 );
 const BLOG_VARIANT_URLS = Array.from(
   new Set(
     buildOgabasseyPrewarmTransformUrls(
       CDN_BLOG_IMAGE,
-      BLOG_IMAGE_WIDTH_QUALITY_PAIRS
+      BLOG_IMAGE_WIDTH_QUALITY_PAIRS,
+      { format: 'auto' }
     )
   )
 );
@@ -294,12 +299,18 @@ describe('runImageFormatBackfill', () => {
   });
 
   describe('enumeration wiring', () => {
-    it('honors the product limit for the sample rung', async () => {
+    it('honors independent product and blog limits for the sample rung', async () => {
       const { client } = createBackfillSupabaseStub({
         productPages: [
           [
             { id: 'p1', images: [CDN_PRODUCT_IMAGE] },
             { id: 'p2', images: [CDN_BLOG_IMAGE] },
+          ],
+        ],
+        blogPostPages: [
+          [
+            { featured_image_url: CDN_BLOG_IMAGE },
+            { featured_image_url: CDN_PRODUCT_IMAGE },
           ],
         ],
       });
@@ -310,11 +321,15 @@ describe('runImageFormatBackfill', () => {
         purgeImpl: createPurgeMock(),
         dryRun: true,
         limit: 1,
+        blogLimit: 1,
         log: noopLog,
       });
 
       expect(summary.products).toBe(1);
-      expect(summary.sampleUrls).toEqual(PRODUCT_VARIANT_URLS.slice(0, 10));
+      expect(summary.blogPosts).toBe(1);
+      expect(summary.urls).toBe(
+        PRODUCT_VARIANT_URLS.length + BLOG_VARIANT_URLS.length
+      );
     });
 
     it('paginates two pages of 1000 products', async () => {

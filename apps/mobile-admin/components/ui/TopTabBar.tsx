@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import Animated, {
+  type SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -25,6 +26,12 @@ type TopTabBarProps = {
   inStockCount?: number;
   onWebsiteCount?: number;
   onTabChange: (tab: 'in_stock' | 'on_website') => void;
+  /**
+   * Live pager progress (page index + drag offset, 0..1). When provided the
+   * indicator tracks the finger 1:1 during swipes; otherwise it springs on
+   * discrete tab changes.
+   */
+  pagerPosition?: SharedValue<number>;
 };
 
 export function TopTabBar({
@@ -32,10 +39,36 @@ export function TopTabBar({
   inStockCount = 0,
   onTabChange,
   onWebsiteCount = 0,
+  pagerPosition,
 }: TopTabBarProps) {
-  const { colors } = useTheme();
-  const [containerWidth, setContainerWidth] = useState(0);
+  if (pagerPosition) {
+    return (
+      <TopTabBarContent
+        activeTab={activeTab}
+        inStockCount={inStockCount}
+        indicatorPosition={pagerPosition}
+        onTabChange={onTabChange}
+        onWebsiteCount={onWebsiteCount}
+      />
+    );
+  }
 
+  return (
+    <SpringTopTabBar
+      activeTab={activeTab}
+      inStockCount={inStockCount}
+      onTabChange={onTabChange}
+      onWebsiteCount={onWebsiteCount}
+    />
+  );
+}
+
+function SpringTopTabBar({
+  activeTab,
+  inStockCount,
+  onTabChange,
+  onWebsiteCount,
+}: Omit<TopTabBarProps, 'pagerPosition'>) {
   // 0 represents 'in_stock', 1 represents 'on_website'
   const activeIndex = useSharedValue(activeTab === 'in_stock' ? 0 : 1);
 
@@ -46,11 +79,34 @@ export function TopTabBar({
     });
   }, [activeTab, activeIndex]);
 
+  return (
+    <TopTabBarContent
+      activeTab={activeTab}
+      inStockCount={inStockCount}
+      indicatorPosition={activeIndex}
+      onTabChange={onTabChange}
+      onWebsiteCount={onWebsiteCount}
+    />
+  );
+}
+
+function TopTabBarContent({
+  activeTab,
+  inStockCount,
+  indicatorPosition,
+  onTabChange,
+  onWebsiteCount,
+}: Omit<TopTabBarProps, 'pagerPosition'> & {
+  indicatorPosition: SharedValue<number>;
+}) {
+  const { colors } = useTheme();
+  const [containerWidth, setContainerWidth] = useState(0);
+
   const tabWidth = containerWidth / 2;
 
   const indicatorStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ translateX: activeIndex.value * tabWidth }],
+      transform: [{ translateX: indicatorPosition.value * tabWidth }],
     };
   });
 
@@ -66,6 +122,7 @@ export function TopTabBar({
     <View
       onLayout={handleLayout}
       style={[styles.container, { borderBottomColor: colors.border }]}
+      testID="top-tab-bar"
     >
       <Animated.View
         style={[
@@ -73,6 +130,7 @@ export function TopTabBar({
           { backgroundColor: colors.primary },
           indicatorStyle,
         ]}
+        testID="top-tab-indicator"
       />
       <Pressable
         accessibilityLabel={`In Stock tab ${activeTab === 'in_stock' ? 'selected' : 'not selected'}`}

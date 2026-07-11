@@ -1,28 +1,21 @@
-const orderDetailsPriceFormatterCache = new Map<string, Intl.NumberFormat>();
+import { formatMerchantAmount } from '@/lib/format-merchant-currency';
 
-function getOrderDetailsPriceFormatter(currency: string): Intl.NumberFormat {
-  let formatter = orderDetailsPriceFormatterCache.get(currency);
-  if (!formatter) {
-    formatter = new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-    });
-    orderDetailsPriceFormatterCache.set(currency, formatter);
-  }
-  return formatter;
-}
-
+/**
+ * Formats an order amount using the currency's own locale conventions
+ * (`formatMerchantAmount`) instead of hardcoding `en-NG` for every currency.
+ * `formatMerchantAmount` already normalizes unsupported currency codes down
+ * to NGN, so no try/catch around an invalid `Intl.NumberFormat` currency is
+ * needed here.
+ */
 export function formatOrderDetailsPrice(
   amount: number,
   merchantCurrency: string
 ) {
-  try {
-    return getOrderDetailsPriceFormatter(merchantCurrency).format(amount);
-  } catch (error) {
-    console.warn('[OrderDetails] Invalid currency for price format', error);
-    return getOrderDetailsPriceFormatter('NGN').format(amount);
-  }
+  return formatMerchantAmount(
+    amount,
+    { payout_currency: merchantCurrency },
+    { minimumFractionDigits: 0 }
+  );
 }
 
 export function parseOrderDetailsCurrencyInput(formattedValue: string) {

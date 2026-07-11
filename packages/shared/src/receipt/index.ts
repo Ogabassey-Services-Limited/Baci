@@ -12,6 +12,13 @@ export {
   resolveReceiptItemFulfillmentDetails,
   shouldAttachFulfillmentToItem,
 } from './receipt-fulfillment';
+export {
+  getReceiptDisplaySubtotal,
+  getReceiptVatRate,
+  shouldShowVatLine,
+  type VatBreakdownMerchant,
+  type VatBreakdownOrder,
+} from './receipt-money';
 export { sanitizeSvg } from './sanitize-svg';
 export type {
   ReceiptFulfillmentDetails,

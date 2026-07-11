@@ -1,4 +1,4 @@
-import { getCachedBlogPost } from '@/lib/cached-data';
+import { getRequestScopedBlogPost } from '@/lib/cached-data';
 import { getLiveBlogPost } from '@/lib/live-blog-post';
 
 type ResolvedBlogPost = Awaited<ReturnType<typeof getLiveBlogPost>>;
@@ -9,7 +9,14 @@ export async function getResolvedBlogPost(
   isDraftMode: boolean
 ): Promise<ResolvedBlogPost> {
   try {
-    const cachedData = await getCachedBlogPost(slug, postSlug, isDraftMode);
+    // Request-scoped (React cache()) — reuses the same Promise generateMetadata
+    // and the hero-shell resolver already awaited for this identifier/postSlug/
+    // includeDrafts tuple instead of a second Supabase round-trip.
+    const cachedData = await getRequestScopedBlogPost(
+      slug,
+      postSlug,
+      isDraftMode
+    );
 
     if (cachedData) {
       return cachedData;

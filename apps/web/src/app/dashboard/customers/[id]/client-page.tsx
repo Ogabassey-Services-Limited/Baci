@@ -32,26 +32,15 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PhoneInput } from '@/components/ui/phone-input';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { apiDelete, apiPatch } from '@/lib/api-client';
+import {
+  formatAmountInCurrency,
+  formatMerchantCurrency,
+  resolveMerchantCurrencyConfig,
+} from '@/lib/resolve-merchant-currency';
 import type { Customer, CustomerOrder } from '../actions';
-
-const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
-function getCurrencyFormatter(
-  locale: string,
-  currency: string
-): Intl.NumberFormat {
-  const key = `${locale}:${currency}`;
-  let formatter = _currencyFormatterCache.get(key);
-  if (!formatter) {
-    formatter = new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency,
-    });
-    _currencyFormatterCache.set(key, formatter);
-  }
-  return formatter;
-}
 
 interface CustomerDetailClientPageProps {
   initialCustomer: Customer;
@@ -93,6 +82,7 @@ export default function CustomerDetailClientPage({
 }: CustomerDetailClientPageProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { merchant } = useMerchant();
   const [customer, setCustomer] = useState<Customer>(initialCustomer);
   const [orders] = useState<CustomerOrder[]>(initialOrders);
 
@@ -189,18 +179,18 @@ export default function CustomerDetailClientPage({
     }
   };
 
-  const formatCurrency = (
-    amount: number,
-    locale?: string,
-    currency?: string
-  ) => {
-    // Fallback to browser locale and NGN if not specified
-    const userLocale =
-      locale ||
-      (typeof navigator !== 'undefined' ? navigator.language : 'en-US');
-    const userCurrency = currency || 'NGN';
-    return getCurrencyFormatter(userLocale, userCurrency).format(amount);
-  };
+  const formatCurrency = (amount: number) =>
+    formatMerchantCurrency(amount, merchant ?? {});
+
+  // Orders stamp their own currency at checkout time. Historical orders may
+  // predate a merchant payout-currency change, so each order row must format
+  // with its own currency, falling back to the merchant's current currency
+  // only when the row has none.
+  const merchantCurrencyCode = resolveMerchantCurrencyConfig(
+    merchant ?? {}
+  ).code;
+  const formatOrderCurrency = (order: CustomerOrder) =>
+    formatAmountInCurrency(order.total, order.currency ?? merchantCurrencyCode);
 
   if (!customer) {
     return <div>Customer not found</div>;
@@ -557,7 +547,7 @@ export default function CustomerDetailClientPage({
                         <div>
                           <p className="text-muted-foreground">Total</p>
                           <p className="font-medium">
-                            {formatCurrency(order.total)}
+                            {formatOrderCurrency(order)}
                           </p>
                         </div>
                         <div>

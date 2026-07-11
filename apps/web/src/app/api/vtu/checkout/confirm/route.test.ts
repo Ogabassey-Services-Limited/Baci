@@ -159,7 +159,7 @@ function createMockFrom({
       return {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
+            maybeSingle: vi.fn().mockResolvedValue({
               data: { id: 'merchant-1' },
               error: null,
             }),

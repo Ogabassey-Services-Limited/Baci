@@ -11,6 +11,17 @@ export const SHIPPING_PROVIDER_CODES = ['GIGL', 'TOPSHIP'] as const;
 
 export type ShippingProviderCode = (typeof SHIPPING_PROVIDER_CODES)[number];
 
+/**
+ * A provider returned a definitive rejection for a booking attempt. Unlike a
+ * timeout or transport error, this means the caller can safely allow a retry.
+ */
+export class ShippingBookingRejectedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ShippingBookingRejectedError';
+  }
+}
+
 // =============================================================================
 // ADDRESS TYPES
 // =============================================================================
@@ -60,6 +71,7 @@ export interface QuoteRequest {
   receiver: ShippingAddress;
   items: ShipmentItem[];
   shipmentType: 'domestic' | 'international';
+  deliveryPreference?: 'door' | 'pickup_station';
 }
 
 export interface ShippingQuote {
@@ -85,10 +97,12 @@ export interface ShippingQuote {
   stationId?: number;
   stationName?: string;
   stationAddress?: string;
+  stationCode?: string;
   // Legacy aliases
   pickupStationId?: number;
   pickupStationName?: string;
   pickupStationAddress?: string;
+  pickupStationCode?: string;
 }
 
 export interface QuoteResponse {
@@ -205,8 +219,8 @@ export interface CancellationResult {
 // =============================================================================
 
 export interface SelfFulfillmentData {
-  trackingNumber: string;
-  dispatchPhone: string;
+  trackingNumber?: string | null;
+  dispatchPhone?: string | null;
   carrierName?: string;
 }
 

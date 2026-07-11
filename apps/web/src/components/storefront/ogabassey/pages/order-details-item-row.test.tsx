@@ -13,6 +13,14 @@ vi.mock('next/image', () => ({
   }) => <img alt={alt} src={src} />,
 }));
 
+// Item images now render through CdnFormatImage (explicit per-format <picture>);
+// surface it as a plain <img> so these tests keep asserting row behavior.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: ({ alt, src }: { alt?: string; src?: string }) => (
+    <img alt={String(alt ?? '')} src={src} />
+  ),
+}));
+
 vi.mock('next/link', () => ({
   default: ({
     children,

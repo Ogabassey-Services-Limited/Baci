@@ -1,3 +1,4 @@
+import { formatOrderItemDisplayName } from '@baci/shared/lib';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import {
@@ -350,7 +351,7 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', transaction.order_id)
         .select(
-          'id, order_number, merchant_id, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, cancelled_at, updated_at, ad_tracking, order_items(id, product_id, name, price, quantity, subtotal, variant_name)'
+          'id, order_number, merchant_id, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, cancelled_at, updated_at, ad_tracking, order_items(id, product_id, condition, name, price, quantity, variant_name)'
         )
         .single();
 
@@ -383,7 +384,7 @@ export async function POST(request: NextRequest) {
           name: string;
           price: number;
           quantity: number;
-          subtotal: number;
+          condition: string | null;
           variant_name: string | null;
         }>;
       } | null;
@@ -477,13 +478,15 @@ export async function POST(request: NextRequest) {
               process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
             const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
 
-            const emailItems = (order.order_items || []).map(
-              (item: Record<string, unknown>) => ({
-                name: (item.name as string) || 'Product',
-                quantity: (item.quantity as number) || 1,
-                price: (item.price as number) || 0,
-              })
-            );
+            const emailItems = (order.order_items || []).map((item) => ({
+              name: formatOrderItemDisplayName({
+                baseName: item.name || 'Product',
+                condition: item.condition,
+                variantName: item.variant_name,
+              }),
+              quantity: item.quantity || 1,
+              price: item.price || 0,
+            }));
 
             const emailData = {
               orderNumber:
@@ -493,6 +496,7 @@ export async function POST(request: NextRequest) {
               subtotal: Number.parseFloat(order.subtotal || '0'),
               shippingFee: Number.parseFloat(order.shipping_fee || '0'),
               total: Number.parseFloat(order.total || '0'),
+              currency: order.currency || 'NGN',
               shippingAddress: {
                 address: order.shipping_address?.address || '',
                 city: order.shipping_address?.city || '',

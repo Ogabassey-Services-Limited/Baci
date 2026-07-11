@@ -85,13 +85,19 @@ describe('buildOgabasseyPdpDeferredProductPayload', () => {
 
     expect(payload.tabProduct).toMatchObject({
       categorySlug: 'laptops',
-      description: 'Creator laptop with RTX graphics.',
       image: 'https://cdn.ogabassey.com/core-assets/products/variant.avif',
       name: 'Lenovo Legion Pro 9',
       platforms: ['Windows'],
       reviewCount: 12,
       storage: ['1TB'],
     });
+    // The description is returned out-of-band and NEVER serialized into the
+    // client tab payload (multi-KB HTML kept off the RSC/flight wire).
+    expect(payload.description).toBe('Creator laptop with RTX graphics.');
+    expect(payload.tabProduct).not.toHaveProperty('description');
+    expect(JSON.stringify(payload.tabProduct)).not.toContain(
+      'Creator laptop with RTX graphics.'
+    );
     expect(payload.tabProduct.images).toEqual([
       'https://cdn.ogabassey.com/core-assets/products/variant.avif',
       'https://cdn.ogabassey.com/core-assets/products/legion.avif',
@@ -126,8 +132,9 @@ describe('buildOgabasseyPdpDeferredProductPayload', () => {
       stock: 0,
     });
     expect(payload.relatedProduct.categories).toBeNull();
+    expect(payload.description).toBe('No description available.');
+    expect(payload.tabProduct).not.toHaveProperty('description');
     expect(payload.tabProduct).toMatchObject({
-      description: 'No description available.',
       image: '/placeholder.svg',
       images: ['/placeholder.svg'],
       platforms: [],

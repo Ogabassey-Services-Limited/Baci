@@ -106,6 +106,11 @@ export async function getCachedStorefrontProductIndex(
     .eq('status', 'active')
     .or('is_parent.eq.true,parent_product_id.is.null')
     .order('created_at', { ascending: false })
+    // Unique tiebreaker: bulk catalog syncs give many rows identical
+    // created_at, and without a total order the same product can appear on
+    // two pages (or neither) when generateStaticParams walks the index
+    // page-by-page. `id` makes pagination deterministic.
+    .order('id', { ascending: true })
     .range(offset, offset + limit - 1);
 
   if (error) {

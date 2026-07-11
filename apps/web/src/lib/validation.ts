@@ -54,7 +54,51 @@ export const RESERVED_PATHS = new Set([
   'delete-account',
   'images',
   'product',
+  'staff',
+  'signup',
+  'forgot-password',
+  'update-password',
+  'verify',
 ]);
+
+/**
+ * Infrastructure subdomains that must not back a merchant storefront (they collide
+ * with platform mail/app/CDN hosts). RESERVED_PATHS already covers the storefront
+ * ROUTE words; these are the extra host-level names. This set MUST equal
+ * RESERVED_SUBDOMAINS in proxy.ts (subdomain->storefront routing) and the infra
+ * names in the database's `is_reserved_merchant_slug()` (migration 20260707074000)
+ * — keep all three in sync.
+ */
+const INFRA_RESERVED_SUBDOMAINS = new Set([
+  'www',
+  'app',
+  'api',
+  'admin',
+  'dashboard',
+  'mail',
+  'smtp',
+  'assets',
+  'static',
+  'cdn',
+  'status',
+  'support',
+  'help',
+]);
+
+/**
+ * True when a slug may NOT be assigned to a NEW/renamed merchant because the proxy
+ * and resolvers treat it as a platform route or infra host (it would serve "Store
+ * Not Found"). This is the app-side mirror of the DB `is_reserved_merchant_slug()`
+ * guard — used for a friendly, pre-signup rejection so an explicit reserved choice
+ * can't orphan a just-created auth user.
+ * @param slug The candidate slug (case-insensitive).
+ */
+export function isReservedMerchantSlug(slug: string): boolean {
+  const normalized = slug.trim().toLowerCase();
+  return (
+    RESERVED_PATHS.has(normalized) || INFRA_RESERVED_SUBDOMAINS.has(normalized)
+  );
+}
 
 /**
  * Checks if the identifier looks like a domain name (contains a dot).
@@ -85,18 +129,33 @@ export function isDomainIdentifier(identifier: string): boolean {
 }
 
 /**
+ * Checks if the string has valid merchant-slug SHAPE (format + length), IGNORING
+ * whether it is a reserved path. A retired slug that later became reserved (e.g. a
+ * store that used 'staff' before 'staff' was reserved, then renamed) is still a
+ * legitimate alias key — callers that resolve aliases must recognize its shape
+ * even though it can no longer be a live slug.
+ * @param slug The string to check.
+ * @returns True if it is well-formed and not a domain/file-extension.
+ */
+export function isSlugShapedIdentifier(slug: string): boolean {
+  return (
+    typeof slug === 'string' &&
+    !!slug.trim() &&
+    slug.length <= MAX_MERCHANT_IDENTIFIER_LENGTH &&
+    !slug.includes('.') && // No file extensions
+    VALID_SLUG_REGEX.test(slug.toLowerCase())
+  );
+}
+
+/**
  * Checks if the string is a valid merchant slug.
  * @param slug The string to check.
  * @returns True if valid format and not a reserved path.
  */
 export function isValidMerchantSlug(slug: string): boolean {
   return (
-    typeof slug === 'string' &&
-    !!slug.trim() &&
-    slug.length <= MAX_MERCHANT_IDENTIFIER_LENGTH &&
-    !slug.includes('.') && // No file extensions
-    !RESERVED_PATHS.has(slug.toLowerCase()) && // Not a reserved path
-    VALID_SLUG_REGEX.test(slug.toLowerCase())
+    isSlugShapedIdentifier(slug) && // format + length, not a domain
+    !RESERVED_PATHS.has(slug.toLowerCase()) // Not a reserved path
   );
 }
 

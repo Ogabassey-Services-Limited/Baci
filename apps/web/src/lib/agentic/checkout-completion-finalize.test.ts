@@ -7,6 +7,10 @@ import {
 } from '@/lib/agentic/checkout-order-dispatch';
 import { buildOrderFinalizationClaim } from '@/lib/agentic/checkout-order-finalization-claim';
 import { storeAgenticIdempotencyResponse } from '@/lib/agentic/idempotency';
+import {
+  revalidateProductSlugs,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
 
 vi.mock('@/lib/agentic/checkout-order-dispatch', () => ({
   createAgenticCheckoutOrder: vi.fn(),
@@ -16,6 +20,11 @@ vi.mock('@/lib/agentic/checkout-order-dispatch', () => ({
 
 vi.mock('@/lib/agentic/idempotency', () => ({
   storeAgenticIdempotencyResponse: vi.fn(),
+}));
+
+vi.mock('@/lib/cache-revalidation', () => ({
+  revalidateProductSlugs: vi.fn(),
+  revalidateProducts: vi.fn(),
 }));
 
 const buyer = {
@@ -76,8 +85,29 @@ function createUpdateChain(
   return chain;
 }
 
+function createProductsChain(
+  data: Array<{ slug: string }> | null = [],
+  error: unknown = null
+) {
+  const chain: {
+    eq: ReturnType<typeof vi.fn>;
+    in: ReturnType<typeof vi.fn>;
+    returns: ReturnType<typeof vi.fn>;
+    select: ReturnType<typeof vi.fn>;
+  } = {
+    eq: vi.fn(() => chain),
+    in: vi.fn(() => chain),
+    returns: vi.fn().mockResolvedValue({ data, error }),
+    select: vi.fn(() => chain),
+  };
+  return chain;
+}
+
 function createSupabaseWithUpdateChains(
-  chains: ReturnType<typeof createUpdateChain>[]
+  chains: ReturnType<typeof createUpdateChain>[],
+  productsChain: ReturnType<typeof createProductsChain> = createProductsChain([
+    { slug: 'product-1-slug' },
+  ])
 ) {
   const update = vi.fn(() => {
     const chain = chains.shift();
@@ -89,6 +119,9 @@ function createSupabaseWithUpdateChains(
 
   return {
     from: vi.fn((table: string) => {
+      if (table === 'products') {
+        return productsChain;
+      }
       if (table !== 'checkout_sessions') {
         throw new Error(`Unexpected table ${table}`);
       }
@@ -98,7 +131,10 @@ function createSupabaseWithUpdateChains(
   };
 }
 
-function finalizeInput(supabase: unknown) {
+function finalizeInput(
+  supabase: unknown,
+  overrides: { orderSessionCalc?: typeof sessionCalc } = {}
+) {
   return {
     buyer,
     dvaAccount,
@@ -111,7 +147,7 @@ function finalizeInput(supabase: unknown) {
       session_id: 'agentic_session_1',
       shipping_address: { city: 'Lagos' },
     },
-    orderSessionCalc: sessionCalc,
+    orderSessionCalc: overrides.orderSessionCalc ?? sessionCalc,
     requestId: 'req_123',
     route: 'checkout_sessions.complete',
     sessionId: 'agentic_session_1',
@@ -146,6 +182,8 @@ describe('finalizeAgenticCheckoutPayment', () => {
       error: 'Session finalization already in progress',
     });
     expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
+    expect(revalidateProducts).not.toHaveBeenCalled();
+    expect(revalidateProductSlugs).not.toHaveBeenCalled();
     expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         key: 'idem-1',
@@ -170,6 +208,8 @@ describe('finalizeAgenticCheckoutPayment', () => {
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'Database error' });
     expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
+    expect(revalidateProducts).not.toHaveBeenCalled();
+    expect(revalidateProductSlugs).not.toHaveBeenCalled();
     expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         key: 'idem-1',
@@ -202,6 +242,8 @@ describe('finalizeAgenticCheckoutPayment', () => {
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'Order creation failed' });
     expect(body).not.toHaveProperty('details');
+    expect(revalidateProducts).not.toHaveBeenCalled();
+    expect(revalidateProductSlugs).not.toHaveBeenCalled();
   });
 
   it('cancels the created order and releases the claim when session finalization fails', async () => {
@@ -231,6 +273,15 @@ describe('finalizeAgenticCheckoutPayment', () => {
 
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'Database error' });
+    // Stock was already decremented by the successful create_storefront_order
+    // call above — the cache bust fires on creation, independent of whether
+    // this later session-finalization step (and the resulting cancellation)
+    // succeeds. A restock-on-cancel cache bust is a separate, unaddressed gap.
+    expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith('merchant-1');
+    expect(revalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
+      'merchant-1',
+      ['product-1-slug']
+    );
     expect(markAgenticCheckoutOrderCanceled).toHaveBeenCalledWith(
       expect.objectContaining({
         merchantId: 'merchant-1',
@@ -313,6 +364,11 @@ describe('finalizeAgenticCheckoutPayment', () => {
 
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'Database error' });
+    expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith('merchant-1');
+    expect(revalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
+      'merchant-1',
+      ['product-1-slug']
+    );
     expect(markAgenticCheckoutOrderCanceled).toHaveBeenCalled();
     expect(releaseChain.contains).not.toHaveBeenCalled();
     expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
@@ -362,5 +418,129 @@ describe('finalizeAgenticCheckoutPayment', () => {
     });
     expect(markAgenticCheckoutOrderCanceled).not.toHaveBeenCalled();
     expect(sendAgenticOrderCreatedWebhook).toHaveBeenCalled();
+    expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith('merchant-1');
+    expect(revalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
+      'merchant-1',
+      ['product-1-slug']
+    );
+  });
+
+  it('completes checkout when revalidateProducts throws (guarded, best-effort)', async () => {
+    vi.mocked(revalidateProducts).mockImplementationOnce(() => {
+      throw new Error('revalidate boom');
+    });
+    const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const markerChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const finalChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const supabase = createSupabaseWithUpdateChains([
+      claimChain,
+      markerChain,
+      finalChain,
+    ]);
+    vi.mocked(createAgenticCheckoutOrder).mockResolvedValue({
+      data: { order: { id: 'order-1' } },
+      error: undefined,
+      ok: true,
+      orderId: 'order-1',
+      status: 201,
+      statusText: 'Created',
+    });
+
+    const response = await finalizeAgenticCheckoutPayment(
+      finalizeInput(supabase)
+    );
+
+    expect(response.status).toBe(200);
+    expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith('merchant-1');
+    // revalidateProducts() threw synchronously, so the rest of the try block
+    // (including the slug lookup) never runs.
+    expect(revalidateProductSlugs).not.toHaveBeenCalled();
+  });
+
+  it('revalidates the touched product slugs after a successful order', async () => {
+    const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const markerChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const finalChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const productsChain = createProductsChain([{ slug: 'phone-slug' }]);
+    const supabase = createSupabaseWithUpdateChains(
+      [claimChain, markerChain, finalChain],
+      productsChain
+    );
+    vi.mocked(createAgenticCheckoutOrder).mockResolvedValue({
+      data: { order: { id: 'order-1' } },
+      error: undefined,
+      ok: true,
+      orderId: 'order-1',
+      status: 201,
+      statusText: 'Created',
+    });
+
+    const response = await finalizeAgenticCheckoutPayment(
+      finalizeInput(supabase)
+    );
+
+    expect(response.status).toBe(200);
+    expect(productsChain.select).toHaveBeenCalledWith('slug');
+    expect(productsChain.in).toHaveBeenCalledWith('id', ['product-1']);
+    expect(revalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
+      'merchant-1',
+      ['phone-slug']
+    );
+  });
+
+  it('logs and still completes checkout when the slug lookup fails', async () => {
+    const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const markerChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const finalChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const productsChain = createProductsChain(null, { message: 'db down' });
+    const supabase = createSupabaseWithUpdateChains(
+      [claimChain, markerChain, finalChain],
+      productsChain
+    );
+    vi.mocked(createAgenticCheckoutOrder).mockResolvedValue({
+      data: { order: { id: 'order-1' } },
+      error: undefined,
+      ok: true,
+      orderId: 'order-1',
+      status: 201,
+      statusText: 'Created',
+    });
+
+    const response = await finalizeAgenticCheckoutPayment(
+      finalizeInput(supabase)
+    );
+
+    expect(response.status).toBe(200);
+    expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith('merchant-1');
+    expect(revalidateProductSlugs).not.toHaveBeenCalled();
+  });
+
+  it('skips the slug lookup entirely when there are no line items', async () => {
+    const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const markerChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const finalChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const productsChain = createProductsChain([{ slug: 'unused-slug' }]);
+    const supabase = createSupabaseWithUpdateChains(
+      [claimChain, markerChain, finalChain],
+      productsChain
+    );
+    vi.mocked(createAgenticCheckoutOrder).mockResolvedValue({
+      data: { order: { id: 'order-1' } },
+      error: undefined,
+      ok: true,
+      orderId: 'order-1',
+      status: 201,
+      statusText: 'Created',
+    });
+
+    const response = await finalizeAgenticCheckoutPayment(
+      finalizeInput(supabase, {
+        orderSessionCalc: { ...sessionCalc, lineItems: [] },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(productsChain.select).not.toHaveBeenCalled();
+    expect(revalidateProductSlugs).not.toHaveBeenCalled();
   });
 });

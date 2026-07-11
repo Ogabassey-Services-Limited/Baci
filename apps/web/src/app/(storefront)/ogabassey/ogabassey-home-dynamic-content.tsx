@@ -12,6 +12,7 @@ import {
   getCachedStorefrontHomeProducts,
   type getRequestScopedMerchant,
 } from '@/lib/cached-data';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { asRoute } from '@/lib/routes';
 import {
   generateCollectionPageSchema,
@@ -114,7 +115,10 @@ export async function OgabasseyHomeDynamicContent({
     // boundary so LCP discovery is not gated on product-grid/category queries.
     // loadOgabasseyLaunchProducts is best-effort (never rejects), so a launch
     // feed failure degrades to empty schema coverage instead of failing the page.
-    loadOgabasseyLaunchProducts(merchant.id),
+    loadOgabasseyLaunchProducts(
+      merchant.id,
+      resolveMerchantCurrencyConfig(merchant)
+    ),
   ]);
   const merchantProducts = mapHomeProductsToTemplateProducts(products || []);
   // Inventory (manage_stock/stock) lives only on the template rows; the display
@@ -133,6 +137,7 @@ export async function OgabasseyHomeDynamicContent({
     { limit: OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT }
   );
   const baseUrl = buildStoreUrl(merchant);
+  const merchantCurrency = resolveMerchantCurrencyConfig(merchant);
   const homeDescription = generateMetaDescription(
     merchant.site_description ||
       merchant.site_tagline ||
@@ -168,7 +173,7 @@ export async function OgabasseyHomeDynamicContent({
             };
           }),
           merchantName: merchant.business_name,
-          currency: merchant.payout_currency || 'NGN',
+          currency: merchantCurrency.code,
         })
       : null;
   const categoryDiscoveryLinks = Array.from(
@@ -227,7 +232,10 @@ export async function OgabasseyHomeDynamicContent({
         categories={categories || []}
         launchProducts={launchProducts}
         renderHero={false}
-        products={createOgabasseyHomeProductFeed(merchantProducts)}
+        products={createOgabasseyHomeProductFeed(
+          merchantProducts,
+          merchantCurrency
+        )}
         storeSlug={merchant.slug}
       />
       <section

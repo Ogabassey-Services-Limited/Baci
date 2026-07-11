@@ -10,10 +10,10 @@ import {
   ShoppingCart,
   Star,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useState } from 'react';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { PLACEHOLDER_IMAGE } from '@/lib/image-utils';
 import { asRoute } from '@/lib/routes';
 import { getProductUrl } from '@/lib/seo-utils';
@@ -143,11 +143,19 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         )}
 
         <div className="relative w-3/4 h-3/4 z-10 transition-all duration-500 md:group-hover:scale-110">
-          <Image
+          <CdnFormatImage
             src={currentImage.src}
             alt={currentImageAlt}
             fill
             sizes="(max-width: 768px) 100px, 200px"
+            // A cached image on the SSR'd native <img> can be `complete` before
+            // hydration attaches onLoad — without this mount-time check the card
+            // would keep its skeleton and hold the image at opacity-0.
+            ref={(img) => {
+              if (img?.complete && img.naturalWidth > 0) {
+                setLoadedImageSrc(currentImage.src);
+              }
+            }}
             onLoad={() => setLoadedImageSrc(currentImage.src)}
             className={`object-contain mix-blend-multiply ${isImageLoaded ? 'opacity-100' : 'opacity-0'}`}
           />

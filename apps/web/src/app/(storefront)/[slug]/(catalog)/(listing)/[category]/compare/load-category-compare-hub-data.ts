@@ -4,7 +4,7 @@ import {
 } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
 import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
-import { loadSemanticInventorySafely } from '@/lib/storefront-product/load-semantic-inventory-safely';
+import { getCachedProductSemanticInventory } from '@/lib/storefront-product/get-cached-product-semantic-inventory';
 import type { ProductSemanticCandidate } from '@/lib/storefront-product/product-semantic-types';
 
 type CachedCategory = Awaited<ReturnType<typeof getCachedCategories>>[number];
@@ -13,6 +13,10 @@ interface CategoryCompareHubProductGroup {
   categoryName: string;
   categorySlug: string;
   products: ProductSemanticCandidate[];
+  // True when this group's inventory load THREW (fail-open to []). Consumers
+  // must not treat a degraded empty hub as genuinely empty — a transient
+  // failure must never become a (briefly edge-cacheable) 404 on a live hub.
+  inventoryLoadFailed: boolean;
 }
 
 function isVisibleCategory(category: CachedCategory) {
@@ -51,15 +55,28 @@ function buildCategoryProductGroups(input: {
       seenSlugs.add(categorySlug);
 
       return [
-        loadSemanticInventorySafely({
-          categorySlug,
-          merchantId: input.merchantId,
-          warningMessage: 'Failed to load category compare hub inventory',
-        }).then((products) => ({
-          categoryName,
-          categorySlug,
-          products,
-        })),
+        getCachedProductSemanticInventory(input.merchantId, categorySlug).then(
+          (products) => ({
+            categoryName,
+            categorySlug,
+            products,
+            inventoryLoadFailed: false,
+          }),
+          (error: unknown) => {
+            console.warn('Failed to load category compare hub inventory', {
+              categorySlug,
+              merchantId: input.merchantId,
+              error,
+            });
+
+            return {
+              categoryName,
+              categorySlug,
+              products: [],
+              inventoryLoadFailed: true,
+            };
+          }
+        ),
       ];
     })
   );
@@ -102,8 +119,15 @@ export async function loadCategoryCompareHubData(input: {
     categoryName: category.name,
     categorySlug: requestedCategorySlug,
     merchant,
-    productGroups,
+    productGroups: productGroups.map(
+      ({ categoryName, categorySlug, products }) => ({
+        categoryName,
+        categorySlug,
+        products,
+      })
+    ),
     products: productGroups.flatMap((group) => group.products),
+    inventoryDegraded: productGroups.some((group) => group.inventoryLoadFailed),
     storeUrl: buildStoreUrl(merchant),
   };
 }

@@ -2,18 +2,35 @@
 
 import { useState, useSyncExternalStore } from 'react';
 import {
+  AD_ATTRIBUTION_UPDATED_EVENT,
   type AdTrackingData,
   generateEventId,
   getAdTrackingData,
   shouldApplyLimitedDataUse,
 } from '@/lib/ad-tracking-cookies';
 
-// Cookies are written by middleware before the app mounts and don't change
-// during a session, so the "store" never emits. An empty subscribe matches the
-// original effect's `[]`-deps single read.
+// The California/LDU snapshot derives from the (static) timezone, so its store
+// never emits. An empty subscribe matches the original effect's `[]`-deps read.
 function subscribeNoop(): () => void {
   return () => {
-    // No-op: cookie values are static for the lifetime of the session.
+    // No-op: locale is static for the lifetime of the session.
+  };
+}
+
+// Ad-tracking cookies are now set asynchronously by /api/attr (PR-ATTR) rather
+// than synchronously by middleware, so on a direct ad→checkout landing the
+// cookie can land AFTER this hook's first snapshot. Subscribe to the capture
+// script's post-fetch event so useSyncExternalStore re-reads the cookies once
+// they exist, before the order is submitted.
+function subscribeAdTracking(callback: () => void): () => void {
+  if (typeof window === 'undefined') {
+    return () => {
+      // No client window: nothing to subscribe to.
+    };
+  }
+  window.addEventListener(AD_ATTRIBUTION_UPDATED_EVENT, callback);
+  return () => {
+    window.removeEventListener(AD_ATTRIBUTION_UPDATED_EVENT, callback);
   };
 }
 
@@ -115,7 +132,7 @@ export function useAdTracking() {
   // snapshots match the pre-hydration markup) and lets React Compiler memoize
   // the hook, which a synchronous setState inside an effect would prevent.
   const trackingData = useSyncExternalStore(
-    subscribeNoop,
+    subscribeAdTracking,
     getTrackingDataSnapshot,
     getTrackingDataServerSnapshot
   );

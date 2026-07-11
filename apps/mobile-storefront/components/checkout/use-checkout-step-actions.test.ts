@@ -1,15 +1,19 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { renderHook } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import {
   PICKUP_STATION_CITY,
   PICKUP_STATION_STATE,
 } from '@/components/checkout/pickup-station.constants';
 import type { ShippingQuote } from '@/components/checkout/types';
+import type { ShippingAddressInput } from '@/lib/validation';
 import { useCheckoutStepActions } from './use-checkout-step-actions';
 
 // useCheckoutSubmit pulls in the full order-submission stack; the address-step
 // continue logic under test never calls it, so a no-op keeps the test focused.
-jest.mock('./use-checkout-submit', () => ({ useCheckoutSubmit: () => jest.fn() }));
+jest.mock('./use-checkout-submit', () => ({
+  useCheckoutSubmit: () => jest.fn(),
+}));
 jest.mock('@/services/analytics', () => ({ trackCheckoutStep: jest.fn() }));
 jest.mock('@/services/tiktok-checkout-route-tracking', () => ({
   trackCheckoutRoutePaymentInfo: jest.fn(),
@@ -18,28 +22,43 @@ jest.mock('@/services/tiktok-checkout-route-tracking', () => ({
 type Params = Parameters<typeof useCheckoutStepActions>[0];
 
 function renderStepActions(overrides: Partial<Params>) {
+  const resetPaymentSelection = jest.fn();
   const setValue = jest.fn();
+  const submitHandler = jest.fn();
   // handleSubmit returns the actual submit handler; the address branch invokes
   // it but the returned handler is a no-op here (validation isn't under test).
-  const handleSubmit = jest.fn(() => jest.fn());
+  const handleSubmit = jest.fn(() => submitHandler);
   const params = {
     handleSubmit,
     setValue,
     setStep: jest.fn(),
     setIsContactCollapsed: jest.fn(),
     setIsDeliveryCollapsed: jest.fn(),
+    resetPaymentSelection,
     selectedPayment: 'paystack',
     step: 'address',
     deliveryMethod: 'pickup_station',
+    requiresShippingQuote: false,
     selectedQuote: undefined,
     ...overrides,
   } as unknown as Params;
 
   const { result } = renderHook(() => useCheckoutStepActions(params));
-  return { result, setValue };
+  return { resetPaymentSelection, result, setValue, submitHandler };
 }
 
 describe('useCheckoutStepActions — address continue', () => {
+  it('clears payment selection before entering the payment step', () => {
+    const { resetPaymentSelection, result } = renderStepActions({});
+
+    result.current.onAddressSubmit({
+      city: 'Port Harcourt',
+      state: 'Rivers',
+    } as ShippingAddressInput);
+
+    expect(resetPaymentSelection).toHaveBeenCalledTimes(1);
+  });
+
   it('fills the station address but preserves city/state for a provider station-pickup quote', () => {
     // A paid GIGL station-pickup quote depends on the customer's real city/state
     // for its quote context — those must NOT be overwritten with the merchant's
@@ -75,7 +94,9 @@ describe('useCheckoutStepActions — address continue', () => {
   });
 
   it('rewrites city/state to the merchant Lagos pickup when there is no provider quote', () => {
-    const { result, setValue } = renderStepActions({ selectedQuote: undefined });
+    const { result, setValue } = renderStepActions({
+      selectedQuote: undefined,
+    });
 
     result.current.handleContinue();
 
@@ -85,5 +106,48 @@ describe('useCheckoutStepActions — address continue', () => {
     expect(setValue).toHaveBeenCalledWith('state', PICKUP_STATION_STATE, {
       shouldValidate: true,
     });
+  });
+
+  it('blocks non-Lagos provider pickup until a station quote is selected', () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { result, setValue, submitHandler } = renderStepActions({
+      requiresShippingQuote: true,
+      selectedQuote: undefined,
+    });
+
+    result.current.handleContinue();
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Shipping Required',
+      'Please select an available GIGL pickup station before continuing.'
+    );
+    expect(setValue).not.toHaveBeenCalledWith(
+      'city',
+      PICKUP_STATION_CITY,
+      expect.anything()
+    );
+    expect(setValue).not.toHaveBeenCalledWith(
+      'state',
+      PICKUP_STATION_STATE,
+      expect.anything()
+    );
+    expect(submitHandler).not.toHaveBeenCalled();
+  });
+});
+
+describe('useCheckoutStepActions — payment continue', () => {
+  it('asks the customer to choose a payment method when none is selected', () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { result } = renderStepActions({
+      selectedPayment: null,
+      step: 'payment',
+    });
+
+    result.current.handleContinue();
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Select Payment Method',
+      'Choose how you want to pay before continuing to review.'
+    );
   });
 });

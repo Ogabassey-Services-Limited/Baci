@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -75,6 +76,26 @@ describe('ProductsStatCards', () => {
     screen.getByText('5');
     screen.getByText('Out of Stock');
     screen.getByText('2');
+  });
+
+  it('keeps inventory metrics in a single bounded horizontal strip', () => {
+    vi.mocked(useInventoryStats).mockReturnValue({
+      data: {
+        inventoryValue: 50000,
+        inventoryCost: 30000,
+        totalStock: 100,
+        lowStockCount: 5,
+        outOfStockCount: 2,
+      },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useInventoryStats>);
+
+    render(<ProductsStatCards activeTab="in_stock" />);
+
+    expect(screen.getByTestId('inventory-stat-card-strip')).toHaveStyle({
+      flexGrow: '0',
+      maxHeight: '84px',
+    });
   });
 
   it('shows loading indicators for both metric sources', () => {

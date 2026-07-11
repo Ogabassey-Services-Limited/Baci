@@ -1,4 +1,5 @@
 import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
+import { isStaleLegacyOgabasseyBlogImageUrl } from './blog-inline-image-stale-ogabassey-cdn';
 
 /**
  * Inline blog body images (the codex content pipeline) are uploaded as raw PNGs
@@ -18,90 +19,6 @@ import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 // excluded.
 const INLINE_IMAGE_PATH_PATTERN =
   /\/inline-\d+-[a-z0-9]{8,}\.(?:png|jpe?g)(?:[?#]|$)/i;
-// Stale URLs confirmed as 404s in Semrush snapshot 6a3b2fb06ff18731c13fd2c5.
-const OGABASSEY_LEGACY_BLOG_CDN_ORIGIN = 'https://cdn.ogabassey.com';
-const STALE_OGABASSEY_BLOG_IMAGE_PATHS = new Set([
-  '/blog/2023/03/iphone-xr.jpg',
-  '/blog/2023/09/Apple-iPhone-15-48MP-02-230912-1024x1024.jpg',
-  '/blog/2023/09/Apple-iPhone-15-Pro-lineup-USB-C-connector-cable-230912-1024x1024.jpg',
-  '/blog/2023/09/Apple-iPhone-15-Pro-lineup-camera-system-230912-1024x1024.jpg',
-  '/blog/2023/09/Apple-iPhone-15-Pro-lineup-color-lineup-230912.jpg',
-  '/blog/2023/09/Apple-iPhone-15-lineup-Contact-Posters-230912-1024x1024.jpg',
-  '/blog/2023/09/Apple-iPhone-15-lineup-dual-camera-system-230912-1024x1024.jpg',
-  '/blog/2023/09/tecno-phantom-v-flip-v-1-1024x800.webp',
-  '/blog/2023/10/amjith-s-jA9xWmWv1zE-unsplash-1024x1024.jpg',
-  '/blog/2023/10/amjith-s-zHxZ4Lr8eTo-unsplash-1024x1024.jpg',
-  '/blog/2023/10/google-pixel-8-pro-11.jpg',
-  '/blog/2023/10/image-1.jpeg',
-  '/blog/2023/10/image-2.jpeg',
-  '/blog/2023/10/image-3.jpeg',
-  '/blog/2023/10/image-4.jpeg',
-  '/blog/2023/10/image-5.jpeg',
-  '/blog/2023/10/image.jpeg',
-  '/blog/2023/10/kawal-dhillon-zKf3GzpJhaQ-unsplash-1024x1024.jpg',
-  '/blog/2024/01/S24.webp',
-  '/blog/2024/06/IMG_4088-1-1024x900.jpg',
-  '/blog/2024/06/IMG_4089-1024x1024.jpg',
-  '/blog/2024/06/Redmi-13-1-680x365_c.jpg',
-  '/blog/2024/06/Redmi-13-4-768x960-1.jpg',
-  '/blog/2024/06/Redmi-13-4G-MySmartPrice-1045x549-1-1024x549.jpeg',
-  '/blog/2024/06/WhatsApp-Image-2024-06-06-at-3.webp',
-  '/blog/2024/06/battery-edited.webp',
-  '/blog/2024/06/camera-redmi-copy-1024x909.jpg',
-  '/blog/2024/06/redmi-a3x-screen.png',
-  '/blog/2024/06/sim-copy-1024x548.jpg',
-  '/blog/2024/07/image-2.png',
-  '/blog/2024/07/ipad-1oth-gen-2022-scaled.jpg',
-  '/blog/2024/07/ipad-2nd-gen-2011.jpeg',
-  '/blog/2024/07/ipad-3rd-gen.webp',
-  '/blog/2024/07/ipad-4th-gen-.jpg',
-  '/blog/2024/07/ipad-5th-gen-2017.png',
-  '/blog/2024/07/ipad-6th-gen-2018.png',
-  '/blog/2024/07/ipad-7th-gen.png',
-  '/blog/2024/07/ipad-8th-gen.png',
-  '/blog/2024/07/ipad-9th-gen.png',
-  '/blog/2024/07/ipad-mini-1st-gen.jpg',
-  '/blog/2024/07/ipad-mini-2.jpeg',
-  '/blog/2024/07/ipad-mini-4.jpg',
-  '/blog/2024/07/ipad-mini-5-2019.jpg',
-  '/blog/2024/07/the-original-ipad-.jpg',
-  '/blog/2024/08/11-inch-ipad-m4.jpg',
-  '/blog/2024/08/11-inch-ipad-pro-4th-gen.png',
-  '/blog/2024/08/12.9-ipad-pro-1st-gen.png',
-  '/blog/2024/08/12.922-ipad-pro-2nd-gen-1-2.png',
-  '/blog/2024/08/ipad-air-2.webp',
-  '/blog/2024/08/ipad-air-3.webp',
-  '/blog/2024/08/ipad-air-4.png',
-  '/blog/2024/08/ipad-air-5.jpg',
-  '/blog/2024/08/ipad-mini-6-1.png',
-  '/blog/2024/08/ipad-pro-11-inch-2nd-gen.jpeg',
-  '/blog/2024/08/ipad-pro-11-inch-3rd-gen.png',
-  '/blog/2024/08/ipad-pro-12-2018.png',
-  '/blog/2024/08/ipad-pro-12-9-5th-gen-.png',
-  '/blog/2024/08/ipad-pro-2018.png',
-  '/blog/2024/08/ipad-pro-4th-gen-12.9.jpeg',
-  '/blog/2024/08/ipad-pro-6th-gen-12.922.png',
-  '/blog/2024/08/ipad-sair-2.jpeg',
-  '/blog/2024/12/05_whatcomesnext-transformed-e1727288153518-1024x809.png',
-  '/blog/2024/12/1200_800-1024x800.png',
-  '/blog/2024/12/imageye___-_230222-generative-ai-blog-2-1024x756.png',
-  '/blog/2024/12/vt3ZaSjzEDoKnjrLftNpPA-1920-80.jpg-1024x1024.png',
-  '/blog/2025/04/111872_iphone13-colors-480.png',
-  '/blog/2025/04/iPhone14-rangeyellow-300x188-1.png',
-  '/blog/2025/04/iphone_16_pro_black_1_22012457.avif',
-  '/blog/2025/04/iphone_16e_black_05_568aa3391.jpg',
-  '/blog/2025/04/screenshot-2023-09-12-at-10-38-30-am-1-1024x671.jpg',
-  '/blog/2025/05/22.png',
-  '/blog/2025/05/460388-1200-auto.jpg',
-  '/blog/2025/06/Snapdragon-X-Elite-reference-laptop-23W-vs-80W-1024x900.webp',
-  '/blog/2025/06/airpods-4th-gen-02-scaled.webp',
-  '/blog/2025/06/airpods-4th-gen-03-scaled.webp',
-  '/blog/2025/06/airpods-4th-gen-04-scaled.webp',
-  '/blog/2025/06/anh-nhat-uCqMa_s-JDg-unsplash_1_905x600-1.webp',
-  '/blog/2025/06/galaxy-unpacked-2025-event-confirmed.webp',
-  '/blog/2025/06/tecno-camon-40-pro-5g-review-05-1024x960.webp',
-  '/blog/2025/07/Apple_MacBook-Pro_14-16-inch_10182021_big.jpg.large_2x-1024x1024.avif',
-]);
 
 function getTrustedCdnOrigin(): string {
   // Match the origin the rest of the blog media helpers use
@@ -135,10 +52,7 @@ export function isLegacyOgabasseyCdnBlogImage(
 
   try {
     const url = new URL(src);
-    return (
-      url.origin === OGABASSEY_LEGACY_BLOG_CDN_ORIGIN &&
-      STALE_OGABASSEY_BLOG_IMAGE_PATHS.has(url.pathname)
-    );
+    return isStaleLegacyOgabasseyBlogImageUrl(url);
   } catch {
     return false;
   }
@@ -188,13 +102,40 @@ function parseTransformSegment(transformSegment: string): Map<string, string> {
   return params;
 }
 
+/**
+ * Explicit transform format for an inline asset path. Inline `<picture>`
+ * sources are pre-generated per-format sibling FILES (`….png.avif`,
+ * `….png.webp`), so the transform format simply matches the sibling's own
+ * extension; the base png/jpeg stays the universally decodable `<img>`
+ * fallback. Never `format=auto`: Cloudflare Free ignores `Vary: Accept`, so
+ * an Accept-negotiated URL is one shared cache body — a warm entry could
+ * serve AVIF bytes inside the png fallback (undecodable for non-AVIF
+ * browsers) or jpeg bytes inside the `type="image/avif"` source.
+ */
+function resolveInlineTransformFormat(assetPath: string): string {
+  const extension = assetPath
+    .match(TRANSFORMABLE_IMAGE_EXTENSION_PATTERN)?.[0]
+    ?.toLowerCase();
+  if (extension === '.avif') {
+    return 'avif';
+  }
+  if (extension === '.webp') {
+    return 'webp';
+  }
+  if (extension === '.png') {
+    return 'png';
+  }
+  return 'jpeg';
+}
+
 function buildTransformSegment(
   params: Map<string, string>,
-  width: number
+  width: number,
+  assetPath: string
 ): string {
   const pinnedQuality = params.get('quality') || params.get('q');
   const quality = pinnedQuality || String(INLINE_IMAGE_QUALITY);
-  const format = params.get('format') || params.get('f') || 'auto';
+  const format = resolveInlineTransformFormat(assetPath);
   const extras = Array.from(params.entries())
     .filter(([key]) => !TRANSFORM_RESERVED_KEYS.has(key))
     .map(([key, value]) => `${key}=${value}`);
@@ -227,7 +168,7 @@ function buildTrustedCdnTransformUrl(
       return null;
     }
 
-    return `${url.origin}${CDN_IMAGE_TRANSFORM_PREFIX}width=${width},quality=${INLINE_IMAGE_QUALITY},format=auto${url.pathname}${url.search}${url.hash}`;
+    return `${url.origin}${CDN_IMAGE_TRANSFORM_PREFIX}width=${width},quality=${INLINE_IMAGE_QUALITY},format=${resolveInlineTransformFormat(url.pathname)}${url.pathname}${url.search}${url.hash}`;
   }
 
   const remainder = url.pathname.slice(CDN_IMAGE_TRANSFORM_PREFIX.length);
@@ -243,7 +184,7 @@ function buildTrustedCdnTransformUrl(
   }
 
   const params = parseTransformSegment(transformSegment);
-  return `${url.origin}${CDN_IMAGE_TRANSFORM_PREFIX}${buildTransformSegment(params, width)}${assetPath}${url.search}${url.hash}`;
+  return `${url.origin}${CDN_IMAGE_TRANSFORM_PREFIX}${buildTransformSegment(params, width, assetPath)}${assetPath}${url.search}${url.hash}`;
 }
 
 function buildResponsiveUrl(src: string, width: number): string {

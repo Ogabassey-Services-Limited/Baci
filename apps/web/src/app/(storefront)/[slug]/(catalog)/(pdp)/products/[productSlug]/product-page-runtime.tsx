@@ -1,13 +1,15 @@
 import { headers } from 'next/headers';
 import { JsonLd } from '@/components/seo/json-ld';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
+import { PdpRepairDeviceLink } from '@/components/storefront/repairs/PdpRepairDeviceLink';
+import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import {
-  getCachedCategoryPageData,
   getCachedProductRatingStats,
   getCachedProductReviews,
 } from '@/lib/cached-data';
 import { isKorapayConfigured } from '@/lib/korapay';
 import { isPaystackConfigured } from '@/lib/paystack';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import {
   buildStorefrontAcceptedPaymentMethods,
   generateAggregateRating,
@@ -18,35 +20,55 @@ import {
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
-import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
+import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
+import { getStorefrontPathPrefix } from '@/lib/storefront-path-prefix';
 import { buildProductContextParagraphs } from '@/lib/storefront-product/build-product-context-paragraphs';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
+import { loadCategoryScopedSemanticInventorySafely } from '@/lib/storefront-product/load-category-scoped-semantic-inventory-safely';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import type { FAQItem } from '@/types/faq';
 import ProductDetailClient from './product-detail-client';
 import type { ProductPageRuntimeProps } from './product-page-types';
 
-interface SemanticInventoryCandidateProduct {
-  slug: string;
-  name: string;
-  brand?: string | null;
-  price: number;
-  condition?: string | null;
-  stock?: number | null;
-  category_slug?: string | null;
-  product_key_specs?: Record<string, unknown> | null;
-}
-
 export async function ProductPageRuntime({
   merchant,
   product,
   slug,
 }: ProductPageRuntimeProps) {
-  const [reviewStats, recentReviews] = await Promise.all([
-    getCachedProductRatingStats(product.id),
-    getCachedProductReviews(product.id, { limit: 10 }),
-  ]);
+  // categorySlug/supportedClusterCategory only depend on `product` (already
+  // resolved), so they're computed up front to fold the category-page-data +
+  // guide-posts fetch into the same Promise.all as the review fetch below —
+  // neither pair depends on the other's result, and merging them removes a
+  // sequential await hop (the category fetch previously waited for the
+  // unrelated review fetch to settle first).
+  const categorySlug =
+    product.category_slug ||
+    (product.category ? generateSlug(product.category) : 'products');
+  const supportedClusterCategory =
+    categorySlug in CONTENT_CLUSTER_SUPPORT
+      ? (categorySlug as SupportedClusterCategory)
+      : null;
+  const [reviewStats, recentReviews, scopedInventory, guidePosts] =
+    await Promise.all([
+      getCachedProductRatingStats(product.id),
+      getCachedProductReviews(product.id, { limit: 10 }),
+      loadCategoryScopedSemanticInventorySafely({
+        merchantId: merchant.id,
+        categorySlug,
+        storeSlug: slug,
+        warningMessage: 'Failed to load PDP semantic inventory',
+      }),
+      supportedClusterCategory
+        ? loadPublishedClusterPostsSafely(merchant.id, {
+            pageKind: 'product',
+            categorySlug: supportedClusterCategory,
+            brands: product.brand ? [product.brand] : undefined,
+            productSlugs: product.slug ? [product.slug] : undefined,
+          })
+        : Promise.resolve([]),
+    ]);
   // `product` comes from the request-scoped product cache. Mutating it in place
   // would pollute the shared reference for subsequent renders in the same
   // request or across requests that replay the same cache entry.
@@ -62,9 +84,10 @@ export async function ProductPageRuntime({
           })),
         }
       : product;
-  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const headersList = await headers();
+  const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
-  const currency = merchant.payout_currency || 'NGN';
+  const currency = resolveMerchantCurrencyConfig(merchant).code;
   const productUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
   const productSchema = generateProductSchema(
     productWithReviews,
@@ -92,33 +115,25 @@ export async function ProductPageRuntime({
     }
   }
 
-  const categorySlug =
-    product.category_slug ||
-    (product.category ? generateSlug(product.category) : 'products');
   const categoryName =
     product.categories?.name || product.category || 'All Products';
-  const categoryPageData = await getCachedCategoryPageData(
-    merchant.id,
-    categorySlug,
-    slug
-  );
-  const guidePosts = await getPublishedClusterPosts(merchant.id);
-  const inventoryCandidates = (
-    categoryPageData?.isCollection ? [] : (categoryPageData?.products ?? [])
-  ).map((candidate) => {
-    const productCandidate = candidate as SemanticInventoryCandidateProduct;
-
-    return {
-      slug: productCandidate.slug,
-      name: productCandidate.name,
-      brand: productCandidate.brand,
-      condition: productCandidate.condition,
-      price: productCandidate.price,
-      stock: productCandidate.stock,
-      category_slug: productCandidate.category_slug,
-      product_key_specs: productCandidate.product_key_specs,
-    };
-  });
+  // buildProductSemanticModel normalizes each candidate via
+  // `category_slug ?? categorySlug`, then keeps only candidates whose
+  // category_slug === categorySlug. The old getCachedCategoryPageData rows
+  // carried NO category_slug (there is no such column and the PDP never
+  // normalized them), so every product — including child-category products in a
+  // parent-category scope — normalized to the current category and survived that
+  // filter. Pin category_slug to the requested category here to preserve that
+  // exact pool; without it, child products keep their real (child) slug and get
+  // dropped from the PDP link graph (verified regression, e.g. a `laptops` PDP
+  // would drop its `gaming-laptops` alternatives). The blog consumer keeps the
+  // real per-product category_slug (it uses it for hrefs, not a filter).
+  const inventoryCandidates = scopedInventory.isCollection
+    ? []
+    : scopedInventory.products.map((candidate) => ({
+        ...candidate,
+        category_slug: categorySlug,
+      }));
   const currentProduct = {
     slug: product.slug || String(product.id),
     name: product.name,
@@ -158,6 +173,16 @@ export async function ProductPageRuntime({
     productFaqs && productFaqs.length > 0
       ? generateFAQSchema(productFaqs)
       : null;
+  // Awaited directly (not rendered as `<PdpRepairDeviceLink />`) because this
+  // is an async component: React's client renderer (used by
+  // @testing-library/react in tests) cannot invoke async components as JSX,
+  // only the RSC server renderer can — matching how this function itself is
+  // pre-awaited by its caller instead of rendered as JSX.
+  const repairDeviceLink = await PdpRepairDeviceLink({
+    basePath: getStorefrontPathPrefix(headersList, merchant),
+    merchant,
+    productId: product.id,
+  });
   return (
     <>
       <JsonLd data={productSchema} />
@@ -177,6 +202,7 @@ export async function ProductPageRuntime({
           }),
         }}
       />
+      {repairDeviceLink}
     </>
   );
 }

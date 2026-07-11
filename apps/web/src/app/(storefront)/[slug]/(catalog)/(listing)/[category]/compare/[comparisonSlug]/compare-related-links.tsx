@@ -1,31 +1,27 @@
-import { headers } from 'next/headers';
 import Link from 'next/link';
-import { toRequestRelativeHref } from '@/app/(storefront)/[slug]/(catalog)/(listing)/compare/compare-page-content-helpers';
 import { asRoute } from '@/lib/routes';
 import type { CompareLinkGraphEntry } from '@/lib/storefront-link-modules/compare-link-graph';
-import { getStorefrontPathPrefix } from '@/lib/storefront-path-prefix';
 
 interface CompareRelatedLinksProps {
   links: CompareLinkGraphEntry[];
-  merchantCustomDomain?: string | null;
-  merchantSlug: string;
   storeUrl: string;
 }
 
-export async function CompareRelatedLinks({
+function getCanonicalRelatedLinkHref(href: string, storeUrl: string) {
+  if (!href.startsWith('/')) {
+    return href;
+  }
+
+  return `${storeUrl.replace(/\/+$/g, '')}${href}`;
+}
+
+export function CompareRelatedLinks({
   links,
-  merchantCustomDomain,
-  merchantSlug,
   storeUrl,
 }: CompareRelatedLinksProps) {
   if (links.length === 0) {
     return null;
   }
-
-  const pathPrefix = getStorefrontPathPrefix(await headers(), {
-    custom_domain: merchantCustomDomain,
-    slug: merchantSlug,
-  });
 
   return (
     <section
@@ -43,9 +39,7 @@ export async function CompareRelatedLinks({
           >
             <Link
               className="text-base font-semibold text-store-primary underline-offset-4 hover:underline"
-              href={asRoute(
-                toRequestRelativeHref(link.href, storeUrl, pathPrefix)
-              )}
+              href={asRoute(getCanonicalRelatedLinkHref(link.href, storeUrl))}
               prefetch={false}
             >
               {link.label}

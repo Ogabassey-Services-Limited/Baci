@@ -1,3 +1,4 @@
+import { formatOrderItemOptionLabel } from '@baci/shared/lib';
 import { ArrowLeft, CreditCard, ShieldCheck, Truck } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
@@ -83,40 +84,47 @@ export function CustomerOrderDetailsContent({
                 <CardTitle>Items</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {order.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-start justify-between gap-4 border-b pb-4 last:border-b-0 last:pb-0"
-                  >
-                    <div>
-                      {item.product_id ? (
-                        <Link
-                          href={asRoute(
-                            getHref(`/products/${item.product_id}`)
-                          )}
-                          className="font-medium hover:text-primary"
-                        >
-                          {item.product_name || item.name}
-                        </Link>
-                      ) : (
-                        <span className="font-medium">
-                          {item.product_name || item.name}
-                        </span>
-                      )}
-                      <p className="text-sm text-muted-foreground">
-                        Qty: {item.quantity}
-                      </p>
-                      {item.variant_name && (
+                {order.items.map((item) => {
+                  const optionLabel = formatOrderItemOptionLabel({
+                    condition: item.condition,
+                    variantName: item.variant_name,
+                  });
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-start justify-between gap-4 border-b pb-4 last:border-b-0 last:pb-0"
+                    >
+                      <div>
+                        {item.product_id ? (
+                          <Link
+                            href={asRoute(
+                              getHref(`/products/${item.product_id}`)
+                            )}
+                            className="font-medium hover:text-primary"
+                          >
+                            {item.product_name || item.name}
+                          </Link>
+                        ) : (
+                          <span className="font-medium">
+                            {item.product_name || item.name}
+                          </span>
+                        )}
                         <p className="text-sm text-muted-foreground">
-                          {item.variant_name}
+                          Qty: {item.quantity}
                         </p>
-                      )}
+                        {optionLabel && (
+                          <p className="text-sm text-muted-foreground">
+                            {optionLabel}
+                          </p>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium">
+                        {formatDisplayCurrency(item.price, currency)}
+                      </p>
                     </div>
-                    <p className="text-sm font-medium">
-                      {formatDisplayCurrency(item.price, currency)}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
 

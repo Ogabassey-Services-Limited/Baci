@@ -106,6 +106,7 @@ describe('toTemplateMerchantData', () => {
     expect(result.phone).toBe('+2348012345678');
     expect(result.logo_url).toBe('https://example.com/logo.png');
     expect(result.country).toBe('NG');
+    expect(result.payout_currency).toBe('NGN');
     expect(result.slug).toBe('ogabassey');
     expect(result.custom_domain).toBe('ogabassey.com');
     expect(result.favicon_svg_url).toBe('https://example.com/favicon.svg');

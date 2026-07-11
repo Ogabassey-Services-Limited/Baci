@@ -48,6 +48,16 @@ describe('onboardingSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects an explicit slug over the 63-char DNS limit (web is signup-only)', () => {
+    const result = onboardingSchema.safeParse(
+      validPayload({ slug: 'a'.repeat(80), slugIsCustom: true })
+    );
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path[0] === 'slug')).toBe(true);
+    }
+  });
+
   it('rejects businessName shorter than 2 characters', () => {
     const result = onboardingSchema.safeParse(
       validPayload({ businessName: 'A' })
@@ -207,6 +217,24 @@ describe('mobileOnboardingSchema', () => {
       email: 'mobile@test.com',
     });
     expect(result.success).toBe(true);
+  });
+
+  it('DEFERS the 63-char cap to the route (accepts any-length slug at the schema level)', () => {
+    // The mobile endpoint serves both signup AND completion, and legacy clients omit
+    // slugIsCustom, so Zod can't tell explicit from auto without auth context. The
+    // schema must accept every case; the ROUTE enforces the cap on the signup path.
+    for (const slugIsCustom of [true, false, undefined]) {
+      const result = mobileOnboardingSchema.safeParse({
+        businessName: 'Mobile Store',
+        businessType: 'fashion',
+        country: 'NG',
+        brandColors: 'blue',
+        email: 'mobile@test.com',
+        slug: 'a'.repeat(80),
+        ...(slugIsCustom === undefined ? {} : { slugIsCustom }),
+      });
+      expect(result.success).toBe(true);
+    }
   });
 });
 

@@ -2,6 +2,7 @@ import {
   getPickupStationAddressText,
   isProviderStationPickupQuote,
 } from '@/components/checkout/checkout-station-pickup';
+import { isGiglGoFasterQuote } from '@/components/checkout/checkout-step-helpers';
 import {
   PICKUP_STATION_ADDRESS_LINES,
   PICKUP_STATION_CITY,
@@ -115,8 +116,10 @@ export function mapCartItemsToOrderItems(
       name: item.name,
       quantity: item.quantity,
       price: effectivePrice,
+      condition: item.condition,
       image_url: item.image_url,
       variant_id: item.variant_id,
+      variant_name: item.variant_name,
       variant_attributes: item.variant_attributes,
       has_assurance: item.hasAssurance || false,
       assurance_fee: item.hasAssurance
@@ -124,6 +127,15 @@ export function mapCartItemsToOrderItems(
             effectivePrice * item.quantity * (item.assuranceRate ?? 0.05)
           )
         : 0,
+      // Quiz prize voucher lines: /api/orders verifies the signed token and
+      // compares `condition` against the value baked into it — dropping these
+      // here silently broke mobile prize redemption at checkout.
+      ...(item.voucher_token !== undefined
+        ? { voucher_token: item.voucher_token }
+        : {}),
+      ...(item.voucher_award_id !== undefined
+        ? { voucher_award_id: item.voucher_award_id }
+        : {}),
     };
   });
 }
@@ -153,6 +165,7 @@ export function buildCheckoutOrderRequest({
       selectedQuote?.id != null &&
       ((deliveryMethod === 'door' &&
         !isProviderStationPickupQuote(selectedQuote)) ||
+        (deliveryMethod === 'airport' && isGiglGoFasterQuote(selectedQuote)) ||
         (deliveryMethod === 'pickup_station' &&
           isProviderStationPickupQuote(selectedQuote)))
         ? String(selectedQuote.id)

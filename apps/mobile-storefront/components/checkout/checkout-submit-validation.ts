@@ -15,8 +15,9 @@ interface ValidateCheckoutSubmissionParams {
   isOrderInFlight: MutableRefObject<boolean>;
   isProcessing: boolean;
   itemsLength: number;
+  requiresShippingQuote: boolean;
   resolvedShippingQuoteContextKey: string;
-  selectedPayment: PaymentMethodType;
+  selectedPayment: PaymentMethodType | null;
   selectedQuote: ShippingQuote | undefined;
   setStep: (step: 'address' | 'payment' | 'review') => void;
 }
@@ -24,11 +25,11 @@ interface ValidateCheckoutSubmissionParams {
 export function validateCheckoutSubmission({
   availablePaymentMethods,
   currentShippingQuoteContextKey,
-  deliveryMethod,
   isLoadingQuotes,
   isOrderInFlight,
   isProcessing,
   itemsLength,
+  requiresShippingQuote,
   resolvedShippingQuoteContextKey,
   selectedPayment,
   selectedQuote,
@@ -54,8 +55,9 @@ export function validateCheckoutSubmission({
   }
 
   if (
-    availablePaymentMethods.length > 0 &&
-    !availablePaymentMethods.includes(selectedPayment)
+    !selectedPayment ||
+    (availablePaymentMethods.length > 0 &&
+      !availablePaymentMethods.includes(selectedPayment))
   ) {
     Alert.alert(
       'Payment Method Unavailable',
@@ -66,7 +68,7 @@ export function validateCheckoutSubmission({
   }
 
   const requiresFreshShippingQuote =
-    deliveryMethod === 'door' && Boolean(currentShippingQuoteContextKey);
+    requiresShippingQuote && Boolean(currentShippingQuoteContextKey);
   const hasFreshShippingQuoteSelection =
     resolvedShippingQuoteContextKey === currentShippingQuoteContextKey &&
     Boolean(selectedQuote);

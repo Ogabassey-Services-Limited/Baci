@@ -6,7 +6,7 @@ import {
 } from '@/lib/shipping-quotes';
 import type { CartItem } from '@/stores/cart-store';
 import { CHECKOUT_MERCHANT_ID } from './checkout-screen.constants';
-import type { ShippingQuote } from './types';
+import type { ShippingQuote, ShippingQuoteDeliveryPreference } from './types';
 
 function getQuoteMerchantId(): string | undefined {
   const configuredMerchantId =
@@ -29,6 +29,8 @@ export type FetchQuotesArgs = {
   apiUrl: string;
   state: string;
   city: string;
+  latitude?: number;
+  longitude?: number;
   items: CartItem[];
   customer: { email?: string } | null;
   watchedFirstName: string;
@@ -36,6 +38,7 @@ export type FetchQuotesArgs = {
   watchedPhone: string;
   watchedAddress: string;
   watchedEmail: string;
+  deliveryPreference?: ShippingQuoteDeliveryPreference;
   setIsLoadingQuotes: (value: boolean) => void;
   setSelectedQuoteId: (value: string) => void;
   setResolvedShippingQuoteContextKey: (value: string) => void;
@@ -53,10 +56,64 @@ export function normalizeStateName(
   return resolveLocationStateLabel(googleState, knownStates);
 }
 
+export type GoogleCitySuggestionAction =
+  | { type: 'none' }
+  | { type: 'openPicker' }
+  | { type: 'selectCity'; city: string }
+  | { type: 'seedSearch'; city: string };
+
+export function resolveGoogleCitySuggestionAction(
+  cities: string[],
+  suggestedCity: string | null
+): GoogleCitySuggestionAction {
+  if (cities.length === 0 || suggestedCity === null) {
+    return { type: 'none' };
+  }
+
+  if (suggestedCity === '') {
+    return { type: 'openPicker' };
+  }
+
+  const match = cities.find(
+    (city) => city.toLowerCase() === suggestedCity.toLowerCase()
+  );
+
+  return match
+    ? { type: 'selectCity', city: match }
+    : { type: 'seedSearch', city: suggestedCity };
+}
+
+function getPreferredQuoteIdForPreference(
+  quotes: ShippingQuote[],
+  deliveryPreference: ShippingQuoteDeliveryPreference,
+  previousSelectedQuoteId?: string | null
+): string {
+  if (deliveryPreference === 'door') {
+    return getPreferredShippingQuoteId(quotes, previousSelectedQuoteId);
+  }
+
+  if (quotes.length === 0) return '';
+
+  if (
+    previousSelectedQuoteId &&
+    quotes.some((quote) => String(quote.id) === String(previousSelectedQuoteId))
+  ) {
+    return String(previousSelectedQuoteId);
+  }
+
+  return String(
+    quotes.reduce((prev, current) =>
+      prev.price <= current.price ? prev : current
+    ).id
+  );
+}
+
 export const fetchShippingQuotes = async ({
   apiUrl,
   state,
   city,
+  latitude,
+  longitude,
   items,
   customer,
   watchedFirstName,
@@ -64,6 +121,7 @@ export const fetchShippingQuotes = async ({
   watchedPhone,
   watchedAddress,
   watchedEmail,
+  deliveryPreference = 'door',
   setIsLoadingQuotes,
   setSelectedQuoteId,
   setResolvedShippingQuoteContextKey,
@@ -89,6 +147,7 @@ export const fetchShippingQuotes = async ({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...(merchantId ? { merchantId } : {}),
+        deliveryPreference,
         receiver: {
           name:
             `${watchedFirstName} ${watchedLastName}`.trim() ||
@@ -99,6 +158,9 @@ export const fetchShippingQuotes = async ({
           city,
           state,
           country: 'Nigeria',
+          ...(Number.isFinite(latitude) && Number.isFinite(longitude)
+            ? { latitude, longitude }
+            : {}),
         },
         items: items.map((item) => ({
           name: item.name,
@@ -118,10 +180,18 @@ export const fetchShippingQuotes = async ({
       const data: QuoteResponse & { warnings?: string[] } =
         await response.json();
       const quotes = normalizeShippingQuotes(data.quotes?.all || []);
-      setShippingQuotes(quotes);
+      const selectableQuotes =
+        deliveryPreference === 'pickup_station'
+          ? quotes.filter((quote) => quote.isStationPickup === true)
+          : quotes;
+      setShippingQuotes(selectableQuotes);
       setResolvedShippingQuoteContextKey(quoteContextKey);
       setSelectedQuoteId(
-        getPreferredShippingQuoteId(quotes, previousSelectedQuoteId)
+        getPreferredQuoteIdForPreference(
+          selectableQuotes,
+          deliveryPreference,
+          previousSelectedQuoteId
+        )
       );
     } else if (shouldResetSelection) {
       setShippingQuotes([]);

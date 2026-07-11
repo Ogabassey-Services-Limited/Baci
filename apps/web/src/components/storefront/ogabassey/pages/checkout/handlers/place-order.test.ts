@@ -32,6 +32,7 @@ describe('handlePlaceOrder', () => {
     overrides: Partial<PlaceOrderOptions> = {},
   ): PlaceOrderOptions => ({
     merchant: { id: 'merchant-1', slug: 'test-store' },
+    currency: 'NGN',
     customerEmail: 'john@example.com',
     firstName: 'John',
     lastName: 'Doe',
@@ -396,6 +397,36 @@ describe('handlePlaceOrder', () => {
           country: 'NG',
         }),
       );
+      // Currency threaded from the merchant-resolved code, not hardcoded.
+      expect(initBody.currency).toBe('NGN');
+    });
+
+    it('threads the merchant-resolved currency into payment initialization', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            order: { id: 'order-kes' },
+            wallet: null,
+            amountDueToGateway: 12000,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            success: true,
+            authorization_url: 'https://paystack.test/checkout',
+          }),
+        });
+
+      const opts = buildOpts({
+        paymentMethod: 'paystack',
+        currency: 'KES',
+      });
+      await handlePlaceOrder(opts);
+
+      const initBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(initBody.currency).toBe('KES');
     });
 
     it('throws on failed order creation', async () => {
@@ -413,6 +444,54 @@ describe('handlePlaceOrder', () => {
         expect.objectContaining({ title: 'Checkout Failed' }),
       );
       expect(opts.setIsProcessing).toHaveBeenCalledWith(false);
+    });
+
+    // FIX C + FIX E: a rejected quiz-prize voucher must surface friendly copy
+    // (not the raw RPC code) AND prune the offending line so it stops
+    // re-failing every checkout.
+    it('prunes the voucher line and shows friendly copy when the voucher is rejected', async () => {
+      const { toast } = await import('@/hooks/use-toast');
+      const pruneVoucherLines = vi.fn();
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: async () => ({
+          error: 'Failed to create order',
+          details: 'quiz_voucher_award_not_approved',
+          rejectedVoucherToken: 'qv1.rejected.signature',
+        }),
+      });
+
+      const opts = buildOpts({ pruneVoucherLines });
+      await handlePlaceOrder(opts);
+
+      expect(pruneVoucherLines).toHaveBeenCalledWith(
+        'qv1.rejected.signature',
+      );
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Checkout Failed',
+          description:
+            "This prize isn't available to redeem yet. Please contact support.",
+        }),
+      );
+    });
+
+    it('does not prune voucher lines for a non-voucher order error', async () => {
+      const pruneVoucherLines = vi.fn();
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: async () => ({
+          error: 'Failed to create order',
+          details: 'order_total_mismatch',
+        }),
+      });
+
+      const opts = buildOpts({ pruneVoucherLines });
+      await handlePlaceOrder(opts);
+
+      expect(pruneVoucherLines).not.toHaveBeenCalled();
     });
   });
 

@@ -1,6 +1,7 @@
 import { getImageProps } from 'next/image';
 import Link from 'next/link';
-import imageLoader from '@/lib/image-loader';
+import { ogabasseyFallbackImageLoader } from '@/lib/ogabassey-image-fallback-loader';
+import { buildOgabasseyAvifSrcSet } from '@/lib/ogabassey-image-format-sources';
 import { asRoute } from '@/lib/routes';
 import { TRANSPARENT_PIXEL_SRC } from './hero-mobile-image-config';
 import type { LaunchProductSlide } from './LaunchCarousel';
@@ -29,18 +30,6 @@ const SIDE_IMAGE_SOURCE_MEDIA = '(min-width: 768px)';
 const SIDE_IMAGE_SIZES = '(min-width: 1024px) 160px, (min-width: 768px) 25vw, 1px';
 const HERO_IMAGE_QUALITY = 70;
 
-function ogabasseyHeroImageLoader({
-  quality = HERO_IMAGE_QUALITY,
-  src,
-  width,
-}: {
-  quality?: number;
-  src: string;
-  width: number;
-}) {
-  return imageLoader({ quality, src, width });
-}
-
 /** Media-scoped, eager, high-priority desktop LCP image. On mobile no `<source>`
  *  matches, so the `<img>` falls back to a transparent pixel (zero network). */
 function HeroBigImage({ alt, src }: { alt: string; src: string }) {
@@ -51,7 +40,7 @@ function HeroBigImage({ alt, src }: { alt: string; src: string }) {
     decoding: 'sync',
     fetchPriority: 'high',
     height: BIG_IMAGE_HEIGHT,
-    loader: ogabasseyHeroImageLoader,
+    loader: ogabasseyFallbackImageLoader,
     loading: 'eager',
     quality: HERO_IMAGE_QUALITY,
     sizes: BIG_IMAGE_SIZES,
@@ -59,12 +48,26 @@ function HeroBigImage({ alt, src }: { alt: string; src: string }) {
     width: BIG_IMAGE_WIDTH,
   });
 
+  const fallbackSrcSet = srcSet ?? imgSrc;
+  // AVIF twin (per-format URL) so AVIF-capable browsers keep AVIF: CF Free
+  // ignores `Vary: Accept`, so one `format=auto` body can't serve both tiers.
+  // `null` for external images — the plain `<source>` then serves everyone.
+  const avifSrcSet = buildOgabasseyAvifSrcSet(fallbackSrcSet);
+
   return (
     <picture className="absolute inset-0 block h-full w-full">
+      {avifSrcSet ? (
+        <source
+          media={BIG_IMAGE_SOURCE_MEDIA}
+          sizes={sizes ?? BIG_IMAGE_SIZES}
+          srcSet={avifSrcSet}
+          type="image/avif"
+        />
+      ) : null}
       <source
         media={BIG_IMAGE_SOURCE_MEDIA}
         sizes={sizes ?? BIG_IMAGE_SIZES}
-        srcSet={srcSet ?? imgSrc}
+        srcSet={fallbackSrcSet}
       />
       <img
         {...imgProps}
@@ -121,7 +124,7 @@ function HeroSideImage({ alt, src }: { alt: string; src: string }) {
   } = getImageProps({
     alt,
     height: SIDE_IMAGE_HEIGHT,
-    loader: ogabasseyHeroImageLoader,
+    loader: ogabasseyFallbackImageLoader,
     loading: 'lazy',
     quality: HERO_IMAGE_QUALITY,
     sizes: SIDE_IMAGE_SIZES,
@@ -129,12 +132,23 @@ function HeroSideImage({ alt, src }: { alt: string; src: string }) {
     width: SIDE_IMAGE_WIDTH,
   });
 
+  const fallbackSrcSet = srcSet ?? imgSrc;
+  const avifSrcSet = buildOgabasseyAvifSrcSet(fallbackSrcSet);
+
   return (
     <picture className="absolute inset-0 block h-full w-full">
+      {avifSrcSet ? (
+        <source
+          media={SIDE_IMAGE_SOURCE_MEDIA}
+          sizes={sizes ?? SIDE_IMAGE_SIZES}
+          srcSet={avifSrcSet}
+          type="image/avif"
+        />
+      ) : null}
       <source
         media={SIDE_IMAGE_SOURCE_MEDIA}
         sizes={sizes ?? SIDE_IMAGE_SIZES}
-        srcSet={srcSet ?? imgSrc}
+        srcSet={fallbackSrcSet}
       />
       <img
         {...imgProps}

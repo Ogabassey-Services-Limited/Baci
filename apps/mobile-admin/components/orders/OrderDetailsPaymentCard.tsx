@@ -10,6 +10,7 @@ interface OrderDetailsPaymentCardProps {
   colors: ThemeColors;
   discountAmount: number;
   formatPrice: (amount: number) => string;
+  giftWrappingFee?: number | null;
   onRecordPayment: () => void;
   onRequestPayment: () => void;
   paymentColor: string;
@@ -17,8 +18,12 @@ interface OrderDetailsPaymentCardProps {
   paymentMethod?: string | null;
   paymentStatus: string;
   shippingFee?: number | null;
+  showVat?: boolean;
   subtotal?: number | null;
+  taxAmount?: number | null;
   total: number;
+  vatLabel?: string;
+  walletAmountUsed?: number | null;
 }
 
 function formatPaymentMethodLabel(paymentMethod: string | null | undefined) {
@@ -55,6 +60,7 @@ export function OrderDetailsPaymentCard({
   colors,
   discountAmount,
   formatPrice,
+  giftWrappingFee = 0,
   onRecordPayment,
   onRequestPayment,
   paymentColor,
@@ -62,9 +68,17 @@ export function OrderDetailsPaymentCard({
   paymentMethod,
   paymentStatus,
   shippingFee,
+  showVat = false,
   subtotal,
+  taxAmount = 0,
   total,
+  vatLabel = 'VAT',
+  walletAmountUsed = 0,
 }: OrderDetailsPaymentCardProps) {
+  const giftWrappingFeeAmount = giftWrappingFee ?? 0;
+  const taxAmountValue = taxAmount ?? 0;
+  const walletAmountValue = walletAmountUsed ?? 0;
+
   return (
     <View
       style={[
@@ -146,6 +160,16 @@ export function OrderDetailsPaymentCard({
             : formatPrice(shippingFee)}
         </Text>
       </View>
+      {giftWrappingFeeAmount > 0 ? (
+        <View style={styles.summaryRow}>
+          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+            Gift Wrapping
+          </Text>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>
+            {formatPrice(giftWrappingFeeAmount)}
+          </Text>
+        </View>
+      ) : null}
       {discountAmount > 0 ? (
         <View style={styles.summaryRow}>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
@@ -153,6 +177,16 @@ export function OrderDetailsPaymentCard({
           </Text>
           <Text style={[styles.summaryValue, { color: colors.error }]}>
             -{formatPrice(discountAmount)}
+          </Text>
+        </View>
+      ) : null}
+      {showVat ? (
+        <View style={styles.summaryRow}>
+          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+            {vatLabel}
+          </Text>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>
+            {formatPrice(taxAmountValue)}
           </Text>
         </View>
       ) : null}
@@ -210,6 +244,16 @@ export function OrderDetailsPaymentCard({
           {formatPrice(amountPaid)}
         </Text>
       </View>
+      {walletAmountValue > 0 ? (
+        <View style={styles.summaryRow}>
+          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+            Includes wallet credit
+          </Text>
+          <Text style={[styles.summaryValue, { color: colors.textSecondary }]}>
+            {formatPrice(walletAmountValue)}
+          </Text>
+        </View>
+      ) : null}
       {balance > 0 ? (
         <View style={styles.summaryRow}>
           <Text

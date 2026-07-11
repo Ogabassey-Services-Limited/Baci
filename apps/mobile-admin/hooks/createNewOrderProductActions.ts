@@ -20,6 +20,8 @@ interface CreateNewOrderProductActionsParams {
   setSelectedParentProduct: Dispatch<SetStateAction<SelectedParentProduct>>;
   setShowCustomItemModal: Dispatch<SetStateAction<boolean>>;
   setShowProductModal: Dispatch<SetStateAction<boolean>>;
+  setVariantReplacementItemId?: Dispatch<SetStateAction<string | null>>;
+  variantReplacementItemId?: string | null;
 }
 
 export function createNewOrderProductActions({
@@ -31,9 +33,12 @@ export function createNewOrderProductActions({
   setSelectedParentProduct,
   setShowCustomItemModal,
   setShowProductModal,
+  setVariantReplacementItemId,
+  variantReplacementItemId = null,
 }: CreateNewOrderProductActionsParams) {
   const resetProductPickerState = () => {
     setSelectedParentProduct(null);
+    setVariantReplacementItemId?.(null);
   };
 
   const closeProductModal = () => {
@@ -42,17 +47,61 @@ export function createNewOrderProductActions({
     setProductSearch('');
   };
 
-  const addProductToOrder = (product: SelectableOrderProduct) => {
-    setOrderItems((previous) =>
-      mergeOrderItem(
-        previous,
-        buildManualOrderLineItem({
-          fallbackImageUrl: selectedParentProduct?.images?.[0],
-          parentProductName: selectedParentProduct?.name,
-          product,
-        })
-      )
-    );
+  const addProductToOrder = (
+    product: SelectableOrderProduct,
+    { replaceActiveVariant = true } = {}
+  ) => {
+    const nextItem = buildManualOrderLineItem({
+      fallbackImageUrl: selectedParentProduct?.images?.[0],
+      parentProductName: selectedParentProduct?.name,
+      product,
+    });
+    const { condition, ...restNextItem } = nextItem;
+    const normalizedNextItem =
+      condition === undefined ? restNextItem : nextItem;
+    const activeReplacementItemId = replaceActiveVariant
+      ? variantReplacementItemId
+      : null;
+
+    setOrderItems((previous) => {
+      if (!activeReplacementItemId) {
+        return mergeOrderItem(previous, normalizedNextItem);
+      }
+
+      const replacementTarget = previous.find(
+        (item) => item.id === activeReplacementItemId
+      );
+      if (!replacementTarget) {
+        return mergeOrderItem(previous, normalizedNextItem);
+      }
+
+      const replacementItem = {
+        ...normalizedNextItem,
+        ...(replacementTarget.details !== undefined
+          ? { details: replacementTarget.details }
+          : {}),
+        ...(replacementTarget.product_match_status !== undefined
+          ? { product_match_status: replacementTarget.product_match_status }
+          : {}),
+        quantity: replacementTarget.quantity,
+      } satisfies OrderItem;
+      const remainingItems = previous.filter(
+        (item) => item.id !== activeReplacementItemId
+      );
+      const matchingReplacementExists = remainingItems.some(
+        (item) =>
+          item.product_id !== null &&
+          replacementItem.product_id !== null &&
+          item.product_id === replacementItem.product_id &&
+          (item.variant_id ?? null) === (replacementItem.variant_id ?? null)
+      );
+
+      return matchingReplacementExists
+        ? mergeOrderItem(remainingItems, replacementItem)
+        : previous.map((item) =>
+            item.id === activeReplacementItemId ? replacementItem : item
+          );
+    });
   };
 
   const handleAddProduct = (product: SelectableOrderProduct) => {
@@ -70,7 +119,8 @@ export function createNewOrderProductActions({
   };
 
   const handleUseQuickAddProductMatch = (product: SelectableOrderProduct) => {
-    addProductToOrder(product);
+    setVariantReplacementItemId?.(null);
+    addProductToOrder(product, { replaceActiveVariant: false });
     setCustomItem(createEmptyCustomItemDraft());
     setShowCustomItemModal(false);
   };

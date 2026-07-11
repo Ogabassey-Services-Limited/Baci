@@ -251,13 +251,42 @@ describe('StorefrontContent', () => {
           categories: expect.objectContaining({ slug: 'smartphones' }),
           id: 'ogabassey-product-1',
         }),
-      ])
+      ]),
+      expect.objectContaining({ code: 'NGN' })
     );
     expect(
       screen.getByRole('main', { name: 'OgaBassey home' })
     ).toHaveTextContent('ogabassey:/ogabassey:1');
     expect(mockOgabasseyHomePage).toHaveBeenCalledWith(
       expect.objectContaining({ basePath: '/ogabassey' })
+    );
+  });
+
+  it('passes the resolved merchant currency to the OgaBassey home product feed', async () => {
+    const { resolveStorefrontTemplateId } = await import(
+      './resolve-storefront-template'
+    );
+    const { createOgabasseyHomeProductFeed } = await import(
+      '@/components/storefront/ogabassey/home-product-feed'
+    );
+
+    vi.mocked(resolveStorefrontTemplateId).mockReturnValue('ogabassey');
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      createMockHomeProduct({ id: 'india-product', name: 'India Product' }),
+    ]);
+
+    const result = await StorefrontContent({
+      merchant: {
+        ...mockOgabasseyMerchant,
+        payout_currency: 'INR',
+        country: 'IN',
+      },
+    });
+    render(result as React.ReactElement);
+
+    expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ code: 'INR', symbol: '₹' })
     );
   });
 
@@ -364,6 +393,42 @@ describe('StorefrontContent', () => {
 
     expect(schema['@type']).toBe('CollectionPage');
     expect(schema.mainEntity?.['@type']).toBe('ItemList');
+  });
+
+  it('uses the resolved merchant currency for the homepage collection schema', async () => {
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      createMockHomeProduct({
+        id: 'product-1',
+        name: 'Galaxy Fold',
+        description: '<p>Premium foldable phone.</p>',
+        price: 15_000,
+        manage_stock: false,
+        stock: 3,
+        category: 'Smartphones',
+        slug: 'galaxy-fold',
+      }),
+    ]);
+
+    const result = await StorefrontContent({
+      merchant: { ...mockMerchant, payout_currency: 'GHS', country: 'GH' },
+    });
+
+    render(result as React.ReactElement);
+
+    const schemaScript = document.querySelector(
+      'script[type="application/ld+json"]'
+    );
+    const schema = JSON.parse(schemaScript?.textContent || '{}') as {
+      mainEntity?: {
+        itemListElement?: Array<{
+          item?: { offers?: { priceCurrency?: string } };
+        }>;
+      };
+    };
+
+    expect(
+      schema.mainEntity?.itemListElement?.[0]?.item?.offers?.priceCurrency
+    ).toBe('GHS');
   });
 
   it('caps OgaBassey homepage collection schema to first-render products', async () => {

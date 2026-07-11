@@ -93,6 +93,9 @@ export default function OrdersScreen() {
   const shippingConfig = createShippingStatusConfigGetter(colors);
   const paymentConfig = createPaymentStatusConfigGetter(colors);
   const sourceConfig = createSourceConfigGetter(colors);
+  // Fallback only: each row prefers its own stamped `order.currency` (set at
+  // checkout time) since historical orders can predate a merchant
+  // payout-currency change.
   const merchantCurrency = merchant?.payout_currency || 'NGN';
   const dateRangeLabel = formatDateRangeLabel(dateRange);
   const dateChipLabel = formatDateChipLabel(dateRange);
@@ -152,7 +155,7 @@ export default function OrdersScreen() {
     return (
       <OrderItem
         item={item.order}
-        currency={merchantCurrency}
+        currency={item.order.currency || merchantCurrency}
         onPress={(id) => router.push(`/order/${id}`)}
         onStatusPress={openStatusDropdown}
         getShippingStatusConfig={shippingConfig}

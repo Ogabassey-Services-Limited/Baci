@@ -18,8 +18,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
-import type { CachedMerchant } from '@/lib/cached-data';
-import { formatDisplayCurrency } from '@/lib/format-display-currency';
+import { formatAmountInCurrency } from '@/lib/resolve-merchant-currency';
 
 interface SearchResult {
   domain: string;
@@ -31,10 +30,6 @@ interface SearchResult {
   popular?: boolean;
   recommended?: boolean;
   note?: string;
-}
-
-interface DomainSearchPanelProps {
-  merchant: CachedMerchant;
 }
 
 type ToastFn = ReturnType<typeof useToast>['toast'];
@@ -158,7 +153,7 @@ async function startDomainPurchase(options: {
   }
 }
 
-export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
+export function DomainSearchPanel() {
   const { toast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -170,8 +165,13 @@ export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
     domain: string;
     price: number;
   } | null>(null);
+  // Domain prices are platform costs (see `config/domain-pricing.ts`) charged
+  // to the merchant's wallet in NGN — never the merchant's own payout
+  // currency. Formatting them in a merchant's local currency would imply an
+  // FX conversion that never happened, so this is intentionally NGN for
+  // every merchant regardless of `payout_currency`/`country`.
   const formatDomainPrice = (price: number) =>
-    formatDisplayCurrency(price, merchant.payout_currency || 'NGN', {
+    formatAmountInCurrency(price, 'NGN', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     });
@@ -251,6 +251,11 @@ export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
           {isSearching ? <Loader2 className="size-4 animate-spin" /> : 'Search'}
         </Button>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Domain prices are billed in NGN (₦), regardless of your store's
+        currency.
+      </p>
 
       {searchWarning && (
         <div className="bg-yellow-50 dark:bg-yellow-900/10 text-yellow-800 dark:text-yellow-200 p-3 rounded-md text-sm">

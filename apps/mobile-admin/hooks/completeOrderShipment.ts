@@ -6,6 +6,7 @@ import {
   type ShipmentCompletionMode,
   type ShipmentFulfillmentDetails,
 } from '@/lib/order-shipment';
+import { getNationalPhoneNumber } from '@/lib/phone-country';
 import { supabase } from '@/lib/supabase';
 
 interface ShipmentCompletionResult {
@@ -34,6 +35,22 @@ interface CompleteOrderShipmentParams {
   }) => Promise<unknown>;
 }
 
+function validateDispatchPhoneForWhatsapp(phone: string) {
+  const trimmedPhone = phone.trim();
+  const nationalNumber = getNationalPhoneNumber(trimmedPhone);
+  const digits = trimmedPhone.replace(/\D/g, '');
+
+  if (!nationalNumber) {
+    return '';
+  }
+
+  if (digits.length < 10 || digits.length > 15) {
+    throw new Error('Rider phone number is not valid for WhatsApp.');
+  }
+
+  return trimmedPhone;
+}
+
 export async function completeOrderShipment({
   fulfillmentDetails,
   handleSaveRider,
@@ -49,7 +66,10 @@ export async function completeOrderShipment({
 }: CompleteOrderShipmentParams): Promise<ShipmentCompletionResult> {
   // Rider phone is optional for self-fulfillment — the merchant can add it
   // later via the post-shipment "Send to Rider" WhatsApp action.
-  const dispatchPhone = riderPhone.trim();
+  const dispatchPhone =
+    mode === 'self_fulfillment'
+      ? validateDispatchPhoneForWhatsapp(riderPhone)
+      : '';
 
   if (mode !== 'self_fulfillment' && !providerBookingAvailable) {
     throw new Error(
@@ -86,7 +106,7 @@ export async function completeOrderShipment({
       body: JSON.stringify({
         carrierName: 'Dispatch Rider',
         dispatchNotes: `Self-fulfilled from mobile admin for order ${order.order_number}`,
-        dispatchPhone,
+        ...(dispatchPhone ? { dispatchPhone } : {}),
         orderId: order.id,
       }),
       headers: {
@@ -108,7 +128,9 @@ export async function completeOrderShipment({
       throw new Error(message);
     }
 
-    await handleSaveRider(dispatchPhone);
+    if (dispatchPhone) {
+      await handleSaveRider(dispatchPhone);
+    }
   } else {
     await updateStatus({ orderId: order.id, status: 'shipped' });
   }
@@ -141,8 +163,7 @@ export async function completeOrderShipment({
 
   // Only offer the "Send Order Details to Rider" WhatsApp action when a rider
   // number was actually provided — otherwise the action would dead-end.
-  const canSendToRider =
-    mode === 'self_fulfillment' && dispatchPhone.length > 0;
+  const canSendToRider = mode === 'self_fulfillment' && Boolean(dispatchPhone);
 
   return {
     actionLabel: canSendToRider ? 'Send Order Details to Rider' : '',

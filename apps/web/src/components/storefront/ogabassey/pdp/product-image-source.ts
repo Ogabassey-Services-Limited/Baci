@@ -5,7 +5,7 @@ import {
 } from '@/components/storefront/ogabassey/config/product-media';
 import imageLoader from '@/lib/image-loader';
 import {
-  buildOgabasseyCdnImageLoaderUrl,
+  buildOgabasseyCdnFallbackImageLoaderUrl,
   isOgabasseyCdnImageUrl,
 } from '@/lib/ogabassey-cdn-image-url';
 
@@ -68,7 +68,7 @@ export function buildOgabasseyPdpSameOriginProfileImageUrl(
 
 function buildOgabasseyPdpMobileImageUrl(src: string, width: number): string {
   if (isOgabasseyCdnImageUrl(src)) {
-    return buildOgabasseyCdnImageLoaderUrl(
+    return buildOgabasseyCdnFallbackImageLoaderUrl(
       src,
       width,
       OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY

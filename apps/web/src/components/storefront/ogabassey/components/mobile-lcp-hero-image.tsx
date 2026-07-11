@@ -1,5 +1,6 @@
 import { getImageProps } from 'next/image';
-import imageLoader from '@/lib/image-loader';
+import { ogabasseyFallbackImageLoader } from '@/lib/ogabassey-image-fallback-loader';
+import { buildOgabasseyAvifSrcSet } from '@/lib/ogabassey-image-format-sources';
 import {
   MOBILE_HERO_IMAGE_HEIGHT,
   MOBILE_HERO_IMAGE_SIZES,
@@ -19,18 +20,6 @@ interface MobileLcpHeroImageProps {
 
 const WIDTH_DESCRIPTOR_PATTERN = /\s\d+w(?:,|$)/;
 
-function ogabasseyHeroImageLoader({
-  quality = MOBILE_HERO_IMAGE_QUALITY,
-  src,
-  width,
-}: {
-  quality?: number;
-  src: string;
-  width: number;
-}) {
-  return imageLoader({ quality, src, width });
-}
-
 function getResponsiveSizes(srcSetValue: string, sizesValue?: string) {
   return WIDTH_DESCRIPTOR_PATTERN.test(srcSetValue) ? sizesValue : undefined;
 }
@@ -49,7 +38,7 @@ export function MobileLcpHeroImage({
     decoding: 'sync',
     fetchPriority: 'high',
     height: MOBILE_HERO_IMAGE_HEIGHT,
-    loader: ogabasseyHeroImageLoader,
+    loader: ogabasseyFallbackImageLoader,
     loading: 'eager',
     quality: MOBILE_HERO_IMAGE_QUALITY,
     sizes: MOBILE_HERO_IMAGE_SIZES,
@@ -61,9 +50,23 @@ export function MobileLcpHeroImage({
     productSrcSet,
     sizes ?? MOBILE_HERO_IMAGE_SIZES
   );
+  // Explicit `format=avif` twin of the fallback srcSet. Cloudflare Free ignores
+  // `Vary: Accept`, so per-format URLs (not one `format=auto` body) are the only
+  // way AVIF-capable browsers get AVIF while others get the decodable fallback.
+  // `null` when the source is not an OgaBassey transform URL (external image) —
+  // the plain `<source>` then serves everyone.
+  const avifSrcSet = buildOgabasseyAvifSrcSet(productSrcSet);
 
   return (
     <picture className="block h-full w-full">
+      {avifSrcSet ? (
+        <source
+          media={MOBILE_HERO_SOURCE_MEDIA}
+          sizes={productSizes}
+          srcSet={avifSrcSet}
+          type="image/avif"
+        />
+      ) : null}
       <source
         media={MOBILE_HERO_SOURCE_MEDIA}
         sizes={productSizes}

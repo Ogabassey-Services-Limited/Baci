@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -12,6 +13,19 @@ vi.mock('@/components/ui/safe-html', () => ({
 import { OgabasseyV2LegalDispute } from './legal-dispute';
 
 describe('OgabasseyV2LegalDispute', () => {
+  describe('server component (render-weight)', () => {
+    it('is a Server Component so the sanitizer stays out of the client bundle', () => {
+      // The 'use client' directive must only appear at module top when present.
+      // Its absence keeps SafeHtml/sanitize-html server-only for this route.
+      const source = readFileSync(
+        `${process.cwd()}/src/components/storefront/ogabassey/pages/legal-dispute.tsx`,
+        'utf8'
+      );
+
+      expect(source).not.toMatch(/^\s*['"]use client['"]/m);
+    });
+  });
+
   describe('page structure', () => {
     it('renders the main page heading', () => {
       render(<OgabasseyV2LegalDispute />);

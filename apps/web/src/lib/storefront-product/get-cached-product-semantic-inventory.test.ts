@@ -1,14 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedProductSemanticInventory } from './get-cached-product-semantic-inventory';
 
-const mockCacheLife = vi.fn();
-const mockCacheTag = vi.fn();
 const mockGetPublicSupabaseClient = vi.fn();
-
-vi.mock('next/cache', () => ({
-  cacheLife: (...args: string[]) => mockCacheLife(...args),
-  cacheTag: (...args: string[]) => mockCacheTag(...args),
-}));
 
 vi.mock('@/lib/cached-data', () => ({
   getPublicSupabaseClient: () => mockGetPublicSupabaseClient(),
@@ -20,9 +13,16 @@ function createProductsQuery(result: {
 }) {
   const query = {
     eq: vi.fn(() => query),
-    limit: vi.fn(() => Promise.resolve(result)),
+    limit: vi.fn(() => query),
     order: vi.fn(() => query),
     select: vi.fn(() => query),
+    abortSignal: vi.fn(() => query),
+    retry: vi.fn(() => query),
+    // biome-ignore lint/suspicious/noThenProperty: mock intentionally mimics postgrest-js's thenable query builder
+    then: (
+      resolve: (value: typeof result) => unknown,
+      reject?: (reason: unknown) => unknown
+    ) => Promise.resolve(result).then(resolve, reject),
   };
   return query;
 }
@@ -75,6 +75,13 @@ describe('getCachedProductSemanticInventory', () => {
       'laptops'
     );
     expect(productsQuery.limit).toHaveBeenCalledWith(300);
+    // The fix for the ~34s compare stall: bound this optional read and disable
+    // PostgREST auto-retry so an AbortSignal.timeout TimeoutError cannot fan out
+    // into 4 attempts. Removing either re-introduces the stall.
+    expect(productsQuery.abortSignal).toHaveBeenCalledWith(
+      expect.any(AbortSignal)
+    );
+    expect(productsQuery.retry).toHaveBeenCalledWith(false);
     expect(result).toEqual([
       {
         slug: 'macbook-pro',
@@ -87,25 +94,41 @@ describe('getCachedProductSemanticInventory', () => {
         product_key_specs: { ram_gb: 16, storage_gb: 512 },
       },
     ]);
-    expect(mockCacheTag).toHaveBeenCalledWith(
-      'products',
-      'products-merchant-1',
-      'seo-inventory-merchant-1-laptops'
-    );
   });
 
-  it('throws query errors so a stale-good cache entry is preserved', async () => {
-    const productsQuery = createProductsQuery({
+  it('reaches the database again after a transient query failure', async () => {
+    const failedQuery = createProductsQuery({
       data: null,
       error: { message: 'timeout' },
     });
+    const recoveredQuery = createProductsQuery({
+      data: [
+        {
+          slug: 'recovered-product',
+          name: 'Recovered Product',
+          price: 100,
+          product_categories: [{ categories: { slug: 'laptops' } }],
+        },
+      ],
+      error: null,
+    });
+    const from = vi
+      .fn()
+      .mockReturnValueOnce(failedQuery)
+      .mockReturnValueOnce(recoveredQuery);
     mockGetPublicSupabaseClient.mockReturnValue({
-      from: vi.fn(() => productsQuery),
+      from,
     });
 
     await expect(
       getCachedProductSemanticInventory('merchant-1', 'laptops')
     ).rejects.toMatchObject({ message: 'timeout' });
+    await expect(
+      getCachedProductSemanticInventory('merchant-1', 'laptops')
+    ).resolves.toEqual([
+      expect.objectContaining({ slug: 'recovered-product' }),
+    ]);
+    expect(from).toHaveBeenCalledTimes(2);
   });
 
   it.each([

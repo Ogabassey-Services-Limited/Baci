@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BookingRequestSchema,
+  QuoteRequestSchema,
   SelfFulfillmentSchema,
   SelfFulfillmentUpdateSchema,
 } from './shipping';
@@ -45,6 +46,18 @@ describe('SelfFulfillmentUpdateSchema dispatchPhone (optional rider number)', ()
       dispatchPhone: '',
     });
     expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.dispatchPhone).toBeNull();
+  });
+
+  it('preserves null dispatchPhone as an explicit clear', () => {
+    const result = SelfFulfillmentUpdateSchema.safeParse({
+      orderId: ORDER_ID,
+      dispatchPhone: null,
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.dispatchPhone).toBeNull();
   });
 
   it('rejects a partial dispatchPhone (provided but too short)', () => {
@@ -150,6 +163,105 @@ describe('BookingRequestSchema international item metadata', () => {
           width: 8,
         },
       ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('QuoteRequestSchema delivery preference', () => {
+  it('accepts pickup-station quote preferences for domestic quotes', () => {
+    const result = QuoteRequestSchema.safeParse({
+      deliveryPreference: 'pickup_station',
+      receiver: {
+        name: 'Jane Receiver',
+        address: '5 Customer Street',
+        city: 'Port Harcourt',
+        state: 'Rivers',
+      },
+      items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.deliveryPreference).toBe('pickup_station');
+  });
+
+  it('preserves receiver coordinates for nearest service-centre ranking', () => {
+    const result = QuoteRequestSchema.safeParse({
+      receiver: {
+        name: 'Jane Receiver',
+        address: '5 Customer Street',
+        city: 'Port Harcourt',
+        state: 'Rivers',
+        latitude: 4.8156,
+        longitude: 7.0498,
+      },
+      items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.receiver).toMatchObject({
+      latitude: 4.8156,
+      longitude: 7.0498,
+    });
+  });
+
+  it.each([
+    ['partial coordinates', { latitude: 4.8156 }],
+    ['out-of-range coordinates', { latitude: 91, longitude: 7.0498 }],
+    [
+      'non-finite coordinates',
+      { latitude: Number.POSITIVE_INFINITY, longitude: 7.0498 },
+    ],
+  ])('rejects %s', (_label, coordinates) => {
+    const result = QuoteRequestSchema.safeParse({
+      receiver: {
+        name: 'Jane Receiver',
+        address: '5 Customer Street',
+        city: 'Port Harcourt',
+        state: 'Rivers',
+        ...coordinates,
+      },
+      items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects partial sender coordinates', () => {
+    const result = QuoteRequestSchema.safeParse({
+      receiver: {
+        name: 'Jane Receiver',
+        address: '5 Customer Street',
+        city: 'Port Harcourt',
+        state: 'Rivers',
+      },
+      sender: {
+        name: 'Merchant',
+        phone: '08012345678',
+        address: '1 Merchant Road',
+        city: 'Ikeja',
+        state: 'Lagos',
+        longitude: 3.3792,
+      },
+      items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects unsupported delivery preferences', () => {
+    const result = QuoteRequestSchema.safeParse({
+      deliveryPreference: 'express',
+      receiver: {
+        name: 'Jane Receiver',
+        address: '5 Customer Street',
+        city: 'Port Harcourt',
+        state: 'Rivers',
+      },
+      items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
     });
 
     expect(result.success).toBe(false);

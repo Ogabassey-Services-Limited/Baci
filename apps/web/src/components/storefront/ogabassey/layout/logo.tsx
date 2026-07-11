@@ -20,9 +20,13 @@ export const Logo: React.FC<LogoProps> = ({
       viewBox="0 0 879.31 155.39"
       height={height}
       className={className}
+      role="img"
       aria-label="Ogabassey Logo"
     >
-      <title>Ogabassey</title>
+      {/* No <title> element: an SVG title is a real <title> tag in the DOM and
+          document-order scrapers (Semrush and other raw-HTML SEO crawlers) read
+          the FIRST <title> in the byte stream as the page title. aria-label
+          already provides the accessible name. */}
       <g id="Layer_2" data-name="Layer 2">
         <g id="Layer_1-2" data-name="Layer 1">
           {/* Red circle with B - The "O" Symbol */}

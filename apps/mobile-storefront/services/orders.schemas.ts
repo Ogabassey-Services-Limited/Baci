@@ -12,20 +12,25 @@ const OrderItemSchema = z.object({
   image_url: z.string().optional(),
   variant: z.string().optional(),
   variant_id: z.string().optional(),
+  variant_name: z.string().optional(),
   variant_attributes: z.record(z.string(), z.string()).optional(),
   has_assurance: z.boolean().optional(),
   assurance_fee: z.number().min(0).optional(),
+  // Quiz voucher tokens are `qv1.<base64url payload>.<base64url HMAC>` and run
+  // 250-400+ chars; must match the web signing schema's 512 cap (see
+  // apps/web/src/schemas/quiz.ts) or a real token is rejected client-side
+  // before the order is ever sent.
   voucher_token: z
     .string()
     .trim()
     .min(1, 'Voucher token cannot be blank')
-    .max(128, 'Voucher token must be 128 characters or less')
+    .max(512, 'Voucher token must be 512 characters or less')
     .optional(),
   voucher_award_id: z
     .string()
     .trim()
     .min(1, 'Voucher award ID cannot be blank')
-    .max(128, 'Voucher award ID must be 128 characters or less')
+    .max(512, 'Voucher award ID must be 512 characters or less')
     .optional(),
 });
 

@@ -6,8 +6,6 @@ const mockLoadComparePage = vi.fn();
 const mockCompareRelatedLinks = vi.fn(
   (props: {
     links: Array<{ description: string; href: string; label: string }>;
-    merchantCustomDomain?: string | null;
-    merchantSlug: string;
     storeUrl: string;
   }) => (
     <section aria-labelledby="related-comparisons-heading">
@@ -32,8 +30,6 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 vi.mock('./compare-related-links', () => ({
   CompareRelatedLinks: (props: {
     links: Array<{ description: string; href: string; label: string }>;
-    merchantCustomDomain?: string | null;
-    merchantSlug: string;
     storeUrl: string;
   }) => mockCompareRelatedLinks(props),
 }));
@@ -204,8 +200,6 @@ describe('ComparePageContent', () => {
     expect(mockCompareRelatedLinks).toHaveBeenCalledWith(
       expect.objectContaining({
         links: comparePageModel.relatedCompareLinks,
-        merchantCustomDomain: 'ogabassey.com',
-        merchantSlug: 'ogabassey',
         storeUrl: 'https://ogabassey.com',
       })
     );
@@ -277,6 +271,68 @@ describe('ComparePageContent', () => {
     expect(schemaScripts[1]?.textContent).toContain('"@type":"ItemList"');
     expect(schemaScripts[1]?.textContent).toContain('"@type":"Product"');
     expect(schemaScripts[1]?.textContent).not.toContain('"@type":"FAQPage"');
+  });
+
+  it('uses the resolved merchant currency in product ItemList JSON-LD offers', async () => {
+    mockLoadComparePage.mockResolvedValueOnce({
+      ...comparePageModel,
+      merchant: {
+        ...comparePageModel.merchant,
+        payout_currency: 'KES',
+        country: 'KE',
+      },
+    });
+    const { ComparePageContent } = await import('./compare-page-content');
+
+    const { container } = render(
+      (await ComparePageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          category: 'smartphones',
+          comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+        }),
+      })) as ReactElement
+    );
+
+    const schemaScripts = container.querySelectorAll(
+      'script[type="application/ld+json"]'
+    );
+    const itemListSchema = JSON.parse(schemaScripts[1]?.textContent ?? '{}');
+
+    expect(itemListSchema.itemListElement[0].item.offers.priceCurrency).toBe(
+      'KES'
+    );
+  });
+
+  it('falls back to NGN in product ItemList JSON-LD when the merchant has no payout currency', async () => {
+    mockLoadComparePage.mockResolvedValueOnce({
+      ...comparePageModel,
+      merchant: {
+        ...comparePageModel.merchant,
+        payout_currency: null,
+        country: null,
+      },
+    });
+    const { ComparePageContent } = await import('./compare-page-content');
+
+    const { container } = render(
+      (await ComparePageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          category: 'smartphones',
+          comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+        }),
+      })) as ReactElement
+    );
+
+    const schemaScripts = container.querySelectorAll(
+      'script[type="application/ld+json"]'
+    );
+    const itemListSchema = JSON.parse(schemaScripts[1]?.textContent ?? '{}');
+
+    expect(itemListSchema.itemListElement[0].item.offers.priceCurrency).toBe(
+      'NGN'
+    );
   });
 
   it('keeps string-encoded prices in product ItemList JSON-LD', async () => {

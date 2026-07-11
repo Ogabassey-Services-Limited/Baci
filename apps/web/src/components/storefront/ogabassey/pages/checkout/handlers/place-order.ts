@@ -1,5 +1,10 @@
 import { toast } from '@/hooks/use-toast';
 import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
+import {
+  getCheckoutOrderErrorMessage,
+  getOrderCreateErrorCode,
+  isQuizVoucherRejectionCode,
+} from '../checkout-order-error-message';
 import { openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { createClient } from '@/lib/supabase/client';
@@ -39,6 +44,12 @@ export interface CheckoutCartItem {
 
 export interface PlaceOrderOptions {
   merchant: { id: string; slug: string } | null | undefined;
+  /**
+   * Merchant-resolved order currency code (e.g. 'NGN', 'KES'). Sent to
+   * /api/payments/initialize instead of a hardcoded 'NGN'; the server derives
+   * the authoritative charge currency from the order and rejects a mismatch.
+   */
+  currency: string;
   customerEmail: string;
   firstName: string;
   lastName: string;
@@ -80,6 +91,12 @@ export interface PlaceOrderOptions {
   setCompletedSteps: (v: { contact: boolean; delivery: boolean }) => void;
   clearCheckoutSession: () => void;
   clearCart: () => void;
+  /**
+   * FIX E: remove quiz-prize voucher line(s) from the cart. Invoked when the
+   * orders RPC rejects the voucher (expired/already-used/not-approved) so the
+   * offending line does not re-fail every subsequent checkout attempt.
+   */
+  pruneVoucherLines?: (rejectedVoucherToken?: string) => void;
   routerPush: (url: string) => void;
   getHref: (path: string) => string;
   executeDirectPayment: () => Promise<void>;
@@ -216,6 +233,7 @@ function getShippingProvider(
 export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
   const {
     merchant,
+    currency,
     customerEmail,
     firstName,
     lastName,
@@ -250,6 +268,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
     setCompletedSteps,
     clearCheckoutSession,
     clearCart,
+    pruneVoucherLines,
     routerPush,
     getHref,
     executeDirectPayment,
@@ -425,9 +444,20 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
         details: errorData.details,
         fullResponse: errorData,
       });
-      throw new Error(
-        errorData.details || errorData.error || 'Failed to create order',
-      );
+      // FIX E (2): a rejected quiz-prize voucher (expired / already-used /
+      // not-approved) would otherwise re-fail every checkout. Drop the
+      // offending voucher line so the shopper can proceed with the rest of
+      // their cart. The friendly copy is surfaced by the throw below.
+      if (isQuizVoucherRejectionCode(getOrderCreateErrorCode(errorData))) {
+        pruneVoucherLines?.(
+          typeof errorData.rejectedVoucherToken === 'string'
+            ? errorData.rejectedVoucherToken
+            : undefined,
+        );
+      }
+      // FIX C: map raw RPC codes (e.g. quiz_voucher_award_not_approved) to
+      // actionable, shopper-facing copy instead of leaking the code to a toast.
+      throw new Error(getCheckoutOrderErrorMessage(errorData));
     }
 
     const orderData = await orderResponse.json();
@@ -533,6 +563,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
       const result = await initializeCardPayment(
         merchant.id,
         order.id,
+        currency,
         customerEmail,
         `${firstName} ${lastName}`.trim(),
         customerPhone,
@@ -736,6 +767,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
 async function initializeCardPayment(
   merchantId: string,
   orderId: string,
+  currency: string,
   email: string,
   name: string,
   phone: string,
@@ -754,7 +786,7 @@ async function initializeCardPayment(
     body: JSON.stringify({
       merchant_id: merchantId,
       order_id: orderId,
-      currency: 'NGN',
+      currency,
       customer_email: email,
       customer_name: name,
       customer_phone: phone,

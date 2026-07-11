@@ -93,6 +93,25 @@ describe('ogabassey home launch products', () => {
     ]);
   });
 
+  it('keeps full untruncated descriptions so home JSON-LD markup is unchanged', () => {
+    const longDescription = `<h2>What is the Galaxy A27 Price in Nigeria?</h2><p>${'C'.repeat(400)}</p>`;
+
+    const products = selectOgabasseyLaunchProducts({
+      launchCandidateRows: [
+        createRow({
+          id: 'launch',
+          name: 'Launch Device',
+          slug: 'launch-device',
+          description: longDescription,
+          created_at: '2026-06-24T00:00:00.000Z',
+        }),
+      ],
+      pinnedProductRows: [],
+    });
+
+    expect(products[0]?.description).toBe(longDescription);
+  });
+
   it('loads launch and pinned rows for the streamed hero without failing on missing pins', async () => {
     vi.mocked(getCachedStorefrontLaunchProducts).mockResolvedValue([
       createRow({ id: 'launch', name: 'Launch Device' }),

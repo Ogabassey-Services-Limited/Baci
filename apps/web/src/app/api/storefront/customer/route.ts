@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { resolveMerchantIdBySlugOrAlias } from '@/lib/resolve-merchant-by-slug';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -64,14 +65,13 @@ export async function PATCH(request: NextRequest) {
     const { merchantSlug, first_name, last_name, phone, saved_addresses } =
       parseResult.data;
 
-    // 3. Get merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('slug', merchantSlug)
-      .single();
+    // 3. Get merchant (alias-aware: a stale client on a just-renamed store passes
+    // the retired slug in the body, which the proxy can't rewrite — resolve it via
+    // the alias table so the request still targets the current merchant).
+    const { merchantId, error: merchantError } =
+      await resolveMerchantIdBySlugOrAlias(supabase, merchantSlug);
 
-    if (merchantError || !merchant) {
+    if (merchantError || !merchantId) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });
     }
 
@@ -79,7 +79,7 @@ export async function PATCH(request: NextRequest) {
     const { data: customer, error: customerError } = await supabase
       .from('customers')
       .select('id')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('user_id', user.id)
       .single();
 

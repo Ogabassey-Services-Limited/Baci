@@ -18,6 +18,7 @@ import {
   loginResponseWithoutCustomerType,
   priceResponse,
   quoteRequest,
+  serviceCentresResponse,
   stationsResponse,
 } from './gigl.test-helpers';
 
@@ -43,7 +44,7 @@ function mockGiglFetchSequence(
   return fetchMock;
 }
 
-function buildQuoteHarness() {
+function buildQuoteHarness(generateQuoteId?: () => string) {
   const log = vi.fn();
   const safeFetch = (
     url: string,
@@ -51,6 +52,7 @@ function buildQuoteHarness() {
   ) => fetch(url, options);
   const apiClient = new GiglApiClient({ safeFetch, log });
   const stationsService = new GiglStationsService(apiClient);
+  const quoteIds = ['quote-1', 'quote-2', 'quote-3', 'quote-4'];
 
   return {
     getQuotes: (request: typeof quoteRequest) =>
@@ -60,7 +62,8 @@ function buildQuoteHarness() {
         {
           safeFetch,
           log,
-          generateQuoteId: () => 'quote-1',
+          generateQuoteId:
+            generateQuoteId ?? (() => quoteIds.shift() ?? 'quote-fallback'),
           getQuoteExpiry: (hours = 1) =>
             new Date(Date.now() + hours * 60 * 60 * 1000),
         },
@@ -91,27 +94,35 @@ describe('GiglProvider quote requests', () => {
       jsonResponse(loginResponse),
       jsonResponse(stationsResponse),
       jsonResponse(priceResponse),
+      jsonResponse(priceResponse),
+      jsonResponse(priceResponse),
       jsonResponse(priceResponse)
     );
 
     const provider = buildQuoteHarness();
     const quotes = await provider.getQuotes(quoteRequest);
 
-    expect(quotes).toHaveLength(1);
+    expect(quotes).toHaveLength(2);
     expect(quotes[0]).toMatchObject({
       provider: 'GIGL',
-      serviceTier: 'Standard',
+      serviceTier: 'GoStandard',
       carrierName: 'GIG Logistics',
       price: 8941,
       currency: 'NGN',
-      providerRateId: 'GIGL_30_0_1',
+      providerRateId: 'GIGL_30_0_1_0_0',
+    });
+    expect(quotes[1]).toMatchObject({
+      serviceTier: 'GoFaster',
+      providerRateId: 'GIGL_30_0_1_0_1',
     });
     expect(quotes.some((quote) => quote.isStationPickup)).toBe(false);
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
       `${baseUrl}/login`,
       `${baseUrl}/localstations/get`,
-      `${baseUrl}/price`,
-      `${baseUrl}/price`,
+      `${baseUrl}/price/v3`,
+      `${baseUrl}/price/v3`,
+      `${baseUrl}/price/v3`,
+      `${baseUrl}/price/v3`,
     ]);
 
     const pricePayload = JSON.parse(
@@ -120,20 +131,24 @@ describe('GiglProvider quote requests', () => {
     expect(pricePayload).toMatchObject({
       SenderStationId: 4,
       ReceiverStationId: 30,
-      CustomerCode: 'ECO038082',
-      CustomerType: 0,
       PickUpOptions: 0,
       VehicleType: 1,
+      IsPriorityShipment: false,
     });
     expect(pricePayload.ShipmentItems[0]).toMatchObject({
       SpecialPackageId: 1,
     });
     expect(pricePayload.ShipmentItems[0]).not.toHaveProperty('ItemType');
     expect(pricePayload).not.toHaveProperty('ShipmentType');
-    const stationPickupPayload = JSON.parse(
+    const goFasterPayload = JSON.parse(
       String(fetchMock.mock.calls[3]?.[1]?.body ?? '{}')
     );
-    expect(stationPickupPayload.PickUpOptions).toBe(1);
+    expect(goFasterPayload).toMatchObject({
+      PickUpOptions: 0,
+      IsPriorityShipment: true,
+    });
+    expect(pricePayload).not.toHaveProperty('CustomerCode');
+    expect(pricePayload).not.toHaveProperty('CustomerType');
   });
 
   it('falls back to a station-pickup quote when home delivery is unavailable', async () => {
@@ -144,22 +159,104 @@ describe('GiglProvider quote requests', () => {
         success: true,
         data: { message: 'Home delivery unavailable', status: 503, data: null },
       }),
-      jsonResponse(priceResponse)
+      jsonResponse({
+        success: true,
+        data: { message: 'Home delivery unavailable', status: 503, data: null },
+      }),
+      jsonResponse(priceResponse),
+      jsonResponse(priceResponse),
+      jsonResponse(serviceCentresResponse)
     );
 
     const provider = buildQuoteHarness();
     const quotes = await provider.getQuotes(quoteRequest);
 
-    expect(quotes).toHaveLength(1);
+    expect(quotes).toHaveLength(6);
     expect(quotes[0]).toMatchObject({
       provider: 'GIGL',
-      serviceTier: 'Station Pickup',
+      serviceTier: 'Station Pickup - GoStandard',
       displayName:
-        'GIG Logistics - Pickup at PORT HARCOURT (Port Harcourt station)',
-      providerRateId: 'GIGL_30_1_1',
+        'GIG Logistics - Pickup at PHC RUMUOLUMENI IWOFE - GoStandard',
+      providerRateId: 'GIGL_30_1_1_575_0',
       isStationPickup: true,
       stationId: 30,
-      stationName: 'PORT HARCOURT',
+      stationName: 'PHC RUMUOLUMENI IWOFE',
+      stationCode: 'RUM',
+      pickupStationCode: 'RUM',
+      deliveryRange: '1-3 working days',
+      minDays: 1,
+      maxDays: 3,
+    });
+  });
+
+  it('keeps station-pickup fallback when only GoFaster home delivery succeeds', async () => {
+    mockGiglFetchSequence(
+      jsonResponse(loginResponse),
+      jsonResponse(stationsResponse),
+      jsonResponse({
+        success: true,
+        data: { message: 'GoStandard unavailable', status: 503, data: null },
+      }),
+      jsonResponse(priceResponse),
+      jsonResponse(priceResponse),
+      jsonResponse({
+        success: true,
+        data: {
+          message: 'GoFaster pickup unavailable',
+          status: 503,
+          data: null,
+        },
+      }),
+      jsonResponse(serviceCentresResponse)
+    );
+
+    const quotes = await buildQuoteHarness().getQuotes(quoteRequest);
+
+    expect(quotes.some((quote) => quote.serviceTier === 'GoFaster')).toBe(true);
+    expect(quotes.some((quote) => quote.isStationPickup)).toBe(true);
+  });
+
+  it('preserves home delivery when the service-centre request throws', async () => {
+    mockGiglFetchSequence(
+      jsonResponse(loginResponse),
+      jsonResponse(stationsResponse),
+      jsonResponse(priceResponse),
+      () => Promise.reject(new Error('service-centre pricing unavailable'))
+    );
+
+    const quotes = await buildQuoteHarness().getQuotes(quoteRequest);
+
+    expect(quotes).toHaveLength(1);
+    expect(quotes[0]).toMatchObject({
+      isStationPickup: false,
+      providerRateId: 'GIGL_30_0_1_0_0',
+    });
+  });
+
+  it('preserves a pickup quote when service-centre expansion throws', async () => {
+    mockGiglFetchSequence(
+      jsonResponse(loginResponse),
+      jsonResponse(stationsResponse),
+      jsonResponse(priceResponse),
+      jsonResponse(serviceCentresResponse)
+    );
+    const generateQuoteId = vi
+      .fn<() => string>()
+      .mockReturnValueOnce('base-station-quote')
+      .mockImplementation(() => {
+        throw new Error('quote id unavailable');
+      });
+
+    const quotes = await buildQuoteHarness(generateQuoteId).getQuotes({
+      ...quoteRequest,
+      deliveryPreference: 'pickup_station',
+    });
+
+    expect(quotes).toHaveLength(1);
+    expect(quotes[0]).toMatchObject({
+      id: 'base-station-quote',
+      isStationPickup: true,
+      providerRateId: 'GIGL_30_1_1_0_0',
     });
   });
 
@@ -175,11 +272,11 @@ describe('GiglProvider quote requests', () => {
 
     const quotes = await provider.getQuotes(quoteRequest);
 
-    expect(quotes).toHaveLength(1);
+    expect(quotes).toHaveLength(2);
     const pricePayload = JSON.parse(
       String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')
     );
-    expect(pricePayload.CustomerType).toBe(2);
+    expect(pricePayload).not.toHaveProperty('CustomerType');
   });
 
   it('prices and identifies heavy quotes with the van vehicle type', async () => {
@@ -198,7 +295,8 @@ describe('GiglProvider quote requests', () => {
     });
 
     expect(quotes.map((quote) => quote.providerRateId)).toEqual([
-      'GIGL_30_0_2',
+      'GIGL_30_0_2_0_0',
+      'GIGL_30_0_2_0_1',
     ]);
     const pricePayload = JSON.parse(
       String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')
@@ -218,7 +316,7 @@ describe('GiglProvider quote requests', () => {
     const provider = buildQuoteHarness();
 
     await expect(provider.getQuotes(quoteRequest)).resolves.toEqual([]);
-    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(1);
+    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(2);
   });
 
   it('skips GIGL quotes when the sender station cannot be resolved', async () => {

@@ -87,6 +87,30 @@ describe('useReceipts', () => {
 
   it('loads receipts through the customer linked to the authenticated user and merchant', async () => {
     const { useReceipts } = await import('@/hooks/use-receipts');
+    mockOrder.mockResolvedValue({
+      data: [
+        {
+          amount_paid: 690000,
+          created_at: '2026-07-08T12:33:00.000Z',
+          currency: 'NGN',
+          id: 'order-1',
+          order_items: [
+            {
+              condition: 'open_box',
+              id: 'item-1',
+              name: '13" MacBook Air M2 (2022)',
+              price: 690000,
+              quantity: 1,
+              variant_name: '512GB',
+            },
+          ],
+          order_number: 'ORD-1',
+          payment_status: 'pending',
+          total: 690000,
+        },
+      ],
+      error: null,
+    });
 
     function Probe() {
       useReceipts('auth-user-1');
@@ -95,11 +119,17 @@ describe('useReceipts', () => {
 
     render(<Probe />);
     const options = mockUseQuery.mock.calls[0]?.[0] as QueryOptions;
-    await options.queryFn();
+    const receipts = await options.queryFn();
 
     expect(mockFrom).toHaveBeenCalledWith('orders');
     expect(mockQueryBuilder.select).toHaveBeenCalledWith(
       expect.stringContaining('customers!inner')
+    );
+    expect(mockQueryBuilder.select).toHaveBeenCalledWith(
+      expect.stringContaining('condition')
+    );
+    expect(mockQueryBuilder.select).toHaveBeenCalledWith(
+      expect.stringContaining('variant_name')
     );
     expect(mockQueryBuilder.eq).toHaveBeenCalledWith(
       'customers.user_id',
@@ -110,6 +140,17 @@ describe('useReceipts', () => {
       'merchant-1'
     );
     expect(mockOrder).toHaveBeenCalledWith('created_at', { ascending: false });
+    expect(receipts).toEqual([
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            condition: 'open_box',
+            product_name: '13" MacBook Air M2 (2022)',
+            variant_name: '512GB',
+          }),
+        ],
+      }),
+    ]);
   });
 
   it('does not query receipts when the authenticated user scope is missing', async () => {

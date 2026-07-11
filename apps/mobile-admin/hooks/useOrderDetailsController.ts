@@ -63,8 +63,13 @@ export function useOrderDetailsController() {
     merchantId: order?.merchant_id ?? merchant?.id,
     orderId: order?.id ?? orderId,
   });
-  const merchantCurrency = merchant?.payout_currency || 'NGN';
-  const currencySymbol = getOrderCurrencySymbol(merchant?.payout_currency);
+  // Orders stamp their own currency at checkout time (`orders.currency`).
+  // Historical orders can predate a merchant payout-currency change, so the
+  // order's own currency wins; the merchant's current payout currency is
+  // only a fallback for legacy rows without a stamped currency or while the
+  // order hasn't loaded yet.
+  const orderCurrency = order?.currency || merchant?.payout_currency || 'NGN';
+  const currencySymbol = getOrderCurrencySymbol(orderCurrency);
   const updateStatusMutation = useUpdateOrderStatus();
   const shipOnCreditMutation = useShipOnCredit();
   const sendReminderMutation = useSendReminder();
@@ -117,7 +122,7 @@ export function useOrderDetailsController() {
   });
 
   const formatPrice = (amount: number) =>
-    formatOrderDetailsPrice(amount, merchantCurrency);
+    formatOrderDetailsPrice(amount, orderCurrency);
   const formatDate = formatOrderDetailsDate;
 
   const contactActions = createOrderDetailsContactActions({
@@ -254,6 +259,7 @@ export function useOrderDetailsController() {
     isInvalidRoute,
     isLoading,
     order,
+    orderCurrency,
     orderId,
     paymentColor,
     paymentConfig,

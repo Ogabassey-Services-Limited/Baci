@@ -1,6 +1,6 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { SelectedParentProduct } from '@/components/orders/new-order.types';
 import type { ThemeColors } from '@/constants/theme';
 import type { AdminProductVariant } from '@/lib/product-picker-variant-rows';
@@ -17,6 +17,7 @@ import {
   ProductVariantFixedOptions,
 } from './ProductVariantFixedOptions';
 import { ProductVariantSelectableGroup } from './ProductVariantSelectableGroup';
+import { styles } from './product-variant-option-selector.styles';
 
 interface ProductVariantOptionSelectorProps {
   colors: Pick<
@@ -130,9 +131,23 @@ export function ProductVariantOptionSelector({
       ...selection,
       [key]: value,
     };
+    const nextCompletedSelection = completeSingleValueSelection(
+      variants,
+      nextSelection
+    );
+    const nextSelectedVariant = resolveSelectedVariant(
+      variants,
+      nextCompletedSelection
+    );
 
     setSelection(nextSelection);
-    if (addedVariantId) {
+    if (nextSelectedVariant && nextSelectedVariant.id !== addedVariantId) {
+      setAddedVariantId(nextSelectedVariant.id);
+      onAddProduct(withFallbackImages(nextSelectedVariant, parentProduct));
+      return;
+    }
+
+    if (addedVariantId && !nextSelectedVariant) {
       setAddedVariantId(null);
     }
   };
@@ -222,66 +237,3 @@ export function ProductVariantOptionSelector({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  addButton: {
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  addButtonPressable: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-    paddingHorizontal: 24,
-  },
-  addButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  container: {
-    flex: 1,
-  },
-  footer: {
-    alignItems: 'center',
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  groups: {
-    gap: 20,
-    padding: 16,
-    paddingBottom: 24,
-  },
-  optionsScroll: {
-    flex: 1,
-  },
-  productHeader: {
-    borderBottomWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  productName: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  productPrice: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  selectionSummary: {
-    flex: 1,
-  },
-  summaryLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-});

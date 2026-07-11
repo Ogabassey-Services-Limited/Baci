@@ -195,6 +195,7 @@ describe('checkout-order-idempotency', () => {
     const orderItems = buildMobileCheckoutOrderItems(
       [
         {
+          condition: 'open_box',
           name: 'Phone',
           price: 1000,
           product_id: 'prod-a',
@@ -219,6 +220,7 @@ describe('checkout-order-idempotency', () => {
         items: [
           {
             assuranceFee: 100,
+            condition: 'open_box',
             hasAssurance: true,
             id: 'prod-a',
             price: 1000,

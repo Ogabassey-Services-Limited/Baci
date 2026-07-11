@@ -1,8 +1,182 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildOgabasseyCdnFallbackImageLoaderUrl,
+  buildOgabasseyCdnImageLoaderUrl,
   isOgabasseyCdnImageUrl,
   normalizeOgabasseyCdnImageUrl,
+  resolveOgabasseyCdnFallbackFormat,
+  rewriteOgabasseyTransformUrlFormat,
 } from './ogabassey-cdn-image-url';
+
+const CDN = 'https://cdn.ogabassey.com';
+
+describe('resolveOgabasseyCdnFallbackFormat', () => {
+  it('returns png for .png source paths', () => {
+    expect(
+      resolveOgabasseyCdnFallbackFormat('/core-assets/products/phone.png')
+    ).toBe('png');
+  });
+
+  it('returns png for .PNG source paths case-insensitively', () => {
+    expect(
+      resolveOgabasseyCdnFallbackFormat('/core-assets/products/phone.PNG')
+    ).toBe('png');
+  });
+
+  it('returns jpeg for jpg/jpeg/webp/avif and extensionless source paths', () => {
+    expect(
+      resolveOgabasseyCdnFallbackFormat('/core-assets/products/phone.jpg')
+    ).toBe('jpeg');
+    expect(
+      resolveOgabasseyCdnFallbackFormat('/core-assets/products/phone.jpeg')
+    ).toBe('jpeg');
+    expect(
+      resolveOgabasseyCdnFallbackFormat('/core-assets/products/phone.webp')
+    ).toBe('jpeg');
+    expect(
+      resolveOgabasseyCdnFallbackFormat('/core-assets/products/phone.avif')
+    ).toBe('jpeg');
+    expect(
+      resolveOgabasseyCdnFallbackFormat('/core-assets/products/phone')
+    ).toBe('jpeg');
+  });
+});
+
+describe('buildOgabasseyCdnImageLoaderUrl', () => {
+  it('defaults a jpg source to the jpeg fallback tier (never browser-facing format=auto)', () => {
+    const url = buildOgabasseyCdnImageLoaderUrl(
+      `${CDN}/core-assets/products/phone.jpg`,
+      750,
+      75
+    );
+
+    expect(url).toBe(
+      `${CDN}/image/width=750,quality=75,format=jpeg/core-assets/products/phone.jpg`
+    );
+    expect(url).not.toContain('format=auto');
+  });
+
+  it('defaults a png source to the png fallback tier so transparency survives', () => {
+    const url = buildOgabasseyCdnImageLoaderUrl(
+      `${CDN}/core-assets/products/phone.png`,
+      750,
+      75
+    );
+
+    expect(url).toBe(
+      `${CDN}/image/width=750,quality=75,format=png/core-assets/products/phone.png`
+    );
+    expect(url).not.toContain('format=auto');
+  });
+
+  it('builds a jpeg fallback URL for a jpg source when requested explicitly', () => {
+    const url = buildOgabasseyCdnFallbackImageLoaderUrl(
+      `${CDN}/core-assets/products/phone.jpg`,
+      750,
+      75
+    );
+
+    expect(url).toBe(
+      `${CDN}/image/width=750,quality=75,format=jpeg/core-assets/products/phone.jpg`
+    );
+    expect(url).not.toContain('format=auto');
+  });
+
+  it('builds a png fallback URL for a png source when requested explicitly', () => {
+    const url = buildOgabasseyCdnFallbackImageLoaderUrl(
+      `${CDN}/core-assets/products/phone.png`,
+      750,
+      75
+    );
+
+    expect(url).toBe(
+      `${CDN}/image/width=750,quality=75,format=png/core-assets/products/phone.png`
+    );
+    expect(url).not.toContain('format=auto');
+  });
+
+  it('emits format=avif when explicitly requested', () => {
+    const url = buildOgabasseyCdnImageLoaderUrl(
+      `${CDN}/core-assets/products/phone.jpg`,
+      750,
+      75,
+      'avif'
+    );
+
+    expect(url).toBe(
+      `${CDN}/image/width=750,quality=75,format=avif/core-assets/products/phone.jpg`
+    );
+  });
+
+  it('still emits format=auto when explicitly requested (prewarm/backfill transition tier)', () => {
+    const url = buildOgabasseyCdnImageLoaderUrl(
+      `${CDN}/core-assets/products/phone.jpg`,
+      750,
+      75,
+      'auto'
+    );
+
+    expect(url).toBe(
+      `${CDN}/image/width=750,quality=75,format=auto/core-assets/products/phone.jpg`
+    );
+  });
+});
+
+describe('rewriteOgabasseyTransformUrlFormat', () => {
+  const transformUrl = `${CDN}/image/width=640,quality=80,format=jpeg/core-assets/products/phone.jpg?v=2#frag`;
+
+  it('rewrites the format token while preserving width/quality/path/query/hash', () => {
+    const rewritten = rewriteOgabasseyTransformUrlFormat(transformUrl, 'avif');
+
+    expect(rewritten).toBe(
+      `${CDN}/image/width=640,quality=80,format=avif/core-assets/products/phone.jpg?v=2#frag`
+    );
+    // Only the format token differs — swapping it back reproduces the
+    // original byte-for-byte, proving width/quality/path/query/hash held.
+    expect(rewritten?.replace('format=avif', 'format=jpeg')).toBe(transformUrl);
+  });
+
+  it('returns null for a non-OgaBassey host', () => {
+    const foreignUrl =
+      'https://cdn.example.com/image/width=640,quality=80,format=jpeg/core-assets/products/phone.jpg';
+
+    expect(rewriteOgabasseyTransformUrlFormat(foreignUrl, 'avif')).toBeNull();
+  });
+
+  it('returns null for an OgaBassey URL that is not a /image/ transform', () => {
+    const plainAssetUrl = `${CDN}/core-assets/products/phone.png`;
+
+    expect(
+      rewriteOgabasseyTransformUrlFormat(plainAssetUrl, 'avif')
+    ).toBeNull();
+  });
+
+  it('returns null for a malformed or relative URL', () => {
+    expect(
+      rewriteOgabasseyTransformUrlFormat(
+        '/image/width=640,quality=80,format=jpeg/core-assets/products/phone.jpg',
+        'avif'
+      )
+    ).toBeNull();
+    expect(rewriteOgabasseyTransformUrlFormat('not-a-url', 'avif')).toBeNull();
+  });
+
+  it('is a no-op-shaped rewrite when the target format already matches', () => {
+    const rewritten = rewriteOgabasseyTransformUrlFormat(transformUrl, 'jpeg');
+
+    expect(rewritten).toBe(transformUrl);
+  });
+
+  it('rewrites every format token in malformed duplicated options consistently', () => {
+    const duplicatedFormatUrl = `${CDN}/image/format=jpeg,width=640,format=webp,quality=80/core-assets/products/phone.jpg`;
+
+    expect(
+      rewriteOgabasseyTransformUrlFormat(duplicatedFormatUrl, 'avif')
+    ).toBe(
+      `${CDN}/image/format=avif,width=640,format=avif,quality=80/core-assets/products/phone.jpg`
+    );
+  });
+});
 
 describe('ogabassey-cdn-image-url', () => {
   it('detects OgaBassey CDN image URLs', () => {

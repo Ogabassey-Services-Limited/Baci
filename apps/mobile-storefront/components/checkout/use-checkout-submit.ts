@@ -1,22 +1,10 @@
-import type { MutableRefObject } from 'react';
 import { Alert } from 'react-native';
-import type {
-  PaymentMethodType,
-  PaymentTab,
-} from '@/components/checkout/PaymentMethodSelector';
-import type {
-  DeliveryMethod,
-  ShippingQuote,
-} from '@/components/checkout/types';
 import { useMerchant } from '@/hooks/use-merchant';
-import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempotency';
 import type { ShippingAddressInput } from '@/lib/validation';
 import {
   buildSavingsOrderFields,
   buildWalletOrderFields,
   getFullyPaidStoreCreditPaymentMethod,
-  type SavingsSelection,
-  type WalletSelection,
 } from '@/lib/wallet-payment-helpers';
 import { trackCheckoutStep } from '@/services/analytics';
 import {
@@ -25,7 +13,7 @@ import {
 } from '@/services/cart-reprice';
 import { createOrder } from '@/services/orders';
 import { trackCheckoutRoutePurchaseCompleted } from '@/services/tiktok-checkout-route-tracking';
-import { type CartItem, useCartStore } from '@/stores/cart-store';
+import { useCartStore } from '@/stores/cart-store';
 import { submitBnplCheckout } from './checkout-bnpl-submit';
 import {
   buildCheckoutOrderRequest,
@@ -33,59 +21,17 @@ import {
 } from './checkout-order-builders';
 import { finalizeCheckoutPayment } from './checkout-payment-finalization';
 import { runCheckoutPostOrderSideEffects } from './checkout-post-order-side-effects';
-import type { PendingCryptoOrder } from './checkout-screen.constants';
+import {
+  blockIfMixedPrizeCart,
+  cartHasVoucherLine,
+} from './checkout-prize-cart-guard';
 import { CHECKOUT_MERCHANT_ID } from './checkout-screen.constants';
 import { resolveCheckoutStoreCreditSelections } from './checkout-store-credit';
 import { handleCheckoutSubmitError } from './checkout-submit-error';
 import { validateCheckoutSubmission } from './checkout-submit-validation';
+import type { UseCheckoutSubmitParams } from './use-checkout-submit.types';
 
-interface CheckoutCustomer {
-  email?: string | null;
-  id?: string;
-}
-
-interface CheckoutUser {
-  id?: string | null;
-}
-
-export interface UseCheckoutSubmitParams {
-  accountPassword: string;
-  appliedDiscountCode?: string | null;
-  availablePaymentMethods: PaymentMethodType[];
-  clearCart: () => void;
-  currentShippingQuoteContextKey: string;
-  customer: CheckoutCustomer | null | undefined;
-  deliveryFee: number;
-  deliveryMethod: DeliveryMethod;
-  getLiveSavingsSelection: (input: {
-    isStoreCreditCompatible: boolean;
-    items: CartItem[];
-    orderTotal: number;
-  }) => SavingsSelection | undefined;
-  getShippingProvider: () => string | undefined;
-  isAuthenticated: boolean;
-  isLoadingQuotes: boolean;
-  isOrderInFlight: MutableRefObject<boolean>;
-  isProcessing: boolean;
-  mobileCheckoutIdempotencyRef: MutableRefObject<MobileCheckoutIdempotencyState | null>;
-  orderTotals: { taxAmount: number } | null;
-  paymentSettings: Parameters<typeof submitBnplCheckout>[0]['paymentSettings'];
-  paymentTab: PaymentTab;
-  resolvedShippingQuoteContextKey: string;
-  saveAsDefaultAddress: boolean;
-  saveDetails: boolean;
-  selectedPayment: PaymentMethodType;
-  selectedQuote: ShippingQuote | undefined;
-  selectedSavedAddressId: string | null;
-  setIsProcessing: (value: boolean) => void;
-  setPendingOrder: (value: PendingCryptoOrder | null) => void;
-  setShowCryptoSelection: (value: boolean) => void;
-  setStep: (step: 'address' | 'payment' | 'review') => void;
-  user: CheckoutUser | null | undefined;
-  walletBalance: number;
-  walletFundedBankTransferOptionEnabled: boolean;
-  walletSelection: WalletSelection | undefined;
-}
+export type { UseCheckoutSubmitParams };
 
 export function useCheckoutSubmit({
   accountPassword,
@@ -107,6 +53,7 @@ export function useCheckoutSubmit({
   paymentSettings,
   paymentTab,
   resolvedShippingQuoteContextKey,
+  requiresShippingQuote,
   saveAsDefaultAddress,
   saveDetails,
   selectedPayment,
@@ -122,12 +69,22 @@ export function useCheckoutSubmit({
   walletSelection,
 }: UseCheckoutSubmitParams) {
   const { data: merchant } = useMerchant();
-  // `||` (not `??`) so a blank CONFIG.MERCHANT_ID placeholder falls back.
   const merchantId = merchant?.id || CHECKOUT_MERCHANT_ID;
   return async (address: ShippingAddressInput) => {
     const itemsSnapshot = [...useCartStore.getState().items];
     const groupNegotiationSnapshot =
       useCartStore.getState().cartWideNegotiationActive;
+
+    // Checkout-time safety net: never let a prize voucher check out alongside
+    // paid items (the prize redeems on its own order and the cart is cleared).
+    if (blockIfMixedPrizeCart(itemsSnapshot)) {
+      return;
+    }
+    // A voucher-only cart (₦0 prize) must take the standard order path, which
+    // returns the pre-reserved order already paid and routes to success — never
+    // a BNPL/financing flow (those bypass the fully-paid route and would open a
+    // ₦0 loan while leaving the voucher in the cart).
+    const isVoucherOnlyCart = cartHasVoucherLine(itemsSnapshot);
 
     if (
       !validateCheckoutSubmission({
@@ -138,11 +95,14 @@ export function useCheckoutSubmit({
         isOrderInFlight,
         isProcessing,
         itemsLength: itemsSnapshot.length,
+        requiresShippingQuote,
         resolvedShippingQuoteContextKey,
         selectedPayment,
         selectedQuote,
         setStep,
-      })
+      }) ||
+      !selectedPayment ||
+      !paymentTab
     ) {
       return;
     }
@@ -151,7 +111,6 @@ export function useCheckoutSubmit({
     setIsProcessing(true);
 
     try {
-      // Freeze step: reprice vs live catalog; on drift update+alert+abort. Lock is engaged (no double-submit); finally releases it.
       if (itemsSnapshot.length > 0) {
         const reprice = await repriceCartItems(itemsSnapshot, merchantId);
         if (reprice.changes.length > 0) {
@@ -185,14 +144,21 @@ export function useCheckoutSubmit({
       const customerEmail = customer?.email || address.email;
       const customerPhone = address.phone;
       const customerName = `${address.firstName} ${address.lastName}`;
-      const paymentMethodForOrder =
-        selectedPayment === 'payforme' ? 'invoice' : selectedPayment;
+      // A voucher-only cart is a ₦0 prize: force a non-POD method so the voucher
+      // RPC marks the pre-reserved order paid (it keys payment_status off
+      // p_payment_method — 'pod'/'pay_on_delivery' → pending, else → paid). With
+      // POD the prize order would be left pending while the cart is cleared.
+      const paymentMethodForOrder = isVoucherOnlyCart
+        ? 'card'
+        : selectedPayment === 'payforme'
+          ? 'invoice'
+          : selectedPayment;
       const isBNPL =
         selectedPayment === 'credpal' ||
         selectedPayment === 'credit_direct' ||
         selectedPayment === 'klump';
 
-      if (isBNPL) {
+      if (isBNPL && !isVoucherOnlyCart) {
         await submitBnplCheckout({
           address,
           appliedDiscountCode,
@@ -230,8 +196,6 @@ export function useCheckoutSubmit({
           shippingProvider: getShippingProvider(),
           snapshot,
         }),
-        // Discount codes and savings credit are mutually exclusive (the route
-        // dispatches a single wrapper RPC). Wallet credit still stacks.
         ...(appliedDiscountCode
           ? {}
           : buildSavingsOrderFields(liveSavingsSelection)),

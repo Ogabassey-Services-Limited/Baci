@@ -151,7 +151,9 @@ function addProductVariantUrls(
         continue;
       }
       // Default pairs = the product surfaces' matrix (PDP hero + listing card).
-      for (const url of buildOgabasseyPrewarmTransformUrls(source)) {
+      for (const url of buildOgabasseyPrewarmTransformUrls(source, undefined, {
+        format: 'auto',
+      })) {
         urls.add(url);
       }
     }
@@ -172,7 +174,8 @@ function addBlogVariantUrls(
     }
     for (const url of buildOgabasseyPrewarmTransformUrls(
       featuredImage,
-      BLOG_IMAGE_WIDTH_QUALITY_PAIRS
+      BLOG_IMAGE_WIDTH_QUALITY_PAIRS,
+      { format: 'auto' }
     )) {
       urls.add(url);
     }
@@ -181,12 +184,13 @@ function addBlogVariantUrls(
 
 /**
  * Enumerate every production transform-variant URL the backfill must check.
- * `limit` caps the number of active products scanned (the "sample" ops rung);
- * blog posts are always enumerated in full. Throws on any query error.
+ * `limit` caps active products and `blogLimit` independently caps published
+ * blog posts for a bounded sample run. Omitting either limit scans that source
+ * in full. Throws on any query error.
  */
 export async function enumerateImageFormatBackfillTargets(
   supabase: ImageFormatBackfillSupabaseClient,
-  options: { limit?: number } = {}
+  options: { blogLimit?: number; limit?: number } = {}
 ): Promise<ImageFormatBackfillTargets> {
   const productRows = await fetchStatusRows(
     supabase,
@@ -199,7 +203,8 @@ export async function enumerateImageFormatBackfillTargets(
     supabase,
     'blog_posts',
     'featured_image_url',
-    'published'
+    'published',
+    options.blogLimit
   );
 
   const urls = new Set<string>();

@@ -1,7 +1,29 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import type { SharedValue } from 'react-native-reanimated';
+import { useSharedValue } from 'react-native-reanimated';
 import { describe, expect, it, vi } from 'vitest';
 import { TopTabBar } from './TopTabBar';
+
+interface MockViewProps {
+  children?: ReactNode;
+  onLayout?: (event: { nativeEvent: { layout: { width: number } } }) => void;
+  style?: unknown;
+  testID?: string;
+}
+
+interface MockPressableProps {
+  accessibilityLabel?: string;
+  accessibilityState?: { selected?: boolean };
+  children?: ReactNode;
+  onPress?: () => void;
+  testID?: string;
+}
+
+interface MockTextProps {
+  children?: ReactNode;
+}
 
 // Mock Reanimated to prevent layout measurement issues in tests
 vi.mock('react-native-reanimated', async () => {
@@ -36,6 +58,51 @@ vi.mock('react-native-reanimated', async () => {
           },
           children
         ),
+    },
+  };
+});
+
+vi.mock('react-native', async () => {
+  const React = await import('react');
+  return {
+    Platform: { OS: 'web' },
+    Pressable: ({
+      accessibilityLabel,
+      accessibilityState,
+      children,
+      onPress,
+      testID,
+    }: MockPressableProps) =>
+      React.createElement(
+        'button',
+        {
+          'aria-label': accessibilityLabel,
+          'aria-pressed': accessibilityState?.selected,
+          'data-testid': testID,
+          onClick: onPress,
+          type: 'button',
+        },
+        children
+      ),
+    StyleSheet: {
+      create: <T,>(styles: T) => styles,
+    },
+    Text: ({ children }: MockTextProps) =>
+      React.createElement('span', null, children),
+    useColorScheme: () => 'dark',
+    View: ({ children, onLayout, style, testID }: MockViewProps) => {
+      React.useEffect(() => {
+        onLayout?.({ nativeEvent: { layout: { width: 200 } } });
+      }, [onLayout]);
+
+      return React.createElement(
+        'div',
+        {
+          'data-style': JSON.stringify(style),
+          'data-testid': testID,
+        },
+        children
+      );
     },
   };
 });
@@ -80,5 +147,35 @@ describe('TopTabBar', () => {
 
     expect(getByLabelText('In Stock tab not selected')).toBeTruthy();
     expect(getByLabelText('On Website tab selected')).toBeTruthy();
+  });
+
+  it('uses pager progress without allocating spring state', async () => {
+    const useSharedValueMock = vi.mocked(useSharedValue);
+    useSharedValueMock.mockClear();
+
+    const { getByTestId } = render(
+      <TopTabBar
+        activeTab="in_stock"
+        onTabChange={vi.fn()}
+        pagerPosition={{ value: 0.25 } as SharedValue<number>}
+      />
+    );
+
+    expect(useSharedValueMock).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(getByTestId('top-tab-indicator')).toHaveAttribute(
+        'data-style',
+        expect.stringContaining('"translateX":25')
+      )
+    );
+  });
+
+  it('uses spring state when pager progress is not supplied', () => {
+    const useSharedValueMock = vi.mocked(useSharedValue);
+    useSharedValueMock.mockClear();
+
+    render(<TopTabBar activeTab="on_website" onTabChange={vi.fn()} />);
+
+    expect(useSharedValueMock).toHaveBeenCalledWith(1);
   });
 });

@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockRpc = vi.fn();
+const mockGetCurrentSlugForAlias = vi.fn();
 
 vi.mock('@/lib/supabase/anon', () => ({
   createAnonClient: () => ({ rpc: mockRpc }),
+}));
+vi.mock('@/lib/slug-alias-cache', () => ({
+  getCurrentSlugForAlias: (...args: unknown[]) =>
+    mockGetCurrentSlugForAlias(...args),
 }));
 
 import {
@@ -16,6 +21,7 @@ const merchantFixture = {
   id: '11111111-1111-4111-8111-111111111111',
   business_name: 'Ogabassey',
   country: 'NG',
+  logo_url: 'https://cdn.example.com/logo.png',
   payout_currency: 'NGN',
   slug: 'ogabassey',
 };
@@ -56,6 +62,27 @@ describe('resolveFeedMerchant', () => {
 
     const result = await resolveFeedMerchant('ogabassey', true);
     expect(result).toEqual(merchantFixture);
+    expect(mockRpc).toHaveBeenCalledWith('resolve_public_feed_merchant', {
+      p_identifier: 'ogabassey',
+      p_is_by_slug: true,
+    });
+  });
+
+  it('falls back to the alias table for a retired slug and retries with the current slug', async () => {
+    mockRpc.mockImplementation((_fn, args: { p_identifier: string }) =>
+      args.p_identifier === 'ogabassey'
+        ? Promise.resolve({ data: [merchantFixture], error: null })
+        : Promise.resolve({ data: [], error: null })
+    );
+    mockGetCurrentSlugForAlias.mockResolvedValue('ogabassey');
+
+    const result = await resolveFeedMerchant('yodhashop', true);
+
+    expect(result).toEqual(merchantFixture);
+    expect(mockRpc).toHaveBeenCalledWith('resolve_public_feed_merchant', {
+      p_identifier: 'yodhashop',
+      p_is_by_slug: true,
+    });
     expect(mockRpc).toHaveBeenCalledWith('resolve_public_feed_merchant', {
       p_identifier: 'ogabassey',
       p_is_by_slug: true,

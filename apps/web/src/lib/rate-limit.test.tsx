@@ -87,6 +87,14 @@ describe('Rate Limit — in-memory fallback', () => {
     expect(result.limit).toBe(240);
   });
 
+  it('uses the elevated attribution limit for ad-click capture', async () => {
+    const req = new NextRequest('http://localhost:3000/api/attr');
+    req.headers.set('x-forwarded-for', '3.3.3.31');
+
+    const result = await checkRateLimit(req);
+    expect(result.limit).toBe(1000);
+  });
+
   it('enforces stricter limit for newsletter unsubscribe', async () => {
     const req = new NextRequest(
       'http://localhost:3000/api/newsletter/unsubscribe'
@@ -207,6 +215,19 @@ describe('Rate Limit — in-memory fallback', () => {
 
     const result = await checkRateLimit(req);
     expect(result.limit).toBe(10);
+  });
+
+  it.each([
+    ['/api/merchant/quiz/generate', 5, '11.11.11.11'],
+    ['/api/quiz/awards/cash/claim', 10, '12.12.12.12'],
+    ['/api/quiz/prizes/grand/claim', 10, '13.13.13.13'],
+    ['/api/quiz/attempts/start', 20, '14.14.14.14'],
+  ])('applies the dedicated quiz limit to %s', async (path, limit, ip) => {
+    const req = new NextRequest(`http://localhost:3000${path}`);
+    req.headers.set('x-forwarded-for', ip);
+
+    const result = await checkRateLimit(req);
+    expect(result.limit).toBe(limit);
   });
 });
 

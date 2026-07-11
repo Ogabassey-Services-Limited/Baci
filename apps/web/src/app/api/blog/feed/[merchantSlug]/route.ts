@@ -10,6 +10,7 @@ import {
   isPublicBlogCategory,
 } from '@/lib/public-blog-content-quality';
 import { sanitizeForFeed } from '@/lib/sanitize';
+import { getCurrentSlugForAlias } from '@/lib/slug-alias-cache';
 
 /**
  * Blog RSS Feed API
@@ -196,12 +197,21 @@ async function resolveMerchantByIdentifier(
     throw domainError;
   }
 
-  if (!data) {
-    return null;
+  if (data) {
+    const domainData = data as DomainRow;
+    return getMerchantByColumn(supabase, 'id', domainData.merchant_id);
   }
 
-  const domainData = data as DomainRow;
-  return getMerchantByColumn(supabase, 'id', domainData.merchant_id);
+  // Retired-slug fallback: the merchant slug lives in the PATH here
+  // (/api/blog/feed/<oldSlug>), which the proxy can't rewrite like a query param.
+  // After a "Change store URL" rename, RSS readers keep hitting the old slug, so
+  // resolve it to the current slug via the alias table instead of 404ing.
+  const currentSlug = await getCurrentSlugForAlias(normalizedIdentifier);
+  if (currentSlug && currentSlug !== normalizedIdentifier) {
+    return getMerchantByColumn(supabase, 'slug', currentSlug);
+  }
+
+  return null;
 }
 
 async function fetchPublicFeedPosts(

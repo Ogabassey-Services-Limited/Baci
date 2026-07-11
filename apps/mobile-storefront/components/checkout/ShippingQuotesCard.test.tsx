@@ -1,5 +1,7 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, StyleSheet } from 'react-native';
+import { BRAND } from '@/constants/Colors';
 import { ShippingQuotesCard } from './ShippingQuotesCard';
 
 const mockColors = {
@@ -22,7 +24,9 @@ const baseProps = {
 };
 
 describe('ShippingQuotesCard', () => {
-  let announceSpy: jest.SpyInstance;
+  let announceSpy: jest.SpiedFunction<
+    typeof AccessibilityInfo.announceForAccessibility
+  >;
 
   beforeEach(() => {
     jest.restoreAllMocks();
@@ -111,6 +115,113 @@ describe('ShippingQuotesCard', () => {
     expect(
       screen.getByRole('button', { name: /select express delivery/i })
     ).toBeTruthy();
+  });
+
+  it('renders an accessible GIG Logistics logo image for GIGL quotes', () => {
+    render(
+      <ShippingQuotesCard
+        {...baseProps}
+        shippingQuotes={[
+          {
+            id: 'gigl-quote',
+            displayName: 'GIG Logistics - Home Delivery',
+            price: 81309,
+            carrierName: 'GIG Logistics',
+            provider: 'GIGL',
+          },
+        ]}
+      />
+    );
+
+    expect(
+      screen.getByRole('image', { name: 'GIG Logistics logo' })
+    ).toBeTruthy();
+  });
+
+  it('wraps long GIGL quote titles so the logo does not collide with price', () => {
+    render(
+      <ShippingQuotesCard
+        {...baseProps}
+        shippingQuotes={[
+          {
+            id: 'gigl-station-quote',
+            displayName: 'GIG Logistics - Pickup at PORT HARCOURT',
+            price: 76_665,
+            carrierName: 'GIG Logistics',
+            provider: 'GIGL',
+          },
+        ]}
+      />
+    );
+
+    expect(
+      screen.getByRole('image', { name: 'GIG Logistics logo' })
+    ).toBeTruthy();
+    expect(
+      screen.getByText('GIG Logistics - Pickup at PORT HARCOURT').props
+        .numberOfLines
+    ).toBe(2);
+  });
+
+  it('uses neutral text with a brand border for embedded selected quotes', () => {
+    render(
+      <ShippingQuotesCard
+        {...baseProps}
+        embedded
+        selectedQuoteId="gigl-quote"
+        shippingQuotes={[
+          {
+            id: 'gigl-quote',
+            displayName: 'GIG Logistics - Home Delivery',
+            price: 81309,
+            carrierName: 'GIG Logistics',
+            provider: 'GIGL',
+            estimatedDays: 3,
+          },
+        ]}
+      />
+    );
+
+    const quoteButton = screen.getByRole('button', {
+      name: /select gig logistics - home delivery/i,
+    });
+    const quoteStyle = StyleSheet.flatten(quoteButton.props.style);
+    expect(quoteStyle.borderColor).toBe(BRAND.primary);
+    expect(quoteStyle.backgroundColor).toBe(mockColors.card);
+    const priceStyle = StyleSheet.flatten(
+      screen.getByText('₦81,309').props.style
+    );
+    expect(priceStyle.color).toBe(mockColors.text);
+    expect(screen.queryByText(/GIG Logistics • Est/i)).toBeNull();
+    expect(screen.getByText('GIG Logistics\nEst. 3 days')).toBeTruthy();
+  });
+
+  it('shows station code metadata for GIGL pickup station quotes', () => {
+    render(
+      <ShippingQuotesCard
+        {...baseProps}
+        embedded
+        selectedQuoteId="station-quote"
+        shippingQuotes={[
+          {
+            id: 'station-quote',
+            displayName: 'GIG Logistics - Pickup at PORT HARCOURT',
+            price: 76_665,
+            carrierName: 'GIG Logistics',
+            provider: 'GIGL',
+            estimatedDays: 3,
+            isStationPickup: true,
+            stationCode: 'PHC',
+          },
+        ]}
+      />
+    );
+
+    const meta = screen.getByText(
+      'GIG Logistics\nStation code: PHC\nEst. 3 days'
+    );
+    expect(meta).toBeTruthy();
+    expect(meta.props.numberOfLines).toBe(3);
   });
 
   it('calls onSelectQuote with the quote id when a quote is pressed', () => {

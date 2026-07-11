@@ -86,6 +86,7 @@
     "react-native-google-places-autocomplete": "^2.6.4",
     "react-native-mmkv": "4.3.1",
     "react-native-nitro-modules": "0.35.9",
+    "react-native-pager-view": "8.0.3",
     "react-native-phone-number-input": "2.1.0",
     "react-native-purchases": "10.2.0",
     "react-native-reanimated": "4.5.1",

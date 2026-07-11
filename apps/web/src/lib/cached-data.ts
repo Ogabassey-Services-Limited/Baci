@@ -4,7 +4,6 @@ import {
   type SupabaseClient,
 } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
-import { unstable_rethrow } from 'next/navigation';
 import { cache } from 'react';
 import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import {
@@ -14,8 +13,8 @@ import {
 } from '@/env';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
-
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
+import { waitForMerchantLookupRetryBackoff } from '@/lib/merchant-lookup-backoff';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
@@ -36,6 +35,7 @@ import { generateSlug } from '@/lib/seo-utils';
 import { normalizeOgabasseyBusinessType } from '@/lib/storefront/ogabassey-entity';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import { canonicalizeStorefrontMediaUrl } from '@/lib/storefront-media-cdn-url';
+import { createTimeoutComposedFetch } from '@/lib/supabase/compose-fetch-signal';
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
@@ -117,48 +117,6 @@ function getEstimatedPaginationCountFloor({
 
   return Math.max(countValue, currentPageFloor);
 }
-const MERCHANT_PUBLIC_SELECT = `
-        id,
-        business_name,
-        site_title,
-        site_tagline,
-        site_description,
-        business_type,
-        logo_url,
-        phone,
-        email,
-        support_email,
-        support_phone,
-        social_media,
-        brand_colors,
-        slug,
-        business_address,
-        legal_entity_name,
-        registered_address,
-        tax_identification_number,
-        trust_profile,
-        payout_currency,
-        paystack_subaccount_code,
-        is_published,
-        template_id,
-        plan_expires_at,
-        plan_tier,
-        premium_features,
-        country,
-        hero_slides,
-        mobile_hero_slides,
-        favicon_svg_url,
-        favicon_png_32_url,
-        favicon_apple_touch_url,
-        vat_registration_status,
-        vat_rate,
-        published_config,
-        pages,
-        about_page,
-        faq_items,
-        updated_at
-      `;
-
 interface RelatedBlogPostIdentity {
   id?: string | null;
   slug?: string | null;
@@ -187,12 +145,25 @@ function combineUniqueRelatedBlogPosts<T extends RelatedBlogPostIdentity>(
   return uniquePosts;
 }
 
+/** Default transport bound for cached-data Supabase clients. */
+const CACHED_CLIENT_DEFAULT_TIMEOUT_MS = 10_000;
+/**
+ * Merchant shell lookups run on EVERY storefront request (layout + page) and
+ * the queries execute in ~20ms server-side — the observed failures are
+ * client-transport tail events (cold TLS, event-loop contention). A tight
+ * bound lets retry + direct fallback complete in a few seconds instead of
+ * stacking multiple 10s aborts on the hot path.
+ */
+const MERCHANT_LOOKUP_TIMEOUT_MS = 3_000;
+/** The single retry gets a little more headroom than the initial cache fill. */
+const MERCHANT_LOOKUP_RETRY_TIMEOUT_MS = 5_000;
+
 /**
  * Create a Supabase client for cached queries.
  * This client doesn't use cookies, so it's suitable for caching.
  * Only use for public/read-only data that doesn't require authentication.
  */
-export function getPublicSupabaseClient() {
+export function getPublicSupabaseClient(options?: { timeoutMs?: number }) {
   const url = getSupabaseUrl();
   const key = getSupabaseAnonKey();
 
@@ -209,12 +180,9 @@ export function getPublicSupabaseClient() {
       headers: {
         'X-Client-Info': 'baci-web-cached',
       },
-      fetch: (url, options = {}) => {
-        return fetch(url, {
-          ...options,
-          signal: AbortSignal.timeout(10000), // 10 second timeout
-        });
-      },
+      fetch: createTimeoutComposedFetch(
+        options?.timeoutMs ?? CACHED_CLIENT_DEFAULT_TIMEOUT_MS
+      ),
     },
   });
 }
@@ -223,7 +191,7 @@ export function getPublicSupabaseClient() {
  * Create a Supabase client with Service Role for privileged cached queries.
  * Bypasses RLS to ensure we can fetch unpublished merchants for "Coming Soon" pages.
  */
-function getServiceRoleSupabaseClient() {
+function getServiceRoleSupabaseClient(options?: { timeoutMs?: number }) {
   const url = getSupabaseUrl();
   const key = getSupabaseServiceRoleKey();
 
@@ -240,12 +208,9 @@ function getServiceRoleSupabaseClient() {
       headers: {
         'X-Client-Info': 'baci-web-cached-service',
       },
-      fetch: (url, options = {}) => {
-        return fetch(url, {
-          ...options,
-          signal: AbortSignal.timeout(10000), // 10 second timeout
-        });
-      },
+      fetch: createTimeoutComposedFetch(
+        options?.timeoutMs ?? CACHED_CLIENT_DEFAULT_TIMEOUT_MS
+      ),
     },
   });
 }
@@ -569,6 +534,7 @@ export interface MerchantFeatureSettings {
   blog_enabled?: boolean;
   blog_discover_image_validation_enabled?: boolean;
   facebook_pixel_id?: string | null;
+  repairs_catalog_enabled?: boolean;
   shipping_insurance_enabled?: boolean;
   shipping_insurance_min_order_value?: number;
   shipping_insurance_opt_in_default?: boolean;
@@ -611,6 +577,7 @@ const MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT: string = `
   preferred_international_gateway,
   preferred_local_gateway,
   privacy_page_enabled,
+  repairs_catalog_enabled,
   reviews_enabled,
   rewards_page_enabled,
   shipping_insurance_enabled,
@@ -638,6 +605,12 @@ const MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT: string = `
   customer_device_savings_break_fee_enabled,
   wishlist_enabled
 `;
+
+const MERCHANT_PUBLIC_FEATURE_SETTINGS_LEGACY_SELECT =
+  MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT.replace(
+    /^\s*repairs_catalog_enabled,\n/m,
+    ''
+  );
 
 export interface CachedMerchant {
   id: string;
@@ -857,6 +830,68 @@ function normalizeResolvedStorefrontCachedMerchantRow(
   };
 }
 
+async function resolveStorefrontMerchantOnce({
+  errorMessage,
+  identifier,
+  timeoutMs,
+}: {
+  errorMessage: string;
+  identifier: string;
+  timeoutMs: number;
+}): Promise<CachedMerchant | null> {
+  const supabase = getServiceRoleSupabaseClient({ timeoutMs });
+  const query = supabase.rpc('resolve_storefront_cached_merchant', {
+    p_identifier: identifier,
+  });
+
+  // The outer merchant resolver owns the one bounded retry. Disable the
+  // PostgREST builder's automatic retries so a single 3s attempt cannot expand
+  // into several fetch attempts plus exponential backoff. The optional check
+  // keeps compatible test doubles awaitable. In the installed
+  // supabase-js/postgrest-js 2.108.2, SupabaseClient does not plumb the
+  // documented db.retry option into PostgrestClient; retry(false) is the
+  // supported builder method that directly sets this request's retryEnabled
+  // flag.
+  const singleAttemptQuery =
+    typeof query.retry === 'function' ? query.retry(false) : query;
+  const { data, error, status } = await singleAttemptQuery;
+
+  if (error) {
+    throw createMerchantLookupError(errorMessage, { ...error, status });
+  }
+
+  return normalizeResolvedStorefrontCachedMerchantRow(
+    firstResolvedStorefrontCachedMerchantRow(data) ?? {}
+  );
+}
+
+async function resolveStorefrontMerchantWithRetry({
+  errorMessage,
+  identifier,
+}: {
+  errorMessage: string;
+  identifier: string;
+}): Promise<CachedMerchant | null> {
+  try {
+    return await resolveStorefrontMerchantOnce({
+      errorMessage,
+      identifier,
+      timeoutMs: MERCHANT_LOOKUP_TIMEOUT_MS,
+    });
+  } catch (firstError) {
+    if (!isTransientMerchantLookupError(firstError)) {
+      throw firstError;
+    }
+
+    await waitForMerchantLookupRetryBackoff();
+    return await resolveStorefrontMerchantOnce({
+      errorMessage,
+      identifier,
+      timeoutMs: MERCHANT_LOOKUP_RETRY_TIMEOUT_MS,
+    });
+  }
+}
+
 /**
  * Cached merchant data by slug.
  * Keep this hot storefront shell lookup in the local Cache Components cache.
@@ -870,79 +905,35 @@ export async function getCachedMerchant(
   cacheLife('merchant');
   cacheTag('merchants', `merchant-${slug}`);
 
-  const supabase = getServiceRoleSupabaseClient();
-
-  const { data, error } = await supabase
-    .from('merchants')
-    .select(MERCHANT_PUBLIC_SELECT)
-    .eq('slug', slug)
-    .maybeSingle();
-
-  if (error) {
+  let merchant: CachedMerchant | null;
+  try {
+    merchant = await resolveStorefrontMerchantWithRetry({
+      errorMessage: `Failed to fetch merchant for slug: ${sanitizeLookupLogValue(slug)}`,
+      identifier: slug,
+    });
+  } catch (error) {
     const safeSlug = sanitizeLookupLogValue(slug);
-    const log = isTransientMerchantLookupError(error)
-      ? console.warn
-      : console.error;
-    log(
-      'Error fetching merchant for slug:',
-      safeSlug,
-      JSON.stringify(error, null, 2)
-    );
-    // CRITICAL: Throwing instead of returning null prevents negative caching
-    // Next.js will not cache this error, allowing retries or stale data serving.
-    throw createMerchantLookupError(
-      `Failed to fetch merchant for slug: ${safeSlug}`,
-      error
-    );
+    const cause = (error as { cause?: unknown })?.cause;
+    console.error('Error fetching merchant for slug:', safeSlug, {
+      error: summarizeMerchantLookupError(error),
+      ...(cause ? { cause: summarizeMerchantLookupError(cause) } : undefined),
+    });
+    throw error;
   }
 
-  let normalizedSettings: MerchantFeatureSettings | null = null;
-
-  if (!data) {
+  if (!merchant) {
     const safeSlug = sanitizeLookupLogValue(slug);
     console.warn('No merchant data found for slug:', safeSlug);
-  } else {
-    normalizedSettings = await getCachedFeatureSettings(data.id);
-
-    const safeSlug = String(slug || '')
-      .replace(/[\r\n]/g, '')
-      .substring(0, 100);
-    console.log('Successfully fetched merchant:', safeSlug, data.id);
+    return null;
   }
 
-  // Fetch primary domain
-  if (data) {
-    // SECURITY: If the store is NOT published, mask sensitive contact info.
-    redactUnpublishedMerchantContactFields(data);
-
-    const { data: primaryDomain } = await supabase
-      .from('domains')
-      .select('domain')
-      .eq('merchant_id', data.id)
-      .eq('is_primary', true)
-      .eq('status', 'active')
-      .single();
-
-    if (primaryDomain) {
-      const result: CachedMerchant = {
-        ...normalizeCachedMerchantEntity({
-          ...data,
-          custom_domain: primaryDomain.domain,
-        }),
-        feature_settings: normalizedSettings ?? undefined,
-      };
-      return result;
-    }
-  }
-
-  if (data) {
-    const result: CachedMerchant = {
-      ...normalizeCachedMerchantEntity(data),
-      feature_settings: normalizedSettings ?? undefined,
-    };
-    return result;
-  }
-  return null;
+  console.log(
+    'Successfully fetched merchant:',
+    sanitizeLookupLogValue(slug),
+    merchant.id
+  );
+  cacheTag(`features-${merchant.id}`);
+  return merchant;
 }
 
 /**
@@ -956,59 +947,53 @@ export async function getCachedMerchantByDomain(
 ): Promise<CachedMerchant | null> {
   'use cache';
   cacheLife('merchant');
-  cacheTag('merchants', 'domains', `domain-${domain.toLowerCase()}`);
-
   const normalizedDomain = domain.toLowerCase();
-  // Use Service Role to allow lookup of unpublished merchants (for "Coming Soon" page).
-  const supabase = getServiceRoleSupabaseClient();
+  const safeDomain = sanitizeLookupLogValue(normalizedDomain);
+  cacheTag('merchants', 'domains', `domain-${normalizedDomain}`);
 
-  const { data: resolvedData, error: resolveError } = await supabase.rpc(
-    'resolve_storefront_cached_merchant',
-    {
-      p_identifier: normalizedDomain,
-    }
-  );
-
-  if (resolveError) {
-    const log = isTransientMerchantLookupError(resolveError)
-      ? console.warn
-      : console.error;
-    log('Error resolving merchant for domain', {
-      domain: normalizedDomain,
-      error: resolveError,
+  let resolvedMerchant: CachedMerchant | null;
+  try {
+    resolvedMerchant = await resolveStorefrontMerchantWithRetry({
+      errorMessage: `Database error resolving merchant for domain: ${safeDomain}`,
+      identifier: normalizedDomain,
     });
-    throw createMerchantLookupError(
-      `Database error resolving merchant for domain: ${normalizedDomain}`,
-      resolveError
-    );
+  } catch (error) {
+    const cause = (error as { cause?: unknown })?.cause;
+    console.error('Error resolving merchant for domain', {
+      domain: safeDomain,
+      error: summarizeMerchantLookupError(error),
+      ...(cause ? { cause: summarizeMerchantLookupError(cause) } : undefined),
+    });
+    throw error;
   }
 
-  const resolvedMerchant = normalizeResolvedStorefrontCachedMerchantRow(
-    firstResolvedStorefrontCachedMerchantRow(resolvedData) ?? {}
-  );
-
   if (!resolvedMerchant) {
-    console.warn('No domain mapping found for:', normalizedDomain);
+    console.warn('No domain mapping found for:', safeDomain);
     return null;
   }
 
   console.log('Successfully fetched merchant by domain', {
-    domain: normalizedDomain,
+    domain: safeDomain,
     slug: resolvedMerchant.slug,
     merchantId: resolvedMerchant.id,
   });
 
+  cacheTag(`features-${resolvedMerchant.id}`);
   return resolvedMerchant;
 }
 
 const TRANSIENT_MERCHANT_LOOKUP_ERROR = Symbol('transient-merchant-lookup');
+const DATABASE_ERROR_CODE_PATTERN = /^(?:[0-9A-Z]{5}|PGRST\d+)$/;
+const TRANSIENT_MERCHANT_LOOKUP_HTTP_STATUSES = new Set([
+  408, 409, 502, 503, 504, 520,
+]);
 
 type MerchantLookupError = Error & {
   [TRANSIENT_MERCHANT_LOOKUP_ERROR]?: true;
 };
 
 function createMerchantLookupError(message: string, cause: unknown): Error {
-  const error = new Error(message) as MerchantLookupError;
+  const error = new Error(message, { cause }) as MerchantLookupError;
   if (isTransientMerchantLookupError(cause)) {
     error[TRANSIENT_MERCHANT_LOOKUP_ERROR] = true;
   }
@@ -1032,11 +1017,31 @@ function isTransientMerchantLookupError(error: unknown): boolean {
   }
 
   const maybeError = error as {
+    code?: unknown;
     details?: unknown;
     message?: unknown;
     name?: unknown;
     stack?: unknown;
+    status?: unknown;
   };
+  const code =
+    typeof maybeError.code === 'string' ? maybeError.code.trim() : '';
+  if (code === '57014' || code === '20' || code === '23') {
+    return true;
+  }
+  // A real Postgres/PostgREST code is authoritative. Do not turn errors such
+  // as SQLSTATE 25P02 (whose message says "transaction is aborted") into
+  // transport retries.
+  if (DATABASE_ERROR_CODE_PATTERN.test(code)) {
+    return false;
+  }
+  if (
+    typeof maybeError.status === 'number' &&
+    TRANSIENT_MERCHANT_LOOKUP_HTTP_STATUSES.has(maybeError.status)
+  ) {
+    return true;
+  }
+
   const details =
     typeof maybeError.details === 'string' ? maybeError.details : '';
   const message =
@@ -1055,8 +1060,17 @@ function isTransientMerchantLookupError(error: unknown): boolean {
     combined.includes('fetch failed') ||
     combined.includes('network timeout') ||
     combined.includes('network error') ||
+    combined.includes('socket hang up') ||
+    combined.includes('eai_again') ||
+    combined.includes('und_err') ||
     combined.includes('502 bad gateway') ||
     /\b(408 request timeout|http 408|status(?: code)? 408)\b/.test(combined) ||
+    /\b(503 service unavailable|http 503|status(?: code)? 503)\b/.test(
+      combined
+    ) ||
+    /\b(520 web server returned an unknown error|http 520|status(?: code)? 520)\b/.test(
+      combined
+    ) ||
     combined.includes('504 gateway timeout') ||
     combined.includes('bad gateway') ||
     combined.includes('econnreset') ||
@@ -1066,11 +1080,17 @@ function isTransientMerchantLookupError(error: unknown): boolean {
 
 function summarizeMerchantLookupError(error: unknown) {
   const maybeError = error as {
+    code?: unknown;
     details?: unknown;
     message?: unknown;
     name?: unknown;
+    status?: unknown;
   };
   return {
+    code:
+      typeof maybeError?.code === 'string'
+        ? sanitizeLookupLogValue(maybeError.code)
+        : undefined,
     name:
       typeof maybeError?.name === 'string'
         ? sanitizeLookupLogValue(maybeError.name)
@@ -1083,134 +1103,10 @@ function summarizeMerchantLookupError(error: unknown) {
       typeof maybeError?.details === 'string'
         ? sanitizeLookupLogValue(maybeError.details)
         : undefined,
+    status:
+      typeof maybeError?.status === 'number' ? maybeError.status : undefined,
     transient: isTransientMerchantLookupError(error),
   };
-}
-
-async function getDirectFeatureSettings(
-  merchantId: string
-): Promise<MerchantFeatureSettings | null> {
-  const supabase = getPublicSupabaseClient();
-  const { data, error } = await supabase
-    .from('merchant_feature_settings')
-    .select(MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT)
-    .eq('merchant_id', merchantId)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  if (!data) {
-    return merchantFeatureSettingsDefaults.buildPublicDefault(
-      merchantId
-    ) as MerchantFeatureSettings;
-  }
-
-  return data as unknown as MerchantFeatureSettings;
-}
-
-async function attachDirectFeatureSettings<T extends { id: string }>(
-  merchant: T
-): Promise<T & { feature_settings?: MerchantFeatureSettings }> {
-  const featureSettings = await getDirectFeatureSettings(merchant.id);
-  return {
-    ...merchant,
-    feature_settings: featureSettings ?? undefined,
-  };
-}
-
-async function getDirectMerchantBySlug(
-  slug: string
-): Promise<CachedMerchant | null> {
-  const supabase = getPublicSupabaseClient();
-  const { data, error } = await supabase
-    .from('merchants')
-    .select(MERCHANT_PUBLIC_SELECT)
-    .eq('slug', slug)
-    .maybeSingle();
-
-  if (error) {
-    throw createMerchantLookupError(
-      `Failed direct merchant lookup for slug: ${sanitizeLookupLogValue(slug)}`,
-      error
-    );
-  }
-
-  if (!data) return null;
-
-  redactUnpublishedMerchantContactFields(data);
-
-  const { data: primaryDomain } = await supabase
-    .from('domains')
-    .select('domain')
-    .eq('merchant_id', data.id)
-    .eq('is_primary', true)
-    .eq('status', 'active')
-    .maybeSingle();
-
-  const normalizedMerchant = normalizeCachedMerchantEntity({
-    ...data,
-    ...(primaryDomain ? { custom_domain: primaryDomain.domain } : {}),
-  });
-
-  return attachDirectFeatureSettings(normalizedMerchant);
-}
-
-async function getDirectMerchantByDomain(
-  domain: string
-): Promise<CachedMerchant | null> {
-  const normalizedDomain = domain.toLowerCase();
-  const supabase = getPublicSupabaseClient();
-  const { data: domainData, error: domainError } = await supabase
-    .from('domains')
-    .select('merchant_id, domain')
-    .eq('domain', normalizedDomain)
-    .eq('status', 'active')
-    .maybeSingle();
-
-  if (domainError) {
-    throw createMerchantLookupError(
-      `Failed direct domain lookup: ${normalizedDomain}`,
-      domainError
-    );
-  }
-
-  if (!domainData) return null;
-
-  const { data, error } = await supabase
-    .from('merchants')
-    .select(MERCHANT_PUBLIC_SELECT)
-    .eq('id', domainData.merchant_id)
-    .single();
-
-  if (error) {
-    throw createMerchantLookupError(
-      `Failed direct merchant lookup for domain: ${normalizedDomain}`,
-      error
-    );
-  }
-
-  redactUnpublishedMerchantContactFields(data);
-
-  const normalizedMerchant = normalizeCachedMerchantEntity({
-    ...data,
-    custom_domain: domainData.domain,
-  });
-
-  return attachDirectFeatureSettings(normalizedMerchant);
-}
-
-async function getMerchantByIdentifierDirect(
-  identifier: string
-): Promise<CachedMerchant | null> {
-  if (!isValidMerchantIdentifier(identifier)) return null;
-
-  if (isDomainIdentifier(identifier)) {
-    return await getDirectMerchantByDomain(identifier.toLowerCase());
-  }
-
-  return await getDirectMerchantBySlug(identifier.toLowerCase());
 }
 
 /**
@@ -1229,65 +1125,15 @@ export async function getMerchantByIdentifier(
 }
 
 /**
- * Safe merchant lookup with retry on transient failures.
- * Returns null instead of throwing — prevents 404s from transient Supabase errors.
- * Use this in layout.tsx and page.tsx where an unhandled throw triggers error boundaries.
+ * Merchant-shell lookup. The cached resolver itself owns one bounded retry for
+ * transient transport failures, so every direct cached caller gets identical
+ * resilience. Only a successful no-row response becomes null; failures throw
+ * instead of becoming crawlable storefront 404s.
  */
 export async function getMerchantSafe(
   identifier: string
 ): Promise<CachedMerchant | null> {
-  try {
-    return await getMerchantByIdentifier(identifier);
-  } catch (firstError) {
-    unstable_rethrow(firstError);
-    // Retry once on transient failure (e.g., Supabase timeout during cache revalidation)
-    try {
-      return await getMerchantByIdentifier(identifier);
-    } catch (retryError) {
-      unstable_rethrow(retryError);
-      const safeId = sanitizeLookupLogValue(identifier);
-      const isTransient =
-        isTransientMerchantLookupError(firstError) ||
-        isTransientMerchantLookupError(retryError);
-      const lookupSummary = {
-        firstError: summarizeMerchantLookupError(firstError),
-        retryError: summarizeMerchantLookupError(retryError),
-      };
-
-      if (isTransient) {
-        try {
-          const directMerchant =
-            await getMerchantByIdentifierDirect(identifier);
-          if (directMerchant) {
-            console.warn(
-              'Merchant fetch failed after retry; direct fallback succeeded:',
-              safeId,
-              lookupSummary
-            );
-            return directMerchant;
-          }
-          console.warn(
-            'Merchant lookup direct fallback returned no merchant:',
-            safeId,
-            lookupSummary
-          );
-        } catch (directError) {
-          console.error('Direct merchant lookup failed after retry:', safeId, {
-            ...lookupSummary,
-            directError: summarizeMerchantLookupError(directError),
-          });
-        }
-      } else {
-        console.error(
-          'Non-transient merchant lookup failed after retry:',
-          safeId,
-          lookupSummary
-        );
-      }
-
-      return null;
-    }
-  }
+  return await getMerchantByIdentifier(identifier);
 }
 
 /**
@@ -1299,19 +1145,7 @@ export async function getMerchantSafe(
 export async function getMerchantStrict(
   identifier: string
 ): Promise<CachedMerchant | null> {
-  try {
-    return await getMerchantByIdentifier(identifier);
-  } catch (firstError) {
-    unstable_rethrow(firstError);
-    try {
-      return await getMerchantByIdentifier(identifier);
-    } catch (retryError) {
-      unstable_rethrow(retryError);
-      const safeId = sanitizeLookupLogValue(identifier);
-      console.error('Strict merchant lookup failed after retry:', safeId);
-      throw retryError;
-    }
-  }
+  return await getMerchantByIdentifier(identifier);
 }
 
 /**
@@ -1323,6 +1157,28 @@ export async function getMerchantStrict(
 export const getRequestScopedMerchant = cache(
   (identifier: string): Promise<CachedMerchant | null> => {
     return getMerchantSafe(identifier);
+  }
+);
+
+/**
+ * Request-scoped blog post lookup via React cache().
+ * Deduplicates getCachedBlogPost() calls within a single request — the blog
+ * post route's generateMetadata, hero-shell static-shell lookup, and streamed
+ * body resolver all resolve the same post; only one lookup runs per unique
+ * (identifier, postSlug, includeDrafts) argument tuple.
+ *
+ * `includeDrafts` has no default here on purpose: React's cache() keys on
+ * `arguments.length` as well as argument values, so a caller that omits it
+ * would silently miss every other call site's cache entry instead of sharing
+ * it. Every call site must pass it explicitly.
+ */
+export const getRequestScopedBlogPost = cache(
+  (
+    identifier: string,
+    postSlug: string,
+    includeDrafts: boolean
+  ): ReturnType<typeof getCachedBlogPost> => {
+    return getCachedBlogPost(identifier, postSlug, includeDrafts);
   }
 );
 
@@ -2299,7 +2155,7 @@ function getSpecialCollectionCopy(collectionSlug: SpecialCollectionSlug) {
  * small so it remains suitable for Vercel's shared remote cache and keeps
  * category/product mutation tag invalidation cross-instance.
  */
-async function getCachedCategoryPageShellData(
+export async function getCachedCategoryPageShellData(
   merchantId: string,
   categorySlug: string,
   _storeSlug: string
@@ -2950,7 +2806,13 @@ function getServiceSupabaseClient() {
   const url = getSupabaseUrl();
   const key = getSupabaseServiceRoleKey(); // Throws if on client or missing
 
-  return createSupabaseClient(url, key);
+  return createSupabaseClient(url, key, {
+    global: {
+      // This client previously had NO transport bound at all — and it sits
+      // inside the hot merchant shell path via getCachedFeatureSettings.
+      fetch: createTimeoutComposedFetch(CACHED_CLIENT_DEFAULT_TIMEOUT_MS),
+    },
+  });
 }
 
 /**
@@ -3007,6 +2869,89 @@ export async function getCachedPlatformAnalytics(
   return summaryData;
 }
 
+function isMissingRepairsCatalogEnabledColumn(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const maybeError = error as {
+    code?: unknown;
+    details?: unknown;
+    hint?: unknown;
+    message?: unknown;
+  };
+  const combined = [maybeError.message, maybeError.details, maybeError.hint]
+    .filter((value): value is string => typeof value === 'string')
+    .join(' ')
+    .toLowerCase();
+
+  return (
+    maybeError.code === '42703' && combined.includes('repairs_catalog_enabled')
+  );
+}
+
+async function queryMerchantFeatureSettings(
+  supabase: SupabaseClient,
+  merchantId: string,
+  selectColumns = MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT
+) {
+  return await supabase
+    .from('merchant_feature_settings')
+    .select(selectColumns)
+    .eq('merchant_id', merchantId)
+    .maybeSingle();
+}
+
+function normalizeMerchantFeatureSettings(
+  merchantId: string,
+  data: unknown
+): MerchantFeatureSettings {
+  if (!data) {
+    return merchantFeatureSettingsDefaults.buildPublicDefault(
+      merchantId
+    ) as MerchantFeatureSettings;
+  }
+
+  return {
+    repairs_catalog_enabled: false,
+    ...(data as Record<string, unknown>),
+  } as MerchantFeatureSettings;
+}
+
+async function getPublicFeatureSettingsWithMigrationFallback(
+  supabase: SupabaseClient,
+  merchantId: string
+): Promise<MerchantFeatureSettings> {
+  const { data, error } = await queryMerchantFeatureSettings(
+    supabase,
+    merchantId
+  );
+
+  if (!error) {
+    return normalizeMerchantFeatureSettings(merchantId, data);
+  }
+
+  if (!isMissingRepairsCatalogEnabledColumn(error)) {
+    throw error;
+  }
+
+  console.warn(
+    'merchant_feature_settings.repairs_catalog_enabled is unavailable; using legacy public feature settings projection'
+  );
+  const { data: legacyData, error: legacyError } =
+    await queryMerchantFeatureSettings(
+      supabase,
+      merchantId,
+      MERCHANT_PUBLIC_FEATURE_SETTINGS_LEGACY_SELECT
+    );
+
+  if (legacyError) {
+    throw legacyError;
+  }
+
+  return normalizeMerchantFeatureSettings(merchantId, legacyData);
+}
+
 /**
  * Cached merchant feature settings.
  * Uses a server-only service-role query with an explicit public-safe column allowlist because
@@ -3023,25 +2968,10 @@ export async function getCachedFeatureSettings(
 
   try {
     const supabase = getServiceSupabaseClient();
-
-    const { data, error } = await supabase
-      .from('merchant_feature_settings')
-      .select(MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT)
-      .eq('merchant_id', merchantId)
-      .maybeSingle();
-
-    if (error) {
-      // Transient DB failure — throw so the cache does not persist the error state.
-      throw error;
-    }
-
-    if (!data) {
-      return merchantFeatureSettingsDefaults.buildPublicDefault(
-        merchantId
-      ) as MerchantFeatureSettings;
-    }
-
-    return data as unknown as MerchantFeatureSettings;
+    return await getPublicFeatureSettingsWithMigrationFallback(
+      supabase,
+      merchantId
+    );
   } catch (error) {
     console.error('Error fetching feature settings:', error);
     // Rethrow so Cache Components skips caching this failure.
@@ -3273,7 +3203,12 @@ export async function getCachedBlogListing(
     .not('slug', 'is', null)
     .neq('title', '')
     .neq('slug', '')
-    .order('published_at', { ascending: false });
+    .order('published_at', { ascending: false })
+    // Unique tiebreaker: scheduled/bulk-published posts share an identical
+    // published_at, and without a total order the same post can appear on two
+    // listing pages (or neither) when the prerender walk pages through this
+    // query. `id` makes pagination deterministic (mirrors the product index).
+    .order('id', { ascending: true });
 
   query = applyPublicBlogSqlFilters(query);
 
@@ -3487,6 +3422,7 @@ export interface StorefrontHomeProduct {
   category?: string | null;
   brand?: string | null;
   condition?: string | null;
+  has_condition_offers?: boolean | null;
   stock?: number | null;
   stock_quantity?: number | null;
   manage_stock?: boolean | null;
@@ -3646,27 +3582,27 @@ const STOREFRONT_HOME_PRODUCT_LIMIT = 50;
 const STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT = 24;
 const STOREFRONT_HOME_PRODUCT_SELECT = `
     id, name, slug, description, price, compare_at_price, created_at,
-    images, category, brand, condition, stock, stock_quantity,
+    images, category, brand, condition, has_condition_offers, stock, stock_quantity,
     manage_stock, low_stock_threshold,
     product_categories(categories(name, slug))
   `;
 const STOREFRONT_HOME_PRODUCT_RECENT_SELECT = `
     id, name, slug, description, price, compare_at_price, created_at, updated_at,
-    images, category, brand, condition, stock, stock_quantity,
+    images, category, brand, condition, has_condition_offers, stock, stock_quantity,
     manage_stock, low_stock_threshold,
     categories:category_id(id, name, slug, parent_id),
     product_categories(categories(name, slug))
   `;
 const STOREFRONT_HOME_PRODUCT_DIRECT_CATEGORY_SELECT = `
     id, name, slug, description, price, compare_at_price, created_at, updated_at,
-    images, category, brand, condition, stock, stock_quantity,
+    images, category, brand, condition, has_condition_offers, stock, stock_quantity,
     manage_stock, low_stock_threshold,
     categories:category_id!inner(id, name, slug, parent_id),
     product_categories(categories(name, slug))
   `;
 const STOREFRONT_HOME_PRODUCT_RELATION_CATEGORY_SELECT = `
     id, name, slug, description, price, compare_at_price, created_at, updated_at,
-    images, category, brand, condition, stock, stock_quantity,
+    images, category, brand, condition, has_condition_offers, stock, stock_quantity,
     manage_stock, low_stock_threshold,
     categories:category_id(id, name, slug, parent_id),
     product_categories!inner(categories!inner(name, slug))

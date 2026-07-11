@@ -596,6 +596,7 @@ export default function CustomersScreen() {
         accessibilityRole="tablist"
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.tabScroller}
         contentContainerStyle={styles.tabContainer}
       >
         {CUSTOMER_TABS.map((tab) => {
@@ -851,13 +852,19 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.md,
     gap: SPACING.sm,
+  },
+  tabScroller: {
+    flexGrow: 0,
+    maxHeight: 44,
+    marginBottom: SPACING.md,
   },
   tab: {
     paddingVertical: 6,
     paddingHorizontal: 16,
+    minHeight: 32,
     borderRadius: RADIUS.full,
     borderWidth: 1,
     borderColor: 'transparent',

@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import { ProductDetailRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
 import { getCachedLegacyProductRedirectTarget } from '@/lib/cached-data';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import {
   generateMetaDescription,
   getIndexableRobotsMetadata,
@@ -24,7 +25,7 @@ import { mergeStorefrontSmartAppBannerOther } from '@/lib/storefront-smart-app-b
 import {
   getCategorizedRedirectTarget,
   getInvalidVariantSelectionRedirectTarget,
-  getProductCached,
+  getRequestScopedProduct,
   resolveProductPage,
 } from './product-page-resolution';
 import { ProductPageRuntime } from './product-page-runtime';
@@ -42,7 +43,10 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { slug, productSlug } = await params;
   const resolvedSearchParams = await searchParams;
-  const productResult = await getProductCached(slug, productSlug);
+  // Request-scoped (React cache()) — reuses the same Promise resolveProductPage
+  // awaits below for this (slug, productSlug) pair instead of a second
+  // Supabase round-trip.
+  const productResult = await getRequestScopedProduct(slug, productSlug);
   if (!productResult) {
     notFound();
   }
@@ -87,7 +91,7 @@ export async function generateMetadata(
     product.category ||
     DEFAULT_STOREFRONT_SEO_CATEGORY;
   const merchantDisplayName = merchant.business_name || DEFAULT_STORE_NAME;
-  const currency = merchant.payout_currency || 'NGN';
+  const currency = resolveMerchantCurrencyConfig(merchant).code;
   const priceSeoCopy = buildProductPriceSeoCopy({
     product,
     merchantDisplayName,

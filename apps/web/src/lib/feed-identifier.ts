@@ -1,3 +1,4 @@
+import { getCurrentSlugForAlias } from '@/lib/slug-alias-cache';
 import { createAnonClient } from '@/lib/supabase/anon';
 
 /** Merchant record shape returned by feed identifier resolution. */
@@ -6,9 +7,14 @@ export interface FeedMerchantRecord {
   business_name: string;
   country: string;
   gmc_variants_enabled?: boolean;
+  logo_url?: string;
   payout_currency: string;
   slug: string;
 }
+
+type FeedMerchantRpcRecord = Omit<FeedMerchantRecord, 'logo_url'> & {
+  logo_url?: string | null;
+};
 
 /** Thrown when a merchant lookup returns no rows. */
 export class MerchantNotFoundError extends Error {
@@ -38,16 +44,42 @@ export async function resolveFeedMerchant(
   isBySlug: boolean
 ): Promise<FeedMerchantRecord> {
   const supabase = createAnonClient();
-  const { data, error } = await supabase.rpc('resolve_public_feed_merchant', {
-    p_identifier: identifier,
-    p_is_by_slug: isBySlug,
-  });
 
-  if (error) {
-    throw new Error('Failed to resolve merchant', { cause: error });
+  const lookup = async (
+    id: string
+  ): Promise<FeedMerchantRecord | undefined> => {
+    const { data, error } = await supabase.rpc('resolve_public_feed_merchant', {
+      p_identifier: id,
+      p_is_by_slug: isBySlug,
+    });
+    if (error) {
+      throw new Error('Failed to resolve merchant', { cause: error });
+    }
+
+    const merchant = (data as FeedMerchantRpcRecord[] | null)?.[0];
+    if (!merchant) {
+      return undefined;
+    }
+
+    return {
+      ...merchant,
+      logo_url: merchant.logo_url ?? undefined,
+    };
+  };
+
+  let merchant = await lookup(identifier);
+
+  // Retired-slug fallback: a feed URL built from a host the store renamed away
+  // from (e.g. old.usebaci.com/api/feed/...) still carries the retired slug.
+  // Resolve it to the current slug via the alias table and retry.
+  if (!merchant && isBySlug) {
+    const currentSlug = await getCurrentSlugForAlias(
+      identifier.trim().toLowerCase()
+    );
+    if (currentSlug && currentSlug !== identifier.trim().toLowerCase()) {
+      merchant = await lookup(currentSlug);
+    }
   }
-
-  const merchant = (data as FeedMerchantRecord[] | null)?.[0];
 
   if (!merchant) {
     throw new MerchantNotFoundError(identifier);

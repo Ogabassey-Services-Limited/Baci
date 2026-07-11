@@ -3,8 +3,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockToast = vi.fn();
 
+const merchantState = vi.hoisted(() => ({
+  merchant: { country: 'NG', payout_currency: 'NGN' } as {
+    country: string;
+    payout_currency: string;
+  },
+}));
+
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
+}));
+
+vi.mock('@/hooks/use-merchant-client', () => ({
+  useMerchant: () => ({ merchant: merchantState.merchant }),
 }));
 
 vi.mock('@/lib/api-client', () => ({
@@ -39,6 +50,7 @@ const loyaltySettings = {
 describe('LoyaltyProgramPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    merchantState.merchant = { country: 'NG', payout_currency: 'NGN' };
     global.fetch = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
       if (url === '/api/loyalty/settings') {
@@ -69,5 +81,57 @@ describe('LoyaltyProgramPage', () => {
       expect(global.fetch).toHaveBeenCalledTimes(1);
     });
     expect(global.fetch).toHaveBeenCalledWith('/api/loyalty/settings');
+  });
+
+  it('renders earning/redemption currency labels in NGN for an NGN merchant', async () => {
+    render(<LoyaltyProgramPage />);
+
+    await screen.findByRole('heading', { name: 'Loyalty Program' });
+
+    expect(
+      screen.getByText(
+        (_, element) => element?.textContent === 'Points per ₦100.00',
+        { selector: 'label' }
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, element) => element?.textContent === 'Currency Unit (₦1.00)',
+        { selector: 'label' }
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, element) => element?.textContent === '1 point = ₦0.01',
+        { selector: 'p' }
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('renders earning/redemption currency labels in the merchant payout currency for an INR merchant', async () => {
+    merchantState.merchant = { country: 'IN', payout_currency: 'INR' };
+
+    render(<LoyaltyProgramPage />);
+
+    await screen.findByRole('heading', { name: 'Loyalty Program' });
+
+    expect(
+      screen.getByText(
+        (_, element) => element?.textContent === 'Points per ₹100.00',
+        { selector: 'label' }
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, element) => element?.textContent === 'Currency Unit (₹1.00)',
+        { selector: 'label' }
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        (_, element) => element?.textContent?.includes('₦') ?? false,
+        { selector: 'label, p' }
+      )
+    ).not.toBeInTheDocument();
   });
 });

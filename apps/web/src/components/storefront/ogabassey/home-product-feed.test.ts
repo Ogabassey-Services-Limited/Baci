@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Product as StorefrontProduct } from '@/lib/products';
-import { OGABASSEY_HOME_PRODUCT_FEED_LIMIT } from './config/products';
+import {
+  OGABASSEY_HOME_PRODUCT_DESCRIPTION_TEASER_LIMIT,
+  OGABASSEY_HOME_PRODUCT_FEED_LIMIT,
+} from './config/products';
 import {
   createOgabasseyHomeProductFeed,
   mapStorefrontProductsToOgabasseyProducts,
@@ -66,8 +69,8 @@ describe('mapStorefrontProductsToOgabasseyProducts', () => {
         image: '/iphone-black.jpg',
         image_alt: 'Black',
         image_payloads: [
-          { url: '/iphone-black.jpg', alt: 'Black', order: 0 },
-          { url: '/iphone-gold.jpg', alt: 'Gold', order: 1 },
+          { url: '/iphone-black.jpg', alt: 'Black' },
+          { url: '/iphone-gold.jpg', alt: 'Gold' },
         ],
         description: 'Flagship phone',
         rating: 4.9,
@@ -79,6 +82,57 @@ describe('mapStorefrontProductsToOgabasseyProducts', () => {
         images: ['/iphone-black.jpg', '/iphone-gold.jpg'],
       }),
     ]);
+    expect(result[0]).not.toHaveProperty('categories');
+    expect(result[0]).not.toHaveProperty('has_condition_offers');
+  });
+
+  it('strips markup, drops the SEO price question, and truncates long descriptions', () => {
+    const longTail = 'A'.repeat(400);
+    const result = mapStorefrontProductsToOgabasseyProducts([
+      createStorefrontProduct({
+        description: `<h2>What is the iPhone 17 Price in Nigeria?</h2><p>Great   phone.</p><p>${longTail}</p>`,
+      }),
+    ]);
+
+    expect(result[0].description).toHaveLength(
+      OGABASSEY_HOME_PRODUCT_DESCRIPTION_TEASER_LIMIT
+    );
+    expect(result[0].description.startsWith('Great phone.')).toBe(true);
+    expect(result[0].description).not.toContain('<');
+    expect(result[0].description).not.toContain('Price in Nigeria');
+  });
+
+  it('omits the rating instead of fabricating a default', () => {
+    const [
+      withoutRating,
+      withZeroRating,
+      withInfiniteRating,
+      withNaNRating,
+      withRealRating,
+    ] = mapStorefrontProductsToOgabasseyProducts([
+      createStorefrontProduct({ rating: undefined }),
+      createStorefrontProduct({ rating: 0 }),
+      createStorefrontProduct({ rating: Number.POSITIVE_INFINITY }),
+      createStorefrontProduct({ rating: Number.NaN }),
+      createStorefrontProduct({ rating: 4.2 }),
+    ]);
+
+    expect(withoutRating).not.toHaveProperty('rating');
+    expect(withZeroRating).not.toHaveProperty('rating');
+    expect(withInfiniteRating).not.toHaveProperty('rating');
+    expect(withNaNRating).not.toHaveProperty('rating');
+    expect(withRealRating).toEqual(expect.objectContaining({ rating: 4.2 }));
+  });
+
+  it('keeps the raw description in full mode for server-only consumers', () => {
+    const rawDescription = `<h2>What is the iPhone 17 Price in Nigeria?</h2><p>${'B'.repeat(300)}</p>`;
+    const result = mapStorefrontProductsToOgabasseyProducts(
+      [createStorefrontProduct({ description: rawDescription })],
+      undefined,
+      { descriptionMode: 'full' }
+    );
+
+    expect(result[0].description).toBe(rawDescription);
   });
 
   it('marks condition-offer products as New & Used and falls back sensibly', () => {
@@ -99,9 +153,9 @@ describe('mapStorefrontProductsToOgabasseyProducts', () => {
       expect.objectContaining({
         category: 'General',
         condition: 'New & Used',
+        has_condition_offers: true,
         image: '/galaxy.jpg',
         image_alt: 'Galaxy',
-        has_condition_offers: true,
       })
     );
   });
@@ -123,6 +177,55 @@ describe('mapStorefrontProductsToOgabasseyProducts', () => {
       })
     );
     expect(result[0]).not.toHaveProperty('image_alt');
+  });
+
+  it('keeps only alt-bearing image payload entries for rendered-image alt lookup', () => {
+    const result = mapStorefrontProductsToOgabasseyProducts([
+      createStorefrontProduct({
+        image: '/front.jpg',
+        images: [
+          '/front.jpg',
+          { url: '/back.jpg', alt: 'Back view', order: 1 },
+          { url: '/side.jpg', order: 2 },
+        ] as unknown as StorefrontProduct['images'],
+      }),
+    ]);
+
+    expect(result[0].image_payloads).toEqual([
+      { url: '/back.jpg', alt: 'Back view' },
+    ]);
+    expect(result[0].images).toEqual(['/front.jpg', '/back.jpg', '/side.jpg']);
+  });
+
+  it('omits image_payloads entirely when no entry carries alt text', () => {
+    const result = mapStorefrontProductsToOgabasseyProducts([
+      createStorefrontProduct({
+        image: '/front.jpg',
+        images: ['/front.jpg'] as unknown as StorefrontProduct['images'],
+      }),
+    ]);
+
+    expect(result[0]).not.toHaveProperty('image_payloads');
+  });
+
+  it('formats the card price in a non-NGN merchant currency when supplied', () => {
+    const result = mapStorefrontProductsToOgabasseyProducts(
+      [
+        createStorefrontProduct({
+          id: 'india-1',
+          name: 'Redmi Note',
+          price: 999900,
+        }),
+      ],
+      { code: 'INR', symbol: '₹', locale: 'en-IN' }
+    );
+
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        price: '₹9,99,900',
+        rawPrice: 999900,
+      })
+    );
   });
 });
 
@@ -268,5 +371,29 @@ describe('createOgabasseyHomeProductFeed', () => {
     );
     expect(result[1]).not.toHaveProperty('imageLarge');
     expect(result[1]).not.toHaveProperty('product_categories');
+  });
+
+  it('formats the homepage feed price in a non-NGN merchant currency when supplied', () => {
+    const products = [
+      createStorefrontProduct({
+        id: 'product-1',
+        name: 'Product 1',
+        price: 999900,
+        image: '/product-1.jpg',
+      }),
+    ];
+
+    const result = createOgabasseyHomeProductFeed(products, {
+      code: 'INR',
+      symbol: '₹',
+      locale: 'en-IN',
+    });
+
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        id: 'product-1',
+        price: '₹9,99,900',
+      })
+    );
   });
 });

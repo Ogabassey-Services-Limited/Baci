@@ -23,6 +23,19 @@ export interface FeatureSettings {
   wallet_paystack_dva_enabled?: boolean;
 }
 
+/**
+ * NGN-only charge rails (mirrors `resolveChargeCurrency`'s gateway support):
+ * Juicyway, CredPal, Credit Direct, and Klump can only ever charge Nigerian
+ * Naira, so they must not be offered on a non-NGN checkout. A missing or
+ * malformed currency fails closed, matching the Klump/Credit Direct
+ * precedent below.
+ */
+export function isNgnChargeCurrency(currency?: string | null): boolean {
+  return (
+    typeof currency === 'string' && currency.trim().toUpperCase() === 'NGN'
+  );
+}
+
 function toAmountLimit(
   value: number | string | null | undefined,
   fallback: number,
@@ -60,8 +73,7 @@ export function isKlumpEligible({
     return false;
   }
 
-  const normalizedCurrency = typeof currency === 'string' ? currency : '';
-  if (normalizedCurrency.trim().toUpperCase() !== 'NGN') {
+  if (!isNgnChargeCurrency(currency)) {
     return false;
   }
 
@@ -96,8 +108,7 @@ export function isCreditDirectEligible({
     return false;
   }
 
-  const normalizedCurrency = typeof currency === 'string' ? currency : '';
-  if (normalizedCurrency.trim().toUpperCase() !== 'NGN') {
+  if (!isNgnChargeCurrency(currency)) {
     return false;
   }
 
@@ -144,11 +155,20 @@ export function isPaymentMethodAvailable({
     case 'korapay':
       return korapayCheckoutAvailable;
     case 'juicyway':
-      return featureSettings?.juicyway_enabled === true;
+      // NGN-only rail: the fiat leg converts from NGN kobo, so a non-NGN
+      // order must never be offered Juicyway (see resolveChargeCurrency).
+      return (
+        featureSettings?.juicyway_enabled === true &&
+        isNgnChargeCurrency(currency)
+      );
     case 'pod':
       return featureSettings?.pay_on_delivery_enabled === true;
     case 'credpal':
-      return featureSettings?.credpal_enabled === true;
+      // NGN-only Nigerian BNPL rail (see resolveChargeCurrency).
+      return (
+        featureSettings?.credpal_enabled === true &&
+        isNgnChargeCurrency(currency)
+      );
     case 'credit_direct':
       return isCreditDirectEligible({
         featureSettings,
@@ -184,7 +204,7 @@ export function hasAnyInstallmentOption({
   payableAmount: number;
 }): boolean {
   return Boolean(
-    featureSettings?.credpal_enabled ||
+    (featureSettings?.credpal_enabled && isNgnChargeCurrency(currency)) ||
       isCreditDirectEligible({
         featureSettings,
         currency,

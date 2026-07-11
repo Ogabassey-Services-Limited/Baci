@@ -196,6 +196,47 @@ export function revalidateMerchant(merchantId: string, merchantSlug?: string) {
 }
 
 /**
+ * Bust EVERY per-slug merchant cache for a specific slug:
+ *   - `merchant-slug-${slug}` + 'merchant' — the /api/merchants/by-slug route
+ *   - `merchant-${slug}` + 'merchants' — getCachedMerchant() in lib/cached-data.ts
+ * None of these are cleared by revalidateMerchant() for a slug OTHER than the one
+ * passed to it. Call this for BOTH the old and the new slug after a rename so the
+ * retired slug stops resolving to a live store and the new slug serves at once,
+ * instead of staying cached for up to 5 minutes.
+ */
+export function revalidateMerchantSlugLookup(slug: string) {
+  revalidateTag('merchant', 'merchant');
+  revalidateTag(`merchant-slug-${slug}`, 'merchant');
+  revalidateTag(`merchant-${slug}`, 'merchant');
+}
+
+/**
+ * Bust the `/api/storefront/[slug]/products` merchant-id lookup cache. That route's
+ * `getMerchantIdBySlug` caches results (a MISS included) under the generic
+ * 'merchant-slug' tag for 60s, and the tag is not per-slug, so
+ * `revalidateMerchantSlugLookup` (which targets `merchant-slug-${slug}`) can't
+ * clear it. After a rename, a pre-rename probe of the NEW slug would otherwise
+ * 404 the renamed store's products API until the cached miss expires. Call once
+ * per rename (the tag is shared across all slugs).
+ */
+export function revalidateStorefrontProductsSlugCache() {
+  revalidateTag('merchant-slug', 'merchant');
+}
+
+/**
+ * Bust the blog RSS feed cache (`/api/blog/feed/[merchantSlug]`). It caches the
+ * merchant + posts payload by merchant id under the generic 'blog-rss-feed' /
+ * 'blog-posts' tags for an hour and EMBEDS the slug in the feed's storeUrl/feedUrl.
+ * After a rename, both the old-alias URL and the new-slug URL resolve to the same
+ * cached object and keep emitting the retired slug until the TTL — so bust it on
+ * rename. Tags are not per-merchant, so call once.
+ */
+export function revalidateBlogFeed() {
+  revalidateTag('blog-rss-feed', 'merchant');
+  revalidateTag('blog-posts', 'merchant');
+}
+
+/**
  * Revalidate blog post cache.
  * Call after blog post create/update/delete/publish.
  */
@@ -399,6 +440,31 @@ export function revalidateMerchantFeed(merchantId: string) {
   revalidateTag('google-merchant-feed', 'products');
   revalidateTag(`merchant-feed-${merchantId}`, 'products');
   revalidateTag(`merchant-feed-review-signals-${merchantId}`, 'products');
+}
+
+/**
+ * Revalidate the repairs catalog feeds (Facebook repairs XML + agent-repairs
+ * JSONL) for a merchant. Call after any repairs catalog mutation — device,
+ * quote, or service-type CRUD, and AI import commit — so the machine-readable
+ * feeds never serve a stale quote/device/service-type.
+ *
+ * The tags mirror `getCachedRepairsFeedData`'s
+ * (`REPAIRS_FEED_CACHE_TAG`, `getRepairsFeedMerchantCacheTag(merchantId)`).
+ *
+ * @param merchantId - Canonical merchant UUID (not slug).
+ */
+export function revalidateRepairsCatalog(merchantId: string) {
+  const normalizedMerchantId = normalizeMerchantIdForRevalidation(merchantId);
+  if (!normalizedMerchantId) {
+    console.warn(
+      'Skipped repairs catalog cache revalidation for invalid merchant ID',
+      { merchantId }
+    );
+    return;
+  }
+
+  revalidateTag('repairs-catalog-feed', 'products');
+  revalidateTag(`repairs-feed-${normalizedMerchantId}`, 'products');
 }
 
 /**

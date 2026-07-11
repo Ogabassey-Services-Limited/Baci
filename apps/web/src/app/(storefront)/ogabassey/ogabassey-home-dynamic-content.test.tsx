@@ -176,11 +176,30 @@ describe('OgabasseyHomeDynamicContent', () => {
       screen.getByRole('region', { name: 'OgaBassey home payload' })
     ).toHaveTextContent('ogabassey:/ogabassey:1:0:false');
     expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
-      expect.arrayContaining([expect.objectContaining({ id: 'product-1' })])
+      expect.arrayContaining([expect.objectContaining({ id: 'product-1' })]),
+      expect.objectContaining({ code: 'NGN' })
     );
     expect(screen.getByRole('link', { name: 'Smartphones' })).toHaveAttribute(
       'href',
       '/ogabassey/smartphones'
+    );
+  });
+
+  it('passes the resolved merchant currency to the OgaBassey home product feed', async () => {
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      createProduct(),
+    ]);
+
+    const result = await OgabasseyHomeDynamicContent({
+      merchant: { ...mockMerchant, payout_currency: 'INR', country: 'IN' },
+      pathPrefix: '/ogabassey',
+    });
+
+    render(result as ReactElement);
+
+    expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ code: 'INR', symbol: '₹' })
     );
   });
 

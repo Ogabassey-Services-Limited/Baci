@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { logger } from '@/lib/logger';
 
 describe('quiz compliance gate', () => {
   afterEach(() => {
@@ -75,6 +76,69 @@ describe('quiz compliance gate', () => {
 
     expect(() =>
       enforcePrizeProductionGuard({ nlrc_permit_ref: 'NLRC-123' }, true)
+    ).not.toThrow();
+  });
+});
+
+describe('quiz deployment phase assertion', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('treats VERCEL_ENV=production (or NODE_ENV fallback) as a production deployment', async () => {
+    const { isQuizProductionDeployment } = await import(
+      '@/lib/quiz-compliance-gate'
+    );
+
+    expect(isQuizProductionDeployment({ vercelEnv: 'production' })).toBe(true);
+    expect(isQuizProductionDeployment({ vercelEnv: 'preview' })).toBe(false);
+    expect(
+      isQuizProductionDeployment({ vercelEnv: '', nodeEnv: 'production' })
+    ).toBe(true);
+    expect(isQuizProductionDeployment({ nodeEnv: 'test' })).toBe(false);
+  });
+
+  it('fails loud and closed when a production deployment runs an unset (1a) phase', async () => {
+    const errorSpy = vi
+      .spyOn(logger, 'error')
+      .mockImplementation(() => undefined);
+    const { assertQuizPhaseMatchesDeployment } = await import(
+      '@/lib/quiz-compliance-gate'
+    );
+
+    expect(() =>
+      assertQuizPhaseMatchesDeployment('1a', { vercelEnv: 'production' })
+    ).toThrow(
+      'QUIZ_PHASE must be set to "production" in a production deployment that awards prizes.'
+    );
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining('QUIZ_PHASE is not "production"'),
+        quizPhase: '1a',
+        vercelEnv: 'production',
+      })
+    );
+  });
+
+  it('passes when a production deployment is correctly set to the production phase', async () => {
+    const { assertQuizPhaseMatchesDeployment } = await import(
+      '@/lib/quiz-compliance-gate'
+    );
+
+    expect(() =>
+      assertQuizPhaseMatchesDeployment('production', {
+        vercelEnv: 'production',
+      })
+    ).not.toThrow();
+  });
+
+  it('passes outside production deployments even when the phase is unset', async () => {
+    const { assertQuizPhaseMatchesDeployment } = await import(
+      '@/lib/quiz-compliance-gate'
+    );
+
+    expect(() =>
+      assertQuizPhaseMatchesDeployment('1a', { vercelEnv: 'preview' })
     ).not.toThrow();
   });
 });

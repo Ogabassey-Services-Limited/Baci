@@ -109,6 +109,26 @@ describe('GET /api/feed/tiktok', () => {
     expect(text).not.toContain('<image_link></image_link>');
   });
 
+  it('emits the resolved merchant currency (not a hardcoded default) in item prices', async () => {
+    mockResolveFeedMerchant.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Accra Store',
+      country: 'GH',
+      payout_currency: 'GHS',
+      slug: 'accra-store',
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      makeRequest('/api/feed/tiktok?merchant_slug=accra-store')
+    );
+    const text = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(text).toContain('<price>120540.00 GHS</price>');
+    expect(text).not.toContain('USD');
+  });
+
   it('returns 404 when the merchant cannot be resolved', async () => {
     mockResolveFeedMerchant.mockRejectedValue(
       new MockMerchantNotFoundError('missing')

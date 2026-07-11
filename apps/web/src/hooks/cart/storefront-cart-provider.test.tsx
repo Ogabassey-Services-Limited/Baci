@@ -40,6 +40,13 @@ Object.defineProperty(window, 'localStorage', {
 
 global.fetch = vi.fn();
 
+function buildVoucherToken(expiresAt: string): string {
+  const body = Buffer.from(JSON.stringify({ expiresAt }), 'utf8').toString(
+    'base64url'
+  );
+  return `qv1.${body}.fake-signature`;
+}
+
 describe('StorefrontCartProvider', () => {
   const mockProduct = {
     id: 'prod-1',
@@ -94,6 +101,128 @@ describe('StorefrontCartProvider', () => {
 
     expect(result.current.totalItems).toBe(2);
     expect(result.current.cart[0]?.id).toBe('prod-1');
+  });
+
+  it('lets a quiz prize voucher line bypass the out-of-stock guard (unit was reserved at mint)', async () => {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StorefrontCartProvider merchantSlug="ogabassey">
+        {children}
+      </StorefrontCartProvider>
+    );
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    // The last serialized unit is reserved for the winner → public stock is 0.
+    const soldOut = { ...mockProduct, manage_stock: true, stock: 0 };
+
+    // A normal add is still blocked when out of stock.
+    act(() => {
+      result.current.addToCart(soldOut, 1);
+    });
+    expect(result.current.totalItems).toBe(0);
+
+    // The winner's own prize voucher line bypasses the guard and is added.
+    act(() => {
+      result.current.addToCart(soldOut, 1, {
+        quizAwardId: 'award-1',
+        quizVoucherToken: 'qv1.aaa.bbb',
+      });
+    });
+    expect(result.current.totalItems).toBe(1);
+    expect(result.current.cart[0]?.quizAwardId).toBe('award-1');
+  });
+
+  it('prunes expired voucher lines during mount hydration and persists the result', async () => {
+    localStorageMock.setItem(
+      'baci-cart-ogabassey-guest',
+      JSON.stringify([
+        { ...mockProduct, id: 'plain', quantity: 1, cartItemId: 'plain' },
+        {
+          ...mockProduct,
+          id: 'expired',
+          quantity: 1,
+          cartItemId: 'expired',
+          quizAwardId: 'award-expired',
+          quizVoucherToken: buildVoucherToken('2000-01-01T00:00:00.000Z'),
+        },
+        {
+          ...mockProduct,
+          id: 'live',
+          quantity: 1,
+          cartItemId: 'live',
+          quizAwardId: 'award-live',
+          quizVoucherToken: buildVoucherToken('2099-01-01T00:00:00.000Z'),
+        },
+      ])
+    );
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StorefrontCartProvider merchantSlug="ogabassey">
+        {children}
+      </StorefrontCartProvider>
+    );
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+    expect(result.current.cart.map((item) => item.id)).toEqual([
+      'plain',
+      'live',
+    ]);
+    await waitFor(() => {
+      const persisted = JSON.parse(
+        localStorageMock.getItem('baci-cart-ogabassey-guest') ?? '[]'
+      ) as Array<{ id: string }>;
+      expect(persisted.map((item) => item.id)).toEqual(['plain', 'live']);
+    });
+  });
+
+  it('prunes and persists expired vouchers when the merchant slug changes', async () => {
+    localStorageMock.setItem(
+      'baci-cart-first-guest',
+      JSON.stringify([{ ...mockProduct, quantity: 1, cartItemId: 'first' }])
+    );
+    localStorageMock.setItem(
+      'baci-cart-second-guest',
+      JSON.stringify([
+        {
+          ...mockProduct,
+          id: 'expired',
+          quantity: 1,
+          cartItemId: 'expired',
+          quizAwardId: 'award-expired',
+          quizVoucherToken: buildVoucherToken('2000-01-01T00:00:00.000Z'),
+        },
+        {
+          ...mockProduct,
+          id: 'live',
+          quantity: 1,
+          cartItemId: 'live',
+          quizAwardId: 'award-live',
+          quizVoucherToken: buildVoucherToken('2099-01-01T00:00:00.000Z'),
+        },
+      ])
+    );
+
+    let merchantSlug = 'first';
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StorefrontCartProvider merchantSlug={merchantSlug}>
+        {children}
+      </StorefrontCartProvider>
+    );
+    const { result, rerender } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    merchantSlug = 'second';
+    rerender();
+
+    await waitFor(() => expect(result.current.merchantSlug).toBe('second'));
+    expect(result.current.cart.map((item) => item.id)).toEqual(['live']);
+    await waitFor(() => {
+      const persisted = JSON.parse(
+        localStorageMock.getItem('baci-cart-second-guest') ?? '[]'
+      ) as Array<{ id: string }>;
+      expect(persisted.map((item) => item.id)).toEqual(['live']);
+    });
   });
 
   it('resets a cart-wide negotiation when a line is removed', async () => {
@@ -260,6 +389,73 @@ describe('StorefrontCartProvider', () => {
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not validate/persist the cart while the document is prerendering, then does on activation', async () => {
+    vi.useFakeTimers();
+
+    Object.defineProperty(document, 'prerendering', {
+      configurable: true,
+      value: true,
+    });
+
+    localStorageMock.setItem(
+      'baci-cart-ogabassey-guest',
+      JSON.stringify([{ ...mockProduct, quantity: 1, cartItemId: 'prod-1' }])
+    );
+
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        invalidProductIds: [],
+        priceChanges: [],
+      }),
+    } as Response);
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StorefrontCartProvider
+        merchantSlug="ogabassey"
+        deferValidationUntilIdle
+        validationActivationTimeoutMs={5_000}
+      >
+        {children}
+      </StorefrontCartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.isHydrated).toBe(true);
+
+    // Idle/timeout activation fires inside the (hidden) prerender: validation
+    // must NOT run, or a discarded prerender would mutate the real cart.
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+      await Promise.resolve();
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    // The page is presented to the user: prerendering clears and validation now
+    // runs exactly once.
+    Object.defineProperty(document, 'prerendering', {
+      configurable: true,
+      value: false,
+    });
+    await act(async () => {
+      document.dispatchEvent(new Event('prerenderingchange'));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+      await Promise.resolve();
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    Reflect.deleteProperty(document, 'prerendering');
   });
 
   it('stores the default SKU-matrix variant identity, attributes, and condition for quick add flows', async () => {

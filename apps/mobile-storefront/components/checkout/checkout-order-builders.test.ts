@@ -96,6 +96,50 @@ describe('checkout order builders', () => {
     expect(request.client_total).toBeUndefined();
   });
 
+  it('preserves selected condition and variant labels in order items', () => {
+    const itemsSnapshot = [
+      {
+        id: 'line-1',
+        product_id: 'product-1',
+        slug: 'macbook-air-m2',
+        name: '13" MacBook Air M2 (2022)',
+        price: 690000,
+        quantity: 1,
+        condition: 'Open Box',
+        variant_id: 'variant-open-box-512',
+        variant_name: '512GB',
+        variant_attributes: {
+          storage: '512GB',
+        },
+      },
+    ];
+    const snapshot = createCheckoutSnapshot(itemsSnapshot, 0, 0);
+
+    const request = buildCheckoutOrderRequest({
+      address,
+      customerEmail: 'ada@example.com',
+      customerName: 'Ada Lovelace',
+      customerPhone: '08012345678',
+      deliveryMethod: 'door',
+      itemsSnapshot,
+      paymentMethodForOrder: 'paystack',
+      selectedQuote: undefined,
+      shippingProvider: undefined,
+      snapshot,
+    });
+
+    expect(request.items[0]).toEqual(
+      expect.objectContaining({
+        condition: 'Open Box',
+        variant_id: 'variant-open-box-512',
+        variant_name: '512GB',
+        variant_attributes: {
+          storage: '512GB',
+        },
+      })
+    );
+  });
+
   it('preserves expected_total through validation and payload serialization', () => {
     const parsed = CreateOrderRequestSchema.parse({
       customer_email: 'ada@example.com',
@@ -224,6 +268,40 @@ describe('checkout order builders', () => {
     expect(request.shipping_address.address).toBe(address.address);
   });
 
+  it('serializes a provider-backed GoFaster quote for airport orders', () => {
+    const itemsSnapshot = [
+      {
+        id: 'line-1',
+        product_id: 'product-1',
+        slug: 'iphone-13',
+        name: 'iPhone 13',
+        price: 500000,
+        quantity: 1,
+      },
+    ];
+    const request = buildCheckoutOrderRequest({
+      address,
+      customerEmail: 'ada@example.com',
+      customerName: 'Ada Lovelace',
+      customerPhone: '08012345678',
+      deliveryMethod: 'airport',
+      itemsSnapshot,
+      paymentMethodForOrder: 'paystack',
+      selectedQuote: {
+        id: 'gofaster-quote',
+        displayName: 'GIG Logistics - GoFaster',
+        price: 18500,
+        provider: 'GIGL',
+        serviceTier: 'GoFaster',
+      },
+      shippingProvider: 'GIGL',
+      snapshot: createCheckoutSnapshot(itemsSnapshot, 18500, 0),
+    });
+
+    expect(request.selected_quote_id).toBe('gofaster-quote');
+    expect(request.shipping_provider).toBe('GIGL');
+  });
+
   it('uses the merchant pickup address when no provider station quote is selected', () => {
     const request = buildCheckoutOrderRequest({
       address,
@@ -267,5 +345,59 @@ describe('checkout order builders', () => {
     );
     expect(request.shipping_address.city).toBe(PICKUP_STATION_CITY);
     expect(request.shipping_address.state).toBe(PICKUP_STATION_STATE);
+  });
+
+  it('forwards quiz voucher fields end-to-end from the cart line to the API payload', () => {
+    // Regression: mapCartItemsToOrderItems dropped condition/voucher_token/
+    // voucher_award_id, silently breaking mobile prize redemption at checkout
+    // even though the downstream payload builder forwards them.
+    const voucherToken = `qv1.${'A'.repeat(220)}.${'B'.repeat(43)}`;
+    const itemsSnapshot = [
+      {
+        id: 'line-prize',
+        product_id: 'prod-prize',
+        slug: 'iphone-15',
+        name: 'iPhone 15 (Quiz Prize)',
+        price: 0,
+        quantity: 1,
+        condition: 'new',
+        voucher_token: voucherToken,
+        voucher_award_id: '11111111-1111-4111-8111-111111111111',
+      },
+    ];
+    const snapshot = createCheckoutSnapshot(itemsSnapshot, 0, 0);
+
+    const request = buildCheckoutOrderRequest({
+      address,
+      customerEmail: 'ada@example.com',
+      customerName: 'Ada Lovelace',
+      customerPhone: '08012345678',
+      deliveryMethod: 'door',
+      itemsSnapshot,
+      paymentMethodForOrder: 'card',
+      selectedQuote: undefined,
+      shippingProvider: undefined,
+      snapshot,
+    });
+
+    // Mapper must carry the voucher identity + raw condition enum.
+    expect(request.items[0].condition).toBe('new');
+    expect(request.items[0].voucher_token).toBe(voucherToken);
+    expect(request.items[0].voucher_award_id).toBe(
+      '11111111-1111-4111-8111-111111111111'
+    );
+    expect(request.items[0].price).toBe(0);
+
+    // And the full chain: request validates + the API payload forwards them.
+    const parsed = CreateOrderRequestSchema.parse(request);
+    const payload = buildOrderPayload({
+      merchantId: 'merchant-1',
+      request: parsed,
+    });
+    expect(payload.items[0].voucher_token).toBe(voucherToken);
+    expect(payload.items[0].voucher_award_id).toBe(
+      '11111111-1111-4111-8111-111111111111'
+    );
+    expect(payload.items[0].condition).toBe('new');
   });
 });

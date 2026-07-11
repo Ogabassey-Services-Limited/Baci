@@ -265,6 +265,48 @@ describe('createOrder — variant_attributes', () => {
     );
   });
 
+  it('includes selected condition and variant name in the API payload', async () => {
+    const { createOrder } = require('./orders');
+
+    await createOrder({
+      customer_email: 'test@example.com',
+      customer_name: 'Test User',
+      customer_phone: '+2348012345678',
+      items: [
+        {
+          id: 'prod-1',
+          name: '13" MacBook Air M2 (2022)',
+          quantity: 1,
+          price: 690000,
+          condition: 'Open Box',
+          variant_id: 'v-open-box-512',
+          variant_name: '512GB',
+          variant_attributes: { storage: '512GB' },
+        } as TestOrderItem,
+      ],
+      subtotal: 690000,
+      shipping_fee: 2000,
+      payment_method: 'card',
+      shipping_address: {
+        firstName: 'Test',
+        lastName: 'User',
+        address: '123 St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    });
+
+    const body = getLastFetchBody();
+    expect(body.items[0]).toEqual(
+      expect.objectContaining({
+        condition: 'Open Box',
+        variant_id: 'v-open-box-512',
+        variant_name: '512GB',
+        variant_attributes: { storage: '512GB' },
+      })
+    );
+  });
+
   it('includes the selected image_url in the API payload', async () => {
     const { createOrder } = require('./orders');
 
@@ -312,6 +354,28 @@ describe('createOrder — variant_attributes', () => {
     const body = getLastFetchBody();
     expect(body.items[0].voucher_token).toBe('voucher-token-1');
     expect(body.items[0]).not.toHaveProperty('voucher_award_id');
+  });
+
+  it('accepts a realistic-length quiz voucher token (>128 chars)', async () => {
+    // Real tokens are qv1.<base64url payload>.<base64url HMAC> ~250-400 chars.
+    // The old 128 cap rejected every real token client-side before send.
+    const realisticToken = `qv1.${'A'.repeat(220)}.${'B'.repeat(43)}`;
+    expect(realisticToken.length).toBeGreaterThan(128);
+
+    await createOrderWithItems([
+      {
+        id: 'prod-1',
+        product_id: 'prod-1',
+        name: 'Quiz Voucher Item',
+        quantity: 1,
+        price: 0,
+        voucher_token: realisticToken,
+        voucher_award_id: '11111111-1111-4111-8111-111111111111',
+      },
+    ]);
+
+    const body = getLastFetchBody();
+    expect(body.items[0].voucher_token).toBe(realisticToken);
   });
 
   it('rejects blank voucher_token values after trimming', async () => {

@@ -13,6 +13,7 @@ const basePayload = {
   totalPaidSoFar: 5000,
   balanceDue: 15000,
   merchantName: 'TestShop',
+  currency: 'NGN',
 };
 
 describe('Payment receipt email', () => {
@@ -33,7 +34,7 @@ describe('Payment receipt email', () => {
   });
 
   describe('currency formatting', () => {
-    it('defaults to NGN when no currency is provided', () => {
+    it('renders NGN orders identically to the pre-multi-country baseline', () => {
       const output = [
         generatePaymentReceiptEmail(basePayload),
         generatePaymentReceiptText(basePayload),
@@ -90,6 +91,7 @@ describe('Payment receipt email', () => {
         totalPaidSoFar: 1000,
         balanceDue: 0,
         merchantName: XSS,
+        currency: 'NGN',
       });
 
       expect(html).not.toContain('<script>alert(1)</script>');

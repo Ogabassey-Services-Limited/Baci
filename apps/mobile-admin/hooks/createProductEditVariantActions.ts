@@ -8,6 +8,11 @@ import {
   type EditableProductVariant,
   type VariantAttributeFormValue,
 } from '@/lib/product-variant-form';
+import { mergeGeneratedVariants } from '@/lib/variant-generation';
+import {
+  applyPricingUpdates,
+  type VariantPricingUpdate,
+} from '@/lib/variant-group-pricing';
 
 interface CreateProductEditVariantActionsParams {
   formData: ProductEditFormData;
@@ -30,11 +35,19 @@ function createProductVariantAttributeDraft() {
   };
 }
 
+function collectVariantAttributeKeys(variants: EditableProductVariant[]) {
+  return Array.from(
+    new Set(
+      variants
+        .flatMap((variant) =>
+          variant.attributes.map((attribute) => attribute.key.trim())
+        )
+        .filter(Boolean)
+    )
+  );
+}
+
 export function createProductEditVariantActions({
-  // formData kept on the params interface for backward compatibility with callers.
-  // All handlers read from the setFormData callback's previous state to avoid
-  // stale closure reads when multiple updates happen in the same render cycle.
-  formData: _formData,
   setFormData,
 }: CreateProductEditVariantActionsParams) {
   const adjustStock = (nextQuantity: number) => {
@@ -124,34 +137,59 @@ export function createProductEditVariantActions({
     });
   };
 
-  const addVariant = () => {
+  const addVariant = (): string => {
+    const createdClientId = createEmptyEditableVariant().client_id;
+
     setFormData((previous) => {
-      const attributeKeys = Array.from(
-        new Set(
-          previous.variants
-            .flatMap((variant) =>
-              variant.attributes.map((attribute) => attribute.key.trim())
-            )
-            .filter(Boolean)
-        )
+      const created = {
+        ...createEmptyEditableVariant({
+          attributeKeys: collectVariantAttributeKeys(previous.variants),
+          condition: previous.variants.find((variant) => variant.condition)
+            ?.condition,
+          costPrice: previous.cost_price,
+          images: previous.images,
+          price: previous.price,
+        }),
+        client_id: createdClientId,
+      };
+
+      return {
+        ...previous,
+        has_variants: true,
+        variants: [...previous.variants, created],
+      };
+    });
+
+    return createdClientId;
+  };
+
+  const generateVariants = (generated: EditableProductVariant[]) => {
+    setFormData((previous) => {
+      // Generated rows carry no images; inherit the parent's so they are not
+      // blank in search and cart until the merchant adds variant photos.
+      const withImages = generated.map((variant) =>
+        variant.images.length > 0
+          ? variant
+          : {
+              ...variant,
+              images: previous.images,
+              primary_image: previous.images[0] ?? null,
+            }
       );
 
       return {
         ...previous,
         has_variants: true,
-        variants: [
-          ...previous.variants,
-          createEmptyEditableVariant({
-            attributeKeys,
-            condition: previous.variants.find((variant) => variant.condition)
-              ?.condition,
-            costPrice: previous.cost_price,
-            images: previous.images,
-            price: previous.price,
-          }),
-        ],
+        variants: mergeGeneratedVariants(previous.variants, withImages),
       };
     });
+  };
+
+  const applyVariantPricing = (updates: VariantPricingUpdate[]) => {
+    setFormData((previous) => ({
+      ...previous,
+      variants: applyPricingUpdates(previous.variants, updates),
+    }));
   };
 
   const removeVariant = (index: number) => {
@@ -237,6 +275,8 @@ export function createProductEditVariantActions({
     addVariant,
     addVariantAttribute,
     adjustStock,
+    applyVariantPricing,
+    generateVariants,
     removeAttribute,
     removeVariant,
     removeVariantAttribute,

@@ -4,12 +4,15 @@ import '@/app/(storefront)/storefront-chat.css';
 import { Sparkles, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useCart } from '@/hooks/cart';
+import { useMerchantSafe } from '@/hooks/merchant';
+import { asRoute } from '@/lib/routes';
 import { useV2Theme } from '../../providers/v2-theme-context';
 import { useOgabasseyScrollVisibility } from '../../scroll-visibility-store';
 import { ChatMessageBubble } from './chat-message';
 import { ChatInput } from './chat-input';
+import { SUGGESTIONS, resolveSuggestionNavigationPath } from './types';
 import { useOgabasseyChat } from './use-ogabassey-chat';
 
 export interface ChatWidgetProps {
@@ -29,6 +32,8 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   const { isCartOpen } = useCart();
   const { theme } = useV2Theme();
   const pathname = usePathname();
+  const router = useRouter();
+  const merchant = useMerchantSafe();
   const isFooterVisible = useOgabasseyScrollVisibility();
 
   const isSanta = theme === 'santa';
@@ -47,6 +52,23 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     handleSubmit,
     handleAddSantaWishToCart,
   } = useOgabasseyChat({ isSanta });
+
+  // Suggestion chips with an `href` (e.g. "Repair quote") deep-link to a
+  // storefront page instead of sending a chat message.
+  const handleSuggestionClick = (label: string) => {
+    const suggestion = SUGGESTIONS.find((entry) => entry.label === label);
+    const navigationPath = suggestion
+      ? resolveSuggestionNavigationPath(suggestion, merchant?.basePath ?? '')
+      : null;
+
+    if (navigationPath) {
+      setIsOpen(false);
+      router.push(asRoute(navigationPath));
+      return;
+    }
+
+    handleSend(label);
+  };
 
   // Dynamic bottom positioning based on page type
   const isProductPage =
@@ -199,7 +221,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
             isSanta={isSanta}
             showSuggestions={messages.length < 3 && !isLoading}
             onSubmit={handleSubmit}
-            onSuggestionClick={handleSend}
+            onSuggestionClick={handleSuggestionClick}
           />
           <div className="text-center mt-2">
             <p className="text-[10px] text-gray-300">

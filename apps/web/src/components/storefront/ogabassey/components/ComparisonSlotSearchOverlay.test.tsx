@@ -11,6 +11,17 @@ vi.mock('next/image', () => ({
   ),
 }));
 
+// Result thumbnails now render through CdnFormatImage (explicit per-format
+// <picture>); surface it as a plain <img> so these tests keep asserting overlay
+// behavior.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => {
+    const { fill: _fill, preload: _preload, ...rest } = props;
+    // biome-ignore lint/performance/noImgElement: test double
+    return <img {...rest} alt={String(props.alt ?? '')} />;
+  },
+}));
+
 describe('ComparisonSlotSearchOverlay', () => {
   it('renders search results and forwards cancel, query, and selection events', () => {
     const onCancel = vi.fn();

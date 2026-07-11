@@ -9,11 +9,12 @@ describe('buildOgabasseyPdpMobileImageSrcSet', () => {
     const srcSet = buildOgabasseyPdpMobileImageSrcSet(src);
 
     expect(srcSet).toContain(
-      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/gaming/nintendo-switch-hotel-transylvania.avif 750w'
+      'https://cdn.ogabassey.com/image/width=750,quality=30,format=jpeg/core-assets/products/gaming/nintendo-switch-hotel-transylvania.avif 750w'
     );
     expect(srcSet).toContain(
-      'https://cdn.ogabassey.com/image/width=640,quality=30,format=auto/core-assets/products/gaming/nintendo-switch-hotel-transylvania.avif 640w'
+      'https://cdn.ogabassey.com/image/width=640,quality=30,format=jpeg/core-assets/products/gaming/nintendo-switch-hotel-transylvania.avif 640w'
     );
+    expect(srcSet).not.toContain('format=auto');
     expect(srcSet).not.toContain('828w');
     expect(srcSet).not.toContain('1080w');
   });

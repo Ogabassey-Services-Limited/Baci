@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/ad-tracking-cookies', () => ({
+  AD_ATTRIBUTION_UPDATED_EVENT: 'baci:ad-attribution-updated',
   getAdTrackingData: vi.fn(() => ({ fbclid: 'test-fbclid' })),
   generateEventId: vi.fn(() => 'evt-12345'),
   shouldApplyLimitedDataUse: vi.fn(() => false),
@@ -17,12 +18,31 @@ import { useAdTracking } from './use-ad-tracking';
 describe('useAdTracking', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Re-establish the default cookie snapshot each test — mockReturnValue set
+    // by the async-event test would otherwise leak into later tests.
+    vi.mocked(getAdTrackingData).mockReturnValue({ fbclid: 'test-fbclid' });
   });
 
   it('loads tracking data on mount', () => {
     const { result } = renderHook(() => useAdTracking());
     expect(getAdTrackingData).toHaveBeenCalled();
     expect(result.current.trackingData).toEqual({ fbclid: 'test-fbclid' });
+  });
+
+  it('re-reads tracking data when /api/attr fires the attribution-updated event', () => {
+    // Direct ad→checkout landing: cookie not yet set at mount.
+    vi.mocked(getAdTrackingData).mockReturnValue({});
+    const { result } = renderHook(() => useAdTracking());
+    expect(result.current.trackingData).toEqual({});
+
+    // The capture script's /api/attr succeeds and sets the cookie, then
+    // dispatches the event; the hook must pick up the now-present click ID.
+    vi.mocked(getAdTrackingData).mockReturnValue({ gclid: 'late-gclid' });
+    act(() => {
+      window.dispatchEvent(new Event('baci:ad-attribution-updated'));
+    });
+
+    expect(result.current.trackingData).toEqual({ gclid: 'late-gclid' });
   });
 
   it('detects non-California user by default', () => {

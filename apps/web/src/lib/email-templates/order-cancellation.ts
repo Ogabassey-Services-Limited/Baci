@@ -14,7 +14,13 @@ interface OrderCancellationData extends MerchantRegistrationInfo {
   cancelledBy: 'merchant' | 'customer';
   merchantName: string;
   merchantUrl: string;
-  currency?: string;
+  /**
+   * ISO 4217 currency code for this order (e.g. `order.currency`). Required —
+   * callers must thread the order's actual currency through; omitting it
+   * silently renders NGN for every merchant regardless of their payout
+   * currency.
+   */
+  currency: string;
   supportEmail?: string;
 }
 

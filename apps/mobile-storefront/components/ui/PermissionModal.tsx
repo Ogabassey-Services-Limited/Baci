@@ -24,50 +24,30 @@ import Animated, {
 import Colors, { BRAND, palette } from '@/constants/Colors';
 import { permissionModalStyles as styles } from './PermissionModal.styles';
 
-export type PermissionType = 'notifications' | 'tracking';
-
 interface PermissionModalProps {
   visible: boolean;
-  type: PermissionType;
   onGrant: () => void;
   onDeny: () => void;
 }
 
 const CONTENT = {
-  notifications: {
-    icon: 'notifications' as const,
-    title: 'Stay Updated',
-    message:
-      'Enable notifications to get real-time updates on your orders and be the first to know about exclusive flash sales.',
-    action: 'Enable Notifications',
-  },
-  tracking: {
-    icon: 'compass' as const,
-    title: 'Personalized For You',
-    message:
-      'Allow us to tailor your shopping experience. We use this to show you products and deals that match your unique style.',
-    action: 'Allow Personalization',
-  },
-};
-
-const CATEGORY_LABELS: Record<PermissionType, string> = {
-  notifications: 'NOTIFICATIONS',
-  tracking: 'PERSONALIZATION',
+  icon: 'notifications' as const,
+  title: 'Stay Updated',
+  message:
+    'Enable notifications to get real-time updates on your orders and be the first to know about exclusive flash sales.',
+  action: 'Enable Notifications',
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export const PermissionModal: React.FC<PermissionModalProps> = ({
   visible,
-  type,
   onGrant,
   onDeny,
 }) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const theme = Colors[colorScheme ?? 'light'];
-  const content = CONTENT[type];
-
   const buttonScale = useSharedValue(1);
 
   const animatedButtonStyle = useAnimatedStyle(() => ({
@@ -168,7 +148,7 @@ export const PermissionModal: React.FC<PermissionModalProps> = ({
                 start={{ x: 0.2, y: 0 }}
                 end={{ x: 0.8, y: 1 }}
               />
-              <Ionicons name={content.icon} size={26} color={accentColor} />
+              <Ionicons name={CONTENT.icon} size={26} color={accentColor} />
             </View>
           </Animated.View>
 
@@ -180,7 +160,7 @@ export const PermissionModal: React.FC<PermissionModalProps> = ({
               { color: accentColor, backgroundColor: accentBgTint },
             ]}
           >
-            {CATEGORY_LABELS[type]}
+            NOTIFICATIONS
           </Animated.Text>
 
           {/* Title */}
@@ -191,7 +171,7 @@ export const PermissionModal: React.FC<PermissionModalProps> = ({
               .damping(20)}
             style={[styles.title, { color: theme.foreground }]}
           >
-            {content.title}
+            {CONTENT.title}
           </Animated.Text>
 
           {/* Body */}
@@ -199,7 +179,7 @@ export const PermissionModal: React.FC<PermissionModalProps> = ({
             entering={FadeIn.delay(400).duration(500)}
             style={[styles.message, { color: theme.textSecondary }]}
           >
-            {content.message}
+            {CONTENT.message}
           </Animated.Text>
 
           {/* Actions */}
@@ -213,7 +193,7 @@ export const PermissionModal: React.FC<PermissionModalProps> = ({
               onPressOut={handlePressOut}
               style={[styles.primaryButton, animatedButtonStyle]}
               accessibilityRole="button"
-              accessibilityLabel={content.action}
+              accessibilityLabel={CONTENT.action}
             >
               <LinearGradient
                 colors={accentGradient}
@@ -221,7 +201,7 @@ export const PermissionModal: React.FC<PermissionModalProps> = ({
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
               />
-              <Text style={styles.primaryButtonText}>{content.action}</Text>
+              <Text style={styles.primaryButtonText}>{CONTENT.action}</Text>
             </AnimatedPressable>
 
             <Pressable

@@ -1,12 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CompareRelatedLinks } from './compare-related-links';
-
-const mockHeaders = vi.fn<() => Promise<Headers>>();
-
-vi.mock('next/headers', () => ({
-  headers: () => mockHeaders(),
-}));
 
 vi.mock('next/link', () => ({
   default: ({
@@ -34,20 +28,9 @@ const links = [
 ];
 
 describe('CompareRelatedLinks', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('prefixes related links for platform path-mode compare pages', async () => {
-    mockHeaders.mockResolvedValueOnce(new Headers());
-
+  it('uses canonical custom-domain URLs without reading request headers', () => {
     render(
-      await CompareRelatedLinks({
-        links,
-        merchantCustomDomain: 'ogabassey.com',
-        merchantSlug: 'ogabassey',
-        storeUrl: 'https://ogabassey.com',
-      })
+      <CompareRelatedLinks links={links} storeUrl="https://ogabassey.com" />
     );
 
     expect(
@@ -56,22 +39,16 @@ describe('CompareRelatedLinks', () => {
       })
     ).toHaveAttribute(
       'href',
-      '/ogabassey/smartphones/compare/galaxy-s24-fe-vs-iphone-17-pro-max'
+      'https://ogabassey.com/smartphones/compare/galaxy-s24-fe-vs-iphone-17-pro-max'
     );
   });
 
-  it('keeps related links root-relative for custom-domain compare pages', async () => {
-    mockHeaders.mockResolvedValueOnce(
-      new Headers([['x-custom-domain', 'ogabassey.com']])
-    );
-
+  it('preserves the merchant path prefix in canonical platform URLs', () => {
     render(
-      await CompareRelatedLinks({
-        links,
-        merchantCustomDomain: 'ogabassey.com',
-        merchantSlug: 'ogabassey',
-        storeUrl: 'https://ogabassey.com',
-      })
+      <CompareRelatedLinks
+        links={links}
+        storeUrl="https://usebaci.com/ogabassey"
+      />
     );
 
     expect(
@@ -80,31 +57,15 @@ describe('CompareRelatedLinks', () => {
       })
     ).toHaveAttribute(
       'href',
-      '/smartphones/compare/galaxy-s24-fe-vs-iphone-17-pro-max'
+      'https://usebaci.com/ogabassey/smartphones/compare/galaxy-s24-fe-vs-iphone-17-pro-max'
     );
   });
 
-  it('keeps related links prefixed when custom-domain headers do not match the merchant', async () => {
-    mockHeaders.mockResolvedValueOnce(
-      new Headers([['x-custom-domain', 'evil.example']])
+  it('renders nothing when there are no related comparisons', () => {
+    const { container } = render(
+      <CompareRelatedLinks links={[]} storeUrl="https://ogabassey.com" />
     );
 
-    render(
-      await CompareRelatedLinks({
-        links,
-        merchantCustomDomain: 'ogabassey.com',
-        merchantSlug: 'ogabassey',
-        storeUrl: 'https://ogabassey.com',
-      })
-    );
-
-    expect(
-      screen.getByRole('link', {
-        name: 'Compare iPhone 17 Pro Max with Galaxy S24 FE',
-      })
-    ).toHaveAttribute(
-      'href',
-      '/ogabassey/smartphones/compare/galaxy-s24-fe-vs-iphone-17-pro-max'
-    );
+    expect(container).toBeEmptyDOMElement();
   });
 });

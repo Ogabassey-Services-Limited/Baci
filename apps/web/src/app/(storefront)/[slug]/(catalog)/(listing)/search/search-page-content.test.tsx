@@ -203,6 +203,70 @@ describe('SearchPageContent', () => {
     });
   });
 
+  it('uses the resolved merchant currency for JSON-LD offer pricing', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([
+        ['host', 'proxy.internal'],
+        ['x-custom-domain', 'shop.example.gh'],
+        ['x-pathname', '/search'],
+      ])
+    );
+
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ghstore',
+      custom_domain: 'shop.example.gh',
+      business_name: 'Accra Store',
+      payout_currency: 'GHS',
+      country: 'GH',
+    } as never);
+
+    vi.mocked(getStorefrontSearchProducts).mockResolvedValue({
+      count: 1,
+      didYouMean: null,
+      products: [
+        {
+          id: 'product-1',
+          name: 'iPhone 16',
+          price: 1200,
+          slug: 'iphone-16',
+          category: 'Phones',
+          category_slug: 'phones',
+        },
+      ],
+      query: 'iphone',
+    } as never);
+
+    const result = await SearchPageContent({
+      params: Promise.resolve({ slug: 'ghstore' }),
+      searchParams: Promise.resolve({ q: 'iphone', page: '1' }),
+    });
+
+    render(result as React.ReactElement);
+
+    const schemas = Array.from(
+      document.querySelectorAll('script[type="application/ld+json"]')
+    ).map(
+      (script) =>
+        JSON.parse(script.textContent || '{}') as {
+          '@type'?: string;
+          mainEntity?: {
+            itemListElement?: Array<{
+              item?: { offers?: { priceCurrency?: string } };
+            }>;
+          };
+        }
+    );
+
+    const collectionSchema = schemas.find(
+      (schema) => schema['@type'] === 'CollectionPage'
+    );
+
+    expect(
+      collectionSchema?.mainEntity?.itemListElement?.[0]?.item?.offers
+    ).toMatchObject({ priceCurrency: 'GHS' });
+  });
+
   it('does not prepend the merchant slug on subdomain storefront links', async () => {
     mockHeaders.mockResolvedValue(
       new Headers([

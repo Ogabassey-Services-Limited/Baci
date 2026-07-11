@@ -3,6 +3,7 @@ import z from 'zod';
 export { extractBrandColorsFromImage as extractColorsFromImage } from '@/lib/extract-brand-colors';
 
 import { sanitizeText } from '@/lib/sanitize-core';
+import { onboardingCountrySchema } from '@/schemas/onboarding-country';
 
 export const settingsSchema = z.object({
   business_name: z
@@ -12,7 +13,11 @@ export const settingsSchema = z.object({
     // trigger). Length is checked against the trimmed value.
     .trim()
     .min(2, 'Business name must be at least 2 characters.'),
-  country: z.string().min(2, 'Please select a country.'),
+  // Shared with onboarding: accepts an ISO-2 code, a full country name, or a
+  // known alias and normalizes it to the canonical ISO-2 code, so the
+  // settings form can never round-trip 'Nigeria' or other free-text garbage
+  // back into `merchants.country`.
+  country: onboardingCountrySchema,
 });
 
 export type SettingsFormValues = z.infer<typeof settingsSchema>;

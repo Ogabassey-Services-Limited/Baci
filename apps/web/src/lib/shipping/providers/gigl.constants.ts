@@ -69,6 +69,13 @@ export enum PickupOptions {
   ServiceCentre = 1,
 }
 
+export enum GiglDeliveryType {
+  GoStandard = 0,
+  GoFaster = 1,
+}
+
+export const GIGL_PRICING_STRATEGY = 3;
+
 export type GiglFetchOptions = RequestInit & { timeout?: number };
 
 export type GiglLog = (
@@ -189,20 +196,36 @@ export function parseGiglProviderRateId(providerRateId?: string): {
   receiverStationId?: number;
   pickupOption: PickupOptions;
   vehicleType?: VehicleType;
+  serviceCentreId?: number;
+  deliveryType: GiglDeliveryType;
 } {
   if (!providerRateId) {
-    return { pickupOption: PickupOptions.HomeDelivery };
+    return {
+      pickupOption: PickupOptions.HomeDelivery,
+      deliveryType: GiglDeliveryType.GoStandard,
+    };
   }
 
-  const [providerCode, stationIdValue, pickupOptionValue, vehicleTypeValue] =
-    providerRateId.split('_');
+  const [
+    providerCode,
+    stationIdValue,
+    pickupOptionValue,
+    vehicleTypeValue,
+    serviceCentreIdValue,
+    deliveryTypeValue,
+  ] = providerRateId.split('_');
   if (providerCode !== 'GIGL') {
-    return { pickupOption: PickupOptions.HomeDelivery };
+    return {
+      pickupOption: PickupOptions.HomeDelivery,
+      deliveryType: GiglDeliveryType.GoStandard,
+    };
   }
 
   const receiverStationId = Number(stationIdValue);
   const pickupOption = Number(pickupOptionValue);
   const vehicleType = Number(vehicleTypeValue);
+  const serviceCentreId = Number(serviceCentreIdValue);
+  const deliveryType = Number(deliveryTypeValue);
 
   return {
     receiverStationId: Number.isFinite(receiverStationId)
@@ -215,5 +238,36 @@ export function parseGiglProviderRateId(providerRateId?: string): {
     vehicleType: Object.values(VehicleType).includes(vehicleType)
       ? (vehicleType as VehicleType)
       : undefined,
+    serviceCentreId:
+      Number.isInteger(serviceCentreId) && serviceCentreId > 0
+        ? serviceCentreId
+        : undefined,
+    deliveryType:
+      deliveryType === GiglDeliveryType.GoFaster
+        ? GiglDeliveryType.GoFaster
+        : GiglDeliveryType.GoStandard,
   };
+}
+
+export function buildGiglProviderRateId({
+  receiverStationId,
+  pickupOption,
+  vehicleType,
+  serviceCentreId,
+  deliveryType,
+}: {
+  receiverStationId: number;
+  pickupOption: PickupOptions;
+  vehicleType: VehicleType;
+  serviceCentreId?: number;
+  deliveryType: GiglDeliveryType;
+}): string {
+  return [
+    'GIGL',
+    receiverStationId,
+    pickupOption,
+    vehicleType,
+    serviceCentreId ?? 0,
+    deliveryType,
+  ].join('_');
 }

@@ -41,7 +41,7 @@ export type MockAEMReporterIOS = {
 };
 
 export type MockTikTokBusiness = {
-  initialize?: () => boolean;
+  initialize?: () => boolean | Promise<boolean>;
   isInitialized?: () => boolean;
   trackEvent?: (name: string, eventId?: string, eventData?: unknown[]) => void;
 };

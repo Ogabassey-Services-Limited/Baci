@@ -5,19 +5,23 @@ import type { BreadcrumbList, CollectionPage, FAQPage } from 'schema-dts';
 import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
 import { V2ComparisonScope } from '@/components/storefront/ogabassey/providers/v2-comparison-scope';
+import { CategoryHubSections } from '@/components/storefront/ogabassey/seo/category-hub-sections';
+import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import {
   getCachedCategoryPageData,
   getMerchantByIdentifier,
 } from '@/lib/cached-data';
 import type { RawDbProduct } from '@/lib/normalize-product';
 import type { Product as SeoProduct } from '@/lib/products';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import {
   generateBreadcrumbSchema,
   generateCollectionPageSchema,
   generateFAQSchema,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
-import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
+import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
 import {
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
@@ -121,6 +125,10 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
   }
 
   const productOffset = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
+  const supportedClusterCategory =
+    category in CONTENT_CLUSTER_SUPPORT
+      ? (category as SupportedClusterCategory)
+      : null;
   const [data, guidePosts] = await Promise.all([
     getCachedCategoryPageData(
       merchant.id,
@@ -129,7 +137,12 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
       productOffset,
       STOREFRONT_PRODUCTS_PER_PAGE
     ),
-    getPublishedClusterPosts(merchant.id),
+    supportedClusterCategory
+      ? loadPublishedClusterPostsSafely(merchant.id, {
+          pageKind: 'category',
+          categorySlug: supportedClusterCategory,
+        })
+      : Promise.resolve([]),
   ]);
 
   if (!data.isCollection && data.isInactiveCategory) {
@@ -220,7 +233,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     products: collectionSchemaProducts,
     merchantName: merchant.business_name,
     country: merchant.country || 'NG',
-    currency: merchant.payout_currency || 'NGN',
+    currency: resolveMerchantCurrencyConfig(merchant).code,
   }) as unknown as JsonLdData<CollectionPage>;
 
   const breadcrumbItems = [{ name: merchant.business_name, url: baseUrl }];
@@ -260,11 +273,10 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
 
       <V2ComparisonScope storageNamespace={merchant.id}>
         <OgabasseyCategoryPage
-          seoHeading={hubContent.intro.heading}
-          seoDescription={hubContent.intro.description}
-          seoFeatures={hubContent.trustFeatures}
-          seoFaqs={hubContent.faqItems}
-          hubContent={hubContent}
+          // Hub sections are composed here in the RSC boundary so `SafeHtml`
+          // (sanitize-html, 254 KB) renders on the server and never enters the
+          // CategoryPage client bundle. Injected as a ReactNode slot.
+          hubSections={<CategoryHubSections hub={hubContent} />}
           currentPage={categoryPageCurrentPage}
           productsArePrePaginated={productsArePrePaginated}
           categoryImage={

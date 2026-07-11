@@ -9,10 +9,11 @@ import {
   type ProductKeySpecsRecord,
   type RawDbProduct,
 } from '@/lib/normalize-product';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildCommercialGuideLinks } from '@/lib/storefront-content/build-commercial-guide-links';
 import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
-import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
 import {
   getCountryShoppingContext,
   getStorefrontLocale,
@@ -184,10 +185,19 @@ export async function loadPriceBandPage(
     }));
 
   const storeUrl = buildStoreUrl(merchant);
-  const guidePosts = await getPublishedClusterPosts(merchant.id);
+  const supportedClusterCategory = getSupportedClusterCategory(
+    args.categorySlug
+  );
+  const guidePosts = supportedClusterCategory
+    ? await loadPublishedClusterPostsSafely(merchant.id, {
+        pageKind: 'price-band',
+        categorySlug: supportedClusterCategory,
+        priceBandSlug: band.slug,
+      })
+    : [];
   const categoryName = categoryData.fallbackName || args.categorySlug;
   const canonicalUrl = `${storeUrl}/${args.categorySlug}/best-under/${band.slug}`;
-  const payoutCurrency = merchant.payout_currency || 'NGN';
+  const payoutCurrency = resolveMerchantCurrencyConfig(merchant).code;
   const priceFormatter = getPriceBandFormatter(
     getStorefrontLocale(merchant.country),
     payoutCurrency
@@ -196,10 +206,6 @@ export async function loadPriceBandPage(
   const countryContext = getCountryShoppingContext(merchant.country);
   const countrySuffix = countryContext ? ` ${countryContext}` : '';
   const heading = `Best ${categoryName} Under ${ceilingText}${countrySuffix}`;
-  const supportedClusterCategory = getSupportedClusterCategory(
-    args.categorySlug
-  );
-
   return {
     merchant,
     canonicalUrl,

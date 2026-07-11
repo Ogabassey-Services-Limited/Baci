@@ -75,6 +75,33 @@ describe('agent commerce manifest builder', () => {
     );
   });
 
+  it('advertises the repairs catalog feeds alongside the product feeds', async () => {
+    const { buildAgentCommerceManifest } = await import(
+      '@/lib/agentic/agent-commerce-manifest'
+    );
+
+    const manifest = buildAgentCommerceManifest(
+      {
+        business_name: 'Ogabassey',
+        feature_settings: { pay_on_delivery_enabled: true },
+        paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+        slug: 'ogabassey',
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(manifest.links.feeds.facebook_repairs_xml).toBe(
+      'https://ogabassey.com/feeds/facebook-repairs.xml'
+    );
+    expect(manifest.links.feeds.agent_repairs).toBe(
+      'https://ogabassey.com/feeds/agent-repairs.jsonl'
+    );
+    // Product feeds remain advertised.
+    expect(manifest.links.feeds.agent_products).toBe(
+      'https://ogabassey.com/feeds/agent-products.jsonl'
+    );
+  });
+
   it('advertises only pay-on-delivery when Paystack is not configured', async () => {
     vi.stubEnv('PAYSTACK_SECRET_KEY', '');
 

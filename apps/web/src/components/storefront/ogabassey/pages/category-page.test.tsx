@@ -1,7 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CategoryHubModel } from '@/lib/storefront-category/category-hub-types';
 
 const originalMatchMedia = window.matchMedia;
 const mockAddToCart = vi.fn();
@@ -50,33 +49,34 @@ vi.mock('@/hooks/use-merchant-client', () => ({
   })),
 }));
 vi.mock('@/lib/routes', () => ({ asRoute: vi.fn((p: string) => p) }));
-vi.mock('@/lib/sanitize', () => ({ sanitizeHtml: vi.fn((s: string) => s) }));
-vi.mock('@/components/ui/accordion', () => ({
-  Accordion: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  AccordionContent: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AccordionItem: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AccordionTrigger: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-}));
-vi.mock('@/components/ui/safe-html', () => ({
-  SafeHtml: ({ html }: { html: string }) => (
-    <div>{html.replace(/<[^>]+>/g, '')}</div>
-  ),
-}));
 vi.mock('../components/AdUnit', () => ({ AdUnit: () => null }));
 vi.mock('../components/CategoryRecentCarousel', () => ({
   CategoryRecentCarousel: () => (
     <section aria-label="Recently added products" />
   ),
 }));
-vi.mock('../components/CategoryFiltersSidebar', () => ({
-  CategoryFiltersSidebar: () => null,
+// Capture the handler the page wires into the filter sidebar so a test can
+// invoke a price change vs a checkbox change directly.
+const filterHarness = vi.hoisted(() => ({
+  onFilterChange: null as
+    | ((section: string, value: string | number) => void | Promise<void>)
+    | null,
 }));
+vi.mock('../components/CategoryFiltersSidebar', () => ({
+  CategoryFiltersSidebar: ({
+    onFilterChange,
+  }: {
+    onFilterChange?: (section: string, value: string | number) => void;
+  }) => {
+    filterHarness.onFilterChange = onFilterChange ?? null;
+    return null;
+  },
+}));
+
+// Spy on the INP yield so we can assert price edits commit synchronously
+// (no yield) while checkbox/grid edits still yield.
+const yieldSpy = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+vi.mock('@/lib/yield-to-scheduler', () => ({ yieldToScheduler: yieldSpy }));
 vi.mock('../components/ProductCard', () => ({
   ProductCard: ({
     product,
@@ -103,6 +103,8 @@ describe('CategoryPage', () => {
   beforeEach(() => {
     window.scrollTo = vi.fn();
     mockAddToCart.mockReset();
+    yieldSpy.mockClear();
+    filterHarness.onFilterChange = null;
     vi.mocked(useParams).mockReturnValue({
       slug: 'test',
       category: 'electronics',
@@ -123,6 +125,32 @@ describe('CategoryPage', () => {
     image: 'https://cdn.ogabassey.com/newest.avif',
     condition: 'New' as const,
   };
+
+  it('commits price-filter edits synchronously so typed characters are not dropped (PR #3021 regression)', async () => {
+    mockMatchMedia(true);
+    render(<CategoryPage products={[PRODUCT_WITH_IMAGE]} />);
+
+    expect(filterHarness.onFilterChange).toBeTypeOf('function');
+
+    // A price edit must NOT cross a scheduler.yield() task boundary — doing so
+    // let React restore the stale controlled value between keystrokes.
+    await act(async () => {
+      await filterHarness.onFilterChange?.('minPrice', 500);
+    });
+    expect(yieldSpy).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await filterHarness.onFilterChange?.('maxPrice', 900);
+    });
+    expect(yieldSpy).not.toHaveBeenCalled();
+
+    // A checkbox edit re-renders the whole grid and SHOULD still yield first
+    // (the INP presentation-delay win this handler was written for).
+    await act(async () => {
+      await filterHarness.onFilterChange?.('brand', 'apple');
+    });
+    expect(yieldSpy).toHaveBeenCalledTimes(1);
+  });
 
   it('renders the recently-added product carousel in place of the promo banner', () => {
     mockMatchMedia(true);
@@ -317,87 +345,36 @@ describe('CategoryPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders the extracted category hub sections when a hub model is provided', () => {
-    mockMatchMedia(true);
-
-    const categoryHubModel: CategoryHubModel = {
-      intro: {
-        heading: 'Buy Smartphones in Nigeria',
-        description: 'Compare current picks by battery, camera, and price.',
-        source: 'curated',
-      },
-      trustFeatures: ['Warranty-backed picks', 'Fast nationwide delivery'],
-      bestForCards: [],
-      brandCards: [],
-      priceBandCards: [],
-      comparisonLinks: [
-        {
-          href: '/test-store/electronics/compare/apple-vs-samsung',
-          label: 'Apple vs Samsung',
-        },
-      ],
-      guideLinks: [
-        {
-          href: '/test-store/blog/best-phones-in-nigeria',
-          title: 'Best Phones in Nigeria',
-          description: 'Budget and flagship picks.',
-          kind: 'best-in-nigeria',
-        },
-      ],
-      faqItems: [
-        {
-          question: 'What matters most?',
-          answer: '<p>Battery, camera, and storage.</p>',
-        },
-      ],
-    };
-
-    render(<CategoryPage hubContent={categoryHubModel} products={[]} />);
-
-    expect(
-      screen.getByRole('heading', { name: 'Buy Smartphones in Nigeria' })
-    ).toBeInTheDocument();
-    expect(screen.getByText('Warranty-backed picks')).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: 'Apple vs Samsung' })
-    ).toHaveAttribute(
-      'href',
-      '/test-store/electronics/compare/apple-vs-samsung'
-    );
-    expect(
-      screen.getByText('Battery, camera, and storage.')
-    ).toBeInTheDocument();
-  });
-
-  it('builds hub content from legacy seo props when hubContent is absent', () => {
+  it('renders the server-composed hub sections slot below the product grid', () => {
     mockMatchMedia(true);
 
     render(
       <CategoryPage
-        seoHeading="Shop Smartphones in Nigeria"
-        seoDescription="Compare curated picks by battery and camera."
-        seoFeatures={['Trusted warranty', 'Fast delivery']}
-        seoFaqs={[
-          {
-            question: 'Which phone lasts longer?',
-            answer: '<p>Battery size and charging speed both matter.</p>',
-          },
-        ]}
+        hubSections={
+          <section aria-label="Category hub sections">
+            Server-rendered hub content
+          </section>
+        }
         products={[]}
       />
     );
 
+    // The slot is a pre-rendered server node (CategoryHubSections) injected by
+    // the RSC boundary; the client CategoryPage only places it, so SafeHtml /
+    // sanitize-html never enters this component's bundle.
     expect(
-      screen.getByRole('heading', { name: 'Shop Smartphones in Nigeria' })
-    ).toBeInTheDocument();
+      screen.getByRole('region', { name: 'Category hub sections' })
+    ).toHaveTextContent('Server-rendered hub content');
+  });
+
+  it('omits the hub sections region when no slot is provided', () => {
+    mockMatchMedia(true);
+
+    render(<CategoryPage products={[]} />);
+
     expect(
-      screen.getByText('Compare curated picks by battery and camera.')
-    ).toBeInTheDocument();
-    expect(screen.getByText('Trusted warranty')).toBeInTheDocument();
-    expect(screen.getByText('Fast delivery')).toBeInTheDocument();
-    expect(
-      screen.getByText('Battery size and charging speed both matter.')
-    ).toBeInTheDocument();
+      screen.queryByRole('region', { name: 'Category hub sections' })
+    ).not.toBeInTheDocument();
   });
 
   it('passes a numeric cart price when adding a category product', () => {

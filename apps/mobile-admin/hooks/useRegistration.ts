@@ -14,6 +14,10 @@ interface RegisterPayload {
   country: string;
   otherBusinessType?: string;
   slug?: string;
+  // true only when the user manually edited the Store Link (vs. the auto-derived
+  // value the UI prefilled). The server treats an auto slug as a de-dupable
+  // preference and an explicit one as a hard choice (409 if taken).
+  slugIsCustom?: boolean;
   phone?: string;
   brandColors?: string;
   logoUrl?: string;
@@ -30,6 +34,7 @@ interface CompleteProfilePayload {
   country: string;
   otherBusinessType?: string;
   slug?: string;
+  slugIsCustom?: boolean;
   logoUrl?: string;
   brandColors?: string;
   brandPreferences?: string;

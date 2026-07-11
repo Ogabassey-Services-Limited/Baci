@@ -3,6 +3,7 @@ import {
   claimQuizCashAwardSchema,
   claimQuizGrandPrizeSchema,
   finalizeQuizAwardsSchema,
+  merchantQuizActivationRequestSchema,
   merchantQuizGenerationRequestSchema,
   startQuizAttemptSchema,
   submitQuizAnswerSchema,
@@ -185,7 +186,6 @@ describe('quiz route input schemas', () => {
       difficulty: 'hard',
       prizeProductId: PRODUCT_ID,
       prizeVariantId: VARIANT_ID,
-      publicationMode: 'draft',
       questionCountPerTopic: 2,
       timeLimitSeconds: 45,
       title: 'Daily Phone Quiz',
@@ -262,6 +262,65 @@ describe('quiz route input schemas', () => {
     ).toThrow();
     expect(() =>
       parsePayload({ prizeVariantId: 'not-a-variant-id' })
+    ).toThrow();
+  });
+
+  it('requires an explicit confirmation flag to activate a draft quiz', () => {
+    expect(
+      merchantQuizActivationRequestSchema.parse({
+        answerKeyReview: {
+          questions: [{ correctOptionId: 'a', position: 1 }],
+        },
+        confirmActivation: true,
+        eventId: EVENT_ID,
+      })
+    ).toEqual({
+      answerKeyReview: {
+        questions: [{ correctOptionId: 'a', position: 1 }],
+      },
+      confirmActivation: true,
+      eventId: EVENT_ID,
+    });
+
+    // Must not activate without the explicit confirmation flag.
+    expect(() =>
+      merchantQuizActivationRequestSchema.parse({
+        answerKeyReview: {
+          questions: [{ correctOptionId: 'a', position: 1 }],
+        },
+        eventId: EVENT_ID,
+      })
+    ).toThrow();
+    expect(() =>
+      merchantQuizActivationRequestSchema.parse({
+        answerKeyReview: {
+          questions: [{ correctOptionId: 'a', position: 1 }],
+        },
+        confirmActivation: false,
+        eventId: EVENT_ID,
+      })
+    ).toThrow();
+    expect(() =>
+      merchantQuizActivationRequestSchema.parse({
+        confirmActivation: true,
+        eventId: EVENT_ID,
+      })
+    ).toThrow();
+    expect(() =>
+      merchantQuizActivationRequestSchema.parse({
+        answerKeyReview: { questions: [] },
+        confirmActivation: true,
+        eventId: EVENT_ID,
+      })
+    ).toThrow();
+    expect(() =>
+      merchantQuizActivationRequestSchema.parse({
+        answerKeyReview: {
+          questions: [{ correctOptionId: 'a', position: 1 }],
+        },
+        confirmActivation: true,
+        eventId: 'not-a-uuid',
+      })
     ).toThrow();
   });
 });

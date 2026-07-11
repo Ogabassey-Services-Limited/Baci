@@ -112,11 +112,22 @@ export function NewOrderProductPickerSheetFrame({
 }: NewOrderProductPickerSheetFrameProps) {
   const insets = useSafeAreaInsets();
   const sheetRef = useRef<BottomSheet>(null);
+  const hasPresentedSheetRef = useRef(false);
   const footerInset = footerBottomInset + insets.bottom;
 
   useEffect(() => {
+    if (!visible) {
+      hasPresentedSheetRef.current = false;
+      return;
+    }
+
+    if (!hasPresentedSheetRef.current) {
+      hasPresentedSheetRef.current = true;
+      return;
+    }
+
     sheetRef.current?.snapToIndex(activeIndex);
-  }, [activeIndex]);
+  }, [activeIndex, visible]);
 
   if (!visible) {
     return null;
@@ -137,7 +148,7 @@ export function NewOrderProductPickerSheetFrame({
           value={{ bottomInset: footerInset, footer, onClose }}
         >
           <BottomSheet
-            android_keyboardInputMode="adjustResize"
+            android_keyboardInputMode="adjustPan"
             backdropComponent={ProductPickerSheetBackdrop}
             backgroundStyle={[
               styles.sheetBackground,

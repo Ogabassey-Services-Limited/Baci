@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { withPostHogConfig } from '@posthog/nextjs-config';
 import type { NextConfig } from 'next';
-import { OGABASSEY_AGENT_DISCOVERY_LINK_HEADER } from './src/config/agent-discovery-link-header';
+import { OGABASSEY_DOCUMENT_LINK_HEADER_VALUE } from './src/config/early-hints-link-header';
 import { applyNextDeploymentIdEnv } from './src/config/next-deployment-id';
 import {
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
@@ -31,6 +31,10 @@ const STOREFRONT_METADATA_VARY_HEADER_VALUE = [
 ].join(', ');
 const OGABASSEY_DOMAIN = 'ogabassey.com';
 const OGABASSEY_WWW_DOMAIN = `www.${OGABASSEY_DOMAIN}`;
+const OGABASSEY_DOCUMENT_HOST_MATCHER = `(?:www\\.)?${OGABASSEY_DOMAIN.replaceAll(
+  '.',
+  '\\.'
+)}`;
 const OGABASSEY_REDIRECT_HOST_MATCHERS = [
   OGABASSEY_DOMAIN.replaceAll('.', '\\.'),
   OGABASSEY_WWW_DOMAIN.replaceAll('.', '\\.'),
@@ -66,11 +70,13 @@ const OGABASSEY_NON_PDP_FIRST_SEGMENT_PATTERN = [
 ].join('|');
 const OGABASSEY_PDP_DOCUMENT_ROUTE_SOURCE = `/:category((?!(?:${OGABASSEY_NON_PDP_FIRST_SEGMENT_PATTERN})(?:/|$))[^/]+)/:productSlug([a-zA-Z0-9-]+)`;
 const OGABASSEY_GENERIC_DOCUMENT_ROUTE_SOURCE = `/:path((?!(?:(?!(?:${OGABASSEY_NON_PDP_FIRST_SEGMENT_PATTERN})(?:/|$))[^/]+/[^/]+/?$)).*)`;
-// PDP LCP image preloading is emitted from the page with React/Next imageSrcSet
-// and imageSizes so the browser selects the exact rendered candidate. HTTP Link
-// header preloads cannot carry responsive image selection safely and previously
-// triggered an unused mobile-header image fetch that competed with the real LCP.
-const OGABASSEY_PDP_LINK_HEADER_VALUE = OGABASSEY_AGENT_DISCOVERY_LINK_HEADER;
+// The OgaBassey document `Link` header carries a media-CDN `preconnect` (Ops-2 /
+// 103 Early Hints) alongside the agent-discovery links — see
+// src/config/early-hints-link-header.ts. PDP LCP image PRELOADS stay OUT: an HTTP
+// Link header cannot carry responsive `imagesrcset` selection, and a fixed
+// preload previously triggered a wasteful mobile-header image fetch that competed
+// with the real LCP (the page emits imageSrcSet/imageSizes preloads instead).
+const OGABASSEY_PDP_LINK_HEADER_VALUE = OGABASSEY_DOCUMENT_LINK_HEADER_VALUE;
 const POSTHOG_SOURCE_MAP_API_KEY = process.env.POSTHOG_API_KEY?.trim();
 const POSTHOG_SOURCE_MAP_PROJECT_ID = process.env.POSTHOG_PROJECT_ID?.trim();
 const POSTHOG_SOURCE_MAP_UPLOAD_ENABLED = isPostHogSourceMapUploadEnabled();
@@ -142,16 +148,22 @@ const nextConfig: NextConfig = {
     products: { stale: 300, revalidate: 300, expire: 86400 },
     // Storefront pages (terms, FAQ, about): revalidate every 5min, stale 1min, expire 1hr
     'storefront-page': { stale: 60, revalidate: 300, expire: 3600 },
-    // Categories: rarely change, revalidate every 1hr, expire after 24hr
+    // Categories: rarely change, revalidate every 1hr, expire after 24hr.
+    // Also used by large tag-invalidated remote entries keyed per category
+    // (e.g. getCachedProductSemanticInventory) where the hourly window only
+    // bounds staleness if tag revalidation fails to fire.
     categories: { stale: 300, revalidate: 3600, expire: 86400 },
     // Blog posts: near-static content invalidated on edit via cacheTag (see
-    // lib/cache-revalidation.ts). These use the LOCAL Cache Components handler
-    // (`'use cache'`, not remote), so cross-instance tag eviction isn't
+    // lib/cache-revalidation.ts). For LOCAL Cache Components entries
+    // (`'use cache'`, not remote), cross-instance tag eviction isn't
     // guaranteed — the revalidate window therefore also bounds how long an
     // edited/deleted post (or a cached missing-slug lookup) can be served on a
-    // warm instance. Hourly revalidation kills the 60s re-render storm under
-    // crawler load (~60x fewer renders) while keeping that staleness bounded to
-    // an hour; `stale` stays short since the cost win is `revalidate`, not
+    // warm instance. REMOTE entries on this profile (`'use cache: remote'`,
+    // e.g. getPublishedClusterPosts) do get cross-instance tag eviction, so
+    // for them the hourly window purely reduces re-render/cache-write churn.
+    // Hourly revalidation kills the 60s re-render storm under crawler load
+    // (~60x fewer renders) while keeping worst-case staleness bounded to an
+    // hour; `stale` stays short since the cost win is `revalidate`, not
     // `stale`.
     blog: { stale: 300, revalidate: 3600, expire: 86400 },
   },
@@ -650,17 +662,17 @@ const nextConfig: NextConfig = {
       },
       {
         source: OGABASSEY_GENERIC_DOCUMENT_ROUTE_SOURCE,
-        has: [{ type: 'host', value: OGABASSEY_DOMAIN }],
+        has: [{ type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER }],
         headers: [
           {
             key: 'Link',
-            value: OGABASSEY_AGENT_DISCOVERY_LINK_HEADER,
+            value: OGABASSEY_DOCUMENT_LINK_HEADER_VALUE,
           },
         ],
       },
       {
         source: OGABASSEY_PDP_DOCUMENT_ROUTE_SOURCE,
-        has: [{ type: 'host', value: OGABASSEY_DOMAIN }],
+        has: [{ type: 'host', value: OGABASSEY_DOCUMENT_HOST_MATCHER }],
         headers: [
           {
             key: 'Link',

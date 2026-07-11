@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockResolveFeedMerchant = vi.fn();
 const mockGetCachedOpenAIFeedData = vi.fn();
 const mockGetMerchantByIdentifier = vi.fn();
+const mockGetCurrentSlugForAlias = vi.fn();
 
 vi.mock('@/lib/feed-identifier', () => {
   class _MerchantNotFoundError extends Error {
@@ -28,6 +29,11 @@ vi.mock('./feed-data', () => ({
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
     mockGetMerchantByIdentifier(...args),
+}));
+
+vi.mock('@/lib/slug-alias-cache', () => ({
+  getCurrentSlugForAlias: (...args: unknown[]) =>
+    mockGetCurrentSlugForAlias(...args),
 }));
 
 vi.mock('@/lib/cache-headers', () => ({
@@ -120,6 +126,9 @@ beforeEach(() => {
   mockGetCachedOpenAIFeedData.mockResolvedValue({
     products: [simpleProduct()],
   });
+
+  // Default: no host is a retired alias (existing tests use live host matches).
+  mockGetCurrentSlugForAlias.mockResolvedValue(null);
 });
 
 describe('GET /api/feed/openai', () => {
@@ -368,6 +377,39 @@ describe('GET /api/feed/openai', () => {
     expect(parsed.url).toBe(
       'https://ogabassey.usebaci.com/products/test-phone'
     );
+  });
+
+  it('embeds CANONICAL feed URLs when the host matched via a retired alias', async () => {
+    // Feed requested on the OLD subdomain after a rename (old -> ogabassey). The
+    // alias resolves the current merchant, but the retired request host must NOT be
+    // embedded in cached feed URLs — use the merchant's canonical store URL.
+    mockGetMerchantByIdentifier.mockImplementation((identifier) =>
+      identifier === 'ogabassey'
+        ? {
+            id: 'merchant-1',
+            business_name: 'Ogabassey',
+            country: 'NG',
+            payout_currency: 'NGN',
+            slug: 'ogabassey',
+            custom_domain: 'ogabassey.com',
+          }
+        : null
+    );
+    mockGetCurrentSlugForAlias.mockResolvedValue('ogabassey');
+
+    const response = await GET(
+      new NextRequest(
+        'https://old.usebaci.com/api/feed/openai?merchant_slug=ogabassey&format=current',
+        { headers: { host: 'old.usebaci.com' } }
+      )
+    );
+    const line = (await response.text()).trim().split('\n')[0];
+    const parsed = JSON.parse(line);
+
+    expect(response.status).toBe(200);
+    // Canonical (custom domain), NOT the retired old.usebaci.com host.
+    expect(parsed.url).toBe('https://ogabassey.com/products/test-phone');
+    expect(parsed.url).not.toContain('old.usebaci.com');
   });
 
   it('treats IPv6 localhost with a port as not storefront scoped', async () => {

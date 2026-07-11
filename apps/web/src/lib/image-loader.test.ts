@@ -64,6 +64,34 @@ describe('imageLoader', () => {
     );
   });
 
+  it('defaults unmigrated OgaBassey CDN callers to the jpeg fallback tier (never browser-facing format=auto)', () => {
+    const result = imageLoader({
+      src: 'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+      width: 750,
+      quality: 75,
+    });
+
+    // PR-IMG-2c: the loader default is now the universally decodable fallback
+    // format, so a plain <Image> on an OgaBassey CDN asset can never serve
+    // non-AVIF browsers undecodable AVIF bytes off a shared format=auto key.
+    expect(result).toBe(
+      'https://cdn.ogabassey.com/image/width=750,quality=75,format=jpeg/core-assets/products/phone.avif'
+    );
+    expect(result).not.toContain('format=auto');
+  });
+
+  it('defaults an unmigrated OgaBassey png caller to the png fallback tier', () => {
+    const result = imageLoader({
+      src: 'https://cdn.ogabassey.com/core-assets/products/phone.png',
+      width: 750,
+      quality: 75,
+    });
+
+    expect(result).toBe(
+      'https://cdn.ogabassey.com/image/width=750,quality=75,format=png/core-assets/products/phone.png'
+    );
+  });
+
   it('preserves hash fragments when adding loader params', () => {
     expect(imageLoader({ src: '/hero.png#main', width: 200 })).toBe(
       '/hero.png?w=200&q=75#main'

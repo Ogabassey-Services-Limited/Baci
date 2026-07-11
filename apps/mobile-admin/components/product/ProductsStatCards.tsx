@@ -1,5 +1,6 @@
 import {
   ActivityIndicator,
+  ScrollView,
   type StyleProp,
   StyleSheet,
   Text,
@@ -174,7 +175,13 @@ function InventoryStatCards() {
   }
 
   return (
-    <View style={[styles.container, styles.inventoryContainer]}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.inventoryScroller}
+      contentContainerStyle={styles.inventoryContainer}
+      testID="inventory-stat-card-strip"
+    >
       <ProductStatCard
         colors={colors}
         style={styles.inventoryCard}
@@ -207,7 +214,7 @@ function InventoryStatCards() {
         value={`${inventoryStats?.outOfStockCount || 0}`}
         subtitle="restock first"
       />
-    </View>
+    </ScrollView>
   );
 }
 
@@ -244,10 +251,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   inventoryCard: {
-    minWidth: '45%',
+    flex: 0,
+    minHeight: 72,
+    width: 136,
   },
   inventoryContainer: {
-    flexWrap: 'wrap',
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 16,
+  },
+  inventoryScroller: {
+    flexGrow: 0,
+    maxHeight: 84,
+    marginBottom: 12,
   },
   loadingContainer: {
     alignItems: 'center',

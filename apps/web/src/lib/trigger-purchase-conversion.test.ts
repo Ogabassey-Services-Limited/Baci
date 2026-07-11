@@ -58,22 +58,42 @@ function createSupabaseMock({
   data = analyticsConfig,
   error = null,
   featureData = null,
+  merchantCurrencyData = null,
 }: {
   data?: unknown;
   error?: unknown;
   featureData?: unknown;
+  merchantCurrencyData?: {
+    country?: string | null;
+    payout_currency?: string | null;
+  } | null;
 } = {}) {
   return {
     from: vi.fn((table: string) => {
-      const response =
-        table === 'merchant_feature_settings'
-          ? { data: featureData, error: null }
-          : { data, error };
+      if (table === 'merchant_feature_settings') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn(async () => ({ data: featureData, error: null })),
+        };
+      }
 
+      // Both the analytics config lookup and the currency fallback lookup
+      // query the `merchants` table; disambiguate by requested columns.
       return {
-        select: vi.fn().mockReturnThis(),
+        select: vi.fn((columns: string) => {
+          const isCurrencyLookup = columns.includes('payout_currency');
+          return {
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn(async () =>
+              isCurrencyLookup
+                ? { data: merchantCurrencyData, error: null }
+                : { data, error }
+            ),
+          };
+        }),
         eq: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn(async () => response),
+        maybeSingle: vi.fn(async () => ({ data, error })),
       };
     }),
   };
@@ -109,6 +129,47 @@ describe('triggerPurchaseConversion', () => {
       })
     );
     expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it('uses the order currency as-is when present', async () => {
+    await triggerPurchaseConversion(
+      createSupabaseMock() as never,
+      'merchant-1',
+      { ...validOrder, currency: 'GHS' }
+    );
+
+    expect(mockSendPurchaseConversion).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ currency: 'GHS' })
+    );
+  });
+
+  it('falls back to the merchant-resolved currency when the order has none', async () => {
+    await triggerPurchaseConversion(
+      createSupabaseMock({
+        merchantCurrencyData: { country: 'GH', payout_currency: 'GHS' },
+      }) as never,
+      'merchant-1',
+      { ...validOrder, currency: null }
+    );
+
+    expect(mockSendPurchaseConversion).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ currency: 'GHS' })
+    );
+  });
+
+  it('falls back to the platform default currency when the order and merchant lookup have none', async () => {
+    await triggerPurchaseConversion(
+      createSupabaseMock({ merchantCurrencyData: null }) as never,
+      'merchant-1',
+      { ...validOrder, currency: undefined }
+    );
+
+    expect(mockSendPurchaseConversion).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ currency: 'NGN' })
+    );
   });
 
   it('omits invalid order items and logs the skipped fields', async () => {

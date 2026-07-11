@@ -18,6 +18,24 @@ vi.mock('next/image', () => ({
   ),
 }));
 
+// The main gallery image now renders through CdnFormatImage (explicit per-format
+// <picture>). Its real pipeline calls next/image's `getImageProps`, which the
+// default-only next/image mock above does not expose — surface it as a plain
+// <img> so these tests keep asserting gallery behavior, not image internals.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => (
+    <img
+      {...Object.fromEntries(
+        Object.entries(props).filter(
+          ([key]) => key !== 'fill' && key !== 'preload'
+        )
+      )}
+      alt={String(props.alt ?? '')}
+      data-preload={props.preload ? 'true' : undefined}
+    />
+  ),
+}));
+
 function buildProductData(
   overrides: Partial<NormalizedProductDetails> = {},
 ): NormalizedProductDetails {
@@ -142,6 +160,28 @@ describe('ProductMediaGallery', () => {
     fireEvent.click(screen.getByRole('button', { name: 'View image 3' }));
 
     expect(onSelectImage).toHaveBeenCalledWith(2);
+  });
+
+  it('renders thumbnails through the per-format image path at the q50/96px tier', async () => {
+    render(
+      <ProductMediaGallery
+        onSelectImage={vi.fn()}
+        productData={buildProductData()}
+        selectedCondition="new"
+        selectedImage={0}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.pointerDown(window);
+    });
+
+    // Thumbnails now render through CdnFormatImage (mocked to a plain <img>);
+    // verify observable gallery output here, and leave generated format/quality
+    // assertions to CdnFormatImage's colocated tests.
+    const thumbnail = screen.getByAltText('View 2');
+    expect(thumbnail).toHaveAttribute('src', 'https://example.com/img-2.jpg');
+    expect(thumbnail).toHaveAttribute('sizes', '96px');
   });
 
   it('does not activate thumbnail controls on passive scroll or wheel events', async () => {

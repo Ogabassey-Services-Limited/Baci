@@ -1,6 +1,7 @@
 import {
   appendReceiptFulfillmentDescription,
   formatCanonicalProductConditionLabel,
+  formatOrderItemDisplayName,
   isDeviceReceiptItemName,
   normalizeReceiptFulfillmentDetails,
   type ReceiptFulfillmentDetails,
@@ -15,6 +16,10 @@ import {
   isTaxComputeUuidError,
 } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
+import {
+  revalidateProductSlugs,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
 import {
   CanonicalOrderSubtotalLoadError,
   computeCanonicalOrderSubtotal,
@@ -64,6 +69,7 @@ import {
   generateReceiptBlob,
   resolveReceiptLogoDataUri,
 } from '@/lib/receipt-pdf-generator';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { toInternationalQuoteValidationItemsFromOrder } from '@/lib/shipping/international-shipment-items';
 import {
@@ -128,10 +134,15 @@ const SERVER_ASSURANCE_RATE = DEFAULT_ASSURANCE_RATE;
 // Imported from @/lib/feature-flags
 
 type EmailOrderItem = {
+  condition?: string | null;
   name?: string;
   productName?: string;
   quantity?: number;
   price?: number;
+  variantAttributes?: Record<string, string>;
+  variant_attributes?: Record<string, string>;
+  variantName?: string | null;
+  variant_name?: string | null;
 };
 
 type QuizVoucherItemCandidate = {
@@ -153,6 +164,11 @@ type OrderQuoteValidationProductRow = {
   name: string | null;
   weight_unit?: string | null;
   weight_value?: number | string | null;
+};
+type VoucherPaymentStatusItem = {
+  assurance_fee?: number | string | null;
+  price: number | string;
+  quantity: number | string;
 };
 type ImmediateInvoiceOrderItem = Omit<OrderCreateItem, 'assurance_fee'> & {
   assurance_fee?: number;
@@ -207,6 +223,10 @@ function hasQuizVoucherItem(items: QuizVoucherItemCandidate[]): boolean {
   return items.some((item) => hasQuizVoucherIdentifier(item));
 }
 
+function hasNonQuizVoucherItem(items: QuizVoucherItemCandidate[]): boolean {
+  return items.some((item) => !hasQuizVoucherIdentifier(item));
+}
+
 function getQuizVoucherToken(item: QuizVoucherItemCandidate): string | null {
   if (hasNonEmptyVoucherIdentifier(item.voucher_token)) {
     return item.voucher_token.trim();
@@ -227,18 +247,34 @@ function getOrderItemVariantId(item: OrderCreateItem): string | null {
   return item.variantId || item.variant_id || null;
 }
 
-function getOrderItemCondition(item: OrderCreateItem): string | null {
+function getOrderItemCondition(item: {
+  condition?: string | null;
+}): string | null {
   return item.condition || null;
 }
 
-function getOrderItemBaseName(item: OrderCreateItem): string {
+function getOrderItemBaseName(item: {
+  name?: string;
+  productName?: string;
+}): string {
   return item.name || item.productName || 'Product';
 }
 
 function getOrderItemVariantLabel(
-  item: OrderCreateItem,
+  item: {
+    condition?: string | null;
+    variantAttributes?: Record<string, string>;
+    variant_attributes?: Record<string, string>;
+    variantName?: string | null;
+    variant_name?: unknown;
+  },
   options: { includeConditionFallback?: boolean } = {}
 ): string | null {
+  const variantName = item.variantName || item.variant_name;
+  if (typeof variantName === 'string' && variantName.trim().length > 0) {
+    return variantName.trim();
+  }
+
   const label = formatVariantAttributesLabel(
     item.variantAttributes || item.variant_attributes
   );
@@ -247,14 +283,25 @@ function getOrderItemVariantLabel(
     return label;
   }
 
-  const variantName = (item as { variant_name?: unknown }).variant_name;
-  if (typeof variantName === 'string' && variantName.trim().length > 0) {
-    return variantName.trim();
-  }
-
   return options.includeConditionFallback === false
     ? null
     : (formatCanonicalProductConditionLabel(item.condition) ?? null);
+}
+
+function getOrderItemDisplayName(item: {
+  condition?: string | null;
+  name?: string;
+  productName?: string;
+  variantAttributes?: Record<string, string>;
+  variant_attributes?: Record<string, string>;
+  variantName?: string | null;
+  variant_name?: unknown;
+}) {
+  return formatOrderItemDisplayName({
+    baseName: getOrderItemBaseName(item),
+    condition: getOrderItemCondition(item),
+    variantName: getOrderItemVariantLabel(item),
+  });
 }
 
 function getOrderFulfillmentDetails(
@@ -361,6 +408,35 @@ function toFiniteNumber(value: unknown): number | null {
   const numericValue = Number(value);
 
   return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function getVoucherOrderAmountDueBeforeGateway({
+  discountAmount,
+  giftWrappingFee,
+  items,
+  shippingFee,
+  taxAmount,
+}: {
+  discountAmount: number;
+  giftWrappingFee: number;
+  items: VoucherPaymentStatusItem[];
+  shippingFee: number;
+  taxAmount: number;
+}) {
+  const itemsTotal = items.reduce((total, item) => {
+    const price = toFiniteNumber(item.price) ?? 0;
+    const quantity = toFiniteNumber(item.quantity) ?? 0;
+    const assuranceFee = toFiniteNumber(item.assurance_fee) ?? 0;
+
+    return total + price * quantity + assuranceFee;
+  }, 0);
+
+  return Math.max(
+    roundCurrency(
+      itemsTotal + shippingFee + taxAmount + giftWrappingFee - discountAmount
+    ),
+    0
+  );
 }
 
 function getOptionalString(value: unknown): string | undefined {
@@ -501,6 +577,7 @@ function normalizePersistedInvoiceOrderItems(
         quantity,
         price,
         variant_id: getOptionalString(typedRow.variant_id),
+        variantName: undefined,
         variant_attributes: getStringRecord(typedRow.variant_attributes),
         has_assurance: typedRow.has_assurance === true,
         assurance_fee: toFiniteNumber(typedRow.assurance_fee) ?? undefined,
@@ -508,7 +585,7 @@ function normalizePersistedInvoiceOrderItems(
         line_extension_amount: toFiniteNumber(typedRow.line_extension_amount),
         sellers_item_id: getOptionalString(typedRow.sellers_item_id) ?? null,
         unit_code: getOptionalString(typedRow.unit_code) ?? null,
-        variant_name: getOptionalString(typedRow.variant_name) ?? null,
+        variant_name: getOptionalString(typedRow.variant_name) ?? undefined,
         vat_amount: toFiniteNumber(typedRow.vat_amount),
         vat_category_code:
           getOptionalString(typedRow.vat_category_code) ?? null,
@@ -710,7 +787,7 @@ function buildImmediatePeppolInvoiceData(input: {
     return {
       line_id: index + 1,
       product_id: getOrderItemProductId(item),
-      name: getOrderItemBaseName(item),
+      name: getOrderItemDisplayName(item),
       description,
       quantity: item.quantity,
       unit_code: item.unit_code || 'EA',
@@ -804,11 +881,14 @@ function buildImmediatePeppolInvoiceData(input: {
   };
 }
 
-function invalidQuizVoucherTokenResponse() {
+// `rejectedVoucherToken` (when known) lets checkout prune ONLY the failed
+// voucher line, so a multi-voucher cart never loses a still-valid prize.
+function invalidQuizVoucherTokenResponse(rejectedVoucherToken?: string) {
   return NextResponse.json(
     {
       code: 'QUIZ_VOUCHER_TOKEN_INVALID',
       error: 'Invalid quiz voucher token',
+      ...(rejectedVoucherToken ? { rejectedVoucherToken } : {}),
     },
     { status: 400 }
   );
@@ -819,6 +899,19 @@ function invalidQuizVoucherQuantityResponse() {
     {
       code: 'QUIZ_VOUCHER_QUANTITY_INVALID',
       error: 'Quiz voucher items must have quantity 1',
+    },
+    { status: 400 }
+  );
+}
+
+// Distinct from an invalid token: the cart holds two-plus individually valid
+// prize vouchers but only one can be redeemed per order. Callers show a
+// "redeem one at a time" message and must NOT prune the (valid) voucher lines.
+function tooManyQuizVouchersResponse() {
+  return NextResponse.json(
+    {
+      code: 'QUIZ_VOUCHER_MULTIPLE',
+      error: 'Only one quiz voucher can be redeemed per order',
     },
     { status: 400 }
   );
@@ -1000,6 +1093,10 @@ export async function POST(request: NextRequest) {
       ? null
       : getRequestIdempotencyKey(request);
     const verifiedQuizVoucherAwardIdsByIndex = new Map<number, string>();
+    // award id → the (first) still-valid signed token that produced it, so a
+    // later award-status rejection can name the exact line for checkout to
+    // prune instead of stranding the whole cart.
+    const verifiedQuizVoucherTokenByAwardId = new Map<string, string>();
 
     // Phase 1b voucher orders are user-bound. Keep the prize path behind the
     // production guard before any order mutation work.
@@ -1066,12 +1163,15 @@ export async function POST(request: NextRequest) {
               {
                 code: 'QUIZ_VOUCHER_TOKEN_EXPIRED',
                 error: 'Quiz voucher token has expired',
+                // Identify the exact failed line so checkout prunes only it,
+                // preserving other valid vouchers in a multi-prize cart.
+                rejectedVoucherToken: voucherToken,
               },
               { status: 400 }
             );
           }
 
-          return invalidQuizVoucherTokenResponse();
+          return invalidQuizVoucherTokenResponse(voucherToken);
         }
 
         const itemProductId = getOrderItemProductId(item);
@@ -1083,43 +1183,242 @@ export async function POST(request: NextRequest) {
           tokenVerification.payload.variantId !== itemVariantId ||
           tokenVerification.payload.condition !== itemCondition
         ) {
-          return invalidQuizVoucherTokenResponse();
+          return invalidQuizVoucherTokenResponse(voucherToken);
         }
 
         verifiedQuizVoucherAwardIdsByIndex.set(
           index,
           tokenVerification.payload.awardId
         );
+        if (
+          !verifiedQuizVoucherTokenByAwardId.has(
+            tokenVerification.payload.awardId
+          )
+        ) {
+          verifiedQuizVoucherTokenByAwardId.set(
+            tokenVerification.payload.awardId,
+            voucherToken
+          );
+        }
       }
 
       const voucherAwardIds = [
         ...new Set(verifiedQuizVoucherAwardIdsByIndex.values()),
       ];
-      if (voucherAwardIds.length !== 1) {
+      const voucherLineCount = verifiedQuizVoucherAwardIdsByIndex.size;
+      if (voucherAwardIds.length === 0) {
         return invalidQuizVoucherTokenResponse();
       }
 
-      const { data: voucherAward, error: voucherAwardError } = await supabase
-        .from('quiz_awards')
-        .select(
-          'event_id, quiz_events!inner(nlrc_permit_ref, compliance_verified)'
-        )
-        .eq('id', voucherAwardIds[0])
-        .maybeSingle();
+      // Load EVERY distinct award before deciding on a multi-voucher conflict.
+      // A token can carry a valid (unexpired) signature for an award that is
+      // already claimed/void, so signature checks alone are not enough. Awards
+      // are pruned line-by-line via `rejectedVoucherToken`; QUIZ_VOUCHER_MULTIPLE
+      // is checkout's do-NOT-prune signal, so emitting it for an unredeemable
+      // line would strand the shopper with a voucher they can never check out.
+      const { data: voucherAwardRows, error: voucherAwardError } =
+        await supabase
+          .from('quiz_awards')
+          .select(
+            'id, status, award_type, customer_id, reserved_order_id, quiz_events!inner(nlrc_permit_ref, compliance_verified)'
+          )
+          .in('id', voucherAwardIds);
       if (voucherAwardError) {
         logger.error({
           message: 'Quiz voucher award lookup failed',
           error: voucherAwardError,
-          voucherAwardId: voucherAwardIds[0],
+          voucherAwardIds,
         });
-        return invalidQuizVoucherTokenResponse();
+        // A LOOKUP failure (transient DB/RLS/PostgREST) is NOT a bad voucher.
+        // Returning the 400 QUIZ_VOUCHER_TOKEN_INVALID shape would make checkout
+        // prune the only prize line and destroy a valid won prize. Return a
+        // non-pruning 5xx so the shopper can retry with the voucher intact.
+        return NextResponse.json(
+          {
+            code: 'QUIZ_VOUCHER_LOOKUP_FAILED',
+            error:
+              'Could not verify your quiz prize right now. Please try again.',
+          },
+          { status: 503 }
+        );
       }
 
-      if (!voucherAward) {
-        return invalidQuizVoucherTokenResponse();
+      const voucherAwardRowById = new Map(
+        (voucherAwardRows ?? []).map((row) => [row.id, row] as const)
+      );
+      // A redeemable award is approved AND store-credit-typed — the same gate
+      // create_storefront_order_with_quiz_voucher enforces in the DB. Anything
+      // else (claimed, void, wrong type, or missing) is a bad line, not a
+      // "too many prizes" conflict.
+      const validVoucherAwardIds = voucherAwardIds.filter((awardId) => {
+        const row = voucherAwardRowById.get(awardId);
+        return row?.status === 'approved' && row.award_type === 'store_credit';
+      });
+
+      // Validate award status BEFORE reporting a multi-voucher conflict: prune
+      // any genuinely-bad line first so a stale/claimed voucher never masquerades
+      // as a redeem-one-at-a-time situation.
+      if (validVoucherAwardIds.length !== voucherAwardIds.length) {
+        // Idempotent retry: a single-voucher checkout that succeeded but lost or
+        // timed out its HTTP response already moved the award approved→claimed
+        // and created its (paid) prize order. Retrying then fails this
+        // approved-only filter and checkout prunes the only prize line, so the
+        // shopper never reaches the success screen for an order they already own.
+        // The token was verified against this user (userId === resolvedUserId),
+        // so a claimed store-credit award with a reserved order is that same
+        // user's completed prize — return it as a replayed success instead.
+        if (voucherAwardIds.length === 1) {
+          const soleAwardId = voucherAwardIds[0];
+          const soleRow = voucherAwardRowById.get(soleAwardId);
+          if (
+            soleRow?.status === 'claimed' &&
+            soleRow.award_type === 'store_credit'
+          ) {
+            // Resolve the order the claim created. The serialized-prize path
+            // stamps `reserved_order_id` on the award; the standard path instead
+            // tags the created order_item with `quiz_award_id`. Try both so the
+            // idempotent replay covers every prize type.
+            let claimedOrderId = soleRow.reserved_order_id ?? null;
+            if (!claimedOrderId) {
+              const { data: claimedItem, error: claimedItemError } =
+                await supabase
+                  .from('order_items')
+                  .select('order_id')
+                  .eq('quiz_award_id', soleAwardId)
+                  .maybeSingle();
+              // A transient lookup failure must NOT fall through to the
+              // invalid-token response — that tells checkout to prune the only
+              // prize line for an award the shopper has already claimed. Surface
+              // a non-pruning 503 so the retry can find the order once the blip
+              // clears.
+              if (claimedItemError) {
+                logger.error({
+                  message: 'Quiz voucher replay order_items lookup failed',
+                  error: claimedItemError,
+                  awardId: soleAwardId,
+                });
+                return NextResponse.json(
+                  {
+                    code: 'QUIZ_VOUCHER_LOOKUP_FAILED',
+                    error:
+                      'Could not verify your quiz prize right now. Please try again.',
+                  },
+                  { status: 503 }
+                );
+              }
+              claimedOrderId = claimedItem?.order_id ?? null;
+            }
+            if (claimedOrderId) {
+              const { data: claimedOrder, error: claimedOrderError } =
+                await supabase
+                  .from('orders')
+                  .select(
+                    'id, order_number, tracking_token, subtotal, shipping_fee, discount_amount, tax_amount, total, customer_id, customer_email, customer_name, customer_phone, payment_status, shipping_status, payment_method, shipping_address, merchant_id'
+                  )
+                  .eq('id', claimedOrderId)
+                  .eq('customer_id', soleRow.customer_id)
+                  .maybeSingle();
+              // Same fail-closed rule: an errored order lookup is transient, not
+              // proof the voucher is invalid — return 503, never prune.
+              if (claimedOrderError) {
+                logger.error({
+                  message: 'Quiz voucher replay order lookup failed',
+                  error: claimedOrderError,
+                  orderId: claimedOrderId,
+                  awardId: soleAwardId,
+                });
+                return NextResponse.json(
+                  {
+                    code: 'QUIZ_VOUCHER_LOOKUP_FAILED',
+                    error:
+                      'Could not verify your quiz prize right now. Please try again.',
+                  },
+                  { status: 503 }
+                );
+              }
+              if (claimedOrder) {
+                // The claim may have created the order but died before
+                // `finalize_quiz_voucher_order_payment` marked it paid. NEVER
+                // fabricate a paid status for a still-unpaid row — retry the
+                // finalizer first, and if that fails surface a non-pruning error
+                // so the shopper keeps the voucher and can retry.
+                if (claimedOrder.payment_status !== 'paid') {
+                  const { error: replayFinalizeError } = await supabase.rpc(
+                    'finalize_quiz_voucher_order_payment',
+                    {
+                      p_award_id: soleAwardId,
+                      p_order_id: claimedOrder.id,
+                    }
+                  );
+                  if (replayFinalizeError) {
+                    logger.error({
+                      message: 'Quiz voucher replay finalize failed',
+                      error: replayFinalizeError,
+                      orderId: claimedOrder.id,
+                      awardId: soleAwardId,
+                    });
+                    return NextResponse.json(
+                      {
+                        code: 'QUIZ_VOUCHER_LOOKUP_FAILED',
+                        error:
+                          'Could not verify your quiz prize right now. Please try again.',
+                      },
+                      { status: 503 }
+                    );
+                  }
+                }
+                return NextResponse.json(
+                  {
+                    order: {
+                      ...claimedOrder,
+                      payment_status: 'paid',
+                      payment_method: 'quiz_voucher',
+                    },
+                    wallet: null,
+                    savings: null,
+                    amountDueToGateway: 0,
+                    idempotency: { replayed: true },
+                  },
+                  {
+                    status: 200,
+                    headers: { 'x-idempotency-replayed': 'true' },
+                  }
+                );
+              }
+            }
+          }
+        }
+
+        const rejectedAwardId = voucherAwardIds.find(
+          (awardId) => !validVoucherAwardIds.includes(awardId)
+        );
+        return invalidQuizVoucherTokenResponse(
+          rejectedAwardId
+            ? verifiedQuizVoucherTokenByAwardId.get(rejectedAwardId)
+            : undefined
+        );
       }
 
-      const voucherEvent = getQuizVoucherAwardEvent(voucherAward);
+      if (voucherLineCount > 1 || validVoucherAwardIds.length > 1) {
+        // Every voucher line is individually valid — the shopper just won more
+        // than one prize. Surface a distinct code so checkout tells them to
+        // redeem one at a time instead of discarding both valid vouchers.
+        return tooManyQuizVouchersResponse();
+      }
+
+      if (hasNonQuizVoucherItem(items)) {
+        return NextResponse.json(
+          {
+            code: 'QUIZ_VOUCHER_MIXED_CART_UNSUPPORTED',
+            error: 'Quiz prize vouchers must be checked out separately',
+          },
+          { status: 400 }
+        );
+      }
+
+      const voucherEvent = getQuizVoucherAwardEvent(
+        voucherAwardRowById.get(validVoucherAwardIds[0])
+      );
       try {
         enforcePrizeProductionGuard(
           { nlrc_permit_ref: voucherEvent?.nlrcPermitRef ?? null },
@@ -1146,7 +1445,7 @@ export async function POST(request: NextRequest) {
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
       .select(
-        'id, phone, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, plan_tier, vat_registration_status, vat_rate, registered_address, support_phone, logo_url, legal_entity_name, brand_colors, bank_code, bank_account_number, bank_name, bank_account_name, social_media, pages'
+        'id, phone, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, plan_tier, vat_registration_status, vat_rate, registered_address, support_phone, logo_url, legal_entity_name, brand_colors, bank_code, bank_account_number, bank_name, bank_account_name, social_media, pages, payout_currency, country'
       )
       .eq('id', merchant_id)
       .single();
@@ -1162,10 +1461,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Canonical merchant currency (payout_currency -> country -> NGN). The
+    // order-create RPC stamps orders.currency the same way, so this is the
+    // currency any FRESH order created below will carry.
+    const merchantResolvedCurrency =
+      resolveMerchantCurrencyConfig(merchant).code;
+
     const orderItemsPayload = items.map((item, index) => {
       const hasAssurance = item.has_assurance || false;
       const itemPrice = item.negotiatedPrice ?? item.price;
-      const variantName = getOrderItemVariantLabel(item);
+      const variantName = getOrderItemVariantLabel(item, {
+        includeConditionFallback: false,
+      });
       // SECURITY: Recompute assurance_fee server-side — never trust client values (quantity-aware)
       const assuranceFee = hasAssurance
         ? roundCurrency(itemPrice * item.quantity * SERVER_ASSURANCE_RATE)
@@ -1177,7 +1484,7 @@ export async function POST(request: NextRequest) {
         condition: item.condition,
         image_url: item.imageUrl ?? item.image_url ?? null,
         variant_id: item.variantId || item.variant_id,
-        variant_name: variantName,
+        variant_name: variantName ?? undefined,
         variant_attributes:
           item.variantAttributes || item.variant_attributes || {},
         quantity: item.quantity,
@@ -1198,6 +1505,13 @@ export async function POST(request: NextRequest) {
     let quizVoucherRouteProof: ReturnType<
       typeof createQuizRpcServerProof
     > | null = null;
+    const quizVoucherAwardIdsForOrder = hasVoucherItem
+      ? [...new Set(verifiedQuizVoucherAwardIdsByIndex.values())]
+      : [];
+    const quizVoucherAwardIdForOrder =
+      quizVoucherAwardIdsForOrder.length === 1
+        ? (quizVoucherAwardIdsForOrder[0] ?? null)
+        : null;
     if (hasVoucherItem) {
       if (!resolvedUserId) {
         return NextResponse.json(
@@ -1209,8 +1523,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const voucherAwardIds = [...verifiedQuizVoucherAwardIdsByIndex.values()];
-      if (voucherAwardIds.length !== 1) {
+      if (quizVoucherAwardIdsForOrder.length > 1) {
+        return tooManyQuizVouchersResponse();
+      }
+      if (quizVoucherAwardIdsForOrder.length !== 1) {
+        return invalidQuizVoucherTokenResponse();
+      }
+      if (!quizVoucherAwardIdForOrder) {
         return invalidQuizVoucherTokenResponse();
       }
 
@@ -1227,7 +1546,7 @@ export async function POST(request: NextRequest) {
           merchant_id,
           user_id: resolvedUserId,
         },
-        subjectId: voucherAwardIds[0],
+        subjectId: quizVoucherAwardIdForOrder,
         userId: resolvedUserId,
       });
     }
@@ -1342,6 +1661,14 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+    // Record the REAL recomputed VAT on every order, including quiz-voucher
+    // prizes. For a VAT-registered merchant the voucher RPC delegates to
+    // create_storefront_order, which recomputes VAT from the catalog price and
+    // raises tax_amount_mismatch if we send 0 — so a taxable prize would never
+    // redeem. The merchant absorbs the prize VAT: the order carries it (correct
+    // for FIRS e-invoicing) and the voucher covers it (residual + gateway due
+    // treat it as paid, below).
+    const orderTaxAmount = serverComputedTaxAmount;
 
     const merchantCanAutoNegotiate = hasPriceNegotiationEntitlement(
       merchant.plan_tier,
@@ -1500,8 +1827,45 @@ export async function POST(request: NextRequest) {
 
     const payOnDelivery = isPayOnDelivery(payment_method);
 
+    const voucherOrderAmountDueBeforeGateway = hasVoucherItem
+      ? getVoucherOrderAmountDueBeforeGateway({
+          discountAmount: serverDerivedDiscountAmount,
+          giftWrappingFee: giftWrappingFeeValue,
+          items: orderItemsPayload,
+          // The prize's VAT and delivery are absorbed by the merchant and
+          // covered by the voucher, so neither is a shopper residual — exclude
+          // both here. Both are still recorded on the order (via orderTaxAmount
+          // and p_shipping_fee) for the merchant's books and fulfilment.
+          shippingFee: 0,
+          taxAmount: 0,
+        })
+      : null;
+
+    if (
+      hasVoucherItem &&
+      voucherOrderAmountDueBeforeGateway !== null &&
+      voucherOrderAmountDueBeforeGateway > 0
+    ) {
+      return NextResponse.json(
+        {
+          code: 'QUIZ_VOUCHER_RESIDUAL_PAYMENT_UNSUPPORTED',
+          error: 'Quiz prize vouchers cannot be combined with paid charges',
+        },
+        { status: 400 }
+      );
+    }
+
+    const voucherOrderFullyCovered =
+      hasVoucherItem &&
+      voucherOrderAmountDueBeforeGateway !== null &&
+      voucherOrderAmountDueBeforeGateway <= 0;
+
+    let effectivePaymentMethod = payment_method;
     let effectivePaymentStatus = payment_status;
-    if (payOnDelivery) {
+    if (voucherOrderFullyCovered) {
+      effectivePaymentMethod = 'quiz_voucher';
+      effectivePaymentStatus = 'unpaid';
+    } else if (payOnDelivery) {
       effectivePaymentStatus = 'pending';
 
       if (merchant?.rider_phone_number) {
@@ -1521,11 +1885,26 @@ export async function POST(request: NextRequest) {
 
     // Hoisted above the idempotency hash so both the discount-code combination
     // guard and the hash can reference it.
-    const requestedSavingsRedemption =
+    const savingsRedemptionRequested =
       use_savings_credit &&
       savings_goal_id &&
       typeof savings_amount === 'number' &&
       savings_amount > 0;
+    // Customer savings are funded through NGN rails and carry no currency
+    // column, so a ₦-denominated savings balance must never offset a non-NGN
+    // order total at face value. Drop the redemption and fall back to the
+    // plain (non-savings) order RPC instead of failing the checkout.
+    const savingsCurrencySupported = merchantResolvedCurrency === 'NGN';
+    if (savingsRedemptionRequested && !savingsCurrencySupported) {
+      logger.warn({
+        message: 'Savings redemption skipped: order currency is not NGN',
+        merchantId: merchant_id,
+        orderCurrency: merchantResolvedCurrency,
+        savingsGoalId: savings_goal_id,
+      });
+    }
+    const requestedSavingsRedemption =
+      savingsRedemptionRequested && savingsCurrencySupported;
 
     // Resolve + validate the discount code server-side, then compute the amount
     // from the CANONICAL subtotal (never the client cart total). Eligibility /
@@ -1649,7 +2028,7 @@ export async function POST(request: NextRequest) {
             gift_wrapping_fee: giftWrappingFeeValue,
             items: orderItemsPayload,
             shipping_fee: shippingFeeValue,
-            tax_amount: serverComputedTaxAmount,
+            tax_amount: orderTaxAmount,
           })
         )
       : null;
@@ -1689,8 +2068,8 @@ export async function POST(request: NextRequest) {
       p_discount_amount: discountCodeId
         ? discountCodeAmount
         : serverDerivedDiscountAmount,
-      p_tax_amount: serverComputedTaxAmount,
-      p_payment_method: payment_method,
+      p_tax_amount: orderTaxAmount,
+      p_payment_method: effectivePaymentMethod,
       p_payment_status: effectivePaymentStatus,
       p_shipping_status: shipping_status,
       p_shipping_address: shippingAddressForOrder || null,
@@ -1723,8 +2102,23 @@ export async function POST(request: NextRequest) {
       // without relying on PostgREST RLS / RPC behavior.
       p_tax_basis: 'exclusive',
       p_gift_wrapping_fee: giftWrappingFeeValue,
-      p_expected_total:
-        typeof body.expected_total === 'number' ? body.expected_total : null,
+      // Voucher orders: the shopper owes nothing, but the merchant absorbs the
+      // recorded VAT + delivery, so the canonical order total must land at
+      // exactly `tax + shipping + gift`. Passing that server-computed figure
+      // (never the client's zero-priced-cart expected_total) arms the RPC's
+      // parity gate: if the award + any negotiation discount don't fully cover
+      // the CURRENT catalog price — e.g. the merchant raised the price during
+      // the voucher window — `create_storefront_order` raises
+      // `order_total_mismatch` and the whole wrapper tx rolls back BEFORE the
+      // award is claimed, so the shopper keeps their prize instead of burning
+      // it on a residual order. (Gift is always 0 here — a non-zero gift fee is
+      // a shopper residual, rejected upstream as
+      // QUIZ_VOUCHER_RESIDUAL_PAYMENT_UNSUPPORTED.)
+      p_expected_total: hasVoucherItem
+        ? orderTaxAmount + shippingFeeValue + giftWrappingFeeValue
+        : typeof body.expected_total === 'number'
+          ? body.expected_total
+          : null,
       ...(quizVoucherRouteProof
         ? { p_route_proof: quizVoucherRouteProof }
         : {}),
@@ -1885,11 +2279,101 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // The order-create RPC's RETURNS TABLE carries no currency column, and an
+    // idempotency replay can return an order that was stamped BEFORE a
+    // payout-currency change — so read the stamped orders.currency back from
+    // the row instead of re-deriving it from the CURRENT merchant record.
+    // Service-role read: guest checkouts are not authorized by
+    // orders_select_policy, and the replay case is exactly where the fallback
+    // would be wrong, so the read-back must not silently miss for them. The
+    // id is server-derived (returned by the SECURITY DEFINER create RPC), not
+    // caller input. Fall back to the merchant-derived code (exactly what the
+    // RPC stamps on a fresh order) only when the read errors.
+    const { data: orderCurrencyRow, error: orderCurrencyError } =
+      await createAdminClient()
+        .from('orders')
+        .select('currency')
+        .eq('id', order.id)
+        .maybeSingle();
+    if (orderCurrencyError) {
+      logger.warn({
+        message:
+          'Order currency read-back failed; falling back to merchant-resolved currency',
+        orderId: order.id,
+        error: orderCurrencyError,
+      });
+    }
+    const stampedOrderCurrency =
+      typeof orderCurrencyRow?.currency === 'string'
+        ? orderCurrencyRow.currency.trim().toUpperCase()
+        : '';
+    const orderCurrency = stampedOrderCurrency || merchantResolvedCurrency;
+
     const idempotencyReplayed =
       typeof order === 'object' &&
       order !== null &&
       'idempotency_replayed' in order &&
       order.idempotency_replayed === true;
+
+    // create_storefront_order* decremented product_variants/products stock inside
+    // the RPC above (for every order — paid, POD, or unpaid). Bust the merchant's
+    // storefront product caches so stock is fresh immediately instead of after the
+    // ~300s 'products' cacheLife. One call covers the whole cart (the RPC processes
+    // all p_items atomically — no per-line-item fan-out). Skip on idempotent replay
+    // (no re-decrement). Fire here — before wallet/savings/email side effects — so
+    // it is never gated on downstream success; guarded so it can't break checkout.
+    if (!idempotencyReplayed) {
+      try {
+        revalidateProducts(merchant_id);
+
+        // revalidateProducts() above busts only the merchant-wide/listing
+        // tags. getCachedProduct() — the PDP's primary data source — is tagged
+        // per-slug (getProductScopedCacheTag('product', merchantId, slug)),
+        // which a bare revalidateProducts(merchantId) does NOT bust, so the
+        // exact PDP a shopper is viewing could keep serving just-sold-out
+        // stock for the full ~300s 'products' cacheLife. orderItemsPayload
+        // carries product_id but not slug, so resolve slugs with one
+        // merchant-scoped, PK-indexed lookup and bust the per-slug PDP tags too.
+        const revalidateProductIds = Array.from(
+          new Set(
+            orderItemsPayload
+              .map((item) => item.product_id)
+              .filter((id): id is string => Boolean(id))
+          )
+        );
+        if (revalidateProductIds.length > 0) {
+          const { data: revalidateProductRows, error: revalidateSlugError } =
+            await supabase
+              .from('products')
+              .select('slug')
+              .eq('merchant_id', merchant_id)
+              .in('id', revalidateProductIds)
+              .returns<Array<{ slug: string }>>();
+          if (revalidateSlugError) {
+            logger.error({
+              message:
+                'Failed to resolve product slugs for PDP cache revalidation',
+              error: revalidateSlugError,
+              orderId: order.id,
+              merchantId: merchant_id,
+            });
+          } else if (revalidateProductRows) {
+            revalidateProductSlugs(
+              merchant_id,
+              revalidateProductRows.map((row) => row.slug)
+            );
+          }
+        }
+      } catch (revalidateError) {
+        logger.error({
+          message: 'Failed to revalidate product caches after order creation',
+          error: revalidateError,
+          orderId: order.id,
+          merchantId: merchant_id,
+        });
+      }
+    }
+
     const orderTotal = Number(order.total ?? 0);
     const orderSubtotal = Number(order.subtotal ?? 0);
     const orderShippingFee = Number(order.shipping_fee ?? shippingFeeValue);
@@ -1947,11 +2431,33 @@ export async function POST(request: NextRequest) {
     const savingsAmountUsed = savingsRedemptionResult?.amountRedeemed || 0;
     const remainingAfterSavings = Math.max(orderTotal - savingsAmountUsed, 0);
 
+    // Customer wallets are an NGN-denominated ledger (customer_wallets has no
+    // currency column), so redeeming against a non-NGN order would subtract
+    // the naira balance at face value in the order currency. Wallet credit is
+    // NGN-orders-only until the wallet gains a currency dimension.
+    const walletCurrencySupported = orderCurrency === 'NGN';
+    if (use_wallet_credit && wallet_amount > 0 && !walletCurrencySupported) {
+      logger.warn({
+        message: 'Wallet redemption skipped: order currency is not NGN',
+        orderId: order.id,
+        orderCurrency,
+      });
+    }
+
     if (
       use_wallet_credit &&
+      walletCurrencySupported &&
       wallet_amount > 0 &&
       customer_id &&
-      remainingAfterSavings > 0
+      remainingAfterSavings > 0 &&
+      // A quiz-voucher order is settled entirely by the voucher (with the
+      // merchant absorbing the recorded VAT + delivery), so nothing is due —
+      // `remainingAfterSavings` here is only that absorbed VAT/delivery, which
+      // must never be charged to the shopper's wallet. Savings is already
+      // rejected upstream (SAVINGS_VOUCHER_COMBINATION_UNSUPPORTED); skip wallet
+      // redemption the same way so a shopper who also toggled wallet credit
+      // isn't debited for costs the voucher path treats as covered.
+      !hasVoucherItem
     ) {
       try {
         // Call atomic wallet redemption function (handles idempotency via order_id)
@@ -2010,10 +2516,59 @@ export async function POST(request: NextRequest) {
 
     // Calculate amount due to payment gateway (total - wallet credit used)
     const walletAmountUsed = walletRedemptionResult?.amountRedeemed || 0;
-    const amountDueToGateway =
-      orderTotal - savingsAmountUsed - walletAmountUsed;
+    // A fully-covered quiz-voucher order is settled entirely by the voucher —
+    // the merchant absorbs the recorded VAT, so nothing is due to the gateway
+    // even though orderTotal now carries that VAT. Non-voucher orders keep the
+    // standard residual math.
+    const amountDueToGateway = voucherOrderFullyCovered
+      ? 0
+      : orderTotal - savingsAmountUsed - walletAmountUsed;
     let walletFinalized = false;
     let storeCreditFinalized = false;
+    let quizVoucherFinalized = false;
+
+    if (
+      voucherOrderFullyCovered &&
+      quizVoucherAwardIdForOrder &&
+      amountDueToGateway <= 0 &&
+      order.payment_status !== 'paid'
+    ) {
+      const { error: quizVoucherFinalizeError } = await supabase.rpc(
+        'finalize_quiz_voucher_order_payment',
+        {
+          p_award_id: quizVoucherAwardIdForOrder,
+          p_order_id: order.id,
+        }
+      );
+
+      if (quizVoucherFinalizeError) {
+        const message =
+          typeof quizVoucherFinalizeError.message === 'string'
+            ? quizVoucherFinalizeError.message
+            : 'Quiz voucher payment finalization failed';
+        logger.error({
+          message: 'Failed to finalize quiz voucher payment',
+          error: quizVoucherFinalizeError,
+          orderId: order.id,
+          quizVoucherAwardId: quizVoucherAwardIdForOrder,
+        });
+        return NextResponse.json(
+          {
+            code: 'QUIZ_VOUCHER_FINALIZE_FAILED',
+            error: message,
+            orderId: order.id,
+          },
+          { status: 409 }
+        );
+      }
+
+      quizVoucherFinalized = true;
+      logger.info({
+        message: 'Order fully paid with quiz voucher',
+        orderId: order.id,
+        quizVoucherAwardId: quizVoucherAwardIdForOrder,
+      });
+    }
 
     // Persist the redemption onto the order row so payment webhooks can
     // validate residual gateway payouts against server-owned columns. Only
@@ -2111,33 +2666,23 @@ export async function POST(request: NextRequest) {
     //
     // after() runs after the response is sent — email/push never block the response.
     const isWalletFullyPaid = walletFinalized || storeCreditFinalized;
+    const isQuizVoucherFullyPaid =
+      voucherOrderFullyCovered &&
+      amountDueToGateway <= 0 &&
+      (quizVoucherFinalized || order.payment_status === 'paid');
     const shouldSendImmediateOrderNotifications =
       !idempotencyReplayed &&
-      (payOnDelivery || payment_method === 'invoice' || isWalletFullyPaid);
+      (isPayOnDelivery(effectivePaymentMethod) ||
+        effectivePaymentMethod === 'invoice' ||
+        isWalletFullyPaid ||
+        isQuizVoucherFullyPaid);
     if (shouldSendImmediateOrderNotifications) {
       if (merchant.business_name && merchant.slug) {
         const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
         const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
         const emailItems = items.map((item: EmailOrderItem) => ({
-          name: (() => {
-            const baseName = item.name || item.productName || 'Product';
-            const variantLabel = formatVariantAttributesLabel(
-              (
-                item as EmailOrderItem & {
-                  variantAttributes?: Record<string, string>;
-                  variant_attributes?: Record<string, string>;
-                }
-              ).variantAttributes ||
-                (
-                  item as EmailOrderItem & {
-                    variantAttributes?: Record<string, string>;
-                    variant_attributes?: Record<string, string>;
-                  }
-                ).variant_attributes
-            );
-            return variantLabel ? `${baseName} (${variantLabel})` : baseName;
-          })(),
+          name: getOrderItemDisplayName(item),
           quantity: item.quantity || 1,
           price: item.price || 0,
         }));
@@ -2151,6 +2696,7 @@ export async function POST(request: NextRequest) {
           subtotal: orderSubtotal,
           shippingFee: orderShippingFee,
           total: orderTotal,
+          currency: orderCurrency,
           shippingAddress: {
             address: shippingAddressForOrder?.address || '',
             city: shippingAddressForOrder?.city || '',
@@ -2161,7 +2707,7 @@ export async function POST(request: NextRequest) {
           merchantUrl,
           merchantTin: merchant.tax_identification_number ?? undefined,
           merchantRcNumber: merchant.cac_rc_number ?? undefined,
-          paymentMethod: payment_method,
+          paymentMethod: effectivePaymentMethod,
           paymentLink,
         };
 
@@ -2189,7 +2735,7 @@ export async function POST(request: NextRequest) {
               typeof createAdminClient
             > | null = null;
 
-            if (payment_method === 'invoice') {
+            if (effectivePaymentMethod === 'invoice') {
               try {
                 // Auto-generate Dedicated Virtual Account (DVA) for automatic confirmation
                 const nameParts = (customer_name || 'Customer')
@@ -2299,13 +2845,17 @@ export async function POST(request: NextRequest) {
                 const invoiceOrder = {
                   ...invoiceTimingOrder,
                   amount_paid: amountPaid,
+                  // The RPC return row carries no currency; without this the
+                  // Peppol XML falls back to NGN while the PDF/email use the
+                  // stamped order currency.
+                  currency: orderCurrency,
                 };
                 const receiptOrder: ReceiptOrder = {
                   order_number: orderNum,
                   created_at: String(
                     order.created_at || new Date().toISOString()
                   ),
-                  currency: order.currency || 'NGN',
+                  currency: orderCurrency,
                   total: orderTotal,
                   subtotal: orderSubtotal,
                   shipping_fee: orderShippingFee,
@@ -2314,7 +2864,7 @@ export async function POST(request: NextRequest) {
                   amount_paid: amountPaid,
                   balance: Math.max(orderTotal - amountPaid, 0),
                   payment_status: order.payment_status || payment_status,
-                  payment_method,
+                  payment_method: effectivePaymentMethod,
                   is_credit_order: Boolean(
                     (order as Record<string, unknown>).is_credit_order
                   ),
@@ -2327,12 +2877,15 @@ export async function POST(request: NextRequest) {
                   virtual_account: invoiceVirtualAccount,
                   fulfillment_details: fulfillment,
                   items: invoiceItems.map((item, index) => {
-                    const variantName = getOrderItemVariantLabel(item);
+                    const variantName = getOrderItemVariantLabel(item, {
+                      includeConditionFallback: false,
+                    });
 
                     return {
                       line_id: index + 1,
                       product_id: item.product_id || null,
                       product_name: getOrderItemBaseName(item),
+                      condition: getOrderItemCondition(item),
                       variant_id: item.variant_id || null,
                       variant_name: variantName || undefined,
                       description: appendReceiptFulfillmentDescription({
@@ -2487,7 +3040,7 @@ export async function POST(request: NextRequest) {
               to: customer_email,
               toName: customer_name,
               subject:
-                payment_method === 'invoice'
+                effectivePaymentMethod === 'invoice'
                   ? `Invoice Generated - #${emailData.orderNumber}`
                   : `Order Confirmation - #${emailData.orderNumber}`,
               htmlContent,
@@ -2502,7 +3055,7 @@ export async function POST(request: NextRequest) {
                 customerId: customer_id,
                 metadata: {
                   trigger: 'order_create_immediate_confirmation',
-                  paymentMethod: payment_method,
+                  paymentMethod: effectivePaymentMethod,
                 },
               },
             });
@@ -2511,7 +3064,7 @@ export async function POST(request: NextRequest) {
               logger.error({
                 message: 'Failed to send order confirmation email',
                 orderId: order.id,
-                paymentMethod: payment_method,
+                paymentMethod: effectivePaymentMethod,
                 emailError: emailResult.error,
                 emailErrorCode: emailResult.errorCode,
                 emailErrorDetails: emailResult.errorDetails,
@@ -2520,7 +3073,7 @@ export async function POST(request: NextRequest) {
               logger.info({
                 message: 'Order confirmation email sent',
                 orderId: order.id,
-                paymentMethod: payment_method,
+                paymentMethod: effectivePaymentMethod,
                 messageId: emailResult.messageId,
               });
             }
@@ -2548,7 +3101,7 @@ export async function POST(request: NextRequest) {
             orderNum,
             customer_name,
             orderTotal,
-            order.currency || 'NGN'
+            orderCurrency
           );
           if (pushResult.failed > 0 || pushResult.errors.length > 0) {
             logger.warn({
@@ -2569,7 +3122,7 @@ export async function POST(request: NextRequest) {
             const paymentPushResult = await notifyPaymentReceived(
               merchant_id,
               orderTotal,
-              order.currency || 'NGN',
+              orderCurrency,
               orderNum,
               order.id
             );
@@ -2596,9 +3149,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // The create RPC's RETURNS TABLE carries no currency column, so surface
+    // the stamped order currency explicitly — payment initialization must use
+    // the ORDER's currency (a reused order keeps its original stamp even if
+    // the merchant's payout currency later changes).
     const responseOrder = isWalletFullyPaid
       ? {
           ...order,
+          currency: orderCurrency,
           payment_status: 'paid',
           payment_method: storeCreditFinalized
             ? walletAmountUsed > 0
@@ -2606,7 +3164,14 @@ export async function POST(request: NextRequest) {
               : 'savings'
             : 'wallet',
         }
-      : order;
+      : isQuizVoucherFullyPaid
+        ? {
+            ...order,
+            currency: orderCurrency,
+            payment_status: 'paid',
+            payment_method: 'quiz_voucher',
+          }
+        : { ...order, currency: orderCurrency };
 
     const responseBody = {
       order: responseOrder,

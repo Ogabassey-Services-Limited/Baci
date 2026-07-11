@@ -8,8 +8,10 @@ import {
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { getCurrentSlugForAlias } from '@/lib/slug-alias-cache';
 import { resolveStorefrontBlogListingStatus } from '@/lib/storefront-blog-listing-status';
 import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
+import { resolveStorefrontCompareHubStatus } from '@/lib/storefront-compare-hub-status';
 import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
@@ -36,15 +38,15 @@ vi.mock('@/lib/supabase/middleware', () => ({
   }),
 }));
 
-vi.mock('@/lib/ad-tracking-cookies', () => ({
-  CLICK_ID_PARAMS: {},
-  extractClickIdsFromUrl: vi.fn().mockReturnValue({}),
-  generateClickIdCookies: vi.fn().mockReturnValue([]),
-}));
-
 vi.mock('@/lib/domain-cache-simple', () => ({
   getCustomDomainForSlug: vi.fn().mockResolvedValue(null),
   getSlugForCustomDomain: vi.fn().mockResolvedValue('ogabassey'),
+}));
+
+// Retired-slug alias resolution. Defaults to null ("not a retired alias") so it
+// is a no-op for existing tests; individual tests override it.
+vi.mock('@/lib/slug-alias-cache', () => ({
+  getCurrentSlugForAlias: vi.fn().mockResolvedValue(null),
 }));
 
 // Mock env
@@ -74,6 +76,14 @@ vi.mock('@/lib/storefront-blog-post-status', () => ({
   resolveStorefrontBlogPostStatus: vi
     .fn()
     .mockResolvedValue({ kind: 'present-or-unknown' }),
+}));
+
+// Mock the empty-compare-hub preflight. Defaults to renderable-or-unknown so
+// it is a no-op for existing tests; empty-hub tests override it.
+vi.mock('@/lib/storefront-compare-hub-status', () => ({
+  resolveStorefrontCompareHubStatus: vi
+    .fn()
+    .mockResolvedValue({ kind: 'renderable-or-unknown' }),
 }));
 
 vi.mock('@/lib/storefront-blog-listing-status', () => ({
@@ -143,6 +153,12 @@ describe('Middleware Proxy', () => {
     vi.mocked(resolveStorefrontBlogPostStatus).mockResolvedValue({
       kind: 'present-or-unknown',
     });
+    vi.mocked(resolveStorefrontCompareHubStatus).mockResolvedValue({
+      kind: 'renderable-or-unknown',
+    });
+    // Default: not a retired alias, so a per-test override cannot leak a spurious
+    // 301 into unrelated subdomain/custom-domain tests.
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue(null);
   });
 
   it('should apply security headers to API routes', async () => {
@@ -853,6 +869,7 @@ describe('Middleware Proxy', () => {
     const canonicalRedirectMock = vi.mocked(
       getStorefrontProductCanonicalRedirectResult
     );
+    const compareHubStatusMock = vi.mocked(resolveStorefrontCompareHubStatus);
 
     it('308-redirects stale custom-domain category aliases before the App Router streams a 200 shell', async () => {
       canonicalRedirectMock.mockResolvedValue({
@@ -1031,6 +1048,8 @@ describe('Middleware Proxy', () => {
       expect(res.status).toBe(404);
       expect(res.headers.get('x-middleware-rewrite')).toBeNull();
       expect(res.headers.get('Cache-Control')).toContain('no-store');
+      expect(res.headers.get('Vercel-CDN-Cache-Control')).toBeNull();
+      expect(res.headers.get('CDN-Cache-Control')).toBeNull();
       expect(res.headers.get('Content-Type')).toContain('text/html');
       // Header-level noindex so HEAD / non-HTML-parsing crawlers still see it.
       expect(res.headers.get('X-Robots-Tag')).toContain('noindex');
@@ -1057,6 +1076,8 @@ describe('Middleware Proxy', () => {
       expect(await res.text()).toBe('');
       expect(res.headers.get('X-Robots-Tag')).toContain('noindex');
       expect(res.headers.get('Cache-Control')).toContain('no-store');
+      expect(res.headers.get('Vercel-CDN-Cache-Control')).toBeNull();
+      expect(res.headers.get('CDN-Cache-Control')).toBeNull();
     });
 
     it('returns a real 308 for a redirectable archived product slug before the PDP route streams', async () => {
@@ -1203,6 +1224,198 @@ describe('Middleware Proxy', () => {
 
       expect(res.status).not.toBe(404);
       expect(resolutionMock).not.toHaveBeenCalled();
+    });
+
+    it('does not hard-404 the 2-segment /{category}/compare hub (real listing route, not a PDP)', async () => {
+      mockMissing(true);
+      const req = new NextRequest('https://ogabassey.com/smartphones/compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/ogabassey.com/smartphones/compare'
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('does not hard-404 the /{category}/compare hub on a merchant subdomain', async () => {
+      mockMissing(true);
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/smartphones/compare`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/ogabassey/smartphones/compare'
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('does not hard-404 the /{category}/compare hub on a root-domain slug path', async () => {
+      // Third serving mode: usebaci.com/{slug}/... strips the merchant slug
+      // before segment classification, so the hub guard must fire there too.
+      mockMissing(true);
+      const req = new NextRequest(
+        `https://${ROOT_DOMAIN}/ogabassey/smartphones/compare`
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.status).not.toBe(308);
+      expect(resolutionMock).not.toHaveBeenCalled();
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('case-normalizes the hub segment: /{category}/Compare also skips the PDP preflights', async () => {
+      // Pins the guard's .toLowerCase(): mixed-case variants fall through to
+      // the App Router (fail-open) instead of resolving as a product slug.
+      mockMissing(true);
+      const req = new NextRequest('https://ogabassey.com/smartphones/Compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(resolutionMock).not.toHaveBeenCalled();
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('never 308s the compare hub away even if an archived alias is slugged "compare"', async () => {
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/some-old-product',
+      });
+      mockMissing(true);
+      const req = new NextRequest('https://ogabassey.com/smartphones/compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(308);
+      expect(res.status).not.toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/ogabassey.com/smartphones/compare'
+      );
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('hard-404s a confirmed-empty /{category}/compare hub on a custom domain', async () => {
+      compareHubStatusMock.mockResolvedValue({ kind: 'empty' });
+      const req = new NextRequest('https://ogabassey.com/printers/compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+      expect(res.headers.get('X-Robots-Tag')).toBe('noindex, follow');
+      expect(compareHubStatusMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          categorySlug: 'printers',
+          secret: 'test-internal-secret',
+        })
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
+    });
+
+    it('hard-404s a confirmed-empty compare hub on a merchant subdomain', async () => {
+      compareHubStatusMock.mockResolvedValue({ kind: 'empty' });
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/printers/compare`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(compareHubStatusMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          categorySlug: 'printers',
+        })
+      );
+    });
+
+    it('hard-404s a confirmed-empty compare hub on a root-domain slug path', async () => {
+      compareHubStatusMock.mockResolvedValue({ kind: 'empty' });
+      const req = new NextRequest(
+        `https://${ROOT_DOMAIN}/ogabassey/printers/compare`
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(compareHubStatusMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          categorySlug: 'printers',
+        })
+      );
+    });
+
+    it('does not hard-404 an empty hub on param URLs and skips the status lookup entirely', async () => {
+      compareHubStatusMock.mockResolvedValue({ kind: 'empty' });
+      const req = new NextRequest(
+        'https://ogabassey.com/printers/compare?utm_source=email'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(compareHubStatusMock).not.toHaveBeenCalled();
+    });
+
+    it('falls through when the hub status is renderable-or-unknown (fail-open default)', async () => {
+      const req = new NextRequest('https://ogabassey.com/smartphones/compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(compareHubStatusMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          categorySlug: 'smartphones',
+        })
+      );
+    });
+
+    it('still hard-404s a confirmed-missing categoryless /products/compare (fallback PDP, not a hub)', async () => {
+      mockMissing(true);
+      const req = new NextRequest('https://ogabassey.com/products/compare');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(resolutionMock).toHaveBeenCalledWith(
+        expect.objectContaining({ productSlug: 'compare' })
+      );
+      expect(compareHubStatusMock).not.toHaveBeenCalled();
+    });
+
+    it('still hard-404s a bare /{category}/best-under path (no 2-segment route exists there)', async () => {
+      mockMissing(true);
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/best-under'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
     });
 
     it('does not hard-404 the /my-account/[...path] catch-all (non-PDP first segment)', async () => {
@@ -1890,6 +2103,43 @@ describe('Middleware Proxy', () => {
     });
   });
 
+  it('allows attribution POSTs from www custom domains registered at the apex', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('ogabassey');
+    const req = new NextRequest('https://www.example.com/api/attr', {
+      body: 'gclid=test-click-id',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Origin: 'https://www.example.com',
+      },
+      method: 'POST',
+    });
+    req.headers.set('host', 'www.example.com');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('example.com');
+    expect(res.status).not.toBe(403);
+  });
+
+  it('does not promote apex API origins via a www-only custom-domain registration', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce(null);
+    const req = new NextRequest('https://example.com/api/attr', {
+      body: 'gclid=test-click-id',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Origin: 'https://example.com',
+      },
+      method: 'POST',
+    });
+    req.headers.set('host', 'example.com');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('example.com');
+    expect(getSlugForCustomDomain).not.toHaveBeenCalledWith('www.example.com');
+    expect(res.status).toBe(403);
+  });
+
   it.each([
     '/wc-api/klp_wc_payment_webhook',
     '/wc-api/klp_wc_payment_webhook/',
@@ -2237,6 +2487,54 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('Vary')).toBe('x-baci-metadata-cache-bucket');
   });
 
+  it('forwards an HTML-limited annotated user-agent for blocking bots Next would render as humans', async () => {
+    // Regression: Semrush audit 2026-07-07 — compare pages served the raw
+    // application/x-nextjs-pre-render postponed state to SemrushBot/AhrefsBot
+    // because Next's hardcoded getBotType() does not know them. The proxy must
+    // forward an annotated UA so the origin does a full blocking HTML render.
+    const userAgent =
+      'Mozilla/5.0 (compatible; SemrushBot/7~bl; +http://www.semrush.com/bot.html)';
+    const req = new NextRequest(
+      'https://ogabassey.com/laptops/compare/macbook-air-m2-vs-macbook-pro-14'
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', userAgent);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-request-user-agent')).toBe(
+      `${userAgent} googleweblight`
+    );
+    expect(
+      res.headers.get('x-middleware-request-x-baci-metadata-cache-bucket')
+    ).toBe('metadata-blocking');
+  });
+
+  it.each([
+    [
+      'Googlebot (Next DOM bot)',
+      'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+    ],
+    [
+      'bingbot (Next HTML-limited bot)',
+      'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
+    ],
+    [
+      'a normal browser',
+      'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36',
+    ],
+  ])('forwards the original user-agent unchanged for %s', async (_label, userAgent) => {
+    const req = new NextRequest(
+      'https://ogabassey.com/laptops/compare/macbook-air-m2-vs-macbook-pro-14'
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('user-agent', userAgent);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-request-user-agent')).toBe(userAgent);
+  });
+
   it.each([
     ['Googlebot', 'Googlebot/2.1'],
     ['SemrushBot', 'SemrushBot/7~bl'],
@@ -2535,6 +2833,8 @@ describe('Middleware Proxy', () => {
 
   it.each([
     'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
+    'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
+    'https://ogabassey.com/new-category/new-product',
     `https://ogabassey.${ROOT_DOMAIN}/smartphones/samsung-galaxy-z-fold-4`,
     `https://${ROOT_DOMAIN}/ogabassey/smartphones/samsung-galaxy-z-fold-4`,
   ])('CDN-caches the canonical public PDP shell for %s', async (url) => {
@@ -2545,9 +2845,17 @@ describe('Middleware Proxy', () => {
 
     // The Next resume-mismatch that previously required no-store on PDP HTML is
     // fixed via patches/next@16.2.9.patch (PR #2436), so the prerendered PDP
-    // shell is safe to cache/replay at the edge for the LCP win.
+    // shell is safe to cache/replay at the edge for the LCP win. Ops-2 layers
+    // the freshness per tier: bfcache-safe browser value + split CDN headers
+    // (config/storefront-cdn-cache-control.ts).
     expect(res.headers.get('Cache-Control')).toBe(
-      's-maxage=300, stale-while-revalidate=86400'
+      'public, max-age=0, must-revalidate'
+    );
+    expect(res.headers.get('Vercel-CDN-Cache-Control')).toBe(
+      'max-age=300, stale-while-revalidate=86400'
+    );
+    expect(res.headers.get('CDN-Cache-Control')).toBe(
+      'max-age=300, stale-while-revalidate=86400, stale-if-error=86400'
     );
     expect(res.headers.get('Vary') ?? '').not.toContain('Cookie');
   });
@@ -2558,15 +2866,9 @@ describe('Middleware Proxy', () => {
     `https://${ROOT_DOMAIN}/ogabassey`,
     'https://ogabassey.com/products',
     'https://ogabassey.com/smartphones',
-    'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
     'https://ogabassey.com/blog',
     'https://ogabassey.com/blog/the-ultimate-checklist-for-buying-a-used-iphone-in-2025',
     'https://ogabassey.com/blog/author/bassey-john',
-    'https://ogabassey.com/shipping',
-    'https://ogabassey.com/contact',
-    'https://ogabassey.com/faq',
-    'https://ogabassey.com/terms',
-    'https://ogabassey.com/privacy',
   ])('CDN-caches anonymous public storefront documents for %s', async (url) => {
     const req = new NextRequest(url);
     req.headers.set('host', new URL(url).host);
@@ -2574,8 +2876,55 @@ describe('Middleware Proxy', () => {
     const res = await proxy(req);
 
     expect(res.headers.get('Cache-Control')).toBe(
-      's-maxage=300, stale-while-revalidate=86400'
+      'public, max-age=0, must-revalidate'
     );
+    expect(res.headers.get('Vercel-CDN-Cache-Control')).toBe(
+      'max-age=300, stale-while-revalidate=86400'
+    );
+    expect(res.headers.get('CDN-Cache-Control')).toBe(
+      'max-age=3600, stale-while-revalidate=86400, stale-if-error=86400'
+    );
+  });
+
+  it.each([
+    'https://ogabassey.com/about',
+    'https://ogabassey.com/contact',
+    'https://ogabassey.com/faq',
+    'https://ogabassey.com/privacy',
+    'https://ogabassey.com/returns',
+    'https://ogabassey.com/shipping',
+    'https://ogabassey.com/terms',
+    'https://ogabassey.com/warranty',
+  ])('keeps mutable storefront trust content on the five-minute downstream TTL for %s', async (url) => {
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Cache-Control')).toBe(
+      'public, max-age=0, must-revalidate'
+    );
+    expect(res.headers.get('Vercel-CDN-Cache-Control')).toBe(
+      'max-age=300, stale-while-revalidate=86400'
+    );
+    expect(res.headers.get('CDN-Cache-Control')).toBe(
+      'max-age=300, stale-while-revalidate=86400, stale-if-error=86400'
+    );
+  });
+
+  it('keeps a storefront without a public purge policy on Vercel-only caching', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/merchant-demo`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Cache-Control')).toBe(
+      'public, max-age=0, must-revalidate'
+    );
+    expect(res.headers.get('Vercel-CDN-Cache-Control')).toBe(
+      'max-age=300, stale-while-revalidate=86400'
+    );
+    expect(res.headers.get('CDN-Cache-Control')).toBeNull();
   });
 
   it.each([
@@ -2618,19 +2967,45 @@ describe('Middleware Proxy', () => {
   });
 
   it.each([
-    'https://ogabassey.com/smartphones',
-    'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
-    'https://ogabassey.com/smartphones/best-under/under-500k',
-    `https://ogabassey.${ROOT_DOMAIN}/smartphones/compare/iphone-15-vs-samsung-s24`,
-  ])('keeps anonymous storefront documents publicly cacheable for %s', async (url) => {
+    // Main storefront-document branch → Ops-2 layered split headers.
+    { edgeCached: true, url: 'https://ogabassey.com/smartphones' },
+    {
+      downstreamCacheControl:
+        'max-age=300, stale-while-revalidate=86400, stale-if-error=86400',
+      edgeCached: true,
+      url: 'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
+    },
+    // Nested SEO listing subroutes keep their own (legacy) cacheable header.
+    {
+      edgeCached: false,
+      url: 'https://ogabassey.com/smartphones/best-under/under-500k',
+    },
+    {
+      edgeCached: false,
+      url: `https://ogabassey.${ROOT_DOMAIN}/smartphones/compare/iphone-15-vs-samsung-s24`,
+    },
+  ])('keeps anonymous storefront documents publicly cacheable for $url', async ({
+    downstreamCacheControl = 'max-age=3600, stale-while-revalidate=86400, stale-if-error=86400',
+    edgeCached,
+    url,
+  }) => {
     const req = new NextRequest(url);
     req.headers.set('host', new URL(url).host);
 
     const res = await proxy(req);
 
-    expect(res.headers.get('Cache-Control')).toBe(
-      's-maxage=300, stale-while-revalidate=86400'
-    );
+    const cacheControl = res.headers.get('Cache-Control') ?? '';
+    expect(cacheControl).not.toContain('no-store');
+    expect(cacheControl).not.toContain('private');
+    if (edgeCached) {
+      expect(cacheControl).toBe('public, max-age=0, must-revalidate');
+      expect(res.headers.get('Vercel-CDN-Cache-Control')).toBe(
+        'max-age=300, stale-while-revalidate=86400'
+      );
+      expect(res.headers.get('CDN-Cache-Control')).toBe(downstreamCacheControl);
+    } else {
+      expect(cacheControl).toBe('s-maxage=300, stale-while-revalidate=86400');
+    }
   });
 
   it.each([
@@ -2661,6 +3036,10 @@ describe('Middleware Proxy', () => {
       'private, no-store, max-age=0, must-revalidate'
     );
     expect(res.headers.get('Cache-Control')).not.toContain('s-maxage');
+    // The Ops-2 split headers must never leak onto non-cacheable documents —
+    // a stray CDN-Cache-Control here would edge-cache private content.
+    expect(res.headers.get('Vercel-CDN-Cache-Control')).toBeNull();
+    expect(res.headers.get('CDN-Cache-Control')).toBeNull();
   });
 
   it('does not vary anonymous query-string nested listings by Cookie', async () => {
@@ -2941,6 +3320,600 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('location')).toBe(
       'https://ogabassey.com/products/dell-alienware-m16-r3-rtx-5070-ti'
     );
+  });
+
+  it('does not strip a retired-slug prefix that collides with a live storefront route on a custom domain', async () => {
+    // "blog" is a real storefront route AND, hypothetically, a retired alias for
+    // this domain's merchant. The live /blog route must win — never strip to /my-post.
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('zorvexa');
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest('https://ogabassey.com/blog/my-post');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('location')).not.toBe(
+      'https://ogabassey.com/my-post'
+    );
+    // The route-collision guard short-circuits BEFORE any alias lookup.
+    expect(getCurrentSlugForAlias).not.toHaveBeenCalledWith('blog');
+  });
+
+  it('strips a genuine retired-slug prefix (non-route) to the slugless custom-domain URL', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('zorvexa');
+    vi.mocked(getCurrentSlugForAlias).mockImplementation(async (s: string) =>
+      s === 'yodhashop' ? 'zorvexa' : null
+    );
+    const req = new NextRequest('https://ogabassey.com/yodhashop/summer-sale');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    // 302 (temporary) so a reversible rename-back can't loop a browser-cached 301.
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/summer-sale'
+    );
+  });
+
+  it('strips a GRANDFATHERED reserved-name retired-slug prefix on a custom domain', async () => {
+    // A merchant that held 'support' as a slug before it was reserved could have
+    // retired it — custom.example/support/... must still strip to the slugless URL.
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('zorvexa');
+    vi.mocked(getCurrentSlugForAlias).mockImplementation(async (s: string) =>
+      s === 'support' ? 'zorvexa' : null
+    );
+    const req = new NextRequest('https://ogabassey.com/support/summer-sale');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/summer-sale'
+    );
+  });
+
+  it('does not strip a retired-slug prefix that is a platform app route (auth) on a custom domain', async () => {
+    // A merchant whose retired slug was literally "auth": the live /auth/confirm
+    // magic-link route must win, never 301-strip to /confirm.
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('zorvexa');
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest('https://ogabassey.com/auth/confirm?token=x');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('location')).not.toBe(
+      'https://ogabassey.com/confirm?token=x'
+    );
+    // The app-route guard short-circuits before any alias lookup.
+    expect(getCurrentSlugForAlias).not.toHaveBeenCalledWith('auth');
+  });
+
+  it('does not strip a retired-slug prefix that is a feeds app route on a custom domain', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('zorvexa');
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest('https://ogabassey.com/feeds/openai.jsonl');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('location')).not.toBe(
+      'https://ogabassey.com/openai.jsonl'
+    );
+    expect(getCurrentSlugForAlias).not.toHaveBeenCalledWith('feeds');
+  });
+
+  it('internally rewrites a retired-alias-prefixed custom-domain API request (any method) to /api', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('zorvexa');
+    vi.mocked(getCurrentSlugForAlias).mockImplementation(async (s: string) =>
+      s === 'yodhashop' ? 'zorvexa' : null
+    );
+    const req = new NextRequest(
+      'https://ogabassey.com/yodhashop/api/storefront/customer',
+      { method: 'POST' }
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    // A 301 would drop the POST body; must be an internal rewrite to the
+    // slugless /api path so the body + method survive.
+    expect(res.status).not.toBe(301);
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://ogabassey.com/api/storefront/customer'
+    );
+  });
+
+  it('rewrites a GRANDFATHERED reserved-name alias-prefixed custom-domain API request to /api', async () => {
+    // A merchant that held 'support' before it was reserved could have retired it —
+    // custom.example/support/api/... must still rewrite (checkout/auth calls from the
+    // old prefixed URL keep working). The merchant-scoped alias check gates it.
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('zorvexa');
+    vi.mocked(getCurrentSlugForAlias).mockImplementation(async (s: string) =>
+      s === 'support' ? 'zorvexa' : null
+    );
+    const req = new NextRequest(
+      'https://ogabassey.com/support/api/storefront/customer',
+      { method: 'POST' }
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://ogabassey.com/api/storefront/customer'
+    );
+  });
+
+  it('does not rewrite an alias-prefixed API path when the alias belongs to a different merchant', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('zorvexa');
+    vi.mocked(getCurrentSlugForAlias).mockImplementation(async (s: string) =>
+      s === 'otherslug' ? 'someone-else' : null
+    );
+    const req = new NextRequest(
+      'https://ogabassey.com/otherslug/api/storefront/customer',
+      { method: 'POST' }
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-rewrite')).not.toBe(
+      'https://ogabassey.com/api/storefront/customer'
+    );
+  });
+
+  it('rewrites (not 301s) a retired-alias-prefixed custom-domain API GET, updating stale slug query params', async () => {
+    // A GET /oldSlug/api/... must NOT 301 (which would preserve ?merchant_slug=old);
+    // it internally rewrites to the slugless /api path with the query param updated.
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('zorvexa');
+    vi.mocked(getCurrentSlugForAlias).mockImplementation(async (s: string) =>
+      s === 'yodhashop' ? 'zorvexa' : null
+    );
+    const req = new NextRequest(
+      'https://ogabassey.com/yodhashop/api/storefront/orders/track-order?merchant_slug=yodhashop&order=9',
+      { method: 'GET' }
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    const rewrite = res.headers.get('x-middleware-rewrite');
+    expect(rewrite).not.toBeNull();
+    expect(rewrite).toContain('/api/storefront/orders/track-order');
+    expect(rewrite).toContain('merchant_slug=zorvexa');
+    expect(rewrite).not.toContain('merchant_slug=yodhashop');
+    expect(rewrite).toContain('order=9');
+  });
+
+  it('same-origin-rewrites (not 301s) a GET API call on a retired subdomain, correcting stale slug query params', async () => {
+    // A cross-origin 301 would drop the customer's same-origin auth cookies, so
+    // GET stays SAME-ORIGIN (like non-GET): internal rewrite with ?merchant_slug
+    // corrected. Host-verified routes resolve via the alias table, not a redirect.
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest(
+      'https://yodhashop.usebaci.com/api/feed/openai?merchant_slug=yodhashop&x=1',
+      { method: 'GET' }
+    );
+    req.headers.set('host', 'yodhashop.usebaci.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    const rewrite = res.headers.get('x-middleware-rewrite');
+    expect(rewrite).not.toBeNull();
+    expect(rewrite).toContain('merchant_slug=zorvexa');
+    expect(rewrite).not.toContain('merchant_slug=yodhashop');
+    expect(rewrite).toContain('x=1');
+  });
+
+  it('same-origin-rewrites a live subdomain API call that still carries a retired merchant slug query value', async () => {
+    // Checkout resume/BNPL URLs can preserve ?merchant_slug=<old> across the
+    // retired-subdomain redirect. Once the browser is on the live subdomain, the
+    // host itself is no longer an alias, so query values must be checked too.
+    vi.mocked(getCurrentSlugForAlias).mockImplementation(
+      async (slug: string) => (slug === 'yodhashop' ? 'zorvexa' : null)
+    );
+    const req = new NextRequest(
+      'https://zorvexa.usebaci.com/api/storefront/orders/resume?merchant_slug=yodhashop&order=123',
+      { method: 'GET' }
+    );
+    req.headers.set('host', 'zorvexa.usebaci.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    const rewrite = res.headers.get('x-middleware-rewrite');
+    expect(rewrite).not.toBeNull();
+    expect(rewrite).toContain('merchant_slug=zorvexa');
+    expect(rewrite).not.toContain('merchant_slug=yodhashop');
+    expect(rewrite).toContain('order=123');
+    expect(getCurrentSlugForAlias).toHaveBeenCalledWith('yodhashop');
+  });
+
+  it('same-origin-rewrites a non-idempotent API call on a retired subdomain, correcting stale slug query params', async () => {
+    // POST body must survive -> internal rewrite (not a 301) with the slug query
+    // params corrected to the current slug.
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest(
+      'https://yodhashop.usebaci.com/api/storefront/orders?merchant_slug=yodhashop&order=123',
+      { method: 'POST' }
+    );
+    req.headers.set('host', 'yodhashop.usebaci.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    const rewrite = res.headers.get('x-middleware-rewrite');
+    expect(rewrite).not.toBeNull();
+    expect(rewrite).toContain('merchant_slug=zorvexa');
+    expect(rewrite).not.toContain('merchant_slug=yodhashop');
+    expect(rewrite).toContain('order=123');
+  });
+
+  it('does NOT rewrite a bare `slug` query param on a retired subdomain (product slugs collide)', async () => {
+    // Only unambiguous MERCHANT params are corrected. The generic `slug` key also
+    // carries product/resource slugs (e.g. the product membership/canonical
+    // preflight), so a live product whose slug equals a retired storefront slug
+    // must reach the handler unchanged, not be rewritten to the merchant slug.
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest(
+      'https://yodhashop.usebaci.com/api/storefront/product?slug=yodhashop&x=1',
+      { method: 'GET' }
+    );
+    req.headers.set('host', 'yodhashop.usebaci.com');
+
+    const res = await proxy(req);
+
+    const rewrite = res.headers.get('x-middleware-rewrite');
+    // If the request is rewritten at all, the `slug` value must be left intact.
+    if (rewrite) {
+      expect(rewrite).toContain('slug=yodhashop');
+      expect(rewrite).not.toContain('slug=zorvexa');
+    }
+  });
+
+  it('still 302-redirects a RESERVED-infra subdomain that is a GRANDFATHERED retired alias', async () => {
+    // A merchant that held 'support' before it was reserved could have retired it via
+    // a rename — support.usebaci.com must still 302 to the current store, not fall
+    // through to infra handling (the alias table keeps such slugs resolvable).
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest('https://support.usebaci.com/products/x');
+    req.headers.set('host', 'support.usebaci.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('zorvexa');
+  });
+
+  it('redirects main app paths on a RESERVED-name retired-alias subdomain to the root domain', async () => {
+    // Reserved aliases skip the normal non-reserved subdomain branch. Main app
+    // paths must still follow the platform redirect path, not fall through on
+    // support.usebaci.com.
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest('https://support.usebaci.com/login');
+    req.headers.set('host', 'support.usebaci.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toBe(`https://${ROOT_DOMAIN}/login`);
+  });
+
+  it('same-origin-rewrites an /api call on a RESERVED-name retired-alias subdomain', async () => {
+    // support.usebaci.com/api/... for a grandfathered retired alias: a 301 would drop
+    // the stale XHR's cookies/body and keep the retired slug, so it gets the same
+    // alias-aware same-origin /api handling as a non-reserved retired subdomain.
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest(
+      'https://support.usebaci.com/api/storefront/orders?merchant_slug=support&x=1',
+      { method: 'POST' }
+    );
+    req.headers.set('host', 'support.usebaci.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    const rewrite = res.headers.get('x-middleware-rewrite');
+    expect(rewrite).not.toBeNull();
+    expect(rewrite).toContain('merchant_slug=zorvexa');
+    expect(rewrite).not.toContain('merchant_slug=support');
+  });
+
+  it('302-redirects a RESERVED-name retired alias on the ROOT-DOMAIN path (usebaci.com/support/...)', async () => {
+    // The also-supported root-slug URL for a grandfathered reserved alias must forward
+    // too — the main root-path block skips reserved segments, so this is handled by the
+    // dedicated reserved-alias check before it.
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/support/products`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('zorvexa');
+  });
+
+  it('does NOT 301 an /api call on a subdomain that has a custom domain (same-origin instead)', async () => {
+    // A cross-origin 301 on an XHR/POST drops cookies + body. Even when the
+    // subdomain has a custom domain (stale cache can still map a retired slug to
+    // one), /api must fall through to the same-origin API handler, not be
+    // canonical-redirected to the custom domain.
+    vi.mocked(getCustomDomainForSlug).mockResolvedValueOnce('ogabassey.com');
+    const req = new NextRequest(
+      'https://ogabassey.usebaci.com/api/storefront/orders?merchant_slug=ogabassey',
+      { method: 'POST' }
+    );
+    req.headers.set('host', 'ogabassey.usebaci.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    expect(res.headers.get('location')).not.toBe(
+      'https://ogabassey.com/api/storefront/orders?merchant_slug=ogabassey'
+    );
+  });
+
+  it('does NOT 301 a non-GET POST to a page route on a subdomain with a custom domain', async () => {
+    // A storefront server action / form POST to a page route must not be canonical-
+    // redirected to the custom domain — a cross-origin 301 turns the POST into a GET
+    // and drops its body. Canonicalization is a GET/HEAD (SEO) concern only.
+    vi.mocked(getCustomDomainForSlug).mockResolvedValueOnce('ogabassey.com');
+    const req = new NextRequest('https://ogabassey.usebaci.com/cart/checkout', {
+      method: 'POST',
+    });
+    req.headers.set('host', 'ogabassey.usebaci.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    expect(res.headers.get('location')).not.toBe(
+      'https://ogabassey.com/cart/checkout'
+    );
+  });
+
+  it('DOES 301 a GET to the canonical custom domain on a subdomain (unchanged)', async () => {
+    vi.mocked(getCustomDomainForSlug).mockResolvedValueOnce('ogabassey.com');
+    const req = new NextRequest('https://ogabassey.usebaci.com/products', {
+      method: 'GET',
+    });
+    req.headers.set('host', 'ogabassey.usebaci.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe('https://ogabassey.com/products');
+  });
+
+  it('same-origin-rewrites a root-path /reservedAlias/api call on a retired alias', async () => {
+    // Root-path reserved aliases are excluded from the non-reserved root-path
+    // branch, so they need the same API stripping path as ordinary aliases.
+    vi.mocked(getCurrentSlugForAlias).mockImplementation(
+      async (slug: string) => (slug === 'support' ? 'zorvexa' : null)
+    );
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}/support/api/vtu/history?merchantSlug=support`,
+      { method: 'GET' }
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    expect(res.status).not.toBe(302);
+    const rewrite = res.headers.get('x-middleware-rewrite');
+    expect(rewrite).not.toBeNull();
+    expect(rewrite).toContain('/api/vtu/history');
+    expect(rewrite).not.toContain('/support/api');
+    expect(rewrite).toContain('merchantSlug=zorvexa');
+    expect(rewrite).not.toContain('merchantSlug=support');
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  });
+
+  it('same-origin-rewrites a root-path /oldSlug/api call on a retired alias (no cross-origin 302)', async () => {
+    // usebaci.com/<oldSlug>/api/... in path mode after a rename: a 302 to the
+    // current subdomain would drop the caller's Bearer/cookies/body, so strip the
+    // prefix and rewrite SAME-ORIGIN to /api/... with the merchant-slug query
+    // corrected to the current slug.
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}/yodhashop/api/vtu/history?merchantSlug=yodhashop`,
+      { method: 'GET' }
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    expect(res.status).not.toBe(302);
+    const rewrite = res.headers.get('x-middleware-rewrite');
+    expect(rewrite).not.toBeNull();
+    expect(rewrite).toContain('/api/vtu/history');
+    expect(rewrite).not.toContain('/yodhashop/api');
+    expect(rewrite).toContain('merchantSlug=zorvexa');
+    expect(rewrite).not.toContain('merchantSlug=yodhashop');
+    // Proxy security headers must be applied (matching the other API branches).
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  });
+
+  it('runs a CONFIRMED retired-alias-prefixed /oldSlug/api call through the API security guard', async () => {
+    // The /<oldSlug>/api/... rewrite must NOT let a request skip the rate-limit /
+    // CSRF / body-size guard (which keys off the pathname). A bad Content-Type on a
+    // POST proves the guard evaluated the EFFECTIVE /api path: 415, not a fall-through.
+    // Guard only applies when the prefix is a CONFIRMED retired alias.
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}/yodhashop/api/storefront/customer`,
+      { method: 'POST', headers: { 'content-type': 'text/plain' } }
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(415);
+  });
+
+  it('runs a RESERVED-name alias-prefixed /support/api call through the API security guard', async () => {
+    // The custom-domain/root rewrites resolve grandfathered reserved-name aliases
+    // (`support`, `cdn`), so the pre-rewrite guard must cover them too — otherwise
+    // POST /support/api/... would bypass rate-limit/CSRF/content-type. 415 proves it.
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}/support/api/storefront/customer`,
+      { method: 'POST', headers: { 'content-type': 'text/plain' } }
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(415);
+  });
+
+  it('does NOT force a storefront /<segment>/api page through the API guard when the segment is not a retired alias', async () => {
+    // getCurrentSlugForAlias resolves nothing -> not a retired alias -> the request
+    // is a normal storefront page, not an API call, and must NOT be rate-limited /
+    // CSRF / content-type checked (would 429/415 crawler-hit storefront URLs).
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue(null);
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/shoes/api?x=1`, {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+    });
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    // Not treated as an API mutation — no 415/413/429 from the API guard.
+    expect(res.status).not.toBe(415);
+    expect(res.status).not.toBe(413);
+    expect(res.status).not.toBe(429);
+  });
+
+  it('rate-limits an alias-SHAPED /<segment>/api request BEFORE the alias DB lookup', async () => {
+    // The rate limiter must run on the SHAPE before the (DB-hitting) alias
+    // confirmation, so rotating the first path segment can't force un-rate-limited
+    // getCurrentSlugForAlias lookups. When rate-limited, the alias lookup never runs.
+    const { checkRateLimit } = await import('@/lib/rate-limit');
+    vi.mocked(checkRateLimit).mockResolvedValueOnce({
+      allowed: false,
+      limit: 100,
+      remaining: 0,
+      resetTime: Date.now() + 60000,
+    });
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/randomprobe/api/x`, {
+      method: 'GET',
+    });
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(429);
+    expect(getCurrentSlugForAlias).not.toHaveBeenCalledWith('randomprobe');
+  });
+
+  it('does NOT force a MERCHANT SUBDOMAIN /<segment>/api storefront page through the API guard', async () => {
+    // On a merchant subdomain, /<segment>/api is always a storefront page (there is
+    // no prefixed-alias rewrite), so it must never be treated as an API call — even
+    // if the segment happens to be some merchant's retired alias.
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest('https://shop.usebaci.com/shoes/api', {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+    });
+    req.headers.set('host', 'shop.usebaci.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(415);
+  });
+
+  it('does not hijack a MAIN_APP_ROUTE on a retired subdomain with the storefront redirect', async () => {
+    // old.usebaci.com/login (an app/auth route) must NOT be 302'd to the merchant
+    // storefront/current-slug subdomain (which would 404), preserving old admin/auth
+    // bookmarks after a rename. App routes bypass the retired-slug storefront redirect.
+    // Without the fix, this would 302 to zorvexa.usebaci.com/login.
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest('https://old.usebaci.com/login');
+    req.headers.set('host', 'old.usebaci.com');
+
+    const res = await proxy(req);
+
+    // The retired-slug redirect must NOT have hijacked this app route to the store.
+    expect(res.headers.get('location') ?? '').not.toContain('zorvexa');
+  });
+
+  it('does not hijack a platform AUTH route (/signup) on a retired subdomain', async () => {
+    // /signup, /forgot-password, etc. are platform auth pages (not in MAIN_APP_ROUTES
+    // before, so they slipped into the retired-slug redirect). old.usebaci.com/signup
+    // must go to the platform, NOT the current store's /signup (404).
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest('https://old.usebaci.com/signup');
+    req.headers.set('host', 'old.usebaci.com');
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('location')).toBe(`https://${ROOT_DOMAIN}/signup`);
+    expect(res.headers.get('location')).not.toContain('zorvexa');
+  });
+
+  it('treats /staff-picks on a subdomain as a storefront path, not the /staff platform route', async () => {
+    // Boundary-aware MAIN_APP_ROUTES: `/staff` matches `/staff` + `/staff/...` but a
+    // storefront category `/staff-picks` must NOT be redirected to usebaci.com/staff-picks.
+    const req = new NextRequest('https://shop.usebaci.com/staff-picks');
+    req.headers.set('host', 'shop.usebaci.com');
+
+    const res = await proxy(req);
+
+    // Not redirected off the subdomain to the platform.
+    expect(res.headers.get('location')).not.toBe(
+      `https://${ROOT_DOMAIN}/staff-picks`
+    );
+    // Served as a storefront path (rewritten to /<slug>/staff-picks).
+    const rewrite = res.headers.get('x-middleware-rewrite');
+    if (rewrite) {
+      expect(rewrite).toContain('/shop/staff-picks');
+    }
+  });
+
+  it('does not alias-redirect the platform /signup auth route on the root domain', async () => {
+    // 'signup' is a platform auth page, not a storefront alias. Even if it resolved
+    // as a retired alias, the platform-segment guard must skip the alias lookup so
+    // the auth page is served — never 302'd to a merchant storefront.
+    vi.mocked(getCurrentSlugForAlias).mockResolvedValue('zorvexa');
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/signup`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(302);
+    expect(getCurrentSlugForAlias).not.toHaveBeenCalledWith('signup');
+  });
+
+  it('rewrites a stale slug query param on a slugless custom-domain API call after a rename', async () => {
+    // Open custom-domain tab calls root-relative /api?merchant=old (no prefix)
+    // after a rename; the param must be corrected to the current slug so query-
+    // based handlers resolve the store.
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('zorvexa');
+    vi.mocked(getCurrentSlugForAlias).mockImplementation(async (s: string) =>
+      s === 'yodhashop' ? 'zorvexa' : null
+    );
+    const req = new NextRequest(
+      'https://ogabassey.com/api/storefront/customer/wallet?merchant=yodhashop&x=1',
+      { method: 'GET' }
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    const rewrite = res.headers.get('x-middleware-rewrite');
+    expect(rewrite).not.toBeNull();
+    expect(rewrite).toContain('merchant=zorvexa');
+    expect(rewrite).not.toContain('merchant=yodhashop');
+    expect(rewrite).toContain('x=1');
   });
 
   it.each([

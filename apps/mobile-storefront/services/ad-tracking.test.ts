@@ -35,7 +35,7 @@ jest.mock('@/lib/logger', () => ({
 jest.mock('@/lib/tracking-transparency', () => ({
   getTrackingPermissionStatus: jest
     .fn()
-    .mockResolvedValue({ status: 'denied' }),
+    .mockResolvedValue({ status: 'granted' }),
   requestTrackingPermissionStatus: jest
     .fn()
     .mockResolvedValue({ status: 'denied' }),
@@ -61,6 +61,7 @@ jest.mock('./analytics', () => ({
 }));
 
 import {
+  initAdTracking,
   trackAddToWishlist,
   trackPaymentInfoAdded,
   trackSearch,
@@ -77,12 +78,13 @@ function lastRequestBody() {
 }
 
 describe('ad-tracking server conversions', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
     global.fetch = jest.fn().mockResolvedValue({
       json: jest.fn().mockResolvedValue({ success: true }),
       text: jest.fn().mockResolvedValue(''),
     }) as jest.Mock;
+    await initAdTracking();
   });
 
   it('sends AddToWishlist through the Events API fan-out route', async () => {

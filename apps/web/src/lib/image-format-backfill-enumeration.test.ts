@@ -78,7 +78,13 @@ function createBackfillSupabaseStub(config: BackfillSupabaseStubConfig = {}): {
 }
 
 function productVariantUrls(imagePath: string): string[] {
-  return Array.from(new Set(buildOgabasseyPrewarmTransformUrls(imagePath)));
+  return Array.from(
+    new Set(
+      buildOgabasseyPrewarmTransformUrls(imagePath, undefined, {
+        format: 'auto',
+      })
+    )
+  );
 }
 
 function blogVariantUrls(imagePath: string): string[] {
@@ -86,7 +92,8 @@ function blogVariantUrls(imagePath: string): string[] {
     new Set(
       buildOgabasseyPrewarmTransformUrls(
         imagePath,
-        BLOG_IMAGE_WIDTH_QUALITY_PAIRS
+        BLOG_IMAGE_WIDTH_QUALITY_PAIRS,
+        { format: 'auto' }
       )
     )
   );
@@ -135,6 +142,20 @@ describe('enumerateImageFormatBackfillTargets', () => {
     expect(targets.blogPostCount).toBe(1);
     expect(targets.urls).toEqual(blogVariantUrls(CDN_BLOG_IMAGE));
     expect(targets.urls.length).toBeGreaterThan(0);
+  });
+
+  it('enumerates legacy format=auto URLs because the backfill targets poisoned Accept-negotiated cache entries', async () => {
+    const { client } = createBackfillSupabaseStub({
+      productPages: [[{ id: 'p1', images: [CDN_PRODUCT_IMAGE_A] }]],
+      blogPostPages: [[{ featured_image_url: CDN_BLOG_IMAGE }]],
+    });
+
+    const targets = await enumerateImageFormatBackfillTargets(client);
+
+    expect(targets.urls.length).toBeGreaterThan(0);
+    expect(targets.urls.every((url) => url.includes('format=auto'))).toBe(true);
+    expect(targets.urls.some((url) => url.includes('format=jpeg'))).toBe(false);
+    expect(targets.urls.some((url) => url.includes('format=png'))).toBe(false);
   });
 
   it('scans queried tables with the expected columns and status filters', async () => {
@@ -291,6 +312,27 @@ describe('enumerateImageFormatBackfillTargets', () => {
     expect(targets.urls).toEqual([
       ...productVariantUrls(CDN_PRODUCT_IMAGE_A),
       ...blogVariantUrls(CDN_BLOG_IMAGE),
+    ]);
+  });
+
+  it('honors an independent blog limit for bounded sample runs', async () => {
+    const { calls, client } = createBackfillSupabaseStub({
+      blogPostPages: [
+        [
+          { featured_image_url: CDN_BLOG_IMAGE },
+          { featured_image_url: CDN_PRODUCT_IMAGE_A },
+        ],
+      ],
+    });
+
+    const targets = await enumerateImageFormatBackfillTargets(client, {
+      blogLimit: 1,
+    });
+
+    expect(targets.blogPostCount).toBe(1);
+    expect(targets.urls).toEqual(blogVariantUrls(CDN_BLOG_IMAGE));
+    expect(calls.find((call) => call.table === 'blog_posts')?.range).toEqual([
+      0, 0,
     ]);
   });
 

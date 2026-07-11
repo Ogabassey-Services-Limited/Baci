@@ -83,11 +83,37 @@ const sharedChainableMock: any = {
   then: (resolve: any) => Promise.resolve().then(resolve),
 };
 
+// The route loads quiz awards via `.select(...).in('id', ids)` and gates on
+// status === 'approved' && award_type === 'store_credit' BEFORE the compliance
+// check. Echo an approved store-credit row per queried id (event permit
+// evidence present) so the status gate passes; tests override `.in` when they
+// need a different status or an unverified event.
+const quizAwardChainableMock: any = {
+  select: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockReturnThis(),
+  in: vi.fn((_column: string, ids: string[]) =>
+    Promise.resolve({
+      data: ids.map((id) => ({
+        id,
+        status: 'approved',
+        award_type: 'store_credit',
+        quiz_events: {
+          compliance_verified: true,
+          nlrc_permit_ref: 'NLRC-1',
+        },
+      })),
+      error: null,
+    })
+  ),
+};
+
 const mockSupabase = {
   auth: {
     getUser: vi.fn(),
   },
-  from: vi.fn(() => sharedChainableMock),
+  from: vi.fn((table?: string) =>
+    table === 'quiz_awards' ? quizAwardChainableMock : sharedChainableMock
+  ),
   rpc: vi.fn(
     (name: string, _args?: unknown): Promise<{ data: any; error: any }> => {
       // B3.5 round 7: helper's variant lookup routes through this
@@ -608,16 +634,24 @@ describe('Order API Security', () => {
         error: null,
         supabase: mockSupabase as unknown as never,
       });
-      sharedChainableMock.maybeSingle.mockResolvedValueOnce({
-        data: {
-          event_id: '99999999-9999-4999-8999-999999999999',
-          quiz_events: {
-            compliance_verified: false,
-            nlrc_permit_ref: null,
-          },
-        },
-        error: null,
-      });
+      // Award is redeemable (approved store-credit) so it passes the status
+      // gate, but its event has no permit evidence (compliance_verified false),
+      // so the production guard must still reject.
+      quizAwardChainableMock.in.mockImplementationOnce(
+        (_column: string, ids: string[]) =>
+          Promise.resolve({
+            data: ids.map((id) => ({
+              id,
+              status: 'approved',
+              award_type: 'store_credit',
+              quiz_events: {
+                compliance_verified: false,
+                nlrc_permit_ref: null,
+              },
+            })),
+            error: null,
+          })
+      );
       const productId = '22222222-2222-4222-8222-222222222222';
       const token = createQuizVoucherToken({
         payload: {

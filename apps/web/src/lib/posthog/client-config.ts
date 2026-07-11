@@ -10,13 +10,16 @@ import { sanitizePostHogExceptionText } from '@/lib/posthog/exception-text';
 import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 import { getPostHogTracingHeaderHostnames } from '@/lib/posthog/tracing-hostnames';
 
-// Record replay for ~20% of eligible sessions to cut PostHog's session-recording
-// boot + upload cost on the storefront critical path while retaining enough
-// coverage for UX debugging. posthog-js's `session_recording.sampleRate`
-// (0..1) takes precedence over the project's remote sampling config — verified
-// against @posthog/types `SessionRecordingOptions.sampleRate` in
-// posthog-js@1.393.5.
-const SESSION_RECORDING_SAMPLE_RATE = 0.2;
+// Record replay for ~5% of eligible sessions (WEIGHT-B P1, owner-approved
+// 2026-07-10): rrweb's input serializer (`maskAllInputs` masking every
+// keystroke) was the single worst field INP contributor — a 1,096ms
+// #document.oninput LoAF on checkout forms and search-as-you-type — and that
+// cost lands on every RECORDED session. 5% keeps dozens of replays/day for UX
+// debugging while removing the tax from 95% of visitors. posthog-js's
+// `session_recording.sampleRate` (0..1) takes precedence over the project's
+// remote sampling config — verified against @posthog/types
+// `SessionRecordingOptions.sampleRate` in posthog-js@1.393.5.
+const SESSION_RECORDING_SAMPLE_RATE = 0.05;
 
 const SENSITIVE_PROPERTY_TOKENS = new Set([
   'password',
@@ -545,9 +548,17 @@ export function buildPostHogClientConfig(
     advanced_disable_flags: false,
     person_profiles: 'identified_only',
     autocapture: true,
+    // Rageclick stays: it rides autocapture's existing document listeners at
+    // negligible incremental cost and is a real frustration signal.
     rageclick: true,
-    capture_dead_clicks: true,
-    capture_heatmaps: true,
+    // WEIGHT-B P1 (owner-approved 2026-07-10): dead-clicks and heatmaps are
+    // OFF on the storefront. Both attach document-level click instrumentation
+    // that showed up in field LoAF click-processing (p75 65ms/click), dead
+    // clicks additionally duplicates bundle chunks (known issue), and heatmaps
+    // is a run-when-needed UX-research tool, not always-on telemetry — toggle
+    // it back on temporarily for specific studies.
+    capture_dead_clicks: false,
+    capture_heatmaps: false,
     capture_pageview: false,
     capture_pageleave: false,
     mask_all_text: true,

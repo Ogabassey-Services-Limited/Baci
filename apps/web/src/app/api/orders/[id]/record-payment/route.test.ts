@@ -924,6 +924,33 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(orderQuery.update).not.toHaveBeenCalled();
   });
 
+  it('threads the order currency through to the full-payment confirmation email', async () => {
+    const mockMerchant = createRecordPaymentMerchant();
+    const mockOrder = { ...createRecordPaymentOrder(), currency: 'INR' };
+
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
+    });
+
+    const request = createRequest({
+      amount: 10000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-INR-FULL',
+      notes: 'Full payment',
+    });
+
+    const { POST } = await import('./route');
+    await POST(request, { params: Promise.resolve({ id: mockOrderId }) });
+
+    const { generateOrderConfirmationEmail } = await import(
+      '@/lib/email-templates'
+    );
+    expect(generateOrderConfirmationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: 'INR' })
+    );
+  });
+
   it('uses the RPC payment status instead of stale pre-lock totals for paid side effects', async () => {
     const mockMerchant = createRecordPaymentMerchant();
     const mockOrder = createRecordPaymentOrder();
@@ -968,6 +995,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(generatePaymentReceiptEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         balanceDue: 5000,
+        currency: 'NGN',
         totalAmount: 15000,
         totalPaidSoFar: 10000,
       })
@@ -976,6 +1004,39 @@ describe('POST /api/orders/[id]/record-payment', () => {
       expect.objectContaining({
         subject: expect.stringContaining('Payment Receipt'),
       })
+    );
+  });
+
+  it('threads a non-NGN order currency through to the partial-payment receipt email', async () => {
+    const mockMerchant = createRecordPaymentMerchant();
+    const mockOrder = { ...createRecordPaymentOrder(), currency: 'INR' };
+
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
+      recordManualPayment: {
+        new_paid: 10000,
+        order_total: 15000,
+        payment_status: 'partially_paid',
+        remaining_balance: 5000,
+        shipping_status: 'processing',
+      },
+    });
+
+    const request = createRequest({
+      amount: 10000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-INR-PARTIAL',
+    });
+
+    const { POST } = await import('./route');
+    await POST(request, { params: Promise.resolve({ id: mockOrderId }) });
+
+    const { generatePaymentReceiptEmail } = await import(
+      '@/lib/email-templates'
+    );
+    expect(generatePaymentReceiptEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: 'INR' })
     );
   });
 

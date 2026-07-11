@@ -20,7 +20,7 @@ interface PriceInputProps {
   currencySymbol: string;
   onChange: (value: number) => void;
   placeholder: string;
-  value: number;
+  value?: number;
 }
 
 export function PriceInput({

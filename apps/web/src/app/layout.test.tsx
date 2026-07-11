@@ -2,23 +2,21 @@ import { render, screen } from '@testing-library/react';
 import * as ReactDOM from 'react-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockRootDynamicBody } = vi.hoisted(() => ({
+const { mockRootDynamicBody, mockInter, mockLocalFont } = vi.hoisted(() => ({
   mockRootDynamicBody: vi.fn((props?: Record<string, never>) => {
     void props;
     return <div data-testid="root-dynamic-body" />;
   }),
+  mockInter: vi.fn(() => ({ variable: 'font-inter' })),
+  mockLocalFont: vi.fn(() => ({ variable: 'font-naira' })),
 }));
 
 vi.mock('next/font/google', () => ({
-  Inter: () => ({
-    variable: 'font-inter',
-  }),
+  Inter: mockInter,
 }));
 
 vi.mock('next/font/local', () => ({
-  default: () => ({
-    variable: 'font-naira',
-  }),
+  default: mockLocalFont,
 }));
 
 vi.mock('@/app/root-dynamic-body', () => ({
@@ -53,6 +51,20 @@ describe('RootLayout', () => {
     expect(screen.getByTestId('root-dynamic-body')).toBeInTheDocument();
     expect(mockRootDynamicBody).toHaveBeenCalledTimes(1);
     expect(mockRootDynamicBody.mock.calls[0]?.[0]).toEqual({});
+  });
+
+  it('loads Inter with display:swap and WITHOUT preload to free the LCP network window', () => {
+    // A preloaded body font competes with the LCP hero image on cold mobile; swap
+    // still renders immediately via next/font's metric-compatible fallback.
+    expect(mockInter).toHaveBeenCalledWith(
+      expect.objectContaining({ display: 'swap', preload: false })
+    );
+  });
+
+  it('keeps the naira subset preloaded and display:optional (CLS-proof price glyph)', () => {
+    expect(mockLocalFont).toHaveBeenCalledWith(
+      expect.objectContaining({ display: 'optional', preload: true })
+    );
   });
 
   it('applies the Inter and naira-subset font variables to the body', () => {

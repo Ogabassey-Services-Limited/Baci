@@ -27,6 +27,12 @@ describe('navigateFromPushScreen', () => {
     expect(push).toHaveBeenCalledWith('/orders');
   });
 
+  it('routes repair notification targets to the repairs screen', () => {
+    navigateFromPushScreen('repairs', { id: 'repair-123' });
+
+    expect(push).toHaveBeenCalledWith('/repairs');
+  });
+
   it('routes to a product when a slug is provided', () => {
     navigateFromPushScreen('product', { slug: 'iphone-13' });
 

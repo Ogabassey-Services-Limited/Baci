@@ -219,12 +219,7 @@ describe('ProductVariantOptionSelector', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Add selected variant' })
-    ).not.toBeDisabled();
-    expect(onAddProduct).not.toHaveBeenCalled();
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Add selected variant' })
-    );
+    ).toBeDisabled();
     expect(onAddProduct).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'variant-2',
@@ -261,7 +256,7 @@ describe('ProductVariantOptionSelector', () => {
     expect(addButton).toBeDisabled();
   });
 
-  it('waits for explicit confirmation after the final selectable option is chosen', () => {
+  it('auto-adds the variant after the final selectable option is chosen', () => {
     const onAddProduct = vi.fn();
 
     renderSelector({
@@ -300,17 +295,44 @@ describe('ProductVariantOptionSelector', () => {
       })
     );
 
-    expect(onAddProduct).not.toHaveBeenCalled();
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Add selected variant' })
-    );
-
     expect(onAddProduct).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'variant-i7',
         images: ['https://example.test/parent.jpg'],
       })
+    );
+    expect(onAddProduct).toHaveBeenCalledTimes(1);
+  });
+
+  it('includes condition as a selectable axis for duplicate attribute combinations', () => {
+    const onAddProduct = vi.fn();
+
+    renderSelector({
+      onAddProduct,
+      variants: [
+        variant(
+          'variant-new',
+          { storage: '128GB' },
+          { condition: 'new', name: 'Samsung S26 New 128GB' }
+        ),
+        variant(
+          'variant-used',
+          { storage: '128GB' },
+          { condition: 'used', name: 'Samsung S26 Used 128GB' }
+        ),
+      ],
+    });
+
+    expect(
+      screen.getByRole('button', { name: 'Select Condition used' })
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select Condition used' })
+    );
+
+    expect(onAddProduct).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'variant-used' })
     );
   });
 

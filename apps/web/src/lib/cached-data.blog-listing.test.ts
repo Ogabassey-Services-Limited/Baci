@@ -15,6 +15,10 @@ vi.mock('@supabase/supabase-js', () => ({
 }));
 
 import { getCachedBlogAuthor, getCachedBlogListing } from '@/lib/cached-data';
+import {
+  buildBlogMerchantRow,
+  createBlogMerchantRpcMock,
+} from '@/lib/cached-data.test-utils';
 
 function createQueryBuilder({
   queryResult = { data: [], count: 0, error: null },
@@ -50,48 +54,18 @@ function createQueryBuilder({
   return builder;
 }
 
-function buildMerchantRow() {
-  return {
-    id: 'merchant-1',
-    business_name: 'Ogabassey',
-    site_title: 'Ogabassey',
-    site_tagline: 'Phones and tablets',
-    site_description: 'Phones and tablets',
-    business_type: 'electronics',
-    logo_url: 'https://cdn.example.com/logo.png',
-    phone: '+234800000000',
-    email: 'hello@ogabassey.com',
-    social_media: null,
-    brand_colors: null,
-    slug: 'ogabassey',
-    business_address: 'Lagos',
-    payout_currency: 'NGN',
-    is_published: true,
-    template_id: 'default',
-    plan_tier: 'pro',
-    premium_features: null,
-    country: 'NG',
-    hero_slides: null,
-    favicon_svg_url: null,
-    favicon_png_32_url: null,
-    favicon_apple_touch_url: null,
-    vat_registration_status: null,
-    vat_rate: null,
-    feature_settings: { blog_enabled: true },
-    pages: null,
-    about_page: null,
-    faq_items: null,
-    updated_at: '2026-03-28T00:00:00.000Z',
-  };
-}
-
 function setupBlogListingFetch({
   categories = [],
   count,
+  featureSettingsResults = [
+    { data: { blog_enabled: true }, error: null },
+    { data: { blog_enabled: true }, error: null },
+  ],
   posts = [],
 }: {
   categories?: Array<{ category: string | null }>;
   count?: number | null;
+  featureSettingsResults?: Array<{ data: unknown; error: unknown }>;
   posts?: Array<{
     featured?: boolean | null;
     id: string;
@@ -101,20 +75,24 @@ function setupBlogListingFetch({
   }>;
 } = {}) {
   const merchantBuilder = createQueryBuilder({
-    singleResult: { data: buildMerchantRow(), error: null },
+    singleResult: { data: buildBlogMerchantRow(), error: null },
   });
   const primaryDomainBuilder = createQueryBuilder({
     singleResult: { data: null, error: null },
   });
-  const featureSettingsBuilder = createQueryBuilder({
-    singleResult: { data: { blog_enabled: true }, error: null },
-  });
+  const featureSettingsBuilders = featureSettingsResults.map((result) =>
+    createQueryBuilder({
+      singleResult: result,
+    })
+  );
+  const featureSettingsSelects: string[] = [];
   const postsBuilder = createQueryBuilder({
     queryResult: { data: posts, count: count ?? posts.length, error: null },
   });
   const categoriesBuilder = createQueryBuilder({
     queryResult: { data: categories, error: null },
   });
+  const merchantRpc = createBlogMerchantRpcMock();
 
   const serviceFrom = vi.fn((table: string) => {
     if (table === 'merchants') {
@@ -126,7 +104,16 @@ function setupBlogListingFetch({
     }
 
     if (table === 'merchant_feature_settings') {
-      return { select: vi.fn(() => featureSettingsBuilder) };
+      return {
+        select: vi.fn((columns: string) => {
+          featureSettingsSelects.push(columns);
+          const builder = featureSettingsBuilders.shift();
+          if (!builder) {
+            throw new Error('Unexpected extra merchant_feature_settings query');
+          }
+          return builder;
+        }),
+      };
     }
 
     throw new Error(`Unexpected service table: ${table}`);
@@ -153,7 +140,7 @@ function setupBlogListingFetch({
   mockCreateClient.mockImplementation(
     (_url: string, key: string, _options?: unknown) => {
       if (key === 'test-service-role-key') {
-        return { from: serviceFrom };
+        return { from: serviceFrom, rpc: merchantRpc };
       }
 
       if (key === 'test-anon-key') {
@@ -164,7 +151,12 @@ function setupBlogListingFetch({
     }
   );
 
-  return { blogSelects, categoriesBuilder, postsBuilder };
+  return {
+    blogSelects,
+    categoriesBuilder,
+    featureSettingsSelects,
+    postsBuilder,
+  };
 }
 
 describe('getCachedBlogListing', () => {
@@ -225,6 +217,31 @@ describe('getCachedBlogListing', () => {
       expect.stringContaining('featured_image_url'),
       { count: 'estimated' }
     );
+  });
+
+  it('falls back to the legacy feature settings projection while the repairs flag migration is pending', async () => {
+    const { featureSettingsSelects } = setupBlogListingFetch({
+      featureSettingsResults: [
+        {
+          data: null,
+          error: {
+            code: '42703',
+            message:
+              'column merchant_feature_settings.repairs_catalog_enabled does not exist',
+          },
+        },
+        { data: { blog_enabled: true }, error: null },
+      ],
+      posts: [{ id: 'post-1', slug: 'best-phones', title: 'Best Phones' }],
+    });
+
+    const result = await getCachedBlogListing('ogabassey');
+
+    expect(result).not.toBeNull();
+    expect(result?.posts.map((post) => post.id)).toEqual(['post-1']);
+    expect(featureSettingsSelects).toHaveLength(2);
+    expect(featureSettingsSelects[0]).toContain('repairs_catalog_enabled');
+    expect(featureSettingsSelects[1]).not.toContain('repairs_catalog_enabled');
   });
 
   it('uses estimated counts for author pagination to avoid full COUNT scans', async () => {

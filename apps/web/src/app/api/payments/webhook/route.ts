@@ -1072,6 +1072,9 @@ export async function POST(request: NextRequest) {
               total:
                 Number(chatOrder.subtotal) +
                 Number(chatOrder.shipping_fee || 0),
+              // Chat orders are an NGN-only rail: the conversion RPC rejects
+              // any non-NGN payment, so the email currency is fixed.
+              currency: 'NGN',
               shippingAddress: {
                 address: shippingAddr?.address || '',
                 city: shippingAddr?.city || '',
@@ -2614,7 +2617,7 @@ export async function POST(request: NextRequest) {
           // financialConsistency() check on the paid order. Without these,
           // FIRS / loyalty executors (wired in B3.5) would always see the
           // order as `tax_basis_unclassified` and short-circuit to failed.
-          'id, merchant_id, order_number, customer_id, total, subtotal, shipping_fee, gift_wrapping_fee, tax_amount, discount_amount, tax_basis, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, cancelled_at, updated_at, ad_tracking, order_items(id, product_id, name, price, quantity, subtotal, variant_name)'
+          'id, merchant_id, order_number, customer_id, total, subtotal, shipping_fee, gift_wrapping_fee, tax_amount, discount_amount, tax_basis, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, cancelled_at, updated_at, ad_tracking, order_items(id, product_id, condition, name, price, quantity, variant_name)'
         )
         .single();
 

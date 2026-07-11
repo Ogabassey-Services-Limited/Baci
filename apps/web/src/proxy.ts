@@ -20,18 +20,18 @@ import {
   STOREFRONT_PUBLIC_CACHE_POLICIES,
   type StorefrontPublicCachePolicy,
 } from '@/config/storefront-cache';
+import {
+  buildStorefrontDocumentCacheHeaders,
+  type StorefrontDocumentCacheKind,
+} from '@/config/storefront-cdn-cache-control';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import {
+  getStorefrontForwardedBotUserAgent,
   getStorefrontMetadataCacheBucket,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
   STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
 } from '@/config/storefront-metadata-cache-bots';
 import { getInternalApiSecret } from '@/env';
-import {
-  CLICK_ID_PARAMS,
-  extractClickIdsFromUrl,
-  generateClickIdCookies,
-} from '@/lib/ad-tracking-cookies';
 import type { BlogListingStatusIntent } from '@/lib/cached-storefront-blog-listing-status';
 import {
   getCustomDomainForSlug,
@@ -39,8 +39,10 @@ import {
 } from '@/lib/domain-cache-simple';
 import { hasValidInternalAuth } from '@/lib/internal-auth-header';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
+import { getCurrentSlugForAlias } from '@/lib/slug-alias-cache';
 import { resolveStorefrontBlogListingStatus } from '@/lib/storefront-blog-listing-status';
 import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
+import { resolveStorefrontCompareHubStatus } from '@/lib/storefront-compare-hub-status';
 import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
@@ -52,6 +54,11 @@ const ROOT_DOMAIN = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com')
   .replace(/[\r\n]/g, '');
 
 // Reserved subdomains that should not be treated as merchant stores
+// Infra subdomains that must NOT route to a merchant storefront. Keep in sync with
+// INFRA_RESERVED_SUBDOMAINS in apps/web/src/lib/validation.ts and the infra names in
+// is_reserved_merchant_slug() (migration 20260707074000): a name reserved from being
+// a merchant slug must also be excluded from subdomain->storefront routing here, or
+// e.g. cdn.usebaci.com would be rewritten into a (non-existent) storefront path.
 const RESERVED_SUBDOMAINS = new Set([
   'www',
   'app',
@@ -60,6 +67,12 @@ const RESERVED_SUBDOMAINS = new Set([
   'dashboard',
   'mail',
   'smtp',
+  'assets',
+  'static',
+  'cdn',
+  'status',
+  'support',
+  'help',
 ]);
 
 // Valid subdomain pattern: alphanumeric and hyphens, 1-63 chars, no leading/trailing hyphens
@@ -140,10 +153,20 @@ function buildProxyRequestHeaders(request: NextRequest): Headers {
   for (const header of MERCHANT_CONTEXT_HEADERS) {
     headers.delete(header);
   }
+  const userAgent = request.headers.get('user-agent') ?? '';
   headers.set(
     STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
-    getStorefrontMetadataCacheBucket(request.headers.get('user-agent') ?? '')
+    getStorefrontMetadataCacheBucket(userAgent)
   );
+  // Blocking-bucket bots that Next's hardcoded getBotType() would treat as
+  // humans (SemrushBot, AhrefsBot, GPTBot, …) would otherwise receive the raw
+  // application/x-nextjs-pre-render postponed state on PPR routes. Forward an
+  // annotated UA so the origin performs a full blocking HTML render for them
+  // (see storefront-metadata-cache-bots.ts).
+  const forwardedUserAgent = getStorefrontForwardedBotUserAgent(userAgent);
+  if (forwardedUserAgent !== userAgent) {
+    headers.set('user-agent', forwardedUserAgent);
+  }
   return headers;
 }
 
@@ -264,6 +287,14 @@ const BOT_USER_AGENT_REGEX =
   /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i;
 const PROTOCOL_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
 const NESTED_PRODUCT_SUBROUTE_EXCLUSIONS = new Set(['best-under', 'compare']);
+// Second segments of 2-segment storefront paths that are real listing routes,
+// not PDPs: `/{category}/compare` is the per-category compare hub served by
+// `(storefront)/[slug]/(catalog)/(listing)/[category]/compare/page.tsx`, so its
+// second segment must never be resolved against the product slug set — the PDP
+// preflights would hard-404 (or falsely 308) the live hub. Deliberately
+// narrower than NESTED_PRODUCT_SUBROUTE_EXCLUSIONS: `/{category}/best-under`
+// has no 2-segment route, so a bare best-under path must keep hard-404ing.
+const CATEGORY_LISTING_HUB_SEGMENTS = new Set(['compare']);
 const PDP_HTML_CACHE_CONTROL = 'no-cache, no-store, max-age=0, must-revalidate';
 const NON_CACHEABLE_STOREFRONT_HTML_CACHE_CONTROL =
   'private, no-store, max-age=0, must-revalidate';
@@ -310,25 +341,38 @@ function isAuthenticatedInternalRequest(request: NextRequest): boolean {
   }
   return hasValidInternalAuth(request, secret);
 }
-// PDP documents are now safe to CDN-cache (see PR #2436 Next resume patch), so
-// the prerendered PPR shell can be served from the edge for the LCP win.
-// Freshness stays SHORT (5m) but stale-while-revalidate is extended to 24h: the
-// long SWR window keeps the edge MISS rate and user-facing TTFB low (the edge
-// keeps serving a cached copy while it revalidates in the background), while the
-// short s-maxage bounds how long a mutated/removed PDP can be served before the
-// edge revalidates. Only blog URLs are ACTIVELY purged from Cloudflare
-// (lib/storefront-purge-urls.ts via revalidateBlogPosts); product/category/home
-// mutations have NO active purge path (revalidateProducts only does Next
-// revalidateTag, which does not evict Cloudflare/edge document caches), so the
-// fresh window MUST stay short until a product purge is wired — otherwise a
-// deleted/unpublished product would be served as a live 200 for the whole window.
-// NOTE ON LAYERING: Cloudflare (the outer edge on custom domains) does NOT honor
-// `stale-while-revalidate`, and its edge TTL is governed by the zone's cache rule
-// (override_origin, 300s), NOT by this header. The `s-maxage`+SWR combo here
-// targets VERCEL's CDN layer, which DOES honor both — so the 24h SWR is not dead
-// config; it drives Vercel's edge, while Cloudflare freshness is the zone rule.
-const STOREFRONT_DOCUMENT_CACHE_CONTROL =
-  's-maxage=300, stale-while-revalidate=86400';
+// Cacheable public storefront documents (home, PDP, category, blog, static
+// content) emit the LAYERED Ops-2 header set from
+// config/storefront-cdn-cache-control.ts: a bfcache-safe browser Cache-Control,
+// a short-fresh/long-SWR `Vercel-CDN-Cache-Control` for Vercel's CDN, and a
+// route-aware `CDN-Cache-Control` forwarded to Cloudflare. The long CF value
+// matches the
+// zone cache rule's existing Edge TTL (Ops-1), so freshness on custom domains
+// is unchanged until the dashboard rule is flipped to "respect origin" — after
+// which this header becomes the single source of truth. PDPs retain the 300s
+// self-healing window because high-cardinality product operations intentionally
+// purge listings only; non-policy storefronts stay Vercel-only because they
+// have no Cloudflare purge target.
+function applyStorefrontDocumentCacheHeaders(
+  response: NextResponse,
+  kind: StorefrontDocumentCacheKind
+): void {
+  const cacheHeaders = buildStorefrontDocumentCacheHeaders(kind);
+  response.headers.set('Cache-Control', cacheHeaders.cacheControl);
+  if (cacheHeaders.vercelCdnCacheControl) {
+    response.headers.set(
+      'Vercel-CDN-Cache-Control',
+      cacheHeaders.vercelCdnCacheControl
+    );
+  } else {
+    response.headers.delete('Vercel-CDN-Cache-Control');
+  }
+  if (cacheHeaders.cdnCacheControl) {
+    response.headers.set('CDN-Cache-Control', cacheHeaders.cdnCacheControl);
+  } else {
+    response.headers.delete('CDN-Cache-Control');
+  }
+}
 const STOREFRONT_METADATA_CACHE_NON_HTML_EXTENSIONS_REGEX =
   /\.(?:json|jsonl|md|txt|webmanifest|xml)$/i;
 const STOREFRONT_METADATA_CACHE_NON_HTML_SEGMENTS = new Set(['_next', 'api']);
@@ -364,9 +408,12 @@ const PLATFORM_ROOT_ROUTE_SEGMENTS = new Set([
   'debug-auth',
   'delete-account',
   'demo',
+  'developers',
   'features',
   'favicon.ico',
   'feeds',
+  'forgot-password',
+  'invite',
   'login',
   'manifest.webmanifest',
   'onboarding',
@@ -375,10 +422,14 @@ const PLATFORM_ROOT_ROUTE_SEGMENTS = new Set([
   'products',
   'reset-password',
   'robots.txt',
+  'signup',
   'sitemap.xml',
+  'staff',
   'template-preview',
   'terms',
   'track',
+  'update-password',
+  'verify',
 ]);
 // Matches blog index/post paths on both the platform root (`/blog`, `/blog/...`)
 // and slug-prefixed storefront variants served from the root domain
@@ -534,6 +585,16 @@ const MAIN_APP_ROUTES = [
   // '/api', // Allow API access on subdomains (controlled by middleware)
   '/auth',
   '/login',
+  // Platform auth/staff pages under app/(auth)/ + the staff-invite flow. Like
+  // '/login', these live only on the platform (never a storefront), so on a
+  // subdomain they must redirect to usebaci.com/<route> and be EXCLUDED from the
+  // retired-slug storefront redirect — otherwise old.usebaci.com/signup would be
+  // sent to the current store's /signup (404) after a rename.
+  '/signup',
+  '/forgot-password',
+  '/update-password',
+  '/verify',
+  '/staff',
   '/onboarding',
   '/builder',
   '/reset-password',
@@ -542,6 +603,18 @@ const MAIN_APP_ROUTES = [
   '/robots.txt',
   '/manifest.webmanifest',
 ];
+
+/**
+ * Boundary-aware MAIN_APP_ROUTES match: `/staff` matches `/staff` and `/staff/...`
+ * but NOT a storefront category like `/staff-picks` or `/signup-sale`. A bare
+ * `startsWith(route)` would misclassify those valid storefront URLs as platform
+ * routes and redirect them off the merchant storefront.
+ */
+function matchesMainAppRoute(pathname: string): boolean {
+  return MAIN_APP_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
+}
 
 // Platform root routes that should still be served by the main app but cannot
 // live in MAIN_APP_ROUTES because merchant subdomains need storefront versions.
@@ -670,6 +743,63 @@ const NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS = new Set<string>([
   'quiz',
   'reviews',
 ]);
+
+// Every FIRST URL segment that resolves to a real storefront route under
+// (storefront)/[slug]/... — verified exhaustively against that route tree
+// (blog/catalog/commerce/content/customer/utility groups + the top-level
+// `storefront` legacy segment). Superset of NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.
+//
+// Used ONLY by the retired-slug PREFIX strip on custom domains: a merchant can
+// retire a slug that happens to equal a route name (e.g. a store once slugged
+// "blog"), which becomes an alias. On its custom domain, custom.example/blog/post
+// is a LIVE /blog route serving many URLs, so it must NOT be mistaken for a
+// legacy /<oldSlug>/... link and stripped to /post. A live route always wins
+// over redirects for a narrow set of ambiguous legacy links. Keep in sync with
+// the (storefront)/[slug] route groups.
+const STOREFRONT_ROUTE_FIRST_SEGMENTS = new Set<string>([
+  ...NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS,
+  'compare',
+  'search',
+  'contact',
+  'privacy',
+  'returns',
+  'shipping',
+  'warranty',
+  'terms-and-conditions',
+  'terms-of-service',
+  'storefront',
+]);
+
+// First URL segments that are PLATFORM/app routes reachable on a custom domain
+// but are NOT (storefront)/[slug] routes — so they don't belong in
+// STOREFRONT_ROUTE_FIRST_SEGMENTS (that set is kept in sync with the storefront
+// route tree and would prune these). Like the storefront set, these must be
+// excluded from the retired-slug PREFIX strip so a merchant whose retired slug
+// is literally "auth" or "feeds" doesn't break the live route:
+//   - 'auth'  -> the /auth/confirm magic-link pass-through (further down this branch)
+//   - 'feeds' -> the machine-readable feed pass-through (isPublicMachineReadablePath)
+// Tradeoff: an exotic genuine retired link custom.example/auth/<path> (old slug
+// was "auth") no longer 301-strips and falls through to the storefront 404 —
+// preserving the security-critical live /auth/confirm route is the right call.
+const CUSTOM_DOMAIN_APP_ROUTE_FIRST_SEGMENTS = new Set<string>([
+  'auth',
+  'feeds',
+]);
+
+// Query-param names that unambiguously carry the MERCHANT slug (merchantSlug:
+// shipping/quotes; merchant_slug: order tracking, order detail, feeds; merchant:
+// customer wallet). When a stale client on a just-retired subdomain calls such an
+// endpoint with the OLD slug in one of these params, the retired-slug API handler
+// rewrites it to the current slug so the endpoint resolves the renamed store
+// instead of 404ing. The bare `slug` key is deliberately EXCLUDED — it is also
+// used for product/resource slugs (e.g. the proxy's own product-membership /
+// canonical preflight), so rewriting it would corrupt a live product whose slug
+// happens to equal a retired storefront slug.
+const MERCHANT_SLUG_QUERY_PARAMS = [
+  'merchantSlug',
+  'merchant_slug',
+  'merchant',
+] as const;
 
 function isStorefrontHomeDocument(
   pathname: string,
@@ -806,6 +936,65 @@ function isCacheableSingleSegmentStorefrontDocument(
     firstSegment !== undefined &&
     isCacheablePublicStorefrontFirstSegment(pathname, hostname, firstSegment)
   );
+}
+
+function isStorefrontPdpDocument(
+  pathname: string,
+  hostname: string | undefined,
+  routeType: 'admin' | 'auth' | 'storefront' | 'api'
+): boolean {
+  const contentSegments = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  );
+  if (contentSegments.length !== 2) {
+    return false;
+  }
+
+  const firstSegment = contentSegments[0]?.toLowerCase();
+  if (firstSegment === 'products') {
+    return true;
+  }
+
+  return (
+    firstSegment !== undefined &&
+    !NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(firstSegment)
+  );
+}
+
+function canUseLongDownstreamStorefrontCache(
+  pathname: string,
+  hostname: string | undefined,
+  routeType: 'admin' | 'auth' | 'storefront' | 'api'
+): boolean {
+  if (isStorefrontHomeDocument(pathname, hostname, routeType)) {
+    return true;
+  }
+
+  const contentSegments = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  );
+  const firstSegment = contentSegments[0]?.toLowerCase();
+  if (firstSegment === 'blog') {
+    return true;
+  }
+  if (contentSegments.length !== 1 || firstSegment === undefined) {
+    return false;
+  }
+  if (firstSegment === 'products') {
+    return true;
+  }
+
+  const cachePolicy = getStorefrontPublicCachePolicy(pathname, hostname);
+  const categorySegments = cachePolicy
+    ? CACHEABLE_PUBLIC_STOREFRONT_CATEGORY_SEGMENTS_BY_SLUG.get(
+        cachePolicy.slug.toLowerCase()
+      )
+    : undefined;
+  return categorySegments?.has(firstSegment) === true;
 }
 
 // A storefront document is safe to CDN-cache only when it is anonymous public
@@ -1098,6 +1287,22 @@ function normalizeHostname(hostname: string): string {
   return hostname.split(':')[0].toLowerCase();
 }
 
+async function getSlugForOriginCustomDomain(
+  hostname: string
+): Promise<string | null> {
+  const normalizedHostname = normalizeHostname(hostname);
+
+  if (normalizedHostname.startsWith('www.')) {
+    const apexHostname = normalizedHostname.slice('www.'.length);
+    const apexSlug = await getSlugForCustomDomain(apexHostname);
+    if (apexSlug) {
+      return apexSlug;
+    }
+  }
+
+  return getSlugForCustomDomain(normalizedHostname);
+}
+
 /**
  * Validate subdomain follows DNS standards
  * - Only lowercase alphanumeric and hyphens
@@ -1106,6 +1311,124 @@ function normalizeHostname(hostname: string): string {
  */
 function isValidSubdomain(subdomain: string): boolean {
   return VALID_SUBDOMAIN_REGEX.test(subdomain);
+}
+
+/**
+ * Shape check only: if `pathname` looks like a `/<slugPrefix>/api/...` path whose
+ * prefix could be a retired alias (valid subdomain shape, not a storefront/app-route
+ * segment), return `{ apiPathname, prefix }`; otherwise null. Confirmation that it is
+ * ACTUALLY a retired-alias API request (and will be rewritten) happens via the alias
+ * lookup — this must mirror the rewrite branches' filter exactly, or the pre-rewrite
+ * API guard (rate limit / CSRF / body-size) would skip a request the rewrite handles.
+ * RESERVED_SUBDOMAINS is intentionally NOT excluded: the custom-domain and root-path
+ * rewrites resolve grandfathered reserved-name aliases (e.g. `support`, `cdn`), so the
+ * guard must too. A non-alias reserved prefix simply resolves to no alias downstream.
+ */
+function matchAliasApiPrefixShape(
+  pathname: string
+): { apiPathname: string; prefix: string } | null {
+  const [first, second] = pathname.split('/').filter(Boolean);
+  if (!first || second?.toLowerCase() !== 'api') {
+    return null;
+  }
+  const prefix = first.toLowerCase();
+  if (
+    !isValidSubdomain(prefix) ||
+    STOREFRONT_ROUTE_FIRST_SEGMENTS.has(prefix) ||
+    CUSTOM_DOMAIN_APP_ROUTE_FIRST_SEGMENTS.has(prefix)
+  ) {
+    return null;
+  }
+  return { apiPathname: pathname.slice(first.length + 1) || '/', prefix };
+}
+
+/**
+ * Same-origin /api handling for a request on a `{slug}.usebaci.com` subdomain (live
+ * OR retired). A cross-origin 301 would drop same-origin cookies / CORS-fail
+ * credentialed fetches and discard POST bodies, so the request is passed through /
+ * rewritten on the retired host. x-merchant-slug stays the PRESENTED (old) subdomain
+ * slug — the shipping resolver only trusts it when host === `${slug}.usebaci.com`
+ * (anti-spoof) and falls back to the alias table on a miss — and stale slug-bearing
+ * QUERY params are corrected to the current slug (query-based endpoints resolve the
+ * merchant from these). Shared by the normal subdomain branch and the reserved-
+ * subdomain fallback (grandfathered infra-name aliases).
+ */
+async function buildSubdomainApiResponse(
+  request: NextRequest,
+  subdomain: string,
+  hostname: string,
+  userAgent: string
+): Promise<NextResponse> {
+  const requestHeaders = buildProxyRequestHeaders(request);
+  requestHeaders.set('x-merchant-slug', subdomain);
+
+  let rewrittenApiUrl: URL | null = null;
+  if (!isLocalhost(hostname)) {
+    const hostAliasCurrentSlug = await getCurrentSlugForAlias(subdomain);
+    const currentSlug = hostAliasCurrentSlug || subdomain;
+    const currentSlugLower = currentSlug.toLowerCase();
+    const retiredHostSlug = subdomain.toLowerCase();
+    const url = request.nextUrl.clone();
+
+    for (const param of MERCHANT_SLUG_QUERY_PARAMS) {
+      const value = url.searchParams.get(param)?.toLowerCase();
+      if (!value || value === currentSlugLower) {
+        continue;
+      }
+
+      const aliasCurrentSlug =
+        hostAliasCurrentSlug && value === retiredHostSlug
+          ? hostAliasCurrentSlug
+          : await getCurrentSlugForAlias(value);
+
+      if (aliasCurrentSlug?.toLowerCase() === currentSlugLower) {
+        url.searchParams.set(param, currentSlug);
+      }
+    }
+
+    if (url.search !== request.nextUrl.search) {
+      rewrittenApiUrl = url;
+    }
+  }
+
+  const response = rewrittenApiUrl
+    ? NextResponse.rewrite(rewrittenApiUrl, {
+        request: { headers: requestHeaders },
+      })
+    : NextResponse.next({ request: { headers: requestHeaders } });
+
+  const { pathname } = request.nextUrl;
+  return applySecurityHeaders(
+    response,
+    pathname,
+    userAgent,
+    getRouteType(pathname),
+    isLocalhost(hostname),
+    undefined,
+    request,
+    hostname
+  );
+}
+
+/**
+ * True when `pathname` has the retired-alias-prefixed API SHAPE (`/<prefix>/api/...`)
+ * on a host that could rewrite it — i.e. the root domain or a custom domain, NOT a
+ * merchant subdomain (where the same path is a storefront page, never rewritten). The
+ * API rate limiter keys off this SYNC check so it runs before the DB-hitting alias
+ * confirmation; without it, rotating the first path segment could force un-rate-limited
+ * getCurrentSlugForAlias lookups.
+ */
+function isAliasApiShapedOnRewritableHost(
+  hostname: string | undefined,
+  shape: { apiPathname: string; prefix: string } | null
+): boolean {
+  if (!shape) {
+    return false;
+  }
+  const subdomain = hostname ? extractSubdomain(hostname, ROOT_DOMAIN) : null;
+  const isOnMerchantSubdomain =
+    subdomain !== null && !RESERVED_SUBDOMAINS.has(subdomain);
+  return !isOnMerchantSubdomain;
 }
 
 /**
@@ -1549,8 +1872,10 @@ function buildHardStatusStorefrontResponse(
   // Header-level noindex (belt-and-suspenders with the body <meta>): crawlers
   // that only HEAD, or don't parse the body, still get the directive.
   response.headers.set('X-Robots-Tag', 'noindex, follow');
-  // no-store LAST: the cache section runs inside applySecurityHeaders and would
-  // otherwise mark a product-shaped path cacheable, edge-caching a false 404.
+  // Clear every split CDN header LAST: the cache section runs inside
+  // applySecurityHeaders and would otherwise mark a product-shaped path
+  // cacheable, edge-caching a false 404/410 at the highest-precedence layer.
+  applyStorefrontDocumentCacheHeaders(response, 'non-cacheable');
   response.headers.set('Cache-Control', PDP_HTML_CACHE_CONTROL);
   return response;
 }
@@ -1634,6 +1959,42 @@ async function resolveStorefrontPdpHardNotFound(
     RESERVED_STOREFRONT_SEGMENTS.has(productSlug.toLowerCase())
   ) {
     return null;
+  }
+  // `/{category}/compare` is the category compare hub route, not a PDP — it
+  // must never be resolved (and hard-404ed) as a product slug. The categoryless
+  // `/products/{slug}` fallback stays checked: `products` beats the dynamic
+  // `[category]` segment in route precedence, so `/products/compare` has no hub
+  // route and `compare` there can only be a genuine product slug.
+  //
+  // Confirmed-EMPTY hubs (anti-thin-page guard) get the same hard 404 as
+  // missing PDPs: the page's own thin-hub notFound() only yields a PPR
+  // soft-404 (200 + noindex shell). The verdict is the page's own criterion
+  // served by /api/internal/compare-hub-status, fails open on any uncertainty,
+  // and is skipped for param URLs — mirroring the PDP hasSearchParams rule —
+  // so a hub that gains eligible products serves 200 on the next clean crawl.
+  if (
+    !isProductsFallbackPdp &&
+    CATEGORY_LISTING_HUB_SEGMENTS.has(productSlug.toLowerCase())
+  ) {
+    if (hasSearchParams) {
+      return null;
+    }
+    const hubStatus = await resolveStorefrontCompareHubStatus({
+      origin: request.nextUrl.origin,
+      identifier,
+      categorySlug: firstSegment,
+      secret: getInternalApiSecret(),
+    });
+    if (hubStatus.kind !== 'empty') {
+      return null;
+    }
+    return buildHardStatusStorefrontResponse(
+      404,
+      request,
+      pathname,
+      userAgent,
+      hostname
+    );
   }
   // UUID product URLs (`/{category}/{productId}`) resolve through the page's
   // id-based lookup + canonical 308; the slug set only holds slugs, so a
@@ -1734,6 +2095,16 @@ async function resolveStorefrontPdpCanonicalRedirect(
   if (
     !productSlug ||
     RESERVED_STOREFRONT_SEGMENTS.has(productSlug.toLowerCase())
+  ) {
+    return { response: null, skipHardNotFound: false };
+  }
+  // `/{category}/compare` is the category compare hub route, not a PDP — never
+  // spend a canonical-alias lookup on it (a stale alias literally slugged
+  // "compare" must not 308 the live hub away either). The categoryless
+  // `/products/{slug}` fallback stays checked, mirroring the hard-404 gate.
+  if (
+    !isProductsFallbackPdp &&
+    CATEGORY_LISTING_HUB_SEGMENTS.has(productSlug.toLowerCase())
   ) {
     return { response: null, skipHardNotFound: false };
   }
@@ -2069,6 +2440,37 @@ function toLlmApiPath(pathname: string, slug: string): string {
 }
 
 /**
+ * If `oldSlug` is a retired storefront slug (the merchant renamed via the
+ * "Change store URL" flow), return the absolute URL to 301 to — the current
+ * slug's custom domain if it has one, otherwise its `<slug>.usebaci.com`
+ * subdomain — with `restPath` + `search` appended. Returns null when it isn't a
+ * retired alias.
+ *
+ * Only safe/idempotent methods redirect: a 301 on POST/PUT/etc. lets clients
+ * replay as GET, dropping the body and breaking non-idempotent flows (checkout,
+ * order creation) that a stale client may fire at the just-retired host. The
+ * method guard lives here so every call site inherits it.
+ */
+async function resolveRetiredSlugRedirect(
+  oldSlug: string,
+  restPath: string,
+  search: string,
+  method: string
+): Promise<string | null> {
+  if (method !== 'GET' && method !== 'HEAD') {
+    return null;
+  }
+  const currentSlug = await getCurrentSlugForAlias(oldSlug);
+  if (!currentSlug || currentSlug === oldSlug) {
+    return null;
+  }
+  const renamedCustomDomain = await getCustomDomainForSlug(currentSlug);
+  const destinationHost =
+    renamedCustomDomain ?? `${currentSlug}.${ROOT_DOMAIN}`;
+  return `https://${destinationHost}${restPath}${search}`;
+}
+
+/**
  * Next.js Middleware Function
  * Handles multi-tenant routing, security headers, caching, and authentication
  */
@@ -2110,11 +2512,26 @@ export async function proxy(request: NextRequest) {
   const isLegacyAnalyticsConversionPost =
     isLegacyAnalyticsConversionPath(pathname) && request.method === 'POST';
   const isLegacyKlumpWebhook = isLegacyKlumpWooCommerceWebhookPath(pathname);
-  const apiSecurityPathname = isLegacyKlumpWebhook
+  // A `/<oldSlug>/api/...` request is rewritten to `/api/...` by the custom-domain /
+  // root-path branches below, so the API security guard must evaluate that EFFECTIVE
+  // /api path or the rewrite would slip past it. Detect the SHAPE synchronously (no
+  // DB) so the rate limiter runs BEFORE the alias confirmation; the confirmation (a DB
+  // lookup) is deferred until after rate limiting, and body-size/CSRF apply only once
+  // the alias is confirmed — so a storefront page that merely has `api` as a second
+  // segment is neither rate-limit-bypassed nor wrongly treated as an API mutation.
+  const aliasApiShape = matchAliasApiPrefixShape(pathname);
+  const isAliasApiShaped = isAliasApiShapedOnRewritableHost(
+    hostname,
+    aliasApiShape
+  );
+  // Pathname the RATE LIMITER keys off — the effective /api path for the alias SHAPE.
+  const apiRateLimitPathname = isLegacyKlumpWebhook
     ? KLUMP_WEBHOOK_API_PATH
     : isLegacyAnalyticsConversionPost
       ? ANALYTICS_CONVERSION_API_PATH
-      : pathname;
+      : isAliasApiShaped && aliasApiShape
+        ? aliasApiShape.apiPathname
+        : pathname;
 
   // The blog.ogabassey.com migration branch below owns every request to that
   // host and does its own trailing-slash normalization, so exempt it here.
@@ -2135,16 +2552,21 @@ export async function proxy(request: NextRequest) {
   }
 
   // ==== RATE LIMITING (API Routes) ====
-  // Protect API endpoints from abuse
-  if (apiSecurityPathname.startsWith('/api')) {
+  // Runs on the SHAPE (apiRateLimitPathname), BEFORE the alias DB confirmation, so a
+  // client rotating the first path segment (`/<random>/api/...`) can't force
+  // un-rate-limited getCurrentSlugForAlias lookups. Protect API endpoints from abuse.
+  if (apiRateLimitPathname.startsWith('/api')) {
     // Internal, Bearer-authed self-calls (e.g. the proxy's own slug-set lookup
     // for the crawl-budget hard-404) must NOT count against the public per-IP
     // rate limiter — a crawler burst would otherwise 429 the internal fetch and
     // silently disable hard-404s for the window. ONLY exempt requests that carry
     // the valid internal secret; an unauthenticated/forged `/api/internal/*` hit
-    // stays rate-limited so the secret cannot be flood-guessed without a 429.
+    // stays rate-limited so the secret cannot be flood-guessed without a 429. A
+    // retired-alias-SHAPED request is never a legit self-call (the real one uses the
+    // un-prefixed /api/internal path), so it is never exempt.
     const isExemptInternalCall =
-      apiSecurityPathname.startsWith('/api/internal/') &&
+      !isAliasApiShaped &&
+      apiRateLimitPathname.startsWith('/api/internal/') &&
       isAuthenticatedInternalRequest(request);
     const rateLimitResult = isExemptInternalCall
       ? null
@@ -2156,7 +2578,24 @@ export async function proxy(request: NextRequest) {
         rateLimitResult.resetTime
       );
     }
+  }
 
+  // CONFIRM the alias (DB lookup) — now bounded by the rate limiter above — so the
+  // remaining guards apply to the EFFECTIVE /api path ONLY when the request will
+  // actually be rewritten. An alias-shaped path whose prefix is NOT a retired alias is
+  // an ordinary storefront page: it keeps the raw pathname and skips the /api guards.
+  let apiSecurityPathname = apiRateLimitPathname;
+  if (isAliasApiShaped && aliasApiShape) {
+    const confirmedAliasSlug = await getCurrentSlugForAlias(
+      aliasApiShape.prefix
+    );
+    apiSecurityPathname = confirmedAliasSlug
+      ? aliasApiShape.apiPathname
+      : pathname;
+  }
+
+  // ==== INPUT VALIDATION + CSRF (API Routes) ==== on the CONFIRMED /api path.
+  if (apiSecurityPathname.startsWith('/api')) {
     // ==== INPUT VALIDATION (Mutation Requests) ====
     // Enforce Content-Type and body size limits at the edge
     const method = request.method;
@@ -2254,8 +2693,11 @@ export async function proxy(request: NextRequest) {
 
           if (!isAllowed) {
             // Check custom domains: look up whether this origin is a
-            // registered merchant custom domain.
-            const customSlug = await getSlugForCustomDomain(originHostname);
+            // registered merchant custom domain. Match storefront routing:
+            // www.example.com is allowed when example.com is the registered
+            // domain, with a raw www fallback for merchants that registered it.
+            const customSlug =
+              await getSlugForOriginCustomDomain(originHostname);
             if (!customSlug) {
               return NextResponse.json(
                 { error: 'Cross-origin request blocked' },
@@ -2476,6 +2918,27 @@ export async function proxy(request: NextRequest) {
   // Keep host-scoped llms files available on both the platform domain and
   // merchant storefront domains without proxy rewrites.
   if (pathname === '/llms.txt' || pathname === '/llms-full.txt') {
+    // This passthrough runs before the main subdomain alias redirect below, so
+    // a retired storefront subdomain would otherwise keep serving its discovery
+    // files (with the old host as canonical) instead of 301ing. Redirect retired
+    // aliases here too; live subdomains fall through to next() unchanged.
+    if (!isLocalhost(hostname)) {
+      const llmsSlug = extractSubdomain(
+        normalizeHostname(hostname),
+        ROOT_DOMAIN
+      );
+      if (llmsSlug && !RESERVED_SUBDOMAINS.has(llmsSlug)) {
+        const aliasRedirect = await resolveRetiredSlugRedirect(
+          llmsSlug,
+          pathname,
+          request.nextUrl.search,
+          request.method
+        );
+        if (aliasRedirect) {
+          return NextResponse.redirect(aliasRedirect, 302);
+        }
+      }
+    }
     return NextResponse.next();
   }
 
@@ -2507,6 +2970,24 @@ export async function proxy(request: NextRequest) {
     if (segments.length >= 1) {
       const slug = segments[0];
       const rest = pathname.slice(`/${slug}`.length);
+      // Retired-slug markdown link (usebaci.com/<oldSlug>/about.md): 301 to the
+      // current storefront URL before rewriting to the LLM API path, so these
+      // links survive a rename too. Platform segments are excluded.
+      if (
+        isValidSubdomain(slug) &&
+        !RESERVED_SUBDOMAINS.has(slug) &&
+        !PLATFORM_ROOT_ROUTE_SEGMENTS.has(slug.toLowerCase())
+      ) {
+        const aliasRedirect = await resolveRetiredSlugRedirect(
+          slug,
+          rest || '/',
+          request.nextUrl.search,
+          request.method
+        );
+        if (aliasRedirect) {
+          return NextResponse.redirect(aliasRedirect, 302);
+        }
+      }
       const mdUrl = request.nextUrl.clone();
       mdUrl.pathname = toLlmApiPath(rest, slug);
       return NextResponse.rewrite(mdUrl);
@@ -2563,6 +3044,14 @@ export async function proxy(request: NextRequest) {
       ),
       308
     );
+  }
+
+  const platformRouteSubdomain =
+    hostname && !isLocalhost(hostname)
+      ? extractSubdomain(hostname, ROOT_DOMAIN)
+      : null;
+  if (platformRouteSubdomain && matchesMainAppRoute(pathname)) {
+    return NextResponse.redirect(new URL(pathname, `https://${ROOT_DOMAIN}`));
   }
 
   // ==== AUTH MIDDLEWARE (Server-side session verification) ====
@@ -2733,7 +3222,81 @@ export async function proxy(request: NextRequest) {
       // fallback below to genuine www requests only.
       const requestHostHadWww = normalizedRequestHost.startsWith('www.');
       const domainPathSegments = pathname.split('/').filter(Boolean);
-      const domainMerchantSlug = await getSlugForCustomDomain(domain);
+      let domainMerchantSlug = await getSlugForCustomDomain(domain);
+
+      // getSlugForCustomDomain's reverse domain->slug cache is per-instance with a
+      // 5-minute TTL, so right after a rename an instance that cached the mapping
+      // can still return the RETIRED slug — which would rewrite the storefront to
+      // /<oldSlug>/... and 404. The alias table (DB, cross-instance authoritative)
+      // fixes this: if the resolved slug is itself now a retired alias, follow it
+      // to the current slug so the custom domain never 404s during that window.
+      if (domainMerchantSlug) {
+        const currentForDomainSlug =
+          await getCurrentSlugForAlias(domainMerchantSlug);
+        if (
+          currentForDomainSlug &&
+          currentForDomainSlug !== domainMerchantSlug
+        ) {
+          domainMerchantSlug = currentForDomainSlug;
+        }
+      }
+
+      // Retired slug PREFIX on a custom domain (custom.example/<oldSlug>/...):
+      // if the first segment is a slug this merchant used to have — i.e. its
+      // alias now resolves to the domain's CURRENT slug — 301 to the un-prefixed
+      // custom-domain URL (same host, prefix dropped) so those legacy links keep
+      // working after a rename. Only GET/HEAD (a 301 on POST drops the body).
+      // API paths (/<oldSlug>/api/...) are EXCLUDED here — a 301 would preserve a
+      // stale ?merchant_slug=old query and drop bodies; the retired-alias API
+      // rewrite below handles them (any method) and rewrites those query params.
+      if (
+        domainMerchantSlug &&
+        domainPathSegments.length >= 1 &&
+        domainPathSegments[1]?.toLowerCase() !== 'api' &&
+        (request.method === 'GET' || request.method === 'HEAD')
+      ) {
+        const firstSegment = domainPathSegments[0].toLowerCase();
+        if (
+          firstSegment !== domainMerchantSlug.toLowerCase() &&
+          isValidSubdomain(firstSegment) &&
+          // RESERVED_SUBDOMAINS is intentionally NOT excluded here: a merchant that
+          // held an infra name (e.g. `cdn`, `support`) as a slug before it was
+          // reserved could have retired it, so custom.example/<oldReservedSlug>/...
+          // must still strip. The merchant-scoped alias check below (aliasCurrentSlug
+          // === domainMerchantSlug) is what gates the strip — a non-alias reserved
+          // prefix resolves to no alias and safely falls through as a storefront path.
+          // A retired slug that collides with a real storefront route (e.g. a
+          // store once slugged "blog") must not strip its own live /blog route,
+          // nor a platform app route reachable here (e.g. /auth/confirm, /feeds/*).
+          // ACCEPTED TRADEOFF: a merchant's live [category] / [category]/[product]
+          // paths are DYNAMIC per-merchant data and can't be enumerated statically,
+          // so if a merchant's OWN retired slug equals their OWN live category name
+          // (e.g. renamed away from "shoes" while /shoes is still a category), that
+          // one path would be stripped. This is astronomically narrow and is the
+          // SAME limitation the pre-existing current-slug canonicalization below
+          // (~/<currentSlug>/<cat>/<prod>) already has — a per-request category
+          // membership DB lookup on every custom-domain path isn't worth it.
+          !STOREFRONT_ROUTE_FIRST_SEGMENTS.has(firstSegment) &&
+          !CUSTOM_DOMAIN_APP_ROUTE_FIRST_SEGMENTS.has(firstSegment)
+        ) {
+          const aliasCurrentSlug = await getCurrentSlugForAlias(firstSegment);
+          if (
+            aliasCurrentSlug &&
+            aliasCurrentSlug.toLowerCase() === domainMerchantSlug.toLowerCase()
+          ) {
+            const strippedPathname =
+              pathname.slice(`/${domainPathSegments[0]}`.length) || '/';
+            const normalizedPathname =
+              normalizeStorefrontTermsAliasPath(strippedPathname);
+            // 302 (temporary): the alias is reversible via rename-back, so a
+            // browser-cached permanent redirect could loop.
+            return NextResponse.redirect(
+              `https://${domain}${normalizedPathname}${request.nextUrl.search}`,
+              302
+            );
+          }
+        }
+      }
 
       if (pathname === '/favicon.ico') {
         return buildStorefrontFaviconRewriteResponse({
@@ -2881,6 +3444,75 @@ export async function proxy(request: NextRequest) {
         );
       }
 
+      // RETIRED-slug-prefixed API requests on custom domains, any method:
+      // custom.example/<oldSlug>/api/... where <oldSlug> is a slug this merchant
+      // used to have. The current-slug API rewrite above only matches the CURRENT
+      // slug, and the GET/HEAD prefix strip earlier only 301s storefront paths, so
+      // a stale client's non-idempotent call (POST /oldSlug/api/storefront/customer)
+      // would otherwise fall through to the storefront rewrite and 405. Internally
+      // rewrite to /api/... (body + method preserved). Cheap guards run BEFORE the
+      // alias DB lookup to bound its cost, and exclude storefront/app route prefixes
+      // so /blog/api/... (blog = a route, not this merchant's alias) isn't touched.
+      if (
+        domainMerchantSlug &&
+        domainPathSegments[1]?.toLowerCase() === 'api' &&
+        domainPathSegments[0]
+      ) {
+        const aliasPrefix = domainPathSegments[0].toLowerCase();
+        if (
+          aliasPrefix !== domainMerchantSlug.toLowerCase() &&
+          isValidSubdomain(aliasPrefix) &&
+          // RESERVED_SUBDOMAINS intentionally NOT excluded (matches the non-API
+          // prefix strip): the backfill records a grandfathered infra slug (e.g.
+          // `support`, `cdn`) as this merchant's alias, so store.example/support/api/…
+          // must still rewrite. The merchant-scoped alias check below gates it.
+          !STOREFRONT_ROUTE_FIRST_SEGMENTS.has(aliasPrefix) &&
+          !CUSTOM_DOMAIN_APP_ROUTE_FIRST_SEGMENTS.has(aliasPrefix)
+        ) {
+          const aliasCurrentSlug = await getCurrentSlugForAlias(aliasPrefix);
+          if (
+            aliasCurrentSlug &&
+            aliasCurrentSlug.toLowerCase() === domainMerchantSlug.toLowerCase()
+          ) {
+            const strippedApiPathname =
+              pathname.slice(domainPathSegments[0].length + 1) || '/';
+            const apiUrl = request.nextUrl.clone();
+            apiUrl.pathname = strippedApiPathname;
+            // Rewrite stale slug-bearing query params to the current slug —
+            // query-based endpoints (track-order/wallet) resolve the merchant from
+            // these, not the forwarded custom-domain header.
+            for (const param of MERCHANT_SLUG_QUERY_PARAMS) {
+              if (
+                apiUrl.searchParams.get(param)?.toLowerCase() === aliasPrefix
+              ) {
+                apiUrl.searchParams.set(param, aliasCurrentSlug);
+              }
+            }
+
+            const apiHeaders = buildProxyRequestHeaders(request);
+            apiHeaders.set('x-custom-domain', domain);
+            apiHeaders.set('x-merchant-domain', domain);
+
+            const response = NextResponse.rewrite(apiUrl, {
+              request: { headers: apiHeaders },
+            });
+
+            const routeType = getRouteType(strippedApiPathname);
+            const isLocal = isLocalhost(hostname);
+            return applySecurityHeaders(
+              response,
+              strippedApiPathname,
+              userAgent,
+              routeType,
+              isLocal,
+              undefined,
+              request,
+              hostname
+            );
+          }
+        }
+      }
+
       // API routes should NOT be rewritten - they exist at /api/*, not /domain/api/*
       // This fixes 405 errors when calling APIs from custom domains
       // API routes should NOT be rewritten - they exist at /api/*, not /domain/api/*
@@ -2890,12 +3522,36 @@ export async function proxy(request: NextRequest) {
         requestHeaders.set('x-custom-domain', domain);
         requestHeaders.set('x-merchant-domain', domain);
 
-        // API routes shouldn't rewrite, just pass through
-        const response = NextResponse.next({
-          request: {
-            headers: requestHeaders,
-          },
-        });
+        // Correct stale slug query params: after a rename, an open tab on the
+        // custom domain calls root-relative /api?merchant=old / ?merchantSlug=old
+        // with the RETIRED slug (no /<slug>/api prefix). Rewrite any such param
+        // whose value is a retired alias of THIS domain's merchant to the current
+        // slug so query-based handlers resolve the store instead of 404ing. The
+        // getCurrentSlugForAlias lookup only fires for a param value that differs
+        // from the current slug (i.e. the rare post-rename case).
+        let apiUrl: URL | null = null;
+        if (domainMerchantSlug) {
+          const current = domainMerchantSlug.toLowerCase();
+          const url = request.nextUrl.clone();
+          for (const param of MERCHANT_SLUG_QUERY_PARAMS) {
+            const value = url.searchParams.get(param)?.toLowerCase();
+            if (value && value !== current) {
+              const aliasCurrent = await getCurrentSlugForAlias(value);
+              if (aliasCurrent && aliasCurrent.toLowerCase() === current) {
+                url.searchParams.set(param, domainMerchantSlug);
+              }
+            }
+          }
+          if (url.search !== request.nextUrl.search) {
+            apiUrl = url;
+          }
+        }
+
+        const response = apiUrl
+          ? NextResponse.rewrite(apiUrl, {
+              request: { headers: requestHeaders },
+            })
+          : NextResponse.next({ request: { headers: requestHeaders } });
 
         const routeType = getRouteType(pathname); // returns 'api'
         const isLocal = isLocalhost(hostname);
@@ -3159,8 +3815,79 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // Reserved-infra subdomains (cdn, mail, ...) are normally NOT storefronts and skip
+  // the block below. But a merchant that held one of these slugs before it was reserved
+  // (grandfathered) could have retired it via a rename — its old URL must still resolve
+  // to the current store, since the alias table and auth resolver keep such slugs
+  // resolvable.
+  if (
+    subdomain &&
+    RESERVED_SUBDOMAINS.has(subdomain) &&
+    !isLocalhost(hostname)
+  ) {
+    // /api on a reserved retired-alias subdomain (e.g. support.usebaci.com/api/...):
+    // same-origin, alias-aware API handling — a 301 would drop the stale XHR's cookies/
+    // body and leave the retired slug in headers/query. Only a genuine retired alias is
+    // rewritten; a non-alias reserved subdomain's /api passes through unchanged.
+    if (pathname.startsWith('/api')) {
+      const currentSlug = await getCurrentSlugForAlias(subdomain);
+      if (currentSlug && currentSlug !== subdomain) {
+        return buildSubdomainApiResponse(
+          request,
+          subdomain,
+          hostname,
+          userAgent
+        );
+      }
+    } else if (matchesMainAppRoute(pathname)) {
+      return NextResponse.redirect(new URL(pathname, `https://${ROOT_DOMAIN}`));
+    } else {
+      // Non-API storefront path: retired-alias 302 to the current store.
+      const aliasRedirect = await resolveRetiredSlugRedirect(
+        subdomain,
+        pathname,
+        request.nextUrl.search,
+        request.method
+      );
+      if (aliasRedirect) {
+        return NextResponse.redirect(aliasRedirect, 302);
+      }
+    }
+  }
+
   // If we have a valid subdomain (not reserved), rewrite to storefront routes
   if (subdomain && !RESERVED_SUBDOMAINS.has(subdomain)) {
+    // ==== REDIRECT RETIRED SLUG TO CURRENT SLUG ====
+    // Runs FIRST — before favicon, main-app, and .md handling — so EVERY storefront
+    // path on a retired subdomain (/, /favicon.ico, /*.md, /products/..., ...) 301s
+    // to the current storefront URL after a rename, not just the page routes. If
+    // this subdomain is a slug the store used to have (renamed via "Change store
+    // URL"), old links, bookmarks, and QR codes keep working instead of 404ing.
+    // EXCEPTION: /api/* is handled by the subdomain API branch below (header +
+    // query-param rewrite, not a 301) — a cross-origin 301 on an XHR drops cookies/
+    // CORS and POST bodies, and a stale ?merchantSlug=old would survive the redirect.
+    // EXCEPTION: MAIN_APP_ROUTES (/dashboard, /login, /auth, ...) must fall through
+    // to the platform redirect below (-> usebaci.com/<route>), NOT be treated as a
+    // storefront path — otherwise old.usebaci.com/dashboard would 302 to the
+    // merchant's storefront/custom-domain and 404, breaking old admin/auth bookmarks.
+    if (
+      !isLocalhost(hostname) &&
+      !pathname.startsWith('/api') &&
+      !matchesMainAppRoute(pathname)
+    ) {
+      const aliasRedirect = await resolveRetiredSlugRedirect(
+        subdomain,
+        pathname,
+        request.nextUrl.search,
+        request.method
+      );
+      if (aliasRedirect) {
+        // 302 (temporary): a merchant can rename BACK (A->B->A), so a browser-
+        // cached permanent redirect would loop against the reverse alias.
+        return NextResponse.redirect(aliasRedirect, 302);
+      }
+    }
+
     if (pathname === '/favicon.ico') {
       return buildStorefrontFaviconRewriteResponse({
         request,
@@ -3173,7 +3900,7 @@ export async function proxy(request: NextRequest) {
     }
 
     // Check if trying to access main app routes from subdomain - redirect to main domain
-    if (MAIN_APP_ROUTES.some((route) => pathname.startsWith(route))) {
+    if (matchesMainAppRoute(pathname)) {
       return NextResponse.redirect(new URL(pathname, `https://${ROOT_DOMAIN}`));
     }
 
@@ -3191,7 +3918,20 @@ export async function proxy(request: NextRequest) {
       if (legacyTermsAliasRedirect) {
         return legacyTermsAliasRedirect;
       }
-      if (customDomain) {
+      // Only GET/HEAD get the canonical custom-domain 301. A cross-origin redirect
+      // drops same-origin cookies, CORS-fails credentialed requests, and turns a POST
+      // into a GET (losing its body) — so non-GET/HEAD (storefront server actions /
+      // form POSTs to page routes) must fall through to storefront handling, which is
+      // alias-aware for retired subdomains. /api is exempt for the same reason (its
+      // same-origin rewrite is below). Canonicalization is a SEO/GET concern anyway;
+      // mutations carry no duplicate-content risk.
+      const isCanonicalizableMethod =
+        request.method === 'GET' || request.method === 'HEAD';
+      if (
+        customDomain &&
+        !pathname.startsWith('/api') &&
+        isCanonicalizableMethod
+      ) {
         const customDomainUrl = `https://${customDomain}${pathname}${request.nextUrl.search}`;
         return NextResponse.redirect(customDomainUrl, 301);
       }
@@ -3209,30 +3949,14 @@ export async function proxy(request: NextRequest) {
     // ogabassey.usebaci.com/smartphones/iphone-12 -> /ogabassey/smartphones/iphone-12
 
     // ==== FIX: API Routes on Subdomains ====
-    // Do NOT rewrite API routes to /[subdomain]/api/...
-    // Instead, pass them through with headers
+    // Do NOT rewrite API routes to /[subdomain]/api/...; pass them through with headers
+    // (same-origin, alias-aware). Shared with the reserved-subdomain fallback.
     if (pathname.startsWith('/api')) {
-      const requestHeaders = buildProxyRequestHeaders(request);
-      requestHeaders.set('x-merchant-slug', subdomain as string);
-
-      // Pass through without rewriting path
-      const response = NextResponse.next({
-        request: {
-          headers: requestHeaders,
-        },
-      });
-
-      const routeType = getRouteType(pathname); // returns 'api'
-      const isLocal = isLocalhost(hostname);
-      return applySecurityHeaders(
-        response,
-        pathname,
-        userAgent,
-        routeType,
-        isLocal,
-        undefined,
+      return buildSubdomainApiResponse(
         request,
-        hostname
+        subdomain as string,
+        hostname,
+        userAgent
       );
     }
 
@@ -3368,14 +4092,135 @@ export async function proxy(request: NextRequest) {
     if (
       pathSegments.length >= 1 &&
       !isRootDomainOnlyMainAppRoute &&
-      !MAIN_APP_ROUTES.some((route) => pathname.startsWith(route))
+      !matchesMainAppRoute(pathname)
     ) {
       const potentialSlug = pathSegments[0];
+
+      // A grandfathered infra-reserved slug (e.g. `support`, `cdn`) that the backfill
+      // retired is recorded as an alias, so usebaci.com/<reservedAlias>/... must still
+      // 302 to the current store — the main block below skips reserved segments. Only
+      // non-platform reserved names (PLATFORM_ROOT_ROUTE_SEGMENTS are real platform
+      // pages) and non-API/non-GET-safe paths are eligible; resolveRetiredSlugRedirect
+      // returns null (fall through) unless it is genuinely a retired alias.
+      if (
+        isValidSubdomain(potentialSlug) &&
+        RESERVED_SUBDOMAINS.has(potentialSlug) &&
+        !PLATFORM_ROOT_ROUTE_SEGMENTS.has(potentialSlug.toLowerCase())
+      ) {
+        if (pathSegments[1]?.toLowerCase() === 'api') {
+          const currentSlug = await getCurrentSlugForAlias(potentialSlug);
+          if (currentSlug && currentSlug !== potentialSlug) {
+            const rewriteUrl = request.nextUrl.clone();
+            const strippedApiPathname =
+              pathname.slice(`/${potentialSlug}`.length) || '/';
+            rewriteUrl.pathname = strippedApiPathname;
+            const retired = potentialSlug.toLowerCase();
+            for (const param of MERCHANT_SLUG_QUERY_PARAMS) {
+              if (
+                rewriteUrl.searchParams.get(param)?.toLowerCase() === retired
+              ) {
+                rewriteUrl.searchParams.set(param, currentSlug);
+              }
+            }
+            const response = NextResponse.rewrite(rewriteUrl, {
+              request: { headers: buildProxyRequestHeaders(request) },
+            });
+
+            return applySecurityHeaders(
+              response,
+              strippedApiPathname,
+              userAgent,
+              getRouteType(strippedApiPathname),
+              isLocalhost(hostname),
+              undefined,
+              request,
+              hostname
+            );
+          }
+        } else {
+          const reservedAliasNewPathname =
+            pathname.replace(`/${potentialSlug}`, '') || '/';
+          const reservedAliasRedirect = await resolveRetiredSlugRedirect(
+            potentialSlug,
+            normalizeStorefrontTermsAliasPath(reservedAliasNewPathname),
+            request.nextUrl.search,
+            request.method
+          );
+          if (reservedAliasRedirect) {
+            return NextResponse.redirect(reservedAliasRedirect, 302);
+          }
+        }
+      }
 
       if (
         isValidSubdomain(potentialSlug) &&
         !RESERVED_SUBDOMAINS.has(potentialSlug)
       ) {
+        // Retired-alias redirect ONLY for non-platform segments: platform pages
+        // (pricing, about, blog, ...) live at usebaci.com/<segment> and must never
+        // be treated as a retired storefront alias. A TEMPORARY (302) redirect —
+        // not 301 — because a merchant can rename BACK (A->B->A), and a browser-
+        // cached permanent A->B would then loop against B's alias->A redirect.
+        if (!PLATFORM_ROOT_ROUTE_SEGMENTS.has(potentialSlug.toLowerCase())) {
+          // Root-path API call on a RETIRED alias (usebaci.com/<oldSlug>/api/...).
+          // A cross-origin 302 to the current subdomain would drop the caller's
+          // Bearer token / same-origin cookies and its POST body, so resolve the
+          // alias and do a SAME-ORIGIN rewrite to /api/... with the merchant-slug
+          // query params corrected to the current slug — mirroring the retired-
+          // subdomain and custom-domain API branches. Only a genuine retired alias
+          // (getCurrentSlugForAlias resolves) triggers this; /api handlers still do
+          // their own auth, so this grants no extra access.
+          if (pathSegments[1]?.toLowerCase() === 'api') {
+            const currentSlug = await getCurrentSlugForAlias(potentialSlug);
+            if (currentSlug && currentSlug !== potentialSlug) {
+              const rewriteUrl = request.nextUrl.clone();
+              const strippedApiPathname =
+                pathname.slice(`/${potentialSlug}`.length) || '/';
+              rewriteUrl.pathname = strippedApiPathname;
+              const retired = potentialSlug.toLowerCase();
+              for (const param of MERCHANT_SLUG_QUERY_PARAMS) {
+                if (
+                  rewriteUrl.searchParams.get(param)?.toLowerCase() === retired
+                ) {
+                  rewriteUrl.searchParams.set(param, currentSlug);
+                }
+              }
+              const response = NextResponse.rewrite(rewriteUrl, {
+                request: { headers: buildProxyRequestHeaders(request) },
+              });
+              // Wrap with the proxy security/cache headers (X-Content-Type-Options,
+              // route-type, etc.), keyed off the STRIPPED /api path — matching the
+              // subdomain and custom-domain API rewrite branches.
+              return applySecurityHeaders(
+                response,
+                strippedApiPathname,
+                userAgent,
+                getRouteType(strippedApiPathname),
+                isLocalhost(hostname),
+                undefined,
+                request,
+                hostname
+              );
+            }
+            // Not a retired alias (or unresolved): fall through — never 302 /api.
+          } else {
+            const aliasNewPathname =
+              pathname.replace(`/${potentialSlug}`, '') || '/';
+            const aliasRedirect = await resolveRetiredSlugRedirect(
+              potentialSlug,
+              normalizeStorefrontTermsAliasPath(aliasNewPathname),
+              request.nextUrl.search,
+              request.method
+            );
+            if (aliasRedirect) {
+              return NextResponse.redirect(aliasRedirect, 302);
+            }
+          }
+        }
+
+        // Live custom-domain redirect applies to ANY valid slug — including one
+        // that happens to equal a platform segment (e.g. a merchant slugged
+        // "products") — since it is a real, live merchant with a custom domain.
         const customDomain = await getCustomDomainForSlug(potentialSlug);
         if (customDomain) {
           const newPathname = pathname.replace(`/${potentialSlug}`, '') || '/';
@@ -3425,7 +4270,7 @@ export async function proxy(request: NextRequest) {
     const isMainAppRoute =
       ROOT_DOMAIN_ONLY_MAIN_APP_ROUTES.some(
         (route) => pathname === route || pathname.startsWith(`${route}/`)
-      ) || MAIN_APP_ROUTES.some((route) => pathname.startsWith(route));
+      ) || matchesMainAppRoute(pathname);
     if (
       slug &&
       !isMainAppRoute &&
@@ -3544,35 +4389,9 @@ export async function proxy(request: NextRequest) {
     routeType,
     isLocal,
     undefined,
-    request, // Pass request for click ID capture on storefront
+    request, // request drives storefront cache-control (query/auth-hint) checks
     hostname
   );
-}
-
-/**
- * Capture ad click IDs from URL params and set cookies
- * This enables better conversion attribution when sending offline conversions
- */
-function captureAdClickIds(request: NextRequest, response: NextResponse): void {
-  const searchParams = request.nextUrl.searchParams;
-
-  // Check if any click ID params exist
-  const hasClickIds = Object.keys(CLICK_ID_PARAMS).some((param) =>
-    searchParams.has(param)
-  );
-
-  if (!hasClickIds) return;
-
-  // Extract click IDs from URL
-  const clickIds = extractClickIdsFromUrl(searchParams);
-
-  // Generate cookies
-  const cookies = generateClickIdCookies(clickIds);
-
-  // Set cookies on response
-  for (const cookie of cookies) {
-    response.headers.append('Set-Cookie', cookie);
-  }
 }
 
 function applySecurityHeaders(
@@ -3585,11 +4404,6 @@ function applySecurityHeaders(
   request?: NextRequest,
   hostname?: string
 ): NextResponse {
-  // Capture ad click IDs from URL params (if request provided)
-  if (request && routeType === 'storefront') {
-    captureAdClickIds(request, response);
-  }
-
   // Apply Content Security Policy
   const csp = generateCSP(routeType, isLocal, nonce);
   response.headers.set('Content-Security-Policy', csp);
@@ -3739,12 +4553,17 @@ function applySecurityHeaders(
         routeType,
         hasQuery
       );
-    response.headers.set(
-      'Cache-Control',
-      hasAuthSessionHint || !cacheable
-        ? NON_CACHEABLE_STOREFRONT_HTML_CACHE_CONTROL
-        : STOREFRONT_DOCUMENT_CACHE_CONTROL
-    );
+    let cacheKind: StorefrontDocumentCacheKind = 'non-cacheable';
+    if (!hasAuthSessionHint && cacheable) {
+      const cachePolicy = getStorefrontPublicCachePolicy(pathname, hostname);
+      cacheKind = cachePolicy
+        ? isStorefrontPdpDocument(pathname, hostname, routeType) ||
+          !canUseLongDownstreamStorefrontCache(pathname, hostname, routeType)
+          ? 'cacheable-self-healing'
+          : 'cacheable'
+        : 'cacheable-vercel-only';
+    }
+    applyStorefrontDocumentCacheHeaders(response, cacheKind);
     if (hasAuthSessionHint) {
       appendVaryHeader(response, 'Cookie');
     }

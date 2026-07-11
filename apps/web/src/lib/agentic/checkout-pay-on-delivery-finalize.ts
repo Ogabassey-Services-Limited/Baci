@@ -28,6 +28,10 @@ import {
   buildStoredAgenticIdempotencyResponse,
   persistAgenticIdempotencyResponse,
 } from '@/lib/agentic/idempotency-response-storage';
+import {
+  revalidateProductSlugs,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 
@@ -166,6 +170,57 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
       return respond({ error: 'Order creation failed' }, 500);
     }
     orderId = createdOrderId;
+
+    // Stock was decremented inside create_storefront_order (via
+    // createAgenticCheckoutOrder). Bust the merchant's product caches so the
+    // storefront reflects it immediately. Only runs on the new-order branch.
+    try {
+      revalidateProducts(merchantId);
+
+      // revalidateProducts(merchantId) does NOT bust the per-slug PDP tag
+      // getCachedProduct() reads (getProductScopedCacheTag('product',
+      // merchantId, slug)). orderSessionCalc.lineItems carries only product_id
+      // (GPTLineItem never exposes slug), and item.product_id is always the
+      // PARENT product id, so resolve slugs with one merchant-scoped, PK-indexed
+      // lookup and bust their PDP tags so a just-sold-out PDP isn't served stale.
+      const touchedProductIds = Array.from(
+        new Set(
+          orderSessionCalc.lineItems
+            .map((lineItem) => lineItem.item.product_id)
+            .filter(
+              (id): id is string => typeof id === 'string' && id.length > 0
+            )
+        )
+      );
+      if (touchedProductIds.length > 0) {
+        const { data: touchedProducts, error: slugLookupError } = await supabase
+          .from('products')
+          .select('slug')
+          .in('id', touchedProductIds)
+          .eq('merchant_id', merchantId)
+          .returns<Array<{ slug: string }>>();
+        if (slugLookupError) {
+          logger.error({
+            error: sanitizeForLog(slugLookupError),
+            message:
+              'Failed to look up product slugs for PDP cache revalidation after agentic pay-on-delivery order creation',
+            sessionId: sanitizeForLog(sessionId),
+          });
+        } else {
+          revalidateProductSlugs(
+            merchantId,
+            (touchedProducts ?? []).map((row) => row.slug)
+          );
+        }
+      }
+    } catch (revalidateError) {
+      logger.error({
+        error: sanitizeForLog(revalidateError),
+        message:
+          'Failed to revalidate product caches after agentic pay-on-delivery order creation',
+        sessionId: sanitizeForLog(sessionId),
+      });
+    }
 
     const marker = await recordPayOnDeliveryOrderCreated({
       finalizationClaim,

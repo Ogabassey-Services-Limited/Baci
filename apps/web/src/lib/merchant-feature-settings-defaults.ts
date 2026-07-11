@@ -73,6 +73,7 @@ const DEFAULT_MERCHANT_FEATURE_SETTINGS = {
   vtu_merchant_commission_rate: 50,
   vtu_customer_cashback_enabled: false,
   vtu_customer_cashback_rate: 50,
+  repairs_catalog_enabled: false,
   custom_settings: {},
 };
 
@@ -111,6 +112,7 @@ const PUBLIC_DEFAULT_FEATURE_SETTING_KEYS = [
   'preferred_international_gateway',
   'preferred_local_gateway',
   'privacy_page_enabled',
+  'repairs_catalog_enabled',
   'reviews_enabled',
   'rewards_page_enabled',
   'shipping_insurance_enabled',

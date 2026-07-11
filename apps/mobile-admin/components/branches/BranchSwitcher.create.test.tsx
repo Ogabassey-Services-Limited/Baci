@@ -60,6 +60,33 @@ vi.mock('@/components/ui/KeyboardAwareModalContainer', async () => {
   };
 });
 
+vi.mock('@/components/ui/AppSheetModal', async () => {
+  const React = await import('react');
+  return {
+    AppSheetModal: ({
+      children,
+      onClose,
+      visible,
+    }: {
+      children?: React.ReactNode;
+      onClose?: () => void;
+      visible?: boolean;
+    }) =>
+      visible
+        ? React.createElement(
+            'div',
+            null,
+            React.createElement(
+              'button',
+              { onClick: onClose, type: 'button' },
+              'Close'
+            ),
+            children
+          )
+        : null,
+  };
+});
+
 vi.mock('react-native', async () => {
   const React = await import('react');
   return {
@@ -76,12 +103,14 @@ vi.mock('react-native', async () => {
     Pressable: ({
       accessibilityLabel,
       accessibilityRole,
+      accessibilityState,
       children,
       disabled,
       onPress,
     }: {
       accessibilityLabel?: string;
       accessibilityRole?: string;
+      accessibilityState?: { checked?: boolean };
       children?: React.ReactNode;
       disabled?: boolean;
       onPress?: () => void;
@@ -89,10 +118,11 @@ vi.mock('react-native', async () => {
       React.createElement(
         'button',
         {
+          'aria-checked': accessibilityState?.checked,
           'aria-label': accessibilityLabel,
           disabled,
           onClick: disabled ? undefined : onPress,
-          role: accessibilityRole === 'button' ? 'button' : undefined,
+          role: accessibilityRole || 'button',
         },
         children
       ),
@@ -191,7 +221,7 @@ describe('BranchSwitcher create and active branch filtering', () => {
 
   it('does not render inactive branches as selectable scopes', () => {
     mocks.branches = [
-      mocks.branches[0],
+      ...mocks.branches,
       {
         active: false,
         address: null,
@@ -203,8 +233,12 @@ describe('BranchSwitcher create and active branch filtering', () => {
 
     render(<BranchSwitcher />);
 
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Location: All locations' })
+    );
+
     expect(
-      screen.queryByRole('button', { name: 'Switch to Inactive branch branch' })
+      screen.queryByRole('radio', { name: 'Switch to Inactive branch branch' })
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Manage Inactive branch branch' })
@@ -216,6 +250,9 @@ describe('BranchSwitcher create and active branch filtering', () => {
 
     render(<BranchSwitcher />);
 
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Location: All locations' })
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Add new branch' }));
     fireEvent.change(screen.getByLabelText('Branch name input'), {
       target: { value: 'Ikoyi' },
@@ -237,6 +274,9 @@ describe('BranchSwitcher create and active branch filtering', () => {
   it('blocks branch creation when the branch name is invalid', () => {
     render(<BranchSwitcher />);
 
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Location: All locations' })
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Add new branch' }));
     fireEvent.click(screen.getByRole('button', { name: 'Create branch' }));
 

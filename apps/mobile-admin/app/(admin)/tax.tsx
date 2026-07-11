@@ -13,6 +13,7 @@ import { LegalEntityCard } from '@/components/tax/LegalEntityCard';
 import { StatePickerModal } from '@/components/tax/StatePickerModal';
 import { styles } from '@/components/tax/styles';
 import { TaxNoticeCard } from '@/components/tax/TaxNoticeCard';
+import { TaxRegionUnavailableCard } from '@/components/tax/TaxRegionUnavailableCard';
 import { TinCard } from '@/components/tax/TinCard';
 import { VatCard } from '@/components/tax/VatCard';
 import { VatInfoCard } from '@/components/tax/VatInfoCard';
@@ -20,6 +21,14 @@ import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTaxMutations } from '@/hooks/useTaxMutations';
 import { useTheme } from '@/hooks/useTheme';
+
+// Tax settings are a Nigeria-only FIRS feature by design. Null/undefined
+// country is treated as Nigeria for backward compat with merchants that
+// predate the multi-country rollout.
+function isNigerianMerchant(country: string | null | undefined): boolean {
+  return (country?.trim().toUpperCase() || 'NG') === 'NG';
+}
+
 export default function TaxScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { merchant, isLoading } = useMerchant();
@@ -183,6 +192,27 @@ export default function TaxScreen() {
           edges={['bottom']}
         >
           <ScreenSkeleton variant="settings" cards={6} />
+        </SafeAreaView>
+      </>
+    );
+  }
+
+  if (!isNigerianMerchant(merchant?.country)) {
+    return (
+      <>
+        <Stack.Screen options={screenOptions} />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
+        >
+          <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <TaxRegionUnavailableCard colors={colors} shadowStyle={shadows.sm} />
+          </ScrollView>
         </SafeAreaView>
       </>
     );

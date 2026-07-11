@@ -145,4 +145,7 @@ if ! tsx_output=$(pnpm --filter @baci/web exec tsx --version 2>&1); then
   exit 1
 fi
 
-pnpm --filter @baci/web exec tsx "$SCRIPT_FILE"
+# The imported web graph can include Next `server-only` marker modules. The
+# standalone worker is still a server graph, so use React's server export
+# condition to make those sentinels resolve to their empty server entry.
+pnpm --filter @baci/web exec tsx --conditions react-server "$SCRIPT_FILE"

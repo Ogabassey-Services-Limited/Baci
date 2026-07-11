@@ -29,13 +29,13 @@ import {
   type DiscountResult,
 } from '@/components/storefront/checkout/discount-code-input';
 import { MobileOrderSummary } from '../components/MobileCheckoutComponents';
-import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState, useRef } from 'react';
 import { useCart } from '@/hooks/cart';
 import type { CartItem } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { useCurrency } from '@/hooks/use-currency';
 import type {
   CryptoChain,
   CryptoCurrency,
@@ -53,12 +53,17 @@ import {
 import { useAuthSafe } from '@/contexts/auth-context';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { CheckoutAuthModal } from '@/components/storefront/checkout-auth-modal';
-import { AddressAutocomplete } from '@/components/address-autocomplete';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
+import {
+  AddressAutocomplete,
+  type PlaceDetails,
+} from '@/components/address-autocomplete';
 import { getCredPalKey, openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { asRoute } from '@/lib/routes';
+import { AUTO_FRACTION_OPTIONS } from '@/lib/currency';
+import { formatAmountInCurrency } from '@/lib/resolve-merchant-currency';
 import type { ShippingQuote } from '@/types/shipping-quote';
-import { normalizeShippingQuoteResponse } from '@/lib/shipping/quote-response';
 import { toast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 import { calculateCommerce } from '@/lib/supabase/client';
@@ -76,6 +81,7 @@ import {
   isKorapayCheckoutAvailable,
   isPaystackCheckoutAvailable,
 } from '@/lib/checkout/payment-gateway-availability';
+import { isNgnChargeCurrency } from './checkout/components/payment-step-availability';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 import {
   buildPendingCheckoutFingerprint,
@@ -89,19 +95,29 @@ import {
   getCheckoutIdempotencyKey,
 } from './checkout/checkout-idempotency';
 import { persistCreditDirectPopupReference } from './checkout/persist-credit-direct-popup-reference';
+import { getCheckoutOrderErrorMessage } from './checkout/checkout-order-error-message';
+import { selectRejectedVoucherLines } from './checkout/select-rejected-voucher-lines';
 import { PaymentStep } from './checkout/components/PaymentStep';
 import {
+  invalidatePendingQuoteRequests,
+  loadCheckoutShippingQuotes,
+} from './checkout/hooks/checkout-shipping-quote-loader';
+import {
+  calculateDeliveryCost,
   KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST,
   createSelectDeliveryMethod,
+  getAirDeliveryQuotes,
   getDoorDeliveryQuotes,
-  getPreferredDoorQuoteId,
   getStationPickupAddressText,
   getStationPickupQuote,
+  getStationPickupQuotes,
   inferAddressLocationFromInput,
+  isGiglGoFasterQuote,
   isStationPickupQuote,
   isKlumpUnavailableForGatewayAmount,
   resetDeliveryQuotesForAddressChange,
 } from './checkout/utils';
+import { resolveAirportShippingAddress } from './checkout/resolve-airport-shipping-address';
 
 /**
  * Discriminated union for checkout item rendering. The `kind` tag is set at
@@ -287,79 +303,6 @@ async function loadShippingStates({
   }
 }
 
-interface LoadShippingQuotesParams {
-  address: string;
-  merchantId: string;
-  state: string;
-  city: string;
-  phone: string;
-  receiverFirstName: string;
-  receiverLastName: string;
-  email: string;
-  items: Array<{ name: string; quantity: number; weight: number; value: number }>;
-  setIsLoadingQuotes: (isLoading: boolean) => void;
-  setSelectedQuoteId: (quoteId: string) => void;
-  setShippingQuotes: (quotes: ShippingQuote[]) => void;
-}
-
-async function loadShippingQuotes({
-  address,
-  merchantId,
-  state,
-  city,
-  phone,
-  receiverFirstName,
-  receiverLastName,
-  email,
-  items,
-  setIsLoadingQuotes,
-  setSelectedQuoteId,
-  setShippingQuotes,
-}: LoadShippingQuotesParams): Promise<void> {
-  if (!state || !city || !address) return;
-
-  setIsLoadingQuotes(true);
-  // setShippingQuotes([]); // KPI: Keep previous quotes visible to avoid UI flash (Optimistic UI)
-  setSelectedQuoteId('');
-
-  try {
-    const res = await fetch('/api/shipping/quotes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        merchantId: merchantId || undefined,
-        receiver: {
-          name: `${receiverFirstName} ${receiverLastName}`.trim() || 'Valued Customer', // Fallback for guest who hasn't typed name yet
-          email: email || 'guest@example.com',
-          phone: phone || '',
-          address,
-          city,
-          state,
-          country: 'Nigeria',
-        },
-        items,
-      }),
-    });
-
-    if (res.ok) {
-      const data: unknown = await res.json();
-      const { quotes } = normalizeShippingQuoteResponse(data);
-      setShippingQuotes(quotes);
-
-      const preferredDoorQuoteId = getPreferredDoorQuoteId(quotes);
-      if (preferredDoorQuoteId) {
-        setSelectedQuoteId(preferredDoorQuoteId);
-      }
-    } else {
-      console.warn('Failed to fetch quotes:', await res.text());
-    }
-  } catch (error) {
-    console.error('Error fetching shipping quotes:', error);
-  } finally {
-    setIsLoadingQuotes(false);
-  }
-}
-
 interface LoadWalletBalanceParams {
   merchantSlug: string;
   signal: AbortSignal;
@@ -407,6 +350,8 @@ interface RequestCryptoPaymentInitializationParams {
   pendingOrder: PendingCryptoOrder;
   chain: CryptoChain;
   currency: CryptoCurrency;
+  /** Merchant-resolved fiat order currency (server derives from order). */
+  orderCurrency: string;
 }
 
 async function requestCryptoPaymentInitialization({
@@ -414,6 +359,7 @@ async function requestCryptoPaymentInitialization({
   pendingOrder,
   chain,
   currency,
+  orderCurrency,
 }: RequestCryptoPaymentInitializationParams): Promise<CryptoPaymentData> {
   const paymentResponse = await fetch('/api/payments/initialize', {
     method: 'POST',
@@ -421,7 +367,7 @@ async function requestCryptoPaymentInitialization({
     body: JSON.stringify({
       merchant_id: merchantId,
       order_id: pendingOrder.orderId,
-      currency: 'NGN',
+      currency: orderCurrency,
       customer_email: pendingOrder.customerEmail,
       customer_name: pendingOrder.customerName,
       customer_phone: pendingOrder.customerPhone,
@@ -466,6 +412,8 @@ interface RequestDvaInitializationParams {
   customerName: string;
   customerPhone: string;
   billingAddress: DvaBillingAddress;
+  /** Merchant-resolved fiat order currency (server derives from order). */
+  orderCurrency: string;
 }
 
 interface DvaBillingAddress {
@@ -483,6 +431,7 @@ async function requestDvaInitialization({
   customerName,
   customerPhone,
   billingAddress,
+  orderCurrency,
 }: RequestDvaInitializationParams): Promise<{
   dva: Omit<DvaData, 'amount' | 'reference'>;
   reference: string;
@@ -493,7 +442,7 @@ async function requestDvaInitialization({
     body: JSON.stringify({
       merchant_id: merchantId,
       order_id: orderId,
-      currency: 'NGN',
+      currency: orderCurrency,
       customer_email: customerEmail,
       customer_name: customerName,
       customer_phone: customerPhone,
@@ -516,9 +465,14 @@ async function requestDvaInitialization({
 }
 
 export const CheckoutPage: React.FC = () => {
-  const { cart, clearCart, isHydrated } = useCart();
+  const { cart, clearCart, isHydrated, removeFromCart } = useCart();
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
+
+  // Merchant-resolved currency (payout_currency first, country second, NGN
+  // fallback). `currencyCode` is sent to /api/payments/initialize instead of a
+  // hardcoded 'NGN'; the compact formatter renders order amounts.
+  const { formatCurrencyAuto, currencySymbol, currencyCode } = useCurrency();
 
   const hasPriceNegotiation = hasPriceNegotiationEntitlement(merchant?.plan_tier, merchant?.slug);
 
@@ -540,10 +494,18 @@ export const CheckoutPage: React.FC = () => {
     hasPriceNegotiation
   );
 
-  const paystackCheckoutAvailable = isPaystackCheckoutAvailable(merchant);
-  const korapayCheckoutAvailable = isKorapayCheckoutAvailable(merchant);
+  // Paystack (and its DVA-backed bank transfer) settle NGN only — mirror the
+  // PaymentStep gating so a non-NGN checkout never renders rails the
+  // initialize API would reject with UNSUPPORTED_CURRENCY.
+  const ngnRailsAvailable = isNgnChargeCurrency(currencyCode);
+  const paystackCheckoutAvailable =
+    ngnRailsAvailable && isPaystackCheckoutAvailable(merchant);
+  const korapayCheckoutAvailable = isKorapayCheckoutAvailable(
+    merchant,
+    currencyCode
+  );
   const bankTransferCheckoutAvailable =
-    isBankTransferCheckoutAvailable(merchant);
+    ngnRailsAvailable && isBankTransferCheckoutAvailable(merchant);
   const basePath = merchantContext?.basePath;
   const router = useRouter();
 
@@ -715,6 +677,8 @@ export const CheckoutPage: React.FC = () => {
     orderId: string;
     trackingToken?: string;
     amount: number;
+    /** Stamped order currency (authoritative for payment initialization). */
+    orderCurrency: string;
     customerEmail: string;
     customerName: string;
     customerPhone: string;
@@ -853,6 +817,7 @@ export const CheckoutPage: React.FC = () => {
       pendingOrder: pendingCryptoOrder,
       chain: selectedCryptoChain,
       currency: selectedCryptoCurrency,
+      orderCurrency: pendingCryptoOrder.orderCurrency,
     })
       .then((cryptoPayment) => {
         setShowCryptoSelector(false);
@@ -1039,14 +1004,25 @@ export const CheckoutPage: React.FC = () => {
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuote[]>([]);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>('');
+  const [resolvedQuoteRequestKey, setResolvedQuoteRequestKey] = useState('');
+  const [deliveryCoordinates, setDeliveryCoordinates] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const quoteRequestSequence = useRef(0);
+  const quoteAbortController = useRef<AbortController | null>(null);
   const stationPickupQuote = getStationPickupQuote(shippingQuotes);
+  const stationPickupQuotes = getStationPickupQuotes(shippingQuotes);
   const doorDeliveryQuotes = getDoorDeliveryQuotes(shippingQuotes);
+  const airDeliveryQuotes = getAirDeliveryQuotes(shippingQuotes);
   const selectedQuote = shippingQuotes.find(
     (quote) => String(quote.id) === String(selectedQuoteId),
   );
   const selectedQuoteMatchesDeliveryMethod = Boolean(
     selectedQuote &&
       ((deliveryMethod === 'door' && !isStationPickupQuote(selectedQuote)) ||
+        (deliveryMethod === 'airport' &&
+          isGiglGoFasterQuote(selectedQuote)) ||
         (deliveryMethod === 'pickup_station' &&
           isStationPickupQuote(selectedQuote))),
   );
@@ -1056,19 +1032,24 @@ export const CheckoutPage: React.FC = () => {
     setSelectedQuoteId,
     shippingQuotes,
   });
-  const resetQuotesForAddressChange = () =>
+  const resetQuotesForAddressChange = () => {
+    invalidatePendingQuoteRequests(
+      quoteRequestSequence,
+      quoteAbortController,
+    );
+    setIsLoadingQuotes(false);
+    setDeliveryCoordinates(null);
+    setResolvedQuoteRequestKey('');
     resetDeliveryQuotesForAddressChange({
       setDeliveryMethod,
       setSelectedQuoteId,
       setShippingQuotes,
     });
-  const eligibleDeliveryMethod =
-    deliveryMethod === 'pickup_station' && !stationPickupQuote
-      ? 'door'
-      : resolveEligibleWebStorefrontDeliveryMethod(
-          deliveryMethod,
-          newAddressState,
-        );
+  };
+  const eligibleDeliveryMethod = resolveEligibleWebStorefrontDeliveryMethod(
+    deliveryMethod,
+    newAddressState,
+  );
   if (eligibleDeliveryMethod !== deliveryMethod) {
     setDeliveryMethod(eligibleDeliveryMethod);
   }
@@ -1180,33 +1161,42 @@ export const CheckoutPage: React.FC = () => {
     phone: string,
     receiverFirstName: string,
     receiverLastName: string,
-    email: string
+    email: string,
+    deliveryPreference: 'door' | 'pickup_station' = 'door',
+    force = true,
   ) =>
     merchant?.id
-      ? loadShippingQuotes({
-          address,
-          state,
-          city,
-          phone,
-          receiverFirstName,
-          receiverLastName,
-          email,
-          merchantId: merchant.id,
-          items: checkoutCart.map((item) => ({
-            name: item.name,
-            quantity: item.quantity,
-            weight: 1, // Default weight 1kg if not strictly defined
-            value: item.negotiatedPrice || item.price,
-          })),
-          setIsLoadingQuotes,
-          setSelectedQuoteId,
-          setShippingQuotes,
-        })
+      ? loadCheckoutShippingQuotes(
+          {
+            address,
+            state,
+            city,
+            phone,
+            fName: receiverFirstName,
+            lName: receiverLastName,
+            email,
+            merchantId: merchant.id,
+            deliveryPreference,
+            latitude: deliveryCoordinates?.latitude,
+            longitude: deliveryCoordinates?.longitude,
+          },
+          checkoutCart,
+          {
+            activeAbortController: quoteAbortController,
+            currentRequestKey: resolvedQuoteRequestKey,
+            force,
+            requestSequence: quoteRequestSequence,
+            setResolvedQuoteRequestKey,
+            setIsLoadingQuotes,
+            setSelectedQuoteId,
+            setShippingQuotes,
+          },
+        )
       : resetQuotesForAddressChange();
 
-  // Trigger quote fetch when Door Delivery is selected and we have BOTH state AND city
+  // Trigger provider quotes after the address and delivery preference are known.
   useEffect(() => {
-    if (deliveryMethod === 'door') {
+    if (deliveryMethod === 'door' || deliveryMethod === 'pickup_station') {
       if (!merchant?.id) {
         resetQuotesForAddressChange();
         return;
@@ -1223,7 +1213,9 @@ export const CheckoutPage: React.FC = () => {
             customerPhone,
             firstName,
             lastName,
-            customerEmail
+            customerEmail,
+            deliveryMethod === 'pickup_station' ? 'pickup_station' : 'door',
+            false,
           );
         }
       } else {
@@ -1248,7 +1240,9 @@ export const CheckoutPage: React.FC = () => {
                 saved.phone,
                 firstName,
                 lastName,
-                customerEmail
+                customerEmail,
+                deliveryMethod === 'pickup_station' ? 'pickup_station' : 'door',
+                false,
               );
             }
           }
@@ -1267,6 +1261,9 @@ export const CheckoutPage: React.FC = () => {
     addresses,
     merchant?.id,
     quoteItemsFingerprint,
+    resolvedQuoteRequestKey,
+    deliveryCoordinates?.latitude,
+    deliveryCoordinates?.longitude,
   ]);
 
 
@@ -1352,14 +1349,12 @@ export const CheckoutPage: React.FC = () => {
     return `${start.toLocaleDateString('en-GB', options)} to ${end.toLocaleDateString('en-GB', options)}`;
   };
 
-  const deliveryCost =
-    deliveryMethod === 'pickup'
-      ? 0
-      : deliveryMethod === 'door' || deliveryMethod === 'pickup_station'
-        ? selectedQuoteId && selectedQuote && selectedQuoteMatchesDeliveryMethod
-          ? selectedQuote.price
-          : 0 // Fallback: 0 if loading or no quote selected
-        : airportType === 'delivery' ? 25000 : 20000; // Airport Delivery: ₦25,000, Airport Pickup: ₦20,000
+  const deliveryCost = calculateDeliveryCost(
+    deliveryMethod,
+    selectedQuoteId,
+    shippingQuotes,
+    airportType,
+  );
 
   // Server-computed discount amount (the route re-validates against the
   // canonical subtotal); fall back to a local estimate only if it's missing.
@@ -1382,8 +1377,14 @@ export const CheckoutPage: React.FC = () => {
       discountAmount
   );
 
-  // Wallet credit calculation (2025: can't redeem more than order total)
-  const walletAmountUsed = payWithWallet ? Math.min(walletBalance, total) : 0;
+  // Wallet credit calculation (2025: can't redeem more than order total).
+  // The customer wallet is an NGN-denominated ledger, so redemption is only
+  // offered on NGN orders — mirrors the server-side guard in /api/orders.
+  const walletCurrencySupported = currencyCode === 'NGN';
+  const walletAmountUsed =
+    payWithWallet && walletCurrencySupported
+      ? Math.min(walletBalance, total)
+      : 0;
   const remainingAmount = total - walletAmountUsed;
 
 
@@ -1715,10 +1716,17 @@ export const CheckoutPage: React.FC = () => {
       finalCity = 'Lagos';
       finalState = 'Lagos';
     } else if (deliveryMethod === 'airport') {
-      // For airport, use the city/state from address if available, otherwise use defaults
-      finalAddress = newAddressStreet || `Airport ${airportType === 'pickup' ? 'Pickup' : 'Delivery'}`;
-      finalCity = newAddressCity || 'Airport';
-      finalState = newAddressState || 'Nigeria';
+      const airportAddress = resolveAirportShippingAddress({
+        airportType,
+        isProviderBacked: selectedQuoteMatchesDeliveryMethod,
+        manualAddress: newAddressStreet,
+        manualCity: newAddressCity,
+        manualState: newAddressState,
+        savedAddress: selectedAddress?.address,
+      });
+      finalAddress = airportAddress.address;
+      finalCity = airportAddress.city;
+      finalState = airportAddress.state;
     }
 
     const shippingAddressData = {
@@ -1766,7 +1774,9 @@ export const CheckoutPage: React.FC = () => {
     }
 
     if (
-      (deliveryMethod === 'door' || deliveryMethod === 'pickup_station') &&
+      (deliveryMethod === 'door' ||
+        deliveryMethod === 'pickup_station' ||
+        (deliveryMethod === 'airport' && selectedQuoteMatchesDeliveryMethod)) &&
       selectedQuoteId
     ) {
       if (selectedQuote && selectedQuoteMatchesDeliveryMethod) {
@@ -1799,7 +1809,9 @@ export const CheckoutPage: React.FC = () => {
       shippingFee: deliveryCost,
       shippingProvider,
       selectedQuoteId:
-        deliveryMethod === 'door' || deliveryMethod === 'pickup_station'
+        deliveryMethod === 'door' ||
+        deliveryMethod === 'pickup_station' ||
+        (deliveryMethod === 'airport' && selectedQuoteMatchesDeliveryMethod)
           ? selectedQuoteId || undefined
           : undefined,
       shippingAddress: shippingAddressData,
@@ -1821,6 +1833,8 @@ export const CheckoutPage: React.FC = () => {
         id: string;
         order_number?: string;
         tracking_token?: string;
+        /** Stamped orders.currency (returned by /api/orders and /api/orders/reuse). */
+        currency?: string | null;
       };
       let walletResult: {
         amountUsed: number;
@@ -1837,7 +1851,9 @@ export const CheckoutPage: React.FC = () => {
         paymentMethod: normalizedPaymentMethod,
         shippingProvider,
         selectedQuoteId:
-          deliveryMethod === 'door' || deliveryMethod === 'pickup_station'
+          deliveryMethod === 'door' ||
+          deliveryMethod === 'pickup_station' ||
+          (deliveryMethod === 'airport' && selectedQuoteMatchesDeliveryMethod)
             ? selectedQuoteId || undefined
             : undefined,
       });
@@ -1931,7 +1947,10 @@ export const CheckoutPage: React.FC = () => {
             // empty string AND undefined defensively. The RPC schema
             // is `.nullable().optional()` so null is canonical.
             selected_quote_id:
-              deliveryMethod === 'door' || deliveryMethod === 'pickup_station'
+              deliveryMethod === 'door' ||
+              deliveryMethod === 'pickup_station' ||
+              (deliveryMethod === 'airport' &&
+                selectedQuoteMatchesDeliveryMethod)
                 ? selectedQuoteId || null
                 : null,
             // Wallet redemption (2025: auto-apply at checkout)
@@ -1955,13 +1974,30 @@ export const CheckoutPage: React.FC = () => {
             clearPendingCheckoutOrder();
             await clearCheckoutIdempotencyKey(checkoutFingerprint);
           }
+          // A quiz voucher rejected server-side (used / not-approved / expired)
+          // would otherwise stick in the cart at ₦0 and re-fail every future
+          // checkout. Prune ONLY the unredeemable line(s) so the shopper can
+          // proceed — never a still-valid prize from a multi-voucher cart. A
+          // sign-in-required rejection is excluded (voucher valid once signed
+          // in); see selectRejectedVoucherLines for the full policy.
+          for (const line of selectRejectedVoucherLines(cart, errorData)) {
+            // removeFromCart matches a cartItemId directly, but its product-id
+            // branch compares against item.id — so passing both a cartItemId
+            // and a variantId never matches. Prefer the cartItemId alone; fall
+            // back to (productId, variantId).
+            if (line.cartItemId) {
+              removeFromCart(line.cartItemId);
+            } else {
+              removeFromCart(line.id, line.variantId);
+            }
+          }
           console.error('Order creation failed:', {
             status: orderResponse.status,
             error: errorData.error,
             details: errorData.details,
             fullResponse: errorData
           });
-          raiseCheckoutError(errorData.details || errorData.error || 'Failed to create order');
+          raiseCheckoutError(getCheckoutOrderErrorMessage(errorData));
         }
 
         const orderData = await orderResponse.json();
@@ -1969,6 +2005,17 @@ export const CheckoutPage: React.FC = () => {
         walletResult = orderData.wallet;
         amountDueToGateway = orderData.amountDueToGateway ?? total;
       }
+
+      // The ORDER row's stamped currency is authoritative for payment
+      // initialization: a reused/idempotent order keeps its original currency
+      // even if the merchant's payout currency changed after it was created,
+      // and the initialize API rejects an explicit client/order mismatch.
+      // Both order sources return it (/api/orders and /api/orders/reuse);
+      // fall back to the merchant-resolved code only if it is ever absent.
+      const orderChargeCurrency =
+        typeof order.currency === 'string' && order.currency.trim()
+          ? order.currency.trim().toUpperCase()
+          : currencyCode;
 
       // 1b. Create account if requested (Awaited to ensure session is set before moving to next page)
       if (createAccount && !user && accountPassword.length >= 6) {
@@ -2066,6 +2113,7 @@ export const CheckoutPage: React.FC = () => {
             orderId: order.id,
             trackingToken: order.tracking_token,
             amount: paymentAmount,
+            orderCurrency: orderChargeCurrency,
             customerEmail,
             customerName: `${firstName} ${lastName}`.trim(),
             customerPhone,
@@ -2089,7 +2137,7 @@ export const CheckoutPage: React.FC = () => {
           body: JSON.stringify({
             merchant_id: merchant.id,
             order_id: order.id,
-            currency: 'NGN',
+            currency: orderChargeCurrency,
             customer_email: customerEmail,
             customer_name: `${firstName} ${lastName}`.trim(),
             customer_phone: customerPhone,
@@ -2323,7 +2371,7 @@ export const CheckoutPage: React.FC = () => {
   // module-scope `requestDvaInitialization`; the promise chain replaces
   // try/catch/finally, which would bail React Compiler.
   const handleBankTransfer = async (
-    order: { id: string },
+    order: { id: string; currency?: string | null },
     paymentAmount: number,
     billingAddress: DvaBillingAddress
   ) => {
@@ -2340,6 +2388,12 @@ export const CheckoutPage: React.FC = () => {
       customerName: `${firstName} ${lastName}`.trim(),
       customerPhone,
       billingAddress,
+      // Stamped order currency is authoritative; fall back to the
+      // merchant-resolved code only if the row value is ever absent.
+      orderCurrency:
+        typeof order.currency === 'string' && order.currency.trim()
+          ? order.currency.trim().toUpperCase()
+          : currencyCode,
     })
       .then((result) => {
         setDvaData({
@@ -2859,7 +2913,7 @@ export const CheckoutPage: React.FC = () => {
               <div className="text-center p-4 bg-gray-50 rounded-2xl border border-gray-100">
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Send Exactly</p>
                 <p className="text-3xl font-black text-gray-900">
-                  ₦{dvaData.amount.toLocaleString()}
+                  {formatCurrencyAuto(dvaData.amount)}
                 </p>
               </div>
 
@@ -3245,12 +3299,12 @@ export const CheckoutPage: React.FC = () => {
                   {completedSteps.delivery && currentStep !== 'delivery' && (
                     <p className="mt-1 pl-8 text-xs font-normal text-gray-500 truncate">
                       {deliveryMethod === 'door'
-                        ? 'Door delivery'
+                        ? 'By Road'
                         : deliveryMethod === 'pickup_station'
-                          ? 'Pickup Stations (GIGL)'
-                          : deliveryMethod === 'pickup'
-                            ? 'Store pickup'
-                            : 'Airport'}
+                          ? 'Pickup Station'
+                        : deliveryMethod === 'pickup'
+                          ? 'Store Pickup'
+                            : 'By Air'}
                       {deliveryMethod === 'door' && newAddressCity ? ` · ${newAddressCity}` : ''}
                     </p>
                   )}
@@ -3362,10 +3416,19 @@ export const CheckoutPage: React.FC = () => {
                                 resetQuotesForAddressChange();
                               }
                             }}
-                            onSelect={(place: any) => {
+                            onSelect={(place: PlaceDetails) => {
                               clearInferredLocationDebounce();
                               setNewAddressStreet(place.formattedAddress);
                               resetQuotesForAddressChange();
+                              if (
+                                Number.isFinite(place.location?.latitude) &&
+                                Number.isFinite(place.location?.longitude)
+                              ) {
+                                setDeliveryCoordinates({
+                                  latitude: place.location?.latitude ?? 0,
+                                  longitude: place.location?.longitude ?? 0,
+                                });
+                              }
                               if (place.state) {
                                 setNewAddressState(place.state);
                               }
@@ -3394,11 +3457,14 @@ export const CheckoutPage: React.FC = () => {
                             How would you like to receive your order?
                           </label>
                           <div className="flex gap-3 overflow-x-auto pb-1">
-                            {(['door', 'pickup_station', 'pickup', 'airport'] as const).map((method) => {
+                            {(['door', 'airport', 'pickup_station', 'pickup'] as const).map((method) => {
                               // Store ships from Lagos: pickup is Lagos-only and
                               // airport is for non-Lagos states with an airport.
                               // Shared with the mobile storefront so they can't drift.
-                              if (method === 'pickup_station' && !stationPickupQuote) {
+                              if (
+                                method === 'pickup_station' &&
+                                isPickupEligible(newAddressState)
+                              ) {
                                 return null;
                               }
                               if (method === 'pickup' && !isPickupEligible(newAddressState)) {
@@ -3414,12 +3480,12 @@ export const CheckoutPage: React.FC = () => {
                               const Icon = method === 'door' ? Truck : method === 'airport' ? Plane : Building2;
                               const label =
                                 method === 'door'
-                                  ? 'Door Delivery'
+                                  ? 'By Road'
                                   : method === 'pickup_station'
-                                    ? 'Pickup Stations (GIGL)'
+                                    ? 'Pickup Station'
                                     : method === 'pickup'
-                                      ? 'Pickup'
-                                      : 'Airport';
+                                      ? 'Store Pickup'
+                                      : 'By Air';
                               const subtitle =
                                 method === 'door'
                                   ? 'To your address'
@@ -3466,24 +3532,53 @@ export const CheckoutPage: React.FC = () => {
                           </div>
                         )}
 
-                        {deliveryMethod === 'pickup_station' && stationPickupQuote && (
-                          <div className="mt-4 bg-store-primary/5 p-4 rounded-xl border border-store-primary/20 flex items-start gap-4 animate-in fade-in">
-                            <div className="bg-store-background p-2 rounded-lg border border-store-background-text/10">
-                              <Building2 size={24} className="text-store-primary" />
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-store-background-text text-sm">
-                                Pickup Stations (GIGL)
-                              </h4>
-                              <p className="text-sm text-store-background-text/65 mt-1">
-                                {getStationPickupAddressText(stationPickupQuote) ||
-                                  'Collect from the selected GIGL service centre.'}
-                              </p>
-                              <div className="mt-2 text-xs font-bold bg-store-background inline-block px-2 py-1 rounded border border-store-background-text/10 text-store-background-text">
-                                ₦{stationPickupQuote.price.toLocaleString()}
+                        {deliveryMethod === 'pickup_station' && (
+                          isLoadingQuotes ? (
+                            <SmartQuoteLoader />
+                          ) : stationPickupQuotes.length > 0 ? (
+                            <fieldset className="m-0 mt-4 min-w-0 border-0 p-0 animate-in fade-in">
+                              <legend className="mb-3 text-xs font-bold uppercase tracking-wide text-store-background-text/70">
+                                Select Pickup Station (GIGL)
+                              </legend>
+                              <div className="space-y-3">
+                                {stationPickupQuotes.map((quote) => (
+                                  <label
+                                    key={quote.id}
+                                    className={`flex items-start justify-between gap-3 p-4 rounded-xl border cursor-pointer hover:border-store-primary/60 transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${selectedQuoteId === quote.id
+                                      ? 'border-store-primary bg-store-primary/5 ring-1 ring-store-primary'
+                                      : 'border-store-background-text/10 bg-store-background'
+                                      }`}
+                                  >
+                                    <div className="flex min-w-0 items-start gap-3">
+                                      <input
+                                        type="radio"
+                                        name="station_pickup_quote"
+                                        checked={selectedQuoteId === quote.id}
+                                        onChange={() => setSelectedQuoteId(quote.id)}
+                                        className="mt-0.5 size-4 border-store-background-text/25 text-store-primary focus:ring-store-primary"
+                                      />
+                                      <div className="min-w-0">
+                                        <span className="text-sm font-bold text-store-background-text">
+                                          {quote.displayName}
+                                        </span>
+                                        <p className="mt-0.5 text-xs text-store-background-text/65">
+                                          {quote.stationAddress ||
+                                            'Collect from this GIGL service centre.'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <span className="shrink-0 text-sm font-bold text-store-background-text">
+                                      {formatAmountInCurrency(quote.price, quote.currency, AUTO_FRACTION_OPTIONS)}
+                                    </span>
+                                  </label>
+                                ))}
                               </div>
+                            </fieldset>
+                          ) : (
+                            <div className="mt-4 rounded-xl border border-store-background-text/10 bg-store-background p-4 text-sm text-store-background-text/65">
+                              No nearby GIG Logistics pickup station is available for this address yet.
                             </div>
-                          </div>
+                          )
                         )}
 
                         {/* Airport Options */}
@@ -3497,7 +3592,7 @@ export const CheckoutPage: React.FC = () => {
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <label
-                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'delivery'
+                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'delivery' && !selectedQuoteMatchesDeliveryMethod
                                   ? 'border-store-primary bg-store-primary/5'
                                   : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                                   }`}
@@ -3506,24 +3601,34 @@ export const CheckoutPage: React.FC = () => {
                                   type="radio"
                                   name="airportType"
                                   value="delivery"
-                                  checked={airportType === 'delivery'}
-                                  onChange={() => setAirportType('delivery')}
+                                  checked={
+                                    airportType === 'delivery' &&
+                                    !selectedQuoteMatchesDeliveryMethod
+                                  }
+                                  onChange={() => {
+                                    setAirportType('delivery');
+                                    setSelectedQuoteId('');
+                                  }}
                                   className="sr-only"
                                 />
-                                <div className={`size-5 rounded-full border-2 flex items-center justify-center ${airportType === 'delivery' ? 'border-store-primary' : 'border-gray-400'
+                                <div className={`size-5 rounded-full border-2 flex items-center justify-center ${airportType === 'delivery' && !selectedQuoteMatchesDeliveryMethod ? 'border-store-primary' : 'border-gray-400'
                                   }`}>
-                                  {airportType === 'delivery' && (
+                                  {airportType === 'delivery' && !selectedQuoteMatchesDeliveryMethod && (
                                     <div className="size-2.5 rounded-full bg-store-primary" />
                                   )}
                                 </div>
                                 <div className="flex-1">
-                                  <p className="font-bold text-store-background-text text-sm">Airport Delivery</p>
+                                  <p className="font-bold text-store-background-text text-sm">
+                                    {newAddressCity || newAddressState
+                                      ? `${newAddressCity || newAddressState} Airport Delivery`
+                                      : 'Airport Delivery'}
+                                  </p>
                                   <p className="text-xs text-store-background-text/55 mt-0.5">Delivery to your doorstep</p>
                                 </div>
                                 <span className="font-bold text-store-background-text">₦25,000</span>
                               </label>
                               <label
-                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'pickup'
+                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'pickup' && !selectedQuoteMatchesDeliveryMethod
                                   ? 'border-store-primary bg-store-primary/5'
                                   : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                                   }`}
@@ -3532,13 +3637,19 @@ export const CheckoutPage: React.FC = () => {
                                   type="radio"
                                   name="airportType"
                                   value="pickup"
-                                  checked={airportType === 'pickup'}
-                                  onChange={() => setAirportType('pickup')}
+                                  checked={
+                                    airportType === 'pickup' &&
+                                    !selectedQuoteMatchesDeliveryMethod
+                                  }
+                                  onChange={() => {
+                                    setAirportType('pickup');
+                                    setSelectedQuoteId('');
+                                  }}
                                   className="sr-only"
                                 />
-                                <div className={`size-5 rounded-full border-2 flex items-center justify-center ${airportType === 'pickup' ? 'border-store-primary' : 'border-gray-400'
+                                <div className={`size-5 rounded-full border-2 flex items-center justify-center ${airportType === 'pickup' && !selectedQuoteMatchesDeliveryMethod ? 'border-store-primary' : 'border-gray-400'
                                   }`}>
-                                  {airportType === 'pickup' && (
+                                  {airportType === 'pickup' && !selectedQuoteMatchesDeliveryMethod && (
                                     <div className="size-2.5 rounded-full bg-store-primary" />
                                   )}
                                 </div>
@@ -3549,6 +3660,34 @@ export const CheckoutPage: React.FC = () => {
                                 <span className="font-bold text-store-background-text">₦20,000</span>
                               </label>
                             </div>
+                            {airDeliveryQuotes.map((quote) => (
+                              <label
+                                key={quote.id}
+                                className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border-2 p-4 transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${selectedQuoteId === quote.id
+                                  ? 'border-store-primary bg-store-primary/5'
+                                  : 'border-store-background-text/10 bg-store-background hover:border-store-primary/40'
+                                  }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="airportType"
+                                  checked={selectedQuoteId === quote.id}
+                                  onChange={() => setSelectedQuoteId(quote.id)}
+                                  className="size-4 border-store-background-text/25 text-store-primary focus:ring-store-primary"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-bold text-store-background-text">
+                                    {quote.displayName}
+                                  </p>
+                                  <p className="mt-0.5 text-xs text-store-background-text/55">
+                                    GIG Logistics GoFaster (Air/Cargo)
+                                  </p>
+                                </div>
+                                <span className="shrink-0 text-sm font-bold text-store-background-text">
+                                  {formatAmountInCurrency(quote.price, quote.currency, AUTO_FRACTION_OPTIONS)}
+                                </span>
+                              </label>
+                            ))}
                           </div>
                         )}
 
@@ -3559,6 +3698,10 @@ export const CheckoutPage: React.FC = () => {
                               Select Delivery Option
                             </label>
 
+                            {/* Keep the async delivery-options area at a stable
+                                height. Multiple quotes scroll inside the box
+                                instead of growing it after the loader swap. */}
+                            <div className="h-[320px] overflow-y-auto overscroll-contain pr-1">
                             {isLoadingQuotes ? (
                               <SmartQuoteLoader />
                             ) : doorDeliveryQuotes.length > 0 ? (
@@ -3591,7 +3734,7 @@ export const CheckoutPage: React.FC = () => {
                                       </div>
                                     </div>
                                     <span className="font-bold text-sm text-gray-900">
-                                      ₦{quote.price.toLocaleString()}
+                                      {formatAmountInCurrency(quote.price, quote.currency, AUTO_FRACTION_OPTIONS)}
                                     </span>
                                   </label>
                                 ))}
@@ -3615,7 +3758,7 @@ export const CheckoutPage: React.FC = () => {
                                     </p>
                                     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                       <span className="text-sm font-bold text-store-background-text">
-                                        ₦{stationPickupQuote.price.toLocaleString()}
+                                        {formatAmountInCurrency(stationPickupQuote.price, stationPickupQuote.currency, AUTO_FRACTION_OPTIONS)}
                                       </span>
                                       <button
                                         type="button"
@@ -3663,6 +3806,7 @@ export const CheckoutPage: React.FC = () => {
                                 </span>
                               </button>
                             )}
+                            </div>
                           </div>
                         )}
                       </>
@@ -3709,7 +3853,7 @@ export const CheckoutPage: React.FC = () => {
               user={user}
               remainingAmount={remainingAmount}
               orderAmount={total}
-              currency="NGN"
+              currency={currencyCode}
             />
 
           </div>
@@ -3724,8 +3868,10 @@ export const CheckoutPage: React.FC = () => {
                 Order Summary
               </h2>
 
-              {/* Items List (Collapsed View) */}
-              <div className="space-y-4 mb-6 max-h-[200px] overflow-y-auto pr-1">
+              {/* Items List (Collapsed View). Keep the full scroll region
+                  reserved so hydration of a multi-item persisted cart cannot
+                  grow the summary and shift the payment controls. */}
+              <div className="mb-6 h-[200px] space-y-4 overflow-y-auto pr-1">
                 {displayItems.map((item) => {
                   // Legacy persisted carts can lack `cartItemId` until the
                   // provider's upgrade path (storefront-cart-provider.tsx
@@ -3747,7 +3893,7 @@ export const CheckoutPage: React.FC = () => {
                   return (
                     <div key={itemKey} className="flex gap-3">
                       <div className="ogabassey-product-card-image-surface relative size-12 bg-gray-50 rounded-lg border border-gray-100 p-1 shrink-0">
-                        <Image
+                        <CdnFormatImage
                           src={itemImage}
                           alt={itemName}
                           fill
@@ -3764,7 +3910,7 @@ export const CheckoutPage: React.FC = () => {
                           <span>
                             {isQuizGift
                               ? 'Free gift'
-                              : `₦${itemPrice.toLocaleString()}`}
+                              : formatCurrencyAuto(itemPrice)}
                           </span>
                         </div>
                       </div>
@@ -3778,12 +3924,12 @@ export const CheckoutPage: React.FC = () => {
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-gray-600 text-sm">
                   <span>Subtotal</span>
-                  <span>₦{effectiveCheckoutCartTotal.toLocaleString()}</span>
+                  <span>{formatCurrencyAuto(effectiveCheckoutCartTotal)}</span>
                 </div>
                 {orderTotals && (
                   <div className="flex justify-between text-gray-600 text-sm">
                     <span>VAT (7.5%)</span>
-                    <span>₦{orderTotals.taxAmount.toLocaleString()}</span>
+                    <span>{formatCurrencyAuto(orderTotals.taxAmount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-gray-600 text-sm">
@@ -3797,18 +3943,18 @@ export const CheckoutPage: React.FC = () => {
                   >
                     {deliveryMethod === 'door' && !selectedQuoteId && deliveryCost === 0
                       ? <span className="text-gray-500 font-normal italic">Calculated…</span>
-                      : deliveryCost === 0 ? 'Free' : `₦${deliveryCost.toLocaleString()}`}
+                      : deliveryCost === 0 ? 'Free' : formatCurrencyAuto(deliveryCost)}
                   </span>
                 </div>
                 {giftWrappingCost > 0 && (
                   <div className="flex justify-between text-gray-600 text-sm">
                     <span>Gift Wrapping</span>
-                    <span>₦{giftWrappingCost.toLocaleString()}</span>
+                    <span>{formatCurrencyAuto(giftWrappingCost)}</span>
                   </div>
                 )}
 
-                {/* Wallet Credit Section (2025: progressive disclosure - only show if balance > 0 or loading) */}
-                {(walletLoading || walletBalance > 0) && user && (
+                {/* Wallet Credit Section (2025: progressive disclosure - only show if balance > 0 or loading). NGN-ledger: hidden on non-NGN orders. */}
+                {walletCurrencySupported && (walletLoading || walletBalance > 0) && user && (
                   <div className="py-2 animate-in fade-in">
                     {walletLoading ? (
                       <div className="flex items-center gap-2 text-gray-500">
@@ -3820,11 +3966,11 @@ export const CheckoutPage: React.FC = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="size-6 rounded-full bg-green-100 flex items-center justify-center">
-                              <span className="text-green-600 text-xs font-bold">₦</span>
+                              <span className="text-green-600 text-xs font-bold">{currencySymbol}</span>
                             </div>
                             <div>
                               <span className="text-sm font-medium text-gray-700">Wallet Credit</span>
-                              <span className="text-xs text-gray-500 ml-1">(₦{walletBalance.toLocaleString()} available)</span>
+                              <span className="text-xs text-gray-500 ml-1">({formatCurrencyAuto(walletBalance)} available)</span>
                             </div>
                           </div>
                           <button
@@ -3842,7 +3988,7 @@ export const CheckoutPage: React.FC = () => {
                         {payWithWallet && walletAmountUsed > 0 && (
                           <div className="flex justify-between text-green-700 text-sm font-medium mt-2 pl-8">
                             <span>Applied Credit</span>
-                            <span>-₦{walletAmountUsed.toLocaleString()}</span>
+                            <span>-{formatCurrencyAuto(walletAmountUsed)}</span>
                           </div>
                         )}
                       </>
@@ -3859,7 +4005,7 @@ export const CheckoutPage: React.FC = () => {
                       ? 'Amount Due'
                       : 'Total'}
                   </span>
-                  <span>₦{remainingAmount.toLocaleString()}</span>
+                  <span>{formatCurrencyAuto(remainingAmount)}</span>
                 </div>
               </div>
 

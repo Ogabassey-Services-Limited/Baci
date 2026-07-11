@@ -5,9 +5,9 @@ import Colors, { palette } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
 import { InstrumentRows } from './payment-method-selector/InstrumentRows';
 import { PaymentIntentAccordion } from './payment-method-selector/PaymentIntentAccordion';
-import type { PaymentIntent } from './payment-method-selector/payment-intents';
 import { PaymentMethodStatusPanels } from './payment-method-selector/PaymentMethodStatusPanels';
 import { PaymentMethodStoreCreditRows } from './payment-method-selector/PaymentMethodStoreCreditRows';
+import type { PaymentIntent } from './payment-method-selector/payment-intents';
 import { paymentMethodSelectorStyles as styles } from './payment-method-selector/styles';
 import {
   DEFAULT_SAVINGS_FALLBACK_TITLE,
@@ -221,68 +221,70 @@ export function PaymentMethodSelector({
         scrollOffsetRef={paymentScrollOffsetRef}
         scrollRef={paymentScrollRef}
         selectedInfo={
-          <>
-            <PaymentMethodStatusPanels
-              colors={colors}
-              hasValidTotal={hasValidTotal}
-              isBNPLEligible={isBNPLEligible}
-              orderTotal={orderTotal}
-              selectedMethod={selectedMethod}
-              selectedTab={selectedTab}
-              showInstallmentCalculator={showInstallmentCalculator}
-              warningBackground={warningBackground}
-              warningSubtleTextColor={warningSubtleTextColor}
-              warningTextColor={warningTextColor}
-              walletFundedBankTransferMode={walletFundedBankTransferMode}
-            />
-            {showCreditSection ? (
-              <PaymentMethodStoreCreditRows
+          selectedMethod && selectedTab ? (
+            <>
+              <PaymentMethodStatusPanels
                 colors={colors}
-                onSavingsToggle={
-                  onSavingsToggle
-                    ? () =>
-                        onSavingsToggle(
-                          savingsIsActive
-                            ? { use: false, goalId: null, amount: 0 }
-                            : {
-                                use: true,
-                                goalId: savingsGoalId ?? null,
-                                amount: savingsPortion,
-                              }
-                        )
-                    : undefined
-                }
-                onWalletToggle={
-                  onWalletToggle
-                    ? () =>
-                        onWalletToggle(
-                          walletIsActive
-                            ? { use: false, amount: 0 }
-                            : { use: true, amount: walletPortion }
-                        )
-                    : undefined
-                }
-                savingsAccessibilityLabel={savingsAccessibilityLabel}
-                savingsCoversFully={savingsCoversFully}
-                savingsGoalDisplayName={savingsGoalDisplayName}
-                savingsIsActive={savingsIsActive}
-                savingsPortion={savingsPortion}
-                savingsResidualToGateway={savingsResidualToGateway}
-                savingsShouldRender={savingsShouldRender}
-                savingsTotalBalance={savingsBalance}
-                walletAccessibilityLabel={walletAccessibilityLabel}
-                walletCoversFully={walletCoversFully}
-                walletInfoShouldRender={walletInfoShouldRender}
-                walletIsActive={walletIsActive}
-                walletIsLoading={walletIsLoading}
-                walletPortion={walletPortion}
-                walletResidualToCard={walletResidualToCard}
-                walletShouldRender={walletShouldRender}
-                walletStatusShouldRender={walletStatusShouldRender}
-                walletTotalBalance={walletBalance}
+                hasValidTotal={hasValidTotal}
+                isBNPLEligible={isBNPLEligible}
+                orderTotal={orderTotal}
+                selectedMethod={selectedMethod}
+                selectedTab={selectedTab}
+                showInstallmentCalculator={showInstallmentCalculator}
+                warningBackground={warningBackground}
+                warningSubtleTextColor={warningSubtleTextColor}
+                warningTextColor={warningTextColor}
+                walletFundedBankTransferMode={walletFundedBankTransferMode}
               />
-            ) : null}
-          </>
+              {showCreditSection ? (
+                <PaymentMethodStoreCreditRows
+                  colors={colors}
+                  onSavingsToggle={
+                    onSavingsToggle
+                      ? () =>
+                          onSavingsToggle(
+                            savingsIsActive
+                              ? { use: false, goalId: null, amount: 0 }
+                              : {
+                                  use: true,
+                                  goalId: savingsGoalId ?? null,
+                                  amount: savingsPortion,
+                                }
+                          )
+                      : undefined
+                  }
+                  onWalletToggle={
+                    onWalletToggle
+                      ? () =>
+                          onWalletToggle(
+                            walletIsActive
+                              ? { use: false, amount: 0 }
+                              : { use: true, amount: walletPortion }
+                          )
+                      : undefined
+                  }
+                  savingsAccessibilityLabel={savingsAccessibilityLabel}
+                  savingsCoversFully={savingsCoversFully}
+                  savingsGoalDisplayName={savingsGoalDisplayName}
+                  savingsIsActive={savingsIsActive}
+                  savingsPortion={savingsPortion}
+                  savingsResidualToGateway={savingsResidualToGateway}
+                  savingsShouldRender={savingsShouldRender}
+                  savingsTotalBalance={savingsBalance}
+                  walletAccessibilityLabel={walletAccessibilityLabel}
+                  walletCoversFully={walletCoversFully}
+                  walletInfoShouldRender={walletInfoShouldRender}
+                  walletIsActive={walletIsActive}
+                  walletIsLoading={walletIsLoading}
+                  walletPortion={walletPortion}
+                  walletResidualToCard={walletResidualToCard}
+                  walletShouldRender={walletShouldRender}
+                  walletStatusShouldRender={walletStatusShouldRender}
+                  walletTotalBalance={walletBalance}
+                />
+              ) : null}
+            </>
+          ) : null
         }
         selectedMethod={selectedMethod}
         selectedTab={selectedTab}

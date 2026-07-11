@@ -18,6 +18,8 @@ type MerchantDetails = {
   business_address: string | null;
   business_name: string | null;
   phone: string | null;
+  country: string | null;
+  payout_currency: string | null;
 };
 
 export type QuoteMerchantContextResult =
@@ -25,6 +27,19 @@ export type QuoteMerchantContextResult =
       ok: true;
       merchantId?: string;
       senderInfo?: ShippingAddress;
+      /**
+       * Merchant's ISO country, when a merchant was resolved. The registered
+       * carriers are Nigerian, so the route returns an empty quote set for
+       * non-NG merchants instead of quoting Nigeria-origin rates.
+       */
+      merchantCountry?: string | null;
+      /**
+       * Merchant's payout currency, when a merchant was resolved. The route
+       * resolves the canonical merchant currency (payout_currency -> country
+       * -> NGN) from this and blocks the NGN-denominated carrier quotes for
+       * merchants whose canonical currency is not NGN.
+       */
+      merchantPayoutCurrency?: string | null;
     }
   | { error: string; ok: false; status: number };
 
@@ -119,6 +134,28 @@ async function resolveStorefrontMerchantId(
 
     const merchant = data as { id?: string } | null;
     if (merchant?.id) return merchant.id;
+
+    // Retired-slug fallback: the store was renamed via the "Change store URL"
+    // flow, so `slug` is now a retired alias. A stale client still on the old
+    // `<slug>.usebaci.com` host (e.g. a POST /api/shipping/quotes mid-checkout)
+    // must still resolve to the CURRENT merchant. host still equals the presented
+    // slug, so isTrustedStorefrontHeader held above; and because a live merchant
+    // is looked up FIRST, a slug reclaimed by a new store wins over the alias.
+    const { data: aliasData, error: aliasError } = await supabase
+      .from('merchant_slug_aliases')
+      .select('merchant_id')
+      .eq('old_slug', slug)
+      .maybeSingle();
+    if (aliasError) {
+      console.error('Error resolving storefront merchant alias:', aliasError);
+      return {
+        error: 'Failed to resolve storefront merchant',
+        ok: false,
+        status: 500,
+      };
+    }
+    const aliasRow = aliasData as { merchant_id?: string } | null;
+    if (aliasRow?.merchant_id) return aliasRow.merchant_id;
   }
 
   const domain = normalizeHeader(request.headers.get('x-merchant-domain'));
@@ -149,7 +186,7 @@ async function resolveMerchantDetails(
 ): Promise<MerchantDetails | null | QuoteMerchantContextResult> {
   const { data, error } = await supabase
     .from('merchants')
-    .select('business_name, business_address, phone')
+    .select('business_name, business_address, phone, country, payout_currency')
     .eq('id', merchantId)
     .maybeSingle();
 
@@ -220,22 +257,29 @@ export async function resolveQuoteMerchantContext({
 
   let senderInfo =
     data.shipmentType === 'international' ? undefined : data.sender;
+  let merchantCountry: string | null | undefined;
+  let merchantPayoutCurrency: string | null | undefined;
 
-  if (
-    trustedSenderMerchantId &&
-    (data.shipmentType === 'international' || !senderInfo)
-  ) {
+  if (trustedSenderMerchantId) {
     const details = await resolveMerchantDetails(
       supabase,
       trustedSenderMerchantId
     );
     if (details && 'ok' in details) return details;
-    if (details) senderInfo = buildSenderInfo(details);
+    if (details) {
+      merchantCountry = details.country;
+      merchantPayoutCurrency = details.payout_currency;
+      if (data.shipmentType === 'international' || !senderInfo) {
+        senderInfo = buildSenderInfo(details);
+      }
+    }
   }
 
   return {
     ok: true,
     merchantId,
     senderInfo,
+    merchantCountry,
+    merchantPayoutCurrency,
   };
 }

@@ -16,6 +16,7 @@ export interface TikTokBusinessPluginConfig {
     appId: string;
     tiktokAppId: string;
     appSecret: string;
+    autoInitialize?: boolean;
     debugMode?: boolean;
     disablePaymentTracking?: boolean;
     disableSKAdNetworkSupport?: boolean;
@@ -28,7 +29,7 @@ export type TikTokBusinessPlugin = [
 ];
 
 interface BaciTikTokBusinessNativeModule {
-  initialize: () => boolean;
+  initialize: () => Promise<boolean>;
   isInitialized: () => boolean;
   identify: (
     externalID: string,
@@ -68,8 +69,8 @@ function getNativeModule(): BaciTikTokBusinessNativeModule | null {
   return nativeModule;
 }
 
-export function initialize(): boolean {
-  return getNativeModule()?.initialize() ?? false;
+export async function initialize(): Promise<boolean> {
+  return (await getNativeModule()?.initialize()) ?? false;
 }
 
 export function isInitialized(): boolean {

@@ -58,6 +58,7 @@ type PreloadOptions = {
   imageSizes?: string;
   imageSrcSet?: string;
   media?: string;
+  type?: string;
 };
 
 function getPreloadCall(index: number) {
@@ -78,11 +79,14 @@ describe('OgabasseyPdpProductResourceHints', () => {
     mockPrefetchDNS.mockClear();
   });
 
-  it('emits a unified head-only React preload hint for the primary product image', () => {
+  it('preloads the AVIF tier the PDP hero picture actually paints', () => {
     const productImage =
       'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif';
-    const desktopPreloadHref =
-      'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/lenovo-legion.avif';
+    // The href/srcSet must be the explicit `format=avif` twin the rendered
+    // `<source type="image/avif">` requests — never the poisonable `format=auto`
+    // body (Cloudflare Free ignores Vary: Accept).
+    const avifPreloadHref =
+      'https://cdn.ogabassey.com/image/width=750,quality=35,format=avif/core-assets/products/lenovo-legion.avif';
     const html = renderToStaticMarkup(
       createElement(OgabasseyPdpProductResourceHints, { src: productImage })
     );
@@ -98,27 +102,28 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(html).toBe('');
     expect(mockPreload).toHaveBeenCalledTimes(1);
     expect(mockPreload).toHaveBeenCalledWith(
-      desktopPreloadHref,
+      avifPreloadHref,
       expect.objectContaining({
         as: 'image',
         fetchPriority: 'high',
         imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
         imageSrcSet: expect.stringContaining(
-          'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/lenovo-legion.avif 750w'
+          'https://cdn.ogabassey.com/image/width=750,quality=35,format=avif/core-assets/products/lenovo-legion.avif 750w'
         ),
+        type: 'image/avif',
       })
     );
     const { options } = getPreloadCall(0);
     expect(options).not.toHaveProperty('media');
-    expect(desktopPreloadHref).toBe(
-      'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/lenovo-legion.avif'
-    );
     expect(options.imageSrcSet).toContain('/image/width=');
     expect(options.imageSrcSet).toContain('quality=35');
+    expect(options.imageSrcSet).toContain('format=avif');
+    expect(options.imageSrcSet).not.toContain('format=auto');
+    expect(options.imageSrcSet).not.toContain('format=jpeg');
     expect(options.imageSrcSet).not.toContain('quality=30');
   });
 
-  it('emits exactly one preload per responsive PDP product image profile', () => {
+  it('emits exactly one AVIF preload per responsive PDP product image profile', () => {
     const productImage =
       'https://cdn.ogabassey.com/core-assets/products/z-fold-7-jet-black.avif';
 
@@ -132,12 +137,10 @@ describe('OgabasseyPdpProductResourceHints', () => {
       expect.objectContaining({
         imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
         imageSrcSet: expect.stringContaining(
-          'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/z-fold-7-jet-black.avif 750w'
+          'https://cdn.ogabassey.com/image/width=750,quality=35,format=avif/core-assets/products/z-fold-7-jet-black.avif 750w'
         ),
+        type: 'image/avif',
       })
-    );
-    expect(options.imageSrcSet).toContain(
-      'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/z-fold-7-jet-black.avif 750w'
     );
     expect(options).not.toHaveProperty('media');
   });
@@ -157,7 +160,7 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(mockPreload).not.toHaveBeenCalled();
   });
 
-  it('uses the fallback URL extension when the image is not CDN transformed', () => {
+  it('preloads the decodable fallback (no AVIF twin) for a non-CDN product image', () => {
     const productImage =
       'https://assets.example.com/products/lenovo-legion.png';
 
@@ -170,6 +173,8 @@ describe('OgabasseyPdpProductResourceHints', () => {
       expect.any(String),
       expect.objectContaining({ type: 'image/png' })
     );
+    const { options } = getPreloadCall(0);
+    expect(options.imageSrcSet).not.toContain('format=avif');
   });
 
   it('skips empty product image URLs', () => {

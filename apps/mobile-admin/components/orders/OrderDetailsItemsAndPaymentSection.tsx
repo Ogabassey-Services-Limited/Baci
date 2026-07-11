@@ -10,6 +10,7 @@ interface OrderDetailsItemsAndPaymentSectionProps {
   colors: ThemeColors;
   discountAmount: number;
   formatPrice: (amount: number) => string;
+  giftWrappingFee?: number;
   items: OrderDetailsItem[];
   onRecordPayment: () => void;
   onRequestPayment: () => void;
@@ -19,8 +20,12 @@ interface OrderDetailsItemsAndPaymentSectionProps {
   paymentMethod?: string | null;
   paymentStatus: string;
   shippingFee?: number | null;
+  showVat?: boolean;
   subtotal?: number | null;
+  taxAmount?: number;
   total: number;
+  vatLabel?: string;
+  walletAmountUsed?: number;
 }
 
 export function OrderDetailsItemsAndPaymentSection({
@@ -29,6 +34,7 @@ export function OrderDetailsItemsAndPaymentSection({
   colors,
   discountAmount,
   formatPrice,
+  giftWrappingFee,
   items,
   onRecordPayment,
   onRequestPayment,
@@ -38,8 +44,12 @@ export function OrderDetailsItemsAndPaymentSection({
   paymentMethod,
   paymentStatus,
   shippingFee,
+  showVat,
   subtotal,
+  taxAmount,
   total,
+  vatLabel,
+  walletAmountUsed,
 }: OrderDetailsItemsAndPaymentSectionProps) {
   return (
     <View>
@@ -55,6 +65,7 @@ export function OrderDetailsItemsAndPaymentSection({
         colors={colors}
         discountAmount={discountAmount}
         formatPrice={formatPrice}
+        giftWrappingFee={giftWrappingFee}
         onRecordPayment={onRecordPayment}
         onRequestPayment={onRequestPayment}
         paymentColor={paymentColor}
@@ -62,8 +73,12 @@ export function OrderDetailsItemsAndPaymentSection({
         paymentMethod={paymentMethod}
         paymentStatus={paymentStatus}
         shippingFee={shippingFee}
+        showVat={showVat}
         subtotal={subtotal}
+        taxAmount={taxAmount}
         total={total}
+        vatLabel={vatLabel}
+        walletAmountUsed={walletAmountUsed}
       />
     </View>
   );

@@ -1,3 +1,4 @@
+import { formatOrderItemDisplayName } from '@baci/shared/lib';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
@@ -293,7 +294,7 @@ async function verifyPaymentReference(reference: string) {
         })
         .eq('id', transaction.order_id)
         .select(
-          'id, order_number, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, shipping_status, cancelled_at, order_items(name, quantity, price, variant_name)'
+          'id, order_number, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, shipping_status, cancelled_at, order_items(name, condition, quantity, price, variant_name)'
         )
         .single()
     : { data: null, error: null };
@@ -447,14 +448,17 @@ async function verifyPaymentReference(reference: string) {
 
           const emailItems = (order.order_items || []).map(
             (item: {
+              condition?: string | null;
               name?: string;
               quantity?: number;
               price?: number;
               variant_name?: string | null;
             }) => ({
-              name: item.variant_name
-                ? `${item.name || 'Product'} (${item.variant_name})`
-                : (item.name ?? 'Product'),
+              name: formatOrderItemDisplayName({
+                baseName: item.name || 'Product',
+                condition: item.condition,
+                variantName: item.variant_name,
+              }),
               quantity: item.quantity || 1,
               price: item.price || 0,
             })
@@ -468,6 +472,7 @@ async function verifyPaymentReference(reference: string) {
             subtotal: Number(order.subtotal || 0),
             shippingFee: Number(order.shipping_fee || 0),
             total: Number(order.total || 0),
+            currency: order.currency || 'NGN',
             shippingAddress: {
               address: shippingAddress.address || '',
               city: shippingAddress.city || '',
@@ -488,6 +493,7 @@ async function verifyPaymentReference(reference: string) {
             subtotal: Number(order.subtotal || 0),
             shippingFee: Number(order.shipping_fee || 0),
             total: Number(order.total || 0),
+            currency: order.currency || 'NGN',
             shippingAddress: {
               address: shippingAddress.address || '',
               city: shippingAddress.city || '',

@@ -32,6 +32,10 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   // Keep this prefix above the default ceiling so the UI can stream progress
   // without tripping middleware rate limiting during normal use.
   '/api/import-jobs': { maxRequests: 240, windowMs: 60_000 },
+  // Anonymous ad landings can arrive through carrier NAT bursts; the endpoint is
+  // cheap and only returns validated Set-Cookie headers, so keep it above the
+  // generic API ceiling to avoid losing paid-click attribution.
+  '/api/attr': { maxRequests: 1000, windowMs: 60_000 },
   '/api/orders': { maxRequests: 10, windowMs: 60_000 },
   '/api/products': { maxRequests: 30, windowMs: 60_000 },
   '/api/storefront': { maxRequests: 100, windowMs: 60_000 },
@@ -46,6 +50,16 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   '/api/newsletter': { maxRequests: 5, windowMs: 900_000 },
   '/api/wallet': { maxRequests: 5, windowMs: 60_000 },
   '/api/payments/credit-direct/sign': { maxRequests: 5, windowMs: 60_000 },
+  // Quiz: the Gemma generation route is an expensive AI call, and the claim
+  // routes mint real prizes/cash — keep both well below the per-IP default.
+  '/api/merchant/quiz/generate': { maxRequests: 5, windowMs: 60_000 },
+  // Activation is a cheap DB status flip on its own path so it never competes
+  // with the generation bucket — an admin can generate several drafts, then
+  // review and open one without being throttled by the AI-call limit.
+  '/api/merchant/quiz/activate': { maxRequests: 20, windowMs: 60_000 },
+  '/api/quiz/attempts/start': { maxRequests: 20, windowMs: 60_000 },
+  '/api/quiz/awards/cash/claim': { maxRequests: 10, windowMs: 60_000 },
+  '/api/quiz/prizes/grand/claim': { maxRequests: 10, windowMs: 60_000 },
   default: { maxRequests: 50, windowMs: 60_000 },
 };
 

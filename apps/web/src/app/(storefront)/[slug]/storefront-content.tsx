@@ -17,6 +17,7 @@ import {
 } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import type { Product } from '@/lib/products';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { asRoute } from '@/lib/routes';
 import {
   generateCollectionPageSchema,
@@ -312,6 +313,7 @@ export async function StorefrontContent({
     }
   );
   const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
+  const merchantCurrency = resolveMerchantCurrencyConfig(merchant);
   const schemaProducts = isOgabasseyTemplate
     ? merchantProducts.slice(0, OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT)
     : merchantProducts;
@@ -327,7 +329,7 @@ export async function StorefrontContent({
           url: baseUrl,
           products: schemaProducts,
           merchantName: merchant.business_name,
-          currency: merchant.payout_currency || 'NGN',
+          currency: merchantCurrency.code,
         })
       : null;
   // Key each discovery link by its canonicalized slug (lowercase + trim only)
@@ -451,7 +453,8 @@ export async function StorefrontContent({
         if (ogabasseyHomeTemplateModules) {
           ogabasseyHomeProducts =
             ogabasseyHomeTemplateModules.createOgabasseyHomeProductFeed(
-              merchantProducts
+              merchantProducts,
+              merchantCurrency
             );
           OgabasseyHome = ogabasseyHomeTemplateModules.OgabasseyHomePage;
         }

@@ -1,5 +1,6 @@
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
+import { cache } from 'react';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import {
   getCachedLegacyProductRedirectTarget,
@@ -162,6 +163,22 @@ export async function getProductCached(
   };
 }
 
+/**
+ * Request-scoped product lookup via React cache().
+ * Deduplicates getProductCached() calls within a single request — the PDP
+ * route's generateMetadata and the page body's resolveProductPage() both
+ * resolve the same product; only one lookup runs per unique
+ * (storeSlug, productSlug) argument pair.
+ */
+export const getRequestScopedProduct = cache(
+  (
+    storeSlug: string,
+    productSlug: string
+  ): ReturnType<typeof getProductCached> => {
+    return getProductCached(storeSlug, productSlug);
+  }
+);
+
 // Returns the canonical redirect target if the URL is categorized but lives
 // under /products/, else null. Pure — caller decides whether to throw a real
 // redirect (page component) or emit noindex metadata (generateMetadata).
@@ -232,7 +249,7 @@ export async function resolveProductPage(
   const { params, searchParams } = props;
   const { slug, productSlug } = await params;
   const resolvedSearchParams = await searchParams;
-  const productResult = await getProductCached(slug, productSlug);
+  const productResult = await getRequestScopedProduct(slug, productSlug);
   if (!productResult) {
     notFound();
   }
