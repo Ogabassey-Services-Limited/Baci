@@ -103,6 +103,35 @@ describe('StorefrontCartProvider', () => {
     expect(result.current.cart[0]?.id).toBe('prod-1');
   });
 
+  it('lets a quiz prize voucher line bypass the out-of-stock guard (unit was reserved at mint)', async () => {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StorefrontCartProvider merchantSlug="ogabassey">
+        {children}
+      </StorefrontCartProvider>
+    );
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    // The last serialized unit is reserved for the winner → public stock is 0.
+    const soldOut = { ...mockProduct, manage_stock: true, stock: 0 };
+
+    // A normal add is still blocked when out of stock.
+    act(() => {
+      result.current.addToCart(soldOut, 1);
+    });
+    expect(result.current.totalItems).toBe(0);
+
+    // The winner's own prize voucher line bypasses the guard and is added.
+    act(() => {
+      result.current.addToCart(soldOut, 1, {
+        quizAwardId: 'award-1',
+        quizVoucherToken: 'qv1.aaa.bbb',
+      });
+    });
+    expect(result.current.totalItems).toBe(1);
+    expect(result.current.cart[0]?.quizAwardId).toBe('award-1');
+  });
+
   it('prunes expired voucher lines during mount hydration and persists the result', async () => {
     localStorageMock.setItem(
       'baci-cart-ogabassey-guest',
