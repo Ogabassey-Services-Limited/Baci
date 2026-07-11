@@ -115,17 +115,22 @@ function setupBlogPostFetch(publishedPost: Record<string, unknown>) {
     singleResult: { data: { blog_enabled: true }, error: null },
   });
 
+  // Merchant-by-domain resolution happens in one public-safe bounded RPC
+  // (resolve_storefront_public_snapshot_v2) — mirrors the updated
+  // setupBlogPostFetch in cached-data.blog-post.test.ts.
   const serviceRpc = vi.fn((fnName: string) => {
-    if (fnName === 'resolve_storefront_cached_merchant') {
+    if (fnName === 'resolve_storefront_public_snapshot_v2') {
       return Promise.resolve({
         data: [
           {
+            resolution_status: 'found',
             custom_domain: 'ogabassey.com',
             feature_settings: { blog_enabled: true },
             merchant_data: buildMerchantRow(),
           },
         ],
         error: null,
+        status: 200,
       });
     }
 
@@ -176,7 +181,9 @@ function setupBlogPostFetch(publishedPost: Record<string, unknown>) {
       }
 
       if (key === 'test-anon-key') {
-        return { from: publicFrom };
+        // The anon client owns the public snapshot RPC (the runtime snapshot
+        // client IS the public client — see getStorefrontSnapshotSupabaseClient).
+        return { from: publicFrom, rpc: serviceRpc };
       }
 
       throw new Error(`Unexpected Supabase key: ${key}`);
