@@ -187,7 +187,72 @@ describe('QuoteRequestSchema delivery preference', () => {
     expect(result.data.deliveryPreference).toBe('pickup_station');
   });
 
-  it('rejects unsupported quote delivery preferences', () => {
+  it('preserves receiver coordinates for nearest service-centre ranking', () => {
+    const result = QuoteRequestSchema.safeParse({
+      receiver: {
+        name: 'Jane Receiver',
+        address: '5 Customer Street',
+        city: 'Port Harcourt',
+        state: 'Rivers',
+        latitude: 4.8156,
+        longitude: 7.0498,
+      },
+      items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.receiver).toMatchObject({
+      latitude: 4.8156,
+      longitude: 7.0498,
+    });
+  });
+
+  it.each([
+    ['partial coordinates', { latitude: 4.8156 }],
+    ['out-of-range coordinates', { latitude: 91, longitude: 7.0498 }],
+    [
+      'non-finite coordinates',
+      { latitude: Number.POSITIVE_INFINITY, longitude: 7.0498 },
+    ],
+  ])('rejects %s', (_label, coordinates) => {
+    const result = QuoteRequestSchema.safeParse({
+      receiver: {
+        name: 'Jane Receiver',
+        address: '5 Customer Street',
+        city: 'Port Harcourt',
+        state: 'Rivers',
+        ...coordinates,
+      },
+      items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects partial sender coordinates', () => {
+    const result = QuoteRequestSchema.safeParse({
+      receiver: {
+        name: 'Jane Receiver',
+        address: '5 Customer Street',
+        city: 'Port Harcourt',
+        state: 'Rivers',
+      },
+      sender: {
+        name: 'Merchant',
+        phone: '08012345678',
+        address: '1 Merchant Road',
+        city: 'Ikeja',
+        state: 'Lagos',
+        longitude: 3.3792,
+      },
+      items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects unsupported delivery preferences', () => {
     const result = QuoteRequestSchema.safeParse({
       deliveryPreference: 'express',
       receiver: {

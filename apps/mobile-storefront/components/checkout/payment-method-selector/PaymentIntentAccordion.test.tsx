@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Text } from 'react-native';
@@ -12,8 +13,8 @@ jest.mock('react-native-safe-area-context', () => ({
 const colors = Colors.dark;
 
 interface Overrides {
-  selectedTab?: PaymentTab;
-  selectedMethod?: PaymentMethodType;
+  selectedTab?: PaymentTab | null;
+  selectedMethod?: PaymentMethodType | null;
   hasBNPLMethods?: boolean;
   hasPayLaterMethods?: boolean;
   availableMethodIds?: PaymentMethodType[];
@@ -30,8 +31,14 @@ function renderAccordion(overrides: Overrides = {}) {
   render(
     <PaymentIntentAccordion
       colors={colors}
-      selectedTab={overrides.selectedTab ?? 'full'}
-      selectedMethod={overrides.selectedMethod ?? 'paystack'}
+      selectedTab={
+        overrides.selectedTab === undefined ? 'full' : overrides.selectedTab
+      }
+      selectedMethod={
+        overrides.selectedMethod === undefined
+          ? 'paystack'
+          : overrides.selectedMethod
+      }
       hasBNPLMethods={overrides.hasBNPLMethods ?? true}
       hasPayLaterMethods={overrides.hasPayLaterMethods ?? true}
       availableMethodIds={overrides.availableMethodIds}
@@ -47,6 +54,20 @@ function renderAccordion(overrides: Overrides = {}) {
 }
 
 describe('PaymentIntentAccordion', () => {
+  it('starts fully collapsed and unchecked without a payment selection', () => {
+    renderAccordion({
+      selectedMethod: null,
+      selectedTab: null,
+      nestedRows: <Text>NESTED_INSTRUMENT</Text>,
+    });
+
+    for (const option of screen.getAllByRole('radio')) {
+      expect(option.props.accessibilityState.checked).toBe(false);
+      expect(option.props.accessibilityState.expanded).toBe(false);
+    }
+    expect(screen.queryByText('NESTED_INSTRUMENT')).toBeNull();
+  });
+
   it('renders all four intents when every method group is available', () => {
     renderAccordion();
 
@@ -64,8 +85,6 @@ describe('PaymentIntentAccordion', () => {
     expect(screen.queryByText('Pay for Me')).toBeNull();
     expect(screen.queryByText('Generate Invoice')).toBeNull();
   });
-
-
 
   it('filters terminal pay-later intents by the enabled method ids', () => {
     renderAccordion({

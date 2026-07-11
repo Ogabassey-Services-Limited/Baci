@@ -126,6 +126,14 @@ export async function fetchPlaceDetails({
       zip: details.postalCode || '',
       country: details.country || '',
       formattedAddress: details.formattedAddress || prediction.description,
+      latitude:
+        typeof details.location?.latitude === 'number'
+          ? details.location.latitude
+          : undefined,
+      longitude:
+        typeof details.location?.longitude === 'number'
+          ? details.location.longitude
+          : undefined,
     };
   } catch (error) {
     console.error('Error fetching place details:', error);

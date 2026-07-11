@@ -5,7 +5,7 @@ import {
   GIGL_STATIONS_TIMEOUT_MS,
   withGiglRequestTimeout,
 } from './gigl.constants';
-import type { GiglStation } from './gigl.schemas';
+import type { GiglServiceCentre, GiglStation } from './gigl.schemas';
 import { giglSchemas } from './gigl.schemas';
 
 function normalizeLocation(value: string): string {
@@ -17,6 +17,14 @@ export class GiglStationsService {
   private stationsCacheExpiry = 0;
   private stationsRequest: Promise<GiglStation[]> | null = null;
   private stationsRequestTimeout = 0;
+  private readonly serviceCentresCache = new Map<
+    number,
+    { expiresAt: number; serviceCentres: GiglServiceCentre[] }
+  >();
+  private readonly serviceCentresRequests = new Map<
+    number,
+    { promise: Promise<GiglServiceCentre[]>; timeout: number }
+  >();
 
   constructor(private readonly apiClient: GiglApiClient) {}
 
@@ -98,6 +106,92 @@ export class GiglStationsService {
     this.stationsCacheExpiry = Date.now() + GIGL_STATIONS_CACHE_TTL_MS;
 
     return this.stationsCache;
+  }
+
+  getServiceCentres(
+    stationId: number,
+    timeout = GIGL_STATIONS_TIMEOUT_MS,
+    signal?: AbortSignal
+  ): Promise<GiglServiceCentre[]> {
+    const cached = this.serviceCentresCache.get(stationId);
+    if (cached && Date.now() < cached.expiresAt) {
+      return Promise.resolve(cached.serviceCentres);
+    }
+
+    let request = this.serviceCentresRequests.get(stationId);
+    if (!request || request.timeout < timeout) {
+      const promise = this.fetchServiceCentres(stationId, timeout).finally(
+        () => {
+          if (this.serviceCentresRequests.get(stationId)?.promise === promise) {
+            this.serviceCentresRequests.delete(stationId);
+          }
+        }
+      );
+      request = { promise, timeout };
+      this.serviceCentresRequests.set(stationId, request);
+      void promise.catch(() => undefined);
+    }
+
+    return withGiglRequestTimeout(
+      request.promise,
+      timeout,
+      signal,
+      'GIGL service centres request timed out',
+      'GIGL service centres request aborted'
+    );
+  }
+
+  private async fetchServiceCentres(
+    stationId: number,
+    timeout: number
+  ): Promise<GiglServiceCentre[]> {
+    const tokenData = await this.apiClient.getApiToken(timeout);
+    const { envelope, response } =
+      await this.apiClient.safeFetchEnvelopeWithAccessToken(
+        `${this.apiClient.baseUrl}/serviceCentresByStation?StationId=${stationId}`,
+        tokenData,
+        () => ({ method: 'GET', timeout })
+      );
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch GIGL service centres for station ${stationId}`
+      );
+    }
+    if (envelope?.status !== 200) {
+      throw new Error(
+        `Invalid GIGL service centres response for station ${stationId}`
+      );
+    }
+
+    const serviceCentres = this.apiClient.parseEnvelopeData(
+      envelope,
+      giglSchemas.serviceCentresData,
+      'service centres'
+    );
+    this.serviceCentresCache.set(stationId, {
+      expiresAt: Date.now() + GIGL_STATIONS_CACHE_TTL_MS,
+      serviceCentres,
+    });
+    return serviceCentres;
+  }
+
+  async findServiceCentreById(
+    stationId: number,
+    serviceCentreId: number,
+    timeout?: number,
+    signal?: AbortSignal
+  ): Promise<GiglServiceCentre | null> {
+    const serviceCentres = await this.getServiceCentres(
+      stationId,
+      timeout,
+      signal
+    );
+    return (
+      serviceCentres.find(
+        (serviceCentre) => serviceCentre.ServiceCentreId === serviceCentreId
+      ) ?? null
+    );
   }
 
   async findStationById(

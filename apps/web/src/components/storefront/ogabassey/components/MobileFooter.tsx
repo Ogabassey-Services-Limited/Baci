@@ -8,6 +8,7 @@ import type React from 'react';
 import { useCart } from '@/hooks/cart';
 import { asRoute } from '@/lib/routes';
 import { useOgabasseyScrollVisibility } from '../scroll-visibility-store';
+import { GadgetPattern } from './GadgetPattern';
 
 interface MobileFooterProps {
   storeSlug?: string;
@@ -76,13 +77,33 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
       {/* Subtle top highlight */}
       <div className="ogabassey-mobile-footer__highlight" />
 
-      {/* Background Pattern - Matching Header Style with specific opacity */}
-      <div
+      {/*
+        Background Pattern - Matching Header Style with specific opacity.
+        "ULTRA SPARSE" white-stroke variant of GadgetPattern's tile — rendered
+        as an inline <svg><pattern> (not a `background-image: url(data:svg)`
+        div) because url() backgrounds ARE LCP candidates and this exact
+        pattern was field-caught winning homepage LCP at 4648ms post-#3044
+        (PostHog, 2026-07-11). opacity=0.07 preserves the previous
+        `.ogabassey-mobile-footer__pattern` CSS opacity now that the inline
+        <svg> style takes precedence over that class.
+      */}
+      <GadgetPattern
         className="ogabassey-mobile-footer__pattern"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='150' height='150' viewBox='0 0 150 150' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1.5'%3E%3C!-- ULTRA SPARSE --%3E%3Cg transform='translate(20, 20) rotate(-15 6 10)'%3E%3Crect x='0' y='0' width='12' height='20' rx='2'/%3E%3C/g%3E%3Cg transform='translate(120, 90) rotate(5 9 6)'%3E%3Crect x='0' y='3' width='18' height='12' rx='2'/%3E%3C/g%3E%3Cg transform='translate(70, 50) rotate(-25 10 6)'%3E%3Ccircle cx='6' cy='6' r='2'/%3E%3C/g%3E%3Ccircle cx='140' cy='20' r='2' stroke='none' fill='%23ffffff'/%3E%3Cpath d='M30 5 l3 3 m-3 0 l3 -3' stroke-width='1'/%3E%3C/g%3E%3C/svg%3E")`,
-        }}
-      />
+        opacity={0.07}
+        stroke="#ffffff"
+      >
+        <g transform="translate(20, 20) rotate(-15 6 10)">
+          <rect height="20" rx="2" width="12" x="0" y="0" />
+        </g>
+        <g transform="translate(120, 90) rotate(5 9 6)">
+          <rect height="12" rx="2" width="18" x="0" y="3" />
+        </g>
+        <g transform="translate(70, 50) rotate(-25 10 6)">
+          <circle cx="6" cy="6" r="2" />
+        </g>
+        <circle cx="140" cy="20" fill="#ffffff" r="2" stroke="none" />
+        <path d="M30 5 l3 3 m-3 0 l3 -3" strokeWidth="1" />
+      </GadgetPattern>
 
       <div className="ogabassey-mobile-footer__items">
         {navItems.map(({ path, icon: Icon, label, badge }) => {

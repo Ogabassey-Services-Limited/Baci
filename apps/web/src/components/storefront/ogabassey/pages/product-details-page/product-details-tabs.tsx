@@ -223,8 +223,17 @@ export function ProductDetailsTabs({
             aria-labelledby="tab-btn-compare"
             className="ogabassey-pdp-tabs__panel"
           >
+            {/*
+              The deferred tab payload omits `description` (rendered server-side
+              as a slot). ProductComparisonTable types `mainProduct` as a full
+              Product but only reads specs — its `buildProductSpecData` call is a
+              no-op for description because the key specs are already baked into
+              `detailedSpecs`. Supply an empty description client-side (no wire
+              cost — we're already inside the hydrated tab island) to satisfy the
+              type without re-serializing the multi-KB HTML.
+            */}
             <ProductComparisonTable
-              mainProduct={productData}
+              mainProduct={{ ...productData, description: '' }}
               storeSlug={storeSlug}
             />
           </div>

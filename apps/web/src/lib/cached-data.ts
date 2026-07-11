@@ -1153,6 +1153,28 @@ export const getRequestScopedMerchant = cache(
 );
 
 /**
+ * Request-scoped blog post lookup via React cache().
+ * Deduplicates getCachedBlogPost() calls within a single request — the blog
+ * post route's generateMetadata, hero-shell static-shell lookup, and streamed
+ * body resolver all resolve the same post; only one lookup runs per unique
+ * (identifier, postSlug, includeDrafts) argument tuple.
+ *
+ * `includeDrafts` has no default here on purpose: React's cache() keys on
+ * `arguments.length` as well as argument values, so a caller that omits it
+ * would silently miss every other call site's cache entry instead of sharing
+ * it. Every call site must pass it explicitly.
+ */
+export const getRequestScopedBlogPost = cache(
+  (
+    identifier: string,
+    postSlug: string,
+    includeDrafts: boolean
+  ): ReturnType<typeof getCachedBlogPost> => {
+    return getCachedBlogPost(identifier, postSlug, includeDrafts);
+  }
+);
+
+/**
  * Cached merchant data by ID
  */
 export async function getCachedMerchantById(
@@ -2125,7 +2147,7 @@ function getSpecialCollectionCopy(collectionSlug: SpecialCollectionSlug) {
  * small so it remains suitable for Vercel's shared remote cache and keeps
  * category/product mutation tag invalidation cross-instance.
  */
-async function getCachedCategoryPageShellData(
+export async function getCachedCategoryPageShellData(
   merchantId: string,
   categorySlug: string,
   _storeSlug: string

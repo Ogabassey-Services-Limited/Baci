@@ -129,6 +129,9 @@ describe('useCheckoutShipping provider pickup stations', () => {
     expect(result.current.shippingQuotes).toEqual([
       expect.objectContaining({ id: 'station-quote' }),
     ]);
+    expect(mockFetchShippingQuotes).toHaveBeenLastCalledWith(
+      expect.objectContaining({ previousSelectedQuoteId: null })
+    );
   });
 
   it('requests station-pickup quotes after choosing pickup stations outside Lagos before a station quote exists', async () => {
@@ -183,6 +186,40 @@ describe('useCheckoutShipping provider pickup stations', () => {
     expect(result.current.deliveryMethod).toBe('pickup_station');
     expect(result.current.selectedQuoteId).toBe('station-quote');
     expect(result.current.selectedQuote?.isStationPickup).toBe(true);
+  });
+
+  it('keeps quote preferences isolated across location and method changes', async () => {
+    const { result, rerender } = renderHook(
+      (props: ShippingParams) => useCheckoutShipping(props),
+      { initialProps: createParams() }
+    );
+    await waitFor(() =>
+      expect(result.current.selectedQuoteId).toBe('door-quote')
+    );
+
+    act(() => result.current.handleSelectDeliveryMethod('pickup_station'));
+    await waitFor(() =>
+      expect(result.current.selectedQuoteId).toBe('station-quote')
+    );
+
+    rerender(createParams({ watchedCity: 'Obio-Akpor' }));
+    await waitFor(() =>
+      expect(mockFetchShippingQuotes).toHaveBeenCalledTimes(3)
+    );
+    expect(mockFetchShippingQuotes).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        city: 'Obio-Akpor',
+        deliveryPreference: 'pickup_station',
+      })
+    );
+
+    act(() => result.current.handleSelectDeliveryMethod('door'));
+    await waitFor(() =>
+      expect(result.current.selectedQuoteId).toBe('door-quote')
+    );
+    expect(mockFetchShippingQuotes).toHaveBeenLastCalledWith(
+      expect.objectContaining({ deliveryPreference: 'door' })
+    );
   });
 
   it('never selects the paid provider station quote for free Lagos pickup', async () => {

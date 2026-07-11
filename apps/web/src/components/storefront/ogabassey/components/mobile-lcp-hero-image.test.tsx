@@ -105,7 +105,7 @@ describe('MobileLcpHeroImage', () => {
     expect(fallbackSource?.getAttribute('srcset')).toContain('format=jpeg');
     expect(fallbackSource).toHaveAttribute(
       'sizes',
-      '(max-width: 767px) 100vw, 50vw'
+      '(max-width: 767px) 40vw, 50vw'
     );
     expect(container.innerHTML).not.toContain('format=auto');
   });

@@ -1,17 +1,12 @@
-import { getCachedCategoryPageData } from '@/lib/cached-data';
 import { formatCurrencyCompact } from '@/lib/currency';
-import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
 import { buildCategorySupportLinks } from '@/lib/storefront-compare/build-commercial-support-links';
+import { loadCategoryScopedSemanticInventorySafely } from '@/lib/storefront-product/load-category-scoped-semantic-inventory-safely';
 import type {
   BuildInformationalClusterModelInput,
   InformationalClusterCategoryData,
   InformationalClusterModel,
 } from './content-cluster-types';
 import { inferContentClusterContext } from './infer-content-cluster-context';
-
-type CachedCategoryPageData = Awaited<
-  ReturnType<typeof getCachedCategoryPageData>
->;
 
 interface CategoryInventoryProduct {
   slug: string;
@@ -28,62 +23,35 @@ type OverrideCategoryProduct = NonNullable<
   InformationalClusterCategoryData['products']
 >[number];
 
-function isRawDbProduct(value: unknown): value is RawDbProduct {
-  return Boolean(
-    value &&
-      typeof value === 'object' &&
-      'id' in value &&
-      'name' in value &&
-      'price' in value
-  );
-}
-
-function resolveCategoryName(
-  categoryData: CachedCategoryPageData | InformationalClusterCategoryData,
+function resolveOverrideCategoryName(
+  categoryData: InformationalClusterCategoryData,
   fallbackCategorySlug: string
 ) {
   return (
     categoryData.category?.name ||
-    ('fallbackName' in categoryData ? categoryData.fallbackName : null) ||
+    categoryData.fallbackName ||
     fallbackCategorySlug
   );
 }
 
-function normalizeCategoryProducts(
+// The override products and the scoped semantic inventory share this already-
+// normalized shape (slug/name/price/brand/category_slug/key-specs/condition/
+// stock), so both map directly — no RawDbProduct branch needed now that the
+// rich getCachedCategoryPageData payload no longer feeds this model.
+function toCategoryInventoryProduct(
   categorySlug: string,
-  categoryData: CachedCategoryPageData | InformationalClusterCategoryData
-): CategoryInventoryProduct[] {
-  const products = categoryData.products ?? [];
-
-  if (products.every((product) => !isRawDbProduct(product))) {
-    return (products as OverrideCategoryProduct[]).map((product) => ({
-      slug: product.slug,
-      name: product.name,
-      brand: product.brand,
-      price: product.price,
-      category_slug: product.category_slug ?? categorySlug,
-      product_key_specs: product.product_key_specs ?? null,
-      condition: product.condition ?? null,
-      stock: product.stock ?? null,
-    }));
-  }
-
-  return (products as RawDbProduct[]).map((product) => {
-    const normalized = normalizeProduct(product, {
-      preferredCategorySlug: categorySlug,
-    });
-
-    return {
-      slug: normalized.slug,
-      name: normalized.name,
-      brand: normalized.brand,
-      price: normalized.price,
-      category_slug: normalized.category_slug,
-      product_key_specs: normalized.product_key_specs,
-      condition: normalized.condition,
-      stock: normalized.stock,
-    };
-  });
+  product: OverrideCategoryProduct
+): CategoryInventoryProduct {
+  return {
+    slug: product.slug,
+    name: product.name,
+    brand: product.brand,
+    price: product.price,
+    category_slug: product.category_slug ?? categorySlug,
+    product_key_specs: product.product_key_specs ?? null,
+    condition: product.condition ?? null,
+    stock: product.stock ?? null,
+  };
 }
 
 function isInStock(product: CategoryInventoryProduct) {
@@ -136,26 +104,40 @@ export async function buildInformationalClusterModel(
     return null;
   }
 
-  const categoryData =
-    input.categoryDataOverride ??
-    (await getCachedCategoryPageData(
-      input.merchantId,
-      inferred.categorySlug,
-      input.merchantSlug
-    ));
+  const categorySlug = inferred.categorySlug;
+  let categoryName: string;
+  let products: CategoryInventoryProduct[];
 
-  if (!categoryData || categoryData.isCollection) {
-    return null;
+  if (input.categoryDataOverride) {
+    const override = input.categoryDataOverride;
+    if (override.isCollection) {
+      return null;
+    }
+    categoryName = resolveOverrideCategoryName(override, categorySlug);
+    products = (override.products ?? []).map((product) =>
+      toCategoryInventoryProduct(categorySlug, product)
+    );
+  } else {
+    // Repointed off the ~11-query getCachedCategoryPageData leg onto the single
+    // category+children scoped semantic query. Degrades to an empty pool on a
+    // transient failure — the cluster links are supplemental SEO content.
+    const inventory = await loadCategoryScopedSemanticInventorySafely({
+      merchantId: input.merchantId,
+      categorySlug,
+      storeSlug: input.merchantSlug,
+      warningMessage: 'Failed to load informational cluster category inventory',
+    });
+    if (inventory.isCollection) {
+      return null;
+    }
+    categoryName = inventory.categoryName;
+    products = inventory.products.map((product) =>
+      toCategoryInventoryProduct(categorySlug, product)
+    );
   }
-
-  const categoryName = resolveCategoryName(categoryData, inferred.categorySlug);
-  const products = normalizeCategoryProducts(
-    inferred.categorySlug,
-    categoryData
-  );
   const commerceLinks = buildCategorySupportLinks({
     storeUrl: input.storeUrl,
-    categorySlug: inferred.categorySlug,
+    categorySlug,
     categoryName,
     products,
   });
@@ -163,7 +145,7 @@ export async function buildInformationalClusterModel(
   return {
     heading: `Continue shopping ${categoryName.toLowerCase()}`,
     primaryCategoryLink: {
-      href: `${input.storeUrl}/${inferred.categorySlug}`,
+      href: `${input.storeUrl}/${categorySlug}`,
       label: `Shop more ${categoryName.toLowerCase()}`,
     },
     commerceLinks: commerceLinks.slice(0, 3),

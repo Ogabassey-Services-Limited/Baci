@@ -14,6 +14,15 @@ const shippingQuote = {
   insuranceIncluded: true,
 };
 
+const stationQuote = {
+  ...shippingQuote,
+  id: 'station-quote',
+  isStationPickup: true,
+  stationName: 'PORT HARCOURT',
+  stationAddress: 'Port Harcourt station',
+  stationCode: 'PHC',
+};
+
 describe('normalizeShippingQuoteResponse', () => {
   it('returns quote arrays, session id, and warnings from the API response', () => {
     expect(
@@ -51,5 +60,15 @@ describe('normalizeShippingQuoteResponse', () => {
         warnings: [],
       }
     );
+  });
+
+  it('preserves optional GIGL pickup station codes', () => {
+    expect(
+      normalizeShippingQuoteResponse({ quotes: { all: [stationQuote] } })
+        .quotes[0]
+    ).toMatchObject({
+      stationCode: 'PHC',
+      stationName: 'PORT HARCOURT',
+    });
   });
 });

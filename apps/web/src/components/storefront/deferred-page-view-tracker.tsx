@@ -2,6 +2,7 @@
 
 import type { ComponentType } from 'react';
 import { useEffect, useState } from 'react';
+import { runWhenPageActivated } from '@/lib/dom/run-when-page-activated';
 
 interface DeferredPageViewTrackerProps {
   merchantId: string;
@@ -36,6 +37,7 @@ export function DeferredPageViewTracker({
     }
 
     let cancelled = false;
+    let timeoutId: number | undefined;
 
     const loadTracker = () => {
       const trackerModule = loadTrackerModule?.() ?? loadDefaultTrackerModule();
@@ -47,26 +49,39 @@ export function DeferredPageViewTracker({
       });
     };
 
-    const timeoutId = window.setTimeout(
-      loadTracker,
-      PAGE_VIEW_TRACKER_DELAY_MS
-    );
-    window.addEventListener('pointerdown', loadTracker, {
-      once: true,
-      passive: true,
-    });
-    window.addEventListener('keydown', loadTracker, { once: true });
-    window.addEventListener('scroll', loadTracker, {
-      once: true,
-      passive: true,
+    const removeInteractionListeners = () => {
+      window.removeEventListener('pointerdown', loadTracker);
+      window.removeEventListener('keydown', loadTracker);
+      window.removeEventListener('scroll', loadTracker);
+    };
+
+    // Gate scheduling on activation: a speculatively prerendered PDP executes
+    // this effect, and the merchant page-view tracker POSTs to /api/events (a
+    // DB write) plus GA4/Pixel pageviews. Deferring until the page is actually
+    // presented keeps discarded prerenders from minting junk pageviews.
+    const cancelActivationGate = runWhenPageActivated(() => {
+      if (cancelled) {
+        return;
+      }
+      timeoutId = window.setTimeout(loadTracker, PAGE_VIEW_TRACKER_DELAY_MS);
+      window.addEventListener('pointerdown', loadTracker, {
+        once: true,
+        passive: true,
+      });
+      window.addEventListener('keydown', loadTracker, { once: true });
+      window.addEventListener('scroll', loadTracker, {
+        once: true,
+        passive: true,
+      });
     });
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timeoutId);
-      window.removeEventListener('pointerdown', loadTracker);
-      window.removeEventListener('keydown', loadTracker);
-      window.removeEventListener('scroll', loadTracker);
+      cancelActivationGate();
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+      removeInteractionListeners();
     };
   }, [Tracker, loadTrackerModule]);
 

@@ -17,7 +17,7 @@ interface ValidateCheckoutSubmissionParams {
   itemsLength: number;
   requiresShippingQuote: boolean;
   resolvedShippingQuoteContextKey: string;
-  selectedPayment: PaymentMethodType;
+  selectedPayment: PaymentMethodType | null;
   selectedQuote: ShippingQuote | undefined;
   setStep: (step: 'address' | 'payment' | 'review') => void;
 }
@@ -55,8 +55,9 @@ export function validateCheckoutSubmission({
   }
 
   if (
-    availablePaymentMethods.length > 0 &&
-    !availablePaymentMethods.includes(selectedPayment)
+    !selectedPayment ||
+    (availablePaymentMethods.length > 0 &&
+      !availablePaymentMethods.includes(selectedPayment))
   ) {
     Alert.alert(
       'Payment Method Unavailable',

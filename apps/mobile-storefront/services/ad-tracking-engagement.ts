@@ -1,11 +1,11 @@
 import { posthogSearch, posthogTrack } from './ad-tracking-identity';
 import {
   generateEventIdSync,
-  sendServerConversion,
   trackAemEvent,
   trackFacebookEvent,
   trackTikTokEvent,
 } from './ad-tracking-runtime';
+import { sendServerConversion } from './ad-tracking-server-conversion';
 
 export async function trackSearch(
   query: string,

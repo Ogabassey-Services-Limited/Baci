@@ -26,6 +26,7 @@ import {
 } from '@/config/storefront-cdn-cache-control';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import {
+  getStorefrontForwardedBotUserAgent,
   getStorefrontMetadataCacheBucket,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
   STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
@@ -41,6 +42,7 @@ import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { getCurrentSlugForAlias } from '@/lib/slug-alias-cache';
 import { resolveStorefrontBlogListingStatus } from '@/lib/storefront-blog-listing-status';
 import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
+import { resolveStorefrontCompareHubStatus } from '@/lib/storefront-compare-hub-status';
 import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
@@ -151,10 +153,20 @@ function buildProxyRequestHeaders(request: NextRequest): Headers {
   for (const header of MERCHANT_CONTEXT_HEADERS) {
     headers.delete(header);
   }
+  const userAgent = request.headers.get('user-agent') ?? '';
   headers.set(
     STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
-    getStorefrontMetadataCacheBucket(request.headers.get('user-agent') ?? '')
+    getStorefrontMetadataCacheBucket(userAgent)
   );
+  // Blocking-bucket bots that Next's hardcoded getBotType() would treat as
+  // humans (SemrushBot, AhrefsBot, GPTBot, …) would otherwise receive the raw
+  // application/x-nextjs-pre-render postponed state on PPR routes. Forward an
+  // annotated UA so the origin performs a full blocking HTML render for them
+  // (see storefront-metadata-cache-bots.ts).
+  const forwardedUserAgent = getStorefrontForwardedBotUserAgent(userAgent);
+  if (forwardedUserAgent !== userAgent) {
+    headers.set('user-agent', forwardedUserAgent);
+  }
   return headers;
 }
 
@@ -1949,16 +1961,40 @@ async function resolveStorefrontPdpHardNotFound(
     return null;
   }
   // `/{category}/compare` is the category compare hub route, not a PDP — it
-  // must fall through to the App Router instead of being resolved (and
-  // hard-404ed) as a product slug. The categoryless `/products/{slug}` fallback
-  // stays checked: `products` beats the dynamic `[category]` segment in route
-  // precedence, so `/products/compare` has no hub route and `compare` there can
-  // only be a genuine product slug.
+  // must never be resolved (and hard-404ed) as a product slug. The categoryless
+  // `/products/{slug}` fallback stays checked: `products` beats the dynamic
+  // `[category]` segment in route precedence, so `/products/compare` has no hub
+  // route and `compare` there can only be a genuine product slug.
+  //
+  // Confirmed-EMPTY hubs (anti-thin-page guard) get the same hard 404 as
+  // missing PDPs: the page's own thin-hub notFound() only yields a PPR
+  // soft-404 (200 + noindex shell). The verdict is the page's own criterion
+  // served by /api/internal/compare-hub-status, fails open on any uncertainty,
+  // and is skipped for param URLs — mirroring the PDP hasSearchParams rule —
+  // so a hub that gains eligible products serves 200 on the next clean crawl.
   if (
     !isProductsFallbackPdp &&
     CATEGORY_LISTING_HUB_SEGMENTS.has(productSlug.toLowerCase())
   ) {
-    return null;
+    if (hasSearchParams) {
+      return null;
+    }
+    const hubStatus = await resolveStorefrontCompareHubStatus({
+      origin: request.nextUrl.origin,
+      identifier,
+      categorySlug: firstSegment,
+      secret: getInternalApiSecret(),
+    });
+    if (hubStatus.kind !== 'empty') {
+      return null;
+    }
+    return buildHardStatusStorefrontResponse(
+      404,
+      request,
+      pathname,
+      userAgent,
+      hostname
+    );
   }
   // UUID product URLs (`/{category}/{productId}`) resolve through the page's
   // id-based lookup + canonical 308; the slug set only holds slugs, so a

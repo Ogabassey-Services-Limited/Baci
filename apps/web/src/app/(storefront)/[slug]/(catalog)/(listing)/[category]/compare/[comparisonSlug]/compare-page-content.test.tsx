@@ -6,8 +6,6 @@ const mockLoadComparePage = vi.fn();
 const mockCompareRelatedLinks = vi.fn(
   (props: {
     links: Array<{ description: string; href: string; label: string }>;
-    merchantCustomDomain?: string | null;
-    merchantSlug: string;
     storeUrl: string;
   }) => (
     <section aria-labelledby="related-comparisons-heading">
@@ -32,8 +30,6 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 vi.mock('./compare-related-links', () => ({
   CompareRelatedLinks: (props: {
     links: Array<{ description: string; href: string; label: string }>;
-    merchantCustomDomain?: string | null;
-    merchantSlug: string;
     storeUrl: string;
   }) => mockCompareRelatedLinks(props),
 }));
@@ -204,8 +200,6 @@ describe('ComparePageContent', () => {
     expect(mockCompareRelatedLinks).toHaveBeenCalledWith(
       expect.objectContaining({
         links: comparePageModel.relatedCompareLinks,
-        merchantCustomDomain: 'ogabassey.com',
-        merchantSlug: 'ogabassey',
         storeUrl: 'https://ogabassey.com',
       })
     );

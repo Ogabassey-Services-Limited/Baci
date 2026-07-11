@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockGetCachedBlogPost = vi.fn();
+const mockGetRequestScopedBlogPost = vi.fn();
 const mockGetLiveBlogPost = vi.fn();
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedBlogPost: (...args: unknown[]) => mockGetCachedBlogPost(...args),
+  getRequestScopedBlogPost: (...args: unknown[]) =>
+    mockGetRequestScopedBlogPost(...args),
 }));
 
 vi.mock('@/lib/live-blog-post', () => ({
@@ -20,7 +21,7 @@ describe('getResolvedBlogPost', () => {
 
   it('returns cached data before falling back to the live query', async () => {
     const cachedPost = { post: { slug: 'cached-post' } };
-    mockGetCachedBlogPost.mockResolvedValue(cachedPost);
+    mockGetRequestScopedBlogPost.mockResolvedValue(cachedPost);
 
     const result = await getResolvedBlogPost(
       'ogabassey.com',
@@ -28,7 +29,7 @@ describe('getResolvedBlogPost', () => {
       false
     );
 
-    expect(mockGetCachedBlogPost).toHaveBeenCalledWith(
+    expect(mockGetRequestScopedBlogPost).toHaveBeenCalledWith(
       'ogabassey.com',
       'cached-post',
       false
@@ -39,7 +40,7 @@ describe('getResolvedBlogPost', () => {
 
   it('falls back to the live query when the cached lookup misses', async () => {
     const livePost = { post: { slug: 'live-post' } };
-    mockGetCachedBlogPost.mockResolvedValue(null);
+    mockGetRequestScopedBlogPost.mockResolvedValue(null);
     mockGetLiveBlogPost.mockResolvedValue(livePost);
 
     const result = await getResolvedBlogPost(
@@ -62,7 +63,9 @@ describe('getResolvedBlogPost', () => {
       .mockImplementation(() => undefined);
     const livePost = { post: { slug: 'live-post' } };
 
-    mockGetCachedBlogPost.mockRejectedValue(new Error('Cache lookup failed'));
+    mockGetRequestScopedBlogPost.mockRejectedValue(
+      new Error('Cache lookup failed')
+    );
     mockGetLiveBlogPost.mockResolvedValue(livePost);
 
     const result = await getResolvedBlogPost(

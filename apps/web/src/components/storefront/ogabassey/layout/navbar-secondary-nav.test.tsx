@@ -131,4 +131,35 @@ describe('NavbarSecondaryNav', () => {
 
     expect(screen.queryByRole('link', { name: 'Phones' })).not.toBeInTheDocument();
   });
+
+  it('renders the decorative background pattern as an inline SVG tile, not a background-image div', () => {
+    // Regression guard mirroring GadgetPattern.test.tsx: a
+    // `background-image: url(data:image/svg+xml,...)` div IS an LCP
+    // candidate. This is the fast-follow to #3044, which fixed the same bug
+    // in GadgetPattern but not in this hand-rolled copy.
+    const { container } = render(
+      <NavbarSecondaryNav
+        basePath="/ogabassey"
+        categories={[{ name: 'Phones', slug: 'smartphones' }]}
+      />
+    );
+
+    const pattern = container.querySelector(
+      '.ogabassey-navbar-secondary__pattern'
+    );
+    expect(pattern).not.toBeNull();
+    expect(pattern?.tagName.toLowerCase()).toBe('svg');
+
+    const tile = pattern?.querySelector('pattern');
+    expect(tile).not.toBeNull();
+    expect(tile).toHaveAttribute('width', '140');
+    expect(tile).toHaveAttribute('height', '140');
+
+    const fillRect = pattern?.querySelector(`rect[fill="url(#${tile?.id})"]`);
+    expect(fillRect).not.toBeNull();
+
+    const style = pattern?.getAttribute('style') ?? '';
+    expect(style).not.toContain('background');
+    expect(style).not.toContain('data:image/svg+xml');
+  });
 });

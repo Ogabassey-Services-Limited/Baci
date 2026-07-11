@@ -1,23 +1,27 @@
 import { isAirportDeliveryEligible, isPickupEligible } from '@baci/shared';
-import type { IoniconsIconName } from '@react-native-vector-icons/ionicons';
+import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   getPickupStationAddressLines,
   isProviderStationPickupQuote,
 } from '@/components/checkout/checkout-station-pickup';
+import { AIRPORT_QUOTE_ID } from '@/components/checkout/checkout-step-helpers';
+import { ShippingQuoteRow } from '@/components/checkout/ShippingQuoteRow';
 import type {
   DeliveryMethod,
   ShippingQuote,
 } from '@/components/checkout/types';
 import type Colors from '@/constants/Colors';
-import { SPACING } from '@/constants/Colors';
-import { formatPrice } from '@/stores/cart-store';
+import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import {
+  type DeliveryMethodOption,
+  DeliveryMethodTabs,
+} from './DeliveryMethodTabs';
 import { CheckoutSectionCard } from './selection/CheckoutSectionCard';
-import { DefaultBadge } from './selection/DefaultBadge';
-import { SelectableOptionRow } from './selection/SelectableOptionRow';
 
 const AIRPORT_DOORSTEP_NOTE = 'Delivery to your doorstep';
-const DELIVERY_ESTIMATE = 'Est Delivery within 24-48 working hours';
+const PICKUP_HELPER_TEXT = 'Pick from a centre close to you';
+const ignoreAirportQuotePress = () => undefined;
 
 type ColorsScheme = (typeof Colors)['light'];
 
@@ -27,20 +31,11 @@ interface DeliveryMethodCardProps {
   selectedMethod: DeliveryMethod;
   onSelectMethod: (method: DeliveryMethod) => void;
   doorSubtitle: string;
-  doorPrice: string;
   airportFee: number;
+  deliveryCity?: string | null;
   deliveryState?: string | null;
   pickupStationQuote?: ShippingQuote;
-}
-
-interface MethodOption {
-  id: DeliveryMethod;
-  title: string;
-  subtitle: string;
-  price: string;
-  icon: IoniconsIconName;
-  pickupStationQuote?: ShippingQuote;
-  isProviderPickup: boolean;
+  children?: ReactNode;
 }
 
 export function DeliveryMethodCard({
@@ -49,31 +44,28 @@ export function DeliveryMethodCard({
   selectedMethod,
   onSelectMethod,
   doorSubtitle,
-  doorPrice,
   airportFee,
+  deliveryCity,
   deliveryState,
   pickupStationQuote,
+  children,
 }: DeliveryMethodCardProps) {
-  // Door is always available. The store ships from Lagos, so pickup is offered
-  // only for Lagos, and airport (air-cargo) delivery only for non-Lagos states
-  // that have an airport. The delivery address (state) is captured before this
-  // card, so the options reflect the selected state.
-  const options: MethodOption[] = [
+  const options: DeliveryMethodOption[] = [
     {
       id: 'door',
-      title: 'Door delivery',
+      title: 'By Road',
       subtitle: doorSubtitle,
-      price: doorPrice,
-      icon: 'home-outline',
+      helperText: AIRPORT_DOORSTEP_NOTE,
+      icon: 'car-outline',
       isProviderPickup: false,
     },
   ];
   if (isAirportDeliveryEligible(deliveryState)) {
     options.push({
       id: 'airport',
-      title: 'Airport Delivery (Outside Lagos)',
+      title: 'By Air',
       subtitle: AIRPORT_DOORSTEP_NOTE,
-      price: formatPrice(airportFee),
+      helperText: AIRPORT_DOORSTEP_NOTE,
       icon: 'airplane-outline',
       isProviderPickup: false,
     });
@@ -87,22 +79,43 @@ export function DeliveryMethodCard({
     const hasProviderQuote = isProviderStationPickupQuote(providerPickupQuote);
     options.push({
       id: 'pickup_station',
-      title: usesMerchantPickup ? 'Pick Up Station' : 'Pickup Stations (GIGL)',
+      title: 'Pickup Station',
       subtitle: hasProviderQuote
         ? getPickupStationAddressLines(providerPickupQuote).join(', ')
         : usesMerchantPickup
           ? getPickupStationAddressLines().join(', ')
           : 'Collect from a nearby GIG Logistics service centre',
-      price: hasProviderQuote
-        ? formatPrice(providerPickupQuote.price)
-        : usesMerchantPickup
-          ? 'Free'
-          : 'See rates',
+      helperText: PICKUP_HELPER_TEXT,
       icon: 'storefront-outline',
       pickupStationQuote: providerPickupQuote,
       isProviderPickup: !usesMerchantPickup,
     });
   }
+  const selectedOption =
+    options.find((option) => option.id === selectedMethod) ?? options[0];
+  const shouldShowPickupAddress =
+    selectedOption?.id === 'pickup_station' &&
+    (Boolean(selectedOption.pickupStationQuote) ||
+      !selectedOption.isProviderPickup);
+  const pickupAddressLines = shouldShowPickupAddress
+    ? getPickupStationAddressLines(selectedOption?.pickupStationQuote)
+    : [];
+  const [primaryPickupLine, ...secondaryPickupLines] = pickupAddressLines;
+  const stationCode = selectedOption?.pickupStationQuote
+    ? (selectedOption.pickupStationQuote.stationCode ??
+      selectedOption.pickupStationQuote.pickupStationCode)
+    : undefined;
+  const helperText = selectedOption?.helperText ?? AIRPORT_DOORSTEP_NOTE;
+  const airportLocation = deliveryCity?.trim() || deliveryState?.trim();
+  const airportQuote: ShippingQuote = {
+    carrierName: 'By Air',
+    deliveryRange: '24-48 working hours',
+    displayName: airportLocation
+      ? `${airportLocation} Airport Delivery`
+      : 'Airport Delivery',
+    id: AIRPORT_QUOTE_ID,
+    price: airportFee,
+  };
 
   return (
     <CheckoutSectionCard
@@ -111,95 +124,106 @@ export function DeliveryMethodCard({
       colors={colors}
       isDark={isDark}
     >
-      <View style={styles.list}>
-        {options.map((option) => {
-          const isSelected = selectedMethod === option.id;
-          const isFree = option.price === 'Free';
-          const pickupAddressLines =
-            option.id === 'pickup_station'
-              ? option.pickupStationQuote || !option.isProviderPickup
-                ? getPickupStationAddressLines(option.pickupStationQuote)
-                : []
-              : [];
-          const [primaryPickupLine, ...secondaryPickupLines] =
-            pickupAddressLines;
-
-          return (
-            <SelectableOptionRow
-              key={option.id}
-              selected={isSelected}
-              onPress={() => onSelectMethod(option.id)}
-              colors={colors}
-              icon={option.icon}
-              title={option.title}
-              subtitle={option.subtitle}
-              accessibilityLabel={`Select ${option.title}`}
-              trailing={
-                isFree ? (
-                  <DefaultBadge label="Free" />
-                ) : (
-                  <Text style={[styles.price, { color: colors.text }]}>
-                    {option.price}
-                  </Text>
-                )
-              }
-            >
-              {option.id === 'airport' ? (
-                <>
-                  <Text style={[styles.infoTitle, { color: colors.text }]}>
-                    Airport Delivery
-                  </Text>
-                  <Text
-                    style={[styles.infoText, { color: colors.textSecondary }]}
-                  >
-                    {AIRPORT_DOORSTEP_NOTE}. {DELIVERY_ESTIMATE}
-                  </Text>
-                </>
-              ) : null}
-              {primaryPickupLine ? (
-                <Text
-                  style={[
-                    styles.infoText,
-                    { color: colors.text, fontWeight: '700' },
-                  ]}
-                >
-                  {primaryPickupLine}
-                </Text>
-              ) : null}
-              {option.id === 'pickup_station' &&
-              option.isProviderPickup &&
-              !option.pickupStationQuote ? (
-                <Text
-                  style={[
-                    styles.infoText,
-                    { color: colors.textSecondary, fontWeight: '500' },
-                  ]}
-                >
-                  Select to load available GIGL pickup stations for this area.
-                </Text>
-              ) : null}
-              {secondaryPickupLines.map((line) => (
-                <Text
-                  key={line}
-                  style={[
-                    styles.infoText,
-                    { color: colors.text, fontWeight: '500' },
-                  ]}
-                >
-                  {line}
-                </Text>
-              ))}
-            </SelectableOptionRow>
-          );
-        })}
+      <DeliveryMethodTabs
+        colors={colors}
+        isDark={isDark}
+        options={options}
+        selectedMethod={selectedMethod}
+        onSelectMethod={onSelectMethod}
+      />
+      <View
+        style={[
+          styles.detailsPanel,
+          {
+            backgroundColor: isDark ? colors.muted : colors.background,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+          {helperText}
+        </Text>
+        {children ?? (
+          <>
+            {selectedOption?.id === 'airport' ? (
+              <ShippingQuoteRow
+                colors={colors}
+                isSelected
+                leadingIcon="airplane-outline"
+                onSelect={ignoreAirportQuotePress}
+                quote={airportQuote}
+                selectedAccentColor={BRAND.primary}
+                selectedBackgroundColor={colors.card}
+              />
+            ) : null}
+            {primaryPickupLine ? (
+              <Text
+                style={[
+                  styles.infoText,
+                  { color: colors.text, fontWeight: '700' },
+                ]}
+              >
+                {primaryPickupLine}
+              </Text>
+            ) : null}
+            {stationCode ? (
+              <Text
+                style={[
+                  styles.infoText,
+                  { color: colors.textSecondary, fontWeight: '700' },
+                ]}
+              >
+                Station code: {stationCode}
+              </Text>
+            ) : null}
+            {selectedOption?.id === 'pickup_station' &&
+            !selectedOption.isProviderPickup ? (
+              <Text
+                style={[
+                  styles.infoText,
+                  { color: colors.textSecondary, fontWeight: '600' },
+                ]}
+              >
+                Free pickup
+              </Text>
+            ) : null}
+            {selectedOption?.id === 'pickup_station' &&
+            selectedOption.isProviderPickup &&
+            !selectedOption.pickupStationQuote ? (
+              <Text
+                style={[
+                  styles.infoText,
+                  { color: colors.textSecondary, fontWeight: '500' },
+                ]}
+              >
+                Select to load available GIGL pickup stations for this area.
+              </Text>
+            ) : null}
+            {secondaryPickupLines.map((line) => (
+              <Text
+                key={line}
+                style={[
+                  styles.infoText,
+                  { color: colors.text, fontWeight: '500' },
+                ]}
+              >
+                {line}
+              </Text>
+            ))}
+          </>
+        )}
       </View>
     </CheckoutSectionCard>
   );
 }
 
 const styles = StyleSheet.create({
-  list: { gap: SPACING.sm },
-  price: { fontSize: 13, fontWeight: '700' },
-  infoTitle: { fontSize: 14, fontWeight: '700' },
+  detailsPanel: {
+    gap: SPACING.sm,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    padding: SPACING.md,
+  },
+  helperText: { fontSize: 13, lineHeight: 18 },
   infoText: { fontSize: 13, lineHeight: 20 },
 });

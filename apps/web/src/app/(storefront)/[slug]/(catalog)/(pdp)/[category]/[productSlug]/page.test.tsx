@@ -168,6 +168,7 @@ const mockGetCachedProduct = vi.fn();
 const mockGetCachedProductLcpHint = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
+const mockLoadCategoryScopedSemanticInventory = vi.fn();
 const mockBuildProductSemanticModel = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
 const mockGenerateBreadcrumbSchema = vi.fn((_items: unknown) => ({}));
@@ -504,6 +505,14 @@ vi.mock('@/lib/cached-storefront-product-index', () => ({
   getCachedStorefrontProductIndex: (...args: unknown[]) =>
     mockGetCachedStorefrontProductIndex(...args),
 }));
+
+vi.mock(
+  '@/lib/storefront-product/load-category-scoped-semantic-inventory-safely',
+  () => ({
+    loadCategoryScopedSemanticInventorySafely: (...args: unknown[]) =>
+      mockLoadCategoryScopedSemanticInventory(...args),
+  })
+);
 
 vi.mock('@/lib/storefront-product/build-product-semantic-model', () => ({
   buildProductSemanticModel: (...args: unknown[]) =>
@@ -2062,6 +2071,12 @@ describe('[category]/[productSlug] page render', () => {
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockGetCachedCategoryPageData.mockReset();
     mockGetCachedCategoryPageData.mockResolvedValue(null);
+    mockLoadCategoryScopedSemanticInventory.mockReset();
+    mockLoadCategoryScopedSemanticInventory.mockResolvedValue({
+      isCollection: false,
+      categoryName: 'Products',
+      products: [],
+    });
     mockGetPublishedClusterPosts.mockReset();
     mockGetPublishedClusterPosts.mockResolvedValue([]);
     mockBuildProductSemanticModel.mockReset();
@@ -4194,10 +4209,12 @@ describe('[category]/[productSlug] page render', () => {
   it('renders the OgaBassey product shell before supplemental PDP data resolves', async () => {
     let resolveCategoryPageData:
       | ((
-          value: Awaited<ReturnType<typeof mockGetCachedCategoryPageData>>
+          value: Awaited<
+            ReturnType<typeof mockLoadCategoryScopedSemanticInventory>
+          >
         ) => void)
       | undefined;
-    mockGetCachedCategoryPageData.mockReturnValueOnce(
+    mockLoadCategoryScopedSemanticInventory.mockReturnValueOnce(
       new Promise((resolve) => {
         resolveCategoryPageData = resolve;
       })
@@ -4245,7 +4262,11 @@ describe('[category]/[productSlug] page render', () => {
       })
     );
 
-    resolveCategoryPageData?.(null);
+    resolveCategoryPageData?.({
+      isCollection: false,
+      categoryName: 'Products',
+      products: [],
+    });
   });
 
   it('does not mount OgaBassey PDP preload hints for generic template product pages', async () => {
@@ -4598,9 +4619,9 @@ describe('[category]/[productSlug] page render', () => {
         parent_id: null,
       },
     });
-    mockGetCachedCategoryPageData.mockResolvedValue({
+    mockLoadCategoryScopedSemanticInventory.mockResolvedValue({
       isCollection: false,
-      fallbackName: 'Smartphones',
+      categoryName: 'Smartphones',
       products: [
         {
           slug: 'samsung-galaxy-z-trifold',
