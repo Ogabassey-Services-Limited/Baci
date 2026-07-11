@@ -2,90 +2,22 @@
 
 import { Loader2, Sparkles } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
-import { apiPost } from '@/lib/api-client';
-import {
-  type MerchantQuizGenerationResponse,
-  type MerchantQuizPrizeProduct,
-  merchantQuizGenerationResponseSchema,
+import type {
+  MerchantQuizGenerationResponse,
+  MerchantQuizPrizeProduct,
 } from '@/schemas/quiz';
+import {
+  activateQuizEvent,
+  clampNumber,
+  clampNumberInput,
+  generateQuizDraft,
+  isQuizDifficulty,
+  type QuizAnswerKeyReview,
+  topicsFromTextarea,
+} from './quiz-admin-actions';
 import { QuizAdminResult } from './quiz-admin-result';
 
 const defaultTopics = ['iPhone buying advice', 'Android buying advice'];
-
-function topicsFromTextarea(value: string): string[] {
-  return value
-    .split(/\n|,/)
-    .map((topic) => topic.trim())
-    .filter(Boolean);
-}
-
-function clampNumber(value: number, minimum: number, maximum: number): number {
-  if (!Number.isFinite(value)) return minimum;
-  return Math.min(maximum, Math.max(minimum, value));
-}
-
-function clampNumberInput(
-  value: string,
-  minimum: number,
-  maximum: number
-): string {
-  return String(clampNumber(Number(value), minimum, maximum));
-}
-
-function isQuizDifficulty(
-  value: string
-): value is 'easy' | 'standard' | 'hard' {
-  return value === 'easy' || value === 'standard' || value === 'hard';
-}
-
-function formatValidationSummary(
-  issues: { message: string; path: PropertyKey[] }[]
-): string {
-  return issues
-    .slice(0, 3)
-    .map((issue) => `${issue.path.join('.') || 'response'}: ${issue.message}`)
-    .join('; ');
-}
-
-interface GenerateQuizDraftInput {
-  difficulty: 'easy' | 'standard' | 'hard';
-  prizeProductId: string;
-  publicationMode: 'draft' | 'active';
-  questionCountPerTopic: number;
-  timeLimitSeconds: number;
-  title: string;
-  topics: string;
-}
-
-async function generateQuizDraft(
-  input: GenerateQuizDraftInput
-): Promise<MerchantQuizGenerationResponse> {
-  const normalizedTopics = topicsFromTextarea(input.topics);
-  if (normalizedTopics.length === 0) {
-    throw new Error('Add at least one quiz topic before generating.');
-  }
-  if (!input.prizeProductId) {
-    throw new Error('Select an active product prize before generating.');
-  }
-
-  const parsed = merchantQuizGenerationResponseSchema.safeParse(
-    await apiPost('/api/merchant/quiz/generate', {
-      difficulty: input.difficulty,
-      prizeProductId: input.prizeProductId,
-      publicationMode: input.publicationMode,
-      questionCountPerTopic: input.questionCountPerTopic,
-      timeLimitSeconds: input.timeLimitSeconds,
-      title: input.title,
-      topics: normalizedTopics,
-    })
-  );
-  if (!parsed.success) {
-    const validationSummary = formatValidationSummary(parsed.error.issues);
-    console.error('Invalid quiz generation response', parsed.error);
-    throw new Error(`Invalid quiz generation response: ${validationSummary}`);
-  }
-  return parsed.data;
-}
 
 interface QuizAdminClientProps {
   initialPrizeProducts: MerchantQuizPrizeProduct[];
@@ -108,9 +40,6 @@ export function QuizAdminClient({
   const [difficulty, setDifficulty] = useState<'easy' | 'standard' | 'hard'>(
     'standard'
   );
-  const [publicationMode, setPublicationMode] = useState<'draft' | 'active'>(
-    'draft'
-  );
   const [result, setResult] = useState<MerchantQuizGenerationResponse | null>(
     null
   );
@@ -120,16 +49,23 @@ export function QuizAdminClient({
         ? 'Add an active product before creating a prize quiz.'
         : null)
   );
+  const [activationError, setActivationError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isActivating, setIsActivating] = useState(false);
 
   const canGenerate =
     !isGenerating &&
+    // Block a new draft while an "Open now" activation is in flight: otherwise a
+    // newer generation can resolve first and then the older activation response
+    // clobbers it, showing new questions under an old active event.
+    !isActivating &&
     topicsFromTextarea(topics).length > 0 &&
     title.trim().length > 0 &&
     selectedPrizeProductId.length > 0;
 
   const handleGenerate = () => {
     setError(null);
+    setActivationError(null);
     setResult(null);
     setIsGenerating(true);
 
@@ -149,7 +85,6 @@ export function QuizAdminClient({
     generateQuizDraft({
       difficulty,
       prizeProductId: selectedPrizeProductId,
-      publicationMode,
       questionCountPerTopic: normalizedQuestionCountPerTopic,
       timeLimitSeconds: normalizedTimeLimitSeconds,
       title,
@@ -171,6 +106,34 @@ export function QuizAdminClient({
       });
   };
 
+  const handleActivate = (answerKeyReview: QuizAnswerKeyReview) => {
+    if (!result) return;
+    // Pin the event being activated so a late response only updates the draft it
+    // actually opened — never a newer draft the admin generated in the meantime.
+    const activatingEventId = result.event.id;
+    setActivationError(null);
+    setIsActivating(true);
+
+    activateQuizEvent(activatingEventId, answerKeyReview)
+      .then((data) => {
+        setResult((current) =>
+          current && current.event.id === activatingEventId
+            ? { ...current, event: data.event }
+            : current
+        );
+      })
+      .catch((activateError: unknown) => {
+        setActivationError(
+          activateError instanceof Error
+            ? activateError.message
+            : 'Failed to open quiz event'
+        );
+      })
+      .finally(() => {
+        setIsActivating(false);
+      });
+  };
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     handleGenerate();
@@ -183,6 +146,9 @@ export function QuizAdminClient({
           Gemma quiz generation
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-normal">Quiz</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Generate a draft, review the AI-marked answers, then open the quiz.
+        </p>
       </header>
 
       <form
@@ -255,22 +221,6 @@ export function QuizAdminClient({
             />
           </label>
           <label className="grid gap-2 text-sm font-medium">
-            Publish
-            <select
-              className="h-11 rounded-md border bg-background px-3 text-sm"
-              required
-              value={publicationMode}
-              onChange={(event) =>
-                setPublicationMode(
-                  event.target.value === 'active' ? 'active' : 'draft'
-                )
-              }
-            >
-              <option value="draft">Save draft</option>
-              <option value="active">Open now</option>
-            </select>
-          </label>
-          <label className="grid gap-2 text-sm font-medium">
             Questions per topic
             <input
               className="h-11 rounded-md border bg-background px-3 text-sm"
@@ -308,9 +258,7 @@ export function QuizAdminClient({
           ) : (
             <Sparkles className="size-4" />
           )}
-          {publicationMode === 'active'
-            ? 'Generate and open'
-            : 'Generate draft'}
+          Generate draft
         </button>
       </form>
 
@@ -323,7 +271,14 @@ export function QuizAdminClient({
         </p>
       ) : null}
 
-      {result ? <QuizAdminResult result={result} /> : null}
+      {result ? (
+        <QuizAdminResult
+          activationError={activationError}
+          isActivating={isActivating}
+          onActivate={handleActivate}
+          result={result}
+        />
+      ) : null}
     </div>
   );
 }

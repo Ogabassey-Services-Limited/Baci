@@ -16,15 +16,53 @@ jest.mock('@/services/analytics', () => ({
   trackError: jest.fn(),
 }));
 
-function getMapCreateOrderException() {
-  const { mapCreateOrderException } =
-    require('./orders.errors') as typeof import('./orders.errors');
-  return mapCreateOrderException;
+// Import the module under test LAZILY (after the mock-capturing consts above
+// have initialized), so `@/lib/logger`'s mock factory sees a defined
+// mockLoggerWarn. A static top-level import would load orders.errors — and run
+// createLogger() — before those consts exist.
+function loadOrdersErrors() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require('./orders.errors') as typeof import('./orders.errors');
 }
 
 describe('orders.errors', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('getValidationErrorMessage — quiz voucher rejections', () => {
+    it('maps a route-level UPPER_CASE voucher code to friendly copy', () => {
+      // /api/orders returns a generic top-level error + the specific code.
+      const message = loadOrdersErrors().getValidationErrorMessage(
+        'Failed to create order',
+        'QUIZ_VOUCHER_MULTIPLE'
+      );
+      expect(message).toMatch(/only one prize voucher/i);
+      expect(message).not.toBe('Failed to create order');
+    });
+
+    it('maps a DB RPC lower_case voucher reason to friendly copy', () => {
+      const message = loadOrdersErrors().getValidationErrorMessage(
+        'Failed to create order',
+        'quiz_voucher_award_not_found'
+      );
+      expect(message).toMatch(/couldn't find this prize/i);
+    });
+
+    it('maps an expired-token code and prefers the details code over the error', () => {
+      expect(
+        loadOrdersErrors().getValidationErrorMessage(
+          'Failed to create order',
+          'QUIZ_VOUCHER_TOKEN_EXPIRED'
+        )
+      ).toMatch(/expired/i);
+    });
+
+    it('falls back to the raw error when no code is known', () => {
+      expect(loadOrdersErrors().getValidationErrorMessage('Something odd happened', undefined)).toBe(
+        'Something odd happened'
+      );
+    });
   });
 
   it('redacts raw API error bodies from retry diagnostics', () => {
@@ -41,7 +79,7 @@ describe('orders.errors', () => {
     );
     const retryError = new RetryExhaustedError(3, apiError);
 
-    getMapCreateOrderException()(retryError, Date.now());
+    loadOrdersErrors().mapCreateOrderException(retryError, Date.now());
 
     expect(mockLoggerWarn).toHaveBeenCalledWith(
       'Create order request failed before retry completion',
@@ -79,7 +117,7 @@ describe('orders.errors', () => {
     );
     const retryError = new RetryExhaustedError(2, apiError);
 
-    getMapCreateOrderException()(retryError, Date.now());
+    loadOrdersErrors().mapCreateOrderException(retryError, Date.now());
 
     const diagnostics = mockLoggerWarn.mock.calls[0]?.[1] as {
       lastError?: { body?: unknown };

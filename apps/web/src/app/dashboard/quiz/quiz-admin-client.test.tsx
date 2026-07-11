@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuizAdminClient } from './quiz-admin-client';
@@ -30,7 +30,9 @@ function validGenerationResponse() {
     },
     questions: [
       {
+        correctOptionId: 'b',
         difficulty: 'standard',
+        explanation: 'USB-C arrived on iPhone 15.',
         options: [
           { id: 'a', label: 'iPhone 13' },
           { id: 'b', label: 'iPhone 15' },
@@ -77,40 +79,89 @@ describe('QuizAdminClient', () => {
     expect(mockApiPost).toHaveBeenCalledWith('/api/merchant/quiz/generate', {
       difficulty: 'standard',
       prizeProductId: PRIZE_PRODUCT_ID,
-      publicationMode: 'draft',
       questionCountPerTopic: 1,
       timeLimitSeconds: 30,
       title: 'Daily Phone Quiz',
       topics: ['iPhone buying advice'],
     });
-    expect(
-      await screen.findByText('Which iPhone model introduced USB-C?')
-    ).toBeInTheDocument();
+    const questionHeading = await screen.findByRole('heading', {
+      name: 'Which iPhone model introduced USB-C?',
+    });
+    expect(questionHeading).toBeInTheDocument();
     expect(screen.getByText('Draft saved')).toBeInTheDocument();
+    // The AI-marked correct answer is shown to the admin before activation.
+    expect(
+      within(questionHeading.closest('article') as HTMLElement).getByText(
+        /^correct$/i
+      )
+    ).toBeInTheDocument();
   });
 
-  it('can ask the API to open the generated quiz immediately', async () => {
-    mockApiPost.mockResolvedValue({
-      ...validGenerationResponse(),
-      event: { ...validGenerationResponse().event, status: 'active' },
-    });
+  it('opens the quiz only after the admin reviews and confirms the answers', async () => {
+    mockApiPost
+      .mockResolvedValueOnce(validGenerationResponse())
+      .mockResolvedValueOnce({
+        event: {
+          id: 'event-1',
+          slug: 'daily-phone-quiz',
+          status: 'active',
+          title: 'Daily Phone Quiz',
+        },
+      });
     const user = userEvent.setup();
 
     renderQuizAdminClient();
 
     await screen.findByLabelText(/prize product/i);
-    await user.selectOptions(screen.getByLabelText(/publish/i), 'active');
-    await user.click(
-      screen.getByRole('button', { name: /generate and open/i })
-    );
+    await user.click(screen.getByRole('button', { name: /generate draft/i }));
 
-    await waitFor(() => expect(mockApiPost).toHaveBeenCalledOnce());
-    expect(mockApiPost).toHaveBeenCalledWith(
-      '/api/merchant/quiz/generate',
-      expect.objectContaining({ publicationMode: 'active' })
+    // Draft is shown; the open button is gated behind an explicit review.
+    const openButton = await screen.findByRole('button', { name: /open now/i });
+    expect(openButton).toBeDisabled();
+
+    await user.click(
+      screen.getByRole('checkbox', { name: /reviewed every correct answer/i })
+    );
+    expect(openButton).toBeEnabled();
+    await user.click(openButton);
+
+    await waitFor(() => expect(mockApiPost).toHaveBeenCalledTimes(2));
+    // Activation posts to its own path (off the generation rate-limit bucket).
+    expect(mockApiPost).toHaveBeenLastCalledWith(
+      '/api/merchant/quiz/activate',
+      {
+        answerKeyReview: {
+          questions: [{ correctOptionId: 'b', position: 1 }],
+        },
+        confirmActivation: true,
+        eventId: 'event-1',
+      }
     );
     expect(await screen.findByText('Quiz open')).toBeInTheDocument();
     expect(screen.getByText('Status: active')).toBeInTheDocument();
+  });
+
+  it('surfaces an activation error and keeps the quiz as a draft', async () => {
+    mockApiPost
+      .mockResolvedValueOnce(validGenerationResponse())
+      .mockRejectedValueOnce(new Error('Failed to open quiz event'));
+    const user = userEvent.setup();
+
+    renderQuizAdminClient();
+
+    await screen.findByLabelText(/prize product/i);
+    await user.click(screen.getByRole('button', { name: /generate draft/i }));
+    await user.click(
+      await screen.findByRole('checkbox', {
+        name: /reviewed every correct answer/i,
+      })
+    );
+    await user.click(screen.getByRole('button', { name: /open now/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Failed to open quiz event'
+    );
+    expect(screen.getByText('Draft saved')).toBeInTheDocument();
   });
 
   it('shows API errors when Gemma generation fails', async () => {
@@ -185,6 +236,49 @@ describe('QuizAdminClient', () => {
     expect(
       await screen.findByText('Which iPhone model introduced USB-C?')
     ).toBeInTheDocument();
+  });
+
+  it('disables generating a new draft while an activation is in flight', async () => {
+    let resolveActivation: ((value: unknown) => void) | undefined;
+    mockApiPost
+      .mockResolvedValueOnce(validGenerationResponse())
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveActivation = resolve;
+        })
+      );
+    const user = userEvent.setup();
+
+    renderQuizAdminClient();
+
+    await screen.findByLabelText(/prize product/i);
+    await user.click(screen.getByRole('button', { name: /generate draft/i }));
+    await user.click(
+      await screen.findByRole('checkbox', {
+        name: /reviewed every correct answer/i,
+      })
+    );
+    await user.click(screen.getByRole('button', { name: /open now/i }));
+
+    // While "Open now" is awaiting its response, a second draft must not be
+    // generatable — otherwise the stale activation could clobber it.
+    expect(
+      screen.getByRole('button', { name: /generate draft/i })
+    ).toBeDisabled();
+
+    expect(resolveActivation).toBeDefined();
+    resolveActivation?.({
+      event: {
+        id: 'event-1',
+        slug: 'daily-phone-quiz',
+        status: 'active',
+        title: 'Daily Phone Quiz',
+      },
+    });
+    expect(await screen.findByText('Quiz open')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /generate draft/i })
+    ).toBeEnabled();
   });
 
   it('requires an active product before generating a quiz', async () => {

@@ -55,6 +55,7 @@ describe('quiz service attempt lifecycle', () => {
             examPassPointsSpent: 1,
             remainingLoyaltyPoints: 4,
             question: {
+              deadlineAt: '2026-07-08T12:00:30.000Z',
               id: 'question-1',
               prompt: 'What is 2 + 2?',
               options: [
@@ -139,6 +140,7 @@ describe('quiz service attempt lifecycle', () => {
           totalQuestions: 2,
           prizeEligible: false,
           question: {
+            deadlineAt: '2026-07-08T12:01:00.000Z',
             id: 'question-2',
             prompt: 'Next question?',
             options: [{ id: 'c', label: '5' }],

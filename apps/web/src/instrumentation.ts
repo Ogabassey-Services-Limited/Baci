@@ -58,6 +58,32 @@ export async function register() {
           process.env.VERCEL_ENV || process.env.NODE_ENV || 'development',
       },
     });
+
+    // Fail-loud (not fail-fatal): if this is a production deployment but
+    // QUIZ_PHASE is still "1a", the prize/compliance/age guards silently degrade
+    // to fail-closed stubs. Surface it at boot so an operator notices before
+    // launch. We log rather than crash — the quiz is one feature and must not
+    // take the whole storefront down; the runtime guards still fail closed.
+    try {
+      const [{ getQuizPhaseEnv }, { assertQuizPhaseMatchesDeployment }] =
+        await Promise.all([
+          import('@/env'),
+          import('@/lib/quiz-compliance-gate'),
+        ]);
+      assertQuizPhaseMatchesDeployment(getQuizPhaseEnv());
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        error.name !== 'QuizPhaseMisconfiguredError'
+      ) {
+        console.error(
+          'Quiz deployment phase validation failed during boot',
+          error
+        );
+      }
+      // QuizPhaseMisconfiguredError is already logged by the assertion. Other
+      // boot failures are logged above; all remain non-fatal to the storefront.
+    }
   }
 }
 

@@ -263,6 +263,16 @@ const QUIZ_RPC_CLIENT_ERRORS: Record<
     error: 'Quiz answer was submitted after the question window',
     status: 409,
   },
+  QZ030: {
+    code: 'QUIZ_ATTEMPT_LIMIT_REACHED',
+    error: "You've reached the maximum number of attempts for this quiz.",
+    status: 409,
+  },
+  QZ031: {
+    code: 'QUIZ_LEADERBOARD_NOT_AUTHORIZED',
+    error: 'You are not authorized to view this leaderboard',
+    status: 403,
+  },
 };
 
 export function quizRpcClientErrorResponse(error: unknown) {

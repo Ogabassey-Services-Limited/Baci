@@ -3,7 +3,7 @@
 import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { apiGet, apiPost } from '@/lib/api-client';
 import { asRoute } from '@/lib/routes';
@@ -15,23 +15,29 @@ import {
   type QuizResultResponse,
   quizResultResponseSchema,
 } from '@/schemas/quiz';
-import { DeferredAdUnit } from '../components/deferred-ad-unit';
 import { formatQuizDateRange } from './format-quiz-date-range';
 import { formatQuizPointCount } from './format-quiz-point-count';
 import { getQuizErrorMessage } from './get-quiz-error-message';
 import { getQuizStartButtonText } from './get-quiz-start-button-text';
-import { QuizQuestionAdFallback } from './quiz-question-ad-fallback';
+import { QuizQuestionPanel } from './quiz-question-panel';
+import {
+  quizPanel as panel,
+  quizPrimaryButton as primaryButton,
+  quizSecondaryButton as secondaryButton,
+} from './quiz-styles';
 
 type QuizStatus = 'idle' | 'loading' | 'ready' | 'error' | 'starting' | 'question' | 'submitting' | 'result';
 
 type OgabasseyV2QuizProps = { merchantSlug: string };
 
 const QUIZ_INTEGRITY_TIER = 'basic';
-const primaryButton =
-  'h-11 rounded-lg bg-store-primary px-5 text-sm font-semibold text-store-primary-text hover:bg-store-primary/90 disabled:cursor-not-allowed disabled:bg-store-background-text/20';
-const secondaryButton =
-  'h-11 rounded-lg border border-store-primary px-5 text-sm font-semibold text-store-primary hover:bg-store-primary/10';
-const panel = 'rounded-lg border border-store-border bg-white p-5 shadow-sm';
+// Non-empty sentinel so an auto-submitted forfeit still satisfies the answer
+// schema (min length 1). The server treats any non-matching answer as
+// incorrect and advances the attempt, so a timed-out player is scored wrong
+// rather than left stalled. It is intentionally longer than the 20-char option
+// id cap (generatedQuizOptionSchema) so it can never equal a real option id and
+// be scored correct by accident.
+const QUIZ_FORFEIT_ANSWER = '__baci_quiz_timeout_forfeit_no_answer__';
 async function fetchQuizEvents(merchantSlug: string) {
   const query = new URLSearchParams({ limit: '50', merchantSlug, offset: '0' });
   const parsed = quizEventsResponseSchema.safeParse(
@@ -95,6 +101,12 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
   const [result, setResult] = useState<QuizResultResponse | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Synchronous in-flight guards (FIX D): async state (`status`) updates on the
+  // next render, so a fast physical double-tap can fire two requests before the
+  // button disables. The server does NOT dedupe start (each debits a point), so
+  // guard synchronously.
+  const startInFlightRef = useRef(false);
+  const submitInFlightRef = useRef(false);
   const routePrefix = pathname?.startsWith(`/${merchantSlug}`) ? `/${merchantSlug}` : '';
   const quizPath = pathname || `${routePrefix}/quiz`;
   const loginHref = `${routePrefix}/account/login?redirect=${encodeURIComponent(quizPath)}`;
@@ -108,6 +120,8 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
   }, [isAuthenticated, isLoading, merchantSlug, status]);
 
   const handleStart = async (event: QuizEventResponse) => {
+    if (startInFlightRef.current) return;
+    startInFlightRef.current = true;
     setError(null);
     setStatus('starting');
     try {
@@ -119,18 +133,21 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
     } catch (error) {
       setError(getQuizErrorMessage(error));
       setStatus('ready');
+    } finally {
+      startInFlightRef.current = false;
     }
   };
 
-  const handleSubmit = async () => {
-    if (!attempt || !selectedAnswer) return;
+  const submitAnswer = async (answer: string) => {
+    if (!attempt || submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
     setError(null);
     setStatus('submitting');
     try {
       const nextResult = await submitQuizAnswer(
         attempt.attemptId,
         attempt.question.id,
-        selectedAnswer
+        answer
       );
       setResult(nextResult);
       if (nextResult.status === 'in_progress' && nextResult.question) {
@@ -144,11 +161,29 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
       }
     } catch (error) {
       setError(getQuizErrorMessage(error));
+      // Keep a failed timeout submission retryable. Without the sentinel in
+      // state, the question returns with no selected answer and the player
+      // has no way to retry the request after the timer has already fired.
+      if (answer === QUIZ_FORFEIT_ANSWER) {
+        setSelectedAnswer(QUIZ_FORFEIT_ANSWER);
+      }
       setStatus('question');
+    } finally {
+      submitInFlightRef.current = false;
     }
   };
 
-  const progress = attempt ? Math.min(100, (attempt.question.index / attempt.question.total) * 100) : 0;
+  const handleSubmit = () => {
+    if (!selectedAnswer) return;
+    void submitAnswer(selectedAnswer);
+  };
+
+  // FIX A: the countdown fires this at expiry. Submit the selected option, or a
+  // forfeit sentinel if none is picked, so the attempt always advances.
+  const handleAutoSubmit = () => {
+    if (!attempt || status !== 'question') return;
+    void submitAnswer(selectedAnswer ?? QUIZ_FORFEIT_ANSWER);
+  };
 
   return (
     <main className="min-h-[70vh] bg-store-background px-4 py-8 text-store-background-text sm:px-6 lg:px-8">
@@ -238,45 +273,15 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
         ) : null}
 
         {(status === 'question' || status === 'submitting') && attempt ? (
-          <section className={panel}>
-            <div aria-label={`Question ${attempt.question.index} of ${attempt.question.total}`} aria-valuemax={attempt.question.total} aria-valuemin={1} aria-valuenow={attempt.question.index} role="progressbar" className="h-2 overflow-hidden rounded-full bg-store-secondary">
-              <div className="h-full rounded-full bg-store-primary" style={{ width: `${progress}%` }} />
-            </div>
-            <p className="mt-4 text-sm font-semibold text-store-primary">{attempt.question.timeLimitSeconds}s per question</p>
-            <p className="mt-2 text-xs text-store-background-text/60">
-              {formatQuizPointCount(attempt.examPassPointsSpent)} exam pass used.{' '}
-              {formatQuizPointCount(attempt.remainingLoyaltyPoints)} left.
-            </p>
-            <h2 className="mt-5 text-xl font-bold">{attempt.question.prompt}</h2>
-            <DeferredAdUnit
-              fallback={<QuizQuestionAdFallback />}
-              loadStrategy="immediate"
-              placementKey="QUIZ_QUESTION_MPU"
-              refreshKey={attempt.question.id}
-              timeoutMs={3000}
-            />
-            <div className="mt-5 grid gap-3">
-              {attempt.question.options.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  disabled={status === 'submitting'}
-                  aria-pressed={selectedAnswer === option.id}
-                  onClick={() => setSelectedAnswer(option.id)}
-                  className={
-                    selectedAnswer === option.id
-                      ? 'rounded-lg border border-store-primary bg-store-primary/10 px-4 py-3 text-left text-sm font-semibold text-store-primary'
-                      : 'rounded-lg border border-store-border bg-white px-4 py-3 text-left text-sm font-semibold hover:border-store-primary/50'
-                  }
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <button type="button" disabled={!selectedAnswer || status === 'submitting'} onClick={() => void handleSubmit()} className={`mt-5 w-full ${primaryButton}`}>
-              {status === 'submitting' ? 'Submitting...' : 'Submit answer'}
-            </button>
-          </section>
+          <QuizQuestionPanel
+            key={attempt.question.id}
+            attempt={attempt}
+            isSubmitting={status === 'submitting'}
+            onAutoSubmit={handleAutoSubmit}
+            onSelect={setSelectedAnswer}
+            onSubmit={handleSubmit}
+            selectedAnswer={selectedAnswer}
+          />
         ) : null}
 
         {status === 'result' && result ? (

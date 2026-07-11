@@ -1,12 +1,13 @@
 import { router } from 'expo-router';
 import type { MutableRefObject } from 'react';
 import type { PaymentMethodType } from '@/components/checkout/PaymentMethodSelector';
-import {
-  getFullyPaidStoreCreditPaymentMethod,
-  type StoreCreditPaymentMethod,
-} from '@/lib/wallet-payment-helpers';
+import { getFullyPaidStoreCreditPaymentMethod } from '@/lib/wallet-payment-helpers';
 import { OrderError, type OrderResponse } from '@/services/orders';
 import { clearAndPersistCheckoutCart } from './checkout-cart-persistence';
+import {
+  routeFullyPaidPrizeSuccess,
+  routeStoreCreditSuccess,
+} from './checkout-fully-paid-routing';
 import {
   CHECKOUT_API_BASE_URL,
   CHECKOUT_MERCHANT_ID,
@@ -55,6 +56,45 @@ export async function finalizeCheckoutPayment({
   const fullyPaidStoreCreditPaymentMethod =
     getFullyPaidStoreCreditPaymentMethod(orderResponse);
 
+  // Fully-paid orders route to success BEFORE any payment-method branch
+  // (including Juicyway crypto): once nothing is due to the gateway, the
+  // selected method is irrelevant and starting a payment flow for ₦0 is wrong.
+  if (fullyPaidStoreCreditPaymentMethod) {
+    await routeStoreCreditSuccess({
+      clearCart,
+      orderId: order.id,
+      orderNumber,
+      orderResponse,
+      paymentMethod: fullyPaidStoreCreditPaymentMethod,
+      setIsProcessing,
+      trackingToken: order.tracking_token,
+    });
+    isOrderInFlight.current = false;
+    runPostOrderSideEffects();
+    return;
+  }
+
+  // A quiz prize (voucher) order is pre-reserved and comes back already paid
+  // with nothing due and no wallet/savings usage — so the store-credit check
+  // above returns undefined. Route straight to success.
+  if (
+    order?.payment_status === 'paid' &&
+    Number(orderResponse.amountDueToGateway ?? 0) <= 0
+  ) {
+    // routeFullyPaidPrizeSuccess reports the actual voucher method (not the
+    // stale UI selection), so the success screen shows paid/completed copy.
+    await routeFullyPaidPrizeSuccess({
+      clearCart,
+      isOrderInFlight,
+      orderId: order.id,
+      orderNumber,
+      setIsProcessing,
+      trackingToken: order.tracking_token,
+    });
+    runPostOrderSideEffects();
+    return;
+  }
+
   if (selectedPayment === 'juicyway') {
     setPendingOrder({
       order,
@@ -67,20 +107,6 @@ export async function finalizeCheckoutPayment({
     setIsProcessing(false);
     isOrderInFlight.current = false;
     setShowCryptoSelection(true);
-    runPostOrderSideEffects();
-    return;
-  }
-
-  if (fullyPaidStoreCreditPaymentMethod) {
-    await routeStoreCreditSuccess({
-      clearCart,
-      orderId: order.id,
-      orderNumber,
-      orderResponse,
-      paymentMethod: fullyPaidStoreCreditPaymentMethod,
-      setIsProcessing,
-      trackingToken: order.tracking_token,
-    });
     runPostOrderSideEffects();
     return;
   }
@@ -135,40 +161,6 @@ export async function finalizeCheckoutPayment({
     },
   });
   runPostOrderSideEffects();
-}
-
-async function routeStoreCreditSuccess({
-  clearCart,
-  orderId,
-  orderNumber,
-  orderResponse,
-  paymentMethod,
-  setIsProcessing,
-  trackingToken,
-}: {
-  clearCart: () => void;
-  orderId: string;
-  orderNumber: string;
-  orderResponse: OrderResponse;
-  paymentMethod: StoreCreditPaymentMethod;
-  setIsProcessing: (value: boolean) => void;
-  trackingToken?: string | null;
-}) {
-  await clearAndPersistCheckoutCart(clearCart);
-  setIsProcessing(false);
-  router.replace({
-    pathname: '/order-success',
-    params: {
-      orderId,
-      orderNumber,
-      paymentMethod,
-      savingsAmountUsed: String(orderResponse.savings?.amountUsed ?? 0),
-      walletAmountUsed: String(orderResponse.wallet?.amountUsed ?? 0),
-      ...(trackingToken && {
-        trackingToken,
-      }),
-    },
-  });
 }
 
 async function initializeGatewayAndRoute({

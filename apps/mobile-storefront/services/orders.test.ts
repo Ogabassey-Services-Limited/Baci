@@ -356,6 +356,28 @@ describe('createOrder — variant_attributes', () => {
     expect(body.items[0]).not.toHaveProperty('voucher_award_id');
   });
 
+  it('accepts a realistic-length quiz voucher token (>128 chars)', async () => {
+    // Real tokens are qv1.<base64url payload>.<base64url HMAC> ~250-400 chars.
+    // The old 128 cap rejected every real token client-side before send.
+    const realisticToken = `qv1.${'A'.repeat(220)}.${'B'.repeat(43)}`;
+    expect(realisticToken.length).toBeGreaterThan(128);
+
+    await createOrderWithItems([
+      {
+        id: 'prod-1',
+        product_id: 'prod-1',
+        name: 'Quiz Voucher Item',
+        quantity: 1,
+        price: 0,
+        voucher_token: realisticToken,
+        voucher_award_id: '11111111-1111-4111-8111-111111111111',
+      },
+    ]);
+
+    const body = getLastFetchBody();
+    expect(body.items[0].voucher_token).toBe(realisticToken);
+  });
+
   it('rejects blank voucher_token values after trimming', async () => {
     await expect(
       createOrderWithItems([
