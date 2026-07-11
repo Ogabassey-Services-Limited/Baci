@@ -107,6 +107,8 @@ function buildRepairDeviceQuery(result: { data: unknown; error: unknown }) {
   const chain = {
     select: vi.fn(() => chain),
     eq: vi.fn(() => chain),
+    order: vi.fn(() => chain),
+    limit: vi.fn(() => chain),
     maybeSingle: () => mockMaybeSingle(result),
   };
   return chain;
