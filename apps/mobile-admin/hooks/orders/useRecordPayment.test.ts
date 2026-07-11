@@ -433,6 +433,54 @@ describe('useRecordPayment', () => {
     expect(generateUUID).toHaveBeenCalledTimes(1);
   });
 
+  it('discards an expired retry key and uses the current payment details', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    vi.mocked(generateUUID).mockReturnValue(
+      '22222222-2222-4222-8222-222222222222'
+    );
+    mocks.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ recorded: true }),
+    });
+    const fingerprint = JSON.stringify({ amount: 5000, orderId: 'order-1' });
+    const storageKey = `manual-payment-retry:order-1:${encodeURIComponent(fingerprint)}`;
+    mocks.storageValues.set(
+      storageKey,
+      JSON.stringify({
+        createdAt: Date.now() - 16 * 60 * 1000,
+        fingerprint,
+        idempotencyKey: '11111111-1111-4111-8111-111111111111',
+        paymentMethod: 'cash',
+        reference: 'STALE-REFERENCE',
+        status: 'pending',
+      })
+    );
+    const mutation = useRecordPayment() as unknown as {
+      mutationFn: (vars: {
+        amount: number;
+        orderId: string;
+        paymentMethod: string;
+        reference?: string;
+      }) => Promise<unknown>;
+    };
+
+    await mutation.mutationFn({
+      amount: 5000,
+      orderId: 'order-1',
+      paymentMethod: 'bank_transfer',
+      reference: 'CURRENT-REFERENCE',
+    });
+
+    const requestBody = JSON.parse(String(mocks.fetch.mock.calls[0][1]?.body));
+    expect(requestBody).toMatchObject({
+      idempotency_key: '22222222-2222-4222-8222-222222222222',
+      payment_method: 'bank_transfer',
+      reference: 'CURRENT-REFERENCE',
+    });
+  });
+
   it('reuses a persisted idempotency key after the hook remounts', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },
