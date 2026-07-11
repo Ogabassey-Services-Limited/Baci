@@ -1,7 +1,7 @@
+import { IMEI_SERVICE_TIERS, type ImeiServiceTierKey } from '@baci/shared/imei';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { AnchorHTMLAttributes } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { IMEI_SERVICE_TIERS, type ImeiServiceTierKey } from '@baci/shared/imei';
 import { OgabasseyImeiChecker } from './imei-checker';
 import { getDisplayTier } from './imei-checker-tiers';
 
@@ -127,11 +127,48 @@ describe('OgabasseyImeiChecker', () => {
       )
     );
     expect(JSON.parse(init.body)).toMatchObject({
+      clientCapabilities: ['imei-async-v1'],
+      device: 'smartphone',
       imei: '354442067957452',
       tier: 'full',
     });
     expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
     expect(screen.getByText('Safe to buy')).toBeInTheDocument();
+  });
+
+  it('shows the pending state and polls an async check to completion', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 202,
+        json: vi.fn().mockResolvedValue({
+          lookupId: '11111111-1111-4111-8111-111111111111',
+          pollAfterMs: 0,
+          status: 'pending',
+          success: true,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({
+          ...successfulImeiResponse,
+          status: 'complete',
+        }),
+      });
+
+    render(<OgabasseyImeiChecker />);
+
+    enterValidImei();
+    fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      /usually under a minute/i
+    );
+    expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      '/api/storefront/imei-check/11111111-1111-4111-8111-111111111111'
+    );
   });
 
   it.each([
@@ -258,9 +295,10 @@ describe('OgabasseyImeiChecker', () => {
     expect(
       await screen.findByText(/insufficient wallet balance/i)
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: /fund wallet/i })
-    ).toHaveAttribute('href', '/wallet?fund=1');
+    expect(screen.getByRole('link', { name: /fund wallet/i })).toHaveAttribute(
+      'href',
+      '/wallet?fund=1'
+    );
   });
 
   it('preserves the idempotency key while a refund is pending', async () => {
@@ -362,45 +400,42 @@ describe('OgabasseyImeiChecker', () => {
       'REFUNDED_STATE_SAVE_FAILED',
       'Lookup failed and refund result could not be saved.',
     ],
-  ])(
-    'preserves the idempotency key after unresolved recovery failure %s',
-    async (code, message) => {
-      fetchMock
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 500,
-          json: vi.fn().mockResolvedValue({
-            success: false,
-            code,
-            error: message,
-          }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: vi.fn().mockResolvedValue(successfulImeiResponse),
-        });
+  ])('preserves the idempotency key after unresolved recovery failure %s', async (code, message) => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: vi.fn().mockResolvedValue({
+          success: false,
+          code,
+          error: message,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue(successfulImeiResponse),
+      });
 
-      render(<OgabasseyImeiChecker />);
+    render(<OgabasseyImeiChecker />);
 
-      enterValidImei();
-      fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
+    enterValidImei();
+    fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
 
-      expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(await screen.findByText(message)).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
+    fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
-      const firstHeaders = getFetchHeaders(0);
-      const secondHeaders = getFetchHeaders(1);
+    const firstHeaders = getFetchHeaders(0);
+    const secondHeaders = getFetchHeaders(1);
 
-      expect(secondHeaders.get('idempotency-key')).toBe(
-        firstHeaders.get('idempotency-key')
-      );
-      expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
-    }
-  );
+    expect(secondHeaders.get('idempotency-key')).toBe(
+      firstHeaders.get('idempotency-key')
+    );
+    expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
+  });
 
   it('shows the API error message when an IMEI check fails', async () => {
     fetchMock.mockResolvedValue({
@@ -497,7 +532,7 @@ describe('OgabasseyImeiChecker', () => {
       ok: true;
       status: number;
       json: () => Promise<typeof successfulImeiResponse>;
-    }) => void = () => {};
+    }) => void = () => undefined;
     fetchMock.mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -527,7 +562,7 @@ describe('OgabasseyImeiChecker', () => {
       ok: true;
       status: number;
       json: () => Promise<typeof successfulImeiResponse>;
-    }) => void = () => {};
+    }) => void = () => undefined;
     fetchMock.mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -566,7 +601,11 @@ describe('OgabasseyImeiChecker', () => {
     fireEvent.change(screen.getByPlaceholderText(/enter 15-digit imei/i), {
       target: { value: '354442067957453' }, // 15 digits, fails the Luhn check
     });
-    fireEvent.submit(screen.getByRole('button', { name: /verify now/i }).closest('form') as HTMLFormElement);
+    fireEvent.submit(
+      screen
+        .getByRole('button', { name: /verify now/i })
+        .closest('form') as HTMLFormElement
+    );
 
     expect(fetchMock).not.toHaveBeenCalled();
   });

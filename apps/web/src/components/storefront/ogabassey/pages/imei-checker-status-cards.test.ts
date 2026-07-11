@@ -46,8 +46,12 @@ describe('getImeiResultStatusCards', () => {
 
     const blacklist = cards.find((c) => c.label === 'Blacklist Status');
     expect(blacklist?.toneKey).toBe('danger');
-    expect(cards.find((c) => c.label === 'iCloud Status')?.toneKey).toBe('safe');
-    expect(cards.find((c) => c.label === 'Find My iPhone')?.toneKey).toBe('safe');
+    expect(cards.find((c) => c.label === 'iCloud Status')?.toneKey).toBe(
+      'safe'
+    );
+    expect(cards.find((c) => c.label === 'Find My iPhone')?.toneKey).toBe(
+      'safe'
+    );
     expect(cards.find((c) => c.label === 'SIM Lock')?.toneKey).toBe('accent');
     expect(cards.find((c) => c.label === 'Carrier')?.toneKey).toBe('accent');
   });
@@ -124,9 +128,7 @@ describe('getImeiResultStatusCards', () => {
     expect(cards.find((c) => c.label === 'Repair Eligibility')?.toneKey).toBe(
       'muted'
     );
-    expect(cards.find((c) => c.label === 'Part Number')?.toneKey).toBe(
-      'muted'
-    );
+    expect(cards.find((c) => c.label === 'Part Number')?.toneKey).toBe('muted');
   });
 
   it('renders warranty in a fixed safe tone regardless of its literal value', () => {
@@ -146,8 +148,33 @@ describe('getImeiResultStatusCards', () => {
     expect(cards.find((c) => c.label === 'Repair History')?.toneKey).toBe(
       'safe'
     );
-    expect(
-      cards.find((c) => c.label === 'Replacement History')?.toneKey
-    ).toBe('safe');
+    expect(cards.find((c) => c.label === 'Replacement History')?.toneKey).toBe(
+      'safe'
+    );
+  });
+
+  it('renders all six optional Phase 3 result fields', () => {
+    const cards = getImeiResultStatusCards(
+      baseResult({
+        devicePhoto: 'https://cdn.example.com/device.jpg',
+        esimCompatibility: 'Supported',
+        financeStatus: 'Past Due',
+        knoxEnrollment: 'Enrolled',
+        soldBy: 'Example Retailer',
+        wifiMac: 'A1:B2:C3:D4:E5:F6',
+      }),
+      ['device']
+    );
+
+    expect(cards.map((card) => card.label)).toEqual(
+      expect.arrayContaining([
+        'eSIM Compatibility',
+        'Finance Status',
+        'Knox Enrollment',
+        'Sold By',
+        'Wi-Fi MAC',
+        'Device Photo',
+      ])
+    );
   });
 });

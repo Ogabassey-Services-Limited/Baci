@@ -21,6 +21,8 @@ function renderEntry(overrides: Record<string, unknown> = {}) {
     identifier: 'imei' as const,
     imei: '354442067957452',
     isLoading: false,
+    isPending: false,
+    needsWalletFunding: false,
     onCheck: vi.fn((event: React.FormEvent) => event.preventDefault()),
     onDeviceQueryChange: vi.fn(),
     onDeviceSearchFocus: vi.fn(),
@@ -30,6 +32,7 @@ function renderEntry(overrides: Record<string, unknown> = {}) {
     onSelectDeviceSuggestion: vi.fn(),
     onSelectTier: vi.fn(),
     onToggleServices: vi.fn(),
+    pendingPaused: false,
     searchLoading: false,
     selectedDeviceSuggestion: null,
     selectedTier: 'full' as const,
@@ -141,10 +144,9 @@ describe('OgabasseyImeiEntry', () => {
   it('uses a numeric mobile keyboard hint for IMEI-only tiers', () => {
     renderEntry();
 
-    expect(screen.getByRole('textbox', { name: /imei number/i })).toHaveAttribute(
-      'inputmode',
-      'numeric'
-    );
+    expect(
+      screen.getByRole('textbox', { name: /imei number/i })
+    ).toHaveAttribute('inputmode', 'numeric');
   });
 
   it('uses a text keyboard hint for serial-only tiers', () => {

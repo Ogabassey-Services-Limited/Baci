@@ -1,0 +1,67 @@
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const pollImeiCheck = vi.hoisted(() => vi.fn());
+vi.mock('./imei-checker-request', () => ({ pollImeiCheck }));
+
+import { pendingImeiStorageKey } from './imei-pending-storage';
+import { useImeiPendingLookup } from './use-imei-pending-lookup';
+
+describe('useImeiPendingLookup', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    pollImeiCheck.mockReset();
+  });
+
+  it('persists, polls, and clears a completed lookup', async () => {
+    pollImeiCheck.mockResolvedValue({
+      kind: 'complete',
+      result: { device: 'iPhone', imei: '490154203237518' },
+    });
+    const { result } = renderHook(() =>
+      useImeiPendingLookup({
+        customerId: 'customer-1',
+        host: 'shop.example.com',
+      })
+    );
+
+    act(() => {
+      result.current.start({
+        lookupId: '11111111-1111-4111-8111-111111111111',
+        pollAfterMs: 0,
+        tier: 'blacklist',
+      });
+    });
+
+    const key = pendingImeiStorageKey('shop.example.com', 'customer-1');
+    expect(localStorage.getItem(key)).toContain('lookupId');
+    await waitFor(() => expect(result.current.terminal?.kind).toBe('complete'));
+    expect(result.current.terminal).toMatchObject({
+      lookupId: '11111111-1111-4111-8111-111111111111',
+    });
+    expect(localStorage.getItem(key)).toBeNull();
+    expect(result.current.pending).toBeNull();
+  });
+
+  it('restores a pending lookup for the same customer', async () => {
+    const key = pendingImeiStorageKey('shop.example.com', 'customer-1');
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        createdAt: new Date().toISOString(),
+        lookupId: '11111111-1111-4111-8111-111111111111',
+        tier: 'blacklist',
+      })
+    );
+    pollImeiCheck.mockResolvedValue({ kind: 'pending', pollAfterMs: 5000 });
+
+    const { result } = renderHook(() =>
+      useImeiPendingLookup({
+        customerId: 'customer-1',
+        host: 'shop.example.com',
+      })
+    );
+
+    await waitFor(() => expect(result.current.pending?.tier).toBe('blacklist'));
+  });
+});

@@ -2,6 +2,8 @@ import { ANDROID_IMEI_SERVICE_TIERS } from './service-tier-android';
 import { APPLE_IMEI_SERVICE_TIERS } from './service-tier-apple';
 import { APPLE_DEVICE_IMEI_SERVICE_TIERS } from './service-tier-apple-devices';
 import { CORE_IMEI_SERVICE_TIERS } from './service-tier-core';
+import { PETROCK_DEVICE_IMEI_SERVICE_TIERS } from './service-tier-petrock-device';
+import { PETROCK_NETWORK_IMEI_SERVICE_TIERS } from './service-tier-petrock-network';
 import type {
   ImeiBrandFilter,
   ImeiDeviceCategory,
@@ -16,9 +18,37 @@ export const IMEI_SERVICE_TIERS = {
   ...APPLE_IMEI_SERVICE_TIERS,
   ...APPLE_DEVICE_IMEI_SERVICE_TIERS,
   ...ANDROID_IMEI_SERVICE_TIERS,
+  ...PETROCK_DEVICE_IMEI_SERVICE_TIERS,
+  ...PETROCK_NETWORK_IMEI_SERVICE_TIERS,
 } as const;
 
 export type ImeiServiceTierKey = keyof typeof IMEI_SERVICE_TIERS;
+
+/** Phase 3 catalog candidates. These keys are deliberately not purchasable. */
+export const PETROCK_DARK_IMEI_SERVICE_TIERS = [
+  'esimCompatibility',
+  'refurbishedStatus',
+  'replacementStatus',
+  'applePartNumber',
+  'knoxEnrollment',
+  'samsungSoldBy',
+  'oneplusPremium',
+  'transsionPremium',
+  'macInfo',
+  'macPhotoReport',
+  'applePremium',
+  'applePremiumMax',
+  'attFinance',
+  'tmobileFinance',
+  'verizonFinance',
+  'tracfoneFinance',
+  'xfinityFinance',
+  'japanDocomo',
+  'japanSoftbank',
+  'japanKddi',
+  'japanRakuten',
+  'japanNetwork',
+] as const satisfies readonly ImeiServiceTierKey[];
 
 export const PRIMARY_IMEI_SERVICE_TIERS = [
   'full',

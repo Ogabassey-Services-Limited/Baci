@@ -1,0 +1,137 @@
+'use client';
+
+import type { ImeiServiceTierKey } from '@baci/shared/imei';
+import { useEffect, useRef, useState } from 'react';
+import { pollImeiCheck } from './imei-checker-request';
+import type { ImeiResult } from './imei-checker-types';
+import {
+  clearPendingImeiLookup,
+  loadPendingImeiLookup,
+  type PendingImeiLookup,
+  pendingImeiStorageKey,
+  savePendingImeiLookup,
+} from './imei-pending-storage';
+
+const MAX_ACTIVE_POLL_MS = 5 * 60 * 1000;
+
+interface ActivePendingImeiLookup extends PendingImeiLookup {
+  pollAfterMs: number;
+}
+
+type PendingTerminal =
+  | {
+      kind: 'complete';
+      lookupId: string;
+      result: ImeiResult;
+      tier: ImeiServiceTierKey;
+    }
+  | { error: string; kind: 'error'; tier: ImeiServiceTierKey };
+
+export function useImeiPendingLookup({
+  customerId,
+  host,
+}: {
+  customerId?: string;
+  host?: string;
+}) {
+  const resolvedHost =
+    host ?? (typeof window === 'undefined' ? '' : window.location.host);
+  const storageKey =
+    customerId && resolvedHost
+      ? pendingImeiStorageKey(resolvedHost, customerId)
+      : null;
+  const previousStorageKey = useRef<string | null>(null);
+  const [pending, setPending] = useState<ActivePendingImeiLookup | null>(null);
+  const [paused, setPaused] = useState(false);
+  const [terminal, setTerminal] = useState<PendingTerminal | null>(null);
+
+  useEffect(() => {
+    const previous = previousStorageKey.current;
+    if (previous && previous !== storageKey) {
+      clearPendingImeiLookup(localStorage, previous);
+    }
+    previousStorageKey.current = storageKey;
+
+    if (!storageKey) {
+      setPending(null);
+      return;
+    }
+    const saved = loadPendingImeiLookup(localStorage, storageKey);
+    setPending(saved ? { ...saved, pollAfterMs: 0 } : null);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!pending) return;
+
+    if (Date.now() - Date.parse(pending.createdAt) >= MAX_ACTIVE_POLL_MS) {
+      setPaused(true);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const outcome = await pollImeiCheck(pending.lookupId);
+      if (cancelled) return;
+
+      if (outcome.kind === 'pending' || outcome.kind === 'retry') {
+        setPending((current) =>
+          current ? { ...current, pollAfterMs: outcome.pollAfterMs } : current
+        );
+        return;
+      }
+
+      if (storageKey) clearPendingImeiLookup(localStorage, storageKey);
+      setPending(null);
+      setPaused(false);
+      setTerminal(
+        outcome.kind === 'complete'
+          ? {
+              kind: 'complete',
+              lookupId: pending.lookupId,
+              result: outcome.result,
+              tier: pending.tier,
+            }
+          : { error: outcome.error, kind: 'error', tier: pending.tier }
+      );
+    }, pending.pollAfterMs);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [pending, storageKey]);
+
+  return {
+    clear() {
+      if (storageKey) clearPendingImeiLookup(localStorage, storageKey);
+      setPending(null);
+      setPaused(false);
+    },
+    clearTerminal() {
+      setTerminal(null);
+    },
+    paused,
+    pending,
+    start({
+      lookupId,
+      pollAfterMs,
+      tier,
+    }: {
+      lookupId: string;
+      pollAfterMs: number;
+      tier: ImeiServiceTierKey;
+    }) {
+      const next = {
+        createdAt: new Date().toISOString(),
+        lookupId,
+        pollAfterMs,
+        tier,
+      };
+      if (storageKey) savePendingImeiLookup(localStorage, storageKey, next);
+      setTerminal(null);
+      setPaused(false);
+      setPending(next);
+    },
+    terminal,
+  };
+}

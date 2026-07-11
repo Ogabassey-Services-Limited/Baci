@@ -1,14 +1,19 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
 import { IMEI_SERVICE_TIERS } from '@baci/shared/imei';
-import { OgabasseyImeiResults } from './imei-results';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import type { ImeiResult } from './imei-checker-types';
+import { OgabasseyImeiResults } from './imei-results';
 
 vi.mock('@/components/storefront/cdn-format-image', () => ({
   CdnFormatImage: (props: Record<string, unknown>) => {
     const { fill: _fill, preload: _preload, ...rest } = props;
     return <img {...rest} alt={String(props.alt ?? '')} />;
   },
+}));
+vi.mock('./imei-remediation-offer', () => ({
+  ImeiRemediationOffer: ({ lookupId }: { lookupId: string }) => (
+    <div>Unlock offer for {lookupId}</div>
+  ),
 }));
 
 const fullTier = IMEI_SERVICE_TIERS.full;
@@ -161,5 +166,27 @@ describe('OgabasseyImeiResults', () => {
     );
 
     expect(onReset).toHaveBeenCalledOnce();
+  });
+
+  it('requests server-approved remediation only when a lookup id is available', () => {
+    const { rerender } = render(
+      <OgabasseyImeiResults
+        currentTier={fullTier}
+        lookupId="11111111-1111-4111-8111-111111111111"
+        onReset={vi.fn()}
+        result={baseResult}
+      />
+    );
+
+    expect(screen.getByText(/unlock offer for 11111111/i)).toBeInTheDocument();
+
+    rerender(
+      <OgabasseyImeiResults
+        currentTier={fullTier}
+        onReset={vi.fn()}
+        result={baseResult}
+      />
+    );
+    expect(screen.queryByText(/unlock offer for/i)).toBeNull();
   });
 });

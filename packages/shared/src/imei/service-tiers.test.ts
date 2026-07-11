@@ -11,6 +11,8 @@ import {
   imeiTierMatchesBrand,
   imeiTierMatchesDevice,
   isImeiServiceTierKey,
+  PETROCK_DARK_IMEI_SERVICE_TIERS,
+  PUBLIC_IMEI_SERVICE_TIERS,
   RECOMMENDED_TIER_BY_DEVICE,
 } from './service-tiers';
 
@@ -217,5 +219,45 @@ describe('IMEI service tiers', () => {
     for (const key of collapsed) {
       expect(expanded).toContain(key);
     }
+  });
+
+  it('catalogs Phase 3 Petrock-only checks while keeping every one dark', () => {
+    expect(PETROCK_DARK_IMEI_SERVICE_TIERS).toEqual(
+      expect.arrayContaining([
+        'esimCompatibility',
+        'attFinance',
+        'tmobileFinance',
+        'verizonFinance',
+        'knoxEnrollment',
+        'samsungSoldBy',
+        'macPhotoReport',
+        'applePremiumMax',
+        'tracfoneFinance',
+        'xfinityFinance',
+      ])
+    );
+
+    for (const tierKey of PETROCK_DARK_IMEI_SERVICE_TIERS) {
+      expect(isImeiServiceTierKey(tierKey)).toBe(true);
+      expect(PUBLIC_IMEI_SERVICE_TIERS).not.toContain(tierKey);
+      expect(IMEI_SERVICE_TIERS[tierKey].price).toBeGreaterThan(0);
+    }
+  });
+
+  it('declares the new parser fields on their matching dark tiers', () => {
+    expect(IMEI_SERVICE_TIERS.esimCompatibility.checksIncluded).toContain(
+      'esimCompatibility'
+    );
+    expect(IMEI_SERVICE_TIERS.attFinance.checksIncluded).toContain(
+      'financeStatus'
+    );
+    expect(IMEI_SERVICE_TIERS.knoxEnrollment.checksIncluded).toContain(
+      'knoxEnrollment'
+    );
+    expect(IMEI_SERVICE_TIERS.samsungSoldBy.checksIncluded).toContain('soldBy');
+    expect(IMEI_SERVICE_TIERS.macInfo.checksIncluded).toContain('wifiMac');
+    expect(IMEI_SERVICE_TIERS.macPhotoReport.checksIncluded).toContain(
+      'devicePhoto'
+    );
   });
 });

@@ -7,7 +7,14 @@ const mocks = vi.hoisted(() => ({
   mockCheckCsrfProtection: vi.fn(),
   mockCheckRateLimit: vi.fn(),
   mockCreateAdminClient: vi.fn(),
+  mockFinalizePetrockLookup: vi.fn(),
+  mockMarkPetrockSubmissionUnknown: vi.fn(),
+  mockPetrockGetOrder: vi.fn(),
+  mockPetrockSubmitOrder: vi.fn(),
   mockReadCustomerWalletBalance: vi.fn(),
+  mockReadPetrockProductSnapshot: vi.fn(),
+  mockRecordPetrockSubmission: vi.fn(),
+  mockRedeemPetrockWalletAndBeginSubmission: vi.fn(),
   mockRedeemImeiWalletPayment: vi.fn(),
   mockRefundImeiWalletPayment: vi.fn(),
   mockRequestSickwCheck: vi.fn(),
@@ -16,9 +23,39 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/env', () => ({
+  getImeiDisabledTierKeys: () =>
+    (process.env.IMEI_DISABLED_TIERS ?? '').split(',').filter(Boolean),
   getImeiHashSalt: () => process.env.IMEI_HASH_SALT,
+  getImeiIdentifierEncryptionKey: () =>
+    process.env.IMEI_IDENTIFIER_ENCRYPTION_KEY,
+  getPetrockConfig: () =>
+    process.env.PETROCK_API_TOKEN
+      ? {
+          baseUrl:
+            process.env.PETROCK_API_BASE_URL ??
+            'https://api.petrock.biz/api/reseller/v1',
+          token: process.env.PETROCK_API_TOKEN,
+        }
+      : null,
+  getPetrockEnabledTierKeys: () =>
+    (process.env.PETROCK_ENABLED_TIERS ?? '').split(',').filter(Boolean),
   getRootDomain: () => 'usebaci.com',
   getSickwApiKey: () => process.env.SICKW_API_KEY,
+  isPetrockEnabled: () => process.env.PETROCK_ENABLED === 'true',
+}));
+
+vi.mock('@/lib/imei-providers/petrock/petrock-client', () => ({
+  createPetrockClient: () => ({
+    getOrder: mocks.mockPetrockGetOrder,
+    submitOrder: mocks.mockPetrockSubmitOrder,
+  }),
+}));
+
+vi.mock('@/lib/imei-providers/petrock/petrock-lookup-state', () => ({
+  finalizePetrockLookup: mocks.mockFinalizePetrockLookup,
+  markPetrockSubmissionUnknown: mocks.mockMarkPetrockSubmissionUnknown,
+  readPetrockProductSnapshot: mocks.mockReadPetrockProductSnapshot,
+  recordPetrockSubmission: mocks.mockRecordPetrockSubmission,
 }));
 
 vi.mock('@/lib/api-auth', () => ({
@@ -61,6 +98,8 @@ vi.mock('@/lib/imei-lookup-fulfillment', async () => {
       mocks.mockReadCustomerWalletBalance(...args),
     redeemImeiWalletPayment: (...args: unknown[]) =>
       mocks.mockRedeemImeiWalletPayment(...args),
+    redeemImeiWalletAndBeginProviderSubmission: (...args: unknown[]) =>
+      mocks.mockRedeemPetrockWalletAndBeginSubmission(...args),
     refundImeiWalletPayment: (...args: unknown[]) =>
       mocks.mockRefundImeiWalletPayment(...args),
     requestSickwCheck: (...args: unknown[]) =>
@@ -75,6 +114,7 @@ interface ImeiLookupRow {
   cached_response: Record<string, unknown> | null;
   cached_status: number | null;
   customer_id: string;
+  device_category?: string | null;
   id: string;
   idempotency_key: string;
   imei_hash: string;
@@ -122,6 +162,7 @@ function createSupabaseMock(rows: ImeiLookupRow[] = []) {
   }> = [];
   let insertedPayload: Record<string, unknown> | null = null;
   let insertError: { code?: string; message: string } | null = null;
+  let concurrentWinner: ImeiLookupRow | null = null;
   let updateError: { code?: string; message: string } | null = null;
 
   const supabase = {
@@ -130,6 +171,9 @@ function createSupabaseMock(rows: ImeiLookupRow[] = []) {
     __updates: updates,
     __setInsertError: (error: { code?: string; message: string } | null) => {
       insertError = error;
+    },
+    __setConcurrentWinner: (row: ImeiLookupRow) => {
+      concurrentWinner = row;
     },
     __setUpdateError: (error: { code?: string; message: string } | null) => {
       updateError = error;
@@ -164,6 +208,10 @@ function createSupabaseMock(rows: ImeiLookupRow[] = []) {
         }),
         insert: vi.fn((payload: Record<string, unknown>) => {
           insertedPayload = payload;
+          if (insertError && concurrentWinner) {
+            rows.push(concurrentWinner);
+            concurrentWinner = null;
+          }
           return builder;
         }),
         maybeSingle: vi.fn(() => {
@@ -229,6 +277,8 @@ function createSupabaseMock(rows: ImeiLookupRow[] = []) {
             cached_response: null,
             cached_status: null,
             customer_id: String(insertedPayload?.customer_id),
+            device_category:
+              (insertedPayload?.device_category as string | null) ?? null,
             id,
             idempotency_key: String(insertedPayload?.idempotency_key),
             imei_hash: String(insertedPayload?.imei_hash),
@@ -280,6 +330,10 @@ describe('POST /api/storefront/imei-check', () => {
     vi.unstubAllEnvs();
     vi.stubEnv('IMEI_HASH_SALT', 'test-imei-salt');
     vi.stubEnv('SICKW_API_KEY', 'test-sickw-key');
+    vi.stubEnv('PETROCK_ENABLED', 'false');
+    vi.stubEnv('PETROCK_ENABLED_TIERS', '');
+    delete process.env.PETROCK_API_TOKEN;
+    delete process.env.IMEI_IDENTIFIER_ENCRYPTION_KEY;
 
     mocks.mockAuthenticateApiRequest.mockReset();
     mockAuthenticatedUser();
@@ -311,6 +365,32 @@ describe('POST /api/storefront/imei-check', () => {
     mocks.mockReadCustomerWalletBalance.mockResolvedValue(5000);
     mocks.mockRedeemImeiWalletPayment.mockReset();
     mocks.mockRedeemImeiWalletPayment.mockResolvedValue(undefined);
+    mocks.mockRedeemPetrockWalletAndBeginSubmission.mockReset();
+    mocks.mockRedeemPetrockWalletAndBeginSubmission.mockResolvedValue(
+      undefined
+    );
+    mocks.mockReadPetrockProductSnapshot.mockReset();
+    mocks.mockReadPetrockProductSnapshot.mockResolvedValue({
+      active: true,
+      currency: 'USD',
+      order_field_name: 'IMEI',
+      price_usd: 0.019,
+      product_id: '1955',
+      synced_at: new Date().toISOString(),
+    });
+    mocks.mockPetrockSubmitOrder.mockReset();
+    mocks.mockPetrockSubmitOrder.mockResolvedValue({
+      data: { orderUuid: 'order-1', referenceId: 'reference-1' },
+      ok: true,
+      rawText: '{}',
+    });
+    mocks.mockPetrockGetOrder.mockReset();
+    mocks.mockRecordPetrockSubmission.mockReset();
+    mocks.mockRecordPetrockSubmission.mockResolvedValue(true);
+    mocks.mockMarkPetrockSubmissionUnknown.mockReset();
+    mocks.mockMarkPetrockSubmissionUnknown.mockResolvedValue(true);
+    mocks.mockFinalizePetrockLookup.mockReset();
+    mocks.mockFinalizePetrockLookup.mockResolvedValue(true);
     mocks.mockRefundImeiWalletPayment.mockReset();
     mocks.mockRefundImeiWalletPayment.mockResolvedValue(undefined);
     mocks.mockRequestSickwCheck.mockReset();
@@ -347,7 +427,7 @@ describe('POST /api/storefront/imei-check', () => {
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
   }, 60_000);
 
-  it('returns 429 before auth or storefront resolution when rate limited', async () => {
+  it('authenticates before returning 429 and skips storefront resolution', async () => {
     mocks.mockCheckRateLimit.mockResolvedValueOnce({
       allowed: false,
       limit: 10,
@@ -359,7 +439,7 @@ describe('POST /api/storefront/imei-check', () => {
     const response = await POST(createRequest());
 
     expect(response.status).toBe(429);
-    expect(mocks.mockAuthenticateApiRequest).not.toHaveBeenCalled();
+    expect(mocks.mockAuthenticateApiRequest).toHaveBeenCalledOnce();
     expect(
       mocks.mockResolveStorefrontMerchantFromRequest
     ).not.toHaveBeenCalled();
@@ -447,8 +527,8 @@ describe('POST /api/storefront/imei-check', () => {
 
   it('returns 503 before new persistence when IMEI_HASH_SALT is missing', async () => {
     vi.stubEnv('IMEI_HASH_SALT', '');
-    const supabase = createSupabaseMock();
-    mockAuthenticatedUser({ userSupabase: supabase });
+    const adminSupabase = createSupabaseMock();
+    mockAuthenticatedUser({ adminSupabase });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -456,7 +536,7 @@ describe('POST /api/storefront/imei-check', () => {
 
     expect(response.status).toBe(503);
     expect(body.code).toBe('IMEI_HASH_SALT_MISSING');
-    expect(supabase.from).toHaveBeenCalledOnce();
+    expect(adminSupabase.from).toHaveBeenCalledOnce();
     expect(mocks.mockRedeemImeiWalletPayment).not.toHaveBeenCalled();
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
   });
@@ -469,7 +549,7 @@ describe('POST /api/storefront/imei-check', () => {
       tier: { checksIncluded: ['device'], name: 'Full Check' },
     };
     mockAuthenticatedUser({
-      userSupabase: createSupabaseMock([
+      adminSupabase: createSupabaseMock([
         {
           amount_ngn: 1500,
           cached_response: cachedBody,
@@ -490,7 +570,7 @@ describe('POST /api/storefront/imei-check', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual(cachedBody);
+    expect(body).toEqual({ ...cachedBody, lookupId: 'lookup-1' });
     expect(mocks.mockRedeemImeiWalletPayment).not.toHaveBeenCalled();
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
   });
@@ -504,7 +584,7 @@ describe('POST /api/storefront/imei-check', () => {
       success: false,
     };
     mockAuthenticatedUser({
-      userSupabase: createSupabaseMock([
+      adminSupabase: createSupabaseMock([
         {
           amount_ngn: 1500,
           cached_response: cachedBody,
@@ -525,15 +605,15 @@ describe('POST /api/storefront/imei-check', () => {
     const body = await response.json();
 
     expect(response.status).toBe(402);
-    expect(body).toEqual(cachedBody);
+    expect(body).toEqual({ ...cachedBody, lookupId: 'lookup-1' });
     expect(mocks.mockRedeemImeiWalletPayment).not.toHaveBeenCalled();
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
   });
 
   it('returns 503 before new persistence when SICKW_API_KEY is missing', async () => {
     vi.stubEnv('SICKW_API_KEY', '');
-    const supabase = createSupabaseMock();
-    mockAuthenticatedUser({ userSupabase: supabase });
+    const adminSupabase = createSupabaseMock();
+    mockAuthenticatedUser({ adminSupabase });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -541,9 +621,165 @@ describe('POST /api/storefront/imei-check', () => {
 
     expect(response.status).toBe(503);
     expect(body.code).toBe('SICKW_API_KEY_MISSING');
-    expect(supabase.from).toHaveBeenCalledOnce();
-    expect(mocks.mockCreateAdminClient).not.toHaveBeenCalled();
+    expect(adminSupabase.from).toHaveBeenCalledOnce();
+    expect(mocks.mockCreateAdminClient).toHaveBeenCalled();
     expect(mocks.mockRedeemImeiWalletPayment).not.toHaveBeenCalled();
+  });
+
+  it('keeps an allowlisted migrated tier on Sickw for legacy clients', async () => {
+    vi.stubEnv('PETROCK_ENABLED', 'true');
+    vi.stubEnv('PETROCK_ENABLED_TIERS', 'blacklist');
+    vi.stubEnv('PETROCK_API_TOKEN', 'petrock-token');
+    vi.stubEnv(
+      'IMEI_IDENTIFIER_ENCRYPTION_KEY',
+      Buffer.alloc(32, 7).toString('base64')
+    );
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest({
+        device: 'smartphone',
+        imei: VALID_IMEI,
+        tier: 'blacklist',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mockRequestSickwCheck).toHaveBeenCalled();
+    expect(
+      mocks.mockRedeemPetrockWalletAndBeginSubmission
+    ).not.toHaveBeenCalled();
+  });
+
+  it('returns 202 after an async-capable Petrock order is accepted', async () => {
+    vi.stubEnv('PETROCK_ENABLED', 'true');
+    vi.stubEnv('PETROCK_ENABLED_TIERS', 'blacklist');
+    vi.stubEnv('PETROCK_API_TOKEN', 'petrock-token');
+    vi.stubEnv(
+      'IMEI_IDENTIFIER_ENCRYPTION_KEY',
+      Buffer.alloc(32, 7).toString('base64')
+    );
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest({
+        clientCapabilities: ['imei-async-v1'],
+        device: 'smartphone',
+        imei: VALID_IMEI,
+        tier: 'blacklist',
+      })
+    );
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toMatchObject({
+      lookupId: 'lookup-1',
+      status: 'pending',
+      success: true,
+    });
+    expect(mocks.mockRedeemPetrockWalletAndBeginSubmission).toHaveBeenCalled();
+    expect(mocks.mockRecordPetrockSubmission).toHaveBeenCalled();
+    expect(mocks.mockRedeemImeiWalletPayment).not.toHaveBeenCalled();
+    expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
+  });
+
+  it('fails Petrock preflight before debit when the catalog is stale', async () => {
+    vi.stubEnv('PETROCK_ENABLED', 'true');
+    vi.stubEnv('PETROCK_ENABLED_TIERS', 'blacklist');
+    vi.stubEnv('PETROCK_API_TOKEN', 'petrock-token');
+    vi.stubEnv(
+      'IMEI_IDENTIFIER_ENCRYPTION_KEY',
+      Buffer.alloc(32, 7).toString('base64')
+    );
+    mocks.mockReadPetrockProductSnapshot.mockResolvedValueOnce({
+      active: true,
+      currency: 'USD',
+      order_field_name: 'IMEI',
+      price_usd: 0.019,
+      product_id: '1955',
+      synced_at: '2026-01-01T00:00:00.000Z',
+    });
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest({
+        clientCapabilities: ['imei-async-v1'],
+        device: 'smartphone',
+        imei: VALID_IMEI,
+        tier: 'blacklist',
+      })
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'PROVIDER_PRICE_STALE',
+    });
+    expect(
+      mocks.mockRedeemPetrockWalletAndBeginSubmission
+    ).not.toHaveBeenCalled();
+  });
+
+  it('keeps a Petrock POST timeout pending without refunding', async () => {
+    vi.stubEnv('PETROCK_ENABLED', 'true');
+    vi.stubEnv('PETROCK_ENABLED_TIERS', 'blacklist');
+    vi.stubEnv('PETROCK_API_TOKEN', 'petrock-token');
+    vi.stubEnv(
+      'IMEI_IDENTIFIER_ENCRYPTION_KEY',
+      Buffer.alloc(32, 7).toString('base64')
+    );
+    mocks.mockPetrockSubmitOrder.mockResolvedValueOnce({
+      kind: 'timeout',
+      message: 'Petrock request timed out',
+      ok: false,
+    });
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest({
+        clientCapabilities: ['imei-async-v1'],
+        device: 'smartphone',
+        imei: VALID_IMEI,
+        tier: 'blacklist',
+      })
+    );
+
+    expect(response.status).toBe(202);
+    expect(mocks.mockMarkPetrockSubmissionUnknown).toHaveBeenCalled();
+    expect(mocks.mockRefundImeiWalletPayment).not.toHaveBeenCalled();
+  });
+
+  it('replays a pending Petrock lookup without placing another order', async () => {
+    const adminSupabase = createSupabaseMock([
+      {
+        amount_ngn: 700,
+        cached_response: null,
+        cached_status: null,
+        customer_id: 'customer-1',
+        device_category: 'smartphone',
+        id: 'lookup-existing',
+        idempotency_key: IDEMPOTENCY_KEY,
+        imei_hash: hashImeiForTest(VALID_IMEI),
+        merchant_id: 'merchant-1',
+        status: 'pending_provider',
+        tier: 'blacklist',
+      },
+    ]);
+    mockAuthenticatedUser({ adminSupabase });
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest({
+        clientCapabilities: ['imei-async-v1'],
+        device: 'smartphone',
+        imei: VALID_IMEI,
+        tier: 'blacklist',
+      })
+    );
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toMatchObject({
+      lookupId: 'lookup-existing',
+    });
+    expect(mocks.mockPetrockSubmitOrder).not.toHaveBeenCalled();
   });
 
   it('returns 402 and caches the terminal response when wallet balance is short', async () => {
@@ -867,7 +1103,7 @@ describe('POST /api/storefront/imei-check', () => {
 
   it('returns 409 on Idempotency-Key reuse with a different fingerprint', async () => {
     mockAuthenticatedUser({
-      userSupabase: createSupabaseMock([
+      adminSupabase: createSupabaseMock([
         {
           amount_ngn: 1500,
           cached_response: null,
@@ -893,29 +1129,27 @@ describe('POST /api/storefront/imei-check', () => {
   });
 
   it('handles a concurrent insert race for the same Idempotency-Key', async () => {
-    const userSupabase = createSupabaseMock([
-      {
-        amount_ngn: 1500,
-        cached_response: {
-          data: { device: 'iPhone 15', imei: VALID_IMEI },
-          success: true,
-        },
-        cached_status: 200,
-        customer_id: 'customer-1',
-        id: 'lookup-winner',
-        idempotency_key: IDEMPOTENCY_KEY,
-        imei_hash: hashImeiForTest(VALID_IMEI),
-        merchant_id: 'merchant-1',
-        status: 'completed',
-        tier: 'full',
-      },
-    ]);
     const adminSupabase = createSupabaseMock();
     adminSupabase.__setInsertError({
       code: '23505',
       message: 'duplicate key',
     });
-    mockAuthenticatedUser({ adminSupabase, userSupabase });
+    adminSupabase.__setConcurrentWinner({
+      amount_ngn: 1500,
+      cached_response: {
+        data: { device: 'iPhone 15', imei: VALID_IMEI },
+        success: true,
+      },
+      cached_status: 200,
+      customer_id: 'customer-1',
+      id: 'lookup-winner',
+      idempotency_key: IDEMPOTENCY_KEY,
+      imei_hash: hashImeiForTest(VALID_IMEI),
+      merchant_id: 'merchant-1',
+      status: 'completed',
+      tier: 'full',
+    });
+    mockAuthenticatedUser({ adminSupabase });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());

@@ -27,6 +27,7 @@ import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
+import { handleJuicywayWalletTopUpIfNeeded } from '@/lib/payments/juicyway-wallet-top-up';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
@@ -181,6 +182,14 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    const walletTopUpResponse = await handleJuicywayWalletTopUpIfNeeded({
+      payment: data,
+      reference,
+      supabase: createAdminClient(),
+      transaction,
+    });
+    if (walletTopUpResponse) return walletTopUpResponse;
 
     // Check if already processed (idempotency)
     if (transaction.status === 'completed') {

@@ -47,19 +47,22 @@ function emptyWalletResponse({
   loyaltyPoints = 0,
   requiresFundingAccountConsent,
   savingsBalance = 0,
+  usdtBalance = 0,
   walletDvaEnabled = false,
 }: {
   fundingAccount?: ReturnType<typeof formatFundingAccount>;
   loyaltyPoints?: number;
   requiresFundingAccountConsent?: boolean;
   savingsBalance?: number;
+  usdtBalance?: number;
   walletDvaEnabled?: boolean;
 } = {}) {
   return {
     balance: 0,
+    balances: { NGN: 0, USDT: usdtBalance },
     earningsBalance: 0,
     fundingAccount,
-    hasWallet: false,
+    hasWallet: usdtBalance > 0,
     loyaltyPoints,
     requiresFundingAccountConsent:
       requiresFundingAccountConsent ?? !fundingAccount,
@@ -132,6 +135,26 @@ async function getFundingAccount({
   }
 
   return formatFundingAccount(data as WalletFundingAccountRow | null);
+}
+
+async function getUsdtBalance({
+  customerId,
+  merchantId,
+  supabase,
+}: {
+  customerId: string;
+  merchantId: string;
+  supabase: ReturnType<typeof createClient>;
+}) {
+  const { data, error } = await supabase
+    .from('customer_wallet_accounts')
+    .select('available_balance')
+    .eq('customer_id', customerId)
+    .eq('merchant_id', merchantId)
+    .eq('currency', 'USDT')
+    .maybeSingle();
+  if (error) throw error;
+  return toNumber(data?.available_balance);
 }
 
 export async function GET(request: Request) {
@@ -242,7 +265,7 @@ export async function GET(request: Request) {
     }
 
     const loyaltyPoints = toNumber(customer.loyalty_points);
-    const [savingsBalanceResult, fundingAccountResult] =
+    const [savingsBalanceResult, fundingAccountResult, usdtBalanceResult] =
       await Promise.allSettled([
         getSavingsBalance({
           customerId: customer.id,
@@ -250,6 +273,11 @@ export async function GET(request: Request) {
           supabase,
         }),
         getFundingAccount({
+          customerId: customer.id,
+          merchantId: merchant.id,
+          supabase,
+        }),
+        getUsdtBalance({
           customerId: customer.id,
           merchantId: merchant.id,
           supabase,
@@ -263,8 +291,11 @@ export async function GET(request: Request) {
       fundingAccountResult.status === 'fulfilled'
         ? fundingAccountResult.value
         : null;
+    const usdtBalance =
+      usdtBalanceResult.status === 'fulfilled' ? usdtBalanceResult.value : 0;
     logOptionalWalletHelperFailure('savings balance', savingsBalanceResult);
     logOptionalWalletHelperFailure('funding account', fundingAccountResult);
+    logOptionalWalletHelperFailure('USDT balance', usdtBalanceResult);
 
     // Get customer wallet
     const { data: wallet, error: walletError } = await supabase
@@ -281,6 +312,7 @@ export async function GET(request: Request) {
           fundingAccount,
           loyaltyPoints,
           savingsBalance,
+          usdtBalance,
           walletDvaEnabled,
         })
       );
@@ -296,6 +328,10 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       balance: toNumber(wallet.available_balance),
+      balances: {
+        NGN: toNumber(wallet.available_balance),
+        USDT: usdtBalance,
+      },
       earningsBalance: toNumber(wallet.available_balance),
       fundingAccount,
       loyaltyPoints,

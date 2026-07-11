@@ -1,4 +1,4 @@
-import type { ImeiServiceTierKey } from '@baci/shared/imei';
+import type { ImeiDeviceCategory, ImeiServiceTierKey } from '@baci/shared/imei';
 import { fetchWithCsrf } from '@/lib/api-client';
 import {
   DEFAULT_IMEI_CHECK_ERROR_MESSAGE,
@@ -16,8 +16,28 @@ interface ImeiCheckOutcome {
   result: ImeiResult | null;
   error: string | null;
   keepRequestIdentity: boolean;
+  lookupId: string | null;
   needsWalletFunding: boolean;
+  pending: { lookupId: string; pollAfterMs: number } | null;
 }
+
+interface ImeiApiPayload {
+  balance?: number;
+  code?: string;
+  data?: ImeiResult;
+  error?: string;
+  lookupId?: string;
+  pollAfterMs?: number;
+  required?: number;
+  status?: 'complete' | 'error' | 'pending';
+  success?: boolean;
+}
+
+export type ImeiPollOutcome =
+  | { kind: 'complete'; lookupId: string | null; result: ImeiResult }
+  | { error: string; kind: 'error' }
+  | { kind: 'pending'; pollAfterMs: number }
+  | { kind: 'retry'; pollAfterMs: number };
 
 function describeCheckFailure(
   outcome: ReturnType<typeof resolveImeiCheckFailure>
@@ -41,7 +61,8 @@ export async function performImeiCheck(
   imei: string,
   tier: ImeiServiceTierKey,
   tierPrice: number,
-  idempotencyKey: string
+  idempotencyKey: string,
+  device?: ImeiDeviceCategory
 ): Promise<ImeiCheckOutcome> {
   try {
     const response = await fetchWithCsrf('/api/storefront/imei-check', {
@@ -50,17 +71,34 @@ export async function performImeiCheck(
         'Content-Type': 'application/json',
         'Idempotency-Key': idempotencyKey,
       },
-      body: JSON.stringify({ imei, tier }),
+      body: JSON.stringify({
+        clientCapabilities: ['imei-async-v1'],
+        ...(device ? { device } : {}),
+        imei,
+        tier,
+      }),
     });
 
-    const data: {
-      success?: boolean;
-      error?: string;
-      code?: string;
-      data?: ImeiResult;
-      balance?: number;
-      required?: number;
-    } = await response.json();
+    const data = (await response.json()) as ImeiApiPayload;
+
+    if (
+      response.status === 202 &&
+      data.success === true &&
+      data.status === 'pending' &&
+      data.lookupId
+    ) {
+      return {
+        error: null,
+        keepRequestIdentity: true,
+        lookupId: data.lookupId,
+        needsWalletFunding: false,
+        pending: {
+          lookupId: data.lookupId,
+          pollAfterMs: data.pollAfterMs ?? 2_000,
+        },
+        result: null,
+      };
+    }
 
     if (!response.ok || !data.success) {
       const outcome = resolveImeiCheckFailure({
@@ -74,8 +112,10 @@ export async function performImeiCheck(
         result: null,
         error: describeCheckFailure(outcome),
         keepRequestIdentity: outcome.shouldPreserveIdempotencyKey,
+        lookupId: null,
         needsWalletFunding:
           response.status === 402 && data.code === 'WALLET_INSUFFICIENT',
+        pending: null,
       };
     }
 
@@ -83,7 +123,9 @@ export async function performImeiCheck(
       result: data.data ?? null,
       error: null,
       keepRequestIdentity: false,
+      lookupId: data.lookupId ?? null,
       needsWalletFunding: false,
+      pending: null,
     };
   } catch (error) {
     console.error('IMEI check failed:', error);
@@ -91,7 +133,47 @@ export async function performImeiCheck(
       result: null,
       error: 'Network error. Please check your connection and try again.',
       keepRequestIdentity: true,
+      lookupId: null,
       needsWalletFunding: false,
+      pending: null,
     };
+  }
+}
+
+export async function pollImeiCheck(
+  lookupId: string
+): Promise<ImeiPollOutcome> {
+  try {
+    const response = await fetchWithCsrf(
+      `/api/storefront/imei-check/${encodeURIComponent(lookupId)}`,
+      { method: 'GET' }
+    );
+    const data = (await response.json()) as ImeiApiPayload;
+    if (
+      response.status === 202 &&
+      data.success === true &&
+      data.status === 'pending'
+    ) {
+      return { kind: 'pending', pollAfterMs: data.pollAfterMs ?? 5_000 };
+    }
+    if (
+      response.ok &&
+      data.success === true &&
+      data.status === 'complete' &&
+      data.data
+    ) {
+      return {
+        kind: 'complete',
+        lookupId: data.lookupId ?? null,
+        result: data.data,
+      };
+    }
+    return {
+      error: data.error || DEFAULT_IMEI_CHECK_ERROR_MESSAGE,
+      kind: 'error',
+    };
+  } catch (error) {
+    console.error('IMEI status poll failed:', error);
+    return { kind: 'retry', pollAfterMs: 10_000 };
   }
 }

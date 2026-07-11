@@ -3,6 +3,7 @@ import {
   CalculateOrderInput,
   CalculateVTUInput,
   getFirstError,
+  ImeiCheckApiResponseSchema,
   ImeiResultSchema,
   isValidIMEI,
   QuantitySchema,
@@ -229,6 +230,35 @@ describe('ImeiResultSchema', () => {
         purchaseDate: 'September 22, 2025',
       }).success
     ).toBe(true);
+  });
+
+  it('preserves new Petrock result fields', () => {
+    const parsed = ImeiResultSchema.parse({
+      ...validImeiResult,
+      devicePhoto: 'https://cdn.example.com/device.jpg',
+      esimCompatibility: 'Supported',
+      financeStatus: 'Paid',
+      knoxEnrollment: 'Not enrolled',
+      soldBy: 'Samsung USA',
+      wifiMac: '00:11:22:33:44:55',
+    });
+
+    expect(parsed).toMatchObject({
+      esimCompatibility: 'Supported',
+      financeStatus: 'Paid',
+      knoxEnrollment: 'Not enrolled',
+    });
+  });
+
+  it('accepts the additive async pending response shape', () => {
+    expect(
+      ImeiCheckApiResponseSchema.parse({
+        lookupId: '11111111-1111-4111-8111-111111111111',
+        pollAfterMs: 2000,
+        status: 'pending',
+        success: true,
+      })
+    ).toMatchObject({ status: 'pending', success: true });
   });
 });
 

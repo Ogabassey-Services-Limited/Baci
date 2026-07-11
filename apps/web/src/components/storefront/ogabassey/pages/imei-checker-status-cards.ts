@@ -1,23 +1,28 @@
+import type { ImeiCheckField } from '@baci/shared/imei';
 import {
   BadgeCheck,
+  BadgeDollarSign,
   Barcode,
   Briefcase,
+  Building2,
   Calendar,
   Cloud,
   Globe,
   Hammer,
+  ImageIcon,
   Lock,
+  type LucideIcon,
   MapPin,
+  Radio,
   RefreshCw,
   Shield,
   ShieldCheck,
   Smartphone,
   Sparkles,
   Tag,
+  Wifi,
   Wrench,
-  type LucideIcon,
 } from 'lucide-react';
-import type { ImeiCheckField } from '@baci/shared/imei';
 import { isStatusClean } from './imei-checker-is-status-clean';
 import type { ImeiToneKey } from './imei-checker-tone';
 import type { ImeiResult } from './imei-checker-types';
@@ -179,6 +184,36 @@ export function getImeiResultStatusCards(
     optionalStatusCard(result.partNumber, {
       icon: Tag,
       label: 'Part Number',
+      toneKey: 'muted',
+    }),
+    optionalStatusCard(result.esimCompatibility, {
+      icon: Radio,
+      label: 'eSIM Compatibility',
+      toneKey: 'muted',
+    }),
+    optionalStatusCard(result.financeStatus, {
+      icon: BadgeDollarSign,
+      label: 'Finance Status',
+      toneKey: cleanAwareTone(result.financeStatus ?? ''),
+    }),
+    optionalStatusCard(result.knoxEnrollment, {
+      icon: ShieldCheck,
+      label: 'Knox Enrollment',
+      toneKey: cleanAwareTone(result.knoxEnrollment ?? ''),
+    }),
+    optionalStatusCard(result.soldBy, {
+      icon: Building2,
+      label: 'Sold By',
+      toneKey: 'muted',
+    }),
+    optionalStatusCard(result.wifiMac, {
+      icon: Wifi,
+      label: 'Wi-Fi MAC',
+      toneKey: 'muted',
+    }),
+    optionalStatusCard(result.devicePhoto, {
+      icon: ImageIcon,
+      label: 'Device Photo',
       toneKey: 'muted',
     }),
   ].filter((card): card is ImeiResultStatusCard => Boolean(card));

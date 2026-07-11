@@ -4,10 +4,18 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@/components/storefront/ogabassey/pages/wallet', () => ({
   OgabasseyV2Wallet: ({
     initialShowFunding,
+    initialShowUsdtFunding,
+    initialUsdtAmount,
   }: {
     initialShowFunding?: boolean;
+    initialShowUsdtFunding?: boolean;
+    initialUsdtAmount?: number;
   }) => (
-    <div data-initial-show-funding={String(initialShowFunding ?? false)}>
+    <div
+      data-initial-show-funding={String(initialShowFunding ?? false)}
+      data-initial-show-usdt={String(initialShowUsdtFunding ?? false)}
+      data-initial-usdt-amount={String(initialUsdtAmount ?? '')}
+    >
       Wallet UI
     </div>
   ),
@@ -36,6 +44,21 @@ describe('WalletContentSection', () => {
     expect(screen.getByText('Wallet UI')).toHaveAttribute(
       'data-initial-show-funding',
       'true'
+    );
+  });
+
+  it('forwards the USDT funding deep-link state and amount', () => {
+    render(
+      <WalletContentSection initialShowUsdtFunding initialUsdtAmount={65} />
+    );
+
+    expect(screen.getByText('Wallet UI')).toHaveAttribute(
+      'data-initial-show-usdt',
+      'true'
+    );
+    expect(screen.getByText('Wallet UI')).toHaveAttribute(
+      'data-initial-usdt-amount',
+      '65'
     );
   });
 });

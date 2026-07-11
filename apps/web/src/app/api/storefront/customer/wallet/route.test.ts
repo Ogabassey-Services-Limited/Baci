@@ -64,6 +64,15 @@ function transactionsQuery(data: unknown[]) {
   };
 }
 
+function currencyAccountQuery(data: unknown, error: unknown = null) {
+  return {
+    select: vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data, error }),
+    }),
+  };
+}
+
 describe('GET /api/storefront/customer/wallet', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -150,6 +159,7 @@ describe('GET /api/storefront/customer/wallet', () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({
       balance: 0,
+      balances: { NGN: 0, USDT: 0 },
       earningsBalance: 0,
       fundingAccount: null,
       hasWallet: false,
@@ -193,6 +203,9 @@ describe('GET /api/storefront/customer/wallet', () => {
       if (table === 'customer_wallet_payment_accounts') {
         return maybeSingleQuery(null, { message: 'funding account timeout' });
       }
+      if (table === 'customer_wallet_accounts') {
+        return currencyAccountQuery({ available_balance: '25.5' });
+      }
       throw new Error(`Unexpected table ${table}`);
     });
 
@@ -202,6 +215,7 @@ describe('GET /api/storefront/customer/wallet', () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       balance: 5000,
+      balances: { NGN: 5000, USDT: 25.5 },
       fundingAccount: null,
       requiresFundingAccountConsent: true,
       savingsBalance: 0,
@@ -267,6 +281,9 @@ describe('GET /api/storefront/customer/wallet', () => {
           provider: 'paystack',
         });
       }
+      if (table === 'customer_wallet_accounts') {
+        return currencyAccountQuery({ available_balance: '25.5' });
+      }
       throw new Error(`Unexpected table ${table}`);
     });
 
@@ -276,6 +293,7 @@ describe('GET /api/storefront/customer/wallet', () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       balance: 5000,
+      balances: { NGN: 5000, USDT: 25.5 },
       earningsBalance: 5000,
       fundingAccount: {
         accountName: 'Ogabassey/Jane Doe',

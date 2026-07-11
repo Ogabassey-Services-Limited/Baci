@@ -1,12 +1,13 @@
 'use client';
 
+import {
+  IMEI_SERVICE_TIERS,
+  type ImeiServiceTierDefinition,
+  isValidDeviceIdentifier,
+} from '@baci/shared/imei';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import {
-  isValidDeviceIdentifier,
-  type ImeiServiceTierDefinition,
-  type ImeiServiceTierKey,
-} from '@baci/shared/imei';
+import { useOptionalCustomerAuth } from '@/contexts/customer-auth-context';
 import { OgabasseyImeiEntry } from './imei-checker-entry';
 import { performImeiCheck } from './imei-checker-request';
 import type {
@@ -15,6 +16,7 @@ import type {
   ProductSuggestion,
 } from './imei-checker-types';
 import { OgabasseyImeiResults } from './imei-results';
+import { useImeiPendingLookup } from './use-imei-pending-lookup';
 import { useImeiTierSelection } from './use-imei-tier-selection';
 
 const createFallbackUuid = () => {
@@ -73,6 +75,7 @@ async function fetchDeviceSuggestions(
 }
 
 export const OgabasseyImeiChecker: React.FC = () => {
+  const customerAuth = useOptionalCustomerAuth();
   const {
     brand,
     canToggleServices,
@@ -95,16 +98,36 @@ export const OgabasseyImeiChecker: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [needsWalletFunding, setNeedsWalletFunding] = useState(false);
   const [result, setResult] = useState<ImeiResult | null>(null);
+  const [resultLookupId, setResultLookupId] = useState<string | null>(null);
   // Snapshot of the tier that actually produced `result`, frozen at request
   // time — the picker's live `currentTier` can change (device/brand/tier
   // switches stay interactive while a check is in flight) before the
   // response arrives, and rendering against the live value would mislabel
   // a completed, paid-for result.
-  const [resultTier, setResultTier] = useState<ImeiServiceTierDefinition | null>(
-    null
-  );
+  const [resultTier, setResultTier] =
+    useState<ImeiServiceTierDefinition | null>(null);
   const [requestIdentity, setRequestIdentity] =
     useState<ImeiRequestIdentity | null>(null);
+  const pendingLookup = useImeiPendingLookup({
+    customerId: customerAuth?.customer?.id,
+  });
+
+  useEffect(() => {
+    const terminal = pendingLookup.terminal;
+    if (!terminal) return;
+
+    setRequestIdentity(null);
+    setIsLoading(false);
+    if (terminal.kind === 'complete') {
+      setError(null);
+      setResult(terminal.result);
+      setResultLookupId(terminal.lookupId);
+      setResultTier(IMEI_SERVICE_TIERS[terminal.tier]);
+    } else {
+      setError(terminal.error);
+    }
+    pendingLookup.clearTerminal();
+  }, [pendingLookup]);
 
   // Device search autocomplete state
   const [deviceQuery, setDeviceQuery] = useState('');
@@ -178,17 +201,25 @@ export const OgabasseyImeiChecker: React.FC = () => {
       normalizedImei,
       selectedTier,
       currentTier.price,
-      idempotencyKey
+      idempotencyKey,
+      device
     );
 
     if (!outcome.keepRequestIdentity) {
       setRequestIdentity(null);
     }
 
-    if (outcome.error !== null) {
+    if (outcome.pending) {
+      pendingLookup.start({
+        lookupId: outcome.pending.lookupId,
+        pollAfterMs: outcome.pending.pollAfterMs,
+        tier: selectedTier,
+      });
+    } else if (outcome.error !== null) {
       setError(outcome.error);
     } else {
       setResult(outcome.result);
+      setResultLookupId(outcome.lookupId);
       // `currentTier` here is the value closed over at submit time, not the
       // hook's live value at response time — exactly the snapshot needed.
       setResultTier(currentTier);
@@ -211,6 +242,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
             identifier={identifier}
             imei={imei}
             isLoading={isLoading}
+            isPending={pendingLookup.pending !== null}
             needsWalletFunding={needsWalletFunding}
             onCheck={handleCheck}
             onDeviceQueryChange={(value) => {
@@ -226,6 +258,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
             onSelectDeviceSuggestion={handleSelectDeviceSuggestion}
             onSelectTier={onSelectTier}
             onToggleServices={onToggleServices}
+            pendingPaused={pendingLookup.paused}
             searchLoading={searchLoading}
             selectedDeviceSuggestion={selectedDeviceSuggestion}
             selectedTier={selectedTier}
@@ -238,12 +271,15 @@ export const OgabasseyImeiChecker: React.FC = () => {
         <OgabasseyImeiResults
           currentTier={resultTier ?? currentTier}
           onReset={() => {
+            pendingLookup.clear();
             setResult(null);
+            setResultLookupId(null);
             setResultTier(null);
             setError(null);
             setNeedsWalletFunding(false);
             onClearImei();
           }}
+          lookupId={resultLookupId}
           result={result}
         />
       </div>

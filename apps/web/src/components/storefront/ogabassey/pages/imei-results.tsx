@@ -1,22 +1,25 @@
 'use client';
 
+import type { ImeiServiceTierDefinition } from '@baci/shared/imei';
 import { ScanBarcode, Smartphone } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import type { ImeiServiceTierDefinition } from '@baci/shared/imei';
 import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
-import { getImeiResultStatusCards } from './imei-checker-status-cards';
 import { ImeiCheckerStatusCard } from './imei-checker-status-card';
+import { getImeiResultStatusCards } from './imei-checker-status-cards';
 import { getVerdictTone, IMEI_TONES } from './imei-checker-tone';
 import type { ImeiResult } from './imei-checker-types';
+import { ImeiRemediationOffer } from './imei-remediation-offer';
 
 interface OgabasseyImeiResultsProps {
   currentTier: ImeiServiceTierDefinition;
+  lookupId?: string | null;
   result: ImeiResult | null;
   onReset: () => void;
 }
 
 export function OgabasseyImeiResults({
   currentTier,
+  lookupId,
   result,
   onReset,
 }: OgabasseyImeiResultsProps) {
@@ -118,11 +121,17 @@ export function OgabasseyImeiResults({
         <div
           className={`border-t p-6 text-center ${verdictTone.surface} ${verdictTone.border}`}
         >
-          <p className={`text-base font-bold leading-relaxed ${verdictTone.text}`}>
+          <p
+            className={`text-base font-bold leading-relaxed ${verdictTone.text}`}
+          >
             {result.verdict}
           </p>
         </div>
       </div>
+
+      {lookupId ? (
+        <ImeiRemediationOffer identifier={result.imei} lookupId={lookupId} />
+      ) : null}
 
       <div className="mt-8 text-center">
         <button

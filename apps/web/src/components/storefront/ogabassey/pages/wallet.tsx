@@ -1,13 +1,13 @@
-// Template preview
 'use client';
 
-import { useState, useEffect } from 'react';
-import { CreditCard, History, Plus, Wallet, Loader2 } from 'lucide-react';
-import { EmptyState } from '../components/empty-state';
-import { WalletFundingPanel } from '../components/WalletFundingPanel';
+import type { StorefrontWallet } from '@baci/shared';
+import { CreditCard, History, Loader2, Plus, Wallet } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
-import type { StorefrontWallet } from '@baci/shared';
+import { EmptyState } from '../components/empty-state';
+import { UsdtWalletFundingPanel } from '../components/UsdtWalletFundingPanel';
+import { WalletFundingPanel } from '../components/WalletFundingPanel';
 
 const NGN_CURRENCY_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat(
   'en-NG',
@@ -19,10 +19,14 @@ const NGN_CURRENCY_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat(
 
 interface OgabasseyV2WalletProps {
   initialShowFunding?: boolean;
+  initialShowUsdtFunding?: boolean;
+  initialUsdtAmount?: number;
 }
 
 export function OgabasseyV2Wallet({
   initialShowFunding = false,
+  initialShowUsdtFunding = false,
+  initialUsdtAmount,
 }: OgabasseyV2WalletProps) {
   const {
     customer,
@@ -35,21 +39,28 @@ export function OgabasseyV2Wallet({
   const [wallet, setWallet] = useState<StorefrontWallet | null>(null);
   const [hasFetchSettled, setHasFetchSettled] = useState(false);
   const [showFunding, setShowFunding] = useState(initialShowFunding);
+  const [showUsdtFunding, setShowUsdtFunding] = useState(
+    initialShowUsdtFunding
+  );
   const [refreshToken, setRefreshToken] = useState(0);
 
   // Signing out (or switching customer/storefront) must drop the previous
   // wallet immediately — the auto-show rule below renders a reusable DVA
   // account number, which can't linger for a different session.
   const identity =
-    isAuthenticated && merchant?.slug ? `${user?.id ?? ''}:${merchant.slug}` : null;
+    isAuthenticated && merchant?.slug
+      ? `${user?.id ?? ''}:${merchant.slug}`
+      : null;
   const [fetchedIdentity, setFetchedIdentity] = useState<string | null>(null);
   if (identity !== fetchedIdentity) {
     setFetchedIdentity(identity);
     setWallet(null);
     setShowFunding(identity ? initialShowFunding : false);
+    setShowUsdtFunding(identity ? initialShowUsdtFunding : false);
     setHasFetchSettled(false);
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: customer identity and refreshToken intentionally retrigger this fetch even though the URL only uses the merchant slug.
   useEffect(() => {
     if (!isAuthenticated || !merchant?.slug) {
       return;
@@ -91,6 +102,7 @@ export function OgabasseyV2Wallet({
   // wallet account number — always display it once it exists. Only the
   // consent/creation flow stays behind the Fund Wallet button.
   const showFundingPanel = showFunding || Boolean(wallet?.fundingAccount);
+  const transactions = wallet?.transactions ?? [];
 
   const handleFundWallet = () => {
     setShowFunding((visible) => !visible);
@@ -111,7 +123,6 @@ export function OgabasseyV2Wallet({
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 w-full flex-1 flex flex-col">
-        {/* Header */}
         <h1 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2 shrink-0">
           <Wallet className="text-red-600 fill-red-600" />
           Wallet
@@ -140,12 +151,20 @@ export function OgabasseyV2Wallet({
                     : '₦0.00'}
                 </div>
 
-                <div className="flex">
-                  <button type="button"
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
                     onClick={handleFundWallet}
                     className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-900/20 active:scale-95"
                   >
                     <Plus size={20} /> Fund Wallet
+                  </button>
+                  <button
+                    className="w-full rounded-xl border border-white/30 px-4 py-3.5 font-bold text-white transition-colors hover:bg-white/10"
+                    onClick={() => setShowUsdtFunding((visible) => !visible)}
+                    type="button"
+                  >
+                    Fund USDT
                   </button>
                 </div>
               </div>
@@ -172,6 +191,21 @@ export function OgabasseyV2Wallet({
                   wallet?.walletDvaEnabled === true &&
                   Boolean(customer?.phone?.trim())
                 }
+              />
+            ) : null}
+
+            {showUsdtFunding ? (
+              <UsdtWalletFundingPanel
+                balance={wallet?.balances?.USDT ?? 0}
+                customerName={
+                  [customer?.first_name, customer?.last_name]
+                    .filter(Boolean)
+                    .join(' ') || undefined
+                }
+                customerPhone={customer?.phone ?? undefined}
+                initialAmount={initialUsdtAmount}
+                merchantSlug={merchant?.slug ?? ''}
+                onFunded={() => setRefreshToken((token) => token + 1)}
               />
             ) : null}
 
@@ -211,21 +245,37 @@ export function OgabasseyV2Wallet({
               </div>
 
               <div className="flex-1 flex flex-col">
-                {wallet && wallet.transactions && wallet.transactions.length > 0 ? (
+                {transactions.length > 0 ? (
                   <div className="p-2 space-y-1">
-                    {wallet.transactions.map((tx) => (
-                      <div key={tx.id} className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg transition-colors">
+                    {transactions.map((tx) => (
+                      <div
+                        key={tx.id}
+                        className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg transition-colors"
+                      >
                         <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'credit' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                            {tx.type === 'credit' ? <Plus size={18} /> : <History size={18} />}
+                          <div
+                            className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'credit' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}
+                          >
+                            {tx.type === 'credit' ? (
+                              <Plus size={18} />
+                            ) : (
+                              <History size={18} />
+                            )}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900 text-sm">{tx.description || 'Transaction'}</p>
-                            <p className="text-xs text-gray-500">{new Date(tx.created_at).toLocaleDateString()}</p>
+                            <p className="font-medium text-gray-900 text-sm">
+                              {tx.description || 'Transaction'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(tx.created_at).toLocaleDateString()}
+                            </p>
                           </div>
                         </div>
-                        <span className={`font-bold text-sm ${tx.type === 'credit' ? 'text-green-600' : 'text-gray-900'}`}>
-                          {tx.type === 'credit' ? '+' : '-'} {NGN_CURRENCY_FORMATTER.format(tx.amount)}
+                        <span
+                          className={`font-bold text-sm ${tx.type === 'credit' ? 'text-green-600' : 'text-gray-900'}`}
+                        >
+                          {tx.type === 'credit' ? '+' : '-'}{' '}
+                          {NGN_CURRENCY_FORMATTER.format(tx.amount)}
                         </span>
                       </div>
                     ))}

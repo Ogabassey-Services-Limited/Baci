@@ -1,15 +1,15 @@
 'use client';
 
-import { Loader2, Sparkles } from 'lucide-react';
-import type React from 'react';
-import { useEffect, useRef } from 'react';
 import {
-  isValidDeviceIdentifier,
   type ImeiBrandFilter,
   type ImeiDeviceCategory,
   type ImeiIdentifierType,
   type ImeiServiceTierKey,
+  isValidDeviceIdentifier,
 } from '@baci/shared/imei';
+import { Loader2, Sparkles } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useRef } from 'react';
 import { ImeiCheckerBrandChips } from './imei-checker-brand-chips';
 import { ImeiCheckerDeviceSearch } from './imei-checker-device-search';
 import { ImeiCheckerDeviceTabs } from './imei-checker-device-tabs';
@@ -17,6 +17,7 @@ import { ImeiCheckerError } from './imei-checker-error';
 import { ImeiCheckerFindImei } from './imei-checker-find-imei';
 import { ImeiCheckerHero } from './imei-checker-hero';
 import { ImeiCheckerIdentifierInput } from './imei-checker-identifier-input';
+import { ImeiCheckerPending } from './imei-checker-pending';
 import { IMEI_CHECKER_PROOF_ITEMS } from './imei-checker-proof-items';
 import { ImeiCheckerTierSelector } from './imei-checker-tier-selector';
 import { getDisplayTier } from './imei-checker-tiers';
@@ -32,6 +33,7 @@ interface OgabasseyImeiEntryProps {
   identifier: ImeiIdentifierType;
   imei: string;
   isLoading: boolean;
+  isPending: boolean;
   needsWalletFunding: boolean;
   onCheck: (event: React.FormEvent) => void;
   onDeviceQueryChange: (value: string) => void;
@@ -42,6 +44,7 @@ interface OgabasseyImeiEntryProps {
   onSelectDeviceSuggestion: (device: ProductSuggestion) => void;
   onSelectTier: (tier: ImeiServiceTierKey) => void;
   onToggleServices: () => void;
+  pendingPaused: boolean;
   searchLoading: boolean;
   selectedDeviceSuggestion: ProductSuggestion | null;
   selectedTier: ImeiServiceTierKey;
@@ -60,6 +63,7 @@ export const OgabasseyImeiEntry = ({
   identifier,
   imei,
   isLoading,
+  isPending,
   needsWalletFunding,
   onCheck,
   onDeviceQueryChange,
@@ -70,6 +74,7 @@ export const OgabasseyImeiEntry = ({
   onSelectDeviceSuggestion,
   onSelectTier,
   onToggleServices,
+  pendingPaused,
   searchLoading,
   selectedDeviceSuggestion,
   selectedTier,
@@ -142,13 +147,15 @@ export const OgabasseyImeiEntry = ({
               aria-label={
                 isLoading
                   ? 'Verifying'
-                  : `Verify Now · ${currentTier.priceDisplay}`
+                  : isPending
+                    ? 'Checking device status'
+                    : `Verify Now · ${currentTier.priceDisplay}`
               }
               className="flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-[var(--store-primary)] px-8 py-4 text-base font-bold text-[var(--store-primary-text,#ffffff)] shadow-lg shadow-[var(--store-primary)]/20 transition-all hover:bg-[var(--store-primary)]/90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
-              disabled={isLoading || !canVerify}
+              disabled={isLoading || isPending || !canVerify}
               type="submit"
             >
-              {isLoading ? (
+              {isLoading || isPending ? (
                 <Loader2 className="animate-spin" />
               ) : (
                 <>
@@ -159,6 +166,7 @@ export const OgabasseyImeiEntry = ({
             </button>
           </form>
         </div>
+        {isPending ? <ImeiCheckerPending paused={pendingPaused} /> : null}
         {error ? (
           <ImeiCheckerError
             error={error}
