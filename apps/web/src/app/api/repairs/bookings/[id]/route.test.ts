@@ -42,6 +42,10 @@ function makeAdmin(responses: Responses, eqCalls: [string, unknown][] = []) {
           eqCalls.push([column, value]);
           return builder;
         },
+        or(filter: string) {
+          eqCalls.push(['or', filter]);
+          return builder;
+        },
         maybeSingle() {
           // Op-aware: reads keep op='select'; a `.update().…maybeSingle()` chain
           // resolves the update response (the route uses maybeSingle for the
@@ -289,10 +293,10 @@ describe('PATCH /api/repairs/bookings/[id]', () => {
   });
 
   it('refuses a terminal transition while a courier pickup is being booked', async () => {
-    // confirmed -> cancelled is a valid transition, but a pickup booking is in
-    // progress (pickup_booking_lock_token held), so the guarded UPDATE
-    // (.is('pickup_booking_lock_token', null)) matches no row -> 409, and no
-    // cancellation notification fires. Closes the claim/link -> bookShipment race.
+    // confirmed -> cancelled is a valid transition, but an ACTIVE pickup lock is
+    // held, so the guarded UPDATE (status CAS + stale-lock `.or(...)`) matches no
+    // row -> 409, and no cancellation notification fires. Closes the
+    // claim/link -> bookShipment race.
     const eqCalls: [string, unknown][] = [];
     mocks.createClient.mockReturnValue(
       makeAdmin(
@@ -308,8 +312,49 @@ describe('PATCH /api/repairs/bookings/[id]', () => {
     );
     const res = await PATCH(req({ status: 'cancelled' }) as never, { params });
     expect(res.status).toBe(409);
-    expect(eqCalls).toContainEqual(['pickup_booking_lock_token', null]);
+    // The terminal transition was guarded on the pickup lock (stale-aware .or).
+    expect(
+      eqCalls.some(
+        ([k, v]) =>
+          k === 'or' && String(v).includes('pickup_booking_lock_token')
+      )
+    ).toBe(true);
     expect(mocks.notifyRepairStatusChange).not.toHaveBeenCalled();
+  });
+
+  it('allows a terminal transition once the pickup lock is stale or absent', async () => {
+    // A lock leaked by a failed pre-provider booking (or no lock at all) must not
+    // block cancellation forever. The stale-aware `.or(...)` lets the DB match the
+    // row, so the update applies (200) and the customer is notified.
+    const eqCalls: [string, unknown][] = [];
+    mocks.createClient.mockReturnValue(
+      makeAdmin(
+        {
+          'repairs.select': {
+            data: { ...detailRow, status: 'confirmed' },
+            error: null,
+          },
+          'repairs.update': {
+            data: { ...detailRow, status: 'cancelled' },
+            error: null,
+          },
+          'shipments.select': { data: null, error: null },
+        },
+        eqCalls
+      )
+    );
+    const res = await PATCH(req({ status: 'cancelled' }) as never, { params });
+    expect(res.status).toBe(200);
+    // The stale-aware guard was still applied (the DB, not the route, decides).
+    expect(
+      eqCalls.some(
+        ([k, v]) =>
+          k === 'or' && String(v).includes('pickup_booking_started_at')
+      )
+    ).toBe(true);
+    expect(mocks.notifyRepairStatusChange).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'cancelled' })
+    );
   });
 
   it('guards an equal-status resend so it cannot revert a concurrent transition', async () => {

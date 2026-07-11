@@ -6,6 +6,7 @@ import {
   pickupFailure,
 } from '@/lib/repairs/pickup-shipment-utils';
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
+import { REPAIR_PICKUP_LOCK_TIMEOUT_SECONDS } from '@/lib/repairs/repair-pickup-constants';
 import {
   isRepairStatus,
   isTerminalRepairStatus,
@@ -19,7 +20,7 @@ import type {
 import { ShippingBookingRejectedError } from '@/lib/shipping/types';
 
 const PICKUP_PROVIDER = 'TOPSHIP' as const;
-const PICKUP_LOCK_TIMEOUT_SECONDS = 15 * 60;
+const PICKUP_LOCK_TIMEOUT_SECONDS = REPAIR_PICKUP_LOCK_TIMEOUT_SECONDS;
 
 interface RepairPickupRow {
   id: string;

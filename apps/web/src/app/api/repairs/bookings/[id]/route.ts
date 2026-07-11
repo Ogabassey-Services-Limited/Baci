@@ -6,6 +6,7 @@ import {
 } from '@/lib/repairs/booking-mappers';
 import { authorizeRepairsRequest } from '@/lib/repairs/catalog-admin-auth';
 import { notifyRepairStatusChange } from '@/lib/repairs/notify-repair-status-change';
+import { REPAIR_PICKUP_LOCK_TIMEOUT_SECONDS } from '@/lib/repairs/repair-pickup-constants';
 import {
   canTransitionRepairStatus,
   isRepairStatus,
@@ -153,14 +154,21 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     updateQuery = updateQuery.eq('status', currentStatus);
   }
 
-  // Do not let a repair go terminal while a courier pickup is actively being
+  // Do not let a repair go terminal while a courier pickup is ACTIVELY being
   // booked. book-repair-pickup.ts holds `pickup_booking_lock_token` from the
   // atomic claim through the paid provider call, so refusing terminal
-  // transitions while the lock is set closes the claim/link -> bookShipment
-  // window that would otherwise pay for a pickup on a just-cancelled repair.
-  // Once booking finishes (lock cleared, shipment linked), cancelling is allowed.
+  // transitions while an active lock is held closes the claim/link ->
+  // bookShipment window that would otherwise pay for a pickup on a just-cancelled
+  // repair. Mirror the claim RPC's staleness predicate exactly (null token, null
+  // start, or start older than the timeout = not active) so a lock leaked by a
+  // failed pre-provider booking self-heals and can't block cancellation forever.
   if (nextStatus !== undefined && isTerminalRepairStatus(nextStatus)) {
-    updateQuery = updateQuery.is('pickup_booking_lock_token', null);
+    const staleCutoff = new Date(
+      Date.now() - REPAIR_PICKUP_LOCK_TIMEOUT_SECONDS * 1000
+    ).toISOString();
+    updateQuery = updateQuery.or(
+      `pickup_booking_lock_token.is.null,pickup_booking_started_at.is.null,pickup_booking_started_at.lt.${staleCutoff}`
+    );
   }
 
   const { data: updated, error: updateError } = await updateQuery
