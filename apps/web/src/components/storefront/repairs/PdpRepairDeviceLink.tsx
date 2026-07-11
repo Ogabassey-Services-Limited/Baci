@@ -22,12 +22,16 @@ async function findLinkedDeviceSlug(
 ): Promise<string | null> {
   try {
     const supabase = getPublicSupabaseClient();
+    // A product can have >1 active repair-device row; take the first rather than
+    // erroring out of maybeSingle() (which would drop the PDP link entirely).
     const { data, error } = await supabase
       .from('repair_devices')
       .select('slug')
       .eq('merchant_id', merchantId)
       .eq('product_id', productId)
       .eq('is_active', true)
+      .order('created_at', { ascending: true })
+      .limit(1)
       .maybeSingle();
 
     if (error || !data) {

@@ -34,6 +34,17 @@ describe('generateRepairStatusUpdateEmail', () => {
     );
   });
 
+  it('escapes the tracking URL for the href attribute (no attribute breakout)', () => {
+    const html = generateRepairStatusUpdateEmail({
+      ...base,
+      status: 'in_progress',
+      trackingUrl: 'https://x/track/"><script>alert(1)</script>',
+    });
+    // The raw quote/angle brackets must not survive inside the href attribute.
+    expect(html).not.toContain('/track/"><script>');
+    expect(html).toContain('&quot;');
+  });
+
   it('escapes untrusted merchant/customer values', () => {
     const html = generateRepairStatusUpdateEmail({
       ...base,

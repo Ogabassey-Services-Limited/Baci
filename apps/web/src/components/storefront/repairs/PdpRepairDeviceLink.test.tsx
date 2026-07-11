@@ -10,7 +10,9 @@ vi.mock('next/link', () => ({
 }));
 
 const mockMaybeSingle = vi.fn();
-const mockEq3 = vi.fn(() => ({ maybeSingle: mockMaybeSingle }));
+const mockLimit = vi.fn(() => ({ maybeSingle: mockMaybeSingle }));
+const mockOrder = vi.fn(() => ({ limit: mockLimit }));
+const mockEq3 = vi.fn(() => ({ order: mockOrder }));
 const mockEq2 = vi.fn(() => ({ eq: mockEq3 }));
 const mockEq1 = vi.fn(() => ({ eq: mockEq2 }));
 const mockSelect = vi.fn(() => ({ eq: mockEq1 }));

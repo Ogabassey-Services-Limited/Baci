@@ -18,6 +18,7 @@ export interface RepairPickupSource {
 /** Why a courier pickup could not be booked automatically. */
 export type PickupFailureReason =
   | 'not_found'
+  | 'terminal_status'
   | 'already_booked'
   | 'booking_in_progress'
   | 'missing_pickup_address'
@@ -52,6 +53,11 @@ const FAILURE_COPY: Record<
 > = {
   not_found: {
     message: 'Repair booking not found.',
+    canRetryManually: false,
+  },
+  terminal_status: {
+    message:
+      'This repair is completed, cancelled, or rejected — a courier pickup cannot be arranged.',
     canRetryManually: false,
   },
   already_booked: {

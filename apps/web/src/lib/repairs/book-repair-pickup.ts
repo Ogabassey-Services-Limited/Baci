@@ -6,6 +6,10 @@ import {
   pickupFailure,
 } from '@/lib/repairs/pickup-shipment-utils';
 import { getRepairCenterAddress } from '@/lib/repairs/repair-center-address';
+import {
+  isRepairStatus,
+  isTerminalRepairStatus,
+} from '@/lib/repairs/repair-status';
 import { shippingService } from '@/lib/shipping';
 import type {
   BookingRequest,
@@ -28,6 +32,7 @@ interface RepairPickupRow {
   pickup_address: string | null;
   shipment_id: string | null;
   quoted_price: number | string | null;
+  status: string | null;
 }
 
 interface RepairPickupClaimRow {
@@ -164,7 +169,7 @@ export async function bookRepairPickup(
   const { data: repairData, error: repairError } = await supabase
     .from('repairs')
     .select(
-      'id, merchant_id, customer_name, customer_email, customer_phone, device_type, device_model, pickup_address, shipment_id, quoted_price'
+      'id, merchant_id, customer_name, customer_email, customer_phone, device_type, device_model, pickup_address, shipment_id, quoted_price, status'
     )
     .eq('id', repairId)
     .eq('merchant_id', merchantId)
@@ -173,6 +178,11 @@ export async function bookRepairPickup(
   const repair = repairData as RepairPickupRow | null;
   if (repairError || !repair) {
     return pickupFailure('not_found');
+  }
+
+  // A completed/cancelled/rejected repair must not trigger a paid courier pickup.
+  if (isRepairStatus(repair.status) && isTerminalRepairStatus(repair.status)) {
+    return pickupFailure('terminal_status');
   }
 
   if (repair.shipment_id) {

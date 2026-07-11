@@ -34,6 +34,7 @@ const repairRow = {
   pickup_address: '12 Aba Road, Port Harcourt, Rivers',
   shipment_id: null,
   quoted_price: 45_000,
+  status: 'confirmed',
 };
 
 const repairCenter = {
@@ -199,6 +200,22 @@ describe('bookRepairPickup', () => {
     const result = await bookRepairPickup(supabase, merchantId, repairId);
 
     expect(result).toMatchObject({ ok: false, reason: 'already_booked' });
+  });
+
+  it('refuses to book a pickup for a terminal (completed) repair', async () => {
+    const supabase = makeSupabase(
+      happyResponses({
+        'repairs.select': {
+          data: { ...repairRow, status: 'completed' },
+          error: null,
+        },
+      })
+    );
+
+    const result = await bookRepairPickup(supabase, merchantId, repairId);
+
+    expect(result).toMatchObject({ ok: false, reason: 'terminal_status' });
+    expect(mocks.getProviderQuotes).not.toHaveBeenCalled();
   });
 
   it('returns missing_pickup_address when the booking has no pickup address', async () => {

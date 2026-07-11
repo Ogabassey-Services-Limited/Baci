@@ -1,6 +1,6 @@
 import type { RepairStatus } from '@/lib/repairs/repair-status';
 import { REPAIR_STATUS_LABELS } from '@/lib/repairs/repair-status';
-import { escapeHtmlText } from '@/lib/sanitize';
+import { escapeHtmlAttribute, escapeHtmlText } from '@/lib/sanitize';
 
 export interface RepairStatusUpdateEmailData {
   ticketNumber: number;
@@ -38,7 +38,7 @@ export function generateRepairStatusUpdateEmail(
   const trackingHtml = data.trackingUrl
     ? `
       <div style="margin-top: 20px; text-align: center;">
-        <a href="${escapeHtmlText(data.trackingUrl)}" style="display: inline-block; background: #1a1a2e; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 14px;">
+        <a href="${escapeHtmlAttribute(data.trackingUrl)}" style="display: inline-block; background: #1a1a2e; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 14px;">
           Track courier pickup
         </a>
       </div>
