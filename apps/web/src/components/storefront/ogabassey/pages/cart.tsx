@@ -12,12 +12,12 @@ import {
   ShoppingCart,
   Trash2,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { isProductNegotiable } from '@baci/shared/lib';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { type CartItem, useCart } from '@/hooks/cart';
 import { isQuizVoucherCartItem } from '@/lib/checkout/cart-entitlement-sanitizer';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
@@ -183,7 +183,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                         href={asRoute(productHref)}
                         className="ogabassey-product-card-image-surface w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 shrink-0 flex items-center justify-center"
                       >
-                        <Image
+                        <CdnFormatImage
                           src={item.image || '/placeholder.png'}
                           alt={item.name}
                           width={112}

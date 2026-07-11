@@ -1,8 +1,8 @@
 'use client';
 
-import Image from 'next/image';
 import type { RefObject } from 'react';
 import { Loader2, Search, X } from 'lucide-react';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import type { SearchResultProduct } from './comparison-search-types';
 
 const _priceFormatterCache = new Map<string, Intl.NumberFormat>();
@@ -118,7 +118,7 @@ export function ComparisonSlotSearchOverlay({
                 className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-store-background-text/5"
               >
                 <div className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded bg-store-background-text/5">
-                  <Image
+                  <CdnFormatImage
                     src={result.image || result.imageLarge || '/placeholder.png'}
                     alt={result.name}
                     fill

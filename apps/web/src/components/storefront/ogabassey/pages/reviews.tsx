@@ -1,9 +1,9 @@
 'use client';
 
 import { Loader2, Star, X } from 'lucide-react';
-import Image from 'next/image';
 import type React from 'react';
 import { useState, useEffect } from 'react';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { EmptyState } from '../components/empty-state';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
@@ -103,7 +103,7 @@ const RatingModal: React.FC<RatingModalProps> = ({
 
         <div className="text-center mb-6">
           <div className="ogabassey-product-card-image-surface size-16 bg-gray-50 rounded-xl border border-gray-100 p-2 mx-auto mb-4 flex items-center justify-center relative">
-            <Image
+            <CdnFormatImage
               src={product.image}
               alt={product.name}
               fill sizes="64px"
@@ -337,7 +337,7 @@ export const OgabasseyV2Reviews: React.FC = () => {
                   className="bg-white p-4 rounded-xl border border-gray-100 flex items-center gap-4 shadow-sm hover:shadow-md transition-all"
                 >
                   <div className="ogabassey-product-card-image-surface size-16 bg-gray-50 rounded-lg p-2 shrink-0 border border-gray-100 relative">
-                    <Image
+                    <CdnFormatImage
                       src={item.image}
                       alt={item.name}
                       fill sizes="64px"
@@ -380,7 +380,7 @@ export const OgabasseyV2Reviews: React.FC = () => {
                 >
                   <div className="flex items-start gap-4">
                     <div className="ogabassey-product-card-image-surface size-12 bg-gray-50 rounded-lg p-1 shrink-0 border border-gray-100 relative">
-                      <Image
+                      <CdnFormatImage
                         // Handle joined product data structure
                         src={review.products?.images?.[0] || '/placeholder.png'}
                         alt={review.products?.name || 'Product'}

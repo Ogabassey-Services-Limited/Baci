@@ -108,6 +108,13 @@ function buildDefaultPrewarmTransformUrls(
     new Set([
       buildOgabasseyCdnFallbackImageLoaderUrl(imagePath, width, quality),
       buildOgabasseyCdnImageLoaderUrl(imagePath, width, quality, 'avif'),
+      // Transition tier: PR-IMG-2c flipped the loader default off `format=auto`,
+      // but CF-cached HTML (300s TTL) and browser caches still reference legacy
+      // `auto` URLs for a while, so keep warming that key so those stragglers
+      // stay HIT instead of paying a cold transform. The backfill enumeration
+      // purges/re-warms the same `auto` keys.
+      // TODO(2026-08-15): drop the `auto` tier once cached HTML + browser caches
+      // have aged out and HogQL shows no `format=auto` image requests.
       buildOgabasseyCdnImageLoaderUrl(imagePath, width, quality, 'auto'),
     ])
   );

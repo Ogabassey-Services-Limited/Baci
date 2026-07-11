@@ -9,6 +9,16 @@ vi.mock('next/image', () => ({
   ),
 }));
 
+// Device images now render through CdnFormatImage (explicit per-format
+// <picture>); surface it as a plain <img> so these tests keep asserting
+// results behavior, not image internals.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => {
+    const { fill: _fill, preload: _preload, ...rest } = props;
+    return <img {...rest} alt={String(props.alt ?? '')} />;
+  },
+}));
+
 const baseResult: ImeiResult = {
   blacklistStatus: 'Clean',
   carrier: 'Unlocked',

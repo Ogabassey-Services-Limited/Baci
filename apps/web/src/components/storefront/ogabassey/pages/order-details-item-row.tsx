@@ -1,10 +1,10 @@
 'use client';
 
 import { ReceiptText } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { asRoute } from '@/lib/routes';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { getStorefrontOrderItemHref } from '@/lib/storefront-order-item-href';
 import type { StorefrontOrderItem } from '@/types/storefront-order';
 
@@ -48,7 +48,7 @@ export function OrderDetailsItemRow({
       role={shouldRenderImage ? undefined : 'img'}
     >
       {imageSrc && !hasImageError ? (
-        <Image
+        <CdnFormatImage
           src={imageSrc}
           alt={productName}
           fill

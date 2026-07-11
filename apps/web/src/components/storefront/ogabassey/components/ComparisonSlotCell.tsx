@@ -1,9 +1,9 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import type { RefObject } from 'react';
 import { Plus, X } from 'lucide-react';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { asRoute } from '@/lib/routes';
 import type { Product } from '../types';
 import { ComparisonSlotSearchOverlay } from './ComparisonSlotSearchOverlay';
@@ -61,7 +61,7 @@ export function ComparisonSlotCell({
             <X size={16} />
           </button>
           <div className="relative mb-3 size-24">
-            <Image
+            <CdnFormatImage
               src={product.images?.[0] || product.image || '/placeholder.png'}
               alt={product.name}
               fill

@@ -17,6 +17,16 @@ vi.mock('next/image', () => ({
   ),
 }));
 
+// Slot images now render through CdnFormatImage (explicit per-format <picture>);
+// surface it as a plain <img> so these tests keep asserting slot behavior.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => {
+    const { fill: _fill, preload: _preload, ...rest } = props;
+    // biome-ignore lint/performance/noImgElement: test double
+    return <img {...rest} alt={String(props.alt ?? '')} />;
+  },
+}));
+
 describe('ComparisonSlotCell', () => {
   it('opens search from an empty comparison slot', () => {
     const onStartSearch = vi.fn();

@@ -1,9 +1,9 @@
 'use client';
 
 import { ChevronDown, ChevronRight, ChevronUp, Loader2, ShoppingBag } from 'lucide-react';
-import Image from 'next/image';
 import type React from 'react';
 import { useId, useState } from 'react';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import type { CartItem } from '@/hooks/cart';
 import { useCurrency } from '@/hooks/use-currency';
 import type { DeliveryMethod } from '../pages/checkout/types';
@@ -84,7 +84,7 @@ export const MobileOrderSummary: React.FC<MobileOrderSummaryProps> = ({
                         {cart.map((item) => (
                             <div key={item.cartItemId} className="flex gap-3">
                                 <div className="ogabassey-product-card-image-surface relative size-16 bg-white rounded-lg border border-gray-100 p-1 shrink-0">
-                                    <Image
+                                    <CdnFormatImage
                                         src={item.image || '/placeholder.png'}
                                         alt={item.name}
                                         fill

@@ -59,6 +59,13 @@ vi.mock('next/image', () => ({
   default: () => null,
 }));
 
+// Featured images now render through CdnFormatImage (explicit per-format
+// <picture>); mirror the next/image double so these tests keep asserting
+// snippet content, not image internals.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: () => null,
+}));
+
 vi.mock('next/link', () => ({
   default: ({
     children,

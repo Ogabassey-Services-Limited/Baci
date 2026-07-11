@@ -43,7 +43,7 @@ describe('resolveOgabasseyCdnFallbackFormat', () => {
 });
 
 describe('buildOgabasseyCdnImageLoaderUrl', () => {
-  it('defaults to format=auto so unmigrated next/image callers retain AVIF negotiation', () => {
+  it('defaults a jpg source to the jpeg fallback tier (never browser-facing format=auto)', () => {
     const url = buildOgabasseyCdnImageLoaderUrl(
       `${CDN}/core-assets/products/phone.jpg`,
       750,
@@ -51,8 +51,22 @@ describe('buildOgabasseyCdnImageLoaderUrl', () => {
     );
 
     expect(url).toBe(
-      `${CDN}/image/width=750,quality=75,format=auto/core-assets/products/phone.jpg`
+      `${CDN}/image/width=750,quality=75,format=jpeg/core-assets/products/phone.jpg`
     );
+    expect(url).not.toContain('format=auto');
+  });
+
+  it('defaults a png source to the png fallback tier so transparency survives', () => {
+    const url = buildOgabasseyCdnImageLoaderUrl(
+      `${CDN}/core-assets/products/phone.png`,
+      750,
+      75
+    );
+
+    expect(url).toBe(
+      `${CDN}/image/width=750,quality=75,format=png/core-assets/products/phone.png`
+    );
+    expect(url).not.toContain('format=auto');
   });
 
   it('builds a jpeg fallback URL for a jpg source when requested explicitly', () => {
@@ -94,7 +108,7 @@ describe('buildOgabasseyCdnImageLoaderUrl', () => {
     );
   });
 
-  it('still honors format=auto as a legacy escape hatch when explicitly passed', () => {
+  it('still emits format=auto when explicitly requested (prewarm/backfill transition tier)', () => {
     const url = buildOgabasseyCdnImageLoaderUrl(
       `${CDN}/core-assets/products/phone.jpg`,
       750,

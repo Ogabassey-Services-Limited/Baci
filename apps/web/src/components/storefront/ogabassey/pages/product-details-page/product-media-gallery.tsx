@@ -3,7 +3,6 @@
 // Client component: tracks broken-image state (useState) so the gallery can
 // fall back to a working image when a CDN photo 404s. (ADR-003)
 
-import Image from 'next/image';
 import { useState } from 'react';
 import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { DeferredShellFeature } from '@/components/storefront/ogabassey/components/deferred-shell-feature';
@@ -143,7 +142,13 @@ export function ProductMediaGallery({
                 {brokenImages.has(image) ? (
                   <div aria-hidden="true" className="size-full bg-gray-100" />
                 ) : (
-                  <Image
+                  // Explicit per-format `<picture>` (AVIF `<source>` + jpeg/png
+                  // `<img>` fallback) so Cloudflare Free never hands non-AVIF
+                  // browsers undecodable bytes off a shared `format=auto` cache
+                  // key. Thumbnails stay lazy/off-critical-path, so their q50
+                  // width tier is deliberately NOT prewarmed (see
+                  // ogabassey-image-prewarm-pairs.ts).
+                  <CdnFormatImage
                     src={image}
                     alt={`View ${index + 1}`}
                     fill
