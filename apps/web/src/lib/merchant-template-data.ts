@@ -186,6 +186,10 @@ export function toTemplateMerchantData(merchant: CachedMerchant): MerchantData {
     payout_currency: merchant.payout_currency,
     pages: merchant.pages,
     paystack_subaccount_code: merchant.paystack_subaccount_code,
+    // Derived snapshot capability hints — presentation only; private
+    // payment/order paths stay authoritative.
+    paystack_subaccount_configured: merchant.paystack_subaccount_configured,
+    price_negotiation_enabled: merchant.price_negotiation_enabled,
     slug: merchant.slug,
     custom_domain: merchant.custom_domain,
     favicon_svg_url: merchant.favicon_svg_url,

@@ -11,8 +11,8 @@ vi.mock('@/env', () => ({
   getRootDomain: () => 'localhost',
 }));
 
-vi.mock('@/lib/feature-flags', () => ({
-  hasPriceNegotiationEntitlement: vi.fn(() => true),
+vi.mock('@/lib/storefront-price-negotiation', () => ({
+  hasStorefrontPriceNegotiation: vi.fn(() => true),
 }));
 
 let mockMerchant: { id: string; slug: string } | null = {
@@ -129,7 +129,7 @@ vi.mock('@/lib/supabase/client', () => ({
 
 // ── Import after mocks ──────────────────────────────────────────────────────
 
-import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
+import { hasStorefrontPriceNegotiation } from '@/lib/storefront-price-negotiation';
 import { CartPage } from './cart-page';
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -137,7 +137,7 @@ import { CartPage } from './cart-page';
 describe('CartPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(hasPriceNegotiationEntitlement).mockReturnValue(true);
+    vi.mocked(hasStorefrontPriceNegotiation).mockReturnValue(true);
     mockMerchant = { id: 'merchant-abc', slug: 'test-store' };
     mockCartItems = [
       {
@@ -232,7 +232,7 @@ describe('CartPage', () => {
   });
 
   it('hides negotiation controls and ignores negotiated price when not entitled', () => {
-    vi.mocked(hasPriceNegotiationEntitlement).mockReturnValue(false);
+    vi.mocked(hasStorefrontPriceNegotiation).mockReturnValue(false);
     render(<CartPage />);
 
     // Should not render Negotiate Total button
@@ -250,7 +250,7 @@ describe('CartPage', () => {
   });
 
   it('hides item and total negotiation for best-price cart lines', () => {
-    vi.mocked(hasPriceNegotiationEntitlement).mockReturnValue(true);
+    vi.mocked(hasStorefrontPriceNegotiation).mockReturnValue(true);
     mockCartItems = [
       {
         id: 'p1',

@@ -147,6 +147,19 @@ describe('toTemplateMerchantData', () => {
     expect(result.pages).toEqual(BASE_MERCHANT.pages);
   });
 
+  it('threads snapshot capability hints into template merchant data', () => {
+    // Public snapshot merchants replace raw payment/plan fields with derived
+    // booleans; template data must carry them for storefront presentation.
+    const result = toTemplateMerchantData({
+      ...BASE_MERCHANT,
+      paystack_subaccount_configured: true,
+      price_negotiation_enabled: true,
+    });
+
+    expect(result.paystack_subaccount_configured).toBe(true);
+    expect(result.price_negotiation_enabled).toBe(true);
+  });
+
   it('always sets user_id to an empty string to prevent owner id exposure', () => {
     const result = toTemplateMerchantData(BASE_MERCHANT);
     expect(result.user_id).toBe('');

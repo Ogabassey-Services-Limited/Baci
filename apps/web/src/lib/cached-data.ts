@@ -622,6 +622,13 @@ export interface CachedMerchant {
   trust_profile?: MerchantTrustProfileDraft | null;
   payout_currency: string;
   paystack_subaccount_code?: string | null;
+  /**
+   * Derived capability hints from the public merchant snapshot. Presentation
+   * only — private payment/order paths stay authoritative. Raw payment/plan
+   * fields never cross the anonymous RPC boundary.
+   */
+  paystack_subaccount_configured?: boolean;
+  price_negotiation_enabled?: boolean;
   is_published: boolean;
   template_id: string;
   plan_expires_at?: string | null;
