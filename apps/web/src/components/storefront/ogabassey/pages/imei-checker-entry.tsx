@@ -11,8 +11,8 @@ import {
   Sparkles,
   Star,
 } from 'lucide-react';
-import Image from 'next/image';
 import type React from 'react';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { ImeiCheckerFindImei } from './imei-checker-find-imei';
 import { IMEI_CHECKER_PROOF_ITEMS } from './imei-checker-proof-items';
 import { SERVICE_TIERS, type ServiceTier } from './imei-checker-tiers';
@@ -121,7 +121,7 @@ export const OgabasseyImeiEntry = ({
                 className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 last:border-0"
               >
                 {product.image && (
-                  <Image
+                  <CdnFormatImage
                     src={product.image}
                     alt={product.name}
                     width={40}

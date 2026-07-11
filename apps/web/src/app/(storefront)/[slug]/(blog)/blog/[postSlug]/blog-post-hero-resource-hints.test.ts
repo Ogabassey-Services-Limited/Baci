@@ -32,14 +32,17 @@ describe('preloadOgabasseyBlogPostHeroResources', () => {
     expect(preconnect).toHaveBeenCalledWith(CDN_ORIGIN);
     expect(preload).toHaveBeenCalledWith(
       // The rendered hero uses quality 50, so the preload URL must too — else
-      // the browser fetches the image twice.
-      'https://cdn.ogabassey.com/image/width=1200,quality=50,format=auto/core-assets/blog/post/hero.jpg',
+      // the browser fetches the image twice. PR-IMG-2c flipped the loader
+      // default off format=auto, so both the preload and its lockstep <Image>
+      // render now emit the decodable jpeg tier (typed image/jpeg).
+      'https://cdn.ogabassey.com/image/width=1200,quality=50,format=jpeg/core-assets/blog/post/hero.jpg',
       expect.objectContaining({
         as: 'image',
         fetchPriority: 'high',
         imageSizes:
           '(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1200px',
         imageSrcSet: expect.stringContaining('1200w'),
+        type: 'image/jpeg',
       })
     );
   });

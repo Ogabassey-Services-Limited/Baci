@@ -26,6 +26,18 @@ vi.mock('next/image', () => ({
   },
 }));
 
+// List images now render through CdnFormatImage (explicit per-format <picture>).
+// Its real pipeline calls next/image's `getImageProps`; surface it as a plain
+// <img> so these tests keep asserting list behavior (alt text, color swap, the
+// warm-cache mount reveal), not image internals.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => {
+    const { alt, fill: _fill, preload: _preload, ...imageProps } = props;
+
+    return <img {...imageProps} alt={String(alt ?? '')} />;
+  },
+}));
+
 const baseProduct: Product = {
   id: 'product-1',
   name: 'MacBook Pro',
@@ -190,6 +202,36 @@ describe('ProductListItem', () => {
       'src',
       '/macbook-space-black.jpg'
     );
+  });
+
+  it('reveals a list image that was already complete before hydration attached onLoad', () => {
+    // Arrange: jsdom images are never `complete`, so simulate a warm-cache
+    // SSR'd <img> by patching the prototype BEFORE render — the mount-time ref
+    // callback must flip the loaded state without any onLoad event.
+    const completeSpy = vi
+      .spyOn(window.HTMLImageElement.prototype, 'complete', 'get')
+      .mockReturnValue(true);
+    const naturalWidthSpy = vi
+      .spyOn(window.HTMLImageElement.prototype, 'naturalWidth', 'get')
+      .mockReturnValue(200);
+
+    const { container } = render(
+      <ProductListItem
+        basePath="/ogabassey"
+        product={baseProduct}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    const image = screen.getByAltText(baseProduct.name);
+    expect(image.className).toContain('opacity-100');
+    expect(container.querySelector('.animate-pulse')).toBeNull();
+
+    completeSpy.mockRestore();
+    naturalWidthSpy.mockRestore();
   });
 
   it('renders blank-image list placeholders as decorative images', () => {

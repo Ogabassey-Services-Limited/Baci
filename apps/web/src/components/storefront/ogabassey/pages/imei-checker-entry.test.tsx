@@ -10,6 +10,16 @@ vi.mock('next/image', () => ({
   ),
 }));
 
+// Product images now render through CdnFormatImage (explicit per-format
+// <picture>); surface it as a plain <img> so these tests keep asserting entry
+// behavior, not image internals.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => {
+    const { fill: _fill, preload: _preload, ...rest } = props;
+    return <img {...rest} alt={String(props.alt ?? '')} />;
+  },
+}));
+
 function renderEntry(overrides = {}) {
   const props = {
     currentTier: SERVICE_TIERS.full,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { getStorefrontLocale } from '@/lib/storefront-localization';
@@ -160,7 +160,7 @@ export function ProductComparisonTable({
                             </span>
                         </div>
                         <div className="relative size-24 mb-3">
-                            <Image
+                            <CdnFormatImage
                                 src={mainProduct.images?.[0] || mainProduct.image}
                                 alt={mainProduct.name}
                                 fill

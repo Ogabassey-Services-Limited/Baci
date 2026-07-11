@@ -25,7 +25,7 @@ import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { AdUnit } from './AdUnit';
 // import { ActionTooltip } from './Tooltip';
 import { EmptyState } from './empty-state';
-import Image from 'next/image';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import {
   deriveCartLineNegotiationProps,
   NegotiationModal,
@@ -246,7 +246,7 @@ export const CartSidebar: React.FC = () => {
                           href={productHref}
                           className="ogabassey-product-card-image-surface relative size-24 bg-gray-50 rounded-lg border border-gray-100 p-2 shrink-0 self-start mt-1 block group/image"
                         >
-                          <Image
+                          <CdnFormatImage
                             src={item.image || '/placeholder.png'}
                             alt={item.name}
                             fill

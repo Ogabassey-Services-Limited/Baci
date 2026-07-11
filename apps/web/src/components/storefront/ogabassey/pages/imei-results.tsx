@@ -1,7 +1,7 @@
 'use client';
 
 import { Globe, Lock, ScanBarcode, ShieldCheck, Smartphone } from 'lucide-react';
-import Image from 'next/image';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import type { ImeiResult } from './imei-checker-types';
 
 interface OgabasseyImeiResultsProps {
@@ -72,7 +72,7 @@ export function OgabasseyImeiResults({
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="relative size-28 shrink-0 bg-[var(--store-surface,#ffffff)] rounded-2xl p-2 shadow-sm border border-[var(--store-border,#f3f4f6)]">
               {result.deviceImage ? (
-                <Image
+                <CdnFormatImage
                   src={result.deviceImage}
                   alt={result.device}
                   fill

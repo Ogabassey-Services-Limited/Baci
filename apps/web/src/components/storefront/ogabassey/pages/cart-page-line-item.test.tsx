@@ -28,6 +28,21 @@ vi.mock('next/image', () => ({
   ),
 }));
 
+// Line-item images now render through CdnFormatImage (explicit per-format
+// <picture>); surface it as a plain <img> so these tests keep asserting cart
+// line-item behavior.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: ({
+    alt,
+    fill: _fill,
+    preload: _preload,
+    ...props
+  }: React.ImgHTMLAttributes<HTMLImageElement> & {
+    fill?: boolean;
+    preload?: boolean;
+  }) => <img alt={alt} {...props} />,
+}));
+
 const cartItem = {
   id: 'p1',
   cartItemId: 'ci-1',

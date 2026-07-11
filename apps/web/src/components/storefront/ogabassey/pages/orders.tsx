@@ -10,9 +10,9 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { useState, useEffect } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
@@ -261,7 +261,7 @@ export const OgabasseyV2Orders: React.FC = () => {
                               className="flex gap-4 items-center group/item hover:bg-gray-50 p-2 rounded-xl transition-colors -mx-2"
                             >
                               <div className="ogabassey-product-card-image-surface size-16 bg-gray-50 rounded-lg p-2 border border-gray-100 shrink-0 group-hover/item:bg-white group-hover/item:border-red-100 transition-colors relative">
-                                <Image
+                                <CdnFormatImage
                                   src={item.image || item.product_image || '/placeholder.png'}
                                   alt={item.name}
                                   fill sizes="64px"
@@ -292,7 +292,7 @@ export const OgabasseyV2Orders: React.FC = () => {
                             className="flex gap-4 items-center group/item hover:bg-gray-50 p-2 rounded-xl transition-colors -mx-2"
                           >
                             <div className="ogabassey-product-card-image-surface size-16 bg-gray-50 rounded-lg p-2 border border-gray-100 shrink-0 group-hover/item:bg-white group-hover/item:border-red-100 transition-colors relative">
-                              <Image
+                              <CdnFormatImage
                                 src={item.image || item.product_image || '/placeholder.png'}
                                 alt={item.name}
                                 fill sizes="64px"

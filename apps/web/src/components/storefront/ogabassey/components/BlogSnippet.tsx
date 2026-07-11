@@ -9,10 +9,10 @@
 'use client';
 
 import { ArrowRight, BookOpen } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import {
   BLOG_POST_PRODUCT_LINKS_SELECT,
@@ -200,7 +200,7 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
           <div className="flex flex-col md:flex-row">
             {/* Image Section */}
             <div className="md:w-1/3 h-48 md:h-auto overflow-hidden relative">
-              <Image
+              <CdnFormatImage
                 src={post.featured_image_url || '/placeholder.png'}
                 alt={post.title}
                 fill

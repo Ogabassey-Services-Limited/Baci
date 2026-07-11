@@ -1,18 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import type { ImgHTMLAttributes } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CartItem } from '@/hooks/cart';
 import { MobileOrderSummary } from './MobileCheckoutComponents';
 
-vi.mock('next/image', () => ({
-  default: ({
-    alt,
-    fill: _fill,
-    src,
-    ...props
-  }: ImgHTMLAttributes<HTMLImageElement> & { fill?: boolean; src: string }) => (
-    <img alt={alt} src={src} {...props} />
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: ({ alt, src }: { alt: string; src: string }) => (
+    <img alt={alt} src={src} />
   ),
 }));
 
@@ -56,6 +50,10 @@ describe('MobileOrderSummary', () => {
 
     expect(screen.getByAltText('Baci Phone').parentElement).toHaveClass(
       'ogabassey-product-card-image-surface'
+    );
+    expect(screen.getByAltText('Baci Phone')).toHaveAttribute(
+      'src',
+      '/phone.png'
     );
   });
 });
