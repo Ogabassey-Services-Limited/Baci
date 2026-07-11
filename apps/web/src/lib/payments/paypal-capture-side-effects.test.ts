@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
+import { recordByokFeeAccrual } from '@/lib/payments/record-byok-fee-accrual';
 import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
 import {
@@ -9,6 +10,10 @@ import {
 } from './paypal-capture-side-effects';
 
 vi.mock('server-only', () => ({}));
+
+vi.mock('@/lib/payments/record-byok-fee-accrual', () => ({
+  recordByokFeeAccrual: vi.fn(),
+}));
 
 const rpcMock = vi.hoisted(() => vi.fn());
 const singleMock = vi.hoisted(() => vi.fn());
@@ -93,6 +98,18 @@ describe('runPaypalCaptureSideEffects', () => {
         p_gateway_fee: 0,
         p_platform_fee: 0,
         p_settlement_type: 'direct_to_merchant',
+      })
+    );
+    // F8: the fee accrual is written here (on successful capture), not at
+    // create-order time, recording the full order-currency amount.
+    expect(recordByokFeeAccrual).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        orderId: order.id,
+        transactionReference: 'PP-ORD-1',
+        provider: 'paypal',
+        currency: 'USD',
+        orderAmount: 100,
       })
     );
   });

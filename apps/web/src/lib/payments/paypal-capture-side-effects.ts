@@ -6,6 +6,7 @@ import {
 } from '@/lib/email-templates';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
+import { recordByokFeeAccrual } from '@/lib/payments/record-byok-fee-accrual';
 import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
 
@@ -239,4 +240,17 @@ export async function runPaypalCaptureSideEffects({
     grossAmount,
     supabase
   );
+  // Fee-accrual ledger row (fee waived) is written only after a successful
+  // capture, alongside the settlement — never at order initialization, so an
+  // abandoned/cancelled PayPal approval leaves no orphan accrual (F8). Records
+  // the full order-currency amount (matches what create-order previously
+  // passed), and is best-effort: it logs, never throws.
+  await recordByokFeeAccrual({
+    merchantId,
+    orderId: order.id,
+    transactionReference: paypalOrderId,
+    provider: 'paypal',
+    currency: order.currency ?? 'USD',
+    orderAmount: Number(order.total) || grossAmount,
+  });
 }

@@ -1,18 +1,17 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
+import { computeOrderResidualAmount } from '@/lib/payments/order-residual-amount';
 import {
   getPaypalCheckoutCredentials,
-  isPaypalAuthFailure,
-  markPaypalCredentialInvalid,
   readPaypalFeatureConfig,
 } from '@/lib/payments/paypal-checkout-credentials';
 import {
   getReusablePayPalOrderId,
   resolvePaypalPresentment,
+  resolveReusablePaypalApproval,
   validateSameOriginUrl,
 } from '@/lib/payments/paypal-create-order-helpers';
-import { recordByokFeeAccrual } from '@/lib/payments/record-byok-fee-accrual';
-import { createOrder } from '@/lib/paypal';
+import { createAndPersistPaypalOrder } from '@/lib/payments/paypal-create-order-persistence';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { paypalCreateOrderSchema } from '@/schemas/paypal-checkout';
 
@@ -72,6 +71,19 @@ export async function POST(request: NextRequest) {
           code: 'MERCHANT_MISMATCH',
         },
         { status: 403 }
+      );
+    }
+
+    // A cancelled order is never payable — reject before creating a PayPal order
+    // so a buyer cannot approve+capture funds for an order they already
+    // cancelled (mirrors initialize + credit-direct/sign).
+    if (orderSnapshot.shipping_status === 'cancelled') {
+      return NextResponse.json(
+        {
+          error: 'This order has been cancelled and can no longer be paid',
+          code: 'ORDER_NOT_PAYABLE',
+        },
+        { status: 409 }
       );
     }
 
@@ -139,17 +151,48 @@ export async function POST(request: NextRequest) {
         ? orderSnapshot.currency.trim().toUpperCase()
         : 'USD';
 
+    // Charge only the outstanding balance: wallet credit + redeemed savings are
+    // settled Baci-side, so PayPal presents the residual (not the full total) or
+    // a mixed-tender buyer is overcharged (mirrors initialize).
+    const residual = await computeOrderResidualAmount(supabase, {
+      orderId: order_id,
+      merchantId: merchant_id,
+      orderTotal,
+    });
+    if (!residual.ok) {
+      const savingsFailed = residual.reason === 'savings_lookup_failed';
+      return NextResponse.json(
+        {
+          error: savingsFailed
+            ? 'Unable to verify order savings amount'
+            : 'Unable to verify order payment amount',
+          code: savingsFailed
+            ? 'ORDER_SAVINGS_LOOKUP_FAILED'
+            : 'ORDER_AMOUNT_LOOKUP_FAILED',
+        },
+        { status: 500 }
+      );
+    }
+    const { residualAmount } = residual;
+    if (!(residualAmount > 0)) {
+      return NextResponse.json(
+        {
+          error: 'No payable amount remains for this order',
+          code: 'NO_PAYABLE_AMOUNT',
+        },
+        { status: 400 }
+      );
+    }
+
     // FX fail-closed (Phase 2.5): NGN -> USD via the LIVE rate only; a missing
     // or invalid rate returns 503 and initializes nothing.
     const presentment = await resolvePaypalPresentment(
       orderCurrency,
-      orderTotal
+      residualAmount
     );
     if (!presentment.ok) {
-      // An unsupported settlement currency is a deterministic client error (the
-      // store's currency will never be presentable), so it must NOT masquerade
-      // as the transient FX outage (503) — surface it as a 400 the caller can
-      // act on. A missing/invalid live NGN→USD rate stays a 503 retry.
+      // An unsupported settlement currency is a deterministic client error (400)
+      // and must NOT masquerade as the transient FX outage (503).
       if (presentment.reason === 'unsupported_currency') {
         return NextResponse.json(
           {
@@ -199,105 +242,48 @@ export async function POST(request: NextRequest) {
       presentmentCurrency
     );
     if (reusablePayPalOrderId) {
-      return NextResponse.json({ id: reusablePayPalOrderId, reused: true });
-    }
-
-    if (existingTransaction?.gateway_reference) {
-      return NextResponse.json(
-        {
-          error:
-            'Existing PayPal transaction does not match current order total',
-          code: 'PAYPAL_TRANSACTION_MISMATCH',
-        },
-        { status: 409 }
+      // Reuse the stored PayPal order ONLY while it is still approvable, and
+      // return its approval link so a cancel-then-retry can complete (F3). A
+      // dead/consumed order falls through to a fresh order below.
+      const approveUrl = await resolveReusablePaypalApproval(
+        credentials,
+        reusablePayPalOrderId,
+        mode
       );
-    }
-
-    const paypalOrderResult = await createOrder(
-      credentials.clientId,
-      credentials.secretKey,
-      presentmentAmount,
-      presentmentCurrency,
-      trackingToken,
-      mode,
-      { returnUrl, cancelUrl }
-    );
-
-    if (!paypalOrderResult.success) {
-      // A 401 means the merchant's stored credentials are no longer valid:
-      // disable them so availability drops immediately (Phase 2 item 1).
-      if (isPaypalAuthFailure(paypalOrderResult.code)) {
-        await markPaypalCredentialInvalid(
-          merchant_id,
-          environment,
-          paypalOrderResult.error
-        );
-        return NextResponse.json(
-          {
-            error: 'PayPal rejected the store credentials',
-            code: 'INVALID_PROVIDER_CREDENTIALS',
-          },
-          { status: 400 }
-        );
+      if (approveUrl) {
+        return NextResponse.json({
+          id: reusablePayPalOrderId,
+          approveUrl,
+          reused: true,
+        });
       }
-      return NextResponse.json(
-        { error: paypalOrderResult.error, code: paypalOrderResult.code },
-        { status: 500 }
-      );
     }
 
-    const paypalOrderId = paypalOrderResult.data.id;
-
-    // Phantom-fee fix (Phase 2.6): platform fee is 0 and the merchant keeps the
-    // full amount — money settles directly to the merchant's PayPal account.
-    const { error: transactionError } = await supabase.rpc(
-      'create_payment_transaction',
-      {
-        p_merchant_id: merchant_id,
-        p_order_id: order_id,
-        p_amount: orderTotal,
-        p_currency: orderCurrency,
-        p_gateway: 'paypal',
-        p_reference: paypalOrderId,
-        p_platform_fee: 0,
-        p_merchant_amount: orderTotal,
-        p_customer_email: customer_email,
-        p_customer_name: null,
-        p_session_id: null,
-        p_metadata: {
-          order_id,
-          paypal_mode: mode,
-          paypal_presentment_amount: presentmentAmount,
-          paypal_presentment_currency: presentmentCurrency,
-          paypal_fx_rate: fxRate,
-        },
-      }
-    );
-
-    if (transactionError) {
-      logger.error({
-        message: 'Failed to create pending PayPal transaction record',
-        error: transactionError,
-      });
-      return NextResponse.json(
-        { error: 'Failed to record transaction', code: 'DATABASE_ERROR' },
-        { status: 500 }
-      );
-    }
-
-    // Fee-accrual ledger row (fee waived); best-effort, never blocks checkout.
-    await recordByokFeeAccrual({
+    const created = await createAndPersistPaypalOrder(supabase, {
+      credentials,
+      environment,
       merchantId: merchant_id,
       orderId: order_id,
-      transactionReference: paypalOrderId,
-      provider: 'paypal',
-      currency: orderCurrency,
-      orderAmount: orderTotal,
+      customerEmail: customer_email,
+      orderCurrency,
+      residualAmount,
+      presentmentAmount,
+      presentmentCurrency,
+      fxRate,
+      trackingToken,
+      mode,
+      returnUrl,
+      cancelUrl,
+      existingTransaction,
     });
 
+    if (!created.ok) {
+      return NextResponse.json(created.body, { status: created.status });
+    }
+
     return NextResponse.json({
-      id: paypalOrderId,
-      approveUrl: paypalOrderResult.data.approveUrl,
+      id: created.id,
+      approveUrl: created.approveUrl,
     });
   } catch (error) {
     logger.error({

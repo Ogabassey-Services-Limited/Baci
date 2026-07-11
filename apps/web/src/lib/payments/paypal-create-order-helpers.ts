@@ -1,5 +1,6 @@
 import { getFreshNgnPerUsdt, RATE_CACHE_TTL_MS } from '@/lib/juicyway/rates';
 import { logger } from '@/lib/logger';
+import { getOrder, type PayPalMode } from '@/lib/paypal';
 import { PAYPAL_SUPPORTED_CURRENCIES } from '@/lib/paypal/paypal-currency';
 
 /**
@@ -118,4 +119,60 @@ export async function resolvePaypalPresentment(
       : Number(orderTotal.toFixed(2));
 
   return { ok: true, presentmentAmount, presentmentCurrency, fxRate };
+}
+
+/**
+ * PayPal Order statuses at which a stored order can still be approved+captured.
+ * A COMPLETED/VOIDED/expired order is no longer approvable and must not be
+ * reused for a retry (a fresh order is created instead).
+ */
+const APPROVABLE_PAYPAL_STATUSES = new Set([
+  'CREATED',
+  'PAYER_ACTION_REQUIRED',
+  'APPROVED',
+]);
+
+export function isPaypalOrderApprovable(status: string): boolean {
+  return APPROVABLE_PAYPAL_STATUSES.has(status.trim().toUpperCase());
+}
+
+/**
+ * Returns the buyer-facing approval link from a PayPal order's HATEOAS links,
+ * or `undefined` when none is present (a consumed/expired order).
+ */
+export function pickPaypalApprovalUrl(order: {
+  links?: { rel: string; href: string }[];
+}): string | undefined {
+  return order.links?.find(
+    (link) => link.rel === 'approve' || link.rel === 'payer-action'
+  )?.href;
+}
+
+/**
+ * Resolves a usable approval URL for a stored, reusable PayPal order so a buyer
+ * can complete a cancel-then-retry without a duplicate order being created. The
+ * client (`startPaypalCheckout`) requires an `approveUrl` and dead-ends the
+ * checkout when it is missing, so the reuse branch must supply one. Returns
+ * `null` when the stored order can no longer be approved (getOrder failed, or
+ * the order is COMPLETED/VOIDED/expired / has no approval link) — the caller
+ * then creates a fresh PayPal order instead.
+ */
+export async function resolveReusablePaypalApproval(
+  credentials: { clientId: string; secretKey: string },
+  reusablePayPalOrderId: string,
+  mode: PayPalMode
+): Promise<string | null> {
+  const existingOrder = await getOrder(
+    credentials.clientId,
+    credentials.secretKey,
+    reusablePayPalOrderId,
+    mode
+  );
+  if (!existingOrder.success) {
+    return null;
+  }
+  if (!isPaypalOrderApprovable(existingOrder.data.status)) {
+    return null;
+  }
+  return pickPaypalApprovalUrl(existingOrder.data) ?? null;
 }

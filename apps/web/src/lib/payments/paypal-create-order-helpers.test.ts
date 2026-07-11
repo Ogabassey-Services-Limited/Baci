@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getFreshNgnPerUsdt } from '@/lib/juicyway/rates';
+import { getOrder } from '@/lib/paypal';
 import {
   getReusablePayPalOrderId,
+  isPaypalOrderApprovable,
+  pickPaypalApprovalUrl,
   resolvePaypalPresentment,
+  resolveReusablePaypalApproval,
   validateSameOriginUrl,
 } from './paypal-create-order-helpers';
 
@@ -11,6 +15,10 @@ const RATE_CACHE_TTL_MS = 5 * 60 * 1000;
 vi.mock('@/lib/juicyway/rates', () => ({
   getFreshNgnPerUsdt: vi.fn(),
   RATE_CACHE_TTL_MS: 5 * 60 * 1000,
+}));
+
+vi.mock('@/lib/paypal', () => ({
+  getOrder: vi.fn(),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -157,5 +165,103 @@ describe('resolvePaypalPresentment', () => {
       ok: false,
       reason: 'fx_unavailable',
     });
+  });
+});
+
+describe('isPaypalOrderApprovable', () => {
+  it('accepts CREATED, PAYER_ACTION_REQUIRED and APPROVED (case-insensitive)', () => {
+    expect(isPaypalOrderApprovable('CREATED')).toBe(true);
+    expect(isPaypalOrderApprovable('payer_action_required')).toBe(true);
+    expect(isPaypalOrderApprovable(' Approved ')).toBe(true);
+  });
+
+  it('rejects consumed/terminal statuses', () => {
+    expect(isPaypalOrderApprovable('COMPLETED')).toBe(false);
+    expect(isPaypalOrderApprovable('VOIDED')).toBe(false);
+    expect(isPaypalOrderApprovable('')).toBe(false);
+  });
+});
+
+describe('pickPaypalApprovalUrl', () => {
+  it('returns the approve or payer-action link href', () => {
+    expect(
+      pickPaypalApprovalUrl({
+        links: [
+          { rel: 'self', href: 'https://api/self' },
+          { rel: 'payer-action', href: 'https://paypal/pay' },
+        ],
+      })
+    ).toBe('https://paypal/pay');
+  });
+
+  it('returns undefined when there is no approval link', () => {
+    expect(pickPaypalApprovalUrl({ links: [] })).toBeUndefined();
+    expect(pickPaypalApprovalUrl({})).toBeUndefined();
+  });
+});
+
+describe('resolveReusablePaypalApproval', () => {
+  const credentials = { clientId: 'cid', secretKey: 'sk' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns the approval url when the stored order is still approvable', async () => {
+    vi.mocked(getOrder).mockResolvedValue({
+      success: true,
+      data: {
+        id: 'PP-1',
+        status: 'CREATED',
+        links: [
+          { rel: 'approve', href: 'https://paypal/approve', method: 'GET' },
+        ],
+      },
+    });
+
+    expect(
+      await resolveReusablePaypalApproval(credentials, 'PP-1', 'sandbox')
+    ).toBe('https://paypal/approve');
+    expect(getOrder).toHaveBeenCalledWith('cid', 'sk', 'PP-1', 'sandbox');
+  });
+
+  it('returns null when the getOrder lookup fails', async () => {
+    vi.mocked(getOrder).mockResolvedValue({
+      success: false,
+      error: 'not found',
+      code: 'HTTP_404',
+    });
+
+    expect(
+      await resolveReusablePaypalApproval(credentials, 'PP-1', 'sandbox')
+    ).toBeNull();
+  });
+
+  it('returns null when the stored order is no longer approvable', async () => {
+    vi.mocked(getOrder).mockResolvedValue({
+      success: true,
+      data: {
+        id: 'PP-1',
+        status: 'COMPLETED',
+        links: [
+          { rel: 'approve', href: 'https://paypal/approve', method: 'GET' },
+        ],
+      },
+    });
+
+    expect(
+      await resolveReusablePaypalApproval(credentials, 'PP-1', 'sandbox')
+    ).toBeNull();
+  });
+
+  it('returns null when an approvable order has no approval link', async () => {
+    vi.mocked(getOrder).mockResolvedValue({
+      success: true,
+      data: { id: 'PP-1', status: 'CREATED', links: [] },
+    });
+
+    expect(
+      await resolveReusablePaypalApproval(credentials, 'PP-1', 'sandbox')
+    ).toBeNull();
   });
 });

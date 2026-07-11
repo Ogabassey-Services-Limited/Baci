@@ -210,4 +210,19 @@ describe('loadPaypalCaptureContext', () => {
       body: { error: 'Order amount or currency mismatch with transaction' },
     });
   });
+
+  it('proceeds for a mixed-tender order whose residual charge is below the order total', async () => {
+    // Wallet credit / redeemed savings settle Baci-side, so the PayPal
+    // transaction amount is the residual and is legitimately LESS than the order
+    // total. That must NOT be rejected as a mismatch (only an over-charge is).
+    const result = await loadPaypalCaptureContext(
+      buildSupabase({
+        txn: { ...PENDING_TXN, amount: 100_000 },
+        order: { ...ORDER_SNAPSHOT, total: 130_000 },
+      }),
+      input
+    );
+
+    expect(result.proceed).toBe(true);
+  });
 });

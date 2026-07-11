@@ -5,7 +5,8 @@ import {
   getDecryptedMerchantCredential,
   markMerchantCredentialInvalid,
 } from '@/lib/payments/merchant-credentials';
-import { createOrder } from '@/lib/paypal';
+import { computeOrderResidualAmount } from '@/lib/payments/order-residual-amount';
+import { createOrder, getOrder } from '@/lib/paypal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { POST } from './route';
 
@@ -17,11 +18,16 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 vi.mock('@/lib/paypal', () => ({
   createOrder: vi.fn(),
+  getOrder: vi.fn(),
 }));
 
 vi.mock('@/lib/payments/merchant-credentials', () => ({
   getDecryptedMerchantCredential: vi.fn(),
   markMerchantCredentialInvalid: vi.fn(),
+}));
+
+vi.mock('@/lib/payments/order-residual-amount', () => ({
+  computeOrderResidualAmount: vi.fn(),
 }));
 
 vi.mock('@/lib/juicyway/rates', () => ({
@@ -58,6 +64,7 @@ function buildSupabaseMock({
     total: 130000,
     currency: 'NGN',
     tracking_token: 'track-123',
+    shipping_status: 'pending',
   } as Record<string, unknown>,
   custom = { paypal_enabled: true, paypal_mode: 'sandbox' } as Record<
     string,
@@ -82,6 +89,7 @@ function buildSupabaseMock({
     from: vi.fn(() => mock),
     select: vi.fn(() => mock),
     eq: vi.fn(() => mock),
+    update: vi.fn(() => mock),
     maybeSingle: vi.fn(() =>
       Promise.resolve({ data: existingTxn, error: null })
     ),
@@ -108,6 +116,27 @@ describe('POST /api/payments/paypal/create-order', () => {
       success: true,
       data: { id: 'PP-ORD-123', approveUrl: 'https://paypal.com/approve' },
     });
+    vi.mocked(getOrder).mockResolvedValue({
+      success: true,
+      data: {
+        id: 'PP-EXISTING',
+        status: 'CREATED',
+        links: [
+          {
+            rel: 'approve',
+            href: 'https://paypal.com/approve-existing',
+            method: 'GET',
+          },
+        ],
+      },
+    });
+    // Default: no wallet/savings applied — the residual is the full total.
+    vi.mocked(computeOrderResidualAmount).mockResolvedValue({
+      ok: true,
+      walletAmountUsed: 0,
+      savingsAmountUsed: 0,
+      residualAmount: 130000,
+    });
   });
 
   it('returns 400 for an invalid payload', async () => {
@@ -129,6 +158,7 @@ describe('POST /api/payments/paypal/create-order', () => {
           total: 130000,
           currency: 'NGN',
           tracking_token: 't',
+          shipping_status: 'pending',
         },
       }) as never
     );
@@ -141,7 +171,28 @@ describe('POST /api/payments/paypal/create-order', () => {
     );
   });
 
-  it('reuses an existing pending PayPal order when the presentment matches', async () => {
+  it('returns 409 ORDER_NOT_PAYABLE for a cancelled order and never touches PayPal', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      buildSupabaseMock({
+        snapshot: {
+          merchant_id: MERCHANT_ID,
+          total: 130000,
+          currency: 'NGN',
+          tracking_token: 'track-123',
+          shipping_status: 'cancelled',
+        },
+      }) as never
+    );
+    mockVaultOk();
+
+    const response = await POST(createRequest());
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe('ORDER_NOT_PAYABLE');
+    expect(getDecryptedMerchantCredential).not.toHaveBeenCalled();
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
+  it('reuses a still-approvable PayPal order and returns its approval link', async () => {
     vi.mocked(createAdminClient).mockReturnValue(
       buildSupabaseMock({
         existingTxn: {
@@ -157,11 +208,60 @@ describe('POST /api/payments/paypal/create-order', () => {
 
     const response = await POST(createRequest());
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ id: 'PP-EXISTING', reused: true });
+    expect(await response.json()).toEqual({
+      id: 'PP-EXISTING',
+      approveUrl: 'https://paypal.com/approve-existing',
+      reused: true,
+    });
+    expect(getOrder).toHaveBeenCalledWith(
+      'mock-client-id',
+      'mock-secret-key',
+      'PP-EXISTING',
+      'sandbox'
+    );
     expect(createOrder).not.toHaveBeenCalled();
   });
 
-  it('converts NGN to USD, records a fee-waived transaction, and files a zero-fee accrual', async () => {
+  it('creates a fresh order and repoints the pending row when the reusable order is dead', async () => {
+    const supabase = buildSupabaseMock({
+      existingTxn: {
+        gateway_reference: 'PP-DEAD',
+        metadata: {
+          paypal_presentment_amount: 100,
+          paypal_presentment_currency: 'USD',
+        },
+      },
+    });
+    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
+    mockVaultOk();
+    // The stored order can no longer be approved (VOIDED) → fall through.
+    vi.mocked(getOrder).mockResolvedValue({
+      success: true,
+      data: { id: 'PP-DEAD', status: 'VOIDED', links: [] },
+    });
+
+    const response = await POST(createRequest());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      id: 'PP-ORD-123',
+      approveUrl: 'https://paypal.com/approve',
+    });
+    expect(createOrder).toHaveBeenCalled();
+    // The existing pending row is repointed at the fresh order, not duplicated.
+    expect(supabase.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gateway_reference: 'PP-ORD-123',
+        amount: 130000,
+        merchant_amount: 130000,
+      })
+    );
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_payment_transaction',
+      expect.anything()
+    );
+  });
+
+  it('converts NGN to USD and records a fee-waived residual transaction (no init-time accrual)', async () => {
     const supabase = buildSupabaseMock();
     vi.mocked(createAdminClient).mockReturnValue(supabase as never);
     mockVaultOk();
@@ -199,15 +299,76 @@ describe('POST /api/payments/paypal/create-order', () => {
       })
     );
 
-    expect(supabase.insert).toHaveBeenCalledWith(
+    // F8: the BYOK fee-accrual row is written on capture, never at init.
+    expect(supabase.insert).not.toHaveBeenCalled();
+  });
+
+  it('charges only the residual for a mixed-tender (wallet/savings) order', async () => {
+    const supabase = buildSupabaseMock();
+    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
+    mockVaultOk();
+    // ₦65,000 of the ₦130,000 total was covered by wallet credit.
+    vi.mocked(computeOrderResidualAmount).mockResolvedValue({
+      ok: true,
+      walletAmountUsed: 65000,
+      savingsAmountUsed: 0,
+      residualAmount: 65000,
+    });
+
+    const response = await POST(createRequest());
+    expect(response.status).toBe(200);
+
+    // PayPal presents the residual (₦65,000 / 1300 = $50), not the full total.
+    expect(createOrder).toHaveBeenCalledWith(
+      'mock-client-id',
+      'mock-secret-key',
+      50,
+      'USD',
+      'track-123',
+      'sandbox',
+      { returnUrl: undefined, cancelUrl: undefined }
+    );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_payment_transaction',
       expect.objectContaining({
-        provider: 'paypal',
-        currency: 'NGN',
-        order_amount: 130000,
-        fee_amount: 0,
-        waived: true,
+        p_amount: 65000,
+        p_merchant_amount: 65000,
+        p_metadata: expect.objectContaining({
+          paypal_presentment_amount: 50,
+          paypal_presentment_currency: 'USD',
+        }),
       })
     );
+  });
+
+  it('returns 400 NO_PAYABLE_AMOUNT when wallet + savings cover the whole order', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(buildSupabaseMock() as never);
+    mockVaultOk();
+    vi.mocked(computeOrderResidualAmount).mockResolvedValue({
+      ok: true,
+      walletAmountUsed: 130000,
+      savingsAmountUsed: 0,
+      residualAmount: 0,
+    });
+
+    const response = await POST(createRequest());
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('NO_PAYABLE_AMOUNT');
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when the residual lookup fails', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(buildSupabaseMock() as never);
+    mockVaultOk();
+    vi.mocked(computeOrderResidualAmount).mockResolvedValue({
+      ok: false,
+      reason: 'wallet_lookup_failed',
+    });
+
+    const response = await POST(createRequest());
+    expect(response.status).toBe(500);
+    expect((await response.json()).code).toBe('ORDER_AMOUNT_LOOKUP_FAILED');
+    expect(createOrder).not.toHaveBeenCalled();
   });
 
   it('passes same-origin return and cancel URLs through to PayPal', async () => {
@@ -288,10 +449,17 @@ describe('POST /api/payments/paypal/create-order', () => {
           total: 4200,
           currency: 'KES',
           tracking_token: 'track-123',
+          shipping_status: 'pending',
         },
       }) as never
     );
     mockVaultOk();
+    vi.mocked(computeOrderResidualAmount).mockResolvedValue({
+      ok: true,
+      walletAmountUsed: 0,
+      savingsAmountUsed: 0,
+      residualAmount: 4200,
+    });
 
     const response = await POST(createRequest());
     expect(response.status).toBe(400);

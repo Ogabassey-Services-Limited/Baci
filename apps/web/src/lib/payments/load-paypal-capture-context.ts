@@ -178,8 +178,13 @@ export async function loadPaypalCaptureContext(
     };
   }
 
+  // The transaction amount is what PayPal was asked to charge (the gateway
+  // residual). For a mixed-tender order (wallet credit / redeemed savings) that
+  // is legitimately LESS than the order total, so only reject an OVER-charge or
+  // a currency drift here — the exact captured amount is validated downstream
+  // against the stored presentment metadata.
   if (
-    Number(orderSnapshot.total) !== Number(transaction.amount) ||
+    Number(transaction.amount) > Number(orderSnapshot.total) ||
     orderSnapshot.currency !== transaction.currency
   ) {
     return {
