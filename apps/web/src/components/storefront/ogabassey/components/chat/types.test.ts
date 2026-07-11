@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { PROACTIVE_MESSAGES, SUGGESTIONS } from './types';
+import {
+  PROACTIVE_MESSAGES,
+  resolveSuggestionNavigationPath,
+  SUGGESTIONS,
+} from './types';
 import type { ChatMessage, SantaCartAction } from './types';
 
 describe('types - SUGGESTIONS', () => {
@@ -25,6 +29,32 @@ describe('types - SUGGESTIONS', () => {
     const labels = SUGGESTIONS.map((s) => s.label);
     expect(labels).toContain('Track my order');
     expect(labels).toContain('Contact support');
+  });
+
+  it('includes a repair-quote deep-link chip pointing at /repairs', () => {
+    const repairChip = SUGGESTIONS.find((s) => s.href === '/repairs');
+    expect(repairChip).toBeDefined();
+    expect(repairChip?.label).toBe('Repair quote');
+  });
+});
+
+describe('types - resolveSuggestionNavigationPath', () => {
+  it('returns null for message-sending chips without an href', () => {
+    expect(
+      resolveSuggestionNavigationPath({ href: undefined }, '/ogabassey')
+    ).toBeNull();
+  });
+
+  it('joins the href with a path-based storefront base path', () => {
+    expect(
+      resolveSuggestionNavigationPath({ href: '/repairs' }, '/ogabassey')
+    ).toBe('/ogabassey/repairs');
+  });
+
+  it('resolves against the root when served on a custom domain', () => {
+    expect(resolveSuggestionNavigationPath({ href: '/repairs' }, '')).toBe(
+      '/repairs'
+    );
   });
 });
 

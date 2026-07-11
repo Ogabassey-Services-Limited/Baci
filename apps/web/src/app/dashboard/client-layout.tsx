@@ -30,6 +30,7 @@ import {
   UserCog,
   Users,
   Wallet,
+  Wrench,
 } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
@@ -76,6 +77,7 @@ import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { COUNTRIES, getCountryByCode } from '@/lib/countries';
 import { FEATURES, isPlanTier, type PlanTier } from '@/lib/feature-flags';
+import { isRepairsBusinessType } from '@/lib/repairs/repairs-feature';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 import {
@@ -445,6 +447,12 @@ export default function DashboardClientLayout({
       label: 'Products',
     },
     {
+      id: 'repairs',
+      href: '/dashboard/repairs' as Route,
+      icon: Wrench,
+      label: 'Repairs',
+    },
+    {
       id: 'marketing',
       href: '/dashboard/marketing' as Route,
       icon: Megaphone,
@@ -565,6 +573,7 @@ export default function DashboardClientLayout({
     Analytics: 'analytics',
     Orders: 'orders',
     Products: 'products',
+    Repairs: 'repairs',
     Customers: 'customers',
     Staff: 'staff',
     Loyalty: 'marketing', // Loyalty is part of marketing permissions
@@ -587,6 +596,15 @@ export default function DashboardClientLayout({
   const canShowNavItem = (item: DashboardNavItem) => {
     // Santa Campaign is special (only for ogabassey)
     if (item.label === 'Santa Campaign' && merchant?.slug !== 'ogabassey') {
+      return false;
+    }
+
+    // Repairs catalogue is gated to electronics/gadgets merchants. The page
+    // itself handles the feature-flag empty state for enabled business types.
+    if (
+      item.label === 'Repairs' &&
+      !isRepairsBusinessType(merchant?.business_type)
+    ) {
       return false;
     }
 

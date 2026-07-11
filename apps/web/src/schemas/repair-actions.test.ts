@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  repairBookingSearchParamsSchema,
   repairMerchantIdSchema,
   repairPlaceDetailsSchema,
 } from './repair-actions';
@@ -80,5 +81,56 @@ describe('repairPlaceDetailsSchema', () => {
   it('rejects non-object payloads', () => {
     expect(repairPlaceDetailsSchema.safeParse(null).success).toBe(false);
     expect(repairPlaceDetailsSchema.safeParse('lagos').success).toBe(false);
+  });
+});
+
+describe('repairBookingSearchParamsSchema', () => {
+  it('accepts an empty object (no preselection)', () => {
+    const result = repairBookingSearchParamsSchema.safeParse({});
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected empty params to parse');
+    expect(result.data.device).toBeUndefined();
+    expect(result.data.quote).toBeUndefined();
+  });
+
+  it('accepts a valid device slug and quote uuid', () => {
+    const result = repairBookingSearchParamsSchema.safeParse({
+      device: 'apple-iphone-13-pro-max',
+      quote: '223e4567-e89b-12d3-a456-426614174999',
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected params to parse');
+    expect(result.data.device).toBe('apple-iphone-13-pro-max');
+    expect(result.data.quote).toBe('223e4567-e89b-12d3-a456-426614174999');
+  });
+
+  it('accepts a device slug without a quote id', () => {
+    const result = repairBookingSearchParamsSchema.safeParse({
+      device: 'apple-iphone-13-pro-max',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a malformed device slug', () => {
+    expect(
+      repairBookingSearchParamsSchema.safeParse({ device: 'Not A Slug!' })
+        .success
+    ).toBe(false);
+    expect(
+      repairBookingSearchParamsSchema.safeParse({ device: '../../etc/passwd' })
+        .success
+    ).toBe(false);
+  });
+
+  it('rejects a non-uuid quote id', () => {
+    expect(
+      repairBookingSearchParamsSchema.safeParse({
+        device: 'apple-iphone-13-pro-max',
+        quote: 'not-a-uuid',
+      }).success
+    ).toBe(false);
   });
 });

@@ -11,6 +11,17 @@ export const SHIPPING_PROVIDER_CODES = ['GIGL', 'TOPSHIP'] as const;
 
 export type ShippingProviderCode = (typeof SHIPPING_PROVIDER_CODES)[number];
 
+/**
+ * A provider returned a definitive rejection for a booking attempt. Unlike a
+ * timeout or transport error, this means the caller can safely allow a retry.
+ */
+export class ShippingBookingRejectedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ShippingBookingRejectedError';
+  }
+}
+
 // =============================================================================
 // ADDRESS TYPES
 // =============================================================================

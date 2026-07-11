@@ -14,6 +14,7 @@ import type {
   TrackingResult,
   UnifiedLocation,
 } from '../types';
+import { ShippingBookingRejectedError } from '../types';
 import { BaseShippingProvider } from './base';
 
 // =============================================================================
@@ -862,7 +863,7 @@ export class TopshipProvider extends BaseShippingProvider {
         error: message,
         trackingId: savedShipment.trackingId,
       });
-      throw new Error(
+      throw new ShippingBookingRejectedError(
         `Failed to confirm Topship shipment payment for tracking ${savedShipment.trackingId}: ${message}`
       );
     }

@@ -534,6 +534,7 @@ export interface MerchantFeatureSettings {
   blog_enabled?: boolean;
   blog_discover_image_validation_enabled?: boolean;
   facebook_pixel_id?: string | null;
+  repairs_catalog_enabled?: boolean;
   shipping_insurance_enabled?: boolean;
   shipping_insurance_min_order_value?: number;
   shipping_insurance_opt_in_default?: boolean;
@@ -576,6 +577,7 @@ const MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT: string = `
   preferred_international_gateway,
   preferred_local_gateway,
   privacy_page_enabled,
+  repairs_catalog_enabled,
   reviews_enabled,
   rewards_page_enabled,
   shipping_insurance_enabled,
@@ -603,6 +605,12 @@ const MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT: string = `
   customer_device_savings_break_fee_enabled,
   wishlist_enabled
 `;
+
+const MERCHANT_PUBLIC_FEATURE_SETTINGS_LEGACY_SELECT =
+  MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT.replace(
+    /^\s*repairs_catalog_enabled,\n/m,
+    ''
+  );
 
 export interface CachedMerchant {
   id: string;
@@ -2861,6 +2869,89 @@ export async function getCachedPlatformAnalytics(
   return summaryData;
 }
 
+function isMissingRepairsCatalogEnabledColumn(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const maybeError = error as {
+    code?: unknown;
+    details?: unknown;
+    hint?: unknown;
+    message?: unknown;
+  };
+  const combined = [maybeError.message, maybeError.details, maybeError.hint]
+    .filter((value): value is string => typeof value === 'string')
+    .join(' ')
+    .toLowerCase();
+
+  return (
+    maybeError.code === '42703' && combined.includes('repairs_catalog_enabled')
+  );
+}
+
+async function queryMerchantFeatureSettings(
+  supabase: SupabaseClient,
+  merchantId: string,
+  selectColumns = MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT
+) {
+  return await supabase
+    .from('merchant_feature_settings')
+    .select(selectColumns)
+    .eq('merchant_id', merchantId)
+    .maybeSingle();
+}
+
+function normalizeMerchantFeatureSettings(
+  merchantId: string,
+  data: unknown
+): MerchantFeatureSettings {
+  if (!data) {
+    return merchantFeatureSettingsDefaults.buildPublicDefault(
+      merchantId
+    ) as MerchantFeatureSettings;
+  }
+
+  return {
+    repairs_catalog_enabled: false,
+    ...(data as Record<string, unknown>),
+  } as MerchantFeatureSettings;
+}
+
+async function getPublicFeatureSettingsWithMigrationFallback(
+  supabase: SupabaseClient,
+  merchantId: string
+): Promise<MerchantFeatureSettings> {
+  const { data, error } = await queryMerchantFeatureSettings(
+    supabase,
+    merchantId
+  );
+
+  if (!error) {
+    return normalizeMerchantFeatureSettings(merchantId, data);
+  }
+
+  if (!isMissingRepairsCatalogEnabledColumn(error)) {
+    throw error;
+  }
+
+  console.warn(
+    'merchant_feature_settings.repairs_catalog_enabled is unavailable; using legacy public feature settings projection'
+  );
+  const { data: legacyData, error: legacyError } =
+    await queryMerchantFeatureSettings(
+      supabase,
+      merchantId,
+      MERCHANT_PUBLIC_FEATURE_SETTINGS_LEGACY_SELECT
+    );
+
+  if (legacyError) {
+    throw legacyError;
+  }
+
+  return normalizeMerchantFeatureSettings(merchantId, legacyData);
+}
+
 /**
  * Cached merchant feature settings.
  * Uses a server-only service-role query with an explicit public-safe column allowlist because
@@ -2877,25 +2968,10 @@ export async function getCachedFeatureSettings(
 
   try {
     const supabase = getServiceSupabaseClient();
-
-    const { data, error } = await supabase
-      .from('merchant_feature_settings')
-      .select(MERCHANT_PUBLIC_FEATURE_SETTINGS_SELECT)
-      .eq('merchant_id', merchantId)
-      .maybeSingle();
-
-    if (error) {
-      // Transient DB failure — throw so the cache does not persist the error state.
-      throw error;
-    }
-
-    if (!data) {
-      return merchantFeatureSettingsDefaults.buildPublicDefault(
-        merchantId
-      ) as MerchantFeatureSettings;
-    }
-
-    return data as unknown as MerchantFeatureSettings;
+    return await getPublicFeatureSettingsWithMigrationFallback(
+      supabase,
+      merchantId
+    );
   } catch (error) {
     console.error('Error fetching feature settings:', error);
     // Rethrow so Cache Components skips caching this failure.

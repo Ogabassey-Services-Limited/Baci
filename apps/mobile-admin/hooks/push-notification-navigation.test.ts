@@ -78,6 +78,27 @@ describe('navigateToNotificationTarget', () => {
     expect(router.push).toHaveBeenNthCalledWith(1, '/(admin)/negotiations');
     expect(router.push).toHaveBeenNthCalledWith(2, '/(admin)/negotiations');
   });
+
+  it('routes repair notifications with an id to the booking detail screen', () => {
+    const router = { push: vi.fn() };
+
+    navigateToNotificationTarget(router, {
+      params: { id: 'repair 123' },
+      screen: 'repair',
+    });
+
+    expect(router.push).toHaveBeenCalledWith('/(admin)/repairs/repair%20123');
+  });
+
+  it('routes repair notifications without an id to the bookings list screen', () => {
+    const router = { push: vi.fn() };
+
+    navigateToNotificationTarget(router, { screen: 'repair' });
+    navigateToNotificationTarget(router, { screen: 'repairs' });
+
+    expect(router.push).toHaveBeenNthCalledWith(1, '/(admin)/repairs');
+    expect(router.push).toHaveBeenNthCalledWith(2, '/(admin)/repairs');
+  });
 });
 
 describe('handleNotificationTap', () => {

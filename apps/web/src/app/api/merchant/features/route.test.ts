@@ -12,9 +12,12 @@ vi.mock('@/env', () => ({
 
 const mockRevalidateFeatures = vi.fn();
 const mockRevalidateMerchant = vi.fn();
+const mockRevalidateRepairsCatalog = vi.fn();
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateFeatures: (...args: unknown[]) => mockRevalidateFeatures(...args),
   revalidateMerchant: (...args: unknown[]) => mockRevalidateMerchant(...args),
+  revalidateRepairsCatalog: (...args: unknown[]) =>
+    mockRevalidateRepairsCatalog(...args),
 }));
 
 const mockGetMerchantFeatureAccess = vi.fn();
@@ -252,6 +255,7 @@ describe('GET /api/merchant/features', () => {
 
     expect(response.status).toBe(200);
     expect(selectColumns).toContain('agentic_checkout_enabled');
+    expect(selectColumns).toContain('repairs_catalog_enabled');
     expect(selectColumns).toContain('klump_enabled');
     expect(selectColumns).toContain('klump_min_amount');
     expect(selectColumns).toContain('klump_max_amount');
@@ -277,6 +281,7 @@ describe('GET /api/merchant/features', () => {
       id: null,
       merchant_id: MERCHANT_ID,
       agentic_checkout_enabled: true,
+      repairs_catalog_enabled: false,
       klump_enabled: false,
       klump_min_amount: 10000,
       klump_max_amount: 1000000,
@@ -509,6 +514,30 @@ describe('PATCH /api/merchant/features', () => {
     expect(selectColumns).toContain('custom_settings');
     expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
     expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mockRevalidateRepairsCatalog).not.toHaveBeenCalled();
+  });
+
+  it('revalidates repairs feeds when PATCH toggles the repairs catalogue', async () => {
+    const { PATCH } = await import('./route');
+    updateData = {
+      id: 'settings-1',
+      merchant_id: MERCHANT_ID,
+      repairs_catalog_enabled: false,
+    };
+
+    const res = await PATCH(
+      makeRequest('PATCH', { repairs_catalog_enabled: false })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.repairs_catalog_enabled).toBe(false);
+    expect(updatePayload).toMatchObject({
+      repairs_catalog_enabled: false,
+    });
+    expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mockRevalidateRepairsCatalog).toHaveBeenCalledWith(MERCHANT_ID);
   });
 
   it('returns 402 before updating analytics credentials without growth integrations', async () => {
@@ -802,6 +831,23 @@ describe('PUT /api/merchant/features', () => {
     expect(upsertPayload).not.toHaveProperty('offline_conversions_enabled');
     expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
     expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mockRevalidateRepairsCatalog).not.toHaveBeenCalled();
+  });
+
+  it('revalidates repairs feeds when PUT includes the repairs catalogue flag', async () => {
+    const { PUT } = await import('./route');
+
+    const res = await PUT(
+      makeRequest('PUT', { repairs_catalog_enabled: true })
+    );
+
+    expect(res.status).toBe(200);
+    expect(upsertPayload).toMatchObject({
+      repairs_catalog_enabled: true,
+    });
+    expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mockRevalidateRepairsCatalog).toHaveBeenCalledWith(MERCHANT_ID);
   });
 
   it('returns 402 before replacing analytics credentials without growth integrations', async () => {

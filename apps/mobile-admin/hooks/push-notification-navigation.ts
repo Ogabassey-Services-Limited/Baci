@@ -65,6 +65,14 @@ export function navigateToNotificationTarget(
       // land on the list. entityId is intentionally unused here.
       router.push('/(admin)/negotiations');
       return;
+    case 'repair':
+      router.push(
+        entityId ? (`/(admin)/repairs/${entityId}` as Href) : '/(admin)/repairs'
+      );
+      return;
+    case 'repairs':
+      router.push('/(admin)/repairs');
+      return;
     default:
       router.push('/(admin)/(tabs)');
   }

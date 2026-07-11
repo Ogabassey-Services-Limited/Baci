@@ -1,4 +1,8 @@
-import { PROACTIVE_MESSAGES, SUGGESTIONS } from './types';
+import {
+  PROACTIVE_MESSAGES,
+  resolveSuggestionRoute,
+  SUGGESTIONS,
+} from './types';
 
 describe('types constants', () => {
   describe('SUGGESTIONS', () => {
@@ -25,6 +29,22 @@ describe('types constants', () => {
       const labels = SUGGESTIONS.map((s) => s.label);
       expect(labels).toContain('Track my order');
       expect(labels).toContain('Contact support');
+    });
+
+    it('includes a repair-quote deep-link chip pointing at /repairs', () => {
+      const repairChip = SUGGESTIONS.find((s) => s.route === '/repairs');
+      expect(repairChip).toBeDefined();
+      expect(repairChip?.label).toBe('Repair quote');
+    });
+  });
+
+  describe('resolveSuggestionRoute', () => {
+    it('returns the route for navigation chips', () => {
+      expect(resolveSuggestionRoute({ route: '/repairs' })).toBe('/repairs');
+    });
+
+    it('returns null for message-sending chips', () => {
+      expect(resolveSuggestionRoute({ route: undefined })).toBeNull();
     });
   });
 

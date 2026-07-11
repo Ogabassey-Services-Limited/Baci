@@ -415,6 +415,7 @@ describe('getCachedFeatureSettings', () => {
     const settings = {
       blog_enabled: true,
       blog_discover_image_validation_enabled: true,
+      repairs_catalog_enabled: false,
       shipping_insurance_enabled: true,
       shipping_insurance_min_order_value: 10000,
       shipping_insurance_opt_in_default: true,
@@ -432,6 +433,7 @@ describe('getCachedFeatureSettings', () => {
     const projection = String(harness.mockSelect.mock.calls[0]?.[0] ?? '');
     expect(projection).toContain('blog_enabled');
     expect(projection).toContain('blog_discover_image_validation_enabled');
+    expect(projection).toContain('repairs_catalog_enabled');
     expect(projection).toContain('shipping_insurance_enabled');
     expect(projection).toContain('shipping_insurance_min_order_value');
     expect(projection).toContain('shipping_insurance_opt_in_default');

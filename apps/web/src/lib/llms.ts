@@ -136,6 +136,8 @@ function buildStorefrontLlms(baseUrl: string, full: boolean): string {
     `- [Current Agent Product Feed](${baseUrl}${STOREFRONT_FEED_ROUTES.agentProducts}): Current JSONL product feed with structured variant availability`,
     `- [Google Merchant XML Feed](${baseUrl}${STOREFRONT_FEED_ROUTES.googleMerchantXml}): Public product feed for merchant catalog discovery`,
     `- [Facebook Catalog XML Feed](${baseUrl}${STOREFRONT_FEED_ROUTES.facebookCatalogXml}): Public Meta Facebook and Instagram catalog feed`,
+    `- [Agent Repairs Feed](${baseUrl}${STOREFRONT_FEED_ROUTES.agentRepairs}): JSONL feed of bookable device repair services (one line per quote)`,
+    `- [Facebook Repairs Catalog XML Feed](${baseUrl}${STOREFRONT_FEED_ROUTES.facebookRepairsXml}): Public Meta repair-services catalog feed`,
     '',
     '## Guidance',
     `- [Robots](${baseUrl}/robots.txt): Crawl policy for this storefront host`,
