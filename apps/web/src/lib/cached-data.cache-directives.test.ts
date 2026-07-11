@@ -120,6 +120,25 @@ describe('cached-data cache directives', () => {
     }
   });
 
+  it('keeps the route-critical category page shell off the remote cache handler', () => {
+    // The compare page model and compare category inventory were demoted from
+    // 'use cache: remote' to local 'use cache' (PR #3049) because their Vercel
+    // remote-cache SET (RemoteCacheHandler K.set) hangs and never persists under
+    // crawler load. This shell is the LAST route-critical remote write on the
+    // compare/category path — it is nested by the category listing page, both
+    // compare reads, the price-band page, and the category-scoped semantic
+    // inventory — and it is keyed on an unbounded (high-cardinality) category
+    // slug. It therefore belongs on the same local cache: no remote write
+    // round-trip, and its 'storefront-page' window (revalidate 300) already
+    // bounds cross-instance staleness of the rarely-changing shell to ~5min.
+    const source = getFunctionSource('getCachedCategoryPageShellData');
+
+    expect(source).toContain("'use cache';");
+    expect(source).not.toContain("'use cache: remote';");
+    expect(source).toContain("cacheLife('storefront-page');");
+    expect(source).toContain('cacheTag(');
+  });
+
   it('keeps high-cardinality public product reads off the remote cache handler', () => {
     for (const functionName of [
       'getCachedProductLcpHint',

@@ -1852,16 +1852,29 @@ function getCategoryFallbackName(categorySlug: string): string {
 }
 
 /**
- * Remote-cached category shell/status data. This output stays intentionally
- * small so it remains suitable for Vercel's shared remote cache and keeps
- * category/product mutation tag invalidation cross-instance.
+ * Category shell/status data (name, description, active product scope, SEO
+ * copy) for the category listing page, both compare paths, the price-band page,
+ * and the category-scoped semantic inventory.
+ *
+ * LOCAL 'use cache', NOT 'use cache: remote'. This is the last route-critical
+ * remote write on the compare/category path: the compare page model and compare
+ * category inventory were already demoted to local (PR #3049) because their
+ * Vercel remote-cache SET (RemoteCacheHandler K.set) hangs and never persists
+ * under crawler load, and this shell — keyed on an unbounded (high-cardinality)
+ * category slug that any bot can synthesize — was still writing remotely inside
+ * those now-local callers. Local cache has no write round-trip, so a cold fill
+ * costs only the (small) shell query. The shell embeds only rarely-changing
+ * category identity (no price/stock), and its 'storefront-page' window
+ * (revalidate 300) already bounds cross-instance staleness to ~5min, the same
+ * bound #3049 accepted for the compare entries. Tag revalidation on a local
+ * entry only evicts the mutating instance; the short window caps the rest.
  */
 export async function getCachedCategoryPageShellData(
   merchantId: string,
   categorySlug: string,
   _storeSlug: string
 ): Promise<CachedCategoryPageShellData> {
-  'use cache: remote';
+  'use cache';
   cacheLife('storefront-page');
   cacheTag(
     'category-page-data',

@@ -416,7 +416,7 @@ async function loadComparePageForRequest(args: {
 }): Promise<ProductComparePageModel | BrandComparePageModel | null> {
   // Over-long / repeatedly-encoded bot categories can never match; bail before
   // getCachedComparePageModel -> getCachedCompareCategoryInventory
-  // (`'use cache: remote'`, keyed on categorySlug) runs with an unbounded key.
+  // (local `'use cache'`, keyed on categorySlug) runs with an unbounded key.
   // comparisonSlug is NOT gated here: it's a composite `${left}-vs-${right}` of
   // two product slugs (each up to 200 chars), so the single-slug bound would
   // wrongly 404 legitimate long compare URLs. The parsed halves are gated after
