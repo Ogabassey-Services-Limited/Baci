@@ -123,9 +123,13 @@ const mockSupabaseClient = {
   from: vi.fn(),
   rpc: vi.fn(),
 };
+const mockServiceClient = vi.hoisted(() => ({ rpc: vi.fn() }));
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabaseClient),
+}));
+vi.mock('@/lib/supabase/service', () => ({
+  createServiceClient: vi.fn(() => mockServiceClient),
 }));
 
 // Mock email templates
@@ -2451,10 +2455,39 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(mockRunManualPaymentSideEffect).toHaveBeenCalledWith(
       expect.objectContaining({
         step: 'partial_receipt',
+        supabase: mockServiceClient,
         transactionId: 'txn-existing',
       })
     );
     expect(mockSendEmail).toHaveBeenCalledOnce();
+  });
+
+  it('does not send a partial receipt for a refunded replay', async () => {
+    setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-existing' },
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        idempotency_replayed: true,
+        new_paid: 5000,
+        order_total: 10000,
+        payment_status: 'refunded',
+        remaining_balance: 5000,
+        shipping_status: 'processing',
+        transaction_id: 'txn-existing',
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest({ amount: 5000, payment_method: 'cash' }),
+      { params: Promise.resolve({ id: mockOrderId }) }
+    );
+
+    expect(response.status).toBe(200);
+    await flushAfterCallbacks();
+    expect(mockRunManualPaymentSideEffect).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
   it('rejects a partial-payment replay without its transaction id', async () => {

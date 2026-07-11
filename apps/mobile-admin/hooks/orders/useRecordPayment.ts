@@ -36,7 +36,6 @@ export function useRecordPayment() {
     }) => {
       const requestFingerprint = JSON.stringify({
         amount,
-        notes: notes?.trim() || null,
         orderId,
         paymentMethod,
         reference: reference?.trim() || null,

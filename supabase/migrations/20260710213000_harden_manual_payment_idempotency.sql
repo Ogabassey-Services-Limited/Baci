@@ -448,14 +448,14 @@ $$;
 
 REVOKE ALL ON FUNCTION public.claim_manual_payment_side_effect(
   uuid, uuid, text, uuid, text
-) FROM PUBLIC, anon;
+) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_manual_payment_side_effect(
   uuid, uuid, text, uuid, text
-) TO authenticated;
+) TO service_role;
 
 REVOKE ALL ON FUNCTION public.finish_manual_payment_side_effect(
   uuid, text, uuid, text, text
-) FROM PUBLIC, anon;
+) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.finish_manual_payment_side_effect(
   uuid, text, uuid, text, text
-) TO authenticated;
+) TO service_role;

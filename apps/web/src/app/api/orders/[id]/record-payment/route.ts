@@ -24,6 +24,7 @@ import {
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { runManualPaymentSideEffect } from '@/lib/payments/run-manual-payment-side-effect';
 import { scheduleManualPaidOrderSideEffects } from '@/lib/payments/schedule-manual-paid-order-side-effects';
+import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
 import {
   recordPaymentBodySchema,
@@ -691,7 +692,7 @@ export async function POST(
         order,
         transactionId,
       });
-    } else {
+    } else if (rpcPaymentStatus === 'partially_paid') {
       logger.info({
         message: 'RecordPayment order partially paid',
         orderId,
@@ -738,6 +739,7 @@ export async function POST(
           orderId,
         });
         after(async () => {
+          const serviceClient = createServiceClient();
           await runManualPaymentSideEffect({
             actor: `record-payment:${user.id}`,
             execute: async () => {
@@ -768,7 +770,7 @@ export async function POST(
             },
             orderId,
             step: 'partial_receipt',
-            supabase,
+            supabase: serviceClient,
             transactionId,
           });
         });
