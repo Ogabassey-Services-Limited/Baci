@@ -34,8 +34,19 @@ export function captureClientException(
   }
 
   const sanitizedError = sanitizePostHogException(error);
+  // Stamp the failing page's URL/pathname SYNCHRONOUSLY, before the deferred
+  // SDK import: posthog-js derives `$current_url`/`$pathname` at capture
+  // time, so an error-boundary reset, navigation or chunk-recovery reload
+  // racing the import would attribute the exception to the LATER page (same
+  // convention as `withOriginUrl` in web-vitals-queue.ts). Stamped after the
+  // caller spread so, like `app_surface`/`runtime`, callers cannot spoof it;
+  // the URL property sanitizer redacts the query/hash.
+  const location = globalThis.location;
   const sanitizedProperties = sanitizePostHogProperties({
     ...properties,
+    ...(location
+      ? { $current_url: location.href, $pathname: location.pathname }
+      : {}),
     app_surface: 'web',
     runtime: 'browser',
   });
