@@ -461,6 +461,9 @@ async function loadComparePageForRequest(args: {
 
   let core: CachedComparePageCore | null;
 
+  const _tStart = performance.now();
+  let _tModelDone = _tStart;
+
   try {
     core = await getCachedComparePageModel(
       args.merchantId,
@@ -468,6 +471,7 @@ async function loadComparePageForRequest(args: {
       args.categorySlug,
       parsed.canonicalSlug
     );
+    _tModelDone = performance.now();
   } catch (error) {
     // Degrade the single failing request instead of poisoning the cache (the
     // cached builder throws on transient LOAD-BEARING failures — inventory /
@@ -490,6 +494,17 @@ async function loadComparePageForRequest(args: {
   // remote cache: a transient failure here yields empty links / curated-slug
   // fallback indexability for this one request without caching it or 404ing.
   const model = await applyComparePageOverlay(core, args.merchantId);
+  const _tOverlayDone = performance.now();
+
+  // Per-phase timing telemetry for the compare render (this route has a history
+  // of ~30s stalls on large categories). Grep `COMPARE_PHASE_TIMING` in logs.
+  console.log('COMPARE_PHASE_TIMING', {
+    categorySlug: args.categorySlug.slice(0, 60),
+    canonicalSlug: parsed.canonicalSlug.slice(0, 80),
+    model_ms: Math.round(_tModelDone - _tStart),
+    overlay_ms: Math.round(_tOverlayDone - _tModelDone),
+    total_ms: Math.round(_tOverlayDone - _tStart),
+  });
 
   const isCanonicalSlugRequest = args.comparisonSlug === parsed.canonicalSlug;
 
@@ -540,6 +555,7 @@ async function applyComparePageOverlay(
   }
 
   const { overlay, ...pageModel } = core;
+  const _oStart = performance.now();
   const [guidePosts, compareGraphProducts] = await Promise.all([
     loadSupportedGuidePosts(merchantId, overlay.guideLoadContext),
     loadCompareGraphProducts({
@@ -547,6 +563,13 @@ async function applyComparePageOverlay(
       merchantId,
     }),
   ]);
+  const _oReads = performance.now();
+  console.log('COMPARE_OVERLAY_TIMING', {
+    categorySlug: overlay.categorySlug.slice(0, 60),
+    graphProductCount: compareGraphProducts.products.length,
+    graphFailed: compareGraphProducts.failed,
+    reads_ms: Math.round(_oReads - _oStart),
+  });
   const semanticCompareProducts = compareGraphProducts.products.map(
     (product) => ({ ...product, status: 'active' })
   );
@@ -647,7 +670,9 @@ async function getCachedComparePageModel(
     // Unit tests do not run with Next cacheComponents enabled.
   }
 
+  const _mStart = performance.now();
   const merchant = await getMerchantByIdentifier(merchantSlug);
+  const _mMerchant = performance.now();
 
   if (!merchant) {
     return null;
@@ -697,6 +722,7 @@ async function getCachedComparePageModel(
     categorySlug,
     merchantSlug
   );
+  const _mInventory = performance.now();
 
   if (inventory.isCollection) {
     logCompareRouteMiss({
@@ -745,6 +771,15 @@ async function getCachedComparePageModel(
       getCachedProductWithDetails(merchant.id, parsed.leftKey),
       getCachedProductWithDetails(merchant.id, parsed.rightKey),
     ]);
+    const _mDetails = performance.now();
+    console.log('COMPARE_MODEL_TIMING', {
+      categorySlug: categorySlug.slice(0, 60),
+      productCount: normalizedProducts.length,
+      merchant_ms: Math.round(_mMerchant - _mStart),
+      inventory_ms: Math.round(_mInventory - _mMerchant),
+      // includes the sync buildCuratedCompareSlugSet (~20ms) + the details await
+      slugset_plus_details_ms: Math.round(_mDetails - _mInventory),
+    });
 
     if (!leftDetails || !rightDetails) {
       // The cached inventory just said both products exist and are active, so
