@@ -85,6 +85,9 @@ describe('manual payment RPC migration', () => {
     expect(replayBlock).toContain('v_ledger_paid');
     expect(replayBlock).toContain('THEN v_previous_amount_paid');
     expect(replayBlock).toContain("WHEN o.payment_status = 'refunded'");
+    expect(replayBlock).toMatch(
+      /WHEN\s+o\.payment_status\s*=\s*'refunded'\s+THEN\s+v_previous_amount_paid/
+    );
   });
 
   it('matches retries only by the caller-provided idempotency key', () => {

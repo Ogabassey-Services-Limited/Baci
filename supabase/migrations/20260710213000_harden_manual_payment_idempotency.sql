@@ -155,6 +155,8 @@ BEGIN
       amount_paid = CASE
         WHEN o.cancelled_at IS NOT NULL OR o.shipping_status = 'cancelled'
           THEN v_previous_amount_paid
+        WHEN o.payment_status = 'refunded'
+          THEN v_previous_amount_paid
         ELSE v_new_paid
       END,
       payment_status = CASE
