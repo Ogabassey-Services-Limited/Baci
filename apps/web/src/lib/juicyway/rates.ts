@@ -10,13 +10,51 @@
 import { logger } from '../logger';
 
 // Cache rate for 5 minutes to avoid hammering the API
-const RATE_CACHE_TTL_MS = 5 * 60 * 1000;
+export const RATE_CACHE_TTL_MS = 5 * 60 * 1000;
 let cachedRate: { ngnPerUsdt: number; fetchedAt: number } | null = null;
+
+/**
+ * Fetches a live NGN/USDT rate from CoinGecko and updates the module cache.
+ * THROWS on a network/HTTP failure or a non-positive/invalid rate — it never
+ * returns a cached value. Shared by both the lenient and the fail-closed
+ * public accessors below.
+ */
+async function fetchAndCacheNgnPerUsdt(): Promise<number> {
+  const res = await fetch(
+    'https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=ngn',
+    { signal: AbortSignal.timeout(5000) }
+  );
+
+  if (!res.ok) {
+    throw new Error(`CoinGecko returned ${res.status}`);
+  }
+
+  const data = (await res.json()) as { tether?: { ngn?: number } };
+  const rate = data?.tether?.ngn;
+
+  if (!rate || rate <= 0) {
+    throw new Error(`Invalid rate from CoinGecko: ${rate}`);
+  }
+
+  cachedRate = { ngnPerUsdt: rate, fetchedAt: Date.now() };
+
+  logger.info({
+    message: 'Fetched NGN/USDT rate',
+    ngnPerUsdt: rate,
+    source: 'coingecko',
+  });
+
+  return rate;
+}
 
 /**
  * Fetch the current NGN/USDT exchange rate from CoinGecko (free, no key).
  * Returns the number of NGN per 1 USDT (e.g., 1535.05).
- * Falls back to cached value if the API is down.
+ *
+ * LENIENT: falls back to the last cached value of ANY age when the API is down
+ * (only throws when the cache is empty). This is acceptable for the Juicyway
+ * crypto-checkout path but MUST NOT be used on a money path that would lock a
+ * customer charge to an arbitrarily stale rate — use getFreshNgnPerUsdt there.
  */
 export async function getNgnPerUsdt(): Promise<number> {
   if (cachedRate && Date.now() - cachedRate.fetchedAt < RATE_CACHE_TTL_MS) {
@@ -24,31 +62,7 @@ export async function getNgnPerUsdt(): Promise<number> {
   }
 
   try {
-    const res = await fetch(
-      'https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=ngn',
-      { signal: AbortSignal.timeout(5000) }
-    );
-
-    if (!res.ok) {
-      throw new Error(`CoinGecko returned ${res.status}`);
-    }
-
-    const data = (await res.json()) as { tether?: { ngn?: number } };
-    const rate = data?.tether?.ngn;
-
-    if (!rate || rate <= 0) {
-      throw new Error(`Invalid rate from CoinGecko: ${rate}`);
-    }
-
-    cachedRate = { ngnPerUsdt: rate, fetchedAt: Date.now() };
-
-    logger.info({
-      message: 'Fetched NGN/USDT rate',
-      ngnPerUsdt: rate,
-      source: 'coingecko',
-    });
-
-    return rate;
+    return await fetchAndCacheNgnPerUsdt();
   } catch (error) {
     logger.error({
       message: 'Failed to fetch NGN/USDT rate',
@@ -67,6 +81,35 @@ export async function getNgnPerUsdt(): Promise<number> {
 
     throw new Error(
       'Unable to fetch NGN/USDT exchange rate. Please try again.'
+    );
+  }
+}
+
+/**
+ * Fetch the NGN/USDT rate but FAIL CLOSED on staleness. Returns a rate only
+ * when it is no older than `maxAgeMs` — a fresh cache hit or a successful live
+ * fetch — and otherwise THROWS. Unlike getNgnPerUsdt it NEVER returns a stale
+ * cached value, so a money path (e.g. the PayPal NGN→USD presentment) cannot
+ * silently charge the customer at an arbitrarily out-of-date rate after a
+ * CoinGecko outage. The existing lenient callers are unaffected.
+ */
+export async function getFreshNgnPerUsdt(maxAgeMs: number): Promise<number> {
+  if (cachedRate && Date.now() - cachedRate.fetchedAt <= maxAgeMs) {
+    return cachedRate.ngnPerUsdt;
+  }
+
+  try {
+    return await fetchAndCacheNgnPerUsdt();
+  } catch (error) {
+    logger.error({
+      message: 'Failed to fetch a fresh NGN/USDT rate (failing closed)',
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    // Fail closed: the only cache we may hold is older than the caller's
+    // freshness window, so we must NOT charge at a stale rate.
+    throw new Error(
+      'Unable to fetch a fresh NGN/USDT exchange rate. Please try again.'
     );
   }
 }

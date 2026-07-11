@@ -323,6 +323,37 @@ describe('POST /api/payments/paypal/capture-order', () => {
     );
   });
 
+  it('files a reconciliation review when capture validation fails after a COMPLETED capture', async () => {
+    // Funds are already captured (COMPLETED) but the amount does not reconcile
+    // with the stored presentment — the captured money must produce an ops
+    // signal, never a bare 400.
+    vi.mocked(captureOrder).mockResolvedValue({
+      success: true,
+      data: captureData([
+        {
+          id: 'cap-1',
+          status: 'COMPLETED',
+          amount: { value: '1.00', currency_code: 'USD' },
+        },
+      ]),
+    });
+
+    const response = await POST(createRequest());
+    expect(response.status).toBe(400);
+    expect(filePaypalCapturePersistFailureReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gatewayReference: PAYPAL_ORDER_ID,
+        merchantId: MERCHANT_ID,
+        orderId: ORDER_ID,
+        transactionId: 'txn-1',
+        metadata: expect.objectContaining({
+          stage: 'capture_amount_mismatch',
+          reason: 'Payment amount mismatch with PayPal capture',
+        }),
+      })
+    );
+  });
+
   it('rejects a partial capture set where one capture is not completed', async () => {
     vi.mocked(captureOrder).mockResolvedValue({
       success: true,
@@ -404,5 +435,7 @@ describe('POST /api/payments/paypal/capture-order', () => {
       orderNumber: 'BACI-1002',
     });
     expect(runPaypalCaptureSideEffects).toHaveBeenCalledTimes(1);
+    // No captured-but-failed condition on the happy path → no ops signal filed.
+    expect(filePaypalCapturePersistFailureReview).not.toHaveBeenCalled();
   });
 });

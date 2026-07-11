@@ -171,6 +171,24 @@ export async function POST(request: NextRequest) {
       expectedCurrency
     );
     if (!captureValidation.ok) {
+      // Funds are ALREADY captured (COMPLETED verified above) and the mode
+      // guard passed, but the captured set does not reconcile with the stored
+      // presentment (amount/currency drift, partial/split capture, or missing
+      // presentment metadata → NaN). Never drop captured money silently — file
+      // the same reconciliation row the sibling captured-but-failed branches
+      // use so ops can reconcile/refund by hand (Phase 2.4).
+      await filePaypalCapturePersistFailureReview({
+        gatewayReference: paypal_order_id,
+        merchantId: merchant_id,
+        orderId: order_id,
+        reason:
+          'PayPal capture completed but the captured set failed validation against the stored presentment',
+        transactionId: transaction.id,
+        metadata: {
+          stage: 'capture_amount_mismatch',
+          reason: captureValidation.reason,
+        },
+      });
       return NextResponse.json(
         { error: captureValidation.reason },
         { status: 400 }

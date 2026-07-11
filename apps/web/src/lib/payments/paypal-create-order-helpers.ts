@@ -1,4 +1,4 @@
-import { getNgnPerUsdt } from '@/lib/juicyway/rates';
+import { getFreshNgnPerUsdt, RATE_CACHE_TTL_MS } from '@/lib/juicyway/rates';
 import { logger } from '@/lib/logger';
 import { PAYPAL_SUPPORTED_CURRENCIES } from '@/lib/paypal/paypal-currency';
 
@@ -71,14 +71,17 @@ export type PaypalPresentment =
 /**
  * Computes the PayPal presentment amount/currency for an order (Phase 2.5).
  * Non-NGN order currencies are presented as-is (fxRate 1). NGN orders are
- * converted to USD using the LIVE rate only — there is NO hardcoded fallback.
+ * converted to USD using a FRESH live rate only — there is NO hardcoded
+ * fallback AND no stale-cache fallback: the rate must be no older than the
+ * CoinGecko cache TTL or the checkout fails closed.
  *
  * Failures are distinguished so the route can map them to the right status:
  * - `'unsupported_currency'`: a non-NGN currency PayPal cannot present (a
  *   deterministic client error → 400), and
- * - `'fx_unavailable'`: the NGN→USD live rate fetch failed or returned a
- *   non-finite/non-positive value (a transient outage → 503), so nothing is
- *   initialized at an arbitrary rate.
+ * - `'fx_unavailable'`: no fresh NGN→USD rate is available — the live fetch
+ *   failed and any cached rate is stale — or it returned a non-finite/
+ *   non-positive value (a transient outage → 503), so nothing is initialized
+ *   at an arbitrary rate.
  */
 export async function resolvePaypalPresentment(
   orderCurrency: string,
@@ -89,7 +92,9 @@ export async function resolvePaypalPresentment(
 
   if (normalizedOrderCurrency === 'NGN') {
     try {
-      fxRate = await getNgnPerUsdt();
+      // Require a rate no older than the cache TTL: a stale cache after a
+      // CoinGecko outage must NOT lock the customer to an out-of-date rate.
+      fxRate = await getFreshNgnPerUsdt(RATE_CACHE_TTL_MS);
     } catch (error) {
       logger.error({
         message: 'PayPal create-order: live FX rate unavailable',

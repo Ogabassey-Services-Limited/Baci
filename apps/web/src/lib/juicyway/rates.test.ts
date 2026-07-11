@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearRateCache,
   convertNgnKoboToUsdtCents,
+  getFreshNgnPerUsdt,
   getNgnPerUsdt,
+  RATE_CACHE_TTL_MS,
 } from './rates';
 
 vi.mock('../logger', () => ({
@@ -108,6 +110,80 @@ describe('getNgnPerUsdt', () => {
 
     await expect(getNgnPerUsdt()).rejects.toThrow(
       'Unable to fetch NGN/USDT exchange rate'
+    );
+  });
+});
+
+describe('getFreshNgnPerUsdt', () => {
+  it('serves a fresh cache hit within maxAgeMs without re-fetching', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ tether: { ngn: MOCK_RATE } }),
+    });
+
+    const first = await getFreshNgnPerUsdt(RATE_CACHE_TTL_MS);
+    const second = await getFreshNgnPerUsdt(RATE_CACHE_TTL_MS);
+
+    expect(first).toBe(MOCK_RATE);
+    expect(second).toBe(MOCK_RATE);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('fetches a live rate when there is no cache', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ tether: { ngn: MOCK_RATE } }),
+    });
+
+    expect(await getFreshNgnPerUsdt(RATE_CACHE_TTL_MS)).toBe(MOCK_RATE);
+  });
+
+  it('FAILS CLOSED: throws (never returns a stale cache) when the fetch fails and the cache is older than maxAgeMs', async () => {
+    // Populate the cache with a fresh rate.
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ tether: { ngn: MOCK_RATE } }),
+    });
+    await getFreshNgnPerUsdt(RATE_CACHE_TTL_MS);
+
+    // Age the cache past the freshness window, then break the live fetch.
+    vi.spyOn(Date, 'now').mockReturnValue(
+      Date.now() + RATE_CACHE_TTL_MS + 1000
+    );
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('CoinGecko down'));
+
+    await expect(getFreshNgnPerUsdt(RATE_CACHE_TTL_MS)).rejects.toThrow(
+      'Unable to fetch a fresh NGN/USDT exchange rate'
+    );
+  });
+
+  it('throws on a fetch failure with no cache at all', async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('429 rate limited'));
+
+    await expect(getFreshNgnPerUsdt(RATE_CACHE_TTL_MS)).rejects.toThrow(
+      'Unable to fetch a fresh NGN/USDT exchange rate'
+    );
+  });
+
+  it('diverges from the lenient accessor on a stale cache: getNgnPerUsdt returns stale, getFreshNgnPerUsdt throws', async () => {
+    // Seed a cached rate.
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ tether: { ngn: MOCK_RATE } }),
+    });
+    await getFreshNgnPerUsdt(RATE_CACHE_TTL_MS);
+
+    // Cache is now stale and the API is down.
+    vi.spyOn(Date, 'now').mockReturnValue(
+      Date.now() + RATE_CACHE_TTL_MS + 1000
+    );
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('outage'));
+
+    // Lenient path keeps the legacy behavior (returns the stale value)...
+    expect(await getNgnPerUsdt()).toBe(MOCK_RATE);
+    // ...while the money path fails closed.
+    await expect(getFreshNgnPerUsdt(RATE_CACHE_TTL_MS)).rejects.toThrow(
+      'Unable to fetch a fresh NGN/USDT exchange rate'
     );
   });
 });

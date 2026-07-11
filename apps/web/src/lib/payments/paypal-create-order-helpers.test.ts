@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getNgnPerUsdt } from '@/lib/juicyway/rates';
+import { getFreshNgnPerUsdt } from '@/lib/juicyway/rates';
 import {
   getReusablePayPalOrderId,
   resolvePaypalPresentment,
   validateSameOriginUrl,
 } from './paypal-create-order-helpers';
 
+const RATE_CACHE_TTL_MS = 5 * 60 * 1000;
+
 vi.mock('@/lib/juicyway/rates', () => ({
-  getNgnPerUsdt: vi.fn(),
+  getFreshNgnPerUsdt: vi.fn(),
+  RATE_CACHE_TTL_MS: 5 * 60 * 1000,
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -92,7 +95,7 @@ describe('resolvePaypalPresentment', () => {
       presentmentCurrency: 'USD',
       fxRate: 1,
     });
-    expect(getNgnPerUsdt).not.toHaveBeenCalled();
+    expect(getFreshNgnPerUsdt).not.toHaveBeenCalled();
   });
 
   it('fails closed for a non-NGN currency PayPal cannot present', async () => {
@@ -100,11 +103,11 @@ describe('resolvePaypalPresentment', () => {
       ok: false,
       reason: 'unsupported_currency',
     });
-    expect(getNgnPerUsdt).not.toHaveBeenCalled();
+    expect(getFreshNgnPerUsdt).not.toHaveBeenCalled();
   });
 
-  it('converts NGN to USD at the live rate', async () => {
-    vi.mocked(getNgnPerUsdt).mockResolvedValue(1300);
+  it('converts NGN to USD using a FRESH live rate (not a stale-tolerant one)', async () => {
+    vi.mocked(getFreshNgnPerUsdt).mockResolvedValue(1300);
 
     const result = await resolvePaypalPresentment('NGN', 130000);
 
@@ -114,10 +117,32 @@ describe('resolvePaypalPresentment', () => {
       presentmentCurrency: 'USD',
       fxRate: 1300,
     });
+    // The NGN path MUST require freshness (bounded by the cache TTL) so a stale
+    // rate can never silently convert — this is the fail-closed guarantee.
+    expect(getFreshNgnPerUsdt).toHaveBeenCalledWith(RATE_CACHE_TTL_MS);
+  });
+
+  it('fails closed (fx_unavailable) when only a STALE cached rate is available', async () => {
+    // getFreshNgnPerUsdt throws when the live fetch fails and the only cache it
+    // holds is older than the freshness window (proven in rates.test.ts). The
+    // presentment must map that to fx_unavailable — NOT convert at a stale rate.
+    vi.mocked(getFreshNgnPerUsdt).mockRejectedValue(
+      new Error(
+        'Unable to fetch a fresh NGN/USDT exchange rate. Please try again.'
+      )
+    );
+
+    expect(await resolvePaypalPresentment('NGN', 130000)).toEqual({
+      ok: false,
+      reason: 'fx_unavailable',
+    });
+    expect(getFreshNgnPerUsdt).toHaveBeenCalledWith(RATE_CACHE_TTL_MS);
   });
 
   it('fails closed when the live rate fetch throws', async () => {
-    vi.mocked(getNgnPerUsdt).mockRejectedValue(new Error('coingecko down'));
+    vi.mocked(getFreshNgnPerUsdt).mockRejectedValue(
+      new Error('coingecko down')
+    );
 
     expect(await resolvePaypalPresentment('NGN', 130000)).toEqual({
       ok: false,
@@ -126,7 +151,7 @@ describe('resolvePaypalPresentment', () => {
   });
 
   it('fails closed when the live rate is non-positive', async () => {
-    vi.mocked(getNgnPerUsdt).mockResolvedValue(0);
+    vi.mocked(getFreshNgnPerUsdt).mockResolvedValue(0);
 
     expect(await resolvePaypalPresentment('NGN', 130000)).toEqual({
       ok: false,
