@@ -1,11 +1,39 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { normalizeAnalyticsId } from './analytics-id';
-import { FacebookPixel } from './facebook-pixel';
-import { GoogleAnalytics } from './google-analytics';
-import { SnapchatPixel } from './snapchat-pixel';
-import { TikTokPixel } from './tiktok-pixel';
-import { TwitterPixel } from './twitter-pixel';
+
+// Each third-party pixel wrapper is loaded on-demand via `next/dynamic` so only
+// the pixels a merchant has actually configured ship JS to the browser. Before
+// this split, the provider statically imported all five wrappers, so every
+// storefront (including OgaBassey, which configures few or none) paid for the
+// Facebook/GA/TikTok/Snapchat/Twitter wrapper modules in its eager client graph.
+// The wrappers only ever render a consent-gated `next/script strategy="lazyOnload"`
+// tag and render `null` on the server (consent snapshot is `false`), so `ssr:
+// false` here is behaviourally identical — the pixel scripts still fire after
+// load once consent is granted — while keeping the modules out of the boot path.
+// Defined at module scope so the dynamic `import()` never appears in a component
+// body (which would block React Compiler memoization).
+const GoogleAnalytics = dynamic(
+  () => import('./google-analytics').then((mod) => mod.GoogleAnalytics),
+  { ssr: false }
+);
+const FacebookPixel = dynamic(
+  () => import('./facebook-pixel').then((mod) => mod.FacebookPixel),
+  { ssr: false }
+);
+const TikTokPixel = dynamic(
+  () => import('./tiktok-pixel').then((mod) => mod.TikTokPixel),
+  { ssr: false }
+);
+const SnapchatPixel = dynamic(
+  () => import('./snapchat-pixel').then((mod) => mod.SnapchatPixel),
+  { ssr: false }
+);
+const TwitterPixel = dynamic(
+  () => import('./twitter-pixel').then((mod) => mod.TwitterPixel),
+  { ssr: false }
+);
 
 export interface MerchantWithAnalytics {
   google_analytics_id?: string | null;
