@@ -36,12 +36,9 @@ describe('manual payment RPC migration', () => {
     expect(migration).toContain("'idempotency_replayed', true");
   });
 
-  it('retains the seven-argument compatibility overload', () => {
-    expect(migration).toContain('LANGUAGE sql\nSECURITY INVOKER');
-    expect(migration).toContain('gen_random_uuid()::text');
-    expect(migration).toContain(
-      'uuid, uuid, numeric, text, text, text, jsonb\n) TO authenticated;'
-    );
+  it('does not expose a non-idempotent compatibility overload', () => {
+    expect(migration).not.toContain('gen_random_uuid()::text');
+    expect(migration).not.toContain('LANGUAGE sql\nSECURITY INVOKER');
   });
 
   it('rejects non-object metadata before the indexed key is merged', () => {
@@ -57,7 +54,8 @@ describe('manual payment RPC migration', () => {
       'COALESCE(o.amount_paid, 0)::numeric AS amount_paid'
     );
     expect(migration).toContain('v_total_paid_before := greatest(');
-    expect(migration).toContain('amount_paid = v_new_paid');
+    expect(migration).toContain('amount_paid = CASE');
+    expect(migration).toContain('THEN v_previous_amount_paid');
     expect(
       migration.match(/'previous_amount_paid', v_previous_amount_paid/g)?.length
     ).toBe(2);
@@ -80,7 +78,7 @@ describe('manual payment RPC migration', () => {
     expect(ledgerReadIndex).toBeGreaterThan(-1);
     expect(ledgerReadIndex).toBeLessThan(replayIndex);
     expect(replayBlock).toContain('v_ledger_paid');
-    expect(replayBlock).toContain('amount_paid = v_new_paid');
+    expect(replayBlock).toContain('THEN v_previous_amount_paid');
     expect(replayBlock).toContain("WHEN o.payment_status = 'refunded'");
   });
 
@@ -89,8 +87,13 @@ describe('manual payment RPC migration', () => {
       "NULLIF(trim(t.metadata ->> 'manual_payment_idempotency_key'), '') ="
     );
     expect(migration).not.toContain('legacy_manual_payment_fingerprint');
-    expect(migration).not.toContain(
-      'v_existing_transaction.gateway_reference IS DISTINCT FROM v_gateway_reference'
+    expect(migration).toContain(
+      'v_existing_transaction.gateway_reference IS DISTINCT FROM'
+    );
+    expect(migration).toContain("metadata ->> 'payment_method'");
+    expect(migration).toContain('SET gateway_reference = v_gateway_reference');
+    expect(migration).toContain(
+      "'payment_method', p_metadata ->> 'payment_method'"
     );
   });
 

@@ -99,7 +99,7 @@ BEGIN
     + greatest(0, v_wallet_used - v_wallet_transaction_paid);
   v_order_total := COALESCE(v_order.total, 0);
 
-  SELECT t.id, t.amount, t.gateway_reference
+  SELECT t.id, t.amount, t.gateway_reference, t.metadata
   INTO v_existing_transaction
   FROM public.transactions AS t
   WHERE t.order_id = p_order_id
@@ -115,6 +115,35 @@ BEGIN
       RETURN jsonb_build_object('error_code', 'IDEMPOTENCY_KEY_CONFLICT');
     END IF;
 
+    IF v_existing_transaction.gateway_reference IS NOT NULL
+      AND v_gateway_reference IS NOT NULL
+      AND v_existing_transaction.gateway_reference IS DISTINCT FROM
+        v_gateway_reference THEN
+      RETURN jsonb_build_object('error_code', 'IDEMPOTENCY_KEY_CONFLICT');
+    END IF;
+
+    IF (v_existing_transaction.metadata ->> 'payment_method') IS NOT NULL
+      AND (v_existing_transaction.metadata ->> 'payment_method') IS DISTINCT FROM
+        (p_metadata ->> 'payment_method') THEN
+      RETURN jsonb_build_object('error_code', 'IDEMPOTENCY_KEY_CONFLICT');
+    END IF;
+
+    IF v_existing_transaction.gateway_reference IS NULL
+      AND v_gateway_reference IS NOT NULL THEN
+      UPDATE public.transactions AS t
+      SET gateway_reference = v_gateway_reference
+      WHERE t.id = v_existing_transaction.id;
+    END IF;
+
+    IF (v_existing_transaction.metadata ->> 'payment_method') IS NULL
+      AND (p_metadata ->> 'payment_method') IS NOT NULL THEN
+      UPDATE public.transactions AS t
+      SET metadata = t.metadata || jsonb_build_object(
+        'payment_method', p_metadata ->> 'payment_method'
+      )
+      WHERE t.id = v_existing_transaction.id;
+    END IF;
+
     v_new_paid := greatest(
       COALESCE(v_order.amount_paid, 0),
       v_ledger_paid
@@ -123,8 +152,14 @@ BEGIN
 
     UPDATE public.orders AS o
     SET
-      amount_paid = v_new_paid,
+      amount_paid = CASE
+        WHEN o.cancelled_at IS NOT NULL OR o.shipping_status = 'cancelled'
+          THEN v_previous_amount_paid
+        ELSE v_new_paid
+      END,
       payment_status = CASE
+        WHEN o.cancelled_at IS NOT NULL OR o.shipping_status = 'cancelled'
+          THEN o.payment_status
         WHEN o.payment_status = 'refunded' THEN 'refunded'
         WHEN v_order_total > 0 AND v_new_paid >= v_order_total THEN 'paid'
         WHEN v_new_paid > 0 THEN 'partially_paid'
@@ -140,6 +175,11 @@ BEGIN
       AND o.merchant_id = p_merchant_id
     RETURNING o.payment_status::text, o.shipping_status::text, o.cancelled_at
     INTO v_payment_status, v_shipping_status, v_cancelled_at;
+
+    IF v_cancelled_at IS NOT NULL OR v_shipping_status = 'cancelled' THEN
+      v_new_paid := v_previous_amount_paid;
+      v_remaining_balance := greatest(0, v_order_total - v_new_paid);
+    END IF;
 
     RETURN jsonb_build_object(
       'transaction_id', v_existing_transaction.id,
@@ -239,8 +279,14 @@ BEGIN
 
   UPDATE public.orders AS o
   SET
-    amount_paid = v_new_paid,
+    amount_paid = CASE
+      WHEN o.cancelled_at IS NOT NULL OR o.shipping_status = 'cancelled'
+        THEN v_previous_amount_paid
+      ELSE v_new_paid
+    END,
     payment_status = CASE
+      WHEN o.cancelled_at IS NOT NULL OR o.shipping_status = 'cancelled'
+        THEN o.payment_status
       WHEN v_new_paid >= v_order_total THEN 'paid'
       ELSE 'partially_paid'
     END,
@@ -253,6 +299,11 @@ BEGIN
     AND o.merchant_id = p_merchant_id
   RETURNING o.payment_status::text, o.shipping_status::text, o.cancelled_at
   INTO v_payment_status, v_shipping_status, v_cancelled_at;
+
+  IF v_cancelled_at IS NOT NULL OR v_shipping_status = 'cancelled' THEN
+    v_new_paid := v_previous_amount_paid;
+    v_remaining_balance := greatest(0, v_order_total - v_new_paid);
+  END IF;
 
   RETURN jsonb_build_object(
     'transaction_id', v_transaction_id,
@@ -286,39 +337,6 @@ COMMENT ON FUNCTION public.record_manual_order_payment(
   uuid, uuid, numeric, text, text, text, jsonb, text
 ) IS
   'Atomically records an idempotent manual order payment, reconciles the legacy amount_paid baseline with completed payment transactions, and updates amount_paid plus order statuses under one per-order lock.';
-
-CREATE OR REPLACE FUNCTION public.record_manual_order_payment(
-  p_merchant_id uuid,
-  p_order_id uuid,
-  p_amount numeric,
-  p_currency text,
-  p_gateway_reference text,
-  p_description text,
-  p_metadata jsonb
-)
-RETURNS jsonb
-LANGUAGE sql
-SECURITY INVOKER
-SET search_path = ''
-AS $$
-  SELECT public.record_manual_order_payment(
-    p_merchant_id,
-    p_order_id,
-    p_amount,
-    p_currency,
-    p_gateway_reference,
-    p_description,
-    p_metadata,
-    gen_random_uuid()::text
-  );
-$$;
-
-REVOKE ALL ON FUNCTION public.record_manual_order_payment(
-  uuid, uuid, numeric, text, text, text, jsonb
-) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.record_manual_order_payment(
-  uuid, uuid, numeric, text, text, text, jsonb
-) TO authenticated;
 
 CREATE TABLE IF NOT EXISTS public.manual_payment_side_effects (
   dedupe_id uuid NOT NULL,

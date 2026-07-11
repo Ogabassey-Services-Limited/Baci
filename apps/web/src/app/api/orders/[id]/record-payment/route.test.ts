@@ -517,19 +517,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(data).toEqual({ error: 'Invalid request body' });
   });
 
-  it('generates a compatibility key for legacy callers', async () => {
-    const { rpc } = setupRecordPaymentSupabase({
-      insertTransaction: { id: 'txn-new' },
+  it('rejects callers that omit the idempotency key', async () => {
+    setupRecordPaymentSupabase({
       merchant: createRecordPaymentMerchant(),
       order: createRecordPaymentOrder(),
-      recordManualPayment: {
-        new_paid: 5000,
-        order_total: 10000,
-        payment_status: 'partially_paid',
-        remaining_balance: 5000,
-        shipping_status: 'processing',
-        transaction_id: 'txn-new',
-      },
     });
     const params = { params: Promise.resolve({ id: mockOrderId }) };
     const { POST } = await import('./route');
@@ -542,15 +533,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
       params
     );
 
-    expect(response.status).toBe(200);
-    expect(rpc).toHaveBeenCalledWith(
-      'record_manual_order_payment',
-      expect.objectContaining({
-        p_idempotency_key: expect.stringMatching(
-          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-        ),
-      })
-    );
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid request body',
+    });
   });
 
   it('returns 400 when amount is zero', async () => {

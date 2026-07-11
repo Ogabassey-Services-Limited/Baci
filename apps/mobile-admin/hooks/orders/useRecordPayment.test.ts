@@ -430,17 +430,12 @@ describe('useRecordPayment', () => {
     );
   });
 
-  it('reuses an unresolved persisted retry key after a long delay', async () => {
+  it('surfaces every idempotent replay as a previous-payment reconciliation', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },
     });
     const abortError = new Error('aborted');
     abortError.name = 'AbortError';
-    const now = 1_700_000_000_000;
-    const dateNow = vi
-      .spyOn(Date, 'now')
-      .mockReturnValueOnce(now)
-      .mockReturnValue(now + 300_001);
     mocks.fetch.mockRejectedValueOnce(abortError).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ idempotency_replayed: true, recorded: true }),
@@ -472,7 +467,6 @@ describe('useRecordPayment', () => {
       requestBodies[1].idempotency_key
     );
     expect(generateUUID).toHaveBeenCalledTimes(1);
-    dateNow.mockRestore();
   });
 
   it('does not reuse a completed key when retry cleanup fails', async () => {

@@ -124,7 +124,7 @@ export async function POST(
     const parsedAmount = Number(parsedBody.data.amount);
     const { idempotency_key, payment_method, reference, notes } =
       parsedBody.data;
-    const idempotencyKey = idempotency_key ?? crypto.randomUUID();
+    const idempotencyKey = idempotency_key;
     logger.info({
       message: 'RecordPayment body parsed',
       amount: parsedAmount,

@@ -14,7 +14,6 @@ import { parseResponsePayload } from './response-utils';
 
 const RECORD_PAYMENT_TIMEOUT_MS = 15_000;
 const RECORD_PAYMENT_RETRY_KEY_PREFIX = 'manual-payment-retry:';
-const STALE_RETRY_NOTICE_MS = 5 * 60 * 1000;
 
 interface PendingIdempotencyKey {
   createdAt: number;
@@ -117,9 +116,7 @@ export function useRecordPayment() {
       }
 
       const result = await response.json();
-      const reconciledPreviousPayment =
-        result?.idempotency_replayed === true &&
-        Date.now() - createdAt >= STALE_RETRY_NOTICE_MS;
+      const reconciledPreviousPayment = result?.idempotency_replayed === true;
       pendingIdempotencyKeys.current.delete(requestFingerprint);
       try {
         await AsyncStorage.setItem(
