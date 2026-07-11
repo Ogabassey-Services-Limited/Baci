@@ -85,11 +85,16 @@ export function RepairBookingWizard({
     if (currentStep === 0) {
       fieldsToValidate = ['deviceType', 'deviceModel', 'issueDescription'];
     } else if (currentStep === 1) {
+      // Include serviceType/pickupAddress so a pickup with a blank/short address
+      // is caught here (where the FormMessage renders) instead of failing the
+      // schema refinement silently on the read-only review step.
       fieldsToValidate = [
         'customerName',
         'customerEmail',
         'customerPhone',
         'preferredDate',
+        'serviceType',
+        'pickupAddress',
       ];
     }
 

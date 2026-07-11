@@ -83,13 +83,18 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Invalid booking id' }, { status: 400 });
   }
 
+  // An empty body is valid (mode defaults to 'auto'); malformed JSON is not —
+  // otherwise bad input silently books a paid Topship pickup instead of 400ing.
   let body: unknown = {};
-  try {
-    body = await request.json();
-  } catch {
-    body = {};
+  const rawBody = await request.text();
+  if (rawBody.trim().length > 0) {
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
   }
-  const parsed = repairPickupRequestSchema.safeParse(body ?? {});
+  const parsed = repairPickupRequestSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   }

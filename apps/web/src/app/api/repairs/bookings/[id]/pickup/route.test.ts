@@ -130,6 +130,18 @@ describe('POST /api/repairs/bookings/[id]/pickup', () => {
     expect(body.result).toMatchObject({ ok: true, trackingNumber: 'TRK-1' });
   });
 
+  it('returns 400 for a malformed JSON body instead of booking a pickup', async () => {
+    const res = await POST(
+      new Request('https://s.example/api/repairs/bookings/x/pickup', {
+        method: 'POST',
+        body: '{ not valid json',
+      }) as never,
+      { params }
+    );
+    expect(res.status).toBe(400);
+    expect(mocks.bookRepairPickup).not.toHaveBeenCalled();
+  });
+
   it('returns 200 with a recoverable failure the UI can show', async () => {
     mocks.bookRepairPickup.mockResolvedValueOnce({
       ok: false,
