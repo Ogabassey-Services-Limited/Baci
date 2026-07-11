@@ -245,8 +245,7 @@ export async function handleCreateVirtualAccount(
 
     // Virtual account generation via Kuda API is not yet integrated.
     // Block this flow to prevent customers from sending money to fake accounts.
-    // TODO: Replace with actual Kuda API call when ready
-    // const kudaResponse = await kudaRequest(KudaServiceType.ADMIN_CREATE_VIRTUAL_ACCOUNT, {...});
+    // TODO: Replace with an actual Kuda virtual-account API call when ready.
     console.warn(
       '[Chat Tools] Virtual account creation blocked — Kuda API not integrated. Order:',
       order.id

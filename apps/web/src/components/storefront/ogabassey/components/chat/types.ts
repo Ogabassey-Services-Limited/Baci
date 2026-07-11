@@ -2,14 +2,42 @@ import {
   Headphones,
   ShoppingBag,
   Truck,
+  Wrench,
   Zap,
 } from 'lucide-react';
-import { createElement } from 'react';
+import { createElement, type ReactElement } from 'react';
+import { joinRouteBasePath } from '@/lib/routes';
 
 export interface SantaCartAction {
   productName: string;
   price: number;
   added: boolean;
+}
+
+export interface ChatSuggestion {
+  label: string;
+  icon: ReactElement;
+  /**
+   * When set, clicking the chip navigates to this storefront-relative path
+   * (deep-link) instead of sending the label as a chat message.
+   */
+  href?: string;
+}
+
+/**
+ * Resolves a suggestion chip's navigation target against the storefront base
+ * path. Returns null for message-sending chips (no href). Kept pure so the
+ * deep-link contract is unit-testable without the chat runtime.
+ */
+export function resolveSuggestionNavigationPath(
+  suggestion: Pick<ChatSuggestion, 'href'>,
+  basePath: string
+): string | null {
+  if (!suggestion.href) {
+    return null;
+  }
+
+  return joinRouteBasePath(basePath, suggestion.href);
 }
 
 export interface ChatMessage {
@@ -25,7 +53,7 @@ export interface ChatMessage {
   santaActions?: SantaCartAction[];
 }
 
-export const SUGGESTIONS = [
+export const SUGGESTIONS: ChatSuggestion[] = [
   {
     label: 'Track my order',
     icon: createElement(Truck, { size: 14, className: 'text-red-600' }),
@@ -37,6 +65,11 @@ export const SUGGESTIONS = [
   {
     label: "I've sent my payment",
     icon: createElement(ShoppingBag, { size: 14, className: 'text-red-600' }),
+  },
+  {
+    label: 'Repair quote',
+    icon: createElement(Wrench, { size: 14, className: 'text-red-600' }),
+    href: '/repairs',
   },
   {
     label: 'Contact support',

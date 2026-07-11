@@ -43,7 +43,10 @@ function buildManifest(
       checkout_sessions: 'https://ogabassey.com/api/agentic/checkout_sessions',
       feeds: {
         agent_products: 'https://ogabassey.com/feeds/agent-products.jsonl',
+        agent_repairs: 'https://ogabassey.com/feeds/agent-repairs.jsonl',
         facebook_catalog_xml: 'https://ogabassey.com/feeds/facebook.xml',
+        facebook_repairs_xml:
+          'https://ogabassey.com/feeds/facebook-repairs.xml',
         google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
       },
       llms: 'https://ogabassey.com/llms.txt',

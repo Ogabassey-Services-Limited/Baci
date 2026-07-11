@@ -45,6 +45,7 @@ import {
   revalidatePlatformBlog,
   revalidateProductSlugs,
   revalidateProducts,
+  revalidateRepairsCatalog,
   revalidateReviews,
 } from './cache-revalidation';
 
@@ -749,6 +750,28 @@ describe('cache-revalidation utilities', () => {
         'products'
       );
       expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe('revalidateRepairsCatalog', () => {
+    it('revalidates the global and merchant-scoped repairs feed tags', () => {
+      revalidateRepairsCatalog(MERCHANT_ID);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'repairs-catalog-feed',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `repairs-feed-${MERCHANT_ID}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+    });
+
+    it('skips revalidation for a blank merchant id', () => {
+      revalidateRepairsCatalog('   ');
+
+      expect(mockRevalidateTag).not.toHaveBeenCalled();
     });
   });
 

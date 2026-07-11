@@ -1,15 +1,14 @@
 // Template preview
 'use client';
 
+import type { RepairDeviceBrandGroup } from '@baci/shared/repairs';
 import {
-  AlertTriangle,
   Battery,
   ChevronRight,
   HeartPulse,
   Laptop,
   Leaf,
   Monitor,
-  Recycle,
   ShieldCheck,
   Smartphone,
   Sparkles,
@@ -18,15 +17,25 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect } from 'react';
+import { RepairDevicePicker } from '@/components/storefront/repairs/RepairDevicePicker';
 import { asRoute } from '@/lib/routes';
+import { RepairsRecyclingSection } from './repairs-recycling-section';
 
 interface OgabasseyV2RepairsProps {
   basePath?: string;
   storeSlug?: string;
+  /**
+   * Catalogue device groups. `undefined` means the repairs catalogue flag is
+   * off for this merchant — keep today's static services grid so nothing
+   * breaks before the flag is enabled. An array (including an empty one)
+   * means the flag is on — render the real, catalogue-driven device picker.
+   */
+  groups?: RepairDeviceBrandGroup[];
 }
 
 export function OgabasseyV2Repairs({
   basePath,
+  groups,
   storeSlug,
 }: OgabasseyV2RepairsProps) {
   useEffect(() => {
@@ -163,41 +172,51 @@ export function OgabasseyV2Repairs({
           </div>
         </div>
 
-        {/* Services Grid */}
+        {/* Services / device picker */}
         <h3 className="font-bold text-xl text-store-background-text mb-6 flex items-center gap-2">
-          <Wrench className="text-store-primary" size={20} /> Restoration
-          Services
+          <Wrench className="text-store-primary" size={20} />{' '}
+          {groups ? 'Select Your Device' : 'Restoration Services'}
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-16">
-          {services.map((service) => (
-            <div
-              key={service.title}
-              className="bg-store-background p-5 rounded-2xl border border-store-border hover:border-store-primary/40 hover:shadow-md transition-all group cursor-pointer relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity text-store-primary">
-                <Zap size={40} className="opacity-10" />
+        {groups ? (
+          <div className="mb-16">
+            <RepairDevicePicker
+              basePath={normalizedBasePath}
+              groups={groups}
+              notListedHref={repairLink}
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-16">
+            {services.map((service) => (
+              <div
+                key={service.title}
+                className="bg-store-background p-5 rounded-2xl border border-store-border hover:border-store-primary/40 hover:shadow-md transition-all group cursor-pointer relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity text-store-primary">
+                  <Zap size={40} className="opacity-10" />
+                </div>
+                <div className="size-12 bg-store-secondary rounded-xl flex items-center justify-center mb-4 group-hover:bg-store-primary/5 group-hover:text-store-primary transition-colors">
+                  <service.icon size={24} />
+                </div>
+                <h4 className="font-bold text-store-background-text mb-1">
+                  {service.title}
+                </h4>
+                <p className="text-xs text-store-background-text/55 mb-4 h-8">
+                  {service.desc}
+                </p>
+                <div className="flex items-center justify-between mt-auto pt-3 border-t border-store-border/50">
+                  <span className="text-sm font-bold text-store-primary">
+                    {service.price}
+                  </span>
+                  <ChevronRight
+                    size={16}
+                    className="text-store-background-text/30 group-hover:text-store-primary"
+                  />
+                </div>
               </div>
-              <div className="size-12 bg-store-secondary rounded-xl flex items-center justify-center mb-4 group-hover:bg-store-primary/5 group-hover:text-store-primary transition-colors">
-                <service.icon size={24} />
-              </div>
-              <h4 className="font-bold text-store-background-text mb-1">
-                {service.title}
-              </h4>
-              <p className="text-xs text-store-background-text/55 mb-4 h-8">
-                {service.desc}
-              </p>
-              <div className="flex items-center justify-between mt-auto pt-3 border-t border-store-border/50">
-                <span className="text-sm font-bold text-store-primary">
-                  {service.price}
-                </span>
-                <ChevronRight
-                  size={16}
-                  className="text-store-background-text/30 group-hover:text-store-primary"
-                />
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Maintenance Banner */}
         <div className="bg-store-background border border-store-border rounded-2xl p-8 md:p-10 relative overflow-hidden mb-16 shadow-sm">
@@ -228,61 +247,7 @@ export function OgabasseyV2Repairs({
         </div>
 
         {/* Recycling Section - Neutral Tones */}
-        <div className="bg-store-secondary rounded-3xl p-8 md:p-12 text-center border border-store-border">
-          <div className="inline-flex items-center justify-center size-16 bg-store-background rounded-full mb-6 text-store-background-text shadow-sm">
-            <Recycle size={32} />
-          </div>
-          <h2 className="text-2xl md:text-3xl font-bold text-store-background-text mb-4">
-            Beyond Repair? Recycle Responsibly.
-          </h2>
-          <p className="text-store-background-text/65 max-w-2xl mx-auto mb-8">
-            If your device is truly at the end of its life, don't throw it in
-            the trash. Electronic waste contains harmful chemicals. Drop it off
-            at any Ogabassey location, and we will ensure it is stripped for
-            parts and recycled safely.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <div className="bg-store-background p-4 rounded-xl flex items-center gap-3 shadow-sm text-left border border-store-border">
-              <div className="bg-store-primary/5 text-store-primary p-2 rounded-lg">
-                <AlertTriangle size={20} />
-              </div>
-              <div>
-                <p className="font-bold text-store-background-text text-sm">
-                  Safe Disposal
-                </p>
-                <p className="text-xs text-store-background-text/55">
-                  of Lithium Batteries
-                </p>
-              </div>
-            </div>
-            <div className="bg-store-background p-4 rounded-xl flex items-center gap-3 shadow-sm text-left border border-store-border">
-              <div className="bg-store-secondary text-store-secondary-text p-2 rounded-lg">
-                <Monitor size={20} />
-              </div>
-              <div>
-                <p className="font-bold text-store-background-text text-sm">
-                  Glass Recycling
-                </p>
-                <p className="text-xs text-store-background-text/55">
-                  Screens processed correctly
-                </p>
-              </div>
-            </div>
-            <div className="bg-store-background p-4 rounded-xl flex items-center gap-3 shadow-sm text-left border border-store-border">
-              <div className="bg-store-accent/10 text-store-accent p-2 rounded-lg">
-                <Smartphone size={20} />
-              </div>
-              <div>
-                <p className="font-bold text-store-background-text text-sm">
-                  Component Harvest
-                </p>
-                <p className="text-xs text-store-background-text/55">
-                  Chips reused for repairs
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <RepairsRecyclingSection />
       </div>
     </div>
   );

@@ -214,6 +214,13 @@ export default function MenuScreen() {
           onPress: () => router.push('/(admin)/negotiations'),
         },
         {
+          id: 'repairs',
+          icon: 'construct-outline',
+          label: 'Repair Bookings',
+          description: 'Manage repair service requests',
+          onPress: () => router.push('/(admin)/repairs'),
+        },
+        {
           id: 'staff',
           icon: 'people-outline',
           label: 'Staff',

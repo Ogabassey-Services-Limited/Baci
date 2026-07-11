@@ -351,7 +351,7 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', transaction.order_id)
         .select(
-          'id, order_number, merchant_id, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, cancelled_at, updated_at, ad_tracking, order_items(id, product_id, condition, name, price, quantity, subtotal, variant_name)'
+          'id, order_number, merchant_id, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, cancelled_at, updated_at, ad_tracking, order_items(id, product_id, condition, name, price, quantity, variant_name)'
         )
         .single();
 
@@ -385,7 +385,6 @@ export async function POST(request: NextRequest) {
           price: number;
           quantity: number;
           condition: string | null;
-          subtotal: number;
           variant_name: string | null;
         }>;
       } | null;
