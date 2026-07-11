@@ -809,6 +809,65 @@ describe('useRecordPayment', () => {
     });
   });
 
+  it('retains the original key and details after retryable inventory failures', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    mocks.fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        statusText: 'Conflict',
+        text: async () =>
+          JSON.stringify({
+            code: 'serialized_inventory_unavailable',
+            error: 'serialized_inventory_unavailable',
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ idempotency_replayed: true }),
+      });
+    const mutation = useRecordPayment() as unknown as {
+      mutationFn: (vars: {
+        amount: number;
+        orderId: string;
+        paymentMethod: string;
+        reference: string;
+      }) => Promise<unknown>;
+    };
+
+    await expect(
+      mutation.mutationFn({
+        amount: 5000,
+        orderId: 'order-1',
+        paymentMethod: 'pos',
+        reference: 'ORIGINAL-REF',
+      })
+    ).rejects.toThrow('serialized_inventory_unavailable');
+    await expect(
+      mutation.mutationFn({
+        amount: 5000,
+        orderId: 'order-1',
+        paymentMethod: 'bank_transfer',
+        reference: 'CHANGED-REF',
+      })
+    ).resolves.toMatchObject({
+      idempotency_replayed: true,
+      reconciled_previous_payment: true,
+    });
+
+    const requestBodies = mocks.fetch.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body))
+    );
+    expect(requestBodies[1]).toMatchObject({
+      idempotency_key: requestBodies[0].idempotency_key,
+      payment_method: 'pos',
+      reference: 'ORIGINAL-REF',
+    });
+    expect(generateUUID).toHaveBeenCalledTimes(1);
+  });
+
   it('retains the original key and details after an ambiguous server error', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },

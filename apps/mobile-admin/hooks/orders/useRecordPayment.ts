@@ -18,12 +18,35 @@ import { parseResponsePayload } from './response-utils';
 const RECORD_PAYMENT_TIMEOUT_MS = 15_000;
 const RECORD_PAYMENT_RETRY_LEASE_MS = 15 * 60 * 1000;
 const RECORD_PAYMENT_RETRY_KEY_PREFIX = 'manual-payment-retry:';
+const RETRYABLE_RECORD_PAYMENT_ERROR_CODES = new Set([
+  'serialized_inventory_unavailable',
+]);
 
 interface PendingIdempotencyKey {
   createdAt: number;
   idempotencyKey: string;
   paymentMethod: string;
   reference: string | null;
+}
+
+function isRetryableRecordPaymentError(
+  response: Response,
+  payload: Record<string, unknown> | string | null
+) {
+  if (
+    response.status !== 409 ||
+    !payload ||
+    typeof payload !== 'object'
+  ) {
+    return false;
+  }
+
+  const code = typeof payload.code === 'string' ? payload.code : null;
+  const error = typeof payload.error === 'string' ? payload.error : null;
+  return (
+    (code !== null && RETRYABLE_RECORD_PAYMENT_ERROR_CODES.has(code)) ||
+    (error !== null && RETRYABLE_RECORD_PAYMENT_ERROR_CODES.has(error))
+  );
 }
 
 export function useRecordPayment() {
@@ -171,7 +194,8 @@ export function useRecordPayment() {
         const isDefinitiveClientError =
           response.status >= 400 &&
           response.status < 500 &&
-          ![408, 425, 429].includes(response.status);
+          ![408, 425, 429].includes(response.status) &&
+          !isRetryableRecordPaymentError(response, payload);
         if (isDefinitiveClientError) {
           await clearRejectedRetry();
         }
