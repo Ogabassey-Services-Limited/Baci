@@ -142,6 +142,11 @@ describe('storefront public read snapshots migration', () => {
       'CASE WHEN resolved.is_published THEN resolved.feature_settings'
     );
     expect(MIGRATION_SOURCE).toContain(
+      'public_feature_setting.key = ANY (ARRAY['
+    );
+    expect(MIGRATION_SOURCE).toContain("'blog_enabled'");
+    expect(MIGRATION_SOURCE).toContain("'wallet_paystack_dva_enabled'");
+    expect(MIGRATION_SOURCE).not.toContain(
       "merchant_row.feature_settings - 'custom_settings'"
     );
     expect(MIGRATION_SOURCE).toContain("'google_merchant_id'");
