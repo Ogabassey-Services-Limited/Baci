@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { pruneExpiredVoucherCartLines } from '@/lib/checkout/quiz-voucher-expiry';
 import { runWhenPageActivated } from '@/lib/dom/run-when-page-activated';
 import { logger } from '@/lib/logger';
 import type { Product } from '@/lib/products';
@@ -74,7 +75,10 @@ export function StorefrontCartProvider({
     setPrevInitialMerchantSlug(initialMerchantSlug);
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
     setMerchantSlugState(slugToUse);
-    setCart(getCartFromStorage(slugToUse));
+    // Prune quiz-prize voucher lines whose signed token has already expired
+    // (7-day window). An expired voucher line is forced to ₦0 and re-fails
+    // every checkout until removed, so it must never survive rehydration.
+    setCart(pruneExpiredVoucherCartLines(getCartFromStorage(slugToUse)));
     // Re-read the group flag for the new merchant too, so it stays consistent
     // with the freshly loaded cart (otherwise the previous merchant's flag
     // leaks onto this cart).
@@ -93,7 +97,7 @@ export function StorefrontCartProvider({
   // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only hydration; initialMerchantSlug prop changes handled during render
   useEffect(() => {
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
-    setCart(getCartFromStorage(slugToUse));
+    setCart(pruneExpiredVoucherCartLines(getCartFromStorage(slugToUse)));
     setCartWideNegotiationActive(getCartWideNegotiationFromStorage(slugToUse));
     setMerchantSlugState(slugToUse);
     setIsHydrated(true);
@@ -315,7 +319,19 @@ export function StorefrontCartProvider({
           }
         : product;
 
-    if (productForCart.manage_stock && (productForCart.stock ?? 0) <= 0) {
+    // A quiz-prize voucher line redeems a unit that was already reserved for
+    // this shopper at award mint (create_quiz_product_prize_award_with_inventory
+    // decrements stock and pins a reserved order). Public stock can therefore be
+    // 0 — e.g. the last serialized unit — so the out-of-stock guard must NOT
+    // block the winner from adding their own prize.
+    const isQuizPrizeVoucherLine = Boolean(
+      normalizedOptions?.quizAwardId || normalizedOptions?.quizVoucherToken
+    );
+    if (
+      !isQuizPrizeVoucherLine &&
+      productForCart.manage_stock &&
+      (productForCart.stock ?? 0) <= 0
+    ) {
       logger.warn({
         message: 'Attempted to add out-of-stock product to cart',
         productId: productForCart.id,

@@ -15,6 +15,8 @@ const mockRepriceCartItems = jest.fn() as jest.MockedFunction<
 >;
 const mockCreateOrder =
   jest.fn<typeof import('@/services/orders').createOrder>();
+const mockSubmitBnplCheckout = jest.fn();
+const mockBuildCheckoutOrderRequest = jest.fn();
 const mockValidateCheckoutSubmission =
   jest.fn<
     typeof import('./checkout-submit-validation').validateCheckoutSubmission
@@ -43,7 +45,18 @@ jest.mock('@/services/cart-reprice', () => ({
 }));
 
 jest.mock('@/services/orders', () => ({
-  createOrder: mockCreateOrder,
+  // Lazy wrapper (not `createOrder: mockCreateOrder`): jest hoists this factory
+  // above the `const mockCreateOrder`, so an eager binding captures `undefined`.
+  // Typed args keep it compatible with the typed mock.
+  createOrder: (
+    ...args: Parameters<typeof import('@/services/orders').createOrder>
+  ) => mockCreateOrder(...args),
+}));
+
+jest.mock('@/lib/wallet-payment-helpers', () => ({
+  buildSavingsOrderFields: jest.fn(() => ({})),
+  buildWalletOrderFields: jest.fn(() => ({})),
+  getFullyPaidStoreCreditPaymentMethod: jest.fn(() => undefined),
 }));
 
 jest.mock('@/services/analytics', () => ({
@@ -63,11 +76,12 @@ jest.mock('@/hooks/use-merchant', () => ({
 }));
 
 jest.mock('./checkout-bnpl-submit', () => ({
-  submitBnplCheckout: jest.fn(),
+  submitBnplCheckout: (...args: unknown[]) => mockSubmitBnplCheckout(...args),
 }));
 
 jest.mock('./checkout-order-builders', () => ({
-  buildCheckoutOrderRequest: jest.fn(),
+  buildCheckoutOrderRequest: (...args: unknown[]) =>
+    mockBuildCheckoutOrderRequest(...args),
   createCheckoutSnapshot: jest.fn(() => ({
     deliveryFee: 1500,
     subtotal: 1200000,
@@ -213,6 +227,102 @@ describe('useCheckoutSubmit', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('blocks checkout of a mixed prize + paid cart before creating an order', async () => {
+    // A voucher (prize) line redeems as its own pre-reserved order; the server
+    // ignores the other items and the success path clears the cart, so a mixed
+    // cart would lose the paid line. Checkout must refuse before repricing or
+    // order creation.
+    cartItems = [
+      cartItem,
+      {
+        id: 'line-prize',
+        name: 'iPhone 15 (Prize)',
+        price: 0,
+        product_id: 'product-prize',
+        quantity: 1,
+        slug: 'iphone-15',
+        voucher_token: 'qv1.aaa.bbb',
+        voucher_award_id: 'award-1',
+      },
+    ];
+    const params = createParams();
+
+    const { result } = renderHook(() => useCheckoutSubmit(params));
+
+    await act(async () => {
+      await result.current(address);
+    });
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Check out your prize separately',
+      expect.stringContaining('redeemed on its own order'),
+      [{ text: 'OK' }]
+    );
+    expect(mockRepriceCartItems).not.toHaveBeenCalled();
+    expect(mockCreateOrder).not.toHaveBeenCalled();
+    expect(params.isOrderInFlight.current).toBe(false);
+  });
+
+  it('routes a voucher-only cart through the standard order path even when BNPL is selected', async () => {
+    // A ₦0 prize must never take a BNPL/financing flow (which bypasses the
+    // fully-paid success route and would open a ₦0 loan). It goes through
+    // createOrder → finalize, which returns the pre-reserved paid order.
+    cartItems = [
+      {
+        id: 'line-prize',
+        name: 'iPhone 15 (Prize)',
+        price: 0,
+        product_id: 'product-prize',
+        quantity: 1,
+        slug: 'iphone-15',
+        voucher_token: 'qv1.aaa.bbb',
+        voucher_award_id: 'award-1',
+      },
+    ];
+    mockRepriceCartItems.mockResolvedValue({ changes: [], priceById: {} });
+    const params = createParams({ selectedPayment: 'credit_direct' });
+
+    const { result } = renderHook(() => useCheckoutSubmit(params));
+
+    await act(async () => {
+      await result.current(address);
+    });
+
+    // Standard path taken (createOrder called); BNPL flow NOT taken.
+    expect(mockCreateOrder).toHaveBeenCalled();
+    expect(mockSubmitBnplCheckout).not.toHaveBeenCalled();
+  });
+
+  it('forces a non-POD method for a voucher-only cart so the prize order is marked paid', async () => {
+    // The voucher RPC keys payment_status off the method: POD → pending, else →
+    // paid. A ₦0 prize with pay-on-delivery selected must still complete, so the
+    // order is submitted with a non-POD method.
+    cartItems = [
+      {
+        id: 'line-prize',
+        name: 'iPhone 15 (Prize)',
+        price: 0,
+        product_id: 'product-prize',
+        quantity: 1,
+        slug: 'iphone-15',
+        voucher_token: 'qv1.aaa.bbb',
+        voucher_award_id: 'award-1',
+      },
+    ];
+    mockRepriceCartItems.mockResolvedValue({ changes: [], priceById: {} });
+    const params = createParams({ selectedPayment: 'pay_on_delivery' });
+
+    const { result } = renderHook(() => useCheckoutSubmit(params));
+
+    await act(async () => {
+      await result.current(address);
+    });
+
+    expect(mockBuildCheckoutOrderRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentMethodForOrder: 'card' })
+    );
   });
 
   it('updates stale cart prices and aborts checkout after validation passes', async () => {

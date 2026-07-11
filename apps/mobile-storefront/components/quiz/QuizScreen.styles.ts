@@ -175,5 +175,14 @@ export function createQuizStyles(colors: QuizThemeColors) {
       fontWeight: '800',
       color: colors.text,
     },
+    prizeWinText: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: colors.success,
+    },
+    prizeClaimHint: {
+      fontSize: 14,
+      color: colors.textSecondary,
+    },
   });
 }

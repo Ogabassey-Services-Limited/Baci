@@ -31,6 +31,8 @@ export type {
   QuizEventStatus,
   QuizIntegrityTier,
   QuizOption,
+  QuizPrizeClaim,
+  QuizPrizeCondition,
   QuizQuestion,
   QuizResult,
   QuizServiceOptions,
@@ -274,6 +276,7 @@ export function startQuizAttempt({
 export function submitQuizAnswer({
   answer,
   baseUrl,
+  clientAnsweredAt,
   integrityTier,
   attemptId,
   questionId,
@@ -282,7 +285,13 @@ export function submitQuizAnswer({
     `/api/quiz/attempts/${encodeURIComponent(attemptId)}/answers`,
     {
       method: 'POST',
-      body: JSON.stringify({ answer, integrityTier, questionId }),
+      body: JSON.stringify({
+        answer,
+        integrityTier,
+        questionId,
+        // Sent only when captured so non-timed callers keep the minimal payload.
+        ...(clientAnsweredAt ? { clientAnsweredAt } : {}),
+      }),
     },
     quizResultSchema,
     baseUrl

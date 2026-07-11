@@ -55,12 +55,16 @@ const quizEvent: QuizEvent = {
   title: 'Daily Prize Quiz',
 };
 
-const quizAttempt: QuizAttempt = {
+const createFutureDeadline = (secondsFromNow: number) =>
+  new Date(Date.now() + secondsFromNow * 1000).toISOString();
+
+const createQuizAttempt = (): QuizAttempt => ({
   attemptId: 'attempt-1',
   eventId: 'event-1',
   examPassPointsSpent: 1,
   remainingLoyaltyPoints: 4,
   question: {
+    deadlineAt: createFutureDeadline(30),
     id: 'question-1',
     index: 1,
     options: [
@@ -71,7 +75,7 @@ const quizAttempt: QuizAttempt = {
     timeLimitSeconds: 30,
     total: 3,
   },
-};
+});
 
 const quizResult: QuizResult = {
   attemptId: 'attempt-1',
@@ -103,7 +107,9 @@ describe('QuizScreen', () => {
     mockUsername = 'ogafan';
     mockSetUsername.mockReset();
     jest.mocked(fetchQuizEvents).mockResolvedValue([quizEvent]);
-    jest.mocked(startQuizAttempt).mockResolvedValue(quizAttempt);
+    jest
+      .mocked(startQuizAttempt)
+      .mockImplementation(async () => createQuizAttempt());
     jest.mocked(submitQuizAnswer).mockResolvedValue(quizResult);
   });
 
@@ -111,6 +117,11 @@ describe('QuizScreen', () => {
     jest.clearAllMocks();
   });
 
+  // This is the first render in the file, so it absorbs React Native's one-time
+  // cold-start cost. Under `jest --runInBand` memory pressure (560+ suites) that
+  // can exceed the default 5s per-test timeout even though the flow itself is
+  // instant, so the first test gets extra headroom (see jest.setup.ts note on
+  // the same accumulated-pressure effect widening asyncUtilTimeout).
   it('renders a load error as an accessible alert', async () => {
     jest
       .mocked(fetchQuizEvents)
@@ -126,7 +137,7 @@ describe('QuizScreen', () => {
     );
 
     expect(await screen.findByText('Daily Prize Quiz')).toBeTruthy();
-  });
+  }, 15_000);
 
   it('renders fetched quiz events', async () => {
     render(<QuizScreen integrityTier="device" locale="en-US" />);
@@ -184,12 +195,12 @@ describe('QuizScreen', () => {
     });
 
     await act(async () => {
-      startDeferred.resolve(quizAttempt);
+      startDeferred.resolve(createQuizAttempt());
       await startDeferred.promise;
     });
 
     expect(await screen.findByText('What is 2 + 2?')).toBeTruthy();
-    expect(screen.getByText('You have 30s per question')).toBeTruthy();
+    expect(screen.getByText('Time left: 30s')).toBeTruthy();
     expect(
       screen.getByText('1 point exam pass used. 4 points left.')
     ).toBeTruthy();
@@ -223,6 +234,7 @@ describe('QuizScreen', () => {
     expect(submitQuizAnswer).toHaveBeenCalledWith({
       answer: 'b',
       attemptId: 'attempt-1',
+      clientAnsweredAt: expect.any(String),
       integrityTier: 'strong',
       questionId: 'question-1',
     });
@@ -295,6 +307,7 @@ describe('QuizScreen', () => {
     expect(submitQuizAnswer).toHaveBeenCalledWith({
       answer: 'b',
       attemptId: 'attempt-1',
+      clientAnsweredAt: expect.any(String),
       integrityTier: 'strong',
       questionId: 'question-1',
     });

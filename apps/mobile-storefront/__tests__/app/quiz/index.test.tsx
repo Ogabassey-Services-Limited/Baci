@@ -26,6 +26,28 @@ const mockEvents: QuizEvent[] = [
   },
 ];
 
+const mockCreateFutureDeadline = (secondsFromNow: number) =>
+  new Date(Date.now() + secondsFromNow * 1000).toISOString();
+
+const mockCreateQuizAttempt = () => ({
+  attemptId: 'attempt-1',
+  eventId: 'event-1',
+  examPassPointsSpent: 1,
+  remainingLoyaltyPoints: 4,
+  question: {
+    deadlineAt: mockCreateFutureDeadline(30),
+    id: 'question-1',
+    prompt: 'What is 2 + 2?',
+    options: [
+      { id: 'a', label: '3' },
+      { id: 'b', label: '4' },
+    ],
+    timeLimitSeconds: 30,
+    index: 1,
+    total: 3,
+  },
+});
+
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
 }));
@@ -41,23 +63,7 @@ jest.mock('@/stores/auth-store', () => ({
 
 jest.mock('@/services/quiz', () => ({
   fetchQuizEvents: jest.fn(async () => mockEvents),
-  startQuizAttempt: jest.fn(async () => ({
-    attemptId: 'attempt-1',
-    eventId: 'event-1',
-    examPassPointsSpent: 1,
-    remainingLoyaltyPoints: 4,
-    question: {
-      id: 'question-1',
-      prompt: 'What is 2 + 2?',
-      options: [
-        { id: 'a', label: '3' },
-        { id: 'b', label: '4' },
-      ],
-      timeLimitSeconds: 30,
-      index: 1,
-      total: 3,
-    },
-  })),
+  startQuizAttempt: jest.fn(async () => mockCreateQuizAttempt()),
   submitQuizAnswer: jest.fn(async () => ({
     attemptId: 'attempt-1',
     status: 'completed',
@@ -72,23 +78,9 @@ describe('/quiz screen', () => {
     jest.clearAllMocks();
     useQuizStore.getState().reset();
     jest.mocked(fetchQuizEvents).mockResolvedValue(mockEvents);
-    jest.mocked(startQuizAttempt).mockResolvedValue({
-      attemptId: 'attempt-1',
-      eventId: 'event-1',
-      examPassPointsSpent: 1,
-      remainingLoyaltyPoints: 4,
-      question: {
-        id: 'question-1',
-        prompt: 'What is 2 + 2?',
-        options: [
-          { id: 'a', label: '3' },
-          { id: 'b', label: '4' },
-        ],
-        timeLimitSeconds: 30,
-        index: 1,
-        total: 3,
-      },
-    });
+    jest
+      .mocked(startQuizAttempt)
+      .mockImplementation(async () => mockCreateQuizAttempt());
     jest.mocked(submitQuizAnswer).mockResolvedValue({
       attemptId: 'attempt-1',
       status: 'completed',

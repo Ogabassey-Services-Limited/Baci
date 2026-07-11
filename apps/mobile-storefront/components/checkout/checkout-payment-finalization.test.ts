@@ -130,13 +130,14 @@ describe('finalizeCheckoutPayment', () => {
     const clearCart = jest.fn();
     const setIsProcessing = jest.fn();
     const runPostOrderSideEffects = jest.fn();
+    const isOrderInFlight = { current: true };
 
     await finalizeCheckoutPayment({
       clearCart,
       customerEmail: 'ada@example.com',
       customerName: 'Ada Customer',
       customerPhone: '08012345678',
-      isOrderInFlight: { current: true },
+      isOrderInFlight,
       orderNumber: 'BAC-001',
       orderResponse: createOrderResponse({
         amountDueToGateway: 0,
@@ -157,6 +158,7 @@ describe('finalizeCheckoutPayment', () => {
 
     expect(clearCart).toHaveBeenCalled();
     expect(setIsProcessing).toHaveBeenCalledWith(false);
+    expect(isOrderInFlight.current).toBe(false);
     expect(mockRouterReplace).toHaveBeenCalledWith({
       pathname: '/order-success',
       params: expect.objectContaining({
@@ -165,6 +167,55 @@ describe('finalizeCheckoutPayment', () => {
         paymentMethod: 'wallet',
         trackingToken: 'tracking-token',
         walletAmountUsed: '25000',
+      }),
+    });
+    expect(runPostOrderSideEffects).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes a fully-paid ₦0 prize order to success instead of initializing a gateway', async () => {
+    // A quiz prize (voucher) order is pre-reserved and comes back paid with
+    // nothing due and no wallet/savings usage. Even with an online method
+    // selected, it must go straight to success, not the ₦0 gateway.
+    const clearCart = jest.fn();
+    const setIsProcessing = jest.fn();
+    const runPostOrderSideEffects = jest.fn();
+    const isOrderInFlight = { current: true };
+
+    await finalizeCheckoutPayment({
+      clearCart,
+      customerEmail: 'ada@example.com',
+      customerName: 'Ada Customer',
+      customerPhone: '08012345678',
+      isOrderInFlight,
+      orderNumber: 'BAC-001',
+      orderResponse: createOrderResponse({
+        amountDueToGateway: 0,
+        order: {
+          id: 'order-1',
+          payment_status: 'paid',
+          tracking_token: 'tracking-token',
+        },
+      }),
+      runPostOrderSideEffects,
+      selectedPayment: 'paystack',
+      setIsProcessing,
+      setPendingOrder: jest.fn(),
+      setShowCryptoSelection: jest.fn(),
+      shouldCreateWalletFundedBankTransferOrder: false,
+    });
+
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(clearCart).toHaveBeenCalled();
+    expect(isOrderInFlight.current).toBe(false);
+    expect(mockRouterReplace).toHaveBeenCalledWith({
+      pathname: '/order-success',
+      params: expect.objectContaining({
+        orderId: 'order-1',
+        orderNumber: 'BAC-001',
+        // The prize is settled by the voucher — success uses the actual method,
+        // not the stale UI selection (here 'paystack').
+        paymentMethod: 'quiz_voucher',
+        trackingToken: 'tracking-token',
       }),
     });
     expect(runPostOrderSideEffects).toHaveBeenCalledTimes(1);

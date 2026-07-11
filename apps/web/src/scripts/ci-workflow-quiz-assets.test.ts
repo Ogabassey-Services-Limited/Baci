@@ -47,7 +47,7 @@ describe('CI workflow quiz asset coverage', () => {
       "- 'apps/mobile-storefront/assets/quiz/**'"
     );
     expect(workflow).toMatch(
-      /if: needs\.changes\.outputs\.web == 'true'\n\s+run: pnpm --filter @baci\/web verify:quiz-assets/
+      /if: needs\.changes\.outputs\.web == 'true' \|\| needs\.changes\.outputs\.quiz_db == 'true'\n\s+run: pnpm --filter @baci\/web verify:quiz-assets/
     );
   });
 

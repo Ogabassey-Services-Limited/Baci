@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { apiGet, apiPost } from '@/lib/api-client';
 import { OgabasseyV2Quiz } from './quiz';
@@ -61,6 +61,8 @@ vi.mock('next/link', () => ({
 
 const PRIZE_PRODUCT_ID = '55555555-5555-4555-8555-555555555555';
 const PRIZE_AWARD_ID = '44444444-4444-4444-8444-444444444444';
+const createFutureDeadline = (secondsFromNow: number) =>
+  new Date(Date.now() + secondsFromNow * 1000).toISOString();
 
 const eventResponse = {
   events: [
@@ -88,6 +90,9 @@ const attemptResponse = {
   eventId: 'event-1',
   examPassPointsSpent: 1,
   question: {
+    get deadlineAt() {
+      return createFutureDeadline(30);
+    },
     id: 'question-1',
     index: 1,
     options: [
@@ -120,6 +125,10 @@ describe('OgabasseyV2Quiz', () => {
       user: null,
       verifyOtp: vi.fn(),
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('links unauthenticated customers to login with quiz redirect', () => {
@@ -181,6 +190,95 @@ describe('OgabasseyV2Quiz', () => {
     expect(await screen.findByText('1 of 1')).toBeInTheDocument();
   });
 
+  it('shows the live per-question countdown once the exam starts (FIX A)', async () => {
+    vi.mocked(apiGet).mockResolvedValue(eventResponse);
+    vi.mocked(apiPost).mockResolvedValueOnce(attemptResponse);
+
+    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start exam for Daily Quiz' })
+    );
+
+    expect(await screen.findByText('30s remaining')).toBeInTheDocument();
+  });
+
+  it('keeps a failed timeout submission retryable', async () => {
+    vi.useFakeTimers({ now: new Date('2026-05-26T10:00:00.000Z') });
+    vi.mocked(apiGet).mockResolvedValue(eventResponse);
+    vi.mocked(apiPost)
+      .mockResolvedValueOnce({
+        ...attemptResponse,
+        question: {
+          ...attemptResponse.question,
+          deadlineAt: new Date(Date.now() + 100).toISOString(),
+        },
+      })
+      .mockRejectedValueOnce(new Error('temporary network failure'))
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-1',
+        correctAnswers: 0,
+        prizeEligible: false,
+        status: 'completed',
+        totalQuestions: 1,
+    });
+
+    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Start exam for Daily Quiz' })
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByText('Pick the winning answer')).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+      await Promise.resolve();
+    });
+    expect(apiPost).toHaveBeenCalledTimes(2);
+
+    const retryButton = screen.getByRole('button', {
+      name: 'Submit answer',
+    });
+    expect(retryButton).toBeEnabled();
+    fireEvent.click(retryButton);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(apiPost).toHaveBeenLastCalledWith(
+      '/api/quiz/attempts/attempt-1/answers',
+      expect.objectContaining({
+        answer: '__baci_quiz_timeout_forfeit_no_answer__',
+        integrityTier: 'basic',
+        questionId: 'question-1',
+      })
+    );
+  });
+
+  it('guards against double-tapping Start firing two attempts (FIX D)', async () => {
+    vi.mocked(apiGet).mockResolvedValue(eventResponse);
+    vi.mocked(apiPost).mockResolvedValueOnce(attemptResponse);
+
+    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
+    const startButton = await screen.findByRole('button', {
+      name: 'Start exam for Daily Quiz',
+    });
+
+    // Two synchronous taps before the async start resolves.
+    fireEvent.click(startButton);
+    fireEvent.click(startButton);
+
+    expect(
+      await screen.findByText('Pick the winning answer')
+    ).toBeInTheDocument();
+    // The synchronous in-flight ref must have swallowed the second tap.
+    expect(apiPost).toHaveBeenCalledTimes(1);
+  });
+
   it('refreshes the sponsored question ad when the next question appears', async () => {
     vi.mocked(apiGet).mockResolvedValue({
       ...eventResponse,
@@ -196,6 +294,7 @@ describe('OgabasseyV2Quiz', () => {
         correctAnswers: 1,
         prizeEligible: false,
         question: {
+          deadlineAt: createFutureDeadline(30),
           id: 'question-2',
           index: 2,
           options: [

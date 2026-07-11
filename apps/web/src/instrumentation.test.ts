@@ -13,6 +13,7 @@ vi.mock('@/lib/posthog/server', () => ({
 }));
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.clearAllMocks();
   vi.unstubAllEnvs();
 });
@@ -30,6 +31,24 @@ describe('instrumentation register', () => {
       },
       serviceName: 'baci-web',
     });
+  });
+
+  it('logs invalid quiz phase configuration that fails before the deployment assertion', async () => {
+    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+    vi.stubEnv('VERCEL_ENV', 'production');
+    vi.stubEnv('QUIZ_PHASE', 'invalid');
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    await expect(register()).resolves.toBeUndefined();
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Quiz deployment phase validation failed during boot',
+      expect.objectContaining({
+        message: 'QUIZ_PHASE must be 1a or production',
+      })
+    );
   });
 
   it('does not register OpenTelemetry outside the Node.js runtime', async () => {

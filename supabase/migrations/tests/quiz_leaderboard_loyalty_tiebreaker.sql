@@ -1,6 +1,7 @@
 -- =============================================
 -- REGRESSION TEST: quiz Leaderboard Loyalty Tiebreaker
---   Validates the leaderboard ranking, sorting hierarchy, and RLS/grants.
+--   Validates the leaderboard ranking, sorting hierarchy, RLS/grants,
+--   the authorization guard (QZ031), and that loyalty_points is NOT projected.
 --
 -- USAGE:
 --   psql $DATABASE_URL -f supabase/migrations/tests/quiz_leaderboard_loyalty_tiebreaker.sql
@@ -14,6 +15,7 @@ DECLARE
   v_function_search_path boolean;
   v_anon_allowed boolean;
   v_auth_allowed boolean;
+  v_result_signature text;
 BEGIN
   -- 1. Verify function security & search path configuration
   SELECT prosecdef, COALESCE(proconfig, ARRAY[]::text[]) @> ARRAY['search_path=']
@@ -41,10 +43,21 @@ BEGIN
   IF NOT v_auth_allowed THEN
     RAISE EXCEPTION 'get_quiz_leaderboard must be executable by authenticated users';
   END IF;
+
+  -- 3. Verify loyalty_points is NOT exposed in the projection (wallet-like PII).
+  SELECT pg_get_function_result(oid)
+  INTO v_result_signature
+  FROM pg_proc
+  WHERE proname = 'get_quiz_leaderboard'
+    AND proargtypes = ARRAY['uuid'::regtype]::oidvector;
+
+  IF v_result_signature ILIKE '%loyalty_points%' THEN
+    RAISE EXCEPTION 'get_quiz_leaderboard must not project loyalty_points (wallet-like PII)';
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
 
--- 3. Set up mock data to verify sorting hierarchy
+-- 4. Set up mock data to verify sorting hierarchy + authorization guard
 DO $$
 DECLARE
   v_merchant_id uuid;
@@ -62,15 +75,19 @@ DECLARE
   v_rank_2_cid uuid;
   v_rank_3_cid uuid;
   v_rank_4_cid uuid;
+  -- auth.uid() for an authorized viewer (a customer of the event's merchant)
+  v_viewer_uid uuid := '00000000-0000-4000-8000-0000000000f1';
+  v_unauthorized_raised boolean := false;
 BEGIN
   -- Create a mock merchant
   INSERT INTO public.merchants (id, name, slug)
   VALUES ('00000000-0000-4000-8000-000000000a01', 'Test Merchant', 'test-merchant')
   RETURNING id INTO v_merchant_id;
 
-  -- Create customers with different loyalty points balances
-  INSERT INTO public.customers (id, merchant_id, full_name, email, loyalty_points)
-  VALUES ('00000000-0000-4000-8000-000000000c01', v_merchant_id, 'Customer A (500 pts)', 'a@test.com', 500)
+  -- Create customers with different loyalty points balances.
+  -- Customer A is also the authorized viewer (has a user_id matching auth.uid()).
+  INSERT INTO public.customers (id, merchant_id, user_id, full_name, email, loyalty_points)
+  VALUES ('00000000-0000-4000-8000-000000000c01', v_merchant_id, v_viewer_uid, 'Customer A (500 pts)', 'a@test.com', 500)
   RETURNING id INTO v_customer_a;
 
   INSERT INTO public.customers (id, merchant_id, full_name, email, loyalty_points)
@@ -111,6 +128,12 @@ BEGIN
   VALUES ('00000000-0000-4000-8000-000000000a14', v_event_id, v_customer_d, 'disqualified', 9, v_now - interval '5 minutes', v_now - interval '3 minutes')
   RETURNING id INTO v_attempt_d;
 
+  -- Authorize the caller as Customer A (a customer of the event's merchant).
+  -- Set both GUCs so auth.uid() resolves regardless of the installed implementation
+  -- (older: request.jwt.claim.sub; newer: request.jwt.claims->>'sub').
+  PERFORM set_config('request.jwt.claim.sub', v_viewer_uid::text, true);
+  PERFORM set_config('request.jwt.claims', pg_catalog.json_build_object('sub', v_viewer_uid::text)::text, true);
+
   -- Run leaderboard function and assert sorting order
   SELECT customer_id INTO v_rank_1_cid FROM public.get_quiz_leaderboard(v_event_id) WHERE rank = 1;
   SELECT customer_id INTO v_rank_2_cid FROM public.get_quiz_leaderboard(v_event_id) WHERE rank = 2;
@@ -131,6 +154,20 @@ BEGIN
 
   IF v_rank_4_cid IS DISTINCT FROM v_customer_d THEN
     RAISE EXCEPTION 'Rank 4 must be Customer D (disqualified attempt, ranked last despite score 9). Found customer: %', v_rank_4_cid;
+  END IF;
+
+  -- 5. Authorization guard: a caller who is NOT a customer of the merchant is rejected (QZ031).
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-0000000000ff'::text, true);
+  PERFORM set_config('request.jwt.claims', pg_catalog.json_build_object('sub', '00000000-0000-4000-8000-0000000000ff')::text, true);
+  BEGIN
+    PERFORM 1 FROM public.get_quiz_leaderboard(v_event_id);
+  EXCEPTION
+    WHEN SQLSTATE 'QZ031' THEN
+      v_unauthorized_raised := true;
+  END;
+
+  IF NOT v_unauthorized_raised THEN
+    RAISE EXCEPTION 'get_quiz_leaderboard must reject callers who are not customers of the event merchant (QZ031)';
   END IF;
 END;
 $$ LANGUAGE plpgsql;
