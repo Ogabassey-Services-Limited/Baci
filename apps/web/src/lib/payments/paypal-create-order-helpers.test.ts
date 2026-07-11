@@ -256,7 +256,29 @@ describe('resolveReusablePaypalApproval', () => {
     ).toEqual({ outcome: 'already_captured' });
   });
 
-  it('returns already_captured when the stored order is APPROVED (capturable)', async () => {
+  it('REUSES an APPROVED order (capturable, not captured) instead of dead-ending it (F-158)', async () => {
+    // APPROVED means the buyer authorized but PayPal has NOT captured. Blocking
+    // it as already_captured strands a legitimate, still-payable order — the
+    // buyer could never finish. It must reuse the approval link so they can.
+    vi.mocked(getOrder).mockResolvedValue({
+      success: true,
+      data: {
+        id: 'PP-1',
+        status: 'APPROVED',
+        links: [
+          { rel: 'payer-action', href: 'https://paypal/finish', method: 'GET' },
+        ],
+      },
+    });
+
+    expect(
+      await resolveReusablePaypalApproval(credentials, 'PP-1', 'sandbox')
+    ).toEqual({ outcome: 'reuse', approveUrl: 'https://paypal/finish' });
+  });
+
+  it('mints a fresh order for an APPROVED order with no approval link (never blocks — F-158)', async () => {
+    // Still not captured, so a replacement moves no extra money. The one thing
+    // it must NOT do is resolve to already_captured (which would block).
     vi.mocked(getOrder).mockResolvedValue({
       success: true,
       data: { id: 'PP-1', status: 'APPROVED', links: [] },
@@ -264,7 +286,7 @@ describe('resolveReusablePaypalApproval', () => {
 
     expect(
       await resolveReusablePaypalApproval(credentials, 'PP-1', 'sandbox')
-    ).toEqual({ outcome: 'already_captured' });
+    ).toEqual({ outcome: 'create_fresh' });
   });
 
   it('returns create_fresh when the stored order is VOIDED/expired', async () => {

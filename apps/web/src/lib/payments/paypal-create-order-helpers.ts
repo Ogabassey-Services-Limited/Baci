@@ -149,23 +149,28 @@ export function pickPaypalApprovalUrl(order: {
 }
 
 /**
- * PayPal Order statuses at which money is already captured (COMPLETED) or the
- * buyer has already approved and the order is capturable (APPROVED). A
- * create-order retry that finds the stored order in one of these states must NOT
- * fall through to a fresh order — PayPal already holds/collected the funds, so a
- * second approval link would double-charge the buyer (H1).
+ * The ONLY PayPal Order status at which money is already captured. A
+ * create-order retry that finds the stored order COMPLETED must NOT fall through
+ * to a fresh order — PayPal already collected the funds, so a second
+ * approval+capture would double-charge the buyer (H1/F-263).
+ *
+ * APPROVED is deliberately NOT here: the buyer authorized but the order is still
+ * CAPTURABLE, not captured. Treating APPROVED as "already captured" dead-ended a
+ * legitimate order — the buyer could never finish paying (F-158). APPROVED is
+ * handled as an approvable state below (reused, or replaced), never blocked.
  */
-const CAPTURED_OR_CAPTURABLE_STATUSES = new Set(['COMPLETED', 'APPROVED']);
+const CAPTURED_PAYPAL_STATUS = 'COMPLETED';
 
 /**
  * Outcome of inspecting a stored, reuse-eligible PayPal order:
- * - `reuse`: still awaiting approval — hand its approval link back so the buyer
- *   completes the SAME order (no duplicate).
- * - `already_captured`: PayPal already captured (COMPLETED) or the buyer already
- *   approved a capturable order (APPROVED). The caller must block/reconcile —
- *   minting a fresh order here would double-charge.
- * - `create_fresh`: the order is expired/voided (or the lookup failed) and is
- *   neither approvable nor captured — safe to mint a replacement.
+ * - `reuse`: still capturable (CREATED / PAYER_ACTION_REQUIRED / APPROVED) and
+ *   exposes an approval link — hand it back so the buyer completes the SAME
+ *   order (no duplicate).
+ * - `already_captured`: PayPal already captured the funds (COMPLETED). The
+ *   caller must block/reconcile — minting a fresh order would double-charge.
+ * - `create_fresh`: the order is expired/voided (or the lookup failed), or it is
+ *   still capturable but no longer exposes an approval link — neither captured
+ *   nor reusable, so a replacement is safe (the prior order was never captured).
  */
 export type ReusablePaypalApproval =
   | { outcome: 'reuse'; approveUrl: string }
@@ -174,14 +179,20 @@ export type ReusablePaypalApproval =
 
 /**
  * Inspects a stored, reuse-eligible PayPal order and tells the caller how to
- * proceed. Reuses the order while it is still approvable (returning its approval
- * link so a cancel-then-retry completes the SAME order — the client
- * `startPaypalCheckout` dead-ends without an `approveUrl`). Crucially, a
- * COMPLETED order (PayPal captured but the local transaction update failed) or
- * an APPROVED order (capturable) resolves to `already_captured` so the caller
- * blocks instead of minting a fresh order for money PayPal already holds — that
- * would double-charge and overwrite the local reference (H1). Only a dead order
- * (voided/expired, or a failed lookup) resolves to `create_fresh`.
+ * proceed, separating the two very different "buyer already interacted" states:
+ *
+ * - COMPLETED → `already_captured`: PayPal captured the money (the local
+ *   transaction update presumably failed). The caller MUST block/reconcile —
+ *   minting a fresh order here would double-charge and overwrite the reference
+ *   (H1/F-263).
+ * - APPROVED / CREATED / PAYER_ACTION_REQUIRED → `reuse` (when an approval link
+ *   is present): the order is still capturable and NOT captured. Hand the buyer
+ *   back the SAME order's approval link so a cancel-then-retry finishes it — the
+ *   client `startPaypalCheckout` dead-ends without an `approveUrl`. Blocking an
+ *   APPROVED order here would strand a legitimate, still-payable order (F-158).
+ * - Anything else (VOIDED / expired / unknown / failed lookup), or a still
+ *   approvable order that no longer exposes an approval link → `create_fresh`:
+ *   the prior order was never captured, so a replacement moves no extra money.
  */
 export async function resolveReusablePaypalApproval(
   credentials: { clientId: string; secretKey: string },
@@ -201,7 +212,8 @@ export async function resolveReusablePaypalApproval(
   }
 
   const status = existingOrder.data.status.trim().toUpperCase();
-  if (CAPTURED_OR_CAPTURABLE_STATUSES.has(status)) {
+  if (status === CAPTURED_PAYPAL_STATUS) {
+    // Captured — block/reconcile. This is the ONLY blocking state.
     return { outcome: 'already_captured' };
   }
   if (!isPaypalOrderApprovable(status)) {
@@ -209,6 +221,9 @@ export async function resolveReusablePaypalApproval(
     return { outcome: 'create_fresh' };
   }
 
+  // CREATED / PAYER_ACTION_REQUIRED / APPROVED — still capturable, never
+  // captured. Reuse its approval link so the buyer can finish; only if PayPal no
+  // longer exposes one do we mint a replacement (still no double-charge).
   const approveUrl = pickPaypalApprovalUrl(existingOrder.data);
   return approveUrl
     ? { outcome: 'reuse', approveUrl }

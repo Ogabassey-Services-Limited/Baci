@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
+import { finalizePaypalCaptureOrder } from '@/lib/payments/finalize-paypal-capture-order';
 import { computeOrderResidualAmount } from '@/lib/payments/order-residual-amount';
 import {
   getPaypalCheckoutCredentials,
@@ -119,6 +120,84 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Invalid order total', code: 'INVALID_AMOUNT' },
         { status: 400 }
+      );
+    }
+
+    // F-263: a prior PayPal capture may have COMPLETED while its order
+    // finalization failed/rolled back, leaving a `completed` transaction on an
+    // order that still reads as payable (the payment_status guard above only
+    // catches settled orders). Minting a fresh PayPal order here would hand the
+    // buyer a SECOND approval+capture for money already collected. Look for that
+    // completed transaction BEFORE minting/reusing: if one exists, reconcile the
+    // order to paid (idempotent via the finalize claim CAS) instead of charging
+    // again, then block the retry with 409 so the client stops starting new
+    // checkouts. Complements the pending-transaction reuse guard (H1/H11) below,
+    // which only covers the still-open PayPal order.
+    const { data: completedPaypalTxn, error: completedTxnError } =
+      await supabase
+        .from('transactions')
+        .select('id, amount, gateway_reference')
+        .eq('order_id', order_id)
+        .eq('merchant_id', merchant_id)
+        .eq('gateway', 'paypal')
+        .eq('status', 'completed')
+        .maybeSingle();
+
+    if (completedTxnError) {
+      logger.error({
+        message: 'Failed to check completed PayPal transaction',
+        error: completedTxnError,
+      });
+      return NextResponse.json(
+        {
+          error: 'Failed to inspect transaction state',
+          code: 'DATABASE_ERROR',
+        },
+        { status: 500 }
+      );
+    }
+
+    if (completedPaypalTxn?.gateway_reference) {
+      // Read the pre-capture amount_paid so a reconcile that hits an inventory
+      // rollback restores it rather than zeroing a mixed-tender redemption.
+      const { data: orderRow } = await supabase
+        .from('orders')
+        .select('amount_paid')
+        .eq('id', order_id)
+        .eq('merchant_id', merchant_id)
+        .maybeSingle();
+
+      await finalizePaypalCaptureOrder({
+        supabase,
+        merchantId: merchant_id,
+        orderId: order_id,
+        paypalOrderId: completedPaypalTxn.gateway_reference,
+        transaction: {
+          id: completedPaypalTxn.id,
+          amount: Number(completedPaypalTxn.amount),
+        },
+        orderSnapshot: {
+          order_number: null,
+          shipping_status:
+            typeof orderSnapshot.shipping_status === 'string'
+              ? orderSnapshot.shipping_status
+              : null,
+          payment_status:
+            typeof orderSnapshot.payment_status === 'string'
+              ? orderSnapshot.payment_status
+              : null,
+          total: orderTotal,
+          amount_paid: (orderRow?.amount_paid as number | string | null) ?? 0,
+        },
+      });
+
+      return NextResponse.json(
+        {
+          error:
+            'This order has already been captured by PayPal and is being finalized',
+          code: 'ORDER_ALREADY_CAPTURED',
+        },
+        { status: 409 }
       );
     }
 
@@ -283,12 +362,14 @@ export async function POST(request: NextRequest) {
       presentmentCurrency
     );
     if (reusablePayPalOrderId) {
-      // Reuse the stored PayPal order ONLY while it is still approvable, and
-      // return its approval link so a cancel-then-retry can complete (F3). A
-      // COMPLETED/APPROVED order means PayPal already captured (or is about to)
-      // the funds — minting a fresh order would hand the buyer a second approval
-      // link for money already collected, so block with a 409 the checkout can
-      // surface (H1). Only a dead (voided/expired) order falls through below.
+      // Reuse the stored PayPal order while it is still capturable (CREATED /
+      // PAYER_ACTION_REQUIRED / APPROVED), returning its approval link so a
+      // cancel-then-retry can complete the SAME order (F3/F-158). ONLY a
+      // COMPLETED order — PayPal already captured the funds — blocks with a 409
+      // the checkout can surface (H1): minting a fresh order would hand the buyer
+      // a second approval link for money already collected. A dead
+      // (voided/expired) order, or a capturable one with no approval link, falls
+      // through to a fresh mint below (the prior order was never captured).
       const reuse = await resolveReusablePaypalApproval(
         credentials,
         reusablePayPalOrderId,

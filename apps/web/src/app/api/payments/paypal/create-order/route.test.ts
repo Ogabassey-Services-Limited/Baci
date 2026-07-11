@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getFreshNgnPerUsdt } from '@/lib/juicyway/rates';
+import { finalizePaypalCaptureOrder } from '@/lib/payments/finalize-paypal-capture-order';
 import {
   getDecryptedMerchantCredential,
   markMerchantCredentialInvalid,
@@ -14,6 +15,10 @@ vi.mock('server-only', () => ({}));
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(),
+}));
+
+vi.mock('@/lib/payments/finalize-paypal-capture-order', () => ({
+  finalizePaypalCaptureOrder: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/paypal', () => ({
@@ -71,11 +76,19 @@ function buildSupabaseMock({
     unknown
   >,
   existingTxn = null as Record<string, unknown> | null,
+  // A `completed` PayPal transaction (F-263). Returned only for the
+  // status='completed' transactions query; the pending reuse query still gets
+  // `existingTxn`.
+  completedTxn = null as Record<string, unknown> | null,
+  // The `orders.amount_paid` read the F-263 reconcile makes before finalizing.
+  orderRow = null as Record<string, unknown> | null,
   createTxnResult = { data: 'txn-uuid', error: null } as {
     data: unknown;
     error: unknown;
   },
 } = {}) {
+  let lastTable = '';
+  let lastStatus = '';
   const mock = {
     rpc: vi.fn((name: string) => {
       if (name === 'get_order_payment_snapshot') {
@@ -86,13 +99,31 @@ function buildSupabaseMock({
       }
       return Promise.resolve({ data: null, error: null });
     }),
-    from: vi.fn(() => mock),
+    from: vi.fn((table: string) => {
+      lastTable = table;
+      lastStatus = '';
+      return mock;
+    }),
     select: vi.fn(() => mock),
-    eq: vi.fn(() => mock),
+    eq: vi.fn((column: string, value: unknown) => {
+      if (column === 'status') {
+        lastStatus = String(value);
+      }
+      return mock;
+    }),
     update: vi.fn(() => mock),
-    maybeSingle: vi.fn(() =>
-      Promise.resolve({ data: existingTxn, error: null })
-    ),
+    maybeSingle: vi.fn(() => {
+      if (lastTable === 'transactions') {
+        return Promise.resolve({
+          data: lastStatus === 'completed' ? completedTxn : existingTxn,
+          error: null,
+        });
+      }
+      if (lastTable === 'orders') {
+        return Promise.resolve({ data: orderRow, error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    }),
     single: vi.fn(() =>
       Promise.resolve({ data: { custom_settings: custom }, error: null })
     ),
@@ -334,6 +365,70 @@ describe('POST /api/payments/paypal/create-order', () => {
       'create_payment_transaction',
       expect.anything()
     );
+  });
+
+  it('reconciles and blocks with 409 when a COMPLETED PayPal capture already exists (F-263 double-charge guard)', async () => {
+    // A prior capture COMPLETED but its order finalization failed, so the order
+    // still reads as payable. Minting a fresh PayPal order here would charge the
+    // buyer a SECOND time. The route must reconcile the existing capture and
+    // block — never touch PayPal.
+    const supabase = buildSupabaseMock({
+      completedTxn: {
+        id: 'txn-completed',
+        amount: 130000,
+        gateway_reference: 'PP-DONE',
+      },
+      orderRow: { amount_paid: 0 },
+    });
+    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
+    mockVaultOk();
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe('ORDER_ALREADY_CAPTURED');
+    // Reconciled the existing capture instead of minting a fresh order.
+    expect(finalizePaypalCaptureOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: MERCHANT_ID,
+        orderId: ORDER_ID,
+        paypalOrderId: 'PP-DONE',
+        transaction: { id: 'txn-completed', amount: 130000 },
+        orderSnapshot: expect.objectContaining({
+          total: 130000,
+          amount_paid: 0,
+        }),
+      })
+    );
+    // No second PayPal order, no fresh checkout amount lookup reaches PayPal.
+    expect(createOrder).not.toHaveBeenCalled();
+    expect(getOrder).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_payment_transaction',
+      expect.anything()
+    );
+  });
+
+  it('does not treat a pending PayPal transaction as a completed capture (no false F-263 block)', async () => {
+    // Only a status='completed' transaction triggers the F-263 guard. A pending
+    // reuse row must flow to the normal reuse/mint path, never a 409.
+    const supabase = buildSupabaseMock({
+      existingTxn: {
+        gateway_reference: 'PP-EXISTING',
+        metadata: {
+          paypal_presentment_amount: 100,
+          paypal_presentment_currency: 'USD',
+        },
+      },
+    });
+    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
+    mockVaultOk();
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).reused).toBe(true);
+    expect(finalizePaypalCaptureOrder).not.toHaveBeenCalled();
   });
 
   it('converts NGN to USD and records a fee-waived residual transaction (no init-time accrual)', async () => {

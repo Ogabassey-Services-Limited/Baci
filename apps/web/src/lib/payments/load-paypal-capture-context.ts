@@ -33,6 +33,12 @@ export interface PaypalCaptureOrderSnapshot {
   order_number: string | null;
   shipping_status: string | null;
   payment_status: string | null;
+  /**
+   * Pre-capture amount already settled Baci-side (mixed-tender redemption).
+   * Carried so the finalizer can restore it if an inventory rollback undoes the
+   * paid transition (F-58).
+   */
+  amount_paid: number | string | null;
 }
 
 export type PaypalCaptureContext =
@@ -157,7 +163,7 @@ export async function loadPaypalCaptureContext(
   const { data: orderSnapshot, error: orderFetchError } = await supabase
     .from('orders')
     .select(
-      'id, merchant_id, total, currency, customer_email, order_number, shipping_status, payment_status'
+      'id, merchant_id, total, currency, customer_email, order_number, shipping_status, payment_status, amount_paid'
     )
     .eq('id', orderId)
     .eq('merchant_id', merchantId)

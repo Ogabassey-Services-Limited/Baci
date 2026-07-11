@@ -35,6 +35,7 @@ const ORDER_SNAPSHOT = {
   customer_email: 'customer@example.com',
   order_number: 'BACI-1002',
   shipping_status: 'pending',
+  amount_paid: 0,
 };
 
 function buildSupabase({
@@ -81,6 +82,9 @@ describe('loadPaypalCaptureContext', () => {
       expect(result.reconcileOnly).toBe(false);
       expect(result.transaction.id).toBe('txn-1');
       expect(result.orderSnapshot.order_number).toBe('BACI-1002');
+      // F-58: pre-capture amount_paid is carried so the finalizer can restore it
+      // on an inventory rollback.
+      expect(result.orderSnapshot.amount_paid).toBe(0);
       expect(result.metadata?.paypal_presentment_amount).toBe(100);
     }
   });

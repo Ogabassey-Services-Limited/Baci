@@ -74,6 +74,8 @@ const ORDER_SNAPSHOT = {
   order_number: 'BACI-1002',
   shipping_status: 'pending',
   payment_status: 'unpaid',
+  total: 130000,
+  amount_paid: 0,
 };
 
 const PAID_ORDER = {
@@ -92,13 +94,30 @@ const CANCELLED_ORDER = {
   cancelled_at: '2026-07-11T00:00:00.000Z',
 };
 
-function buildSupabase(orderResult: { data: unknown; error: unknown }) {
+// The order UPDATE now uses a `.neq('payment_status','paid')` CAS + maybeSingle
+// (F-268), and the `!order` (lost-claim) branch re-reads `orders`. The mock
+// returns `orderResult` for the UPDATE chain and `reReadResult` for the plain
+// SELECT re-read so both paths are exercised.
+function buildSupabase(
+  orderResult: { data: unknown; error: unknown },
+  reReadResult: { data: unknown; error: unknown } = { data: null, error: null }
+) {
+  let lastWasUpdate = false;
   const client = {
-    from: vi.fn(() => client),
-    update: vi.fn(() => client),
+    from: vi.fn(() => {
+      lastWasUpdate = false;
+      return client;
+    }),
+    update: vi.fn(() => {
+      lastWasUpdate = true;
+      return client;
+    }),
     eq: vi.fn(() => client),
+    neq: vi.fn(() => client),
     select: vi.fn(() => client),
-    single: vi.fn(() => Promise.resolve(orderResult)),
+    maybeSingle: vi.fn(() =>
+      Promise.resolve(lastWasUpdate ? orderResult : reReadResult)
+    ),
   };
   return client;
 }
@@ -126,7 +145,7 @@ describe('finalizePaypalCaptureOrder', () => {
     ).mockResolvedValue(undefined);
   });
 
-  it('marks the order paid, confirms inventory, and schedules side effects', async () => {
+  it('marks the order paid, records amount_paid, claims via CAS, confirms inventory, and schedules side effects', async () => {
     const supabase = buildSupabase({ data: PAID_ORDER, error: null });
 
     const response = await call(supabase);
@@ -137,6 +156,13 @@ describe('finalizePaypalCaptureOrder', () => {
       status: 'success',
       orderNumber: 'BACI-1002',
     });
+    // F-58: the captured (order-currency) total is persisted to amount_paid so
+    // the cancellation refund path (which gates on amount_paid > 0) can fire.
+    expect(supabase.update).toHaveBeenCalledWith(
+      expect.objectContaining({ payment_status: 'paid', amount_paid: 130000 })
+    );
+    // F-268: the paid transition is claimed with a `payment_status != 'paid'` CAS.
+    expect(supabase.neq).toHaveBeenCalledWith('payment_status', 'paid');
     expect(ensurePaidOrderInventoryConfirmed).toHaveBeenCalledWith(
       supabase,
       MERCHANT_ID,
@@ -150,6 +176,52 @@ describe('finalizePaypalCaptureOrder', () => {
       })
     );
     expect(filePaypalCapturePersistFailureReview).not.toHaveBeenCalled();
+  });
+
+  it('returns idempotent success WITHOUT re-running side effects when it loses the paid claim (F-268)', async () => {
+    // The CAS matched no row (a concurrent reconcile already flipped the order to
+    // paid). The re-read shows it paid, so this loser returns success and must
+    // NOT re-run side effects or re-add amount_paid.
+    const supabase = buildSupabase(
+      { data: null, error: null },
+      {
+        data: { payment_status: 'paid', order_number: 'BACI-1002' },
+        error: null,
+      }
+    );
+
+    const response = await call(supabase);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      status: 'success',
+      orderNumber: 'BACI-1002',
+    });
+    expect(ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
+    expect(runPaypalCaptureSideEffects).not.toHaveBeenCalled();
+    expect(filePaypalCapturePersistFailureReview).not.toHaveBeenCalled();
+  });
+
+  it('files reconciliation and returns 500 when the CAS matches no row and the order is still unpaid', async () => {
+    // No row updated AND the re-read is not paid → a genuine persist failure, not
+    // a lost claim. Never silently drop the captured payment.
+    const supabase = buildSupabase(
+      { data: null, error: null },
+      {
+        data: { payment_status: 'unpaid', order_number: 'BACI-1002' },
+        error: null,
+      }
+    );
+
+    const response = await call(supabase);
+
+    expect(response.status).toBe(500);
+    expect((await response.json()).code).toBe('CAPTURE_PERSIST_FAILED');
+    expect(filePaypalCapturePersistFailureReview).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: { stage: 'order_update' } })
+    );
+    expect(runPaypalCaptureSideEffects).not.toHaveBeenCalled();
   });
 
   it('files a reconciliation review and returns 500 when the order write fails', async () => {
@@ -222,6 +294,9 @@ describe('finalizePaypalCaptureOrder', () => {
     ).toHaveBeenCalledWith(supabase, MERCHANT_ID, ORDER_ID, {
       payment_status: 'unpaid',
       shipping_status: 'pending',
+      // F-58: the paid update set amount_paid to the total; rollback restores the
+      // pre-capture value so an unpaid order never reads as fully paid.
+      amount_paid: 0,
     });
     expect(runPaypalCaptureSideEffects).not.toHaveBeenCalled();
     expect(filePaypalCapturePersistFailureReview).not.toHaveBeenCalled();

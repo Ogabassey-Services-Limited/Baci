@@ -159,14 +159,24 @@ function buildServiceMock({
   },
 } = {}) {
   let lastTable = '';
+  // finalize now claims the paid transition with a `.neq('payment_status',
+  // 'paid')` CAS and reads the row back via maybeSingle (F-268). The order UPDATE
+  // resolves to `orderResult`; a plain SELECT re-read (race-loser check, or the
+  // finalize lost-claim branch) resolves to `reReadOrder`.
+  let lastWasUpdate = false;
   const mock = {
     from: vi.fn((t: string) => {
       lastTable = t;
+      lastWasUpdate = false;
       return mock;
     }),
     select: vi.fn(() => mock),
     eq: vi.fn(() => mock),
-    update: vi.fn(() => mock),
+    neq: vi.fn(() => mock),
+    update: vi.fn(() => {
+      lastWasUpdate = true;
+      return mock;
+    }),
     single: vi.fn(() => {
       if (lastTable === 'merchant_feature_settings') {
         return Promise.resolve({
@@ -184,7 +194,7 @@ function buildServiceMock({
         return Promise.resolve(updatedTxn);
       }
       if (lastTable === 'orders') {
-        return Promise.resolve(reReadOrder);
+        return Promise.resolve(lastWasUpdate ? orderResult : reReadOrder);
       }
       return Promise.resolve({ data: null, error: null });
     }),
