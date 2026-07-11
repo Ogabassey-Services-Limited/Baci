@@ -97,12 +97,16 @@ export async function initiatePaypalOrderRefund(params: {
     };
   }
 
+  // Idempotency: a STABLE PayPal-Request-Id derived from the capture id means a
+  // retry after a lost/timed-out response reaches the SAME refund at PayPal
+  // instead of issuing a second full refund (H2). A capture id is ~17 chars, so
+  // `refund-<captureId>` stays within PayPal's 38-char PayPal-Request-Id limit.
   const result = await refund(
     credentials.clientId,
     credentials.secretKey,
     captureId,
     'live',
-    { noteToPayer: params.reason }
+    { noteToPayer: params.reason, requestId: `refund-${captureId}` }
   );
 
   if (!result.success) {

@@ -207,7 +207,7 @@ describe('resolveReusablePaypalApproval', () => {
     vi.clearAllMocks();
   });
 
-  it('returns the approval url when the stored order is still approvable', async () => {
+  it('returns a reuse outcome with the approval url when the stored order is still approvable', async () => {
     vi.mocked(getOrder).mockResolvedValue({
       success: true,
       data: {
@@ -221,11 +221,11 @@ describe('resolveReusablePaypalApproval', () => {
 
     expect(
       await resolveReusablePaypalApproval(credentials, 'PP-1', 'sandbox')
-    ).toBe('https://paypal/approve');
+    ).toEqual({ outcome: 'reuse', approveUrl: 'https://paypal/approve' });
     expect(getOrder).toHaveBeenCalledWith('cid', 'sk', 'PP-1', 'sandbox');
   });
 
-  it('returns null when the getOrder lookup fails', async () => {
+  it('returns create_fresh when the getOrder lookup fails', async () => {
     vi.mocked(getOrder).mockResolvedValue({
       success: false,
       error: 'not found',
@@ -234,10 +234,12 @@ describe('resolveReusablePaypalApproval', () => {
 
     expect(
       await resolveReusablePaypalApproval(credentials, 'PP-1', 'sandbox')
-    ).toBeNull();
+    ).toEqual({ outcome: 'create_fresh' });
   });
 
-  it('returns null when the stored order is no longer approvable', async () => {
+  it('returns already_captured (never create_fresh) when the stored order is COMPLETED', async () => {
+    // PayPal captured the money but the local transaction update failed — a
+    // fresh order here would double-charge (H1). Must block, not fall through.
     vi.mocked(getOrder).mockResolvedValue({
       success: true,
       data: {
@@ -251,10 +253,32 @@ describe('resolveReusablePaypalApproval', () => {
 
     expect(
       await resolveReusablePaypalApproval(credentials, 'PP-1', 'sandbox')
-    ).toBeNull();
+    ).toEqual({ outcome: 'already_captured' });
   });
 
-  it('returns null when an approvable order has no approval link', async () => {
+  it('returns already_captured when the stored order is APPROVED (capturable)', async () => {
+    vi.mocked(getOrder).mockResolvedValue({
+      success: true,
+      data: { id: 'PP-1', status: 'APPROVED', links: [] },
+    });
+
+    expect(
+      await resolveReusablePaypalApproval(credentials, 'PP-1', 'sandbox')
+    ).toEqual({ outcome: 'already_captured' });
+  });
+
+  it('returns create_fresh when the stored order is VOIDED/expired', async () => {
+    vi.mocked(getOrder).mockResolvedValue({
+      success: true,
+      data: { id: 'PP-1', status: 'VOIDED', links: [] },
+    });
+
+    expect(
+      await resolveReusablePaypalApproval(credentials, 'PP-1', 'sandbox')
+    ).toEqual({ outcome: 'create_fresh' });
+  });
+
+  it('returns create_fresh when an approvable order has no approval link', async () => {
     vi.mocked(getOrder).mockResolvedValue({
       success: true,
       data: { id: 'PP-1', status: 'CREATED', links: [] },
@@ -262,6 +286,6 @@ describe('resolveReusablePaypalApproval', () => {
 
     expect(
       await resolveReusablePaypalApproval(credentials, 'PP-1', 'sandbox')
-    ).toBeNull();
+    ).toEqual({ outcome: 'create_fresh' });
   });
 });

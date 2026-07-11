@@ -188,30 +188,39 @@ describe('createAndPersistPaypalOrder', () => {
     );
   });
 
-  it('uses a fresh PayPal-Request-Id for a replacement create after a dead order', async () => {
+  it('uses a bounded, deterministic replacement PayPal-Request-Id (distinct from the original) after a dead order', async () => {
     // A prior pending PayPal order exists but is no longer reusable (voided /
-    // amount changed). Reusing the stable token would make PayPal return the
-    // OLD dead order via idempotency — the request id must be distinct.
-    const supabase = buildUpdateSupabase();
+    // amount changed). Reusing the stable token would make PayPal return the OLD
+    // dead order via idempotency, so the replacement id must be distinct — yet
+    // stay within PayPal's 38-char limit (a 32-char token + a full order id
+    // would exceed it, H3) and stay stable so concurrent retries of the SAME
+    // replacement still dedupe.
+    const replacementParams = {
+      ...createParams,
+      existingTransaction: { gateway_reference: 'PP-OLD', metadata: {} },
+    };
 
-    const result = await createAndPersistPaypalOrder(
-      supabase as unknown as SupabaseClient,
-      {
-        ...createParams,
-        existingTransaction: { gateway_reference: 'PP-OLD', metadata: {} },
-      }
+    const first = await createAndPersistPaypalOrder(
+      buildUpdateSupabase() as unknown as SupabaseClient,
+      replacementParams
+    );
+    // Retry the SAME replacement (concurrent double-submit).
+    await createAndPersistPaypalOrder(
+      buildUpdateSupabase() as unknown as SupabaseClient,
+      replacementParams
     );
 
-    expect(result.ok).toBe(true);
-    expect(createOrder).toHaveBeenCalledWith(
-      'cid',
-      'sk',
-      50,
-      'USD',
-      'track-1-PP-OLD',
-      'sandbox',
-      { returnUrl: undefined, cancelUrl: undefined }
-    );
+    expect(first.ok).toBe(true);
+    const firstRequestId = vi.mocked(createOrder).mock.calls[0]?.[4];
+    const secondRequestId = vi.mocked(createOrder).mock.calls[1]?.[4];
+
+    // Bounded to PayPal's documented 38-char PayPal-Request-Id limit.
+    expect((firstRequestId as string).length).toBeLessThanOrEqual(38);
+    // Distinct from the original order's id (= the bare tracking token) so
+    // PayPal does not idempotently return the dead order.
+    expect(firstRequestId).not.toBe('track-1');
+    // Deterministic: concurrent retries of the same replacement reuse the id.
+    expect(secondRequestId).toBe(firstRequestId);
   });
 
   it('disables the credential and returns 400 on a PayPal 401', async () => {

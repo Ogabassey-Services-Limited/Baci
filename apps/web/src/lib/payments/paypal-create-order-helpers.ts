@@ -149,19 +149,45 @@ export function pickPaypalApprovalUrl(order: {
 }
 
 /**
- * Resolves a usable approval URL for a stored, reusable PayPal order so a buyer
- * can complete a cancel-then-retry without a duplicate order being created. The
- * client (`startPaypalCheckout`) requires an `approveUrl` and dead-ends the
- * checkout when it is missing, so the reuse branch must supply one. Returns
- * `null` when the stored order can no longer be approved (getOrder failed, or
- * the order is COMPLETED/VOIDED/expired / has no approval link) — the caller
- * then creates a fresh PayPal order instead.
+ * PayPal Order statuses at which money is already captured (COMPLETED) or the
+ * buyer has already approved and the order is capturable (APPROVED). A
+ * create-order retry that finds the stored order in one of these states must NOT
+ * fall through to a fresh order — PayPal already holds/collected the funds, so a
+ * second approval link would double-charge the buyer (H1).
+ */
+const CAPTURED_OR_CAPTURABLE_STATUSES = new Set(['COMPLETED', 'APPROVED']);
+
+/**
+ * Outcome of inspecting a stored, reuse-eligible PayPal order:
+ * - `reuse`: still awaiting approval — hand its approval link back so the buyer
+ *   completes the SAME order (no duplicate).
+ * - `already_captured`: PayPal already captured (COMPLETED) or the buyer already
+ *   approved a capturable order (APPROVED). The caller must block/reconcile —
+ *   minting a fresh order here would double-charge.
+ * - `create_fresh`: the order is expired/voided (or the lookup failed) and is
+ *   neither approvable nor captured — safe to mint a replacement.
+ */
+export type ReusablePaypalApproval =
+  | { outcome: 'reuse'; approveUrl: string }
+  | { outcome: 'already_captured' }
+  | { outcome: 'create_fresh' };
+
+/**
+ * Inspects a stored, reuse-eligible PayPal order and tells the caller how to
+ * proceed. Reuses the order while it is still approvable (returning its approval
+ * link so a cancel-then-retry completes the SAME order — the client
+ * `startPaypalCheckout` dead-ends without an `approveUrl`). Crucially, a
+ * COMPLETED order (PayPal captured but the local transaction update failed) or
+ * an APPROVED order (capturable) resolves to `already_captured` so the caller
+ * blocks instead of minting a fresh order for money PayPal already holds — that
+ * would double-charge and overwrite the local reference (H1). Only a dead order
+ * (voided/expired, or a failed lookup) resolves to `create_fresh`.
  */
 export async function resolveReusablePaypalApproval(
   credentials: { clientId: string; secretKey: string },
   reusablePayPalOrderId: string,
   mode: PayPalMode
-): Promise<string | null> {
+): Promise<ReusablePaypalApproval> {
   const existingOrder = await getOrder(
     credentials.clientId,
     credentials.secretKey,
@@ -169,10 +195,22 @@ export async function resolveReusablePaypalApproval(
     mode
   );
   if (!existingOrder.success) {
-    return null;
+    // The lookup failed (e.g. a 404 for an expired order); nothing indicates a
+    // capture, so a replacement order is safe.
+    return { outcome: 'create_fresh' };
   }
-  if (!isPaypalOrderApprovable(existingOrder.data.status)) {
-    return null;
+
+  const status = existingOrder.data.status.trim().toUpperCase();
+  if (CAPTURED_OR_CAPTURABLE_STATUSES.has(status)) {
+    return { outcome: 'already_captured' };
   }
-  return pickPaypalApprovalUrl(existingOrder.data) ?? null;
+  if (!isPaypalOrderApprovable(status)) {
+    // VOIDED/expired/unknown and not captured → safe to mint a replacement.
+    return { outcome: 'create_fresh' };
+  }
+
+  const approveUrl = pickPaypalApprovalUrl(existingOrder.data);
+  return approveUrl
+    ? { outcome: 'reuse', approveUrl }
+    : { outcome: 'create_fresh' };
 }

@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import type { PaymentCredentialEnvironment } from '@/lib/payments/merchant-credentials';
@@ -96,6 +97,27 @@ export type CreateAndPersistPaypalResult =
   | { ok: false; status: number; body: Record<string, unknown> };
 
 /**
+ * Builds the PayPal-Request-Id for a REPLACEMENT create (after the stored PayPal
+ * order became non-reusable). It must (a) stay within PayPal's documented
+ * 38-char PayPal-Request-Id limit — a 32-char tracking token concatenated with a
+ * full PayPal order id would exceed it and PayPal would reject the create
+ * (H3) — (b) be deterministic per (order, superseded order id) so concurrent
+ * retries of the SAME replacement dedupe at PayPal, and (c) differ from the
+ * original order's request-id (= the bare tracking token) so PayPal's
+ * idempotency does not return the dead order. A short SHA-256 digest of both
+ * identifiers satisfies all three (`r-` + 32 hex = 34 chars ≤ 38).
+ */
+function buildReplacementRequestId(
+  trackingToken: string,
+  supersededOrderId: string
+): string {
+  const digest = createHash('sha256')
+    .update(`${trackingToken}:${supersededOrderId}`)
+    .digest('hex');
+  return `r-${digest.slice(0, 32)}`;
+}
+
+/**
  * Creates a fresh PayPal order for the residual presentment and persists the
  * pending transaction row. A PayPal 401 disables the stored credential (Phase 2
  * item 1); every failure is returned as a ready-to-send `{ status, body }` so
@@ -129,14 +151,18 @@ export async function createAndPersistPaypalOrder(
   // G1: the stable `trackingToken` is the PayPal-Request-Id (idempotency key)
   // ONLY for a first create — that legitimately de-dupes a double-submit of the
   // SAME order state. But this function also runs for a REPLACEMENT create after
-  // the stored PayPal order became non-reusable (VOIDED/COMPLETED, or the
-  // presentment amount moved). Reusing the stable token there makes PayPal's
-  // idempotency return the OLD (dead) order for the new expected amount, leaving
-  // checkout stuck on a dead order. Derive a distinct key from the superseded
-  // order reference so every replacement mints a genuinely fresh PayPal order,
-  // while concurrent retries of the same replacement stay idempotent.
+  // the stored PayPal order became non-reusable (VOIDED, or the presentment
+  // amount moved). Reusing the stable token there makes PayPal's idempotency
+  // return the OLD (dead) order for the new expected amount, leaving checkout
+  // stuck on a dead order. Derive a distinct, length-bounded key from the
+  // superseded order reference so every replacement mints a genuinely fresh
+  // PayPal order, while concurrent retries of the same replacement stay
+  // idempotent (H3).
   const requestId = params.existingTransaction?.gateway_reference
-    ? `${params.trackingToken}-${params.existingTransaction.gateway_reference}`
+    ? buildReplacementRequestId(
+        params.trackingToken,
+        params.existingTransaction.gateway_reference
+      )
     : params.trackingToken;
 
   const created = await createOrder(

@@ -304,6 +304,38 @@ describe('POST /api/payments/paypal/create-order', () => {
     );
   });
 
+  it('blocks with 409 ORDER_ALREADY_CAPTURED when the stored order is COMPLETED (no double-charge)', async () => {
+    const supabase = buildSupabaseMock({
+      existingTxn: {
+        gateway_reference: 'PP-COMPLETED',
+        metadata: {
+          paypal_presentment_amount: 100,
+          paypal_presentment_currency: 'USD',
+        },
+      },
+    });
+    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
+    mockVaultOk();
+    // PayPal already captured (local transaction update failed) — reusing/
+    // creating here would hand the buyer a second approval link for money PayPal
+    // already collected.
+    vi.mocked(getOrder).mockResolvedValue({
+      success: true,
+      data: { id: 'PP-COMPLETED', status: 'COMPLETED', links: [] },
+    });
+
+    const response = await POST(createRequest());
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe('ORDER_ALREADY_CAPTURED');
+    // No fresh PayPal order and no repointed pending row.
+    expect(createOrder).not.toHaveBeenCalled();
+    expect(supabase.update).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_payment_transaction',
+      expect.anything()
+    );
+  });
+
   it('converts NGN to USD and records a fee-waived residual transaction (no init-time accrual)', async () => {
     const supabase = buildSupabaseMock();
     vi.mocked(createAdminClient).mockReturnValue(supabase as never);

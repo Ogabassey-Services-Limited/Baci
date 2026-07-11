@@ -285,18 +285,31 @@ export async function POST(request: NextRequest) {
     if (reusablePayPalOrderId) {
       // Reuse the stored PayPal order ONLY while it is still approvable, and
       // return its approval link so a cancel-then-retry can complete (F3). A
-      // dead/consumed order falls through to a fresh order below.
-      const approveUrl = await resolveReusablePaypalApproval(
+      // COMPLETED/APPROVED order means PayPal already captured (or is about to)
+      // the funds — minting a fresh order would hand the buyer a second approval
+      // link for money already collected, so block with a 409 the checkout can
+      // surface (H1). Only a dead (voided/expired) order falls through below.
+      const reuse = await resolveReusablePaypalApproval(
         credentials,
         reusablePayPalOrderId,
         mode
       );
-      if (approveUrl) {
+      if (reuse.outcome === 'reuse') {
         return NextResponse.json({
           id: reusablePayPalOrderId,
-          approveUrl,
+          approveUrl: reuse.approveUrl,
           reused: true,
         });
+      }
+      if (reuse.outcome === 'already_captured') {
+        return NextResponse.json(
+          {
+            error:
+              'This order has already been captured by PayPal and is being finalized',
+            code: 'ORDER_ALREADY_CAPTURED',
+          },
+          { status: 409 }
+        );
       }
     }
 

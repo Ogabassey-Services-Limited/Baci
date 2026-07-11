@@ -86,9 +86,34 @@ describe('initiatePaypalOrderRefund', () => {
       'live'
     );
     // Full refund: no amount passed → refunds the exact captured presentment.
+    // A stable, capture-derived PayPal-Request-Id makes a retry idempotent (H2).
     expect(refund).toHaveBeenCalledWith('cid', 'sk', 'CAPTURE-1', 'live', {
       noteToPayer: 'Order cancelled',
+      requestId: 'refund-CAPTURE-1',
     });
+  });
+
+  it('sends a stable PayPal-Request-Id derived from the capture id so a retry is idempotent (H2)', async () => {
+    await initiatePaypalOrderRefund({
+      merchantId: MERCHANT_ID,
+      gatewayResponse: CAPTURE_RESPONSE,
+      reason: 'Order cancelled',
+    });
+    // A retry after a lost/timed-out response must carry the SAME request id so
+    // PayPal returns the original refund instead of issuing a second one.
+    await initiatePaypalOrderRefund({
+      merchantId: MERCHANT_ID,
+      gatewayResponse: CAPTURE_RESPONSE,
+      reason: 'Order cancelled',
+    });
+
+    const firstRequestId = vi.mocked(refund).mock.calls[0]?.[4]?.requestId;
+    const secondRequestId = vi.mocked(refund).mock.calls[1]?.[4]?.requestId;
+
+    expect(firstRequestId).toBe('refund-CAPTURE-1');
+    expect(secondRequestId).toBe(firstRequestId);
+    // Stays within PayPal's documented 38-char PayPal-Request-Id limit.
+    expect((firstRequestId as string).length).toBeLessThanOrEqual(38);
   });
 
   it('fails gracefully when the capture id cannot be found', async () => {
