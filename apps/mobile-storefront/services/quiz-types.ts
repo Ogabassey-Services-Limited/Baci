@@ -16,6 +16,7 @@ export interface QuizOption {
 }
 
 export interface QuizQuestion {
+  deadlineAt: string;
   id: string;
   prompt: string;
   options: QuizOption[];
@@ -32,12 +33,30 @@ export interface QuizAttempt {
   question: QuizQuestion;
 }
 
+export type QuizPrizeCondition = 'new' | 'used' | 'open_box' | 'refurbished';
+
+/**
+ * Signed prize entitlement returned on a winning submission. Mirrors the web
+ * `prizeClaim` contract; the mobile client redeems it by adding the prize
+ * product to the cart with `voucherToken`/`awardId` attached (verified
+ * server-side at order time).
+ */
+export interface QuizPrizeClaim {
+  awardId: string;
+  productId: string;
+  variantId: string | null;
+  condition: QuizPrizeCondition | null;
+  voucherToken: string;
+  cartPath: string;
+}
+
 export interface QuizResult {
   attemptId: string;
   status: 'completed' | 'in_progress';
   correctAnswers: number;
   totalQuestions: number;
   prizeEligible: boolean;
+  prizeClaim?: QuizPrizeClaim;
   question?: QuizQuestion;
 }
 
@@ -57,6 +76,11 @@ export interface SubmitQuizAnswerInput extends QuizServiceOptions {
   questionId: string;
   answer: string;
   integrityTier: QuizIntegrityTier;
+  /**
+   * ISO-8601 timestamp (with offset) captured when the player answered. The
+   * server accepts it as an optional informational field for timing parity.
+   */
+  clientAnsweredAt?: string;
 }
 
 type ErrorConstructorWithStackTrace = typeof Error & {

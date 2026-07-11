@@ -14,6 +14,7 @@ import { clearLocalAndDeactivatePushToken } from './auth-store-push';
 import { syncAuthenticatedState } from './auth-store-sync';
 import { useCartStore } from './cart-store';
 import { useComparisonStore } from './comparison-store';
+import { useQuizStore } from './quiz-store';
 import { useSavedStore } from './saved-store';
 
 const log = createLogger('AuthStore');
@@ -146,9 +147,15 @@ export function createInitializeAction({
 
       const { data: authListener } = supabase.auth.onAuthStateChange(
         (event, session) => {
-          const { merchantId } = get();
+          const { merchantId, user: previousUser } = get();
           deferAuthStateChange(async () => {
             if (event === 'SIGNED_IN' && session?.user) {
+              // Only wipe quiz state on an actual account SWITCH. SIGNED_IN also
+              // fires on same-user session re-establishment / token refresh —
+              // resetting then would kick a shopper out of an in-progress quiz.
+              if (previousUser?.id !== session.user.id) {
+                useQuizStore.getState().reset();
+              }
               await syncAuthenticatedState({
                 merchantId,
                 session,
@@ -168,6 +175,7 @@ export function createInitializeAction({
               useCartStore.getState().clearCart();
               useSavedStore.getState().clearSaved();
               useComparisonStore.getState().clearComparison();
+              useQuizStore.getState().reset();
               set({ user: null, session: null, customer: null });
             } else if (event === 'TOKEN_REFRESHED' && session) {
               set({ session });

@@ -262,6 +262,32 @@ describe('quiz route-helpers', () => {
       });
     });
 
+    it('quizRpcClientErrorResponse maps the attempt-limit code (QZ030) to a friendly 409', async () => {
+      const response = quizRpcClientErrorResponse({
+        code: 'QZ030',
+        message: 'attempt_limit_reached',
+      });
+
+      expect(response?.status).toBe(409);
+      expect(await readJson(response as Response)).toEqual({
+        code: 'QUIZ_ATTEMPT_LIMIT_REACHED',
+        error: "You've reached the maximum number of attempts for this quiz.",
+      });
+    });
+
+    it('quizRpcClientErrorResponse maps the leaderboard-authz code (QZ031) to a 403', async () => {
+      const response = quizRpcClientErrorResponse({
+        code: 'QZ031',
+        message: 'not_authorized',
+      });
+
+      expect(response?.status).toBe(403);
+      expect(await readJson(response as Response)).toEqual({
+        code: 'QUIZ_LEADERBOARD_NOT_AUTHORIZED',
+        error: 'You are not authorized to view this leaderboard',
+      });
+    });
+
     it('quizRpcClientErrorResponse ignores unknown RPC errors', () => {
       expect(
         quizRpcClientErrorResponse({ code: 'PGRST000', message: 'timeout' })

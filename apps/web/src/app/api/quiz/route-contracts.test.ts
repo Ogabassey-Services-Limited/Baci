@@ -28,7 +28,10 @@ function jsonRequest(url: string, body: unknown) {
 
 function mockAuthenticatedSupabase({
   rpcResult = { data: null, error: null },
-  selectResult = { data: null, error: null },
+  selectResult = {
+    data: { issued_at: '2026-07-08T12:00:00.000Z', time_limit_ms: 30_000 },
+    error: null,
+  },
 }: {
   rpcResult?: { data: unknown; error: unknown };
   selectResult?: { data: unknown; error: unknown };
@@ -76,6 +79,7 @@ describe('quiz API route contracts', () => {
       attemptId: ATTEMPT_ID,
       eventId: EVENT_ID,
       question: {
+        deadlineAt: '2026-07-08T12:00:30.000Z',
         id: QUESTION_ID,
         index: 1,
         options: [{ id: 'A', label: 'Option A' }],

@@ -14,6 +14,7 @@ const validOption = {
 };
 
 const validQuestion = {
+  deadlineAt: '2026-07-08T12:00:30.000Z',
   id: 'question-1',
   prompt: 'Which city is the capital of Lagos State?',
   options: [validOption],

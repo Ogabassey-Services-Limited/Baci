@@ -18,6 +18,7 @@ export const attempt: QuizAttempt = {
   examPassPointsSpent: 1,
   remainingLoyaltyPoints: 4,
   question: {
+    deadlineAt: '2026-07-08T12:00:30.000Z',
     id: 'question-1',
     prompt: 'Pick the answer',
     options: [

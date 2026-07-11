@@ -1,5 +1,6 @@
 import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { type NextRequest, NextResponse } from 'next/server';
+import { attachQuizQuestionDeadline } from '@/app/api/quiz/_shared/quiz-question-deadline';
 import {
   createRouteProof,
   enforceEventPrizeGuard,
@@ -135,5 +136,8 @@ export async function POST(request: NextRequest) {
     return rpcErrorResponse();
   }
 
-  return NextResponse.json(data);
+  const deadlineResult = await attachQuizQuestionDeadline(auth.supabase, data);
+  if (deadlineResult.response) return deadlineResult.response;
+
+  return NextResponse.json(deadlineResult.data);
 }

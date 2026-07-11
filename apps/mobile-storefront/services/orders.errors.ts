@@ -13,6 +13,12 @@ const REDACTED_API_ERROR_BODY = '[REDACTED]';
 export class OrderError extends Error {
   code: string;
   details?: unknown;
+  /**
+   * The exact quiz voucher token the orders API rejected, when it identified a
+   * single failed line. Lets checkout prune only that voucher line instead of
+   * every voucher in a multi-prize cart.
+   */
+  rejectedVoucherToken?: string;
 
   constructor(message: string, code: string, details?: unknown) {
     super(message);
@@ -34,6 +40,33 @@ const ORDER_VALIDATION_ERROR_MESSAGES: Record<string, string> = {
     'Delivery pricing changed. Please return to delivery and select a shipping option again.',
   tax_amount_mismatch:
     'Your order total changed. Please review your order and try again.',
+  // Quiz prize voucher rejections. /api/orders returns the specific reason in
+  // `details`/`code` while keeping a generic top-level `error`; map both the
+  // route-level (QUIZ_VOUCHER_*) and DB RPC (quiz_voucher_*) codes so the
+  // shopper is told what actually went wrong, not just "could not create order".
+  // Keys are matched case-insensitively (see getValidationErrorMessage).
+  quiz_voucher_token_invalid:
+    'This prize voucher is no longer valid. Reopen your prize from the quiz and try again.',
+  quiz_voucher_quantity_invalid:
+    'A prize can only be claimed one at a time. Set the quantity to 1 and try again.',
+  quiz_voucher_multiple:
+    'You can redeem only one prize voucher per order. Remove the extra prize line and try again.',
+  quiz_voucher_auth_required: 'Please sign in to claim your prize.',
+  quiz_voucher_token_expired:
+    'This prize voucher has expired. Play again for another chance to win.',
+  quiz_voucher_token_config_missing:
+    'Prize checkout is temporarily unavailable. Please try again later.',
+  quiz_voucher_invalid:
+    'This prize voucher is no longer valid. Reopen your prize from the quiz and try again.',
+  quiz_voucher_user_required: 'Please sign in to claim your prize.',
+  quiz_voucher_award_not_found:
+    "We couldn't find this prize on your account. Reopen it from the quiz and try again.",
+  quiz_voucher_award_not_approved:
+    'This prize is not available to claim yet. Please try again later.',
+  quiz_voucher_award_invalid_type:
+    'This prize voucher is no longer valid. Reopen your prize from the quiz and try again.',
+  quiz_voucher_order_item_not_found:
+    'This prize could not be matched to your cart. Reopen it from the quiz and try again.',
 };
 
 export function readResponseString(value: unknown): string | undefined {
@@ -42,16 +75,26 @@ export function readResponseString(value: unknown): string | undefined {
     : undefined;
 }
 
+function lookupOrderMessage(code: string | undefined): string | undefined {
+  if (!code) return undefined;
+  // The server emits some codes upper-case (route-level, e.g.
+  // QUIZ_VOUCHER_MULTIPLE) and some lower-case (DB RPC, e.g.
+  // quiz_voucher_award_not_found). Match either against the lower-case map.
+  return (
+    ORDER_VALIDATION_ERROR_MESSAGES[code] ??
+    ORDER_VALIDATION_ERROR_MESSAGES[code.toLowerCase()]
+  );
+}
+
 export function getValidationErrorMessage(
   error: string,
   details: unknown
 ): string {
-  const detailCode = readResponseString(details);
-  if (detailCode && ORDER_VALIDATION_ERROR_MESSAGES[detailCode]) {
-    return ORDER_VALIDATION_ERROR_MESSAGES[detailCode];
-  }
-
-  return ORDER_VALIDATION_ERROR_MESSAGES[error] ?? error;
+  return (
+    lookupOrderMessage(readResponseString(details)) ??
+    lookupOrderMessage(error) ??
+    error
+  );
 }
 
 function normalizeConflictCode(value: unknown): string {
@@ -100,6 +143,7 @@ export async function throwOrderHttpError(
     code?: unknown;
     details?: unknown;
     error?: unknown;
+    rejectedVoucherToken?: unknown;
   };
   const errorMessage =
     readResponseString(errorData.error) ||
@@ -112,11 +156,20 @@ export async function throwOrderHttpError(
 
   if (response.status === 400) {
     const details = errorData.details ?? errorData.code;
-    throw new OrderError(
+    const orderError = new OrderError(
       getValidationErrorMessage(errorMessage, details),
       'VALIDATION_ERROR',
       details
     );
+    // Carry the server-identified rejected voucher token so checkout prunes
+    // only that line, preserving other valid vouchers in a multi-prize cart.
+    const rejectedVoucherToken = readResponseString(
+      errorData.rejectedVoucherToken
+    );
+    if (rejectedVoucherToken) {
+      orderError.rejectedVoucherToken = rejectedVoucherToken;
+    }
+    throw orderError;
   }
 
   if (response.status === 401) {

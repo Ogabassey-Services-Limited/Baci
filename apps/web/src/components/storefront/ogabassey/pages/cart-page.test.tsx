@@ -95,9 +95,16 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => (
-    <img {...props} alt={String(props.alt || '')} />
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => (
+    <img
+      {...Object.fromEntries(
+        Object.entries(props).filter(
+          ([key]) => key !== 'fill' && key !== 'preload',
+        ),
+      )}
+      alt={String(props.alt || '')}
+    />
   ),
 }));
 

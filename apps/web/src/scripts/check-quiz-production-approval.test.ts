@@ -20,6 +20,7 @@ describe('evaluateQuizProductionApproval', () => {
       quizPhase: '1a',
       quizProductionApproved: false,
       quizRpcServerSecretConfigured: true,
+      quizRpcServerSecretMatches: true,
       events: [],
       trackerRows: [],
     });
@@ -33,6 +34,7 @@ describe('evaluateQuizProductionApproval', () => {
       quizPhase: '1a',
       quizProductionApproved: false,
       quizRpcServerSecretConfigured: false,
+      quizRpcServerSecretMatches: false,
       events: [],
       trackerRows: [],
     });
@@ -48,6 +50,7 @@ describe('evaluateQuizProductionApproval', () => {
       quizPhase: 'production',
       quizProductionApproved: false,
       quizRpcServerSecretConfigured: true,
+      quizRpcServerSecretMatches: true,
       events: [],
       trackerRows: [],
     });
@@ -63,6 +66,7 @@ describe('evaluateQuizProductionApproval', () => {
       quizPhase: 'staging',
       quizProductionApproved: true,
       quizRpcServerSecretConfigured: true,
+      quizRpcServerSecretMatches: true,
       events: [],
       trackerRows: [],
     });
@@ -79,6 +83,7 @@ describe('evaluateQuizProductionApproval', () => {
       quizPhase: 'production',
       quizProductionApproved: true,
       quizRpcServerSecretConfigured: false,
+      quizRpcServerSecretMatches: false,
       events: [],
       trackerRows: [],
     });
@@ -89,13 +94,66 @@ describe('evaluateQuizProductionApproval', () => {
     );
   });
 
+  it('fails Phase 1a when the env secret does not match the database secret', () => {
+    const result = evaluateQuizProductionApproval({
+      quizPhase: '1a',
+      quizProductionApproved: false,
+      quizRpcServerSecretConfigured: true,
+      quizRpcServerSecretMatches: false,
+      events: [],
+      trackerRows: [],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain(
+      'QUIZ_RPC_SERVER_SECRET does not match the database quiz route-proof secret (proof signature verification would fail at runtime)'
+    );
+  });
+
+  it('fails production mode when the env secret does not match the database secret', () => {
+    const result = evaluateQuizProductionApproval({
+      quizPhase: 'production',
+      quizProductionApproved: true,
+      quizRpcServerSecretConfigured: true,
+      quizRpcServerSecretMatches: false,
+      events: [],
+      trackerRows: [],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain(
+      'QUIZ_RPC_SERVER_SECRET does not match the database quiz route-proof secret (proof signature verification would fail at runtime)'
+    );
+  });
+
+  it('reports only the not-configured error when the secret is absent (no duplicate mismatch error)', () => {
+    const result = evaluateQuizProductionApproval({
+      quizPhase: 'production',
+      quizProductionApproved: true,
+      quizRpcServerSecretConfigured: false,
+      quizRpcServerSecretMatches: false,
+      events: [],
+      trackerRows: [],
+    });
+
+    const secretErrors = result.errors.filter((error) =>
+      error.includes('quiz_rpc_server_secret_current')
+    );
+    expect(secretErrors).toHaveLength(1);
+    expect(result.errors).not.toContain(
+      'QUIZ_RPC_SERVER_SECRET does not match the database quiz route-proof secret (proof signature verification would fail at runtime)'
+    );
+  });
+
   it('fails production mode when active prize events lack permit or odds evidence', () => {
     const result = evaluateQuizProductionApproval({
       quizPhase: 'production',
       quizProductionApproved: true,
       quizRpcServerSecretConfigured: true,
+      quizRpcServerSecretMatches: true,
       events: [
         {
+          compliance_verified: true,
           id: 'event-1',
           status: 'active',
           nlrc_permit_ref: '',
@@ -115,13 +173,40 @@ describe('evaluateQuizProductionApproval', () => {
     );
   });
 
+  it('fails production mode when active prize events are not compliance verified', () => {
+    const result = evaluateQuizProductionApproval({
+      quizPhase: 'production',
+      quizProductionApproved: true,
+      quizRpcServerSecretConfigured: true,
+      quizRpcServerSecretMatches: true,
+      events: [
+        {
+          compliance_verified: false,
+          id: 'event-1',
+          status: 'active',
+          nlrc_permit_ref: 'NLRC-123',
+          published_odds: { tiers: [{ rank: 1, odds: '1/1000' }] },
+          compliance_flags: {},
+        },
+      ],
+      trackerRows: [],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toEqual([
+      'Quiz event event-1 is not compliance_verified',
+    ]);
+  });
+
   it('ignores non-active events when checking production prize evidence', () => {
     const result = evaluateQuizProductionApproval({
       quizPhase: 'production',
       quizProductionApproved: true,
       quizRpcServerSecretConfigured: true,
+      quizRpcServerSecretMatches: true,
       events: [
         {
+          compliance_verified: false,
           id: 'event-draft',
           status: 'draft',
           nlrc_permit_ref: null,
@@ -147,6 +232,7 @@ describe('evaluateQuizProductionApproval', () => {
       quizPhase: 'production',
       quizProductionApproved: true,
       quizRpcServerSecretConfigured: true,
+      quizRpcServerSecretMatches: true,
       events: [],
       trackerRows: [
         {
@@ -171,8 +257,10 @@ describe('evaluateQuizProductionApproval', () => {
       quizPhase: 'production',
       quizProductionApproved: true,
       quizRpcServerSecretConfigured: true,
+      quizRpcServerSecretMatches: true,
       events: [
         {
+          compliance_verified: true,
           id: 'event-2',
           status: 'active',
           nlrc_permit_ref: 'NLRC-123',
@@ -207,8 +295,10 @@ describe('evaluateQuizProductionApproval', () => {
       quizPhase: 'production',
       quizProductionApproved: true,
       quizRpcServerSecretConfigured: true,
+      quizRpcServerSecretMatches: true,
       events: [
         {
+          compliance_verified: true,
           id: 'event-circular',
           status: 'active',
           nlrc_permit_ref: 'NLRC-123',
@@ -249,8 +339,10 @@ describe('evaluateQuizProductionApproval', () => {
       quizPhase: 'production',
       quizProductionApproved: true,
       quizRpcServerSecretConfigured: true,
+      quizRpcServerSecretMatches: true,
       events: [
         {
+          compliance_verified: true,
           id: 'event-3',
           status: 'active',
           nlrc_permit_ref: 'NLRC-123',
