@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getNgnPerUsdt } from '@/lib/juicyway/rates';
+import { getFreshNgnPerUsdt } from '@/lib/juicyway/rates';
 import {
   getDecryptedMerchantCredential,
   markMerchantCredentialInvalid,
@@ -25,7 +25,8 @@ vi.mock('@/lib/payments/merchant-credentials', () => ({
 }));
 
 vi.mock('@/lib/juicyway/rates', () => ({
-  getNgnPerUsdt: vi.fn(),
+  getFreshNgnPerUsdt: vi.fn(),
+  RATE_CACHE_TTL_MS: 5 * 60 * 1000,
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -102,7 +103,7 @@ function mockVaultOk() {
 describe('POST /api/payments/paypal/create-order', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getNgnPerUsdt).mockResolvedValue(1300);
+    vi.mocked(getFreshNgnPerUsdt).mockResolvedValue(1300);
     vi.mocked(createOrder).mockResolvedValue({
       success: true,
       data: { id: 'PP-ORD-123', approveUrl: 'https://paypal.com/approve' },
@@ -295,14 +296,16 @@ describe('POST /api/payments/paypal/create-order', () => {
     const response = await POST(createRequest());
     expect(response.status).toBe(400);
     expect((await response.json()).code).toBe('PAYPAL_UNSUPPORTED_CURRENCY');
-    expect(getNgnPerUsdt).not.toHaveBeenCalled();
+    expect(getFreshNgnPerUsdt).not.toHaveBeenCalled();
     expect(createOrder).not.toHaveBeenCalled();
   });
 
-  it('returns 503 fx_rate_unavailable when the live rate cannot be fetched', async () => {
+  it('returns 503 fx_rate_unavailable when a fresh live rate cannot be fetched', async () => {
     vi.mocked(createAdminClient).mockReturnValue(buildSupabaseMock() as never);
     mockVaultOk();
-    vi.mocked(getNgnPerUsdt).mockRejectedValue(new Error('coingecko down'));
+    // getFreshNgnPerUsdt throws when it cannot obtain a rate within the
+    // freshness window (stale cache is NOT served on the PayPal lane).
+    vi.mocked(getFreshNgnPerUsdt).mockRejectedValue(new Error('coingecko down'));
 
     const response = await POST(createRequest());
     expect(response.status).toBe(503);
