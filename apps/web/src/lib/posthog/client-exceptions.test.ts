@@ -33,7 +33,26 @@ describe('PostHog client exceptions', () => {
     );
 
     expect(captureClientException(new Error('missing token'))).toBe(false);
+    // Flush any pending microtasks so a mistaken async import would surface.
+    await Promise.resolve();
     expect(postHogMocks.captureException).not.toHaveBeenCalled();
+  });
+
+  it('defers the posthog-js SDK load until an exception is captured', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN = 'ph_test';
+    const { captureClientException } = await import(
+      '@/lib/posthog/client-exceptions'
+    );
+
+    // Synchronous return signals capture was ATTEMPTED, but the SDK import (and
+    // thus the actual capture) is deferred to a microtask — proving posthog-js
+    // is not pulled onto the synchronous call path / initial graph.
+    expect(captureClientException(new Error('deferred'))).toBe(true);
+    expect(postHogMocks.captureException).not.toHaveBeenCalled();
+
+    await vi.waitFor(() =>
+      expect(postHogMocks.captureException).toHaveBeenCalledTimes(1)
+    );
   });
 
   it('captures handled browser errors with sanitized route context', async () => {
@@ -50,14 +69,16 @@ describe('PostHog client exceptions', () => {
       })
     ).toBe(true);
 
-    expect(postHogMocks.captureException).toHaveBeenCalledWith(
-      expect.any(Error),
-      {
-        app_surface: 'web',
-        runtime: 'browser',
-        route: 'checkout',
-        email: '[Filtered]',
-      }
+    await vi.waitFor(() =>
+      expect(postHogMocks.captureException).toHaveBeenCalledWith(
+        expect.any(Error),
+        {
+          app_surface: 'web',
+          runtime: 'browser',
+          route: 'checkout',
+          email: '[Filtered]',
+        }
+      )
     );
     expect(postHogMocks.captureException.mock.calls[0]?.[0]).not.toBe(error);
   });
@@ -72,6 +93,10 @@ describe('PostHog client exceptions', () => {
     );
 
     expect(captureClientException(error)).toBe(true);
+
+    await vi.waitFor(() =>
+      expect(postHogMocks.captureException).toHaveBeenCalledTimes(1)
+    );
 
     const capturedError = postHogMocks.captureException.mock.calls[0]?.[0] as
       | Error
@@ -97,12 +122,14 @@ describe('PostHog client exceptions', () => {
       })
     ).toBe(true);
 
-    expect(postHogMocks.captureException).toHaveBeenCalledWith(
-      expect.any(Error),
-      {
-        app_surface: 'web',
-        runtime: 'browser',
-      }
+    await vi.waitFor(() =>
+      expect(postHogMocks.captureException).toHaveBeenCalledWith(
+        expect.any(Error),
+        {
+          app_surface: 'web',
+          runtime: 'browser',
+        }
+      )
     );
   });
 });
