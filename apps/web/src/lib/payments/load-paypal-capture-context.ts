@@ -32,11 +32,18 @@ export interface PaypalCaptureOrderSnapshot {
   customer_email: string | null;
   order_number: string | null;
   shipping_status: string | null;
+  payment_status: string | null;
 }
 
 export type PaypalCaptureContext =
   | {
       proceed: true;
+      /**
+       * True when the transaction is already `completed` but the order never
+       * advanced to `paid` (a prior capture's order write failed). The route
+       * must skip the PayPal capture call and reconcile the order only.
+       */
+      reconcileOnly: boolean;
       transaction: PaypalCaptureTransaction;
       orderSnapshot: PaypalCaptureOrderSnapshot;
       metadata: Record<string, unknown> | null;
@@ -101,30 +108,41 @@ export async function loadPaypalCaptureContext(
   const reqEmail = customerEmail.toLowerCase();
   const metadata = transaction.metadata as Record<string, unknown> | null;
 
+  // When a first capture flipped `transactions.status` to 'completed' but its
+  // order write failed, a retry lands here. Only treat the capture as an
+  // idempotent success once the order is actually `paid`; otherwise fall
+  // through with `reconcileOnly` so the route repairs the failed order write
+  // instead of sending the customer to success on an unpaid order. Mirrors
+  // /api/payments/verify's completed-transaction fall-through.
+  let reconcileOnly = false;
   if (transaction.status !== 'pending') {
     if (transaction.status === 'completed') {
       const { data: existingOrder } = await supabase
         .from('orders')
-        .select('order_number')
+        .select('order_number, payment_status')
         .eq('id', orderId)
         .eq('merchant_id', merchantId)
         .maybeSingle();
+      if (existingOrder?.payment_status === 'paid') {
+        return {
+          proceed: false,
+          status: 200,
+          body: {
+            success: true,
+            status: 'success',
+            orderNumber:
+              existingOrder.order_number || orderNumberFallback(orderId),
+          },
+        };
+      }
+      reconcileOnly = true;
+    } else {
       return {
         proceed: false,
-        status: 200,
-        body: {
-          success: true,
-          status: 'success',
-          orderNumber:
-            existingOrder?.order_number || orderNumberFallback(orderId),
-        },
+        status: 400,
+        body: { error: 'Transaction is already in a non-pending state' },
       };
     }
-    return {
-      proceed: false,
-      status: 400,
-      body: { error: 'Transaction is already in a non-pending state' },
-    };
   }
 
   const txnMetaEmail = metadata?.customer_email as string | undefined;
@@ -139,7 +157,7 @@ export async function loadPaypalCaptureContext(
   const { data: orderSnapshot, error: orderFetchError } = await supabase
     .from('orders')
     .select(
-      'id, merchant_id, total, currency, customer_email, order_number, shipping_status'
+      'id, merchant_id, total, currency, customer_email, order_number, shipping_status, payment_status'
     )
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
@@ -171,5 +189,5 @@ export async function loadPaypalCaptureContext(
     };
   }
 
-  return { proceed: true, transaction, orderSnapshot, metadata };
+  return { proceed: true, reconcileOnly, transaction, orderSnapshot, metadata };
 }

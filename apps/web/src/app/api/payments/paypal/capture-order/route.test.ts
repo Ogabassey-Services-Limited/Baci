@@ -44,6 +44,14 @@ vi.mock('@/lib/payments/file-paypal-capture-persist-failure-review', () => ({
   filePaypalCapturePersistFailureReview: vi.fn(),
 }));
 
+// finalizePaypalCaptureOrder runs for real here so the route wiring is exercised
+// end-to-end; its inventory dependency is stubbed to the confirm-success path.
+vi.mock('@/lib/payments/ensure-paid-order-inventory-confirmed', () => ({
+  ensurePaidOrderInventoryConfirmed: vi.fn().mockResolvedValue(undefined),
+  isSerializedInventoryUnavailableError: vi.fn(() => false),
+  rollbackOrderStatusAfterInventoryConfirmationFailure: vi.fn(),
+}));
+
 vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
@@ -76,6 +84,7 @@ const DEFAULT_ORDER = {
 function proceedContext() {
   return {
     proceed: true,
+    reconcileOnly: false,
     transaction: {
       id: 'txn-1',
       order_id: ORDER_ID,
@@ -94,6 +103,7 @@ function proceedContext() {
       customer_email: 'customer@example.com',
       order_number: 'BACI-1002',
       shipping_status: 'pending',
+      payment_status: 'unpaid',
     },
     metadata: META,
   };
@@ -437,5 +447,74 @@ describe('POST /api/payments/paypal/capture-order', () => {
     expect(runPaypalCaptureSideEffects).toHaveBeenCalledTimes(1);
     // No captured-but-failed condition on the happy path → no ops signal filed.
     expect(filePaypalCapturePersistFailureReview).not.toHaveBeenCalled();
+  });
+
+  it('captures with the order original PayPal environment even if the merchant flipped mode mid-checkout', async () => {
+    // Order was created LIVE (metadata.paypal_mode='live'); the merchant then
+    // flipped feature settings to sandbox. Capture must use the ORIGINAL live
+    // environment/vault slot, not the current feature config.
+    const base = proceedContext();
+    vi.mocked(loadPaypalCaptureContext).mockResolvedValue({
+      ...base,
+      metadata: { ...META, paypal_mode: 'live' },
+      transaction: {
+        ...base.transaction,
+        metadata: { ...META, paypal_mode: 'live' },
+      },
+    } as never);
+    vi.mocked(createServiceClient).mockReturnValue(
+      buildServiceMock({
+        custom: { paypal_enabled: true, paypal_mode: 'sandbox' },
+      }) as never
+    );
+    vi.mocked(detectPayPalResponseMode).mockReturnValue('live');
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    expect(getDecryptedMerchantCredential).toHaveBeenCalledWith(
+      MERCHANT_ID,
+      'paypal',
+      'client_id',
+      'live'
+    );
+    expect(getDecryptedMerchantCredential).toHaveBeenCalledWith(
+      MERCHANT_ID,
+      'paypal',
+      'secret_key',
+      'live'
+    );
+    expect(captureOrder).toHaveBeenCalledWith(
+      'mock-client-id',
+      'mock-secret-key',
+      PAYPAL_ORDER_ID,
+      'live',
+      expect.stringContaining('capture-')
+    );
+  });
+
+  it('reconciles a completed-but-unpaid order without re-calling PayPal', async () => {
+    // A prior capture flipped the transaction to completed but its order write
+    // failed. The retry must reconcile the order to paid and run the side
+    // effects — never re-hit PayPal, never return success on an unpaid order.
+    const base = proceedContext();
+    vi.mocked(loadPaypalCaptureContext).mockResolvedValue({
+      ...base,
+      reconcileOnly: true,
+      transaction: { ...base.transaction, status: 'completed' },
+    } as never);
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).success).toBe(true);
+    expect(captureOrder).not.toHaveBeenCalled();
+    expect(getDecryptedMerchantCredential).not.toHaveBeenCalled();
+    expect(runPaypalCaptureSideEffects).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: MERCHANT_ID,
+        paypalOrderId: PAYPAL_ORDER_ID,
+      })
+    );
   });
 });

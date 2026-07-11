@@ -78,6 +78,7 @@ describe('loadPaypalCaptureContext', () => {
 
     expect(result.proceed).toBe(true);
     if (result.proceed) {
+      expect(result.reconcileOnly).toBe(false);
       expect(result.transaction.id).toBe('txn-1');
       expect(result.orderSnapshot.order_number).toBe('BACI-1002');
       expect(result.metadata?.paypal_presentment_amount).toBe(100);
@@ -123,11 +124,11 @@ describe('loadPaypalCaptureContext', () => {
     });
   });
 
-  it('returns an idempotent 200 when the transaction is already completed', async () => {
+  it('returns an idempotent 200 when the transaction is completed and the order is paid', async () => {
     const result = await loadPaypalCaptureContext(
       buildSupabase({
         txn: { ...PENDING_TXN, status: 'completed' },
-        order: { order_number: 'BACI-1002' },
+        order: { order_number: 'BACI-1002', payment_status: 'paid' },
       }),
       input
     );
@@ -137,6 +138,25 @@ describe('loadPaypalCaptureContext', () => {
       status: 200,
       body: { success: true, status: 'success', orderNumber: 'BACI-1002' },
     });
+  });
+
+  it('flags reconcileOnly when the transaction completed but the order is still unpaid', async () => {
+    // A prior capture flipped the transaction to completed but its order write
+    // failed, leaving the order unpaid. The loader must NOT short-circuit as a
+    // success — it must signal the route to reconcile the failed order write.
+    const result = await loadPaypalCaptureContext(
+      buildSupabase({
+        txn: { ...PENDING_TXN, status: 'completed' },
+        order: { ...ORDER_SNAPSHOT, payment_status: 'unpaid' },
+      }),
+      input
+    );
+
+    expect(result.proceed).toBe(true);
+    if (result.proceed) {
+      expect(result.reconcileOnly).toBe(true);
+      expect(result.orderSnapshot.order_number).toBe('BACI-1002');
+    }
   });
 
   it('returns 400 when the transaction is in another non-pending state', async () => {

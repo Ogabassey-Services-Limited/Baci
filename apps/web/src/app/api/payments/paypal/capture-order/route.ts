@@ -1,17 +1,16 @@
-import { after, type NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { filePaypalCapturePersistFailureReview } from '@/lib/payments/file-paypal-capture-persist-failure-review';
+import { finalizePaypalCaptureOrder } from '@/lib/payments/finalize-paypal-capture-order';
 import {
   loadPaypalCaptureContext,
   orderNumberFallback,
 } from '@/lib/payments/load-paypal-capture-context';
-import { runPaypalCaptureSideEffects } from '@/lib/payments/paypal-capture-side-effects';
 import { validatePaypalCaptureSet } from '@/lib/payments/paypal-capture-validation';
 import {
   getPaypalCheckoutCredentials,
   isPaypalAuthFailure,
   markPaypalCredentialInvalid,
-  readPaypalFeatureConfig,
 } from '@/lib/payments/paypal-checkout-credentials';
 import { captureOrder, detectPayPalResponseMode } from '@/lib/paypal';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -46,30 +45,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(context.body, { status: context.status });
     }
 
-    const { transaction, orderSnapshot, metadata } = context;
+    const { transaction, orderSnapshot, metadata, reconcileOnly } = context;
 
-    // Credentials come only from the encrypted vault (Phase 2.2). Mode/env are
-    // read from the non-secret feature settings blob.
-    const { data: featureSettings, error: featuresError } = await supabase
-      .from('merchant_feature_settings')
-      .select('custom_settings')
-      .eq('merchant_id', merchant_id)
-      .single();
-
-    if (featuresError || !featureSettings) {
-      return NextResponse.json(
-        {
-          error: 'Merchant payment settings not configured',
-          code: 'SETTINGS_NOT_FOUND',
-        },
-        { status: 404 }
-      );
+    // F2: a prior capture already flipped the transaction to 'completed' but the
+    // order never advanced to paid (that first order write failed). Do NOT
+    // re-hit PayPal — funds are already captured. Reconcile the order and run
+    // the side effects that never ran. Mirrors /api/payments/verify's
+    // completed-transaction fall-through.
+    if (reconcileOnly) {
+      return finalizePaypalCaptureOrder({
+        supabase,
+        merchantId: merchant_id,
+        orderId: order_id,
+        paypalOrderId: paypal_order_id,
+        transaction,
+        orderSnapshot,
+      });
     }
 
-    const { mode, environment } = readPaypalFeatureConfig(
-      featureSettings.custom_settings as Record<string, unknown> | null
-    );
+    // F6: capture with the order's ORIGINAL environment. The mode was locked in
+    // at create-order time and persisted to the transaction metadata; a merchant
+    // who flips paypal_mode mid-checkout must NOT flip the capture environment —
+    // PayPal Orders v2 IDs are environment-scoped, so a cross-environment
+    // capture 404s and moves no money. Reading the live feature config here
+    // would pick the wrong vault slot and host.
+    const mode = metadata?.paypal_mode === 'live' ? 'live' : 'sandbox';
+    const environment = mode === 'live' ? 'live' : 'test';
 
+    // Credentials come only from the encrypted vault (Phase 2.2).
     const credentials = await getPaypalCheckoutCredentials(
       merchant_id,
       environment
@@ -242,56 +245,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .update({
-        payment_status: 'paid',
-        ...(orderSnapshot.shipping_status === 'pending' && {
-          shipping_status: 'processing',
-        }),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', order_id)
-      .eq('merchant_id', merchant_id)
-      .select(
-        'id, order_number, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, order_items(name, quantity, price, variant_name)'
-      )
-      .single();
-
-    if (orderError || !order) {
-      // Transaction is completed but the order didn't advance to paid — file a
-      // reconciliation row so ops can reconcile (Phase 2.4).
-      await filePaypalCapturePersistFailureReview({
-        gatewayReference: paypal_order_id,
-        merchantId: merchant_id,
-        orderId: order_id,
-        reason:
-          'PayPal capture completed but order payment status update failed',
-        transactionId: transaction.id,
-        metadata: { stage: 'order_update' },
-      });
-      return NextResponse.json(
-        {
-          error: 'Failed to persist captured payment',
-          code: 'CAPTURE_PERSIST_FAILED',
-        },
-        { status: 500 }
-      );
-    }
-
-    after(() =>
-      runPaypalCaptureSideEffects({
-        merchantId: merchant_id,
-        order,
-        paypalOrderId: paypal_order_id,
-        grossAmount: Number(transaction.amount),
-      })
-    );
-
-    return NextResponse.json({
-      success: true,
-      status: 'success',
-      orderNumber: order.order_number || orderNumberFallback(order_id),
+    // Advance the order to paid and run the post-capture side effects. This
+    // also handles the cancelled-order clamp (F1) and serialized-inventory
+    // confirmation (F5) before any notification/settlement, since funds are
+    // already captured to the merchant's own PayPal account.
+    return finalizePaypalCaptureOrder({
+      supabase,
+      merchantId: merchant_id,
+      orderId: order_id,
+      paypalOrderId: paypal_order_id,
+      transaction,
+      orderSnapshot,
     });
   } catch (error) {
     logger.error({
