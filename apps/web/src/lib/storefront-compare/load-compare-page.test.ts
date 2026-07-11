@@ -487,12 +487,14 @@ describe('loadComparePage', () => {
       // No fallback warning should be emitted for a valid clicked pair.
     });
     // Persistent (not ...Once) so BOTH bounded-inventory reads — loadCompareGraphProducts
-    // AND getCachedCategoryCompareGraphSlugs — see only samsung. The cached category
-    // slug set is therefore empty (a single product yields no pairs) and does NOT contain
-    // the canonical slug, forcing indexability to be decided by the anchored fallback over
-    // routeApprovalProducts (bounded inventory + the clicked iphone-17-pro-max). This is the
-    // branch the test exists to protect; with a full-inventory second read it would instead
-    // pass via the O(1) categoryGraphSlugs.has() membership check and never exercise it.
+    // AND getCachedCategoryCompareGraphSlugs — see only samsung. iphone-17-pro-max is thus
+    // an OVERFLOW clicked product (resolved from the larger compare inventory but absent from
+    // the bounded semantic inventory), so routeApprovalProducts outgrows semanticCompareProducts
+    // and the overflow guard forces the uncached graph rebuild over routeApprovalProducts
+    // (bounded inventory + the clicked iphone-17-pro-max) rather than trusting the bounded
+    // cached set, which cannot attest to the overflow pair. This is the branch the test exists
+    // to protect; without the overflow/uncached path it would fall to the narrower anchored
+    // check (or a stale cached set) and could de-index a valid clicked pair.
     mockGetCachedProductSemanticInventory.mockResolvedValue([
       {
         slug: 'samsung-galaxy-z-trifold',

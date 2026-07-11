@@ -1,10 +1,10 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import {
-  buildCategoryCompareGraphSlugSet,
   buildCompareLinkGraph,
   type CompareLinkGraphEntry,
   type CompareLinkGraphProduct,
 } from '@/lib/storefront-link-modules/compare-link-graph';
+import { buildCategoryCompareGraphSlugSet } from '@/lib/storefront-link-modules/compare-maintained-slug';
 import { getCachedProductSemanticInventory } from '@/lib/storefront-product/get-cached-product-semantic-inventory';
 
 /**

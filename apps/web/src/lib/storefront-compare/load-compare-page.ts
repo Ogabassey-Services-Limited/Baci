@@ -17,10 +17,8 @@ import type {
   SupportedClusterCategory,
 } from '@/lib/storefront-content/content-cluster-types';
 import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
-import {
-  type CompareLinkGraphEntry,
-  isMaintainedCompareGraphSlug,
-} from '@/lib/storefront-link-modules/compare-link-graph';
+import type { CompareLinkGraphEntry } from '@/lib/storefront-link-modules/compare-link-graph';
+import { isMaintainedCompareGraphSlug } from '@/lib/storefront-link-modules/compare-maintained-slug';
 import {
   appendCountryContext,
   getCountryShoppingContext,
@@ -591,6 +589,14 @@ async function applyComparePageOverlay(
         products: semanticCompareProducts,
         clickedProducts: [overlay.leftProduct, overlay.rightProduct],
       });
+  // For categories beyond the bounded semantic inventory, a clicked product can
+  // resolve from the larger compare inventory and be appended to
+  // routeApprovalProducts. The cached slug set was built from the bounded
+  // inventory ALONE, so it can't attest to those overflow pairs — force the
+  // uncached rebuild (over routeApprovalProducts incl. the clicked products) for
+  // that request rather than demoting a valid overflow pair to legacy/noindex.
+  const hasOverflowClickedProduct =
+    routeApprovalProducts.length > semanticCompareProducts.length;
   // Only fall back to the curated-slug decision when the INVENTORY read failed —
   // without products the graph can't be built at all. When only the cached
   // slug-set read failed (categoryGraphSlugs === null) but inventory loaded,
@@ -606,7 +612,9 @@ async function applyComparePageOverlay(
         products: routeApprovalProducts,
         productsAreKnownActive: false,
         comparisonSlug: overlay.canonicalSlug,
-        categoryGraphSlugs: categoryGraphSlugs ?? undefined,
+        categoryGraphSlugs: hasOverflowClickedProduct
+          ? undefined
+          : (categoryGraphSlugs ?? undefined),
       });
   const relatedCompareLinks = buildRelatedCompareLinks({
     storeUrl: overlay.storeUrl,
