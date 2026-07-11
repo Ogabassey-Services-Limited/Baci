@@ -237,8 +237,34 @@ export function buildCompareLinkGraph({
   });
 }
 
+/**
+ * The set of canonical comparison slugs in the UNANCHORED maintained category
+ * compare-graph. This is O(activeProducts^2) — it scores + indexability-tests
+ * every product pair (buildProductCompareCandidate) — and is IDENTICAL for
+ * every compare URL in the category. Building it per compare render cost ~14s
+ * on prod-shape data / ~28s on Vercel (the compare-page stall). Compute it ONCE
+ * per category (see getCachedCategoryCompareGraphSlugs) and pass the resulting
+ * set to isMaintainedCompareGraphSlug so the per-URL check is O(1).
+ */
+export function buildCategoryCompareGraphSlugSet(
+  input: BuildCompareLinkGraphInput
+): string[] {
+  return buildCompareLinkGraph({
+    ...input,
+    anchorProductSlug: undefined,
+    currentComparisonSlug: undefined,
+    maxLinks: COMPARE_GRAPH_INDEXABLE_CATEGORY_LINK_LIMIT,
+  }).map((entry) => entry.comparisonSlug);
+}
+
 export function isMaintainedCompareGraphSlug(
-  input: BuildCompareLinkGraphInput & { comparisonSlug: string }
+  input: BuildCompareLinkGraphInput & {
+    comparisonSlug: string;
+    // Precomputed unanchored category-graph slugs (cached per category). When
+    // provided, the expensive O(n^2) unanchored build is skipped in favour of
+    // an O(1) membership check; the cheap anchored checks still run per URL.
+    categoryGraphSlugs?: ReadonlySet<string>;
+  }
 ) {
   const parsed = parseCompareSlug(input.comparisonSlug);
 
@@ -249,15 +275,17 @@ export function isMaintainedCompareGraphSlug(
   const isInGraph = (links: CompareLinkGraphEntry[]) =>
     links.some((entry) => entry.comparisonSlug === parsed.canonicalSlug);
 
-  if (
-    isInGraph(
-      buildCompareLinkGraph({
-        ...input,
-        currentComparisonSlug: undefined,
-        maxLinks: COMPARE_GRAPH_INDEXABLE_CATEGORY_LINK_LIMIT,
-      })
-    )
-  ) {
+  const inCategoryGraph = input.categoryGraphSlugs
+    ? input.categoryGraphSlugs.has(parsed.canonicalSlug)
+    : isInGraph(
+        buildCompareLinkGraph({
+          ...input,
+          currentComparisonSlug: undefined,
+          maxLinks: COMPARE_GRAPH_INDEXABLE_CATEGORY_LINK_LIMIT,
+        })
+      );
+
+  if (inCategoryGraph) {
     return true;
   }
 

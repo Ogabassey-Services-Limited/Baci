@@ -3,9 +3,16 @@ import { getCachedProductSemanticInventory } from '@/lib/storefront-product/get-
 import {
   buildRelatedCompareLinks,
   dedupeCompareLinks,
+  getCachedCategoryCompareGraphSlugs,
   includeClickedCompareProducts,
+  loadCategoryCompareGraphSlugs,
   loadCompareGraphProducts,
 } from './compare-page-link-helpers';
+
+vi.mock('next/cache', () => ({
+  cacheLife: vi.fn(),
+  cacheTag: vi.fn(),
+}));
 
 vi.mock(
   '@/lib/storefront-product/get-cached-product-semantic-inventory',
@@ -109,6 +116,55 @@ describe('compare page link helpers', () => {
         currentComparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
       }).map((link) => link.comparisonSlug)
     ).toContain('google-pixel-8-vs-iphone-17-pro-max');
+  });
+
+  it('builds the per-category maintained-graph slug set from the bounded inventory', async () => {
+    mockedInventory.mockResolvedValueOnce(products);
+
+    const slugs = await getCachedCategoryCompareGraphSlugs({
+      merchantId: 'merchant-1',
+      categorySlug: 'smartphones',
+      storeUrl: 'https://ogabassey.com',
+      categoryName: 'Smartphones',
+    });
+
+    expect(mockedInventory).toHaveBeenCalledWith('merchant-1', 'smartphones');
+    // The unanchored category graph pairs the active products into canonical
+    // comparison slugs.
+    expect(slugs).toContain('google-pixel-8-vs-iphone-17-pro-max');
+    expect(slugs.length).toBeGreaterThan(0);
+  });
+
+  it('loadCategoryCompareGraphSlugs returns a Set on success', async () => {
+    mockedInventory.mockResolvedValueOnce(products);
+
+    const set = await loadCategoryCompareGraphSlugs({
+      merchantId: 'merchant-1',
+      categorySlug: 'smartphones',
+      storeUrl: 'https://ogabassey.com',
+      categoryName: 'Smartphones',
+    });
+
+    expect(set).toBeInstanceOf(Set);
+    expect(set?.has('google-pixel-8-vs-iphone-17-pro-max')).toBe(true);
+  });
+
+  it('loadCategoryCompareGraphSlugs fails open to null on a transient inventory error', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    mockedInventory.mockRejectedValueOnce(new Error('inventory failed'));
+
+    await expect(
+      loadCategoryCompareGraphSlugs({
+        merchantId: 'merchant-1',
+        categorySlug: 'smartphones',
+        storeUrl: 'https://ogabassey.com',
+        categoryName: 'Smartphones',
+      })
+    ).resolves.toBeNull();
+    expect(consoleSpy).toHaveBeenCalled();
+    consoleSpy.mockRestore();
   });
 
   it('dedupes compare links by href while keeping the first copy', () => {

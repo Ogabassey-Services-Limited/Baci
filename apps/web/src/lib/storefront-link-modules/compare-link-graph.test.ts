@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildCategoryCompareGraphSlugSet,
   buildCompareLinkGraph,
   COMPARE_GRAPH_INDEXABLE_CATEGORY_LINK_LIMIT,
   isMaintainedCompareGraphSlug,
@@ -257,5 +258,50 @@ describe('buildCompareLinkGraph', () => {
         comparisonSlug: deepGraphEntry?.comparisonSlug ?? '',
       })
     ).toBe(true);
+  });
+
+  it('buildCategoryCompareGraphSlugSet matches the unanchored graph slugs', () => {
+    const input = {
+      storeUrl: 'https://ogabassey.com',
+      categorySlug: 'smartphones',
+      categoryName: 'Smartphones',
+      products,
+    };
+    const graph = buildCompareLinkGraph({
+      ...input,
+      maxLinks: COMPARE_GRAPH_INDEXABLE_CATEGORY_LINK_LIMIT,
+    });
+    const slugSet = buildCategoryCompareGraphSlugSet(input);
+
+    expect(new Set(slugSet)).toEqual(
+      new Set(graph.map((entry) => entry.comparisonSlug))
+    );
+  });
+
+  it('uses a precomputed categoryGraphSlugs set for the O(1) membership check', () => {
+    const input = {
+      storeUrl: 'https://ogabassey.com',
+      categorySlug: 'smartphones',
+      categoryName: 'Smartphones',
+      products,
+    };
+    const memberSlug = buildCategoryCompareGraphSlugSet(input)[0];
+
+    // A member of the cached set is maintained WITHOUT rebuilding the graph...
+    expect(
+      isMaintainedCompareGraphSlug({
+        ...input,
+        comparisonSlug: memberSlug,
+        categoryGraphSlugs: new Set([memberSlug]),
+      })
+    ).toBe(true);
+    // ...and a non-member with an empty set + no anchor match is rejected.
+    expect(
+      isMaintainedCompareGraphSlug({
+        ...input,
+        comparisonSlug: 'nonexistent-left-vs-nonexistent-right',
+        categoryGraphSlugs: new Set<string>(),
+      })
+    ).toBe(false);
   });
 });

@@ -550,7 +550,12 @@ describe('loadComparePage', () => {
     });
     staleInventory.products[0].status = 'draft';
     mockGetCachedCompareCategoryInventory.mockResolvedValueOnce(staleInventory);
-    mockGetCachedProductSemanticInventory.mockResolvedValueOnce([
+    // Persistent (not Once): getCachedProductSemanticInventory is now read twice
+    // per render — by loadCompareGraphProducts (anchored checks) AND by the
+    // per-category cached graph-slug set. In prod both hit the same
+    // status='active'-filtered query, so the draft left product is absent from
+    // both; the mock mirrors that so the clicked-inactive rejection still holds.
+    mockGetCachedProductSemanticInventory.mockResolvedValue([
       {
         slug: 'samsung-galaxy-z-trifold',
         name: 'Samsung Galaxy Z TriFold',

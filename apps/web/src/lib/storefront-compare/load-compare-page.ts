@@ -45,6 +45,7 @@ import {
 import {
   buildRelatedCompareLinks,
   includeClickedCompareProducts,
+  loadCategoryCompareGraphSlugs,
   loadCompareGraphProducts,
 } from './compare-page-link-helpers';
 import { parseCompareSlug } from './compare-slugs';
@@ -556,13 +557,24 @@ async function applyComparePageOverlay(
 
   const { overlay, ...pageModel } = core;
   const _oStart = performance.now();
-  const [guidePosts, compareGraphProducts] = await Promise.all([
-    loadSupportedGuidePosts(merchantId, overlay.guideLoadContext),
-    loadCompareGraphProducts({
-      categorySlug: overlay.categorySlug,
-      merchantId,
-    }),
-  ]);
+  const [guidePosts, compareGraphProducts, categoryGraphSlugs] =
+    await Promise.all([
+      loadSupportedGuidePosts(merchantId, overlay.guideLoadContext),
+      loadCompareGraphProducts({
+        categorySlug: overlay.categorySlug,
+        merchantId,
+      }),
+      // The unanchored category compare-graph is O(products^2) and identical for
+      // every compare URL in the category; fetch it as a per-category cached set
+      // so isMaintainedCompareGraphSlug is an O(1) membership check, not a ~28s
+      // per-URL rebuild.
+      loadCategoryCompareGraphSlugs({
+        merchantId,
+        categorySlug: overlay.categorySlug,
+        storeUrl: overlay.storeUrl,
+        categoryName: overlay.categoryName,
+      }),
+    ]);
   const _oReads = performance.now();
   console.log('COMPARE_OVERLAY_TIMING', {
     categorySlug: overlay.categorySlug.slice(0, 60),
@@ -582,16 +594,18 @@ async function applyComparePageOverlay(
   // On a transient graph failure fall back to the curated-slug decision — the
   // same behavior as before this was cached, just no longer frozen for the
   // cache window.
-  const isMaintainedGraphCanonicalSlug = compareGraphProducts.failed
-    ? overlay.isCuratedCanonicalSlug
-    : isMaintainedCompareGraphSlug({
-        storeUrl: overlay.storeUrl,
-        categorySlug: overlay.categorySlug,
-        categoryName: overlay.categoryName,
-        products: routeApprovalProducts,
-        productsAreKnownActive: false,
-        comparisonSlug: overlay.canonicalSlug,
-      });
+  const isMaintainedGraphCanonicalSlug =
+    compareGraphProducts.failed || categoryGraphSlugs === null
+      ? overlay.isCuratedCanonicalSlug
+      : isMaintainedCompareGraphSlug({
+          storeUrl: overlay.storeUrl,
+          categorySlug: overlay.categorySlug,
+          categoryName: overlay.categoryName,
+          products: routeApprovalProducts,
+          productsAreKnownActive: false,
+          comparisonSlug: overlay.canonicalSlug,
+          categoryGraphSlugs,
+        });
   const relatedCompareLinks = buildRelatedCompareLinks({
     storeUrl: overlay.storeUrl,
     categorySlug: overlay.categorySlug,
