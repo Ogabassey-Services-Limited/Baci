@@ -1,0 +1,126 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { StorefrontDatabase } from '@/types/storefront-database';
+import type { Json } from '@/types/supabase';
+import {
+  resolveStorefrontReadResult,
+  type StorefrontReadResult,
+} from './storefront-read-result';
+
+const PDP_CORE_SNAPSHOT_TOTAL_DEADLINE_MS = 8_000;
+
+function isJsonObject(value: Json | null): value is Record<string, Json> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+export type StorefrontPdpCoreSnapshot =
+  | { kind: 'product'; product: Record<string, Json> }
+  | { kind: 'redirect'; target: Record<string, Json> };
+
+export async function readStorefrontPdpCoreSnapshot(
+  client: SupabaseClient<StorefrontDatabase>,
+  {
+    branchId = null,
+    merchantId,
+    productSlug,
+  }: {
+    branchId?: string | null;
+    merchantId: string;
+    productSlug: string;
+  }
+): Promise<StorefrontReadResult<StorefrontPdpCoreSnapshot>> {
+  // p_branch_id is OMITTED (never passed as null) when no branch is selected:
+  // postgrest-js GET-mode serializes every non-undefined arg via `${value}`,
+  // so `p_branch_id: null` becomes the literal query string `p_branch_id=null`
+  // and PostgREST rejects it with 22P02 ('invalid input syntax for type uuid:
+  // "null"') — every read then deterministically classified 'unavailable'
+  // (verified against the live RPC on 2026-07-11; it broke all build-time PDP
+  // prerenders). Omitting the key applies the RPC's SQL default (null).
+  const query = client.rpc(
+    'get_storefront_pdp_core_v2',
+    {
+      p_merchant_id: merchantId,
+      p_product_slug: productSlug,
+      ...(branchId == null ? {} : { p_branch_id: branchId }),
+    },
+    { get: true }
+  );
+  const boundedQuery =
+    typeof query.abortSignal === 'function'
+      ? query.abortSignal(
+          AbortSignal.timeout(PDP_CORE_SNAPSHOT_TOTAL_DEADLINE_MS)
+        )
+      : query;
+  const response = await boundedQuery;
+
+  const result = resolveStorefrontReadResult({
+    operation: 'pdp_core_snapshot',
+    response,
+    parse: (rows) => (Array.isArray(rows) ? (rows[0] ?? null) : null),
+  });
+
+  if (result.status === 'unavailable') return result;
+  if (result.status === 'not_found') {
+    return {
+      status: 'unavailable',
+      error: {
+        kind: 'integrity',
+        operation: 'pdp_core_snapshot',
+        retryable: false,
+      },
+    };
+  }
+
+  const row = result.value;
+  if (row.resolution_status === 'not_found') {
+    return { status: 'not_found' };
+  }
+  if (!isJsonObject(row.product_data)) {
+    return {
+      status: 'unavailable',
+      error: {
+        kind: 'integrity',
+        operation: 'pdp_core_snapshot',
+        retryable: false,
+      },
+    };
+  }
+
+  if (row.resolution_status === 'found') {
+    // The RPC bounds product_variants at 128 rows and flags overflow via
+    // variants_truncated. A partial product must never become a cache entry,
+    // and the unbounded full-variant RPC is never used as a fallback. The
+    // linked 2026-07-11 production audit found a 72-variant maximum; if the
+    // product roadmap allows more than 128, add bounded keyset pagination in
+    // a later append-only migration before relaxing this guard.
+    if (row.product_data.variants_truncated === true) {
+      return {
+        status: 'unavailable',
+        error: {
+          code: 'variants_truncated',
+          kind: 'integrity',
+          operation: 'pdp_core_snapshot',
+          retryable: false,
+        },
+      };
+    }
+    return {
+      status: 'found',
+      value: { kind: 'product', product: row.product_data },
+    };
+  }
+  if (row.resolution_status === 'redirect') {
+    return {
+      status: 'found',
+      value: { kind: 'redirect', target: row.product_data },
+    };
+  }
+
+  return {
+    status: 'unavailable',
+    error: {
+      kind: 'integrity',
+      operation: 'pdp_core_snapshot',
+      retryable: false,
+    },
+  };
+}
