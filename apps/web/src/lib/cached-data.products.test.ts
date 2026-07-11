@@ -153,7 +153,8 @@ describe('cached-data product query projections', () => {
     expect(harness.mockRpc).toHaveBeenCalledWith(
       'get_storefront_pdp_core_v2',
       {
-        p_branch_id: null,
+        // p_branch_id omitted: null would GET-serialize to the literal
+        // string 'null' and 22P02 the RPC (see storefront-pdp-core-snapshot).
         p_merchant_id: 'merchant-123',
         p_product_slug: 'iphone-16',
       },
@@ -239,7 +240,8 @@ describe('cached-data product query projections', () => {
     expect(harness.mockRpc).toHaveBeenCalledWith(
       'get_storefront_pdp_core_v2',
       {
-        p_branch_id: null,
+        // p_branch_id omitted: null would GET-serialize to the literal
+        // string 'null' and 22P02 the RPC (see storefront-pdp-core-snapshot).
         p_merchant_id: 'merchant-123',
         p_product_slug: uuidPath,
       },
@@ -681,7 +683,8 @@ describe('cached-data product query projections', () => {
     expect(harness.mockRpc).toHaveBeenCalledWith(
       'get_storefront_pdp_core_v2',
       {
-        p_branch_id: null,
+        // p_branch_id omitted: null would GET-serialize to the literal
+        // string 'null' and 22P02 the RPC (see storefront-pdp-core-snapshot).
         p_merchant_id: 'merchant-123',
         p_product_slug: 'iphone-16',
       },
@@ -703,7 +706,8 @@ describe('cached-data product query projections', () => {
     expect(harness.mockRpc).toHaveBeenCalledWith(
       'get_storefront_pdp_core_v2',
       {
-        p_branch_id: null,
+        // p_branch_id omitted: null would GET-serialize to the literal
+        // string 'null' and 22P02 the RPC (see storefront-pdp-core-snapshot).
         p_merchant_id: 'merchant-123',
         p_product_slug: 'iphone-16',
       },
