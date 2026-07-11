@@ -9,6 +9,7 @@ import { notifyRepairStatusChange } from '@/lib/repairs/notify-repair-status-cha
 import {
   canTransitionRepairStatus,
   isRepairStatus,
+  isTerminalRepairStatus,
 } from '@/lib/repairs/repair-status';
 import { createClient } from '@/lib/supabase/admin';
 import { updateRepairBookingSchema } from '@/schemas/repair-bookings';
@@ -152,6 +153,16 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     updateQuery = updateQuery.eq('status', currentStatus);
   }
 
+  // Do not let a repair go terminal while a courier pickup is actively being
+  // booked. book-repair-pickup.ts holds `pickup_booking_lock_token` from the
+  // atomic claim through the paid provider call, so refusing terminal
+  // transitions while the lock is set closes the claim/link -> bookShipment
+  // window that would otherwise pay for a pickup on a just-cancelled repair.
+  // Once booking finishes (lock cleared, shipment linked), cancelling is allowed.
+  if (nextStatus !== undefined && isTerminalRepairStatus(nextStatus)) {
+    updateQuery = updateQuery.is('pickup_booking_lock_token', null);
+  }
+
   const { data: updated, error: updateError } = await updateQuery
     .select(BOOKING_DETAIL_COLUMNS)
     .maybeSingle();
@@ -163,11 +174,13 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     );
   }
   if (!updated) {
-    // The booking exists (loaded above) but no row matched the status guard —
-    // another request changed its status first. Ask the client to reload.
+    // The booking exists (loaded above) but no row matched: another request
+    // changed its status first, or a courier pickup is mid-booking (terminal
+    // transitions are held until it finishes). Ask the client to reload/retry.
     return NextResponse.json(
       {
-        error: 'Booking was updated by another request. Reload and try again.',
+        error:
+          'Booking could not be updated — it changed, or a courier pickup is being booked. Reload and try again.',
         code: 'status_conflict',
       },
       { status: 409 }

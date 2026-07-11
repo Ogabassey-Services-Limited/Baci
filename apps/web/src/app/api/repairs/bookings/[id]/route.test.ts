@@ -38,6 +38,10 @@ function makeAdmin(responses: Responses, eqCalls: [string, unknown][] = []) {
           eqCalls.push([column, value]);
           return builder;
         },
+        is(column: string, value: unknown) {
+          eqCalls.push([column, value]);
+          return builder;
+        },
         maybeSingle() {
           // Op-aware: reads keep op='select'; a `.update().…maybeSingle()` chain
           // resolves the update response (the route uses maybeSingle for the
@@ -282,6 +286,30 @@ describe('PATCH /api/repairs/bookings/[id]', () => {
     // The optimistic CAS guard must have been applied against the read status;
     // without it this write would clobber the concurrent transition.
     expect(eqCalls).toContainEqual(['status', 'pending']);
+  });
+
+  it('refuses a terminal transition while a courier pickup is being booked', async () => {
+    // confirmed -> cancelled is a valid transition, but a pickup booking is in
+    // progress (pickup_booking_lock_token held), so the guarded UPDATE
+    // (.is('pickup_booking_lock_token', null)) matches no row -> 409, and no
+    // cancellation notification fires. Closes the claim/link -> bookShipment race.
+    const eqCalls: [string, unknown][] = [];
+    mocks.createClient.mockReturnValue(
+      makeAdmin(
+        {
+          'repairs.select': {
+            data: { ...detailRow, status: 'confirmed' },
+            error: null,
+          },
+          'repairs.update': { data: null, error: null },
+        },
+        eqCalls
+      )
+    );
+    const res = await PATCH(req({ status: 'cancelled' }) as never, { params });
+    expect(res.status).toBe(409);
+    expect(eqCalls).toContainEqual(['pickup_booking_lock_token', null]);
+    expect(mocks.notifyRepairStatusChange).not.toHaveBeenCalled();
   });
 
   it('guards an equal-status resend so it cannot revert a concurrent transition', async () => {
