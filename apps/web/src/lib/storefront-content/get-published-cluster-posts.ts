@@ -10,6 +10,10 @@ import type {
 
 const CLUSTER_GUIDE_CANDIDATE_LIMIT = 64;
 
+// Optional overlay read: bound it and disable PostgREST auto-retry so a slow
+// response cannot fan out into 4 attempts (~34s). See the retry note below.
+const CLUSTER_GUIDE_TIMEOUT_MS = 3_000;
+
 type StorefrontClusterRule = {
   rule_order: number;
   category_slug: string;
@@ -97,16 +101,28 @@ export async function getPublishedClusterPosts(
   // fallback for an unknown RPC into an array on current postgrest-js.
   const supabase =
     getPublicSupabaseClient() as SupabaseClient<StorefrontClusterGuideDatabase>;
-  const { data, error } = await supabase.rpc(
-    'get_storefront_cluster_guide_candidates_v1',
-    {
+  const guideQuery = supabase
+    .rpc('get_storefront_cluster_guide_candidates_v1', {
       p_category_slug: context.categorySlug,
       p_cluster_rules: STOREFRONT_CLUSTER_RULES,
       p_merchant_id: merchantId,
       p_search_query: buildClusterGuideSearchQuery(context),
       p_limit: CLUSTER_GUIDE_CANDIDATE_LIMIT,
-    }
-  );
+    })
+    .abortSignal(AbortSignal.timeout(CLUSTER_GUIDE_TIMEOUT_MS));
+
+  // Disable PostgREST auto-retry. The shared client bounds each fetch with
+  // AbortSignal.timeout(), which rejects with a native `TimeoutError` (not
+  // `AbortError`); postgrest-js 2.108.2 only suppresses retries for AbortError,
+  // so a timeout on this optional per-request read would otherwise become 4
+  // attempts with 1/2/4s backoff (~34s). One bounded attempt, then the caller's
+  // optional-content boundary fails open. See getCachedProductSemanticInventory.
+  const boundedGuideQuery =
+    typeof guideQuery.retry === 'function'
+      ? guideQuery.retry(false)
+      : guideQuery;
+
+  const { data, error } = await boundedGuideQuery;
 
   if (error) {
     throw error;
