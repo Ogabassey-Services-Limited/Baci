@@ -25,8 +25,11 @@ describe('preloadBlogListingFeaturedImage', () => {
       'https://cdn.ogabassey.com/core-assets/blog/post/hero.jpg'
     );
 
+    // PR-IMG-2c: the loader default flipped off browser-facing format=auto, so
+    // the blog featured-story preload (and its lockstep <Image> render) now emit
+    // the universally decodable jpeg tier.
     expect(preload).toHaveBeenCalledWith(
-      'https://cdn.ogabassey.com/image/width=750,quality=50,format=auto/core-assets/blog/post/hero.jpg',
+      'https://cdn.ogabassey.com/image/width=750,quality=50,format=jpeg/core-assets/blog/post/hero.jpg',
       expect.objectContaining({
         as: 'image',
         fetchPriority: 'high',

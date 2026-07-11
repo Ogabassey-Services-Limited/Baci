@@ -7,6 +7,12 @@ vi.mock('next/image', () => ({
     return <img {...rest} alt={String(props.alt ?? '')} />;
   },
 }));
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => {
+    const { fill: _fill, preload: _preload, ...rest } = props;
+    return <img {...rest} alt={String(props.alt ?? '')} />;
+  },
+}));
 vi.mock('next/link', () => ({
   default: ({
     children,

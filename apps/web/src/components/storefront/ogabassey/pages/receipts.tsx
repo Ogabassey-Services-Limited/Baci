@@ -14,9 +14,9 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import Image from 'next/image';
 import type React from 'react';
 import { Suspense, useEffect, useState } from 'react';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { EmptyState } from '../components/empty-state';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
@@ -142,7 +142,7 @@ function ReceiptProductThumbnail({
       role={shouldRenderImage ? undefined : 'img'}
     >
       {imageSrc && !hasImageError ? (
-        <Image
+        <CdnFormatImage
           src={imageSrc}
           alt={productName}
           fill

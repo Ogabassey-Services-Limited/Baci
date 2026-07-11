@@ -29,7 +29,6 @@ import {
   type DiscountResult,
 } from '@/components/storefront/checkout/discount-code-input';
 import { MobileOrderSummary } from '../components/MobileCheckoutComponents';
-import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState, useRef } from 'react';
@@ -54,6 +53,7 @@ import {
 import { useAuthSafe } from '@/contexts/auth-context';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { CheckoutAuthModal } from '@/components/storefront/checkout-auth-modal';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import {
   AddressAutocomplete,
   type PlaceDetails,
@@ -3893,7 +3893,7 @@ export const CheckoutPage: React.FC = () => {
                   return (
                     <div key={itemKey} className="flex gap-3">
                       <div className="ogabassey-product-card-image-surface relative size-12 bg-gray-50 rounded-lg border border-gray-100 p-1 shrink-0">
-                        <Image
+                        <CdnFormatImage
                           src={itemImage}
                           alt={itemName}
                           fill

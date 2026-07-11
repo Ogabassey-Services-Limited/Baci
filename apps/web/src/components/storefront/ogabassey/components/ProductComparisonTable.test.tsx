@@ -29,6 +29,17 @@ vi.mock('next/image', () => ({
   ),
 }));
 
+// Product images now render through CdnFormatImage (explicit per-format
+// <picture>); surface it as a plain <img> so these tests keep asserting table
+// behavior.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => {
+    const { fill: _fill, preload: _preload, ...rest } = props;
+    // biome-ignore lint/performance/noImgElement: test double
+    return <img {...rest} alt={String(props.alt ?? '')} />;
+  },
+}));
+
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: mockUseMerchantSafe,
 }));

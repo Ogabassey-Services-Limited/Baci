@@ -1,4 +1,6 @@
-import type { ReactEventHandler, Ref } from 'react';
+'use client';
+
+import { type ReactEventHandler, type Ref, useState } from 'react';
 import { preload } from 'react-dom';
 import { rewriteOgabasseyTransformUrlFormat } from '@/lib/ogabassey-cdn-image-url';
 import {
@@ -57,6 +59,30 @@ export function CdnFormatImage({
   ...input
 }: CdnFormatImageProps) {
   const { avifSource, imgProps } = getOgabasseyImageFormatProps(input);
+  const [failedAvifSrcSet, setFailedAvifSrcSet] = useState<string | null>(null);
+  const isAvifDisabled =
+    avifSource !== null && failedAvifSrcSet === avifSource.srcSet;
+
+  const handleError: ReactEventHandler<HTMLImageElement> = (event) => {
+    const img = event.currentTarget;
+
+    // Only the AVIF tier's own failure warrants disabling that tier.
+    // Browsers without AVIF support skip the <source> and load the <img>
+    // fallback directly, leaving the unused AVIF <source> in the DOM; a
+    // fallback failure there (or after we've already disabled AVIF) must reach
+    // the caller's onError instead of being swallowed. `currentSrc` names the
+    // tier the browser actually selected, and AVIF candidate URLs are the only
+    // ones carrying `format=avif`.
+    if (avifSource && img.currentSrc.includes('format=avif')) {
+      // Render without the failed React-owned <source>; the remaining <img>
+      // fallback is already in the tree. Invoke the caller only if that
+      // fallback subsequently fails as well.
+      setFailedAvifSrcSet(avifSource.srcSet);
+      return;
+    }
+
+    onError?.(event);
+  };
 
   if (input.preload) {
     const avifHref = avifSource
@@ -85,13 +111,13 @@ export function CdnFormatImage({
     <img
       {...imgProps}
       alt={imgProps.alt}
-      onError={onError}
+      onError={handleError}
       onLoad={onLoad}
       ref={ref}
     />
   );
 
-  if (!avifSource) {
+  if (!avifSource || isAvifDisabled) {
     return img;
   }
 

@@ -1,7 +1,7 @@
 import { isProductNegotiable } from '@baci/shared/lib';
 import { Check, Minus, Plus, ShieldCheck, Trash2 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import type { CartItem } from '@/hooks/cart';
 import {
   getCartItemCheckoutUnitPrice,
@@ -56,7 +56,7 @@ export function CartPageLineItem({
           href={asRoute(productHref)}
           className="ogabassey-product-card-image-surface w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 shrink-0 flex items-center justify-center relative overflow-hidden"
         >
-          <Image
+          <CdnFormatImage
             src={item.image || '/placeholder.png'}
             alt={item.name}
             fill

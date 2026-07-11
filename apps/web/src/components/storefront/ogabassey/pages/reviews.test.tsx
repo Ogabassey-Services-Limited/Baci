@@ -17,8 +17,8 @@ vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => useMerchantSafeMock(),
 }));
 
-vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => (
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => (
     <img src={String(props.src ?? '')} alt={String(props.alt ?? '')} />
   ),
 }));
@@ -97,6 +97,10 @@ describe('OgabasseyV2Reviews', () => {
     expect(
       screen.getByRole('button', { name: 'Rate Now' })
     ).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'iPhone 15 Pro' })).toHaveAttribute(
+      'src',
+      '/iphone.jpg'
+    );
   });
 
   it('excludes already-reviewed products from the pending list', async () => {

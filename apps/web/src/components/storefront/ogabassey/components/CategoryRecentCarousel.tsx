@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { isExternalPlaceholderImageUrl } from '@/lib/image-utils';
 import { getProductUrl } from '@/lib/seo-utils';
@@ -111,7 +111,7 @@ export function CategoryRecentCarousel({
     return (
       <section className="mx-auto mb-4 max-w-[1400px] px-4 md:px-6">
         <div className="relative h-52 w-full overflow-hidden rounded-xl border border-store-border bg-store-background shadow-sm md:h-60 lg:h-64">
-          <Image
+          <CdnFormatImage
             src={fallbackImage}
             alt={categoryName}
             fill

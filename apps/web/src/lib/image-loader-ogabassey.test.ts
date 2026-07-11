@@ -7,9 +7,15 @@ function ogabasseyTransform(
   assetPath: string,
   width: number,
   quality = 75,
-  format: 'auto' | 'jpeg' | 'png' = 'auto'
+  format?: 'auto' | 'jpeg' | 'png' | 'webp'
 ): string {
-  return `${OGABASSEY_CDN_ORIGIN}/image/width=${width},quality=${quality},format=${format}${assetPath}`;
+  // PR-IMG-2c flipped the loader default off browser-facing `format=auto`: an
+  // absent explicit format now resolves to the universally decodable fallback
+  // tier (png sources stay png to preserve transparency, everything else
+  // transcodes to jpeg — mirrors `resolveOgabasseyCdnFallbackFormat`).
+  const resolvedFormat =
+    format ?? (/\.png(?:[?#]|$)/i.test(assetPath) ? 'png' : 'jpeg');
+  return `${OGABASSEY_CDN_ORIGIN}/image/width=${width},quality=${quality},format=${resolvedFormat}${assetPath}`;
 }
 
 describe('imageLoader OgaBassey CDN handling', () => {

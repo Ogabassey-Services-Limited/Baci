@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import Image from 'next/image';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 
 interface FlyToCartAnimationProps {
     startRect: DOMRect | null;
@@ -107,7 +107,7 @@ export const FlyToCartAnimation: React.FC<FlyToCartAnimationProps> = ({
     return createPortal(
         <div style={style}>
             {imageSrc ? (
-                <Image src={imageSrc} alt="" fill sizes="40px" className="object-cover" />
+                <CdnFormatImage src={imageSrc} alt="" fill sizes="40px" className="object-cover" />
             ) : (
                 <div className="size-2 bg-white rounded-full" />
             )}

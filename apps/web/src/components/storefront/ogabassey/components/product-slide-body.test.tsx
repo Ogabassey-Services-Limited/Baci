@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => {
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: (props: Record<string, unknown>) => {
     const { fill: _fill, ...rest } = props;
     return <img {...rest} alt={String(props.alt ?? '')} />;
   },

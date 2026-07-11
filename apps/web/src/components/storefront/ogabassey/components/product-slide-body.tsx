@@ -1,5 +1,5 @@
-import Image from 'next/image';
 import type { LaunchProductSlide } from './LaunchCarousel';
+import { CdnFormatImage } from '@/components/storefront/cdn-format-image';
 
 /** Split-panel body for a product slide: themed text panel + contained image.
  *  `priority` eager/high-priorities the image when this slide is the topmost
@@ -28,7 +28,7 @@ export function ProductSlideBody({
         </span>
       </div>
       <div className="relative col-span-2 bg-store-background">
-        <Image
+        <CdnFormatImage
           src={slide.imageUrl}
           alt={slide.imageAlt}
           fill
