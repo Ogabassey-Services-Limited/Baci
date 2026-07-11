@@ -110,7 +110,7 @@ describe('checkout station pickup helpers', () => {
     });
   });
 
-  it('keeps pickup availability separate from selected delivery methods', () => {
+  it('does not activate pickup behavior for door delivery', () => {
     expect(
       getPickupStationMode({
         city: 'Port Harcourt',
@@ -124,7 +124,7 @@ describe('checkout station pickup helpers', () => {
     });
   });
 
-  it('does not offer pickup station mode without a resolved location', () => {
+  it('requires a resolved location before provider pickup is active', () => {
     expect(
       getPickupStationMode({
         city: '',
@@ -139,7 +139,7 @@ describe('checkout station pickup helpers', () => {
     });
   });
 
-  it('keeps station quote availability from implying provider pickup use', () => {
+  it('recognizes an existing station quote as pickup availability', () => {
     expect(
       getPickupStationMode({
         city: '',

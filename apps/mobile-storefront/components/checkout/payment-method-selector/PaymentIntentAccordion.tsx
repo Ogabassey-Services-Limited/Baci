@@ -12,8 +12,8 @@ import { BRAND } from '@/constants/Colors';
 import {
   bnplEligibilityHint,
   isIntentSelected,
-  type PaymentIntent,
   PAYMENT_INTENTS,
+  type PaymentIntent,
 } from './payment-intents';
 import { paymentIntentAccordionStyles as styles } from './styles';
 import type { PaymentMethodType, PaymentTab } from './types';
@@ -23,8 +23,8 @@ type ThemeColors = (typeof Colors)['light'];
 
 interface PaymentIntentAccordionProps {
   colors: ThemeColors;
-  selectedTab: PaymentTab;
-  selectedMethod: PaymentMethodType;
+  selectedTab: PaymentTab | null;
+  selectedMethod: PaymentMethodType | null;
   hasBNPLMethods: boolean;
   hasPayLaterMethods: boolean;
   availableMethodIds?: readonly PaymentMethodType[];
@@ -85,7 +85,8 @@ export function PaymentIntentAccordion({
   // With `initiallyCollapsed` the accordion opens fully closed so all options
   // are visible at a glance; tapping a card opens it. Selecting a *different*
   // intent opens it (see onPress); tapping the open one toggles it shut.
-  const [collapsedSelected, setCollapsedSelected] = useState(initiallyCollapsed);
+  const [collapsedSelected, setCollapsedSelected] =
+    useState(initiallyCollapsed);
 
   // `initiallyCollapsed` can flip true → false when wallet/savings credit loads
   // after mount; reopen the selected card so those rows become visible. Runs
@@ -161,7 +162,11 @@ export function PaymentIntentAccordion({
               }}
               disabled={disabled}
               accessibilityRole="radio"
-              accessibilityState={{ checked: selected, disabled, expanded: open }}
+              accessibilityState={{
+                checked: selected,
+                disabled,
+                expanded: open,
+              }}
               accessibilityLabel={`${intent.label}. ${subtitle}`}
             >
               <View
@@ -182,7 +187,10 @@ export function PaymentIntentAccordion({
                   {intent.label}
                 </Text>
                 <Text
-                  style={[styles.intentSubtitle, { color: colors.textSecondary }]}
+                  style={[
+                    styles.intentSubtitle,
+                    { color: colors.textSecondary },
+                  ]}
                 >
                   {subtitle}
                 </Text>

@@ -16,8 +16,8 @@ interface UsePaymentMethodAvailabilityInput {
   hiddenMethods?: PaymentMethodType[];
   methodDisabledReasons: Partial<Record<PaymentMethodType, string>>;
   orderTotal: number;
-  selectedMethod: PaymentMethodType;
-  selectedTab: PaymentTab;
+  selectedMethod: PaymentMethodType | null;
+  selectedTab: PaymentTab | null;
   walletSelection?: WalletSelection;
   savingsSelection?: SavingsSelection;
 }

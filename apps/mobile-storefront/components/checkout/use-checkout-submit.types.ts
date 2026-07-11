@@ -47,12 +47,12 @@ export interface UseCheckoutSubmitParams {
   mobileCheckoutIdempotencyRef: RefObject<MobileCheckoutIdempotencyState | null>;
   orderTotals: { taxAmount: number } | null;
   paymentSettings: Parameters<typeof submitBnplCheckout>[0]['paymentSettings'];
-  paymentTab: PaymentTab;
+  paymentTab: PaymentTab | null;
   resolvedShippingQuoteContextKey: string;
   requiresShippingQuote: boolean;
   saveAsDefaultAddress: boolean;
   saveDetails: boolean;
-  selectedPayment: PaymentMethodType;
+  selectedPayment: PaymentMethodType | null;
   selectedQuote: ShippingQuote | undefined;
   selectedSavedAddressId: string | null;
   setIsProcessing: (value: boolean) => void;

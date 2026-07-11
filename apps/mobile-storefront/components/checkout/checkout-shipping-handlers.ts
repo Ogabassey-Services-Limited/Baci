@@ -2,32 +2,42 @@ import { isPickupEligible } from '@baci/shared';
 import type { RefObject } from 'react';
 import type { UseFormSetValue } from 'react-hook-form';
 import { normalizeStateName } from '@/components/checkout/checkout-shipping.helpers';
+import { isProviderStationPickupQuote } from '@/components/checkout/checkout-station-pickup';
+import {
+  AIRPORT_QUOTE_ID,
+  isGiglGoFasterQuote,
+} from '@/components/checkout/checkout-step-helpers';
 import type {
   DeliveryMethod,
   ShippingQuote,
 } from '@/components/checkout/types';
 import type { PlaceDetails } from '@/components/ui/AddressAutocomplete';
 import type { ShippingAddressInput } from '@/lib/validation';
+import type { SavedDoorAddress } from './use-checkout-shipping.types';
 
 interface CreateCheckoutShippingHandlersParams {
   committedAddress: string;
   currentShippingQuoteContextKey: string;
+  deliveryCoordinates: { latitude: number; longitude: number } | null;
   deliveryMethod: DeliveryMethod;
   requestShippingQuotes: (shouldResetSelection: boolean) => void;
   resolvedShippingQuoteContextKey: string;
-  savedDoorAddressRef: RefObject<{
-    address: string;
-    city: string;
-    state: string;
-  } | null>;
+  savedDoorAddressRef: RefObject<SavedDoorAddress | null>;
   setCitySearch: (value: string) => void;
   setCommittedAddress: (value: string) => void;
+  setDeliveryCoordinates: (
+    value: { latitude: number; longitude: number } | null
+  ) => void;
   setDeliveryMethod: (value: DeliveryMethod) => void;
   setResolvedShippingQuoteContextKey: (value: string) => void;
   setSelectedQuoteId: (value: string) => void;
   setShowCityPicker: (value: boolean) => void;
   setShowStatePicker: (value: boolean) => void;
   setValue: UseFormSetValue<ShippingAddressInput>;
+  quoteSelection: {
+    selectedQuoteId?: string;
+    shippingQuotes: ShippingQuote[];
+  };
   shippingQuoteAbortRef: RefObject<AbortController | null>;
   shippingStates: string[];
   watchedAddress: string;
@@ -40,6 +50,7 @@ interface CreateCheckoutShippingHandlersParams {
 export function createCheckoutShippingHandlers({
   committedAddress,
   currentShippingQuoteContextKey,
+  deliveryCoordinates,
   deliveryMethod,
   googleSuggestedCityRef,
   requestShippingQuotes,
@@ -47,12 +58,14 @@ export function createCheckoutShippingHandlers({
   savedDoorAddressRef,
   setCitySearch,
   setCommittedAddress,
+  setDeliveryCoordinates,
   setDeliveryMethod,
   setResolvedShippingQuoteContextKey,
   setSelectedQuoteId,
   setShowCityPicker,
   setShowStatePicker,
   setValue,
+  quoteSelection: { selectedQuoteId, shippingQuotes },
   shippingQuoteAbortRef,
   shippingStates,
   watchedAddress,
@@ -68,6 +81,14 @@ export function createCheckoutShippingHandlers({
       const selectedAddress = place.formattedAddress || '';
       updateAddress(selectedAddress);
       setCommittedAddress(selectedAddress);
+      setDeliveryCoordinates(
+        Number.isFinite(place.latitude) && Number.isFinite(place.longitude)
+          ? {
+              latitude: place.latitude as number,
+              longitude: place.longitude as number,
+            }
+          : null
+      );
       const normalizedState = place.state
         ? normalizeStateName(place.state, shippingStates)
         : '';
@@ -92,6 +113,7 @@ export function createCheckoutShippingHandlers({
       updateAddress(text);
       if (committedAddress) setResolvedShippingQuoteContextKey('');
       setCommittedAddress('');
+      setDeliveryCoordinates(null);
     },
     handleRetryShippingQuotes: () => {
       if (!watchedState || !watchedCity) return;
@@ -101,6 +123,7 @@ export function createCheckoutShippingHandlers({
       );
     },
     handleSelectCity: (city: string) => {
+      setDeliveryCoordinates(null);
       setValue('city', city, { shouldValidate: true });
       setShowCityPicker(false);
       setCitySearch('');
@@ -110,6 +133,7 @@ export function createCheckoutShippingHandlers({
         savedDoorAddressRef.current = {
           address: watchedAddress,
           city: watchedCity,
+          coordinates: deliveryCoordinates,
           state: watchedState,
         };
       } else if (
@@ -122,6 +146,7 @@ export function createCheckoutShippingHandlers({
           setValue('city', saved.city, { shouldValidate: false });
           setValue('state', saved.state, { shouldValidate: false });
           setCommittedAddress(saved.address);
+          setDeliveryCoordinates(saved.coordinates);
           savedDoorAddressRef.current = null;
         }
         setSelectedQuoteId('');
@@ -136,10 +161,37 @@ export function createCheckoutShippingHandlers({
             ? String(stationPickupQuote.id)
             : ''
         );
+      } else if (method === 'airport') {
+        const selectedQuote = shippingQuotes.find(
+          (quote) => String(quote.id) === String(selectedQuoteId)
+        );
+        setSelectedQuoteId(
+          selectedQuote && isGiglGoFasterQuote(selectedQuote)
+            ? String(selectedQuote.id)
+            : AIRPORT_QUOTE_ID
+        );
+      } else if (method === 'door') {
+        const selectedQuote = shippingQuotes.find(
+          (quote) => String(quote.id) === String(selectedQuoteId)
+        );
+        const roadQuote = shippingQuotes.find(
+          (quote) =>
+            !isProviderStationPickupQuote(quote) && !isGiglGoFasterQuote(quote)
+        );
+        setSelectedQuoteId(
+          selectedQuote &&
+            !isProviderStationPickupQuote(selectedQuote) &&
+            !isGiglGoFasterQuote(selectedQuote)
+            ? String(selectedQuote.id)
+            : roadQuote
+              ? String(roadQuote.id)
+              : ''
+        );
       }
       setDeliveryMethod(method);
     },
     handleSelectState: (state: string) => {
+      setDeliveryCoordinates(null);
       setValue('state', state, { shouldValidate: true });
       setValue('city', '', { shouldValidate: true });
       setShowStatePicker(false);

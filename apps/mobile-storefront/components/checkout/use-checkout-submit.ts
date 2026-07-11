@@ -100,7 +100,9 @@ export function useCheckoutSubmit({
         selectedPayment,
         selectedQuote,
         setStep,
-      })
+      }) ||
+      !selectedPayment ||
+      !paymentTab
     ) {
       return;
     }
@@ -194,8 +196,6 @@ export function useCheckoutSubmit({
           shippingProvider: getShippingProvider(),
           snapshot,
         }),
-        // Discount codes and savings credit are mutually exclusive (the route
-        // dispatches a single wrapper RPC). Wallet credit still stacks.
         ...(appliedDiscountCode
           ? {}
           : buildSavingsOrderFields(liveSavingsSelection)),

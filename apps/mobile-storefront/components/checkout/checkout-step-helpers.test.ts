@@ -3,11 +3,14 @@ import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/pickup-stati
 import type { ShippingQuote } from '@/components/checkout/types';
 import {
   AIRPORT_DELIVERY_FEE,
+  findSelectedQuote,
   getDeliveryMethodFee,
   getDeliveryMethodLabel,
   getDeliveryMethodSummary,
   getPaymentTabForMethod,
+  getQuotePreference,
   getShippingProviderForMethod,
+  requiresQuote,
 } from './checkout-step-helpers';
 
 const baseQuote: ShippingQuote = {
@@ -29,6 +32,18 @@ const stationPickupQuote: ShippingQuote = {
   stationAddress: 'GIGL Aba Road, Port Harcourt',
   stationName: 'PORT HARCOURT',
 };
+const goFasterQuote: ShippingQuote = {
+  ...baseQuote,
+  id: 'gofaster-quote',
+  provider: 'GIGL',
+  serviceTier: 'GoFaster',
+  price: 18500,
+};
+const stationGoFasterQuote: ShippingQuote = {
+  ...goFasterQuote,
+  id: 'station-gofaster-quote',
+  isStationPickup: true,
+};
 
 describe('checkout-step-helpers', () => {
   it('maps payment methods to the right tabs', () => {
@@ -42,6 +57,10 @@ describe('checkout-step-helpers', () => {
 
   it('resolves delivery fees by method', () => {
     expect(getDeliveryMethodFee('airport', baseQuote)).toBe(
+      AIRPORT_DELIVERY_FEE
+    );
+    expect(getDeliveryMethodFee('airport', goFasterQuote)).toBe(18500);
+    expect(getDeliveryMethodFee('airport', stationGoFasterQuote)).toBe(
       AIRPORT_DELIVERY_FEE
     );
     expect(getDeliveryMethodFee('pickup_station', baseQuote)).toBe(0);
@@ -105,6 +124,10 @@ describe('checkout-step-helpers', () => {
 
   it('returns the shipping provider for each delivery method', () => {
     expect(getShippingProviderForMethod('airport', baseQuote)).toBeUndefined();
+    expect(getShippingProviderForMethod('airport', goFasterQuote)).toBe('GIGL');
+    expect(
+      getShippingProviderForMethod('airport', stationGoFasterQuote)
+    ).toBeUndefined();
     expect(
       getShippingProviderForMethod('pickup_station', baseQuote)
     ).toBeUndefined();
@@ -130,5 +153,20 @@ describe('checkout-step-helpers', () => {
       })
     ).toBeUndefined();
     expect(getShippingProviderForMethod('door', undefined)).toBeUndefined();
+  });
+
+  it('maps checkout methods to provider quote preferences', () => {
+    expect(getQuotePreference('pickup_station')).toBe('pickup_station');
+    expect(getQuotePreference('door')).toBe('door');
+    expect(getQuotePreference('airport')).toBe('door');
+  });
+
+  it('resolves quote state requirements for local and provider air options', () => {
+    expect(
+      findSelectedQuote([baseQuote, goFasterQuote], 'gofaster-quote')
+    ).toBe(goFasterQuote);
+    expect(requiresQuote('airport', goFasterQuote, false)).toBe(true);
+    expect(requiresQuote('airport', undefined, false)).toBe(false);
+    expect(requiresQuote('door', undefined, false)).toBe(true);
   });
 });

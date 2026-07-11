@@ -2,6 +2,7 @@ import {
   getPickupStationAddressText,
   isProviderStationPickupQuote,
 } from '@/components/checkout/checkout-station-pickup';
+import { isGiglGoFasterQuote } from '@/components/checkout/checkout-step-helpers';
 import {
   PICKUP_STATION_ADDRESS_LINES,
   PICKUP_STATION_CITY,
@@ -164,6 +165,7 @@ export function buildCheckoutOrderRequest({
       selectedQuote?.id != null &&
       ((deliveryMethod === 'door' &&
         !isProviderStationPickupQuote(selectedQuote)) ||
+        (deliveryMethod === 'airport' && isGiglGoFasterQuote(selectedQuote)) ||
         (deliveryMethod === 'pickup_station' &&
           isProviderStationPickupQuote(selectedQuote)))
         ? String(selectedQuote.id)

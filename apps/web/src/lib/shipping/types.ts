@@ -86,10 +86,12 @@ export interface ShippingQuote {
   stationId?: number;
   stationName?: string;
   stationAddress?: string;
+  stationCode?: string;
   // Legacy aliases
   pickupStationId?: number;
   pickupStationName?: string;
   pickupStationAddress?: string;
+  pickupStationCode?: string;
 }
 
 export interface QuoteResponse {

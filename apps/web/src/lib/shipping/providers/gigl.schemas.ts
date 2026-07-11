@@ -49,6 +49,20 @@ const station = z
   })
   .loose();
 
+const serviceCentre = z
+  .object({
+    StationId: z.number(),
+    StationName: z.string().min(1),
+    StationCode: optionalStringSchema,
+    ServiceCentreId: z.number(),
+    ServiceCentreName: z.string().min(1),
+    ServiceCentreCode: optionalStringSchema,
+    Latitude: optionalNumberSchema,
+    Longitude: optionalNumberSchema,
+    Address: optionalStringSchema,
+  })
+  .loose();
+
 const country = z
   .object({
     CountryId: z.number(),
@@ -152,6 +166,8 @@ export const giglSchemas = {
   loginData,
   station,
   stationsData: z.array(station),
+  serviceCentre,
+  serviceCentresData: z.array(serviceCentre),
   countryData: z.array(country),
   priceData,
   internationalPriceRate,
@@ -165,4 +181,5 @@ export const giglSchemas = {
 };
 
 export type GiglStation = z.infer<typeof station>;
+export type GiglServiceCentre = z.infer<typeof serviceCentre>;
 export type GiglEnvelopeObject = z.infer<typeof envelopeObject>;

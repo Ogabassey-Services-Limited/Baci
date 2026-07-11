@@ -5,6 +5,15 @@ export interface ShippingQuoteLike {
   id: string | number;
   price: number | string;
   isStationPickup?: boolean;
+  provider?: string;
+  serviceTier?: string;
+}
+
+function isGoFasterQuote(quote: ShippingQuoteLike): boolean {
+  return (
+    quote.provider?.toUpperCase() === 'GIGL' &&
+    quote.serviceTier?.toLowerCase().includes('gofaster') === true
+  );
 }
 
 function normalizeShippingQuotePrice(value: number | string): number {
@@ -69,7 +78,9 @@ export function getPreferredShippingQuoteId(
     return '';
   }
 
-  const doorQuotes = quotes.filter((quote) => quote.isStationPickup !== true);
+  const doorQuotes = quotes.filter(
+    (quote) => quote.isStationPickup !== true && !isGoFasterQuote(quote)
+  );
 
   // Never auto-select a station-pickup quote for door delivery. The fee/order
   // builders ignore station quotes for door, so auto-selecting one would let a
