@@ -6,8 +6,17 @@ import { GET } from './route';
 // Mocks
 // =============================================================================
 
+const { mockGetQuizPhaseEnv, mockGetQuizProductionApprovedEnv } = vi.hoisted(
+  () => ({
+    mockGetQuizPhaseEnv: vi.fn(() => 'production'),
+    mockGetQuizProductionApprovedEnv: vi.fn(() => true),
+  })
+);
+
 vi.mock('@/env', () => ({
   getCronSecret: () => process.env.CRON_SECRET,
+  getQuizPhaseEnv: () => mockGetQuizPhaseEnv(),
+  getQuizProductionApprovedEnv: () => mockGetQuizProductionApprovedEnv(),
 }));
 
 const mockRpc = vi.fn().mockResolvedValue({ data: 0, error: null });
@@ -42,6 +51,9 @@ describe('GET /api/quiz/finalize', () => {
     vi.clearAllMocks();
     process.env.CRON_SECRET = 'test-cron-secret';
     mockRpc.mockResolvedValue({ data: 0, error: null });
+    // Default: production + approved so the finalizer is reached.
+    mockGetQuizPhaseEnv.mockReturnValue('production');
+    mockGetQuizProductionApprovedEnv.mockReturnValue(true);
   });
 
   it('returns 500 when CRON_SECRET is not configured', async () => {
@@ -64,6 +76,32 @@ describe('GET /api/quiz/finalize', () => {
     const response = await GET(createCronRequest('Bearer wrong-secret'));
 
     expect(response.status).toBe(401);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('skips finalization (does not mint) when production is not approved', async () => {
+    mockGetQuizProductionApprovedEnv.mockReturnValue(false);
+
+    const response = await GET(createCronRequest('Bearer test-cron-secret'));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      finalized: 0,
+      skipped: 'production_not_approved',
+    });
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('skips finalization when QUIZ_PHASE is not production', async () => {
+    mockGetQuizPhaseEnv.mockReturnValue('1a');
+
+    const response = await GET(createCronRequest('Bearer test-cron-secret'));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      finalized: 0,
+      skipped: 'production_not_approved',
+    });
     expect(mockRpc).not.toHaveBeenCalled();
   });
 

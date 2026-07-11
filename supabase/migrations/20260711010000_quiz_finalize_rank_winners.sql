@@ -92,15 +92,33 @@ BEGIN
   END IF;
 
   v_ranked_prizes := v_settings->'ranked_prizes';
-  v_grand_amount := NULLIF(pg_catalog.btrim(v_settings->>'grand_prize_amount'), '')::numeric;
-  v_cash_amount := NULLIF(pg_catalog.btrim(v_settings->>'cash_prize_amount'), '')::numeric;
+  -- Guard the amount casts: a non-numeric configured amount (e.g. a
+  -- currency-formatted string "₦50,000") must yield NULL rather than raising
+  -- and aborting the whole finalize. The minter already treats NULL/negative as
+  -- an unset payout (award row still minted, figure finalized downstream).
+  v_grand_amount := CASE
+    WHEN pg_catalog.btrim(v_settings->>'grand_prize_amount') ~ '^-?[0-9]+(\.[0-9]+)?$'
+      THEN pg_catalog.btrim(v_settings->>'grand_prize_amount')::numeric
+    ELSE NULL
+  END;
+  v_cash_amount := CASE
+    WHEN pg_catalog.btrim(v_settings->>'cash_prize_amount') ~ '^-?[0-9]+(\.[0-9]+)?$'
+      THEN pg_catalog.btrim(v_settings->>'cash_prize_amount')::numeric
+    ELSE NULL
+  END;
 
   WITH prize_plan AS (
     -- Explicit prize schedule: settings.ranked_prizes = [{rank,award_type,amount}, ...]
     SELECT
-      (elem->>'rank')::integer AS rank,
+      -- guard casts: a malformed rank/amount skips that entry (NULL rank never
+      -- joins a winner) instead of aborting the finalize.
+      CASE WHEN elem->>'rank' ~ '^[0-9]+$' THEN (elem->>'rank')::integer ELSE NULL END AS rank,
       elem->>'award_type' AS award_type,
-      NULLIF(pg_catalog.btrim(elem->>'amount'), '')::numeric AS amount
+      CASE
+        WHEN pg_catalog.btrim(elem->>'amount') ~ '^-?[0-9]+(\.[0-9]+)?$'
+          THEN pg_catalog.btrim(elem->>'amount')::numeric
+        ELSE NULL
+      END AS amount
     FROM pg_catalog.jsonb_array_elements(
       CASE
         WHEN pg_catalog.jsonb_typeof(v_ranked_prizes) = 'array' THEN v_ranked_prizes
@@ -218,12 +236,17 @@ BEGIN
   -- surfacing it as live once its winners are minted.
   UPDATE public.quiz_events
   SET award_finalized_at = pg_catalog.now(),
-      status = CASE WHEN status = 'active' THEN 'completed' ELSE status END,
+      status = CASE WHEN status IN ('active', 'scheduled') THEN 'completed' ELSE status END,
       updated_at = pg_catalog.now()
   WHERE id = p_event_id
     AND award_finalized_at IS NULL
     AND compliance_verified = true
-    AND (status = 'completed' OR (ends_at IS NOT NULL AND ends_at <= pg_catalog.now()));
+    -- Never finalize/mint for a cancelled event.
+    AND status <> 'cancelled'
+    -- Same 10-min grace as the cron: a player who started just before ends_at
+    -- can still submit and compete before winners are minted. An already
+    -- 'completed' event has no in-flight risk, so it finalizes immediately.
+    AND (status = 'completed' OR (ends_at IS NOT NULL AND ends_at <= pg_catalog.now() - interval '10 minutes'));
 
   IF NOT FOUND THEN
     RETURN 0;
@@ -287,7 +310,7 @@ BEGIN
   LOOP
     UPDATE public.quiz_events
     SET award_finalized_at = pg_catalog.now(),
-        status = CASE WHEN status = 'active' THEN 'completed' ELSE status END,
+        status = CASE WHEN status IN ('active', 'scheduled') THEN 'completed' ELSE status END,
         updated_at = pg_catalog.now()
     WHERE id = v_event_id
       AND award_finalized_at IS NULL;

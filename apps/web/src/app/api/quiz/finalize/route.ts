@@ -1,5 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getCronSecret } from '@/env';
+import {
+  getCronSecret,
+  getQuizPhaseEnv,
+  getQuizProductionApprovedEnv,
+} from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -28,6 +32,15 @@ export async function GET(request: NextRequest) {
   const expectedToken = `Bearer ${cronSecret}`;
   if (!authHeader || !constantTimeEqual(authHeader, expectedToken)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Operational production-approval gate: never mint real prizes until QUIZ_PHASE
+  // is 'production' AND operations has signed off (QUIZ_PRODUCTION_APPROVED).
+  // The RPC also fails closed per-event on compliance_verified, but that is the
+  // per-event permit gate — this is the global launch switch. Skip (not error)
+  // so the cron stays green while prizes are still 1a/unapproved.
+  if (getQuizPhaseEnv() !== 'production' || !getQuizProductionApprovedEnv()) {
+    return NextResponse.json({ finalized: 0, skipped: 'production_not_approved' });
   }
 
   const supabase = createAdminClient();
