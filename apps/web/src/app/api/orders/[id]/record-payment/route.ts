@@ -479,7 +479,8 @@ export async function POST(
     };
 
     const orderCancelledByClamp = isOrderClampedAsCancelled(updatedOrder);
-    if (!createdTransaction?.id && !orderCancelledByClamp) {
+    const transactionId = createdTransaction?.id;
+    if (!transactionId && !orderCancelledByClamp) {
       logger.error({
         message: 'RecordPayment atomic insert omitted transaction id',
         manualPaymentResult,
@@ -547,7 +548,9 @@ export async function POST(
       });
     }
 
-    const transactionId = createdTransaction.id;
+    // The consolidated guard above requires an id for every non-cancelled
+    // order; the cancelled branch has already returned.
+    const sideEffectTransactionId = transactionId as string;
 
     // Paid-order side effects (only when NOT cancelled).
     if (isFullyPaid) {
@@ -699,8 +702,13 @@ export async function POST(
         amount: parsedAmount,
         gatewayReference: reference,
         merchantId: merchant.id,
-        order,
-        transactionId,
+        order: {
+          ...order,
+          amount_paid: Number(newPaid),
+          payment_status: rpcPaymentStatus,
+          total: authoritativeOrderTotal,
+        },
+        transactionId: sideEffectTransactionId,
       });
     } else if (rpcPaymentStatus === 'partially_paid') {
       logger.info({
@@ -763,7 +771,7 @@ export async function POST(
                   replyTo: replyToEmail,
                   emailType: 'orders',
                   fromName: senderName,
-                  clientReference: `manual-payment:${transactionId}:partial-receipt`,
+                  clientReference: `manual-payment:${sideEffectTransactionId}:partial-receipt`,
                   auditContext: {
                     merchantId: merchant.id,
                     orderId: order.id,
@@ -782,7 +790,7 @@ export async function POST(
               orderId,
               step: 'partial_receipt',
               supabase: serviceClient,
-              transactionId,
+              transactionId: sideEffectTransactionId,
             });
           } catch (error) {
             logger.error({
@@ -790,7 +798,7 @@ export async function POST(
               error,
               message: 'Manual partial-payment receipt failed after response',
               orderId,
-              transactionId,
+              transactionId: sideEffectTransactionId,
             });
           }
         });

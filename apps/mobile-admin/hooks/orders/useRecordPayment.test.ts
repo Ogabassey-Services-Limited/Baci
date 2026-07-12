@@ -771,6 +771,49 @@ describe('useRecordPayment', () => {
     consoleError.mockRestore();
   });
 
+  it('uses corrected details after retry persistence initially fails', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    vi.mocked(AsyncStorage.setItem).mockRejectedValueOnce(
+      new Error('storage full')
+    );
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ recorded: true }),
+    });
+    const mutation = useRecordPayment() as unknown as {
+      mutationFn: (vars: {
+        amount: number;
+        orderId: string;
+        paymentMethod: string;
+        reference?: string;
+      }) => Promise<unknown>;
+    };
+
+    await expect(
+      mutation.mutationFn({
+        amount: 5000,
+        orderId: 'order-1',
+        paymentMethod: 'cash',
+        reference: 'OLD',
+      })
+    ).rejects.toThrow('Unable to secure this payment attempt');
+    await mutation.mutationFn({
+      amount: 5000,
+      orderId: 'order-1',
+      paymentMethod: 'bank_transfer',
+      reference: 'CORRECTED',
+    });
+
+    expect(
+      JSON.parse(String(mocks.fetch.mock.calls[0][1]?.body))
+    ).toMatchObject({
+      payment_method: 'bank_transfer',
+      reference: 'CORRECTED',
+    });
+  });
+
   it('uses structured API error messages when manual payment fails', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },

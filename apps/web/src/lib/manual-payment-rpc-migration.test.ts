@@ -23,6 +23,13 @@ const cancelledOrderGuardMigration = readFileSync(
   ),
   'utf8'
 );
+const cancelledOrderNormalizationMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260712140000_allow_cancelled_order_status_normalization.sql'
+  ),
+  'utf8'
+);
 
 describe('manual payment RPC migration', () => {
   it('builds the retry-key index concurrently outside a transaction', () => {
@@ -84,6 +91,15 @@ describe('manual payment RPC migration', () => {
       "OLD.shipping_status = 'cancelled' OR OLD.cancelled_at IS NOT NULL"
     );
     expect(cancelledOrderGuardMigration).toContain(
+      'NEW.shipping_status := OLD.shipping_status'
+    );
+  });
+
+  it('allows legacy cancelled rows to normalize their shipping status', () => {
+    expect(cancelledOrderNormalizationMigration).toContain(
+      "NEW.shipping_status IS DISTINCT FROM 'cancelled'"
+    );
+    expect(cancelledOrderNormalizationMigration).toContain(
       'NEW.shipping_status := OLD.shipping_status'
     );
   });

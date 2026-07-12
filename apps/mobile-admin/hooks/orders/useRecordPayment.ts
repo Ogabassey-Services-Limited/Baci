@@ -118,6 +118,7 @@ export function useRecordPayment() {
           })
         );
       } catch (error) {
+        pendingIdempotencyKeys.current.delete(requestFingerprint);
         console.error('Failed to persist manual payment retry key', error);
         throw new Error(RETRY_STATE_WRITE_ERROR_MESSAGE);
       }
