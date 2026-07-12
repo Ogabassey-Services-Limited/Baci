@@ -110,6 +110,18 @@ describe('pendingClientExceptionQueue', () => {
     expect(() => pendingClientExceptionQueue.clear()).not.toThrow();
   });
 
+  it('never retains the volatile fallback outside a browser runtime', async () => {
+    const { pendingClientExceptionQueue } = await importQueue();
+    vi.stubGlobal('window', undefined);
+
+    const id = pendingClientExceptionQueue.enqueue(
+      new Error('Loading chunk server failed.')
+    );
+
+    expect(pendingClientExceptionQueue.take(id)).toBeUndefined();
+    expect(pendingClientExceptionQueue.drain()).toEqual([]);
+  });
+
   it('recovers safely from malformed persisted JSON', async () => {
     const { pendingClientExceptionQueue } = await importQueue();
     pendingClientExceptionQueue.enqueue(new Error('Loading chunk failed.'));

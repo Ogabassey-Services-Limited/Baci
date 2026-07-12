@@ -43,7 +43,15 @@ export interface QueuedClientException {
 
 let volatileQueue: StoredClientException[] = [];
 
+function isBrowserRuntime(): boolean {
+  return typeof globalThis.window !== 'undefined';
+}
+
 function getSessionStorage(): Storage | undefined {
+  if (!isBrowserRuntime()) {
+    return undefined;
+  }
+
   try {
     return typeof globalThis.sessionStorage === 'undefined'
       ? undefined
@@ -158,6 +166,10 @@ function dedupeAndBound(
 }
 
 function readStoredEntries(): StoredClientException[] {
+  if (!isBrowserRuntime()) {
+    return [];
+  }
+
   const storage = getSessionStorage();
   let persistedEntries: StoredClientException[] = [];
 
@@ -178,6 +190,13 @@ function readStoredEntries(): StoredClientException[] {
 }
 
 function writeStoredEntries(entries: StoredClientException[]): void {
+  if (!isBrowserRuntime()) {
+    // Never retain telemetry in module scope in a long-lived server process.
+    // The volatile fallback is intentionally scoped to one browser document.
+    volatileQueue = [];
+    return;
+  }
+
   const boundedEntries = dedupeAndBound(entries);
   const storage = getSessionStorage();
 
