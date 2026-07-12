@@ -88,7 +88,13 @@ BEGIN
       updated_at = now()
     FROM latest
     WHERE outbox.id = latest.id
-      AND latest.status IN ('pending', 'skipped', 'failed')
+      AND (
+        latest.status IN ('pending', 'skipped', 'failed')
+        OR (
+          latest.status = 'processing'
+          AND outbox.locked_by = 'manual-endpoint'
+        )
+      )
     RETURNING outbox.id
   ), inserted AS (
     INSERT INTO public.order_notification_outbox (

@@ -372,6 +372,36 @@ BEGIN
       v_manual_terminal_status;
   END IF;
 
+  SELECT public.prepare_order_notification_outbox_manual_send(
+    v_manual_skipped_order_id,
+    v_merchant_id,
+    'order_shipped',
+    NULL,
+    NULL,
+    NULL
+  )
+  INTO v_manual_prepared_status;
+
+  IF v_manual_prepared_status IS NOT NULL THEN
+    RAISE EXCEPTION 'expected first skipped-row retry claimant to proceed, got %',
+      v_manual_prepared_status;
+  END IF;
+
+  SELECT public.prepare_order_notification_outbox_manual_send(
+    v_manual_skipped_order_id,
+    v_merchant_id,
+    'order_shipped',
+    NULL,
+    NULL,
+    NULL
+  )
+  INTO v_manual_prepared_status;
+
+  IF v_manual_prepared_status IS DISTINCT FROM 'processing' THEN
+    RAISE EXCEPTION 'expected concurrent manual retry to observe processing claim, got %',
+      v_manual_prepared_status;
+  END IF;
+
   SELECT public.complete_order_notification_outbox_manual_result(
     v_manual_skipped_order_id,
     v_merchant_id,
@@ -575,6 +605,26 @@ BEGIN
 
   IF v_shipped_count <> 1 THEN
     RAISE EXCEPTION 'expected direct out-for-delivery transition to enqueue one shipped event, got %',
+      v_shipped_count;
+  END IF;
+
+  UPDATE public.order_notification_outbox
+  SET status = 'sent', sent_at = now(), updated_at = now()
+  WHERE order_id = v_direct_out_for_delivery_order_id
+    AND event_type = 'order_shipped';
+
+  UPDATE public.orders
+  SET shipping_status = 'shipped'
+  WHERE id = v_direct_out_for_delivery_order_id;
+
+  SELECT count(*)::integer
+  INTO v_shipped_count
+  FROM public.order_notification_outbox
+  WHERE order_id = v_direct_out_for_delivery_order_id
+    AND event_type = 'order_shipped';
+
+  IF v_shipped_count <> 1 THEN
+    RAISE EXCEPTION 'expected out-for-delivery normalization to shipped to avoid duplicate events, got %',
       v_shipped_count;
   END IF;
 

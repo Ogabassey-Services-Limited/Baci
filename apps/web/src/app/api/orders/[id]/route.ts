@@ -414,6 +414,26 @@ export async function PATCH(
 
     if (updateError) {
       console.error('Error updating order:', updateError);
+      if (inventoryConfirmedBeforeOrderUpdate) {
+        try {
+          await rollbackOrderStatusAfterInventoryConfirmationFailure(
+            supabase,
+            merchantId,
+            id,
+            {
+              payment_status: existingOrder.payment_status,
+              shipping_status: existingOrder.shipping_status,
+            }
+          );
+        } catch (rollbackError) {
+          logger.error({
+            message:
+              'PATCH orders/[id] failed to rollback paid pre-update after fulfillment update failure',
+            orderId: id,
+            error: rollbackError,
+          });
+        }
+      }
       return NextResponse.json(
         { error: 'Failed to update order' },
         { status: 500 }

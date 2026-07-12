@@ -49,6 +49,7 @@ const fulfillmentShippingStatusSchema = z.enum([
   'cancelled',
   'canceled',
   'returned',
+  'failed',
 ]);
 
 const fulfillmentOrderSchema = z.object({

@@ -103,6 +103,21 @@ describe('GET /api/cron/order-notifications', () => {
     expect(sendOrderFulfillmentNotification).not.toHaveBeenCalled();
   });
 
+  it('returns 500 when the claim RPC returns a malformed row', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: [{ id: 'outbox-invalid', event_type: 'order_cancelled' }],
+      error: null,
+    });
+
+    const response = await GET(cronRequest());
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid claimed order notification payload',
+    });
+    expect(sendOrderFulfillmentNotification).not.toHaveBeenCalled();
+  });
+
   it('claims due notifications and marks sent/skipped outcomes without blocking fulfillment', async () => {
     const response = await GET(cronRequest());
     const body = await response.json();
@@ -142,6 +157,20 @@ describe('GET /api/cron/order-notifications', () => {
     expect(mockSupabase.rpc).toHaveBeenCalledWith(
       'claim_order_notification_outbox',
       expect.objectContaining({ p_batch_size: 7 })
+    );
+  });
+
+  it('clamps oversized batch sizes and defaults malformed values', async () => {
+    await GET(cronRequest('/api/cron/order-notifications?batchSize=999'));
+    expect(mockSupabase.rpc).toHaveBeenLastCalledWith(
+      'claim_order_notification_outbox',
+      expect.objectContaining({ p_batch_size: 10 })
+    );
+
+    await GET(cronRequest('/api/cron/order-notifications?batchSize=invalid'));
+    expect(mockSupabase.rpc).toHaveBeenLastCalledWith(
+      'claim_order_notification_outbox',
+      expect.objectContaining({ p_batch_size: 1 })
     );
   });
 
@@ -317,7 +346,7 @@ describe('GET /api/cron/order-notifications', () => {
     );
   });
 
-  it('returns 500 when a terminal outbox state cannot be persisted', async () => {
+  it('records an unknown outcome when the sent marker cannot be persisted', async () => {
     const updateBuilder = createUpdateBuilder();
     updateBuilder.eq.mockResolvedValueOnce({
       error: { message: 'database unavailable' },
@@ -344,9 +373,42 @@ describe('GET /api/cron/order-notifications', () => {
 
     const response = await GET(cronRequest());
 
-    expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Failed to persist order notification outcome',
+    expect(response.status).toBe(200);
+    expect(updateBuilder.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        skip_reason: 'delivery_outcome_unknown',
+        status: 'skipped',
+      })
+    );
+  });
+
+  it('returns 500 when neither sent nor unknown terminal state can be persisted', async () => {
+    const updateBuilder = createUpdateBuilder();
+    updateBuilder.eq
+      .mockResolvedValueOnce({ error: { message: 'sent write failed' } })
+      .mockResolvedValueOnce({ error: { message: 'fallback write failed' } });
+    mockSupabase.from.mockReturnValue(updateBuilder);
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: [
+        {
+          attempt_count: 1,
+          event_type: 'order_shipped',
+          id: 'outbox-double-persist-failure',
+          max_attempts: 5,
+          merchant_id: 'merchant-1',
+          order_id: 'order-double-persist-failure',
+        },
+      ],
+      error: null,
     });
+    mockSendOrderFulfillmentNotification.mockReset();
+    mockSendOrderFulfillmentNotification.mockResolvedValueOnce({
+      status: 'sent',
+      messageId: 'msg-persist-failure',
+    });
+
+    const response = await GET(cronRequest());
+
+    expect(response.status).toBe(500);
   });
 });

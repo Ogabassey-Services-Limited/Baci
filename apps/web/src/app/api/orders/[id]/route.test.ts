@@ -179,6 +179,7 @@ function createSupabaseMock(
 
   return {
     supabase: supabase as unknown as SupabaseClient,
+    orderUpdateBuilder,
     ordersUpdate,
   };
 }
@@ -539,6 +540,54 @@ describe('PATCH /api/orders/[id]', () => {
     ).toBeLessThan(ordersUpdate.mock.invocationCallOrder[1] ?? 0);
     expect(ordersUpdate).toHaveBeenNthCalledWith(2, {
       shipping_status: 'shipped',
+    });
+  });
+
+  it('rolls back a paid pre-update when the fulfillment update fails', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'pending',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: null,
+      shipping_provider: null,
+      tracking_number: null,
+      shipment_id: null,
+    };
+    const { supabase, orderUpdateBuilder } = createSupabaseMock(existingOrder, {
+      id: 'order-1',
+      shipping_status: 'shipped',
+      shipping_provider: null,
+      tracking_number: null,
+    });
+    orderUpdateBuilder.single
+      .mockResolvedValueOnce({ data: { id: 'order-1' }, error: null })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'fulfillment update failed' },
+      });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await PATCH(
+      createPatchRequest({
+        payment_status: 'paid',
+        shipping_status: 'shipped',
+      }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
+
+    expect(response.status).toBe(500);
+    expect(
+      rollbackOrderStatusAfterInventoryConfirmationFailure
+    ).toHaveBeenCalledWith(supabase, 'merchant-1', 'order-1', {
+      payment_status: 'pending',
+      shipping_status: 'processing',
     });
   });
 

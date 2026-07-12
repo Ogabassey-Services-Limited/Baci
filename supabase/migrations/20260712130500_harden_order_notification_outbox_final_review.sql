@@ -202,6 +202,17 @@ BEGIN
     RETURN 'outcome_unknown';
   END IF;
 
+  IF v_status IN ('skipped', 'failed') THEN
+    UPDATE public.order_notification_outbox AS outbox
+    SET
+      status = 'processing',
+      attempt_count = outbox.attempt_count + 1,
+      locked_at = now(),
+      locked_by = 'manual-endpoint',
+      updated_at = now()
+    WHERE outbox.id = v_outbox_id;
+  END IF;
+
   RETURN NULL;
 END;
 $$;
@@ -263,7 +274,7 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  IF NEW.shipping_status = 'shipped'
+  IF (NEW.shipping_status = 'shipped' AND OLD.shipping_status <> 'out_for_delivery')
     OR (
       NEW.shipping_status = 'out_for_delivery'
       AND OLD.shipping_status NOT IN ('shipped', 'out_for_delivery', 'delivered', 'completed')

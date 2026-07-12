@@ -50,7 +50,8 @@ export type FulfillmentShippingStatus =
   | 'completed'
   | 'cancelled'
   | 'canceled'
-  | 'returned';
+  | 'returned'
+  | 'failed';
 
 export interface FulfillmentOrderItemRecord {
   name: string | null;

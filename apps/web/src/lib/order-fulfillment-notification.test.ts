@@ -258,6 +258,23 @@ describe('sendOrderFulfillmentNotification', () => {
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
+  it('treats a failed shipment as a valid but non-sendable order state', async () => {
+    const result = await sendOrderFulfillmentNotification({
+      eventType: 'order_shipped',
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      supabase: createSupabaseMock({
+        order: { ...baseOrder, shipping_status: 'failed' },
+      }),
+    });
+
+    expect(result).toEqual({
+      status: 'skipped',
+      reason: 'order_not_in_required_status',
+    });
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
   it('returns not_found when the merchant lookup is missing', async () => {
     const supabase = createSupabaseMock();
     const fromMock = supabase.from as unknown as {
