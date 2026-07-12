@@ -115,11 +115,20 @@ export async function loadPetrockRemediationEligibility({
   const { data: assessment, error: assessmentError } = await supabaseAdmin
     .from('petrock_orders')
     .select(
-      'id, status, eligibility_evidence, failure_reason, remediation_product_id'
+      'id, status, eligibility_evidence, failure_reason, remediation_product_id, provider_order_id'
     )
     .match({ customer_id: customerId, source_lookup_id: lookupId })
     .maybeSingle();
   if (assessmentError) throw assessmentError;
+  if (
+    assessment?.status === 'submission_unknown' &&
+    !assessment.provider_order_id
+  ) {
+    return {
+      kind: 'suppressed' as const,
+      reason: 'eligibility_submission_unresolved',
+    };
+  }
   if (
     assessment?.status === 'eligibility_pending' ||
     assessment?.status === 'submission_unknown'

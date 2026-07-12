@@ -141,6 +141,26 @@ export async function reconcilePetrockRemediationOrder({
     return { kind: 'pending' as const };
   }
   if (!order.provider_order_id) {
+    if (
+      order.status === 'submission_unknown' &&
+      (order.eligibility_next_check || !order.payment_currency)
+    ) {
+      await state.suppress({
+        message: 'We could not verify a safe unlock option. Please try again.',
+        orderId: order.id,
+        reason: 'eligibility_submission_unresolved',
+      });
+      return { kind: 'suppressed' as const };
+    }
+    if (order.status === 'submission_unknown') {
+      await state.failBeforeAcceptance({
+        customerMessage:
+          'This unlock submission could not be confirmed, so your wallet was refunded.',
+        orderId: order.id,
+        reason: 'provider_submission_unresolved',
+      });
+      return { kind: 'failed' as const };
+    }
     await state.markSubmissionUnknown({
       orderId: order.id,
       reason: 'stale_submission_without_provider_order',
@@ -173,7 +193,10 @@ export async function reconcilePetrockRemediationOrder({
     return { kind: 'pending' as const };
   }
 
-  if (order.status === 'eligibility_pending') {
+  if (
+    order.status === 'eligibility_pending' ||
+    (order.status === 'submission_unknown' && order.eligibility_next_check)
+  ) {
     if (providerOrder.status === 'reject' || !order.eligibility_next_check) {
       await state.resolveEligibility({
         customerMessage: 'We could not verify a safe unlock option.',

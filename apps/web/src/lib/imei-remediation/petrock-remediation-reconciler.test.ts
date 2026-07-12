@@ -34,6 +34,7 @@ function state() {
     advanceEvidence: vi.fn().mockResolvedValue(true),
     begin: vi.fn().mockResolvedValue(true),
     finalize: vi.fn().mockResolvedValue(true),
+    failBeforeAcceptance: vi.fn().mockResolvedValue(true),
     markSubmissionUnknown: vi.fn().mockResolvedValue(true),
     resolveEligibility: vi.fn().mockResolvedValue(true),
     recordSubmission: vi.fn().mockResolvedValue(true),
@@ -171,6 +172,81 @@ describe('reconcilePetrockRemediationOrder', () => {
     expect(result.kind).toBe('pending');
     expect(recoverPaidOrder).toHaveBeenCalledOnce();
     expect(reconcileState.markSubmissionUnknown).not.toHaveBeenCalled();
+  });
+
+  it('refunds an unresolved no-id remediation submission', async () => {
+    const reconcileState = state();
+
+    const result = await reconcilePetrockRemediationOrder({
+      client: { getOrder: vi.fn() },
+      decryptIdentifier: () => '490154203237518',
+      loadProducts: vi.fn().mockResolvedValue([]),
+      order: order({
+        eligibility_next_check: null,
+        payment_currency: 'NGN',
+        provider_order_id: null,
+        status: 'submission_unknown',
+      }),
+      origin: 'https://ogabassey.com',
+      readProduct: vi.fn(),
+      state: reconcileState,
+    });
+
+    expect(result.kind).toBe('failed');
+    expect(reconcileState.failBeforeAcceptance).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'provider_submission_unresolved' })
+    );
+  });
+
+  it('suppresses an unresolved no-id eligibility submission', async () => {
+    const reconcileState = state();
+
+    const result = await reconcilePetrockRemediationOrder({
+      client: { getOrder: vi.fn() },
+      decryptIdentifier: () => '490154203237518',
+      loadProducts: vi.fn().mockResolvedValue([]),
+      order: order({ provider_order_id: null, status: 'submission_unknown' }),
+      origin: 'https://ogabassey.com',
+      readProduct: vi.fn(),
+      state: reconcileState,
+    });
+
+    expect(result.kind).toBe('suppressed');
+    expect(reconcileState.suppress).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'eligibility_submission_unresolved' })
+    );
+  });
+
+  it('keeps a persisted unknown eligibility check in the eligibility path', async () => {
+    const reconcileState = state();
+    const startNext = vi.fn().mockResolvedValue({ kind: 'ready' });
+
+    const result = await reconcilePetrockRemediationOrder({
+      client: {
+        getAccount: vi.fn(),
+        getOrder: vi.fn().mockResolvedValue({
+          data: {
+            orderUuid: 'provider-order-1',
+            replay: 'Model: iPhone 17 Pro Max<br>Locked Carrier: US AT&T',
+            status: 'success',
+          },
+          ok: true,
+          rawText: '{}',
+        }),
+        submitOrder: vi.fn(),
+      },
+      decryptIdentifier: () => '490154203237518',
+      loadProducts: vi.fn().mockResolvedValue([]),
+      order: order({ status: 'submission_unknown' }),
+      origin: 'https://ogabassey.com',
+      readProduct: vi.fn(),
+      startNext,
+      state: reconcileState,
+    });
+
+    expect(result.kind).toBe('eligibility_advanced');
+    expect(reconcileState.advanceEvidence).toHaveBeenCalled();
+    expect(reconcileState.finalize).not.toHaveBeenCalled();
   });
 
   it('fails closed when a persisted remediation model scope is malformed', async () => {

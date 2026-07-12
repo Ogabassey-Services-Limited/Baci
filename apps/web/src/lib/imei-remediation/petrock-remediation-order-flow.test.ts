@@ -12,6 +12,7 @@ function state() {
       .mockResolvedValue({ id: 'order-1', status: 'payment_pending' }),
     recordSubmission: vi.fn().mockResolvedValue(true),
     redeem: vi.fn().mockResolvedValue(true),
+    resetPreparedQuote: vi.fn().mockResolvedValue(true),
   };
 }
 
@@ -133,6 +134,28 @@ describe('placePetrockRemediationOrder', () => {
     expect(result.kind).toBe('pending');
     expect(orderState.prepare).not.toHaveBeenCalled();
     expect(orderState.redeem).toHaveBeenCalledOnce();
+  });
+
+  it('invalidates a stale payment-pending quote when preflight fails', async () => {
+    const orderState = state();
+
+    const result = await placePetrockRemediationOrder({
+      ...input,
+      client: { getAccount: vi.fn(), submitOrder: vi.fn() },
+      order: {
+        ...input.order,
+        amountNgn: 150_000,
+        status: 'payment_pending',
+      },
+      product: { ...input.product, active: false },
+      state: orderState,
+    });
+
+    expect(result.kind).toBe('preflight_failed');
+    expect(orderState.resetPreparedQuote).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      reason: 'provider_preflight_failed',
+    });
   });
 
   it('refunds a captured wallet when paid-order preflight fails', async () => {

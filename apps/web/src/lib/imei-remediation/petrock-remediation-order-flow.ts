@@ -45,6 +45,10 @@ interface RemediationOrderState {
     providerStatus: string;
   }): Promise<boolean>;
   redeem(input: { orderId: string }): Promise<unknown>;
+  resetPreparedQuote(input: {
+    orderId: string;
+    reason: string;
+  }): Promise<boolean>;
 }
 
 function quoteCoversProviderCost({
@@ -139,6 +143,11 @@ export async function placePetrockRemediationOrder({
       await state.failBeforeAcceptance({
         customerMessage:
           'This unlock could not be submitted, so your wallet was refunded.',
+        orderId: order.id,
+        reason: 'provider_preflight_failed',
+      });
+    } else if (order.status === 'payment_pending') {
+      await state.resetPreparedQuote({
         orderId: order.id,
         reason: 'provider_preflight_failed',
       });

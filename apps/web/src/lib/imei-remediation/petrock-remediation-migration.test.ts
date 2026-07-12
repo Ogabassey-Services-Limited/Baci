@@ -110,6 +110,27 @@ describe('Petrock remediation migrations', () => {
     );
   });
 
+  it('recovers no-id submissions and resets stale prepared quotes', () => {
+    const sql = migration(
+      '20260712170000_petrock_unknown_submission_recovery.sql'
+    );
+    expect(sql).toContain(
+      'CREATE OR REPLACE FUNCTION public.reset_petrock_remediation_quote'
+    );
+    expect(sql).toContain(
+      "o.status = 'submission_unknown' AND o.provider_order_id IS NULL"
+    );
+    expect(sql).toContain(
+      "v_order.status NOT IN ('paid', 'submitting', 'submission_unknown')"
+    );
+    expect(sql).toContain(
+      "WHERE id = p_order_id AND status IN ('eligibility_pending', 'submission_unknown')"
+    );
+    expect(sql).toContain(
+      'CREATE OR REPLACE FUNCTION public.advance_petrock_eligibility_evidence'
+    );
+  });
+
   it('leases, advances, and terminally resolves remediation work atomically', () => {
     const sql = [
       '20260711202300_petrock_remediation_reconciliation_rpcs.sql',

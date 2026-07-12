@@ -12,6 +12,7 @@ function state() {
       .mockResolvedValue({ id: 'order-1', status: 'payment_pending' }),
     recordSubmission: vi.fn().mockResolvedValue(true),
     redeem: vi.fn().mockResolvedValue(true),
+    resetPreparedQuote: vi.fn().mockResolvedValue(true),
   };
 }
 

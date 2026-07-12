@@ -113,6 +113,25 @@ export function createPetrockRemediationReconcileState(
         p_success: success,
       });
     },
+    failBeforeAcceptance({
+      customerMessage,
+      orderId,
+      reason,
+    }: {
+      customerMessage: string;
+      orderId: string;
+      reason: string;
+    }) {
+      return booleanRpc(
+        supabaseAdmin,
+        'fail_petrock_remediation_before_acceptance',
+        {
+          p_customer_message: customerMessage,
+          p_order_id: orderId,
+          p_reason: reason,
+        }
+      );
+    },
     markSubmissionUnknown({
       orderId,
       providerOrderId,

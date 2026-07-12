@@ -165,6 +165,18 @@ export function createPetrockRemediationOrderState({
       if (error) throw error;
       return data;
     },
+    resetPreparedQuote({
+      orderId,
+      reason,
+    }: {
+      orderId: string;
+      reason: string;
+    }) {
+      return booleanRpc(supabaseAdmin, 'reset_petrock_remediation_quote', {
+        p_order_id: orderId,
+        p_reason: reason,
+      });
+    },
   };
 }
 

@@ -126,6 +126,46 @@ describe('loadPetrockRemediationEligibility', () => {
     ).resolves.toEqual({ assessmentId: 'order-1', kind: 'pending' });
   });
 
+  it('stops polling an eligibility submission that has no provider id', async () => {
+    const lookupBuilder = {
+      match: vi.fn(() => lookupBuilder),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { cached_response: null, id: 'lookup-1' },
+        error: null,
+      }),
+      select: vi.fn(() => lookupBuilder),
+    };
+    const assessmentBuilder = {
+      match: vi.fn(() => assessmentBuilder),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: 'order-1',
+          provider_order_id: null,
+          status: 'submission_unknown',
+        },
+        error: null,
+      }),
+      select: vi.fn(() => assessmentBuilder),
+    };
+
+    await expect(
+      loadPetrockRemediationEligibility({
+        customerId: 'customer-1',
+        identifierHash: 'a'.repeat(64),
+        lookupId: 'lookup-1',
+        merchantId: 'merchant-1',
+        supabaseAdmin: {
+          from: vi.fn((table: string) =>
+            table === 'imei_lookups' ? lookupBuilder : assessmentBuilder
+          ),
+        } as never,
+      })
+    ).resolves.toEqual({
+      kind: 'suppressed',
+      reason: 'eligibility_submission_unresolved',
+    });
+  });
+
   it('returns the existing eligible assessment id for payment continuity', async () => {
     const lookupBuilder = {
       match: vi.fn(() => lookupBuilder),
