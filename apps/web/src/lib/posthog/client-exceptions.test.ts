@@ -2,20 +2,30 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const postHogMocks = vi.hoisted(() => ({
   captureException: vi.fn(),
+  loadSdk: vi.fn(),
 }));
 
-vi.mock('posthog-js', () => ({
-  default: {
-    captureException: postHogMocks.captureException,
-  },
+vi.mock('@/lib/posthog/posthog-sdk-loader', () => ({
+  loadPostHogBrowserSdk: postHogMocks.loadSdk,
 }));
+
+function getLoadedSdk() {
+  return Promise.resolve({
+    default: {
+      captureException: postHogMocks.captureException,
+    },
+  });
+}
 
 describe('PostHog client exceptions', () => {
   const originalToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
 
   beforeEach(() => {
     vi.resetModules();
+    window.sessionStorage.clear();
     postHogMocks.captureException.mockReset();
+    postHogMocks.loadSdk.mockReset();
+    postHogMocks.loadSdk.mockImplementation(getLoadedSdk);
   });
 
   afterEach(() => {

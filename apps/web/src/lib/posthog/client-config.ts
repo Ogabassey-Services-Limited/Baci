@@ -432,6 +432,29 @@ function isPublicBlogUrl(value: unknown): boolean {
   }
 }
 
+function getStampedExceptionLocation(
+  eventName: string,
+  properties: Properties
+): BrowserLocationLike | undefined {
+  if (
+    eventName !== '$exception' ||
+    typeof properties.$current_url !== 'string' ||
+    properties.$current_url.trim() === ''
+  ) {
+    return undefined;
+  }
+
+  try {
+    const currentOrigin = globalThis.location?.origin;
+    const url = currentOrigin
+      ? new URL(properties.$current_url, currentOrigin)
+      : new URL(properties.$current_url);
+    return { hostname: url.hostname, pathname: url.pathname };
+  } catch {
+    return undefined;
+  }
+}
+
 function getWebVitalsMetricUrls(properties: Properties): string[] {
   return Object.entries(properties)
     .filter(
@@ -476,7 +499,8 @@ export function sanitizePostHogProperties(
 
 export function sanitizePostHogCapture(
   capture: CaptureResult | null,
-  projectToken: string | undefined = getPublicPostHogProjectToken()
+  projectToken: string | undefined = getPublicPostHogProjectToken(),
+  env: PostHogEnv = process.env
 ): CaptureResult | null {
   if (!capture) {
     return null;
@@ -501,12 +525,21 @@ export function sanitizePostHogCapture(
     return null;
   }
 
-  if (typeof globalThis.location !== 'undefined') {
+  const tenantLocation =
+    getStampedExceptionLocation(capture.event, properties) ??
+    (typeof globalThis.location === 'undefined'
+      ? undefined
+      : globalThis.location);
+
+  if (tenantLocation) {
     for (const key of TENANT_CONTEXT_PROPERTY_KEYS) {
       delete properties[key];
     }
 
-    Object.assign(properties, resolvePostHogWebTenantContext());
+    Object.assign(
+      properties,
+      resolvePostHogWebTenantContext(env, tenantLocation)
+    );
   }
 
   return {
@@ -607,7 +640,8 @@ export function buildPostHogClientConfig(
     before_send: (capture) =>
       sanitizePostHogCapture(
         dropRecoveredChunkExceptionCapture(capture),
-        projectToken
+        projectToken,
+        env
       ),
     loaded(posthog) {
       posthog.register({

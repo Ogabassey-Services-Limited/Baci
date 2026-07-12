@@ -2,6 +2,7 @@ import posthog from 'posthog-js';
 import { markPostHogBrowserInitialized } from '@/lib/posthog/browser-state';
 import { buildPostHogClientConfig } from '@/lib/posthog/client-config';
 import type { PostHogEnv } from '@/lib/posthog/config';
+import { pendingClientExceptionQueue } from '@/lib/posthog/pending-client-exception-queue';
 import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 import {
   clearPendingPostHogWebVitals,
@@ -126,6 +127,7 @@ export function initializePostHogBrowser(
     isPostHogBrowserDisabled = true;
     clearPostHogLoadedStateCheck();
     pendingPostHogPageviewUrls.length = 0;
+    pendingClientExceptionQueue.clear();
     clearPendingPostHogWebVitals();
 
     if (isPostHogDevelopmentMode(env)) {
@@ -195,6 +197,20 @@ export function initializePostHogBrowser(
   }
 }
 
+function flushPendingClientExceptions(): void {
+  for (const queuedException of pendingClientExceptionQueue.drain()) {
+    try {
+      posthog.captureException(
+        queuedException.error,
+        queuedException.properties
+      );
+    } catch {
+      // Keep the claimed entry durable for a later successful initialization.
+      pendingClientExceptionQueue.restore(queuedException);
+    }
+  }
+}
+
 function resolvePostHogPageviewUrl(currentUrl?: string) {
   const resolvedUrl =
     currentUrl ||
@@ -231,6 +247,7 @@ function markPostHogReadyAndFlush() {
 
   isPostHogReadyForCapture = true;
   clearPostHogLoadedStateCheck();
+  flushPendingClientExceptions();
   flushPendingPostHogPageviews();
 }
 

@@ -1,7 +1,11 @@
 'use client';
 
+import { isChunkRecoveryReloadPending } from '@/lib/chunk-load-recovery';
+import { detectChunkFailureFromValue } from '@/lib/chunk-load-recovery/chunk-failure-detection';
 import { sanitizePostHogProperties } from '@/lib/posthog/client-config';
 import { sanitizePostHogException } from '@/lib/posthog/exception-sanitizer';
+import { pendingClientExceptionQueue } from '@/lib/posthog/pending-client-exception-queue';
+import { loadPostHogBrowserSdk } from '@/lib/posthog/posthog-sdk-loader';
 
 /**
  * Reports a handled browser exception to PostHog.
@@ -51,13 +55,59 @@ export function captureClientException(
     runtime: 'browser',
   });
 
-  void import('posthog-js')
+  const isChunkFailure = detectChunkFailureFromValue(error) !== null;
+
+  if (isChunkFailure && isChunkRecoveryReloadPending()) {
+    // Recovery already emitted its boot-free `chunk_load_recovery` beacon and
+    // is navigating. The normal before_send chain intentionally drops this
+    // duplicate exception while reload is pending, so do not start an SDK
+    // chunk request that the unload will cancel.
+    return true;
+  }
+
+  // A declined/exhausted chunk recovery must remain visible even when the same
+  // stale deployment prevents the posthog-js chunk from loading. Persist only
+  // these chunk failures; normal handled exceptions retain the lightweight
+  // best-effort dynamic-import path.
+  let queuedExceptionId: string | undefined;
+  if (isChunkFailure) {
+    try {
+      queuedExceptionId = pendingClientExceptionQueue.enqueue(
+        sanitizedError,
+        sanitizedProperties
+      );
+    } catch {
+      // Persistence must never escape the best-effort error-reporting path.
+    }
+  }
+
+  void loadPostHogBrowserSdk()
     .then(({ default: posthog }) => {
-      posthog.captureException(sanitizedError, sanitizedProperties);
+      const queuedException = queuedExceptionId
+        ? pendingClientExceptionQueue.take(queuedExceptionId)
+        : undefined;
+
+      // The idle browser initializer may have atomically drained this entry
+      // while the direct dynamic import was resolving. In that case it owns
+      // capture, preventing a duplicate exception.
+      if (queuedExceptionId && !queuedException) {
+        return;
+      }
+
+      try {
+        posthog.captureException(
+          queuedException?.error ?? sanitizedError,
+          queuedException?.properties ?? sanitizedProperties
+        );
+      } catch {
+        if (queuedException) {
+          pendingClientExceptionQueue.restore(queuedException);
+        }
+      }
     })
     .catch(() => {
-      // Exception capture is best-effort: never let an SDK load/capture
-      // failure surface out of an error boundary's report path.
+      // Declined chunk failures remain in the session-backed queue for the next
+      // successful browser init. Other handled exceptions stay best-effort.
     });
 
   return true;
