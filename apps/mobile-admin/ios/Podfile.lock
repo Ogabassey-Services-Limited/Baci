@@ -450,8 +450,8 @@ PODS:
   - PromisesObjC (2.4.1)
   - PromisesSwift (2.4.1):
     - PromisesObjC (= 2.4.1)
-  - PurchasesHybridCommon (18.8.0):
-    - RevenueCat (= 5.74.0)
+  - PurchasesHybridCommon (18.19.0):
+    - RevenueCat (= 5.80.2)
   - RCTDeprecation (0.86.0)
   - RCTRequired (0.86.0)
   - RCTSwiftUI (0.86.0)
@@ -2411,7 +2411,7 @@ PODS:
     - ReactNativeDependencies
   - ReactNativeDependencies (0.86.0)
   - RecaptchaInterop (101.0.0)
-  - RevenueCat (5.74.0)
+  - RevenueCat (5.80.2)
   - RNCMaskedView (0.3.2):
     - hermes-engine
     - RCTRequired
@@ -2501,8 +2501,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNPurchases (10.2.0):
-    - PurchasesHybridCommon (= 18.8.0)
+  - RNPurchases (10.4.2):
+    - PurchasesHybridCommon (= 18.19.0)
     - React-Core
   - RNReanimated (4.5.1):
     - hermes-engine
@@ -3250,7 +3250,7 @@ SPEC CHECKSUMS:
   ExpoLinking: db6d7a9e9348cca9ada7c39127ab30963deddba3
   ExpoLocalization: 543cb852ec9d4a6c732344f94ebd96d18897eaab
   ExpoLogBox: b39a76aab749833d58111c3be1264bb90f3b92d4
-  ExpoModulesCore: 6cd9335b670676b87def58d29823913d0860b594
+  ExpoModulesCore: 16cf3547765a1f635e05edeeb1cbacd2039e3ed2
   ExpoModulesJSI: ef7f197a8e7eeb245557f560ade794bfc1abdc79
   ExpoModulesWorklets: 0340ed9a30017f8597b90a1ef9aa210c43e44c4b
   ExpoModulesWorkletsAdapter: ad3387d1ea453cf85a0b8a8e46fb94bdcaa5e04d
@@ -3271,7 +3271,7 @@ SPEC CHECKSUMS:
   GoogleUtilities: 766ace00c6b10d8148408f329d10c4f051931850
   GTMAppAuth: 217a876b249c3c585a54fd6f73e6b58c4f5c4238
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
-  hermes-engine: 49eba5ea35224c9d6f1223ba29177a17dadcf6f6
+  hermes-engine: 947d4a707929b0a728c932091ea82cef22e22f3c
   MMKVCore: 3d16ce9f7d411e135020915fde98a056859a1efa
   NitroMmkv: 4b4f95387a15161b346a6a93b9c7072c179e0e88
   NitroModules: 16bc17a076b12304d608f7c915b9d321f56dfc19
@@ -3279,7 +3279,7 @@ SPEC CHECKSUMS:
   posthog-react-native-plugin: 2afe30e1ec18e10baedb12c27888b69f4813aa30
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
   PromisesSwift: 217dea0fd5d2ad65222a109c48698add13cc1c5b
-  PurchasesHybridCommon: e723f7c9b109be51f7ec6c85a104791369f1b562
+  PurchasesHybridCommon: 1eb67a6c8997233b35ed9b4eee8205dd8dd92890
   RCTDeprecation: 2a74a2c57675e64419bd89078efde81f7c1de90b
   RCTRequired: 30451112e6fef4e6f31b4e7eee0845156e35e4b0
   RCTSwiftUI: 5aaf0b07e747ba749dc6acc94d8bd41eea4b570f
@@ -3359,12 +3359,12 @@ SPEC CHECKSUMS:
   ReactCommon: d5c1bb4427bf51c443de5926aac332c89ddd9363
   ReactNativeDependencies: fa0a54b3f5319ae0e3b9aff32bfee7a424b88e66
   RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
-  RevenueCat: efcd02bf9b14ffce229e57dc6863a2513136b9ca
+  RevenueCat: b772273e51fa103a2ecc644439dd54a5dec199f3
   RNCMaskedView: eb2b2e538afa907f05a5848a1a1ac26092e6fec9
   RNDateTimePicker: 7b2738f1e595f83c14580a11c476872755c5befc
   RNGestureHandler: 1fac5cb6e78ca6836f4c0b9beba31b10490c70ce
   RNGoogleSignin: 0d72ae233fe10522497424748acf00fcc1ed2ee7
-  RNPurchases: 814d23250d91856382f2d1d7c5e255b3d6b4b8ef
+  RNPurchases: 64e5e656f042c2f20ccdb3fe3ed683664229de73
   RNReanimated: 3a204af3747842859392545d41d443b9c5e428a3
   RNScreens: f94000b3cb1eb14cbb8d08dd6074fdd6ccf0e6b0
   RNSVG: 6cae8d4082913be2eb43eaec2a456222c42195ed
