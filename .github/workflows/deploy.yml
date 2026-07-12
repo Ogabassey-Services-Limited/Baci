@@ -49,6 +49,8 @@ jobs:
               - '.github/workflows/deploy.yml'
               - '.github/scripts/blog-smoke-check.mjs'
               - '.github/scripts/cloudflare-purge-cache.mjs'
+              - '.github/scripts/storefront-release-coherence.mjs'
+              - '.github/scripts/storefront-sitemap-purge.mjs'
               - '.github/scripts/deploy-with-retry.sh'
               - '.github/scripts/merge-static-union.sh'
               - '.github/scripts/merge-static-union.test.sh'
@@ -127,6 +129,11 @@ jobs:
         https://ogabassey.com/blog/sitemap.xml
         https://ogabassey.com/blog/news-sitemap.xml
         https://ogabassey.com/api/blog/feed/ogabassey
+      STOREFRONT_RELEASE_ATTEMPTS: "4"
+      STOREFRONT_RELEASE_BASE_URL: https://ogabassey.com
+      STOREFRONT_RELEASE_PDP_PATH: ${{ vars.STOREFRONT_RELEASE_PDP_PATH || '' }}
+      STOREFRONT_RELEASE_RETRY_DELAY_MS: "3000"
+      STOREFRONT_RELEASE_TIMEOUT_MS: "20000"
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -195,6 +202,8 @@ jobs:
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
         run: .github/scripts/deploy-with-retry.sh .github/scripts/run-pinned-vercel.sh deploy --yes --prebuilt --prod --archive=tgz
+      - name: Purge and verify storefront release HTML
+        run: node .github/scripts/storefront-release-coherence.mjs
       - name: Smoke test storefront blog
         id: storefront-blog-smoke
         continue-on-error: true

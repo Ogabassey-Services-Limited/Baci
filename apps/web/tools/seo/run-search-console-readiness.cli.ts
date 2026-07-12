@@ -30,10 +30,8 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-  try {
-    await main();
-  } catch (error) {
+  void main().catch((error) => {
     console.error('[seo:readiness] Monitoring failed', error);
     process.exitCode = 1;
-  }
+  });
 }
