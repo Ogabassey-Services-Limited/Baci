@@ -28,11 +28,25 @@ vi.mock('next/server', () => ({
   connection: vi.fn(),
 }));
 
-vi.mock('@/lib/cached-data', () => ({
-  getCachedCategories: vi.fn(),
-  getCachedCategoryPageData: vi.fn(),
-  getRequestScopedMerchant: vi.fn(),
-}));
+vi.mock('@/lib/cached-data', () => {
+  const getCachedCategories = vi.fn();
+
+  return {
+    getCachedCategories,
+    getStorefrontCategories: async (...args: unknown[]) => {
+      try {
+        return {
+          categories: await getCachedCategories(...args),
+          queryFailed: false,
+        };
+      } catch {
+        return { categories: [], queryFailed: true };
+      }
+    },
+    getCachedCategoryPageData: vi.fn(),
+    getRequestScopedMerchant: vi.fn(),
+  };
+});
 
 vi.mock('@/lib/store-url', () => ({
   buildStoreUrl: (merchant: { custom_domain?: string | null; slug: string }) =>
@@ -259,6 +273,24 @@ describe('compare index metadata', () => {
       ...categoryPageData,
       products: [],
     });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(metadata.alternates).toMatchObject({
+      canonical: 'https://ogabassey.com/compare',
+    });
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: true,
+    });
+  });
+
+  it('returns noindex metadata when optional category navigation is unavailable', async () => {
+    vi.mocked(getCachedCategories).mockRejectedValueOnce(
+      new Error('category timeout')
+    );
 
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'ogabassey' }),

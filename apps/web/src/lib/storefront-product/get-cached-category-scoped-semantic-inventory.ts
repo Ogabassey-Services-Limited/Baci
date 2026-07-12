@@ -182,15 +182,11 @@ export async function getCachedCategoryScopedSemanticInventory(
   const categoryName = shell.category?.name || fallbackName;
   const scope = shell.productScope;
 
-  // Throw on genuine transient shell failures so this pool is never fixed as a
-  // degraded/empty set (mirrors getCachedCompareCategoryInventory). Must run
-  // BEFORE the scope branches: a transient category-row failure yields
-  // scope.kind === 'legacy'. categoryQueryFailed already excludes PGRST116
-  // no-rows, so real legacy URLs keep resolving.
-  if (
-    shell.categoryQueryFailed ||
-    (scope.kind === 'category' && scope.scopeQueryFailed)
-  ) {
+  // The cached shell loader throws for category/scope transport failures and
+  // returns `categoryQueryFailed` only for compatibility with the non-cached
+  // category-page fallback. Keep that explicit fallback fail-loud here so this
+  // optional pool can never turn a transient shell failure into cached absence.
+  if (shell.categoryQueryFailed) {
     throw new Error(
       `Category scoped semantic inventory unavailable for ${categorySlug}`
     );

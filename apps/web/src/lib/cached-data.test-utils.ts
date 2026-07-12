@@ -18,6 +18,7 @@ interface MockQueryBuilder {
   order: ReturnType<typeof vi.fn>;
   range: ReturnType<typeof vi.fn>;
   single: ReturnType<typeof vi.fn>;
+  returns: ReturnType<typeof vi.fn>;
 }
 
 export interface CachedDataTestHarness {
@@ -85,12 +86,14 @@ export function resolvedStorefrontMerchantRpcResult(
   return {
     data: [
       {
+        resolution_status: 'found',
         custom_domain: options.customDomain ?? null,
         feature_settings: options.featureSettings ?? null,
         merchant_data: merchant,
       },
     ],
     error: null,
+    status: 200,
   };
 }
 
@@ -133,12 +136,14 @@ export function createBlogMerchantRpcMock() {
   return vi.fn().mockResolvedValue({
     data: [
       {
+        resolution_status: 'found',
         custom_domain: null,
         feature_settings: { blog_enabled: true },
         merchant_data: buildBlogMerchantRow(),
       },
     ],
     error: null,
+    status: 200,
   });
 }
 
@@ -172,6 +177,7 @@ export function buildCachedDataTestHarness(): CachedDataTestHarness {
   const mockRange = vi.fn();
   const mockRpc = vi.fn().mockResolvedValue({ data: [], error: null });
   const mockSingle = vi.fn();
+  const mockReturns = vi.fn();
   const mockQueryBuilder = new Proxy(
     {},
     {
@@ -198,6 +204,7 @@ export function buildCachedDataTestHarness(): CachedDataTestHarness {
   mockNot.mockImplementation(() => mockQueryBuilder);
   mockLimit.mockImplementation(() => mockQueryBuilder);
   mockRange.mockImplementation(() => mockQueryBuilder);
+  mockReturns.mockImplementation(() => mockQueryBuilder);
 
   Object.assign(mockQueryBuilder, {
     maybeSingle: mockMaybeSingle,
@@ -210,6 +217,7 @@ export function buildCachedDataTestHarness(): CachedDataTestHarness {
     not: mockNot,
     limit: mockLimit,
     range: mockRange,
+    returns: mockReturns,
   });
 
   const mockSelect = vi.fn(() => mockQueryBuilder);

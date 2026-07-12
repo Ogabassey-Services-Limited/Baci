@@ -20,6 +20,33 @@ describe('payment-gateway-availability', () => {
     expect(isBankTransferCheckoutAvailable(merchant)).toBe(false);
   });
 
+  it('treats the snapshot paystack_subaccount_configured hint as subaccount presence', () => {
+    // Public snapshot merchants carry a derived boolean instead of the raw
+    // subaccount code, which never crosses the anonymous boundary.
+    const merchant = {
+      country: 'NG',
+      paystack_subaccount_configured: true,
+      feature_settings: {
+        paystack_enabled: true,
+        wallet_paystack_dva_enabled: true,
+      },
+    };
+
+    expect(isPaystackCheckoutAvailable(merchant)).toBe(true);
+    expect(isBankTransferCheckoutAvailable(merchant)).toBe(true);
+  });
+
+  it('does not surface paystack when the hint is false and no raw code exists', () => {
+    const merchant = {
+      country: 'NG',
+      paystack_subaccount_configured: false,
+      feature_settings: { paystack_enabled: true },
+    };
+
+    expect(isPaystackCheckoutAvailable(merchant)).toBe(false);
+    expect(isBankTransferCheckoutAvailable(merchant)).toBe(false);
+  });
+
   it('returns true for bank transfer only when Paystack DVA is explicitly enabled', () => {
     const merchant = {
       country: 'NG',

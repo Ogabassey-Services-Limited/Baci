@@ -704,15 +704,10 @@ const getProductForMerchant = async (
   productSlug: string
 ): Promise<CategoryProductResult> => {
   // 2. Get Product using the new cached function with full joins
-  let product = await getCachedProductWithDetails(merchant.id, productSlug);
-
-  // 2b. Case-insensitive fallback: If not found, try lowercasing the productSlug
-  // This handles Google index errors like google-pixel-6-8GB-256GB vs google-pixel-6-8gb-256gb
-  let needsValuesRedirect = false;
-  if (!product && productSlug !== productSlug.toLowerCase()) {
-    const lowercaseSlug = productSlug.toLowerCase();
-    product = await getCachedProductWithDetails(merchant.id, lowercaseSlug);
-  }
+  // The bounded PDP snapshot normalizes the identifier inside PostgreSQL, so
+  // mixed-case requests resolve in this one call and still redirect below to
+  // the stored canonical slug. Do not add a second application retry owner.
+  const product = await getCachedProductWithDetails(merchant.id, productSlug);
 
   if (!product) {
     const legacyRedirectTarget = await getCachedLegacyProductRedirectTarget(
@@ -730,7 +725,7 @@ const getProductForMerchant = async (
     return null;
   }
 
-  needsValuesRedirect = shouldRedirectResolvedProductSlugValue(
+  const needsValuesRedirect = shouldRedirectResolvedProductSlugValue(
     productSlug,
     product.slug
   );
@@ -945,23 +940,13 @@ const getProductRouteControl = cache(
       return null;
     }
 
-    let cachedProduct = await getCachedProductLcpHint(
+    const cachedProduct = await getCachedProductLcpHint(
       merchant.id,
       productSlug,
       {
         includeVariants: true,
       }
     );
-    let needsValuesRedirect = false;
-
-    if (!cachedProduct && productSlug !== productSlug.toLowerCase()) {
-      cachedProduct = await getCachedProductLcpHint(
-        merchant.id,
-        productSlug.toLowerCase(),
-        { includeVariants: true }
-      );
-    }
-
     if (!cachedProduct) {
       const result = await getProductForMerchant(
         merchant,
@@ -977,7 +962,7 @@ const getProductRouteControl = cache(
     }
 
     const product = mapCachedProductLcpHintToRouteProduct(cachedProduct);
-    needsValuesRedirect = shouldRedirectResolvedProductSlugValue(
+    const needsValuesRedirect = shouldRedirectResolvedProductSlugValue(
       productSlug,
       product.slug
     );

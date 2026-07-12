@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { useAuthSafe } from '@/contexts/auth-context';
 import { type CartItem, useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
-import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
+import { hasStorefrontPriceNegotiation } from '@/lib/storefront-price-negotiation';
 import {
   calculateCartTotal,
   isQuizVoucherCartItem,
@@ -72,10 +72,7 @@ export const CartPage: React.FC<CartPageProps> = ({
         ? vatRate / 100
         : 0;
 
-  const hasPriceNegotiation = hasPriceNegotiationEntitlement(
-    merchant?.plan_tier,
-    merchant?.slug
-  );
+  const hasPriceNegotiation = hasStorefrontPriceNegotiation(merchant);
 
   const displayCart = sanitizeCartItems(cart, hasPriceNegotiation);
 

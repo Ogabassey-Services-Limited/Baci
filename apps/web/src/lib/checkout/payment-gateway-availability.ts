@@ -3,6 +3,12 @@ export interface CheckoutPaymentMerchant {
   bank_code?: string | null;
   country?: string | null;
   paystack_subaccount_code?: string | null;
+  /**
+   * Derived capability hint from the public merchant snapshot. The raw
+   * subaccount code never crosses the anonymous boundary, so storefront
+   * merchants carry this boolean instead.
+   */
+  paystack_subaccount_configured?: boolean | null;
   feature_settings?: unknown;
 }
 
@@ -75,7 +81,10 @@ export function isPaystackCheckoutAvailable(
   if (!merchant) return false;
   if (!isBaciPaystackSettlementCountry(merchant.country)) return false;
   if (readPaystackEnabled(merchant.feature_settings) === false) return false;
-  return Boolean(merchant.paystack_subaccount_code?.trim());
+  return (
+    Boolean(merchant.paystack_subaccount_code?.trim()) ||
+    merchant.paystack_subaccount_configured === true
+  );
 }
 
 export function isKorapayCheckoutCurrencySupported(

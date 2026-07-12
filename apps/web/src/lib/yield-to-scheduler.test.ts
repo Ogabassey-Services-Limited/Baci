@@ -1,14 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { yieldToScheduler } from './yield-to-scheduler';
 
-type TestWindow = Window & {
-  scheduler?: { yield?: () => Promise<void> };
-};
+type TestScheduler = { yield?: () => Promise<void> } | undefined;
 
-function setWindowScheduler(
-  scheduler: { yield?: () => Promise<void> } | undefined
-) {
-  (window as TestWindow).scheduler = scheduler;
+function setWindowScheduler(scheduler: TestScheduler) {
+  // TS 6+ lib.dom declares a required `Window.scheduler: Scheduler`, so an
+  // intersection with `Window` would reject `undefined`; widen through a
+  // narrow shape instead to exercise the scheduler-less browser path.
+  (window as unknown as { scheduler?: TestScheduler }).scheduler = scheduler;
 }
 
 afterEach(() => {
