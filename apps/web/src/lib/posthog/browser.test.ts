@@ -5,6 +5,7 @@ const PAGEVIEW_CAPTURE_OPTIONS = { send_instantly: true };
 const mocks = vi.hoisted(() => {
   const clientConfigLoaded = vi.fn();
   const posthogCapture = vi.fn();
+  const posthogCaptureException = vi.fn();
   const posthogInit = vi.fn();
   const posthogReloadFeatureFlags = vi.fn();
   const posthogRemoteConfigLoad = vi.fn();
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => {
   const posthogClient = {
     __loaded: false,
     capture: posthogCapture,
+    captureException: posthogCaptureException,
     init: posthogInit,
     reloadFeatureFlags: posthogReloadFeatureFlags,
     set_config: posthogSetConfig,
@@ -35,6 +37,7 @@ const mocks = vi.hoisted(() => {
     buildPostHogClientConfig,
     clientConfigLoaded,
     posthogCapture,
+    posthogCaptureException,
     posthogClient,
     posthogInit,
     posthogReloadFeatureFlags,
@@ -83,6 +86,7 @@ function loadPostHogClient() {
 }
 
 afterEach(() => {
+  window.sessionStorage.clear();
   vi.unstubAllGlobals();
   vi.useRealTimers();
   mocks.posthogClient.__loaded = false;
@@ -121,6 +125,58 @@ describe('initializePostHogBrowser', () => {
     expect(mocks.posthogReloadFeatureFlags).not.toHaveBeenCalled();
     expect(mocks.posthogRemoteConfigLoad).not.toHaveBeenCalled();
     expect(mocks.webVitalsStartIfEnabled).not.toHaveBeenCalled();
+  });
+
+  it('atomically drains persisted client exceptions after init', async () => {
+    const { pendingClientExceptionQueue } = await import(
+      './pending-client-exception-queue'
+    );
+    const queuedId = pendingClientExceptionQueue.enqueue(
+      new Error('Loading chunk checkout failed.'),
+      {
+        $current_url: 'https://usebaci.com/merchant-a/checkout',
+        recovery_action: 'none',
+      }
+    );
+    const { initializePostHogBrowser } = await importBrowserInitializer();
+
+    initializePostHogBrowser({
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
+    });
+    loadPostHogClient();
+
+    expect(mocks.posthogCaptureException).toHaveBeenCalledOnce();
+    expect(mocks.posthogCaptureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Loading chunk checkout failed.' }),
+      {
+        $current_url: 'https://usebaci.com/merchant-a/checkout',
+        recovery_action: 'none',
+      }
+    );
+    expect(pendingClientExceptionQueue.take(queuedId)).toBeUndefined();
+  });
+
+  it('restores a drained client exception when PostHog capture throws', async () => {
+    mocks.posthogCaptureException.mockImplementationOnce(() => {
+      throw new Error('capture unavailable');
+    });
+    const { pendingClientExceptionQueue } = await import(
+      './pending-client-exception-queue'
+    );
+    const queuedId = pendingClientExceptionQueue.enqueue(
+      new Error('Loading chunk retry failed.')
+    );
+    const { initializePostHogBrowser } = await importBrowserInitializer();
+
+    initializePostHogBrowser({
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
+    });
+    loadPostHogClient();
+
+    expect(mocks.posthogCaptureException).toHaveBeenCalledOnce();
+    expect(pendingClientExceptionQueue.take(queuedId)).toMatchObject({
+      id: queuedId,
+    });
   });
 
   it('requests the lightweight config on public blog surfaces without locking init-time flag config', async () => {
@@ -452,6 +508,12 @@ describe('initializePostHogBrowser', () => {
 
   it('clears queued pageviews and disables future queueing when tracking is unconfigured', async () => {
     const warn = vi.fn();
+    const { pendingClientExceptionQueue } = await import(
+      './pending-client-exception-queue'
+    );
+    pendingClientExceptionQueue.enqueue(
+      new Error('Loading chunk disabled failed.')
+    );
     const { capturePostHogPageview, initializePostHogBrowser } =
       await importBrowserInitializer();
 
@@ -471,6 +533,8 @@ describe('initializePostHogBrowser', () => {
       '[PostHog] NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is missing; web analytics and error capture are disabled.'
     );
     expect(mocks.posthogCapture).not.toHaveBeenCalled();
+    expect(mocks.posthogCaptureException).not.toHaveBeenCalled();
+    expect(pendingClientExceptionQueue.drain()).toEqual([]);
   });
 
   it('swallows client loaded callback errors and still flushes queued pageviews', async () => {

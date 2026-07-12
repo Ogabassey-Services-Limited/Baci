@@ -1,10 +1,14 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildPostHogClientConfig,
   resolvePostHogWebTenantContext,
   sanitizePostHogCapture,
   sanitizePostHogProperties,
 } from './client-config';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('PostHog client config', () => {
   it('keeps PostHog web-vitals off while preserving exception capture and privacy-safe replay defaults', () => {
@@ -308,6 +312,84 @@ describe('PostHog client config', () => {
       merchant_slug: 'ogabassey',
     });
     expect(capture?.properties).not.toHaveProperty('merchant_domain');
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps deferred exception tenant context tied to its stamped origin URL through before_send', () => {
+    const config = buildPostHogClientConfig(
+      {
+        NEXT_PUBLIC_ROOT_DOMAIN: 'usebaci.com',
+        NODE_ENV: 'production',
+      },
+      'phc_public_project_token'
+    );
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/merchant-b/products',
+      origin: 'https://usebaci.com',
+    });
+    const beforeSend = config.before_send;
+
+    expect(typeof beforeSend).toBe('function');
+    if (typeof beforeSend !== 'function') {
+      throw new Error('Expected a PostHog before_send function.');
+    }
+
+    const capture = beforeSend({
+      uuid: 'event-1',
+      event: '$exception',
+      properties: {
+        $current_url:
+          'https://usebaci.com/merchant-a/checkout?token=raw_secret',
+        $pathname: '/merchant-a/checkout',
+        merchant_slug: 'merchant-b',
+      },
+    });
+
+    expect(capture?.properties).toMatchObject({
+      $current_url: 'https://usebaci.com/merchant-a/checkout',
+      merchant_slug: 'merchant-a',
+    });
+    expect(capture?.properties?.merchant_slug).not.toBe('merchant-b');
+    vi.unstubAllGlobals();
+  });
+
+  it('falls back to the current location when an exception origin URL is absent or invalid', () => {
+    const config = buildPostHogClientConfig({
+      NEXT_PUBLIC_ROOT_DOMAIN: 'usebaci.com',
+      NODE_ENV: 'production',
+    });
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/merchant-b/products',
+      origin: 'https://usebaci.com',
+    });
+    const beforeSend = config.before_send;
+
+    if (typeof beforeSend !== 'function') {
+      throw new Error('Expected a PostHog before_send function.');
+    }
+
+    for (const currentUrl of [undefined, '   ', 'http://[invalid']) {
+      const capture = beforeSend({
+        uuid: `event-${String(currentUrl)}`,
+        event: '$exception',
+        properties: {
+          ...(currentUrl === undefined ? {} : { $current_url: currentUrl }),
+        },
+      });
+
+      expect(capture?.properties?.merchant_slug).toBe('merchant-b');
+    }
+
+    const pageview = beforeSend({
+      uuid: 'event-pageview',
+      event: '$pageview',
+      properties: {
+        $current_url: 'https://usebaci.com/merchant-a/products',
+      },
+    });
+    expect(pageview?.properties?.merchant_slug).toBe('merchant-b');
     vi.unstubAllGlobals();
   });
 
