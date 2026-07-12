@@ -25,9 +25,12 @@ export async function readStorefrontMerchantSnapshot(
   );
   const boundedQuery =
     typeof query.abortSignal === 'function'
-      ? query.abortSignal(
-          AbortSignal.timeout(MERCHANT_SNAPSHOT_TOTAL_DEADLINE_MS)
-        )
+      ? query
+          .abortSignal(AbortSignal.timeout(MERCHANT_SNAPSHOT_TOTAL_DEADLINE_MS))
+          // Disable postgrest-js's automatic GET retry so the bounded deadline
+          // isn't extended by retry backoff on a native TimeoutError.
+          // Pinned by supabase/postgrest-timeout-retry.test.ts.
+          .retry(false)
       : query;
   const response = await boundedQuery;
 

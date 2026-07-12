@@ -78,6 +78,30 @@ describe('resolveStorefrontReadResult', () => {
     });
   });
 
+  it('classifies PostgREST connection codes (PGRST000-002) as retryable transport, before the stable-code branch', () => {
+    const result = resolveStorefrontReadResult({
+      operation: 'merchant_snapshot',
+      // No HTTP status — the CODE alone must drive retryability, so a
+      // Supabase connection/schema-cache failure is not mistaken for a
+      // stable, non-retryable database error.
+      response: {
+        data: null,
+        error: { code: 'PGRST001', message: 'could not connect' },
+        status: 0,
+      },
+      parse: () => null,
+    });
+
+    expect(result).toEqual({
+      status: 'unavailable',
+      error: expect.objectContaining({
+        code: 'PGRST001',
+        kind: 'transport',
+        retryable: true,
+      }),
+    });
+  });
+
   it('does not retry a stable database permission error based on its wording', () => {
     const result = resolveStorefrontReadResult({
       operation: 'merchant_snapshot',

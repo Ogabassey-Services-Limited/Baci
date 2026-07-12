@@ -46,9 +46,13 @@ export async function readStorefrontPdpCoreSnapshot(
   );
   const boundedQuery =
     typeof query.abortSignal === 'function'
-      ? query.abortSignal(
-          AbortSignal.timeout(PDP_CORE_SNAPSHOT_TOTAL_DEADLINE_MS)
-        )
+      ? query
+          .abortSignal(AbortSignal.timeout(PDP_CORE_SNAPSHOT_TOTAL_DEADLINE_MS))
+          // Disable postgrest-js's automatic GET retry. A native TimeoutError
+          // (from AbortSignal.timeout) is retryable to the SDK, so without this
+          // the bounded deadline is extended by ~4x retry backoff during tail
+          // events. Pinned by supabase/postgrest-timeout-retry.test.ts.
+          .retry(false)
       : query;
   const response = await boundedQuery;
 

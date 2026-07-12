@@ -1,6 +1,11 @@
 const DATABASE_ERROR_CODE_PATTERN = /^(?:[0-9A-Z]{5}|PGRST\d+)$/;
 const TIMEOUT_ERROR_CODES = new Set(['20', '23', '57014', 'PGRST003']);
 const RETRYABLE_HTTP_STATUSES = new Set([408, 429, 502, 503, 504, 520]);
+// PostgREST group-0 codes (PGRST000-002) are 503 connection / schema-cache
+// failures — transient transport, NOT stable database errors. They must be
+// classified before the generic PGRST-code branch so they stay retryable
+// during a Supabase outage or schema-cache restart.
+const CONNECTION_ERROR_CODES = new Set(['PGRST000', 'PGRST001', 'PGRST002']);
 const TIMEOUT_MESSAGE_PATTERN =
   /(?:abort(?:ed)? due to timeout|operation was aborted|pool acquisition timeout|request timeout|statement timeout|timeouterror|timed out)/i;
 const TRANSPORT_MESSAGE_PATTERN =
@@ -76,6 +81,19 @@ function classifyStorefrontReadFailure({
       kind: 'integrity',
       operation,
       retryable: false,
+      ...(httpStatus === null ? null : { httpStatus }),
+    };
+  }
+
+  // PostgREST connection/schema-cache failures (PGRST000-002, HTTP 503) are
+  // transient transport, not authoritative database errors — classify them
+  // before the stable-code branch below so they remain retryable.
+  if (CONNECTION_ERROR_CODES.has(code) || httpStatus === 503) {
+    return {
+      code,
+      kind: 'transport',
+      operation,
+      retryable: true,
       ...(httpStatus === null ? null : { httpStatus }),
     };
   }

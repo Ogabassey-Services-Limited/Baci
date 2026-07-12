@@ -4,10 +4,14 @@ import type { StorefrontDatabase } from '@/types/storefront-database';
 import { readStorefrontMerchantSnapshot } from './storefront-merchant-snapshot';
 
 function createClient(response: unknown) {
-  const abortSignal = vi.fn().mockResolvedValue(response);
+  // Mirror the postgrest-js builder chain used by the reader:
+  // rpc(...).abortSignal(signal).retry(false) → awaitable response.
+  const retry = vi.fn().mockResolvedValue(response);
+  const abortSignal = vi.fn(() => ({ retry }));
   const rpc = vi.fn(() => ({ abortSignal }));
   return {
     abortSignal,
+    retry,
     client: { rpc } as unknown as SupabaseClient<StorefrontDatabase>,
     rpc,
   };
@@ -21,7 +25,7 @@ describe('readStorefrontMerchantSnapshot', () => {
       custom_domain: 'merchant.example',
       feature_settings: { blog_enabled: true },
     };
-    const { abortSignal, client, rpc } = createClient({
+    const { abortSignal, retry, client, rpc } = createClient({
       data: [row],
       error: null,
       status: 200,
@@ -38,6 +42,9 @@ describe('readStorefrontMerchantSnapshot', () => {
       { get: true }
     );
     expect(abortSignal).toHaveBeenCalledWith(expect.any(AbortSignal));
+    // The bounded read must disable postgrest-js GET retries so the deadline
+    // isn't extended by retry backoff on a TimeoutError.
+    expect(retry).toHaveBeenCalledWith(false);
     expect(result).toEqual({ status: 'found', value: row });
   });
 

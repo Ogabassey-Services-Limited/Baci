@@ -4,10 +4,14 @@ import type { StorefrontDatabase } from '@/types/storefront-database';
 import { readStorefrontPdpCoreSnapshot } from './storefront-pdp-core-snapshot';
 
 function createClient(response: unknown) {
-  const abortSignal = vi.fn().mockResolvedValue(response);
+  // Mirror the postgrest-js builder chain used by the reader:
+  // rpc(...).abortSignal(signal).retry(false) → awaitable response.
+  const retry = vi.fn().mockResolvedValue(response);
+  const abortSignal = vi.fn(() => ({ retry }));
   const rpc = vi.fn(() => ({ abortSignal }));
   return {
     abortSignal,
+    retry,
     client: { rpc } as unknown as SupabaseClient<StorefrontDatabase>,
     rpc,
   };
