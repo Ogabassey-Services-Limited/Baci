@@ -323,6 +323,38 @@ BEGIN
   WHERE order_id = v_manual_processing_order_id
     AND event_type = 'order_shipped';
 
+  SELECT prepared.result->>'status'
+  INTO v_manual_prepared_status
+  FROM (
+    SELECT public.prepare_order_notification_outbox_manual_send(
+      v_manual_processing_order_id,
+      v_merchant_id,
+      'order_shipped',
+      'PROCESSING-TRACK-001',
+      'Processing Courier',
+      '2026-07-16'
+    ) AS result
+  ) AS prepared;
+
+  IF v_manual_prepared_status IS DISTINCT FROM 'processing' THEN
+    RAISE EXCEPTION 'expected manual preparation to preserve processing state, got %',
+      v_manual_prepared_status;
+  END IF;
+
+  SELECT metadata
+  INTO v_manual_metadata
+  FROM public.order_notification_outbox
+  WHERE order_id = v_manual_processing_order_id
+    AND event_type = 'order_shipped';
+
+  IF v_manual_metadata->>'manual_tracking_number' IS DISTINCT FROM 'PROCESSING-TRACK-001'
+    OR v_manual_metadata->>'manual_courier_name' IS DISTINCT FROM 'Processing Courier'
+    OR v_manual_metadata->>'manual_estimated_delivery' IS DISTINCT FROM '2026-07-16'
+  THEN
+    RAISE EXCEPTION 'expected processing outbox metadata to preserve manual shipment details, got %',
+      v_manual_metadata;
+  END IF;
+
   SELECT public.complete_order_notification_outbox_manual_result(
     v_manual_processing_order_id,
     v_merchant_id,
@@ -424,15 +456,28 @@ BEGIN
       v_manual_skipped_order_id,
       v_merchant_id,
       'order_shipped',
-      NULL,
-      NULL,
-      NULL
+      'RETRY-TRACK-001',
+      'Retry Courier',
+      '2026-07-17'
     ) AS result
   ) AS prepared;
 
   IF v_manual_prepared_status IS NOT NULL THEN
     RAISE EXCEPTION 'expected first skipped-row retry claimant to proceed, got %',
       v_manual_prepared_status;
+  END IF;
+
+  SELECT metadata
+  INTO v_manual_metadata
+  FROM public.order_notification_outbox
+  WHERE id = v_manual_claim_id;
+
+  IF v_manual_metadata->>'manual_tracking_number' IS DISTINCT FROM 'RETRY-TRACK-001'
+    OR v_manual_metadata->>'manual_courier_name' IS DISTINCT FROM 'Retry Courier'
+    OR v_manual_metadata->>'manual_estimated_delivery' IS DISTINCT FROM '2026-07-17'
+  THEN
+    RAISE EXCEPTION 'expected retry claim metadata to preserve manual shipment details, got %',
+      v_manual_metadata;
   END IF;
 
   SELECT prepared.result->>'status'

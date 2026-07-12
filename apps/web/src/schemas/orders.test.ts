@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { orderCreateSchema, reuseCheckoutOrderSchema } from './orders';
+import {
+  orderCreateSchema,
+  orderUpdateSchema,
+  reuseCheckoutOrderSchema,
+} from './orders';
 
 const validOrder = {
   merchant_id: '123e4567-e89b-12d3-a456-426614174000',
@@ -740,5 +744,28 @@ describe('reuseCheckoutOrderSchema', () => {
       shipping_rate_id: 'mrate_123e4567-e89b-12d3-a456-426614174777',
     });
     expect(result.success).toBe(false);
+  });
+});
+
+
+describe('orderUpdateSchema', () => {
+  it('accepts supported status and editable order fields', () => {
+    const result = orderUpdateSchema.safeParse({
+      payment_status: 'paid',
+      shipping_status: 'completed',
+      notes: null,
+      shipping_address: { city: 'Lagos' },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects unsupported shipping statuses and unknown fields', () => {
+    expect(
+      orderUpdateSchema.safeParse({ shipping_status: 'teleported' }).success
+    ).toBe(false);
+    expect(
+      orderUpdateSchema.safeParse({ merchant_id: 'merchant-2' }).success
+    ).toBe(false);
   });
 });

@@ -40,7 +40,7 @@ function responseForResult(result: OrderFulfillmentNotificationResult) {
   }
 
   return NextResponse.json(
-    { error: 'Failed to send email', details: result.error },
+    { error: 'Failed to send email', code: 'NOTIFICATION_SEND_FAILED' },
     { status: 500 }
   );
 }
@@ -55,15 +55,6 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { valid: csrfValid, response: csrfResponse } =
-      await checkCsrfProtection(request);
-    if (!csrfValid) {
-      return (
-        csrfResponse ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
@@ -72,6 +63,15 @@ export async function POST(
       );
     }
     const authenticatedSupabase = auth.supabase;
+
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
 
     const parsedParams = orderIdParamsSchema.safeParse(await params);
     if (!parsedParams.success) {
@@ -163,7 +163,10 @@ export async function POST(
 
     return responseForResult(result);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal Error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('Failed to send delivered order notification:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', code: 'INTERNAL_ERROR' },
+      { status: 500 }
+    );
   }
 }

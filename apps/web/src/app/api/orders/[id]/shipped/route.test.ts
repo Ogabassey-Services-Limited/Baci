@@ -329,6 +329,33 @@ describe('POST /api/orders/[id]/shipped', () => {
     );
   });
 
+  it('does not resend a shipped notification with an unknown delivery outcome', async () => {
+    const supabase = createSupabaseMock(shippedOrder, 'outcome_unknown');
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(createRequest(), {
+      params: Promise.resolve({ id: orderId }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      notificationSkipped: true,
+      reason: 'notification_delivery_outcome_unknown',
+    });
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(
+      (supabase as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc
+    ).not.toHaveBeenCalledWith(
+      'complete_order_notification_outbox_manual_result',
+      expect.anything()
+    );
+  });
+
   it('allows manual shipped retry after a skipped outbox row', async () => {
     const supabase = createSupabaseMock(shippedOrder, 'skipped');
     vi.mocked(authenticateApiRequest).mockResolvedValue({

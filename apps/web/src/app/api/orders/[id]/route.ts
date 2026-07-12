@@ -23,6 +23,7 @@ import {
   isShippingProviderCode,
   OrderShipmentBookingError,
 } from '@/lib/shipping/order-shipment-booking-utils';
+import { orderUpdateSchema } from '@/schemas/orders';
 
 const RELEASEABLE_BOOKING_ERROR_CODES = new Set([
   'ORDER_NOT_FOUND',
@@ -141,12 +142,28 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const body = await request.json();
-
     // Authenticate request (supports mobile Bearer token + web cookies)
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    let requestBody: unknown;
+    try {
+      requestBody = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Malformed JSON body', code: 'INVALID_REQUEST_BODY' },
+        { status: 400 }
+      );
+    }
+
+    const parsedBody = orderUpdateSchema.safeParse(requestBody);
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body', code: 'INVALID_REQUEST_BODY' },
+        { status: 400 }
+      );
     }
 
     // Get merchant ID (supports both owners and staff members)
@@ -177,7 +194,8 @@ export async function PATCH(
     }
 
     // Extract updatable fields
-    const { payment_status, shipping_status, notes, shipping_address } = body;
+    const { payment_status, shipping_status, notes, shipping_address } =
+      parsedBody.data;
 
     // Validate: Cannot move to 'processing' unless paid or is_credit_order
     if (

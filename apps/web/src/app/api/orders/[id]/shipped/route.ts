@@ -51,7 +51,7 @@ function responseForResult(result: OrderFulfillmentNotificationResult) {
   }
 
   return NextResponse.json(
-    { error: 'Failed to send email', details: result.error },
+    { error: 'Failed to send email', code: 'NOTIFICATION_SEND_FAILED' },
     { status: 500 }
   );
 }
@@ -66,6 +66,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    const authenticatedSupabase = auth.supabase;
+
     const { valid, response } = await checkCsrfProtection(request);
     if (!valid) return response as NextResponse;
 
@@ -100,15 +109,6 @@ export async function POST(
       courierName = parsedBody.data.courier_name;
       estimatedDelivery = parsedBody.data.estimated_delivery;
     }
-
-    const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user || !auth.supabase) {
-      return NextResponse.json(
-        { error: auth.error || 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-    const authenticatedSupabase = auth.supabase;
 
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
@@ -206,7 +206,10 @@ export async function POST(
 
     return responseForResult(result);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal Error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('Failed to send shipped order notification:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', code: 'INTERNAL_ERROR' },
+      { status: 500 }
+    );
   }
 }

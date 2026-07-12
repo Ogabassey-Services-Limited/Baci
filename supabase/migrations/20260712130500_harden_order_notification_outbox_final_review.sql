@@ -44,12 +44,6 @@ SELECT setval(
   EXISTS (SELECT 1 FROM public.order_notification_outbox)
 );
 
-ALTER TABLE public.order_notification_outbox
-  ALTER COLUMN event_sequence SET NOT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_order_notification_outbox_event_sequence
-  ON public.order_notification_outbox (order_id, event_type, event_sequence DESC);
-
 CREATE OR REPLACE FUNCTION public.get_order_notification_outbox_manual_terminal_status(
   p_order_id uuid,
   p_merchant_id uuid,
@@ -194,7 +188,7 @@ BEGIN
   LIMIT 1
   FOR UPDATE;
 
-  IF v_status = 'pending'
+  IF v_outbox_id IS NOT NULL
     AND p_event_type = 'order_shipped'
     AND (
       nullif(btrim(p_tracking_number), '') IS NOT NULL
@@ -257,7 +251,12 @@ BEGIN
       now(),
       'manual-endpoint',
       NULL,
-      jsonb_build_object('source', 'manual_endpoint_claim')
+      jsonb_strip_nulls(jsonb_build_object(
+        'source', 'manual_endpoint_claim',
+        'manual_tracking_number', nullif(btrim(p_tracking_number), ''),
+        'manual_courier_name', nullif(btrim(p_courier_name), ''),
+        'manual_estimated_delivery', nullif(btrim(p_estimated_delivery), '')
+      ))
     )
     ON CONFLICT (order_id, event_type)
       WHERE status IN ('pending', 'processing')
@@ -274,6 +273,18 @@ BEGIN
         AND outbox.status IN ('pending', 'processing')
       ORDER BY outbox.event_sequence DESC
       LIMIT 1;
+
+      IF v_outbox_id IS NOT NULL AND p_event_type = 'order_shipped' THEN
+        UPDATE public.order_notification_outbox AS outbox
+        SET
+          metadata = outbox.metadata || jsonb_strip_nulls(jsonb_build_object(
+            'manual_tracking_number', nullif(btrim(p_tracking_number), ''),
+            'manual_courier_name', nullif(btrim(p_courier_name), ''),
+            'manual_estimated_delivery', nullif(btrim(p_estimated_delivery), '')
+          )),
+          updated_at = now()
+        WHERE outbox.id = v_outbox_id;
+      END IF;
 
       RETURN jsonb_build_object('status', v_status, 'outbox_id', v_outbox_id);
     END IF;

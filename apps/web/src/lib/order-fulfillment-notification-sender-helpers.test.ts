@@ -27,26 +27,40 @@ const merchant: MerchantRecord = {
 };
 
 describe('order fulfillment sender helpers', () => {
-  it('builds stable fallback values and encoded tracking links', () => {
-    expect(getFulfillmentOrderNumber(order)).toBe('12345678');
-    expect(getFulfillmentOrderItems(order)).toEqual([
-      { name: 'Product', quantity: 1 },
-    ]);
-    expect(buildMerchantEmailContext(merchant)).toMatchObject({
+  it('builds stable order fallback values', () => {
+    const orderNumber = getFulfillmentOrderNumber(order);
+    const items = getFulfillmentOrderItems(order);
+
+    expect(orderNumber).toBe('12345678');
+    expect(items).toEqual([{ name: 'Product', quantity: 1 }]);
+  });
+
+  it('builds merchant email context from the merchant slug', () => {
+    const context = buildMerchantEmailContext(merchant);
+
+    expect(context).toMatchObject({
       merchantUrl: 'https://store.usebaci.com',
       replyToEmail: 'support@store.usebaci.com',
     });
-    expect(
-      buildFulfillmentTrackingUrl('usebaci.com', 'store', order, 'A B')
-    ).toBe('https://usebaci.com/track/A%20B');
+  });
+
+  it('encodes the tracking token in the public tracking URL', () => {
+    const trackingUrl = buildFulfillmentTrackingUrl(
+      'usebaci.com',
+      'store',
+      order,
+      'A B'
+    );
+
+    expect(trackingUrl).toBe('https://usebaci.com/track/A%20B');
   });
 
   it('preserves an explicit zero item quantity', () => {
-    expect(
-      getFulfillmentOrderItems({
-        ...order,
-        order_items: [{ name: 'Removed item', quantity: 0 }],
-      })
-    ).toEqual([{ name: 'Removed item', quantity: 0 }]);
+    const items = getFulfillmentOrderItems({
+      ...order,
+      order_items: [{ name: 'Removed item', quantity: 0 }],
+    });
+
+    expect(items).toEqual([{ name: 'Removed item', quantity: 0 }]);
   });
 });

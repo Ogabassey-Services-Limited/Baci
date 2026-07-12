@@ -291,7 +291,7 @@ describe('sendOrderFulfillmentNotification', () => {
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
-  it('returns not_found when the merchant lookup is missing', async () => {
+  it('returns a retryable failure when the merchant query fails', async () => {
     const supabase = createSupabaseMock();
     const fromMock = supabase.from as unknown as {
       mockImplementation: (impl: (table: string) => unknown) => void;
@@ -302,6 +302,36 @@ describe('sendOrderFulfillmentNotification', () => {
           data: null,
           error: { message: 'missing' },
         });
+      }
+      if (table === 'orders') {
+        return createSelectBuilder({ data: baseOrder, error: null });
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const result = await sendOrderFulfillmentNotification({
+      eventType: 'order_shipped',
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      supabase,
+    });
+
+    expect(result).toEqual({
+      status: 'failed',
+      error: 'Order notification data temporarily unavailable',
+      details: { retryable: true },
+    });
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('returns not_found when the merchant query succeeds without a row', async () => {
+    const supabase = createSupabaseMock();
+    const fromMock = supabase.from as unknown as {
+      mockImplementation: (impl: (table: string) => unknown) => void;
+    };
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return createSelectBuilder({ data: null, error: null });
       }
       if (table === 'orders') {
         return createSelectBuilder({ data: baseOrder, error: null });

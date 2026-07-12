@@ -119,22 +119,26 @@ function isOrderInRequiredShippingStatus(
 async function loadMerchant(
   supabase: SendOrderFulfillmentNotificationParams['supabase'],
   merchantId: string
-): Promise<MerchantRecord | null | 'invalid'> {
-  const { data, error } = await tableQuery(supabase, 'merchants')
+): Promise<MerchantRecord | null | 'invalid' | 'query_error'> {
+  const query = tableQuery(supabase, 'merchants')
     .select(
       'id, business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
     )
-    .eq('id', merchantId)
-    .single();
+    .eq('id', merchantId);
+  const { data, error } = query.maybeSingle
+    ? await query.maybeSingle()
+    : await query.single();
 
-  if (error || !data) {
-    logger.warn({
-      message: 'Order notification merchant not found',
+  if (error) {
+    logger.error({
+      message: 'Failed to load merchant for order notification',
       merchantId,
       error,
     });
-    return null;
+    return 'query_error';
   }
+
+  if (!data) return null;
 
   const parsed = merchantSchema.safeParse(data);
   if (!parsed.success) {
@@ -153,22 +157,26 @@ async function loadOrder(
   supabase: SendOrderFulfillmentNotificationParams['supabase'],
   merchantId: string,
   orderId: string
-): Promise<FulfillmentOrderRecord | null | 'invalid'> {
-  const { data, error } = await tableQuery(supabase, 'orders')
+): Promise<FulfillmentOrderRecord | null | 'invalid' | 'query_error'> {
+  const query = tableQuery(supabase, 'orders')
     .select(ORDER_WITH_ITEMS_QUERY)
     .eq('id', orderId)
-    .eq('merchant_id', merchantId)
-    .single();
+    .eq('merchant_id', merchantId);
+  const { data, error } = query.maybeSingle
+    ? await query.maybeSingle()
+    : await query.single();
 
-  if (error || !data) {
-    logger.warn({
-      message: 'Order notification order not found',
+  if (error) {
+    logger.error({
+      message: 'Failed to load order for fulfillment notification',
       orderId,
       merchantId,
       error,
     });
-    return null;
+    return 'query_error';
   }
+
+  if (!data) return null;
 
   const parsed = fulfillmentOrderSchema.safeParse(data);
   if (!parsed.success) {
@@ -238,6 +246,14 @@ export async function sendOrderFulfillmentNotification({
     loadMerchant(supabase, merchantId),
     loadOrder(supabase, merchantId, orderId),
   ]);
+
+  if (merchant === 'query_error' || order === 'query_error') {
+    return {
+      status: 'failed',
+      error: 'Order notification data temporarily unavailable',
+      details: { retryable: true },
+    };
+  }
 
   if (!merchant || !order) {
     return { status: 'not_found', error: 'Order or merchant not found' };
