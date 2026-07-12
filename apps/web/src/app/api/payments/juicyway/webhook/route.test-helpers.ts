@@ -276,13 +276,11 @@ export function wireProcessingMocks(
         }),
       };
     }
-    if (table === 'merchants') {
-      return {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: merchant, error: null }),
-      };
-    }
+    // NOTE: `merchants` is intentionally NOT served by the anon client here.
+    // The webhook reads merchant identity via the service-role client (see
+    // route.ts), so the confirmation-email test below only gets merchant data
+    // through mockAdminSupabase — a regression guard against reverting that
+    // read back to the anon `supabase` client.
     return {
       select: vi.fn().mockReturnThis(),
       update: vi.fn().mockReturnThis(),
@@ -293,6 +291,25 @@ export function wireProcessingMocks(
 
   (mockSupabase as Record<string, unknown>).from = fromMock;
   mockSupabase.rpc = vi.fn().mockResolvedValue({ error: null });
+  // The merchant identity/branding read for the confirmation email now runs
+  // through the service-role client (see route.ts — it must not read merchants
+  // as anon), so the admin mock serves `merchants` in addition to the
+  // service-role-locked `reconciliation_review` insert.
+  (mockAdminSupabase as Record<string, unknown>).from = vi.fn(
+    (table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: merchant, error: null }),
+        };
+      }
+      if (table === 'reconciliation_review') {
+        return { insert: mockReconciliationInsert };
+      }
+      throw new Error(`Unexpected admin table: ${table}`);
+    }
+  );
   mockAdminSupabase.rpc = vi.fn().mockResolvedValue({ error: null });
   return state;
 }
