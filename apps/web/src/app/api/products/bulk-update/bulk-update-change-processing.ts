@@ -42,6 +42,14 @@ function groupChangesByProduct(
     return [changes];
   }
 
+  const hasNewProduct = changes.some((change) => change.type === 'new');
+  const hasSlugGeneratingUpdate = changes.some(
+    (change) => change.type === 'update' && Boolean(change.details.name?.trim())
+  );
+  if (hasNewProduct && hasSlugGeneratingUpdate) {
+    return [changes];
+  }
+
   const groups: BulkUpdateChange[][] = [];
   const groupByKey = new Map<string, BulkUpdateChange[]>();
   const newProductChanges: BulkUpdateChange[] = [];

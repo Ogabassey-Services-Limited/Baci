@@ -180,4 +180,61 @@ describe('processBulkUpdateChanges', () => {
 
     expect(maxActiveUpdates).toBe(1);
   });
+
+  it('serializes new products with slug-generating updates', async () => {
+    let activeChanges = 0;
+    let maxActiveChanges = 0;
+    const runChange = async () => {
+      activeChanges += 1;
+      maxActiveChanges = Math.max(maxActiveChanges, activeChanges);
+      await Promise.resolve();
+      activeChanges -= 1;
+    };
+    const supabase = {
+      from: vi.fn(() => ({
+        update: vi.fn(() => {
+          const query: Record<string, unknown> = {};
+          query.eq = vi.fn(() => query);
+          query.select = vi.fn(() => query);
+          // biome-ignore lint/suspicious/noThenProperty: Supabase builders are thenable.
+          query.then = vi.fn(
+            (resolve: (value: { data: []; error: null }) => void) =>
+              runChange().then(() => resolve({ data: [], error: null }))
+          );
+          return query;
+        }),
+        insert: vi.fn(() => ({
+          select: vi.fn(() => ({
+            maybeSingle: vi.fn(() =>
+              runChange().then(() => ({
+                data: { id: 'created-id' },
+                error: null,
+              }))
+            ),
+          })),
+        })),
+      })),
+    };
+
+    await processBulkUpdateChanges({
+      changes: [
+        {
+          type: 'update',
+          productId: 'a0000000-0000-4000-8000-000000000000',
+          newPrice: 100,
+          details: { name: 'Shared Slug', price: 100 },
+        },
+        {
+          type: 'new',
+          details: { name: 'Shared Slug', price: 150 },
+        },
+      ],
+      currency: 'NGN',
+      merchantBusinessName: 'Test Store',
+      merchantId: 'merchant-1',
+      supabase: supabase as never,
+    });
+
+    expect(maxActiveChanges).toBe(1);
+  });
 });
