@@ -71,11 +71,9 @@ describe('OgaBassey dynamic homepage routing', () => {
 
   it('prerenders both OgaBassey home identifiers', async () => {
     const { generateStaticParams } = await import('./page');
+    const params = generateStaticParams();
 
-    expect(generateStaticParams()).toEqual([
-      { slug: 'ogabassey.com' },
-      { slug: 'ogabassey' },
-    ]);
+    expect(params).toEqual([{ slug: 'ogabassey.com' }, { slug: 'ogabassey' }]);
   });
 
   it('keeps route-specific stylesheets out of the shared route import', async () => {
