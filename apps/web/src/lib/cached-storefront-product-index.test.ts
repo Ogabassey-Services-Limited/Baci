@@ -2,11 +2,14 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type * as TypeScript from 'typescript';
+import type * as TypeScript from '@typescript/typescript6';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const require = createRequire(import.meta.url);
-const ts = require('typescript') as typeof TypeScript;
+// The classic compiler API used below is gone from typescript@7 (native
+// compiler), so this test pins Microsoft's @typescript/typescript6 compat
+// package instead of the workspace `typescript` version.
+const ts = require('@typescript/typescript6') as typeof TypeScript;
 const mockCreatePublicClient = vi.fn();
 const mockNormalizeProducts = vi.fn((products: unknown[]) =>
   products.map((p: unknown) => ({
