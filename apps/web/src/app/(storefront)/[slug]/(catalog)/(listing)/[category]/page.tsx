@@ -72,7 +72,7 @@ export async function generateMetadata({
   const { slug, category } = await params;
   // Over-long / repeatedly-encoded bot segments can never match; bail before
   // getCachedMerchant (keys on slug) or getCachedCategoryPageData ->
-  // getCachedCategoryPageShellData (`'use cache: remote'`, keys on category and
+  // getCachedCategoryPageShellData (local `'use cache'`, keys on category and
   // queries eq('slug', category)) runs with an unbounded key.
   if (
     !evaluateStorefrontSlugSafety(slug).safe ||

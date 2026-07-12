@@ -32,6 +32,12 @@ export interface MerchantData {
   custom_domain?: string;
   payout_currency?: string;
   paystack_subaccount_code?: string | null;
+  /**
+   * Derived capability hints from the public merchant snapshot. Presentation
+   * only — private payment/order paths stay authoritative.
+   */
+  paystack_subaccount_configured?: boolean;
+  price_negotiation_enabled?: boolean;
   bank_account_number?: string | null;
   bank_account_name?: string | null;
   bank_code?: string | null;

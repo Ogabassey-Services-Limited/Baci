@@ -2327,7 +2327,7 @@ export async function POST(request: NextRequest) {
         revalidateProducts(merchant_id);
 
         // revalidateProducts() above busts only the merchant-wide/listing
-        // tags. getCachedProduct() — the PDP's primary data source — is tagged
+        // tags. The bounded PDP snapshot is tagged
         // per-slug (getProductScopedCacheTag('product', merchantId, slug)),
         // which a bare revalidateProducts(merchantId) does NOT bust, so the
         // exact PDP a shopper is viewing could keep serving just-sold-out
