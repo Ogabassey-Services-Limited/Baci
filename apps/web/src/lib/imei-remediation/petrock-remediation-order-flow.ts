@@ -30,6 +30,7 @@ interface RemediationOrderState {
   }): Promise<boolean>;
   markSubmissionUnknown(input: {
     orderId: string;
+    providerOrderId?: string;
     reason: string;
   }): Promise<boolean>;
   prepare(input: {
@@ -227,6 +228,7 @@ export async function placePetrockRemediationOrder({
     });
     await state.markSubmissionUnknown({
       orderId: order.id,
+      providerOrderId: submission.data.orderUuid,
       reason: 'accepted_submission_persistence_failed',
     });
     return { kind: 'submission_unknown' as const };

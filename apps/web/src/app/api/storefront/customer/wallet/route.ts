@@ -8,9 +8,10 @@
  * - Transaction history for transparency
  */
 
-import { cookies } from 'next/headers';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { authenticateApiRequest } from '@/lib/api-auth';
+import type { Database } from '@/types/supabase';
 
 interface CustomerWalletOwner {
   id: string;
@@ -93,7 +94,7 @@ async function getSavingsBalance({
 }: {
   customerId: string;
   merchantId: string;
-  supabase: ReturnType<typeof createClient>;
+  supabase: SupabaseClient<Database>;
 }) {
   const { data, error } = await supabase
     .from('customer_savings_goals')
@@ -119,7 +120,7 @@ async function getFundingAccount({
 }: {
   customerId: string;
   merchantId: string;
-  supabase: ReturnType<typeof createClient>;
+  supabase: SupabaseClient<Database>;
 }) {
   const { data, error } = await supabase
     .from('customer_wallet_payment_accounts')
@@ -144,7 +145,7 @@ async function getUsdtBalance({
 }: {
   customerId: string;
   merchantId: string;
-  supabase: ReturnType<typeof createClient>;
+  supabase: SupabaseClient<Database>;
 }) {
   const { data, error } = await supabase
     .from('customer_wallet_accounts')
@@ -159,6 +160,14 @@ async function getUsdtBalance({
 
 export async function GET(request: Request) {
   try {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json(
+        { error: 'Unauthorized', balance: 0, transactions: [] },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const merchantSlug = searchParams.get('merchant');
 
@@ -169,21 +178,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    // Get current user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized', balance: 0, transactions: [] },
-        { status: 401 }
-      );
-    }
+    const { supabase, user } = auth;
 
     // Get merchant
     const { data: merchant, error: merchantError } = await supabase

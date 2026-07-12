@@ -12,7 +12,10 @@ import { createPetrockClient } from '@/lib/imei-providers/petrock/petrock-client
 import { resolveClaimedPetrockLookup } from '@/lib/imei-providers/petrock/petrock-lookup-resolution';
 import { claimPetrockLookupPoll } from '@/lib/imei-providers/petrock/petrock-lookup-state';
 import { createPetrockProvider } from '@/lib/imei-providers/petrock/petrock-provider';
-import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
+import {
+  checkImeiPollRateLimit,
+  createRateLimitResponse,
+} from '@/lib/rate-limit';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { errorBody, UUID_PATTERN } from '../route-helpers';
@@ -45,7 +48,7 @@ export async function GET(
     );
   }
 
-  const rateLimit = await checkRateLimit(request as NextRequest);
+  const rateLimit = await checkImeiPollRateLimit(request as NextRequest);
   if (!rateLimit.allowed) {
     return createRateLimitResponse(
       rateLimit.limit,

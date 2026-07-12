@@ -4,6 +4,11 @@ const mockCookies = vi.fn();
 const mockFrom = vi.fn();
 const mockRpc = vi.fn();
 const mockGetUser = vi.fn();
+const mockAuthenticate = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/api-auth', () => ({
+  authenticateApiRequest: mockAuthenticate,
+}));
 
 vi.mock('next/headers', () => ({
   cookies: () => mockCookies(),
@@ -81,6 +86,11 @@ describe('GET /api/storefront/customer/wallet', () => {
       data: { user: { email: 'jane@example.com', id: 'user-1' } },
       error: null,
     });
+    mockAuthenticate.mockResolvedValue({
+      error: null,
+      supabase: { from: mockFrom, rpc: mockRpc },
+      user: { email: 'jane@example.com', id: 'user-1' },
+    });
     // get_storefront_payment_settings RPC — SECURITY DEFINER, returns the
     // merchant's wallet DVA flag for storefront customers.
     mockRpc.mockResolvedValue({
@@ -95,13 +105,15 @@ describe('GET /api/storefront/customer/wallet', () => {
 
     expect(response.status).toBe(400);
     expect(body).toEqual({ error: 'Merchant slug is required' });
-    expect(mockGetUser).not.toHaveBeenCalled();
+    expect(mockAuthenticate).toHaveBeenCalled();
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   it('returns 401 when the customer is not authenticated', async () => {
-    mockGetUser.mockResolvedValueOnce({
-      data: { user: null },
-      error: { message: 'not authenticated' },
+    mockAuthenticate.mockResolvedValueOnce({
+      error: 'not authenticated',
+      supabase: null,
+      user: null,
     });
 
     const response = await GET(request());
@@ -113,6 +125,23 @@ describe('GET /api/storefront/customer/wallet', () => {
       error: 'Unauthorized',
       transactions: [],
     });
+  });
+
+  it('uses bearer-aware authentication for native wallet reads', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') return singleQuery({ id: 'merchant-1' });
+      if (table === 'customers') return singleQuery(null);
+      throw new Error(`Unexpected table ${table}`);
+    });
+    const bearerRequest = new Request(
+      'http://localhost:3000/api/storefront/customer/wallet?merchant=ogabassey',
+      { headers: { Authorization: 'Bearer mobile-token' } }
+    );
+
+    const response = await GET(bearerRequest);
+
+    expect(response.status).toBe(200);
+    expect(mockAuthenticate).toHaveBeenCalledWith(bearerRequest);
   });
 
   it('returns 500 when an unexpected database error escapes the wallet fetch', async () => {

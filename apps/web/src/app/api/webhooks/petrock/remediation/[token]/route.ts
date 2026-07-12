@@ -12,6 +12,7 @@ const OPEN_REMEDIATION_STATUSES = [
   'eligibility_pending',
   'submitted',
   'in_progress',
+  'submission_unknown',
 ];
 
 const accepted = () => NextResponse.json({ received: true }, { status: 202 });

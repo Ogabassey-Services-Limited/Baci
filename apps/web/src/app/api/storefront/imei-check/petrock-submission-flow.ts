@@ -37,11 +37,13 @@ export function pendingPetrockResponse(lookupId: string) {
 async function persistUnknown(
   lookupId: string,
   providerStatus: string,
-  supabaseAdmin: AdminClient
+  supabaseAdmin: AdminClient,
+  providerOrderId?: string
 ) {
   try {
     await markPetrockSubmissionUnknown({
       lookupId,
+      providerOrderId,
       providerStatus,
       supabaseAdmin,
     });
@@ -152,7 +154,8 @@ export async function submitPetrockLookup({
       await persistUnknown(
         lookupId,
         'accepted_order_save_failed',
-        supabaseAdmin
+        supabaseAdmin,
+        outcome.providerOrderId
       );
     }
     return pendingPetrockResponse(lookupId);

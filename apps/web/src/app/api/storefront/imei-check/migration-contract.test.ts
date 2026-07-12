@@ -147,16 +147,23 @@ describe('IMEI lookup migration grants', () => {
   });
 
   it('leases reconciliation rows and finalizes Petrock results atomically', () => {
-    const sql = readFileSync(
-      migrationPath('20260710210200_petrock_imei_reconciliation_rpcs.sql'),
-      'utf8'
-    );
+    const sql = [
+      '20260710210200_petrock_imei_reconciliation_rpcs.sql',
+      '20260712143000_petrock_review_recovery_hardening.sql',
+    ]
+      .map((fileName) => readFileSync(migrationPath(fileName), 'utf8'))
+      .join('\n');
 
     expect(sql).toContain('FOR UPDATE SKIP LOCKED');
     expect(sql).toContain('reconcile_lease_until');
     expect(sql).toContain('p_lease_token uuid DEFAULT NULL::uuid');
     expect(sql).toContain('reconcile_lease_token = p_lease_token');
     expect(sql).toContain('reconcile_lease_until >= pg_catalog.now()');
+    expect(sql).toContain('provider_order_id = COALESCE');
+    expect(sql).toContain('p_order_id text DEFAULT NULL::text');
+    expect(sql).toContain(
+      'DROP FUNCTION IF EXISTS public.mark_petrock_imei_submission_unknown'
+    );
     expect(sql).toContain(
       'CREATE OR REPLACE FUNCTION public.finalize_petrock_imei_lookup'
     );

@@ -79,6 +79,10 @@ describe('POST /api/webhooks/petrock/remediation/[token]', () => {
     expect(admin.orders.update).toHaveBeenCalledWith(
       expect.objectContaining({ next_poll_at: expect.any(String) })
     );
+    expect(admin.updateBuilder.in).toHaveBeenCalledWith(
+      'status',
+      expect.arrayContaining(['submission_unknown'])
+    );
     expect(admin.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         event_type: 'feedback_callback_received',

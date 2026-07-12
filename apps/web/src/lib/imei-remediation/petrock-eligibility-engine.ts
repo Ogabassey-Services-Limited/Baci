@@ -39,6 +39,7 @@ export interface PetrockEligibilitySubmissionState {
   }): Promise<boolean>;
   markSubmissionUnknown(input: {
     orderId: string;
+    providerOrderId?: string;
     reason: string;
   }): Promise<boolean>;
   recordSubmission(input: {
@@ -199,6 +200,7 @@ export async function submitNextPetrockEligibilityCheck({
     });
     await state.markSubmissionUnknown({
       orderId: order.id,
+      providerOrderId: submission.data.orderUuid,
       reason: 'accepted_submission_persistence_failed',
     });
     return { check, kind: 'submission_unknown' as const };

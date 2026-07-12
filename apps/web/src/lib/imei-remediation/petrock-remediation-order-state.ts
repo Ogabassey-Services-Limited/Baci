@@ -89,15 +89,21 @@ export function createPetrockRemediationOrderState({
     },
     markSubmissionUnknown({
       orderId,
+      providerOrderId,
       reason,
     }: {
       orderId: string;
+      providerOrderId?: string;
       reason: string;
     }) {
       return booleanRpc(
         supabaseAdmin,
         'mark_petrock_remediation_submission_unknown',
-        { p_order_id: orderId, p_reason: reason }
+        {
+          p_order_id: orderId,
+          p_provider_order_id: providerOrderId ?? null,
+          p_reason: reason,
+        }
       );
     },
     async prepare({

@@ -36,6 +36,7 @@ describe('Petrock lookup state transitions', () => {
     await markPetrockSubmissionUnknown({
       leaseToken: 'lease-1',
       lookupId: 'lookup-1',
+      providerOrderId: 'order-1',
       providerStatus: 'submit_timeout',
       supabaseAdmin: { rpc } as never,
     });
@@ -45,6 +46,7 @@ describe('Petrock lookup state transitions', () => {
       expect.objectContaining({
         p_lease_token: 'lease-1',
         p_lookup_id: 'lookup-1',
+        p_order_id: 'order-1',
       })
     );
   });

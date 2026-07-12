@@ -112,15 +112,6 @@ export async function loadPetrockRemediationEligibility({
   if (lookupError) throw lookupError;
   if (!lookup) return { kind: 'not_found' as const };
 
-  const cached = lookup.cached_response as Record<string, unknown> | null;
-  const result =
-    cached?.success === true &&
-    typeof cached.data === 'object' &&
-    cached.data !== null
-      ? stringEvidence(cached.data)
-      : null;
-  if (!result) return { kind: 'not_found' as const };
-
   const { data: assessment, error: assessmentError } = await supabaseAdmin
     .from('petrock_orders')
     .select('id, status, eligibility_evidence, failure_reason')
@@ -142,10 +133,22 @@ export async function loadPetrockRemediationEligibility({
           : 'not_eligible',
     };
   }
-  const evidence =
-    assessment?.status === 'eligible'
-      ? (stringEvidence(assessment.eligibility_evidence) ?? {})
-      : result;
+  const resumableAssessment =
+    assessment?.status === 'eligible' ||
+    assessment?.status === 'payment_pending';
+  const cached = lookup.cached_response as Record<string, unknown> | null;
+  const result =
+    cached?.success === true &&
+    typeof cached.data === 'object' &&
+    cached.data !== null
+      ? stringEvidence(cached.data)
+      : null;
+  if (!resumableAssessment && !result) {
+    return { kind: 'not_found' as const };
+  }
+  const evidence = resumableAssessment
+    ? (stringEvidence(assessment.eligibility_evidence) ?? {})
+    : (result ?? {});
 
   const { data, error } = await supabaseAdmin
     .from('petrock_remediation_products')
@@ -191,11 +194,10 @@ export async function loadPetrockRemediationEligibility({
   }
   const eligible = new Set(evaluation.productIds);
   return {
-    assessmentId:
-      assessment?.status === 'eligible' ? String(assessment.id) : undefined,
+    assessmentId: resumableAssessment ? String(assessment.id) : undefined,
     evidence,
     kind: 'eligible' as const,
-    needsAssessment: assessment?.status !== 'eligible',
+    needsAssessment: !resumableAssessment,
     offers: products
       .filter((product) => eligible.has(product.id))
       .map((product) => ({

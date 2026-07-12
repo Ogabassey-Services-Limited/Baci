@@ -230,6 +230,7 @@ describe('submitNextPetrockEligibilityCheck', () => {
     expect(recordSubmission).toHaveBeenCalledTimes(2);
     expect(markSubmissionUnknown).toHaveBeenCalledWith({
       orderId: 'order-1',
+      providerOrderId: 'provider-order-1',
       reason: 'accepted_submission_persistence_failed',
     });
   });

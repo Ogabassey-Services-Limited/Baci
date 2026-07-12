@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   authenticate: vi.fn(),
-  checkRateLimit: vi.fn(),
+  checkPollRateLimit: vi.fn(),
   claimPoll: vi.fn(),
   createAdminClient: vi.fn(),
   resolveCustomer: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: mocks.authenticate,
 }));
 vi.mock('@/lib/rate-limit', () => ({
-  checkRateLimit: mocks.checkRateLimit,
+  checkImeiPollRateLimit: mocks.checkPollRateLimit,
   createRateLimitResponse: () => Response.json({}, { status: 429 }),
 }));
 vi.mock('@/lib/storefront-merchant', () => ({
@@ -74,7 +74,7 @@ function adminWithRow(row: Record<string, unknown> | null) {
 describe('GET /api/storefront/imei-check/[lookupId]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.checkRateLimit.mockResolvedValue({
+    mocks.checkPollRateLimit.mockResolvedValue({
       allowed: true,
       limit: 10,
       remaining: 9,
@@ -102,7 +102,7 @@ describe('GET /api/storefront/imei-check/[lookupId]', () => {
     const response = await GET(request, context());
 
     expect(response.status).toBe(401);
-    expect(mocks.checkRateLimit).not.toHaveBeenCalled();
+    expect(mocks.checkPollRateLimit).not.toHaveBeenCalled();
   });
 
   it('returns a customer-scoped cached terminal result', async () => {

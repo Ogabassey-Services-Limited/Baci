@@ -82,17 +82,20 @@ export function recordPetrockSubmission({
 export function markPetrockSubmissionUnknown({
   leaseToken,
   lookupId,
+  providerOrderId,
   providerStatus,
   supabaseAdmin,
 }: {
   leaseToken?: string;
   lookupId: string;
+  providerOrderId?: string;
   providerStatus: string;
   supabaseAdmin: AdminClient;
 }) {
   return callBooleanRpc(supabaseAdmin, 'mark_petrock_imei_submission_unknown', {
     p_lease_token: leaseToken ?? null,
     p_lookup_id: lookupId,
+    p_order_id: providerOrderId ?? null,
     p_provider_status: providerStatus,
   });
 }

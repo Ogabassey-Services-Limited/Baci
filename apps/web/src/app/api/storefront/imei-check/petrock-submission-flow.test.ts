@@ -129,6 +129,26 @@ describe('submitPetrockLookup', () => {
     expect(mocks.markUnknown).not.toHaveBeenCalled();
   });
 
+  it('preserves the provider order id when accepted-order persistence is exhausted', async () => {
+    mocks.recordSubmission.mockRejectedValue(
+      new TypeError('database unavailable')
+    );
+    const provider = {
+      submit: vi.fn().mockResolvedValue({
+        kind: 'pending',
+        providerOrderId: 'order-1',
+        providerStatus: 'new',
+      }),
+    };
+
+    const response = await submitPetrockLookup({ ...baseInput, provider });
+
+    expect(response.status).toBe(202);
+    expect(mocks.markUnknown).toHaveBeenCalledWith(
+      expect.objectContaining({ providerOrderId: 'order-1' })
+    );
+  });
+
   it('atomically refunds a definitive provider failure', async () => {
     const provider = {
       submit: vi.fn().mockResolvedValue({

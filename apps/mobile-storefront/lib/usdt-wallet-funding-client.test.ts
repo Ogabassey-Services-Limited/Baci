@@ -15,6 +15,12 @@ describe('createUsdtWalletFundingClient', () => {
     });
 
     await expect(client.balance('ogabassey')).resolves.toBe(12.5);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://shop.example.com/api/storefront/customer/wallet?merchant=ogabassey',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer token' }),
+      })
+    );
   });
 
   it('initializes a USDT address with billing context', async () => {

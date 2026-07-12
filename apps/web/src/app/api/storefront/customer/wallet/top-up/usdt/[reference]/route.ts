@@ -4,6 +4,7 @@ import { getRootDomain, isUsdtWalletEnabled } from '@/env';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { USDT_WALLET_TOP_UP_TRANSACTION_TYPE } from '@/lib/customer-wallet-account';
 import { resolveImeiCustomer } from '@/lib/imei-lookup-fulfillment';
+import { extractCryptoAddress, getPaymentSession } from '@/lib/juicyway';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -60,7 +61,8 @@ export async function GET(
   });
   if (!customer) return notFound();
 
-  const { data, error } = await createAdminClient()
+  const supabaseAdmin = createAdminClient();
+  const { data, error } = await supabaseAdmin
     .from('transactions')
     .select(
       'id, amount, currency, status, gateway_response, metadata, updated_at'
@@ -92,8 +94,45 @@ export async function GET(
     return notFound();
   }
 
-  const deposit = addressFromGatewayResponse(data.gateway_response);
+  let deposit = addressFromGatewayResponse(data.gateway_response);
   const status = String(data.status);
+  const sessionId = metadata.juicyway_session_id;
+  if (
+    !deposit?.address &&
+    status === 'pending' &&
+    typeof sessionId === 'string'
+  ) {
+    try {
+      const session = await getPaymentSession(sessionId);
+      if (session.success) {
+        const refreshed = extractCryptoAddress(
+          session.data.payment?.payment_method
+        );
+        if (refreshed?.address) {
+          const { data: recorded, error: updateError } =
+            await supabaseAdmin.rpc('record_juicyway_usdt_deposit_address', {
+              p_address: refreshed,
+              p_provider_status: session.data.payment?.status ?? 'pending',
+              p_session_id: sessionId,
+              p_transaction_id: data.id,
+            });
+          if (updateError) {
+            console.error('[USDT Wallet] Deposit address save failed', {
+              error: updateError,
+              reference,
+            });
+          } else if (recorded === true) {
+            deposit = refreshed;
+          }
+        }
+      }
+    } catch (refreshError) {
+      console.error('[USDT Wallet] Deposit address refresh failed', {
+        error: refreshError,
+        reference,
+      });
+    }
+  }
   const fundingStatus = ['completed', 'successful', 'success'].includes(status)
     ? 'completed'
     : status === 'failed'

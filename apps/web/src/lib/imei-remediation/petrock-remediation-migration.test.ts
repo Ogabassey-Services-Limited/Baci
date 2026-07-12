@@ -96,9 +96,12 @@ describe('Petrock remediation migrations', () => {
   });
 
   it('leases, advances, and terminally resolves remediation work atomically', () => {
-    const sql = migration(
-      '20260711202300_petrock_remediation_reconciliation_rpcs.sql'
-    );
+    const sql = [
+      '20260711202300_petrock_remediation_reconciliation_rpcs.sql',
+      '20260712143000_petrock_review_recovery_hardening.sql',
+    ]
+      .map(migration)
+      .join('\n');
     expect(sql).toContain('FOR UPDATE SKIP LOCKED');
     expect(sql).toContain(
       'CREATE OR REPLACE FUNCTION public.begin_petrock_eligibility_check'
@@ -131,6 +134,12 @@ describe('Petrock remediation migrations', () => {
     expect(sql).toContain(
       "o.status = 'paid' AND o.paid_at < now() - interval '2 minutes'"
     );
+    expect(sql).toContain("'submission_unknown'");
+    expect(sql).toContain('provider_order_id = COALESCE');
+    expect(sql).toContain(
+      'CREATE OR REPLACE FUNCTION public.record_juicyway_usdt_deposit_address'
+    );
+    expect(sql).toContain("AND status = 'pending'");
     expect(sql).toContain('PERFORM public.refund_wallet_for_remediation');
     expect(sql).toContain(
       'GRANT EXECUTE ON FUNCTION public.finalize_petrock_remediation_order(uuid, text, boolean, text, text) TO service_role'

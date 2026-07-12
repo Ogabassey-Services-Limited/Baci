@@ -121,6 +121,7 @@ describe('placePetrockRemediationOrder submission outcomes', () => {
     expect(orderState.recordSubmission).toHaveBeenCalledTimes(2);
     expect(orderState.markSubmissionUnknown).toHaveBeenCalledWith({
       orderId: 'order-1',
+      providerOrderId: 'provider-order-1',
       reason: 'accepted_submission_persistence_failed',
     });
   });
