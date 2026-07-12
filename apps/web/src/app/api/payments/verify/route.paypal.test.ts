@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -71,6 +71,12 @@ vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: () => mockCreateServiceClient(),
 }));
 
+const mockRefundDuplicate = vi.fn();
+vi.mock('@/lib/payments/refund-duplicate-paypal-verify-capture', () => ({
+  refundDuplicatePaypalCaptureOnVerify: (...args: unknown[]) =>
+    mockRefundDuplicate(...args),
+}));
+
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => ({
     from: vi.fn((table: string) => {
@@ -102,6 +108,8 @@ function paypalTransactionRow(status: string) {
     gateway: 'paypal',
     gateway_reference: REFERENCE,
     platform_fee: 0,
+    metadata: null as Record<string, unknown> | null,
+    gateway_response: null as unknown,
   };
 }
 
@@ -128,6 +136,8 @@ function korapayTransactionRowWithPlatformFee(
     gateway: 'korapay',
     gateway_reference: REFERENCE,
     platform_fee: platformFee,
+    metadata: null as Record<string, unknown> | null,
+    gateway_response: null as unknown,
   };
 }
 
@@ -326,6 +336,70 @@ describe('POST /api/payments/verify — paypal branch', () => {
     expect(mockVerifyPaystack).not.toHaveBeenCalled();
     expect(mockVerifyKorapay).not.toHaveBeenCalled();
     expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('refunds a duplicate PayPal capture when a completed txn did NOT settle an already-paid order (Codex P1)', async () => {
+    // completed PayPal txn, NO paypal_split on its metadata → it is not the
+    // settler; the order is already paid (by another tender/PayPal order).
+    mockRefundDuplicate.mockResolvedValue(
+      NextResponse.json({
+        success: true,
+        status: 'success',
+        orderNumber: 'ORD-PP1',
+      })
+    );
+    const supabase = buildSupabase({
+      transactionRow: {
+        ...paypalTransactionRow('completed'),
+        metadata: null,
+        gateway_response: { purchase_units: [{ payments: { captures: [] } }] },
+      },
+      existingOrder: {
+        id: 'order-1',
+        order_number: 'ORD-PP1',
+        payment_status: 'paid',
+        shipping_status: 'processing',
+      },
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+
+    const response = await POST(createRequest(REFERENCE));
+
+    expect(response.status).toBe(200);
+    expect(mockRefundDuplicate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        orderId: 'order-1',
+        transactionId: 'txn-paypal-1',
+        gatewayReference: REFERENCE,
+      })
+    );
+    // The duplicate is never settled/notified as a fresh payment.
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('does NOT refund when the completed PayPal txn IS the settler (paypal_split present) — idempotent success', async () => {
+    const supabase = buildSupabase({
+      transactionRow: {
+        ...paypalTransactionRow('completed'),
+        metadata: { paypal_split: { paypalResidualPaid: 25, prepaidPaid: 0 } },
+        gateway_response: {},
+      },
+      existingOrder: {
+        id: 'order-1',
+        order_number: 'ORD-PP1',
+        payment_status: 'paid',
+        shipping_status: 'processing',
+      },
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+
+    const response = await POST(createRequest(REFERENCE));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({ success: true, status: 'success' });
+    expect(mockRefundDuplicate).not.toHaveBeenCalled();
   });
 
   it('returns the existing not-found behavior for an unknown reference', async () => {

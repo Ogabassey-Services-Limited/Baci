@@ -6,6 +6,7 @@ import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-or
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { reconcilePaypalOrderToPaid } from '@/lib/payments/reconcile-paypal-order';
+import { refundDuplicatePaypalCaptureOnVerify } from '@/lib/payments/refund-duplicate-paypal-verify-capture';
 import type { GatewayVerificationResult } from '@/lib/payments/types';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -36,7 +37,8 @@ function getVerifiedAmount(
 
 async function verifyGatewayPayment(
   gateway: string,
-  reference: string
+  reference: string,
+  transactionStatus: string
 ): Promise<GatewayVerificationResult> {
   if (gateway === 'paystack') {
     const result = await verifyPaystackPayment(reference);
@@ -64,6 +66,14 @@ async function verifyGatewayPayment(
     };
   }
 
+  if (gateway === 'paypal') {
+    return {
+      gatewayResponse: {},
+      status: transactionStatus === 'completed' ? 'success' : 'pending',
+      success: true,
+    };
+  }
+
   return {
     success: false,
     error: `Unsupported gateway: ${gateway}`,
@@ -83,7 +93,7 @@ async function verifyPaymentReference(reference: string) {
   const { data: transaction, error: transactionError } = await supabase
     .from('transactions')
     .select(
-      'id, order_id, merchant_id, amount, currency, status, gateway, gateway_reference, gateway_response, platform_fee'
+      'id, order_id, merchant_id, amount, currency, status, gateway, gateway_reference, platform_fee, metadata, gateway_response'
     )
     .eq('gateway_reference', parsedReference.data)
     .maybeSingle();
@@ -110,9 +120,7 @@ async function verifyPaymentReference(reference: string) {
 
   if (!transaction.order_id) {
     // Wallet top-ups and other non-order references have their own
-    // verification flows. Flipping the transaction here would make the
-    // gateway webhook short-circuit on the completed row without ever
-    // running that flow's crediting logic — refuse instead of finalizing.
+    // verification flows. Refuse instead of finalizing an unrelated payment.
     logger.warn({
       message: 'Payment verify called for a transaction without an order',
       reference: parsedReference.data,
@@ -121,6 +129,29 @@ async function verifyPaymentReference(reference: string) {
       { error: 'Transaction is not an order payment' },
       { status: 409 }
     );
+  }
+
+  const isPaypalTransaction = transaction.gateway === 'paypal';
+  const thisTxnSettledOrder = Boolean(
+    (transaction.metadata as Record<string, unknown> | null)?.paypal_split
+  );
+
+  // A completed PayPal transaction that did not settle an already-paid order is
+  // a duplicate capture and must be refunded before any idempotent success path.
+  if (
+    isPaypalTransaction &&
+    transaction.status === 'completed' &&
+    existingOrder?.payment_status === 'paid' &&
+    !thisTxnSettledOrder
+  ) {
+    return refundDuplicatePaypalCaptureOnVerify({
+      gatewayReference: transaction.gateway_reference,
+      gatewayResponse: transaction.gateway_response,
+      merchantId: transaction.merchant_id,
+      orderId: transaction.order_id,
+      orderNumber: existingOrder.order_number ?? null,
+      transactionId: transaction.id,
+    });
   }
 
   const isSupportedOrderGateway =
@@ -173,7 +204,11 @@ async function verifyPaymentReference(reference: string) {
         status: 'success',
         success: true,
       }
-    : await verifyGatewayPayment(transaction.gateway, parsedReference.data);
+    : await verifyGatewayPayment(
+        transaction.gateway,
+        parsedReference.data,
+        transaction.status
+      );
 
   if (!verification.success) {
     logger.warn({
