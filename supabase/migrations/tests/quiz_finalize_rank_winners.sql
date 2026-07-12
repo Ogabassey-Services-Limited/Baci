@@ -70,6 +70,7 @@ DECLARE
   v_e_verified uuid := '00000000-0000-4000-8000-0000000fe001';
   v_e_unverified uuid := '00000000-0000-4000-8000-0000000fe002';
   v_e_noconfig uuid := '00000000-0000-4000-8000-0000000fe003'; -- verified + due but NO prize config
+  v_e_nopermit uuid := '00000000-0000-4000-8000-0000000fe004'; -- verified + configured + due but NO permit ref
   v_a1 uuid := '00000000-0000-4000-8000-0000000fa011'; -- c1 best
   v_a2 uuid := '00000000-0000-4000-8000-0000000fa012'; -- c1 lower (dedup target)
   v_a3 uuid := '00000000-0000-4000-8000-0000000fa013'; -- c2
@@ -84,6 +85,8 @@ DECLARE
   v_unverified_awards integer;
   v_noconfig_minted integer;
   v_noconfig_awards integer;
+  v_nopermit_minted integer;
+  v_nopermit_awards integer;
 BEGIN
   INSERT INTO public.merchants (id, email) VALUES (v_merchant, 'rank-winners@test.com');
 
@@ -93,15 +96,22 @@ BEGIN
     (v_c3, v_merchant, 'C3', 'c3@rw.com', 200),
     (v_c4, v_merchant, 'C4', 'c4@rw.com', 900);
 
-  INSERT INTO public.quiz_events (id, merchant_id, slug, title, status, ends_at, compliance_verified, settings) VALUES
-    (v_e_verified, v_merchant, 'rw-verified', 'RW Verified', 'completed', v_now - interval '1 hour', true,
+  -- Verified fixtures carry a non-blank permit ref so each negative case below
+  -- isolates exactly one gate (compliance / prize-config / permit).
+  INSERT INTO public.quiz_events (id, merchant_id, slug, title, status, ends_at, compliance_verified, nlrc_permit_ref, settings) VALUES
+    (v_e_verified, v_merchant, 'rw-verified', 'RW Verified', 'completed', v_now - interval '1 hour', true, 'NLRC-TEST-PERMIT',
       '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb),
-    (v_e_unverified, v_merchant, 'rw-unverified', 'RW Unverified', 'completed', v_now - interval '1 hour', false,
+    -- Blocked ONLY by compliance (permit present, config present).
+    (v_e_unverified, v_merchant, 'rw-unverified', 'RW Unverified', 'completed', v_now - interval '1 hour', false, 'NLRC-TEST-PERMIT',
       '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb),
-    -- Compliance-verified and due, but carries NO ranked-prize configuration
-    -- (mirrors legacy/e2e events). Must never be finalized or minted.
-    (v_e_noconfig, v_merchant, 'rw-noconfig', 'RW No Config', 'active', v_now - interval '1 hour', true,
-      '{"prize_name":"QA prize","time_limit_seconds":30}'::jsonb);
+    -- Compliance-verified, permitted and due, but carries NO ranked-prize
+    -- configuration (mirrors legacy/e2e events). Blocked ONLY by the config gate.
+    (v_e_noconfig, v_merchant, 'rw-noconfig', 'RW No Config', 'active', v_now - interval '1 hour', true, 'NLRC-TEST-PERMIT',
+      '{"prize_name":"QA prize","time_limit_seconds":30}'::jsonb),
+    -- Compliance-verified, configured and due, but carries NO permit reference.
+    -- Blocked ONLY by the permit gate: never finalized or minted.
+    (v_e_nopermit, v_merchant, 'rw-nopermit', 'RW No Permit', 'completed', v_now - interval '1 hour', true, NULL,
+      '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb);
 
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
     (v_a1, v_e_verified, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '8 min'),
@@ -115,6 +125,9 @@ BEGIN
   -- An eligible-looking attempt on the NO-CONFIG event to prove the prize-config gate.
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
     ('00000000-0000-4000-8000-0000000fa017', v_e_noconfig, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '8 min');
+  -- An eligible-looking attempt on the NO-PERMIT event to prove the permit gate.
+  INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
+    ('00000000-0000-4000-8000-0000000fa018', v_e_nopermit, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '8 min');
 
   -- Mint the verified event.
   v_minted := public.mint_quiz_event_ranked_awards(v_e_verified);
@@ -173,6 +186,13 @@ BEGIN
     RAISE EXCEPTION 'Event without prize config must mint 0 awards, got %', v_noconfig_minted;
   END IF;
 
+  -- Permit gate (defense-in-depth): a verified, configured, due event with NO
+  -- permit reference must mint nothing when minted directly.
+  v_nopermit_minted := public.mint_quiz_event_ranked_awards(v_e_nopermit);
+  IF v_nopermit_minted IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'Event without permit ref must mint 0 awards, got %', v_nopermit_minted;
+  END IF;
+
   -- Fail-closed compliance gate: finalize_due must skip the unverified event.
   PERFORM public.finalize_due_quiz_events();
 
@@ -198,6 +218,16 @@ BEGIN
   END IF;
   IF (SELECT award_finalized_at FROM public.quiz_events WHERE id = v_e_noconfig) IS NOT NULL THEN
     RAISE EXCEPTION 'No-config event must not be finalized by finalize_due_quiz_events';
+  END IF;
+
+  -- Permit gate: the no-permit event must be left alone by finalize_due —
+  -- not finalized and no awards minted.
+  SELECT count(*) INTO v_nopermit_awards FROM public.quiz_awards WHERE event_id = v_e_nopermit;
+  IF v_nopermit_awards IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'No-permit event must mint zero awards, got %', v_nopermit_awards;
+  END IF;
+  IF (SELECT award_finalized_at FROM public.quiz_events WHERE id = v_e_nopermit) IS NOT NULL THEN
+    RAISE EXCEPTION 'No-permit event must not be finalized by finalize_due_quiz_events';
   END IF;
 END;
 $$ LANGUAGE plpgsql;
