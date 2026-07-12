@@ -94,6 +94,10 @@ export function createUsdtWalletFundingClient({
         const data = record(await response.json());
         return response.ok && data?.success === true
           ? {
+              address:
+                typeof data.depositAddress === 'string'
+                  ? data.depositAddress
+                  : null,
               fundingStatus:
                 typeof data.fundingStatus === 'string'
                   ? data.fundingStatus

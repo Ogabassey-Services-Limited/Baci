@@ -5,6 +5,7 @@ import {
   fetchAnalyticsPlatformConfig,
   hasConfiguredAnalyticsPlatform,
 } from '@/lib/analytics/analytics-platform-config';
+import { USDT_WALLET_TOP_UP_TRANSACTION_TYPE } from '@/lib/customer-wallet-account';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -131,13 +132,67 @@ export async function POST(request: NextRequest) {
       reference: data.reference,
     });
 
+    const reference = data.reference;
+    if (!reference) {
+      return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
+    }
+
+    const adminSupabase = createAdminClient();
+
     // Handle different event types
     if (event === 'payment.session.failed') {
       logger.info({
         message: 'Juicyway payment failed',
         reference: data.reference,
       });
-      // Optionally update order status to failed
+      const { data: failedTransaction, error: failedLookupError } =
+        await adminSupabase
+          .from('transactions')
+          .select('id, metadata, status')
+          .eq('gateway_reference', reference)
+          .eq('gateway', 'juicyway')
+          .maybeSingle();
+      if (failedLookupError) {
+        logger.error({
+          error: failedLookupError,
+          message: 'Failed to load Juicyway transaction for failure event',
+          reference,
+        });
+        return NextResponse.json(
+          { error: 'Unable to record payment failure' },
+          { status: 500 }
+        );
+      }
+      const failedMetadata =
+        failedTransaction?.metadata &&
+        typeof failedTransaction.metadata === 'object'
+          ? (failedTransaction.metadata as Record<string, unknown>)
+          : null;
+      if (
+        failedTransaction?.status === 'pending' &&
+        failedMetadata?.transaction_type === USDT_WALLET_TOP_UP_TRANSACTION_TYPE
+      ) {
+        const { error: failedUpdateError } = await adminSupabase
+          .from('transactions')
+          .update({
+            gateway_response: data,
+            status: 'failed',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', failedTransaction.id)
+          .eq('status', 'pending');
+        if (failedUpdateError) {
+          logger.error({
+            error: failedUpdateError,
+            message: 'Failed to mark Juicyway wallet top-up as failed',
+            reference,
+          });
+          return NextResponse.json(
+            { error: 'Unable to record payment failure' },
+            { status: 500 }
+          );
+        }
+      }
       return NextResponse.json({ message: 'Failure noted' });
     }
 
@@ -150,17 +205,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Event ignored' });
     }
 
-    // Process successful payment
-    const reference = data.reference;
-    if (!reference) {
-      return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
-    }
-
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    // Find transaction record
-    const { data: transaction, error: transactionError } = await supabase
+    // Webhooks do not have a merchant session, so transaction discovery must
+    // use the service-role client. The reference remains provider-signed.
+    const { data: transaction, error: transactionError } = await adminSupabase
       .from('transactions')
       .select(
         // Δ-0a: `gateway_fee` is not a column on `transactions`. Juicyway
@@ -186,10 +233,13 @@ export async function POST(request: NextRequest) {
     const walletTopUpResponse = await handleJuicywayWalletTopUpIfNeeded({
       payment: data,
       reference,
-      supabase: createAdminClient(),
+      supabase: adminSupabase,
       transaction,
     });
     if (walletTopUpResponse) return walletTopUpResponse;
+
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
 
     // Check if already processed (idempotency)
     if (transaction.status === 'completed') {

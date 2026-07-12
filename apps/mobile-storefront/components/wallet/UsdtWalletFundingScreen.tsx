@@ -71,6 +71,7 @@ export function UsdtWalletFundingScreen({
     const refresh = async () => {
       const result = await client.status(reference);
       if (cancelled || result.kind !== 'ready') return;
+      if (result.address) setAddress(result.address);
       setStatus(result.fundingStatus);
       if (result.fundingStatus === 'completed') {
         setBalance(await client.balance(merchantSlug));

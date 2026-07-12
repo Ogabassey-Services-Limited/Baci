@@ -68,6 +68,18 @@ describe('handleJuicywayWalletTopUpIfNeeded', () => {
     expect(mocks.credit).not.toHaveBeenCalled();
   });
 
+  it('rejects a same-currency settlement below the exact expected amount', async () => {
+    const response = await handleJuicywayWalletTopUpIfNeeded({
+      payment: { amount: 2499, currency: 'USDT' },
+      reference: 'WUSDT-1',
+      supabase: {} as never,
+      transaction: transaction(),
+    });
+
+    expect(response?.status).toBe(400);
+    expect(mocks.credit).not.toHaveBeenCalled();
+  });
+
   it('returns null for an ordinary Juicyway order transaction', async () => {
     const response = await handleJuicywayWalletTopUpIfNeeded({
       payment: { amount: 2500, currency: 'USDT' },

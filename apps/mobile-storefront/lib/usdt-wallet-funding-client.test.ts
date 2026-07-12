@@ -53,4 +53,27 @@ describe('createUsdtWalletFundingClient', () => {
       })
     ).resolves.toMatchObject({ address: 'TVaultAddress', kind: 'ready' });
   });
+
+  it('returns a deposit address discovered by status polling', async () => {
+    const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue({
+      json: () =>
+        Promise.resolve({
+          depositAddress: 'TLateAddress',
+          fundingStatus: 'pending',
+          success: true,
+        }),
+      ok: true,
+      status: 200,
+    } as Response);
+    const client = createUsdtWalletFundingClient({
+      apiBaseUrl: 'https://shop.example.com',
+      fetchImpl,
+    });
+
+    await expect(client.status('wusdt_ref')).resolves.toMatchObject({
+      address: 'TLateAddress',
+      fundingStatus: 'pending',
+      kind: 'ready',
+    });
+  });
 });

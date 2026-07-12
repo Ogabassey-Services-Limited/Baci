@@ -1,5 +1,6 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -34,6 +35,10 @@ jest.mock('expo-router', () => ({ Stack: { Screen: () => null } }));
 import { UsdtWalletFundingScreen } from './UsdtWalletFundingScreen';
 
 describe('UsdtWalletFundingScreen', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
   it('shows balance and creates a chain-specific deposit address', async () => {
     mockBalance.mockResolvedValue(12.5);
     mockInitialize.mockResolvedValue({
@@ -41,7 +46,11 @@ describe('UsdtWalletFundingScreen', () => {
       kind: 'ready',
       reference: 'wusdt_ref',
     });
-    mockStatus.mockResolvedValue({ fundingStatus: 'pending', kind: 'ready' });
+    mockStatus.mockResolvedValue({
+      address: null,
+      fundingStatus: 'pending',
+      kind: 'ready',
+    });
     render(
       <UsdtWalletFundingScreen
         accessToken="token"
@@ -68,5 +77,43 @@ describe('UsdtWalletFundingScreen', () => {
       )
     );
     expect(await screen.findByText('TVaultAddress')).toBeTruthy();
+  });
+
+  it('shows a deposit address returned by a later status poll', async () => {
+    jest.useFakeTimers();
+    mockBalance.mockResolvedValue(0);
+    mockInitialize.mockResolvedValue({
+      address: null,
+      kind: 'ready',
+      reference: 'wusdt_ref',
+    });
+    mockStatus.mockResolvedValue({
+      address: 'TLateAddress',
+      fundingStatus: 'pending',
+      kind: 'ready',
+    });
+    render(
+      <UsdtWalletFundingScreen
+        apiBaseUrl="https://shop.example.com"
+        initialAmount={65}
+        merchantSlug="ogabassey"
+      />
+    );
+    fireEvent.changeText(
+      screen.getByLabelText('Address line'),
+      '1 Baci Street'
+    );
+    fireEvent.changeText(screen.getByLabelText('City'), 'Lagos');
+    fireEvent.changeText(screen.getByLabelText('Postal code'), '100001');
+    fireEvent.press(
+      screen.getByRole('button', { name: /create deposit address/i })
+    );
+    await waitFor(() => expect(mockInitialize).toHaveBeenCalled());
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(5_000);
+    });
+
+    expect(await screen.findByText('TLateAddress')).toBeTruthy();
   });
 });

@@ -64,4 +64,36 @@ describe('useImeiPendingLookup', () => {
 
     await waitFor(() => expect(result.current.pending?.tier).toBe('blacklist'));
   });
+
+  it('continues low-frequency polling for a stale restored lookup', async () => {
+    vi.useFakeTimers();
+    const key = pendingImeiStorageKey('shop.example.com', 'customer-1');
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        createdAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        lookupId: '11111111-1111-4111-8111-111111111111',
+        tier: 'blacklist',
+      })
+    );
+    pollImeiCheck.mockResolvedValue({ kind: 'pending', pollAfterMs: 5000 });
+
+    const { result } = renderHook(() =>
+      useImeiPendingLookup({
+        customerId: 'customer-1',
+        host: 'shop.example.com',
+      })
+    );
+    await act(async () => undefined);
+    expect(result.current.paused).toBe(true);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    expect(pollImeiCheck).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111'
+    );
+    vi.useRealTimers();
+  });
 });

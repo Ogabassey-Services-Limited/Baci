@@ -13,6 +13,7 @@ import {
 } from './imei-pending-storage';
 
 const MAX_ACTIVE_POLL_MS = 5 * 60 * 1000;
+const PAUSED_POLL_MS = 60 * 1000;
 
 interface ActivePendingImeiLookup extends PendingImeiLookup {
   pollAfterMs: number;
@@ -63,9 +64,10 @@ export function useImeiPendingLookup({
   useEffect(() => {
     if (!pending) return;
 
-    if (Date.now() - Date.parse(pending.createdAt) >= MAX_ACTIVE_POLL_MS) {
+    const isStale =
+      Date.now() - Date.parse(pending.createdAt) >= MAX_ACTIVE_POLL_MS;
+    if (isStale) {
       setPaused(true);
-      return;
     }
 
     let cancelled = false;
@@ -93,7 +95,7 @@ export function useImeiPendingLookup({
             }
           : { error: outcome.error, kind: 'error', tier: pending.tier }
       );
-    }, pending.pollAfterMs);
+    }, isStale ? PAUSED_POLL_MS : pending.pollAfterMs);
 
     return () => {
       cancelled = true;
