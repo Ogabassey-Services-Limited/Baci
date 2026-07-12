@@ -125,8 +125,8 @@ export function revalidateProducts(merchantId: string, productSlug?: string) {
 
 /**
  * Invalidate ONLY the per-slug scoped product-detail Next cache tags for the
- * given slugs. `getCachedProduct`, `getCachedProductWithDetails`, and
- * `getCachedProductLcpHint` each tag their entry with
+ * given slugs. `getCachedProductWithDetails` and `getCachedProductLcpHint`
+ * each tag their entry with
  * `getProductScopedCacheTag('product', merchantId, slug)`. `revalidateProducts`
  * (called with no slug) busts the merchant-WIDE product tags but leaves each
  * product's per-slug entry cached until its cacheLife TTL — so a Cloudflare MISS

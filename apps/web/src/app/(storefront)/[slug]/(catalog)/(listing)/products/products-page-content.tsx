@@ -7,8 +7,8 @@ import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { StorefrontPagination } from '@/components/storefront/ogabassey/components/StorefrontPagination';
 import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import {
-  getCachedCategories,
   getRequestScopedMerchant,
+  getStorefrontCategories,
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
@@ -58,9 +58,9 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
 
   const showMaintainedLinkModules = merchant.id === OGABASSEY_MERCHANT_ID;
 
-  const [categories, currentProductIndex, firstPageProductIndex] =
+  const [categoryResult, currentProductIndex, firstPageProductIndex] =
     await Promise.all([
-      getCachedCategories(merchant.id),
+      getStorefrontCategories(merchant.id),
       getCachedStorefrontProductIndex(merchant.id, {
         page: currentPage,
         limit: STOREFRONT_PRODUCTS_PER_PAGE,
@@ -70,6 +70,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
         limit: STOREFRONT_PRODUCTS_PER_PAGE,
       }),
     ]);
+  const { categories } = categoryResult;
   const totalPages = Math.max(1, currentProductIndex.totalPages || 1);
 
   if (!currentProductIndex.hasError && currentPage > totalPages) {
