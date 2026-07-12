@@ -3,6 +3,7 @@
 import { CheckCircle2, Clock3, LockKeyhole, WalletCards } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { resolveStorefrontPathHref } from '@/lib/storefront-path-prefix';
 import { ImeiRemediationCurrencyOption as CurrencyOption } from './imei-remediation-currency-option';
 import {
   imeiRemediationApi,
@@ -24,7 +25,9 @@ export function ImeiRemediationOffer({
   identifier: string;
   lookupId: string;
 }) {
-  const merchantSlug = useMerchantSafe()?.merchant?.slug;
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath ?? '';
+  const merchantSlug = merchantContext?.merchant?.slug;
   const [availability, setAvailability] = useState<Availability>({
     kind: 'hidden',
   });
@@ -111,7 +114,7 @@ export function ImeiRemediationOffer({
             </p>
             <a
               className="mt-3 inline-flex text-sm font-bold text-[var(--store-primary,#dc2626)] underline-offset-4 hover:underline"
-              href="/unlock-orders"
+              href={resolveStorefrontPathHref(basePath, '/unlock-orders')}
             >
               View Unlock orders
             </a>
@@ -208,14 +211,17 @@ export function ImeiRemediationOffer({
             <div className="mt-3 flex flex-wrap gap-3 text-sm font-bold">
               <a
                 className="text-[var(--store-primary,#dc2626)] underline"
-                href="/wallet?fund=1"
+                href={resolveStorefrontPathHref(basePath, '/wallet?fund=1')}
               >
                 Fund NGN wallet
               </a>
               {availability.usdtEnabled ? (
                 <a
                   className="text-[var(--store-primary,#dc2626)] underline"
-                  href={`/wallet?fund-usdt=1&amount=${selectedOffer.priceUsdt}`}
+                  href={resolveStorefrontPathHref(
+                    basePath,
+                    `/wallet?fund-usdt=1&amount=${selectedOffer.priceUsdt}`
+                  )}
                 >
                   Fund USDT wallet
                 </a>

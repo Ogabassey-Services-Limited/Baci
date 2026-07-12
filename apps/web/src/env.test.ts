@@ -199,6 +199,20 @@ describe('env validation', () => {
     expect(module.isUsdtWalletEnabled()).toBe(true);
   });
 
+  it('accepts normalized boolean aliases for Petrock and USDT production flags', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_AGENTIC_JWT_PRIVATE_JWK', validAgenticPrivateJwk);
+    vi.stubEnv('PETROCK_ENABLED', '1');
+    vi.stubEnv('PETROCK_REMEDIATION_ENABLED', 'yes');
+    vi.stubEnv('USDT_WALLET_ENABLED', 'no');
+
+    const module = await loadEnvModule();
+
+    expect(module.isPetrockEnabled()).toBe(true);
+    expect(module.isPetrockRemediationEnabled()).toBe(true);
+    expect(module.isUsdtWalletEnabled()).toBe(false);
+  });
+
   it('requires an explicit current IMEI FX rate for remediation quotes', async () => {
     delete process.env.IMEI_FX_NGN_USD;
     let module = await loadEnvModule();

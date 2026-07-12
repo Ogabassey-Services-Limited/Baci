@@ -48,10 +48,12 @@ type QuizIntegrityTierOverrides = z.infer<
   typeof quizIntegrityTierOverridesSchema
 >;
 
-const defaultFalseBooleanStringSchema = z.preprocess(
-  (value) => (value === undefined ? 'false' : value),
-  booleanStringSchema
-);
+const defaultFalseBooleanStringSchema = z.preprocess((value) => {
+  if (value === undefined) return false;
+  if (typeof value !== 'string') return value;
+
+  return normalizeEnvBoolean(value) ?? value;
+}, z.boolean());
 
 const optionalTrimmedStringSchema = z.preprocess((value) => {
   if (typeof value !== 'string') return value;

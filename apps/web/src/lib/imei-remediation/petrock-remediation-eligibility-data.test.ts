@@ -358,6 +358,66 @@ describe('loadPetrockRemediationEligibility', () => {
     });
   });
 
+  it.each([
+    'paid',
+    'submitted',
+    'in_progress',
+    'completed',
+  ])('suppresses a reload when the existing assessment is already %s', async (status) => {
+    const lookupBuilder = {
+      match: vi.fn(() => lookupBuilder),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          cached_response: {
+            data: {
+              blacklistStatus: 'Clean',
+              carrier: 'US AT&T',
+              device: 'iPhone 17 Pro Max',
+              financeStatus: 'Clean',
+              simLock: 'Locked',
+            },
+            success: true,
+          },
+          id: 'lookup-1',
+        },
+        error: null,
+      }),
+      select: vi.fn(() => lookupBuilder),
+    };
+    const assessmentBuilder = {
+      match: vi.fn(() => assessmentBuilder),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { id: 'order-1', status },
+        error: null,
+      }),
+      select: vi.fn(() => assessmentBuilder),
+    };
+    const productBuilder = {
+      match: vi.fn().mockResolvedValue({ data: [], error: null }),
+      select: vi.fn(() => productBuilder),
+    };
+
+    await expect(
+      loadPetrockRemediationEligibility({
+        customerId: 'customer-1',
+        identifierHash: 'a'.repeat(64),
+        lookupId: 'lookup-1',
+        merchantId: 'merchant-1',
+        supabaseAdmin: {
+          from: vi.fn((table: string) => {
+            if (table === 'imei_lookups') return lookupBuilder;
+            if (table === 'petrock_orders') return assessmentBuilder;
+            return productBuilder;
+          }),
+        } as never,
+      })
+    ).resolves.toEqual({
+      kind: 'suppressed',
+      reason: 'remediation_already_started',
+    });
+    expect(productBuilder.match).not.toHaveBeenCalled();
+  });
+
   it('drops non-string cached evidence instead of throwing at normalization', async () => {
     const lookupBuilder = {
       match: vi.fn(() => lookupBuilder),

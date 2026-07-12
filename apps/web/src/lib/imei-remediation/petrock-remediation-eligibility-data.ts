@@ -147,6 +147,12 @@ export async function loadPetrockRemediationEligibility({
   const resumableAssessment =
     assessment?.status === 'eligible' ||
     assessment?.status === 'payment_pending';
+  if (assessment && !resumableAssessment) {
+    return {
+      kind: 'suppressed' as const,
+      reason: 'remediation_already_started',
+    };
+  }
   const cached = lookup.cached_response as Record<string, unknown> | null;
   const result =
     cached?.success === true &&

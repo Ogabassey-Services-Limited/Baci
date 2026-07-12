@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   eligibility: vi.fn(),
+  merchantContext: vi.fn(),
   place: vi.fn(),
 }));
 vi.mock('./imei-remediation-api', () => ({
@@ -13,7 +14,7 @@ vi.mock('./imei-remediation-api', () => ({
   },
 }));
 vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchantSafe: () => ({ merchant: { slug: 'ogabassey' } }),
+  useMerchantSafe: mocks.merchantContext,
 }));
 
 import { ImeiRemediationOffer } from './imei-remediation-offer';
@@ -32,6 +33,10 @@ const offer = {
 describe('ImeiRemediationOffer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.merchantContext.mockReturnValue({
+      basePath: '/ogabassey',
+      merchant: { slug: 'ogabassey' },
+    });
     mocks.eligibility.mockResolvedValue({
       assessmentId: '22222222-2222-4222-8222-222222222222',
       kind: 'eligible',
@@ -104,6 +109,28 @@ describe('ImeiRemediationOffer', () => {
     );
     expect(
       await screen.findByRole('link', { name: /view unlock orders/i })
+    ).toHaveAttribute('href', '/ogabassey/unlock-orders');
+  });
+
+  it('keeps order tracking root-relative on domain storefronts', async () => {
+    const user = userEvent.setup();
+    mocks.merchantContext.mockReturnValue({
+      merchant: { slug: 'ogabassey' },
+    });
+    render(
+      <ImeiRemediationOffer
+        identifier="490154203237518"
+        lookupId="11111111-1111-4111-8111-111111111111"
+      />
+    );
+
+    await user.click(
+      await screen.findByRole('button', { name: /unlock this device/i })
+    );
+    await user.click(screen.getByRole('button', { name: /confirm and pay/i }));
+
+    expect(
+      await screen.findByRole('link', { name: /view unlock orders/i })
     ).toHaveAttribute('href', '/unlock-orders');
   });
 
@@ -152,6 +179,43 @@ describe('ImeiRemediationOffer', () => {
 
     expect(
       await screen.findByRole('link', { name: /fund ngn wallet/i })
+    ).toHaveAttribute('href', '/ogabassey/wallet?fund=1');
+    expect(
+      screen.getByRole('link', { name: /fund usdt wallet/i })
+    ).toHaveAttribute(
+      'href',
+      '/ogabassey/wallet?fund-usdt=1&amount=65'
+    );
+  });
+
+  it('keeps wallet funding links root-relative on domain storefronts', async () => {
+    const user = userEvent.setup();
+    mocks.merchantContext.mockReturnValue({
+      merchant: { slug: 'ogabassey' },
+    });
+    mocks.place.mockResolvedValue({
+      code: 'WALLET_INSUFFICIENT',
+      error: 'Insufficient wallet balance',
+      kind: 'error',
+      status: 402,
+    });
+    render(
+      <ImeiRemediationOffer
+        identifier="490154203237518"
+        lookupId="11111111-1111-4111-8111-111111111111"
+      />
+    );
+
+    await user.click(
+      await screen.findByRole('button', { name: /unlock this device/i })
+    );
+    await user.click(screen.getByRole('button', { name: /confirm and pay/i }));
+
+    expect(
+      await screen.findByRole('link', { name: /fund ngn wallet/i })
     ).toHaveAttribute('href', '/wallet?fund=1');
+    expect(
+      screen.getByRole('link', { name: /fund usdt wallet/i })
+    ).toHaveAttribute('href', '/wallet?fund-usdt=1&amount=65');
   });
 });
