@@ -4,75 +4,27 @@ import {
 } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
-  type AdPlatformTarget,
   normalizeEventType,
   sendToAdPlatforms,
 } from '@/lib/analytics/send-to-ad-platforms';
+import { resolveEventIngressContext } from '@/lib/events/event-ingress-context';
+import {
+  isEventPipelineEnqueueEnabled,
+  isLegacyAnalyticsFanoutDisabled,
+  isUnverifiedEventTelemetryEnabled,
+} from '@/lib/events/event-pipeline-config';
+import { toClientAnalyticsDomainEventName } from '@/lib/events/event-route-registry';
+import { isEventTimestampWithinWindow } from '@/lib/events/event-timestamp-window';
+import { readBoundedJsonBody } from '@/lib/events/read-bounded-json-body';
+import { recordAnalyticsDomainEvent } from '@/lib/events/record-analytics-domain-event';
 import { generateEventId } from '@/lib/facebook-capi';
 import { logger } from '@/lib/logger';
+import {
+  type ConversionEventRequest,
+  conversionEventRequestSchema,
+} from '@/schemas/conversion-event';
 
-/**
- * Unified Conversions API Endpoint
- *
- * Server-side endpoint that forwards conversion events to ALL ad platforms
- * AND logs them to the local analytics_events table for dashboard metrics.
- *
- * Supported platforms:
- * - Meta/Facebook Conversions API
- * - TikTok Events API
- * - Snapchat Conversions API
- * - Google Enhanced Conversions (via Measurement Protocol)
- *
- * Event name mapping:
- * - PURCHASE -> all platforms
- * - ADD_CART -> all platforms
- * - VIEW_CONTENT -> all platforms
- * - START_CHECKOUT -> all platforms
- * - SIGN_UP -> all platforms
- */
-
-interface ConversionRequest {
-  event_name: string;
-  event_id?: string; // For deduplication with client-side SDKs
-  event_time: number;
-  event_source: 'mobile_app' | 'web' | 'server';
-  platform?: 'ios' | 'android' | 'web';
-  merchant_id?: string; // Preferred: pass merchant UUID directly
-  user_data: {
-    em?: string; // email (will be hashed)
-    ph?: string; // phone (will be hashed)
-    external_id?: string;
-    fbc?: string;
-    fbp?: string;
-    fn?: string; // first name
-    ln?: string; // last name
-    sccid?: string;
-    ttclid?: string;
-    ttp?: string;
-  };
-  custom_data: {
-    order_id?: string;
-    value?: number;
-    currency?: string;
-    content_name?: string;
-    content_type?: 'product' | 'product_group';
-    price?: number;
-    search_string?: string;
-    url?: string;
-    contents?: Array<{
-      id: string;
-      quantity: number;
-      name?: string;
-      price?: number;
-    }>;
-  };
-  targets?: AdPlatformTarget[];
-}
-
-// ---------------------------------------------------------------------------
-// Service role client for local DB logging (bypasses RLS)
-// ---------------------------------------------------------------------------
-
+const MAX_EVENT_BYTES = 64 * 1024;
 let supabaseAdmin: SupabaseClient | null = null;
 
 function getSupabaseAdmin() {
@@ -85,227 +37,211 @@ function getSupabaseAdmin() {
   return supabaseAdmin;
 }
 
-// ---------------------------------------------------------------------------
-// Merchant resolution: prefer merchant_id from body, fall back to slug lookup
-// ---------------------------------------------------------------------------
-
-interface MerchantRecord {
-  id: string;
-}
-
-const MERCHANT_SELECT = 'id';
-
-async function resolveMerchant(
+async function resolveLegacyMerchant(
   merchantId: string | undefined,
   origin: string
-): Promise<MerchantRecord | null> {
+): Promise<string | null> {
   const supabase = getSupabaseAdmin();
-
-  // Prefer direct merchant_id lookup
   if (merchantId) {
     const { data, error } = await supabase
       .from('merchants')
-      .select(MERCHANT_SELECT)
+      .select('id')
       .eq('id', merchantId)
-      .single();
-
-    if (!error && data) return data as MerchantRecord;
+      .maybeSingle();
+    if (!error && data?.id) return data.id;
   }
 
-  // Fallback: extract slug from origin header
-  const slugMatch = origin.match(/^https?:\/\/([^.]+)\./);
-  const slug = slugMatch?.[1] || 'ogabassey';
-
+  const slug = origin.match(/^https?:\/\/([^.]+)\./)?.[1];
+  if (!slug) return null;
   const { data, error } = await supabase
     .from('merchants')
-    .select(MERCHANT_SELECT)
+    .select('id')
     .eq('slug', slug)
-    .single();
-
-  if (error || !data) return null;
-  return data as MerchantRecord;
+    .maybeSingle();
+  return error ? null : (data?.id ?? null);
 }
 
-// ---------------------------------------------------------------------------
-// Local DB logging
-// ---------------------------------------------------------------------------
+function toStoredEventData(input: ConversionEventRequest) {
+  return {
+    currency: input.custom_data.currency ?? 'NGN',
+    item_count: input.custom_data.contents?.length,
+    items: input.custom_data.contents,
+    order_id: input.custom_data.order_id,
+    total: input.custom_data.value,
+  };
+}
 
-async function logEventLocally(
+async function storeLegacyConversion(
   merchantId: string,
-  eventName: string,
+  eventType: string,
   eventId: string,
-  eventSource: string,
-  customData: ConversionRequest['custom_data']
-): Promise<void> {
-  const dbEventType = normalizeEventType(eventName);
-  if (!dbEventType) return; // Unknown event, skip DB logging
-
-  try {
-    const { error } = await getSupabaseAdmin()
-      .from('analytics_events')
-      .upsert(
-        {
-          merchant_id: merchantId,
-          event_type: dbEventType,
-          event_id: eventId,
-          source: eventSource || 'web',
-          event_data: {
-            order_id: customData.order_id,
-            total: customData.value,
-            currency: customData.currency || 'NGN',
-            item_count: customData.contents?.length,
-            items: customData.contents,
-          },
-          event_timestamp: new Date().toISOString(),
-        },
-        {
-          onConflict: 'merchant_id,event_id,event_type',
-          ignoreDuplicates: true,
-        }
-      );
-
-    if (error) {
-      logger.warn({
-        message: 'Failed to log conversion event locally',
-        error,
-        eventType: dbEventType,
-        merchantId,
-      });
-    }
-  } catch (err) {
-    // Never block the response for a logging failure
-    logger.warn({ message: 'Local event logging exception', error: err });
+  input: ConversionEventRequest
+) {
+  const { error } = await getSupabaseAdmin()
+    .from('analytics_events')
+    .upsert(
+      {
+        event_data: toStoredEventData(input),
+        event_id: eventId,
+        event_timestamp: new Date(input.event_time * 1000).toISOString(),
+        event_type: eventType,
+        merchant_id: merchantId,
+        source: input.event_source,
+      },
+      {
+        ignoreDuplicates: true,
+        onConflict: 'merchant_id,event_id,event_type',
+      }
+    );
+  if (error) {
+    logger.warn({
+      error,
+      eventType,
+      merchantId,
+      message: 'Failed to log conversion event locally',
+    });
   }
 }
 
-// ---------------------------------------------------------------------------
-// POST handler
-// ---------------------------------------------------------------------------
+async function resolvePipelineMerchant(
+  request: NextRequest,
+  merchantId: string | undefined
+) {
+  if (!merchantId) return null;
+  const context = await resolveEventIngressContext({
+    merchantId,
+    request,
+    supabase: getSupabaseAdmin(),
+  });
+  if (!context.ok) return context;
+  if (!context.verified && !isUnverifiedEventTelemetryEnabled()) return null;
+  return context;
+}
 
 export async function POST(request: NextRequest) {
-  try {
-    const body = (await request.json()) as ConversionRequest;
-    const {
-      event_name,
-      event_id: clientEventId,
-      event_time: _eventTime,
-      event_source,
-      platform,
-      merchant_id: bodyMerchantId,
-      user_data,
-      custom_data,
-      targets = ['facebook', 'tiktok', 'snapchat', 'google'],
-    } = body;
+  const bodyResult = await readBoundedJsonBody(request, MAX_EVENT_BYTES);
+  if (!bodyResult.ok && bodyResult.reason === 'too_large') {
+    return NextResponse.json(
+      { error: 'Event payload too large' },
+      { status: 413 }
+    );
+  }
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+  const body = bodyResult.body;
 
-    if (!event_name) {
+  const parsed = conversionEventRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', details: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  const input = parsed.data;
+  if (!isEventTimestampWithinWindow(input.event_time)) {
+    return NextResponse.json(
+      { error: 'Event timestamp outside allowed window' },
+      { status: 400 }
+    );
+  }
+  const eventType = normalizeEventType(input.event_name);
+  if (!eventType) {
+    return NextResponse.json(
+      { error: 'Unsupported event name' },
+      { status: 400 }
+    );
+  }
+
+  const eventId = input.event_id ?? generateEventId();
+  const durableEnqueue = isEventPipelineEnqueueEnabled();
+
+  try {
+    const pipelineContext = durableEnqueue
+      ? await resolvePipelineMerchant(request, input.merchant_id)
+      : null;
+    if (durableEnqueue && !pipelineContext?.ok) {
       return NextResponse.json(
-        { error: 'Missing required field: event_name' },
-        { status: 400 }
+        { error: pipelineContext?.code ?? 'Unverified merchant context' },
+        {
+          status:
+            pipelineContext?.code === 'merchant_context_error' ? 500 : 403,
+        }
       );
     }
 
-    // Use client event_id if provided, otherwise generate one
-    // This is CRITICAL for deduplication with client-side SDKs
-    const eventId = clientEventId || generateEventId();
-
-    // Resolve merchant (prefer merchant_id from body, fall back to origin slug)
-    const origin = request.headers.get('origin') || '';
-    const merchant = await resolveMerchant(bodyMerchantId, origin);
-
-    if (!merchant) {
-      logger.error({
-        message: 'Failed to fetch merchant for analytics',
-        merchantId: bodyMerchantId,
-        origin,
-      });
-      // Don't fail - just return success
-      return NextResponse.json({
-        success: true,
-        message: 'Merchant not found, events not sent',
-        results: {},
-      });
+    const merchantId = pipelineContext?.ok
+      ? pipelineContext.merchantId
+      : await resolveLegacyMerchant(
+          input.merchant_id,
+          request.headers.get('origin') ?? ''
+        );
+    if (!merchantId) {
+      return NextResponse.json(
+        { error: 'Merchant context not found' },
+        { status: 403 }
+      );
     }
 
-    // =========================================================================
-    // LOCAL DB LOGGING (non-blocking, fire-and-forget)
-    // =========================================================================
-    logEventLocally(
-      merchant.id,
-      event_name,
-      eventId,
-      event_source,
-      custom_data
-    );
+    if (pipelineContext?.ok) {
+      await recordAnalyticsDomainEvent(getSupabaseAdmin(), {
+        eventData: toStoredEventData(input),
+        eventName: toClientAnalyticsDomainEventName(
+          eventType,
+          pipelineContext.trustLevel
+        ),
+        eventTimestamp: new Date(input.event_time * 1000).toISOString(),
+        eventType,
+        externalEventId: eventId,
+        merchantId,
+        requestId: request.headers.get('x-request-id') ?? undefined,
+        source: input.event_source,
+        trustLevel: pipelineContext.trustLevel,
+      });
+    } else {
+      await storeLegacyConversion(merchantId, eventType, eventId, input);
+    }
 
-    // Get IP and user agent from request
-    const ipAddress =
-      request.headers.get('x-forwarded-for')?.split(',')[0] ||
-      request.headers.get('x-real-ip') ||
-      undefined;
-    const userAgent = request.headers.get('user-agent') || undefined;
-
-    const currency = custom_data.currency || 'NGN';
-    const dbEventType = normalizeEventType(event_name);
-    const results = dbEventType
-      ? await sendToAdPlatforms({
-          merchant_id: merchant.id,
-          event_type: dbEventType,
+    const results = isLegacyAnalyticsFanoutDisabled()
+      ? {}
+      : await sendToAdPlatforms({
+          custom_data: input.custom_data,
           event_id: eventId,
+          event_type: eventType,
+          merchant_id: merchantId,
+          source: input.event_source,
+          targets: input.targets,
           user_data: {
-            email: user_data.em,
-            phone: user_data.ph,
-            external_id: user_data.external_id,
-            fbc: user_data.fbc,
-            fbp: user_data.fbp,
-            ip: ipAddress,
-            sccid: user_data.sccid,
-            ttclid: user_data.ttclid,
-            ttp: user_data.ttp,
-            ua: userAgent,
+            email: input.user_data.em,
+            external_id: input.user_data.external_id,
+            fbc: input.user_data.fbc,
+            fbp: input.user_data.fbp,
+            ip:
+              request.headers.get('x-forwarded-for')?.split(',')[0] ??
+              request.headers.get('x-real-ip') ??
+              undefined,
+            phone: input.user_data.ph,
+            sccid: input.user_data.sccid,
+            ttclid: input.user_data.ttclid,
+            ttp: input.user_data.ttp,
+            ua: request.headers.get('user-agent') ?? undefined,
           },
-          custom_data: {
-            order_id: custom_data.order_id,
-            value: custom_data.value,
-            currency,
-            content_name: custom_data.content_name,
-            content_type: custom_data.content_type,
-            contents: custom_data.contents,
-            price: custom_data.price,
-            search_string: custom_data.search_string,
-            url: custom_data.url,
-          },
-          source: event_source || 'server',
-          targets,
-        })
-      : {};
+        });
 
     logger.info({
-      message: 'Conversion event tracked',
-      eventName: event_name,
-      source: event_source,
-      platform,
-      merchantId: merchant.id,
-      value: custom_data.value,
-      currency,
-      resultsStatus: Object.entries(results).map(
-        ([key, result]) => `${key}:${result.success ? 'ok' : 'fail'}`
-      ),
+      durableEnqueue,
+      eventId,
+      eventType,
+      merchantId,
+      message: 'Conversion event accepted',
     });
-
-    return NextResponse.json({
-      success: true,
-      event_id: eventId,
-      results,
-    });
+    return NextResponse.json({ event_id: eventId, results, success: true });
   } catch (error) {
-    logger.error({
-      message: 'Unified conversion endpoint internal error',
-      error,
-    });
-    // Never fail the request - analytics errors shouldn't block the user
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error',
-    });
+    logger.error({ error, message: 'Conversion endpoint internal error' });
+    return NextResponse.json(
+      { error: 'Internal server error', success: false },
+      { status: 500 }
+    );
   }
 }

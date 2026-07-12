@@ -119,30 +119,34 @@ describe('sendToAdPlatforms', () => {
   });
 
   it('uses merchant feature settings credentials for every configured platform', async () => {
-    await sendToAdPlatforms({
-      merchant_id: 'merchant-1',
-      event_id: 'evt-1',
-      event_type: 'add_to_cart',
-      user_data: {
-        email: 'buyer@example.com',
-        ip: '203.0.113.10',
-        phone: '+2348012345678',
-        ua: 'Unit Test Agent',
+    const controller = new AbortController();
+    await sendToAdPlatforms(
+      {
+        merchant_id: 'merchant-1',
+        event_id: 'evt-1',
+        event_type: 'add_to_cart',
+        user_data: {
+          email: 'buyer@example.com',
+          ip: '203.0.113.10',
+          phone: '+2348012345678',
+          ua: 'Unit Test Agent',
+        },
+        custom_data: {
+          contents: [
+            {
+              id: 'sku-1',
+              name: 'iPhone 15',
+              price: 120_000,
+              quantity: 1,
+            },
+          ],
+          currency: 'NGN',
+          value: 120_000,
+        },
+        source: 'mobile_app',
       },
-      custom_data: {
-        contents: [
-          {
-            id: 'sku-1',
-            name: 'iPhone 15',
-            price: 120_000,
-            quantity: 1,
-          },
-        ],
-        currency: 'NGN',
-        value: 120_000,
-      },
-      source: 'mobile_app',
-    });
+      { signal: controller.signal }
+    );
 
     expect(from).toHaveBeenCalledWith('merchants');
     expect(from).toHaveBeenCalledWith('merchant_feature_settings');
@@ -155,7 +159,8 @@ describe('sendToAdPlatforms', () => {
       120_000,
       'NGN',
       undefined,
-      'evt-1'
+      'evt-1',
+      controller.signal
     );
     expect(mockTikTokAddToCart).toHaveBeenCalledWith(
       'tt-pixel',
@@ -169,7 +174,8 @@ describe('sendToAdPlatforms', () => {
       }),
       expect.objectContaining({
         eventId: 'evt-1',
-      })
+      }),
+      controller.signal
     );
     expect(mockSnapchatAddToCart).toHaveBeenCalledWith(
       'snap-pixel',
@@ -178,7 +184,8 @@ describe('sendToAdPlatforms', () => {
       'sku-1',
       120_000,
       'NGN',
-      'evt-1'
+      'evt-1',
+      controller.signal
     );
   });
 
@@ -204,7 +211,8 @@ describe('sendToAdPlatforms', () => {
       {
         eventId: 'evt-search',
         url: 'https://ogabassey.com/search?q=iphone',
-      }
+      },
+      undefined
     );
     expect(mockFacebookAddToCart).not.toHaveBeenCalled();
     expect(mockSnapchatAddToCart).not.toHaveBeenCalled();

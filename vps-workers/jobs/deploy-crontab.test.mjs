@@ -208,4 +208,20 @@ describe('deploy crontab', () => {
       /2-59\/5 \* \* \* \* flock -n \$REMOTE_DIR\/locks\/process-import-jobs\.lock/
     );
   });
+
+  it('installs event workers and one-minute flock-guarded recovery sweeps', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(deployScript, /install-event-pipeline-services\.sh/);
+    assert.match(
+      deployScript,
+      /\* \* \* \* \* flock -n \$REMOTE_DIR\/locks\/process-domain-events\.lock/
+    );
+    assert.match(deployScript, /process-domain-events\.sh --once/);
+    assert.match(
+      deployScript,
+      /\* \* \* \* \* flock -n \$REMOTE_DIR\/locks\/process-event-deliveries\.lock/
+    );
+    assert.match(deployScript, /process-event-deliveries\.sh --once/);
+  });
 });

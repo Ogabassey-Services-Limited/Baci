@@ -36,6 +36,8 @@ vi.mock('@/lib/facebook-capi', () => ({
 
 import { POST } from './route';
 
+const MERCHANT_ID = '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235';
+
 // --- Helpers ---
 
 function makeRequest(body: Record<string, unknown>): NextRequest {
@@ -49,6 +51,8 @@ function makeRequest(body: Record<string, unknown>): NextRequest {
 describe('POST /api/platform/events', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.EVENT_PIPELINE_ENQUEUE_ENABLED;
+    delete process.env.EVENT_PIPELINE_DISABLE_LEGACY_FANOUT;
     mockInsert.mockResolvedValue({ data: null, error: null });
     mockSettingsSingle.mockResolvedValue({
       data: {
@@ -71,11 +75,23 @@ describe('POST /api/platform/events', () => {
     expect(body.error).toBe('Invalid input');
   });
 
+  it('returns 400 for invalid JSON', async () => {
+    const res = await POST(
+      new NextRequest('http://localhost/api/platform/events', {
+        body: '{',
+        method: 'POST',
+      })
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'Invalid JSON' });
+  });
+
   it('returns 400 for a malformed currency code', async () => {
     const res = await POST(
       makeRequest({
         event_type: 'platform_purchase',
-        merchant_id: 'merchant-1',
+        merchant_id: MERCHANT_ID,
         event_data: { value: 1000, currency: 'NAIRA' },
       })
     );
@@ -105,7 +121,7 @@ describe('POST /api/platform/events', () => {
     await POST(
       makeRequest({
         event_type: 'platform_purchase',
-        merchant_id: 'merchant-1',
+        merchant_id: MERCHANT_ID,
         event_data: { value: 15_000, currency: 'ghs', order_id: 'order-1' },
       })
     );
@@ -128,7 +144,8 @@ describe('POST /api/platform/events', () => {
       'Purchase',
       expect.any(Object),
       expect.objectContaining({ value: 15_000, currency: 'GHS' }),
-      undefined
+      undefined,
+      expect.stringMatching(/^platform_/)
     );
   });
 
@@ -136,7 +153,7 @@ describe('POST /api/platform/events', () => {
     await POST(
       makeRequest({
         event_type: 'platform_purchase',
-        merchant_id: 'merchant-1',
+        merchant_id: MERCHANT_ID,
         event_data: { value: 5000 },
       })
     );

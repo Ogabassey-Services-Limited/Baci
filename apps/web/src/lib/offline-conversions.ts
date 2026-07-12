@@ -57,8 +57,10 @@ export interface OrderConversionData {
   }>;
   // Optional tracking IDs from cookies/URL params
   fbclid?: string; // Facebook click ID
+  fbc?: string; // Facebook click cookie with original click timestamp
   fbp?: string; // Facebook browser pixel ID
   ttp?: string; // TikTok browser ID
+  ttclid?: string; // TikTok click ID
   gclid?: string; // Google click ID
   sccid?: string; // Snapchat click ID
   gaClientId?: string; // GA client ID from _ga cookie
@@ -170,7 +172,9 @@ async function sendFacebookConversion(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Generate fbc from fbclid if we have click ID but no browser ID
-    const fbc = orderData.fbclid ? generateFbc(orderData.fbclid) : undefined;
+    const fbc =
+      orderData.fbc ||
+      (orderData.fbclid ? generateFbc(orderData.fbclid) : undefined);
 
     const userData: FacebookUserData = {
       email: orderData.customerEmail || undefined,
@@ -244,6 +248,7 @@ async function sendTikTokConversion(
       email: orderData.customerEmail || undefined,
       phone: orderData.customerPhone || undefined,
       externalId: orderData.customerId || undefined,
+      ttclid: orderData.ttclid,
       ttp: orderData.ttp,
       // Enhanced matching data
       ipAddress: orderData.userIp,

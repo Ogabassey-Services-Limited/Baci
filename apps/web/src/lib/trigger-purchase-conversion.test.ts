@@ -102,6 +102,7 @@ function createSupabaseMock({
 describe('triggerPurchaseConversion', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.EVENT_PIPELINE_ENQUEUE_ENABLED;
     mockSendPurchaseConversion.mockResolvedValue([
       { platform: 'facebook', success: true },
     ]);
@@ -125,6 +126,7 @@ describe('triggerPurchaseConversion', () => {
             quantity: 1,
           },
         ],
+        eventId: 'purchase_order-1',
         orderId: 'order-1',
       })
     );

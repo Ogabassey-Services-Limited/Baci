@@ -10,6 +10,7 @@ import crypto from 'node:crypto';
  */
 
 const SNAP_CAPI_URL = 'https://tr.snapchat.com/v2/conversion';
+const PROVIDER_REQUEST_TIMEOUT_MS = 10_000;
 
 export type SnapchatEventName =
   | 'PAGE_VIEW'
@@ -58,7 +59,8 @@ export async function sendSnapchatEvent(
   eventName: SnapchatEventName,
   userData: SnapchatUserData,
   eventData?: SnapchatEventData,
-  eventId?: string
+  eventId?: string,
+  signal?: AbortSignal
 ): Promise<{ success: boolean; error?: string }> {
   if (!pixelId || !accessToken) {
     return { success: false, error: 'Missing pixel ID or access token' };
@@ -109,6 +111,7 @@ export async function sendSnapchatEvent(
         Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(payload),
+      signal: signal ?? AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok) {
@@ -139,7 +142,8 @@ export const snapchatCAPI = {
     value: number,
     currency: string,
     productIds: string[],
-    eventId?: string
+    eventId?: string,
+    signal?: AbortSignal
   ) => {
     return sendSnapchatEvent(
       pixelId,
@@ -153,7 +157,8 @@ export const snapchatCAPI = {
         itemIds: productIds,
         numberOfItems: productIds.length,
       },
-      eventId
+      eventId,
+      signal
     );
   },
 
@@ -164,7 +169,8 @@ export const snapchatCAPI = {
     value: number,
     currency: string,
     productIds: string[],
-    eventId?: string
+    eventId?: string,
+    signal?: AbortSignal
   ) => {
     return sendSnapchatEvent(
       pixelId,
@@ -176,7 +182,8 @@ export const snapchatCAPI = {
         currency,
         itemIds: productIds,
       },
-      eventId
+      eventId,
+      signal
     );
   },
 
@@ -187,7 +194,8 @@ export const snapchatCAPI = {
     productId: string,
     price: number,
     currency: string,
-    eventId?: string
+    eventId?: string,
+    signal?: AbortSignal
   ) => {
     return sendSnapchatEvent(
       pixelId,
@@ -199,7 +207,8 @@ export const snapchatCAPI = {
         currency,
         itemIds: [productId],
       },
-      eventId
+      eventId,
+      signal
     );
   },
 };

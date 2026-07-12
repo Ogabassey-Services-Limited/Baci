@@ -16,6 +16,7 @@ import crypto from 'node:crypto';
 
 const GA4_ENDPOINT = 'https://www.google-analytics.com/mp/collect';
 const GA4_DEBUG_ENDPOINT = 'https://www.google-analytics.com/debug/mp/collect';
+const PROVIDER_REQUEST_TIMEOUT_MS = 10_000;
 
 export interface GA4UserData {
   clientId: string; // Required - from _ga cookie or generated
@@ -87,7 +88,8 @@ export async function sendGA4Event(
   eventName: GA4EventName | string,
   userData: GA4UserData,
   params?: GA4EventParams,
-  debug: boolean = false
+  debug: boolean = false,
+  signal?: AbortSignal
 ): Promise<{ success: boolean; error?: string; debugInfo?: unknown }> {
   if (!measurementId || !apiSecret) {
     return { success: false, error: 'Missing measurement ID or API secret' };
@@ -131,6 +133,7 @@ export async function sendGA4Event(
         ...(userData.userAgent && { 'User-Agent': userData.userAgent }),
       },
       body: JSON.stringify(payload),
+      signal: signal ?? AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
     });
 
     if (debug) {

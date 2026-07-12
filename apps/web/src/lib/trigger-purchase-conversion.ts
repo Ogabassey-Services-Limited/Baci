@@ -8,6 +8,12 @@ import {
   fetchAnalyticsPlatformConfig,
   hasConfiguredAnalyticsPlatform,
 } from '@/lib/analytics/analytics-platform-config';
+import { enqueuePaidOrderDomainEvent } from '@/lib/events/enqueue-paid-order-domain-event';
+import {
+  isEventPipelineEnqueueEnabled,
+  isLegacyAnalyticsFanoutDisabled,
+} from '@/lib/events/event-pipeline-config';
+import { toConversionOrderItems } from '@/lib/events/to-conversion-order-items';
 import { logger } from '@/lib/logger';
 import {
   logConversionResults,
@@ -48,87 +54,8 @@ export interface OrderForConversion {
 }
 
 export interface TriggerPurchaseConversionOptions {
+  deliveryMode?: 'automatic' | 'enqueue_only' | 'legacy_only';
   failOnInvalidItem?: boolean;
-}
-
-function toRequiredString(value: unknown) {
-  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
-}
-
-function toFiniteNumber(value: unknown) {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  if (typeof value === 'string' && value.trim() === '') {
-    return null;
-  }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function toConversionItem({
-  item,
-  itemIndex,
-  orderId,
-  options,
-}: {
-  item: NonNullable<OrderForConversion['order_items']>[number];
-  itemIndex: number;
-  orderId: string;
-  options: TriggerPurchaseConversionOptions;
-}): OrderConversionData['items'][number] | null {
-  const id = toRequiredString(item.product_id) ?? toRequiredString(item.id);
-  const name = toRequiredString(item.name);
-  const price = toFiniteNumber(item.price);
-  const quantity = toFiniteNumber(item.quantity);
-  const invalidFields = [
-    id ? null : 'product_id',
-    name ? null : 'name',
-    price !== null && price >= 0 ? null : 'price',
-    quantity !== null && quantity > 0 ? null : 'quantity',
-  ].filter((field): field is string => field !== null);
-
-  if (
-    !id ||
-    !name ||
-    price === null ||
-    price < 0 ||
-    quantity === null ||
-    quantity <= 0
-  ) {
-    const logPayload = {
-      invalidFields,
-      itemIndex,
-      message: 'Skipping invalid order item for conversion tracking',
-      orderId,
-    };
-    if (options.failOnInvalidItem) {
-      logger.error({
-        ...logPayload,
-        message: 'Invalid order item for conversion tracking',
-      });
-      throw new Error(
-        `Invalid order item for conversion tracking: order=${orderId}, item=${itemIndex}, fields=${invalidFields.join(',')}`
-      );
-    }
-    logger.warn(logPayload);
-    return null;
-  }
-
-  return { id, name, price, quantity };
-}
-
-function toConversionItems(
-  order: OrderForConversion,
-  options: TriggerPurchaseConversionOptions
-) {
-  return (order.order_items ?? [])
-    .map((item, itemIndex) =>
-      toConversionItem({ item, itemIndex, options, orderId: order.id })
-    )
-    .filter(
-      (item): item is OrderConversionData['items'][number] => item !== null
-    );
 }
 
 /**
@@ -187,8 +114,35 @@ export async function triggerPurchaseConversion(
   options: TriggerPurchaseConversionOptions = {}
 ): Promise<void> {
   const orderNumber = order.order_number || order.id.slice(0, 8).toUpperCase();
+  const suppliedEventId = order.ad_tracking?.eventId;
+  const stableEventId =
+    typeof suppliedEventId === 'string' && suppliedEventId.trim()
+      ? suppliedEventId.trim()
+      : `purchase_${order.id}`;
 
   try {
+    const deliveryMode = options.deliveryMode ?? 'automatic';
+    if (deliveryMode !== 'legacy_only' && isEventPipelineEnqueueEnabled()) {
+      await enqueuePaidOrderDomainEvent(supabase, {
+        externalEventId: stableEventId,
+        merchantId,
+        orderId: order.id,
+      });
+      logger.info({
+        message: 'Paid-order conversion durably enqueued',
+        merchantId,
+        orderId: order.id,
+      });
+      if (
+        deliveryMode === 'enqueue_only' ||
+        isLegacyAnalyticsFanoutDisabled()
+      ) {
+        return;
+      }
+    } else if (deliveryMode === 'enqueue_only') {
+      throw new Error('event_pipeline_enqueue_disabled');
+    }
+
     // Fetch merchant's analytics configuration and feature toggle.
     const merchantAnalytics = await fetchAnalyticsPlatformConfig(
       supabase,
@@ -263,11 +217,17 @@ export async function triggerPurchaseConversion(
       customerZip:
         order.shipping_address?.zip || order.shipping_address?.postal_code,
       customerCountry: order.shipping_address?.country,
-      items: toConversionItems(order, options),
+      items: toConversionOrderItems({
+        failOnInvalidItem: options.failOnInvalidItem,
+        items: order.order_items,
+        orderId: order.id,
+      }),
       // Ad tracking IDs for attribution
       fbclid: (adTracking?.fbclid as string) ?? undefined,
+      fbc: (adTracking?.fbc as string) ?? undefined,
       fbp: (adTracking?.fbp as string) ?? undefined,
       ttp: (adTracking?.ttp as string) ?? undefined,
+      ttclid: (adTracking?.ttclid as string) ?? undefined,
       gclid: (adTracking?.gclid as string) ?? undefined,
       sccid: (adTracking?.sccid as string) ?? undefined,
       gaClientId: (adTracking?.gaClientId as string) ?? undefined,
@@ -275,7 +235,7 @@ export async function triggerPurchaseConversion(
       userIp: (adTracking?.userIp as string) ?? undefined,
       userAgent: (adTracking?.userAgent as string) ?? undefined,
       // Event deduplication ID
-      eventId: (adTracking?.eventId as string) ?? undefined,
+      eventId: stableEventId,
       // Privacy compliance (CCPA/GDPR)
       limitedDataUse: (adTracking?.limitedDataUse as boolean) ?? undefined,
     };

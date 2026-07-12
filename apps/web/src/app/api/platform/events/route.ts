@@ -1,5 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
+import { resolveEventIngressContext } from '@/lib/events/event-ingress-context';
+import {
+  isEventPipelineEnqueueEnabled,
+  isLegacyAnalyticsFanoutDisabled,
+} from '@/lib/events/event-pipeline-config';
+import { toClientPlatformDomainEventName } from '@/lib/events/event-route-registry';
+import { readBoundedJsonBody } from '@/lib/events/read-bounded-json-body';
+import { recordPlatformDomainEvent } from '@/lib/events/record-platform-domain-event';
 import {
   type PlatformEventRequestInput,
   platformEventRequestSchema,
@@ -15,26 +23,23 @@ function getSupabaseAdmin() {
 
 /** Platform-wide default currency when an event doesn't carry its own. */
 const DEFAULT_PLATFORM_CURRENCY = 'NGN';
-
-/**
- * Platform Events API
- *
- * POST - Track platform-level events (landing page, signups, etc.)
- *
- * Event types:
- * - landing_page_view: Visitor viewed the landing page
- * - merchant_signup_started: Visitor started signup flow
- * - merchant_signup_completed: New merchant account created
- * - merchant_first_sale: Merchant made their first sale
- * - platform_checkout: Any checkout on the platform
- * - platform_purchase: Any purchase on the platform
- */
+const MAX_EVENT_BYTES = 64 * 1024;
 
 export type PlatformEventType = PlatformEventRequestInput['event_type'];
 
 export async function POST(request: NextRequest) {
   try {
-    const body: unknown = await request.json();
+    const bodyResult = await readBoundedJsonBody(request, MAX_EVENT_BYTES);
+    if (!bodyResult.ok && bodyResult.reason === 'too_large') {
+      return NextResponse.json(
+        { error: 'Event payload too large' },
+        { status: 413 }
+      );
+    }
+    if (!bodyResult.ok) {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
+    const body = bodyResult.body;
     const result = platformEventRequestSchema.safeParse(body);
 
     if (!result.success) {
@@ -46,12 +51,16 @@ export async function POST(request: NextRequest) {
 
     const {
       event_type,
+      event_id,
       event_data,
       merchant_id,
       session_id,
       page_url,
       referrer,
     } = result.data;
+    const eventId = event_id ?? `platform_${crypto.randomUUID()}`;
+    const eventTimestamp = new Date().toISOString();
+    const durableEnqueue = isEventPipelineEnqueueEnabled();
 
     // Get request metadata
     const userAgent = request.headers.get('user-agent') || undefined;
@@ -60,20 +69,68 @@ export async function POST(request: NextRequest) {
       request.headers.get('x-real-ip') ||
       undefined;
 
-    // Insert platform event
-    const { error } = await getSupabaseAdmin()
-      .from('platform_events')
-      .insert({
-        event_type,
-        event_data: event_data || {},
-        merchant_id: merchant_id || null,
-        session_id,
-        user_agent: userAgent,
-        ip_address: ipAddress,
-        referrer,
-        page_url,
-        event_timestamp: new Date().toISOString(),
-      });
+    let error: { message?: string } | null = null;
+    if (durableEnqueue) {
+      const context = merchant_id
+        ? await resolveEventIngressContext({
+            merchantId: merchant_id,
+            request,
+            supabase: getSupabaseAdmin(),
+          })
+        : {
+            merchantId: '',
+            ok: true as const,
+            trustLevel: 'anonymous_client' as const,
+            verified: false,
+          };
+      if (!context.ok) {
+        return NextResponse.json(
+          { error: context.code },
+          { status: context.code === 'merchant_mismatch' ? 403 : 500 }
+        );
+      }
+
+      try {
+        await recordPlatformDomainEvent(getSupabaseAdmin(), {
+          eventData: { ...(event_data ?? {}), page_url },
+          eventName: toClientPlatformDomainEventName(
+            event_type,
+            context.trustLevel
+          ),
+          eventTimestamp,
+          eventType: event_type,
+          externalEventId: eventId,
+          merchantId: context.merchantId || undefined,
+          pageUrl: page_url,
+          referrer,
+          requestId: request.headers.get('x-request-id') ?? undefined,
+          sessionId: session_id,
+          trustLevel: context.trustLevel,
+        });
+      } catch (enqueueError) {
+        error = {
+          message:
+            enqueueError instanceof Error
+              ? enqueueError.message
+              : 'durable_platform_enqueue_failed',
+        };
+      }
+    } else {
+      const result = await getSupabaseAdmin()
+        .from('platform_events')
+        .insert({
+          event_data: event_data || {},
+          event_timestamp: eventTimestamp,
+          event_type,
+          ip_address: ipAddress,
+          merchant_id: merchant_id || null,
+          page_url,
+          referrer,
+          session_id,
+          user_agent: userAgent,
+        });
+      error = result.error;
+    }
 
     if (error) {
       console.error('Failed to insert platform event:', error);
@@ -85,11 +142,19 @@ export async function POST(request: NextRequest) {
 
     // Also forward to platform's external analytics if configured
     // This runs in background, doesn't block response
-    forwardToPlatformAnalytics(event_type, event_data, request).catch((err) => {
-      console.warn('Failed to forward to platform analytics:', err);
-    });
+    if (!isLegacyAnalyticsFanoutDisabled()) {
+      forwardToPlatformAnalytics(
+        event_type,
+        event_data,
+        eventId,
+        request,
+        page_url
+      ).catch((forwardError) => {
+        console.warn('Failed to forward to platform analytics:', forwardError);
+      });
+    }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ event_id: eventId, success: true });
   } catch (error) {
     console.error('Platform events error:', error);
     return NextResponse.json(
@@ -107,7 +172,9 @@ type PlatformEventData = PlatformEventRequestInput['event_data'];
 async function forwardToPlatformAnalytics(
   eventType: PlatformEventType,
   eventData: PlatformEventData,
-  request: NextRequest
+  eventId: string,
+  request: NextRequest,
+  pageUrl?: string
 ) {
   // Get platform settings
   const { data: settings } = await getSupabaseAdmin()
@@ -160,7 +227,8 @@ async function forwardToPlatformAnalytics(
               }
             : {}),
           // Add page info
-          page_location: eventData?.page_url as string,
+          page_location: pageUrl,
+          event_id: eventId,
         }
       );
     } catch (err) {
@@ -208,7 +276,8 @@ async function forwardToPlatformAnalytics(
                 currency: eventData?.currency ?? DEFAULT_PLATFORM_CURRENCY,
               }
             : undefined,
-          eventData?.page_url as string
+          pageUrl,
+          eventId
         );
       }
     } catch (err) {

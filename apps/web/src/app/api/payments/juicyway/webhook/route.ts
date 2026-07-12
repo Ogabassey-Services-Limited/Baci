@@ -9,18 +9,13 @@ import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
+import { isEventPipelineEnqueueEnabled } from '@/lib/events/event-pipeline-config';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import {
   type JuicywayWebhookPayload,
   verifyWebhookSignature,
 } from '@/lib/juicyway';
 import { logger } from '@/lib/logger';
-import {
-  logConversionResults,
-  type MerchantAnalyticsConfig,
-  type OrderConversionData,
-  sendPurchaseConversion,
-} from '@/lib/offline-conversions';
 import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import {
@@ -28,7 +23,13 @@ import {
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { handleJuicywayWalletTopUpIfNeeded } from '@/lib/payments/juicyway-wallet-top-up';
+import { scheduleLegacyPurchaseConversion } from '@/lib/payments/schedule-legacy-purchase-conversion';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
+import {
+  type OrderForConversion,
+  triggerPurchaseConversion,
+} from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
 
 // Juicyway webhook IP whitelist (from docs)
@@ -242,13 +243,24 @@ export async function POST(request: NextRequest) {
     // Check if already processed (idempotency)
     if (transaction.status === 'completed') {
       if (transaction.order_id) {
-        const { data: completedOrder } = await supabase
-          .from('orders')
-          .select('id, shipping_status, cancelled_at')
-          .eq('id', transaction.order_id)
-          .maybeSingle();
+        const { data: completedOrder, error: completedOrderError } =
+          await supabase
+            .from('orders')
+            .select(
+              'id, total, ad_tracking, payment_status, shipping_status, cancelled_at'
+            )
+            .eq('id', transaction.order_id)
+            .maybeSingle();
 
-        if (isOrderClampedAsCancelled(completedOrder)) {
+        if (completedOrderError && isEventPipelineEnqueueEnabled()) {
+          throw new Error('completed_order_lookup_failed', {
+            cause: completedOrderError,
+          });
+        }
+
+        const completedOrderIsCancelled =
+          isOrderClampedAsCancelled(completedOrder);
+        if (completedOrderIsCancelled) {
           await handlePaymentForCancelledOrder({
             gatewayReference: reference,
             order: completedOrder ?? { id: transaction.order_id },
@@ -256,6 +268,21 @@ export async function POST(request: NextRequest) {
               'Juicyway completed-transaction retry observed a cancelled order',
             transactionId: transaction.id,
           });
+        } else if (
+          isEventPipelineEnqueueEnabled() &&
+          completedOrder?.payment_status === 'paid'
+        ) {
+          const conversionOrder: OrderForConversion = {
+            ad_tracking: completedOrder.ad_tracking,
+            id: completedOrder.id,
+            total: completedOrder.total ?? transaction.amount,
+          };
+          await triggerPurchaseConversion(
+            createAdminClient(),
+            transaction.merchant_id,
+            conversionOrder,
+            { deliveryMode: 'enqueue_only' }
+          );
         }
       }
 
@@ -396,6 +423,8 @@ export async function POST(request: NextRequest) {
       });
       throw updateError;
     }
+
+    let durableEnqueueError: unknown = null;
 
     // Update order status if order_id exists
     if (transaction.order_id) {
@@ -671,102 +700,61 @@ export async function POST(request: NextRequest) {
         });
 
         // Send offline conversion events to ad platforms
+        const durableEnqueue = isEventPipelineEnqueueEnabled();
         try {
-          const merchantAnalytics = await fetchAnalyticsPlatformConfig(
-            supabase,
-            transaction.merchant_id
+          const conversionOrder: OrderForConversion = {
+            ad_tracking: order.ad_tracking,
+            currency: order.currency,
+            customer_email: order.customer_email,
+            customer_id: order.customer_id,
+            customer_name: order.customer_name,
+            customer_phone: order.customer_phone,
+            id: order.id,
+            order_items: order.order_items,
+            order_number: order.order_number,
+            total: order.total,
+          };
+          const conversion = triggerPurchaseConversion(
+            durableEnqueue ? createAdminClient() : supabase,
+            transaction.merchant_id,
+            conversionOrder,
+            durableEnqueue ? { deliveryMode: 'enqueue_only' } : undefined
           );
 
-          if (merchantAnalytics?.offline_conversions_enabled === false) {
-            logger.info({
-              message: 'Offline conversions disabled by merchant',
+          if (durableEnqueue) {
+            scheduleLegacyPurchaseConversion({
               merchantId: transaction.merchant_id,
+              order: conversionOrder,
+              scheduleAfter: (task) => after(task),
+              supabase: createAdminClient(),
             });
-          } else if (merchantAnalytics) {
-            const analyticsConfig: MerchantAnalyticsConfig = {
-              facebook_pixel_id: merchantAnalytics.facebook_pixel_id,
-              facebook_capi_token: merchantAnalytics.facebook_capi_token,
-              tiktok_pixel_id: merchantAnalytics.tiktok_pixel_id,
-              tiktok_access_token: merchantAnalytics.tiktok_access_token,
-              google_analytics_id: merchantAnalytics.google_analytics_id,
-              ga4_api_secret: merchantAnalytics.ga4_api_secret,
-              snapchat_pixel_id: merchantAnalytics.snapchat_pixel_id,
-              snapchat_capi_token: merchantAnalytics.snapchat_capi_token,
-            };
-
-            if (hasConfiguredAnalyticsPlatform(merchantAnalytics)) {
-              const adTracking = order.ad_tracking as Record<
-                string,
-                unknown
-              > | null;
-
-              const orderConversionData: OrderConversionData = {
-                orderId: order.id,
-                orderNumber:
-                  order.order_number || order.id.slice(0, 8).toUpperCase(),
-                total: Number.parseFloat(order.total || '0'),
-                currency: order.currency || 'NGN',
-                customerEmail: order.customer_email,
-                customerPhone: order.customer_phone,
-                customerName: order.customer_name,
-                customerId: order.customer_id,
-                items: (order.order_items || []).map(
-                  (item: Record<string, unknown>) => ({
-                    id:
-                      (item.product_id as string) || (item.id as string) || '',
-                    name: (item.name as string) || 'Product',
-                    price: Number(item.price) || 0,
-                    quantity: Number(item.quantity) || 1,
-                  })
-                ),
-                fbclid: adTracking?.fbclid as string | undefined,
-                fbp: adTracking?.fbp as string | undefined,
-                ttp: adTracking?.ttp as string | undefined,
-                gclid: adTracking?.gclid as string | undefined,
-                sccid: adTracking?.sccid as string | undefined,
-                gaClientId: adTracking?.gaClientId as string | undefined,
-                userIp: adTracking?.userIp as string | undefined,
-                userAgent: adTracking?.userAgent as string | undefined,
-                eventId: adTracking?.eventId as string | undefined,
-                limitedDataUse: adTracking?.limitedDataUse as
-                  | boolean
-                  | undefined,
-              };
-
-              sendPurchaseConversion(analyticsConfig, orderConversionData)
-                .then((results) => {
-                  try {
-                    logConversionResults(
-                      orderConversionData.orderNumber,
-                      results
-                    );
-                  } catch (logErr) {
-                    logger.error({
-                      message: 'Failed to log conversion results',
-                      orderId: order.id,
-                      error: logErr,
-                    });
-                  }
-                })
-                .catch((err) => {
-                  logger.error({
-                    message: 'Offline conversion tracking failed',
-                    orderId: order.id,
-                    error: err,
-                  });
-                });
-
-              logger.info({
-                message: 'Offline conversion tracking initiated (Juicyway)',
+            await conversion;
+          } else {
+            void conversion.catch((error) => {
+              logger.error({
+                error,
+                message: 'Offline conversion tracking failed',
                 orderId: order.id,
               });
-            }
+            });
           }
+
+          logger.info({
+            durableEnqueue,
+            message: 'Offline conversion tracking initiated (Juicyway)',
+            orderId: order.id,
+          });
         } catch (conversionError) {
           logger.error({
             message: 'Failed to initiate offline conversion tracking',
             error: conversionError,
           });
+          if (durableEnqueue) {
+            // Finish settlement bookkeeping below, then fail the webhook so
+            // Juicyway retries. The completed-transaction branch above
+            // replays this idempotent order-scoped enqueue on that retry.
+            durableEnqueueError = conversionError;
+          }
         }
       }
     }
@@ -823,6 +811,10 @@ export async function POST(request: NextRequest) {
         message: 'Settlement recording error',
         error: settlementError,
       });
+    }
+
+    if (durableEnqueueError) {
+      throw durableEnqueueError;
     }
 
     logger.info({

@@ -28,6 +28,7 @@ export interface ConversionEvent {
   merchant_id: string;
   event_type: string; // DB-style: 'purchase', 'begin_checkout', etc.
   event_id: string;
+  limited_data_use?: boolean;
   user_data: {
     email?: string;
     phone?: string;
@@ -66,6 +67,10 @@ export type AdPlatformResults = Partial<
     { success: boolean; error?: string }
   >
 >;
+
+export type AdPlatformDeliveryOptions = {
+  signal?: AbortSignal;
+};
 
 /** Maps mobile/conversion-style names to DB event_type */
 export const CONVERSION_NAME_TO_DB: Record<string, string> = {
@@ -206,7 +211,8 @@ function targetEnabled(
 async function sendToFacebook(
   config: AnalyticsPlatformConfig,
   event: ConversionEvent,
-  fbEventName: string
+  fbEventName: string,
+  signal?: AbortSignal
 ): Promise<{ success: boolean; error?: string }> {
   if (!config.facebook_pixel_id || !config.facebook_capi_token) {
     return { success: false, error: 'not_configured' };
@@ -242,7 +248,9 @@ async function sendToFacebook(
           currency,
           toProducts(contents),
           eventSourceUrl,
-          event.event_id
+          event.event_id,
+          event.limited_data_use,
+          signal
         );
       }
       return { success: false, error: 'missing_purchase_data' };
@@ -256,7 +264,8 @@ async function sendToFacebook(
         currency,
         contents,
         eventSourceUrl,
-        event.event_id
+        event.event_id,
+        signal
       );
 
     case 'AddToCart':
@@ -270,7 +279,8 @@ async function sendToFacebook(
           value,
           currency,
           eventSourceUrl,
-          event.event_id
+          event.event_id,
+          signal
         );
       }
       return { success: false, error: 'missing_cart_data' };
@@ -287,7 +297,8 @@ async function sendToFacebook(
           currency,
           undefined,
           eventSourceUrl,
-          event.event_id
+          event.event_id,
+          signal
         );
       }
       return { success: false, error: 'missing_content_data' };
@@ -308,7 +319,9 @@ async function sendToFacebook(
           value,
         },
         eventSourceUrl,
-        event.event_id
+        event.event_id,
+        undefined,
+        signal
       );
 
     case 'AddPaymentInfo':
@@ -330,7 +343,9 @@ async function sendToFacebook(
           value,
         },
         eventSourceUrl,
-        event.event_id
+        event.event_id,
+        undefined,
+        signal
       );
 
     default:
@@ -341,7 +356,8 @@ async function sendToFacebook(
 async function sendToTikTok(
   config: AnalyticsPlatformConfig,
   event: ConversionEvent,
-  ttEventName: string
+  ttEventName: string,
+  signal?: AbortSignal
 ): Promise<{ success: boolean; error?: string }> {
   if (!config.tiktok_pixel_id || !config.tiktok_access_token) {
     return { success: false, error: 'not_configured' };
@@ -379,7 +395,8 @@ async function sendToTikTok(
           value,
           currency,
           toProducts(contents),
-          options
+          options,
+          signal
         );
       }
       return { success: false, error: 'missing_purchase_data' };
@@ -391,7 +408,10 @@ async function sendToTikTok(
           token,
           ttUserData,
           properties,
-          options
+          options,
+          undefined,
+          undefined,
+          signal
         );
       }
       return { success: false, error: 'missing_checkout_data' };
@@ -403,7 +423,8 @@ async function sendToTikTok(
           token,
           ttUserData,
           properties,
-          options
+          options,
+          signal
         );
       }
       return { success: false, error: 'missing_cart_data' };
@@ -415,7 +436,8 @@ async function sendToTikTok(
           token,
           ttUserData,
           properties,
-          options
+          options,
+          signal
         );
       }
       return { success: false, error: 'missing_content_data' };
@@ -429,7 +451,8 @@ async function sendToTikTok(
         token,
         ttUserData,
         event.custom_data.search_string,
-        options
+        options,
+        signal
       );
 
     case 'AddPaymentInfo':
@@ -438,7 +461,8 @@ async function sendToTikTok(
         token,
         ttUserData,
         properties,
-        options
+        options,
+        signal
       );
 
     case 'AddToWishlist':
@@ -447,7 +471,8 @@ async function sendToTikTok(
         token,
         ttUserData,
         properties,
-        options
+        options,
+        signal
       );
 
     case 'PlaceAnOrder':
@@ -456,7 +481,8 @@ async function sendToTikTok(
         token,
         ttUserData,
         properties,
-        options
+        options,
+        signal
       );
 
     case 'CompleteRegistration':
@@ -465,7 +491,8 @@ async function sendToTikTok(
         token,
         ttUserData,
         properties,
-        options
+        options,
+        signal
       );
 
     default:
@@ -476,7 +503,8 @@ async function sendToTikTok(
 async function sendToSnapchat(
   config: AnalyticsPlatformConfig,
   event: ConversionEvent,
-  snapEventName: string
+  snapEventName: string,
+  signal?: AbortSignal
 ): Promise<{ success: boolean; error?: string }> {
   if (!config.snapchat_pixel_id || !config.snapchat_capi_token) {
     return { success: false, error: 'not_configured' };
@@ -509,7 +537,8 @@ async function sendToSnapchat(
           value,
           currency,
           productIds,
-          event.event_id
+          event.event_id,
+          signal
         );
       }
       return { success: false, error: 'missing_purchase_data' };
@@ -523,7 +552,8 @@ async function sendToSnapchat(
           value,
           currency,
           productIds,
-          event.event_id
+          event.event_id,
+          signal
         );
       }
       return { success: false, error: 'missing_checkout_data' };
@@ -537,7 +567,8 @@ async function sendToSnapchat(
           firstContent.id,
           value,
           currency,
-          event.event_id
+          event.event_id,
+          signal
         );
       }
       return { success: false, error: 'missing_cart_data' };
@@ -556,7 +587,8 @@ async function sendToSnapchat(
           itemIds: productIds,
           searchString: event.custom_data.search_string,
         },
-        event.event_id
+        event.event_id,
+        signal
       );
 
     case 'VIEW_CONTENT':
@@ -574,7 +606,8 @@ async function sendToSnapchat(
           numberOfItems: productIds.length || undefined,
           price: value,
         },
-        event.event_id
+        event.event_id,
+        signal
       );
 
     default:
@@ -589,7 +622,8 @@ async function sendToSnapchat(
  * Uses `Promise.allSettled` so one platform failure doesn't block others.
  */
 export async function sendToAdPlatforms(
-  event: ConversionEvent
+  event: ConversionEvent,
+  options: AdPlatformDeliveryOptions = {}
 ): Promise<AdPlatformResults> {
   const config = await fetchAnalyticsPlatformConfig(
     getAdminClient(),
@@ -624,19 +658,19 @@ export async function sendToAdPlatforms(
   if (fbEvent && targetEnabled(event, 'facebook')) {
     jobs.push({
       name: 'facebook',
-      run: sendToFacebook(config, event, fbEvent),
+      run: sendToFacebook(config, event, fbEvent, options.signal),
     });
   }
   if (ttEvent && targetEnabled(event, 'tiktok')) {
     jobs.push({
       name: 'tiktok',
-      run: sendToTikTok(config, event, ttEvent),
+      run: sendToTikTok(config, event, ttEvent, options.signal),
     });
   }
   if (snapEvent && targetEnabled(event, 'snapchat')) {
     jobs.push({
       name: 'snapchat',
-      run: sendToSnapchat(config, event, snapEvent),
+      run: sendToSnapchat(config, event, snapEvent, options.signal),
     });
   }
 

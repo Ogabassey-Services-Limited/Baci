@@ -5,8 +5,24 @@ import {
   normalizeEventType,
   sendToAdPlatforms,
 } from '@/lib/analytics/send-to-ad-platforms';
+import { buildAnalyticsEventData } from '@/lib/events/build-analytics-event-data';
+import { resolveEventIngressContext } from '@/lib/events/event-ingress-context';
+import {
+  isEventPipelineEnqueueEnabled,
+  isLegacyAnalyticsFanoutDisabled,
+  isUnverifiedEventTelemetryEnabled,
+} from '@/lib/events/event-pipeline-config';
+import { toClientAnalyticsDomainEventName } from '@/lib/events/event-route-registry';
+import { isEventTimestampWithinWindow } from '@/lib/events/event-timestamp-window';
+import { readBoundedJsonBody } from '@/lib/events/read-bounded-json-body';
+import { recordAnalyticsDomainEvent } from '@/lib/events/record-analytics-domain-event';
+import { logger } from '@/lib/logger';
+import {
+  type AnalyticsEventRequest,
+  analyticsEventRequestSchema,
+} from '@/schemas/analytics-event';
 
-// Lazy-initialize Supabase admin client to avoid build-time errors
+const MAX_EVENT_BYTES = 64 * 1024;
 let supabaseAdmin: SupabaseClient | null = null;
 
 function getSupabaseAdmin() {
@@ -19,266 +35,215 @@ function getSupabaseAdmin() {
   return supabaseAdmin;
 }
 
-/**
- * POST /api/events
- *
- * Unified analytics ingestion endpoint. Stores events in the analytics_events
- * table and, for conversion events, fans out to ad platforms via after().
- *
- * Accepts both the original web-storefront format and the mobile conversion
- * format (uppercase event names like START_CHECKOUT are normalized).
- *
- * Recorded events:
- * - Page views
- * - Product views
- * - Add to cart
- * - Remove from cart
- * - Begin checkout
- * - Purchase
- * - Search
- * - Add to wishlist
- */
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+function conversionContents(input: AnalyticsEventRequest) {
+  const items = input.items ?? input.custom_data?.contents ?? [];
+  return items.flatMap((item) => {
+    const id = item.id ?? item.product_id;
+    if (!id) return [];
+    return [
+      {
+        id,
+        name: item.name ?? item.product_name,
+        price: item.price,
+        quantity: item.quantity,
+      },
+    ];
+  });
+}
 
-    const {
-      // Core fields
-      event_type: rawEventType,
-      // Also accept event_name (mobile conversion format)
-      event_name: rawEventName,
-      merchant_id,
-      // Dedup & source
-      event_id,
-      source,
-      // Web storefront fields
-      session_id,
-      user_agent,
-      referrer,
-      page_url,
-      timestamp,
-      // Product-specific fields
-      product_id,
-      product_name,
-      product_category,
-      product_price,
-      quantity,
-      currency,
-      // Purchase-specific fields
-      order_id,
-      total,
-      subtotal,
-      shipping,
-      tax,
-      item_count,
-      items,
-      // Search-specific fields
-      search_term,
-      results_count,
-      // Conversion fields (mobile format)
-      user_data,
-      custom_data,
-    } = body;
-
-    // Resolve event_type: accept either event_type or event_name
-    const inputEventType = rawEventType || rawEventName;
-    if (!inputEventType || !merchant_id) {
-      return NextResponse.json(
-        { error: 'Missing required fields: event_type and merchant_id' },
-        { status: 400 }
-      );
-    }
-
-    // Normalize: START_CHECKOUT -> begin_checkout, etc.
-    const event_type = normalizeEventType(inputEventType) || inputEventType;
-
-    // Build event_data using only known, safe property names (whitelist)
-    // This prevents remote property injection from user-controlled keys
-    const cleanedEventData: Record<string, unknown> = {};
-
-    // Base fields (always present)
-    if (session_id !== undefined) cleanedEventData.session_id = session_id;
-    if (user_agent !== undefined) cleanedEventData.user_agent = user_agent;
-    if (referrer !== undefined) cleanedEventData.referrer = referrer;
-    if (page_url !== undefined) cleanedEventData.page_url = page_url;
-
-    // Add event-type specific data using only known property names
-    switch (event_type) {
-      case 'product_view':
-      case 'add_to_cart':
-      case 'remove_from_cart':
-      case 'add_to_wishlist':
-        if (product_id !== undefined) cleanedEventData.product_id = product_id;
-        if (product_name !== undefined)
-          cleanedEventData.product_name = product_name;
-        if (product_category !== undefined)
-          cleanedEventData.product_category = product_category;
-        if (product_price !== undefined)
-          cleanedEventData.product_price = product_price;
-        if (quantity !== undefined) cleanedEventData.quantity = quantity;
-        if (currency !== undefined) cleanedEventData.currency = currency;
-        break;
-
-      case 'begin_checkout':
-      case 'purchase': {
-        const resolvedOrderId = order_id || custom_data?.order_id;
-        const resolvedTotal = total || custom_data?.value;
-        const resolvedItemCount = item_count || custom_data?.contents?.length;
-        const resolvedItems = items || custom_data?.contents;
-        if (resolvedOrderId !== undefined)
-          cleanedEventData.order_id = resolvedOrderId;
-        if (resolvedTotal !== undefined) cleanedEventData.total = resolvedTotal;
-        if (subtotal !== undefined) cleanedEventData.subtotal = subtotal;
-        if (shipping !== undefined) cleanedEventData.shipping = shipping;
-        if (tax !== undefined) cleanedEventData.tax = tax;
-        cleanedEventData.currency = currency || custom_data?.currency || 'NGN';
-        if (resolvedItemCount !== undefined)
-          cleanedEventData.item_count = resolvedItemCount;
-        if (resolvedItems !== undefined) cleanedEventData.items = resolvedItems;
-        break;
+function storeLegacyEvent(
+  supabase: SupabaseClient,
+  input: AnalyticsEventRequest,
+  eventType: string,
+  eventData: Record<string, unknown>,
+  eventTimestamp: string
+) {
+  const row = {
+    event_data: eventData,
+    event_timestamp: eventTimestamp,
+    merchant_id: input.merchant_id,
+    source: input.source ?? 'web',
+    event_type: eventType,
+  };
+  if (input.event_id) {
+    return supabase.from('analytics_events').upsert(
+      { ...row, event_id: input.event_id },
+      {
+        ignoreDuplicates: true,
+        onConflict: 'merchant_id,event_id,event_type',
       }
+    );
+  }
+  return supabase.from('analytics_events').insert(row);
+}
 
-      case 'search':
-        if (search_term !== undefined)
-          cleanedEventData.search_term = search_term;
-        if (results_count !== undefined)
-          cleanedEventData.results_count = results_count;
-        break;
-
-      case 'page_view':
-        // page_url is already set above
-        break;
-
-      default:
-        // For other conversion events, store custom_data as a nested object
-        // under a fixed key (never spread user-controlled keys as properties)
-        if (custom_data) {
-          cleanedEventData.custom_data = custom_data;
-        }
-        break;
-    }
-
-    // Insert into analytics_events table (with dedup via upsert when event_id present)
-    if (event_id) {
-      const { error } = await getSupabaseAdmin()
-        .from('analytics_events')
-        .upsert(
-          {
-            merchant_id,
-            event_type,
-            event_data: cleanedEventData,
-            event_id,
-            source: source || 'web',
-            event_timestamp: timestamp || new Date().toISOString(),
-          },
-          {
-            onConflict: 'merchant_id,event_id,event_type',
-            ignoreDuplicates: true,
-          }
-        );
-
-      if (error) {
-        console.error('Failed to upsert analytics event:', error);
-        return NextResponse.json(
-          { error: 'Failed to store event' },
-          { status: 500 }
-        );
-      }
-    } else {
-      const { error } = await getSupabaseAdmin()
-        .from('analytics_events')
-        .insert({
-          merchant_id,
-          event_type,
-          event_data: cleanedEventData,
-          source: source || 'web',
-          event_timestamp: timestamp || new Date().toISOString(),
-        });
-
-      if (error) {
-        console.error('Failed to insert analytics event:', error);
-        return NextResponse.json(
-          { error: 'Failed to store event' },
-          { status: 500 }
-        );
-      }
-    }
-
-    // Fan out to ad platforms for conversion events (non-blocking)
-    if (isConversionEvent(event_type)) {
-      after(async () => {
-        try {
-          const resolvedContents =
-            items ||
-            custom_data?.contents ||
-            (product_id
-              ? [
-                  {
-                    id: product_id,
-                    name: product_name,
-                    price: product_price,
-                    quantity: quantity || 1,
-                  },
-                ]
-              : undefined);
-          const resolvedValue =
-            total || custom_data?.value || product_price || undefined;
-
-          await sendToAdPlatforms({
-            merchant_id,
-            event_type,
-            event_id:
-              event_id ||
-              `evt_${Date.now()}_${crypto.randomUUID().replace(/-/g, '')}`,
-            user_data: user_data
-              ? {
-                  email: user_data.em,
-                  phone: user_data.ph,
-                  external_id: user_data.external_id,
-                  fbc: user_data.fbc || request.cookies.get('_fbc')?.value,
-                  fbp: user_data.fbp || request.cookies.get('_fbp')?.value,
-                  ip:
-                    request.headers.get('x-forwarded-for')?.split(',')[0] ||
-                    request.headers.get('x-real-ip') ||
-                    undefined,
-                  sccid: user_data.sccid || request.cookies.get('ScCid')?.value,
-                  ttclid: user_data.ttclid,
-                  ttp: user_data.ttp || request.cookies.get('_ttp')?.value,
-                  ua: request.headers.get('user-agent') || undefined,
-                }
-              : {
-                  fbc: request.cookies.get('_fbc')?.value,
-                  fbp: request.cookies.get('_fbp')?.value,
-                  ip:
-                    request.headers.get('x-forwarded-for')?.split(',')[0] ||
-                    request.headers.get('x-real-ip') ||
-                    undefined,
-                  sccid: request.cookies.get('ScCid')?.value,
-                  ttp: request.cookies.get('_ttp')?.value,
-                  ua: request.headers.get('user-agent') || undefined,
-                },
-            custom_data: {
-              order_id: order_id || custom_data?.order_id,
-              value: resolvedValue,
-              currency: currency || custom_data?.currency || 'NGN',
-              content_name: product_name || custom_data?.content_name,
-              content_type: custom_data?.content_type || 'product',
-              contents: resolvedContents,
-              price: product_price || custom_data?.price,
-              search_string: search_term || custom_data?.search_string,
-              url: page_url || custom_data?.url,
-            },
-            source: (source as 'web' | 'mobile_app' | 'server') || 'web',
-          });
-        } catch (err) {
-          console.error('CAPI fan-out error (after):', err);
-        }
+function scheduleLegacyFanout(
+  request: NextRequest,
+  input: AnalyticsEventRequest,
+  eventType: string,
+  eventId: string
+) {
+  after(async () => {
+    try {
+      const contents = conversionContents(input);
+      await sendToAdPlatforms({
+        custom_data: {
+          content_name: input.product_name ?? input.custom_data?.content_name,
+          content_type: input.custom_data?.content_type ?? 'product',
+          contents:
+            contents.length > 0
+              ? contents
+              : input.product_id
+                ? [
+                    {
+                      id: input.product_id,
+                      name: input.product_name,
+                      price: input.product_price,
+                      quantity: input.quantity ?? 1,
+                    },
+                  ]
+                : undefined,
+          currency: input.currency ?? input.custom_data?.currency ?? 'NGN',
+          order_id: input.order_id ?? input.custom_data?.order_id,
+          price: input.product_price ?? input.custom_data?.price,
+          search_string: input.search_term ?? input.custom_data?.search_string,
+          url: input.page_url ?? input.custom_data?.url,
+          value: input.total ?? input.custom_data?.value ?? input.product_price,
+        },
+        event_id: eventId,
+        event_type: eventType,
+        merchant_id: input.merchant_id,
+        source: input.source ?? 'web',
+        user_data: {
+          email: input.user_data?.em,
+          external_id: input.user_data?.external_id,
+          fbc: input.user_data?.fbc ?? request.cookies.get('_fbc')?.value,
+          fbp: input.user_data?.fbp ?? request.cookies.get('_fbp')?.value,
+          ip:
+            request.headers.get('x-forwarded-for')?.split(',')[0] ??
+            request.headers.get('x-real-ip') ??
+            undefined,
+          phone: input.user_data?.ph,
+          sccid: input.user_data?.sccid ?? request.cookies.get('ScCid')?.value,
+          ttclid: input.user_data?.ttclid,
+          ttp: input.user_data?.ttp ?? request.cookies.get('_ttp')?.value,
+          ua: request.headers.get('user-agent') ?? undefined,
+        },
       });
+    } catch (error) {
+      logger.error({ error, message: 'CAPI fan-out error after response' });
+    }
+  });
+}
+
+export async function POST(request: NextRequest) {
+  const bodyResult = await readBoundedJsonBody(request, MAX_EVENT_BYTES);
+  if (!bodyResult.ok && bodyResult.reason === 'too_large') {
+    return NextResponse.json(
+      { error: 'Event payload too large' },
+      { status: 413 }
+    );
+  }
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+  const body = bodyResult.body;
+
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+  }
+  const raw = body as Record<string, unknown>;
+  if (!(raw.event_type || raw.event_name) || !raw.merchant_id) {
+    return NextResponse.json(
+      { error: 'Missing required fields: event_type and merchant_id' },
+      { status: 400 }
+    );
+  }
+  const parsed = analyticsEventRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', details: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  const input = parsed.data;
+  if (input.timestamp && !isEventTimestampWithinWindow(input.timestamp)) {
+    return NextResponse.json(
+      { error: 'Event timestamp outside allowed window' },
+      { status: 400 }
+    );
+  }
+  const rawEventType = input.event_type ?? input.event_name ?? '';
+  const eventType = normalizeEventType(rawEventType) ?? rawEventType;
+  const eventData = buildAnalyticsEventData(input, eventType);
+  const eventTimestamp = input.timestamp ?? new Date().toISOString();
+  const durableEnqueue = isEventPipelineEnqueueEnabled();
+  let responseEventId = input.event_id;
+
+  try {
+    const supabase = getSupabaseAdmin();
+    if (durableEnqueue) {
+      const context = await resolveEventIngressContext({
+        merchantId: input.merchant_id,
+        request,
+        supabase,
+      });
+      if (!context.ok) {
+        return NextResponse.json(
+          { code: context.code, error: 'Failed to resolve event context' },
+          { status: context.code === 'merchant_mismatch' ? 403 : 500 }
+        );
+      }
+      if (!context.verified && !isUnverifiedEventTelemetryEnabled()) {
+        return NextResponse.json(
+          { error: 'Unverified merchant context' },
+          { status: 403 }
+        );
+      }
+
+      responseEventId = input.event_id ?? `evt_${crypto.randomUUID()}`;
+      await recordAnalyticsDomainEvent(supabase, {
+        eventData,
+        eventName: toClientAnalyticsDomainEventName(
+          eventType,
+          context.trustLevel
+        ),
+        eventTimestamp,
+        eventType,
+        externalEventId: responseEventId,
+        merchantId: context.merchantId,
+        requestId: request.headers.get('x-request-id') ?? undefined,
+        source: input.source ?? 'web',
+        trustLevel: context.trustLevel,
+      });
+    } else {
+      const { error } = await storeLegacyEvent(
+        supabase,
+        input,
+        eventType,
+        eventData,
+        eventTimestamp
+      );
+      if (error) {
+        logger.error({ error, message: 'Failed to store analytics event' });
+        return NextResponse.json(
+          { error: 'Failed to store event' },
+          { status: 500 }
+        );
+      }
     }
 
-    return NextResponse.json({ success: true, event_id });
+    if (isConversionEvent(eventType) && !isLegacyAnalyticsFanoutDisabled()) {
+      const fanoutEventId =
+        responseEventId ??
+        `evt_${Date.now()}_${crypto.randomUUID().replace(/-/g, '')}`;
+      scheduleLegacyFanout(request, input, eventType, fanoutEventId);
+    }
+
+    return NextResponse.json({ success: true, event_id: responseEventId });
   } catch (error) {
-    console.error('Event tracking error:', error);
+    logger.error({ error, message: 'Event tracking error' });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

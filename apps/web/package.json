@@ -29,6 +29,8 @@
     "capture-screenshots": "node scripts/capture-template-screenshots.mjs",
     "backfill:image-format-cache": "tsx src/scripts/backfill-image-format-cache.ts",
     "process:import-jobs": "tsx src/scripts/process-import-jobs.ts",
+    "process:domain-events": "tsx src/scripts/process-domain-events.ts",
+    "process:event-deliveries": "tsx src/scripts/process-event-deliveries.ts",
     "sync:jumia-orders": "tsx src/scripts/sync-jumia-orders.ts",
     "mcp": "tsx mcp-server/server.ts"
   },

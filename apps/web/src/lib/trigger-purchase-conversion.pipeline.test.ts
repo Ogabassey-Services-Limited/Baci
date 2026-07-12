@@ -1,0 +1,91 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  enqueue: vi.fn(),
+  send: vi.fn(),
+}));
+
+vi.mock('@/lib/events/enqueue-paid-order-domain-event', () => ({
+  enqueuePaidOrderDomainEvent: (...args: unknown[]) => mocks.enqueue(...args),
+}));
+
+vi.mock('@/lib/analytics/analytics-platform-config', () => ({
+  fetchAnalyticsPlatformConfig: vi.fn().mockResolvedValue({
+    facebook_capi_token: 'token',
+    facebook_pixel_id: 'pixel',
+    offline_conversions_enabled: true,
+  }),
+  hasConfiguredAnalyticsPlatform: () => true,
+}));
+
+vi.mock('@/lib/offline-conversions', () => ({
+  logConversionResults: vi.fn(),
+  sendPurchaseConversion: (...args: unknown[]) => mocks.send(...args),
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
+}));
+
+import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
+
+const order = {
+  ad_tracking: { eventId: 'browser-event-1' },
+  currency: 'NGN',
+  id: 'order-1',
+  order_items: [],
+  total: 200_000,
+};
+
+describe('triggerPurchaseConversion pipeline migration', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.EVENT_PIPELINE_ENQUEUE_ENABLED = 'true';
+    delete process.env.EVENT_PIPELINE_DELIVERY_ENABLED;
+    delete process.env.EVENT_PIPELINE_ROUTING_MODE;
+    delete process.env.EVENT_PIPELINE_DISABLE_LEGACY_FANOUT;
+    delete process.env.EVENT_PIPELINE_ACTIVE_DESTINATIONS;
+    delete process.env.EVENT_PIPELINE_CANARY_MERCHANT_IDS;
+    mocks.enqueue.mockResolvedValue({
+      already_enqueued: false,
+      domain_event_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a234',
+      queue_message_id: 1,
+    });
+    mocks.send.mockResolvedValue([{ platform: 'facebook', success: true }]);
+  });
+
+  afterEach(() => {
+    delete process.env.EVENT_PIPELINE_ENQUEUE_ENABLED;
+  });
+
+  it('can stop after the durable handoff without loading customer data', async () => {
+    const supabase = {} as never;
+
+    await triggerPurchaseConversion(supabase, 'merchant-1', order, {
+      deliveryMode: 'enqueue_only',
+    });
+
+    expect(mocks.enqueue).toHaveBeenCalledWith(supabase, {
+      externalEventId: 'browser-event-1',
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+    });
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it('retains legacy delivery after enqueue until full cutover is explicit', async () => {
+    await triggerPurchaseConversion({} as never, 'merchant-1', order);
+
+    expect(mocks.enqueue).toHaveBeenCalledTimes(1);
+    expect(mocks.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed when the durable handoff fails', async () => {
+    mocks.enqueue.mockRejectedValueOnce(new Error('queue unavailable'));
+
+    await expect(
+      triggerPurchaseConversion({} as never, 'merchant-1', order)
+    ).rejects.toThrow('queue unavailable');
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+});

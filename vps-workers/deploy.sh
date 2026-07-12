@@ -76,6 +76,9 @@ WantedBy=default.target
 EOF
 ssh "$VPS" "systemctl --user daemon-reload && systemctl --user enable --now baci-import-job-trigger.service"
 
+echo "==> Installing durable event-pipeline user services"
+ssh "$VPS" "bash $REMOTE_DIR/install-event-pipeline-services.sh $REMOTE_DIR"
+
 echo "==> Installing crontab entries on VPS (idempotent)"
 CRON_BLOCK_START="# >>> baci-workers >>>"
 CRON_BLOCK_END="# <<< baci-workers <<<"
@@ -97,6 +100,8 @@ $CRON_BLOCK_START
 */5 *  * * * flock -n $REMOTE_DIR/locks/sync-jumia-orders.lock bash -lc 'export NODE_ENV=production && cd $REMOTE_DIR && $REMOTE_DIR/bin/sync-jumia-orders.sh' >> $REMOTE_DIR/logs/sync-jumia-orders.log 2>&1
 17 *   * * * flock -n $REMOTE_DIR/locks/process-import-jobs.lock bash -lc 'export NODE_ENV=production && cd $REMOTE_DIR && $REMOTE_DIR/bin/process-import-jobs.sh' >> $REMOTE_DIR/logs/process-import-jobs.log 2>&1
 */10 * * * * flock -n $REMOTE_DIR/locks/ollama-workload.lock flock -n $REMOTE_DIR/locks/ai-storefront-jobs.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=ai-storefront-jobs && cd $REMOTE_DIR && $REMOTE_DIR/bin/process-ai-storefront-jobs.sh' >> $REMOTE_DIR/logs/ai-storefront-jobs.log 2>&1
+* * * * * flock -n $REMOTE_DIR/locks/process-domain-events.lock bash -lc 'export NODE_ENV=production && cd $REMOTE_DIR && $REMOTE_DIR/bin/process-domain-events.sh --once' >> $REMOTE_DIR/logs/process-domain-events.log 2>&1
+* * * * * flock -n $REMOTE_DIR/locks/process-event-deliveries.lock bash -lc 'export NODE_ENV=production && cd $REMOTE_DIR && $REMOTE_DIR/bin/process-event-deliveries.sh --once' >> $REMOTE_DIR/logs/process-event-deliveries.log 2>&1
 0 2    * * * flock -n $REMOTE_DIR/locks/ai-jobs-worker.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/ai-jobs/worker' >> $REMOTE_DIR/logs/ai-jobs-worker.log 2>&1
 15 2   * * * flock -n $REMOTE_DIR/locks/sync-petrock-catalog.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/sync-petrock-catalog' >> $REMOTE_DIR/logs/sync-petrock-catalog.log 2>&1
 0 6    * * * flock -n $REMOTE_DIR/locks/wallet-payouts.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/wallet-payouts' >> $REMOTE_DIR/logs/wallet-payouts.log 2>&1
@@ -225,6 +230,18 @@ echo "         AI_STOREFRONT_TRIGGER_PORT=3917"
 echo "         IMPORT_JOB_TRIGGER_SECRET=..."
 echo "         IMPORT_JOB_TRIGGER_HOST=127.0.0.1"
 echo "         IMPORT_JOB_TRIGGER_PORT=3918"
+echo "         EVENT_PIPELINE_ENQUEUE_ENABLED=false"
+echo "         EVENT_PIPELINE_ROUTING_MODE=disabled"
+echo "         EVENT_PIPELINE_ACTIVE_DESTINATIONS="
+echo "         EVENT_PIPELINE_CANARY_MERCHANT_IDS="
+echo "         EVENT_PIPELINE_DELIVERY_ENABLED=false"
+echo "         EVENT_PIPELINE_DISABLE_LEGACY_FANOUT=false"
+echo "         EVENT_PIPELINE_ALLOW_UNVERIFIED_TELEMETRY=false"
+echo "         EVENT_PIPELINE_MAX_DELIVERY_ATTEMPTS=8"
+echo "         EVENT_PIPELINE_DELIVERY_CONCURRENCY=5"
+echo "         EVENT_PIPELINE_INGRESS_MAX_READS=5"
+echo "         EVENT_DELIVERY_ATTEMPT_RETENTION=\"30 days\""
+echo "         EVENT_QUEUE_ARCHIVE_RETENTION=\"30 days\""
 echo ""
 echo "    Note: the storefront-update-nudge cron reads its config from the WEB"
 echo "          (Vercel) env, NOT this worker .env: MOBILE_STOREFRONT_UPDATES_ENABLED,"

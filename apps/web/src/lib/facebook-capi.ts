@@ -17,6 +17,7 @@ import crypto from 'node:crypto';
 
 const FB_API_VERSION = 'v21.0';
 const FB_GRAPH_API = 'https://graph.facebook.com';
+const PROVIDER_REQUEST_TIMEOUT_MS = 10_000;
 
 // Event names supported by Facebook CAPI
 export type FacebookEventName =
@@ -207,7 +208,8 @@ export async function sendFacebookCAPIEvent(
   customData?: FacebookCustomData,
   eventSourceUrl?: string,
   eventId?: string,
-  limitedDataUse?: boolean
+  limitedDataUse?: boolean,
+  signal?: AbortSignal
 ): Promise<{ success: boolean; response?: CAPIResponse; error?: string }> {
   if (!pixelId || !accessToken) {
     return { success: false, error: 'Missing pixel ID or access token' };
@@ -259,6 +261,7 @@ export async function sendFacebookCAPIEvent(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
+        signal: signal ?? AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
       }
     );
 
@@ -321,7 +324,8 @@ export const facebookCAPI = {
     }>,
     eventSourceUrl?: string,
     eventId?: string,
-    limitedDataUse?: boolean
+    limitedDataUse?: boolean,
+    signal?: AbortSignal
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -343,7 +347,8 @@ export const facebookCAPI = {
       },
       eventSourceUrl,
       eventId,
-      limitedDataUse
+      limitedDataUse,
+      signal
     );
   },
 
@@ -358,7 +363,8 @@ export const facebookCAPI = {
     currency: string,
     products: Array<{ id: string; quantity: number }>,
     eventSourceUrl?: string,
-    eventId?: string
+    eventId?: string,
+    signal?: AbortSignal
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -373,7 +379,9 @@ export const facebookCAPI = {
         numItems: products.reduce((sum, p) => sum + p.quantity, 0),
       },
       eventSourceUrl,
-      eventId
+      eventId,
+      undefined,
+      signal
     );
   },
 
@@ -389,7 +397,8 @@ export const facebookCAPI = {
     value: number,
     currency: string,
     eventSourceUrl?: string,
-    eventId?: string
+    eventId?: string,
+    signal?: AbortSignal
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -404,7 +413,9 @@ export const facebookCAPI = {
         contentIds: [productId],
       },
       eventSourceUrl,
-      eventId
+      eventId,
+      undefined,
+      signal
     );
   },
 
@@ -421,7 +432,8 @@ export const facebookCAPI = {
     currency: string,
     category?: string,
     eventSourceUrl?: string,
-    eventId?: string
+    eventId?: string,
+    signal?: AbortSignal
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -437,7 +449,9 @@ export const facebookCAPI = {
         contentIds: [productId],
       },
       eventSourceUrl,
-      eventId
+      eventId,
+      undefined,
+      signal
     );
   },
 };
