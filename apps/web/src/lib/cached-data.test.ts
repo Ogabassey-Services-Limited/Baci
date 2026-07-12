@@ -329,7 +329,10 @@ describe('cached merchant entity normalization', () => {
         {
           resolution_status: 'found',
           custom_domain: 'fashion.example',
-          feature_settings: { blog_enabled: true, repairs_catalog_enabled: true },
+          feature_settings: {
+            blog_enabled: true,
+            repairs_catalog_enabled: true,
+          },
           merchant_data: { ...mockMerchant, slug: 'fashion-store' },
         },
       ],

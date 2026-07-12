@@ -49,7 +49,8 @@ describe('public snapshot repairs flag migration', () => {
   });
 
   it('is byte-identical to the base definition except for the added allowlist key', () => {
-    const start = 'CREATE OR REPLACE FUNCTION public.resolve_storefront_public_snapshot_v2(';
+    const start =
+      'CREATE OR REPLACE FUNCTION public.resolve_storefront_public_snapshot_v2(';
     const end = '$$;';
     const extract = (source: string) => {
       const from = source.indexOf(start);
