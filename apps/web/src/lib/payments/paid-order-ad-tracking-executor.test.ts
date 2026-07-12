@@ -35,7 +35,14 @@ const richOrder: RichPaidOrder = {
   id: 'order-1',
   merchant_id: 'merchant-1',
   order_items: [
-    { name: 'iPhone', price: 20_000, quantity: 1, variant_name: null },
+    {
+      id: 'item-1',
+      name: 'iPhone',
+      price: 20_000,
+      product_id: 'product-1',
+      quantity: 1,
+      variant_name: null,
+    },
   ],
   payment_status: 'paid',
   shipping_address: { address: '1 Baci Way', city: 'Lagos', state: 'LA' },
@@ -66,7 +73,15 @@ describe('toOrderForConversion', () => {
     expect(toOrderForConversion(richOrder)).toMatchObject({
       customer_email: 'jane@example.com',
       id: 'order-1',
-      order_items: [{ name: 'iPhone', price: 20_000, quantity: 1 }],
+      order_items: [
+        {
+          id: 'item-1',
+          name: 'iPhone',
+          price: 20_000,
+          product_id: 'product-1',
+          quantity: 1,
+        },
+      ],
       shipping_address: { city: 'Lagos', state: 'LA' },
       total: 20_000,
     });

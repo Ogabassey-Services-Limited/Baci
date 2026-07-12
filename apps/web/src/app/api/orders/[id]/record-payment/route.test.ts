@@ -14,6 +14,36 @@ vi.mock('server-only', () => ({}));
 const mockReconciliationInsert = vi.hoisted(() =>
   vi.fn().mockResolvedValue({ data: null, error: null })
 );
+const mockFileInventoryConfirmationFailureReview = vi.hoisted(() =>
+  vi.fn().mockResolvedValue(undefined)
+);
+const mockRunManualPaymentSideEffect = vi.hoisted(() =>
+  vi.fn(async ({ execute }: { execute: () => Promise<void> }) => {
+    await execute();
+    return 'completed' as const;
+  })
+);
+const mockScheduleManualPaidOrderSideEffects = vi.hoisted(() => vi.fn());
+const afterCallbacks = vi.hoisted(
+  () => [] as Array<() => Promise<void> | void>
+);
+const mockAfter = vi.hoisted(() =>
+  vi.fn((callback: () => Promise<void> | void) => {
+    afterCallbacks.push(callback);
+  })
+);
+
+vi.mock('@/lib/payments/file-inventory-confirmation-review', () => ({
+  fileInventoryConfirmationFailureReview:
+    mockFileInventoryConfirmationFailureReview,
+}));
+
+vi.mock('@/lib/payments/run-manual-payment-side-effect', () => ({
+  runManualPaymentSideEffect: mockRunManualPaymentSideEffect,
+}));
+vi.mock('@/lib/payments/schedule-manual-paid-order-side-effects', () => ({
+  scheduleManualPaidOrderSideEffects: mockScheduleManualPaidOrderSideEffects,
+}));
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
@@ -52,7 +82,7 @@ vi.mock('next/server', async () => {
   const actual = await vi.importActual('next/server');
   return {
     ...actual,
-    after: vi.fn(),
+    after: mockAfter,
   };
 });
 
@@ -93,9 +123,13 @@ const mockSupabaseClient = {
   from: vi.fn(),
   rpc: vi.fn(),
 };
+const mockServiceClient = vi.hoisted(() => ({ rpc: vi.fn() }));
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabaseClient),
+}));
+vi.mock('@/lib/supabase/service', () => ({
+  createServiceClient: vi.fn(() => mockServiceClient),
 }));
 
 // Mock email templates
@@ -134,6 +168,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
   const mockOrderId = '11111111-1111-4111-8111-111111111111';
   const mockMerchantId = '22222222-2222-4222-8222-222222222222';
   const mockUserId = '33333333-3333-4333-8333-333333333333';
+  const mockIdempotencyKey = '44444444-4444-4444-8444-444444444444';
 
   // Preload the route's email/payment dependency graph once so the first
   // validation case measures handler behavior instead of module startup.
@@ -143,7 +178,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSendEmail.mockResolvedValue(undefined);
+    afterCallbacks.length = 0;
+    mockSendEmail.mockResolvedValue({ success: true });
     vi.mocked(ensurePaidOrderInventoryConfirmed).mockResolvedValue(undefined);
     vi.mocked(
       rollbackOrderStatusAfterInventoryConfirmationFailure
@@ -171,10 +207,17 @@ describe('POST /api/orders/[id]/record-payment', () => {
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
   });
 
-  const createRequest = (body: unknown) => {
+  const createRequest = (
+    body: unknown,
+    headers: Record<string, string> = {}
+  ) => {
     const normalizedBody =
       body && typeof body === 'object' && !Array.isArray(body)
-        ? { reference: 'REF-DEFAULT', ...body }
+        ? {
+            idempotency_key: mockIdempotencyKey,
+            reference: 'REF-DEFAULT',
+            ...body,
+          }
         : body;
 
     return new NextRequest(
@@ -183,10 +226,17 @@ describe('POST /api/orders/[id]/record-payment', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...headers,
         },
         body: JSON.stringify(normalizedBody),
       }
     );
+  };
+
+  const flushAfterCallbacks = async () => {
+    while (afterCallbacks.length > 0) {
+      await afterCallbacks.shift()?.();
+    }
   };
 
   const createRecordPaymentMerchant = () => ({
@@ -310,6 +360,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       0
     );
     const walletAmount = Number(orderRecord.wallet_amount_used) || 0;
+    const storedAmountPaid = Number(orderRecord.amount_paid) || 0;
     const orderTotal = Number(orderRecord.total) || 0;
     const defaultTransactionId =
       isRecord(insertTransaction) && typeof insertTransaction.id === 'string'
@@ -318,6 +369,25 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const manualPaymentOverride = isRecord(fixture.recordManualPayment)
       ? fixture.recordManualPayment
       : {};
+    const transactionErrorCode = (fixture.transactions ?? []).find(
+      (transaction) => isRecord(transaction) && transaction.error_code
+    );
+    const hasPendingProcessor = (fixture.transactions ?? []).some(
+      (transaction) =>
+        isRecord(transaction) &&
+        typeof transaction.gateway === 'string' &&
+        [
+          'paystack',
+          'korapay',
+          'kuda',
+          'credit_direct',
+          'credpal',
+          'klump',
+          'juicyway',
+        ].includes(transaction.gateway.toLowerCase()) &&
+        (transaction.status === 'pending' ||
+          transaction.status === 'processing')
+    );
     const rpc = vi.fn((name: string, params?: Record<string, unknown>) => {
       if (name === 'get_record_payment_order_transactions') {
         return Promise.resolve({
@@ -327,7 +397,31 @@ describe('POST /api/orders/[id]/record-payment', () => {
       }
       if (name === 'record_manual_order_payment') {
         const amount = Number(params?.p_amount) || 0;
-        const computedNewPaid = completedAmount + walletAmount + amount;
+        const totalPaidBefore = Math.max(
+          storedAmountPaid,
+          completedAmount + walletAmount
+        );
+        const remainingBefore = orderTotal - totalPaidBefore;
+        const duplicateReference = completedTransactions.some(
+          (transaction) =>
+            transaction.gateway_reference === params?.p_gateway_reference
+        );
+        const computedErrorCode =
+          fixture.recordManualPaymentErrorCode !== undefined
+            ? fixture.recordManualPaymentErrorCode
+            : isRecord(transactionErrorCode) &&
+                typeof transactionErrorCode.error_code === 'string'
+              ? transactionErrorCode.error_code
+              : hasPendingProcessor
+                ? 'PENDING_GATEWAY_PAYMENT'
+                : duplicateReference
+                  ? 'DUPLICATE_REFERENCE'
+                  : remainingBefore <= 0
+                    ? 'ORDER_ALREADY_PAID'
+                    : amount > remainingBefore
+                      ? 'AMOUNT_EXCEEDS_REMAINING_BALANCE'
+                      : null;
+        const computedNewPaid = totalPaidBefore + amount;
         const computedRemainingBalance = Math.max(
           0,
           orderTotal - computedNewPaid
@@ -345,10 +439,11 @@ describe('POST /api/orders/[id]/record-payment', () => {
         return Promise.resolve({
           data: {
             current_paid: completedAmount,
-            error_code: fixture.recordManualPaymentErrorCode ?? null,
+            error_code: computedErrorCode,
             new_paid: computedNewPaid,
             order_total: orderTotal,
             payment_status: computedPaymentStatus,
+            previous_amount_paid: storedAmountPaid,
             previous_payment_status:
               typeof orderRecord.payment_status === 'string'
                 ? orderRecord.payment_status
@@ -365,7 +460,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
               typeof updateOrderRecord.cancelled_at === 'string'
                 ? updateOrderRecord.cancelled_at
                 : null,
-            total_paid_before: completedAmount + walletAmount,
+            total_paid_before: totalPaidBefore,
             transaction_id: defaultTransactionId,
             ...manualPaymentOverride,
           },
@@ -383,7 +478,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
   const setupRecordPaymentTransactionRpc = (
     transactions: unknown[],
-    error: unknown = null
+    error: unknown = null,
+    manualPaymentErrorCode: string | null = null
   ) => {
     const rpc = vi.fn((name: string, params?: Record<string, unknown>) => {
       if (name === 'get_record_payment_order_transactions') {
@@ -392,7 +488,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       if (name === 'record_manual_order_payment') {
         return Promise.resolve({
           data: {
-            error_code: null,
+            error_code: manualPaymentErrorCode,
             new_paid: Number(params?.p_amount) || null,
             payment_status: 'paid',
             remaining_balance: 0,
@@ -423,6 +519,86 @@ describe('POST /api/orders/[id]/record-payment', () => {
     // Assert
     expect(response.status).toBe(400);
     expect(data).toEqual({ error: 'Invalid request body' });
+  });
+
+  it('rejects callers that omit the idempotency key', async () => {
+    setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest(
+        {
+          amount: 5000,
+          idempotency_key: undefined,
+          payment_method: 'cash',
+        },
+        {
+          'x-baci-idempotency-required': '1',
+        }
+      ),
+      params
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid request body',
+    });
+  });
+
+  it('generates a compatibility key for deployed legacy clients', async () => {
+    const { rpc } = setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        new_paid: 5000,
+        order_total: 10_000,
+        payment_status: 'partially_paid',
+        remaining_balance: 5000,
+        shipping_status: 'processing',
+        transaction_id: 'txn-new',
+      },
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest({
+        amount: 5000,
+        idempotency_key: undefined,
+        payment_method: 'cash',
+      }),
+      params
+    );
+
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith(
+      'record_manual_order_payment',
+      expect.objectContaining({
+        p_idempotency_key: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        ),
+      })
+    );
+  });
+
+  it('rejects manual payments on refunded orders', async () => {
+    setupRecordPaymentSupabase({
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: { error_code: 'ORDER_REFUNDED' },
+    });
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest({ amount: 5000, payment_method: 'cash' }),
+      { params: Promise.resolve({ id: mockOrderId }) }
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Cannot record a payment on a refunded order',
+    });
   });
 
   it('returns 400 when amount is zero', async () => {
@@ -924,7 +1100,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(orderQuery.update).not.toHaveBeenCalled();
   });
 
-  it('threads the order currency through to the full-payment confirmation email', async () => {
+  it('threads the order currency through to deferred paid side effects', async () => {
     const mockMerchant = createRecordPaymentMerchant();
     const mockOrder = { ...createRecordPaymentOrder(), currency: 'INR' };
 
@@ -943,11 +1119,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const { POST } = await import('./route');
     await POST(request, { params: Promise.resolve({ id: mockOrderId }) });
 
-    const { generateOrderConfirmationEmail } = await import(
-      '@/lib/email-templates'
-    );
-    expect(generateOrderConfirmationEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ currency: 'INR' })
+    expect(mockScheduleManualPaidOrderSideEffects).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order: expect.objectContaining({ currency: 'INR' }),
+      })
     );
   });
 
@@ -1000,6 +1175,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         totalPaidSoFar: 10000,
       })
     );
+    await flushAfterCallbacks();
     expect(mockSendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         subject: expect.stringContaining('Payment Receipt'),
@@ -1104,6 +1280,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(
       rollbackOrderStatusAfterInventoryConfirmationFailure
     ).toHaveBeenCalledWith(mockSupabaseClient, mockMerchantId, mockOrderId, {
+      amount_paid: 0,
       payment_status: 'partially_paid',
       shipping_status: 'processing',
     });
@@ -1324,10 +1501,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     expect(orderQuery.eq).toHaveBeenCalledWith('id', mockOrderId);
     expect(orderQuery.eq).toHaveBeenCalledWith('merchant_id', mockMerchantId);
-    expect(rpc).toHaveBeenCalledWith('get_record_payment_order_transactions', {
-      p_merchant_id: mockMerchantId,
-      p_order_id: mockOrderId,
-    });
+    expect(rpc).toHaveBeenCalledWith(
+      'record_manual_order_payment',
+      expect.objectContaining({ p_order_id: mockOrderId })
+    );
   });
 
   it('does not update shipping_status if already shipped', async () => {
@@ -1593,14 +1770,18 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
       throw new Error(`Unexpected table ${table}`);
     });
-    setupRecordPaymentTransactionRpc([
-      {
-        amount: 5000,
-        gateway_reference: 'REF-DUPE-409',
-        gateway: 'manual',
-        status: 'completed',
-      },
-    ]);
+    setupRecordPaymentTransactionRpc(
+      [
+        {
+          amount: 5000,
+          gateway_reference: 'REF-DUPE-409',
+          gateway: 'manual',
+          status: 'completed',
+        },
+      ],
+      null,
+      'DUPLICATE_REFERENCE'
+    );
 
     const request = createRequest({
       amount: 5000,
@@ -1720,7 +1901,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(orderQuery.update).not.toHaveBeenCalled();
   });
 
-  it('returns 409 when the transaction read RPC detects merchant drift', async () => {
+  it('returns 409 when the atomic RPC detects merchant drift', async () => {
     const { orderQuery, rpc } = setupRecordPaymentSupabase({
       merchant: createRecordPaymentMerchant(),
       order: createRecordPaymentOrder(),
@@ -1753,10 +1934,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
         'This order has payments that require reconciliation before recording a manual payment.',
       code: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
     });
-    expect(rpc).toHaveBeenCalledWith('get_record_payment_order_transactions', {
-      p_merchant_id: mockMerchantId,
-      p_order_id: mockOrderId,
-    });
+    expect(rpc).toHaveBeenCalledWith(
+      'record_manual_order_payment',
+      expect.objectContaining({ p_order_id: mockOrderId })
+    );
     expect(orderQuery.update).not.toHaveBeenCalled();
   });
 
@@ -1910,14 +2091,18 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
       throw new Error(`Unexpected table ${table}`);
     });
-    setupRecordPaymentTransactionRpc([
-      {
-        amount: 8000,
-        gateway_reference: 'REF-PREV',
-        gateway: 'manual',
-        status: 'completed',
-      },
-    ]);
+    setupRecordPaymentTransactionRpc(
+      [
+        {
+          amount: 8000,
+          gateway_reference: 'REF-PREV',
+          gateway: 'manual',
+          status: 'completed',
+        },
+      ],
+      null,
+      'AMOUNT_EXCEEDS_REMAINING_BALANCE'
+    );
 
     const request = createRequest({
       amount: 5000, // Trying to pay 5000 when only 2000 remains
@@ -2000,14 +2185,18 @@ describe('POST /api/orders/[id]/record-payment', () => {
       }
       throw new Error(`Unexpected table ${table}`);
     });
-    setupRecordPaymentTransactionRpc([
-      {
-        amount: 0,
-        gateway: 'paystack',
-        gateway_reference: 'paystack-pending-ref',
-        status: 'pending',
-      },
-    ]);
+    setupRecordPaymentTransactionRpc(
+      [
+        {
+          amount: 0,
+          gateway: 'paystack',
+          gateway_reference: 'paystack-pending-ref',
+          status: 'pending',
+        },
+      ],
+      null,
+      'PENDING_GATEWAY_PAYMENT'
+    );
 
     const request = createRequest({
       amount: 10000,
@@ -2185,13 +2374,292 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const response = await POST(request, params);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data).toMatchObject({
-      status_update_failed: true,
-      updated_status: {},
-    });
+    expect(response.status).toBe(500);
+    expect(data).toEqual({ error: 'Failed to record payment' });
     expect(mockSendEmail).not.toHaveBeenCalled();
     expect(mockReconciliationInsert).not.toHaveBeenCalled();
+  });
+
+  it('confirms inventory and resumes durable side effects on a paid replay', async () => {
+    setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-existing' },
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        idempotency_replayed: true,
+        new_paid: 10000,
+        order_total: 10000,
+        payment_status: 'paid',
+        remaining_balance: 0,
+        shipping_status: 'processing',
+        transaction_id: 'txn-existing',
+      },
+    });
+
+    const request = createRequest({
+      amount: 10000,
+      payment_method: 'cash',
+    });
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      idempotency_replayed: true,
+      success: true,
+    });
+    expect(ensurePaidOrderInventoryConfirmed).toHaveBeenCalledWith(
+      mockSupabaseClient,
+      mockMerchantId,
+      mockOrderId
+    );
+    expect(mockScheduleManualPaidOrderSideEffects).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: mockMerchantId,
+        transactionId: 'txn-existing',
+      })
+    );
+  });
+
+  it('lets the atomic RPC replay before applying pending-processor guards', async () => {
+    const { rpc } = setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-existing' },
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPaymentErrorCode: null,
+      recordManualPayment: {
+        idempotency_replayed: true,
+        new_paid: 10000,
+        order_total: 10000,
+        payment_status: 'paid',
+        remaining_balance: 0,
+        shipping_status: 'processing',
+        transaction_id: 'txn-existing',
+      },
+      transactions: [
+        {
+          amount: 0,
+          gateway: 'paystack',
+          gateway_reference: 'processor-started-after-manual-payment',
+          status: 'pending',
+        },
+      ],
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest({ amount: 10000, payment_method: 'cash' }),
+      { params: Promise.resolve({ id: mockOrderId }) }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      idempotency_replayed: true,
+      success: true,
+    });
+    expect(rpc).not.toHaveBeenCalledWith(
+      'get_record_payment_order_transactions',
+      expect.anything()
+    );
+  });
+
+  it('does not wait for durable paid side effects before responding', async () => {
+    setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-new' },
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        new_paid: 10000,
+        order_total: 10000,
+        payment_status: 'paid',
+        remaining_balance: 0,
+        shipping_status: 'processing',
+        transaction_id: 'txn-new',
+      },
+    });
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest({ amount: 10000, payment_method: 'cash' }),
+      { params: Promise.resolve({ id: mockOrderId }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockScheduleManualPaidOrderSideEffects).toHaveBeenCalledOnce();
+    expect(mockRunManualPaymentSideEffect).not.toHaveBeenCalled();
+  });
+
+  it('resumes a durable receipt side effect on a partial-payment replay', async () => {
+    setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-existing' },
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        idempotency_replayed: true,
+        new_paid: 5000,
+        order_total: 10000,
+        payment_status: 'partially_paid',
+        remaining_balance: 5000,
+        shipping_status: 'processing',
+        transaction_id: 'txn-existing',
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest({ amount: 5000, payment_method: 'cash' }),
+      { params: Promise.resolve({ id: mockOrderId }) }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      idempotency_replayed: true,
+      success: true,
+    });
+    await flushAfterCallbacks();
+    expect(mockRunManualPaymentSideEffect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        step: 'partial_receipt',
+        supabase: mockServiceClient,
+        transactionId: 'txn-existing',
+      })
+    );
+    expect(mockSendEmail).toHaveBeenCalledOnce();
+  });
+
+  it('does not send a partial receipt for a refunded replay', async () => {
+    setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-existing' },
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        idempotency_replayed: true,
+        new_paid: 5000,
+        order_total: 10000,
+        payment_status: 'refunded',
+        remaining_balance: 5000,
+        shipping_status: 'processing',
+        transaction_id: 'txn-existing',
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest({ amount: 5000, payment_method: 'cash' }),
+      { params: Promise.resolve({ id: mockOrderId }) }
+    );
+
+    expect(response.status).toBe(200);
+    await flushAfterCallbacks();
+    expect(mockRunManualPaymentSideEffect).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it('rejects a partial-payment replay without its transaction id', async () => {
+    setupRecordPaymentSupabase({
+      insertTransaction: null,
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        idempotency_replayed: true,
+        new_paid: 5000,
+        order_total: 10000,
+        payment_status: 'partially_paid',
+        remaining_balance: 5000,
+        shipping_status: 'processing',
+        transaction_id: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest({ amount: 5000, payment_method: 'cash' }),
+      { params: Promise.resolve({ id: mockOrderId }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to record payment',
+    });
+    expect(mockRunManualPaymentSideEffect).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it('preserves a replayed payment and files review when inventory confirmation fails', async () => {
+    vi.mocked(ensurePaidOrderInventoryConfirmed).mockRejectedValueOnce(
+      new SerializedInventoryUnavailableError()
+    );
+    const { transactionQuery } = setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-existing' },
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        idempotency_replayed: true,
+        new_paid: 10000,
+        order_total: 10000,
+        payment_status: 'paid',
+        remaining_balance: 0,
+        shipping_status: 'processing',
+        transaction_id: 'txn-existing',
+      },
+    });
+
+    const request = createRequest({ amount: 10000, payment_method: 'cash' });
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+
+    expect(response.status).toBe(409);
+    expect(transactionQuery.delete).not.toHaveBeenCalled();
+    expect(
+      rollbackOrderStatusAfterInventoryConfirmationFailure
+    ).not.toHaveBeenCalled();
+    expect(mockFileInventoryConfirmationFailureReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: mockOrderId,
+        transactionId: 'txn-existing',
+      })
+    );
+  });
+
+  it('files cancelled-order reconciliation on an idempotent replay', async () => {
+    setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-existing' },
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordManualPayment: {
+        cancelled_at: '2026-06-15T00:00:00Z',
+        idempotency_replayed: true,
+        new_paid: 10000,
+        order_total: 10000,
+        payment_status: 'paid',
+        remaining_balance: 0,
+        shipping_status: 'cancelled',
+        transaction_id: 'txn-existing',
+      },
+    });
+
+    const request = createRequest({ amount: 10000, payment_method: 'cash' });
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      idempotency_replayed: true,
+      order_cancelled: true,
+    });
+    expect(mockReconciliationInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'payment_received_after_cancellation',
+        order_id: mockOrderId,
+        txn_id: 'txn-existing',
+      })
+    );
+    expect(ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
   });
 
   it('suppresses confirmation emails and files reconciliation when the order was clamped as cancelled', async () => {
@@ -2385,14 +2853,18 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
       throw new Error(`Unexpected table ${table}`);
     });
-    setupRecordPaymentTransactionRpc([
-      {
-        amount: 10000,
-        gateway_reference: 'REF-FULL',
-        gateway: 'manual',
-        status: 'completed',
-      },
-    ]);
+    setupRecordPaymentTransactionRpc(
+      [
+        {
+          amount: 10000,
+          gateway_reference: 'REF-FULL',
+          gateway: 'manual',
+          status: 'completed',
+        },
+      ],
+      null,
+      'ORDER_ALREADY_PAID'
+    );
 
     const request = createRequest({
       amount: 1000,
@@ -2411,7 +2883,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(data).toEqual({ error: 'Order is already fully paid' });
   });
 
-  it('returns the existing result when the same payment reference is retried', async () => {
+  it('rejects a reused payment reference when the idempotency key differs', async () => {
     const mockMerchant = {
       id: mockMerchantId,
       business_name: 'Test Store',
@@ -2500,14 +2972,18 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
 
     mockSupabaseClient.from = mockFrom;
-    setupRecordPaymentTransactionRpc([
-      {
-        amount: 5000,
-        gateway_reference: 'REF-DUPE-1',
-        gateway: 'manual',
-        status: 'completed',
-      },
-    ]);
+    setupRecordPaymentTransactionRpc(
+      [
+        {
+          amount: 5000,
+          gateway_reference: 'REF-DUPE-1',
+          gateway: 'manual',
+          status: 'completed',
+        },
+      ],
+      null,
+      'DUPLICATE_REFERENCE'
+    );
 
     const request = createRequest({
       amount: 5000,
@@ -2526,11 +3002,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
       code: 'DUPLICATE_REFERENCE',
     });
     expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
-      'get_record_payment_order_transactions',
-      {
-        p_merchant_id: mockMerchantId,
-        p_order_id: mockOrderId,
-      }
+      'record_manual_order_payment',
+      expect.objectContaining({ p_order_id: mockOrderId })
     );
     expect(mockFrom).toHaveBeenCalledTimes(2);
   });

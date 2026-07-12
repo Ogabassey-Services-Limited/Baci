@@ -4,6 +4,8 @@ import {
 } from '@baci/shared';
 import { useQuery } from '@tanstack/react-query';
 import { getBranchScopeKey } from '@/lib/branch-scope-query';
+import { getEffectiveOrderPaymentSummary } from '@/lib/order-payment-summary';
+import { getOrderPaymentTransactionTotals } from '@/lib/order-payment-transaction-totals';
 import { ORDER_COLUMNS } from '@/lib/orders';
 import { normalizeVariantAttributes } from '@/lib/product-picker-variant-rows';
 import { supabase } from '@/lib/supabase';
@@ -75,7 +77,7 @@ export async function fetchOrderById(
 ) {
   let orderQuery = supabase
     .from('orders')
-    .select(ORDER_COLUMNS)
+    .select(`${ORDER_COLUMNS}, cancelled_at`)
     .eq('id', orderId)
     .eq('merchant_id', merchantId);
 
@@ -102,8 +104,10 @@ export async function fetchOrderById(
       .eq('order_id', orderId),
     supabase
       .from('transactions')
-      .select('amount')
+      .select('amount, gateway')
       .eq('order_id', orderId)
+      .eq('merchant_id', merchantId)
+      .eq('transaction_type', 'payment')
       .in('status', ['success', 'completed']),
     supabase
       .from('order_payment_accounts')
@@ -215,20 +219,19 @@ export async function fetchOrderById(
   }
 
   const orderTotal = Number(order.total) || 0;
-  const transactionTotal =
-    transactions?.reduce((sum, transaction) => {
-      return sum + (Number(transaction.amount) || 0);
-    }, 0) || 0;
-  const ledgerAmountPaid =
-    transactionTotal + (Number(order.wallet_amount_used) || 0);
-  const storedAmountPaid = Number(order.amount_paid) || 0;
-  const amountPaid = Math.max(
-    ledgerAmountPaid,
-    storedAmountPaid,
-    order.payment_status === 'paid' ? orderTotal : 0
-  );
-  const balance =
-    order.payment_status === 'paid' ? 0 : Math.max(0, orderTotal - amountPaid);
+  const { transactionTotal, walletTransactionTotal } =
+    getOrderPaymentTransactionTotals(transactions);
+  const { amountPaid, balance, paymentStatus } =
+    getEffectiveOrderPaymentSummary({
+      isCancelled:
+        Boolean(order.cancelled_at) || order.shipping_status === 'cancelled',
+      orderTotal,
+      paymentStatus: order.payment_status,
+      storedAmountPaid: Number(order.amount_paid) || 0,
+      transactionTotal,
+      walletAmountUsed: Number(order.wallet_amount_used) || 0,
+      walletTransactionTotal,
+    });
   const orderWithMeta = order as {
     fulfillment_details?: OrderFulfillmentDetails | null;
   };
@@ -237,6 +240,7 @@ export async function fetchOrderById(
     ...order,
     amount_paid: amountPaid,
     balance,
+    payment_status: paymentStatus,
     fulfillment_details: orderWithMeta.fulfillment_details ?? null,
     items: ((items as OrderItemRow[] | null) ?? []).map((item) => {
       const product = getJoinedRecord(item.products);

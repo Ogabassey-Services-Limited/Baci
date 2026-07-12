@@ -24,6 +24,30 @@ const supabaseMock = vi.hoisted(() => {
     return tableResults.get(table) ?? { data: [], error: null };
   }
 
+  function getFilteredTableResult(
+    table: string,
+    calls: Array<{ args: unknown[]; method: string }>
+  ): QueryResult {
+    const result = getTableResult(table);
+    if (table !== 'transactions' || !Array.isArray(result.data)) return result;
+
+    const transactionType = calls.find(
+      (call) => call.method === 'eq' && call.args[0] === 'transaction_type'
+    )?.args[1];
+    if (typeof transactionType !== 'string') return result;
+
+    return {
+      ...result,
+      data: result.data.filter(
+        (row) =>
+          typeof row === 'object' &&
+          row !== null &&
+          'transaction_type' in row &&
+          row.transaction_type === transactionType
+      ),
+    };
+  }
+
   function makeChain(table: string) {
     const chain: Record<string, (...args: unknown[]) => unknown> & {
       maybeSingle?: () => Promise<QueryResult>;
@@ -61,7 +85,7 @@ const supabaseMock = vi.hoisted(() => {
       Promise.resolve(tableResults.get(table) ?? { data: null, error: null });
     // biome-ignore lint/suspicious/noThenProperty: Mocking a promise chain
     chain.then = (resolve) =>
-      Promise.resolve(getTableResult(table)).then(resolve);
+      Promise.resolve(getFilteredTableResult(table, calls)).then(resolve);
 
     return chain;
   }
@@ -202,7 +226,7 @@ describe('fetchOrderById', () => {
       error: null,
     });
     supabaseMock.setTableResult('transactions', {
-      data: [{ amount: 15 }],
+      data: [{ amount: 15, transaction_type: 'payment' }],
       error: null,
     });
     supabaseMock.setTableResult('order_payment_accounts', {
@@ -242,6 +266,18 @@ describe('fetchOrderById', () => {
         ],
       })
     );
+
+    const transactionQuery = supabaseMock.chains.find(
+      (chain) => chain.table === 'transactions'
+    );
+    expect(transactionQuery?.calls).toEqual(
+      expect.arrayContaining([
+        { method: 'eq', args: ['order_id', 'order-1'] },
+        { method: 'eq', args: ['merchant_id', 'merchant-1'] },
+        { method: 'eq', args: ['transaction_type', 'payment'] },
+        { method: 'in', args: ['status', ['success', 'completed']] },
+      ])
+    );
   });
 
   it('treats paid orders without ledger rows as fully paid', async () => {
@@ -265,6 +301,121 @@ describe('fetchOrderById', () => {
       expect.objectContaining({
         amount_paid: 406_000,
         balance: 0,
+      })
+    );
+  });
+
+  it('treats a stale partially-paid order as paid when its ledger covers the total', async () => {
+    supabaseMock.setOrderDetailResult({
+      data: {
+        amount_paid: 900_000,
+        id: 'order-1',
+        payment_status: 'partially_paid',
+        recorded_by_user_id: null,
+        total: 982_000,
+        wallet_amount_used: 0,
+      },
+      error: null,
+    });
+    supabaseMock.setTableResult('transactions', {
+      data: [
+        { amount: 654_000, transaction_type: 'payment' },
+        { amount: 82_000, transaction_type: 'payment' },
+        { amount: 82_000, transaction_type: 'payment' },
+        { amount: 82_000, transaction_type: 'payment' },
+        { amount: 82_000, transaction_type: 'payment' },
+      ],
+      error: null,
+    });
+
+    await expect(fetchOrderById('order-1', 'merchant-1')).resolves.toEqual(
+      expect.objectContaining({
+        amount_paid: 982_000,
+        balance: 0,
+        payment_status: 'paid',
+      })
+    );
+  });
+
+  it('does not promote a cancelled order when reconciliation payments cover the total', async () => {
+    supabaseMock.setOrderDetailResult({
+      data: {
+        amount_paid: 0,
+        cancelled_at: '2026-07-12T09:00:00Z',
+        id: 'order-1',
+        payment_status: 'unpaid',
+        recorded_by_user_id: null,
+        shipping_status: 'pending',
+        total: 500,
+        wallet_amount_used: 0,
+      },
+      error: null,
+    });
+    supabaseMock.setTableResult('transactions', {
+      data: [{ amount: 500, transaction_type: 'payment' }],
+      error: null,
+    });
+
+    await expect(fetchOrderById('order-1', 'merchant-1')).resolves.toEqual(
+      expect.objectContaining({
+        amount_paid: 500,
+        balance: 0,
+        payment_status: 'unpaid',
+      })
+    );
+  });
+
+  it('excludes refund rows when deriving effective payment status', async () => {
+    supabaseMock.setOrderDetailResult({
+      data: {
+        amount_paid: 400,
+        id: 'order-1',
+        payment_status: 'partially_paid',
+        recorded_by_user_id: null,
+        total: 800,
+        wallet_amount_used: 0,
+      },
+      error: null,
+    });
+    supabaseMock.setTableResult('transactions', {
+      data: [
+        { amount: 400, transaction_type: 'payment' },
+        { amount: 400, transaction_type: 'refund' },
+      ],
+      error: null,
+    });
+
+    await expect(fetchOrderById('order-1', 'merchant-1')).resolves.toEqual(
+      expect.objectContaining({
+        amount_paid: 400,
+        balance: 400,
+        payment_status: 'partially_paid',
+      })
+    );
+  });
+
+  it('preserves refunded status when historical payments cover the total', async () => {
+    supabaseMock.setOrderDetailResult({
+      data: {
+        amount_paid: 800,
+        id: 'order-1',
+        payment_status: 'refunded',
+        recorded_by_user_id: null,
+        total: 800,
+        wallet_amount_used: 0,
+      },
+      error: null,
+    });
+    supabaseMock.setTableResult('transactions', {
+      data: [{ amount: 800, transaction_type: 'payment' }],
+      error: null,
+    });
+
+    await expect(fetchOrderById('order-1', 'merchant-1')).resolves.toEqual(
+      expect.objectContaining({
+        amount_paid: 800,
+        balance: 0,
+        payment_status: 'refunded',
       })
     );
   });

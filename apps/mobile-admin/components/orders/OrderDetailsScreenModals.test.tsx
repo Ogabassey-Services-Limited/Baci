@@ -111,7 +111,7 @@ function createOrder(overrides: Record<string, unknown> = {}) {
     balance: 1500,
     fulfillment_details: null,
     order_number: 'ORD-1',
-    payment_status: 'partial',
+    payment_status: 'partially_paid',
     shipping_status: 'processing',
     total: 4000,
     ...overrides,

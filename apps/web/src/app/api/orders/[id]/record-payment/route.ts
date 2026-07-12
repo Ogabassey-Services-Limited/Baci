@@ -7,8 +7,6 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
-  generateOrderConfirmationEmail,
-  generateOrderConfirmationText,
   generatePaymentReceiptEmail,
   generatePaymentReceiptText,
 } from '@/lib/email-templates';
@@ -24,7 +22,9 @@ import {
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
-import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
+import { runManualPaymentSideEffect } from '@/lib/payments/run-manual-payment-side-effect';
+import { scheduleManualPaidOrderSideEffects } from '@/lib/payments/schedule-manual-paid-order-side-effects';
+import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
 import {
   recordPaymentBodySchema,
@@ -38,21 +38,15 @@ interface EmailOrderItem {
   price: number;
 }
 
-interface RecordPaymentTransactionRow {
-  amount: number | string | null;
-  error_code?: string | null;
-  gateway: string | null;
-  gateway_reference: string | null;
-  status: string | null;
-}
-
 interface RecordManualPaymentResult {
   cancelled_at?: string | null;
   current_paid?: number | string | null;
   error_code?: string | null;
+  idempotency_replayed?: boolean | null;
   new_paid?: number | string | null;
   order_total?: number | string | null;
   payment_status?: PaymentStatus | null;
+  previous_amount_paid?: number | string | null;
   previous_payment_status?: PaymentStatus | null;
   previous_shipping_status?: ShippingStatus | null;
   remaining_balance?: number | string | null;
@@ -128,7 +122,17 @@ export async function POST(
     }
 
     const parsedAmount = Number(parsedBody.data.amount);
-    const { payment_method, reference, notes } = parsedBody.data;
+    const { idempotency_key, payment_method, reference, notes } =
+      parsedBody.data;
+    const requiresIdempotencyKey =
+      request.headers.get('x-baci-idempotency-required') === '1';
+    if (requiresIdempotencyKey && !idempotency_key) {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+    const idempotencyKey = idempotency_key ?? crypto.randomUUID();
     logger.info({
       message: 'RecordPayment body parsed',
       amount: parsedAmount,
@@ -224,196 +228,9 @@ export async function POST(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Δ-36 (A3): widen the existing completed-only fetch to also cover
-    // pending/processing rows so we can guard against shadowing a real
-    // non-manual gateway payment (Paystack DVA, Korapay, Kuda, Credit
-    // Direct, Juicyway) with a parallel manual transaction. The order was
-    // tenant-scoped above, so read through an order-scoped RPC instead of
-    // the denormalized transactions.merchant_id RLS predicate, which can
-    // drift independently of the verified order row.
-    const { data: relevantTxns, error: txError } = (await supabase.rpc(
-      'get_record_payment_order_transactions',
-      {
-        p_merchant_id: merchantId,
-        p_order_id: orderId,
-      }
-    )) as {
-      data: RecordPaymentTransactionRow[] | null;
-      error: PostgrestError | null;
-    };
-
-    if (txError) {
-      logger.error({
-        message: 'RecordPayment transactions fetch error',
-        error: txError,
-        orderId,
-      });
-      return NextResponse.json(
-        { error: 'Failed to fetch transactions' },
-        { status: 500 }
-      );
-    }
-
-    const transactionReadError = relevantTxns?.find((t) => t.error_code);
-    if (
-      transactionReadError?.error_code ===
-      'ORDER_PAYMENT_RECONCILIATION_REQUIRED'
-    ) {
-      logger.warn({
-        message:
-          'RecordPayment rejected: order transaction merchant drift requires reconciliation',
-        merchantId: merchant.id,
-        orderId,
-      });
-      return NextResponse.json(
-        {
-          error:
-            'This order has payments that require reconciliation before recording a manual payment.',
-          code: 'ORDER_PAYMENT_RECONCILIATION_REQUIRED',
-        },
-        { status: 409 }
-      );
-    }
-
-    if (transactionReadError?.error_code) {
-      logger.error({
-        message: 'RecordPayment transaction RPC returned unknown error code',
-        errorCode: transactionReadError.error_code,
-        merchantId: merchant.id,
-        orderId,
-      });
-      return NextResponse.json(
-        { error: 'Failed to fetch order transactions' },
-        { status: 500 }
-      );
-    }
-
-    // Δ-36 (A3): pending-gateway guard. Block manual record-payment
-    // while a non-manual processor transaction (Paystack DVA, Korapay,
-    // Kuda, Credit Direct, CredPal, Juicyway) is still pending or processing —
-    // recording a parallel manual transaction would shadow the real
-    // gateway payment (the failure mode that nearly bit us with Efosa).
-    // Failed / cancelled gateway attempts do NOT block (they're not in
-    // the SELECT's `IN ('completed','pending','processing')` window).
-    const PENDING_PROCESSOR_GATEWAYS = new Set([
-      'paystack',
-      'korapay',
-      'kuda',
-      'credit_direct',
-      'credpal',
-      'klump',
-      'juicyway',
-    ]);
-    const pendingProcessorTxn = relevantTxns?.find(
-      (t) =>
-        t.gateway !== null &&
-        PENDING_PROCESSOR_GATEWAYS.has(t.gateway.toLowerCase()) &&
-        (t.status === 'pending' || t.status === 'processing')
-    );
-    if (pendingProcessorTxn) {
-      // Log the gateway name internally; client message stays generic
-      // (no extra processor data leakage per the plan).
-      logger.warn({
-        message: 'RecordPayment rejected: pending processor transaction',
-        orderId,
-        merchantId: merchant.id,
-        pendingGateway: pendingProcessorTxn.gateway,
-        pendingStatus: pendingProcessorTxn.status,
-      });
-      return NextResponse.json(
-        {
-          error:
-            'This order has a pending processor payment. Use payment reconciliation instead.',
-          code: 'PENDING_GATEWAY_PAYMENT',
-        },
-        { status: 409 }
-      );
-    }
-
-    // Filter to completed-only for the duplicate-reference and paid-amount
-    // calculations below (pre-A3 semantics).
-    const transactions = relevantTxns?.filter((t) => t.status === 'completed');
-
-    // Application-level duplicate guard (pre-insert). Only applies when the
-    // caller provides a reference — reference-less payments skip this check.
-    // NOTE: A concurrent request can still slip through this check. The DB-level
-    // partial unique index on (order_id, gateway_reference) WHERE gateway_reference
-    // IS NOT NULL (migration 20260504120000) is the authoritative safeguard.
-    if (reference) {
-      const existingTransaction = transactions?.find(
-        (t) => t.gateway_reference === reference
-      );
-      if (existingTransaction) {
-        logger.warn({
-          message: 'RecordPayment duplicate reference rejected',
-          orderId,
-          merchantId: merchant.id,
-          reference,
-        });
-        return NextResponse.json(
-          { error: 'Duplicate payment reference', code: 'DUPLICATE_REFERENCE' },
-          { status: 409 }
-        );
-      }
-    }
-
-    // 3. Calculate Totals
-    const currentPaid =
-      transactions?.reduce((sum, t) => sum + (Number(t.amount) || 0), 0) || 0;
-    const walletUsed = Number(order.wallet_amount_used) || 0;
-    const totalPaidBefore = currentPaid + walletUsed;
-    const orderTotal = Number(order.total) || 0;
-    const remainingBeforePayment = orderTotal - totalPaidBefore;
-
-    // Reject payments on fully-paid orders
-    if (remainingBeforePayment <= 0) {
-      logger.warn({
-        message: 'RecordPayment rejected: order already fully paid',
-        orderId,
-        merchantId: merchant.id,
-        orderTotal,
-        totalPaidBefore,
-      });
-      return NextResponse.json(
-        { error: 'Order is already fully paid' },
-        { status: 409 }
-      );
-    }
-
-    // Reject overpayments
-    if (parsedAmount > remainingBeforePayment) {
-      logger.warn({
-        message: 'RecordPayment rejected: amount exceeds remaining balance',
-        orderId,
-        amount: parsedAmount,
-        remainingBeforePayment,
-      });
-      return NextResponse.json(
-        { error: 'Amount exceeds remaining balance' },
-        { status: 409 }
-      );
-    }
-
-    const estimatedNewPaid = totalPaidBefore + parsedAmount;
-    const estimatedRemainingBalance = Math.max(
-      0,
-      orderTotal - estimatedNewPaid
-    );
-
-    logger.info({
-      message: 'RecordPayment totals calculated',
-      orderId,
-      currentPaid,
-      newPaid: estimatedNewPaid,
-      orderTotal,
-      remainingBalance: estimatedRemainingBalance,
-    });
-
-    // 4. Create Transaction
-    // The pre-insert checks above provide fast feedback, but concurrent manual
-    // requests can still read the same balance. The RPC is authoritative: it
-    // locks the verified order row, recomputes completed payments, rejects stale
-    // overpayments/duplicates, and inserts the manual transaction atomically.
+    // The RPC is the authoritative balance and idempotency boundary. Keeping
+    // replay detection ahead of mutable payment guards inside the same lock
+    // allows a timed-out request to succeed even if order state changed later.
     const paymentDescription =
       notes ||
       (payment_method
@@ -425,6 +242,7 @@ export async function POST(
         p_currency: order.currency || 'NGN',
         p_description: paymentDescription,
         p_gateway_reference: reference ?? null,
+        p_idempotency_key: idempotencyKey,
         p_merchant_id: merchant.id,
         p_metadata: {
           payment_method: payment_method || 'manual',
@@ -469,6 +287,46 @@ export async function POST(
         orderId,
       });
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
+    }
+
+    if (manualPaymentResult?.error_code === 'INVALID_IDEMPOTENCY_KEY') {
+      logger.warn({
+        message:
+          'RecordPayment rejected by atomic insert: invalid idempotency key',
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        { error: 'Invalid idempotency key' },
+        { status: 400 }
+      );
+    }
+
+    if (manualPaymentResult?.error_code === 'INVALID_METADATA') {
+      logger.error({
+        message: 'RecordPayment rejected by atomic insert: invalid metadata',
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        { error: 'Failed to record payment' },
+        { status: 500 }
+      );
+    }
+
+    if (manualPaymentResult?.error_code === 'IDEMPOTENCY_KEY_CONFLICT') {
+      logger.warn({
+        message: 'RecordPayment idempotency key reused for different payment',
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        {
+          error: 'Payment request conflicts with an earlier attempt',
+          code: 'IDEMPOTENCY_KEY_CONFLICT',
+        },
+        { status: 409 }
+      );
     }
 
     if (manualPaymentResult?.error_code === 'PENDING_GATEWAY_PAYMENT') {
@@ -521,6 +379,18 @@ export async function POST(
       );
     }
 
+    if (manualPaymentResult?.error_code === 'ORDER_REFUNDED') {
+      logger.warn({
+        message: 'RecordPayment rejected by atomic insert: order refunded',
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json(
+        { error: 'Cannot record a payment on a refunded order' },
+        { status: 409 }
+      );
+    }
+
     if (
       manualPaymentResult?.error_code === 'AMOUNT_EXCEEDS_REMAINING_BALANCE'
     ) {
@@ -561,16 +431,9 @@ export async function POST(
     const createdTransaction = manualPaymentResult.transaction_id
       ? { id: manualPaymentResult.transaction_id }
       : null;
-    const newPaid = Number(manualPaymentResult.new_paid ?? estimatedNewPaid);
-    const remainingBalance = Number(
-      manualPaymentResult.remaining_balance ?? estimatedRemainingBalance
-    );
-    const lockedOrderTotal = Number(
-      manualPaymentResult.order_total ?? newPaid + remainingBalance
-    );
-    const authoritativeOrderTotal = Number.isFinite(lockedOrderTotal)
-      ? lockedOrderTotal
-      : Number(orderTotal);
+    const newPaid = Number(manualPaymentResult.new_paid);
+    const remainingBalance = Number(manualPaymentResult.remaining_balance);
+    const authoritativeOrderTotal = Number(manualPaymentResult.order_total);
 
     // 5. Consume the authoritative order status written by the RPC.
     // Keeping status mutation inside the same DB transaction as the manual
@@ -579,7 +442,13 @@ export async function POST(
     const rpcPaymentStatus = manualPaymentResult.payment_status ?? null;
     const rpcShippingStatus = manualPaymentResult.shipping_status ?? null;
 
-    if (!rpcPaymentStatus || !rpcShippingStatus) {
+    if (
+      !rpcPaymentStatus ||
+      !rpcShippingStatus ||
+      !Number.isFinite(newPaid) ||
+      !Number.isFinite(remainingBalance) ||
+      !Number.isFinite(authoritativeOrderTotal)
+    ) {
       logger.error({
         message:
           'CRITICAL: RecordPayment RPC inserted a transaction without returning updated order status',
@@ -587,13 +456,10 @@ export async function POST(
         orderId,
         inconsistentState: true,
       });
-      return NextResponse.json({
-        success: true,
-        amount_paid: parsedAmount,
-        new_balance: remainingBalance,
-        updated_status: {},
-        status_update_failed: true,
-      });
+      return NextResponse.json(
+        { error: 'Failed to record payment' },
+        { status: 500 }
+      );
     }
 
     const isFullyPaid = rpcPaymentStatus === 'paid';
@@ -612,8 +478,9 @@ export async function POST(
       shipping_status: rpcShippingStatus,
     };
 
-    let orderCancelledByClamp = false;
-    if (!createdTransaction?.id && !isOrderClampedAsCancelled(updatedOrder)) {
+    const orderCancelledByClamp = isOrderClampedAsCancelled(updatedOrder);
+    const transactionId = createdTransaction?.id;
+    if (!transactionId && !orderCancelledByClamp) {
       logger.error({
         message: 'RecordPayment atomic insert omitted transaction id',
         manualPaymentResult,
@@ -625,8 +492,7 @@ export async function POST(
       );
     }
 
-    if (isOrderClampedAsCancelled(updatedOrder)) {
-      orderCancelledByClamp = true;
+    if (orderCancelledByClamp) {
       // Link the reconciliation row to the transaction just recorded (matched
       // by reference) so ops can trace the captured money. Falls back to null
       // for a referenceless manual/cash payment.
@@ -674,17 +540,48 @@ export async function POST(
       return NextResponse.json({
         success: true,
         amount_paid: parsedAmount,
+        idempotency_replayed:
+          manualPaymentResult.idempotency_replayed || undefined,
         new_balance: remainingBalance,
         updated_status: {},
         order_cancelled: true,
       });
     }
 
+    // The consolidated guard above requires an id for every non-cancelled
+    // order; the cancelled branch has already returned.
+    const sideEffectTransactionId = transactionId as string;
+
     // Paid-order side effects (only when NOT cancelled).
     if (isFullyPaid) {
       try {
         await ensurePaidOrderInventoryConfirmed(supabase, merchantId, orderId);
       } catch (inventoryError) {
+        if (manualPaymentResult.idempotency_replayed) {
+          await fileInventoryConfirmationFailureReview({
+            gatewayReference: reference ?? null,
+            merchantId,
+            metadata: {
+              inventoryError:
+                inventoryError instanceof Error
+                  ? inventoryError.message
+                  : inventoryError,
+              source: 'record_payment_idempotent_replay_inventory_confirmation',
+            },
+            orderId,
+            reason:
+              'A replayed manual payment is paid, but serialized inventory confirmation still failed.',
+            transactionId: createdTransaction?.id ?? null,
+          });
+
+          const payload =
+            buildInventoryConfirmationFailurePayload(inventoryError);
+          return NextResponse.json(payload, {
+            status:
+              payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+          });
+        }
+
         let cleanupFailed = false;
         let rollbackFailed = false;
 
@@ -697,6 +594,10 @@ export async function POST(
               payment_status:
                 manualPaymentResult.previous_payment_status ??
                 order.payment_status ??
+                null,
+              amount_paid:
+                manualPaymentResult.previous_amount_paid ??
+                order.amount_paid ??
                 null,
               shipping_status:
                 manualPaymentResult.previous_shipping_status ??
@@ -796,99 +697,20 @@ export async function POST(
       }
 
       logger.info({ message: 'RecordPayment order fully paid', orderId });
-
-      // SEND CONFIRMATION EMAIL (If fully paid)
-      try {
-        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-        const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
-
-        const emailItems =
-          order.order_items?.map((item: EmailOrderItem) => ({
-            name: item.name || 'Product',
-            quantity: item.quantity || 1,
-            price: item.price || 0,
-          })) || [];
-
-        const emailData = {
-          orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
-          customerName: order.customer_name,
-          items: emailItems,
-          subtotal: Number(order.subtotal),
-          shippingFee: Number(order.shipping_fee),
-          total: Number(authoritativeOrderTotal),
-          currency: order.currency || 'NGN',
-          shippingAddress: {
-            address: order.shipping_address?.address || '',
-            city: order.shipping_address?.city || '',
-            state: order.shipping_address?.state || '',
-            phone: order.customer_phone || '',
-          },
-          merchantName: merchant.business_name,
-          merchantUrl,
-          merchantTin: merchant.tax_identification_number ?? undefined,
-          merchantRcNumber: merchant.cac_rc_number ?? undefined,
-        };
-
-        const htmlContent = generateOrderConfirmationEmail(emailData);
-        const textContent = generateOrderConfirmationText(emailData);
-
-        const replyToEmail =
-          merchant.support_email ||
-          merchant.email ||
-          `support@${merchant.slug}.${rootDomain}`;
-        const senderName = merchant.email_sender_name
-          ? `${merchant.email_sender_name} Orders`
-          : `${merchant.business_name} Orders`;
-
-        // Fire and forget
-        logger.info({
-          message: 'RecordPayment sending confirmation email',
-          orderId,
-        });
-        sendEmail({
-          to: order.customer_email,
-          toName: order.customer_name,
-          subject: `Order Payment Confirmed - #${emailData.orderNumber}`,
-          htmlContent,
-          textContent,
-          replyTo: replyToEmail,
-          emailType: 'orders',
-          fromName: senderName,
-          auditContext: {
-            merchantId: merchant.id,
-            orderId: order.id,
-            customerId: order.customer_id,
-            metadata: {
-              trigger: 'manual_payment_confirmation',
-            },
-          },
-        }).catch((err) =>
-          logger.error({
-            message: 'Failed to send confirmation email',
-            error: err,
-          })
-        );
-      } catch (emailErr) {
-        logger.error({
-          message: 'Error preparing email payload',
-          error: emailErr,
-        });
-      }
-
-      // --------------------------------------------------------
-      // TRIGGER OFFLINE CONVERSION EVENT (Server-Side)
-      // --------------------------------------------------------
-      // Schedule background task using Next.js `after()` for proper lifecycle management
-      // This runs AFTER the response is sent, ensuring the user gets a fast response
-      after(async () => {
-        try {
-          await triggerPurchaseConversion(supabase, merchant.id, order);
-        } catch {
-          // Errors are already logged inside triggerPurchaseConversion
-          // This catch prevents unhandled rejections in the background task
-        }
+      scheduleManualPaidOrderSideEffects({
+        actor: `record-payment:${user.id}`,
+        amount: parsedAmount,
+        gatewayReference: reference,
+        merchantId: merchant.id,
+        order: {
+          ...order,
+          amount_paid: Number(newPaid),
+          payment_status: rpcPaymentStatus,
+          total: authoritativeOrderTotal,
+        },
+        transactionId: sideEffectTransactionId,
       });
-    } else {
+    } else if (rpcPaymentStatus === 'partially_paid') {
       logger.info({
         message: 'RecordPayment order partially paid',
         orderId,
@@ -934,26 +756,52 @@ export async function POST(
           message: 'RecordPayment sending receipt email',
           orderId,
         });
-        sendEmail({
-          to: order.customer_email,
-          toName: order.customer_name,
-          subject: `Payment Receipt - Order #${receiptData.orderNumber}`,
-          htmlContent,
-          textContent,
-          replyTo: replyToEmail,
-          emailType: 'orders',
-          fromName: senderName,
-          auditContext: {
-            merchantId: merchant.id,
-            orderId: order.id,
-            customerId: order.customer_id,
-            metadata: {
-              trigger: 'manual_payment_receipt',
-            },
-          },
-        }).catch((err) =>
-          logger.error({ message: 'Failed to send receipt email', error: err })
-        );
+        after(async () => {
+          try {
+            const serviceClient = createServiceClient();
+            await runManualPaymentSideEffect({
+              actor: `record-payment:${user.id}`,
+              execute: async () => {
+                const emailResult = await sendEmail({
+                  to: order.customer_email,
+                  toName: order.customer_name,
+                  subject: `Payment Receipt - Order #${receiptData.orderNumber}`,
+                  htmlContent,
+                  textContent,
+                  replyTo: replyToEmail,
+                  emailType: 'orders',
+                  fromName: senderName,
+                  clientReference: `manual-payment:${sideEffectTransactionId}:partial-receipt`,
+                  auditContext: {
+                    merchantId: merchant.id,
+                    orderId: order.id,
+                    customerId: order.customer_id,
+                    metadata: {
+                      trigger: 'manual_payment_receipt',
+                    },
+                  },
+                });
+                if (!emailResult.success) {
+                  throw new Error(
+                    emailResult.error || 'payment_receipt_email_failed'
+                  );
+                }
+              },
+              orderId,
+              step: 'partial_receipt',
+              supabase: serviceClient,
+              transactionId: sideEffectTransactionId,
+            });
+          } catch (error) {
+            logger.error({
+              actor: `record-payment:${user.id}`,
+              error,
+              message: 'Manual partial-payment receipt failed after response',
+              orderId,
+              transactionId: sideEffectTransactionId,
+            });
+          }
+        });
       } catch (emailErr) {
         logger.error({
           message: 'Error preparing receipt email payload',
@@ -966,6 +814,8 @@ export async function POST(
     return NextResponse.json({
       success: true,
       amount_paid: parsedAmount,
+      idempotency_replayed:
+        manualPaymentResult.idempotency_replayed || undefined,
       new_balance: remainingBalance,
       updated_status: updates,
     });

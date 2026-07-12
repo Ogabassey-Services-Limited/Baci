@@ -91,16 +91,20 @@ export function toRichPaidOrderItems(
     if (!isRecord(item)) {
       return {
         condition: null,
+        id: null,
         name: null,
         price: null,
+        product_id: null,
         quantity: null,
         variant_name: null,
       };
     }
     return {
       condition: optionalString(item, 'condition'),
+      id: optionalString(item, 'id'),
       name: optionalString(item, 'name'),
       price: optionalMoney(item, 'price'),
+      product_id: optionalString(item, 'product_id'),
       quantity: optionalNumber(item, 'quantity'),
       variant_name: optionalString(item, 'variant_name'),
     };

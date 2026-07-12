@@ -49,8 +49,10 @@ const richOrder: RichPaidOrder = {
   order_items: [
     {
       condition: 'open_box',
+      id: 'item-1',
       name: 'iPhone',
       price: '20000',
+      product_id: 'product-1',
       quantity: 1,
       variant_name: 'Black',
     },

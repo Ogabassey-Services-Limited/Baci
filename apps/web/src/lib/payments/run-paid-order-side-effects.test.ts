@@ -123,7 +123,15 @@ describe('runPaidOrderSideEffects', () => {
       'merchant-1',
       expect.objectContaining({
         id: 'order-1',
-        order_items: [{ name: 'iPhone', price: 20_000, quantity: 1 }],
+        order_items: [
+          expect.objectContaining({
+            id: null,
+            name: 'iPhone',
+            price: 20_000,
+            product_id: null,
+            quantity: 1,
+          }),
+        ],
         shipping_address: { city: 'Lagos', state: 'LA' },
         total: 20_000,
       })

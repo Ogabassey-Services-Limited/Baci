@@ -21,8 +21,10 @@ export function toOrderForConversion(order: RichPaidOrder): OrderForConversion {
     customer_phone: order.customer_phone ?? null,
     id: order.id,
     order_items: (order.order_items ?? []).map((item) => ({
+      id: item.id ?? null,
       name: item.name ?? null,
       price: item.price ?? null,
+      product_id: item.product_id ?? null,
       quantity: item.quantity ?? null,
     })),
     order_number: order.order_number ?? null,
