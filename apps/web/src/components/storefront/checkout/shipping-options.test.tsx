@@ -10,11 +10,20 @@ vi.mock('@/lib/api-client', () => ({
   apiPost: mockApiPost,
 }));
 
-vi.mock('@/hooks/use-currency', () => ({
-  useCurrency: () => ({ formatCurrency: (value: number) => `₦${value}` }),
-}));
-
 import { ShippingOptions } from './shipping-options';
+
+const merchantRateQuote: ShippingQuote = {
+  id: 'mrate_9f1b2c3d-0000-4000-8000-000000000001',
+  provider: 'MERCHANT',
+  serviceTier: 'standard',
+  carrierName: 'Standard Delivery',
+  displayName: 'Standard Delivery',
+  estimatedDays: 3,
+  price: 1500,
+  currency: 'INR',
+  pickupIncluded: false,
+  insuranceIncluded: false,
+};
 
 const cheapQuote: ShippingQuote = {
   id: 'quote-cheap',
@@ -112,6 +121,8 @@ describe('ShippingOptions', () => {
       },
       items: [{ name: 'Pixel 9', quantity: 2, weight: 1, value: 5000 }],
       shipmentType: 'domestic',
+      // Advisory subtotal (2 x ₦5,000) so free-over merchant rates quote right.
+      cart_subtotal: 10000,
     });
     expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect).toHaveBeenCalledWith(cheapQuote, 'session-1');
@@ -134,6 +145,49 @@ describe('ShippingOptions', () => {
     });
 
     expect(mockApiPost).toHaveBeenCalledTimes(1);
+  });
+
+  it('filters out merchant-configured rates the legacy submit path cannot thread', async () => {
+    // The legacy checkout submit posts selected_quote_id + shipping_provider
+    // with no shipping_rate_id, so a merchant rate (mrate_<uuid> id, not a
+    // shipping_quotes row) would produce a broken order — it must be dropped.
+    mockApiPost.mockResolvedValue({
+      quotes: { featured: [cheapQuote], all: [merchantRateQuote, cheapQuote] },
+      sessionId: 'session-mixed',
+      expiresAt: '2026-06-12T00:00:00.000Z',
+    });
+    const onSelect = vi.fn();
+
+    render(<ShippingOptions {...baseProps} onSelect={onSelect} />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    // Carrier quotes still render with their currency-aware price…
+    expect(screen.getByText('GIG Logistics')).toBeInTheDocument();
+    // …but the merchant rate is not rendered at all.
+    expect(screen.queryByText('Standard Delivery')).not.toBeInTheDocument();
+    expect(screen.queryByText(/₹\s?1,500/)).not.toBeInTheDocument();
+    // Auto-selection never lands on the filtered merchant rate.
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(cheapQuote, 'session-mixed');
+  });
+
+  it('shows the empty state when every quote is a merchant rate', async () => {
+    mockApiPost.mockResolvedValue({
+      quotes: { featured: [merchantRateQuote], all: [merchantRateQuote] },
+      sessionId: 'session-merchant',
+      expiresAt: '2026-06-12T00:00:00.000Z',
+    });
+    const onSelect = vi.fn();
+
+    render(<ShippingOptions {...baseProps} onSelect={onSelect} />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(screen.queryByText('Standard Delivery')).not.toBeInTheDocument();
+    expect(onSelect).not.toHaveBeenCalled();
   });
 
   it('shows a retry message when the quote request fails', async () => {

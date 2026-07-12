@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { orderCreateSchema } from './orders';
+import { orderCreateSchema, reuseCheckoutOrderSchema } from './orders';
 
 const validOrder = {
   merchant_id: '123e4567-e89b-12d3-a456-426614174000',
@@ -30,6 +30,38 @@ describe('orderCreateSchema', () => {
       discount_code: 'SAVE10',
     });
     expect(result.success).toBe(true);
+  });
+
+  it('accepts a uuid shipping_rate_id and preserves it', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      shipping_rate_id: '123e4567-e89b-12d3-a456-426614174777',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.shipping_rate_id).toBe(
+        '123e4567-e89b-12d3-a456-426614174777'
+      );
+    }
+  });
+
+  it('accepts an explicit null shipping_rate_id (no merchant rate selected)', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      shipping_rate_id: null,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.shipping_rate_id).toBeNull();
+    }
+  });
+
+  it('rejects a non-uuid shipping_rate_id', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      shipping_rate_id: 'mrate_not-a-uuid',
+    });
+    expect(result.success).toBe(false);
   });
 
   it('rejects an over-long discount_code', () => {
@@ -658,5 +690,55 @@ describe('orderCreateSchema', () => {
         expect(result.data.client_total).toBeNull();
       }
     });
+  });
+});
+
+describe('reuseCheckoutOrderSchema', () => {
+  const validReuse = {
+    order_id: '4dc0ee52-d9c4-406a-b6ca-80c84eef6a8f',
+    merchant_id: 'e6e2e46c-5e3c-40c1-b0ae-832d6d20f0a2',
+    tracking_token: 'tracking-token-123',
+    customer_email: 'john@example.com',
+    payment_method: 'card',
+  };
+
+  it('accepts a valid reuse payload without a merchant rate id', () => {
+    const result = reuseCheckoutOrderSchema.safeParse(validReuse);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.shipping_rate_id).toBeUndefined();
+    }
+  });
+
+  it('accepts a bare uuid shipping_rate_id and preserves it', () => {
+    const result = reuseCheckoutOrderSchema.safeParse({
+      ...validReuse,
+      shipping_rate_id: '123e4567-e89b-12d3-a456-426614174777',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.shipping_rate_id).toBe(
+        '123e4567-e89b-12d3-a456-426614174777'
+      );
+    }
+  });
+
+  it('accepts an explicit null shipping_rate_id', () => {
+    const result = reuseCheckoutOrderSchema.safeParse({
+      ...validReuse,
+      shipping_rate_id: null,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.shipping_rate_id).toBeNull();
+    }
+  });
+
+  it('rejects the synthetic mrate_-prefixed id (not a bare uuid)', () => {
+    const result = reuseCheckoutOrderSchema.safeParse({
+      ...validReuse,
+      shipping_rate_id: 'mrate_123e4567-e89b-12d3-a456-426614174777',
+    });
+    expect(result.success).toBe(false);
   });
 });

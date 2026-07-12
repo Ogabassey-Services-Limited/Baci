@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CartItem } from '@/hooks/cart';
 import {
+  calculateCartCatalogSubtotal,
   calculateCartItemSubtotal,
   calculateCartTotal,
   getCartItemCheckoutUnitPrice,
@@ -176,6 +177,61 @@ describe('cart-entitlement-sanitizer', () => {
       expect(() =>
         calculateCartTotal(null as unknown as CartItem[], false)
       ).toThrow(TypeError);
+    });
+  });
+
+  describe('calculateCartCatalogSubtotal', () => {
+    it('prices goods at the catalog price even when a negotiated price is applied', () => {
+      // Item 1: catalog goods = 1000 * 2 = 2000; assurance basis tracks the
+      //   negotiated price (800) => 800 * 2 * 0.05 = 80. Line = 2080.
+      // Item 2: catalog goods = 2000 * 1 = 2000; no assurance. Line = 2000.
+      // Catalog subtotal = 4080 — NOT the negotiated calculateCartTotal (3680).
+      expect(calculateCartCatalogSubtotal(mockCart, true)).toBe(4080);
+      expect(calculateCartTotal(mockCart, true)).toBe(3680);
+    });
+
+    it('matches calculateCartTotal when negotiation is not entitled', () => {
+      // Sanitizing strips the negotiated price, so goods and assurance both fall
+      // back to the catalog price — the two calculations converge.
+      expect(calculateCartCatalogSubtotal(mockCart, false)).toBe(
+        calculateCartTotal(mockCart, false)
+      );
+    });
+
+    it('keeps signed quiz voucher assurance free while still counting catalog goods', () => {
+      const voucherGift = {
+        id: 'gift-product',
+        cartItemId: 'gift-product::quiz',
+        name: 'Quiz Gift',
+        price: 205000,
+        negotiatedPrice: 50000,
+        negotiationStatus: 'accepted',
+        quantity: 1,
+        quizAwardId: 'award-1',
+        quizVoucherToken: 'signed-token',
+        hasAssurance: true,
+      } as CartItem;
+
+      // Goods counted at catalog price (205000); voucher assurance basis is 0.
+      expect(calculateCartCatalogSubtotal([voucherGift], true)).toBe(205000);
+    });
+
+    it('normalizes invalid catalog prices and quantities to 0', () => {
+      const cart: CartItem[] = [
+        {
+          ...mockCart[0],
+          price: Number.NaN,
+          negotiatedPrice: undefined,
+          hasAssurance: false,
+        },
+        { ...mockCart[1], quantity: undefined as unknown as number },
+      ];
+
+      expect(calculateCartCatalogSubtotal(cart, true)).toBe(0);
+    });
+
+    it('should return 0 for an empty cart', () => {
+      expect(calculateCartCatalogSubtotal([], false)).toBe(0);
     });
   });
 });

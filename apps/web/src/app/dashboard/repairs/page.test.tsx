@@ -11,9 +11,11 @@ vi.mock('@/lib/merchant-server', () => ({ ensurePermission }));
 vi.mock('@/lib/supabase/server', () => ({ createClient }));
 vi.mock('next/headers', () => ({ cookies }));
 vi.mock('./repairs-catalog-client', () => ({
-  default: ({ catalogEnabled }: { catalogEnabled: boolean }) => (
-    <div>catalog-client:{String(catalogEnabled)}</div>
-  ),
+  default: ({
+    catalogPubliclyEnabled,
+  }: {
+    catalogPubliclyEnabled: boolean;
+  }) => <div>catalog-client:{String(catalogPubliclyEnabled)}</div>,
 }));
 vi.mock('./repairs-unavailable', () => ({
   default: ({ reason }: { reason: string }) => <div>unavailable:{reason}</div>,

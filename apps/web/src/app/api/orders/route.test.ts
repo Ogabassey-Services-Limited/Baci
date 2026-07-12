@@ -6656,3 +6656,1101 @@ describe('POST /api/orders — discount code', () => {
     );
   });
 });
+
+describe('POST /api/orders — merchant shipping rate enforcement', () => {
+  const LAGOS_ZONE_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const ROW_ZONE_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const LAGOS_RATE_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+
+  // Raw snake_case payload, exactly as the get_storefront_shipping_rates RPC
+  // returns it (verifyOrderShippingRate parses it through the Zod schema).
+  function shippingRatesRpcPayload(
+    rateOverrides: Record<string, unknown> = {}
+  ) {
+    return {
+      zones: [
+        {
+          id: LAGOS_ZONE_ID,
+          name: 'Lagos',
+          is_rest_of_world: false,
+          active: true,
+        },
+        {
+          id: ROW_ZONE_ID,
+          name: 'Everywhere else',
+          is_rest_of_world: true,
+          active: true,
+        },
+      ],
+      locations: [
+        {
+          zone_id: LAGOS_ZONE_ID,
+          country_code: 'NG',
+          subdivision_code: 'NG-LA',
+        },
+      ],
+      rates: [
+        {
+          id: LAGOS_RATE_ID,
+          zone_id: LAGOS_ZONE_ID,
+          name: 'Lagos Standard',
+          kind: 'ship',
+          currency: 'NGN',
+          base_amount: 1500,
+          condition_type: 'always',
+          min_subtotal: null,
+          max_subtotal: null,
+          free_over_amount: null,
+          delivery_min_days: 1,
+          delivery_max_days: 3,
+          pickup_address: null,
+          sort_order: 0,
+          active: true,
+          ...rateOverrides,
+        },
+      ],
+    };
+  }
+
+  // Extends primeAdminOrderCurrencyRead's shape with the rates RPC and the
+  // post-create shipping_provider stamp (update().eq().eq()).
+  function primeAdminShippingRateClient(
+    ratesPayload: unknown,
+    options: { ratesError?: unknown } = {}
+  ) {
+    const updateEqSecond = vi.fn().mockResolvedValue({ error: null });
+    const updateEqFirst = vi.fn(() => ({ eq: updateEqSecond }));
+    const update = vi.fn(() => ({ eq: updateEqFirst }));
+    const rpc = vi.fn((name: string) =>
+      Promise.resolve(
+        name === 'get_storefront_shipping_rates'
+          ? {
+              data: options.ratesError ? null : ratesPayload,
+              error: options.ratesError ?? null,
+            }
+          : { data: null, error: null }
+      )
+    );
+    mockCreateAdminClient.mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { currency: 'NGN' },
+          error: null,
+        }),
+        update,
+      })),
+      rpc,
+    } as never);
+    return { rpc, update, updateEqFirst, updateEqSecond };
+  }
+
+  async function primeStorefrontClient() {
+    const supabaseMod = await import('@/lib/supabase/server');
+    const supabase = buildMockSupabase(
+      {},
+      {
+        // Catalog price matches the client line price (1000), so the
+        // canonical subtotal for tier/free-over checks is 1000.
+        productRows: [
+          { id: 'p-1', name: 'Widget', price: 1000, slug: 'widget' },
+        ],
+      }
+    );
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    return supabase;
+  }
+
+  function rateOrderRequest(overrides: Record<string, unknown> = {}) {
+    return new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        shipping_rate_id: LAGOS_RATE_ID,
+        shipping_fee: 1500,
+        ...overrides,
+      }),
+    });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
+  });
+
+  it('accepts a valid merchant rate, passes the server-computed fee with nulled provider/quote id, and stamps the provider', async () => {
+    // Arrange
+    const admin = primeAdminShippingRateClient(shippingRatesRpcPayload());
+    const supabase = await primeStorefrontClient();
+
+    // Act — baseOrderPayload ships to state 'Lagos' with no country; the
+    // merchant fixture country (NG) supplies the domestic fallback.
+    const response = await POST(rateOrderRequest());
+
+    // Assert
+    expect(response.status).toBe(201);
+    expect(admin.rpc).toHaveBeenCalledWith('get_storefront_shipping_rates', {
+      p_merchant_id: MERCHANT_ID,
+    });
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({
+        p_shipping_fee: 1500,
+        p_shipping_provider: null,
+        p_selected_quote_id: null,
+      })
+    );
+    expect(admin.update).toHaveBeenCalledWith({
+      shipping_provider: 'MERCHANT',
+      shipping_rate_id: LAGOS_RATE_ID,
+      shipping_rate_name: 'Lagos Standard',
+    });
+    expect(admin.updateEqFirst).toHaveBeenCalledWith('id', 'order-id');
+    expect(admin.updateEqSecond).toHaveBeenCalledWith(
+      'merchant_id',
+      MERCHANT_ID
+    );
+  });
+
+  it('stamps MERCHANT_PICKUP when the selected rate is a pickup rate', async () => {
+    // Arrange — same Lagos rate, but configured as a local pickup option with
+    // no configured collection address (pickup_address: null).
+    const admin = primeAdminShippingRateClient(
+      shippingRatesRpcPayload({ kind: 'pickup' })
+    );
+    await primeStorefrontClient();
+
+    // Act
+    const response = await POST(rateOrderRequest());
+
+    // Assert — fulfillment must see pickup, not a door delivery. The pickup
+    // snapshot is written (null here since the rate carries no address).
+    expect(response.status).toBe(201);
+    expect(admin.update).toHaveBeenCalledWith({
+      shipping_provider: 'MERCHANT_PICKUP',
+      shipping_rate_id: LAGOS_RATE_ID,
+      shipping_rate_name: 'Lagos Standard',
+      shipping_pickup_details: null,
+    });
+  });
+
+  it('snapshots the pickup collection address into shipping_pickup_details', async () => {
+    // Arrange — a pickup rate carrying a full collection address/instructions.
+    // Raw snake_case `country_code` is normalized to `countryCode` by the
+    // storefront rates schema before it reaches the stamp.
+    const admin = primeAdminShippingRateClient(
+      shippingRatesRpcPayload({
+        kind: 'pickup',
+        pickup_address: {
+          label: 'Ikeja Pickup Hub',
+          address: '5 Allen Avenue',
+          city: 'Ikeja',
+          state: 'Lagos',
+          country_code: 'NG',
+          instructions: 'Ask for the front desk',
+        },
+      })
+    );
+    await primeStorefrontClient();
+
+    // Act
+    const response = await POST(rateOrderRequest());
+
+    // Assert — the durable collection snapshot is persisted alongside the
+    // provider + rate-name so the order retains it even if the rate is later
+    // edited or deleted.
+    expect(response.status).toBe(201);
+    expect(admin.update).toHaveBeenCalledWith({
+      shipping_provider: 'MERCHANT_PICKUP',
+      shipping_rate_id: LAGOS_RATE_ID,
+      shipping_rate_name: 'Lagos Standard',
+      shipping_pickup_details: {
+        label: 'Ikeja Pickup Hub',
+        address: '5 Allen Avenue',
+        city: 'Ikeja',
+        state: 'Lagos',
+        countryCode: 'NG',
+        instructions: 'Ask for the front desk',
+      },
+    });
+  });
+
+  it('rejects a rate stamped in a stale currency with 400 SHIPPING_RATE_INVALID', async () => {
+    // Arrange — the merchant fixture resolves to NGN, but the stored rate is
+    // priced in USD (the store currency changed without re-saving rates).
+    const admin = primeAdminShippingRateClient(
+      shippingRatesRpcPayload({ currency: 'USD' })
+    );
+    const supabase = await primeStorefrontClient();
+
+    // Act
+    const response = await POST(rateOrderRequest());
+
+    // Assert
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toMatchObject({
+      code: 'SHIPPING_RATE_INVALID',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.anything()
+    );
+    expect(admin.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects a tampered shipping_fee with 400 SHIPPING_FEE_MISMATCH before the order RPC runs', async () => {
+    // Arrange
+    const admin = primeAdminShippingRateClient(shippingRatesRpcPayload());
+    const supabase = await primeStorefrontClient();
+
+    // Act — client claims 100 for a rate the server computes at 1500.
+    const response = await POST(rateOrderRequest({ shipping_fee: 100 }));
+
+    // Assert
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toMatchObject({
+      code: 'SHIPPING_FEE_MISMATCH',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.anything()
+    );
+    expect(admin.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects a rate from a zone that does not win the destination match', async () => {
+    // Arrange — the Lagos-zone rate is selected but the address resolves to
+    // Abuja (NG-FC), where the rest-of-world zone wins.
+    primeAdminShippingRateClient(shippingRatesRpcPayload());
+    const supabase = await primeStorefrontClient();
+
+    // Act
+    const response = await POST(
+      rateOrderRequest({
+        shipping_address: {
+          address: '1 Aso Villa Road',
+          city: 'Abuja',
+          state: 'FCT - Abuja',
+        },
+      })
+    );
+
+    // Assert
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toMatchObject({
+      code: 'SHIPPING_RATE_ZONE_MISMATCH',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.anything()
+    );
+  });
+
+  it('rejects an unknown shipping_rate_id with 400 SHIPPING_RATE_INVALID', async () => {
+    // Arrange
+    primeAdminShippingRateClient(shippingRatesRpcPayload());
+    const supabase = await primeStorefrontClient();
+
+    // Act
+    const response = await POST(
+      rateOrderRequest({
+        shipping_rate_id: '99999999-9999-4999-8999-999999999999',
+      })
+    );
+
+    // Assert
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toMatchObject({
+      code: 'SHIPPING_RATE_INVALID',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.anything()
+    );
+  });
+
+  it('maps a rate-config load failure to 500 SHIPPING_RATE_LOOKUP_FAILED (not a 400 invalid-rate)', async () => {
+    // Arrange — the storefront rates RPC errors (schema-cache/DB outage). The
+    // verifier must fail LOUD: a transient load failure is a server error, not
+    // a customer-correctable invalid rate, and the order RPC must not run.
+    const admin = primeAdminShippingRateClient(shippingRatesRpcPayload(), {
+      ratesError: { message: 'schema cache reload required', code: 'PGRST002' },
+    });
+    const supabase = await primeStorefrontClient();
+
+    // Act
+    const response = await POST(rateOrderRequest());
+
+    // Assert
+    expect(response.status).toBe(500);
+    await expect(readJson(response)).resolves.toMatchObject({
+      code: 'SHIPPING_RATE_LOOKUP_FAILED',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.anything()
+    );
+    expect(admin.update).not.toHaveBeenCalled();
+  });
+
+  it('still rejects a genuinely-empty rate set with 400 SHIPPING_RATE_INVALID (distinct from the load-failure 500)', async () => {
+    // Arrange — the RPC SUCCEEDS but the merchant has no rates configured, so
+    // the selected rate id is simply absent. That stays a customer-facing 400,
+    // proving the load-failure 500 above is not just "empty result".
+    const admin = primeAdminShippingRateClient({
+      ...shippingRatesRpcPayload(),
+      rates: [],
+    });
+    const supabase = await primeStorefrontClient();
+
+    // Act
+    const response = await POST(rateOrderRequest());
+
+    // Assert
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toMatchObject({
+      code: 'SHIPPING_RATE_INVALID',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.anything()
+    );
+    expect(admin.update).not.toHaveBeenCalled();
+  });
+
+  it('accepts fee 0 when the canonical subtotal crosses the free-over threshold', async () => {
+    // Arrange — subtotal 1000 >= free_over_amount 500 → server fee 0.
+    primeAdminShippingRateClient(
+      shippingRatesRpcPayload({ free_over_amount: 500 })
+    );
+    const supabase = await primeStorefrontClient();
+
+    // Act
+    const response = await POST(rateOrderRequest({ shipping_fee: 0 }));
+
+    // Assert
+    expect(response.status).toBe(201);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({
+        p_shipping_fee: 0,
+        p_shipping_provider: null,
+        p_selected_quote_id: null,
+      })
+    );
+  });
+
+  it('leaves orders without shipping_rate_id on the existing path (no rates RPC, no stamp)', async () => {
+    // Arrange
+    const admin = primeAdminShippingRateClient(shippingRatesRpcPayload());
+    const supabase = await primeStorefrontClient();
+
+    // Act
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify(baseOrderPayload),
+      })
+    );
+
+    // Assert
+    expect(response.status).toBe(201);
+    expect(admin.rpc).not.toHaveBeenCalledWith(
+      'get_storefront_shipping_rates',
+      expect.anything()
+    );
+    expect(admin.update).not.toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({ p_shipping_fee: 0 })
+    );
+  });
+
+  it('replays the original order on an idempotent retry without re-verifying a since-changed merchant rate', async () => {
+    // Arrange — the first attempt already created the order; the merchant then
+    // deleted/repriced the selected rate, so the rates RPC now returns an
+    // empty set (fresh verification WOULD fail closed). F1: the pre-existing
+    // order for (merchant + idempotency key) must replay instead of 400ing.
+    const update = vi.fn(() => ({
+      eq: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })),
+    }));
+    const ratesRpc = vi.fn((name: string) =>
+      Promise.resolve(
+        name === 'get_storefront_shipping_rates'
+          ? { data: { zones: [], locations: [], rates: [] }, error: null }
+          : { data: null, error: null }
+      )
+    );
+    mockCreateAdminClient.mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        // Pre-check finds the original order (same merchant + key); the
+        // currency read-back reads the same row back. The original order was
+        // fully stamped on the first attempt (shipping_provider present), so
+        // the replay re-stamp path is not entered and the rate config is not
+        // reloaded.
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: {
+            id: 'existing-order-id',
+            currency: 'NGN',
+            shipping_provider: 'MERCHANT',
+          },
+          error: null,
+        }),
+        update,
+      })),
+      rpc: ratesRpc,
+    } as never);
+
+    const supabaseMod = await import('@/lib/supabase/server');
+    const supabase = buildMockSupabase(
+      {
+        create_storefront_order: {
+          data: [{ ...baseOrderRow, idempotency_replayed: true }],
+          error: null,
+        },
+      },
+      {
+        productRows: [
+          { id: 'p-1', name: 'Widget', price: 1000, slug: 'widget' },
+        ],
+      }
+    );
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+
+    // Act — retry with the same idempotency key.
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'rate-retry-key-1' },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          shipping_rate_id: LAGOS_RATE_ID,
+          shipping_fee: 1500,
+        }),
+      })
+    );
+
+    // Assert — replayed (200), not a stale-rate 400; verification never ran
+    // (no rates RPC), and the provider stamp is skipped on replay.
+    const body = await readJson(response);
+    expect(response.status).toBe(200);
+    expect(body.idempotency).toEqual({ replayed: true });
+    expect(ratesRpc).not.toHaveBeenCalledWith(
+      'get_storefront_shipping_rates',
+      expect.anything()
+    );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.any(Object)
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('re-stamps a merchant-rate replay whose original order is missing fulfillment metadata', async () => {
+    // Arrange — R9-5: the FIRST attempt's create RPC succeeded but its
+    // post-create provider stamp failed, so the persisted order has a null
+    // shipping_provider. A retry with the same Idempotency-Key replays that
+    // order; the route must best-effort backfill the missing fulfillment
+    // metadata (provider + rate name) from the still-loadable rate config.
+    const updateEqSecond = vi.fn().mockResolvedValue({ error: null });
+    const updateEqFirst = vi.fn(() => ({ eq: updateEqSecond }));
+    const update = vi.fn(() => ({ eq: updateEqFirst }));
+    const rpc = vi.fn((name: string) =>
+      Promise.resolve(
+        name === 'get_storefront_shipping_rates'
+          ? { data: shippingRatesRpcPayload(), error: null }
+          : { data: null, error: null }
+      )
+    );
+    mockCreateAdminClient.mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        // Pre-check finds the original order; the read-back returns it with a
+        // NULL shipping_provider — the first attempt's stamp never landed.
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: {
+            id: 'existing-order-id',
+            currency: 'NGN',
+            shipping_provider: null,
+          },
+          error: null,
+        }),
+        update,
+      })),
+      rpc,
+    } as never);
+
+    const supabaseMod = await import('@/lib/supabase/server');
+    const supabase = buildMockSupabase(
+      {
+        create_storefront_order: {
+          data: [{ ...baseOrderRow, idempotency_replayed: true }],
+          error: null,
+        },
+      },
+      {
+        productRows: [
+          { id: 'p-1', name: 'Widget', price: 1000, slug: 'widget' },
+        ],
+      }
+    );
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+
+    // Act — retry with the same idempotency key.
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'rate-restamp-key-1' },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          shipping_rate_id: LAGOS_RATE_ID,
+          shipping_fee: 1500,
+        }),
+      })
+    );
+
+    // Assert — replayed (200), and the absent provider + rate name were
+    // backfilled onto the existing order (id 'order-id' from the RPC result).
+    const body = await readJson(response);
+    expect(response.status).toBe(200);
+    expect(body.idempotency).toEqual({ replayed: true });
+    expect(rpc).toHaveBeenCalledWith('get_storefront_shipping_rates', {
+      p_merchant_id: MERCHANT_ID,
+    });
+    expect(update).toHaveBeenCalledWith({
+      shipping_provider: 'MERCHANT',
+      shipping_rate_id: LAGOS_RATE_ID,
+      shipping_rate_name: 'Lagos Standard',
+    });
+    expect(updateEqFirst).toHaveBeenCalledWith('id', 'order-id');
+    expect(updateEqSecond).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
+  });
+
+  it('does not re-stamp a merchant-rate replay whose order already has fulfillment metadata', async () => {
+    // Arrange — R9-5: the replayed order already carries a shipping_provider,
+    // so the route must NOT re-stamp and must NOT reload the rate config.
+    const update = vi.fn(() => ({
+      eq: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })),
+    }));
+    const rpc = vi.fn((name: string) =>
+      Promise.resolve(
+        name === 'get_storefront_shipping_rates'
+          ? { data: shippingRatesRpcPayload(), error: null }
+          : { data: null, error: null }
+      )
+    );
+    mockCreateAdminClient.mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: {
+            id: 'existing-order-id',
+            currency: 'NGN',
+            shipping_provider: 'MERCHANT',
+          },
+          error: null,
+        }),
+        update,
+      })),
+      rpc,
+    } as never);
+
+    const supabaseMod = await import('@/lib/supabase/server');
+    const supabase = buildMockSupabase(
+      {
+        create_storefront_order: {
+          data: [{ ...baseOrderRow, idempotency_replayed: true }],
+          error: null,
+        },
+      },
+      {
+        productRows: [
+          { id: 'p-1', name: 'Widget', price: 1000, slug: 'widget' },
+        ],
+      }
+    );
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+
+    // Act — retry with the same idempotency key.
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'rate-restamp-key-2' },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          shipping_rate_id: LAGOS_RATE_ID,
+          shipping_fee: 1500,
+        }),
+      })
+    );
+
+    // Assert — replayed with no re-stamp and no rate reload.
+    expect(response.status).toBe(200);
+    expect(rpc).not.toHaveBeenCalledWith(
+      'get_storefront_shipping_rates',
+      expect.anything()
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('still fails closed on a first-time invalid rate even when an idempotency key is present', async () => {
+    // Arrange — an idempotency key is present but NO prior order exists for it
+    // (maybeSingle → null), so this is a genuine first attempt. F1 must NOT
+    // weaken verification here: an unknown/invalid rate still 400s.
+    const ratesRpc = vi.fn((name: string) =>
+      Promise.resolve(
+        name === 'get_storefront_shipping_rates'
+          ? { data: shippingRatesRpcPayload(), error: null }
+          : { data: null, error: null }
+      )
+    );
+    mockCreateAdminClient.mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        update: vi.fn(),
+      })),
+      rpc: ratesRpc,
+    } as never);
+    const supabase = await primeStorefrontClient();
+
+    // Act — first attempt selects a rate id the merchant does not own.
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'rate-first-key-1' },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          shipping_rate_id: '99999999-9999-4999-8999-999999999999',
+          shipping_fee: 1500,
+        }),
+      })
+    );
+
+    // Assert — verification ran (rates RPC called) and rejected; no order.
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toMatchObject({
+      code: 'SHIPPING_RATE_INVALID',
+    });
+    expect(ratesRpc).toHaveBeenCalledWith('get_storefront_shipping_rates', {
+      p_merchant_id: MERCHANT_ID,
+    });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.anything()
+    );
+  });
+
+  it('sends a different idempotency request hash when two same-priced merchant rates reuse one Idempotency-Key', async () => {
+    // The shopper reuses the same Idempotency-Key after switching between two
+    // same-priced merchant rates (e.g. two same-fee pickup locations at the same
+    // address). Merchant-rate orders null shipping_provider + selected_quote_id,
+    // so the rate id is the only distinguishing field. The route must reach the
+    // RPC with a DIFFERENT p_checkout_request_hash for the two rate ids —
+    // otherwise the RPC recomputes the same hash and REPLAYS the original order
+    // instead of returning checkout_idempotency_conflict, fulfilling the shopper
+    // for the previously-selected rate.
+    const RATE_B_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    const IDEMPOTENCY_KEY = 'switch-rate-same-key';
+
+    function extractCreateHash(rpc: { mock: { calls: unknown[][] } }) {
+      const call = rpc.mock.calls.find(
+        ([name]) => name === 'create_storefront_order'
+      );
+      return (call?.[1] as { p_checkout_request_hash?: string } | undefined)
+        ?.p_checkout_request_hash;
+    }
+
+    function attempt(rateId: string) {
+      return POST(
+        new NextRequest('http://localhost/api/orders', {
+          method: 'POST',
+          headers: { 'Idempotency-Key': IDEMPOTENCY_KEY },
+          body: JSON.stringify({
+            ...baseOrderPayload,
+            shipping_rate_id: rateId,
+            shipping_fee: 1500,
+          }),
+        })
+      );
+    }
+
+    // Attempt A — the originally-selected rate.
+    primeAdminShippingRateClient(shippingRatesRpcPayload());
+    const supabaseA = await primeStorefrontClient();
+    const responseA = await attempt(LAGOS_RATE_ID);
+    expect(responseA.status).toBeLessThan(400);
+    const hashA = extractCreateHash(
+      supabaseA.rpc as unknown as { mock: { calls: unknown[][] } }
+    );
+
+    // Attempt B — same key, same fee/address, a DIFFERENT same-priced rate.
+    primeAdminShippingRateClient(shippingRatesRpcPayload());
+    const supabaseB = await primeStorefrontClient();
+    const responseB = await attempt(RATE_B_ID);
+    expect(responseB.status).toBeLessThan(400);
+    const hashB = extractCreateHash(
+      supabaseB.rpc as unknown as { mock: { calls: unknown[][] } }
+    );
+
+    expect(hashA).toBeDefined();
+    expect(hashB).toBeDefined();
+    expect(hashA).not.toBe(hashB);
+  });
+
+  const ROW_RATE_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+
+  // A ship/pickup rate on the rest-of-world (country-level) zone. It verifies
+  // for any NG destination via the merchant-country fallback even when the
+  // caller sends NO shipping_address — the exact R6-4 unfulfillable case.
+  function rowRateRpcPayload(rateOverrides: Record<string, unknown> = {}) {
+    return {
+      zones: [
+        {
+          id: LAGOS_ZONE_ID,
+          name: 'Lagos',
+          is_rest_of_world: false,
+          active: true,
+        },
+        {
+          id: ROW_ZONE_ID,
+          name: 'Everywhere else',
+          is_rest_of_world: true,
+          active: true,
+        },
+      ],
+      locations: [
+        {
+          zone_id: LAGOS_ZONE_ID,
+          country_code: 'NG',
+          subdivision_code: 'NG-LA',
+        },
+      ],
+      rates: [
+        {
+          id: ROW_RATE_ID,
+          zone_id: ROW_ZONE_ID,
+          name: 'Nationwide Delivery',
+          kind: 'ship',
+          currency: 'NGN',
+          base_amount: 1500,
+          condition_type: 'always',
+          min_subtotal: null,
+          max_subtotal: null,
+          free_over_amount: null,
+          delivery_min_days: null,
+          delivery_max_days: null,
+          pickup_address: null,
+          sort_order: 0,
+          active: true,
+          ...rateOverrides,
+        },
+      ],
+    };
+  }
+
+  it('verifies and orders a null-country merchant ship rate instead of 400ing ZONE_MISMATCH', async () => {
+    // Arrange — the merchant has no `merchants.country`. The order route must
+    // apply the SAME `?? 'NG'` domestic fallback the quote path uses; passing
+    // `null` would leave the verifier unable to resolve a destination (the
+    // payload carries no country) and reject a purchasable rate with
+    // SHIPPING_RATE_ZONE_MISMATCH.
+    const admin = primeAdminShippingRateClient(shippingRatesRpcPayload());
+    const supabase = await primeStorefrontClient();
+    const nullCountryMerchant = {
+      data: {
+        id: MERCHANT_ID,
+        business_name: 'Test Merchant',
+        country: null,
+        slug: 'test-merchant',
+        support_email: 'support@example.com',
+        email_sender_name: 'Test Store',
+        email: 'merchant@example.com',
+      },
+      error: null,
+    };
+    // `from()` returns the shared chainable for every table, so overriding its
+    // single/maybeSingle swaps in the null-country merchant everywhere it is read.
+    const merchantsChain = supabase.from('merchants');
+    merchantsChain.single = vi.fn().mockResolvedValue(nullCountryMerchant);
+    merchantsChain.maybeSingle = vi.fn().mockResolvedValue(nullCountryMerchant);
+
+    // Act — ships to state 'Lagos' with no country in the payload.
+    const response = await POST(rateOrderRequest());
+
+    // Assert — the NG fallback resolves the Lagos zone; the rate verifies.
+    expect(response.status).toBe(201);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({ p_shipping_fee: 1500 })
+    );
+    expect(admin.update).toHaveBeenCalledWith({
+      shipping_provider: 'MERCHANT',
+      shipping_rate_id: LAGOS_RATE_ID,
+      shipping_rate_name: 'Lagos Standard',
+    });
+  });
+
+  it('verifies and orders a blank-country ("") merchant ship rate instead of 400ing ZONE_MISMATCH', async () => {
+    // Arrange — the merchant's `merchants.country` is the EMPTY STRING, not NULL.
+    // The normalization migration backfilled only NULL and free-text 'Nigeria',
+    // so a `''` row still exists in production. `?? 'NG'` would pass `''`
+    // through (it only catches NULL/undefined), leaving the verifier unable to
+    // resolve a destination and rejecting a purchasable rate with
+    // SHIPPING_RATE_ZONE_MISMATCH. The order path must trim-then-default blank to
+    // NG exactly like the quote path normalizes a blank countryCode.
+    const admin = primeAdminShippingRateClient(shippingRatesRpcPayload());
+    const supabase = await primeStorefrontClient();
+    const blankCountryMerchant = {
+      data: {
+        id: MERCHANT_ID,
+        business_name: 'Test Merchant',
+        country: '',
+        slug: 'test-merchant',
+        support_email: 'support@example.com',
+        email_sender_name: 'Test Store',
+        email: 'merchant@example.com',
+      },
+      error: null,
+    };
+    // `from()` returns the shared chainable for every table, so overriding its
+    // single/maybeSingle swaps in the blank-country merchant everywhere it is read.
+    const merchantsChain = supabase.from('merchants');
+    merchantsChain.single = vi.fn().mockResolvedValue(blankCountryMerchant);
+    merchantsChain.maybeSingle = vi
+      .fn()
+      .mockResolvedValue(blankCountryMerchant);
+
+    // Act — ships to state 'Lagos' with no country in the payload.
+    const response = await POST(rateOrderRequest());
+
+    // Assert — the NG fallback resolves the Lagos zone; the rate verifies and
+    // orders (not a 400 ZONE_MISMATCH).
+    expect(response.status).toBe(201);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({ p_shipping_fee: 1500 })
+    );
+    expect(admin.update).toHaveBeenCalledWith({
+      shipping_provider: 'MERCHANT',
+      shipping_rate_id: LAGOS_RATE_ID,
+      shipping_rate_name: 'Lagos Standard',
+    });
+  });
+
+  it('persists provider + rate-name with a null id when the rate is deleted before the post-create stamp', async () => {
+    // Arrange — verification succeeds, but the merchant deletes the rate before
+    // the stamp, so the first UPDATE's shipping_rate_id violates
+    // orders_shipping_rate_id_fkey (Postgres foreign_key_violation, 23503).
+    // Provider + rate-name are durable fulfillment data and must survive: the
+    // route retries with a null soft-link id.
+    const foreignKeyError = {
+      code: '23503',
+      message:
+        'insert or update on table "orders" violates foreign key constraint "orders_shipping_rate_id_fkey"',
+      details: '',
+      hint: '',
+    };
+    const updateEqSecond = vi
+      .fn()
+      .mockResolvedValueOnce({ error: foreignKeyError })
+      .mockResolvedValue({ error: null });
+    const updateEqFirst = vi.fn(() => ({ eq: updateEqSecond }));
+    const update = vi.fn(() => ({ eq: updateEqFirst }));
+    const rpc = vi.fn((name: string) =>
+      Promise.resolve(
+        name === 'get_storefront_shipping_rates'
+          ? { data: shippingRatesRpcPayload(), error: null }
+          : { data: null, error: null }
+      )
+    );
+    mockCreateAdminClient.mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi
+          .fn()
+          .mockResolvedValue({ data: { currency: 'NGN' }, error: null }),
+        update,
+      })),
+      rpc,
+    } as never);
+    const supabase = await primeStorefrontClient();
+
+    // Act — no idempotency key, so verification runs and the stamp fires.
+    const response = await POST(rateOrderRequest());
+
+    // Assert — the order is created (the stamp is best-effort, never fails it),
+    // and the retry persisted provider + name with a null soft-link id.
+    expect(response.status).toBe(201);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.any(Object)
+    );
+    // The stamp is the first admin UPDATE (before any background side effects):
+    // call 1 hits the FK violation, call 2 is the null-id retry.
+    expect(update).toHaveBeenNthCalledWith(1, {
+      shipping_provider: 'MERCHANT',
+      shipping_rate_id: LAGOS_RATE_ID,
+      shipping_rate_name: 'Lagos Standard',
+    });
+    expect(update).toHaveBeenNthCalledWith(2, {
+      shipping_provider: 'MERCHANT',
+      shipping_rate_id: null,
+      shipping_rate_name: 'Lagos Standard',
+    });
+  });
+
+  it('carries the pickup snapshot into the null-id retry when the rate is deleted before the stamp', async () => {
+    // Arrange — a PICKUP rate with a collection address. The first stamp hits
+    // 23503 (rate deleted mid-order); the retry must still persist the durable
+    // pickup snapshot alongside the provider + rate-name.
+    const foreignKeyError = {
+      code: '23503',
+      message:
+        'insert or update on table "orders" violates foreign key constraint "orders_shipping_rate_id_fkey"',
+      details: '',
+      hint: '',
+    };
+    const updateEqSecond = vi
+      .fn()
+      .mockResolvedValueOnce({ error: foreignKeyError })
+      .mockResolvedValue({ error: null });
+    const updateEqFirst = vi.fn(() => ({ eq: updateEqSecond }));
+    const update = vi.fn(() => ({ eq: updateEqFirst }));
+    const rpc = vi.fn((name: string) =>
+      Promise.resolve(
+        name === 'get_storefront_shipping_rates'
+          ? {
+              data: shippingRatesRpcPayload({
+                kind: 'pickup',
+                pickup_address: {
+                  label: 'Ikeja Pickup Hub',
+                  address: '5 Allen Avenue',
+                  city: 'Ikeja',
+                  state: 'Lagos',
+                  country_code: 'NG',
+                  instructions: 'Ask for the front desk',
+                },
+              }),
+              error: null,
+            }
+          : { data: null, error: null }
+      )
+    );
+    mockCreateAdminClient.mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi
+          .fn()
+          .mockResolvedValue({ data: { currency: 'NGN' }, error: null }),
+        update,
+      })),
+      rpc,
+    } as never);
+    await primeStorefrontClient();
+
+    // Act
+    const response = await POST(rateOrderRequest());
+
+    // Assert — the order is created and the retry keeps the pickup snapshot.
+    const expectedPickupDetails = {
+      label: 'Ikeja Pickup Hub',
+      address: '5 Allen Avenue',
+      city: 'Ikeja',
+      state: 'Lagos',
+      countryCode: 'NG',
+      instructions: 'Ask for the front desk',
+    };
+    expect(response.status).toBe(201);
+    expect(update).toHaveBeenNthCalledWith(1, {
+      shipping_provider: 'MERCHANT_PICKUP',
+      shipping_rate_id: LAGOS_RATE_ID,
+      shipping_rate_name: 'Lagos Standard',
+      shipping_pickup_details: expectedPickupDetails,
+    });
+    expect(update).toHaveBeenNthCalledWith(2, {
+      shipping_provider: 'MERCHANT_PICKUP',
+      shipping_rate_id: null,
+      shipping_rate_name: 'Lagos Standard',
+      shipping_pickup_details: expectedPickupDetails,
+    });
+  });
+
+  it('rejects a ship-rate order that omits the delivery address with 400 SHIPPING_ADDRESS_REQUIRED', async () => {
+    // Arrange — a rest-of-world ship rate verifies via the merchant-country
+    // fallback with no address, so the door-delivery guard is the only thing
+    // standing between a buggy caller and an unfulfillable MERCHANT order.
+    const admin = primeAdminShippingRateClient(rowRateRpcPayload());
+    const supabase = await primeStorefrontClient();
+
+    // Act — select the ship rate but send no shipping_address at all.
+    const response = await POST(
+      rateOrderRequest({
+        shipping_rate_id: ROW_RATE_ID,
+        shipping_address: undefined,
+      })
+    );
+
+    // Assert — rejected before the order RPC and before any provider stamp.
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toMatchObject({
+      code: 'SHIPPING_ADDRESS_REQUIRED',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.anything()
+    );
+    expect(admin.update).not.toHaveBeenCalled();
+  });
+
+  it('creates a pickup-rate order without a delivery address', async () => {
+    // Arrange — a rest-of-world PICKUP rate. The shopper collects, so a delivery
+    // address is not required and the order must succeed.
+    const admin = primeAdminShippingRateClient(
+      rowRateRpcPayload({ kind: 'pickup' })
+    );
+    const supabase = await primeStorefrontClient();
+
+    // Act — pickup rate with no shipping_address.
+    const response = await POST(
+      rateOrderRequest({
+        shipping_rate_id: ROW_RATE_ID,
+        shipping_address: undefined,
+      })
+    );
+
+    // Assert — order created and stamped as pickup fulfillment. The pickup
+    // snapshot is written (null here — the rate carries no collection address).
+    expect(response.status).toBe(201);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({ p_shipping_fee: 1500 })
+    );
+    expect(admin.update).toHaveBeenCalledWith({
+      shipping_provider: 'MERCHANT_PICKUP',
+      shipping_rate_id: ROW_RATE_ID,
+      shipping_rate_name: 'Nationwide Delivery',
+      shipping_pickup_details: null,
+    });
+  });
+});

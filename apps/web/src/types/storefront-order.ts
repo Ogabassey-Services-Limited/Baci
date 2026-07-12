@@ -1,5 +1,6 @@
 import type { ReceiptOrder } from '@baci/shared';
 import type { PaymentStatus, ShippingStatus } from '@baci/shared/types';
+import type { MerchantPickupAddress } from '@/lib/shipping/merchant-rates/types';
 
 export interface StorefrontOrderItem {
   id: string;
@@ -95,6 +96,29 @@ export interface StorefrontOrder {
   shipping_fee?: number;
 
   shipping_provider?: string;
+
+  /**
+   * Soft link to the merchant-configured shipping rate the shopper bought.
+   */
+  shipping_rate_id?: string;
+
+  /**
+   * Durable snapshot of the merchant-configured shipping rate's name (or the
+   * pickup-location name) captured at purchase. Preferred over
+   * `shipping_provider` when rendering the shipping method for merchant-rate
+   * orders (provider `MERCHANT` / `MERCHANT_PICKUP`). Null for carrier orders
+   * and older merchant-rate orders that predate rate-name capture.
+   */
+  shipping_rate_name?: string;
+
+  /**
+   * Durable snapshot of a merchant PICKUP rate's collection point (label,
+   * address, city, state, instructions), captured at purchase. Present only for
+   * merchant-pickup orders (provider `MERCHANT_PICKUP`); null for carrier/ship
+   * orders and older pickup orders that predate the snapshot. Lets the customer
+   * still see where to collect even if the rate is later edited or deleted.
+   */
+  shipping_pickup_details?: MerchantPickupAddress | null;
 
   /**
    * Shipping address might be a formatted string or a structured object (JSONB).

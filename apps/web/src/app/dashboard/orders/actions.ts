@@ -11,6 +11,7 @@ import { logger } from '@/lib/logger';
 import { ensurePermission } from '@/lib/merchant-server';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
+import type { MerchantPickupAddress } from '@/lib/shipping/merchant-rates/types';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import {
@@ -56,6 +57,15 @@ export interface Order {
   source: string;
   tracking_number?: string;
   shipping_provider?: string;
+  shipping_rate_id?: string;
+  shipping_rate_name?: string;
+  /**
+   * Durable snapshot of a merchant PICKUP rate's collection point captured at
+   * purchase. Present only for merchant-pickup orders (provider
+   * `MERCHANT_PICKUP`); null otherwise. Lets the merchant still see the pickup
+   * point even after the rate is edited or deleted.
+   */
+  shipping_pickup_details?: MerchantPickupAddress | null;
   payment_reference?: string;
   customer_email?: string;
   customer_phone?: string;
@@ -110,6 +120,9 @@ interface DashboardOrderRecord {
   source: string;
   tracking_number?: string;
   shipping_provider?: string;
+  shipping_rate_id?: string | null;
+  shipping_rate_name?: string | null;
+  shipping_pickup_details?: MerchantPickupAddress | null;
   payment_reference?: string;
   customer_email?: string;
   customer_phone?: string;
@@ -172,6 +185,13 @@ const ORDER_CONFIRMATION_SELECT = [
   'shipping_address',
   'order_items(id, image_url, name, quantity, price)',
 ].join(', ');
+
+// The single order-details read additionally surfaces which merchant-configured
+// shipping rate a shopper bought. These two columns are intentionally NOT in the
+// shared ORDER_WITH_ITEMS_QUERY (which also feeds carrier/email/invoice reads);
+// append them only here so fulfillment can name the pickup location / zone /
+// tier instead of the bare `MERCHANT` provider label.
+const ORDER_DETAILS_QUERY = `${ORDER_WITH_ITEMS_QUERY}, shipping_rate_id, shipping_rate_name, shipping_pickup_details`;
 
 function getZeroOrderStats(): OrderStats {
   return {
@@ -561,7 +581,7 @@ export async function getOrder(
   if (isUuid) {
     const { data, error } = await supabase
       .from('orders')
-      .select(ORDER_WITH_ITEMS_QUERY)
+      .select(ORDER_DETAILS_QUERY)
       .eq('merchant_id', authorizedMerchantId)
       .eq('id', validatedOrderIdentifier)
       .maybeSingle();
@@ -580,7 +600,7 @@ export async function getOrder(
     for (const candidateOrderNumber of candidateOrderNumbers) {
       const { data, error } = await supabase
         .from('orders')
-        .select(ORDER_WITH_ITEMS_QUERY)
+        .select(ORDER_DETAILS_QUERY)
         .eq('merchant_id', authorizedMerchantId)
         .eq('order_number', candidateOrderNumber)
         .maybeSingle();
@@ -643,6 +663,9 @@ export async function getOrder(
     source: order.source,
     tracking_number: order.tracking_number,
     shipping_provider: order.shipping_provider,
+    shipping_rate_id: order.shipping_rate_id ?? undefined,
+    shipping_rate_name: order.shipping_rate_name ?? undefined,
+    shipping_pickup_details: order.shipping_pickup_details ?? undefined,
     payment_reference: order.payment_reference,
     customer_email: order.customer_email,
     customer_phone: order.customer_phone,

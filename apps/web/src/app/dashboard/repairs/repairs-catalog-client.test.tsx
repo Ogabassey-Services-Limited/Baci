@@ -18,13 +18,24 @@ describe('RepairsCatalogClient', () => {
     expect(screen.getByText('bookings-manager')).toBeInTheDocument();
   });
 
-  it('keeps bookings available when catalogue management is disabled', () => {
-    render(<RepairsCatalogClient canEdit canDelete catalogEnabled={false} />);
+  it('does not show the "not live" notice when the catalogue is public', () => {
+    render(<RepairsCatalogClient canEdit canDelete catalogPubliclyEnabled />);
 
-    expect(screen.getByRole('tab', { name: 'Bookings' })).toBeInTheDocument();
     expect(
-      screen.queryByRole('tab', { name: 'Catalog' })
+      screen.queryByText(/isn't live on your storefront yet/i)
     ).not.toBeInTheDocument();
-    expect(screen.getByText('bookings-manager')).toBeInTheDocument();
+  });
+
+  it('keeps the Catalog tab reachable before publish and shows a not-live notice', () => {
+    render(
+      <RepairsCatalogClient canEdit canDelete catalogPubliclyEnabled={false} />
+    );
+
+    // The catalogue manager must stay reachable so merchants can build/import
+    // their catalogue BEFORE flipping the public flag (Codex P2 regression).
+    expect(screen.getByRole('tab', { name: 'Catalog' })).toBeInTheDocument();
+    expect(
+      screen.getByText(/isn't live on your storefront yet/i)
+    ).toBeInTheDocument();
   });
 });

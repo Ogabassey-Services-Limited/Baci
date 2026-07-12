@@ -4,15 +4,40 @@ import {
   calculateDeliveryCost,
   createSelectDeliveryMethod,
   getAirDeliveryQuotes,
+  getDeliveryEstimateLabel,
   getDoorDeliveryQuotes,
+  getMerchantRateId,
+  getPickupStationCopy,
   getPreferredDoorQuoteId,
   getSelectedQuoteIdForDeliveryMethod,
   getStationPickupAddressText,
   getStationPickupQuote,
   getStationPickupQuotes,
+  isMerchantQuote,
   isStationPickupQuote,
   resetDeliveryQuotesForAddressChange,
 } from './utils';
+
+const merchantShipQuote: ShippingQuote = {
+  carrierName: 'Standard Delivery',
+  currency: 'INR',
+  displayName: 'Standard Delivery',
+  estimatedDays: 0,
+  id: 'mrate_9f1b2c3d-0000-4000-8000-000000000001',
+  insuranceIncluded: false,
+  pickupIncluded: false,
+  price: 1500,
+  provider: 'MERCHANT',
+  serviceTier: 'standard',
+};
+
+const merchantPickupQuote: ShippingQuote = {
+  ...merchantShipQuote,
+  displayName: 'Store Pickup',
+  id: 'mrate_9f1b2c3d-0000-4000-8000-000000000002',
+  isStationPickup: true,
+  serviceTier: 'pickup',
+};
 
 const doorQuote: ShippingQuote = {
   carrierName: 'GIG Logistics',
@@ -167,5 +192,44 @@ describe('checkout shipping quote helpers', () => {
     expect(setShippingQuotes).toHaveBeenCalledWith([]);
     expect(setSelectedQuoteId).toHaveBeenCalledWith('');
     expect(setDeliveryMethod).toHaveBeenCalledWith('door');
+  });
+
+  it('detects merchant-configured rate quotes', () => {
+    expect(isMerchantQuote(merchantShipQuote)).toBe(true);
+    expect(isMerchantQuote(doorQuote)).toBe(false);
+  });
+
+  it('recovers the bare rate id for the order POST, null for carrier quotes', () => {
+    expect(getMerchantRateId(merchantShipQuote.id)).toBe(
+      '9f1b2c3d-0000-4000-8000-000000000001'
+    );
+    expect(getMerchantRateId('door-1')).toBeNull();
+    expect(getMerchantRateId('')).toBeNull();
+    // A bare prefix yields null rather than an empty rate id.
+    expect(getMerchantRateId('mrate_')).toBeNull();
+  });
+
+  it('omits the estimate label for the 0-day unknown sentinel', () => {
+    expect(getDeliveryEstimateLabel(merchantShipQuote)).toBeNull();
+    expect(getDeliveryEstimateLabel(doorQuote)).toBe('3 days');
+    expect(
+      getDeliveryEstimateLabel({ ...merchantShipQuote, deliveryRange: '2-4 days' })
+    ).toBe('2-4 days');
+  });
+
+  it('returns neutral pickup copy for merchant rates and GIGL copy otherwise', () => {
+    expect(getPickupStationCopy(merchantPickupQuote).methodLabel).toBe(
+      'Store Pickup'
+    );
+    expect(getPickupStationCopy(merchantPickupQuote).chooseButtonLabel).toBe(
+      'Choose Store Pickup'
+    );
+    expect(getPickupStationCopy(stationQuote).methodLabel).toBe(
+      'Pickup Stations (GIGL)'
+    );
+    // No quote (default / empty state) falls back to the GIGL wording.
+    expect(getPickupStationCopy(undefined).methodLabel).toBe(
+      'Pickup Stations (GIGL)'
+    );
   });
 });

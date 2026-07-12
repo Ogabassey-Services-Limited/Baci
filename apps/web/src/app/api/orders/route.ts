@@ -73,6 +73,15 @@ import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { toInternationalQuoteValidationItemsFromOrder } from '@/lib/shipping/international-shipment-items';
 import {
+  getMerchantShippingRates,
+  MerchantShippingRatesLoadError,
+} from '@/lib/shipping/merchant-rates/get-merchant-shipping-rates';
+import type {
+  MerchantPickupAddress,
+  MerchantRateKind,
+} from '@/lib/shipping/merchant-rates/types';
+import { verifyOrderShippingRate } from '@/lib/shipping/merchant-rates/verify-order-shipping-rate';
+import {
   enrichShippingAddressWithQuoteDestination,
   OrderQuoteDestinationMismatchError,
 } from '@/lib/shipping/order-quote-destination';
@@ -1763,12 +1772,25 @@ export async function POST(request: NextRequest) {
           }
         : null;
 
-    const resolvedShippingProvider = body.shipping_provider ?? null;
+    // Merchant-rate orders (shipping_rate_id present) take the existing
+    // pickup/airport RPC bypass: shipping_provider null + selected_quote_id
+    // null. Merchant rates are computed from config — never persisted in
+    // shipping_quotes — so there is no quote row to validate or book, and a
+    // provider string here would trip the RPC's shipping_quote_required
+    // guard. Null both defensively even if a buggy client sent them
+    // alongside shipping_rate_id.
+    const isMerchantRateOrder = Boolean(body.shipping_rate_id);
+    const resolvedShippingProvider = isMerchantRateOrder
+      ? null
+      : (body.shipping_provider ?? null);
+    const resolvedSelectedQuoteId = isMerchantRateOrder
+      ? null
+      : (body.selected_quote_id ?? null);
     const resolvedTrackingNumber = body.tracking_number ?? null;
     let quoteValidationItems:
       | Awaited<ReturnType<typeof buildOrderQuoteValidationItems>>
       | undefined;
-    if (body.selected_quote_id) {
+    if (resolvedSelectedQuoteId) {
       try {
         quoteValidationItems = await buildOrderQuoteValidationItems({
           items: orderItemsPayload,
@@ -1806,7 +1828,7 @@ export async function POST(request: NextRequest) {
     try {
       shippingAddressForOrder = await enrichShippingAddressWithQuoteDestination(
         supabase,
-        body.selected_quote_id,
+        resolvedSelectedQuoteId,
         shipping_address,
         {
           items: quoteValidationItems,
@@ -1906,6 +1928,11 @@ export async function POST(request: NextRequest) {
     const requestedSavingsRedemption =
       savingsRedemptionRequested && savingsCurrencySupported;
 
+    // Canonical server-verified pre-discount subtotal. Computed lazily (at
+    // most once) — shared by the discount-code amount computation and the
+    // merchant shipping-rate fee verification below.
+    let canonicalOrderSubtotal: number | null = null;
+
     // Resolve + validate the discount code server-side, then compute the amount
     // from the CANONICAL subtotal (never the client cart total). Eligibility /
     // targeting is enforced authoritatively + replay-safely in the wrapper RPC.
@@ -1971,9 +1998,8 @@ export async function POST(request: NextRequest) {
       }
       discountCodeId = discountRow.id;
 
-      let discountCanonicalSubtotal: number | null;
       try {
-        discountCanonicalSubtotal = await computeCanonicalOrderSubtotal({
+        canonicalOrderSubtotal = await computeCanonicalOrderSubtotal({
           items: orderItemsPayload,
           merchantId: merchant_id,
           supabase,
@@ -1995,7 +2021,7 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
-      if (discountCanonicalSubtotal == null) {
+      if (canonicalOrderSubtotal == null) {
         return NextResponse.json(
           { error: 'Failed to create order', details: 'invalid_items' },
           { status: 400 }
@@ -2011,9 +2037,241 @@ export async function POST(request: NextRequest) {
           discount_value: Number(discountRow.discount_value),
           maximum_discount_amount: discountRow.maximum_discount_amount,
         },
-        discountCanonicalSubtotal
+        canonicalOrderSubtotal
       );
     }
+
+    // === MERCHANT SHIPPING RATE ENFORCEMENT (money path) ===
+    // When checkout selected a merchant-configured rate (shipping_rate_id),
+    // the fee is recomputed server-side from the merchant's zone/rate config,
+    // the validated destination, and the canonical pre-discount subtotal. The
+    // client's shipping_fee is only ACCEPTED when it matches the server value
+    // (±0.01); a larger difference fails closed with 400
+    // SHIPPING_FEE_MISMATCH — mirroring the RPC's order_total_mismatch
+    // fail-closed stance — instead of silently overriding. The client
+    // computed expected_total from ITS fee, so a silent server-side override
+    // would only resurface downstream as a confusing order_total_mismatch;
+    // rejecting here gives checkout a precise re-quote signal. The RPC then
+    // receives the SERVER-computed amount (see effectiveShippingFee below).
+    let verifiedMerchantShippingRate: {
+      amount: number;
+      rateName: string;
+      currency: string;
+      kind: MerchantRateKind;
+      /**
+       * Pickup collection snapshot for a `pickup` rate — persisted durably in
+       * orders.shipping_pickup_details so the order retains the collection
+       * point even if the rate is later edited/deleted. Undefined/null for
+       * `ship` rates.
+       */
+      pickupAddress?: MerchantPickupAddress | null;
+    } | null = null;
+    // F1: an idempotent retry must replay the ORIGINAL order before it can be
+    // re-judged against the merchant's CURRENT rate config. The shipping fee
+    // was locked on the first order; if the merchant has since disabled,
+    // deleted, or repriced the rate, re-running verifyOrderShippingRate here
+    // would fail closed with a stale-rate 400 (SHIPPING_RATE_*) and break
+    // checkout recovery. Detect an already-created order for this
+    // (merchant + idempotency key) — matching the RPC's `WHERE merchant_id =
+    // $1 AND checkout_idempotency_key = $2` lookup exactly (the header value is
+    // trimmed in getRequestIdempotencyKey and the RPC trims again, so the keys
+    // are byte-identical) — and skip verification so the RPC's replay path
+    // returns the existing order. A genuine FIRST attempt (no existing order)
+    // still runs the full fail-closed verification below. Service-role read:
+    // guest checkouts cannot pass orders RLS, and the lookup is scoped to the
+    // validated merchant id + the caller's own idempotency key.
+    let isIdempotentMerchantRateReplay = false;
+    if (body.shipping_rate_id && requestIdempotencyKey) {
+      const { data: existingOrder, error: existingOrderError } =
+        await createAdminClient()
+          .from('orders')
+          .select('id')
+          .eq('merchant_id', merchant_id)
+          .eq('checkout_idempotency_key', requestIdempotencyKey)
+          .maybeSingle();
+      if (existingOrderError) {
+        logger.warn({
+          message:
+            'Idempotent merchant-rate order pre-check failed; running full rate verification',
+          merchantId: merchant_id,
+          error: existingOrderError,
+        });
+      } else if (existingOrder) {
+        isIdempotentMerchantRateReplay = true;
+      }
+    }
+    if (body.shipping_rate_id && !isIdempotentMerchantRateReplay) {
+      if (canonicalOrderSubtotal == null) {
+        try {
+          canonicalOrderSubtotal = await computeCanonicalOrderSubtotal({
+            items: orderItemsPayload,
+            merchantId: merchant_id,
+            supabase,
+          });
+        } catch (subtotalError) {
+          if (isCanonicalOrderSubtotalUuidError(subtotalError)) {
+            return NextResponse.json(
+              { error: 'Failed to create order', details: 'invalid_items' },
+              { status: 400 }
+            );
+          }
+          logger.error({
+            error: subtotalError,
+            merchantId: merchant_id,
+            message: 'Shipping-rate canonical subtotal recompute failed',
+          });
+          return NextResponse.json(
+            { error: 'Internal server error' },
+            { status: 500 }
+          );
+        }
+      }
+      if (canonicalOrderSubtotal == null) {
+        return NextResponse.json(
+          { error: 'Failed to create order', details: 'invalid_items' },
+          { status: 400 }
+        );
+      }
+
+      // Service-role client: merchant_shipping_* tables have no anon grants
+      // (the SECURITY DEFINER storefront RPC is the only read path) and this
+      // endpoint serves unauthenticated guest checkouts. The id is
+      // Zod-validated (uuid) and the read is scoped to merchant_id.
+      let rateVerification: Awaited<ReturnType<typeof verifyOrderShippingRate>>;
+      try {
+        rateVerification = await verifyOrderShippingRate({
+          supabase: createAdminClient(),
+          merchantId: merchant_id,
+          shippingRateId: body.shipping_rate_id,
+          shippingAddress: {
+            country:
+              shippingAddressForOrder?.countryCode ||
+              shippingAddressForOrder?.country ||
+              null,
+            state: shippingAddressForOrder?.state ?? null,
+          },
+          // Match the quote path's blank-country normalization EXACTLY: the
+          // quote path resolves a blank `countryCode` back to NG, so a rate
+          // shown at quote time must resolve the same domestic country at order
+          // time. `?? 'NG'` only catches NULL/undefined, but the normalization
+          // migration backfilled only NULL and free-text 'Nigeria' — NOT the
+          // EMPTY STRING — so a merchant whose `merchants.country` is `''` (or
+          // whitespace) would pass a blank country through and, paired with a
+          // non-ISO `shipping_address.country`, fail `matchShippingZone` with
+          // SHIPPING_RATE_ZONE_MISMATCH for a rate checkout just displayed.
+          // Trim-then-default so empty/whitespace collapses to NG like NULL.
+          merchantCountry: merchant.country?.trim() || 'NG',
+          merchantCurrency: merchantResolvedCurrency,
+          canonicalSubtotal: canonicalOrderSubtotal,
+        });
+      } catch (rateVerificationError) {
+        // A LOAD failure (RPC / DB / schema-cache outage) is NOT a
+        // customer-correctable invalid rate. Surface it as a 500 server error
+        // rather than letting an empty rate payload masquerade as a genuine
+        // SHIPPING_RATE_INVALID (which would falsely blame the shopper and mask
+        // the outage). Genuine verification verdicts still return a typed
+        // result and map to 400 below.
+        if (rateVerificationError instanceof MerchantShippingRatesLoadError) {
+          logger.error({
+            message:
+              'Storefront order shipping-rate verification could not load merchant rates',
+            merchantId: merchant_id,
+            shippingRateId: body.shipping_rate_id,
+            error: rateVerificationError,
+          });
+          return NextResponse.json(
+            {
+              error: 'Unable to verify the selected shipping rate',
+              code: 'SHIPPING_RATE_LOOKUP_FAILED',
+            },
+            { status: 500 }
+          );
+        }
+        throw rateVerificationError;
+      }
+
+      if (!rateVerification.ok) {
+        logger.warn({
+          message:
+            'Storefront order rejected: merchant shipping rate verification failed',
+          code: rateVerification.code,
+          merchantId: merchant_id,
+          shippingRateId: body.shipping_rate_id,
+        });
+        return NextResponse.json(
+          { error: rateVerification.message, code: rateVerification.code },
+          { status: 400 }
+        );
+      }
+
+      if (Math.abs(shippingFeeValue - rateVerification.amount) > 0.01) {
+        // Tamper signal: the submitted fee is not what the merchant's rate
+        // config produces for this destination + subtotal.
+        logger.warn({
+          message:
+            'Storefront order rejected: shipping fee mismatch for merchant rate',
+          merchantId: merchant_id,
+          shippingRateId: body.shipping_rate_id,
+          clientShippingFee: shippingFeeValue,
+          serverShippingFee: rateVerification.amount,
+        });
+        return NextResponse.json(
+          {
+            error: 'Shipping fee does not match the selected shipping rate',
+            code: 'SHIPPING_FEE_MISMATCH',
+          },
+          { status: 400 }
+        );
+      }
+
+      verifiedMerchantShippingRate = {
+        amount: rateVerification.amount,
+        rateName: rateVerification.rateName,
+        currency: rateVerification.currency,
+        kind: rateVerification.kind,
+        pickupAddress: rateVerification.pickupAddress,
+      };
+
+      // A merchant `ship` (door-delivery) rate is unfulfillable without a
+      // delivery address. Verification can pass on the merchant-country zone
+      // fallback for a country-level / rest-of-world zone even when the caller
+      // omitted `shipping_address` entirely (a direct or buggy client), which
+      // would persist a MERCHANT delivery order with no address. Require a
+      // concrete destination — address + city + state, the same fields
+      // fulfillment reads — before creating the order. `pickup` rates are
+      // exempt: the shopper collects, so they rely on the rate's pickup
+      // metadata rather than a shopper delivery address.
+      if (verifiedMerchantShippingRate.kind === 'ship') {
+        const hasDeliveryAddress = Boolean(
+          shippingAddressForOrder?.address?.trim() &&
+            shippingAddressForOrder?.city?.trim() &&
+            shippingAddressForOrder?.state?.trim()
+        );
+        if (!hasDeliveryAddress) {
+          logger.warn({
+            message:
+              'Storefront order rejected: merchant ship rate selected without a delivery address',
+            merchantId: merchant_id,
+            shippingRateId: body.shipping_rate_id,
+          });
+          return NextResponse.json(
+            {
+              error: 'A delivery address is required for this shipping rate',
+              code: 'SHIPPING_ADDRESS_REQUIRED',
+            },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    // The SERVER-verified amount wins for merchant-rate orders (it differs
+    // from the client value by ≤ 0.01 — anything larger was rejected above,
+    // so the RPC's ±1 expected_total parity guard still passes). The
+    // idempotency hash below intentionally keeps the CLIENT value so retries
+    // of the same request hash identically.
+    const effectiveShippingFee =
+      verifiedMerchantShippingRate?.amount ?? shippingFeeValue;
 
     const checkoutRequestHash = requestIdempotencyKey
       ? hashOrderIdempotencyPayload(
@@ -2028,6 +2286,12 @@ export async function POST(request: NextRequest) {
             gift_wrapping_fee: giftWrappingFeeValue,
             items: orderItemsPayload,
             shipping_fee: shippingFeeValue,
+            // Merchant-rate orders null shipping_provider + selected_quote_id, so
+            // the rate id is the only field that distinguishes two same-priced
+            // merchant rates (same fee + address) on an Idempotency-Key reuse.
+            // Without it the RPC would replay the ORIGINAL order instead of
+            // returning checkout_idempotency_conflict.
+            shipping_rate_id: body.shipping_rate_id,
             tax_amount: orderTaxAmount,
           })
         )
@@ -2064,7 +2328,7 @@ export async function POST(request: NextRequest) {
       p_customer_name: customer_name,
       p_customer_phone: customer_phone || null,
       p_items: orderItemsPayload,
-      p_shipping_fee: shippingFeeValue,
+      p_shipping_fee: effectiveShippingFee,
       p_discount_amount: discountCodeId
         ? discountCodeAmount
         : serverDerivedDiscountAmount,
@@ -2076,7 +2340,7 @@ export async function POST(request: NextRequest) {
       p_source: source,
       p_notes: notes || null,
       p_ad_tracking: adTrackingPayload,
-      p_selected_quote_id: body.selected_quote_id || null,
+      p_selected_quote_id: resolvedSelectedQuoteId,
       p_shipping_provider: resolvedShippingProvider,
       p_tracking_number: resolvedTrackingNumber || null,
       p_user_id: resolvedUserId,
@@ -2289,10 +2553,13 @@ export async function POST(request: NextRequest) {
     // id is server-derived (returned by the SECURITY DEFINER create RPC), not
     // caller input. Fall back to the merchant-derived code (exactly what the
     // RPC stamps on a fresh order) only when the read errors.
+    // Also read shipping_provider back: an idempotent merchant-rate REPLAY
+    // whose first attempt failed the post-create stamp needs it to detect the
+    // missing-metadata case and re-stamp (see the replay re-stamp block below).
     const { data: orderCurrencyRow, error: orderCurrencyError } =
       await createAdminClient()
         .from('orders')
-        .select('currency')
+        .select('currency, shipping_provider')
         .eq('id', order.id)
         .maybeSingle();
     if (orderCurrencyError) {
@@ -2314,6 +2581,220 @@ export async function POST(request: NextRequest) {
       order !== null &&
       'idempotency_replayed' in order &&
       order.idempotency_replayed === true;
+
+    // Stamp the merchant-rate fulfillment provider post-create. Mirrors the
+    // self-fulfill flow, which also writes orders.shipping_provider via an
+    // UPDATE (the column is unconstrained free text); the create RPC has no
+    // provider param on the pickup-bypass path this order used. A pickup rate
+    // is stamped 'MERCHANT_PICKUP' and a shipped rate 'MERCHANT' so fulfillment
+    // always sees the truth: the shopper chose pickup pricing, so the merchant
+    // owes pickup — never a door delivery. Admin client: guest checkouts hold
+    // no session that could pass orders RLS, and the id is server-derived from
+    // the create RPC. Skipped on idempotent replay (the original request
+    // already stamped). Failures are logged but never fail the order — it
+    // exists and carries the verified fee either way.
+    if (verifiedMerchantShippingRate && !idempotencyReplayed) {
+      const merchantShippingProvider =
+        verifiedMerchantShippingRate.kind === 'pickup'
+          ? 'MERCHANT_PICKUP'
+          : 'MERCHANT';
+      // Pickup rates snapshot their collection address/instructions so the
+      // customer + merchant order views retain the pickup point even after the
+      // rate is later edited or deleted (mirrors the rate-name snapshot). Only
+      // pickup orders carry it; ship rates leave the column untouched so their
+      // stamp stays byte-identical.
+      const pickupDetailsUpdate =
+        verifiedMerchantShippingRate.kind === 'pickup'
+          ? {
+              shipping_pickup_details:
+                verifiedMerchantShippingRate.pickupAddress ?? null,
+            }
+          : {};
+      const { error: providerStampError } = await createAdminClient()
+        .from('orders')
+        .update({
+          shipping_provider: merchantShippingProvider,
+          // Persist WHICH merchant rate was bought so fulfillment can act on it.
+          // The name is a durable snapshot (survives later edits/deletes of the
+          // rate); the id is a soft link (nulled if the rate row is removed).
+          shipping_rate_id: body.shipping_rate_id,
+          shipping_rate_name: verifiedMerchantShippingRate.rateName,
+          ...pickupDetailsUpdate,
+        })
+        .eq('id', order.id)
+        .eq('merchant_id', merchant_id);
+      if (providerStampError) {
+        // The merchant can delete the selected rate between verification and
+        // this stamp. `orders_shipping_rate_id_fkey` then rejects the now-
+        // dangling shipping_rate_id (Postgres foreign_key_violation, 23503).
+        // Because provider + id + name are one UPDATE, a rejection would leave
+        // the order with NO provider AND NO rate-name snapshot — losing all
+        // fulfillment info. Retry once, dropping the soft-link id, so the
+        // durable provider + rate-name snapshot are ALWAYS persisted (the id is
+        // recoverable-as-null; the name is not).
+        if (providerStampError.code === '23503') {
+          const { error: retryStampError } = await createAdminClient()
+            .from('orders')
+            .update({
+              shipping_provider: merchantShippingProvider,
+              shipping_rate_id: null,
+              shipping_rate_name: verifiedMerchantShippingRate.rateName,
+              // Keep the pickup snapshot on the retry — it is durable
+              // fulfillment data, independent of the (now-nulled) rate id.
+              ...pickupDetailsUpdate,
+            })
+            .eq('id', order.id)
+            .eq('merchant_id', merchant_id);
+          if (retryStampError) {
+            logger.error({
+              message:
+                'Failed to stamp merchant-rate provider after dropping deleted rate id',
+              error: retryStampError,
+              orderId: order.id,
+              merchantId: merchant_id,
+              shippingProvider: merchantShippingProvider,
+              shippingRateName: verifiedMerchantShippingRate.rateName,
+            });
+          } else {
+            logger.warn({
+              message:
+                'Selected merchant rate was deleted mid-order; persisted provider + rate-name snapshot with a null shipping_rate_id',
+              orderId: order.id,
+              merchantId: merchant_id,
+              shippingProvider: merchantShippingProvider,
+              shippingRateName: verifiedMerchantShippingRate.rateName,
+            });
+          }
+        } else {
+          logger.error({
+            message: 'Failed to stamp merchant-rate shipping provider on order',
+            error: providerStampError,
+            orderId: order.id,
+            merchantId: merchant_id,
+            shippingProvider: merchantShippingProvider,
+            shippingRateName: verifiedMerchantShippingRate.rateName,
+          });
+        }
+      }
+    }
+
+    // R9-5: re-stamp a merchant-rate REPLAY whose original stamp never landed.
+    // If a FIRST merchant-rate attempt's create RPC succeeded but the
+    // post-create provider UPDATE above failed, the order exists (keyed by the
+    // idempotency key) yet carries no shipping_provider/shipping_rate_name. A
+    // retry with the same Idempotency-Key takes the replay path, where
+    // verifiedMerchantShippingRate is null so the create-path stamp is skipped
+    // FOREVER — fulfillment would see an unconfigured merchant-rate order.
+    // Detect the missing metadata on replay and best-effort backfill it.
+    //
+    // This must NEVER reject the replay: the whole point of the replay path is
+    // to return the existing order even if the merchant has since changed or
+    // deleted the rate. It only fills in absent fulfillment fields, logged.
+    // When the metadata is already present it does nothing (and never reloads
+    // the rate config). `body.shipping_rate_id` is narrowed to a string here.
+    if (body.shipping_rate_id && idempotencyReplayed) {
+      const existingShippingProvider = orderCurrencyRow?.shipping_provider;
+      const merchantRateMetadataMissing =
+        existingShippingProvider === null ||
+        existingShippingProvider === undefined ||
+        (typeof existingShippingProvider === 'string' &&
+          existingShippingProvider.trim() === '');
+      if (merchantRateMetadataMissing) {
+        try {
+          // Lighter than re-running verifyOrderShippingRate: a fail-soft load of
+          // the merchant's active rates, then a lookup of the selected rate to
+          // recover its name + kind. We are NOT re-charging (the fee is locked
+          // on the existing order), so we deliberately skip zone/condition
+          // re-verification — any recovered name/kind is enough to configure
+          // fulfillment. A load failure or a since-removed rate simply leaves
+          // the order as-is (logged), never failing the replay.
+          const replayRatesPayload = await getMerchantShippingRates(
+            createAdminClient(),
+            merchant_id
+          );
+          const replayRate = replayRatesPayload.rates.find(
+            (candidate) => candidate.id === body.shipping_rate_id
+          );
+          if (!replayRate) {
+            logger.warn({
+              message:
+                'Merchant-rate replay is missing fulfillment metadata but the selected rate is no longer loadable; leaving the order unstamped',
+              orderId: order.id,
+              merchantId: merchant_id,
+              shippingRateId: body.shipping_rate_id,
+            });
+          } else {
+            const replayShippingProvider =
+              replayRate.kind === 'pickup' ? 'MERCHANT_PICKUP' : 'MERCHANT';
+            // Backfill the pickup snapshot too, so a pickup order whose first
+            // stamp never landed still recovers its collection point on replay.
+            const replayPickupDetailsUpdate =
+              replayRate.kind === 'pickup'
+                ? { shipping_pickup_details: replayRate.pickupAddress ?? null }
+                : {};
+            const { error: replayStampError } = await createAdminClient()
+              .from('orders')
+              .update({
+                shipping_provider: replayShippingProvider,
+                shipping_rate_id: body.shipping_rate_id,
+                shipping_rate_name: replayRate.name,
+                ...replayPickupDetailsUpdate,
+              })
+              .eq('id', order.id)
+              .eq('merchant_id', merchant_id);
+            if (replayStampError) {
+              // Mirror the create-path 23503 retry: the rate can be deleted
+              // between the load and this UPDATE, so drop the soft-link id and
+              // keep the durable provider + rate-name snapshot.
+              if (replayStampError.code === '23503') {
+                const { error: replayRetryError } = await createAdminClient()
+                  .from('orders')
+                  .update({
+                    shipping_provider: replayShippingProvider,
+                    shipping_rate_id: null,
+                    shipping_rate_name: replayRate.name,
+                    ...replayPickupDetailsUpdate,
+                  })
+                  .eq('id', order.id)
+                  .eq('merchant_id', merchant_id);
+                if (replayRetryError) {
+                  logger.error({
+                    message:
+                      'Failed to re-stamp merchant-rate replay after dropping the deleted rate id',
+                    error: replayRetryError,
+                    orderId: order.id,
+                    merchantId: merchant_id,
+                    shippingProvider: replayShippingProvider,
+                    shippingRateName: replayRate.name,
+                  });
+                }
+              } else {
+                logger.error({
+                  message:
+                    'Failed to re-stamp merchant-rate fulfillment metadata on idempotent replay',
+                  error: replayStampError,
+                  orderId: order.id,
+                  merchantId: merchant_id,
+                  shippingProvider: replayShippingProvider,
+                  shippingRateName: replayRate.name,
+                });
+              }
+            }
+          }
+        } catch (replayStampException) {
+          // Best-effort only: a re-stamp failure must never turn a successful
+          // replay into an error response.
+          logger.error({
+            message:
+              'Merchant-rate replay re-stamp raised unexpectedly; leaving the order metadata as-is',
+            error: replayStampException,
+            orderId: order.id,
+            merchantId: merchant_id,
+            shippingRateId: body.shipping_rate_id,
+          });
+        }
+      }
+    }
 
     // create_storefront_order* decremented product_variants/products stock inside
     // the RPC above (for every order — paid, POD, or unpaid). Bust the merchant's
@@ -2376,7 +2857,7 @@ export async function POST(request: NextRequest) {
 
     const orderTotal = Number(order.total ?? 0);
     const orderSubtotal = Number(order.subtotal ?? 0);
-    const orderShippingFee = Number(order.shipping_fee ?? shippingFeeValue);
+    const orderShippingFee = Number(order.shipping_fee ?? effectiveShippingFee);
     const customer_id = order.customer_id || null;
     const orderNum = order.order_number || order.id.slice(0, 8).toUpperCase();
 

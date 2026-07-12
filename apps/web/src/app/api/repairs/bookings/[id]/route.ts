@@ -6,9 +6,11 @@ import {
 } from '@/lib/repairs/booking-mappers';
 import { authorizeRepairsRequest } from '@/lib/repairs/catalog-admin-auth';
 import { notifyRepairStatusChange } from '@/lib/repairs/notify-repair-status-change';
+import { REPAIR_PICKUP_LOCK_TIMEOUT_SECONDS } from '@/lib/repairs/repair-pickup-constants';
 import {
   canTransitionRepairStatus,
   isRepairStatus,
+  isTerminalRepairStatus,
 } from '@/lib/repairs/repair-status';
 import { createClient } from '@/lib/supabase/admin';
 import { updateRepairBookingSchema } from '@/schemas/repair-bookings';
@@ -136,18 +138,60 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     );
   }
 
-  const { data: updated, error: updateError } = await admin
+  let updateQuery = admin
     .from('repairs')
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', id)
-    .eq('merchant_id', authz.access.merchantId)
-    .select(BOOKING_DETAIL_COLUMNS)
-    .single();
+    .eq('merchant_id', authz.access.merchantId);
 
-  if (updateError || !updated) {
+  // Optimistic concurrency: whenever the request carries a status (even one
+  // equal to the current value), only write if the row is still in the status we
+  // read. This blocks both the transition case (read `pending`, write
+  // `confirmed` over a concurrent cancel) AND the equal-status resend case (a
+  // whole-form save that re-sends `pending` and would otherwise revert a
+  // concurrent terminal transition). Pure cost/notes edits stay unguarded.
+  if (nextStatus !== undefined) {
+    updateQuery = updateQuery.eq('status', currentStatus);
+  }
+
+  // Do not let a repair go terminal while a courier pickup is ACTIVELY being
+  // booked. book-repair-pickup.ts holds `pickup_booking_lock_token` from the
+  // atomic claim through the paid provider call, so refusing terminal
+  // transitions while an active lock is held closes the claim/link ->
+  // bookShipment window that would otherwise pay for a pickup on a just-cancelled
+  // repair. Mirror the claim RPC's staleness predicate exactly (null token, null
+  // start, or start older than the timeout = not active) so a lock leaked by a
+  // failed pre-provider booking self-heals and can't block cancellation forever.
+  if (nextStatus !== undefined && isTerminalRepairStatus(nextStatus)) {
+    const staleCutoff = new Date(
+      Date.now() - REPAIR_PICKUP_LOCK_TIMEOUT_SECONDS * 1000
+    ).toISOString();
+    updateQuery = updateQuery.or(
+      `pickup_booking_lock_token.is.null,pickup_booking_started_at.is.null,pickup_booking_started_at.lt.${staleCutoff}`
+    );
+  }
+
+  const { data: updated, error: updateError } = await updateQuery
+    .select(BOOKING_DETAIL_COLUMNS)
+    .maybeSingle();
+
+  if (updateError) {
     return NextResponse.json(
       { error: 'Failed to update booking' },
       { status: 500 }
+    );
+  }
+  if (!updated) {
+    // The booking exists (loaded above) but no row matched: another request
+    // changed its status first, or a courier pickup is mid-booking (terminal
+    // transitions are held until it finishes). Ask the client to reload/retry.
+    return NextResponse.json(
+      {
+        error:
+          'Booking could not be updated — it changed, or a courier pickup is being booked. Reload and try again.',
+        code: 'status_conflict',
+      },
+      { status: 409 }
     );
   }
 

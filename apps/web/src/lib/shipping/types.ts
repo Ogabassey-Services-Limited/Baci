@@ -22,6 +22,22 @@ export class ShippingBookingRejectedError extends Error {
   }
 }
 
+/**
+ * Merchant-configured rates surface as quotes with this provider code.
+ *
+ * It is intentionally kept OUT of `SHIPPING_PROVIDER_CODES` (and therefore out
+ * of `ShippingProviderCode`): that tuple drives carrier-only paths such as
+ * `isShippingProviderCode`, quote persistence, and booking. Merchant rates are
+ * computed from config and never booked with a carrier, so only the
+ * display-facing `ShippingQuote.provider` union is widened to include it.
+ */
+export const MERCHANT_PROVIDER_CODE = 'MERCHANT' as const;
+
+export type MerchantProviderCode = typeof MERCHANT_PROVIDER_CODE;
+
+/** Provider code for a quote shown to the customer (carrier or merchant). */
+export type QuoteProviderCode = ShippingProviderCode | MerchantProviderCode;
+
 // =============================================================================
 // ADDRESS TYPES
 // =============================================================================
@@ -76,7 +92,7 @@ export interface QuoteRequest {
 
 export interface ShippingQuote {
   id: string; // UUID for DB storage
-  provider: ShippingProviderCode;
+  provider: QuoteProviderCode; // Carrier code, or 'MERCHANT' for merchant rates
   serviceTier: string; // Budget, Express, Premium, etc.
   carrierName: string; // Actual carrier: DHL, FedEx, GIG Logistics
   displayName: string; // Customer-facing name: "Express Delivery"
@@ -97,6 +113,10 @@ export interface ShippingQuote {
   stationId?: number;
   stationName?: string;
   stationAddress?: string;
+  // Collection directions the shopper follows at the pickup point (merchant
+  // rates surface `pickupAddress.instructions` here so the client can show them
+  // before a pickup is chosen — the raw quote metadata is dropped downstream).
+  stationInstructions?: string;
   stationCode?: string;
   // Legacy aliases
   pickupStationId?: number;
