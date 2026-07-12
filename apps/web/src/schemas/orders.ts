@@ -272,6 +272,14 @@ const orderCreateSchemaBase = z
     // accept both undefined and null; the route normalizes `?? null`
     // before passing to the RPC.
     selected_quote_id: z.uuid().nullable().optional(),
+    // Merchant-configured shipping rate (merchant_shipping_rates.id). Sent by
+    // checkout when the shopper picks a merchant rate (an `mrate_` quote).
+    // The orders route re-verifies the rate against the merchant's zone
+    // config + delivery destination and recomputes the fee server-side
+    // (verifyOrderShippingRate) — the client `shipping_fee` is never trusted
+    // for these orders. Nullable like selected_quote_id so clients can send
+    // an explicit null for "no merchant rate selected".
+    shipping_rate_id: z.uuid().nullable().optional(),
     // B3 review fix: mirror reuseCheckoutOrderSchema.shipping_provider —
     // sanitize at the validation boundary so both order-create AND
     // order-reuse paths persist the same normalized provider string.
@@ -344,6 +352,14 @@ export const reuseCheckoutOrderSchema = z.object({
   // B3 (plan §5 B3): accept null so pickup/airport reuse flows can
   // signal "no third-party shipping provider" cleanly.
   selected_quote_id: z.uuid().nullable().optional(),
+  // Merchant-configured shipping rate (merchant_shipping_rates.id). Forwarded
+  // when reopening a merchant-rate pending order whose original post-create
+  // provider stamp failed, so the reuse route can re-stamp the fulfillment
+  // provider + rate name (R14-3 — the reuse-path analogue of the orders POST
+  // R9-5 re-stamp). This is the BARE rate uuid; the synthetic `mrate_`-prefixed
+  // selected_quote_id stays nulled for merchant rates. Nullable like
+  // selected_quote_id so clients can send an explicit null.
+  shipping_rate_id: z.uuid().nullable().optional(),
   shipping_provider: z
     .string()
     .nullable()

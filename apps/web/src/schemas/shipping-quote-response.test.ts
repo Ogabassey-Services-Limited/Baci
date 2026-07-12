@@ -108,4 +108,58 @@ describe('shippingQuoteApiResponseSchema', () => {
       }).success
     ).toBe(true);
   });
+
+  it('keeps merchant-configured rate quotes (provider MERCHANT)', () => {
+    const merchantQuote = {
+      ...shippingQuote,
+      id: 'mrate_55555555-5555-4555-8555-555555555555',
+      provider: 'MERCHANT',
+      carrierName: 'Standard Delivery',
+      displayName: 'Standard Delivery',
+      estimatedDays: 0,
+      price: 1500,
+    };
+
+    expect(
+      normalizeShippingQuoteResponsePayload({
+        quotes: { all: [merchantQuote, shippingQuote] },
+      })
+    ).toEqual({
+      quotes: [merchantQuote, shippingQuote],
+      sessionId: '',
+      warnings: [],
+    });
+  });
+
+  it('carries pickup station instructions through normalization', () => {
+    const pickupQuote = {
+      ...shippingQuote,
+      id: 'mrate_55555555-5555-4555-8555-555555555555',
+      provider: 'MERCHANT',
+      isStationPickup: true,
+      stationName: 'Ikeja Store',
+      stationAddress: '12 Allen Avenue, Ikeja, Lagos',
+      stationInstructions: 'Ring the bell twice and ask for Ada',
+    };
+
+    const { quotes } = normalizeShippingQuoteResponsePayload({
+      quotes: { all: [pickupQuote] },
+    });
+
+    expect(quotes[0]?.stationInstructions).toBe(
+      'Ring the bell twice and ask for Ada'
+    );
+  });
+
+  it('drops quotes with unknown provider codes', () => {
+    expect(
+      normalizeShippingQuoteResponsePayload({
+        quotes: { all: [{ ...shippingQuote, provider: 'BOGUS' }] },
+      })
+    ).toEqual({
+      quotes: [],
+      sessionId: '',
+      warnings: [],
+    });
+  });
 });

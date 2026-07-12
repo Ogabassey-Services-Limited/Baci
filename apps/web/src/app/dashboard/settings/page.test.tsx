@@ -81,6 +81,9 @@ describe('dashboard settings page', () => {
     expect(
       screen.getByRole('link', { name: /manage verification/i })
     ).toHaveAttribute('href', '/dashboard/settings/kyc');
+    expect(
+      screen.getByRole('link', { name: /manage shipping rates/i })
+    ).toHaveAttribute('href', '/dashboard/settings/shipping');
   });
 
   it('hides Nigerian KYC settings for India merchants', async () => {

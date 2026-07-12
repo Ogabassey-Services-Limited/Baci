@@ -36,6 +36,7 @@ export type OrderIdempotencyPayloadInput = {
   } | null;
   shipping_fee?: number;
   shipping_provider?: string | null;
+  shipping_rate_id?: string | null;
   tax_amount?: number;
   use_savings_credit?: boolean;
   use_wallet_credit?: boolean;
@@ -161,6 +162,12 @@ export function buildOrderIdempotencyPayload(
     },
     shipping_fee: normalizeNumber(input.shipping_fee),
     shipping_provider: normalizeText(input.shipping_provider),
+    // Merchant-rate orders null shipping_provider/selected_quote_id, so the rate
+    // id is the only distinguishing field between two same-priced merchant rates
+    // (e.g. two same-fee pickup locations). Omit it when empty (undefined, so
+    // JSON.stringify drops the key entirely) to keep the hash byte-identical for
+    // carrier-quote, pickup/airport, and mobile checkouts that never send it.
+    shipping_rate_id: normalizeText(input.shipping_rate_id) || undefined,
     tax_amount: normalizeNumber(input.tax_amount),
     use_savings_credit: Boolean(input.use_savings_credit),
     use_wallet_credit: Boolean(input.use_wallet_credit),

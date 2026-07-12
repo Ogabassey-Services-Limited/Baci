@@ -195,4 +195,61 @@ describe('order idempotency hashing', () => {
       hashOrderIdempotencyPayload(klumpCard)
     );
   });
+
+  it('keeps the hash byte-identical for orders that carry no shipping_rate_id', () => {
+    // Regression guard: adding shipping_rate_id must NOT change the canonical
+    // form when the field is absent — carrier-quote, pickup/airport, and mobile
+    // storefront checkouts never send it. The digest below was computed from the
+    // PRE-change serialization of baseOrder; the field is normalized to
+    // `undefined` when empty so JSON.stringify drops the key entirely. If someone
+    // later normalizes it to `null` (always present) this hash changes and the
+    // test fails, catching the cross-client idempotency-key regression.
+    const preChangeDigest =
+      'ff55e14d72945d04036c0074a472825400e24521997768e38f953b552c24c447';
+
+    expect(
+      hashOrderIdempotencyPayload(buildOrderIdempotencyPayload(baseOrder))
+    ).toBe(preChangeDigest);
+  });
+
+  it('treats an absent, null, and empty shipping_rate_id identically', () => {
+    const absent = buildOrderIdempotencyPayload(baseOrder);
+    const explicitNull = buildOrderIdempotencyPayload({
+      ...baseOrder,
+      shipping_rate_id: null,
+    });
+    const empty = buildOrderIdempotencyPayload({
+      ...baseOrder,
+      shipping_rate_id: '   ',
+    });
+
+    expect(hashOrderIdempotencyPayload(explicitNull)).toBe(
+      hashOrderIdempotencyPayload(absent)
+    );
+    expect(hashOrderIdempotencyPayload(empty)).toBe(
+      hashOrderIdempotencyPayload(absent)
+    );
+  });
+
+  it('distinguishes two same-priced merchant rates by shipping_rate_id', () => {
+    // Two same-fee pickup locations (merchant rates null shipping_provider and
+    // selected_quote_id) must not collide on an Idempotency-Key reuse — otherwise
+    // the RPC replays the ORIGINAL order instead of returning a conflict.
+    const rateA = buildOrderIdempotencyPayload({
+      ...baseOrder,
+      selected_quote_id: null,
+      shipping_provider: null,
+      shipping_rate_id: '55555555-5555-4555-8555-555555555555',
+    });
+    const rateB = buildOrderIdempotencyPayload({
+      ...baseOrder,
+      selected_quote_id: null,
+      shipping_provider: null,
+      shipping_rate_id: '66666666-6666-4666-8666-666666666666',
+    });
+
+    expect(hashOrderIdempotencyPayload(rateA)).not.toBe(
+      hashOrderIdempotencyPayload(rateB)
+    );
+  });
 });

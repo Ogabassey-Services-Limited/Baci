@@ -1,5 +1,8 @@
 import z from 'zod';
-import { SHIPPING_PROVIDER_CODES } from '@/lib/shipping/types';
+import {
+  MERCHANT_PROVIDER_CODE,
+  SHIPPING_PROVIDER_CODES,
+} from '@/lib/shipping/types';
 import type { ShippingQuote } from '@/types/shipping-quote';
 
 interface NormalizedShippingQuoteResponse {
@@ -7,6 +10,17 @@ interface NormalizedShippingQuoteResponse {
   sessionId: string;
   warnings: string[];
 }
+
+/**
+ * Provider codes a storefront client may receive in a quote payload: the
+ * registered carriers plus computed merchant-configured rates. This mirrors
+ * `QuoteProviderCode`; `SHIPPING_PROVIDER_CODES` itself deliberately stays
+ * carrier-only because it gates booking/persistence paths.
+ */
+const QUOTE_PROVIDER_CODES = [
+  ...SHIPPING_PROVIDER_CODES,
+  MERCHANT_PROVIDER_CODE,
+] as const;
 
 const nullableOptionalNumberSchema = z
   .number()
@@ -31,7 +45,7 @@ const nullableOptionalBooleanSchema = z
 const shippingQuoteSchema = z
   .object({
     id: z.string().min(1),
-    provider: z.enum(SHIPPING_PROVIDER_CODES),
+    provider: z.enum(QUOTE_PROVIDER_CODES),
     serviceTier: z.string().min(1),
     carrierName: z.string().min(1),
     displayName: z.string().min(1),
@@ -46,6 +60,7 @@ const shippingQuoteSchema = z
     isStationPickup: nullableOptionalBooleanSchema,
     stationName: nullableOptionalStringSchema,
     stationAddress: nullableOptionalStringSchema,
+    stationInstructions: nullableOptionalStringSchema,
     stationCode: nullableOptionalStringSchema,
     providerRateId: nullableOptionalStringSchema,
   })
@@ -80,6 +95,9 @@ const shippingQuoteSchema = z
     }
     if (quote.stationAddress !== undefined) {
       normalized.stationAddress = quote.stationAddress;
+    }
+    if (quote.stationInstructions !== undefined) {
+      normalized.stationInstructions = quote.stationInstructions;
     }
     if (quote.stationCode !== undefined) {
       normalized.stationCode = quote.stationCode;

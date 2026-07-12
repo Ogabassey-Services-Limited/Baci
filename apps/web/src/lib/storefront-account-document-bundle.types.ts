@@ -1,4 +1,5 @@
 import type { ReceiptOrder } from '@baci/shared';
+import type { MerchantPickupAddress } from '@/lib/shipping/merchant-rates/types';
 
 type JsonRecord = Record<string, unknown>;
 type MoneyValue = number | string | null;
@@ -60,6 +61,14 @@ export interface StorefrontAccountDocumentOrderRow {
   is_credit_order: boolean | null;
   tracking_number: string | null;
   shipping_provider: string | null;
+  shipping_rate_id?: string | null;
+  shipping_rate_name?: string | null;
+  /**
+   * Durable snapshot of a merchant PICKUP rate's collection point (label,
+   * address, city, state, instructions), captured at purchase. Null for
+   * carrier/ship orders and older pickup orders that predate the snapshot.
+   */
+  shipping_pickup_details?: MerchantPickupAddress | null;
   notes: string | null;
   invoice_type_code: string | null;
   invoice_issue_date: string | null;

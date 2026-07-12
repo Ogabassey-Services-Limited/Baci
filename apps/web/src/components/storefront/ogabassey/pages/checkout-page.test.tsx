@@ -748,7 +748,10 @@ describe('CheckoutPage', () => {
     render(<CheckoutPage />);
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/shipping/locations');
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/shipping/locations',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
     });
     expect(
       fetchMock.mock.calls.some(
@@ -1044,6 +1047,832 @@ describe('CheckoutPage', () => {
     fetchMock.mockRestore();
   });
 
+  it('threads a selected merchant rate through the order POST (null provider path)', async () => {
+    const scrollSpy = vi
+      .spyOn(window, 'scrollTo')
+      .mockImplementation(() => undefined);
+    window.localStorage.clear();
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'not_registered',
+        country: 'NG',
+        feature_settings: {
+          pay_on_delivery_enabled: true,
+        },
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '2 Olaide Tomori Street',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'payment',
+        completedSteps: { contact: true, delivery: true },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+
+    const merchantRateQuote = {
+      carrierName: 'Standard Delivery',
+      currency: 'NGN',
+      displayName: 'Standard Delivery',
+      estimatedDays: 0,
+      id: 'mrate_9f1b2c3d-0000-4000-8000-000000000009',
+      insuranceIncluded: false,
+      pickupIncluded: false,
+      price: 1500,
+      provider: 'MERCHANT',
+      serviceTier: 'standard',
+    };
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/shipping/quotes')) {
+          return {
+            ok: true,
+            json: async () => ({ quotes: { all: [merchantRateQuote] } }),
+            text: async () => '',
+          } as Response;
+        }
+        if (url === '/api/orders') {
+          return {
+            ok: true,
+            json: async () => ({
+              amountDueToGateway: 6500,
+              order: {
+                id: 'order-123',
+                order_number: 'ORD-123',
+                tracking_token: 'track-123',
+                currency: 'NGN',
+              },
+              wallet: null,
+            }),
+            text: async () => '',
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    render(<CheckoutPage />);
+
+    // The door-delivery effect fetches quotes and auto-selects the merchant rate.
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).startsWith('/api/shipping/quotes')
+        )
+      ).toBe(true);
+    });
+
+    fireEvent.click(await screen.findByText(/pay on delivery/i));
+    await waitFor(() => {
+      const placeOrderButton = screen
+        .getAllByRole('button', { name: /place order/i })
+        .find((button) => !button.hasAttribute('disabled'));
+      expect(placeOrderButton).toBeDefined();
+      fireEvent.click(placeOrderButton as HTMLButtonElement);
+    });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) => String(url) === '/api/orders')
+      ).toBe(true);
+    });
+
+    const orderBody = JSON.parse(
+      String(
+        fetchMock.mock.calls.find(([url]) => String(url) === '/api/orders')?.[1]
+          ?.body
+      )
+    );
+
+    // Merchant rate carries the bare uuid and takes the null-provider RPC path.
+    expect(orderBody.shipping_rate_id).toBe(
+      '9f1b2c3d-0000-4000-8000-000000000009'
+    );
+    expect(orderBody.shipping_provider).toBeNull();
+    expect(orderBody.selected_quote_id).toBeNull();
+    expect(orderBody.shipping_fee).toBe(1500);
+
+    fetchMock.mockRestore();
+    scrollSpy.mockRestore();
+  });
+
+  it('persists the merchant country in shipping_address for a non-NG (IN) order', async () => {
+    const scrollSpy = vi
+      .spyOn(window, 'scrollTo')
+      .mockImplementation(() => undefined);
+    window.localStorage.clear();
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'not_registered',
+        country: 'IN',
+        feature_settings: {
+          pay_on_delivery_enabled: true,
+        },
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+919812345678',
+        newAddressStreet: '12 Marine Drive',
+        newAddressState: 'Maharashtra',
+        newAddressCity: 'Mumbai',
+        currentStep: 'payment',
+        completedSteps: { contact: true, delivery: true },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+
+    const merchantRateQuote = {
+      carrierName: 'Standard Delivery',
+      currency: 'INR',
+      displayName: 'Standard Delivery',
+      estimatedDays: 0,
+      id: 'mrate_1a2b3c4d-0000-4000-8000-00000000000a',
+      insuranceIncluded: false,
+      pickupIncluded: false,
+      price: 1500,
+      provider: 'MERCHANT',
+      serviceTier: 'standard',
+    };
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/shipping/quotes')) {
+          return {
+            ok: true,
+            json: async () => ({ quotes: { all: [merchantRateQuote] } }),
+            text: async () => '',
+          } as Response;
+        }
+        if (url === '/api/orders') {
+          return {
+            ok: true,
+            json: async () => ({
+              amountDueToGateway: 6500,
+              order: {
+                id: 'order-123',
+                order_number: 'ORD-123',
+                tracking_token: 'track-123',
+                currency: 'INR',
+              },
+              wallet: null,
+            }),
+            text: async () => '',
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: ['Maharashtra'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).startsWith('/api/shipping/quotes')
+        )
+      ).toBe(true);
+    });
+
+    fireEvent.click(await screen.findByText(/pay on delivery/i));
+    await waitFor(() => {
+      const placeOrderButton = screen
+        .getAllByRole('button', { name: /place order/i })
+        .find((button) => !button.hasAttribute('disabled'));
+      expect(placeOrderButton).toBeDefined();
+      fireEvent.click(placeOrderButton as HTMLButtonElement);
+    });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) => String(url) === '/api/orders')
+      ).toBe(true);
+    });
+
+    const orderBody = JSON.parse(
+      String(
+        fetchMock.mock.calls.find(([url]) => String(url) === '/api/orders')?.[1]
+          ?.body
+      )
+    );
+
+    // The order the merchant is quoted+charged for must be persisted (and later
+    // invoiced) with the merchant country, not the legacy NG fallback.
+    expect(orderBody.shipping_address).toMatchObject({
+      state: 'Maharashtra',
+      city: 'Mumbai',
+      countryCode: 'IN',
+      country: 'India',
+    });
+
+    fetchMock.mockRestore();
+    scrollSpy.mockRestore();
+  });
+
+  it('drops a stale merchant rate id when switching from a merchant rate to store pickup', async () => {
+    const scrollSpy = vi
+      .spyOn(window, 'scrollTo')
+      .mockImplementation(() => undefined);
+    window.localStorage.clear();
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'not_registered',
+        country: 'NG',
+        feature_settings: {
+          pay_on_delivery_enabled: true,
+        },
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '2 Olaide Tomori Street',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'delivery',
+        completedSteps: { contact: true, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+
+    // A door merchant rate; selecting it stamps `selectedQuoteId` with the
+    // synthetic `mrate_<uuid>` id.
+    const merchantRateQuote = {
+      carrierName: 'Standard Delivery',
+      currency: 'NGN',
+      displayName: 'Standard Delivery',
+      estimatedDays: 0,
+      id: 'mrate_9f1b2c3d-0000-4000-8000-000000000009',
+      insuranceIncluded: false,
+      pickupIncluded: false,
+      price: 1500,
+      provider: 'MERCHANT',
+      serviceTier: 'standard',
+    };
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/shipping/quotes')) {
+          return {
+            ok: true,
+            json: async () => ({ quotes: { all: [merchantRateQuote] } }),
+            text: async () => '',
+          } as Response;
+        }
+        if (url === '/api/orders') {
+          return {
+            ok: true,
+            json: async () => ({
+              amountDueToGateway: 5000,
+              order: {
+                id: 'order-123',
+                order_number: 'ORD-123',
+                tracking_token: 'track-123',
+                currency: 'NGN',
+              },
+              wallet: null,
+            }),
+            text: async () => '',
+          } as Response;
+        }
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    render(<CheckoutPage />);
+
+    // Door delivery fetches quotes and auto-selects the merchant rate.
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).startsWith('/api/shipping/quotes')
+        )
+      ).toBe(true);
+    });
+
+    // Switch to legacy in-store pickup. The method switch preserves the merchant
+    // rate id in `selectedQuoteId`, but a pickup checkout must submit a free,
+    // provider-less order — the stale rate id must NOT surface as
+    // `shipping_rate_id` (which would 400 with SHIPPING_FEE_MISMATCH or route
+    // the wrong fulfillment provider).
+    fireEvent.click(screen.getByRole('button', { name: /store pickup/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /continue to payment/i })
+    );
+    fireEvent.click(await screen.findByText(/pay on delivery/i));
+    await waitFor(() => {
+      const placeOrderButton = screen
+        .getAllByRole('button', { name: /place order/i })
+        .find((button) => !button.hasAttribute('disabled'));
+      expect(placeOrderButton).toBeDefined();
+      fireEvent.click(placeOrderButton as HTMLButtonElement);
+    });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) => String(url) === '/api/orders')
+      ).toBe(true);
+    });
+
+    const orderBody = JSON.parse(
+      String(
+        fetchMock.mock.calls.find(([url]) => String(url) === '/api/orders')?.[1]
+          ?.body
+      )
+    );
+
+    // A normal store-pickup order: no rate id, no provider, no quote, no fee.
+    expect(orderBody.shipping_rate_id).toBeUndefined();
+    expect(orderBody.selected_quote_id).toBeNull();
+    expect(orderBody.shipping_provider).toBeNull();
+    expect(orderBody.shipping_fee).toBe(0);
+
+    fetchMock.mockRestore();
+    scrollSpy.mockRestore();
+  });
+
+  it('renders every merchant pickup location as an individually selectable option', async () => {
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'not_registered',
+        country: 'NG',
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '2 Olaide Tomori Street',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'delivery',
+        completedSteps: { contact: true, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+
+    // Two merchant pickup rates configured in the same zone.
+    const pickupQuotes = [
+      {
+        carrierName: 'Ikeja Store',
+        currency: 'NGN',
+        displayName: 'Ikeja Store Pickup',
+        estimatedDays: 0,
+        id: 'mrate_11111111-0000-4000-8000-000000000001',
+        insuranceIncluded: false,
+        isStationPickup: true,
+        pickupIncluded: false,
+        price: 0,
+        provider: 'MERCHANT',
+        serviceTier: 'pickup',
+        stationName: 'Ikeja Store',
+        stationAddress: '12 Allen Avenue, Ikeja, Lagos',
+        stationInstructions: 'Ring the bell twice and ask for Ada',
+      },
+      {
+        carrierName: 'Lekki Store',
+        currency: 'NGN',
+        displayName: 'Lekki Store Pickup',
+        estimatedDays: 0,
+        id: 'mrate_22222222-0000-4000-8000-000000000002',
+        insuranceIncluded: false,
+        isStationPickup: true,
+        pickupIncluded: false,
+        price: 1500,
+        provider: 'MERCHANT',
+        serviceTier: 'pickup',
+        stationName: 'Lekki Store',
+        stationAddress: '5 Admiralty Way, Lekki, Lagos',
+      },
+    ];
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/shipping/quotes')) {
+          return {
+            ok: true,
+            json: async () => ({ quotes: { all: pickupQuotes } }),
+            text: async () => '',
+          } as Response;
+        }
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).startsWith('/api/shipping/quotes')
+        )
+      ).toBe(true);
+    });
+
+    // Switch to the merchant pickup tab.
+    fireEvent.click(await screen.findByText('Store Pickup'));
+
+    // Both pickup locations are selectable — the second must not silently vanish.
+    const ikejaRadio = await screen.findByRole('radio', {
+      name: /Ikeja Store/i,
+    });
+    const lekkiRadio = screen.getByRole('radio', { name: /Lekki Store/i });
+    expect(ikejaRadio).toBeChecked();
+    expect(lekkiRadio).not.toBeChecked();
+
+    // Merchant pickup collection instructions surface in the pickup detail.
+    expect(
+      screen.getByText('Ring the bell twice and ask for Ada')
+    ).toBeInTheDocument();
+
+    fireEvent.click(lekkiRadio);
+
+    expect(lekkiRadio).toBeChecked();
+    expect(ikejaRadio).not.toBeChecked();
+
+    fetchMock.mockRestore();
+  });
+
+  it('hides the free legacy pickup tab when a merchant pickup exists behind a GIGL station quote', async () => {
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'not_registered',
+        country: 'NG',
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '2 Olaide Tomori Street',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'delivery',
+        completedSteps: { contact: true, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+
+    // A GIGL station quote is returned FIRST, followed by the merchant's own
+    // pickup rate. Both set `isStationPickup: true`, so `getStationPickupQuote`
+    // (the first) is the GIGL station and `isMerchantQuote(firstQuote)` is false.
+    // The legacy free in-store pickup tab must still be suppressed because ANY
+    // station-pickup quote is a merchant rate.
+    const quotes = [
+      {
+        carrierName: 'GIG Logistics',
+        currency: 'NGN',
+        displayName: 'GIG Logistics - Pickup at Ikeja Service Centre',
+        estimatedDays: 3,
+        id: 'station-1',
+        insuranceIncluded: true,
+        isStationPickup: true,
+        pickupIncluded: true,
+        price: 4200,
+        provider: 'GIGL',
+        serviceTier: 'station',
+        stationName: 'Ikeja Service Centre',
+        stationAddress: '10 Allen Avenue, Ikeja, Lagos',
+      },
+      {
+        carrierName: 'Baci Flagship',
+        currency: 'NGN',
+        displayName: 'Baci Flagship Collection',
+        estimatedDays: 0,
+        id: 'mrate_33333333-0000-4000-8000-000000000003',
+        insuranceIncluded: false,
+        isStationPickup: true,
+        pickupIncluded: false,
+        price: 1500,
+        provider: 'MERCHANT',
+        serviceTier: 'pickup',
+        stationName: 'Baci Flagship',
+        stationAddress: '7 Adeola Odeku, Victoria Island, Lagos',
+      },
+    ];
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/shipping/quotes')) {
+          return {
+            ok: true,
+            json: async () => ({ quotes: { all: quotes } }),
+            text: async () => '',
+          } as Response;
+        }
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    try {
+      render(<CheckoutPage />);
+
+      await waitFor(() => {
+        expect(
+          fetchMock.mock.calls.some(([url]) =>
+            String(url).startsWith('/api/shipping/quotes')
+          )
+        ).toBe(true);
+      });
+
+      // The provider-aware pickup_station tab (GIGL copy, since the first
+      // station quote is a GIGL station) reveals for the merchant pickup...
+      const pickupStationTab = await screen.findByText('Pickup Stations (GIGL)');
+
+      // ...but the hardcoded ZERO-FEE legacy in-store pickup tab is suppressed.
+      // Its "Collect at store" subtitle uniquely identifies that tab.
+      expect(screen.queryByText('Collect at store')).not.toBeInTheDocument();
+
+      // The merchant pickup remains individually selectable inside the tab.
+      fireEvent.click(pickupStationTab);
+
+      const merchantPickupRadio = await screen.findByRole('radio', {
+        name: /baci flagship collection/i,
+      });
+      fireEvent.click(merchantPickupRadio);
+      expect(merchantPickupRadio).toBeChecked();
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+
+  it('switches a shopper off legacy pickup onto the merchant pickup rate when the quote arrives', async () => {
+    // R16-2: the shopper picks legacy "Store Pickup" WHILE the door quote is
+    // still loading (no merchant pickup quote yet, so the legacy tab shows).
+    // When the in-flight quote resolves with a merchant PICKUP rate, the legacy
+    // tab is hidden — but without the render-time reset the selection would
+    // linger on fee-free `pickup`. The reset must move it onto the merchant
+    // pickup station (pickup_station + the merchant pickup selected) so the
+    // order carries the rate id + fee.
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'not_registered',
+        country: 'NG',
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '2 Olaide Tomori Street',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'delivery',
+        completedSteps: { contact: true, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+
+    const merchantPickupQuote = {
+      carrierName: 'Ikeja Store',
+      currency: 'NGN',
+      displayName: 'Ikeja Store Pickup',
+      estimatedDays: 0,
+      id: 'mrate_44444444-0000-4000-8000-000000000004',
+      insuranceIncluded: false,
+      isStationPickup: true,
+      pickupIncluded: false,
+      price: 1500,
+      provider: 'MERCHANT',
+      serviceTier: 'pickup',
+      stationName: 'Ikeja Store',
+      stationAddress: '12 Allen Avenue, Ikeja, Lagos',
+    };
+
+    // Hold the quote response open so the shopper can select legacy pickup
+    // BEFORE the merchant pickup rate arrives.
+    let resolveQuotes: (value: Response) => void = () => undefined;
+    const quotesPromise = new Promise<Response>((resolve) => {
+      resolveQuotes = resolve;
+    });
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/shipping/quotes')) {
+          return quotesPromise;
+        }
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    try {
+      render(<CheckoutPage />);
+
+      // The door-delivery effect fires the (still-pending) quote request.
+      await waitFor(() => {
+        expect(
+          fetchMock.mock.calls.some(([url]) =>
+            String(url).startsWith('/api/shipping/quotes')
+          )
+        ).toBe(true);
+      });
+
+      // Legacy pickup is still offered (no merchant pickup quote yet) — select
+      // it while the quote is loading.
+      fireEvent.click(
+        await screen.findByRole('button', { name: /store pickup/i })
+      );
+
+      // The in-flight quote resolves with the merchant pickup rate.
+      await act(async () => {
+        resolveQuotes({
+          ok: true,
+          json: async () => ({ quotes: { all: [merchantPickupQuote] } }),
+          text: async () => '',
+        } as Response);
+        await quotesPromise;
+      });
+
+      // The reset moved the shopper onto the merchant pickup station and
+      // selected the merchant pickup quote (so the order would carry the rate
+      // id + fee, not a fee-free legacy pickup).
+      const merchantPickupRadio = await screen.findByRole('radio', {
+        name: /ikeja store/i,
+      });
+      expect(merchantPickupRadio).toBeChecked();
+      // The legacy fee-free pickup affordance is gone.
+      expect(screen.queryByText('Main Office Pickup')).not.toBeInTheDocument();
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+
   it('refetches door quotes after merchant context resolves', async () => {
     vi.mocked(useCart).mockReturnValue({
       cart: [
@@ -1120,7 +1949,10 @@ describe('CheckoutPage', () => {
     const { rerender } = render(<CheckoutPage />);
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/shipping/locations');
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/shipping/locations',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
     });
     expect(
       fetchMock.mock.calls.some(([url]) =>
@@ -1153,7 +1985,20 @@ describe('CheckoutPage', () => {
       String(url).startsWith('/api/shipping/quotes')
     );
     expect(JSON.parse(String(quoteCall?.[1]?.body))).toEqual(
-      expect.objectContaining({ merchantId: 'merchant-1' })
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        // Advisory subtotal so free-over / price-tier merchant rates quote right.
+        cart_subtotal: expect.any(Number),
+        // Opt-in capability flag: the OgaBassey checkout threads
+        // `shipping_rate_id` end to end, so it asks the shared quotes endpoint
+        // to include merchant-configured rates.
+        supports_merchant_rates: true,
+        receiver: expect.objectContaining({
+          // Destination country derived from the merchant's country (NG).
+          country: 'Nigeria',
+          countryCode: 'NG',
+        }),
+      })
     );
 
     fetchMock.mockRestore();
@@ -1387,6 +2232,191 @@ describe('CheckoutPage', () => {
     } finally {
       fetchMock.mockRestore();
     }
+  });
+
+  it('quotes merchant rates against the catalog subtotal, not the negotiated total', async () => {
+    vi.mocked(hasPriceNegotiationEntitlement).mockReturnValue(true);
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          cartItemId: 'ci-1',
+          name: 'Test Product',
+          price: 5000,
+          negotiatedPrice: 4000,
+          negotiationStatus: 'accepted' as const,
+          quantity: 2,
+          image: '',
+          slug: 'test-product',
+          hasAssurance: true,
+          assuranceRate: 0.05,
+        },
+      ],
+      cartTotal: 8400,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '2 Olaide Tomori Street',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'delivery',
+        completedSteps: { contact: true, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/shipping/quotes')) {
+          return {
+            ok: true,
+            json: async () => ({ quotes: { all: [] } }),
+            text: async () => '',
+          } as Response;
+        }
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).startsWith('/api/shipping/quotes')
+        )
+      ).toBe(true);
+    });
+
+    const quoteCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).startsWith('/api/shipping/quotes')
+    );
+    const body = JSON.parse(String(quoteCall?.[1]?.body));
+
+    // Catalog goods (5000 x 2 = 10000) + negotiated-basis assurance
+    // (4000 x 2 x 0.05 = 400) = 10400 — NOT the negotiated total (8400).
+    expect(body.cart_subtotal).toBe(10400);
+
+    fetchMock.mockRestore();
+  });
+
+  it('re-quotes when toggling assurance shifts the catalog subtotal without changing the item fingerprint', async () => {
+    const baseItem = {
+      id: 'item-1',
+      name: 'Test Product',
+      price: 5000,
+      quantity: 2,
+      image: '',
+      slug: 'test-product',
+    };
+    vi.mocked(useCart).mockReturnValue({
+      cart: [baseItem],
+      cartTotal: 10000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '2 Olaide Tomori Street',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'delivery',
+        completedSteps: { contact: true, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/shipping/quotes')) {
+          return {
+            ok: true,
+            json: async () => ({ quotes: { all: [] } }),
+            text: async () => '',
+          } as Response;
+        }
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    const quoteSubtotals = () =>
+      fetchMock.mock.calls
+        .filter(([url]) => String(url).startsWith('/api/shipping/quotes'))
+        .map(([, init]) => JSON.parse(String(init?.body)).cart_subtotal);
+
+    const { rerender } = render(<CheckoutPage />);
+
+    // First quote uses the assurance-off catalog subtotal (5000 x 2 = 10000).
+    await waitFor(() => {
+      expect(quoteSubtotals()).toContain(10000);
+    });
+
+    // Toggle assurance ON. Same id/quantity/price, so `quoteItemsFingerprint`
+    // (id:quantity:price) is byte-for-byte identical, but the catalog subtotal
+    // now includes the assurance fee (5000 x 2 x 0.05 = 500) -> 10500.
+    vi.mocked(useCart).mockReturnValue({
+      cart: [{ ...baseItem, hasAssurance: true, assuranceRate: 0.05 }],
+      cartTotal: 10500,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+
+    rerender(<CheckoutPage />);
+
+    // The subtotal-basis change must re-trigger the quote fetch even though the
+    // item fingerprint never changed (regression: stale fee -> order-time
+    // SHIPPING_FEE_MISMATCH for merchant free-over / price-tier rates).
+    await waitFor(() => {
+      expect(quoteSubtotals()).toContain(10500);
+    });
+
+    fetchMock.mockRestore();
   });
 
   it('sends a stable idempotency key when creating an order', async () => {
@@ -1664,7 +2694,10 @@ describe('CheckoutPage', () => {
         await Promise.resolve();
         await Promise.resolve();
       });
-      expect(fetchMock).toHaveBeenCalledWith('/api/shipping/locations');
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/shipping/locations',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
 
       fireEvent.change(screen.getByTestId('address-input'), {
         target: { value: 'Lekki, Lagos' },
@@ -1757,7 +2790,10 @@ describe('CheckoutPage', () => {
         await Promise.resolve();
         await Promise.resolve();
       });
-      expect(fetchMock).toHaveBeenCalledWith('/api/shipping/locations');
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/shipping/locations',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
 
       fireEvent.change(screen.getByTestId('address-input'), {
         target: { value: 'Lekki, Lagos' },
@@ -2030,6 +3066,329 @@ describe('CheckoutPage', () => {
     expect(
       container.querySelector('[class*="h-[320px]"]')
     ).toBeInTheDocument();
+
+    fetchMock.mockRestore();
+  });
+
+  it('populates the address state list from merchant-country subdivisions and biases autocomplete for a non-NG merchant', async () => {
+    const setValues = vi.fn();
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'not_registered',
+        country: 'IN',
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '',
+        newAddressState: '',
+        newAddressCity: '',
+        currentStep: 'delivery',
+        completedSteps: { contact: true, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues,
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ states: [], locations: [] }),
+      text: async () => '',
+    } as Response);
+
+    render(<CheckoutPage />);
+
+    // Google Places autocomplete is biased to the merchant's country.
+    const addressInput = await screen.findByTestId('address-input');
+    expect(addressInput).toHaveAttribute('country', 'IN');
+
+    // The NG-only /api/shipping/locations dataset is never fetched for a non-NG
+    // merchant — the state list comes from the subdivision vocabulary instead.
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        String(url).startsWith('/api/shipping/locations')
+      )
+    ).toBe(false);
+
+    // Typing "Mumbai, Maharashtra" infers state/city — proving shippingStates
+    // was populated from IN subdivisions (contains "Maharashtra"), so the
+    // quote-fetch gate (state && city) can now fire for the non-NG shopper.
+    fireEvent.change(addressInput, {
+      target: { value: 'Mumbai, Maharashtra' },
+    });
+
+    await waitFor(() => {
+      expect(setValues).toHaveBeenCalledWith({
+        newAddressCity: 'Mumbai',
+        newAddressState: 'Maharashtra',
+      });
+    });
+
+    fetchMock.mockRestore();
+  });
+
+  it('does not let a stale NG state fetch clobber IN subdivisions when the merchant resolves late', async () => {
+    const setValues = vi.fn();
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    // First render sees no merchant, so `merchantCountry` falls back to NG and
+    // the NG /api/shipping/locations fetch starts.
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: undefined,
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '',
+        newAddressState: '',
+        newAddressCity: '',
+        currentStep: 'delivery',
+        completedSteps: { contact: true, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues,
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+
+    // Hold the NG state fetch open so it can resolve AFTER the merchant flips to
+    // IN — reproducing the stale-response clobber race.
+    let resolveNgStates: (value: Response) => void = () => undefined;
+    const ngStatesPromise = new Promise<Response>((resolve) => {
+      resolveNgStates = resolve;
+    });
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/shipping/locations')) {
+          return ngStatesPromise;
+        }
+        return {
+          ok: true,
+          json: async () => ({ quotes: { all: [] } }),
+          text: async () => '',
+        } as Response;
+      });
+
+    const { rerender } = render(<CheckoutPage />);
+
+    // The NG dataset fetch is in flight (merchant unresolved → NG fallback).
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).startsWith('/api/shipping/locations')
+        )
+      ).toBe(true);
+    });
+
+    // The merchant resolves to IN; the effect re-runs, sets the IN subdivisions
+    // synchronously, and aborts the stale NG request.
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'not_registered',
+        country: 'IN',
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    rerender(<CheckoutPage />);
+
+    // Now let the stale NG fetch resolve — it must be ignored, not overwrite IN.
+    await act(async () => {
+      resolveNgStates({
+        ok: true,
+        json: async () => ({ states: ['Lagos'], locations: [] }),
+        text: async () => '',
+      } as Response);
+      await ngStatesPromise;
+    });
+
+    // Proof the list ended as IN, not NG: typing an Indian address infers
+    // "Maharashtra", which only matches when `shippingStates` holds the IN
+    // subdivisions. A clobber to the NG list (['Lagos']) would fail the match.
+    const addressInput = await screen.findByTestId('address-input');
+    fireEvent.change(addressInput, {
+      target: { value: 'Mumbai, Maharashtra' },
+    });
+
+    await waitFor(() => {
+      expect(setValues).toHaveBeenCalledWith({
+        newAddressCity: 'Mumbai',
+        newAddressState: 'Maharashtra',
+      });
+    });
+
+    fetchMock.mockRestore();
+  });
+
+  it('skips the NG city sub-fetch for a non-NG address yet still reaches merchant quotes', async () => {
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'not_registered',
+        country: 'IN',
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: 'Marine Drive, Mumbai, Maharashtra',
+        newAddressState: 'Maharashtra',
+        newAddressCity: 'Mumbai',
+        currentStep: 'delivery',
+        completedSteps: { contact: true, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/shipping/quotes')) {
+          return {
+            ok: true,
+            json: async () => ({ quotes: { all: [] } }),
+            text: async () => '',
+          } as Response;
+        }
+        return {
+          ok: true,
+          json: async () => ({ states: [], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    render(<CheckoutPage />);
+
+    // The non-NG destination reaches the merchant quotes endpoint, so
+    // merchant-configured rates are now reachable for the IN shopper.
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).startsWith('/api/shipping/quotes')
+        )
+      ).toBe(true);
+    });
+
+    // Neither the NG state list nor the NG state->city sub-fetch ever fires for
+    // a non-NG address (the Nigerian /api/shipping/locations dataset is skipped).
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        String(url).startsWith('/api/shipping/locations')
+      )
+    ).toBe(false);
+
+    expect(await screen.findByTestId('address-input')).toHaveAttribute(
+      'country',
+      'IN'
+    );
+
+    fetchMock.mockRestore();
+  });
+
+  it('keeps the NG address form on /api/shipping/locations with an NG-biased autocomplete', async () => {
+    mockCheckoutSubmissionState();
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/shipping/quotes')) {
+          return {
+            ok: true,
+            json: async () => ({ quotes: { all: [] } }),
+            text: async () => '',
+          } as Response;
+        }
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    render(<CheckoutPage />);
+
+    // NG keeps the rich locations dataset load, byte-identical to before.
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/shipping/locations',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
+    });
+
+    // Autocomplete stays biased to Nigeria for the pilot market.
+    expect(await screen.findByTestId('address-input')).toHaveAttribute(
+      'country',
+      'NG'
+    );
 
     fetchMock.mockRestore();
   });

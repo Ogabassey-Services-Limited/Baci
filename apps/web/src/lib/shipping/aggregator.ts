@@ -42,6 +42,21 @@ interface RankedQuote extends ShippingQuote {
 }
 
 /**
+ * Scoring ETA (in days) applied to quotes with an UNKNOWN estimate.
+ *
+ * `estimatedDays <= 0` is the "unknown ETA" sentinel carried by
+ * merchant-configured rates without configured delivery days (see
+ * `MERCHANT_RATE_UNKNOWN_ESTIMATED_DAYS`). Left as 0 it would be scored as the
+ * fastest possible delivery, letting a pricier no-ETA merchant rate sort ahead
+ * of a cheaper carrier quote with a real ETA in `quotes.all` — which checkout
+ * auto-selects the first door quote from. We instead score it as a large
+ * worst-case ETA so a known-ETA carrier is never out-ranked purely because a
+ * merchant rate hid its delivery time. Carriers always report
+ * `estimatedDays > 0`, so their scoring is unchanged.
+ */
+const UNKNOWN_ETA_SCORING_DAYS = 14;
+
+/**
  * Calculate a score for ranking quotes
  * Lower score = better (shown first)
  */
@@ -53,8 +68,12 @@ function calculateQuoteScore(quote: ShippingQuote): number {
   score += Math.min(quote.price / 200, 50);
 
   // Speed factor (0-30 range)
-  // Faster = lower score
-  score += quote.estimatedDays * 5;
+  // Faster = lower score. `estimatedDays <= 0` is the unknown-ETA sentinel —
+  // score it as a worst-case ETA instead of 0 so a no-ETA rate never appears
+  // "fastest" and out-ranks a cheaper, real-ETA carrier quote.
+  const scoringEstimatedDays =
+    quote.estimatedDays > 0 ? quote.estimatedDays : UNKNOWN_ETA_SCORING_DAYS;
+  score += scoringEstimatedDays * 5;
 
   // Reliability bonus (carriers we trust)
   const trustedCarriers = ['DHL', 'FedEx', 'UPS', 'GIG Logistics'];
@@ -71,9 +90,15 @@ function calculateQuoteScore(quote: ShippingQuote): number {
 }
 
 /**
- * Rank and categorize quotes
+ * Rank and categorize quotes, best (lowest score) first.
+ *
+ * Exported so the quotes route can order the MERGED carrier + merchant-rate
+ * list with the exact same scoring the aggregator applies to carrier-only
+ * quotes. Without this, merchant rates were simply appended after carriers, so
+ * a cheaper merchant rate never sorted ahead of a pricier carrier and checkout
+ * (which auto-selects the first door quote) could never auto-pick it.
  */
-function rankQuotes(quotes: ShippingQuote[]): RankedQuote[] {
+export function rankQuotes(quotes: ShippingQuote[]): RankedQuote[] {
   return quotes
     .map((quote) => ({
       ...quote,
@@ -84,9 +109,14 @@ function rankQuotes(quotes: ShippingQuote[]): RankedQuote[] {
 }
 
 /**
- * Select featured quotes (top 3: cheapest, fastest, recommended)
+ * Select featured quotes (top 3: cheapest, fastest, recommended).
+ *
+ * Exported so the quotes route can re-bucket `featured` after merging
+ * merchant-configured rate quotes with carrier quotes. Ranking is recomputed
+ * internally, so callers may pass any `ShippingQuote` list.
  */
-function selectFeaturedQuotes(rankedQuotes: RankedQuote[]): ShippingQuote[] {
+export function selectFeaturedQuotes(quotes: ShippingQuote[]): ShippingQuote[] {
+  const rankedQuotes = rankQuotes(quotes);
   if (rankedQuotes.length === 0) {
     return [];
   }
@@ -107,8 +137,13 @@ function selectFeaturedQuotes(rankedQuotes: RankedQuote[]): ShippingQuote[] {
   }
 
   // 2. Fastest option
+  // `estimatedDays <= 0` is the "unknown estimate" sentinel carried by
+  // merchant-configured rates without delivery days — never surface those as
+  // the "fastest" pick (a 0-day badge would be a cosmetic lie).
   const fastest = rankedQuotes
-    .filter((q) => !usedIds.has(q.id) && !q.isStationPickup)
+    .filter(
+      (q) => !usedIds.has(q.id) && !q.isStationPickup && q.estimatedDays > 0
+    )
     .sort((a, b) => a.estimatedDays - b.estimatedDays)[0];
   if (fastest && !usedIds.has(fastest.id)) {
     featured.push({

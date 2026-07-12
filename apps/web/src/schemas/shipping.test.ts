@@ -267,3 +267,61 @@ describe('QuoteRequestSchema delivery preference', () => {
     expect(result.success).toBe(false);
   });
 });
+
+describe('QuoteRequestSchema cart_subtotal (advisory quote-time subtotal)', () => {
+  const baseQuoteRequest = {
+    receiver: {
+      name: 'Jane Receiver',
+      address: '5 Customer Street',
+      city: 'Port Harcourt',
+      state: 'Rivers',
+    },
+    items: [{ name: 'Phone', quantity: 1, weight: 1, value: 100_000 }],
+  };
+
+  it('stays undefined when omitted (price-tier rates become unevaluable)', () => {
+    const result = QuoteRequestSchema.safeParse(baseQuoteRequest);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.cart_subtotal).toBeUndefined();
+  });
+
+  it('accepts a nonnegative subtotal, including the zero boundary', () => {
+    const zeroResult = QuoteRequestSchema.safeParse({
+      ...baseQuoteRequest,
+      cart_subtotal: 0,
+    });
+    const positiveResult = QuoteRequestSchema.safeParse({
+      ...baseQuoteRequest,
+      cart_subtotal: 25_000,
+    });
+
+    expect(zeroResult.success).toBe(true);
+    if (zeroResult.success) {
+      expect(zeroResult.data.cart_subtotal).toBe(0);
+    }
+    expect(positiveResult.success).toBe(true);
+    if (positiveResult.success) {
+      expect(positiveResult.data.cart_subtotal).toBe(25_000);
+    }
+  });
+
+  it('rejects a negative subtotal', () => {
+    const result = QuoteRequestSchema.safeParse({
+      ...baseQuoteRequest,
+      cart_subtotal: -1,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a non-numeric subtotal', () => {
+    const result = QuoteRequestSchema.safeParse({
+      ...baseQuoteRequest,
+      cart_subtotal: '25000',
+    });
+
+    expect(result.success).toBe(false);
+  });
+});

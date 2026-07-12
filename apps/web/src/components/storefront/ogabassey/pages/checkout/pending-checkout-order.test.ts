@@ -137,6 +137,181 @@ describe('pending-checkout-order', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it('omits selected_quote_id from the reuse request when none is forwarded (merchant-rate path)', async () => {
+    // Merchant-rate checkouts pass `selectedQuoteId: undefined` (the synthetic
+    // `mrate_<uuid>` id is never forwarded) so the reuse route — whose schema
+    // validates `selected_quote_id` as a UUID — does not 400 and clear the
+    // stored pending order.
+    const pendingOrder: PendingCheckoutOrderSnapshot = {
+      orderId: 'order-123',
+      orderNumber: 'ORD-123',
+      trackingToken: 'tracking-token-123',
+      merchantId: 'merchant-1',
+      customerEmail: 'john@example.com',
+      customerPhone: '+2348012345678',
+      checkoutFingerprint: 'fingerprint-1',
+      amountDueToGateway: 12000,
+      createdAt: '2026-04-09T09:00:00.000Z',
+    };
+
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'order-123',
+          total: 12000,
+          payment_status: 'pending',
+          shipping_status: 'pending',
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          order: {
+            id: 'order-123',
+            order_number: 'ORD-123',
+            tracking_token: 'tracking-token-123',
+          },
+        }),
+      } as Response);
+
+    const result = await resolvePendingCheckoutOrder({
+      pendingOrder,
+      merchantId: 'merchant-1',
+      merchantSlug: 'ogabassey',
+      customerEmail: 'john@example.com',
+      checkoutFingerprint: 'fingerprint-1',
+      paymentMethod: 'card',
+      shippingProvider: null,
+      selectedQuoteId: undefined,
+      fetchImpl,
+    });
+
+    const reuseCall = fetchImpl.mock.calls.find(
+      ([url]) => String(url) === '/api/orders/reuse',
+    );
+    const reuseBody = JSON.parse(String(reuseCall?.[1]?.body));
+
+    expect(reuseBody.selected_quote_id).toBeUndefined();
+    expect(String(reuseCall?.[1]?.body)).not.toContain('mrate_');
+    expect(result.reusableOrder?.order.id).toBe('order-123');
+    expect(result.clearStoredOrder).toBe(false);
+  });
+
+  it('forwards the bare merchant rate id in the reuse request (R14-3)', async () => {
+    // A merchant-rate reuse omits selected_quote_id (its `mrate_` id is not a
+    // uuid) but forwards the BARE rate uuid so the reuse route can re-stamp the
+    // fulfillment provider/rate-name if the original stamp failed.
+    const pendingOrder: PendingCheckoutOrderSnapshot = {
+      orderId: 'order-123',
+      orderNumber: 'ORD-123',
+      trackingToken: 'tracking-token-123',
+      merchantId: 'merchant-1',
+      customerEmail: 'john@example.com',
+      customerPhone: '+2348012345678',
+      checkoutFingerprint: 'fingerprint-1',
+      amountDueToGateway: 12000,
+      createdAt: '2026-04-09T09:00:00.000Z',
+    };
+
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'order-123',
+          total: 12000,
+          payment_status: 'pending',
+          shipping_status: 'pending',
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          order: {
+            id: 'order-123',
+            order_number: 'ORD-123',
+            tracking_token: 'tracking-token-123',
+          },
+        }),
+      } as Response);
+
+    await resolvePendingCheckoutOrder({
+      pendingOrder,
+      merchantId: 'merchant-1',
+      merchantSlug: 'ogabassey',
+      customerEmail: 'john@example.com',
+      checkoutFingerprint: 'fingerprint-1',
+      paymentMethod: 'card',
+      shippingProvider: null,
+      selectedQuoteId: undefined,
+      shippingRateId: '123e4567-e89b-12d3-a456-426614174777',
+      fetchImpl,
+    });
+
+    const reuseCall = fetchImpl.mock.calls.find(
+      ([url]) => String(url) === '/api/orders/reuse',
+    );
+    const reuseBody = JSON.parse(String(reuseCall?.[1]?.body));
+
+    expect(reuseBody.shipping_rate_id).toBe(
+      '123e4567-e89b-12d3-a456-426614174777',
+    );
+    expect(reuseBody.selected_quote_id).toBeUndefined();
+  });
+
+  it('omits shipping_rate_id from the reuse request when no merchant rate is forwarded', async () => {
+    const pendingOrder: PendingCheckoutOrderSnapshot = {
+      orderId: 'order-123',
+      orderNumber: 'ORD-123',
+      trackingToken: 'tracking-token-123',
+      merchantId: 'merchant-1',
+      customerEmail: 'john@example.com',
+      customerPhone: '+2348012345678',
+      checkoutFingerprint: 'fingerprint-1',
+      amountDueToGateway: 12000,
+      createdAt: '2026-04-09T09:00:00.000Z',
+    };
+
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'order-123',
+          total: 12000,
+          payment_status: 'pending',
+          shipping_status: 'pending',
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          order: { id: 'order-123' },
+        }),
+      } as Response);
+
+    await resolvePendingCheckoutOrder({
+      pendingOrder,
+      merchantId: 'merchant-1',
+      merchantSlug: 'ogabassey',
+      customerEmail: 'john@example.com',
+      checkoutFingerprint: 'fingerprint-1',
+      paymentMethod: 'card',
+      shippingProvider: 'GIGL',
+      selectedQuoteId: 'quote-1',
+      fetchImpl,
+    });
+
+    const reuseCall = fetchImpl.mock.calls.find(
+      ([url]) => String(url) === '/api/orders/reuse',
+    );
+    const reuseBody = JSON.parse(String(reuseCall?.[1]?.body));
+
+    expect(reuseBody.shipping_rate_id).toBeUndefined();
+  });
+
   it('preserves zero gateway amount when reusing an order', async () => {
     const pendingOrder: PendingCheckoutOrderSnapshot = {
       orderId: 'order-123',

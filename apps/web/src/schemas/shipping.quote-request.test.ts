@@ -146,3 +146,48 @@ describe('QuoteRequestSchema international item metadata', () => {
     );
   });
 });
+
+const domesticReceiver = {
+  name: 'Jane Receiver',
+  address: '12 Allen Avenue',
+  city: 'Ikeja',
+  state: 'Lagos',
+};
+
+describe('QuoteRequestSchema supports_merchant_rates capability flag', () => {
+  it('defaults supports_merchant_rates to false when absent', () => {
+    const result = QuoteRequestSchema.safeParse({
+      shipmentType: 'domestic',
+      receiver: domesticReceiver,
+      items: [item],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.supports_merchant_rates).toBe(false);
+  });
+
+  it('accepts and preserves supports_merchant_rates: true', () => {
+    const result = QuoteRequestSchema.safeParse({
+      shipmentType: 'domestic',
+      receiver: domesticReceiver,
+      items: [item],
+      supports_merchant_rates: true,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.supports_merchant_rates).toBe(true);
+  });
+
+  it('rejects a non-boolean supports_merchant_rates', () => {
+    const result = QuoteRequestSchema.safeParse({
+      shipmentType: 'domestic',
+      receiver: domesticReceiver,
+      items: [item],
+      supports_merchant_rates: 'yes',
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
